@@ -28,7 +28,7 @@ export default function ModifiersPage() {
       // ★ [중요] 토큰을 가지고 내 설정을 불러옵니다.
       if (token) {
         try {
-          const res = await axios.get('http://localhost:5000/api/settings', {
+          const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/settings', {
             headers: { Authorization: `Bearer ${token}` } 
           });
           
@@ -72,7 +72,7 @@ export default function ModifiersPage() {
     try {
       // 주소 변경: POST -> PUT
       // 헤더 추가: Authorization
-      await axios.put('http://localhost:5000/api/settings', 
+      await axios.put('https://eternalhunger-e7z1.onrender.com/api/settings', 
         { statWeights: weights }, 
         { headers: { Authorization: `Bearer ${token}` } } 
       );

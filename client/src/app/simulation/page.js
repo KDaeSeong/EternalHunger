@@ -53,9 +53,9 @@ export default function SimulationPage() {
         // ★ [추가] 내 게임 설정(가중치 포함)도 같이 불러오기!
         // Promise.all로 병렬 요청해서 속도 최적화
         const [charRes, eventRes, settingRes] = await Promise.all([
-            axios.get('http://localhost:5000/api/characters'),
-            axios.get('http://localhost:5000/api/events'),
-            axios.get('http://localhost:5000/api/settings', { headers: { Authorization: `Bearer ${token}` } })
+            axios.get('https://eternalhunger-e7z1.onrender.com/api/characters'),
+            axios.get('https://eternalhunger-e7z1.onrender.com/api/events'),
+            axios.get('https://eternalhunger-e7z1.onrender.com/api/settings', { headers: { Authorization: `Bearer ${token}` } })
         ]);
         
         // 설정 적용
@@ -120,7 +120,7 @@ export default function SimulationPage() {
 
     if (token && winner) {
         try {
-            await axios.post('http://localhost:5000/api/game/end', {
+            await axios.post('https://eternalhunger-e7z1.onrender.com/api/game/end', {
                 winnerId: winner._id,
                 killCounts: finalKills, // ★ 수정: 최신 킬 정보 전송
                 fullLogs: logs.map(l => l.text),
@@ -134,7 +134,7 @@ export default function SimulationPage() {
         }
 
         try {
-            const res = await axios.post('http://localhost:5000/api/user/update-stats', {
+            const res = await axios.post('https://eternalhunger-e7z1.onrender.com/api/user/update-stats', {
                 kills: myKills,
                 isWin: true,
                 lpEarned: rewardLP

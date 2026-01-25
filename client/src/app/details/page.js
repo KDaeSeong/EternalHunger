@@ -38,7 +38,7 @@ export default function DetailsPage() {
 
   // 1. 서버에서 캐릭터 불러오기
   useEffect(() => {
-    axios.get('http://localhost:5000/api/characters')
+    axios.get('https://eternalhunger-e7z1.onrender.com/api/characters')
       .then(res => setCharacters(res.data))
       .catch(err => console.error("로드 실패:", err));
   }, []);
@@ -61,7 +61,7 @@ export default function DetailsPage() {
     if (!window.confirm("변경된 스탯 정보를 저장하시겠습니까?")) return;
 
     try {
-      await axios.post('http://localhost:5000/api/characters/save', characters);
+      await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters);
       alert("완벽하게 저장되었습니다!");
     } catch (err) {
       alert("저장 실패 ㅠㅠ");

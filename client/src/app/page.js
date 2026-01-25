@@ -34,7 +34,7 @@ export default function Home() {
         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         
         // 2. 데이터 요청
-        const res = await axios.get('http://localhost:5000/api/rankings', config);
+        const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/rankings', config);
         const data = res.data || [];
 
         // 3. ★ [중요] 서버 데이터(배열)를 화면에 맞는 모양(객체)으로 변환

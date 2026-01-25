@@ -39,7 +39,7 @@ export default function CharactersPage() {
 
   // 1. 서버에서 데이터 불러오기
   useEffect(() => {
-    axios.get('http://localhost:5000/api/characters')
+    axios.get('https://eternalhunger-e7z1.onrender.com/api/characters')
       .then(res => {
         if(res.data.length > 0) {
           setCharacters(res.data);
@@ -103,7 +103,7 @@ export default function CharactersPage() {
     try {
       alert("🤖 AI가 분석 중입니다... (잠시만 기다려주세요)");
       
-      const response = await axios.post('http://localhost:5000/api/analyze', { text });
+      const response = await axios.post('https://eternalhunger-e7z1.onrender.com/api/analyze', { text });
       const data = response.data;
       
       const charName = data.name || "이름없음";
@@ -145,7 +145,7 @@ export default function CharactersPage() {
     }
     
     try {
-      const res = await axios.post('http://localhost:5000/api/characters/save', characters);
+      const res = await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters);
       alert(`🎉 ${res.data.count}명의 캐릭터가 안전하게 저장되었습니다!`);
       // 저장 후 새로고침해야 _id가 확실하게 동기화됩니다.
       window.location.reload(); 

@@ -22,7 +22,7 @@ export default function SignupPage() {
     try {
       // 2. 서버(백엔드)로 데이터 전송
       // router.post 가 아니라 axios.post 를 써야 합니다!
-      const response = await axios.post('http://localhost:5000/api/auth/signup', {
+      const response = await axios.post('https://eternalhunger-e7z1.onrender.com/api/auth/signup', {
         username: form.username,
         password: form.password
       });

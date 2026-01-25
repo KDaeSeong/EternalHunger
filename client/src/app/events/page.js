@@ -35,7 +35,7 @@ export default function EventsPage() {
 
   const fetchEvents = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/events');
+      const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/events');
       setEvents(res.data);
     } catch (err) {
       console.error(err);
@@ -51,7 +51,7 @@ export default function EventsPage() {
     if (!newEvent.text) return alert("내용을 입력해주세요!");
     try {
       // 배열이 아닌 단일 객체로 전송
-      await axios.post('http://localhost:5000/api/events/add', newEvent);
+      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', newEvent);
       fetchEvents(); 
       setNewEvent({ text: "", type: "normal" }); 
     } catch (err) {
@@ -62,7 +62,7 @@ export default function EventsPage() {
   const deleteEvent = async (id) => {
     if (!confirm("정말 삭제하시겠습니까?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/events/${id}`);
+      await axios.delete(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`);
       fetchEvents(); // 삭제 후 목록 갱신 (중복된 게 있다면 각각 다른 ID일 테니 하나만 지워짐)
     } catch (err) {
       console.error(err);
@@ -82,7 +82,7 @@ export default function EventsPage() {
 
   const saveEdit = async (id) => {
     try {
-      await axios.put(`http://localhost:5000/api/events/${id}`, editForm);
+      await axios.put(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, editForm);
       setEditingId(null);
       fetchEvents();
     } catch (err) {
@@ -103,7 +103,7 @@ export default function EventsPage() {
 
     try {
       // 하나씩 보내지 않고 배열 통째로 보냄 (서버가 Array 처리 가능해야 함)
-      await axios.post('http://localhost:5000/api/events/add', examples);
+      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', examples);
       fetchEvents();
     } catch (err) {
       console.error(err);
@@ -124,7 +124,7 @@ export default function EventsPage() {
 
     // 2. 서버에 저장 요청
     try {
-      await axios.put('http://localhost:5000/api/events/reorder', items);
+      await axios.put('https://eternalhunger-e7z1.onrender.com/api/events/reorder', items);
       
       // ★ [추가됨] 저장 성공 후, 서버에서 부여한 '새 ID'를 받아오기 위해 목록 갱신
       fetchEvents(); 

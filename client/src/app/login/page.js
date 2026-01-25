@@ -12,7 +12,7 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-        const res = await axios.post('http://localhost:5000/api/auth/login', form);
+        const res = await axios.post('https://eternalhunger-e7z1.onrender.com/api/auth/login', form);
         
         // 1. 데이터 저장
         localStorage.setItem('token', res.data.token);
