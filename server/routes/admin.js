@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Item = require('../models/Item'); // ★ 아이템 모델 추가!
 
 // ★ [수정 1] 미들웨어를 정확한 경로에서 불러옵니다.
 // (방금 authMiddleware.js를 만들었다면 이 경로가 맞습니다)
@@ -49,12 +50,34 @@ const Item = require('../models/Item');
 const Map = require('../models/Map');
 
 // 1. 새 아이템 생성
+// 모든 아이템 목록 가져오기 (관리용)
+// 1. 아이템 목록 가져오기 (GET /api/admin/items)
+router.get('/items', async (req, res) => {
+    try {
+        const items = await Item.find().sort({ createdAt: -1 });
+        res.json(items);
+    } catch (err) { 
+        res.status(500).json({ error: "아이템 로드 실패" }); 
+    }
+});
+
+// 2. 아이템 추가하기 (POST /api/admin/items)
 router.post('/items', async (req, res) => {
     try {
         const newItem = new Item(req.body);
         await newItem.save();
-        res.json({ message: "아이템이 추가되었습니다.", item: newItem });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        res.json({ message: "아이템이 성공적으로 추가되었습니다.", item: newItem });
+    } catch (err) { 
+        res.status(500).json({ error: "아이템 저장 실패" }); 
+    }
+});
+
+// 아이템 삭제하기
+router.delete('/items/:id', async (req, res) => {
+    try {
+        await Item.findByIdAndDelete(req.params.id);
+        res.json({ message: "아이템이 삭제되었습니다." });
+    } catch (err) { res.status(500).json({ error: "삭제 실패" }); }
 });
 
 // 2. 새 구역(맵) 생성

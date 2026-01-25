@@ -57,7 +57,6 @@ mongoose.connect(DB_URI)
 // ★ [수정] 긴 코드를 지우고, 이렇게 한 줄로 불러옵니다!
 // (verifyAdmin도 필요하면 같이 불러옵니다)
 const { verifyToken } = require('./middleware/authMiddleware'); 
-
 // ...
 // 라우트 사용 부분
 app.use('/api/admin', verifyToken, require('./routes/admin')); // 이제 잘 작동합니다.
@@ -121,6 +120,7 @@ app.post('/api/events/add', async (req, res) => {
     res.json({ message: "이벤트 추가 완료!" });
   } catch (err) { res.status(500).json({ error: "추가 실패" }); }
 });
+
 app.put('/api/events/reorder', async (req, res) => {
   try {
     const rawEvents = req.body;
@@ -133,15 +133,38 @@ app.put('/api/events/reorder', async (req, res) => {
     res.json({ message: "순서 변경 완료" });
   } catch (err) { res.status(500).json({ error: "저장 실패" }); }
 });
+
 app.get('/api/events', async (req, res) => {
   try { res.json(await GameEvent.find()); } 
   catch (err) { res.status(500).json({ error: "로드 실패" }); }
 });
+
 app.delete('/api/events/:id', async (req, res) => {
   try { await GameEvent.findByIdAndDelete(req.params.id); res.json({ message: "삭제 완료" }); } 
   catch (err) { res.status(500).json({ error: "삭제 실패" }); }
 });
 
+// (3-1) ★ [버그픽스] 이벤트 수정 API (프론트에서 PUT /api/events/:id 호출 중)
+app.put('/api/events/:id', async (req, res) => {
+  try {
+    const { text, type, image } = req.body || {};
+
+    const updated = await GameEvent.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...(text !== undefined ? { text: String(text) } : {}),
+        ...(type !== undefined ? { type: String(type) } : {}),
+        ...(image !== undefined ? { image: image ? String(image) : null } : {}),
+      },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: "이벤트 없음" });
+    res.json({ message: "수정 완료", event: updated });
+  } catch (err) {
+    res.status(500).json({ error: "수정 실패" });
+  }
+});
 
 // (4) AI 분석 API
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
