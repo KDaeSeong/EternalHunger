@@ -44,4 +44,39 @@ router.post('/give-lp', async (req, res) => {
     }
 });
 
+// server/routes/admin.js 에 추가
+const Item = require('../models/Item');
+const Map = require('../models/Map');
+
+// 1. 새 아이템 생성
+router.post('/items', async (req, res) => {
+    try {
+        const newItem = new Item(req.body);
+        await newItem.save();
+        res.json({ message: "아이템이 추가되었습니다.", item: newItem });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 2. 새 구역(맵) 생성
+router.post('/maps', async (req, res) => {
+    try {
+        const newMap = new Map(req.body);
+        await newMap.save();
+        res.json({ message: "새 구역이 생성되었습니다.", map: newMap });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// 3. 맵 간 동선(연결) 설정
+router.put('/maps/:id/connect', async (req, res) => {
+    const { targetMapId } = req.body;
+    try {
+        const map = await Map.findByIdAndUpdate(
+            req.params.id,
+            { $addToSet: { connectedMaps: targetMapId } }, // 중복 없이 추가
+            { new: true }
+        );
+        res.json({ message: "동선이 연결되었습니다.", map });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;
