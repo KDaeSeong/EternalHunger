@@ -51,26 +51,16 @@ mongoose.connect(DB_URI)
 
 
 // ==================================================================
-// 3. 보안 미들웨어 (verifyToken)
-// ==================================================================
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) return res.status(401).json({ error: "로그인이 필요합니다." });
-
-  const secretKey = process.env.MY_SECRET_KEY || 'YOUR_SECRET_KEY';
-  jwt.verify(token, secretKey, (err, decoded) => {
-    if (err) return res.status(403).json({ error: "유효하지 않은 토큰입니다." });
-    req.user = decoded; 
-    next();
-  });
-};
-
-
-// ==================================================================
 // 4. API 라우트
 // ==================================================================
+
+// ★ [수정] 긴 코드를 지우고, 이렇게 한 줄로 불러옵니다!
+// (verifyAdmin도 필요하면 같이 불러옵니다)
+const { verifyToken } = require('./middleware/authMiddleware'); 
+
+// ...
+// 라우트 사용 부분
+app.use('/api/admin', verifyToken, require('./routes/admin')); // 이제 잘 작동합니다.
 
 app.use('/api/auth', require('./routes/auth')); 
 

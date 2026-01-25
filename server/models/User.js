@@ -6,8 +6,8 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   lp: { type: Number, default: 0 }, 
   
-  legacyPoints: { type: Number, default: 0 },
-
+  // ★ 관리자 여부 추가 (기본값은 false)
+  isAdmin: { type: Boolean, default: false },
   badges: [{
     name: String,
     unlockedAt: { type: Date, default: Date.now }

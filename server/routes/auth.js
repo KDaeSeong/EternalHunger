@@ -48,7 +48,7 @@ router.post('/login', async (req, res) => {
       user: {
         id: user._id,
         username: user.username,
-        lp: user.legacyPoints || 0
+        lp: user.lp || 0
       }
     });
   } catch (err) {
