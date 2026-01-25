@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Item = require('../models/Item'); // ★ 아이템 모델 추가!
+const Map = require('../models/Map');
 
 // ★ [수정 1] 미들웨어를 정확한 경로에서 불러옵니다.
 // (방금 authMiddleware.js를 만들었다면 이 경로가 맞습니다)
@@ -44,10 +45,6 @@ router.post('/give-lp', async (req, res) => {
         res.status(500).json({ error: "서버 오류" });
     }
 });
-
-// server/routes/admin.js 에 추가
-const Item = require('../models/Item');
-const Map = require('../models/Map');
 
 // 1. 새 아이템 생성
 // 모든 아이템 목록 가져오기 (관리용)
