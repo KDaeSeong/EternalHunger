@@ -37,18 +37,17 @@ export default function CharactersPage() {
     }
   };
 
-  // 1. 서버에서 데이터 불러오기
-  useEffect(() => {
-    axios.get('https://eternalhunger-e7z1.onrender.com/api/characters')
-      .then(res => {
-        if(res.data.length > 0) {
-          setCharacters(res.data);
-          console.log("데이터 로드 완료:", res.data);
-        }
-      })
-      .catch(err => console.error("로드 실패:", err));
-  }, []);
-  
+ // 1. 서버에서 데이터 불러오기
+  const fetchCharacters = async () => {
+    const token = localStorage.getItem('token'); // 토큰 가져오기
+    try {
+        const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
+            headers: { Authorization: `Bearer ${token}` } // 헤더 추가 필수!
+        });
+        setCharacters(res.data);
+    } catch (err) { console.error(err); }
+  };
+
   // 2. 캐릭터 추가 (임시 ID 사용)
   const addCharacter = () => {
     const newChar = {
@@ -138,6 +137,7 @@ export default function CharactersPage() {
 
   // 7. 서버 저장 (Confirm 추가)
   const saveCharacters = async () => {
+    const token = localStorage.getItem('token');
     if (characters.length === 0) return alert("저장할 캐릭터가 없습니다!");
 
     if (!window.confirm("현재 캐릭터 목록을 저장하시겠습니까?\n(기존 데이터는 덮어씌워집니다)")) {
@@ -145,14 +145,11 @@ export default function CharactersPage() {
     }
     
     try {
-      const res = await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters);
-      alert(`🎉 ${res.data.count}명의 캐릭터가 안전하게 저장되었습니다!`);
-      // 저장 후 새로고침해야 _id가 확실하게 동기화됩니다.
-      window.location.reload(); 
-    } catch (error) {
-      console.error(error);
-      alert("저장 실패! 서버가 켜져 있나요?");
-    }
+        await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters, {
+            headers: { Authorization: `Bearer ${token}` } // 저장할 때도 토큰 전송
+        });
+        alert("저장 완료!");
+    } catch (error) { alert("저장 실패!"); }
   };
 
   

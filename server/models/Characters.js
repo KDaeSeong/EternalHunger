@@ -5,8 +5,7 @@ const { Schema } = mongoose;
 
 const characterSchema = new Schema({
   // ★ 어떤 유저의 캐릭터인지 (멀티유저 핵심)
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // 추가
   // 1. 기본 정보
   name: { type: String, required: true },
   previewImage: { type: String },

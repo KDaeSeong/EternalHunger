@@ -24,7 +24,10 @@ const GameLogSchema = new mongoose.Schema({
 const GameLog = mongoose.models.GameLog || mongoose.model('GameLog', GameLogSchema);
 
 const EventSchema = new mongoose.Schema({ 
-    text: String, type: { type: String, default: 'normal' }, image: String 
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // 추가
+    text: String, 
+    type: { type: String, default: 'normal' }, 
+    image: String 
 });
 const GameEvent = mongoose.models.GameEvent || mongoose.model('GameEvent', EventSchema);
 
@@ -114,32 +117,45 @@ app.put('/api/settings', verifyToken, async (req, res) => {
 
 
 // (3) 이벤트 API
-app.post('/api/events/add', async (req, res) => {
+app.get('/api/events', verifyToken, async (req, res) => {
+  try { 
+    // 내 아이디가 일치하는 이벤트만 가져오기
+    res.json(await GameEvent.find({ userId: req.user.id })); 
+  } catch (err) { res.status(500).json({ error: "로드 실패" }); }
+});
+
+app.post('/api/events/add', verifyToken, async (req, res) => {
   try {
+    const userId = req.user.id;
     const payload = req.body;
-    if (Array.isArray(payload)) await GameEvent.insertMany(payload);
-    else await new GameEvent(payload).save();
+    // 저장할 때 userId를 심어줍니다.
+    if (Array.isArray(payload)) {
+      const dataWithUser = payload.map(item => ({ ...item, userId }));
+      await GameEvent.insertMany(dataWithUser);
+    } else {
+      await new GameEvent({ ...payload, userId }).save();
+    }
     res.json({ message: "이벤트 추가 완료!" });
   } catch (err) { res.status(500).json({ error: "추가 실패" }); }
 });
 
-app.put('/api/events/reorder', async (req, res) => {
+app.put('/api/events/reorder', verifyToken, async (req, res) => {
   try {
-    const rawEvents = req.body;
-    if (!Array.isArray(rawEvents)) return res.status(400).json({ error: "형식 오류" });
-    const cleanedEvents = rawEvents.map(evt => ({
-      text: String(evt.text || ""), type: evt.type || 'normal', image: evt.image || null
+    const userId = req.user.id;
+    // ★ 전체 삭제({})가 아니라 내 것만 삭제({ userId }) 해야 합니다!
+    await GameEvent.deleteMany({ userId }); 
+    const cleanedEvents = req.body.map(evt => ({
+      text: String(evt.text || ""), 
+      type: evt.type || 'normal', 
+      image: evt.image || null,
+      userId: userId // 내 아이디 부여
     }));
-    await GameEvent.deleteMany({});
     if (cleanedEvents.length > 0) await GameEvent.insertMany(cleanedEvents);
     res.json({ message: "순서 변경 완료" });
   } catch (err) { res.status(500).json({ error: "저장 실패" }); }
 });
 
-app.get('/api/events', async (req, res) => {
-  try { res.json(await GameEvent.find()); } 
-  catch (err) { res.status(500).json({ error: "로드 실패" }); }
-});
+
 
 // (3-1) ★ [버그픽스] 이벤트 수정 API (프론트에서 PUT /api/events/:id 호출 중)
 app.put('/api/events/:id', async (req, res) => {
