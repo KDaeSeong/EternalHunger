@@ -71,12 +71,59 @@ export default function AdminPage() {
     if (!isAdmin) return <div>접근 확인 중...</div>;
 
     return (
-        <div style={{padding: '50px', maxWidth: '1200px', margin: '0 auto', backgroundColor: '#f4f1ea'}}>
-            <h1 style={{color: '#d9534f', textAlign: 'center'}}>🚨 PROJECT ARENA 개발자 도구</h1>
+        <div style={{padding: '50px', maxWidth: '1000px', margin: '0 auto'}}>
+            <h1 style={{color: 'red'}}>🚨 관리자 전용 페이지 (Developer Tools)</h1>
             
-            {/* 상단: 기본 관리 & 아이템 생성 (기존 유지) */}
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
-                {/* ... 기존 LP관리 & 아이템 생성 폼 ... */}
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '30px'}}>
+                
+                {/* 기능 1: 시즌 초기화 */}
+                <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                    <div style={{border: '1px solid #ccc', padding: '20px', borderRadius: '10px'}}>
+                        <h3>💀 시즌 초기화</h3>
+                        <p>모든 유저의 LP를 0으로 만듭니다.</p>
+                        <button 
+                            onClick={() => confirm("정말 초기화하시겠습니까?") && callAdminApi('/reset-lp')}
+                            style={{background: 'red', color: 'white', padding: '10px', border: 'none', cursor: 'pointer', width: '100%'}}
+                        > 실행 </button>
+                    </div>
+
+                    <div style={{border: '1px solid #ccc', padding: '20px', borderRadius: '10px'}}>
+                        <h3>🎁 LP 선물하기</h3>
+                        <input id="targetUser" placeholder="유저 닉네임" style={{display:'block', marginBottom:'10px', padding:'5px', width: '90%'}} />
+                        <input id="lpAmount" type="number" placeholder="지급량" style={{padding:'5px', width: '80px'}} />
+                        <button 
+                            onClick={() => {
+                                const username = document.getElementById('targetUser').value;
+                                const amount = document.getElementById('lpAmount').value;
+                                callAdminApi('/give-lp', { username, amount: Number(amount) });
+                            }}
+                            style={{background: 'blue', color: 'white', padding: '10px', marginLeft:'10px', border: 'none', cursor: 'pointer'}}
+                        > 지급 </button>
+                    </div>
+                </div>
+
+                {/* 오른쪽: 아이템 추가 기능 */}
+                <div style={{border: '1px solid #ccc', padding: '20px', borderRadius: '10px', background: '#f9f9f9'}}>
+                    <h3>⚔️ 신규 아이템 생성</h3>
+                    <div style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
+                        <input placeholder="아이템 이름" onChange={e => setItemForm({...itemForm, name: e.target.value})} style={{padding: '8px'}} />
+                        <select onChange={e => setItemForm({...itemForm, type: e.target.value})} style={{padding: '8px'}}>
+                            <option value="무기">무기</option>
+                            <option value="방어구">방어구</option>
+                            <option value="소모품">소모품</option>
+                        </select>
+                        <div style={{display: 'flex', gap: '5px'}}>
+                            <input type="number" placeholder="공격력" onChange={e => setItemForm({...itemForm, stats: {...itemForm.stats, atk: Number(e.target.value)}})} style={{width: '30%', padding: '5px'}} />
+                            <input type="number" placeholder="방어력" onChange={e => setItemForm({...itemForm, stats: {...itemForm.stats, def: Number(e.target.value)}})} style={{width: '30%', padding: '5px'}} />
+                            <input type="number" placeholder="체력" onChange={e => setItemForm({...itemForm, stats: {...itemForm.stats, hp: Number(e.target.value)}})} style={{width: '30%', padding: '5px'}} />
+                        </div>
+                        <textarea placeholder="아이템 상세 설명" onChange={e => setItemForm({...itemForm, description: e.target.value})} style={{padding: '8px', height: '60px'}} />
+                        <button 
+                            onClick={() => callAdminApi('/items', itemForm)}
+                            style={{background: '#28a745', color: 'white', padding: '10px', border: 'none', cursor: 'pointer'}}
+                        > 아이템 데이터베이스 등록 </button>
+                    </div>
+                </div>
             </div>
 
             <hr style={{margin: '40px 0', border: '0.5px solid #ccc'}} />
