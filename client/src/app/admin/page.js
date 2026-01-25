@@ -55,8 +55,17 @@ export default function AdminPage() {
         }
     };
 
-    const fetchItems = async () => { /* 기존 아이템 로드 로직 */ };
-    
+    // 2. 아이템 목록 불러오기 (GET)
+    const fetchItems = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const res = await axios.get(`${API_BASE}/items`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setItemList(res.data); // 메모리(itemList) 업데이트
+        } catch (err) { console.error("아이템 로드 실패"); }
+    };
+
     // 맵 목록 로드
     const fetchMaps = async () => {
         try {
