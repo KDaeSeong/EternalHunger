@@ -1,4 +1,3 @@
-// client/src/app/events/page.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,9 +8,14 @@ import '../../styles/Home.css';
 
 export default function EventsPage() {
   const [events, setEvents] = useState([]);
-  const [newEvent, setNewEvent] = useState({ text: "", type: "normal", survivorCount: 1, victimCount: 0 });
+  const [newEvent, setNewEvent] = useState({ 
+    text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" 
+  });
+  
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ text: "", type: "normal" });
+  const [editForm, setEditForm] = useState({ 
+    text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" 
+  });
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -44,242 +48,168 @@ export default function EventsPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchEvents(); 
-      setNewEvent({ text: "", type: "normal" }); 
+      setNewEvent({ text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" }); 
     } catch (err) { alert("추가 실패!"); }
   };
 
   const deleteEvent = async (id) => {
-    const token = localStorage.getItem('token'); // ★ 추가
+    const token = localStorage.getItem('token');
     if (!confirm("정말 삭제하시겠습니까?")) return;
     try {
       await axios.delete(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, {
-        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+        headers: { Authorization: `Bearer ${token}` }
       });
       fetchEvents();
     } catch (err) { alert("삭제 실패!"); }
   };
 
+  const startEditing = (evt) => {
+    setEditingId(evt._id);
+    // ★ 수정 폼을 채울 때 timeOfDay도 반드시 넣어주세요!
+    setEditForm({ 
+      text: evt.text, 
+      type: evt.type, 
+      survivorCount: evt.survivorCount || 1, 
+      victimCount: evt.victimCount || 0,
+      timeOfDay: evt.timeOfDay || 'both' // 추가
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditForm({ text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" });
+  };
+
   const saveEdit = async (id) => {
-    const token = localStorage.getItem('token'); // ★ 추가
+    const token = localStorage.getItem('token');
     try {
       await axios.put(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, editForm, {
-        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+        headers: { Authorization: `Bearer ${token}` }
       });
       setEditingId(null);
       fetchEvents();
     } catch (err) { alert("수정 실패!"); }
   };
 
-  const loadExamples = async () => {
-    const token = localStorage.getItem('token'); // ★ 추가
-    if (!confirm("기본 예제들을 추가하시겠습니까?")) return;
-    
-    const examples = [
-      { text: "{1}이(가) 풀숲에서 잠을 잡니다.", type: "normal" },
-      { text: "{1}이(가) {2}에게 짱돌을 던졌습니다.", type: "normal" },
-      { text: "{1}이(가) 지뢰를 밟고 사망했습니다.", type: "death" },
-      { text: "{1}이(가) {2}를 배신하고 처치했습니다!", type: "death" },
-    ];
-
-    try {
-      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', examples, {
-        headers: { Authorization: `Bearer ${token}` } // ★ 추가
-      });
-      fetchEvents();
-    } catch (err) { alert("예제 추가 실패!"); }
-  };
-
   const handleOnDragEnd = async (result) => {
     if (!result.destination) return;
-    const token = localStorage.getItem('token'); // ★ 추가
-
+    const token = localStorage.getItem('token');
     const items = Array.from(events);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     setEvents(items);
-
     try {
       await axios.put('https://eternalhunger-e7z1.onrender.com/api/events/reorder', items, {
-        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+        headers: { Authorization: `Bearer ${token}` }
       });
       fetchEvents(); 
-    } catch (err) {
-      alert("순서 저장 실패!");
-    }
+    } catch (err) { alert("순서 저장 실패!"); }
   };
 
-  const addPlaceholder = (val) => { setNewEvent(prev => ({ ...prev, text: prev.text + val })); };
-  const startEditing = (evt) => { setEditingId(evt._id); setEditForm({ text: evt.text, type: evt.type }); };
-  const cancelEditing = () => { setEditingId(null); setEditForm({ text: "", type: "normal" }); };
+  const addTag = (tag) => setNewEvent(prev => ({ ...prev, text: prev.text + tag }));
   const handleLogout = () => { if (confirm("로그아웃?")) { localStorage.clear(); window.location.reload(); } };
 
   return (
     <main>
-      {/* 헤더 */}
       <header>
         <section id="header-id1">
           <ul>
-            <li>
-              <Link href="/" className="logo-btn">
-                <div className="text-logo">
-                  <span className="logo-top">PROJECT</span>
-                  <span className="logo-main">ARENA</span>
-                </div>
-              </Link>
-            </li>
+            <li><Link href="/" className="logo-btn"><div className="text-logo"><span className="logo-top">PROJECT</span><span className="logo-main">ARENA</span></div></Link></li>
             <li><Link href="/">메인</Link></li>
             <li><Link href="/characters">캐릭터 설정</Link></li>
             <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/events">이벤트 설정</Link></li>
+            <li><Link href="/events" style={{color:'#0288d1'}}>이벤트 설정</Link></li>
             <li><Link href="/modifiers">보정치 설정</Link></li>
-            <li><Link href="/simulation" style={{color:'#0288d1', fontWeight:'bold'}}>▶ 게임 시작</Link></li>
-            <li className="auth-menu">
-              {user ? (
-                <div className="user-info">
-                  <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp})</span>
-                  <button className="logout-btn" onClick={handleLogout}>🚪 로그아웃</button>
-                </div>
-              ) : (
-                <div className="auth-btns">
-                  <Link href="/login" className="login-btn">🔑 로그인</Link>
-                  <Link href="/signup" className="signup-btn">📝 회원가입</Link>
-                </div>
-              )}
-            </li>
+            <li><Link href="/simulation" style={{fontWeight:'bold'}}>▶ 게임 시작</Link></li>
+            <li className="auth-menu">{user ? <div className="user-info"><span>👤 <strong>{user.username}</strong>님</span><button className="logout-btn" onClick={handleLogout}>🚪 로그아웃</button></div> : <div className="auth-btns"><Link href="/login" className="login-btn">🔑 로그인</Link></div>}</li>
           </ul>
         </section>
       </header>
 
       <div className="page-header">
         <h1>이벤트(시나리오) 설정</h1>
-        <p>게임 중에 발생할 사건들을 정의합니다. 드래그하여 순서를 바꿀 수 있습니다.</p>
+        <p>L(생존자)와 D(사망자) 변수 및 시간대를 설정하여 정교한 사건을 정의하세요.</p>
       </div>
 
       <div style={{maxWidth: '900px', margin: '0 auto'}}>
+        {/* 신규 등록 폼 */}
         <div style={{background: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', marginBottom: '30px'}}>
-          
-          {/* 1. 인원 구성 설정 섹션 */}
-          <div style={{display: 'flex', gap: '20px', marginBottom: '15px', padding: '15px', background: '#f8f9fa', borderRadius: '10px'}}>
-            <div>
-              <label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>🟢 생존자(L) 수: </label>
+          <div style={{display: 'flex', gap: '20px', marginBottom: '15px', padding: '15px', background: '#f8f9fa', borderRadius: '10px', alignItems:'center'}}>
+            <div><label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>🟢 생존자: </label>
               <select value={newEvent.survivorCount} onChange={e => setNewEvent({...newEvent, survivorCount: Number(e.target.value)})}>
                 {[1, 2, 3].map(n => <option key={n} value={n}>{n}명</option>)}
               </select>
             </div>
-            <div>
-              <label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>💀 사망자(D) 수: </label>
+            <div><label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>💀 사망자: </label>
               <select value={newEvent.victimCount} onChange={e => setNewEvent({...newEvent, victimCount: Number(e.target.value)})}>
                 {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}명</option>)}
               </select>
             </div>
-            <p style={{fontSize: '0.8rem', color: '#666'}}>* 합계 최대 6명까지 참여 가능</p>
-          </div>
-
-          {/* 2. 입력창 및 버튼 */}
-          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-            <input 
-              type="text" 
-              placeholder="예: L1이(가) D1을 처치했습니다." 
-              value={newEvent.text}
-              onChange={(e) => setNewEvent({...newEvent, text: e.target.value})}
-              style={{flexGrow: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ddd'}}
-            />
-            <button onClick={addEvent} style={{padding: '12px 25px', background: '#4185b3', color: 'white', borderRadius: '8px'}}>추가</button>
-          </div>
-
-          {/* 3. 역할별 변수 삽입 버튼 (L1~L3, D1~D3) */}
-          <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-            <div style={{display: 'flex', gap: '5px'}}>
-              {['L1', 'L2', 'L3'].map(v => (
-                <button key={v} onClick={() => setNewEvent(p => ({...p, text: p.text + v}))} style={{background: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '5px', padding: '5px 10px'}}>{v}</button>
-              ))}
+            <div><label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>🕒 시간대: </label>
+              <select value={newEvent.timeOfDay} onChange={e => setNewEvent({...newEvent, timeOfDay: e.target.value})}>
+                <option value="both">☀️🌙 무관</option>
+                <option value="day">☀️ 낮</option>
+                <option value="night">🌙 밤</option>
+              </select>
             </div>
-            <div style={{display: 'flex', gap: '5px'}}>
-              {['D1', 'D2', 'D3'].map(v => (
-                <button key={v} onClick={() => setNewEvent(p => ({...p, text: p.text + v}))} style={{background: '#ffebee', border: '1px solid #f44336', borderRadius: '5px', padding: '5px 10px'}}>{v}</button>
-              ))}
+          </div>
+
+          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+            <select value={newEvent.type} onChange={(e) => setNewEvent({...newEvent, type: e.target.value})} style={{padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontWeight: 'bold'}}>
+              <option value="normal">일반 (생존)</option><option value="death">💀 사망</option>
+            </select>
+            <input type="text" placeholder="예: L1이 D1을 처치했습니다." value={newEvent.text} onChange={(e) => setNewEvent({...newEvent, text: e.target.value})} style={{flexGrow: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ddd'}} />
+            <button onClick={addEvent} style={{padding: '12px 25px', background: '#4185b3', color: 'white', borderRadius: '8px', fontWeight: 'bold'}}>추가</button>
+          </div>
+
+          <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
+            <div style={{display:'flex', gap:'5px'}}><span style={{fontSize:'0.85rem', fontWeight:'bold', color:'#2e7d32'}}>생존자:</span>
+              {[...Array(newEvent.survivorCount)].map((_, i) => <button key={i} onClick={() => addTag(`L${i+1}`)} style={{padding:'5px 12px', background:'#e8f5e9', border:'1px solid #4caf50', borderRadius:'5px', cursor:'pointer'}}>L{i+1}</button>)}
+            </div>
+            <div style={{display:'flex', gap:'5px'}}><span style={{fontSize:'0.85rem', fontWeight:'bold', color:'#c62828'}}>사망자:</span>
+              {[...Array(newEvent.victimCount)].map((_, i) => <button key={i} onClick={() => addTag(`D${i+1}`)} style={{padding:'5px 12px', background:'#ffebee', border:'1px solid #f44336', borderRadius:'5px', cursor:'pointer'}}>D{i+1}</button>)}
             </div>
           </div>
         </div>
 
-        {/* 이벤트 리스트 (드래그 앤 드롭) */}
+        {/* 이벤트 리스트  */}
         <DragDropContext onDragEnd={handleOnDragEnd}>
           <Droppable droppableId="eventsList">
             {(provided) => (
-              <div 
-                {...provided.droppableProps} 
-                ref={provided.innerRef}
-                style={{display: 'flex', flexDirection: 'column', gap: '10px'}}
-              >
+              <div {...provided.droppableProps} ref={provided.innerRef} style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
                 {events.map((evt, index) => (
                   <Draggable key={evt._id} draggableId={evt._id} index={index}>
                     {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        style={{
-                          ...provided.draggableProps.style,
-                          opacity: snapshot.isDragging ? 0.8 : 1,
-                          background: editingId === evt._id ? '#e3f2fd' : (evt.type === 'death' ? '#fff0f0' : 'white'),
-                          padding: '15px', 
-                          borderRadius: '10px', 
-                          border: '1px solid #eee',
-                          borderLeft: editingId === evt._id ? '5px solid #2196f3' : (evt.type === 'death' ? '5px solid #ff5252' : '5px solid #4caf50'),
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center',
-                          boxShadow: snapshot.isDragging ? '0 10px 20px rgba(0,0,0,0.15)' : '0 2px 5px rgba(0,0,0,0.02)',
-                          marginBottom: '10px'
-                        }}
-                      >
-                        {/* 드래그 핸들 */}
-                        <span style={{marginRight: '12px', cursor: 'grab', color: '#ccc', fontSize:'1.2rem'}}>⋮⋮</span>
-
+                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
+                        style={{ ...provided.draggableProps.style, background: editingId === evt._id ? '#e3f2fd' : (evt.type === 'death' ? '#fff0f0' : 'white'), padding: '15px', borderRadius: '10px', border: '1px solid #eee', borderLeft: editingId === evt._id ? '5px solid #2196f3' : (evt.type === 'death' ? '5px solid #ff5252' : '5px solid #4caf50'), marginBottom: '10px' }}>
+                        
                         {editingId === evt._id ? (
-                           /* 수정 모드 */
-                           <div style={{display: 'flex', gap: '10px', flexGrow: 1, flexWrap: 'wrap', alignItems:'center'}}>
-                              <select 
-                                 value={editForm.type}
-                                 onChange={(e) => setEditForm({...editForm, type: e.target.value})}
-                                 style={{padding: '8px', borderRadius: '5px', border: '1px solid #aaa'}}
-                              >
-                                 <option value="normal">일반</option>
-                                 <option value="death">💀 사망</option>
-                              </select>
-                              <input 
-                                 type="text" 
-                                 value={editForm.text}
-                                 onChange={(e) => setEditForm({...editForm, text: e.target.value})}
-                                 style={{flexGrow: 1, padding: '8px', borderRadius: '5px', border: '1px solid #aaa'}}
-                              />
-                              <div style={{display:'flex', gap:'5px'}}>
-                                <button onClick={() => saveEdit(evt._id)} style={{background: '#4caf50', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight:'bold'}}>저장</button>
-                                <button onClick={cancelEditing} style={{background: '#9e9e9e', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight:'bold'}}>취소</button>
-                              </div>
-                           </div>
+                          <div style={{display: 'flex', flexDirection: 'column', gap: '10px', width: '100%'}}>
+                            <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                              <select value={editForm.survivorCount} onChange={e => setEditForm({...editForm, survivorCount: Number(e.target.value)})}>{[1,2,3].map(n => <option key={n} value={n}>L:{n}</option>)}</select>
+                              <select value={editForm.victimCount} onChange={e => setEditForm({...editForm, victimCount: Number(e.target.value)})}>{[0,1,2,3].map(n => <option key={n} value={n}>D:{n}</option>)}</select>
+                              <select value={editForm.timeOfDay} onChange={e => setEditForm({...editForm, timeOfDay: e.target.value})}><option value="both">☀️🌙</option><option value="day">☀️</option><option value="night">🌙</option></select>
+                              <select value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})}><option value="normal">일반</option><option value="death">💀 사망</option></select>
+                            </div>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                              <input style={{flexGrow: 1, padding: '8px'}} value={editForm.text} onChange={e => setEditForm({...editForm, text: e.target.value})} />
+                              <button onClick={() => saveEdit(evt._id)} style={{background: '#4caf50', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '5px', cursor:'pointer'}}>저장</button>
+                              <button onClick={cancelEditing} style={{background: '#9e9e9e', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '5px', cursor:'pointer'}}>취소</button>
+                            </div>
+                          </div>
                         ) : (
-                           /* 일반 모드 */
-                           <>
-                             <div style={{display:'flex', alignItems:'center', gap:'10px', flexGrow: 1}}>
-                                 <span style={{
-                                     fontSize: '0.8rem', padding: '3px 8px', borderRadius: '4px', 
-                                     background: evt.type === 'death' ? '#ffcdd2' : '#c8e6c9',
-                                     color: evt.type === 'death' ? '#b71c1c' : '#1b5e20', fontWeight: 'bold',
-                                     minWidth: '50px', textAlign: 'center'
-                                 }}>
-                                   {evt.type === 'death' ? '💀 사망' : '일반'}
-                                 </span>
-                                 <span style={{color: '#333', fontWeight: '500', fontSize:'1.05rem'}}>
-                                   {evt.text}
-                                 </span>
-                             </div>
-
-                             <div style={{display:'flex', gap:'8px'}}>
-                               <button onClick={() => startEditing(evt)} style={{background: '#e0e0e0', color: '#555', border: 'none', padding: '5px 12px', borderRadius: '5px', cursor: 'pointer', fontWeight:'bold', fontSize:'0.9rem'}}>✏️ 수정</button>
-                               <button onClick={() => deleteEvent(evt._id)} style={{background: '#ff5252', color: 'white', border: 'none', padding: '5px 12px', borderRadius: '5px', cursor: 'pointer', fontWeight:'bold', fontSize:'0.9rem'}}>삭제</button>
-                             </div>
-                           </>
+                          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
+                            <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
+                              <span style={{color: '#ccc'}}>⋮⋮</span>
+                              <span style={{fontSize: '1.2rem'}}>{evt.timeOfDay === 'day' ? '☀️' : evt.timeOfDay === 'night' ? '🌙' : '🌓'}</span>
+                              <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: '#999'}}>{evt.survivorCount}L : {evt.victimCount}D</span>
+                              <span style={{fontWeight: '500'}}>{evt.text}</span>
+                            </div>
+                            <div style={{display:'flex', gap:'8px'}}>
+                              <button onClick={() => startEditing(evt)} style={{background: '#e0e0e0', color: '#555', border: 'none', padding: '5px 12px', borderRadius: '5px', fontWeight:'bold', cursor:'pointer'}}>✏️ 수정</button>
+                              <button onClick={() => deleteEvent(evt._id)} style={{background: '#ff5252', color: 'white', border: 'none', padding: '5px 12px', borderRadius: '5px', fontWeight:'bold', cursor:'pointer'}}>삭제</button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
@@ -290,13 +220,6 @@ export default function EventsPage() {
             )}
           </Droppable>
         </DragDropContext>
-
-        <div style={{textAlign: 'center', margin: '40px 0'}}>
-             <button onClick={loadExamples} style={{background: '#ff9800', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(255, 152, 0, 0.3)'}}>
-                📂 기본 예제 불러오기
-             </button>
-        </div>
-
       </div>
     </main>
   );
