@@ -24,9 +24,12 @@ const GameLogSchema = new mongoose.Schema({
 const GameLog = mongoose.models.GameLog || mongoose.model('GameLog', GameLogSchema);
 
 const EventSchema = new mongoose.Schema({ 
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // ★ 주인 정보 추가
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     text: String, 
-    type: { type: String, default: 'normal' }, 
+    type: { type: String, default: 'normal' }, // 'normal' 또는 'death'
+    // ★ 추가: 역할별 인원수 설정
+    survivorCount: { type: Number, default: 1 }, // L1~L3 인원수
+    victimCount: { type: Number, default: 0 },   // D1~D3 인원수
     image: String 
 });
 const GameEvent = mongoose.models.GameEvent || mongoose.model('GameEvent', EventSchema);
@@ -129,14 +132,16 @@ app.post('/api/events/add', verifyToken, async (req, res) => {
 app.put('/api/events/reorder', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    await GameEvent.deleteMany({ userId }); // ★ 중요: 내 이벤트만 지우기!
+    await GameEvent.deleteMany({ userId }); 
     const cleanedEvents = req.body.map(evt => ({
       text: String(evt.text || ""), 
-      type: evt.type || 'normal', 
-      userId: userId // 내 아이디 부여
+      type: evt.type || 'normal',
+      survivorCount: Number(evt.survivorCount || 1), // 추가
+      victimCount: Number(evt.victimCount || 0),     // 추가
+      userId: userId
     }));
     if (cleanedEvents.length > 0) await GameEvent.insertMany(cleanedEvents);
-    res.json({ message: "순서 변경 완료" });
+    res.json({ message: "순서 및 설정 저장 완료" });
   } catch (err) { res.status(500).json({ error: "저장 실패" }); }
 });
 

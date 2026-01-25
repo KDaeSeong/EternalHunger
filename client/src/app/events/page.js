@@ -9,7 +9,7 @@ import '../../styles/Home.css';
 
 export default function EventsPage() {
   const [events, setEvents] = useState([]);
-  const [newEvent, setNewEvent] = useState({ text: "", type: "normal" });
+  const [newEvent, setNewEvent] = useState({ text: "", type: "normal", survivorCount: 1, victimCount: 0 });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ text: "", type: "normal" });
   const [user, setUser] = useState(null);
@@ -156,57 +156,49 @@ export default function EventsPage() {
       </div>
 
       <div style={{maxWidth: '900px', margin: '0 auto'}}>
-        
-        {/* 입력 폼 */}
-        <div style={{
-            background: 'white', padding: '25px', borderRadius: '15px', 
-            boxShadow: '0 5px 15px rgba(0,0,0,0.05)', marginBottom: '30px'
-        }}>
-          {/* 상단: 입력 필드 */}
-          <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px'}}>
-            <select 
-              value={newEvent.type} 
-              onChange={(e) => setNewEvent({...newEvent, type: e.target.value})}
-              style={{
-                  padding: '12px', borderRadius: '8px', border: '1px solid #ddd',
-                  backgroundColor: 'white', color: '#333', fontSize: '1rem', minWidth: '130px', fontWeight: 'bold'
-              }}
-            >
-              <option value="normal">일반 (생존)</option>
-              <option value="death">💀 사망</option>
-            </select>
-            
-            <input 
-              type="text" 
-              placeholder="예: {1}이(가) {2}에게 짱돌을 던졌습니다." 
-              value={newEvent.text}
-              onChange={(e) => setNewEvent({...newEvent, text: e.target.value})}
-              style={{flexGrow: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ddd', minWidth: '250px', fontSize:'1rem'}}
-            />
-            <button onClick={addEvent} style={{padding: '12px 25px', background: '#4185b3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize:'1rem'}}>
-              추가
-            </button>
+        <div style={{background: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', marginBottom: '30px'}}>
+          
+          {/* 1. 인원 구성 설정 섹션 */}
+          <div style={{display: 'flex', gap: '20px', marginBottom: '15px', padding: '15px', background: '#f8f9fa', borderRadius: '10px'}}>
+            <div>
+              <label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>🟢 생존자(L) 수: </label>
+              <select value={newEvent.survivorCount} onChange={e => setNewEvent({...newEvent, survivorCount: Number(e.target.value)})}>
+                {[1, 2, 3].map(n => <option key={n} value={n}>{n}명</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>💀 사망자(D) 수: </label>
+              <select value={newEvent.victimCount} onChange={e => setNewEvent({...newEvent, victimCount: Number(e.target.value)})}>
+                {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}명</option>)}
+              </select>
+            </div>
+            <p style={{fontSize: '0.8rem', color: '#666'}}>* 합계 최대 6명까지 참여 가능</p>
           </div>
 
-          {/* ★ 하단: 편의 기능 버튼들 ({1}~{6}) */}
-          <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
-            <span style={{fontSize:'0.9rem', color:'#666', fontWeight:'bold', marginRight:'5px'}}>변수 삽입:</span>
-            {['{1}', '{2}', '{3}', '{4}', '{5}', '{6}'].map((val) => (
-              <button 
-                key={val} 
-                onClick={() => addPlaceholder(val)}
-                style={{
-                  padding: '5px 10px', background: '#f0f4f8', border: '1px solid #d1d9e6', 
-                  borderRadius: '6px', color: '#333', cursor: 'pointer', fontWeight:'600', fontSize:'0.85rem',
-                  transition: 'background 0.2s'
-                }}
-                onMouseOver={(e) => e.target.style.background = '#e1e8f0'}
-                onMouseOut={(e) => e.target.style.background = '#f0f4f8'}
-              >
-                {val}
-              </button>
-            ))}
-             <span style={{fontSize:'0.8rem', color:'#999', marginLeft:'10px'}}>(클릭 시 입력창에 추가됨)</span>
+          {/* 2. 입력창 및 버튼 */}
+          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+            <input 
+              type="text" 
+              placeholder="예: L1이(가) D1을 처치했습니다." 
+              value={newEvent.text}
+              onChange={(e) => setNewEvent({...newEvent, text: e.target.value})}
+              style={{flexGrow: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ddd'}}
+            />
+            <button onClick={addEvent} style={{padding: '12px 25px', background: '#4185b3', color: 'white', borderRadius: '8px'}}>추가</button>
+          </div>
+
+          {/* 3. 역할별 변수 삽입 버튼 (L1~L3, D1~D3) */}
+          <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+            <div style={{display: 'flex', gap: '5px'}}>
+              {['L1', 'L2', 'L3'].map(v => (
+                <button key={v} onClick={() => setNewEvent(p => ({...p, text: p.text + v}))} style={{background: '#e8f5e9', border: '1px solid #4caf50', borderRadius: '5px', padding: '5px 10px'}}>{v}</button>
+              ))}
+            </div>
+            <div style={{display: 'flex', gap: '5px'}}>
+              {['D1', 'D2', 'D3'].map(v => (
+                <button key={v} onClick={() => setNewEvent(p => ({...p, text: p.text + v}))} style={{background: '#ffebee', border: '1px solid #f44336', borderRadius: '5px', padding: '5px 10px'}}>{v}</button>
+              ))}
+            </div>
           </div>
         </div>
 
