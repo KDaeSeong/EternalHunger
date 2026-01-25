@@ -24,7 +24,7 @@ const GameLogSchema = new mongoose.Schema({
 const GameLog = mongoose.models.GameLog || mongoose.model('GameLog', GameLogSchema);
 
 const EventSchema = new mongoose.Schema({ 
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // 추가
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // ★ 주인 정보 추가
     text: String, 
     type: { type: String, default: 'normal' }, 
     image: String 
@@ -107,17 +107,14 @@ app.put('/api/settings', verifyToken, async (req, res) => {
 
 // (3) 이벤트 API
 app.get('/api/events', verifyToken, async (req, res) => {
-  try { 
-    // 내 아이디가 일치하는 이벤트만 가져오기
-    res.json(await GameEvent.find({ userId: req.user.id })); 
-  } catch (err) { res.status(500).json({ error: "로드 실패" }); }
+  try { res.json(await GameEvent.find({ userId: req.user.id })); } 
+  catch (err) { res.status(500).json({ error: "로드 실패" }); }
 });
 
 app.post('/api/events/add', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const payload = req.body;
-    // 저장할 때 userId를 심어줍니다.
     if (Array.isArray(payload)) {
       const dataWithUser = payload.map(item => ({ ...item, userId }));
       await GameEvent.insertMany(dataWithUser);
@@ -128,15 +125,14 @@ app.post('/api/events/add', verifyToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: "추가 실패" }); }
 });
 
+// 3. 순서 변경 (전체 삭제가 아닌 '내 것만' 삭제 후 재등록)
 app.put('/api/events/reorder', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    // ★ 전체 삭제({})가 아니라 내 것만 삭제({ userId }) 해야 합니다!
-    await GameEvent.deleteMany({ userId }); 
+    await GameEvent.deleteMany({ userId }); // ★ 중요: 내 이벤트만 지우기!
     const cleanedEvents = req.body.map(evt => ({
       text: String(evt.text || ""), 
       type: evt.type || 'normal', 
-      image: evt.image || null,
       userId: userId // 내 아이디 부여
     }));
     if (cleanedEvents.length > 0) await GameEvent.insertMany(cleanedEvents);
@@ -144,13 +140,22 @@ app.put('/api/events/reorder', verifyToken, async (req, res) => {
   } catch (err) { res.status(500).json({ error: "저장 실패" }); }
 });
 
-// (3-1) ★ [버그픽스] 이벤트 수정 API (프론트에서 PUT /api/events/:id 호출 중)
-app.put('/api/events/:id', async (req, res) => {
+// 4. 삭제 및 수정 시에도 userId 확인 (보안 강화)
+app.delete('/api/events/:id', verifyToken, async (req, res) => {
+  try { 
+    await GameEvent.findOneAndDelete({ _id: req.params.id, userId: req.user.id }); 
+    res.json({ message: "삭제 완료" }); 
+  } catch (err) { res.status(500).json({ error: "삭제 실패" }); }
+});
+
+app.put('/api/events/:id', verifyToken, async (req, res) => { // ★ verifyToken 추가
   try {
     const { text, type, image } = req.body || {};
+    const userId = req.user.id; // ★ 토큰에서 유저 아이디 추출
 
-    const updated = await GameEvent.findByIdAndUpdate(
-      req.params.id,
+    // findByIdAndUpdate 대신 findOneAndUpdate를 사용하여 userId 조건 추가
+    const updated = await GameEvent.findOneAndUpdate(
+      { _id: req.params.id, userId }, // ★ 아이디와 주인이 모두 일치해야 함
       {
         ...(text !== undefined ? { text: String(text) } : {}),
         ...(type !== undefined ? { type: String(type) } : {}),
@@ -159,18 +164,12 @@ app.put('/api/events/:id', async (req, res) => {
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ error: "이벤트 없음" });
+    if (!updated) return res.status(404).json({ error: "이벤트가 없거나 권한이 없습니다." });
     res.json({ message: "수정 완료", event: updated });
   } catch (err) {
     res.status(500).json({ error: "수정 실패" });
   }
 });
-
-app.delete('/api/events/:id', async (req, res) => {
-  try { await GameEvent.findByIdAndDelete(req.params.id); res.json({ message: "삭제 완료" }); } 
-  catch (err) { res.status(500).json({ error: "삭제 실패" }); }
-});
-
 
 // (4) AI 분석 API
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);

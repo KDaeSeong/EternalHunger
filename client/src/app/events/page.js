@@ -4,94 +4,74 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
-// 드래그 앤 드롭 라이브러리 (설치 안 되어 있으면: npm install @hello-pangea/dnd)
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import '../../styles/Home.css'; 
 
 export default function EventsPage() {
   const [events, setEvents] = useState([]);
   const [newEvent, setNewEvent] = useState({ text: "", type: "normal" });
-
-  // 수정 모드 상태
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ text: "", type: "normal" });
-
-  // 유저 상태
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // ★ 1. [보안] 토큰 검사 (문지기)
     const token = localStorage.getItem('token');
     if (!token) {
         alert("로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.");
-        window.location.href = '/login'; // 강제 추방
+        window.location.href = '/login';
         return;
     }
-
     const userData = localStorage.getItem('user');
     if (userData) setUser(JSON.parse(userData));
     fetchEvents();
   }, []);
 
   const fetchEvents = async () => {
+    const token = localStorage.getItem('token');
     try {
-      const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/events');
+      const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/events', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setEvents(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // ★ {1}, {2}... 버튼 클릭 시 텍스트 추가 함수
-  const addPlaceholder = (val) => {
-    setNewEvent(prev => ({ ...prev, text: prev.text + val }));
+    } catch (err) { console.error(err); }
   };
 
   const addEvent = async () => {
+    const token = localStorage.getItem('token');
     if (!newEvent.text) return alert("내용을 입력해주세요!");
     try {
-      // 배열이 아닌 단일 객체로 전송
-      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', newEvent);
+      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', newEvent, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchEvents(); 
       setNewEvent({ text: "", type: "normal" }); 
-    } catch (err) {
-      alert("추가 실패!");
-    }
+    } catch (err) { alert("추가 실패!"); }
   };
 
   const deleteEvent = async (id) => {
+    const token = localStorage.getItem('token'); // ★ 추가
     if (!confirm("정말 삭제하시겠습니까?")) return;
     try {
-      await axios.delete(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`);
-      fetchEvents(); // 삭제 후 목록 갱신 (중복된 게 있다면 각각 다른 ID일 테니 하나만 지워짐)
-    } catch (err) {
-      console.error(err);
-      alert("삭제 실패!");
-    }
-  };
-
-  const startEditing = (evt) => {
-    setEditingId(evt._id);
-    setEditForm({ text: evt.text, type: evt.type });
-  };
-
-  const cancelEditing = () => {
-    setEditingId(null);
-    setEditForm({ text: "", type: "normal" });
+      await axios.delete(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, {
+        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+      });
+      fetchEvents();
+    } catch (err) { alert("삭제 실패!"); }
   };
 
   const saveEdit = async (id) => {
+    const token = localStorage.getItem('token'); // ★ 추가
     try {
-      await axios.put(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, editForm);
+      await axios.put(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, editForm, {
+        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+      });
       setEditingId(null);
       fetchEvents();
-    } catch (err) {
-      alert("수정 실패!");
-    }
+    } catch (err) { alert("수정 실패!"); }
   };
 
-  // ★ 예제 불러오기 (개선됨: 한 번에 통신)
   const loadExamples = async () => {
+    const token = localStorage.getItem('token'); // ★ 추가
     if (!confirm("기본 예제들을 추가하시겠습니까?")) return;
     
     const examples = [
@@ -102,48 +82,36 @@ export default function EventsPage() {
     ];
 
     try {
-      // 하나씩 보내지 않고 배열 통째로 보냄 (서버가 Array 처리 가능해야 함)
-      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', examples);
+      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', examples, {
+        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+      });
       fetchEvents();
-    } catch (err) {
-      console.error(err);
-      alert("예제 추가 실패!");
-    }
+    } catch (err) { alert("예제 추가 실패!"); }
   };
-
-  // client/src/app/events/page.js
 
   const handleOnDragEnd = async (result) => {
     if (!result.destination) return;
+    const token = localStorage.getItem('token'); // ★ 추가
 
-    // 1. 일단 화면 먼저 바꾸기 (낙관적 업데이트)
     const items = Array.from(events);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     setEvents(items);
 
-    // 2. 서버에 저장 요청
     try {
-      await axios.put('https://eternalhunger-e7z1.onrender.com/api/events/reorder', items);
-      
-      // ★ [추가됨] 저장 성공 후, 서버에서 부여한 '새 ID'를 받아오기 위해 목록 갱신
+      await axios.put('https://eternalhunger-e7z1.onrender.com/api/events/reorder', items, {
+        headers: { Authorization: `Bearer ${token}` } // ★ 추가
+      });
       fetchEvents(); 
-      
     } catch (err) {
-      console.error("순서 저장 실패:", err);
-      alert("오류가 발생했습니다. 새로고침 후 다시 시도해주세요.");
+      alert("순서 저장 실패!");
     }
   };
 
-  // 로그아웃
-  const handleLogout = () => {
-    if (confirm("로그아웃 하시겠습니까?")) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setUser(null);
-      window.location.reload();
-    }
-  };
+  const addPlaceholder = (val) => { setNewEvent(prev => ({ ...prev, text: prev.text + val })); };
+  const startEditing = (evt) => { setEditingId(evt._id); setEditForm({ text: evt.text, type: evt.type }); };
+  const cancelEditing = () => { setEditingId(null); setEditForm({ text: "", type: "normal" }); };
+  const handleLogout = () => { if (confirm("로그아웃?")) { localStorage.clear(); window.location.reload(); } };
 
   return (
     <main>

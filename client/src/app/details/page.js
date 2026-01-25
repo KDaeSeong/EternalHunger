@@ -38,7 +38,10 @@ export default function DetailsPage() {
 
   // 1. 서버에서 캐릭터 불러오기
   useEffect(() => {
-    axios.get('https://eternalhunger-e7z1.onrender.com/api/characters')
+    const token = localStorage.getItem('token'); // 토큰 가져오기
+    axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
+      headers: { Authorization: `Bearer ${token}` } // 문지기에게 티켓 보여주기
+    })
       .then(res => setCharacters(res.data))
       .catch(err => console.error("로드 실패:", err));
   }, []);
@@ -58,15 +61,19 @@ export default function DetailsPage() {
 
   // 3. 저장 함수
   const saveChanges = async () => {
-    if (!window.confirm("변경된 스탯 정보를 저장하시겠습니까?")) return;
+  const token = localStorage.getItem('token');
+  if (!window.confirm("변경된 스탯 정보를 저장하시겠습니까?")) return;
 
-    try {
-      await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters);
-      alert("완벽하게 저장되었습니다!");
-    } catch (err) {
-      alert("저장 실패 ㅠㅠ");
-    }
-  };
+  try {
+    // 세 번째 인자로 헤더를 넣어줍니다.
+    await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    alert("완벽하게 저장되었습니다!");
+  } catch (err) {
+    alert("저장 실패 ㅠㅠ");
+  }
+};
 
   return (
     <main>

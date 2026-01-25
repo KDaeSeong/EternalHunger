@@ -13,19 +13,18 @@ export default function CharactersPage() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // ★ 1. [보안] 토큰 검사 (문지기)
     const token = localStorage.getItem('token');
     if (!token) {
-        alert("로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.");
-        window.location.href = '/login'; // 강제 추방
+        alert("로그인이 필요합니다.");
+        window.location.href = '/login';
         return;
     }
 
-    // 화면이 켜진 뒤에만 localStorage에 접근 (에러 방지 핵심!)
     const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
+    if (userData) setUser(JSON.parse(userData));
+
+    // ✅ 직접 axios.get을 쓰지 말고, 위에서 만든 fetchCharacters()를 실행하세요!
+    fetchCharacters();
   }, []);
 
   const handleLogout = () => {
@@ -39,15 +38,16 @@ export default function CharactersPage() {
 
  // 1. 서버에서 데이터 불러오기
   const fetchCharacters = async () => {
-    const token = localStorage.getItem('token'); // 토큰 가져오기
-    try {
-        const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
-            headers: { Authorization: `Bearer ${token}` } // 헤더 추가 필수!
-        });
-        setCharacters(res.data);
-    } catch (err) { console.error(err); }
+      const token = localStorage.getItem('token');
+      try {
+          const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
+              headers: { Authorization: `Bearer ${token}` } // ✅ 이 명찰이 핵심입니다!
+          });
+          setCharacters(res.data);
+      } catch (err) { 
+          console.error("데이터 로드 실패:", err); 
+      }
   };
-
   // 2. 캐릭터 추가 (임시 ID 사용)
   const addCharacter = () => {
     const newChar = {
