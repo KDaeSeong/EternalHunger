@@ -1,0 +1,133 @@
+/* client/src/styles/EREvents.css */
+
+#EREvent {
+    background-color: #333;
+    color: white;
+}
+
+.event-editor-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 입력 영역 */
+.input-area {
+    display: flex;
+    gap: 10px;
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #ddd;
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.input-area select {
+    padding: 10px;
+    font-size: 1rem;
+    border-radius: 5px;
+}
+
+.input-area input {
+    flex-grow: 1; /* 남은 공간 다 차지 */
+    padding: 10px;
+    font-size: 1.1rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+/* 헬퍼 버튼들 */
+.helper-btns {
+    display: flex;
+    gap: 5px;
+}
+
+.helper-btns button {
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #eee;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.helper-btns .add-btn {
+    background-color: #4185b3;
+    color: white;
+    border: none;
+}
+
+.helper-btns .add-btn:hover {
+    background-color: #2a6285;
+}
+
+/* 샘플 버튼 */
+.sample-btn-area {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.sample-btn-area button {
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* 리스트 영역 */
+.event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.event-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+}
+
+.event-item.death {
+    border-left: 5px solid #ff4444; /* 사망은 빨간 줄 */
+    background-color: #fff0f0;
+}
+
+.event-item.normal {
+    border-left: 5px solid #4caf50; /* 일반은 초록 줄 */
+}
+
+.event-item .badge {
+    font-size: 0.8rem;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background-color: #ddd;
+    margin-right: 15px;
+    min-width: 50px;
+    text-align: center;
+}
+
+.event-item.death .badge { background-color: #ffcccc; color: #d32f2f; }
+.event-item.normal .badge { background-color: #c8e6c9; color: #388e3c; }
+
+.event-item .text {
+    flex-grow: 1;
+    font-size: 1.1rem;
+}
+
+.event-item button {
+    background: none;
+    border: none;
+    color: #999;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+.event-item button:hover { color: red; }

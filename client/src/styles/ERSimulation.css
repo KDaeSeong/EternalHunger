@@ -1,0 +1,378 @@
+/* client/src/styles/ERSimulation.css */
+
+/* 레이아웃: 좌측 명단 + 우측 화면 */
+.simulation-container {
+    display: flex;
+    gap: 30px;
+    height: 80vh; /* 화면 꽉 차게 */
+    margin-top: 20px;
+}
+
+/* === 좌측: 생존자 보드 === */
+/* client/src/styles/ERSimulation.css 수정 */
+
+/* 1. 사이드바 전체 크기 및 여백 조정 */
+.survivor-board {
+    width: 320px; /* 너비를 살짝 늘려서 여유 공간 확보 */
+    min-width: 320px; /* 줄어들지 않게 고정 */
+    background: white;
+    padding: 20px 10px; /* 양옆 패딩을 조금 줄임 (내부 공간 확보) */
+    border-radius: 15px;
+    border: 2px solid #ddd;
+    overflow-y: auto;
+    box-sizing: border-box; /* 테두리 포함 크기 계산 (삐져나옴 방지) */
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+
+.survivor-board h2 {
+    font-size: 1.2rem;
+    border-bottom: 2px solid #eee; /* 밑줄 */
+    padding-bottom: 10px;          /* 글자와 밑줄 사이 간격 */
+    margin-top: 0;
+    
+    /* ★ 핵심 수정: 제목과 아이콘 사이 간격 넓히기 (기존엔 없었음) ★ */
+    margin-bottom: 20px; 
+}
+/* 2. 그리드 -> Flexbox로 변경 (자동 중앙 정렬의 핵심!) */
+.survivor-grid {
+    display: flex;
+    flex-wrap: wrap;       /* 줄바꿈 허용 */
+    justify-content: center; /* ★ 가로축 완전 중앙 정렬 ★ */
+    gap: 15px;             /* 카드 사이 간격 */
+    width: 100%;
+}
+
+/* 3. 카드 스타일 (크기 고정 및 텍스트 정리) */
+.survivor-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 80px;  /* 카드 너비 고정 (일정하게 보이도록) */
+    text-align: center;
+    position: relative; /* 뱃지 위치 기준 */
+}
+
+/* 이미지 크기 */
+.survivor-card img {
+    width: 60px;   /* 이미지 조금 키움 */
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #ddd; /* 테두리 조금 두껍게 */
+    margin-bottom: 5px;
+    background: white; /* 투명 배경 이미지 대비 */
+}
+
+/* 이름 텍스트 (길면 알아서 줄바꿈) */
+.survivor-card span {
+    font-size: 0.85rem;
+    line-height: 1.2;
+    word-break: keep-all; /* 단어 중간에 끊기지 않게 */
+    color: #333;
+    font-weight: 600;
+}
+
+/* client/src/styles/ERSimulation.css */
+
+/* === 우측: 게임 화면 (기본 틀) === */
+.game-screen {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    border-radius: 15px;
+    border: 5px solid #444;
+    overflow: hidden;
+    color: white;
+    transition: background 0.5s ease; /* 색 바뀔 때 부드럽게 */
+}
+
+/* 🌞 아침 배경: 산뜻한 하늘색 */
+.game-screen.morning-mode {
+    background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+}
+/* 아침에는 로그 배경을 좀 더 진하게 해서 글씨 잘 보이게 */
+.morning-mode .log-window {
+    background: rgba(0, 0, 0, 0.3); 
+}
+
+/* 🌙 밤 배경: 어두운 밤하늘색 */
+.game-screen.night-mode, .game-screen { /* 기본값은 밤 */
+    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+}
+
+/* ... (나머지 헤더, 로그 스타일 등은 그대로 유지) ... */
+
+.screen-header {
+    background: #333;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #555;
+}
+
+.screen-header h1 { margin: 0; color: #4ebfff; font-family: 'Courier New', monospace; }
+.weather-badge { background: #ff9800; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.9rem; }
+
+/* 로그 창 */
+.log-window {
+    flex-grow: 1;
+    padding: 30px;
+    overflow-y: auto;
+    font-family: 'Malgun Gothic', sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    background: rgba(0,0,0,0.2);
+}
+
+.log-message { margin-bottom: 8px; }
+.log-message.day-header { 
+    color: #ffeb3b; 
+    font-weight: bold; 
+    text-align: center; 
+    margin: 30px 0 15px 0; 
+    font-size: 1.4rem; 
+    border-top: 1px dashed #666; 
+    padding-top: 20px;
+}
+/* client/src/styles/ERSimulation.css 수정 */
+
+/* 1. 일반적인 킬/사망 로그 */
+.log-message.death {
+    background: linear-gradient(90deg, rgba(255,0,0,0.2) 0%, rgba(139,0,0,0.8) 50%, rgba(255,0,0,0.2) 100%);
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.1rem;
+    padding: 15px;
+    border-left: 5px solid #ff0000;
+    border-right: 5px solid #ff0000;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    animation: shake 0.5s ease-in-out; /* 충격 효과 */
+    margin: 10px 0;
+}
+
+/* 2. 결정적인 일격(Critical) 강조 */
+.log-message.highlight {
+    color: #ffd700; /* 금색 */
+    font-weight: 800;
+    border-bottom: 1px dashed #ffd700;
+}
+
+/* 화면 흔들림 애니메이션 */
+@keyframes shake {
+    0% { transform: translate(1px, 1px) rotate(0deg); }
+    10% { transform: translate(-1px, -2px) rotate(-1deg); }
+    30% { transform: translate(3px, 2px) rotate(0deg); }
+    50% { transform: translate(-1px, 2px) rotate(1deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+}
+.log-message.error { color: #ffeb3b; }
+.log-message.system { color: #aaa; font-style: italic; }
+
+@keyframes blink { 50% { opacity: 0.5; } }
+
+
+/* 컨트롤 패널 (버튼) */
+.control-panel {
+    padding: 20px;
+    background: #333;
+    text-align: center;
+}
+
+.btn-proceed, .btn-restart {
+    padding: 15px 50px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: white;
+}
+
+.btn-proceed { background: linear-gradient(45deg, #2196f3, #21cbf3); box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4); }
+.btn-proceed:hover { transform: scale(1.05); }
+
+.btn-restart { background: #ff5252; }
+
+/* client/src/styles/ERSimulation.css 맨 아래 추가 */
+
+/* 밤 헤더 스타일 */
+.log-message.night-header {
+    color: #b388ff; /* 보라색 계열 */
+    font-weight: bold;
+    text-align: center;
+    margin: 30px 0 15px 0;
+    font-size: 1.4rem;
+    border-top: 1px dashed #666;
+    padding-top: 20px;
+    text-shadow: 0 0 5px rgba(179, 136, 255, 0.5);
+}
+
+/* client/src/styles/ERSimulation.css 맨 아래 추가 */
+
+/* ⚔️ 킬 뱃지 (캐릭터 카드 위에 표시) */
+.kill-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ff5252;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.survivor-card { position: relative; } /* 뱃지 위치 기준점 */
+
+
+/* 🏆 결과 요약 모달창 */
+.result-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeIn 0.5s;
+}
+
+.result-modal {
+    background: white;
+    padding: 40px;
+    border-radius: 20px;
+    width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 5px solid #ffd700; /* 금색 테두리 */
+}
+
+.result-modal h1 { color: #d32f2f; margin-bottom: 20px; font-size: 2rem; }
+
+/* [수정 2] 결과 모달창 - 우승자 섹션 */
+
+/* 우승자 정보 담는 컨테이너 */
+.winner-section {
+    /* ★ 핵심 수정: Flexbox로 내부 요소(이미지, 이름, 텍스트) 중앙 정렬 ★ */
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* 수평 중앙 정렬 */
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+/* 우승자 이미지 스타일 (기존 유지) */
+.winner-section img.winner-img {
+    width: 120px; 
+    height: 120px;
+    border-radius: 50%;
+    border: 5px solid #ffd700;
+    object-fit: cover;
+    margin-bottom: 10px; /* 이미지와 이름 사이 간격 */
+    /* 혹시 모를 마진 초기화 */
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.stats-summary {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+    text-align: left;
+}
+.stats-summary ul { list-style: none; padding: 0; }
+.stats-summary li {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px dashed #ccc;
+    font-size: 1.1rem;
+}
+
+.close-btn {
+    background: #444; color: white;
+    border: none; padding: 10px 30px;
+    border-radius: 20px;
+    font-size: 1.2rem; cursor: pointer;
+}
+.close-btn:hover { background: #222; }
+
+/* 상태 이상 아이콘 컨테이너 */
+.status-effects-container {
+    position: absolute;
+    top: -5px;
+    left: -5px; /* 킬 배지와 반대 방향 */
+    display: flex;
+    gap: 2px;
+}
+
+.effect-icon {
+    font-size: 1rem;
+    background: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 1px solid #ddd;
+}
+
+/* 인벤토리 요약 스타일 */
+.inventory-summary {
+    position: relative;
+    font-size: 0.75rem;
+    margin-top: 5px;
+    background: rgba(0,0,0,0.05);
+    padding: 2px 8px;
+    border-radius: 10px;
+    cursor: help;
+}
+
+/* 툴팁: 마우스를 올렸을 때만 아이템 목록 노출 */
+.inv-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 8px;
+    border-radius: 5px;
+    width: 120px;
+    z-index: 100;
+}
+
+.inventory-summary:hover .inv-tooltip {
+    display: block;
+}
+
+.inv-item-mini {
+    font-size: 0.7rem;
+    border-bottom: 1px solid #555;
+    padding: 2px 0;
+}
+
+.skill-tag {
+    font-size: 0.7rem;
+    color: #6200ea;
+    background: #ede7f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-top: 3px;
+    border: 1px solid #d1c4e9;
+}
+
+.log-message.system {
+    color: #ff9800; /* 금지구역 경고용 오렌지색 */
+    font-weight: bold;
+    border-left: 3px solid #ff9800;
+    background: rgba(255, 152, 0, 0.05);
+}

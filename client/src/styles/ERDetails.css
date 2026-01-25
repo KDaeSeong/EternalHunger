@@ -1,0 +1,191 @@
+/* client/src/styles/ERDetails.css */
+
+/* 메뉴 하이라이트 */
+#ERDetail {
+    background-color: #333333;
+    color: white;
+}
+
+/* 전체 컨테이너 */
+#detailsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* client/src/styles/ERCharacters.css */
+
+/* ✨ 심플한 제목 디자인 */
+.page-header {
+    text-align: center;
+    margin: 50px 0 30px 0; /* 위아래 여백 */
+    padding-bottom: 20px;
+    border-bottom: 2px solid #ddd; /* 밑줄로 구분 */
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 10px;
+    font-weight: bold;
+    text-shadow: none; /* 그림자 제거 */
+}
+
+.page-header p {
+    font-size: 1.1rem;
+    color: #666;
+    margin: 0;
+}
+
+/* 개별 캐릭터 카드 (가로로 긴 형태) */
+.stat-card {
+    display: flex;
+    background-color: #fdfdfd;
+    border: 2px solid #555;
+    border-radius: 10px;
+    padding: 15px;
+    width: 600px; /* 넓게 씁니다 */
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.1);
+    align-items: center;
+}
+
+/* 왼쪽 캐릭터 정보 영역 */
+.char-info {
+    width: 180px; /* 너비를 조금 더 넉넉하게 */
+    display: flex; /* ★ Flex 모드 켜기 */
+    flex-direction: column; /* 세로로 배치 */
+    align-items: center; /* ★ 가로축 완전 가운데 정렬 */
+    justify-content: center; /* 세로축 가운데 정렬 */
+    margin-right: 20px;
+    border-right: 2px dashed #ccc;
+    padding-right: 20px;
+}
+
+/* 썸네일 이미지 */
+.char-info img {
+    width: 110px; /* 크기 살짝 키움 */
+    height: 110px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #4185b3; /* 테두리 두께 강화 */
+    margin-bottom: 15px; /* 이름과의 간격 */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* 그림자 추가로 입체감 */
+    background-color: white; /* 투명 이미지일 때를 대비 */
+}
+
+/* 이름 텍스트 */
+.char-info h3 {
+    margin: 5px 0;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #333;
+    text-align: center; /* 텍스트 자체도 가운데 정렬 */
+    word-break: keep-all; /* 단어 단위로 줄바꿈 */
+    line-height: 1.4;
+}
+
+.gender-badge {
+    background-color: #eee;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+/* 오른쪽 스탯 그리드 (4열 2행) */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* 4칸씩 */
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-item label {
+    font-weight: bold;
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.stat-item input {
+    width: 60px;
+    padding: 5px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.stat-item input:focus {
+    background-color: #e8f0fe;
+    border-color: #4185b3;
+    outline: none;
+}
+
+/* client/src/styles/ERDetails.css 맨 아래 추가 */
+
+/* 📊 스탯 가이드 박스 */
+.stat-guide-container {
+    max-width: 1000px;
+    margin: 0 auto 30px auto; /* 가운데 정렬 및 아래 여백 */
+    background-color: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px 20px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.stat-guide-container h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+    color: #444;
+}
+
+/* 가이드 그리드 (가로 배치) */
+.stat-guide-grid {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* 개별 등급 박스 */
+.guide-item {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 15px;
+    border-radius: 6px;
+    min-width: 140px;
+    color: white;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+
+.guide-item .range {
+    font-size: 1.2rem;
+    margin-bottom: 2px;
+}
+
+.guide-item .desc {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+/* 등급별 색상 (RPG 국룰 컬러) */
+.rank-e { background-color: #9e9e9e; } /* 회색 (일반) */
+.rank-c { background-color: #4caf50; } /* 초록 (엘리트) */
+.rank-a { background-color: #2196f3; } /* 파랑 (초인) */
+.rank-s { background-color: #9c27b0; } /* 보라 (전설) */
+.rank-ex { background: linear-gradient(45deg, #ff9800, #ff5722); } /* 주황/금색 (신화) */

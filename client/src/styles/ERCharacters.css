@@ -1,0 +1,261 @@
+/* client/src/styles/ERCharacters.css (전체 교체) */
+
+/* === 🌍 전체 공통 배경 === */
+body {
+    /* 은은한 파치먼트(양피지) 느낌의 그라데이션 배경 */
+    background: linear-gradient(135deg, #f0e4d4 0%, #d9c5a8 100%);
+    margin: 0;
+    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    color: #333;
+    min-height: 100vh;
+}
+
+
+/* === 📦 메인 컨테이너 (여기에 테두리 추가!) === */
+main {
+    margin: 30px auto; /* 상하 여백 추가 */
+    max-width: 1600px;
+    padding: 40px; /* 내부 여백 넉넉히 */
+    
+    /* ✨ 테두리 및 박스 디자인 추가 ✨ */
+    background-color: rgba(255, 255, 255, 0.85); /* 반투명 흰색 배경 */
+    border: 3px solid #c0a080; /* 진한 베이지색 테두리 */
+    border-radius: 20px; /* 모서리 둥글게 */
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* 부드러운 그림자로 입체감 */
+}
+
+
+/* === 💾 공통 저장 버튼 스타일 (핵심 수정!) === */
+.main-save-container {
+    display: flex;
+    justify-content: center;
+    margin: 50px 0 80px 0; /* 위아래 여백 넉넉히 */
+}
+
+.main-save-btn {
+    /* 세련된 파란색 그라데이션 */
+    background: linear-gradient(45deg, #4185b3, #2a6285);
+    color: white;
+    padding: 15px 60px; /* 크기 키움 */
+    border-radius: 50px; /* 완전 둥글게 */
+    box-shadow: 0 10px 20px rgba(65, 133, 179, 0.3); /* 부드러운 그림자 */
+    cursor: pointer;
+    transition: all 0.3s ease; /* 부드러운 움직임 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid rgba(255,255,255,0.2); /* 테두리 광택 */
+}
+
+.main-save-btn h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 1px; /* 자간 넓힘 */
+}
+
+/* 마우스 올렸을 때 효과 */
+.main-save-btn:hover {
+    transform: translateY(-5px); /* 위로 떠오름 */
+    box-shadow: 0 15px 30px rgba(65, 133, 179, 0.5); /* 그림자 진해짐 */
+    background: linear-gradient(45deg, #5199ca, #32749c); /* 색상 밝아짐 */
+}
+
+/* 클릭했을 때 효과 */
+.main-save-btn:active {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 10px rgba(65, 133, 179, 0.3);
+}
+
+
+/* === ⚡ AI 스카우터 버튼 (캐릭터 설정 페이지용) === */
+.ai-scouter-btn {
+    background-color: #4185b3;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: bold;
+    padding: 12px 0;
+    margin-top: 10px;
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.ai-scouter-btn:hover {
+    background-color: #2a6285;
+    transform: translateY(-2px);
+}
+
+
+/* === 기타 캐릭터 설정 페이지 스타일 (기존 유지/정리) === */
+#characterRowContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+    justify-content: center;
+    padding: 20px;
+}
+
+.characterRowContainer2 {
+    background-color: rgba(255, 255, 255, 0.9); /* 반투명 배경 */
+    border: 1px solid #ddd;
+    border-radius: 15px;
+    padding: 20px;
+    width: 280px;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.2s;
+}
+.characterRowContainer2:hover {
+    transform: translateY(-5px); /* 카드 호버 효과 */
+}
+
+.characterRow {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.characterRow label {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #555;
+}
+
+.characterRow input[type="text"],
+.characterRow select {
+    padding: 8px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.previewImage {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 3px solid #eee;
+    margin-top: 5px;
+    background-color: #f0f0f0;
+    display: flex;
+}
+
+.deleteChar {
+    background-color: #ff5252;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 5px;
+    transition: background 0.2s;
+}
+.deleteChar:hover { background-color: #d32f2f; }
+
+.addImage {
+    background-color: #f8f9fa;
+    text-align: center;
+    padding: 10px;
+    border: 2px dashed #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #666;
+    transition: all 0.2s;
+}
+.addImage:hover {
+    background-color: #e9ecef;
+    border-color: #4185b3;
+    color: #4185b3;
+}
+
+#addBtn {
+    display: flex;
+    justify-content: center;
+    margin: 30px 0;
+}
+
+#addChar {
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+    transition: all 0.2s;
+}
+#addChar:hover {
+    transform: translateY(-3px);
+    background-color: #45a049;
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+}
+/* client/src/styles/ERCharacters.css 맨 아래 수정 */
+
+/* === 💎 텍스트 로고 (헤더 전용) === */
+
+/* 1. 로고 링크는 메뉴 버튼 스타일(배경색, 패딩) 무시하기 */
+header a.logo-btn {
+    padding: 0 !important;       /* 패딩 제거 */
+    background: none !important; /* 배경색 제거 */
+    box-shadow: none !important; /* 그림자 제거 */
+    margin-right: 15px;          /* 오른쪽 여백 살짝 */
+}
+header a.logo-btn:hover {
+    transform: none !important;  /* 위로 뜨는 효과 제거 (로고는 얌전하게) */
+}
+
+/* 2. 로고 레이아웃 */
+.text-logo {
+    display: flex;
+    align-items: center; /* 가로 정렬 */
+    gap: 6px;            /* 글자 사이 간격 */
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* 3. 작은 글씨 (PROJECT) */
+.text-logo .logo-top {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #666;
+    letter-spacing: 2px;
+}
+
+/* 4. 큰 글씨 (ARENA) - 파란 네모 해결! */
+.text-logo .logo-main {
+    display: block; /* ★ 중요: 이게 없으면 네모로 나옴 */
+    font-family: 'Arial Black', 'Impact', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    font-style: italic;
+    
+    /* 파란색 그라데이션 텍스트 */
+    background: linear-gradient(45deg, #4185b3, #2a6285);
+    -webkit-background-clip: text; /* 글자 모양대로 자르기 */
+    background-clip: text;
+    color: transparent; /* 글자색을 투명하게 해서 배경이 보이게 */
+    -webkit-text-fill-color: transparent;
+    
+    letter-spacing: -1px;
+    padding-bottom: 2px; /* 글자 아래가 잘리지 않게 여유 공간 */
+}
+
+/* 로고에 마우스 올렸을 때만 살짝 밝아지게 */
+.text-logo:hover .logo-main {
+    background: linear-gradient(45deg, #29b6f6, #0288d1);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
