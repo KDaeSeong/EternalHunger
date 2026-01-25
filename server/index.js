@@ -68,19 +68,8 @@ app.use('/api/admin', verifyToken, require('./routes/admin')); // 이제 잘 작
 
 app.use('/api/auth', require('./routes/auth')); 
 
-// (1) 캐릭터 API
-app.post('/api/characters/save', async (req, res) => {
-  try {
-    await Character.deleteMany({});
-    await Character.insertMany(req.body);
-    res.json({ message: "저장 완료!", count: req.body.length });
-  } catch (err) { res.status(500).json({ error: "저장 실패" }); }
-});
-app.get('/api/characters', async (req, res) => {
-  try { res.json(await Character.find()); }
-  catch (err) { res.status(500).json({ error: "로드 실패" }); }
-});
-
+// ✅ 이 코드를 추가해서 characters.js 파일을 활성화하세요!
+app.use('/api/characters', require('./routes/characters'));
 
 // (2) ★ [업그레이드] 개인별 게임 설정 API (GameSettings 모델 사용)
 app.get('/api/settings', verifyToken, async (req, res) => {
@@ -154,8 +143,6 @@ app.put('/api/events/reorder', verifyToken, async (req, res) => {
     res.json({ message: "순서 변경 완료" });
   } catch (err) { res.status(500).json({ error: "저장 실패" }); }
 });
-
-
 
 // (3-1) ★ [버그픽스] 이벤트 수정 API (프론트에서 PUT /api/events/:id 호출 중)
 app.put('/api/events/:id', async (req, res) => {
