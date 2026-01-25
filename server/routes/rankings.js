@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
     // 3. 레전드 포인트 (Top 3)
     // legacyPoints 내림차순 정렬
     const points = await User.find({}, 'username statistics legacyPoints')
-                             .sort({ legacyPoints: -1 })
+                             .sort({ lp: -1 })
                              .limit(3);
 
     res.json({ wins, kills, points });

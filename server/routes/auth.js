@@ -42,13 +42,17 @@ router.post('/login', async (req, res) => {
     // 3. 토큰 생성 (보안상 YOUR_SECRET_KEY는 나중에 .env 파일로 빼는 게 좋습니다)
     const token = jwt.sign({ id: user._id }, process.env.MY_SECRET_KEY, { expiresIn: '1d' });
 
+    console.log("== [로그인 시도] ==");
+    console.log("아이디:", user.username);
+    console.log("DB isAdmin 값:", user.isAdmin);
     // 4. 성공 응답
     res.json({
       token,
       user: {
         id: user._id,
         username: user.username,
-        lp: user.lp || 0
+        lp: user.lp || 0,
+        isAdmin: user.isAdmin // ★ 이 줄을 꼭 추가해야 합니다!
       }
     });
   } catch (err) {
