@@ -33,7 +33,8 @@ const GameEvent = mongoose.models.GameEvent || mongoose.model('GameEvent', Event
 // 2. 서버 설정
 // ==================================================================
 const app = express();
-const PORT = 5000;
+// Render/배포 환경에서는 PORT가 주입될 수 있으니 환경변수 우선
+const PORT = process.env.PORT || 5000;
 
 app.use(cors({
   origin: '*', // 일단 모든 곳에서 접속 허용 (보안을 위해 나중에 프론트 도메인으로 변경 추천)
@@ -57,6 +58,7 @@ mongoose.connect(DB_URI)
 // ★ [수정] 긴 코드를 지우고, 이렇게 한 줄로 불러옵니다!
 // (verifyAdmin도 필요하면 같이 불러옵니다)
 const { verifyToken } = require('./middleware/authMiddleware'); 
+
 // ...
 // 라우트 사용 부분
 app.use('/api/admin', verifyToken, require('./routes/admin')); // 이제 잘 작동합니다.
@@ -139,11 +141,6 @@ app.get('/api/events', async (req, res) => {
   catch (err) { res.status(500).json({ error: "로드 실패" }); }
 });
 
-app.delete('/api/events/:id', async (req, res) => {
-  try { await GameEvent.findByIdAndDelete(req.params.id); res.json({ message: "삭제 완료" }); } 
-  catch (err) { res.status(500).json({ error: "삭제 실패" }); }
-});
-
 // (3-1) ★ [버그픽스] 이벤트 수정 API (프론트에서 PUT /api/events/:id 호출 중)
 app.put('/api/events/:id', async (req, res) => {
   try {
@@ -165,6 +162,12 @@ app.put('/api/events/:id', async (req, res) => {
     res.status(500).json({ error: "수정 실패" });
   }
 });
+
+app.delete('/api/events/:id', async (req, res) => {
+  try { await GameEvent.findByIdAndDelete(req.params.id); res.json({ message: "삭제 완료" }); } 
+  catch (err) { res.status(500).json({ error: "삭제 실패" }); }
+});
+
 
 // (4) AI 분석 API
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);

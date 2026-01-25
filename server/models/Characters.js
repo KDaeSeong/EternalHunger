@@ -1,16 +1,17 @@
-// server/models/Character.js (업그레이드 버전)
+// server/models/Characters.js
+// ★ 멀티유저 지원(2단계): userId 스코프 추가
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
 const characterSchema = new Schema({
+  // ★ 어떤 유저의 캐릭터인지 (멀티유저 핵심)
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+
   // 1. 기본 정보
   name: { type: String, required: true },
   previewImage: { type: String },
   summary: { type: String },
   gender: { type: String, default: '남' },
-  
-  // 로그인 기능 도입 시 사용 (현재는 비워둠)
-  creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User',timestamps: true },
 
   // 2. 8대 스탯 (Deep Stats)
   stats: {
@@ -24,7 +25,7 @@ const characterSchema = new Schema({
     end: { type: Number, default: 10 }, // 지구력
   },
 
-  // ★ 인벤토리 필드 추가
+  // 인벤토리
   inventory: [{
     id: String,
     name: String,
@@ -33,9 +34,9 @@ const characterSchema = new Schema({
     acquiredDay: Number
   }],
 
-  // ★ 고유 스킬 추가
+  // 고유 스킬
   specialSkill: {
-    name: { type: String, default: "평범함" },
+    name: { type: String, default: '평범함' },
     description: String,
     type: { type: String, enum: ['passive', 'combat', 'event'] }, // 적용 시점
     effectValue: { type: Number, default: 0 }
@@ -53,14 +54,14 @@ const characterSchema = new Schema({
   legacy: {
     points: { type: Number, default: 0 }, // LP (레거시 포인트)
     unlockedPerks: [{ type: String }],    // 해금된 특전
-    history: [{                           // 과거 기록
-        date: { type: Date, default: Date.now },
-        rank: Number,
-        killCount: Number
+    history: [{
+      date: { type: Date, default: Date.now },
+      rank: Number,
+      killCount: Number
     }]
   },
 
-  // ★ 현재 캐릭터에게 적용 중인 상태 이상 목록
+  // 현재 캐릭터에게 적용 중인 상태 이상 목록
   activeEffects: [{
     effectId: { type: Schema.Types.ObjectId, ref: 'StatusEffect' },
     name: String,

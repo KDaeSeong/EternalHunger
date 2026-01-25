@@ -11,9 +11,26 @@ export default function AdminPage() {
         name: '', type: '무기', stats: { atk: 0, def: 0, hp: 0 }, description: ''
     });
     const router = useRouter();
+    const [mapList, setMapList] = useState([]);
+    const [newMapName, setNewMapName] = useState('');
+
+    // 맵 목록 불러오기
+    const fetchMaps = async () => {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_BASE}/maps`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        setMapList(res.data);
+    };
+
+    // 맵 생성
+    const createMap = () => callAdminApi('/maps', { name: newMapName });
+
+    // 동선 연결 (두 맵 선택 시)
+    const connectMaps = (id1, id2) => callAdminApi(`/${id1}/connect`, { targetMapId: id2 });
 
     // ★ 서버 주소 (배포 환경에 맞춰 변경 필요)
-    const API_BASE = "https://eternalhunger-e7z1.onrender.com/api/admin";
+    const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || 'https://eternalhunger-e7z1.onrender.com').replace(/\/$/, '');
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -66,7 +83,7 @@ export default function AdminPage() {
             
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '30px'}}>
                 
-                {/* 왼쪽: 기존 관리 기능 */}
+                {/* 기능 1: 시즌 초기화 */}
                 <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
                     <div style={{border: '1px solid #ccc', padding: '20px', borderRadius: '10px'}}>
                         <h3>💀 시즌 초기화</h3>

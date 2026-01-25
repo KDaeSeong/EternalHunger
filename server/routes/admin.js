@@ -77,26 +77,32 @@ router.delete('/items/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "삭제 실패" }); }
 });
 
-// 2. 새 구역(맵) 생성
+// 1. 모든 구역 목록 로드
+router.get('/maps', async (req, res) => {
+    try {
+        const maps = await Map.find().populate('connectedMaps', 'name'); // 연결된 맵 이름까지 가져옴
+        res.json(maps);
+    } catch (err) { res.status(500).json({ error: "맵 로드 실패" }); }
+});
+
+// 2. 새로운 구역 생성
 router.post('/maps', async (req, res) => {
     try {
         const newMap = new Map(req.body);
         await newMap.save();
-        res.json({ message: "새 구역이 생성되었습니다.", map: newMap });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        res.json({ message: "신규 구역이 생성되었습니다.", map: newMap });
+    } catch (err) { res.status(500).json({ error: "구역 생성 실패" }); }
 });
 
-// 3. 맵 간 동선(연결) 설정
+// 3. 동선 연결 (A구역과 B구역 연결)
 router.put('/maps/:id/connect', async (req, res) => {
     const { targetMapId } = req.body;
     try {
-        const map = await Map.findByIdAndUpdate(
-            req.params.id,
-            { $addToSet: { connectedMaps: targetMapId } }, // 중복 없이 추가
-            { new: true }
-        );
-        res.json({ message: "동선이 연결되었습니다.", map });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        // 내 맵에 상대방 추가, 상대방 맵에 나를 추가 (양방향 연결)
+        await Map.findByIdAndUpdate(req.params.id, { $addToSet: { connectedMaps: targetMapId } });
+        await Map.findByIdAndUpdate(targetMapId, { $addToSet: { connectedMaps: req.params.id } });
+        res.json({ message: "구역 간 동선이 연결되었습니다." });
+    } catch (err) { res.status(500).json({ error: "동선 연결 실패" }); }
 });
 
 module.exports = router;
