@@ -9,6 +9,7 @@ const PORT = process.env.PORT || 5000;
 // 미들웨어 설정
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // DB 연결
 mongoose.connect(process.env.MONGO_URI)
@@ -22,7 +23,8 @@ app.use('/api/auth', require('./routes/auth'));           // 로그인/회원가
 app.use('/api/admin', verifyToken, require('./routes/admin')); // 관리자 (맵, 아이템)
 app.use('/api/characters', verifyToken, require('./routes/characters')); // 캐릭터
 app.use('/api/events', verifyToken, require('./routes/events')); // ★ 신규 이벤트 라우터
-app.use('/api/settings', verifyToken, require('./routes/settings')); // 보정치
+app.use('/api/rankings', verifyToken, require('./routes/rankings')); // 랭킹
+app.use('/api/user', verifyToken, require('./routes/user')); // 유저
 
 // AI 분석 (공용 서비스라 여기 둠)
 const { GoogleGenerativeAI } = require("@google/generative-ai");
