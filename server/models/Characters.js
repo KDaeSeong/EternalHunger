@@ -25,7 +25,12 @@ const characterSchema = new Schema({
   },
 
   // 인벤토리
+  // - legacy: { id, name, type, tags, acquiredDay }
+  // - normalized: { itemId, name, qty, ... }
+  //   (로드맵 1/3/4/5 연동을 위해 itemId/qty를 추가)
   inventory: [{
+    itemId: { type: Schema.Types.ObjectId, ref: 'Item' },
+    qty: { type: Number, default: 1 },
     id: String,
     name: String,
     type: { type: String, enum: ['food', 'weapon', 'misc'] },

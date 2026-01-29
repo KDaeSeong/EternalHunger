@@ -9,10 +9,40 @@ router.use(verifyToken);
 // 1. 내 이벤트 목록 가져오기
 router.get('/', async (req, res) => {
   try {
-    const events = await GameEvent.find({ userId: req.user.id }).sort({ createdAt: 1 });
+    const userId = req.user.id;
+
+    // ✅ 필터(로드맵 6번): 생존자/사망자/낮밤/구역
+    const q = { userId };
+
+    if (req.query.timeOfDay && req.query.timeOfDay !== 'both') {
+      q.timeOfDay = String(req.query.timeOfDay);
+    }
+
+    if (req.query.mapId) q.mapId = String(req.query.mapId);
+    if (req.query.zoneId) q.zoneId = String(req.query.zoneId);
+
+    // survivorCount / victimCount 범위 필터
+    const sMin = req.query.survivorMin != null ? Number(req.query.survivorMin) : null;
+    const sMax = req.query.survivorMax != null ? Number(req.query.survivorMax) : null;
+    const vMin = req.query.victimMin != null ? Number(req.query.victimMin) : null;
+    const vMax = req.query.victimMax != null ? Number(req.query.victimMax) : null;
+
+    if (sMin != null || sMax != null) {
+      q.survivorCount = {};
+      if (sMin != null && !Number.isNaN(sMin)) q.survivorCount.$gte = sMin;
+      if (sMax != null && !Number.isNaN(sMax)) q.survivorCount.$lte = sMax;
+    }
+    if (vMin != null || vMax != null) {
+      q.victimCount = {};
+      if (vMin != null && !Number.isNaN(vMin)) q.victimCount.$gte = vMin;
+      if (vMax != null && !Number.isNaN(vMax)) q.victimCount.$lte = vMax;
+    }
+
+    const events = await GameEvent.find(q).sort({ createdAt: 1 });
     res.json(events);
-  } catch (err) { 
-    res.status(500).json({ error: "로드 실패" }); 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "로드 실패" });
   }
 });
 
@@ -73,17 +103,24 @@ router.put('/:id', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
     // ★ 프론트에서 보낸 모든 데이터를 구조 분해 할당으로 받습니다.
-    const { text, type, survivorCount, victimCount, timeOfDay } = req.body;
+    const { text, type, survivorCount, victimCount, timeOfDay, mapId, zoneId, conditions, image } = req.body;
+
+	    const setDoc = {
+	      text: String(text),
+	      type: type || 'normal',
+	      survivorCount: Number(survivorCount || 1),
+	      victimCount: Number(victimCount || 0),
+	      timeOfDay: timeOfDay || 'both',
+	      conditions: conditions || {},
+	    };
+	    const unsetDoc = {};
+	    if (mapId) setDoc.mapId = String(mapId); else unsetDoc.mapId = 1;
+	    if (zoneId) setDoc.zoneId = String(zoneId); else unsetDoc.zoneId = 1;
+	    if (image) setDoc.image = String(image); else unsetDoc.image = 1;
 
     const updated = await GameEvent.findOneAndUpdate(
       { _id: req.params.id, userId }, 
-      {
-        text: String(text),
-        type: type || 'normal',
-        survivorCount: Number(survivorCount || 1), // 새 필드 반영
-        victimCount: Number(victimCount || 0),     // 새 필드 반영
-        timeOfDay: timeOfDay || 'both'             // 새 필드 반영
-      },
+	      Object.keys(unsetDoc).length ? { $set: setDoc, $unset: unsetDoc } : { $set: setDoc },
       { new: true }
     );
 

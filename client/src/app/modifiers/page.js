@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import '../../styles/ERModifiers.css';
+import { RULESETS } from '../../utils/rulesets';
 
 export default function ModifiersPage() {
   // 스탯 가중치 상태
@@ -11,6 +12,9 @@ export default function ModifiersPage() {
     str: 1.0, agi: 1.0, int: 1.0, men: 1.0,
     luk: 1.0, dex: 1.0, sht: 1.0, end: 1.0
   });
+
+  // 룰 프리셋(시뮬레이터 규칙 세트)
+  const [rulesetId, setRulesetId] = useState('ER_S10');
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +38,10 @@ export default function ModifiersPage() {
           
           if (res.data && res.data.statWeights) {
             setWeights(res.data.statWeights);
+          }
+
+          if (res.data && res.data.rulesetId) {
+            setRulesetId(res.data.rulesetId);
           }
         } catch (err) {
           console.error("설정 로드 실패:", err);
@@ -73,7 +81,7 @@ export default function ModifiersPage() {
       // 주소 변경: POST -> PUT
       // 헤더 추가: Authorization
       await axios.put('https://eternalhunger-e7z1.onrender.com/api/settings', 
-        { statWeights: weights }, 
+        { statWeights: weights, rulesetId }, 
         { headers: { Authorization: `Bearer ${token}` } } 
       );
       alert("💾 밸런스 설정이 저장되었습니다!");
@@ -135,8 +143,39 @@ export default function ModifiersPage() {
       </div>
 
       <div className="modifiers-container">
-        {loading ? <p style={{textAlign:'center', padding:'50px'}}>설정 불러오는 중...</p> : 
-         Object.keys(weights).map((key) => (
+        {loading ? <p style={{textAlign:'center', padding:'50px'}}>설정 불러오는 중...</p> : (
+        <>
+          <div className="modifier-item">
+            <div className="mod-label">
+              <span>🎮 룰 프리셋 (시뮬레이터 규칙)</span>
+              <span className="mod-value">{RULESETS[rulesetId]?.label || rulesetId}</span>
+            </div>
+
+            <select
+              value={rulesetId}
+              onChange={(e) => setRulesetId(e.target.value)}
+              disabled={!user}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '10px',
+                border: '1px solid #ddd',
+                marginTop: '10px'
+              }}
+            >
+              {Object.values(RULESETS).map((rs) => (
+                <option key={rs.id} value={rs.id}>{rs.label}</option>
+              ))}
+            </select>
+
+            <div className="mod-desc">
+              {rulesetId === 'ER_S10'
+                ? '⏱ 페이즈 버튼으로 진행하지만, 페이즈 내부는 틱(초) 기반으로 폭발 타이머/가젯/포그를 처리합니다.'
+                : '🧪 기존 단순화 규칙입니다(틱 기반 처리 없음).'}
+            </div>
+          </div>
+
+          {Object.keys(weights).map((key) => (
           <div key={key} className="modifier-item">
             <div className="mod-label">
               <span>{statLabels[key] || key.toUpperCase()}</span>
@@ -158,6 +197,8 @@ export default function ModifiersPage() {
             </div>
           </div>
         ))}
+        </>
+        )}
       </div>
         
         <div className="main-save-container">

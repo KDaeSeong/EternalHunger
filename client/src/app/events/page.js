@@ -1,226 +1,612 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import Link from 'next/link';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import '../../styles/Home.css'; 
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../utils/api';
 
 export default function EventsPage() {
+  const router = useRouter();
   const [events, setEvents] = useState([]);
-  const [newEvent, setNewEvent] = useState({ 
-    text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" 
+  const [maps, setMaps] = useState([]);
+  const [message, setMessage] = useState('');
+  const [q, setQ] = useState('');
+
+  const [form, setForm] = useState({
+    title: '',
+    text: '',
+    killers: [],
+    victims: [],
+    benefits: [],
+    time: 'any',
+    mapId: '',
+    zoneId: '',
+    enabled: true,
   });
-  
+
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ 
-    text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" 
-  });
-  const [user, setUser] = useState(null);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [dragIndex, setDragIndex] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-        alert("로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.");
-        window.location.href = '/login';
-        return;
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
     }
-    const userData = localStorage.getItem('user');
-    if (userData) setUser(JSON.parse(userData));
+
     fetchEvents();
+    fetchMaps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchEvents = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/events', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setEvents(res.data);
-    } catch (err) { console.error(err); }
+      const data = await apiGet('/events');
+      setEvents(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setMessage(e.message);
+      setEvents([]);
+    }
   };
 
-  const addEvent = async () => {
-    const token = localStorage.getItem('token');
-    if (!newEvent.text) return alert("내용을 입력해주세요!");
+  const fetchMaps = async () => {
     try {
-      await axios.post('https://eternalhunger-e7z1.onrender.com/api/events/add', newEvent, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchEvents(); 
-      setNewEvent({ text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" }); 
-    } catch (err) { alert("추가 실패!"); }
+      // ✅ 맵은 공개 데이터(로그인/관리자 여부와 무관)
+      const data = await apiGet('/public/maps');
+      const list = Array.isArray(data) ? data : Array.isArray(data?.maps) ? data.maps : [];
+      setMaps(list);
+    } catch (e) {
+      // 맵이 없어도 이벤트 편집은 가능하게(단, 필터/구역 선택은 비활성)
+      setMaps([]);
+      setMessage((prev) => prev || e.message);
+    }
   };
 
-  const deleteEvent = async (id) => {
-    const token = localStorage.getItem('token');
-    if (!confirm("정말 삭제하시겠습니까?")) return;
-    try {
-      await axios.delete(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchEvents();
-    } catch (err) { alert("삭제 실패!"); }
+  const filteredEvents = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return events;
+    return events.filter((ev) => {
+      const s = `${ev.title || ''} ${ev.text || ''}`.toLowerCase();
+      return s.includes(needle);
+    });
+  }, [events, q]);
+
+  const getCurrentMap = () => maps.find((m) => String(m._id) === String(form.mapId));
+
+  const handleChange = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const startEditing = (evt) => {
-    setEditingId(evt._id);
-    // ★ 수정 폼을 채울 때 timeOfDay도 반드시 넣어주세요!
-    setEditForm({ 
-      text: evt.text, 
-      type: evt.type, 
-      survivorCount: evt.survivorCount || 1, 
-      victimCount: evt.victimCount || 0,
-      timeOfDay: evt.timeOfDay || 'both' // 추가
+  const addRole = (field) => {
+    setForm((prev) => ({ ...prev, [field]: [...prev[field], ''] }));
+  };
+
+  const updateRole = (field, idx, value) => {
+    setForm((prev) => {
+      const arr = [...prev[field]];
+      arr[idx] = value;
+      return { ...prev, [field]: arr };
     });
   };
 
-  const cancelEditing = () => {
+  const removeRole = (field, idx) => {
+    setForm((prev) => {
+      const arr = [...prev[field]];
+      arr.splice(idx, 1);
+      return { ...prev, [field]: arr };
+    });
+  };
+
+  const resetForm = () => {
     setEditingId(null);
-    setEditForm({ text: "", type: "normal", survivorCount: 1, victimCount: 0, timeOfDay: "both" });
+    setForm({
+      title: '',
+      text: '',
+      killers: [],
+      victims: [],
+      benefits: [],
+      time: 'any',
+      mapId: '',
+      zoneId: '',
+      enabled: true,
+    });
   };
 
-  const saveEdit = async (id) => {
-    const token = localStorage.getItem('token');
+  const handleSubmit = async () => {
     try {
-      await axios.put(`https://eternalhunger-e7z1.onrender.com/api/events/${id}`, editForm, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setEditingId(null);
+      setMessage('');
+      if (!form.title.trim()) throw new Error('제목을 입력하세요.');
+      if (!form.text.trim()) throw new Error('내용을 입력하세요.');
+
+      const payload = {
+        title: form.title.trim(),
+        text: form.text.trim(),
+        killers: form.killers.map((s) => String(s).trim()).filter(Boolean),
+        victims: form.victims.map((s) => String(s).trim()).filter(Boolean),
+        benefits: form.benefits.map((s) => String(s).trim()).filter(Boolean),
+        time: form.time || 'any',
+        mapId: form.mapId || '',
+        zoneId: form.zoneId || '',
+        enabled: Boolean(form.enabled),
+      };
+
+      if (editingId) {
+        await apiPut(`/events/${editingId}`, payload);
+        setMessage('수정 완료');
+      } else {
+        await apiPost('/events/add', payload);
+        setMessage('추가 완료');
+      }
+
+      resetForm();
       fetchEvents();
-    } catch (err) { alert("수정 실패!"); }
+    } catch (e) {
+      setMessage(e.message);
+    }
   };
 
-  const handleOnDragEnd = async (result) => {
-    if (!result.destination) return;
-    const token = localStorage.getItem('token');
-    const items = Array.from(events);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-    setEvents(items);
+  const handleEdit = (ev) => {
+    setEditingId(ev._id);
+    setForm({
+      title: ev.title || '',
+      text: ev.text || '',
+      killers: Array.isArray(ev.killers) ? ev.killers : [],
+      victims: Array.isArray(ev.victims) ? ev.victims : [],
+      benefits: Array.isArray(ev.benefits) ? ev.benefits : [],
+      time: ev.time || 'any',
+      mapId: ev.mapId || '',
+      zoneId: ev.zoneId || '',
+      enabled: ev.enabled !== false,
+    });
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('삭제할까요?')) return;
     try {
-      await axios.put('https://eternalhunger-e7z1.onrender.com/api/events/reorder', items, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchEvents(); 
-    } catch (err) { alert("순서 저장 실패!"); }
+      await apiDelete(`/events/${id}`);
+      setMessage('삭제 완료');
+      fetchEvents();
+    } catch (e) {
+      setMessage(e.message);
+    }
   };
 
-  const addTag = (tag) => setNewEvent(prev => ({ ...prev, text: prev.text + tag }));
-  const handleLogout = () => { if (confirm("로그아웃?")) { localStorage.clear(); window.location.reload(); } };
+  const moveItem = (from, to) => {
+    if (from === null || to === null) return;
+    setEvents((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const saveReorder = async () => {
+    try {
+      const orderedIds = events.map((e) => e._id);
+      await apiPost('/events/reorder', { orderedIds });
+      setMessage('정렬 저장 완료');
+      setReorderMode(false);
+      setDragIndex(null);
+      fetchEvents();
+    } catch (e) {
+      setMessage(e.message);
+    }
+  };
+
+  const currentMap = getCurrentMap();
+  const zones = Array.isArray(currentMap?.zones) ? currentMap.zones : [];
 
   return (
-    <main>
-      <header>
-        <section id="header-id1">
-          <ul>
-            <li><Link href="/" className="logo-btn"><div className="text-logo"><span className="logo-top">PROJECT</span><span className="logo-main">ARENA</span></div></Link></li>
-            <li><Link href="/">메인</Link></li>
-            <li><Link href="/characters">캐릭터 설정</Link></li>
-            <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/events" style={{color:'#0288d1'}}>이벤트 설정</Link></li>
-            <li><Link href="/modifiers">보정치 설정</Link></li>
-            <li><Link href="/simulation" style={{fontWeight:'bold'}}>▶ 게임 시작</Link></li>
-            <li className="auth-menu">{user ? <div className="user-info"><span>👤 <strong>{user.username}</strong>님</span><button className="logout-btn" onClick={handleLogout}>🚪 로그아웃</button></div> : <div className="auth-btns"><Link href="/login" className="login-btn">🔑 로그인</Link></div>}</li>
-          </ul>
-        </section>
-      </header>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 12px' }}>
+      <h1 style={{ fontSize: 26, marginBottom: 10 }}>이벤트 설정</h1>
 
-      <div className="page-header">
-        <h1>이벤트(시나리오) 설정</h1>
-        <p>L(생존자)와 D(사망자) 변수 및 시간대를 설정하여 정교한 사건을 정의하세요.</p>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="검색(제목/내용)"
+          style={{
+            flex: 1,
+            minWidth: 220,
+            padding: 10,
+            borderRadius: 10,
+            border: '1px solid rgba(0,0,0,0.12)',
+          }}
+        />
+        <button
+          onClick={() => setReorderMode((v) => !v)}
+          style={{
+            padding: '10px 14px',
+            borderRadius: 10,
+            border: '1px solid rgba(0,0,0,0.12)',
+            background: reorderMode ? '#111827' : '#fff',
+            color: reorderMode ? '#fff' : '#111827',
+            cursor: 'pointer',
+          }}
+        >
+          {reorderMode ? '정렬 모드 종료' : '정렬 모드'}
+        </button>
+        {reorderMode && (
+          <button
+            onClick={saveReorder}
+            style={{
+              padding: '10px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: '#4f46e5',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            정렬 저장
+          </button>
+        )}
       </div>
 
-      <div style={{maxWidth: '900px', margin: '0 auto'}}>
-        {/* 신규 등록 폼 */}
-        <div style={{background: 'white', padding: '25px', borderRadius: '15px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', marginBottom: '30px'}}>
-          <div style={{display: 'flex', gap: '20px', marginBottom: '15px', padding: '15px', background: '#f8f9fa', borderRadius: '10px', alignItems:'center'}}>
-            <div><label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>🟢 생존자: </label>
-              <select value={newEvent.survivorCount} onChange={e => setNewEvent({...newEvent, survivorCount: Number(e.target.value)})}>
-                {[1, 2, 3].map(n => <option key={n} value={n}>{n}명</option>)}
-              </select>
-            </div>
-            <div><label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>💀 사망자: </label>
-              <select value={newEvent.victimCount} onChange={e => setNewEvent({...newEvent, victimCount: Number(e.target.value)})}>
-                {[0, 1, 2, 3].map(n => <option key={n} value={n}>{n}명</option>)}
-              </select>
-            </div>
-            <div><label style={{fontWeight: 'bold', fontSize: '0.9rem'}}>🕒 시간대: </label>
-              <select value={newEvent.timeOfDay} onChange={e => setNewEvent({...newEvent, timeOfDay: e.target.value})}>
-                <option value="both">☀️🌙 무관</option>
-                <option value="day">☀️ 낮</option>
-                <option value="night">🌙 밤</option>
-              </select>
-            </div>
+      {message && (
+        <div
+          style={{
+            background: 'rgba(255, 235, 235, 0.9)',
+            border: '1px solid rgba(255,0,0,0.2)',
+            padding: 10,
+            borderRadius: 10,
+            marginBottom: 14,
+          }}
+        >
+          {message}
+        </div>
+      )}
+
+      {/* 폼 */}
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid rgba(0,0,0,0.12)',
+          borderRadius: 14,
+          padding: 14,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+          <input
+            value={form.title}
+            onChange={(e) => handleChange('title', e.target.value)}
+            placeholder="제목"
+            style={{
+              flex: 1,
+              minWidth: 260,
+              padding: 10,
+              borderRadius: 10,
+              border: '1px solid rgba(0,0,0,0.12)',
+            }}
+          />
+
+          <select
+            value={form.time}
+            onChange={(e) => handleChange('time', e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: '1px solid rgba(0,0,0,0.12)',
+              minWidth: 140,
+            }}
+          >
+            <option value="any">시간 무관</option>
+            <option value="day">낮</option>
+            <option value="night">밤</option>
+          </select>
+
+          <select
+            value={form.mapId}
+            onChange={(e) => {
+              handleChange('mapId', e.target.value);
+              handleChange('zoneId', '');
+            }}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: '1px solid rgba(0,0,0,0.12)',
+              minWidth: 180,
+            }}
+          >
+            <option value="">맵 무관</option>
+            {maps.map((m) => (
+              <option key={m._id} value={m._id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={form.zoneId}
+            onChange={(e) => handleChange('zoneId', e.target.value)}
+            disabled={!form.mapId || zones.length === 0}
+            style={{
+              padding: 10,
+              borderRadius: 10,
+              border: '1px solid rgba(0,0,0,0.12)',
+              minWidth: 180,
+              opacity: !form.mapId || zones.length === 0 ? 0.6 : 1,
+            }}
+          >
+            <option value="">구역 무관</option>
+            {zones.map((z) => (
+              <option key={z.id} value={z.id}>
+                {z.name}
+              </option>
+            ))}
+          </select>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 6px' }}>
+            <input
+              type="checkbox"
+              checked={form.enabled}
+              onChange={(e) => handleChange('enabled', e.target.checked)}
+            />
+            사용
+          </label>
+        </div>
+
+        <textarea
+          value={form.text}
+          onChange={(e) => handleChange('text', e.target.value)}
+          placeholder="내용"
+          rows={3}
+          style={{
+            width: '100%',
+            padding: 10,
+            borderRadius: 10,
+            border: '1px solid rgba(0,0,0,0.12)',
+            marginBottom: 10,
+          }}
+        />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>살인자</div>
+            {form.killers.map((v, idx) => (
+              <div key={`k-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input
+                  value={v}
+                  onChange={(e) => updateRole('killers', idx, e.target.value)}
+                  placeholder="캐릭터 이름"
+                  style={{ flex: 1, padding: 10, borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)' }}
+                />
+                <button
+                  onClick={() => removeRole('killers', idx)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    background: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => addRole('killers')}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              + 살인자 추가
+            </button>
           </div>
 
-          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-            <select value={newEvent.type} onChange={(e) => setNewEvent({...newEvent, type: e.target.value})} style={{padding: '12px', borderRadius: '8px', border: '1px solid #ddd', fontWeight: 'bold'}}>
-              <option value="normal">일반 (생존)</option><option value="death">💀 사망</option>
-            </select>
-            <input type="text" placeholder="예: L1이 D1을 처치했습니다." value={newEvent.text} onChange={(e) => setNewEvent({...newEvent, text: e.target.value})} style={{flexGrow: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ddd'}} />
-            <button onClick={addEvent} style={{padding: '12px 25px', background: '#4185b3', color: 'white', borderRadius: '8px', fontWeight: 'bold'}}>추가</button>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>피해자</div>
+            {form.victims.map((v, idx) => (
+              <div key={`v-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input
+                  value={v}
+                  onChange={(e) => updateRole('victims', idx, e.target.value)}
+                  placeholder="캐릭터 이름"
+                  style={{ flex: 1, padding: 10, borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)' }}
+                />
+                <button
+                  onClick={() => removeRole('victims', idx)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    background: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => addRole('victims')}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              + 피해자 추가
+            </button>
           </div>
 
-          <div style={{display: 'flex', gap: '15px', alignItems: 'center'}}>
-            <div style={{display:'flex', gap:'5px'}}><span style={{fontSize:'0.85rem', fontWeight:'bold', color:'#2e7d32'}}>생존자:</span>
-              {[...Array(newEvent.survivorCount)].map((_, i) => <button key={i} onClick={() => addTag(`L${i+1}`)} style={{padding:'5px 12px', background:'#e8f5e9', border:'1px solid #4caf50', borderRadius:'5px', cursor:'pointer'}}>L{i+1}</button>)}
-            </div>
-            <div style={{display:'flex', gap:'5px'}}><span style={{fontSize:'0.85rem', fontWeight:'bold', color:'#c62828'}}>사망자:</span>
-              {[...Array(newEvent.victimCount)].map((_, i) => <button key={i} onClick={() => addTag(`D${i+1}`)} style={{padding:'5px 12px', background:'#ffebee', border:'1px solid #f44336', borderRadius:'5px', cursor:'pointer'}}>D{i+1}</button>)}
-            </div>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>이로운 효과 대상자</div>
+            {form.benefits.map((v, idx) => (
+              <div key={`b-${idx}`} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input
+                  value={v}
+                  onChange={(e) => updateRole('benefits', idx, e.target.value)}
+                  placeholder="캐릭터 이름"
+                  style={{ flex: 1, padding: 10, borderRadius: 10, border: '1px solid rgba(0,0,0,0.12)' }}
+                />
+                <button
+                  onClick={() => removeRole('benefits', idx)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px solid rgba(0,0,0,0.12)',
+                    background: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => addRole('benefits')}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              + 대상자 추가
+            </button>
           </div>
         </div>
 
-        {/* 이벤트 리스트  */}
-        <DragDropContext onDragEnd={handleOnDragEnd}>
-          <Droppable droppableId="eventsList">
-            {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef} style={{display: 'flex', flexDirection: 'column', gap: '10px'}}>
-                {events.map((evt, index) => (
-                  <Draggable key={evt._id} draggableId={evt._id} index={index}>
-                    {(provided, snapshot) => (
-                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
-                        style={{ ...provided.draggableProps.style, background: editingId === evt._id ? '#e3f2fd' : (evt.type === 'death' ? '#fff0f0' : 'white'), padding: '15px', borderRadius: '10px', border: '1px solid #eee', borderLeft: editingId === evt._id ? '5px solid #2196f3' : (evt.type === 'death' ? '5px solid #ff5252' : '5px solid #4caf50'), marginBottom: '10px' }}>
-                        
-                        {editingId === evt._id ? (
-                          <div style={{display: 'flex', flexDirection: 'column', gap: '10px', width: '100%'}}>
-                            <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
-                              <select value={editForm.survivorCount} onChange={e => setEditForm({...editForm, survivorCount: Number(e.target.value)})}>{[1,2,3].map(n => <option key={n} value={n}>L:{n}</option>)}</select>
-                              <select value={editForm.victimCount} onChange={e => setEditForm({...editForm, victimCount: Number(e.target.value)})}>{[0,1,2,3].map(n => <option key={n} value={n}>D:{n}</option>)}</select>
-                              <select value={editForm.timeOfDay} onChange={e => setEditForm({...editForm, timeOfDay: e.target.value})}><option value="both">☀️🌙</option><option value="day">☀️</option><option value="night">🌙</option></select>
-                              <select value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})}><option value="normal">일반</option><option value="death">💀 사망</option></select>
-                            </div>
-                            <div style={{display: 'flex', gap: '10px'}}>
-                              <input style={{flexGrow: 1, padding: '8px'}} value={editForm.text} onChange={e => setEditForm({...editForm, text: e.target.value})} />
-                              <button onClick={() => saveEdit(evt._id)} style={{background: '#4caf50', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '5px', cursor:'pointer'}}>저장</button>
-                              <button onClick={cancelEditing} style={{background: '#9e9e9e', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '5px', cursor:'pointer'}}>취소</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
-                            <div style={{display:'flex', alignItems:'center', gap:'15px'}}>
-                              <span style={{color: '#ccc'}}>⋮⋮</span>
-                              <span style={{fontSize: '1.2rem'}}>{evt.timeOfDay === 'day' ? '☀️' : evt.timeOfDay === 'night' ? '🌙' : '🌓'}</span>
-                              <span style={{fontSize: '0.75rem', fontWeight: 'bold', color: '#999'}}>{evt.survivorCount}L : {evt.victimCount}D</span>
-                              <span style={{fontWeight: '500'}}>{evt.text}</span>
-                            </div>
-                            <div style={{display:'flex', gap:'8px'}}>
-                              <button onClick={() => startEditing(evt)} style={{background: '#e0e0e0', color: '#555', border: 'none', padding: '5px 12px', borderRadius: '5px', fontWeight:'bold', cursor:'pointer'}}>✏️ 수정</button>
-                              <button onClick={() => deleteEvent(evt._id)} style={{background: '#ff5252', color: 'white', border: 'none', padding: '5px 12px', borderRadius: '5px', fontWeight:'bold', cursor:'pointer'}}>삭제</button>
-                            </div>
-                          </div>
-                        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+          <button
+            onClick={handleSubmit}
+            style={{
+              padding: '12px 14px',
+              borderRadius: 10,
+              border: '1px solid rgba(0,0,0,0.12)',
+              background: '#4f46e5',
+              color: '#fff',
+              cursor: 'pointer',
+              minWidth: 120,
+            }}
+          >
+            {editingId ? '수정 저장' : '추가'}
+          </button>
+          {editingId && (
+            <button
+              onClick={resetForm}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: '1px solid rgba(0,0,0,0.12)',
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              취소
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 목록 */}
+      <div
+        style={{
+          background: '#fff',
+          border: '1px solid rgba(0,0,0,0.12)',
+          borderRadius: 14,
+          padding: 14,
+        }}
+      >
+        <h2 style={{ margin: '0 0 10px 0', fontSize: 18 }}>이벤트 목록</h2>
+
+        {filteredEvents.length === 0 ? (
+          <div style={{ color: 'rgba(0,0,0,0.6)' }}>이벤트가 없습니다.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {filteredEvents.map((ev, idx) => (
+              <div
+                key={ev._id}
+                draggable={reorderMode}
+                onDragStart={() => setDragIndex(idx)}
+                onDragOver={(e) => reorderMode && e.preventDefault()}
+                onDrop={() => {
+                  if (!reorderMode) return;
+                  moveItem(dragIndex, idx);
+                  setDragIndex(null);
+                }}
+                style={{
+                  border: '1px solid rgba(0,0,0,0.12)',
+                  borderRadius: 12,
+                  padding: 12,
+                  background: reorderMode ? 'rgba(79,70,229,0.05)' : '#fff',
+                  cursor: reorderMode ? 'move' : 'default',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontWeight: 800 }}>{ev.title}</div>
+                    <div style={{ color: 'rgba(0,0,0,0.7)', marginTop: 4 }}>{ev.text}</div>
+                    <div style={{ color: 'rgba(0,0,0,0.55)', marginTop: 6, fontSize: 13 }}>
+                      시간: {ev.time || 'any'} / 맵: {ev.mapId ? '지정' : '무관'} / 구역: {ev.zoneId ? '지정' : '무관'} / 사용:{' '}
+                      {ev.enabled === false ? 'N' : 'Y'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'start' }}>
+                    <button
+                      onClick={() => handleEdit(ev)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(0,0,0,0.12)',
+                        background: '#fff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      수정
+                    </button>
+                    <button
+                      onClick={() => handleDelete(ev._id)}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(255,0,0,0.3)',
+                        background: 'rgba(255, 235, 235, 0.8)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </div>
+
+                {(ev.killers?.length || ev.victims?.length || ev.benefits?.length) && (
+                  <div style={{ marginTop: 10, display: 'grid', gap: 6, fontSize: 13 }}>
+                    {Array.isArray(ev.killers) && ev.killers.length > 0 && (
+                      <div>
+                        <b>살인자:</b> {ev.killers.join(', ')}
                       </div>
                     )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
+                    {Array.isArray(ev.victims) && ev.victims.length > 0 && (
+                      <div>
+                        <b>피해자:</b> {ev.victims.join(', ')}
+                      </div>
+                    )}
+                    {Array.isArray(ev.benefits) && ev.benefits.length > 0 && (
+                      <div>
+                        <b>이로운 효과:</b> {ev.benefits.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+            ))}
+          </div>
+        )}
       </div>
-    </main>
+    </div>
   );
 }

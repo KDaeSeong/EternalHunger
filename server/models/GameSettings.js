@@ -4,6 +4,15 @@ const GameSettingsSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   presetName: { type: String, default: "기본 설정" },
 
+  // 🎮 룰 프리셋
+  // - ER_S10: 이터널 리턴 시즌10 컨셉(페이즈 버튼 + 내부 틱) 기반
+  // - LEGACY: 기존 단순화 규칙
+  rulesetId: { type: String, default: 'ER_S10' },
+
+  // 🗺️ 시뮬레이션에서 선택한 기본 맵(로드맵 2번 연동)
+  // - 관전자(Observer) 모드에서 "어떤 맵에서 시뮬을 돌릴지"를 고정하기 위한 값
+  activeMapId: { type: mongoose.Schema.Types.ObjectId, ref: 'Map', required: false },
+
   // ★ [추가됨] 스탯 가중치 (이게 있어야 보정치가 저장됩니다!)
   statWeights: {
     str: { type: Number, default: 1.0 }, // 근력

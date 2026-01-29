@@ -105,4 +105,183 @@ router.put('/maps/:id/connect', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "동선 연결 실패" }); }
 });
 
+
+// =========================
+// ✅ 아이템 수정(로드맵 1-1)
+// PUT /api/admin/items/:id
+router.put('/items/:id', async (req, res) => {
+  try {
+    const updated = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
+    res.json({ message: '아이템이 수정되었습니다.', item: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '수정 실패' });
+  }
+});
+
+// =========================
+// ✅ 맵 수정/삭제(로드맵 2번)
+// PUT /api/admin/maps/:id
+router.put('/maps/:id', async (req, res) => {
+  try {
+    const updated = await Map.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
+    res.json({ message: '맵이 수정되었습니다.', map: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '맵 수정 실패' });
+  }
+});
+
+// DELETE /api/admin/maps/:id
+router.delete('/maps/:id', async (req, res) => {
+  try {
+    const deleted = await Map.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
+    res.json({ message: '맵이 삭제되었습니다.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '맵 삭제 실패' });
+  }
+});
+
+// =========================
+// ✅ 키오스크 CRUD(로드맵 3번)
+const Kiosk = require('../models/Kiosk');
+
+router.get('/kiosks', async (req, res) => {
+  try {
+    const kiosks = await Kiosk.find({}).populate('mapId', 'name');
+    res.json(kiosks);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '키오스크 로드 실패' });
+  }
+});
+
+router.post('/kiosks', async (req, res) => {
+  try {
+    const kiosk = await new Kiosk(req.body).save();
+    res.json({ message: '키오스크가 추가되었습니다.', kiosk });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '키오스크 저장 실패' });
+  }
+});
+
+router.put('/kiosks/:id', async (req, res) => {
+  try {
+    const updated = await Kiosk.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
+    res.json({ message: '키오스크가 수정되었습니다.', kiosk: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '키오스크 수정 실패' });
+  }
+});
+
+router.delete('/kiosks/:id', async (req, res) => {
+  try {
+    const deleted = await Kiosk.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
+    res.json({ message: '키오스크가 삭제되었습니다.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '키오스크 삭제 실패' });
+  }
+});
+
+// =========================
+// ✅ 드론 판매 목록 CRUD(로드맵 4번)
+const DroneOffer = require('../models/DroneOffer');
+
+router.get('/drone-offers', async (req, res) => {
+  try {
+    const offers = await DroneOffer.find({}).populate('itemId', 'name tier rarity');
+    res.json(offers);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '드론 판매 목록 로드 실패' });
+  }
+});
+
+router.post('/drone-offers', async (req, res) => {
+  try {
+    const offer = await new DroneOffer(req.body).save();
+    res.json({ message: '드론 판매가 추가되었습니다.', offer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '저장 실패' });
+  }
+});
+
+router.put('/drone-offers/:id', async (req, res) => {
+  try {
+    const updated = await DroneOffer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    res.json({ message: '수정 완료', offer: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '수정 실패' });
+  }
+});
+
+router.delete('/drone-offers/:id', async (req, res) => {
+  try {
+    const deleted = await DroneOffer.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
+    res.json({ message: '삭제 완료' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '삭제 실패' });
+  }
+});
+
+// =========================
+// ✅ 특전 CRUD(로드맵 7번)
+const Perk = require('../models/Perk');
+
+router.get('/perks', async (req, res) => {
+  try {
+    const perks = await Perk.find({}).sort({ lpCost: 1 });
+    res.json(perks);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '특전 로드 실패' });
+  }
+});
+
+router.post('/perks', async (req, res) => {
+  try {
+    const perk = await new Perk(req.body).save();
+    res.json({ message: '특전이 추가되었습니다.', perk });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '특전 저장 실패' });
+  }
+});
+
+router.put('/perks/:id', async (req, res) => {
+  try {
+    const updated = await Perk.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updated) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
+    res.json({ message: '특전이 수정되었습니다.', perk: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '특전 수정 실패' });
+  }
+});
+
+router.delete('/perks/:id', async (req, res) => {
+  try {
+    const deleted = await Perk.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
+    res.json({ message: '특전이 삭제되었습니다.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '특전 삭제 실패' });
+  }
+});
+
 module.exports = router;

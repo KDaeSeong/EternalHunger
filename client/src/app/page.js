@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import '../styles/Home.css';
+import { API_BASE } from '../utils/api';
 
 export default function Home() {
   const [rankings, setRankings] = useState({ wins: [], kills: [], points: [] });
@@ -34,24 +35,38 @@ export default function Home() {
         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         
         // 2. 데이터 요청
-        const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/rankings', config);
-        const data = res.data || [];
+        const res = await axios.get(`${API_BASE}/rankings`, config);
+        const payload = res.data;
 
-        // 3. ★ [중요] 서버 데이터(배열)를 화면에 맞는 모양(객체)으로 변환
-        // (그냥 setRankings(res.data) 해버리면 wins, kills가 없어서 에러 납니다!)
-        
-        // (1) 최다 우승
-        const wins = [...data].sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0)).slice(0, 3);
-        // (2) 학살자
-        const kills = [...data].sort((a, b) => (b.totalKills || 0) - (a.totalKills || 0)).slice(0, 3);
-        // (3) 레전드 (점수 계산: 우승*100 + 킬*10)
-        const points = [...data].sort((a, b) => {
-             const scoreA = (a.totalWins * 100) + (a.totalKills * 10);
-             const scoreB = (b.totalWins * 100) + (b.totalKills * 10);
-             return scoreB - scoreA;
-        }).slice(0, 3);
+        // 서버(/api/rankings)는 { wins:[], kills:[], points:[] } 형태로 내려줍니다.
+        // (과거에 배열을 내려주던 경우가 있을 수 있어, 배열도 호환 처리)
+        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+          const wins = Array.isArray(payload.wins) ? payload.wins : [];
+          const kills = Array.isArray(payload.kills) ? payload.kills : [];
+          const points = Array.isArray(payload.points) ? payload.points : [];
+          setRankings({ wins, kills, points });
+        } else {
+          const data = Array.isArray(payload) ? payload : [];
 
-        setRankings({ wins, kills, points });
+          // (1) 최다 우승
+          const wins = [...data]
+            .sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0))
+            .slice(0, 3);
+          // (2) 학살자
+          const kills = [...data]
+            .sort((a, b) => (b.totalKills || 0) - (a.totalKills || 0))
+            .slice(0, 3);
+          // (3) 레전드 (점수 계산: 우승*100 + 킬*10)
+          const points = [...data]
+            .sort((a, b) => {
+              const scoreA = (Number(a.totalWins) * 100) + (Number(a.totalKills) * 10);
+              const scoreB = (Number(b.totalWins) * 100) + (Number(b.totalKills) * 10);
+              return scoreB - scoreA;
+            })
+            .slice(0, 3);
+
+          setRankings({ wins, kills, points });
+        }
         setLoading(false);
 
       } catch (err) {
@@ -116,6 +131,20 @@ export default function Home() {
             <h3>게임 밸런스</h3>
             <p>확률 및 가중치 조절</p>
         </Link>
+
+        <Link href="/board" className="menu-card">
+            <div className="icon">🗣️</div>
+            <h3>게시판</h3>
+            <p>자유롭게 글을 작성하고 공유합니다.</p>
+        </Link>
+
+        {user?.isAdmin ? (
+          <Link href="/admin" className="menu-card">
+              <div className="icon">🛠️</div>
+              <h3>관리자</h3>
+              <p>아이템/맵/상점/특전 관리</p>
+          </Link>
+        ) : null}
       </section>
 
       {/* 3. 게임 시작 버튼 */}
@@ -149,7 +178,7 @@ export default function Home() {
                                 <span className="rank-badge">{idx + 1}</span>
                                 <div className="rank-info">
                                     <span className="rank-name">{char.name}</span>
-                                    <span className="rank-val">{char.totalWins}회 우승</span>
+                                    <span className="rank-val">{(char.totalWins ?? char.records?.totalWins ?? 0)}회 우승</span>
                                 </div>
                             </li>
                         )) : <li className="no-data">아직 우승자가 없습니다.</li>}
@@ -166,7 +195,7 @@ export default function Home() {
                                 <div className="rank-info">
                                     <span className="rank-name">{char.name}</span>
                                     <span className="rank-val" style={{color:'#ff5252'}}>
-                                        {char.totalKills} 킬
+                                        {(char.totalKills ?? char.records?.totalKills ?? 0)} 킬
                                     </span>
                                 </div>
                             </li>
@@ -178,13 +207,13 @@ export default function Home() {
                 <div className="hof-card">
                     <h3>💎 레전드 (Points)</h3>
                     <ul>
-                        {rankings.points && rankings.points.length > 0 ? rankings.points.map((char, idx) => (
+                        {rankings.points && rankings.points.length > 0 ? rankings.points.map((p, idx) => (
                             <li key={idx} className={`rank-${idx + 1}`}>
                                 <span className="rank-badge">{idx + 1}</span>
                                 <div className="rank-info">
-                                    <span className="rank-name">{char.name}</span>
+                                    <span className="rank-name">{p.username ?? p.name ?? 'Unknown'}</span>
                                     <span className="rank-val" style={{color:'#7b1fa2'}}>
-                                        {(char.totalWins * 100) + (char.totalKills * 10)} LP
+                                        {p.lp ?? ((Number(p.totalWins ?? p.records?.totalWins ?? 0) * 100) + (Number(p.totalKills ?? p.records?.totalKills ?? 0) * 10))} LP
                                     </span>
                                 </div>
                             </li>

@@ -9,6 +9,11 @@ const EventSchema = new mongoose.Schema({
   survivorCount: { type: Number, default: 1 },
   victimCount: { type: Number, default: 0 },
   timeOfDay: { type: String, default: 'both' }, // 'both', 'day', 'night'
+  // 🗺️ 구역/맵 조건 (로드맵 6번·2번 연동)
+  mapId: { type: mongoose.Schema.Types.ObjectId, ref: 'Map', required: false },
+  zoneId: { type: String, required: false }, // 맵 내부 구역 식별자
+  // ✅ 추가 조건(확장용): 예) { phaseMin:1, phaseMax:3, requiresItemTag:'heal' }
+  conditions: { type: Object, default: {} },
   image: String
 }, { timestamps: true });
 

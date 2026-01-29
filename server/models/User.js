@@ -5,6 +5,15 @@ const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   lp: { type: Number, default: 0 }, 
+
+  credits: { type: Number, default: 0 }, // 크레딧(로드맵 5번)
+
+  // ★ 누적 전적(유저 기준)
+  statistics: {
+    totalGames: { type: Number, default: 0 },
+    totalKills: { type: Number, default: 0 },
+    totalWins: { type: Number, default: 0 }
+  },
   
   // ★ 관리자 여부 추가 (기본값은 false)
   isAdmin: { type: Boolean, default: false },
@@ -12,6 +21,7 @@ const UserSchema = new mongoose.Schema({
     name: String,
     unlockedAt: { type: Date, default: Date.now }
   }],
+  perks: [{ type: String }], // 구매/해금한 특전 코드 목록
   
   personalHistory: [{
     charId: String,       
