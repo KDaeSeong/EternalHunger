@@ -598,10 +598,29 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
     setShowResultModal(true);
 
     if (w) addLog(`🏆 게임 종료! 최후의 생존자: [${w.name}]`, 'highlight');
-    else addLog('💀 생존자가 아무도 없습니다...', 'death');
+    else addLog('💀 생존자가 아무도 없습니다...', 'death');// 로컬 백업 저장(서버 저장/조회가 꼬여도 홈에서 "내 기록"은 최소한 보이게)
+if (w) {
+  try {
+    const me = JSON.parse(localStorage.getItem('user') || 'null');
+    const username = me?.username || me?.id || 'guest';
+    const key = 'eh_local_hof_v1';
 
-    // 로컬 백업 저장(서버 저장/조회가 꼬여도 화면에 내 기록 유지)
-    if (w) saveLocalHof(w, finalKills, [...survivors, ...dead]);
+    const raw = localStorage.getItem(key);
+    const data = raw ? JSON.parse(raw) : { wins: {}, kills: {} };
+    if (!data.wins) data.wins = {};
+    if (!data.kills) data.kills = {};
+
+    const wKey = String(w?._id ?? w?.id ?? '');
+    const kills = Number(finalKills?.[wKey] || 0);
+
+    data.wins[username] = Number(data.wins[username] || 0) + 1;
+    data.kills[username] = Number(data.kills[username] || 0) + kills;
+
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {
+    // localStorage/JSON 실패는 무시
+  }
+}
 
     // 서버 저장
     try {
