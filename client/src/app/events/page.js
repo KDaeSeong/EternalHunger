@@ -2,10 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../utils/api';
+
+import '../../styles/ERDetails.css';
+import '../../styles/EREvents.css';
 
 export default function EventsPage() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [maps, setMaps] = useState([]);
   const [message, setMessage] = useState('');
@@ -35,10 +40,30 @@ export default function EventsPage() {
       return;
     }
 
+// 화면이 켜진 뒤에만 localStorage에 접근 (에러 방지)
+const userData = localStorage.getItem('user');
+if (userData) {
+  try {
+    setUser(JSON.parse(userData));
+  } catch {
+    // 파싱 실패 시 무시
+  }
+}
+
+
     fetchEvents();
     fetchMaps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+const handleLogout = () => {
+  if (confirm('로그아웃 하시겠습니까?')) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    window.location.href = '/';
+  }
+};
 
   const fetchEvents = async () => {
     try {
@@ -199,8 +224,54 @@ export default function EventsPage() {
   const zones = Array.isArray(currentMap?.zones) ? currentMap.zones : [];
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 12px' }}>
-      <h1 style={{ fontSize: 26, marginBottom: 10 }}>이벤트 설정</h1>
+    <main>
+      <header>
+        <section id="header-id1">
+          <ul>
+            {/* 1. 로고 */}
+            <li>
+              <Link href="/" className="logo-btn">
+                <div className="text-logo">
+                  <span className="logo-top">PROJECT</span>
+                  <span className="logo-main">ARENA</span>
+                </div>
+              </Link>
+            </li>
+
+            {/* 2. 네비게이션 메뉴 */}
+            <li><Link href="/">메인</Link></li>
+            <li><Link href="/characters">캐릭터 설정</Link></li>
+            <li><Link href="/details">캐릭터 상세설정</Link></li>
+            <li><Link id="EREvent" href="/events">이벤트 설정</Link></li>
+            <li><Link href="/modifiers">보정치 설정</Link></li>
+
+            {/* 3. 게임 시작 버튼 (강조) */}
+            <li><Link href="/simulation" style={{ color: '#0288d1', fontWeight: 'bold' }}>▶ 게임 시작</Link></li>
+
+            {/* 4. 우측 끝 유저 정보 */}
+            <li className="auth-menu">
+              {user ? (
+                <div className="user-info">
+                  <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp})</span>
+                  <button className="logout-btn" onClick={handleLogout}>🚪 로그아웃</button>
+                </div>
+              ) : (
+                <div className="auth-btns">
+                  <Link href="/login" className="login-btn">🔑 로그인</Link>
+                  <Link href="/signup" className="signup-btn">📝 회원가입</Link>
+                </div>
+              )}
+            </li>
+          </ul>
+        </section>
+      </header>
+
+      <div className="page-header">
+        <h1>이벤트 설정</h1>
+        <p>이벤트를 추가/수정하고 조건(시간/맵/구역)을 설정해보세요.</p>
+      </div>
+
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '20px 12px' }}>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <input
@@ -608,5 +679,6 @@ export default function EventsPage() {
         )}
       </div>
     </div>
+    </main>
   );
 }

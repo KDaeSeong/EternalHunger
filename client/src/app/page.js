@@ -11,6 +11,27 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
+// 내 기록만 표시(명예의 전당: 최다 우승/최다 킬)
+const myUsername = user?.username ?? null;
+const pickMineTop3 = (list, scoreFn) => {
+  if (!myUsername) return [];
+  const arr = Array.isArray(list) ? list : [];
+  const mine = arr.filter((x) => {
+    const owner =
+      x?.username ??
+      x?.user?.username ??
+      x?.ownerUsername ??
+      x?.owner?.username ??
+      x?.createdBy ??
+      x?.playerUsername;
+    return owner === myUsername;
+  });
+  return [...mine].sort((a, b) => scoreFn(b) - scoreFn(a)).slice(0, 3);
+};
+
+const myWinsTop3 = pickMineTop3(rankings.wins, (x) => Number(x?.totalWins ?? x?.records?.totalWins ?? 0));
+const myKillsTop3 = pickMineTop3(rankings.kills, (x) => Number(x?.totalKills ?? x?.records?.totalKills ?? 0));
+
   // ★ 로그아웃 함수
   const handleLogout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
@@ -173,7 +194,8 @@ export default function Home() {
                 <div className="hof-card">
                     <h3>👑 최다 우승</h3>
                     <ul>
-                        {rankings.wins && rankings.wins.length > 0 ? rankings.wins.map((char, idx) => (
+                        {user ? (
+                        myWinsTop3 && myWinsTop3.length > 0 ? myWinsTop3.map((char, idx) => (
                             <li key={idx} className={`rank-${idx + 1}`}>
                                 <span className="rank-badge">{idx + 1}</span>
                                 <div className="rank-info">
@@ -181,7 +203,10 @@ export default function Home() {
                                     <span className="rank-val">{(char.totalWins ?? char.records?.totalWins ?? 0)}회 우승</span>
                                 </div>
                             </li>
-                        )) : <li className="no-data">아직 우승자가 없습니다.</li>}
+                        )) : <li className="no-data">아직 내 우승 기록이 없습니다.</li>
+                    ) : (
+                        <li className="no-data">로그인 후 내 우승 기록을 확인할 수 있어요.</li>
+                    )}
                     </ul>
                 </div>
 
@@ -189,7 +214,8 @@ export default function Home() {
                 <div className="hof-card">
                     <h3>💀 학살자 (Kills)</h3>
                     <ul>
-                        {rankings.kills && rankings.kills.length > 0 ? rankings.kills.map((char, idx) => (
+                        {user ? (
+                        myKillsTop3 && myKillsTop3.length > 0 ? myKillsTop3.map((char, idx) => (
                             <li key={idx} className={`rank-${idx + 1}`}>
                                 <span className="rank-badge">{idx + 1}</span>
                                 <div className="rank-info">
@@ -199,7 +225,10 @@ export default function Home() {
                                     </span>
                                 </div>
                             </li>
-                        )) : <li className="no-data">아직 기록이 없습니다.</li>}
+                        )) : <li className="no-data">아직 내 킬 기록이 없습니다.</li>
+                    ) : (
+                        <li className="no-data">로그인 후 내 킬 기록을 확인할 수 있어요.</li>
+                    )}
                     </ul>
                 </div>
 
