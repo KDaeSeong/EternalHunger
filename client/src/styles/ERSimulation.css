@@ -5,10 +5,10 @@
     display: flex;
     gap: 30px;
     height: 80vh; /* 화면 꽉 차게 */
+    min-height: 0; /* flex 내부 스크롤 허용 */
     margin-top: 20px;
     flex-wrap: wrap;
     align-items: stretch;
-    min-height: 0; /* flex 내부 스크롤 허용 */
 }
 
 /* === 좌측: 생존자 보드 === */
@@ -23,6 +23,8 @@
     border-radius: 15px;
     border: 2px solid #ddd;
     overflow-y: auto;
+    height: 100%;      /* 컨테이너 높이에 맞춰 고정 */
+    min-height: 0;     /* 내부 스크롤이 '늘어남'으로 바뀌지 않게 */
     box-sizing: border-box; /* 테두리 포함 크기 계산 (삐져나옴 방지) */
     box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
 }
@@ -70,6 +72,11 @@
 .survivor-card span {
     font-size: 0.85rem;
     line-height: 1.2;
+    height: 2.4em; /* 2줄 고정(1.2 * 2) */
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     word-break: keep-all; /* 단어 중간에 끊기지 않게 */
     color: #333;
     font-weight: 600;
@@ -82,12 +89,13 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-height: 0; /* 로그창 overflow가 제대로 동작하도록 */
     border-radius: 15px;
     border: 5px solid #444;
     overflow: hidden;
     color: white;
     transition: background 0.5s ease; /* 색 바뀔 때 부드럽게 */
-    min-height: 0; /* 로그가 늘어나도 화면 높이 고정 */
 }
 
 /* 🌞 아침 배경: 산뜻한 하늘색 */
@@ -97,7 +105,6 @@
 /* 아침에는 로그 배경을 좀 더 진하게 해서 글씨 잘 보이게 */
 .morning-mode .log-window {
     background: rgba(0, 0, 0, 0.3); 
-    min-height: 0; /* flex 아이템 스크롤 핵심 */
 }
 
 /* 🌙 밤 배경: 어두운 밤하늘색 */
@@ -122,6 +129,7 @@
 /* 로그 창 */
 .log-window {
     flex-grow: 1;
+    min-height: 0; /* flex 자식 overflow-y:auto 필수 */
     padding: 30px;
     overflow-y: auto;
     font-family: 'Malgun Gothic', sans-serif;
@@ -180,9 +188,9 @@
 /* 컨트롤 패널 (버튼) */
 .control-panel {
     padding: 20px;
+    flex-shrink: 0; /* 하단 패널이 레이아웃을 깨며 밀지 않게 */
     background: #333;
     text-align: center;
-    flex-shrink: 0; /* 하단 버튼 영역이 로그 스크롤을 밀지 않게 */
 }
 
 .control-row {

@@ -93,7 +93,7 @@ const activeMapName = useMemo(() => {
     note: '',
   });
 
-  const logEndRef = useRef(null);
+  const logBoxRef = useRef(null);
   const hasInitialized = useRef(false);
   const forbiddenCacheRef = useRef({});
 
@@ -114,10 +114,13 @@ const activeMapName = useMemo(() => {
   };
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  const el = logBoxRef.current;
+  if (!el) return;
+  // ✅ 로그가 쌓여도 "페이지"가 아니라 로그 창 내부만 스크롤되게 고정
+  el.scrollTop = el.scrollHeight;
+}, [logs]);
 
-  // 선택 캐릭터 기본값 유지
+// 선택 캐릭터 기본값 유지
   useEffect(() => {
     if (!survivors?.length) {
       setSelectedCharId('');
@@ -1335,12 +1338,10 @@ if (killCredit > 0) {
             </div>
           ) : null}
 
-          <div className="log-window">
+          <div className="log-window" ref={logBoxRef}>
             {logs.map((log) => (
               <div key={log.id} className={`log-message ${log.type}`}>{log.text}</div>
-            ))}
-            <div ref={logEndRef} />
-          </div>
+            ))}          </div>
 
           <div className="control-panel">
             <div className="control-row">
