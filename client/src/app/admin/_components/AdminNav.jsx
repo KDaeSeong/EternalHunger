@@ -1,47 +1,62 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-/**
- * Admin 좌측 네비게이션
- * - /admin(대시보드) 활성화 처리를 정확히
- * - 하위 경로(/admin/items/...)일 때도 해당 메뉴가 활성화되도록 처리
- */
+const items = [
+  { href: '/admin', label: '대시보드' },
+  { href: '/admin/items', label: '아이템' },
+  { href: '/admin/maps', label: '맵/구역' },
+  { href: '/admin/kiosks', label: '키오스크' },
+  { href: '/admin/drone', label: '전송 드론' },
+  { href: '/admin/credits', label: '크레딧' },
+  { href: '/admin/perks', label: '특전' },
+  { href: '/board', label: '게시판(유저)' },
+  { href: '/events', label: '이벤트(유저)' },
+];
+
 export default function AdminNav() {
-  const pathname = usePathname() || "/";
+  const pathname = usePathname();
 
-  const items = [
-    { label: "Dashboard", href: "/admin" },
-    { label: "Items", href: "/admin/items" },
-    { label: "Users", href: "/admin/users" },
-    { label: "Events", href: "/admin/events" },
-    { label: "Posts", href: "/admin/posts" },
-  ];
+  const navStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  };
 
-  const isActive = (href) => {
-    if (!href) return false;
-    if (href === "/admin") return pathname === "/admin";
-    return pathname === href || pathname.startsWith(href + "/");
+  const linkBase = {
+    display: 'block',
+    padding: '10px 12px',
+    borderRadius: 10,
+    textDecoration: 'none',
+    color: '#e5e7eb',
+    fontWeight: 700,
+    letterSpacing: '-0.2px',
+  };
+
+  const linkActive = {
+    background: '#2563eb',
+    color: '#ffffff',
   };
 
   return (
-    <nav className="flex flex-col gap-1">
-      {items.map((item) => {
-        const active = isActive(item.href);
+    <nav className="admin-nav" style={navStyle}>
+      {items.map((it) => {
+        // '/admin'은 모든 '/admin/*'의 prefix라서, 여기만 예외로 "정확히 일치"일 때만 활성 처리
+        const active =
+          it.href === '/admin'
+            ? pathname === '/admin'
+            : pathname === it.href || pathname.startsWith(`${it.href}/`);
 
         return (
           <Link
-            key={item.href}
-            href={item.href}
-            className={[
-              "rounded-lg px-3 py-2 text-sm transition-colors",
-              "hover:bg-white/10 hover:text-white",
-              active ? "bg-white/15 text-white" : "text-white/70",
-            ].join(" ")}
-            aria-current={active ? "page" : undefined}
+            key={it.href}
+            href={it.href}
+            className={active ? 'active' : ''}
+            style={active ? { ...linkBase, ...linkActive } : linkBase}
+            aria-current={active ? 'page' : undefined}
           >
-            {item.label}
+            {it.label}
           </Link>
         );
       })}
