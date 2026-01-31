@@ -11,16 +11,12 @@ function hasAnyCookie(request, names) {
 export function middleware(request) {
   const pathname = request.nextUrl.pathname || '';
 
-  const isAdminPage = pathname.startsWith('/admin');
-  const isAdminApi = pathname.startsWith('/api/admin');
+  // ✅ Admin 페이지(/admin/**)는 middleware에서 막지 않는다.
+  // - 이유: localStorage 토큰은 서버(middleware)에서 볼 수 없음
+  // - 대신 AdminShell(클라이언트)에서 로그인/권한 체크 후 리다이렉트 처리
 
-  // /admin, /api/admin 이하만 가드
-  if (!isAdminPage && !isAdminApi) {
-    return NextResponse.next();
-  }
-
-  // CORS preflight는 통과
-  if (request.method === 'OPTIONS') {
+  // ✅ Admin API(/api/admin/**)만 middleware에서 가드한다.
+  if (!pathname.startsWith('/api/admin')) {
     return NextResponse.next();
   }
 
@@ -32,20 +28,10 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // API는 401 JSON, 페이지는 리다이렉트
-  if (isAdminApi) {
-    return NextResponse.json(
-      { ok: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
-      { status: 401 }
-    );
-  }
-
-  const url = request.nextUrl.clone();
-  url.pathname = '/';
-  url.searchParams.set('from', pathname);
-  return NextResponse.redirect(url);
+  // API는 리다이렉트 대신 401 JSON
+  return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/api/admin/:path*'],
 };

@@ -37,6 +37,15 @@ export default function CharactersPage() {
   };
 
  // 1. 서버에서 데이터 불러오기
+    // 토큰을 Next.js API Route에서도 읽을 수 있게 쿠키로 동기화
+  const syncTokenCookie = (token) => {
+    try {
+      document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+    } catch (e) {
+      // 쿠키 저장 실패해도 UI는 계속 진행
+    }
+  };
+
   const fetchCharacters = async () => {
       const token = localStorage.getItem('token');
       try {

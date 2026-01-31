@@ -8,6 +8,7 @@
     margin-top: 20px;
     flex-wrap: wrap;
     align-items: stretch;
+    min-height: 0; /* flex 내부 스크롤 허용 */
 }
 
 /* === 좌측: 생존자 보드 === */
@@ -86,6 +87,7 @@
     overflow: hidden;
     color: white;
     transition: background 0.5s ease; /* 색 바뀔 때 부드럽게 */
+    min-height: 0; /* 로그가 늘어나도 화면 높이 고정 */
 }
 
 /* 🌞 아침 배경: 산뜻한 하늘색 */
@@ -95,6 +97,7 @@
 /* 아침에는 로그 배경을 좀 더 진하게 해서 글씨 잘 보이게 */
 .morning-mode .log-window {
     background: rgba(0, 0, 0, 0.3); 
+    min-height: 0; /* flex 아이템 스크롤 핵심 */
 }
 
 /* 🌙 밤 배경: 어두운 밤하늘색 */
@@ -179,6 +182,7 @@
     padding: 20px;
     background: #333;
     text-align: center;
+    flex-shrink: 0; /* 하단 버튼 영역이 로그 스크롤을 밀지 않게 */
 }
 
 .control-row {

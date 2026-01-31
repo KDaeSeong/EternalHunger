@@ -70,6 +70,11 @@ export default function SimulationPage() {
   const [maps, setMaps] = useState([]);
   const [activeMapId, setActiveMapId] = useState('');
 
+const activeMapName = useMemo(() => {
+  const list = Array.isArray(maps) ? maps : [];
+  return list.find((m) => String(m?._id) === String(activeMapId))?.name || '맵 없음';
+}, [maps, activeMapId]);
+
   // ✅ 상점/조합/교환 패널
   const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | trade
   const [selectedCharId, setSelectedCharId] = useState('');
@@ -393,16 +398,12 @@ export default function SimulationPage() {
 
         const mapsList = Array.isArray(mapsRes) ? mapsRes : [];
         setMaps(mapsList);
-
-        // 우선순위: (1) 서버에 저장된 activeMapId (2) 첫 번째 맵
-        const initialMapId = (settingRes?.activeMapId ? String(settingRes.activeMapId) : '') || (mapsList[0]?._id ? String(mapsList[0]._id) : '');
-        if (initialMapId) {
-          setActiveMapId(initialMapId);
-          // 서버에 저장값이 없으면, 첫 맵을 기본값으로 저장해 둡니다.
-          if (!settingRes?.activeMapId) {
-            apiPut('/settings', { activeMapId: initialMapId }).catch(() => {});
-          }
-        }
+// ✅ 시뮬레이션은 "플레이어가 맵을 선택"하지 않습니다.
+// 등록된 맵 중 첫 번째 맵을 시작점으로 사용합니다. (이동/진행 로직은 런타임에서 처리)
+const initialMapId = (mapsList[0]?._id ? String(mapsList[0]._id) : '');
+if (initialMapId) {
+  setActiveMapId(initialMapId);
+}
 
         const initialMap = mapsList.find((m) => String(m?._id) === String(initialMapId)) || null;
         const initialZoneIds = (Array.isArray(initialMap?.zones) && initialMap.zones.length)
@@ -414,11 +415,90 @@ export default function SimulationPage() {
         const det = ruleset?.detonation;
         const energy = ruleset?.gadgetEnergy;
 
+// 🎒 추천 상급 장비(또는 역할)에 맞춰 시작 구역을 가중치 랜덤으로 선택
+const pickStartZoneIdForChar = (c) => {
+  const zonesArr = Array.isArray(initialMap?.zones) ? initialMap.zones : [];
+  const fallback = () => initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)];
+  if (!zonesArr.length) return fallback();
+
+  const texts = [];
+  const addText = (v) => {
+    if (v === null || v === undefined) return;
+    const s = String(v).trim();
+    if (s) texts.push(s.toLowerCase());
+  };
+
+  const addFromList = (arr) => {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((g) => {
+      if (!g) return;
+      if (typeof g === 'string') return addText(g);
+      addText(g.name);
+      addText(g.kind);
+      addText(g.category);
+      addText(g.type);
+      if (Array.isArray(g.tags)) g.tags.forEach(addText);
+    });
+  };
+
+  addFromList(c?.recommendedHighGear);
+  addFromList(c?.recommendedAdvancedGear);
+  addFromList(c?.recommendedGear);
+  addFromList(c?.advancedGear);
+
+  // 스탯 기반 힌트(데이터가 없을 때)
+  const st = c?.stats || c?.stat || c;
+  const keys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+  const top = keys
+    .map((k) => [k, Number(st?.[k] ?? st?.[k.toUpperCase()] ?? 0)])
+    .sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (top) addText(top);
+
+  // gear/stat 힌트를 zone name/tags에 매칭하기 위한 간단 사전
+  const keywordMap = {
+    keyboard: ['keyboard', '키보드', '키보'],
+    mouse: ['mouse', '마우스'],
+    monitor: ['monitor', '모니터'],
+    weapon: ['weapon', '무기', 'armory', '병기'],
+    armor: ['armor', '방어구', '갑옷'],
+    food: ['food', '음식', '식당', '편의'],
+    sht: ['shoot', '사격', '원거리', '총', 'gun'],
+    str: ['melee', '근접', '격투'],
+    int: ['lab', '연구', '전산', '컴퓨터'],
+    dex: ['craft', '제작', '공작'],
+  };
+
+  const expanded = new Set();
+  texts.forEach((t) => {
+    expanded.add(t);
+    Object.entries(keywordMap).forEach(([k, syns]) => {
+      const hit = t.includes(k) || syns.some((s) => t.includes(String(s).toLowerCase()));
+      if (hit) syns.forEach((s) => expanded.add(String(s).toLowerCase()));
+    });
+  });
+
+  const hints = [...expanded].filter(Boolean);
+  if (!hints.length) return fallback();
+
+  const candidates = zonesArr
+    .filter((z) => {
+      const name = String(z?.name || '').toLowerCase();
+      const tags = Array.isArray(z?.tags) ? z.tags.map((x) => String(x).toLowerCase()) : [];
+      return hints.some((h) => name.includes(h) || tags.includes(h));
+    })
+    .map((z) => String(z.zoneId));
+
+  const pool = candidates.length ? candidates : initialZoneIds;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
         const charsWithHp = (Array.isArray(charRes) ? charRes : []).map((c) => ({
           ...c,
           hp: 100,
-          zoneId: initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)],
+          zoneId: pickStartZoneIdForChar(c),
 
+
+          simCredits: 0,
           // 하이브리드(시즌10) 전용 상태
           detonationSec: det ? det.startSec : null,
           detonationMaxSec: det ? det.maxSec : null,
@@ -530,7 +610,9 @@ export default function SimulationPage() {
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
 
     // 💰 이번 페이즈 기본 크레딧(시즌10 컨셉)
-    let earnedCredits = Number(ruleset?.credits?.basePerPhase || 0);
+    const baseCredits = Number(ruleset?.credits?.basePerPhase || 0);
+
+    let earnedCredits = baseCredits;
 
     setDay(nextDay);
     setPhase(nextPhase);
@@ -814,8 +896,10 @@ export default function SimulationPage() {
               addLog(`⏱️ [${winner.name}] 처치 보상: 폭발 타이머 +${bonusSec}s`, 'system');
             }
             const killCredit = Number(ruleset?.credits?.kill || 0);
-            if (killCredit > 0) earnedCredits += killCredit;
-          }
+if (killCredit > 0) {
+  earnedCredits += killCredit;
+  winner.simCredits = Number(winner.simCredits || 0) + killCredit;
+}}
         }
       } else if (canDual && rand < eventProb) {
         // [🤝 2인 이벤트]
@@ -944,6 +1028,20 @@ export default function SimulationPage() {
 
     // 5. 생존자 업데이트
     const finalStepSurvivors = Array.from(survivorMap.values()).filter((s) => !newDeadIds.includes(s._id));
+
+    // 💳 크레딧은 화면에 직접 띄우지 않고, 캐릭터별(simCredits)로만 누적 표시합니다.
+    // - baseCredits(페이즈 기본)는 생존자에게 분배(합계=baseCredits)
+    if (baseCredits > 0 && finalStepSurvivors.length > 0) {
+      const aliveCount = finalStepSurvivors.length;
+      const share = Math.floor(baseCredits / aliveCount);
+      let rem = baseCredits - share * aliveCount;
+      finalStepSurvivors.forEach((s) => {
+        const add = share + (rem > 0 ? 1 : 0);
+        if (rem > 0) rem -= 1;
+        s.simCredits = Number(s.simCredits || 0) + add;
+      });
+    }
+
     setSurvivors(finalStepSurvivors);
 
     // 5.5) 경기 시간 진행(초)
@@ -954,11 +1052,9 @@ export default function SimulationPage() {
       try {
         const res = await apiPost('/credits/earn', { amount: earnedCredits });
         if (typeof res?.credits === 'number') setCredits(res.credits);
-        addLog(`💳 크레딧 +${earnedCredits} (누적: ${typeof res?.credits === 'number' ? res.credits : (credits + earnedCredits)})`, 'system');
-      } catch (e) {
+} catch (e) {
         // 서버가 꺼져있거나 네트워크 이슈가 있어도 시뮬레이션은 진행되도록
-        addLog(`⚠️ 크레딧 적립 실패: ${e?.response?.data?.error || e.message}`, 'death');
-      }
+}
     }
 
     if (finalStepSurvivors.length <= 1) {
@@ -1165,7 +1261,9 @@ export default function SimulationPage() {
 	                  📍 {getZoneName(char.zoneId || '__default__')}
 	                </div>
 
-                {settings?.rulesetId === 'ER_S10' && (
+                
+                <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
+{settings?.rulesetId === 'ER_S10' && (
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', fontSize: 12, opacity: 0.95 }}>
                     <span>⏳ {Number.isFinite(Number(char.detonationSec)) ? Math.max(0, Math.floor(Number(char.detonationSec))) : '-' }s</span>
                     <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
@@ -1205,7 +1303,9 @@ export default function SimulationPage() {
                 <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
                 <span>{char.name}</span>
                 <div className="zone-badge dead">📍 {getZoneName(char.zoneId || '__default__')}</div>
-                {killCounts[char._id] > 0 && <span className="kill-badge">⚔️{killCounts[char._id]}</span>}
+                
+                <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
+{killCounts[char._id] > 0 && <span className="kill-badge">⚔️{killCounts[char._id]}</span>}
               </div>
             ))}
           </div>
@@ -1219,26 +1319,12 @@ export default function SimulationPage() {
               <span className="weather-badge">{phase === 'morning' ? '☀ 맑음' : '🌙 밤'}</span>
               <span className="weather-badge">⏱ {formatClock(matchSec)}</span>
 
-              <div className="map-select" title={day > 0 ? '게임 시작 후에는 맵을 바꿀 수 없도록 잠가뒀습니다.' : ''}>
+              <div
+                className="map-select"
+                title="맵은 플레이어가 선택하지 않으며, 등록된 맵에서 캐릭터가 이동하면서 시뮬레이션이 진행됩니다."
+              >
                 <span className="map-select-label">🗺️</span>
-                <select
-                  value={activeMapId || ''}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setActiveMapId(id);
-                    apiPut('/settings', { activeMapId: id }).catch(() => {});
-                    if (id) {
-                      const name = (Array.isArray(maps) ? maps : []).find((m) => String(m._id) === String(id))?.name;
-                      addLog(`🗺️ 시뮬레이션 맵 선택: ${name || '알 수 없는 맵'}`, 'system');
-                    }
-                  }}
-                  disabled={day > 0}
-                >
-                  <option value="">맵 선택</option>
-                  {(Array.isArray(maps) ? maps : []).map((m) => (
-                    <option key={m._id} value={m._id}>{m.name}</option>
-                  ))}
-                </select>
+                <div className="map-select-current">{activeMapName}</div>
               </div>
             </div>
           </div>
@@ -1322,9 +1408,7 @@ export default function SimulationPage() {
           <div className="market-header">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
               <h2 style={{ margin: 0 }}>상점/조합/교환</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="market-credit">💳 {credits} Cr</div>
-                <button className="market-close" onClick={() => setShowMarketPanel(false)} title="패널 닫기">✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>                <button className="market-close" onClick={() => setShowMarketPanel(false)} title="패널 닫기">✕</button>
               </div>
             </div>
 

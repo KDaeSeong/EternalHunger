@@ -147,7 +147,13 @@ const myKillsTop3 = pickMineTop3(rankings.kills, (x) => Number(x?.totalKills ?? 
             <p>게임에서 발생할 사건 사고 정의</p>
         </Link>
 
-        <Link href="/modifiers" className="menu-card">
+        <Link href="/import" className="menu-card">
+    <div className="icon">📦</div>
+    <h3>이식/임포트</h3>
+    <p>NGUH JSON(events/characters) 업로드</p>
+</Link>
+
+<Link href="/modifiers" className="menu-card">
             <div className="icon">⚖️</div>
             <h3>게임 밸런스</h3>
             <p>확률 및 가중치 조절</p>
