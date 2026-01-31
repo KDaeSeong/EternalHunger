@@ -1,7 +1,7 @@
-import AdminShell from './_components/AdminShell';
+import AdminShell from "./_components/AdminShell";
 
 export const metadata = {
-  title: 'Admin | Eternal Hunger',
+  title: "Admin | EternalHunger",
 };
 
 export default function AdminLayout({ children }) {

@@ -1,30 +1,47 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-const items = [
-  { href: '/admin', label: '대시보드' },
-  { href: '/admin/items', label: '아이템' },
-  { href: '/admin/maps', label: '맵/구역' },
-  { href: '/admin/kiosks', label: '키오스크' },
-  { href: '/admin/drone', label: '전송 드론' },
-  { href: '/admin/credits', label: '크레딧' },
-  { href: '/admin/perks', label: '특전' },
-  { href: '/board', label: '게시판(유저)' },
-  { href: '/events', label: '이벤트(유저)' },
-];
-
+/**
+ * Admin 좌측 네비게이션
+ * - /admin(대시보드) 활성화 처리를 정확히
+ * - 하위 경로(/admin/items/...)일 때도 해당 메뉴가 활성화되도록 처리
+ */
 export default function AdminNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
+
+  const items = [
+    { label: "Dashboard", href: "/admin" },
+    { label: "Items", href: "/admin/items" },
+    { label: "Users", href: "/admin/users" },
+    { label: "Events", href: "/admin/events" },
+    { label: "Posts", href: "/admin/posts" },
+  ];
+
+  const isActive = (href) => {
+    if (!href) return false;
+    if (href === "/admin") return pathname === "/admin";
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
-    <nav className="admin-nav">
-      {items.map((it) => {
-        const active = pathname === it.href || pathname.startsWith(`${it.href}/`);
+    <nav className="flex flex-col gap-1">
+      {items.map((item) => {
+        const active = isActive(item.href);
+
         return (
-          <Link key={it.href} href={it.href} className={active ? 'active' : ''}>
-            {it.label}
+          <Link
+            key={item.href}
+            href={item.href}
+            className={[
+              "rounded-lg px-3 py-2 text-sm transition-colors",
+              "hover:bg-white/10 hover:text-white",
+              active ? "bg-white/15 text-white" : "text-white/70",
+            ].join(" ")}
+            aria-current={active ? "page" : undefined}
+          >
+            {item.label}
           </Link>
         );
       })}
