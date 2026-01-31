@@ -494,6 +494,43 @@ const pickStartZoneIdForChar = (c) => {
   const pool = candidates.length ? candidates : initialZoneIds;
   return pool[Math.floor(Math.random() * pool.length)];
 };
+// 로컬 명예의 전당(내 기록) 백업 저장: 서버 저장/조회가 꼬여도 최소한 로컬엔 남게 함
+const saveLocalHof = (winner, killCountsObj, participantsList) => {
+  try {
+    const me = JSON.parse(localStorage.getItem('user') || 'null');
+    const username = me?.username || me?.id || 'guest';
+    const key = `eh_hof_${username}`;
+
+    const raw = localStorage.getItem(key);
+    const state = raw ? JSON.parse(raw) : { winsByChar: {}, killsByChar: {}, updatedAt: 0 };
+
+    // 우승 1회
+    if (winner?.name) {
+      state.winsByChar[winner.name] = (state.winsByChar[winner.name] || 0) + 1;
+    }
+
+    // 킬 누적 (id -> name 변환)
+    const idToName = {};
+    (participantsList || []).forEach((p) => {
+      const id = p?._id || p?.id;
+      if (!id) return;
+      idToName[id] = p?.name || p?.nickname || p?.charName || p?.title;
+    });
+
+    Object.entries(killCountsObj || {}).forEach(([id, k]) => {
+      const name = idToName[id];
+      if (!name) return;
+      const v = Number(k || 0);
+      if (!Number.isFinite(v) || v <= 0) return;
+      state.killsByChar[name] = (state.killsByChar[name] || 0) + v;
+    });
+
+    state.updatedAt = Date.now();
+    localStorage.setItem(key, JSON.stringify(state));
+  } catch (e) {
+    console.error('local hof save failed', e);
+  }
+};
 
         const charsWithHp = (Array.isArray(charRes) ? charRes : []).map((c) => ({
           ...c,
@@ -552,7 +589,8 @@ const pickStartZoneIdForChar = (c) => {
     const w = finalSurvivors[0];
     const finalKills = latestKillCounts || killCounts;
 
-    const myKills = w ? (finalKills[w._id] || 0) : 0;
+    const wId = w ? (w._id || w.id) : null;
+    const myKills = wId ? (finalKills[wId] || 0) : 0;
     const rewardLP = 100 + myKills * 10;
 
     setWinner(w);
@@ -562,11 +600,14 @@ const pickStartZoneIdForChar = (c) => {
     if (w) addLog(`🏆 게임 종료! 최후의 생존자: [${w.name}]`, 'highlight');
     else addLog('💀 생존자가 아무도 없습니다...', 'death');
 
+    // 로컬 백업 저장(서버 저장/조회가 꼬여도 화면에 내 기록 유지)
+    if (w) saveLocalHof(w, finalKills, [...survivors, ...dead]);
+
     // 서버 저장
     try {
       if (w) {
         await apiPost('/game/end', {
-          winnerId: w._id,
+          winnerId: wId,
           killCounts: finalKills,
           fullLogs: logs.map((l) => l.text),
           participants: [...survivors, ...dead],

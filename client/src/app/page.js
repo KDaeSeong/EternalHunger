@@ -2,9 +2,8 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import '../styles/Home.css';
-import { API_BASE } from '../utils/api';
+import { apiGet } from '../utils/api';
 
 export default function Home() {
   const [rankings, setRankings] = useState({ wins: [], kills: [], points: [] });
@@ -51,34 +50,67 @@ const myKillsTop3 = pickMineTop3(rankings.kills, (x) => Number(x?.totalKills ?? 
   useEffect(() => {
     const fetchRankings = async () => {
       try {
-        // 1. 토큰 가져오기 (내 기록을 보려면 토큰 필수)
-        const token = localStorage.getItem('token');
-        const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-        
-        // 2. 데이터 요청
-        const res = await axios.get(`${API_BASE}/rankings`, config);
-        const payload = res.data;
+        // 1) 서버에서 "내 랭킹"을 가져옵니다. (apiGet은 토큰/쿠키 처리를 공통 유틸에 위임)
+const payload = await apiGet('/rankings');
 
         // 서버(/api/rankings)는 { wins:[], kills:[], points:[] } 형태로 내려줍니다.
         // (과거에 배열을 내려주던 경우가 있을 수 있어, 배열도 호환 처리)
         if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-          const wins = Array.isArray(payload.wins) ? payload.wins : [];
-          const kills = Array.isArray(payload.kills) ? payload.kills : [];
-          const points = Array.isArray(payload.points) ? payload.points : [];
-          setRankings({ wins, kills, points });
-        } else {
+let wins = Array.isArray(payload.wins) ? payload.wins : [];
+let kills = Array.isArray(payload.kills) ? payload.kills : [];
+let points = Array.isArray(payload.points) ? payload.points : [];
+
+// 2) 로컬 백업(서버 저장/조회가 실패해도 화면에 "내 기록"이 남게)
+try {
+  const me = JSON.parse(localStorage.getItem('user') || 'null');
+  const username = me?.username || me?.id || 'guest';
+  const key = `eh_hof_${username}`;
+  const raw = localStorage.getItem(key);
+  const local = raw ? JSON.parse(raw) : null;
+
+  const toTop3 = (mapObj, fieldName) => {
+    const entries = mapObj && typeof mapObj === 'object' ? Object.entries(mapObj) : [];
+    return entries
+      .map(([name, val]) => ({ name, [fieldName]: Number(val || 0) }))
+      .sort((a, b) => (b[fieldName] || 0) - (a[fieldName] || 0))
+      .slice(0, 3);
+  };
+
+  if (local && wins.length === 0 && local.winsByChar) wins = toTop3(local.winsByChar, 'totalWins');
+  if (local && kills.length === 0 && local.killsByChar) kills = toTop3(local.killsByChar, 'totalKills');
+
+  if (points.length === 0) {
+    // 점수 = 우승*100 + 킬*10 (내 기록 기준)
+    const winMap = (local && local.winsByChar) ? local.winsByChar : {};
+    const killMap = (local && local.killsByChar) ? local.killsByChar : {};
+    const names = new Set([...Object.keys(winMap || {}), ...Object.keys(killMap || {})]);
+    points = [...names]
+      .map((name) => {
+        const totalWins = Number(winMap?.[name] || 0);
+        const totalKills = Number(killMap?.[name] || 0);
+        return { name, totalWins, totalKills };
+      })
+      .sort((a, b) => ((b.totalWins * 100 + b.totalKills * 10) - (a.totalWins * 100 + a.totalKills * 10)))
+      .slice(0, 3);
+  }
+} catch (e) {
+  console.error('local hof fallback failed', e);
+}
+
+setRankings({ wins, kills, points });
+} else {
           const data = Array.isArray(payload) ? payload : [];
 
           // (1) 최다 우승
-          const wins = [...data]
+          let wins = [...data]
             .sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0))
             .slice(0, 3);
           // (2) 학살자
-          const kills = [...data]
+          let kills = [...data]
             .sort((a, b) => (b.totalKills || 0) - (a.totalKills || 0))
             .slice(0, 3);
           // (3) 레전드 (점수 계산: 우승*100 + 킬*10)
-          const points = [...data]
+          let points = [...data]
             .sort((a, b) => {
               const scoreA = (Number(a.totalWins) * 100) + (Number(a.totalKills) * 10);
               const scoreB = (Number(b.totalWins) * 100) + (Number(b.totalKills) * 10);
@@ -86,13 +118,58 @@ const myKillsTop3 = pickMineTop3(rankings.kills, (x) => Number(x?.totalKills ?? 
             })
             .slice(0, 3);
 
-          setRankings({ wins, kills, points });
+          
+// 로컬 백업(서버 형식이 배열로만 올 때도 내 기록 유지)
+try {
+  const me = JSON.parse(localStorage.getItem('user') || 'null');
+  const username = me?.username || me?.id || 'guest';
+  const key = `eh_hof_${username}`;
+  const raw = localStorage.getItem(key);
+  const local = raw ? JSON.parse(raw) : null;
+
+  const toTop3 = (mapObj, fieldName) => {
+    const entries = mapObj && typeof mapObj === 'object' ? Object.entries(mapObj) : [];
+    return entries
+      .map(([name, val]) => ({ name, [fieldName]: Number(val || 0) }))
+      .sort((a, b) => (b[fieldName] || 0) - (a[fieldName] || 0))
+      .slice(0, 3);
+  };
+
+  if (local && wins.length === 0 && local.winsByChar) wins = toTop3(local.winsByChar, 'totalWins');
+  if (local && kills.length === 0 && local.killsByChar) kills = toTop3(local.killsByChar, 'totalKills');
+} catch (e) {
+  console.error('local hof fallback failed', e);
+}
+
+setRankings({ wins, kills, points });
         }
         setLoading(false);
 
       } catch (err) {
         console.error(err);
         setLoading(false);
+// 서버 조회가 막혀도(403 등) 로컬 백업이라도 보여주기
+try {
+  const me = JSON.parse(localStorage.getItem('user') || 'null');
+  const username = me?.username || me?.id || 'guest';
+  const key = `eh_hof_${username}`;
+  const raw = localStorage.getItem(key);
+  const local = raw ? JSON.parse(raw) : null;
+
+  const toTop3 = (mapObj, fieldName) => {
+    const entries = mapObj && typeof mapObj === 'object' ? Object.entries(mapObj) : [];
+    return entries
+      .map(([name, val]) => ({ name, [fieldName]: Number(val || 0) }))
+      .sort((a, b) => (b[fieldName] || 0) - (a[fieldName] || 0))
+      .slice(0, 3);
+  };
+
+  const wins = local?.winsByChar ? toTop3(local.winsByChar, 'totalWins') : [];
+  const kills = local?.killsByChar ? toTop3(local.killsByChar, 'totalKills') : [];
+  setRankings({ wins, kills, points: [] });
+} catch (e) {
+  setRankings({ wins: [], kills: [], points: [] });
+}
       }
     };
 
@@ -147,13 +224,7 @@ const myKillsTop3 = pickMineTop3(rankings.kills, (x) => Number(x?.totalKills ?? 
             <p>게임에서 발생할 사건 사고 정의</p>
         </Link>
 
-        <Link href="/import" className="menu-card">
-    <div className="icon">📦</div>
-    <h3>이식/임포트</h3>
-    <p>NGUH JSON(events/characters) 업로드</p>
-</Link>
-
-<Link href="/modifiers" className="menu-card">
+        <Link href="/modifiers" className="menu-card">
             <div className="icon">⚖️</div>
             <h3>게임 밸런스</h3>
             <p>확률 및 가중치 조절</p>
