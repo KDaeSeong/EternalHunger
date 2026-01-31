@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const items = [
   { href: '/admin', label: '대시보드' },
   { href: '/admin/items', label: '아이템' },
+  { href: '/admin/import', label: '이식/임포트' },
   { href: '/admin/maps', label: '맵/구역' },
   { href: '/admin/kiosks', label: '키오스크' },
   { href: '/admin/drone', label: '전송 드론' },
