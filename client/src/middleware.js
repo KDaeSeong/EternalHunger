@@ -11,8 +11,16 @@ function hasAnyCookie(request, names) {
 export function middleware(request) {
   const pathname = request.nextUrl.pathname || '';
 
-  // /admin 이하 경로만 가드
-  if (!pathname.startsWith('/admin')) {
+  const isAdminPage = pathname.startsWith('/admin');
+  const isAdminApi = pathname.startsWith('/api/admin');
+
+  // /admin, /api/admin 이하만 가드
+  if (!isAdminPage && !isAdminApi) {
+    return NextResponse.next();
+  }
+
+  // CORS preflight는 통과
+  if (request.method === 'OPTIONS') {
     return NextResponse.next();
   }
 
@@ -24,7 +32,14 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // 없으면 메인으로 리다이렉트
+  // API는 401 JSON, 페이지는 리다이렉트
+  if (isAdminApi) {
+    return NextResponse.json(
+      { ok: false, error: 'UNAUTHORIZED', message: 'Authentication required' },
+      { status: 401 }
+    );
+  }
+
   const url = request.nextUrl.clone();
   url.pathname = '/';
   url.searchParams.set('from', pathname);
@@ -32,5 +47,5 @@ export function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
