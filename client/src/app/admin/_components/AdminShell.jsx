@@ -17,6 +17,23 @@ function readToken() {
   }
 }
 
+function hasCookie(name) {
+  try {
+    return document.cookie.split(';').some((c) => c.trim().startsWith(`${name}=`));
+  } catch {
+    return false;
+  }
+}
+
+function syncTokenToCookie(token) {
+  if (!token) return;
+  if (hasCookie('token')) return;
+
+  const maxAge = 60 * 60 * 24 * 7; // 7일
+  const secure = typeof window !== 'undefined' && window.location?.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `token=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+}
+
 async function checkCookieSession() {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 2500);
@@ -43,12 +60,17 @@ export default function AdminShell({ children }) {
     let canceled = false;
 
     (async () => {
-      // 우선 localStorage 토큰을 확인하고, 없으면 쿠키 세션(/api/user*)을 확인
-      if (readToken()) {
+      // 1) localStorage 토큰이 있으면 쿠키로 동기화해서 Next middleware 가드도 통과하게 함
+      const token = readToken();
+      if (token) {
+        try {
+          syncTokenToCookie(token);
+        } catch {}
         if (!canceled) setStatus('allowed');
         return;
       }
 
+      // 2) 토큰이 없으면 쿠키 세션(/api/user*)을 확인
       const ok = await checkCookieSession();
       if (!canceled) setStatus(ok ? 'allowed' : 'blocked');
     })();
