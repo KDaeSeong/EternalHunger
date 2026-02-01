@@ -197,6 +197,13 @@ const activeMapName = useMemo(() => {
     return out;
   }, [activeMap, zones]);
 
+  const canonicalizeCharName = (name) =>
+    (name || '')
+      .replace(/\s*[•·・]\s*/g, '·')
+      .replace(/\s*-\s*/g, '·')
+      .replace(/\s+/g, ' ')
+      .trim();
+
   const seedRng = (seedStr) => {
     // 문자열 -> 32bit seed
     let h = 2166136261;
@@ -793,10 +800,20 @@ if (w) {
 
         const mustEscape = forbiddenIds.has(currentZone);
         const willMove = mustEscape || Math.random() < 0.6;
-        if (willMove && neighbors.length > 0) {
-          const safeNeighbors = neighbors.filter((zid) => !forbiddenIds.has(String(zid)));
-          const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-          nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+        if (willMove) {
+          if (neighbors.length > 0) {
+                      const safeNeighbors = neighbors.filter((zid) => !forbiddenIds.has(String(zid)));
+                      const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
+                      nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+          } else {
+            // 연결 정보가 없으면(=neighbors가 비면) 맵 전체에서 랜덤 이동
+            const allZoneIds = zones.map((z) => String(z.zoneId)).filter(Boolean);
+            const safeAll = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid)));
+            const pool = safeAll.length ? safeAll : allZoneIds;
+            if (pool.length > 0) {
+              nextZoneId = String(pool[Math.floor(Math.random() * pool.length)] || currentZone);
+            }
+          }
         }
 
         if (String(nextZoneId) !== String(currentZone)) {
@@ -1014,8 +1031,22 @@ if (w) {
         const targetIndex = todaysSurvivors.findIndex((t) => t._id === target._id);
         if (targetIndex > -1) todaysSurvivors.splice(targetIndex, 1);
 
-	        const battleResult = calculateBattle(actor, target, nextDay, settings);
-        addLog(battleResult.log, battleResult.type);
+	        const actorBattleName = canonicalizeCharName(actor.name);
+        const targetBattleName = canonicalizeCharName(target.name);
+        const battleResult = calculateBattle(
+          { ...actor, name: actorBattleName },
+          { ...target, name: targetBattleName },
+          nextDay,
+          settings
+        );
+        let battleLog = battleResult.log || '';
+        if (actorBattleName && actorBattleName !== actor.name) {
+          battleLog = battleLog.split(actorBattleName).join(actor.name);
+        }
+        if (targetBattleName && targetBattleName !== target.name) {
+          battleLog = battleLog.split(targetBattleName).join(target.name);
+        }
+        addLog(battleLog, battleResult.type);
 
         if (battleResult.winner) {
           const loser = battleResult.winner._id === actor._id ? target : actor;
@@ -1089,7 +1120,7 @@ if (killCredit > 0) {
           : null;
 
         if (!randomEvent?.text) {
-          addLog(`🤝 [${actor.name}]과(와) [${target.name}]이(가) 조우했지만, 적절한 이벤트가 없어 아무 일도 일어나지 않았습니다.`, 'normal');
+          // (유저용 로그 아님) 조우했지만 이벤트가 없을 때는 조용히 스킵
           survivorMap.set(actor._id, actor);
           survivorMap.set(target._id, target);
           continue;
