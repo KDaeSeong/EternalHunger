@@ -39,6 +39,30 @@ function compactIO(list) {
   return [...map.entries()].map(([itemId, qty]) => ({ itemId, qty }));
 }
 
+function safeGenerateDynamicEvent(actor, day, ruleset) {
+  try {
+    // ✅ 기존 구현(2인자) / 신규 구현(3인자) 모두 호환
+    const res = generateDynamicEvent(actor, day, ruleset);
+    if (res && typeof res === 'object') return res;
+    return {
+      log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
+      damage: 0,
+      recovery: 0,
+      newItem: null,
+    };
+  } catch (err) {
+    // ruleset 미정의 등 런타임 ReferenceError 방어
+    console.error('[safeGenerateDynamicEvent] fallback:', err);
+    return {
+      log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
+      damage: 0,
+      recovery: 0,
+      newItem: null,
+    };
+  }
+}
+
+
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
@@ -707,8 +731,6 @@ if (w) {
   }
 }
 
-
-
     // 서버 저장
     try {
       if (w) {
@@ -746,8 +768,6 @@ if (w) {
     }
   };
 
-
-  
   // --- [핵심] 진행 로직 ---
   const proceedPhase = async () => {
     // 1. 페이즈 및 날짜 변경
@@ -761,19 +781,10 @@ if (w) {
     const phaseStartSec = matchSec;
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
 
-    const eventResult = generateDynamicEvent(actor, nextDay, ruleset); // ruleset 전달 필요
-    addLog(eventResult.log, eventResult.damage > 0 ? 'highlight' : 'normal');
-
     // 💰 이번 페이즈 기본 크레딧(시즌10 컨셉)
     const baseCredits = Number(ruleset?.credits?.basePerPhase || 0);
 
     let earnedCredits = baseCredits;
-
-    if (eventResult.earnedCredits) {
-      actor.simCredits = Number(actor.simCredits || 0) + eventResult.earnedCredits;
-      // 전체 획득 크레딧 합계에도 추가 (서버 동기화용)
-      earnedCredits += eventResult.earnedCredits; 
-    }
 
     setDay(nextDay);
     setPhase(nextPhase);
@@ -995,6 +1006,79 @@ if (w) {
     const battleProb = Math.min(0.85, 0.3 + nextDay * 0.05 + fogBonus);
     const eventProb = Math.min(0.95, battleProb + 0.3);
 
+    // 교전이 특정 캐릭터에 편향되지 않도록(선공/우선순위 이점 제거) 양방향 결과를 비교해 채택
+    const pickStat = (c, keys) => {
+      for (const k of keys) {
+        const v = Number(c?.stats?.[k] ?? c?.[k] ?? c?.[k?.toLowerCase?.()] ?? 0);
+        if (Number.isFinite(v) && v > 0) return v;
+      }
+      return 0;
+    };
+
+    const combatScore = (c) => {
+      const hp = Math.max(1, Math.min(100, Number(c?.hp ?? 100)));
+      const base =
+        pickStat(c, ['STR', 'str']) +
+        pickStat(c, ['AGI', 'agi']) +
+        pickStat(c, ['SHOOT', 'shoot', 'SHT', 'sht']) +
+        pickStat(c, ['END', 'end']) +
+        pickStat(c, ['MEN', 'men']) * 0.5 +
+        pickStat(c, ['INT', 'int']) * 0.3 +
+        pickStat(c, ['DEX', 'dex']) * 0.3 +
+        pickStat(c, ['LUK', 'luk']) * 0.2;
+
+      return base * (0.5 + hp / 200);
+    };
+
+    const pickUnbiasedBattle = (a, b) => {
+      const r1 = calculateBattle(a, b, nextDay, settings);
+      const r2 = calculateBattle(b, a, nextDay, settings);
+
+      const id1 = r1?.winner?._id ? String(r1.winner._id) : null;
+      const id2 = r2?.winner?._id ? String(r2.winner._id) : null;
+
+      const sa = combatScore(a);
+      const sb = combatScore(b);
+      const total = Math.max(1, sa + sb);
+
+      // 스탯 격차가 있어도 "항상 같은 승자"가 나오지 않도록, 약한 쪽도 일정 확률로 이길 수 있게 변동성을 부여
+      let delta = (sa - sb) / total; // -1..1
+      let pA = 0.5 + delta * 0.35;   // 0.15..0.85 근처
+      const la = pickStat(a, ['LUK', 'luk']) || 0;
+      const lb = pickStat(b, ['LUK', 'luk']) || 0;
+      pA += ((la - lb) / 100) * 0.05; // 운빨 소량 반영
+      pA = Math.min(0.85, Math.max(0.15, pA));
+
+      const chosenId = Math.random() < pA ? String(a._id) : String(b._id);
+
+      // 양방향 결과가 같은 승자를 내면: 확률로 결과를 유지/반전(반전 시 로그는 난전 처리)
+      if (id1 && id1 === id2) {
+        if (chosenId === id1) return r1;
+
+        const winner = chosenId === String(a._id) ? a : b;
+        const loser = winner === a ? b : a;
+        const wnRaw = winner?.name || winner?.character_name || winner?.nickname || '';
+        const lnRaw = loser?.name || loser?.character_name || loser?.nickname || '';
+        const wn = canonicalizeCharName(wnRaw) || wnRaw || 'UNKNOWN';
+        const ln = canonicalizeCharName(lnRaw) || lnRaw || 'UNKNOWN';
+
+        return {
+          ...r1,
+          winner,
+          type: 'kill',
+          log: `⚡ 난전! [${wn}](이)가 [${ln}](을)를 제압했습니다!`,
+        };
+      }
+
+      // 한쪽만 승자를 못 만들면(비정상) 승자가 있는 쪽을 채택
+      if (!id1 && id2) return r2;
+      if (id1 && !id2) return r1;
+
+      // 승자가 갈리면(선공 이점) 확률로 한 쪽 결과를 채택
+      return chosenId === id1 ? r1 : r2;
+    };
+
+
     let todaysSurvivors = [...updatedSurvivors].sort(() => Math.random() - 0.5);
     let survivorMap = new Map(todaysSurvivors.map((s) => [s._id, s]));
     let newDeadIds = [];
@@ -1046,11 +1130,9 @@ if (w) {
 
 	        const actorBattleName = canonicalizeCharName(actor.name);
         const targetBattleName = canonicalizeCharName(target.name);
-        const battleResult = calculateBattle(
+        const battleResult = pickUnbiasedBattle(
           { ...actor, name: actorBattleName },
-          { ...target, name: targetBattleName },
-          nextDay,
-          settings
+          { ...target, name: targetBattleName }
         );
         let battleLog = battleResult.log || '';
         if (actorBattleName && actorBattleName !== actor.name) {
@@ -1062,9 +1144,11 @@ if (w) {
         addLog(battleLog, battleResult.type);
 
         if (battleResult.winner) {
-          const loser = battleResult.winner._id === actor._id ? target : actor;
+          const actorIdStr = String(actor._id);
+          const winnerIdStr = String(battleResult.winner._id);
+          const winner = winnerIdStr === actorIdStr ? actor : target;
+          const loser = winnerIdStr === actorIdStr ? target : actor;
           const winnerId = battleResult.winner._id;
-          const winner = winnerId === actor._id ? actor : target;
 
           loser.hp = 0;
           newDeadIds.push(loser._id);
