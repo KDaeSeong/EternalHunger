@@ -1,29 +1,46 @@
+
+
+/* === 페이지 레이아웃: 화면 고정 + 내부 스크롤 === */
+.simulation-page {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.simulation-page > header {
+    flex: 0 0 auto;
+}
 /* client/src/styles/ERSimulation.css */
 
 /* 레이아웃: 좌측 명단 + 우측 화면 */
 .simulation-container {
     display: flex;
     gap: 30px;
-    height: 80vh; /* 화면 꽉 차게 */
-    margin-top: 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: 20px;
     flex-wrap: wrap;
     align-items: stretch;
+    box-sizing: border-box;
 }
-
 /* === 좌측: 생존자 보드 === */
 /* client/src/styles/ERSimulation.css 수정 */
 
 /* 1. 사이드바 전체 크기 및 여백 조정 */
 .survivor-board {
-    width: 320px; /* 너비를 살짝 늘려서 여유 공간 확보 */
-    min-width: 320px; /* 줄어들지 않게 고정 */
-    background: white;
-    padding: 20px 10px; /* 양옆 패딩을 조금 줄임 (내부 공간 확보) */
-    border-radius: 15px;
-    border: 2px solid #ddd;
+    width: 25%;
+    min-width: 240px;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
     overflow-y: auto;
-    box-sizing: border-box; /* 테두리 포함 크기 계산 (삐져나옴 방지) */
-    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .survivor-board h2 {
@@ -78,18 +95,20 @@
 
 /* === 우측: 게임 화면 (기본 틀) === */
 .game-screen {
-    flex-grow: 1;
+    flex: 1;
+    max-width: 73%;
+    min-width: 500px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background: #2e2e2e;
+    border-radius: 12px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    border-radius: 15px;
-    border: 5px solid #444;
-    overflow: hidden;
-    color: white;
-    transition: background 0.5s ease; /* 색 바뀔 때 부드럽게 */
-    min-width: 0;
-    box-sizing: border-box;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    position: relative;
 }
-
 /* 🌞 아침 배경: 산뜻한 하늘색 */
 .game-screen.morning-mode {
     background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);

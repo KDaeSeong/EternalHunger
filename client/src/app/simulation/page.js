@@ -1055,10 +1055,40 @@ if (w) {
       return base * (0.5 + hp / 200);
     };
 
+    const getSpecialSkillChance = (c) => {
+      const s = c?.specialSkill;
+      const name = String(s?.name || '');
+      if (!name) return 0;
+
+      // 데이터에 명시된 확률이 있으면 우선
+      const explicit = s?.procChance ?? s?.chance ?? s?.proc;
+      if (typeof explicit === 'number' && explicit >= 0 && explicit <= 1) return explicit;
+
+      // 기본값(너무 자주 터지면 체감이 "항상 스킬"이 됨)
+      const base = Number(settings?.battle?.skillProcDefault ?? 0.35);
+
+      // 특정 케이스 체감 보정(테러 발도는 상대 스킬에 씹히지 않게 조금 높게)
+      if (name.includes('발도')) return Number(settings?.battle?.iaidoSkillProc ?? 0.65);
+      return base;
+    };
+
+    const rollSpecialSkillForBattle = (c) => {
+      if (!c?.specialSkill) return false;
+      const p = getSpecialSkillChance(c);
+      if (!(p > 0)) {
+        c.specialSkill = null;
+        return false;
+      }
+      const did = Math.random() < p;
+      if (!did) c.specialSkill = null;
+      return did;
+    };
+
     const pickUnbiasedBattle = (a, b) => {
-      // 시로코 테러(발도)가 시로코(드론)에게 "씹혀서 스킬을 못 쓰는" 체감 완화용 오프너
-      // - 발도는 선제 공격(오프닝 데미지) + 선공 우선권을 부여
-      // - 확률 기반(과도한 고정 승리 방지)
+      // 교전 편향(선공/우선순위)에 의한 "항상 같은 승자" 체감 완화
+      // + 스킬(특수기)도 매 교전마다 확률로 발동하도록 롤링
+
+      // 1) 시로코 테러(발도) 오프너: 체감상 "드론에 씹혀서 발도 자체가 안 뜨는" 상황 완화
       const aIsTerror = isShirokoTerror(a);
       const bIsTerror = isShirokoTerror(b);
       const hasTerror = aIsTerror || bIsTerror;
@@ -1071,61 +1101,65 @@ if (w) {
 
         const terrorClone = cloneForBattle(terror);
         const shirokoClone = cloneForBattle(shiroko);
-        applyIaidoOpener(terrorClone, shirokoClone, settings);
 
+        // 발도는 "발동" 자체를 보장(이 분기 자체가 발동 이벤트)
+        // 대신, 이 교전에서는 상대 특수스킬을 잠깐 끄고(동시 발동 느낌 제거) 진행
+        shirokoClone.specialSkill = null;
+
+        applyIaidoOpener(terrorClone, shirokoClone, settings);
         const rIaido = calculateBattle(terrorClone, shirokoClone, nextDay, settings);
+
         const prefix = `⚔️ [${terror.name}] 발도! 선제 공격으로 교전이 시작됩니다.`;
         return {
           ...rIaido,
           log: `${prefix} ${rIaido?.log || ''}`.trim(),
         };
-      }      const r1 = calculateBattle(a, b, nextDay, settings);
-      const r2 = calculateBattle(b, a, nextDay, settings);
+      }
 
+      // 2) 일반 교전: 양측을 배틀용으로 복제 + 특수기 발동 확률 롤
+      const aClone = cloneForBattle(a);
+      const bClone = cloneForBattle(b);
+      rollSpecialSkillForBattle(aClone);
+      rollSpecialSkillForBattle(bClone);
+
+      const r1 = calculateBattle(aClone, bClone, nextDay, settings);
+
+      // 3) 선택 편향 완화: 선공/우선순위에 따른 승자 고정 체감을 줄이기 위해 확률 기반으로 흔듦
       const id1 = r1?.winner?._id ? String(r1.winner._id) : null;
-      const id2 = r2?.winner?._id ? String(r2.winner._id) : null;
 
       const sa = combatScore(a);
       const sb = combatScore(b);
-      const total = Math.max(1, sa + sb);
+      const total = max(1, sa + sb);
 
-      // 스탯 격차가 있어도 "항상 같은 승자"가 나오지 않도록, 약한 쪽도 일정 확률로 이길 수 있게 변동성을 부여
       let delta = (sa - sb) / total; // -1..1
       let pA = 0.5 + delta * 0.35;   // 0.15..0.85 근처
       const la = pickStat(a, ['LUK', 'luk']) || 0;
       const lb = pickStat(b, ['LUK', 'luk']) || 0;
-      pA += ((la - lb) / 100) * 0.05; // 운빨 소량 반영
-      pA = Math.min(0.85, Math.max(0.15, pA));
+      pA += ((la - lb) / 100) * 0.05;
+      pA = min(0.85, max(0.15, pA));
 
       const chosenId = Math.random() < pA ? String(a._id) : String(b._id);
 
-      // 양방향 결과가 같은 승자를 내면: 확률로 결과를 유지/반전(반전 시 로그는 난전 처리)
-      if (id1 && id1 === id2) {
-        if (chosenId === id1) return r1;
+      // 승자가 없으면 그대로 반환
+      if (!id1) return r1;
 
-        const winner = chosenId === String(a._id) ? a : b;
-        const loser = winner === a ? b : a;
-        const wnRaw = winner?.name || winner?.character_name || winner?.nickname || '';
-        const lnRaw = loser?.name || loser?.character_name || loser?.nickname || '';
-        const wn = canonicalizeCharName(wnRaw) || wnRaw || 'UNKNOWN';
-        const ln = canonicalizeCharName(lnRaw) || lnRaw || 'UNKNOWN';
+      if (chosenId === id1) return r1;
 
-        return {
-          ...r1,
-          winner,
-          type: 'kill',
-          log: `⚡ 난전! [${wn}](이)가 [${ln}](을)를 제압했습니다!`,
-        };
-      }
+      // 결과 반전(난전) 처리
+      const winner = chosenId === String(a._id) ? a : b;
+      const loser = winner === a ? b : a;
+      const wnRaw = winner?.name || winner?.character_name || winner?.nickname || '';
+      const lnRaw = loser?.name || loser?.character_name || loser?.nickname || '';
+      const wn = canonicalizeCharName(wnRaw) || wnRaw || 'UNKNOWN';
+      const ln = canonicalizeCharName(lnRaw) || lnRaw || 'UNKNOWN';
 
-      // 한쪽만 승자를 못 만들면(비정상) 승자가 있는 쪽을 채택
-      if (!id1 && id2) return r2;
-      if (id1 && !id2) return r1;
-
-      // 승자가 갈리면(선공 이점) 확률로 한 쪽 결과를 채택
-      return chosenId === id1 ? r1 : r2;
+      return {
+        ...r1,
+        winner,
+        type: 'kill',
+        log: `⚡ 난전! [${wn}](이)가 [${ln}](을)를 제압했습니다!`,
+      };
     };
-
 
     let todaysSurvivors = [...updatedSurvivors].sort(() => Math.random() - 0.5);
     let survivorMap = new Map(todaysSurvivors.map((s) => [s._id, s]));
@@ -1542,7 +1576,7 @@ if (killCredit > 0) {
     : new Set();
 
   return (
-    <main>
+    <main className="simulation-page">
       <header>
         <section id="header-id1">
           <ul>
