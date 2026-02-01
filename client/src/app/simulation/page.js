@@ -39,6 +39,30 @@ function compactIO(list) {
   return [...map.entries()].map(([itemId, qty]) => ({ itemId, qty }));
 }
 
+function safeGenerateDynamicEvent(actor, day, ruleset) {
+  try {
+    // ✅ 기존 구현(2인자) / 신규 구현(3인자) 모두 호환
+    const res = generateDynamicEvent(actor, day, ruleset);
+    if (res && typeof res === 'object') return res;
+    return {
+      log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
+      damage: 0,
+      recovery: 0,
+      newItem: null,
+    };
+  } catch (err) {
+    // ruleset 미정의 등 런타임 ReferenceError 방어
+    console.error('[safeGenerateDynamicEvent] fallback:', err);
+    return {
+      log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
+      damage: 0,
+      recovery: 0,
+      newItem: null,
+    };
+  }
+}
+
+
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
@@ -1217,7 +1241,7 @@ if (killCredit > 0) {
           addLog(eventText, 'normal');
         } else {
           // 폴백: 동적 이벤트 생성
-          const eventResult = generateDynamicEvent(actor, nextDay);
+          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset);
           addLog(eventResult.log, eventResult.damage > 0 ? 'highlight' : 'normal');
 
           if (eventResult.newItem && (actor.inventory || []).length < 3) {
