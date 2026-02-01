@@ -5,7 +5,6 @@
     display: flex;
     gap: 30px;
     height: 80vh; /* 화면 꽉 차게 */
-    min-height: 0; /* flex 내부 스크롤 허용 */
     margin-top: 20px;
     flex-wrap: wrap;
     align-items: stretch;
@@ -23,8 +22,6 @@
     border-radius: 15px;
     border: 2px solid #ddd;
     overflow-y: auto;
-    height: 100%;      /* 컨테이너 높이에 맞춰 고정 */
-    min-height: 0;     /* 내부 스크롤이 '늘어남'으로 바뀌지 않게 */
     box-sizing: border-box; /* 테두리 포함 크기 계산 (삐져나옴 방지) */
     box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
 }
@@ -72,11 +69,6 @@
 .survivor-card span {
     font-size: 0.85rem;
     line-height: 1.2;
-    height: 2.4em; /* 2줄 고정(1.2 * 2) */
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
     word-break: keep-all; /* 단어 중간에 끊기지 않게 */
     color: #333;
     font-weight: 600;
@@ -89,13 +81,13 @@
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0; /* 로그창 overflow가 제대로 동작하도록 */
     border-radius: 15px;
     border: 5px solid #444;
     overflow: hidden;
     color: white;
     transition: background 0.5s ease; /* 색 바뀔 때 부드럽게 */
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 /* 🌞 아침 배경: 산뜻한 하늘색 */
@@ -104,7 +96,9 @@
 }
 /* 아침에는 로그 배경을 좀 더 진하게 해서 글씨 잘 보이게 */
 .morning-mode .log-window {
-    background: rgba(0, 0, 0, 0.3); 
+    background: rgba(0, 0, 0, 0.45); 
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 /* 🌙 밤 배경: 어두운 밤하늘색 */
@@ -128,17 +122,47 @@
 
 /* 로그 창 */
 .log-window {
-    flex-grow: 1;
-    min-height: 0; /* flex 자식 overflow-y:auto 필수 */
-    padding: 30px;
-    overflow-y: auto;
-    font-family: 'Malgun Gothic', sans-serif;
-    font-size: 1.1rem;
-    line-height: 1.8;
-    background: rgba(0,0,0,0.2);
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;            /* flex 아이템 내부 스크롤 허용 */
+  overflow: hidden;         /* 스크롤은 log-scroll-area에만 */
 }
 
-.log-message { margin-bottom: 8px; }
+/* log-header는 상단 고정, 로그만 스크롤 */
+.log-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.log-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px; /* 스크롤바와 글자 간격 */
+}
+.log-message {
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    line-height: 1.35;
+    font-size: 0.98rem;
+
+    /* 긴 문장/이모지/괄호 텍스트가 있어도 가로로 삐져나가지 않게 */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 .log-message.day-header { 
     color: #ffeb3b; 
     font-weight: bold; 
@@ -162,6 +186,9 @@
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
     animation: shake 0.5s ease-in-out; /* 충격 효과 */
     margin: 10px 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 /* 2. 결정적인 일격(Critical) 강조 */
@@ -188,7 +215,6 @@
 /* 컨트롤 패널 (버튼) */
 .control-panel {
     padding: 20px;
-    flex-shrink: 0; /* 하단 패널이 레이아웃을 깨며 밀지 않게 */
     background: #333;
     text-align: center;
 }

@@ -228,6 +228,31 @@ const activeMapName = useMemo(() => {
       .replace(/\s+/g, ' ')
       .trim();
 
+
+  const normalizeForSkillKey = (name) => canonicalizeCharName(String(name || '')).replace(/\s+/g, '');
+  const isShirokoTerror = (c) => {
+    const n = normalizeForSkillKey(c?.name);
+    return n.includes('시로코') && n.includes('테러');
+  };
+  const isShirokoBase = (c) => {
+    const n = normalizeForSkillKey(c?.name);
+    return n.includes('시로코') && !n.includes('테러');
+  };
+  const cloneForBattle = (obj) => {
+    try {
+      return structuredClone(obj);
+    } catch {
+      return JSON.parse(JSON.stringify(obj));
+    }
+  };
+  const applyIaidoOpener = (attacker, defender, settings) => {
+    // 발도: 선제 타격으로 체력을 먼저 깎아 "스킬을 못 쓰고 죽는" 체감 완화
+    const openDamage = Number(settings?.battle?.iaidoOpenDamage ?? 38);
+    const defMax = Number(defender?.maxHp ?? 100);
+    const defHp = Number(defender?.hp ?? defMax);
+    defender.hp = Math.max(1, defHp - openDamage);
+  };
+
   const seedRng = (seedStr) => {
     // 문자열 -> 32bit seed
     let h = 2166136261;
@@ -1031,7 +1056,30 @@ if (w) {
     };
 
     const pickUnbiasedBattle = (a, b) => {
-      const r1 = calculateBattle(a, b, nextDay, settings);
+      // 시로코 테러(발도)가 시로코(드론)에게 "씹혀서 스킬을 못 쓰는" 체감 완화용 오프너
+      // - 발도는 선제 공격(오프닝 데미지) + 선공 우선권을 부여
+      // - 확률 기반(과도한 고정 승리 방지)
+      const aIsTerror = isShirokoTerror(a);
+      const bIsTerror = isShirokoTerror(b);
+      const hasTerror = aIsTerror || bIsTerror;
+      const hasBaseShiroko = isShirokoBase(a) || isShirokoBase(b);
+
+      const iaidoProc = Number(settings?.battle?.iaidoProc ?? 0.55);
+      if (hasTerror && hasBaseShiroko && Math.random() < iaidoProc) {
+        const terror = aIsTerror ? a : b;
+        const shiroko = isShirokoBase(a) ? a : b;
+
+        const terrorClone = cloneForBattle(terror);
+        const shirokoClone = cloneForBattle(shiroko);
+        applyIaidoOpener(terrorClone, shirokoClone, settings);
+
+        const rIaido = calculateBattle(terrorClone, shirokoClone, nextDay, settings);
+        const prefix = `⚔️ [${terror.name}] 발도! 선제 공격으로 교전이 시작됩니다.`;
+        return {
+          ...rIaido,
+          log: `${prefix} ${rIaido?.log || ''}`.trim(),
+        };
+      }      const r1 = calculateBattle(a, b, nextDay, settings);
       const r2 = calculateBattle(b, a, nextDay, settings);
 
       const id1 = r1?.winner?._id ? String(r1.winner._id) : null;
@@ -1276,13 +1324,6 @@ if (killCredit > 0) {
           if (eventResult.damage) actor.hp -= eventResult.damage;
           if (eventResult.recovery) actor.hp = Math.min(100, actor.hp + eventResult.recovery);
           if (eventResult.newEffect) actor.activeEffects = [...(actor.activeEffects || []), eventResult.newEffect];
-
-          // [★ 중요] 이 부분이 빠져있습니다. 꼭 추가해주세요!
-          if (eventResult.earnedCredits) {
-             actor.simCredits = Number(actor.simCredits || 0) + eventResult.earnedCredits;
-             // 전체 획득량(earnedCredits) 변수는 proceedPhase 상단에 선언되어 있습니다.
-             earnedCredits += eventResult.earnedCredits; 
-          }
         }
 
         if (actor.hp <= 0) {
@@ -1611,10 +1652,27 @@ if (killCredit > 0) {
             </div>
           ) : null}
 
-          <div className="log-window" ref={logBoxRef}>
-            {logs.map((log) => (
-              <div key={log.id} className={`log-message ${log.type}`}>{log.text}</div>
-            ))}          </div>
+          <div className="log-window" style={{ minWidth: 0 }}>
+            <div className="log-content">
+              <div className="log-scroll-area" ref={logBoxRef}>
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`log-message ${log.type || 'system'}`}
+                    style={{
+                      maxWidth: '100%',
+                      whiteSpace: 'pre-line',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'keep-all',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {log.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
 
           <div className="control-panel">
             <div className="control-row">
