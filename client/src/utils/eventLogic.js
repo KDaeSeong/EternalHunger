@@ -48,6 +48,18 @@ export function generateDynamicEvent(char, currentDay) {
         return { log: `[${char.name}]은(는) 발견한 [${object.text}]을(를) 맛있게 먹었습니다.`, recovery: 20 };
     }
 
+    // [C] 야생동물/변이체 조우 확률 (예: 20%)
+    const huntChance = Math.random();
+    if (huntChance < 0.2) {
+        // ruleset에서 정의된 보상금액 가져오기 (기본값 설정)
+        const animalCredit = ruleset?.credits?.wildlifeKill || 5; 
+        return {
+            log: `[${char.name}]은(는) 야생동물을 사냥하여 전리품을 챙겼습니다. (+${animalCredit} Cr)`,
+            earnedCredits: animalCredit, // 이 필드를 시뮬레이션에서 처리
+            damage: 5 // 사냥 중 입은 경미한 피해
+        };
+    }
+
     if (object.type === "weapon") {
         const actionText = object.tags.includes("ranged") ? "조준해 봅니다" : "휘둘러 봅니다";
         const statName = object.tags.includes("ranged") ? "사격" : "숙련도";

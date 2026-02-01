@@ -982,6 +982,53 @@ if (w) {
     const battleProb = Math.min(0.85, 0.3 + nextDay * 0.05 + fogBonus);
     const eventProb = Math.min(0.95, battleProb + 0.3);
 
+    // 교전이 특정 캐릭터에 편향되지 않도록(선공/우선순위 이점 제거) 양방향 결과를 비교해 채택
+    const pickStat = (c, keys) => {
+      for (const k of keys) {
+        const v = Number(c?.stats?.[k] ?? c?.[k] ?? c?.[k?.toLowerCase?.()] ?? 0);
+        if (Number.isFinite(v) && v > 0) return v;
+      }
+      return 0;
+    };
+
+    const combatScore = (c) => {
+      const hp = Math.max(1, Math.min(100, Number(c?.hp ?? 100)));
+      const base =
+        pickStat(c, ['STR', 'str']) +
+        pickStat(c, ['AGI', 'agi']) +
+        pickStat(c, ['SHOOT', 'shoot', 'SHT', 'sht']) +
+        pickStat(c, ['END', 'end']) +
+        pickStat(c, ['MEN', 'men']) * 0.5 +
+        pickStat(c, ['INT', 'int']) * 0.3 +
+        pickStat(c, ['DEX', 'dex']) * 0.3 +
+        pickStat(c, ['LUK', 'luk']) * 0.2;
+
+      return base * (0.5 + hp / 200);
+    };
+
+    const pickUnbiasedBattle = (a, b) => {
+      const r1 = calculateBattle(a, b, nextDay, settings);
+      const r2 = calculateBattle(b, a, nextDay, settings);
+
+      const id1 = r1?.winner?._id ? String(r1.winner._id) : null;
+      const id2 = r2?.winner?._id ? String(r2.winner._id) : null;
+
+      // 양방향 결과가 같은 승자를 내면 그대로 사용
+      if (id1 && id1 === id2) return r1;
+      if (!id1 && id2) return r2;
+      if (id1 && !id2) return r1;
+
+      // 승자가 갈리면(선공 이점) 스탯 기반 확률로 한 쪽 결과를 채택
+      const sa = combatScore(a);
+      const sb = combatScore(b);
+      const pRaw = 1 / (1 + Math.exp((sb - sa) / 60));
+      const pA = Math.min(0.92, Math.max(0.08, pRaw));
+      const chosenId = Math.random() < pA ? String(a._id) : String(b._id);
+
+      return chosenId === id1 ? r1 : r2;
+    };
+
+
     let todaysSurvivors = [...updatedSurvivors].sort(() => Math.random() - 0.5);
     let survivorMap = new Map(todaysSurvivors.map((s) => [s._id, s]));
     let newDeadIds = [];
@@ -1033,11 +1080,9 @@ if (w) {
 
 	        const actorBattleName = canonicalizeCharName(actor.name);
         const targetBattleName = canonicalizeCharName(target.name);
-        const battleResult = calculateBattle(
+        const battleResult = pickUnbiasedBattle(
           { ...actor, name: actorBattleName },
-          { ...target, name: targetBattleName },
-          nextDay,
-          settings
+          { ...target, name: targetBattleName }
         );
         let battleLog = battleResult.log || '';
         if (actorBattleName && actorBattleName !== actor.name) {
@@ -1049,9 +1094,11 @@ if (w) {
         addLog(battleLog, battleResult.type);
 
         if (battleResult.winner) {
-          const loser = battleResult.winner._id === actor._id ? target : actor;
+          const actorIdStr = String(actor._id);
+          const winnerIdStr = String(battleResult.winner._id);
+          const winner = winnerIdStr === actorIdStr ? actor : target;
+          const loser = winnerIdStr === actorIdStr ? target : actor;
           const winnerId = battleResult.winner._id;
-          const winner = winnerId === actor._id ? actor : target;
 
           loser.hp = 0;
           newDeadIds.push(loser._id);
