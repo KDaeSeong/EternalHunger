@@ -598,7 +598,85 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
     setShowResultModal(true);
 
     if (w) addLog(`🏆 게임 종료! 최후의 생존자: [${w.name}]`, 'highlight');
-    else addLog('💀 생존자가 아무도 없습니다...', 'death');// 로컬 백업 저장(서버 저장/조회가 꼬여도 홈에서 "내 기록"은 최소한 보이게)
+    else addLog('💀 생존자가 아무도 없습니다...', 'death');
+
+
+    // (3) 로컬 백업(캐릭터별: 내 명예의 전당)
+    try {
+      const me = JSON.parse(localStorage.getItem('user') || 'null');
+      const username = me?.username || me?.id || 'guest';
+      const key = `eh_hof_${username}`;
+      const raw = localStorage.getItem(key);
+      const state = raw ? JSON.parse(raw) : { chars: {} };
+      if (!state.chars) state.chars = {};
+
+      const participants = [
+        ...(Array.isArray(finalSurvivors) ? finalSurvivors : []),
+        ...(Array.isArray(dead) ? dead : []),
+      ];
+
+      const idToName = {};
+      for (const p of participants) {
+        const pid = String(p?._id ?? p?.id ?? '');
+        if (!pid) continue;
+        idToName[pid] = p?.name ?? p?.nickname ?? p?.charName ?? p?.title ?? pid;
+      }
+
+      for (const [pid, k] of Object.entries(finalKills || {})) {
+        const sid = String(pid);
+        if (!sid) continue;
+        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0 };
+        entry.name = idToName[sid] || entry.name;
+        entry.kills = Number(entry.kills || 0) + Number(k || 0);
+        state.chars[sid] = entry;
+      }
+
+      if (w) {
+        const wid = String(w?._id ?? w?.id ?? '');
+        if (wid) {
+          const entry =
+            state.chars[wid] ||
+            { name: idToName[wid] || (w?.name ?? w?.nickname ?? w?.charName ?? wid), wins: 0, kills: 0 };
+          entry.name = idToName[wid] || entry.name;
+          entry.wins = Number(entry.wins || 0) + 1;
+          state.chars[wid] = entry;
+        }
+      }
+
+
+      // legacy(플레이어 단위) 기록을 1회만 캐릭터로 이관
+      // - 과거 데이터는 "어떤 캐릭터가 했는지" 정보를 잃어서 정확 복원은 불가능
+      // - 그래서 최초 1회에 한해 '승자 캐릭터'에 합산해 이어갑니다.
+      if (!state._migratedFromPlayerV1) {
+        try {
+          const legacyRaw = localStorage.getItem('eh_local_hof_v1');
+          const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
+          const legacyWins = Number(legacy?.wins?.[username] || 0);
+          const legacyKills = Number(legacy?.kills?.[username] || 0);
+
+          if ((legacyWins > 0 || legacyKills > 0) && w) {
+            const wid2 = String(w?._id ?? w?.id ?? '');
+            if (wid2) {
+              const entry =
+                state.chars[wid2] ||
+                { name: idToName[wid2] || (w?.name ?? w?.nickname ?? w?.charName ?? wid2), wins: 0, kills: 0 };
+              entry.name = idToName[wid2] || entry.name;
+              entry.wins = Number(entry.wins || 0) + legacyWins;
+              entry.kills = Number(entry.kills || 0) + legacyKills;
+              state.chars[wid2] = entry;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+        state._migratedFromPlayerV1 = true;
+      }
+
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (e) {
+      // ignore
+    }
+    // 로컬 백업 저장(서버 저장/조회가 꼬여도 홈에서 "내 기록"은 최소한 보이게)
 if (w) {
   try {
     const me = JSON.parse(localStorage.getItem('user') || 'null');
