@@ -11,12 +11,16 @@ export function applyItemEffect(character, item) {
   const tags = Array.isArray(item?.tags) ? item.tags : [];
   const type = String(item?.type || '').toLowerCase();
 
+  const lowerName = String(name || '').toLowerCase();
+  const isFoodName = lowerName.includes('food') || name.includes('음식') || name.includes('빵') || name.includes('고기');
+  const isHealName = lowerName.includes('bandage') || lowerName.includes('medkit') || name.includes('붕대') || name.includes('응급');
+
   let log = '';
   let recovery = 0;
   let statBoost = null;
 
-  const isFood = type === 'food' || tags.includes('food') || tags.includes('healthy');
-  const isHeal = tags.includes('heal') || tags.includes('medical');
+  const isFood = type === 'food' || tags.includes('food') || tags.includes('healthy') || isFoodName;
+  const isHeal = tags.includes('heal') || tags.includes('medical') || isHealName;
   const isBook = tags.includes('book');
 
   if (isFood) {

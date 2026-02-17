@@ -112,17 +112,35 @@ function removeFromInventory(inventory, itemId, qty) {
 /**
  * inventory에 itemId를 qty만큼 추가(기본: 한 스택으로 쌓기)
  */
-function addToInventory(inventory, { itemId, name, qty = 1, tags, type }) {
+function addToInventory(inventory, { itemId, name, qty = 1, tags, type, tier, rarity, equipSlot, category }) {
   const list = Array.isArray(inventory) ? inventory : [];
   const addQty = Number(qty || 0);
   if (!Number.isFinite(addQty) || addQty <= 0) return list;
 
-  const existing = list.find((it) => it?.itemId && String(it.itemId) === String(itemId));
+  const id = String(itemId || '');
+  const existing = list.find((x) => String(x?.itemId || '') === id);
+
   if (existing) {
-    existing.qty = Number(existing.qty ?? 1) + addQty;
-  } else {
-    list.push({ itemId, name, qty: addQty, tags: tags || [], type: type || 'misc' });
+    existing.qty = Number(existing.qty || 0) + addQty;
+
+    // 추가 메타(티어/희귀도/슬롯 등)가 있으면 갱신
+    if (tier !== undefined) existing.tier = tier;
+    if (rarity !== undefined) existing.rarity = rarity;
+    if (equipSlot !== undefined) existing.equipSlot = equipSlot;
+    if (category !== undefined) existing.category = category;
+    if (type !== undefined) existing.type = type;
+    if (tags !== undefined) existing.tags = tags;
+
+    return list;
   }
+
+  const entry = { itemId: id, name, qty: addQty, tags, type };
+  if (tier !== undefined) entry.tier = tier;
+  if (rarity !== undefined) entry.rarity = rarity;
+  if (equipSlot !== undefined) entry.equipSlot = equipSlot;
+  if (category !== undefined) entry.category = category;
+
+  list.push(entry);
   return list;
 }
 

@@ -10,6 +10,7 @@ const items = [
   { href: '/admin/maps', label: '맵/구역' },
   { href: '/admin/kiosks', label: '키오스크' },
   { href: '/admin/drone', label: '전송 드론' },
+  { href: '/admin/crates', label: '상자(드랍)' },
   { href: '/admin/credits', label: '크레딧' },
   { href: '/admin/perks', label: '특전' },
   { href: '/board', label: '게시판(유저)' },

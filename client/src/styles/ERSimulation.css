@@ -389,6 +389,8 @@
     left: -5px; /* 킬 배지와 반대 방향 */
     display: flex;
     gap: 2px;
+    flex-wrap: wrap;
+    max-width: 150px;
 }
 
 .effect-icon {
@@ -402,6 +404,20 @@
     justify-content: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     border: 1px solid #ddd;
+}
+
+/* 상태 이상 배지(이름/남은 턴 표시용) */
+.effect-badge {
+    font-size: 0.65rem;
+    background: rgba(255,255,255,0.95);
+    border-radius: 999px;
+    padding: 1px 6px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 1px solid #ddd;
+    white-space: nowrap;
 }
 
 /* 인벤토리 요약 스타일 */

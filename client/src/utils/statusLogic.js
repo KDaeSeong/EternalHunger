@@ -41,6 +41,8 @@ export function updateEffects(character) {
     const nextEffects = character.activeEffects.map(eff => {
         // DOT 데미지 처리 (식중독 등)
         if (eff.name === "식중독") hpChange -= 10;
+        // DOT 데미지 처리 (출혈)
+        if (eff.name === "출혈") hpChange -= Math.max(1, Number(eff?.dotDamage ?? eff?.dot ?? 6));
         
         return { ...eff, remainingDuration: eff.remainingDuration - 1 };
     }).filter(eff => eff.remainingDuration !== 0); // 기간 끝난 효과 제거

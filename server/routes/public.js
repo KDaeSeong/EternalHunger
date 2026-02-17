@@ -7,6 +7,7 @@ const Map = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
+const { DEFAULT_ZONES } = require('../utils/defaultZones');
 
 /**
  * ✅ 공개 데이터 API
@@ -26,7 +27,32 @@ router.get('/items', async (req, res) => {
 router.get('/maps', async (req, res) => {
   try {
     const maps = await Map.find({}).populate('connectedMaps', 'name');
-    res.json(maps);
+
+    // ✅ 맵 zones가 비어있으면, '기본 맵 구역' 세트를 응답에 주입합니다.
+    // - DB를 강제로 수정하진 않습니다(응답 레벨에서만 보정).
+    const normalized = (Array.isArray(maps) ? maps : []).map((m) => {
+      const o = (typeof m?.toObject === 'function') ? m.toObject() : m;
+
+      // ✅ mongoose Map(crateAllowDeny)가 JSON에서 {}로 날아가지 않도록 평탄화
+      // - { [zoneId]: string[] } 형태로 항상 내려줍니다.
+      let crateAllowDeny = o?.crateAllowDeny;
+      if (crateAllowDeny && typeof crateAllowDeny.toObject === 'function') {
+        crateAllowDeny = crateAllowDeny.toObject();
+      }
+      if (crateAllowDeny instanceof Map) {
+        crateAllowDeny = Object.fromEntries(crateAllowDeny.entries());
+      }
+      if (!crateAllowDeny || typeof crateAllowDeny !== 'object' || Array.isArray(crateAllowDeny)) {
+        crateAllowDeny = {};
+      }
+
+      if (!Array.isArray(o?.zones) || o.zones.length === 0) {
+        return { ...o, crateAllowDeny, zones: DEFAULT_ZONES };
+      }
+      return { ...o, crateAllowDeny };
+    });
+
+    res.json(normalized);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '맵 로드 실패' });

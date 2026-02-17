@@ -32,6 +32,7 @@ const myKillsTop3 = myCharTop3.kills;
         name: c?.name || '알 수 없음',
         totalWins: Number(c?.wins || 0),
         totalKills: Number(c?.kills || 0),
+        totalAssists: Number(c?.assists || 0),
       }));
       const wins = arr
         .filter((x) => x.totalWins > 0)
@@ -228,7 +229,7 @@ const myKillsTop3 = myCharTop3.kills;
 
                 {/* 💀 최다 킬 */}
                 <div className="hof-card">
-                    <h3>💀 학살자 (Kills)</h3>
+                    <h3>💀 학살자 (Kills/Assists)</h3>
                     <ul>
                         {user ? (
                         myKillsTop3 && myKillsTop3.length > 0 ? myKillsTop3.map((char, idx) => (
@@ -237,7 +238,7 @@ const myKillsTop3 = myCharTop3.kills;
                                 <div className="rank-info">
                                     <span className="rank-name">{char.name}</span>
                                     <span className="rank-val" style={{color:'#ff5252'}}>
-                                        {(char.totalKills ?? char.records?.totalKills ?? 0)} 킬
+                                        {(char.totalKills ?? char.records?.totalKills ?? 0)} 킬 / {(char.totalAssists ?? char.records?.totalAssists ?? 0)} 어시
                                     </span>
                                 </div>
                             </li>

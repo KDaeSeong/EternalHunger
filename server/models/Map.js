@@ -21,8 +21,20 @@ const MapSchema = new mongoose.Schema({
     name: { type: String, required: true },
     // 간단 폴리곤(캔버스 좌표계 등) — 필요하면 rect로 바꿔도 됩니다.
     polygon: [{ x: Number, y: Number }],
-    isForbidden: { type: Boolean, default: false }
+    isForbidden: { type: Boolean, default: false },
+    // 편의 플래그(기본 구역 자동 생성 시 주입)
+    hasKiosk: { type: Boolean, default: false },
+    coreSpawn: { type: Boolean, default: false }
   }],
+
+  // 🌠 자연 코어(운석/생나 등) 스폰 허용 구역(zoneId 배열)
+  // - zones[*].coreSpawn를 기본으로 사용하되, 별도 튜닝/관리용으로 둡니다.
+  coreSpawnZones: [{ type: String }],
+
+  // 📦 존별 상자 스폰 허용/금지(관리자 튜닝용)
+  // - 형태: { [zoneId]: [ 'food' | 'legendary_material' | 'transcend_pick', ... ] }
+  // - 값은 "금지(deny) 리스트"로 동작(배열에 있으면 해당 상자 스폰 금지)
+  crateAllowDeny: { type: Map, of: [String], default: {} },
 
   // 🧭 맵 내부 구역 동선(로드맵 2-2)
   // - 기본: 양방향(bidirectional=true)
