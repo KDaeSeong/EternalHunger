@@ -190,7 +190,7 @@ export const RULESETS = {
     // - 금지구역에 들어가면 탈출을 "시도"하지만, 100% 강제 이동은 하지 않습니다.
     //   (머무르면 폭발 타이머로 사망)
     forbidden: {
-      escapeMoveChance: 0.85,
+      escapeMoveChance: 0.95,
     },
 
     // 🔋 가젯 에너지(시뮬레이터 단순화)
@@ -337,14 +337,31 @@ export const RULESETS = {
   LEGACY: {
     id: 'LEGACY',
     label: 'Legacy (단순 규칙)',
-    tickSec: 0,
+    tickSec: 1,
     phaseSecondsByDay: ER_PHASE_SECONDS,
-    detonation: null,
+    // 🚫 폭발 타이머(금지구역) - Legacy에서도 동일하게 사용
+    detonation: {
+      startSec: 20,
+      maxSec: 30,
+      killBonusSec: 5,
+      decreasePerSecForbidden: 1,
+      regenPerSecOutsideForbidden: 1,
+      criticalSec: 5,
+      // 안전구역 2곳 남으면 40s 유예 후 전 구역 감소
+      forceAllAfterSec: 40,
+      // 로그 마일스톤(과도한 로그 방지)
+      logMilestones: [15, 10, 5, 3, 1, 0],
+    },
     gadgetEnergy: null,
     gadgets: null,
     fog: { enabled: false, schedule: [], warningSec: 0, durationSec: 0 },
     wildlife: { wolvesRespawnAt: null, bearsRespawnAt: null },
     credits: { basePerPhase: 10, kill: 0, wildlifeKill: 0, mutantKill: 0, kioskSell: 0 },
+
+    // 🚫 금지구역
+    forbidden: {
+      escapeMoveChance: 0.95,
+    },
 
     // 📦 드랍(룰셋): 구역 상자/필드 파밍
     drops: {

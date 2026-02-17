@@ -3609,7 +3609,12 @@ if (recovering) {
 // (요구사항: 금지구역에 일정 시간 머무르면 사망 => 실제로 '머무를' 수 있어야 함)
 const forbidCfg = ruleset?.forbidden || {};
 const escapeMoveChance = Math.min(1, Math.max(0, Number(forbidCfg.escapeMoveChance ?? 0.85)));
-const moveChance = mustEscape ? escapeMoveChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
+// detonation이 임계치 근처면(=곧 폭발) 탈출 시도를 더 강하게 합니다.
+const curDet = Number.isFinite(Number(updated.detonationSec)) ? Number(updated.detonationSec) : 999;
+const dangerForceSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5) + 2);
+const escapeChance = (mustEscape && curDet <= dangerForceSec) ? 1 : escapeMoveChance;
+
+const moveChance = mustEscape ? escapeChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
 const willMove = Math.random() < moveChance;
 
 if (willMove) {
@@ -3650,6 +3655,8 @@ if (willMove) {
 if (String(nextZoneId) !== String(currentZone)) {
   if (mustEscape) {
     addLog(`⚠️ [${updated.name}] 금지구역 이탈: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
+  } else if (forbiddenIds.has(String(nextZoneId))) {
+    addLog(`⚠️ [${updated.name}] 금지구역 진입: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
   } else if (moveTargets.length) {
     if (moveReason === 'recover') {
       addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
@@ -4043,17 +4050,24 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const maxDet = Number(s.detonationMaxSec || detCfg.maxSec || 30);
               s.detonationSec = Math.min(maxDet, Number(s.detonationSec || 0) + regenPerSec * tickSec);
             }
+            // 로그 스팸 방지: 안전구역에선 경고 마일스톤을 초기화
+            s._detLogLastMilestone = null;
             continue;
           }
 
-          // 제한구역: 안전지대 효과 중이면 카운트다운 정지
-          // - 엔드게임(forceAllNow)에서는 유예 종료 후 '무조건 감소'하도록 안전지대도 무시
-          if (!forceAllNow && Number(s.safeZoneUntil || 0) > absSec) {
-            continue;
-          }
+          // 제한구역: 폭발 타이머는 "금지구역에 있으면 무조건 감소"합니다.
+          // (안전지대/개인 보호 효과가 있더라도 감소하며, 엔드게임(forceAllNow)도 동일)
 
           // 제한구역: 폭발 타이머 감소
           s.detonationSec = Math.max(0, Number(s.detonationSec || 0) - decPerSec * tickSec);
+
+          // ⏳ 경고 로그(마일스톤) - 과도한 로그 방지
+          const detFloor = Math.max(0, Math.floor(Number(s.detonationSec || 0)));
+          const milestones = Array.isArray(detCfg.logMilestones) ? detCfg.logMilestones.map((x) => Math.floor(Number(x))) : [15, 10, 5, 3, 1, 0];
+          if (milestones.includes(detFloor) && Number(s._detLogLastMilestone) !== detFloor) {
+            s._detLogLastMilestone = detFloor;
+            addLog(`⏳ [${s.name}] 폭발 타이머 ${detFloor}s (구역: ${getZoneName(zoneId)})`, 'system');
+          }
 
           // 위기: 가젯 사용 시도(단순 모델)
           if (Number(s.detonationSec || 0) <= criticalSec) {
@@ -5216,13 +5230,50 @@ const gainDetailSummary = useMemo(() => {
 
                 
                 <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', fontSize: 12, opacity: 0.95 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, rowGap: 4, justifyContent: 'center', fontSize: 12, opacity: 0.95 }}>
                   <span>❤️ {Math.max(0, Math.floor(Number(char.hp ?? 0)))}/{Math.max(1, Math.floor(Number(char.maxHp ?? 100)))}</span>
+                  {(() => {
+                    const detVal = Number(char.detonationSec);
+                    if (!Number.isFinite(detVal)) return null;
+
+                    const rs = getRuleset(settings?.rulesetId);
+                    const detMax = Number(char.detonationMaxSec ?? rs?.detonation?.maxSec ?? 30);
+                    const critical = Math.max(0, Number(rs?.detonation?.criticalSec ?? 5));
+
+                    const totalZonesForUI = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
+                    const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
+                    const safeLeftForUI = Math.max(0, totalZonesForUI - forbiddenCnt);
+                    const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
+                    const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
+                    const forceAllOn = (safeLeftForUI <= 2 && totalZonesForUI > 0 && curPhaseDur >= detForceAll);
+
+                    const zid = String(char.zoneId || '');
+                    const isForbiddenUi = forceAllOn ? true : forbiddenNow.has(zid);
+
+                    const detFloor = Math.max(0, Math.floor(detVal));
+                    const maxFloor = Number.isFinite(detMax) ? Math.max(0, Math.floor(detMax)) : null;
+                    const isCritical = detFloor <= critical;
+                    const label = maxFloor !== null ? `${detFloor}/${maxFloor}s` : `${detFloor}s`;
+
+                    return (
+                      <span
+                        title={isForbiddenUi ? '금지구역: 폭발 타이머 감소' : '안전구역: 폭발 타이머 회복'}
+                        style={{
+                          fontWeight: 900,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          border: '1px solid rgba(255,255,255,0.20)',
+                          background: isCritical ? 'rgba(255, 82, 82, 0.42)' : isForbiddenUi ? 'rgba(255, 82, 82, 0.26)' : 'rgba(0,0,0,0.22)',
+                          color: '#fff',
+                        }}
+                      >
+                        {isCritical ? '⚠️ ' : ''}⏳ {label}
+                      </span>
+                    );
+                  })()}
+
                   {settings?.rulesetId === 'ER_S10' && (
-                    <>
-                      <span>⏳ {Number.isFinite(Number(char.detonationSec)) ? Math.max(0, Math.floor(Number(char.detonationSec))) : '-' }s</span>
-                      <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
-                    </>
+                    <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
                   )}
                 </div>
 
@@ -5311,14 +5362,41 @@ const gainDetailSummary = useMemo(() => {
             </div>
           </div>
 
-          {forbiddenNow.size ? (
-            <div className="forbidden-banner">
-              <div>⚠️ 금지구역: {Array.from(forbiddenNow).map((z) => getZoneName(z)).join(', ')}</div>
-              {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
-                <div style={{ marginTop: 4, opacity: 0.95 }}>➕ 이번 페이즈 신규: {forbiddenAddedNow.map((z) => getZoneName(z)).join(', ')}</div>
-              ) : null}
-            </div>
-          ) : null}
+          {(() => {
+            if (day <= 0) return null;
+            const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
+            const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
+            const safeLeft = Math.max(0, total - forbiddenCnt);
+            const rs = getRuleset(settings?.rulesetId);
+            const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
+            const isEndgame = safeLeft <= 2 && total > 0;
+            const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
+            const willForceAllThisPhase = isEndgame && curPhaseDur >= detForceAll;
+            const fzNames = forbiddenCnt ? Array.from(forbiddenNow).map((z) => getZoneName(z)).join(', ') : '';
+
+            return (
+              <div className="forbidden-top-bar">
+                <span className="fz-title">🚫 금지구역</span>
+                <span className="fz-chip">금지 <b>{forbiddenCnt}</b> / 전체 <b>{total}</b> · 안전 <b>{safeLeft}</b></span>
+                {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
+                  <span className="fz-chip">➕ 이번 페이즈 <b>+{forbiddenAddedNow.length}</b></span>
+                ) : null}
+                {forbiddenCnt ? (
+                  <span className="fz-list" title={fzNames}>📍 {fzNames}</span>
+                ) : (
+                  <span className="fz-list">(현재 금지구역 없음)</span>
+                )}
+                {isEndgame ? (
+                  <span
+                    className={`fz-chip ${willForceAllThisPhase ? 'fz-danger' : 'fz-final'}`}
+                    title="안전구역이 2곳만 남으면 유예 후, 안전구역도 포함해 모든 구역에서 폭발 타이머가 감소합니다."
+                  >
+                    🔥 전구역 위험: <b>{willForceAllThisPhase ? 'ON' : '유예중'}</b> · 유예 <b>{detForceAll}s</b>
+                  </span>
+                ) : null}
+              </div>
+            );
+          })()}
 
 
 {(() => {
@@ -5366,6 +5444,28 @@ const gainDetailSummary = useMemo(() => {
 
           <div className="log-window" style={{ minWidth: 0 }}>
             <div className="log-content">
+              {day > 0 && (
+                <div className="log-top-status">
+                  <div className="log-top-row">
+                    <span className="log-top-label">🚫 금지구역</span>
+                    <span className="log-top-value">{forbiddenNow.size ? Array.from(forbiddenNow).map((z) => getZoneName(z)).join(', ') : '없음'}</span>
+                  </div>
+                  {forbiddenNow.size ? (
+                    <div className="log-top-sub">
+                      {(() => {
+                        const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
+                        const safeLeft = Math.max(0, total - forbiddenNow.size);
+                        const detForceAll = Math.max(0, Number(getRuleset(settings?.rulesetId)?.detonation?.forceAllAfterSec ?? 40));
+                        const extra = safeLeft <= 2 ? ` · 안전구역 2곳 남음 → ${detForceAll}s 후 전구역 위험(타이머 감소)` : '';
+                        return `안전구역 ${safeLeft}곳 남음${extra}`;
+                      })()}
+                    </div>
+                  ) : null}
+                  {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
+                    <div className="log-top-sub">➕ 이번 페이즈 신규: {forbiddenAddedNow.map((z) => getZoneName(z)).join(', ')}</div>
+                  ) : null}
+                </div>
+              )}
               <div className="log-scroll-area" ref={logBoxRef}>
                 {logs.map((log, idx) => (
                   <div

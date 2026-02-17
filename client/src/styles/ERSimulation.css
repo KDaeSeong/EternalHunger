@@ -66,9 +66,16 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 80px;  /* 카드 너비 고정 (일정하게 보이도록) */
+    width: 180px;  /* 카드 너비 확장(스탯/인벤 표시 겹침 방지) */
+    /* 상태이상 배지가 카드 밖으로 튀어나와 서로 겹치는 케이스 방지 */
+    padding: 12px 8px 10px;
+    box-sizing: border-box;
     text-align: center;
     position: relative; /* 뱃지 위치 기준 */
+    overflow: hidden; /* 배지/아이콘이 카드 밖으로 넘치지 않게 */
+    background: #fff;
+    border: 1px solid #e6e6e6;
+    border-radius: 12px;
 }
 
 /* 이미지 크기 */
@@ -83,8 +90,8 @@
 }
 
 /* 이름 텍스트 (길면 알아서 줄바꿈) */
-.survivor-card span {
-    font-size: 0.85rem;
+.survivor-card > span {
+    font-size: 0.9rem;
     line-height: 1.2;
     word-break: keep-all; /* 단어 중간에 끊기지 않게 */
     color: #333;
@@ -115,7 +122,7 @@
 }
 /* 아침에는 로그 배경을 좀 더 진하게 해서 글씨 잘 보이게 */
 .morning-mode .log-window {
-    background: rgba(0, 0, 0, 0.45); 
+    background: rgba(0, 0, 0, 0.60); 
     min-width: 0;
     box-sizing: border-box;
 }
@@ -139,10 +146,55 @@
 .screen-header h1 { margin: 0; color: #4ebfff; font-family: 'Courier New', monospace; }
 .weather-badge { background: #ff9800; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.9rem; }
 
+/* 금지구역 상태(상단 배지 1줄) */
+.forbidden-top-bar {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 82, 82, 0.10);
+  border: 1px solid rgba(255, 82, 82, 0.35);
+  color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.forbidden-top-bar .fz-title {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.forbidden-top-bar .fz-chip {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.forbidden-top-bar .fz-final {
+  background: rgba(255, 152, 0, 0.20);
+  border-color: rgba(255, 152, 0, 0.35);
+}
+
+.forbidden-top-bar .fz-danger {
+  background: rgba(255, 82, 82, 0.22);
+  border-color: rgba(255, 82, 82, 0.50);
+}
+
+.forbidden-top-bar .fz-list {
+  max-width: 620px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.95;
+}
+
 /* 로그 창 */
 .log-window {
   flex: 1;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   padding: 30px;
@@ -175,6 +227,8 @@
     font-size: 0.98rem;
     color: rgba(255, 255, 255, 0.9); /* 배경 대비 가독성 */
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.06);
 
     /* 긴 문장/이모지/괄호 텍스트가 있어도 가로로 삐져나가지 않게 */
     white-space: pre-wrap;
@@ -182,6 +236,34 @@
     word-break: break-word;
     max-width: 100%;
     box-sizing: border-box;
+}
+
+/* 로그 상단 고정 정보(금지구역) */
+.log-top-status {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 82, 82, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255,255,255,0.95);
+}
+.log-top-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.log-top-label {
+  font-weight: 900;
+  color: #ffcc66;
+  white-space: nowrap;
+}
+.log-top-value {
+  font-weight: 800;
+}
+.log-top-sub {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  opacity: 0.95;
 }
 
 .log-message.day-header { 
@@ -387,12 +469,15 @@
 /* 상태 이상 아이콘 컨테이너 */
 .status-effects-container {
     position: absolute;
-    top: -5px;
-    left: -5px; /* 킬 배지와 반대 방향 */
+    /* 카드 밖으로 나가면 인접 카드와 겹쳐서 보기 안 좋아짐 -> 카드 내부에 고정 */
+    top: 6px;
+    left: 6px;
+    right: 6px;
     display: flex;
-    gap: 2px;
+    gap: 4px;
     flex-wrap: wrap;
-    max-width: 150px;
+    max-width: calc(100% - 12px);
+    z-index: 2;
 }
 
 .effect-icon {
@@ -420,6 +505,7 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     border: 1px solid #ddd;
     white-space: nowrap;
+    color: #111;
 }
 
 /* 인벤토리 요약 스타일 */
@@ -470,10 +556,10 @@
 }
 
 .log-message.system {
-    color: #ff9800; /* 금지구역 경고용 오렌지색 */
-    font-weight: bold;
-    border-left: 3px solid #ff9800;
-    background: rgba(255, 152, 0, 0.05);
+    color: rgba(255,255,255,0.92);
+    font-weight: 800;
+    border-left: 3px solid #4ebfff;
+    background: rgba(78, 191, 255, 0.10);
 }
 /* =========================
    🛒 시뮬레이션 우측 패널(조합/키오스크/드론/거래)
