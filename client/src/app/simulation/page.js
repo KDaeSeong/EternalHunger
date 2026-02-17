@@ -2867,11 +2867,15 @@ const devForceUseConsumable = (charId, invIndex) => {
     return arr;
   };
 
-  // ✅ 페이즈 단위 금지구역(확장 규칙)
-  // - 요구사항: 2일차 밤부터 생성, 페이즈가 바뀔 때마다 2곳씩 누적 확장
+  // ✅ 금지구역(확장 규칙)
+  // - 요구사항: 2일차 밤부터 생성, 낮/밤(페이즈)마다 2곳씩 누적 확장
+  // - 마지막(=안전구역이 2곳 남는 시점)에는 더 이상 확장하지 않고, 안전구역도 40s 유예 후 카운트가 깎이도록(아래 detonation 틱) 처리
   // - 맵의 zones[*].isForbidden은 항상 기본 금지구역으로 유지
   const getForbiddenZoneIdsForPhase = (mapObj, dayNum, phaseKey, ruleset) => {
-    const key = `${String(mapObj?._id || 'no-map')}:${String(dayNum)}:${String(phaseKey || '')}`;
+    const effDay = Math.max(0, Number(dayNum || 0));
+    const effPhase = (String(phaseKey || '') === 'night') ? 'night' : 'morning';
+
+    const key = `${String(mapObj?._id || 'no-map')}:${String(effDay)}:${String(effPhase)}`;
     if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
 
     const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
@@ -2886,16 +2890,17 @@ const devForceUseConsumable = (charId, invIndex) => {
     const startPhase = String(cfg.startPhase ?? cfg.startTimeOfDay ?? settings.forbiddenZoneStartPhase ?? 'night');
     const addPerPhase = Math.max(1, Number(cfg.addPerPhase ?? cfg.perPhaseAdd ?? 2));
 
-    const phaseIdx = Math.max(0, Number(dayNum || 0)) * 2 + (String(phaseKey) === 'night' ? 1 : 0);
-    const startIdx = Math.max(0, Number(startDay || 0)) * 2 + (startPhase === 'night' ? 1 : 0);
+    const phaseIdx = effDay * 2 + (effPhase === 'night' ? 1 : 0);
+    const startIdx = Math.max(0, Number(startDay || 0)) * 2 + (String(startPhase) === 'night' ? 1 : 0);
 
     if (enabled && phaseIdx >= startIdx && zoneIds.length > 0) {
       const steps = phaseIdx - startIdx + 1;
       const want = steps * addPerPhase;
       const order = getForbiddenOrderForMap(mapObj);
 
-      // 최소 1개의 안전구역은 남기기
-      const maxAdd = Math.max(0, zoneIds.length - 1 - base.size);
+      // ✅ 마지막엔 안전구역 2곳 남기기(가능하면)
+      const safeRemain = Math.max(1, Math.floor(Number(cfg.safeRemain ?? 2)));
+      const maxAdd = Math.max(0, zoneIds.length - safeRemain - base.size);
       const extraCount = Math.min(want, Math.min(maxAdd, order.length));
       order.slice(0, extraCount).forEach((id) => base.add(id));
     }
@@ -3976,6 +3981,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
         ? mapObj.zones.map((z) => String(z.zoneId))
         : [...forbiddenIds];
 
+      // 🧨 엔드게임: 안전구역이 2곳만 남으면(=마지막 단계), 40s 유예 후 안전구역도 폭발 타이머가 감소합니다.
+      const safeLeft = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid))).length;
+      const forceAllAfterSec = (safeLeft <= 2) ? Math.max(0, Number(detCfg.forceAllAfterSec ?? 40)) : null;
+      if (forceAllAfterSec !== null) {
+        addLog(`⏳ 안전구역 유예 ${forceAllAfterSec}s: 이후 모든 구역에서 폭발 타이머가 감소합니다.`, 'system');
+      }
+
       const pickSafeZone = (fromZoneId) => {
         const neighbors = Array.isArray(zoneGraph[fromZoneId]) ? zoneGraph[fromZoneId] : [];
         const safeNeighbors = neighbors.map(String).filter((zid) => !forbiddenIds.has(String(zid)));
@@ -4018,7 +4030,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           const zoneId = String(s.zoneId || '__default__');
-          const isForbidden = forbiddenIds.has(zoneId);
+          const forceAllNow = (forceAllAfterSec !== null && t >= forceAllAfterSec);
+          const isForbidden = forceAllNow ? true : forbiddenIds.has(zoneId);
+
+          if (forceAllAfterSec !== null && t === forceAllAfterSec) {
+            addLog('⚠️ 유예 종료: 안전구역도 위험해졌습니다.', 'highlight');
+          }
 
           if (!isForbidden) {
             // 안전 구역: 폭발 타이머 회복
@@ -4030,7 +4047,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           // 제한구역: 안전지대 효과 중이면 카운트다운 정지
-          if (Number(s.safeZoneUntil || 0) > absSec) {
+          // - 엔드게임(forceAllNow)에서는 유예 종료 후 '무조건 감소'하도록 안전지대도 무시
+          if (!forceAllNow && Number(s.safeZoneUntil || 0) > absSec) {
             continue;
           }
 
@@ -4182,7 +4200,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const myP = estimatePower(me);
       const opP = estimatePower(opp);
       const ratio = myP / Math.max(1, myP + opP);
-      const minRatio = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.44);
+      const minRatio = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
       const absDelta = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
       if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
       return null;
@@ -4411,6 +4429,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const targetEval = survivorMap.get(potentialTargets[0]._id);
         const avoidInfo = targetEval ? shouldAvoidCombatByPower(actor, targetEval) : null;
         if (avoidInfo) {
+          const oppName = String(targetEval?.name || '상대');
+          const delta = Number(avoidInfo.opP || 0) - Number(avoidInfo.myP || 0);
+          const avoidChance = Number(ruleset?.ai?.fightAvoidChance ?? 0.75);
+          const extremeRatio = Number(ruleset?.ai?.fightAvoidExtremeRatio ?? 0.30);
+          const extremeDelta = Number(ruleset?.ai?.fightAvoidExtremeDelta ?? 25);
+          const willAvoid = (avoidInfo.ratio < extremeRatio || delta >= extremeDelta) ? true : (Math.random() < avoidChance);
+
+          if (!willAvoid) {
+            addLog(`🔥 [${actor.name}] 불리하지만 [${oppName}]과 교전합니다!`, 'highlight');
+          } else {
           const from = String(actor?.zoneId || '');
           const pop = {};
           for (const s of survivorMap.values()) {
@@ -4430,12 +4458,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (dest && dest !== from) {
             actor.zoneId = dest;
             survivorMap.set(actor._id, actor);
-            addLog(`🏃 [${actor.name}] 전투력 열세로 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
+            addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
             emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'avoid_power' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           } else {
-            addLog(`🏃 [${actor.name}] 전투력 열세로 교전 회피`, 'system');
+            addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피`, 'system');
           }
           continue;
+          }
         }
       }
 
@@ -5187,12 +5216,15 @@ const gainDetailSummary = useMemo(() => {
 
                 
                 <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
-{settings?.rulesetId === 'ER_S10' && (
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', fontSize: 12, opacity: 0.95 }}>
-                    <span>⏳ {Number.isFinite(Number(char.detonationSec)) ? Math.max(0, Math.floor(Number(char.detonationSec))) : '-' }s</span>
-                    <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
-                  </div>
-                )}
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'center', fontSize: 12, opacity: 0.95 }}>
+                  <span>❤️ {Math.max(0, Math.floor(Number(char.hp ?? 0)))}/{Math.max(1, Math.floor(Number(char.maxHp ?? 100)))}</span>
+                  {settings?.rulesetId === 'ER_S10' && (
+                    <>
+                      <span>⏳ {Number.isFinite(Number(char.detonationSec)) ? Math.max(0, Math.floor(Number(char.detonationSec))) : '-' }s</span>
+                      <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
+                    </>
+                  )}
+                </div>
 
                 <div className="inventory-summary">
                   <span className="bag-icon">🎒</span>

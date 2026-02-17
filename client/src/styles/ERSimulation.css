@@ -173,6 +173,8 @@
     border-radius: 6px;
     line-height: 1.35;
     font-size: 0.98rem;
+    color: rgba(255, 255, 255, 0.9); /* 배경 대비 가독성 */
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 
     /* 긴 문장/이모지/괄호 텍스트가 있어도 가로로 삐져나가지 않게 */
     white-space: pre-wrap;
