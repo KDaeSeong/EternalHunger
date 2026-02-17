@@ -3420,6 +3420,20 @@ if (w) {
     const phaseStartSec = matchSec;
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
 
+    // ⏹️ 강제 종료: 6번째 밤 도달 시 게임을 끝냅니다.
+    // - 너무 오래 끌리는 템포 문제를 해결하기 위한 안전장치
+    if (nextDay === 6 && nextPhase === 'night') {
+      setDay(nextDay);
+      setPhase(nextPhase);
+      setTimeOfDay(getTimeOfDayFromPhase(nextPhase));
+      addLog(`=== ${worldTimeText(nextDay, nextPhase)} (⏱ ${phaseDurationSec}s) ===`, 'day-header');
+      addLog('⏹️ 6번째 밤 도달: 시간 제한으로 게임이 종료됩니다.', 'highlight');
+      const alive = (Array.isArray(survivors) ? survivors : []).filter((s) => Number(s?.hp || 0) > 0);
+      alive.sort((a, b) => (Number(b?.hp || 0) - Number(a?.hp || 0)) || String(a?.name || '').localeCompare(String(b?.name || '')));
+      await finishGame(alive, killCounts, assistCounts);
+      return;
+    }
+
     // 💰 이번 페이즈 기본 크레딧(시즌10 컨셉)
     const baseCredits = Number(ruleset?.credits?.basePerPhase || 0);
 
@@ -3437,8 +3451,11 @@ if (w) {
     let pendingPickAssigned = false;
 
     // 2. 맵 내부 구역 이동 + 금지구역(구역 기반) 데미지
-    const mapObj = activeMapRef.current || activeMap;
     const mapIdNow = String(activeMapIdRef.current || activeMapId || '');
+    const mapObjRaw = activeMapRef.current || activeMap;
+    const mapObj = mapObjRaw || ((Array.isArray(zones) && zones.length)
+      ? { _id: mapIdNow || 'local', zones }
+      : null);
     const prevForbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, day, phase, ruleset)) : new Set();
     const forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
     const newlyAddedForbidden = mapObj ? [...forbiddenIds].filter((zid) => !prevForbiddenIds.has(zid)) : [];
@@ -5069,8 +5086,13 @@ if (showMarketPanel && pendingTranscendPick) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
-  const forbiddenNow = activeMap
-    ? new Set(getForbiddenZoneIdsForPhase(activeMap, day, phase, getRuleset(settings?.rulesetId)))
+  // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
+  // 금지구역 로직이 동작하도록 zones 기반 fallback을 둡니다.
+  const activeMapEff = activeMap || ((Array.isArray(zones) && zones.length)
+    ? { _id: String(activeMapId || 'local'), zones }
+    : null);
+  const forbiddenNow = activeMapEff
+    ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase, getRuleset(settings?.rulesetId)))
     : new Set();
 
   // 🧾 런 요약: 획득 경로(아이템만 집계, 크레딧 제외)
