@@ -2376,6 +2376,7 @@ export default function SimulationPage() {
   const [killCounts, setKillCounts] = useState({});
   const [assistCounts, setAssistCounts] = useState({});
   const [showResultModal, setShowResultModal] = useState(false);
+  const [gameEndReason, setGameEndReason] = useState(null); // 게임 종료 사유(예: 6번째 밤 타임리밋)
   const [winner, setWinner] = useState(null);
 
   // 서버 설정값
@@ -3427,6 +3428,9 @@ if (w) {
       setPhase(nextPhase);
       setTimeOfDay(getTimeOfDayFromPhase(nextPhase));
       addLog(`=== ${worldTimeText(nextDay, nextPhase)} (⏱ ${phaseDurationSec}s) ===`, 'day-header');
+      setGameEndReason({ type: 'timelimit6night', day: nextDay, phase: nextPhase });
+      // 로그에서 더 크게 보이도록 "day-header" 형태로 1줄을 추가합니다.
+      addLog('=== ⏹️ 타임리밋: 6번째 밤 종료 ===', 'day-header');
       addLog('⏹️ 6번째 밤 도달: 시간 제한으로 게임이 종료됩니다.', 'highlight');
       const alive = (Array.isArray(survivors) ? survivors : []).filter((s) => Number(s?.hp || 0) > 0);
       alive.sort((a, b) => (Number(b?.hp || 0) - Number(a?.hp || 0)) || String(a?.name || '').localeCompare(String(b?.name || '')));
@@ -6041,6 +6045,22 @@ const gainDetailSummary = useMemo(() => {
         <div className="result-modal-overlay">
           <div className="result-modal">
             <h1>🏆 게임 종료 🏆</h1>
+            {gameEndReason?.type === 'timelimit6night' ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  border: '1px solid rgba(255, 120, 120, 0.6)',
+                  background: 'rgba(30, 10, 10, 0.55)',
+                  color: '#ffdfdf',
+                  fontWeight: 800,
+                  textAlign: 'center',
+                }}
+              >
+                ⏹️ 타임리밋 종료: 6번째 밤 도달
+              </div>
+            ) : null}
             <div className="market-small" style={{ marginTop: 6 }}>🎲 Seed: <strong>{runSeed}</strong></div>
             <div className="market-small" style={{ marginTop: 6 }}>📦 획득 경로: <strong>{gainSourceSummary || '-'}</strong></div>
             <div className="market-small" style={{ marginTop: 6 }}>💳 크레딧 경로: <strong>{creditSourceSummary || '-'}</strong></div>
