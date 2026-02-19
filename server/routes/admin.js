@@ -95,7 +95,14 @@ router.post('/maps', async (req, res) => {
         // - 관리자 화면에서 맵을 만들 때 '기본 맵 구역'을 빠르게 세팅하기 위함
         const payload = { ...(req.body || {}) };
         if (!Array.isArray(payload.zones) || payload.zones.length === 0) {
-            payload.zones = DEFAULT_ZONES;
+            // ✅ zones 순차번호(zoneNo)까지 포함해서 주입
+            payload.zones = cloneDefaultZones();
+        } else {
+            // ✅ 커스텀 zones라도 zoneNo가 비어있으면 1..N으로 채워줌
+            payload.zones = payload.zones.map((z, idx) => ({
+              ...(z || {}),
+              zoneNo: Number.isFinite(Number(z?.zoneNo)) ? Number(z.zoneNo) : (idx + 1),
+            }));
         }
         // 🌠 자연 코어 스폰 허용 구역(zoneId 배열)도 함께 세팅(미지정 시 zones.coreSpawn 기준)
         if (!Array.isArray(payload.coreSpawnZones) || payload.coreSpawnZones.length === 0) {
@@ -115,7 +122,8 @@ router.post('/maps', async (req, res) => {
 // - force: 기존 zones가 있어도 강제 덮어쓰기(주의)
 function cloneDefaultZones() {
   // DEFAULT_ZONES는 상수이므로, bulkWrite에서 안전하게 쓰기 위해 매번 깊은 복사를 만들어줍니다.
-  return (Array.isArray(DEFAULT_ZONES) ? DEFAULT_ZONES : []).map((z) => ({
+  return (Array.isArray(DEFAULT_ZONES) ? DEFAULT_ZONES : []).map((z, idx) => ({
+    zoneNo: idx + 1,
     zoneId: String(z?.zoneId || ''),
     name: String(z?.name || ''),
     polygon: (Array.isArray(z?.polygon) ? z.polygon : []).map((p) => ({
@@ -382,7 +390,7 @@ router.post('/kiosks/generate', async (req, res) => {
     const filter = {};
     if (mapIds && mapIds.length) filter._id = { $in: mapIds };
 
-    const maps = await Map.find(filter).select('_id name zones');
+    const maps = await Map.find(filter).select('_id name zones kioskZoneId');
     const mapIdList = (Array.isArray(maps) ? maps : []).map((m) => m._id);
 
     if (!mapIdList.length) {
@@ -400,7 +408,8 @@ router.post('/kiosks/generate', async (req, res) => {
     // force 모드면 먼저 삭제(키오스크 구역에 해당하는 zoneId만)
     let deletedCount = 0;
     if (mode === 'force') {
-      const del = await Kiosk.deleteMany({ mapId: { $in: mapIdList }, zoneId: { $in: KIOSK_ZONE_IDS } });
+      // ✅ "맵당 1개" 정책이므로 대상 맵의 키오스크는 전부 삭제 후 1개만 재생성
+      const del = await Kiosk.deleteMany({ mapId: { $in: mapIdList } });
       deletedCount = Number(del?.deletedCount || 0);
     }
 
@@ -417,31 +426,46 @@ router.post('/kiosks/generate', async (req, res) => {
     let targetKioskZoneCount = 0;
 
     for (const m of (Array.isArray(maps) ? maps : [])) {
-      const zones = (Array.isArray(m?.zones) && m.zones.length) ? m.zones : DEFAULT_ZONES;
-      for (const z of (Array.isArray(zones) ? zones : [])) {
-        if (!zoneLooksLikeKiosk(z)) continue;
+      const zones = (Array.isArray(m?.zones) && m.zones.length) ? m.zones : cloneDefaultZones();
 
-        const zoneId = String(z?.zoneId || ZONE_ID_BY_NAME?.[String(z?.name || '')] || '').trim();
-        if (!zoneId) continue;
+      // ✅ 맵당 1개: 지정한 존(kioskZoneId)이 있으면 그 존, 없으면 '병원' 우선
+      const desired = String(m?.kioskZoneId || '').trim();
+      const desiredNo = Number(desired);
+      const pick = (Array.isArray(zones) ? zones : []).find((z) => {
+        if (!desired) return false;
+        const zid = String(z?.zoneId || '').trim();
+        const znm = String(z?.name || '').trim();
+        const zno = Number(z?.zoneNo);
+        if (desired && (zid === desired || znm === desired)) return true;
+        if (Number.isFinite(desiredNo) && Number.isFinite(zno) && zno === desiredNo) return true;
+        return false;
+      });
 
-        targetKioskZoneCount += 1;
-        const key = `${String(m?._id || '')}::${zoneId}`;
-        if (existingKey.has(key)) {
-          skippedCount += 1;
-          continue;
-        }
+      const z = pick
+        || (Array.isArray(zones) ? zones : []).find((zz) => String(zz?.name || '').trim() === '병원')
+        || (Array.isArray(zones) ? zones : []).find((zz) => Boolean(zz?.hasKiosk) || zoneLooksLikeKiosk(zz));
 
-        const c = centroidOfPolygon(z?.polygon);
-        toInsert.push({
-          kioskId: buildKioskId(m?._id, zoneId),
-          name: `${String(z?.name || '키오스크')} 키오스크`,
-          mapId: m._id,
-          zoneId,
-          x: Number.isFinite(c.x) ? c.x : 0,
-          y: Number.isFinite(c.y) ? c.y : 0,
-          catalog: [],
-        });
+      if (!z) continue;
+      const zoneId = String(z?.zoneId || ZONE_ID_BY_NAME?.[String(z?.name || '')] || '').trim();
+      if (!zoneId) continue;
+
+      targetKioskZoneCount += 1;
+      const key = `${String(m?._id || '')}::${zoneId}`;
+      if (existingKey.has(key)) {
+        skippedCount += 1;
+        continue;
       }
+
+      const c = centroidOfPolygon(z?.polygon);
+      toInsert.push({
+        kioskId: buildKioskId(m?._id, zoneId),
+        name: `${String(z?.name || '키오스크')} 키오스크`,
+        mapId: m._id,
+        zoneId,
+        x: Number.isFinite(c.x) ? c.x : 0,
+        y: Number.isFinite(c.y) ? c.y : 0,
+        catalog: [],
+      });
     }
 
     if (toInsert.length) {

@@ -2821,11 +2821,14 @@ const devForceUseConsumable = (charId, invIndex) => {
   // - day별로 따로 섞으면(시드가 달라지면) "어제 금지"가 오늘 풀리는 현상이 생길 수 있어,
   //   맵별로 1회만 셔플한 순서를 prefix로 잘라 "누적"되게 만듭니다.
   const getForbiddenOrderForMap = (mapObj) => {
-    const orderKey = `${String(mapObj?._id || 'no-map')}:forbidden:order`;
-    if (forbiddenCacheRef.current[orderKey]) return forbiddenCacheRef.current[orderKey];
-
     const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
     const zoneIds = z.map((x) => String(x.zoneId));
+    // ✅ 초기 로드 타이밍(구역 목록이 비어있는 상태)에서 캐시가 굳어버리면
+    //    이후에도 금지구역이 0으로 고정될 수 있어, 구역 시그니처를 키에 포함합니다.
+    const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
+    const orderKey = `${String(mapObj?._id || 'no-map')}:forbidden:order:${zSig}`;
+    if (forbiddenCacheRef.current[orderKey]) return forbiddenCacheRef.current[orderKey];
+
     const base = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
 
     const candidates = zoneIds.filter((id) => id && !base.has(id));
@@ -2839,16 +2842,19 @@ const devForceUseConsumable = (charId, invIndex) => {
   };
 
   const getForbiddenZoneIdsForDay = (mapObj, dayNum) => {
-    const key = `${String(mapObj?._id || 'no-map')}:${dayNum}`;
-    if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
-
     const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
     const zoneIds = z.map((x) => String(x.zoneId));
+    const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
+    const key = `${String(mapObj?._id || 'no-map')}:${dayNum}:${zSig}`;
+    if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
+
     const base = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
 
     const cfg = mapObj?.forbiddenZoneConfig || {};
-    // 기본값: ON (명시적으로 false일 때만 비활성)
-    const enabled = cfg.enabled !== false;
+    // ✅ 금지구역은 기본 ON
+    // - server Map 스키마에서 forbiddenZoneConfig.enabled 기본값이 false였던 레거시 때문에
+    //   "항상 금지구역 0"으로 굳는 케이스가 있었음. 현재 룰셋에서는 설정으로만 OFF 허용.
+    const enabled = (settings?.forbiddenZoneEnabled === false) ? false : true;
 
     // 요구사항: 2일차 밤 이후(=3일차 낮부터) "무작위 2곳"을 금지구역으로 고정
     // - 누적 확장 X, 항상 2곳(기본 isForbidden이 있으면 여기에 추가)
@@ -2876,15 +2882,19 @@ const devForceUseConsumable = (charId, invIndex) => {
     const effDay = Math.max(0, Number(dayNum || 0));
     const effPhase = (String(phaseKey || '') === 'night') ? 'night' : 'morning';
 
-    const key = `${String(mapObj?._id || 'no-map')}:${String(effDay)}:${String(effPhase)}`;
-    if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
-
     const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
     const zoneIds = z.map((x) => String(x.zoneId));
+    const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
+
+    const key = `${String(mapObj?._id || 'no-map')}:${String(effDay)}:${String(effPhase)}:${zSig}`;
+    if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
+
     const base = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
 
     const cfg = mapObj?.forbiddenZoneConfig || {};
-    const enabled = cfg.enabled !== false;
+    // ✅ 금지구역은 기본 ON
+    // - 레거시(enabled:false 기본값)로 금지구역이 비활성화되는 문제 방지
+    const enabled = (settings?.forbiddenZoneEnabled === false) ? false : true;
 
     // 기본값: 2일차 밤부터 시작(요구사항)
     const startDay = Number(cfg.startDay ?? settings.forbiddenZoneStartDay ?? 2);
@@ -3470,6 +3480,19 @@ if (w) {
     const cfg = mapObj?.forbiddenZoneConfig || {};
     // LEGACY 규칙: 금지구역 체류 시 HP 감소
     const damagePerTick = Number(cfg.damagePerTick ?? 0) || Math.round(nextDay * (settings.forbiddenZoneDamageBase || 1.5));
+    // 🧾 금지구역 상태(디버그/재현용): 페이즈 전환마다 1줄로 표준 로그를 남깁니다.
+    const totalZones = (Array.isArray(mapObj?.zones) && mapObj.zones.length) ? mapObj.zones.length : (Array.isArray(zones) ? zones.length : 0);
+    const safeZones = Math.max(0, totalZones - forbiddenIds.size);
+    const fzEnabled = cfg.enabled !== false;
+    const fzStartDay = Number(cfg.startDay ?? settings.forbiddenZoneStartDay ?? 2);
+    const fzStartPhase = String(cfg.startPhase ?? cfg.startTimeOfDay ?? settings.forbiddenZoneStartPhase ?? 'night');
+    const fzPhaseIdx = nextDay * 2 + (nextPhase === 'night' ? 1 : 0);
+    const fzStartIdx = Math.max(0, fzStartDay) * 2 + (fzStartPhase === 'night' ? 1 : 0);
+    const fzStateText = (!fzEnabled)
+      ? 'OFF'
+      : (fzPhaseIdx < fzStartIdx ? `대기(${fzStartDay}일차 ${fzStartPhase === 'night' ? '밤' : '낮'}부터)` : 'ON');
+    addLog(`🚫 금지구역 업데이트: +${newlyAddedForbidden.length} · 금지 ${forbiddenIds.size}/${totalZones} · 안전 ${safeZones} · ${fzStateText}`, 'system');
+
 
     if (forbiddenIds.size > 0) {
       if (newlyAddedForbidden.length > 0) {
@@ -5394,6 +5417,29 @@ const gainDetailSummary = useMemo(() => {
             const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
             const safeLeft = Math.max(0, total - forbiddenCnt);
             const rs = getRuleset(settings?.rulesetId);
+            const critical = Math.max(0, Number(rs?.detonation?.criticalSec ?? 5));
+            const riskyChars = (Array.isArray(survivors) ? survivors : [])
+              .map((c) => {
+                const d = Number(c?.detonationSec);
+                if (!Number.isFinite(d)) return null;
+                return { name: c?.name, sec: Math.max(0, Math.floor(d)) };
+              })
+              .filter(Boolean)
+              .filter((x) => x.sec <= critical)
+              .sort((a, b) => a.sec - b.sec);
+            const riskyCount = riskyChars.length;
+            const riskyMin = riskyCount ? riskyChars[0].sec : null;
+            const riskyNames = riskyCount
+              ? (() => {
+                  const names = riskyChars.map((x) => String(x?.name || '???')).filter(Boolean);
+                  const head = names.slice(0, 5);
+                  const extra = names.length > 5 ? ` 외 ${names.length - 5}명` : '';
+                  return `${head.join(', ')}${extra}`;
+                })()
+              : '';
+            const riskyTitle = riskyCount
+              ? `폭발 타이머 임계치(≤${critical}s) 이하 · 최저 ${riskyMin}s: ${riskyNames}`
+              : `폭발 타이머 임계치(≤${critical}s) 이하 생존자 수`;
             const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
             const isEndgame = safeLeft <= 2 && total > 0;
             const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
@@ -5403,7 +5449,16 @@ const gainDetailSummary = useMemo(() => {
             return (
               <div className="forbidden-top-bar">
                 <span className="fz-title">🚫 금지구역</span>
+                <span className="fz-chip" title="6번째 밤에 무조건 게임이 종료됩니다.">
+                  ⏹️ 타임리밋: <b>6번째 밤 종료</b>
+                </span>
                 <span className="fz-chip">금지 <b>{forbiddenCnt}</b> / 전체 <b>{total}</b> · 안전 <b>{safeLeft}</b></span>
+                <span
+                  className={`fz-chip ${riskyCount > 0 ? 'fz-danger' : ''}`}
+                  title={riskyTitle}
+                >
+                  ⚠️ 위험 <b>{riskyCount}</b>명
+                </span>
                 {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
                   <span className="fz-chip">➕ 이번 페이즈 <b>+{forbiddenAddedNow.length}</b></span>
                 ) : null}

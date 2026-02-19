@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiGet, apiPost } from '../../../utils/api';
+import { apiGet, apiPost, apiPut } from '../../../utils/api';
 
 function zonesEmpty(m) {
   return !Array.isArray(m?.zones) || m.zones.length === 0;
@@ -77,6 +77,9 @@ export default function AdminMapsPage() {
   const [coreEditMapId, setCoreEditMapId] = useState(null);
   const [coreSelected, setCoreSelected] = useState([]);
   const [coreMsg, setCoreMsg] = useState('');
+
+  const [kioskZoneSel, setKioskZoneSel] = useState('');
+  const [kioskZoneNote, setKioskZoneNote] = useState('');
 
   const [zoneCrateRules, setZoneCrateRules] = useState({});
   const [zoneCrateMsg, setZoneCrateMsg] = useState('');
@@ -168,6 +171,8 @@ export default function AdminMapsPage() {
     const cur = Array.isArray(m?.coreSpawnZones) ? m.coreSpawnZones : [];
     setCoreSelected(uniq(cur));
     setCoreMsg('');
+    setKioskZoneSel(String(m?.kioskZoneId || '').trim());
+    setKioskZoneNote('');
     setZoneCrateRules({});
     setZoneCrateMsg('');
     if (id) loadZoneCrateRules(id);
@@ -177,6 +182,8 @@ export default function AdminMapsPage() {
     setCoreEditMapId(null);
     setCoreSelected([]);
     setCoreMsg('');
+    setKioskZoneSel('');
+    setKioskZoneNote('');
     setZoneCrateRules({});
     setZoneCrateMsg('');
   };
@@ -191,6 +198,20 @@ export default function AdminMapsPage() {
     const zs = Array.isArray(selectedMap?.zones) ? selectedMap.zones : [];
     const ids = zs.map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
     return uniq(ids);
+  }, [selectedMap]);
+
+  const availableZones = useMemo(() => {
+    const zs = Array.isArray(selectedMap?.zones) ? selectedMap.zones : [];
+    const list = zs
+      .map((z, idx) => ({
+        zoneId: String(z?.zoneId || '').trim(),
+        zoneNo: Number.isFinite(Number(z?.zoneNo)) ? Number(z.zoneNo) : (idx + 1),
+        name: String(z?.name || '').trim(),
+        hasKiosk: Boolean(z?.hasKiosk),
+      }))
+      .filter((z) => Boolean(z.zoneId));
+    list.sort((a, b) => (a.zoneNo || 0) - (b.zoneNo || 0));
+    return list;
   }, [selectedMap]);
 
   const unknownSelected = useMemo(() => {
@@ -252,6 +273,26 @@ export default function AdminMapsPage() {
   const resetZoneCrateRules = () => {
     setZoneCrateRules({});
     setZoneCrateMsg('초기화됨(저장 필요)');
+  };
+
+  const saveKioskZone = async () => {
+    if (busy) return;
+    if (!coreEditMapId) return;
+
+    setBusy(true);
+    setKioskZoneNote('');
+    try {
+      const next = String(kioskZoneSel || '').trim();
+      await apiPut(`/admin/maps/${coreEditMapId}`, { kioskZoneId: next || null });
+      const line = withSimRefreshHint('✅ 저장 완료');
+      setKioskZoneNote(next ? `${line} — 키오스크 위치 변경은 force 재생성 필요` : line);
+      showSaveToast(line, 'ok', { href: '/simulation' });
+      await load();
+    } catch (e) {
+      setKioskZoneNote(e?.response?.data?.error || e.message || '저장 실패');
+    } finally {
+      setBusy(false);
+    }
   };
 
 
@@ -327,6 +368,16 @@ export default function AdminMapsPage() {
     opacity: busy ? 0.6 : 1,
   };
 
+  const select = {
+    padding: '10px 12px',
+    borderRadius: 10,
+    border: '1px solid rgba(255,255,255,0.16)',
+    background: '#0b1220',
+    color: '#e5e7eb',
+    fontWeight: 800,
+    minWidth: 320,
+  };
+
   const danger = {
     ...btn,
     border: '1px solid rgba(239,68,68,0.5)',
@@ -380,6 +431,17 @@ export default function AdminMapsPage() {
     color: '#e5e7eb',
     overflowX: 'auto',
     whiteSpace: 'pre',
+  };
+
+  const getKioskTargetText = (m) => {
+    if (!m) return '';
+    const desired = String(m?.kioskZoneId || '').trim();
+    if (!desired) return '자동(병원→첫 키오스크존)';
+    const z = Array.isArray(m?.zones) ? m.zones.find((it) => String(it?.zoneId) === desired) : null;
+    if (!z) return `${desired} (존 정보 없음)`;
+    const no = z?.zoneNo ? String(z.zoneNo) : '?';
+    const nm = String(z?.name || z?.zoneId || desired);
+    return `${no}. ${nm} (${desired})`;
   };
 
   return (
@@ -474,6 +536,16 @@ export default function AdminMapsPage() {
           </button>
         </div>
 
+        <div style={{ marginTop: 10, opacity: 0.78, fontSize: 13, lineHeight: 1.55 }}>
+          <b>생성 대상 존:</b> 각 맵의 kioskZoneId(없으면 자동) 기준으로 <b>맵당 1개</b>만 생성
+          {status === 'ok' && coreEditMapId && selectedMap ? (
+            <>
+              <br />
+              (현재 편집 중인 맵: <b>{String(selectedMap?.name || '맵')}</b> → {getKioskTargetText(selectedMap)})
+            </>
+          ) : null}
+        </div>
+
         {kioskMsg ? (
           <div style={{ marginTop: 12, opacity: 0.9 }}>
             <span style={{ fontWeight: 800 }}>메시지:</span> {kioskMsg}
@@ -518,6 +590,37 @@ export default function AdminMapsPage() {
           ) : (
             <div style={{ marginTop: 10, opacity: 0.85 }}>선택된 맵을 찾을 수 없습니다.</div>
           )}
+
+          {selectedMap ? (
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              <div style={{ fontWeight: 900 }}>키오스크 배치 존(맵당 1개)</div>
+              <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                지정하면 키오스크 생성 시 해당 존에 <b>1개</b>만 배치됩니다. (이미 생성된 키오스크는 <b>force 재생성</b> 필요)
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <select
+                  style={select}
+                  value={kioskZoneSel}
+                  onChange={(e) => setKioskZoneSel(e.target.value)}
+                  disabled={busy || !selectedMap}
+                >
+                  <option value="">자동(병원→첫 키오스크존)</option>
+                  {availableZones.map((z) => (
+                    <option key={`kiosk-${z.zoneId}`} value={z.zoneId}>
+                      {`${z.zoneNo}. ${z.name || z.zoneId} (${z.zoneId})${z.hasKiosk ? '' : ' · 일반'}`}
+                    </option>
+                  ))}
+                </select>
+                <button style={btn} onClick={saveKioskZone} disabled={busy || !selectedMap}>
+                  저장
+                </button>
+                <button style={btn} onClick={() => setKioskZoneSel('')} disabled={busy || !selectedMap}>
+                  초기화
+                </button>
+                {kioskZoneNote ? <div style={{ opacity: 0.85 }}>{kioskZoneNote}</div> : null}
+              </div>
+            </div>
+          ) : null}
 
           <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
             <button style={btn} onClick={saveCoreSpawnZones} disabled={busy || !selectedMap}>

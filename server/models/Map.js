@@ -15,8 +15,14 @@ const MapSchema = new mongoose.Schema({
     kioskType: { type: String, default: 'shop' }
   }],
 
+  // 🏪 맵당 1개 키오스크를 두고 싶을 때, "지정한 존"을 기록
+  // - zoneId(문자열) 또는 zoneNo(숫자)를 문자열로 넣어도 됨(예: 'hospital' 또는 '1')
+  kioskZoneId: { type: String, default: '' },
+
   // 🗺️ 맵 내부 구역(로드맵 2-1, 2-4, 6-4)
   zones: [{
+    // ✅ zones를 순차번호로 관리하고 싶을 때 사용(1..N)
+    zoneNo: { type: Number, default: 0 },
     zoneId: { type: String, required: true },
     name: { type: String, required: true },
     // 간단 폴리곤(캔버스 좌표계 등) — 필요하면 rect로 바꿔도 됩니다.
@@ -47,7 +53,8 @@ const MapSchema = new mongoose.Schema({
 
   // 🚫 금지구역 설정(로드맵 2-4)
   forbiddenZoneConfig: {
-    enabled: { type: Boolean, default: false },
+    // 기본 ON (레거시 기본값 false로 인해 "항상 금지구역 0"이 되는 케이스 방지)
+    enabled: { type: Boolean, default: true },
     startPhase: { type: Number, default: 3 },
     damagePerTick: { type: Number, default: 5 }
   },
