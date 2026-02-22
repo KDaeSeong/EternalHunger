@@ -100,6 +100,9 @@
     margin-bottom: 60px;
     width: 100%; /* 부모 컨테이너 꽉 채우기 */
 }
+
+/* 이벤트 기능은 현재 비활성화: 홈 화면에서 이벤트(시나리오) 카드 숨김 */
+.menu-grid a[href="/events"] { display: none; }
 /* 3. 메뉴 카드 디자인 수정 */
 .menu-card {
     background: white;

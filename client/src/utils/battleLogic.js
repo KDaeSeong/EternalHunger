@@ -24,6 +24,12 @@ const isWeaponItem = (item) => {
 
 const pickWeapon = (character) => {
   const inv = Array.isArray(character?.inventory) ? character.inventory : [];
+  // ✅ 장착 우선
+  const eqId = String(character?.equipped?.weapon || '');
+  if (eqId) {
+    const picked = inv.find((i) => String(i?.itemId || i?.id || i?._id || '') === eqId);
+    if (picked) return picked;
+  }
   const candidates = inv.filter((i) => String(i?.equipSlot || '') === 'weapon' || isWeaponItem(i));
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => getTier(b) - getTier(a));
@@ -32,7 +38,14 @@ const pickWeapon = (character) => {
 
 const pickEquipBySlot = (character, slot) => {
   const inv = Array.isArray(character?.inventory) ? character.inventory : [];
-  return inv.find((i) => String(i?.equipSlot || '') === String(slot || ''));
+  const s = String(slot || '');
+  // ✅ 장착 우선
+  const eqId = String(character?.equipped?.[s] || '');
+  if (eqId) {
+    const picked = inv.find((i) => String(i?.itemId || i?.id || i?._id || '') === eqId);
+    if (picked) return picked;
+  }
+  return inv.find((i) => String(i?.equipSlot || '') === s);
 };
 
 const getEquipDeltas = (character, settings = {}) => {

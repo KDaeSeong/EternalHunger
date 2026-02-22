@@ -329,7 +329,7 @@ export const RULESETS = {
     equipment: {
       weaponAtkPerTier: 6,
       armorDefPerTier: 4,
-      maxTier: 5,
+      maxTier: 6,
       replaceOnlyIfBetter: true,
     },
   },
@@ -437,7 +437,7 @@ export const RULESETS = {
     equipment: {
       weaponAtkPerTier: 6,
       armorDefPerTier: 4,
-      maxTier: 5,
+      maxTier: 6,
       replaceOnlyIfBetter: true,
     },
   },

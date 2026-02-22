@@ -28,6 +28,49 @@ function itemIcon(item) {
   return '📦';
 }
 
+const EQUIP_SLOTS = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
+
+function ensureEquipped(obj) {
+  const eq = obj?.equipped;
+  if (eq && typeof eq === 'object') {
+    return {
+      weapon: eq.weapon ?? null,
+      head: eq.head ?? null,
+      clothes: eq.clothes ?? null,
+      arm: eq.arm ?? null,
+      shoes: eq.shoes ?? null,
+    };
+  }
+  return { weapon: null, head: null, clothes: null, arm: null, shoes: null };
+}
+
+function getInvItemId(it) {
+  return String(it?.itemId || it?.id || it?._id || '');
+}
+
+
+const SLOT_ICON = { weapon: '⚔️', head: '🪖', clothes: '👕', arm: '🦾', shoes: '👟' };
+
+function shortText(s, maxLen = 8) {
+  const str = String(s || '');
+  if (str.length <= maxLen) return str;
+  return str.slice(0, Math.max(0, maxLen - 1)) + '…';
+}
+
+function getEquipSummary(char) {
+  const eq = ensureEquipped(char);
+  const inv = Array.isArray(char?.inventory) ? char.inventory : [];
+  const parts = EQUIP_SLOTS.map((slot) => {
+    const icon = SLOT_ICON[slot] || '🧩';
+    const id = String(eq?.[slot] || '');
+    if (!id) return { full: `${icon} -`, short: `${icon} -` };
+    const it = inv.find((x) => getInvItemId(x) === id);
+    const name = it ? itemDisplayName(it) : '?';
+    return { full: `${icon} ${name}`, short: `${icon} ${shortText(name)}` };
+  });
+  return { full: parts.map((p) => p.full).join(' | '), short: parts.map((p) => p.short).join(' | ') };
+}
+
 function compactIO(list) {
   const map = new Map();
   (Array.isArray(list) ? list : []).forEach((x) => {
@@ -60,18 +103,21 @@ function pickWeighted(list) {
   return arr[arr.length - 1] || null;
 }
 
-// --- 티어(장비 등급): 1=일반, 2=영웅, 3=전설, 4=초월 ---
+// --- 티어(장비 등급): 1=일반, 2=고급, 3=희귀, 4=영웅, 5=전설, 6=초월 ---
+// ※ 함수명은 기존 호환을 위해 유지(실제 상한은 6)
 function clampTier4(v) {
   const n = Math.floor(Number(v || 1));
   if (!Number.isFinite(n) || n <= 0) return 1;
-  return Math.min(4, Math.max(1, n));
+  return Math.min(6, Math.max(1, n));
 }
 
 function tierLabelKo(tier) {
   const t = clampTier4(tier);
-  if (t === 4) return '초월';
-  if (t === 3) return '전설';
-  if (t === 2) return '영웅';
+  if (t === 6) return '초월';
+  if (t === 5) return '전설';
+  if (t === 4) return '영웅';
+  if (t === 3) return '희귀';
+  if (t === 2) return '고급';
   return '일반';
 }
 
@@ -91,7 +137,7 @@ function rollTranscendPickOptions(publicItems, count = 3) {
   const equipT4 = list
     .filter((it) => it?._id)
     .filter((it) => inferItemCategory(it) === 'equipment')
-    .filter((it) => clampTier4(it?.tier || 1) >= 4);
+    .filter((it) => clampTier4(it?.tier || 1) >= 6);
   if (!equipT4.length) return [];
 
   // 슬롯 다양성 우선(가능하면 서로 다른 슬롯)
@@ -2292,6 +2338,51 @@ function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById,
   return null;
 }
 
+// --- 운석 + 생명의 나무 수액 → 포스 코어(간단 자동 조합) ---
+const MAT_METEOR_ID = 'mat_meteor';
+const MAT_TREE_ID = 'mat_world_tree';
+const MAT_FORCE_CORE_ID = 'mat_force_core';
+
+function invKey(it) {
+  return String(it?.itemId || it?.id || it?._id || '');
+}
+
+function invDecOne(list, id) {
+  const arr = Array.isArray(list) ? [...list] : [];
+  const key = String(id || '');
+  for (let i = 0; i < arr.length; i++) {
+    if (invKey(arr[i]) !== key) continue;
+    const q = Math.max(0, Number(arr[i]?.qty || 1));
+    if (q > 1) arr[i] = { ...arr[i], qty: q - 1 };
+    else arr.splice(i, 1);
+    return arr;
+  }
+  return arr;
+}
+
+function invHasOne(list, id) {
+  const key = String(id || '');
+  return (Array.isArray(list) ? list : []).some((it) => invKey(it) === key && Math.max(0, Number(it?.qty || 1)) > 0);
+}
+
+function makeForceCore(day) {
+  return { id: MAT_FORCE_CORE_ID, text: '포스 코어', type: 'material', tags: ['material', 'core', 'force_core'], acquiredDay: day };
+}
+
+// incomingId가 mat일 경우, 인벤에 저장하지 않아도 그 1개를 재료로 간주해 조합 가능
+function tryAutoCraftForceCore(inventory, day, incomingId = '') {
+  const inc = String(incomingId || '');
+  const haveMeteor = inc === MAT_METEOR_ID || invHasOne(inventory, MAT_METEOR_ID);
+  const haveTree = inc === MAT_TREE_ID || invHasOne(inventory, MAT_TREE_ID);
+  if (!haveMeteor || !haveTree) return null;
+
+  let next = Array.isArray(inventory) ? [...inventory] : [];
+  if (inc !== MAT_METEOR_ID) next = invDecOne(next, MAT_METEOR_ID);
+  if (inc !== MAT_TREE_ID) next = invDecOne(next, MAT_TREE_ID);
+  next = [...next, makeForceCore(day)];
+  return { inventory: next, log: '🧬 포스 코어 조합: 운석 파편 + 생명의 나무 수액 → 포스 코어 x1' };
+}
+
 function safeGenerateDynamicEvent(actor, day, ruleset) {
   try {
     // ✅ 기존 구현(2인자) / 신규 구현(3인자) 모두 호환
@@ -2614,6 +2705,24 @@ const devForceUseConsumable = (charId, invIndex) => {
   }, [survivors, selectedCharId]);
 
   const selectedChar = useMemo(() => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, [survivors, selectedCharId]);
+
+  // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
+  const setEquipForSurvivor = (survivorId, slot, itemIdOrNull) => {
+    const sid = String(survivorId || '');
+    const sslot = String(slot || '');
+    if (!sid || !EQUIP_SLOTS.includes(sslot)) return;
+
+    setSurvivors((prev) =>
+      (Array.isArray(prev) ? prev : []).map((s) => {
+        const id = String(s?._id || s?.id || s?.name || '');
+        if (id !== sid) return s;
+        const eq = { ...ensureEquipped(s) };
+        eq[sslot] = itemIdOrNull ? String(itemIdOrNull) : null;
+        return { ...s, equipped: eq };
+      })
+    );
+  };
+
 
   const activeMap = useMemo(
     () => (Array.isArray(maps) ? maps : []).find((m) => String(m._id) === String(activeMapId)) || null,
@@ -3194,7 +3303,7 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
           hp: 100,
           maxHp: 100,
           zoneId: pickStartZoneIdForChar(c),
-
+          equipped: ensureEquipped(c),
 
           simCredits: 0,
           droneLastOrderIndex: -9999,
@@ -3431,21 +3540,10 @@ if (w) {
     const phaseStartSec = matchSec;
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
 
-    // ⏹️ 강제 종료: 6번째 밤 도달 시 게임을 끝냅니다.
-    // - 너무 오래 끌리는 템포 문제를 해결하기 위한 안전장치
+    // 🔥 서든데스: 6번째 밤부터는 “마지막 1인 생존”까지 교전이 더 자주 발생하도록 가속합니다.
+    // - (기존) 6번째 밤 강제 종료는 제거
     if (nextDay === 6 && nextPhase === 'night') {
-      setDay(nextDay);
-      setPhase(nextPhase);
-      setTimeOfDay(getTimeOfDayFromPhase(nextPhase));
-      addLog(`=== ${worldTimeText(nextDay, nextPhase)} (⏱ ${phaseDurationSec}s) ===`, 'day-header');
-      setGameEndReason({ type: 'timelimit6night', day: nextDay, phase: nextPhase });
-      // 로그에서 더 크게 보이도록 "day-header" 형태로 1줄을 추가합니다.
-      addLog('=== ⏹️ 타임리밋: 6번째 밤 종료 ===', 'day-header');
-      addLog('⏹️ 6번째 밤 도달: 시간 제한으로 게임이 종료됩니다.', 'highlight');
-      const alive = (Array.isArray(survivors) ? survivors : []).filter((s) => Number(s?.hp || 0) > 0);
-      alive.sort((a, b) => (Number(b?.hp || 0) - Number(a?.hp || 0)) || String(a?.name || '').localeCompare(String(b?.name || '')));
-      await finishGame(alive, killCounts, assistCounts);
-      return;
+      addLog('=== 🔥 서든데스: 6번째 밤 돌입 (교전 빈도 증가) ===', 'day-header');
     }
 
     // 💰 이번 페이즈 기본 크레딧(시즌10 컨셉)
@@ -4161,7 +4259,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
     const battleBase = Number(pvpProbCfg.encounterBase ?? 0.3);
     const battleScale = Number(pvpProbCfg.encounterDayScale ?? 0.05);
     const battleMax = Number(pvpProbCfg.encounterMax ?? 0.85);
-    const battleProb = Math.min(battleMax, battleBase + nextDay * battleScale + fogBonus);
+    const sdStartIdx = worldPhaseIndex(6, 'night');
+    const phaseIdxNext = worldPhaseIndex(nextDay, nextPhase);
+    const suddenDeath = phaseIdxNext >= sdStartIdx;
+
+    // 6번째 밤 이전까지는 교전을 더 자주 유도, 6번째 밤부터는 사실상 서든데스(가속)
+    const paceBonus = suddenDeath ? 0.35 : 0.15;
+    const battleCap = suddenDeath ? 0.99 : Math.max(battleMax, 0.92);
+    const battleProb = Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
 
     const eventOffset = Number(pvpProbCfg.eventOffset ?? 0.3);
     const eventMax = Number(pvpProbCfg.eventMax ?? 0.95);
@@ -4472,19 +4577,50 @@ const didMove = String(nextZoneId) !== String(currentZone);
       // 아이템 사용(전투 중 불가 / 전투 후 가능): 전투 외 타이밍에서만 호출
       tryUseConsumable(actor, 'turn_start');
 
+      // ✅ 수집 이벤트 페널티: 다음 페이즈 1회 교전 확률 보너스
+      let gatherPvpBonus = 0;
+      const gatherUntil = Number(actor?._gatherPvpBonusUntilPhaseIdx ?? -1);
+      if (gatherUntil === phaseIdxNow) {
+        gatherPvpBonus = Math.max(0, Number(actor?._gatherPvpBonus || 0));
+      } else if (gatherUntil > -1 && gatherUntil < phaseIdxNow) {
+        actor._gatherPvpBonus = 0;
+        actor._gatherPvpBonusUntilPhaseIdx = null;
+      }
+
       const potentialTargets = todaysSurvivors.filter((t) => !newDeadIds.includes(t._id) && String(t?.zoneId || '') === String(actor?.zoneId || ''));
       const canDual = potentialTargets.length >= (pvpMinSameZone - 1);
+
+      // ✅ 즉시 위험(수집/사냥 직후): 같은 페이즈에서 '표적 우선' (다음 페이즈로 넘어가면 자동 해제)
+      const dangerUntil = Number(actor?._immediateDangerUntilPhaseIdx ?? -1);
+      if (dangerUntil > -1 && dangerUntil < phaseIdxNow) {
+        actor._immediateDanger = 0;
+        actor._immediateDangerUntilPhaseIdx = null;
+      }
+
+      const pickPvpTarget = (list) => {
+        if (!Array.isArray(list) || list.length === 0) return null;
+        const noisy = list.filter((t) => {
+          const tt = survivorMap.get(t._id);
+          return Number(tt?._immediateDanger || 0) > 0 && Number(tt?._immediateDangerUntilPhaseIdx ?? -1) === phaseIdxNow;
+        });
+        const pool = noisy.length ? noisy : list;
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+        return picked ? survivorMap.get(picked._id) : null;
+      };
+
+      const pvpTarget = canDual ? pickPvpTarget(potentialTargets) : null;
       const rand = Math.random();
 
-      const lowHpAvoidCombat = Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= Number(ruleset?.ai?.recoverHpBelow ?? 38);
-      const battleProb2 = lowHpAvoidCombat ? 0 : battleProb;
+      const lowHpAvoidCombat = !suddenDeath && Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= Number(ruleset?.ai?.recoverHpBelow ?? 38);
+      const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb);
+      const battleProb2 = Math.min(0.99, battleProb2Base + gatherPvpBonus);
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
 
       // 전투력 열세면 교전 회피 + 인접 안전 구역으로 이동(가능할 때)
       if (canDual && !lowHpAvoidCombat && rand < battleProb2) {
-        const targetEval = survivorMap.get(potentialTargets[0]._id);
+        const targetEval = pvpTarget;
         const avoidInfo = targetEval ? shouldAvoidCombatByPower(actor, targetEval) : null;
         if (avoidInfo) {
           const oppName = String(targetEval?.name || '상대');
@@ -4492,7 +4628,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const avoidChance = Number(ruleset?.ai?.fightAvoidChance ?? 0.75);
           const extremeRatio = Number(ruleset?.ai?.fightAvoidExtremeRatio ?? 0.30);
           const extremeDelta = Number(ruleset?.ai?.fightAvoidExtremeDelta ?? 25);
-          const willAvoid = (avoidInfo.ratio < extremeRatio || delta >= extremeDelta) ? true : (Math.random() < avoidChance);
+          const willAvoid = suddenDeath ? false : ((avoidInfo.ratio < extremeRatio || delta >= extremeDelta) ? true : (Math.random() < avoidChance));
 
           if (!willAvoid) {
             addLog(`🔥 [${actor.name}] 불리하지만 [${oppName}]과 교전합니다!`, 'highlight');
@@ -4528,7 +4664,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
       if (canDual && rand < battleProb2) {
         // [⚔️ 전투]
-        const target = survivorMap.get(potentialTargets[0]._id);
+        const target = pvpTarget;
+        if (!target) {
+          survivorMap.set(actor._id, actor);
+          continue;
+        }
 
         // 상대방 행동권 사용
         const targetIndex = todaysSurvivors.findIndex((t) => t._id === target._id);
@@ -4827,11 +4967,51 @@ const didMove = String(nextZoneId) !== String(currentZone);
         } else {
           // 폴백: 동적 이벤트 생성
           const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset);
-          addLog(eventResult.log, eventResult.damage > 0 ? 'highlight' : 'normal');
+          addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
 
-          if (eventResult.newItem && (actor.inventory || []).length < 3) {
-            actor.inventory = [...(actor.inventory || []), eventResult.newItem];
+          // ✅ 동적 이벤트 보상: 크레딧
+          const erCr = Math.max(0, Number(eventResult?.earnedCredits || 0));
+          if (erCr > 0) {
+            earnedCredits += erCr;
+            actor.simCredits = Number(actor.simCredits || 0) + erCr;
           }
+
+          // ✅ 수집/사냥 이벤트 페널티: (1) 다음 페이즈 1회 교전 확률 증가 (2) 같은 페이즈 즉시 '표적 우선'
+          const pb = Math.max(0, Number(eventResult?.pvpBonusNext || 0));
+          if (pb > 0) {
+            // 다음 페이즈: 공격(initiator) 확률 보너스
+            actor._gatherPvpBonus = Math.max(Number(actor._gatherPvpBonus || 0), pb);
+            actor._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+
+            // 같은 페이즈: 수집 직후 노출(타겟 우선)
+            actor._immediateDanger = Math.max(Number(actor._immediateDanger || 0), pb);
+            actor._immediateDangerUntilPhaseIdx = phaseIdxNow;
+          }
+
+          // ✅ 아이템(수집/드랍) + 포스 코어 자동 조합
+          const invCap = 3;
+          if (eventResult.newItem) {
+            const incomingId = String(eventResult?.newItem?.itemId || eventResult?.newItem?.id || eventResult?.newItem?._id || '');
+
+            // 인벤이 가득 차도, 수집 재료가 들어오면 즉시 포스코어 조합 가능(수집물은 인벤에 안 담아도 재료로 인정)
+            if ((actor.inventory || []).length >= invCap) {
+              const craftRes = tryAutoCraftForceCore(actor.inventory || [], nextDay, incomingId);
+              if (craftRes) {
+                actor.inventory = craftRes.inventory;
+                addLog(craftRes.log, 'highlight');
+              }
+            }
+
+            if ((actor.inventory || []).length < invCap) {
+              actor.inventory = [...(actor.inventory || []), eventResult.newItem];
+              const craftRes2 = tryAutoCraftForceCore(actor.inventory || [], nextDay);
+              if (craftRes2) {
+                actor.inventory = craftRes2.inventory;
+                addLog(craftRes2.log, 'highlight');
+              }
+            }
+          }
+
           if (eventResult.damage) actor.hp -= eventResult.damage;
           if (eventResult.recovery) actor.hp = Math.min(100, actor.hp + eventResult.recovery);
           if (eventResult.newEffect) actor.activeEffects = [...(actor.activeEffects || []), eventResult.newEffect];
@@ -5326,6 +5506,15 @@ const gainDetailSummary = useMemo(() => {
                   )}
                 </div>
 
+                {(() => {
+                  const es = getEquipSummary(char);
+                  return (
+                    <div className="equip-summary" title={es.full}>
+                      🧰 {es.short}
+                    </div>
+                  );
+                })()}
+
                 <div className="inventory-summary">
                   <span className="bag-icon">🎒</span>
                   <span className="inv-count">{Array.isArray(char.inventory) ? char.inventory.length : 0}/3</span>
@@ -5342,6 +5531,18 @@ const gainDetailSummary = useMemo(() => {
                 {killCounts[char._id] > 0 && <span className="kill-badge">⚔️{killCounts[char._id]}</span>}
 
                 <div className="status-effects-container">
+                  {(() => {
+                    const uiPhaseIdx = Math.max(0, Number(day || 0) * 2 + (timeOfDay === 'day' ? 0 : 1));
+                    const du = Number(char?._immediateDangerUntilPhaseIdx ?? -1);
+                    const dv = Math.max(0, Number(char?._immediateDanger || 0));
+                    if (dv <= 0 || du !== uiPhaseIdx) return null;
+                    const pct = Math.min(99, Math.max(1, Math.round(dv * 100)));
+                    return (
+                      <span title="수집/사냥 직후: 교전 유발(표적 우선)" className="effect-badge">
+                        ⚠️ 노출 +{pct}%
+                      </span>
+                    );
+                  })()}
                   {(Array.isArray(char.activeEffects) ? char.activeEffects : []).map((eff, i) => {
                     const nm = String(eff?.name || '');
                     const dur = Number.isFinite(Number(eff?.remainingDuration)) ? Math.max(0, Number(eff.remainingDuration)) : null;
@@ -5449,8 +5650,8 @@ const gainDetailSummary = useMemo(() => {
             return (
               <div className="forbidden-top-bar">
                 <span className="fz-title">🚫 금지구역</span>
-                <span className="fz-chip" title="6번째 밤에 무조건 게임이 종료됩니다.">
-                  ⏹️ 타임리밋: <b>6번째 밤 종료</b>
+                <span className="fz-chip" title="6번째 밤부터는 교전을 강하게 유도(서든데스)하고, 마지막 1명 생존 시 게임이 종료됩니다.">
+                  🔥 서든데스: <b>6번째 밤 이후</b>
                 </span>
                 <span className="fz-chip">금지 <b>{forbiddenCnt}</b> / 전체 <b>{total}</b> · 안전 <b>{safeLeft}</b></span>
                 <span
@@ -5753,6 +5954,54 @@ const gainDetailSummary = useMemo(() => {
                           >
                             {itemIcon(it)} {itemDisplayName(it)}{q > 1 ? ` x${q}` : ''}
                           </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              );
+            })() : null}
+
+            {/* 🎒 장비 장착/해제 (개발자/관전자) */}
+            {selectedCharId && selectedChar ? (() => {
+              const eq = ensureEquipped(selectedChar);
+              const inv = Array.isArray(selectedChar?.inventory) ? selectedChar.inventory : [];
+              const list = inv
+                .map((it, idx) => ({ it, idx }))
+                .map(({ it, idx }) => {
+                  const category = String(it?.category || inferItemCategory(it));
+                  const slot = String(it?.equipSlot || inferEquipSlot(it));
+                  const itemId = getInvItemId(it);
+                  const isEquip = category === 'equipment' && slot && EQUIP_SLOTS.includes(String(slot));
+                  return { it, idx, slot, itemId, isEquip };
+                })
+                .filter((x) => x.isEquip && x.itemId);
+
+              return (
+                <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                  <div className="market-title">🎒 장비 장착/해제</div>
+                  <div className="market-small">무기/방어구는 장착 상태(equipped)를 우선 적용합니다.</div>
+                  <div className="market-actions" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+                    {list.length === 0 ? (
+                      <div className="market-small">장착 가능한 장비가 없습니다.</div>
+                    ) : (
+                      list.slice(0, 30).map(({ it, idx, slot, itemId }) => {
+                        const tierText = tierLabelKo(clampTier4(it?.tier || 1));
+                        const nm = itemDisplayName(it);
+                        const equipped = String(eq?.[slot] || '') === String(itemId);
+                        return (
+                          <div key={`eq-${idx}-${itemId}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span>{itemIcon(it)}</span>
+                            <span style={{ fontWeight: 800 }}>{nm}</span>
+                            <span className="market-small">({tierText}{slot ? `/${slot}` : ''})</span>
+                            <button
+                              className={`invEquipBtn ${equipped ? 'off' : 'on'}`}
+                              onClick={() => setEquipForSurvivor(selectedCharId, slot, equipped ? null : itemId)}
+                              disabled={isAdvancing || isGameOver}
+                            >
+                              {equipped ? '해제' : '장착'}
+                            </button>
+                          </div>
                         );
                       })
                     )}

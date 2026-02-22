@@ -509,6 +509,21 @@
 }
 
 /* 인벤토리 요약 스타일 */
+.equip-summary {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    font-weight: 900;
+    color: #222;
+    background: rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.08);
+    padding: 3px 8px;
+    border-radius: 10px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .inventory-summary {
     position: relative;
     font-size: 0.75rem;
@@ -827,3 +842,17 @@
 .btn-secondary:hover {
   background: #ffffff;
 }
+
+.invEquipBtn {
+  margin-left: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+  font-weight: 700;
+}
+.invEquipBtn.on { background: rgba(80,160,255,0.18); }
+.invEquipBtn.off { background: rgba(255,90,90,0.18); }
+.invEquipBtn:disabled { opacity: 0.5; cursor: not-allowed; }
