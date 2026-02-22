@@ -2516,6 +2516,26 @@ const activeMapName = useMemo(() => {
   const forbiddenCacheRef = useRef({});
   const logSeqRef = useRef(0);
 
+// 🖼 로그 아이콘: 로그 문자열에 포함된 [캐릭터명]을 기준으로 아이콘(미리보기 이미지)을 표시합니다.
+const logIconByName = useMemo(() => {
+  const map = new Map();
+  const all = [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])];
+  for (const c of all) {
+    const name = String(c?.name || '').trim();
+    if (!name) continue;
+    const img = String(c?.previewImage || '').trim();
+    if (img) map.set(name, img);
+  }
+  return map;
+}, [survivors, dead]);
+
+const extractLogActorName = (txt) => {
+  const s = String(txt || '');
+  const m = s.match(/\[([^\]\n]{1,40})\]/);
+  return m && m[1] ? String(m[1]).trim() : '';
+};
+
+
   // 🗺️ 맵/ID는 시뮬 "시작" 순간에 서버에서 새로고침할 수 있어, ref로 즉시값을 유지합니다.
   const mapsRef = useRef([]);
   const activeMapIdRef = useRef('');
@@ -5436,7 +5456,6 @@ const gainDetailSummary = useMemo(() => {
             <li><Link href="/">메인</Link></li>
             <li><Link href="/characters">캐릭터 설정</Link></li>
             <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/events">이벤트 설정</Link></li>
             <li><Link href="/modifiers">보정치 설정</Link></li>
             <li><Link href="/simulation" style={{ color: '#0288d1' }}>▶ 게임 시작</Link></li>
           </ul>
@@ -5749,21 +5768,44 @@ const gainDetailSummary = useMemo(() => {
                 </div>
               )}
               <div className="log-scroll-area" ref={logBoxRef}>
-                {logs.map((log, idx) => (
-                  <div
-                    key={log.id || idx}
-                    className={`log-message ${log.type || 'system'}`}
-                    style={{
-                      maxWidth: '100%',
-                      whiteSpace: 'pre-line',
-                      overflowWrap: 'anywhere',
-                      wordBreak: 'keep-all',
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    {log.text}
-                  </div>
-                ))}
+                {logs.map((log, idx) => {
+  const actorName = extractLogActorName(log.text);
+  const iconSrc = actorName ? (logIconByName.get(actorName) || '/Images/default_image.png') : '';
+  return (
+    <div
+      key={log.id || idx}
+      className={`log-message ${log.type || 'system'}`}
+      style={{
+        maxWidth: '100%',
+        whiteSpace: 'pre-line',
+        overflowWrap: 'anywhere',
+        wordBreak: 'keep-all',
+        lineHeight: 1.45,
+        display: 'flex',
+        gap: 8,
+        alignItems: 'flex-start',
+      }}
+    >
+      {iconSrc ? (
+        <img
+          src={iconSrc}
+          alt={actorName}
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            objectFit: 'cover',
+            marginTop: 1,
+            flex: '0 0 auto',
+            border: '1px solid rgba(255,255,255,0.14)',
+          }}
+        />
+      ) : null}
+      <div style={{ minWidth: 0 }}>{log.text}</div>
+    </div>
+  );
+})}
+
               </div>
             </div>
           </div>
