@@ -30,12 +30,6 @@ function itemIcon(item) {
 
 const EQUIP_SLOTS = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
 
-// 시작 장비(1일차 낮): 무기 타입(요청 목록)
-const START_WEAPON_TYPES = [
-  '권총', '돌소총', '저격총', '장갑', '톤파', '쌍절곤', '아르카나', '검', '쌍검', '망치',
-  '방망이', '채찍', '투척', '암기', '활', '석궁', '도끼', '단검', '창', '레이피어',
-];
-
 function ensureEquipped(obj) {
   const eq = obj?.equipped;
   if (eq && typeof eq === 'object') {
@@ -1877,18 +1871,6 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   const p = roughPower(actor);
   const powerBonus = Math.min(0.25, Math.max(0, (p - 40) / 240));
 
-  // --- 스폰 규칙(요청): 늑대=매 낮, 곰=매 밤, 닭/멧돼지/박쥐=매 페이즈 ---
-  const tod = curPhase === 'morning' ? 'day' : 'night';
-  const spawnPool = [
-    ...(tod === 'day'
-      ? [{ key: 'wolf', label: '늑대', icon: '🐺', weight: 3 }]
-      : [{ key: 'bear', label: '곰', icon: '🐻', weight: 3 }]),
-    { key: 'chicken', label: '닭', icon: '🐔', weight: 2 },
-    { key: 'boar', label: '멧돼지', icon: '🐗', weight: 2 },
-    { key: 'bat', label: '박쥐', icon: '🦇', weight: 2 },
-  ];
-  const species = pickWeighted(spawnPool) || spawnPool[0];
-
     if (!disableBoss) {
   // 5일차 낮부터: 위클라인 → VF 혈액 샘플 드랍 가능
     if (!isKioskZone && isAtOrAfterWorldTime(curDay, curPhase, 5, 'day') && Math.random() < 0.15 + powerBonus) {
@@ -1940,13 +1922,12 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
     const it = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === String(entry.itemId)) || null;
     if (it?._id) {
       const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
-      const dmgBase = species?.key === 'bear' ? 11 : species?.key === 'wolf' ? 9 : species?.key === 'boar' ? 8 : species?.key === 'bat' ? 6 : 4;
-      const dmg = Math.max(0, dmgBase - Math.floor(p / 18));
+      const dmg = Math.max(0, 8 - Math.floor(p / 18));
       return {
-        kind: String(species?.key || 'wildlife'),
+        kind: 'wildlife',
         damage: dmg,
         drops: [{ item: it, itemId: String(it._id), qty }],
-        log: `${String(species?.icon || '🦌')} 야생동물(${String(species?.label || '야생')}) 사냥`,
+        log: `🦌 야생동물 사냥`,
       };
     }
   }
@@ -2470,24 +2451,6 @@ export default function SimulationPage() {
   const [dead, setDead] = useState([]);
   const [events, setEvents] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [prevPhaseLogs, setPrevPhaseLogs] = useState([]);
-
-  const PREVLOGS_OPEN_KEY = 'eh_prevlogs_open';
-  const [showPrevLogs, setShowPrevLogs] = useState(() => {
-    try {
-      return localStorage.getItem(PREVLOGS_OPEN_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(PREVLOGS_OPEN_KEY, showPrevLogs ? '1' : '0');
-    } catch {
-      // ignore
-    }
-  }, [showPrevLogs]);
   const [runEvents, setRunEvents] = useState([]);
   const [forbiddenAddedNow, setForbiddenAddedNow] = useState([]);
 
@@ -2524,8 +2487,6 @@ export default function SimulationPage() {
   // 🧩 월드 스폰 상태(전설 재료 상자/보스) - 맵별로 관리
   const [spawnState, setSpawnState] = useState(() => createInitialSpawnState(activeMapId));
 
-  const isFinishingRef = useRef(false);
-
 
 const activeMapName = useMemo(() => {
   const list = Array.isArray(maps) ? maps : [];
@@ -2554,9 +2515,6 @@ const activeMapName = useMemo(() => {
   const hasInitialized = useRef(false);
   const forbiddenCacheRef = useRef({});
   const logSeqRef = useRef(0);
-  // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
-  const fullLogsRef = useRef([]);
-  const [logBoxMaxH, setLogBoxMaxH] = useState(420);
 
   // 🗺️ 맵/ID는 시뮬 "시작" 순간에 서버에서 새로고침할 수 있어, ref로 즉시값을 유지합니다.
   const mapsRef = useRef([]);
@@ -2623,10 +2581,6 @@ const activeMapName = useMemo(() => {
   const randomBackupRef = useRef(null);
 
   const addLog = (text, type = 'normal') => {
-    // 전체 로그(서버 저장/결과용)는 페이즈 초기화와 무관하게 누적
-    try {
-      fullLogsRef.current = [...(Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []), String(text || '')];
-    } catch {}
     // ✅ React StrictMode(dev)에서는 state updater가 2번 호출될 수 있어,
     //   id 생성/카운터 증가를 updater 내부에서 처리해 key 충돌을 방지합니다.
     setLogs((prev) => {
@@ -2729,22 +2683,11 @@ const devForceUseConsumable = (charId, invIndex) => {
   };
 
   useEffect(() => {
-    const el = logBoxRef.current;
-    if (!el) return;
-
-    // ✅ 로그 길이에 맞춰 로그창 높이를 유동적으로 조절(최소~최대 클램프)
-    const measure = () => {
-      const h = Math.max(0, Number(el.scrollHeight || 0));
-      const desired = Math.max(180, Math.min(560, h + 8));
-      setLogBoxMaxH(desired);
-      // ✅ 로그가 쌓여도 "페이지"가 아니라 로그 창 내부만 스크롤되게 고정
-      el.scrollTop = el.scrollHeight;
-    };
-
-    // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
-    const raf = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(raf);
-  }, [logs]);
+  const el = logBoxRef.current;
+  if (!el) return;
+  // ✅ 로그가 쌓여도 "페이지"가 아니라 로그 창 내부만 스크롤되게 고정
+  el.scrollTop = el.scrollHeight;
+}, [logs]);
 
 // 선택 캐릭터 기본값 유지
   useEffect(() => {
@@ -3087,47 +3030,6 @@ const devForceUseConsumable = (charId, invIndex) => {
     return arr;
   };
 
-
-
-  // ✅ 이번 페이즈에 '실제로 새로 추가된' 금지구역 zoneId만 반환
-  // - 금지구역 전체 목록(diff)으로 계산하면 캐시/로드 타이밍에 NEW가 흔들릴 수 있어,
-  //   누적 셔플(prefix) 규칙 기반으로 '이번 단계에서 추가되는 slice(2개)'만 고정합니다.
-  const getForbiddenAddedZoneIdsForPhase = (mapObj, dayNum, phaseKey, ruleset) => {
-    const effDay = Math.max(0, Number(dayNum || 0));
-    const effPhase = (String(phaseKey || '') === 'night') ? 'night' : 'morning';
-
-    const z = (Array.isArray(mapObj?.zones) && mapObj.zones.length) ? mapObj.zones : zones;
-    const zoneIds = z.map((x) => String(x.zoneId));
-    if (!zoneIds.length) return [];
-
-    const cfg = mapObj?.forbiddenZoneConfig || {};
-    // ✅ 금지구역은 기본 ON(설정으로만 OFF)
-    const enabled = (settings?.forbiddenZoneEnabled === false) ? false : true;
-    if (!enabled) return [];
-
-    const startDay = Number(cfg.startDay ?? settings.forbiddenZoneStartDay ?? 2);
-    const startPhase = String(cfg.startPhase ?? cfg.startTimeOfDay ?? settings.forbiddenZoneStartPhase ?? 'night');
-    const addPerPhase = Math.max(1, Number(cfg.addPerPhase ?? cfg.perPhaseAdd ?? 2));
-
-    const phaseIdx = effDay * 2 + (effPhase === 'night' ? 1 : 0);
-    const startIdx = Math.max(0, Number(startDay || 0)) * 2 + (String(startPhase) === 'night' ? 1 : 0);
-    if (phaseIdx < startIdx) return [];
-
-    // 기본 금지구역(isForbidden)은 '신규 추가' 대상에서 제외
-    const baseCount = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId))).size;
-    const safeRemain = Math.max(1, Math.floor(Number(cfg.safeRemain ?? 2)));
-    const maxAdd = Math.max(0, zoneIds.length - safeRemain - baseCount);
-
-    const order = getForbiddenOrderForMap(mapObj);
-    const steps = phaseIdx - startIdx + 1;
-
-    const cap = Math.min(maxAdd, order.length);
-    const extraCur = Math.min(steps * addPerPhase, cap);
-    const extraPrev = Math.min(Math.max(0, (steps - 1) * addPerPhase), cap);
-
-    const added = order.slice(extraPrev, extraCur).filter(Boolean);
-    return added;
-  };
   const itemNameById = useMemo(() => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
@@ -3442,7 +3344,6 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
 
         // 경기 시간도 초기화
         setMatchSec(0);
-        setPrevPhaseLogs([]);
 
         addLog('📢 선수들이 경기장에 입장했습니다. 잠시 후 게임이 시작됩니다.', 'system');
       } catch (err) {
@@ -3458,8 +3359,6 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
 
   // 최신 킬 정보 전달
   const finishGame = async (finalSurvivors, latestKillCounts, latestAssistCounts) => {
-    if (isFinishingRef.current) return;
-    isFinishingRef.current = true;
     // 게임 종료 시 오토 플레이는 자동으로 해제
     setAutoPlay(false);
     const w = finalSurvivors[0];
@@ -3592,7 +3491,7 @@ if (w) {
         await apiPost('/game/end', {
           winnerId: wId,
           killCounts: finalKills,
-          fullLogs: (Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []).slice(),
+          fullLogs: logs.map((l) => l.text),
           participants: [...survivors, ...dead],
         });
         addLog('✅ 명예의 전당 저장 완료', 'system');
@@ -3625,11 +3524,6 @@ if (w) {
 
   // --- [핵심] 진행 로직 ---
   const proceedPhase = async () => {
-    // ✅ 다음 페이즈로 넘어갈 때, 직전 페이즈 로그는 보관하고 현재 UI 로그는 초기화
-    setPrevPhaseLogs(Array.isArray(logs) ? logs : []);
-    setLogs([]);
-    logSeqRef.current = 0;
-
     // 1. 페이즈 및 날짜 변경
     const nextPhase = phase === 'morning' ? 'night' : 'morning';
     let nextDay = day;
@@ -3674,8 +3568,9 @@ if (w) {
     const mapObj = mapObjRaw || ((Array.isArray(zones) && zones.length)
       ? { _id: mapIdNow || 'local', zones }
       : null);
+    const prevForbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, day, phase, ruleset)) : new Set();
     const forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
-    const newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
+    const newlyAddedForbidden = mapObj ? [...forbiddenIds].filter((zid) => !prevForbiddenIds.has(zid)) : [];
     setForbiddenAddedNow(newlyAddedForbidden);
     const forbiddenNames = [...forbiddenIds].map((zid) => getZoneName(zid)).join(', ');
     const forbiddenAddedNames = newlyAddedForbidden.map((zid) => getZoneName(zid)).join(', ');
@@ -3740,61 +3635,15 @@ if (w) {
       // ignore
     }
 
-    // ✅ 1일차 낮 시작 시: 전원 영웅 장비 풀세팅(무기/머리/옷/팔/신발)
-    const isFirstDayHeroLoadout = (nextDay === 1 && nextPhase === 'morning' && Number(day || 0) <= 0);
-    const phaseSurvivors = isFirstDayHeroLoadout
-      ? (Array.isArray(survivors) ? survivors : []).map((s, idx) => {
-          const stamp = `${Date.now()}_${idx}_${Math.random().toString(16).slice(2, 6)}`;
-          const wType = START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
-          const mk = (slot, label, tags) => ({
-            itemId: `start_${slot}_${stamp}`,
-            qty: 1,
-            name: `영웅 ${label}`,
-            type: slot === 'weapon' ? 'weapon' : '방어구',
-            tags,
-            category: 'equipment',
-            equipSlot: slot,
-            tier: 4,
-            rarity: '영웅',
-            acquiredDay: Number(nextDay || 1),
-          });
-          const gear = {
-            weapon: mk('weapon', wType, ['equipment', 'weapon']),
-            head: mk('head', '헬멧', ['equipment', 'head']),
-            clothes: mk('clothes', '방어복', ['equipment', 'clothes']),
-            arm: mk('arm', '장갑', ['equipment', 'arm']),
-            shoes: mk('shoes', '부츠', ['equipment', 'shoes']),
-          };
-          const baseInv = Array.isArray(s?.inventory)
-            ? s.inventory.filter((x) => String(x?.category || inferItemCategory(x)) !== 'equipment')
-            : [];
-          return {
-            ...s,
-            inventory: [...baseInv, gear.weapon, gear.head, gear.clothes, gear.arm, gear.shoes],
-            equipped: {
-              weapon: gear.weapon.itemId,
-              head: gear.head.itemId,
-              clothes: gear.clothes.itemId,
-              arm: gear.arm.itemId,
-              shoes: gear.shoes.itemId,
-            },
-          };
-        })
-      : (Array.isArray(survivors) ? survivors : []);
-
-    if (isFirstDayHeroLoadout) {
-      addLog('🧰 1일차 낮: 모든 생존자가 영웅 등급 장비를 갖추었습니다.', 'highlight');
-    }
-
     const newlyDead = [];
     const baseZonePop = {};
-    (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).forEach((s) => {
+    (Array.isArray(survivors) ? survivors : []).forEach((s) => {
       if (!s || Number(s.hp || 0) <= 0) return;
       const zid = String(s.zoneId || '');
       if (!zid) return;
       baseZonePop[zid] = (baseZonePop[zid] || 0) + 1;
     });
-    let updatedSurvivors = (Array.isArray(phaseSurvivors) ? phaseSurvivors : [])
+    let updatedSurvivors = (Array.isArray(survivors) ? survivors : [])
       .map((s) => {
         const beforeHp = Number(s.hp || 0);
         const hadBleed = hasActiveEffect(s, EFFECT_BLEED);
@@ -5228,16 +5077,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
     if (finalStepSurvivors.length <= 1) {
       finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
     }
-
-  // ✅ 생존자 1명(또는 0명) 남으면 즉시 종료(틱/타이머 사망도 포함)
-  useEffect(() => {
-    if (loading || isGameOver) return;
-    if (day === 0) return;
-    if (!Array.isArray(survivors)) return;
-    if (survivors.length > 1) return;
-    finishGame(survivors, killCounts, assistCounts);
-  }, [survivors.length, day, loading, isGameOver]);
-
   };
 
   // 🔄 서버 맵 설정 새로고침(관리자에서 수정한 crateAllowDeny 등 즉시 반영용)
@@ -5806,16 +5645,7 @@ const gainDetailSummary = useMemo(() => {
             const isEndgame = safeLeft <= 2 && total > 0;
             const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
             const willForceAllThisPhase = isEndgame && curPhaseDur >= detForceAll;
-            const fzNameArr = forbiddenCnt
-              ? Array.from(forbiddenNow)
-                  .map((z) => String(getZoneName(z) || ''))
-                  .filter((x) => x && x !== '__default__')
-              : [];
-            // 가독성: 최대 5개까지만 보여주고 나머지는 (+n)으로 축약
-            const fzHead = fzNameArr.slice(0, 5);
-            const fzExtra = fzNameArr.length > 5 ? ` (+${fzNameArr.length - 5})` : '';
-            const fzNamesShort = fzNameArr.length ? `${fzHead.join(', ')}${fzExtra}` : '';
-            const fzHoverText = forbiddenCnt ? `금지구역: ${fzNamesShort}` : '현재 금지구역 없음';
+            const fzNames = forbiddenCnt ? Array.from(forbiddenNow).map((z) => getZoneName(z)).join(', ') : '';
 
             return (
               <div className="forbidden-top-bar">
@@ -5823,7 +5653,7 @@ const gainDetailSummary = useMemo(() => {
                 <span className="fz-chip" title="6번째 밤부터는 교전을 강하게 유도(서든데스)하고, 마지막 1명 생존 시 게임이 종료됩니다.">
                   🔥 서든데스: <b>6번째 밤 이후</b>
                 </span>
-                <span className="fz-chip" title={fzHoverText}>금지 <b>{forbiddenCnt}</b> / 전체 <b>{total}</b> · 안전 <b>{safeLeft}</b></span>
+                <span className="fz-chip">금지 <b>{forbiddenCnt}</b> / 전체 <b>{total}</b> · 안전 <b>{safeLeft}</b></span>
                 <span
                   className={`fz-chip ${riskyCount > 0 ? 'fz-danger' : ''}`}
                   title={riskyTitle}
@@ -5834,7 +5664,7 @@ const gainDetailSummary = useMemo(() => {
                   <span className="fz-chip">➕ 이번 페이즈 <b>+{forbiddenAddedNow.length}</b></span>
                 ) : null}
                 {forbiddenCnt ? (
-                  <span className="fz-list" title={fzHoverText}>📍 {fzNamesShort}</span>
+                  <span className="fz-list" title={fzNames}>📍 {fzNames}</span>
                 ) : (
                   <span className="fz-list">(현재 금지구역 없음)</span>
                 )}
@@ -5918,42 +5748,7 @@ const gainDetailSummary = useMemo(() => {
                   ) : null}
                 </div>
               )}
-              {Array.isArray(prevPhaseLogs) && prevPhaseLogs.length ? (
-                <div className="prevlogs-row">
-                  <button
-                    className="prevlogs-btn"
-                    onClick={() => setShowPrevLogs((v) => !v)}
-                    title="이전 페이즈 로그를 펼치거나 숨깁니다(설정은 저장됩니다)."
-                  >
-                    {showPrevLogs ? '이전 페이즈 로그 숨기기' : '이전 페이즈 로그 보기'}
-                  </button>
-                </div>
-              ) : null}
-
-              {showPrevLogs && Array.isArray(prevPhaseLogs) && prevPhaseLogs.length ? (
-                <div className="prevlogs-box">
-                  <div className="prevlogs-scroll">
-                    {prevPhaseLogs.map((log, idx) => (
-                      <div
-                        key={`prev-${log.id || idx}`}
-                        className={`log-message ${log.type || 'system'}`}
-                        style={{
-                          maxWidth: '100%',
-                          whiteSpace: 'pre-line',
-                          overflowWrap: 'anywhere',
-                          wordBreak: 'keep-all',
-                          lineHeight: 1.45,
-                          opacity: 0.9,
-                        }}
-                      >
-                        {log.text}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null
-
-              <div className="log-scroll-area" ref={logBoxRef} style={{ maxHeight: logBoxMaxH }}>
+              <div className="log-scroll-area" ref={logBoxRef}>
                 {logs.map((log, idx) => (
                   <div
                     key={log.id || idx}

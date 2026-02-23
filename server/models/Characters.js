@@ -29,12 +29,17 @@ const characterSchema = new Schema({
   // - normalized: { itemId, name, qty, ... }
   //   (로드맵 1/3/4/5 연동을 위해 itemId/qty를 추가)
   inventory: [{
-    itemId: { type: Schema.Types.ObjectId, ref: 'Item' },
+    // ObjectId(정규화)도, 문자열(임시/이식)도 허용
+    itemId: { type: Schema.Types.Mixed },
     qty: { type: Number, default: 1 },
     id: String,
     name: String,
-    type: { type: String, enum: ['food', 'weapon', 'misc'] },
+    // enum 제거: 무기/장비/방어구 등 확장/이식 데이터를 허용
+    type: { type: String },
     tags: [String],
+    equipSlot: String,
+    tier: Number,
+    grade: String,
     acquiredDay: Number
   }],
 

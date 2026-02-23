@@ -5,14 +5,27 @@ const Character = require('../models/Characters');
 const Item = require('../models/Item');
 const { buildItemNameMap, normalizeInventory } = require('../utils/inventory');
 const { verifyToken } = require('../middleware/authMiddleware'); // ★ 추가
+const mongoose = require('mongoose');
 
 // 모든 요청에 대해 토큰 검증
 router.use(verifyToken);
 
+function getUserIdOrRespond(req, res) {
+  const raw = req.user?.id ?? req.user?._id ?? req.user?.userId;
+  const s = raw != null ? String(raw) : '';
+  if (!s || !mongoose.Types.ObjectId.isValid(s)) {
+    res.status(401).json({ error: '로그인이 필요합니다.(토큰 userId 오류)' });
+    return null;
+  }
+  return new mongoose.Types.ObjectId(s);
+}
+
 // 1. 캐릭터 목록 불러오기 (내 것만)
 router.get('/', async (req, res) => {
   try {
-    const characters = await Character.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const userId = getUserIdOrRespond(req, res);
+    if (!userId) return;
+    const characters = await Character.find({ userId }).sort({ createdAt: -1 });
     res.json(characters);
   } catch (err) {
     res.status(500).json({ error: "불러오기 실패" });
@@ -22,8 +35,11 @@ router.get('/', async (req, res) => {
 // 2. 캐릭터 저장 (userId 부여)
 router.post('/save', async (req, res) => {
   try {
-    const charList = Array.isArray(req.body) ? req.body : [];
-    const userId = req.user.id; // ★ 토큰에서 추출한 유저 ID
+    const body = req.body;
+    const parsed = (typeof body === 'string') ? (() => { try { return JSON.parse(body); } catch { return null; } })() : body;
+    const charList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.characters) ? parsed.characters : []);
+    const userId = getUserIdOrRespond(req, res);
+    if (!userId) return;
 
     // ✅ 인벤토리 정규화(legacy -> itemId)
     const items = await Item.find({}, '_id name');
@@ -33,14 +49,15 @@ router.post('/save', async (req, res) => {
       if (c?.inventory) c.inventory = normalizeInventory(c.inventory, itemNameMap, { merge: true });
     }
 
-    const incomingIds = charList.filter(c => c && c._id).map(c => c._id);
+    const incomingIdsRaw = charList.filter(c => c && c._id).map(c => String(c._id));
+    const incomingIds = incomingIdsRaw.filter((id) => mongoose.Types.ObjectId.isValid(id)).map((id) => new mongoose.Types.ObjectId(id));
     
     // 내 캐릭터 중에서만 삭제/수정 수행
     await Character.deleteMany({ userId, _id: { $nin: incomingIds } });
 
     for (const char of charList) {
       if (char._id) {
-        await Character.findOneAndUpdate({ _id: char._id, userId }, char);
+        await Character.findOneAndUpdate({ _id: char._id, userId }, char, { new: true, runValidators: true });
       } else {
         const { id, _id, ...newCharData } = char; 
         await new Character({ ...newCharData, userId }).save(); // ★ userId 부여 필수!
@@ -56,7 +73,8 @@ router.post('/save', async (req, res) => {
 // POST /api/characters/normalize-inventory { characterId? }
 router.post('/normalize-inventory', async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getUserIdOrRespond(req, res);
+    if (!userId) return;
     const characterId = req.body?.characterId;
 
     const items = await Item.find({}, '_id name');
