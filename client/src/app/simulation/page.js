@@ -1,5 +1,10 @@
 'use client';
 
+// 빌드 시 SSG(정적 프리렌더) 단계에서 /simulation 페이지를 실행하지 않도록 강제
+// - 시뮬은 브라우저 상태(localStorage/랜덤/실시간 입력)에 의존하므로 SSG를 피한다.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { apiGet, apiPost, apiPut } from '../../utils/api';
