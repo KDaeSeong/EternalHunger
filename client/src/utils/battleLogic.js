@@ -79,6 +79,48 @@ const getEquipDeltas = (character, settings = {}) => {
     weaponIsRanged: ranged,
   };
 };
+// 장비 아이템(stats) 합산(새 카탈로그 대응)
+// - equipmentCatalog.js에서 생성되는 stats(atk/hp/skillAmp/atkSpeed/critChance/cdr/lifesteal/moveSpeed)를 전투 점수에 반영
+const getEquipStatTotals = (character) => {
+  const totals = { atk: 0, hp: 0, skillAmp: 0, atkSpeed: 0, critChance: 0, cdr: 0, lifesteal: 0, moveSpeed: 0, weaponType: '', weaponIsRanged: false };
+  const add = (src) => {
+    const s = src && typeof src === 'object' ? src : {};
+    totals.atk += Number(s.atk || 0);
+    totals.hp += Number(s.hp || 0);
+    totals.skillAmp += Number(s.skillAmp || 0);
+    totals.atkSpeed += Number(s.atkSpeed || 0);
+    totals.critChance += Number(s.critChance || 0);
+    totals.cdr += Number(s.cdr || 0);
+    totals.lifesteal += Number(s.lifesteal || 0);
+    totals.moveSpeed += Number(s.moveSpeed || 0);
+  };
+
+  // 무기 1개(weapon)
+  const wpn = pickWeapon(character);
+  if (wpn) {
+    add(wpn.stats);
+    totals.weaponType = String(wpn.weaponType || '');
+    totals.weaponIsRanged = hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총');
+  }
+
+  // 방어구 4슬롯
+  for (const s of ['head', 'clothes', 'arm', 'shoes']) {
+    const it = pickEquipBySlot(character, s);
+    if (it) add(it.stats);
+  }
+
+  // 과도한 스택 방지(체감 밸런스)
+  totals.atkSpeed = Math.max(0, Math.min(0.75, totals.atkSpeed));
+  totals.critChance = Math.max(0, Math.min(0.75, totals.critChance));
+  totals.cdr = Math.max(0, Math.min(0.75, totals.cdr));
+  totals.lifesteal = Math.max(0, Math.min(0.75, totals.lifesteal));
+  totals.skillAmp = Math.max(0, Math.min(2.5, totals.skillAmp));
+  totals.hp = Math.max(0, totals.hp);
+  totals.atk = Math.max(0, totals.atk);
+
+  return totals;
+};
+
 
 const formatEquipBrief = (character, eq) => {
   const name = String(character?.name || '???');
@@ -120,6 +162,9 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     // 장비(무기/방어구) 보정: 룰셋 기반 상수는 settings.battle.equipment로 전달
     const eq1 = getEquipDeltas(p1, settings);
     const eq2 = getEquipDeltas(p2, settings);
+    // ✅ 새 장비(stats) 합산(공격력/스증/공속/치확/쿨감/흡혈/체력 등)
+    const es1 = getEquipStatTotals(p1);
+    const es2 = getEquipStatTotals(p2);
     const s1x = { ...s1, str: Number(s1?.str || 0) + Number(eq1.strAdd || 0), sht: Number(s1?.sht || 0) + Number(eq1.shtAdd || 0), end: Number(s1?.end || 0) + Number(eq1.endAdd || 0) };
     const s2x = { ...s2, str: Number(s2?.str || 0) + Number(eq2.strAdd || 0), sht: Number(s2?.sht || 0) + Number(eq2.shtAdd || 0), end: Number(s2?.end || 0) + Number(eq2.endAdd || 0) };
   
@@ -142,10 +187,20 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     logs.push(equipLog);
 
     // --- 2. 스킬 및 무기 보너스 (INT, MEN 적용) ---
-    const getBonuses = (char, stats, opponentStats) => {
+    const getBonuses = (char, stats, opponentStats, selfEquipStats) => {
         let skillBonus = 0;
         let wpnBonus = 0;
         let skillLog = "";
+
+        // 🧰 장비(stats) 합산 값
+        const es = selfEquipStats || {};
+        const equipSkillAmp = Number(es.skillAmp || 0);
+        const equipCdr = Number(es.cdr || 0);
+        const equipAtk = Number(es.atk || 0);
+        const equipAtkSpeed = Number(es.atkSpeed || 0);
+        const equipCritChance = Number(es.critChance || 0);
+        const equipHp = Number(es.hp || 0);
+        const equipLifesteal = Number(es.lifesteal || 0);
 
         // ★ 스킬 계수: INT가 높을수록 강화 / 상대 MEN이 높을수록 약화
         // - 기존 코드의 버그: w.int(=가중치)만 쓰고 stats.int(=캐릭 스탯)를 반영하지 않아 스킬이 사실상 고정 배율이었음
@@ -153,7 +208,8 @@ export function calculateBattle(p1, p2, day, settings = {}) {
         const menResist = Number(settings?.battle?.skillMenResistScale ?? 0.004);  // MEN 100 -> -0.4배
         const offense = 1 + (Number(stats.int || 0) * Number(w.int || 1) * intScale);
         const resist = 1 - (Number(opponentStats.men || 0) * Number(w.men || 1) * menResist);
-        const skillMult = Math.max(0.1, offense * Math.max(0.1, resist));
+        const equipSkillMult = (1 + equipSkillAmp) * (1 + equipCdr * Number(settings?.battle?.equipCdrSkillScale ?? 0.35));
+        const skillMult = Math.max(0.1, offense * Math.max(0.1, resist) * Math.max(0.1, equipSkillMult));
 
         // ✅ 특수스킬은 시뮬레이션에서 "발동 롤"이 난 경우만 들어오도록(=specialSkill 존재) 설계
         const skillName = getActiveSkillName(char);
@@ -194,28 +250,35 @@ export function calculateBattle(p1, p2, day, settings = {}) {
             const ranged = hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총');
             const weaponScale = Number(settings?.battle?.weaponScale ?? 0.2);
             const tierMult = 1 + Math.max(0, getTier(wpn) - 1) * 0.25;
+            const atkToStatScale = Number(settings?.battle?.equipAtkToStatScale ?? 0.35);
+            const extraAtkStat = Number(equipAtk || 0) * (Number.isFinite(atkToStatScale) ? atkToStatScale : 0.35);
             wpnBonus = ranged
-                ? (Number(stats.sht || 0) * Number(w.sht || 1) * weaponScale)
-                : (Number(stats.str || 0) * Number(w.str || 1) * weaponScale);
-            wpnBonus *= tierMult;
+                ? ((Number(stats.sht || 0) + extraAtkStat) * Number(w.sht || 1) * weaponScale)
+                : ((Number(stats.str || 0) + extraAtkStat) * Number(w.str || 1) * weaponScale);
+            wpnBonus *= tierMult * (1 + Math.max(0, Number(equipAtkSpeed || 0)));
         }
 
         // 과도한 폭주 방지(체감 밸런스): 스킬 보너스 상한
         const cap = Number(settings?.battle?.skillBonusCap ?? 60);
         if (Number.isFinite(cap) && cap > 0) skillBonus = Math.min(skillBonus, cap);
 
-        return { skillBonus, wpnBonus, skillLog };
+        // 🧩 장비 부가 스코어(체력)
+// - 흡혈은 "피해 후 회복"으로 따로 처리(아래 lifesteal 섹션)
+        const hpScale = Number(settings?.battle?.equipHpScoreScale ?? 0.05);
+        const extraScore = (Number(equipHp || 0) * (Number.isFinite(hpScale) ? hpScale : 0.05));
+
+        return { skillBonus, wpnBonus, skillLog, extraScore, critChance: equipCritChance, lifesteal: equipLifesteal };
     };
 
-    const p1Bonus = getBonuses(p1, s1x, s2x);
-    const p2Bonus = getBonuses(p2, s2x, s1x);
+    const p1Bonus = getBonuses(p1, s1x, s2x, es1);
+    const p2Bonus = getBonuses(p2, s2x, s1x, es2);
 
     if (p1Bonus.skillLog) logs.push(p1Bonus.skillLog);
     if (p2Bonus.skillLog) logs.push(p2Bonus.skillLog);
 
     // --- 3. 점수 합산 (가중치 적용) ---
-    score1 += (p1Bonus.skillBonus + p1Bonus.wpnBonus) * suddenDeathMultiplier;
-    score2 += (p2Bonus.skillBonus + p2Bonus.wpnBonus) * suddenDeathMultiplier;
+    score1 += (p1Bonus.skillBonus + p1Bonus.wpnBonus + Number(p1Bonus.extraScore || 0)) * suddenDeathMultiplier;
+    score2 += (p2Bonus.skillBonus + p2Bonus.wpnBonus + Number(p2Bonus.extraScore || 0)) * suddenDeathMultiplier;
 
     // ★ [SHT vs AGI] 사격 vs 회피
     // 기존 0.5 같은 고정 상수 대신 가중치(w.sht, w.agi)를 직접 곱해 영향력 조절
@@ -234,6 +297,45 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     // 행운이 높을수록 최대 20점까지 추가 점수 획득
     score1 += Math.random() * (s1x.luk * w.luk * 0.2); 
     score2 += Math.random() * (s2x.luk * w.luk * 0.2);
+    // 🧨 공격량(피해량) 베이스: 스킬/무기 + 사격 + 근접
+    const offenseBase1 = ((Number(p1Bonus.skillBonus || 0) + Number(p1Bonus.wpnBonus || 0)) * suddenDeathMultiplier) + shoot1 + melee1;
+    const offenseBase2 = ((Number(p2Bonus.skillBonus || 0) + Number(p2Bonus.wpnBonus || 0)) * suddenDeathMultiplier) + shoot2 + melee2;
+    let offense1 = offenseBase1;
+    let offense2 = offenseBase2;
+
+    // 🎯 치명타(장비 치확 기반): '실제 피해'에 가산 → 흡혈 회복에도 연동
+    // - 기존 critBurstScale 설정값을 '치명타 추가 피해 비율'로 사용 (기본 +35%)
+    const critDamageScale = Number(settings?.battle?.critBurstScale ?? 0.35);
+    const c1 = Math.max(0, Math.min(0.75, Number(p1Bonus.critChance || 0)));
+    const c2 = Math.max(0, Math.min(0.75, Number(p2Bonus.critChance || 0)));
+    if (Math.random() < c1) {
+      const extra = offenseBase1 * critDamageScale;
+      offense1 += extra;
+      score1 += extra;
+      logs.push(`🎯 [${p1.name}] 치명타! (+${extra.toFixed(1)})`);
+    }
+    if (Math.random() < c2) {
+      const extra = offenseBase2 * critDamageScale;
+      offense2 += extra;
+      score2 += extra;
+      logs.push(`🎯 [${p2.name}] 치명타! (+${extra.toFixed(1)})`);
+    }
+
+    // 🩸 흡혈: 전투 피해 후 회복(1단계)
+    // - 실제 HP 시뮬 대신, '회복량'을 생존/우위 점수에 반영
+    // - healScore = (내가 준 피해량 기반) * lifesteal * scale
+    const lifestealHealScale = Number(settings?.battle?.lifestealHealScoreScale ?? 0.35);
+
+    const ls1 = Math.max(0, Math.min(0.75, Number(es1?.lifesteal || p1Bonus.lifesteal || 0)));
+    const ls2 = Math.max(0, Math.min(0.75, Number(es2?.lifesteal || p2Bonus.lifesteal || 0)));
+
+    const healScore1 = offense1 * ls1 * lifestealHealScale;
+    const healScore2 = offense2 * ls2 * lifestealHealScale;
+
+    if (healScore1 > 0.05) { score1 += healScore1; logs.push(`🩸 [${p1.name}] 흡혈 회복 +${healScore1.toFixed(1)}`); }
+    if (healScore2 > 0.05) { score2 += healScore2; logs.push(`🩸 [${p2.name}] 흡혈 회복 +${healScore2.toFixed(1)}`); }
+
+
 
     // --- 무승부 판정 ---
     const diff = score1 - score2;

@@ -496,6 +496,14 @@
     color: #3a7bd5;
 }
 
+/* 2-1. 이벤트 설정 메뉴 숨김(메인 헤더) */
+#header-id1 li:has(> a[href="/events"]) {
+    display: none !important;
+}
+#header-id1 a[href="/events"] {
+    display: none !important;
+}
+
 /* 3. 유저 프로필 영역 (오른쪽 끝으로 밀기) */
 #header-id1 .auth-menu {
     margin-left: auto;        /* ★ 오른쪽 끝 배치 핵심 */

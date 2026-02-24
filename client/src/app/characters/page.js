@@ -6,6 +6,10 @@ import axios from 'axios';
 import Link from 'next/link';
 import '../../styles/ERCharacters.css'; 
 import '../../styles/Home.css';
+// 사용 무기 선택(캐릭터 기본 무기 타입)
+// - 목록은 장비 자동생성 카탈로그와 동일하게 유지(표준화)
+import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatalog';
+
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState([]);
@@ -52,7 +56,11 @@ export default function CharactersPage() {
           const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
               headers: { Authorization: `Bearer ${token}` } // ✅ 이 명찰이 핵심입니다!
           });
-          setCharacters(res.data);
+          // 무기 타입 표준화(레거시 표기 보정 포함)
+          setCharacters((res.data || []).map((c) => ({
+            ...c,
+            weaponType: normalizeWeaponType(c?.weaponType),
+          })));
       } catch (err) { 
           console.error("데이터 로드 실패:", err); 
       }
@@ -66,7 +74,8 @@ export default function CharactersPage() {
       stats: { str:0, agi:0, int:0, men:0, luk:0, dex:0, sht:0, end:0 },
       image: null,
       previewImage: null,
-      summary: ''
+      summary: '',
+      weaponType: '',
     };
     setCharacters([...characters, newChar]);
   };
@@ -259,6 +268,19 @@ export default function CharactersPage() {
                     <option value="남">남</option>
                     <option value="여">여</option>
                     <option value="무성">무성</option>
+                  </select>
+                </label>
+
+                <label>
+                  사용 무기:
+                  <select
+                    value={normalizeWeaponType(char.weaponType) || ''}
+                    onChange={(e) => updateCharacter(realId, 'weaponType', normalizeWeaponType(e.target.value))}
+                  >
+                    <option value="">랜덤</option>
+                    {WEAPON_TYPES_KO.map((w) => (
+                      <option key={w} value={w}>{w}</option>
+                    ))}
                   </select>
                 </label>
 

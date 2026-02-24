@@ -892,3 +892,46 @@
   max-height: 220px;
   overflow: auto;
 }
+
+/* ===== 미니맵 ===== */
+.minimap-panel {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.minimap-empty {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.minimap-svg {
+  width: 100%;
+  max-width: 520px;
+  height: 220px;
+  display: block;
+}
+
+.minimap-legend {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.86;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.minimap-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.minimap-dot.alive { background: rgba(255, 255, 255, 0.92); }
+.minimap-dot.dead { background: rgba(170, 170, 170, 0.70); }
+.minimap-dot.forbidden { background: rgba(255, 82, 82, 0.38); }

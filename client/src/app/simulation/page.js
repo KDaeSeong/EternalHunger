@@ -7,6 +7,7 @@ import { calculateBattle } from '../../utils/battleLogic';
 import { generateDynamicEvent } from '../../utils/eventLogic';
 import { updateEffects } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
+import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec } from '../../utils/rulesets';
 import '../../styles/ERSimulation.css';
 
@@ -32,7 +33,7 @@ const EQUIP_SLOTS = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
 
 // 시작 장비(1일차 낮): 무기 타입(요청 목록)
 const START_WEAPON_TYPES = [
-  '권총', '돌소총', '저격총', '장갑', '톤파', '쌍절곤', '아르카나', '검', '쌍검', '망치',
+  '권총', '돌격소총', '돌소총', '저격총', '장갑', '톤파', '쌍절곤', '아르카나', '검', '쌍검', '망치',
   '방망이', '채찍', '투척', '암기', '활', '석궁', '도끼', '단검', '창', '레이피어',
 ];
 
@@ -52,6 +53,40 @@ function ensureEquipped(obj) {
 
 function getInvItemId(it) {
   return String(it?.itemId || it?.id || it?._id || '');
+}
+
+
+// 장착 장비에서 이동속도(moveSpeed) 합산(신발 중심)
+// - equipmentCatalog.js에서 shoes에 stats.moveSpeed를 부여
+function getEquipMoveSpeed(actor) {
+  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const eq = ensureEquipped(actor);
+  const ids = [eq.weapon, eq.head, eq.clothes, eq.arm, eq.shoes].map((x) => String(x || '')).filter(Boolean);
+  const used = new Set();
+
+  const sumFromItem = (it) => {
+    if (!it || typeof it !== 'object') return 0;
+    const st = it.stats && typeof it.stats === 'object' ? it.stats : {};
+    const v = Number(st.moveSpeed || 0);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  let ms = 0;
+
+  // 1) equipped id 우선
+  for (const id of ids) {
+    const it = inv.find((x) => String(getInvItemId(x)) === id);
+    if (it) {
+      used.add(String(getInvItemId(it)));
+      ms += sumFromItem(it);
+    }
+  }
+
+  // 2) fallback: equipSlot=shoes
+  const shoes = inv.find((x) => String(x?.equipSlot || '') === 'shoes' && !used.has(String(getInvItemId(x))));
+  if (shoes) ms += sumFromItem(shoes);
+
+  return Math.max(0, ms);
 }
 
 
@@ -86,6 +121,44 @@ function compactIO(list) {
     map.set(id, (map.get(id) || 0) + qty);
   });
   return [...map.entries()].map(([itemId, qty]) => ({ itemId, qty }));
+}
+
+// --- 로컬 설정: 맵 하이퍼루프 목적지(어드민 로컬 저장) ---
+function localKeyHyperloops(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_map_hyperloops_${id}` : '';
+}
+
+// --- 로컬 설정: 하이퍼루프 장치(패드) 구역 ---
+function localKeyHyperloopDeviceZone(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_hyperloop_zone_${id}` : '';
+}
+
+function readLocalJsonArray(key) {
+  const k = String(key || '').trim();
+  if (!k) return [];
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(k);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function uniqStr(list) {
+  const out = [];
+  const s = new Set();
+  for (const v of (Array.isArray(list) ? list : [])) {
+    const k = String(v || '').trim();
+    if (!k) continue;
+    if (s.has(k)) continue;
+    s.add(k);
+    out.push(k);
+  }
+  return out;
 }
 
 // --- 필드 파밍(이벤트 외): 맵의 itemCrates(lootTable)에서 아이템을 획득 ---
@@ -690,6 +763,34 @@ function getEligibleCoreSpawnZoneIds(zones, forbiddenIds, coreSpawnZoneIds) {
     .map(({ zid }) => zid);
 }
 
+
+// --- 로컬 설정: 변이 야생동물(밤) 스폰 구역 ---
+function localKeyMutantWildlifeZone(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_mutant_spawn_zone_${id}` : '';
+}
+
+function readLocalString(key) {
+  const k = String(key || '').trim();
+  if (!k) return '';
+  if (typeof window === 'undefined') return '';
+  try {
+    return String(window.localStorage.getItem(k) || '');
+  } catch {
+    return '';
+  }
+}
+
+function getMutantWildlifeSpawnZoneId(mapId) {
+  const k = localKeyMutantWildlifeZone(mapId);
+  return readLocalString(k);
+}
+
+function getHyperloopDeviceZoneId(mapId) {
+  const k = localKeyHyperloopDeviceZone(mapId);
+  return readLocalString(k);
+}
+
 function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, mapId, coreSpawnZoneIds, ruleset) {
   const announcements = [];
   const s = cloneSpawnState(prevState, mapId);
@@ -864,6 +965,40 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   spawnBoss('alpha', 3);
   spawnBoss('omega', 4);
   spawnBoss('weakline', 5);
+
+  // --- 변이 야생동물(요청): 매 밤 시작 시 1마리 스폰(로컬 설정 zone 우선) ---
+  if (String(curPhase || '') === 'morning') {
+    // 낮 시작 시: 전날 밤 스폰은 정리(남아있어도 아침에 사라짐)
+    if (s.mutantWildlife) s.mutantWildlife = null;
+  }
+
+  if (String(curPhase || '') === 'night') {
+    const d = Number(curDay || 0);
+    s.spawnedDay = s.spawnedDay || {};
+    const already = Number(s.spawnedDay.mutantWildlife || 0) === d && s?.mutantWildlife?.alive;
+    if (!already) {
+      const cfgZid = String(getMutantWildlifeSpawnZoneId(mapId) || '').trim();
+      // 어드민에서 지정한 스폰 구역은 금지구역 여부와 무관하게 "존재하면" 우선 적용
+      const allZoneIdSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
+      const zid = (cfgZid && allZoneIdSet.has(cfgZid))
+        ? cfgZid
+        : String(eligible[randInt(0, Math.max(0, eligible.length - 1))] || '');
+      if (zid) {
+        const animalPool = ['닭', '멧돼지', '곰', '늑대', '박쥐', '들개'];
+        const animal = animalPool[randInt(0, animalPool.length - 1)] || '늑대';
+        s.mutantWildlife = {
+          zoneId: String(zid),
+          animal,
+          spawnedDay: d,
+          alive: true,
+          defeatedBy: null,
+          defeatedAt: null,
+        };
+        s.spawnedDay.mutantWildlife = d;
+        announcements.push(`🧪 변이 야생동물(${animal})이 출현했다!`);
+      }
+    }
+  }
 
   // 오래된/열린 오브젝트 정리
   const keepFromLegendary = Math.max(0, Number(curDay || 0) - legKeepDays);
@@ -1177,8 +1312,37 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
     }
   }
 
+
   return null;
 }
+
+// --- 변이 야생동물(요청): 밤 스폰(로컬 설정 zone) 조우/소모 ---
+function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset) {
+  const s = spawnState;
+  const m = s?.mutantWildlife;
+  if (!m || !m.alive) return null;
+
+  const zid = String(zoneId || '');
+  if (String(m.zoneId) !== zid) return null;
+
+  const p = roughPower(actor);
+  const dmg = Math.max(4, 14 - Math.floor(p / 12));
+  const credit = Math.max(0, Number(ruleset?.credits?.mutantWildlifeKill ?? 8));
+
+  m.alive = false;
+  m.defeatedBy = String(actor?.name || '');
+  m.defeatedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
+
+  const animal = String(m.animal || '').trim() || '미상';
+  return {
+    kind: 'mutant_wildlife',
+    damage: dmg,
+    credits: credit,
+    drops: [],
+    log: `🧪 변이 야생동물(${animal}) 처치! (+${credit} Cr)`,
+  };
+}
+
 
 // --- 아이템 특수 분류(구매/스폰 규칙용) ---
 function classifySpecialByName(name) {
@@ -1490,7 +1654,7 @@ function chooseAiMoveTargets({ actor, craftGoal, mapObj, spawnState, forbiddenId
 
   // 1) VF: 위클라인(5일차) 우선, 그 다음 키오스크 구매(4일차)
   if (needVf) {
-    if (isAtOrAfterWorldTime(day, phase, 5, 'day') && bosses?.weakline?.alive && bosses.weakline.zoneId) {
+    if (isAtOrAfterWorldTime(day, phase, 5, 'day') && bosses?.weakline?.alive && bosses.weakline.zoneId && !forbiddenIds.has(String(bosses.weakline.zoneId))) {
       result.targets = [String(bosses.weakline.zoneId)];
       result.reason = 'VF(위클라인)';
       return result;
@@ -1510,7 +1674,8 @@ function chooseAiMoveTargets({ actor, craftGoal, mapObj, spawnState, forbiddenId
 
     const targets = coreNodes
       .filter((n) => n && !n.picked && kinds.includes(String(n.kind)) && n.zoneId)
-      .map((n) => String(n.zoneId));
+      .map((n) => String(n.zoneId))
+      .filter((zid) => zid && !forbiddenIds.has(String(zid)));
     const uniq = uniqStrings(targets);
 
     if (uniq.length) {
@@ -1529,13 +1694,18 @@ function chooseAiMoveTargets({ actor, craftGoal, mapObj, spawnState, forbiddenId
 
   // 3) 미스릴: 알파(3일차) → 전설 재료 상자(3일차) → 키오스크(2일차)
   if (needMithril) {
-    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && bosses?.alpha?.alive && bosses.alpha.zoneId) {
+    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
       result.targets = [String(bosses.alpha.zoneId)];
       result.reason = '미스릴(알파)';
       return result;
     }
 
-    const crateTargets = uniqStrings(crates.filter((c) => c && !c.opened && c.zoneId).map((c) => String(c.zoneId)));
+    const crateTargets = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
     if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length) {
       result.targets = crateTargets;
       result.reason = '미스릴(전설상자)';
@@ -1551,13 +1721,18 @@ function chooseAiMoveTargets({ actor, craftGoal, mapObj, spawnState, forbiddenId
 
   // 4) 포스 코어: 오메가(4일차) → 전설 재료 상자(3일차) → 키오스크(2일차)
   if (needForce) {
-    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && bosses?.omega?.alive && bosses.omega.zoneId) {
+    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && bosses?.omega?.alive && bosses.omega.zoneId && !forbiddenIds.has(String(bosses.omega.zoneId))) {
       result.targets = [String(bosses.omega.zoneId)];
       result.reason = '포스코어(오메가)';
       return result;
     }
 
-    const crateTargets = uniqStrings(crates.filter((c) => c && !c.opened && c.zoneId).map((c) => String(c.zoneId)));
+    const crateTargets = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
     if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length) {
       result.targets = crateTargets;
       result.reason = '포스코어(전설상자)';
@@ -1585,14 +1760,24 @@ function chooseAiMoveTargets({ actor, craftGoal, mapObj, spawnState, forbiddenId
   }
 
   // 6) 기회주의: 전설 재료 상자/자연 코어가 있으면 약간의 확률로 향함(루프 가속)
-  const crateTargets = uniqStrings(crates.filter((c) => c && !c.opened && c.zoneId).map((c) => String(c.zoneId)));
+  const crateTargets = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
   if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length && Math.random() < 0.18) {
     result.targets = crateTargets;
     result.reason = '전설상자 탐색';
     return result;
   }
 
-  const coreTargets = uniqStrings(coreNodes.filter((n) => n && !n.picked && n.zoneId).map((n) => String(n.zoneId)));
+  const coreTargets = uniqStrings(
+    coreNodes
+      .filter((n) => n && !n.picked && n.zoneId)
+      .map((n) => String(n.zoneId))
+      .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+  );
   if (isAtOrAfterWorldTime(day, phase, 2, 'day') && coreTargets.length && Math.random() < 0.12) {
     result.targets = coreTargets;
     result.reason = '자연코어 탐색';
@@ -1886,6 +2071,7 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
     { key: 'chicken', label: '닭', icon: '🐔', weight: 2 },
     { key: 'boar', label: '멧돼지', icon: '🐗', weight: 2 },
     { key: 'bat', label: '박쥐', icon: '🦇', weight: 2 },
+    { key: 'dog', label: '들개', icon: '🐕', weight: 2 },
   ];
   const species = pickWeighted(spawnPool) || spawnPool[0];
 
@@ -2402,10 +2588,10 @@ function tryAutoCraftForceCore(inventory, day, incomingId = '') {
   return { inventory: next, log: '🧬 포스 코어 조합: 운석 파편 + 생명의 나무 수액 → 포스 코어 x1' };
 }
 
-function safeGenerateDynamicEvent(actor, day, ruleset) {
+function safeGenerateDynamicEvent(actor, day, ruleset, phase) {
   try {
-    // ✅ 기존 구현(2인자) / 신규 구현(3인자) 모두 호환
-    const res = generateDynamicEvent(actor, day, ruleset);
+    // ✅ 기존 구현(2인자) / 신규 구현(3~4인자) 모두 호환
+    const res = generateDynamicEvent(actor, day, ruleset, phase);
     if (res && typeof res === 'object') return res;
     return {
       log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
@@ -2520,11 +2706,21 @@ export default function SimulationPage() {
   // 🗺️ 맵 선택(로드맵 2번)
   const [maps, setMaps] = useState([]);
   const [activeMapId, setActiveMapId] = useState('');
+  // 🌀 하이퍼루프(맵 즉시 이동): 현재 맵에서 이동 가능한 목적지(로컬 설정)
+  const [hyperloopDestId, setHyperloopDestId] = useState('');
+  const [hyperloopCharId, setHyperloopCharId] = useState('');
 
   // 🧩 월드 스폰 상태(전설 재료 상자/보스) - 맵별로 관리
   const [spawnState, setSpawnState] = useState(() => createInitialSpawnState(activeMapId));
 
   const isFinishingRef = useRef(false);
+  // ✅ 시작(1일차 낮) 영웅 장비 세팅이 1회만 적용되도록 플래그
+  const startHeroLoadoutAppliedRef = useRef(false);
+
+  // SD 서든데스(6번째 밤 이후): 페이즈 고정 + 전 구역 금지구역 + 카운트다운
+  const suddenDeathActiveRef = useRef(false);
+  const suddenDeathEndAtSecRef = useRef(null);
+
 
 
 const activeMapName = useMemo(() => {
@@ -2551,9 +2747,11 @@ const activeMapName = useMemo(() => {
   });
 
   const logBoxRef = useRef(null);
+  const logWindowRef = useRef(null);
   const hasInitialized = useRef(false);
   const forbiddenCacheRef = useRef({});
   const logSeqRef = useRef(0);
+  const hyperloopPickLogRef = useRef({ inited: false, last: '' });
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
   const fullLogsRef = useRef([]);
   const [logBoxMaxH, setLogBoxMaxH] = useState(420);
@@ -2603,6 +2801,112 @@ const activeMapName = useMemo(() => {
     };
   }, []);
 
+  // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
+  const hyperloopDestIds = useMemo(() => {
+    const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
+    if (!ids.length) return [];
+    const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
+    return ids.filter((id) => mapSet.has(String(id)));
+  }, [activeMapId, maps]);
+
+  // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
+  const hyperloopPadZoneId = useMemo(() => {
+    const saved = String(getHyperloopDeviceZoneId(activeMapId) || '').trim();
+    if (saved) return saved;
+    const z = Array.isArray(zones) ? zones : [];
+    return String(z?.[0]?.zoneId || '');
+  }, [activeMapId, zones]);
+
+  const hyperloopPadName = useMemo(() => {
+    const zid = String(hyperloopPadZoneId || '').trim();
+    if (!zid) return '';
+    return String(getZoneName(zid) || zid);
+  }, [hyperloopPadZoneId]);
+
+  const isSelectedCharOnHyperloopPad = useMemo(() => {
+    const who = String(selectedCharId || '').trim();
+    if (!who) return false;
+    const pad = String(hyperloopPadZoneId || '').trim();
+    if (!pad) return false;
+    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
+    return String(actor?.zoneId || '').trim() === pad;
+  }, [selectedCharId, survivors, hyperloopPadZoneId]);
+
+  const hyperloopDestKey = hyperloopDestIds.join('|');
+
+  useEffect(() => {
+    if (!hyperloopDestIds.length) {
+      setHyperloopDestId('');
+      return;
+    }
+    if (!hyperloopDestId || !hyperloopDestIds.includes(String(hyperloopDestId))) {
+      setHyperloopDestId(String(hyperloopDestIds[0]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hyperloopDestKey]);
+
+// 🌀 하이퍼루프 이동 대상(캐릭터) 기본값: 선택 캐릭터 우선
+useEffect(() => {
+  const preferred = String(selectedCharId || '').trim();
+  if (preferred) {
+    if (String(hyperloopCharId || '') !== preferred) setHyperloopCharId(preferred);
+    return;
+  }
+  const alive = (Array.isArray(survivors) ? survivors : []).filter((c) => Number(c?.hp || 0) > 0);
+  if (!alive.length) {
+    setHyperloopCharId('');
+    return;
+  }
+  if (!hyperloopCharId || !alive.some((c) => String(c?._id) === String(hyperloopCharId))) {
+    setHyperloopCharId(String(alive[0]?._id || ''));
+  }
+}, [survivors, hyperloopCharId, selectedCharId]);
+
+  const doHyperloopJump = (toMapId, whoId) => {
+    const toId = String(toMapId || '').trim();
+const who = String(whoId || '').trim();
+if (!who) {
+  addLog('🌀 하이퍼루프: 이동할 캐릭터를 선택하세요.', 'system');
+  return;
+}
+    if (!toId) return;
+    if (loading || isAdvancing || isGameOver) return;
+    if (day <= 0) {
+      addLog('🌀 하이퍼루프: 게임 시작 후(1일차부터) 사용할 수 있습니다.', 'system');
+      return;
+    }
+
+    // 맵 내 장치(패드) 구역에 있어야 사용 가능
+    const padZid = String(hyperloopPadZoneId || '').trim();
+    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
+    const actorZid = String(actor?.zoneId || '').trim();
+    if (!padZid || actorZid !== padZid) {
+      const padNm = String(hyperloopPadName || padZid || '하이퍼루프 구역');
+      addLog(`🌀 하이퍼루프 장치: [${padNm}]에서만 사용할 수 있습니다.`, 'system');
+      return;
+    }
+    const toMap = (Array.isArray(maps) ? maps : []).find((m) => String(m?._id) === toId) || null;
+    if (!toMap) return;
+
+    const rs = getRuleset(settings?.rulesetId);
+    const forb = new Set(getForbiddenZoneIdsForPhase(toMap, day, phase, rs));
+    const z = Array.isArray(toMap?.zones) ? toMap.zones : [];
+    const eligible = getEligibleSpawnZoneIds(z, forb);
+
+    // 목적지 맵에도 패드 구역이 있으면 그곳으로 도착(금지구역이면 예외)
+    const destPad = String(getHyperloopDeviceZoneId(toId) || '').trim();
+    const destPadOk = !!destPad && z.some((zz) => String(zz?.zoneId || '') === destPad) && !forb.has(destPad);
+    const entryZoneId = String((destPadOk ? destPad : (eligible?.[0] || z?.[0]?.zoneId)) || '__default__');
+
+    const fromName = String(activeMapName || '현재맵');
+    const toName = String(toMap?.name || '목적지');
+    setActiveMapId(toId);
+    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((c) => (String(c?._id) === who ? ({ ...c, mapId: toId, zoneId: entryZoneId }) : c)));
+    const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === who)?.name || '선택 캐릭터';
+    addLog(`🌀 하이퍼루프 이동: ${fromName} → ${toName} (${whoName})`, 'highlight');
+    emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
+  };
+
   // ✅ 관전자 모드 기본: 상점/조합/교환 UI는 숨김(테스트용 토글)
   const [showMarketPanel, setShowMarketPanel] = useState(false);
   const [pendingTranscendPick, setPendingTranscendPick] = useState(null);
@@ -2622,6 +2926,34 @@ const activeMapName = useMemo(() => {
   const [seedDraft, setSeedDraft] = useState(getInitialSeed);
   const randomBackupRef = useRef(null);
 
+  // ✅ (팝업/데스크톱) 시뮬레이션 창: 로그 출력 길이에 맞춰 높이를 유동 조정
+  const resizeSimWindowToContent = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (typeof window.resizeTo !== 'function') return;
+
+      const ua = String(navigator?.userAgent || '');
+      const isElectron = ua.includes('Electron');
+      const isPopup = !!window.opener;
+
+      // 일반 브라우저 탭에서는 resizeTo가 기대대로 동작하지 않으므로, 팝업/데스크톱만 적용
+      if (!isElectron && !isPopup) return;
+
+      const doc = document.documentElement;
+      const body = document.body;
+      const contentH = Math.max(Number(doc?.scrollHeight || 0), Number(body?.scrollHeight || 0));
+      const chromeH = Math.max(0, Number(window.outerHeight || 0) - Number(window.innerHeight || 0));
+
+      const minH = 520;
+      const maxH = Math.max(minH, Number(screen?.availHeight || 9999) - 40);
+      const targetH = Math.max(minH, Math.min(maxH, contentH + chromeH + 20));
+
+      window.resizeTo(Number(window.outerWidth || 1280), targetH);
+    } catch {
+      // ignore
+    }
+  };
+
   const addLog = (text, type = 'normal') => {
     // 전체 로그(서버 저장/결과용)는 페이즈 초기화와 무관하게 누적
     try {
@@ -2636,6 +2968,30 @@ const activeMapName = useMemo(() => {
       return [...prev, { text, type, id }];
     });
   };
+
+  // 🎯 하이퍼루프 대상 변경 로그(미니맵/로그에서 구분용)
+  useEffect(() => {
+    const whoId = String(hyperloopCharId || '').trim();
+    if (!whoId) return;
+
+    const ref = hyperloopPickLogRef.current || { inited: false, last: '' };
+
+    // 초기 세팅(기본값 자동 선택)에서는 로그 스팸 방지
+    if (!ref.inited) {
+      ref.inited = true;
+      ref.last = whoId;
+      hyperloopPickLogRef.current = ref;
+      return;
+    }
+
+    if (String(ref.last || '') === whoId) return;
+    ref.last = whoId;
+    hyperloopPickLogRef.current = ref;
+
+    const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === whoId)?.name || '선택 캐릭터';
+    addLog(`🎯 하이퍼루프 대상 선택: ${whoName}`, 'system');
+  }, [hyperloopCharId, survivors]);
+
 
   // 🧾 구조적 이벤트 로그(재현/디버깅용)
   // - 문자열 로그는 사람용, runEvents는 "룰/상태"를 요약/집계하기 위한 데이터용
@@ -2737,14 +3093,18 @@ const devForceUseConsumable = (charId, invIndex) => {
       const h = Math.max(0, Number(el.scrollHeight || 0));
       const desired = Math.max(180, Math.min(560, h + 8));
       setLogBoxMaxH(desired);
+
       // ✅ 로그가 쌓여도 "페이지"가 아니라 로그 창 내부만 스크롤되게 고정
       el.scrollTop = el.scrollHeight;
+
+      // ✅ (팝업/데스크톱) 창 높이도 로그 길이에 맞춰 유동 조정
+      resizeSimWindowToContent();
     };
 
     // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
     const raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
-  }, [logs]);
+  }, [logs, prevPhaseLogs, showPrevLogs]);
 
 // 선택 캐릭터 기본값 유지
   useEffect(() => {
@@ -2851,6 +3211,18 @@ const devForceUseConsumable = (charId, invIndex) => {
     const r = s % 60;
     return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
   };
+
+  // 전투 로그 보정: 비치명(HP>0)인데도 '분쇄/처치' 같은 문구가 나오는 것을 방지
+  const softenNonLethalBattleLog = (s) => {
+    let t = String(s || '');
+    t = t.split('💀').join('⚔️');
+    t = t.replace(/완전히\s*분쇄했습니다!?/g, '압도적으로 제압했습니다!');
+    t = t.replace(/을\(를\)\s*쓰러뜨리고\s*승리했습니다!?/g, '을(를) 제압하고 승리했습니다!');
+    t = t.replace(/처치했습니다!?/g, '제압했습니다!');
+    t = t.replace(/격파했습니다!?/g, '제압했습니다!');
+    return t;
+  };
+
 
   const zoneGraph = useMemo(() => {
     const graph = {};
@@ -3625,18 +3997,36 @@ if (w) {
 
   // --- [핵심] 진행 로직 ---
   const proceedPhase = async () => {
-    // ✅ 다음 페이즈로 넘어갈 때, 직전 페이즈 로그는 보관하고 현재 UI 로그는 초기화
-    setPrevPhaseLogs(Array.isArray(logs) ? logs : []);
-    setLogs([]);
+    // ✅ 다음 페이즈로 넘어갈 때, 이전/현재 페이즈 UI 로그는 초기화
+    setPrevPhaseLogs([]);
+    setShowPrevLogs(false);
+    setLogs(() => []);
     logSeqRef.current = 0;
+    setLogBoxMaxH(180);
 
     // 1. 페이즈 및 날짜 변경
-    const nextPhase = phase === 'morning' ? 'night' : 'morning';
+    let nextPhase = phase === 'morning' ? 'night' : 'morning';
     let nextDay = day;
     if (phase === 'night') nextDay++;
 
     // 🎮 룰 프리셋 (기본: ER_S10)
     const ruleset = getRuleset(settings?.rulesetId);
+
+    // 서든데스(6번째 밤 이후): 페이즈 고정 + 전 지역 금지 + 카운트다운
+    const sdCfg = ruleset?.suddenDeath || {};
+    const sdTotalSec = Math.max(10, Number(sdCfg.totalSec ?? sdCfg.durationSec ?? 180));
+    const shouldLockSuddenDeath = suddenDeathActiveRef.current || (day === 6 && phase === 'night');
+    if (shouldLockSuddenDeath) {
+      // 최초 발동: 6번째 밤 이후 진행을 시도할 때
+      if (!suddenDeathActiveRef.current) {
+        suddenDeathActiveRef.current = true;
+        if (typeof suddenDeathEndAtSecRef.current !== 'number') suddenDeathEndAtSecRef.current = matchSec + sdTotalSec;
+        addLog(`=== 서든데스 발동: 전 지역 금지 + 카운트다운 ${sdTotalSec}s ===`, 'day-header');
+      }
+      // 페이즈는 최대 6일차 밤에서 고정
+      nextDay = 6;
+      nextPhase = 'night';
+    }
     // 🚫 금지구역 처리 방식: detonation(폭발 타이머) 설정이 있으면 타이머를 사용
     const useDetonation = !!ruleset?.detonation;
     const marketRules = ruleset?.market || {};
@@ -3648,7 +4038,7 @@ if (w) {
 
     // 🔥 서든데스: 6번째 밤부터는 “마지막 1인 생존”까지 교전이 더 자주 발생하도록 가속합니다.
     // - (기존) 6번째 밤 강제 종료는 제거
-    if (nextDay === 6 && nextPhase === 'night') {
+    if (!suddenDeathActiveRef.current && nextDay === 6 && nextPhase === 'night') {
       addLog('=== 🔥 서든데스: 6번째 밤 돌입 (교전 빈도 증가) ===', 'day-header');
     }
 
@@ -3662,6 +4052,12 @@ if (w) {
     setTimeOfDay(getTimeOfDayFromPhase(nextPhase));
     addLog(`=== ${worldTimeText(nextDay, nextPhase)} (⏱ ${phaseDurationSec}s) ===`, 'day-header');
 
+    // 서든데스 카운트다운 표시
+    if (suddenDeathActiveRef.current && typeof suddenDeathEndAtSecRef.current === 'number') {
+      const remain = Math.max(0, Math.ceil(suddenDeathEndAtSecRef.current - matchSec));
+      addLog(`서든데스 카운트다운: ${remain}s`, 'system');
+    }
+
     // 현재 페이즈 인덱스(배송/딜레이 처리용)
     const phaseIdxNow = worldPhaseIndex(nextDay, nextPhase);
 
@@ -3674,8 +4070,18 @@ if (w) {
     const mapObj = mapObjRaw || ((Array.isArray(zones) && zones.length)
       ? { _id: mapIdNow || 'local', zones }
       : null);
-    const forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
-    const newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
+    let forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
+    let newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
+
+    // 서든데스: 안전지대 없이 전 지역을 금지구역으로 전환
+    if (suddenDeathActiveRef.current && mapObj && Array.isArray(mapObj.zones)) {
+      const allZoneIds = mapObj.zones
+        .map((z) => String(z?._id ?? z?.id ?? z?.zoneId ?? ''))
+        .filter(Boolean);
+      forbiddenIds = new Set(allZoneIds);
+      newlyAddedForbidden = allZoneIds.slice();
+    }
+
     setForbiddenAddedNow(newlyAddedForbidden);
     const forbiddenNames = [...forbiddenIds].map((zid) => getZoneName(zid)).join(', ');
     const forbiddenAddedNames = newlyAddedForbidden.map((zid) => getZoneName(zid)).join(', ');
@@ -3741,30 +4147,23 @@ if (w) {
     }
 
     // ✅ 1일차 낮 시작 시: 전원 영웅 장비 풀세팅(무기/머리/옷/팔/신발)
-    const isFirstDayHeroLoadout = (nextDay === 1 && nextPhase === 'morning' && Number(day || 0) <= 0);
+    const isFirstDayHeroLoadout = (nextDay === 1 && nextPhase === 'morning' && !startHeroLoadoutAppliedRef.current);
     const phaseSurvivors = isFirstDayHeroLoadout
       ? (Array.isArray(survivors) ? survivors : []).map((s, idx) => {
           const stamp = `${Date.now()}_${idx}_${Math.random().toString(16).slice(2, 6)}`;
-          const wType = START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
-          const mk = (slot, label, tags) => ({
-            itemId: `start_${slot}_${stamp}`,
-            qty: 1,
-            name: `영웅 ${label}`,
-            type: slot === 'weapon' ? 'weapon' : '방어구',
-            tags,
-            category: 'equipment',
-            equipSlot: slot,
-            tier: 4,
-            rarity: '영웅',
-            acquiredDay: Number(nextDay || 1),
-          });
-          const gear = {
-            weapon: mk('weapon', wType, ['equipment', 'weapon']),
-            head: mk('head', '헬멧', ['equipment', 'head']),
-            clothes: mk('clothes', '방어복', ['equipment', 'clothes']),
-            arm: mk('arm', '장갑', ['equipment', 'arm']),
-            shoes: mk('shoes', '부츠', ['equipment', 'shoes']),
-          };
+          const preferredWeaponType = String(s?.weaponType || '').trim();
+          const wType = START_WEAPON_TYPES.includes(preferredWeaponType)
+            ? preferredWeaponType
+            : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
+          const wTypeNorm = normalizeWeaponType(wType);
+const mk = (slot, wTypeArg = '') => createEquipmentItem({ slot, day: nextDay, tier: 4, weaponType: wTypeArg });
+const gear = {
+  weapon: mk('weapon', wTypeNorm),
+  head: mk('head'),
+  clothes: mk('clothes'),
+  arm: mk('arm'),
+  shoes: mk('shoes'),
+};
           const baseInv = Array.isArray(s?.inventory)
             ? s.inventory.filter((x) => String(x?.category || inferItemCategory(x)) !== 'equipment')
             : [];
@@ -3780,9 +4179,10 @@ if (w) {
             },
           };
         })
-      : (Array.isArray(survivors) ? survivors : []);
+      : onMapSurvivors;
 
     if (isFirstDayHeroLoadout) {
+      startHeroLoadoutAppliedRef.current = true;
       addLog('🧰 1일차 낮: 모든 생존자가 영웅 등급 장비를 갖추었습니다.', 'highlight');
     }
 
@@ -3871,8 +4271,10 @@ if (mustEscape) {
   }
 
   if (!holdTarget && Array.isArray(aiMove?.targets) && aiMove.targets.length > 0) {
-    const pickedTarget = String(aiMove.targets[0] || '');
-    if (pickedTarget && !forbiddenIds.has(pickedTarget)) {
+    const pickedTarget = aiMove.targets
+      .map((z) => String(z || ''))
+      .find((z) => z && !forbiddenIds.has(String(z))) || '';
+    if (pickedTarget) {
       updated.aiTargetZoneId = pickedTarget;
       updated.aiTargetTTL = randInt(ttlMin, ttlMax);
       holdTarget = pickedTarget;
@@ -3882,6 +4284,9 @@ if (mustEscape) {
 
 let moveTargets = holdTarget ? [holdTarget] : (Array.isArray(aiMove?.targets) ? aiMove.targets : []);
 let moveReason = holdTarget ? `${String(aiMove?.reason || 'goal')}:ttl` : String(aiMove?.reason || '');
+
+// ✅ 목표/이동 후보에서 금지구역은 최대한 제외 (막혀서 멈추는 현상 방지)
+moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
 
 if (recovering) {
   // 회복 우선: 목표/보스 추적보다 안전/저인구 존으로 분산(인접 1칸에만 갇히지 않게 BFS 사용)
@@ -3907,7 +4312,10 @@ const curDet = Number.isFinite(Number(updated.detonationSec)) ? Number(updated.d
 const dangerForceSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5) + 2);
 const escapeChance = (mustEscape && curDet <= dangerForceSec) ? 1 : escapeMoveChance;
 
-const moveChance = mustEscape ? escapeChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
+const equipMs = getEquipMoveSpeed(updated);
+const msMoveBonus = Math.min(0.18, equipMs * 0.9); // 신발 이동속도 반영(이동 결정)
+const baseMoveChance = mustEscape ? escapeChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
+const moveChance = Math.min(0.98, baseMoveChance + msMoveBonus);
 const willMove = Math.random() < moveChance;
 
 if (willMove) {
@@ -4064,8 +4472,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // --- 보스(맵 이벤트 스폰): 알파/오메가/위클라인 ---
         const boss = recovering ? null : consumeBossAtZone(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset);
 
+        // --- 변이 야생동물(요청): 매 밤 스폰(로컬 설정 zone) ---
+        const mutant = boss ? null : (recovering ? null : consumeMutantWildlifeAtZone(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset));
+
         // --- 야생동물/변이체 사냥(일반): 하급 아이템 드랍 ---
-        const hunt = boss || (recovering ? null : rollWildlifeEncounter(mapObj, updated.zoneId, publicItems, nextDay, nextPhase, updated, { moved: didMove, isKioskZone, disableBoss: true }));
+        const hunt = boss || mutant || (recovering ? null : rollWildlifeEncounter(mapObj, updated.zoneId, publicItems, nextDay, nextPhase, updated, { moved: didMove, isKioskZone, disableBoss: true }));
+
+        const isBossReward = !!boss;
+        const isMutantReward = !boss && !!mutant;
         if (hunt) {
           const dmg = Math.max(0, Number(hunt.damage || 0));
           updated.hp = Math.max(0, Number(updated.hp || 0) - dmg);
@@ -4073,8 +4487,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const creditGain = Math.max(0, Number(hunt?.credits || 0));
           if (creditGain > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
-            addLog(`💳 [${updated.name}] ${boss ? '보스 처치 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: boss ? 'boss' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            addLog(`💳 [${updated.name}] ${isBossReward ? '보스 처치 보상' : isMutantReward ? '변이 야생동물 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
 
 
@@ -4088,7 +4502,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? q));
             addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] x${got}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(d.itemId || ''), qty: got, source: boss ? 'boss' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(d.itemId || ''), qty: got, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
             const craftedH = tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
             if (craftedH) {
@@ -4417,7 +4831,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
     // 6번째 밤 이전까지는 교전을 더 자주 유도, 6번째 밤부터는 사실상 서든데스(가속)
     const paceBonus = suddenDeath ? 0.35 : 0.15;
     const battleCap = suddenDeath ? 0.99 : Math.max(battleMax, 0.92);
-    const battleProb = Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
+    let battleProb = Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
+
+    // ✅ 1일차 낮(세팅 페이즈)에는 교전(PvP)을 발생시키지 않음
+    if (nextDay === 1 && nextPhase === 'morning') battleProb = 0;
 
     const eventOffset = Number(pvpProbCfg.eventOffset ?? 0.3);
     const eventMax = Number(pvpProbCfg.eventMax ?? 0.95);
@@ -4519,6 +4936,24 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
       return null;
     };
+    // ✅ 장비 쿨감(CDR) 합산: 스킬 발동 확률에 반영
+    // - equipped 슬롯(id) 기준으로 inventory에서 아이템을 찾아 stats.cdr 합산
+    const getEquippedCdr = (c) => {
+      const inv = Array.isArray(c?.inventory) ? c.inventory : [];
+      const eq = c?.equipped || {};
+      const pickById = (id) => {
+        if (!id) return null;
+        const sid = String(id);
+        return inv.find((it) => String(it?.itemId || it?.id || it?._id || '') === sid) || null;
+      };
+      let sum = 0;
+      for (const s of ['weapon', 'head', 'clothes', 'arm', 'shoes']) {
+        const it = pickById(eq?.[s]);
+        if (it?.stats?.cdr != null) sum += Number(it.stats.cdr || 0);
+      }
+      return Math.max(0, Math.min(0.75, sum));
+    };
+
 
     const getSpecialSkillChance = (c) => {
       const s = c?.specialSkill;
@@ -4534,14 +4969,23 @@ const didMove = String(nextZoneId) !== String(currentZone);
       // 데이터에 명시된 확률이 있으면 우선
       const explicit = s?.procChance ?? s?.chance ?? s?.proc;
       if (typeof explicit === 'number' && explicit >= 0 && explicit <= 1) return explicit;
-
       // 기본값(너무 자주 터지면 체감이 "항상 스킬"이 됨)
       const base = Number(settings?.battle?.skillProcDefault ?? 0.35);
 
-      // 특정 케이스 체감 보정(테러 발도는 상대 스킬에 씹히지 않게 조금 높게)
-      if (name.includes('발도')) return Number(settings?.battle?.iaidoSkillProc ?? 0.65);
-      return base;
+      // ✅ CDR(쿨감)로 스킬 발동 빈도 상승
+      const cdr = getEquippedCdr(c);
+      const cdrScale = Number(settings?.battle?.cdrProcScale ?? 0.25); // CDR 0.75면 +0.1875p
+      const bonus = cdr * (Number.isFinite(cdrScale) ? cdrScale : 0.25);
+      const cap = Number(settings?.battle?.skillProcCap ?? 0.9);
+
+      // 특정 케이스 체감 보정(테러 발도는 조금 높게)
+      if (name.includes('발도')) {
+        const b = Number(settings?.battle?.iaidoSkillProc ?? 0.65);
+        return Math.max(0, Math.min(cap, b + bonus * 0.5));
+      }
+      return Math.max(0, Math.min(cap, base + bonus));
     };
+
 
     const rollSpecialSkillForBattle = (c) => {
       // 전투용 스킬 정규화(시로코/테러 파생 포함)
@@ -4764,7 +5208,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
       const lowHpAvoidCombat = !suddenDeath && Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= Number(ruleset?.ai?.recoverHpBelow ?? 38);
       const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb);
-      const battleProb2 = Math.min(0.99, battleProb2Base + gatherPvpBonus);
+      const actorMs = getEquipMoveSpeed(actor);
+      const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
+      const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus - evadeBonus));
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
@@ -4776,7 +5222,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
         if (avoidInfo) {
           const oppName = String(targetEval?.name || '상대');
           const delta = Number(avoidInfo.opP || 0) - Number(avoidInfo.myP || 0);
-          const avoidChance = Number(ruleset?.ai?.fightAvoidChance ?? 0.75);
+          const avoidChanceBase = Number(ruleset?.ai?.fightAvoidChance ?? 0.75);
+          const avoidChance = Math.min(0.95, avoidChanceBase + Math.min(0.25, actorMs * 1.5)); // 신발 이속이 높을수록 회피 확률 증가
           const extremeRatio = Number(ruleset?.ai?.fightAvoidExtremeRatio ?? 0.30);
           const extremeDelta = Number(ruleset?.ai?.fightAvoidExtremeDelta ?? 25);
           const willAvoid = suddenDeath ? false : ((avoidInfo.ratio < extremeRatio || delta >= extremeDelta) ? true : (Math.random() < avoidChance));
@@ -4860,6 +5307,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
           winner.hp = Math.max(0, Number(winner.hp || 0) - dmgToWinner);
 
           const lethal = loser.hp <= 0;
+          if (!lethal) {
+            battleLog = softenNonLethalBattleLog(battleLog);
+          }
+
 
           // 최근 피해 기여자 기록(어시스트 판정용)
           if (dmgToWinner > 0) {
@@ -5117,7 +5568,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           addLog(eventText, 'normal');
         } else {
           // 폴백: 동적 이벤트 생성
-          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset);
+          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase);
           addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
 
           // ✅ 동적 이벤트 보상: 크레딧
@@ -5207,7 +5658,29 @@ const didMove = String(nextZoneId) !== String(currentZone);
       });
     }
 
-    setSurvivors(finalStepSurvivors);
+
+    // SD 서든데스: 카운트다운 종료 시 강제 결판(최후 1인)
+    const sdEndAt = suddenDeathEndAtSecRef.current;
+    const sdRemainAfter = (suddenDeathActiveRef.current && typeof sdEndAt === 'number')
+      ? Math.ceil(sdEndAt - (matchSec + phaseDurationSec))
+      : null;
+    if (suddenDeathActiveRef.current && typeof sdEndAt === 'number' && sdRemainAfter <= 0 && finalStepSurvivors.length > 1) {
+      const sorted = [...finalStepSurvivors].sort((a, b) => Number(b.hp || 0) - Number(a.hp || 0));
+      const topHp = Number(sorted[0]?.hp || 0);
+      const topList = sorted.filter((s) => Number(s.hp || 0) === topHp);
+      const wForced = topList[Math.floor(Math.random() * topList.length)];
+      const forcedDead = finalStepSurvivors
+        .filter((s) => String(s._id) !== String(wForced._id))
+        .map((s) => ({ ...s, hp: 0 }));
+      if (forcedDead.length) setDead((prev) => [...prev, ...forcedDead]);
+      setSurvivors([wForced]);
+      setMatchSec((prev) => prev + phaseDurationSec);
+      addLog(`⏱ 서든데스 종료! 제한시간 만료로 [${wForced.name}] 승리`, 'highlight');
+      await finishGame([wForced], updatedKillCounts, updatedAssistCounts);
+      return;
+    }
+
+    setSurvivors([...(Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []), ...(Array.isArray(offMapSurvivors) ? offMapSurvivors : [])]);
 
     // 월드 스폰 상태 반영(상자 개봉/보스 처치 등)
     setSpawnState(nextSpawn);
@@ -5580,6 +6053,42 @@ const gainDetailSummary = useMemo(() => {
   return `TOP 구역: ${zoneStr}`;
 }, [runEvents, itemNameById, zoneNameById]);
 
+  // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
+  const zonePos = useMemo(() => {
+    const z = Array.isArray(zones) ? zones : [];
+    const ids = z.map((x) => String(x?.zoneId || '')).filter(Boolean).sort();
+    const out = {};
+    if (!ids.length) return out;
+
+    const cx = 50;
+    const cy = 50;
+    const r = ids.length <= 2 ? 18 : ids.length <= 6 ? 28 : 36;
+    ids.forEach((id, idx) => {
+      const ang = (Math.PI * 2 * idx) / ids.length;
+      out[id] = { x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r };
+    });
+    return out;
+  }, [zones]);
+
+  const zoneEdges = useMemo(() => {
+    const ids = (Array.isArray(zones) ? zones : []).map((x) => String(x?.zoneId || '')).filter(Boolean);
+    const idSet = new Set(ids);
+    const uniq = new Set();
+    const edges = [];
+    Object.keys(zoneGraph || {}).forEach((a) => {
+      if (!idSet.has(a)) return;
+      const arr = Array.isArray(zoneGraph?.[a]) ? zoneGraph[a] : [];
+      arr.forEach((b) => {
+        if (!idSet.has(b) || a === b) return;
+        const k = a < b ? `${a}::${b}` : `${b}::${a}`;
+        if (uniq.has(k)) return;
+        uniq.add(k);
+        edges.push([a, b]);
+      });
+    });
+    return edges;
+  }, [zoneGraph, zones]);
+
 
   return (
     <main className="simulation-page">
@@ -5746,12 +6255,46 @@ const gainDetailSummary = useMemo(() => {
               <button
                 className="btn-secondary"
                 onClick={() => refreshMapSettingsFromServer('manual')}
-                disabled={loading || isAdvancing || isRefreshingMapSettings}
-                style={{ padding: '6px 10px', fontSize: 12 }}
+                disabled={loading || isAdvancing || isGameOver || !hyperloopDestId || !selectedCharId || !isSelectedCharOnHyperloopPad}
+                    style={{ padding: '6px 10px', fontSize: 12 }}
                 title="서버에 저장된 맵 설정(crateAllowDeny 등)을 새로 불러옵니다."
               >
                 {isRefreshingMapSettings ? '⏳ 새로고침 중...' : '🔄 맵 새로고침'}
               </button>
+
+              {day > 0 && hyperloopDestIds.length ? (
+                <>
+{/* 하이퍼루프 사용자는 '선택 캐릭터' */}
+                  <span className="weather-badge" style={{ fontSize: 12 }} title="하이퍼루프는 맵 내 장치(패드)에서만 사용 가능">
+                    🌀 패드: <b>{hyperloopPadName || hyperloopPadZoneId || '자동'}</b>
+                  </span>
+<select
+                    value={hyperloopDestId}
+                    onChange={(e) => setHyperloopDestId(e.target.value)}
+                    disabled={loading || isAdvancing || isGameOver}
+                    title="어드민(맵)에서 설정한 하이퍼루프 목적지(로컬 저장)"
+                    style={{ padding: '6px 8px', fontSize: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.20)', color: '#fff' }}
+                  >
+                    {hyperloopDestIds.map((id) => {
+                      const m = (Array.isArray(maps) ? maps : []).find((x) => String(x?._id) === String(id)) || null;
+                      return (
+                        <option key={`hl-${id}`} value={id} style={{ color: '#000' }}>
+                          {m?.name || id}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => doHyperloopJump(hyperloopDestId, selectedCharId)}
+                    disabled={loading || isAdvancing || isGameOver || !hyperloopDestId || !selectedCharId || !isSelectedCharOnHyperloopPad}
+                    style={{ padding: '6px 10px', fontSize: 12 }}
+                    title="하이퍼루프: 선택 캐릭터만 목적지 맵으로 즉시 이동"
+                  >
+                    🌀 이동
+                  </button>
+                </>
+              ) : null}
 
               {mapRefreshToast ? (
                 <span
@@ -5762,14 +6305,6 @@ const gainDetailSummary = useMemo(() => {
                   {mapRefreshToast.kind === 'error' ? '⚠️' : '✅'} {mapRefreshToast.text}
                 </span>
               ) : null}
-
-              <div
-                className="map-select"
-                title="맵은 플레이어가 선택하지 않으며, 등록된 맵에서 캐릭터가 이동하면서 시뮬레이션이 진행됩니다."
-              >
-                <span className="map-select-label">🗺️</span>
-                <div className="map-select-current">{activeMapName}</div>
-              </div>
             </div>
           </div>
 
@@ -5894,7 +6429,169 @@ const gainDetailSummary = useMemo(() => {
   );
 })()}
 
-          <div className="log-window" style={{ minWidth: 0 }}>
+          {/* 🗺️ 미니맵: 구역 그래프 + 캐릭터 위치 */}
+          <div className="minimap-panel">
+            {(() => {
+              const z = Array.isArray(zones) ? zones : [];
+              if (!z.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
+
+              const aliveByZone = {};
+              (Array.isArray(survivors) ? survivors : []).forEach((c) => {
+                const mid = String(c?.mapId || '').trim();
+                if (mid && String(activeMapId || '') && mid !== String(activeMapId)) return;
+                const zid = String(c?.zoneId || '');
+                if (!zid) return;
+                if (!aliveByZone[zid]) aliveByZone[zid] = [];
+                aliveByZone[zid].push(c);
+              });
+              const deadByZone = {};
+              (Array.isArray(dead) ? dead : []).forEach((c) => {
+                const mid = String(c?.mapId || '').trim();
+                if (mid && String(activeMapId || '') && mid !== String(activeMapId)) return;
+                const zid = String(c?.zoneId || '');
+                if (!zid) return;
+                if (!deadByZone[zid]) deadByZone[zid] = [];
+                deadByZone[zid].push(c);
+              });
+
+              const selectedChar = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === String(hyperloopCharId)) || null;
+              const selectedZoneId = selectedChar ? String(selectedChar?.zoneId || '') : '';
+
+              const OFF = [
+                [0, 0], [3, 0], [-3, 0], [0, 3], [0, -3],
+                [3, 3], [-3, 3], [3, -3], [-3, -3],
+                [5, 0], [-5, 0], [0, 5], [0, -5],
+              ];
+
+              return (
+                <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
+                  {/* 연결선 */}
+                  {zoneEdges.map(([a, b]) => {
+                    const pa = zonePos?.[a];
+                    const pb = zonePos?.[b];
+                    if (!pa || !pb) return null;
+                    return (
+                      <line
+                        key={`e-${a}-${b}`}
+                        x1={pa.x}
+                        y1={pa.y}
+                        x2={pb.x}
+                        y2={pb.y}
+                        stroke="rgba(255,255,255,0.16)"
+                        strokeWidth="0.8"
+                      />
+                    );
+                  })}
+
+                  {/* 구역 노드 */}
+                  {z.map((zone) => {
+                    const id = String(zone?.zoneId || '');
+                    const p = zonePos?.[id];
+                    if (!id || !p) return null;
+                    const isF = forbiddenNow.has(id);
+                    const isSelZone = !!selectedZoneId && selectedZoneId === id;
+                    const nm = String(getZoneName(id) || id);
+                    const label = nm.length <= 2 ? nm : nm.slice(0, 2);
+                    const aliveHere = aliveByZone[id]?.length || 0;
+                    const deadHere = deadByZone[id]?.length || 0;
+
+                    return (
+                      <g key={`z-${id}`}>
+                        <circle
+                          cx={p.x}
+                          cy={p.y}
+                          r={4.6}
+                          fill={isF ? 'rgba(255,82,82,0.38)' : 'rgba(0,0,0,0.30)'}
+                          stroke={isSelZone ? 'rgba(255,215,0,0.78)' : 'rgba(255,255,255,0.22)'}
+                          strokeWidth={isSelZone ? 1.4 : 0.9}
+                        />
+                        <text x={p.x} y={p.y + 0.9} textAnchor="middle" fontSize="2.6" fill="rgba(255,255,255,0.92)">
+                          {label}
+                        </text>
+
+                        {/* 하이퍼루프 패드 */}
+                        {String(hyperloopPadZoneId || '') === id ? (
+                          <text x={p.x + 6.2} y={p.y - 5.0} textAnchor="middle" fontSize="4.0" fill="rgba(180,220,255,0.92)">🌀</text>
+                        ) : null}
+
+                        {/* 생존/사망 수 */}
+                        {(aliveHere > 0 || deadHere > 0) ? (
+                          <text
+                            x={p.x}
+                            y={p.y + 7.2}
+                            textAnchor="middle"
+                            fontSize="2.4"
+                            fill="rgba(255,255,255,0.72)"
+                          >
+                            {aliveHere > 0 ? `+${aliveHere}` : ''}{deadHere > 0 ? ` / -${deadHere}` : ''}
+                          </text>
+                        ) : null}
+
+                        {/* 캐릭터 마커 */}
+                        {(aliveByZone[id] || []).slice(0, 12).map((c, idx) => {
+                          const o = OFF[idx % OFF.length];
+                          const cx = p.x + o[0] * 0.55;
+                          const cy = p.y + o[1] * 0.55;
+                          const isSel = String(c?._id || '') === String(hyperloopCharId || '');
+                          return (
+                            <g key={`a-${id}-${c._id || idx}`}>
+                              {isSel ? (
+                                <circle
+                                  cx={cx}
+                                  cy={cy}
+                                  r={1.75}
+                                  fill="none"
+                                  stroke="rgba(255,215,0,0.92)"
+                                  strokeWidth="0.8"
+                                />
+                              ) : null}
+                              <circle
+                                cx={cx}
+                                cy={cy}
+                                r={1.05}
+                                fill={isSel ? 'rgba(255,215,0,0.95)' : 'rgba(255,255,255,0.92)'}
+                                stroke="rgba(0,0,0,0.35)"
+                                strokeWidth="0.35"
+                              />
+                              {isSel ? (
+                                <text
+                                  x={cx + 1.9}
+                                  y={cy - 1.2}
+                                  textAnchor="middle"
+                                  fontSize="3.1"
+                                  fill="rgba(255,215,0,0.95)"
+                                >
+                                  ★
+                                </text>
+                              ) : null}
+                            </g>
+                          );
+                        })}                        {(deadByZone[id] || []).slice(0, 8).map((c, idx) => {
+                          const o = OFF[(idx + 2) % OFF.length];
+                          return (
+                            <circle
+                              key={`d-${id}-${c._id || idx}`}
+                              cx={p.x + o[0] * 0.55}
+                              cy={p.y + o[1] * 0.55}
+                              r={0.85}
+                              fill="rgba(170,170,170,0.70)"
+                              stroke="rgba(0,0,0,0.28)"
+                              strokeWidth="0.35"
+                            />
+                          );
+                        })}
+                      </g>
+                    );
+                  })}
+                </svg>
+              );
+            })()}
+            <div className="minimap-legend">
+              <span className="minimap-dot alive" /> 생존자 · <span className="minimap-dot dead" /> 사망자 · <span className="minimap-dot forbidden" /> 금지구역 · ⭐ 하이퍼루프 대상
+            </div>
+          </div>
+
+          <div className="log-window" ref={logWindowRef} style={{ minWidth: 0 }}>
             <div className="log-content">
               {day > 0 && (
                 <div className="log-top-status">
@@ -6570,10 +7267,6 @@ const gainDetailSummary = useMemo(() => {
                 ⏹️ 타임리밋 종료: 6번째 밤 도달
               </div>
             ) : null}
-            <div className="market-small" style={{ marginTop: 6 }}>🎲 Seed: <strong>{runSeed}</strong></div>
-            <div className="market-small" style={{ marginTop: 6 }}>📦 획득 경로: <strong>{gainSourceSummary || '-'}</strong></div>
-            <div className="market-small" style={{ marginTop: 6 }}>💳 크레딧 경로: <strong>{creditSourceSummary || '-'}</strong></div>
-            <div className="market-small" style={{ marginTop: 6 }}>🔎 획득 상세: <strong>{gainDetailSummary || '-'}</strong></div>
             {winner ? (
               <div className="winner-section">
                 <img src={winner.previewImage} alt="우승자" className="winner-img" />

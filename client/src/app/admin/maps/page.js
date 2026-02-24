@@ -25,6 +25,75 @@ function uniq(list) {
   return out;
 }
 
+function localKeyMapLinks(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_map_links_${id}` : '';
+}
+
+function localKeyHyperloops(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_map_hyperloops_${id}` : '';
+}
+
+function localKeyHyperloopDeviceZone(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_hyperloop_zone_${id}` : '';
+}
+
+function localKeyMutantSpawnZone(mapId) {
+  const id = String(mapId || '').trim();
+  return id ? `eh_mutant_spawn_zone_${id}` : '';
+}
+
+function readLocalJsonArray(key) {
+  const k = String(key || '').trim();
+  if (!k) return [];
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(k);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalJsonArray(key, list) {
+  const k = String(key || '').trim();
+  if (!k) return false;
+  if (typeof window === 'undefined') return false;
+  try {
+    const arr = Array.isArray(list) ? list : [];
+    window.localStorage.setItem(k, JSON.stringify(arr));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readLocalString(key) {
+  const k = String(key || '').trim();
+  if (!k) return '';
+  if (typeof window === 'undefined') return '';
+  try {
+    return String(window.localStorage.getItem(k) || '');
+  } catch {
+    return '';
+  }
+}
+
+function writeLocalString(key, value) {
+  const k = String(key || '').trim();
+  if (!k) return false;
+  if (typeof window === 'undefined') return false;
+  try {
+    window.localStorage.setItem(k, String(value ?? ''));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 const CRATE_TYPES = [
   { key: 'food', label: '음식' },
@@ -80,6 +149,18 @@ export default function AdminMapsPage() {
 
   const [kioskZoneSel, setKioskZoneSel] = useState('');
   const [kioskZoneNote, setKioskZoneNote] = useState('');
+
+  const [mapLinksSel, setMapLinksSel] = useState([]);
+  const [mapLinksNote, setMapLinksNote] = useState('');
+
+  const [hyperloopSel, setHyperloopSel] = useState([]);
+  const [hyperloopNote, setHyperloopNote] = useState('');
+
+  const [hyperloopZoneSel, setHyperloopZoneSel] = useState('');
+  const [hyperloopZoneNote, setHyperloopZoneNote] = useState('');
+
+  const [mutantZoneSel, setMutantZoneSel] = useState('');
+  const [mutantZoneNote, setMutantZoneNote] = useState('');
 
   const [zoneCrateRules, setZoneCrateRules] = useState({});
   const [zoneCrateMsg, setZoneCrateMsg] = useState('');
@@ -175,7 +256,13 @@ export default function AdminMapsPage() {
     setKioskZoneNote('');
     setZoneCrateRules({});
     setZoneCrateMsg('');
+    setMapLinksSel(uniq(readLocalJsonArray(localKeyMapLinks(id))));
+    setMapLinksNote('');
     if (id) loadZoneCrateRules(id);
+    setHyperloopSel(uniq(readLocalJsonArray(localKeyHyperloops(id))));
+    setHyperloopNote('');
+    setMutantZoneSel(readLocalString(localKeyMutantSpawnZone(id)));
+    setMutantZoneNote('');
   };
 
   const closeCoreEditor = () => {
@@ -186,9 +273,15 @@ export default function AdminMapsPage() {
     setKioskZoneNote('');
     setZoneCrateRules({});
     setZoneCrateMsg('');
+    setMapLinksSel([]);
+    setMapLinksNote('');
+    setHyperloopSel([]);
+    setHyperloopNote('');
+    setMutantZoneSel('');
+    setMutantZoneNote('');
   };
 
-  const selectedMap = useMemo(() => {
+const selectedMap = useMemo(() => {
     if (!coreEditMapId) return null;
     const id = String(coreEditMapId);
     return (Array.isArray(maps) ? maps : []).find((x) => asId(x) === id) || null;
@@ -214,6 +307,14 @@ export default function AdminMapsPage() {
     return list;
   }, [selectedMap]);
 
+  const linkCandidates = useMemo(() => {
+    const selfId = asId(selectedMap);
+    const list = (Array.isArray(maps) ? maps : [])
+      .map((m) => ({ id: asId(m), name: String(m?.name || '').trim() || '맵' }))
+      .filter((m) => Boolean(m.id) && m.id !== selfId);
+    return list;
+  }, [maps, selectedMap]);
+
   const unknownSelected = useMemo(() => {
     const s = new Set(availableZoneIds);
     return (Array.isArray(coreSelected) ? coreSelected : []).filter((id) => !s.has(String(id)));
@@ -227,6 +328,112 @@ export default function AdminMapsPage() {
       if (arr.includes(id)) return arr.filter((x) => x !== id);
       return [...arr, id];
     });
+  };
+
+  const toggleMapLink = (otherMapId) => {
+    const id = String(otherMapId || '').trim();
+    if (!id) return;
+    setMapLinksSel((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(id)) return arr.filter((x) => x !== id);
+      return uniq([...arr, id]);
+    });
+  };
+const toggleMapLink = (otherMapId) => {
+    const id = String(otherMapId || '').trim();
+    if (!id) return;
+    setMapLinksSel((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(id)) return arr.filter((x) => x !== id);
+      return uniq([...arr, id]);
+    });
+  };
+
+
+  const toggleHyperloop = (otherMapId) => {
+    const id = String(otherMapId || '').trim();
+    if (!id) return;
+    setHyperloopSel((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(id)) return arr.filter((x) => x !== id);
+      return uniq([...arr, id]);
+    });
+  };
+
+  const saveMapLinks = () => {
+    const mid = asId(selectedMap);
+    if (!mid) return;
+    const ok = writeLocalJsonArray(localKeyMapLinks(mid), uniq(mapLinksSel));
+    const note = ok ? withSimRefreshHint('✅ 저장 완료') : '⚠️ 저장 실패';
+    setMapLinksNote(note);
+    showSaveToast(note, ok ? 'ok' : 'error');
+  };
+
+  const clearMapLinks = () => {
+    setMapLinksSel([]);
+    setMapLinksNote('');
+  };
+
+
+  const saveHyperloops = () => {
+    const mid = asId(selectedMap);
+    if (!mid) return;
+    const ok = writeLocalJsonArray(localKeyHyperloops(mid), uniq(hyperloopSel));
+    const note = ok ? withSimRefreshHint('✅ 저장 완료') : '⚠️ 저장 실패';
+    setHyperloopNote(note);
+    showSaveToast(note, ok ? 'ok' : 'error');
+  };
+
+  const clearHyperloops = () => {
+    const mid = asId(selectedMap);
+    if (!mid) return;
+    const ok = writeLocalJsonArray(localKeyHyperloops(mid), []);
+    setHyperloopSel([]);
+    setHyperloopNote(ok ? withSimRefreshHint('✅ 전체 해제') : '⚠️ 저장 실패');
+  };
+
+
+  const saveHyperloopDeviceZone = () => {
+    const mapId = String(selectedMap?._id || '').trim();
+    if (!mapId) return;
+    const k = localKeyHyperloopDeviceZone(mapId);
+    const v = String(hyperloopZoneSel || '').trim();
+    if (!k) return;
+    try {
+      window.localStorage.setItem(k, v);
+      setHyperloopZoneNote(v ? `저장됨: ${v}` : '미사용(비어 있음)');
+    } catch {
+      setHyperloopZoneNote('저장 실패');
+    }
+  };
+
+  const clearHyperloopDeviceZone = () => {
+    const mapId = String(selectedMap?._id || '').trim();
+    if (!mapId) return;
+    const k = localKeyHyperloopDeviceZone(mapId);
+    if (!k) return;
+    try {
+      window.localStorage.removeItem(k);
+      setHyperloopZoneSel('');
+      setHyperloopZoneNote('해제됨');
+    } catch {
+      setHyperloopZoneNote('해제 실패');
+    }
+  };
+
+  const saveMutantSpawnZone = () => {
+    const mid = asId(selectedMap);
+    if (!mid) return;
+    const ok = writeLocalString(localKeyMutantSpawnZone(mid), String(mutantZoneSel || '').trim());
+    setMutantZoneNote(ok ? withSimRefreshHint('✅ 저장 완료') : '⚠️ 저장 실패');
+  };
+
+  const clearMutantSpawnZone = () => {
+    const mid = asId(selectedMap);
+    if (!mid) return;
+    const ok = writeLocalString(localKeyMutantSpawnZone(mid), '');
+    setMutantZoneSel('');
+    setMutantZoneNote(ok ? withSimRefreshHint('✅ 해제 완료') : '⚠️ 저장 실패');
   };
 
   const selectAllZones = () => setCoreSelected(availableZoneIds);
@@ -621,6 +828,139 @@ export default function AdminMapsPage() {
               </div>
             </div>
           ) : null}
+
+          {selectedMap ? (
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              <div style={{ fontWeight: 900 }}>맵 연결(동선)</div>
+              <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                이 맵에서 이동 가능한 다음 맵을 체크로 지정해. (로컬 저장)
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button style={btn} onClick={saveMapLinks} disabled={busy || !selectedMap}>
+                  저장
+                </button>
+                <button style={btn} onClick={clearMapLinks} disabled={busy || !selectedMap}>
+                  전체 해제
+                </button>
+                {mapLinksNote ? <div style={{ opacity: 0.85 }}>{mapLinksNote}</div> : null}
+              </div>
+
+              <div style={checkWrap}>
+                {linkCandidates.map((m) => (
+                  <label key={`link-${m.id}`} style={checkItem}>
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(mapLinksSel) ? mapLinksSel.includes(m.id) : false}
+                      onChange={() => toggleMapLink(m.id)}
+                      disabled={busy}
+                    />
+                    <span style={{ fontWeight: 800 }}>{m.name}</span>
+                  </label>
+                ))}
+                {linkCandidates.length === 0 ? <div style={{ opacity: 0.75 }}>연결할 다른 맵이 없습니다.</div> : null}
+              </div>
+            </div>
+          ) : null}
+
+          {selectedMap ? (
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              <div style={{ fontWeight: 900 }}>하이퍼루프(즉시 이동)</div>
+              <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                이 맵에 설치된 하이퍼루프로 즉시 이동 가능한 목적지 맵을 체크로 지정해. (로컬 저장)
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button style={btn} onClick={saveHyperloops} disabled={busy || !selectedMap}>
+                  저장
+                </button>
+                <button style={btn} onClick={clearHyperloops} disabled={busy || !selectedMap}>
+                  전체 해제
+                </button>
+                {hyperloopNote ? <div style={{ opacity: 0.85 }}>{hyperloopNote}</div> : null}
+              </div>
+
+              <div style={checkWrap}>
+                {linkCandidates.map((m) => (
+                  <label key={`hl-${m.id}`} style={checkItem}>
+                    <input
+                      type="checkbox"
+                      checked={Array.isArray(hyperloopSel) ? hyperloopSel.includes(m.id) : false}
+                      onChange={() => toggleHyperloop(m.id)}
+                      disabled={busy}
+                    />
+                    <span style={{ fontWeight: 800 }}>{m.name}</span>
+                  </label>
+                ))}
+                {linkCandidates.length === 0 ? <div style={{ opacity: 0.75 }}>이동할 다른 맵이 없습니다.</div> : null}
+              </div>
+            </div>
+          ) : null}
+          {selectedMap ? (
+            
+      <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              <div style={{ fontWeight: 900 }}>하이퍼루프 장치 구역</div>
+              <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                이 맵에서 하이퍼루프를 사용할 수 있는 "장치(패드) 구역"을 지정합니다. (로컬 저장)
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <select
+                  style={select}
+                  value={hyperloopZoneSel}
+                  onChange={(e) => setHyperloopZoneSel(String(e.target.value || ''))}
+                  disabled={busy || !selectedMap}
+                >
+                  <option value="">자동(첫 구역)</option>
+                  {availableZones.map((z) => (
+                    <option key={`hz-${z.zoneId}`} value={z.zoneId}>
+                      {`${z.zoneNo}. ${z.name || z.zoneId} (${z.zoneId})`}
+                    </option>
+                  ))}
+                </select>
+                <button style={btn} onClick={saveHyperloopDeviceZone} disabled={busy || !selectedMap}>
+                  저장
+                </button>
+                <button style={btn} onClick={clearHyperloopDeviceZone} disabled={busy || !selectedMap}>
+                  해제
+                </button>
+                {hyperloopZoneNote ? <div style={{ opacity: 0.85 }}>{hyperloopZoneNote}</div> : null}
+              </div>
+            </div>
+
+<div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+              <div style={{ fontWeight: 900 }}>변이 야생동물(밤) 스폰 구역</div>
+              <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                매 밤 시작 시, 이 맵의 지정 구역에 변이 야생동물이 1마리 스폰됨. (로컬 저장)
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                <select
+                  style={select}
+                  value={mutantZoneSel}
+                  onChange={(e) => setMutantZoneSel(String(e.target.value || ''))}
+                  disabled={busy || !selectedMap}
+                >
+                  <option value="">미사용(랜덤)</option>
+                  {availableZones.map((z) => (
+                    <option key={`mutant-${z.zoneId}`} value={z.zoneId}>
+                      {`${z.zoneNo}. ${z.name || z.zoneId} (${z.zoneId})`}
+                    </option>
+                  ))}
+                </select>
+                <button style={btn} onClick={saveMutantSpawnZone} disabled={busy || !selectedMap}>
+                  저장
+                </button>
+                <button style={btn} onClick={clearMutantSpawnZone} disabled={busy || !selectedMap}>
+                  해제
+                </button>
+                {mutantZoneNote ? <div style={{ opacity: 0.85 }}>{mutantZoneNote}</div> : null}
+              </div>
+            </div>
+          ) : null}
+
+
+
 
           <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
             <button style={btn} onClick={saveCoreSpawnZones} disabled={busy || !selectedMap}>

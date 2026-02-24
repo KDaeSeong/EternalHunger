@@ -1,5 +1,7 @@
 // client/src/utils/eventLogic.js
 
+import { createEquipmentItem, normalizeWeaponType } from './equipmentCatalog';
+
 const keywordDB = {
     contexts: [
         { text: "배가 너무 고파서 허겁지겁", condition: "hungry" },
@@ -41,7 +43,7 @@ const EQUIP_GRADES = [
 
 const WEAPON_TYPES = [
   { ko: '권총', ranged: true },
-  { ko: '돌소총', ranged: true },
+  { ko: '돌격소총', ranged: true },
   { ko: '저격총', ranged: true },
   { ko: '장갑', ranged: false },
   { ko: '톤파', ranged: false },
@@ -94,33 +96,14 @@ function rollGrade(day = 1) {
 }
 
 function makeWeapon(day = 1) {
-  const g = rollGrade(day);
-  const w = WEAPON_TYPES[Math.floor(Math.random() * WEAPON_TYPES.length)];
-  const tags = ['weapon', w.ranged ? 'ranged' : 'melee', w.ranged ? '총' : '근접', w.ko];
-  return {
-    id: uid('wpn'),
-    text: `${g.ko} ${w.ko}`,
-    type: 'weapon',
-    tags,
-    tier: g.tier,
-    equipSlot: 'weapon',
-    weaponType: w.ko,
-    grade: g.ko,
-  };
+  return createEquipmentItem({ slot: 'weapon', day });
 }
 
 function makeArmor(day = 1) {
-  const g = rollGrade(day);
-  const s = ARMOR_SLOTS[Math.floor(Math.random() * ARMOR_SLOTS.length)];
-  return {
-    id: uid('eq'),
-    text: `${g.ko} ${s.ko} 장비`,
-    type: '방어구',
-    tags: ['equipment', 'armor', s.slot, s.ko],
-    tier: g.tier,
-    equipSlot: s.slot,
-    grade: g.ko,
-  };
+  // 무기 이외 슬롯(옷/머리/팔/신발)
+  const slots = ['clothes', 'head', 'arm', 'shoes'];
+  const slot = slots[Math.floor(Math.random() * slots.length)] || 'clothes';
+  return createEquipmentItem({ slot, day });
 }
 
 function rollRandomLootObject(day = 1) {
@@ -130,33 +113,17 @@ function rollRandomLootObject(day = 1) {
 }
 
 
-// [수정] 인자에 ruleset 추가!
-export function generateDynamicEvent(char, currentDay, ruleset) { 
+// [수정] 인자에 ruleset/phase 추가!
+export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = 'morning') { 
     const context = keywordDB.contexts[Math.floor(Math.random() * keywordDB.contexts.length)];
     const object = rollRandomLootObject(currentDay);
 
     // 0) 이벤트 타입: 수집/사냥을 우선 처리
     const modeRoll = Math.random();
 
-    // [S] 수집 이벤트(운석/생명의 나무/상자) — 수집 후 교전 확률이 증가(다음 페이즈)
+    // [S] 수집 이벤트(상자) — 스폰 기반 특수 재료(운석/생명의 나무)는 월드 스폰에서만 획득
     if (modeRoll < 0.24) {
         const pvpBonusNext = 0.22;
-        if (modeRoll < 0.10) {
-            return {
-                log: `[${char.name}]은(는) 운석 파편을 발견해 회수했습니다! (수집 중 노출 ↑)`,
-                newItem: cloneMat(MAT_ITEMS.meteor, currentDay),
-                pvpBonusNext,
-                damage: 0,
-            };
-        }
-        if (modeRoll < 0.18) {
-            return {
-                log: `[${char.name}]은(는) 생명의 나무에서 수액을 채취했습니다! (수집 중 노출 ↑)`,
-                newItem: cloneMat(MAT_ITEMS.worldTree, currentDay),
-                pvpBonusNext,
-                damage: 0,
-            };
-        }
         const loot = rollRandomLootObject(currentDay);
         return {
             log: `[${char.name}]은(는) 상자를 수색해 [${loot.text}]을(를) 획득했습니다! (수집 중 노출 ↑)`,
@@ -166,31 +133,32 @@ export function generateDynamicEvent(char, currentDay, ruleset) {
         };
     }
 
-    // [H] 사냥 이벤트(야생동물/변이체/보스)
+    // [H] 사냥 이벤트(야생동물) — 보스/변이체는 월드 스폰(구역 조우)에서만 처리
     if (modeRoll < 0.52) {
         const p = (Number(char?.stats?.str || 0) + Number(char?.stats?.agi || 0) + Number(char?.stats?.sht || 0) + Number(char?.stats?.end || 0));
         const score = Math.random() * 40 + 20 + p * 0.7;
 
-        const r = Math.random();
-        let mob = '야생동물';
-        let diff = 55;
-        let drop = null;
-        let credit = Number(ruleset?.credits?.wildlifeKill || 5);
-        let winDmg = 6;
-        let loseDmg = 16;
+        // --- 스폰 규칙(요청): 늑대=낮, 곰=밤, 닭/멧돼지/박쥐/들개=매 페이즈 ---
+        const isNight = String(currentPhase || '') === 'night';
+        const mobs = [
+            ...(isNight ? ['곰'] : ['늑대']),
+            '멧돼지',
+            '닭',
+            '박쥐',
+            '들개',
+        ];
+        const mob = mobs[Math.floor(Math.random() * mobs.length)] || (isNight ? '곰' : '늑대');
 
-        // 보스/변이체
-        if (r < 0.06) { mob = '위클라인'; diff = 92; drop = MAT_ITEMS.vfBlood; credit = Number(ruleset?.credits?.bossKill || 14); winDmg = 14; loseDmg = 28; }
-        else if (r < 0.14) { mob = '오메가'; diff = 88; drop = MAT_ITEMS.forceCore; credit = Number(ruleset?.credits?.bossKill || 14); winDmg = 12; loseDmg = 26; }
-        else if (r < 0.24) { mob = '알파'; diff = 82; drop = MAT_ITEMS.mithril; credit = Number(ruleset?.credits?.bossKill || 14); winDmg = 10; loseDmg = 24; }
-        else if (r < 0.44) { mob = '변이체'; diff = 70; credit = Number(ruleset?.credits?.mutantKill || 9); winDmg = 8; loseDmg = 20; }
+        const diff = 55;
+        const credit = Number(ruleset?.credits?.wildlifeKill || 5);
+        const winDmg = 6;
+        const loseDmg = 16;
 
         if (score >= diff) {
-            const extra = drop ? `, 전리품: [${drop.text}]` : '';
             return {
-                log: `[${char.name}]은(는) ${mob}를 사냥했습니다! (+${credit} Cr${extra})`,
+                log: `[${char.name}]은(는) ${mob}를 사냥했습니다! (+${credit} Cr)`,
                 earnedCredits: credit,
-                newItem: drop ? cloneMat(drop, currentDay) : null,
+                newItem: null,
                 damage: winDmg,
             };
         }
@@ -200,40 +168,4 @@ export function generateDynamicEvent(char, currentDay, ruleset) {
         };
     }
 
-    // 1. 아이템 발견 확률 (LUK 기반)
-    const findChance = Math.random() * 100 + (char.stats.luk || 10);
-    
-    // [A] 아이템 발견
-    if (findChance > 60) {
-        return {
-            log: `[${char.name}]은(는) 풀숲에서 [${object.text}]을(를) 발견하여 가방에 넣었습니다!`,
-            newItem: { ...object, acquiredDay: currentDay },
-            damage: 0
-        };
-    }
 
-    // [B] 음식/무기 상호작용
-    if (object.type === "food") {
-        if (object.tags.includes("poison")) {
-            if ((char.stats.int || 0) > 40) { // 안전하게 int 참조
-                return { log: `[${char.name}]은(는) 지능을 발휘해 [${object.text}]에 독이 든 것을 간파하고 버렸습니다!`, damage: 0 };
-            }
-            return { 
-                log: `[${char.name}]이(가) 독이 든 [${object.text}]을(를) 먹고 식중독에 걸렸습니다!`, 
-                damage: 20, 
-                newEffect: { name: "식중독", type: "debuff", remainingDuration: 2 } 
-            };
-        }
-        return { log: `[${char.name}]은(는) 발견한 [${object.text}]을(를) 맛있게 먹었습니다.`, recovery: 20 };
-    }
-
-    // [C] 사냥 이벤트는 상단(modeRoll)에서 처리됩니다.
-
-    if (object.type === "weapon") {
-        const actionText = object.tags.includes("ranged") ? "조준해 봅니다" : "휘둘러 봅니다";
-        const statName = object.tags.includes("ranged") ? "사격" : "숙련도";
-        return { log: `[${char.name}]은(는) [${object.text}]를 들고 ${actionText}. ${statName}이 상승하는 기분입니다!`, damage: 0 };
-    }
-
-    return { log: `[${char.name}]은(는) ${context.text} 주변을 살피며 평화로운 시간을 보냈습니다.`, damage: 0 };
-}
