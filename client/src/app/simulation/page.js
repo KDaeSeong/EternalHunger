@@ -6648,7 +6648,7 @@ const gainDetailSummary = useMemo(() => {
                     ))}
                   </div>
                 </div>
-              ) : null
+	              ) : null}
 
               <div className="log-scroll-area" ref={logBoxRef} style={{ maxHeight: logBoxMaxH }}>
                 {logs.map((log, idx) => (

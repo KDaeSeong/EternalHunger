@@ -896,9 +896,9 @@ const toggleMapLink = (otherMapId) => {
               </div>
             </div>
           ) : null}
-          {selectedMap ? (
-            
-      <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+	          {selectedMap ? (
+	            <>
+	              <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
               <div style={{ fontWeight: 900 }}>하이퍼루프 장치 구역</div>
               <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
                 이 맵에서 하이퍼루프를 사용할 수 있는 "장치(패드) 구역"을 지정합니다. (로컬 저장)
@@ -926,9 +926,9 @@ const toggleMapLink = (otherMapId) => {
                 </button>
                 {hyperloopZoneNote ? <div style={{ opacity: 0.85 }}>{hyperloopZoneNote}</div> : null}
               </div>
-            </div>
+	              </div>
 
-<div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+	              <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
               <div style={{ fontWeight: 900 }}>변이 야생동물(밤) 스폰 구역</div>
               <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
                 매 밤 시작 시, 이 맵의 지정 구역에 변이 야생동물이 1마리 스폰됨. (로컬 저장)
@@ -956,7 +956,8 @@ const toggleMapLink = (otherMapId) => {
                 </button>
                 {mutantZoneNote ? <div style={{ opacity: 0.85 }}>{mutantZoneNote}</div> : null}
               </div>
-            </div>
+	              </div>
+	            </>
           ) : null}
 
 
