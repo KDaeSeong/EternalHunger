@@ -168,4 +168,9 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
         };
     }
 
-
+    // 기본 이벤트: 아무 일도 없음
+    return {
+        log: `[${char.name}]은(는) 별다른 일 없이 시간을 보냈습니다.`,
+        damage: 0,
+    };
+}

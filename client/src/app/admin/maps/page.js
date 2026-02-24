@@ -339,15 +339,7 @@ const selectedMap = useMemo(() => {
       return uniq([...arr, id]);
     });
   };
-const toggleMapLink = (otherMapId) => {
-    const id = String(otherMapId || '').trim();
-    if (!id) return;
-    setMapLinksSel((prev) => {
-      const arr = Array.isArray(prev) ? prev : [];
-      if (arr.includes(id)) return arr.filter((x) => x !== id);
-      return uniq([...arr, id]);
-    });
-  };
+
 
 
   const toggleHyperloop = (otherMapId) => {
