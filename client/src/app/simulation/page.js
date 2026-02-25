@@ -6260,46 +6260,14 @@ const gainDetailSummary = useMemo(() => {
               <button
                 className="btn-secondary"
                 onClick={() => refreshMapSettingsFromServer('manual')}
-                disabled={loading || isAdvancing || isGameOver || !hyperloopDestId || !selectedCharId || !isSelectedCharOnHyperloopPad}
+                disabled={loading || isAdvancing || isGameOver}
                     style={{ padding: '6px 10px', fontSize: 12 }}
                 title="서버에 저장된 맵 설정(crateAllowDeny 등)을 새로 불러옵니다."
               >
                 {isRefreshingMapSettings ? '⏳ 새로고침 중...' : '🔄 맵 새로고침'}
               </button>
 
-              {day > 0 && hyperloopDestIds.length ? (
-                <>
-{/* 하이퍼루프 사용자는 '선택 캐릭터' */}
-                  <span className="weather-badge" style={{ fontSize: 12 }} title="하이퍼루프는 맵 내 장치(패드)에서만 사용 가능">
-                    🌀 패드: <b>{hyperloopPadName || hyperloopPadZoneId || '자동'}</b>
-                  </span>
-<select
-                    value={hyperloopDestId}
-                    onChange={(e) => setHyperloopDestId(e.target.value)}
-                    disabled={loading || isAdvancing || isGameOver}
-                    title="어드민(맵)에서 설정한 하이퍼루프 목적지(로컬 저장)"
-                    style={{ padding: '6px 8px', fontSize: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.18)', background: 'rgba(0,0,0,0.20)', color: '#fff' }}
-                  >
-                    {hyperloopDestIds.map((id) => {
-                      const m = (Array.isArray(maps) ? maps : []).find((x) => String(x?._id) === String(id)) || null;
-                      return (
-                        <option key={`hl-${id}`} value={id} style={{ color: '#000' }}>
-                          {m?.name || id}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <button
-                    className="btn-secondary"
-                    onClick={() => doHyperloopJump(hyperloopDestId, selectedCharId)}
-                    disabled={loading || isAdvancing || isGameOver || !hyperloopDestId || !selectedCharId || !isSelectedCharOnHyperloopPad}
-                    style={{ padding: '6px 10px', fontSize: 12 }}
-                    title="하이퍼루프: 선택 캐릭터만 목적지 맵으로 즉시 이동"
-                  >
-                    🌀 이동
-                  </button>
-                </>
-              ) : null}
+              {/* 🌀 하이퍼루프: 맵 내 장치(패드) 상호작용은 미니맵 아래에서 제공 */}
 
               {mapRefreshToast ? (
                 <span
@@ -6594,6 +6562,69 @@ const gainDetailSummary = useMemo(() => {
             <div className="minimap-legend">
               <span className="minimap-dot alive" /> 생존자 · <span className="minimap-dot dead" /> 사망자 · <span className="minimap-dot forbidden" /> 금지구역 · ⭐ 하이퍼루프 대상
             </div>
+
+            {day > 0 && hyperloopDestIds.length ? (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: '8px 10px',
+                  borderRadius: 10,
+                  background: 'rgba(0,0,0,0.22)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ opacity: 0.9 }} title="하이퍼루프는 맵 내 장치(패드)에서만 사용 가능">
+                    🌀 하이퍼루프
+                  </span>
+                  <span style={{ opacity: 0.9 }}>
+                    패드: <b>{hyperloopPadName || hyperloopPadZoneId || '자동'}</b>
+                  </span>
+
+                  {isSelectedCharOnHyperloopPad ? (
+                    <>
+                      <select
+                        value={hyperloopDestId}
+                        onChange={(e) => setHyperloopDestId(e.target.value)}
+                        disabled={loading || isAdvancing || isGameOver}
+                        title="어드민(맵)에서 설정한 하이퍼루프 목적지(로컬 저장)"
+                        style={{
+                          padding: '6px 8px',
+                          fontSize: 12,
+                          borderRadius: 8,
+                          border: '1px solid rgba(255,255,255,0.18)',
+                          background: 'rgba(0,0,0,0.20)',
+                          color: '#fff',
+                        }}
+                      >
+                        {hyperloopDestIds.map((id) => {
+                          const m = (Array.isArray(maps) ? maps : []).find((x) => String(x?._id) === String(id)) || null;
+                          return (
+                            <option key={`hl-mm-${id}`} value={id} style={{ color: '#000' }}>
+                              {m?.name || id}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => doHyperloopJump(hyperloopDestId, selectedCharId)}
+                        disabled={loading || isAdvancing || isGameOver || !hyperloopDestId || !selectedCharId}
+                        style={{ padding: '6px 10px', fontSize: 12 }}
+                        title="하이퍼루프: 선택 캐릭터만 목적지 맵으로 즉시 이동"
+                      >
+                        🌀 이동
+                      </button>
+                    </>
+                  ) : (
+                    <span style={{ opacity: 0.75 }} title="선택 캐릭터가 패드 구역에 있어야 사용할 수 있습니다.">
+                      선택 캐릭터가 패드 구역에 있어야 사용 가능
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="log-window" ref={logWindowRef} style={{ minWidth: 0 }}>
