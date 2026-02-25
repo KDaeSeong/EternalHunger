@@ -2801,112 +2801,6 @@ const activeMapName = useMemo(() => {
     };
   }, []);
 
-  // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
-  const hyperloopDestIds = useMemo(() => {
-    const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
-    if (!ids.length) return [];
-    const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
-    return ids.filter((id) => mapSet.has(String(id)));
-  }, [activeMapId, maps]);
-
-  // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
-  const hyperloopPadZoneId = useMemo(() => {
-    const saved = String(getHyperloopDeviceZoneId(activeMapId) || '').trim();
-    if (saved) return saved;
-    const z = Array.isArray(zones) ? zones : [];
-    return String(z?.[0]?.zoneId || '');
-  }, [activeMapId, zones]);
-
-  const hyperloopPadName = useMemo(() => {
-    const zid = String(hyperloopPadZoneId || '').trim();
-    if (!zid) return '';
-    return String(getZoneName(zid) || zid);
-  }, [hyperloopPadZoneId]);
-
-  const isSelectedCharOnHyperloopPad = useMemo(() => {
-    const who = String(selectedCharId || '').trim();
-    if (!who) return false;
-    const pad = String(hyperloopPadZoneId || '').trim();
-    if (!pad) return false;
-    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
-    return String(actor?.zoneId || '').trim() === pad;
-  }, [selectedCharId, survivors, hyperloopPadZoneId]);
-
-  const hyperloopDestKey = hyperloopDestIds.join('|');
-
-  useEffect(() => {
-    if (!hyperloopDestIds.length) {
-      setHyperloopDestId('');
-      return;
-    }
-    if (!hyperloopDestId || !hyperloopDestIds.includes(String(hyperloopDestId))) {
-      setHyperloopDestId(String(hyperloopDestIds[0]));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hyperloopDestKey]);
-
-// 🌀 하이퍼루프 이동 대상(캐릭터) 기본값: 선택 캐릭터 우선
-useEffect(() => {
-  const preferred = String(selectedCharId || '').trim();
-  if (preferred) {
-    if (String(hyperloopCharId || '') !== preferred) setHyperloopCharId(preferred);
-    return;
-  }
-  const alive = (Array.isArray(survivors) ? survivors : []).filter((c) => Number(c?.hp || 0) > 0);
-  if (!alive.length) {
-    setHyperloopCharId('');
-    return;
-  }
-  if (!hyperloopCharId || !alive.some((c) => String(c?._id) === String(hyperloopCharId))) {
-    setHyperloopCharId(String(alive[0]?._id || ''));
-  }
-}, [survivors, hyperloopCharId, selectedCharId]);
-
-  const doHyperloopJump = (toMapId, whoId) => {
-    const toId = String(toMapId || '').trim();
-const who = String(whoId || '').trim();
-if (!who) {
-  addLog('🌀 하이퍼루프: 이동할 캐릭터를 선택하세요.', 'system');
-  return;
-}
-    if (!toId) return;
-    if (loading || isAdvancing || isGameOver) return;
-    if (day <= 0) {
-      addLog('🌀 하이퍼루프: 게임 시작 후(1일차부터) 사용할 수 있습니다.', 'system');
-      return;
-    }
-
-    // 맵 내 장치(패드) 구역에 있어야 사용 가능
-    const padZid = String(hyperloopPadZoneId || '').trim();
-    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
-    const actorZid = String(actor?.zoneId || '').trim();
-    if (!padZid || actorZid !== padZid) {
-      const padNm = String(hyperloopPadName || padZid || '하이퍼루프 구역');
-      addLog(`🌀 하이퍼루프 장치: [${padNm}]에서만 사용할 수 있습니다.`, 'system');
-      return;
-    }
-    const toMap = (Array.isArray(maps) ? maps : []).find((m) => String(m?._id) === toId) || null;
-    if (!toMap) return;
-
-    const rs = getRuleset(settings?.rulesetId);
-    const forb = new Set(getForbiddenZoneIdsForPhase(toMap, day, phase, rs));
-    const z = Array.isArray(toMap?.zones) ? toMap.zones : [];
-    const eligible = getEligibleSpawnZoneIds(z, forb);
-
-    // 목적지 맵에도 패드 구역이 있으면 그곳으로 도착(금지구역이면 예외)
-    const destPad = String(getHyperloopDeviceZoneId(toId) || '').trim();
-    const destPadOk = !!destPad && z.some((zz) => String(zz?.zoneId || '') === destPad) && !forb.has(destPad);
-    const entryZoneId = String((destPadOk ? destPad : (eligible?.[0] || z?.[0]?.zoneId)) || '__default__');
-
-    const fromName = String(activeMapName || '현재맵');
-    const toName = String(toMap?.name || '목적지');
-    setActiveMapId(toId);
-    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((c) => (String(c?._id) === who ? ({ ...c, mapId: toId, zoneId: entryZoneId }) : c)));
-    const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === who)?.name || '선택 캐릭터';
-    addLog(`🌀 하이퍼루프 이동: ${fromName} → ${toName} (${whoName})`, 'highlight');
-    emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
-  };
-
   // ✅ 관전자 모드 기본: 상점/조합/교환 UI는 숨김(테스트용 토글)
   const [showMarketPanel, setShowMarketPanel] = useState(false);
   const [pendingTranscendPick, setPendingTranscendPick] = useState(null);
@@ -3203,6 +3097,114 @@ const devForceUseConsumable = (charId, invIndex) => {
     const key = String(zoneId || '');
     return zoneNameById[key] || key || '미상';
   };
+
+  // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
+  const hyperloopDestIds = useMemo(() => {
+    const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
+    if (!ids.length) return [];
+    const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
+    return ids.filter((id) => mapSet.has(String(id)));
+  }, [activeMapId, maps]);
+
+  // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
+  const hyperloopPadZoneId = useMemo(() => {
+    const saved = String(getHyperloopDeviceZoneId(activeMapId) || '').trim();
+    if (saved) return saved;
+    const z = Array.isArray(zones) ? zones : [];
+    return String(z?.[0]?.zoneId || '');
+  }, [activeMapId, zones]);
+
+  const hyperloopPadName = useMemo(() => {
+    const zid = String(hyperloopPadZoneId || '').trim();
+    if (!zid) return '';
+    return String(getZoneName(zid) || zid);
+  }, [hyperloopPadZoneId, zoneNameById]);
+
+  const isSelectedCharOnHyperloopPad = useMemo(() => {
+    const who = String(selectedCharId || '').trim();
+    if (!who) return false;
+    const pad = String(hyperloopPadZoneId || '').trim();
+    if (!pad) return false;
+    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
+    return String(actor?.zoneId || '').trim() === pad;
+  }, [selectedCharId, survivors, hyperloopPadZoneId]);
+
+  const hyperloopDestKey = hyperloopDestIds.join('|');
+
+  useEffect(() => {
+    if (!hyperloopDestIds.length) {
+      setHyperloopDestId('');
+      return;
+    }
+    if (!hyperloopDestId || !hyperloopDestIds.includes(String(hyperloopDestId))) {
+      setHyperloopDestId(String(hyperloopDestIds[0]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hyperloopDestKey]);
+
+// 🌀 하이퍼루프 이동 대상(캐릭터) 기본값: 선택 캐릭터 우선
+useEffect(() => {
+  const preferred = String(selectedCharId || '').trim();
+  if (preferred) {
+    if (String(hyperloopCharId || '') !== preferred) setHyperloopCharId(preferred);
+    return;
+  }
+  const alive = (Array.isArray(survivors) ? survivors : []).filter((c) => Number(c?.hp || 0) > 0);
+  if (!alive.length) {
+    setHyperloopCharId('');
+    return;
+  }
+  if (!hyperloopCharId || !alive.some((c) => String(c?._id) === String(hyperloopCharId))) {
+    setHyperloopCharId(String(alive[0]?._id || ''));
+  }
+}, [survivors, hyperloopCharId, selectedCharId]);
+
+  const doHyperloopJump = (toMapId, whoId) => {
+    const toId = String(toMapId || '').trim();
+const who = String(whoId || '').trim();
+if (!who) {
+  addLog('🌀 하이퍼루프: 이동할 캐릭터를 선택하세요.', 'system');
+  return;
+}
+    if (!toId) return;
+    if (loading || isAdvancing || isGameOver) return;
+    if (day <= 0) {
+      addLog('🌀 하이퍼루프: 게임 시작 후(1일차부터) 사용할 수 있습니다.', 'system');
+      return;
+    }
+
+    // 맵 내 장치(패드) 구역에 있어야 사용 가능
+    const padZid = String(hyperloopPadZoneId || '').trim();
+    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
+    const actorZid = String(actor?.zoneId || '').trim();
+    if (!padZid || actorZid !== padZid) {
+      const padNm = String(hyperloopPadName || padZid || '하이퍼루프 구역');
+      addLog(`🌀 하이퍼루프 장치: [${padNm}]에서만 사용할 수 있습니다.`, 'system');
+      return;
+    }
+    const toMap = (Array.isArray(maps) ? maps : []).find((m) => String(m?._id) === toId) || null;
+    if (!toMap) return;
+
+    const rs = getRuleset(settings?.rulesetId);
+    const forb = new Set(getForbiddenZoneIdsForPhase(toMap, day, phase, rs));
+    const z = Array.isArray(toMap?.zones) ? toMap.zones : [];
+    const eligible = getEligibleSpawnZoneIds(z, forb);
+
+    // 목적지 맵에도 패드 구역이 있으면 그곳으로 도착(금지구역이면 예외)
+    const destPad = String(getHyperloopDeviceZoneId(toId) || '').trim();
+    const destPadOk = !!destPad && z.some((zz) => String(zz?.zoneId || '') === destPad) && !forb.has(destPad);
+    const entryZoneId = String((destPadOk ? destPad : (eligible?.[0] || z?.[0]?.zoneId)) || '__default__');
+
+    const fromName = String(activeMapName || '현재맵');
+    const toName = String(toMap?.name || '목적지');
+    setActiveMapId(toId);
+    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((c) => (String(c?._id) === who ? ({ ...c, mapId: toId, zoneId: entryZoneId }) : c)));
+    const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === who)?.name || '선택 캐릭터';
+    addLog(`🌀 하이퍼루프 이동: ${fromName} → ${toName} (${whoName})`, 'highlight');
+    emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
+  };
+
+
 
   // ⏱ mm:ss 포맷
   const formatClock = (totalSec) => {
