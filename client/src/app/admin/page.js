@@ -32,6 +32,11 @@ export default function AdminDashboardPage() {
 
   const sections = [
     {
+      href: '/',
+      name: '메인 화면',
+      desc: '유저 메인(/)으로 돌아가기',
+    },
+    {
       href: '/admin/items',
       name: '아이템',
       desc: '상점/드랍/조합에 쓰일 아이템 데이터 관리',
@@ -40,11 +45,6 @@ export default function AdminDashboardPage() {
       href: '/admin/maps',
       name: '맵/구역',
       desc: '구역/금지구역/시간대 조건 등 맵 데이터 관리',
-    },
-    {
-      href: '/events',
-      name: '이벤트(유저)',
-      desc: '현재 유저 화면(/events)으로 이동',
     },
     {
       href: '/board',

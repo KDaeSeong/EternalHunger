@@ -1,12 +1,37 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { API_BASE, getToken } from '../../../../utils/api';
 
 function normalizeItems(payload) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.items)) return payload.items;
   return [];
+}
+
+function adaptItem(raw) {
+  const it = raw || {};
+  const id = it.id ?? it._id ?? it.itemId ?? it.item_id;
+  const kind = it.kind ?? it.category ?? it.type ?? it.itemType;
+  const price = it.price ?? it.gold ?? it.value ?? it.baseCreditValue ?? it.creditValue;
+  const name = it.name ?? it.itemName ?? it.title;
+  const rarity = it.rarity ?? it.grade ?? it.rank;
+
+  return {
+    ...it,
+    id,
+    kind,
+    price,
+    name,
+    rarity,
+  };
+}
+
+function authHeaders() {
+  const token = getToken();
+  if (!token) return {};
+  return { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` };
 }
 
 const sample = [
@@ -27,17 +52,22 @@ export default function ItemsAdmin() {
     let canceled = false;
     (async () => {
       try {
-        const res = await fetch('/api/admin/items', { credentials: 'include' });
+        const res = await fetch(`${API_BASE}/admin/items`, {
+          headers: { ...authHeaders() },
+          cache: 'no-store',
+        });
         if (!res.ok) throw new Error('bad status');
         const data = await res.json().catch(() => null);
-        const list = normalizeItems(data);
+        const list = normalizeItems(data).map(adaptItem);
         if (!canceled) {
           setItems(list);
           setStatus('ok');
         }
       } catch {
         if (!canceled) {
-          setItems(sample);
+          // 서버/API가 연결되지 않은 환경에서도 화면이 깨지지 않게 샘플을 보여주되,
+          // 실제 데이터가 필요하면 API_BASE/토큰 설정을 먼저 확인하도록 유도
+          setItems(sample.map(adaptItem));
           setStatus('fallback');
         }
       }
@@ -52,10 +82,11 @@ export default function ItemsAdmin() {
     setTreeBusy(true);
     setTreeMsg('');
     try {
-      const res = await fetch('/api/admin/items/generate-default-tree', {
+      const res = await fetch(`${API_BASE}/admin/items/generate-default-tree`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        // 서버는 JWT(Bearer) 기반이므로 쿠키에 의존하지 않음
+        // (배포/로컬 모두 동일하게 동작하도록 Authorization 헤더 사용)
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ mode }),
       });
       const data = await res.json().catch(() => null);
@@ -63,10 +94,10 @@ export default function ItemsAdmin() {
       setTreeMsg(`✅ ${data?.message || '완료'} (created:${data?.summary?.createdCount ?? 0}, recipe:${data?.summary?.recipeUpdatedCount ?? 0})`);
 
       // 아이템 목록 리로드
-      const r2 = await fetch('/api/admin/items', { credentials: 'include' });
+      const r2 = await fetch(`${API_BASE}/admin/items`, { headers: { ...authHeaders() }, cache: 'no-store' });
       if (r2.ok) {
         const d2 = await r2.json().catch(() => null);
-        const list = normalizeItems(d2);
+        const list = normalizeItems(d2).map(adaptItem);
         setItems(list);
         setStatus('ok');
       }
@@ -103,7 +134,7 @@ export default function ItemsAdmin() {
           <div style={{ opacity: 0.75, marginTop: 4 }}>
             {status === 'loading' && '불러오는 중…'}
             {status === 'ok' && `총 ${items.length}개`}
-            {status === 'fallback' && `API 미연결: 샘플 ${items.length}개 표시`}
+            {status === 'fallback' && `API 미연결(또는 권한/토큰 문제): 샘플 ${items.length}개 표시`}
           </div>
         </div>
         

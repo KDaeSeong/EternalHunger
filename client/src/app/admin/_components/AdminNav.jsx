@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const items = [
+  { href: '/', label: '메인 화면' },
   { href: '/admin', label: '대시보드' },
   { href: '/admin/items', label: '아이템' },
   { href: '/admin/import', label: '이식/임포트' },
