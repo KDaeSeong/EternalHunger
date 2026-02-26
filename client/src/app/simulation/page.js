@@ -23,6 +23,8 @@ function itemIcon(item) {
   const t = String(item?.type || '').toLowerCase();
   const tags = safeTags(item);
   if (tags.includes('heal') || tags.includes('medical')) return '🚑';
+  if (tags.includes('meat')) return '🥩';
+  if (String(item?.name || '').includes('치킨')) return '🍗';
   if (t === 'food' || tags.includes('food') || tags.includes('healthy')) return '🍎';
   if (t === 'weapon' || item?.type === '무기') return '⚔️';
   if (item?.type === '방어구') return '🛡️';
@@ -53,6 +55,30 @@ function ensureEquipped(obj) {
 
 function getInvItemId(it) {
   return String(it?.itemId || it?.id || it?._id || '');
+}
+
+// ✅ 시뮬에서 랜덤 생성된 장비(weapon/armor)를 DB에 저장할 때 사용하는 외부 ID
+// - equipmentCatalog.js에서 생성되는 id가 wpn_... / eq_... 형태
+function getSimEquipExternalId(it) {
+  const id = String(it?.itemId || it?.id || '').trim();
+  return id;
+}
+
+function isSimGeneratedEquipment(it) {
+  if (!it || typeof it !== 'object') return false;
+  const extId = getSimEquipExternalId(it);
+  if (!extId) return false;
+  // equipmentCatalog에서 생성되는 prefix로 필터(불필요한 업서트/중복 저장 방지)
+  if (!extId.startsWith('wpn_') && !extId.startsWith('eq_')) return false;
+
+  const cat = String(it?.category || '').toLowerCase();
+  const slot = String(it?.equipSlot || '').toLowerCase();
+  const tags = safeTags(it).map((t) => String(t).toLowerCase());
+  const hasStats = it?.stats && typeof it.stats === 'object';
+
+  // category/slot/tags 중 하나라도 장비로 보이면 OK
+  const isEquip = cat === 'equipment' || slot === 'weapon' || tags.includes('equipment') || tags.includes('weapon') || tags.includes('armor');
+  return isEquip && hasStats;
 }
 
 
@@ -92,10 +118,40 @@ function getEquipMoveSpeed(actor) {
 
 const SLOT_ICON = { weapon: '⚔️', head: '🪖', clothes: '👕', arm: '🦾', shoes: '👟' };
 
+// 🗺️ 루미아 섬(존 기반) 감성 배치(미니맵 앵커 좌표, viewBox 0..100)
+// - 실제 맵 이미지는 어드민에서 교체 가능하므로, 이 값은 "기본" 레이아웃용입니다.
+const LUMIA_ZONE_POS = {
+  archery: { x: 18, y: 24 },
+  forest: { x: 26, y: 40 },
+  temple: { x: 40, y: 26 },
+  pond: { x: 52, y: 38 },
+  lab: { x: 62, y: 30 },
+  school: { x: 76, y: 24 },
+  hotel: { x: 84, y: 38 },
+  residential: { x: 86, y: 52 },
+  hospital: { x: 74, y: 60 },
+  police: { x: 60, y: 54 },
+  cathedral: { x: 48, y: 48 },
+  alley: { x: 52, y: 62 },
+  gas_station: { x: 34, y: 68 },
+  stream: { x: 40, y: 78 },
+  beach: { x: 26, y: 86 },
+  port: { x: 50, y: 88 },
+  warehouse: { x: 62, y: 84 },
+  factory: { x: 70, y: 74 },
+  firestation: { x: 78, y: 78 },
+};
+
 function shortText(s, maxLen = 8) {
   const str = String(s || '');
   if (str.length <= maxLen) return str;
   return str.slice(0, Math.max(0, maxLen - 1)) + '…';
+}
+
+function extractActorNameFromLog(text) {
+  const t = String(text || '');
+  const m = t.match(/\[([^\]]+)\]/);
+  return m ? String(m[1] || '').trim() : '';
 }
 
 function getEquipSummary(char) {
@@ -421,6 +477,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
   // food crate: 하급 재료 + 소모품(치유/음식)
   const pool = [];
+  const isDay1 = Number(curDay || 0) === 1;
   for (const it of list) {
     if (!it?._id) continue;
     const tier = clampTier4(it?.tier || 1);
@@ -441,7 +498,13 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       if (v > 0 && v <= 40) w += 1;
       if (nm.includes('천') || nm.includes('가죽') || nm.includes('돌') || nm.includes('나무') || nm.includes('철') || nm.includes('부품')) w += 1;
 
-      pool.push({ itemId: String(it._id), weight: w, minQty: 1, maxQty: 1 });
+      // ✅ 1일차 템포 튜닝: 하급 재료는 한 번에 2~3개 나오도록(영웅 세팅 목표)
+      // - 인벤 재료 스택 상한(기본 3)을 넘기지 않게 maxQty=3 유지
+      const minQty = (isDay1 && tier <= 1) ? 2 : 1;
+      const maxQty = (isDay1 && tier <= 1) ? 3 : 1;
+      if (isDay1 && tier <= 1) w += 3; // 하급 재료 우선
+
+      pool.push({ itemId: String(it._id), weight: w, minQty, maxQty });
       continue;
     }
 
@@ -1282,7 +1345,7 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
         ? `🐺 야생동물(${label}) 사냥 성공! 미스릴 획득`
         : k === 'omega'
           ? `🧿 변이체(${label}) 격파! 포스 코어 획득`
-          : `🧬 변이체(${label}) 처치! VF 혈액 샘플 획득`;
+          : `🧬 변이체(${label}) 처치! VF 혈액 샘플 + (운석/생명의 나무) 획득`;
 
       const rw = cfg?.reward || {};
       const cr = rw?.credits || {};
@@ -1295,6 +1358,14 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
       if (bonusChance > 0 && Math.random() < bonusChance) {
         // 단순화: "추가드랍"은 동일 재료 1개 추가(룰셋으로 확률 고정)
         drops.push({ item: drop, itemId: String(drop._id), qty: 1 });
+      }
+
+      // ✅ 요청: 위클라인은 VF 혈액 샘플 1개 + (운석 또는 생명의 나무) 1개 드랍
+      if (k === 'weakline') {
+        const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
+        const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
+        const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
+        if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
       }
 
       return {
@@ -1334,11 +1405,50 @@ function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, cu
   m.defeatedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
 
   const animal = String(m.animal || '').trim() || '미상';
+
+  // ✅ 드랍(요청)
+  // - 변이닭: 1/2 확률로 치킨 1개
+  // - 변이멧돼지: 고기 4개
+  // - 변이곰/늑대/들개: 고기 2개
+  // - 박쥐는 고기 드랍 없음
+  const drops = [];
+  const meat = findItemByKeywords(publicItems, ['고기']);
+  const chicken = findItemByKeywords(publicItems, ['치킨']);
+  const nm = animal;
+  const low = nm.toLowerCase();
+
+  const isBat = nm.includes('박쥐') || low.includes('bat');
+  const isChicken = nm.includes('닭') || low.includes('chicken');
+  const isBoar = nm.includes('멧돼지') || low.includes('boar');
+  const isBear = nm.includes('곰') || low.includes('bear');
+  const isWolf = nm.includes('늑대') || low.includes('wolf');
+  const isDog = nm.includes('들개') || low.includes('dog');
+
+  if (!isBat) {
+    if (isChicken) {
+      if (chicken?._id && Math.random() < 0.5) {
+        drops.push({ item: chicken, itemId: String(chicken._id), qty: 1 });
+      }
+    } else if (isBoar) {
+      if (meat?._id) drops.push({ item: meat, itemId: String(meat._id), qty: 4 });
+    } else if (isBear || isWolf || isDog) {
+      if (meat?._id) drops.push({ item: meat, itemId: String(meat._id), qty: 2 });
+    }
+  }
+
+  // ✅ 모든 변이동물: 10% 확률로 운석 또는 생명의 나무 드랍
+  if (Math.random() < 0.10) {
+    const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
+    const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
+    const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
+    if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
+  }
+
   return {
     kind: 'mutant_wildlife',
     damage: dmg,
     credits: credit,
-    drops: [],
+    drops,
     log: `🧪 변이 야생동물(${animal}) 처치! (+${credit} Cr)`,
   };
 }
@@ -1363,14 +1473,24 @@ function isSpecialCoreKind(kind) {
 }
 
 function computeCraftTierFromIngredients(ingredients, itemMetaById, itemNameById) {
+  // 제작 규칙(요청):
+  // - 하급 재료 2개 -> 일반(1)
+  // - 일반 장비 1 + 하급 1 -> 희귀(3)
+  // - 희귀 장비 1 + 하급 1 -> 영웅(4)
+  // - 하급 1 + 운석/생나/포스코어/미스릴 -> 전설(5)
+  // - 하급 1 + VF 혈액 샘플 -> 초월(6)
   const ings = Array.isArray(ingredients) ? ingredients : [];
+
   let hasVf = false;
   let hasLegendaryMat = false;
   let hasEquip = false;
+  let maxEquipTier = 0;
+  let lowMatCount = 0;
 
   for (const x of ings) {
     const id = String(x?.itemId || '');
     if (!id) continue;
+    const qty = Math.max(1, Number(x?.qty || 1));
 
     const meta = (itemMetaById && itemMetaById[id]) ? itemMetaById[id] : null;
     const name = String(meta?.name || itemNameById?.[id] || '');
@@ -1380,13 +1500,28 @@ function computeCraftTierFromIngredients(ingredients, itemMetaById, itemNameById
     if (isSpecialCoreKind(kind)) hasLegendaryMat = true;
 
     const pseudoItem = { name, type: meta?.type, tags: meta?.tags, tier: meta?.tier };
-    if (inferItemCategory(pseudoItem) === 'equipment') hasEquip = true;
+    const cat = inferItemCategory(pseudoItem);
+    if (cat === 'equipment') {
+      hasEquip = true;
+      maxEquipTier = Math.max(maxEquipTier, clampTier4(meta?.tier || pseudoItem?.tier || 1));
+    } else if (cat === 'material') {
+      // 특수 재료는 별도 처리(전설/초월)
+      if (!kind) lowMatCount += qty;
+    }
   }
 
-  if (hasVf) return 4;
-  if (hasLegendaryMat) return 3;
-  if (hasEquip) return 2;
-  return 1;
+  if (hasVf) return 6;
+  if (hasLegendaryMat) return 5;
+
+  if (hasEquip && lowMatCount >= 1) {
+    // 일반(1) 장비 + 하급 -> 희귀(3), 희귀(3) 장비 + 하급 -> 영웅(4)
+    return maxEquipTier >= 3 ? 4 : 3;
+  }
+  if (!hasEquip && lowMatCount >= 2) {
+    return 1;
+  }
+  // fallback: 목표 아이템의 원래 tier를 크게 벗어나지 않도록 보정
+  return clampTier4(Math.max(1, maxEquipTier || 1));
 }
 
 function applyEquipTier(item, tier) {
@@ -2081,11 +2216,16 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
       const vf = findItemByKeywords(publicItems, ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf']);
       const dmg = Math.max(6, 18 - Math.floor(p / 10));
       if (vf?._id) {
+        const drops = [{ item: vf, itemId: String(vf._id), qty: 1 }];
+        const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
+        const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
+        const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
+        if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
         return {
           kind: 'weakline',
           damage: dmg,
-          drops: [{ item: vf, itemId: String(vf._id), qty: 1 }],
-          log: `🧬 변이체(위클라인) 처치! VF 혈액 샘플 획득 가능`,
+          drops,
+          log: '🧬 변이체(위클라인) 처치! VF 혈액 샘플 + (운석/생명의 나무) 획득 가능',
         };
       }
     }
@@ -2120,23 +2260,50 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
 
     }
 
-// 기본: 하급 재료 드랍(맵 상자 풀 기반 / 없으면 fallback)
+  // 기본: 하급 재료 드랍(맵 상자 풀 기반 / 없으면 fallback)
+  const drops = [];
   const entry = pickFromAllCrates(mapObj, publicItems);
   if (entry?.itemId) {
     const it = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === String(entry.itemId)) || null;
     if (it?._id) {
       const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
-      const dmgBase = species?.key === 'bear' ? 11 : species?.key === 'wolf' ? 9 : species?.key === 'boar' ? 8 : species?.key === 'bat' ? 6 : 4;
-      const dmg = Math.max(0, dmgBase - Math.floor(p / 18));
-      return {
-        kind: String(species?.key || 'wildlife'),
-        damage: dmg,
-        drops: [{ item: it, itemId: String(it._id), qty }],
-        log: `${String(species?.icon || '🦌')} 야생동물(${String(species?.label || '야생')}) 사냥`,
-      };
+      drops.push({ item: it, itemId: String(it._id), qty });
     }
   }
 
+  // ✅ 박쥐 제외 모든 야생동물: 고기 드랍(요청)
+  const meat = findItemByKeywords(publicItems, ['고기']);
+  if (meat?._id) {
+    if (species?.key === 'chicken') {
+      if (Math.random() < (2 / 3)) drops.push({ item: meat, itemId: String(meat._id), qty: 1 });
+    } else if (species?.key === 'boar') {
+      drops.push({ item: meat, itemId: String(meat._id), qty: 2 });
+    } else if (species?.key === 'bear' || species?.key === 'wolf' || species?.key === 'dog') {
+      drops.push({ item: meat, itemId: String(meat._id), qty: 1 });
+    }
+    // bat은 제외
+  }
+
+  // ✅ 모든 야생동물: 5% 확률로 운석 또는 생명의 나무 드랍
+  if (Math.random() < 0.05) {
+    const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
+    const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
+    const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
+    if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
+  }
+
+  if (!drops.length) return null;
+
+  const dmgBase = species?.key === 'bear' ? 11 : species?.key === 'wolf' ? 9 : species?.key === 'boar' ? 8 : species?.key === 'bat' ? 6 : 4;
+  const dmg = Math.max(0, dmgBase - Math.floor(p / 18));
+  return {
+    kind: String(species?.key || 'wildlife'),
+    damage: dmg,
+    drops,
+    log: `${String(species?.icon || '🦌')} ${String(species?.label || '야생동물')} 사냥 성공`,
+  };
+
+  // drops가 비어있으면 조우 없음으로 처리
   return null;
 }
 
@@ -2211,6 +2378,13 @@ function inferItemCategory(it) {
   const name = itemDisplayName(it);
   const lower = String(name || '').toLowerCase();
 
+  // ✅ 서버(DB) 아이템이 equipSlot을 들고 오는 경우 우선 장비로 판정
+  // (기존 로직은 name/tag 기반이라 equipSlot만 있는 장비가 재료로 오인될 수 있음)
+  if (it && typeof it === 'object') {
+    const slot = String(it?.equipSlot || '').trim().toLowerCase();
+    if (slot) return 'equipment';
+  }
+
   const isConsumable =
     type === 'food' ||
     type === 'consumable' ||
@@ -2255,6 +2429,12 @@ function inferEquipSlot(it) {
   const type = String(it?.type || '').toLowerCase();
   const name = itemDisplayName(it);
   const lower = String(name || '').toLowerCase();
+
+  // ✅ 서버(DB) 아이템의 equipSlot 필드를 최우선으로 사용
+  if (it && typeof it === 'object') {
+    const s = String(it?.equipSlot || '').trim().toLowerCase();
+    if (s) return s;
+  }
 
   if (type === 'weapon' || it?.type === '무기' || tags.includes('weapon') || lower.includes('weapon') || name.includes('무기') || name.includes('검') || name.includes('총') || name.includes('활') || name.includes('창')) return 'weapon';
   if (tags.includes('head') || lower.includes('helmet') || name.includes('머리') || name.includes('모자') || name.includes('헬멧')) return 'head';
@@ -2516,17 +2696,14 @@ function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById,
     .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.some((ing) => String(ing?.itemId) === lootId))
     .sort((a, b) => (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name)));
 
-  if (!candidates.length || Math.random() >= 0.35) return null;
+  // ✅ 1일차에는 조합이 '보이도록' 확률을 조금 올림(관전 템포)
+  const chance = (Number(day || 0) === 1) ? 0.75 : 0.35;
+  if (!candidates.length || Math.random() >= chance) return null;
 
   for (const target of candidates) {
     const ings = compactIO(target?.recipe?.ingredients || []);
     const ok = ings.length > 0 && ings.every((ing) => invQty(inventory, ing.itemId) >= Number(ing.qty || 1));
     if (!ok) continue;
-
-    // 인벤토리가 가득 차면 조합하지 않음(재료 소모 방지)
-    if (!canReceiveItem(inventory, target, target?._id, 1, ruleset)) continue;
-
-    const afterConsume = consumeIngredientsFromInv(inventory, ings);
 
     const cat = inferItemCategory(target);
     const craftTier = (cat === 'equipment')
@@ -2534,6 +2711,12 @@ function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById,
       : clampTier4(target?.tier || 1);
 
     const craftedItem = (cat === 'equipment') ? applyEquipTier(target, craftTier) : target;
+
+    // 인벤토리가 가득 차면 조합하지 않음(재료 소모 방지)
+    // - 장비의 경우 craftTier 반영 전(target.tier)로 판단하면 업그레이드가 막히므로 craftedItem 기준으로 체크
+    if (!canReceiveItem(inventory, craftedItem, craftedItem?._id, 1, ruleset)) continue;
+
+    const afterConsume = consumeIngredientsFromInv(inventory, ings);
     const afterAdd = addItemToInventory(afterConsume, craftedItem, craftedItem?._id, 1, day, ruleset);
 
     const ingText = ings.map((x) => `${itemNameById?.[String(x.itemId)] || String(x.itemId)} x${x.qty}`).join(' + ');
@@ -2541,6 +2724,166 @@ function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById,
     return { inventory: afterAdd, craftedId: String(craftedItem?._id || ''), log: `🛠️ 조합: ${ingText} → ${craftedItem?.name || '아이템'}${tierText} x1` };
   }
   return null;
+}
+
+// ===============================
+// ✅ 1일차 목표: "1회 이동"만으로 영웅(T4)까지 맞추기
+// - 플레이어 간섭이 없으므로, 관전 템포를 위해 AI가 재료를 소모해 장비를 단계적으로 끌어올립니다.
+// - 규칙(요청): 하급 재료 2개 → 일반(T1) 제작 / (장비 + 하급1) → 희귀(T3) / (희귀 + 하급1) → 영웅(T4)
+//   ※ 여기서는 '하급 재료'를 (재료 카테고리 + 특수재료 제외 + tier<=2)로 간주합니다.
+// ===============================
+
+function getInvId(x) {
+  return String(x?.itemId || x?.id || x?._id || '');
+}
+
+function getInvTier(x, itemMetaById) {
+  const t0 = Number(x?.tier);
+  if (Number.isFinite(t0) && t0 > 0) return clampTier4(t0);
+  const id = getInvId(x);
+  const m = id ? itemMetaById?.[id] : null;
+  return clampTier4(m?.tier || 1);
+}
+
+function isLowMaterialInvEntry(x, itemMetaById, itemNameById) {
+  if (!x || typeof x !== 'object') return false;
+  const id = getInvId(x);
+  if (!id) return false;
+
+  const cat = String(x?.category || inferItemCategory(x) || 'material');
+  if (cat !== 'material') return false;
+
+  const name = String(x?.name || itemNameById?.[id] || itemMetaById?.[id]?.name || '');
+  if (!name) return false;
+  if (classifySpecialByName(name)) return false; // 운석/생나/포스코어/미스릴/VF 제외
+
+  const tier = getInvTier(x, itemMetaById);
+  return tier <= 2;
+}
+
+function countLowMaterials(inventory, itemMetaById, itemNameById) {
+  return (Array.isArray(inventory) ? inventory : []).reduce((sum, x) => {
+    if (!isLowMaterialInvEntry(x, itemMetaById, itemNameById)) return sum;
+    return sum + Math.max(0, Number(x?.qty ?? 1));
+  }, 0);
+}
+
+function consumeLowMaterials(inventory, need, itemMetaById, itemNameById) {
+  const want = Math.max(0, Math.floor(Number(need || 0)));
+  if (want <= 0) return { inventory: Array.isArray(inventory) ? [...inventory] : [], consumed: 0 };
+
+  const list = Array.isArray(inventory) ? inventory.map((x) => ({ ...x })) : [];
+  // qty 많은 것부터 먼저 소모
+  list.sort((a, b) => Math.max(0, Number(b?.qty ?? 1)) - Math.max(0, Number(a?.qty ?? 1)));
+
+  let remaining = want;
+  for (let i = 0; i < list.length && remaining > 0; i++) {
+    if (!isLowMaterialInvEntry(list[i], itemMetaById, itemNameById)) continue;
+    const q = Math.max(0, Number(list[i]?.qty ?? 1));
+    if (q <= 0) continue;
+    const take = Math.min(q, remaining);
+    const next = q - take;
+    remaining -= take;
+    if (next <= 0) {
+      list.splice(i, 1);
+      i -= 1;
+    } else {
+      list[i] = { ...list[i], qty: next };
+    }
+  }
+
+  return { inventory: list, consumed: want - remaining };
+}
+
+function pickBestEquipBySlot(inventory, slot) {
+  const s = String(slot || '').toLowerCase();
+  const list = Array.isArray(inventory) ? inventory : [];
+  const cand = list.filter((x) => String(x?.equipSlot || inferEquipSlot(x) || '').toLowerCase() === s);
+  if (!cand.length) return null;
+  cand.sort((a, b) => clampTier4(Number(b?.tier || 1)) - clampTier4(Number(a?.tier || 1)));
+  return cand[0] || null;
+}
+
+function autoEquipBest(actor, itemMetaById) {
+  if (!actor || typeof actor !== 'object') return;
+  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const eq = ensureEquipped(actor);
+  const nextEq = { ...eq };
+  for (const s of EQUIP_SLOTS) {
+    const best = pickBestEquipBySlot(inv, s);
+    if (best) nextEq[s] = String(best?.itemId || best?.id || best?._id || '');
+    else nextEq[s] = null;
+  }
+  actor.equipped = nextEq;
+}
+
+function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset) {
+  const d = Number(day || 0);
+  if (d !== 1) return { changed: false, logs: [] };
+  if (Math.max(0, Number(actor?.day1Moves || 0)) < 1) return { changed: false, logs: [] };
+  if (actor?.day1HeroDone) return { changed: false, logs: [] };
+
+  const logs = [];
+  let inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  inv = normalizeInventory(inv, ruleset);
+
+  const preferredWeaponType = String(actor?.weaponType || '').trim();
+  const wType = START_WEAPON_TYPES.includes(preferredWeaponType)
+    ? preferredWeaponType
+    : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
+  const wTypeNorm = normalizeWeaponType(wType);
+
+  // 1) 비어있는 방어구 슬롯을 먼저 채움(머리/옷/팔) — 2재료씩
+  for (const slot of ['head', 'clothes', 'arm']) {
+    const has = !!pickBestEquipBySlot(inv, slot);
+    const low = countLowMaterials(inv, itemMetaById, itemNameById);
+    if (!has && low >= 2) {
+      const dec = consumeLowMaterials(inv, 2, itemMetaById, itemNameById);
+      inv = dec.inventory;
+      const gear = createEquipmentItem({ slot, day: d, tier: 1, weaponType: '' });
+      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
+      logs.push(`🛠️ [${actor?.name}] 제작: ${SLOT_ICON[slot] || '🧩'} ${gear?.name || '장비'} (일반)`);
+    }
+  }
+
+  // 2) 무기/신발 포함 5부위 업그레이드(희귀→영웅) — 1재료씩
+  // - 1일차 목표를 위해 한 페이즈에서 과도하게 반복하지 않도록 슬롯당 최대 2단계만 진행
+  for (const slot of EQUIP_SLOTS) {
+    for (let step = 0; step < 2; step += 1) {
+      const it = pickBestEquipBySlot(inv, slot);
+      if (!it) break;
+      const curTier = clampTier4(Number(it?.tier || 1));
+      if (curTier >= 4) break;
+
+      const low = countLowMaterials(inv, itemMetaById, itemNameById);
+      if (low < 1) break;
+
+      // T1/2 -> T3, T3 -> T4
+      const nextTier = curTier >= 3 ? 4 : 3;
+      const dec = consumeLowMaterials(inv, 1, itemMetaById, itemNameById);
+      if (dec.consumed < 1) break;
+      inv = dec.inventory;
+
+      const gear = createEquipmentItem({ slot, day: d, tier: nextTier, weaponType: slot === 'weapon' ? wTypeNorm : '' });
+      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
+      logs.push(`⬆️ [${actor?.name}] 강화: ${SLOT_ICON[slot] || '🧩'} ${tierLabelKo(nextTier)} 장비 획득`);
+    }
+  }
+
+  actor.inventory = inv;
+  autoEquipBest(actor, itemMetaById);
+
+  const done = EQUIP_SLOTS.every((s) => {
+    const it = pickBestEquipBySlot(inv, s);
+    return it && clampTier4(Number(it?.tier || 1)) >= 4;
+  });
+
+  if (done) {
+    actor.day1HeroDone = true;
+    logs.push(`✅ [${actor?.name}] 1일차 목표 달성: 영웅 장비 세트 완성(이동 ${Math.max(0, Number(actor?.day1Moves || 0))}회)`);
+  }
+
+  return { changed: logs.length > 0, logs };
 }
 
 // --- 운석 + 생명의 나무 수액 → 포스 코어(간단 자동 조합) ---
@@ -2588,10 +2931,10 @@ function tryAutoCraftForceCore(inventory, day, incomingId = '') {
   return { inventory: next, log: '🧬 포스 코어 조합: 운석 파편 + 생명의 나무 수액 → 포스 코어 x1' };
 }
 
-function safeGenerateDynamicEvent(actor, day, ruleset, phase) {
+function safeGenerateDynamicEvent(actor, day, ruleset, phase, publicItems) {
   try {
     // ✅ 기존 구현(2인자) / 신규 구현(3~4인자) 모두 호환
-    const res = generateDynamicEvent(actor, day, ruleset, phase);
+    const res = generateDynamicEvent(actor, day, ruleset, phase, publicItems);
     if (res && typeof res === 'object') return res;
     return {
       log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
@@ -2710,12 +3053,75 @@ export default function SimulationPage() {
   const [hyperloopDestId, setHyperloopDestId] = useState('');
   const [hyperloopCharId, setHyperloopCharId] = useState('');
 
+  // 🪟 UI 모달(미니맵/캐릭터/로그)
+  const [uiModal, setUiModal] = useState(null); // 'map' | 'chars' | 'log' | null
+  const closeUiModal = () => setUiModal(null);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') closeUiModal();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+
   // 🧩 월드 스폰 상태(전설 재료 상자/보스) - 맵별로 관리
   const [spawnState, setSpawnState] = useState(() => createInitialSpawnState(activeMapId));
 
   const isFinishingRef = useRef(false);
-  // ✅ 시작(1일차 낮) 영웅 장비 세팅이 1회만 적용되도록 플래그
-  const startHeroLoadoutAppliedRef = useRef(false);
+  // ✅ 시작(1일차 낮) 기본 장비 세팅이 1회만 적용되도록 플래그
+  const startStarterLoadoutAppliedRef = useRef(false);
+  // ✅ 1일차 밤 "1회 이상 이동" 달성자에게 영웅 세팅(안전망)이 1회만 적용되도록 플래그
+  const day1NightHeroCatchupAppliedRef = useRef(false);
+
+  // ✅ 시뮬 랜덤 장비를 DB(Item 컬렉션)에 저장하기 위한 캐시
+  // - 같은 장비를 반복 저장하지 않도록 externalId(wpn_/eq_)를 기억
+  const simEquipSavedIdsRef = useRef(new Set());
+  const simEquipPersistBusyRef = useRef(false);
+
+  const persistSimEquipmentsFromChars = async (chars, reason = 'phase') => {
+    // 동시에 여러 번 호출되면 서버가 과부하/중복 저장될 수 있어 1회만 진행
+    if (simEquipPersistBusyRef.current) return;
+
+    try {
+      const arr = Array.isArray(chars) ? chars : [];
+      const picked = [];
+      const seen = new Set();
+
+      for (const c of arr) {
+        const inv = Array.isArray(c?.inventory) ? c.inventory : [];
+        for (const it of inv) {
+          if (!isSimGeneratedEquipment(it)) continue;
+          const extId = getSimEquipExternalId(it);
+          if (!extId) continue;
+          if (simEquipSavedIdsRef.current.has(extId)) continue;
+          if (seen.has(extId)) continue;
+          seen.add(extId);
+          picked.push(it);
+        }
+      }
+
+      if (!picked.length) return;
+
+      simEquipPersistBusyRef.current = true;
+      // 서버 저장(실패해도 시뮬은 계속 진행)
+      const res = await apiPost('/items/ingest-sim-equipments', {
+        items: picked,
+        reason,
+      }).catch(() => null);
+
+      // 성공 시에만 캐시 갱신
+      if (res && (res.message === 'ok' || Number(res.savedCount || 0) > 0)) {
+        for (const it of picked) {
+          const extId = getSimEquipExternalId(it);
+          if (extId) simEquipSavedIdsRef.current.add(extId);
+        }
+      }
+    } finally {
+      simEquipPersistBusyRef.current = false;
+    }
+  };
 
   // SD 서든데스(6번째 밤 이후): 페이즈 고정 + 전 구역 금지구역 + 카운트다운
   const suddenDeathActiveRef = useRef(false);
@@ -2727,6 +3133,18 @@ const activeMapName = useMemo(() => {
   const list = Array.isArray(maps) ? maps : [];
   return list.find((m) => String(m?._id) === String(activeMapId))?.name || '맵 없음';
 }, [maps, activeMapId]);
+
+  // 로그에서 [이름]을 파싱해 아이콘을 붙이기 위한 캐시
+  const actorAvatarByName = useMemo(() => {
+    const out = {};
+    const all = [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])];
+    for (const c of all) {
+      const name = String(c?.name || '').trim();
+      const img = String(c?.previewImage || c?.image || '').trim();
+      if (name && img && !out[name]) out[name] = img;
+    }
+    return out;
+  }, [survivors, dead]);
 
   // ✅ 상점/조합/교환 패널
   const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | trade
@@ -2891,7 +3309,7 @@ const activeMapName = useMemo(() => {
   // - 문자열 로그는 사람용, runEvents는 "룰/상태"를 요약/집계하기 위한 데이터용
   const emitRunEvent = (kind, payload = {}, at = null) => {
     const stamp = at || { day, phase, sec: matchSec };
-    const e = { kind: String(kind || 'unknown'), at: stamp, ...payload };
+    const e = { kind: String(kind || 'unknown'), at: stamp, ts: Date.now(), ...payload };
     setRunEvents((prev) => {
       const next = [...(Array.isArray(prev) ? prev : []), e];
       const max = 5000;
@@ -3108,11 +3526,14 @@ const devForceUseConsumable = (charId, invIndex) => {
 
   // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
   const hyperloopPadZoneId = useMemo(() => {
+    // ✅ 서버(어드민) 지정값 우선 적용
+    const serverZoneId = String(activeMap?.hyperloopDeviceZoneId || '').trim();
+    if (serverZoneId) return serverZoneId;
     const saved = String(getHyperloopDeviceZoneId(activeMapId) || '').trim();
     if (saved) return saved;
     const z = Array.isArray(zones) ? zones : [];
     return String(z?.[0]?.zoneId || '');
-  }, [activeMapId, zones]);
+  }, [activeMapId, zones, activeMap]);
 
   const hyperloopPadName = useMemo(() => {
     const zid = String(hyperloopPadZoneId || '').trim();
@@ -3240,14 +3661,18 @@ if (!who) {
       graph[a].add(b);
       if (c?.bidirectional !== false) graph[b].add(a);
     });
-    // 동선이 하나도 없으면, "모든 구역 연결" 기본으로 동작(초기 셋업 편의)
+    // 동선이 하나도 없으면, "전체 순간이동"이 아니라 최소 연결(링)만 생성(관전형/존 기반 동선 고정)
+    // - 데이터가 비어도 AI가 멈춰버리는 것을 방지하면서도, 인접 이동 감각은 유지합니다.
     const hasEdges = Object.values(graph).some((s) => (s?.size || 0) > 0);
     if (!hasEdges && zoneIds.length > 1) {
-      zoneIds.forEach((a) => {
-        zoneIds.forEach((b) => {
-          if (a !== b) graph[a].add(b);
-        });
-      });
+      for (let i = 0; i < zoneIds.length; i++) {
+        const a = zoneIds[i];
+        const b = zoneIds[(i + 1) % zoneIds.length];
+        if (a && b && a !== b) {
+          graph[a].add(b);
+          graph[b].add(a);
+        }
+      }
     }
     // Set -> Array 변환
     const out = {};
@@ -3777,6 +4202,10 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
           zoneId: pickStartZoneIdForChar(c),
           equipped: ensureEquipped(c),
 
+          // 1일차 "최소 1회 이동" 목표 추적용
+          day1Moves: 0,
+          day1HeroDone: false,
+
           simCredits: 0,
           droneLastOrderIndex: -9999,
           // 하이브리드(시즌10) 전용 상태
@@ -4148,45 +4577,83 @@ if (w) {
       // ignore
     }
 
-    // ✅ 1일차 낮 시작 시: 전원 영웅 장비 풀세팅(무기/머리/옷/팔/신발)
-    const isFirstDayHeroLoadout = (nextDay === 1 && nextPhase === 'morning' && !startHeroLoadoutAppliedRef.current);
-    const phaseSurvivors = isFirstDayHeroLoadout
-      ? (Array.isArray(survivors) ? survivors : []).map((s, idx) => {
-          const stamp = `${Date.now()}_${idx}_${Math.random().toString(16).slice(2, 6)}`;
+    // ✅ 관전형: 1일차 낮에는 "기본 장비"만 지급하고, 제작/루팅으로 성장하게 합니다.
+    const isFirstDayStarterLoadout = (nextDay === 1 && nextPhase === 'morning' && !startStarterLoadoutAppliedRef.current);
+    let phaseSurvivors = isFirstDayStarterLoadout
+      ? (Array.isArray(survivors) ? survivors : []).map((s) => {
           const preferredWeaponType = String(s?.weaponType || '').trim();
           const wType = START_WEAPON_TYPES.includes(preferredWeaponType)
             ? preferredWeaponType
             : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
           const wTypeNorm = normalizeWeaponType(wType);
-const mk = (slot, wTypeArg = '') => createEquipmentItem({ slot, day: nextDay, tier: 4, weaponType: wTypeArg });
-const gear = {
-  weapon: mk('weapon', wTypeNorm),
-  head: mk('head'),
-  clothes: mk('clothes'),
-  arm: mk('arm'),
-  shoes: mk('shoes'),
-};
-          const baseInv = Array.isArray(s?.inventory)
+
+          const mk = (slot, wTypeArg = '') => createEquipmentItem({ slot, day: nextDay, tier: 1, weaponType: wTypeArg });
+          const gear = {
+            weapon: mk('weapon', wTypeNorm),
+            shoes: mk('shoes'),
+          };
+
+          // ✅ 관전형: 시작 시 장비는 최소만 주고, 재료/제작으로 성장
+          // - 인벤토리엔 '재료/소모품'만 남기고 장비는 초기화
+          let baseInv = Array.isArray(s?.inventory)
             ? s.inventory.filter((x) => String(x?.category || inferItemCategory(x)) !== 'equipment')
             : [];
+          baseInv = normalizeInventory(baseInv, ruleset);
+
+          // ✅ 1일차 제작 템포용 스타터 재료(하급 재료): 4~6종 * 3개(스택 상한 3 유지)
+          // - "1회 이동" 이후에만 실제 제작/강화가 진행되도록(=목표 조건) 재료는 미리 지급해도 OK
+          const mats = (Array.isArray(publicItems) ? publicItems : [])
+            .filter((it) => it?._id)
+            .filter((it) => inferItemCategory(it) === 'material')
+            .filter((it) => clampTier4(it?.tier || 1) <= 2)
+            .filter((it) => !classifySpecialByName(it?.name || ''));
+          for (let i = mats.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = mats[i];
+            mats[i] = mats[j];
+            mats[j] = tmp;
+          }
+          const pickN = Math.max(4, Math.min(6, mats.length));
+          let inv = baseInv;
+          for (let k = 0; k < pickN; k += 1) {
+            const it = mats[k];
+            if (!it?._id) continue;
+            inv = addItemToInventory(inv, it, String(it._id), 3, nextDay, ruleset);
+          }
+
+          // 🥩 시작 보급(요청): 스테이크 3개
+          const steak = findItemByKeywords(publicItems, ['스테이크', 'sizzling steak']);
+          if (steak?._id) {
+            inv = addItemToInventory(inv, steak, String(steak._id), 3, nextDay, ruleset);
+          }
+
+          // 시작 장비(무기/신발)
+          inv = addItemToInventory(inv, gear.weapon, gear.weapon.itemId, 1, nextDay, ruleset);
+          inv = addItemToInventory(inv, gear.shoes, gear.shoes.itemId, 1, nextDay, ruleset);
+
           return {
             ...s,
-            inventory: [...baseInv, gear.weapon, gear.head, gear.clothes, gear.arm, gear.shoes],
+            day1Moves: 0,
+            day1HeroDone: false,
+            inventory: inv,
             equipped: {
+              ...(ensureEquipped(s) || {}),
               weapon: gear.weapon.itemId,
-              head: gear.head.itemId,
-              clothes: gear.clothes.itemId,
-              arm: gear.arm.itemId,
               shoes: gear.shoes.itemId,
+              head: null,
+              clothes: null,
+              arm: null,
             },
           };
         })
       : onMapSurvivors;
 
-    if (isFirstDayHeroLoadout) {
-      startHeroLoadoutAppliedRef.current = true;
-      addLog('🧰 1일차 낮: 모든 생존자가 영웅 등급 장비를 갖추었습니다.', 'highlight');
+    if (isFirstDayStarterLoadout) {
+      startStarterLoadoutAppliedRef.current = true;
+      addLog('🧰 1일차 낮: 기본 장비(일반 무기/신발)가 지급되었습니다. (관전형: 제작/루팅으로 성장)', 'highlight');
     }
+
+    // ✅ 1일차 "1회 이동" 영웅 세팅은 (강제 세팅) 대신 day1HeroGearDirector가 재료를 소모해 단계적으로 달성합니다.
 
     const newlyDead = [];
     const baseZonePop = {};
@@ -4316,9 +4783,19 @@ const escapeChance = (mustEscape && curDet <= dangerForceSec) ? 1 : escapeMoveCh
 
 const equipMs = getEquipMoveSpeed(updated);
 const msMoveBonus = Math.min(0.18, equipMs * 0.9); // 신발 이동속도 반영(이동 결정)
-const baseMoveChance = mustEscape ? escapeChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
+let baseMoveChance = mustEscape ? escapeChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
+// ✅ 1일차 낮에는 "최소 1회 이동" 목표를 위해 이동 확률을 상향(관전 템포)
+if (!mustEscape && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning') {
+  baseMoveChance = Math.max(baseMoveChance, 0.92);
+}
 const moveChance = Math.min(0.98, baseMoveChance + msMoveBonus);
-const willMove = Math.random() < moveChance;
+let willMove = Math.random() < moveChance;
+
+// ✅ 관전형 요구사항: 1일차 낮에는 '최소 1회 이동'을 거의 확정으로 보장
+// - day1Moves가 0인 상태에서만 강제(이후에는 원래 확률로)
+if (!mustEscape && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning' && Math.max(0, Number(updated.day1Moves || 0)) < 1) {
+  if (neighbors.length > 0) willMove = true;
+}
 
 if (willMove) {
   if (mustEscape) {
@@ -4328,10 +4805,8 @@ if (willMove) {
       const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
       nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
     } else {
-      const allZoneIds = zones.map((z) => String(z.zoneId)).filter(Boolean);
-      const safeAll = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid)));
-      const pool = safeAll.length ? safeAll : allZoneIds;
-      if (pool.length > 0) nextZoneId = String(pool[Math.floor(Math.random() * pool.length)] || currentZone);
+      // 연결 정보가 없으면(=neighbors가 비면) "맵 전체 순간이동" 대신 제자리(동선 데이터는 zoneConnections로 보강)
+      nextZoneId = currentZone;
     }
   } else if (moveTargets.length) {
     const tset = new Set(moveTargets.map((z) => String(z)));
@@ -4346,11 +4821,8 @@ if (willMove) {
       const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
       nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
     } else {
-      // 연결 정보가 없으면(=neighbors가 비면) 맵 전체에서 랜덤 이동
-      const allZoneIds = zones.map((z) => String(z.zoneId)).filter(Boolean);
-      const safeAll = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid)));
-      const pool = safeAll.length ? safeAll : allZoneIds;
-      if (pool.length > 0) nextZoneId = String(pool[Math.floor(Math.random() * pool.length)] || currentZone);
+      // 연결 정보가 없으면(=neighbors가 비면) "맵 전체 랜덤" 대신 제자리
+      nextZoneId = currentZone;
     }
   }
 }
@@ -4385,6 +4857,52 @@ if (String(nextZoneId) !== String(currentZone)) {
 updated.zoneId = nextZoneId;
 
 const didMove = String(nextZoneId) !== String(currentZone);
+
+        // ✅ 1일차 "최소 1회 이동" 목표 추적
+        if (didMove && Number(nextDay || 0) === 1) {
+          updated.day1Moves = Math.max(0, Number(updated.day1Moves || 0)) + 1;
+        }
+
+        // 🔥 모닥불(요리) & 💧 물 채집 (서버 맵 설정 기반)
+        try {
+          const campfireZones = (Array.isArray(mapObj?.campfireZoneIds) ? mapObj.campfireZoneIds : []).map(String);
+          const waterZones = (Array.isArray(mapObj?.waterSourceZoneIds) ? mapObj.waterSourceZoneIds : []).map(String);
+
+          // 물 채집: 해당 존이면 물을 확보(관전 템포용)
+          if (waterZones.includes(String(updated.zoneId))) {
+            const water = findItemByKeywords(publicItems, ['물', 'water']);
+            if (water?._id) {
+              const have = invQty(updated.inventory, String(water._id));
+              const chance = have <= 0 ? 0.85 : have < 2 ? 0.55 : 0.25;
+              if (Math.random() < chance && canReceiveItem(updated.inventory, water, String(water._id), 1, ruleset)) {
+                updated.inventory = addItemToInventory(updated.inventory, water, String(water._id), 1, nextDay, ruleset);
+                const metaW = updated.inventory?._lastAdd;
+                const gotW = Math.max(0, Number(metaW?.acceptedQty ?? 1));
+                addLog(`💧 [${updated.name}] ${getZoneName(updated.zoneId)}에서 물을 채집했습니다. (+${gotW})${formatInvAddNote(metaW, 1, updated.inventory, ruleset)}`, 'normal');
+                emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(water._id), qty: gotW, source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              }
+            }
+          }
+
+          // 모닥불 요리: 고기 1개를 스테이크 1개로 변환(페이즈당 1회)
+          if (campfireZones.includes(String(updated.zoneId))) {
+            const meat = findItemByKeywords(publicItems, ['고기']);
+            const steak = findItemByKeywords(publicItems, ['스테이크', 'sizzling steak']);
+            if (meat?._id && steak?._id) {
+              const haveMeat = invQty(updated.inventory, String(meat._id));
+              if (haveMeat >= 1 && canReceiveItem(updated.inventory, steak, String(steak._id), 1, ruleset)) {
+                updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(meat._id), qty: 1 }]);
+                updated.inventory = addItemToInventory(updated.inventory, steak, String(steak._id), 1, nextDay, ruleset);
+                const metaS = updated.inventory?._lastAdd;
+                const gotS = Math.max(0, Number(metaS?.acceptedQty ?? 1));
+                addLog(`🔥 [${updated.name}] ${getZoneName(updated.zoneId)} 모닥불에서 고기를 구워 스테이크 x${gotS}을(를) 만들었습니다.${formatInvAddNote(metaS, 1, updated.inventory, ruleset)}`, 'highlight');
+                emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(steak._id), qty: gotS, source: 'craft', kind: 'campfire', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
 
         // --- 필드 파밍(이벤트 외): 이동/탐색 중 아이템 획득 ---
         const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, { moved: didMove, day: nextDay, phase: nextPhase, dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey });
@@ -4634,6 +5152,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
               }
             }
           }
+        }
+
+
+        // ✅ 1일차 목표 달성(영웅 세팅): 재료를 소모해 단계적으로 제작/강화
+        // - 조건: 1일차에 최소 1회 이동(day1Moves>=1)
+        const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
+        if (heroRes?.changed && Array.isArray(heroRes.logs)) {
+          heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
         }
 
 
@@ -5326,6 +5852,19 @@ const didMove = String(nextZoneId) !== String(currentZone);
           addLog(battleLog, lethal ? 'death' : 'normal');
           addLog(`🩸 피해: [${winner.name}]↘[${loser.name}] -${dmgToLoser} (반격 -${dmgToWinner})`, 'highlight');
 
+          // 🧾 전투 이벤트(미니맵 핑/집계용)
+          emitRunEvent(
+            'battle',
+            {
+              a: String(actor?._id || ''),
+              b: String(target?._id || ''),
+              winner: lethal ? String(winner?._id || '') : '',
+              lethal: !!lethal,
+              zoneId: String(actor?.zoneId || target?.zoneId || ''),
+            },
+            { day: nextDay, phase: nextPhase, sec: phaseStartSec }
+          );
+
           // 출혈 판정(피격 시)
           tryApplyBleed(loser, winner, dmgToLoser);
           if (dmgToWinner > 0) tryApplyBleed(winner, loser, dmgToWinner);
@@ -5354,6 +5893,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
             const assistName = assistId ? (survivorMap.get(assistId)?.name || assistId) : '';
             addLog(`☠️ [${winner.name}] 처치! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
+
+            emitRunEvent(
+              'death',
+              {
+                who: String(loser?._id || ''),
+                by: String(winner?._id || ''),
+                zoneId: String(loser?.zoneId || winner?.zoneId || actor?.zoneId || ''),
+              },
+              { day: nextDay, phase: nextPhase, sec: phaseStartSec }
+            );
 
             // 처치 보상: 금지구역 제한시간(최대치) +5초 연장 + 크레딧
             if (useDetonation) {
@@ -5460,6 +6009,18 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           addLog(battleLog, 'normal');
           addLog(`⚔️ 접전 피해: [${actor.name}] / [${target.name}] 둘 다 -${scratch}`, 'normal');
+
+          emitRunEvent(
+            'battle',
+            {
+              a: String(actor?._id || ''),
+              b: String(target?._id || ''),
+              winner: '',
+              lethal: false,
+              zoneId: String(actor?.zoneId || target?.zoneId || ''),
+            },
+            { day: nextDay, phase: nextPhase, sec: phaseStartSec }
+          );
           // 출혈 판정(접전)
           tryApplyBleed(actor, target, scratch);
           tryApplyBleed(target, actor, scratch);
@@ -5562,7 +6123,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           });
         }
 
-        if (soloEvents.length > 0) {
+        const scriptSoloChance = Math.max(0, Math.min(1, Number((pvpProbCfg && pvpProbCfg.scriptSoloChance) != null ? pvpProbCfg.scriptSoloChance : 0.22)));
+        if (soloEvents.length > 0 && Math.random() < scriptSoloChance) {
           const randomEvent = soloEvents[Math.floor(Math.random() * soloEvents.length)];
           const eventText = String(randomEvent.text)
             .replace(/\{1\}/g, `[${actor.name}]`)
@@ -5570,8 +6132,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
           addLog(eventText, 'normal');
         } else {
           // 폴백: 동적 이벤트 생성
-          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase);
-          addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
+          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems);
+          if (eventResult && eventResult.log && !eventResult.silent) {
+            addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
+          }
 
           // ✅ 동적 이벤트 보상: 크레딧
           const erCr = Math.max(0, Number(eventResult?.earnedCredits || 0));
@@ -5592,26 +6156,35 @@ const didMove = String(nextZoneId) !== String(currentZone);
             actor._immediateDangerUntilPhaseIdx = phaseIdxNow;
           }
 
-          // ✅ 아이템(수집/드랍) + 포스 코어 자동 조합
-          const invCap = 3;
-          if (eventResult.newItem) {
-            const incomingId = String(eventResult?.newItem?.itemId || eventResult?.newItem?.id || eventResult?.newItem?._id || '');
+          // ✅ 동적 이벤트 드랍(소량): addItemToInventory로 일관 처리 + 즉시 1회 조합 시도
+          // - 기존(레거시) eventResult.newItem도 호환
+          const legacyNewItem = eventResult && eventResult.newItem ? eventResult.newItem : null;
+          const drop0 = eventResult && eventResult.drop ? eventResult.drop : null;
+          const resolvedDrop = drop0
+            ? drop0
+            : (legacyNewItem
+              ? { item: (legacyNewItem.item || legacyNewItem), itemId: (legacyNewItem.itemId || legacyNewItem.id || legacyNewItem._id || ""), qty: (legacyNewItem.qty || 1) }
+              : null);
 
-            // 인벤이 가득 차도, 수집 재료가 들어오면 즉시 포스코어 조합 가능(수집물은 인벤에 안 담아도 재료로 인정)
-            if ((actor.inventory || []).length >= invCap) {
-              const craftRes = tryAutoCraftForceCore(actor.inventory || [], nextDay, incomingId);
-              if (craftRes) {
-                actor.inventory = craftRes.inventory;
-                addLog(craftRes.log, 'highlight');
-              }
-            }
+          if (resolvedDrop && resolvedDrop.itemId) {
+            const dropId = String(resolvedDrop.itemId);
+            const dropQty = Math.max(1, Number(resolvedDrop.qty || 1));
+            const dropItem = (resolvedDrop.item && resolvedDrop.item._id)
+              ? resolvedDrop.item
+              : ((Array.isArray(publicItems) ? publicItems : []).find((x) => String(x && x._id) === dropId) || resolvedDrop.item || null);
 
-            if ((actor.inventory || []).length < invCap) {
-              actor.inventory = [...(actor.inventory || []), eventResult.newItem];
-              const craftRes2 = tryAutoCraftForceCore(actor.inventory || [], nextDay);
-              if (craftRes2) {
-                actor.inventory = craftRes2.inventory;
-                addLog(craftRes2.log, 'highlight');
+            actor.inventory = addItemToInventory(actor.inventory, dropItem, dropId, dropQty, nextDay, ruleset);
+            const metaD = actor.inventory && actor.inventory._lastAdd ? actor.inventory._lastAdd : null;
+            const gotD = Math.max(0, Number(metaD && metaD.acceptedQty != null ? metaD.acceptedQty : dropQty));
+            if (gotD > 0) {
+              const nmD = itemDisplayName(dropItem || { _id: dropId, name: resolvedDrop.name });
+              addLog("🧾 [" + actor.name + "] 획득: " + itemIcon(dropItem || { type: "" }) + " [" + nmD + "] x" + gotD + formatInvAddNote(metaD, dropQty, actor.inventory, ruleset), "normal");
+              emitRunEvent("gain", { who: String(actor && actor._id ? actor._id : ""), itemId: dropId, qty: gotD, source: "event", zoneId: String(actor && actor.zoneId ? actor.zoneId : "") }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+              const craftedE = tryAutoCraftFromLoot(actor.inventory, dropId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+              if (craftedE) {
+                actor.inventory = craftedE.inventory;
+                addLog("[" + actor.name + "] " + craftedE.log, "normal");
               }
             }
           }
@@ -5659,6 +6232,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
         s.simCredits = Number(s.simCredits || 0) + add;
       });
     }
+
+    // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
+    // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
+    await persistSimEquipmentsFromChars(
+      [...(Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []), ...(Array.isArray(offMapSurvivors) ? offMapSurvivors : [])],
+      `phase:d${nextDay}_${nextPhase}`
+    );
 
 
     // SD 서든데스: 카운트다운 종료 시 강제 결판(최후 1인)
@@ -6062,13 +6642,23 @@ const gainDetailSummary = useMemo(() => {
     const out = {};
     if (!ids.length) return out;
 
-    const cx = 50;
-    const cy = 50;
-    const r = ids.length <= 2 ? 18 : ids.length <= 6 ? 28 : 36;
-    ids.forEach((id, idx) => {
-      const ang = (Math.PI * 2 * idx) / ids.length;
-      out[id] = { x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r };
+    // 1) 루미아 섬 기본 앵커(존 id가 매칭될 때)
+    ids.forEach((id) => {
+      const p = LUMIA_ZONE_POS[id];
+      if (p) out[id] = { x: p.x, y: p.y };
     });
+
+    // 2) 매칭되지 않은 존은 원형 배치로 fallback
+    const missing = ids.filter((id) => !out[id]);
+    if (missing.length) {
+      const cx = 50;
+      const cy = 54;
+      const r = missing.length <= 2 ? 18 : missing.length <= 6 ? 26 : 34;
+      missing.forEach((id, idx) => {
+        const ang = (Math.PI * 2 * idx) / missing.length;
+        out[id] = { x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r };
+      });
+    }
     return out;
   }, [zones]);
 
@@ -6090,6 +6680,70 @@ const gainDetailSummary = useMemo(() => {
     });
     return edges;
   }, [zoneGraph, zones]);
+
+  // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
+  const [pingNow, setPingNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setPingNow(Date.now()), 450);
+    return () => clearInterval(t);
+  }, []);
+
+  const recentPings = useMemo(() => {
+    const now = Number(pingNow || Date.now());
+    const ttlMs = 8000;
+    const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-260);
+    const out = [];
+    const uniq = new Set();
+
+    const pickZoneId = (e) => {
+      if (!e) return '';
+      const kind = String(e.kind || '');
+      if (kind === 'move') return String(e.to || '');
+      return String(e.zoneId || '');
+    };
+
+    const pickIcon = (e) => {
+      const kind = String(e?.kind || '');
+      if (kind === 'battle') return '⚔️';
+      if (kind === 'death') return '☠️';
+      if (kind === 'move') return '🚶';
+      if (kind === 'gain') {
+        const itemId = String(e?.itemId || '');
+        if (itemId === 'CREDITS') return '💰';
+        const src = String(e?.source || '');
+        if (src === 'legend') return '🟪';
+        if (src === 'natural') return '🌠';
+        if (src === 'boss') return '👹';
+        return '📦';
+      }
+      return '✨';
+    };
+
+    for (let i = tail.length - 1; i >= 0; i -= 1) {
+      const e = tail[i];
+      const ts = Number(e?.ts || 0);
+      if (!ts || (now - ts) > ttlMs) continue;
+      const zid = pickZoneId(e);
+      if (!zid || !zonePos?.[zid]) continue;
+
+      // 같은 zone+kind는 1개만 표시(깜빡임/도배 방지)
+      const k = `${String(e.kind || '')}::${zid}`;
+      if (uniq.has(k)) continue;
+      uniq.add(k);
+
+      out.push({
+        id: String(e._id || e.ts || `${i}`),
+        zoneId: zid,
+        kind: String(e.kind || ''),
+        icon: pickIcon(e),
+        ts,
+      });
+
+      if (out.length >= 14) break;
+    }
+
+    return out;
+  }, [runEvents, pingNow, zonePos]);
 
 
   return (
@@ -6115,9 +6769,19 @@ const gainDetailSummary = useMemo(() => {
         </section>
       </header>
 
-      <div className="simulation-container">
+      {uiModal ? (
+        <div
+          className="eh-modal-backdrop"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeUiModal();
+          }}
+        />
+      ) : null}
+
+      <div className="simulation-container modal-layout">
         {/* 생존자 현황판 */}
-        <aside className="survivor-board">
+        <aside className={`survivor-board ${uiModal === 'chars' ? 'modal-open' : ''}`}>
+          {uiModal === 'chars' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
           <h2>생존자 ({survivors.length}명)</h2>
           <div className="survivor-grid">
             {survivors.map((char) => (
@@ -6253,6 +6917,32 @@ const gainDetailSummary = useMemo(() => {
             <div className="screen-header-right">
               <span className="weather-badge">{timeOfDay === 'day' ? '☀ 낮' : '🌙 밤'}</span>
               <span className="weather-badge">⏱ {formatClock(matchSec)}</span>
+
+              <button
+                className="btn-secondary"
+                onClick={() => setUiModal('map')}
+                disabled={loading || isAdvancing}
+                style={{ padding: '6px 10px', fontSize: 12 }}
+              >
+                🗺️ 미니맵
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => setUiModal('chars')}
+                disabled={loading || isAdvancing}
+                style={{ padding: '6px 10px', fontSize: 12 }}
+              >
+                👥 캐릭터
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => setUiModal('log')}
+                disabled={loading || isAdvancing}
+                style={{ padding: '6px 10px', fontSize: 12 }}
+              >
+                🧾 로그
+              </button>
+
 
               <button
                 className="btn-secondary"
@@ -6400,7 +7090,8 @@ const gainDetailSummary = useMemo(() => {
 })()}
 
           {/* 🗺️ 미니맵: 구역 그래프 + 캐릭터 위치 */}
-          <div className="minimap-panel">
+          <div className={`minimap-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
+            {uiModal === 'map' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
             {(() => {
               const z = Array.isArray(zones) ? zones : [];
               if (!z.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
@@ -6434,27 +7125,48 @@ const gainDetailSummary = useMemo(() => {
               ];
 
               return (
-                <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
-                  {/* 연결선 */}
-                  {zoneEdges.map(([a, b]) => {
-                    const pa = zonePos?.[a];
-                    const pb = zonePos?.[b];
-                    if (!pa || !pb) return null;
-                    return (
-                      <line
-                        key={`e-${a}-${b}`}
-                        x1={pa.x}
-                        y1={pa.y}
-                        x2={pb.x}
-                        y2={pb.y}
-                        stroke="rgba(255,255,255,0.16)"
-                        strokeWidth="0.8"
-                      />
-                    );
-                  })}
+                <div className="minimap-canvas">
+                  <img
+                    className="minimap-bg"
+                    src={String(activeMap?.image || '').trim() || '/Images/ERMap.webp'}
+                    alt="Lumia Island"
+                    draggable={false}
+                  />
 
-                  {/* 구역 노드 */}
-                  {z.map((zone) => {
+                  <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
+                    {/* 연결선 */}
+                    {zoneEdges.map(([a, b]) => {
+                      const pa = zonePos?.[a];
+                      const pb = zonePos?.[b];
+                      if (!pa || !pb) return null;
+                      return (
+                        <line
+                          key={`e-${a}-${b}`}
+                          x1={pa.x}
+                          y1={pa.y}
+                          x2={pb.x}
+                          y2={pb.y}
+                          className="minimap-edge"
+                        />
+                      );
+                    })}
+
+                    {/* 최근 이벤트 핑 */}
+                    {(Array.isArray(recentPings) ? recentPings : []).map((p, idx) => {
+                      const pos = zonePos?.[String(p?.zoneId || '')];
+                      if (!pos) return null;
+                      const k = String(p?.kind || 'event');
+                      return (
+                        <g key={`ping-${p.id || idx}`} className={`minimap-ping ${k}`}>
+                          <circle cx={pos.x} cy={pos.y} r={7.5} />
+                          <circle cx={pos.x} cy={pos.y} r={3.2} className="minimap-ping-core" />
+                          <text x={pos.x} y={pos.y - 7.8} textAnchor="middle" fontSize="4.6">{p.icon || '✨'}</text>
+                        </g>
+                      );
+                    })}
+
+                    {/* 구역 노드 */}
+                    {z.map((zone) => {
                     const id = String(zone?.zoneId || '');
                     const p = zonePos?.[id];
                     if (!id || !p) return null;
@@ -6471,9 +7183,7 @@ const gainDetailSummary = useMemo(() => {
                           cx={p.x}
                           cy={p.y}
                           r={4.6}
-                          fill={isF ? 'rgba(255,82,82,0.38)' : 'rgba(0,0,0,0.30)'}
-                          stroke={isSelZone ? 'rgba(255,215,0,0.78)' : 'rgba(255,255,255,0.22)'}
-                          strokeWidth={isSelZone ? 1.4 : 0.9}
+                          className={`minimap-node ${isF ? 'forbidden' : ''} ${isSelZone ? 'selected' : ''}`}
                         />
                         <text x={p.x} y={p.y + 0.9} textAnchor="middle" fontSize="2.6" fill="rgba(255,255,255,0.92)">
                           {label}
@@ -6553,7 +7263,8 @@ const gainDetailSummary = useMemo(() => {
                       </g>
                     );
                   })}
-                </svg>
+                  </svg>
+                </div>
               );
             })()}
             <div className="minimap-legend">
@@ -6624,7 +7335,8 @@ const gainDetailSummary = useMemo(() => {
             ) : null}
           </div>
 
-          <div className="log-window" ref={logWindowRef} style={{ minWidth: 0 }}>
+          <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
+            {uiModal === 'log' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
             <div className="log-content">
               {day > 0 && (
                 <div className="log-top-status">
@@ -6664,6 +7376,10 @@ const gainDetailSummary = useMemo(() => {
                 <div className="prevlogs-box">
                   <div className="prevlogs-scroll">
                     {prevPhaseLogs.map((log, idx) => (
+                      (() => {
+                        const who = extractActorNameFromLog(log.text);
+                        const avatar = who ? actorAvatarByName[who] : '';
+                        return (
                       <div
                         key={`prev-${log.id || idx}`}
                         className={`log-message ${log.type || 'system'}`}
@@ -6676,8 +7392,11 @@ const gainDetailSummary = useMemo(() => {
                           opacity: 0.9,
                         }}
                       >
-                        {log.text}
+                        {avatar ? <img className="log-avatar" src={avatar} alt={who} /> : null}
+                        <div className="log-text">{log.text}</div>
                       </div>
+                        );
+                      })()
                     ))}
                   </div>
                 </div>
@@ -6685,6 +7404,10 @@ const gainDetailSummary = useMemo(() => {
 
               <div className="log-scroll-area" ref={logBoxRef} style={{ maxHeight: logBoxMaxH }}>
                 {logs.map((log, idx) => (
+                  (() => {
+                    const who = extractActorNameFromLog(log.text);
+                    const avatar = who ? actorAvatarByName[who] : '';
+                    return (
                   <div
                     key={log.id || idx}
                     className={`log-message ${log.type || 'system'}`}
@@ -6696,8 +7419,11 @@ const gainDetailSummary = useMemo(() => {
                       lineHeight: 1.45,
                     }}
                   >
-                    {log.text}
+                    {avatar ? <img className="log-avatar" src={avatar} alt={who} /> : null}
+                    <div className="log-text">{log.text}</div>
                   </div>
+                    );
+                  })()
                 ))}
               </div>
             </div>

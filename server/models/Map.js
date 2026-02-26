@@ -19,6 +19,18 @@ const MapSchema = new mongoose.Schema({
   // - zoneId(문자열) 또는 zoneNo(숫자)를 문자열로 넣어도 됨(예: 'hospital' 또는 '1')
   kioskZoneId: { type: String, default: '' },
 
+  // 🌀 하이퍼루프 장치(패드)가 설치된 맵 내부 구역(zoneId)
+  // - 서버에 저장해서 "어드민에서 지정 → 모든 유저에게 동일 적용" 되도록 합니다.
+  hyperloopDeviceZoneId: { type: String, default: '' },
+
+  // 🔥 모닥불(요리) 가능 구역(zoneId 배열)
+  // - 관전형 시뮬에서 '고기 → 스테이크' 자동 조리 등에 사용
+  campfireZoneIds: [{ type: String }],
+
+  // 💧 물 채집 가능 구역(zoneId 배열)
+  // - 관전형 시뮬에서 '물' 아이템을 파밍할 수 있는 위치
+  waterSourceZoneIds: [{ type: String }],
+
   // 🗺️ 맵 내부 구역(로드맵 2-1, 2-4, 6-4)
   zones: [{
     // ✅ zones를 순차번호로 관리하고 싶을 때 사용(1..N)

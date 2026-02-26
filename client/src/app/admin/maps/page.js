@@ -162,6 +162,12 @@ export default function AdminMapsPage() {
   const [mutantZoneSel, setMutantZoneSel] = useState('');
   const [mutantZoneNote, setMutantZoneNote] = useState('');
 
+  // 🔥 모닥불 / 💧 물 채집 구역(서버 저장)
+  const [campfireSel, setCampfireSel] = useState([]); // zoneId[]
+  const [campfireNote, setCampfireNote] = useState('');
+  const [waterSel, setWaterSel] = useState([]); // zoneId[]
+  const [waterNote, setWaterNote] = useState('');
+
   const [zoneCrateRules, setZoneCrateRules] = useState({});
   const [zoneCrateMsg, setZoneCrateMsg] = useState('');
 
@@ -261,8 +267,18 @@ export default function AdminMapsPage() {
     if (id) loadZoneCrateRules(id);
     setHyperloopSel(uniq(readLocalJsonArray(localKeyHyperloops(id))));
     setHyperloopNote('');
+    // 🌀 하이퍼루프 장치 구역: 서버 값 우선, 없으면 로컬(디버그/임시값) 사용
+    const hz = String(m?.hyperloopDeviceZoneId || '').trim() || readLocalString(localKeyHyperloopDeviceZone(id));
+    setHyperloopZoneSel(hz);
+    setHyperloopZoneNote('');
     setMutantZoneSel(readLocalString(localKeyMutantSpawnZone(id)));
     setMutantZoneNote('');
+
+    // 🔥/💧 서버 저장 필드
+    setCampfireSel(uniq(Array.isArray(m?.campfireZoneIds) ? m.campfireZoneIds : []));
+    setCampfireNote('');
+    setWaterSel(uniq(Array.isArray(m?.waterSourceZoneIds) ? m.waterSourceZoneIds : []));
+    setWaterNote('');
   };
 
   const closeCoreEditor = () => {
@@ -277,8 +293,15 @@ export default function AdminMapsPage() {
     setMapLinksNote('');
     setHyperloopSel([]);
     setHyperloopNote('');
+    setHyperloopZoneSel('');
+    setHyperloopZoneNote('');
     setMutantZoneSel('');
     setMutantZoneNote('');
+
+    setCampfireSel([]);
+    setCampfireNote('');
+    setWaterSel([]);
+    setWaterNote('');
   };
 
 const selectedMap = useMemo(() => {
@@ -385,31 +408,48 @@ const selectedMap = useMemo(() => {
   };
 
 
-  const saveHyperloopDeviceZone = () => {
-    const mapId = String(selectedMap?._id || '').trim();
+  const saveHyperloopDeviceZone = async () => {
+    const mapId = asId(selectedMap);
     if (!mapId) return;
-    const k = localKeyHyperloopDeviceZone(mapId);
     const v = String(hyperloopZoneSel || '').trim();
-    if (!k) return;
+    setBusy(true);
+    setHyperloopZoneNote('저장 중…');
     try {
-      window.localStorage.setItem(k, v);
-      setHyperloopZoneNote(v ? `저장됨: ${v}` : '미사용(비어 있음)');
-    } catch {
-      setHyperloopZoneNote('저장 실패');
+      await apiPut(`/admin/maps/${mapId}`, { hyperloopDeviceZoneId: v });
+      // 서버 저장 + (옵션) 로컬에도 기록(즉시 시뮬 확인용)
+      writeLocalString(localKeyHyperloopDeviceZone(mapId), v);
+      setMaps((prev) => (Array.isArray(prev) ? prev : []).map((m) => (asId(m) === mapId ? { ...m, hyperloopDeviceZoneId: v } : m)));
+      const note = withSimRefreshHint(v ? `✅ 저장됨: ${v}` : '✅ 자동(첫 구역)');
+      setHyperloopZoneNote(note);
+      showSaveToast(note, 'ok');
+    } catch (e) {
+      const err = e?.response?.data?.error || e.message || '저장 실패';
+      setHyperloopZoneNote(`⚠️ ${err}`);
+      showSaveToast(`⚠️ ${err}`, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const clearHyperloopDeviceZone = () => {
-    const mapId = String(selectedMap?._id || '').trim();
+  const clearHyperloopDeviceZone = async () => {
+    const mapId = asId(selectedMap);
     if (!mapId) return;
-    const k = localKeyHyperloopDeviceZone(mapId);
-    if (!k) return;
+    setBusy(true);
+    setHyperloopZoneNote('해제 중…');
     try {
-      window.localStorage.removeItem(k);
+      await apiPut(`/admin/maps/${mapId}`, { hyperloopDeviceZoneId: '' });
+      writeLocalString(localKeyHyperloopDeviceZone(mapId), '');
       setHyperloopZoneSel('');
-      setHyperloopZoneNote('해제됨');
-    } catch {
-      setHyperloopZoneNote('해제 실패');
+      setMaps((prev) => (Array.isArray(prev) ? prev : []).map((m) => (asId(m) === mapId ? { ...m, hyperloopDeviceZoneId: '' } : m)));
+      const note = withSimRefreshHint('✅ 해제 완료');
+      setHyperloopZoneNote(note);
+      showSaveToast(note, 'ok');
+    } catch (e) {
+      const err = e?.response?.data?.error || e.message || '해제 실패';
+      setHyperloopZoneNote(`⚠️ ${err}`);
+      showSaveToast(`⚠️ ${err}`, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -426,6 +466,58 @@ const selectedMap = useMemo(() => {
     const ok = writeLocalString(localKeyMutantSpawnZone(mid), '');
     setMutantZoneSel('');
     setMutantZoneNote(ok ? withSimRefreshHint('✅ 해제 완료') : '⚠️ 저장 실패');
+  };
+
+  const toggleZoneArray = (setter, zoneId) => {
+    const id = String(zoneId || '').trim();
+    if (!id) return;
+    setter((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      if (arr.includes(id)) return arr.filter((x) => x !== id);
+      return uniq([...arr, id]);
+    });
+  };
+
+  const saveCampfireZones = async () => {
+    const mapId = asId(selectedMap);
+    if (!mapId) return;
+    setBusy(true);
+    setCampfireNote('저장 중…');
+    try {
+      const next = uniq(campfireSel);
+      await apiPut(`/admin/maps/${mapId}`, { campfireZoneIds: next });
+      setMaps((prev) => (Array.isArray(prev) ? prev : []).map((m) => (asId(m) === mapId ? { ...m, campfireZoneIds: next } : m)));
+      const note = withSimRefreshHint('✅ 저장 완료');
+      setCampfireNote(note);
+      showSaveToast(note, 'ok');
+    } catch (e) {
+      const err = e?.response?.data?.error || e.message || '저장 실패';
+      setCampfireNote(`⚠️ ${err}`);
+      showSaveToast(`⚠️ ${err}`, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveWaterZones = async () => {
+    const mapId = asId(selectedMap);
+    if (!mapId) return;
+    setBusy(true);
+    setWaterNote('저장 중…');
+    try {
+      const next = uniq(waterSel);
+      await apiPut(`/admin/maps/${mapId}`, { waterSourceZoneIds: next });
+      setMaps((prev) => (Array.isArray(prev) ? prev : []).map((m) => (asId(m) === mapId ? { ...m, waterSourceZoneIds: next } : m)));
+      const note = withSimRefreshHint('✅ 저장 완료');
+      setWaterNote(note);
+      showSaveToast(note, 'ok');
+    } catch (e) {
+      const err = e?.response?.data?.error || e.message || '저장 실패';
+      setWaterNote(`⚠️ ${err}`);
+      showSaveToast(`⚠️ ${err}`, 'error');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const selectAllZones = () => setCoreSelected(availableZoneIds);
@@ -949,6 +1041,70 @@ const selectedMap = useMemo(() => {
                 {mutantZoneNote ? <div style={{ opacity: 0.85 }}>{mutantZoneNote}</div> : null}
               </div>
 	              </div>
+
+                  <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+                    <div style={{ fontWeight: 900 }}>🔥 모닥불(요리) 구역</div>
+                    <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                      선택한 존에서는 시뮬이 <b>고기 → 스테이크</b>를 자동으로 굽습니다. (서버 저장)
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button style={btn} onClick={saveCampfireZones} disabled={busy || !selectedMap}>
+                        저장
+                      </button>
+                      <button style={btn} onClick={() => setCampfireSel([])} disabled={busy || !selectedMap}>
+                        전체 해제
+                      </button>
+                      {campfireNote ? <div style={{ opacity: 0.85 }}>{campfireNote}</div> : null}
+                    </div>
+
+                    <div style={checkWrap}>
+                      {availableZones.map((z) => (
+                        <label key={`camp-${z.zoneId}`} style={checkItem}>
+                          <input
+                            type="checkbox"
+                            checked={Array.isArray(campfireSel) ? campfireSel.includes(z.zoneId) : false}
+                            onChange={() => toggleZoneArray(setCampfireSel, z.zoneId)}
+                            disabled={busy}
+                          />
+                          <span style={{ fontWeight: 800 }}>{`${z.zoneNo}. ${z.name || z.zoneId} (${z.zoneId})`}</span>
+                        </label>
+                      ))}
+                      {availableZones.length === 0 ? <div style={{ opacity: 0.75 }}>zones가 없어서 선택할 수 없습니다.</div> : null}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+                    <div style={{ fontWeight: 900 }}>💧 물 채집 구역</div>
+                    <div style={{ opacity: 0.75, marginTop: 4, lineHeight: 1.5 }}>
+                      선택한 존에서는 시뮬이 <b>물</b>을 자동으로 채집할 수 있습니다. (서버 저장)
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <button style={btn} onClick={saveWaterZones} disabled={busy || !selectedMap}>
+                        저장
+                      </button>
+                      <button style={btn} onClick={() => setWaterSel([])} disabled={busy || !selectedMap}>
+                        전체 해제
+                      </button>
+                      {waterNote ? <div style={{ opacity: 0.85 }}>{waterNote}</div> : null}
+                    </div>
+
+                    <div style={checkWrap}>
+                      {availableZones.map((z) => (
+                        <label key={`water-${z.zoneId}`} style={checkItem}>
+                          <input
+                            type="checkbox"
+                            checked={Array.isArray(waterSel) ? waterSel.includes(z.zoneId) : false}
+                            onChange={() => toggleZoneArray(setWaterSel, z.zoneId)}
+                            disabled={busy}
+                          />
+                          <span style={{ fontWeight: 800 }}>{`${z.zoneNo}. ${z.name || z.zoneId} (${z.zoneId})`}</span>
+                        </label>
+                      ))}
+                      {availableZones.length === 0 ? <div style={{ opacity: 0.75 }}>zones가 없어서 선택할 수 없습니다.</div> : null}
+                    </div>
+                  </div>
 	            </>
           ) : null}
 

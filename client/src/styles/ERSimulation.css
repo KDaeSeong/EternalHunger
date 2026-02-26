@@ -26,6 +26,61 @@
     align-items: stretch;
     box-sizing: border-box;
 }
+
+/* === 시뮬 UI: 모달 레이아웃(미니맵/캐릭터/로그) === */
+.simulation-container.modal-layout {
+    gap: 0;
+}
+.simulation-container.modal-layout .game-screen {
+    max-width: 100%;
+    min-width: 0;
+}
+
+.eh-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    z-index: 9000;
+}
+
+.survivor-board, .minimap-panel, .log-window {
+    display: none;
+}
+
+.survivor-board.modal-open,
+.minimap-panel.modal-open,
+.log-window.modal-open {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(1100px, 94vw);
+    max-width: 94vw;
+    height: min(86vh, 920px);
+    max-height: 86vh;
+    z-index: 9001;
+    overflow: auto;
+    background: rgba(10, 14, 25, 0.96);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+}
+
+.eh-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    cursor: pointer;
+}
+.eh-modal-close:hover { background: rgba(0,0,0,0.55); }
+
 /* === 좌측: 생존자 보드 === */
 /* client/src/styles/ERSimulation.css 수정 */
 
@@ -222,14 +277,18 @@
 }
 .log-message {
     margin-bottom: 8px;
-    padding: 6px 10px;
+    padding: 10px 12px;
     border-radius: 6px;
-    line-height: 1.35;
-    font-size: 0.98rem;
+    line-height: 1.55;
+    font-size: 1.15rem;
     color: rgba(255, 255, 255, 0.9); /* 배경 대비 가독성 */
     text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
     background: rgba(0, 0, 0, 0.22);
     border: 1px solid rgba(255, 255, 255, 0.06);
+
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
 
     /* 긴 문장/이모지/괄호 텍스트가 있어도 가로로 삐져나가지 않게 */
     white-space: pre-wrap;
@@ -237,6 +296,21 @@
     word-break: break-word;
     max-width: 100%;
     box-sizing: border-box;
+}
+
+.log-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.25);
+}
+
+.log-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* 로그 상단 고정 정보(금지구역) */
@@ -275,6 +349,7 @@
     font-size: 1.4rem; 
     border-top: 1px dashed #666; 
     padding-top: 20px;
+    display: block;
 }
 /* client/src/styles/ERSimulation.css 수정 */
 
@@ -373,6 +448,7 @@
     border-top: 1px dashed #666;
     padding-top: 20px;
     text-shadow: 0 0 5px rgba(179, 136, 255, 0.5);
+    display: block;
 }
 
 /* client/src/styles/ERSimulation.css 맨 아래 추가 */
@@ -902,16 +978,89 @@
   background: rgba(0, 0, 0, 0.22);
 }
 
+.minimap-canvas {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  height: 240px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.minimap-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.62;
+  filter: saturate(0.9) contrast(1.05);
+  user-select: none;
+  pointer-events: none;
+}
+
 .minimap-empty {
   font-size: 13px;
   opacity: 0.9;
 }
 
 .minimap-svg {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 520px;
-  height: 220px;
+  height: 100%;
   display: block;
+}
+
+.minimap-edge {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 0.8;
+}
+
+.minimap-node {
+  fill: rgba(0, 0, 0, 0.34);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 0.9;
+}
+
+.minimap-node.forbidden {
+  fill: rgba(255, 82, 82, 0.34);
+}
+
+.minimap-node.selected {
+  stroke: rgba(255, 215, 0, 0.86);
+  stroke-width: 1.4;
+}
+
+@keyframes ehMinimapPing {
+  0% { transform: scale(0.85); opacity: 0.95; }
+  70% { transform: scale(1.15); opacity: 0.35; }
+  100% { transform: scale(1.25); opacity: 0.05; }
+}
+
+.minimap-ping {
+  transform-origin: center;
+}
+
+.minimap-ping circle {
+  fill: none;
+  stroke: rgba(180, 220, 255, 0.82);
+  stroke-width: 1.1;
+  animation: ehMinimapPing 0.95s ease-out infinite;
+}
+
+.minimap-ping.move circle { stroke: rgba(180, 220, 255, 0.82); }
+.minimap-ping.gain circle { stroke: rgba(170, 255, 190, 0.82); }
+.minimap-ping.battle circle { stroke: rgba(255, 210, 140, 0.86); }
+.minimap-ping.death circle { stroke: rgba(255, 120, 120, 0.86); }
+
+.minimap-ping-core {
+  fill: rgba(255, 255, 255, 0.92) !important;
+  stroke: rgba(0, 0, 0, 0.35) !important;
+  stroke-width: 0.35 !important;
+  animation: none !important;
 }
 
 .minimap-legend {

@@ -12,7 +12,9 @@ export function applyItemEffect(character, item) {
   const type = String(item?.type || '').toLowerCase();
 
   const lowerName = String(name || '').toLowerCase();
-  const isFoodName = lowerName.includes('food') || name.includes('음식') || name.includes('빵') || name.includes('고기');
+  // ⚠️ '고기'는 조리 재료로도 쓰이므로, 이름만으로 음식 판정을 하면 원치 않게 자동 사용될 수 있음.
+  // 음식 판정은 type/tags 중심으로 하고, 이름 힌트는 최소화합니다.
+  const isFoodName = lowerName.includes('food') || name.includes('음식') || name.includes('빵');
   const isHealName = lowerName.includes('bandage') || lowerName.includes('medkit') || name.includes('붕대') || name.includes('응급');
 
   let log = '';

@@ -64,6 +64,128 @@ const Item = require('../models/Item');
 const User = require('../models/User');
 const Character = require('../models/Characters');
 
+const crypto = require('crypto');
+
+function clampTier6(v) {
+  const n = Math.floor(Number(v || 1));
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.min(6, Math.max(1, n));
+}
+
+function tierLabelKo6(tier) {
+  const t = clampTier6(tier);
+  if (t === 6) return '초월';
+  if (t === 5) return '전설';
+  if (t === 4) return '영웅';
+  if (t === 3) return '희귀';
+  if (t === 2) return '고급';
+  return '일반';
+}
+
+function normalizeNumber(v, def = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : def;
+}
+
+function normalizeStats(raw) {
+  const s = raw && typeof raw === 'object' ? raw : {};
+  return {
+    atk: normalizeNumber(s.atk, 0),
+    def: normalizeNumber(s.def, 0),
+    hp: normalizeNumber(s.hp, 0),
+    skillAmp: normalizeNumber(s.skillAmp, 0),
+    atkSpeed: normalizeNumber(s.atkSpeed, 0),
+    critChance: normalizeNumber(s.critChance, 0),
+    cdr: normalizeNumber(s.cdr, 0),
+    lifesteal: normalizeNumber(s.lifesteal, 0),
+    moveSpeed: normalizeNumber(s.moveSpeed, 0),
+  };
+}
+
+function computeEstimatedValue(stats, tier) {
+  // 너무 과하지 않게 "가격"만 보기 좋게 추정(관리자 표/거래 기본값)
+  const t = clampTier6(tier);
+  const s = stats || {};
+  let v = 50 * t;
+  v += Math.max(0, normalizeNumber(s.atk, 0)) * 6;
+  v += Math.max(0, normalizeNumber(s.def, 0)) * 6;
+  v += Math.max(0, normalizeNumber(s.hp, 0)) * 0.6;
+  v += Math.max(0, normalizeNumber(s.skillAmp, 0)) * 600;
+  v += Math.max(0, normalizeNumber(s.atkSpeed, 0)) * 400;
+  v += Math.max(0, normalizeNumber(s.critChance, 0)) * 450;
+  v += Math.max(0, normalizeNumber(s.cdr, 0)) * 350;
+  v += Math.max(0, normalizeNumber(s.lifesteal, 0)) * 380;
+  v += Math.max(0, normalizeNumber(s.moveSpeed, 0)) * 420;
+  // 최소 1
+  return Math.max(1, Math.round(v));
+}
+
+function makeExternalIdFallback(payload) {
+  // itemId가 없는 데이터(혹시 모를 케이스)에도 저장 가능하도록 시그니처 생성
+  const base = {
+    name: String(payload?.name || payload?.text || ''),
+    equipSlot: String(payload?.equipSlot || ''),
+    weaponType: String(payload?.weaponType || ''),
+    tier: clampTier6(payload?.tier || 1),
+    stats: normalizeStats(payload?.stats),
+  };
+  const h = crypto.createHash('sha1').update(JSON.stringify(base)).digest('hex').slice(0, 18);
+  return `sim_${h}`;
+}
+
+function normalizeSimEquipmentToItemDoc(raw, userId) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const externalIdRaw = String(src.itemId || src.id || '').trim();
+  const externalId = externalIdRaw || makeExternalIdFallback(src);
+
+  const equipSlot = String(src.equipSlot || '').trim();
+  const weaponType = String(src.weaponType || '').trim();
+  const archetype = String(src.archetype || '').trim();
+
+  const tier = clampTier6(src.tier || 1);
+  const rarity = String(src.rarity || src.grade || '').trim() || tierLabelKo6(tier);
+
+  const name = String(src.name || src.text || '').trim() || `${rarity} 장비`;
+
+  const tags = Array.isArray(src.tags) ? src.tags.map((t) => String(t).trim()).filter(Boolean) : [];
+  // 시뮬 생성물 표기
+  tags.push('simulation', 'generated');
+
+  // type 보정: equipmentCatalog는 weapon이면 type='weapon'(영문)이라 enum에 안 맞음
+  const rawType = String(src.type || '').trim().toLowerCase();
+  const type = (equipSlot === 'weapon' || rawType === 'weapon' || rawType === '무기') ? '무기' : '방어구';
+
+  const stats = normalizeStats(src.stats);
+  const value = computeEstimatedValue(stats, tier);
+
+  // description은 간단히(검색/디버그용)
+  const lines = [];
+  if (equipSlot) lines.push(`slot:${equipSlot}`);
+  if (weaponType) lines.push(`weaponType:${weaponType}`);
+  if (archetype) lines.push(`archetype:${archetype}`);
+  const description = lines.join(' | ');
+
+  return {
+    externalId,
+    name,
+    type,
+    tags: [...new Set(tags)],
+    rarity,
+    tier,
+    stackMax: 1,
+    value,
+    baseCreditValue: value,
+    stats,
+    equipSlot,
+    weaponType,
+    archetype,
+    source: 'simulation',
+    generatedByUserId: userId,
+    generatedAt: new Date(),
+    description,
+  };
+}
+
 const {
   buildItemNameMap,
   normalizeInventory,
@@ -157,6 +279,51 @@ router.post('/craft', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '조합 실패' });
+  }
+});
+
+/**
+ * POST /api/items/ingest-sim-equipments
+ * body: { items: any[] }
+ * - 시뮬레이션에서 랜덤 생성된 장비를 Item 컬렉션에 저장(또는 externalId 기준 upsert)
+ * - 인증: verifyToken(/api/items 라우터 공통)
+ */
+router.post('/ingest-sim-equipments', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const list = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (!list.length) return res.json({ message: 'no-op', savedCount: 0, items: [] });
+
+    // 안전장치: 한 번에 너무 많이 넣지 않기(폭주 방지)
+    const limited = list.slice(0, 120);
+
+    const saved = [];
+    let skippedLockedCount = 0;
+
+    for (const raw of limited) {
+      const doc = normalizeSimEquipmentToItemDoc(raw, userId);
+
+      // ✅ 관리자 잠금된 아이템은 시뮬 업서트가 덮어쓰지 않도록 스킵
+      const existing = await Item.findOne({ externalId: doc.externalId });
+      if (existing && existing.lockedByAdmin === true) {
+        skippedLockedCount += 1;
+        saved.push(existing);
+        continue;
+      }
+
+      // externalId로 upsert
+      const it = await Item.findOneAndUpdate(
+        { externalId: doc.externalId },
+        { $set: doc, $setOnInsert: { createdAt: new Date() } },
+        { upsert: true, new: true }
+      );
+      saved.push(it);
+    }
+
+    res.json({ message: 'ok', savedCount: saved.length, skippedLockedCount, items: saved });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '시뮬 장비 저장 실패' });
   }
 });
 

@@ -5,6 +5,7 @@ const Item = require('../models/Item'); // ★ 아이템 모델 추가!
 const Map = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const { DEFAULT_ZONES, KIOSK_ZONE_NAMES, ZONE_ID_BY_NAME } = require('../utils/defaultZones');
+const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
 
 // ★ [수정 1] 미들웨어를 정확한 경로에서 불러옵니다.
@@ -108,6 +109,14 @@ router.post('/maps', async (req, res) => {
         if (!Array.isArray(payload.coreSpawnZones) || payload.coreSpawnZones.length === 0) {
             payload.coreSpawnZones = coreSpawnZoneIdsFromZones(payload.zones);
         }
+
+        // 🧭 기본 존 동선(인접 그래프)도 함께 세팅(미지정 시 기본 프리셋)
+        if (!Array.isArray(payload.zoneConnections) || payload.zoneConnections.length === 0) {
+            const zoneIds = (Array.isArray(payload.zones) ? payload.zones : [])
+              .map((z) => String(z?.zoneId || '').trim())
+              .filter(Boolean);
+            payload.zoneConnections = buildDefaultZoneConnections(zoneIds);
+        }
         const newMap = new Map(payload);
         await newMap.save();
         res.json({ message: "신규 구역이 생성되었습니다.", map: newMap });
@@ -174,10 +183,12 @@ router.post('/maps/apply-default-zones', async (req, res) => {
 
       updatedMapIds.push(String(m?._id || ''));
       const dz = cloneDefaultZones();
+      const zoneIds = dz.map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
+      const dc = buildDefaultZoneConnections(zoneIds);
       ops.push({
         updateOne: {
           filter: { _id: m._id },
-          update: { $set: { zones: dz, coreSpawnZones: coreSpawnZoneIdsFromZones(dz) } },
+          update: { $set: { zones: dz, coreSpawnZones: coreSpawnZoneIdsFromZones(dz), zoneConnections: dc } },
         },
       });
     }
@@ -505,7 +516,7 @@ router.put('/maps/:id/connect', async (req, res) => {
 // PUT /api/admin/items/:id
 router.put('/items/:id', async (req, res) => {
   try {
-    const updated = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updated = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
     res.json({ message: '아이템이 수정되었습니다.', item: updated });
   } catch (err) {

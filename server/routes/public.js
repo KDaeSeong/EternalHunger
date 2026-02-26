@@ -8,6 +8,7 @@ const Kiosk = require('../models/Kiosk');
 const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
 const { DEFAULT_ZONES } = require('../utils/defaultZones');
+const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 
 /**
  * ✅ 공개 데이터 API
@@ -46,10 +47,15 @@ router.get('/maps', async (req, res) => {
         crateAllowDeny = {};
       }
 
-      if (!Array.isArray(o?.zones) || o.zones.length === 0) {
-        return { ...o, crateAllowDeny, zones: DEFAULT_ZONES };
-      }
-      return { ...o, crateAllowDeny };
+      // zones 보정
+      const zones = (!Array.isArray(o?.zones) || o.zones.length === 0) ? DEFAULT_ZONES : o.zones;
+
+      // zoneConnections 보정(비어있으면 기본 프리셋 주입)
+      const hasConns = Array.isArray(o?.zoneConnections) && o.zoneConnections.length > 0;
+      const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
+      const zoneConnections = hasConns ? o.zoneConnections : buildDefaultZoneConnections(zoneIds);
+
+      return { ...o, crateAllowDeny, zones, zoneConnections };
     });
 
     res.json(normalized);
