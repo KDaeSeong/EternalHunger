@@ -880,8 +880,12 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   const foodKeepDays = Math.max(1, Number(foodRule?.keepDays ?? 2));
 
   const timeOfDay = getTimeOfDayFromPhase(curPhase);
-  if (timeOfDay !== 'day') {
-    // 밤에는 스폰 생성하지 않지만, 오래된/열린 오브젝트 정리는 해 둠
+  const d = Number(curDay || 0);
+  const p = String(curPhase || '');
+  const spawnKey = d + (p === 'night' ? 0.5 : 0.0);
+
+  // 낮/밤 상관없이 오래된/열린 오브젝트 정리(스폰은 아래 스케줄에서 처리)
+    // (정리 전용 블록)
     const keepFromLegendary = Math.max(0, Number(curDay || 0) - legKeepDays);
     s.legendaryCrates = (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : [])
       .filter((c) => !c?.opened)
@@ -897,8 +901,6 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       .filter((c) => !c?.opened)
       .filter((c) => Number(c?.spawnedDay || 0) >= keepFromFood);
 
-    return { state: s, announcements };
-  }
 
 
   const eligible = getEligibleSpawnZoneIds(zones, forbiddenIds);
@@ -907,69 +909,82 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
   const eligibleCore = getEligibleCoreSpawnZoneIds(zones, forbiddenIds, coreSpawnZoneIds);
 
-  // --- 자연 코어(운석/생명의 나무): 2일차 '낮' 이후, 매일 낮 시작에 1~2개 스폰 ---
-  if (Number(curDay || 0) >= coreGateDay && Number(s.spawnedDay.core) !== Number(curDay || 0) && eligibleCore.length) {
+
+  // --- 자연 코어(운석/생명의 나무): ER 타임라인 기반 ---
+  // - 운석: Day 1 Night부터 낮/밤 사이클 전환마다 1개, 총 4개
+  // - 생명의 나무: Day 1 Night 2개, Day 2 Night 2개
+  // 위치는 시뮬에선 eligibleCore(어드민 지정 coreSpawnZones 우선)에서 랜덤 배치
+  const wantMeteor = (d === 1 && p === 'night') || (d === 2 && (p === 'morning' || p === 'night')) || (d === 3 && p === 'morning');
+  const wantTree = (d === 1 && p === 'night') ? 2 : (d === 2 && p === 'night') ? 2 : 0;
+
+  if ((wantMeteor || wantTree > 0) && Number(s.spawnedDay.core) !== spawnKey && eligibleCore.length) {
     const alreadyAlive = new Set(
       (Array.isArray(s.coreNodes) ? s.coreNodes : [])
         .filter((n) => !n?.picked)
         .map((n) => String(n?.zoneId))
     );
 
-    const maxNew = Math.min(coreMaxPerDay, Math.max(1, Math.floor(eligibleCore.length / coreDiv) || 1)); // 맵 크기에 따라 1~2개
     const zonePool = eligibleCore.filter((zid) => !alreadyAlive.has(String(zid)));
-    const pickCount = Math.min(maxNew, zonePool.length);
+    let spawned = 0;
 
-    for (let i = 0; i < pickCount; i++) {
-      const zid = zonePool.splice(randInt(0, Math.max(0, zonePool.length - 1)), 1)[0];
-      const kind = pickCount === 2 ? (i === 0 ? 'meteor' : 'life_tree') : Math.random() < 0.5 ? 'meteor' : 'life_tree';
-
-      s.counters.core = Number(s.counters.core || 0) + 1;
-      s.coreNodes.push({
-        id: `CORE_${String(curDay || 0)}_${String(s.counters.core)}`,
-        kind,
-        zoneId: String(zid),
-        spawnedDay: Number(curDay || 0),
-        picked: false,
-        pickedBy: null,
-        pickedAt: null,
-      });
+    function spawnCore(kind, count) {
+      const c = Math.min(Math.max(0, Number(count || 0)), zonePool.length);
+      for (let i = 0; i < c; i++) {
+        const zid = zonePool.splice(randInt(0, Math.max(0, zonePool.length - 1)), 1)[0];
+        s.counters.core = Number(s.counters.core || 0) + 1;
+        s.coreNodes.push({
+          id: `CORE_${String(d)}_${String(s.counters.core)}`,
+          kind,
+          zoneId: String(zid),
+          spawnedDay: d,
+          picked: false,
+          pickedBy: null,
+          pickedAt: null,
+        });
+        spawned++;
+      }
     }
 
-    s.spawnedDay.core = Number(curDay || 0);
-    if (pickCount > 0) announcements.push(`🌠 희귀 재료 자연 스폰 발생! (x${pickCount})`);
+    if (wantTree > 0) spawnCore('life_tree', wantTree);
+    if (wantMeteor) spawnCore('meteor', 1);
+
+    s.spawnedDay.core = spawnKey;
+    if (spawned > 0) announcements.push(`🌠 희귀 재료 자연 스폰 발생! (x${spawned})`);
   }
 
-  // --- 음식 상자: 1일차 '낮' 이후, 매일 낮 시작에 N개 드랍 ---
-  if (Number(curDay || 0) >= foodGateDay && Number(s.spawnedDay.food) !== Number(curDay || 0)) {
+  // --- 음식 상자(Blue Air Supply Box): ER 타임라인 기반 ---
+  // Day 2: 3 / Night 2: 3 / Day 3: 2 / Night 3: 1
+  const foodCount = (d === 2 && p === 'morning') ? 3 : (d === 2 && p === 'night') ? 3 : (d === 3 && p === 'morning') ? 2 : (d === 3 && p === 'night') ? 1 : 0;
+
+  if (foodCount > 0 && Number(s.spawnedDay.food) !== spawnKey) {
     const alreadyAlive = new Set(
       (Array.isArray(s.foodCrates) ? s.foodCrates : [])
         .filter((c) => !c?.opened)
         .map((c) => String(c?.zoneId))
     );
 
-    const maxNew = Math.min(foodMaxPerDay, Math.max(1, Math.floor(eligible.length / foodDiv) || 1));
     const zonePool = eligible.filter((zid) => !alreadyAlive.has(String(zid)));
-    const pickCount = Math.min(maxNew, zonePool.length);
+    const pickCount = Math.min(foodCount, zonePool.length);
 
     for (let i = 0; i < pickCount; i++) {
       const zid = zonePool.splice(randInt(0, Math.max(0, zonePool.length - 1)), 1)[0];
       s.counters.food = Number(s.counters.food || 0) + 1;
       s.foodCrates.push({
-        id: `FCRATE_${String(curDay || 0)}_${String(s.counters.food)}`,
+        id: `FCRATE_${String(d)}_${String(s.counters.food)}`,
         zoneId: String(zid),
-        spawnedDay: Number(curDay || 0),
+        spawnedDay: d,
         opened: false,
         openedBy: null,
         openedAt: null,
       });
     }
 
-    s.spawnedDay.food = Number(curDay || 0);
+    s.spawnedDay.food = spawnKey;
     if (pickCount > 0) announcements.push(`🍱 음식 상자 드랍 발생! (x${pickCount})`);
   }
 
   // --- 전설 재료 상자: 3일차 '낮' 이후, 매일 낮 시작에 N개 드랍 ---
-  if (Number(curDay || 0) >= legGateDay && Number(s.spawnedDay.legendary) !== Number(curDay || 0)) {
+  if (timeOfDay === 'day' && Number(curDay || 0) >= legGateDay && Number(s.spawnedDay.legendary) !== Number(curDay || 0)) {
     const alreadyToday = new Set(
       (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : [])
         .filter((c) => Number(c?.spawnedDay) === Number(curDay || 0))
@@ -997,18 +1012,16 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     if (pickCount > 0) announcements.push(`🟪 전설 재료 상자 드랍 발생! (x${pickCount})`);
   }
 
-  // --- 보스: '낮' 시작 시 1개 스폰(살아있으면 유지), 처치 후 다음 날 다시 스폰 가능 ---
-  function spawnBoss(kind, thresholdDay) {
+  // --- 보스(알파/오메가/위클라인): ER 타임라인 기반 ---
+  function spawnBossAt(kind, targetDay) {
     const k = String(kind);
-    const d = Number(curDay || 0);
-    const cfgDay = Number(bossRule?.[k]?.gateDay);
-    const needDay = Number.isFinite(cfgDay) ? cfgDay : Number(thresholdDay || 0);
-    if (d < needDay) return;
+    if (p !== 'night') return;
+    if (d !== Number(targetDay || 0)) return;
 
     const existing = s?.bosses?.[k];
-    if (existing && existing.alive) return; // 살아있으면 유지
+    if (existing) return; // ER: 1회 스폰
 
-    if (Number(s.spawnedDay?.[k]) === d) return; // 오늘 이미 스폰했으면 패스
+    if (Number(s.spawnedDay?.[k]) === spawnKey) return;
 
     const zid = eligible[randInt(0, Math.max(0, eligible.length - 1))];
     s.bosses[k] = {
@@ -1019,15 +1032,15 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       defeatedBy: null,
       defeatedAt: null,
     };
-    s.spawnedDay[k] = d;
+    s.spawnedDay[k] = spawnKey;
 
     const label = k === 'alpha' ? '알파' : k === 'omega' ? '오메가' : '위클라인';
     announcements.push(`⚠️ ${label}가 어딘가에 출현했다!`);
   }
 
-  spawnBoss('alpha', 3);
-  spawnBoss('omega', 4);
-  spawnBoss('weakline', 5);
+  spawnBossAt('alpha', 2);
+  spawnBossAt('omega', 3);
+  spawnBossAt('weakline', 4);
 
   // --- 변이 야생동물(요청): 매 밤 시작 시 1마리 스폰(로컬 설정 zone 우선) ---
   if (String(curPhase || '') === 'morning') {
@@ -1268,11 +1281,8 @@ function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, ac
   const node = s.coreNodes.find((n) => !n?.picked && String(n?.zoneId) === zid) || null;
   if (!node) return null;
 
-  // 안전장치: 2일차 낮 이후만
   const ws = ruleset?.worldSpawns || {};
   const coreRule = ws?.core || {};
-  const coreGateDay = Number(coreRule?.gateDay ?? 2);
-  if (!isAtOrAfterWorldTime(curDay, curPhase, coreGateDay, 'day')) return null;
 
   // 스폰된 코어는 "존재하면 꽤 높은 확률로" 주워가는 느낌(밤엔 덜 적극적)
   const moved = !!opts.moved;
@@ -4691,7 +4701,7 @@ if (w) {
             },
           };
         })
-      : onMapSurvivors;
+      : (Array.isArray(survivors) ? survivors : []);
 
     if (isFirstDayStarterLoadout) {
       startStarterLoadoutAppliedRef.current = true;
