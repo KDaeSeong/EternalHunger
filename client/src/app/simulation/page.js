@@ -884,24 +884,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   const p = String(curPhase || '');
   const spawnKey = d + (p === 'night' ? 0.5 : 0.0);
 
-  // 낮/밤 상관없이 오래된/열린 오브젝트 정리(스폰은 아래 스케줄에서 처리)
-    // (정리 전용 블록)
-    const keepFromLegendary = Math.max(0, Number(curDay || 0) - legKeepDays);
-    s.legendaryCrates = (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : [])
-      .filter((c) => !c?.opened)
-      .filter((c) => Number(c?.spawnedDay || 0) >= keepFromLegendary);
-
-    const keepFromCore = Math.max(0, Number(curDay || 0) - coreKeepDays);
-    s.coreNodes = (Array.isArray(s.coreNodes) ? s.coreNodes : [])
-      .filter((n) => !n?.picked)
-      .filter((n) => Number(n?.spawnedDay || 0) >= keepFromCore);
-
-    const keepFromFood = Math.max(0, Number(curDay || 0) - foodKeepDays);
-    s.foodCrates = (Array.isArray(s.foodCrates) ? s.foodCrates : [])
-      .filter((c) => !c?.opened)
-      .filter((c) => Number(c?.spawnedDay || 0) >= keepFromFood);
-
-
+  // 오래된/열린 오브젝트 정리(중복 선언 방지: 함수 말미에서 1회만 수행)
 
   const eligible = getEligibleSpawnZoneIds(zones, forbiddenIds);
   if (!eligible.length) return { state: s, announcements };
