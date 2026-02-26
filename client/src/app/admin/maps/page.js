@@ -252,6 +252,27 @@ export default function AdminMapsPage() {
     }
   };
 
+  const normalizeMapList = async () => {
+    if (busy) return;
+    const ok = window.confirm(
+      '맵 목록을 정리할까요?\n\n- 공원(Park) 맵 삭제\n- 소방서/경찰서 맵이 없으면 자동 생성'
+    );
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      const res = await apiPost('/admin/maps/normalize-list', {});
+      const del = Number(res?.deletedCount || 0);
+      const cre = Number(res?.createdCount || 0);
+      showSaveToast(withSimRefreshHint(`맵 목록 정리 완료(삭제 ${del}, 생성 ${cre})`), 'ok');
+      await load();
+    } catch (e) {
+      showSaveToast(e?.response?.data?.error || e.message || '맵 목록 정리 실패', 'warn');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openCoreEditor = (m) => {
     const id = asId(m);
     setCoreEditMapId(id || null);
@@ -777,6 +798,19 @@ const selectedMap = useMemo(() => {
           ) : null}
           <button style={btn} onClick={load} disabled={busy}>
             새로고침
+          </button>
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontWeight: 900, marginBottom: 10 }}>맵 목록 정리</div>
+        <div style={{ opacity: 0.85, lineHeight: 1.6 }}>
+          요청사항 반영: <b>공원</b> 맵을 삭제하고, <b>소방서/경찰서</b> 맵이 없으면 기본 zones 포함으로 자동 생성합니다.
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+          <button style={btn} onClick={normalizeMapList} disabled={busy}>
+            공원 삭제 + 소방서/경찰서 추가
           </button>
         </div>
       </div>

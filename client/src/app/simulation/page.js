@@ -654,10 +654,10 @@ function kioskLegendaryPrice(key, priceByKey) {
   const v = Number(table?.[key]);
   if (Number.isFinite(v) && v > 0) return v;
 
-  // fallback: 기존 체감 가격(밸런스는 ruleset로 조정)
+  // fallback: 기본 아이템 트리(baseCreditValue) 기준
   if (key === 'force_core') return 1200;
   if (key === 'mithril') return 900;
-  return 650; // meteor / life_tree
+  return 800; // meteor / life_tree
 }
 
 
@@ -1820,7 +1820,7 @@ function chooseAiMoveTargets({ actor, craftGoal, mapObj, spawnState, forbiddenId
     }
 
     // 키오스크 구매/교환이 가능한 시점이면 키오스크도 후보로
-    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && kioskZones.length && simCredits >= 650) {
+    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && kioskZones.length && simCredits >= 800) {
       result.targets = kioskZones;
       result.reason = '자연코어(키오스크)';
       return result;
@@ -1958,6 +1958,68 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const chance = hasNeed ? chanceNeed : chanceIdle;
   if (Math.random() >= chance) return null;
 
+  // --- 우선 교환/환급 규칙(키오스크 핵심) ---
+  // - 포스 코어 → 미스릴
+  // - 미스릴 → 전술 강화 모듈
+  // - 전술 강화 모듈 → 크레딧 환급
+  // - 운석 ↔ 생명의 나무 (상호 교환)
+  const findByTag = (tagKey) => items.find((x) => Array.isArray(x?.tags) && x.tags.some((t) => String(t).toLowerCase() == String(tagKey).toLowerCase())) || null;
+  const meteorItem = findByTag('meteor') || findItemByKeywords(items, ['운석', 'meteor']);
+  const lifeTreeItem = findByTag('life_tree') || findItemByKeywords(items, ['생명의 나무', 'tree of life', 'life tree']);
+  const mithrilItem = findByTag('mithril') || findItemByKeywords(items, ['미스릴', 'mythril', 'mithril']);
+  const forceCoreItem = findByTag('force_core') || findItemByKeywords(items, ['포스 코어', 'force core']);
+  const tacModuleItem = findByTag('tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical']);
+
+  const getPrice = (it, fallback) => {
+    const v = Number(it?.baseCreditValue ?? it?.value ?? it?.price ?? fallback);
+    return (Number.isFinite(v) && v > 0) ? v : Math.max(0, Number(fallback || 0));
+  };
+
+  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const has = (it, q=1) => (it?._id ? invQty(inv, String(it._id)) : 0) >= Math.max(1, Number(q||1));
+
+  // 0-A) 즉시 교환: 포코→미스릴, 미스릴→모듈, 모듈→크레딧(환급)
+  // - 관전 템포를 위해 교환은 확률로 과도한 반복을 줄입니다.
+  if (forceCoreItem && mithrilItem && has(forceCoreItem, 1) && Math.random() < 0.70) {
+    return { kind: 'exchange', item: mithrilItem, itemId: String(mithrilItem._id), qty: 1, consume: [{ itemId: String(forceCoreItem._id), qty: 1 }], label: '포스 코어→미스릴' };
+  }
+  if (mithrilItem && tacModuleItem && has(mithrilItem, 1) && Math.random() < 0.70) {
+    return { kind: 'exchange', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, consume: [{ itemId: String(mithrilItem._id), qty: 1 }], label: '미스릴→전술 강화 모듈' };
+  }
+  if (tacModuleItem && has(tacModuleItem, 1) && Math.random() < 0.55) {
+    const gain = getPrice(tacModuleItem, 100);
+    return { kind: 'sell', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, credits: gain, label: '전술 강화 모듈 환급' };
+  }
+
+  // 0-B) 목표 기반 상호 교환: 운석↔생나
+  const needMeteor = miss.some((m) => (m?.special === 'meteor' || classifySpecialByName(m?.name) === 'meteor'));
+  const needTree = miss.some((m) => (m?.special === 'life_tree' || classifySpecialByName(m?.name) === 'life_tree'));
+  if (meteorItem && lifeTreeItem) {
+    if (needTree && has(meteorItem, 1) && Math.random() < 0.75) {
+      return { kind: 'exchange', item: lifeTreeItem, itemId: String(lifeTreeItem._id), qty: 1, consume: [{ itemId: String(meteorItem._id), qty: 1 }], label: '운석→생명의 나무' };
+    }
+    if (needMeteor && has(lifeTreeItem, 1) && Math.random() < 0.75) {
+      return { kind: 'exchange', item: meteorItem, itemId: String(meteorItem._id), qty: 1, consume: [{ itemId: String(lifeTreeItem._id), qty: 1 }], label: '생명의 나무→운석' };
+    }
+  }
+
+  // 0-C) 목표 기반 구매: 운석/생나/미스릴/포코/모듈
+  // - 가격은 아이템 baseCreditValue를 우선 사용(없으면 기존 룰셋 fallback).
+  const wantSpecial = miss.find((m) => isSpecialCoreKind(m?.special) || isSpecialCoreKind(classifySpecialByName(m?.name)) || String(m?.name||'').includes('전술 강화 모듈'));
+  if (wantSpecial) {
+    const key = wantSpecial.special || classifySpecialByName(wantSpecial.name);
+    const pick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : tacModuleItem;
+    if (pick && pick._id) {
+      const cost = (key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
+        ? kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey)
+        : getPrice(pick, 120);
+      const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
+      if (simCredits >= cost && Math.random() < ok) {
+        return { kind: 'buy', item: pick, itemId: String(pick._id), qty: 1, cost, label: '특수재료 구매' };
+      }
+    }
+  }
+
   // 1) 목표 기반: VF 혈액 샘플 (룰셋 가격/성공률)
   const needVf = miss.find((m) => m?.special === 'vf' || classifySpecialByName(m?.name) === 'vf');
   if (needVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
@@ -1985,14 +2047,6 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
       const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
       if (allowLegendary && simCredits >= cost && Math.random() < ok) {
         return { kind: 'buy', item: found, itemId: String(found._id), qty: 1, cost, label };
-      }
-      // 교환: 인벤에서 임의 N개 단위 소모(룰셋)
-      const units = countInventoryUnits(actor?.inventory || []);
-      const exUnits = Math.max(1, Number(mr?.exchange?.consumeUnits ?? 3));
-      const exChance = Number(mr?.exchange?.chanceNeed ?? 0.75);
-      if (units >= exUnits && Math.random() < exChance) {
-        const consume = pickUnitsFromInventory(actor?.inventory || [], exUnits);
-        if (consume.length) return { kind: 'exchange', item: found, itemId: String(found._id), qty: 1, consume, label };
       }
     }
   }
@@ -2033,15 +2087,6 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
       const ok = Number(mr?.buySuccess?.legendaryFallback ?? mr?.buySuccess?.legendary ?? 0.7);
       if (simCredits >= cost && Math.random() < ok) {
         return { kind: 'buy', item: picked.item, itemId: String(picked.item._id), qty: 1, cost, label: picked.label };
-      }
-
-      // 교환: 인벤에서 임의 N개 단위 소모(룰셋)
-      const units = countInventoryUnits(actor?.inventory || []);
-      const exUnits = Math.max(1, Number(mr?.exchange?.consumeUnits ?? 3));
-      const exChance = Number(mr?.exchange?.chanceFallback ?? 0.6);
-      if (units >= exUnits && Math.random() < exChance) {
-        const consume = pickUnitsFromInventory(actor?.inventory || [], exUnits);
-        if (consume.length) return { kind: 'exchange', item: picked.item, itemId: String(picked.item._id), qty: 1, consume, label: picked.label };
       }
     }
   }
@@ -5122,6 +5167,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
               updated.inventory = craftedE.inventory;
               addLog(`[${updated.name}] ${craftedE.log}`, 'normal');
             }
+          }
+
+          if (kioskAction.kind === 'sell') {
+            const q = Math.max(1, Number(kioskAction.qty || 1));
+            const gain = Math.max(0, Number(kioskAction.credits || 0));
+            updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: q }]);
+            updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + gain);
+            addLog(`🏪 [${updated.name}] 키오스크 환급: [${itemNm}] x${q} → 크레딧 +${gain}`, 'system');
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: gain, source: 'kiosk', kind: 'sell', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            didProcure = true;
           }
 
         }

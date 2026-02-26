@@ -325,6 +325,21 @@ const DEFAULT_ITEM_TREE = [
     ],
   },
 
+  // --- 전술 강화 모듈 (Tac. Skill Module) ---
+  // ✅ 키오스크 교환/환급에 사용되는 특수 재료
+  // - ER 기준: 키오스크에서 교환 가능, 100 크레딧 환급이 대표적
+  {
+    key: 'tac_skill_module',
+    name: '전술 강화 모듈',
+    type: '재료',
+    tier: 4,
+    rarity: 'epic',
+    stackMax: 99,
+    baseCreditValue: 100,
+    tags: ['tactical', 'tac_skill_module', 'kiosk'],
+    description: '키오스크 교환용 특수 재료. 100 크레딧으로 환급 가능.',
+  },
+
   // --- VF 혈액 샘플 (Tier 4) ---
   {
     key: 'vf_sample',

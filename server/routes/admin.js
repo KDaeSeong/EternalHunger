@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Item = require('../models/Item'); // ★ 아이템 모델 추가!
 const Map = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
-const { DEFAULT_ZONES, KIOSK_ZONE_NAMES, ZONE_ID_BY_NAME } = require('../utils/defaultZones');
+const { DEFAULT_ZONES, KIOSK_MAP_NAMES } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
 
@@ -87,6 +87,69 @@ router.get('/maps', async (req, res) => {
         const maps = await Map.find().populate('connectedMaps', 'name'); // 연결된 맵 이름까지 가져옴
         res.json(maps);
     } catch (err) { res.status(500).json({ error: "맵 로드 실패" }); }
+});
+
+// ✅ 맵 목록 정리(운영 편의)
+// POST /api/admin/maps/normalize-list
+// - 공원(Park) 맵 삭제
+// - 소방서/경찰서 맵이 없으면 기본 zones 포함으로 자동 생성
+router.post('/maps/normalize-list', async (req, res) => {
+  try {
+    const normalizeName = (v) => String(v || '').trim().replace(/\s+/g, '');
+    const lower = (v) => normalizeName(v).toLowerCase();
+
+    const deleteTargets = new Set(['공원', 'park']);
+    const ensureNames = ['소방서', '경찰서'];
+
+    const all = await Map.find().select('_id name connectedMaps');
+
+    // 1) 공원 삭제
+    const toDelete = (Array.isArray(all) ? all : []).filter((m) => deleteTargets.has(lower(m?.name)));
+    const deleteIds = toDelete.map((m) => m._id).filter(Boolean);
+    let deletedCount = 0;
+    let deletedNames = [];
+
+    if (deleteIds.length) {
+      deletedNames = toDelete.map((m) => String(m?.name || '')).filter(Boolean);
+      await Map.deleteMany({ _id: { $in: deleteIds } });
+      deletedCount = deleteIds.length;
+      // 연결 관계 정리(고아 ObjectId 제거)
+      await Map.updateMany(
+        { connectedMaps: { $in: deleteIds } },
+        { $pull: { connectedMaps: { $in: deleteIds } } }
+      );
+    }
+
+    // 2) 소방서/경찰서 보장
+    const existing = await Map.find({ name: { $in: ensureNames } }).select('_id name');
+    const existingSet = new Set((Array.isArray(existing) ? existing : []).map((m) => normalizeName(m?.name)));
+    const createdNames = [];
+
+    for (const nm of ensureNames) {
+      if (existingSet.has(normalizeName(nm))) continue;
+      const dz = cloneDefaultZones();
+      const zoneIds = dz.map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
+      const dc = buildDefaultZoneConnections(zoneIds);
+      await new Map({
+        name: nm,
+        zones: dz,
+        coreSpawnZones: coreSpawnZoneIdsFromZones(dz),
+        zoneConnections: dc,
+      }).save();
+      createdNames.push(nm);
+    }
+
+    res.json({
+      message: '맵 목록 정리 완료',
+      deletedCount,
+      deletedNames,
+      createdCount: createdNames.length,
+      createdNames,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '맵 목록 정리 실패' });
+  }
 });
 
 // 2. 새로운 구역 생성
@@ -335,29 +398,23 @@ router.post('/maps/:id/crate-allow-deny', async (req, res) => {
 // - missing: 이미 있는 키오스크(mapId+zoneId)는 건드리지 않음(기본)
 // - force: 대상 맵의 키오스크(키오스크 구역에 해당) 삭제 후 재생성(주의)
 
-const KIOSK_ZONE_IDS = (Array.isArray(KIOSK_ZONE_NAMES) ? KIOSK_ZONE_NAMES : [])
-  .map((nm) => String(ZONE_ID_BY_NAME?.[nm] || ''))
-  .filter(Boolean);
+function mapLooksLikeKioskMap(mapName) {
+  const name = String(mapName || '').trim();
+  if (!name) return false;
+  if (Array.isArray(KIOSK_MAP_NAMES) && KIOSK_MAP_NAMES.includes(name)) return true;
 
-function zoneLooksLikeKiosk(zone) {
-  const name = String(zone?.name || '').trim();
-  const zoneId = String(zone?.zoneId || '').trim();
-
-  if (name && Array.isArray(KIOSK_ZONE_NAMES) && KIOSK_ZONE_NAMES.includes(name)) return true;
-  if (zoneId && KIOSK_ZONE_IDS.includes(zoneId)) return true;
-
-  // 커스텀 맵(영문/혼용) 대비: 포함 문자열로도 판정
-  const nm = (name || zoneId).toLowerCase();
+  // 커스텀/영문 대비
+  const nm = name.toLowerCase();
   const keywords = [
     'hospital', '병원',
-    'cathedral', 'church', '성당',
-    'police', '경찰',
-    'fire', 'firestation', '소방',
     'archery', '양궁',
-    'temple', '절',
+    'hotel', '호텔',
     'warehouse', 'storage', '창고',
     'lab', 'research', '연구',
-    'hotel', '호텔',
+    'temple', '절',
+    'fire', 'firestation', '소방',
+    'police', '경찰',
+    'cathedral', 'church', '성당',
     'school', 'academy', '학교',
   ];
   return keywords.some((k) => nm.includes(String(k).toLowerCase()));
@@ -432,14 +489,62 @@ router.post('/kiosks/generate', async (req, res) => {
       (Array.isArray(existing) ? existing : []).map((k) => `${String(k?.mapId || '')}::${String(k?.zoneId || '')}`)
     );
 
+    // ✅ 키오스크 카탈로그 템플릿(아이템 ObjectId 기반)
+    // - ER 키오스크/교환 개념(운석↔생나, 포코→미스릴, 미스릴→전술강화모듈, 모듈→크레딧 환급)을 반영
+    const kioskItemNames = ['운석', '생명의 나무', '미스릴', '포스 코어', '전술 강화 모듈'];
+    const kioskItems = await Item.find({ name: { $in: kioskItemNames } }).select('_id name');
+    const itemIdByName = new Map((Array.isArray(kioskItems) ? kioskItems : []).map((it) => [String(it.name), it._id]));
+
+    const priceByName = {
+      '운석': 10,
+      '생명의 나무': 10,
+      '미스릴': 15,
+      '포스 코어': 20,
+      '전술 강화 모듈': 100,
+    };
+
+    const getId = (nm) => itemIdByName.get(String(nm)) || null;
+
+    const catalogTemplate = [];
+    // 판매(크레딧으로 구매)
+    for (const nm of kioskItemNames) {
+      const id = getId(nm);
+      if (!id) continue;
+      catalogTemplate.push({ itemId: id, mode: 'sell', priceCredits: Number(priceByName[nm] || 0) });
+    }
+    // 교환(1:1)
+    const meteorId = getId('운석');
+    const treeId = getId('생명의 나무');
+    const mithrilId = getId('미스릴');
+    const forceCoreId = getId('포스 코어');
+    const moduleId = getId('전술 강화 모듈');
+
+    if (meteorId && treeId) {
+      catalogTemplate.push({ itemId: meteorId, mode: 'exchange', exchange: { giveItemId: treeId, giveQty: 1 } });
+      catalogTemplate.push({ itemId: treeId, mode: 'exchange', exchange: { giveItemId: meteorId, giveQty: 1 } });
+    }
+    if (mithrilId && forceCoreId) {
+      catalogTemplate.push({ itemId: mithrilId, mode: 'exchange', exchange: { giveItemId: forceCoreId, giveQty: 1 } });
+    }
+    if (moduleId && mithrilId) {
+      catalogTemplate.push({ itemId: moduleId, mode: 'exchange', exchange: { giveItemId: mithrilId, giveQty: 1 } });
+    }
+    // 환급(전술 강화 모듈 → 크레딧)
+    if (moduleId) {
+      catalogTemplate.push({ itemId: moduleId, mode: 'buy', priceCredits: Number(priceByName['전술 강화 모듈'] || 100) });
+    }
+
     const toInsert = [];
     let skippedCount = 0;
     let targetKioskZoneCount = 0;
 
     for (const m of (Array.isArray(maps) ? maps : [])) {
+      // ✅ 키오스크는 특정 "지역(맵)"에만 존재
+      if (!mapLooksLikeKioskMap(m?.name)) continue;
+
       const zones = (Array.isArray(m?.zones) && m.zones.length) ? m.zones : cloneDefaultZones();
 
-      // ✅ 맵당 1개: 지정한 존(kioskZoneId)이 있으면 그 존, 없으면 '병원' 우선
+      // ✅ 맵당 1개: 지정한 존(kioskZoneId)이 있으면 그 존, 없으면 첫 존(Z1)
       const desired = String(m?.kioskZoneId || '').trim();
       const desiredNo = Number(desired);
       const pick = (Array.isArray(zones) ? zones : []).find((z) => {
@@ -453,11 +558,11 @@ router.post('/kiosks/generate', async (req, res) => {
       });
 
       const z = pick
-        || (Array.isArray(zones) ? zones : []).find((zz) => String(zz?.name || '').trim() === '병원')
-        || (Array.isArray(zones) ? zones : []).find((zz) => Boolean(zz?.hasKiosk) || zoneLooksLikeKiosk(zz));
+        || (Array.isArray(zones) ? zones : [])[0]
+        || { zoneId: 'Z1', name: '구역 1', polygon: [] };
 
       if (!z) continue;
-      const zoneId = String(z?.zoneId || ZONE_ID_BY_NAME?.[String(z?.name || '')] || '').trim();
+      const zoneId = String(z?.zoneId || 'Z1').trim();
       if (!zoneId) continue;
 
       targetKioskZoneCount += 1;
@@ -470,12 +575,17 @@ router.post('/kiosks/generate', async (req, res) => {
       const c = centroidOfPolygon(z?.polygon);
       toInsert.push({
         kioskId: buildKioskId(m?._id, zoneId),
-        name: `${String(z?.name || '키오스크')} 키오스크`,
+        name: `${String(m?.name || '지역')} 키오스크`,
         mapId: m._id,
         zoneId,
         x: Number.isFinite(c.x) ? c.x : 0,
         y: Number.isFinite(c.y) ? c.y : 0,
-        catalog: [],
+        catalog: catalogTemplate.map((row) => ({
+          itemId: row.itemId,
+          mode: row.mode,
+          priceCredits: Number(row.priceCredits || 0),
+          exchange: row.exchange ? { giveItemId: row.exchange.giveItemId, giveQty: Number(row.exchange.giveQty || 1) } : undefined,
+        })),
       });
     }
 
