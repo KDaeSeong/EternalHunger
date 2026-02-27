@@ -67,7 +67,10 @@ router.get('/maps', async (req, res) => {
 
 router.get('/kiosks', async (req, res) => {
   try {
-    const kiosks = await Kiosk.find({}).populate('mapId', 'name').populate('catalog.itemId', 'name tier rarity baseCreditValue');
+    const kiosks = await Kiosk.find({})
+      .populate('mapId', 'name')
+      .populate('catalog.itemId', 'name tier rarity baseCreditValue tags')
+      .populate('catalog.exchange.giveItemId', 'name tier rarity baseCreditValue tags');
     res.json(kiosks);
   } catch (err) {
     console.error(err);

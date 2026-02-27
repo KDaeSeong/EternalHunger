@@ -175,8 +175,8 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
   const baseScavenge = 0.85;
   const baseFood = 0.85;
   const baseMedical = 0.6;
-  const baseMishap = 0.8;
-  const baseMinorFight = 0.5;
+  const baseMishap = 0.35;
+  const baseMinorFight = 0.35;
 
   const needHealBoost = hpPct < 55 ? (55 - hpPct) / 10 : 0;
   const nightRiskBoost = isNight ? 0.6 : 0;
@@ -261,31 +261,33 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
     return { log: `🍞 [${name}] ${context} 먹을 것을 찾았지만 쓸 만한 건 없었다.`, damage: 0, recovery: 0, drop: null };
   }
 
-  // 6) 경미한 사고(함정/낙상 등) — 과도한 즉사 방지
+  // 6) 경미한 사고(함정/낙뢰/낙상 등) — 관전형용으로 피해를 낮추고, 빈도를 줄임
   if (picked.k === 'mishap') {
-    const base = isNight ? 9 : 7;
-    const dmg = clamp(Math.floor(base + Math.random() * 8 - p / 60), 3, 18);
+    const base = isNight ? 4 : 3;
+    const late = Math.max(0, day - 4) * 0.5;
+    const dmg = clamp(Math.floor(base + Math.random() * 4 + late - p / 90), 1, 10);
     return {
-      log: `⚠️ [${name}] ${context} 이동 중 사고가 났다. (피해 -${dmg})`,
+      log: `⚠️ [${name}] ${context} 발밑을 잘못 디뎌 살짝 다쳤다. (피해 -${dmg})`,
       damage: dmg,
       recovery: 0,
       drop: null,
     };
   }
 
-  // 7) 작은 교전(누군가와 스쳐 싸움) — 실제 PvP는 메인 로직이 처리하므로 여기선 "경미"만
+  // 7) 작은 교전(누군가와 스쳐 싸움) — 실제 PvP는 메인 로직이 처리하므로 여기선 '경미'만
   if (picked.k === 'minor_fight') {
-    const base = isNight ? 10 : 8;
-    const dmg = clamp(Math.floor(base + Math.random() * 10 - p / 55), 4, 22);
+    const base = isNight ? 6 : 5;
+    const late = Math.max(0, day - 3) * 0.6;
+    const dmg = clamp(Math.floor(base + Math.random() * 6 + late - p / 80), 2, 14);
     const cr = Math.max(0, Math.floor(Number(ruleset?.credits?.skirmish ?? 2) + Math.random() * 3));
     return {
-      log: `⚔️ [${name}] ${context} 누군가와 엇갈려 짧게 충돌했다. (피해 -${dmg})${cr > 0 ? ` (크레딧 +${cr})` : ''}`,
+      log: `⚔️ [${name}] ${context} 누군가와 마주쳐 짧게 충돌했다. (피해 -${dmg})${cr > 0 ? ` (크레딧 +${cr})` : ''}`,
       damage: dmg,
       recovery: 0,
       earnedCredits: cr,
       drop: null,
       // 노출 증가(다음 페이즈 교전 확률 약간↑)
-      pvpBonusNext: 0.18,
+      pvpBonusNext: 0.14,
     };
   }
 

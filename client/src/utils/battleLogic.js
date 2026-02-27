@@ -339,7 +339,10 @@ export function calculateBattle(p1, p2, day, settings = {}) {
 
     // --- 무승부 판정 ---
     const diff = score1 - score2;
-    const drawThreshold = Math.max(5, 30 - (day * 3)); 
+    const pressure = Math.max(0, Math.min(1, Number(settings?.battle?.pressure ?? 0)));
+    const nightBoost = settings?.battle?.isNight ? Number(settings?.battle?.nightDrawBoost ?? 2) : 0;
+    const pressureCut = pressure * Number(settings?.battle?.pressureDrawCut ?? 10);
+    const drawThreshold = Math.max(5, (30 - (day * 3)) + nightBoost - pressureCut); 
 
     if (Math.abs(diff) < drawThreshold) {
         const drawLogs = [

@@ -1949,7 +1949,95 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const chanceNeed = Number(mr?.chanceNeed ?? 0.22);
   const chanceIdle = Number(mr?.chanceIdle ?? 0.10);
   const chance = hasNeed ? chanceNeed : chanceIdle;
-  if (Math.random() >= chance) return null;
+
+  // ✅ 서버(어드민)에서 편집한 키오스크 카탈로그가 있으면 그대로 사용(우선)
+  // - 카탈로그는 각 키오스크 문서(Kiosk.catalog)에 저장되며, /public/kiosks로 내려옵니다.
+  const kioskDoc = (Array.isArray(kiosks) ? kiosks : []).find((k) => {
+    const mid = String(k?.mapId?._id || k?.mapId || '').trim();
+    const zid = String(k?.zoneId || '').trim();
+    return mid && String(mapObj?._id || '').trim() === mid && String(zoneId || '').trim() === zid;
+  });
+  const catalog = Array.isArray(kioskDoc?.catalog) ? kioskDoc.catalog : [];
+
+  const pickFromCatalog = () => {
+    if (!catalog.length) return null;
+
+    const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+    const credits = Math.max(0, Number(actor?.simCredits || 0));
+    const missIds = new Set((Array.isArray(miss) ? miss : []).map((m) => String(m?.itemId || '')).filter(Boolean));
+
+    const normId = (v) => String(v?._id || v || '').trim();
+
+    // 1) 목표 기반: 부족한 아이템(정확히 itemId 매칭)이 카탈로그에 있으면 우선 수행
+    for (const row of catalog) {
+      const itemId = normId(row?.itemId);
+      if (!itemId || !missIds.has(itemId)) continue;
+
+      const mode = String(row?.mode || 'sell');
+      if (mode === 'sell') {
+        const cost = Math.max(0, Number(row?.priceCredits || 0));
+        if (credits >= cost) return { kind: 'buy', item: findById(itemId) || row.itemId, itemId, qty: 1, cost, label: '카탈로그 구매' };
+      }
+      if (mode === 'exchange') {
+        const giveId = normId(row?.exchange?.giveItemId);
+        const giveQty = Math.max(1, Number(row?.exchange?.giveQty || 1));
+        if (giveId && invQty(inv, giveId) >= giveQty) {
+          return { kind: 'exchange', item: findById(itemId) || row.itemId, itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
+        }
+      }
+    }
+
+    // 2) 교환 우선: 가진 재료로 가능한 exchange를 실행(경제 안정화 위해 확률 게이트)
+    const exch = catalog.filter((r) => String(r?.mode) === 'exchange');
+    if (exch.length && Math.random() < 0.55) {
+      const shuffled = exch.slice().sort(() => Math.random() - 0.5);
+      for (const row of shuffled) {
+        const itemId = normId(row?.itemId);
+        const giveId = normId(row?.exchange?.giveItemId);
+        const giveQty = Math.max(1, Number(row?.exchange?.giveQty || 1));
+        if (!itemId || !giveId) continue;
+        if (invQty(inv, giveId) >= giveQty) {
+          return { kind: 'exchange', item: findById(itemId) || row.itemId, itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
+        }
+      }
+    }
+
+    // 3) 환급(키오스크 buy = 유저 sell): 가진 아이템을 credits로 환전(낮은 확률)
+    const refunds = catalog.filter((r) => String(r?.mode) === 'buy');
+    if (refunds.length && Math.random() < 0.25) {
+      const shuffled = refunds.slice().sort(() => Math.random() - 0.5);
+      for (const row of shuffled) {
+        const itemId = normId(row?.itemId);
+        const gain = Math.max(0, Number(row?.priceCredits || 0));
+        if (!itemId || gain <= 0) continue;
+        if (invQty(inv, itemId) >= 1) return { kind: 'sell', item: findById(itemId) || row.itemId, itemId, qty: 1, credits: gain, label: '카탈로그 환급' };
+      }
+    }
+
+    // 4) 구매(sell = 유저 buy): 저가 항목만 가끔 구매
+    const buys = catalog.filter((r) => String(r?.mode) === 'sell');
+    if (buys.length && Math.random() < 0.15) {
+      const shuffled = buys.slice().sort(() => Math.random() - 0.5);
+      for (const row of shuffled) {
+        const itemId = normId(row?.itemId);
+        const cost = Math.max(0, Number(row?.priceCredits || 0));
+        if (!itemId) continue;
+        if (cost <= 0 || credits >= cost) return { kind: 'buy', item: findById(itemId) || row.itemId, itemId, qty: 1, cost, label: '카탈로그 구매' };
+      }
+    }
+
+    return null;
+  };
+
+  const hasCatalogNeed = catalog.some((r) => {
+    const itemId = String(r?.itemId?._id || r?.itemId || '').trim();
+    return itemId && miss.some((m) => String(m?.itemId || '') === itemId);
+  });
+  if (!hasNeed || !hasCatalogNeed) {
+    if (Math.random() >= chance) return null;
+  }
+  const pickedByCatalog = pickFromCatalog();
+  if (pickedByCatalog) return pickedByCatalog;
 
   // --- 우선 교환/환급 규칙(키오스크 핵심) ---
   // - 포스 코어 → 미스릴
@@ -5404,17 +5492,23 @@ const didMove = String(nextZoneId) !== String(currentZone);
     const phaseIdxNext = worldPhaseIndex(nextDay, nextPhase);
     const suddenDeath = phaseIdxNext >= sdStartIdx;
 
-    // 6번째 밤 이전까지는 교전을 더 자주 유도, 6번째 밤부터는 사실상 서든데스(가속)
-    const paceBonus = suddenDeath ? 0.35 : 0.15;
-    const battleCap = suddenDeath ? 0.99 : Math.max(battleMax, 0.92);
+    // 6번째 밤 이전까지는 교전(엔카운터)을 낮게, 제한구역이 늘수록(=압박) 점점 상승
+    const totalZonesCount = Math.max(1, Array.isArray(mapObj?.zones) ? mapObj.zones.length : 19);
+    const restrictedRatio = Math.max(0, Math.min(1, forbiddenIds.size / totalZonesCount));
+    const paceBonus = suddenDeath ? 0.35 : Math.min(0.25, 0.05 + Math.max(0, nextDay - 1) * 0.02 + restrictedRatio * 0.25);
+    const battleCap = suddenDeath ? 0.99 : Math.max(battleMax, 0.88);
     let battleProb = Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
+
+    // 전투 알고리즘 보정값(ER 느낌): 제한구역 압박/밤 여부를 전투 계산에도 전달
+    battleSettings.battle.pressure = restrictedRatio;
+    battleSettings.battle.isNight = (nextPhase === 'night');
 
     // ✅ 1일차 낮(세팅 페이즈)에는 교전(PvP)을 발생시키지 않음
     if (nextDay === 1 && nextPhase === 'morning') battleProb = 0;
 
     const eventOffset = Number(pvpProbCfg.eventOffset ?? 0.3);
     const eventMax = Number(pvpProbCfg.eventMax ?? 0.95);
-    const eventProb = Math.min(eventMax, battleProb + eventOffset);
+    const eventProb = Math.min(eventMax, (battleProb * 0.55) + eventOffset + restrictedRatio * 0.10);
 
     // 동일 zone 교전 트리거 최소 인원(기본 2명)
     const pvpMinSameZone = Math.max(2, Math.floor(Number(pvpProbCfg.encounterMinSameZone ?? 2)));
@@ -5783,7 +5877,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const rand = Math.random();
 
       const lowHpAvoidCombat = !suddenDeath && Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= Number(ruleset?.ai?.recoverHpBelow ?? 38);
-      const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb);
+      const densityFactor = Math.min(1, Math.max(0, potentialTargets.length / 3));
+      const pressureMult = 0.75 + 0.25 * restrictedRatio;
+      const densityMult = 0.55 + 0.45 * densityFactor;
+      const nightMult = (nextPhase === 'night') ? 1.05 : 1.0;
+      const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb * densityMult * pressureMult * nightMult);
       const actorMs = getEquipMoveSpeed(actor);
       const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
       const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus - evadeBonus));
@@ -5838,7 +5936,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
       if (canDual && rand < battleProb2) {
         // [⚔️ 전투]
-        const target = pvpTarget;
+        let target = pvpTarget;
         if (!target) {
           survivorMap.set(actor._id, actor);
           continue;
@@ -5847,6 +5945,136 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // 상대방 행동권 사용
         const targetIndex = todaysSurvivors.findIndex((t) => t._id === target._id);
         if (targetIndex > -1) todaysSurvivors.splice(targetIndex, 1);
+
+        // 🏃 추격·도주(1단계): 이속/HP/장비차 + 제한구역 압박 기반(관전형 템포)
+        const escapeOutcome = (() => {
+          const curZone = String(actor?.zoneId || target?.zoneId || '');
+          if (!curZone) return null;
+          const neighbors = Array.isArray(zoneGraph?.[curZone]) ? zoneGraph[curZone].map((z) => String(z)) : [];
+          const safeNeighbors = neighbors.filter((z) => z && !forbiddenIds.has(z));
+          if (!safeNeighbors.length) return null;
+
+          const hpBelow = Number(ruleset?.ai?.escapeHpBelow ?? 42);
+          const aAvoid = shouldAvoidCombatByPower(actor, target);
+          const bAvoid = shouldAvoidCombatByPower(target, actor);
+          const aWants = (Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= hpBelow) || !!aAvoid;
+          const bWants = (Number(target.hp || 0) > 0 && Number(target.hp || 0) <= hpBelow) || !!bAvoid;
+          if (!aWants && !bWants) return null;
+
+          let flee = null;
+          let chaser = null;
+          if (aWants && !bWants) { flee = actor; chaser = target; }
+          else if (!aWants && bWants) { flee = target; chaser = actor; }
+          else {
+            const ahp = Number(actor.hp || 0);
+            const bhp = Number(target.hp || 0);
+            if (ahp != bhp) flee = (ahp < bhp) ? actor : target;
+            else {
+              const ar = aAvoid ? Number(aAvoid.ratio || 0.5) : 0.5;
+              const br = bAvoid ? Number(bAvoid.ratio || 0.5) : 0.5;
+              flee = (ar < br) ? actor : target;
+            }
+            chaser = (flee === actor) ? target : actor;
+          }
+
+          const fleeMs = getEquipMoveSpeed(flee);
+          const chaseMs = getEquipMoveSpeed(chaser);
+          const escapeBase = Number(ruleset?.ai?.escapeBaseChance ?? 0.22);
+          const msScale = Number(ruleset?.ai?.escapeMoveSpeedScale ?? 0.12);
+          const pressurePenalty = Number(ruleset?.ai?.escapePressurePenalty ?? 0.28);
+          const lowSafePenalty = Number(ruleset?.ai?.escapeLowSafePenalty ?? 0.15);
+          const safeCount = Math.max(0, totalZonesCount - forbiddenIds.size);
+          const curForbidden = forbiddenIds.has(curZone);
+
+          const powDelta = estimatePower(chaser) - estimatePower(flee);
+
+          let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
+          if (curForbidden) pEscape -= 0.18;
+          pEscape -= restrictedRatio * pressurePenalty;
+          if (safeCount <= 3) pEscape -= lowSafePenalty;
+          pEscape -= Math.max(0, Math.min(0.18, powDelta / 120));
+          pEscape = Math.max(0.05, Math.min(0.9, pEscape));
+
+          const didEscape = Math.random() < pEscape;
+          if (!didEscape) return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
+
+          // 인접 안전 구역 중 인구가 가장 적은 곳으로 1칸 이동(도주)
+          const pop = {};
+          for (const s of survivorMap.values()) {
+            if (!s || Number(s.hp || 0) <= 0) continue;
+            if (newDeadIds.includes(s._id)) continue;
+            const zid = String(s.zoneId || '');
+            if (!zid) continue;
+            pop[zid] = (pop[zid] || 0) + 1;
+          }
+          let dest = curZone;
+          let bestPop = 1e9;
+          for (const z of safeNeighbors) {
+            const p = Number(pop[z] || 0);
+            if (p < bestPop) { bestPop = p; dest = z; }
+          }
+
+          flee.zoneId = String(dest || curZone);
+          survivorMap.set(flee._id, flee);
+          addLog(`🏃 [${flee.name}] 교전을 피하려 도주: ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'system');
+          emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+          // 추격 여부(이속/전투력/압박 기반)
+          const chaseBase = Number(ruleset?.ai?.chaseBaseChance ?? 0.25);
+          const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
+          let pChase = chaseBase + (chaseMs - fleeMs) * chaseMsScale + restrictedRatio * 0.10 + Math.max(0, Math.min(0.20, powDelta / 80));
+          pChase = Math.max(0, Math.min(0.95, pChase));
+          const willChase = Math.random() < pChase;
+          if (!willChase) return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
+
+          chaser.zoneId = String(flee.zoneId || curZone);
+          survivorMap.set(chaser._id, chaser);
+          addLog(`🏃‍♂️ [${chaser.name}] 추격! → ${getZoneName(chaser.zoneId)}`, 'highlight');
+          emitRunEvent('move', { who: String(chaser?._id || ''), name: chaser?.name, from: curZone, to: String(chaser.zoneId || ''), reason: 'chase' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+          // 따라잡기(기습) 판정
+          const catchBase = Number(ruleset?.ai?.catchBaseChance ?? 0.35);
+          const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
+          let pCatch = catchBase + (chaseMs - fleeMs) * catchMsScale + restrictedRatio * 0.12 + Math.max(0, Math.min(0.25, powDelta / 70));
+          pCatch = Math.max(0.05, Math.min(0.95, pCatch));
+          const caught = Math.random() < pCatch;
+          if (!caught) {
+            addLog(`💨 [${flee.name}] 간신히 따돌렸습니다.`, 'system');
+            return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
+          }
+
+          const pre = Math.min(12, Math.max(4, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80)));
+          flee.hp = Math.max(0, Number(flee.hp || 0) - pre);
+          survivorMap.set(flee._id, flee);
+          addLog(`⚡ 추격전! [${chaser.name}]이(가) [${flee.name}]을(를) 따라잡아 기습합니다. (피해 -${pre})`, 'highlight');
+          return { escaped: true, caught: true, dest: String(flee.zoneId || curZone), preDamage: pre, fleeId: String(flee._id), chaserId: String(chaser._id) };
+        })();
+
+        // 도주 성공 & 미포획이면 전투 없이 종료(둘 다 행동권 소모)
+        if (escapeOutcome && escapeOutcome.escaped && !escapeOutcome.caught) {
+          actor = survivorMap.get(actor._id) || actor;
+          target = survivorMap.get(target._id) || target;
+          continue;
+        }
+
+        // 도주 중 포획(기습)으로 HP 0이면 즉시 사망 처리
+        if (escapeOutcome && escapeOutcome.escaped && escapeOutcome.caught) {
+          const fleeNow = survivorMap.get(escapeOutcome.fleeId);
+          const chaserNow = survivorMap.get(escapeOutcome.chaserId);
+          if (fleeNow && Number(fleeNow.hp || 0) <= 0 && chaserNow) {
+            if (!newDeadIds.includes(fleeNow._id)) {
+              newDeadIds.push(fleeNow._id);
+              setDead((prev) => [...prev, fleeNow]);
+            }
+            addLog(`☠️ [${chaserNow.name}] 추격전으로 [${fleeNow.name}]을(를) 제압했습니다!`, 'death');
+            emitRunEvent('death', { who: String(fleeNow?._id || ''), by: String(chaserNow?._id || ''), zoneId: String(fleeNow?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            continue;
+          }
+        }
+
+        // 추격전 이후 최신 상태(존/HP)로 전투 진행
+        actor = survivorMap.get(actor._id) || actor;
+        target = survivorMap.get(target._id) || target;
 
 	        const actorBattleName = canonicalizeCharName(actor.name);
         const targetBattleName = canonicalizeCharName(target.name);
@@ -6283,8 +6511,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
     // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
+    // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
+    // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
+    // NOTE: off-map 생존자(관전/퇴장) 분기는 아직 미사용이므로 finalStepSurvivors만 저장한다.
     await persistSimEquipmentsFromChars(
-      [...(Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []), ...(Array.isArray(offMapSurvivors) ? offMapSurvivors : [])],
+      (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
       `phase:d${nextDay}_${nextPhase}`
     );
 
@@ -6310,7 +6541,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       return;
     }
 
-    setSurvivors([...(Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []), ...(Array.isArray(offMapSurvivors) ? offMapSurvivors : [])]);
+    // NOTE: offMapSurvivors는 아직 정의/사용하지 않으므로, 렌더는 최종 생존자만 반영
+    setSurvivors([...(Array.isArray(finalStepSurvivors) ? finalStepSurvivors : [])]);
 
     // 월드 스폰 상태 반영(상자 개봉/보스 처치 등)
     setSpawnState(nextSpawn);
