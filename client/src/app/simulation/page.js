@@ -142,6 +142,51 @@ const LUMIA_ZONE_POS = {
   firestation: { x: 78, y: 78 },
 };
 
+// 🧭 기본 동선(인접 이동) - 하이퍼루프 맵 레이아웃 기준
+// - 어드민 zoneConnections가 비어 있을 때만 사용
+const LUMIA_DEFAULT_EDGES = [
+  ['gas_station', 'alley'],
+  ['gas_station', 'school'],
+  ['gas_station', 'archery'],
+
+  ['archery', 'hotel'],
+  ['archery', 'school'],
+  ['hotel', 'school'],
+  ['hotel', 'beach'],
+
+  ['school', 'firestation'],
+  ['school', 'forest'],
+  ['firestation', 'police'],
+  ['firestation', 'lab'],
+  ['firestation', 'pond'],
+
+  ['police', 'alley'],
+  ['police', 'pond'],
+  ['alley', 'temple'],
+
+  ['temple', 'stream'],
+  ['stream', 'pond'],
+  ['stream', 'hospital'],
+
+  ['pond', 'hospital'],
+  ['pond', 'lab'],
+  ['pond', 'cathedral'],
+
+  ['lab', 'cathedral'],
+  ['forest', 'lab'],
+  ['forest', 'beach'],
+
+  ['beach', 'residential'],
+  ['residential', 'warehouse'],
+  ['warehouse', 'cathedral'],
+  ['warehouse', 'port'],
+
+  ['cathedral', 'port'],
+  ['cathedral', 'factory'],
+  ['factory', 'hospital'],
+];
+
+
 function shortText(s, maxLen = 8) {
   const str = String(s || '');
   if (str.length <= maxLen) return str;
@@ -3265,9 +3310,42 @@ function autoEquipBest(actor, itemMetaById) {
 
 function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset) {
   const d = Number(day || 0);
+  const ph = String(phase || '').toLowerCase();
   if (d !== 1) return { changed: false, logs: [] };
-  if (Math.max(0, Number(actor?.day1Moves || 0)) < 1) return { changed: false, logs: [] };
   if (actor?.day1HeroDone) return { changed: false, logs: [] };
+
+  // ✅ 관전형 요구사항(사용자): "1일차 밤"까지는 전원 영웅(T4) 세팅을 반드시 완료
+  // - 파밍 RNG/재료 부족/이동 실패로 목표가 누락되는 것을 방지
+  // - 낮에는 재료 소모 방식(단계적 제작/강화)을 유지하되, 밤에는 부족한 슬롯을 강제로 채움
+  if (ph.includes('night')) {
+    const logs = [];
+    let inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+    inv = normalizeInventory(inv, ruleset);
+
+    const preferredWeaponType = String(actor?.weaponType || '').trim();
+    const wType = START_WEAPON_TYPES.includes(preferredWeaponType)
+      ? preferredWeaponType
+      : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
+    const wTypeNorm = normalizeWeaponType(wType);
+
+    for (const slot of EQUIP_SLOTS) {
+      const best = pickBestEquipBySlot(inv, slot);
+      const curTier = best ? clampTier4(Number(best?.tier || 1)) : 0;
+      if (curTier >= 4) continue;
+      const gear = createEquipmentItem({ slot, day: d, tier: 4, weaponType: slot === 'weapon' ? wTypeNorm : '' });
+      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
+      logs.push(`✅ [${actor?.name}] 강제 세팅(1일차 밤): ${SLOT_ICON[slot] || '🧩'} 영웅 장비 획득`);
+    }
+
+    actor.inventory = inv;
+    autoEquipBest(actor, itemMetaById);
+    actor.day1HeroDone = true;
+    logs.push(`🏁 [${actor?.name}] 1일차 밤 보정 완료: 영웅 장비 세트 확정`);
+    return { changed: true, logs };
+  }
+
+  // 낮에는 기존 방식 유지: 최소 1회 이동 + 재료 소모로 단계적 달성
+  if (Math.max(0, Number(actor?.day1Moves || 0)) < 1) return { changed: false, logs: [] };
 
   const logs = [];
   let inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
@@ -4020,8 +4098,8 @@ const devForceUseConsumable = (charId, invIndex) => {
       { zoneId: 'hospital', name: '병원', isForbidden: false },
       { zoneId: 'cathedral', name: '성당', isForbidden: false },
       { zoneId: 'police', name: '경찰서', isForbidden: false },
-      { zoneId: 'fire_station', name: '소방서', isForbidden: false },
-      { zoneId: 'archery_range', name: '양궁장', isForbidden: false },
+      { zoneId: 'firestation', name: '소방서', isForbidden: false },
+      { zoneId: 'archery', name: '양궁장', isForbidden: false },
       { zoneId: 'temple', name: '절', isForbidden: false },
       { zoneId: 'warehouse', name: '창고', isForbidden: false },
       { zoneId: 'lab', name: '연구소', isForbidden: false },
@@ -4202,12 +4280,24 @@ if (!who) {
     // - 데이터가 비어도 AI가 멈춰버리는 것을 방지하면서도, 인접 이동 감각은 유지합니다.
     const hasEdges = Object.values(graph).some((s) => (s?.size || 0) > 0);
     if (!hasEdges && zoneIds.length > 1) {
-      for (let i = 0; i < zoneIds.length; i++) {
-        const a = zoneIds[i];
-        const b = zoneIds[(i + 1) % zoneIds.length];
-        if (a && b && a !== b) {
-          graph[a].add(b);
-          graph[b].add(a);
+      // ✅ 링 대신 기본 동선 적용(하이퍼루프 맵 레이아웃)
+      for (const [a, b] of (Array.isArray(LUMIA_DEFAULT_EDGES) ? LUMIA_DEFAULT_EDGES : [])) {
+        if (!a || !b) continue;
+        if (!graph[a] || !graph[b]) continue;
+        graph[a].add(b);
+        graph[b].add(a);
+      }
+
+      // 그래도 비어있으면 최후에만 링 fallback
+      const hasEdgesAfter = Object.values(graph).some((s) => (s?.size || 0) > 0);
+      if (!hasEdgesAfter) {
+        for (let i = 0; i < zoneIds.length; i++) {
+          const a2 = zoneIds[i];
+          const b2 = zoneIds[(i + 1) % zoneIds.length];
+          if (a2 && b2 && a2 !== b2) {
+            graph[a2].add(b2);
+            graph[b2].add(a2);
+          }
         }
       }
     }
@@ -5056,20 +5146,33 @@ if (w) {
     let forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
     let newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
 
-    // 서든데스: 안전지대 없이 전 지역을 금지구역으로 전환
+
+    // ✅ 서든데스: 전 지역 금지로 0명 생존(무승부) 케이스가 발생할 수 있어, 최종 안전구역 2곳을 남깁니다.
+    // - 기본: 소방서/골목길(2번째 이미지 동선 기준)
     if (suddenDeathActiveRef.current && mapObj && Array.isArray(mapObj.zones)) {
       const allZoneIds = mapObj.zones
         .map((z) => String(z?.zoneId ?? z?.id ?? z?._id ?? ''))
         .filter(Boolean);
-      forbiddenIds = new Set(allZoneIds);
 
-      // ✅ 첫 서든데스 발동 시에만 '이번 페이즈 신규'로 표기(이후에는 0으로 유지)
+      const preferred = ['firestation', 'alley'];
+      const safePick = preferred.filter((zid) => allZoneIds.includes(zid));
+      while (safePick.length < 2 && allZoneIds.length) {
+        const cand = allZoneIds[Math.floor(Math.random() * allZoneIds.length)];
+        if (!safePick.includes(cand)) safePick.push(cand);
+      }
+      const safeSet = new Set(safePick);
+
+      forbiddenIds = new Set(allZoneIds.filter((zid) => !safeSet.has(zid)));
+
       if (!suddenDeathForbiddenAnnouncedRef.current) {
-        newlyAddedForbidden = allZoneIds.slice();
+        newlyAddedForbidden = allZoneIds.filter((zid) => !safeSet.has(zid));
         suddenDeathForbiddenAnnouncedRef.current = true;
       } else {
         newlyAddedForbidden = [];
       }
+
+      addLog(`🟩 최종 안전구역: ${safePick.map((z) => getZoneName(z)).join(', ')}`, 'highlight');
+    }
     }
 
     setForbiddenAddedNow(newlyAddedForbidden);
@@ -5806,7 +5909,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
       // 🧨 엔드게임: 안전구역이 2곳만 남으면(=마지막 단계), 40s 유예 후 안전구역도 폭발 타이머가 감소합니다.
       const safeLeft = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid))).length;
-      const forceAllAfterSec = (safeLeft <= 2) ? Math.max(0, Number(detCfg.forceAllAfterSec ?? 40)) : null;
+      const allowForceAll = !suddenDeathActiveRef.current;
+      const forceAllAfterSec = (allowForceAll && safeLeft <= 2) ? Math.max(0, Number(detCfg.forceAllAfterSec ?? 40)) : null;
       if (forceAllAfterSec !== null) {
         addLog(`⏳ 안전구역 유예 ${forceAllAfterSec}s: 이후 모든 구역에서 폭발 타이머가 감소합니다.`, 'system');
       }
@@ -5874,8 +5978,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
           // 제한구역: 폭발 타이머는 "금지구역에 있으면 무조건 감소"합니다.
           // (안전지대/개인 보호 효과가 있더라도 감소하며, 엔드게임(forceAllNow)도 동일)
 
-          // 제한구역: 폭발 타이머 감소
-          s.detonationSec = Math.max(0, Number(s.detonationSec || 0) - decPerSec * tickSec);
+          // 제한구역: 폭발 타이머 감소(휴대용 안전지대 전개 중이면 감소를 멈춥니다.)
+          const isProtected = Number(s.safeZoneUntil || 0) > absSec;
+          if (!isProtected) {
+            s.detonationSec = Math.max(0, Number(s.detonationSec || 0) - decPerSec * tickSec);
+          }
 
           // ⏳ 경고 로그(마일스톤) - 과도한 로그 방지
           const detFloor = Math.max(0, Math.floor(Number(s.detonationSec || 0)));
@@ -5912,6 +6019,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           // 폭발 타이머 만료 → 사망
           if (Number(s.detonationSec || 0) <= 0) {
+            s._deathAt = absSec;
+            s._deathBy = 'detonation';
             s.hp = 0;
             newlyDead.push(s);
             addLog(`💥 [${s.name}] 폭발 타이머가 0이 되어 사망했습니다. (구역: ${getZoneName(zoneId)})`, 'death');
@@ -5919,7 +6028,28 @@ const didMove = String(nextZoneId) !== String(currentZone);
         }
       }
 
-      // 반영
+      // ✅ 무승부 방지: 서든데스에서 전원 폭발로 0명이 되면, 가장 늦게 죽은 1명을 승자로 판정
+      if (suddenDeathActiveRef.current) {
+        const aliveNow = Array.from(aliveMap.values()).filter((x) => Number(x?.hp || 0) > 0);
+        if (aliveNow.length === 0) {
+          const deadNow = Array.from(aliveMap.values()).filter((x) => Number(x?.hp || 0) <= 0);
+          if (deadNow.length) {
+            const lastAt = Math.max(...deadNow.map((x) => Number(x?._deathAt || 0)));
+            const candidates = deadNow.filter((x) => Number(x?._deathAt || 0) === lastAt);
+            const winner = candidates[Math.floor(Math.random() * candidates.length)];
+            if (winner) {
+              // dead 목록에 들어간 winner를 되살리기
+              const idx = newlyDead.findIndex((d) => String(d?._id) === String(winner?._id));
+              if (idx >= 0) newlyDead.splice(idx, 1);
+              winner.hp = Math.max(1, Number(winner.hp || 1));
+              aliveMap.set(winner._id, winner);
+              addLog(`⚖️ 전원 폭발! 마지막까지 버틴 [${winner.name}] 승리(무승부 방지)`, 'highlight');
+            }
+          }
+        }
+      }
+
+// 반영
       updatedSurvivors = Array.from(aliveMap.values()).filter((s) => Number(s.hp || 0) > 0);
     }
 
