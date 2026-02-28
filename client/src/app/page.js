@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import '../styles/Home.css';
-import { API_BASE } from '../utils/api';
+import { getApiBase } from '../utils/api';
 
 export default function Home() {
   const [rankings, setRankings] = useState({ wins: [], kills: [], points: [] });
@@ -73,7 +73,7 @@ const myKillsTop3 = myCharTop3.kills;
         const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
         
         // 2. 데이터 요청
-        const res = await axios.get(`${API_BASE}/rankings`, config);
+        const res = await axios.get(`${getApiBase()}/rankings`, config);
         const payload = res.data;
 
         // 서버(/api/rankings)는 { wins:[], kills:[], points:[] } 형태로 내려줍니다.
@@ -138,8 +138,8 @@ const myKillsTop3 = myCharTop3.kills;
       {/* 1. 메인 타이틀 */}
       <section className="hero-section">
         <div className="hero-logo-container">
-            <span className="hero-logo-sub">PROJECT</span>
-            <span className="hero-logo-main">ARENA</span>
+            <span className="hero-logo-sub">ETERNAL</span>
+            <span className="hero-logo-main">HUNGER</span>
         </div>
         <p className="main-desc">나만의 캐릭터, 나만의 시나리오로 펼쳐지는 배틀로얄 시뮬레이터</p>
       </section>

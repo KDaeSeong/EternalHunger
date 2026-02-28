@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 
 const Item = require('../models/Item');
-const Map = require('../models/Map');
+const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
@@ -27,7 +27,7 @@ router.get('/items', async (req, res) => {
 
 router.get('/maps', async (req, res) => {
   try {
-    const maps = await Map.find({}).populate('connectedMaps', 'name');
+    const maps = await MapModel.find({}).populate('connectedMaps', 'name');
 
     // ✅ 맵 zones가 비어있으면, '기본 맵 구역' 세트를 응답에 주입합니다.
     // - DB를 강제로 수정하진 않습니다(응답 레벨에서만 보정).

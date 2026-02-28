@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const { upsertDefaultItemTree } = require('./utils/defaultItemTree');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,7 +14,16 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // DB 연결
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('💾 MongoDB 연결 성공!'))
+  .then(async () => {
+    console.log('💾 MongoDB 연결 성공!');
+    try {
+      // ✅ 기본 아이템/레시피 트리 자동 시드(빈 DB 대비)
+      await upsertDefaultItemTree({ mode: 'missing' });
+      console.log('🌱 기본 아이템 트리 시드 완료');
+    } catch (e) {
+      console.log('⚠️ 기본 아이템 트리 시드 실패:', e?.message || e);
+    }
+  })
   .catch(err => console.log('⚠️ DB 연결 실패:', err.message));
 
 // 라우터 연결 (분업화)

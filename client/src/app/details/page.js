@@ -84,8 +84,8 @@ export default function DetailsPage() {
             <li>
                 <Link href="/" className="logo-btn">
                 <div className="text-logo">
-                    <span className="logo-top">PROJECT</span>
-                    <span className="logo-main">ARENA</span>
+                    <span className="logo-top">ETERNAL</span>
+                    <span className="logo-main">HUNGER</span>
                 </div>
                 </Link>
             </li>

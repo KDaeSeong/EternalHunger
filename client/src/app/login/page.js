@@ -38,8 +38,8 @@ export default function LoginPage() {
       <div className="auth-card">
         {/* 로고 섹션 */}
         <div className="auth-logo">
-          <span className="logo-sub">PROJECT</span>
-          <span className="logo-main">ARENA</span>
+          <span className="logo-sub">ETERNAL</span>
+          <span className="logo-main">HUNGER</span>
         </div>
 
         <h2>반갑습니다!</h2>

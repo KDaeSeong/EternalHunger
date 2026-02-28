@@ -42,8 +42,8 @@ export default function SignupPage() {
       <div className="auth-card">
         {/* 로고 섹션 (메인 화면과 동일한 스타일) */}
         <div className="auth-logo">
-          <span className="logo-sub">PROJECT</span>
-          <span className="logo-main">ARENA</span>
+          <span className="logo-sub">ETERNAL</span>
+          <span className="logo-main">HUNGER</span>
         </div>
 
         <h2>새로운 참가자 등록</h2>

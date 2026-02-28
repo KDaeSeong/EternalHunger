@@ -17,7 +17,7 @@ export default function AdminKiosksPage() {
   const [message, setMessage] = useState('');
   const [q, setQ] = useState('');
 
-  const [createForm, setCreateForm] = useState({ kioskId: '', name: '키오스크', mapId: '', zoneId: '', x: 0, y: 0 });
+  const [createForm, setCreateForm] = useState({ kioskId: '', name: '키오스크', mapId: '', x: 0, y: 0 });
   const [editing, setEditing] = useState(null);
 
   const filtered = useMemo(() => {
@@ -55,7 +55,7 @@ export default function AdminKiosksPage() {
       };
       const res = await apiPost('/admin/kiosks', payload);
       setMessage(res?.message || '추가 완료');
-      setCreateForm({ kioskId: '', name: '키오스크', mapId: '', zoneId: '', x: 0, y: 0 });
+      setCreateForm({ kioskId: '', name: '키오스크', mapId: '', x: 0, y: 0 });
       await load();
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
@@ -68,7 +68,6 @@ export default function AdminKiosksPage() {
       kioskId: k.kioskId || '',
       name: k.name || '키오스크',
       mapId: k.mapId?._id || k.mapId || '',
-      zoneId: k.zoneId || '',
       x: Number(k.x || 0),
       y: Number(k.y || 0),
       catalog: Array.isArray(k.catalog) ? k.catalog.map((row) => ({
@@ -90,7 +89,6 @@ export default function AdminKiosksPage() {
         kioskId: editing.kioskId,
         name: editing.name,
         mapId: editing.mapId,
-        zoneId: editing.zoneId,
         x: Number(editing.x || 0),
         y: Number(editing.y || 0),
         catalog: (editing.catalog || []).map((row) => ({
@@ -131,6 +129,24 @@ export default function AdminKiosksPage() {
         <h1>키오스크</h1>
         <div className="admin-btn-row">
           <button className="admin-btn" onClick={load}>새로고침</button>
+          <button className="admin-btn" onClick={async () => {
+            try {
+              const r = await apiPost('/admin/kiosks/generate', { mode: 'missing' });
+              setMessage(r?.message || '키오스크 자동 생성 완료');
+              await load();
+            } catch (e) {
+              setMessage(e?.response?.data?.error || e.message);
+            }
+          }}>자동 생성</button>
+          <button className="admin-btn" onClick={async () => {
+            try {
+              const r = await apiPost('/admin/kiosks/normalize', {});
+              setMessage(r?.message || '키오스크 정규화 완료');
+              await load();
+            } catch (e) {
+              setMessage(e?.response?.data?.error || e.message);
+            }
+          }}>정규화</button>
         </div>
       </div>
 
@@ -164,11 +180,7 @@ export default function AdminKiosksPage() {
             </select>
           </div>
 
-          <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-            <div className="admin-field">
-              <label>zoneId(선택)</label>
-              <input value={createForm.zoneId} onChange={(e) => setCreateForm({ ...createForm, zoneId: e.target.value })} placeholder="Z1" />
-            </div>
+          <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <div className="admin-field">
               <label>x</label>
               <input type="number" value={createForm.x} onChange={(e) => setCreateForm({ ...createForm, x: e.target.value })} />
@@ -251,11 +263,7 @@ export default function AdminKiosksPage() {
                   {maps.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </select>
               </div>
-              <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-                <div className="admin-field">
-                  <label>zoneId</label>
-                  <input value={editing.zoneId} onChange={(e) => setEditing({ ...editing, zoneId: e.target.value })} />
-                </div>
+              <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                 <div className="admin-field">
                   <label>x</label>
                   <input type="number" value={editing.x} onChange={(e) => setEditing({ ...editing, x: e.target.value })} />

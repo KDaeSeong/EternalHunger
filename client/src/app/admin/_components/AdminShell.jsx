@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNav from './AdminNav';
+import { getApiBase } from '../../../utils/api';
 
 function normalizeToken(raw) {
   if (!raw) return null;
@@ -77,7 +78,8 @@ async function fetchUserInfo(token) {
   const t = setTimeout(() => controller.abort(), 2500);
 
   try {
-    const candidates = ['/api/user/me', '/api/user'];
+    const base = getApiBase();
+    const candidates = [`${base}/user/me`, `${base}/user`];
     const headers = {};
 
     const v = normalizeToken(token);
@@ -87,7 +89,6 @@ async function fetchUserInfo(token) {
 
     for (const url of candidates) {
       const res = await fetch(url, {
-        credentials: 'include',
         headers,
         signal: controller.signal,
       });

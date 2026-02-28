@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
     {
       href: '/admin/maps',
       name: '맵/구역',
-      desc: '구역/금지구역/시간대 조건 등 맵 데이터 관리',
+      desc: '맵 목록 정리 + 키오스크 자동 생성/정규화',
     },
     {
       href: '/board',
@@ -58,7 +58,7 @@ export default function AdminDashboardPage() {
       <div>
         <div style={title}>관리자 대시보드</div>
         <div style={sub}>
-          여기서부터 관리 기능을 확장해 나가자. (이번 단계는 404 방지용 스텁 페이지)
+          여기서 아이템/맵/키오스크/드론/특전 등 운영 데이터를 통합 관리합니다.
         </div>
       </div>
 
@@ -82,7 +82,7 @@ export default function AdminDashboardPage() {
         <div style={{ fontWeight: 900 }}>다음에 바로 할 것(예정)</div>
         <ul style={{ marginTop: 10, paddingLeft: 18, lineHeight: 1.6 }}>
           <li>아이템 관리자: 리스트/검색/추가/수정/삭제(페이지 내 수정 모드)</li>
-          <li>맵 관리자: 맵 선택 + 구역/금지구역 편집 + 조건 프리뷰</li>
+          <li>맵 관리자: 맵 목록 정리 + 키오스크 자동 생성/정규화 + (추후) 금지구역 스케줄 편집</li>
           <li>서버 인증 스키마 고정: /api/auth/me 같은 단일 엔드포인트로 통일</li>
         </ul>
       </div>

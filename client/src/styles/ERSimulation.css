@@ -152,7 +152,7 @@
     width: 60px;   /* 이미지 조금 키움 */
     height: 60px;
     border-radius: 50%;
-    object-fit: cover;
+    object-fit: contain;
     border: 3px solid #ddd; /* 테두리 조금 두껍게 */
     margin-bottom: 5px;
     background: white; /* 투명 배경 이미지 대비 */
@@ -261,6 +261,39 @@
   opacity: 0.95;
 }
 
+
+/* 월드스폰 툴바 */
+.worldspawn-toolbar {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(10, 14, 25, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+  color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.worldspawn-toolbar .ws-title {
+  font-weight: 850;
+  letter-spacing: 0.2px;
+}
+
+.worldspawn-toolbar .ws-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.worldspawn-toolbar .ws-chip b {
+  color: rgba(255,255,255,0.98);
+}
+
 /* 로그 창 */
 .log-window {
   /* 로그 길이에 맞춰 창 높이가 유동적으로 변하도록(과도한 빈 공간 방지) */
@@ -317,7 +350,7 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  object-fit: cover;
+  object-fit: contain;
   flex: 0 0 auto;
   border: 1px solid rgba(255,255,255,0.10);
   background: rgba(0,0,0,0.25);
@@ -527,7 +560,7 @@
     height: 120px;
     border-radius: 50%;
     border: 5px solid #ffd700;
-    object-fit: cover;
+    object-fit: contain;
     margin-bottom: 10px; /* 이미지와 이름 사이 간격 */
     /* 혹시 모를 마진 초기화 */
     margin-left: 0;
@@ -996,12 +1029,17 @@
 .minimap-canvas {
   position: relative;
   width: 100%;
-  max-width: 520px;
-  height: 240px;
+  max-width: none;
+  height: 420px;
+  margin: 0 auto;
   border-radius: 12px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.minimap-panel.modal-open .minimap-canvas {
+  height: min(70vh, 760px);
 }
 
 .minimap-bg {
@@ -1009,9 +1047,9 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  opacity: 0.62;
-  filter: saturate(0.9) contrast(1.05);
+  object-fit: contain;
+  opacity: 0.88;
+  filter: saturate(1.05) contrast(1.15);
   user-select: none;
   pointer-events: none;
 }
@@ -1030,14 +1068,14 @@
 }
 
 .minimap-edge {
-  stroke: rgba(255, 255, 255, 0.18);
-  stroke-width: 0.8;
+  stroke: rgba(255, 255, 255, 0.30);
+  stroke-width: 1.2;
 }
 
 .minimap-node {
-  fill: rgba(0, 0, 0, 0.34);
-  stroke: rgba(255, 255, 255, 0.22);
-  stroke-width: 0.9;
+  fill: rgba(0, 0, 0, 0.42);
+  stroke: rgba(255, 255, 255, 0.32);
+  stroke-width: 1.2;
 }
 
 .minimap-node.forbidden {
@@ -1056,7 +1094,7 @@
 }
 
 .minimap-ping {
-  transform-origin: center;
+  display: none;
 }
 
 .minimap-ping circle {
