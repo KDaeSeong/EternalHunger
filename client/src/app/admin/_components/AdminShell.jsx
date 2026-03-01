@@ -123,7 +123,7 @@ export default function AdminShell({ children }) {
     let canceled = false;
 
     (async () => {
-      // 1) localStorage 토큰이 있으면 쿠키로 동기화해서 Next middleware 가드도 통과하게 함
+      // 1) localStorage 토큰이 있으면 쿠키로 동기화해서 Next proxy 가드도 통과하게 함
       const token = readToken();
       if (token) {
         try {

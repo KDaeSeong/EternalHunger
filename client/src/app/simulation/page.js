@@ -5094,7 +5094,7 @@ if (w) {
       if (!suddenDeathActiveRef.current) {
         suddenDeathActiveRef.current = true;
         if (typeof suddenDeathEndAtSecRef.current !== 'number') suddenDeathEndAtSecRef.current = matchSec + sdTotalSec;
-        addLog(`=== 서든데스 발동: 전 지역 금지 + 카운트다운 ${sdTotalSec}s ===`, 'day-header');
+        addLog(`=== 서든데스 발동: 최종 안전구역 2곳 제외 전지역 금지 + 카운트다운 ${sdTotalSec}s ===`, 'day-header');
       }
       // 페이즈는 최대 6일차 밤에서 고정
       nextDay = 6;
@@ -5172,7 +5172,6 @@ if (w) {
       }
 
       addLog(`🟩 최종 안전구역: ${safePick.map((z) => getZoneName(z)).join(', ')}`, 'highlight');
-    }
     }
 
     setForbiddenAddedNow(newlyAddedForbidden);
@@ -7086,13 +7085,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
     // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
-    // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
-    // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
     // NOTE: off-map 생존자(관전/퇴장) 분기는 아직 미사용이므로 finalStepSurvivors만 저장한다.
-    await persistSimEquipmentsFromChars(
+    persistSimEquipmentsFromChars(
       (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
       `phase:d${nextDay}_${nextPhase}`
-    );
+    ).catch(() => {});
 
 
     // SD 서든데스: 카운트다운 종료 시 강제 결판(최후 1인)
@@ -7112,7 +7109,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       setSurvivors([wForced]);
       setMatchSec((prev) => prev + phaseDurationSec);
       addLog(`⏱ 서든데스 종료! 제한시간 만료로 [${wForced.name}] 승리`, 'highlight');
-      await finishGame([wForced], updatedKillCounts, updatedAssistCounts);
+      finishGame([wForced], updatedKillCounts, updatedAssistCounts);
       return;
     }
 
@@ -7127,27 +7124,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     // 5.6) 크레딧 적립(페이즈 보상 + 처치 보상 등)
     if (earnedCredits > 0) {
-      try {
-        const res = await apiPost('/credits/earn', { amount: earnedCredits });
-        if (typeof res?.credits === 'number') setCredits(res.credits);
-} catch (e) {
-        // 서버가 꺼져있거나 네트워크 이슈가 있어도 시뮬레이션은 진행되도록
-}
+      apiPost('/credits/earn', { amount: earnedCredits })
+        .then((res) => {
+          if (typeof res?.credits === 'number') setCredits(res.credits);
+        })
+        .catch(() => {});
     }
 
     if (finalStepSurvivors.length <= 1) {
       finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
     }
-
-  // ✅ 생존자 1명(또는 0명) 남으면 즉시 종료(틱/타이머 사망도 포함)
-  useEffect(() => {
-    if (loading || isGameOver) return;
-    if (day === 0) return;
-    if (!Array.isArray(survivors)) return;
-    if (survivors.length > 1) return;
-    finishGame(survivors, killCounts, assistCounts);
-  }, [survivors.length, day, loading, isGameOver]);
-
   };
 
   // 🔄 서버 맵 설정 새로고침(관리자에서 수정한 crateAllowDeny 등 즉시 반영용)
@@ -7226,6 +7212,16 @@ if (showMarketPanel && pendingTranscendPick) {
   useEffect(() => {
     proceedPhaseGuardedRef.current = proceedPhaseGuarded;
   });
+
+  // ✅ 생존자 1명(또는 0명) 남으면 즉시 종료(틱/타이머 사망도 포함)
+  useEffect(() => {
+    if (loading || isGameOver) return;
+    if (day === 0) return;
+    if (!Array.isArray(survivors)) return;
+    if (survivors.length > 1) return;
+    finishGame(survivors, killCounts, assistCounts);
+  }, [survivors.length, day, loading, isGameOver]);
+
 
   // ▶ 오토 플레이: matchSec(페이즈 종료 시 증가)를 트리거로 다음 페이즈를 자동 진행
   useEffect(() => {
