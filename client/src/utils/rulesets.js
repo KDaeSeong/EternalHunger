@@ -45,16 +45,16 @@ const DEFAULT_FIELD_CRATE_DROP = {
 // - 시뮬레이터 전용: 서버 마켓 API와 별개로 동작합니다.
 const DEFAULT_MARKET_RULES = {
   kiosk: {
-    gate: { day: 2, phase: 'day' },
+    gate: { day: 1, phase: 'night' },
     // 목표(조합) 기반이면 더 적극적으로 이용
     chanceNeed: 0.22,
     chanceIdle: 0.10,
     // 판매 카테고리 토글
     categories: { vf: true, legendary: true, basic: true },
     prices: {
-      vf: 500,
-      basic: 120,
-      legendaryByKey: { meteor: 650, life_tree: 650, mithril: 900, force_core: 1200 },
+      vf: 30,
+      basic: 8,
+      legendaryByKey: { meteor: 12, life_tree: 12, mithril: 18, force_core: 24 },
     },
     buySuccess: { vf: 0.85, legendary: 0.85, basic: 0.75 },
     exchange: { consumeUnits: 3, chanceNeed: 0.75, chanceFallback: 0.60 },
@@ -63,7 +63,7 @@ const DEFAULT_MARKET_RULES = {
   drone: {
     enabled: true,
     // 드론은 하급 보급(즉시 지급)용: 고정 가격
-    price: 140,
+    price: 10,
     // 인벤이 비었거나 목표 재료가 있으면 조금 더 자주 호출
     chanceNeedLowInv: 0.20,
     chanceNeedDefault: 0.12,
@@ -73,7 +73,7 @@ const DEFAULT_MARKET_RULES = {
     // 목표 재료 가중치
     needWeightMul: 8,
     needFallbackWeight: 5,
-    needFallbackPrice: 140,
+    needFallbackPrice: 10,
     fallbackKeywords: [
       '천', '가죽', '철', '돌', '나뭇',
       'wood', 'leather', 'fabric', 'iron', 'stone',
@@ -85,7 +85,7 @@ const DEFAULT_MARKET_RULES = {
 // - 스폰/개봉/픽업/보스 드랍을 page.js 하드코딩에서 분리
 const DEFAULT_WORLD_SPAWNS = {
   core: {
-    gateDay: 2,
+    gateDay: 1,
     perDayMax: 2,
     scaleDiv: 7,
     pickChance: {

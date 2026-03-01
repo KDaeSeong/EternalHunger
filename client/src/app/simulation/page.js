@@ -1942,8 +1942,8 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
   const wantTrans = isAtOrAfterWorldTime(day, phase, 5, 'day') && minTier < 6;
 
   // 크레딧 파밍 필요(키오스크 구매/후반 세팅 가속)
-  const needCreditsForLegend = wantLegend && simCredits < 650;
-  const needCreditsForTrans = wantTrans && simCredits < 520;
+  const needCreditsForLegend = wantLegend && simCredits < 28;
+  const needCreditsForTrans = wantTrans && simCredits < 45;
   const farmCredits = needCreditsForLegend || needCreditsForTrans;
 
   return {
@@ -2014,7 +2014,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       result.reason = 'VF(위클라인)';
       return result;
     }
-    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= 500 && kioskZones.length) {
+    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= 30 && kioskZones.length) {
       result.targets = kioskZones;
       result.reason = 'VF(키오스크)';
       return result;
@@ -2041,7 +2041,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
         .map((n) => String(n.zoneId))
         .filter((zid) => zid && !forbiddenIds.has(String(zid)))
     );
-    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && coreTargetsAny.length) {
+    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargetsAny.length) {
       result.targets = coreTargetsAny;
       result.reason = '특수재료(자연코어)';
       return result;
@@ -2058,7 +2058,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && kioskZones.length && simCredits >= 800) {
+    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 12) {
       result.targets = kioskZones;
       result.reason = '특수재료(키오스크)';
       return result;
@@ -2084,7 +2084,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
     }
 
     // 키오스크 구매/교환이 가능한 시점이면 키오스크도 후보로
-    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && kioskZones.length && simCredits >= 800) {
+    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 12) {
       result.targets = kioskZones;
       result.reason = '자연코어(키오스크)';
       return result;
@@ -2111,7 +2111,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && kioskZones.length && simCredits >= 900) {
+    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 18) {
       result.targets = kioskZones;
       result.reason = '미스릴(키오스크)';
       return result;
@@ -2138,7 +2138,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 2, 'day') && kioskZones.length && simCredits >= 1200) {
+    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 24) {
       result.targets = kioskZones;
       result.reason = '포스코어(키오스크)';
       return result;
@@ -2177,7 +2177,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       .map((n) => String(n.zoneId))
       .filter((zid) => zid && !forbiddenIds.has(String(zid)))
   );
-  if (isAtOrAfterWorldTime(day, phase, 2, 'day') && coreTargets.length && Math.random() < 0.12) {
+  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && Math.random() < 0.22) {
     result.targets = coreTargets;
     result.reason = '자연코어 탐색';
     return result;
@@ -2727,19 +2727,25 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
 
   if (!drops.length) return null;
 
-  // ✅ ER 참고: 야생동물 사냥으로 크레딧 획득(파밍→키오스크 루프 강화)
-  // - 종별/일차에 따라 소폭 스케일
-  const dayScale = 1 + Math.min(0.7, Math.max(0, (Number(curDay || 1) - 1) * 0.12));
-  let crMin = 4;
-  let crMax = 8;
+  // ✅ ER 참고: 야생동물 사냥으로 크레딧 획득
+  // - 수치는 ER 크레딧 감각(야생동물 소량, 변이/보스는 더 큼)에 맞춰 낮게 유지
+  // - 대신 "장비가 뒤처진" 실험체는 파밍으로 역전 기회를 더 잘 잡도록 보정(언더독 보너스)
+  const dayScale = 1 + Math.min(0.35, Math.max(0, (Number(curDay || 1) - 1) * 0.08));
+  let crMin = 1;
+  let crMax = 3;
   const k0 = String(species?.key || '').toLowerCase();
-  if (k0 === 'chicken') { crMin = 4; crMax = 8; }
-  else if (k0 === 'boar') { crMin = 6; crMax = 11; }
-  else if (k0 === 'bat') { crMin = 4; crMax = 7; }
-  else if (k0 === 'dog') { crMin = 7; crMax = 12; }
-  else if (k0 === 'wolf') { crMin = 8; crMax = 14; }
-  else if (k0 === 'bear') { crMin = 10; crMax = 16; }
-  const credits = Math.max(0, randInt(Math.floor(crMin * dayScale), Math.floor(crMax * dayScale)));
+  if (k0 === 'chicken') { crMin = 2; crMax = 4; }
+  else if (k0 === 'bat') { crMin = 1; crMax = 3; }
+  else if (k0 === 'boar') { crMin = 3; crMax = 5; }
+  else if (k0 === 'dog') { crMin = 3; crMax = 5; }
+  else if (k0 === 'wolf') { crMin = 4; crMax = 6; }
+  else if (k0 === 'bear') { crMin = 5; crMax = 7; }
+
+  const tierSum = getEquipTierSummary(actor);
+  const avgTier = (Number(tierSum.weaponTier || 0) + Number(tierSum.armorTierSum || 0) / 4) / 2;
+  const underdogMul = (Number(curDay || 1) >= 3 && avgTier <= 3.2) ? 1.6 : (Number(curDay || 1) >= 4 && avgTier <= 4.2) ? 1.3 : 1.0;
+
+  const credits = Math.max(0, Math.floor(randInt(Math.floor(crMin * dayScale), Math.floor(crMax * dayScale)) * underdogMul));
 
   const dmgBase = species?.key === 'bear' ? 11 : species?.key === 'wolf' ? 9 : species?.key === 'boar' ? 8 : species?.key === 'bat' ? 6 : 4;
   const dmg = Math.max(0, dmgBase - Math.floor(p / 18));
@@ -3500,6 +3506,106 @@ function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   return { changed: false, logs };
 }
 
+
+
+// ===============================
+// ✅ 즉시 제작: 특수 재료 획득 즉시 전설(T5)/초월(T6) 장비 제작
+// - 운석/생나/미스릴/포스코어: 전설(T5)
+// - VF 혈액 샘플: 초월(T6)
+// - 인벤이 꽉 차면 하급 재료 1스택을 버리고 공간을 만듭니다.
+// - 과도한 로그/과속 방지를 위해 페이즈당 최대 2회까지만 허용합니다.
+// ===============================
+function ensureRoomForEquipment(inv, ruleset, itemMetaById, itemNameById) {
+  const list = Array.isArray(inv) ? [...inv] : [];
+  const rules = getInvRules(ruleset);
+  if (list.length < Number(rules.maxSlots || 10)) return list;
+
+  // 1) 장비가 아닌 것(재료/소모품)부터 버림
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const it = list[i];
+    const cat = inferItemCategory(it);
+    if (cat === 'equipment') continue;
+    // 특수 재료(VF/운석/생나/미스릴/포코)는 버리지 않음
+    const nm = String(it?.name || itemNameById?.[String(it?.itemId || it?.id || '')] || itemMetaById?.[String(it?.itemId || it?.id || '')]?.name || '');
+    const sk = classifySpecialByName(nm);
+    if (sk) continue;
+
+    const q = Math.max(1, Number(it?.qty || 1));
+    if (q > 1) list[i] = { ...it, qty: q - 1 };
+    else list.splice(i, 1);
+    return list;
+  }
+
+  // 2) 그래도 꽉 차면: 마지막 아이템 1개를 제거(최후 수단)
+  list.pop();
+  return list;
+}
+
+function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNameById, itemMetaById, curDay, curPhase, phaseIdxNow, ruleset) {
+  if (!actor || typeof actor !== 'object') return { changed: false, logs: [], pvpBonus: 0 };
+  const k = String(specialKind || '');
+  if (!k) return { changed: false, logs: [], pvpBonus: 0 };
+
+  const targetTier = (k === 'vf') ? 6 : 5;
+  const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
+
+  // 페이즈당 과도한 즉시 제작 방지
+  const idxNow = Number(phaseIdxNow || 0);
+  if (Number(actor?._specialCraftPhaseIdx ?? -9999) !== idxNow) {
+    actor._specialCraftPhaseIdx = idxNow;
+    actor._specialCraftCount = 0;
+  }
+  const cnt = Math.max(0, Number(actor?._specialCraftCount || 0));
+  if (cnt >= 2) return { changed: false, logs: [], pvpBonus: 0 };
+
+  const sid = String(specialItemId || '');
+  if (!sid) return { changed: false, logs: [], pvpBonus: 0 };
+  if (invQty(inv0, sid) <= 0) return { changed: false, logs: [], pvpBonus: 0 };
+
+  let inv = normalizeInventory(inv0, ruleset);
+
+  // 어떤 슬롯을 올릴지: 현재 최저 티어 슬롯부터
+  const slotTier = (slot) => {
+    const best = pickBestEquipBySlot(inv, slot);
+    return best ? clampTier4(Number(best?.tier || 1)) : 0;
+  };
+  const slotOrder = EQUIP_SLOTS.slice().sort((a, b) => (slotTier(a) - slotTier(b)) || String(a).localeCompare(String(b)));
+  const slotPick = slotOrder.find((s) => slotTier(s) < targetTier) || null;
+  if (!slotPick) return { changed: false, logs: [], pvpBonus: 0 };
+
+  // 무기 타입은 캐릭터 선호 기준으로
+  const preferredWeaponType = String(actor?.weaponType || '').trim();
+  const wType = START_WEAPON_TYPES.includes(preferredWeaponType)
+    ? preferredWeaponType
+    : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
+  const wTypeNorm = normalizeWeaponType(wType);
+
+  const gear = createEquipmentItem({ slot: slotPick, day: Number(curDay || 0), tier: targetTier, weaponType: slotPick === 'weapon' ? wTypeNorm : '' });
+
+  // 공간 확보
+  inv = ensureRoomForEquipment(inv, ruleset, itemMetaById, itemNameById);
+  if (!canReceiveItem(inv, gear, gear.itemId, 1, ruleset)) return { changed: false, logs: [], pvpBonus: 0 };
+
+  // 재료 소모(특수 재료 1개)
+  inv = consumeIngredientsFromInv(inv, [{ itemId: sid, qty: 1 }]);
+
+  inv = addItemToInventory(inv, gear, gear.itemId, 1, Number(curDay || 0), ruleset);
+  const meta = inv?._lastAdd;
+  const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
+  if (got <= 0) return { changed: false, logs: [], pvpBonus: 0 };
+
+  actor.inventory = inv;
+  autoEquipBest(actor, itemMetaById);
+  actor._specialCraftCount = cnt + 1;
+
+  const label = (k === 'vf') ? 'VF→초월' : (k === 'force_core') ? '포스코어→전설' : (k === 'mithril') ? '미스릴→전설' : (k === 'meteor') ? '운석→전설' : (k === 'life_tree') ? '생나→전설' : '특수재료→전설';
+  const logs = [`⚒️ [${actor?.name}] 즉시 제작: ${label} → ${SLOT_ICON[slotPick] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(targetTier)})${formatInvAddNote(meta, 1, inv, ruleset)}`];
+
+  // 수집/제작은 소음이 커서 교전을 유발(다음 페이즈 + 즉시 표적)
+  const pvpBonus = (k === 'vf') ? 0.55 : 0.35;
+
+  return { changed: true, logs, inventory: inv, pvpBonus };
+}
 // --- 운석 + 생명의 나무 수액 → 포스 코어(간단 자동 조합) ---
 const MAT_METEOR_ID = 'mat_meteor';
 const MAT_TREE_ID = 'mat_world_tree';
@@ -5649,7 +5755,20 @@ const didMove = String(nextZoneId) !== String(currentZone);
           addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] x${got}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
           emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), qty: got, source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
-          const craftedN = tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+          const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+          if (immediateCore?.changed) {
+            updated.inventory = immediateCore.inventory;
+            (Array.isArray(immediateCore.logs) ? immediateCore.logs : []).forEach((m) => addLog(String(m), 'highlight'));
+          }
+          if (Number(immediateCore?.pvpBonus || 0) > 0) {
+            const pb = Number(immediateCore.pvpBonus || 0);
+            updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
+            updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+            updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
+            updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
+          }
+
+          const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
           if (craftedN) {
             updated.inventory = craftedN.inventory;
             addLog(`[${updated.name}] ${craftedN.log}`, 'normal');
@@ -5676,6 +5795,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
             addLog(`💳 [${updated.name}] ${isBossReward ? '보스 처치 보상' : isMutantReward ? '변이 야생동물 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+            if (isBossReward) {
+              const pb = 0.45;
+              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
+              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
+              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
+            }
           }
 
 
@@ -5691,7 +5818,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] x${got}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(d.itemId || ''), qty: got, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
-            const craftedH = tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+            const specialKind = classifySpecialByName(nm);
+            const immediateH = tryImmediateCraftFromSpecial(updated, specialKind, String(d.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+            if (immediateH?.changed) {
+              updated.inventory = immediateH.inventory;
+              (Array.isArray(immediateH.logs) ? immediateH.logs : []).forEach((m) => addLog(String(m), 'highlight'));
+            }
+            if (Number(immediateH?.pvpBonus || 0) > 0) {
+              const pb = Number(immediateH.pvpBonus || 0);
+              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
+              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
+              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
+            }
+
+            const craftedH = immediateH?.changed ? null : tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
             if (craftedH) {
               updated.inventory = craftedH.inventory;
               addLog(`[${updated.name}] ${craftedH.log}`, 'normal');
@@ -5714,6 +5855,20 @@ const didMove = String(nextZoneId) !== String(currentZone);
           addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] x${got} 획득${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
           emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), qty: got, source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
+          const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
+          const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+          if (immediateLMain?.changed) {
+            updated.inventory = immediateLMain.inventory;
+            (Array.isArray(immediateLMain.logs) ? immediateLMain.logs : []).forEach((m) => addLog(String(m), 'highlight'));
+          }
+          if (Number(immediateLMain?.pvpBonus || 0) > 0) {
+            const pb = Number(immediateLMain.pvpBonus || 0);
+            updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
+            updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+            updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
+            updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
+          }
+
           // 크레딧 보상 + 추가드랍(룰셋 기반)
           const legCr = Math.max(0, Number(legendary?.credits || 0));
           if (legCr > 0) {
@@ -5732,11 +5887,25 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const nmB = bd.item?.name || '전설 재료';
             addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] x${gotB}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), qty: gotB, source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+            const specialLBKind = classifySpecialByName(String(bd?.item?.name || nmB || ''));
+            const immediateLB = tryImmediateCraftFromSpecial(updated, specialLBKind, String(bd.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+            if (immediateLB?.changed) {
+              updated.inventory = immediateLB.inventory;
+              (Array.isArray(immediateLB.logs) ? immediateLB.logs : []).forEach((m) => addLog(String(m), 'highlight'));
+            }
+            if (Number(immediateLB?.pvpBonus || 0) > 0) {
+              const pb = Number(immediateLB.pvpBonus || 0);
+              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
+              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
+              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
+            }
           }
 
 
           // 전설 재료도 즉시 조합 트리거(선택적)
-          const craftedL = tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+          const craftedL = (typeof immediateLMain !== 'undefined' && immediateLMain?.changed) ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
           if (craftedL) {
             updated.inventory = craftedL.inventory;
             addLog(`[${updated.name}] ${craftedL.log}`, 'normal');
@@ -5764,7 +5933,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
             didProcure = true;
 
             // 구매 아이템도 즉시 조합 트리거(선택적)
-            const craftedK = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+            const specialKKind = classifySpecialByName(String(kioskAction?.item?.name || itemNm || ''));
+            const immediateK = tryImmediateCraftFromSpecial(updated, specialKKind, String(kioskAction.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+            if (immediateK?.changed) {
+              updated.inventory = immediateK.inventory;
+              (Array.isArray(immediateK.logs) ? immediateK.logs : []).forEach((m) => addLog(String(m), 'highlight'));
+            }
+            if (Number(immediateK?.pvpBonus || 0) > 0) {
+              const pb = Number(immediateK.pvpBonus || 0);
+              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
+              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
+              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
+              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
+            }
+
+            const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
             if (craftedK) {
               updated.inventory = craftedK.inventory;
               addLog(`[${updated.name}] ${craftedK.log}`, 'normal');
@@ -8006,7 +8189,6 @@ const gainDetailSummary = useMemo(() => {
                     const isF = forbiddenNow.has(id);
                     const isSelZone = !!selectedZoneId && selectedZoneId === id;
                     const nm = String(getZoneName(id) || id);
-                    const label = nm.length <= 2 ? nm : nm.slice(0, 2);
                     const aliveHere = aliveByZone[id]?.length || 0;
                     const deadHere = deadByZone[id]?.length || 0;
 
@@ -8018,9 +8200,8 @@ const gainDetailSummary = useMemo(() => {
                           r={6.2}
                           className={`minimap-node ${isF ? 'forbidden' : ''} ${isSelZone ? 'selected' : ''}`}
                         />
-                        <text x={p.x} y={p.y + 0.9} textAnchor="middle" fontSize="3.4" fill="rgba(255,255,255,0.92)">
-                          {label}
-                        </text>
+                        {/* 배경 지도(하이퍼루프 이미지)에 이미 지역명이 있으므로, SVG 텍스트 라벨은 숨긴다. */}
+                        <title>{nm}</title>
 
                         {/* 하이퍼루프 패드 */}
                         {String(hyperloopPadZoneId || '') === id ? (
@@ -8284,8 +8465,8 @@ const gainDetailSummary = useMemo(() => {
                           : survivors.length <= 1
                             ? '🏆 결과 확인하기'
                             : phase === 'morning'
-                              ? '🌙 밤으로 진행'
-                              : '🌞 다음 날 낮으로 진행'}
+                              ? (day >= 6 ? '🔥 서든데스 진행' : '🌙 밤으로 진행')
+                              : (day >= 6 ? '🔥 서든데스 진행' : '🌞 다음 날 낮으로 진행')}
                 </button>
               )}
 

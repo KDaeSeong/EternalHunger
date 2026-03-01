@@ -1028,9 +1028,14 @@
 
 .minimap-canvas {
   position: relative;
-  width: 100%;
-  max-width: none;
-  height: 420px;
+  /*
+    미니맵과 배경 이미지(ERMap.webp)를 1:1로 정확히 맞추기 위해
+    캔버스를 정사각형(aspect-ratio)으로 고정한다.
+    - object-fit: contain에서 생기는 레터박스(여백) 때문에 SVG 오버레이가 틀어지던 문제 해결
+  */
+  width: min(100%, 520px);
+  aspect-ratio: 1 / 1;
+  height: auto;
   margin: 0 auto;
   border-radius: 12px;
   overflow: hidden;
@@ -1039,7 +1044,8 @@
 }
 
 .minimap-panel.modal-open .minimap-canvas {
-  height: min(70vh, 760px);
+  width: min(92vw, 760px);
+  max-height: min(78vh, 760px);
 }
 
 .minimap-bg {
