@@ -193,6 +193,17 @@ function shortText(s, maxLen = 8) {
   return str.slice(0, Math.max(0, maxLen - 1)) + '…';
 }
 
+function hash32(str) {
+  const s = String(str || "");
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0);
+}
+
+
 function extractActorNameFromLog(text) {
   const t = String(text || '');
   const m = t.match(/\[([^\]]+)\]/);
@@ -574,19 +585,26 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
 
 // --- 전설 재료 상자(필드 드랍): 3일차 '낮' 이후부터 맵 곳곳에서 발견 가능 ---
+function normalizeMatchKey(v) {
+  return String(v || '').toLowerCase()
+    .replace(/s+/g, '')
+    .replace(/[·・-_.(),]/g, '');
+}
+
 function findItemByKeywords(publicItems, keywords) {
   const list = Array.isArray(publicItems) ? publicItems : [];
   const keys = (Array.isArray(keywords) ? keywords : [])
-    .map((k) => String(k || '').toLowerCase())
+    .map((k) => normalizeMatchKey(k))
     .filter(Boolean);
   if (!keys.length) return null;
   return (
     list.find((it) => {
-      const name = String(it?.name || it?.text || '').toLowerCase();
+      const name = normalizeMatchKey(it?.name || it?.text || '');
       return keys.some((k) => name.includes(k));
     }) || null
   );
 }
+
 
 function getLegendaryCoreCandidates(publicItems, weightsByKey = null) {
   const w = (weightsByKey && typeof weightsByKey === 'object') ? weightsByKey : {};
@@ -1400,21 +1418,30 @@ function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, ac
   const ws = ruleset?.worldSpawns || {};
   const coreRule = ws?.core || {};
 
-  // 스폰된 코어는 "존재하면 꽤 높은 확률로" 주워가는 느낌(밤엔 덜 적극적)
-  const moved = !!opts.moved;
-  const timeOfDay = getTimeOfDayFromPhase(curPhase);
-  const pc = coreRule?.pickChance || {};
-  const byTod = (timeOfDay === 'day' ? pc.day : pc.night) || {};
-  const chance = moved
-    ? Number(byTod?.moved ?? (timeOfDay === 'day' ? 0.85 : 0.55))
-    : Number(byTod?.stay ?? (timeOfDay === 'day' ? 0.65 : 0.35));
-  if (Math.random() >= chance) return null;
+  // 스폰된 코어는 "존재하면 거의 무조건" 주워가는 느낌(ER 메인 오브젝트)
+  // - 필요하면 룰셋에서 alwaysPick=false로 되돌릴 수 있음
+  const alwaysPick = coreRule?.alwaysPick !== false;
+  if (!alwaysPick) {
+    const moved = !!opts.moved;
+    const timeOfDay = getTimeOfDayFromPhase(curPhase);
+    const pc = coreRule?.pickChance || {};
+    const byTod = (timeOfDay === 'day' ? pc.day : pc.night) || {};
+    const chance = moved
+      ? Number(byTod?.moved ?? (timeOfDay === 'day' ? 0.85 : 0.55))
+      : Number(byTod?.stay ?? (timeOfDay === 'day' ? 0.65 : 0.35));
+    if (Math.random() >= chance) return null;
+  }
 
   const kind = String(node?.kind || '');
   let item = null;
   if (kind === 'meteor') item = findItemByKeywords(publicItems, ['운석', 'meteor']);
   if (kind === 'life_tree') item = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
 
+  if (!item?._id) {
+    // ✅ 서버 아이템 트리에 특수 재료가 없거나 이름이 달라도 시뮬이 멈추지 않도록 "가상 아이템" 생성
+    if (kind === 'meteor') item = { _id: 'SIM_MATERIAL_METEOR', name: '운석', type: '재료', tier: 4, tags: ['legendary_core', 'meteor'] };
+    if (kind === 'life_tree') item = { _id: 'SIM_MATERIAL_LIFETREE', name: '생명의 나무', type: '재료', tier: 4, tags: ['legendary_core', 'life_tree'] };
+  }
   if (!item?._id) return null;
 
   node.picked = true;
@@ -1992,6 +2019,25 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
   const needLife = needKeys.has('life_tree');
   const needMithril = needKeys.has('mithril');
   const needForce = needKeys.has('force_core');
+
+  // 0) 메인 오브젝트(자연코어) 우선: 운석/생나 스폰이 떠 있으면 크레딧 파밍보다 먼저 달려감
+  const activeCoreZones = uniqStrings(
+    coreNodes
+      .filter((n) => n && !n.picked && n.zoneId)
+      .map((n) => String(n.zoneId))
+      .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+  );
+  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && activeCoreZones.length) {
+    const key = String(actor?._id || actor?.id || actor?.name || '');
+    const roll = (hash32(key) % 100) / 100;
+    const forceContest = (wantLegendAny && !hasLegendMatAny) || needMeteor || needLife || needMithril || needForce || needVf;
+    const contest = forceContest || roll < 0.78;
+    if (contest) {
+      result.targets = activeCoreZones;
+      result.reason = '메인오브젝트(자연코어)';
+      return result;
+    }
+  }
 
   // 0) 크레딧 파밍(야생동물 밀집 존): 키오스크 구매/후반 제작이 막힐 때 우선
   if (farmCredits && s?.wildlife && typeof s.wildlife === 'object') {
