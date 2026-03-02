@@ -73,40 +73,37 @@ const ItemSchema = new mongoose.Schema({
 });
 
 // value <-> baseCreditValue 동기화
-ItemSchema.pre('validate', function syncCreditValues(next) {
-  try {
-    if (typeof this.value === 'number' && (this.baseCreditValue === undefined || this.baseCreditValue === null)) {
-      this.baseCreditValue = this.value;
-    }
-    if (typeof this.baseCreditValue === 'number' && (this.value === undefined || this.value === null)) {
-      this.value = this.baseCreditValue;
-    }
-    // 둘 다 들어오면 value를 우선으로 맞춤(관리 UI 기준)
-    if (typeof this.value === 'number' && typeof this.baseCreditValue === 'number') {
-      this.baseCreditValue = this.value;
-    }
-
-    // tags 정리
-    if (Array.isArray(this.tags)) {
-      this.tags = [...new Set(this.tags.map(t => String(t).trim()).filter(Boolean))];
-    }
-
-    // externalId 정리
-    if (typeof this.externalId === 'string') {
-      this.externalId = this.externalId.trim();
-      if (!this.externalId) this.externalId = undefined;
-    }
-
-    // 안전장치
-    if (!Number.isFinite(this.tier) || this.tier < 1) this.tier = 1;
-    if (!Number.isFinite(this.stackMax) || this.stackMax < 1) this.stackMax = 1;
-    if (!Number.isFinite(this.value)) this.value = 0;
-    if (!Number.isFinite(this.baseCreditValue)) this.baseCreditValue = this.value;
-
-    next();
-  } catch (e) {
-    next(e);
+// NOTE: Mongoose 9부터 pre middleware에서 next() 콜백을 더 이상 지원하지 않음.
+//       (next 파라미터가 전달되지 않아 `next is not a function`이 발생)
+//       => 동기 로직은 그냥 실행하고, 에러는 throw로 전파.
+ItemSchema.pre('validate', function syncCreditValues() {
+  if (typeof this.value === 'number' && (this.baseCreditValue === undefined || this.baseCreditValue === null)) {
+    this.baseCreditValue = this.value;
   }
+  if (typeof this.baseCreditValue === 'number' && (this.value === undefined || this.value === null)) {
+    this.value = this.baseCreditValue;
+  }
+  // 둘 다 들어오면 value를 우선으로 맞춤(관리 UI 기준)
+  if (typeof this.value === 'number' && typeof this.baseCreditValue === 'number') {
+    this.baseCreditValue = this.value;
+  }
+
+  // tags 정리
+  if (Array.isArray(this.tags)) {
+    this.tags = [...new Set(this.tags.map(t => String(t).trim()).filter(Boolean))];
+  }
+
+  // externalId 정리
+  if (typeof this.externalId === 'string') {
+    this.externalId = this.externalId.trim();
+    if (!this.externalId) this.externalId = undefined;
+  }
+
+  // 안전장치
+  if (!Number.isFinite(this.tier) || this.tier < 1) this.tier = 1;
+  if (!Number.isFinite(this.stackMax) || this.stackMax < 1) this.stackMax = 1;
+  if (!Number.isFinite(this.value)) this.value = 0;
+  if (!Number.isFinite(this.baseCreditValue)) this.baseCreditValue = this.value;
 });
 
 // externalId는 있으면 유니크(없어도 되는 필드이므로 sparse)
