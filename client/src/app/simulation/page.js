@@ -121,81 +121,70 @@ const SLOT_ICON = { weapon: '⚔️', head: '🪖', clothes: '👕', arm: '🦾'
 // 🗺️ 루미아 섬(존 기반) 감성 배치(미니맵 앵커 좌표, viewBox 0..100)
 // - 실제 맵 이미지는 어드민에서 교체 가능하므로, 이 값은 "기본" 레이아웃용입니다.
 const LUMIA_ZONE_POS = {
-  // ✅ 하이퍼루프(제공 이미지) 기준 앵커: viewBox 0..100 (598x598 정사각 맵)
-  // - 원(노드)이 실제 구역(다이아몬드) 중앙에 오도록 재조정
-  // - 구역 이름/배치가 바뀌면 이 앵커만 조정하면 된다.
-  alley: { x: 50, y: 12 },          // 골목길(상단)
-  temple: { x: 86, y: 22 },         // 절(우상)
-  gas_station: { x: 33, y: 18 },    // 주유소(좌상)
-  archery: { x: 14, y: 23 },        // 양궁장(좌상 외곽)
-  hotel: { x: 12, y: 44 },          // 호텔(좌)
-  school: { x: 33, y: 46 },         // 학교(좌중앙)
-  police: { x: 60, y: 34 },         // 경찰서(상중앙)
-  firestation: { x: 50, y: 44 },    // 소방서(중앙)
-  lab: { x: 50, y: 52 },            // 연구소(중앙 붉은 구역)
-  forest: { x: 37, y: 56 },         // 숲(좌중앙 하단)
-  cathedral: { x: 50, y: 66 },      // 성당(중앙 하단)
-  pond: { x: 66, y: 48 },           // 연못(우중앙)
-  stream: { x: 83, y: 40 },         // 개울(우)
-  hospital: { x: 90, y: 50 },       // 병원(우)
-  factory: { x: 84, y: 76 },        // 공장(우하)
-  port: { x: 56, y: 88 },           // 항구(하)
-  warehouse: { x: 44, y: 86 },      // 창고(하중앙-좌)
-  residential: { x: 28, y: 76 },    // 고급 주택가(좌하)
-  beach: { x: 18, y: 80 },          // 모래사장(좌하 외곽)
+  archery: { x: 18, y: 24 },
+  forest: { x: 26, y: 40 },
+  temple: { x: 40, y: 26 },
+  pond: { x: 52, y: 38 },
+  lab: { x: 62, y: 30 },
+  school: { x: 76, y: 24 },
+  hotel: { x: 84, y: 38 },
+  residential: { x: 86, y: 52 },
+  hospital: { x: 74, y: 60 },
+  police: { x: 60, y: 54 },
+  cathedral: { x: 48, y: 48 },
+  alley: { x: 52, y: 62 },
+  gas_station: { x: 34, y: 68 },
+  stream: { x: 40, y: 78 },
+  beach: { x: 26, y: 86 },
+  port: { x: 50, y: 88 },
+  warehouse: { x: 62, y: 84 },
+  factory: { x: 70, y: 74 },
+  firestation: { x: 78, y: 78 },
 };
-
 
 // 🧭 기본 동선(인접 이동) - 하이퍼루프 맵 레이아웃 기준
 // - 어드민 zoneConnections가 비어 있을 때만 사용
 const LUMIA_DEFAULT_EDGES = [
-  // ✅ 하이퍼루프(제공 이미지) 기준 "인접" 연결(최소 교차)
-  ['alley', 'gas_station'],
-  ['alley', 'police'],
-  ['alley', 'temple'],
-
-  ['gas_station', 'archery'],
+  ['gas_station', 'alley'],
   ['gas_station', 'school'],
+  ['gas_station', 'archery'],
 
   ['archery', 'hotel'],
+  ['archery', 'school'],
   ['hotel', 'school'],
   ['hotel', 'beach'],
 
   ['school', 'firestation'],
   ['school', 'forest'],
-
-  ['police', 'firestation'],
-  ['police', 'pond'],
-
+  ['firestation', 'police'],
   ['firestation', 'lab'],
   ['firestation', 'pond'],
-  ['firestation', 'cathedral'],
 
+  ['police', 'alley'],
+  ['police', 'pond'],
+  ['alley', 'temple'],
+
+  ['temple', 'stream'],
+  ['stream', 'pond'],
+  ['stream', 'hospital'],
+
+  ['pond', 'hospital'],
+  ['pond', 'lab'],
+  ['pond', 'cathedral'],
+
+  ['lab', 'cathedral'],
   ['forest', 'lab'],
   ['forest', 'beach'],
 
-  ['lab', 'pond'],
-  ['lab', 'cathedral'],
+  ['beach', 'residential'],
+  ['residential', 'warehouse'],
+  ['warehouse', 'cathedral'],
+  ['warehouse', 'port'],
 
-  ['pond', 'stream'],
-  ['pond', 'hospital'],
-  ['pond', 'cathedral'],
-
-  ['stream', 'temple'],
-  ['stream', 'hospital'],
-
-  ['cathedral', 'warehouse'],
   ['cathedral', 'port'],
   ['cathedral', 'factory'],
-
-  ['warehouse', 'port'],
-  ['warehouse', 'residential'],
-  ['residential', 'beach'],
-
-  ['factory', 'port'],
   ['factory', 'hospital'],
 ];
-
 
 
 function shortText(s, maxLen = 8) {
@@ -598,10 +587,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 // --- 전설 재료 상자(필드 드랍): 3일차 '낮' 이후부터 맵 곳곳에서 발견 가능 ---
 function normalizeMatchKey(v) {
   return String(v || '').toLowerCase()
-    // 공백/구분자 제거(키워드 매칭 안정화)
-    .replace(/\s+/g, '')
-    // NOTE: 하이픈은 문자 클래스에서 range로 해석될 수 있으므로 끝으로 이동
-    .replace(/[·・_.(),-]/g, '');
+    .replace(/s+/g, '')
+    .replace(/[·・-_.(),]/g, '');
 }
 
 function findItemByKeywords(publicItems, keywords) {
@@ -7740,25 +7727,6 @@ const gainDetailSummary = useMemo(() => {
       const p = LUMIA_ZONE_POS[id];
       if (p) out[id] = { x: p.x, y: p.y };
     });
-    // 1.5) 로컬 오버라이드(맵별): 사용자가 이미지에 맞춰 미세조정 가능
-    // - 키: eh_minimap_anchors_{mapId}
-    // - 값: { zoneId: {x: number(0..100), y: number(0..100)}, ... }
-    try {
-      const k = `eh_minimap_anchors_${String(activeMapId || '')}`;
-      const raw = localStorage.getItem(k);
-      if (raw) {
-        const obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object') {
-          Object.keys(obj).forEach((zid) => {
-            const v = obj?.[zid];
-            const x = Number(v?.x);
-            const y = Number(v?.y);
-            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-            out[String(zid)] = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
-          });
-        }
-      }
-    } catch (e) {}
 
     // 2) 매칭되지 않은 존은 원형 배치로 fallback
     const missing = ids.filter((id) => !out[id]);
@@ -7772,19 +7740,13 @@ const gainDetailSummary = useMemo(() => {
       });
     }
     return out;
-  }, [zones, activeMapId]);
+  }, [zones]);
 
   const zoneEdges = useMemo(() => {
     const ids = (Array.isArray(zones) ? zones : []).map((x) => String(x?.zoneId || '')).filter(Boolean);
     const idSet = new Set(ids);
     const uniq = new Set();
     const edges = [];
-
-    // ✅ 선(연결선) 꼬임 방지:
-    // - 너무 긴 연결(원거리)을 시각화에서 제거해서 교차/난잡함을 줄인다.
-    // - 실제 이동 그래프(zoneGraph)는 그대로 유지(=AI/시뮬 로직 영향 없음)
-    const MAX_DRAW_DIST = 34; // viewBox(0..100) 기준
-
     Object.keys(zoneGraph || {}).forEach((a) => {
       if (!idSet.has(a)) return;
       const arr = Array.isArray(zoneGraph?.[a]) ? zoneGraph[a] : [];
@@ -7792,23 +7754,12 @@ const gainDetailSummary = useMemo(() => {
         if (!idSet.has(b) || a === b) return;
         const k = a < b ? `${a}::${b}` : `${b}::${a}`;
         if (uniq.has(k)) return;
-
-        // 거리 기반 필터(좌표가 없으면 그려도 됨)
-        const pa = zonePos?.[a];
-        const pb = zonePos?.[b];
-        if (pa && pb) {
-          const dx = Number(pa.x) - Number(pb.x);
-          const dy = Number(pa.y) - Number(pb.y);
-          const dist = Math.hypot(dx, dy);
-          if (dist > MAX_DRAW_DIST) return;
-        }
-
         uniq.add(k);
         edges.push([a, b]);
       });
     });
     return edges;
-  }, [zoneGraph, zones, zonePos]);
+  }, [zoneGraph, zones]);
 
   // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
   const [pingNow, setPingNow] = useState(() => Date.now());
