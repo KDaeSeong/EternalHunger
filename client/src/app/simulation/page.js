@@ -606,6 +606,55 @@ function findItemByKeywords(publicItems, keywords) {
   );
 }
 
+// --- 🧾 장비 티어 요약(공용) ---
+// NOTE:
+// - 여러 로직(야생동물 크레딧 언더독 보정, AI 교전 회피 등)에서 공통으로 사용한다.
+// - equipped가 있으면 그 슬롯 기준으로, 없으면 inventory의 equipSlot/type 힌트로 추정한다.
+function getEquipTierSummary(c) {
+  const inv = Array.isArray(c?.inventory) ? c.inventory : [];
+  const eq = c?.equipped || null;
+
+  const pickById = (id) => {
+    if (!id) return null;
+    const sid = String(id);
+    return inv.find((it) => {
+      const iid = String(it?.itemId || it?.id || it?._id || '');
+      return iid && iid === sid;
+    }) || null;
+  };
+
+  const readTier = (it) => {
+    const t = Number(it?.tier ?? it?.t ?? 1);
+    return Number.isFinite(t) ? Math.max(1, Math.floor(t)) : 1;
+  };
+
+  // 1) equipped 기반
+  if (eq && typeof eq === 'object') {
+    const w = pickById(eq.weapon);
+    const h = pickById(eq.head);
+    const c2 = pickById(eq.clothes);
+    const a = pickById(eq.arm);
+    const s = pickById(eq.shoes);
+
+    const weaponTier = w ? readTier(w) : 0;
+    const armorTierSum = (h ? readTier(h) : 0) + (c2 ? readTier(c2) : 0) + (a ? readTier(a) : 0) + (s ? readTier(s) : 0);
+    return { weaponTier, armorTierSum };
+  }
+
+  // 2) fallback: inventory 힌트 기반(구형 데이터)
+  let weaponTier = 0;
+  let armorTierSum = 0;
+  const armorSlots = new Set(['head', 'clothes', 'arm', 'shoes']);
+  for (const it of inv) {
+    const slot = String(it?.equipSlot || '');
+    const tp = String(it?.type || '').toLowerCase();
+    const t = readTier(it);
+    if (slot === 'weapon' || tp === 'weapon' || tp === '무기') weaponTier = Math.max(weaponTier, t);
+    else if (armorSlots.has(slot)) armorTierSum += t;
+  }
+  return { weaponTier, armorTierSum };
+}
+
 
 function getLegendaryCoreCandidates(publicItems, weightsByKey = null) {
   const w = (weightsByKey && typeof weightsByKey === 'object') ? weightsByKey : {};
