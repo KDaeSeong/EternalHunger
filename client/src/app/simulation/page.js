@@ -586,9 +586,10 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
 // --- 전설 재료 상자(필드 드랍): 3일차 '낮' 이후부터 맵 곳곳에서 발견 가능 ---
 function normalizeMatchKey(v) {
+  // NOTE: 정규식 문자 클래스 내 '-'는 범위로 해석될 수 있으니 끝으로 옮기거나 이스케이프한다.
   return String(v || '').toLowerCase()
-    .replace(/s+/g, '')
-    .replace(/[·・-_.(),]/g, '');
+    .replace(/\s+/g, '')
+    .replace(/[·・_.(),-]/g, '');
 }
 
 function findItemByKeywords(publicItems, keywords) {
