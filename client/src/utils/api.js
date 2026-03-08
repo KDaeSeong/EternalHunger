@@ -70,6 +70,10 @@ export async function apiRequest(method, url, data) {
     const msg = e?.response?.data?.error || e?.response?.data?.message || e.message || '요청 실패';
     const err = new Error(msg);
     err.response = e?.response;
+    err.code = e?.code || '';
+    err.requestUrl = fullUrl;
+    err.method = method;
+    err.originalMessage = e?.message || msg;
     throw err;
   }
 }

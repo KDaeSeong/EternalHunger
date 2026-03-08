@@ -7,6 +7,12 @@
 const mongoose = require('mongoose');
 
 const ItemSchema = new mongoose.Schema({
+  // ✅ 단일 식별자(SSOT용)
+  // - 가능하면 externalId를 그대로 사용(시뮬 wpn_/eq_, namu:..., er:...)
+  // - externalId가 없는 경우에도 name/type/slot 기반으로 안정 키를 생성
+  //   (name만으로는 충돌 가능하니 tier/weaponType/equipSlot을 포함)
+  itemKey: { type: String, default: undefined },
+
   // 외부/클라이언트에서 만든 아이템을 DB에 저장할 때 사용하는 식별자
   // - 시뮬레이션 랜덤 장비는 itemId(wpn_..., eq_...)를 externalId로 저장
   // - 관리자/기본 트리 아이템은 externalId 없이 ObjectId(_id)로만 관리 가능
@@ -23,6 +29,9 @@ const ItemSchema = new mongoose.Schema({
   // 희귀도/티어
   rarity: { type: String, default: 'common' },
   tier: { type: Number, default: 1 },
+  // ER/OpenAPI 원본 메타
+  erCode: { type: String, default: '' },
+  itemSubType: { type: String, default: '' },
 
   // 스택/가치(크레딧 기준값)
   stackMax: { type: Number, default: 1 },
@@ -57,6 +66,20 @@ const ItemSchema = new mongoose.Schema({
   equipSlot: { type: String, default: '' }, // weapon/head/clothes/arm/shoes
   weaponType: { type: String, default: '' },
   archetype: { type: String, default: '' },
+
+  // ✅ 스폰/획득 힌트(나무위키/ER 데이터 import용)
+  // - 현재 시뮬은 zoneId 기반이라 "그대로" 쓰기 어려울 수 있어도,
+  //   원문 힌트를 DB에 보존해두면 이후 존 매핑/타겟팅 정확도를 올릴 수 있습니다.
+  spawnZones: { type: [String], default: [] },
+  // - 상자 종류 힌트(예: food / legendary_material / transcend_pick)
+  //   => 목표 재료 파밍 시 "어떤 종류의 상자"가 유력한지 판단에 활용
+  spawnCrateTypes: { type: [String], default: [] },
+  droneCreditsCost: { type: Number, default: 0 },
+
+  // ✅ 나무위키 "상위 아이템" 표 힌트
+  // - 해당 아이템을 재료/중간템으로 썼을 때의 상위 후보(표시/추천/대체 목표용)
+  // - itemKey(SSOT)로 저장해, 이름 변경/중복에 흔들리지 않게 함
+  upgradeItemKeys: { type: [String], default: [] },
 
   // ✅ 생성 출처(디버그/정리용)
   source: { type: String, default: '' }, // e.g. 'simulation'
@@ -99,6 +122,24 @@ ItemSchema.pre('validate', function syncCreditValues() {
     if (!this.externalId) this.externalId = undefined;
   }
 
+  // itemKey 정리/생성
+  if (typeof this.itemKey === 'string') {
+    this.itemKey = this.itemKey.trim();
+    if (!this.itemKey) this.itemKey = undefined;
+  }
+  if (!this.itemKey) {
+    if (this.externalId) {
+      this.itemKey = String(this.externalId);
+    } else {
+      const t = String(this.type || '기타');
+      const slot = String(this.equipSlot || '');
+      const w = String(this.weaponType || '');
+      const tier = Number.isFinite(this.tier) ? this.tier : 1;
+      const n = String(this.name || '').trim();
+      this.itemKey = `core:${t}:${slot}:${w}:${tier}:${n}`;
+    }
+  }
+
   // 안전장치
   if (!Number.isFinite(this.tier) || this.tier < 1) this.tier = 1;
   if (!Number.isFinite(this.stackMax) || this.stackMax < 1) this.stackMax = 1;
@@ -108,5 +149,18 @@ ItemSchema.pre('validate', function syncCreditValues() {
 
 // externalId는 있으면 유니크(없어도 되는 필드이므로 sparse)
 ItemSchema.index({ externalId: 1 }, { unique: true, sparse: true });
+
+// itemKey는 SSOT 키(중복 방지)
+// - 기존 DB에 중복 itemKey가 남아있다면 unique index 생성이 실패할 수 있으니
+//   먼저 `npm run migrate:itemkey -- --apply`로 중복을 정리한 뒤,
+//   `npm run index:itemkey`로 unique index를 적용하세요.
+ItemSchema.index(
+  { itemKey: 1 },
+  {
+    unique: true,
+    // legacy 문서/빈 문자열 방어
+    partialFilterExpression: { itemKey: { $type: 'string', $ne: '' } }
+  }
+);
 
 module.exports = mongoose.model('Item', ItemSchema);

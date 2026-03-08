@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { apiGet, apiPost, apiPut } from '../../utils/api';
+import { apiGet, apiPost, apiPut, getApiBase, getToken, getUser } from '../../utils/api';
 import { calculateBattle } from '../../utils/battleLogic';
 import { generateDynamicEvent } from '../../utils/eventLogic';
 import { updateEffects } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec } from '../../utils/rulesets';
+import { getTacBaseCdSec, getTacEffectNumber, getTacTrigger } from './tacticalSkillTable';
 import '../../styles/ERSimulation.css';
 
 function safeTags(item) {
@@ -37,6 +38,19 @@ const EQUIP_SLOTS = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
 const START_WEAPON_TYPES = [
   '권총', '돌격소총', '돌소총', '저격총', '장갑', '톤파', '쌍절곤', '아르카나', '검', '쌍검', '망치',
   '방망이', '채찍', '투척', '암기', '활', '석궁', '도끼', '단검', '창', '레이피어',
+];
+
+const INIT_DEPENDENCY_PATHS = [
+  '/characters',
+  '/events',
+  '/settings',
+  '/user/me',
+  '/public/items',
+  '/public/maps',
+  '/public/kiosks',
+  '/public/drone-offers',
+  '/trades',
+  '/trades?mine=true',
 ];
 
 function ensureEquipped(obj) {
@@ -811,6 +825,11 @@ function hasKioskAtZone(kiosks, mapObj, zoneId) {
   const zonesArr = Array.isArray(mapObj?.zones) ? mapObj.zones : [];
   const zone = zonesArr.find((z) => String(z?.zoneId || '') === zId) || null;
   return zoneNameHasKiosk(zone?.name || '');
+}
+
+function canUseKioskAtWorldTime(day, phase) {
+  // 실제 ER 일반 Kiosk는 게임 시작부터 접근 가능하고, 사용 제약은 크레딧/위치 쪽이 핵심이다.
+  return Number(day || 1) >= 1 && !!String(phase || 'morning');
 }
 
 
@@ -1746,14 +1765,55 @@ function isItemInMapCrates(mapObj, itemId) {
 
 // --- 간단 조합 목표(=AI 조달 우선순위) ---
 // "이미 일부 재료를 들고 있고, 부족한 재료가 적은" 상위 티어 레시피를 우선으로 선택합니다.
-function buildCraftGoal(inventory, craftables, itemNameById) {
+function normalizeGoalTier(tier) {
+  const t = Number(tier);
+  if (t === 4 || t === 5 || t === 6) return t;
+  return 6;
+}
+
+function pickGoalLoadoutBySlot(actor) {
+  const t = normalizeGoalTier(actor?.goalGearTier ?? 6);
+  const g = actor?.goalLoadouts && typeof actor.goalLoadouts === 'object' ? actor.goalLoadouts : {};
+  const b = (t === 4 ? g.hero : t === 5 ? g.legend : g.transcend) || null;
+  if (!b || typeof b !== 'object') return { weapon: '', head: '', clothes: '', arm: '', shoes: '' };
+  return {
+    weapon: String(b.weaponKey || '').trim(),
+    head: String(b.headKey || '').trim(),
+    clothes: String(b.clothesKey || '').trim(),
+    arm: String(b.armKey || '').trim(),
+    shoes: String(b.shoesKey || '').trim(),
+  };
+}
+
+function pickGoalLoadoutKeys(actor) {
+  const b = pickGoalLoadoutBySlot(actor);
+  return [b.weapon, b.head, b.clothes, b.arm, b.shoes].filter(Boolean);
+}
+
+function getOneSpecialShortMissing(craftGoal) {
+  const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
+  const tier = Number(craftGoal?.tier || craftGoal?.target?.tier || 0);
+  if (miss.length !== 1 || tier < 5) return null;
+  const m = miss[0] || null;
+  const key = String(m?.special || classifySpecialByName(m?.name) || '');
+  if (!key || (!isSpecialCoreKind(key) && key !== 'vf')) return null;
+  return { ...m, special: key, targetTier: tier, targetName: String(craftGoal?.target?.name || '') };
+}
+
+function buildCraftGoal(inventory, craftables, itemNameById, opts) {
   const list = Array.isArray(craftables) ? craftables : [];
   if (!list.length) return null;
+
+  const goalTier = normalizeGoalTier(opts?.goalTier ?? 6);
+  const goalKeysRaw = opts?.goalItemKeys instanceof Set ? [...opts.goalItemKeys] : (Array.isArray(opts?.goalItemKeys) ? opts.goalItemKeys : []);
+  const goalKeys = new Set(goalKeysRaw.map((x) => String(x || '').trim()).filter(Boolean));
 
   let best = null;
 
   for (const it of list) {
     const tier = Number(it?.tier || 1);
+    if (tier > goalTier) continue;
+
     const ings = compactIO(it?.recipe?.ingredients || []);
     if (!ings.length) continue;
 
@@ -1779,14 +1839,31 @@ function buildCraftGoal(inventory, craftables, itemNameById) {
       }
     }
 
-    // "재료 0개 보유" 레시피는 목표로 삼지 않음(너무 랜덤해짐)
-    if (haveSlots <= 0) continue;
+    const k = String(it?.itemKey || it?.externalId || '').trim();
+    const isGoal = goalKeys.size > 0 && k && goalKeys.has(k);
+
+    // "재료 0개 보유" 레시피는 기본적으로 제외(너무 랜덤)하되, 목표 장비는 예외
+    if (haveSlots <= 0 && !isGoal) continue;
 
     // 너무 멀면(부족 재료가 너무 많으면) 목표로 삼지 않음
     if (missing.length > 3) continue;
 
     const ratio = haveSlots / Math.max(1, ings.length);
-    const score = tier * 100 + ratio * 25 - missing.length * 8;
+    let score = tier * 100 + ratio * 25 - missing.length * 8;
+
+    const oneSpecialShort = (missing.length === 1) && (tier >= 5) && (() => {
+      const mk = String(missing?.[0]?.special || classifySpecialByName(missing?.[0]?.name) || '');
+      return mk && (isSpecialCoreKind(mk) || mk === 'vf');
+    })();
+
+    // 공식 Saved Plan/Legendary 추천 흐름처럼, 상위 장비가 '특수 재료 1개만 부족'하면 강하게 밀어준다.
+    if (oneSpecialShort) score += (tier >= 6 ? 900 : 700);
+
+    // 목표 장비(itemKey)가 설정된 경우: 해당 결과물을 강하게 우선
+    if (goalKeys.size > 0) {
+      score += isGoal ? 3000 : -20;
+      if (isGoal && oneSpecialShort) score += 500;
+    }
 
     if (!best || score > best.score) {
       best = {
@@ -1841,6 +1918,145 @@ function findCrateZoneIdsForItem(mapObj, itemId, forbiddenIds) {
     if (lt.some((e) => String(e?.itemId || '') === id)) hits.push(zid);
   }
   return uniqStrings(hits);
+}
+
+function findCrateZoneWeightsForItem(mapObj, itemId, forbiddenIds) {
+  const crates = Array.isArray(mapObj?.itemCrates) ? mapObj.itemCrates : [];
+  const id = String(itemId || '');
+  if (!id) return new Map();
+  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
+  const out = new Map();
+  for (const c of crates) {
+    const zid = String(c?.zoneId || '');
+    if (!zid || forb.has(zid)) continue;
+    const lt = Array.isArray(c?.lootTable) ? c.lootTable : [];
+    for (const e of lt) {
+      if (String(e?.itemId || '') !== id) continue;
+      const w = Math.max(0, Number(e?.weight ?? 1));
+      out.set(zid, (out.get(zid) || 0) + w);
+    }
+  }
+  return out;
+}
+
+function buildRuntimeSpawnMeta({ itemId, meta, itemName, mapObj, spawnState, forbiddenIds }) {
+  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
+  const score = new Map();
+  const add = (z, w) => {
+    const zid = String(z || '');
+    if (!zid || forb.has(zid)) return;
+    score.set(zid, (score.get(zid) || 0) + Math.max(0, Number(w || 0)));
+  };
+  const nm = String(itemName || meta?.name || '');
+  const tags = safeTags(meta).map((t) => String(t).toLowerCase());
+  const spec = String(classifySpecialByName(nm) || '');
+  const hintZones = Array.isArray(meta?.spawnZones) ? meta.spawnZones : [];
+  const crateHints = new Set((Array.isArray(meta?.spawnCrateTypes) ? meta.spawnCrateTypes : []).map((x) => String(x || '').toLowerCase()).filter(Boolean));
+  for (const raw of hintZones) {
+    const t = String(raw || '').trim();
+    if (!t || !Array.isArray(mapObj?.zones)) continue;
+    if (/^Z\d+$/i.test(t)) { add(t.toUpperCase(), 2.4); continue; }
+    mapObj.zones.filter((z) => z && z.zoneId && String(z.name || '').includes(t)).forEach((z) => add(String(z.zoneId), 1.8));
+  }
+  if (crateHints.size && Array.isArray(mapObj?.itemCrates)) {
+    for (const c of mapObj.itemCrates) {
+      const zid = String(c?.zoneId || '');
+      const ct = String(c?.crateType || 'food').toLowerCase();
+      if (zid && crateHints.has(ct) && !forb.has(zid)) add(zid, 1.6);
+    }
+  }
+  for (const [z, w] of findCrateZoneWeightsForItem(mapObj, itemId, forb).entries()) add(z, 1.4 + Math.min(4, w / 4));
+  if ((nm.includes('물') || tags.includes('water')) && Array.isArray(mapObj?.waterSourceZoneIds)) mapObj.waterSourceZoneIds.forEach((z) => add(z, 2.2));
+  if ((nm.includes('스테이크') || tags.includes('cooked')) && Array.isArray(mapObj?.campfireZoneIds)) mapObj.campfireZoneIds.forEach((z) => add(z, 1.4));
+  if ((spec === 'meteor' || spec === 'life_tree') && Array.isArray(mapObj?.coreSpawnZones)) mapObj.coreSpawnZones.forEach((z) => add(z, 2.0));
+  if (spec === 'mithril' && spawnState?.bosses?.alpha?.alive && spawnState.bosses.alpha.zoneId) add(spawnState.bosses.alpha.zoneId, 2.6);
+  if (spec === 'force_core' && spawnState?.bosses?.omega?.alive && spawnState.bosses.omega.zoneId) add(spawnState.bosses.omega.zoneId, 2.6);
+  if (spec === 'vf' && spawnState?.bosses?.weakline?.alive && spawnState.bosses.weakline.zoneId) add(spawnState.bosses.weakline.zoneId, 3.0);
+  if ((nm.includes('고기') || tags.includes('meat') || tags.includes('food')) && spawnState?.wildlife) {
+    Object.entries(spawnState.wildlife)
+      .map(([z, c]) => ({ z: String(z), c: Math.max(0, Number(c || 0)) }))
+      .filter((x) => x.z && !forb.has(x.z))
+      .sort((a, b) => (b.c - a.c) || a.z.localeCompare(b.z))
+      .slice(0, 4)
+      .forEach((e) => add(e.z, 1));
+  }
+  return {
+    itemId: String(itemId || ''),
+    crateTypes: [...crateHints],
+    zoneWeights: [...score.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0])),
+  };
+}
+
+function expandMissingResourceChain(missingList, itemMetaById, itemNameById, maxDepth = 2) {
+  const seeds = Array.isArray(missingList) ? missingList : [];
+  const seen = new Map();
+  const out = [];
+  const q = seeds
+    .map((m) => ({
+      itemId: String(m?.itemId || ''),
+      name: String(m?.name || ''),
+      depth: 0,
+      chainWeight: 1,
+      special: String(m?.special || ''),
+    }))
+    .filter((x) => x.itemId);
+  while (q.length) {
+    const cur = q.shift();
+    const prev = Number(seen.get(cur.itemId) ?? -1);
+    if (prev >= cur.chainWeight) continue;
+    seen.set(cur.itemId, cur.chainWeight);
+    out.push(cur);
+    if (cur.depth >= maxDepth) continue;
+    const meta = itemMetaById?.[cur.itemId] || null;
+    const ings = compactIO(meta?.recipe?.ingredients || []);
+    if (!ings.length) continue;
+    for (const ing of ings) {
+      const id = String(ing?.itemId || '');
+      if (!id) continue;
+      q.push({
+        itemId: id,
+        name: String(itemNameById?.[id] || itemMetaById?.[id]?.name || ''),
+        depth: cur.depth + 1,
+        chainWeight: cur.chainWeight * (cur.depth <= 0 ? 0.72 : 0.5),
+        special: String(classifySpecialByName(itemNameById?.[id] || itemMetaById?.[id]?.name || '') || ''),
+      });
+    }
+  }
+  return out.sort((a, b) => (a.depth - b.depth) || (b.chainWeight - a.chainWeight) || a.itemId.localeCompare(b.itemId));
+}
+
+// ✅ 목표 제작(=missing 재료) 기준으로 '재료가 나올 확률이 높은 존'을 점수화
+// - 1) 직접 부족 재료를 우선
+// - 2) 부족 재료가 조합식이면 재료의 재료까지 역추적해서 존 점수에 반영
+function pickGoalResourceZoneTargets(mapObj, spawnState, forbiddenIds, missingList, itemMetaById, itemNameById) {
+  const miss = expandMissingResourceChain(missingList, itemMetaById, itemNameById, 2);
+  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
+  const score = new Map();
+
+  const addScore = (z, w) => {
+    const zid = String(z || '');
+    if (!zid || forb.has(zid)) return;
+    score.set(zid, (score.get(zid) || 0) + Math.max(0, Number(w || 0)));
+  };
+
+  for (const m of miss) {
+    const id = String(m?.itemId || '');
+    if (!id) continue;
+    const meta = itemMetaById?.[id] || null;
+    const runtimeSpawnMeta = buildRuntimeSpawnMeta({
+      itemId: id,
+      meta,
+      itemName: itemNameById?.[id] || meta?.name || m?.name || '',
+      mapObj,
+      spawnState,
+      forbiddenIds: forb,
+    });
+    const mul = Math.max(0.2, Number(m?.chainWeight || 1));
+    for (const [z, w] of runtimeSpawnMeta.zoneWeights) addScore(z, w * mul);
+  }
+
+  const ranked = [...score.entries()].sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+  return ranked.slice(0, 6).map(([z]) => z);
 }
 
 function bfsNextStepToAnyTarget(startZoneId, targetSet, zoneGraph, forbiddenIds) {
@@ -2015,29 +2231,51 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
   const hasForce = invHasSpecialKind(inv, 'force_core', itemMetaById, itemNameById);
   const hasLegendMatAny = hasMeteor || hasLife || hasMithril || hasForce;
 
-  const wantLegend = isAtOrAfterWorldTime(day, phase, 3, 'day') && minTier < 5;
-  const wantTrans = isAtOrAfterWorldTime(day, phase, 5, 'day') && minTier < 6;
+  // ✅ 캐릭터 목표(영웅/전설/초월)에 따라 후반 세팅(키오스크/특수재료) 욕구를 달리함
+  const goalTier = normalizeGoalTier(actor?.goalGearTier ?? 6);
+  const allowLegend = goalTier >= 5;
+  const allowTrans = goalTier >= 6;
+
+  // 키오스크가 2일차 낮부터 의미 있게 동작하므로, 목표도 그 시점부터 활성화
+  const nearLegend = allowLegend && minTier >= 4 && minTier < 5;
+  const nearTrans = allowTrans && minTier >= 5 && minTier < 6;
+  const wantLegend = allowLegend && ((nearLegend && canUseKioskAtWorldTime(day, phase)) || isAtOrAfterWorldTime(day, phase, 2, 'day')) && minTier < 5;
+  const wantTrans = allowTrans && ((nearTrans && canUseKioskAtWorldTime(day, phase)) || isAtOrAfterWorldTime(day, phase, 3, 'day')) && minTier < 6;
+  const legendOverdue = allowLegend && ((nearLegend && isAtOrAfterWorldTime(day, phase, 1, 'night')) || isAtOrAfterWorldTime(day, phase, 2, 'day')) && minTier < 5;
+  const transOverdue = allowTrans && ((nearTrans && isAtOrAfterWorldTime(day, phase, 3, 'day')) || isAtOrAfterWorldTime(day, phase, 3, 'night')) && minTier < 6;
+
+  const legendCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.legendaryByKey?.meteor ?? 200));
+  const forceCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.legendaryByKey?.force_core ?? 350));
+  const transCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.vf ?? 500));
 
   // 크레딧 파밍 필요(키오스크 구매/후반 세팅 가속)
-  const needCreditsForLegend = wantLegend && simCredits < 28;
-  const needCreditsForTrans = wantTrans && simCredits < 45;
+  const needCreditsForLegend = wantLegend && simCredits < legendCost;
+  const needCreditsForTrans = wantTrans && simCredits < transCost;
   const farmCredits = needCreditsForLegend || needCreditsForTrans;
 
   return {
+    goalTier,
     tiers,
     minTier,
     simCredits,
     lowCount,
     wantLegend,
     wantTrans,
+    nearLegend,
+    nearTrans,
+    legendOverdue,
+    transOverdue,
     hasVf,
     hasLegendMatAny,
     farmCredits,
+    legendCost,
+    forceCost,
+    transCost,
   };
 }
 
 // --- 목표 기반 이동(조합 목표 + 월드 스폰 + 키오스크) ---
-function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState, forbiddenIds, day, phase, kiosks }) {
+function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState, forbiddenIds, day, phase, kiosks, itemMetaById = null, itemNameById = null }) {
   const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
   const hasGoal = !!craftGoal?.target && miss.length > 0;
 
@@ -2057,6 +2295,10 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
   const hasLegendMatAny = !!up?.hasLegendMatAny;
   const hasVfAny = !!up?.hasVf;
   const farmCredits = !!up?.farmCredits;
+
+  const legendCost = Math.max(0, Number(up?.legendCost ?? 200));
+  const forceCost = Math.max(0, Number(up?.forceCost ?? 350));
+  const transCost = Math.max(0, Number(up?.transCost ?? 500));
 
   const needKeys = new Set(
     miss
@@ -2110,7 +2352,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       result.reason = 'VF(위클라인)';
       return result;
     }
-    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= 30 && kioskZones.length) {
+    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= transCost && kioskZones.length) {
       result.targets = kioskZones;
       result.reason = 'VF(키오스크)';
       return result;
@@ -2154,7 +2396,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 12) {
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
       result.targets = kioskZones;
       result.reason = '특수재료(키오스크)';
       return result;
@@ -2180,7 +2422,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
     }
 
     // 키오스크 구매/교환이 가능한 시점이면 키오스크도 후보로
-    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 12) {
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
       result.targets = kioskZones;
       result.reason = '자연코어(키오스크)';
       return result;
@@ -2207,7 +2449,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 18) {
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
       result.targets = kioskZones;
       result.reason = '미스릴(키오스크)';
       return result;
@@ -2234,7 +2476,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && kioskZones.length && simCredits >= 24) {
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= forceCost) {
       result.targets = kioskZones;
       result.reason = '포스코어(키오스크)';
       return result;
@@ -2243,14 +2485,11 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
 
   // 5) 목표가 있으면, 부족한 일반 재료가 들어있는 상자 구역으로 이동
   if (hasGoal) {
-    const basicItemId = pickMissingBasicItemId(craftGoal);
-    if (basicItemId) {
-      const zonesForItem = findCrateZoneIdsForItem(mapObj, basicItemId, forbiddenIds);
-      if (zonesForItem.length) {
-        result.targets = zonesForItem;
-        result.reason = '재료 파밍';
-        return result;
-      }
+    const zonesForGoal = pickGoalResourceZoneTargets(mapObj, s, forbiddenIds, miss, itemMetaById, itemNameById);
+    if (zonesForGoal.length) {
+      result.targets = zonesForGoal;
+      result.reason = '재료 파밍(목표)';
+      return result;
     }
   }
 
@@ -2289,25 +2528,29 @@ function pickMissingBasicItemId(craftGoal) {
   return hit?.itemId ? String(hit.itemId) : '';
 }
 
-function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPhase, actor, craftGoal, itemNameById, marketRules, upgradeNeed = null) {
+function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPhase, actor, craftGoal, itemNameById, marketRules, upgradeNeed = null, absSecNow = 0) {
   const mr = marketRules?.kiosk || {};
-  const gateDay = Number(mr?.gate?.day ?? 2);
-  const gatePhase = String(mr?.gate?.phase ?? 'day');
-
-  // 게이트: ruleset 기준
-  if (!isAtOrAfterWorldTime(curDay, curPhase, gateDay, gatePhase)) return null;
+  // 실제 ER 일반 Kiosk는 시작부터 접근 가능하고, 시뮬은 위치/크레딧 조건으로만 제어합니다.
+  if (!canUseKioskAtWorldTime(curDay, curPhase)) return null;
 
   // 위치 게이트: 키오스크는 특정 시설(병원/성당/경찰서/소방서/양궁장/절/창고/연구소/호텔/학교) 구역에만 존재
   if (!hasKioskAtZone(kiosks, mapObj, zoneId)) return null;
 
   const simCredits = Math.max(0, Number(actor?.simCredits || 0));
+  // 실제 ER 일반 Kiosk는 별도 사용 쿨다운보다 크레딧/행동 점유로 제어된다.
+  // 시뮬도 1 tick 1 행동 규칙만 적용하고, 별도 cooldown gate는 두지 않는다.
   const items = Array.isArray(publicItems) ? publicItems : [];
   const findById = (id) => items.find((x) => String(x?._id) === String(id)) || null;
 
   const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
   const up = (upgradeNeed && typeof upgradeNeed === 'object') ? upgradeNeed : null;
+  const oneSpecialShort = getOneSpecialShortMissing(craftGoal);
   const hasNeed = miss.length > 0;
   const hasUpgradeNeed = !!up?.wantLegend || !!up?.wantTrans || !!up?.farmCredits;
+  const legendOverdue = !!up?.legendOverdue;
+  const transOverdue = !!up?.transOverdue;
+  const nearLegend = !!up?.nearLegend;
+  const nearTrans = !!up?.nearTrans;
   const hasMeaningfulNeed = hasNeed || hasUpgradeNeed;
   const cats = mr?.categories || {};
   const allowVf = cats?.vf !== false;
@@ -2316,9 +2559,26 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
 
   // 목표(조합) 기반이면 더 적극적으로 이용(룰셋)
-  const chanceNeed = Number(mr?.chanceNeed ?? 0.22);
-  const chanceIdle = Number(mr?.chanceIdle ?? 0.10);
-  const chance = hasMeaningfulNeed ? Math.min(0.95, chanceNeed + 0.12) : chanceIdle;
+  const chanceNeed = Number(mr?.chanceNeed ?? 0.42);
+  const chanceIdle = Number(mr?.chanceIdle ?? 0.16);
+  const needCount = Math.max(0, miss.length);
+  const earlyProcureBonus = (curDay <= 2) ? 0.08 : 0;
+  const savedPlanLegendBonus = oneSpecialShort ? (oneSpecialShort?.special === 'vf' ? 0.18 : 0.15) : 0;
+  const pacingPressure = (legendOverdue ? 0.14 : (nearLegend ? 0.05 : 0)) + (transOverdue ? 0.18 : (nearTrans ? 0.06 : 0));
+  const urgencyBonus = hasMeaningfulNeed
+    ? Math.min(0.24,
+        needCount * 0.04
+        + (up?.wantLegend ? 0.03 : 0)
+        + (up?.wantTrans ? 0.05 : 0)
+        + (up?.farmCredits ? 0.02 : 0)
+      )
+    : 0;
+  const affordableNeedBonus = hasMeaningfulNeed
+    ? (simCredits >= Number(mr?.prices?.basic ?? 10) ? 0.12 : 0)
+    : 0;
+  const chance = hasMeaningfulNeed
+    ? Math.min(0.995, chanceNeed + earlyProcureBonus + urgencyBonus + affordableNeedBonus + savedPlanLegendBonus + pacingPressure)
+    : Math.min(0.40, chanceIdle + ((curDay <= 2 && simCredits >= Number(mr?.prices?.basic ?? 10)) ? 0.04 : 0) + (legendOverdue ? 0.04 : 0));
 
   // ✅ 서버(어드민)에서 편집한 키오스크 카탈로그가 있으면 그대로 사용(우선)
   // - 카탈로그는 각 키오스크 문서(Kiosk.catalog)에 저장되며, /public/kiosks로 내려옵니다.
@@ -2327,7 +2587,10 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const zid = String(k?.zoneId || '').trim();
     return mid && String(mapObj?._id || '').trim() === mid && String(zoneId || '').trim() === zid;
   });
-  const catalog = Array.isArray(kioskDoc?.catalog) ? kioskDoc.catalog : [];
+  let catalog = Array.isArray(kioskDoc?.catalog) ? kioskDoc.catalog : [];
+
+  // 카탈로그 가격이 과도하게 크면(예: 800~1200) 시뮬 기본 규칙으로 fallback
+  if (catalog.length && catalog.some((r) => Number(r?.priceCredits || 0) > 650)) catalog = [];
 
   const pickFromCatalog = () => {
     if (!catalog.length) return null;
@@ -2359,7 +2622,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
     // 2) 교환 우선: 가진 재료로 가능한 exchange를 실행(경제 안정화 위해 확률 게이트)
     const exch = catalog.filter((r) => String(r?.mode) === 'exchange');
-    if (exch.length && Math.random() < 0.55) {
+    if (exch.length && Math.random() < (hasMeaningfulNeed ? 0.82 : 0.60)) {
       const shuffled = exch.slice().sort(() => Math.random() - 0.5);
       for (const row of shuffled) {
         const itemId = normId(row?.itemId);
@@ -2374,7 +2637,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
     // 3) 환급(키오스크 buy = 유저 sell): 가진 아이템을 credits로 환전(낮은 확률)
     const refunds = catalog.filter((r) => String(r?.mode) === 'buy');
-    if (refunds.length && Math.random() < 0.25) {
+    if (refunds.length && Math.random() < (hasMeaningfulNeed ? 0.10 : 0.18)) {
       const shuffled = refunds.slice().sort(() => Math.random() - 0.5);
       for (const row of shuffled) {
         const itemId = normId(row?.itemId);
@@ -2386,12 +2649,21 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
     // 4) 구매(sell = 유저 buy): 저가 항목만 가끔 구매
     const buys = catalog.filter((r) => String(r?.mode) === 'sell');
-    if (buys.length && Math.random() < 0.15) {
+    if (buys.length && Math.random() < (hasMeaningfulNeed ? 0.34 : 0.18)) {
+      const isLvMax = (String(ruleset?.ai?.tacModuleUpgradeMode || 'level') === 'level') && (Number(actor?.tacticalSkillLevel || 1) >= 2);
       const shuffled = buys.slice().sort(() => Math.random() - 0.5);
       for (const row of shuffled) {
         const itemId = normId(row?.itemId);
         const cost = Math.max(0, Number(row?.priceCredits || 0));
         if (!itemId) continue;
+        // (level 모드) 전술 스킬 레벨이 MAX면 모듈을 랜덤 구매하지 않음(낭비 방지)
+        if (isLvMax) {
+          const it = findById(itemId) || row?.itemId;
+          const nm = String(it?.name || '');
+          const tags = Array.isArray(it?.tags) ? it.tags : [];
+          const isTacModule = nm.includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
+          if (isTacModule) continue;
+        }
         if (cost <= 0 || credits >= cost) return { kind: 'buy', item: findById(itemId) || row.itemId, itemId, qty: 1, cost, label: '카탈로그 구매' };
       }
     }
@@ -2422,6 +2694,11 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const forceCoreItem = findByTag('force_core') || findItemByKeywords(items, ['포스 코어', 'force core']);
   const tacModuleItem = findByTag('tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical']);
 
+  const tacUpgradeMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level'); // 'level' | 'stack'
+  const TAC_MAX_LV = 2;
+  const tacSkillLv = Math.max(1, Math.min(TAC_MAX_LV, Math.floor(Number(actor?.tacticalSkillLevel || 1))));
+  const tacIsLvMax = (tacUpgradeMode === 'level') && (tacSkillLv >= TAC_MAX_LV);
+
   const getPrice = (it, fallback) => {
     const v = Number(it?.baseCreditValue ?? it?.value ?? it?.price ?? fallback);
     return (Number.isFinite(v) && v > 0) ? v : Math.max(0, Number(fallback || 0));
@@ -2429,18 +2706,47 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const has = (it, q=1) => (it?._id ? invQty(inv, String(it._id)) : 0) >= Math.max(1, Number(q||1));
+  const missNeedCount = (specialKey) => (Array.isArray(miss) ? miss : []).reduce((sum, m) => {
+    const key = String(m?.special || classifySpecialByName(m?.name) || '');
+    if (key !== String(specialKey || '')) return sum;
+    return sum + Math.max(0, Number(m?.need || 1) - Number(m?.have || 0));
+  }, 0);
+  const preserveNeededSpecials = mr?.exchange?.preserveNeededSpecials !== false;
+  const spareForceNeed = Math.max(0, Number(mr?.exchange?.spareForceCoreToMithril ?? 1));
+  const spareMithrilNeed = Math.max(0, Number(mr?.exchange?.spareMithrilToTacModule ?? 2));
 
   // 0-A) 즉시 교환: 포코→미스릴, 미스릴→모듈, 모듈→크레딧(환급)
   // - 관전 템포를 위해 교환은 확률로 과도한 반복을 줄입니다.
-  if (forceCoreItem && mithrilItem && has(forceCoreItem, 1) && Math.random() < 0.70) {
+  const forceCoreHave = forceCoreItem?._id ? invQty(inv, String(forceCoreItem._id)) : 0;
+  const mithrilHave = mithrilItem?._id ? invQty(inv, String(mithrilItem._id)) : 0;
+  const needForceCount = missNeedCount('force_core');
+  const needMithrilCount = missNeedCount('mithril');
+  const canExchangeForceCore = forceCoreItem && mithrilItem && has(forceCoreItem, 1)
+    && (!preserveNeededSpecials || (!up?.wantLegend && !up?.wantTrans) || (forceCoreHave - needForceCount) >= spareForceNeed);
+  if (canExchangeForceCore && Math.random() < 0.42) {
     return { kind: 'exchange', item: mithrilItem, itemId: String(mithrilItem._id), qty: 1, consume: [{ itemId: String(forceCoreItem._id), qty: 1 }], label: '포스 코어→미스릴' };
   }
-  if (mithrilItem && tacModuleItem && has(mithrilItem, 1) && Math.random() < 0.70) {
+  // (level 모드) 전술 스킬 레벨이 MAX면 미스릴→모듈 교환을 중단(낭비 방지)
+  const canExchangeMithril = mithrilItem && tacModuleItem && !tacIsLvMax && has(mithrilItem, 1)
+    && (!preserveNeededSpecials || (!up?.wantLegend && !up?.wantTrans) || (mithrilHave - needMithrilCount) >= spareMithrilNeed);
+  if (canExchangeMithril && Math.random() < 0.38) {
     return { kind: 'exchange', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, consume: [{ itemId: String(mithrilItem._id), qty: 1 }], label: '미스릴→전술 강화 모듈' };
   }
-  if (tacModuleItem && has(tacModuleItem, 1) && Math.random() < 0.55) {
-    const gain = getPrice(tacModuleItem, 100);
-    return { kind: 'sell', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, credits: gain, label: '전술 강화 모듈 환급' };
+
+  // 전술 강화 모듈: (level 모드) 전술 스킬 레벨업 재료 / (stack 모드) 보유 스택 기반 강화
+  const tacModuleHave = tacModuleItem?._id ? invQty(inv, String(tacModuleItem._id)) : 0;
+  if (tacUpgradeMode !== 'level') {
+    // stack 모드에서만 환급을 적극 허용
+    if (tacModuleItem && tacModuleHave >= 2 && Math.random() < 0.55) {
+      const gain = getPrice(tacModuleItem, 100);
+      return { kind: 'sell', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, credits: gain, label: '전술 강화 모듈 환급' };
+    }
+  } else {
+    // level 모드에서는 레벨업이 끝나기 전까지 환급을 거의 하지 않음
+    if (tacModuleItem && tacSkillLv >= TAC_MAX_LV && tacModuleHave >= 1 && Math.random() < 0.25) {
+      const gain = getPrice(tacModuleItem, 100);
+      return { kind: 'sell', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, credits: gain, label: '전술 강화 모듈 환급(레벨MAX)' };
+    }
   }
 
   // 0-B) 목표 기반 상호 교환: 운석↔생나
@@ -2455,18 +2761,40 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     }
   }
 
+  // 0-C-0) Saved Plan식 추천: 목표 상위 장비가 '특수 재료 1개만 부족'하면 그 재료를 최우선 구매
+  if (oneSpecialShort) {
+    const key = String(oneSpecialShort.special || '');
+    const onePick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : (key === 'vf' ? findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']) : tacModuleItem);
+    const oneCost = (key === 'vf')
+      ? Number(mr?.prices?.vf ?? 500)
+      : ((key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
+        ? kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey)
+        : Number(mr?.prices?.tacModule ?? 10));
+    const oneOk = key === 'vf'
+      ? Number(mr?.buySuccess?.vf ?? 0.95)
+      : Number(mr?.buySuccess?.legendary ?? 0.95);
+    if (onePick?._id && simCredits >= oneCost && Math.random() < Math.min(0.995, oneOk + 0.06)) {
+      return { kind: 'buy', item: onePick, itemId: String(onePick._id), qty: 1, cost: oneCost, label: `추천 특수재료(${key})` };
+    }
+  }
+
   // 0-C) 목표 기반 구매: 운석/생나/미스릴/포코/모듈
   // - 가격은 아이템 baseCreditValue를 우선 사용(없으면 기존 룰셋 fallback).
-  const wantSpecial = miss.find((m) => isSpecialCoreKind(m?.special) || isSpecialCoreKind(classifySpecialByName(m?.name)) || String(m?.name||'').includes('전술 강화 모듈'));
+  const tacModuleTargetMin = (tacUpgradeMode === 'level') ? (tacSkillLv >= TAC_MAX_LV ? 0 : 1) : 1;
+  const tacModuleWant = tacModuleItem && (tacModuleHave < tacModuleTargetMin) && (simCredits >= Number(mr?.prices?.tacModule ?? 10)) && (Math.random() < 0.35);
+  const wantSpecial = tacModuleWant
+    ? ({ name: '전술 강화 모듈', special: 'tac_skill_module' })
+    : miss.find((m) => isSpecialCoreKind(m?.special) || isSpecialCoreKind(classifySpecialByName(m?.name)) || (!tacIsLvMax && String(m?.name||'').includes('전술 강화 모듈')));
   if (wantSpecial) {
     const key = wantSpecial.special || classifySpecialByName(wantSpecial.name);
     const pick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : tacModuleItem;
     if (pick && pick._id) {
       const cost = (key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
         ? kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey)
-        : getPrice(pick, 120);
+        : Number(mr?.prices?.tacModule ?? 10);
       const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
-      if (simCredits >= cost && Math.random() < ok) {
+      const pressureOk = Math.min(0.995, ok + (legendOverdue ? 0.08 : 0) + (transOverdue ? 0.08 : 0) + (oneSpecialShort ? 0.03 : 0));
+      if (simCredits >= cost && Math.random() < pressureOk) {
         return { kind: 'buy', item: pick, itemId: String(pick._id), qty: 1, cost, label: '특수재료 구매' };
       }
     }
@@ -2497,7 +2825,8 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
       if (forceCoreItem?._id) cand.push({ key: 'force_core', it: forceCoreItem, cost: kioskLegendaryPrice('force_core', mr?.prices?.legendaryByKey) });
       cand.sort((a, b) => (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)));
       const pick = cand[0] || null;
-      if (pick?.it?._id && simCredits >= pick.cost && Math.random() < buyOkLegend) {
+      const legendBuyBias = (curDay <= 3 ? 0.06 : 0) + (miss.length >= 2 ? 0.04 : 0) + (legendOverdue ? 0.08 : 0) + (nearLegend ? 0.03 : 0);
+      if (pick?.it?._id && simCredits >= pick.cost && Math.random() < Math.min(0.99, buyOkLegend + legendBuyBias)) {
         return { kind: 'buy', item: pick.it, itemId: String(pick.it._id), qty: 1, cost: Math.max(0, Number(pick.cost || 0)), label: `특수재료(${pick.key})` };
       }
     }
@@ -2528,7 +2857,8 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     if (found) {
       // 구매 우선
       const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
-      if (allowLegendary && simCredits >= cost && Math.random() < ok) {
+      const needBuyOk = Math.min(0.995, ok + (legendOverdue ? 0.08 : 0) + (transOverdue ? 0.05 : 0));
+      if (allowLegendary && simCredits >= cost && Math.random() < needBuyOk) {
         return { kind: 'buy', item: found, itemId: String(found._id), qty: 1, cost, label };
       }
     }
@@ -2538,10 +2868,10 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const needBasic = miss.find((m) => m?.itemId && !m?.special && isItemInMapCrates(mapObj, m.itemId));
   if (needBasic) {
     const it = findById(needBasic.itemId);
-    const cost = Number(mr?.prices?.basic ?? 120);
+    const cost = Number(mr?.prices?.basic ?? 10);
     const ok = Number(mr?.buySuccess?.basic ?? 0.75);
     if (allowBasic && it && simCredits >= cost && Math.random() < ok) {
-      const needQty = Math.max(1, Math.min(2, Math.max(1, Number(needBasic.need || 1) - Number(needBasic.have || 0))));
+      const needQty = Math.max(1, Math.min(3, Math.max(1, Number(needBasic.need || 1) - Number(needBasic.have || 0))));
       return { kind: 'buy', item: it, itemId: String(it._id), qty: needQty, cost, label: '재료 보급' };
     }
   }
@@ -2580,7 +2910,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const entry = pickFromAllCrates(mapObj, publicItems);
     if (entry?.itemId) {
       const it = findById(entry.itemId);
-      const cost = Number(mr?.prices?.basic ?? 120);
+      const cost = Number(mr?.prices?.basic ?? 10);
       if (it && simCredits >= cost) {
         const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
         return { kind: 'buy', item: it, itemId: String(it._id), qty, cost, label: '보급품' };
@@ -2593,30 +2923,38 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
 
 // --- 전송 드론(하급 아이템) 호출: 즉시 지급 ---
-function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, actor, phaseIdxNow, craftGoal, itemNameById, marketRules) {
+function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, actor, phaseIdxNow, craftGoal, itemNameById, marketRules, absSecNow = 0) {
   // 드론은 언제든 호출 가능(하급 아이템 보급용). 캐릭터가 자동으로 호출하며, '즉시 지급' 규칙을 따른다.
-  // 너무 잦으면 재미가 깨져서 확률로 제어하고, 같은 페이즈에 중복 호출은 막는다.
+  // 너무 잦으면 재미가 깨지므로 확률 + 초 단위 쿨다운으로 제어한다.
   const dm = marketRules?.drone || {};
   if (dm?.enabled === false) return null;
 
   const invCount = Array.isArray(actor?.inventory) ? actor.inventory.length : 0;
 
-  const idxNow = Number(phaseIdxNow || 0);
-  const lastIdx = Number(actor?.droneLastOrderIndex ?? -9999);
-  if (idxNow <= lastIdx) return null;
+  // 실제 ER Remote Drone은 credits만 있으면 anytime, anywhere 호출 가능하다.
+  // 시뮬은 1 tick 1 행동 규칙과 비용 조건만 유지하고, 인위적 cooldown gate는 제거한다.
+  const absNow = Number(absSecNow || 0);
 
   const credits = Math.max(0, Number(actor?.simCredits || 0));
   const items = Array.isArray(publicItems) ? publicItems : [];
   const needId = pickMissingBasicItemId(craftGoal);
   const hasNeed = !!needId;
+  const goalTier = normalizeGoalTier(actor?.goalGearTier ?? 6);
+  const legendOverdue = goalTier >= 5 && isAtOrAfterWorldTime(curDay, curPhase, 2, 'night') && lowestEquippedTier(actor) < 5;
+  const transOverdue = goalTier >= 6 && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && lowestEquippedTier(actor) < 6;
 
   // 목표(조합)에서 부족한 하급 재료가 있으면 조금 더 자주 호출
-  const needLow = Number(dm?.chanceNeedLowInv ?? 0.20);
-  const needDef = Number(dm?.chanceNeedDefault ?? 0.12);
-  const lowInv = Number(dm?.chanceLowInv ?? 0.14);
-  const inv2 = Number(dm?.chanceInv2 ?? 0.10);
-  const def = Number(dm?.chanceDefault ?? 0.06);
-  const baseChance = hasNeed ? (invCount <= 2 ? needLow : needDef) : (invCount <= 1 ? lowInv : invCount == 2 ? inv2 : def);
+  const needLow = Number(dm?.chanceNeedLowInv ?? 0.55);
+  const needDef = Number(dm?.chanceNeedDefault ?? 0.38);
+  const lowInv = Number(dm?.chanceLowInv ?? 0.30);
+  const inv2 = Number(dm?.chanceInv2 ?? 0.20);
+  const def = Number(dm?.chanceDefault ?? 0.10);
+  const droneBaseChance = hasNeed ? (invCount <= 2 ? needLow : needDef) : (invCount <= 1 ? lowInv : invCount == 2 ? inv2 : def);
+  const droneUrgency = hasNeed
+    ? Math.min(0.24, ((curDay <= 2) ? 0.08 : 0) + ((credits >= Number(dm?.price ?? 10)) ? 0.10 : 0) + (invCount <= 2 ? 0.06 : 0))
+    : ((curDay <= 2 && invCount <= 1) ? 0.05 : 0);
+  const pacingPressure = (legendOverdue ? 0.12 : 0) + (transOverdue ? 0.16 : 0) + ((goalTier >= 5 && hasNeed && curDay <= 2) ? 0.04 : 0);
+  const baseChance = Math.min(0.96, droneBaseChance + droneUrgency + pacingPressure);
   if (Math.random() >= baseChance) return null;
 
   const pool = [];
@@ -2641,7 +2979,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
 
       // 목표에 필요한 재료면 가중치 크게
       const mul = Math.max(1, Number(dm?.needWeightMul ?? 8));
-      if (hasNeed && String(itemId) === String(needId)) weight *= mul;
+      if (hasNeed && String(itemId) === String(needId)) weight *= (mul + (legendOverdue ? 4 : 0) + (transOverdue ? 6 : 0));
 
       pool.push({ kind: 'offer', offerId: offer?.offerId ?? offer?._id ?? null, item, itemId, price, weight });
     }
@@ -2650,7 +2988,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   // 1-1) 목표 재료가 있는데, offer에 없거나(혹은 전부 비쌈) pool이 비었으면 fallback로 해당 아이템을 직접 구매하는 형태(가격 고정)
   if (hasNeed && !pool.some((p) => String(p?.itemId) === String(needId))) {
     const it = items.find((x) => String(x?._id) === String(needId));
-    const nfPrice = Math.max(0, Number(dm?.needFallbackPrice ?? 140));
+    const nfPrice = Math.max(0, Number(dm?.needFallbackPrice ?? 10));
     if (it && !isSpecialName(it?.name) && credits >= nfPrice) {
       const w = Math.max(1, Number(dm?.needFallbackWeight ?? 5));
       pool.push({ kind: 'needFallback', offerId: null, item: it, itemId: String(it._id), price: nfPrice, weight: w });
@@ -2669,7 +3007,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
       const ok = fallbackKeywords.some((k) => low.includes(String(k).toLowerCase()));
       if (!ok) continue;
 
-      const price = Math.max(0, Number(dm?.price ?? 140));
+      const price = Math.max(0, Number(dm?.price ?? 10));
       if (credits >= price) {
         pool.push({ kind: 'fallback', offerId: null, item: it, itemId: String(it._id), price, weight: 1 });
       }
@@ -2827,15 +3165,15 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   // - 수치는 ER 크레딧 감각(야생동물 소량, 변이/보스는 더 큼)에 맞춰 낮게 유지
   // - 대신 "장비가 뒤처진" 실험체는 파밍으로 역전 기회를 더 잘 잡도록 보정(언더독 보너스)
   const dayScale = 1 + Math.min(0.35, Math.max(0, (Number(curDay || 1) - 1) * 0.08));
-  let crMin = 1;
-  let crMax = 3;
+  let crMin = 10;
+  let crMax = 14;
   const k0 = String(species?.key || '').toLowerCase();
-  if (k0 === 'chicken') { crMin = 2; crMax = 4; }
-  else if (k0 === 'bat') { crMin = 1; crMax = 3; }
-  else if (k0 === 'boar') { crMin = 3; crMax = 5; }
-  else if (k0 === 'dog') { crMin = 3; crMax = 5; }
-  else if (k0 === 'wolf') { crMin = 4; crMax = 6; }
-  else if (k0 === 'bear') { crMin = 5; crMax = 7; }
+  if (k0 === 'chicken') { crMin = 12; crMax = 18; }
+  else if (k0 === 'bat') { crMin = 9; crMax = 14; }
+  else if (k0 === 'boar') { crMin = 14; crMax = 22; }
+  else if (k0 === 'dog') { crMin = 14; crMax = 22; }
+  else if (k0 === 'wolf') { crMin = 18; crMax = 28; }
+  else if (k0 === 'bear') { crMin = 22; crMax = 34; }
 
   const tierSum = getEquipTierSummary(actor);
   const avgTier = (Number(tierSum.weaponTier || 0) + Number(tierSum.armorTierSum || 0) / 4) / 2;
@@ -2896,7 +3234,7 @@ function consumeWildlifeAtZone(spawnState, mapObj, zoneId, publicItems, curDay, 
   // 드랍 데이터가 없더라도, "사냥했다"는 이벤트는 남김(파밍 루프 끊김 방지)
   const p = roughPower(actor);
   const dmg = Math.max(0, 5 - Math.floor(p / 22));
-  const credits = Math.max(0, randInt(4, 9));
+  const credits = Math.max(0, randInt(12, 22));
   return { kind: 'wildlife', damage: dmg, credits, drops: [], log: '🦌 야생동물 사냥 성공' };
 }
 
@@ -3209,7 +3547,8 @@ function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     if (j >= 0) {
       const oldTier = clampTier4(list[j]?.tier || 1);
       const newTier = clampTier4(item?.tier || 1);
-      if (replaceOnlyIfBetter && !(newTier > oldTier)) {
+      const forceSameTier = !!item?._forceReplaceSameTier && (newTier === oldTier);
+      if (replaceOnlyIfBetter && !(newTier > oldTier) && !forceSameTier) {
         list._lastAdd = { itemId: key, acceptedQty: 0, droppedQty: want, reason: 'equip_not_better' };
         return list;
       }
@@ -3314,8 +3653,201 @@ function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById,
 
     const ingText = ings.map((x) => `${itemNameById?.[String(x.itemId)] || String(x.itemId)} x${x.qty}`).join(' + ');
     const tierText = (cat === 'equipment') ? ` (${tierLabelKo(craftTier)})` : '';
-    return { inventory: afterAdd, craftedId: String(craftedItem?._id || ''), log: `🛠️ 조합: ${ingText} → ${craftedItem?.name || '아이템'}${tierText} x1` };
+    return { inventory: afterAdd, craftedId: String(craftedItem?._id || ''), craftedTier: Number(craftTier || craftedItem?.tier || 1), craftedName: String(craftedItem?.name || ''), log: `🛠️ 조합: ${ingText} → ${craftedItem?.name || '아이템'}${tierText} x1` };
   }
+  return null;
+}
+
+// ✅ 인벤 기반 자동 조합(페이즈당 1회)
+// - loot 트리거(tryAutoCraftFromLoot)만으로는 재료가 쌓여도 제작이 멈추는 구간이 생김
+// - 조건을 만족하면 1회는 반드시 시도(관전형 템포)
+function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
+  const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const actorWNorm = normalizeWeaponType(String(actor?.weaponType || '').trim());
+  const withRecipe = (Array.isArray(craftables) ? craftables : [])
+    .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0);
+  if (!withRecipe.length) return { code: 'recipe_none', text: '레시피가 있는 제작 대상이 없습니다.' };
+
+  const goalBySlot = pickGoalLoadoutBySlot(actor);
+  let bestTarget = null;
+  let bestMissing = [];
+  let bestScore = -1;
+  let weaponMismatch = 0;
+  let tierBlocked = 0;
+  let receiveBlocked = 0;
+  let readyCount = 0;
+
+  for (const it of withRecipe) {
+    const ings = compactIO(it?.recipe?.ingredients || []);
+    const missing = [];
+    let have = 0;
+    for (const ing of ings) {
+      const need = Number(ing?.qty || 1);
+      const got = invQty(inv0, ing?.itemId);
+      if (got >= need) have += 1;
+      else missing.push(`${itemNameById?.[String(ing?.itemId || '')] || String(ing?.itemId || '')} x${Math.max(0, need - got)}`);
+    }
+    const score = (have * 100) - missing.length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestTarget = it;
+      bestMissing = missing;
+    }
+    if (missing.length > 0) continue;
+    readyCount += 1;
+
+    const cat = inferItemCategory(it);
+    if (cat === 'equipment') {
+      const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
+      if (slot === 'weapon') {
+        const w = String(it?.weaponType || '').toLowerCase();
+        if (w && actorWNorm && w !== actorWNorm) {
+          weaponMismatch += 1;
+          continue;
+        }
+      }
+      const curBest = slot ? pickBestEquipBySlot(inv0, slot) : null;
+      const curTier = curBest ? clampTier4(Number(curBest?.tier || 1)) : 0;
+      const tgtTier = clampTier4(Number(it?.tier || 1));
+      const wantKey = String(goalBySlot?.[slot] || '').trim();
+      const candKey = String(it?.itemKey || it?.externalId || '').trim();
+      const wantGoal = !!(wantKey && candKey && wantKey === candKey);
+      if (!wantGoal && tgtTier <= curTier) {
+        tierBlocked += 1;
+        continue;
+      }
+    }
+    if (!canReceiveItem(inv0, it, it?._id, 1, ruleset)) {
+      receiveBlocked += 1;
+      continue;
+    }
+  }
+
+  if (readyCount <= 0) {
+    const targetName = String(bestTarget?.name || '목표 없음');
+    const missText = bestMissing.length > 0 ? ` / 부족: ${bestMissing.slice(0, 3).join(', ')}` : '';
+    return { code: 'missing_ing', targetName, missing: bestMissing, text: `${targetName} 제작 재료 부족${missText}` };
+  }
+  if (weaponMismatch > 0) {
+    return { code: 'weapon_mismatch', targetName: String(bestTarget?.name || ''), text: '무기 타입이 맞지 않아 제작 후보에서 제외되었습니다.' };
+  }
+  if (receiveBlocked > 0) {
+    return { code: 'inventory_full', targetName: String(bestTarget?.name || ''), text: '인벤/슬롯 제한으로 결과물을 받을 수 없습니다.' };
+  }
+  if (tierBlocked > 0) {
+    return { code: 'tier_blocked', targetName: String(bestTarget?.name || ''), text: '동일 슬롯에 동급 이상 장비가 있어 제작을 보류했습니다.' };
+  }
+  return { code: 'no_candidate', targetName: String(bestTarget?.name || ''), text: '제작 가능한 후보를 찾지 못했습니다.' };
+}
+
+function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById, day, phaseIdxNow, ruleset) {
+  if (!actor || typeof actor !== 'object') return null;
+  if (Number(actor?._invCraftPhaseIdx ?? -9999) === Number(phaseIdxNow || 0)) return null;
+
+  const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const actorWNorm = normalizeWeaponType(String(actor?.weaponType || '').trim());
+
+  const kmap = (actor?._itemKeyById && typeof actor._itemKeyById === 'object') ? actor._itemKeyById : {};
+  const goalBySlot = pickGoalLoadoutBySlot(actor);
+  const goalKeys = new Set(Object.values(goalBySlot).map((x) => String(x || '').trim()).filter(Boolean));
+  const keyOfId = (id) => String(kmap?.[String(id || '')] || '').trim();
+
+  const candidates = (Array.isArray(craftables) ? craftables : [])
+    .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0)
+    .filter((it) => {
+      const ings = compactIO(it?.recipe?.ingredients || []);
+      if (!ings.length) return false;
+      return ings.every((ing) => invQty(inv0, ing.itemId) >= Number(ing.qty || 1));
+    })
+    .filter((it) => {
+      const cat = inferItemCategory(it);
+      if (cat !== 'equipment') return true;
+      const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
+      if (slot === 'weapon') {
+        const w = String(it?.weaponType || '').toLowerCase();
+        // 무기 타입이 명시된 경우: 캐릭터 선호 무기와 다르면 제작 우선순위에서 제외
+        if (w && actorWNorm && w !== actorWNorm) return false;
+      }
+      // 같은 슬롯에 이미 동급 이상이 있으면 제작하지 않음(재료 낭비 방지)
+      const curBest = slot ? pickBestEquipBySlot(inv0, slot) : null;
+      const curTier = curBest ? clampTier4(Number(curBest?.tier || 1)) : 0;
+      const tgtTier = clampTier4(Number(it?.tier || 1));
+
+      // 목표 장비면(같은 티어라도) 목표와 다를 때 1회 교체 제작을 허용
+      const wantKey = String(goalBySlot?.[slot] || '').trim();
+      const candKey = String(it?.itemKey || it?.externalId || '').trim();
+      const wantGoal = !!(wantKey && candKey && wantKey === candKey);
+      if (wantGoal) {
+        const eqId = String(ensureEquipped(actor)?.[slot] || '');
+        const eqKey = eqId ? keyOfId(eqId) : '';
+        if (eqKey && eqKey === candKey) return false;
+        if (inv0.some((x) => String(getInvItemId(x)) === String(it?._id))) return false;
+        return true;
+      }
+
+      return tgtTier > curTier;
+    })
+    .sort((a, b) => {
+      const ka = String(a?.itemKey || a?.externalId || '').trim();
+      const kb = String(b?.itemKey || b?.externalId || '').trim();
+      const ga = (goalKeys.size > 0 && ka && goalKeys.has(ka)) ? 1 : 0;
+      const gb = (goalKeys.size > 0 && kb && goalKeys.has(kb)) ? 1 : 0;
+      if (gb != ga) return gb - ga;
+
+      const ca = inferItemCategory(a) === 'equipment' ? 1 : 0;
+      const cb = inferItemCategory(b) === 'equipment' ? 1 : 0;
+      if (cb !== ca) return cb - ca;
+      return (Number(b?.tier || 1) - Number(a?.tier || 1)) || String(a?.name || '').localeCompare(String(b?.name || ''));
+    });
+
+  for (const target of candidates) {
+    const ings = compactIO(target?.recipe?.ingredients || []);
+    const cat = inferItemCategory(target);
+    const craftTier = (cat === 'equipment')
+      ? clampTier4(Number(target?.tier || computeCraftTierFromIngredients(ings, itemMetaById, itemNameById) || 1))
+      : clampTier4(target?.tier || 1);
+    const craftedItem0 = (cat === 'equipment') ? applyEquipTier(target, craftTier) : target;
+
+    // 목표 장비라면 같은 티어 교체를 허용(장비 슬롯 1개 유지 정책에 막히지 않게)
+    let craftedItem = craftedItem0;
+    if (cat === 'equipment') {
+      const slot = String(target?.equipSlot || inferEquipSlot(target) || '').toLowerCase();
+      const wantKey = String(goalBySlot?.[slot] || '').trim();
+      const candKey = String(target?.itemKey || target?.externalId || '').trim();
+      if (wantKey && candKey && wantKey === candKey) {
+        craftedItem = { ...craftedItem0, _forceReplaceSameTier: true };
+      }
+    }
+
+    if (!canReceiveItem(inv0, craftedItem, craftedItem?._id, 1, ruleset)) continue;
+
+    let inv = consumeIngredientsFromInv(inv0, ings);
+    inv = addItemToInventory(inv, craftedItem, craftedItem?._id, 1, day, ruleset);
+    const meta = inv?._lastAdd;
+    const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
+    if (got <= 0) continue;
+
+    actor.inventory = inv;
+    autoEquipBest(actor, itemMetaById);
+    actor._invCraftPhaseIdx = Number(phaseIdxNow || 0);
+
+    const ingText = ings.map((x) => `${itemNameById?.[String(x.itemId)] || String(x.itemId)} x${x.qty}`).join(' + ');
+    const tierText = (cat === 'equipment') ? ` (${tierLabelKo(craftTier)})` : '';
+    actor._craftDebug = {
+      code: 'crafted',
+      targetName: String(craftedItem?.name || ''),
+      missing: [],
+      phaseIdx: Number(phaseIdxNow || 0),
+      text: `${craftedItem?.name || '아이템'} 제작 완료`,
+    };
+    return { changed: true, craftedId: String(craftedItem?._id || ''), craftedTier: Number(craftTier || craftedItem?.tier || 1), craftedName: String(craftedItem?.name || ''), log: `🛠️ [${actor?.name}] 인벤 조합: ${ingText} → ${craftedItem?.name || '아이템'}${tierText} x1` };
+  }
+
+  actor._invCraftPhaseIdx = Number(phaseIdxNow || 0);
+  actor._craftDebug = {
+    ...buildCraftDebugInfo(actor, craftables, itemNameById, ruleset),
+    phaseIdx: Number(phaseIdxNow || 0),
+  };
   return null;
 }
 
@@ -3402,7 +3934,26 @@ function autoEquipBest(actor, itemMetaById) {
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const eq = ensureEquipped(actor);
   const nextEq = { ...eq };
+
+  const kmap = (actor?._itemKeyById && typeof actor._itemKeyById === 'object') ? actor._itemKeyById : {};
+  const goal = pickGoalLoadoutBySlot(actor);
+
+  const keyOfInv = (x) => {
+    const id = String(getInvItemId(x) || '');
+    const k = String(x?.itemKey || x?.externalId || kmap?.[id] || '').trim();
+    return k;
+  };
+
   for (const s of EQUIP_SLOTS) {
+    const goalKey = String(goal?.[s] || '').trim();
+    if (goalKey) {
+      const hit = inv.find((x) => String(x?.equipSlot || inferEquipSlot(x) || '').toLowerCase() === s && keyOfInv(x) === goalKey);
+      if (hit) {
+        nextEq[s] = String(getInvItemId(hit));
+        continue;
+      }
+    }
+
     const best = pickBestEquipBySlot(inv, s);
     if (best) nextEq[s] = String(best?.itemId || best?.id || best?._id || '');
     else nextEq[s] = null;
@@ -3646,7 +4197,6 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
 
   // 페이즈당 과도한 즉시 제작 방지
-  const idxNow = Number(phaseIdxNow || 0);
   if (Number(actor?._specialCraftPhaseIdx ?? -9999) !== idxNow) {
     actor._specialCraftPhaseIdx = idxNow;
     actor._specialCraftCount = 0;
@@ -3844,6 +4394,7 @@ export default function SimulationPage() {
   const [matchSec, setMatchSec] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
+  const initDebugLine = `init api: ${getApiBase()} | deps: ${INIT_DEPENDENCY_PATHS.join(', ')}`;
 
   // 킬 카운트 및 결과창 관리
   const [killCounts, setKillCounts] = useState({});
@@ -4132,6 +4683,18 @@ const activeMapName = useMemo(() => {
       const max = 5000;
       return next.length > max ? next.slice(next.length - max) : next;
     });
+  };
+
+  const emitCraftRunEvent = (who, crafted, at = null, zoneId = '') => {
+    if (!crafted?.craftedId) return;
+    emitRunEvent('craft', {
+      who: String(who || ''),
+      itemId: String(crafted.craftedId || ''),
+      itemName: String(crafted.craftedName || ''),
+      tier: Math.max(1, Number(crafted?.craftedTier || 1)),
+      zoneId: String(zoneId || ''),
+      qty: 1,
+    }, at);
   };
 
   // 🛠 개발자 도구: 선택 캐릭터에게 소모품을 임의로 사용(강제)
@@ -4788,7 +5351,20 @@ if (!who) {
         type: it?.type,
         tier: clampTier4(it?.tier || 1),
         tags: safeTags(it),
+        spawnZones: Array.isArray(it?.spawnZones) ? it.spawnZones : [],
+        spawnCrateTypes: Array.isArray(it?.spawnCrateTypes) ? it.spawnCrateTypes : [],
+        droneCreditsCost: Math.max(0, Number(it?.droneCreditsCost || 0)),
       };
+    });
+    return m;
+  }, [publicItems]);
+
+  const itemKeyById = useMemo(() => {
+    const m = {};
+    (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
+      if (!it?._id) return;
+      const k = String(it?.itemKey || it?.externalId || '').trim();
+      if (k) m[String(it._id)] = k;
     });
     return m;
   }, [publicItems]);
@@ -4874,12 +5450,46 @@ if (!who) {
     }
   };
 
+  const redirectToLogin = (message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', clearAuth = false) => {
+    if (typeof window === 'undefined') return;
+    if (clearAuth) {
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      } catch {}
+    }
+    alert(message);
+    window.location.replace('/login');
+  };
+
+  const formatInitLoadError = (err) => {
+    const status = Number(err?.response?.status || 0);
+    const requestUrl = String(err?.requestUrl || '');
+    const path = requestUrl ? requestUrl.replace(/^https?:\/\/[^/]+/i, '') : '';
+    const label = path ? ` (${path})` : '';
+    const msg = String(err?.message || err?.originalMessage || '').trim();
+
+    if (err?.code === 'ERR_NETWORK' || /network error/i.test(msg)) {
+      return `⚠️ 서버에 연결하지 못했습니다${label}. server 실행 상태와 API 주소를 확인해주세요.`;
+    }
+    if (status === 404) {
+      return `⚠️ 필요한 API를 찾지 못했습니다${label}. API_BASE 또는 서버 라우트를 확인해주세요.`;
+    }
+    if (status >= 500) {
+      return `⚠️ 서버 내부 오류로 초기 데이터를 불러오지 못했습니다${label}. 서버 로그를 확인해주세요.`;
+    }
+    if (status > 0) {
+      return `⚠️ 초기 데이터 로드에 실패했습니다${label}. (${status}) ${msg || '요청 실패'}`;
+    }
+    return `⚠️ 초기 데이터 로드에 실패했습니다. ${msg || '알 수 없는 오류'}`;
+  };
+
   // 초기 데이터 로드 (캐릭터 + 이벤트 + 설정 + 상점 데이터)
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.');
-      window.location.href = '/login';
+    const token = getToken();
+    const me = getUser();
+    if (!token || !me?.username) {
+      redirectToLogin('로그인 정보가 없거나 만료되었습니다. 다시 로그인해주세요.', true);
       return;
     }
 
@@ -5041,6 +5651,8 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
 
         const charsWithHp = (Array.isArray(charRes) ? charRes : []).map((c) => ({
           ...c,
+          // 전술 스킬 레벨(런 단위): 매 런 시작 시 Lv.1로 초기화
+          tacticalSkillLevel: 1,
           hp: 100,
           maxHp: 100,
           zoneId: pickStartZoneIdForChar(c),
@@ -5050,8 +5662,10 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
           day1Moves: 0,
           day1HeroDone: false,
 
-          simCredits: 0,
+          simCredits: Number(ruleset?.credits?.start ?? 15),
           droneLastOrderIndex: -9999,
+          droneLastOrderAbsSec: -99999,
+          kioskLastInteractAbsSec: -99999,
           // 하이브리드(시즌10) 전용 상태
           detonationSec: det ? det.startSec : null,
           detonationMaxSec: det ? det.maxSec : null,
@@ -5094,7 +5708,12 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
         addLog('📢 선수들이 경기장에 입장했습니다. 잠시 후 게임이 시작됩니다.', 'system');
       } catch (err) {
         console.error('데이터 로드 실패:', err);
-        addLog('⚠️ 데이터를 불러오는데 실패했습니다.', 'death');
+        const status = Number(err?.response?.status || 0);
+        if (status === 401 || status === 403) {
+          redirectToLogin('세션이 만료되었습니다. 다시 로그인해주세요.', true);
+          return;
+        }
+        addLog(formatInitLoadError(err), 'death');
       } finally {
         setLoading(false);
       }
@@ -5336,6 +5955,10 @@ if (w) {
     // 현재 페이즈 인덱스(배송/딜레이 처리용)
     const phaseIdxNow = worldPhaseIndex(nextDay, nextPhase);
 
+    // 🧬 부활 컷오프: 2일차 밤(포함)까지의 사망자는 1회 부활 가능
+    const reviveCutoffIdx = worldPhaseIndex(2, 'night');
+    let revivedNow = [];
+
     // 🎁 초월 선택 상자(개발자 도구): 한 페이즈에 1개만 선택 대기(나머지는 자동 선택)
     let pendingPickAssigned = false;
 
@@ -5411,6 +6034,41 @@ if (w) {
     }
 
 
+
+
+    // 🧬 부활 처리: deadAtPhaseIdx(사망 시점)가 컷오프 이하이면 다음 페이즈 시작에 1회 부활
+    if (Array.isArray(dead) && dead.length) {
+      const safeZonePool = (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
+        .map((z) => String(z?.zoneId ?? z?.id ?? z?._id ?? ''))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)));
+      const remainingDead = [];
+
+      for (const d0 of dead) {
+        const deadAt = Number(d0?.deadAtPhaseIdx ?? -9999);
+        const eligible = d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx);
+        if (eligible && !d0?.revivedOnce) {
+          const maxHp = Number(d0?.maxHp ?? 100);
+          const revivedHp = Math.max(1, Math.floor(maxHp * 0.65));
+          const zoneId = safeZonePool.length ? String(safeZonePool[Math.floor(Math.random() * safeZonePool.length)]) : String(d0?.zoneId || '');
+
+          const r = { ...d0, hp: revivedHp, zoneId, revivedOnce: true, revivedAtPhaseIdx: phaseIdxNow };
+          if (useDetonation) {
+            const startSec = Number(ruleset?.detonation?.startSec ?? 20);
+            const maxSec = Number(ruleset?.detonation?.maxSec ?? 30);
+            r.detonationMaxSec = maxSec;
+            r.detonationSec = Math.min(maxSec, startSec);
+          }
+
+          revivedNow.push(r);
+          emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          addLog(`✨ [${r.name}] 부활! (HP ${revivedHp})`, 'highlight');
+        } else {
+          remainingDead.push(d0);
+        }
+      }
+
+      if (revivedNow.length) setDead(remainingDead);
+    }
     // 2-0. 월드 스폰(맵 이벤트): 전설 재료 상자/보스 생성(낮 시작 시 1회)
     const spawnRes = ensureWorldSpawns(spawnState, zones, forbiddenIds, nextDay, nextPhase, mapIdNow, mapObj?.coreSpawnZones, ruleset);
     let nextSpawn = spawnRes.state;
@@ -5520,6 +6178,10 @@ if (w) {
       addLog('🧰 1일차 낮: 기본 장비(일반 무기/신발)가 지급되었습니다. (관전형: 제작/루팅으로 성장)', 'highlight');
     }
 
+
+    // ✅ 부활자는 이번 페이즈부터 다시 생존자로 합류
+    if (revivedNow.length) phaseSurvivors = [...phaseSurvivors, ...revivedNow];
+
     // ✅ 1일차 "1회 이동" 영웅 세팅은 (강제 세팅) 대신 day1HeroGearDirector가 재료를 소모해 단계적으로 달성합니다.
 
     const newlyDead = [];
@@ -5543,6 +6205,8 @@ if (w) {
         }
         if (beforeHp > 0 && afterHp <= 0) {
           updated.hp = 0;
+          updated.deadAtPhaseIdx = phaseIdxNow;
+          updated.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
           newlyDead.push(updated);
           addLog(`💀 [${updated.name}] 출혈로 사망했습니다.`, 'death');
           return updated;
@@ -5551,10 +6215,13 @@ if (w) {
         // --- 이동 ---
 updated.simCredits = updated.simCredits ?? 0;
 updated.droneLastOrderIndex = updated.droneLastOrderIndex ?? -9999;
+updated.droneLastOrderAbsSec = updated.droneLastOrderAbsSec ?? -99999;
+updated.kioskLastInteractAbsSec = updated.kioskLastInteractAbsSec ?? -99999;
 updated.aiTargetZoneId = updated.aiTargetZoneId ?? null;
 updated.aiTargetTTL = updated.aiTargetTTL ?? 0;
 updated.inventory = Array.isArray(updated.inventory) ? updated.inventory : [];
 updated.inventory = normalizeInventory(updated.inventory, ruleset);
+updated._itemKeyById = itemKeyById;
 
 const currentZone = String(updated.zoneId || zones[0]?.zoneId || '__default__');
 const neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
@@ -5563,7 +6230,10 @@ let nextZoneId = currentZone;
 const mustEscape = forbiddenIds.has(currentZone);
 
 // 목표 기반 이동: 조합 목표/월드 스폰/키오스크를 고려
-const preGoal = buildCraftGoal(updated.inventory, craftables, itemNameById);
+const preGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+  goalTier: updated?.goalGearTier,
+  goalItemKeys: pickGoalLoadoutKeys(updated),
+});
 const upgradeNeed = computeLateGameUpgradeNeed(updated, itemMetaById, itemNameById, nextDay, nextPhase, ruleset);
 const aiMove = chooseAiMoveTargets({
   actor: updated,
@@ -5575,13 +6245,27 @@ const aiMove = chooseAiMoveTargets({
   day: nextDay,
   phase: nextPhase,
   kiosks,
+  itemMetaById,
+  itemNameById,
 });
 
 // 🤖 목표 존 유지(TTL): 목표를 몇 페이즈 유지해서 '사람처럼' 보이게 함
 const aiCfg = ruleset?.ai || {};
 const recoverHpBelow = Math.max(0, Number(aiCfg?.recoverHpBelow ?? 38));
 const recoverMinDelta = Math.max(0, Math.floor(Number(aiCfg?.recoverMinSaferDelta ?? 1)));
-const recovering = !mustEscape && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
+const sameZoneOpponents = (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).filter((t) => (
+  t && String(t?._id || '') !== String(updated?._id || '') && Number(t?.hp || 0) > 0 && String(t?.zoneId || '') === String(currentZone)
+));
+const worstSameZoneOpponent = sameZoneOpponents
+  .slice()
+  .sort((a, b) => Number(estimatePower(b) || 0) - Number(estimatePower(a) || 0))[0] || null;
+const avoidInfoNow = worstSameZoneOpponent ? shouldAvoidCombatByPower(updated, worstSameZoneOpponent) : null;
+const extremeRatio = Number(aiCfg?.fightAvoidExtremeRatio ?? 0.30);
+const extremeDelta = Number(aiCfg?.fightAvoidExtremeDelta ?? 25);
+const lowHpFleeInterrupt = !mustEscape && sameZoneOpponents.length > 0 && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
+const powerFleeInterrupt = !mustEscape && !!avoidInfoNow && ((Number(avoidInfoNow?.ratio || 1) < extremeRatio) || ((Number(avoidInfoNow?.opP || 0) - Number(avoidInfoNow?.myP || 0)) >= extremeDelta));
+const fleeInterruptReason = mustEscape ? 'forbidden' : (lowHpFleeInterrupt ? 'low_hp' : (powerFleeInterrupt ? 'power_gap' : ''));
+const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
 
 const ttlMin = Math.max(1, Number(aiCfg?.targetTtlMin ?? 2));
 const ttlMax = Math.max(ttlMin, Number(aiCfg?.targetTtlMax ?? 4));
@@ -5626,7 +6310,17 @@ let moveReason = holdTarget ? `${String(aiMove?.reason || 'goal')}:ttl` : String
 // ✅ 목표/이동 후보에서 금지구역은 최대한 제외 (막혀서 멈추는 현상 방지)
 moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
 
-if (recovering) {
+if (fleeInterruptReason) {
+  updated.aiTargetZoneId = null;
+  updated.aiTargetTTL = 0;
+  const depthMax = Math.max(1, Math.floor(Number(aiCfg?.safeSearchDepth ?? 3)));
+  const pick = bfsPickSafestZone(currentZone, zoneGraph, forbiddenIds, baseZonePop, { maxDepth: depthMax, minDelta: Math.max(1, recoverMinDelta) });
+  const best = String(pick?.target || currentZone);
+  if (best && best !== currentZone && !forbiddenIds.has(String(best))) {
+    moveTargets = [String(best)];
+  }
+  moveReason = `flee:${String(fleeInterruptReason)}`;
+} else if (recovering) {
   // 회복 우선: 목표/보스 추적보다 안전/저인구 존으로 분산(인접 1칸에만 갇히지 않게 BFS 사용)
   updated.aiTargetZoneId = null;
   updated.aiTargetTTL = 0;
@@ -5652,7 +6346,7 @@ const escapeChance = (mustEscape && curDet <= dangerForceSec) ? 1 : escapeMoveCh
 
 const equipMs = getEquipMoveSpeed(updated);
 const msMoveBonus = Math.min(0.18, equipMs * 0.9); // 신발 이동속도 반영(이동 결정)
-let baseMoveChance = mustEscape ? escapeChance : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6));
+let baseMoveChance = mustEscape ? escapeChance : (fleeInterruptReason ? 1 : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6)));
 // ✅ 1일차 낮에는 "최소 1회 이동" 목표를 위해 이동 확률을 상향(관전 템포)
 if (!mustEscape && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning') {
   baseMoveChance = Math.max(baseMoveChance, 0.92);
@@ -5699,6 +6393,9 @@ if (willMove) {
 if (String(nextZoneId) !== String(currentZone)) {
   if (mustEscape) {
     addLog(`⚠️ [${updated.name}] 금지구역 이탈: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
+  } else if (String(moveReason || '').startsWith('flee:')) {
+    const fleeLabel = moveReason === 'flee:low_hp' ? '저HP' : (moveReason === 'flee:power_gap' ? '전투력 열세' : '긴급');
+    addLog(`🏃 [${updated.name}] ${fleeLabel} 인터럽트 도주: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
   } else if (forbiddenIds.has(String(nextZoneId))) {
     addLog(`⚠️ [${updated.name}] 금지구역 진입: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
   } else if (moveTargets.length) {
@@ -5717,7 +6414,7 @@ if (String(nextZoneId) !== String(currentZone)) {
     name: updated?.name,
     from: String(currentZone),
     to: String(nextZoneId),
-    reason: mustEscape ? 'escape' : (moveTargets.length ? String(moveReason || 'goal') : 'wander'),
+    reason: mustEscape ? 'escape' : (String(moveReason || '').startsWith('flee:') ? String(moveReason) : (moveTargets.length ? String(moveReason || 'goal') : 'wander')),
   }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 } else if (mustEscape) {
   addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
@@ -5868,9 +6565,142 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (craftedN) {
             updated.inventory = craftedN.inventory;
             addLog(`[${updated.name}] ${craftedN.log}`, 'normal');
+            emitCraftRunEvent(updated?._id, craftedN, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
           }
         }
 
+        // --- 조합 목표(간단 AI): 현재 인벤 기준으로 '가까운' 상위 티어 1개를 목표로 삼음 ---
+        const craftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+          goalTier: updated?.goalGearTier,
+          goalItemKeys: pickGoalLoadoutKeys(updated),
+        });
+
+        // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
+        const queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, upgradeNeed, phaseStartSec);
+        const queuedDroneOrder = (didMove || fleeInterruptReason || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
+        const craftProbeActor = (didMove || fleeInterruptReason || queuedKioskAction?.itemId || queuedDroneOrder?.itemId)
+          ? null
+          : { ...updated, inventory: Array.isArray(updated.inventory) ? [...updated.inventory] : [], _itemKeyById: itemKeyById };
+        const craftPreview = craftProbeActor
+          ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset)
+          : null;
+        const queuedAtomicAction = (() => {
+          if (didMove) {
+            return {
+              type: (mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo',
+              fromZoneId: String(currentZone || ''),
+              toZoneId: String(nextZoneId || currentZone || ''),
+              reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+            };
+          }
+          if (fleeInterruptReason) {
+            return {
+              type: 'flee',
+              fromZoneId: String(currentZone || ''),
+              toZoneId: String(nextZoneId || currentZone || ''),
+              reason: String(moveReason || `flee:${fleeInterruptReason}`),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+            };
+          }
+          if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
+            const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
+            return {
+              type: kioskTypeMap[String(queuedKioskAction?.kind || '')] || 'kioskBuy',
+              zoneId: String(updated?.zoneId || ''),
+              itemId: String(queuedKioskAction?.itemId || ''),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+            };
+          }
+          if (queuedDroneOrder?.itemId) {
+            return {
+              type: 'droneOrder',
+              zoneId: String(updated?.zoneId || ''),
+              itemId: String(queuedDroneOrder?.itemId || ''),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+            };
+          }
+          if (craftPreview?.changed) {
+            return {
+              type: 'craft',
+              zoneId: String(updated?.zoneId || ''),
+              itemId: String(craftPreview?.craftedId || ''),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+            };
+          }
+          return { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0) };
+        })();
+        const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
+        const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
+          const type = String(act?.type || 'hunt');
+          const zoneText = getZoneName(act?.toZoneId || act?.zoneId || '');
+          const itemText = String(
+            (String(act?.itemId || '') && (itemNameById?.[String(act?.itemId || '')] || ''))
+            || queuedKioskAction?.item?.name
+            || queuedDroneOrder?.item?.name
+            || craftPreview?.craftedName
+            || ''
+          );
+          return [type, itemText && `:${itemText}`, zoneText && `@${zoneText}`].filter(Boolean).join('');
+        });
+        const candidatePreview = [
+          didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
+          (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
+          (!didMove && !fleeInterruptReason && queuedKioskAction?.itemId && queuedKioskAction?.item)
+            ? `${String(queuedKioskAction?.kind || 'buy')}:${String(queuedKioskAction?.item?.name || '')}`
+            : null,
+          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && queuedDroneOrder?.itemId)
+            ? `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[String(queuedDroneOrder?.itemId || '')] || queuedDroneOrder?.itemId || '')}`
+            : null,
+          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftPreview?.changed)
+            ? `craft:${String(craftPreview?.craftedName || '')}`
+            : null,
+          'hunt',
+        ].filter(Boolean);
+        const blockedReasons = [
+          (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
+          (fleeInterruptReason && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? `flee_interrupt:${String(fleeInterruptReason || '')}` : null,
+          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
+            ? `craft:${String(craftProbeActor?._craftDebug?.code || '')}`
+            : null,
+        ].filter(Boolean);
+        updated.aiActionQueue = [queuedAtomicAction];
+        updated.aiCurrentAction = queuedActionType;
+        updated.aiActionEtaSec = Number(queuedAtomicAction?.etaSec || 1);
+        updated._aiDebug = {
+          phaseIdx: Number(phaseIdxNow || 0),
+          zoneName: getZoneName(updated?.zoneId || currentZone),
+          action: queuedActionType,
+          reason: String(queuedAtomicAction?.reason || moveReason || ''),
+          targetZoneName: getZoneName(queuedAtomicAction?.toZoneId || holdTarget || ''),
+          itemName: String(
+            queuedKioskAction?.item?.name
+            || queuedDroneOrder?.item?.name
+            || craftPreview?.craftedName
+            || (craftGoal?.target?.name || '')
+          ),
+          goalName: String(craftGoal?.target?.name || ''),
+          missingNames: (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
+            .slice(0, 4)
+            .map((m) => String(m?.name || itemNameById?.[String(m?.itemId || '')] || m?.itemId || ''))
+            .filter(Boolean),
+          queuePreview,
+          candidatePreview: candidatePreview.slice(0, 5),
+          blockedReasons: blockedReasons.slice(0, 3),
+          fleeReason: String(fleeInterruptReason || ''),
+          recovering: !!recovering,
+          credits: Math.max(0, Number(updated?.simCredits || 0)),
+          wantLegend: !!upgradeNeed?.wantLegend,
+          wantTrans: !!upgradeNeed?.wantTrans,
+          farmCredits: !!upgradeNeed?.farmCredits,
+        };
+
+        if (queuedActionType === 'hunt') {
         // --- 보스(맵 이벤트 스폰): 알파/오메가/위클라인 ---
         const boss = recovering ? null : consumeBossAtZone(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset);
 
@@ -5932,6 +6762,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (craftedH) {
               updated.inventory = craftedH.inventory;
               addLog(`[${updated.name}] ${craftedH.log}`, 'normal');
+              emitCraftRunEvent(updated?._id, craftedH, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
             }
           }
 
@@ -5939,6 +6770,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`💀 [${updated.name}]이(가) 사냥 중 치명상을 입고 사망했습니다.`, 'death');
             newlyDead.push(updated);
           }
+        }
+
         }
 
         // --- 전설 재료 상자(맵 이벤트 스폰): 3일차 '낮' 이후부터 맵 어딘가에 드랍 → 해당 구역 진입 시 개봉 ---
@@ -6005,16 +6838,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (craftedL) {
             updated.inventory = craftedL.inventory;
             addLog(`[${updated.name}] ${craftedL.log}`, 'normal');
+            emitCraftRunEvent(updated?._id, craftedL, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
           }
         }
 
-        // --- 조합 목표(간단 AI): 현재 인벤 기준으로 '가까운' 상위 티어 1개를 목표로 삼음 ---
-        const craftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById);
         let didProcure = false;
 
-        // --- 키오스크(구매/교환): 2일차 '낮' 이후부터 ---
-        const kioskAction = rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, upgradeNeed);
-        if (kioskAction?.itemId && kioskAction?.item) {
+        // --- 키오스크/드론(구매/교환): 원자 액션(kioskBuy/kioskExchange/kioskSell/droneOrder)일 때만 실행 ---
+        if (['kioskBuy','kioskExchange','kioskSell','droneOrder'].includes(queuedActionType)) {
+          const kioskAction = queuedKioskAction;
+          if (['kioskBuy','kioskExchange','kioskSell'].includes(queuedActionType) && kioskAction?.itemId && kioskAction?.item) {
           const itemNm = kioskAction.item?.name || kioskAction.label || '아이템';
 
           if (kioskAction.kind === 'buy') {
@@ -6024,6 +6857,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const meta = updated.inventory?._lastAdd;
             const want = Math.max(1, Number(kioskAction.qty || 1));
             const got = Math.max(0, Number(meta?.acceptedQty ?? want));
+
+            // ✅ 전술 강화 모듈: (level 모드) 즉시 소비 → 전술 스킬 레벨 +1
+            // - 모듈을 인벤에 쌓아두지 않고, 즉시 레벨로 전환(관전 템포)
+            const tacMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level');
+            const tags = Array.isArray(kioskAction?.item?.tags) ? kioskAction.item.tags : [];
+            const isTacModule = String(itemNm || '').includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
+            if (tacMode === 'level' && isTacModule && got > 0) {
+              const beforeLv = Math.max(1, Math.min(2, Math.floor(Number(updated?.tacticalSkillLevel || 1))));
+              const inc = Math.max(0, Math.min(2 - beforeLv, Math.floor(got)));
+              if (inc > 0) {
+                updated.tacticalSkillLevel = beforeLv + inc;
+                updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: inc }]);
+                addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
+              }
+            }
             addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] x${got}${formatInvAddNote(meta, want, updated.inventory, ruleset)} (크레딧 -${cost})`, 'system');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), qty: got, source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             didProcure = true;
@@ -6047,6 +6895,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (craftedK) {
               updated.inventory = craftedK.inventory;
               addLog(`[${updated.name}] ${craftedK.log}`, 'normal');
+              emitCraftRunEvent(updated?._id, craftedK, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
             }
           }
 
@@ -6059,6 +6908,20 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const meta = updated.inventory?._lastAdd;
             const want = Math.max(1, Number(kioskAction.qty || 1));
             const got = Math.max(0, Number(meta?.acceptedQty ?? want));
+
+            // ✅ 전술 강화 모듈: (level 모드) 즉시 소비 → 전술 스킬 레벨 +1
+            const tacMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level');
+            const tags = Array.isArray(kioskAction?.item?.tags) ? kioskAction.item.tags : [];
+            const isTacModule = String(itemNm || '').includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
+            if (tacMode === 'level' && isTacModule && got > 0) {
+              const beforeLv = Math.max(1, Math.min(2, Math.floor(Number(updated?.tacticalSkillLevel || 1))));
+              const inc = Math.max(0, Math.min(2 - beforeLv, Math.floor(got)));
+              if (inc > 0) {
+                updated.tacticalSkillLevel = beforeLv + inc;
+                updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: inc }]);
+                addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
+              }
+            }
             addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] x${got}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), qty: got, source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             didProcure = true;
@@ -6067,6 +6930,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (craftedE) {
               updated.inventory = craftedE.inventory;
               addLog(`[${updated.name}] ${craftedE.log}`, 'normal');
+              emitCraftRunEvent(updated?._id, craftedE, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
             }
           }
 
@@ -6080,11 +6944,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
             didProcure = true;
           }
 
-        }
-                if (!didProcure) {
-          // --- 드론 호출(하급 아이템 보급): 즉시 지급 ---
-          const droneOrder = rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules);
-          if (droneOrder?.itemId && Number(droneOrder?.cost || 0) <= Number(updated.simCredits || 0)) {
+          }
+          if (!didProcure && queuedActionType === 'droneOrder') {
+            // --- 드론 호출(하급 아이템 보급): 즉시 지급 ---
+            const droneOrder = queuedDroneOrder;
+            if (droneOrder?.itemId && Number(droneOrder?.cost || 0) <= Number(updated.simCredits || 0)) {
             const cost = Math.max(0, Number(droneOrder.cost || 0));
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - cost);
 
@@ -6093,7 +6957,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const itemId = String(droneOrder.itemId || item?._id || '');
             if (itemId) {
               updated.inventory = addItemToInventory(updated.inventory, item, itemId, qty, nextDay, ruleset);
-              updated.droneLastOrderIndex = Number(phaseIdxNow || 0);
               const meta = updated.inventory?._lastAdd;
               const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
               addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} x${got}${formatInvAddNote(meta, qty, updated.inventory, ruleset)} (-${cost}Cr, 즉시)`, 'normal');
@@ -6105,23 +6968,43 @@ const didMove = String(nextZoneId) !== String(currentZone);
               if (craftedD?.inventory) {
                 updated.inventory = craftedD.inventory;
                 addLog(`[${updated.name}] ${craftedD.log}`, 'highlight');
+                emitCraftRunEvent(updated?._id, craftedD, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
               }
             }
           }
         }
 
-
-        // ✅ 1일차 목표 달성(영웅 세팅): 재료를 소모해 단계적으로 제작/강화
-        // - 조건: 1일차에 최소 1회 이동(day1Moves>=1)
-        const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
-        if (heroRes?.changed && Array.isArray(heroRes.logs)) {
-          heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
         }
 
-        // ✅ 후반 세팅(전설/초월) 제작: 크레딧/키오스크 루프가 실제로 장비로 이어지게 함
-        const lateRes = lateGameGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
-        if (lateRes?.changed && Array.isArray(lateRes.logs)) {
-          lateRes.logs.forEach((m) => addLog(String(m), 'highlight'));
+        // ✅ 인벤 기반 제작(레시피): 행동 큐가 'craft'일 때만 실행
+        // - 이동/사냥/구매와 같은 tick에 겹치지 않게 1차 분리
+        if (queuedActionType === 'craft') {
+          const invCraft = tryAutoCraftFromInventory(updated, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
+          if (invCraft?.changed) {
+            addLog(String(invCraft.log), 'highlight');
+            emitCraftRunEvent(updated?._id, invCraft, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+          }
+          else if (String(selectedCharId || '') === String(updated?._id || '')) {
+            const dbg = updated?._craftDebug || null;
+            const dbgKey = `${phaseIdxNow}:${String(dbg?.code || '')}:${String(dbg?.targetName || '')}:${Array.isArray(dbg?.missing) ? dbg.missing.join('|') : ''}`;
+            if (dbg?.code && updated?._craftDebugLogKey !== dbgKey) {
+              updated._craftDebugLogKey = dbgKey;
+              addLog(`[${updated.name}] 🧪 제작판정(${dbg.code}): ${dbg.text}`, 'system');
+            }
+          }
+
+          // ✅ 1일차 목표 달성(영웅 세팅): 재료를 소모해 단계적으로 제작/강화
+          // - 조건: 1일차에 최소 1회 이동(day1Moves>=1)
+          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
+          if (heroRes?.changed && Array.isArray(heroRes.logs)) {
+            heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
+          }
+
+          // ✅ 후반 세팅(전설/초월) 제작: 크레딧/키오스크 루프가 실제로 장비로 이어지게 함
+          const lateRes = lateGameGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
+          if (lateRes?.changed && Array.isArray(lateRes.logs)) {
+            lateRes.logs.forEach((m) => addLog(String(m), 'highlight'));
+          }
         }
 
 
@@ -6157,6 +7040,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           if (updated.hp <= 0 && Number(s.hp || 0) > 0) {
             addLog(`💀 [${s.name}]이(가) 금지구역을 벗어나지 못하고 사망했습니다.`, 'death');
+            updated.deadAtPhaseIdx = phaseIdxNow;
+            updated.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
             newlyDead.push(updated);
           }
         }
@@ -6300,6 +7185,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             s._deathAt = absSec;
             s._deathBy = 'detonation';
             s.hp = 0;
+            s.deadAtPhaseIdx = phaseIdxNow;
+            s.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
             newlyDead.push(s);
             addLog(`💥 [${s.name}] 폭발 타이머가 0이 되어 사망했습니다. (구역: ${getZoneName(zoneId)})`, 'death');
           }
@@ -6799,13 +7686,309 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const targetIndex = todaysSurvivors.findIndex((t) => t._id === target._id);
         if (targetIndex > -1) todaysSurvivors.splice(targetIndex, 1);
 
+
+
+        // --- 전술 스킬(시즌10) 간이 발동 로직 ---
+        // - 상세설정에서 선택한 tacticalSkill 문자열을 기반으로, 도주/추격/교전에 실제 영향 부여
+        // - 효과는 관전형 템포에 맞춘 단순 모델(SSOT/AI 안정화 우선)
+        const absNow = phaseStartSec;
+
+        // --- 전술 강화 모듈(크레딧 업그레이드) 반영 ---
+        // - 인벤에 보유한 '전술 강화 모듈' 수만큼 전술 스킬 쿨다운↓ / 효과↑
+        // - 관전형을 위한 단순 모델(최대 5스택)
+        const tacModuleLevel = (c) => {
+          const mode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level');
+          if (mode === 'level') {
+            // 전술 스킬 레벨: Lv.1~2 (보정치는 Lv-1)
+            const lv = Math.max(1, Math.min(2, Math.floor(Number(c?.tacticalSkillLevel || 1))));
+            return lv - 1;
+          }
+          const inv = Array.isArray(c?.inventory) ? c.inventory : [];
+          let n = 0;
+          for (const it of inv) {
+            const nm = String(it?.name || '').trim();
+            const tags = Array.isArray(it?.tags) ? it.tags : [];
+            const isModule = nm.includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
+            if (!isModule) continue;
+            n += Math.max(0, Number(it?.qty || 1));
+          }
+          // stack 모드는 호환 유지(보정치 최대 1)
+          return Math.max(0, Math.min(1, Math.floor(n)));
+        };
+        const normalizeTac = (v) => {
+          const s = String(v || '').trim();
+          if (!s) return '블링크';
+          const low = s.toLowerCase();
+          if (s.includes('블링크') || low.includes('blink')) return '블링크';
+          if (s.includes('치유')) return '치유의 바람';
+          if (s.includes('라이트') || s.includes('쉴드') || low.includes('shield')) return '라이트닝 쉴드';
+          if (s.includes('스트라이더') || s.includes('A13') || low.includes('strider')) return '스트라이더 A-13';
+          if (s.includes('임펄스') || low.includes('impulse')) return '임펄스';
+          if (s.includes('퀘이크') || low.includes('quake')) return '퀘이크';
+          if (s.includes('프로토콜')) return '프로토콜 위반';
+          if (s.includes('붉은 폭풍') || low.includes('electric shift')) return '붉은 폭풍';
+          if (s.includes('초월') || low.includes('force field')) return '초월';
+          if (s.includes('아티팩트') || low.includes('artifact') || low.includes('totem')) return '아티팩트';
+          if (s.includes('무효화') || low.includes('nullification')) return '무효화';
+          if (s.includes('강한 결속') || low.includes('strong bond') || low.includes('soul stealer')) return '강한 결속';
+          if (s.includes('진실의 칼날') || low.includes('blade of truth')) return '진실의 칼날';
+          if (s.includes('거짓 서약') || low.includes('false oath')) return '거짓 서약';
+          return s;
+        };
+        const tacCdSec = (name, who) => {
+          // 전술 스킬 쿨다운: 테이블 기반(튜닝 용이)
+          const base = getTacBaseCdSec(name);
+
+          const lv = tacModuleLevel(who);
+          const mult = Math.max(0.70, 1 - (lv * 0.05)); // 최대 30% 감소
+          return Math.max(12, Math.round(base * mult));
+        };
+        const canUseTac = (c) => (absNow >= Number(c?._tacNextAbsSec || 0));
+        const useTac = (c, name) => {
+          if (!c) return;
+          const n = normalizeTac(name);
+          c._tacNextAbsSec = absNow + tacCdSec(n, c);
+          c._tacLastUsed = n;
+          c._tacLastUsedAt = absNow;
+        };
+        const pvpCfg = ruleset?.pvp || {};
+        const pickSparseSafeNeighbor = (fromZoneId) => {
+          const from = String(fromZoneId || '');
+          if (!from) return '';
+          const neighbors = Array.isArray(zoneGraph?.[from]) ? zoneGraph[from].map((z) => String(z)) : [];
+          const safeNeighbors = neighbors.filter((z) => z && !forbiddenIds.has(z));
+          if (!safeNeighbors.length) return from;
+          const pop = {};
+          for (const s of survivorMap.values()) {
+            if (!s || Number(s.hp || 0) <= 0) continue;
+            if (newDeadIds.includes(s._id)) continue;
+            const zid = String(s.zoneId || '');
+            if (!zid) continue;
+            pop[zid] = (pop[zid] || 0) + 1;
+          }
+          let dest = from;
+          let bestPop = 1e9;
+          for (const z of safeNeighbors) {
+            const p = Number(pop[z] || 0);
+            if (p < bestPop) {
+              bestPop = p;
+              dest = z;
+            }
+          }
+          return String(dest || from);
+        };
+        const applyCombatElimination = (winner, loser, opts = {}) => {
+          if (!winner || !loser) return { assistId: null };
+          const winnerId = String(winner?._id || '');
+          const loserId = String(loser?._id || '');
+          const prevDamagedBy = String(opts.prevDamagedBy || loser?.lastDamagedBy || '');
+          const prevDamagedPhaseIdx = Number(opts.prevDamagedPhaseIdx ?? loser?.lastDamagedPhaseIdx ?? -9999);
+          if (!newDeadIds.includes(loserId)) {
+            loser.deadAtPhaseIdx = phaseIdxNow;
+            loser.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            newDeadIds.push(loserId);
+            setDead((prev) => [...prev, loser]);
+          }
+          roundKills[winnerId] = (roundKills[winnerId] || 0) + 1;
+          let assistId = null;
+          if (prevDamagedBy && prevDamagedBy !== winnerId && prevDamagedBy !== loserId && (phaseIdxNow - prevDamagedPhaseIdx) <= assistWindowPhases) {
+            assistId = prevDamagedBy;
+            roundAssists[assistId] = (roundAssists[assistId] || 0) + 1;
+          }
+          const assistName = assistId ? (survivorMap.get(assistId)?.name || assistId) : '';
+          addLog(`☠️ [${winner.name}] ${opts.killText || '처치'}! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
+          emitRunEvent('death', { who: loserId, by: winnerId, zoneId: String(loser?.zoneId || winner?.zoneId || actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          if (useDetonation) {
+            const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
+            const baseMax = Number((winner.detonationMaxSec ?? ruleset?.detonation?.maxSec) ?? 30);
+            const nextMax = baseMax + bonusSec;
+            winner.detonationMaxSec = nextMax;
+            const baseCur = Number((winner.detonationSec ?? ruleset?.detonation?.startSec) ?? 20);
+            winner.detonationSec = Math.min(nextMax, baseCur + bonusSec);
+            addLog(`⏱️ [${winner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'system');
+            const killCredit = Number(ruleset?.credits?.kill || 0);
+            if (killCredit > 0) {
+              earnedCredits += killCredit;
+              winner.simCredits = Number(winner.simCredits || 0) + killCredit;
+            }
+          }
+          const lootRate = Number(pvpCfg.lootCreditRate ?? 0.35);
+          const lootMin = Number(pvpCfg.lootCreditMin ?? 10);
+          const lootUnits = Math.max(0, Math.floor(Number(pvpCfg.lootInventoryUnits ?? 1)));
+          const loserCredits = Math.max(0, Number(loser?.simCredits || 0));
+          const stealCredit = Math.min(loserCredits, Math.max(lootMin, Math.floor(loserCredits * lootRate)));
+          let lootLines = [];
+          if (stealCredit > 0) {
+            loser.simCredits = loserCredits - stealCredit;
+            winner.simCredits = Number(winner.simCredits || 0) + stealCredit;
+            lootLines.push(`💰 크레딧 ${stealCredit}`);
+            emitRunEvent('gain', { who: winnerId, itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: loserId, zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          }
+          const lootPick = lootUnits > 0 ? pickUnitsFromInventory(loser?.inventory || [], lootUnits) : [];
+          if (lootPick.length) {
+            for (const lp of lootPick) {
+              const lootId = String(lp?.itemId || '');
+              if (!lootId) continue;
+              const lootItem = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === lootId) || null;
+              const fallbackName = itemNameById?.[lootId] || '아이템';
+              const stub = lootItem || { _id: lootId, name: fallbackName, type: '재료', tags: [] };
+              winner.inventory = addItemToInventory(winner.inventory, stub, lootId, 1, nextDay, ruleset);
+              emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: 1, source: 'pvp', from: loserId, zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x1`);
+            }
+          }
+          if (lootLines.length) addLog(`🧾 루팅: [${winner.name}] ← [${loser.name}] (${lootLines.join(', ')})`, 'normal');
+          const maxHp = Number(winner?.maxHp ?? 100);
+          const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
+          const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(winner.hp || 0)));
+          if (restHeal > 0) {
+            winner.hp = Math.min(maxHp, Number(winner.hp || 0) + restHeal);
+            addLog(`🩹 [${winner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
+          }
+          tryUseConsumable(winner, 'after_battle');
+          const curHp = Number(winner.hp || 0);
+          const postRestHpBelow = Math.max(0, Number(pvpCfg.postBattleRestHpBelow ?? 45));
+          const postRestExtraHealMax = Math.max(0, Math.floor(Number(pvpCfg.postBattleRestExtraHealMax ?? 6)));
+          const postMoveChance = Math.max(0, Math.min(1, Number(pvpCfg.postBattleMoveChance ?? 0.35)));
+          if (curHp > 0 && curHp <= postRestHpBelow) {
+            const extraHeal = Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp));
+            if (extraHeal > 0) {
+              winner.hp = Math.min(maxHp, curHp + extraHeal);
+              addLog(`🧘 [${winner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
+            }
+          } else if (Math.random() < postMoveChance) {
+            const curZone = String(winner.zoneId || '');
+            const nextZone = pickSparseSafeNeighbor(curZone);
+            if (nextZone && nextZone !== curZone) {
+              winner.zoneId = nextZone;
+              addLog(`🚶 [${winner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'system');
+            }
+          }
+          return { assistId };
+        };
+        const markUnattributedDeath = (victim, reasonText = '접전 중 전투불능') => {
+          if (!victim) return;
+          const victimId = String(victim?._id || '');
+          if (!newDeadIds.includes(victimId)) {
+            victim.deadAtPhaseIdx = phaseIdxNow;
+            victim.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            newDeadIds.push(victimId);
+            setDead((prev) => [...prev, victim]);
+          }
+          addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
+          emitRunEvent('death', { who: victimId, by: '', zoneId: String(victim?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+        };
+        const resolveFleeSequence = (flee, chaser, opts = {}) => {
+          const curZone = String(opts.curZone || flee?.zoneId || chaser?.zoneId || '');
+          if (!flee || !chaser || !curZone) return null;
+          const neighbors = Array.isArray(zoneGraph?.[curZone]) ? zoneGraph[curZone].map((z) => String(z)) : [];
+          const safeNeighbors = neighbors.filter((z) => z && !forbiddenIds.has(z));
+          if (!safeNeighbors.length) return null;
+
+          const fleeTac = normalizeTac(flee?.tacticalSkill);
+          const chaseTac = normalizeTac(chaser?.tacticalSkill);
+          const fleeTacTrig = getTacTrigger(fleeTac, 'flee');
+          const chaseTacTrig = getTacTrigger(chaseTac, 'chase');
+          const fleeLv = tacModuleLevel(flee);
+          const chaseLv = tacModuleLevel(chaser);
+
+          if (fleeTac === '블링크' && canUseTac(flee)) {
+            const dest = pickSparseSafeNeighbor(curZone);
+            flee.zoneId = String(dest || curZone);
+            survivorMap.set(flee._id, flee);
+            useTac(flee, '블링크');
+            addLog(`✨ [${flee.name}] 전술 스킬(블링크)로 도주! ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'highlight');
+            emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'tac_blink_escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id), tacUsed: '블링크' };
+          }
+          const healBelowHp = Number(fleeTacTrig?.hpBelow ?? 55);
+          if ((opts.allowHeal ?? true) && fleeTac === '치유의 바람' && canUseTac(flee) && Number(flee.hp || 0) > 0 && Number(flee.hp || 0) <= healBelowHp) {
+            const maxHp = Number(flee?.maxHp ?? 100);
+            const healCap = getTacEffectNumber('치유의 바람', 'healCap', 1 + fleeLv, 22);
+            const heal = Math.min(healCap, Math.max(0, maxHp - Number(flee.hp || 0)));
+            if (heal > 0) {
+              flee.hp = Math.min(maxHp, Number(flee.hp || 0) + heal);
+              useTac(flee, '치유의 바람');
+              addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): HP +${heal}`, 'system');
+            }
+          }
+
+          const escTacBonus = (fleeTacTrig?.applyBonus === true)
+            ? getTacEffectNumber(fleeTac, 'escapeBonus', 1 + fleeLv, 0)
+            : 0;
+          const chaseTacBonus = (chaseTacTrig?.applyBonus === true)
+            ? Math.max(
+                getTacEffectNumber(chaseTac, 'escapeBonus', 1 + chaseLv, 0),
+                getTacEffectNumber(chaseTac, 'chaseBonus', 1 + chaseLv, 0)
+              )
+            : 0;
+          const fleeMs = getEquipMoveSpeed(flee);
+          const chaseMs = getEquipMoveSpeed(chaser);
+          const escapeBase = Number(ruleset?.ai?.escapeBaseChance ?? 0.22);
+          const msScale = Number(ruleset?.ai?.escapeMoveSpeedScale ?? 0.12);
+          const pressurePenalty = Number(ruleset?.ai?.escapePressurePenalty ?? 0.28);
+          const lowSafePenalty = Number(ruleset?.ai?.escapeLowSafePenalty ?? 0.15);
+          const safeCount = Math.max(0, totalZonesCount - forbiddenIds.size);
+          const curForbidden = forbiddenIds.has(curZone);
+          const powDelta = estimatePower(chaser) - estimatePower(flee);
+          let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
+          pEscape += (escTacBonus && canUseTac(flee) && (fleeTacTrig?.applyBonus ?? true)) ? escTacBonus : 0;
+          if (curForbidden) pEscape -= 0.18;
+          pEscape -= restrictedRatio * pressurePenalty;
+          if (safeCount <= 3) pEscape -= lowSafePenalty;
+          pEscape -= Math.max(0, Math.min(0.18, powDelta / 120));
+          pEscape = Math.max(0.05, Math.min(0.9, pEscape));
+          const didEscape = (opts.forceAttempt === true) ? true : (Math.random() < pEscape);
+          if (!didEscape) return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
+          if (escTacBonus && canUseTac(flee) && (fleeTacTrig?.useOnCommit ?? true)) {
+            useTac(flee, fleeTac);
+            addLog(`💨 [${flee.name}] 전술 스킬(${fleeTac})로 도주 보정!`, 'system');
+          }
+
+          const dest = pickSparseSafeNeighbor(curZone);
+          flee.zoneId = String(dest || curZone);
+          survivorMap.set(flee._id, flee);
+          addLog(`🏃 [${flee.name}] ${opts.escapeText || '교전을 피하려 도주'}: ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'system');
+          emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: opts.moveReason || 'escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+          const chaseBase = Number(ruleset?.ai?.chaseBaseChance ?? 0.25);
+          const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
+          let pChase = chaseBase + (chaseMs - fleeMs) * chaseMsScale + restrictedRatio * 0.10 + Math.max(0, Math.min(0.20, powDelta / 80));
+          pChase += (chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.applyBonus ?? true)) ? chaseTacBonus : 0;
+          pChase = Math.max(0, Math.min(0.95, pChase));
+          const willChase = Math.random() < pChase;
+          if (willChase && chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.useOnCommit ?? true)) {
+            useTac(chaser, chaseTac);
+            addLog(`🧭 [${chaser.name}] 전술 스킬(${chaseTac})로 추격 강화!`, 'system');
+          }
+          if (!willChase) return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
+
+          chaser.zoneId = String(flee.zoneId || curZone);
+          survivorMap.set(chaser._id, chaser);
+          addLog(`🏃‍♂️ [${chaser.name}] 추격! → ${getZoneName(chaser.zoneId)}`, 'highlight');
+          emitRunEvent('move', { who: String(chaser?._id || ''), name: chaser?.name, from: curZone, to: String(chaser.zoneId || ''), reason: 'chase' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+
+          const catchBase = Number(ruleset?.ai?.catchBaseChance ?? 0.35);
+          const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
+          let pCatch = catchBase + (chaseMs - fleeMs) * catchMsScale + restrictedRatio * 0.12 + Math.max(0, Math.min(0.25, powDelta / 70));
+          pCatch += (chaseTacBonus && canUseTac(chaser)) ? (chaseTacBonus * 0.9) : 0;
+          pCatch = Math.max(0.05, Math.min(0.95, pCatch));
+          const caught = Math.random() < pCatch;
+          if (!caught) {
+            addLog(`💨 [${flee.name}] 간신히 따돌렸습니다.`, 'system');
+            return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
+          }
+
+          const pre = Math.min(12, Math.max(4, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80)));
+          flee.hp = Math.max(0, Number(flee.hp || 0) - pre);
+          survivorMap.set(flee._id, flee);
+          addLog(`⚡ 추격전! [${chaser.name}]이(가) [${flee.name}]을(를) 따라잡아 기습합니다. (피해 -${pre})`, 'highlight');
+          return { escaped: true, caught: true, dest: String(flee.zoneId || curZone), preDamage: pre, fatal: Number(flee.hp || 0) <= 0, fleeId: String(flee._id), chaserId: String(chaser._id) };
+        };
         // 🏃 추격·도주(1단계): 이속/HP/장비차 + 제한구역 압박 기반(관전형 템포)
         const escapeOutcome = (() => {
           const curZone = String(actor?.zoneId || target?.zoneId || '');
           if (!curZone) return null;
-          const neighbors = Array.isArray(zoneGraph?.[curZone]) ? zoneGraph[curZone].map((z) => String(z)) : [];
-          const safeNeighbors = neighbors.filter((z) => z && !forbiddenIds.has(z));
-          if (!safeNeighbors.length) return null;
 
           const hpBelow = Number(ruleset?.ai?.escapeHpBelow ?? 42);
           const aAvoid = shouldAvoidCombatByPower(actor, target);
@@ -6829,78 +8012,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
             chaser = (flee === actor) ? target : actor;
           }
-
-          const fleeMs = getEquipMoveSpeed(flee);
-          const chaseMs = getEquipMoveSpeed(chaser);
-          const escapeBase = Number(ruleset?.ai?.escapeBaseChance ?? 0.22);
-          const msScale = Number(ruleset?.ai?.escapeMoveSpeedScale ?? 0.12);
-          const pressurePenalty = Number(ruleset?.ai?.escapePressurePenalty ?? 0.28);
-          const lowSafePenalty = Number(ruleset?.ai?.escapeLowSafePenalty ?? 0.15);
-          const safeCount = Math.max(0, totalZonesCount - forbiddenIds.size);
-          const curForbidden = forbiddenIds.has(curZone);
-
-          const powDelta = estimatePower(chaser) - estimatePower(flee);
-
-          let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
-          if (curForbidden) pEscape -= 0.18;
-          pEscape -= restrictedRatio * pressurePenalty;
-          if (safeCount <= 3) pEscape -= lowSafePenalty;
-          pEscape -= Math.max(0, Math.min(0.18, powDelta / 120));
-          pEscape = Math.max(0.05, Math.min(0.9, pEscape));
-
-          const didEscape = Math.random() < pEscape;
-          if (!didEscape) return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
-
-          // 인접 안전 구역 중 인구가 가장 적은 곳으로 1칸 이동(도주)
-          const pop = {};
-          for (const s of survivorMap.values()) {
-            if (!s || Number(s.hp || 0) <= 0) continue;
-            if (newDeadIds.includes(s._id)) continue;
-            const zid = String(s.zoneId || '');
-            if (!zid) continue;
-            pop[zid] = (pop[zid] || 0) + 1;
-          }
-          let dest = curZone;
-          let bestPop = 1e9;
-          for (const z of safeNeighbors) {
-            const p = Number(pop[z] || 0);
-            if (p < bestPop) { bestPop = p; dest = z; }
-          }
-
-          flee.zoneId = String(dest || curZone);
-          survivorMap.set(flee._id, flee);
-          addLog(`🏃 [${flee.name}] 교전을 피하려 도주: ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'system');
-          emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-
-          // 추격 여부(이속/전투력/압박 기반)
-          const chaseBase = Number(ruleset?.ai?.chaseBaseChance ?? 0.25);
-          const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
-          let pChase = chaseBase + (chaseMs - fleeMs) * chaseMsScale + restrictedRatio * 0.10 + Math.max(0, Math.min(0.20, powDelta / 80));
-          pChase = Math.max(0, Math.min(0.95, pChase));
-          const willChase = Math.random() < pChase;
-          if (!willChase) return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
-
-          chaser.zoneId = String(flee.zoneId || curZone);
-          survivorMap.set(chaser._id, chaser);
-          addLog(`🏃‍♂️ [${chaser.name}] 추격! → ${getZoneName(chaser.zoneId)}`, 'highlight');
-          emitRunEvent('move', { who: String(chaser?._id || ''), name: chaser?.name, from: curZone, to: String(chaser.zoneId || ''), reason: 'chase' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-
-          // 따라잡기(기습) 판정
-          const catchBase = Number(ruleset?.ai?.catchBaseChance ?? 0.35);
-          const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
-          let pCatch = catchBase + (chaseMs - fleeMs) * catchMsScale + restrictedRatio * 0.12 + Math.max(0, Math.min(0.25, powDelta / 70));
-          pCatch = Math.max(0.05, Math.min(0.95, pCatch));
-          const caught = Math.random() < pCatch;
-          if (!caught) {
-            addLog(`💨 [${flee.name}] 간신히 따돌렸습니다.`, 'system');
-            return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
-          }
-
-          const pre = Math.min(12, Math.max(4, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80)));
-          flee.hp = Math.max(0, Number(flee.hp || 0) - pre);
-          survivorMap.set(flee._id, flee);
-          addLog(`⚡ 추격전! [${chaser.name}]이(가) [${flee.name}]을(를) 따라잡아 기습합니다. (피해 -${pre})`, 'highlight');
-          return { escaped: true, caught: true, dest: String(flee.zoneId || curZone), preDamage: pre, fleeId: String(flee._id), chaserId: String(chaser._id) };
+          return resolveFleeSequence(flee, chaser, { curZone });
         })();
 
         // 도주 성공 & 미포획이면 전투 없이 종료(둘 다 행동권 소모)
@@ -6915,12 +8027,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const fleeNow = survivorMap.get(escapeOutcome.fleeId);
           const chaserNow = survivorMap.get(escapeOutcome.chaserId);
           if (fleeNow && Number(fleeNow.hp || 0) <= 0 && chaserNow) {
-            if (!newDeadIds.includes(fleeNow._id)) {
-              newDeadIds.push(fleeNow._id);
-              setDead((prev) => [...prev, fleeNow]);
-            }
-            addLog(`☠️ [${chaserNow.name}] 추격전으로 [${fleeNow.name}]을(를) 제압했습니다!`, 'death');
-            emitRunEvent('death', { who: String(fleeNow?._id || ''), by: String(chaserNow?._id || ''), zoneId: String(fleeNow?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            applyCombatElimination(chaserNow, fleeNow, { killText: '추격 제압' });
             continue;
           }
         }
@@ -6956,12 +8063,70 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const wp = combatScore(winner);
           const lp = combatScore(loser);
           const ratio = wp / Math.max(1, wp + lp);
-          const base = 12 + nextDay * 2;
-          const dmgToLoser = Math.min(65, Math.max(8, Math.round(base + ratio * 25)));
-          const dmgToWinner = Math.min(25, Math.max(0, Math.round(5 + (1 - ratio) * 12)));
+          const base = 18 + nextDay * 3;
+          const dmgToLoser = Math.min(92, Math.max(16, Math.round(base + ratio * 34)));
+          const dmgToWinner = Math.min(32, Math.max(0, Math.round(7 + (1 - ratio) * 14)));
 
-          loser.hp = Math.max(0, Number(loser.hp || 0) - dmgToLoser);
-          winner.hp = Math.max(0, Number(winner.hp || 0) - dmgToWinner);
+
+          const applyCombatTacAttack = (attacker, defender, baseDmg) => {
+            const tac = normalizeTac(attacker?.tacticalSkill);
+            const trig = getTacTrigger(tac, 'combat');
+            const lv = tacModuleLevel(attacker);
+            const hp = Number(attacker?.hp || 0);
+            const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
+            if (!trig || !canUseTac(attacker)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
+            if (Number(trig?.hpBelow || 999) < 999 && hp > Number(trig?.hpBelow || 999)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
+            let dmg = Math.max(0, Math.floor(Number(baseDmg || 0)));
+            const flat = getTacEffectNumber(tac, 'openerFlatDmg', 1 + lv, 0);
+            const heal = getTacEffectNumber(tac, 'selfHeal', 1 + lv, 0);
+            const cost = getTacEffectNumber(tac, 'selfCost', 1 + lv, 0);
+            if (cost > 0 && hp <= Math.max(12, cost + 2)) return dmg;
+            useTac(attacker, tac);
+            if (cost > 0) attacker.hp = Math.max(1, hp - cost);
+            if (heal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + heal);
+            dmg += flat;
+            if (flat > 0 || heal > 0 || cost > 0) {
+              const bits = [];
+              if (flat > 0) bits.push(`추가 피해 +${flat}`);
+              if (heal > 0) bits.push(`HP +${heal}`);
+              if (cost > 0) bits.push(`HP -${cost}`);
+              addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
+            }
+            return Math.max(0, dmg);
+          };
+          const shieldBlock = (defender, rawDmg) => {
+            const tac = normalizeTac(defender?.tacticalSkill);
+            const dmg = Math.max(0, Number(rawDmg || 0));
+            if (dmg <= 0) return dmg;
+            const defenseTac = ['라이트닝 쉴드', '초월', '아티팩트', '무효화'];
+            if (!defenseTac.includes(tac)) return dmg;
+            if (!canUseTac(defender)) return dmg;
+            const tcfg = getTacTrigger(tac, 'combatDefense');
+            const minDmg = Math.max(0, Number(tcfg?.minIncomingDmg ?? 0));
+            if (minDmg > 0 && dmg < minDmg) return dmg;
+            const lv = tacModuleLevel(defender);
+            const negateLethal = getTacEffectNumber(tac, 'negateLethal', 1 + lv, 0) > 0;
+            if (negateLethal && dmg >= Number(defender?.hp || 0)) {
+              useTac(defender, tac);
+              addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'highlight');
+              return Math.max(0, Number(defender?.hp || 0) - 1);
+            }
+            const blockCap = getTacEffectNumber(tac, 'block', 1 + lv, tac === '라이트닝 쉴드' ? 14 : 0);
+            if (blockCap <= 0) return dmg;
+            const block = Math.min(dmg, blockCap);
+            useTac(defender, tac);
+            addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): 피해 -${block}`, 'highlight');
+            return Math.max(0, dmg - block);
+          };
+
+          const atkDmgToLoser = applyCombatTacAttack(winner, loser, dmgToLoser);
+          const atkDmgToWinner = applyCombatTacAttack(loser, winner, dmgToWinner);
+          const finalDmgToLoser = shieldBlock(loser, atkDmgToLoser);
+          const finalDmgToWinner = shieldBlock(winner, atkDmgToWinner);
+
+          loser.hp = Math.max(0, Number(loser.hp || 0) - finalDmgToLoser);
+          winner.hp = Math.max(0, Number(winner.hp || 0) - finalDmgToWinner);
+
 
           const lethal = loser.hp <= 0;
           if (!lethal) {
@@ -6979,7 +8144,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
             loser.lastDamagedPhaseIdx = phaseIdxNow;
           }
           addLog(battleLog, lethal ? 'death' : 'normal');
-          addLog(`🩸 피해: [${winner.name}]↘[${loser.name}] -${dmgToLoser} (반격 -${dmgToWinner})`, 'highlight');
+          addLog(`🩸 피해: [${winner.name}]↘[${loser.name}] -${finalDmgToLoser} (반격 -${finalDmgToWinner})`, 'highlight');
+
+          let postCombatFlee = null;
+          if (!lethal && Number(loser.hp || 0) > 0 && Number(loser.hp || 0) <= 18 && Math.random() < 0.78) {
+            postCombatFlee = resolveFleeSequence(loser, winner, { curZone: String(loser.zoneId || winner.zoneId || ''), forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee' });
+          }
 
           // 🧾 전투 이벤트(미니맵 핑/집계용)
           emitRunEvent(
@@ -6987,144 +8157,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
             {
               a: String(actor?._id || ''),
               b: String(target?._id || ''),
-              winner: lethal ? String(winner?._id || '') : '',
-              lethal: !!lethal,
+              winner: (lethal || (postCombatFlee?.fatal === true)) ? String(winner?._id || '') : '',
+              lethal: !!lethal || (postCombatFlee?.fatal === true),
               zoneId: String(actor?.zoneId || target?.zoneId || ''),
             },
             { day: nextDay, phase: nextPhase, sec: phaseStartSec }
           );
 
           // 출혈 판정(피격 시)
-          tryApplyBleed(loser, winner, dmgToLoser);
-          if (dmgToWinner > 0) tryApplyBleed(winner, loser, dmgToWinner);
+          tryApplyBleed(loser, winner, finalDmgToLoser);
+          if (finalDmgToWinner > 0) tryApplyBleed(winner, loser, finalDmgToWinner);
 
-          if (lethal) {
-            if (!newDeadIds.includes(loser._id)) {
-              newDeadIds.push(loser._id);
-              setDead((prev) => [...prev, loser]);
-            }
-
-            roundKills[winnerId] = (roundKills[winnerId] || 0) + 1;
-
-            // 어시스트: 직전 피해 기여자(킬러 제외)가 최근에 기여했다면 1회 인정
-            let assistId = null;
-            if (
-              prevDamagedBy &&
-              prevDamagedBy !== winnerId &&
-              prevDamagedBy !== String(loser._id) &&
-              (phaseIdxNow - prevDamagedPhaseIdx) <= assistWindowPhases
-            ) {
-              assistId = prevDamagedBy;
-            }
-            if (assistId) {
-              roundAssists[assistId] = (roundAssists[assistId] || 0) + 1;
-            }
-
-            const assistName = assistId ? (survivorMap.get(assistId)?.name || assistId) : '';
-            addLog(`☠️ [${winner.name}] 처치! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
-
-            emitRunEvent(
-              'death',
-              {
-                who: String(loser?._id || ''),
-                by: String(winner?._id || ''),
-                zoneId: String(loser?.zoneId || winner?.zoneId || actor?.zoneId || ''),
-              },
-              { day: nextDay, phase: nextPhase, sec: phaseStartSec }
-            );
-
-            // 처치 보상: 금지구역 제한시간(최대치) +5초 연장 + 크레딧
-            if (useDetonation) {
-              const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
-              if (winner) {
-                const baseMax = Number((winner.detonationMaxSec ?? ruleset?.detonation?.maxSec) ?? 30);
-                const nextMax = baseMax + bonusSec;
-                winner.detonationMaxSec = nextMax;
-                const baseCur = Number((winner.detonationSec ?? ruleset?.detonation?.startSec) ?? 20);
-                winner.detonationSec = Math.min(nextMax, baseCur + bonusSec);
-                addLog(`⏱️ [${winner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'system');
-              }
-              const killCredit = Number(ruleset?.credits?.kill || 0);
-              if (killCredit > 0) {
-                earnedCredits += killCredit;
-                winner.simCredits = Number(winner.simCredits || 0) + killCredit;
-              }
-            }
-            // ✅ PvP 루팅: 패자 인벤 일부 + 크레딧 일부를 승자가 획득
-            // - 수치는 ruleset.pvp에서 고정(로드맵 4의 첫 단추)
-            const pvpCfg = ruleset?.pvp || {};
-            const lootRate = Number(pvpCfg.lootCreditRate ?? 0.35);
-            const lootMin = Number(pvpCfg.lootCreditMin ?? 10);
-            const lootUnits = Math.max(0, Math.floor(Number(pvpCfg.lootInventoryUnits ?? 1)));
-
-            const loserCredits = Math.max(0, Number(loser?.simCredits || 0));
-            const stealCredit = Math.min(loserCredits, Math.max(lootMin, Math.floor(loserCredits * lootRate)));
-
-            let lootLines = [];
-            if (stealCredit > 0) {
-              loser.simCredits = loserCredits - stealCredit;
-              winner.simCredits = Number(winner.simCredits || 0) + stealCredit;
-              lootLines.push(`💰 크레딧 ${stealCredit}`);
-              emitRunEvent('gain', { who: String(winner?._id || ''), itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: String(loser?._id || ''), zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-            }
-
-            const lootPick = lootUnits > 0 ? pickUnitsFromInventory(loser?.inventory || [], lootUnits) : [];
-            if (lootPick.length) {
-              for (const lp of lootPick) {
-                const lootId = String(lp?.itemId || '');
-                if (!lootId) continue;
-
-                const lootItem = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === lootId) || null;
-                const fallbackName = itemNameById?.[lootId] || '아이템';
-                const stub = lootItem || { _id: lootId, name: fallbackName, type: '재료', tags: [] };
-
-                winner.inventory = addItemToInventory(winner.inventory, stub, lootId, 1, nextDay, ruleset);
-                emitRunEvent('gain', { who: String(winner?._id || ''), itemId: String(lootId || ''), qty: 1, source: 'pvp', from: String(loser?._id || ''), zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-                lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x1`);
-              }
-            }
-
-            if (lootLines.length) {
-              addLog(`🧾 루팅: [${winner.name}] ← [${loser.name}] (${lootLines.join(', ')})`, 'normal');
-            }
-
-            // ✅ 전투 후 숨고르기(최소 회복): 전투 승리 시 HP 소량 회복
-            const maxHp = Number(winner?.maxHp ?? 100);
-            const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
-            const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(winner.hp || 0)));
-            if (restHeal > 0) {
-              winner.hp = Math.min(maxHp, Number(winner.hp || 0) + restHeal);
-              addLog(`🩹 [${winner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
-            }
-            tryUseConsumable( winner, 'after_battle');
-            // ✅ 전투 후 행동: 승자(루팅/숨고르기 이후) 추가 휴식 또는 이동
-            const postMoveChance = Math.max(0, Math.min(1, Number(pvpCfg.postBattleMoveChance ?? 0.35)));
-            const postRestHpBelow = Math.max(0, Number(pvpCfg.postBattleRestHpBelow ?? 45));
-            const postRestExtraHealMax = Math.max(0, Math.floor(Number(pvpCfg.postBattleRestExtraHealMax ?? 6)));
-
-            const curHp = Number(winner.hp || 0);
-            if (curHp > 0 && curHp <= postRestHpBelow) {
-              const extraHeal = Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp));
-              if (extraHeal > 0) {
-                winner.hp = Math.min(maxHp, curHp + extraHeal);
-                addLog(`🧘 [${winner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
-              }
-            } else if (Math.random() < postMoveChance) {
-              const curZone = String(winner.zoneId || '');
-              const neigh = Array.isArray(zoneGraph[curZone]) ? zoneGraph[curZone] : [];
-              const safeNeighbors = neigh.map((z) => String(z)).filter((z) => z && !forbiddenIds.has(z));
-              let nextZone = curZone;
-              if (safeNeighbors.length) {
-                const diff = safeNeighbors.filter((z) => z !== curZone);
-                const pool = diff.length ? diff : safeNeighbors;
-                nextZone = String(pool[Math.floor(Math.random() * pool.length)] || curZone);
-              }
-              if (nextZone && nextZone !== curZone) {
-                winner.zoneId = nextZone;
-                addLog(`🚶 [${winner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'system');
-              }
-            }
-
+          if (postCombatFlee?.fatal === true) {
+            applyCombatElimination(winner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '빈사 추격 제압' });
+          } else if (lethal) {
+            applyCombatElimination(winner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '처치' });
           }
         } else {
           const scratch = Math.min(12, 5 + Math.floor(nextDay / 2));
@@ -7153,14 +8200,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           // 출혈 판정(접전)
           tryApplyBleed(actor, target, scratch);
           tryApplyBleed(target, actor, scratch);
-          if (actor.hp <= 0 && !newDeadIds.includes(actor._id)) {
-            newDeadIds.push(actor._id);
-            setDead((prev) => [...prev, actor]);
-          }
-          if (target.hp <= 0 && !newDeadIds.includes(target._id)) {
-            newDeadIds.push(target._id);
-            setDead((prev) => [...prev, target]);
-          }
+          if (actor.hp <= 0) markUnattributedDeath(actor, '접전 끝에 쓰러짐');
+          if (target.hp <= 0) markUnattributedDeath(target, '접전 끝에 쓰러짐');
         }
 
       } else if (canDual && rand < eventProb) {
@@ -7314,6 +8355,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               if (craftedE) {
                 actor.inventory = craftedE.inventory;
                 addLog("[" + actor.name + "] " + craftedE.log, "normal");
+                emitCraftRunEvent(actor?._id, craftedE, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, actor?.zoneId);
               }
             }
           }
@@ -7763,7 +8805,84 @@ const gainDetailSummary = useMemo(() => {
   if (itemStr && zoneStr) return `TOP 아이템: ${itemStr} | TOP 구역: ${zoneStr}`;
   if (itemStr) return `TOP 아이템: ${itemStr}`;
   return `TOP 구역: ${zoneStr}`;
-}, [runEvents, itemNameById, zoneNameById]);
+
+
+const runProgressSummary = useMemo(() => {
+  const out = {
+    droneCalls: 0,
+    kioskGains: 0,
+    craftCount: 0,
+    totalDeaths: 0,
+    totalRevives: 0,
+    totalFlees: 0,
+    firstLegendAt: null,
+    firstTransAt: null,
+    latestLegendAt: null,
+    latestTransAt: null,
+    legendWho: new Set(),
+    transWho: new Set(),
+  };
+  const stampText = (at) => {
+    if (!at) return '';
+    const d = Number(at?.day || 0);
+    const ph = String(at?.phase || '-');
+    const sec = Math.max(0, Math.floor(Number(at?.sec || 0)));
+    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+    const ss = String(sec % 60).padStart(2, '0');
+    return `D${d} ${ph} ${mm}:${ss}`;
+  };
+  const touchTier = (tier, at, who) => {
+    const t = Math.max(0, Number(tier || 0));
+    const wid = String(who || '');
+    if (t >= 5 && !out.firstLegendAt) out.firstLegendAt = at || null;
+    if (t >= 6 && !out.firstTransAt) out.firstTransAt = at || null;
+    if (t >= 5) out.latestLegendAt = at || null;
+    if (t >= 6) out.latestTransAt = at || null;
+    if (t >= 5 && wid) out.legendWho.add(wid);
+    if (t >= 6 && wid) out.transWho.add(wid);
+  };
+  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
+    if (!e) continue;
+    const who = String(e.who || '');
+    if (e.kind === 'gain') {
+      const src = String(e.source || '');
+      if (src === 'drone') out.droneCalls += 1;
+      if (src === 'kiosk') out.kioskGains += 1;
+      const meta = itemMetaById?.[String(e.itemId || '')] || null;
+      const tier = Number(meta?.tier || 0);
+      const cat = inferItemCategory(meta);
+      if (cat === 'equipment' && tier > 0) touchTier(tier, e.at || null, who);
+    }
+    if (e.kind === 'craft') {
+      out.craftCount += 1;
+      touchTier(Number(e.tier || 0), e.at || null, who);
+    }
+    if (e.kind === 'death') out.totalDeaths += 1;
+    if (e.kind === 'revive') out.totalRevives += 1;
+    if (e.kind === 'move') {
+      const reason = String(e.reason || '');
+      if (reason.includes('escape') || reason.includes('flee')) out.totalFlees += 1;
+    }
+  }
+  const deathBase = Math.max(1, out.totalDeaths);
+  const reviveRate = out.totalRevives / deathBase;
+  const fleeRate = out.totalFlees / deathBase;
+  const isLegendOnTime = !!out.firstLegendAt && isAtOrAfterWorldTime(Number(out.firstLegendAt?.day || 0), String(out.firstLegendAt?.phase || ''), 0, 'morning') && !isAtOrAfterWorldTime(Number(out.firstLegendAt?.day || 0), String(out.firstLegendAt?.phase || ''), 3, 'day');
+  const isTransOnTime = !!out.firstTransAt && isAtOrAfterWorldTime(Number(out.firstTransAt?.day || 0), String(out.firstTransAt?.phase || ''), 0, 'morning') && !isAtOrAfterWorldTime(Number(out.firstTransAt?.day || 0), String(out.firstTransAt?.phase || ''), 5, 'day');
+  return {
+    ...out,
+    legendCount: out.legendWho.size,
+    transCount: out.transWho.size,
+    reviveRate,
+    fleeRate,
+    legendPace: out.firstLegendAt ? (isLegendOnTime ? 'on-track' : 'late') : 'pending',
+    transPace: out.firstTransAt ? (isTransOnTime ? 'on-track' : 'late') : 'pending',
+    firstLegendText: stampText(out.firstLegendAt),
+    firstTransText: stampText(out.firstTransAt),
+    latestLegendText: stampText(out.latestLegendAt),
+    latestTransText: stampText(out.latestTransAt),
+  };
+}, [runEvents, itemMetaById]);
 
   // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
   const zonePos = useMemo(() => {
@@ -7909,6 +9028,9 @@ const gainDetailSummary = useMemo(() => {
       ) : null}
 
       <div className="simulation-container modal-layout">
+        <div className="market-small" style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: '#eef7ff', color: '#0d47a1', border: '1px solid rgba(2, 136, 209, 0.18)' }}>
+          🧪 {initDebugLine}
+        </div>
         {/* 생존자 현황판 */}
         <aside className={`survivor-board ${uiModal === 'chars' ? 'modal-open' : ''}`}>
           {uiModal === 'chars' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
@@ -8674,7 +9796,16 @@ const gainDetailSummary = useMemo(() => {
               </div>
             </div>
 
-
+            <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+              <div className="market-title">🌍 런 전체 요약</div>
+              <div className="market-small">drone: <b>{Number(runProgressSummary?.droneCalls || 0)}</b> / kiosk: <b>{Number(runProgressSummary?.kioskGains || 0)}</b> / craft: <b>{Number(runProgressSummary?.craftCount || 0)}</b></div>
+              <div className="market-small" style={{ marginTop: 6 }}>legend chars: <b>{Number(runProgressSummary?.legendCount || 0)}</b> / transcend chars: <b>{Number(runProgressSummary?.transCount || 0)}</b></div>
+              <div className="market-small" style={{ marginTop: 6 }}>death: <b>{Number(runProgressSummary?.totalDeaths || 0)}</b> / revive: <b>{Number(runProgressSummary?.totalRevives || 0)}</b> / flee: <b>{Number(runProgressSummary?.totalFlees || 0)}</b></div>
+              <div className="market-small" style={{ marginTop: 6 }}>revive ratio: <b>{Number(runProgressSummary?.reviveRate || 0).toFixed(2)}</b> / flee ratio: <b>{Number(runProgressSummary?.fleeRate || 0).toFixed(2)}</b></div>
+              <div className="market-small" style={{ marginTop: 6 }}>legend pace: <b>{String(runProgressSummary?.legendPace || 'pending')}</b> / transcend pace: <b>{String(runProgressSummary?.transPace || 'pending')}</b></div>
+              <div className="market-small" style={{ marginTop: 6 }}>first legend: {String(runProgressSummary?.firstLegendText || '-')} / first transcend: {String(runProgressSummary?.firstTransText || '-')}</div>
+              <div className="market-small" style={{ marginTop: 6 }}>latest legend: {String(runProgressSummary?.latestLegendText || '-')} / latest transcend: {String(runProgressSummary?.latestTransText || '-')}</div>
+            </div>
 
             {pendingTranscendPick ? (
               <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
@@ -8729,6 +9860,80 @@ const gainDetailSummary = useMemo(() => {
                       })
                     )}
                   </div>
+                </div>
+              );
+            })() : null}
+
+            {selectedCharId && selectedChar ? (() => {
+              const dbg = selectedChar?._craftDebug || null;
+              return (
+                <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                  <div className="market-title">🧪 제작 디버그</div>
+                  {!dbg ? (
+                    <div className="market-small">아직 제작 판정 로그가 없습니다.</div>
+                  ) : (
+                    <>
+                      <div className="market-small">code: <b>{String(dbg?.code || '-')}</b>{dbg?.targetName ? ` / target: ${dbg.targetName}` : ''}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>{String(dbg?.text || '')}</div>
+                      {Array.isArray(dbg?.missing) && dbg.missing.length > 0 ? (
+                        <div className="market-small" style={{ marginTop: 6 }}>missing: {dbg.missing.slice(0, 5).join(', ')}</div>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+              );
+            })() : null}
+
+            {selectedCharId && selectedChar ? (() => {
+              const ai = selectedChar?._aiDebug || null;
+              return (
+                <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                  <div className="market-title">🤖 AI 디버그</div>
+                  {!ai ? (
+                    <div className="market-small">아직 AI 판단 로그가 없습니다.</div>
+                  ) : (
+                    <>
+                      <div className="market-small">action: <b>{String(ai?.action || '-')}</b>{ai?.itemName ? ` / item: ${ai.itemName}` : ''}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>zone: {String(ai?.zoneName || '-')} {ai?.targetZoneName ? `→ ${ai.targetZoneName}` : ''}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>reason: {String(ai?.reason || '-')}</div>
+                      {Array.isArray(ai?.queuePreview) && ai.queuePreview.length > 0 ? (
+                        <div className="market-small" style={{ marginTop: 6 }}>queue: {ai.queuePreview.join(' → ')}</div>
+                      ) : null}
+                      {Array.isArray(ai?.candidatePreview) && ai.candidatePreview.length > 0 ? (
+                        <div className="market-small" style={{ marginTop: 6 }}>candidates: {ai.candidatePreview.join(' > ')}</div>
+                      ) : null}
+                      {Array.isArray(ai?.blockedReasons) && ai.blockedReasons.length > 0 ? (
+                        <div className="market-small" style={{ marginTop: 6 }}>blocked: {ai.blockedReasons.join(', ')}</div>
+                      ) : null}
+                      {ai?.goalName ? <div className="market-small" style={{ marginTop: 6 }}>goal: {String(ai.goalName)}</div> : null}
+                      {Array.isArray(ai?.missingNames) && ai.missingNames.length > 0 ? (
+                        <div className="market-small" style={{ marginTop: 6 }}>missing: {ai.missingNames.join(', ')}</div>
+                      ) : null}
+                      <div className="market-small" style={{ marginTop: 6 }}>
+                        late: {ai?.wantLegend ? '전설 ' : ''}{ai?.wantTrans ? '초월 ' : ''}{ai?.farmCredits ? '/ 크레딧 파밍' : ''}{!ai?.wantLegend && !ai?.wantTrans && !ai?.farmCredits ? '일반 성장' : ''}
+                      </div>
+                      {ai?.fleeReason ? <div className="market-small" style={{ marginTop: 6 }}>flee: {String(ai.fleeReason)}</div> : null}
+                    </>
+                  )}
+                </div>
+              );
+
+            {selectedCharId && selectedChar ? (() => {
+              const rp = runProgressSummary || null;
+              return (
+                <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                  <div className="market-title">📈 런 메트릭</div>
+                  {!rp ? (
+                    <div className="market-small">아직 메트릭이 없습니다.</div>
+                  ) : (
+                    <>
+                      <div className="market-small">drone: <b>{Number(rp?.droneCalls || 0)}</b> / kiosk: <b>{Number(rp?.kioskGains || 0)}</b> / craft: <b>{Number(rp?.craftCount || 0)}</b></div>
+                      <div className="market-small" style={{ marginTop: 6 }}>first legend: {String(rp?.firstLegendText || '-')}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>first transcend: {String(rp?.firstTransText || '-')}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>latest legend: {String(rp?.latestLegendText || '-')}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>latest transcend: {String(rp?.latestTransText || '-')}</div>
+                    </>
+                  )}
                 </div>
               );
             })() : null}

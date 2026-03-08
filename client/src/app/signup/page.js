@@ -2,7 +2,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
+import { apiPost } from '../../utils/api';
 import { useRouter } from 'next/navigation';
 import '../../styles/Auth.css'; // 이전 단계에서 만든 CSS 재사용
 
@@ -21,8 +21,7 @@ export default function SignupPage() {
 
     try {
       // 2. 서버(백엔드)로 데이터 전송
-      // router.post 가 아니라 axios.post 를 써야 합니다!
-      const response = await axios.post('https://eternalhunger-e7z1.onrender.com/api/auth/signup', {
+      await apiPost('/auth/signup', {
         username: form.username,
         password: form.password
       });
@@ -31,7 +30,7 @@ export default function SignupPage() {
       router.push('/login');
     } catch (err) {
       // 에러 메시지가 있으면 출력 (예: 아이디 중복 등)
-      alert(err.response?.data?.error || "회원가입 중 오류가 발생했습니다.");
+      alert(err.message || "회원가입 중 오류가 발생했습니다.");
     }
 
     

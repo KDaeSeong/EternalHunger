@@ -167,6 +167,7 @@ function normalizeSimEquipmentToItemDoc(raw, userId) {
 
   return {
     externalId,
+    itemKey: externalId,
     name,
     type,
     tags: [...new Set(tags)],
@@ -194,6 +195,39 @@ const {
   countInInventory,
 } = require('../utils/inventory');
 
+// ✅ 목표 장비 세팅용: 장비 목록(슬롯별) 제공
+// GET /api/items/equipment-list
+router.get('/equipment-list', async (req, res) => {
+  try {
+    const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
+    const items = await Item.find({
+      $or: [
+        { equipSlot: { $in: slots } },
+        { type: { $in: ['무기', '방어구'] } },
+      ]
+    }).select('itemKey externalId name type equipSlot weaponType tier rarity');
+
+    const out = (Array.isArray(items) ? items : []).map((it) => {
+      const itemKey = String(it?.itemKey || it?.externalId || it?._id || '');
+      const type = String(it?.type || '');
+      const equipSlot = String(it?.equipSlot || (type === '무기' ? 'weapon' : '')).trim();
+      return {
+        itemKey,
+        name: String(it?.name || ''),
+        type,
+        equipSlot,
+        weaponType: String(it?.weaponType || ''),
+        tier: clampTier6(it?.tier || 1),
+        rarity: String(it?.rarity || ''),
+      };
+    }).filter((x) => x.itemKey && x.name);
+
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: '장비 목록 로드 실패' });
+  }
+});
+
 /**
  * POST /api/items/craft
  * body: { characterId, itemId, qty }
@@ -213,7 +247,7 @@ router.post('/craft', async (req, res) => {
       User.findById(userId),
       Character.findOne({ _id: characterId, userId }),
       Item.findById(resultItemId),
-      Item.find({}, '_id name tags type tier'),
+      Item.find({}, '_id name itemKey externalId tags type tier'),
     ]);
 
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
@@ -230,7 +264,13 @@ router.post('/craft', async (req, res) => {
     const itemMetaMap = {};
     for (const it of (Array.isArray(items) ? items : [])) {
       if (!it?._id) continue;
-      itemMetaMap[String(it._id)] = { name: it.name, type: it.type, tags: it.tags, tier: clampTier4(it.tier || 1) };
+      itemMetaMap[String(it._id)] = {
+        name: it.name,
+        type: it.type,
+        tags: it.tags,
+        tier: clampTier4(it.tier || 1),
+        itemKey: it.itemKey || it.externalId
+      };
     }
     ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
 
@@ -270,7 +310,7 @@ router.post('/craft', async (req, res) => {
       craftedRarity = tierLabelKo(craftedTier);
     }
 
-    addToInventory(ch.inventory, { itemId: resultItem._id, name: resultItem.name, qty: give, tags: resultItem.tags, type: resultItem.type, tier: craftedTier, rarity: craftedRarity });
+    addToInventory(ch.inventory, { itemId: resultItem._id, itemKey: resultItem.itemKey || resultItem.externalId, name: resultItem.name, qty: give, tags: resultItem.tags, type: resultItem.type, tier: craftedTier, rarity: craftedRarity });
 
     ch.markModified('inventory');
     await ch.save();

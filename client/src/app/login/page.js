@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import '../../styles/Auth.css'; // ★ 스타일 임포트
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { apiPost } from '../../utils/api';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ username: '', password: '' });
@@ -12,14 +12,14 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-        const res = await axios.post('https://eternalhunger-e7z1.onrender.com/api/auth/login', form);
+        const res = await apiPost('/auth/login', form);
         
         // 1. 데이터 저장
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
+        localStorage.setItem('token', res.token);
+        localStorage.setItem('user', JSON.stringify(res.user));
 
         // 2. 알림 및 이동
-        alert(`${res.data.user.username}님, 환영합니다!`);
+        alert(`${res.user.username}님, 환영합니다!`);
         
         // ★ router.push('/')로 메인 화면으로 즉시 이동
         router.push('/'); 
@@ -29,7 +29,7 @@ export default function LoginPage() {
         setTimeout(() => window.location.reload(), 100); 
 
     } catch (err) {
-        alert(err.response?.data?.error || "로그인 실패");
+        alert(err.message || "로그인 실패");
     }
 };
 

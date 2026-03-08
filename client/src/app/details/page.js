@@ -5,9 +5,55 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
+import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
+
+const GOAL_GEAR_TIERS = [
+  { value: 4, label: '영웅' },
+  { value: 5, label: '전설' },
+  { value: 6, label: '초월' },
+];
+
+const LOADOUT_TIERS = [
+  { key: 'hero', label: '영웅' },
+  { key: 'legend', label: '전설' },
+  { key: 'transcend', label: '초월' },
+];
+
+const LOADOUT_SLOTS = [
+  { key: 'weaponKey', label: '무기', slot: 'weapon' },
+  { key: 'headKey', label: '머리', slot: 'head' },
+  { key: 'clothesKey', label: '옷', slot: 'clothes' },
+  { key: 'armKey', label: '팔', slot: 'arm' },
+  { key: 'shoesKey', label: '신발', slot: 'shoes' },
+];
+
+const EMPTY_LOADOUTS = {
+  hero: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
+  legend: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
+  transcend: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
+};
+
+function coerceLoadouts(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const out = JSON.parse(JSON.stringify(EMPTY_LOADOUTS));
+  for (const t of LOADOUT_TIERS) {
+    const tierObj = src?.[t.key] && typeof src[t.key] === 'object' ? src[t.key] : {};
+    for (const s of LOADOUT_SLOTS) {
+      const v = tierObj?.[s.key];
+      out[t.key][s.key] = typeof v === 'string' ? v : '';
+    }
+  }
+  return out;
+}
 
 export default function DetailsPage() {
   const [characters, setCharacters] = useState([]);
+
+  const [configCharId, setConfigCharId] = useState(null);
+  const [editGoalGearTier, setEditGoalGearTier] = useState(6);
+  const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
+  const [editGoalLoadouts, setEditGoalLoadouts] = useState(EMPTY_LOADOUTS);
+  const [equipList, setEquipList] = useState([]);
 
   const [user, setUser] = useState(null);
 
@@ -42,9 +88,60 @@ export default function DetailsPage() {
     axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
       headers: { Authorization: `Bearer ${token}` } // 문지기에게 티켓 보여주기
     })
-      .then(res => setCharacters(res.data))
+      .then(res => setCharacters((res.data || []).map((c) => ({
+        ...c,
+        goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
+        tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
+      })))
       .catch(err => console.error("로드 실패:", err));
   }, []);
+
+  const openConfigModal = (char) => {
+    const id = char?._id;
+    if (!id) return;
+    setConfigCharId(id);
+    const tier = Number(char?.goalGearTier || 6);
+    setEditGoalGearTier([4, 5, 6].includes(tier) ? tier : 6);
+    setEditTacticalSkill(normalizeSupportedTacSkill(char?.tacticalSkill));
+    setEditGoalLoadouts(coerceLoadouts(char?.goalLoadouts));
+  };
+
+  const closeConfigModal = () => setConfigCharId(null);
+
+  useEffect(() => {
+    if (!configCharId) return;
+    if (equipList.length > 0) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    axios.get('https://eternalhunger-e7z1.onrender.com/api/items/equipment-list', {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then((res) => {
+      setEquipList(Array.isArray(res.data) ? res.data : []);
+    }).catch(() => {
+      setEquipList([]);
+    });
+  }, [configCharId, equipList.length]);
+
+  const updateLoadout = (tierKey, slotKey, value) => {
+    setEditGoalLoadouts((prev) => ({
+      ...prev,
+      [tierKey]: { ...(prev?.[tierKey] || {}), [slotKey]: String(value || '') }
+    }));
+  };
+
+  const saveConfigModal = () => {
+    if (!configCharId) return;
+    setCharacters((prev) => prev.map((c) => {
+      if (String(c?._id) !== String(configCharId)) return c;
+      return {
+        ...c,
+        goalGearTier: Number(editGoalGearTier || 6),
+        tacticalSkill: normalizeSupportedTacSkill(editTacticalSkill),
+        goalLoadouts: coerceLoadouts(editGoalLoadouts),
+      };
+    }));
+    closeConfigModal();
+  };
 
   // 2. 스탯 변경 함수 (수정됨: _id 사용)
   const handleStatChange = (id, statName, value) => {
@@ -162,6 +259,19 @@ export default function DetailsPage() {
                 <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
                 <h3>{char.name || "이름없음"}</h3>
                 <span className="gender-badge">{char.gender || "남"}</span>
+
+                <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
+                  <div style={{ fontSize: 12, color: '#666' }}>
+                    목표: {GOAL_GEAR_TIERS.find((t) => t.value === Number(char?.goalGearTier || 6))?.label || '초월'} / 전술: {String(char?.tacticalSkill || '블링크')}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openConfigModal(char)}
+                    style={{ padding: '8px 10px', borderRadius: 12, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                  >
+                    ⚙️ 목표/전술 설정
+                  </button>
+                </div>
                 </div>
 
                 <div className="stats-grid">
@@ -195,6 +305,82 @@ export default function DetailsPage() {
                 <h1>💾 변경사항 저장</h1>
             </div>
         </div>
+
+        {configCharId ? (() => {
+          const cur = characters.find((c) => String(c?._id) === String(configCharId)) || null;
+          const name = cur?.name || '캐릭터';
+          return (
+            <div
+              role="dialog"
+              aria-modal="true"
+              onClick={(e) => { if (e.target === e.currentTarget) closeConfigModal(); }}
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 9999,
+              }}
+            >
+              <div style={{ width: 'min(560px, 100%)', background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <h2 style={{ margin: 0, fontSize: 18 }}>⚙️ {name} 목표 세팅</h2>
+                  <button type="button" onClick={closeConfigModal} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer' }}>✕</button>
+                </div>
+
+                <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span style={{ fontSize: 13, color: '#333' }}>목표 장비 등급</span>
+                    <select value={String(editGoalGearTier)} onChange={(e) => setEditGoalGearTier(Number(e.target.value))}>
+                      {GOAL_GEAR_TIERS.map((t) => (
+                        <option key={t.value} value={String(t.value)}>{t.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span style={{ fontSize: 13, color: '#333' }}>전술 스킬 (시즌10 일반)</span>
+                    <select value={String(editTacticalSkill)} onChange={(e) => setEditTacticalSkill(e.target.value)}>
+                      {TACTICAL_SKILL_OPTIONS_KO.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'grid', gap: 10 }}>
+                    <div style={{ fontSize: 13, color: '#333' }}>목표 장비 세팅 (등급별)</div>
+                    {LOADOUT_TIERS.map((t) => (
+                      <div key={t.key} style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: 10 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{t.label}</div>
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          {LOADOUT_SLOTS.map((s) => {
+                            const options = equipList.filter((x) => String(x?.equipSlot || '') === s.slot);
+                            const val = String(editGoalLoadouts?.[t.key]?.[s.key] || '');
+                            return (
+                              <label key={s.key} style={{ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 12, color: '#444' }}>{s.label}</span>
+                                <select value={val} onChange={(e) => updateLoadout(t.key, s.key, e.target.value)}>
+                                  <option value="">(미지정)</option>
+                                  {options.map((o) => (
+                                    <option key={o.itemKey} value={o.itemKey}>
+                                      {o.name}{o.tier ? ` (T${o.tier})` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+                  <button type="button" onClick={closeConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>취소</button>
+                  <button type="button" onClick={saveConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #0288d1', background: '#0288d1', color: '#fff', cursor: 'pointer' }}>적용</button>
+                </div>
+              </div>
+            </div>
+          );
+        })() : null}
     </main>
   );
 }

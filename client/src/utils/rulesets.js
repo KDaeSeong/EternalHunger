@@ -7,13 +7,13 @@
 // 참고: 이터널 리턴 패치노트(1.43)에서 낮/밤 시간 조정 수치를 그대로 사용
 // - 실제 게임 내에서 추가 조정이 있을 수 있으니, 필요하면 여기만 수정하면 됩니다.
 const ER_PHASE_SECONDS = {
-  1: { morning: 140, night: 110 },
-  2: { morning: 130, night: 130 },
-  3: { morning: 130, night: 120 },
-  4: { morning: 110, night: 110 },
-  5: { morning: 100, night: 90 },
-  6: { morning: 50,  night: 90 },
-  7: { morning: 60,  night: 80 },
+  1: { morning: 90, night: 90 },
+  2: { morning: 90, night: 90 },
+  3: { morning: 90, night: 90 },
+  4: { morning: 90, night: 90 },
+  5: { morning: 90, night: 90 },
+  6: { morning: 90, night: 90 },
+  7: { morning: 90, night: 90 },
 };
 
 // ✅ Fog(퍼플 포그) 타이밍
@@ -47,32 +47,39 @@ const DEFAULT_MARKET_RULES = {
   kiosk: {
     gate: { day: 1, phase: 'night' },
     // 목표(조합) 기반이면 더 적극적으로 이용
-    chanceNeed: 0.22,
-    chanceIdle: 0.10,
+    chanceNeed: 0.46,
+    chanceIdle: 0.14,
     // 판매 카테고리 토글
     categories: { vf: true, legendary: true, basic: true },
     prices: {
-      vf: 30,
-      basic: 8,
-      legendaryByKey: { meteor: 12, life_tree: 12, mithril: 18, force_core: 24 },
+      vf: 500,
+      basic: 10,
+      legendaryByKey: { meteor: 200, life_tree: 200, mithril: 200, force_core: 350 },
     },
-    buySuccess: { vf: 0.85, legendary: 0.85, basic: 0.75 },
-    exchange: { consumeUnits: 3, chanceNeed: 0.75, chanceFallback: 0.60 },
-    fallback: { vfChance: 0.25, legendaryChance: 0.20, basicChance: 0.35 },
+    buySuccess: { vf: 0.90, legendary: 0.92, basic: 0.88 },
+    exchange: {
+      consumeUnits: 3,
+      chanceNeed: 0.90,
+      chanceFallback: 0.75,
+      preserveNeededSpecials: true,
+      spareForceCoreToMithril: 1,
+      spareMithrilToTacModule: 2,
+    },
+    fallback: { vfChance: 0.40, legendaryChance: 0.34, basicChance: 0.55 },
   },
   drone: {
     enabled: true,
     // 드론은 하급 보급(즉시 지급)용: 고정 가격
     price: 10,
     // 인벤이 비었거나 목표 재료가 있으면 조금 더 자주 호출
-    chanceNeedLowInv: 0.20,
-    chanceNeedDefault: 0.12,
-    chanceLowInv: 0.14,
-    chanceInv2: 0.10,
-    chanceDefault: 0.06,
+    chanceNeedLowInv: 0.62,
+    chanceNeedDefault: 0.44,
+    chanceLowInv: 0.34,
+    chanceInv2: 0.24,
+    chanceDefault: 0.12,
     // 목표 재료 가중치
-    needWeightMul: 8,
-    needFallbackWeight: 5,
+    needWeightMul: 12,
+    needFallbackWeight: 8,
     needFallbackPrice: 10,
     fallbackKeywords: [
       '천', '가죽', '철', '돌', '나뭇',
@@ -106,7 +113,7 @@ const DEFAULT_WORLD_SPAWNS = {
       night: { moved: 0.55, stay: 0.35 },
     },
     reward: {
-      credits: { min: 12, max: 32 },
+      credits: { min: 18, max: 40 },
       bonusDropChance: 0.25,
     },
     keepDays: 3,
@@ -154,9 +161,9 @@ const DEFAULT_WORLD_SPAWNS = {
     keepDays: 2,
   },
   bosses: {
-    alpha: { gateDay: 3, dropKeywords: ['미스릴', 'mithril'], dmg: { min: 6, base: 22, scaleDiv: 9 }, reward: { credits: { min: 14, max: 34 }, bonusDropChance: 0.15 } },
-    omega: { gateDay: 4, dropKeywords: ['포스 코어', 'force core', 'forcecore'], dmg: { min: 8, base: 26, scaleDiv: 9 }, reward: { credits: { min: 20, max: 45 }, bonusDropChance: 0.18 } },
-    weakline: { gateDay: 5, dropKeywords: ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf'], dmg: { min: 6, base: 18, scaleDiv: 10 }, reward: { credits: { min: 26, max: 60 }, bonusDropChance: 0.22 } },
+    alpha: { gateDay: 3, dropKeywords: ['미스릴', 'mithril'], dmg: { min: 6, base: 22, scaleDiv: 9 }, reward: { credits: { min: 24, max: 48 }, bonusDropChance: 0.15 } },
+    omega: { gateDay: 4, dropKeywords: ['포스 코어', 'force core', 'forcecore'], dmg: { min: 8, base: 26, scaleDiv: 9 }, reward: { credits: { min: 34, max: 64 }, bonusDropChance: 0.18 } },
+    weakline: { gateDay: 5, dropKeywords: ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf'], dmg: { min: 6, base: 18, scaleDiv: 10 }, reward: { credits: { min: 50, max: 90 }, bonusDropChance: 0.22 } },
   },
   bossFallback: {
     retreatBase: 0.20,
@@ -233,10 +240,11 @@ export const RULESETS = {
 
     // 💳 크레딧(로드맵 5)
     credits: {
-      basePerPhase: 10,
-      kill: 25,
-      wildlifeKill: 5,
-      mutantKill: 8,
+      start: 15,
+      basePerPhase: 18,
+      kill: 48,
+      wildlifeKill: 34,
+      mutantKill: 48,
       kioskSell: 0, // 상점 판매는 추후 상점/인벤 연동 시 산정
     },
 
@@ -278,18 +286,18 @@ export const RULESETS = {
       // 교전 트리거(동일 zone에 n명 이상)
       encounterMinSameZone: 2,
       // 교전 확률(일차/포그 보정 포함)
-      encounterBase: 0.30,
-      encounterDayScale: 0.05,
-      encounterMax: 0.85,
+      encounterBase: 0.32,
+      encounterDayScale: 0.06,
+      encounterMax: 0.88,
       encounterFogBonus: 0.08,
       // 이벤트(야생/상자/보스 등) 확률의 상한/오프셋(기존 하드코딩 제거용)
       eventOffset: 0.30,
       eventMax: 0.95,
 
-      lootCreditRate: 0.35,
-      lootCreditMin: 10,
+      lootCreditRate: 0.42,
+      lootCreditMin: 14,
       lootInventoryUnits: 1,
-      restHealMax: 8,
+      restHealMax: 6,
 
       // 🩸 상태이상(최소): 출혈
       // - 피격 시 확률로 출혈이 걸리고, 페이즈 시작마다 DOT가 들어갑니다.
@@ -390,17 +398,17 @@ export const RULESETS = {
     worldSpawns: DEFAULT_WORLD_SPAWNS,
     pvp: {
       encounterMinSameZone: 2,
-      encounterBase: 0.30,
-      encounterDayScale: 0.05,
-      encounterMax: 0.85,
+      encounterBase: 0.32,
+      encounterDayScale: 0.06,
+      encounterMax: 0.88,
       encounterFogBonus: 0.00,
       eventOffset: 0.30,
       eventMax: 0.95,
 
-      lootCreditRate: 0.35,
-      lootCreditMin: 10,
+      lootCreditRate: 0.42,
+      lootCreditMin: 14,
       lootInventoryUnits: 1,
-      restHealMax: 8,
+      restHealMax: 6,
 
       // 🩸 상태이상(최소): 출혈
       // - 피격 시 확률로 출혈이 걸리고, 페이즈 시작마다 DOT가 들어갑니다.

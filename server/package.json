@@ -4,7 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "import:er:hash": "node scripts/import_er_openapi.js hash",
+    "import:er": "node scripts/import_er_openapi.js import",
+    "import:er:auto": "node scripts/import_er_openapi.js import --auto",
+    "import:namu": "node scripts/import_namu_pasted.js import ./scripts/namu_pastes",
+    "parse:namu": "node scripts/import_namu_pasted.js parse ./scripts/namu_pastes",
+    "list:namu": "node scripts/list_namu_items.js",
+    "migrate:itemkey": "node scripts/migrate_dedupe_itemkey.js",
+    "index:itemkey": "node scripts/ensure_itemkey_unique_index.js",
+    "report:coverage": "node scripts/report_item_coverage.js"
   },
   "keywords": [],
   "author": "",

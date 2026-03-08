@@ -7,6 +7,49 @@
 
 const Item = require('../models/Item');
 
+
+const REAL_COVERAGE_EQUIPMENT = [
+  ['m1911', 'M1911', '무기', '권총', '', 120, { atk: 7 }],
+  ['ak47', 'AK-47', '무기', '돌격소총', '', 170, { atk: 10 }],
+  ['vss', 'VSS', '무기', '저격총', '', 180, { atk: 11 }],
+  ['brass_knuckles', '너클', '무기', '장갑', '', 110, { atk: 6 }],
+  ['tonfa_basic', '톤파', '무기', '톤파', '', 120, { atk: 7, def: 1 }],
+  ['nunchaku_basic', '쌍절곤', '무기', '쌍절곤', '', 120, { atk: 7 }],
+  ['arcana_card', '카드 덱', '무기', '아르카나', '', 130, { atk: 8 }],
+  ['longsword', '롱소드', '무기', '검', '', 140, { atk: 8 }],
+  ['dual_short_swords', '쌍검', '무기', '쌍검', '', 145, { atk: 8 }],
+  ['hammer_basic', '해머', '무기', '망치', '', 145, { atk: 9 }],
+  ['bat_basic', '야구방망이', '무기', '방망이', '', 115, { atk: 7 }],
+  ['whip_basic', '채찍', '무기', '채찍', '', 120, { atk: 7 }],
+  ['throw_basic', '투척 세트', '무기', '투척', '', 120, { atk: 7 }],
+  ['shuriken_basic', '수리검', '무기', '암기', '', 125, { atk: 7 }],
+  ['bow_basic', '장궁', '무기', '활', '', 135, { atk: 8 }],
+  ['crossbow_basic', '석궁', '무기', '석궁', '', 140, { atk: 8 }],
+  ['axe_basic', '손도끼', '무기', '도끼', '', 135, { atk: 8 }],
+  ['dagger_basic', '단검', '무기', '단검', '', 115, { atk: 7 }],
+  ['spear_basic', '창', '무기', '창', '', 140, { atk: 8 }],
+  ['rapier_basic', '레이피어', '무기', '레이피어', '', 140, { atk: 8 }],
+  ['cap_basic', '야구모자', '방어구', '', 'head', 100, { def: 4, hp: 4 }],
+  ['jacket_basic', '가죽자켓', '방어구', '', 'clothes', 120, { def: 6, hp: 8 }],
+  ['bracelet_basic', '가죽팔보호대', '방어구', '', 'arm', 95, { def: 3, hp: 4 }],
+  ['sneakers_basic', '운동화', '방어구', '', 'shoes', 100, { def: 3, hp: 6 }],
+].map(([key, name, type, weaponType, equipSlot, baseCreditValue, stats]) => ({
+  key,
+  name,
+  type,
+  weaponType,
+  equipSlot,
+  tier: 2,
+  rarity: 'rare',
+  stackMax: 1,
+  baseCreditValue,
+  itemSubType: 'coverage_seed',
+  source: 'default.seed.actual',
+  tags: [type === '무기' ? 'weapon' : 'armor', 'coverage_seed', 'usable'],
+  stats,
+  description: 'coverage 보강용 기본 실사용 장비.',
+}));
+
 const DEFAULT_ITEM_TREE = [
   // --- 하급 재료 (Tier 1) ---
   {
@@ -470,6 +513,7 @@ const DEFAULT_ITEM_TREE = [
       { key: 'leather', qty: 2 },
     ],
   },
+  ...REAL_COVERAGE_EQUIPMENT,
 ];
 
 function pickStats(defObj) {
@@ -514,6 +558,10 @@ async function upsertDefaultItemTree(opts = {}) {
       value: Number(def.baseCreditValue || 0),        // UI 호환
       baseCreditValue: Number(def.baseCreditValue || 0),
       stats: pickStats(def) || { atk: 0, def: 0, hp: 0 },
+      equipSlot: String(def.equipSlot || ''),
+      weaponType: String(def.weaponType || ''),
+      itemSubType: String(def.itemSubType || ''),
+      source: String(def.source || 'default.seed'),
       description: String(def.description || ''),
     };
 

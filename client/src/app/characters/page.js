@@ -9,10 +9,22 @@ import '../../styles/Home.css';
 // 사용 무기 선택(캐릭터 기본 무기 타입)
 // - 목록은 장비 자동생성 카탈로그와 동일하게 유지(표준화)
 import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatalog';
+import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
+
+const GOAL_GEAR_TIERS = [
+  { value: 4, label: '영웅' },
+  { value: 5, label: '전설' },
+  { value: 6, label: '초월' },
+];
 
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState([]);
+
+  // 캐릭터 목표(장비 등급/전술 스킬) 모달
+  const [configCharId, setConfigCharId] = useState(null);
+  const [editGoalGearTier, setEditGoalGearTier] = useState(6);
+  const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
 
   const [user, setUser] = useState(null);
 
@@ -60,6 +72,8 @@ export default function CharactersPage() {
           setCharacters((res.data || []).map((c) => ({
             ...c,
             weaponType: normalizeWeaponType(c?.weaponType),
+            goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
+            tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
           })));
       } catch (err) { 
           console.error("데이터 로드 실패:", err); 
@@ -76,6 +90,8 @@ export default function CharactersPage() {
       previewImage: null,
       summary: '',
       weaponType: '',
+      goalGearTier: 6,
+      tacticalSkill: normalizeSupportedTacSkill('블링크'),
     };
     setCharacters([...characters, newChar]);
   };
@@ -98,6 +114,25 @@ export default function CharactersPage() {
       }
       return char;
     }));
+  };
+
+  const openConfigModal = (char) => {
+    const id = char?._id || char?.id;
+    if (!id) return;
+    setConfigCharId(id);
+    const tier = Number(char?.goalGearTier || 6);
+    setEditGoalGearTier([4, 5, 6].includes(tier) ? tier : 6);
+    const tac = normalizeSupportedTacSkill(char?.tacticalSkill);
+    setEditTacticalSkill(tac || '블링크');
+  };
+
+  const closeConfigModal = () => setConfigCharId(null);
+
+  const saveConfigModal = () => {
+    if (!configCharId) return;
+    updateCharacter(configCharId, 'goalGearTier', Number(editGoalGearTier || 6));
+    updateCharacter(configCharId, 'tacticalSkill', normalizeSupportedTacSkill(editTacticalSkill));
+    closeConfigModal();
   };
 
   // 5. 이미지 업로드
@@ -284,6 +319,22 @@ export default function CharactersPage() {
                   </select>
                 </label>
 
+                <label>
+                  목표/전술:
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => openConfigModal(char)}
+                      style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+                    >
+                      ⚙️ 설정
+                    </button>
+                    <span style={{ fontSize: 12, color: '#666' }}>
+                      목표:{' '}{GOAL_GEAR_TIERS.find((x) => x.value === Number(char?.goalGearTier || 6))?.label || '초월'} / 전술:{' '}{String(char?.tacticalSkill || '블링크')}
+                    </span>
+                  </div>
+                </label>
+
                 <button 
                   type="button" 
                   className="ai-scouter-btn"
@@ -296,6 +347,54 @@ export default function CharactersPage() {
           );
         })}
       </div>
+
+      {configCharId ? (() => {
+        const cur = characters.find((c) => String(c?._id || c?.id) === String(configCharId)) || null;
+        const name = cur?.name || '캐릭터';
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => { if (e.target === e.currentTarget) closeConfigModal(); }}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 9999,
+            }}
+          >
+            <div style={{ width: 'min(560px, 100%)', background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>⚙️ {name} 목표 세팅</h2>
+                <button type="button" onClick={closeConfigModal} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer' }}>✕</button>
+              </div>
+
+              <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontSize: 13, color: '#333' }}>목표 장비 등급</span>
+                  <select value={String(editGoalGearTier)} onChange={(e) => setEditGoalGearTier(Number(e.target.value))}>
+                    {GOAL_GEAR_TIERS.map((t) => (
+                      <option key={t.value} value={String(t.value)}>{t.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontSize: 13, color: '#333' }}>전술 스킬 (시즌10 일반)</span>
+                  <select value={String(editTacticalSkill)} onChange={(e) => setEditTacticalSkill(e.target.value)}>
+                    {TACTICAL_SKILL_OPTIONS_KO.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+                <button type="button" onClick={closeConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>취소</button>
+                <button type="button" onClick={saveConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #0288d1', background: '#0288d1', color: '#fff', cursor: 'pointer' }}>저장</button>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null}
 
       <div id="addBtn">
         <button id="addChar" onClick={addCharacter}>+ 캐릭터 추가</button>

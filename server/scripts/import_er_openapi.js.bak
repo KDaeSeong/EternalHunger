@@ -1,0 +1,730 @@
+// server/scripts/import_er_openapi.js
+// ✅ 이터널 리턴 Open API(v2/data)에서 아이템/레시피 테이블을 가져와 Mongo(Item)에 시드합니다.
+// - 나무위키는 이 환경에서 직접 접근이 막혀 있어서(열리지 않음), 동일 목적을 "공식 Open API"로 처리합니다.
+//
+// 사용법(서버 폴더에서):
+//   1) ER_API_KEY, MONGO_URI 설정
+//   2) 메타타입 확인:  npm run import:er:hash
+//   3) 실제 시드:      ER_ITEM_META=Item ER_RECIPE_META=ItemRecipe npm run import:er
+//
+// 참고: Game Data Table은 /v2/data/{metaType} 이고 metaType에 'hash'를 넣으면 전체 메타타입을 받습니다.
+
+require('dotenv').config();
+const axios = require('axios');
+const mongoose = require('mongoose');
+const Item = require('../models/Item');
+const { normalizeWeaponType } = require('../config/item_taxonomy');
+
+const API_BASE = process.env.ER_API_BASE || 'https://open-api.bser.io';
+const API_KEY = process.env.ER_API_KEY;
+const MONGO_URI = process.env.MONGO_URI;
+
+// metaType는 버전/문서 갱신에 따라 이름이 바뀔 수 있어서
+// --auto(또는 ER_META_AUTO=1)면 hash를 보고 “실제 동작하는” metaType을 자동 탐색합니다.
+const ITEM_META = process.env.ER_ITEM_META || 'Item';
+const RECIPE_META = process.env.ER_RECIPE_META || 'ItemRecipe';
+
+function die(msg) {
+  console.error(`❌ ${msg}`);
+  process.exit(1);
+}
+
+async function apiGet(path) {
+  const url = `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  const res = await axios.get(url, {
+    headers: { 'x-api-key': API_KEY },
+    timeout: 30000,
+    validateStatus: () => true,
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(`HTTP ${res.status} ${url}`);
+  }
+  return res.data;
+}
+
+function parseArgs(argv) {
+  const flags = new Set(argv.filter(s => String(s).startsWith('--')));
+  const rest = argv.filter(s => !String(s).startsWith('--'));
+  return { mode: (rest[0] || '').toLowerCase(), flags };
+}
+
+function hasFlag(flags, name) {
+  return flags.has(name) || flags.has(`--${name.replace(/^--/, '')}`);
+}
+
+function looksLikeItemRow(row) {
+  if (!row || typeof row !== 'object') return false;
+  const keys = Object.keys(row);
+  return keys.some(k => /item(code)?/i.test(k)) && (keys.some(k => /equip/i.test(k)) || keys.some(k => /tier|grade|rar/i.test(k)));
+}
+
+function looksLikeRecipeRow(row) {
+  if (!row || typeof row !== 'object') return false;
+  const keys = Object.keys(row);
+  return keys.some(k => /result/i.test(k)) && (keys.some(k => /material\d+/i.test(k)) || keys.some(k => /needitemcode\d+/i.test(k)));
+}
+
+
+function looksLikeAreaRow(row) {
+  if (!row || typeof row !== 'object') return false;
+  const keys = Object.keys(row);
+  const hasAreaCode = keys.some(k => /(area|zone|place)(code|id|key)?/i.test(k));
+  const hasAreaName = keys.some(k => /(name|namekey|l10n|local)/i.test(k));
+  return hasAreaCode && hasAreaName;
+}
+
+function looksLikeSpawnHintRow(row) {
+  if (!row || typeof row !== 'object') return false;
+  const keys = Object.keys(row);
+  const hasItem = keys.some(k => /(item(code|id|key)?|material(code|id|key)?|drop(item)?(code|id|key)?|reward(item)?(code|id|key)?|product(item)?(code|id|key)?)/i.test(k));
+  const hasZoneish = keys.some(k => /(area(code|id|key)?|zone(code|id|key)?|place|spawn|location|map|box|crate|chest|search|collect|drop|hunt)/i.test(k));
+  return hasItem && hasZoneish;
+}
+
+async function fetchRowsByMeta(metaType) {
+  const payload = await apiGet(`/v2/data/${encodeURIComponent(metaType)}`);
+  const data = normalizeMetaResponse(payload);
+  const rows = Array.isArray(data) ? data : (data?.[metaType] || data?.data || []);
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function autoDetectMetaTypes() {
+  const hash = await apiGet('/v2/data/hash');
+  const data = normalizeMetaResponse(hash);
+  const obj = data?.hash || data;
+  const keys = obj ? Object.keys(obj) : [];
+
+  const pickCandidates = (kind) => {
+    const wantRecipe = kind === 'recipe';
+    const arr = keys
+      .filter(k => {
+        const s = k.toLowerCase();
+        if (wantRecipe) return s.includes('recipe') || s.includes('craft');
+        return s.includes('item') && !s.includes('recipe') && !s.includes('craft');
+      })
+      .sort((a, b) => {
+        const A = a.toLowerCase();
+        const B = b.toLowerCase();
+        const exactA = wantRecipe ? (A === 'itemrecipe') : (A === 'item');
+        const exactB = wantRecipe ? (B === 'itemrecipe') : (B === 'item');
+        if (exactA !== exactB) return exactA ? -1 : 1;
+        return a.length - b.length;
+      });
+    return arr.slice(0, 6);
+  };
+
+  let itemMeta = null;
+  for (const meta of [ITEM_META, ...pickCandidates('item')]) {
+    const rows = await fetchRowsByMeta(meta);
+    if (rows.length && looksLikeItemRow(rows[0])) {
+      itemMeta = meta;
+      break;
+    }
+  }
+
+  let recipeMeta = null;
+  for (const meta of [RECIPE_META, ...pickCandidates('recipe')]) {
+    const rows = await fetchRowsByMeta(meta);
+    if (rows.length && looksLikeRecipeRow(rows[0])) {
+      recipeMeta = meta;
+      break;
+    }
+  }
+
+  return { itemMeta, recipeMeta };
+}
+
+
+async function autoDetectSpawnMetaTypes() {
+  const hash = await apiGet('/v2/data/hash');
+  const data = normalizeMetaResponse(hash);
+  const obj = data?.hash || data;
+  const keys = obj ? Object.keys(obj) : [];
+  const areaCandidates = keys
+    .filter(k => /(area|zone|place)/i.test(String(k)))
+    .sort((a, b) => a.length - b.length)
+    .slice(0, 12);
+  const hintCandidates = keys
+    .filter(k => /(area|zone|place|spawn|location|drop|box|crate|chest|search|collect|hunt)/i.test(String(k)) && !/^item(recipe)?$/i.test(String(k)))
+    .sort((a, b) => a.length - b.length)
+    .slice(0, 24);
+
+  let areaMeta = null;
+  for (const meta of areaCandidates) {
+    const rows = await fetchRowsByMeta(meta);
+    if (rows.length && looksLikeAreaRow(rows[0])) { areaMeta = meta; break; }
+  }
+
+  const spawnHintMetas = [];
+  for (const meta of hintCandidates) {
+    if (meta === areaMeta) continue;
+    try {
+      const rows = await fetchRowsByMeta(meta);
+      if (rows.length && looksLikeSpawnHintRow(rows[0])) spawnHintMetas.push(meta);
+    } catch (_) {}
+    if (spawnHintMetas.length >= 6) break;
+  }
+
+  return { areaMeta, spawnHintMetas };
+}
+
+function normalizeMetaResponse(payload) {
+  // Open API 응답은 보통 { code, message, data: {...} } 형태.
+  // metaType 테이블은 data 안에 시트가 들어오거나, data 자체가 배열/오브젝트로 올 수 있어 유연하게 처리.
+  if (!payload) return null;
+  if (payload.data !== undefined) return payload.data;
+  return payload;
+}
+
+function parseL10n(txt) {
+  const map = new Map();
+  String(txt || '').split(/\r?\n/).forEach(line => {
+    if (!line || line.startsWith('#')) return;
+    const idx = line.indexOf('=');
+    if (idx <= 0) return;
+    const k = line.slice(0, idx).trim();
+    const v = line.slice(idx + 1).trim();
+    if (k) map.set(k, v);
+  });
+  return map;
+}
+
+async function fetchKoreanL10n() {
+  // v1/l10n/{lang} 는 l10Path(텍스트 파일 URL)를 내려줍니다.
+  const meta = await apiGet('/v1/l10n/Korean');
+  const data = normalizeMetaResponse(meta);
+  const l10Path = data?.l10Path || data?.l10nPath;
+  if (!l10Path) return new Map();
+  const txt = (await axios.get(l10Path, { timeout: 30000 })).data;
+  return parseL10n(txt);
+}
+
+function pickCode(row, i) {
+  return row?.itemCode ?? row?.ItemCode ?? row?.itemId ?? row?.ItemId ?? row?.itemKey ?? row?.ItemKey ?? row?.materialCode ?? row?.MaterialCode ?? row?.dropItemCode ?? row?.DropItemCode ?? row?.rewardItemCode ?? row?.RewardItemCode ?? row?.code ?? row?.Code ?? row?.id ?? row?.Id ?? i;
+}
+
+function pickFirstDefined(row, keys) {
+  for (const key of keys) {
+    const value = row?.[key];
+    if (value === undefined || value === null || value === '') continue;
+    return value;
+  }
+  return undefined;
+}
+
+function guessEquipSlot(row) {
+  // 공식 문서상 전투 결과 equipment는 슬롯 코드(0 무기, 1 옷, 2 머리, 3 팔, 4 다리)로 내려오므로,
+  // 실제 data 테이블 import 때도 숫자/문자/세부 카테고리 필드를 폭넓게 흡수합니다.
+  const raw = pickFirstDefined(row, [
+    'equipSlot', 'equipType', 'equipmentType', 'Equipment', 'equipment', 'slot', 'slotType',
+    'armorType', 'ArmorType', 'itemCategory', 'ItemCategory', 'itemSubType', 'ItemSubType',
+    'detailType', 'DetailType', 'category', 'Category',
+  ]);
+  const n = Number(raw);
+  if (Number.isFinite(n)) {
+    if (n === 0) return 'weapon';
+    if (n === 1) return 'clothes';
+    if (n === 2) return 'head';
+    if (n === 3) return 'arm';
+    if (n === 4) return 'shoes';
+  }
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s) return '';
+  if (s.includes('weapon') || normalizeWeaponType(raw) !== String(raw || '').trim()) return 'weapon';
+  if (/(clothes|body|armor|chest|상의|옷)/.test(s)) return 'clothes';
+  if (/(head|helmet|머리)/.test(s)) return 'head';
+  if (/(arm|wrist|bracelet|accessory|팔|장식)/.test(s)) return 'arm';
+  if (/(leg|shoe|foot|boots|신발|다리)/.test(s)) return 'shoes';
+  return '';
+}
+
+function guessItemType(row, equipSlot) {
+  if (equipSlot === 'weapon') return '무기';
+  if (['clothes', 'head', 'arm', 'shoes'].includes(equipSlot)) return '방어구';
+  const raw = String(pickFirstDefined(row, [
+    'itemType', 'type', 'ItemType', 'itemCategory', 'ItemCategory',
+    'itemSubType', 'ItemSubType', 'detailType', 'DetailType',
+    'equipType', 'equipmentType', 'armorType', 'ArmorType',
+  ]) || '').toLowerCase();
+  if (!raw) return '기타';
+  if (normalizeWeaponType(raw) !== raw) return '무기';
+  if (/(armor|clothes|body|head|helmet|arm|bracelet|shoe|boots|방어구|옷|머리|팔|신발)/.test(raw)) return '방어구';
+  if (/(material|재료|ingredient|component)/.test(raw)) return '재료';
+  if (/(consum|food|drink|trap|camera|heal|medicine|telephoto|drone|console|음식|소모)/.test(raw)) return '소모품';
+  return '기타';
+}
+
+function guessWeaponType(row, equipSlot) {
+  const raw = pickFirstDefined(row, [
+    'weaponType', 'WeaponType', 'weaponCategory', 'WeaponCategory',
+    'masteryType', 'MasteryType', 'weaponMastery', 'WeaponMastery',
+    'itemSubType', 'ItemSubType', 'detailType', 'DetailType',
+    'category', 'Category', 'itemCategory', 'ItemCategory',
+  ]);
+  const normalized = normalizeWeaponType(raw);
+  if (normalized && normalized !== String(raw || '').trim()) return normalized;
+  if (normalized && equipSlot === 'weapon') return normalized;
+  if (equipSlot !== 'weapon') return '';
+  return normalizeWeaponType(row?.name ?? row?.Name ?? '');
+}
+
+function guessItemSubType(row) {
+  const raw = String(pickFirstDefined(row, [
+    'itemSubType', 'ItemSubType', 'detailType', 'DetailType',
+    'itemCategory', 'ItemCategory', 'category', 'Category',
+  ]) || '').trim();
+  return normalizeWeaponType(raw) || raw;
+}
+
+function guessStackMax(row, type) {
+  const n = Number(row?.stackMax ?? row?.StackMax ?? row?.maxStackCount ?? row?.MaxStackCount ?? row?.stackCount ?? row?.StackCount);
+  if (Number.isFinite(n) && n > 0) return n;
+  if (type === '재료') return 3;
+  if (type === '소모품') return 6;
+  return 1;
+}
+
+function pickNum(row, keys) {
+  for (const k of keys) {
+    const v = Number(row?.[k]);
+    if (Number.isFinite(v) && v !== 0) return v;
+  }
+  return 0;
+}
+
+function extractStats(row) {
+  return {
+    atk: pickNum(row, ['attackPower','AttackPower','atk','Atk']),
+    def: pickNum(row, ['defense','Defense','def','Def']),
+    hp: pickNum(row, ['maxHp','MaxHp','hp','Hp']),
+    skillAmp: pickNum(row, ['skillAmp','SkillAmp','skillAmplification','SkillAmplification']),
+    atkSpeed: pickNum(row, ['attackSpeedRatio','AttackSpeedRatio','atkSpeed','AtkSpeed']),
+    critChance: pickNum(row, ['criticalStrikeChance','CriticalStrikeChance','critChance','CritChance']),
+    cdr: pickNum(row, ['cooldownReduction','CooldownReduction','cdr','Cdr']),
+    lifesteal: pickNum(row, ['lifeSteal','LifeSteal','lifesteal','Lifesteal']),
+    moveSpeed: pickNum(row, ['moveSpeed','MoveSpeed','moveSpeedRatio','MoveSpeedRatio']),
+  };
+}
+
+function guessDroneCreditsCost(row, type) {
+  const n = Number(row?.droneCreditsCost ?? row?.DroneCreditsCost ?? row?.orderCost ?? row?.OrderCost ?? row?.callCost ?? row?.CallCost);
+  if (Number.isFinite(n) && n >= 0) return n;
+  return type === '재료' ? 10 : 0;
+}
+
+function guessTier(row) {
+  const t = row?.tier ?? row?.Tier ?? row?.grade ?? row?.Grade ?? row?.rarityGrade;
+  const n = Number(t);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function guessRarity(row) {
+  const r = row?.rarity ?? row?.Rarity ?? row?.itemGrade ?? row?.ItemGrade;
+  if (r === undefined || r === null) return 'common';
+  const s = String(r).toLowerCase();
+  if (['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'].includes(s)) return s;
+  return s || 'common';
+}
+
+function guessName(row, l10n, code) {
+  // l10n 키 규칙은 테이블마다 다를 수 있어서 몇 가지 패턴을 순차 시도 후, row의 문자열 필드를 사용
+  const patterns = [
+    `Item/Name/${code}`,
+    `Item/Name/${String(code)}`,
+    `Item/ItemName/${code}`,
+    `ItemName/${code}`,
+  ];
+  for (const k of patterns) {
+    const v = l10n.get(k);
+    if (v) return v;
+  }
+  return row?.name || row?.Name || row?.itemName || row?.ItemName || String(code);
+}
+
+
+function pickAreaCode(row) {
+  return row?.areaCode ?? row?.AreaCode ?? row?.areaId ?? row?.AreaId ?? row?.areaKey ?? row?.AreaKey ?? row?.zoneCode ?? row?.ZoneCode ?? row?.zoneId ?? row?.ZoneId ?? row?.zoneKey ?? row?.ZoneKey ?? row?.placeCode ?? row?.PlaceCode ?? row?.placeId ?? row?.PlaceId ?? row?.area ?? row?.Area ?? row?.zone ?? row?.Zone ?? row?.place ?? row?.Place;
+}
+
+function guessAreaName(row, l10n, code) {
+  const raw = row?.name || row?.Name || row?.areaName || row?.AreaName || row?.zoneName || row?.ZoneName || row?.placeName || row?.PlaceName || String(code);
+  const s = String(raw || '').trim();
+  if (!s) return String(code);
+  if (/^Area\/Name\//i.test(s)) return l10n.get(s) || s.replace(/^Area\/Name\//i, '');
+  const k = `Area/Name/${s}`;
+  return l10n.get(k) || s;
+}
+
+const OFFICIAL_AREA_L10N_KEYS = new Map([
+  ['10', 'Area/Name/Harbor'],
+  ['20', 'Area/Name/Warehouse'],
+  ['30', 'Area/Name/Pond'],
+  ['40', 'Area/Name/Stream'],
+  ['50', 'Area/Name/SandyBeach'],
+  ['60', 'Area/Name/Uptown'],
+  ['70', 'Area/Name/Alley'],
+  ['80', 'Area/Name/GasStation'],
+  ['90', 'Area/Name/Hotel'],
+  ['100', 'Area/Name/PoliceStation'],
+  ['110', 'Area/Name/FireStation'],
+  ['120', 'Area/Name/Hospital'],
+  ['130', 'Area/Name/Temple'],
+  ['140', 'Area/Name/Archery'],
+  ['150', 'Area/Name/Cemetery'],
+  ['160', 'Area/Name/Forest'],
+  ['170', 'Area/Name/Factory'],
+  ['180', 'Area/Name/Church'],
+  ['190', 'Area/Name/School'],
+]);
+
+function resolveAreaNamesFromToken(token, areaNameByCode, l10n) {
+  const s = String(token || '').trim();
+  if (!s || s === '0') return [];
+
+  const out = [];
+  const add = (name) => {
+    const v = String(name || '').trim();
+    if (v) out.push(v);
+  };
+
+  if (areaNameByCode.has(s)) add(areaNameByCode.get(s));
+
+  if (/^Area\/Name\//i.test(s)) {
+    add(l10n.get(s) || s.replace(/^Area\/Name\//i, ''));
+  }
+
+  const officialKey = OFFICIAL_AREA_L10N_KEYS.get(s);
+  if (officialKey) add(l10n.get(officialKey) || officialKey.replace(/^Area\/Name\//i, ''));
+
+  if (/^[A-Za-z][A-Za-z0-9]+$/.test(s)) {
+    const l10nKey = `Area/Name/${s}`;
+    add(l10n.get(l10nKey) || s);
+  }
+
+  return [...new Set(out)];
+}
+
+function extractAreaCodes(row) {
+  const out = [];
+  for (const [k, v] of Object.entries(row || {})) {
+    if (!/(area(code|id|key)?|zone(code|id|key)?|place(code|id|key)?|spawn(area|zone)?|location)/i.test(k)) continue;
+    if (v === undefined || v === null || v === '' || v === 0 || v === '0') continue;
+    if (Array.isArray(v)) {
+      for (const it of v) {
+        if (it === undefined || it === null || it === '' || it === 0 || it === '0') continue;
+        out.push(it);
+      }
+      continue;
+    }
+    if (typeof v === 'string' && /[,|/]/.test(v)) {
+      for (const token of v.split(/[,|/]/)) {
+        const s = String(token || '').trim();
+        if (!s || s === '0') continue;
+        out.push(s);
+      }
+      continue;
+    }
+    out.push(v);
+  }
+  return [...new Set(out.map(v => String(v).trim()).filter(Boolean))];
+}
+
+function isFoodLikeSubtype(text) {
+  const s = String(text || '').toLowerCase();
+  return /(food|drink|beverage|meal|cook|cooking|dish|요리|음식|음료)/.test(s);
+}
+
+function extractCrateHints(row) {
+  const joined = Object.entries(row || {})
+    .filter(([k]) => /(box|crate|chest|search|collect|drop|spawn|reward|loot|source|category|type)/i.test(k))
+    .map(([k, v]) => `${String(k || '').toLowerCase()} ${String(v || '').toLowerCase()}`)
+    .join(' ');
+  const subtype = pickFirstDefined(row, ['itemSubType', 'ItemSubType', 'detailType', 'DetailType', 'category', 'Category']);
+  const out = [];
+  if (/(legend|희귀재료|전설|meteor|tree ?of ?life|생명의 ?나무|mithril|미스릴)/.test(joined)) out.push('legendary_material');
+  if (/(transcend|초월|vf ?blood|vfblood|혈액샘플|포스코어|force ?core)/.test(joined)) out.push('transcend_pick');
+  if (/(food|요리|음식|cook|potato|water|flower|fish|drink|beverage|tea|coffee|juice)/.test(joined) || isFoodLikeSubtype(subtype)) out.push('food');
+  return [...new Set(out)];
+}
+
+function inferFallbackSpawnCrates(doc) {
+  const joined = [
+    doc?.name,
+    doc?.type,
+    doc?.itemSubType,
+    ...(Array.isArray(doc?.tags) ? doc.tags : []),
+  ].map(v => String(v || '').toLowerCase()).join(' ');
+
+  const out = [];
+  if (/(meteor|운석|tree ?of ?life|생명의 ?나무|mithril|미스릴)/.test(joined)) out.push('legendary_material');
+  if (/(force ?core|포스 ?코어|vf ?blood|vfblood|혈액 ?샘플)/.test(joined)) out.push('transcend_pick');
+  if (doc?.type === '소모품' && (/(food|drink|beverage|tea|coffee|juice|water|요리|음식|음료|생수|감자|감자칩|fish|생선|meat|고기)/.test(joined) || isFoodLikeSubtype(doc?.itemSubType))) out.push('food');
+  return [...new Set(out)];
+}
+
+async function applyErSpawnFallbacks() {
+  const rows = await Item.find({
+    source: 'er',
+    $or: [
+      { spawnCrateTypes: { $exists: false } },
+      { spawnCrateTypes: { $size: 0 } },
+    ],
+  }, { _id: 1, name: 1, type: 1, itemSubType: 1, tags: 1, spawnCrateTypes: 1 }).lean();
+
+  let patched = 0;
+  for (const row of rows) {
+    const crates = inferFallbackSpawnCrates(row);
+    if (!crates.length) continue;
+    await Item.updateOne({ _id: row._id }, { $set: { spawnCrateTypes: crates } });
+    patched++;
+  }
+  return patched;
+}
+
+function extractRecipe(row) {
+  // 레시피 테이블은 형식이 다양할 수 있어 "재료 코드/수량" 같은 컬럼 패턴을 최대한 흡수
+  // 반환: [{ code, qty }]
+  const items = [];
+  const keys = Object.keys(row || {});
+  // (1) 재료 컬럼: material1/material1Amount, material2/material2Amount ...
+  for (let i = 1; i <= 6; i++) {
+    const c = row[`material${i}`] ?? row[`Material${i}`] ?? row[`needItemCode${i}`] ?? row[`NeedItemCode${i}`];
+    if (c === undefined || c === null || c === 0 || c === '0') continue;
+    const q = row[`material${i}Amount`] ?? row[`Material${i}Amount`] ?? row[`materialAmount${i}`] ?? row[`MaterialAmount${i}`] ?? 1;
+    const qty = Math.max(1, Number(q) || 1);
+    items.push({ code: c, qty });
+  }
+  // (2) 배열형: ingredients: [{itemCode, amount}]
+  const arr = row.ingredients || row.Ingredients;
+  if (Array.isArray(arr)) {
+    for (const it of arr) {
+      const c = it?.itemCode ?? it?.code;
+      if (c === undefined || c === null) continue;
+      const qty = Math.max(1, Number(it?.amount ?? it?.qty ?? 1) || 1);
+      items.push({ code: c, qty });
+    }
+  }
+  // dedupe by code
+  const merged = new Map();
+  for (const it of items) {
+    const k = String(it.code);
+    merged.set(k, (merged.get(k) || 0) + it.qty);
+  }
+  return [...merged.entries()].map(([code, qty]) => ({ code, qty }));
+}
+
+async function upsertItemsFromTable(itemRows, l10n) {
+  let upserts = 0;
+  for (let i = 0; i < itemRows.length; i++) {
+    const row = itemRows[i];
+    const code = pickCode(row, i);
+    const externalId = `er:${code}`;
+    const itemKey = externalId; // SSOT 키
+    const equipSlot = guessEquipSlot(row);
+    const type = guessItemType(row, equipSlot);
+    const weaponType = guessWeaponType(row, equipSlot);
+    const itemSubType = guessItemSubType(row);
+    const name = guessName(row, l10n, code);
+    const tier = guessTier(row);
+    const rarity = guessRarity(row);
+    const stackMax = guessStackMax(row, type);
+    const stats = extractStats(row);
+    const droneCreditsCost = guessDroneCreditsCost(row, type);
+
+    await Item.updateOne(
+      { $or: [{ itemKey }, { externalId }] },
+      {
+        $setOnInsert: { itemKey, externalId, createdAt: new Date(), source: 'er' },
+        $set: {
+          itemKey,
+          externalId,
+          name,
+          type,
+          tier,
+          rarity,
+          erCode: String(code),
+          itemSubType,
+          equipSlot,
+          weaponType,
+          stackMax,
+          stats,
+          droneCreditsCost,
+          // ER 데이터 시드인 경우엔 기본값을 0으로 두고, 시뮬/밸런스에서 필요 시 조정
+          baseCreditValue: 0,
+          value: 0,
+          // 덮어쓰기 방지 태그(원하면 관리 UI에서 필터 가능)
+          tags: Array.from(new Set([...(row?.tags || []), 'er_import', type, itemSubType].filter(Boolean))).map(String),
+        },
+      },
+      { upsert: true }
+    );
+    upserts++;
+  }
+  return upserts;
+}
+
+
+async function applySpawnHints(areaRows, hintRows, l10n) {
+  const areaNameByCode = new Map();
+  for (const row of (Array.isArray(areaRows) ? areaRows : [])) {
+    const code = pickAreaCode(row);
+    if (code === undefined || code === null || code === '') continue;
+    areaNameByCode.set(String(code), guessAreaName(row, l10n, code));
+  }
+
+  const acc = new Map();
+  for (const row of (Array.isArray(hintRows) ? hintRows : [])) {
+    const code = pickCode(row);
+    if (code === undefined || code === null || code === '') continue;
+    const itemKey = `er:${code}`;
+    const cur = acc.get(itemKey) || { zones: new Set(), crates: new Set() };
+    for (const areaCode of extractAreaCodes(row)) {
+      for (const areaName of resolveAreaNamesFromToken(areaCode, areaNameByCode, l10n)) {
+        cur.zones.add(areaName);
+      }
+    }
+    for (const ct of extractCrateHints(row)) cur.crates.add(ct);
+    if (cur.zones.size || cur.crates.size) acc.set(itemKey, cur);
+  }
+
+  let patched = 0;
+  for (const [itemKey, v] of acc.entries()) {
+    const doc = await Item.findOne({ $or: [{ itemKey }, { externalId: itemKey }] }).select('_id spawnZones spawnCrateTypes').lean();
+    if (!doc) continue;
+    const spawnZones = [...new Set([...(doc.spawnZones || []), ...v.zones])];
+    const spawnCrateTypes = [...new Set([...(doc.spawnCrateTypes || []), ...v.crates])];
+    await Item.updateOne({ _id: doc._id }, { $set: { spawnZones, spawnCrateTypes } });
+    patched++;
+  }
+  return patched;
+}
+
+async function applyRecipes(recipeRows) {
+  // 1) 결과 아이템 코드 파악(여러 패턴)
+  // 2) 필요 재료 코드 -> Item(ObjectId)로 매핑 후 Item.recipe 세팅
+  let applied = 0;
+
+  // (빠른 조회용) itemKey -> _id 맵을 한번에 구축
+  const all = await Item.find(
+    { $or: [{ itemKey: /^er:/ }, { externalId: /^er:/ }] },
+    { _id: 1, itemKey: 1, externalId: 1 }
+  ).lean();
+
+  const idByKey = new Map();
+  for (const d of all) {
+    const k = d.itemKey || d.externalId;
+    if (k) idByKey.set(k, d._id);
+  }
+
+  for (let i = 0; i < recipeRows.length; i++) {
+    const row = recipeRows[i];
+    const resultCode = row?.resultItemCode ?? row?.ResultItemCode ?? row?.itemCode ?? row?.ItemCode ?? row?.result ?? row?.Result;
+    if (resultCode === undefined || resultCode === null || resultCode === 0 || resultCode === '0') continue;
+
+    const resultKey = `er:${resultCode}`;
+    const resultId = idByKey.get(resultKey);
+    if (!resultId) continue;
+
+    const ing = extractRecipe(row);
+    if (!ing.length) continue;
+
+    const ingredients = [];
+    for (const it of ing) {
+      const ingId = idByKey.get(`er:${it.code}`);
+      if (!ingId) continue;
+      ingredients.push({ itemId: ingId, qty: it.qty });
+    }
+    if (!ingredients.length) continue;
+
+    await Item.updateOne(
+      { _id: resultId },
+      { $set: { recipe: { ingredients, creditsCost: 0, resultQty: 1 } } }
+    );
+    applied++;
+  }
+
+  return applied;
+}
+
+async function main() {
+  const { mode, flags } = parseArgs(process.argv.slice(2));
+  const auto = hasFlag(flags, '--auto') || process.env.ER_META_AUTO === '1';
+
+  if (!API_KEY) die('ER_API_KEY 가 필요합니다. (Eternal Return Open API 키)');
+  if (!MONGO_URI) die('MONGO_URI 가 필요합니다.');
+
+  await mongoose.connect(MONGO_URI);
+  console.log('💾 MongoDB 연결 완료');
+
+  if (mode === 'hash') {
+    const hash = await apiGet('/v2/data/hash');
+    const data = normalizeMetaResponse(hash);
+    // data는 대개 { hash: {...} } 또는 { ... } 형태. 가능한 리스트로 출력
+    const obj = data?.hash || data;
+    const keys = obj ? Object.keys(obj).sort() : [];
+    console.log(`🧾 metaTypes (${keys.length})`);
+    console.log(keys.join('\n'));
+    process.exit(0);
+  }
+
+  if (mode !== 'import') {
+    console.log('Usage: node scripts/import_er_openapi.js [hash|import] [--auto]');
+    process.exit(0);
+  }
+
+  let resolvedItemMeta = ITEM_META;
+  let resolvedRecipeMeta = RECIPE_META;
+  let resolvedAreaMeta = null;
+  let resolvedSpawnHintMetas = [];
+  if (auto) {
+    console.log('🧠 metaType auto-detect enabled');
+    const found = await autoDetectMetaTypes();
+    if (found.itemMeta) resolvedItemMeta = found.itemMeta;
+    if (found.recipeMeta) resolvedRecipeMeta = found.recipeMeta;
+    const extra = await autoDetectSpawnMetaTypes();
+    resolvedAreaMeta = extra.areaMeta || null;
+    resolvedSpawnHintMetas = Array.isArray(extra.spawnHintMetas) ? extra.spawnHintMetas : [];
+    console.log(`🧾 resolved metaTypes: item=${resolvedItemMeta}, recipe=${resolvedRecipeMeta}, area=${resolvedAreaMeta || '-'}, spawnHints=${resolvedSpawnHintMetas.join(',') || '-'}`);
+  }
+
+  const l10n = await fetchKoreanL10n();
+  console.log(`🈺 l10n loaded: ${l10n.size}`);
+
+  const itemRows = await fetchRowsByMeta(resolvedItemMeta);
+  if (!Array.isArray(itemRows) || itemRows.length === 0) {
+    die(`아이템 테이블을 못 가져왔습니다. ER_ITEM_META=${resolvedItemMeta} (또는 --auto) 설정을 확인 후, 먼저 npm run import:er:hash 를 실행하세요.`);
+  }
+
+  const upserts = await upsertItemsFromTable(itemRows, l10n);
+  console.log(`📦 items upserted: ${upserts}`);
+
+  const recipeRows = await fetchRowsByMeta(resolvedRecipeMeta);
+  if (Array.isArray(recipeRows) && recipeRows.length > 0) {
+    const applied = await applyRecipes(recipeRows);
+    console.log(`🧩 recipes applied: ${applied}`);
+  } else {
+    console.log(`⚠️ 레시피 테이블이 비어있습니다. ER_RECIPE_META=${resolvedRecipeMeta} (또는 --auto) 를 확인하세요.`);
+  }
+
+  let hintPatched = 0;
+  if (auto && resolvedAreaMeta && resolvedSpawnHintMetas.length) {
+    const areaRows = await fetchRowsByMeta(resolvedAreaMeta);
+    for (const meta of resolvedSpawnHintMetas) {
+      const rows = await fetchRowsByMeta(meta);
+      if (!rows.length) continue;
+      hintPatched += await applySpawnHints(areaRows, rows, l10n);
+    }
+  }
+  if (auto) console.log(`🗺️ spawn hints applied: ${hintPatched}`);
+
+  const fallbackPatched = await applyErSpawnFallbacks();
+  console.log(`🧺 spawn crate fallbacks applied: ${fallbackPatched}`);
+
+  console.log('✅ import done');
+  process.exit(0);
+}
+
+main().catch(e => {
+  console.error('❌ import failed:', e?.message || e);
+  process.exit(1);
+});

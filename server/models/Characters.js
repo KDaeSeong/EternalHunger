@@ -12,6 +12,39 @@ const characterSchema = new Schema({
   summary: { type: String },
   gender: { type: String, default: '남' },
 
+  // --- 관전형 목표 세팅 ---
+  // - goalGearTier: 목표 장비 등급(영웅=4, 전설=5, 초월=6)
+  // - tacticalSkill: 시즌10 일반 게임 전술 스킬(문자열)
+  // - goalLoadouts: 목표 등급별(영웅/전설/초월) 슬롯별 목표 장비(itemKey) 세팅
+  goalGearTier: { type: Number, default: 6 },
+  tacticalSkill: { type: String, default: '블링크' },
+  // 전술 스킬 레벨(런 단위): Lv.1 시작, 최대 Lv.2 (런 시작 시 1로 초기화)
+  tacticalSkillLevel: { type: Number, default: 1 },
+
+  goalLoadouts: {
+    hero: {
+      weaponKey: { type: String, default: '' },
+      headKey: { type: String, default: '' },
+      clothesKey: { type: String, default: '' },
+      armKey: { type: String, default: '' },
+      shoesKey: { type: String, default: '' },
+    },
+    legend: {
+      weaponKey: { type: String, default: '' },
+      headKey: { type: String, default: '' },
+      clothesKey: { type: String, default: '' },
+      armKey: { type: String, default: '' },
+      shoesKey: { type: String, default: '' },
+    },
+    transcend: {
+      weaponKey: { type: String, default: '' },
+      headKey: { type: String, default: '' },
+      clothesKey: { type: String, default: '' },
+      armKey: { type: String, default: '' },
+      shoesKey: { type: String, default: '' },
+    },
+  },
+
   // 2. 8대 스탯 (Deep Stats)
   stats: {
     str: { type: Number, default: 10 }, // 근력
