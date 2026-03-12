@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+// 배포 환경변수가 비어 있을 때 사용하는 임시 백엔드 fallback
+const LEGACY_BACKEND_FALLBACK = 'https://eternalhunger-e7z1.onrender.com';
+
 function stripApiSuffix(value) {
   return String(value || '').trim().replace(/\/+$/, '').replace(/\/api$/, '');
 }
@@ -23,7 +26,7 @@ function getBackendBase(request) {
     return 'http://localhost:5000';
   }
 
-  return '';
+  return LEGACY_BACKEND_FALLBACK;
 }
 
 async function getTokenFromCookies() {
@@ -54,7 +57,7 @@ async function proxy(request, context) {
   const backend = getBackendBase(request);
   if (!backend) {
     return NextResponse.json(
-      { error: 'BACKEND_BASE_URL is not configured' },
+      { error: 'Backend target is not available' },
       { status: 500 }
     );
   }
