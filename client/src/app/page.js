@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import '../styles/Home.css';
-import { getApiBase } from '../utils/api';
+import { AUTH_SYNC_EVENT, apiGet, clearAuth, getUser, updateStoredUser } from '../utils/api';
+import { HOF_SYNC_EVENT, HOF_SYNC_KEY, readHallOfFameState, summarizeHallOfFameTop3 } from '../utils/hallOfFame';
 
 export default function Home() {
   const [rankings, setRankings] = useState({ wins: [], kills: [], points: [] });
@@ -17,43 +17,37 @@ const myUsername = user?.username ?? null;
 const myWinsTop3 = myCharTop3.wins;
 const myKillsTop3 = myCharTop3.kills;
 
-  // 로컬 백업(시뮬레이션 종료 시 저장)에서 "내 기록" 읽기
   useEffect(() => {
-    if (!myUsername) {
-      setMyCharTop3({ wins: [], kills: [] });
-      return;
-    }
-    try {
-      const key = `eh_hof_${myUsername}`;
-      const raw = localStorage.getItem(key);
-      const state = raw ? JSON.parse(raw) : null;
-      const chars = Object.values(state?.chars || {});
-      const arr = chars.map((c) => ({
-        name: c?.name || '알 수 없음',
-        totalWins: Number(c?.wins || 0),
-        totalKills: Number(c?.kills || 0),
-        totalAssists: Number(c?.assists || 0),
-      }));
-      const wins = arr
-        .filter((x) => x.totalWins > 0)
-        .sort((a, b) => b.totalWins - a.totalWins)
-        .slice(0, 3);
-      const kills = arr
-        .filter((x) => x.totalKills > 0)
-        .sort((a, b) => b.totalKills - a.totalKills)
-        .slice(0, 3);
-      setMyCharTop3({ wins, kills });
-    } catch (e) {
-      setMyCharTop3({ wins: [], kills: [] });
-    }
+    const syncMyHallOfFame = () => {
+      if (!myUsername) {
+        setMyCharTop3({ wins: [], kills: [] });
+        return;
+      }
+      const state = readHallOfFameState({ username: myUsername });
+      setMyCharTop3(summarizeHallOfFameTop3(state));
+    };
+
+    syncMyHallOfFame();
+
+    if (typeof window === 'undefined') return undefined;
+    const onStorage = (event) => {
+      if (!event?.key) return;
+      if (event.key === HOF_SYNC_KEY || event.key === `eh_hof_${myUsername}`) syncMyHallOfFame();
+    };
+    const onHofSync = () => syncMyHallOfFame();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(HOF_SYNC_EVENT, onHofSync);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(HOF_SYNC_EVENT, onHofSync);
+    };
   }, [myUsername]);
 
 
   // ★ 로그아웃 함수
   const handleLogout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
-      localStorage.removeItem('token'); 
-      localStorage.removeItem('user');  
+      clearAuth();
       setUser(null);                   
       alert("로그아웃 되었습니다.");
       window.location.reload();        
@@ -61,23 +55,18 @@ const myKillsTop3 = myCharTop3.kills;
   };
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) setUser(JSON.parse(savedUser));
-  }, []);
+    if (typeof window === 'undefined') return undefined;
 
-  useEffect(() => {
-    const fetchRankings = async () => {
+    const syncStoredUser = () => {
+      const savedUser = getUser();
+      setUser(savedUser || null);
+    };
+
+    const refreshHome = async () => {
+      syncStoredUser();
+      setLoading(true);
       try {
-        // 1. 토큰 가져오기 (내 기록을 보려면 토큰 필수)
-        const token = localStorage.getItem('token');
-        const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-        
-        // 2. 데이터 요청
-        const res = await axios.get(`${getApiBase()}/rankings`, config);
-        const payload = res.data;
-
-        // 서버(/api/rankings)는 { wins:[], kills:[], points:[] } 형태로 내려줍니다.
-        // (과거에 배열을 내려주던 경우가 있을 수 있어, 배열도 호환 처리)
+        const payload = await apiGet('/rankings');
         if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
           const wins = Array.isArray(payload.wins) ? payload.wins : [];
           const kills = Array.isArray(payload.kills) ? payload.kills : [];
@@ -85,35 +74,48 @@ const myKillsTop3 = myCharTop3.kills;
           setRankings({ wins, kills, points });
         } else {
           const data = Array.isArray(payload) ? payload : [];
-
-          // (1) 최다 우승
-          const wins = [...data]
-            .sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0))
-            .slice(0, 3);
-          // (2) 학살자
-          const kills = [...data]
-            .sort((a, b) => (b.totalKills || 0) - (a.totalKills || 0))
-            .slice(0, 3);
-          // (3) 레전드 (점수 계산: 우승*100 + 킬*10)
+          const wins = [...data].sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0)).slice(0, 3);
+          const kills = [...data].sort((a, b) => (b.totalKills || 0) - (a.totalKills || 0)).slice(0, 3);
           const points = [...data]
-            .sort((a, b) => {
-              const scoreA = (Number(a.totalWins) * 100) + (Number(a.totalKills) * 10);
-              const scoreB = (Number(b.totalWins) * 100) + (Number(b.totalKills) * 10);
-              return scoreB - scoreA;
-            })
+            .sort((a, b) => (((Number(b.totalWins) * 100) + (Number(b.totalKills) * 10)) - ((Number(a.totalWins) * 100) + (Number(a.totalKills) * 10))))
             .slice(0, 3);
-
           setRankings({ wins, kills, points });
         }
-        setLoading(false);
 
+        if (getUser()) {
+          try {
+            const me = await apiGet('/user/me');
+            if (me && typeof me === 'object') {
+              setUser(me);
+              updateStoredUser((currentUser) => ({ ...(currentUser || {}), ...me }));
+            }
+          } catch (meErr) {
+            if (Number(meErr?.status || 0) === 401 || Number(meErr?.status || 0) === 403) {
+              clearAuth();
+              setUser(null);
+            }
+          }
+        }
       } catch (err) {
         console.error(err);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchRankings();
+    syncStoredUser();
+    refreshHome();
+
+    const onFocus = () => refreshHome();
+    const onAuthSync = () => refreshHome();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener(AUTH_SYNC_EVENT, onAuthSync);
+    window.addEventListener(HOF_SYNC_EVENT, onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener(AUTH_SYNC_EVENT, onAuthSync);
+      window.removeEventListener(HOF_SYNC_EVENT, onFocus);
+    };
   }, []);
 
   return (
@@ -122,7 +124,7 @@ const myKillsTop3 = myCharTop3.kills;
       <div className="top-nav">
         {user ? (
           <div className="user-info">
-            <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp || 0})</span>
+            <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp || 0} · Cr: {user.credits || 0} · 특전: {Array.isArray(user.perks) ? user.perks.length : 0})</span>
             <button className="logout-btn" onClick={handleLogout}>
               🚪 로그아웃
             </button>

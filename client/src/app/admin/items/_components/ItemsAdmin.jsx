@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { getApiBase, getToken } from '../../../../utils/api';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../../../utils/api';
 
 function normalizeItems(payload) {
   if (Array.isArray(payload)) return payload;
@@ -31,12 +31,6 @@ function adaptItem(raw) {
     name,
     rarity,
   };
-}
-
-function authHeaders() {
-  const token = getToken();
-  if (!token) return {};
-  return { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` };
 }
 
 const sample = [
@@ -618,9 +612,7 @@ export default function ItemsAdmin() {
     let canceled = false;
     (async () => {
       try {
-        const res = await fetch(`${getApiBase()}/admin/items`, { headers: { ...authHeaders() }, cache: 'no-store' });
-        if (!res.ok) throw new Error('bad status');
-        const data = await res.json().catch(() => null);
+        const data = await apiGet('/admin/items');
         const list = normalizeItems(data).map(adaptItem);
         if (!canceled) {
           setItems(list);
@@ -639,9 +631,7 @@ export default function ItemsAdmin() {
   }, []);
 
   async function reloadItems() {
-    const res = await fetch(`${getApiBase()}/admin/items`, { headers: { ...authHeaders() }, cache: 'no-store' });
-    if (!res.ok) throw new Error('아이템 목록 로드 실패');
-    const data = await res.json().catch(() => null);
+    const data = await apiGet('/admin/items');
     const list = normalizeItems(data).map(adaptItem);
     setItems(list);
     setStatus('ok');
@@ -652,13 +642,7 @@ export default function ItemsAdmin() {
     setTreeBusy(true);
     setTreeMsg('');
     try {
-      const res = await fetch(`${getApiBase()}/admin/items/generate-default-tree`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ mode }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || 'failed');
+      const data = await apiPost('/admin/items/generate-default-tree', { mode });
       setTreeMsg(`✅ ${data?.message || '완료'} (created:${data?.summary?.createdCount ?? 0}, recipe:${data?.summary?.recipeUpdatedCount ?? 0})`);
       await reloadItems();
     } catch (e) {
@@ -681,15 +665,10 @@ export default function ItemsAdmin() {
   }
 
   async function saveItem(payload, id) {
-    const headers = { 'Content-Type': 'application/json', ...authHeaders() };
     if (id) {
-      const res = await fetch(`${getApiBase()}/admin/items/${id}`, { method: 'PUT', headers, body: JSON.stringify(payload) });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || '수정 실패');
+      await apiPut(`/admin/items/${id}`, payload);
     } else {
-      const res = await fetch(`${getApiBase()}/admin/items`, { method: 'POST', headers, body: JSON.stringify(payload) });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || '추가 실패');
+      await apiPost('/admin/items', payload);
     }
     await reloadItems();
   }
@@ -701,9 +680,7 @@ export default function ItemsAdmin() {
     const ok = window.confirm(`정말 삭제할까?\n\n- ${name}`);
     if (!ok) return;
 
-    const res = await fetch(`${getApiBase()}/admin/items/${id}`, { method: 'DELETE', headers: { ...authHeaders() } });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(data?.error || '삭제 실패');
+    await apiDelete(`/admin/items/${id}`);
     await reloadItems();
   }
 

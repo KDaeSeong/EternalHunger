@@ -4,27 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNav from './AdminNav';
-import { getApiBase } from '../../../utils/api';
-
-function normalizeToken(raw) {
-  if (!raw) return null;
-  const v = String(raw).trim();
-  if (!v) return null;
-  if (v === 'undefined' || v === 'null') return null;
-  return v;
-}
-
-function readToken() {
-  try {
-    return normalizeToken(
-      localStorage.getItem('token') ||
-        localStorage.getItem('accessToken') ||
-        localStorage.getItem('authToken')
-    );
-  } catch {
-    return null;
-  }
-}
+import { apiGet, clearAuth, getAnyToken, getUser, normalizeToken, saveAuth, updateStoredUser } from '../../../utils/api';
 
 function hasCookie(name) {
   try {
@@ -39,14 +19,13 @@ function syncTokenToCookie(token) {
   if (!v) return;
   if (hasCookie('token')) return;
 
-  const maxAge = 60 * 60 * 24 * 7; // 7일
+  const maxAge = 60 * 60 * 24 * 7;
   const secure =
     typeof window !== 'undefined' && window.location?.protocol === 'https:' ? '; Secure' : '';
   document.cookie = `token=${encodeURIComponent(v)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
 }
 
 function extractIsAdmin(payload) {
-  // 서버 응답 스키마가 확정이 아니라서, 흔한 케이스를 폭넓게 커버
   const v =
     payload?.isAdmin ??
     payload?.admin ??
@@ -67,85 +46,80 @@ function extractIsAdmin(payload) {
   if (typeof role === 'string' && role) {
     const r = role.toUpperCase();
     if (r.includes('ADMIN')) return true;
-    return false; // role 값이 있는데 ADMIN이 아니면 일반 유저로 판단
+    return false;
   }
 
-  return null; // 판단 불가
+  return null;
+}
+
+function extractUserPayload(payload) {
+  if (payload && typeof payload === 'object') {
+    if (payload.user && typeof payload.user === 'object') return payload.user;
+    if (payload.data && typeof payload.data === 'object') return payload.data;
+    return payload;
+  }
+  return null;
 }
 
 async function fetchUserInfo(token) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 2500);
+  const candidates = ['/user/me', '/user'];
 
-  try {
-    const base = getApiBase();
-    const candidates = [`${base}/user/me`, `${base}/user`];
-    const headers = {};
-
-    const v = normalizeToken(token);
-    if (v) {
-      headers.Authorization = v.startsWith('Bearer ') ? v : `Bearer ${v}`;
-    }
-
-    for (const url of candidates) {
-      const res = await fetch(url, {
-        headers,
-        signal: controller.signal,
-      });
-
-      if (!res.ok) continue;
-
-      let data = null;
-      try {
-        data = await res.json();
-      } catch {
-        // JSON이 아니더라도, 응답이 OK면 "로그인 상태"는 맞는 걸로 간주
-        return { ok: true, data: null };
-      }
-
+  for (const path of candidates) {
+    try {
+      const data = await apiGet(path, { tokenOverride: token });
       return { ok: true, data };
+    } catch (e) {
+      if (e?.status === 401 || e?.status === 403) {
+        return { ok: false, unauthorized: true, data: null };
+      }
     }
-
-    return { ok: false, data: null };
-  } catch {
-    return { ok: false, data: null };
-  } finally {
-    clearTimeout(t);
   }
+
+  return { ok: false, unauthorized: false, data: null };
 }
 
 export default function AdminShell({ children }) {
   const router = useRouter();
-  // checking | allowed | blocked_login | blocked_admin
   const [status, setStatus] = useState('checking');
 
   useEffect(() => {
     let canceled = false;
 
     (async () => {
-      // 1) localStorage 토큰이 있으면 쿠키로 동기화해서 Next proxy 가드도 통과하게 함
-      const token = readToken();
-      if (token) {
-        try {
-          syncTokenToCookie(token);
-        } catch {}
+      const token = getAnyToken();
+      const storedUser = getUser();
 
-        // 2) 가능하면 유저 정보를 받아서 admin 여부까지 확인 (스키마 없으면 판단 생략)
-        const info = await fetchUserInfo(token);
-        const isAdmin = extractIsAdmin(info.data);
-
-        if (!canceled) {
-          if (info.ok && isAdmin === false) setStatus('blocked_admin');
-          else setStatus('allowed');
-        }
+      if (!token) {
+        if (storedUser) clearAuth();
+        if (!canceled) setStatus('blocked_login');
         return;
       }
 
-      // 3) 토큰이 없으면 쿠키 세션(/api/user*)을 확인
-      const info = await fetchUserInfo(null);
+      try {
+        syncTokenToCookie(token);
+      } catch {}
+
+      if (storedUser?.isAdmin === false) {
+        if (!canceled) setStatus('blocked_admin');
+        return;
+      }
+
+      const info = await fetchUserInfo(token);
+      if (!info.ok) {
+        if (info.unauthorized) clearAuth();
+        if (!canceled) setStatus('blocked_login');
+        return;
+      }
+
+      const nextUser = extractUserPayload(info.data);
+      if (nextUser && typeof nextUser === 'object') {
+        if (storedUser) updateStoredUser(nextUser);
+        else saveAuth(token, nextUser);
+      }
+
+      const isAdmin = extractIsAdmin(info.data ?? nextUser ?? storedUser);
       if (!canceled) {
-        if (!info.ok) setStatus('blocked_login');
-        else if (extractIsAdmin(info.data) === false) setStatus('blocked_admin');
+        if (isAdmin === false) setStatus('blocked_admin');
         else setStatus('allowed');
       }
     })();

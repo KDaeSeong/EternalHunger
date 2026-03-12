@@ -35,7 +35,20 @@ router.post('/purchase', async (req, res) => {
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
 
     if (user.perks?.includes(code)) {
-      return res.json({ message: '이미 구매한 특전입니다.', lp: user.lp, perks: user.perks });
+      return res.json({
+        message: '이미 구매한 특전입니다.',
+        lp: user.lp,
+        perks: user.perks,
+        user: {
+          _id: user._id,
+          username: user.username,
+          lp: user.lp,
+          credits: user.credits,
+          perks: user.perks,
+          isAdmin: Boolean(user.isAdmin),
+          statistics: user.statistics,
+        },
+      });
     }
 
     if (user.lp < perk.lpCost) {
@@ -46,7 +59,20 @@ router.post('/purchase', async (req, res) => {
     user.perks = [...(user.perks || []), code];
     await user.save();
 
-    res.json({ message: '특전 구매 완료', lp: user.lp, perks: user.perks });
+    res.json({
+      message: '특전 구매 완료',
+      lp: user.lp,
+      perks: user.perks,
+      user: {
+        _id: user._id,
+        username: user.username,
+        lp: user.lp,
+        credits: user.credits,
+        perks: user.perks,
+        isAdmin: Boolean(user.isAdmin),
+        statistics: user.statistics,
+      },
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '특전 구매 실패' });

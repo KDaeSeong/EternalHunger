@@ -5,6 +5,7 @@
 //   과도한 RNG 편향/아이템 미구축(가짜 ID) 문제를 줄입니다.
 
 // (unused) equipmentCatalog import removed
+import { makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
 
 // --- 텍스트 톤(짧고 자연스럽게) ---
 const CONTEXTS = [
@@ -203,9 +204,21 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
   if (picked.k === 'rest') {
     const healBase = isNight ? 5 : 7;
     const heal = clamp(Math.floor(healBase + Math.random() * 6 + p / 45), 3, 18);
+    const regenRecovery = clamp(Math.floor(2 + heal / 5), 2, 6);
+    const regenDuration = isNight ? 2 : 3;
     // HP가 충분히 높으면(특히 낮) 휴식 로그는 생략해 로그 스팸을 줄입니다.
     const silent = (!isNight && hpPct >= 85 && Math.random() < 0.65);
-    return { silent, log: silent ? '' : `🧘 [${name}] ${context} 잠시 숨을 고르며 체력을 회복했다. (HP +${heal})`, damage: 0, recovery: heal, drop: null };
+    return {
+      silent,
+      log: silent ? '' : `🧘 [${name}] ${context} 잠시 숨을 고르며 체력을 회복했다. (HP +${heal})`,
+      damage: 0,
+      recovery: heal,
+      drop: null,
+      newEffects: [
+        makeRegenEffect(regenRecovery, regenDuration, 'event_rest'),
+        ...(isNight ? [makeShieldEffect(Math.max(4, Math.floor(heal / 2)), 1, 'event_rest_guard')] : []),
+      ],
+    };
   }
 
   // 3) 의약품 획득(HP 낮을수록)
@@ -217,13 +230,23 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
         damage: 0,
         recovery: 0,
         drop: { item: med, itemId: String(med._id), qty: 1 },
+        newEffects: [
+          makeRegenEffect(5, 2, 'event_medical'),
+          makeShieldEffect(6, 1, 'event_medical_guard'),
+        ],
         // 노출 보너스는 최소
         pvpBonusNext: 0.08,
       };
     }
     // fallback: 회복으로 대체
     const heal = clamp(Math.floor(4 + Math.random() * 6), 3, 12);
-    return { log: `🩹 [${name}] ${context} 응급 처치를 했다. (HP +${heal})`, damage: 0, recovery: heal, drop: null };
+    return {
+      log: `🩹 [${name}] ${context} 응급 처치를 했다. (HP +${heal})`,
+      damage: 0,
+      recovery: heal,
+      drop: null,
+      newEffects: [makeRegenEffect(4, 2, 'event_medical')],
+    };
   }
 
   // 4) 소량 재료 획득
@@ -255,6 +278,10 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
         damage: 0,
         recovery: 0,
         drop: { item: food, itemId: String(food._id), qty: 1 },
+        newEffects: [
+          makeRegenEffect(3, 2, 'event_food'),
+          makeStatBuffEffect('집중', { men: 1, end: 1 }, 2, 'event_food_focus', { tags: ['positive', 'food', 'focus'] }),
+        ],
         pvpBonusNext: 0.10,
       };
     }

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import '../../styles/Auth.css'; // ★ 스타일 임포트
 import { useRouter } from 'next/navigation';
-import { apiPost } from '../../utils/api';
+import { apiPost, saveAuth } from '../../utils/api';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ username: '', password: '' });
@@ -15,8 +15,7 @@ export default function LoginPage() {
         const res = await apiPost('/auth/login', form);
         
         // 1. 데이터 저장
-        localStorage.setItem('token', res.token);
-        localStorage.setItem('user', JSON.stringify(res.user));
+        saveAuth(res.token, res.user);
 
         // 2. 알림 및 이동
         alert(`${res.user.username}님, 환영합니다!`);

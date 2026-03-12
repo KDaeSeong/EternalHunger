@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiDelete, apiGet, apiPost, apiPut } from '../../utils/api';
+import { apiDelete, apiGet, apiPost, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
 
 import '../../styles/ERDetails.css';
 import '../../styles/EREvents.css';
@@ -33,7 +33,7 @@ export default function EventsPage() {
   const [dragIndex, setDragIndex] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (!token) {
       alert('로그인이 필요합니다.');
       router.push('/login');
@@ -41,13 +41,9 @@ export default function EventsPage() {
     }
 
 // 화면이 켜진 뒤에만 localStorage에 접근 (에러 방지)
-const userData = localStorage.getItem('user');
+const userData = getUser();
 if (userData) {
-  try {
-    setUser(JSON.parse(userData));
-  } catch {
-    // 파싱 실패 시 무시
-  }
+  setUser(userData);
 }
 
 
@@ -58,8 +54,7 @@ if (userData) {
 
 const handleLogout = () => {
   if (confirm('로그아웃 하시겠습니까?')) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuth();
     setUser(null);
     window.location.href = '/';
   }
@@ -131,7 +126,7 @@ const handleLogout = () => {
       killers: [],
       victims: [],
       benefits: [],
-      time: 'any',
+      time: 'both',
       mapId: '',
       zoneId: '',
       enabled: true,
@@ -150,7 +145,10 @@ const handleLogout = () => {
         killers: form.killers.map((s) => String(s).trim()).filter(Boolean),
         victims: form.victims.map((s) => String(s).trim()).filter(Boolean),
         benefits: form.benefits.map((s) => String(s).trim()).filter(Boolean),
-        time: form.time || 'any',
+        time: form.time || 'both',
+        timeOfDay: form.time || 'both',
+        survivorCount: Math.max(1, Number(form.killers.length || 0) || (String(form.text || '').includes('{2}') ? 2 : 1)),
+        victimCount: Math.max(0, Number(form.victims.length || 0)),
         mapId: form.mapId || '',
         zoneId: form.zoneId || '',
         enabled: Boolean(form.enabled),
@@ -179,7 +177,7 @@ const handleLogout = () => {
       killers: Array.isArray(ev.killers) ? ev.killers : [],
       victims: Array.isArray(ev.victims) ? ev.victims : [],
       benefits: Array.isArray(ev.benefits) ? ev.benefits : [],
-      time: ev.time || 'any',
+      time: ev.timeOfDay || ev.time || 'both',
       mapId: ev.mapId || '',
       zoneId: ev.zoneId || '',
       enabled: ev.enabled !== false,
@@ -210,7 +208,7 @@ const handleLogout = () => {
   const saveReorder = async () => {
     try {
       const orderedIds = events.map((e) => e._id);
-      await apiPost('/events/reorder', { orderedIds });
+      await apiPut('/events/reorder', { orderedIds });
       setMessage('정렬 저장 완료');
       setReorderMode(false);
       setDragIndex(null);
@@ -364,7 +362,7 @@ const handleLogout = () => {
               minWidth: 140,
             }}
           >
-            <option value="any">시간 무관</option>
+            <option value="both">시간 무관</option>
             <option value="day">낮</option>
             <option value="night">밤</option>
           </select>
@@ -404,8 +402,8 @@ const handleLogout = () => {
           >
             <option value="">구역 무관</option>
             {zones.map((z) => (
-              <option key={z.id} value={z.id}>
-                {z.name}
+              <option key={z.zoneId || z.id} value={z.zoneId || z.id}>
+                {z.name || z.zoneId || z.id}
               </option>
             ))}
           </select>
@@ -618,10 +616,10 @@ const handleLogout = () => {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontWeight: 800 }}>{ev.title}</div>
+                    <div style={{ fontWeight: 800 }}>{ev.title || '제목 없음'}</div>
                     <div style={{ color: 'rgba(0,0,0,0.7)', marginTop: 4 }}>{ev.text}</div>
                     <div style={{ color: 'rgba(0,0,0,0.55)', marginTop: 6, fontSize: 13 }}>
-                      시간: {ev.time || 'any'} / 맵: {ev.mapId ? '지정' : '무관'} / 구역: {ev.zoneId ? '지정' : '무관'} / 사용:{' '}
+                      시간: {ev.timeOfDay || ev.time || 'both'} / 맵: {ev.mapId ? '지정' : '무관'} / 구역: {ev.zoneId ? '지정' : '무관'} / 사용:{' '}
                       {ev.enabled === false ? 'N' : 'Y'}
                     </div>
                   </div>

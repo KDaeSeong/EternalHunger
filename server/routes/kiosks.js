@@ -8,6 +8,7 @@ const Kiosk = require('../models/Kiosk');
 const User = require('../models/User');
 const Character = require('../models/Characters');
 const Item = require('../models/Item');
+const Perk = require('../models/Perk');
 
 const {
   buildItemNameMap,
@@ -16,6 +17,7 @@ const {
   addToInventory,
   countInInventory,
 } = require('../utils/inventory');
+const { getOwnedPerkContext, applyDiscountedCost, applySaleBonus } = require('../utils/perkRuntime');
 
 /**
  * POST /api/kiosks/:id/transaction
@@ -51,18 +53,28 @@ router.post('/:id/transaction', async (req, res) => {
     const itemNameMap = buildItemNameMap(items);
     ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
 
+    const perkCtx = await getOwnedPerkContext(user, Perk);
+    const perkFx = perkCtx.effects || {};
+
     const mode = entry.mode || 'sell';
-    const price = Math.max(0, Number(entry.priceCredits || 0));
-    const totalPrice = price * qty;
+    const basePrice = Math.max(0, Number(entry.priceCredits || 0));
+    const unitBuyPrice = applyDiscountedCost(basePrice, perkFx.kioskDiscountPct, perkFx.marketDiscountPct);
+    const unitSellPrice = applySaleBonus(basePrice, perkFx.saleBonusPct);
+    const totalPrice = (mode === 'buy' ? unitSellPrice : unitBuyPrice) * qty;
+    const entryItemId = entry.itemId?._id || entry.itemId;
+
+    if (!entryItemId) {
+      return res.status(400).json({ error: '카탈로그 아이템이 비어 있습니다.' });
+    }
 
     if (mode === 'sell') {
       if (Number(user.credits || 0) < totalPrice) return res.status(400).json({ error: '크레딧이 부족합니다.' });
       user.credits -= totalPrice;
-      addToInventory(ch.inventory, { itemId: entry.itemId?._id || entry.itemId, name: entry.itemId?.name, qty });
+      addToInventory(ch.inventory, { itemId: entryItemId, name: entry.itemId?.name, qty });
     } else if (mode === 'buy') {
-      const have = countInInventory(ch.inventory, entry.itemId?._id || entry.itemId);
+      const have = countInInventory(ch.inventory, entryItemId);
       if (have < qty) return res.status(400).json({ error: '아이템이 부족합니다.' });
-      if (!removeFromInventory(ch.inventory, entry.itemId?._id || entry.itemId, qty)) return res.status(500).json({ error: '차감 실패' });
+      if (!removeFromInventory(ch.inventory, entryItemId, qty)) return res.status(500).json({ error: '차감 실패' });
       user.credits += totalPrice;
     } else if (mode === 'exchange') {
       const giveItemId = entry.exchange?.giveItemId?._id || entry.exchange?.giveItemId;
@@ -71,7 +83,7 @@ router.post('/:id/transaction', async (req, res) => {
       const have = countInInventory(ch.inventory, giveItemId);
       if (have < giveQty) return res.status(400).json({ error: '교환 재료가 부족합니다.' });
       if (!removeFromInventory(ch.inventory, giveItemId, giveQty)) return res.status(500).json({ error: '교환 차감 실패' });
-      addToInventory(ch.inventory, { itemId: entry.itemId?._id || entry.itemId, name: entry.itemId?.name, qty });
+      addToInventory(ch.inventory, { itemId: entryItemId, name: entry.itemId?.name, qty });
     } else {
       return res.status(400).json({ error: '지원하지 않는 mode 입니다.' });
     }
@@ -79,7 +91,7 @@ router.post('/:id/transaction', async (req, res) => {
     ch.markModified('inventory');
     await Promise.all([ch.save(), user.save()]);
 
-    res.json({ message: '거래 완료', credits: user.credits, character: ch });
+    res.json({ message: '거래 완료', credits: user.credits, character: ch, perkEffects: perkFx });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '키오스크 거래 실패' });

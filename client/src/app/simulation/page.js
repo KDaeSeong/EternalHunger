@@ -2,14 +2,29 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { apiGet, apiPost, apiPut, getApiBase, getToken, getUser } from '../../utils/api';
+import { AUTH_SYNC_EVENT, apiGet, apiPost, apiPut, clearAuth, getApiBase, getToken, getUser, updateStoredUser } from '../../utils/api';
+import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
 import { generateDynamicEvent } from '../../utils/eventLogic';
-import { updateEffects } from '../../utils/statusLogic';
+import {
+  EFFECT_BLEED,
+  EFFECT_BURN,
+  EFFECT_FOOD_POISON,
+  EFFECT_POISON,
+  EFFECT_REGEN,
+  EFFECT_SHIELD,
+  absorbShieldDamage,
+  addOrRefreshEffect,
+  getRegenValue,
+  getShieldValue,
+  normalizeStatusEffectList,
+  purgeNegativeEffects,
+  updateEffects,
+} from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec } from '../../utils/rulesets';
-import { getTacBaseCdSec, getTacEffectNumber, getTacTrigger } from './tacticalSkillTable';
+import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger } from './tacticalSkillTable';
 import '../../styles/ERSimulation.css';
 
 function safeTags(item) {
@@ -18,6 +33,33 @@ function safeTags(item) {
 
 function itemDisplayName(item) {
   return item?.name || item?.text || item?.itemId?.name || '알 수 없는 아이템';
+}
+
+function resolveRewardDropEntry(entry, publicItems, itemNameById) {
+  const raw = entry && typeof entry === 'object' ? entry : null;
+  if (!raw) return null;
+  const rawItem = raw?.item && typeof raw.item === 'object' ? raw.item : null;
+  const itemId = String(raw?.itemId || raw?.id || raw?._id || rawItem?._id || '');
+  if (!itemId) return null;
+  const catalogItem = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id || '') === itemId) || null;
+  const qty = Math.max(1, Number(raw?.qty || raw?.count || 1));
+  return {
+    itemId,
+    qty,
+    item: catalogItem || rawItem || {
+      _id: itemId,
+      name: String(raw?.name || itemNameById?.[itemId] || '아이템'),
+      type: String(raw?.type || rawItem?.type || '재료'),
+      tags: Array.isArray(rawItem?.tags) ? rawItem.tags : [],
+    },
+  };
+}
+
+function normalizeRewardDropEntries(entries, publicItems, itemNameById) {
+  const rawList = Array.isArray(entries) ? entries : (entries ? [entries] : []);
+  return rawList
+    .map((entry) => resolveRewardDropEntry(entry, publicItems, itemNameById))
+    .filter(Boolean);
 }
 
 function itemIcon(item) {
@@ -49,9 +91,309 @@ const INIT_DEPENDENCY_PATHS = [
   '/public/maps',
   '/public/kiosks',
   '/public/drone-offers',
+  '/public/perks',
   '/trades',
   '/trades?mine=true',
 ];
+
+function normalizeUserStatistics(stats) {
+  const src = stats && typeof stats === 'object' ? stats : {};
+  const totalGames = Number(src?.totalGames || 0);
+  const totalKills = Number(src?.totalKills || 0);
+  const totalWins = Number(src?.totalWins || 0);
+  return {
+    totalGames: Number.isFinite(totalGames) && totalGames > 0 ? Math.floor(totalGames) : 0,
+    totalKills: Number.isFinite(totalKills) && totalKills > 0 ? Math.floor(totalKills) : 0,
+    totalWins: Number.isFinite(totalWins) && totalWins > 0 ? Math.floor(totalWins) : 0,
+  };
+}
+
+function mergeStoredUserProgress(currentUser, patch = {}) {
+  const baseUser = currentUser && typeof currentUser === 'object' ? currentUser : {};
+  const next = { ...baseUser, ...patch };
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'lp')) {
+    const lp = Number(patch.lp || 0);
+    next.lp = Number.isFinite(lp) ? lp : Number(baseUser?.lp || 0) || 0;
+  }
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'credits')) {
+    const credits = Number(patch.credits || 0);
+    next.credits = Number.isFinite(credits) ? credits : Number(baseUser?.credits || 0) || 0;
+  }
+  if (patch && Object.prototype.hasOwnProperty.call(patch, 'statistics')) {
+    next.statistics = normalizeUserStatistics(patch.statistics);
+  } else if (baseUser?.statistics) {
+    next.statistics = normalizeUserStatistics(baseUser.statistics);
+  }
+  return next;
+}
+
+const PERK_EFFECT_DEFAULTS = {
+  hpPlus: 0,
+  maxHpPlus: 0,
+  startCreditsPlus: 0,
+  creditsPlus: 0,
+  atkPlus: 0,
+  defPlus: 0,
+  moveSpeedPlus: 0,
+  strPlus: 0,
+  agiPlus: 0,
+  intPlus: 0,
+  menPlus: 0,
+  lukPlus: 0,
+  dexPlus: 0,
+  shtPlus: 0,
+  endPlus: 0,
+  kioskDiscountPct: 0,
+  droneDiscountPct: 0,
+  marketDiscountPct: 0,
+  kioskChancePlus: 0,
+  droneChancePlus: 0,
+  craftChancePlus: 0,
+  goalWeightPlus: 0,
+  lootWeightPlus: 0,
+  aggressionPlus: 0,
+  saleBonusPct: 0,
+  wildlifeCreditsPct: 0,
+  wildlifeDamageMinus: 0,
+  wildlifeLootPlus: 0,
+  eventCreditsPct: 0,
+  eventRecoveryPlus: 0,
+  eventItemPlus: 0,
+  bleedResistPct: 0,
+  poisonResistPct: 0,
+  burnResistPct: 0,
+  bleedImmune: 0,
+  poisonImmune: 0,
+  burnImmune: 0,
+  cleanseHealPlus: 0,
+};
+
+const PERK_EFFECT_ALIASES = {
+  hpPlus: ['hpPlus', 'healthPlus', 'maxHpPlusFlat', 'hp_flat'],
+  maxHpPlus: ['maxHpPlus', 'maxHealthPlus'],
+  startCreditsPlus: ['startCreditsPlus', 'simCreditsPlus', 'startingCreditsPlus'],
+  creditsPlus: ['creditsPlus'],
+  atkPlus: ['atkPlus', 'attackPlus', 'attackFlat'],
+  defPlus: ['defPlus', 'defensePlus', 'armorPlus'],
+  moveSpeedPlus: ['moveSpeedPlus', 'movePlus', 'msPlus'],
+  strPlus: ['strPlus'],
+  agiPlus: ['agiPlus'],
+  intPlus: ['intPlus'],
+  menPlus: ['menPlus'],
+  lukPlus: ['lukPlus'],
+  dexPlus: ['dexPlus'],
+  shtPlus: ['shtPlus'],
+  endPlus: ['endPlus'],
+  kioskDiscountPct: ['kioskDiscountPct', 'kioskDiscount', 'shopDiscountPct'],
+  droneDiscountPct: ['droneDiscountPct', 'droneDiscount'],
+  marketDiscountPct: ['marketDiscountPct', 'marketDiscount', 'discountPct'],
+  kioskChancePlus: ['kioskChancePlus', 'shopChancePlus'],
+  droneChancePlus: ['droneChancePlus'],
+  craftChancePlus: ['craftChancePlus', 'craftBias'],
+  goalWeightPlus: ['goalWeightPlus', 'goalBias', 'goalPriorityPlus'],
+  lootWeightPlus: ['lootWeightPlus', 'lootBiasPlus'],
+  aggressionPlus: ['aggressionPlus', 'combatAggroPlus'],
+  saleBonusPct: ['saleBonusPct', 'sellBonusPct'],
+  wildlifeCreditsPct: ['wildlifeCreditsPct', 'huntCreditsPct', 'animalCreditsPct'],
+  wildlifeDamageMinus: ['wildlifeDamageMinus', 'huntDamageMinus', 'animalDamageMinus'],
+  wildlifeLootPlus: ['wildlifeLootPlus', 'huntLootPlus', 'animalLootPlus'],
+  eventCreditsPct: ['eventCreditsPct', 'scenarioCreditsPct'],
+  eventRecoveryPlus: ['eventRecoveryPlus', 'scenarioRecoveryPlus'],
+  eventItemPlus: ['eventItemPlus', 'scenarioItemPlus', 'eventLootPlus'],
+  bleedResistPct: ['bleedResistPct', 'bleedResist', 'bleedAvoidPct'],
+  poisonResistPct: ['poisonResistPct', 'poisonResist', 'poisonAvoidPct', 'foodPoisonResistPct'],
+  burnResistPct: ['burnResistPct', 'burnResist', 'burnAvoidPct'],
+  bleedImmune: ['bleedImmune', 'immuneBleed'],
+  poisonImmune: ['poisonImmune', 'immunePoison', 'foodPoisonImmune'],
+  burnImmune: ['burnImmune', 'immuneBurn'],
+  cleanseHealPlus: ['cleanseHealPlus', 'cleanseRecoveryPlus', 'medicalRecoveryPlus'],
+};
+
+function perkNumber(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizePerkPct(value) {
+  const n = perkNumber(value);
+  const ratio = Math.abs(n) > 1 ? (n / 100) : n;
+  if (!Number.isFinite(ratio)) return 0;
+  return Math.max(-0.95, Math.min(0.95, ratio));
+}
+
+function normalizePerkEffects(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const out = { ...PERK_EFFECT_DEFAULTS };
+  Object.entries(PERK_EFFECT_ALIASES).forEach(([targetKey, aliases]) => {
+    for (const alias of aliases) {
+      if (!Object.prototype.hasOwnProperty.call(src, alias)) continue;
+      const value = src[alias];
+      out[targetKey] = targetKey.endsWith('Pct') ? normalizePerkPct(value) : perkNumber(value);
+      break;
+    }
+  });
+  out.kioskDiscountPct = normalizePerkPct(out.kioskDiscountPct + out.marketDiscountPct);
+  out.droneDiscountPct = normalizePerkPct(out.droneDiscountPct + out.marketDiscountPct);
+  out.marketDiscountPct = normalizePerkPct(out.marketDiscountPct);
+  out.saleBonusPct = normalizePerkPct(out.saleBonusPct);
+  out.bleedResistPct = normalizePerkPct(out.bleedResistPct);
+  out.poisonResistPct = normalizePerkPct(out.poisonResistPct);
+  out.burnResistPct = normalizePerkPct(out.burnResistPct);
+  out.bleedImmune = out.bleedImmune ? 1 : 0;
+  out.poisonImmune = out.poisonImmune ? 1 : 0;
+  out.burnImmune = out.burnImmune ? 1 : 0;
+  return out;
+}
+
+function buildPerkRuntimeBundle(codes, perks) {
+  const ownedCodes = Array.isArray(codes) ? codes.map((x) => String(x || '').trim()).filter(Boolean) : [];
+  const ownedSet = new Set(ownedCodes);
+  const perkDocs = (Array.isArray(perks) ? perks : []).filter((perk) => ownedSet.has(String(perk?.code || '').trim()));
+  const effects = { ...PERK_EFFECT_DEFAULTS };
+  perkDocs.forEach((perk) => {
+    const fx = normalizePerkEffects(perk?.effects);
+    Object.keys(effects).forEach((key) => {
+      effects[key] += perkNumber(fx[key]);
+    });
+  });
+  effects.kioskDiscountPct = normalizePerkPct(effects.kioskDiscountPct);
+  effects.droneDiscountPct = normalizePerkPct(effects.droneDiscountPct);
+  effects.marketDiscountPct = normalizePerkPct(effects.marketDiscountPct);
+  effects.saleBonusPct = normalizePerkPct(effects.saleBonusPct);
+  return {
+    codes: ownedCodes,
+    docs: perkDocs,
+    effects,
+    summary: perkDocs.map((perk) => String(perk?.name || perk?.code || '').trim()).filter(Boolean).join(', '),
+  };
+}
+
+function getActorPerkEffects(actor) {
+  return actor?._perkRuntime && typeof actor._perkRuntime === 'object' ? actor._perkRuntime : PERK_EFFECT_DEFAULTS;
+}
+
+function applyPerkDiscount(cost, ...pctList) {
+  const base = Math.max(0, Math.round(perkNumber(cost)));
+  const totalPct = pctList.reduce((sum, pct) => sum + normalizePerkPct(pct), 0);
+  const ratio = Math.max(0.05, 1 - Math.max(0, totalPct));
+  return Math.max(0, Math.round(base * ratio));
+}
+
+function getPerkLootBias(actorOrEffects) {
+  const fx = actorOrEffects && typeof actorOrEffects === 'object' && Object.prototype.hasOwnProperty.call(actorOrEffects, 'lootWeightPlus')
+    ? actorOrEffects
+    : getActorPerkEffects(actorOrEffects);
+  return Math.max(-0.6, Math.min(1.2, normalizePerkPct(fx?.lootWeightPlus || 0)));
+}
+
+function getPerkAggressionBias(actorOrEffects) {
+  const fx = actorOrEffects && typeof actorOrEffects === 'object' && Object.prototype.hasOwnProperty.call(actorOrEffects, 'aggressionPlus')
+    ? actorOrEffects
+    : getActorPerkEffects(actorOrEffects);
+  return Math.max(-0.5, Math.min(1.0, normalizePerkPct(fx?.aggressionPlus || 0)));
+}
+
+function applyPerkLootWeight(weight, actorOrEffects, opts = {}) {
+  const baseWeight = Math.max(0, Number(weight || 0));
+  if (!(baseWeight > 0)) return 0;
+  const lootBias = getPerkLootBias(actorOrEffects);
+  const rareBoost = Math.max(0, Number(opts?.rareBoost || 0));
+  const ratio = Math.max(0.15, 1 + lootBias + Math.max(0, lootBias) * rareBoost);
+  return Math.max(0.01, baseWeight * ratio);
+}
+
+function getPerkWildlifeLootBias(actorOrEffects) {
+  const fx = actorOrEffects && typeof actorOrEffects === 'object' && Object.prototype.hasOwnProperty.call(actorOrEffects, 'wildlifeLootPlus')
+    ? actorOrEffects
+    : getActorPerkEffects(actorOrEffects);
+  const base = normalizePerkPct(fx?.lootWeightPlus || 0);
+  const extra = normalizePerkPct(fx?.wildlifeLootPlus || 0);
+  return Math.max(-0.6, Math.min(1.4, base + extra));
+}
+
+function getPerkEventItemBias(actorOrEffects) {
+  const fx = actorOrEffects && typeof actorOrEffects === 'object' && Object.prototype.hasOwnProperty.call(actorOrEffects, 'eventItemPlus')
+    ? actorOrEffects
+    : getActorPerkEffects(actorOrEffects);
+  const base = Math.max(0, normalizePerkPct(fx?.lootWeightPlus || 0));
+  const extra = Math.max(0, normalizePerkPct(fx?.eventItemPlus || 0));
+  return Math.max(0, Math.min(1.2, base * 0.4 + extra));
+}
+
+function applyPerkCreditBonus(amount, ...pctList) {
+  const base = Math.max(0, perkNumber(amount));
+  if (!(base > 0)) return 0;
+  const totalPct = pctList.reduce((sum, pct) => sum + normalizePerkPct(pct), 0);
+  return Math.max(0, Math.round(base * Math.max(0, 1 + totalPct)));
+}
+
+function applyPerkDamageReduction(amount, ...minusList) {
+  const base = Math.max(0, perkNumber(amount));
+  if (!(base > 0)) return 0;
+  const totalMinus = minusList.reduce((sum, v) => sum + Math.max(0, perkNumber(v)), 0);
+  return Math.max(0, Math.round(base - totalMinus));
+}
+
+function maybeBoostDropQty(qty, chance, maxExtra = 1) {
+  let next = Math.max(1, Math.round(perkNumber(qty) || 1));
+  const extraCap = Math.max(0, Math.round(perkNumber(maxExtra) || 0));
+  const rollChance = Math.max(0, Math.min(0.95, Number(chance || 0)));
+  for (let i = 0; i < extraCap; i += 1) {
+    if (Math.random() < rollChance) next += 1;
+  }
+  return next;
+}
+
+function applyPerkBundleToActor(actor, bundle, opts = {}) {
+  if (!actor || typeof actor !== 'object') return actor;
+  const perkBundle = bundle && typeof bundle === 'object' ? bundle : { codes: [], docs: [], effects: { ...PERK_EFFECT_DEFAULTS }, summary: '' };
+  const fx = perkBundle.effects && typeof perkBundle.effects === 'object' ? perkBundle.effects : PERK_EFFECT_DEFAULTS;
+  const next = actor;
+
+  const baseStats = next._perkBaseStats && typeof next._perkBaseStats === 'object'
+    ? { ...next._perkBaseStats }
+    : { ...(next?.stats && typeof next.stats === 'object' ? next.stats : {}) };
+  next._perkBaseStats = { ...baseStats };
+  const statKeys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+  const updatedStats = { ...baseStats };
+  statKeys.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(updatedStats, key)) updatedStats[key] = 0;
+    updatedStats[key] = perkNumber(updatedStats[key]);
+  });
+  updatedStats.str += perkNumber(fx.strPlus) + perkNumber(fx.atkPlus);
+  updatedStats.sht += perkNumber(fx.shtPlus) + perkNumber(fx.atkPlus);
+  updatedStats.end += perkNumber(fx.endPlus) + perkNumber(fx.defPlus);
+  updatedStats.agi += perkNumber(fx.agiPlus);
+  updatedStats.int += perkNumber(fx.intPlus);
+  updatedStats.men += perkNumber(fx.menPlus);
+  updatedStats.luk += perkNumber(fx.lukPlus);
+  updatedStats.dex += perkNumber(fx.dexPlus);
+  next.stats = updatedStats;
+
+  const baseMaxHp = perkNumber(next._perkBaseMaxHp ?? next.maxHp ?? 100) || 100;
+  next._perkBaseMaxHp = baseMaxHp;
+  const prevMaxHp = Math.max(1, perkNumber(next.maxHp || baseMaxHp) || baseMaxHp);
+  const hpBonus = Math.max(0, perkNumber(fx.maxHpPlus) + perkNumber(fx.hpPlus));
+  const desiredMaxHp = Math.max(1, Math.round(baseMaxHp + hpBonus));
+  const currentHp = perkNumber(next.hp != null ? next.hp : prevMaxHp);
+  const hpDelta = desiredMaxHp - prevMaxHp;
+  next.maxHp = desiredMaxHp;
+  if (opts.initialFill) next.hp = desiredMaxHp;
+  else if (currentHp <= 0) next.hp = 0;
+  else next.hp = Math.max(1, Math.min(desiredMaxHp, currentHp + Math.max(0, hpDelta)));
+
+  const baseGrant = Math.max(0, Math.round(perkNumber(fx.startCreditsPlus) + perkNumber(fx.creditsPlus)));
+  const prevGrant = Math.max(0, Math.round(perkNumber(next._perkGrantedCreditsTotal || 0)));
+  const delta = Math.max(0, baseGrant - prevGrant);
+  if (opts.applyCredits !== false && delta > 0) next.simCredits = Math.max(0, perkNumber(next.simCredits || 0) + delta);
+  next._perkGrantedCreditsTotal = baseGrant;
+
+  next._perkRuntime = { ...fx };
+  next._perkCodes = Array.isArray(perkBundle.codes) ? perkBundle.codes.slice() : [];
+  next._perkSummary = String(perkBundle.summary || '');
+  return next;
+}
+
 
 function ensureEquipped(obj) {
   const eq = obj?.equipped;
@@ -65,6 +407,127 @@ function ensureEquipped(obj) {
     };
   }
   return { weapon: null, head: null, clothes: null, arm: null, shoes: null };
+}
+
+function normalizeRuntimeInventory(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((it) => it && typeof it === 'object')
+    .map((it) => {
+      const next = { ...it };
+      const qty = Number(next?.qty ?? 1);
+      next.qty = Number.isFinite(qty) && qty > 0 ? Math.floor(qty) : 1;
+      const itemId = String(next?.itemId || next?.id || next?._id || '').trim();
+      if (itemId) next.itemId = itemId;
+      if (next?.equipSlot != null) next.equipSlot = String(next.equipSlot || '').toLowerCase();
+      if (next?.weaponType != null) next.weaponType = normalizeWeaponType(next.weaponType) || String(next.weaponType || '');
+      if (!Array.isArray(next?.tags)) next.tags = safeTags(next);
+      return next;
+    });
+}
+
+function normalizeRuntimeEffect(effect) {
+  if (!effect || typeof effect !== 'object') return null;
+  const next = { ...effect };
+  if (next?.remainingDuration != null) {
+    const dur = Number(next.remainingDuration);
+    next.remainingDuration = Number.isFinite(dur) ? Math.max(0, Math.floor(dur)) : 0;
+  }
+  if (next?.dotDamage != null) {
+    const dot = Number(next.dotDamage);
+    next.dotDamage = Number.isFinite(dot) ? Math.max(0, Math.floor(dot)) : 0;
+  }
+  if (next?.recovery != null) {
+    const rec = Number(next.recovery);
+    next.recovery = Number.isFinite(rec) ? Math.max(0, Math.floor(rec)) : 0;
+  }
+  if (next?.shieldValue != null) {
+    const shield = Number(next.shieldValue);
+    next.shieldValue = Number.isFinite(shield) ? Math.max(0, Math.floor(shield)) : 0;
+  }
+  if (next?.sourceId != null) next.sourceId = String(next.sourceId || '');
+  return next;
+}
+
+function normalizeRuntimeSurvivorList(list, opts = {}) {
+  return (Array.isArray(list) ? list : [])
+    .map((it) => normalizeRuntimeSurvivor(it, opts))
+    .filter((it) => it && typeof it === 'object' && String(it?._id || '').trim());
+}
+
+function buildRuntimeSurvivorMap(list, opts = {}) {
+  const map = new Map();
+  normalizeRuntimeSurvivorList(list, opts).forEach((it) => {
+    map.set(String(it._id), it);
+  });
+  return map;
+}
+
+function upsertRuntimeSurvivor(runtimeMap, survivor, opts = {}) {
+  if (!(runtimeMap instanceof Map)) return null;
+  const next = normalizeRuntimeSurvivor(survivor, opts);
+  const id = String(next?._id || '').trim();
+  if (!id) return null;
+  runtimeMap.set(id, next);
+  return next;
+}
+
+function normalizeRuntimeSurvivor(obj, opts = {}) {
+  const base = obj && typeof obj === 'object' ? obj : {};
+  const hpDefault = opts.hpDefault != null ? Number(opts.hpDefault) : 100;
+  const maxHpDefault = opts.maxHpDefault != null ? Number(opts.maxHpDefault) : 100;
+  const hpRaw = Number(base?.hp);
+  const maxHpRaw = Number(base?.maxHp);
+  const hp = Number.isFinite(hpRaw) ? hpRaw : hpDefault;
+  const maxHp = Number.isFinite(maxHpRaw) && maxHpRaw > 0 ? maxHpRaw : maxHpDefault;
+  const perkFx = getActorPerkEffects(base);
+  const statusImmunities = new Set(
+    Array.isArray(base?.statusImmunities)
+      ? base.statusImmunities.map((x) => String(x || '').trim()).filter(Boolean)
+      : []
+  );
+  if (perkNumber(perkFx?.bleedImmune || 0) > 0) statusImmunities.add(EFFECT_BLEED);
+  if (perkNumber(perkFx?.poisonImmune || 0) > 0) {
+    statusImmunities.add(EFFECT_POISON);
+    statusImmunities.add(EFFECT_FOOD_POISON);
+  }
+  if (perkNumber(perkFx?.burnImmune || 0) > 0) statusImmunities.add(EFFECT_BURN);
+
+  const statusResists = {
+    ...(base?.statusResists && typeof base.statusResists === 'object' ? base.statusResists : {}),
+  };
+  statusResists[EFFECT_BLEED] = Math.max(0, Number(statusResists[EFFECT_BLEED] || 0), Number(perkFx?.bleedResistPct || 0));
+  statusResists[EFFECT_POISON] = Math.max(0, Number(statusResists[EFFECT_POISON] || 0), Number(perkFx?.poisonResistPct || 0));
+  statusResists[EFFECT_FOOD_POISON] = Math.max(0, Number(statusResists[EFFECT_FOOD_POISON] || 0), Number(perkFx?.poisonResistPct || 0));
+  statusResists[EFFECT_BURN] = Math.max(0, Number(statusResists[EFFECT_BURN] || 0), Number(perkFx?.burnResistPct || 0));
+
+  return {
+    ...base,
+    inventory: normalizeRuntimeInventory(base?.inventory),
+    equipped: ensureEquipped(base),
+    activeEffects: Array.isArray(base?.activeEffects) ? base.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [],
+    cooldowns: base?.cooldowns && typeof base.cooldowns === 'object' ? { ...base.cooldowns } : { portableSafeZone: 0, cnotGate: 0 },
+    hp: Math.max(0, Math.min(maxHp, hp)),
+    maxHp,
+    simCredits: Number.isFinite(Number(base?.simCredits)) ? Number(base.simCredits) : 0,
+    tacticalSkillLevel: Math.max(1, Math.min(2, Number(base?.tacticalSkillLevel || 1))),
+    zoneId: String(base?.zoneId || ''),
+    mapId: base?.mapId != null ? String(base.mapId || '') : '',
+    day1Moves: Math.max(0, Number(base?.day1Moves || 0)),
+    day1HeroDone: !!base?.day1HeroDone,
+    droneLastOrderIndex: Number.isFinite(Number(base?.droneLastOrderIndex)) ? Number(base.droneLastOrderIndex) : -9999,
+    droneLastOrderAbsSec: Number.isFinite(Number(base?.droneLastOrderAbsSec)) ? Number(base.droneLastOrderAbsSec) : -99999,
+    kioskLastInteractAbsSec: Number.isFinite(Number(base?.kioskLastInteractAbsSec)) ? Number(base.kioskLastInteractAbsSec) : -99999,
+    safeZoneUntil: Number.isFinite(Number(base?.safeZoneUntil)) ? Number(base.safeZoneUntil) : 0,
+    aiTargetZoneId: base?.aiTargetZoneId != null ? String(base.aiTargetZoneId || '') : '',
+    aiTargetTTL: Math.max(0, Number(base?.aiTargetTTL || 0)),
+    _recentCombatUntil: Number.isFinite(Number(base?._recentCombatUntil)) ? Number(base._recentCombatUntil) : 0,
+    _recentCombatWith: String(base?._recentCombatWith || ''),
+    _recentCombatReason: String(base?._recentCombatReason || ''),
+    detonationSec: Number.isFinite(Number(base?.detonationSec)) ? Number(base.detonationSec) : undefined,
+    detonationMaxSec: Number.isFinite(Number(base?.detonationMaxSec)) ? Number(base.detonationMaxSec) : undefined,
+    statusImmunities: Array.from(statusImmunities),
+    statusResists,
+  };
 }
 
 function getInvItemId(it) {
@@ -126,7 +589,8 @@ function getEquipMoveSpeed(actor) {
   const shoes = inv.find((x) => String(x?.equipSlot || '') === 'shoes' && !used.has(String(getInvItemId(x))));
   if (shoes) ms += sumFromItem(shoes);
 
-  return Math.max(0, ms);
+  const perkMs = perkNumber(getActorPerkEffects(actor)?.moveSpeedPlus || 0);
+  return Math.max(0, ms + perkMs);
 }
 
 
@@ -247,6 +711,17 @@ function compactIO(list) {
     map.set(id, (map.get(id) || 0) + qty);
   });
   return [...map.entries()].map(([itemId, qty]) => ({ itemId, qty }));
+}
+
+function isEnabledScenarioEvent(ev) {
+  return ev?.enabled !== false;
+}
+
+function getScenarioEventTimeOfDay(ev) {
+  const raw = String(ev?.timeOfDay || ev?.time || 'both').toLowerCase();
+  if (raw === 'day' || raw === 'night' || raw === 'both') return raw;
+  if (raw === 'any') return 'both';
+  return 'both';
 }
 
 // --- 로컬 설정: 맵 하이퍼루프 목적지(어드민 로컬 저장) ---
@@ -416,6 +891,7 @@ function pickAutoTranscendOption(options, publicItems) {
 
 function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const crates = Array.isArray(mapObj?.itemCrates) ? mapObj.itemCrates : [];
+  const perkLootBias = getPerkLootBias(opts?.perkEffects || {});
 
   // 존별 상자 허용/금지(서버(DB) 저장)
   // - map.crateAllowDeny: { [zoneId]: ['legendary_material', 'transcend_pick', ...] }  // 금지 리스트
@@ -466,9 +942,10 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       ? opts.weightsByKey
       : (ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey || null));
 
-  const chance = useFallback
+  const chanceBase = useFallback
     ? (moved ? Number(field?.fallbackChanceMoved ?? 0.20) : Number(field?.fallbackChanceStay ?? 0.08))
     : (moved ? Number(field?.chanceMoved ?? 0.28) : Number(field?.chanceStay ?? 0.12));
+  const chance = Math.max(0.01, Math.min(0.98, chanceBase + Math.max(-0.05, Math.min(0.16, perkLootBias * 0.18))));
   if (Math.random() >= chance) return null;
 
   // 1) 구역 상자 기반 드랍(맵에 crateType이 있으면 사용, 없으면 food)
@@ -498,12 +975,24 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       return { item: null, itemId: '', qty: 1, crateId: crate?.crateId || '', crateType, options, zoneId: String(zoneId || '') };
     }
 
-    const entry = pickWeighted(crate?.lootTable);
+    const weightedLootTable = (Array.isArray(crate?.lootTable) ? crate.lootTable : []).map((entry) => {
+      const itemId = String(entry?.itemId || '');
+      const item = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === itemId) || null;
+      const special = classifySpecialByName(item?.name);
+      const isEquip = inferItemCategory(item) === 'equipment';
+      const weight = applyPerkLootWeight(entry?.weight || 1, opts?.perkEffects || {}, { rareBoost: special ? 0.7 : (isEquip ? 0.35 : 0) });
+      return { ...entry, _item: item, weight };
+    });
+    const entry = pickWeighted(weightedLootTable);
     if (!entry?.itemId) return null;
 
     const itemId = String(entry.itemId);
-    const item = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === itemId) || null;
-    const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
+    const item = entry?._item || (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === itemId) || null;
+    let qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
+    const itemCat = inferItemCategory(item);
+    if ((itemCat === 'material' || itemCat === 'consumable') && Math.random() < Math.max(0, perkLootBias) * 0.45) {
+      qty += 1;
+    }
 
     return { item, itemId, qty, crateId: crate?.crateId || '', crateType, zoneId: String(zoneId || '') };
   }
@@ -518,9 +1007,10 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const wTrans0 = Math.max(0, Number(ct?.transcend_pick?.weight ?? ct?.transcend_pick ?? 5));
 
   // 존 금지 타입은 fallback에서도 0 처리
-  const wFood = isDenied('food') ? 0 : wFood0;
-  const wLegend = isDenied('legendary_material') ? 0 : wLegend0;
-  const wTrans = isDenied('transcend_pick') ? 0 : wTrans0;
+  const rareCrateBonus = Math.max(0, perkLootBias);
+  const wFood = isDenied('food') ? 0 : applyPerkLootWeight(wFood0, opts?.perkEffects || {}, { rareBoost: 0 });
+  const wLegend = isDenied('legendary_material') ? 0 : applyPerkLootWeight(wLegend0, opts?.perkEffects || {}, { rareBoost: 0.5 + rareCrateBonus * 0.5 });
+  const wTrans = isDenied('transcend_pick') ? 0 : applyPerkLootWeight(wTrans0, opts?.perkEffects || {}, { rareBoost: 0.4 + rareCrateBonus * 0.4 });
 
   const typeCandidates = [
     { item: 'food', weight: wFood },
@@ -574,7 +1064,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       const maxQty = (isDay1 && tier <= 1) ? 3 : 1;
       if (isDay1 && tier <= 1) w += 3; // 하급 재료 우선
 
-      pool.push({ itemId: String(it._id), weight: w, minQty, maxQty });
+      pool.push({ itemId: String(it._id), weight: applyPerkLootWeight(w, opts?.perkEffects || {}, { rareBoost: tier >= 2 ? 0.15 : 0 }), minQty, maxQty });
       continue;
     }
 
@@ -583,7 +1073,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       const t = String(it?.type || '').toLowerCase();
       // 음식/치유 위주
       if (t === 'food' || tags.includes('food') || tags.includes('heal') || tags.includes('medical')) {
-        pool.push({ itemId: String(it._id), weight: 2, minQty: 1, maxQty: 1 });
+        pool.push({ itemId: String(it._id), weight: applyPerkLootWeight(2, opts?.perkEffects || {}, { rareBoost: tags.includes('medical') ? 0.1 : 0 }), minQty: 1, maxQty: 1 });
       }
     }
   }
@@ -593,7 +1083,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
   const itemId = String(entry.itemId);
   const item = list.find((it) => String(it?._id) === itemId) || null;
-  const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
+  let qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
+  if (Math.random() < Math.max(0, perkLootBias) * 0.45) qty += 1;
   return { item, itemId, qty, crateId: 'fallback', crateType: 'food', zoneId: String(zoneId || '') };
 }
 
@@ -770,6 +1261,207 @@ function pickUnitsFromInventory(inventory, n) {
     else list[idx] = { ...it, qty: nextQty };
   }
   return picked;
+}
+
+function removePickedUnitsFromInventory(inventory, picked) {
+  const list = Array.isArray(inventory) ? inventory.map((x) => ({ ...x })) : [];
+  const need = compactIO(Array.isArray(picked) ? picked : []);
+  for (const row of need) {
+    const itemId = String(row?.itemId || '');
+    let remaining = Math.max(0, Number(row?.qty || 0));
+    if (!itemId || remaining <= 0) continue;
+    for (let i = 0; i < list.length && remaining > 0; i += 1) {
+      const curId = String(list[i]?.itemId || list[i]?.id || '');
+      if (curId !== itemId) continue;
+      const have = Math.max(0, Number(list[i]?.qty || 1));
+      const take = Math.min(have, remaining);
+      const nextQty = have - take;
+      remaining -= take;
+      if (nextQty <= 0) {
+        list.splice(i, 1);
+        i -= 1;
+      } else {
+        list[i] = { ...list[i], qty: nextQty };
+      }
+    }
+  }
+  return list;
+}
+
+function pruneEquippedAgainstInventory(actor) {
+  if (!actor || typeof actor !== 'object') return actor;
+  const invIds = new Set((Array.isArray(actor?.inventory) ? actor.inventory : []).map((x) => String(getInvItemId(x) || '')).filter(Boolean));
+  const eq = ensureEquipped(actor);
+  const nextEq = { ...eq };
+  for (const slot of EQUIP_SLOTS) {
+    const curId = String(eq?.[slot] || '');
+    if (curId && !invIds.has(curId)) nextEq[slot] = null;
+  }
+  actor.equipped = nextEq;
+  return actor;
+}
+
+function clearRuntimeCombatFields(actor) {
+  if (!actor || typeof actor !== 'object') return actor;
+  actor.lastDamagedBy = '';
+  actor.lastDamagedPhaseIdx = -9999;
+  actor._deathAt = undefined;
+  actor._deathBy = undefined;
+  actor._detLogLastMilestone = null;
+  actor._gatherPvpBonus = 0;
+  actor._gatherPvpBonusUntilPhaseIdx = -9999;
+  actor._immediateDanger = 0;
+  actor._immediateDangerUntilPhaseIdx = -9999;
+  actor.aiTargetZoneId = '';
+  actor.aiTargetTTL = 0;
+  actor.safeZoneUntil = 0;
+  actor._recentCombatUntil = 0;
+  actor._recentCombatWith = '';
+  actor._recentCombatReason = '';
+  return actor;
+}
+
+function applyAiRecoveryWindow(actor, absSec, opts = {}) {
+  if (!actor || typeof actor !== 'object') return actor;
+  const now = Number.isFinite(Number(absSec)) ? Number(absSec) : 0;
+  const recoverSec = Math.max(0, Number(opts?.recoverSec ?? 0));
+  const safeZoneSec = Math.max(0, Number(opts?.safeZoneSec ?? 0));
+  const reason = String(opts?.reason || '');
+  const opponentId = String(opts?.opponentId || '');
+  const retargetZoneId = String(opts?.retargetZoneId || '');
+  const retargetTtl = Math.max(0, Math.floor(Number(opts?.retargetTtl ?? 0)));
+  actor.aiTargetZoneId = retargetZoneId || '';
+  actor.aiTargetTTL = retargetZoneId ? retargetTtl : 0;
+  actor._recentCombatUntil = Math.max(0, now + recoverSec, Number(actor?._recentCombatUntil || 0));
+  actor._recentCombatWith = opponentId;
+  actor._recentCombatReason = reason;
+  if (safeZoneSec > 0) {
+    actor.safeZoneUntil = Math.max(Number(actor?.safeZoneUntil || 0), now + safeZoneSec);
+  }
+  return actor;
+}
+
+function isAiRecoveryLocked(actor, absSec) {
+  return Number(actor?._recentCombatUntil || 0) > Number(absSec || 0);
+}
+
+function normalizeDeadSnapshot(actor, ruleset) {
+  if (!actor || typeof actor !== 'object') return actor;
+  const dead = normalizeRuntimeSurvivor(actor);
+  dead.inventory = normalizeInventory(dead.inventory, ruleset);
+  pruneEquippedAgainstInventory(dead);
+  clearRuntimeCombatFields(dead);
+  dead.hp = 0;
+  return dead;
+}
+
+function normalizeRevivedSurvivor(actor, revivedHp, zoneId, phaseIdxNow, ruleset, absSec = 0, reviveKit = null) {
+  if (!actor || typeof actor !== 'object') return actor;
+  const revived = normalizeRuntimeSurvivor(actor);
+  revived.inventory = normalizeInventory(revived.inventory, ruleset);
+  pruneEquippedAgainstInventory(revived);
+  clearRuntimeCombatFields(revived);
+  revived.hp = Math.max(1, Math.min(Number(revived.maxHp || revivedHp || 1), Number(revivedHp || 1)));
+  revived.zoneId = String(zoneId || revived.zoneId || '');
+  revived.activeEffects = [];
+  revived.statusImmunities = Array.isArray(revived.statusImmunities) ? [...revived.statusImmunities] : [];
+  revived.statusResists = revived.statusResists && typeof revived.statusResists === 'object' ? { ...revived.statusResists } : {};
+  revived.revivedOnce = true;
+  revived.revivedAtPhaseIdx = phaseIdxNow;
+  revived.deadAtPhaseIdx = undefined;
+  revived.reviveEligible = false;
+  applyAiRecoveryWindow(revived, absSec, { reason: 'revive', recoverSec: 8, safeZoneSec: 10 });
+  if (reviveKit && reviveKit._id) {
+    revived.inventory = addItemToInventory(revived.inventory, reviveKit, String(reviveKit._id), 1, 1, ruleset);
+  }
+  pruneEquippedAgainstInventory(revived);
+  return revived;
+}
+
+function applyStatusEffect(actor, effect, opts = {}) {
+  if (!actor || typeof actor !== 'object') return { applied: false, reason: 'invalid' };
+  const res = addOrRefreshEffect(actor, effect, opts);
+  actor.activeEffects = Array.isArray(res?.character?.activeEffects)
+    ? res.character.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean)
+    : [];
+  return res;
+}
+
+function clearNegativeStatusEffects(actor, opts = {}) {
+  if (!actor || typeof actor !== 'object') return { changed: false, removed: [] };
+  const res = purgeNegativeEffects(actor, opts);
+  actor.activeEffects = Array.isArray(res?.character?.activeEffects)
+    ? res.character.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean)
+    : [];
+  return { changed: !!res?.changed, removed: Array.isArray(res?.removed) ? res.removed : [] };
+}
+
+function applyShieldEffect(actor, shieldValue, duration = 2, sourceId = '') {
+  const shield = Math.max(0, Math.floor(Number(shieldValue || 0)));
+  if (!actor || shield <= 0) return { applied: false, shield: 0 };
+  const res = applyStatusEffect(actor, {
+    name: EFFECT_SHIELD,
+    shieldValue: shield,
+    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    stacks: 1,
+    sourceId: String(sourceId || ''),
+  });
+  return { applied: !!res?.applied, shield };
+}
+
+function applyRegenEffect(actor, recovery, duration = 2, sourceId = '') {
+  const rec = Math.max(0, Math.floor(Number(recovery || 0)));
+  if (!actor || rec <= 0) return { applied: false, recovery: 0 };
+  const res = applyStatusEffect(actor, {
+    name: EFFECT_REGEN,
+    recovery: rec,
+    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    stacks: 1,
+    sourceId: String(sourceId || ''),
+  });
+  return { applied: !!res?.applied, recovery: rec };
+}
+
+function describeRuntimeEffect(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff) return '';
+  const name = String(eff?.name || '효과');
+  if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
+  if (statMods && Object.keys(statMods).length) {
+    const bits = Object.entries(statMods).map(([k, v]) => `${String(k)} ${Number(v) > 0 ? '+' : ''}${Number(v)}`);
+    return `${name}${bits.length ? ` [${bits.join(', ')}]` : ''}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  }
+  return `${name}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+}
+
+function applyRuntimeEffectPayloads(actor, effects) {
+  const list = normalizeStatusEffectList(effects).map((x) => normalizeRuntimeEffect(x)).filter(Boolean);
+  const results = [];
+  list.forEach((effect) => {
+    const res = applyStatusEffect(actor, effect);
+    results.push({ ...res, effect });
+  });
+  return {
+    results,
+    applied: results.some((x) => !!x?.applied),
+  };
+}
+
+function consumeShieldDamage(actor, rawDamage) {
+  const result = absorbShieldDamage(actor, rawDamage);
+  actor.activeEffects = Array.isArray(result?.character?.activeEffects)
+    ? result.character.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean)
+    : [];
+  return result;
+}
+
+function clearPostCombatEffects(actor) {
+  if (!actor || typeof actor !== 'object') return false;
+  const res = clearNegativeStatusEffects(actor, { names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN], removeAllNegative: false });
+  actor.activeEffects = Array.isArray(actor.activeEffects) ? actor.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [];
+  return !!res.changed;
 }
 
 function countInventoryUnits(inventory) {
@@ -1587,7 +2279,7 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
         const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
         const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
         const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
-        if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
+        if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.22, 1) });
       }
 
       return {
@@ -1807,6 +2499,9 @@ function buildCraftGoal(inventory, craftables, itemNameById, opts) {
   const goalTier = normalizeGoalTier(opts?.goalTier ?? 6);
   const goalKeysRaw = opts?.goalItemKeys instanceof Set ? [...opts.goalItemKeys] : (Array.isArray(opts?.goalItemKeys) ? opts.goalItemKeys : []);
   const goalKeys = new Set(goalKeysRaw.map((x) => String(x || '').trim()).filter(Boolean));
+  const perkFx = normalizePerkEffects(opts?.perkEffects);
+  const goalWeightBonus = Math.max(0, perkNumber(perkFx.goalWeightPlus || 0));
+  const craftBias = Math.max(0, perkNumber(perkFx.craftChancePlus || 0));
 
   let best = null;
 
@@ -1849,7 +2544,7 @@ function buildCraftGoal(inventory, craftables, itemNameById, opts) {
     if (missing.length > 3) continue;
 
     const ratio = haveSlots / Math.max(1, ings.length);
-    let score = tier * 100 + ratio * 25 - missing.length * 8;
+    let score = tier * 100 + ratio * (25 + craftBias * 6) - missing.length * 8;
 
     const oneSpecialShort = (missing.length === 1) && (tier >= 5) && (() => {
       const mk = String(missing?.[0]?.special || classifySpecialByName(missing?.[0]?.name) || '');
@@ -1861,7 +2556,7 @@ function buildCraftGoal(inventory, craftables, itemNameById, opts) {
 
     // 목표 장비(itemKey)가 설정된 경우: 해당 결과물을 강하게 우선
     if (goalKeys.size > 0) {
-      score += isGoal ? 3000 : -20;
+      score += isGoal ? (3000 + goalWeightBonus * 600) : -20;
       if (isGoal && oneSpecialShort) score += 500;
     }
 
@@ -2530,6 +3225,9 @@ function pickMissingBasicItemId(craftGoal) {
 
 function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPhase, actor, craftGoal, itemNameById, marketRules, upgradeNeed = null, absSecNow = 0) {
   const mr = marketRules?.kiosk || {};
+  const perkFx = getActorPerkEffects(actor);
+  const perkChanceBonus = Math.max(0, perkNumber(perkFx.kioskChancePlus || 0)) + Math.max(0, perkNumber(perkFx.goalWeightPlus || 0)) * 0.01;
+  const applyKioskCost = (value) => applyPerkDiscount(value, perkFx.kioskDiscountPct, perkFx.marketDiscountPct);
   // 실제 ER 일반 Kiosk는 시작부터 접근 가능하고, 시뮬은 위치/크레딧 조건으로만 제어합니다.
   if (!canUseKioskAtWorldTime(curDay, curPhase)) return null;
 
@@ -2577,8 +3275,8 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     ? (simCredits >= Number(mr?.prices?.basic ?? 10) ? 0.12 : 0)
     : 0;
   const chance = hasMeaningfulNeed
-    ? Math.min(0.995, chanceNeed + earlyProcureBonus + urgencyBonus + affordableNeedBonus + savedPlanLegendBonus + pacingPressure)
-    : Math.min(0.40, chanceIdle + ((curDay <= 2 && simCredits >= Number(mr?.prices?.basic ?? 10)) ? 0.04 : 0) + (legendOverdue ? 0.04 : 0));
+    ? Math.min(0.995, chanceNeed + earlyProcureBonus + urgencyBonus + affordableNeedBonus + savedPlanLegendBonus + pacingPressure + perkChanceBonus)
+    : Math.min(0.55, chanceIdle + ((curDay <= 2 && simCredits >= Number(mr?.prices?.basic ?? 10)) ? 0.04 : 0) + (legendOverdue ? 0.04 : 0) + perkChanceBonus);
 
   // ✅ 서버(어드민)에서 편집한 키오스크 카탈로그가 있으면 그대로 사용(우선)
   // - 카탈로그는 각 키오스크 문서(Kiosk.catalog)에 저장되며, /public/kiosks로 내려옵니다.
@@ -2608,7 +3306,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
       const mode = String(row?.mode || 'sell');
       if (mode === 'sell') {
-        const cost = Math.max(0, Number(row?.priceCredits || 0));
+        const cost = applyKioskCost(Math.max(0, Number(row?.priceCredits || 0)));
         if (credits >= cost) return { kind: 'buy', item: findById(itemId) || row.itemId, itemId, qty: 1, cost, label: '카탈로그 구매' };
       }
       if (mode === 'exchange') {
@@ -2654,7 +3352,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
       const shuffled = buys.slice().sort(() => Math.random() - 0.5);
       for (const row of shuffled) {
         const itemId = normId(row?.itemId);
-        const cost = Math.max(0, Number(row?.priceCredits || 0));
+        const cost = applyKioskCost(Math.max(0, Number(row?.priceCredits || 0)));
         if (!itemId) continue;
         // (level 모드) 전술 스킬 레벨이 MAX면 모듈을 랜덤 구매하지 않음(낭비 방지)
         if (isLvMax) {
@@ -2766,10 +3464,10 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const key = String(oneSpecialShort.special || '');
     const onePick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : (key === 'vf' ? findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']) : tacModuleItem);
     const oneCost = (key === 'vf')
-      ? Number(mr?.prices?.vf ?? 500)
+      ? applyKioskCost(Number(mr?.prices?.vf ?? 500))
       : ((key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
-        ? kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey)
-        : Number(mr?.prices?.tacModule ?? 10));
+        ? applyKioskCost(kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey))
+        : applyKioskCost(Number(mr?.prices?.tacModule ?? 10)));
     const oneOk = key === 'vf'
       ? Number(mr?.buySuccess?.vf ?? 0.95)
       : Number(mr?.buySuccess?.legendary ?? 0.95);
@@ -2790,7 +3488,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const pick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : tacModuleItem;
     if (pick && pick._id) {
       const cost = (key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
-        ? kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey)
+        ? applyKioskCost(kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey))
         : Number(mr?.prices?.tacModule ?? 10);
       const ok = Number(mr?.buySuccess?.legendary ?? 0.85);
       const pressureOk = Math.min(0.995, ok + (legendOverdue ? 0.08 : 0) + (transOverdue ? 0.08 : 0) + (oneSpecialShort ? 0.03 : 0));
@@ -2810,7 +3508,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     // (A) 초월: VF 혈액 샘플
     if (allowVf && up.wantTrans && !up.hasVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
       const vfItem2 = findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']);
-      const cost = Number(mr?.prices?.vf ?? 500);
+      const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
       if (vfItem2?._id && simCredits >= cost && Math.random() < buyOkVf) {
         return { kind: 'buy', item: vfItem2, itemId: String(vfItem2._id), qty: 1, cost, label: 'VF 혈액 샘플(업그레이드)' };
       }
@@ -2819,10 +3517,10 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     // (B) 전설: 4대 전설 재료 중 "가장 싼" 것부터 확보
     if (allowLegendary && up.wantLegend && !up.hasLegendMatAny) {
       const cand = [];
-      if (meteorItem?._id) cand.push({ key: 'meteor', it: meteorItem, cost: kioskLegendaryPrice('meteor', mr?.prices?.legendaryByKey) });
-      if (lifeTreeItem?._id) cand.push({ key: 'life_tree', it: lifeTreeItem, cost: kioskLegendaryPrice('life_tree', mr?.prices?.legendaryByKey) });
-      if (mithrilItem?._id) cand.push({ key: 'mithril', it: mithrilItem, cost: kioskLegendaryPrice('mithril', mr?.prices?.legendaryByKey) });
-      if (forceCoreItem?._id) cand.push({ key: 'force_core', it: forceCoreItem, cost: kioskLegendaryPrice('force_core', mr?.prices?.legendaryByKey) });
+      if (meteorItem?._id) cand.push({ key: 'meteor', it: meteorItem, cost: applyKioskCost(kioskLegendaryPrice('meteor', mr?.prices?.legendaryByKey)) });
+      if (lifeTreeItem?._id) cand.push({ key: 'life_tree', it: lifeTreeItem, cost: applyKioskCost(kioskLegendaryPrice('life_tree', mr?.prices?.legendaryByKey)) });
+      if (mithrilItem?._id) cand.push({ key: 'mithril', it: mithrilItem, cost: applyKioskCost(kioskLegendaryPrice('mithril', mr?.prices?.legendaryByKey)) });
+      if (forceCoreItem?._id) cand.push({ key: 'force_core', it: forceCoreItem, cost: applyKioskCost(kioskLegendaryPrice('force_core', mr?.prices?.legendaryByKey)) });
       cand.sort((a, b) => (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)));
       const pick = cand[0] || null;
       const legendBuyBias = (curDay <= 3 ? 0.06 : 0) + (miss.length >= 2 ? 0.04 : 0) + (legendOverdue ? 0.08 : 0) + (nearLegend ? 0.03 : 0);
@@ -2836,7 +3534,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const needVf = miss.find((m) => m?.special === 'vf' || classifySpecialByName(m?.name) === 'vf');
   if (needVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
     const vfItem = findById(needVf.itemId) || findItemByKeywords(items, ['vf', '혈액', '샘플', 'sample']);
-    const cost = Number(mr?.prices?.vf ?? 500);
+    const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
     const ok = Number(mr?.buySuccess?.vf ?? 0.85);
     if (allowVf && vfItem && simCredits >= cost && Math.random() < ok) {
       return { kind: 'buy', item: vfItem, itemId: String(vfItem._id), qty: 1, cost, label: 'VF 혈액 샘플' };
@@ -2852,7 +3550,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
     const candidates = getLegendaryCoreCandidates(items);
     const found = findById(needCore.itemId) || (candidates.find((c) => c.key === key)?.item || null);
-    const cost = kioskLegendaryPrice(key, mr?.prices?.legendaryByKey);
+    const cost = applyKioskCost(kioskLegendaryPrice(key, mr?.prices?.legendaryByKey));
 
     if (found) {
       // 구매 우선
@@ -2868,7 +3566,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const needBasic = miss.find((m) => m?.itemId && !m?.special && isItemInMapCrates(mapObj, m.itemId));
   if (needBasic) {
     const it = findById(needBasic.itemId);
-    const cost = Number(mr?.prices?.basic ?? 10);
+    const cost = applyKioskCost(Number(mr?.prices?.basic ?? 10));
     const ok = Number(mr?.buySuccess?.basic ?? 0.75);
     if (allowBasic && it && simCredits >= cost && Math.random() < ok) {
       const needQty = Math.max(1, Math.min(3, Math.max(1, Number(needBasic.need || 1) - Number(needBasic.have || 0))));
@@ -2883,7 +3581,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const vfChance = Number(mr?.fallback?.vfChance ?? 0.25);
     if (allowVf && Math.random() < vfChance) {
       const vf = findItemByKeywords(items, ['vf', '혈액', '샘플', 'sample']);
-      const cost = Number(mr?.prices?.vf ?? 500);
+      const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
       if (vf && simCredits >= cost) return { kind: 'buy', item: vf, itemId: String(vf._id), qty: 1, cost, label: 'VF 혈액 샘플' };
     }
   }
@@ -2894,7 +3592,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const cores = getLegendaryCoreCandidates(items);
     if (cores.length) {
       const picked = cores[Math.floor(Math.random() * cores.length)];
-      const cost = kioskLegendaryPrice(picked.key, mr?.prices?.legendaryByKey);
+      const cost = applyKioskCost(kioskLegendaryPrice(picked.key, mr?.prices?.legendaryByKey));
 
       // 구매
       const ok = Number(mr?.buySuccess?.legendaryFallback ?? mr?.buySuccess?.legendary ?? 0.7);
@@ -2910,7 +3608,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const entry = pickFromAllCrates(mapObj, publicItems);
     if (entry?.itemId) {
       const it = findById(entry.itemId);
-      const cost = Number(mr?.prices?.basic ?? 10);
+      const cost = applyKioskCost(Number(mr?.prices?.basic ?? 10));
       if (it && simCredits >= cost) {
         const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
         return { kind: 'buy', item: it, itemId: String(it._id), qty, cost, label: '보급품' };
@@ -2928,6 +3626,9 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   // 너무 잦으면 재미가 깨지므로 확률 + 초 단위 쿨다운으로 제어한다.
   const dm = marketRules?.drone || {};
   if (dm?.enabled === false) return null;
+  const perkFx = getActorPerkEffects(actor);
+  const perkChanceBonus = Math.max(0, perkNumber(perkFx.droneChancePlus || 0)) + Math.max(0, perkNumber(perkFx.craftChancePlus || 0)) * 0.01;
+  const applyDroneCost = (value) => applyPerkDiscount(value, perkFx.droneDiscountPct, perkFx.marketDiscountPct);
 
   const invCount = Array.isArray(actor?.inventory) ? actor.inventory.length : 0;
 
@@ -2954,7 +3655,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
     ? Math.min(0.24, ((curDay <= 2) ? 0.08 : 0) + ((credits >= Number(dm?.price ?? 10)) ? 0.10 : 0) + (invCount <= 2 ? 0.06 : 0))
     : ((curDay <= 2 && invCount <= 1) ? 0.05 : 0);
   const pacingPressure = (legendOverdue ? 0.12 : 0) + (transOverdue ? 0.16 : 0) + ((goalTier >= 5 && hasNeed && curDay <= 2) ? 0.04 : 0);
-  const baseChance = Math.min(0.96, droneBaseChance + droneUrgency + pacingPressure);
+  const baseChance = Math.min(0.98, droneBaseChance + droneUrgency + pacingPressure + perkChanceBonus);
   if (Math.random() >= baseChance) return null;
 
   const pool = [];
@@ -2966,7 +3667,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   // 1) droneOffers(있으면)에서 뽑기: 특수 재료(운석/생나/미스릴/포스코어/VF)는 제외
   if (Array.isArray(droneOffers) && droneOffers.length) {
     for (const offer of droneOffers) {
-      const price = Math.max(0, Number(offer?.price ?? offer?.cost ?? 0));
+      const price = applyDroneCost(Math.max(0, Number(offer?.price ?? offer?.cost ?? 0)));
       const itemId = String(offer?.itemId ?? offer?.item?._id ?? '');
       const item = offer?.item || (itemId ? items.find((x) => String(x?._id) === itemId) : null);
       if (!itemId || !item) continue;
@@ -2988,7 +3689,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   // 1-1) 목표 재료가 있는데, offer에 없거나(혹은 전부 비쌈) pool이 비었으면 fallback로 해당 아이템을 직접 구매하는 형태(가격 고정)
   if (hasNeed && !pool.some((p) => String(p?.itemId) === String(needId))) {
     const it = items.find((x) => String(x?._id) === String(needId));
-    const nfPrice = Math.max(0, Number(dm?.needFallbackPrice ?? 10));
+    const nfPrice = applyDroneCost(Math.max(0, Number(dm?.needFallbackPrice ?? 10)));
     if (it && !isSpecialName(it?.name) && credits >= nfPrice) {
       const w = Math.max(1, Number(dm?.needFallbackWeight ?? 5));
       pool.push({ kind: 'needFallback', offerId: null, item: it, itemId: String(it._id), price: nfPrice, weight: w });
@@ -3007,7 +3708,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
       const ok = fallbackKeywords.some((k) => low.includes(String(k).toLowerCase()));
       if (!ok) continue;
 
-      const price = Math.max(0, Number(dm?.price ?? 10));
+      const price = applyDroneCost(Math.max(0, Number(dm?.price ?? 10)));
       if (credits >= price) {
         pool.push({ kind: 'fallback', offerId: null, item: it, itemId: String(it._id), price, weight: 1 });
       }
@@ -3056,6 +3757,10 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   const isKioskZone = !!opts.isKioskZone;
   const disableBoss = !!opts.disableBoss;
   const force = !!opts.force;
+  const perkFx = getActorPerkEffects(actor);
+  const perkWildLootBias = Math.max(0, getPerkWildlifeLootBias(perkFx));
+  const perkWildCreditPct = normalizePerkPct(perkFx?.wildlifeCreditsPct || 0);
+  const perkWildDamageMinus = Math.max(0, perkNumber(perkFx?.wildlifeDamageMinus || 0));
 
   // 키오스크 구역은 비교적 "안전지대"로 간주: 야생 조우 확률/보스 스폰을 낮춤
   const baseChance = isKioskZone ? (moved ? 0.10 : 0.05) : (moved ? 0.22 : 0.10);
@@ -3081,16 +3786,17 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   // 5일차 낮부터: 위클라인 → VF 혈액 샘플 드랍 가능
     if (!isKioskZone && isAtOrAfterWorldTime(curDay, curPhase, 5, 'day') && Math.random() < 0.15 + powerBonus) {
       const vf = findItemByKeywords(publicItems, ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf']);
-      const dmg = Math.max(6, 18 - Math.floor(p / 10));
+      const dmg = applyPerkDamageReduction(Math.max(6, 18 - Math.floor(p / 10)), perkWildDamageMinus);
       if (vf?._id) {
-        const drops = [{ item: vf, itemId: String(vf._id), qty: 1 }];
+        const drops = [{ item: vf, itemId: String(vf._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.45, 1) }];
         const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
         const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
-        const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
+        const pick = (Math.random() < (0.5 + Math.min(0.12, perkWildLootBias * 0.12)) ? meteor : tree) || meteor || tree;
         if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
         return {
           kind: 'weakline',
           damage: dmg,
+          credits: applyPerkCreditBonus(randInt(65, 95), perkWildCreditPct),
           drops,
           log: '🧬 변이체(위클라인) 처치! VF 혈액 샘플 + (운석/생명의 나무) 획득 가능',
         };
@@ -3100,12 +3806,13 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
     // 4일차 낮부터: 오메가 → 포스 코어 드랍 가능
     if (!isKioskZone && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && Math.random() < 0.18 + powerBonus) {
       const fc = findItemByKeywords(publicItems, ['포스 코어', 'force core', 'forcecore']);
-      const dmg = Math.max(8, 26 - Math.floor(p / 9));
+      const dmg = applyPerkDamageReduction(Math.max(8, 26 - Math.floor(p / 9)), perkWildDamageMinus);
       if (fc?._id) {
         return {
           kind: 'omega',
           damage: dmg,
-          drops: [{ item: fc, itemId: String(fc._id), qty: 1 }],
+          credits: applyPerkCreditBonus(randInt(48, 72), perkWildCreditPct),
+          drops: [{ item: fc, itemId: String(fc._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.35, 1) }],
           log: `🧿 변이체(오메가) 격파! 포스 코어 획득 가능`,
         };
       }
@@ -3114,12 +3821,13 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
     // 3일차 낮부터: 알파 → 미스릴 드랍 가능
     if (!isKioskZone && isAtOrAfterWorldTime(curDay, curPhase, 3, 'day') && Math.random() < 0.22 + powerBonus) {
       const mi = findItemByKeywords(publicItems, ['미스릴', 'mithril']);
-      const dmg = Math.max(6, 22 - Math.floor(p / 9));
+      const dmg = applyPerkDamageReduction(Math.max(6, 22 - Math.floor(p / 9)), perkWildDamageMinus);
       if (mi?._id) {
         return {
           kind: 'alpha',
           damage: dmg,
-          drops: [{ item: mi, itemId: String(mi._id), qty: 1 }],
+          credits: applyPerkCreditBonus(randInt(36, 56), perkWildCreditPct),
+          drops: [{ item: mi, itemId: String(mi._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.32, 1) }],
           log: `🐺 야생동물(알파) 사냥 성공! 미스릴 획득 가능`,
         };
       }
@@ -3133,7 +3841,8 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   if (entry?.itemId) {
     const it = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === String(entry.itemId)) || null;
     if (it?._id) {
-      const qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
+      const qty0 = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
+      const qty = maybeBoostDropQty(qty0, perkWildLootBias * 0.38, 1);
       drops.push({ item: it, itemId: String(it._id), qty });
     }
   }
@@ -3142,17 +3851,17 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   const meat = findItemByKeywords(publicItems, ['고기']);
   if (meat?._id) {
     if (species?.key === 'chicken') {
-      if (Math.random() < (2 / 3)) drops.push({ item: meat, itemId: String(meat._id), qty: 1 });
+      if (Math.random() < Math.min(0.92, (2 / 3) + perkWildLootBias * 0.12)) drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.32, 1) });
     } else if (species?.key === 'boar') {
-      drops.push({ item: meat, itemId: String(meat._id), qty: 2 });
+      drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(2, perkWildLootBias * 0.32, 1) });
     } else if (species?.key === 'bear' || species?.key === 'wolf' || species?.key === 'dog') {
-      drops.push({ item: meat, itemId: String(meat._id), qty: 1 });
+      drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.28, 1) });
     }
     // bat은 제외
   }
 
   // ✅ 모든 야생동물: 5% 확률로 운석 또는 생명의 나무 드랍
-  if (Math.random() < 0.05) {
+  if (Math.random() < Math.min(0.22, 0.05 + perkWildLootBias * 0.06)) {
     const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
     const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
     const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
@@ -3179,10 +3888,11 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   const avgTier = (Number(tierSum.weaponTier || 0) + Number(tierSum.armorTierSum || 0) / 4) / 2;
   const underdogMul = (Number(curDay || 1) >= 3 && avgTier <= 3.2) ? 1.6 : (Number(curDay || 1) >= 4 && avgTier <= 4.2) ? 1.3 : 1.0;
 
-  const credits = Math.max(0, Math.floor(randInt(Math.floor(crMin * dayScale), Math.floor(crMax * dayScale)) * underdogMul));
+  const credits0 = Math.max(0, Math.floor(randInt(Math.floor(crMin * dayScale), Math.floor(crMax * dayScale)) * underdogMul));
+  const credits = applyPerkCreditBonus(credits0, perkWildCreditPct);
 
   const dmgBase = species?.key === 'bear' ? 11 : species?.key === 'wolf' ? 9 : species?.key === 'boar' ? 8 : species?.key === 'bat' ? 6 : 4;
-  const dmg = Math.max(0, dmgBase - Math.floor(p / 18));
+  const dmg = applyPerkDamageReduction(Math.max(0, dmgBase - Math.floor(p / 18)), perkWildDamageMinus);
   return {
     kind: String(species?.key || 'wildlife'),
     damage: dmg,
@@ -3233,8 +3943,9 @@ function consumeWildlifeAtZone(spawnState, mapObj, zoneId, publicItems, curDay, 
 
   // 드랍 데이터가 없더라도, "사냥했다"는 이벤트는 남김(파밍 루프 끊김 방지)
   const p = roughPower(actor);
-  const dmg = Math.max(0, 5 - Math.floor(p / 22));
-  const credits = Math.max(0, randInt(12, 22));
+  const perkFx = getActorPerkEffects(actor);
+  const dmg = applyPerkDamageReduction(Math.max(0, 5 - Math.floor(p / 22)), Math.max(0, perkNumber(perkFx?.wildlifeDamageMinus || 0)));
+  const credits = applyPerkCreditBonus(Math.max(0, randInt(12, 22)), perkFx?.wildlifeCreditsPct || 0);
   return { kind: 'wildlife', damage: dmg, credits, drops: [], log: '🦌 야생동물 사냥 성공' };
 }
 
@@ -3374,8 +4085,6 @@ function inferEquipSlot(it) {
   if (tags.includes('shoes') || lower.includes('boots') || name.includes('신발') || name.includes('부츠')) return 'shoes';
   return '';
 }
-
-const EFFECT_BLEED = '출혈';
 
 function getEffectIndex(character, effectName) {
   const list = Array.isArray(character?.activeEffects) ? character.activeEffects : [];
@@ -3746,6 +4455,9 @@ function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById
 
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const actorWNorm = normalizeWeaponType(String(actor?.weaponType || '').trim());
+  const perkFx = getActorPerkEffects(actor);
+  const goalWeightBonus = Math.max(0, perkNumber(perkFx.goalWeightPlus || 0));
+  const craftBias = Math.max(0, perkNumber(perkFx.craftChancePlus || 0));
 
   const kmap = (actor?._itemKeyById && typeof actor._itemKeyById === 'object') ? actor._itemKeyById : {};
   const goalBySlot = pickGoalLoadoutBySlot(actor);
@@ -3793,6 +4505,10 @@ function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById
       const ga = (goalKeys.size > 0 && ka && goalKeys.has(ka)) ? 1 : 0;
       const gb = (goalKeys.size > 0 && kb && goalKeys.has(kb)) ? 1 : 0;
       if (gb != ga) return gb - ga;
+
+      const perkScoreA = (ga ? (goalWeightBonus * 100) : 0) + (Number(a?.tier || 1) * craftBias * 4);
+      const perkScoreB = (gb ? (goalWeightBonus * 100) : 0) + (Number(b?.tier || 1) * craftBias * 4);
+      if (perkScoreB !== perkScoreA) return perkScoreB - perkScoreA;
 
       const ca = inferItemCategory(a) === 'equipment' ? 1 : 0;
       const cb = inferItemCategory(b) === 'equipment' ? 1 : 0;
@@ -4402,6 +5118,7 @@ export default function SimulationPage() {
   const [showResultModal, setShowResultModal] = useState(false);
   const [gameEndReason, setGameEndReason] = useState(null); // 게임 종료 사유(예: 6번째 밤 타임리밋)
   const [winner, setWinner] = useState(null);
+  const [resultSummary, setResultSummary] = useState(null);
 
   // 서버 설정값
   const [settings, setSettings] = useState({
@@ -4515,13 +5232,16 @@ const activeMapName = useMemo(() => {
   }, [survivors, dead]);
 
   // ✅ 상점/조합/교환 패널
-  const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | trade
+  const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | perk | trade
   const [selectedCharId, setSelectedCharId] = useState('');
   const [credits, setCredits] = useState(0);
   const [publicItems, setPublicItems] = useState([]);
   const [kiosks, setKiosks] = useState([]);
   const [droneOffers, setDroneOffers] = useState([]);
+  const [publicPerks, setPublicPerks] = useState([]);
   const [tradeOffers, setTradeOffers] = useState([]);
+  const [viewerLp, setViewerLp] = useState(() => Number(getUser()?.lp || 0));
+  const [viewerPerks, setViewerPerks] = useState(() => (Array.isArray(getUser()?.perks) ? getUser().perks : []));
   const [myTradeOffers, setMyTradeOffers] = useState([]);
   const [qtyMap, setQtyMap] = useState({});
   const [marketMessage, setMarketMessage] = useState('');
@@ -4697,6 +5417,91 @@ const activeMapName = useMemo(() => {
     }, at);
   };
 
+  const emitQueueRunEvent = (who, payload = {}, at = null) => {
+    const blocked = (Array.isArray(payload?.blockedReasons) ? payload.blockedReasons : [])
+      .map((x) => String(x || '').trim())
+      .filter(Boolean)
+      .slice(0, 4);
+    const candidates = (Array.isArray(payload?.candidates) ? payload.candidates : [])
+      .map((x) => String(x || '').trim())
+      .filter(Boolean)
+      .slice(0, 6);
+    const candidateScores = (Array.isArray(payload?.candidateScores) ? payload.candidateScores : [])
+      .map((row) => {
+        if (!row) return '';
+        if (typeof row === 'string') return String(row).trim();
+        const type = String(row?.type || row?.label || '').trim();
+        const score = Number(row?.score || 0);
+        if (!type) return '';
+        return `${type}:${Number.isFinite(score) ? score.toFixed(1) : '0.0'}`;
+      })
+      .filter(Boolean)
+      .slice(0, 5);
+    const chosen = String(payload?.chosen || '').trim();
+    if (!chosen && !blocked.length && candidates.length <= 1) return;
+    emitRunEvent('queue', {
+      who: String(who?._id || payload?.who || ''),
+      whoName: String(who?.name || payload?.whoName || ''),
+      zoneId: String(payload?.zoneId || who?.zoneId || ''),
+      chosen,
+      blockedReasons: blocked,
+      candidates,
+      candidateScores,
+      candidateCount: Math.max(0, Number(payload?.candidateCount || candidates.length || 0)),
+      blockedCount: blocked.length,
+      reason: String(payload?.reason || ''),
+    }, at);
+  };
+
+  const emitEffectRunEvents = (who, rows, meta = {}, at = null) => {
+    const whoId = String(who?._id || meta?.whoId || '');
+    const whoName = String(who?.name || meta?.whoName || meta?.who || '');
+    const zoneId = String(meta?.zoneId || who?.zoneId || '');
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const eff = row?.effect || null;
+      const effectName = String(eff?.name || '').trim();
+      if (!effectName) return;
+      const outcome = row?.reason === 'immune'
+        ? 'immune'
+        : row?.reason === 'resisted'
+          ? 'resisted'
+          : row?.applied
+            ? 'applied'
+            : 'skipped';
+      emitRunEvent('effect', {
+        who: whoId,
+        whoName,
+        zoneId,
+        source: String(meta?.source || ''),
+        itemId: String(meta?.itemId || ''),
+        skill: String(meta?.skill || ''),
+        reason: String(meta?.reason || ''),
+        effect: effectName,
+        duration: Math.max(0, Number(eff?.duration ?? 0)),
+        stacks: Math.max(0, Number(eff?.stacks ?? eff?.stack ?? 0)),
+        outcome,
+      }, at);
+    });
+  };
+
+  const emitConsumableRunEvent = (who, item, meta = {}, at = null) => {
+    const whoId = String(who?._id || meta?.whoId || '');
+    const itemId = String(item?._id || item?.itemId || meta?.itemId || '');
+    emitRunEvent('use', {
+      who: whoId,
+      whoName: String(who?.name || meta?.whoName || ''),
+      zoneId: String(meta?.zoneId || who?.zoneId || ''),
+      source: String(meta?.source || 'consumable'),
+      reason: String(meta?.reason || ''),
+      manual: meta?.manual === true,
+      itemId,
+      itemName: itemDisplayName(item || { _id: itemId, name: meta?.itemName || '' }),
+      heal: Math.max(0, Number(meta?.heal || 0)),
+      cleansed: Math.max(0, Number(meta?.cleansed || 0)),
+      removedEffects: Array.isArray(meta?.removedEffects) ? meta.removedEffects.map((x) => String(x || '')).filter(Boolean) : [],
+    }, at);
+  };
+
   // 🛠 개발자 도구: 선택 캐릭터에게 소모품을 임의로 사용(강제)
   // - 전투 중 사용 불가: 진행 중(isAdvancing)일 때는 버튼을 비활성화합니다.
   
@@ -4760,10 +5565,35 @@ const devForceUseConsumable = (charId, invIndex) => {
       const maxHp = Number(ch?.maxHp ?? 100);
 
       const effect = applyItemEffect(ch, it);
-      const heal = Math.max(0, Number(effect?.recovery || 0));
+      let heal = Math.max(0, Number(effect?.recovery || 0));
+      const cleanseCfg = effect?.cleanse && typeof effect.cleanse === 'object'
+        ? effect.cleanse
+        : (isBandageLikeItem(it)
+          ? { names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON], removeAllNegative: false, bonusHeal: 0 }
+          : null);
+      const cleanse = cleanseCfg
+        ? clearNegativeStatusEffects(ch, { names: Array.isArray(cleanseCfg?.names) ? cleanseCfg.names : [], removeAllNegative: cleanseCfg?.removeAllNegative === true })
+        : { changed: false, removed: [] };
+      if (cleanse.changed) heal += Math.max(0, perkNumber(getActorPerkEffects(ch)?.cleanseHealPlus || 0)) + Math.max(0, Number(cleanseCfg?.bonusHeal || 0));
       ch.hp = Math.min(maxHp, beforeHp + heal);
 
-      const cured = isBandageLikeItem(it) ? removeActiveEffect(ch, EFFECT_BLEED) : false;
+      const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
+      if (statBoost) {
+        ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
+        Object.entries(statBoost).forEach(([key, value]) => {
+          const v = Number(value || 0);
+          if (!Number.isFinite(v) || v === 0) return;
+          ch.stats[key] = Number(ch.stats?.[key] || 0) + v;
+        });
+      }
+      const runtimeEffects = applyRuntimeEffectPayloads(ch, effect?.newEffects);
+      runtimeEffects.results.forEach((row) => {
+        if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
+        else if (row?.reason === 'resisted') addLog(`🧷 [${ch.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
+        else if (row?.applied) addLog(`🪄 [${ch.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
+      });
+
+      const cured = !!cleanse.changed;
 
       const curQty = Number(it?.qty || 1);
       if (Number.isFinite(curQty) && curQty > 1) inv[ii] = { ...it, qty: curQty - 1 };
@@ -4771,7 +5601,9 @@ const devForceUseConsumable = (charId, invIndex) => {
 
       const delta = Math.max(0, Number(ch.hp || 0) - beforeHp);
       const nm = itemDisplayName(it);
-      addLog(`🧪 [${ch.name}] 강제 사용: ${itemIcon(it)} ${nm} (+${delta} HP${cured ? ', 출혈 제거' : ''})`, 'highlight');
+      addLog(`🧪 [${ch.name}] 강제 사용: ${itemIcon(it)} ${nm} (+${delta} HP${cured ? ', 상태이상 정리' : ''})`, 'highlight');
+      emitConsumableRunEvent(ch, it, { source: 'consumable', reason: 'dev_force', manual: true, heal: delta, cleansed: Array.isArray(cleanse?.removed) ? cleanse.removed.length : 0, removedEffects: Array.isArray(cleanse?.removed) ? cleanse.removed : [] });
+      emitEffectRunEvents(ch, runtimeEffects.results, { source: 'consumable', itemId: String(it?._id || it?.itemId || ''), reason: 'dev_force' });
       return next;
     });
   };
@@ -5402,17 +6234,35 @@ if (!who) {
 
   const patchInventoryOnly = (serverCharacter) => {
     if (!serverCharacter?._id) return;
-    setSurvivors((prev) => prev.map((s) => (String(s._id) === String(serverCharacter._id) ? { ...s, inventory: serverCharacter.inventory ?? s.inventory } : s)));
+    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => (
+      String(s?._id) === String(serverCharacter?._id)
+        ? normalizeRuntimeSurvivor({
+            ...s,
+            inventory: serverCharacter?.inventory ?? s?.inventory,
+            equipped: serverCharacter?.equipped ?? s?.equipped,
+          })
+        : normalizeRuntimeSurvivor(s)
+    )));
   };
 
   const syncMyState = async () => {
     try {
       const [me, chars] = await Promise.all([apiGet('/user/me'), apiGet('/characters')]);
-      setCredits(Number(me?.credits || 0));
+      applyUserEconomyProgress({
+        credits: me?.credits,
+        lp: me?.lp,
+        perks: Array.isArray(me?.perks) ? me.perks : undefined,
+      });
       const list = Array.isArray(chars) ? chars : [];
-      setSurvivors((prev) => prev.map((s) => {
-        const found = list.find((c) => String(c._id) === String(s._id));
-        return found ? { ...s, inventory: found.inventory ?? s.inventory } : s;
+      setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => {
+        const found = list.find((c) => String(c?._id) === String(s?._id));
+        return found
+          ? normalizeRuntimeSurvivor({
+              ...s,
+              inventory: found?.inventory ?? s?.inventory,
+              equipped: found?.equipped ?? s?.equipped,
+            })
+          : normalizeRuntimeSurvivor(s);
       }));
     } catch (e) {
       // 동기화 실패는 치명적이지 않음
@@ -5420,44 +6270,119 @@ if (!who) {
     }
   };
 
+  const applyUserEconomyProgress = (patch = {}) => {
+    const hasCredits = Number.isFinite(Number(patch?.credits));
+    const hasLp = Number.isFinite(Number(patch?.lp));
+    const hasPerks = Array.isArray(patch?.perks);
+
+    if (hasCredits) setCredits(Math.max(0, Number(patch.credits || 0)));
+    if (hasLp) setViewerLp(Math.max(0, Number(patch.lp || 0)));
+    if (hasPerks) setViewerPerks((patch.perks || []).map((x) => String(x || '')).filter(Boolean));
+
+    updateStoredUser((currentUser) => ({
+      ...(currentUser || {}),
+      ...(hasCredits ? { credits: Math.max(0, Number(patch.credits || 0)) } : {}),
+      ...(hasLp ? { lp: Math.max(0, Number(patch.lp || 0)) } : {}),
+      ...(hasPerks ? { perks: (patch.perks || []).map((x) => String(x || '')).filter(Boolean) } : {}),
+    }));
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const syncViewerProgress = () => {
+      const u = getUser();
+      setViewerLp(Math.max(0, Number(u?.lp || 0)));
+      setViewerPerks(Array.isArray(u?.perks) ? u.perks.map((x) => String(x || '')).filter(Boolean) : []);
+      if (Number.isFinite(Number(u?.credits))) setCredits(Math.max(0, Number(u.credits || 0)));
+    };
+    syncViewerProgress();
+    window.addEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
+    return () => window.removeEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
+  }, []);
+
+  const ownedPerkCodeSet = useMemo(() => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), [viewerPerks]);
+  const activeViewerPerkBundle = useMemo(() => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks]);
+
+  useEffect(() => {
+    if (!Array.isArray(survivors) || survivors.length <= 0) return;
+    setSurvivors((prev) => normalizeRuntimeSurvivorList((Array.isArray(prev) ? prev : []).map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: true }))));
+    setDead((prev) => normalizeRuntimeSurvivorList((Array.isArray(prev) ? prev : []).map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: false }))));
+  }, [activeViewerPerkBundle]);
+
+  const getApiErrorMessage = (err, fallback = '요청 실패') => {
+    return String(err?.response?.data?.error || err?.response?.data?.message || err?.message || fallback);
+  };
+
+  const getSettledValue = (result, fallback = null) => {
+    if (result?.status !== 'fulfilled') return fallback;
+    return result.value ?? fallback;
+  };
+
+  const getSettledArray = (result) => {
+    const value = getSettledValue(result, []);
+    return Array.isArray(value) ? value : [];
+  };
+
+  const getRejectedLabels = (pairs) => {
+    return pairs
+      .filter(([, result]) => result?.status === 'rejected')
+      .map(([label]) => label);
+  };
+
   const loadMarket = async () => {
     try {
       setMarketMessage('');
-      const [itemsRes, kiosksRes, droneRes] = await Promise.all([
+      const [itemsRes, kiosksRes, droneRes, perksRes] = await Promise.allSettled([
         apiGet('/public/items'),
         apiGet('/public/kiosks'),
         apiGet('/public/drone-offers'),
+        apiGet('/public/perks'),
       ]);
-      setPublicItems(Array.isArray(itemsRes) ? itemsRes : []);
-      setKiosks(Array.isArray(kiosksRes) ? kiosksRes : []);
-      setDroneOffers(Array.isArray(droneRes) ? droneRes : []);
+
+      setPublicItems(getSettledArray(itemsRes));
+      setKiosks(getSettledArray(kiosksRes));
+      setDroneOffers(getSettledArray(droneRes));
+      setPublicPerks(getSettledArray(perksRes));
+
+      const failed = getRejectedLabels([
+        ['아이템', itemsRes],
+        ['키오스크', kiosksRes],
+        ['드론 판매', droneRes],
+        ['특전', perksRes],
+      ]);
+      if (failed.length) {
+        setMarketMessage(`${failed.join(', ')} 로드 실패`);
+      }
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
+      setMarketMessage(getApiErrorMessage(e));
     }
   };
 
   const loadTrades = async () => {
     try {
       setMarketMessage('');
-      const [open, mine] = await Promise.all([
+      const [open, mine] = await Promise.allSettled([
         apiGet('/trades'),
         apiGet('/trades?mine=true'),
       ]);
-      setTradeOffers(Array.isArray(open) ? open : []);
-      setMyTradeOffers(Array.isArray(mine) ? mine : []);
+      setTradeOffers(getSettledArray(open));
+      setMyTradeOffers(getSettledArray(mine));
+
+      const failed = getRejectedLabels([
+        ['오픈 오퍼', open],
+        ['내 오퍼', mine],
+      ]);
+      if (failed.length) {
+        setMarketMessage(`${failed.join(', ')} 로드 실패`);
+      }
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
+      setMarketMessage(getApiErrorMessage(e));
     }
   };
 
-  const redirectToLogin = (message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', clearAuth = false) => {
+  const redirectToLogin = (message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', shouldClearAuth = false) => {
     if (typeof window === 'undefined') return;
-    if (clearAuth) {
-      try {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      } catch {}
-    }
+    if (shouldClearAuth) clearAuth();
     alert(message);
     window.location.replace('/login');
   };
@@ -5498,7 +6423,7 @@ if (!who) {
 
     const fetchData = async () => {
       try {
-        const [charRes, eventRes, settingRes, meRes, itemsRes, mapsRes, kiosksRes, droneRes, openTrades, mineTrades] = await Promise.all([
+        const [charRes, eventRes, settingRes, meRes, itemsRes, mapsRes, kiosksRes, droneRes, perksRes, openTrades, mineTrades] = await Promise.allSettled([
           apiGet('/characters'),
           apiGet('/events'),
           apiGet('/settings'),
@@ -5507,13 +6432,47 @@ if (!who) {
           apiGet('/public/maps'),
           apiGet('/public/kiosks'),
           apiGet('/public/drone-offers'),
+          apiGet('/public/perks'),
           apiGet('/trades'),
           apiGet('/trades?mine=true'),
         ]);
 
-        if (settingRes) setSettings(settingRes);
+        const authError = [charRes, settingRes, meRes].find((result) => {
+          const status = Number(result?.reason?.status || result?.reason?.response?.status || 0);
+          return result?.status === 'rejected' && (status === 401 || status === 403);
+        });
+        if (authError) throw authError.reason;
 
-        const mapsList = Array.isArray(mapsRes) ? mapsRes : [];
+        const requiredFailed = [
+          ['캐릭터', charRes],
+          ['설정', settingRes],
+          ['내 정보', meRes],
+          ['맵', mapsRes],
+        ].filter(([, result]) => result?.status === 'rejected');
+        if (requiredFailed.length) {
+          throw requiredFailed[0][1].reason || new Error(`${requiredFailed[0][0]} 로드 실패`);
+        }
+
+        const charList = getSettledArray(charRes);
+        const eventsList = getSettledArray(eventRes);
+        const settingValue = getSettledValue(settingRes, {});
+        const meValue = getSettledValue(meRes, {});
+        const itemsList = getSettledArray(itemsRes);
+        const mapsList = getSettledArray(mapsRes);
+        const kiosksList = getSettledArray(kiosksRes);
+        const droneList = getSettledArray(droneRes);
+        const perksList = getSettledArray(perksRes);
+        const openTradesList = getSettledArray(openTrades);
+        const myTradesList = getSettledArray(mineTrades);
+
+        if (settingValue) setSettings(settingValue);
+        setPublicPerks(perksList);
+        applyUserEconomyProgress({
+          credits: meValue?.credits,
+          lp: meValue?.lp,
+          perks: Array.isArray(meValue?.perks) ? meValue.perks : undefined,
+        });
+
         mapsRef.current = mapsList;
         setMaps(mapsList);
 // ✅ 시뮬레이션은 "플레이어가 맵을 선택"하지 않습니다.
@@ -5531,7 +6490,7 @@ if (initialMapId) {
           : ['__default__'];
 
         // 🎮 룰 프리셋에 따라 생존자 런타임 상태를 초기화
-        const ruleset = getRuleset(settingRes?.rulesetId);
+        const ruleset = getRuleset(settingValue?.rulesetId);
         const det = ruleset?.detonation;
         const energy = ruleset?.gadgetEnergy;
 
@@ -5612,44 +6571,58 @@ const pickStartZoneIdForChar = (c) => {
   return pool[Math.floor(Math.random() * pool.length)];
 };
 // 로컬 명예의 전당(내 기록) 백업 저장: 서버 저장/조회가 꼬여도 최소한 로컬엔 남게 함
-const saveLocalHof = (winner, killCountsObj, participantsList) => {
+const saveLocalHof = (winner, killCountsObj, assistCountsObj, participantsList) => {
   try {
-    const me = JSON.parse(localStorage.getItem('user') || 'null');
+    const me = getUser();
     const username = me?.username || me?.id || 'guest';
-    const key = `eh_hof_${username}`;
-
-    const raw = localStorage.getItem(key);
-    const state = raw ? JSON.parse(raw) : { winsByChar: {}, killsByChar: {}, updatedAt: 0 };
-
-    // 우승 1회
-    if (winner?.name) {
-      state.winsByChar[winner.name] = (state.winsByChar[winner.name] || 0) + 1;
-    }
-
-    // 킬 누적 (id -> name 변환)
     const idToName = {};
     (participantsList || []).forEach((p) => {
-      const id = p?._id || p?.id;
+      const id = String(p?._id || p?.id || '');
       if (!id) return;
-      idToName[id] = p?.name || p?.nickname || p?.charName || p?.title;
+      idToName[id] = p?.name || p?.nickname || p?.charName || p?.title || id;
     });
 
-    Object.entries(killCountsObj || {}).forEach(([id, k]) => {
-      const name = idToName[id];
-      if (!name) return;
-      const v = Number(k || 0);
-      if (!Number.isFinite(v) || v <= 0) return;
-      state.killsByChar[name] = (state.killsByChar[name] || 0) + v;
-    });
-
-    state.updatedAt = Date.now();
-    localStorage.setItem(key, JSON.stringify(state));
+    writeHallOfFameState({ username }, (current) => {
+      const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
+      Object.entries(killCountsObj || {}).forEach(([pid, k]) => {
+        const sid = String(pid || '');
+        if (!sid) return;
+        const amount = Math.max(0, Number(k || 0) || 0);
+        if (!amount) return;
+        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
+        entry.name = idToName[sid] || entry.name;
+        entry.kills = Number(entry.kills || 0) + amount;
+        state.chars[sid] = entry;
+      });
+      Object.entries(assistCountsObj || {}).forEach(([pid, a]) => {
+        const sid = String(pid || '');
+        if (!sid) return;
+        const amount = Math.max(0, Number(a || 0) || 0);
+        if (!amount) return;
+        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
+        entry.name = idToName[sid] || entry.name;
+        entry.assists = Number(entry.assists || 0) + amount;
+        state.chars[sid] = entry;
+      });
+      if (winner) {
+        const wid = String(winner?._id || winner?.id || '');
+        if (wid) {
+          const entry = state.chars[wid] || { name: idToName[wid] || winner?.name || wid, wins: 0, kills: 0, assists: 0 };
+          entry.name = idToName[wid] || entry.name;
+          entry.wins = Number(entry.wins || 0) + 1;
+          state.chars[wid] = entry;
+        }
+      }
+      return state;
+    }, { winnerId: String(winner?._id || winner?.id || '') });
   } catch (e) {
     console.error('local hof save failed', e);
   }
 };
 
-        const charsWithHp = (Array.isArray(charRes) ? charRes : []).map((c) => ({
+        const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
+
+        const charsWithHp = charList.map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
           ...c,
           // 전술 스킬 레벨(런 단위): 매 런 시작 시 Lv.1로 초기화
           tacticalSkillLevel: 1,
@@ -5675,35 +6648,42 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
             cnotGate: 0,
           },
           safeZoneUntil: 0,
-        }));
-        const shuffledChars = charsWithHp.sort(() => Math.random() - 0.5);
+        }), initPerkBundle, { initialFill: true, applyCredits: true }));
+        const shuffledChars = charsWithHp.sort(() => Math.random() - 0.5).map((c) => normalizeRuntimeSurvivor(c));
         setSurvivors(shuffledChars);
-        setEvents(Array.isArray(eventRes) ? eventRes : []);
+        setEvents(eventsList);
 
         // 킬 카운트 초기화
         const initialKills = {};
-        (Array.isArray(charRes) ? charRes : []).forEach((c) => {
+        charList.forEach((c) => {
           initialKills[c._id] = 0;
         });
         setKillCounts(initialKills);
 
         // 어시스트 카운트 초기화
         const initialAssists = {};
-        (Array.isArray(charRes) ? charRes : []).forEach((c) => {
+        charList.forEach((c) => {
           initialAssists[c._id] = 0;
         });
         setAssistCounts(initialAssists);
 
-        setCredits(Number(meRes?.credits || 0));
-        setPublicItems(Array.isArray(itemsRes) ? itemsRes : []);
-        setKiosks(Array.isArray(kiosksRes) ? kiosksRes : []);
-        setDroneOffers(Array.isArray(droneRes) ? droneRes : []);
-        setTradeOffers(Array.isArray(openTrades) ? openTrades : []);
-        setMyTradeOffers(Array.isArray(mineTrades) ? mineTrades : []);
+        const initialCredits = Number(meValue?.credits || 0);
+        setCredits(initialCredits);
+        updateStoredUser((currentUser) => ({ ...currentUser, credits: initialCredits }));
+        setPublicItems(itemsList);
+        setKiosks(kiosksList);
+        setDroneOffers(droneList);
+        setTradeOffers(openTradesList);
+        setMyTradeOffers(myTradesList);
 
         // 경기 시간도 초기화
         setMatchSec(0);
         setPrevPhaseLogs([]);
+        setIsGameOver(false);
+        setWinner(null);
+        setGameEndReason(null);
+        setResultSummary(null);
+        setShowResultModal(false);
 
         addLog('📢 선수들이 경기장에 입장했습니다. 잠시 후 게임이 시작됩니다.', 'system');
       } catch (err) {
@@ -5731,14 +6711,37 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
     const w = finalSurvivors[0];
     const finalKills = latestKillCounts || killCounts;
     const finalAssists = latestAssistCounts || assistCounts;
+    const participants = [
+      ...(Array.isArray(finalSurvivors) ? finalSurvivors : []),
+      ...(Array.isArray(dead) ? dead : []),
+    ];
 
     const wId = w ? (w._id || w.id) : null;
-    const myKills = wId ? (finalKills[wId] || 0) : 0;
-    const rewardLP = 100 + myKills * 10;
+    const myKills = wId ? Number(finalKills[wId] || 0) : 0;
+    const myAssists = wId ? Number(finalAssists[wId] || 0) : 0;
+    const rewardLP = w ? (100 + myKills * 10) : 0;
+    const topKillLeader = [...participants]
+      .sort((a, b) => ((Number(finalKills?.[b?._id] || 0) - Number(finalKills?.[a?._id] || 0)) || (Number(finalAssists?.[b?._id] || 0) - Number(finalAssists?.[a?._id] || 0))))[0] || null;
 
     setWinner(w);
     setIsGameOver(true);
     setShowResultModal(true);
+    setResultSummary({
+      rewardLP,
+      myKills,
+      myAssists,
+      participantsCount: participants.length,
+      saveStatus: { hallOfFame: w ? 'pending' : 'skipped', userStats: 'pending' },
+      userProgress: null,
+      topKillLeader: topKillLeader
+        ? {
+            id: topKillLeader._id,
+            name: topKillLeader.name,
+            kills: Number(finalKills?.[topKillLeader._id] || 0),
+            assists: Number(finalAssists?.[topKillLeader._id] || 0),
+          }
+        : null,
+    });
 
     if (w) addLog(`🏆 게임 종료! 최후의 생존자: [${w.name}]`, 'highlight');
     else addLog('💀 생존자가 아무도 없습니다...', 'death');
@@ -5746,111 +6749,50 @@ const saveLocalHof = (winner, killCountsObj, participantsList) => {
 
     // (3) 로컬 백업(캐릭터별: 내 명예의 전당)
     try {
-      const me = JSON.parse(localStorage.getItem('user') || 'null');
+      const me = getUser();
       const username = me?.username || me?.id || 'guest';
-      const key = `eh_hof_${username}`;
-      const raw = localStorage.getItem(key);
-      const state = raw ? JSON.parse(raw) : { chars: {} };
-      if (!state.chars) state.chars = {};
+      saveLocalHof(w, finalKills, finalAssists, participants);
 
-      const participants = [
-        ...(Array.isArray(finalSurvivors) ? finalSurvivors : []),
-        ...(Array.isArray(dead) ? dead : []),
-      ];
-
-      const idToName = {};
-      for (const p of participants) {
-        const pid = String(p?._id ?? p?.id ?? '');
-        if (!pid) continue;
-        idToName[pid] = p?.name ?? p?.nickname ?? p?.charName ?? p?.title ?? pid;
-      }
-
-      for (const [pid, k] of Object.entries(finalKills || {})) {
-        const sid = String(pid);
-        if (!sid) continue;
-        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
-        entry.name = idToName[sid] || entry.name;
-        entry.kills = Number(entry.kills || 0) + Number(k || 0);
-        state.chars[sid] = entry;
-      }
-
-      // 어시스트 집계(최근 기여자)
-      for (const [pid, a] of Object.entries(finalAssists || {})) {
-        const sid = String(pid);
-        if (!sid) continue;
-        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
-        entry.assists = Number(entry.assists || 0) + Number(a || 0);
-        state.chars[sid] = entry;
+      // legacy(플레이어 단위) 기록을 1회만 캐릭터로 이관
+      if (w) {
+        writeHallOfFameState({ username }, (current) => {
+          const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
+          if (state._migratedFromPlayerV1) return state;
+          try {
+            const legacyRaw = localStorage.getItem(LEGACY_HOF_KEY);
+            const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
+            const legacyWins = Number(legacy?.wins?.[username] || 0);
+            const legacyKills = Number(legacy?.kills?.[username] || 0);
+            if (legacyWins > 0 || legacyKills > 0) {
+              const wid = String(w?._id ?? w?.id ?? '');
+              if (wid) {
+                const entry = state.chars[wid] || { name: w?.name || wid, wins: 0, kills: 0, assists: 0 };
+                entry.wins = Number(entry.wins || 0) + legacyWins;
+                entry.kills = Number(entry.kills || 0) + legacyKills;
+                state.chars[wid] = entry;
+              }
+            }
+          } catch {}
+          state._migratedFromPlayerV1 = true;
+          return state;
+        }, { migratedLegacy: true });
       }
 
       if (w) {
-        const wid = String(w?._id ?? w?.id ?? '');
-        if (wid) {
-          const entry =
-            state.chars[wid] ||
-            { name: idToName[wid] || (w?.name ?? w?.nickname ?? w?.charName ?? wid), wins: 0, kills: 0, assists: 0 };
-          entry.name = idToName[wid] || entry.name;
-          entry.wins = Number(entry.wins || 0) + 1;
-          state.chars[wid] = entry;
-        }
+        const raw = localStorage.getItem(LEGACY_HOF_KEY);
+        const data = raw ? JSON.parse(raw) : { wins: {}, kills: {} };
+        if (!data.wins) data.wins = {};
+        if (!data.kills) data.kills = {};
+        const wKey = String(w?._id ?? w?.id ?? '');
+        const kills = Number(finalKills?.[wKey] || 0);
+        data.wins[username] = Number(data.wins[username] || 0) + 1;
+        data.kills[username] = Number(data.kills[username] || 0) + kills;
+        localStorage.setItem(LEGACY_HOF_KEY, JSON.stringify(data));
       }
-
-
-      // legacy(플레이어 단위) 기록을 1회만 캐릭터로 이관
-      // - 과거 데이터는 "어떤 캐릭터가 했는지" 정보를 잃어서 정확 복원은 불가능
-      // - 그래서 최초 1회에 한해 '승자 캐릭터'에 합산해 이어갑니다.
-      if (!state._migratedFromPlayerV1) {
-        try {
-          const legacyRaw = localStorage.getItem('eh_local_hof_v1');
-          const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
-          const legacyWins = Number(legacy?.wins?.[username] || 0);
-          const legacyKills = Number(legacy?.kills?.[username] || 0);
-
-          if ((legacyWins > 0 || legacyKills > 0) && w) {
-            const wid2 = String(w?._id ?? w?.id ?? '');
-            if (wid2) {
-              const entry =
-                state.chars[wid2] ||
-                { name: idToName[wid2] || (w?.name ?? w?.nickname ?? w?.charName ?? wid2), wins: 0, kills: 0 };
-              entry.name = idToName[wid2] || entry.name;
-              entry.wins = Number(entry.wins || 0) + legacyWins;
-              entry.kills = Number(entry.kills || 0) + legacyKills;
-              state.chars[wid2] = entry;
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-        state._migratedFromPlayerV1 = true;
-      }
-
-      localStorage.setItem(key, JSON.stringify(state));
+      emitHallOfFameSync({ username }, { reason: 'finishGame' });
     } catch (e) {
-      // ignore
+      console.error('hall of fame sync failed', e);
     }
-    // 로컬 백업 저장(서버 저장/조회가 꼬여도 홈에서 "내 기록"은 최소한 보이게)
-if (w) {
-  try {
-    const me = JSON.parse(localStorage.getItem('user') || 'null');
-    const username = me?.username || me?.id || 'guest';
-    const key = 'eh_local_hof_v1';
-
-    const raw = localStorage.getItem(key);
-    const data = raw ? JSON.parse(raw) : { wins: {}, kills: {} };
-    if (!data.wins) data.wins = {};
-    if (!data.kills) data.kills = {};
-
-    const wKey = String(w?._id ?? w?.id ?? '');
-    const kills = Number(finalKills?.[wKey] || 0);
-
-    data.wins[username] = Number(data.wins[username] || 0) + 1;
-    data.kills[username] = Number(data.kills[username] || 0) + kills;
-
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch {
-    // localStorage/JSON 실패는 무시
-  }
-}
 
     // 서버 저장
     try {
@@ -5859,33 +6801,63 @@ if (w) {
           winnerId: wId,
           killCounts: finalKills,
           fullLogs: (Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []).slice(),
-          participants: [...survivors, ...dead],
+          participants,
         });
         addLog('✅ 명예의 전당 저장 완료', 'system');
+        setResultSummary((prev) => ({
+          ...(prev || {}),
+          saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'success' },
+        }));
       }
     } catch (e) {
       console.error(e);
       addLog('⚠️ 명예의 전당 저장 실패', 'death');
+      setResultSummary((prev) => ({
+        ...(prev || {}),
+        saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'error' },
+      }));
     }
 
     try {
-      if (w) {
-        const res = await apiPost('/user/update-stats', {
-          kills: myKills,
-          isWin: true,
-          lpEarned: rewardLP,
-        });
-        addLog(`💾 [전적 저장 완료] LP +${rewardLP} 획득! (현재 총 LP: ${res?.newLp ?? '?'})`, 'system');
-        if (typeof res?.credits === 'number') setCredits(res.credits);
+      const res = await apiPost('/user/update-stats', {
+        kills: myKills,
+        isWin: Boolean(w),
+        lpEarned: rewardLP,
+      });
 
-        const currentUser = JSON.parse(localStorage.getItem('user'));
-        if (currentUser && typeof res?.newLp === 'number') {
-          currentUser.lp = res.newLp;
-          localStorage.setItem('user', JSON.stringify(currentUser));
-        }
+      if (typeof res?.credits === 'number') setCredits(res.credits);
+
+      if (res?.user && typeof res.user === 'object') {
+        updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, res.user));
+      } else if (typeof res?.newLp === 'number' || typeof res?.credits === 'number' || res?.statistics) {
+        updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, {
+          lp: typeof res?.newLp === 'number' ? res.newLp : currentUser?.lp,
+          credits: typeof res?.credits === 'number' ? res.credits : currentUser?.credits,
+          statistics: res?.statistics || currentUser?.statistics,
+        }));
       }
+
+      setResultSummary((prev) => ({
+        ...(prev || {}),
+        rewardLP: typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : (prev?.rewardLP ?? rewardLP),
+        userProgress: {
+          lp: typeof res?.newLp === 'number' ? res.newLp : Number(res?.user?.lp || 0),
+          credits: typeof res?.credits === 'number' ? res.credits : Number(res?.user?.credits || 0),
+          statistics: normalizeUserStatistics(res?.statistics || res?.user?.statistics),
+        },
+        saveStatus: { ...(prev?.saveStatus || {}), userStats: 'success' },
+      }));
+
+      addLog(
+        `💾 [전적 저장 완료] ${Boolean(w) ? `LP +${typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : rewardLP} 획득! ` : ''}(현재 총 LP: ${res?.newLp ?? res?.user?.lp ?? '?'})`,
+        'system'
+      );
     } catch (e) {
       addLog(`⚠️ 전적 저장 실패: ${e?.response?.data?.error || '서버 오류'}`, 'death');
+      setResultSummary((prev) => ({
+        ...(prev || {}),
+        saveStatus: { ...(prev?.saveStatus || {}), userStats: 'error' },
+      }));
     }
   };
 
@@ -6050,8 +7022,9 @@ if (w) {
           const maxHp = Number(d0?.maxHp ?? 100);
           const revivedHp = Math.max(1, Math.floor(maxHp * 0.65));
           const zoneId = safeZonePool.length ? String(safeZonePool[Math.floor(Math.random() * safeZonePool.length)]) : String(d0?.zoneId || '');
+          const reviveKit = findItemByKeywords(publicItems, ['붕대', 'bandage', '응급']);
 
-          const r = { ...d0, hp: revivedHp, zoneId, revivedOnce: true, revivedAtPhaseIdx: phaseIdxNow };
+          const r = normalizeRevivedSurvivor(d0, revivedHp, zoneId, phaseIdxNow, ruleset, phaseStartSec, reviveKit);
           if (useDetonation) {
             const startSec = Number(ruleset?.detonation?.startSec ?? 20);
             const maxSec = Number(ruleset?.detonation?.maxSec ?? 30);
@@ -6061,7 +7034,7 @@ if (w) {
 
           revivedNow.push(r);
           emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-          addLog(`✨ [${r.name}] 부활! (HP ${revivedHp})`, 'highlight');
+          addLog(`✨ [${r.name}] 부활! (HP ${revivedHp}${reviveKit?._id ? ', 붕대 1 지급' : ''})`, 'highlight');
         } else {
           remainingDead.push(d0);
         }
@@ -6181,6 +7154,7 @@ if (w) {
 
     // ✅ 부활자는 이번 페이즈부터 다시 생존자로 합류
     if (revivedNow.length) phaseSurvivors = [...phaseSurvivors, ...revivedNow];
+    phaseSurvivors = normalizeRuntimeSurvivorList(phaseSurvivors);
 
     // ✅ 1일차 "1회 이동" 영웅 세팅은 (강제 세팅) 대신 day1HeroGearDirector가 재료를 소모해 단계적으로 달성합니다.
 
@@ -6195,20 +7169,32 @@ if (w) {
     let updatedSurvivors = (Array.isArray(phaseSurvivors) ? phaseSurvivors : [])
       .map((s) => {
         const beforeHp = Number(s.hp || 0);
-        const hadBleed = hasActiveEffect(s, EFFECT_BLEED);
+        const beforeEffects = Array.isArray(s?.activeEffects) ? s.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [];
+        const statusTick = updateEffects({ ...s, activeEffects: beforeEffects }, { returnMeta: true });
+        let updated = normalizeRuntimeSurvivor(statusTick?.character || s);
 
-        let updated = updateEffects({ ...s });
+        (Array.isArray(statusTick?.ticks) ? statusTick.ticks : []).forEach((tick) => {
+          const amount = Math.max(0, Number(tick?.amount || 0));
+          if (amount <= 0) return;
+          const nm = String(tick?.name || '효과');
+          if (tick?.type === 'damage') addLog(`⏱️ [${updated.name}] ${nm}: HP -${amount}`, 'highlight');
+          else if (tick?.type === 'heal') addLog(`✨ [${updated.name}] ${nm}: HP +${amount}`, 'system');
+        });
+        (Array.isArray(statusTick?.expired) ? statusTick.expired : []).forEach((eff) => {
+          const nm = String(eff?.name || '효과');
+          addLog(`⌛ [${updated.name}] ${nm} 종료`, 'system');
+        });
 
         const afterHp = Number(updated.hp || 0);
-        if (hadBleed && afterHp < beforeHp) {
-          addLog(`🩸 [${updated.name}] 출혈: HP -${beforeHp - afterHp}`, 'highlight');
-        }
         if (beforeHp > 0 && afterHp <= 0) {
           updated.hp = 0;
           updated.deadAtPhaseIdx = phaseIdxNow;
           updated.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
           newlyDead.push(updated);
-          addLog(`💀 [${updated.name}] 출혈로 사망했습니다.`, 'death');
+          const cause = Array.isArray(statusTick?.ticks) && statusTick.ticks.some((tick) => Number(tick?.amount || 0) > 0)
+            ? String(statusTick.ticks[0]?.name || '지속 효과')
+            : '지속 효과';
+          addLog(`💀 [${updated.name}] ${cause}로 사망했습니다.`, 'death');
           return updated;
         }
 
@@ -6233,6 +7219,7 @@ const mustEscape = forbiddenIds.has(currentZone);
 const preGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
   goalTier: updated?.goalGearTier,
   goalItemKeys: pickGoalLoadoutKeys(updated),
+  perkEffects: getActorPerkEffects(updated),
 });
 const upgradeNeed = computeLateGameUpgradeNeed(updated, itemMetaById, itemNameById, nextDay, nextPhase, ruleset);
 const aiMove = chooseAiMoveTargets({
@@ -6471,7 +7458,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
         }
 
         // --- 필드 파밍(이벤트 외): 이동/탐색 중 아이템 획득 ---
-        const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, { moved: didMove, day: nextDay, phase: nextPhase, dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey });
+        const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
+          moved: didMove,
+          day: nextDay,
+          phase: nextPhase,
+          dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
+          perkEffects: getActorPerkEffects(updated),
+        });
         if (loot) {
           const isTransPick = String(loot?.crateType || '').toLowerCase() === 'transcend_pick' && Array.isArray(loot?.options);
           if (isTransPick) {
@@ -6573,6 +7566,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const craftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
           goalTier: updated?.goalGearTier,
           goalItemKeys: pickGoalLoadoutKeys(updated),
+          perkEffects: getActorPerkEffects(updated),
         });
 
         // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
@@ -6584,6 +7578,93 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const craftPreview = craftProbeActor
           ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset)
           : null;
+        const goalMissingIds = new Set(
+          (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
+            .map((m) => String(m?.itemId || ''))
+            .filter(Boolean)
+        );
+        const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
+        const queueScoredCandidates = (() => {
+          if (didMove || fleeInterruptReason) return [];
+          const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
+          const simCredits = Math.max(0, Number(updated?.simCredits || 0));
+          const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
+          const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
+          const transBias = upgradeNeed?.wantTrans ? 8 : 0;
+          const scoreRows = [];
+          if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
+            const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
+            const itemId = String(queuedKioskAction?.itemId || '');
+            const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
+            const kind = String(queuedKioskAction?.kind || 'buy');
+            const isSell = kind === 'sell';
+            const score =
+              (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44)
+              + (matchesGoal ? 26 : 0)
+              + (isSell ? 0 : legendBias + transBias)
+              + (kind === 'exchange' ? 6 : 0)
+              - (lowHpRatio <= 0.28 ? 5 : 0);
+            scoreRows.push({
+              type: kioskTypeMap[kind] || 'kioskBuy',
+              zoneId: String(updated?.zoneId || ''),
+              itemId,
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score,
+              label: `${kioskTypeMap[kind] || 'kioskBuy'}:${String(queuedKioskAction?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
+              priorityNote: [matchesGoal ? 'goal' : '', kind === 'exchange' ? 'exchange' : '', isSell ? 'sell' : ''].filter(Boolean).join('+'),
+            });
+          }
+          if (queuedDroneOrder?.itemId) {
+            const itemId = String(queuedDroneOrder?.itemId || '');
+            const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
+            const score = 40 + (matchesGoal ? 28 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+            scoreRows.push({
+              type: 'droneOrder',
+              zoneId: String(updated?.zoneId || ''),
+              itemId,
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score,
+              label: `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
+              priorityNote: matchesGoal ? 'goal' : '',
+            });
+          }
+          if (craftPreview?.changed) {
+            const itemId = String(craftPreview?.craftedId || '');
+            const craftedTier = Math.max(1, Number(craftPreview?.craftedTier || itemMetaById?.[itemId]?.tier || 1));
+            const matchesGoal = goalTargetId === itemId || goalMissingIds.has(itemId);
+            const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias;
+            scoreRows.push({
+              type: 'craft',
+              zoneId: String(updated?.zoneId || ''),
+              itemId,
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score,
+              label: `craft:${String(craftPreview?.craftedName || itemNameById?.[itemId] || itemId || '')}`,
+              priorityNote: `${matchesGoal ? 'goal+' : ''}tier${craftedTier}`,
+            });
+          }
+          scoreRows.push({
+            type: 'hunt',
+            zoneId: String(updated?.zoneId || ''),
+            etaSec: 1,
+            phaseIdx: Number(phaseIdxNow || 0),
+            score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
+            label: 'hunt',
+            priorityNote: farmCreditsBias > 0 ? 'credits' : '',
+          });
+          return scoreRows
+            .sort((a, b) => {
+              const ds = Number(b?.score || 0) - Number(a?.score || 0);
+              if (Math.abs(ds) > 0.001) return ds;
+              const pa = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
+              const pb = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
+              return pa - pb;
+            })
+            .slice(0, 5);
+        })();
         const queuedAtomicAction = (() => {
           if (didMove) {
             return {
@@ -6593,6 +7674,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
               etaSec: 1,
               phaseIdx: Number(phaseIdxNow || 0),
+              score: 999,
             };
           }
           if (fleeInterruptReason) {
@@ -6603,37 +7685,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
               reason: String(moveReason || `flee:${fleeInterruptReason}`),
               etaSec: 1,
               phaseIdx: Number(phaseIdxNow || 0),
+              score: 998,
             };
           }
-          if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
-            const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
-            return {
-              type: kioskTypeMap[String(queuedKioskAction?.kind || '')] || 'kioskBuy',
-              zoneId: String(updated?.zoneId || ''),
-              itemId: String(queuedKioskAction?.itemId || ''),
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-            };
-          }
-          if (queuedDroneOrder?.itemId) {
-            return {
-              type: 'droneOrder',
-              zoneId: String(updated?.zoneId || ''),
-              itemId: String(queuedDroneOrder?.itemId || ''),
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-            };
-          }
-          if (craftPreview?.changed) {
-            return {
-              type: 'craft',
-              zoneId: String(updated?.zoneId || ''),
-              itemId: String(craftPreview?.craftedId || ''),
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-            };
-          }
-          return { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0) };
+          return queueScoredCandidates[0] || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
         })();
         const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
         const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
@@ -6651,16 +7706,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const candidatePreview = [
           didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
           (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
-          (!didMove && !fleeInterruptReason && queuedKioskAction?.itemId && queuedKioskAction?.item)
-            ? `${String(queuedKioskAction?.kind || 'buy')}:${String(queuedKioskAction?.item?.name || '')}`
-            : null,
-          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && queuedDroneOrder?.itemId)
-            ? `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[String(queuedDroneOrder?.itemId || '')] || queuedDroneOrder?.itemId || '')}`
-            : null,
-          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftPreview?.changed)
-            ? `craft:${String(craftPreview?.craftedName || '')}`
-            : null,
-          'hunt',
+          ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
         ].filter(Boolean);
         const blockedReasons = [
           (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
@@ -6668,6 +7714,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
             ? `craft:${String(craftProbeActor?._craftDebug?.code || '')}`
             : null,
+          ...queueScoredCandidates.slice(1).map((row) => `deferred:${String(row?.type || '')}`).slice(0, 2),
         ].filter(Boolean);
         updated.aiActionQueue = [queuedAtomicAction];
         updated.aiCurrentAction = queuedActionType;
@@ -6691,6 +7738,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             .filter(Boolean),
           queuePreview,
           candidatePreview: candidatePreview.slice(0, 5),
+          candidateScores: queueScoredCandidates.slice(0, 4).map((row) => `${String(row?.type || '')}:${Number(row?.score || 0).toFixed(1)}${row?.priorityNote ? `(${String(row.priorityNote)})` : ''}`),
           blockedReasons: blockedReasons.slice(0, 3),
           fleeReason: String(fleeInterruptReason || ''),
           recovering: !!recovering,
@@ -6699,6 +7747,17 @@ const didMove = String(nextZoneId) !== String(currentZone);
           wantTrans: !!upgradeNeed?.wantTrans,
           farmCredits: !!upgradeNeed?.farmCredits,
         };
+        if (blockedReasons.length || ['flee', 'kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder', 'craft'].includes(queuedActionType)) {
+          emitQueueRunEvent(updated, {
+            zoneId: String(updated?.zoneId || currentZone || ''),
+            chosen: queuedActionType,
+            blockedReasons,
+            candidates: candidatePreview.slice(0, 5),
+            candidateScores: queueScoredCandidates,
+            candidateCount: candidatePreview.length,
+            reason: String(queuedAtomicAction?.reason || moveReason || ''),
+          }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+        }
 
         if (queuedActionType === 'hunt') {
         // --- 보스(맵 이벤트 스폰): 알파/오메가/위클라인 ---
@@ -6733,11 +7792,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
 
-          const drops = Array.isArray(hunt.drops) ? hunt.drops : [];
+          const drops = normalizeRewardDropEntries(
+            Array.isArray(hunt?.drops) ? hunt.drops : (hunt?.drop ? [hunt.drop] : []),
+            publicItems,
+            itemNameById,
+          );
           for (const d of drops) {
             if (!d?.itemId || !d?.item) continue;
             const q = Math.max(1, Number(d.qty || 1));
-            const nm = d.item?.name || '아이템';
+            const nm = d.item?.name || itemNameById?.[String(d.itemId || '')] || '아이템';
             updated.inventory = addItemToInventory(updated.inventory, d.item, d.itemId, q, nextDay, ruleset);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? q));
@@ -7094,7 +8157,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const fogWarnLocal = (fogStartLocal !== null) ? Math.max(0, fogStartLocal - fogWarningSec) : null;
       const fogEndLocal = (fogStartLocal !== null) ? fogStartLocal + fogDurationSec : null;
 
-      let aliveMap = new Map(updatedSurvivors.map((s) => [s._id, { ...s, cooldowns: { ...(s.cooldowns || {}) } }]));
+      let aliveMap = buildRuntimeSurvivorMap(updatedSurvivors);
+      aliveMap = new Map(Array.from(aliveMap.values()).map((s) => [String(s._id), { ...s, cooldowns: { ...(s.cooldowns || {}) } }]));
 
       for (let t = 0; t < phaseDurationSec; t += tickSec) {
         const absSec = phaseStartSec + t;
@@ -7215,10 +8279,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
       }
 
 // 반영
-      updatedSurvivors = Array.from(aliveMap.values()).filter((s) => Number(s.hp || 0) > 0);
+      updatedSurvivors = normalizeRuntimeSurvivorList(Array.from(aliveMap.values())).filter((s) => Number(s.hp || 0) > 0);
     }
 
-    if (newlyDead.length) setDead((prev) => [...prev, ...newlyDead]);
+    if (newlyDead.length) setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList(newlyDead.map((x) => normalizeDeadSnapshot(x, ruleset)))]);
 
     // 확률 보정(룰셋 기반)
     const pvpProbCfg = ruleset?.pvp || {};
@@ -7268,26 +8332,27 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (!(dmg >= bleedMinDamage)) return false;
       if (Math.random() >= bleedChanceOnHit) return false;
 
-      victim.activeEffects = Array.isArray(victim.activeEffects) ? victim.activeEffects.map((e) => ({ ...e })) : [];
-      const idx = victim.activeEffects.findIndex((e) => String(e?.name || '') === EFFECT_BLEED);
-      const nextEff = {
+      const applied = applyStatusEffect(victim, {
         name: EFFECT_BLEED,
         remainingDuration: bleedDurationPhases,
         dotDamage: bleedDotPerPhase,
         sourceId: String(attacker?._id || ''),
         appliedPhaseIdx: phaseIdxNow,
-      };
-
-      if (idx >= 0) {
-        const prev = victim.activeEffects[idx] || {};
-        const prevDur = Math.max(0, Number(prev?.remainingDuration || 0));
-        victim.activeEffects[idx] = { ...prev, ...nextEff, remainingDuration: Math.max(prevDur, bleedDurationPhases) };
-        addLog(`🩸 [${victim.name}] 출혈 연장! (${bleedDurationPhases}페이즈)`, 'highlight');
-      } else {
-        victim.activeEffects.push(nextEff);
-        addLog(`🩸 [${victim.name}] 출혈! (${bleedDurationPhases}페이즈, -${bleedDotPerPhase}/페이즈)`, 'highlight');
+        tags: ['negative', 'dot', 'bleed'],
+        stackMode: 'refresh_max',
+        maxStacks: 3,
+      });
+      if (applied?.reason === 'immune') {
+        addLog(`🛡️ [${victim.name}] 출혈 면역`, 'system');
+        return false;
       }
-      return true;
+      if (applied?.reason === 'resisted') {
+        addLog(`🧷 [${victim.name}] 출혈 저항`, 'system');
+        return false;
+      }
+      if (applied?.refreshed) addLog(`🩸 [${victim.name}] 출혈 연장! (${bleedDurationPhases}페이즈)`, 'highlight');
+      else if (applied?.applied) addLog(`🩸 [${victim.name}] 출혈! (${bleedDurationPhases}페이즈, -${bleedDotPerPhase}/페이즈)`, 'highlight');
+      return !!applied?.applied;
     };
 
     // 교전이 특정 캐릭터에 편향되지 않도록(선공/우선순위 이점 제거) 양방향 결과를 비교해 채택
@@ -7310,8 +8375,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
         pickStat(c, ['INT', 'int']) * 0.3 +
         pickStat(c, ['DEX', 'dex']) * 0.3 +
         pickStat(c, ['LUK', 'luk']) * 0.2;
+      const shield = Math.max(0, getShieldValue(c));
+      const regen = Math.max(0, getRegenValue(c));
+      const sustain = Math.min(28, shield * 0.65 + regen * 1.35);
 
-      return base * (0.5 + hp / 200);
+      return (base * (0.5 + hp / 200)) + sustain;
     };
 
     // 🤖 AI 교전 회피(전투력 비교): 상대 대비 불리하면 교전을 피함(장비 tier + HP 포함)
@@ -7341,8 +8409,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const myP = estimatePower(me);
       const opP = estimatePower(opp);
       const ratio = myP / Math.max(1, myP + opP);
-      const minRatio = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
-      const absDelta = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
+      const aggroBias = Math.max(0, getPerkAggressionBias(me));
+      const minRatioBase = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
+      const absDeltaBase = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
+      const minRatio = Math.max(0.2, minRatioBase - aggroBias * 0.08);
+      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12);
       if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
       return null;
     };
@@ -7494,8 +8565,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       };
     };
 
-    let todaysSurvivors = [...updatedSurvivors].sort(() => Math.random() - 0.5);
-    let survivorMap = new Map(todaysSurvivors.map((s) => [s._id, s]));
+    let todaysSurvivors = [...normalizeRuntimeSurvivorList(updatedSurvivors)].sort(() => Math.random() - 0.5);
+    let survivorMap = buildRuntimeSurvivorMap(todaysSurvivors);
     let newDeadIds = [];
 
     // 이번 턴 킬 모아두기
@@ -7529,8 +8600,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (hp <= 0) return false;
 
       const inv = ch.inventory;
-      const hasBleed = hasActiveEffect(ch, EFFECT_BLEED);
-      const hasBandage = hasBleed && inv.some((i) => isBandageLikeItem(i));
+      const hasCleanseTarget = [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON].some((name) => hasActiveEffect(ch, name));
+      const hasBandage = hasCleanseTarget && inv.some((i) => isBandageLikeItem(i));
       if (!hasBandage && hp >= hpBelow) return false;
 
       // 의료(붕대/힐) → 음식 순으로 우선 사용
@@ -7551,15 +8622,40 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (idx < 0) return false;
 
       const itemToUse = inv[idx];
-      const hadBleedBefore = hasActiveEffect(ch, EFFECT_BLEED);
-      const cured = hadBleedBefore && isBandageLikeItem(itemToUse) ? removeActiveEffect(ch, EFFECT_BLEED) : false;
-
       const effect = applyItemEffect(ch, itemToUse);
-      const logText = cured ? `${effect.log} (출혈 제거)` : effect.log;
+      const cleanseCfg = effect?.cleanse && typeof effect.cleanse === 'object'
+        ? effect.cleanse
+        : (isBandageLikeItem(itemToUse)
+          ? { names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON], removeAllNegative: false, bonusHeal: 0 }
+          : null);
+      const cleanse = cleanseCfg
+        ? clearNegativeStatusEffects(ch, { names: Array.isArray(cleanseCfg?.names) ? cleanseCfg.names : [], removeAllNegative: cleanseCfg?.removeAllNegative === true })
+        : { changed: false, removed: [] };
+
+      const cleanseBonus = cleanse.changed
+        ? Math.max(0, perkNumber(getActorPerkEffects(ch)?.cleanseHealPlus || 0)) + Math.max(0, Number(cleanseCfg?.bonusHeal || 0))
+        : 0;
+      const logText = cleanse.changed ? `${effect.log} (상태이상 정리)` : effect.log;
       addLog(logText, 'highlight');
 
       const maxHp = Number(ch?.maxHp ?? 100);
-      ch.hp = Math.min(maxHp, hp + Number(effect.recovery || 0));
+      ch.hp = Math.min(maxHp, hp + Number(effect.recovery || 0) + cleanseBonus);
+      const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
+      if (statBoost) {
+        ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
+        Object.entries(statBoost).forEach(([key, value]) => {
+          const v = Number(value || 0);
+          if (!Number.isFinite(v) || v === 0) return;
+          ch.stats[key] = Number(ch.stats?.[key] || 0) + v;
+        });
+      }
+      const runtimeEffects = applyRuntimeEffectPayloads(ch, effect?.newEffects);
+      runtimeEffects.results.forEach((row) => {
+        if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
+        else if (row?.reason === 'resisted') addLog(`🧷 [${ch.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
+        else if (row?.applied) addLog(`🪄 [${ch.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
+      });
+      const cured = !!cleanse.changed;
 
       // qty 감소(서버형 인벤토리 대응)
       const currentQty = Number(itemToUse?.qty || 1);
@@ -7567,7 +8663,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
       else inv.splice(idx, 1);
 
       ch[usedCountKey] = usedCount + 1;
-      survivorMap.set(ch._id, ch);
+      emitConsumableRunEvent(ch, itemToUse, { source: 'consumable', reason, heal: Math.max(0, Number(ch.hp || 0) - hp), cleansed: Array.isArray(cleanse?.removed) ? cleanse.removed.length : 0, removedEffects: Array.isArray(cleanse?.removed) ? cleanse.removed : [] }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+      emitEffectRunEvents(ch, runtimeEffects.results, { source: 'consumable', itemId: String(itemToUse?._id || itemToUse?.itemId || ''), reason }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+      upsertRuntimeSurvivor(survivorMap, ch);
       return true;
     };
 
@@ -7575,9 +8673,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
     // 3. 메인 루프
     while (todaysSurvivors.length > 0) {
       let actor = todaysSurvivors.pop();
-      actor = survivorMap.get(actor._id);
+      actor = actor?._id ? survivorMap.get(String(actor._id)) : null;
+      if (!actor) continue;
+      actor = normalizeRuntimeSurvivor(actor);
 
-      if (newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
+      if (!actor?._id || newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
 
       // 아이템 사용(전투 중 불가 / 전투 후 가능): 전투 외 타이밍에서만 호출
       tryUseConsumable(actor, 'turn_start');
@@ -7592,7 +8692,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
         actor._gatherPvpBonusUntilPhaseIdx = null;
       }
 
-      const potentialTargets = todaysSurvivors.filter((t) => !newDeadIds.includes(t._id) && String(t?.zoneId || '') === String(actor?.zoneId || ''));
+      const actorRecoveryLocked = isAiRecoveryLocked(actor, phaseStartSec);
+      const potentialTargets = todaysSurvivors.filter((t) => {
+        if (!t || newDeadIds.includes(t._id)) return false;
+        if (String(t?._id || '') === String(actor?._id || '')) return false;
+        if (String(t?.zoneId || '') !== String(actor?.zoneId || '')) return false;
+        if (actorRecoveryLocked || isAiRecoveryLocked(t, phaseStartSec)) return false;
+        return true;
+      });
       const canDual = potentialTargets.length >= (pvpMinSameZone - 1);
 
       // ✅ 즉시 위험(수집/사냥 직후): 같은 페이즈에서 '표적 우선' (다음 페이즈로 넘어가면 자동 해제)
@@ -7621,10 +8728,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const pressureMult = 0.75 + 0.25 * restrictedRatio;
       const densityMult = 0.55 + 0.45 * densityFactor;
       const nightMult = (nextPhase === 'night') ? 1.05 : 1.0;
+      const actorAggro = getPerkAggressionBias(actor);
       const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb * densityMult * pressureMult * nightMult);
       const actorMs = getEquipMoveSpeed(actor);
       const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
-      const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus - evadeBonus));
+      const aggressionEncounterBonus = suddenDeath ? 0 : Math.max(-0.06, Math.min(0.16, actorAggro * 0.18));
+      const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus + aggressionEncounterBonus - evadeBonus));
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
@@ -7663,10 +8772,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           if (dest && dest !== from) {
             actor.zoneId = dest;
-            survivorMap.set(actor._id, actor);
+            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'avoid_power', opponentId: String(targetEval?._id || ''), recoverSec: 6, safeZoneSec: 4 });
+            upsertRuntimeSurvivor(survivorMap, actor);
             addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
             emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'avoid_power' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           } else {
+            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'avoid_power_hold', opponentId: String(targetEval?._id || ''), recoverSec: 4 });
             addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피`, 'system');
           }
           continue;
@@ -7678,7 +8789,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // [⚔️ 전투]
         let target = pvpTarget;
         if (!target) {
-          survivorMap.set(actor._id, actor);
+          upsertRuntimeSurvivor(survivorMap, actor);
           continue;
         }
 
@@ -7783,11 +8894,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const loserId = String(loser?._id || '');
           const prevDamagedBy = String(opts.prevDamagedBy || loser?.lastDamagedBy || '');
           const prevDamagedPhaseIdx = Number(opts.prevDamagedPhaseIdx ?? loser?.lastDamagedPhaseIdx ?? -9999);
+          let pushedDead = false;
           if (!newDeadIds.includes(loserId)) {
             loser.deadAtPhaseIdx = phaseIdxNow;
             loser.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(loserId);
-            setDead((prev) => [...prev, loser]);
+            pushedDead = true;
           }
           roundKills[winnerId] = (roundKills[winnerId] || 0) + 1;
           let assistId = null;
@@ -7814,10 +8926,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           const lootRate = Number(pvpCfg.lootCreditRate ?? 0.35);
           const lootMin = Number(pvpCfg.lootCreditMin ?? 10);
-          const lootUnits = Math.max(0, Math.floor(Number(pvpCfg.lootInventoryUnits ?? 1)));
+          const winnerLootBias = Math.max(0, getPerkLootBias(winner));
+          const lootUnitsBase = Math.max(0, Math.floor(Number(pvpCfg.lootInventoryUnits ?? 1)));
+          const lootUnits = Math.max(0, Math.min(4, lootUnitsBase + (winnerLootBias >= 0.35 ? 1 : 0) + (winnerLootBias >= 0.8 ? 1 : 0)));
           const loserCredits = Math.max(0, Number(loser?.simCredits || 0));
-          const stealCredit = Math.min(loserCredits, Math.max(lootMin, Math.floor(loserCredits * lootRate)));
+          const stealCreditBase = Math.min(loserCredits, Math.max(lootMin, Math.floor(loserCredits * lootRate)));
+          const stealCredit = Math.min(loserCredits, Math.max(lootMin, Math.round(stealCreditBase * (1 + winnerLootBias * 0.5))));
           let lootLines = [];
+          const craftLogs = [];
           if (stealCredit > 0) {
             loser.simCredits = loserCredits - stealCredit;
             winner.simCredits = Number(winner.simCredits || 0) + stealCredit;
@@ -7826,6 +8942,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           const lootPick = lootUnits > 0 ? pickUnitsFromInventory(loser?.inventory || [], lootUnits) : [];
           if (lootPick.length) {
+            loser.inventory = removePickedUnitsFromInventory(loser?.inventory || [], lootPick);
+            pruneEquippedAgainstInventory(loser);
             for (const lp of lootPick) {
               const lootId = String(lp?.itemId || '');
               if (!lootId) continue;
@@ -7833,11 +8951,29 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const fallbackName = itemNameById?.[lootId] || '아이템';
               const stub = lootItem || { _id: lootId, name: fallbackName, type: '재료', tags: [] };
               winner.inventory = addItemToInventory(winner.inventory, stub, lootId, 1, nextDay, ruleset);
-              emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: 1, source: 'pvp', from: loserId, zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-              lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x1`);
+              const gainMeta = winner.inventory?._lastAdd;
+              const got = Math.max(0, Number(gainMeta?.acceptedQty ?? 1));
+              if (got > 0) {
+                emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x${got}`);
+                const crafted = tryAutoCraftFromLoot(winner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+                if (crafted?.inventory) {
+                  winner.inventory = crafted.inventory;
+                  craftLogs.push(crafted.log);
+                }
+              } else {
+                lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} 획득 실패`);
+              }
             }
           }
+          const invCraft = tryAutoCraftFromInventory(winner, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
+          if (invCraft?.log) craftLogs.push(invCraft.log);
+          autoEquipBest(winner, itemMetaById);
+          pruneEquippedAgainstInventory(loser);
           if (lootLines.length) addLog(`🧾 루팅: [${winner.name}] ← [${loser.name}] (${lootLines.join(', ')})`, 'normal');
+          if (craftLogs.length) {
+            for (const line of craftLogs) addLog(line, 'highlight');
+          }
           const maxHp = Number(winner?.maxHp ?? 100);
           const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
           const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(winner.hp || 0)));
@@ -7864,6 +9000,19 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`🚶 [${winner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'system');
             }
           }
+          if (clearPostCombatEffects(winner)) {
+            addLog(`🧼 [${winner.name}] 전투 후 지속 피해 상태 정리`, 'system');
+          }
+          clearRuntimeCombatFields(winner);
+          applyAiRecoveryWindow(winner, phaseStartSec, {
+            reason: 'post_combat',
+            opponentId: loserId,
+            recoverSec: 6,
+            safeZoneSec: Number(winner.hp || 0) <= postRestHpBelow ? 5 : 0,
+          });
+          if (pushedDead) {
+            setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(loser, ruleset)])]);
+          }
           return { assistId };
         };
         const markUnattributedDeath = (victim, reasonText = '접전 중 전투불능') => {
@@ -7873,7 +9022,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             victim.deadAtPhaseIdx = phaseIdxNow;
             victim.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(victimId);
-            setDead((prev) => [...prev, victim]);
+            setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(victim, ruleset)])]);
           }
           addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
           emitRunEvent('death', { who: victimId, by: '', zoneId: String(victim?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
@@ -7895,10 +9044,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (fleeTac === '블링크' && canUseTac(flee)) {
             const dest = pickSparseSafeNeighbor(curZone);
             flee.zoneId = String(dest || curZone);
-            survivorMap.set(flee._id, flee);
+            applyAiRecoveryWindow(flee, phaseStartSec, { reason: 'tac_blink_escape', opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
+            upsertRuntimeSurvivor(survivorMap, flee);
             useTac(flee, '블링크');
             addLog(`✨ [${flee.name}] 전술 스킬(블링크)로 도주! ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'highlight');
             emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'tac_blink_escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'blink_escape', escaped: true, caught: false, tacUsed: '블링크' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id), tacUsed: '블링크' };
           }
           const healBelowHp = Number(fleeTacTrig?.hpBelow ?? 55);
@@ -7906,10 +9057,22 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const maxHp = Number(flee?.maxHp ?? 100);
             const healCap = getTacEffectNumber('치유의 바람', 'healCap', 1 + fleeLv, 22);
             const heal = Math.min(healCap, Math.max(0, maxHp - Number(flee.hp || 0)));
-            if (heal > 0) {
-              flee.hp = Math.min(maxHp, Number(flee.hp || 0) + heal);
+            const regenRecovery = getTacEffectNumber('치유의 바람', 'regenRecovery', 1 + fleeLv, 4);
+            const regenDuration = getTacEffectNumber('치유의 바람', 'regenDuration', 1 + fleeLv, 2);
+            if (heal > 0 || regenRecovery > 0) {
+              if (heal > 0) flee.hp = Math.min(maxHp, Number(flee.hp || 0) + heal);
               useTac(flee, '치유의 바람');
-              addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): HP +${heal}`, 'system');
+              const tacEffects = applyRuntimeEffectPayloads(flee, buildTacStatusEffects('치유의 바람', 1 + fleeLv, 'tac_healwind'));
+              const bits = [];
+              if (heal > 0) bits.push(`HP +${heal}`);
+              tacEffects.results.forEach((row) => {
+                if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
+                else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
+                else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+              });
+              addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): ${bits.join(', ')}`, 'system');
+              emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: '치유의 바람', mode: 'escape_heal', zoneId: String(flee?.zoneId || curZone || ''), heal: heal }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              emitEffectRunEvents(flee, tacEffects.results, { source: 'tactical', skill: '치유의 바람', reason: 'escape_heal', zoneId: String(flee?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             }
           }
 
@@ -7924,65 +9087,107 @@ const didMove = String(nextZoneId) !== String(currentZone);
             : 0;
           const fleeMs = getEquipMoveSpeed(flee);
           const chaseMs = getEquipMoveSpeed(chaser);
+          const fleeAggro = Math.max(0, getPerkAggressionBias(flee));
+          const chaseAggro = Math.max(0, getPerkAggressionBias(chaser));
+          const fleeHpRatio = Math.max(0, Math.min(1, Number(flee?.hp || 0) / Math.max(1, Number(flee?.maxHp || 100))));
+          const chaseHpRatio = Math.max(0, Math.min(1, Number(chaser?.hp || 0) / Math.max(1, Number(chaser?.maxHp || 100))));
+          const fleeShield = Math.max(0, getShieldValue(flee));
+          const chaseShield = Math.max(0, getShieldValue(chaser));
+          const fleeRegen = Math.max(0, getRegenValue(flee));
+          const chaseRegen = Math.max(0, getRegenValue(chaser));
           const escapeBase = Number(ruleset?.ai?.escapeBaseChance ?? 0.22);
           const msScale = Number(ruleset?.ai?.escapeMoveSpeedScale ?? 0.12);
           const pressurePenalty = Number(ruleset?.ai?.escapePressurePenalty ?? 0.28);
           const lowSafePenalty = Number(ruleset?.ai?.escapeLowSafePenalty ?? 0.15);
+          const recoveryPenalty = Number(ruleset?.ai?.chaseRecoveryPenalty ?? 0.12);
           const safeCount = Math.max(0, totalZonesCount - forbiddenIds.size);
           const curForbidden = forbiddenIds.has(curZone);
           const powDelta = estimatePower(chaser) - estimatePower(flee);
+          const fleeSustain = Math.min(0.14, fleeShield * 0.008 + fleeRegen * 0.02);
+          const chaseSustain = Math.min(0.10, chaseShield * 0.006 + chaseRegen * 0.015);
+          const chaserRecovering = Number(chaser?._aiRecoverUntilSec || 0) > Number(phaseStartSec || 0);
           let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
           pEscape += (escTacBonus && canUseTac(flee) && (fleeTacTrig?.applyBonus ?? true)) ? escTacBonus : 0;
           if (curForbidden) pEscape -= 0.18;
           pEscape -= restrictedRatio * pressurePenalty;
           if (safeCount <= 3) pEscape -= lowSafePenalty;
           pEscape -= Math.max(0, Math.min(0.18, powDelta / 120));
+          pEscape += Math.max(0, (0.42 - fleeHpRatio)) * 0.18;
+          pEscape += fleeSustain;
+          pEscape -= fleeAggro * 0.08;
+          pEscape -= chaseAggro * 0.04;
+          pEscape -= chaserRecovering ? recoveryPenalty * 0.45 : 0;
           pEscape = Math.max(0.05, Math.min(0.9, pEscape));
           const didEscape = (opts.forceAttempt === true) ? true : (Math.random() < pEscape);
-          if (!didEscape) return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
+          if (!didEscape) {
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(curZone || ''), outcome: 'escape_fail', escaped: false, caught: true, pEscape: Number(pEscape.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
+          }
           if (escTacBonus && canUseTac(flee) && (fleeTacTrig?.useOnCommit ?? true)) {
             useTac(flee, fleeTac);
             addLog(`💨 [${flee.name}] 전술 스킬(${fleeTac})로 도주 보정!`, 'system');
+            emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: String(fleeTac || ''), mode: 'escape_bonus', zoneId: String(flee?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
 
           const dest = pickSparseSafeNeighbor(curZone);
           flee.zoneId = String(dest || curZone);
-          survivorMap.set(flee._id, flee);
+          applyAiRecoveryWindow(flee, phaseStartSec, { reason: String(opts.moveReason || 'escape'), opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
+          upsertRuntimeSurvivor(survivorMap, flee);
           addLog(`🏃 [${flee.name}] ${opts.escapeText || '교전을 피하려 도주'}: ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'system');
           emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: opts.moveReason || 'escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const chaseBase = Number(ruleset?.ai?.chaseBaseChance ?? 0.25);
           const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
           let pChase = chaseBase + (chaseMs - fleeMs) * chaseMsScale + restrictedRatio * 0.10 + Math.max(0, Math.min(0.20, powDelta / 80));
+          pChase += chaseAggro * 0.10;
+          pChase -= fleeAggro * 0.04;
+          pChase -= Math.max(0, (0.55 - chaseHpRatio)) * 0.22;
+          pChase += chaseSustain * 0.5;
+          pChase -= chaserRecovering ? recoveryPenalty : 0;
           pChase += (chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.applyBonus ?? true)) ? chaseTacBonus : 0;
           pChase = Math.max(0, Math.min(0.95, pChase));
           const willChase = Math.random() < pChase;
           if (willChase && chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.useOnCommit ?? true)) {
             useTac(chaser, chaseTac);
             addLog(`🧭 [${chaser.name}] 전술 스킬(${chaseTac})로 추격 강화!`, 'system');
+            emitRunEvent('skill', { who: String(chaser?._id || ''), whoName: chaser?.name, skill: String(chaseTac || ''), mode: 'chase_bonus', zoneId: String(chaser?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
-          if (!willChase) return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
+          if (!willChase) {
+            applyAiRecoveryWindow(chaser, phaseStartSec, { reason: 'lost_track', opponentId: String(flee?._id || ''), recoverSec: 4, retargetZoneId: String(flee.zoneId || curZone), retargetTtl: 1 });
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escape_no_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
+          }
 
           chaser.zoneId = String(flee.zoneId || curZone);
-          survivorMap.set(chaser._id, chaser);
+          applyAiRecoveryWindow(chaser, phaseStartSec, { reason: 'chase', opponentId: String(flee?._id || ''), recoverSec: 4, retargetZoneId: String(flee.zoneId || curZone), retargetTtl: 1 });
+          upsertRuntimeSurvivor(survivorMap, chaser);
           addLog(`🏃‍♂️ [${chaser.name}] 추격! → ${getZoneName(chaser.zoneId)}`, 'highlight');
           emitRunEvent('move', { who: String(chaser?._id || ''), name: chaser?.name, from: curZone, to: String(chaser.zoneId || ''), reason: 'chase' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const catchBase = Number(ruleset?.ai?.catchBaseChance ?? 0.35);
           const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
           let pCatch = catchBase + (chaseMs - fleeMs) * catchMsScale + restrictedRatio * 0.12 + Math.max(0, Math.min(0.25, powDelta / 70));
+          pCatch += chaseAggro * 0.12;
+          pCatch -= fleeAggro * 0.05;
+          pCatch -= Math.max(0, (0.5 - chaseHpRatio)) * 0.18;
+          pCatch -= Math.min(0.18, fleeShield * 0.01 + fleeRegen * 0.03);
+          pCatch += Math.min(0.08, chaseShield * 0.006 + chaseRegen * 0.012);
           pCatch += (chaseTacBonus && canUseTac(chaser)) ? (chaseTacBonus * 0.9) : 0;
           pCatch = Math.max(0.05, Math.min(0.95, pCatch));
           const caught = Math.random() < pCatch;
           if (!caught) {
             addLog(`💨 [${flee.name}] 간신히 따돌렸습니다.`, 'system');
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escaped_after_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
           }
 
-          const pre = Math.min(12, Math.max(4, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80)));
+          const sustainMitigation = Math.min(5, Math.round(fleeShield * 0.12 + fleeRegen * 0.8));
+          const finishBias = chaseHpRatio >= 0.7 ? 1 : 0;
+          const pre = Math.min(13, Math.max(3, Math.round(4 + (chaseMs - fleeMs) * 6 + Math.max(0, powDelta) / 80 + finishBias - sustainMitigation)));
           flee.hp = Math.max(0, Number(flee.hp || 0) - pre);
-          survivorMap.set(flee._id, flee);
+          upsertRuntimeSurvivor(survivorMap, flee);
           addLog(`⚡ 추격전! [${chaser.name}]이(가) [${flee.name}]을(를) 따라잡아 기습합니다. (피해 -${pre})`, 'highlight');
+          emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'caught', escaped: true, caught: true, preDamage: pre, fatal: Number(flee.hp || 0) <= 0, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           return { escaped: true, caught: true, dest: String(flee.zoneId || curZone), preDamage: pre, fatal: Number(flee.hp || 0) <= 0, fleeId: String(flee._id), chaserId: String(chaser._id) };
         };
         // 🏃 추격·도주(1단계): 이속/HP/장비차 + 제한구역 압박 기반(관전형 템포)
@@ -8080,24 +9285,42 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const flat = getTacEffectNumber(tac, 'openerFlatDmg', 1 + lv, 0);
             const heal = getTacEffectNumber(tac, 'selfHeal', 1 + lv, 0);
             const cost = getTacEffectNumber(tac, 'selfCost', 1 + lv, 0);
+            const regenRecovery = getTacEffectNumber(tac, 'regenRecovery', 1 + lv, 0);
+            const regenDuration = getTacEffectNumber(tac, 'regenDuration', 1 + lv, 2);
             if (cost > 0 && hp <= Math.max(12, cost + 2)) return dmg;
             useTac(attacker, tac);
             if (cost > 0) attacker.hp = Math.max(1, hp - cost);
             if (heal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + heal);
+            const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`));
             dmg += flat;
-            if (flat > 0 || heal > 0 || cost > 0) {
+            if (flat > 0 || heal > 0 || cost > 0 || regenRecovery > 0 || tacEffects.results.length > 0) {
               const bits = [];
               if (flat > 0) bits.push(`추가 피해 +${flat}`);
               if (heal > 0) bits.push(`HP +${heal}`);
               if (cost > 0) bits.push(`HP -${cost}`);
+              tacEffects.results.forEach((row) => {
+                if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
+                else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
+                else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+              });
               addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
             }
+            emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             return Math.max(0, dmg);
           };
           const shieldBlock = (defender, rawDmg) => {
-            const tac = normalizeTac(defender?.tacticalSkill);
-            const dmg = Math.max(0, Number(rawDmg || 0));
+            let dmg = Math.max(0, Number(rawDmg || 0));
             if (dmg <= 0) return dmg;
+
+            const preShield = consumeShieldDamage(defender, dmg);
+            if (preShield.absorbed > 0) {
+              addLog(`🛡️ [${defender.name}] 보호막: 피해 -${preShield.absorbed}`, 'system');
+              dmg = Math.max(0, Number(preShield.damage || 0));
+              if (dmg <= 0) return 0;
+            }
+
+            const tac = normalizeTac(defender?.tacticalSkill);
             const defenseTac = ['라이트닝 쉴드', '초월', '아티팩트', '무효화'];
             if (!defenseTac.includes(tac)) return dmg;
             if (!canUseTac(defender)) return dmg;
@@ -8112,11 +9335,26 @@ const didMove = String(nextZoneId) !== String(currentZone);
               return Math.max(0, Number(defender?.hp || 0) - 1);
             }
             const blockCap = getTacEffectNumber(tac, 'block', 1 + lv, tac === '라이트닝 쉴드' ? 14 : 0);
-            if (blockCap <= 0) return dmg;
-            const block = Math.min(dmg, blockCap);
+            const shieldValue = getTacEffectNumber(tac, 'shieldValue', 1 + lv, blockCap);
+            const shieldDuration = getTacEffectNumber(tac, 'shieldDuration', 1 + lv, 2);
+            if (blockCap <= 0 && shieldValue <= 0) return dmg;
             useTac(defender, tac);
-            addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): 피해 -${block}`, 'highlight');
-            return Math.max(0, dmg - block);
+            const tacEffects = applyRuntimeEffectPayloads(defender, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`));
+            const blocked = consumeShieldDamage(defender, dmg);
+            const block = Math.max(0, Number(blocked?.absorbed || 0));
+            if (block > 0 || tacEffects.results.length > 0) {
+              const bits = [];
+              tacEffects.results.forEach((row) => {
+                if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
+                else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
+                else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+              });
+              if (block > 0) bits.push(`피해 -${block}`);
+              addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
+            }
+            emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            return Math.max(0, Number(blocked?.damage || dmg));
           };
 
           const atkDmgToLoser = applyCombatTacAttack(winner, loser, dmgToLoser);
@@ -8206,22 +9444,27 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
       } else if (canDual && rand < eventProb) {
         // [🤝 2인 이벤트]
-        const target = survivorMap.get(potentialTargets[0]._id);
-        const targetIndex = todaysSurvivors.findIndex((t) => t._id === target._id);
+        const targetSeed = potentialTargets[0];
+        const target = targetSeed?._id ? survivorMap.get(String(targetSeed._id)) : null;
+        if (!target || Number(target.hp || 0) <= 0) {
+          upsertRuntimeSurvivor(survivorMap, actor);
+          continue;
+        }
+        const targetIndex = todaysSurvivors.findIndex((t) => String(t?._id || '') === String(target._id));
         if (targetIndex > -1) todaysSurvivors.splice(targetIndex, 1);
 
         const timeKey = nextPhase === 'night' ? 'night' : 'day';
 
         // ✅ (로드맵 6-4 + 2번 연동) 시간대/맵 조건을 우선 적용
         let availableEvents = (Array.isArray(events) ? events : []).filter((e) => {
-          if (!e) return false;
+          if (!e || !isEnabledScenarioEvent(e)) return false;
           if (String(e.type || 'normal') === 'death') return false;
 
           const sc = Number(e.survivorCount ?? (String(e.text || '').includes('{2}') ? 2 : 1));
           const vc = Number(e.victimCount ?? 0);
           if (sc !== 2 || vc !== 0) return false;
 
-          const tod = String(e.timeOfDay || 'both');
+          const tod = getScenarioEventTimeOfDay(e);
           if (tod !== 'both' && tod !== timeKey) return false;
 
           // mapId가 비어있으면 "어느 맵에서든" 발생 가능, 값이 있으면 현재 선택 맵과 일치해야 함
@@ -8235,10 +9478,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // 구버전 이벤트(텍스트 기반) 호환
         if (availableEvents.length === 0) {
           availableEvents = (Array.isArray(events) ? events : []).filter((e) => {
-            if (!e?.text) return false;
+            if (!e?.text || !isEnabledScenarioEvent(e)) return false;
             if (String(e.type || 'normal') === 'death') return false;
             if (!String(e.text).includes('{2}')) return false;
-            const tod = String(e.timeOfDay || 'both');
+            const tod = getScenarioEventTimeOfDay(e);
             if (tod !== 'both' && tod !== timeKey) return false;
             if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
 	            if (e.zoneId && String(e.zoneId) !== String(actor?.zoneId || '')) return false;
@@ -8252,8 +9495,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
         if (!randomEvent?.text) {
           // (유저용 로그 아님) 조우했지만 이벤트가 없을 때는 조용히 스킵
-          survivorMap.set(actor._id, actor);
-          survivorMap.set(target._id, target);
+          upsertRuntimeSurvivor(survivorMap, actor);
+          upsertRuntimeSurvivor(survivorMap, target);
           continue;
         }
         const eventText = String(randomEvent.text)
@@ -8264,14 +9507,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // [🌳 1인 이벤트]
         const timeKey = nextPhase === 'night' ? 'night' : 'day';
         let soloEvents = (Array.isArray(events) ? events : []).filter((e) => {
-          if (!e) return false;
+          if (!e || !isEnabledScenarioEvent(e)) return false;
           if (String(e.type || 'normal') === 'death') return false;
 
           const sc = Number(e.survivorCount ?? 1);
           const vc = Number(e.victimCount ?? 0);
           if (sc !== 1 || vc !== 0) return false;
 
-          const tod = String(e.timeOfDay || 'both');
+          const tod = getScenarioEventTimeOfDay(e);
           if (tod !== 'both' && tod !== timeKey) return false;
 
           if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
@@ -8282,10 +9525,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // 구버전 이벤트(텍스트 기반) 호환: {2} 없는 이벤트를 1인 이벤트로 취급
         if (soloEvents.length === 0) {
           soloEvents = (Array.isArray(events) ? events : []).filter((e) => {
-            if (!e?.text) return false;
+            if (!e?.text || !isEnabledScenarioEvent(e)) return false;
             if (String(e.type || 'normal') === 'death') return false;
             if (String(e.text).includes('{2}')) return false;
-            const tod = String(e.timeOfDay || 'both');
+            const tod = getScenarioEventTimeOfDay(e);
             if (tod !== 'both' && tod !== timeKey) return false;
             if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
 	            if (e.zoneId && String(e.zoneId) !== String(actor?.zoneId || '')) return false;
@@ -8308,10 +9551,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           // ✅ 동적 이벤트 보상: 크레딧
-          const erCr = Math.max(0, Number(eventResult?.earnedCredits || 0));
+          const perkFx = getActorPerkEffects(actor);
+          const erCr = applyPerkCreditBonus(Math.max(0, Number(eventResult?.earnedCredits || 0)), perkFx?.eventCreditsPct || 0);
           if (erCr > 0) {
             earnedCredits += erCr;
             actor.simCredits = Number(actor.simCredits || 0) + erCr;
+            emitRunEvent('gain', { who: String(actor && actor._id ? actor._id : ''), itemId: 'CREDITS', qty: erCr, source: 'event', zoneId: String(actor && actor.zoneId ? actor.zoneId : '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
 
           // ✅ 수집/사냥 이벤트 페널티: (1) 다음 페이즈 1회 교전 확률 증가 (2) 같은 페이즈 즉시 '표적 우선'
@@ -8327,27 +9572,27 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           // ✅ 동적 이벤트 드랍(소량): addItemToInventory로 일관 처리 + 즉시 1회 조합 시도
-          // - 기존(레거시) eventResult.newItem도 호환
+          // - 기존(레거시) eventResult.newItem / eventResult.drop도 같이 호환
           const legacyNewItem = eventResult && eventResult.newItem ? eventResult.newItem : null;
-          const drop0 = eventResult && eventResult.drop ? eventResult.drop : null;
-          const resolvedDrop = drop0
-            ? drop0
-            : (legacyNewItem
-              ? { item: (legacyNewItem.item || legacyNewItem), itemId: (legacyNewItem.itemId || legacyNewItem.id || legacyNewItem._id || ""), qty: (legacyNewItem.qty || 1) }
-              : null);
+          const rawEventDrops = [
+            ...(Array.isArray(eventResult?.drops) ? eventResult.drops : []),
+            ...(eventResult?.drop ? [eventResult.drop] : []),
+            ...(legacyNewItem ? [{ item: (legacyNewItem.item || legacyNewItem), itemId: (legacyNewItem.itemId || legacyNewItem.id || legacyNewItem._id || ''), qty: (legacyNewItem.qty || 1) }] : []),
+          ];
+          const normalizedEventDrops = normalizeRewardDropEntries(rawEventDrops, publicItems, itemNameById);
 
-          if (resolvedDrop && resolvedDrop.itemId) {
-            const dropId = String(resolvedDrop.itemId);
-            const dropQty = Math.max(1, Number(resolvedDrop.qty || 1));
-            const dropItem = (resolvedDrop.item && resolvedDrop.item._id)
-              ? resolvedDrop.item
-              : ((Array.isArray(publicItems) ? publicItems : []).find((x) => String(x && x._id) === dropId) || resolvedDrop.item || null);
+          for (const resolvedDrop of normalizedEventDrops) {
+            const dropId = String(resolvedDrop.itemId || '');
+            if (!dropId) continue;
+            const eventItemBias = getPerkEventItemBias(perkFx);
+            const dropQty = maybeBoostDropQty(Math.max(1, Number(resolvedDrop.qty || 1)), eventItemBias * 0.55, 1);
+            const dropItem = resolvedDrop.item || null;
 
             actor.inventory = addItemToInventory(actor.inventory, dropItem, dropId, dropQty, nextDay, ruleset);
             const metaD = actor.inventory && actor.inventory._lastAdd ? actor.inventory._lastAdd : null;
             const gotD = Math.max(0, Number(metaD && metaD.acceptedQty != null ? metaD.acceptedQty : dropQty));
             if (gotD > 0) {
-              const nmD = itemDisplayName(dropItem || { _id: dropId, name: resolvedDrop.name });
+              const nmD = itemDisplayName(dropItem || { _id: dropId, name: itemNameById?.[dropId] || resolvedDrop?.name });
               addLog("🧾 [" + actor.name + "] 획득: " + itemIcon(dropItem || { type: "" }) + " [" + nmD + "] x" + gotD + formatInvAddNote(metaD, dropQty, actor.inventory, ruleset), "normal");
               emitRunEvent("gain", { who: String(actor && actor._id ? actor._id : ""), itemId: dropId, qty: gotD, source: "event", zoneId: String(actor && actor.zoneId ? actor.zoneId : "") }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
@@ -8361,18 +9606,29 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           if (eventResult.damage) actor.hp -= eventResult.damage;
-          if (eventResult.recovery) actor.hp = Math.min(100, actor.hp + eventResult.recovery);
-          if (eventResult.newEffect) actor.activeEffects = [...(actor.activeEffects || []), eventResult.newEffect];
+          if (eventResult.recovery) {
+            const maxHpNow = Math.max(1, Number(actor?.maxHp || 100));
+            const bonusRecovery = Math.max(0, perkNumber(perkFx?.eventRecoveryPlus || 0));
+            actor.hp = Math.min(maxHpNow, Number(actor.hp || 0) + Math.max(0, Number(eventResult.recovery || 0)) + bonusRecovery);
+          }
+          const eventEffects = applyRuntimeEffectPayloads(actor, eventResult?.newEffects || eventResult?.newEffect);
+          eventEffects.results.forEach((row) => {
+            if (row?.reason === 'immune') addLog(`🛡️ [${actor.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
+            else if (row?.reason === 'resisted') addLog(`🧷 [${actor.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
+            else if (row?.applied) addLog(`🪄 [${actor.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
+          });
+          emitEffectRunEvents(actor, eventEffects.results, { source: 'event', reason: 'dynamic_event', zoneId: String(actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
         }
 
+        actor = normalizeRuntimeSurvivor(actor);
         if (actor.hp <= 0) {
           addLog(`💀 [${actor.name}]이(가) 사고로 사망했습니다.`, 'death');
           newDeadIds.push(actor._id);
-          setDead((prev) => [...prev, actor]);
+          setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(actor, ruleset)])]);
         }
       }
 
-      survivorMap.set(actor._id, actor);
+      upsertRuntimeSurvivor(survivorMap, actor);
     }
 
     // 4. 킬 카운트 업데이트
@@ -8389,7 +9645,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
     setAssistCounts(updatedAssistCounts);
 
     // 5. 생존자 업데이트
-    const finalStepSurvivors = Array.from(survivorMap.values()).filter((s) => !newDeadIds.includes(s._id));
+    const finalStepSurvivors = Array.from(survivorMap.values())
+      .filter((s) => !newDeadIds.includes(s?._id))
+      .map((s) => normalizeRuntimeSurvivor(s));
 
     // 💳 크레딧은 화면에 직접 띄우지 않고, 캐릭터별(simCredits)로만 누적 표시합니다.
     // - baseCredits(페이즈 기본)는 생존자에게 분배(합계=baseCredits)
@@ -8426,8 +9684,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const forcedDead = finalStepSurvivors
         .filter((s) => String(s._id) !== String(wForced._id))
         .map((s) => ({ ...s, hp: 0 }));
-      if (forcedDead.length) setDead((prev) => [...prev, ...forcedDead]);
-      setSurvivors([wForced]);
+      if (forcedDead.length) setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList(forcedDead.map((x) => normalizeDeadSnapshot(x, ruleset)))]);
+      setSurvivors([normalizeRuntimeSurvivor(wForced)]);
       setMatchSec((prev) => prev + phaseDurationSec);
       addLog(`⏱ 서든데스 종료! 제한시간 만료로 [${wForced.name}] 승리`, 'highlight');
       finishGame([wForced], updatedKillCounts, updatedAssistCounts);
@@ -8435,7 +9693,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     }
 
     // NOTE: offMapSurvivors는 아직 정의/사용하지 않으므로, 렌더는 최종 생존자만 반영
-    setSurvivors([...(Array.isArray(finalStepSurvivors) ? finalStepSurvivors : [])]);
+    setSurvivors((Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []).map((s) => normalizeRuntimeSurvivor(s)));
 
     // 월드 스폰 상태 반영(상자 개봉/보스 처치 등)
     setSpawnState(nextSpawn);
@@ -8447,7 +9705,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     if (earnedCredits > 0) {
       apiPost('/credits/earn', { amount: earnedCredits })
         .then((res) => {
-          if (typeof res?.credits === 'number') setCredits(res.credits);
+          applyUserEconomyProgress({ credits: res?.credits });
         })
         .catch(() => {});
     }
@@ -8579,12 +9837,14 @@ if (showMarketPanel && pendingTranscendPick) {
       setMarketMessage('');
       const qty = getQty(`craft:${itemId}`, 1);
       const res = await apiPost('/items/craft', { characterId: selectedCharId, itemId, qty });
-      if (typeof res?.credits === 'number') setCredits(res.credits);
+      applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
       if (res?.character) patchInventoryOnly(res.character);
       addLog(`🛠️ [조합] ${res?.message || '조합 완료'} (x${qty})`, 'system');
+      await Promise.allSettled([syncMyState(), loadMarket()]);
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
-      addLog(`⚠️ [조합 실패] ${e?.response?.data?.error || e.message}`, 'death');
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [조합 실패] ${msg}`, 'death');
     }
   };
 
@@ -8594,12 +9854,14 @@ if (showMarketPanel && pendingTranscendPick) {
       setMarketMessage('');
       const qty = getQty(`kiosk:${kioskId}:${catalogIndex}`, 1);
       const res = await apiPost(`/kiosks/${kioskId}/transaction`, { characterId: selectedCharId, catalogIndex, qty });
-      if (typeof res?.credits === 'number') setCredits(res.credits);
+      applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
       if (res?.character) patchInventoryOnly(res.character);
       addLog(`🏪 [키오스크] ${res?.message || '거래 완료'} (x${qty})`, 'system');
+      await Promise.allSettled([syncMyState(), loadMarket()]);
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
-      addLog(`⚠️ [키오스크 실패] ${e?.response?.data?.error || e.message}`, 'death');
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [키오스크 실패] ${msg}`, 'death');
     }
   };
 
@@ -8609,12 +9871,33 @@ if (showMarketPanel && pendingTranscendPick) {
       setMarketMessage('');
       const qty = getQty(`drone:${offerId}`, 1);
       const res = await apiPost('/drone/buy', { characterId: selectedCharId, offerId, qty });
-      if (typeof res?.credits === 'number') setCredits(res.credits);
+      applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
       if (res?.character) patchInventoryOnly(res.character);
       addLog(`🚁 [드론] ${res?.message || '구매 완료'} (x${qty})`, 'system');
+      await Promise.allSettled([syncMyState(), loadMarket()]);
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
-      addLog(`⚠️ [드론 구매 실패] ${e?.response?.data?.error || e.message}`, 'death');
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [드론 구매 실패] ${msg}`, 'death');
+    }
+  };
+
+  const doPerkPurchase = async (code) => {
+    try {
+      setMarketMessage('');
+      const perkCode = String(code || '').trim();
+      if (!perkCode) {
+        setMarketMessage('특전 코드가 올바르지 않습니다.');
+        return;
+      }
+      const res = await apiPost('/perks/purchase', { code: perkCode });
+      applyUserEconomyProgress({ lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
+      addLog(`🎖️ [특전] ${res?.message || '구매 완료'} (${perkCode})`, 'system');
+      await Promise.allSettled([syncMyState(), loadMarket()]);
+    } catch (e) {
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [특전 구매 실패] ${msg}`, 'death');
     }
   };
 
@@ -8642,10 +9925,11 @@ if (showMarketPanel && pendingTranscendPick) {
 
       addLog('🔁 [거래] 오퍼 생성 완료', 'system');
       setTradeDraft({ give: [{ itemId: '', qty: 1 }], want: [{ itemId: '', qty: 1 }], wantCredits: 0, note: '' });
-      await loadTrades();
+      await Promise.allSettled([loadTrades(), syncMyState()]);
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
-      addLog(`⚠️ [거래 오퍼 실패] ${e?.response?.data?.error || e.message}`, 'death');
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [거래 오퍼 실패] ${msg}`, 'death');
     }
   };
 
@@ -8654,10 +9938,11 @@ if (showMarketPanel && pendingTranscendPick) {
       setMarketMessage('');
       await apiPost(`/trades/${offerId}/cancel`, {});
       addLog('🧾 [거래] 오퍼 취소 완료', 'system');
-      await loadTrades();
+      await Promise.allSettled([loadTrades(), syncMyState()]);
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
-      addLog(`⚠️ [거래 취소 실패] ${e?.response?.data?.error || e.message}`, 'death');
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [거래 취소 실패] ${msg}`, 'death');
     }
   };
 
@@ -8665,19 +9950,22 @@ if (showMarketPanel && pendingTranscendPick) {
     if (!ensureCharSelected()) return;
     try {
       setMarketMessage('');
-      await apiPost(`/trades/${offerId}/accept`, { toCharacterId: selectedCharId });
+      const res = await apiPost(`/trades/${offerId}/accept`, { toCharacterId: selectedCharId });
+      applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
+      if (res?.character) patchInventoryOnly(res.character);
       addLog('✅ [거래] 수락 완료', 'system');
-      await Promise.all([loadTrades(), syncMyState()]);
+      await Promise.allSettled([loadTrades(), syncMyState()]);
     } catch (e) {
-      setMarketMessage(e?.response?.data?.error || e.message);
-      addLog(`⚠️ [거래 수락 실패] ${e?.response?.data?.error || e.message}`, 'death');
+      const msg = getApiErrorMessage(e);
+      setMarketMessage(msg);
+      addLog(`⚠️ [거래 수락 실패] ${msg}`, 'death');
     }
   };
 
   // 탭 전환 시 필요한 데이터 갱신
   useEffect(() => {
     if (marketTab === 'trade') loadTrades();
-    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone') loadMarket();
+    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') loadMarket();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
@@ -8805,7 +10093,59 @@ const gainDetailSummary = useMemo(() => {
   if (itemStr && zoneStr) return `TOP 아이템: ${itemStr} | TOP 구역: ${zoneStr}`;
   if (itemStr) return `TOP 아이템: ${itemStr}`;
   return `TOP 구역: ${zoneStr}`;
+}, [runEvents, itemNameById, zoneNameById]);
 
+const specialSourceSummary = useMemo(() => {
+  const out = {
+    bossCredits: 0,
+    bossItems: 0,
+    mutantItems: 0,
+    eventCredits: 0,
+    eventItems: 0,
+    huntItems: 0,
+    huntCredits: 0,
+    alpha: 0,
+    omega: 0,
+    weakline: 0,
+  };
+  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
+    if (!e || e.kind !== 'gain') continue;
+    const src = String(e.source || '');
+    const itemId = String(e.itemId || '');
+    const qty = Math.max(0, Number(e.qty || 0));
+    if (qty <= 0) continue;
+    const isCredit = itemId === 'CREDITS';
+    if (src === 'boss') {
+      if (isCredit) out.bossCredits += qty;
+      else out.bossItems += qty;
+      const bossKind = String(e.kind || '').toLowerCase();
+      if (bossKind.includes('alpha')) out.alpha += qty;
+      if (bossKind.includes('omega')) out.omega += qty;
+      if (bossKind.includes('weakline') || bossKind.includes('wickeline')) out.weakline += qty;
+    } else if (src === 'mutant') {
+      if (!isCredit) out.mutantItems += qty;
+    } else if (src === 'event') {
+      if (isCredit) out.eventCredits += qty;
+      else out.eventItems += qty;
+    } else if (src === 'hunt') {
+      if (isCredit) out.huntCredits += qty;
+      else out.huntItems += qty;
+    }
+  }
+  const parts = [];
+  if (out.bossItems || out.bossCredits) {
+    const bossKinds = [
+      out.alpha ? `A:${out.alpha}` : '',
+      out.omega ? `Ω:${out.omega}` : '',
+      out.weakline ? `W:${out.weakline}` : '',
+    ].filter(Boolean).join(' / ');
+    parts.push(`보스 보상 아이템 ${out.bossItems}${out.bossCredits ? ` · 크레딧 ${out.bossCredits}` : ''}${bossKinds ? ` (${bossKinds})` : ''}`);
+  }
+  if (out.mutantItems) parts.push(`변이 드랍 ${out.mutantItems}`);
+  if (out.huntItems || out.huntCredits) parts.push(`일반 사냥 아이템 ${out.huntItems}${out.huntCredits ? ` · 크레딧 ${out.huntCredits}` : ''}`);
+  if (out.eventItems || out.eventCredits) parts.push(`이벤트 보상 아이템 ${out.eventItems}${out.eventCredits ? ` · 크레딧 ${out.eventCredits}` : ''}`);
+  return parts.join(' | ');
+}, [runEvents]);
 
 const runProgressSummary = useMemo(() => {
   const out = {
@@ -8883,6 +10223,133 @@ const runProgressSummary = useMemo(() => {
     latestTransText: stampText(out.latestTransAt),
   };
 }, [runEvents, itemMetaById]);
+
+const runSupportSummary = useMemo(() => {
+  const out = {
+    autoUseCount: 0,
+    manualUseCount: 0,
+    totalHeal: 0,
+    totalCleanse: 0,
+    skillUseCount: 0,
+    appliedEffects: 0,
+    immuneEffects: 0,
+    resistedEffects: 0,
+  };
+  const itemAcc = {};
+  const effectAcc = {};
+  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
+    if (!e) continue;
+    if (e.kind === 'use') {
+      if (e.manual) out.manualUseCount += 1;
+      else out.autoUseCount += 1;
+      out.totalHeal += Math.max(0, Number(e.heal || 0));
+      out.totalCleanse += Math.max(0, Number(e.cleansed || 0));
+      const itemId = String(e.itemId || '');
+      if (itemId) itemAcc[itemId] = (itemAcc[itemId] || 0) + 1;
+    }
+    if (e.kind === 'skill') out.skillUseCount += 1;
+    if (e.kind === 'effect') {
+      const effectName = String(e.effect || '');
+      const outcome = String(e.outcome || '');
+      if (outcome === 'applied') out.appliedEffects += 1;
+      else if (outcome === 'immune') out.immuneEffects += 1;
+      else if (outcome === 'resisted') out.resistedEffects += 1;
+      if (effectName && outcome === 'applied') effectAcc[effectName] = (effectAcc[effectName] || 0) + 1;
+    }
+  }
+  const topItems = Object.entries(itemAcc).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, count]) => `${itemNameById?.[String(id)] || String(id)}x${count}`).join(', ');
+  const topEffects = Object.entries(effectAcc).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => `${name}x${count}`).join(', ');
+  return {
+    ...out,
+    topItems,
+    topEffects,
+    line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · cleanse ${out.totalCleanse} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
+  };
+}, [runEvents, itemNameById]);
+
+const runActionSummary = useMemo(() => {
+  const out = {
+    queued: 0,
+    blocked: 0,
+    fleeChosen: 0,
+    moveChosen: 0,
+    craftChosen: 0,
+    droneChosen: 0,
+    kioskChosen: 0,
+    escapeFail: 0,
+    escapeNoChase: 0,
+    escapedAfterChase: 0,
+    caught: 0,
+    blinkEscape: 0,
+    avgEscape: 0,
+    avgChase: 0,
+    avgCatch: 0,
+    avgPreDamage: 0,
+  };
+  const blockedAcc = {};
+  const deferredAcc = {};
+  let escapeN = 0;
+  let chaseN = 0;
+  let catchN = 0;
+  let preDamageN = 0;
+  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
+    if (!e) continue;
+    if (e.kind === 'queue') {
+      out.queued += 1;
+      const chosen = String(e.chosen || '');
+      if (chosen === 'flee') out.fleeChosen += 1;
+      else if (chosen === 'moveTo') out.moveChosen += 1;
+      else if (chosen === 'craft') out.craftChosen += 1;
+      else if (chosen === 'droneOrder') out.droneChosen += 1;
+      else if (chosen.startsWith('kiosk')) out.kioskChosen += 1;
+      (Array.isArray(e.blockedReasons) ? e.blockedReasons : []).forEach((reason) => {
+        const key = String(reason || '').trim();
+        if (!key) return;
+        out.blocked += 1;
+        blockedAcc[key] = (blockedAcc[key] || 0) + 1;
+        if (key.startsWith('deferred:')) deferredAcc[key.replace('deferred:', '')] = (deferredAcc[key.replace('deferred:', '')] || 0) + 1;
+      });
+    }
+    if (e.kind === 'chase') {
+      const outcome = String(e.outcome || '');
+      if (outcome === 'escape_fail') out.escapeFail += 1;
+      else if (outcome === 'escape_no_chase') out.escapeNoChase += 1;
+      else if (outcome === 'escaped_after_chase') out.escapedAfterChase += 1;
+      else if (outcome === 'caught') out.caught += 1;
+      else if (outcome === 'blink_escape') out.blinkEscape += 1;
+      const pEscape = Number(e?.pEscape);
+      const pChase = Number(e?.pChase);
+      const pCatch = Number(e?.pCatch);
+      const preDamage = Number(e?.preDamage);
+      if (Number.isFinite(pEscape) && pEscape > 0) { out.avgEscape += pEscape; escapeN += 1; }
+      if (Number.isFinite(pChase) && pChase > 0) { out.avgChase += pChase; chaseN += 1; }
+      if (Number.isFinite(pCatch) && pCatch > 0) { out.avgCatch += pCatch; catchN += 1; }
+      if (Number.isFinite(preDamage) && preDamage >= 0) { out.avgPreDamage += preDamage; preDamageN += 1; }
+    }
+  }
+  out.avgEscape = escapeN > 0 ? out.avgEscape / escapeN : 0;
+  out.avgChase = chaseN > 0 ? out.avgChase / chaseN : 0;
+  out.avgCatch = catchN > 0 ? out.avgCatch / catchN : 0;
+  out.avgPreDamage = preDamageN > 0 ? out.avgPreDamage / preDamageN : 0;
+  const topBlocked = Object.entries(blockedAcc)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([reason, count]) => `${reason}x${count}`)
+    .join(', ');
+  const topDeferred = Object.entries(deferredAcc)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([reason, count]) => `${reason}x${count}`)
+    .join(', ');
+  return {
+    ...out,
+    topBlocked,
+    topDeferred,
+    line: `queue ${out.queued} · blocked ${out.blocked} · flee ${out.fleeChosen} · move ${out.moveChosen} · craft ${out.craftChosen} · drone ${out.droneChosen} · kiosk ${out.kioskChosen}`,
+    chaseLine: `escapeFail ${out.escapeFail} · noChase ${out.escapeNoChase} · escaped ${out.escapedAfterChase + out.blinkEscape} · caught ${out.caught}`,
+    tuningLine: `avgEscape ${(out.avgEscape * 100).toFixed(0)}% · avgChase ${(out.avgChase * 100).toFixed(0)}% · avgCatch ${(out.avgCatch * 100).toFixed(0)}% · preDmg ${out.avgPreDamage.toFixed(1)}`,
+  };
+}, [runEvents]);
 
   // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
   const zonePos = useMemo(() => {
@@ -9134,10 +10601,11 @@ const runProgressSummary = useMemo(() => {
                   {(Array.isArray(char.activeEffects) ? char.activeEffects : []).map((eff, i) => {
                     const nm = String(eff?.name || '');
                     const dur = Number.isFinite(Number(eff?.remainingDuration)) ? Math.max(0, Number(eff.remainingDuration)) : null;
-                    const icon = nm === '출혈' ? '🩸' : nm === '식중독' ? '🤢' : '🤕';
-                    const label = dur !== null ? `${icon}${nm} ${dur}` : `${icon}${nm}`;
+                    const icon = nm === '출혈' ? '🩸' : nm === '식중독' ? '🤢' : nm === '중독' ? '☠️' : nm === '화상' ? '🔥' : nm === '보호막' ? '🛡️' : nm === '재생' ? '✨' : '🤕';
+                    const stacks = Math.max(1, Number(eff?.stacks || 1));
+                    const label = dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`;
                     return (
-                      <span key={`${nm}-${i}`} title={dur !== null ? `${nm} (${dur})` : nm} className="effect-badge">
+                      <span key={`${nm}-${i}`} title={dur !== null ? `${nm}${stacks > 1 ? ` x${stacks}` : ''} (${dur})` : nm} className="effect-badge">
                         {label}
                       </span>
                     );
@@ -9807,6 +11275,33 @@ const runProgressSummary = useMemo(() => {
               <div className="market-small" style={{ marginTop: 6 }}>latest legend: {String(runProgressSummary?.latestLegendText || '-')} / latest transcend: {String(runProgressSummary?.latestTransText || '-')}</div>
             </div>
 
+
+            <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+              <div className="market-title">🩹 사용/상태 요약</div>
+              <div className="market-small">{runSupportSummary?.line}</div>
+              {runSupportSummary?.topItems ? (
+                <div className="market-small" style={{ marginTop: 6 }}>top use: {runSupportSummary.topItems}</div>
+              ) : null}
+              {runSupportSummary?.topEffects ? (
+                <div className="market-small" style={{ marginTop: 6 }}>top effects: {runSupportSummary.topEffects}</div>
+              ) : null}
+            </div>
+
+            <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+              <div className="market-title">⏱️ 행동 큐/추격 요약</div>
+              <div className="market-small">{runActionSummary?.line}</div>
+              <div className="market-small" style={{ marginTop: 6 }}>{runActionSummary?.chaseLine}</div>
+              {runActionSummary?.tuningLine ? (
+                <div className="market-small" style={{ marginTop: 6 }}>{runActionSummary.tuningLine}</div>
+              ) : null}
+              {runActionSummary?.topBlocked ? (
+                <div className="market-small" style={{ marginTop: 6 }}>top blocked: {runActionSummary.topBlocked}</div>
+              ) : null}
+              {runActionSummary?.topDeferred ? (
+                <div className="market-small" style={{ marginTop: 6 }}>top deferred: {runActionSummary.topDeferred}</div>
+              ) : null}
+            </div>
+
             {pendingTranscendPick ? (
               <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
                 <div className="market-title">🎁 초월 장비 선택 상자(대기)</div>
@@ -9902,6 +11397,9 @@ const runProgressSummary = useMemo(() => {
                       {Array.isArray(ai?.candidatePreview) && ai.candidatePreview.length > 0 ? (
                         <div className="market-small" style={{ marginTop: 6 }}>candidates: {ai.candidatePreview.join(' > ')}</div>
                       ) : null}
+                      {Array.isArray(ai?.candidateScores) && ai.candidateScores.length > 0 ? (
+                        <div className="market-small" style={{ marginTop: 6 }}>scores: {ai.candidateScores.join(' | ')}</div>
+                      ) : null}
                       {Array.isArray(ai?.blockedReasons) && ai.blockedReasons.length > 0 ? (
                         <div className="market-small" style={{ marginTop: 6 }}>blocked: {ai.blockedReasons.join(', ')}</div>
                       ) : null}
@@ -9917,6 +11415,7 @@ const runProgressSummary = useMemo(() => {
                   )}
                 </div>
               );
+            })() : null}
 
             {selectedCharId && selectedChar ? (() => {
               const rp = runProgressSummary || null;
@@ -9990,7 +11489,19 @@ const runProgressSummary = useMemo(() => {
               <button className={`market-tab ${marketTab === 'craft' ? 'active' : ''}`} onClick={() => setMarketTab('craft')}>🛠️ 조합</button>
               <button className={`market-tab ${marketTab === 'kiosk' ? 'active' : ''}`} onClick={() => setMarketTab('kiosk')}>🏪 키오스크</button>
               <button className={`market-tab ${marketTab === 'drone' ? 'active' : ''}`} onClick={() => setMarketTab('drone')}>🚁 드론</button>
+              <button className={`market-tab ${marketTab === 'perk' ? 'active' : ''}`} onClick={() => setMarketTab('perk')}>🎖️ 특전</button>
               <button className={`market-tab ${marketTab === 'trade' ? 'active' : ''}`} onClick={() => setMarketTab('trade')}>🔁 교환</button>
+            </div>
+
+            <div className="market-card" style={{ marginTop: 10 }}>
+              <div className="market-row">
+                <div>
+                  <div className="market-title">💳 계정 진행</div>
+                  <div className="market-small" style={{ marginTop: 6 }}>현재 보유 크레딧 {Number(credits || 0)} Cr · LP {Number(viewerLp || 0)} · 보유 특전 {Number((Array.isArray(viewerPerks) ? viewerPerks.length : 0) || 0)}개</div>
+                  {activeViewerPerkBundle?.summary ? (<div className="market-small">적용 중: {activeViewerPerkBundle.summary}</div>) : null}
+                </div>
+                <button onClick={() => Promise.allSettled([syncMyState(), loadMarket()])} className="market-mini-btn">동기화</button>
+              </div>
             </div>
 
             {marketMessage ? (
@@ -10061,10 +11572,10 @@ const runProgressSummary = useMemo(() => {
                         const price = Math.max(0, Number(entry.priceCredits || 0));
 
                         const itemId = entry.itemId?._id || entry.itemId;
-                        const itemName = entry.itemId?.name || itemNameById.get(String(itemId)) || String(itemId);
+                        const itemName = entry.itemId?.name || itemNameById[String(itemId)] || String(itemId || '미지정');
 
                         const exId = entry.exchange?.giveItemId?._id || entry.exchange?.giveItemId;
-                        const exName = entry.exchange?.giveItemId?.name || (exId ? (itemNameById.get(String(exId)) || String(exId)) : '');
+                        const exName = entry.exchange?.giveItemId?.name || (exId ? (itemNameById[String(exId)] || String(exId)) : '');
                         const exQty = Number(entry.exchange?.giveQty || 1);
 
                         return (
@@ -10087,7 +11598,7 @@ const runProgressSummary = useMemo(() => {
                                 value={getQty(`kiosk:${k._id}:${idx}`, 1)}
                                 onChange={(e) => setQty(`kiosk:${k._id}:${idx}`, e.target.value)}
                               />
-                              <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId}>실행</button>
+                              <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId || !itemId}>실행</button>
                             </div>
                           </div>
                         );
@@ -10128,6 +11639,39 @@ const runProgressSummary = useMemo(() => {
             </div>
           ) : null}
 
+          {marketTab === 'perk' ? (
+            <div className="market-section">
+              <div className="market-small" style={{ marginBottom: 8 }}>계정 단위 특전입니다. 구매 후 홈/시뮬 모두 즉시 반영됩니다.</div>
+              {publicPerks.length === 0 ? (
+                <div className="market-card">활성 특전이 없습니다. (관리자에서 특전을 등록하세요)</div>
+              ) : (
+                publicPerks.map((perk) => {
+                  const code = String(perk?.code || '');
+                  const owned = ownedPerkCodeSet.has(code);
+                  const cost = Math.max(0, Number(perk?.lpCost || 0));
+                  const desc = String(perk?.description || perk?.effectText || perk?.summary || '').trim();
+                  return (
+                    <div key={perk?._id || code} className="market-card">
+                      <div className="market-row">
+                        <div>
+                          <div className="market-title">{perk?.name || code || '특전'}</div>
+                          <div className="market-small">코드: {code || '-'} · 비용: {cost} LP{perk?.category ? ` · ${perk.category}` : ''}</div>
+                        </div>
+                        <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
+                      </div>
+                      {desc ? <div className="market-small" style={{ marginTop: 8 }}>{desc}</div> : null}
+                      <div className="market-actions" style={{ marginTop: 10 }}>
+                        <button onClick={() => doPerkPurchase(code)} disabled={!code || owned || Number(viewerLp || 0) < cost}>
+                          {owned ? '보유 중' : `구매 (${cost} LP)`}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : null}
+
           {marketTab === 'trade' ? (
             <div className="market-section">
               <div className="market-row" style={{ marginBottom: 8 }}>
@@ -10153,7 +11697,7 @@ const runProgressSummary = useMemo(() => {
                     {off.note ? <div className="market-small" style={{ marginTop: 6 }}>메모: {off.note}</div> : null}
 
                     <div className="market-actions" style={{ marginTop: 10 }}>
-                      <button onClick={() => acceptTradeOffer(off._id)} disabled={!selectedCharId}>수락</button>
+                      <button onClick={() => acceptTradeOffer(off._id)} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
                     </div>
                   </div>
                 ))
@@ -10350,6 +11894,101 @@ const runProgressSummary = useMemo(() => {
             ) : (
               <h2>생존자가 없습니다...</h2>
             )}
+
+            {resultSummary ? (
+              <div
+                style={{
+                  marginTop: 14,
+                  marginBottom: 14,
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  background: 'rgba(255,255,255,0.04)',
+                  display: 'grid',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <strong>참가자 {resultSummary.participantsCount || 0}명</strong>
+                  <span>우승 보상 LP {resultSummary.rewardLP || 0}</span>
+                  <span>우승자 킬/어시 {resultSummary.myKills || 0}/{resultSummary.myAssists || 0}</span>
+                </div>
+                {resultSummary.topKillLeader ? (
+                  <div style={{ color: '#ffd54f' }}>
+                    최다 킬: {resultSummary.topKillLeader.name} ({resultSummary.topKillLeader.kills || 0}킬 / {resultSummary.topKillLeader.assists || 0}어시)
+                  </div>
+                ) : null}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 13, opacity: 0.92 }}>
+                  <span>명예의 전당 저장: {resultSummary.saveStatus?.hallOfFame === 'success' ? '완료' : resultSummary.saveStatus?.hallOfFame === 'error' ? '실패' : resultSummary.saveStatus?.hallOfFame === 'skipped' ? '건너뜀' : '대기'}</span>
+                  <span>유저 전적 저장: {resultSummary.saveStatus?.userStats === 'success' ? '완료' : resultSummary.saveStatus?.userStats === 'error' ? '실패' : '대기'}</span>
+                </div>
+                {resultSummary.userProgress ? (
+                  <div style={{ fontSize: 13, opacity: 0.92 }}>
+                    누적 전적: {resultSummary.userProgress.statistics?.totalGames || 0}전 / {resultSummary.userProgress.statistics?.totalWins || 0}승 / {resultSummary.userProgress.statistics?.totalKills || 0}킬 · 현재 LP {resultSummary.userProgress.lp || 0} · 크레딧 {resultSummary.userProgress.credits || 0}
+                  </div>
+                ) : null}
+                {specialSourceSummary ? (
+                  <div style={{ fontSize: 13, opacity: 0.94 }}>
+                    특수 보상 요약: {specialSourceSummary}
+                  </div>
+                ) : null}
+                {itemSourceSummary ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    아이템 획득 경로: {itemSourceSummary}
+                  </div>
+                ) : null}
+                {creditSourceSummary ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    크레딧 획득 경로: {creditSourceSummary}
+                  </div>
+                ) : null}
+                {gainDetailSummary ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    {gainDetailSummary}
+                  </div>
+                ) : null}
+                {runSupportSummary?.line ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    사용/상태 요약: {runSupportSummary.line}
+                  </div>
+                ) : null}
+                {runSupportSummary?.topItems ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    많이 사용한 소모품: {runSupportSummary.topItems}
+                  </div>
+                ) : null}
+                {runSupportSummary?.topEffects ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    많이 발생한 효과: {runSupportSummary.topEffects}
+                  </div>
+                ) : null}
+                {runActionSummary?.line ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    행동 큐 요약: {runActionSummary.line}
+                  </div>
+                ) : null}
+                {runActionSummary?.chaseLine ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    추격/도주 요약: {runActionSummary.chaseLine}
+                  </div>
+                ) : null}
+                {runActionSummary?.tuningLine ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    추격 튜닝 지표: {runActionSummary.tuningLine}
+                  </div>
+                ) : null}
+                {runActionSummary?.topBlocked ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    많이 막힌 이유: {runActionSummary.topBlocked}
+                  </div>
+                ) : null}
+                {runActionSummary?.topDeferred ? (
+                  <div style={{ fontSize: 13, opacity: 0.9 }}>
+                    자주 밀린 행동: {runActionSummary.topDeferred}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="stats-summary">
               <h3>⚔️ 킬 랭킹 (Top 3)</h3>

@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import Link from 'next/link';
 import '../../styles/ERModifiers.css';
 import { RULESETS } from '../../utils/rulesets';
+import { apiGet, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
 
 export default function ModifiersPage() {
   // 스탯 가중치 상태
@@ -22,26 +22,24 @@ export default function ModifiersPage() {
   // 1. 유저 정보 및 설정 불러오기
   useEffect(() => {
     const fetchData = async () => {
-      const userData = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
+      const userData = getUser();
+      const token = getToken();
       
       if (userData) {
-        setUser(JSON.parse(userData));
+        setUser(userData);
       }
 
       // ★ [중요] 토큰을 가지고 내 설정을 불러옵니다.
       if (token) {
         try {
-          const res = await axios.get('https://eternalhunger-e7z1.onrender.com/api/settings', {
-            headers: { Authorization: `Bearer ${token}` } 
-          });
+          const data = await apiGet('/settings');
           
-          if (res.data && res.data.statWeights) {
-            setWeights(res.data.statWeights);
+          if (data && data.statWeights) {
+            setWeights(data.statWeights);
           }
 
-          if (res.data && res.data.rulesetId) {
-            setRulesetId(res.data.rulesetId);
+          if (data && data.rulesetId) {
+            setRulesetId(data.rulesetId);
           }
         } catch (err) {
           console.error("설정 로드 실패:", err);
@@ -55,8 +53,7 @@ export default function ModifiersPage() {
 
   const handleLogout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearAuth();
       setUser(null);
       window.location.reload();
     }
@@ -68,7 +65,7 @@ export default function ModifiersPage() {
 
   // 2. ★ [수정됨] 저장 함수 (토큰 포함 전송)
   const saveSettings = async () => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     
     if (!token) {
         alert("로그인이 필요한 기능입니다.");
@@ -80,10 +77,7 @@ export default function ModifiersPage() {
     try {
       // 주소 변경: POST -> PUT
       // 헤더 추가: Authorization
-      await axios.put('https://eternalhunger-e7z1.onrender.com/api/settings', 
-        { statWeights: weights, rulesetId }, 
-        { headers: { Authorization: `Bearer ${token}` } } 
-      );
+      await apiPut('/settings', { statWeights: weights, rulesetId });
       alert("💾 밸런스 설정이 저장되었습니다!");
       location.reload();
     } catch (err) {

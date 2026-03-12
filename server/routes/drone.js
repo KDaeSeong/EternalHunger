@@ -8,12 +8,14 @@ const DroneOffer = require('../models/DroneOffer');
 const User = require('../models/User');
 const Character = require('../models/Characters');
 const Item = require('../models/Item');
+const Perk = require('../models/Perk');
 
 const {
   buildItemNameMap,
   normalizeInventory,
   addToInventory,
 } = require('../utils/inventory');
+const { getOwnedPerkContext, applyDiscountedCost } = require('../utils/perkRuntime');
 
 /**
  * POST /api/drone/buy
@@ -42,7 +44,10 @@ router.post('/buy', async (req, res) => {
     if (!item) return res.status(404).json({ error: '아이템 정보를 찾을 수 없습니다.' });
     if (Number(item.tier || 1) > Number(offer.maxTier || 1)) return res.status(400).json({ error: '티어 제한으로 구매할 수 없습니다.' });
 
-    const price = Math.max(0, Number(offer.priceCredits || 0));
+    const perkCtx = await getOwnedPerkContext(user, Perk);
+    const perkFx = perkCtx.effects || {};
+
+    const price = applyDiscountedCost(Math.max(0, Number(offer.priceCredits || 0)), perkFx.droneDiscountPct, perkFx.marketDiscountPct);
     const total = price * qty;
     if (Number(user.credits || 0) < total) return res.status(400).json({ error: '크레딧이 부족합니다.' });
 
@@ -55,7 +60,7 @@ router.post('/buy', async (req, res) => {
     ch.markModified('inventory');
     await Promise.all([user.save(), ch.save()]);
 
-    res.json({ message: '구매 완료', credits: user.credits, character: ch });
+    res.json({ message: '구매 완료', credits: user.credits, character: ch, perkEffects: perkFx });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '드론 구매 실패' });

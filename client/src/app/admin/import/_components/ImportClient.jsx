@@ -1,6 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import {
+  apiGet,
+  apiPost,
+  getAnyToken,
+  getApiBase,
+  normalizeApiBase,
+  saveAuth,
+  stripApiSuffix,
+} from '@/utils/api';
 
 const S = {
   wrap: { maxWidth: 980, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 },
@@ -9,7 +18,6 @@ const S = {
   btn: { padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', background: '#2563eb', color: '#e5e7eb', fontWeight: 900, cursor: 'pointer' },
 };
 
-// NGUH 추출본처럼 이미지(data:)가 매우 큰 경우가 있어, 필요 시 라인 단위로 제거
 const stripImageDataLines = (t) => String(t || '').replace(/^\s*"data"\s*:\s*"[^"]*"\s*,?\s*$/gm, '');
 
 const parse = (t) => {
@@ -41,12 +49,9 @@ const dedupeByName = (list) => {
   return out;
 };
 
-// 업로드된 JSON을 "서버 Character 스키마 배열"로 정규화
 const coerceCharacters = (data) => {
-  // 1) 이미 배열이면 그대로(서버 스키마라고 가정)
   if (Array.isArray(data)) return { ok: true, list: dedupeByName(data) };
 
-  // 2) NGUH 원본: { version, characters: [...] }
   const arr = Array.isArray(data?.characters) ? data.characters : null;
   if (!arr) return { ok: false, error: '지원하지 않는 형식입니다. (최상위 배열 또는 { characters: [...] } 필요)' };
 
@@ -67,6 +72,26 @@ const coerceCharacters = (data) => {
   return { ok: true, list: dedupeByName(list) };
 };
 
+const getInitialApiBase = () => {
+  if (typeof window === 'undefined') return '';
+  const current = getApiBase();
+  if (current) return stripApiSuffix(current);
+
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5000';
+
+  return '';
+};
+
+function stringifyLogBody(payload) {
+  if (typeof payload === 'string') return payload;
+  try {
+    return JSON.stringify(payload, null, 2);
+  } catch {
+    return String(payload);
+  }
+}
+
 export default function ImportClient() {
   const [apiBase, setApiBase] = useState('');
   const [token, setToken] = useState('');
@@ -75,13 +100,21 @@ export default function ImportClient() {
   const [stripImageData, setStripImageData] = useState(true);
 
   useEffect(() => {
-    const savedBase = window.localStorage.getItem('EH_API_BASE');
-    const base = savedBase || (window.location.hostname === 'localhost' ? 'http://localhost:5000' : '');
-    setApiBase(base);
-    setToken(window.localStorage.getItem('token') || '');
+    setApiBase(getInitialApiBase());
+    setToken(getAnyToken() || '');
   }, []);
 
   const charsParsed = useMemo(() => parse(charsText), [charsText]);
+
+  const normalizedBase = useMemo(() => normalizeApiBase(apiBase), [apiBase]);
+  const trimmedToken = String(token || '').trim();
+  const requestOptions = useMemo(
+    () => ({
+      baseOverride: normalizedBase,
+      tokenOverride: trimmedToken,
+    }),
+    [normalizedBase, trimmedToken]
+  );
 
   const onFile = (setter) => (e) => {
     const f = e.target.files?.[0];
@@ -96,35 +129,26 @@ export default function ImportClient() {
 
   const postJson = async (endpoint, body) => {
     setLog('');
-    const base = (apiBase || '').replace(/\/$/, '');
-    const url = `${base}${endpoint}`;
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+      const res = await apiPost(endpoint, body, {
+        ...requestOptions,
+        returnFullResponse: true,
       });
-      const text = await res.text();
-      setLog(`POST ${endpoint} → ${res.status}\n${text}`);
+      setLog(`POST ${endpoint} → ${res.status}
+${stringifyLogBody(res.data)}`);
     } catch (e) {
       setLog(`요청 실패: ${e?.message || String(e)}`);
     }
   };
 
   const getJson = async (endpoint) => {
-    const base = (apiBase || '').replace(/\/$/, '');
-    const url = `${base}${endpoint}`;
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-    return res.json();
+    return apiGet(endpoint, requestOptions);
   };
 
   const importCharacters = async (mode) => {
     setLog('');
-    if (!token) return setLog('token 없음: DevTools → Application → Local Storage → token');
+    if (!trimmedToken) return setLog('token 없음: 로그인 후 다시 열거나 token 입력');
+    if (!normalizedBase) return setLog('API Base 없음: 로컬/배포 API 주소를 확인');
     if (!charsParsed.ok) return setLog(`JSON 오류: ${charsParsed.error}`);
 
     const coerced = coerceCharacters(charsParsed.data);
@@ -133,7 +157,7 @@ export default function ImportClient() {
     let payload = coerced.list;
     if (mode === 'merge') {
       try {
-        const existing = await getJson('/api/characters');
+        const existing = await getJson('/characters');
         const exList = Array.isArray(existing) ? existing : [];
         const exNames = new Set(exList.map((c) => String(c?.name || '').trim().toLowerCase()).filter(Boolean));
         const newOnly = payload.filter((c) => !exNames.has(String(c?.name || '').trim().toLowerCase()));
@@ -143,7 +167,7 @@ export default function ImportClient() {
       }
     }
 
-    await postJson('/api/characters/save', payload);
+    await postJson('/characters/save', payload);
   };
 
   return (
@@ -164,7 +188,9 @@ export default function ImportClient() {
             onChange={(e) => {
               const v = e.target.value;
               setApiBase(v);
-              window.localStorage.setItem('EH_API_BASE', v);
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem('EH_API_BASE', v);
+              }
             }}
             placeholder="예) http://localhost:5000"
           />
@@ -172,7 +198,16 @@ export default function ImportClient() {
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
           <div style={{ fontWeight: 900, minWidth: 110 }}>token</div>
-          <input style={S.input} value={token} onChange={(e) => setToken(e.target.value)} placeholder="LocalStorage token" />
+          <input
+            style={S.input}
+            value={token}
+            onChange={(e) => {
+              const next = e.target.value;
+              setToken(next);
+              saveAuth(next || null, undefined);
+            }}
+            placeholder="LocalStorage token"
+          />
         </div>
       </div>
 

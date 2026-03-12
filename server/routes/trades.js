@@ -27,7 +27,7 @@ function normalizeIO(list) {
 router.get('/', async (req, res) => {
   try {
     const mine = String(req.query?.mine || '') === 'true';
-    const q = mine ? { fromUserId: req.user.id } : { status: 'open' };
+    const q = mine ? { fromUserId: req.user.id } : { status: 'open', fromUserId: { $ne: req.user.id } };
     const offers = await TradeOffer.find(q)
       .sort({ createdAt: -1 })
       .populate('fromCharacterId', 'name')
@@ -171,7 +171,7 @@ router.post('/:id/accept', async (req, res) => {
       TradeOffer.findByIdAndUpdate(offer._id, { status: 'accepted', acceptedByUserId: userId, acceptedAt: new Date() }, { new: true })
     ]);
 
-    res.json({ message: '거래 완료' });
+    res.json({ message: '거래 완료', credits: toUser.credits, character: toChar, offerId: String(offer._id) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '거래 실패' });

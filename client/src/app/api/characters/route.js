@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-function getBackendBase() {
-  // 배포/로컬 전환을 위해 환경변수를 우선 사용
+function stripApiSuffix(value) {
+  return String(value || '').trim().replace(/\/+$/, '').replace(/\/api$/, '');
+}
+
+function getBackendBase(request) {
   const candidates = [
     process.env.BACKEND_BASE_URL,
     process.env.API_BASE_URL,
@@ -11,10 +14,16 @@ function getBackendBase() {
   ].filter(Boolean);
 
   for (const v of candidates) {
-    if (typeof v === 'string' && /^https?:\/\//.test(v)) return v.replace(/\/$/, '');
+    if (typeof v === 'string' && /^https?:\/\//.test(v)) return stripApiSuffix(v);
   }
-  // 기본값(현재 Render 백엔드)
-  return 'https://eternalhunger-e7z1.onrender.com';
+
+  const reqUrl = request?.url ? new URL(request.url) : null;
+  const host = reqUrl?.hostname || '';
+  if (host === 'localhost' || host === '127.0.0.1') {
+    return 'http://localhost:5000';
+  }
+
+  return '';
 }
 
 function getTokenFromCookies() {
@@ -34,7 +43,13 @@ export async function GET(request) {
   }
 
   const url = new URL(request.url);
-  const backend = getBackendBase();
+  const backend = getBackendBase(request);
+  if (!backend) {
+    return NextResponse.json(
+      { error: 'BACKEND_BASE_URL is not configured' },
+      { status: 500 }
+    );
+  }
   const target = `${backend}/api/characters${url.search || ''}`;
 
   const res = await fetch(target, {

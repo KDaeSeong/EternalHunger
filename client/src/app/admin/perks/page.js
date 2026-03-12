@@ -181,6 +181,7 @@ export default function AdminPerksPage() {
             <label>effects (JSON)</label>
             <textarea value={createForm.effectsText} onChange={(e) => setCreateForm({ ...createForm, effectsText: e.target.value })} />
           </div>
+          <div className="admin-muted" style={{ marginBottom: 10 }}>지원 키 예시: hpPlus, maxHpPlus, startCreditsPlus, atkPlus, defPlus, moveSpeedPlus, kioskDiscountPct, droneDiscountPct, craftChancePlus, goalWeightPlus, wildlifeCreditsPct, wildlifeDamageMinus, wildlifeLootPlus, eventCreditsPct, eventRecoveryPlus, eventItemPlus, bleedResistPct, poisonResistPct, burnResistPct, bleedImmune, poisonImmune, burnImmune, cleanseHealPlus</div>
           <button className="admin-btn primary" onClick={create}>추가</button>
         </div>
 
@@ -243,6 +244,7 @@ export default function AdminPerksPage() {
                 <label>description</label>
                 <textarea value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
               </div>
+              <div className="admin-muted" style={{ marginBottom: 10 }}>지원 키 예시: hpPlus, maxHpPlus, startCreditsPlus, atkPlus, defPlus, moveSpeedPlus, kioskDiscountPct, droneDiscountPct, craftChancePlus, goalWeightPlus, wildlifeCreditsPct, wildlifeDamageMinus, wildlifeLootPlus, eventCreditsPct, eventRecoveryPlus, eventItemPlus, bleedResistPct, poisonResistPct, burnResistPct, bleedImmune, poisonImmune, burnImmune, cleanseHealPlus</div>
             </div>
             <div>
               <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>

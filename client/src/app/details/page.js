@@ -2,10 +2,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
+import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -59,7 +59,7 @@ export default function DetailsPage() {
 
   useEffect(() => {
     // ★ 1. [보안] 토큰 검사 (문지기)
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (!token) {
         alert("로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.");
         window.location.href = '/login'; // 강제 추방
@@ -67,16 +67,15 @@ export default function DetailsPage() {
     }
 
     // 화면이 켜진 뒤에만 localStorage에 접근 (에러 방지 핵심!)
-    const userData = localStorage.getItem('user');
+    const userData = getUser();
     if (userData) {
-      setUser(JSON.parse(userData));
+      setUser(userData);
     }
   }, []);
 
   const handleLogout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      clearAuth();
       setUser(null);
       window.location.reload(); // 깔끔하게 새로고침
     }
@@ -84,15 +83,14 @@ export default function DetailsPage() {
 
   // 1. 서버에서 캐릭터 불러오기
   useEffect(() => {
-    const token = localStorage.getItem('token'); // 토큰 가져오기
-    axios.get('https://eternalhunger-e7z1.onrender.com/api/characters', {
-      headers: { Authorization: `Bearer ${token}` } // 문지기에게 티켓 보여주기
-    })
-      .then(res => setCharacters((res.data || []).map((c) => ({
+    const token = getToken(); // 토큰 가져오기
+    if (!token) return;
+    apiGet('/characters')
+      .then(data => setCharacters(((data || [])).map((c) => ({
         ...c,
         goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
         tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
-      })))
+      }))))
       .catch(err => console.error("로드 실패:", err));
   }, []);
 
@@ -111,12 +109,10 @@ export default function DetailsPage() {
   useEffect(() => {
     if (!configCharId) return;
     if (equipList.length > 0) return;
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (!token) return;
-    axios.get('https://eternalhunger-e7z1.onrender.com/api/items/equipment-list', {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then((res) => {
-      setEquipList(Array.isArray(res.data) ? res.data : []);
+    apiGet('/items/equipment-list').then((data) => {
+      setEquipList(Array.isArray(data) ? data : []);
     }).catch(() => {
       setEquipList([]);
     });
@@ -158,14 +154,13 @@ export default function DetailsPage() {
 
   // 3. 저장 함수
   const saveChanges = async () => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (!window.confirm("변경된 스탯 정보를 저장하시겠습니까?")) return;
 
   try {
     // 세 번째 인자로 헤더를 넣어줍니다.
-    await axios.post('https://eternalhunger-e7z1.onrender.com/api/characters/save', characters, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    if (!token) throw new Error('로그인이 필요합니다.');
+    await apiPost('/characters/save', characters);
     alert("완벽하게 저장되었습니다!");
   } catch (err) {
     alert("저장 실패 ㅠㅠ");

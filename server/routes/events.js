@@ -3,25 +3,83 @@ const router = express.Router();
 const GameEvent = require('../models/GameEvent');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-// 모든 요청에 대해 토큰 검증 미들웨어 적용
 router.use(verifyToken);
 
-// 1. 내 이벤트 목록 가져오기
+function normalizeTimeOfDay(raw) {
+  const v = String(raw || '').trim().toLowerCase();
+  if (v === 'day' || v === 'night' || v === 'both') return v;
+  if (v === 'any' || v === 'all' || v === 'default') return 'both';
+  return 'both';
+}
+
+function normalizeStringList(raw) {
+  return (Array.isArray(raw) ? raw : [])
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+}
+
+function normalizeObject(raw) {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+}
+
+function inferEventType(doc) {
+  const type = String(doc?.type || '').trim();
+  if (type) return type;
+  return Number(doc?.victimCount || 0) > 0 ? 'death' : 'normal';
+}
+
+function buildEventDoc(raw = {}, extra = {}) {
+  const title = String(raw?.title || '').trim();
+  const text = String(raw?.text || '').trim();
+  const killers = normalizeStringList(raw?.killers);
+  const victims = normalizeStringList(raw?.victims);
+  const benefits = normalizeStringList(raw?.benefits);
+  const survivorCount = Number(raw?.survivorCount ?? (killers.length > 0 ? killers.length : (text.includes('{2}') ? 2 : 1)));
+  const victimCount = Number(raw?.victimCount ?? victims.length);
+  const timeOfDay = normalizeTimeOfDay(raw?.timeOfDay ?? raw?.time);
+  const enabled = raw?.enabled !== false;
+  const conditions = normalizeObject(raw?.conditions);
+
+  const setDoc = {
+    ...extra,
+    title,
+    text,
+    type: inferEventType({ ...raw, victimCount }),
+    enabled,
+    killers,
+    victims,
+    benefits,
+    survivorCount: Number.isFinite(survivorCount) && survivorCount > 0 ? survivorCount : 1,
+    victimCount: Number.isFinite(victimCount) && victimCount >= 0 ? victimCount : 0,
+    timeOfDay,
+    conditions,
+  };
+
+  if (raw?.mapId) setDoc.mapId = String(raw.mapId);
+  if (raw?.zoneId) setDoc.zoneId = String(raw.zoneId);
+  if (raw?.image) setDoc.image = String(raw.image);
+  if (raw?.sortOrder !== undefined) {
+    const n = Number(raw.sortOrder);
+    if (Number.isFinite(n)) setDoc.sortOrder = n;
+  }
+
+  return setDoc;
+}
+
 router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
-
-    // ✅ 필터(로드맵 6번): 생존자/사망자/낮밤/구역
     const q = { userId };
 
-    if (req.query.timeOfDay && req.query.timeOfDay !== 'both') {
-      q.timeOfDay = String(req.query.timeOfDay);
-    }
+    if (req.query.enabled === 'true') q.enabled = true;
+    if (req.query.enabled === 'false') q.enabled = false;
+
+    const timeOfDay = normalizeTimeOfDay(req.query.timeOfDay);
+    if (req.query.timeOfDay && timeOfDay !== 'both') q.timeOfDay = timeOfDay;
 
     if (req.query.mapId) q.mapId = String(req.query.mapId);
     if (req.query.zoneId) q.zoneId = String(req.query.zoneId);
 
-    // survivorCount / victimCount 범위 필터
     const sMin = req.query.survivorMin != null ? Number(req.query.survivorMin) : null;
     const sMax = req.query.survivorMax != null ? Number(req.query.survivorMax) : null;
     const vMin = req.query.victimMin != null ? Number(req.query.victimMin) : null;
@@ -38,106 +96,89 @@ router.get('/', async (req, res) => {
       if (vMax != null && !Number.isNaN(vMax)) q.victimCount.$lte = vMax;
     }
 
-    const events = await GameEvent.find(q).sort({ createdAt: 1 });
+    const events = await GameEvent.find(q).sort({ sortOrder: 1, createdAt: 1 });
     res.json(events);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "로드 실패" });
+    res.status(500).json({ error: '로드 실패' });
   }
 });
 
-// 2. 이벤트 추가 (단일/배열 모두 지원)
 router.post('/add', async (req, res) => {
   try {
     const userId = req.user.id;
     const data = req.body;
+    const baseCount = await GameEvent.countDocuments({ userId });
 
     if (Array.isArray(data)) {
-      const docs = data.map(e => ({ 
-        ...e, 
-        userId,
-        survivorCount: Number(e.survivorCount || 1),
-        victimCount: Number(e.victimCount || 0),
-        timeOfDay: e.timeOfDay || 'both'
-      }));
-      await GameEvent.insertMany(docs);
-    } else {
-      await new GameEvent({ 
-        ...data, 
-        userId,
-        survivorCount: Number(data.survivorCount || 1),
-        victimCount: Number(data.victimCount || 0),
-        timeOfDay: data.timeOfDay || 'both'
-      }).save();
+      const docs = data.map((e, idx) => buildEventDoc(e, { userId, sortOrder: baseCount + idx }));
+      if (docs.length > 0) await GameEvent.insertMany(docs);
+      return res.json({ message: '이벤트가 저장되었습니다.' });
     }
-    res.json({ message: "이벤트가 저장되었습니다." });
-  } catch (err) { 
-    res.status(500).json({ error: "저장 실패" }); 
+
+    const doc = await new GameEvent(buildEventDoc(data, { userId, sortOrder: baseCount })).save();
+    res.json({ message: '이벤트가 저장되었습니다.', event: doc });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '저장 실패' });
   }
 });
 
-// 3. 순서 재정렬 및 일괄 업데이트
 router.put('/reorder', async (req, res) => {
   try {
     const userId = req.user.id;
-    // 내 이벤트만 삭제 후 재등록
-    await GameEvent.deleteMany({ userId });
-    const docs = req.body.map(e => ({ 
-      ...e, 
-      userId, 
-      _id: undefined,
-      survivorCount: Number(e.survivorCount || 1),
-      victimCount: Number(e.victimCount || 0),
-      timeOfDay: e.timeOfDay || 'both'
-    }));
-    if (docs.length > 0) await GameEvent.insertMany(docs);
-    res.json({ message: "순서가 변경되었습니다." });
-  } catch (err) { 
-    res.status(500).json({ error: "정렬 저장 실패" }); 
+    const body = req.body;
+    const orderedIds = Array.isArray(body)
+      ? body.map((e) => String(e?._id || e?.id || '')).filter(Boolean)
+      : Array.isArray(body?.orderedIds)
+        ? body.orderedIds.map((id) => String(id || '')).filter(Boolean)
+        : [];
+
+    if (orderedIds.length === 0) {
+      return res.status(400).json({ error: 'orderedIds가 비었습니다.' });
+    }
+
+    await Promise.all(orderedIds.map((id, idx) => (
+      GameEvent.updateOne({ _id: id, userId }, { $set: { sortOrder: idx } })
+    )));
+
+    res.json({ message: '순서가 변경되었습니다.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '정렬 저장 실패' });
   }
 });
-
-// server/routes/events.js (권장)
 
 router.put('/:id', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    // ★ 프론트에서 보낸 모든 데이터를 구조 분해 할당으로 받습니다.
-    const { text, type, survivorCount, victimCount, timeOfDay, mapId, zoneId, conditions, image } = req.body;
-
-	    const setDoc = {
-	      text: String(text),
-	      type: type || 'normal',
-	      survivorCount: Number(survivorCount || 1),
-	      victimCount: Number(victimCount || 0),
-	      timeOfDay: timeOfDay || 'both',
-	      conditions: conditions || {},
-	    };
-	    const unsetDoc = {};
-	    if (mapId) setDoc.mapId = String(mapId); else unsetDoc.mapId = 1;
-	    if (zoneId) setDoc.zoneId = String(zoneId); else unsetDoc.zoneId = 1;
-	    if (image) setDoc.image = String(image); else unsetDoc.image = 1;
+    const setDoc = buildEventDoc(req.body || {});
+    const unsetDoc = {};
+    if (!req.body?.mapId) unsetDoc.mapId = 1;
+    if (!req.body?.zoneId) unsetDoc.zoneId = 1;
+    if (!req.body?.image) unsetDoc.image = 1;
 
     const updated = await GameEvent.findOneAndUpdate(
-      { _id: req.params.id, userId }, 
-	      Object.keys(unsetDoc).length ? { $set: setDoc, $unset: unsetDoc } : { $set: setDoc },
+      { _id: req.params.id, userId },
+      Object.keys(unsetDoc).length ? { $set: setDoc, $unset: unsetDoc } : { $set: setDoc },
       { new: true }
     );
 
-    if (!updated) return res.status(404).json({ error: "이벤트가 없거나 권한이 없습니다." });
-    res.json({ message: "성공적으로 수정되었습니다!", event: updated });
+    if (!updated) return res.status(404).json({ error: '이벤트가 없거나 권한이 없습니다.' });
+    res.json({ message: '성공적으로 수정되었습니다!', event: updated });
   } catch (err) {
-    res.status(500).json({ error: "수정 중 서버 오류가 발생했습니다." });
+    console.error(err);
+    res.status(500).json({ error: '수정 중 서버 오류가 발생했습니다.' });
   }
 });
 
-// 5. 개별 삭제
 router.delete('/:id', async (req, res) => {
   try {
     await GameEvent.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-    res.json({ message: "삭제 완료" });
-  } catch (err) { 
-    res.status(500).json({ error: "삭제 실패" }); 
+    res.json({ message: '삭제 완료' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '삭제 실패' });
   }
 });
 

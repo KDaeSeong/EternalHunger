@@ -31,10 +31,13 @@ router.get('/me', async (req, res) => {
  */
 router.post('/update-stats', async (req, res) => {
   try {
-    const kills = Number(req.body?.kills || 0);
+    const rawKills = Number(req.body?.kills || 0);
+    const kills = Number.isFinite(rawKills) && rawKills > 0 ? Math.floor(rawKills) : 0;
     const isWin = Boolean(req.body?.isWin);
-    const lpEarned = Number(req.body?.lpEarned || 0);
-    const creditsEarned = Number(req.body?.creditsEarned || 0);
+    const rawLpEarned = Number(req.body?.lpEarned || 0);
+    const lpEarned = Number.isFinite(rawLpEarned) && rawLpEarned > 0 ? Math.floor(rawLpEarned) : 0;
+    const rawCreditsEarned = Number(req.body?.creditsEarned || 0);
+    const creditsEarned = Number.isFinite(rawCreditsEarned) && rawCreditsEarned > 0 ? Math.floor(rawCreditsEarned) : 0;
 
     const update = {
       $inc: {
@@ -46,14 +49,17 @@ router.post('/update-stats', async (req, res) => {
       }
     };
 
-    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true });
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('username lp credits statistics isAdmin badges createdAt');
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
 
     res.json({
       message: '전적/보상 반영 완료',
       newLp: user.lp,
+      lpEarnedApplied: lpEarned,
       credits: user.credits,
-      statistics: user.statistics
+      creditsEarnedApplied: creditsEarned,
+      statistics: user.statistics,
+      user
     });
   } catch (err) {
     console.error(err);
