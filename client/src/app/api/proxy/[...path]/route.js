@@ -63,7 +63,12 @@ async function proxy(request, context) {
   }
 
   const url = new URL(request.url);
-  const path = Array.isArray(context?.params?.path) ? context.params.path.join('/') : '';
+  const params = await context?.params;
+  const path = Array.isArray(params?.path)
+    ? params.path.filter(Boolean).join('/')
+    : typeof params?.path === 'string'
+      ? params.path
+      : '';
   if (!path) {
     return NextResponse.json({ error: 'Proxy path is required' }, { status: 400 });
   }
