@@ -2,6 +2,7 @@
 // - 공통 API 유틸
 // - 기본은 NEXT_PUBLIC_API_BASE(있으면) > localStorage(EH_API_BASE) > 환경에 따른 기본값
 // - localStorage(EH_API_BASE)는 "http://localhost:5000" 처럼 /api 없는 값도 허용
+// - 배포에서 공개 API_BASE가 없으면 같은 오리진의 /api/proxy 를 자동 사용한다
 // - 실행 체크 시 인증/시뮬 페이지 모두 이 공용 유틸 기준으로 API_BASE를 맞춘다
 
 import axios from 'axios';
@@ -9,12 +10,12 @@ import axios from 'axios';
 export const DEFAULT_API_TIMEOUT_MS = 10000;
 export const AUTH_SYNC_EVENT = 'eh:auth-sync';
 export const API_BASE_CONFIG_ERROR =
-  'API_BASE가 설정되지 않았습니다. NEXT_PUBLIC_API_BASE 또는 EH_API_BASE를 확인하세요.';
+  'API_BASE를 확인할 수 없습니다. NEXT_PUBLIC_API_BASE, EH_API_BASE 또는 서버 BACKEND_BASE_URL 설정을 확인하세요.';
 
 export function normalizeApiBase(raw) {
   const v = String(raw || '').trim().replace(/\/+$/, '');
   if (!v) return '';
-  if (v.endsWith('/api')) return v;
+  if (/\/api(?:\/proxy)?$/.test(v)) return v;
   return `${v}/api`;
 }
 
@@ -32,8 +33,9 @@ export function getApiBase() {
       if (saved && String(saved).trim()) return normalizeApiBase(saved);
     } catch {}
 
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:5000/api';
+    const { hostname, origin } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:5000/api';
+    if (origin && /^https?:\/\//.test(origin)) return `${origin}/api/proxy`;
   }
 
   return '';
