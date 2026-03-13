@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { AUTH_SYNC_EVENT, apiGet, apiPost, apiPut, clearAuth, getApiBase, getToken, getUser, updateStoredUser } from '../../utils/api';
+import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getApiBase, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
 import { generateDynamicEvent } from '../../utils/eventLogic';
@@ -958,7 +958,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
     // 전설 재료 상자라면: 룰셋 dropWeightsByKey 기준으로 운석/생나/미스릴/포스코어를 굴립니다.
     if (ctLower === 'legendary_material') {
-      const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
+      const legendDropWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
+  const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
       const picked = pickWeighted(candidates);
       const item = picked?.item || null;
       if (item?._id) {
@@ -1023,7 +1024,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   if (!pickedType) return null;
 
   if (pickedType === 'legendary_material') {
-    const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
+    const legendDropWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
+  const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
     const picked = pickWeighted(candidates);
     const item = picked?.item || null;
     if (item?._id) return { item, itemId: String(item._id), qty: 1, crateId: 'fallback', crateType: 'legendary_material', zoneId: String(zoneId || '') };
@@ -1177,6 +1179,12 @@ function getLegendaryCoreCandidates(publicItems, weightsByKey = null) {
   return out;
 }
 
+function resolveLegendaryDropWeights(opts = {}, ruleset = null) {
+  if (opts?.dropWeightsByKey && typeof opts.dropWeightsByKey === 'object') return opts.dropWeightsByKey;
+  if (opts?.weightsByKey && typeof opts.weightsByKey === 'object') return opts.weightsByKey;
+  return ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey || null;
+}
+
 function rollLegendaryCrateLoot(mapObj, zoneId, publicItems, curDay, curPhase, opts = {}) {
   // 게이트: 3일차 '낮' 이후부터
   if (!isAtOrAfterWorldTime(curDay, curPhase, 3, 'day')) return null;
@@ -1186,6 +1194,7 @@ function rollLegendaryCrateLoot(mapObj, zoneId, publicItems, curDay, curPhase, o
   const chance = moved ? 0.09 : 0.03;
   if (Math.random() >= chance) return null;
 
+  const legendDropWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
   const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
   if (!candidates.length) return null;
 
@@ -2224,6 +2233,8 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
 
   const retreatBase = Number(fallback?.retreatBase ?? 0.20);
   const retreatPowerBonusMax = Number(fallback?.retreatPowerBonusMax ?? 0.25);
+  const perkFx = getActorPerkEffects(actor);
+  const perkWildLootBias = Math.max(0, getPerkWildlifeLootBias(perkFx));
 
   const kinds = ['alpha', 'omega', 'weakline'];
   for (const k of kinds) {
@@ -3621,6 +3632,18 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
 
 // --- 전송 드론(하급 아이템) 호출: 즉시 지급 ---
+function lowestEquippedTier(actor, publicItems = []) {
+  const eq = ensureEquipped(actor);
+  const items = Array.isArray(publicItems) ? publicItems : [];
+  const tiers = EQUIP_SLOTS.map((slot) => {
+    const itemId = String(eq?.[slot] || '');
+    if (!itemId) return 0;
+    const item = items.find((it) => String(it?._id || '') === itemId) || null;
+    return clampTier4(Number(item?.tier || 0));
+  }).filter((v) => Number.isFinite(v) && v > 0);
+  return tiers.length ? Math.min(...tiers) : 0;
+}
+
 function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, actor, phaseIdxNow, craftGoal, itemNameById, marketRules, absSecNow = 0) {
   // 드론은 언제든 호출 가능(하급 아이템 보급용). 캐릭터가 자동으로 호출하며, '즉시 지급' 규칙을 따른다.
   // 너무 잦으면 재미가 깨지므로 확률 + 초 단위 쿨다운으로 제어한다.
@@ -3641,8 +3664,8 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   const needId = pickMissingBasicItemId(craftGoal);
   const hasNeed = !!needId;
   const goalTier = normalizeGoalTier(actor?.goalGearTier ?? 6);
-  const legendOverdue = goalTier >= 5 && isAtOrAfterWorldTime(curDay, curPhase, 2, 'night') && lowestEquippedTier(actor) < 5;
-  const transOverdue = goalTier >= 6 && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && lowestEquippedTier(actor) < 6;
+  const legendOverdue = goalTier >= 5 && isAtOrAfterWorldTime(curDay, curPhase, 2, 'night') && lowestEquippedTier(actor, publicItems) < 5;
+  const transOverdue = goalTier >= 6 && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && lowestEquippedTier(actor, publicItems) < 6;
 
   // 목표(조합)에서 부족한 하급 재료가 있으면 조금 더 자주 호출
   const needLow = Number(dm?.chanceNeedLowInv ?? 0.55);
@@ -3952,7 +3975,8 @@ function consumeWildlifeAtZone(spawnState, mapObj, zoneId, publicItems, curDay, 
 // --- 운석/생명의 나무 자연 스폰(2일차 낮 이후, 일부 맵으로 확장 가능) ---
 function rollNaturalCoreSpawn(mapObj, zoneId, publicItems, curDay, curPhase, opts = {}) {
   // 운석/생명의 나무: 2일차 '낮' 이후부터
-    const ws = ruleset?.worldSpawns || {};
+  const ruleset = opts?.ruleset || null;
+  const ws = ruleset?.worldSpawns || {};
   const coreRule = ws?.core || {};
   const coreGateDay = Number(coreRule?.gateDay ?? 2);
   if (!isAtOrAfterWorldTime(curDay, curPhase, coreGateDay, 'day')) return null;
@@ -4913,8 +4937,8 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
 
   // 페이즈당 과도한 즉시 제작 방지
-  if (Number(actor?._specialCraftPhaseIdx ?? -9999) !== idxNow) {
-    actor._specialCraftPhaseIdx = idxNow;
+  if (Number(actor?._specialCraftPhaseIdx ?? -9999) !== phaseIdxNow) {
+    actor._specialCraftPhaseIdx = phaseIdxNow;
     actor._specialCraftCount = 0;
   }
   const cnt = Math.max(0, Number(actor?._specialCraftCount || 0));
@@ -6009,7 +6033,7 @@ if (!who) {
   // ✅ 금지구역 후보 셔플(누적 방식)
   // - day별로 따로 섞으면(시드가 달라지면) "어제 금지"가 오늘 풀리는 현상이 생길 수 있어,
   //   맵별로 1회만 셔플한 순서를 prefix로 잘라 "누적"되게 만듭니다.
-  const getForbiddenOrderForMap = (mapObj) => {
+  function getForbiddenOrderForMap(mapObj) {
     const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
     const zoneIds = z.map((x) => String(x.zoneId));
     // ✅ 초기 로드 타이밍(구역 목록이 비어있는 상태)에서 캐시가 굳어버리면
@@ -6028,9 +6052,9 @@ if (!who) {
     }
     forbiddenCacheRef.current[orderKey] = candidates;
     return candidates;
-  };
+  }
 
-  const getForbiddenZoneIdsForDay = (mapObj, dayNum) => {
+  function getForbiddenZoneIdsForDay(mapObj, dayNum) {
     const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
     const zoneIds = z.map((x) => String(x.zoneId));
     const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
@@ -6061,13 +6085,13 @@ if (!who) {
     const arr = [...base];
     forbiddenCacheRef.current[key] = arr;
     return arr;
-  };
+  }
 
   // ✅ 금지구역(확장 규칙)
   // - 요구사항: 2일차 밤부터 생성, 낮/밤(페이즈)마다 2곳씩 누적 확장
   // - 마지막(=안전구역이 2곳 남는 시점)에는 더 이상 확장하지 않고, 안전구역도 40s 유예 후 카운트가 깎이도록(아래 detonation 틱) 처리
   // - 맵의 zones[*].isForbidden은 항상 기본 금지구역으로 유지
-  const getForbiddenZoneIdsForPhase = (mapObj, dayNum, phaseKey, ruleset) => {
+  function getForbiddenZoneIdsForPhase(mapObj, dayNum, phaseKey, ruleset) {
     const effDay = Math.max(0, Number(dayNum || 0));
     const effPhase = (String(phaseKey || '') === 'night') ? 'night' : 'morning';
 
@@ -6113,7 +6137,7 @@ if (!who) {
     const arr = [...base];
     forbiddenCacheRef.current[key] = arr;
     return arr;
-  };
+  }
 
 
 
@@ -6423,42 +6447,27 @@ if (!who) {
 
     const fetchData = async () => {
       try {
-        const [charRes, eventRes, settingRes, meRes, itemsRes, mapsRes, kiosksRes, droneRes, perksRes, openTrades, mineTrades] = await Promise.allSettled([
-          apiGet('/characters'),
-          apiGet('/events'),
-          apiGet('/settings'),
-          apiGet('/user/me'),
-          apiGet('/public/items'),
-          apiGet('/public/maps'),
-          apiGet('/public/kiosks'),
-          apiGet('/public/drone-offers'),
-          apiGet('/public/perks'),
-          apiGet('/trades'),
-          apiGet('/trades?mine=true'),
+        await apiGet('/public/ping', { timeoutMs: INIT_API_TIMEOUT_MS });
+
+        const [charList, settingValue, meValue, mapsList] = await Promise.all([
+          apiGet('/characters', { timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGet('/settings', { timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGet('/user/me', { timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGet('/public/maps', { timeoutMs: INIT_API_TIMEOUT_MS }),
         ]);
 
-        const authError = [charRes, settingRes, meRes].find((result) => {
-          const status = Number(result?.reason?.status || result?.reason?.response?.status || 0);
-          return result?.status === 'rejected' && (status === 401 || status === 403);
-        });
-        if (authError) throw authError.reason;
+        const [eventRes, itemsRes, kiosksRes, droneRes, perksRes, openTrades, mineTrades] = await Promise.allSettled([
+          apiGet('/events', { timeoutMs: 20000 }),
+          apiGet('/public/items', { timeoutMs: 20000 }),
+          apiGet('/public/kiosks', { timeoutMs: 20000 }),
+          apiGet('/public/drone-offers', { timeoutMs: 20000 }),
+          apiGet('/public/perks', { timeoutMs: 20000 }),
+          apiGet('/trades', { timeoutMs: 20000 }),
+          apiGet('/trades?mine=true', { timeoutMs: 20000 }),
+        ]);
 
-        const requiredFailed = [
-          ['캐릭터', charRes],
-          ['설정', settingRes],
-          ['내 정보', meRes],
-          ['맵', mapsRes],
-        ].filter(([, result]) => result?.status === 'rejected');
-        if (requiredFailed.length) {
-          throw requiredFailed[0][1].reason || new Error(`${requiredFailed[0][0]} 로드 실패`);
-        }
-
-        const charList = getSettledArray(charRes);
         const eventsList = getSettledArray(eventRes);
-        const settingValue = getSettledValue(settingRes, {});
-        const meValue = getSettledValue(meRes, {});
         const itemsList = getSettledArray(itemsRes);
-        const mapsList = getSettledArray(mapsRes);
         const kiosksList = getSettledArray(kiosksRes);
         const droneList = getSettledArray(droneRes);
         const perksList = getSettledArray(perksRes);
@@ -10495,9 +10504,6 @@ const runActionSummary = useMemo(() => {
       ) : null}
 
       <div className="simulation-container modal-layout">
-        <div className="market-small" style={{ marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: '#eef7ff', color: '#0d47a1', border: '1px solid rgba(2, 136, 209, 0.18)' }}>
-          🧪 {initDebugLine}
-        </div>
         {/* 생존자 현황판 */}
         <aside className={`survivor-board ${uiModal === 'chars' ? 'modal-open' : ''}`}>
           {uiModal === 'chars' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
@@ -10686,6 +10692,10 @@ const runActionSummary = useMemo(() => {
                 </span>
               ) : null}
             </div>
+          </div>
+
+          <div className="market-small" style={{ margin: '10px 0 0', padding: '8px 10px', borderRadius: 8, background: '#eef7ff', color: '#0d47a1', border: '1px solid rgba(2, 136, 209, 0.18)' }}>
+            🧪 {initDebugLine}
           </div>
 
           {(() => {
@@ -11932,9 +11942,9 @@ const runActionSummary = useMemo(() => {
                     특수 보상 요약: {specialSourceSummary}
                   </div>
                 ) : null}
-                {itemSourceSummary ? (
+                {gainSourceSummary ? (
                   <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    아이템 획득 경로: {itemSourceSummary}
+                    아이템 획득 경로: {gainSourceSummary}
                   </div>
                 ) : null}
                 {creditSourceSummary ? (

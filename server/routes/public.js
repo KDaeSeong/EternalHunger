@@ -15,6 +15,15 @@ const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections
  * - 시뮬레이션/에디터/메인에서 필요한 '기본 데이터'를 비로그인으로도 조회 가능
  */
 
+
+router.get('/ping', async (req, res) => {
+  try {
+    res.json({ ok: true, ts: Date.now() });
+  } catch (err) {
+    res.status(500).json({ error: '핑 실패' });
+  }
+});
+
 router.get('/items', async (req, res) => {
   try {
     const items = await Item.find({}).sort({ createdAt: 1 });

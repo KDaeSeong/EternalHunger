@@ -8,6 +8,7 @@
 import axios from 'axios';
 
 export const DEFAULT_API_TIMEOUT_MS = 10000;
+export const INIT_API_TIMEOUT_MS = 45000;
 export const AUTH_SYNC_EVENT = 'eh:auth-sync';
 export const API_BASE_CONFIG_ERROR =
   'API_BASE를 확인할 수 없습니다. NEXT_PUBLIC_API_BASE, EH_API_BASE 또는 서버 BACKEND_BASE_URL 설정을 확인하세요.';
@@ -178,7 +179,7 @@ export async function apiRequest(method, url, data, options = {}) {
       url: fullUrl,
       data,
       headers,
-      timeout: DEFAULT_API_TIMEOUT_MS,
+      timeout: Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS),
       withCredentials: Boolean(options.withCredentials),
       responseType: options.responseType,
     });
@@ -205,7 +206,7 @@ export async function apiRequest(method, url, data, options = {}) {
     err.isNetwork = isNetwork;
     err.requestUrl = fullUrl;
     err.method = method;
-    err.timeoutMs = DEFAULT_API_TIMEOUT_MS;
+    err.timeoutMs = Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS);
     err.originalMessage = e?.message || msg;
     throw err;
   }
