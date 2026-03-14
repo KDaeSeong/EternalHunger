@@ -5755,10 +5755,10 @@ const devForceUseConsumable = (charId, invIndex) => {
     return out;
   }, [zones]);
 
-  const getZoneName = (zoneId) => {
+  function getZoneName(zoneId) {
     const key = String(zoneId || '');
     return zoneNameById[key] || key || '미상';
-  };
+  }
 
   // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
   const hyperloopDestIds = useMemo(() => {
