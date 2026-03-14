@@ -6302,7 +6302,7 @@ if (!who) {
     }
   };
 
-  const applyUserEconomyProgress = (patch = {}) => {
+  function applyUserEconomyProgress(patch = {}) {
     const hasCredits = Number.isFinite(Number(patch?.credits));
     const hasLp = Number.isFinite(Number(patch?.lp));
     const hasPerks = Array.isArray(patch?.perks);
@@ -6317,7 +6317,7 @@ if (!who) {
       ...(hasLp ? { lp: Math.max(0, Number(patch.lp || 0)) } : {}),
       ...(hasPerks ? { perks: (patch.perks || []).map((x) => String(x || '')).filter(Boolean) } : {}),
     }));
-  };
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -8414,15 +8414,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
       return { weaponTier, armorTierSum };
     };
 
-    const estimatePower = (c) => {
+    function estimatePower(c) {
       const base = combatScore(c);
       const { weaponTier, armorTierSum } = getEquipTierSummary(c);
       const pw = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
       const pa = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
       return base + weaponTier * pw + armorTierSum * pa;
-    };
+    }
 
-    const shouldAvoidCombatByPower = (me, opp) => {
+    function shouldAvoidCombatByPower(me, opp) {
       const myP = estimatePower(me);
       const opP = estimatePower(opp);
       const ratio = myP / Math.max(1, myP + opP);
