@@ -5135,6 +5135,14 @@ export default function SimulationPage() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
   const initDebugLine = `init api: ${getApiBase()} | deps: ${INIT_DEPENDENCY_PATHS.join(', ')}`;
+  const safeRenderCompute = (label, factory, fallback) => {
+    try {
+      return factory();
+    } catch (err) {
+      console.error(`[simulation:${label}]`, err);
+      return fallback;
+    }
+  };
 
   // 킬 카운트 및 결과창 관리
   const [killCounts, setKillCounts] = useState({});
@@ -9988,7 +9996,7 @@ if (showMarketPanel && pendingTranscendPick) {
     : new Set();
 
   // 🧾 런 요약: 획득 경로(아이템만 집계, 크레딧 제외)
-  const gainSourceSummary = useMemo(() => {
+  const gainSourceSummary = useMemo(() => safeRenderCompute('gainSourceSummary', () => {
     const label = {
       box: '상자',
       natural: '자연스폰',
@@ -10012,10 +10020,10 @@ if (showMarketPanel && pendingTranscendPick) {
     const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return '';
     return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-  }, [runEvents]);
+  }, ''), [runEvents]);
 
   // 💳 런 요약: 크레딧 획득 경로(크레딧만 집계)
-  const creditSourceSummary = useMemo(() => {
+  const creditSourceSummary = useMemo(() => safeRenderCompute('creditSourceSummary', () => {
     const label = {
       box: '상자',
       natural: '자연스폰',
@@ -10039,10 +10047,10 @@ if (showMarketPanel && pendingTranscendPick) {
     const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return '';
     return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-  }, [runEvents]);
+  }, ''), [runEvents]);
 
 // 🧾 런 요약: TOP 아이템/구역(아이템만 집계, 크레딧 제외)
-const gainDetailSummary = useMemo(() => {
+const gainDetailSummary = useMemo(() => safeRenderCompute('gainDetailSummary', () => {
   const topN = 3;
 
   const itemAcc = {};
@@ -10102,9 +10110,9 @@ const gainDetailSummary = useMemo(() => {
   if (itemStr && zoneStr) return `TOP 아이템: ${itemStr} | TOP 구역: ${zoneStr}`;
   if (itemStr) return `TOP 아이템: ${itemStr}`;
   return `TOP 구역: ${zoneStr}`;
-}, [runEvents, itemNameById, zoneNameById]);
+}, ''), [runEvents, itemNameById, zoneNameById]);
 
-const specialSourceSummary = useMemo(() => {
+const specialSourceSummary = useMemo(() => safeRenderCompute('specialSourceSummary', () => {
   const out = {
     bossCredits: 0,
     bossItems: 0,
@@ -10154,9 +10162,9 @@ const specialSourceSummary = useMemo(() => {
   if (out.huntItems || out.huntCredits) parts.push(`일반 사냥 아이템 ${out.huntItems}${out.huntCredits ? ` · 크레딧 ${out.huntCredits}` : ''}`);
   if (out.eventItems || out.eventCredits) parts.push(`이벤트 보상 아이템 ${out.eventItems}${out.eventCredits ? ` · 크레딧 ${out.eventCredits}` : ''}`);
   return parts.join(' | ');
-}, [runEvents]);
+}, ''), [runEvents]);
 
-const runProgressSummary = useMemo(() => {
+const runProgressSummary = useMemo(() => safeRenderCompute('runProgressSummary', () => {
   const out = {
     droneCalls: 0,
     kioskGains: 0,
@@ -10231,9 +10239,32 @@ const runProgressSummary = useMemo(() => {
     latestLegendText: stampText(out.latestLegendAt),
     latestTransText: stampText(out.latestTransAt),
   };
-}, [runEvents, itemMetaById]);
+}, {
+  droneCalls: 0,
+  kioskGains: 0,
+  craftCount: 0,
+  totalDeaths: 0,
+  totalRevives: 0,
+  totalFlees: 0,
+  firstLegendAt: null,
+  firstTransAt: null,
+  latestLegendAt: null,
+  latestTransAt: null,
+  legendWho: new Set(),
+  transWho: new Set(),
+  legendCount: 0,
+  transCount: 0,
+  reviveRate: 0,
+  fleeRate: 0,
+  legendPace: 'pending',
+  transPace: 'pending',
+  firstLegendText: '',
+  firstTransText: '',
+  latestLegendText: '',
+  latestTransText: '',
+}), [runEvents, itemMetaById]);
 
-const runSupportSummary = useMemo(() => {
+const runSupportSummary = useMemo(() => safeRenderCompute('runSupportSummary', () => {
   const out = {
     autoUseCount: 0,
     manualUseCount: 0,
@@ -10274,9 +10305,21 @@ const runSupportSummary = useMemo(() => {
     topEffects,
     line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · cleanse ${out.totalCleanse} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
   };
-}, [runEvents, itemNameById]);
+}, {
+  autoUseCount: 0,
+  manualUseCount: 0,
+  totalHeal: 0,
+  totalCleanse: 0,
+  skillUseCount: 0,
+  appliedEffects: 0,
+  immuneEffects: 0,
+  resistedEffects: 0,
+  topItems: '',
+  topEffects: '',
+  line: '',
+}), [runEvents, itemNameById]);
 
-const runActionSummary = useMemo(() => {
+const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () => {
   const out = {
     queued: 0,
     blocked: 0,
@@ -10358,10 +10401,39 @@ const runActionSummary = useMemo(() => {
     chaseLine: `escapeFail ${out.escapeFail} · noChase ${out.escapeNoChase} · escaped ${out.escapedAfterChase + out.blinkEscape} · caught ${out.caught}`,
     tuningLine: `avgEscape ${(out.avgEscape * 100).toFixed(0)}% · avgChase ${(out.avgChase * 100).toFixed(0)}% · avgCatch ${(out.avgCatch * 100).toFixed(0)}% · preDmg ${out.avgPreDamage.toFixed(1)}`,
   };
-}, [runEvents]);
+}, {
+  queued: 0,
+  blocked: 0,
+  fleeChosen: 0,
+  moveChosen: 0,
+  craftChosen: 0,
+  droneChosen: 0,
+  kioskChosen: 0,
+  escapeFail: 0,
+  escapeNoChase: 0,
+  escapedAfterChase: 0,
+  caught: 0,
+  blinkEscape: 0,
+  avgEscape: 0,
+  avgChase: 0,
+  avgCatch: 0,
+  avgPreDamage: 0,
+  topBlocked: '',
+  topDeferred: '',
+  line: '',
+  chaseLine: '',
+  tuningLine: '',
+}), [runEvents]);
+
+  const topRankedCharacters = useMemo(() => safeRenderCompute('topRankedCharacters', () => {
+    return [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])]
+      .filter(Boolean)
+      .sort((a, b) => ((killCounts?.[b?._id] || 0) - (killCounts?.[a?._id] || 0)) || ((assistCounts?.[b?._id] || 0) - (assistCounts?.[a?._id] || 0)))
+      .slice(0, 3);
+  }, []), [survivors, dead, killCounts, assistCounts]);
 
   // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
-  const zonePos = useMemo(() => {
+  const zonePos = useMemo(() => safeRenderCompute('zonePos', () => {
     const z = Array.isArray(zones) ? zones : [];
     const ids = z.map((x) => String(x?.zoneId || '')).filter(Boolean).sort();
     const out = {};
@@ -10385,9 +10457,9 @@ const runActionSummary = useMemo(() => {
       });
     }
     return out;
-  }, [zones]);
+  }, {}), [zones]);
 
-  const zoneEdges = useMemo(() => {
+  const zoneEdges = useMemo(() => safeRenderCompute('zoneEdges', () => {
     const ids = (Array.isArray(zones) ? zones : []).map((x) => String(x?.zoneId || '')).filter(Boolean);
     const idSet = new Set(ids);
     const uniq = new Set();
@@ -10404,7 +10476,7 @@ const runActionSummary = useMemo(() => {
       });
     });
     return edges;
-  }, [zoneGraph, zones]);
+  }, []), [zoneGraph, zones]);
 
   // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
   const [pingNow, setPingNow] = useState(() => Date.now());
@@ -10413,7 +10485,7 @@ const runActionSummary = useMemo(() => {
     return () => clearInterval(t);
   }, []);
 
-  const recentPings = useMemo(() => {
+  const recentPings = useMemo(() => safeRenderCompute('recentPings', () => {
     const now = Number(pingNow || Date.now());
     const ttlMs = 8000;
     const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-260);
@@ -10468,7 +10540,7 @@ const runActionSummary = useMemo(() => {
     }
 
     return out;
-  }, [runEvents, pingNow, zonePos]);
+  }, []), [runEvents, pingNow, zonePos]);
 
 
   return (
@@ -12003,9 +12075,7 @@ const runActionSummary = useMemo(() => {
             <div className="stats-summary">
               <h3>⚔️ 킬 랭킹 (Top 3)</h3>
               <ul>
-                {[...survivors, ...dead]
-                  .sort((a, b) => ((killCounts[b._id] || 0) - (killCounts[a._id] || 0)) || ((assistCounts[b._id] || 0) - (assistCounts[a._id] || 0)))
-                  .slice(0, 3)
+                {topRankedCharacters
                   .map((char, idx) => (
                     <li key={char._id}>
                       <span>{idx + 1}위. {char.name}</span>
