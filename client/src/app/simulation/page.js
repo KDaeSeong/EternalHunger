@@ -10543,6 +10543,82 @@ const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () 
   }, []), [runEvents, pingNow, zonePos]);
 
 
+  const detonationRiskSummary = useMemo(() => safeRenderCompute('detonationRiskSummary', () => {
+    if (day <= 0) return {
+      visible: false,
+      total: 0,
+      forbiddenCnt: 0,
+      safeLeft: 0,
+      riskyCount: 0,
+      riskyTitle: '',
+      willForceAllThisPhase: false,
+      fzHoverText: '현재 금지구역 없음',
+    };
+    const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
+    const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
+    const safeLeft = Math.max(0, total - forbiddenCnt);
+    const rs = getRuleset(settings?.rulesetId);
+    const critical = Math.max(0, Number(rs?.detonation?.criticalSec ?? 5));
+    const riskyChars = [];
+    for (const c of (Array.isArray(survivors) ? survivors : [])) {
+      const d = Number(c?.detonationSec);
+      if (!Number.isFinite(d)) continue;
+      const sec = Math.max(0, Math.floor(d));
+      if (sec > critical) continue;
+      riskyChars.push({ name: c?.name, sec });
+    }
+    riskyChars.sort((a, b) => Number(a?.sec || 0) - Number(b?.sec || 0));
+    const riskyCount = riskyChars.length;
+    const riskyMin = riskyCount ? Number(riskyChars[0]?.sec || 0) : null;
+    const riskyNames = riskyCount
+      ? (() => {
+          const names = [];
+          for (const x of riskyChars) {
+            const nm = String(x?.name || '???').trim();
+            if (nm) names.push(nm);
+          }
+          const head = names.slice(0, 5);
+          const extra = names.length > 5 ? ` 외 ${names.length - 5}명` : '';
+          return `${head.join(', ')}${extra}`;
+        })()
+      : '';
+    const riskyTitle = riskyCount
+      ? `폭발 타이머 임계치(≤${critical}s) 이하 · 최저 ${riskyMin}s: ${riskyNames}`
+      : `폭발 타이머 임계치(≤${critical}s) 이하 생존자 수`;
+    const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
+    const isEndgame = safeLeft <= 2 && total > 0;
+    const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
+    const willForceAllThisPhase = isEndgame && curPhaseDur >= detForceAll;
+    const fzNameArr = forbiddenCnt
+      ? Array.from(forbiddenNow)
+          .map((z) => String(getZoneName(z) || ''))
+          .filter((x) => x && x !== '__default__')
+      : [];
+    const fzHead = fzNameArr.slice(0, 5);
+    const fzExtra = fzNameArr.length > 5 ? ` (+${fzNameArr.length - 5})` : '';
+    const fzNamesShort = fzNameArr.length ? `${fzHead.join(', ')}${fzExtra}` : '';
+    const fzHoverText = forbiddenCnt ? `금지구역: ${fzNamesShort}` : '현재 금지구역 없음';
+    return {
+      visible: true,
+      total,
+      forbiddenCnt,
+      safeLeft,
+      riskyCount,
+      riskyTitle,
+      willForceAllThisPhase,
+      fzHoverText,
+    };
+  }, {
+    visible: false,
+    total: 0,
+    forbiddenCnt: 0,
+    safeLeft: 0,
+    riskyCount: 0,
+    riskyTitle: '',
+    willForceAllThisPhase: false,
+    fzHoverText: '현재 금지구역 없음',
+  }), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase]);
+
   return (
     <main className="simulation-page">
       <header>
@@ -10770,82 +10846,31 @@ const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () 
             🧪 {initDebugLine}
           </div>
 
-          {(() => {
-            if (day <= 0) return null;
-            const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
-            const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
-            const safeLeft = Math.max(0, total - forbiddenCnt);
-            const rs = getRuleset(settings?.rulesetId);
-            const critical = Math.max(0, Number(rs?.detonation?.criticalSec ?? 5));
-            const riskyChars = (Array.isArray(survivors) ? survivors : [])
-              .map((c) => {
-                const d = Number(c?.detonationSec);
-                if (!Number.isFinite(d)) return null;
-                return { name: c?.name, sec: Math.max(0, Math.floor(d)) };
-              })
-              .filter(Boolean)
-              .filter((x) => x.sec <= critical)
-              .sort((a, b) => a.sec - b.sec);
-            const riskyCount = riskyChars.length;
-            const riskyMin = riskyCount ? riskyChars[0].sec : null;
-            const riskyNames = riskyCount
-              ? (() => {
-                  const names = riskyChars.map((x) => String(x?.name || '???')).filter(Boolean);
-                  const head = names.slice(0, 5);
-                  const extra = names.length > 5 ? ` 외 ${names.length - 5}명` : '';
-                  return `${head.join(', ')}${extra}`;
-                })()
-              : '';
-            const riskyTitle = riskyCount
-              ? `폭발 타이머 임계치(≤${critical}s) 이하 · 최저 ${riskyMin}s: ${riskyNames}`
-              : `폭발 타이머 임계치(≤${critical}s) 이하 생존자 수`;
-            const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
-            const isEndgame = safeLeft <= 2 && total > 0;
-            const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
-            const willForceAllThisPhase = isEndgame && curPhaseDur >= detForceAll;
-            const fzNameArr = forbiddenCnt
-              ? Array.from(forbiddenNow)
-                  .map((z) => String(getZoneName(z) || ''))
-                  .filter((x) => x && x !== '__default__')
-              : [];
-            // 가독성: 최대 5개까지만 보여주고 나머지는 (+n)으로 축약
-            const fzHead = fzNameArr.slice(0, 5);
-            const fzExtra = fzNameArr.length > 5 ? ` (+${fzNameArr.length - 5})` : '';
-            const fzNamesShort = fzNameArr.length ? `${fzHead.join(', ')}${fzExtra}` : '';
-            const fzHoverText = forbiddenCnt ? `금지구역: ${fzNamesShort}` : '현재 금지구역 없음';
-
-            return (
-              <div className="forbidden-top-bar">
-                <span className="fz-title">🚫 금지구역</span>
-                <span className="fz-chip" title="6번째 밤부터는 교전을 강하게 유도(서든데스)하고, 마지막 1명 생존 시 게임이 종료됩니다.">
-                  🔥 서든데스: <b>6번째 밤 이후</b>
+          {detonationRiskSummary?.visible ? (
+            <div className="forbidden-top-bar">
+              <span className="fz-title">🚫 금지구역</span>
+              <span className="fz-chip" title="6번째 밤부터는 교전을 강하게 유도(서든데스)하고, 마지막 1명 생존 시 게임이 종료됩니다.">
+                🔥 서든데스: <b>6번째 밤 이후</b>
+              </span>
+              <span className="fz-chip" title={detonationRiskSummary?.fzHoverText || '현재 금지구역 없음'}>금지 <b>{detonationRiskSummary?.forbiddenCnt || 0}</b> / 전체 <b>{detonationRiskSummary?.total || 0}</b> · 안전 <b>{detonationRiskSummary?.safeLeft || 0}</b></span>
+              <span
+                className={`fz-chip ${(detonationRiskSummary?.riskyCount || 0) > 0 ? 'fz-danger' : ''}`}
+                title={detonationRiskSummary?.riskyTitle || '폭발 타이머 임계치 이하 생존자 수'}
+              >
+                ⚠️ 위험 <b>{detonationRiskSummary?.riskyCount || 0}</b>명
+              </span>
+              {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
+                <span className="fz-chip fz-danger" title={`이번 진행에서 새로 금지된 구역: ${forbiddenAddedNow.map((z) => getZoneName(z)).join(', ')}`}>
+                  +{forbiddenAddedNow.length} 신규 금지
                 </span>
-                <span className="fz-chip" title={fzHoverText}>금지 <b>{forbiddenCnt}</b> / 전체 <b>{total}</b> · 안전 <b>{safeLeft}</b></span>
-                <span
-                  className={`fz-chip ${riskyCount > 0 ? 'fz-danger' : ''}`}
-                  title={riskyTitle}
-                >
-                  ⚠️ 위험 <b>{riskyCount}</b>명
+              ) : null}
+              {detonationRiskSummary?.willForceAllThisPhase ? (
+                <span className="fz-chip fz-danger" title="안전구역이 1~2개 남은 상태에서 현 페이즈 길이가 기준 이상이면 폭발이 전 구역에 적용됩니다.">
+                  ☢️ 이번 페이즈 전구역 폭발 가능
                 </span>
-                {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
-                  <span className="fz-chip">➕ 이번 페이즈 <b>+{forbiddenAddedNow.length}</b></span>
-                ) : null}
-                {forbiddenCnt ? (
-                  <span className="fz-list" title={fzHoverText}>📍 {fzNamesShort}</span>
-                ) : (
-                  <span className="fz-list">(현재 금지구역 없음)</span>
-                )}
-                {isEndgame ? (
-                  <span
-                    className={`fz-chip ${willForceAllThisPhase ? 'fz-danger' : 'fz-final'}`}
-                    title="안전구역이 2곳만 남으면 유예 후, 안전구역도 포함해 모든 구역에서 폭발 타이머가 감소합니다."
-                  >
-                    🔥 전구역 위험: <b>{willForceAllThisPhase ? 'ON' : '유예중'}</b> · 유예 <b>{detForceAll}s</b>
-                  </span>
-                ) : null}
-              </div>
-            );
-          })()}
+              ) : null}
+            </div>
+          ) : null}
 
 
 {(() => {
