@@ -9995,8 +9995,13 @@ if (showMarketPanel && pendingTranscendPick) {
     ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase, getRuleset(settings?.rulesetId)))
     : new Set();
 
+  const shouldComputeHeavyDerived = showResultModal || showMarketPanel || uiModal === 'map' || uiModal === 'chars' || uiModal === 'log';
+  const shouldComputeMapDerived = uiModal === 'map';
+
   // 🧾 런 요약: 획득 경로(아이템만 집계, 크레딧 제외)
-  const gainSourceSummary = useMemo(() => safeRenderCompute('gainSourceSummary', () => {
+  const gainSourceSummary = useMemo(() => {
+    if (!shouldComputeHeavyDerived) return '';
+    return safeRenderCompute('gainSourceSummary', () => {
     const label = {
       box: '상자',
       natural: '자연스폰',
@@ -10020,10 +10025,12 @@ if (showMarketPanel && pendingTranscendPick) {
     const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return '';
     return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-  }, ''), [runEvents]);
+  }, ''), [runEvents, shouldComputeHeavyDerived]);
 
   // 💳 런 요약: 크레딧 획득 경로(크레딧만 집계)
-  const creditSourceSummary = useMemo(() => safeRenderCompute('creditSourceSummary', () => {
+  const creditSourceSummary = useMemo(() => {
+    if (!shouldComputeHeavyDerived) return '';
+    return safeRenderCompute('creditSourceSummary', () => {
     const label = {
       box: '상자',
       natural: '자연스폰',
@@ -10047,10 +10054,12 @@ if (showMarketPanel && pendingTranscendPick) {
     const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return '';
     return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-  }, ''), [runEvents]);
+  }, ''), [runEvents, shouldComputeHeavyDerived]);
 
 // 🧾 런 요약: TOP 아이템/구역(아이템만 집계, 크레딧 제외)
-const gainDetailSummary = useMemo(() => safeRenderCompute('gainDetailSummary', () => {
+const gainDetailSummary = useMemo(() => {
+  if (!shouldComputeHeavyDerived) return '';
+  return safeRenderCompute('gainDetailSummary', () => {
   const topN = 3;
 
   const itemAcc = {};
@@ -10112,7 +10121,9 @@ const gainDetailSummary = useMemo(() => safeRenderCompute('gainDetailSummary', (
   return `TOP 구역: ${zoneStr}`;
 }, ''), [runEvents, itemNameById, zoneNameById]);
 
-const specialSourceSummary = useMemo(() => safeRenderCompute('specialSourceSummary', () => {
+const specialSourceSummary = useMemo(() => {
+  if (!shouldComputeHeavyDerived) return '';
+  return safeRenderCompute('specialSourceSummary', () => {
   const out = {
     bossCredits: 0,
     bossItems: 0,
@@ -10164,7 +10175,9 @@ const specialSourceSummary = useMemo(() => safeRenderCompute('specialSourceSumma
   return parts.join(' | ');
 }, ''), [runEvents]);
 
-const runProgressSummary = useMemo(() => safeRenderCompute('runProgressSummary', () => {
+const runProgressSummary = useMemo(() => {
+  if (!shouldComputeHeavyDerived) return { line: '', topZones: '', topVictims: '', topKillers: '', topItems: '' };
+  return safeRenderCompute('runProgressSummary', () => {
   const out = {
     droneCalls: 0,
     kioskGains: 0,
@@ -10264,7 +10277,9 @@ const runProgressSummary = useMemo(() => safeRenderCompute('runProgressSummary',
   latestTransText: '',
 }), [runEvents, itemMetaById]);
 
-const runSupportSummary = useMemo(() => safeRenderCompute('runSupportSummary', () => {
+const runSupportSummary = useMemo(() => {
+  if (!shouldComputeHeavyDerived) return { line: '', topItems: '', topEffects: '', autoUseCount: 0, manualUseCount: 0, totalHeal: 0, totalCleanse: 0, skillUseCount: 0, appliedEffects: 0, resistedEffects: 0 };
+  return safeRenderCompute('runSupportSummary', () => {
   const out = {
     autoUseCount: 0,
     manualUseCount: 0,
@@ -10319,7 +10334,9 @@ const runSupportSummary = useMemo(() => safeRenderCompute('runSupportSummary', (
   line: '',
 }), [runEvents, itemNameById]);
 
-const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () => {
+const runActionSummary = useMemo(() => {
+  if (!shouldComputeHeavyDerived) return { line: '', topBlocked: '', topDeferred: '', avgEscape: 0, avgChase: 0, avgCatch: 0, avgPreDamage: 0 };
+  return safeRenderCompute('runActionSummary', () => {
   const out = {
     queued: 0,
     blocked: 0,
@@ -10425,15 +10442,19 @@ const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () 
   tuningLine: '',
 }), [runEvents]);
 
-  const topRankedCharacters = useMemo(() => safeRenderCompute('topRankedCharacters', () => {
+  const topRankedCharacters = useMemo(() => {
+    if (!shouldComputeHeavyDerived) return [];
+    return safeRenderCompute('topRankedCharacters', () => {
     return [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])]
       .filter(Boolean)
       .sort((a, b) => ((killCounts?.[b?._id] || 0) - (killCounts?.[a?._id] || 0)) || ((assistCounts?.[b?._id] || 0) - (assistCounts?.[a?._id] || 0)))
       .slice(0, 3);
-  }, []), [survivors, dead, killCounts, assistCounts]);
+  }, []), [survivors, dead, killCounts, assistCounts, shouldComputeHeavyDerived]);
 
   // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
-  const zonePos = useMemo(() => safeRenderCompute('zonePos', () => {
+  const zonePos = useMemo(() => {
+    if (!shouldComputeMapDerived) return {};
+    return safeRenderCompute('zonePos', () => {
     const z = Array.isArray(zones) ? zones : [];
     const ids = z.map((x) => String(x?.zoneId || '')).filter(Boolean).sort();
     const out = {};
@@ -10459,7 +10480,9 @@ const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () 
     return out;
   }, {}), [zones]);
 
-  const zoneEdges = useMemo(() => safeRenderCompute('zoneEdges', () => {
+  const zoneEdges = useMemo(() => {
+    if (!shouldComputeMapDerived) return [];
+    return safeRenderCompute('zoneEdges', () => {
     const ids = (Array.isArray(zones) ? zones : []).map((x) => String(x?.zoneId || '')).filter(Boolean);
     const idSet = new Set(ids);
     const uniq = new Set();
@@ -10485,7 +10508,9 @@ const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () 
     return () => clearInterval(t);
   }, []);
 
-  const recentPings = useMemo(() => safeRenderCompute('recentPings', () => {
+  const recentPings = useMemo(() => {
+    if (!shouldComputeMapDerived) return [];
+    return safeRenderCompute('recentPings', () => {
     const now = Number(pingNow || Date.now());
     const ttlMs = 8000;
     const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-260);
@@ -10540,7 +10565,7 @@ const runActionSummary = useMemo(() => safeRenderCompute('runActionSummary', () 
     }
 
     return out;
-  }, []), [runEvents, pingNow, zonePos]);
+  }, []), [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
 
 
   const detonationRiskSummary = useMemo(() => safeRenderCompute('detonationRiskSummary', () => {
