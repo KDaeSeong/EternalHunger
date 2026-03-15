@@ -73,3 +73,5 @@
 - 남은 디버그 UI를 유지할지 숨길지 결정
 - 행동 큐 점수 튜닝값과 추격 확률 지표를 실제 1판 로그 기준으로 2차 조정
 - 최신 ZIP 기준 중복 파일/구버전 정리
+
+- 2026-03-15 stepA115: simulation/page.js 키오스크 카탈로그 조회부의 문법 파손(`function kioskDoc(...).find`)을 `const kioskDoc = ...find(...)`로 복구.

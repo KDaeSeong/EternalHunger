@@ -48,3 +48,5 @@
 - `client/scripts/fix-proxy-migration.js`
 - `ETERNAL_HUNGER_STRUCTURE.md`
 - `ETERNAL_HUNGER_REMAINING_TASKS.md`
+
+- 2026-03-15 stepA115: simulation/page.js 키오스크 카탈로그 조회부의 문법 파손(`function kioskDoc(...).find`)을 `const kioskDoc = ...find(...)`로 복구.

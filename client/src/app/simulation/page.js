@@ -3291,7 +3291,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
   // ✅ 서버(어드민)에서 편집한 키오스크 카탈로그가 있으면 그대로 사용(우선)
   // - 카탈로그는 각 키오스크 문서(Kiosk.catalog)에 저장되며, /public/kiosks로 내려옵니다.
-  function kioskDoc(Array.isArray(kiosks) ? kiosks : []).find((k) {
+  const kioskDoc = (Array.isArray(kiosks) ? kiosks : []).find((k) => {
     const mid = String(k?.mapId?._id || k?.mapId || '').trim();
     const zid = String(k?.zoneId || '').trim();
     return mid && String(mapObj?._id || '').trim() === mid && String(zoneId || '').trim() === zid;
