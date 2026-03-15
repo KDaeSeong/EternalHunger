@@ -35,3 +35,16 @@
 
 ## 추가 문서
 - ETERNAL_HUNGER_REMAINING_TASKS.md : 남은 작업 우선순위 목록
+
+
+## 최근 STEP A 핫픽스
+- `client/src/app/simulation/page.js`
+  - `pickAutoTranscendOption` 문법 오류 복구 (`function scored...` → `const scored = ...`)
+  - 목적: Vercel/Next.js Turbopack 파싱 에러 제거
+
+## 이번 ZIP에서 바로 봐야 할 파일
+- `client/src/app/simulation/page.js`
+- `client/package.json`
+- `client/scripts/fix-proxy-migration.js`
+- `ETERNAL_HUNGER_STRUCTURE.md`
+- `ETERNAL_HUNGER_REMAINING_TASKS.md`

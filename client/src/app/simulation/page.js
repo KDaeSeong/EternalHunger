@@ -877,7 +877,7 @@ function rollTranscendPickOptions(publicItems, count = 3) {
 
 function pickAutoTranscendOption(options, publicItems) {
   const list = Array.isArray(publicItems) ? publicItems : [];
-  function scored(Array.isArray(options) ? options : []).map((o) {
+  const scored = (Array.isArray(options) ? options : []).map((o) => {
     const it = list.find((x) => String(x?._id) === String(o?.itemId)) || null;
     const tier = clampTier4(it?.tier ?? o?.tier ?? 4);
     const v = Number(it?.baseCreditValue ?? it?.value ?? 0);
