@@ -10025,7 +10025,8 @@ if (showMarketPanel && pendingTranscendPick) {
     const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return '';
     return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-  }, ''), [runEvents, shouldComputeHeavyDerived]);
+    }, '');
+  }, [runEvents, shouldComputeHeavyDerived]);
 
   // 💳 런 요약: 크레딧 획득 경로(크레딧만 집계)
   const creditSourceSummary = useMemo(() => {
@@ -10054,7 +10055,8 @@ if (showMarketPanel && pendingTranscendPick) {
     const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!entries.length) return '';
     return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-  }, ''), [runEvents, shouldComputeHeavyDerived]);
+    }, '');
+  }, [runEvents, shouldComputeHeavyDerived]);
 
 // 🧾 런 요약: TOP 아이템/구역(아이템만 집계, 크레딧 제외)
 const gainDetailSummary = useMemo(() => {
@@ -10119,7 +10121,8 @@ const gainDetailSummary = useMemo(() => {
   if (itemStr && zoneStr) return `TOP 아이템: ${itemStr} | TOP 구역: ${zoneStr}`;
   if (itemStr) return `TOP 아이템: ${itemStr}`;
   return `TOP 구역: ${zoneStr}`;
-}, ''), [runEvents, itemNameById, zoneNameById]);
+  }, '');
+}, [runEvents, itemNameById, zoneNameById]);
 
 const specialSourceSummary = useMemo(() => {
   if (!shouldComputeHeavyDerived) return '';
@@ -10173,7 +10176,8 @@ const specialSourceSummary = useMemo(() => {
   if (out.huntItems || out.huntCredits) parts.push(`일반 사냥 아이템 ${out.huntItems}${out.huntCredits ? ` · 크레딧 ${out.huntCredits}` : ''}`);
   if (out.eventItems || out.eventCredits) parts.push(`이벤트 보상 아이템 ${out.eventItems}${out.eventCredits ? ` · 크레딧 ${out.eventCredits}` : ''}`);
   return parts.join(' | ');
-}, ''), [runEvents]);
+  }, '');
+}, [runEvents]);
 
 const runProgressSummary = useMemo(() => {
   if (!shouldComputeHeavyDerived) return { line: '', topZones: '', topVictims: '', topKillers: '', topItems: '' };

@@ -77,3 +77,5 @@
 - stepA116: simulation/page.js 파싱 오류 2건(scored, kioskDoc) 복구
 
 - stepA117: simulation/page.js 파싱 오류 1건(missNeedCount 선언부) 복구
+
+- stepA118: simulation/page.js useMemo/safeRenderCompute 닫힘 구문 4건(gainSourceSummary, creditSourceSummary, gainDetailSummary, specialSourceSummary) 복구
