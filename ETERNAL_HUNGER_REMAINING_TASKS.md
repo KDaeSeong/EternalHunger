@@ -2,7 +2,6 @@
 # Eternal Hunger 남은 작업 목록
 
 ## 최근 반영
-- `client/src/app/simulation/page.js`의 `pickAutoTranscendOption` 문법 오류 수정으로 Turbopack 파싱 실패 1건 제거
 - 보스/변이/이벤트/사냥 드랍을 공용 reward 정규화로 묶고, 결과 모달에 특수 보상/획득 경로 요약 반영
 - 관리자 가드(`AdminShell`)의 토큰/권한 확인을 공용 auth/API 유틸 기준으로 정리
 - 관리자 이식 화면(`ImportClient`)의 API_BASE/토큰/캐릭터 이식 호출을 공용 API 유틸 기준으로 통일
@@ -74,4 +73,5 @@
 - 행동 큐 점수 튜닝값과 추격 확률 지표를 실제 1판 로그 기준으로 2차 조정
 - 최신 ZIP 기준 중복 파일/구버전 정리
 
-- 2026-03-15 stepA115: simulation/page.js 키오스크 카탈로그 조회부의 문법 파손(`function kioskDoc(...).find`)을 `const kioskDoc = ...find(...)`로 복구.
+## 최근 핫픽스 메모
+- stepA116: simulation/page.js 파싱 오류 2건(scored, kioskDoc) 복구
