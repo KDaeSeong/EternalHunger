@@ -38,3 +38,5 @@
 
 ## 최근 핫픽스
 - stepA116: client/src/app/simulation/page.js 내 파싱 오류 2건 복구(scored/kioskDoc 선언부)
+
+- stepA117: simulation/page.js 파싱 오류 1건(missNeedCount 선언부) 복구

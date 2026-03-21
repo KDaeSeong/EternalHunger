@@ -3415,7 +3415,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
   const has = (it, q=1) => (it?._id ? invQty(inv, String(it._id)) : 0) >= Math.max(1, Number(q||1));
-  function missNeedCount(specialKey) => (Array.isArray(miss) ? miss : []).reduce((sum, m) {
+  const missNeedCount = (specialKey) => (Array.isArray(miss) ? miss : []).reduce((sum, m) => {
     const key = String(m?.special || classifySpecialByName(m?.name) || '');
     if (key !== String(specialKey || '')) return sum;
     return sum + Math.max(0, Number(m?.need || 1) - Number(m?.have || 0));
