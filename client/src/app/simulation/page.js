@@ -10279,7 +10279,8 @@ const runProgressSummary = useMemo(() => {
   firstTransText: '',
   latestLegendText: '',
   latestTransText: '',
-}), [runEvents, itemMetaById]);
+  });
+}, [runEvents, itemMetaById]);
 
 const runSupportSummary = useMemo(() => {
   if (!shouldComputeHeavyDerived) return { line: '', topItems: '', topEffects: '', autoUseCount: 0, manualUseCount: 0, totalHeal: 0, totalCleanse: 0, skillUseCount: 0, appliedEffects: 0, resistedEffects: 0 };
@@ -10336,7 +10337,8 @@ const runSupportSummary = useMemo(() => {
   topItems: '',
   topEffects: '',
   line: '',
-}), [runEvents, itemNameById]);
+  });
+}, [runEvents, itemNameById]);
 
 const runActionSummary = useMemo(() => {
   if (!shouldComputeHeavyDerived) return { line: '', topBlocked: '', topDeferred: '', avgEscape: 0, avgChase: 0, avgCatch: 0, avgPreDamage: 0 };
@@ -10444,7 +10446,8 @@ const runActionSummary = useMemo(() => {
   line: '',
   chaseLine: '',
   tuningLine: '',
-}), [runEvents]);
+  });
+}, [runEvents]);
 
   const topRankedCharacters = useMemo(() => {
     if (!shouldComputeHeavyDerived) return [];
@@ -10453,7 +10456,8 @@ const runActionSummary = useMemo(() => {
       .filter(Boolean)
       .sort((a, b) => ((killCounts?.[b?._id] || 0) - (killCounts?.[a?._id] || 0)) || ((assistCounts?.[b?._id] || 0) - (assistCounts?.[a?._id] || 0)))
       .slice(0, 3);
-  }, []), [survivors, dead, killCounts, assistCounts, shouldComputeHeavyDerived]);
+    }, []);
+  }, [survivors, dead, killCounts, assistCounts, shouldComputeHeavyDerived]);
 
   // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
   const zonePos = useMemo(() => {
@@ -10482,7 +10486,8 @@ const runActionSummary = useMemo(() => {
       });
     }
     return out;
-  }, {}), [zones]);
+    }, {});
+  }, [zones]);
 
   const zoneEdges = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
@@ -10503,7 +10508,8 @@ const runActionSummary = useMemo(() => {
       });
     });
     return edges;
-  }, []), [zoneGraph, zones]);
+    }, []);
+  }, [zoneGraph, zones]);
 
   // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
   const [pingNow, setPingNow] = useState(() => Date.now());
@@ -10569,7 +10575,8 @@ const runActionSummary = useMemo(() => {
     }
 
     return out;
-  }, []), [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
+    }, []);
+  }, [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
 
 
   const detonationRiskSummary = useMemo(() => safeRenderCompute('detonationRiskSummary', () => {
@@ -10646,7 +10653,8 @@ const runActionSummary = useMemo(() => {
     riskyTitle: '',
     willForceAllThisPhase: false,
     fzHoverText: '현재 금지구역 없음',
-  }), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase]);
+  });
+  }, [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase]);
 
   return (
     <main className="simulation-page">

@@ -42,3 +42,6 @@
 - stepA117: simulation/page.js 파싱 오류 1건(missNeedCount 선언부) 복구
 
 - stepA118: simulation/page.js useMemo/safeRenderCompute 닫힘 구문 4건(gainSourceSummary, creditSourceSummary, gainDetailSummary, specialSourceSummary) 복구
+
+
+- stepA119: simulation/page.js useMemo/safeRenderCompute 닫힘 구문 8건(runProgressSummary, runSupportSummary, runActionSummary, topRankedCharacters, zonePos, zoneEdges, recentPings, detonationRiskSummary) 복구
