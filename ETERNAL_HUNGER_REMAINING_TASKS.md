@@ -82,3 +82,5 @@
 
 
 - stepA119: simulation/page.js useMemo/safeRenderCompute 닫힘 구문 8건(runProgressSummary, runSupportSummary, runActionSummary, topRankedCharacters, zonePos, zoneEdges, recentPings, detonationRiskSummary) 복구
+
+- stepA120: simulation/page.js detonationRiskSummary useMemo/safeRenderCompute closing parse hotfix (`});` + deps split -> `}), [deps]);`).

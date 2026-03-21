@@ -10653,8 +10653,7 @@ const runActionSummary = useMemo(() => {
     riskyTitle: '',
     willForceAllThisPhase: false,
     fzHoverText: '현재 금지구역 없음',
-  });
-  }, [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase]);
+  }), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase]);
 
   return (
     <main className="simulation-page">
