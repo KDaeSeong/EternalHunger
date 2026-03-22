@@ -5161,7 +5161,8 @@ export default function SimulationPage() {
   const PREVLOGS_OPEN_KEY = 'eh_prevlogs_open';
   const [showPrevLogs, setShowPrevLogs] = useState(() => {
     try {
-      return localStorage.getItem(PREVLOGS_OPEN_KEY) === '1';
+      if (typeof window === 'undefined' || !window.localStorage) return false;
+      return window.localStorage.getItem(PREVLOGS_OPEN_KEY) === '1';
     } catch {
       return false;
     }
@@ -5169,7 +5170,8 @@ export default function SimulationPage() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREVLOGS_OPEN_KEY, showPrevLogs ? '1' : '0');
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      window.localStorage.setItem(PREVLOGS_OPEN_KEY, showPrevLogs ? '1' : '0');
     } catch {
       // ignore
     }
@@ -5398,7 +5400,8 @@ const activeMapName = useMemo(() => {
   const SEED_STORAGE_KEY = 'eh_run_seed';
   function getInitialSeed() {
     try {
-      const v = localStorage.getItem(SEED_STORAGE_KEY);
+      if (typeof window === 'undefined' || !window.localStorage) return String(Date.now());
+      const v = window.localStorage.getItem(SEED_STORAGE_KEY);
       const s = (v && String(v).trim()) ? String(v).trim() : '';
       return s || String(Date.now());
     } catch {
@@ -5415,7 +5418,7 @@ const activeMapName = useMemo(() => {
       if (typeof window === 'undefined') return;
       if (typeof window.resizeTo !== 'function') return;
 
-      const ua = String(navigator?.userAgent || '');
+      const ua = String((typeof window !== 'undefined' && window.navigator?.userAgent) || '');
       const isElectron = ua.includes('Electron');
       const isPopup = !!window.opener;
 
@@ -5428,7 +5431,10 @@ const activeMapName = useMemo(() => {
       const chromeH = Math.max(0, Number(window.outerHeight || 0) - Number(window.innerHeight || 0));
 
       const minH = 520;
-      const maxH = Math.max(minH, Number(screen?.availHeight || 9999) - 40);
+      const screenAvailHeight = typeof window !== 'undefined' && window.screen
+        ? Number(window.screen.availHeight || 9999)
+        : 9999;
+      const maxH = Math.max(minH, screenAvailHeight - 40);
       const targetH = Math.max(minH, Math.min(maxH, contentH + chromeH + 20));
 
       window.resizeTo(Number(window.outerWidth || 1280), targetH);
@@ -5709,8 +5715,16 @@ const devForceUseConsumable = (charId, invIndex) => {
     };
 
     // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
-    const raf = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(raf);
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      measure();
+      return undefined;
+    }
+    const raf = window.requestAnimationFrame(measure);
+    return () => {
+      if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+        window.cancelAnimationFrame(raf);
+      }
+    };
   }, [logs, prevPhaseLogs, showPrevLogs]);
 
 // 선택 캐릭터 기본값 유지
@@ -5855,7 +5869,6 @@ const devForceUseConsumable = (charId, invIndex) => {
     if (!hyperloopDestId || !hyperloopDestIds.includes(String(hyperloopDestId))) {
       setHyperloopDestId(String(hyperloopDestIds[0]));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hyperloopDestKey]);
 
 // 🌀 하이퍼루프 이동 대상(캐릭터) 기본값: 선택 캐릭터 우선
@@ -6006,7 +6019,10 @@ if (!who) {
   };
   function cloneForBattle(obj) {
     try {
-      return structuredClone(obj);
+      if (typeof globalThis !== 'undefined' && typeof globalThis.structuredClone === 'function') {
+        return globalThis.structuredClone(obj);
+      }
+      throw new Error('structuredClone unavailable');
     } catch {
       return JSON.parse(JSON.stringify(obj));
     }
@@ -6070,7 +6086,11 @@ if (!who) {
 
   function applyRunSeed(seedStr) {
     const s = String(seedStr || '').trim() || '0';
-    try { localStorage.setItem(SEED_STORAGE_KEY, s); } catch {}
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(SEED_STORAGE_KEY, s);
+      }
+    } catch {}
     if (!randomBackupRef.current) randomBackupRef.current = Math.random;
     Math.random = seedRng(`RUN:${s}`);
   };
@@ -6466,7 +6486,7 @@ if (!who) {
   function redirectToLogin(message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', shouldClearAuth = false) {
     if (typeof window === 'undefined') return;
     if (shouldClearAuth) clearAuth();
-    alert(message);
+    if (typeof window.alert === 'function') window.alert(message);
     window.location.replace('/login');
   };
 
@@ -6798,7 +6818,9 @@ const pickStartZoneIdForChar = (c) => {
           const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
           if (state._migratedFromPlayerV1) return state;
           try {
-            const legacyRaw = localStorage.getItem(LEGACY_HOF_KEY);
+            const legacyRaw = (typeof window !== 'undefined' && window.localStorage)
+              ? window.localStorage.getItem(LEGACY_HOF_KEY)
+              : null;
             const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
             const legacyWins = Number(legacy?.wins?.[username] || 0);
             const legacyKills = Number(legacy?.kills?.[username] || 0);
@@ -6818,7 +6840,9 @@ const pickStartZoneIdForChar = (c) => {
       }
 
       if (w) {
-        const raw = localStorage.getItem(LEGACY_HOF_KEY);
+        const raw = (typeof window !== 'undefined' && window.localStorage)
+          ? window.localStorage.getItem(LEGACY_HOF_KEY)
+          : null;
         const data = raw ? JSON.parse(raw) : { wins: {}, kills: {} };
         if (!data.wins) data.wins = {};
         if (!data.kills) data.kills = {};
@@ -6826,7 +6850,9 @@ const pickStartZoneIdForChar = (c) => {
         const kills = Number(finalKills?.[wKey] || 0);
         data.wins[username] = Number(data.wins[username] || 0) + 1;
         data.kills[username] = Number(data.kills[username] || 0) + kills;
-        localStorage.setItem(LEGACY_HOF_KEY, JSON.stringify(data));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(LEGACY_HOF_KEY, JSON.stringify(data));
+        }
       }
       emitHallOfFameSync({ username }, { reason: 'finishGame' });
     } catch (e) {
@@ -10005,7 +10031,6 @@ if (showMarketPanel && pendingTranscendPick) {
   useEffect(() => {
     if (marketTab === 'trade') loadTrades();
     if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') loadMarket();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
@@ -10536,8 +10561,13 @@ const runActionSummary = useMemo(() => {
   // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
   const [pingNow, setPingNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => setPingNow(Date.now()), 450);
-    return () => clearInterval(t);
+    if (typeof window === 'undefined' || typeof window.setInterval !== 'function') return undefined;
+    const t = window.setInterval(() => setPingNow(Date.now()), 450);
+    return () => {
+      if (typeof window !== 'undefined' && typeof window.clearInterval === 'function') {
+        window.clearInterval(t);
+      }
+    };
   }, []);
 
   const recentPings = useMemo(() => {
@@ -11416,7 +11446,7 @@ const runActionSummary = useMemo(() => {
                 <button
                   onClick={() => {
                     try {
-                      navigator.clipboard?.writeText(JSON.stringify(runEvents, null, 2));
+                      window.navigator?.clipboard?.writeText(JSON.stringify(runEvents, null, 2));
                       addLog('✅ 이벤트 로그 복사 완료', 'system');
                     } catch (e) {
                       addLog('⚠️ 이벤트 로그 복사 실패', 'death');
