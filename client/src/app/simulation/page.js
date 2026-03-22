@@ -5190,6 +5190,22 @@ export default function SimulationPage() {
     console.error(`[simulation:${label}]`, err);
   };
 
+  function fireAndReport(label, task, onError) {
+    return Promise.resolve()
+      .then(() => task())
+      .catch((err) => {
+        reportRuntimeIssue(label, err);
+        if (typeof onError === 'function') {
+          try {
+            onError(err);
+          } catch (hookErr) {
+            reportRuntimeIssue(`${label}.onError`, hookErr);
+          }
+        }
+        return null;
+      });
+  };
+
   function safeRenderCompute(label, factory, fallback) {
     try {
       return factory();
@@ -6586,6 +6602,7 @@ const pickStartZoneIdForChar = (c) => {
   const fallback = () => initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)];
   if (!zonesArr.length) return fallback();
 
+  try {
   const texts = [];
   function addText(v) {
     if (v === null || v === undefined) return;
@@ -6655,10 +6672,14 @@ const pickStartZoneIdForChar = (c) => {
 
   const pool = candidates.length ? candidates : initialZoneIds;
   return pool[Math.floor(Math.random() * pool.length)];
+  } catch (err) {
+    reportRuntimeIssue('pickStartZoneIdForChar', err);
+    return fallback();
+  }
 };
         const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
 
-        const charsWithHp = charList.map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
+        const charsWithHp = safeRenderCompute('charsWithHp.init', () => charList.map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
           ...c,
           // 전술 스킬 레벨(런 단위): 매 런 시작 시 Lv.1로 초기화
           tacticalSkillLevel: 1,
@@ -6684,8 +6705,8 @@ const pickStartZoneIdForChar = (c) => {
             cnotGate: 0,
           },
           safeZoneUntil: 0,
-        }), initPerkBundle, { initialFill: true, applyCredits: true }));
-        const shuffledChars = charsWithHp.sort(() => Math.random() - 0.5).map((c) => normalizeRuntimeSurvivor(c));
+        }), initPerkBundle, { initialFill: true, applyCredits: true })), []);
+        const shuffledChars = safeRenderCompute('shuffledChars.init', () => charsWithHp.slice().sort(() => Math.random() - 0.5).map((c) => normalizeRuntimeSurvivor(c)), Array.isArray(charsWithHp) ? charsWithHp.slice() : []);
         setSurvivors(shuffledChars);
         setEvents(eventsList);
 
@@ -6735,8 +6756,7 @@ const pickStartZoneIdForChar = (c) => {
       }
     };
 
-    void fetchData().catch((err) => {
-      reportRuntimeIssue('fetchData.unhandled', err);
+    void fireAndReport('fetchData.unhandled', fetchData, (err) => {
       addLog(formatInitLoadError(err), 'death');
       setLoading(false);
     });
@@ -9705,10 +9725,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
     // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
     // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
     // NOTE: off-map 생존자(관전/퇴장) 분기는 아직 미사용이므로 finalStepSurvivors만 저장한다.
-    persistSimEquipmentsFromChars(
-      (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
-      `phase:d${nextDay}_${nextPhase}`
-    ).catch(() => {});
+    void fireAndReport(
+      'persistSimEquipmentsFromChars.phase',
+      () => persistSimEquipmentsFromChars(
+        (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
+        `phase:d${nextDay}_${nextPhase}`
+      )
+    );
 
 
     // SD 서든데스: 카운트다운 종료 시 강제 결판(최후 1인)
@@ -9728,7 +9751,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       setSurvivors([normalizeRuntimeSurvivor(wForced)]);
       setMatchSec((prev) => prev + phaseDurationSec);
       addLog(`⏱ 서든데스 종료! 제한시간 만료로 [${wForced.name}] 승리`, 'highlight');
-      finishGame([wForced], updatedKillCounts, updatedAssistCounts);
+      void fireAndReport('finishGame.forceAll', () => finishGame([wForced], updatedKillCounts, updatedAssistCounts));
       return;
     }
 
@@ -9751,7 +9774,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     }
 
     if (finalStepSurvivors.length <= 1) {
-      finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
+      void fireAndReport('finishGame.finalStep', () => finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts));
     }
   };
 
@@ -9838,7 +9861,7 @@ if (showMarketPanel && pendingTranscendPick) {
     if (day === 0) return;
     if (!Array.isArray(survivors)) return;
     if (survivors.length > 1) return;
-    finishGame(survivors, killCounts, assistCounts);
+    void fireAndReport('finishGame.autoEffect', () => finishGame(survivors, killCounts, assistCounts));
   }, [survivors.length, day, loading, isGameOver]);
 
 
@@ -10004,8 +10027,8 @@ if (showMarketPanel && pendingTranscendPick) {
 
   // 탭 전환 시 필요한 데이터 갱신
   useEffect(() => {
-    if (marketTab === 'trade') loadTrades();
-    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') loadMarket();
+    if (marketTab === 'trade') void fireAndReport('loadTrades.marketTab', loadTrades);
+    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') void fireAndReport('loadMarket.marketTab', loadMarket);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
@@ -10879,7 +10902,7 @@ const runActionSummary = useMemo(() => {
 
               <button
                 className="btn-secondary"
-                onClick={() => refreshMapSettingsFromServer('manual')}
+                onClick={() => { void fireAndReport('refreshMapSettingsFromServer.manual', () => refreshMapSettingsFromServer('manual')); }}
                 disabled={loading || isAdvancing || isGameOver}
                     style={{ padding: '6px 10px', fontSize: 12 }}
                 title="서버에 저장된 맵 설정(crateAllowDeny 등)을 새로 불러옵니다."
@@ -11666,7 +11689,7 @@ const runActionSummary = useMemo(() => {
                   <div className="market-small" style={{ marginTop: 6 }}>현재 보유 크레딧 {Number(credits || 0)} Cr · LP {Number(viewerLp || 0)} · 보유 특전 {Number((Array.isArray(viewerPerks) ? viewerPerks.length : 0) || 0)}개</div>
                   {activeViewerPerkBundle?.summary ? (<div className="market-small">적용 중: {activeViewerPerkBundle.summary}</div>) : null}
                 </div>
-                <button onClick={() => Promise.allSettled([syncMyState(), loadMarket()])} className="market-mini-btn">동기화</button>
+                <button onClick={() => { void fireAndReport('market.sync.click', () => Promise.allSettled([syncMyState(), loadMarket()])); }} className="market-mini-btn">동기화</button>
               </div>
             </div>
 
@@ -11708,7 +11731,7 @@ const runActionSummary = useMemo(() => {
                         value={getQty(`craft:${it._id}`, 1)}
                         onChange={(e) => setQty(`craft:${it._id}`, e.target.value)}
                       />
-                      <button onClick={() => doCraft(it._id)} disabled={!selectedCharId}>조합</button>
+                      <button onClick={() => { void fireAndReport('doCraft.click', () => doCraft(it._id)); }} disabled={!selectedCharId}>조합</button>
                     </div>
                   </div>
                 ))
@@ -11728,7 +11751,7 @@ const runActionSummary = useMemo(() => {
                         <div className="market-title">{k.name || '키오스크'}</div>
                         <div className="market-small">위치: {k.mapId?.name || '미지정'}</div>
                       </div>
-                      <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
+                      <button onClick={() => { void fireAndReport('loadMarket.click', loadMarket); }} className="market-mini-btn">새로고침</button>
                     </div>
 
                     <div style={{ marginTop: 10 }}>
@@ -11764,7 +11787,7 @@ const runActionSummary = useMemo(() => {
                                 value={getQty(`kiosk:${k._id}:${idx}`, 1)}
                                 onChange={(e) => setQty(`kiosk:${k._id}:${idx}`, e.target.value)}
                               />
-                              <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId || !itemId}>실행</button>
+                              <button onClick={() => { void fireAndReport('doKioskTransaction.click', () => doKioskTransaction(k._id, idx)); }} disabled={!selectedCharId || !itemId}>실행</button>
                             </div>
                           </div>
                         );
@@ -11788,7 +11811,7 @@ const runActionSummary = useMemo(() => {
                         <div className="market-title">{o.itemId?.name || '아이템'}</div>
                         <div className="market-small">가격: {Math.max(0, Number(o.priceCredits || 0))} Cr · 티어 제한 ≤ {Number(o.maxTier || 1)}</div>
                       </div>
-                      <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
+                      <button onClick={() => { void fireAndReport('loadMarket.click', loadMarket); }} className="market-mini-btn">새로고침</button>
                     </div>
                     <div className="market-actions" style={{ marginTop: 10 }}>
                       <input
@@ -11797,7 +11820,7 @@ const runActionSummary = useMemo(() => {
                         value={getQty(`drone:${o._id}`, 1)}
                         onChange={(e) => setQty(`drone:${o._id}`, e.target.value)}
                       />
-                      <button onClick={() => doDroneBuy(o._id)} disabled={!selectedCharId}>구매</button>
+                      <button onClick={() => { void fireAndReport('doDroneBuy.click', () => doDroneBuy(o._id)); }} disabled={!selectedCharId}>구매</button>
                     </div>
                   </div>
                 ))
@@ -11823,11 +11846,11 @@ const runActionSummary = useMemo(() => {
                           <div className="market-title">{perk?.name || code || '특전'}</div>
                           <div className="market-small">코드: {code || '-'} · 비용: {cost} LP{perk?.category ? ` · ${perk.category}` : ''}</div>
                         </div>
-                        <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
+                        <button onClick={() => { void fireAndReport('loadMarket.click', loadMarket); }} className="market-mini-btn">새로고침</button>
                       </div>
                       {desc ? <div className="market-small" style={{ marginTop: 8 }}>{desc}</div> : null}
                       <div className="market-actions" style={{ marginTop: 10 }}>
-                        <button onClick={() => doPerkPurchase(code)} disabled={!code || owned || Number(viewerLp || 0) < cost}>
+                        <button onClick={() => { void fireAndReport('doPerkPurchase.click', () => doPerkPurchase(code)); }} disabled={!code || owned || Number(viewerLp || 0) < cost}>
                           {owned ? '보유 중' : `구매 (${cost} LP)`}
                         </button>
                       </div>
@@ -11863,7 +11886,7 @@ const runActionSummary = useMemo(() => {
                     {off.note ? <div className="market-small" style={{ marginTop: 6 }}>메모: {off.note}</div> : null}
 
                     <div className="market-actions" style={{ marginTop: 10 }}>
-                      <button onClick={() => acceptTradeOffer(off._id)} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
+                      <button onClick={() => { void fireAndReport('acceptTradeOffer.click', () => acceptTradeOffer(off._id)); }} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
                     </div>
                   </div>
                 ))
@@ -11891,7 +11914,7 @@ const runActionSummary = useMemo(() => {
                     </div>
                     <div className="market-actions" style={{ marginTop: 10 }}>
                       {off.status === 'open' ? (
-                        <button onClick={() => cancelTradeOffer(off._id)}>취소</button>
+                        <button onClick={() => { void fireAndReport('cancelTradeOffer.click', () => cancelTradeOffer(off._id)); }}>취소</button>
                       ) : null}
                     </div>
                   </div>

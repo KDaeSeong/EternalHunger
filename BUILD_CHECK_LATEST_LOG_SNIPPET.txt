@@ -1,5 +1,75 @@
-✓ Compiled successfully in 28.4s
+[runtime]
+:6    warning  React Hook useMemo has missing dependencies: 'safeRenderCompute' and 'shouldComputeMapDerived'. Either include them or remove the dependency array                                                                                                                                       react-hooks/exhaustive-deps
+  10625:6    warning  React Hook useMemo has a missing dependency: 'safeRenderCompute'. Either include it or remove the dependency array                                                                                                                                                                       react-hooks/exhaustive-deps
+  10702:7    warning  React Hook useMemo has missing dependencies: 'getZoneName' and 'safeRenderCompute'. Either include them or remove the dependency array                                                                                                                                                   react-hooks/exhaustive-deps
+  10744:17   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  10858:17   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  11034:19   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  11284:35   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  11311:31   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  12079:17   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+✖ 39 problems (0 errors, 39 warnings)
+
+
+
+[build]
+
+> client@0.1.0 prebuild
+> node ./scripts/fix-proxy-migration.js
+
+[prebuild] proxyExists=true
+
+> client@0.1.0 build
+> next build
+
+▲ Next.js 16.1.4 (Turbopack)
+- Experiments (use with caution):
+  · cpus: 2
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 21.3s
   Running TypeScript ...
   Collecting page data using 2 workers ...
-  Generating static pages using 2 workers (22/22) in 625.8ms
+  Generating static pages using 2 workers (0/22) ...
+  Generating static pages using 2 workers (5/22) 
+  Generating static pages using 2 workers (10/22) 
+  Generating static pages using 2 workers (16/22) 
+✓ Generating static pages using 2 workers (22/22) in 748.8ms
   Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/crates
+├ ○ /admin/credits
+├ ○ /admin/drone
+├ ○ /admin/import
+├ ○ /admin/items
+├ ○ /admin/kiosks
+├ ○ /admin/maps
+├ ○ /admin/perks
+├ ƒ /api/characters
+├ ƒ /api/proxy/[...path]
+├ ○ /board
+├ ƒ /board/[id]
+├ ○ /characters
+├ ○ /details
+├ ○ /events
+├ ○ /import
+├ ○ /login
+├ ○ /modifiers
+├ ○ /signup
+└ ƒ /simulation
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+
+[server]
+EXIT 0

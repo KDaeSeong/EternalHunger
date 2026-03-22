@@ -130,3 +130,5 @@
 ## stepA129 follow-up
 - simulation/page.js exhaustive-deps 경고 정리
 - 필요 시 production runtime 재현 로그(CDP/headless) 추가
+
+- stepA130: simulation/page.js runtime uncaught sweep re-applied (window runtime listeners, fireAndReport async guards, init sort/map safe fallbacks) and build checked.

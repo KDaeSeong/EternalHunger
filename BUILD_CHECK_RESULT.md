@@ -14,3 +14,9 @@
 
 ## 메모
 - `client/next.config.mjs`의 `experimental.cpus: 2` 유지로 샌드박스/CI의 과도한 worker spawn을 방지
+
+## stepA130 build check
+- client: npm ci --no-audit --no-fund
+- client: npm run check:runtime:sweep -> pass (0 errors, warnings only)
+- client: npm run build -> pass
+- server: node --check all *.js -> pass

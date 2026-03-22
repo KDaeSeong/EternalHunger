@@ -104,3 +104,5 @@
 ## stepA129
 - simulation/page.js: runtime error capture(window error/unhandledrejection), fetchData unhandled catch, early derived useMemo safeRenderCompute 보호 적용.
 - runtime sweep/build result 문서 추가.
+
+- stepA130: simulation/page.js runtime uncaught sweep re-applied (window runtime listeners, fireAndReport async guards, init sort/map safe fallbacks) and build checked.
