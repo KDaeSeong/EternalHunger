@@ -6,3 +6,14 @@ dist/
 build/
 Project-Arena.zip
 client/src/app/app.zip
+
+# transient local verification outputs
+*.log
+*.pid
+BUILD_CHECK_*.md
+BUILD_CHECK_*.txt
+JS_VALIDATION_*.md
+JS_VALIDATION_*.txt
+RUNTIME_*_RESULT.md
+RUNTIME_*_SNIPPET.txt
+PAGEJS_CHECK_RESULT.md

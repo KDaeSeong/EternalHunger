@@ -36,10 +36,10 @@
 
 ## 추가 문서
 - ETERNAL_HUNGER_REMAINING_TASKS.md : 남은 작업 우선순위 목록
-
-- BUILD_CHECK_GUIDE.md : 로컬/Vercel 기준 빌드 체크 명령, 로그 확인 위치, 예상 에러 포인트
 - client/scripts/check-build-local.sh : 로컬 빌드 체크용 셸 스크립트
 - client/scripts/check-build-local.cmd : 윈도우 로컬 빌드 체크용 배치 스크립트
+- scripts/check-js-errors.sh : 전체 JS/런타임 리스크 빠른 체크 스크립트
+- scripts/check-runtime-errors.sh : strict runtime + build + server syntax 체크 스크립트
 
 ## 최근 핫픽스
 - stepA116: client/src/app/simulation/page.js 내 파싱 오류 2건 복구(scored/kioskDoc 선언부)
@@ -58,14 +58,12 @@
 - build check executed in container
 - removed next/font/google dependency from client/src/app/layout.js
 - defined CSS fallback vars in client/src/app/globals.css
-- added BUILD_CHECK_RESULT.md with actual build-check findings
 
 
 
 ## stepA123
 - build check re-executed
 - `npm ci --no-audit --no-fund` + `npm run build` actual run confirmed compile success and page-data collection entry
-- added `BUILD_CHECK_LATEST_LOG_SNIPPET.txt`
 - improved local/ci build-check scripts in `client/package.json` and `client/scripts/check-build-local.*`
 
 ---
@@ -83,7 +81,6 @@
 - `client/src/app/simulation/page.js` 내부 helper `useTac` -> `applyTacUse` rename
 - `client/eslint.config.mjs`에 generated preview file ignore 추가
 - `client/src/app/admin/import/_components/ImportClient.jsx`의 `"data"` 텍스트 escape 처리
-- `JS_VALIDATION_RESULT.md`, `JS_VALIDATION_LINT_SNIPPET.txt`, `scripts/check-js-errors.*` 추가
 
 
 ## stepA126
@@ -93,7 +90,6 @@
 
 - scripts/check-runtime-errors.sh : strict eslint(no-undef/no-use-before-define) + client build + server syntax check
 - scripts/check-runtime-errors.cmd : Windows용 runtime risk 체크 스크립트
-- RUNTIME_ERROR_SWEEP_RESULT.md : uncaught runtime risk 전수 체크 결과
 
 
 ## stepA128
@@ -103,8 +99,14 @@
 
 ## stepA129
 - simulation/page.js: runtime error capture(window error/unhandledrejection), fetchData unhandled catch, early derived useMemo safeRenderCompute 보호 적용.
-- runtime sweep/build result 문서 추가.
 
 - stepA130: simulation/page.js runtime uncaught sweep re-applied (window runtime listeners, fireAndReport async guards, init sort/map safe fallbacks) and build checked.
 
-- stepA131: uploaded page.js only full check + init runtime guard patch + build pass
+
+
+## stepA132
+- 불필요한 루트 MD/로그 산출물(BUILD_CHECK_*, JS_VALIDATION_*, RUNTIME_* 결과 파일) 제거.
+- 업로드된 `page.js` 기준 runtime sweep / eslint / build 재체크.
+- 현재 확인 상태: `client` build 통과, strict runtime eslint error 0, simulation/page.js lint warning 19만 잔존.
+
+- stepA133: `client/src/app/simulation/page.js` 초기화/파생 useMemo 안전화(`useSafeMemo`), `fetchData().catch` 추가, 초기 survivor 구성 loop+fallback/Fisher-Yates 적용, build check 통과.

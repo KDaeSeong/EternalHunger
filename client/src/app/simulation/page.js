@@ -5195,6 +5195,10 @@ export default function SimulationPage() {
     }
   };
 
+  function useSafeMemo(label, factory, deps, fallback) {
+    return useMemo(() => safeRenderCompute(label, factory, fallback), deps);
+  }
+
   // 킬 카운트 및 결과창 관리
   const [killCounts, setKillCounts] = useState({});
   const [assistCounts, setAssistCounts] = useState({});
@@ -5297,13 +5301,13 @@ export default function SimulationPage() {
 
 
 
-const activeMapName = useMemo(() => {
+const activeMapName = useSafeMemo('activeMapName', () => {
   const list = Array.isArray(maps) ? maps : [];
   return list.find((m) => String(m?._id) === String(activeMapId))?.name || '맵 없음';
-}, [maps, activeMapId]);
+}, [maps, activeMapId], '맵 없음');
 
   // 로그에서 [이름]을 파싱해 아이콘을 붙이기 위한 캐시
-  const actorAvatarByName = useMemo(() => {
+  const actorAvatarByName = useSafeMemo('actorAvatarByName', () => {
     const out = {};
     const all = [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])];
     for (const c of all) {
@@ -5312,7 +5316,7 @@ const activeMapName = useMemo(() => {
       if (name && img && !out[name]) out[name] = img;
     }
     return out;
-  }, [survivors, dead]);
+  }, [survivors, dead], {});
 
   // ✅ 상점/조합/교환 패널
   const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | perk | trade
@@ -5728,7 +5732,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     }
   }, [survivors, selectedCharId]);
 
-  const selectedChar = useMemo(() => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, [survivors, selectedCharId]);
+  const selectedChar = useSafeMemo('selectedChar', () => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, [survivors, selectedCharId], null);
 
   // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
   function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
@@ -5748,9 +5752,11 @@ const devForceUseConsumable = (charId, invIndex) => {
   };
 
 
-  const activeMap = useMemo(
+  const activeMap = useSafeMemo(
+    'activeMap',
     () => (Array.isArray(maps) ? maps : []).find((m) => String(m._id) === String(activeMapId)) || null,
-    [maps, activeMapId]
+    [maps, activeMapId],
+    null
   );
 
   // ref 동기화(즉시 접근 필요)
@@ -5769,7 +5775,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     setSpawnState(createInitialSpawnState(activeMapId));
   }, [activeMapId]);
 
-  const zones = useMemo(() => {
+  const zones = useSafeMemo('zones', () => {
     const z = Array.isArray(activeMap?.zones) ? activeMap.zones : [];
     // 맵에 zones 데이터가 없을 때(개발/테스트) 기본 구역 세트를 제공합니다.
     // - 키오스크 있음: 병원/성당/경찰서/소방서/양궁장/절/창고/연구소/호텔/학교
@@ -5796,15 +5802,15 @@ const devForceUseConsumable = (charId, invIndex) => {
       { zoneId: 'port', name: '항구', isForbidden: false },
       { zoneId: 'residential', name: '고급 주택가', isForbidden: false },
     ];
-  }, [activeMap]);
+  }, [activeMap], []);
 
-  const zoneNameById = useMemo(() => {
+  const zoneNameById = useSafeMemo('zoneNameById', () => {
     const out = {};
     zones.forEach((z) => {
       if (z?.zoneId) out[String(z.zoneId)] = z.name || String(z.zoneId);
     });
     return out;
-  }, [zones]);
+  }, [zones], {});
 
   function getZoneName(zoneId) {
     const key = String(zoneId || '');
@@ -5812,15 +5818,15 @@ const devForceUseConsumable = (charId, invIndex) => {
   }
 
   // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
-  const hyperloopDestIds = useMemo(() => {
+  const hyperloopDestIds = useSafeMemo('hyperloopDestIds', () => {
     const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
     if (!ids.length) return [];
     const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
     return ids.filter((id) => mapSet.has(String(id)));
-  }, [activeMapId, maps]);
+  }, [activeMapId, maps], []);
 
   // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
-  const hyperloopPadZoneId = useMemo(() => {
+  const hyperloopPadZoneId = useSafeMemo('hyperloopPadZoneId', () => {
     // ✅ 서버(어드민) 지정값 우선 적용
     const serverZoneId = String(activeMap?.hyperloopDeviceZoneId || '').trim();
     if (serverZoneId) return serverZoneId;
@@ -5828,22 +5834,22 @@ const devForceUseConsumable = (charId, invIndex) => {
     if (saved) return saved;
     const z = Array.isArray(zones) ? zones : [];
     return String(z?.[0]?.zoneId || '');
-  }, [activeMapId, zones, activeMap]);
+  }, [activeMapId, zones, activeMap], '');
 
-  const hyperloopPadName = useMemo(() => {
+  const hyperloopPadName = useSafeMemo('hyperloopPadName', () => {
     const zid = String(hyperloopPadZoneId || '').trim();
     if (!zid) return '';
     return String(getZoneName(zid) || zid);
-  }, [hyperloopPadZoneId, zoneNameById]);
+  }, [hyperloopPadZoneId, zoneNameById], '');
 
-  const isSelectedCharOnHyperloopPad = useMemo(() => {
+  const isSelectedCharOnHyperloopPad = useSafeMemo('isSelectedCharOnHyperloopPad', () => {
     const who = String(selectedCharId || '').trim();
     if (!who) return false;
     const pad = String(hyperloopPadZoneId || '').trim();
     if (!pad) return false;
     const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
     return String(actor?.zoneId || '').trim() === pad;
-  }, [selectedCharId, survivors, hyperloopPadZoneId]);
+  }, [selectedCharId, survivors, hyperloopPadZoneId], false);
 
   const hyperloopDestKey = hyperloopDestIds.join('|');
 
@@ -5942,7 +5948,7 @@ if (!who) {
   };
 
 
-  const zoneGraph = useMemo(() => {
+  const zoneGraph = useSafeMemo('zoneGraph', () => {
     const graph = {};
     const zoneIds = zones.map((z) => String(z.zoneId));
     zoneIds.forEach((id) => (graph[id] = new Set()));
@@ -5985,7 +5991,7 @@ if (!who) {
     const out = {};
     Object.keys(graph).forEach((k) => (out[k] = [...graph[k]]));
     return out;
-  }, [activeMap, zones]);
+  }, [activeMap, zones], {});
 
   const canonicalizeCharName = (name) =>
     (name || '')
@@ -6249,15 +6255,15 @@ if (!who) {
     }
     return added;
   };
-  const itemNameById = useMemo(() => {
+  const itemNameById = useSafeMemo('itemNameById', () => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (it?._id) m[String(it._id)] = it.name;
     });
     return m;
-  }, [publicItems]);
+  }, [publicItems], {});
 
-  const itemMetaById = useMemo(() => {
+  const itemMetaById = useSafeMemo('itemMetaById', () => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
@@ -6272,9 +6278,9 @@ if (!who) {
       };
     });
     return m;
-  }, [publicItems]);
+  }, [publicItems], {});
 
-  const itemKeyById = useMemo(() => {
+  const itemKeyById = useSafeMemo('itemKeyById', () => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
@@ -6282,15 +6288,15 @@ if (!who) {
       if (k) m[String(it._id)] = k;
     });
     return m;
-  }, [publicItems]);
+  }, [publicItems], {});
 
-  const craftables = useMemo(() => {
+  const craftables = useSafeMemo('craftables', () => {
     return (Array.isArray(publicItems) ? publicItems : [])
       .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0)
       .sort((a, b) => (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name)));
-  }, [publicItems]);
+  }, [publicItems], []);
 
-  const inventoryOptions = useMemo(() => {
+  const inventoryOptions = useSafeMemo('inventoryOptions', () => {
     const inv = Array.isArray(selectedChar?.inventory) ? selectedChar.inventory : [];
     const map = new Map();
     inv.forEach((x) => {
@@ -6303,7 +6309,7 @@ if (!who) {
       else map.set(id, { ...prev, qty: prev.qty + qty });
     });
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [selectedChar]);
+  }, [selectedChar], []);
 
   function getQty(key, fallback = 1) {
     const v = Number(qtyMap[key]);
@@ -6383,8 +6389,8 @@ if (!who) {
     return () => window.removeEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
   }, []);
 
-  const ownedPerkCodeSet = useMemo(() => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), [viewerPerks]);
-  const activeViewerPerkBundle = useMemo(() => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks]);
+  const ownedPerkCodeSet = useSafeMemo('ownedPerkCodeSet', () => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), [viewerPerks], new Set());
+  const activeViewerPerkBundle = useSafeMemo('activeViewerPerkBundle', () => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks], { creditsAdd: 0, scoreAdd: 0, ownedCodes: [], docs: [], byCode: {}, effectsByActorId: {}, summary: '' });
 
   useEffect(() => {
     if (!Array.isArray(survivors) || survivors.length <= 0) return;
@@ -6564,128 +6570,135 @@ if (initialMapId) {
 
 // 🎒 추천 상급 장비(또는 역할)에 맞춰 시작 구역을 가중치 랜덤으로 선택
 const pickStartZoneIdForChar = (c) => {
-  try {
-    const zonesArr = Array.isArray(initialMap?.zones) ? initialMap.zones : [];
-    const fallback = () => initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)];
-    if (!zonesArr.length) return fallback();
+  const zonesArr = Array.isArray(initialMap?.zones) ? initialMap.zones : [];
+  const fallback = () => initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)];
+  if (!zonesArr.length) return fallback();
 
-    const texts = [];
-    function addText(v) {
-      if (v === null || v === undefined) return;
-      const s = String(v).trim();
-      if (s) texts.push(s.toLowerCase());
-    };
+  const texts = [];
+  function addText(v) {
+    if (v === null || v === undefined) return;
+    const s = String(v).trim();
+    if (s) texts.push(s.toLowerCase());
+  };
 
-    function addFromList(arr) {
-      if (!Array.isArray(arr)) return;
-      arr.forEach((g) => {
-        if (!g) return;
-        if (typeof g === 'string') return addText(g);
-        addText(g.name);
-        addText(g.kind);
-        addText(g.category);
-        addText(g.type);
-        if (Array.isArray(g.tags)) g.tags.forEach(addText);
-      });
-    };
-
-    addFromList(c?.recommendedHighGear);
-    addFromList(c?.recommendedAdvancedGear);
-    addFromList(c?.recommendedGear);
-    addFromList(c?.advancedGear);
-
-    // 스탯 기반 힌트(데이터가 없을 때)
-    const st = c?.stats || c?.stat || c;
-    const statKeys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
-    let topStatKey = '';
-    let topStatValue = Number.NEGATIVE_INFINITY;
-    statKeys.forEach((statKey) => {
-      const value = Number(st?.[statKey] ?? st?.[String(statKey).toUpperCase()] ?? 0);
-      if (!Number.isFinite(value)) return;
-      if (value > topStatValue) {
-        topStatValue = value;
-        topStatKey = statKey;
-      }
+  function addFromList(arr) {
+    if (!Array.isArray(arr)) return;
+    arr.forEach((g) => {
+      if (!g) return;
+      if (typeof g === 'string') return addText(g);
+      addText(g.name);
+      addText(g.kind);
+      addText(g.category);
+      addText(g.type);
+      if (Array.isArray(g.tags)) g.tags.forEach(addText);
     });
-    if (topStatKey) addText(topStatKey);
+  };
 
-    // gear/stat 힌트를 zone name/tags에 매칭하기 위한 간단 사전
-    const keywordMap = {
-      keyboard: ['keyboard', '키보드', '키보'],
-      mouse: ['mouse', '마우스'],
-      monitor: ['monitor', '모니터'],
-      weapon: ['weapon', '무기', 'armory', '병기'],
-      armor: ['armor', '방어구', '갑옷'],
-      food: ['food', '음식', '식당', '편의'],
-      sht: ['shoot', '사격', '원거리', '총', 'gun'],
-      str: ['melee', '근접', '격투'],
-      int: ['lab', '연구', '전산', '컴퓨터'],
-      dex: ['craft', '제작', '공작'],
-    };
+  addFromList(c?.recommendedHighGear);
+  addFromList(c?.recommendedAdvancedGear);
+  addFromList(c?.recommendedGear);
+  addFromList(c?.advancedGear);
 
-    const expanded = new Set();
-    texts.forEach((t) => {
-      expanded.add(t);
-      Object.entries(keywordMap).forEach(([keyword, syns]) => {
-        const hit = t.includes(keyword) || syns.some((syn) => t.includes(String(syn).toLowerCase()));
-        if (hit) syns.forEach((syn) => expanded.add(String(syn).toLowerCase()));
-      });
+  // 스탯 기반 힌트(데이터가 없을 때)
+  const st = c?.stats || c?.stat || c;
+  const keys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+  const top = keys
+    .map((k) => [k, Number(st?.[k] ?? st?.[k.toUpperCase()] ?? 0)])
+    .sort((a, b) => b[1] - a[1])[0]?.[0];
+  if (top) addText(top);
+
+  // gear/stat 힌트를 zone name/tags에 매칭하기 위한 간단 사전
+  const keywordMap = {
+    keyboard: ['keyboard', '키보드', '키보'],
+    mouse: ['mouse', '마우스'],
+    monitor: ['monitor', '모니터'],
+    weapon: ['weapon', '무기', 'armory', '병기'],
+    armor: ['armor', '방어구', '갑옷'],
+    food: ['food', '음식', '식당', '편의'],
+    sht: ['shoot', '사격', '원거리', '총', 'gun'],
+    str: ['melee', '근접', '격투'],
+    int: ['lab', '연구', '전산', '컴퓨터'],
+    dex: ['craft', '제작', '공작'],
+  };
+
+  const expanded = new Set();
+  texts.forEach((t) => {
+    expanded.add(t);
+    Object.entries(keywordMap).forEach(([k, syns]) => {
+      const hit = t.includes(k) || syns.some((s) => t.includes(String(s).toLowerCase()));
+      if (hit) syns.forEach((s) => expanded.add(String(s).toLowerCase()));
     });
+  });
 
-    const hints = [...expanded].filter(Boolean);
-    if (!hints.length) return fallback();
+  const hints = [...expanded].filter(Boolean);
+  if (!hints.length) return fallback();
 
-    const candidates = zonesArr
-      .filter((z) => {
-        const name = String(z?.name || '').toLowerCase();
-        const tags = Array.isArray(z?.tags) ? z.tags.map((tag) => String(tag).toLowerCase()) : [];
-        return hints.some((hint) => name.includes(hint) || tags.includes(hint));
-      })
-      .map((z) => String(z.zoneId));
+  const candidates = zonesArr
+    .filter((z) => {
+      const name = String(z?.name || '').toLowerCase();
+      const tags = Array.isArray(z?.tags) ? z.tags.map((x) => String(x).toLowerCase()) : [];
+      return hints.some((h) => name.includes(h) || tags.includes(h));
+    })
+    .map((z) => String(z.zoneId));
 
-    const pool = candidates.length ? candidates : initialZoneIds;
-    return pool[Math.floor(Math.random() * pool.length)];
-  } catch {
-    return initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)] || '__default__';
-  }
+  const pool = candidates.length ? candidates : initialZoneIds;
+  return pool[Math.floor(Math.random() * pool.length)];
 };
-        const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
+        const initPerkBundle = safeRenderCompute(
+          'initPerkBundle',
+          () => buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList),
+          { creditsAdd: 0, scoreAdd: 0, ownedCodes: [], docs: [], byCode: {}, effectsByActorId: {}, summary: '' }
+        );
 
-        const charsWithHp = (Array.isArray(charList) ? charList : []).map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
-          ...c,
-          // 전술 스킬 레벨(런 단위): 매 런 시작 시 Lv.1로 초기화
-          tacticalSkillLevel: 1,
-          hp: 100,
-          maxHp: 100,
-          zoneId: pickStartZoneIdForChar(c),
-          equipped: ensureEquipped(c),
+        const safeInitialZoneId = String(initialZoneIds?.[0] || '__default__');
+        const charsWithHp = [];
+        for (const rawChar of (Array.isArray(charList) ? charList : [])) {
+          try {
+            const startZoneId = safeRenderCompute(
+              'pickStartZoneIdForChar.init',
+              () => String(pickStartZoneIdForChar(rawChar) || safeInitialZoneId),
+              safeInitialZoneId
+            );
+            const normalizedChar = normalizeRuntimeSurvivor({
+              ...rawChar,
+              // 전술 스킬 레벨(런 단위): 매 런 시작 시 Lv.1로 초기화
+              tacticalSkillLevel: 1,
+              hp: 100,
+              maxHp: 100,
+              zoneId: startZoneId,
+              equipped: ensureEquipped(rawChar),
 
-          // 1일차 "최소 1회 이동" 목표 추적용
-          day1Moves: 0,
-          day1HeroDone: false,
+              // 1일차 "최소 1회 이동" 목표 추적용
+              day1Moves: 0,
+              day1HeroDone: false,
 
-          simCredits: Number(ruleset?.credits?.start ?? 15),
-          droneLastOrderIndex: -9999,
-          droneLastOrderAbsSec: -99999,
-          kioskLastInteractAbsSec: -99999,
-          // 하이브리드(시즌10) 전용 상태
-          detonationSec: det ? det.startSec : null,
-          detonationMaxSec: det ? det.maxSec : null,
-          gadgetEnergy: energy ? energy.start : 0,
-          cooldowns: {
-            portableSafeZone: 0,
-            cnotGate: 0,
-          },
-          safeZoneUntil: 0,
-        }), initPerkBundle, { initialFill: true, applyCredits: true }));
-        const shuffledChars = [...charsWithHp];
-        for (let idx = shuffledChars.length - 1; idx > 0; idx -= 1) {
-          const swapIdx = Math.floor(Math.random() * (idx + 1));
-          const tmp = shuffledChars[idx];
-          shuffledChars[idx] = shuffledChars[swapIdx];
-          shuffledChars[swapIdx] = tmp;
+              simCredits: Number(ruleset?.credits?.start ?? 15),
+              droneLastOrderIndex: -9999,
+              droneLastOrderAbsSec: -99999,
+              kioskLastInteractAbsSec: -99999,
+              // 하이브리드(시즌10) 전용 상태
+              detonationSec: det ? det.startSec : null,
+              detonationMaxSec: det ? det.maxSec : null,
+              gadgetEnergy: energy ? energy.start : 0,
+              cooldowns: {
+                portableSafeZone: 0,
+                cnotGate: 0,
+              },
+              safeZoneUntil: 0,
+            });
+            charsWithHp.push(applyPerkBundleToActor(normalizedChar, initPerkBundle, { initialFill: true, applyCredits: true }));
+          } catch (initErr) {
+            console.error('[simulation:init.character]', initErr, rawChar);
+          }
         }
-        setSurvivors(shuffledChars.map((c) => normalizeRuntimeSurvivor(c)));
+        const shuffledChars = charsWithHp.slice();
+        for (let i = shuffledChars.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = shuffledChars[i];
+          shuffledChars[i] = shuffledChars[j];
+          shuffledChars[j] = tmp;
+        }
+        setSurvivors(normalizeRuntimeSurvivorList(shuffledChars.map((c) => normalizeRuntimeSurvivor(c))));
         setEvents(eventsList);
 
         // 킬 카운트 초기화
@@ -6734,9 +6747,13 @@ const pickStartZoneIdForChar = (c) => {
       }
     };
 
-    void fetchData().catch((err) => {
-      console.error('fetchData unhandled:', err);
-      addLog(formatInitLoadError(err), 'death');
+    fetchData().catch((err) => {
+      console.error('[simulation:init.fetchData.unhandled]', err);
+      try {
+        addLog(formatInitLoadError(err), 'death');
+      } catch (logErr) {
+        console.error('[simulation:init.fetchData.log]', logErr);
+      }
       setLoading(false);
     });
   }, []);
@@ -6759,15 +6776,8 @@ const pickStartZoneIdForChar = (c) => {
     const myKills = wId ? Number(finalKills[wId] || 0) : 0;
     const myAssists = wId ? Number(finalAssists[wId] || 0) : 0;
     const rewardLP = w ? (100 + myKills * 10) : 0;
-    const topKillLeader = (() => {
-      try {
-        return [...participants]
-          .sort((a, b) => ((Number(finalKills?.[b?._id] || 0) - Number(finalKills?.[a?._id] || 0)) || (Number(finalAssists?.[b?._id] || 0) - Number(finalAssists?.[a?._id] || 0))))[0] || null;
-      } catch (err) {
-        console.error('[simulation:finishGame-topKillLeader]', err);
-        return null;
-      }
-    })();
+    const topKillLeader = [...participants]
+      .sort((a, b) => ((Number(finalKills?.[b?._id] || 0) - Number(finalKills?.[a?._id] || 0)) || (Number(finalAssists?.[b?._id] || 0) - Number(finalAssists?.[a?._id] || 0))))[0] || null;
 
     setWinner(w);
     setIsGameOver(true);
@@ -7630,176 +7640,138 @@ const didMove = String(nextZoneId) !== String(currentZone);
             .filter(Boolean)
         );
         const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
-        const aiQueuePlan = (() => {
-          try {
-            const queueScoredCandidates = (() => {
-              if (didMove || fleeInterruptReason) return [];
-              const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
-              const simCredits = Math.max(0, Number(updated?.simCredits || 0));
-              const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
-              const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
-              const transBias = upgradeNeed?.wantTrans ? 8 : 0;
-              const scoreRows = [];
-              if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
-                const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
-                const itemId = String(queuedKioskAction?.itemId || '');
-                const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
-                const kind = String(queuedKioskAction?.kind || 'buy');
-                const isSell = kind === 'sell';
-                const score =
-                  (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44)
-                  + (matchesGoal ? 26 : 0)
-                  + (isSell ? 0 : legendBias + transBias)
-                  + (kind === 'exchange' ? 6 : 0)
-                  - (lowHpRatio <= 0.28 ? 5 : 0);
-                scoreRows.push({
-                  type: kioskTypeMap[kind] || 'kioskBuy',
-                  zoneId: String(updated?.zoneId || ''),
-                  itemId,
-                  etaSec: 1,
-                  phaseIdx: Number(phaseIdxNow || 0),
-                  score,
-                  label: `${kioskTypeMap[kind] || 'kioskBuy'}:${String(queuedKioskAction?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
-                  priorityNote: [matchesGoal ? 'goal' : '', kind === 'exchange' ? 'exchange' : '', isSell ? 'sell' : ''].filter(Boolean).join('+'),
-                });
-              }
-              if (queuedDroneOrder?.itemId) {
-                const itemId = String(queuedDroneOrder?.itemId || '');
-                const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
-                const score = 40 + (matchesGoal ? 28 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
-                scoreRows.push({
-                  type: 'droneOrder',
-                  zoneId: String(updated?.zoneId || ''),
-                  itemId,
-                  etaSec: 1,
-                  phaseIdx: Number(phaseIdxNow || 0),
-                  score,
-                  label: `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
-                  priorityNote: matchesGoal ? 'goal' : '',
-                });
-              }
-              if (craftPreview?.changed) {
-                const itemId = String(craftPreview?.craftedId || '');
-                const craftedTier = Math.max(1, Number(craftPreview?.craftedTier || itemMetaById?.[itemId]?.tier || 1));
-                const matchesGoal = goalTargetId === itemId || goalMissingIds.has(itemId);
-                const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias;
-                scoreRows.push({
-                  type: 'craft',
-                  zoneId: String(updated?.zoneId || ''),
-                  itemId,
-                  etaSec: 1,
-                  phaseIdx: Number(phaseIdxNow || 0),
-                  score,
-                  label: `craft:${String(craftPreview?.craftedName || itemNameById?.[itemId] || itemId || '')}`,
-                  priorityNote: `${matchesGoal ? 'goal+' : ''}tier${craftedTier}`,
-                });
-              }
-              scoreRows.push({
-                type: 'hunt',
-                zoneId: String(updated?.zoneId || ''),
-                etaSec: 1,
-                phaseIdx: Number(phaseIdxNow || 0),
-                score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
-                label: 'hunt',
-                priorityNote: farmCreditsBias > 0 ? 'credits' : '',
-              });
-              return scoreRows
-                .sort((a, b) => {
-                  const ds = Number(b?.score || 0) - Number(a?.score || 0);
-                  if (Math.abs(ds) > 0.001) return ds;
-                  const pa = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
-                  const pb = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
-                  return pa - pb;
-                })
-                .slice(0, 5);
-            })();
-            const queuedAtomicAction = (() => {
-              if (didMove) {
-                return {
-                  type: (mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo',
-                  fromZoneId: String(currentZone || ''),
-                  toZoneId: String(nextZoneId || currentZone || ''),
-                  reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
-                  etaSec: 1,
-                  phaseIdx: Number(phaseIdxNow || 0),
-                  score: 999,
-                };
-              }
-              if (fleeInterruptReason) {
-                return {
-                  type: 'flee',
-                  fromZoneId: String(currentZone || ''),
-                  toZoneId: String(nextZoneId || currentZone || ''),
-                  reason: String(moveReason || `flee:${fleeInterruptReason}`),
-                  etaSec: 1,
-                  phaseIdx: Number(phaseIdxNow || 0),
-                  score: 998,
-                };
-              }
-              return queueScoredCandidates[0] || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
-            })();
-            const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
-            const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
-              const type = String(act?.type || 'hunt');
-              const zoneText = getZoneName(act?.toZoneId || act?.zoneId || '');
-              const itemText = String(
-                (String(act?.itemId || '') && (itemNameById?.[String(act?.itemId || '')] || ''))
-                || queuedKioskAction?.item?.name
-                || queuedDroneOrder?.item?.name
-                || craftPreview?.craftedName
-                || ''
-              );
-              return [type, itemText && `:${itemText}`, zoneText && `@${zoneText}`].filter(Boolean).join('');
-            });
-            const candidatePreview = [
-              didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
-              (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
-              ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
-            ].filter(Boolean);
-            const blockedReasons = [
-              (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
-              (fleeInterruptReason && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? `flee_interrupt:${String(fleeInterruptReason || '')}` : null,
-              (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
-                ? `craft:${String(craftProbeActor?._craftDebug?.code || '')}`
-                : null,
-              ...queueScoredCandidates.slice(1).map((row) => `deferred:${String(row?.type || '')}`).slice(0, 2),
-            ].filter(Boolean);
-            return {
-              queueScoredCandidates,
-              queuedAtomicAction,
-              queuedActionType,
-              queuePreview,
-              candidatePreview,
-              blockedReasons,
-            };
-          } catch (err) {
-            console.error('[simulation:ai-queue-plan]', err);
-            const fallbackQueuedAtomicAction = {
-              type: didMove ? ((mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo') : 'hunt',
-              fromZoneId: String(currentZone || ''),
-              toZoneId: String(nextZoneId || currentZone || ''),
-              zoneId: String(updated?.zoneId || currentZone || ''),
-              reason: didMove ? (mustEscape ? 'escape' : String(moveReason || 'goal')) : (fleeInterruptReason ? String(moveReason || `flee:${fleeInterruptReason}`) : 'fallback:hunt'),
+        const queueScoredCandidates = (() => {
+          if (didMove || fleeInterruptReason) return [];
+          const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
+          const simCredits = Math.max(0, Number(updated?.simCredits || 0));
+          const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
+          const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
+          const transBias = upgradeNeed?.wantTrans ? 8 : 0;
+          const scoreRows = [];
+          if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
+            const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
+            const itemId = String(queuedKioskAction?.itemId || '');
+            const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
+            const kind = String(queuedKioskAction?.kind || 'buy');
+            const isSell = kind === 'sell';
+            const score =
+              (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44)
+              + (matchesGoal ? 26 : 0)
+              + (isSell ? 0 : legendBias + transBias)
+              + (kind === 'exchange' ? 6 : 0)
+              - (lowHpRatio <= 0.28 ? 5 : 0);
+            scoreRows.push({
+              type: kioskTypeMap[kind] || 'kioskBuy',
+              zoneId: String(updated?.zoneId || ''),
+              itemId,
               etaSec: 1,
               phaseIdx: Number(phaseIdxNow || 0),
-              score: didMove ? 999 : (fleeInterruptReason ? 998 : 0),
-            };
+              score,
+              label: `${kioskTypeMap[kind] || 'kioskBuy'}:${String(queuedKioskAction?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
+              priorityNote: [matchesGoal ? 'goal' : '', kind === 'exchange' ? 'exchange' : '', isSell ? 'sell' : ''].filter(Boolean).join('+'),
+            });
+          }
+          if (queuedDroneOrder?.itemId) {
+            const itemId = String(queuedDroneOrder?.itemId || '');
+            const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
+            const score = 40 + (matchesGoal ? 28 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+            scoreRows.push({
+              type: 'droneOrder',
+              zoneId: String(updated?.zoneId || ''),
+              itemId,
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score,
+              label: `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
+              priorityNote: matchesGoal ? 'goal' : '',
+            });
+          }
+          if (craftPreview?.changed) {
+            const itemId = String(craftPreview?.craftedId || '');
+            const craftedTier = Math.max(1, Number(craftPreview?.craftedTier || itemMetaById?.[itemId]?.tier || 1));
+            const matchesGoal = goalTargetId === itemId || goalMissingIds.has(itemId);
+            const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias;
+            scoreRows.push({
+              type: 'craft',
+              zoneId: String(updated?.zoneId || ''),
+              itemId,
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score,
+              label: `craft:${String(craftPreview?.craftedName || itemNameById?.[itemId] || itemId || '')}`,
+              priorityNote: `${matchesGoal ? 'goal+' : ''}tier${craftedTier}`,
+            });
+          }
+          scoreRows.push({
+            type: 'hunt',
+            zoneId: String(updated?.zoneId || ''),
+            etaSec: 1,
+            phaseIdx: Number(phaseIdxNow || 0),
+            score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
+            label: 'hunt',
+            priorityNote: farmCreditsBias > 0 ? 'credits' : '',
+          });
+          return scoreRows
+            .sort((a, b) => {
+              const ds = Number(b?.score || 0) - Number(a?.score || 0);
+              if (Math.abs(ds) > 0.001) return ds;
+              const pa = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
+              const pb = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
+              return pa - pb;
+            })
+            .slice(0, 5);
+        })();
+        const queuedAtomicAction = (() => {
+          if (didMove) {
             return {
-              queueScoredCandidates: [],
-              queuedAtomicAction: fallbackQueuedAtomicAction,
-              queuedActionType: String(fallbackQueuedAtomicAction?.type || 'hunt'),
-              queuePreview: [],
-              candidatePreview: [didMove ? `${String(fallbackQueuedAtomicAction.type)}@${getZoneName(nextZoneId || currentZone || '')}` : 'hunt[fallback]'].filter(Boolean),
-              blockedReasons: ['queue_plan_error'],
+              type: (mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo',
+              fromZoneId: String(currentZone || ''),
+              toZoneId: String(nextZoneId || currentZone || ''),
+              reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score: 999,
             };
           }
+          if (fleeInterruptReason) {
+            return {
+              type: 'flee',
+              fromZoneId: String(currentZone || ''),
+              toZoneId: String(nextZoneId || currentZone || ''),
+              reason: String(moveReason || `flee:${fleeInterruptReason}`),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score: 998,
+            };
+          }
+          return queueScoredCandidates[0] || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
         })();
-        const queueScoredCandidates = Array.isArray(aiQueuePlan?.queueScoredCandidates) ? aiQueuePlan.queueScoredCandidates : [];
-        const queuedAtomicAction = aiQueuePlan?.queuedAtomicAction || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
-        const queuedActionType = String(aiQueuePlan?.queuedActionType || queuedAtomicAction?.type || 'hunt');
-        const queuePreview = Array.isArray(aiQueuePlan?.queuePreview) ? aiQueuePlan.queuePreview : [];
-        const candidatePreview = Array.isArray(aiQueuePlan?.candidatePreview) ? aiQueuePlan.candidatePreview : [];
-        const blockedReasons = Array.isArray(aiQueuePlan?.blockedReasons) ? aiQueuePlan.blockedReasons : [];
+        const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
+        const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
+          const type = String(act?.type || 'hunt');
+          const zoneText = getZoneName(act?.toZoneId || act?.zoneId || '');
+          const itemText = String(
+            (String(act?.itemId || '') && (itemNameById?.[String(act?.itemId || '')] || ''))
+            || queuedKioskAction?.item?.name
+            || queuedDroneOrder?.item?.name
+            || craftPreview?.craftedName
+            || ''
+          );
+          return [type, itemText && `:${itemText}`, zoneText && `@${zoneText}`].filter(Boolean).join('');
+        });
+        const candidatePreview = [
+          didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
+          (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
+          ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
+        ].filter(Boolean);
+        const blockedReasons = [
+          (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
+          (fleeInterruptReason && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? `flee_interrupt:${String(fleeInterruptReason || '')}` : null,
+          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
+            ? `craft:${String(craftProbeActor?._craftDebug?.code || '')}`
+            : null,
+          ...queueScoredCandidates.slice(1).map((row) => `deferred:${String(row?.type || '')}`).slice(0, 2),
+        ].filter(Boolean);
         updated.aiActionQueue = [queuedAtomicAction];
         updated.aiCurrentAction = queuedActionType;
         updated.aiActionEtaSec = Number(queuedAtomicAction?.etaSec || 1);

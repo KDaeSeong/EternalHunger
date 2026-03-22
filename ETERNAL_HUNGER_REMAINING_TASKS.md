@@ -74,7 +74,7 @@
 - 실행 가이드와 실제 배포 가이드 분리
 - 남은 디버그 UI를 유지할지 숨길지 결정
 - 행동 큐 점수 튜닝값과 추격 확률 지표를 실제 1판 로그 기준으로 2차 조정
-- 최신 ZIP 기준 중복 파일/구버전 정리
+- 최신 ZIP 기준 중복 파일/구버전 정리 (stepA132에서 루트 MD/로그 산출물 1차 정리 완료)
 
 ## 최근 핫픽스 메모
 - stepA121: 실제 빌드 실행 대신 BUILD_CHECK_GUIDE.md와 로컬 빌드 체크 스크립트(check-build-local.sh/.cmd), package.json 체크 스크립트 추가.
@@ -134,3 +134,12 @@
 - stepA130: simulation/page.js runtime uncaught sweep re-applied (window runtime listeners, fireAndReport async guards, init sort/map safe fallbacks) and build checked.
 
 - stepA131 follow-up: browser 재현 로그가 다시 뜨면 uploaded page.js 기준 해당 chunk position 역매핑으로 1건씩 제거
+
+
+## stepA132
+- 업로드된 `page.js` 기준으로만 runtime sweep/eslint/build 재체크 완료
+- `client` build 통과, strict runtime eslint error 0
+- 잔여 이슈는 simulation/page.js lint warning 19건(exhaustive-deps 13, no-img-element 6)
+- 불필요한 루트 MD/로그 산출물 제거 완료
+
+- stepA133: `client/src/app/simulation/page.js` 초기화/파생 useMemo 안전화(`useSafeMemo`), `fetchData().catch` 추가, 초기 survivor 구성 loop+fallback/Fisher-Yates 적용, build check 통과.
