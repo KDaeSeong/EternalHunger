@@ -5186,11 +5186,15 @@ export default function SimulationPage() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
   const initDebugLine = `init api: ${getApiBase()} | deps: ${INIT_DEPENDENCY_PATHS.join(', ')}`;
+  function reportRuntimeIssue(label, err) {
+    console.error(`[simulation:${label}]`, err);
+  };
+
   function safeRenderCompute(label, factory, fallback) {
     try {
       return factory();
     } catch (err) {
-      console.error(`[simulation:${label}]`, err);
+      reportRuntimeIssue(label, err);
       return fallback;
     }
   };
@@ -5228,8 +5232,22 @@ export default function SimulationPage() {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') closeUiModal();
     };
+    const onRuntimeError = (event) => {
+      reportRuntimeIssue('window.error', event?.error || event?.message || event);
+      if (typeof event?.preventDefault === 'function') event.preventDefault();
+    };
+    const onUnhandledRejection = (event) => {
+      reportRuntimeIssue('window.unhandledrejection', event?.reason || event);
+      if (typeof event?.preventDefault === 'function') event.preventDefault();
+    };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('error', onRuntimeError);
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('error', onRuntimeError);
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+    };
   }, []);
 
 
@@ -5297,13 +5315,13 @@ export default function SimulationPage() {
 
 
 
-const activeMapName = useMemo(() => {
+const activeMapName = useMemo(() => safeRenderCompute('activeMapName', () => {
   const list = Array.isArray(maps) ? maps : [];
   return list.find((m) => String(m?._id) === String(activeMapId))?.name || '맵 없음';
-}, [maps, activeMapId]);
+}, '맵 없음'), [maps, activeMapId]);
 
   // 로그에서 [이름]을 파싱해 아이콘을 붙이기 위한 캐시
-  const actorAvatarByName = useMemo(() => {
+  const actorAvatarByName = useMemo(() => safeRenderCompute('actorAvatarByName', () => {
     const out = {};
     const all = [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])];
     for (const c of all) {
@@ -5312,7 +5330,7 @@ const activeMapName = useMemo(() => {
       if (name && img && !out[name]) out[name] = img;
     }
     return out;
-  }, [survivors, dead]);
+  }, {}), [survivors, dead]);
 
   // ✅ 상점/조합/교환 패널
   const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | perk | trade
@@ -5728,7 +5746,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     }
   }, [survivors, selectedCharId]);
 
-  const selectedChar = useMemo(() => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, [survivors, selectedCharId]);
+  const selectedChar = useMemo(() => safeRenderCompute('selectedChar', () => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, null), [survivors, selectedCharId]);
 
   // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
   function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
@@ -5769,7 +5787,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     setSpawnState(createInitialSpawnState(activeMapId));
   }, [activeMapId]);
 
-  const zones = useMemo(() => {
+  const zones = useMemo(() => safeRenderCompute('zones', () => {
     const z = Array.isArray(activeMap?.zones) ? activeMap.zones : [];
     // 맵에 zones 데이터가 없을 때(개발/테스트) 기본 구역 세트를 제공합니다.
     // - 키오스크 있음: 병원/성당/경찰서/소방서/양궁장/절/창고/연구소/호텔/학교
@@ -5796,15 +5814,15 @@ const devForceUseConsumable = (charId, invIndex) => {
       { zoneId: 'port', name: '항구', isForbidden: false },
       { zoneId: 'residential', name: '고급 주택가', isForbidden: false },
     ];
-  }, [activeMap]);
+  }, []), [activeMap]);
 
-  const zoneNameById = useMemo(() => {
+  const zoneNameById = useMemo(() => safeRenderCompute('zoneNameById', () => {
     const out = {};
     zones.forEach((z) => {
       if (z?.zoneId) out[String(z.zoneId)] = z.name || String(z.zoneId);
     });
     return out;
-  }, [zones]);
+  }, {}), [zones]);
 
   function getZoneName(zoneId) {
     const key = String(zoneId || '');
@@ -5812,15 +5830,15 @@ const devForceUseConsumable = (charId, invIndex) => {
   }
 
   // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
-  const hyperloopDestIds = useMemo(() => {
+  const hyperloopDestIds = useMemo(() => safeRenderCompute('hyperloopDestIds', () => {
     const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
     if (!ids.length) return [];
     const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
     return ids.filter((id) => mapSet.has(String(id)));
-  }, [activeMapId, maps]);
+  }, []), [activeMapId, maps]);
 
   // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
-  const hyperloopPadZoneId = useMemo(() => {
+  const hyperloopPadZoneId = useMemo(() => safeRenderCompute('hyperloopPadZoneId', () => {
     // ✅ 서버(어드민) 지정값 우선 적용
     const serverZoneId = String(activeMap?.hyperloopDeviceZoneId || '').trim();
     if (serverZoneId) return serverZoneId;
@@ -5828,22 +5846,22 @@ const devForceUseConsumable = (charId, invIndex) => {
     if (saved) return saved;
     const z = Array.isArray(zones) ? zones : [];
     return String(z?.[0]?.zoneId || '');
-  }, [activeMapId, zones, activeMap]);
+  }, ''), [activeMapId, zones, activeMap]);
 
-  const hyperloopPadName = useMemo(() => {
+  const hyperloopPadName = useMemo(() => safeRenderCompute('hyperloopPadName', () => {
     const zid = String(hyperloopPadZoneId || '').trim();
     if (!zid) return '';
     return String(getZoneName(zid) || zid);
-  }, [hyperloopPadZoneId, zoneNameById]);
+  }, ''), [hyperloopPadZoneId, zoneNameById]);
 
-  const isSelectedCharOnHyperloopPad = useMemo(() => {
+  const isSelectedCharOnHyperloopPad = useMemo(() => safeRenderCompute('isSelectedCharOnHyperloopPad', () => {
     const who = String(selectedCharId || '').trim();
     if (!who) return false;
     const pad = String(hyperloopPadZoneId || '').trim();
     if (!pad) return false;
     const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
     return String(actor?.zoneId || '').trim() === pad;
-  }, [selectedCharId, survivors, hyperloopPadZoneId]);
+  }, false), [selectedCharId, survivors, hyperloopPadZoneId]);
 
   const hyperloopDestKey = hyperloopDestIds.join('|');
 
@@ -5942,7 +5960,7 @@ if (!who) {
   };
 
 
-  const zoneGraph = useMemo(() => {
+  const zoneGraph = useMemo(() => safeRenderCompute('zoneGraph', () => {
     const graph = {};
     const zoneIds = zones.map((z) => String(z.zoneId));
     zoneIds.forEach((id) => (graph[id] = new Set()));
@@ -5985,7 +6003,7 @@ if (!who) {
     const out = {};
     Object.keys(graph).forEach((k) => (out[k] = [...graph[k]]));
     return out;
-  }, [activeMap, zones]);
+  }, {}), [activeMap, zones]);
 
   const canonicalizeCharName = (name) =>
     (name || '')
@@ -6249,15 +6267,15 @@ if (!who) {
     }
     return added;
   };
-  const itemNameById = useMemo(() => {
+  const itemNameById = useMemo(() => safeRenderCompute('itemNameById', () => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (it?._id) m[String(it._id)] = it.name;
     });
     return m;
-  }, [publicItems]);
+  }, {}), [publicItems]);
 
-  const itemMetaById = useMemo(() => {
+  const itemMetaById = useMemo(() => safeRenderCompute('itemMetaById', () => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
@@ -6272,9 +6290,9 @@ if (!who) {
       };
     });
     return m;
-  }, [publicItems]);
+  }, {}), [publicItems]);
 
-  const itemKeyById = useMemo(() => {
+  const itemKeyById = useMemo(() => safeRenderCompute('itemKeyById', () => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
@@ -6282,15 +6300,15 @@ if (!who) {
       if (k) m[String(it._id)] = k;
     });
     return m;
-  }, [publicItems]);
+  }, {}), [publicItems]);
 
-  const craftables = useMemo(() => {
+  const craftables = useMemo(() => safeRenderCompute('craftables', () => {
     return (Array.isArray(publicItems) ? publicItems : [])
       .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0)
       .sort((a, b) => (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name)));
-  }, [publicItems]);
+  }, []), [publicItems]);
 
-  const inventoryOptions = useMemo(() => {
+  const inventoryOptions = useMemo(() => safeRenderCompute('inventoryOptions', () => {
     const inv = Array.isArray(selectedChar?.inventory) ? selectedChar.inventory : [];
     const map = new Map();
     inv.forEach((x) => {
@@ -6303,7 +6321,7 @@ if (!who) {
       else map.set(id, { ...prev, qty: prev.qty + qty });
     });
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [selectedChar]);
+  }, []), [selectedChar]);
 
   function getQty(key, fallback = 1) {
     const v = Number(qtyMap[key]);
@@ -6383,8 +6401,8 @@ if (!who) {
     return () => window.removeEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
   }, []);
 
-  const ownedPerkCodeSet = useMemo(() => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), [viewerPerks]);
-  const activeViewerPerkBundle = useMemo(() => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks]);
+  const ownedPerkCodeSet = useMemo(() => safeRenderCompute('ownedPerkCodeSet', () => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), new Set()), [viewerPerks]);
+  const activeViewerPerkBundle = useMemo(() => safeRenderCompute('activeViewerPerkBundle', () => buildPerkRuntimeBundle(viewerPerks, publicPerks), { codes: [], docs: [], effects: { ...PERK_EFFECT_DEFAULTS }, summary: '' }), [viewerPerks, publicPerks]);
 
   useEffect(() => {
     if (!Array.isArray(survivors) || survivors.length <= 0) return;
@@ -6717,7 +6735,11 @@ const pickStartZoneIdForChar = (c) => {
       }
     };
 
-    fetchData();
+    void fetchData().catch((err) => {
+      reportRuntimeIssue('fetchData.unhandled', err);
+      addLog(formatInitLoadError(err), 'death');
+      setLoading(false);
+    });
   }, []);
 
   // 최신 킬 정보 전달

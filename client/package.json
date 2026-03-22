@@ -10,7 +10,9 @@
     "prebuild": "node ./scripts/fix-proxy-migration.js",
     "check:build:local": "npm run prebuild && npx next build",
     "check:build:vercel-like": "npm ci --no-audit --no-fund && npm run build",
-    "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && npx next build"
+    "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && npx next build",
+    "check:runtime:sweep": "eslint -c eslint.runtime.config.mjs src/app/simulation/page.js",
+    "check:runtime:full": "npm run check:runtime:sweep && npm run build"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

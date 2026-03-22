@@ -100,3 +100,7 @@
 - simulation/page.js 런타임 shadow 변수 전수 정리(legendaryWeights/nightDay/battleSettings/lastWinner/summarizeEquipTier/skirmishWinner/combatWinner/hyperloopSelectedChar).
 - strict runtime 체크 스크립트를 `no-shadow`, `no-redeclare` 포함 형태로 강화.
 - `client` build 통과, `server` JS 문법 체크 통과.
+
+## stepA129
+- simulation/page.js: runtime error capture(window error/unhandledrejection), fetchData unhandled catch, early derived useMemo safeRenderCompute 보호 적용.
+- runtime sweep/build result 문서 추가.

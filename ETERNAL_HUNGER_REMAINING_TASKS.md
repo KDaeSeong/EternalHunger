@@ -126,3 +126,7 @@
   1) `simulation/page.js` exhaustive-deps 경고 2~4건씩 정리
   2) `characters/details/simulation`의 `<img>`를 `next/image` 또는 wrapper로 교체
   3) 필요 시 admin 화면 공통 load 훅으로 정리
+
+## stepA129 follow-up
+- simulation/page.js exhaustive-deps 경고 정리
+- 필요 시 production runtime 재현 로그(CDP/headless) 추가
