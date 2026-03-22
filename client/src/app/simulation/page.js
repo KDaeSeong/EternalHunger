@@ -958,8 +958,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
     // 전설 재료 상자라면: 룰셋 dropWeightsByKey 기준으로 운석/생나/미스릴/포스코어를 굴립니다.
     if (ctLower === 'legendary_material') {
-      const legendDropWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
-  const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
+      const legendaryWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
+  const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
       const picked = pickWeighted(candidates);
       const item = picked?.item || null;
       if (item?._id) {
@@ -1024,8 +1024,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   if (!pickedType) return null;
 
   if (pickedType === 'legendary_material') {
-    const legendDropWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
-  const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
+    const legendaryWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
+  const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
     const picked = pickWeighted(candidates);
     const item = picked?.item || null;
     if (item?._id) return { item, itemId: String(item._id), qty: 1, crateId: 'fallback', crateType: 'legendary_material', zoneId: String(zoneId || '') };
@@ -1194,8 +1194,8 @@ function rollLegendaryCrateLoot(mapObj, zoneId, publicItems, curDay, curPhase, o
   const chance = moved ? 0.09 : 0.03;
   if (Math.random() >= chance) return null;
 
-  const legendDropWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
-  const candidates = getLegendaryCoreCandidates(publicItems, legendDropWeights);
+  const legendaryWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
+  const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
   if (!candidates.length) return null;
 
   const picked = pickWeighted(candidates);
@@ -1953,9 +1953,9 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   }
 
   if (String(curPhase || '') === 'night') {
-    const d = Number(curDay || 0);
+    const nightDay = Number(curDay || 0);
     s.spawnedDay = s.spawnedDay || {};
-    const already = Number(s.spawnedDay.mutantWildlife || 0) === d && s?.mutantWildlife?.alive;
+    const already = Number(s.spawnedDay.mutantWildlife || 0) === nightDay && s?.mutantWildlife?.alive;
     if (!already) {
       const cfgZid = String(getMutantWildlifeSpawnZoneId(mapId) || '').trim();
       // 어드민에서 지정한 스폰 구역은 금지구역 여부와 무관하게 "존재하면" 우선 적용
@@ -1974,7 +1974,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
           defeatedBy: null,
           defeatedAt: null,
         };
-        s.spawnedDay.mutantWildlife = d;
+        s.spawnedDay.mutantWildlife = nightDay;
         announcements.push(`🧪 변이 야생동물(${animal})이 출현했다!`);
       }
     }
@@ -6041,9 +6041,9 @@ if (!who) {
     if (c.specialSkill && !c.specialSkill.type) c.specialSkill.type = 'combat';
     return c;
   };
-  function applyIaidoOpener(attacker, defender, settings) {
+  function applyIaidoOpener(attacker, defender, battleSettings) {
     // 발도: 선제 타격으로 체력을 먼저 깎아 "스킬을 못 쓰고 죽는" 체감 완화
-    const openDamage = Number(settings?.battle?.iaidoOpenDamage ?? 38);
+    const openDamage = Number(battleSettings?.battle?.iaidoOpenDamage ?? 38);
     const defMax = Number(defender?.maxHp ?? 100);
     const defHp = Number(defender?.hp ?? defMax);
     defender.hp = Math.max(1, defHp - openDamage);
@@ -8283,14 +8283,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (deadNow.length) {
             const lastAt = Math.max(...deadNow.map((x) => Number(x?._deathAt || 0)));
             const candidates = deadNow.filter((x) => Number(x?._deathAt || 0) === lastAt);
-            const winner = candidates[Math.floor(Math.random() * candidates.length)];
-            if (winner) {
+            const lastWinner = candidates[Math.floor(Math.random() * candidates.length)];
+            if (lastWinner) {
               // dead 목록에 들어간 winner를 되살리기
-              const idx = newlyDead.findIndex((d) => String(d?._id) === String(winner?._id));
+              const idx = newlyDead.findIndex((deadEntry) => String(deadEntry?._id) === String(lastWinner?._id));
               if (idx >= 0) newlyDead.splice(idx, 1);
-              winner.hp = Math.max(1, Number(winner.hp || 1));
-              aliveMap.set(winner._id, winner);
-              addLog(`⚖️ 전원 폭발! 마지막까지 버틴 [${winner.name}] 승리(무승부 방지)`, 'highlight');
+              lastWinner.hp = Math.max(1, Number(lastWinner.hp || 1));
+              aliveMap.set(lastWinner._id, lastWinner);
+              addLog(`⚖️ 전원 폭발! 마지막까지 버틴 [${lastWinner.name}] 승리(무승부 방지)`, 'highlight');
             }
           }
         }
@@ -8401,7 +8401,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     };
 
     // 🤖 AI 교전 회피(전투력 비교): 상대 대비 불리하면 교전을 피함(장비 tier + HP 포함)
-    const getEquipTierSummary = (c) => {
+    const summarizeEquipTier = (c) => {
       const inv = Array.isArray(c?.inventory) ? c.inventory : [];
       let weaponTier = 0;
       let armorTierSum = 0;
@@ -8417,7 +8417,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     function estimatePower(c) {
       const base = combatScore(c);
-      const { weaponTier, armorTierSum } = getEquipTierSummary(c);
+      const { weaponTier, armorTierSum } = summarizeEquipTier(c);
       const pw = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
       const pa = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
       return base + weaponTier * pw + armorTierSum * pa;
@@ -8568,16 +8568,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (chosenId === id1) return r1;
 
       // 결과 반전(난전) 처리
-      const winner = chosenId === String(a._id) ? a : b;
-      const loser = winner === a ? b : a;
-      const wnRaw = winner?.name || winner?.character_name || winner?.nickname || '';
-      const lnRaw = loser?.name || loser?.character_name || loser?.nickname || '';
+      const skirmishWinner = chosenId === String(a._id) ? a : b;
+      const skirmishLoser = skirmishWinner === a ? b : a;
+      const wnRaw = skirmishWinner?.name || skirmishWinner?.character_name || skirmishWinner?.nickname || '';
+      const lnRaw = skirmishLoser?.name || skirmishLoser?.character_name || skirmishLoser?.nickname || '';
       const wn = canonicalizeCharName(wnRaw) || wnRaw || 'UNKNOWN';
       const ln = canonicalizeCharName(lnRaw) || lnRaw || 'UNKNOWN';
 
       return {
         ...r1,
-        winner,
+        winner: skirmishWinner,
         type: 'kill',
         log: `⚡ 난전! [${wn}](이)가 [${ln}](을)를 제압했습니다!`,
       };
@@ -8906,16 +8906,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           return String(dest || from);
         };
-        const applyCombatElimination = (winner, loser, opts = {}) => {
-          if (!winner || !loser) return { assistId: null };
-          const winnerId = String(winner?._id || '');
-          const loserId = String(loser?._id || '');
-          const prevDamagedBy = String(opts.prevDamagedBy || loser?.lastDamagedBy || '');
-          const prevDamagedPhaseIdx = Number(opts.prevDamagedPhaseIdx ?? loser?.lastDamagedPhaseIdx ?? -9999);
+        const applyCombatElimination = (combatWinner, combatLoser, opts = {}) => {
+          if (!combatWinner || !combatLoser) return { assistId: null };
+          const winnerId = String(combatWinner?._id || '');
+          const loserId = String(combatLoser?._id || '');
+          const prevDamagedBy = String(opts.prevDamagedBy || combatLoser?.lastDamagedBy || '');
+          const prevDamagedPhaseIdx = Number(opts.prevDamagedPhaseIdx ?? combatLoser?.lastDamagedPhaseIdx ?? -9999);
           let pushedDead = false;
           if (!newDeadIds.includes(loserId)) {
-            loser.deadAtPhaseIdx = phaseIdxNow;
-            loser.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            combatLoser.deadAtPhaseIdx = phaseIdxNow;
+            combatLoser.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(loserId);
             pushedDead = true;
           }
@@ -8926,57 +8926,57 @@ const didMove = String(nextZoneId) !== String(currentZone);
             roundAssists[assistId] = (roundAssists[assistId] || 0) + 1;
           }
           const assistName = assistId ? (survivorMap.get(assistId)?.name || assistId) : '';
-          addLog(`☠️ [${winner.name}] ${opts.killText || '처치'}! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
-          emitRunEvent('death', { who: loserId, by: winnerId, zoneId: String(loser?.zoneId || winner?.zoneId || actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          addLog(`☠️ [${combatWinner.name}] ${opts.killText || '처치'}! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
+          emitRunEvent('death', { who: loserId, by: winnerId, zoneId: String(combatLoser?.zoneId || combatWinner?.zoneId || actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           if (useDetonation) {
             const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
-            const baseMax = Number((winner.detonationMaxSec ?? ruleset?.detonation?.maxSec) ?? 30);
+            const baseMax = Number((combatWinner.detonationMaxSec ?? ruleset?.detonation?.maxSec) ?? 30);
             const nextMax = baseMax + bonusSec;
-            winner.detonationMaxSec = nextMax;
-            const baseCur = Number((winner.detonationSec ?? ruleset?.detonation?.startSec) ?? 20);
-            winner.detonationSec = Math.min(nextMax, baseCur + bonusSec);
-            addLog(`⏱️ [${winner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'system');
+            combatWinner.detonationMaxSec = nextMax;
+            const baseCur = Number((combatWinner.detonationSec ?? ruleset?.detonation?.startSec) ?? 20);
+            combatWinner.detonationSec = Math.min(nextMax, baseCur + bonusSec);
+            addLog(`⏱️ [${combatWinner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'system');
             const killCredit = Number(ruleset?.credits?.kill || 0);
             if (killCredit > 0) {
               earnedCredits += killCredit;
-              winner.simCredits = Number(winner.simCredits || 0) + killCredit;
+              combatWinner.simCredits = Number(combatWinner.simCredits || 0) + killCredit;
             }
           }
           const lootRate = Number(pvpCfg.lootCreditRate ?? 0.35);
           const lootMin = Number(pvpCfg.lootCreditMin ?? 10);
-          const winnerLootBias = Math.max(0, getPerkLootBias(winner));
+          const winnerLootBias = Math.max(0, getPerkLootBias(combatWinner));
           const lootUnitsBase = Math.max(0, Math.floor(Number(pvpCfg.lootInventoryUnits ?? 1)));
           const lootUnits = Math.max(0, Math.min(4, lootUnitsBase + (winnerLootBias >= 0.35 ? 1 : 0) + (winnerLootBias >= 0.8 ? 1 : 0)));
-          const loserCredits = Math.max(0, Number(loser?.simCredits || 0));
+          const loserCredits = Math.max(0, Number(combatLoser?.simCredits || 0));
           const stealCreditBase = Math.min(loserCredits, Math.max(lootMin, Math.floor(loserCredits * lootRate)));
           const stealCredit = Math.min(loserCredits, Math.max(lootMin, Math.round(stealCreditBase * (1 + winnerLootBias * 0.5))));
           let lootLines = [];
           const craftLogs = [];
           if (stealCredit > 0) {
-            loser.simCredits = loserCredits - stealCredit;
-            winner.simCredits = Number(winner.simCredits || 0) + stealCredit;
+            combatLoser.simCredits = loserCredits - stealCredit;
+            combatWinner.simCredits = Number(combatWinner.simCredits || 0) + stealCredit;
             lootLines.push(`💰 크레딧 ${stealCredit}`);
-            emitRunEvent('gain', { who: winnerId, itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: loserId, zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: winnerId, itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
-          const lootPick = lootUnits > 0 ? pickUnitsFromInventory(loser?.inventory || [], lootUnits) : [];
+          const lootPick = lootUnits > 0 ? pickUnitsFromInventory(combatLoser?.inventory || [], lootUnits) : [];
           if (lootPick.length) {
-            loser.inventory = removePickedUnitsFromInventory(loser?.inventory || [], lootPick);
-            pruneEquippedAgainstInventory(loser);
+            combatLoser.inventory = removePickedUnitsFromInventory(combatLoser?.inventory || [], lootPick);
+            pruneEquippedAgainstInventory(combatLoser);
             for (const lp of lootPick) {
               const lootId = String(lp?.itemId || '');
               if (!lootId) continue;
               const lootItem = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === lootId) || null;
               const fallbackName = itemNameById?.[lootId] || '아이템';
               const stub = lootItem || { _id: lootId, name: fallbackName, type: '재료', tags: [] };
-              winner.inventory = addItemToInventory(winner.inventory, stub, lootId, 1, nextDay, ruleset);
-              const gainMeta = winner.inventory?._lastAdd;
+              combatWinner.inventory = addItemToInventory(combatWinner.inventory, stub, lootId, 1, nextDay, ruleset);
+              const gainMeta = combatWinner.inventory?._lastAdd;
               const got = Math.max(0, Number(gainMeta?.acceptedQty ?? 1));
               if (got > 0) {
-                emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(winner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
                 lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x${got}`);
-                const crafted = tryAutoCraftFromLoot(winner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+                const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
                 if (crafted?.inventory) {
-                  winner.inventory = crafted.inventory;
+                  combatWinner.inventory = crafted.inventory;
                   craftLogs.push(crafted.log);
                 }
               } else {
@@ -8984,52 +8984,52 @@ const didMove = String(nextZoneId) !== String(currentZone);
               }
             }
           }
-          const invCraft = tryAutoCraftFromInventory(winner, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
+          const invCraft = tryAutoCraftFromInventory(combatWinner, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
           if (invCraft?.log) craftLogs.push(invCraft.log);
-          autoEquipBest(winner, itemMetaById);
-          pruneEquippedAgainstInventory(loser);
-          if (lootLines.length) addLog(`🧾 루팅: [${winner.name}] ← [${loser.name}] (${lootLines.join(', ')})`, 'normal');
+          autoEquipBest(combatWinner, itemMetaById);
+          pruneEquippedAgainstInventory(combatLoser);
+          if (lootLines.length) addLog(`🧾 루팅: [${combatWinner.name}] ← [${combatLoser.name}] (${lootLines.join(', ')})`, 'normal');
           if (craftLogs.length) {
             for (const line of craftLogs) addLog(line, 'highlight');
           }
-          const maxHp = Number(winner?.maxHp ?? 100);
+          const maxHp = Number(combatWinner?.maxHp ?? 100);
           const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
-          const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(winner.hp || 0)));
+          const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(combatWinner.hp || 0)));
           if (restHeal > 0) {
-            winner.hp = Math.min(maxHp, Number(winner.hp || 0) + restHeal);
-            addLog(`🩹 [${winner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
+            combatWinner.hp = Math.min(maxHp, Number(combatWinner.hp || 0) + restHeal);
+            addLog(`🩹 [${combatWinner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
           }
-          tryUseConsumable(winner, 'after_battle');
-          const curHp = Number(winner.hp || 0);
+          tryUseConsumable(combatWinner, 'after_battle');
+          const curHp = Number(combatWinner.hp || 0);
           const postRestHpBelow = Math.max(0, Number(pvpCfg.postBattleRestHpBelow ?? 45));
           const postRestExtraHealMax = Math.max(0, Math.floor(Number(pvpCfg.postBattleRestExtraHealMax ?? 6)));
           const postMoveChance = Math.max(0, Math.min(1, Number(pvpCfg.postBattleMoveChance ?? 0.35)));
           if (curHp > 0 && curHp <= postRestHpBelow) {
             const extraHeal = Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp));
             if (extraHeal > 0) {
-              winner.hp = Math.min(maxHp, curHp + extraHeal);
-              addLog(`🧘 [${winner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
+              combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
+              addLog(`🧘 [${combatWinner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
             }
           } else if (Math.random() < postMoveChance) {
-            const curZone = String(winner.zoneId || '');
+            const curZone = String(combatWinner.zoneId || '');
             const nextZone = pickSparseSafeNeighbor(curZone);
             if (nextZone && nextZone !== curZone) {
-              winner.zoneId = nextZone;
-              addLog(`🚶 [${winner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'system');
+              combatWinner.zoneId = nextZone;
+              addLog(`🚶 [${combatWinner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'system');
             }
           }
-          if (clearPostCombatEffects(winner)) {
-            addLog(`🧼 [${winner.name}] 전투 후 지속 피해 상태 정리`, 'system');
+          if (clearPostCombatEffects(combatWinner)) {
+            addLog(`🧼 [${combatWinner.name}] 전투 후 지속 피해 상태 정리`, 'system');
           }
-          clearRuntimeCombatFields(winner);
-          applyAiRecoveryWindow(winner, phaseStartSec, {
+          clearRuntimeCombatFields(combatWinner);
+          applyAiRecoveryWindow(combatWinner, phaseStartSec, {
             reason: 'post_combat',
             opponentId: loserId,
             recoverSec: 6,
-            safeZoneSec: Number(winner.hp || 0) <= postRestHpBelow ? 5 : 0,
+            safeZoneSec: Number(combatWinner.hp || 0) <= postRestHpBelow ? 5 : 0,
           });
           if (pushedDead) {
-            setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(loser, ruleset)])]);
+            setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(combatLoser, ruleset)])]);
           }
           return { assistId };
         };
@@ -9276,14 +9276,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
         if (battleResult.winner) {
           const actorIdStr = String(actor._id);
           const winnerIdStr = String(battleResult.winner._id);
-          const winner = winnerIdStr === actorIdStr ? actor : target;
+          const battleWinner = winnerIdStr === actorIdStr ? actor : target;
           const loser = winnerIdStr === actorIdStr ? target : actor;
           const winnerId = String(battleResult.winner._id);
 
           const prevDamagedBy = String(loser?.lastDamagedBy || '');
           const prevDamagedPhaseIdx = Number(loser?.lastDamagedPhaseIdx ?? -9999);
 
-          const wp = combatScore(winner);
+          const wp = combatScore(battleWinner);
           const lp = combatScore(loser);
           const ratio = wp / Math.max(1, wp + lp);
           const base = 18 + nextDay * 3;
@@ -9375,13 +9375,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
             return Math.max(0, Number(blocked?.damage || dmg));
           };
 
-          const atkDmgToLoser = applyCombatTacAttack(winner, loser, dmgToLoser);
-          const atkDmgToWinner = applyCombatTacAttack(loser, winner, dmgToWinner);
+          const atkDmgToLoser = applyCombatTacAttack(battleWinner, loser, dmgToLoser);
+          const atkDmgToWinner = applyCombatTacAttack(loser, battleWinner, dmgToWinner);
           const finalDmgToLoser = shieldBlock(loser, atkDmgToLoser);
-          const finalDmgToWinner = shieldBlock(winner, atkDmgToWinner);
+          const finalDmgToWinner = shieldBlock(battleWinner, atkDmgToWinner);
 
           loser.hp = Math.max(0, Number(loser.hp || 0) - finalDmgToLoser);
-          winner.hp = Math.max(0, Number(winner.hp || 0) - finalDmgToWinner);
+          battleWinner.hp = Math.max(0, Number(battleWinner.hp || 0) - finalDmgToWinner);
 
 
           const lethal = loser.hp <= 0;
@@ -9392,19 +9392,19 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           // 최근 피해 기여자 기록(어시스트 판정용)
           if (dmgToWinner > 0) {
-            winner.lastDamagedBy = String(loser._id);
-            winner.lastDamagedPhaseIdx = phaseIdxNow;
+            battleWinner.lastDamagedBy = String(loser._id);
+            battleWinner.lastDamagedPhaseIdx = phaseIdxNow;
           }
           if (!lethal && dmgToLoser > 0) {
             loser.lastDamagedBy = String(winnerId);
             loser.lastDamagedPhaseIdx = phaseIdxNow;
           }
           addLog(battleLog, lethal ? 'death' : 'normal');
-          addLog(`🩸 피해: [${winner.name}]↘[${loser.name}] -${finalDmgToLoser} (반격 -${finalDmgToWinner})`, 'highlight');
+          addLog(`🩸 피해: [${battleWinner.name}]↘[${loser.name}] -${finalDmgToLoser} (반격 -${finalDmgToWinner})`, 'highlight');
 
           let postCombatFlee = null;
           if (!lethal && Number(loser.hp || 0) > 0 && Number(loser.hp || 0) <= 18 && Math.random() < 0.78) {
-            postCombatFlee = resolveFleeSequence(loser, winner, { curZone: String(loser.zoneId || winner.zoneId || ''), forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee' });
+            postCombatFlee = resolveFleeSequence(loser, battleWinner, { curZone: String(loser.zoneId || battleWinner.zoneId || ''), forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee' });
           }
 
           // 🧾 전투 이벤트(미니맵 핑/집계용)
@@ -9413,7 +9413,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             {
               a: String(actor?._id || ''),
               b: String(target?._id || ''),
-              winner: (lethal || (postCombatFlee?.fatal === true)) ? String(winner?._id || '') : '',
+              winner: (lethal || (postCombatFlee?.fatal === true)) ? String(battleWinner?._id || '') : '',
               lethal: !!lethal || (postCombatFlee?.fatal === true),
               zoneId: String(actor?.zoneId || target?.zoneId || ''),
             },
@@ -9421,13 +9421,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
           );
 
           // 출혈 판정(피격 시)
-          tryApplyBleed(loser, winner, finalDmgToLoser);
-          if (finalDmgToWinner > 0) tryApplyBleed(winner, loser, finalDmgToWinner);
+          tryApplyBleed(loser, battleWinner, finalDmgToLoser);
+          if (finalDmgToWinner > 0) tryApplyBleed(battleWinner, loser, finalDmgToWinner);
 
           if (postCombatFlee?.fatal === true) {
-            applyCombatElimination(winner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '빈사 추격 제압' });
+            applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '빈사 추격 제압' });
           } else if (lethal) {
-            applyCombatElimination(winner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '처치' });
+            applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '처치' });
           }
         } else {
           const scratch = Math.min(12, 5 + Math.floor(nextDay / 2));
@@ -10975,8 +10975,8 @@ const runActionSummary = useMemo(() => {
                 deadByZone[zid].push(c);
               });
 
-              const selectedChar = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === String(hyperloopCharId)) || null;
-              const selectedZoneId = selectedChar ? String(selectedChar?.zoneId || '') : '';
+              const hyperloopSelectedChar = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === String(hyperloopCharId)) || null;
+              const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
 
               const OFF = [
                 [0, 0], [3, 0], [-3, 0], [0, 3], [0, -3],

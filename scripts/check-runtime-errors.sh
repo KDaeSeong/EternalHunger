@@ -5,7 +5,9 @@ cd "$ROOT_DIR/client"
 echo "[runtime-check] client strict eslint"
 npx eslint "src/**/*.{js,jsx,mjs}" \
   --rule 'no-use-before-define: [2,{functions:false,classes:true,variables:true}]' \
-  --rule 'no-undef: 2'
+  --rule 'no-undef: 2' \
+  --rule 'no-shadow: 2' \
+  --rule 'no-redeclare: 2'
 echo "[runtime-check] client build"
 npm run build
 cd "$ROOT_DIR/server"

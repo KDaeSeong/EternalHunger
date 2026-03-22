@@ -2,6 +2,7 @@
 # Eternal Hunger 남은 작업 목록
 
 ## 최근 반영
+- stepA128: simulation/page.js shadow 계열 runtime risk 10건 정리, strict runtime eslint(no-shadow/no-redeclare 포함) error 0, client build 통과
 - strict runtime risk 체크(no-undef/no-use-before-define/build)는 stepA127 기준 0 error
 - `rollKioskInteraction`의 `ruleset` 누락과 종료 저장 helper 블록 스코프 문제 수정
 - 보스/변이/이벤트/사냥 드랍을 공용 reward 정규화로 묶고, 결과 모달에 특수 보상/획득 경로 요약 반영

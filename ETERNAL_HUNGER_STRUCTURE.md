@@ -94,3 +94,9 @@
 - scripts/check-runtime-errors.sh : strict eslint(no-undef/no-use-before-define) + client build + server syntax check
 - scripts/check-runtime-errors.cmd : Windows용 runtime risk 체크 스크립트
 - RUNTIME_ERROR_SWEEP_RESULT.md : uncaught runtime risk 전수 체크 결과
+
+
+## stepA128
+- simulation/page.js 런타임 shadow 변수 전수 정리(legendaryWeights/nightDay/battleSettings/lastWinner/summarizeEquipTier/skirmishWinner/combatWinner/hyperloopSelectedChar).
+- strict runtime 체크 스크립트를 `no-shadow`, `no-redeclare` 포함 형태로 강화.
+- `client` build 통과, `server` JS 문법 체크 통과.
