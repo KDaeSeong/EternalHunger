@@ -90,3 +90,7 @@
 - `client/src/utils/client-auth.js` 추가
 - AdminGuard/board/admin 초기화 effect의 sync setState 제거
 - lint error 0건, `client` build 통과, `server` JS 문법 체크 통과
+
+- scripts/check-runtime-errors.sh : strict eslint(no-undef/no-use-before-define) + client build + server syntax check
+- scripts/check-runtime-errors.cmd : Windows용 runtime risk 체크 스크립트
+- RUNTIME_ERROR_SWEEP_RESULT.md : uncaught runtime risk 전수 체크 결과

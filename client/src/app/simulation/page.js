@@ -3234,7 +3234,7 @@ function pickMissingBasicItemId(craftGoal) {
   return hit?.itemId ? String(hit.itemId) : '';
 }
 
-function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPhase, actor, craftGoal, itemNameById, marketRules, upgradeNeed = null, absSecNow = 0) {
+function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPhase, actor, craftGoal, itemNameById, marketRules, ruleset = null, upgradeNeed = null, absSecNow = 0) {
   const mr = marketRules?.kiosk || {};
   const perkFx = getActorPerkEffects(actor);
   const perkChanceBonus = Math.max(0, perkNumber(perkFx.kioskChancePlus || 0)) + Math.max(0, perkNumber(perkFx.goalWeightPlus || 0)) * 0.01;
@@ -5100,6 +5100,57 @@ function worldPhaseIndex(d, ph) {
 
 
 
+// 로컬 명예의 전당(내 기록) 백업 저장: 서버 저장/조회가 꼬여도 최소한 로컬엔 남게 함
+function saveLocalHallOfFameBackup(winner, killCountsObj, assistCountsObj, participantsList) {
+  try {
+    const me = getUser();
+    const username = me?.username || me?.id || 'guest';
+    const idToName = {};
+    (participantsList || []).forEach((p) => {
+      const id = String(p?._id || p?.id || '');
+      if (!id) return;
+      idToName[id] = p?.name || p?.nickname || p?.charName || p?.title || id;
+    });
+
+    writeHallOfFameState({ username }, (current) => {
+      const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
+      Object.entries(killCountsObj || {}).forEach(([pid, k]) => {
+        const sid = String(pid || '');
+        if (!sid) return;
+        const amount = Math.max(0, Number(k || 0) || 0);
+        if (!amount) return;
+        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
+        entry.name = idToName[sid] || entry.name;
+        entry.kills = Number(entry.kills || 0) + amount;
+        state.chars[sid] = entry;
+      });
+      Object.entries(assistCountsObj || {}).forEach(([pid, a]) => {
+        const sid = String(pid || '');
+        if (!sid) return;
+        const amount = Math.max(0, Number(a || 0) || 0);
+        if (!amount) return;
+        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
+        entry.name = idToName[sid] || entry.name;
+        entry.assists = Number(entry.assists || 0) + amount;
+        state.chars[sid] = entry;
+      });
+      if (winner) {
+        const wid = String(winner?._id || winner?.id || '');
+        if (wid) {
+          const entry = state.chars[wid] || { name: idToName[wid] || winner?.name || wid, wins: 0, kills: 0, assists: 0 };
+          entry.name = idToName[wid] || entry.name;
+          entry.wins = Number(entry.wins || 0) + 1;
+          state.chars[wid] = entry;
+        }
+      }
+      return state;
+    }, { winnerId: String(winner?._id || winner?.id || '') });
+  } catch (e) {
+    console.error('local hof save failed', e);
+  }
+}
+
+
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
@@ -6587,56 +6638,6 @@ const pickStartZoneIdForChar = (c) => {
   const pool = candidates.length ? candidates : initialZoneIds;
   return pool[Math.floor(Math.random() * pool.length)];
 };
-// 로컬 명예의 전당(내 기록) 백업 저장: 서버 저장/조회가 꼬여도 최소한 로컬엔 남게 함
-const saveLocalHof = (winner, killCountsObj, assistCountsObj, participantsList) => {
-  try {
-    const me = getUser();
-    const username = me?.username || me?.id || 'guest';
-    const idToName = {};
-    (participantsList || []).forEach((p) => {
-      const id = String(p?._id || p?.id || '');
-      if (!id) return;
-      idToName[id] = p?.name || p?.nickname || p?.charName || p?.title || id;
-    });
-
-    writeHallOfFameState({ username }, (current) => {
-      const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
-      Object.entries(killCountsObj || {}).forEach(([pid, k]) => {
-        const sid = String(pid || '');
-        if (!sid) return;
-        const amount = Math.max(0, Number(k || 0) || 0);
-        if (!amount) return;
-        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
-        entry.name = idToName[sid] || entry.name;
-        entry.kills = Number(entry.kills || 0) + amount;
-        state.chars[sid] = entry;
-      });
-      Object.entries(assistCountsObj || {}).forEach(([pid, a]) => {
-        const sid = String(pid || '');
-        if (!sid) return;
-        const amount = Math.max(0, Number(a || 0) || 0);
-        if (!amount) return;
-        const entry = state.chars[sid] || { name: idToName[sid] || sid, wins: 0, kills: 0, assists: 0 };
-        entry.name = idToName[sid] || entry.name;
-        entry.assists = Number(entry.assists || 0) + amount;
-        state.chars[sid] = entry;
-      });
-      if (winner) {
-        const wid = String(winner?._id || winner?.id || '');
-        if (wid) {
-          const entry = state.chars[wid] || { name: idToName[wid] || winner?.name || wid, wins: 0, kills: 0, assists: 0 };
-          entry.name = idToName[wid] || entry.name;
-          entry.wins = Number(entry.wins || 0) + 1;
-          state.chars[wid] = entry;
-        }
-      }
-      return state;
-    }, { winnerId: String(winner?._id || winner?.id || '') });
-  } catch (e) {
-    console.error('local hof save failed', e);
-  }
-};
-
         const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
 
         const charsWithHp = charList.map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
@@ -6768,7 +6769,7 @@ const saveLocalHof = (winner, killCountsObj, assistCountsObj, participantsList) 
     try {
       const me = getUser();
       const username = me?.username || me?.id || 'guest';
-      saveLocalHof(w, finalKills, finalAssists, participants);
+      saveLocalHallOfFameBackup(w, finalKills, finalAssists, participants);
 
       // legacy(플레이어 단위) 기록을 1회만 캐릭터로 이관
       if (w) {
@@ -7587,7 +7588,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
 
         // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
-        const queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, upgradeNeed, phaseStartSec);
+        const queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
         const queuedDroneOrder = (didMove || fleeInterruptReason || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
         const craftProbeActor = (didMove || fleeInterruptReason || queuedKioskAction?.itemId || queuedDroneOrder?.itemId)
           ? null

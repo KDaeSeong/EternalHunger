@@ -61,7 +61,7 @@ export default function CharactersPage() {
     }
   };
 
-  const fetchCharacters = async () => {
+  async function fetchCharacters() {
       const token = getToken();
       if (!token) return;
       try {
@@ -76,7 +76,7 @@ export default function CharactersPage() {
       } catch (err) { 
           console.error("데이터 로드 실패:", err); 
       }
-  };
+  }
   // 2. 캐릭터 추가 (임시 ID 사용)
   const addCharacter = () => {
     const newChar = {

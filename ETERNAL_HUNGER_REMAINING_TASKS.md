@@ -2,6 +2,8 @@
 # Eternal Hunger 남은 작업 목록
 
 ## 최근 반영
+- strict runtime risk 체크(no-undef/no-use-before-define/build)는 stepA127 기준 0 error
+- `rollKioskInteraction`의 `ruleset` 누락과 종료 저장 helper 블록 스코프 문제 수정
 - 보스/변이/이벤트/사냥 드랍을 공용 reward 정규화로 묶고, 결과 모달에 특수 보상/획득 경로 요약 반영
 - 관리자 가드(`AdminShell`)의 토큰/권한 확인을 공용 auth/API 유틸 기준으로 정리
 - 관리자 이식 화면(`ImportClient`)의 API_BASE/토큰/캐릭터 이식 호출을 공용 API 유틸 기준으로 통일

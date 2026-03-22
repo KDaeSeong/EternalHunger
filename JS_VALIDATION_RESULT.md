@@ -1,9 +1,10 @@
 # JS Validation Result
 
 - 대상: `client`, `server`
-- 기준 수정본: stepA126 workspace
+- 기준 수정본: stepA127 workspace
 
 ## 실행 결과
+- `client`: strict ESLint(`no-undef`, `no-use-before-define`) 실행 결과 **error 0 / warning 21**
 - `client`: `npm ci --no-audit --no-fund` 완료
 - `client`: `npm run lint -- .` 실행 결과 **21건**
   - error 0건
@@ -33,6 +34,17 @@
   - 상세 로드 함수를 `useCallback`으로 고정하고 초기 로드를 timer defer 방식으로 정리
 - `client/src/app/admin/crates/page.js`
   - `useMemo` 불필요 dependency `message` 제거
+
+
+- `client/src/app/simulation/page.js`
+  - `rollKioskInteraction`의 `ruleset` 인자 누락 보정
+  - `saveLocalHof`를 블록 스코프 밖 helper로 승격해 종료 처리 ReferenceError 위험 제거
+- `client/src/app/characters/page.js`
+  - `fetchCharacters`를 함수 선언식으로 정리
+- `client/src/app/events/page.js`
+  - `fetchEvents` / `fetchMaps`를 함수 선언식으로 정리
+- `scripts/check-runtime-errors.sh`, `scripts/check-runtime-errors.cmd`
+  - uncaught runtime risk 점검용 strict eslint + build + server syntax 체크 추가
 
 ## 해석
 - 현재 기준으로 **JS lint error는 0건**

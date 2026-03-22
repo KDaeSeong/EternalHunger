@@ -60,7 +60,7 @@ const handleLogout = () => {
   }
 };
 
-  const fetchEvents = async () => {
+  async function fetchEvents() {
     try {
       const data = await apiGet('/events');
       setEvents(Array.isArray(data) ? data : []);
@@ -68,9 +68,9 @@ const handleLogout = () => {
       setMessage(e.message);
       setEvents([]);
     }
-  };
+  }
 
-  const fetchMaps = async () => {
+  async function fetchMaps() {
     try {
       // ✅ 맵은 공개 데이터(로그인/관리자 여부와 무관)
       const data = await apiGet('/public/maps');
@@ -81,7 +81,7 @@ const handleLogout = () => {
       setMaps([]);
       setMessage((prev) => prev || e.message);
     }
-  };
+  }
 
   const filteredEvents = useMemo(() => {
     const needle = q.trim().toLowerCase();
