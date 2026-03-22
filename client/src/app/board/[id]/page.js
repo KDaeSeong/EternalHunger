@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { apiDelete, apiGet, apiPut, getToken, getUser } from '../../../utils/api';
+import { apiDelete, apiGet, apiPut } from '../../../utils/api';
+import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 
 export default function BoardDetailPage() {
   const params = useParams();
@@ -15,12 +16,11 @@ export default function BoardDetailPage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: '', content: '' });
 
-  // Hydration mismatch 방지: localStorage는 마운트 이후에만 읽습니다.
-  const [mounted, setMounted] = useState(false);
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const mounted = useHydrated();
+  const token = useAuthToken();
+  const user = useAuthUser();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const data = await apiGet(`/posts/${id}`);
       setPost(data);
@@ -28,14 +28,15 @@ export default function BoardDetailPage() {
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    setMounted(true);
-    setToken(getToken());
-    setUser(getUser());
-    if (id) load();
-  }, [id]);
+    if (!id) return;
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [id, load]);
 
   const canEdit = mounted && token && user?._id && post && (String(post.authorId) === String(user._id));
 

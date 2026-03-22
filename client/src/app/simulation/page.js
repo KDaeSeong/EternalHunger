@@ -8872,7 +8872,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           return Math.max(12, Math.round(base * mult));
         };
         const canUseTac = (c) => (absNow >= Number(c?._tacNextAbsSec || 0));
-        const useTac = (c, name) => {
+        const applyTacUse = (c, name) => {
           if (!c) return;
           const n = normalizeTac(name);
           c._tacNextAbsSec = absNow + tacCdSec(n, c);
@@ -9063,7 +9063,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             flee.zoneId = String(dest || curZone);
             applyAiRecoveryWindow(flee, phaseStartSec, { reason: 'tac_blink_escape', opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
             upsertRuntimeSurvivor(survivorMap, flee);
-            useTac(flee, '블링크');
+            applyTacUse(flee, '블링크');
             addLog(`✨ [${flee.name}] 전술 스킬(블링크)로 도주! ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'highlight');
             emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'tac_blink_escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'blink_escape', escaped: true, caught: false, tacUsed: '블링크' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
@@ -9078,7 +9078,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const regenDuration = getTacEffectNumber('치유의 바람', 'regenDuration', 1 + fleeLv, 2);
             if (heal > 0 || regenRecovery > 0) {
               if (heal > 0) flee.hp = Math.min(maxHp, Number(flee.hp || 0) + heal);
-              useTac(flee, '치유의 바람');
+              applyTacUse(flee, '치유의 바람');
               const tacEffects = applyRuntimeEffectPayloads(flee, buildTacStatusEffects('치유의 바람', 1 + fleeLv, 'tac_healwind'));
               const bits = [];
               if (heal > 0) bits.push(`HP +${heal}`);
@@ -9141,7 +9141,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
           }
           if (escTacBonus && canUseTac(flee) && (fleeTacTrig?.useOnCommit ?? true)) {
-            useTac(flee, fleeTac);
+            applyTacUse(flee, fleeTac);
             addLog(`💨 [${flee.name}] 전술 스킬(${fleeTac})로 도주 보정!`, 'system');
             emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: String(fleeTac || ''), mode: 'escape_bonus', zoneId: String(flee?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
@@ -9165,7 +9165,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           pChase = Math.max(0, Math.min(0.95, pChase));
           const willChase = Math.random() < pChase;
           if (willChase && chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.useOnCommit ?? true)) {
-            useTac(chaser, chaseTac);
+            applyTacUse(chaser, chaseTac);
             addLog(`🧭 [${chaser.name}] 전술 스킬(${chaseTac})로 추격 강화!`, 'system');
             emitRunEvent('skill', { who: String(chaser?._id || ''), whoName: chaser?.name, skill: String(chaseTac || ''), mode: 'chase_bonus', zoneId: String(chaser?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
@@ -9305,7 +9305,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const regenRecovery = getTacEffectNumber(tac, 'regenRecovery', 1 + lv, 0);
             const regenDuration = getTacEffectNumber(tac, 'regenDuration', 1 + lv, 2);
             if (cost > 0 && hp <= Math.max(12, cost + 2)) return dmg;
-            useTac(attacker, tac);
+            applyTacUse(attacker, tac);
             if (cost > 0) attacker.hp = Math.max(1, hp - cost);
             if (heal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + heal);
             const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`));
@@ -9347,7 +9347,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const lv = tacModuleLevel(defender);
             const negateLethal = getTacEffectNumber(tac, 'negateLethal', 1 + lv, 0) > 0;
             if (negateLethal && dmg >= Number(defender?.hp || 0)) {
-              useTac(defender, tac);
+              applyTacUse(defender, tac);
               addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'highlight');
               return Math.max(0, Number(defender?.hp || 0) - 1);
             }
@@ -9355,7 +9355,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const shieldValue = getTacEffectNumber(tac, 'shieldValue', 1 + lv, blockCap);
             const shieldDuration = getTacEffectNumber(tac, 'shieldDuration', 1 + lv, 2);
             if (blockCap <= 0 && shieldValue <= 0) return dmg;
-            useTac(defender, tac);
+            applyTacUse(defender, tac);
             const tacEffects = applyRuntimeEffectPayloads(defender, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`));
             const blocked = consumeShieldDamage(defender, dmg);
             const block = Math.max(0, Number(blocked?.absorbed || 0));

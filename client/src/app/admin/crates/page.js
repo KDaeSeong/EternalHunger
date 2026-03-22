@@ -80,7 +80,7 @@ export default function AdminCratesPage() {
   const [message, setMessage] = useState('');
 
   const base = useMemo(() => RULESETS[rulesetId] || RULESETS.ER_S10, [rulesetId]);
-  const current = useMemo(() => getRuleset(rulesetId), [rulesetId, message]);
+  const current = useMemo(() => getRuleset(rulesetId), [rulesetId]);
 
   // 필드 상자 타입 비중(합=1)
   const [wFood, setWFood] = useState(0.8);

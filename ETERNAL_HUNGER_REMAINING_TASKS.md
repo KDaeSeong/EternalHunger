@@ -74,6 +74,8 @@
 - 최신 ZIP 기준 중복 파일/구버전 정리
 
 ## 최근 핫픽스 메모
+- stepA121: 실제 빌드 실행 대신 BUILD_CHECK_GUIDE.md와 로컬 빌드 체크 스크립트(check-build-local.sh/.cmd), package.json 체크 스크립트 추가.
+
 - stepA116: simulation/page.js 파싱 오류 2건(scored, kioskDoc) 복구
 
 - stepA117: simulation/page.js 파싱 오류 1건(missNeedCount 선언부) 복구
@@ -84,3 +86,40 @@
 - stepA119: simulation/page.js useMemo/safeRenderCompute 닫힘 구문 8건(runProgressSummary, runSupportSummary, runActionSummary, topRankedCharacters, zonePos, zoneEdges, recentPings, detonationRiskSummary) 복구
 
 - stepA120: simulation/page.js detonationRiskSummary useMemo/safeRenderCompute closing parse hotfix (`});` + deps split -> `}), [deps]);`).
+## stepA122
+- verify page-data collection stage after font fetch issue removal
+- inspect build-time heavy routes if page-data stage still stalls
+- keep system-font fallback unless local font bundling is introduced
+
+
+
+## stepA123
+- compile 단계와 page-data collection 진입은 실제 빌드 체크로 재확인
+- 다음 확인 축은 `Collecting page data` 이후 route별 정적/서버 코드 비용 좁히기
+- build-check 스크립트는 `npm ci --no-audit --no-fund` 기준으로 재현성 보강
+
+---
+
+## stepA124
+- 빌드 체킹 실제 시행: `client`에서 `npm ci --no-audit --no-fund` 후 `npm run build` 통과.
+- 안정화 패치: `client/next.config.mjs`에 `experimental.cpus: 2` 추가.
+- 효과: `Collecting page data using 55 workers` → `2 workers`로 줄어 빌드 완료.
+
+
+## stepA125
+- 빌드 기준 JS 문법 오류는 정리 완료, `client` 빌드 통과
+- 남은 lint error 8건은 주로 `react-hooks/set-state-in-effect` 정리 작업
+- 다음 소작업 추천 순서
+  1) `AdminGuard.jsx` mounted/ready 처리 단순화
+  2) `board/page.js`, `board/[id]/page.js`의 초기화 effect 분리
+  3) `admin/credits`, `admin/drone`, `admin/kiosks`, `admin/perks`의 `load()` effect 패턴 정리
+  4) `admin/import/_components/ImportClient.jsx`의 초기 state 세팅 effect 정리
+
+
+## stepA126
+- JS 오류 검증 재정리: lint error 8건 → 0건
+- 실제 빌드 체킹 재실행: `client` build 통과, `server` JS 문법 체크 통과
+- 다음 소작업 추천
+  1) `simulation/page.js` exhaustive-deps 경고 2~4건씩 정리
+  2) `characters/details/simulation`의 `<img>`를 `next/image` 또는 wrapper로 교체
+  3) 필요 시 admin 화면 공통 load 훅으로 정리

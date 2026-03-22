@@ -44,7 +44,10 @@ export default function AdminPerksPage() {
   };
 
   useEffect(() => {
-    load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const parseEffects = (text) => {

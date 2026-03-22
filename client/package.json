@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "prebuild": "node ./scripts/fix-proxy-migration.js"
+    "prebuild": "node ./scripts/fix-proxy-migration.js",
+    "check:build:local": "npm run prebuild && npx next build",
+    "check:build:vercel-like": "npm ci --no-audit --no-fund && npm run build",
+    "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && npx next build"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

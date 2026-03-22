@@ -10,6 +10,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 생성 중간 산출물 미리보기 파일은 실제 앱 소스에서 제외
+    "src/app/simulation/page_transformed_preview.js",
   ]),
 ]);
 

@@ -2,19 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { apiDelete, apiGet, apiPost, getToken, getUser } from '../../utils/api';
+import { apiDelete, apiGet, apiPost } from '../../utils/api';
+import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 
 export default function BoardPage() {
   const [posts, setPosts] = useState([]);
   const [message, setMessage] = useState('');
   const [form, setForm] = useState({ title: '', content: '' });
-  // NOTE: localStorage 기반 토큰/유저 정보는 SSR 시점에는 없기 때문에
-  // 렌더 타이밍에 바로 읽으면 서버/클라이언트 렌더 결과가 달라져
-  // Hydration mismatch가 발생할 수 있습니다.
-  // -> 마운트 후(useEffect) 읽어서 상태로 반영합니다.
-  const [mounted, setMounted] = useState(false);
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const mounted = useHydrated();
+  const token = useAuthToken();
+  const user = useAuthUser();
 
   const load = async () => {
     try {
@@ -26,10 +23,10 @@ export default function BoardPage() {
   };
 
   useEffect(() => {
-    setMounted(true);
-    setToken(getToken());
-    setUser(getUser());
-    load();
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   const create = async () => {

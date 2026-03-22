@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   apiGet,
   apiPost,
@@ -93,16 +93,12 @@ function stringifyLogBody(payload) {
 }
 
 export default function ImportClient() {
-  const [apiBase, setApiBase] = useState('');
-  const [token, setToken] = useState('');
+  const [apiBase, setApiBase] = useState(() => getInitialApiBase());
+  const [token, setToken] = useState(() => getAnyToken() || '');
   const [charsText, setCharsText] = useState('');
   const [log, setLog] = useState('');
   const [stripImageData, setStripImageData] = useState(true);
 
-  useEffect(() => {
-    setApiBase(getInitialApiBase());
-    setToken(getAnyToken() || '');
-  }, []);
 
   const charsParsed = useMemo(() => parse(charsText), [charsText]);
 
@@ -218,7 +214,7 @@ ${stringifyLogBody(res.data)}`);
 
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, opacity: 0.9, fontWeight: 800 }}>
             <input type="checkbox" checked={stripImageData} onChange={(e) => setStripImageData(e.target.checked)} />
-            "data": 라인 제거
+            &quot;data&quot;: 라인 제거
           </label>
 
           <button style={S.btn} onClick={() => importCharacters('merge')}>추가(merge)</button>

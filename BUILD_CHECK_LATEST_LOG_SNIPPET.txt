@@ -1,0 +1,55 @@
+
+> client@0.1.0 prebuild
+> node ./scripts/fix-proxy-migration.js
+
+[prebuild] proxyExists=true
+
+> client@0.1.0 build
+> next build
+
+▲ Next.js 16.1.4 (Turbopack)
+- Experiments (use with caution):
+  · cpus: 2
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 17.7s
+  Running TypeScript ...
+  Collecting page data using 2 workers ...
+  Generating static pages using 2 workers (0/22) ...
+  Generating static pages using 2 workers (5/22) 
+  Generating static pages using 2 workers (10/22) 
+  Generating static pages using 2 workers (16/22) 
+✓ Generating static pages using 2 workers (22/22) in 412.9ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/crates
+├ ○ /admin/credits
+├ ○ /admin/drone
+├ ○ /admin/import
+├ ○ /admin/items
+├ ○ /admin/kiosks
+├ ○ /admin/maps
+├ ○ /admin/perks
+├ ƒ /api/characters
+├ ƒ /api/proxy/[...path]
+├ ○ /board
+├ ƒ /board/[id]
+├ ○ /characters
+├ ○ /details
+├ ○ /events
+├ ○ /import
+├ ○ /login
+├ ○ /modifiers
+├ ○ /signup
+└ ƒ /simulation
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
