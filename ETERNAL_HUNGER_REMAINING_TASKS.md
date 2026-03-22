@@ -132,3 +132,5 @@
 - 필요 시 production runtime 재현 로그(CDP/headless) 추가
 
 - stepA130: simulation/page.js runtime uncaught sweep re-applied (window runtime listeners, fireAndReport async guards, init sort/map safe fallbacks) and build checked.
+
+- stepA131 follow-up: browser 재현 로그가 다시 뜨면 uploaded page.js 기준 해당 chunk position 역매핑으로 1건씩 제거

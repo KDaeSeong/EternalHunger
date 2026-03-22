@@ -5186,31 +5186,11 @@ export default function SimulationPage() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
   const initDebugLine = `init api: ${getApiBase()} | deps: ${INIT_DEPENDENCY_PATHS.join(', ')}`;
-  function reportRuntimeIssue(label, err) {
-    console.error(`[simulation:${label}]`, err);
-  };
-
-  function fireAndReport(label, task, onError) {
-    return Promise.resolve()
-      .then(() => task())
-      .catch((err) => {
-        reportRuntimeIssue(label, err);
-        if (typeof onError === 'function') {
-          try {
-            onError(err);
-          } catch (hookErr) {
-            reportRuntimeIssue(`${label}.onError`, hookErr);
-          }
-        }
-        return null;
-      });
-  };
-
   function safeRenderCompute(label, factory, fallback) {
     try {
       return factory();
     } catch (err) {
-      reportRuntimeIssue(label, err);
+      console.error(`[simulation:${label}]`, err);
       return fallback;
     }
   };
@@ -5248,22 +5228,8 @@ export default function SimulationPage() {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') closeUiModal();
     };
-    const onRuntimeError = (event) => {
-      reportRuntimeIssue('window.error', event?.error || event?.message || event);
-      if (typeof event?.preventDefault === 'function') event.preventDefault();
-    };
-    const onUnhandledRejection = (event) => {
-      reportRuntimeIssue('window.unhandledrejection', event?.reason || event);
-      if (typeof event?.preventDefault === 'function') event.preventDefault();
-    };
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('error', onRuntimeError);
-    window.addEventListener('unhandledrejection', onUnhandledRejection);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('error', onRuntimeError);
-      window.removeEventListener('unhandledrejection', onUnhandledRejection);
-    };
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
 
@@ -5331,13 +5297,13 @@ export default function SimulationPage() {
 
 
 
-const activeMapName = useMemo(() => safeRenderCompute('activeMapName', () => {
+const activeMapName = useMemo(() => {
   const list = Array.isArray(maps) ? maps : [];
   return list.find((m) => String(m?._id) === String(activeMapId))?.name || '맵 없음';
-}, '맵 없음'), [maps, activeMapId]);
+}, [maps, activeMapId]);
 
   // 로그에서 [이름]을 파싱해 아이콘을 붙이기 위한 캐시
-  const actorAvatarByName = useMemo(() => safeRenderCompute('actorAvatarByName', () => {
+  const actorAvatarByName = useMemo(() => {
     const out = {};
     const all = [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])];
     for (const c of all) {
@@ -5346,7 +5312,7 @@ const activeMapName = useMemo(() => safeRenderCompute('activeMapName', () => {
       if (name && img && !out[name]) out[name] = img;
     }
     return out;
-  }, {}), [survivors, dead]);
+  }, [survivors, dead]);
 
   // ✅ 상점/조합/교환 패널
   const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | perk | trade
@@ -5762,7 +5728,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     }
   }, [survivors, selectedCharId]);
 
-  const selectedChar = useMemo(() => safeRenderCompute('selectedChar', () => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, null), [survivors, selectedCharId]);
+  const selectedChar = useMemo(() => survivors.find((s) => String(s._id) === String(selectedCharId)) || null, [survivors, selectedCharId]);
 
   // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
   function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
@@ -5803,7 +5769,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     setSpawnState(createInitialSpawnState(activeMapId));
   }, [activeMapId]);
 
-  const zones = useMemo(() => safeRenderCompute('zones', () => {
+  const zones = useMemo(() => {
     const z = Array.isArray(activeMap?.zones) ? activeMap.zones : [];
     // 맵에 zones 데이터가 없을 때(개발/테스트) 기본 구역 세트를 제공합니다.
     // - 키오스크 있음: 병원/성당/경찰서/소방서/양궁장/절/창고/연구소/호텔/학교
@@ -5830,15 +5796,15 @@ const devForceUseConsumable = (charId, invIndex) => {
       { zoneId: 'port', name: '항구', isForbidden: false },
       { zoneId: 'residential', name: '고급 주택가', isForbidden: false },
     ];
-  }, []), [activeMap]);
+  }, [activeMap]);
 
-  const zoneNameById = useMemo(() => safeRenderCompute('zoneNameById', () => {
+  const zoneNameById = useMemo(() => {
     const out = {};
     zones.forEach((z) => {
       if (z?.zoneId) out[String(z.zoneId)] = z.name || String(z.zoneId);
     });
     return out;
-  }, {}), [zones]);
+  }, [zones]);
 
   function getZoneName(zoneId) {
     const key = String(zoneId || '');
@@ -5846,15 +5812,15 @@ const devForceUseConsumable = (charId, invIndex) => {
   }
 
   // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
-  const hyperloopDestIds = useMemo(() => safeRenderCompute('hyperloopDestIds', () => {
+  const hyperloopDestIds = useMemo(() => {
     const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
     if (!ids.length) return [];
     const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
     return ids.filter((id) => mapSet.has(String(id)));
-  }, []), [activeMapId, maps]);
+  }, [activeMapId, maps]);
 
   // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
-  const hyperloopPadZoneId = useMemo(() => safeRenderCompute('hyperloopPadZoneId', () => {
+  const hyperloopPadZoneId = useMemo(() => {
     // ✅ 서버(어드민) 지정값 우선 적용
     const serverZoneId = String(activeMap?.hyperloopDeviceZoneId || '').trim();
     if (serverZoneId) return serverZoneId;
@@ -5862,22 +5828,22 @@ const devForceUseConsumable = (charId, invIndex) => {
     if (saved) return saved;
     const z = Array.isArray(zones) ? zones : [];
     return String(z?.[0]?.zoneId || '');
-  }, ''), [activeMapId, zones, activeMap]);
+  }, [activeMapId, zones, activeMap]);
 
-  const hyperloopPadName = useMemo(() => safeRenderCompute('hyperloopPadName', () => {
+  const hyperloopPadName = useMemo(() => {
     const zid = String(hyperloopPadZoneId || '').trim();
     if (!zid) return '';
     return String(getZoneName(zid) || zid);
-  }, ''), [hyperloopPadZoneId, zoneNameById]);
+  }, [hyperloopPadZoneId, zoneNameById]);
 
-  const isSelectedCharOnHyperloopPad = useMemo(() => safeRenderCompute('isSelectedCharOnHyperloopPad', () => {
+  const isSelectedCharOnHyperloopPad = useMemo(() => {
     const who = String(selectedCharId || '').trim();
     if (!who) return false;
     const pad = String(hyperloopPadZoneId || '').trim();
     if (!pad) return false;
     const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
     return String(actor?.zoneId || '').trim() === pad;
-  }, false), [selectedCharId, survivors, hyperloopPadZoneId]);
+  }, [selectedCharId, survivors, hyperloopPadZoneId]);
 
   const hyperloopDestKey = hyperloopDestIds.join('|');
 
@@ -5976,7 +5942,7 @@ if (!who) {
   };
 
 
-  const zoneGraph = useMemo(() => safeRenderCompute('zoneGraph', () => {
+  const zoneGraph = useMemo(() => {
     const graph = {};
     const zoneIds = zones.map((z) => String(z.zoneId));
     zoneIds.forEach((id) => (graph[id] = new Set()));
@@ -6019,7 +5985,7 @@ if (!who) {
     const out = {};
     Object.keys(graph).forEach((k) => (out[k] = [...graph[k]]));
     return out;
-  }, {}), [activeMap, zones]);
+  }, [activeMap, zones]);
 
   const canonicalizeCharName = (name) =>
     (name || '')
@@ -6283,15 +6249,15 @@ if (!who) {
     }
     return added;
   };
-  const itemNameById = useMemo(() => safeRenderCompute('itemNameById', () => {
+  const itemNameById = useMemo(() => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (it?._id) m[String(it._id)] = it.name;
     });
     return m;
-  }, {}), [publicItems]);
+  }, [publicItems]);
 
-  const itemMetaById = useMemo(() => safeRenderCompute('itemMetaById', () => {
+  const itemMetaById = useMemo(() => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
@@ -6306,9 +6272,9 @@ if (!who) {
       };
     });
     return m;
-  }, {}), [publicItems]);
+  }, [publicItems]);
 
-  const itemKeyById = useMemo(() => safeRenderCompute('itemKeyById', () => {
+  const itemKeyById = useMemo(() => {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
@@ -6316,15 +6282,15 @@ if (!who) {
       if (k) m[String(it._id)] = k;
     });
     return m;
-  }, {}), [publicItems]);
+  }, [publicItems]);
 
-  const craftables = useMemo(() => safeRenderCompute('craftables', () => {
+  const craftables = useMemo(() => {
     return (Array.isArray(publicItems) ? publicItems : [])
       .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0)
       .sort((a, b) => (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name)));
-  }, []), [publicItems]);
+  }, [publicItems]);
 
-  const inventoryOptions = useMemo(() => safeRenderCompute('inventoryOptions', () => {
+  const inventoryOptions = useMemo(() => {
     const inv = Array.isArray(selectedChar?.inventory) ? selectedChar.inventory : [];
     const map = new Map();
     inv.forEach((x) => {
@@ -6337,7 +6303,7 @@ if (!who) {
       else map.set(id, { ...prev, qty: prev.qty + qty });
     });
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, []), [selectedChar]);
+  }, [selectedChar]);
 
   function getQty(key, fallback = 1) {
     const v = Number(qtyMap[key]);
@@ -6417,8 +6383,8 @@ if (!who) {
     return () => window.removeEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
   }, []);
 
-  const ownedPerkCodeSet = useMemo(() => safeRenderCompute('ownedPerkCodeSet', () => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), new Set()), [viewerPerks]);
-  const activeViewerPerkBundle = useMemo(() => safeRenderCompute('activeViewerPerkBundle', () => buildPerkRuntimeBundle(viewerPerks, publicPerks), { codes: [], docs: [], effects: { ...PERK_EFFECT_DEFAULTS }, summary: '' }), [viewerPerks, publicPerks]);
+  const ownedPerkCodeSet = useMemo(() => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), [viewerPerks]);
+  const activeViewerPerkBundle = useMemo(() => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks]);
 
   useEffect(() => {
     if (!Array.isArray(survivors) || survivors.length <= 0) return;
@@ -6598,88 +6564,94 @@ if (initialMapId) {
 
 // 🎒 추천 상급 장비(또는 역할)에 맞춰 시작 구역을 가중치 랜덤으로 선택
 const pickStartZoneIdForChar = (c) => {
-  const zonesArr = Array.isArray(initialMap?.zones) ? initialMap.zones : [];
-  const fallback = () => initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)];
-  if (!zonesArr.length) return fallback();
-
   try {
-  const texts = [];
-  function addText(v) {
-    if (v === null || v === undefined) return;
-    const s = String(v).trim();
-    if (s) texts.push(s.toLowerCase());
-  };
+    const zonesArr = Array.isArray(initialMap?.zones) ? initialMap.zones : [];
+    const fallback = () => initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)];
+    if (!zonesArr.length) return fallback();
 
-  function addFromList(arr) {
-    if (!Array.isArray(arr)) return;
-    arr.forEach((g) => {
-      if (!g) return;
-      if (typeof g === 'string') return addText(g);
-      addText(g.name);
-      addText(g.kind);
-      addText(g.category);
-      addText(g.type);
-      if (Array.isArray(g.tags)) g.tags.forEach(addText);
+    const texts = [];
+    function addText(v) {
+      if (v === null || v === undefined) return;
+      const s = String(v).trim();
+      if (s) texts.push(s.toLowerCase());
+    };
+
+    function addFromList(arr) {
+      if (!Array.isArray(arr)) return;
+      arr.forEach((g) => {
+        if (!g) return;
+        if (typeof g === 'string') return addText(g);
+        addText(g.name);
+        addText(g.kind);
+        addText(g.category);
+        addText(g.type);
+        if (Array.isArray(g.tags)) g.tags.forEach(addText);
+      });
+    };
+
+    addFromList(c?.recommendedHighGear);
+    addFromList(c?.recommendedAdvancedGear);
+    addFromList(c?.recommendedGear);
+    addFromList(c?.advancedGear);
+
+    // 스탯 기반 힌트(데이터가 없을 때)
+    const st = c?.stats || c?.stat || c;
+    const statKeys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+    let topStatKey = '';
+    let topStatValue = Number.NEGATIVE_INFINITY;
+    statKeys.forEach((statKey) => {
+      const value = Number(st?.[statKey] ?? st?.[String(statKey).toUpperCase()] ?? 0);
+      if (!Number.isFinite(value)) return;
+      if (value > topStatValue) {
+        topStatValue = value;
+        topStatKey = statKey;
+      }
     });
-  };
+    if (topStatKey) addText(topStatKey);
 
-  addFromList(c?.recommendedHighGear);
-  addFromList(c?.recommendedAdvancedGear);
-  addFromList(c?.recommendedGear);
-  addFromList(c?.advancedGear);
+    // gear/stat 힌트를 zone name/tags에 매칭하기 위한 간단 사전
+    const keywordMap = {
+      keyboard: ['keyboard', '키보드', '키보'],
+      mouse: ['mouse', '마우스'],
+      monitor: ['monitor', '모니터'],
+      weapon: ['weapon', '무기', 'armory', '병기'],
+      armor: ['armor', '방어구', '갑옷'],
+      food: ['food', '음식', '식당', '편의'],
+      sht: ['shoot', '사격', '원거리', '총', 'gun'],
+      str: ['melee', '근접', '격투'],
+      int: ['lab', '연구', '전산', '컴퓨터'],
+      dex: ['craft', '제작', '공작'],
+    };
 
-  // 스탯 기반 힌트(데이터가 없을 때)
-  const st = c?.stats || c?.stat || c;
-  const keys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
-  const top = keys
-    .map((k) => [k, Number(st?.[k] ?? st?.[k.toUpperCase()] ?? 0)])
-    .sort((a, b) => b[1] - a[1])[0]?.[0];
-  if (top) addText(top);
-
-  // gear/stat 힌트를 zone name/tags에 매칭하기 위한 간단 사전
-  const keywordMap = {
-    keyboard: ['keyboard', '키보드', '키보'],
-    mouse: ['mouse', '마우스'],
-    monitor: ['monitor', '모니터'],
-    weapon: ['weapon', '무기', 'armory', '병기'],
-    armor: ['armor', '방어구', '갑옷'],
-    food: ['food', '음식', '식당', '편의'],
-    sht: ['shoot', '사격', '원거리', '총', 'gun'],
-    str: ['melee', '근접', '격투'],
-    int: ['lab', '연구', '전산', '컴퓨터'],
-    dex: ['craft', '제작', '공작'],
-  };
-
-  const expanded = new Set();
-  texts.forEach((t) => {
-    expanded.add(t);
-    Object.entries(keywordMap).forEach(([k, syns]) => {
-      const hit = t.includes(k) || syns.some((s) => t.includes(String(s).toLowerCase()));
-      if (hit) syns.forEach((s) => expanded.add(String(s).toLowerCase()));
+    const expanded = new Set();
+    texts.forEach((t) => {
+      expanded.add(t);
+      Object.entries(keywordMap).forEach(([keyword, syns]) => {
+        const hit = t.includes(keyword) || syns.some((syn) => t.includes(String(syn).toLowerCase()));
+        if (hit) syns.forEach((syn) => expanded.add(String(syn).toLowerCase()));
+      });
     });
-  });
 
-  const hints = [...expanded].filter(Boolean);
-  if (!hints.length) return fallback();
+    const hints = [...expanded].filter(Boolean);
+    if (!hints.length) return fallback();
 
-  const candidates = zonesArr
-    .filter((z) => {
-      const name = String(z?.name || '').toLowerCase();
-      const tags = Array.isArray(z?.tags) ? z.tags.map((x) => String(x).toLowerCase()) : [];
-      return hints.some((h) => name.includes(h) || tags.includes(h));
-    })
-    .map((z) => String(z.zoneId));
+    const candidates = zonesArr
+      .filter((z) => {
+        const name = String(z?.name || '').toLowerCase();
+        const tags = Array.isArray(z?.tags) ? z.tags.map((tag) => String(tag).toLowerCase()) : [];
+        return hints.some((hint) => name.includes(hint) || tags.includes(hint));
+      })
+      .map((z) => String(z.zoneId));
 
-  const pool = candidates.length ? candidates : initialZoneIds;
-  return pool[Math.floor(Math.random() * pool.length)];
-  } catch (err) {
-    reportRuntimeIssue('pickStartZoneIdForChar', err);
-    return fallback();
+    const pool = candidates.length ? candidates : initialZoneIds;
+    return pool[Math.floor(Math.random() * pool.length)];
+  } catch {
+    return initialZoneIds[Math.floor(Math.random() * initialZoneIds.length)] || '__default__';
   }
 };
         const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
 
-        const charsWithHp = safeRenderCompute('charsWithHp.init', () => charList.map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
+        const charsWithHp = (Array.isArray(charList) ? charList : []).map((c) => applyPerkBundleToActor(normalizeRuntimeSurvivor({
           ...c,
           // 전술 스킬 레벨(런 단위): 매 런 시작 시 Lv.1로 초기화
           tacticalSkillLevel: 1,
@@ -6705,9 +6677,15 @@ const pickStartZoneIdForChar = (c) => {
             cnotGate: 0,
           },
           safeZoneUntil: 0,
-        }), initPerkBundle, { initialFill: true, applyCredits: true })), []);
-        const shuffledChars = safeRenderCompute('shuffledChars.init', () => charsWithHp.slice().sort(() => Math.random() - 0.5).map((c) => normalizeRuntimeSurvivor(c)), Array.isArray(charsWithHp) ? charsWithHp.slice() : []);
-        setSurvivors(shuffledChars);
+        }), initPerkBundle, { initialFill: true, applyCredits: true }));
+        const shuffledChars = [...charsWithHp];
+        for (let idx = shuffledChars.length - 1; idx > 0; idx -= 1) {
+          const swapIdx = Math.floor(Math.random() * (idx + 1));
+          const tmp = shuffledChars[idx];
+          shuffledChars[idx] = shuffledChars[swapIdx];
+          shuffledChars[swapIdx] = tmp;
+        }
+        setSurvivors(shuffledChars.map((c) => normalizeRuntimeSurvivor(c)));
         setEvents(eventsList);
 
         // 킬 카운트 초기화
@@ -6756,7 +6734,8 @@ const pickStartZoneIdForChar = (c) => {
       }
     };
 
-    void fireAndReport('fetchData.unhandled', fetchData, (err) => {
+    void fetchData().catch((err) => {
+      console.error('fetchData unhandled:', err);
       addLog(formatInitLoadError(err), 'death');
       setLoading(false);
     });
@@ -9725,13 +9704,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
     // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
     // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
     // NOTE: off-map 생존자(관전/퇴장) 분기는 아직 미사용이므로 finalStepSurvivors만 저장한다.
-    void fireAndReport(
-      'persistSimEquipmentsFromChars.phase',
-      () => persistSimEquipmentsFromChars(
-        (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
-        `phase:d${nextDay}_${nextPhase}`
-      )
-    );
+    persistSimEquipmentsFromChars(
+      (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
+      `phase:d${nextDay}_${nextPhase}`
+    ).catch(() => {});
 
 
     // SD 서든데스: 카운트다운 종료 시 강제 결판(최후 1인)
@@ -9751,7 +9727,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       setSurvivors([normalizeRuntimeSurvivor(wForced)]);
       setMatchSec((prev) => prev + phaseDurationSec);
       addLog(`⏱ 서든데스 종료! 제한시간 만료로 [${wForced.name}] 승리`, 'highlight');
-      void fireAndReport('finishGame.forceAll', () => finishGame([wForced], updatedKillCounts, updatedAssistCounts));
+      finishGame([wForced], updatedKillCounts, updatedAssistCounts);
       return;
     }
 
@@ -9774,7 +9750,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     }
 
     if (finalStepSurvivors.length <= 1) {
-      void fireAndReport('finishGame.finalStep', () => finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts));
+      finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
     }
   };
 
@@ -9861,7 +9837,7 @@ if (showMarketPanel && pendingTranscendPick) {
     if (day === 0) return;
     if (!Array.isArray(survivors)) return;
     if (survivors.length > 1) return;
-    void fireAndReport('finishGame.autoEffect', () => finishGame(survivors, killCounts, assistCounts));
+    finishGame(survivors, killCounts, assistCounts);
   }, [survivors.length, day, loading, isGameOver]);
 
 
@@ -10027,8 +10003,8 @@ if (showMarketPanel && pendingTranscendPick) {
 
   // 탭 전환 시 필요한 데이터 갱신
   useEffect(() => {
-    if (marketTab === 'trade') void fireAndReport('loadTrades.marketTab', loadTrades);
-    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') void fireAndReport('loadMarket.marketTab', loadMarket);
+    if (marketTab === 'trade') loadTrades();
+    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') loadMarket();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
@@ -10902,7 +10878,7 @@ const runActionSummary = useMemo(() => {
 
               <button
                 className="btn-secondary"
-                onClick={() => { void fireAndReport('refreshMapSettingsFromServer.manual', () => refreshMapSettingsFromServer('manual')); }}
+                onClick={() => refreshMapSettingsFromServer('manual')}
                 disabled={loading || isAdvancing || isGameOver}
                     style={{ padding: '6px 10px', fontSize: 12 }}
                 title="서버에 저장된 맵 설정(crateAllowDeny 등)을 새로 불러옵니다."
@@ -11689,7 +11665,7 @@ const runActionSummary = useMemo(() => {
                   <div className="market-small" style={{ marginTop: 6 }}>현재 보유 크레딧 {Number(credits || 0)} Cr · LP {Number(viewerLp || 0)} · 보유 특전 {Number((Array.isArray(viewerPerks) ? viewerPerks.length : 0) || 0)}개</div>
                   {activeViewerPerkBundle?.summary ? (<div className="market-small">적용 중: {activeViewerPerkBundle.summary}</div>) : null}
                 </div>
-                <button onClick={() => { void fireAndReport('market.sync.click', () => Promise.allSettled([syncMyState(), loadMarket()])); }} className="market-mini-btn">동기화</button>
+                <button onClick={() => Promise.allSettled([syncMyState(), loadMarket()])} className="market-mini-btn">동기화</button>
               </div>
             </div>
 
@@ -11731,7 +11707,7 @@ const runActionSummary = useMemo(() => {
                         value={getQty(`craft:${it._id}`, 1)}
                         onChange={(e) => setQty(`craft:${it._id}`, e.target.value)}
                       />
-                      <button onClick={() => { void fireAndReport('doCraft.click', () => doCraft(it._id)); }} disabled={!selectedCharId}>조합</button>
+                      <button onClick={() => doCraft(it._id)} disabled={!selectedCharId}>조합</button>
                     </div>
                   </div>
                 ))
@@ -11751,7 +11727,7 @@ const runActionSummary = useMemo(() => {
                         <div className="market-title">{k.name || '키오스크'}</div>
                         <div className="market-small">위치: {k.mapId?.name || '미지정'}</div>
                       </div>
-                      <button onClick={() => { void fireAndReport('loadMarket.click', loadMarket); }} className="market-mini-btn">새로고침</button>
+                      <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
                     </div>
 
                     <div style={{ marginTop: 10 }}>
@@ -11787,7 +11763,7 @@ const runActionSummary = useMemo(() => {
                                 value={getQty(`kiosk:${k._id}:${idx}`, 1)}
                                 onChange={(e) => setQty(`kiosk:${k._id}:${idx}`, e.target.value)}
                               />
-                              <button onClick={() => { void fireAndReport('doKioskTransaction.click', () => doKioskTransaction(k._id, idx)); }} disabled={!selectedCharId || !itemId}>실행</button>
+                              <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId || !itemId}>실행</button>
                             </div>
                           </div>
                         );
@@ -11811,7 +11787,7 @@ const runActionSummary = useMemo(() => {
                         <div className="market-title">{o.itemId?.name || '아이템'}</div>
                         <div className="market-small">가격: {Math.max(0, Number(o.priceCredits || 0))} Cr · 티어 제한 ≤ {Number(o.maxTier || 1)}</div>
                       </div>
-                      <button onClick={() => { void fireAndReport('loadMarket.click', loadMarket); }} className="market-mini-btn">새로고침</button>
+                      <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
                     </div>
                     <div className="market-actions" style={{ marginTop: 10 }}>
                       <input
@@ -11820,7 +11796,7 @@ const runActionSummary = useMemo(() => {
                         value={getQty(`drone:${o._id}`, 1)}
                         onChange={(e) => setQty(`drone:${o._id}`, e.target.value)}
                       />
-                      <button onClick={() => { void fireAndReport('doDroneBuy.click', () => doDroneBuy(o._id)); }} disabled={!selectedCharId}>구매</button>
+                      <button onClick={() => doDroneBuy(o._id)} disabled={!selectedCharId}>구매</button>
                     </div>
                   </div>
                 ))
@@ -11846,11 +11822,11 @@ const runActionSummary = useMemo(() => {
                           <div className="market-title">{perk?.name || code || '특전'}</div>
                           <div className="market-small">코드: {code || '-'} · 비용: {cost} LP{perk?.category ? ` · ${perk.category}` : ''}</div>
                         </div>
-                        <button onClick={() => { void fireAndReport('loadMarket.click', loadMarket); }} className="market-mini-btn">새로고침</button>
+                        <button onClick={() => loadMarket()} className="market-mini-btn">새로고침</button>
                       </div>
                       {desc ? <div className="market-small" style={{ marginTop: 8 }}>{desc}</div> : null}
                       <div className="market-actions" style={{ marginTop: 10 }}>
-                        <button onClick={() => { void fireAndReport('doPerkPurchase.click', () => doPerkPurchase(code)); }} disabled={!code || owned || Number(viewerLp || 0) < cost}>
+                        <button onClick={() => doPerkPurchase(code)} disabled={!code || owned || Number(viewerLp || 0) < cost}>
                           {owned ? '보유 중' : `구매 (${cost} LP)`}
                         </button>
                       </div>
@@ -11886,7 +11862,7 @@ const runActionSummary = useMemo(() => {
                     {off.note ? <div className="market-small" style={{ marginTop: 6 }}>메모: {off.note}</div> : null}
 
                     <div className="market-actions" style={{ marginTop: 10 }}>
-                      <button onClick={() => { void fireAndReport('acceptTradeOffer.click', () => acceptTradeOffer(off._id)); }} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
+                      <button onClick={() => acceptTradeOffer(off._id)} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
                     </div>
                   </div>
                 ))
@@ -11914,7 +11890,7 @@ const runActionSummary = useMemo(() => {
                     </div>
                     <div className="market-actions" style={{ marginTop: 10 }}>
                       {off.status === 'open' ? (
-                        <button onClick={() => { void fireAndReport('cancelTradeOffer.click', () => cancelTradeOffer(off._id)); }}>취소</button>
+                        <button onClick={() => cancelTradeOffer(off._id)}>취소</button>
                       ) : null}
                     </div>
                   </div>
