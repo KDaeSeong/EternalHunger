@@ -5161,8 +5161,7 @@ export default function SimulationPage() {
   const PREVLOGS_OPEN_KEY = 'eh_prevlogs_open';
   const [showPrevLogs, setShowPrevLogs] = useState(() => {
     try {
-      if (typeof window === 'undefined' || !window.localStorage) return false;
-      return window.localStorage.getItem(PREVLOGS_OPEN_KEY) === '1';
+      return localStorage.getItem(PREVLOGS_OPEN_KEY) === '1';
     } catch {
       return false;
     }
@@ -5170,8 +5169,7 @@ export default function SimulationPage() {
 
   useEffect(() => {
     try {
-      if (typeof window === 'undefined' || !window.localStorage) return;
-      window.localStorage.setItem(PREVLOGS_OPEN_KEY, showPrevLogs ? '1' : '0');
+      localStorage.setItem(PREVLOGS_OPEN_KEY, showPrevLogs ? '1' : '0');
     } catch {
       // ignore
     }
@@ -5400,8 +5398,7 @@ const activeMapName = useMemo(() => {
   const SEED_STORAGE_KEY = 'eh_run_seed';
   function getInitialSeed() {
     try {
-      if (typeof window === 'undefined' || !window.localStorage) return String(Date.now());
-      const v = window.localStorage.getItem(SEED_STORAGE_KEY);
+      const v = localStorage.getItem(SEED_STORAGE_KEY);
       const s = (v && String(v).trim()) ? String(v).trim() : '';
       return s || String(Date.now());
     } catch {
@@ -5418,7 +5415,7 @@ const activeMapName = useMemo(() => {
       if (typeof window === 'undefined') return;
       if (typeof window.resizeTo !== 'function') return;
 
-      const ua = String((typeof window !== 'undefined' && window.navigator?.userAgent) || '');
+      const ua = String(navigator?.userAgent || '');
       const isElectron = ua.includes('Electron');
       const isPopup = !!window.opener;
 
@@ -5431,10 +5428,7 @@ const activeMapName = useMemo(() => {
       const chromeH = Math.max(0, Number(window.outerHeight || 0) - Number(window.innerHeight || 0));
 
       const minH = 520;
-      const screenAvailHeight = typeof window !== 'undefined' && window.screen
-        ? Number(window.screen.availHeight || 9999)
-        : 9999;
-      const maxH = Math.max(minH, screenAvailHeight - 40);
+      const maxH = Math.max(minH, Number(screen?.availHeight || 9999) - 40);
       const targetH = Math.max(minH, Math.min(maxH, contentH + chromeH + 20));
 
       window.resizeTo(Number(window.outerWidth || 1280), targetH);
@@ -5715,16 +5709,8 @@ const devForceUseConsumable = (charId, invIndex) => {
     };
 
     // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
-    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-      measure();
-      return undefined;
-    }
-    const raf = window.requestAnimationFrame(measure);
-    return () => {
-      if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
-        window.cancelAnimationFrame(raf);
-      }
-    };
+    const raf = requestAnimationFrame(measure);
+    return () => cancelAnimationFrame(raf);
   }, [logs, prevPhaseLogs, showPrevLogs]);
 
 // 선택 캐릭터 기본값 유지
@@ -5869,6 +5855,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     if (!hyperloopDestId || !hyperloopDestIds.includes(String(hyperloopDestId))) {
       setHyperloopDestId(String(hyperloopDestIds[0]));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hyperloopDestKey]);
 
 // 🌀 하이퍼루프 이동 대상(캐릭터) 기본값: 선택 캐릭터 우선
@@ -6019,10 +6006,7 @@ if (!who) {
   };
   function cloneForBattle(obj) {
     try {
-      if (typeof globalThis !== 'undefined' && typeof globalThis.structuredClone === 'function') {
-        return globalThis.structuredClone(obj);
-      }
-      throw new Error('structuredClone unavailable');
+      return structuredClone(obj);
     } catch {
       return JSON.parse(JSON.stringify(obj));
     }
@@ -6086,11 +6070,7 @@ if (!who) {
 
   function applyRunSeed(seedStr) {
     const s = String(seedStr || '').trim() || '0';
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(SEED_STORAGE_KEY, s);
-      }
-    } catch {}
+    try { localStorage.setItem(SEED_STORAGE_KEY, s); } catch {}
     if (!randomBackupRef.current) randomBackupRef.current = Math.random;
     Math.random = seedRng(`RUN:${s}`);
   };
@@ -6486,7 +6466,7 @@ if (!who) {
   function redirectToLogin(message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', shouldClearAuth = false) {
     if (typeof window === 'undefined') return;
     if (shouldClearAuth) clearAuth();
-    if (typeof window.alert === 'function') window.alert(message);
+    alert(message);
     window.location.replace('/login');
   };
 
@@ -6779,8 +6759,15 @@ const pickStartZoneIdForChar = (c) => {
     const myKills = wId ? Number(finalKills[wId] || 0) : 0;
     const myAssists = wId ? Number(finalAssists[wId] || 0) : 0;
     const rewardLP = w ? (100 + myKills * 10) : 0;
-    const topKillLeader = [...participants]
-      .sort((a, b) => ((Number(finalKills?.[b?._id] || 0) - Number(finalKills?.[a?._id] || 0)) || (Number(finalAssists?.[b?._id] || 0) - Number(finalAssists?.[a?._id] || 0))))[0] || null;
+    const topKillLeader = (() => {
+      try {
+        return [...participants]
+          .sort((a, b) => ((Number(finalKills?.[b?._id] || 0) - Number(finalKills?.[a?._id] || 0)) || (Number(finalAssists?.[b?._id] || 0) - Number(finalAssists?.[a?._id] || 0))))[0] || null;
+      } catch (err) {
+        console.error('[simulation:finishGame-topKillLeader]', err);
+        return null;
+      }
+    })();
 
     setWinner(w);
     setIsGameOver(true);
@@ -6818,9 +6805,7 @@ const pickStartZoneIdForChar = (c) => {
           const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
           if (state._migratedFromPlayerV1) return state;
           try {
-            const legacyRaw = (typeof window !== 'undefined' && window.localStorage)
-              ? window.localStorage.getItem(LEGACY_HOF_KEY)
-              : null;
+            const legacyRaw = localStorage.getItem(LEGACY_HOF_KEY);
             const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
             const legacyWins = Number(legacy?.wins?.[username] || 0);
             const legacyKills = Number(legacy?.kills?.[username] || 0);
@@ -6840,9 +6825,7 @@ const pickStartZoneIdForChar = (c) => {
       }
 
       if (w) {
-        const raw = (typeof window !== 'undefined' && window.localStorage)
-          ? window.localStorage.getItem(LEGACY_HOF_KEY)
-          : null;
+        const raw = localStorage.getItem(LEGACY_HOF_KEY);
         const data = raw ? JSON.parse(raw) : { wins: {}, kills: {} };
         if (!data.wins) data.wins = {};
         if (!data.kills) data.kills = {};
@@ -6850,9 +6833,7 @@ const pickStartZoneIdForChar = (c) => {
         const kills = Number(finalKills?.[wKey] || 0);
         data.wins[username] = Number(data.wins[username] || 0) + 1;
         data.kills[username] = Number(data.kills[username] || 0) + kills;
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(LEGACY_HOF_KEY, JSON.stringify(data));
-        }
+        localStorage.setItem(LEGACY_HOF_KEY, JSON.stringify(data));
       }
       emitHallOfFameSync({ username }, { reason: 'finishGame' });
     } catch (e) {
@@ -7649,138 +7630,176 @@ const didMove = String(nextZoneId) !== String(currentZone);
             .filter(Boolean)
         );
         const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
-        const queueScoredCandidates = (() => {
-          if (didMove || fleeInterruptReason) return [];
-          const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
-          const simCredits = Math.max(0, Number(updated?.simCredits || 0));
-          const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
-          const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
-          const transBias = upgradeNeed?.wantTrans ? 8 : 0;
-          const scoreRows = [];
-          if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
-            const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
-            const itemId = String(queuedKioskAction?.itemId || '');
-            const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
-            const kind = String(queuedKioskAction?.kind || 'buy');
-            const isSell = kind === 'sell';
-            const score =
-              (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44)
-              + (matchesGoal ? 26 : 0)
-              + (isSell ? 0 : legendBias + transBias)
-              + (kind === 'exchange' ? 6 : 0)
-              - (lowHpRatio <= 0.28 ? 5 : 0);
-            scoreRows.push({
-              type: kioskTypeMap[kind] || 'kioskBuy',
-              zoneId: String(updated?.zoneId || ''),
-              itemId,
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-              score,
-              label: `${kioskTypeMap[kind] || 'kioskBuy'}:${String(queuedKioskAction?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
-              priorityNote: [matchesGoal ? 'goal' : '', kind === 'exchange' ? 'exchange' : '', isSell ? 'sell' : ''].filter(Boolean).join('+'),
+        const aiQueuePlan = (() => {
+          try {
+            const queueScoredCandidates = (() => {
+              if (didMove || fleeInterruptReason) return [];
+              const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
+              const simCredits = Math.max(0, Number(updated?.simCredits || 0));
+              const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
+              const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
+              const transBias = upgradeNeed?.wantTrans ? 8 : 0;
+              const scoreRows = [];
+              if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
+                const kioskTypeMap = { buy: 'kioskBuy', exchange: 'kioskExchange', sell: 'kioskSell' };
+                const itemId = String(queuedKioskAction?.itemId || '');
+                const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
+                const kind = String(queuedKioskAction?.kind || 'buy');
+                const isSell = kind === 'sell';
+                const score =
+                  (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44)
+                  + (matchesGoal ? 26 : 0)
+                  + (isSell ? 0 : legendBias + transBias)
+                  + (kind === 'exchange' ? 6 : 0)
+                  - (lowHpRatio <= 0.28 ? 5 : 0);
+                scoreRows.push({
+                  type: kioskTypeMap[kind] || 'kioskBuy',
+                  zoneId: String(updated?.zoneId || ''),
+                  itemId,
+                  etaSec: 1,
+                  phaseIdx: Number(phaseIdxNow || 0),
+                  score,
+                  label: `${kioskTypeMap[kind] || 'kioskBuy'}:${String(queuedKioskAction?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
+                  priorityNote: [matchesGoal ? 'goal' : '', kind === 'exchange' ? 'exchange' : '', isSell ? 'sell' : ''].filter(Boolean).join('+'),
+                });
+              }
+              if (queuedDroneOrder?.itemId) {
+                const itemId = String(queuedDroneOrder?.itemId || '');
+                const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
+                const score = 40 + (matchesGoal ? 28 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+                scoreRows.push({
+                  type: 'droneOrder',
+                  zoneId: String(updated?.zoneId || ''),
+                  itemId,
+                  etaSec: 1,
+                  phaseIdx: Number(phaseIdxNow || 0),
+                  score,
+                  label: `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
+                  priorityNote: matchesGoal ? 'goal' : '',
+                });
+              }
+              if (craftPreview?.changed) {
+                const itemId = String(craftPreview?.craftedId || '');
+                const craftedTier = Math.max(1, Number(craftPreview?.craftedTier || itemMetaById?.[itemId]?.tier || 1));
+                const matchesGoal = goalTargetId === itemId || goalMissingIds.has(itemId);
+                const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias;
+                scoreRows.push({
+                  type: 'craft',
+                  zoneId: String(updated?.zoneId || ''),
+                  itemId,
+                  etaSec: 1,
+                  phaseIdx: Number(phaseIdxNow || 0),
+                  score,
+                  label: `craft:${String(craftPreview?.craftedName || itemNameById?.[itemId] || itemId || '')}`,
+                  priorityNote: `${matchesGoal ? 'goal+' : ''}tier${craftedTier}`,
+                });
+              }
+              scoreRows.push({
+                type: 'hunt',
+                zoneId: String(updated?.zoneId || ''),
+                etaSec: 1,
+                phaseIdx: Number(phaseIdxNow || 0),
+                score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
+                label: 'hunt',
+                priorityNote: farmCreditsBias > 0 ? 'credits' : '',
+              });
+              return scoreRows
+                .sort((a, b) => {
+                  const ds = Number(b?.score || 0) - Number(a?.score || 0);
+                  if (Math.abs(ds) > 0.001) return ds;
+                  const pa = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
+                  const pb = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
+                  return pa - pb;
+                })
+                .slice(0, 5);
+            })();
+            const queuedAtomicAction = (() => {
+              if (didMove) {
+                return {
+                  type: (mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo',
+                  fromZoneId: String(currentZone || ''),
+                  toZoneId: String(nextZoneId || currentZone || ''),
+                  reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
+                  etaSec: 1,
+                  phaseIdx: Number(phaseIdxNow || 0),
+                  score: 999,
+                };
+              }
+              if (fleeInterruptReason) {
+                return {
+                  type: 'flee',
+                  fromZoneId: String(currentZone || ''),
+                  toZoneId: String(nextZoneId || currentZone || ''),
+                  reason: String(moveReason || `flee:${fleeInterruptReason}`),
+                  etaSec: 1,
+                  phaseIdx: Number(phaseIdxNow || 0),
+                  score: 998,
+                };
+              }
+              return queueScoredCandidates[0] || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
+            })();
+            const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
+            const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
+              const type = String(act?.type || 'hunt');
+              const zoneText = getZoneName(act?.toZoneId || act?.zoneId || '');
+              const itemText = String(
+                (String(act?.itemId || '') && (itemNameById?.[String(act?.itemId || '')] || ''))
+                || queuedKioskAction?.item?.name
+                || queuedDroneOrder?.item?.name
+                || craftPreview?.craftedName
+                || ''
+              );
+              return [type, itemText && `:${itemText}`, zoneText && `@${zoneText}`].filter(Boolean).join('');
             });
-          }
-          if (queuedDroneOrder?.itemId) {
-            const itemId = String(queuedDroneOrder?.itemId || '');
-            const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
-            const score = 40 + (matchesGoal ? 28 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
-            scoreRows.push({
-              type: 'droneOrder',
-              zoneId: String(updated?.zoneId || ''),
-              itemId,
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-              score,
-              label: `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
-              priorityNote: matchesGoal ? 'goal' : '',
-            });
-          }
-          if (craftPreview?.changed) {
-            const itemId = String(craftPreview?.craftedId || '');
-            const craftedTier = Math.max(1, Number(craftPreview?.craftedTier || itemMetaById?.[itemId]?.tier || 1));
-            const matchesGoal = goalTargetId === itemId || goalMissingIds.has(itemId);
-            const score = 58 + craftedTier * 6 + (matchesGoal ? 24 : 0) + legendBias + transBias;
-            scoreRows.push({
-              type: 'craft',
-              zoneId: String(updated?.zoneId || ''),
-              itemId,
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-              score,
-              label: `craft:${String(craftPreview?.craftedName || itemNameById?.[itemId] || itemId || '')}`,
-              priorityNote: `${matchesGoal ? 'goal+' : ''}tier${craftedTier}`,
-            });
-          }
-          scoreRows.push({
-            type: 'hunt',
-            zoneId: String(updated?.zoneId || ''),
-            etaSec: 1,
-            phaseIdx: Number(phaseIdxNow || 0),
-            score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
-            label: 'hunt',
-            priorityNote: farmCreditsBias > 0 ? 'credits' : '',
-          });
-          return scoreRows
-            .sort((a, b) => {
-              const ds = Number(b?.score || 0) - Number(a?.score || 0);
-              if (Math.abs(ds) > 0.001) return ds;
-              const pa = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
-              const pb = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
-              return pa - pb;
-            })
-            .slice(0, 5);
-        })();
-        const queuedAtomicAction = (() => {
-          if (didMove) {
+            const candidatePreview = [
+              didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
+              (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
+              ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
+            ].filter(Boolean);
+            const blockedReasons = [
+              (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
+              (fleeInterruptReason && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? `flee_interrupt:${String(fleeInterruptReason || '')}` : null,
+              (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
+                ? `craft:${String(craftProbeActor?._craftDebug?.code || '')}`
+                : null,
+              ...queueScoredCandidates.slice(1).map((row) => `deferred:${String(row?.type || '')}`).slice(0, 2),
+            ].filter(Boolean);
             return {
-              type: (mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo',
+              queueScoredCandidates,
+              queuedAtomicAction,
+              queuedActionType,
+              queuePreview,
+              candidatePreview,
+              blockedReasons,
+            };
+          } catch (err) {
+            console.error('[simulation:ai-queue-plan]', err);
+            const fallbackQueuedAtomicAction = {
+              type: didMove ? ((mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo') : 'hunt',
               fromZoneId: String(currentZone || ''),
               toZoneId: String(nextZoneId || currentZone || ''),
-              reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
+              zoneId: String(updated?.zoneId || currentZone || ''),
+              reason: didMove ? (mustEscape ? 'escape' : String(moveReason || 'goal')) : (fleeInterruptReason ? String(moveReason || `flee:${fleeInterruptReason}`) : 'fallback:hunt'),
               etaSec: 1,
               phaseIdx: Number(phaseIdxNow || 0),
-              score: 999,
+              score: didMove ? 999 : (fleeInterruptReason ? 998 : 0),
             };
-          }
-          if (fleeInterruptReason) {
             return {
-              type: 'flee',
-              fromZoneId: String(currentZone || ''),
-              toZoneId: String(nextZoneId || currentZone || ''),
-              reason: String(moveReason || `flee:${fleeInterruptReason}`),
-              etaSec: 1,
-              phaseIdx: Number(phaseIdxNow || 0),
-              score: 998,
+              queueScoredCandidates: [],
+              queuedAtomicAction: fallbackQueuedAtomicAction,
+              queuedActionType: String(fallbackQueuedAtomicAction?.type || 'hunt'),
+              queuePreview: [],
+              candidatePreview: [didMove ? `${String(fallbackQueuedAtomicAction.type)}@${getZoneName(nextZoneId || currentZone || '')}` : 'hunt[fallback]'].filter(Boolean),
+              blockedReasons: ['queue_plan_error'],
             };
           }
-          return queueScoredCandidates[0] || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
         })();
-        const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
-        const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
-          const type = String(act?.type || 'hunt');
-          const zoneText = getZoneName(act?.toZoneId || act?.zoneId || '');
-          const itemText = String(
-            (String(act?.itemId || '') && (itemNameById?.[String(act?.itemId || '')] || ''))
-            || queuedKioskAction?.item?.name
-            || queuedDroneOrder?.item?.name
-            || craftPreview?.craftedName
-            || ''
-          );
-          return [type, itemText && `:${itemText}`, zoneText && `@${zoneText}`].filter(Boolean).join('');
-        });
-        const candidatePreview = [
-          didMove ? `${(mustEscape || String(moveReason || '').startsWith('flee:')) ? 'flee' : 'moveTo'}@${getZoneName(nextZoneId || currentZone || '')}` : null,
-          (!didMove && fleeInterruptReason) ? `flee:${String(fleeInterruptReason || '')}` : null,
-          ...queueScoredCandidates.map((row) => `${String(row?.label || row?.type || '')}[${Number(row?.score || 0).toFixed(1)}]`),
-        ].filter(Boolean);
-        const blockedReasons = [
-          (didMove && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? 'movement_locked' : null,
-          (fleeInterruptReason && (queuedKioskAction?.itemId || queuedDroneOrder?.itemId || craftPreview?.changed)) ? `flee_interrupt:${String(fleeInterruptReason || '')}` : null,
-          (!didMove && !fleeInterruptReason && !queuedKioskAction?.itemId && !queuedDroneOrder?.itemId && craftProbeActor?._craftDebug?.code && craftProbeActor?._craftDebug?.code !== 'crafted')
-            ? `craft:${String(craftProbeActor?._craftDebug?.code || '')}`
-            : null,
-          ...queueScoredCandidates.slice(1).map((row) => `deferred:${String(row?.type || '')}`).slice(0, 2),
-        ].filter(Boolean);
+        const queueScoredCandidates = Array.isArray(aiQueuePlan?.queueScoredCandidates) ? aiQueuePlan.queueScoredCandidates : [];
+        const queuedAtomicAction = aiQueuePlan?.queuedAtomicAction || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
+        const queuedActionType = String(aiQueuePlan?.queuedActionType || queuedAtomicAction?.type || 'hunt');
+        const queuePreview = Array.isArray(aiQueuePlan?.queuePreview) ? aiQueuePlan.queuePreview : [];
+        const candidatePreview = Array.isArray(aiQueuePlan?.candidatePreview) ? aiQueuePlan.candidatePreview : [];
+        const blockedReasons = Array.isArray(aiQueuePlan?.blockedReasons) ? aiQueuePlan.blockedReasons : [];
         updated.aiActionQueue = [queuedAtomicAction];
         updated.aiCurrentAction = queuedActionType;
         updated.aiActionEtaSec = Number(queuedAtomicAction?.etaSec || 1);
@@ -10031,6 +10050,7 @@ if (showMarketPanel && pendingTranscendPick) {
   useEffect(() => {
     if (marketTab === 'trade') loadTrades();
     if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') loadMarket();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
@@ -10561,13 +10581,8 @@ const runActionSummary = useMemo(() => {
   // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
   const [pingNow, setPingNow] = useState(() => Date.now());
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.setInterval !== 'function') return undefined;
-    const t = window.setInterval(() => setPingNow(Date.now()), 450);
-    return () => {
-      if (typeof window !== 'undefined' && typeof window.clearInterval === 'function') {
-        window.clearInterval(t);
-      }
-    };
+    const t = setInterval(() => setPingNow(Date.now()), 450);
+    return () => clearInterval(t);
   }, []);
 
   const recentPings = useMemo(() => {
@@ -11446,7 +11461,7 @@ const runActionSummary = useMemo(() => {
                 <button
                   onClick={() => {
                     try {
-                      window.navigator?.clipboard?.writeText(JSON.stringify(runEvents, null, 2));
+                      navigator.clipboard?.writeText(JSON.stringify(runEvents, null, 2));
                       addLog('✅ 이벤트 로그 복사 완료', 'system');
                     } catch (e) {
                       addLog('⚠️ 이벤트 로그 복사 실패', 'death');
