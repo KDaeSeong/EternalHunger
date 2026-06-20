@@ -110,3 +110,7 @@
 - 현재 확인 상태: `client` build 통과, strict runtime eslint error 0, simulation/page.js lint warning 19만 잔존.
 
 - stepA133: `client/src/app/simulation/page.js` 초기화/파생 useMemo 안전화(`useSafeMemo`), `fetchData().catch` 추가, 초기 survivor 구성 loop+fallback/Fisher-Yates 적용, build check 통과.
+
+- stepA134: uploaded `page.js` 기준 uncaught ReferenceError 전수 대응. 초기 render/useMemo 파생값을 `useSafeMemo`로 보호하고, `fetchData`/market tab/button async 호출을 `fireAndReport`로 감싸 unhandled rejection을 차단. 초기 survivor 셔플/추천 시작 구역 계산을 loop+fallback/Fisher-Yates로 교체. build check 통과.
+
+- Build stabilization: production build now uses `next build --webpack` to avoid Turbopack-minified runtime ReferenceError regressions.

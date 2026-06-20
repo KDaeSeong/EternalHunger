@@ -143,3 +143,7 @@
 - 불필요한 루트 MD/로그 산출물 제거 완료
 
 - stepA133: `client/src/app/simulation/page.js` 초기화/파생 useMemo 안전화(`useSafeMemo`), `fetchData().catch` 추가, 초기 survivor 구성 loop+fallback/Fisher-Yates 적용, build check 통과.
+
+- stepA134 후속: 브라우저 재현 로그가 다시 나오면 uploaded `page.js` 기준 해당 호출 1건을 추가 역추적. 현재 잔여는 lint warning 20(exhaustive-deps/no-img-element) 위주이며 runtime/build error는 재현되지 않음.
+
+- Runtime stability: after switching production build to webpack, re-check any remaining browser-only uncaught errors one by one from fresh console logs.
