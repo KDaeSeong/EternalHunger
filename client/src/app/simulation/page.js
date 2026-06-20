@@ -515,6 +515,17 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     });
   };
 
+  function gainText(qty, successWord = '획득', failWord = '획득 실패') {
+    const n = Math.max(0, Number(qty || 0));
+    return n > 0 ? `x${n} ${successWord}` : failWord;
+  };
+
+  function emitItemGainIfAny(qty, payload = {}, at = null) {
+    const n = Math.max(0, Number(qty || 0));
+    if (n <= 0) return;
+    emitRunEvent('gain', { ...payload, qty: n }, at);
+  };
+
   function emitCraftRunEvent(who, crafted, at = null, zoneId = '') {
     if (!crafted?.craftedId) return;
     emitRunEvent('craft', {
