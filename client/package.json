@@ -11,7 +11,7 @@
     "check:build:local": "npm run prebuild && next build --webpack",
     "check:build:vercel-like": "npm ci --no-audit --no-fund && npm run build",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack",
-    "check:runtime:sweep": "eslint -c eslint.runtime.config.mjs src/app/simulation/page.js src/app/simulation/_lib/**/*.js",
+    "check:runtime:sweep": "eslint -c eslint.runtime.config.mjs src/app/simulation/page.js src/app/simulation/tacticalSkillTable.js src/app/simulation/_lib/**/*.js src/app/simulation/_components/**/*.js src/utils/battleLogic.js src/utils/equipmentCatalog.js src/utils/erMeta.js src/utils/itemLogic.js",
     "check:runtime:full": "npm run check:runtime:sweep && npm run build"
   },
   "dependencies": {

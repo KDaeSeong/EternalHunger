@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getApiBase, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
+import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
 import { bindReferenceErrorGuards, formatRuntimeReason } from '../../utils/runtimeErrorGuard';
 import {
   EFFECT_BLEED,
@@ -18,9 +19,17 @@ import {
 import { applyItemEffect } from '../../utils/itemLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec } from '../../utils/rulesets';
-import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger } from './tacticalSkillTable';
+import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
+import SimulationResultModal from './_components/SimulationResultModal';
 import '../../styles/ERSimulation.css';
 
+import {
+  buildDetonationRiskSummary,
+  buildRecentPings,
+  buildZoneEdges,
+  buildZonePositions,
+  getEmptyDetonationRiskSummary,
+} from './_lib/mapDerived';
 import {
   safeTags,
   itemDisplayName,
@@ -51,7 +60,6 @@ import {
   getSimEquipExternalId,
   isSimGeneratedEquipment,
   getEquipMoveSpeed,
-  LUMIA_ZONE_POS,
   LUMIA_DEFAULT_EDGES,
   extractActorNameFromLog,
   getEquipSummary,
@@ -123,10 +131,10 @@ import {
   safeGenerateDynamicEvent,
   getTimeOfDayFromPhase,
   worldTimeText,
-  isAtOrAfterWorldTime,
   worldPhaseIndex,
   saveLocalHallOfFameBackup,
 } from './_lib/simulationEngine';
+import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
 
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
@@ -507,7 +515,15 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // - 문자열 로그는 사람용, runEvents는 "룰/상태"를 요약/집계하기 위한 데이터용
   function emitRunEvent(kind, payload = {}, at = null) {
     const stamp = at || { day, phase, sec: matchSec };
-    const e = { kind: String(kind || 'unknown'), at: stamp, ts: Date.now(), ...payload };
+    const eventPayload = payload && typeof payload === 'object' ? { ...payload } : {};
+    const payloadKind = eventPayload.kind;
+    delete eventPayload.kind;
+    delete eventPayload.at;
+    delete eventPayload.ts;
+    const e = { ...eventPayload, kind: String(kind || 'unknown'), at: stamp, ts: Date.now() };
+    if ((e.subkind === undefined || e.subkind === null || e.subkind === '') && payloadKind !== undefined && payloadKind !== null && String(payloadKind)) {
+      e.subkind = String(payloadKind);
+    }
     setRunEvents((prev) => {
       const next = [...(Array.isArray(prev) ? prev : []), e];
       const max = 5000;
@@ -653,10 +669,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       const ch = next[idx];
       ch.inventory = addItemToInventory(ch.inventory, item, String(chosen.itemId), 1, day, ruleset);
       const meta = ch.inventory?._lastAdd || null;
-      const got = Math.max(1, Number(meta?.acceptedQty || 1));
+      const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
       const nm = itemDisplayName(item || { _id: chosen.itemId, name: chosen.name });
-      addLog(`🎁 [${ch.name}] 초월 장비 선택 상자 선택 → ${itemIcon(item)} ${nm}${got > 1 ? ` x${got}` : ''}${formatInvAddNote(meta)}`, 'highlight');
-      emitRunEvent('gain', { who: ch.name, whoId: ch._id, itemId: String(chosen.itemId), qty: got, source: 'box', sourceKind: 'transcend_pick', zoneId: pending.zoneId, choice: method }, pending.at || { day, phase, sec: matchSec });
+      addLog(`🎁 [${ch.name}] 초월 장비 선택 상자 선택 → ${itemIcon(item)} ${nm} ${gainText(got)}${formatInvAddNote(meta, 1, ch.inventory, ruleset)}`, 'highlight');
+      emitItemGainIfAny(got, { who: ch.name, whoId: ch._id, itemId: String(chosen.itemId), source: 'box', sourceKind: 'transcend_pick', zoneId: pending.zoneId, choice: method }, pending.at || { day, phase, sec: matchSec });
       return next;
     });
 
@@ -843,10 +859,10 @@ const devForceUseConsumable = (charId, invIndex) => {
     return out;
   }, [zones], {});
 
-  function getZoneName(zoneId) {
+  const getZoneName = useMemo(() => (zoneId) => {
     const key = String(zoneId || '');
     return zoneNameById[key] || key || '미상';
-  }
+  }, [zoneNameById]);
 
   // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
   const hyperloopDestIds = useSafeMemo('hyperloopDestIds', () => {
@@ -1684,13 +1700,17 @@ const pickStartZoneIdForChar = (c) => {
 
         const charsWithHp = [];
         (Array.isArray(charList) ? charList : []).forEach((c) => {
+          const erSeed = applyErSubjectPreset(c, {
+            replaceDefaultTactical: true,
+            statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
+          });
           const seeded = applyPerkBundleToActor(normalizeRuntimeSurvivor({
-            ...c,
+            ...erSeed,
             tacticalSkillLevel: 1,
             hp: 100,
             maxHp: 100,
-            zoneId: pickStartZoneIdForChar(c),
-            equipped: ensureEquipped(c),
+            zoneId: pickStartZoneIdForChar(erSeed),
+            equipped: ensureEquipped(erSeed),
             day1Moves: 0,
             day1HeroDone: false,
             simCredits: Number(ruleset?.credits?.start ?? 15),
@@ -1960,7 +1980,7 @@ const pickStartZoneIdForChar = (c) => {
     const useDetonation = !!ruleset?.detonation;
     const marketRules = ruleset?.market || {};
     // ⚔️ 전투 세팅: ruleset 기반 상수(장비 보정 등)를 합쳐서 전달
-    const battleSettings = { ...settings, battle: { ...(settings?.battle || {}), equipment: ruleset?.equipment || {} } };
+    const battleSettings = { ...settings, battle: { ...(ruleset?.battle || {}), ...(settings?.battle || {}), equipment: ruleset?.equipment || {} } };
     const phaseDurationSec = getPhaseDurationSec(ruleset, nextDay, nextPhase);
     const phaseStartSec = matchSec;
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
@@ -2275,7 +2295,8 @@ const pickStartZoneIdForChar = (c) => {
       const { weaponTier, armorTierSum } = summarizeEquipTierForMovePower(c);
       const pw = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
       const pa = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
-      return base + weaponTier * pw + armorTierSum * pa;
+      const er = buildErBehaviorModifier(c, battleSettings);
+      return base + weaponTier * pw + armorTierSum * pa + Number(er?.powerScore || 0);
     };
 
     const shouldAvoidCombatByMovePower = (me, opp) => {
@@ -2283,10 +2304,11 @@ const pickStartZoneIdForChar = (c) => {
       const opP = estimateMovePower(opp);
       const ratio = myP / Math.max(1, myP + opP);
       const aggroBias = Math.max(0, getPerkAggressionBias(me));
+      const er = buildErBehaviorModifier(me, battleSettings);
       const minRatioBase = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
       const absDeltaBase = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
-      const minRatio = Math.max(0.2, minRatioBase - aggroBias * 0.08);
-      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12);
+      const minRatio = Math.max(0.18, minRatioBase - aggroBias * 0.08 - Number(er?.aggressionBias || 0) * 0.18 - Number(er?.escapeBonus || 0) * 0.10);
+      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12 + Number(er?.chaseBonus || 0) * 18);
       if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
       return null;
     };
@@ -2556,8 +2578,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 updated.inventory = addItemToInventory(updated.inventory, water, String(water._id), 1, nextDay, ruleset);
                 const metaW = updated.inventory?._lastAdd;
                 const gotW = Math.max(0, Number(metaW?.acceptedQty ?? 1));
-                addLog(`💧 [${updated.name}] ${getZoneName(updated.zoneId)}에서 물을 채집했습니다. (+${gotW})${formatInvAddNote(metaW, 1, updated.inventory, ruleset)}`, 'normal');
-                emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(water._id), qty: gotW, source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                addLog(`💧 [${updated.name}] ${getZoneName(updated.zoneId)}에서 물 ${gainText(gotW)}${formatInvAddNote(metaW, 1, updated.inventory, ruleset)}`, 'normal');
+                emitItemGainIfAny(gotW, { who: String(updated?._id || ''), itemId: String(water._id), source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
               }
             }
           }
@@ -2573,8 +2595,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 updated.inventory = addItemToInventory(updated.inventory, steak, String(steak._id), 1, nextDay, ruleset);
                 const metaS = updated.inventory?._lastAdd;
                 const gotS = Math.max(0, Number(metaS?.acceptedQty ?? 1));
-                addLog(`🔥 [${updated.name}] ${getZoneName(updated.zoneId)} 모닥불에서 고기를 구워 스테이크 x${gotS}을(를) 만들었습니다.${formatInvAddNote(metaS, 1, updated.inventory, ruleset)}`, 'highlight');
-                emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(steak._id), qty: gotS, source: 'craft', kind: 'campfire', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                addLog(`🔥 [${updated.name}] ${getZoneName(updated.zoneId)} 모닥불에서 고기를 구워 스테이크 ${gainText(gotS, '제작', '제작 실패')}${formatInvAddNote(metaS, 1, updated.inventory, ruleset)}`, 'highlight');
+                emitItemGainIfAny(gotS, { who: String(updated?._id || ''), itemId: String(steak._id), source: 'craft', kind: 'campfire', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
               }
             }
           }
@@ -2613,16 +2635,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const meta = updated.inventory?._lastAdd;
               const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
               const nm = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
-              addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nm}] x${got} 획득${formatInvAddNote(meta, 1, updated.inventory, ruleset)}`, 'highlight');
-              emitRunEvent('gain', { who: String(updated?._id || ''), itemId: chosenId, qty: got, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nm}] ${gainText(got)}${formatInvAddNote(meta, 1, updated.inventory, ruleset)}`, 'highlight');
+              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             }
           } else {
             updated.inventory = addItemToInventory(updated.inventory, loot.item, loot.itemId, loot.qty, nextDay, ruleset);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? loot.qty));
             const nm = loot.item?.name || '아이템';
-            addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] x${got} 획득${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), qty: got, source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
         }
 
@@ -2643,8 +2665,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const metaF = updated.inventory?._lastAdd;
           const gotF = Math.max(0, Number(metaF?.acceptedQty ?? foodCrate.qty));
           const nmF = foodCrate.item?.name || '소모품';
-          addLog(`🍱 [${updated.name}] ${getZoneName(updated.zoneId)}에서 음식 상자를 열어 ${itemIcon(foodCrate.item)} [${nmF}] x${gotF} 획득${formatInvAddNote(metaF, foodCrate.qty, updated.inventory, ruleset)}`, 'normal');
-          emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), qty: gotF, source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          addLog(`🍱 [${updated.name}] ${getZoneName(updated.zoneId)}에서 음식 상자를 열어 ${itemIcon(foodCrate.item)} [${nmF}] ${gainText(gotF)}${formatInvAddNote(metaF, foodCrate.qty, updated.inventory, ruleset)}`, 'normal');
+          emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const crF = Math.max(0, Number(foodCrate?.credits || 0));
           if (crF > 0) {
@@ -2663,8 +2685,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const meta = updated.inventory?._lastAdd;
           const got = Math.max(0, Number(meta?.acceptedQty ?? (corePickup.qty || 1)));
           const nm = corePickup.item?.name || '특수 재료';
-          addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] x${got}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
-          emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), qty: got, source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
+          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
           if (immediateCore?.changed) {
@@ -2929,8 +2951,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated.inventory = addItemToInventory(updated.inventory, d.item, d.itemId, q, nextDay, ruleset);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? q));
-            addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] x${got}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(d.itemId || ''), qty: got, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(d.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
             const specialKind = classifySpecialByName(nm);
             const immediateH = tryImmediateCraftFromSpecial(updated, specialKind, String(d.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -2969,8 +2991,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const meta = updated.inventory?._lastAdd;
           const got = Math.max(0, Number(meta?.acceptedQty ?? legendary.qty));
           const nm = legendary.item?.name || '전설 재료';
-          addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] x${got} 획득${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
-          emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), qty: got, source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] ${gainText(got)}${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
+          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
           const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -3002,8 +3024,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const metaB = updated.inventory?._lastAdd;
             const gotB = Math.max(0, Number(metaB?.acceptedQty ?? q));
             const nmB = bd.item?.name || '전설 재료';
-            addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] x${gotB}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), qty: gotB, source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] ${gainText(gotB)}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
+            emitItemGainIfAny(gotB, { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
             const specialLBKind = classifySpecialByName(String(bd?.item?.name || nmB || ''));
             const immediateLB = tryImmediateCraftFromSpecial(updated, specialLBKind, String(bd.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -3040,11 +3062,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           if (kioskAction.kind === 'buy') {
             const cost = Math.max(0, Number(kioskAction.cost || 0));
-            updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - cost);
             updated.inventory = addItemToInventory(updated.inventory, kioskAction.item, kioskAction.itemId, kioskAction.qty || 1, nextDay, ruleset);
             const meta = updated.inventory?._lastAdd;
             const want = Math.max(1, Number(kioskAction.qty || 1));
             const got = Math.max(0, Number(meta?.acceptedQty ?? want));
+            const paidCost = got > 0 ? cost : 0;
+            if (paidCost > 0) updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - paidCost);
 
             // ✅ 전술 강화 모듈: (level 모드) 즉시 소비 → 전술 스킬 레벨 +1
             // - 모듈을 인벤에 쌓아두지 않고, 즉시 레벨로 전환(관전 템포)
@@ -3060,8 +3083,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
               }
             }
-            addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] x${got}${formatInvAddNote(meta, want, updated.inventory, ruleset)} (크레딧 -${cost})`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), qty: got, source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] ${gainText(got, '구매', '구매 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}${paidCost > 0 ? ` (크레딧 -${paidCost})` : ''}`, 'system');
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             didProcure = true;
 
             // 구매 아이템도 즉시 조합 트리거(선택적)
@@ -3110,8 +3133,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
               }
             }
-            addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] x${got}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), qty: got, source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] ${gainText(got, '교환', '교환 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             didProcure = true;
 
             const craftedE = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
@@ -3138,7 +3161,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const droneOrder = queuedDroneOrder;
             if (droneOrder?.itemId && Number(droneOrder?.cost || 0) <= Number(updated.simCredits || 0)) {
             const cost = Math.max(0, Number(droneOrder.cost || 0));
-            updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - cost);
 
             const qty = Math.max(1, Number(droneOrder.qty || 1));
             const item = droneOrder?.item || null;
@@ -3147,8 +3169,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
               updated.inventory = addItemToInventory(updated.inventory, item, itemId, qty, nextDay, ruleset);
               const meta = updated.inventory?._lastAdd;
               const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
-              addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} x${got}${formatInvAddNote(meta, qty, updated.inventory, ruleset)} (-${cost}Cr, 즉시)`, 'normal');
-              emitRunEvent('gain', { who: String(updated?._id || ''), itemId: String(itemId || ''), qty: got, source: 'drone', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              const paidCost = got > 0 ? cost : 0;
+              if (paidCost > 0) updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - paidCost);
+              addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} ${gainText(got, '수령', '호출 실패')}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}${paidCost > 0 ? ` (-${paidCost}Cr, 즉시)` : ''}`, 'normal');
+              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(itemId || ''), source: 'drone', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
               didProcure = true;
 
               // 즉시 지급된 아이템으로 조합이 가능해지면 자동 조합(낮은 확률)
@@ -3527,7 +3551,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const { weaponTier, armorTierSum } = summarizeEquipTier(c);
       const pw = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
       const pa = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
-      return base + weaponTier * pw + armorTierSum * pa;
+      const er = buildErBehaviorModifier(c, battleSettings);
+      return base + weaponTier * pw + armorTierSum * pa + Number(er?.powerScore || 0);
     }
 
     function shouldAvoidCombatByPower(me, opp) {
@@ -3535,10 +3560,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const opP = estimatePower(opp);
       const ratio = myP / Math.max(1, myP + opP);
       const aggroBias = Math.max(0, getPerkAggressionBias(me));
+      const er = buildErBehaviorModifier(me, battleSettings);
       const minRatioBase = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
       const absDeltaBase = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
-      const minRatio = Math.max(0.2, minRatioBase - aggroBias * 0.08);
-      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12);
+      const minRatio = Math.max(0.18, minRatioBase - aggroBias * 0.08 - Number(er?.aggressionBias || 0) * 0.18 - Number(er?.escapeBonus || 0) * 0.10);
+      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12 + Number(er?.chaseBonus || 0) * 18);
       if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
       return null;
     };
@@ -3656,8 +3682,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       // 3) 선택 편향 완화: 선공/우선순위에 따른 승자 고정 체감을 줄이기 위해 확률 기반으로 흔듦
       const id1 = r1?.winner?._id ? String(r1.winner._id) : null;
 
-      const sa = combatScore(a);
-      const sb = combatScore(b);
+      const sa = estimatePower(a);
+      const sb = estimatePower(b);
 	      const total = Math.max(1, sa + sb);
 
       let delta = (sa - sb) / total; // -1..1
@@ -3856,9 +3882,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const actorAggro = getPerkAggressionBias(actor);
       const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb * densityMult * pressureMult * nightMult);
       const actorMs = getEquipMoveSpeed(actor);
+      const actorEr = buildErBehaviorModifier(actor, battleSettings);
       const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
       const aggressionEncounterBonus = suddenDeath ? 0 : Math.max(-0.06, Math.min(0.16, actorAggro * 0.18));
-      const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus + aggressionEncounterBonus - evadeBonus));
+      const erEncounterBonus = suddenDeath ? 0 : Math.max(-0.08, Math.min(0.16, Number(actorEr?.aggressionBias || 0) + Number(actorEr?.chaseBonus || 0) * 0.35 - Number(actorEr?.escapeBonus || 0) * 0.45));
+      const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
@@ -3952,24 +3980,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           return Math.max(0, Math.min(1, Math.floor(n)));
         };
         const normalizeTac = (v) => {
-          const s = String(v || '').trim();
-          if (!s) return '블링크';
-          const low = s.toLowerCase();
-          if (s.includes('블링크') || low.includes('blink')) return '블링크';
-          if (s.includes('치유')) return '치유의 바람';
-          if (s.includes('라이트') || s.includes('쉴드') || low.includes('shield')) return '라이트닝 쉴드';
-          if (s.includes('스트라이더') || s.includes('A13') || low.includes('strider')) return '스트라이더 A-13';
-          if (s.includes('임펄스') || low.includes('impulse')) return '임펄스';
-          if (s.includes('퀘이크') || low.includes('quake')) return '퀘이크';
-          if (s.includes('프로토콜')) return '프로토콜 위반';
-          if (s.includes('붉은 폭풍') || low.includes('electric shift')) return '붉은 폭풍';
-          if (s.includes('초월') || low.includes('force field')) return '초월';
-          if (s.includes('아티팩트') || low.includes('artifact') || low.includes('totem')) return '아티팩트';
-          if (s.includes('무효화') || low.includes('nullification')) return '무효화';
-          if (s.includes('강한 결속') || low.includes('strong bond') || low.includes('soul stealer')) return '강한 결속';
-          if (s.includes('진실의 칼날') || low.includes('blade of truth')) return '진실의 칼날';
-          if (s.includes('거짓 서약') || low.includes('false oath')) return '거짓 서약';
-          return s;
+          return normalizeSupportedTacSkill(v);
         };
         const tacCdSec = (name, who) => {
           // 전술 스킬 쿨다운: 테이블 기반(튜닝 용이)
@@ -4220,6 +4231,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const chaseShield = Math.max(0, getShieldValue(chaser));
           const fleeRegen = Math.max(0, getRegenValue(flee));
           const chaseRegen = Math.max(0, getRegenValue(chaser));
+          const fleeEr = buildErBehaviorModifier(flee, battleSettings);
+          const chaseEr = buildErBehaviorModifier(chaser, battleSettings);
           const escapeBase = Number(ruleset?.ai?.escapeBaseChance ?? 0.22);
           const msScale = Number(ruleset?.ai?.escapeMoveSpeedScale ?? 0.12);
           const pressurePenalty = Number(ruleset?.ai?.escapePressurePenalty ?? 0.28);
@@ -4233,6 +4246,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const chaserRecovering = Number(chaser?._aiRecoverUntilSec || 0) > Number(phaseStartSec || 0);
           let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
           pEscape += (escTacBonus && canUseTac(flee) && (fleeTacTrig?.applyBonus ?? true)) ? escTacBonus : 0;
+          pEscape += Number(fleeEr?.escapeBonus || 0);
+          pEscape -= Number(chaseEr?.chaseBonus || 0) * 0.7;
           if (curForbidden) pEscape -= 0.18;
           pEscape -= restrictedRatio * pressurePenalty;
           if (safeCount <= 3) pEscape -= lowSafePenalty;
@@ -4265,7 +4280,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
           let pChase = chaseBase + (chaseMs - fleeMs) * chaseMsScale + restrictedRatio * 0.10 + Math.max(0, Math.min(0.20, powDelta / 80));
           pChase += chaseAggro * 0.10;
+          pChase += Number(chaseEr?.chaseBonus || 0);
           pChase -= fleeAggro * 0.04;
+          pChase -= Number(fleeEr?.escapeBonus || 0) * 0.4;
           pChase -= Math.max(0, (0.55 - chaseHpRatio)) * 0.22;
           pChase += chaseSustain * 0.5;
           pChase -= chaserRecovering ? recoveryPenalty : 0;
@@ -4293,7 +4310,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
           let pCatch = catchBase + (chaseMs - fleeMs) * catchMsScale + restrictedRatio * 0.12 + Math.max(0, Math.min(0.25, powDelta / 70));
           pCatch += chaseAggro * 0.12;
+          pCatch += Number(chaseEr?.chaseBonus || 0);
           pCatch -= fleeAggro * 0.05;
+          pCatch -= Number(fleeEr?.escapeBonus || 0) * 0.5;
           pCatch -= Math.max(0, (0.5 - chaseHpRatio)) * 0.18;
           pCatch -= Math.min(0.18, fleeShield * 0.01 + fleeRegen * 0.03);
           pCatch += Math.min(0.08, chaseShield * 0.006 + chaseRegen * 0.012);
@@ -4390,8 +4409,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const prevDamagedBy = String(loser?.lastDamagedBy || '');
           const prevDamagedPhaseIdx = Number(loser?.lastDamagedPhaseIdx ?? -9999);
 
-          const wp = combatScore(battleWinner);
-          const lp = combatScore(loser);
+          const wp = estimatePower(battleWinner);
+          const lp = estimatePower(loser);
           const ratio = wp / Math.max(1, wp + lp);
           const base = 18 + nextDay * 3;
           const dmgToLoser = Math.min(92, Math.max(16, Math.round(base + ratio * 34)));
@@ -5100,530 +5119,54 @@ if (showMarketPanel && pendingTranscendPick) {
 
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
   // 금지구역 로직이 동작하도록 zones 기반 fallback을 둡니다.
-  const activeMapEff = activeMap || ((Array.isArray(zones) && zones.length)
+  const activeMapEff = useMemo(() => activeMap || ((Array.isArray(zones) && zones.length)
     ? { _id: String(activeMapId || 'local'), zones }
-    : null);
-  const forbiddenNow = activeMapEff
-    ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase, getRuleset(settings?.rulesetId)))
-    : new Set();
+    : null), [activeMap, activeMapId, zones]);
+  const forbiddenNow = useMemo(() => (
+    activeMapEff
+      ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase, getRuleset(settings?.rulesetId)))
+      : new Set()
+  ), [activeMapEff, day, phase, settings?.rulesetId]);
 
   const shouldComputeHeavyDerived = showResultModal || showMarketPanel || uiModal === 'map' || uiModal === 'chars' || uiModal === 'log';
   const shouldComputeMapDerived = uiModal === 'map';
 
   // 🧾 런 요약: 획득 경로(아이템만 집계, 크레딧 제외)
-  const gainSourceSummary = useMemo(() => {
-    if (!shouldComputeHeavyDerived) return '';
-    return safeRenderCompute('gainSourceSummary', () => {
-    const label = {
-      box: '상자',
-      natural: '자연스폰',
-      hunt: '사냥',
-      boss: '보스',
-      legend: '전설상자',
-      kiosk: '키오스크',
-      drone: '드론',
-      pvp: 'PvP루팅',
-      unknown: '기타',
-    };
-    const acc = {};
-    for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-      if (!e || e.kind !== 'gain') continue;
-      const itemId = String(e.itemId || '');
-      if (!itemId || itemId === 'CREDITS') continue;
-      const src = String(e.source || 'unknown');
-      const q = Math.max(0, Number(e.qty ?? 0));
-      acc[src] = (acc[src] || 0) + q;
-    }
-    const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    if (!entries.length) return '';
-    return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-    }, '');
-  }, [runEvents, shouldComputeHeavyDerived]);
+  const heavyRunSummaries = useMemo(() => {
+    if (!shouldComputeHeavyDerived) return getEmptyRunSummaries();
+    return safeRenderCompute('heavyRunSummaries', () => buildRunSummaries({
+      runEvents,
+      itemNameById,
+      zoneNameById,
+      itemMetaById,
+      survivors,
+      dead,
+      killCounts,
+      assistCounts,
+    }), getEmptyRunSummaries());
+  }, [runEvents, itemNameById, zoneNameById, itemMetaById, survivors, dead, killCounts, assistCounts, shouldComputeHeavyDerived]);
 
-  // 💳 런 요약: 크레딧 획득 경로(크레딧만 집계)
-  const creditSourceSummary = useMemo(() => {
-    if (!shouldComputeHeavyDerived) return '';
-    return safeRenderCompute('creditSourceSummary', () => {
-    const label = {
-      box: '상자',
-      natural: '자연스폰',
-      hunt: '사냥',
-      boss: '보스',
-      legend: '전설상자',
-      kiosk: '키오스크',
-      drone: '드론',
-      pvp: 'PvP',
-      forbidden: '금지구역보상',
-      unknown: '기타',
-    };
-    const acc = {};
-    for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-      if (!e || e.kind !== 'gain') continue;
-      if (String(e.itemId || '') !== 'CREDITS') continue;
-      const src = String(e.source || 'unknown');
-      const q = Math.max(0, Number(e.qty ?? 0));
-      acc[src] = (acc[src] || 0) + q;
-    }
-    const entries = Object.entries(acc).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-    if (!entries.length) return '';
-    return entries.map(([k, v]) => `${label[k] || k}:${v}`).join(' / ');
-    }, '');
-  }, [runEvents, shouldComputeHeavyDerived]);
+  const {
+    gainSourceSummary,
+    creditSourceSummary,
+    gainDetailSummary,
+    specialSourceSummary,
+    runProgressSummary,
+    runSupportSummary,
+    runActionSummary,
+    topRankedCharacters,
+  } = heavyRunSummaries;
 
-// 🧾 런 요약: TOP 아이템/구역(아이템만 집계, 크레딧 제외)
-const gainDetailSummary = useMemo(() => {
-  if (!shouldComputeHeavyDerived) return '';
-  return safeRenderCompute('gainDetailSummary', () => {
-  const topN = 3;
-
-  const itemAcc = {};
-  const zoneAcc = {};
-  const itemSourceAcc = {}; // itemId -> { source -> qty }
-
-  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-    if (!e || e.kind !== 'gain') continue;
-    const itemId = String(e.itemId || '');
-    if (!itemId || itemId === 'CREDITS') continue;
-    const q = Math.max(0, Number(e.qty ?? 0));
-    if (q <= 0) continue;
-
-    itemAcc[itemId] = (itemAcc[itemId] || 0) + q;
-
-    const src = String(e.source || 'unknown');
-    if (!itemSourceAcc[itemId]) itemSourceAcc[itemId] = {};
-    itemSourceAcc[itemId][src] = (itemSourceAcc[itemId][src] || 0) + q;
-
-    const zid = String(e.zoneId || '');
-    if (zid) zoneAcc[zid] = (zoneAcc[zid] || 0) + q;
-  }
-
-  const srcLabel = {
-    box: '상자',
-    natural: '자연',
-    hunt: '사냥',
-    boss: '보스',
-    legend: '전설',
-    kiosk: '키오스크',
-    drone: '드론',
-    pvp: 'PvP',
-    unknown: '기타',
-  };
-
-  const topItems = Object.entries(itemAcc).sort((a, b) => b[1] - a[1]).slice(0, topN);
-  const topZones = Object.entries(zoneAcc).sort((a, b) => b[1] - a[1]).slice(0, topN);
-
-  const itemStr = topItems
-    .map(([id, v]) => {
-      const srcs = itemSourceAcc[String(id)] || {};
-      let bestK = '';
-      let bestV = -1;
-      for (const [k, sv] of Object.entries(srcs)) {
-        if (Number(sv) > bestV) { bestV = Number(sv); bestK = String(k); }
-      }
-      const by = bestK ? `(${srcLabel[bestK] || bestK})` : '';
-      return `${itemNameById?.[String(id)] || String(id)}x${v}${by}`;
-    })
-    .join(', ');
-
-  const zoneStr = topZones
-    .map(([z, v]) => `${zoneNameById?.[String(z)] || String(z)} ${v}`)
-    .join(', ');
-
-  if (!itemStr && !zoneStr) return '';
-  if (itemStr && zoneStr) return `TOP 아이템: ${itemStr} | TOP 구역: ${zoneStr}`;
-  if (itemStr) return `TOP 아이템: ${itemStr}`;
-  return `TOP 구역: ${zoneStr}`;
-  }, '');
-}, [runEvents, itemNameById, zoneNameById]);
-
-const specialSourceSummary = useMemo(() => {
-  if (!shouldComputeHeavyDerived) return '';
-  return safeRenderCompute('specialSourceSummary', () => {
-  const out = {
-    bossCredits: 0,
-    bossItems: 0,
-    mutantItems: 0,
-    eventCredits: 0,
-    eventItems: 0,
-    huntItems: 0,
-    huntCredits: 0,
-    alpha: 0,
-    omega: 0,
-    weakline: 0,
-  };
-  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-    if (!e || e.kind !== 'gain') continue;
-    const src = String(e.source || '');
-    const itemId = String(e.itemId || '');
-    const qty = Math.max(0, Number(e.qty || 0));
-    if (qty <= 0) continue;
-    const isCredit = itemId === 'CREDITS';
-    if (src === 'boss') {
-      if (isCredit) out.bossCredits += qty;
-      else out.bossItems += qty;
-      const bossKind = String(e.kind || '').toLowerCase();
-      if (bossKind.includes('alpha')) out.alpha += qty;
-      if (bossKind.includes('omega')) out.omega += qty;
-      if (bossKind.includes('weakline') || bossKind.includes('wickeline')) out.weakline += qty;
-    } else if (src === 'mutant') {
-      if (!isCredit) out.mutantItems += qty;
-    } else if (src === 'event') {
-      if (isCredit) out.eventCredits += qty;
-      else out.eventItems += qty;
-    } else if (src === 'hunt') {
-      if (isCredit) out.huntCredits += qty;
-      else out.huntItems += qty;
-    }
-  }
-  const parts = [];
-  if (out.bossItems || out.bossCredits) {
-    const bossKinds = [
-      out.alpha ? `A:${out.alpha}` : '',
-      out.omega ? `Ω:${out.omega}` : '',
-      out.weakline ? `W:${out.weakline}` : '',
-    ].filter(Boolean).join(' / ');
-    parts.push(`보스 보상 아이템 ${out.bossItems}${out.bossCredits ? ` · 크레딧 ${out.bossCredits}` : ''}${bossKinds ? ` (${bossKinds})` : ''}`);
-  }
-  if (out.mutantItems) parts.push(`변이 드랍 ${out.mutantItems}`);
-  if (out.huntItems || out.huntCredits) parts.push(`일반 사냥 아이템 ${out.huntItems}${out.huntCredits ? ` · 크레딧 ${out.huntCredits}` : ''}`);
-  if (out.eventItems || out.eventCredits) parts.push(`이벤트 보상 아이템 ${out.eventItems}${out.eventCredits ? ` · 크레딧 ${out.eventCredits}` : ''}`);
-  return parts.join(' | ');
-  }, '');
-}, [runEvents]);
-
-const runProgressSummary = useMemo(() => {
-  if (!shouldComputeHeavyDerived) return { line: '', topZones: '', topVictims: '', topKillers: '', topItems: '' };
-  return safeRenderCompute('runProgressSummary', () => {
-  const out = {
-    droneCalls: 0,
-    kioskGains: 0,
-    craftCount: 0,
-    totalDeaths: 0,
-    totalRevives: 0,
-    totalFlees: 0,
-    firstLegendAt: null,
-    firstTransAt: null,
-    latestLegendAt: null,
-    latestTransAt: null,
-    legendWho: new Set(),
-    transWho: new Set(),
-  };
-  function stampText(at) {
-    if (!at) return '';
-    const d = Number(at?.day || 0);
-    const ph = String(at?.phase || '-');
-    const sec = Math.max(0, Math.floor(Number(at?.sec || 0)));
-    const mm = String(Math.floor(sec / 60)).padStart(2, '0');
-    const ss = String(sec % 60).padStart(2, '0');
-    return `D${d} ${ph} ${mm}:${ss}`;
-  };
-  function touchTier(tier, at, who) {
-    const t = Math.max(0, Number(tier || 0));
-    const wid = String(who || '');
-    if (t >= 5 && !out.firstLegendAt) out.firstLegendAt = at || null;
-    if (t >= 6 && !out.firstTransAt) out.firstTransAt = at || null;
-    if (t >= 5) out.latestLegendAt = at || null;
-    if (t >= 6) out.latestTransAt = at || null;
-    if (t >= 5 && wid) out.legendWho.add(wid);
-    if (t >= 6 && wid) out.transWho.add(wid);
-  };
-  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-    if (!e) continue;
-    const who = String(e.who || '');
-    if (e.kind === 'gain') {
-      const src = String(e.source || '');
-      if (src === 'drone') out.droneCalls += 1;
-      if (src === 'kiosk') out.kioskGains += 1;
-      const meta = itemMetaById?.[String(e.itemId || '')] || null;
-      const tier = Number(meta?.tier || 0);
-      const cat = inferItemCategory(meta);
-      if (cat === 'equipment' && tier > 0) touchTier(tier, e.at || null, who);
-    }
-    if (e.kind === 'craft') {
-      out.craftCount += 1;
-      touchTier(Number(e.tier || 0), e.at || null, who);
-    }
-    if (e.kind === 'death') out.totalDeaths += 1;
-    if (e.kind === 'revive') out.totalRevives += 1;
-    if (e.kind === 'move') {
-      const reason = String(e.reason || '');
-      if (reason.includes('escape') || reason.includes('flee')) out.totalFlees += 1;
-    }
-  }
-  const deathBase = Math.max(1, out.totalDeaths);
-  const reviveRate = out.totalRevives / deathBase;
-  const fleeRate = out.totalFlees / deathBase;
-  const isLegendOnTime = !!out.firstLegendAt && isAtOrAfterWorldTime(Number(out.firstLegendAt?.day || 0), String(out.firstLegendAt?.phase || ''), 0, 'morning') && !isAtOrAfterWorldTime(Number(out.firstLegendAt?.day || 0), String(out.firstLegendAt?.phase || ''), 3, 'day');
-  const isTransOnTime = !!out.firstTransAt && isAtOrAfterWorldTime(Number(out.firstTransAt?.day || 0), String(out.firstTransAt?.phase || ''), 0, 'morning') && !isAtOrAfterWorldTime(Number(out.firstTransAt?.day || 0), String(out.firstTransAt?.phase || ''), 5, 'day');
-  return {
-    ...out,
-    legendCount: out.legendWho.size,
-    transCount: out.transWho.size,
-    reviveRate,
-    fleeRate,
-    legendPace: out.firstLegendAt ? (isLegendOnTime ? 'on-track' : 'late') : 'pending',
-    transPace: out.firstTransAt ? (isTransOnTime ? 'on-track' : 'late') : 'pending',
-    firstLegendText: stampText(out.firstLegendAt),
-    firstTransText: stampText(out.firstTransAt),
-    latestLegendText: stampText(out.latestLegendAt),
-    latestTransText: stampText(out.latestTransAt),
-  };
-}, {
-  droneCalls: 0,
-  kioskGains: 0,
-  craftCount: 0,
-  totalDeaths: 0,
-  totalRevives: 0,
-  totalFlees: 0,
-  firstLegendAt: null,
-  firstTransAt: null,
-  latestLegendAt: null,
-  latestTransAt: null,
-  legendWho: new Set(),
-  transWho: new Set(),
-  legendCount: 0,
-  transCount: 0,
-  reviveRate: 0,
-  fleeRate: 0,
-  legendPace: 'pending',
-  transPace: 'pending',
-  firstLegendText: '',
-  firstTransText: '',
-  latestLegendText: '',
-  latestTransText: '',
-  });
-}, [runEvents, itemMetaById]);
-
-const runSupportSummary = useMemo(() => {
-  if (!shouldComputeHeavyDerived) return { line: '', topItems: '', topEffects: '', autoUseCount: 0, manualUseCount: 0, totalHeal: 0, totalCleanse: 0, skillUseCount: 0, appliedEffects: 0, resistedEffects: 0 };
-  return safeRenderCompute('runSupportSummary', () => {
-  const out = {
-    autoUseCount: 0,
-    manualUseCount: 0,
-    totalHeal: 0,
-    totalCleanse: 0,
-    skillUseCount: 0,
-    appliedEffects: 0,
-    immuneEffects: 0,
-    resistedEffects: 0,
-  };
-  const itemAcc = {};
-  const effectAcc = {};
-  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-    if (!e) continue;
-    if (e.kind === 'use') {
-      if (e.manual) out.manualUseCount += 1;
-      else out.autoUseCount += 1;
-      out.totalHeal += Math.max(0, Number(e.heal || 0));
-      out.totalCleanse += Math.max(0, Number(e.cleansed || 0));
-      const itemId = String(e.itemId || '');
-      if (itemId) itemAcc[itemId] = (itemAcc[itemId] || 0) + 1;
-    }
-    if (e.kind === 'skill') out.skillUseCount += 1;
-    if (e.kind === 'effect') {
-      const effectName = String(e.effect || '');
-      const outcome = String(e.outcome || '');
-      if (outcome === 'applied') out.appliedEffects += 1;
-      else if (outcome === 'immune') out.immuneEffects += 1;
-      else if (outcome === 'resisted') out.resistedEffects += 1;
-      if (effectName && outcome === 'applied') effectAcc[effectName] = (effectAcc[effectName] || 0) + 1;
-    }
-  }
-  const topItems = Object.entries(itemAcc).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id, count]) => `${itemNameById?.[String(id)] || String(id)}x${count}`).join(', ');
-  const topEffects = Object.entries(effectAcc).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => `${name}x${count}`).join(', ');
-  return {
-    ...out,
-    topItems,
-    topEffects,
-    line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · cleanse ${out.totalCleanse} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
-  };
-}, {
-  autoUseCount: 0,
-  manualUseCount: 0,
-  totalHeal: 0,
-  totalCleanse: 0,
-  skillUseCount: 0,
-  appliedEffects: 0,
-  immuneEffects: 0,
-  resistedEffects: 0,
-  topItems: '',
-  topEffects: '',
-  line: '',
-  });
-}, [runEvents, itemNameById]);
-
-const runActionSummary = useMemo(() => {
-  if (!shouldComputeHeavyDerived) return { line: '', topBlocked: '', topDeferred: '', avgEscape: 0, avgChase: 0, avgCatch: 0, avgPreDamage: 0 };
-  return safeRenderCompute('runActionSummary', () => {
-  const out = {
-    queued: 0,
-    blocked: 0,
-    fleeChosen: 0,
-    moveChosen: 0,
-    craftChosen: 0,
-    droneChosen: 0,
-    kioskChosen: 0,
-    escapeFail: 0,
-    escapeNoChase: 0,
-    escapedAfterChase: 0,
-    caught: 0,
-    blinkEscape: 0,
-    avgEscape: 0,
-    avgChase: 0,
-    avgCatch: 0,
-    avgPreDamage: 0,
-  };
-  const blockedAcc = {};
-  const deferredAcc = {};
-  let escapeN = 0;
-  let chaseN = 0;
-  let catchN = 0;
-  let preDamageN = 0;
-  for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
-    if (!e) continue;
-    if (e.kind === 'queue') {
-      out.queued += 1;
-      const chosen = String(e.chosen || '');
-      if (chosen === 'flee') out.fleeChosen += 1;
-      else if (chosen === 'moveTo') out.moveChosen += 1;
-      else if (chosen === 'craft') out.craftChosen += 1;
-      else if (chosen === 'droneOrder') out.droneChosen += 1;
-      else if (chosen.startsWith('kiosk')) out.kioskChosen += 1;
-      (Array.isArray(e.blockedReasons) ? e.blockedReasons : []).forEach((reason) => {
-        const key = String(reason || '').trim();
-        if (!key) return;
-        out.blocked += 1;
-        blockedAcc[key] = (blockedAcc[key] || 0) + 1;
-        if (key.startsWith('deferred:')) deferredAcc[key.replace('deferred:', '')] = (deferredAcc[key.replace('deferred:', '')] || 0) + 1;
-      });
-    }
-    if (e.kind === 'chase') {
-      const outcome = String(e.outcome || '');
-      if (outcome === 'escape_fail') out.escapeFail += 1;
-      else if (outcome === 'escape_no_chase') out.escapeNoChase += 1;
-      else if (outcome === 'escaped_after_chase') out.escapedAfterChase += 1;
-      else if (outcome === 'caught') out.caught += 1;
-      else if (outcome === 'blink_escape') out.blinkEscape += 1;
-      const pEscape = Number(e?.pEscape);
-      const pChase = Number(e?.pChase);
-      const pCatch = Number(e?.pCatch);
-      const preDamage = Number(e?.preDamage);
-      if (Number.isFinite(pEscape) && pEscape > 0) { out.avgEscape += pEscape; escapeN += 1; }
-      if (Number.isFinite(pChase) && pChase > 0) { out.avgChase += pChase; chaseN += 1; }
-      if (Number.isFinite(pCatch) && pCatch > 0) { out.avgCatch += pCatch; catchN += 1; }
-      if (Number.isFinite(preDamage) && preDamage >= 0) { out.avgPreDamage += preDamage; preDamageN += 1; }
-    }
-  }
-  out.avgEscape = escapeN > 0 ? out.avgEscape / escapeN : 0;
-  out.avgChase = chaseN > 0 ? out.avgChase / chaseN : 0;
-  out.avgCatch = catchN > 0 ? out.avgCatch / catchN : 0;
-  out.avgPreDamage = preDamageN > 0 ? out.avgPreDamage / preDamageN : 0;
-  const topBlocked = Object.entries(blockedAcc)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
-    .map(([reason, count]) => `${reason}x${count}`)
-    .join(', ');
-  const topDeferred = Object.entries(deferredAcc)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([reason, count]) => `${reason}x${count}`)
-    .join(', ');
-  return {
-    ...out,
-    topBlocked,
-    topDeferred,
-    line: `queue ${out.queued} · blocked ${out.blocked} · flee ${out.fleeChosen} · move ${out.moveChosen} · craft ${out.craftChosen} · drone ${out.droneChosen} · kiosk ${out.kioskChosen}`,
-    chaseLine: `escapeFail ${out.escapeFail} · noChase ${out.escapeNoChase} · escaped ${out.escapedAfterChase + out.blinkEscape} · caught ${out.caught}`,
-    tuningLine: `avgEscape ${(out.avgEscape * 100).toFixed(0)}% · avgChase ${(out.avgChase * 100).toFixed(0)}% · avgCatch ${(out.avgCatch * 100).toFixed(0)}% · preDmg ${out.avgPreDamage.toFixed(1)}`,
-  };
-}, {
-  queued: 0,
-  blocked: 0,
-  fleeChosen: 0,
-  moveChosen: 0,
-  craftChosen: 0,
-  droneChosen: 0,
-  kioskChosen: 0,
-  escapeFail: 0,
-  escapeNoChase: 0,
-  escapedAfterChase: 0,
-  caught: 0,
-  blinkEscape: 0,
-  avgEscape: 0,
-  avgChase: 0,
-  avgCatch: 0,
-  avgPreDamage: 0,
-  topBlocked: '',
-  topDeferred: '',
-  line: '',
-  chaseLine: '',
-  tuningLine: '',
-  });
-}, [runEvents]);
-
-  const topRankedCharacters = useMemo(() => {
-    if (!shouldComputeHeavyDerived) return [];
-    return safeRenderCompute('topRankedCharacters', () => {
-    return [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])]
-      .filter(Boolean)
-      .sort((a, b) => ((killCounts?.[b?._id] || 0) - (killCounts?.[a?._id] || 0)) || ((assistCounts?.[b?._id] || 0) - (assistCounts?.[a?._id] || 0)))
-      .slice(0, 3);
-    }, []);
-  }, [survivors, dead, killCounts, assistCounts, shouldComputeHeavyDerived]);
-
-  // 🗺️ 미니맵(구역 그래프 + 캐릭터 위치)
   const zonePos = useMemo(() => {
     if (!shouldComputeMapDerived) return {};
-    return safeRenderCompute('zonePos', () => {
-    const z = Array.isArray(zones) ? zones : [];
-    const ids = z.map((x) => String(x?.zoneId || '')).filter(Boolean).sort();
-    const out = {};
-    if (!ids.length) return out;
-
-    // 1) 루미아 섬 기본 앵커(존 id가 매칭될 때)
-    ids.forEach((id) => {
-      const p = LUMIA_ZONE_POS[id];
-      if (p) out[id] = { x: p.x, y: p.y };
-    });
-
-    // 2) 매칭되지 않은 존은 원형 배치로 fallback
-    const missing = ids.filter((id) => !out[id]);
-    if (missing.length) {
-      const cx = 50;
-      const cy = 54;
-      const r = missing.length <= 2 ? 18 : missing.length <= 6 ? 26 : 34;
-      missing.forEach((id, idx) => {
-        const ang = (Math.PI * 2 * idx) / missing.length;
-        out[id] = { x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r };
-      });
-    }
-    return out;
-    }, {});
-  }, [zones]);
+    return safeRenderCompute('zonePos', () => buildZonePositions(zones), {});
+  }, [zones, shouldComputeMapDerived]);
 
   const zoneEdges = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
-    return safeRenderCompute('zoneEdges', () => {
-    const ids = (Array.isArray(zones) ? zones : []).map((x) => String(x?.zoneId || '')).filter(Boolean);
-    const idSet = new Set(ids);
-    const uniq = new Set();
-    const edges = [];
-    Object.keys(zoneGraph || {}).forEach((a) => {
-      if (!idSet.has(a)) return;
-      const arr = Array.isArray(zoneGraph?.[a]) ? zoneGraph[a] : [];
-      arr.forEach((b) => {
-        if (!idSet.has(b) || a === b) return;
-        const k = a < b ? `${a}::${b}` : `${b}::${a}`;
-        if (uniq.has(k)) return;
-        uniq.add(k);
-        edges.push([a, b]);
-      });
-    });
-    return edges;
-    }, []);
-  }, [zoneGraph, zones]);
+    return safeRenderCompute('zoneEdges', () => buildZoneEdges({ zones, zoneGraph }), []);
+  }, [zoneGraph, zones, shouldComputeMapDerived]);
 
-  // 📍 미니맵 핑(최근 이벤트): runEvents 기반(조작 없는 관전형에서 "무슨 일이 어디서" 일어났는지 표시)
   const [pingNow, setPingNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setPingNow(Date.now()), 450);
@@ -5632,140 +5175,19 @@ const runActionSummary = useMemo(() => {
 
   const recentPings = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
-    return safeRenderCompute('recentPings', () => {
-    const now = Number(pingNow || Date.now());
-    const ttlMs = 8000;
-    const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-260);
-    const out = [];
-    const uniq = new Set();
-
-    const pickZoneId = (e) => {
-      if (!e) return '';
-      const kind = String(e.kind || '');
-      if (kind === 'move') return String(e.to || '');
-      return String(e.zoneId || '');
-    };
-
-    const pickIcon = (e) => {
-      const kind = String(e?.kind || '');
-      if (kind === 'battle') return '⚔️';
-      if (kind === 'death') return '☠️';
-      if (kind === 'move') return '🚶';
-      if (kind === 'gain') {
-        const itemId = String(e?.itemId || '');
-        if (itemId === 'CREDITS') return '💰';
-        const src = String(e?.source || '');
-        if (src === 'legend') return '🟪';
-        if (src === 'natural') return '🌠';
-        if (src === 'boss') return '👹';
-        return '📦';
-      }
-      return '✨';
-    };
-
-    for (let i = tail.length - 1; i >= 0; i -= 1) {
-      const e = tail[i];
-      const ts = Number(e?.ts || 0);
-      if (!ts || (now - ts) > ttlMs) continue;
-      const zid = pickZoneId(e);
-      if (!zid || !zonePos?.[zid]) continue;
-
-      // 같은 zone+kind는 1개만 표시(깜빡임/도배 방지)
-      const k = `${String(e.kind || '')}::${zid}`;
-      if (uniq.has(k)) continue;
-      uniq.add(k);
-
-      out.push({
-        id: String(e._id || e.ts || `${i}`),
-        zoneId: zid,
-        kind: String(e.kind || ''),
-        icon: pickIcon(e),
-        ts,
-      });
-
-      if (out.length >= 14) break;
-    }
-
-    return out;
-    }, []);
+    return safeRenderCompute('recentPings', () => buildRecentPings({ runEvents, pingNow, zonePos }), []);
   }, [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
 
-
-  const detonationRiskSummary = useMemo(() => safeRenderCompute('detonationRiskSummary', () => {
-    if (day <= 0) return {
-      visible: false,
-      total: 0,
-      forbiddenCnt: 0,
-      safeLeft: 0,
-      riskyCount: 0,
-      riskyTitle: '',
-      willForceAllThisPhase: false,
-      fzHoverText: '현재 금지구역 없음',
-    };
-    const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
-    const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
-    const safeLeft = Math.max(0, total - forbiddenCnt);
-    const rs = getRuleset(settings?.rulesetId);
-    const critical = Math.max(0, Number(rs?.detonation?.criticalSec ?? 5));
-    const riskyChars = [];
-    for (const c of (Array.isArray(survivors) ? survivors : [])) {
-      const d = Number(c?.detonationSec);
-      if (!Number.isFinite(d)) continue;
-      const sec = Math.max(0, Math.floor(d));
-      if (sec > critical) continue;
-      riskyChars.push({ name: c?.name, sec });
-    }
-    riskyChars.sort((a, b) => Number(a?.sec || 0) - Number(b?.sec || 0));
-    const riskyCount = riskyChars.length;
-    const riskyMin = riskyCount ? Number(riskyChars[0]?.sec || 0) : null;
-    const riskyNames = riskyCount
-      ? (() => {
-          const names = [];
-          for (const x of riskyChars) {
-            const nm = String(x?.name || '???').trim();
-            if (nm) names.push(nm);
-          }
-          const head = names.slice(0, 5);
-          const extra = names.length > 5 ? ` 외 ${names.length - 5}명` : '';
-          return `${head.join(', ')}${extra}`;
-        })()
-      : '';
-    const riskyTitle = riskyCount
-      ? `폭발 타이머 임계치(≤${critical}s) 이하 · 최저 ${riskyMin}s: ${riskyNames}`
-      : `폭발 타이머 임계치(≤${critical}s) 이하 생존자 수`;
-    const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
-    const isEndgame = safeLeft <= 2 && total > 0;
-    const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
-    const willForceAllThisPhase = isEndgame && curPhaseDur >= detForceAll;
-    const fzNameArr = forbiddenCnt
-      ? Array.from(forbiddenNow)
-          .map((z) => String(getZoneName(z) || ''))
-          .filter((x) => x && x !== '__default__')
-      : [];
-    const fzHead = fzNameArr.slice(0, 5);
-    const fzExtra = fzNameArr.length > 5 ? ` (+${fzNameArr.length - 5})` : '';
-    const fzNamesShort = fzNameArr.length ? `${fzHead.join(', ')}${fzExtra}` : '';
-    const fzHoverText = forbiddenCnt ? `금지구역: ${fzNamesShort}` : '현재 금지구역 없음';
-    return {
-      visible: true,
-      total,
-      forbiddenCnt,
-      safeLeft,
-      riskyCount,
-      riskyTitle,
-      willForceAllThisPhase,
-      fzHoverText,
-    };
-  }, {
-    visible: false,
-    total: 0,
-    forbiddenCnt: 0,
-    safeLeft: 0,
-    riskyCount: 0,
-    riskyTitle: '',
-    willForceAllThisPhase: false,
-    fzHoverText: '현재 금지구역 없음',
-  }), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase]);
+  const detonationRiskSummary = useMemo(() => safeRenderCompute('detonationRiskSummary', () => buildDetonationRiskSummary({
+    day,
+    activeMap,
+    zones,
+    forbiddenNow,
+    rulesetId: settings?.rulesetId,
+    survivors,
+    phase,
+    getZoneName,
+  }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase, getZoneName]);
 
   return (
     <main className="simulation-page">
@@ -7120,147 +6542,23 @@ const runActionSummary = useMemo(() => {
       </div>
 
       {/* 결과 모달창 */}
-      {showResultModal && (
-        <div className="result-modal-overlay">
-          <div className="result-modal">
-            <h1>🏆 게임 종료 🏆</h1>
-            {gameEndReason?.type === 'timelimit6night' ? (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: '10px 12px',
-                  borderRadius: 12,
-                  border: '1px solid rgba(255, 120, 120, 0.6)',
-                  background: 'rgba(30, 10, 10, 0.55)',
-                  color: '#ffdfdf',
-                  fontWeight: 800,
-                  textAlign: 'center',
-                }}
-              >
-                ⏹️ 타임리밋 종료: 6번째 밤 도달
-              </div>
-            ) : null}
-            {winner ? (
-              <div className="winner-section">
-                <img src={winner.previewImage} alt="우승자" className="winner-img" />
-                <h2>{winner.name}</h2>
-                <p>최후의 1인! 생존을 축하합니다!</p>
-              </div>
-            ) : (
-              <h2>생존자가 없습니다...</h2>
-            )}
+      <SimulationResultModal
+        open={showResultModal}
+        gameEndReason={gameEndReason}
+        winner={winner}
+        resultSummary={resultSummary}
+        specialSourceSummary={specialSourceSummary}
+        gainSourceSummary={gainSourceSummary}
+        creditSourceSummary={creditSourceSummary}
+        gainDetailSummary={gainDetailSummary}
+        runSupportSummary={runSupportSummary}
+        runActionSummary={runActionSummary}
+        topRankedCharacters={topRankedCharacters}
+        killCounts={killCounts}
+        assistCounts={assistCounts}
+        onClose={() => setShowResultModal(false)}
+      />
 
-            {resultSummary ? (
-              <div
-                style={{
-                  marginTop: 14,
-                  marginBottom: 14,
-                  padding: '12px 14px',
-                  borderRadius: 14,
-                  border: '1px solid rgba(255,255,255,0.14)',
-                  background: 'rgba(255,255,255,0.04)',
-                  display: 'grid',
-                  gap: 8,
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <strong>참가자 {resultSummary.participantsCount || 0}명</strong>
-                  <span>우승 보상 LP {resultSummary.rewardLP || 0}</span>
-                  <span>우승자 킬/어시 {resultSummary.myKills || 0}/{resultSummary.myAssists || 0}</span>
-                </div>
-                {resultSummary.topKillLeader ? (
-                  <div style={{ color: '#ffd54f' }}>
-                    최다 킬: {resultSummary.topKillLeader.name} ({resultSummary.topKillLeader.kills || 0}킬 / {resultSummary.topKillLeader.assists || 0}어시)
-                  </div>
-                ) : null}
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 13, opacity: 0.92 }}>
-                  <span>명예의 전당 저장: {resultSummary.saveStatus?.hallOfFame === 'success' ? '완료' : resultSummary.saveStatus?.hallOfFame === 'error' ? '실패' : resultSummary.saveStatus?.hallOfFame === 'skipped' ? '건너뜀' : '대기'}</span>
-                  <span>유저 전적 저장: {resultSummary.saveStatus?.userStats === 'success' ? '완료' : resultSummary.saveStatus?.userStats === 'error' ? '실패' : '대기'}</span>
-                </div>
-                {resultSummary.userProgress ? (
-                  <div style={{ fontSize: 13, opacity: 0.92 }}>
-                    누적 전적: {resultSummary.userProgress.statistics?.totalGames || 0}전 / {resultSummary.userProgress.statistics?.totalWins || 0}승 / {resultSummary.userProgress.statistics?.totalKills || 0}킬 · 현재 LP {resultSummary.userProgress.lp || 0} · 크레딧 {resultSummary.userProgress.credits || 0}
-                  </div>
-                ) : null}
-                {specialSourceSummary ? (
-                  <div style={{ fontSize: 13, opacity: 0.94 }}>
-                    특수 보상 요약: {specialSourceSummary}
-                  </div>
-                ) : null}
-                {gainSourceSummary ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    아이템 획득 경로: {gainSourceSummary}
-                  </div>
-                ) : null}
-                {creditSourceSummary ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    크레딧 획득 경로: {creditSourceSummary}
-                  </div>
-                ) : null}
-                {gainDetailSummary ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    {gainDetailSummary}
-                  </div>
-                ) : null}
-                {runSupportSummary?.line ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    사용/상태 요약: {runSupportSummary.line}
-                  </div>
-                ) : null}
-                {runSupportSummary?.topItems ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    많이 사용한 소모품: {runSupportSummary.topItems}
-                  </div>
-                ) : null}
-                {runSupportSummary?.topEffects ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    많이 발생한 효과: {runSupportSummary.topEffects}
-                  </div>
-                ) : null}
-                {runActionSummary?.line ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    행동 큐 요약: {runActionSummary.line}
-                  </div>
-                ) : null}
-                {runActionSummary?.chaseLine ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    추격/도주 요약: {runActionSummary.chaseLine}
-                  </div>
-                ) : null}
-                {runActionSummary?.tuningLine ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    추격 튜닝 지표: {runActionSummary.tuningLine}
-                  </div>
-                ) : null}
-                {runActionSummary?.topBlocked ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    많이 막힌 이유: {runActionSummary.topBlocked}
-                  </div>
-                ) : null}
-                {runActionSummary?.topDeferred ? (
-                  <div style={{ fontSize: 13, opacity: 0.9 }}>
-                    자주 밀린 행동: {runActionSummary.topDeferred}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="stats-summary">
-              <h3>⚔️ 킬 랭킹 (Top 3)</h3>
-              <ul>
-                {topRankedCharacters
-                  .map((char, idx) => (
-                    <li key={char._id}>
-                      <span>{idx + 1}위. {char.name}</span>
-                      <strong>{killCounts[char._id] || 0} 킬 / {assistCounts[char._id] || 0} 어시</strong>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-            <button className="close-btn" onClick={() => setShowResultModal(false)}>닫기</button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

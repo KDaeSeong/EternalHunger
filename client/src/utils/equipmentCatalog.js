@@ -1,4 +1,5 @@
 // client/src/utils/equipmentCatalog.js
+import { ER_WEAPON_TYPES_KO, isErRangedWeaponType, normalizeErWeaponType } from './erMeta';
 // 장비(무기/방어구) 자동 생성 카탈로그
 // - 변수/함수명은 영어, 주석은 한글
 
@@ -26,24 +27,10 @@ const pick = (arr) => {
 
 const uid = (prefix) => `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
 
-// 무기 타입(요청 목록)
-export const WEAPON_TYPES_KO = [
-  '권총', '돌격소총', '저격총',
-  '장갑', '톤파', '쌍절곤', '아르카나',
-  '검', '쌍검', '망치', '방망이', '채찍',
-  '투척', '암기', '활', '석궁',
-  '도끼', '단검', '창', '레이피어',
-];
-
-// 과거 레거시 표기 보정
-const WEAPON_TYPE_ALIASES = {
-  '돌소총': '돌격소총',
-};
+export const WEAPON_TYPES_KO = ER_WEAPON_TYPES_KO;
 
 export function normalizeWeaponType(raw) {
-  const s = String(raw || '').trim();
-  if (!s) return '';
-  return WEAPON_TYPE_ALIASES[s] || s;
+  return normalizeErWeaponType(raw);
 }
 
 const GRADES = [
@@ -265,8 +252,7 @@ export function createEquipmentItem({ slot, day = 1, tier = null, weaponType = '
   const tags = ['equipment', equipSlot === 'weapon' ? 'weapon' : 'armor', equipSlot, g.ko];
   if (equipSlot === 'weapon') {
     tags.push(wt);
-    // 원거리 태그(간단 판정)
-    if (['권총', '돌격소총', '저격총', '아르카나', '활', '석궁', '투척', '암기'].includes(wt)) tags.push('ranged');
+    if (isErRangedWeaponType(wt)) tags.push('ranged');
     if (['권총', '돌격소총', '저격총'].includes(wt)) tags.push('gun', '총', 'shoot');
   }
 

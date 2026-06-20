@@ -1951,9 +1951,15 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
   if (String(curPhase || '') === 'night') {
     const nightDay = Number(curDay || 0);
+    const mutantRule = ws?.mutantWildlife || {};
+    const mutantEnabled = mutantRule?.enabled !== false;
+    const mutantGateDay = Math.max(1, Number(mutantRule?.gateDay ?? 2));
+    const mutantIntervalNights = Math.max(1, Number(mutantRule?.intervalNights ?? 2));
+    const mutantSpawnChance = Math.max(0, Math.min(1, Number(mutantRule?.spawnChance ?? 0.75)));
+    const mutantIntervalOk = ((nightDay - mutantGateDay) % mutantIntervalNights) === 0;
     s.spawnedDay = s.spawnedDay || {};
     const already = Number(s.spawnedDay.mutantWildlife || 0) === nightDay && s?.mutantWildlife?.alive;
-    if (!already) {
+    if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !already && Math.random() < mutantSpawnChance) {
       const cfgZid = String(getMutantWildlifeSpawnZoneId(mapId) || '').trim();
       // 어드민에서 지정한 스폰 구역은 금지구역 여부와 무관하게 "존재하면" 우선 적용
       const allZoneIdSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
@@ -1972,7 +1978,8 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
           defeatedAt: null,
         };
         s.spawnedDay.mutantWildlife = nightDay;
-        announcements.push(`🧪 변이 야생동물(${animal})이 출현했다!`);
+        const zoneName = (Array.isArray(zones) ? zones : []).find((z) => String(z?.zoneId || '') === String(zid))?.name || zid;
+        announcements.push(`🧪 변이 야생동물(${animal}) 출현: ${zoneName}`);
       }
     }
   }

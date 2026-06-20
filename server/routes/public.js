@@ -7,6 +7,7 @@ const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
+const ErMeta = require('../models/ErMeta');
 const { DEFAULT_ZONES } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 
@@ -104,6 +105,26 @@ router.get('/perks', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '특전 로드 실패' });
+  }
+});
+
+router.get('/er-meta', async (req, res) => {
+  try {
+    const namespace = String(req.query?.namespace || '').trim();
+    const q = namespace ? { namespace } : {};
+    const limit = Math.max(1, Math.min(5000, Number(req.query?.limit || 500)));
+    const items = await ErMeta.find(q)
+      .sort({ namespace: 1, localizedName: 1, name: 1, code: 1 })
+      .limit(limit)
+      .lean();
+    const summary = await ErMeta.aggregate([
+      { $group: { _id: '$namespace', count: { $sum: 1 }, latest: { $max: '$importedAt' } } },
+      { $sort: { _id: 1 } },
+    ]);
+    res.json({ items, summary });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'ER 메타 로드 실패' });
   }
 });
 

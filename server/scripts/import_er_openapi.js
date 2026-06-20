@@ -13,7 +13,8 @@ require('dotenv').config();
 const axios = require('axios');
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
-const { normalizeWeaponType } = require('../config/item_taxonomy');
+const ErMeta = require('../models/ErMeta');
+const { EXPECT_WEAPON_TYPES, normalizeWeaponType } = require('../config/item_taxonomy');
 
 const API_BASE = process.env.ER_API_BASE || 'https://open-api.bser.io';
 const API_KEY = process.env.ER_API_KEY;
@@ -23,6 +24,10 @@ const MONGO_URI = process.env.MONGO_URI;
 // --auto(또는 ER_META_AUTO=1)면 hash를 보고 “실제 동작하는” metaType을 자동 탐색합니다.
 const ITEM_META = process.env.ER_ITEM_META || 'Item';
 const RECIPE_META = process.env.ER_RECIPE_META || 'ItemRecipe';
+const CHARACTER_META = process.env.ER_CHARACTER_META || 'Character';
+const CHARACTER_SKILL_META = process.env.ER_CHARACTER_SKILL_META || 'CharacterSkill';
+const TACTICAL_SKILL_META = process.env.ER_TACTICAL_SKILL_META || 'TacticalSkill';
+const TRAIT_META = process.env.ER_TRAIT_META || 'Trait';
 
 function die(msg) {
   console.error(`❌ ${msg}`);
@@ -166,6 +171,213 @@ async function autoDetectSpawnMetaTypes() {
   }
 
   return { areaMeta, spawnHintMetas };
+}
+
+async function fetchHashKeys() {
+  const hash = await apiGet('/v2/data/hash');
+  const data = normalizeMetaResponse(hash);
+  const obj = data?.hash || data;
+  return obj ? Object.keys(obj) : [];
+}
+
+function uniqueStrings(list) {
+  return [...new Set((Array.isArray(list) ? list : []).map((x) => String(x || '').trim()).filter(Boolean))];
+}
+
+function scoreMetaName(metaType, namespace) {
+  const s = String(metaType || '').toLowerCase();
+  const exact = (needle) => s === needle.toLowerCase() ? 100 : 0;
+  if (namespace === 'character') {
+    return exact('Character') + (s.includes('character') ? 30 : 0) - (/(skill|skin|voice|level|mode|mastery|stat)/.test(s) ? 45 : 0);
+  }
+  if (namespace === 'characterSkill') {
+    return exact('CharacterSkill') + (s.includes('character') && s.includes('skill') ? 45 : 0) + (s.includes('skill') ? 10 : 0);
+  }
+  if (namespace === 'tacticalSkill') {
+    return exact('TacticalSkill') + (s.includes('tactical') ? 50 : 0) + (s.includes('skill') ? 15 : 0);
+  }
+  if (namespace === 'trait') {
+    return exact('Trait') + (/(trait|mastery|perk)/.test(s) ? 40 : 0) - (s.includes('stat') ? 20 : 0);
+  }
+  return 0;
+}
+
+function supplementalCandidates(keys, namespace, fallback) {
+  const scored = (Array.isArray(keys) ? keys : [])
+    .map((metaType) => ({ metaType, score: scoreMetaName(metaType, namespace) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => (b.score - a.score) || String(a.metaType).length - String(b.metaType).length)
+    .map((x) => x.metaType);
+  return uniqueStrings([fallback, ...scored]).slice(0, 12);
+}
+
+function looksLikeSupplementalRows(rows, namespace, metaType) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return false;
+  const metaScore = scoreMetaName(metaType, namespace);
+  if (metaScore >= 70) return true;
+  const sample = list.slice(0, 5);
+  const joinedKeys = sample.flatMap((row) => Object.keys(row || {})).join(' ').toLowerCase();
+  if (namespace === 'character') return /(character|name|weapon|mastery|resource)/.test(joinedKeys) && !/skillgroup/.test(joinedKeys);
+  if (namespace === 'characterSkill') return /(skill|ability|character)/.test(joinedKeys);
+  if (namespace === 'tacticalSkill') return /(tactical|skill|cooldown|effect)/.test(joinedKeys);
+  if (namespace === 'trait') return /(trait|perk|mastery|effect)/.test(joinedKeys);
+  return true;
+}
+
+async function resolveSupplementalMetaTypes(auto) {
+  const keys = auto ? await fetchHashKeys() : [];
+  const specs = [
+    { namespace: 'character', fallback: CHARACTER_META },
+    { namespace: 'characterSkill', fallback: CHARACTER_SKILL_META },
+    { namespace: 'tacticalSkill', fallback: TACTICAL_SKILL_META },
+    { namespace: 'trait', fallback: TRAIT_META },
+  ];
+  const resolved = [];
+  for (const spec of specs) {
+    const candidates = auto ? supplementalCandidates(keys, spec.namespace, spec.fallback) : [spec.fallback];
+    let hit = null;
+    for (const metaType of candidates) {
+      try {
+        const rows = await fetchRowsByMeta(metaType);
+        if (looksLikeSupplementalRows(rows, spec.namespace, metaType)) {
+          hit = { namespace: spec.namespace, metaType, rows };
+          break;
+        }
+      } catch (_) {}
+    }
+    if (hit) resolved.push(hit);
+  }
+  return resolved;
+}
+
+function pickMetaCode(row, i, namespace) {
+  const byNamespace = {
+    character: ['characterCode', 'CharacterCode', 'characterId', 'CharacterId', 'resource', 'Resource'],
+    characterSkill: ['skillCode', 'SkillCode', 'characterSkillCode', 'CharacterSkillCode', 'abilityCode', 'AbilityCode'],
+    tacticalSkill: ['tacticalSkillCode', 'TacticalSkillCode', 'skillCode', 'SkillCode'],
+    trait: ['traitCode', 'TraitCode', 'perkCode', 'PerkCode', 'masteryCode', 'MasteryCode'],
+  };
+  const keys = [...(byNamespace[namespace] || []), 'code', 'Code', 'id', 'Id'];
+  for (const key of keys) {
+    const value = row?.[key];
+    if (value !== undefined && value !== null && value !== '') return String(value);
+  }
+  return String(i);
+}
+
+function pickMetaRawName(row, namespace) {
+  const byNamespace = {
+    character: ['name', 'Name', 'characterName', 'CharacterName', 'nameKey', 'NameKey', 'resource', 'Resource'],
+    characterSkill: ['name', 'Name', 'skillName', 'SkillName', 'skillNameKey', 'SkillNameKey'],
+    tacticalSkill: ['name', 'Name', 'tacticalSkillName', 'TacticalSkillName', 'skillName', 'SkillName'],
+    trait: ['name', 'Name', 'traitName', 'TraitName', 'perkName', 'PerkName'],
+  };
+  return pickFirstDefined(row, byNamespace[namespace] || ['name', 'Name']);
+}
+
+function guessErMetaName(row, l10n, code, namespace) {
+  const raw = pickMetaRawName(row, namespace);
+  const rawText = String(raw || '').trim();
+  if (rawText && l10n.has(rawText)) return l10n.get(rawText);
+
+  const namespacePrefix = {
+    character: ['Character/Name', 'Character/NameKey', 'Character'],
+    characterSkill: ['Skill/Name', 'CharacterSkill/Name', 'Skill'],
+    tacticalSkill: ['TacticalSkill/Name', 'Skill/Name'],
+    trait: ['Trait/Name', 'Mastery/Name', 'Perk/Name'],
+  }[namespace] || [];
+  for (const prefix of namespacePrefix) {
+    const byCode = l10n.get(`${prefix}/${code}`);
+    if (byCode) return byCode;
+    if (rawText) {
+      const byRaw = l10n.get(`${prefix}/${rawText}`);
+      if (byRaw) return byRaw;
+    }
+  }
+  return rawText || String(code);
+}
+
+function splitMaybeList(value) {
+  if (Array.isArray(value)) return value;
+  const s = String(value || '').trim();
+  if (!s) return [];
+  return s.split(/[,|/;:\s]+/).map((x) => x.trim()).filter(Boolean);
+}
+
+function extractWeaponTypesFromMetaRow(row) {
+  const out = [];
+  for (const [key, value] of Object.entries(row || {})) {
+    if (!/(weapon|mastery)/i.test(key)) continue;
+    for (const token of splitMaybeList(value)) {
+      const normalized = normalizeWeaponType(token);
+      if (EXPECT_WEAPON_TYPES.includes(normalized)) out.push(normalized);
+    }
+  }
+  return uniqueStrings(out);
+}
+
+function extractErMetaTags(row, namespace) {
+  const raw = [];
+  if (Array.isArray(row?.tags)) raw.push(...row.tags);
+  if (row?.type) raw.push(row.type);
+  if (row?.Type) raw.push(row.Type);
+  if (row?.category) raw.push(row.category);
+  if (row?.Category) raw.push(row.Category);
+  raw.push(namespace);
+  return uniqueStrings(raw).slice(0, 32);
+}
+
+async function upsertErMetaRows({ namespace, metaType, rows, l10n }) {
+  let upserts = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || typeof row !== 'object') continue;
+    const code = pickMetaCode(row, i, namespace);
+    const localizedName = guessErMetaName(row, l10n, code, namespace);
+    const rawName = String(pickMetaRawName(row, namespace) || '').trim();
+    const weaponTypes = extractWeaponTypesFromMetaRow(row);
+    const type = String(pickFirstDefined(row, ['type', 'Type', 'category', 'Category', 'skillType', 'SkillType']) || '').trim();
+    const tags = extractErMetaTags(row, namespace);
+
+    await ErMeta.updateOne(
+      { namespace, code },
+      {
+        $setOnInsert: { namespace, code },
+        $set: {
+          name: rawName || localizedName,
+          localizedName,
+          type,
+          weaponTypes,
+          tags,
+          source: 'er',
+          metaType,
+          raw: row,
+          importedAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+    upserts++;
+  }
+  return upserts;
+}
+
+async function importSupplementalMeta(auto, l10n) {
+  const resolved = await resolveSupplementalMetaTypes(auto);
+  if (!resolved.length) {
+    console.log('⚠️ supplemental ER metaTypes not found');
+    return { total: 0, details: [] };
+  }
+  const details = [];
+  let total = 0;
+  for (const entry of resolved) {
+    const count = await upsertErMetaRows({ ...entry, l10n });
+    details.push({ namespace: entry.namespace, metaType: entry.metaType, count });
+    total += count;
+  }
+  details.forEach((d) => console.log(`🧬 ${d.namespace} meta upserted: ${d.count} (${d.metaType})`));
+  return { total, details };
 }
 
 function normalizeMetaResponse(payload) {
@@ -651,6 +863,8 @@ async function applyRecipes(recipeRows) {
 async function main() {
   const { mode, flags } = parseArgs(process.argv.slice(2));
   const auto = hasFlag(flags, '--auto') || process.env.ER_META_AUTO === '1';
+  const importItems = mode === 'import' || mode === 'all';
+  const importMeta = mode === 'meta' || mode === 'all' || hasFlag(flags, '--with-meta') || process.env.ER_IMPORT_META === '1';
 
   if (!API_KEY) die('ER_API_KEY 가 필요합니다. (Eternal Return Open API 키)');
   if (!MONGO_URI) die('MONGO_URI 가 필요합니다.');
@@ -669,8 +883,8 @@ async function main() {
     process.exit(0);
   }
 
-  if (mode !== 'import') {
-    console.log('Usage: node scripts/import_er_openapi.js [hash|import] [--auto]');
+  if (!importItems && !importMeta) {
+    console.log('Usage: node scripts/import_er_openapi.js [hash|import|meta|all] [--auto] [--with-meta]');
     process.exit(0);
   }
 
@@ -683,44 +897,53 @@ async function main() {
     const found = await autoDetectMetaTypes();
     if (found.itemMeta) resolvedItemMeta = found.itemMeta;
     if (found.recipeMeta) resolvedRecipeMeta = found.recipeMeta;
-    const extra = await autoDetectSpawnMetaTypes();
-    resolvedAreaMeta = extra.areaMeta || null;
-    resolvedSpawnHintMetas = Array.isArray(extra.spawnHintMetas) ? extra.spawnHintMetas : [];
-    console.log(`🧾 resolved metaTypes: item=${resolvedItemMeta}, recipe=${resolvedRecipeMeta}, area=${resolvedAreaMeta || '-'}, spawnHints=${resolvedSpawnHintMetas.join(',') || '-'}`);
+    if (importItems) {
+      const extra = await autoDetectSpawnMetaTypes();
+      resolvedAreaMeta = extra.areaMeta || null;
+      resolvedSpawnHintMetas = Array.isArray(extra.spawnHintMetas) ? extra.spawnHintMetas : [];
+    }
+    console.log(`🧾 resolved metaTypes: item=${importItems ? resolvedItemMeta : '-'}, recipe=${importItems ? resolvedRecipeMeta : '-'}, area=${resolvedAreaMeta || '-'}, spawnHints=${resolvedSpawnHintMetas.join(',') || '-'}`);
   }
 
   const l10n = await fetchKoreanL10n();
   console.log(`🈺 l10n loaded: ${l10n.size}`);
 
-  const itemRows = await fetchRowsByMeta(resolvedItemMeta);
-  if (!Array.isArray(itemRows) || itemRows.length === 0) {
-    die(`아이템 테이블을 못 가져왔습니다. ER_ITEM_META=${resolvedItemMeta} (또는 --auto) 설정을 확인 후, 먼저 npm run import:er:hash 를 실행하세요.`);
-  }
-
-  const upserts = await upsertItemsFromTable(itemRows, l10n);
-  console.log(`📦 items upserted: ${upserts}`);
-
-  const recipeRows = await fetchRowsByMeta(resolvedRecipeMeta);
-  if (Array.isArray(recipeRows) && recipeRows.length > 0) {
-    const applied = await applyRecipes(recipeRows);
-    console.log(`🧩 recipes applied: ${applied}`);
-  } else {
-    console.log(`⚠️ 레시피 테이블이 비어있습니다. ER_RECIPE_META=${resolvedRecipeMeta} (또는 --auto) 를 확인하세요.`);
-  }
-
-  let hintPatched = 0;
-  if (auto && resolvedAreaMeta && resolvedSpawnHintMetas.length) {
-    const areaRows = await fetchRowsByMeta(resolvedAreaMeta);
-    for (const meta of resolvedSpawnHintMetas) {
-      const rows = await fetchRowsByMeta(meta);
-      if (!rows.length) continue;
-      hintPatched += await applySpawnHints(areaRows, rows, l10n);
+  if (importItems) {
+    const itemRows = await fetchRowsByMeta(resolvedItemMeta);
+    if (!Array.isArray(itemRows) || itemRows.length === 0) {
+      die(`아이템 테이블을 못 가져왔습니다. ER_ITEM_META=${resolvedItemMeta} (또는 --auto) 설정을 확인 후, 먼저 npm run import:er:hash 를 실행하세요.`);
     }
-  }
-  if (auto) console.log(`🗺️ spawn hints applied: ${hintPatched}`);
 
-  const fallbackPatched = await applyErSpawnFallbacks();
-  console.log(`🧺 spawn crate fallbacks applied: ${fallbackPatched}`);
+    const upserts = await upsertItemsFromTable(itemRows, l10n);
+    console.log(`📦 items upserted: ${upserts}`);
+
+    const recipeRows = await fetchRowsByMeta(resolvedRecipeMeta);
+    if (Array.isArray(recipeRows) && recipeRows.length > 0) {
+      const applied = await applyRecipes(recipeRows);
+      console.log(`🧩 recipes applied: ${applied}`);
+    } else {
+      console.log(`⚠️ 레시피 테이블이 비어있습니다. ER_RECIPE_META=${resolvedRecipeMeta} (또는 --auto) 를 확인하세요.`);
+    }
+
+    let hintPatched = 0;
+    if (auto && resolvedAreaMeta && resolvedSpawnHintMetas.length) {
+      const areaRows = await fetchRowsByMeta(resolvedAreaMeta);
+      for (const meta of resolvedSpawnHintMetas) {
+        const rows = await fetchRowsByMeta(meta);
+        if (!rows.length) continue;
+        hintPatched += await applySpawnHints(areaRows, rows, l10n);
+      }
+    }
+    if (auto) console.log(`🗺️ spawn hints applied: ${hintPatched}`);
+
+    const fallbackPatched = await applyErSpawnFallbacks();
+    console.log(`🧺 spawn crate fallbacks applied: ${fallbackPatched}`);
+  }
+
+  if (importMeta) {
+    const metaResult = await importSupplementalMeta(auto, l10n);
+    console.log(`🧬 supplemental meta total: ${metaResult.total}`);
+  }
 
   console.log('✅ import done');
   process.exit(0);

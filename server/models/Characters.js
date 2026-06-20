@@ -20,6 +20,11 @@ const characterSchema = new Schema({
   tacticalSkill: { type: String, default: '블링크' },
   // 전술 스킬 레벨(런 단위): Lv.1 시작, 최대 Lv.2 (런 시작 시 1로 초기화)
   tacticalSkillLevel: { type: Number, default: 1 },
+  // 이터널 리턴 이식 메타(실험체/역할/특성/사용 가능 무기)
+  erSubject: { type: String, default: '' },
+  erRole: { type: String, default: '' },
+  erTrait: { type: String, default: '' },
+  erWeapons: [{ type: String }],
 
   goalLoadouts: {
     hero: {
@@ -71,8 +76,10 @@ const characterSchema = new Schema({
     type: { type: String },
     tags: [String],
     equipSlot: String,
+    weaponType: String,
     tier: Number,
     grade: String,
+    stats: Schema.Types.Mixed,
     acquiredDay: Number
   }],
 

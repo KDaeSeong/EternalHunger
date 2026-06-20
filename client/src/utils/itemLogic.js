@@ -1,6 +1,7 @@
 // client/src/utils/itemLogic.js
 
 import { EFFECT_BLEED, EFFECT_BURN, EFFECT_FOOD_POISON, EFFECT_POISON, makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
+import { getErCapsule } from './erMeta';
 
 function safeTags(item) {
   return Array.isArray(item?.tags) ? item.tags.map((x) => String(x || '').toLowerCase()) : [];
@@ -36,8 +37,17 @@ export function applyItemEffect(character, item) {
   const isHealthy = tags.includes('healthy');
   const isEnergy = tags.includes('energy') || lowerName.includes('에너지') || lowerName.includes('드링크') || lowerName.includes('energy');
   const isBandage = lowerName.includes('bandage') || name.includes('붕대');
+  const erCapsule = getErCapsule(item);
 
-  if (isHeal) {
+  if (erCapsule) {
+    recovery = Math.max(0, Number(erCapsule.heal || 0));
+    newEffects = [
+      erCapsule.shield ? makeShieldEffect(erCapsule.shield, erCapsule.duration || 3, `${sourceId}_capsule_shield`, { tags: ['positive', 'capsule'] }) : null,
+      erCapsule.regen ? makeRegenEffect(erCapsule.regen, erCapsule.duration || 3, `${sourceId}_capsule_regen`, { tags: ['positive', 'capsule'] }) : null,
+      erCapsule.stats ? makeStatBuffEffect('각성', erCapsule.stats, erCapsule.duration || 3, `${sourceId}_capsule_stats`, { tags: ['positive', 'capsule', `capsule:${erCapsule.code}`] }) : null,
+    ].filter(Boolean);
+    log = `💊 [${character.name}]은(는) [${name}]을(를) 사용했습니다. ${erCapsule.log || '캡슐 효과가 적용됩니다.'}${recovery > 0 ? ` (체력 +${recovery})` : ''}`;
+  } else if (isHeal) {
     recovery = isBandage ? 35 : 50;
     cleanse = {
       names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON],

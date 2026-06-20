@@ -8,6 +8,7 @@ import '../../styles/Home.css';
 // 사용 무기 선택(캐릭터 기본 무기 타입)
 // - 목록은 장비 자동생성 카탈로그와 동일하게 유지(표준화)
 import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatalog';
+import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 
@@ -112,6 +113,21 @@ export default function CharactersPage() {
       }
       return char;
     }));
+  };
+
+  const applyErPresetToCharacter = (targetId) => {
+    const current = characters.find((char) => String(char?._id || char?.id) === String(targetId));
+    const preset = getErSubjectPreset(current);
+    if (!preset) {
+      alert('이름과 일치하는 ER 실험체 프리셋을 찾지 못했습니다.');
+      return;
+    }
+    setCharacters((prev) => prev.map((char) => {
+      const charId = char._id || char.id;
+      if (String(charId) !== String(targetId)) return char;
+      return applyErSubjectPreset(char, { replaceDefaultTactical: true, statBiasScale: 1 });
+    }));
+    alert(`ER 프리셋 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}`);
   };
 
   const openConfigModal = (char) => {
@@ -337,6 +353,13 @@ export default function CharactersPage() {
                   onClick={() => handleAiAnalyze(realId)}
                 >
                    ⚡ AI 스카우터 (분석하기)
+                </button>
+                <button
+                  type="button"
+                  className="er-preset-btn"
+                  onClick={() => applyErPresetToCharacter(realId)}
+                >
+                  ER 실험체 프리셋 적용
                 </button>
               </div>
             </div>

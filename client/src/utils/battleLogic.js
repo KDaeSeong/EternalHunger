@@ -1,4 +1,5 @@
 import { getEffectiveStats } from './statusLogic';
+import { buildErCombatModifier, isErRangedWeaponType, normalizeErWeaponType } from './erMeta';
 
 // 내부 유틸 (legacy/normalized 아이템 혼용 대응)
 const norm = (v) => String(v ?? '').trim().toLowerCase();
@@ -57,7 +58,8 @@ const getEquipDeltas = (character, settings = {}) => {
   // 무기 1개(weapon 슬롯)
   const wpn = pickWeapon(character);
   const wTier = wpn ? clampTier(getTier(wpn), maxTier) : 0;
-  const ranged = !!wpn && (hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총'));
+  const wType = normalizeErWeaponType(wpn?.weaponType || character?.weaponType || '');
+  const ranged = !!wpn && (hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총') || isErRangedWeaponType(wType));
   const weaponAtk = weaponAtkPerTier * wTier;
 
   // 방어구 4슬롯(머리/옷/팔/신발)
@@ -99,8 +101,8 @@ const getEquipStatTotals = (character) => {
   const wpn = pickWeapon(character);
   if (wpn) {
     add(wpn.stats);
-    totals.weaponType = String(wpn.weaponType || '');
-    totals.weaponIsRanged = hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총');
+    totals.weaponType = normalizeErWeaponType(wpn.weaponType || character?.weaponType || '');
+    totals.weaponIsRanged = hasTag(wpn, 'ranged') || hasTag(wpn, 'shoot') || hasTag(wpn, 'gun') || hasTag(wpn, '총') || isErRangedWeaponType(totals.weaponType);
   }
 
   // 방어구 4슬롯
@@ -272,13 +274,17 @@ export function calculateBattle(p1, p2, day, settings = {}) {
 
     const p1Bonus = getBonuses(p1, s1x, s2x, es1);
     const p2Bonus = getBonuses(p2, s2x, s1x, es2);
+    const er1 = buildErCombatModifier({ character: p1, stats: s1x, opponentStats: s2x, equipStats: es1, day, settings });
+    const er2 = buildErCombatModifier({ character: p2, stats: s2x, opponentStats: s1x, equipStats: es2, day, settings });
 
     if (p1Bonus.skillLog) logs.push(p1Bonus.skillLog);
     if (p2Bonus.skillLog) logs.push(p2Bonus.skillLog);
+    if (er1.log) logs.push(`[${p1.name}] ${er1.log}`);
+    if (er2.log) logs.push(`[${p2.name}] ${er2.log}`);
 
     // --- 3. 점수 합산 (가중치 적용) ---
-    score1 += (p1Bonus.skillBonus + p1Bonus.wpnBonus + Number(p1Bonus.extraScore || 0)) * suddenDeathMultiplier;
-    score2 += (p2Bonus.skillBonus + p2Bonus.wpnBonus + Number(p2Bonus.extraScore || 0)) * suddenDeathMultiplier;
+    score1 += (p1Bonus.skillBonus + p1Bonus.wpnBonus + Number(p1Bonus.extraScore || 0) + Number(er1.score || 0)) * suddenDeathMultiplier;
+    score2 += (p2Bonus.skillBonus + p2Bonus.wpnBonus + Number(p2Bonus.extraScore || 0) + Number(er2.score || 0)) * suddenDeathMultiplier;
 
     // ★ [SHT vs AGI] 사격 vs 회피
     // 기존 0.5 같은 고정 상수 대신 가중치(w.sht, w.agi)를 직접 곱해 영향력 조절
@@ -298,16 +304,16 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     score1 += Math.random() * (s1x.luk * w.luk * 0.2); 
     score2 += Math.random() * (s2x.luk * w.luk * 0.2);
     // 🧨 공격량(피해량) 베이스: 스킬/무기 + 사격 + 근접
-    const offenseBase1 = ((Number(p1Bonus.skillBonus || 0) + Number(p1Bonus.wpnBonus || 0)) * suddenDeathMultiplier) + shoot1 + melee1;
-    const offenseBase2 = ((Number(p2Bonus.skillBonus || 0) + Number(p2Bonus.wpnBonus || 0)) * suddenDeathMultiplier) + shoot2 + melee2;
+    const offenseBase1 = ((Number(p1Bonus.skillBonus || 0) + Number(p1Bonus.wpnBonus || 0) + Number(er1.offenseBonus || 0)) * suddenDeathMultiplier) + shoot1 + melee1;
+    const offenseBase2 = ((Number(p2Bonus.skillBonus || 0) + Number(p2Bonus.wpnBonus || 0) + Number(er2.offenseBonus || 0)) * suddenDeathMultiplier) + shoot2 + melee2;
     let offense1 = offenseBase1;
     let offense2 = offenseBase2;
 
     // 🎯 치명타(장비 치확 기반): '실제 피해'에 가산 → 흡혈 회복에도 연동
     // - 기존 critBurstScale 설정값을 '치명타 추가 피해 비율'로 사용 (기본 +35%)
     const critDamageScale = Number(settings?.battle?.critBurstScale ?? 0.35);
-    const c1 = Math.max(0, Math.min(0.75, Number(p1Bonus.critChance || 0)));
-    const c2 = Math.max(0, Math.min(0.75, Number(p2Bonus.critChance || 0)));
+    const c1 = Math.max(0, Math.min(0.75, Number(p1Bonus.critChance || 0) + Number(er1.critChancePlus || 0)));
+    const c2 = Math.max(0, Math.min(0.75, Number(p2Bonus.critChance || 0) + Number(er2.critChancePlus || 0)));
     if (Math.random() < c1) {
       const extra = offenseBase1 * critDamageScale;
       offense1 += extra;
@@ -326,8 +332,8 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     // - healScore = (내가 준 피해량 기반) * lifesteal * scale
     const lifestealHealScale = Number(settings?.battle?.lifestealHealScoreScale ?? 0.35);
 
-    const ls1 = Math.max(0, Math.min(0.75, Number(es1?.lifesteal || p1Bonus.lifesteal || 0)));
-    const ls2 = Math.max(0, Math.min(0.75, Number(es2?.lifesteal || p2Bonus.lifesteal || 0)));
+    const ls1 = Math.max(0, Math.min(0.75, Number(es1?.lifesteal || p1Bonus.lifesteal || 0) + Number(er1.lifestealPlus || 0)));
+    const ls2 = Math.max(0, Math.min(0.75, Number(es2?.lifesteal || p2Bonus.lifesteal || 0) + Number(er2.lifestealPlus || 0)));
 
     const healScore1 = offense1 * ls1 * lifestealHealScale;
     const healScore2 = offense2 * ls2 * lifestealHealScale;

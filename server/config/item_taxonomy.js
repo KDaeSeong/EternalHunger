@@ -1,6 +1,7 @@
 const EXPECT_WEAPON_TYPES = [
-  '권총','돌격소총','저격총','장갑','톤파','쌍절곤','아르카나','검','쌍검','망치',
+  '권총','돌격소총','저격총','글러브','톤파','쌍절곤','아르카나','양손검','쌍검','망치',
   '방망이','채찍','투척','암기','활','석궁','도끼','단검','창','레이피어',
+  '기타','카메라',
 ];
 
 const EXPECT_ARMOR_SLOTS = ['head', 'clothes', 'arm', 'shoes'];
@@ -12,16 +13,16 @@ const WEAPON_TYPE_ALIASES = [
   [/^(돌격소총|돌소총|기관단총)$/i, '돌격소총'],
   [/^sniper([_\s-]?rifle)?$/i, '저격총'],
   [/^저격총$/i, '저격총'],
-  [/^(glove|fist|gauntlet)$/i, '장갑'],
-  [/^(장갑|글러브)$/i, '장갑'],
+  [/^(glove|gloves|fist|knuckle|gauntlet)$/i, '글러브'],
+  [/^(장갑|글러브)$/i, '글러브'],
   [/^tonfa$/i, '톤파'],
   [/^톤파$/i, '톤파'],
   [/^(nunchaku|numchaku)$/i, '쌍절곤'],
   [/^쌍절곤$/i, '쌍절곤'],
   [/^arcana$/i, '아르카나'],
   [/^아르카나$/i, '아르카나'],
-  [/^(one[_\s-]?hand(ed)?[_\s-]?sword|sword)$/i, '검'],
-  [/^(검|양손검)$/i, '검'],
+  [/^(two[_\s-]?hand(ed)?[_\s-]?sword|one[_\s-]?hand(ed)?[_\s-]?sword|sword)$/i, '양손검'],
+  [/^(검|양손검)$/i, '양손검'],
   [/^(dual[_\s-]?swords?|dualswords?)$/i, '쌍검'],
   [/^쌍검$/i, '쌍검'],
   [/^(hammer|sledge)$/i, '망치'],
@@ -46,6 +47,10 @@ const WEAPON_TYPE_ALIASES = [
   [/^창$/i, '창'],
   [/^rapier$/i, '레이피어'],
   [/^레이피어$/i, '레이피어'],
+  [/^guitar$/i, '기타'],
+  [/^기타$/i, '기타'],
+  [/^camera$/i, '카메라'],
+  [/^카메라$/i, '카메라'],
 ];
 
 function normalizeWeaponType(raw) {

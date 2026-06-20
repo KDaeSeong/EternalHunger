@@ -169,6 +169,12 @@ const DEFAULT_WORLD_SPAWNS = {
     retreatBase: 0.20,
     retreatPowerBonusMax: 0.25,
   },
+  mutantWildlife: {
+    enabled: true,
+    gateDay: 2,
+    intervalNights: 2,
+    spawnChance: 0.75,
+  },
 };
 
 
@@ -263,6 +269,7 @@ export const RULESETS = {
       // 저HP 회복 우선(최소): 위험 행동(교전/사냥)보다 안전 이동을 우선
       recoverHpBelow: 38,
       recoverMinSaferDelta: 1,
+      erPresetStatScale: 1,
 
       // 전투력 낮으면 교전 회피(최소): 상대 대비 불리하면 교전을 피함
       // - ratio = 내Power / (내Power + 상대Power)
@@ -340,6 +347,10 @@ export const RULESETS = {
       maxTier: 6,
       replaceOnlyIfBetter: true,
     },
+
+    battle: {
+      erMetaScale: 1,
+    },
   },
 
   LEGACY: {
@@ -391,6 +402,7 @@ export const RULESETS = {
       // 저HP 회복 우선(최소): 위험 행동(교전/사냥)보다 안전 이동을 우선
       recoverHpBelow: 38,
       recoverMinSaferDelta: 1,
+      erPresetStatScale: 0.45,
     },
 
 
@@ -447,6 +459,10 @@ export const RULESETS = {
       armorDefPerTier: 4,
       maxTier: 6,
       replaceOnlyIfBetter: true,
+    },
+
+    battle: {
+      erMetaScale: 0.65,
     },
   },
 };
