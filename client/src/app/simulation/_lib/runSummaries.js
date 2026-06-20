@@ -68,12 +68,17 @@ function createRunSupportFallback() {
     totalHeal: 0,
     totalCleanse: 0,
     skillUseCount: 0,
+    tacticalSkillCount: 0,
+    weaponSkillCount: 0,
     appliedEffects: 0,
     immuneEffects: 0,
     resistedEffects: 0,
     topItems: '',
     topEffects: '',
+    topTacticalSkills: '',
+    topWeaponSkills: '',
     line: '',
+    combatLine: '',
   };
 }
 
@@ -352,6 +357,8 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
   const out = createRunSupportFallback();
   const itemAcc = {};
   const effectAcc = {};
+  const tacticalSkillAcc = {};
+  const weaponSkillAcc = {};
 
   for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
     if (!e) continue;
@@ -363,7 +370,18 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
       const id = String(e.itemId || '');
       if (id) itemAcc[id] = (itemAcc[id] || 0) + 1;
     }
-    if (e.kind === 'skill') out.skillUseCount += 1;
+    if (e.kind === 'skill') {
+      out.skillUseCount += 1;
+      const skillName = String(e.skill || '').trim();
+      const mode = String(e.mode || '').trim();
+      if (mode === 'weapon_skill') {
+        out.weaponSkillCount += 1;
+        if (skillName) weaponSkillAcc[skillName] = (weaponSkillAcc[skillName] || 0) + 1;
+      } else {
+        out.tacticalSkillCount += 1;
+        if (skillName) tacticalSkillAcc[skillName] = (tacticalSkillAcc[skillName] || 0) + 1;
+      }
+    }
     if (e.kind === 'effect') {
       const effectName = String(e.effect || '');
       const outcome = String(e.outcome || '');
@@ -376,11 +394,22 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
 
   const topItems = topEntries(itemAcc, 3).map(([id, count]) => `${itemName(itemNameById, id)}x${count}`).join(', ');
   const topEffects = topEntries(effectAcc, 4).map(([name, count]) => `${name}x${count}`).join(', ');
+  const topTacticalSkills = topEntries(tacticalSkillAcc, 3).map(([name, count]) => `${name}x${count}`).join(', ');
+  const topWeaponSkills = topEntries(weaponSkillAcc, 3).map(([name, count]) => `${name}x${count}`).join(', ');
+  const skillBits = [
+    `전술 ${out.tacticalSkillCount}회`,
+    `무기 ${out.weaponSkillCount}회`,
+    topTacticalSkills ? `전술 TOP ${topTacticalSkills}` : '',
+    topWeaponSkills ? `무기 TOP ${topWeaponSkills}` : '',
+  ].filter(Boolean);
   return {
     ...out,
     topItems,
     topEffects,
+    topTacticalSkills,
+    topWeaponSkills,
     line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · cleanse ${out.totalCleanse} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
+    combatLine: skillBits.length ? skillBits.join(' · ') : '',
   };
 }
 

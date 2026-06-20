@@ -32,6 +32,7 @@ const fixedValues = {
 const weaponCategoryMap = {
   '돌소총': '돌격소총',
   '돌격소총': '돌격소총',
+  '돌격 소총': '돌격소총',
   '기관단총': '돌격소총', // 현재 프로젝트 canonical 20종 기준 폴백
   '저격총': '저격총',
   '권총': '권총',
@@ -235,24 +236,34 @@ function buildExternalId(prefix, name) {
 
 function detectEquipMeta(categoryRaw) {
   const category = normalizeName(categoryRaw);
-  if (!category) return { type: '기타', equipSlot: '', weaponType: '', tags: ['namu'] };
+  if (!category) return { type: '기타', equipSlot: '', weaponType: '', itemSubType: '', tags: ['namu'] };
 
   for (const [k, v] of Object.entries(weaponCategoryMap)) {
     if (category.includes(k)) {
       const weaponType = normalizeWeaponType(v) || v;
-      return { type: '무기', equipSlot: 'weapon', weaponType, tags: ['namu', weaponType] };
+      return { type: '무기', equipSlot: 'weapon', weaponType, itemSubType: weaponType, tags: ['namu', weaponType] };
     }
   }
   for (const [k, v] of Object.entries(armorSlotMap)) {
     if (category.includes(k)) {
-      return { type: '방어구', equipSlot: v, weaponType: '', tags: ['namu', v] };
+      return { type: '방어구', equipSlot: v, weaponType: '', itemSubType: category, tags: ['namu', v, category] };
     }
   }
-  return { type: '기타', equipSlot: '', weaponType: '', tags: ['namu'] };
+  if (/재료/.test(category)) {
+    return { type: '재료', equipSlot: '', weaponType: '', itemSubType: category, tags: ['namu', 'material', category] };
+  }
+  if (/음식|음료|소비|강화|설치|전환|특수|현상금|가젯/.test(category)) {
+    return { type: '소모품', equipSlot: '', weaponType: '', itemSubType: category, tags: ['namu', 'consumable', category] };
+  }
+  return { type: '기타', equipSlot: '', weaponType: '', itemSubType: category, tags: ['namu', category] };
 }
 
 function readSourceText(p) {
-  return readSourceEntries(p).map((entry) => entry.text).join('\n\n');
+  return combineItemSourceText(readSourceEntries(p));
+}
+
+function combineItemSourceText(entries) {
+  return (entries || []).map((entry) => stripInactiveNamuSections(entry.text)).join('\n\n');
 }
 
 function readSourceEntries(p) {
@@ -302,12 +313,21 @@ function inferNamuKind(entry) {
   const text = String(entry?.text || '');
   if (/weapon[_-]?skills?|무기\s*스킬/.test(file) || /무기\s*스킬/.test(text.slice(0, 1000))) return 'weaponSkill';
   if (/tactical[_-]?skills?|전술\s*스킬/.test(file) || /전술\s*스킬/.test(text.slice(0, 1000))) return 'tacticalSkill';
-  if (/subjects?|실험체/.test(file) || /실험체\(이터널 리턴\)|실험체 목록/.test(text.slice(0, 1000))) return 'subjectIndex';
+  if (/subjects?|실험체|캐릭터/.test(file) || looksLikeSubjectIndexText(text)) return 'subjectIndex';
   if (/lumia|island|map|루미아|섬/.test(file) || /루미아\s*섬/.test(text.slice(0, 1000))) return 'map';
   if (/guide|가이드/.test(file) || /가이드/.test(text.slice(0, 1000))) return 'guide';
   if (/\[include\(틀:이터널 리턴\/아이템/.test(text)) return 'item';
   if (/traits?|특성/.test(file) || /특성/.test(text.slice(0, 1000))) return 'trait';
   return 'unknown';
+}
+
+function looksLikeSubjectIndexText(text) {
+  const t = String(text || '');
+  const head = t.slice(0, 2500);
+  return /\[\[분류:이터널 리턴\/실험체\]\]/.test(head)
+    || /\[include\(틀:이터널 리턴\/실험체\)\]/.test(head)
+    || /==\s*실험체 목록\s*==/.test(t)
+    || /템플릿:이터널 리턴\/실험체/.test(t);
 }
 
 function extractHeadings(text) {
@@ -484,6 +504,7 @@ function extractSubjectName(text, args = {}, filePath = '') {
 
 function looksLikeSubjectPage(text, args, weaponTypes) {
   const t = String(text || '');
+  if (looksLikeSubjectIndexText(t)) return false;
   if (Object.keys(args || {}).length > 0) return true;
   if (/이터널 리턴\/실험체|이터널 리턴\/캐릭터|실험체\s*정보|캐릭터\s*정보|사용\s*무기|사용무기/.test(t)) return true;
   return weaponTypes.length > 0 && /스킬|패시브|특성|전술\s*스킬|캐릭터|실험체/.test(t) && !/아이템\s*목록/.test(t);
@@ -560,7 +581,7 @@ function extractWikiLinkLabels(text) {
   const re = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g;
   let match;
   while ((match = re.exec(String(text || '')))) {
-    const target = cleanWikiValue(match[1]);
+    const target = String(match[1] || '').trim();
     const label = cleanWikiValue(match[2] || match[1]);
     if (!label || label.length > 30) continue;
     out.push({ target, label });
@@ -568,15 +589,78 @@ function extractWikiLinkLabels(text) {
   return out;
 }
 
-function extractSubjectIndexNames(text) {
-  const blocked = /이터널 리턴|실험체|분류|문서|상위|하위|목록|스킨|템플릿|루미아|나무위키|시즌|패치|가이드/;
-  return uniqueStrings(
-    extractWikiLinkLabels(text)
-      .filter((link) => /\(이터널 리턴\)/.test(link.target) || !blocked.test(link.label))
-      .map((link) => link.label.replace(/\([^)]*\)/g, '').trim())
-      .filter((name) => /^[가-힣A-Za-z][가-힣A-Za-z .・·'-]{0,24}$/.test(name))
-      .filter((name) => !blocked.test(name))
-  ).slice(0, 160);
+const subjectLinkBlocklist = /^(실험체)$|블랙서바이벌|이터널 리턴|리그 오브 레전드|DOTA|분류|문서|템플릿|파일|시즌|패치|가이드|위키|나무|국적|러시아|핀란드|전쟁|무국적화|고양이|포킹|근본|평행 세계|해킹|논란|기록말살형|성우|방송|극회|한동그라미/;
+
+const subjectRoleHeadings = [
+  { title: '탱커', tag: 'tank' },
+  { title: '전사', tag: 'bruiser' },
+  { title: '암살자', tag: 'assassin' },
+  { title: '스킬 딜러', tag: 'skill_amp' },
+  { title: '원거리 딜러', tag: 'ranged' },
+  { title: '지원가', tag: 'support' }
+];
+
+function isSubjectNameNoise(name) {
+  const compact = String(name || '').trim().replace(/\s+/g, '').toUpperCase();
+  return /^(JP|RF|RFT|KR|EN|CN)$/.test(compact);
+}
+
+function cleanSubjectNameFromLink(link, allowLoose = false) {
+  const rawTarget = String(link?.target || '').trim();
+  if (!rawTarget || /^파일:|^분류:|^템플릿:/i.test(rawTarget)) return '';
+  if (/\(블랙서바이벌\)/.test(rawTarget)) return '';
+  if (/\(이터널 리턴\)/.test(rawTarget)) {
+    const name = cleanWikiValue(rawTarget.replace(/\(이터널 리턴\).*$/, '')).trim();
+    return isSubjectNameNoise(name) ? '' : name;
+  }
+  const target = cleanWikiValue(rawTarget);
+  const label = cleanWikiValue(link?.label || '');
+  if (!allowLoose) return '';
+  const candidate = label || target;
+  if (isSubjectNameNoise(candidate) || isSubjectNameNoise(target)) return '';
+  if (subjectLinkBlocklist.test(candidate) || subjectLinkBlocklist.test(target)) return '';
+  if (!/^[가-힣A-Za-z][가-힣A-Za-z& .・·'-]{1,18}$/.test(candidate)) return '';
+  return candidate.replace(/\s+/g, ' ').trim();
+}
+
+function sectionTextByHeading(text, title) {
+  const raw = String(text || '');
+  const headingRe = new RegExp(`^====\\s*${String(title).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*====\\s*$`, 'm');
+  const start = raw.search(headingRe);
+  if (start < 0) return '';
+  const afterStart = raw.slice(start).replace(/^====[^\n]+\n/, '');
+  const next = afterStart.search(/^={2,4}\s*[^=\n]+?\s*={2,4}\s*$/m);
+  return next >= 0 ? afterStart.slice(0, next) : afterStart;
+}
+
+function extractSubjectIndexEntries(text) {
+  const byName = new Map();
+  const ensure = (name) => {
+    const clean = cleanWikiValue(name).replace(/\([^)]*\)/g, '').trim();
+    if (!clean || isSubjectNameNoise(clean) || subjectLinkBlocklist.test(clean)) return null;
+    const code = normalizeMetaCode(clean);
+    if (!byName.has(code)) byName.set(code, { name: clean, roleHints: [] });
+    return byName.get(code);
+  };
+
+  for (const link of extractWikiLinkLabels(text)) {
+    const name = cleanSubjectNameFromLink(link, false);
+    if (name) ensure(name);
+  }
+
+  for (const role of subjectRoleHeadings) {
+    const section = sectionTextByHeading(text, role.title);
+    if (!section) continue;
+    for (const link of extractWikiLinkLabels(section)) {
+      const name = cleanSubjectNameFromLink(link, true);
+      const entry = name ? ensure(name) : null;
+      if (entry) entry.roleHints.push(role.tag);
+    }
+  }
+
+  return [...byName.values()]
+    .map((entry) => ({ ...entry, roleHints: uniqueStrings(entry.roleHints) }))
+    .slice(0, 220);
 }
 
 function isGenericHeading(title, kind) {
@@ -651,19 +735,21 @@ function extractNamuMetaRowsFromEntry(entry) {
   const rows = [makePageSummaryRow(entry, kind, namespace)];
 
   if (kind === 'subjectIndex') {
-    for (const name of extractSubjectIndexNames(entry.text)) {
+    for (const subject of extractSubjectIndexEntries(entry.text)) {
+      const roleHints = uniqueStrings(subject.roleHints || []);
       rows.push({
         namespace: 'namuSubjectIndex',
-        code: normalizeMetaCode(name),
-        name,
-        localizedName: name,
+        code: normalizeMetaCode(subject.name),
+        name: subject.name,
+        localizedName: subject.name,
         type: 'subject',
         weaponTypes: [],
-        tags: ['namu', 'subjectIndex', 'subject'],
+        tags: uniqueStrings(['namu', 'subjectIndex', 'subject', ...roleHints]),
         raw: {
           sourceFile: path.basename(entry.filePath || ''),
           sourceUrl: entry.meta?.url || '',
-          sourceKind: kind
+          sourceKind: kind,
+          roleHints
         }
       });
     }
@@ -717,10 +803,22 @@ function extractNamuMetaRowsFromEntry(entry) {
   return [...deduped.values()];
 }
 
+function isExcludedNamuMetaRow(row) {
+  const text = [
+    row?.code,
+    row?.name,
+    row?.localizedName,
+    ...(Array.isArray(row?.weaponTypes) ? row.weaponTypes : []),
+    ...(Array.isArray(row?.tags) ? row.tags : [])
+  ].filter(Boolean).join(' ');
+  return /VF\s*의수|VF\s*안정화/i.test(text);
+}
+
 function extractNamuMetaRows(entries) {
   const deduped = new Map();
   for (const entry of entries || []) {
     for (const row of extractNamuMetaRowsFromEntry(entry)) {
+      if (isExcludedNamuMetaRow(row)) continue;
       const key = `${row.namespace}:${row.code}`;
       if (!deduped.has(key)) deduped.set(key, row);
     }
@@ -728,7 +826,34 @@ function extractNamuMetaRows(entries) {
   return [...deduped.values()];
 }
 
+function stripInactiveNamuSections(text) {
+  const raw = String(text || '');
+  const markers = [
+    /^==#?\s*삭제된 아이템\s*#?==\s*$/m,
+    /^==#?\s*삭제된\s+항목\s*#?==\s*$/m
+  ];
+  let end = raw.length;
+  for (const marker of markers) {
+    const match = marker.exec(raw);
+    if (match && match.index < end) end = match.index;
+  }
+  return raw.slice(0, end);
+}
+
+function isExcludedNamuItemName(name) {
+  return /^(데스애더퀸|블랙맘바킹|슈퍼사이드와인더)(?:-|$)/.test(String(name || '').trim());
+}
+
+function isExcludedNamuItemCategory(category) {
+  return /VF\s*의수/i.test(normalizeName(category));
+}
+
+function isExcludedNamuItem(name, category = '') {
+  return isExcludedNamuItemName(name) || isExcludedNamuItemCategory(category);
+}
+
 function extractItemsAndRecipes(text) {
+  text = stripInactiveNamuSections(text);
   // ✅ 본문 아이템 템플릿만 추출(상위아이템 표의 아이템/희귀/전설 템플릿은 제외)
   // - 상위 아이템 표 힌트를 얻기 위해 "아이템 블록 단위"로 구간을 잘라 분석
   const itemBlocks = [];
@@ -745,7 +870,8 @@ function extractItemsAndRecipes(text) {
     for (const ub of upperBlocks) {
       const a = parseArgs(ub);
       const n = normalizeName(a['아이템명']);
-      if (n) out.push(n);
+      const c = normalizeName(a['분류']);
+      if (n && !isExcludedNamuItem(n, c)) out.push(n);
     }
     return [...new Set(out)];
   };
@@ -756,8 +882,10 @@ function extractItemsAndRecipes(text) {
     const a = parseArgs(blk);
     const name = normalizeName(a['아이템명']);
     if (!name) continue;
+    const category = a['분류'];
+    if (isExcludedNamuItem(name, category)) continue;
     const rt = rarityToTier[a['등급']] || { rarity: 'common', tier: 1 };
-    const meta = detectEquipMeta(a['분류']);
+    const meta = detectEquipMeta(category);
 
     // ✅ 스폰/획득 힌트(존 이름/지역명 문자열 그대로 저장)
     const spawnZones = parseFoundPlaces(a['발견장소'] || a['발견 장소'] || '');
@@ -766,6 +894,8 @@ function extractItemsAndRecipes(text) {
       a['드랍상자'] || a['드랍 상자'] || a['상자'] || a['상자종류'] || a['상자 종류'] || a['발견장소'] || a['발견 장소'] || ''
     );
     const droneCreditsCost = toNum(a['원격드론호출크레딧'] || a['원격 드론 호출 크레딧'] || '');
+    const stackMax = toNum(a['최대수량'] || a['최대 수량'] || '');
+    const description = cleanWikiValue(a['소비효과'] || a['플레이버텍스트'] || '');
 
     const seg = text.slice(itemBlocks[idx].end, itemBlocks[idx + 1] ? itemBlocks[idx + 1].start : text.length);
     const upperItemNames = extractUpperItemNames(seg).filter((n) => n && n !== name);
@@ -777,7 +907,10 @@ function extractItemsAndRecipes(text) {
       type: meta.type,
       equipSlot: meta.equipSlot,
       weaponType: meta.weaponType,
+      itemSubType: meta.itemSubType,
       tags: meta.tags,
+      stackMax,
+      description,
       spawnZones,
       spawnCrateTypes,
       droneCreditsCost,
@@ -797,11 +930,12 @@ function extractItemsAndRecipes(text) {
   for (const blk of recipeBlocks) {
     const a = parseArgs(blk);
     const result = normalizeName(a['완성']);
-    if (!result) continue;
+    if (!result || isExcludedNamuItemName(result)) continue;
     const ingredients = [];
     for (let i = 1; i <= 6; i++) {
       const k = `제작${i}`;
-      if (a[k]) ingredients.push(normalizeName(a[k]));
+      const ingredient = normalizeName(a[k]);
+      if (ingredient && !isExcludedNamuItemName(ingredient)) ingredients.push(ingredient);
     }
     if (ingredients.length >= 1) recipes.push({ result, ingredients });
   }
@@ -813,14 +947,14 @@ async function upsertItemByName(name, patch) {
   const externalId = patch.externalId || buildExternalId('namu', name);
   // SSOT 키: 외부에서 가져온 아이템은 externalId를 그대로 itemKey로 사용
   const itemKey = patch.itemKey || externalId;
+  const setPatch = { ...patch };
+  delete setPatch.itemKey;
+  delete setPatch.externalId;
 
   const doc = await Item.findOneAndUpdate(
     { $or: [{ itemKey }, { externalId }] },
     {
       $setOnInsert: {
-        itemKey,
-        externalId,
-        name,
         createdAt: new Date(),
         lockedByAdmin: true,
         source: 'namu'
@@ -829,7 +963,7 @@ async function upsertItemByName(name, patch) {
         itemKey,
         externalId,
         name,
-        ...patch
+        ...setPatch
       }
     },
     { upsert: true, new: true }
@@ -847,6 +981,53 @@ async function ensureMaterial(name) {
     baseCreditValue: val,
     tags: ['namu', 'material']
   });
+}
+
+function namuItemBucket(it) {
+  if (it?.weaponType) return it.weaponType;
+  if (it?.equipSlot) return it.equipSlot;
+  if (it?.type === '재료') return 'material';
+  if (it?.type === '소모품') return 'consumable';
+  return 'item';
+}
+
+async function pruneStaleNamuItemAliases(name, canonicalExternalId, canonicalId) {
+  const staleExternalIds = ['namu:item', 'namu:hint', 'namu:material', 'namu:consumable']
+    .map((prefix) => buildExternalId(prefix, name))
+    .filter((externalId) => externalId !== canonicalExternalId);
+  if (staleExternalIds.length === 0) return 0;
+
+  const result = await Item.deleteMany({
+    _id: { $ne: canonicalId },
+    name,
+    source: 'namu',
+    externalId: { $in: staleExternalIds }
+  });
+  return Number(result.deletedCount || 0);
+}
+
+async function pruneExcludedNamuItems() {
+  const nameRe = /^(데스애더퀸|블랙맘바킹|슈퍼사이드와인더)(?:-|$)/;
+  const externalIdRe = /(데스애더퀸|블랙맘바킹|슈퍼사이드와인더)(?:-|$)/;
+  const result = await Item.deleteMany({
+    $and: [
+      {
+        $or: [
+          { source: 'namu' },
+          { externalId: { $regex: /^namu:/ } }
+        ]
+      },
+      {
+        $or: [
+          { name: nameRe },
+          { externalId: externalIdRe },
+          { itemSubType: { $regex: /VF\s*의수/i } },
+          { tags: { $regex: /VF\s*의수/i } }
+        ]
+      }
+    ]
+  });
+  return Number(result.deletedCount || 0);
 }
 
 async function upsertNamuSubject(subject) {
@@ -912,6 +1093,55 @@ async function upsertNamuMetaRow(row) {
   return row;
 }
 
+async function pruneStaleNamuMetaRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return 0;
+
+  const scopes = new Map();
+  for (const row of rows) {
+    const raw = row.raw || {};
+    const sourceFile = String(raw.sourceFile || '').trim();
+    const sourceKind = String(raw.sourceKind || '').trim();
+    if (!row.namespace || !sourceFile || !sourceKind) continue;
+    const key = `${row.namespace}\0${sourceFile}\0${sourceKind}`;
+    if (!scopes.has(key)) {
+      scopes.set(key, {
+        namespace: row.namespace,
+        sourceFile,
+        sourceKind,
+        codes: new Set()
+      });
+    }
+    scopes.get(key).codes.add(row.code);
+  }
+
+  let deleted = 0;
+  for (const scope of scopes.values()) {
+    const result = await ErMeta.deleteMany({
+      namespace: scope.namespace,
+      source: 'namu',
+      'raw.sourceFile': scope.sourceFile,
+      'raw.sourceKind': scope.sourceKind,
+      code: { $nin: [...scope.codes] }
+    });
+    deleted += Number(result.deletedCount || 0);
+  }
+  return deleted;
+}
+
+async function pruneRemovedNamuMetaSources(entries, rows) {
+  if (!Array.isArray(entries) || !Array.isArray(rows) || rows.length === 0) return 0;
+  const sourceFiles = uniqueStrings(entries.map((entry) => path.basename(entry.filePath || '')).filter(Boolean));
+  const namespaces = uniqueStrings(rows.map((row) => row.namespace).filter(Boolean));
+  if (sourceFiles.length === 0 || namespaces.length === 0) return 0;
+
+  const result = await ErMeta.deleteMany({
+    namespace: { $in: namespaces },
+    source: 'namu',
+    'raw.sourceFile': { $exists: true, $nin: sourceFiles }
+  });
+  return Number(result.deletedCount || 0);
+}
+
 async function runParse(filePath) {
   const text = readSourceText(filePath);
   const { items, recipes } = extractItemsAndRecipes(text);
@@ -932,7 +1162,7 @@ async function runParseMeta(filePath) {
 
 async function runParseAll(filePath) {
   const entries = readSourceEntries(filePath);
-  const text = entries.map((entry) => entry.text).join('\n\n');
+  const text = combineItemSourceText(entries);
   const { items, recipes } = extractItemsAndRecipes(text);
   const subjects = extractSubjectsFromEntries(entries);
   const meta = extractNamuMetaRows(entries);
@@ -945,23 +1175,28 @@ async function importItemsAndRecipesFromText(text) {
   const { items, recipes } = extractItemsAndRecipes(text);
 
   const byName = new Map();
+  const excludedPruned = await pruneExcludedNamuItems();
+  let aliasesPruned = 0;
   for (const it of items) {
-    const bucket = it.weaponType || it.equipSlot || 'item';
+    const bucket = namuItemBucket(it);
     const externalId = buildExternalId(`namu:${bucket}`, it.name);
     const doc = await upsertItemByName(it.name, {
       externalId,
       type: it.type,
       rarity: it.rarity,
       tier: it.tier,
-      stackMax: it.type === '재료' ? 3 : 1,
+      itemSubType: it.itemSubType || '',
+      stackMax: Math.max(1, Number(it.stackMax || (it.type === '재료' ? 3 : 1))),
       tags: it.tags,
       stats: it.stats,
       equipSlot: it.equipSlot,
       weaponType: it.weaponType,
       spawnZones: Array.isArray(it.spawnZones) ? it.spawnZones : [],
       spawnCrateTypes: Array.isArray(it.spawnCrateTypes) ? it.spawnCrateTypes : [],
-      droneCreditsCost: Math.max(0, Number(it.droneCreditsCost || 0))
+      droneCreditsCost: Math.max(0, Number(it.droneCreditsCost || 0)),
+      description: it.description || ''
     });
+    aliasesPruned += await pruneStaleNamuItemAliases(it.name, externalId, doc._id);
     byName.set(it.name, doc);
   }
 
@@ -972,6 +1207,7 @@ async function importItemsAndRecipesFromText(text) {
     if (!baseDoc) continue;
     const keys = [];
     for (const upName of it.upperItemNames) {
+      if (isExcludedNamuItemName(upName)) continue;
       let upDoc = byName.get(upName);
       if (!upDoc) {
         upDoc = await upsertItemByName(upName, {
@@ -1010,7 +1246,7 @@ async function importItemsAndRecipesFromText(text) {
     await resultDoc.save();
   }
 
-  return { items: items.length, recipes: recipes.length };
+  return { items: items.length, recipes: recipes.length, aliasesPruned, excludedPruned };
 }
 
 async function importSubjectsFromEntries(entries) {
@@ -1021,12 +1257,14 @@ async function importSubjectsFromEntries(entries) {
   return { subjects: subjects.length };
 }
 
-async function importMetaFromEntries(entries) {
+async function importMetaFromEntries(entries, options = {}) {
   const meta = extractNamuMetaRows(entries);
   for (const row of meta) {
     await upsertNamuMetaRow(row);
   }
-  return { meta: meta.length };
+  const stalePruned = await pruneStaleNamuMetaRows(meta);
+  const sourcePruned = options.pruneMissingSources ? await pruneRemovedNamuMetaSources(entries, meta) : 0;
+  return { meta: meta.length, pruned: stalePruned + sourcePruned, stalePruned, sourcePruned };
 }
 
 async function runImport(filePath) {
@@ -1036,7 +1274,7 @@ async function runImport(filePath) {
   const result = await importItemsAndRecipesFromText(readSourceText(filePath));
 
   await mongoose.disconnect();
-  console.log(`OK: items=${result.items}, recipes=${result.recipes}`);
+  console.log(`OK: items=${result.items}, recipes=${result.recipes}, aliasesPruned=${result.aliasesPruned}, excludedPruned=${result.excludedPruned}`);
 }
 
 async function runImportSubjects(filePath) {
@@ -1056,7 +1294,7 @@ async function runImportMeta(filePath) {
   const result = await importMetaFromEntries(readSourceEntries(filePath));
 
   await mongoose.disconnect();
-  console.log(`OK: meta=${result.meta}`);
+  console.log(`OK: meta=${result.meta}, pruned=${result.pruned}`);
 }
 
 async function runImportAll(filePath) {
@@ -1064,13 +1302,13 @@ async function runImportAll(filePath) {
   await mongoose.connect(process.env.MONGO_URI);
 
   const entries = readSourceEntries(filePath);
-  const text = entries.map((entry) => entry.text).join('\n\n');
+  const text = combineItemSourceText(entries);
   const itemResult = await importItemsAndRecipesFromText(text);
   const subjectResult = await importSubjectsFromEntries(entries);
-  const metaResult = await importMetaFromEntries(entries);
+  const metaResult = await importMetaFromEntries(entries, { pruneMissingSources: fs.statSync(filePath).isDirectory() });
 
   await mongoose.disconnect();
-  console.log(`OK: items=${itemResult.items}, recipes=${itemResult.recipes}, subjects=${subjectResult.subjects}, meta=${metaResult.meta}`);
+  console.log(`OK: items=${itemResult.items}, recipes=${itemResult.recipes}, aliasesPruned=${itemResult.aliasesPruned}, excludedPruned=${itemResult.excludedPruned}, subjects=${subjectResult.subjects}, meta=${metaResult.meta}, pruned=${metaResult.pruned}`);
 }
 
 async function main() {

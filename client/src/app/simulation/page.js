@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getApiBase, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
-import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
+import { ER_WEAPON_SKILLS, addWeaponMasteryXp, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
 import { bindReferenceErrorGuards, formatRuntimeReason } from '../../utils/runtimeErrorGuard';
 import {
   EFFECT_BLEED,
@@ -14,12 +14,15 @@ import {
   EFFECT_POISON,
   getRegenValue,
   getShieldValue,
+  makeShieldEffect,
+  makeStatBuffEffect,
   updateEffects,
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec } from '../../utils/rulesets';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
+import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationResultModal from './_components/SimulationResultModal';
 import '../../styles/ERSimulation.css';
 
@@ -135,6 +138,7 @@ import {
   saveLocalHallOfFameBackup,
 } from './_lib/simulationEngine';
 import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
+import { LOG_DETAIL_OPEN_KEY } from './_lib/logPresentation';
 
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
@@ -159,6 +163,22 @@ export default function SimulationPage() {
       // ignore
     }
   }, [showPrevLogs]);
+
+  const [showDetailedLogs, setShowDetailedLogs] = useState(() => {
+    try {
+      return localStorage.getItem(LOG_DETAIL_OPEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOG_DETAIL_OPEN_KEY, showDetailedLogs ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [showDetailedLogs]);
   const [runEvents, setRunEvents] = useState([]);
   const [forbiddenAddedNow, setForbiddenAddedNow] = useState([]);
 
@@ -536,6 +556,154 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return n > 0 ? `x${n} ${successWord}` : failWord;
   };
 
+  function shouldLogItemReceive(qty, meta = null, opts = {}) {
+    const n = Math.max(0, Number(qty || 0));
+    if (n > 0) return true;
+    if (opts?.important) return true;
+
+    const quietReasons = new Set(['inventory_full', 'stack_cap', 'equip_not_better', 'equip_slot_full']);
+    const reason = String(meta?.reason || '');
+    if (!reason) return false;
+    return !quietReasons.has(reason);
+  };
+
+  function grantWeaponMastery(actor, amount, reason = '') {
+    const result = addWeaponMasteryXp(actor, amount);
+    if (!result?.leveledUp) return result;
+    const reasonText = reason ? ` · ${reason}` : '';
+    addLog(`⚔️ [${actor?.name}] 무기 숙련도 Lv.${result.afterLevel} 달성${reasonText}`, 'highlight');
+    return result;
+  };
+
+  function applyErTraitAfterBattle(actor, opts = {}) {
+    if (!actor || Number(actor?.hp || 0) <= 0) return null;
+    const trait = getErTrait(actor);
+    const code = String(trait?.code || '');
+    if (!code) return null;
+
+    const maxHp = Math.max(1, Number(actor?.maxHp || 100));
+    const hp = Math.max(0, Number(actor?.hp || 0));
+    const effects = [];
+    const bits = [];
+
+    if (code === 'devour') {
+      const baseHeal = opts?.lethal ? 9 : 5;
+      const heal = Math.min(Math.max(0, maxHp - hp), baseHeal + Math.floor(Number(opts?.damageDealt || 0) * 0.06));
+      if (heal > 0) {
+        actor.hp = Math.min(maxHp, hp + heal);
+        bits.push(`HP +${heal}`);
+      }
+    } else if (code === 'adrenaline') {
+      effects.push(makeStatBuffEffect('adrenaline', { agi: 2, dex: 1 }, 2, 'er_trait_adrenaline', { tags: ['positive', 'trait', 'adrenaline'] }));
+    } else if (code === 'ampDrone') {
+      effects.push(makeStatBuffEffect('focus', { int: 3, men: 1 }, 2, 'er_trait_amp_drone', { tags: ['positive', 'trait', 'amp'] }));
+    } else if (code === 'fortress') {
+      effects.push(makeShieldEffect(opts?.lethal ? 10 : 7, 2, 'er_trait_fortress', { tags: ['positive', 'trait', 'shield'] }));
+    } else if (code === 'sprint') {
+      effects.push(makeStatBuffEffect('sprint', { agi: 3, dex: 1 }, 2, 'er_trait_sprint', { tags: ['positive', 'trait', 'mobility'] }));
+    }
+
+    const applied = effects.length ? applyRuntimeEffectPayloads(actor, effects) : null;
+    (applied?.results || []).forEach((row) => {
+      if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
+      else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
+      else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+    });
+
+    if (bits.length) {
+      addLog(`🧬 [${actor.name}] 특성(${trait.name || code}) 발동: ${bits.join(', ')}`, 'system');
+    }
+    return { trait: code, applied: bits.length > 0 };
+  };
+
+  function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
+    if (!attacker || !defender) return { damage: 0, applied: false };
+    if (Number(attacker?.hp || 0) <= 0) return { damage: 0, applied: false };
+
+    const er = buildErBehaviorModifier(attacker, opts?.settings || {});
+    const skill = ER_WEAPON_SKILLS[er?.weaponType] || null;
+    if (!skill?.name) return { damage: 0, applied: false };
+
+    const damageDealt = Math.max(0, Number(opts?.damageDealt || 0));
+    if (damageDealt <= 0 && !opts?.lethalPreview) return { damage: 0, applied: false };
+
+    const mastery = Math.max(1, Math.floor(Number(er?.masteryLevel || 1)));
+    const procChance = Math.min(0.74, Math.max(0.18, 0.28 + mastery * 0.012 + (opts?.lethalPreview ? 0.08 : 0)));
+    if (Math.random() >= procChance) return { damage: 0, applied: false };
+
+    const bits = [];
+    const effects = [];
+    let extraDamage = 0;
+
+    const scoreScale = Math.max(0, Number(skill.scoreScale || 0));
+    const flat = Math.max(0, Number(skill.openerFlatDmg || 0));
+    const crit = Math.max(0, Number(skill.critChancePlus || 0));
+    const amp = Math.max(0, Number(skill.skillAmpPlus || 0));
+    const block = Math.max(0, Number(skill.block || 0));
+    const lifesteal = Math.max(0, Number(skill.lifestealPlus || 0));
+    const mobility = Math.max(0, Number(skill.chaseBonus || 0), Number(skill.escapeBonus || 0));
+
+    if (Number(defender?.hp || 0) > 0) {
+      const pressure = scoreScale * 42 + flat + crit * 70 + amp * 55;
+      const rolled = Math.round(pressure + Math.max(0, mastery - 1) * 0.18);
+      extraDamage = Math.min(Math.max(0, Number(defender.hp || 0)), Math.max(0, rolled));
+      if (extraDamage >= 3) {
+        defender.hp = Math.max(0, Number(defender.hp || 0) - extraDamage);
+        bits.push(`추가 피해 +${extraDamage}`);
+      } else {
+        extraDamage = 0;
+      }
+    }
+
+    if (block > 0) {
+      const shield = Math.min(14, Math.max(3, Math.round(block * 0.9 + mastery * 0.2)));
+      effects.push(makeShieldEffect(shield, 2, 'er_weapon_skill_block', { tags: ['positive', 'weapon_skill', 'shield'] }));
+    }
+
+    if (lifesteal > 0) {
+      const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
+      const hp = Math.max(0, Number(attacker?.hp || 0));
+      const heal = Math.min(Math.max(0, maxHp - hp), Math.max(1, Math.round(damageDealt * lifesteal * 3 + (opts?.lethalPreview ? 4 : 1))));
+      if (heal > 0) {
+        attacker.hp = Math.min(maxHp, hp + heal);
+        bits.push(`HP +${heal}`);
+      }
+    }
+
+    const statBuff = {};
+    if (amp > 0) {
+      statBuff.int = (statBuff.int || 0) + 2;
+      statBuff.men = (statBuff.men || 0) + 1;
+    }
+    if (mobility > 0) {
+      statBuff.agi = (statBuff.agi || 0) + 2;
+      statBuff.dex = (statBuff.dex || 0) + 1;
+    }
+    if (Object.keys(statBuff).length) {
+      effects.push(makeStatBuffEffect('무기 템포', statBuff, 2, 'er_weapon_skill_tempo', { tags: ['positive', 'weapon_skill'] }));
+    }
+
+    const applied = effects.length ? applyRuntimeEffectPayloads(attacker, effects) : null;
+    (applied?.results || []).forEach((row) => {
+      if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
+      else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
+      else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+    });
+
+    if (!bits.length) return { damage: extraDamage, applied: false, skill: skill.name };
+
+    addLog(`🗡️ [${attacker.name}] 무기 스킬(${skill.name}): ${bits.join(', ')}`, 'highlight');
+    emitRunEvent('skill', {
+      who: String(attacker?._id || ''),
+      whoName: attacker?.name,
+      skill: String(skill.name || ''),
+      mode: 'weapon_skill',
+      zoneId: String(attacker?.zoneId || defender?.zoneId || ''),
+    }, opts?.at || null);
+    emitEffectRunEvents(attacker, applied?.results || [], { source: 'weapon_skill', skill: String(skill.name || ''), reason: 'combat_after', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, opts?.at || null);
+    return { damage: extraDamage, applied: true, skill: skill.name };
+  };
+
   function emitItemGainIfAny(qty, payload = {}, at = null) {
     const n = Math.max(0, Number(qty || 0));
     if (n <= 0) return;
@@ -765,7 +933,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
     const raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
-  }, [logs, prevPhaseLogs, showPrevLogs]);
+  }, [logs, prevPhaseLogs, showPrevLogs, showDetailedLogs]);
 
 // 선택 캐릭터 기본값 유지
   useEffect(() => {
@@ -2162,8 +2330,8 @@ const pickStartZoneIdForChar = (c) => {
     const isFirstDayStarterLoadout = (nextDay === 1 && nextPhase === 'morning' && !startStarterLoadoutAppliedRef.current);
     let phaseSurvivors = isFirstDayStarterLoadout
       ? (Array.isArray(survivors) ? survivors : []).map((s) => {
-          const preferredWeaponType = String(s?.weaponType || '').trim();
-          const wType = START_WEAPON_TYPES.includes(preferredWeaponType)
+          const preferredWeaponType = normalizeWeaponType(String(s?.weaponType || '').trim());
+          const wType = preferredWeaponType
             ? preferredWeaponType
             : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
           const wTypeNorm = normalizeWeaponType(wType);
@@ -2643,7 +2811,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? loot.qty));
             const nm = loot.item?.name || '아이템';
-            addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
+            if (shouldLogItemReceive(got, meta)) {
+              addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
+            }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
         }
@@ -2665,7 +2835,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const metaF = updated.inventory?._lastAdd;
           const gotF = Math.max(0, Number(metaF?.acceptedQty ?? foodCrate.qty));
           const nmF = foodCrate.item?.name || '소모품';
-          addLog(`🍱 [${updated.name}] ${getZoneName(updated.zoneId)}에서 음식 상자를 열어 ${itemIcon(foodCrate.item)} [${nmF}] ${gainText(gotF)}${formatInvAddNote(metaF, foodCrate.qty, updated.inventory, ruleset)}`, 'normal');
+          if (shouldLogItemReceive(gotF, metaF)) {
+            addLog(`🍱 [${updated.name}] ${getZoneName(updated.zoneId)}에서 음식 상자를 열어 ${itemIcon(foodCrate.item)} [${nmF}] ${gainText(gotF)}${formatInvAddNote(metaF, foodCrate.qty, updated.inventory, ruleset)}`, 'normal');
+          }
           emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const crF = Math.max(0, Number(foodCrate?.credits || 0));
@@ -2685,7 +2857,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const meta = updated.inventory?._lastAdd;
           const got = Math.max(0, Number(meta?.acceptedQty ?? (corePickup.qty || 1)));
           const nm = corePickup.item?.name || '특수 재료';
-          addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
+          if (shouldLogItemReceive(got, meta, { important: true })) {
+            addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
+          }
           emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -2717,8 +2891,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
 
         // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
-        const queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
-        const queuedDroneOrder = (didMove || fleeInterruptReason || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
+        let queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
+        if (queuedKioskAction?.kind === 'buy' && queuedKioskAction?.itemId && !canReceiveItem(updated.inventory, queuedKioskAction.item, queuedKioskAction.itemId, queuedKioskAction.qty || 1, ruleset)) {
+          queuedKioskAction = null;
+        }
+        let queuedDroneOrder = (didMove || fleeInterruptReason || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
+        if (queuedDroneOrder?.itemId && !canReceiveItem(updated.inventory, queuedDroneOrder.item, queuedDroneOrder.itemId, queuedDroneOrder.qty || 1, ruleset)) {
+          queuedDroneOrder = null;
+        }
         const craftProbeActor = (didMove || fleeInterruptReason || queuedKioskAction?.itemId || queuedDroneOrder?.itemId)
           ? null
           : { ...updated, inventory: Array.isArray(updated.inventory) ? [...updated.inventory] : [], _itemKeyById: itemKeyById };
@@ -2922,6 +3102,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const dmg = Math.max(0, Number(hunt.damage || 0));
           updated.hp = Math.max(0, Number(updated.hp || 0) - dmg);
           addLog(`🎯 [${updated.name}] ${hunt.log}${dmg > 0 ? ` (피해 -${dmg})` : ''}`, dmg > 0 ? 'highlight' : 'normal');
+          grantWeaponMastery(updated, isBossReward ? 14 : isMutantReward ? 10 : 5, isBossReward ? '보스 처치' : isMutantReward ? '변이 사냥' : '사냥');
           const creditGain = Math.max(0, Number(hunt?.credits || 0));
           if (creditGain > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
@@ -2951,7 +3132,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated.inventory = addItemToInventory(updated.inventory, d.item, d.itemId, q, nextDay, ruleset);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? q));
-            addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
+            if (shouldLogItemReceive(got, meta)) {
+              addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
+            }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(d.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
             const specialKind = classifySpecialByName(nm);
@@ -2991,7 +3174,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const meta = updated.inventory?._lastAdd;
           const got = Math.max(0, Number(meta?.acceptedQty ?? legendary.qty));
           const nm = legendary.item?.name || '전설 재료';
-          addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] ${gainText(got)}${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
+          if (shouldLogItemReceive(got, meta, { important: true })) {
+            addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] ${gainText(got)}${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
+          }
           emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
@@ -3024,7 +3209,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const metaB = updated.inventory?._lastAdd;
             const gotB = Math.max(0, Number(metaB?.acceptedQty ?? q));
             const nmB = bd.item?.name || '전설 재료';
-            addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] ${gainText(gotB)}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
+            if (shouldLogItemReceive(gotB, metaB)) {
+              addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] ${gainText(gotB)}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
+            }
             emitItemGainIfAny(gotB, { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
             const specialLBKind = classifySpecialByName(String(bd?.item?.name || nmB || ''));
@@ -3083,7 +3270,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
               }
             }
-            addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] ${gainText(got, '구매', '구매 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}${paidCost > 0 ? ` (크레딧 -${paidCost})` : ''}`, 'system');
+            if (shouldLogItemReceive(got, meta)) {
+              addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] ${gainText(got, '구매', '구매 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}${paidCost > 0 ? ` (크레딧 -${paidCost})` : ''}`, 'system');
+            }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             didProcure = true;
 
@@ -3133,7 +3322,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
               }
             }
-            addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] ${gainText(got, '교환', '교환 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
+            if (shouldLogItemReceive(got, meta, { important: true })) {
+              addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] ${gainText(got, '교환', '교환 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
+            }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             didProcure = true;
 
@@ -3171,7 +3362,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
               const paidCost = got > 0 ? cost : 0;
               if (paidCost > 0) updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - paidCost);
-              addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} ${gainText(got, '수령', '호출 실패')}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}${paidCost > 0 ? ` (-${paidCost}Cr, 즉시)` : ''}`, 'normal');
+              if (shouldLogItemReceive(got, meta)) {
+                addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} ${gainText(got, '수령', '호출 실패')}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}${paidCost > 0 ? ` (-${paidCost}Cr, 즉시)` : ''}`, 'normal');
+              }
               emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(itemId || ''), source: 'drone', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
               didProcure = true;
 
@@ -3479,7 +3672,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (!victim || Number(victim.hp || 0) <= 0) return false;
       const dmg = Number(damage || 0);
       if (!(dmg >= bleedMinDamage)) return false;
-      if (Math.random() >= bleedChanceOnHit) return false;
+      const attackerEr = buildErBehaviorModifier(attacker, battleSettings);
+      const bleedChance = Math.max(0, Math.min(0.65, bleedChanceOnHit + Number(attackerEr?.bleedChancePlus || 0)));
+      if (Math.random() >= bleedChance) return false;
 
       const applied = applyStatusEffect(victim, {
         name: EFFECT_BLEED,
@@ -4045,6 +4240,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           const assistName = assistId ? (survivorMap.get(assistId)?.name || assistId) : '';
           addLog(`☠️ [${combatWinner.name}] ${opts.killText || '처치'}! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
+          if (!opts?.skipTraitAfterBattle) {
+            applyErTraitAfterBattle(combatWinner, { lethal: true, defeated: combatLoser, damageDealt: opts?.damageDealt });
+          }
           emitRunEvent('death', { who: loserId, by: winnerId, zoneId: String(combatLoser?.zoneId || combatWinner?.zoneId || actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           if (useDetonation) {
             const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
@@ -4097,8 +4295,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
                   combatWinner.inventory = crafted.inventory;
                   craftLogs.push(crafted.log);
                 }
-              } else {
-                lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} 획득 실패`);
               }
             }
           }
@@ -4413,8 +4609,19 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const lp = estimatePower(loser);
           const ratio = wp / Math.max(1, wp + lp);
           const base = 18 + nextDay * 3;
-          const dmgToLoser = Math.min(92, Math.max(16, Math.round(base + ratio * 34)));
-          const dmgToWinner = Math.min(32, Math.max(0, Math.round(7 + (1 - ratio) * 14)));
+          const winnerErDamage = buildErBehaviorModifier(battleWinner, battleSettings);
+          const loserErDamage = buildErBehaviorModifier(loser, battleSettings);
+          const erDamageScale = Math.max(0, Number(battleSettings?.battle?.erDamageScale ?? 1));
+          const winnerDamageBonus = Math.round(Math.max(0, Number(winnerErDamage?.damageBonus || 0)) * erDamageScale);
+          const counterDamageBonus = Math.round(Math.max(0, Number(loserErDamage?.damageBonus || 0)) * erDamageScale * 0.45);
+          const dmgToLoser = Math.min(98, Math.max(16, Math.round(base + ratio * 34 + winnerDamageBonus)));
+          const dmgToWinner = Math.min(38, Math.max(0, Math.round(7 + (1 - ratio) * 14 + counterDamageBonus)));
+          if (winnerDamageBonus > 0 || counterDamageBonus > 0) {
+            const bits = [];
+            if (winnerDamageBonus > 0) bits.push(`${battleWinner.name} +${winnerDamageBonus}`);
+            if (counterDamageBonus > 0) bits.push(`${loser.name} 반격 +${counterDamageBonus}`);
+            addLog(`⚔️ ER 피해 보정: ${bits.join(' / ')}`, 'system');
+          }
 
 
           const applyCombatTacAttack = (attacker, defender, baseDmg) => {
@@ -4464,6 +4671,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
               if (dmg <= 0) return 0;
             }
 
+            const erDefense = buildErBehaviorModifier(defender, battleSettings);
+            const erBlock = Math.min(Math.max(0, dmg * 0.35), Math.floor(Math.max(0, Number(erDefense?.damageBlock || 0))));
+            if (erBlock > 0) {
+              dmg = Math.max(0, dmg - erBlock);
+              addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'system');
+              if (dmg <= 0) return 0;
+            }
+
             const tac = normalizeTac(defender?.tacticalSkill);
             const defenseTac = ['라이트닝 쉴드', '초월', '아티팩트', '무효화'];
             if (!defenseTac.includes(tac)) return dmg;
@@ -4508,6 +4723,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           loser.hp = Math.max(0, Number(loser.hp || 0) - finalDmgToLoser);
           battleWinner.hp = Math.max(0, Number(battleWinner.hp || 0) - finalDmgToWinner);
+          const weaponSkillResult = applyErWeaponSkillAfterCombat(battleWinner, loser, {
+            damageDealt: finalDmgToLoser,
+            lethalPreview: loser.hp <= 0,
+            settings: battleSettings,
+            at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
+          });
+          const weaponSkillDamageToLoser = Math.max(0, Number(weaponSkillResult?.damage || 0));
+          const totalDmgToLoser = finalDmgToLoser + weaponSkillDamageToLoser;
+          const totalDmgToWinner = finalDmgToWinner;
 
 
           const lethal = loser.hp <= 0;
@@ -4517,20 +4741,27 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
           // 최근 피해 기여자 기록(어시스트 판정용)
-          if (dmgToWinner > 0) {
+          if (totalDmgToWinner > 0) {
             battleWinner.lastDamagedBy = String(loser._id);
             battleWinner.lastDamagedPhaseIdx = phaseIdxNow;
           }
-          if (!lethal && dmgToLoser > 0) {
+          if (!lethal && totalDmgToLoser > 0) {
             loser.lastDamagedBy = String(winnerId);
             loser.lastDamagedPhaseIdx = phaseIdxNow;
           }
           addLog(battleLog, lethal ? 'death' : 'normal');
-          addLog(`🩸 피해: [${battleWinner.name}]↘[${loser.name}] -${finalDmgToLoser} (반격 -${finalDmgToWinner})`, 'highlight');
+          addLog(`🩸 피해: [${battleWinner.name}]↘[${loser.name}] -${totalDmgToLoser} (반격 -${totalDmgToWinner})`, 'highlight');
+          grantWeaponMastery(battleWinner, lethal ? 14 : 9, lethal ? '처치' : '교전 승리');
+          if (totalDmgToWinner > 0 || !lethal) {
+            grantWeaponMastery(loser, lethal ? 5 : 7, lethal ? '교전 경험' : '반격');
+          }
 
           let postCombatFlee = null;
           if (!lethal && Number(loser.hp || 0) > 0 && Number(loser.hp || 0) <= 18 && Math.random() < 0.78) {
             postCombatFlee = resolveFleeSequence(loser, battleWinner, { curZone: String(loser.zoneId || battleWinner.zoneId || ''), forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee' });
+          }
+          if (!lethal && postCombatFlee?.fatal !== true) {
+            applyErTraitAfterBattle(battleWinner, { lethal: false, damageDealt: totalDmgToLoser, defeated: loser });
           }
 
           // 🧾 전투 이벤트(미니맵 핑/집계용)
@@ -4547,13 +4778,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
           );
 
           // 출혈 판정(피격 시)
-          tryApplyBleed(loser, battleWinner, finalDmgToLoser);
-          if (finalDmgToWinner > 0) tryApplyBleed(battleWinner, loser, finalDmgToWinner);
+          tryApplyBleed(loser, battleWinner, totalDmgToLoser);
+          if (totalDmgToWinner > 0) tryApplyBleed(battleWinner, loser, totalDmgToWinner);
 
           if (postCombatFlee?.fatal === true) {
-            applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '빈사 추격 제압' });
+            applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '빈사 추격 제압', damageDealt: totalDmgToLoser });
           } else if (lethal) {
-            applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '처치' });
+            applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '처치', damageDealt: totalDmgToLoser });
           }
         } else {
           const scratch = Math.min(12, 5 + Math.floor(nextDay / 2));
@@ -4567,6 +4798,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           addLog(battleLog, 'normal');
           addLog(`⚔️ 접전 피해: [${actor.name}] / [${target.name}] 둘 다 -${scratch}`, 'normal');
+          grantWeaponMastery(actor, 6, '접전');
+          grantWeaponMastery(target, 6, '접전');
 
           emitRunEvent(
             'battle',
@@ -5712,99 +5945,29 @@ if (showMarketPanel && pendingTranscendPick) {
             ) : null}
           </div>
 
-          <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
-            {uiModal === 'log' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
-            <div className="log-content">
-              {day > 0 && (
-                <div className="log-top-status">
-                  <div className="log-top-row">
-                    <span className="log-top-label">🚫 금지구역</span>
-                    <span className="log-top-value">{forbiddenNow.size ? Array.from(forbiddenNow).map((z) => getZoneName(z)).join(', ') : '없음'}</span>
-                  </div>
-                  {forbiddenNow.size ? (
-                    <div className="log-top-sub">
-                      {(() => {
-                        const total = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
-                        const safeLeft = Math.max(0, total - forbiddenNow.size);
-                        const detForceAll = Math.max(0, Number(getRuleset(settings?.rulesetId)?.detonation?.forceAllAfterSec ?? 40));
-                        const extra = safeLeft <= 2 ? ` · 안전구역 2곳 남음 → ${detForceAll}s 후 전구역 위험(타이머 감소)` : '';
-                        return `안전구역 ${safeLeft}곳 남음${extra}`;
-                      })()}
-                    </div>
-                  ) : null}
-                  {Array.isArray(forbiddenAddedNow) && forbiddenAddedNow.length ? (
-                    <div className="log-top-sub">➕ 이번 페이즈 신규: {forbiddenAddedNow.map((z) => getZoneName(z)).join(', ')}</div>
-                  ) : null}
-                </div>
-              )}
-              {Array.isArray(prevPhaseLogs) && prevPhaseLogs.length ? (
-                <div className="prevlogs-row">
-                  <button
-                    className="prevlogs-btn"
-                    onClick={() => setShowPrevLogs((v) => !v)}
-                    title="이전 페이즈 로그를 펼치거나 숨깁니다(설정은 저장됩니다)."
-                  >
-                    {showPrevLogs ? '이전 페이즈 로그 숨기기' : '이전 페이즈 로그 보기'}
-                  </button>
-                </div>
-              ) : null}
-
-              {showPrevLogs && Array.isArray(prevPhaseLogs) && prevPhaseLogs.length ? (
-                <div className="prevlogs-box">
-                  <div className="prevlogs-scroll">
-                    {prevPhaseLogs.map((log, idx) => (
-                      (() => {
-                        const who = extractActorNameFromLog(log.text);
-                        const avatar = who ? actorAvatarByName[who] : '';
-                        return (
-                      <div
-                        key={`prev-${log.id || idx}`}
-                        className={`log-message ${log.type || 'system'}`}
-                        style={{
-                          maxWidth: '100%',
-                          whiteSpace: 'pre-line',
-                          overflowWrap: 'anywhere',
-                          wordBreak: 'keep-all',
-                          lineHeight: 1.45,
-                          opacity: 0.9,
-                        }}
-                      >
-                        {avatar ? <img className="log-avatar" src={avatar} alt={who} /> : null}
-                        <div className="log-text">{log.text}</div>
-                      </div>
-                        );
-                      })()
-                    ))}
-                  </div>
-                </div>
-	              ) : null}
-
-              <div className="log-scroll-area" ref={logBoxRef} style={{ maxHeight: logBoxMaxH }}>
-                {logs.map((log, idx) => (
-                  (() => {
-                    const who = extractActorNameFromLog(log.text);
-                    const avatar = who ? actorAvatarByName[who] : '';
-                    return (
-                  <div
-                    key={log.id || idx}
-                    className={`log-message ${log.type || 'system'}`}
-                    style={{
-                      maxWidth: '100%',
-                      whiteSpace: 'pre-line',
-                      overflowWrap: 'anywhere',
-                      wordBreak: 'keep-all',
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    {avatar ? <img className="log-avatar" src={avatar} alt={who} /> : null}
-                    <div className="log-text">{log.text}</div>
-                  </div>
-                    );
-                  })()
-                ))}
-              </div>
-            </div>
-          </div>
+          <SimulationLogPanel
+            uiModal={uiModal}
+            closeUiModal={closeUiModal}
+            day={day}
+            activeMap={activeMap}
+            zones={zones}
+            forbiddenNow={forbiddenNow}
+            forbiddenAddedNow={forbiddenAddedNow}
+            settings={settings}
+            getRuleset={getRuleset}
+            getZoneName={getZoneName}
+            prevPhaseLogs={prevPhaseLogs}
+            showPrevLogs={showPrevLogs}
+            setShowPrevLogs={setShowPrevLogs}
+            logs={logs}
+            showDetailedLogs={showDetailedLogs}
+            setShowDetailedLogs={setShowDetailedLogs}
+            logWindowRef={logWindowRef}
+            logBoxRef={logBoxRef}
+            logBoxMaxH={logBoxMaxH}
+            actorAvatarByName={actorAvatarByName}
+            extractActorNameFromLog={extractActorNameFromLog}
+          />
 
           <div className="control-panel">
             <div className="control-row">

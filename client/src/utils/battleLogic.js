@@ -306,8 +306,22 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     // 🧨 공격량(피해량) 베이스: 스킬/무기 + 사격 + 근접
     const offenseBase1 = ((Number(p1Bonus.skillBonus || 0) + Number(p1Bonus.wpnBonus || 0) + Number(er1.offenseBonus || 0)) * suddenDeathMultiplier) + shoot1 + melee1;
     const offenseBase2 = ((Number(p2Bonus.skillBonus || 0) + Number(p2Bonus.wpnBonus || 0) + Number(er2.offenseBonus || 0)) * suddenDeathMultiplier) + shoot2 + melee2;
-    let offense1 = offenseBase1;
-    let offense2 = offenseBase2;
+    const erBlockScale = Number(settings?.battle?.erBlockScale ?? 0.75);
+    const erBlockCapRatio = Math.max(0, Math.min(0.75, Number(settings?.battle?.erBlockCapRatio ?? 0.42)));
+    const erBlock1 = Math.min(Math.max(0, offenseBase2 * erBlockCapRatio), Math.max(0, Number(er1.block || 0) * erBlockScale));
+    const erBlock2 = Math.min(Math.max(0, offenseBase1 * erBlockCapRatio), Math.max(0, Number(er2.block || 0) * erBlockScale));
+    let offense1 = Math.max(0, offenseBase1 - erBlock2);
+    let offense2 = Math.max(0, offenseBase2 - erBlock1);
+    if (erBlock1 > 0.05) {
+      score1 += erBlock1 * 0.45;
+      score2 -= erBlock1 * 0.65;
+      logs.push(`🛡️ [${p1.name}] ER 방어 보정: 공격 흐름 -${erBlock1.toFixed(1)}`);
+    }
+    if (erBlock2 > 0.05) {
+      score2 += erBlock2 * 0.45;
+      score1 -= erBlock2 * 0.65;
+      logs.push(`🛡️ [${p2.name}] ER 방어 보정: 공격 흐름 -${erBlock2.toFixed(1)}`);
+    }
 
     // 🎯 치명타(장비 치확 기반): '실제 피해'에 가산 → 흡혈 회복에도 연동
     // - 기존 critBurstScale 설정값을 '치명타 추가 피해 비율'로 사용 (기본 +35%)
@@ -315,13 +329,13 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     const c1 = Math.max(0, Math.min(0.75, Number(p1Bonus.critChance || 0) + Number(er1.critChancePlus || 0)));
     const c2 = Math.max(0, Math.min(0.75, Number(p2Bonus.critChance || 0) + Number(er2.critChancePlus || 0)));
     if (Math.random() < c1) {
-      const extra = offenseBase1 * critDamageScale;
+      const extra = offense1 * critDamageScale;
       offense1 += extra;
       score1 += extra;
       logs.push(`🎯 [${p1.name}] 치명타! (+${extra.toFixed(1)})`);
     }
     if (Math.random() < c2) {
-      const extra = offenseBase2 * critDamageScale;
+      const extra = offense2 * critDamageScale;
       offense2 += extra;
       score2 += extra;
       logs.push(`🎯 [${p2.name}] 치명타! (+${extra.toFixed(1)})`);

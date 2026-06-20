@@ -11,6 +11,7 @@
     "import:er:meta": "node scripts/import_er_openapi.js meta --auto",
     "import:er:all": "node scripts/import_er_openapi.js all --auto",
     "fetch:namu": "node scripts/fetch_namu_sources.js",
+    "save:namu": "node scripts/save_namu_clipboard.js",
     "import:namu": "node scripts/import_namu_pasted.js import ./scripts/namu_pastes",
     "import:namu:subjects": "node scripts/import_namu_pasted.js import-subjects ./scripts/namu_pastes",
     "import:namu:meta": "node scripts/import_namu_pasted.js import-meta ./scripts/namu_pastes",
