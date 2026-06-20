@@ -3,7 +3,7 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 export default [
   ...nextVitals,
   {
-    files: ['src/app/simulation/page.js'],
+    files: ['src/app/simulation/page.js', 'src/app/simulation/_lib/**/*.js'],
     rules: {
       'no-undef': 'error',
       'no-use-before-define': ['error', { functions: false, classes: true, variables: true }],

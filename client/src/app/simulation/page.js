@@ -2218,6 +2218,68 @@ const pickStartZoneIdForChar = (c) => {
       if (!zid) return;
       baseZonePop[zid] = (baseZonePop[zid] || 0) + 1;
     });
+
+    const pickStatForMovePower = (c, keys) => {
+      for (const k of keys) {
+        const v = Number(c?.stats?.[k] ?? c?.[k] ?? c?.[k?.toLowerCase?.()] ?? 0);
+        if (Number.isFinite(v) && v > 0) return v;
+      }
+      return 0;
+    };
+
+    const combatScoreForMovePower = (c) => {
+      const hp = Math.max(1, Math.min(100, Number(c?.hp ?? 100)));
+      const base =
+        pickStatForMovePower(c, ['STR', 'str']) +
+        pickStatForMovePower(c, ['AGI', 'agi']) +
+        pickStatForMovePower(c, ['SHOOT', 'shoot', 'SHT', 'sht']) +
+        pickStatForMovePower(c, ['END', 'end']) +
+        pickStatForMovePower(c, ['MEN', 'men']) * 0.5 +
+        pickStatForMovePower(c, ['INT', 'int']) * 0.3 +
+        pickStatForMovePower(c, ['DEX', 'dex']) * 0.3 +
+        pickStatForMovePower(c, ['LUK', 'luk']) * 0.2;
+      const shield = Math.max(0, getShieldValue(c));
+      const regen = Math.max(0, getRegenValue(c));
+      const sustain = Math.min(28, shield * 0.65 + regen * 1.35);
+
+      return (base * (0.5 + hp / 200)) + sustain;
+    };
+
+    const summarizeEquipTierForMovePower = (c) => {
+      const inv = Array.isArray(c?.inventory) ? c.inventory : [];
+      let weaponTier = 0;
+      let armorTierSum = 0;
+      for (const it of inv) {
+        const slot = String(it?.equipSlot || '');
+        const t = Math.max(1, Number(it?.tier || 1));
+        const tp = String(it?.type || '').toLowerCase();
+        if (slot === 'weapon' || tp === 'weapon' || tp === '무기') weaponTier = Math.max(weaponTier, t);
+        else if (slot === 'head' || slot === 'clothes' || slot === 'arm' || slot === 'shoes') armorTierSum += t;
+      }
+      return { weaponTier, armorTierSum };
+    };
+
+    const estimateMovePower = (c) => {
+      const base = combatScoreForMovePower(c);
+      const { weaponTier, armorTierSum } = summarizeEquipTierForMovePower(c);
+      const pw = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
+      const pa = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
+      return base + weaponTier * pw + armorTierSum * pa;
+    };
+
+    const shouldAvoidCombatByMovePower = (me, opp) => {
+      const myP = estimateMovePower(me);
+      const opP = estimateMovePower(opp);
+      const ratio = myP / Math.max(1, myP + opP);
+      const aggroBias = Math.max(0, getPerkAggressionBias(me));
+      const minRatioBase = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
+      const absDeltaBase = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
+      const minRatio = Math.max(0.2, minRatioBase - aggroBias * 0.08);
+      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12);
+      if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
+      return null;
+    };
+
     let updatedSurvivors = (Array.isArray(phaseSurvivors) ? phaseSurvivors : [])
       .map((s) => {
         const beforeHp = Number(s.hp || 0);
@@ -2297,8 +2359,8 @@ const sameZoneOpponents = (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).
 ));
 const worstSameZoneOpponent = sameZoneOpponents
   .slice()
-  .sort((a, b) => Number(estimatePower(b) || 0) - Number(estimatePower(a) || 0))[0] || null;
-const avoidInfoNow = worstSameZoneOpponent ? shouldAvoidCombatByPower(updated, worstSameZoneOpponent) : null;
+  .sort((a, b) => Number(estimateMovePower(b) || 0) - Number(estimateMovePower(a) || 0))[0] || null;
+const avoidInfoNow = worstSameZoneOpponent ? shouldAvoidCombatByMovePower(updated, worstSameZoneOpponent) : null;
 const extremeRatio = Number(aiCfg?.fightAvoidExtremeRatio ?? 0.30);
 const extremeDelta = Number(aiCfg?.fightAvoidExtremeDelta ?? 25);
 const lowHpFleeInterrupt = !mustEscape && sameZoneOpponents.length > 0 && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
