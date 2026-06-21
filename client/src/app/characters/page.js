@@ -12,6 +12,7 @@ import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave } from '../../utils/characterPayload';
+import { readCompressedPreviewImage } from '../../utils/previewImage';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -22,6 +23,7 @@ const GOAL_GEAR_TIERS = [
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState([]);
+  const [dirtyPreviewIds, setDirtyPreviewIds] = useState(() => new Set());
 
   // 캐릭터 목표(장비 등급/전술 스킬) 모달
   const [configCharId, setConfigCharId] = useState(null);
@@ -93,12 +95,12 @@ export default function CharactersPage() {
       goalGearTier: 6,
       tacticalSkill: normalizeSupportedTacSkill('블링크'),
     };
-    setCharacters([...characters, newChar]);
+    setCharacters((prev) => [...prev, newChar]);
   };
 
   // 3. 캐릭터 삭제 (ID 호환성 수정)
   const removeCharacter = (targetId) => {
-    setCharacters(characters.filter(char => {
+    setCharacters((prev) => prev.filter(char => {
       // DB 아이디(_id) 혹은 임시 아이디(id) 중 하나라도 맞으면 삭제
       const charId = char._id || char.id;
       return charId !== targetId;
@@ -107,7 +109,7 @@ export default function CharactersPage() {
 
   // 4. 정보 업데이트 (ID 호환성 수정)
   const updateCharacter = (targetId, field, value) => {
-    setCharacters(characters.map(char => {
+    setCharacters((prev) => prev.map(char => {
       const charId = char._id || char.id;
       if (charId === targetId) {
         return { ...char, [field]: value };
@@ -145,8 +147,15 @@ export default function CharactersPage() {
 
   const saveConfigModal = () => {
     if (!configCharId) return;
-    updateCharacter(configCharId, 'goalGearTier', Number(editGoalGearTier || 6));
-    updateCharacter(configCharId, 'tacticalSkill', normalizeSupportedTacSkill(editTacticalSkill));
+    setCharacters((prev) => prev.map((char) => {
+      const charId = char._id || char.id;
+      if (String(charId) !== String(configCharId)) return char;
+      return {
+        ...char,
+        goalGearTier: Number(editGoalGearTier || 6),
+        tacticalSkill: normalizeSupportedTacSkill(editTacticalSkill),
+      };
+    }));
     closeConfigModal();
   };
 
@@ -155,11 +164,18 @@ export default function CharactersPage() {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      updateCharacter(targetId, 'previewImage', reader.result);
-    };
-    reader.readAsDataURL(file);
+    readCompressedPreviewImage(file)
+      .then((preview) => {
+        if (!preview) {
+          alert('이미지 용량이 너무 커서 미리보기를 저장하지 못했습니다.');
+          return;
+        }
+        updateCharacter(targetId, 'previewImage', preview);
+        setDirtyPreviewIds((prev) => new Set([...prev, String(targetId)]));
+      })
+      .catch(() => {
+        alert('이미지를 읽지 못했습니다.');
+      });
   };
 
   // 6. AI 분석 요청 (버그 수정: 한 번에 업데이트)
@@ -213,9 +229,15 @@ export default function CharactersPage() {
     
     try {
         if (!token) throw new Error('로그인이 필요합니다.');
-        await apiPost('/characters/save', compactCharactersForSave(characters), { timeoutMs: 30000 });
+        await apiPost('/characters/save', compactCharactersForSave(characters, { previewImageIds: dirtyPreviewIds }), { timeoutMs: 30000 });
+        setDirtyPreviewIds(new Set());
+        await fetchCharacters();
         alert("저장 완료!");
-    } catch (error) { alert("저장 실패!"); }
+    } catch (error) {
+      console.error(error);
+      const status = Number(error?.status || error?.response?.status || 0);
+      alert(status === 413 ? '저장 데이터가 너무 큽니다. 이미지 용량을 줄인 뒤 다시 시도해주세요.' : "저장 실패!");
+    }
   };
 
   

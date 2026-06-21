@@ -11,6 +11,7 @@ const characterSchema = new Schema({
   previewImage: { type: String },
   summary: { type: String },
   gender: { type: String, default: '남' },
+  weaponType: { type: String, default: '' },
 
   // --- 관전형 목표 세팅 ---
   // - goalGearTier: 목표 장비 등급(영웅=4, 전설=5, 초월=6)

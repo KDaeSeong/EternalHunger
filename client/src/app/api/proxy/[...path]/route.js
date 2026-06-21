@@ -88,8 +88,10 @@ async function proxy(request, context) {
   };
 
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) {
-    const rawBody = await request.text();
-    if (rawBody) init.body = rawBody;
+    if (request.body) {
+      init.body = request.body;
+      init.duplex = 'half';
+    }
   }
 
   const res = await fetch(target, init);

@@ -143,7 +143,7 @@ export default function DetailsPage() {
   // 2. 스탯 변경 함수 (수정됨: _id 사용)
   const handleStatChange = (id, statName, value) => {
     const newValue = parseInt(value) || 0;
-    setCharacters(characters.map(char => {
+    setCharacters((prev) => prev.map(char => {
       // ★ 여기가 수정되었습니다 (char._id)
       if (char._id === id) {
         const oldStats = char.stats || { str:0, agi:0, int:0, men:0, luk:0, dex:0, sht:0, end:0 };
@@ -161,10 +161,12 @@ export default function DetailsPage() {
   try {
     // 세 번째 인자로 헤더를 넣어줍니다.
     if (!token) throw new Error('로그인이 필요합니다.');
-    await apiPost('/characters/save', compactCharactersForSave(characters), { timeoutMs: 30000 });
+    await apiPost('/characters/save', compactCharactersForSave(characters, { omitPreviewImages: true }), { timeoutMs: 30000 });
     alert("완벽하게 저장되었습니다!");
   } catch (err) {
-    alert("저장 실패 ㅠㅠ");
+    console.error(err);
+    const status = Number(err?.status || err?.response?.status || 0);
+    alert(status === 413 ? '저장 데이터가 너무 큽니다. 이미지 용량을 줄인 뒤 다시 시도해주세요.' : "저장 실패 ㅠㅠ");
   }
 };
 

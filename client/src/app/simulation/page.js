@@ -665,8 +665,30 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     if (damageDealt <= 0 && !opts?.lethalPreview) return { damage: 0, applied: false };
 
     const mastery = Math.max(1, Math.floor(Number(er?.masteryLevel || 1)));
-    const procChance = Math.min(0.74, Math.max(0.18, 0.28 + mastery * 0.012 + (opts?.lethalPreview ? 0.08 : 0)));
+    const nowSec = Math.max(0, Number(opts?.nowSec ?? opts?.at?.sec ?? 0));
+    const currentCooldown = Math.max(0, Number(attacker?.cooldowns?.weaponSkill || 0));
+    const nextReadySec = Math.max(0, Number(attacker?._weaponSkillNextAbsSec || 0));
+    if (currentCooldown > 0 || (nowSec > 0 && nextReadySec > nowSec)) {
+      return {
+        damage: 0,
+        applied: false,
+        skill: skill.name,
+        cooldown: true,
+        cooldownSec: currentCooldown || Math.max(0, nextReadySec - nowSec),
+      };
+    }
+
+    const procChance = Math.min(0.78, Math.max(0.24, 0.36 + mastery * 0.01 + (opts?.lethalPreview ? 0.1 : 0)));
     if (Math.random() >= procChance) return { damage: 0, applied: false };
+
+    const baseCooldownSec = Math.max(18, Number(opts?.settings?.battle?.weaponSkillCooldownSec ?? opts?.settings?.weaponSkillCooldownSec ?? 34));
+    const masteryCooldownReduction = Math.min(8, Math.max(0, Math.floor((mastery - 1) / 3)));
+    const cooldownSec = Math.max(16, Math.round(baseCooldownSec - masteryCooldownReduction));
+    if (!attacker.cooldowns || typeof attacker.cooldowns !== 'object') attacker.cooldowns = {};
+    attacker.cooldowns.weaponSkill = cooldownSec;
+    if (nowSec > 0) attacker._weaponSkillNextAbsSec = nowSec + cooldownSec;
+    attacker._weaponSkillLastUsed = String(skill.name || '');
+    attacker._weaponSkillLastUsedAt = nowSec;
 
     const bits = [];
     const effects = [];
@@ -736,9 +758,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       skill: String(skill.name || ''),
       mode: 'weapon_skill',
       zoneId: String(attacker?.zoneId || defender?.zoneId || ''),
+      cooldownSec,
     }, opts?.at || null);
     emitEffectRunEvents(attacker, applied?.results || [], { source: 'weapon_skill', skill: String(skill.name || ''), reason: 'combat_after', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, opts?.at || null);
-    return { damage: extraDamage, applied: true, skill: skill.name };
+    return { damage: extraDamage, applied: true, skill: skill.name, cooldownSec };
   };
 
   function emitItemGainIfAny(qty, payload = {}, at = null) {
@@ -758,6 +781,21 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       qty: 1,
     }, at);
   };
+
+  function applyLootCraftResult(actor, crafted, itemMeta, at = null, zoneId = '', logType = 'normal') {
+    if (!actor || !crafted?.inventory) return false;
+    actor.inventory = crafted.inventory;
+    autoEquipBest(actor, itemMeta);
+    addLog(`[${actor.name}] ${crafted.log}`, logType);
+    emitCraftRunEvent(actor?._id, crafted, at, zoneId || actor?.zoneId);
+    return true;
+  };
+
+  function getLootCraftOptions(actor) {
+    return {
+      goalItemKeys: pickGoalLoadoutKeys(actor),
+    };
+  }
 
   function emitQueueRunEvent(who, payload = {}, at = null) {
     const blocked = (Array.isArray(payload?.blockedReasons) ? payload.blockedReasons : [])
@@ -878,6 +916,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       const nm = itemDisplayName(item || { _id: chosen.itemId, name: chosen.name });
       addLog(`🎁 [${ch.name}] 초월 장비 선택 상자 선택 → ${itemIcon(item)} ${nm} ${gainText(got)}${formatInvAddNote(meta, 1, ch.inventory, ruleset)}`, 'highlight');
       emitItemGainIfAny(got, { who: ch.name, whoId: ch._id, itemId: String(chosen.itemId), source: 'box', sourceKind: 'transcend_pick', zoneId: pending.zoneId, choice: method }, pending.at || { day, phase, sec: matchSec });
+      if (got > 0) autoEquipBest(ch, {});
       return next;
     });
 
@@ -1948,6 +1987,7 @@ const pickStartZoneIdForChar = (c) => {
             cooldowns: {
               portableSafeZone: 0,
               cnotGate: 0,
+              weaponSkill: 0,
             },
             safeZoneUntil: 0,
           }), initPerkBundle, { initialFill: true, applyCredits: true });
@@ -2441,25 +2481,8 @@ const pickStartZoneIdForChar = (c) => {
             : [];
           baseInv = normalizeInventory(baseInv, ruleset);
 
-          // 1일차 시작 보급은 최소 힌트만 줍니다. 실제 장비 완성은 이동 후 파밍/제작으로 진행됩니다.
-          const mats = (Array.isArray(publicItems) ? publicItems : [])
-            .filter((it) => it?._id)
-            .filter((it) => inferItemCategory(it) === 'material')
-            .filter((it) => clampTier4(it?.tier || 1) <= 2)
-            .filter((it) => !classifySpecialByName(it?.name || ''));
-          for (let i = mats.length - 1; i > 0; i -= 1) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const tmp = mats[i];
-            mats[i] = mats[j];
-            mats[j] = tmp;
-          }
-          const pickN = Math.min(2, mats.length);
+          // 1일차 시작에는 제작 재료를 지급하지 않습니다. 장비 완성은 이동 후 루트 파밍/제작으로 진행됩니다.
           let inv = baseInv;
-          for (let k = 0; k < pickN; k += 1) {
-            const it = mats[k];
-            if (!it?._id) continue;
-            inv = addItemToInventory(inv, it, String(it._id), 1, nextDay, ruleset);
-          }
 
           // 시작 보급 음식은 생존용 1개만 지급합니다.
           const steak = findItemByKeywords(publicItems, ['스테이크', 'sizzling steak']);
@@ -2915,6 +2938,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const nm = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
               addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nm}] ${gainText(got)}${formatInvAddNote(meta, 1, updated.inventory, ruleset)}`, 'highlight');
               emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              if (got > 0) autoEquipBest(updated, itemMetaById);
             }
           } else {
             updated.inventory = addItemToInventory(updated.inventory, loot.item, loot.itemId, loot.qty, nextDay, ruleset);
@@ -2925,16 +2949,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
             }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            if (got > 0) autoEquipBest(updated, itemMetaById);
           }
         }
 
         // --- 필드 조합(이벤트 외): 방금 주운 재료로 1회 조합 시도 ---
         if (loot && String(loot?.crateType || '').toLowerCase() !== 'transcend_pick' && loot.itemId) {
-          const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-          if (crafted) {
-            updated.inventory = crafted.inventory;
-            addLog(`[${updated.name}] ${crafted.log}`, 'normal');
-          }
+          const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+          applyLootCraftResult(updated, crafted, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
         }
 
 
@@ -2952,6 +2974,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`🍱 [${updated.name}] ${getZoneName(updated.zoneId)}에서 음식 상자를 열어 ${itemIcon(foodCrate.item)} [${nmF}] ${gainText(gotF)}${formatInvAddNote(metaF, foodCrate.qty, updated.inventory, ruleset)}`, 'normal');
           }
           emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          if (gotF > 0) {
+            const craftedF = tryAutoCraftFromLoot(updated.inventory, foodCrate.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+            applyLootCraftResult(updated, craftedF, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+          }
 
           const crF = Math.max(0, Number(foodCrate?.credits || 0));
           if (crF > 0) {
@@ -2988,12 +3014,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
           }
 
-          const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-          if (craftedN) {
-            updated.inventory = craftedN.inventory;
-            addLog(`[${updated.name}] ${craftedN.log}`, 'normal');
-            emitCraftRunEvent(updated?._id, craftedN, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
-          }
+          const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+          applyLootCraftResult(updated, craftedN, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
         }
 
         // --- 조합 목표(간단 AI): 현재 인벤 기준으로 '가까운' 상위 티어 1개를 목표로 삼음 ---
@@ -3009,11 +3031,33 @@ const didMove = String(nextZoneId) !== String(currentZone);
           searched: true,
           maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
         });
-        let queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
+        const goalMissingIds = new Set(
+          (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
+            .map((m) => String(m?.itemId || ''))
+            .filter(Boolean)
+        );
+        const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
+        const routePlanIdsNow = Array.isArray(updated?.routePlanZoneIds)
+          ? updated.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
+          : [];
+        const earlyRouteActionActive = (
+          (Number(nextDay || 0) === 1 || (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')) &&
+          routePlanIdsNow.length > 0 &&
+          Math.max(0, Number(updated?.routePlanIndex || 0)) < routePlanIdsNow.length
+        );
+        const currentRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
+          ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
+          : [];
+        const currentRouteNeedsSearch = earlyRouteActionActive && (
+          currentRouteItemIds.length <= 0 ||
+          currentRouteItemIds.some((id) => goalMissingIds.has(id))
+        );
+        const deferProcureForRoute = currentRouteNeedsSearch && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
+        let queuedKioskAction = (didMove || fleeInterruptReason || deferProcureForRoute) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
         if (queuedKioskAction?.kind === 'buy' && queuedKioskAction?.itemId && !canReceiveItem(updated.inventory, queuedKioskAction.item, queuedKioskAction.itemId, queuedKioskAction.qty || 1, ruleset)) {
           queuedKioskAction = null;
         }
-        let queuedDroneOrder = (didMove || fleeInterruptReason || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
+        let queuedDroneOrder = (didMove || fleeInterruptReason || deferProcureForRoute || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
         if (queuedDroneOrder?.itemId && !canReceiveItem(updated.inventory, queuedDroneOrder.item, queuedDroneOrder.itemId, queuedDroneOrder.qty || 1, ruleset)) {
           queuedDroneOrder = null;
         }
@@ -3023,12 +3067,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const craftPreview = craftProbeActor
           ? tryAutoCraftFromInventory(craftProbeActor, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset)
           : null;
-        const goalMissingIds = new Set(
-          (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
-            .map((m) => String(m?.itemId || ''))
-            .filter(Boolean)
-        );
-        const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
+        const suppressEarlyRouteHunt = currentRouteNeedsSearch && !craftPreview?.changed && !upgradeNeed?.farmCredits;
         const queueScoredCandidates = (() => {
           if (didMove || fleeInterruptReason) return [];
           const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
@@ -3091,21 +3130,33 @@ const didMove = String(nextZoneId) !== String(currentZone);
               priorityNote: `${matchesGoal ? 'goal+' : ''}tier${craftedTier}`,
             });
           }
-          scoreRows.push({
-            type: 'hunt',
-            zoneId: String(updated?.zoneId || ''),
-            etaSec: 1,
-            phaseIdx: Number(phaseIdxNow || 0),
-            score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
-            label: 'hunt',
-            priorityNote: farmCreditsBias > 0 ? 'credits' : '',
-          });
+          if (suppressEarlyRouteHunt) {
+            scoreRows.push({
+              type: 'routeFarm',
+              zoneId: String(updated?.zoneId || ''),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score: 34 + (currentRouteItemIds.length ? 4 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
+              label: 'routeFarm',
+              priorityNote: currentRouteItemIds.length ? 'early_route+materials' : 'early_route',
+            });
+          } else {
+            scoreRows.push({
+              type: 'hunt',
+              zoneId: String(updated?.zoneId || ''),
+              etaSec: 1,
+              phaseIdx: Number(phaseIdxNow || 0),
+              score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
+              label: 'hunt',
+              priorityNote: farmCreditsBias > 0 ? 'credits' : '',
+            });
+          }
           return scoreRows
             .sort((a, b) => {
               const ds = Number(b?.score || 0) - Number(a?.score || 0);
               if (Math.abs(ds) > 0.001) return ds;
-              const pa = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
-              const pb = ['craft', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
+              const pa = ['craft', 'routeFarm', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(a?.type || ''));
+              const pb = ['craft', 'routeFarm', 'kioskBuy', 'kioskExchange', 'droneOrder', 'kioskSell', 'hunt'].indexOf(String(b?.type || ''));
               return pa - pb;
             })
             .slice(0, 5);
@@ -3133,7 +3184,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
               score: 998,
             };
           }
-          return queueScoredCandidates[0] || { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 };
+          return queueScoredCandidates[0] || (
+            earlyRouteActionActive
+              ? { type: 'routeFarm', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 1, reason: 'early_route' }
+              : { type: 'hunt', zoneId: String(updated?.zoneId || ''), etaSec: 1, phaseIdx: Number(phaseIdxNow || 0), score: 0 }
+          );
         })();
         const queuedActionType = String(queuedAtomicAction?.type || 'hunt');
         const queuePreview = [queuedAtomicAction].filter(Boolean).map((act) => {
@@ -3192,7 +3247,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           wantTrans: !!upgradeNeed?.wantTrans,
           farmCredits: !!upgradeNeed?.farmCredits,
         };
-        if (blockedReasons.length || ['flee', 'kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder', 'craft'].includes(queuedActionType)) {
+        if (blockedReasons.length || ['flee', 'routeFarm', 'kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder', 'craft'].includes(queuedActionType)) {
           emitQueueRunEvent(updated, {
             zoneId: String(updated?.zoneId || currentZone || ''),
             chosen: queuedActionType,
@@ -3202,6 +3257,42 @@ const didMove = String(nextZoneId) !== String(currentZone);
             candidateCount: candidatePreview.length,
             reason: String(queuedAtomicAction?.reason || moveReason || ''),
           }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+        }
+
+        if (queuedActionType === 'routeFarm' && !loot && currentRouteItemIds.length > 0) {
+          const routeLoot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
+            moved: false,
+            routeFarm: true,
+            day: nextDay,
+            phase: nextPhase,
+            dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
+            perkEffects: getActorPerkEffects(updated),
+            goalItemIds: [...goalMissingIds],
+            routeItemIds: currentRouteItemIds,
+          });
+          if (routeLoot?.itemId) {
+            updated.inventory = addItemToInventory(updated.inventory, routeLoot.item, routeLoot.itemId, routeLoot.qty, nextDay, ruleset);
+            const metaR = updated.inventory?._lastAdd;
+            const gotR = Math.max(0, Number(metaR?.acceptedQty ?? routeLoot.qty));
+            const nmR = routeLoot.item?.name || itemNameById?.[String(routeLoot.itemId || '')] || '아이템';
+            if (shouldLogItemReceive(gotR, metaR)) {
+              addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)} 루트 파밍: ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
+            }
+            emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: 'route_material', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            if (gotR > 0) autoEquipBest(updated, itemMetaById);
+            const craftedR = tryAutoCraftFromLoot(updated.inventory, routeLoot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+            applyLootCraftResult(updated, craftedR, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            const postRouteGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+              goalTier: updated?.goalGearTier,
+              goalItemKeys: pickGoalLoadoutKeys(updated),
+              perkEffects: getActorPerkEffects(updated),
+            });
+            advanceEarlyRouteProgress(updated, updated.zoneId, {
+              missingItemIds: (Array.isArray(postRouteGoal?.missing) ? postRouteGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+              searched: false,
+              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+            });
+          }
         }
 
         if (queuedActionType === 'hunt') {
@@ -3270,12 +3361,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
             }
 
-            const craftedH = immediateH?.changed ? null : tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-            if (craftedH) {
-              updated.inventory = craftedH.inventory;
-              addLog(`[${updated.name}] ${craftedH.log}`, 'normal');
-              emitCraftRunEvent(updated?._id, craftedH, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
-            }
+            const craftedH = immediateH?.changed ? null : tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+            applyLootCraftResult(updated, craftedH, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
           }
 
           if (updated.hp <= 0 && Number(s.hp || 0) > 0) {
@@ -3346,16 +3433,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
               updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
               updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
             }
+            if (gotB > 0 && !immediateLB?.changed) {
+              const craftedB = tryAutoCraftFromLoot(updated.inventory, bd.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+              applyLootCraftResult(updated, craftedB, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            }
           }
 
 
           // 전설 재료도 즉시 조합 트리거(선택적)
-          const craftedL = (typeof immediateLMain !== 'undefined' && immediateLMain?.changed) ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-          if (craftedL) {
-            updated.inventory = craftedL.inventory;
-            addLog(`[${updated.name}] ${craftedL.log}`, 'normal');
-            emitCraftRunEvent(updated?._id, craftedL, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
-          }
+          const craftedL = (typeof immediateLMain !== 'undefined' && immediateLMain?.changed) ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+          applyLootCraftResult(updated, craftedL, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
         }
 
         let didProcure = false;
@@ -3393,6 +3480,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] ${gainText(got, '구매', '구매 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}${paidCost > 0 ? ` (크레딧 -${paidCost})` : ''}`, 'system');
             }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            if (got > 0) autoEquipBest(updated, itemMetaById);
             didProcure = true;
 
             // 구매 아이템도 즉시 조합 트리거(선택적)
@@ -3410,12 +3498,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
             }
 
-            const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-            if (craftedK) {
-              updated.inventory = craftedK.inventory;
-              addLog(`[${updated.name}] ${craftedK.log}`, 'normal');
-              emitCraftRunEvent(updated?._id, craftedK, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
-            }
+            const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+            applyLootCraftResult(updated, craftedK, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
           }
 
           if (kioskAction.kind === 'exchange' && Array.isArray(kioskAction.consume) && kioskAction.consume.length) {
@@ -3445,14 +3529,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] ${gainText(got, '교환', '교환 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
             }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            if (got > 0) autoEquipBest(updated, itemMetaById);
             didProcure = true;
 
-            const craftedE = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-            if (craftedE) {
-              updated.inventory = craftedE.inventory;
-              addLog(`[${updated.name}] ${craftedE.log}`, 'normal');
-              emitCraftRunEvent(updated?._id, craftedE, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
-            }
+            const craftedE = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+            applyLootCraftResult(updated, craftedE, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
           }
 
           if (kioskAction.kind === 'sell') {
@@ -3485,15 +3566,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} ${gainText(got, '수령', '호출 실패')}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}${paidCost > 0 ? ` (-${paidCost}Cr, 즉시)` : ''}`, 'normal');
               }
               emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(itemId || ''), source: 'drone', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              if (got > 0) autoEquipBest(updated, itemMetaById);
               didProcure = true;
 
               // 즉시 지급된 아이템으로 조합이 가능해지면 자동 조합(낮은 확률)
-              const craftedD = tryAutoCraftFromLoot(updated.inventory, itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-              if (craftedD?.inventory) {
-                updated.inventory = craftedD.inventory;
-                addLog(`[${updated.name}] ${craftedD.log}`, 'highlight');
-                emitCraftRunEvent(updated?._id, craftedD, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
-              }
+              const craftedD = tryAutoCraftFromLoot(updated.inventory, itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+              applyLootCraftResult(updated, craftedD, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId, 'highlight');
             }
           }
         }
@@ -3507,6 +3585,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (invCraft?.changed) {
             addLog(String(invCraft.log), 'highlight');
             emitCraftRunEvent(updated?._id, invCraft, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            const postCraftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+              goalTier: updated?.goalGearTier,
+              goalItemKeys: pickGoalLoadoutKeys(updated),
+              perkEffects: getActorPerkEffects(updated),
+            });
+            advanceEarlyRouteProgress(updated, updated.zoneId, {
+              missingItemIds: (Array.isArray(postCraftGoal?.missing) ? postCraftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+              searched: false,
+              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+            });
           }
           else if (String(selectedCharId || '') === String(updated?._id || '')) {
             const dbg = updated?._craftDebug || null;
@@ -3642,6 +3730,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (s.cooldowns) {
             s.cooldowns.portableSafeZone = Math.max(0, Number(s.cooldowns.portableSafeZone || 0) - tickSec);
             s.cooldowns.cnotGate = Math.max(0, Number(s.cooldowns.cnotGate || 0) - tickSec);
+            s.cooldowns.weaponSkill = Math.max(0, Number(s.cooldowns.weaponSkill || 0) - tickSec);
           }
 
           const zoneId = String(s.zoneId || '__default__');
@@ -4462,7 +4551,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               if (got > 0) {
                 emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
                 lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x${got}`);
-                const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
+                const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(combatWinner));
                 if (crafted?.inventory) {
                   combatWinner.inventory = crafted.inventory;
                   craftLogs.push(crafted.log);
@@ -4900,6 +4989,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             damageDealt: finalDmgToLoser,
             lethalPreview: loser.hp <= 0,
             settings: battleSettings,
+            nowSec: phaseStartSec,
             at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
           });
           const weaponSkillDamageToLoser = Math.max(0, Number(weaponSkillResult?.damage || 0));
@@ -5158,12 +5248,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog("🧾 [" + actor.name + "] 획득: " + itemIcon(dropItem || { type: "" }) + " [" + nmD + "] x" + gotD + formatInvAddNote(metaD, dropQty, actor.inventory, ruleset), "normal");
               emitRunEvent("gain", { who: String(actor && actor._id ? actor._id : ""), itemId: dropId, qty: gotD, source: "event", zoneId: String(actor && actor.zoneId ? actor.zoneId : "") }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
-              const craftedE = tryAutoCraftFromLoot(actor.inventory, dropId, craftables, itemNameById, itemMetaById, nextDay, ruleset);
-              if (craftedE) {
-                actor.inventory = craftedE.inventory;
-                addLog("[" + actor.name + "] " + craftedE.log, "normal");
-                emitCraftRunEvent(actor?._id, craftedE, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, actor?.zoneId);
-              }
+              const craftedE = tryAutoCraftFromLoot(actor.inventory, dropId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(actor));
+              applyLootCraftResult(actor, craftedE, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, actor?.zoneId);
             }
           }
 

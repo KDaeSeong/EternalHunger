@@ -102,7 +102,12 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     inventory: normalizeRuntimeInventory(base?.inventory),
     equipped: ensureEquipped(base),
     activeEffects: Array.isArray(base?.activeEffects) ? base.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [],
-    cooldowns: base?.cooldowns && typeof base.cooldowns === 'object' ? { ...base.cooldowns } : { portableSafeZone: 0, cnotGate: 0 },
+    cooldowns: {
+      portableSafeZone: 0,
+      cnotGate: 0,
+      weaponSkill: 0,
+      ...(base?.cooldowns && typeof base.cooldowns === 'object' ? base.cooldowns : {}),
+    },
     hp: Math.max(0, Math.min(maxHp, hp)),
     maxHp,
     simCredits: Number.isFinite(Number(base?.simCredits)) ? Number(base.simCredits) : 0,

@@ -209,13 +209,36 @@ export function pickBestEquipBySlot(inventory, slot) {
   return cand[0] || null;
 }
 
-export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById, itemMetaById, day, ruleset) {
+export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNameById, itemMetaById, day, ruleset, opts = {}) {
   const lootId = String(lootedItemId || '');
   if (!lootId) return null;
 
+  const goalKeys = new Set(
+    (Array.isArray(opts?.goalItemKeys) ? opts.goalItemKeys : [])
+      .map((key) => String(key || '').trim())
+      .filter(Boolean)
+  );
+  const scoreCandidate = (it) => {
+    const cat = inferItemCategory(it);
+    const key = String(it?.itemKey || it?.externalId || '').trim();
+    const isGoal = key && goalKeys.has(key);
+    const tier = clampTier4(it?.tier || 1);
+    const ingredients = compactIO(it?.recipe?.ingredients || []);
+    return (
+      (isGoal ? 10000 : 0) +
+      (cat === 'equipment' ? 800 : (cat === 'consumable' ? -250 : 0)) +
+      tier * 90 -
+      ingredients.length * 4
+    );
+  };
+
   const candidates = (Array.isArray(craftables) ? craftables : [])
     .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.some((ing) => String(ing?.itemId) === lootId))
-    .sort((a, b) => (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name)));
+    .sort((a, b) => {
+      const ds = scoreCandidate(b) - scoreCandidate(a);
+      if (Math.abs(ds) > 0.001) return ds;
+      return (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name));
+    });
 
   const chance = (Number(day || 0) === 1) ? 0.75 : 0.35;
   if (!candidates.length || Math.random() >= chance) return null;

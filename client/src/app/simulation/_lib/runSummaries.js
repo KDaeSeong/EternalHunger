@@ -88,6 +88,7 @@ function createRunActionFallback() {
     blocked: 0,
     fleeChosen: 0,
     moveChosen: 0,
+    routeFarmChosen: 0,
     craftChosen: 0,
     droneChosen: 0,
     kioskChosen: 0,
@@ -429,6 +430,7 @@ export function buildRunActionSummary(runEvents) {
       const chosen = String(e.chosen || '');
       if (chosen === 'flee') out.fleeChosen += 1;
       else if (chosen === 'moveTo') out.moveChosen += 1;
+      else if (chosen === 'routeFarm') out.routeFarmChosen += 1;
       else if (chosen === 'craft') out.craftChosen += 1;
       else if (chosen === 'droneOrder') out.droneChosen += 1;
       else if (chosen.startsWith('kiosk')) out.kioskChosen += 1;
@@ -487,7 +489,7 @@ export function buildRunActionSummary(runEvents) {
     ...out,
     topBlocked,
     topDeferred,
-    line: `queue ${out.queued} · blocked ${out.blocked} · flee ${out.fleeChosen} · move ${out.moveChosen} · craft ${out.craftChosen} · drone ${out.droneChosen} · kiosk ${out.kioskChosen}`,
+    line: `queue ${out.queued} · blocked ${out.blocked} · flee ${out.fleeChosen} · move ${out.moveChosen} · route ${out.routeFarmChosen} · craft ${out.craftChosen} · drone ${out.droneChosen} · kiosk ${out.kioskChosen}`,
     chaseLine: `escapeFail ${out.escapeFail} · noChase ${out.escapeNoChase} · escaped ${out.escapedAfterChase + out.blinkEscape} · caught ${out.caught}`,
     tuningLine: `avgEscape ${(out.avgEscape * 100).toFixed(0)}% · avgChase ${(out.avgChase * 100).toFixed(0)}% · avgCatch ${(out.avgCatch * 100).toFixed(0)}% · preDmg ${out.avgPreDamage.toFixed(1)}`,
   };

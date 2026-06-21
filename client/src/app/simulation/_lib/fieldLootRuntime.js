@@ -173,9 +173,10 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     (curDay === 2 && (curPhase === 'morning' || curPhase === 'day'))
   );
   if (earlyRouteActive) {
+    const routeFarmOnly = opts?.routeFarm === true || opts?.routeFarmOnly === true;
     const routeChanceBase = moved
       ? Number(earlyRouteCfg?.chanceMoved ?? 0.72)
-      : Number(earlyRouteCfg?.chanceStay ?? 0.42);
+      : Number(routeFarmOnly ? (earlyRouteCfg?.chanceFarm ?? 0.82) : (earlyRouteCfg?.chanceStay ?? 0.42));
     const routeChance = Math.max(0.01, Math.min(0.98, routeChanceBase + Math.max(0, perkLootBias) * 0.10));
     const routeMaxTier = Math.max(1, Number(earlyRouteCfg?.maxTier ?? fallbackMaxTier));
     const routeWeight = Math.max(0, Number(earlyRouteCfg?.routeWeight ?? 8));
@@ -205,10 +206,12 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
           qty,
           crateId: 'route_plan',
           crateType: 'route_material',
+          routeFarm: routeFarmOnly,
           zoneId: String(zoneId || ''),
         };
       }
     }
+    if (routeFarmOnly) return null;
   }
 
   if (Math.random() >= chance) return null;

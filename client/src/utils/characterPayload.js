@@ -1,4 +1,4 @@
-const MAX_PREVIEW_IMAGE_CHARS = 220000;
+const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
 
 const STAT_KEYS = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
@@ -19,6 +19,29 @@ function cleanNumber(value, fallback = 0) {
 function cleanObjectId(value) {
   const text = String(value || '').trim();
   return /^[a-f\d]{24}$/i.test(text) ? text : undefined;
+}
+
+function characterKey(character) {
+  const c = character && typeof character === 'object' ? character : {};
+  return String(c._id || c.id || '').trim();
+}
+
+function normalizePreviewIdSet(ids) {
+  if (!ids) return null;
+  if (ids instanceof Set) return ids;
+  if (Array.isArray(ids)) return new Set(ids.map((id) => String(id || '').trim()).filter(Boolean));
+  return null;
+}
+
+function shouldIncludePreviewImage(character, options = {}) {
+  if (options.omitPreviewImages) return false;
+
+  const idSet = normalizePreviewIdSet(options.previewImageIds);
+  if (idSet) return idSet.has(characterKey(character));
+
+  if (options.includePreviewImages !== undefined) return Boolean(options.includePreviewImages);
+
+  return !cleanObjectId(character?._id);
 }
 
 function cleanPreviewImage(value) {
@@ -88,7 +111,7 @@ function cleanRecords(records) {
   };
 }
 
-export function compactCharacterForSave(character) {
+export function compactCharacterForSave(character, options = {}) {
   const c = character && typeof character === 'object' ? character : {};
   const out = {};
 
@@ -100,8 +123,10 @@ export function compactCharacterForSave(character) {
   out.gender = cleanString(c.gender, 64) || 'unknown';
   out.stats = cleanStats(c.stats);
 
-  const previewImage = cleanPreviewImage(c.previewImage);
-  if (previewImage !== undefined) out.previewImage = previewImage;
+  if (shouldIncludePreviewImage(c, options)) {
+    const previewImage = cleanPreviewImage(c.previewImage);
+    if (previewImage !== undefined) out.previewImage = previewImage;
+  }
 
   if (c.summary !== undefined) out.summary = cleanString(c.summary, MAX_TEXT_CHARS);
   if (c.weaponType !== undefined) out.weaponType = cleanString(c.weaponType, 128) || '';
@@ -128,14 +153,14 @@ export function compactCharacterForSave(character) {
   return out;
 }
 
-export function compactCharactersForSave(characters) {
-  return (Array.isArray(characters) ? characters : []).map(compactCharacterForSave);
+export function compactCharactersForSave(characters, options = {}) {
+  return (Array.isArray(characters) ? characters : []).map((character) => compactCharacterForSave(character, options));
 }
 
-export function estimateCharacterPayloadBytes(characters) {
+export function estimateCharacterPayloadBytes(characters, options = {}) {
   try {
-    return new Blob([JSON.stringify(compactCharactersForSave(characters))]).size;
+    return new Blob([JSON.stringify(compactCharactersForSave(characters, options))]).size;
   } catch {
-    return JSON.stringify(compactCharactersForSave(characters)).length;
+    return JSON.stringify(compactCharactersForSave(characters, options)).length;
   }
 }
