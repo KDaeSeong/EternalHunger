@@ -34,6 +34,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
   try {
     const wildRule = ws?.wildlife || {};
+    const wildlifeEnabled = wildRule?.enabled !== false;
     const perZoneMinDay = Math.max(0, Number(wildRule?.perZoneMinDay ?? 2));
     const perZoneMinNight = Math.max(0, Number(wildRule?.perZoneMinNight ?? 2));
     const extraTotalDay = Math.max(0, Number(wildRule?.extraTotalDay ?? eligible.length));
@@ -43,19 +44,88 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     const extraTotal = (timeOfDay === 'day') ? extraTotalDay : extraTotalNight;
     const targetTotal = Math.max(0, eligible.length * perZoneMin + extraTotal);
 
-    if (Number(s?.spawnedDay?.wildlife) !== spawnKey) {
+    const defaultSpeciesByTime = {
+      day: [
+        { key: 'chicken', weight: 4 },
+        { key: 'bat', weight: 2 },
+        { key: 'boar', weight: 2 },
+        { key: 'dog', weight: 2 },
+        { key: 'wolf', weight: 1 },
+      ],
+      night: [
+        { key: 'bat', weight: 2 },
+        { key: 'boar', weight: 2 },
+        { key: 'dog', weight: 1 },
+        { key: 'wolf', weight: 2 },
+        { key: 'bear', weight: 2 },
+      ],
+    };
+    const speciesPoolRaw = Array.isArray(wildRule?.speciesByTimeOfDay?.[timeOfDay])
+      ? wildRule.speciesByTimeOfDay[timeOfDay]
+      : defaultSpeciesByTime[timeOfDay] || defaultSpeciesByTime.day;
+    const speciesPool = speciesPoolRaw
+      .map((row) => ({
+        key: String(row?.key || row?.species || row?.name || '').trim().toLowerCase(),
+        weight: Math.max(0, Number(row?.weight ?? 1)),
+      }))
+      .filter((row) => row.key && row.weight > 0);
+
+    const pickSpeciesKey = () => {
+      const pool = speciesPool.length ? speciesPool : defaultSpeciesByTime.day;
+      const total = pool.reduce((sum, row) => sum + Math.max(0, Number(row?.weight || 0)), 0);
+      if (total <= 0) return String(pool[0]?.key || 'chicken');
+      let r = Math.random() * total;
+      for (const row of pool) {
+        r -= Math.max(0, Number(row?.weight || 0));
+        if (r <= 0) return String(row.key || 'chicken');
+      }
+      return String(pool[pool.length - 1]?.key || 'chicken');
+    };
+
+    const ensureSpeciesList = (zid) => {
+      if (!s.wildlifeSpecies || typeof s.wildlifeSpecies !== 'object') s.wildlifeSpecies = {};
+      const key = String(zid || '');
+      const list = Array.isArray(s.wildlifeSpecies[key])
+        ? s.wildlifeSpecies[key].map((x) => String(x || '').trim()).filter(Boolean)
+        : [];
+      s.wildlifeSpecies[key] = list;
+      return list;
+    };
+
+    const setWildlifeCountFromSpecies = (zid) => {
+      const key = String(zid || '');
+      const list = ensureSpeciesList(key);
+      s.wildlife[key] = Math.max(0, list.length);
+    };
+
+    const addWildlife = (zid, speciesKey = '') => {
+      const key = String(zid || '');
+      if (!key) return;
+      const list = ensureSpeciesList(key);
+      list.push(String(speciesKey || pickSpeciesKey() || 'chicken'));
+      setWildlifeCountFromSpecies(key);
+    };
+
+    if (wildlifeEnabled && Number(s?.spawnedDay?.wildlife) !== spawnKey) {
       if (!s.wildlife || typeof s.wildlife !== 'object') s.wildlife = {};
+      if (!s.wildlifeSpecies || typeof s.wildlifeSpecies !== 'object') s.wildlifeSpecies = {};
 
       const allow = new Set(eligible.map(String));
       Object.keys(s.wildlife).forEach((k) => {
         if (!allow.has(String(k))) delete s.wildlife[k];
       });
+      Object.keys(s.wildlifeSpecies).forEach((k) => {
+        if (!allow.has(String(k))) delete s.wildlifeSpecies[k];
+      });
 
       for (const zid0 of eligible) {
         const zid = String(zid0 || '');
         if (!zid) continue;
-        const cur = Math.max(0, Number(s.wildlife[zid] ?? 0));
-        s.wildlife[zid] = Math.max(cur, perZoneMin);
+        const list = ensureSpeciesList(zid);
+        const legacyCount = Math.max(0, Number(s.wildlife[zid] ?? 0));
+        while (list.length < legacyCount) list.push(pickSpeciesKey());
+        while (list.length < perZoneMin) list.push(pickSpeciesKey());
+        setWildlifeCountFromSpecies(zid);
       }
 
       const hotspot = (wildRule?.hotspotWeights && typeof wildRule.hotspotWeights === 'object') ? wildRule.hotspotWeights : {
@@ -95,7 +165,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       for (let i = 0; i < add; i++) {
         const zid = pickZone();
         if (!zid) break;
-        s.wildlife[zid] = Math.max(0, Number(s.wildlife[zid] ?? 0)) + 1;
+        addWildlife(zid, pickSpeciesKey());
       }
 
       s.spawnedDay.wildlife = spawnKey;
@@ -248,8 +318,11 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     const mutantSpawnChance = Math.max(0, Math.min(1, Number(mutantRule?.spawnChance ?? 0.75)));
     const mutantIntervalOk = ((nightDay - mutantGateDay) % mutantIntervalNights) === 0;
     s.spawnedDay = s.spawnedDay || {};
-    const already = Number(s.spawnedDay.mutantWildlife || 0) === nightDay && s?.mutantWildlife?.alive;
-    if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !already && Math.random() < mutantSpawnChance) {
+    const attemptedThisNight = Number(s.spawnedDay.mutantWildlife ?? -1) === nightDay;
+    if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !attemptedThisNight) {
+      s.spawnedDay.mutantWildlife = nightDay;
+    }
+    if (mutantEnabled && nightDay >= mutantGateDay && mutantIntervalOk && !attemptedThisNight && Math.random() < mutantSpawnChance) {
       const cfgZid = String(getMutantWildlifeSpawnZoneId(mapId) || '').trim();
       const allZoneIdSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
       const zid = (cfgZid && allZoneIdSet.has(cfgZid))
@@ -266,7 +339,6 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
           defeatedBy: null,
           defeatedAt: null,
         };
-        s.spawnedDay.mutantWildlife = nightDay;
         const zoneName = (Array.isArray(zones) ? zones : []).find((z) => String(z?.zoneId || '') === String(zid))?.name || zid;
         announcements.push(`🧪 변이 야생동물(${animal}) 출현: ${zoneName}`);
       }

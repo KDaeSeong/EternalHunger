@@ -139,10 +139,11 @@ function hasGoalInventoryTag(it) {
   return it?.goalItem === true || it?._goalItem === true || tags.includes('craft_goal') || tags.includes('route_goal');
 }
 
-export function markInventoryGoalItem(item, isGoal = true) {
+export function markInventoryGoalItem(item, isGoal = true, tagName = 'craft_goal') {
   if (!isGoal || !item || typeof item !== 'object') return item;
   const tags = safeTags(item).map((t) => String(t || '')).filter(Boolean);
-  if (!tags.map((t) => t.toLowerCase()).includes('craft_goal')) tags.push('craft_goal');
+  const tag = String(tagName || 'craft_goal').trim() || 'craft_goal';
+  if (!tags.map((t) => t.toLowerCase()).includes(tag.toLowerCase())) tags.push(tag);
   return { ...item, tags, goalItem: true };
 }
 
@@ -161,6 +162,18 @@ function inventoryItemPriority(it) {
   return tier * 4;
 }
 
+function isAutoDroppableConsumable(entry, invCfg, incomingScore) {
+  if (invCfg?.autoDropConsumablesForPriority === false) return false;
+  const tags = safeTags(entry).map((t) => String(t || '').toLowerCase());
+  const medical = tags.includes('heal') || tags.includes('medical') || isBandageLikeItem(entry);
+  if (medical) return false;
+
+  const tier = clampTier4(entry?.tier || 1);
+  const maxTier = Math.max(1, Number(invCfg?.autoDropConsumableMaxTier ?? 2));
+  const minIncomingScore = Math.max(0, Number(invCfg?.autoDropConsumableMinIncomingScore ?? 50));
+  return tier <= maxTier && incomingScore >= minIncomingScore;
+}
+
 function findAutoDropIndexForIncoming(list, incoming, ruleset) {
   if (!Array.isArray(list) || !list.length) return -1;
   const invCfg = ruleset?.inventory || {};
@@ -177,7 +190,9 @@ function findAutoDropIndexForIncoming(list, incoming, ruleset) {
       const tier = clampTier4(entry?.tier || 1);
       const protectedEntry = category === 'equipment' || hasSpecialInventoryTag(entry) || hasGoalInventoryTag(entry) || tier >= 4;
       if (protectedEntry) return null;
-      if (category !== 'material' || tier > 2) return null;
+      const disposableMaterial = category === 'material' && tier <= 2;
+      const disposableConsumable = category === 'consumable' && isAutoDroppableConsumable(entry, invCfg, incomingScore);
+      if (!disposableMaterial && !disposableConsumable) return null;
 
       const score = inventoryItemPriority(entry);
       if (score + scoreMargin > incomingScore) return null;

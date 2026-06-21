@@ -11,7 +11,7 @@ import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatal
 import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
-import { compactCharactersForSave } from '../../utils/characterPayload';
+import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 
 const GOAL_GEAR_TIERS = [
@@ -19,6 +19,35 @@ const GOAL_GEAR_TIERS = [
   { value: 5, label: '전설' },
   { value: 6, label: '초월' },
 ];
+
+function normalizeCharacterEditorList(data) {
+  return (Array.isArray(data) ? data : []).map((c) => ({
+    ...c,
+    weaponType: normalizeWeaponType(c?.weaponType),
+    goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
+    tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
+  }));
+}
+
+function formatSaveMismatchMessage(mismatches) {
+  const sample = (Array.isArray(mismatches) ? mismatches : [])
+    .slice(0, 5)
+    .map((m) => `${m.field}:${String(m.id || '').slice(-6)}`)
+    .join(', ');
+  return `저장 후 서버 재조회 값이 요청값과 다릅니다.${sample ? ` (${sample})` : ''}`;
+}
+
+function freshCharactersUrl() {
+  return `/characters?_fresh=${Date.now()}`;
+}
+
+function syncTokenCookie(token) {
+  try {
+    document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+  } catch {
+    // 쿠키 저장 실패해도 Authorization 헤더 경로는 계속 사용할 수 있습니다.
+  }
+}
 
 
 export default function CharactersPage() {
@@ -39,6 +68,7 @@ export default function CharactersPage() {
         window.location.href = '/login';
         return;
     }
+    syncTokenCookie(token);
 
     const userData = getUser();
     if (userData) setUser(userData);
@@ -56,29 +86,18 @@ export default function CharactersPage() {
   };
 
  // 1. 서버에서 데이터 불러오기
-    // 토큰을 Next.js API Route에서도 읽을 수 있게 쿠키로 동기화
-  const syncTokenCookie = (token) => {
-    try {
-      document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
-    } catch (e) {
-      // 쿠키 저장 실패해도 UI는 계속 진행
-    }
-  };
-
   async function fetchCharacters() {
       const token = getToken();
       if (!token) return;
       try {
           const data = await apiGet('/characters');
           // 무기 타입 표준화(레거시 표기 보정 포함)
-          setCharacters(((data || [])).map((c) => ({
-            ...c,
-            weaponType: normalizeWeaponType(c?.weaponType),
-            goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
-            tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
-          })));
+          const normalized = normalizeCharacterEditorList(data);
+          setCharacters(normalized);
+          return normalized;
       } catch (err) { 
           console.error("데이터 로드 실패:", err); 
+          return [];
       }
   }
   // 2. 캐릭터 추가 (임시 ID 사용)
@@ -229,14 +248,31 @@ export default function CharactersPage() {
     
     try {
         if (!token) throw new Error('로그인이 필요합니다.');
-        await apiPost('/characters/save', compactCharactersForSave(characters, { previewImageIds: dirtyPreviewIds }), { timeoutMs: 30000 });
+        const payload = compactCharactersForSave(characters, { previewImageIds: dirtyPreviewIds });
+        const result = await apiPost('/characters/save', payload, { timeoutMs: 30000 });
+        if (Array.isArray(result?.missingIds) && result.missingIds.length > 0) {
+          throw new Error('일부 캐릭터를 찾을 수 없습니다. 새로고침 후 다시 저장해주세요.');
+        }
+        if (result?.receivedCount !== undefined) {
+          const receivedCount = Number(result.receivedCount || 0);
+          const appliedCount = Number(result.updatedCount || 0) + Number(result.createdCount || 0);
+          if (receivedCount !== payload.length || appliedCount !== payload.length) {
+            throw new Error(`저장 반영 건수가 맞지 않습니다. 요청 ${payload.length}명 / 반영 ${appliedCount}명`);
+          }
+        }
+        const savedCharacters = await apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
+        const normalizedSaved = normalizeCharacterEditorList(savedCharacters);
+        const mismatches = findCharacterSaveMismatches(payload, normalizedSaved, { saveResults: result?.saveResults });
+        if (mismatches.length > 0) {
+          throw new Error(formatSaveMismatchMessage(mismatches));
+        }
+        setCharacters(normalizedSaved);
         setDirtyPreviewIds(new Set());
-        await fetchCharacters();
         alert("저장 완료!");
     } catch (error) {
       console.error(error);
       const status = Number(error?.status || error?.response?.status || 0);
-      alert(status === 413 ? '저장 데이터가 너무 큽니다. 이미지 용량을 줄인 뒤 다시 시도해주세요.' : "저장 실패!");
+      alert(status === 413 ? '저장 데이터가 너무 큽니다. 이미지 용량을 줄인 뒤 다시 시도해주세요.' : `저장 실패: ${error?.message || '서버 오류'}`);
     }
   };
 

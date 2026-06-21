@@ -13,6 +13,42 @@ import { roughPower } from './combatRuntime';
 import { getEquipTierSummary } from './survivorRuntime';
 import { pickFromAllCrates } from './lootRuntime';
 
+const WILDLIFE_SPECIES = {
+  chicken: { key: 'chicken', label: '닭', icon: '🐔', dayWeight: 4, nightWeight: 1, credits: [12, 18], dmg: 4, meatQty: 0, chickenDropChance: 0.5 },
+  bat: { key: 'bat', label: '박쥐', icon: '🦇', dayWeight: 2, nightWeight: 2, credits: [9, 14], dmg: 6, meatQty: 0 },
+  boar: { key: 'boar', label: '멧돼지', icon: '🐗', dayWeight: 2, nightWeight: 2, credits: [14, 22], dmg: 8, meatQty: 2 },
+  dog: { key: 'dog', label: '들개', icon: '🐕', dayWeight: 2, nightWeight: 1, credits: [14, 22], dmg: 7, meatQty: 1 },
+  wolf: { key: 'wolf', label: '늑대', icon: '🐺', dayWeight: 1, nightWeight: 2, credits: [18, 28], dmg: 9, meatQty: 1 },
+  bear: { key: 'bear', label: '곰', icon: '🐻', dayWeight: 0.4, nightWeight: 3, credits: [22, 34], dmg: 11, meatQty: 1 },
+};
+
+const WILDLIFE_ALIASES = {
+  닭: 'chicken',
+  chicken: 'chicken',
+  bat: 'bat',
+  박쥐: 'bat',
+  boar: 'boar',
+  멧돼지: 'boar',
+  dog: 'dog',
+  들개: 'dog',
+  wolf: 'wolf',
+  늑대: 'wolf',
+  bear: 'bear',
+  곰: 'bear',
+};
+
+function normalizeWildlifeSpeciesKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const lower = raw.toLowerCase();
+  return WILDLIFE_ALIASES[raw] || WILDLIFE_ALIASES[lower] || (WILDLIFE_SPECIES[lower] ? lower : '');
+}
+
+function getWildlifeSpeciesSpec(value, fallback = 'chicken') {
+  const key = normalizeWildlifeSpeciesKey(value) || normalizeWildlifeSpeciesKey(fallback) || 'chicken';
+  return WILDLIFE_SPECIES[key] || WILDLIFE_SPECIES.chicken;
+}
+
 function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, actor, opts = {}) {
   const moved = !!opts.moved;
   const isKioskZone = !!opts.isKioskZone;
@@ -30,16 +66,13 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   const powerBonus = Math.min(0.25, Math.max(0, (p - 40) / 240));
 
   const tod = curPhase === 'morning' ? 'day' : 'night';
-  const spawnPool = [
-    ...(tod === 'day'
-      ? [{ key: 'wolf', label: '늑대', icon: '🐺', weight: 3 }]
-      : [{ key: 'bear', label: '곰', icon: '🐻', weight: 3 }]),
-    { key: 'chicken', label: '닭', icon: '🐔', weight: 2 },
-    { key: 'boar', label: '멧돼지', icon: '🐗', weight: 2 },
-    { key: 'bat', label: '박쥐', icon: '🦇', weight: 2 },
-    { key: 'dog', label: '들개', icon: '🐕', weight: 2 },
-  ];
-  const species = pickWeighted(spawnPool) || spawnPool[0];
+  const forcedSpecies = normalizeWildlifeSpeciesKey(opts.speciesKey || opts.species || '');
+  const spawnPool = forcedSpecies
+    ? [{ ...getWildlifeSpeciesSpec(forcedSpecies), weight: 1 }]
+    : Object.values(WILDLIFE_SPECIES)
+      .map((row) => ({ ...row, weight: tod === 'day' ? Number(row.dayWeight || 0) : Number(row.nightWeight || 0) }))
+      .filter((row) => Number(row.weight || 0) > 0);
+  const species = pickWeighted(spawnPool) || spawnPool[0] || WILDLIFE_SPECIES.chicken;
 
   if (!disableBoss) {
     if (!isKioskZone && isAtOrAfterWorldTime(curDay, curPhase, 5, 'day') && Math.random() < 0.15 + powerBonus) {
@@ -102,13 +135,15 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   }
 
   const meat = findItemByKeywords(publicItems, ['고기']);
-  if (meat?._id) {
-    if (species?.key === 'chicken') {
-      if (Math.random() < Math.min(0.92, (2 / 3) + perkWildLootBias * 0.12)) drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.32, 1) });
-    } else if (species?.key === 'boar') {
-      drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(2, perkWildLootBias * 0.32, 1) });
-    } else if (species?.key === 'bear' || species?.key === 'wolf' || species?.key === 'dog') {
-      drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.28, 1) });
+  if (meat?._id && Number(species?.meatQty || 0) > 0) {
+    drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(Number(species.meatQty || 1), perkWildLootBias * 0.32, 1) });
+  }
+  if (species?.key === 'chicken') {
+    const chicken = findItemByKeywords(publicItems, ['치킨']);
+    if (chicken?._id && Math.random() < Math.min(0.75, Number(species?.chickenDropChance ?? 0.5) + perkWildLootBias * 0.12)) {
+      drops.push({ item: chicken, itemId: String(chicken._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.28, 1) });
+    } else if (meat?._id && Math.random() < Math.min(0.92, (2 / 3) + perkWildLootBias * 0.12)) {
+      drops.push({ item: meat, itemId: String(meat._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.32, 1) });
     }
   }
 
@@ -122,15 +157,9 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   if (!drops.length) return null;
 
   const dayScale = 1 + Math.min(0.35, Math.max(0, (Number(curDay || 1) - 1) * 0.08));
-  let crMin = 10;
-  let crMax = 14;
-  const k0 = String(species?.key || '').toLowerCase();
-  if (k0 === 'chicken') { crMin = 12; crMax = 18; }
-  else if (k0 === 'bat') { crMin = 9; crMax = 14; }
-  else if (k0 === 'boar') { crMin = 14; crMax = 22; }
-  else if (k0 === 'dog') { crMin = 14; crMax = 22; }
-  else if (k0 === 'wolf') { crMin = 18; crMax = 28; }
-  else if (k0 === 'bear') { crMin = 22; crMax = 34; }
+  const crRange = Array.isArray(species?.credits) ? species.credits : [10, 14];
+  const crMin = Math.max(0, Number(crRange[0] ?? 10));
+  const crMax = Math.max(crMin, Number(crRange[1] ?? 14));
 
   const tierSum = getEquipTierSummary(actor);
   const avgTier = (Number(tierSum.weaponTier || 0) + Number(tierSum.armorTierSum || 0) / 4) / 2;
@@ -139,7 +168,7 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
   const credits0 = Math.max(0, Math.floor(randInt(Math.floor(crMin * dayScale), Math.floor(crMax * dayScale)) * underdogMul));
   const credits = applyPerkCreditBonus(credits0, perkWildCreditPct);
 
-  const dmgBase = species?.key === 'bear' ? 11 : species?.key === 'wolf' ? 9 : species?.key === 'boar' ? 8 : species?.key === 'bat' ? 6 : 4;
+  const dmgBase = Math.max(0, Number(species?.dmg ?? 4));
   const dmg = applyPerkDamageReduction(Math.max(0, dmgBase - Math.floor(p / 18)), perkWildDamageMinus);
   return {
     kind: String(species?.key || 'wildlife'),
@@ -171,22 +200,34 @@ function consumeWildlifeAtZone(spawnState, mapObj, zoneId, publicItems, curDay, 
   const chance = Math.min(0.92, base + densBoost);
   if (Math.random() >= chance) return null;
 
+  const speciesList = s.wildlifeSpecies && typeof s.wildlifeSpecies === 'object' && Array.isArray(s.wildlifeSpecies[zid])
+    ? s.wildlifeSpecies[zid]
+    : null;
+  const speciesKey = speciesList && speciesList.length
+    ? normalizeWildlifeSpeciesKey(speciesList.shift()) || ''
+    : '';
   s.wildlife[zid] = Math.max(0, cur - 1);
+  if (speciesList) {
+    s.wildlife[zid] = Math.max(0, speciesList.length);
+  }
 
   const res = rollWildlifeEncounter(mapObj, zid, publicItems, curDay, curPhase, actor, {
     moved,
     isKioskZone,
     disableBoss: true,
     force: true,
+    speciesKey,
   });
 
   if (res) return res;
 
+  const species = getWildlifeSpeciesSpec(speciesKey, curPhase === 'night' ? 'bear' : 'chicken');
   const p = roughPower(actor);
   const perkFx = getActorPerkEffects(actor);
-  const dmg = applyPerkDamageReduction(Math.max(0, 5 - Math.floor(p / 22)), Math.max(0, perkNumber(perkFx?.wildlifeDamageMinus || 0)));
-  const credits = applyPerkCreditBonus(Math.max(0, randInt(12, 22)), perkFx?.wildlifeCreditsPct || 0);
-  return { kind: 'wildlife', damage: dmg, credits, drops: [], log: '🦌 야생동물 사냥 성공' };
+  const crRange = Array.isArray(species?.credits) ? species.credits : [12, 22];
+  const dmg = applyPerkDamageReduction(Math.max(0, Number(species?.dmg ?? 5) - Math.floor(p / 22)), Math.max(0, perkNumber(perkFx?.wildlifeDamageMinus || 0)));
+  const credits = applyPerkCreditBonus(Math.max(0, randInt(Number(crRange[0] ?? 12), Number(crRange[1] ?? 22))), perkFx?.wildlifeCreditsPct || 0);
+  return { kind: String(species?.key || 'wildlife'), damage: dmg, credits, drops: [], log: `${String(species?.icon || '🦌')} ${String(species?.label || '야생동물')} 사냥 성공` };
 }
 
 export {

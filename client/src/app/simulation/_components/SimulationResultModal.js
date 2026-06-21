@@ -34,6 +34,7 @@ export default function SimulationResultModal({
   gainDetailSummary,
   runSupportSummary,
   runActionSummary,
+  objectiveSummary,
   topRankedCharacters,
   killCounts,
   assistCounts,
@@ -48,6 +49,9 @@ export default function SimulationResultModal({
   const winnerTeamMembers = Array.isArray(winnerTeam?.members) ? winnerTeam.members : [];
   const matchMode = String(resultSummary?.matchMode || '').toLowerCase();
   const isSoloMatch = matchMode === 'solo';
+  const matchModeText = isSoloMatch
+    ? `솔로 · ${resultSummary?.participantsCount || 0}명 / ${resultSummary?.teamCount || 0}팀`
+    : `스쿼드 · ${resultSummary?.participantsCount || 0}명 / ${resultSummary?.teamCount || 0}팀 · 팀당 ${resultSummary?.teamSize || 3}명`;
   const winnerLine = winner
     ? (isSoloMatch ? '최후의 1인! 생존을 축하합니다.' : `${winnerTeam?.teamName || '우승 팀'} 생존을 축하합니다.`)
     : '이번 경기에는 생존자가 남지 않았습니다.';
@@ -75,6 +79,9 @@ export default function SimulationResultModal({
     gainSourceSummary,
     creditSourceSummary,
     gainDetailSummary,
+    matchModeText,
+    objectiveSummary?.line,
+    objectiveSummary?.detailLine,
     runSupportSummary?.line,
     runSupportSummary?.combatLine,
     runActionSummary?.line,
@@ -131,10 +138,13 @@ export default function SimulationResultModal({
                     {userProgress.statistics?.totalGames || 0}전 / {userProgress.statistics?.totalWins || 0}승 / {userProgress.statistics?.totalKills || 0}킬 · LP {userProgress.lp || 0} · 크레딧 {userProgress.credits || 0}
                   </DetailRow>
                 ) : null}
+                <DetailRow label="매치 모드">{compactText(matchModeText)}</DetailRow>
                 <DetailRow label="우승자 ER 프로필">{compactText(winnerErText)}</DetailRow>
                 <DetailRow label={winnerGroupLabel}>
                   {winnerGroupText}
                 </DetailRow>
+                <DetailRow label="오브젝트">{compactText(objectiveSummary?.line)}</DetailRow>
+                <DetailRow label="오브젝트 상세">{compactText(objectiveSummary?.detailLine)}</DetailRow>
                 <DetailRow label="특수 보상">{compactText(specialSourceSummary)}</DetailRow>
                 <DetailRow label="아이템 획득">{compactText(gainSourceSummary)}</DetailRow>
                 <DetailRow label="크레딧 획득">{compactText(creditSourceSummary)}</DetailRow>
@@ -146,6 +156,7 @@ export default function SimulationResultModal({
                 <DetailRow label="주요 소모품">{compactText(runSupportSummary?.topItems)}</DetailRow>
                 <DetailRow label="주요 효과">{compactText(runSupportSummary?.topEffects)}</DetailRow>
                 <DetailRow label="행동 요약">{compactText(runActionSummary?.line)}</DetailRow>
+                <DetailRow label="목표 이동">{compactText(runActionSummary?.topObjectiveMoves)}</DetailRow>
                 <DetailRow label="추격/도주">{compactText(runActionSummary?.chaseLine)}</DetailRow>
                 <DetailRow label="추격 지표">{compactText(runActionSummary?.tuningLine)}</DetailRow>
                 <DetailRow label="많이 막힌 이유">{compactText(runActionSummary?.topBlocked)}</DetailRow>

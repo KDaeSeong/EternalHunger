@@ -8,7 +8,17 @@ import { cookies } from 'next/headers';
 const LEGACY_BACKEND_FALLBACK = 'https://eternalhunger-e7z1.onrender.com';
 
 function stripApiSuffix(value) {
-  return String(value || '').trim().replace(/\/+$/, '').replace(/\/api$/, '');
+  return String(value || '').trim().replace(/\/+$/, '').replace(/\/api\/proxy$/, '').replace(/\/api$/, '');
+}
+
+function isProxyApiCandidate(value, request) {
+  try {
+    const reqUrl = request?.url ? new URL(request.url) : null;
+    const candidate = new URL(String(value || '').trim(), reqUrl || undefined);
+    return /^\/api\/proxy(?:\/|$)/.test(candidate.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function getBackendBase(request) {
@@ -20,7 +30,9 @@ function getBackendBase(request) {
   ].filter(Boolean);
 
   for (const v of candidates) {
-    if (typeof v === 'string' && /^https?:\/\//.test(v)) return stripApiSuffix(v);
+    if (typeof v === 'string' && /^https?:\/\//.test(v) && !isProxyApiCandidate(v, request)) {
+      return stripApiSuffix(v);
+    }
   }
 
   const reqUrl = request?.url ? new URL(request.url) : null;
@@ -100,7 +112,10 @@ async function proxy(request, context) {
 
   return new NextResponse(body, {
     status: res.status,
-    headers: { 'Content-Type': contentType },
+    headers: {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-store, max-age=0',
+    },
   });
 }
 

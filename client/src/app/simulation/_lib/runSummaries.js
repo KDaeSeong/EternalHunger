@@ -34,6 +34,20 @@ const DETAIL_SOURCE_LABELS = {
   unknown: '기타',
 };
 
+const OBJECTIVE_LABELS = {
+  natural_core: '코어',
+  legendary_crate: '전설상자',
+  boss: '보스',
+  mutant_wildlife: '변이 야생동물',
+  meteor: '운석',
+  life_tree: '생명의 나무',
+  alpha: '알파',
+  omega: '오메가',
+  weakline: '위클라인',
+  wickeline: '위클라인',
+  legendary_material: '전설 재료',
+};
+
 function createRunProgressFallback() {
   return {
     droneCalls: 0,
@@ -92,6 +106,9 @@ function createRunActionFallback() {
     craftChosen: 0,
     droneChosen: 0,
     kioskChosen: 0,
+    objectiveMoveChosen: 0,
+    objectivePressureCount: 0,
+    objectivePressureTotal: 0,
     escapeFail: 0,
     escapeNoChase: 0,
     escapedAfterChase: 0,
@@ -103,14 +120,37 @@ function createRunActionFallback() {
     avgPreDamage: 0,
     topBlocked: '',
     topDeferred: '',
+    topObjectiveMoves: '',
     line: '',
     chaseLine: '',
     tuningLine: '',
   };
 }
 
+function createObjectiveFallback() {
+  return {
+    total: 0,
+    naturalCore: 0,
+    legendaryCrate: 0,
+    boss: 0,
+    mutantWildlife: 0,
+    successCount: 0,
+    dangerCount: 0,
+    topTypes: '',
+    topActors: '',
+    topZones: '',
+    firstText: '',
+    line: '',
+    detailLine: '',
+  };
+}
+
 function gainEvents(runEvents) {
   return (Array.isArray(runEvents) ? runEvents : []).filter((e) => e && e.kind === 'gain');
+}
+
+function objectiveEvents(runEvents) {
+  return (Array.isArray(runEvents) ? runEvents : []).filter((e) => e && e.kind === 'objective');
 }
 
 function positiveQty(e) {
@@ -127,6 +167,11 @@ function itemName(itemNameById, id) {
 
 function zoneName(zoneNameById, id) {
   return zoneNameById?.[String(id)] || String(id);
+}
+
+function objectiveLabel(value) {
+  const key = String(value || '').trim();
+  return OBJECTIVE_LABELS[key] || key;
 }
 
 function topEntries(acc, limit) {
@@ -155,6 +200,7 @@ export function getEmptyRunSummaries() {
     runProgressSummary: createRunProgressFallback(),
     runSupportSummary: createRunSupportFallback(),
     runActionSummary: createRunActionFallback(),
+    objectiveSummary: createObjectiveFallback(),
     topRankedCharacters: [],
   };
 }
@@ -418,6 +464,7 @@ export function buildRunActionSummary(runEvents) {
   const out = createRunActionFallback();
   const blockedAcc = {};
   const deferredAcc = {};
+  const objectiveAcc = {};
   let escapeN = 0;
   let chaseN = 0;
   let catchN = 0;
@@ -434,6 +481,18 @@ export function buildRunActionSummary(runEvents) {
       else if (chosen === 'craft') out.craftChosen += 1;
       else if (chosen === 'droneOrder') out.droneChosen += 1;
       else if (chosen.startsWith('kiosk')) out.kioskChosen += 1;
+      const objectiveType = String(e?.objectiveType || '').trim();
+      const objectiveSubkind = String(e?.objectiveSubkind || '').trim();
+      const contestPressure = Math.max(0, Number(e?.contestPressure || 0));
+      if (objectiveType) {
+        out.objectiveMoveChosen += 1;
+        const objectiveKey = objectiveSubkind || objectiveType;
+        objectiveAcc[objectiveKey] = (objectiveAcc[objectiveKey] || 0) + 1;
+      }
+      if (contestPressure > 0) {
+        out.objectivePressureCount += 1;
+        out.objectivePressureTotal += contestPressure;
+      }
       (Array.isArray(e.blockedReasons) ? e.blockedReasons : []).forEach((reason) => {
         const key = String(reason || '').trim();
         if (!key) return;
@@ -484,14 +543,72 @@ export function buildRunActionSummary(runEvents) {
 
   const topBlocked = topEntries(blockedAcc, 4).map(([reason, count]) => `${reason}x${count}`).join(', ');
   const topDeferred = topEntries(deferredAcc, 3).map(([reason, count]) => `${reason}x${count}`).join(', ');
+  const topObjectiveMoves = topEntries(objectiveAcc, 3).map(([key, count]) => `${objectiveLabel(key)}x${count}`).join(', ');
+  const avgObjectivePressure = out.objectivePressureCount > 0 ? out.objectivePressureTotal / out.objectivePressureCount : 0;
 
   return {
     ...out,
     topBlocked,
     topDeferred,
-    line: `queue ${out.queued} · blocked ${out.blocked} · flee ${out.fleeChosen} · move ${out.moveChosen} · route ${out.routeFarmChosen} · craft ${out.craftChosen} · drone ${out.droneChosen} · kiosk ${out.kioskChosen}`,
+    topObjectiveMoves,
+    line: `queue ${out.queued} · blocked ${out.blocked} · flee ${out.fleeChosen} · move ${out.moveChosen} · obj ${out.objectiveMoveChosen} · route ${out.routeFarmChosen} · craft ${out.craftChosen} · drone ${out.droneChosen} · kiosk ${out.kioskChosen}`,
     chaseLine: `escapeFail ${out.escapeFail} · noChase ${out.escapeNoChase} · escaped ${out.escapedAfterChase + out.blinkEscape} · caught ${out.caught}`,
-    tuningLine: `avgEscape ${(out.avgEscape * 100).toFixed(0)}% · avgChase ${(out.avgChase * 100).toFixed(0)}% · avgCatch ${(out.avgCatch * 100).toFixed(0)}% · preDmg ${out.avgPreDamage.toFixed(1)}`,
+    tuningLine: `avgEscape ${(out.avgEscape * 100).toFixed(0)}% · avgChase ${(out.avgChase * 100).toFixed(0)}% · avgCatch ${(out.avgCatch * 100).toFixed(0)}% · preDmg ${out.avgPreDamage.toFixed(1)} · objPressure ${avgObjectivePressure.toFixed(2)}`,
+  };
+}
+
+export function buildObjectiveSummary({ runEvents, zoneNameById }) {
+  const out = createObjectiveFallback();
+  const typeAcc = {};
+  const actorAcc = {};
+  const zoneAcc = {};
+  let firstAt = null;
+
+  for (const e of objectiveEvents(runEvents)) {
+    const objective = String(e?.objective || '').trim() || 'unknown';
+    const subkind = String(e?.subkind || '').trim();
+    const whoName = String(e?.whoName || e?.name || e?.who || '').trim();
+    const zid = String(e?.zoneId || '').trim();
+
+    out.total += 1;
+    if (objective === 'natural_core') out.naturalCore += 1;
+    else if (objective === 'legendary_crate') out.legendaryCrate += 1;
+    else if (objective === 'boss') out.boss += 1;
+    else if (objective === 'mutant_wildlife') out.mutantWildlife += 1;
+
+    if (e?.success !== false) out.successCount += 1;
+    if (Number(e?.danger || 0) > 0) out.dangerCount += 1;
+    if (!firstAt) firstAt = e?.at || null;
+
+    const typeKey = subkind || objective;
+    if (typeKey) typeAcc[typeKey] = (typeAcc[typeKey] || 0) + 1;
+    if (whoName) actorAcc[whoName] = (actorAcc[whoName] || 0) + 1;
+    if (zid) zoneAcc[zid] = (zoneAcc[zid] || 0) + 1;
+  }
+
+  const topTypes = topEntries(typeAcc, 4).map(([key, count]) => `${objectiveLabel(key)}x${count}`).join(', ');
+  const topActors = topEntries(actorAcc, 3).map(([name, count]) => `${name}x${count}`).join(', ');
+  const topZones = topEntries(zoneAcc, 3).map(([id, count]) => `${zoneName(zoneNameById, id)}x${count}`).join(', ');
+  const counts = [
+    out.naturalCore ? `코어 ${out.naturalCore}` : '',
+    out.legendaryCrate ? `전설상자 ${out.legendaryCrate}` : '',
+    out.boss ? `보스 ${out.boss}` : '',
+    out.mutantWildlife ? `변이 ${out.mutantWildlife}` : '',
+  ].filter(Boolean).join(' · ');
+  const detailLine = [
+    topTypes ? `TOP ${topTypes}` : '',
+    topActors ? `획득자 ${topActors}` : '',
+    topZones ? `구역 ${topZones}` : '',
+  ].filter(Boolean).join(' | ');
+
+  return {
+    ...out,
+    topTypes,
+    topActors,
+    topZones,
+    firstText: stampText(firstAt),
+    line: out.total ? `오브젝트 ${out.total}회${counts ? ` · ${counts}` : ''}${out.dangerCount ? ` · 교전위험 ${out.dangerCount}` : ''}` : '',
+    detailLine,
   };
 }
 
@@ -523,6 +640,7 @@ export function buildRunSummaries({
     runProgressSummary: buildRunProgressSummary({ runEvents, itemMetaById }),
     runSupportSummary: buildRunSupportSummary({ runEvents, itemNameById }),
     runActionSummary: buildRunActionSummary(runEvents),
+    objectiveSummary: buildObjectiveSummary({ runEvents, zoneNameById }),
     topRankedCharacters: buildTopRankedCharacters({ survivors, dead, killCounts, assistCounts }),
   };
 }

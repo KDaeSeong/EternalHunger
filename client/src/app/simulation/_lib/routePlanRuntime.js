@@ -231,6 +231,14 @@ function advanceEarlyRouteProgress(actor, zoneId, opts = {}) {
   const plan = normalizeRoutePlanZoneIds(actor.routePlanZoneIds);
   if (!plan.length) {
     actor.routePlanIndex = 0;
+    actor._routePlanProgress = {
+      beforeIndex: 0,
+      afterIndex: 0,
+      planLength: 0,
+      zoneId: String(zoneId || actor.zoneId || '').trim(),
+      searched: opts?.searched === true,
+      advanced: false,
+    };
     return actor;
   }
 
@@ -246,19 +254,38 @@ function advanceEarlyRouteProgress(actor, zoneId, opts = {}) {
     ? { ...actor.routePlanSearchCounts }
     : {};
   let idx = Math.max(0, Math.floor(Number(actor.routePlanIndex || 0)));
+  const beforeIndex = idx;
+  let lastSearchCount = Math.max(0, Math.floor(Number(searchCounts[current] || 0)));
   while (idx < plan.length && String(plan[idx] || '') === current) {
-    const zoneItemIds = getRouteZoneItemIds(actor, current);
+    const zoneItemIds = uniqStrings(
+      (Array.isArray(opts?.routeItemIds) && opts.routeItemIds.length ? opts.routeItemIds : getRouteZoneItemIds(actor, current))
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+    );
     const stillNeedsZone = missingSet.size > 0 && zoneItemIds.some((id) => missingSet.has(id));
     if (stillNeedsZone) {
       const count = Math.max(0, Math.floor(Number(searchCounts[current] || 0)));
       const nextCount = searched ? count + 1 : count;
       searchCounts[current] = nextCount;
+      lastSearchCount = nextCount;
       if (nextCount < maxSearches) break;
     }
     idx += 1;
   }
-  actor.routePlanIndex = Math.min(plan.length, idx);
+  const afterIndex = Math.min(plan.length, idx);
+  actor.routePlanIndex = afterIndex;
   actor.routePlanSearchCounts = searchCounts;
+  actor._routePlanProgress = {
+    beforeIndex,
+    afterIndex,
+    planLength: plan.length,
+    zoneId: current,
+    searched,
+    searchCount: lastSearchCount,
+    maxSearches,
+    advanced: afterIndex > beforeIndex,
+    completed: afterIndex >= plan.length,
+  };
   return actor;
 }
 

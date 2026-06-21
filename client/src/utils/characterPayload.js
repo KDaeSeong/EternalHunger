@@ -4,6 +4,19 @@ const MAX_TEXT_CHARS = 4000;
 const STAT_KEYS = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
 const LOADOUT_KEYS = ['weaponKey', 'headKey', 'clothesKey', 'armKey', 'shoesKey'];
+const SIMPLE_COMPARE_KEYS = [
+  'name',
+  'gender',
+  'summary',
+  'weaponType',
+  'goalGearTier',
+  'tacticalSkill',
+  'tacticalSkillLevel',
+  'erSubject',
+  'erRole',
+  'erTrait',
+  'previewImage',
+];
 
 function cleanString(value, max = MAX_TEXT_CHARS) {
   if (value === undefined || value === null) return undefined;
@@ -109,6 +122,80 @@ function cleanRecords(records) {
     gamesPlayed: cleanNumber(records.gamesPlayed, 0),
     deathCount: cleanNumber(records.deathCount, 0),
   };
+}
+
+function cleanArrayStrings(list, max = 128) {
+  return (Array.isArray(list) ? list : [])
+    .map((x) => cleanString(x, max))
+    .filter(Boolean);
+}
+
+function stableStringify(value) {
+  if (value === undefined) return 'undefined';
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function comparableValueForKey(value, key) {
+  if (key === 'goalGearTier') return cleanNumber(value, 6);
+  if (key === 'tacticalSkillLevel') return Math.max(1, Math.min(2, cleanNumber(value, 1)));
+  if (key === 'previewImage') return cleanPreviewImage(value) || '';
+  if (key === 'name') return cleanString(value, 512) || 'Unnamed';
+  if (key === 'gender') return cleanString(value, 64) || 'unknown';
+  if (key === 'summary') return cleanString(value, MAX_TEXT_CHARS) || '';
+  return cleanString(value, 512) || '';
+}
+
+function compareField(payload, saved, key) {
+  if (!payload || payload[key] === undefined) return true;
+  return comparableValueForKey(payload[key], key) === comparableValueForKey(saved?.[key], key);
+}
+
+function compareObject(payloadValue, savedValue, cleaner) {
+  return stableStringify(cleaner(payloadValue)) === stableStringify(cleaner(savedValue));
+}
+
+export function findCharacterSaveMismatches(payloadCharacters, savedCharacters, options = {}) {
+  const savedById = new Map(
+    (Array.isArray(savedCharacters) ? savedCharacters : [])
+      .map((char) => [String(char?._id || '').trim(), char])
+      .filter(([id]) => Boolean(id))
+  );
+  const savedIdByClientId = new Map(
+    (Array.isArray(options?.saveResults) ? options.saveResults : [])
+      .map((row) => [String(row?.clientId || '').trim(), String(row?._id || '').trim()])
+      .filter(([clientId, savedId]) => Boolean(clientId) && Boolean(savedId))
+  );
+  const mismatches = [];
+
+  for (const payload of Array.isArray(payloadCharacters) ? payloadCharacters : []) {
+    const requestId = String(payload?._id || payload?.id || '').trim();
+    const id = String(payload?._id || savedIdByClientId.get(requestId) || '').trim();
+    if (!id) continue;
+    const saved = savedById.get(id);
+    if (!saved) {
+      mismatches.push({ id: requestId || id, field: '_id' });
+      continue;
+    }
+
+    for (const key of SIMPLE_COMPARE_KEYS) {
+      if (!compareField(payload, saved, key)) mismatches.push({ id: requestId || id, field: key });
+    }
+    if (payload?.stats !== undefined && !compareObject(payload.stats, saved?.stats, cleanStats)) {
+      mismatches.push({ id: requestId || id, field: 'stats' });
+    }
+    if (payload?.goalLoadouts !== undefined && !compareObject(payload.goalLoadouts, saved?.goalLoadouts, cleanLoadouts)) {
+      mismatches.push({ id: requestId || id, field: 'goalLoadouts' });
+    }
+    if (payload?.erWeapons !== undefined && stableStringify(cleanArrayStrings(payload.erWeapons)) !== stableStringify(cleanArrayStrings(saved?.erWeapons))) {
+      mismatches.push({ id: requestId || id, field: 'erWeapons' });
+    }
+  }
+
+  return mismatches;
 }
 
 export function compactCharacterForSave(character, options = {}) {

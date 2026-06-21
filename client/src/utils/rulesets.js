@@ -38,8 +38,11 @@ const DEFAULT_FIELD_CRATE_DROP = {
   earlyRoute: {
     chanceMoved: 0.78,
     chanceStay: 0.48,
+    chanceFarm: 0.92,
     maxTier: 2,
+    equipmentMaxTier: 2,
     routeWeight: 8,
+    equipmentWeight: 6,
     goalWeight: 18,
     maxQty: 2,
   },
@@ -175,6 +178,37 @@ const DEFAULT_WORLD_SPAWNS = {
     omega: { gateDay: 3, dropKeywords: ['포스 코어', 'force core', 'forcecore'], dmg: { min: 8, base: 26, scaleDiv: 9 }, reward: { credits: { min: 34, max: 64 }, bonusDropChance: 0.18 } },
     weakline: { gateDay: 4, dropKeywords: ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf'], dmg: { min: 6, base: 18, scaleDiv: 10 }, reward: { credits: { min: 50, max: 90 }, bonusDropChance: 0.22 } },
   },
+  wildlife: {
+    enabled: true,
+    perZoneMinDay: 1,
+    perZoneMinNight: 1,
+    extraTotalDay: 8,
+    extraTotalNight: 10,
+    topupCapPerPhase: 18,
+    speciesByTimeOfDay: {
+      day: [
+        { key: 'chicken', weight: 5 },
+        { key: 'bat', weight: 3 },
+        { key: 'boar', weight: 3 },
+        { key: 'dog', weight: 3 },
+        { key: 'wolf', weight: 2 },
+      ],
+      night: [
+        { key: 'bat', weight: 3 },
+        { key: 'boar', weight: 3 },
+        { key: 'dog', weight: 2 },
+        { key: 'wolf', weight: 3 },
+        { key: 'bear', weight: 3 },
+      ],
+    },
+    hotspotWeights: {
+      forest: 2.0,
+      pond: 1.6,
+      stream: 1.6,
+      beach: 1.4,
+      port: 1.2,
+    },
+  },
   bossFallback: {
     retreatBase: 0.20,
     retreatPowerBonusMax: 0.25,
@@ -293,6 +327,10 @@ export const RULESETS = {
       recoverHpBelow: 38,
       recoverMinSaferDelta: 1,
       erPresetStatScale: 1,
+      earlyRouteFarmAttempts: 2,
+      earlyRouteMaxSearches: 3,
+      // 레시피 데이터 누락 시에도 1일차 장비 fallback은 T3까지만 보정합니다.
+      day1AbstractFallbackMaxTier: 3,
 
       // 전투력 낮으면 교전 회피(최소): 상대 대비 불리하면 교전을 피함
       // - ratio = 내Power / (내Power + 상대Power)
@@ -364,6 +402,12 @@ export const RULESETS = {
       maxSlots: 10,
       stackMax: { material: 3, consumable: 6, equipment: 1 },
       equipSlots: ['head', 'clothes', 'arm', 'shoes', 'weapon'],
+      autoDropLowValue: true,
+      autoDropMinIncomingScore: 14,
+      autoDropScoreMargin: 8,
+      autoDropConsumablesForPriority: true,
+      autoDropConsumableMinIncomingScore: 50,
+      autoDropConsumableMaxTier: 2,
     },
 
     // 장비(전투 보정 최소)
@@ -435,6 +479,9 @@ export const RULESETS = {
       recoverHpBelow: 38,
       recoverMinSaferDelta: 1,
       erPresetStatScale: 0.45,
+      earlyRouteFarmAttempts: 2,
+      earlyRouteMaxSearches: 3,
+      day1AbstractFallbackMaxTier: 3,
     },
 
 
@@ -486,6 +533,12 @@ export const RULESETS = {
       maxSlots: 10,
       stackMax: { material: 3, consumable: 6, equipment: 1 },
       equipSlots: ['head', 'clothes', 'arm', 'shoes', 'weapon'],
+      autoDropLowValue: true,
+      autoDropMinIncomingScore: 14,
+      autoDropScoreMargin: 8,
+      autoDropConsumablesForPriority: true,
+      autoDropConsumableMinIncomingScore: 50,
+      autoDropConsumableMaxTier: 2,
     },
 
     // 장비(전투 보정 최소)

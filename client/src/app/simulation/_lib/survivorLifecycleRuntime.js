@@ -1,8 +1,13 @@
-import { compactIO } from './simulationCommon';
+import {
+  clampTier4,
+  compactIO,
+  safeTags,
+} from './simulationCommon';
 import { EQUIP_SLOTS } from './simulationConstants';
 import {
   addItemToInventory,
   getInvItemId,
+  inferItemCategory,
   normalizeInventory,
 } from './inventoryRules';
 import {
@@ -10,26 +15,62 @@ import {
   normalizeRuntimeSurvivor,
 } from './survivorRuntime';
 
-function pickUnitsFromInventory(inventory, n) {
+function lootUnitPriority(entry, opts = {}) {
+  const itemId = String(entry?.itemId || entry?.id || '').trim();
+  const goalIds = new Set(
+    (Array.isArray(opts?.goalItemIds) ? opts.goalItemIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  );
+  const category = inferItemCategory(entry);
+  const tier = clampTier4(entry?.tier || 1);
+  const tags = safeTags(entry).map((t) => String(t || '').toLowerCase());
+  const name = String(entry?.name || '').toLowerCase();
+  const special = (
+    tags.some((t) => t.includes('meteor') || t.includes('life_tree') || t.includes('mithril') || t.includes('force_core') || t.includes('vf')) ||
+    name.includes('meteor') ||
+    name.includes('mithril') ||
+    name.includes('force core') ||
+    name.includes('blood sample')
+  );
+  const goal = goalIds.has(itemId) || entry?.goalItem === true || tags.includes('craft_goal') || tags.includes('route_goal');
+  const equipment = category === 'equipment';
+  const consumable = category === 'consumable';
+
+  return (
+    (goal ? 120 : 0) +
+    (special ? 95 : 0) +
+    (equipment ? 70 : 0) +
+    (consumable ? 16 : 0) +
+    tier * (equipment ? 18 : special ? 14 : 8) +
+    Math.min(12, Math.max(0, Number(entry?.qty || 1)))
+  );
+}
+
+function pickUnitsFromInventory(inventory, n, opts = {}) {
   const list = Array.isArray(inventory) ? inventory.map((x) => ({ ...x })) : [];
   const picked = [];
   for (let k = 0; k < n; k++) {
-    const total = list.reduce((sum, x) => sum + Math.max(0, Number(x?.qty || 0)), 0);
-    if (total <= 0) break;
-    let r = Math.random() * total;
-    let idx = -1;
-    for (let i = 0; i < list.length; i++) {
-      r -= Math.max(0, Number(list[i]?.qty || 0));
-      if (r <= 0) {
-        idx = i;
-        break;
-      }
-    }
+    const candidates = list
+      .map((entry, index) => ({
+        index,
+        qty: Math.max(0, Number(entry?.qty || 0)),
+        score: lootUnitPriority(entry, opts),
+        acquiredDay: Number(entry?.acquiredDay || 0),
+      }))
+      .filter((row) => row.qty > 0)
+      .sort((a, b) => (
+        (Number(b.score || 0) - Number(a.score || 0)) ||
+        (Number(b.qty || 0) - Number(a.qty || 0)) ||
+        (Number(b.acquiredDay || 0) - Number(a.acquiredDay || 0))
+      ));
+    if (!candidates.length) break;
+    let idx = candidates[0].index;
     if (idx < 0) idx = 0;
     const it = list[idx];
     const id = String(it?.itemId || it?.id || '');
     if (!id) break;
-    picked.push({ itemId: id, qty: 1 });
+    picked.push({ itemId: id, qty: 1, item: { ...it } });
     const nextQty = Math.max(0, Number(it?.qty || 0) - 1);
     if (nextQty <= 0) list.splice(idx, 1);
     else list[idx] = { ...it, qty: nextQty };

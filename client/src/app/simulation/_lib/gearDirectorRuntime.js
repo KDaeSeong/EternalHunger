@@ -361,6 +361,12 @@ function allowAbstractGearFallback(ruleset, opts = {}) {
   return opts?.allowAbstractFallback === true || ruleset?.ai?.allowAbstractGearFallback === true;
 }
 
+function day1AbstractFallbackMaxTier(ruleset) {
+  const configured = Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 3);
+  if (Number.isFinite(configured)) return Math.max(1, Math.min(4, Math.floor(configured)));
+  return 3;
+}
+
 function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset, opts = {}) {
   const d = Number(day || 0);
   const ph = String(phase || '').toLowerCase();
@@ -374,6 +380,7 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   // 최소 1회 이동 후 루트 파밍이 시작된 것으로 보고 제작/강화를 진행합니다.
   if (Math.max(0, Number(actor?.day1Moves || 0)) < 1) return { changed: false, logs: [] };
 
+  const maxFallbackTier = day1AbstractFallbackMaxTier(ruleset);
   const logs = [];
   let inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
   inv = normalizeInventory(inv, ruleset);
@@ -393,20 +400,21 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
     }
   }
 
-  // 2) 무기/신발 포함 5부위 업그레이드(희귀→영웅) — 1재료씩
-  // - 직접 보정 없이 루팅량만큼 진행하되 한 페이즈에서 슬롯당 최대 2단계만 진행
+  // 2) 무기/신발 포함 5부위 업그레이드 — 1재료씩
+  // - 실제 레시피가 없을 때만 쓰는 안전망이므로, 1일차에는 기본 T3까지만 보정합니다.
+  // - T4+는 실제 레시피 제작/오브젝트/상자 루프가 맡아야 "강제 세팅"처럼 보이지 않습니다.
   for (const slot of EQUIP_SLOTS) {
     for (let step = 0; step < 2; step += 1) {
       const it = pickBestEquipBySlot(inv, slot);
       if (!it) break;
       const curTier = clampTier4(Number(it?.tier || 1));
-      if (curTier >= 4) break;
+      if (curTier >= maxFallbackTier) break;
 
       const low = countLowMaterials(inv, itemMetaById, itemNameById);
       if (low < 1) break;
 
-      // T1/2 -> T3, T3 -> T4
-      const nextTier = curTier >= 3 ? 4 : 3;
+      const nextTier = Math.min(maxFallbackTier, curTier >= 3 ? 4 : 3);
+      if (nextTier <= curTier) break;
       const dec = consumeLowMaterials(inv, 1, itemMetaById, itemNameById);
       if (dec.consumed < 1) break;
       inv = dec.inventory;
@@ -422,12 +430,13 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
 
   const done = EQUIP_SLOTS.every((s) => {
     const it = pickBestEquipBySlot(inv, s);
-    return it && clampTier4(Number(it?.tier || 1)) >= 4;
+    return it && clampTier4(Number(it?.tier || 1)) >= maxFallbackTier;
   });
 
   if (done) {
     actor.day1HeroDone = true;
-    logs.push(`✅ [${actor?.name}] 1일차 목표 달성: 영웅 장비 세트 완성(이동 ${Math.max(0, Number(actor?.day1Moves || 0))}회)`);
+    const tierName = tierLabelKo(maxFallbackTier);
+    logs.push(`✅ [${actor?.name}] 1일차 루트 파밍 보정 완료: ${tierName} 이하 장비 기반 확보(이동 ${Math.max(0, Number(actor?.day1Moves || 0))}회)`);
   }
 
   return { changed: logs.length > 0, logs };

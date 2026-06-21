@@ -2,9 +2,11 @@ function createInitialSpawnState(mapId = '') {
   return {
     mapId: String(mapId || ''),
     wildlife: {},
+    wildlifeSpecies: {},
     legendaryCrates: [],
     coreNodes: [],
     foodCrates: [],
+    mutantWildlife: null,
     bosses: {
       alpha: null,
       omega: null,
@@ -18,6 +20,7 @@ function createInitialSpawnState(mapId = '') {
       omega: -1,
       weakline: -1,
       wildlife: -1,
+      mutantWildlife: -1,
     },
     counters: { crate: 0, core: 0, food: 0 },
   };
@@ -36,6 +39,7 @@ function cloneSpawnState(state, mapId = '') {
     omega: Number(safe?.spawnedDay?.omega ?? -1),
     weakline: Number(safe?.spawnedDay?.weakline ?? -1),
     wildlife: Number(safe?.spawnedDay?.wildlife ?? -1),
+    mutantWildlife: Number(safe?.spawnedDay?.mutantWildlife ?? -1),
   };
 
   const counters = {
@@ -47,9 +51,16 @@ function cloneSpawnState(state, mapId = '') {
   return {
     mapId: String(safe.mapId || ''),
     wildlife: (safe.wildlife && typeof safe.wildlife === 'object') ? { ...safe.wildlife } : {},
+    wildlifeSpecies: (safe.wildlifeSpecies && typeof safe.wildlifeSpecies === 'object')
+      ? Object.fromEntries(Object.entries(safe.wildlifeSpecies).map(([zid, list]) => [
+          String(zid),
+          Array.isArray(list) ? list.map((x) => String(x || '').trim()).filter(Boolean) : [],
+        ]))
+      : {},
     legendaryCrates: Array.isArray(safe.legendaryCrates) ? safe.legendaryCrates.map((c) => ({ ...c })) : [],
     coreNodes: Array.isArray(safe.coreNodes) ? safe.coreNodes.map((n) => ({ ...n })) : [],
     foodCrates: Array.isArray(safe.foodCrates) ? safe.foodCrates.map((c) => ({ ...c })) : [],
+    mutantWildlife: safe?.mutantWildlife ? { ...safe.mutantWildlife } : null,
     bosses: {
       alpha: safe?.bosses?.alpha ? { ...safe.bosses.alpha } : null,
       omega: safe?.bosses?.omega ? { ...safe.bosses.omega } : null,

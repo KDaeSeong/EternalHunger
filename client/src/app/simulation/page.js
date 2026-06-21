@@ -150,6 +150,57 @@ import {
 import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
 import { LOG_DETAIL_OPEN_KEY } from './_lib/logPresentation';
 
+const RUNTIME_CHARACTER_SYNC_FIELDS = [
+  'name',
+  'gender',
+  'summary',
+  'previewImage',
+  'weaponType',
+  'goalGearTier',
+  'goalLoadouts',
+  'tacticalSkill',
+  'tacticalSkillLevel',
+  'erSubject',
+  'erRole',
+  'erTrait',
+  'erWeapons',
+  'stats',
+  'specialSkill',
+  'records',
+];
+
+function mergeServerCharacterIntoRuntimeSurvivor(runtimeSurvivor, serverCharacter) {
+  const base = runtimeSurvivor && typeof runtimeSurvivor === 'object' ? runtimeSurvivor : {};
+  const saved = serverCharacter && typeof serverCharacter === 'object' ? serverCharacter : {};
+  const next = { ...base };
+
+  for (const field of RUNTIME_CHARACTER_SYNC_FIELDS) {
+    if (saved[field] !== undefined) next[field] = saved[field];
+  }
+
+  if (saved.inventory !== undefined) next.inventory = saved.inventory;
+  if (saved.equipped !== undefined) next.equipped = saved.equipped;
+
+  return normalizeRuntimeSurvivor(next);
+}
+
+function getRuntimeActorKey(actor) {
+  return String(actor?._id || actor?.id || actor?.name || '').trim();
+}
+
+function dedupeRuntimeParticipants(list) {
+  const out = [];
+  const seen = new Set();
+  for (const actor of Array.isArray(list) ? list : []) {
+    if (!actor || typeof actor !== 'object') continue;
+    const key = getRuntimeActorKey(actor) || `idx:${out.length}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(actor);
+  }
+  return out;
+}
+
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
@@ -257,6 +308,21 @@ export default function SimulationPage() {
       normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []).slice(0, cfg.maxParticipants),
       { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
     ).map((c) => normalizeRuntimeSurvivor(c));
+  };
+
+  const getMatchStartInfo = (list = survivors, src = settings) => {
+    const cfg = getMatchConfig(src);
+    const assigned = assignSimulationTeams(
+      normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []).slice(0, cfg.maxParticipants),
+      { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
+    );
+    const teams = getAliveTeams(assigned);
+    return {
+      ...cfg,
+      participantCount: assigned.length,
+      teamCount: teams.length,
+      ready: assigned.length >= 2 && teams.length >= 2,
+    };
   };
 
   const handleMatchModeChange = (value) => {
@@ -782,6 +848,17 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     }, at);
   };
 
+  function emitObjectiveRunEvent(actor, objective, payload = {}, at = null) {
+    if (!actor || !objective) return;
+    emitRunEvent('objective', {
+      who: String(actor?._id || ''),
+      whoName: String(actor?.name || ''),
+      zoneId: String(actor?.zoneId || ''),
+      objective: String(objective || ''),
+      ...(payload && typeof payload === 'object' ? payload : {}),
+    }, at);
+  };
+
   function applyLootCraftResult(actor, crafted, itemMeta, at = null, zoneId = '', logType = 'normal') {
     if (!actor || !crafted?.inventory) return false;
     actor.inventory = crafted.inventory;
@@ -830,6 +907,9 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       candidateCount: Math.max(0, Number(payload?.candidateCount || candidates.length || 0)),
       blockedCount: blocked.length,
       reason: String(payload?.reason || ''),
+      objectiveType: String(payload?.objectiveType || ''),
+      objectiveSubkind: String(payload?.objectiveSubkind || ''),
+      contestPressure: Math.max(0, Number(payload?.contestPressure || 0)),
     }, at);
   };
 
@@ -1609,15 +1689,11 @@ if (!who) {
     setQtyMap((prev) => ({ ...prev, [key]: v }));
   };
 
-  function patchInventoryOnly(serverCharacter) {
+  function patchServerCharacterState(serverCharacter) {
     if (!serverCharacter?._id) return;
     setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => (
       String(s?._id) === String(serverCharacter?._id)
-        ? normalizeRuntimeSurvivor({
-            ...s,
-            inventory: serverCharacter?.inventory ?? s?.inventory,
-            equipped: serverCharacter?.equipped ?? s?.equipped,
-          })
+        ? mergeServerCharacterIntoRuntimeSurvivor(s, serverCharacter)
         : normalizeRuntimeSurvivor(s)
     )));
   };
@@ -1634,11 +1710,7 @@ if (!who) {
       setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => {
         const found = list.find((c) => String(c?._id) === String(s?._id));
         return found
-          ? normalizeRuntimeSurvivor({
-              ...s,
-              inventory: found?.inventory ?? s?.inventory,
-              equipped: found?.equipped ?? s?.equipped,
-            })
+          ? mergeServerCharacterIntoRuntimeSurvivor(s, found)
           : normalizeRuntimeSurvivor(s);
       }));
     } catch (e) {
@@ -1957,7 +2029,7 @@ const pickStartZoneIdForChar = (c) => {
         const charsWithHp = [];
         (Array.isArray(charList) ? charList : []).forEach((c) => {
           const erSeed = applyErSubjectPreset(c, {
-            replaceDefaultTactical: true,
+            replaceDefaultTactical: false,
             statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
           });
           const routePlan = buildEarlyRoutePlanDetails(erSeed, initialMap, itemsList, { routeLength: 4 });
@@ -1965,7 +2037,7 @@ const pickStartZoneIdForChar = (c) => {
           const startZoneId = routePlanZoneIds[0] || pickStartZoneIdForChar(erSeed);
           const seeded = applyPerkBundleToActor(normalizeRuntimeSurvivor({
             ...erSeed,
-            tacticalSkillLevel: 1,
+            tacticalSkillLevel: Math.max(1, Math.min(2, Number(erSeed?.tacticalSkillLevel || 1))),
             hp: 100,
             maxHp: 100,
             zoneId: startZoneId,
@@ -2051,26 +2123,37 @@ const pickStartZoneIdForChar = (c) => {
   }, []);
 
   // 최신 킬 정보 전달
-  async function finishGame(finalSurvivors, latestKillCounts, latestAssistCounts) {
+  async function finishGame(finalSurvivors, latestKillCounts, latestAssistCounts, options = {}) {
     if (isFinishingRef.current) return;
     isFinishingRef.current = true;
     // 게임 종료 시 오토 플레이는 자동으로 해제
     setAutoPlay(false);
     const finalKills = latestKillCounts || killCounts;
     const finalAssists = latestAssistCounts || assistCounts;
-    const winningTeam = getWinningTeam(finalSurvivors, finalKills, finalAssists);
-    const w = winningTeam?.representative || finalSurvivors[0];
-    const participants = [
-      ...(Array.isArray(finalSurvivors) ? finalSurvivors : []),
-      ...(Array.isArray(dead) ? dead : []),
-    ];
+    const finalAlive = Array.isArray(finalSurvivors) ? finalSurvivors : [];
+    const finalDead = Array.isArray(options?.finalDead) ? options.finalDead : dead;
+    const winningTeam = getWinningTeam(finalAlive, finalKills, finalAssists);
+    const w = winningTeam?.representative || finalAlive[0];
+    const participants = dedupeRuntimeParticipants([
+      ...finalAlive,
+      ...(Array.isArray(finalDead) ? finalDead : []),
+    ]);
+    const matchCfgForResult = getMatchConfig(settings);
+    const totalTeamCount = new Set(
+      participants.map((p) => String(p?.teamId || p?.matchTeamId || p?._id || p?.id || '').trim()).filter(Boolean)
+    ).size;
 
-    const wId = w ? (w._id || w.id) : null;
+    const wId = getRuntimeActorKey(w);
     const myKills = wId ? Number(finalKills[wId] || 0) : 0;
     const myAssists = wId ? Number(finalAssists[wId] || 0) : 0;
     const rewardLP = w ? (100 + myKills * 10) : 0;
     const topKillLeader = [...participants]
-      .sort((a, b) => ((Number(finalKills?.[b?._id] || 0) - Number(finalKills?.[a?._id] || 0)) || (Number(finalAssists?.[b?._id] || 0) - Number(finalAssists?.[a?._id] || 0))))[0] || null;
+      .sort((a, b) => {
+        const aId = getRuntimeActorKey(a);
+        const bId = getRuntimeActorKey(b);
+        return (Number(finalKills?.[bId] || 0) - Number(finalKills?.[aId] || 0)) ||
+          (Number(finalAssists?.[bId] || 0) - Number(finalAssists?.[aId] || 0));
+      })[0] || null;
 
     setWinner(w);
     setIsGameOver(true);
@@ -2082,25 +2165,37 @@ const pickStartZoneIdForChar = (c) => {
       participantsCount: participants.length,
       saveStatus: { hallOfFame: w ? 'pending' : 'skipped', userStats: 'pending' },
       userProgress: null,
-      matchMode: normalizeMatchMode(settings?.matchMode),
+      matchMode: matchCfgForResult.matchMode,
+      teamSize: matchCfgForResult.teamSize,
+      maxTeams: matchCfgForResult.maxTeams,
+      teamCount: totalTeamCount,
+      aliveTeamCount: getAliveTeams(finalAlive).length,
       winnerTeam: winningTeam
         ? {
             teamId: winningTeam.teamId,
             teamName: winningTeam.teamName,
-            members: winningTeam.members.map((m) => ({ id: m?._id, name: m?.name, hp: Number(m?.hp || 0) })),
+            members: winningTeam.members.map((m) => ({ id: getRuntimeActorKey(m), name: m?.name, hp: Number(m?.hp || 0) })),
           }
         : null,
       topKillLeader: topKillLeader
         ? {
-            id: topKillLeader._id,
+            id: getRuntimeActorKey(topKillLeader),
             name: topKillLeader.name,
-            kills: Number(finalKills?.[topKillLeader._id] || 0),
-            assists: Number(finalAssists?.[topKillLeader._id] || 0),
+            kills: Number(finalKills?.[getRuntimeActorKey(topKillLeader)] || 0),
+            assists: Number(finalAssists?.[getRuntimeActorKey(topKillLeader)] || 0),
           }
         : null,
     });
 
-    if (w) addLog(`🏆 게임 종료! 최후의 팀: ${winningTeam?.teamName || getActorTeamName(w)} / 대표 생존자: [${w.name}]`, 'highlight');
+    if (w) {
+      const matchModeNow = normalizeMatchMode(settings?.matchMode);
+      addLog(
+        matchModeNow === 'solo'
+          ? `🏆 게임 종료! 최후의 생존자: [${w.name}]`
+          : `🏆 게임 종료! 최후의 팀: ${winningTeam?.teamName || getActorTeamName(w)} / 대표 생존자: [${w.name}]`,
+        'highlight'
+      );
+    }
     else addLog('💀 생존자가 아무도 없습니다...', 'death');
 
 
@@ -2392,10 +2487,10 @@ const pickStartZoneIdForChar = (c) => {
 
       for (const d0 of dead) {
         const deadAt = Number(d0?.deadAtPhaseIdx ?? -9999);
-        const autoEligible = canReviveThisMatch && (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
+        const teamAlive = canReviveThisMatch && (Array.isArray(survivors) ? survivors : []).some((s) => Number(s?.hp || 0) > 0 && areSameTeam(s, d0));
+        const autoEligible = canReviveThisMatch && teamAlive && (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
         const paidReviveCount = Math.max(0, Math.floor(Number(d0?.paidReviveCount || 0)));
         const paidCost = paidReviveCostBase + paidReviveCostPerUse * paidReviveCount;
-        const teamAlive = (Array.isArray(survivors) ? survivors : []).some((s) => Number(s?.hp || 0) > 0 && areSameTeam(s, d0));
         const paidEligible = canReviveThisMatch && !autoEligible && phaseIdxNow <= paidReviveCutoffIdx && teamAlive && Number(d0?.simCredits || 0) >= paidCost;
         if (autoEligible || paidEligible) {
           const maxHp = Number(d0?.maxHp ?? 100);
@@ -2524,6 +2619,27 @@ const pickStartZoneIdForChar = (c) => {
     // 1일차 장비 성장은 실제 레시피 제작을 우선합니다. 추상 장비 생성은 데이터 누락 시 fallback으로만 사용합니다.
 
     const newlyDead = [];
+    const phaseDeadSnapshots = [];
+    const appendPhaseDeadSnapshots = (actors) => {
+      const snapshots = normalizeRuntimeSurvivorList(
+        (Array.isArray(actors) ? actors : [actors])
+          .filter(Boolean)
+          .map((actor) => normalizeDeadSnapshot(actor, ruleset))
+      );
+      const added = [];
+      for (const snapshot of snapshots) {
+        const key = getRuntimeActorKey(snapshot);
+        if (!key || phaseDeadSnapshots.some((entry) => getRuntimeActorKey(entry) === key)) continue;
+        phaseDeadSnapshots.push(snapshot);
+        added.push(snapshot);
+      }
+      return added;
+    };
+    const flushDeadSnapshots = (snapshots) => {
+      const list = Array.isArray(snapshots) ? snapshots : [];
+      if (!list.length) return;
+      setDead((prev) => dedupeRuntimeParticipants([...(Array.isArray(prev) ? prev : []), ...list]));
+    };
     const baseZonePop = {};
     (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).forEach((s) => {
       if (!s || Number(s.hp || 0) <= 0) return;
@@ -2696,6 +2812,9 @@ const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0
 const ttlMin = Math.max(1, Number(aiCfg?.targetTtlMin ?? 2));
 const ttlMax = Math.max(ttlMin, Number(aiCfg?.targetTtlMax ?? 4));
 const clearOnReach = aiCfg?.clearOnReach !== false;
+const plannedObjectiveType = String(plannedMove?.objectiveType || '');
+const plannedObjectiveSubkind = String(plannedMove?.objectiveSubkind || '');
+const plannedContestPressure = Math.max(0, Number(plannedMove?.contestPressure || 0));
 
 let holdTarget = null;
 
@@ -2703,6 +2822,9 @@ let holdTarget = null;
 if (mustEscape) {
   updated.aiTargetZoneId = null;
   updated.aiTargetTTL = 0;
+  updated.aiTargetObjectiveType = '';
+  updated.aiTargetObjectiveSubkind = '';
+  updated.aiTargetContestPressure = 0;
 } else {
   const saved = String(updated.aiTargetZoneId || '');
   const ttlNow = Math.max(0, Number(updated.aiTargetTTL || 0));
@@ -2715,6 +2837,9 @@ if (mustEscape) {
       holdTarget = null;
       updated.aiTargetZoneId = null;
       updated.aiTargetTTL = 0;
+      updated.aiTargetObjectiveType = '';
+      updated.aiTargetObjectiveSubkind = '';
+      updated.aiTargetContestPressure = 0;
     }
   }
 
@@ -2725,6 +2850,9 @@ if (mustEscape) {
     if (pickedTarget) {
       updated.aiTargetZoneId = pickedTarget;
       updated.aiTargetTTL = randInt(ttlMin, ttlMax);
+      updated.aiTargetObjectiveType = plannedObjectiveType;
+      updated.aiTargetObjectiveSubkind = plannedObjectiveSubkind;
+      updated.aiTargetContestPressure = plannedContestPressure;
       holdTarget = pickedTarget;
     }
   }
@@ -2732,6 +2860,9 @@ if (mustEscape) {
 
 let moveTargets = holdTarget ? [holdTarget] : (Array.isArray(plannedMove?.targets) ? plannedMove.targets : []);
 let moveReason = holdTarget ? `${String(plannedMove?.reason || 'goal')}:ttl` : String(plannedMove?.reason || '');
+let moveObjectiveType = String(updated.aiTargetObjectiveType || plannedObjectiveType || '');
+let moveObjectiveSubkind = String(updated.aiTargetObjectiveSubkind || plannedObjectiveSubkind || '');
+let moveContestPressure = Math.max(0, Number(updated.aiTargetContestPressure || plannedContestPressure || 0));
 
 // ✅ 목표/이동 후보에서 금지구역은 최대한 제외 (막혀서 멈추는 현상 방지)
 moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
@@ -2739,6 +2870,12 @@ moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) =>
 if (fleeInterruptReason) {
   updated.aiTargetZoneId = null;
   updated.aiTargetTTL = 0;
+  updated.aiTargetObjectiveType = '';
+  updated.aiTargetObjectiveSubkind = '';
+  updated.aiTargetContestPressure = 0;
+  moveObjectiveType = '';
+  moveObjectiveSubkind = '';
+  moveContestPressure = 0;
   const depthMax = Math.max(1, Math.floor(Number(aiCfg?.safeSearchDepth ?? 3)));
   const pick = bfsPickSafestZone(currentZone, zoneGraph, forbiddenIds, baseZonePop, { maxDepth: depthMax, minDelta: Math.max(1, recoverMinDelta) });
   const best = String(pick?.target || currentZone);
@@ -2750,6 +2887,12 @@ if (fleeInterruptReason) {
   // 회복 우선: 목표/보스 추적보다 안전/저인구 존으로 분산(인접 1칸에만 갇히지 않게 BFS 사용)
   updated.aiTargetZoneId = null;
   updated.aiTargetTTL = 0;
+  updated.aiTargetObjectiveType = '';
+  updated.aiTargetObjectiveSubkind = '';
+  updated.aiTargetContestPressure = 0;
+  moveObjectiveType = '';
+  moveObjectiveSubkind = '';
+  moveContestPressure = 0;
 
   const depthMax = Math.max(1, Math.floor(Number(aiCfg?.safeSearchDepth ?? 3)));
   const pick = bfsPickSafestZone(currentZone, zoneGraph, forbiddenIds, baseZonePop, { maxDepth: depthMax, minDelta: recoverMinDelta });
@@ -2841,16 +2984,36 @@ if (String(nextZoneId) !== String(currentZone)) {
     from: String(currentZone),
     to: String(nextZoneId),
     reason: mustEscape ? 'escape' : (String(moveReason || '').startsWith('flee:') ? String(moveReason) : (moveTargets.length ? String(moveReason || 'goal') : 'wander')),
+    objectiveType: moveObjectiveType,
+    objectiveSubkind: moveObjectiveSubkind,
+    contestPressure: moveContestPressure,
   }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 } else if (mustEscape) {
   addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
 }
 
 updated.zoneId = nextZoneId;
+const objectiveTargetSet = new Set((Array.isArray(moveTargets) ? moveTargets : []).map((z) => String(z || '')).filter(Boolean));
+if (moveObjectiveType && objectiveTargetSet.has(String(updated.zoneId || '')) && moveContestPressure > 0) {
+  updated._objectiveContestType = moveObjectiveType;
+  updated._objectiveContestSubkind = moveObjectiveSubkind;
+  updated._objectiveContestPressure = moveContestPressure;
+  updated._objectiveContestUntilPhaseIdx = phaseIdxNow;
+} else if (Number(updated?._objectiveContestUntilPhaseIdx ?? -1) < phaseIdxNow) {
+  updated._objectiveContestType = '';
+  updated._objectiveContestSubkind = '';
+  updated._objectiveContestPressure = 0;
+  updated._objectiveContestUntilPhaseIdx = null;
+}
+const preRouteMissingItemIds = (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+const preRouteMappedItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
+  ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
+  : [];
 advanceEarlyRouteProgress(updated, updated.zoneId, {
-  missingItemIds: (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+  missingItemIds: preRouteMissingItemIds,
+  routeItemIds: preRouteMappedItemIds.length ? preRouteMappedItemIds : preRouteMissingItemIds,
   searched: false,
-  maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+  maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
 });
 
 const didMove = String(nextZoneId) !== String(currentZone);
@@ -2959,6 +3122,24 @@ const didMove = String(nextZoneId) !== String(currentZone);
           applyLootCraftResult(updated, crafted, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
         }
 
+        if (loot && String(loot?.crateId || '') === 'route_plan') {
+          const postLootGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
+            goalTier: updated?.goalGearTier,
+            goalItemKeys: pickGoalLoadoutKeys(updated),
+            perkEffects: getActorPerkEffects(updated),
+          });
+          const postLootMissingIds = (Array.isArray(postLootGoal?.missing) ? postLootGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+          const postLootRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated?.zoneId || '')])
+            ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
+            : [];
+          advanceEarlyRouteProgress(updated, updated.zoneId, {
+            missingItemIds: postLootMissingIds,
+            routeItemIds: postLootRouteItemIds.length ? postLootRouteItemIds : postLootMissingIds,
+            searched: true,
+            maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
+          });
+        }
+
 
         // --- 음식 상자(맵 이벤트 스폰): 매일 낮 시작에 드랍 → 해당 구역 진입 시 개봉 ---
         const foodCrate = openSpawnedFoodCrate(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, {
@@ -3013,6 +3194,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
             updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
           }
+          emitObjectiveRunEvent(updated, 'natural_core', {
+            subkind: String(corePickup.kind || ''),
+            itemId: String(corePickup.itemId || ''),
+            itemName: String(nm || ''),
+            qty: got,
+            success: got > 0,
+            danger: Math.max(0, Number(immediateCore?.pvpBonus || 0)),
+          }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
           applyLootCraftResult(updated, craftedN, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
@@ -3026,16 +3215,19 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
 
         // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
+        const craftGoalMissingIds = (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
+          .map((m) => String(m?.itemId || ''))
+          .filter(Boolean);
+        const mappedRouteItemIdsNow = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
+          ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
+          : [];
         advanceEarlyRouteProgress(updated, updated.zoneId, {
-          missingItemIds: (Array.isArray(craftGoal?.missing) ? craftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
-          searched: true,
-          maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+          missingItemIds: craftGoalMissingIds,
+          routeItemIds: mappedRouteItemIdsNow.length ? mappedRouteItemIdsNow : craftGoalMissingIds,
+          searched: false,
+          maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
         });
-        const goalMissingIds = new Set(
-          (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
-            .map((m) => String(m?.itemId || ''))
-            .filter(Boolean)
-        );
+        const goalMissingIds = new Set(craftGoalMissingIds);
         const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
         const routePlanIdsNow = Array.isArray(updated?.routePlanZoneIds)
           ? updated.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
@@ -3045,13 +3237,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
           routePlanIdsNow.length > 0 &&
           Math.max(0, Number(updated?.routePlanIndex || 0)) < routePlanIdsNow.length
         );
-        const currentRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
-          ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
-          : [];
-        const currentRouteNeedsSearch = earlyRouteActionActive && (
-          currentRouteItemIds.length <= 0 ||
-          currentRouteItemIds.some((id) => goalMissingIds.has(id))
-        );
+        const currentRouteItemIds = mappedRouteItemIdsNow;
+        const fallbackRouteItemIds = currentRouteItemIds.length
+          ? currentRouteItemIds
+          : [...goalMissingIds].filter(Boolean);
+        const currentRouteNeedsSearch = earlyRouteActionActive &&
+          fallbackRouteItemIds.length > 0 &&
+          fallbackRouteItemIds.some((id) => goalMissingIds.has(id));
         const deferProcureForRoute = currentRouteNeedsSearch && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
         let queuedKioskAction = (didMove || fleeInterruptReason || deferProcureForRoute) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
         if (queuedKioskAction?.kind === 'buy' && queuedKioskAction?.itemId && !canReceiveItem(updated.inventory, queuedKioskAction.item, queuedKioskAction.itemId, queuedKioskAction.qty || 1, ruleset)) {
@@ -3136,9 +3328,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
               zoneId: String(updated?.zoneId || ''),
               etaSec: 1,
               phaseIdx: Number(phaseIdxNow || 0),
-              score: 34 + (currentRouteItemIds.length ? 4 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
+              score: 34 + (fallbackRouteItemIds.length ? 4 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
               label: 'routeFarm',
-              priorityNote: currentRouteItemIds.length ? 'early_route+materials' : 'early_route',
+              priorityNote: currentRouteItemIds.length ? 'early_route+materials' : 'early_route+fallback',
             });
           } else {
             scoreRows.push({
@@ -3171,6 +3363,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
               etaSec: 1,
               phaseIdx: Number(phaseIdxNow || 0),
               score: 999,
+              objectiveType: moveObjectiveType,
+              objectiveSubkind: moveObjectiveSubkind,
+              contestPressure: moveContestPressure,
             };
           }
           if (fleeInterruptReason) {
@@ -3240,6 +3435,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           candidatePreview: candidatePreview.slice(0, 5),
           candidateScores: queueScoredCandidates.slice(0, 4).map((row) => `${String(row?.type || '')}:${Number(row?.score || 0).toFixed(1)}${row?.priorityNote ? `(${String(row.priorityNote)})` : ''}`),
           blockedReasons: blockedReasons.slice(0, 3),
+          objectiveType: String(queuedAtomicAction?.objectiveType || moveObjectiveType || ''),
+          objectiveSubkind: String(queuedAtomicAction?.objectiveSubkind || moveObjectiveSubkind || ''),
+          contestPressure: Math.max(0, Number(queuedAtomicAction?.contestPressure || moveContestPressure || 0)),
           fleeReason: String(fleeInterruptReason || ''),
           recovering: !!recovering,
           credits: Math.max(0, Number(updated?.simCredits || 0)),
@@ -3256,21 +3454,32 @@ const didMove = String(nextZoneId) !== String(currentZone);
             candidateScores: queueScoredCandidates,
             candidateCount: candidatePreview.length,
             reason: String(queuedAtomicAction?.reason || moveReason || ''),
+            objectiveType: String(queuedAtomicAction?.objectiveType || moveObjectiveType || ''),
+            objectiveSubkind: String(queuedAtomicAction?.objectiveSubkind || moveObjectiveSubkind || ''),
+            contestPressure: Math.max(0, Number(queuedAtomicAction?.contestPressure || moveContestPressure || 0)),
           }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
         }
 
-        if (queuedActionType === 'routeFarm' && !loot && currentRouteItemIds.length > 0) {
-          const routeLoot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
-            moved: false,
-            routeFarm: true,
-            day: nextDay,
-            phase: nextPhase,
-            dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
-            perkEffects: getActorPerkEffects(updated),
-            goalItemIds: [...goalMissingIds],
-            routeItemIds: currentRouteItemIds,
-          });
-          if (routeLoot?.itemId) {
+        if (queuedActionType === 'routeFarm' && fallbackRouteItemIds.length > 0) {
+          const initialRouteLootHit = !!loot && String(loot?.crateId || '') === 'route_plan';
+          const day1RouteBurst = Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning';
+          const configuredAttempts = Math.max(1, Math.floor(Number(ruleset?.ai?.earlyRouteFarmAttempts ?? (day1RouteBurst ? 2 : 1))));
+          const routeAttempts = Math.max(0, configuredAttempts - (initialRouteLootHit ? 1 : 0));
+          let routeGoalIdsForSearch = [...goalMissingIds];
+
+          for (let routeAttempt = 0; routeAttempt < routeAttempts; routeAttempt += 1) {
+            const routeLoot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
+              moved: false,
+              routeFarm: true,
+              day: nextDay,
+              phase: nextPhase,
+              dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
+              perkEffects: getActorPerkEffects(updated),
+              goalItemIds: routeGoalIdsForSearch,
+              routeItemIds: fallbackRouteItemIds,
+            });
+            if (routeLoot?.itemId) {
+
             updated.inventory = addItemToInventory(updated.inventory, routeLoot.item, routeLoot.itemId, routeLoot.qty, nextDay, ruleset);
             const metaR = updated.inventory?._lastAdd;
             const gotR = Math.max(0, Number(metaR?.acceptedQty ?? routeLoot.qty));
@@ -3278,7 +3487,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(gotR, metaR)) {
               addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)} 루트 파밍: ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
             }
-            emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: 'route_material', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: String(routeLoot?.crateType || 'route_material'), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             if (gotR > 0) autoEquipBest(updated, itemMetaById);
             const craftedR = tryAutoCraftFromLoot(updated.inventory, routeLoot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
             applyLootCraftResult(updated, craftedR, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
@@ -3287,11 +3496,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
               goalItemKeys: pickGoalLoadoutKeys(updated),
               perkEffects: getActorPerkEffects(updated),
             });
+            routeGoalIdsForSearch = (Array.isArray(postRouteGoal?.missing) ? postRouteGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+            }
             advanceEarlyRouteProgress(updated, updated.zoneId, {
-              missingItemIds: (Array.isArray(postRouteGoal?.missing) ? postRouteGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
-              searched: false,
-              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+              missingItemIds: routeGoalIdsForSearch,
+              routeItemIds: fallbackRouteItemIds,
+              searched: true,
+              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
             });
+            if (!routeGoalIdsForSearch.length) break;
+            if (updated?._routePlanProgress?.advanced) break;
           }
         }
 
@@ -3334,6 +3548,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
             publicItems,
             itemNameById,
           );
+          if (isBossReward) {
+            emitObjectiveRunEvent(updated, 'boss', {
+              subkind: String(hunt?.kind || ''),
+              credits: creditGain,
+              damage: dmg,
+              dropCount: drops.length,
+              success: true,
+              danger: 0.45,
+            }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          }
           for (const d of drops) {
             if (!d?.itemId || !d?.item) continue;
             const q = Math.max(1, Number(d.qty || 1));
@@ -3406,6 +3630,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`💳 [${updated.name}] 전설 상자 보상 크레딧 +${legCr}`, 'system');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: legCr, source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
+
+          emitObjectiveRunEvent(updated, 'legendary_crate', {
+            subkind: 'legendary_material',
+            itemId: String(legendary.itemId || ''),
+            itemName: String(nm || ''),
+            qty: got,
+            credits: legCr,
+            success: got > 0,
+            danger: Math.max(0, Number(immediateLMain?.pvpBonus || 0)),
+          }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
 
           const bonusDrops = Array.isArray(legendary?.bonusDrops) ? legendary.bonusDrops : [];
           for (const bd of bonusDrops) {
@@ -3590,10 +3824,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
               goalItemKeys: pickGoalLoadoutKeys(updated),
               perkEffects: getActorPerkEffects(updated),
             });
+            const postCraftMissingIds = (Array.isArray(postCraftGoal?.missing) ? postCraftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+            const postCraftRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated?.zoneId || '')])
+              ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
+              : [];
             advanceEarlyRouteProgress(updated, updated.zoneId, {
-              missingItemIds: (Array.isArray(postCraftGoal?.missing) ? postCraftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+              missingItemIds: postCraftMissingIds,
+              routeItemIds: postCraftRouteItemIds.length ? postCraftRouteItemIds : postCraftMissingIds,
               searched: false,
-              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
             });
           }
           else if (String(selectedCharId || '') === String(updated?._id || '')) {
@@ -3832,7 +4071,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       updatedSurvivors = normalizeRuntimeSurvivorList(Array.from(aliveMap.values())).filter((s) => Number(s.hp || 0) > 0);
     }
 
-    if (newlyDead.length) setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList(newlyDead.map((x) => normalizeDeadSnapshot(x, ruleset)))]);
+    flushDeadSnapshots(appendPhaseDeadSnapshots(newlyDead));
 
     // 확률 보정(룰셋 기반)
     const pvpProbCfg = ruleset?.pvp || {};
@@ -4300,13 +4539,26 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const actorEr = buildErBehaviorModifier(actor, battleSettings);
       const earlyRouteFarming = isEarlyRouteFarmingActor(actor);
       const immediateDangerNow = Number(actor?._immediateDanger || 0) > 0 && Number(actor?._immediateDangerUntilPhaseIdx ?? -1) === phaseIdxNow;
+      const actorObjectivePressure = Number(actor?._objectiveContestUntilPhaseIdx ?? -1) === phaseIdxNow
+        ? Math.max(0, Number(actor?._objectiveContestPressure || 0))
+        : 0;
+      if (Number(actor?._objectiveContestUntilPhaseIdx ?? -1) > -1 && Number(actor?._objectiveContestUntilPhaseIdx ?? -1) < phaseIdxNow) {
+        actor._objectiveContestType = '';
+        actor._objectiveContestSubkind = '';
+        actor._objectiveContestPressure = 0;
+        actor._objectiveContestUntilPhaseIdx = null;
+      }
+      const targetObjectivePressure = pvpTarget && Number(pvpTarget?._objectiveContestUntilPhaseIdx ?? -1) === phaseIdxNow
+        ? Math.max(0, Number(pvpTarget?._objectiveContestPressure || 0))
+        : 0;
+      const objectiveEncounterBonus = suddenDeath ? 0 : Math.max(actorObjectivePressure, targetObjectivePressure);
       const earlyFarmEncounterMult = earlyRouteFarming ? Math.max(0.05, Math.min(1, Number(pvpProbCfg.earlyRouteFarmEncounterMult ?? 0.38))) : 1;
       const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
       const aggressionEncounterBonus = suddenDeath ? 0 : Math.max(-0.06, Math.min(0.16, actorAggro * 0.18));
       const erEncounterBonus = suddenDeath ? 0 : Math.max(-0.08, Math.min(0.16, Number(actorEr?.aggressionBias || 0) + Number(actorEr?.chaseBonus || 0) * 0.35 - Number(actorEr?.escapeBonus || 0) * 0.45));
       const battleProb2 = isDay1MorningFarmPhase
         ? 0
-        : Math.min(0.99, Math.max(0, battleProb2Base * earlyFarmEncounterMult + gatherPvpBonus * (earlyRouteFarming ? 0.55 : 1) + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
+        : Math.min(0.99, Math.max(0, battleProb2Base * earlyFarmEncounterMult + gatherPvpBonus * (earlyRouteFarming ? 0.55 : 1) + objectiveEncounterBonus + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
@@ -4535,14 +4787,22 @@ const didMove = String(nextZoneId) !== String(currentZone);
             lootLines.push(`💰 크레딧 ${stealCredit}`);
             emitRunEvent('gain', { who: winnerId, itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
           }
-          const lootPick = lootUnits > 0 ? pickUnitsFromInventory(combatLoser?.inventory || [], lootUnits) : [];
+          const winnerLootGoal = buildCraftGoal(combatWinner.inventory, craftables, itemNameById, {
+            goalTier: combatWinner?.goalGearTier,
+            goalItemKeys: pickGoalLoadoutKeys(combatWinner),
+            perkEffects: getActorPerkEffects(combatWinner),
+          });
+          const winnerLootGoalIds = (Array.isArray(winnerLootGoal?.missing) ? winnerLootGoal.missing : [])
+            .map((m) => String(m?.itemId || ''))
+            .filter(Boolean);
+          const lootPick = lootUnits > 0 ? pickUnitsFromInventory(combatLoser?.inventory || [], lootUnits, { goalItemIds: winnerLootGoalIds }) : [];
           if (lootPick.length) {
             combatLoser.inventory = removePickedUnitsFromInventory(combatLoser?.inventory || [], lootPick);
             pruneEquippedAgainstInventory(combatLoser);
             for (const lp of lootPick) {
               const lootId = String(lp?.itemId || '');
               if (!lootId) continue;
-              const lootItem = (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === lootId) || null;
+              const lootItem = lp?.item || (Array.isArray(publicItems) ? publicItems : []).find((x) => String(x?._id) === lootId) || null;
               const fallbackName = itemNameById?.[lootId] || '아이템';
               const stub = lootItem || { _id: lootId, name: fallbackName, type: '재료', tags: [] };
               combatWinner.inventory = addItemToInventory(combatWinner.inventory, stub, lootId, 1, nextDay, ruleset);
@@ -4604,7 +4864,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             safeZoneSec: Number(combatWinner.hp || 0) <= postRestHpBelow ? 5 : 0,
           });
           if (pushedDead) {
-            setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(combatLoser, ruleset)])]);
+            flushDeadSnapshots(appendPhaseDeadSnapshots(combatLoser));
           }
           return { assistId };
         };
@@ -4615,7 +4875,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             victim.deadAtPhaseIdx = phaseIdxNow;
             victim.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(victimId);
-            setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(victim, ruleset)])]);
+            flushDeadSnapshots(appendPhaseDeadSnapshots(victim));
           }
           addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
           emitRunEvent('death', { who: victimId, by: '', zoneId: String(victim?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
@@ -5272,7 +5532,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         if (actor.hp <= 0) {
           addLog(`💀 [${actor.name}]이(가) 사고로 사망했습니다.`, 'death');
           newDeadIds.push(actor._id);
-          setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(actor, ruleset)])]);
+          flushDeadSnapshots(appendPhaseDeadSnapshots(actor));
         }
       }
 
@@ -5336,12 +5596,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const forcedDead = finalStepSurvivors
         .filter((s) => !areSameTeam(s, wForced))
         .map((s) => ({ ...s, hp: 0 }));
-      if (forcedDead.length) setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList(forcedDead.map((x) => normalizeDeadSnapshot(x, ruleset)))]);
+      const forcedDeadSnapshots = appendPhaseDeadSnapshots(forcedDead);
+      flushDeadSnapshots(forcedDeadSnapshots);
       const winners = (Array.isArray(wTeam?.members) ? wTeam.members : [wForced]).filter(Boolean).map((s) => normalizeRuntimeSurvivor(s));
+      const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);
       setSurvivors(winners);
       setMatchSec((prev) => prev + phaseDurationSec);
       addLog(`⏱ 서든데스 종료! 제한시간 만료로 ${wTeam?.teamName || getActorTeamName(wForced)} 승리`, 'highlight');
-      finishGame(winners, updatedKillCounts, updatedAssistCounts);
+      finishGame(winners, updatedKillCounts, updatedAssistCounts, { finalDead: finalDeadForFinish });
       return;
     }
 
@@ -5364,7 +5626,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
     }
 
     if (finalAliveTeams.length <= 1) {
-      finishGame(finalAliveTeams[0]?.members || finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
+      const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);
+      finishGame(finalAliveTeams[0]?.members || finalStepSurvivors, updatedKillCounts, updatedAssistCounts, { finalDead: finalDeadForFinish });
     }
   };
 
@@ -5414,7 +5677,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
     if (isAdvancingRef.current) return;
     if (loading) return;
     if (isGameOver) return;
-    if (day === 0 && survivors.length < 2) return;
+    const startInfo = getMatchStartInfo();
+    if (day === 0 && !startInfo.ready) {
+      const needText = startInfo.matchMode === 'solo' ? '솔로는 생존자 2명 이상이 필요합니다.' : '스쿼드는 서로 다른 팀 2개 이상이 필요합니다.';
+      addLog(`⚠️ 게임 시작 불가: ${needText} (현재 ${startInfo.participantCount}명 / ${startInfo.teamCount}팀)`, 'system');
+      return;
+    }
 if (showMarketPanel && pendingTranscendPick) {
       addLog('🎁 초월 장비 선택 상자: 먼저 선택을 완료하세요.', 'system');
       return;
@@ -5431,7 +5699,16 @@ if (showMarketPanel && pendingTranscendPick) {
 
       // 🧾 런 시작(시드 재현): "첫 진행" 순간에만 1회 기록
       if (day === 0 && matchSec === 0) {
-        setRunEvents([{ kind: 'run_start', at: { day, phase, sec: matchSec }, seed: runSeed }]);
+        setRunEvents([{
+          kind: 'run_start',
+          at: { day, phase, sec: matchSec },
+          seed: runSeed,
+          matchMode: startInfo.matchMode,
+          teamSize: startInfo.teamSize,
+          maxTeams: startInfo.maxTeams,
+          participantCount: startInfo.participantCount,
+          teamCount: startInfo.teamCount,
+        }]);
       }
       await proceedPhase();
     } finally {
@@ -5444,6 +5721,12 @@ if (showMarketPanel && pendingTranscendPick) {
   useEffect(() => {
     proceedPhaseGuardedRef.current = proceedPhaseGuarded;
   });
+
+  const matchStartInfo = getMatchStartInfo();
+  const startBlocked = day === 0 && !matchStartInfo.ready;
+  const startBlockedText = matchStartInfo.matchMode === 'solo'
+    ? `⚠️ 솔로 인원 부족 (${matchStartInfo.participantCount}/2명)`
+    : `⚠️ 팀 부족 (${matchStartInfo.teamCount}/2팀 · ${matchStartInfo.participantCount}명)`;
 
   // ✅ 생존자 1명(또는 0명) 남으면 즉시 종료(틱/타이머 사망도 포함)
   useEffect(() => {
@@ -5462,7 +5745,7 @@ if (showMarketPanel && pendingTranscendPick) {
     if (loading) return;
     if (isGameOver) return;
     if (showMarketPanel && pendingTranscendPick) return;
-    if (day === 0 && survivors.length < 2) return;
+    if (startBlocked) return;
 
     const speed = Math.max(0.25, Number(autoSpeed) || 1);
     const baseDelayMs = 1200; // 페이즈 사이 템포(실시간 UX)
@@ -5474,7 +5757,7 @@ if (showMarketPanel && pendingTranscendPick) {
     }, delayMs);
 
     return () => window.clearTimeout(id);
-  }, [autoPlay, autoSpeed, matchSec, loading, isGameOver, showMarketPanel, pendingTranscendPick, day, survivors.length]);
+  }, [autoPlay, autoSpeed, matchSec, loading, isGameOver, showMarketPanel, pendingTranscendPick, day, survivors.length, startBlocked]);
 
   // ======== Market actions ========
   function ensureCharSelected() {
@@ -5492,7 +5775,7 @@ if (showMarketPanel && pendingTranscendPick) {
       const qty = getQty(`craft:${itemId}`, 1);
       const res = await apiPost('/items/craft', { characterId: selectedCharId, itemId, qty });
       applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
-      if (res?.character) patchInventoryOnly(res.character);
+      if (res?.character) patchServerCharacterState(res.character);
       addLog(`🛠️ [조합] ${res?.message || '조합 완료'} (x${qty})`, 'system');
       await Promise.allSettled([syncMyState(), loadMarket()]);
     } catch (e) {
@@ -5509,7 +5792,7 @@ if (showMarketPanel && pendingTranscendPick) {
       const qty = getQty(`kiosk:${kioskId}:${catalogIndex}`, 1);
       const res = await apiPost(`/kiosks/${kioskId}/transaction`, { characterId: selectedCharId, catalogIndex, qty });
       applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
-      if (res?.character) patchInventoryOnly(res.character);
+      if (res?.character) patchServerCharacterState(res.character);
       addLog(`🏪 [키오스크] ${res?.message || '거래 완료'} (x${qty})`, 'system');
       await Promise.allSettled([syncMyState(), loadMarket()]);
     } catch (e) {
@@ -5526,7 +5809,7 @@ if (showMarketPanel && pendingTranscendPick) {
       const qty = getQty(`drone:${offerId}`, 1);
       const res = await apiPost('/drone/buy', { characterId: selectedCharId, offerId, qty });
       applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
-      if (res?.character) patchInventoryOnly(res.character);
+      if (res?.character) patchServerCharacterState(res.character);
       addLog(`🚁 [드론] ${res?.message || '구매 완료'} (x${qty})`, 'system');
       await Promise.allSettled([syncMyState(), loadMarket()]);
     } catch (e) {
@@ -5606,7 +5889,7 @@ if (showMarketPanel && pendingTranscendPick) {
       setMarketMessage('');
       const res = await apiPost(`/trades/${offerId}/accept`, { toCharacterId: selectedCharId });
       applyUserEconomyProgress({ credits: res?.credits, lp: res?.lp, perks: Array.isArray(res?.perks) ? res.perks : undefined });
-      if (res?.character) patchInventoryOnly(res.character);
+      if (res?.character) patchServerCharacterState(res.character);
       addLog('✅ [거래] 수락 완료', 'system');
       await Promise.allSettled([loadTrades(), syncMyState()]);
     } catch (e) {
@@ -5664,6 +5947,7 @@ if (showMarketPanel && pendingTranscendPick) {
     runProgressSummary,
     runSupportSummary,
     runActionSummary,
+    objectiveSummary,
     topRankedCharacters,
   } = heavyRunSummaries;
 
@@ -5698,6 +5982,8 @@ if (showMarketPanel && pendingTranscendPick) {
     phase,
     getZoneName,
   }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase, getZoneName]);
+
+  const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
 
   return (
     <main className="simulation-page">
@@ -5984,7 +6270,7 @@ if (showMarketPanel && pendingTranscendPick) {
       <span className="ws-title">🌍 월드스폰</span>
       <span className="ws-chip">🟪 전설상자: <b>{unopenedCrates}</b></span>
       <span className="ws-chip">🌠 자연코어: 운석 <b>{meteorCnt}</b> / 생나 <b>{lifeTreeCnt}</b></span>
-      <span className="ws-chip" title="요청: 매 페이즈 야생동물 스폰 체크">🦌 야생동물: <b>{wildlifeTotal}</b>{wildlifeEmpty > 0 ? ` (빈구역 ${wildlifeEmpty})` : ''}</span>
+      <span className="ws-chip" title="시간대별 종별 야생동물 스폰">🦌 야생동물: <b>{wildlifeTotal}</b>{wildlifeEmpty > 0 ? ` (빈구역 ${wildlifeEmpty})` : ''}</span>
       <span className="ws-chip">👹 알파: <b>{alphaOn ? 'ON' : 'off'}</b></span>
       <span className="ws-chip">👹 오메가: <b>{omegaOn ? 'ON' : 'off'}</b></span>
       <span className="ws-chip">👹 위클라인: <b>{weaklineOn ? 'ON' : 'off'}</b></span>
@@ -6265,15 +6551,15 @@ if (showMarketPanel && pendingTranscendPick) {
                 <button
                   className="btn-proceed"
                   onClick={proceedPhaseGuarded}
-                  disabled={loading || isAdvancing || (day === 0 && survivors.length < 2) || (showMarketPanel && !!pendingTranscendPick)}
-                  style={{ opacity: loading || isAdvancing || (day === 0 && survivors.length < 2) || (showMarketPanel && !!pendingTranscendPick) ? 0.5 : 1 }}
+                  disabled={actionDisabled}
+                  style={{ opacity: actionDisabled ? 0.5 : 1 }}
                 >
                   {loading
                     ? '⏳ 로딩 중...'
                     : isAdvancing
                       ? '⏩ 진행 중...'
-                      : survivors.length < 2 && day === 0
-                        ? '⚠️ 인원 부족 (2명↑)'
+                      : startBlocked
+                        ? startBlockedText
                         : day === 0
                           ? '🔥 게임 시작'
                           : getAliveTeams(survivors).length <= 1
@@ -6295,7 +6581,7 @@ if (showMarketPanel && pendingTranscendPick) {
               <button
                 className="btn-secondary"
                 onClick={() => setAutoPlay((v) => !v)}
-                disabled={loading || isGameOver || (day === 0 && survivors.length < 2)}
+                disabled={loading || isGameOver || startBlocked}
                 title="오토 플레이: 다음 페이즈 버튼을 자동으로 눌러 진행합니다(페이즈 내부는 틱 엔진으로 계산)."
               >
                 {autoPlay ? '⏸ 오토' : '▶ 오토'}
@@ -6421,6 +6707,9 @@ if (showMarketPanel && pendingTranscendPick) {
               <div className="market-small" style={{ marginTop: 6 }}>{runActionSummary?.chaseLine}</div>
               {runActionSummary?.tuningLine ? (
                 <div className="market-small" style={{ marginTop: 6 }}>{runActionSummary.tuningLine}</div>
+              ) : null}
+              {runActionSummary?.topObjectiveMoves ? (
+                <div className="market-small" style={{ marginTop: 6 }}>top objective: {runActionSummary.topObjectiveMoves}</div>
               ) : null}
               {runActionSummary?.topBlocked ? (
                 <div className="market-small" style={{ marginTop: 6 }}>top blocked: {runActionSummary.topBlocked}</div>
@@ -7004,6 +7293,7 @@ if (showMarketPanel && pendingTranscendPick) {
         gainDetailSummary={gainDetailSummary}
         runSupportSummary={runSupportSummary}
         runActionSummary={runActionSummary}
+        objectiveSummary={objectiveSummary}
         topRankedCharacters={topRankedCharacters}
         killCounts={killCounts}
         assistCounts={assistCounts}

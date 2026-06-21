@@ -6,7 +6,7 @@ import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
-import { compactCharactersForSave } from '../../utils/characterPayload';
+import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -33,6 +33,35 @@ const EMPTY_LOADOUTS = {
   legend: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
   transcend: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
 };
+
+function normalizeDetailsCharacterList(data) {
+  return (Array.isArray(data) ? data : []).map((c) => ({
+    ...c,
+    goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
+    tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
+    goalLoadouts: coerceLoadouts(c?.goalLoadouts),
+  }));
+}
+
+function formatSaveMismatchMessage(mismatches) {
+  const sample = (Array.isArray(mismatches) ? mismatches : [])
+    .slice(0, 5)
+    .map((m) => `${m.field}:${String(m.id || '').slice(-6)}`)
+    .join(', ');
+  return `저장 후 서버 재조회 값이 요청값과 다릅니다.${sample ? ` (${sample})` : ''}`;
+}
+
+function freshCharactersUrl() {
+  return `/characters?_fresh=${Date.now()}`;
+}
+
+function syncTokenCookie(token) {
+  try {
+    document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
+  } catch {
+    // 쿠키 저장 실패해도 Authorization 헤더 경로는 계속 사용할 수 있습니다.
+  }
+}
 
 function coerceLoadouts(raw) {
   const src = raw && typeof raw === 'object' ? raw : {};
@@ -66,6 +95,7 @@ export default function DetailsPage() {
         window.location.href = '/login'; // 강제 추방
         return;
     }
+    syncTokenCookie(token);
 
     // 화면이 켜진 뒤에만 localStorage에 접근 (에러 방지 핵심!)
     const userData = getUser();
@@ -87,11 +117,7 @@ export default function DetailsPage() {
     const token = getToken(); // 토큰 가져오기
     if (!token) return;
     apiGet('/characters')
-      .then(data => setCharacters(((data || [])).map((c) => ({
-        ...c,
-        goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
-        tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
-      }))))
+      .then(data => setCharacters(normalizeDetailsCharacterList(data)))
       .catch(err => console.error("로드 실패:", err));
   }, []);
 
@@ -161,12 +187,30 @@ export default function DetailsPage() {
   try {
     // 세 번째 인자로 헤더를 넣어줍니다.
     if (!token) throw new Error('로그인이 필요합니다.');
-    await apiPost('/characters/save', compactCharactersForSave(characters, { omitPreviewImages: true }), { timeoutMs: 30000 });
+    const payload = compactCharactersForSave(characters, { omitPreviewImages: true });
+    const result = await apiPost('/characters/save', payload, { timeoutMs: 30000 });
+    if (Array.isArray(result?.missingIds) && result.missingIds.length > 0) {
+      throw new Error('일부 캐릭터를 찾을 수 없습니다. 새로고침 후 다시 저장해주세요.');
+    }
+    if (result?.receivedCount !== undefined) {
+      const receivedCount = Number(result.receivedCount || 0);
+      const appliedCount = Number(result.updatedCount || 0) + Number(result.createdCount || 0);
+      if (receivedCount !== payload.length || appliedCount !== payload.length) {
+        throw new Error(`저장 반영 건수가 맞지 않습니다. 요청 ${payload.length}명 / 반영 ${appliedCount}명`);
+      }
+    }
+    const savedCharacters = await apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
+    const normalizedSaved = normalizeDetailsCharacterList(savedCharacters);
+    const mismatches = findCharacterSaveMismatches(payload, normalizedSaved, { saveResults: result?.saveResults });
+    if (mismatches.length > 0) {
+      throw new Error(formatSaveMismatchMessage(mismatches));
+    }
+    setCharacters(normalizedSaved);
     alert("완벽하게 저장되었습니다!");
   } catch (err) {
     console.error(err);
     const status = Number(err?.status || err?.response?.status || 0);
-    alert(status === 413 ? '저장 데이터가 너무 큽니다. 이미지 용량을 줄인 뒤 다시 시도해주세요.' : "저장 실패 ㅠㅠ");
+    alert(status === 413 ? '저장 데이터가 너무 큽니다. 이미지 용량을 줄인 뒤 다시 시도해주세요.' : `저장 실패: ${err?.message || '서버 오류'}`);
   }
 };
 
