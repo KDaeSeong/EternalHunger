@@ -134,6 +134,18 @@ function hasSpecialInventoryTag(it) {
   )) || name.includes('meteor') || name.includes('mithril') || name.includes('force core') || name.includes('blood sample');
 }
 
+function hasGoalInventoryTag(it) {
+  const tags = safeTags(it).map((t) => String(t || '').toLowerCase());
+  return it?.goalItem === true || it?._goalItem === true || tags.includes('craft_goal') || tags.includes('route_goal');
+}
+
+export function markInventoryGoalItem(item, isGoal = true) {
+  if (!isGoal || !item || typeof item !== 'object') return item;
+  const tags = safeTags(item).map((t) => String(t || '')).filter(Boolean);
+  if (!tags.map((t) => t.toLowerCase()).includes('craft_goal')) tags.push('craft_goal');
+  return { ...item, tags, goalItem: true };
+}
+
 function inventoryItemPriority(it) {
   const category = inferItemCategory(it);
   const tier = clampTier4(it?.tier || 1);
@@ -141,6 +153,7 @@ function inventoryItemPriority(it) {
 
   if (category === 'equipment') return 80 + tier * 5;
   if (hasSpecialInventoryTag(it)) return 70 + tier * 5;
+  if (hasGoalInventoryTag(it)) return 54 + tier * 5;
   if (category === 'consumable') {
     const medical = tags.includes('heal') || tags.includes('medical') || isBandageLikeItem(it);
     return 20 + tier * 3 + (medical ? 8 : 0);
@@ -162,7 +175,7 @@ function findAutoDropIndexForIncoming(list, incoming, ruleset) {
     .map((entry, index) => {
       const category = String(entry?.category || inferItemCategory(entry) || 'material');
       const tier = clampTier4(entry?.tier || 1);
-      const protectedEntry = category === 'equipment' || hasSpecialInventoryTag(entry) || tier >= 4;
+      const protectedEntry = category === 'equipment' || hasSpecialInventoryTag(entry) || hasGoalInventoryTag(entry) || tier >= 4;
       if (protectedEntry) return null;
       if (category !== 'material' || tier > 2) return null;
 
@@ -370,6 +383,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     name: item?.name,
     type: item?.type,
     tags: Array.isArray(item?.tags) ? item.tags : [],
+    ...(hasGoalInventoryTag(item) ? { goalItem: true } : {}),
     category,
     equipSlot: equipSlot || '',
     tier: clampTier4(item?.tier || 1), ...(category === 'equipment' ? { rarity: tierLabelKo(clampTier4(item?.tier || 1)) } : {}),

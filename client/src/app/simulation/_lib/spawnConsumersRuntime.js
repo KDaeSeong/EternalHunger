@@ -8,7 +8,7 @@ import {
 import { getTimeOfDayFromPhase } from './worldTime';
 import { getLegendaryCoreCandidates } from './legendaryRuntime';
 import { classifySpecialByName } from './craftRuntime';
-import { canReceiveItem, inferItemCategory } from './inventoryRules';
+import { canReceiveItem, inferItemCategory, markInventoryGoalItem } from './inventoryRules';
 import { roughPower } from './combatRuntime';
 import {
   getActorPerkEffects,
@@ -87,6 +87,12 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
   if (Math.random() >= chance) return null;
 
   const list = Array.isArray(publicItems) ? publicItems : [];
+  const goalItemIds = new Set(
+    (Array.isArray(opts?.goalItemIds) ? opts.goalItemIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  );
+  const goalLootBoost = Math.max(0, Number(rule?.goalLootBoost ?? ruleset?.drops?.fieldCrate?.goalLootBoost ?? 8));
 
   const rt = (ruleset?.worldSpawns || {})?.foodCrate?.rewardTable || {};
   const cats = Array.isArray(rt?.categories) ? rt.categories : [];
@@ -110,6 +116,7 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
     const out = [];
     for (const it of list) {
       if (!it?._id) continue;
+      const id = String(it._id);
       const sp = classifySpecialByName(it?.name);
       if (sp) continue;
 
@@ -126,7 +133,8 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
 
         let w = 3;
         if (tags.includes('healthy')) w += Math.max(0, Number(boosts?.healthyFood || 0));
-        out.push({ item: it, itemId: String(it._id), weight: w });
+        if (goalItemIds.has(id)) w += goalLootBoost;
+        out.push({ item: it, itemId: id, weight: w });
         continue;
       }
 
@@ -137,7 +145,8 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
 
         let w = 3;
         if (name.includes('붕대')) w += Math.max(0, Number(boosts?.bandageName || 0));
-        out.push({ item: it, itemId: String(it._id), weight: w });
+        if (goalItemIds.has(id)) w += goalLootBoost;
+        out.push({ item: it, itemId: id, weight: w });
         continue;
       }
 
@@ -145,8 +154,9 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
         if (cat !== 'material') continue;
         const tier = clampTier4(it?.tier || 1);
         if (tier > cap) continue;
-        const w = tier <= 1 ? 2 : 1;
-        out.push({ item: it, itemId: String(it._id), weight: w });
+        let w = tier <= 1 ? 2 : 1;
+        if (goalItemIds.has(id)) w += goalLootBoost;
+        out.push({ item: it, itemId: id, weight: w });
         continue;
       }
     }
@@ -175,7 +185,8 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
   if (!picked?.itemId) return null;
 
   const qty = Math.max(1, randInt(qtyMin, qtyMax));
-  if (actor && !canReceiveItem(actor?.inventory, picked.item, String(picked.itemId), qty, ruleset)) return null;
+  const pickedItem = markInventoryGoalItem(picked.item, goalItemIds.has(String(picked.itemId)));
+  if (actor && !canReceiveItem(actor?.inventory, pickedItem, String(picked.itemId), qty, ruleset)) return null;
 
   crate.opened = true;
   crate.openedBy = String(actor?.name || 'unknown');
@@ -187,7 +198,7 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
   const maxCr = Number(cr?.max ?? 0);
   const credits = Math.max(0, randInt(Math.min(minCr, maxCr), Math.max(minCr, maxCr)));
 
-  return { item: picked.item, itemId: String(picked.itemId), qty, credits, crateType: 'food', zoneId: zid };
+  return { item: pickedItem, itemId: String(picked.itemId), qty, credits, crateType: 'food', zoneId: zid };
 }
 
 function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {

@@ -1,9 +1,9 @@
 import { generateDynamicEvent } from '../../../utils/eventLogic';
 
-function safeGenerateDynamicEvent(actor, day, ruleset, phase, publicItems) {
+function safeGenerateDynamicEvent(actor, day, ruleset, phase, publicItems, opts = {}) {
   try {
     // ✅ 기존 구현(2인자) / 신규 구현(3~4인자) 모두 호환
-    const res = generateDynamicEvent(actor, day, ruleset, phase, publicItems);
+    const res = generateDynamicEvent(actor, day, ruleset, phase, publicItems, opts);
     if (res && typeof res === 'object') return res;
     return {
       log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,

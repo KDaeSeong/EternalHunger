@@ -71,6 +71,7 @@ import {
   invQty,
   isBandageLikeItem,
   isSimGeneratedEquipment,
+  markInventoryGoalItem,
   normalizeInventory,
 } from './inventoryRules';
 import {
@@ -178,6 +179,13 @@ import {
   expandMissingResourceChain,
   pickGoalResourceZoneTargets,
 } from './resourceTargetingRuntime';
+import {
+  advanceEarlyRouteProgress,
+  buildEarlyRoutePlan,
+  buildEarlyRoutePlanDetails,
+  getEarlyRoutePlanTarget,
+  normalizeRoutePlanZoneIds,
+} from './routePlanRuntime';
 import {
   bfsNextStepToAnyTarget,
   bfsPickSafestZone,
@@ -371,6 +379,11 @@ export {
   buildRuntimeSpawnMeta,
   expandMissingResourceChain,
   pickGoalResourceZoneTargets,
+  advanceEarlyRouteProgress,
+  buildEarlyRoutePlan,
+  buildEarlyRoutePlanDetails,
+  getEarlyRoutePlanTarget,
+  normalizeRoutePlanZoneIds,
   bfsNextStepToAnyTarget,
   bfsPickSafestZone,
   invHasSpecialKind,
@@ -399,6 +412,7 @@ export {
   formatInvRuleState,
   formatInvAddNote,
   addItemToInventory,
+  markInventoryGoalItem,
   invQty,
   consumeIngredientsFromInv,
   tryAutoCraftFromLoot,

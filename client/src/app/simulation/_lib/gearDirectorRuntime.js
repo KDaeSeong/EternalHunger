@@ -251,10 +251,9 @@ function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById
 }
 
 // ===============================
-// ✅ 1일차 목표: "1회 이동"만으로 영웅(T4)까지 맞추기
-// - 플레이어 간섭이 없으므로, 관전 템포를 위해 AI가 재료를 소모해 장비를 단계적으로 끌어올립니다.
-// - 규칙(요청): 하급 재료 2개 → 일반(T1) 제작 / (장비 + 하급1) → 희귀(T3) / (희귀 + 하급1) → 영웅(T4)
-//   ※ 여기서는 '하급 재료'를 (재료 카테고리 + 특수재료 제외 + tier<=2)로 간주합니다.
+// 레시피 데이터 누락 시 장비 fallback
+// - 실제 ER 흐름에서는 craftRuntime의 레시피 제작이 우선입니다.
+// - 아래 로직은 imported recipe가 없는 개발/데이터 누락 상황에서만 선택적으로 사용합니다.
 // ===============================
 
 function getInvId(x) {
@@ -358,39 +357,21 @@ function autoEquipBest(actor, itemMetaById) {
   actor.equipped = nextEq;
 }
 
-function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset) {
+function allowAbstractGearFallback(ruleset, opts = {}) {
+  return opts?.allowAbstractFallback === true || ruleset?.ai?.allowAbstractGearFallback === true;
+}
+
+function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset, opts = {}) {
   const d = Number(day || 0);
   const ph = String(phase || '').toLowerCase();
   if (d !== 1) return { changed: false, logs: [] };
   if (actor?.day1HeroDone) return { changed: false, logs: [] };
+  if (!allowAbstractGearFallback(ruleset, opts)) return { changed: false, logs: [] };
 
-  // ✅ 관전형 요구사항(사용자): "1일차 밤"까지는 전원 영웅(T4) 세팅을 반드시 완료
-  // - 파밍 RNG/재료 부족/이동 실패로 목표가 누락되는 것을 방지
-  // - 낮에는 재료 소모 방식(단계적 제작/강화)을 유지하되, 밤에는 부족한 슬롯을 강제로 채움
-  if (ph.includes('night')) {
-    const logs = [];
-    let inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
-    inv = normalizeInventory(inv, ruleset);
+  // 레시피 데이터가 비어 있을 때만 쓰는 안전망입니다. 정상 경로는 실제 레시피 제작입니다.
+  if (!ph.includes('morning') && !ph.includes('day') && !ph.includes('night')) return { changed: false, logs: [] };
 
-    const wTypeNorm = resolveActorWeaponType(actor);
-
-    for (const slot of EQUIP_SLOTS) {
-      const best = pickBestEquipBySlot(inv, slot);
-      const curTier = best ? clampTier4(Number(best?.tier || 1)) : 0;
-      if (curTier >= 4) continue;
-      const gear = createEquipmentItem({ slot, day: d, tier: 4, weaponType: slot === 'weapon' ? wTypeNorm : '' });
-      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
-      logs.push(`✅ [${actor?.name}] 강제 세팅(1일차 밤): ${SLOT_ICON[slot] || '🧩'} 영웅 장비 획득`);
-    }
-
-    actor.inventory = inv;
-    autoEquipBest(actor, itemMetaById);
-    actor.day1HeroDone = true;
-    logs.push(`🏁 [${actor?.name}] 1일차 밤 보정 완료: 영웅 장비 세트 확정`);
-    return { changed: true, logs };
-  }
-
-  // 낮에는 기존 방식 유지: 최소 1회 이동 + 재료 소모로 단계적 달성
+  // 최소 1회 이동 후 루트 파밍이 시작된 것으로 보고 제작/강화를 진행합니다.
   if (Math.max(0, Number(actor?.day1Moves || 0)) < 1) return { changed: false, logs: [] };
 
   const logs = [];
@@ -408,12 +389,12 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
       inv = dec.inventory;
       const gear = createEquipmentItem({ slot, day: d, tier: 1, weaponType: '' });
       inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
-      logs.push(`🛠️ [${actor?.name}] 제작: ${SLOT_ICON[slot] || '🧩'} ${gear?.name || '장비'} (일반)`);
+      logs.push(`🛠️ [${actor?.name}] fallback 제작: ${SLOT_ICON[slot] || '🧩'} ${gear?.name || '장비'} (일반)`);
     }
   }
 
   // 2) 무기/신발 포함 5부위 업그레이드(희귀→영웅) — 1재료씩
-  // - 1일차 목표를 위해 한 페이즈에서 과도하게 반복하지 않도록 슬롯당 최대 2단계만 진행
+  // - 직접 보정 없이 루팅량만큼 진행하되 한 페이즈에서 슬롯당 최대 2단계만 진행
   for (const slot of EQUIP_SLOTS) {
     for (let step = 0; step < 2; step += 1) {
       const it = pickBestEquipBySlot(inv, slot);
@@ -432,7 +413,7 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
 
       const gear = createEquipmentItem({ slot, day: d, tier: nextTier, weaponType: slot === 'weapon' ? wTypeNorm : '' });
       inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
-      logs.push(`⬆️ [${actor?.name}] 강화: ${SLOT_ICON[slot] || '🧩'} ${tierLabelKo(nextTier)} 장비 획득`);
+      logs.push(`⬆️ [${actor?.name}] fallback 강화: ${SLOT_ICON[slot] || '🧩'} ${tierLabelKo(nextTier)} 장비 획득`);
     }
   }
 
@@ -453,15 +434,13 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
 }
 
 // ===============================
-// ✅ 후반 세팅: 전설(T5)/초월(T6) 제작 디렉터
-// - 규칙(요청):
-//   * 하급 재료 1 + (운석/생나/미스릴/포스코어) -> 전설(5)
-//   * 하급 재료 1 + VF 혈액 샘플 -> 초월(6)
-// - 목적: "파밍(크레딧) → 키오스크 구매 → 전설/초월 제작" 루프를 실제로 실행
-// - 페이즈당 1회만 수행(과속/로그 스팸 방지)
+// fallback 후반 세팅: 전설(T5)/초월(T6) 제작 디렉터
+// - 실제 전설/초월 레시피가 없는 데이터 누락 상황에서만 사용합니다.
+// - 기본 시뮬레이션 경로는 실제 레시피 조합과 키오스크/드론 구매입니다.
 // ===============================
-function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset) {
+function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset, opts = {}) {
   if (!actor || typeof actor !== 'object') return { changed: false, logs: [] };
+  if (!allowAbstractGearFallback(ruleset, opts)) return { changed: false, logs: [] };
 
   const d = Number(day || 0);
   const ph = String(phase || '');

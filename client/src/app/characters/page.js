@@ -11,6 +11,7 @@ import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatal
 import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
+import { compactCharactersForSave } from '../../utils/characterPayload';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -212,7 +213,7 @@ export default function CharactersPage() {
     
     try {
         if (!token) throw new Error('로그인이 필요합니다.');
-        await apiPost('/characters/save', characters);
+        await apiPost('/characters/save', compactCharactersForSave(characters), { timeoutMs: 30000 });
         alert("저장 완료!");
     } catch (error) { alert("저장 실패!"); }
   };

@@ -208,11 +208,11 @@ export const ER_TRAITS = {
 };
 
 const SUBJECT_PRESET_LIST = [
-  { code: 'jackie', names: ['재키', 'Jackie'], weapons: ['도끼', '단검', '양손검', '쌍검'], primaryWeapon: '도끼', tacticalSkill: '블래스터', trait: 'devour', role: 'bruiser', statBias: { str: 4, dex: 2, end: 2 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
+  { code: 'jackie', names: ['재키', 'Jackie'], weapons: ['도끼', '단검', '양손검', '쌍검'], primaryWeapon: '도끼', tacticalSkill: '퀘이크', trait: 'devour', role: 'bruiser', statBias: { str: 4, dex: 2, end: 2 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
   { code: 'aya', names: ['아야', 'Aya'], weapons: ['권총', '돌격소총', '저격총'], primaryWeapon: '권총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 4, dex: 2, agi: 1 }, aggression: 0.04, escape: 0.04 },
   { code: 'fiora', names: ['피오라', 'Fiora'], weapons: ['레이피어', '창', '양손검'], primaryWeapon: '레이피어', tacticalSkill: '진실의 칼날', trait: 'sprint', role: 'duelist', statBias: { str: 3, dex: 3, agi: 2 }, aggression: 0.07, chase: 0.05 },
   { code: 'hyunwoo', names: ['현우', 'Hyunwoo'], weapons: ['글러브', '톤파'], primaryWeapon: '글러브', tacticalSkill: '퀘이크', trait: 'fortress', role: 'tank', statBias: { str: 2, end: 4, men: 2 }, aggression: 0.03, escape: 0.02 },
-  { code: 'hyejin', names: ['혜진', 'Hyejin'], weapons: ['활', '암기'], primaryWeapon: '활', tacticalSkill: '아스테니아', trait: 'ampDrone', role: 'mage', statBias: { int: 4, sht: 2, men: 2 }, aggression: 0.03, escape: 0.03 },
+  { code: 'hyejin', names: ['혜진', 'Hyejin'], weapons: ['활', '암기'], primaryWeapon: '활', tacticalSkill: '플라즈마 대시', trait: 'ampDrone', role: 'mage', statBias: { int: 4, sht: 2, men: 2 }, aggression: 0.03, escape: 0.03 },
   { code: 'isol', names: ['아이솔', 'Isol'], weapons: ['돌격소총', '권총'], primaryWeapon: '돌격소총', tacticalSkill: '무효화', trait: 'adrenaline', role: 'trapper', statBias: { sht: 3, int: 2, dex: 2 }, aggression: 0.03, escape: 0.05 },
   { code: 'dailin', names: ['리 다이린', '리다이린', 'Li Dailin'], weapons: ['글러브', '쌍절곤'], primaryWeapon: '쌍절곤', tacticalSkill: '플라즈마 대시', trait: 'devour', role: 'bruiser', statBias: { str: 3, agi: 3, end: 2 }, aggression: 0.08, chase: 0.04 },
   { code: 'yuki', names: ['유키', 'Yuki'], weapons: ['양손검', '쌍검'], primaryWeapon: '양손검', tacticalSkill: '진실의 칼날', trait: 'fortress', role: 'duelist', statBias: { str: 3, dex: 3, end: 2 }, aggression: 0.06, chase: 0.03 },
@@ -225,19 +225,19 @@ const SUBJECT_PRESET_LIST = [
   { code: 'eleven', names: ['일레븐', 'Eleven'], weapons: ['망치'], primaryWeapon: '망치', tacticalSkill: '강한 결속', trait: 'fortress', role: 'tank', statBias: { str: 3, end: 4, men: 2 }, aggression: 0.04, hunt: 0.03 },
   { code: 'rio', names: ['리오', 'Rio'], weapons: ['활'], primaryWeapon: '활', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 4, dex: 3, agi: 1 }, aggression: 0.05, chase: 0.03 },
   { code: 'luke', names: ['루크', 'Luke'], weapons: ['방망이'], primaryWeapon: '방망이', tacticalSkill: '퀘이크', trait: 'devour', role: 'bruiser', statBias: { str: 4, end: 2, luk: 1 }, aggression: 0.08, hunt: 0.04 },
-  { code: 'bianca', names: ['비앙카', 'Bianca'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '거짓 서약', trait: 'ampDrone', role: 'mage', statBias: { int: 4, men: 2, end: 1 }, aggression: 0.05, escape: 0.03 },
-  { code: 'mai', names: ['마이', 'Mai'], weapons: ['채찍'], primaryWeapon: '채찍', tacticalSkill: '빛의 수호', trait: 'sprint', role: 'support', statBias: { dex: 3, men: 3, agi: 2 }, escape: 0.05, objective: 0.04 },
+  { code: 'bianca', names: ['비앙카', 'Bianca'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '아티팩트', trait: 'ampDrone', role: 'mage', statBias: { int: 4, men: 2, end: 1 }, aggression: 0.05, escape: 0.03 },
+  { code: 'mai', names: ['마이', 'Mai'], weapons: ['채찍'], primaryWeapon: '채찍', tacticalSkill: '라이트 윙', trait: 'sprint', role: 'support', statBias: { dex: 3, men: 3, agi: 2 }, escape: 0.05, objective: 0.04 },
   { code: 'daniel', names: ['다니엘', 'Daniel'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '무효화', trait: 'sprint', role: 'assassin', statBias: { str: 3, agi: 4, dex: 2 }, aggression: 0.07, chase: 0.06 },
-  { code: 'elena', names: ['엘레나', 'Elena'], weapons: ['레이피어'], primaryWeapon: '레이피어', tacticalSkill: '아스테니아', trait: 'sprint', role: 'duelist', statBias: { str: 2, agi: 3, dex: 3 }, aggression: 0.05, escape: 0.05 },
+  { code: 'elena', names: ['엘레나', 'Elena'], weapons: ['레이피어'], primaryWeapon: '레이피어', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'duelist', statBias: { str: 2, agi: 3, dex: 3 }, aggression: 0.05, escape: 0.05 },
   { code: 'piolo', names: ['피올로', 'Piolo'], weapons: ['쌍절곤'], primaryWeapon: '쌍절곤', tacticalSkill: '스트라이더 A-13', trait: 'sprint', role: 'skirmisher', statBias: { str: 3, agi: 3, dex: 2 }, aggression: 0.06, chase: 0.05 },
-  { code: 'martina', names: ['마르티나', 'Martina'], weapons: ['카메라'], primaryWeapon: '카메라', tacticalSkill: '빛의 수호', trait: 'ampDrone', role: 'scout', statBias: { sht: 2, int: 3, luk: 2 }, escape: 0.05, objective: 0.06 },
+  { code: 'martina', names: ['마르티나', 'Martina'], weapons: ['카메라'], primaryWeapon: '카메라', tacticalSkill: '라이트 윙', trait: 'ampDrone', role: 'scout', statBias: { sht: 2, int: 3, luk: 2 }, escape: 0.05, objective: 0.06 },
   { code: 'haze', names: ['헤이즈', 'Haze'], weapons: ['돌격소총'], primaryWeapon: '돌격소총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 4, dex: 2, agi: 1 }, aggression: 0.06, chase: 0.03 },
   { code: 'isaac', names: ['아이작', 'Isaac'], weapons: ['톤파'], primaryWeapon: '톤파', tacticalSkill: '퀘이크', trait: 'fortress', role: 'bruiser', statBias: { str: 3, end: 3, dex: 2 }, aggression: 0.07, chase: 0.04 },
   { code: 'theodore', names: ['테오도르', 'Theodore'], weapons: ['저격총'], primaryWeapon: '저격총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 5, dex: 2, men: 1 }, aggression: 0.04, escape: 0.02 },
   { code: 'katja', names: ['카티야', 'Katja'], weapons: ['저격총'], primaryWeapon: '저격총', tacticalSkill: '무효화', trait: 'adrenaline', role: 'marksman', statBias: { sht: 5, agi: 2, dex: 1 }, aggression: 0.05, chase: 0.02 },
   { code: 'charlotte', names: ['샬럿', 'Charlotte'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '치유의 바람', trait: 'ampDrone', role: 'support', statBias: { int: 3, men: 4, luk: 1 }, escape: 0.05, objective: 0.04 },
   { code: 'bihyung', names: ['비형', 'Bihyung'], weapons: ['투척'], primaryWeapon: '투척', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'trickster', statBias: { int: 3, agi: 3, dex: 2 }, aggression: 0.05, escape: 0.05 },
-  { code: 'craver', names: ['크레이버', 'Craver'], weapons: ['도끼'], primaryWeapon: '도끼', tacticalSkill: '거짓 서약', trait: 'devour', role: 'bruiser', statBias: { str: 4, end: 2, dex: 2 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
+  { code: 'craver', names: ['크레이버', 'Craver'], weapons: ['도끼'], primaryWeapon: '도끼', tacticalSkill: '진실의 칼날', trait: 'devour', role: 'bruiser', statBias: { str: 4, end: 2, dex: 2 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
 ];
 
 const ER_SIGNATURE_MODIFIERS = {
@@ -368,7 +368,7 @@ function buildFallbackErPreset(character) {
     role = supportLike ? 'support' : 'mage';
     weapon = supportLike ? (luk > men ? 'camera' : 'guitar') : 'arcana';
     trait = 'ampDrone';
-    tacticalSkill = supportLike ? 'healing wind' : (end > agi ? 'artifact' : 'false oath');
+    tacticalSkill = supportLike ? 'healing wind' : (end > agi ? 'artifact' : 'protocol violation');
     aggression = supportLike ? -0.02 : 0.03;
     chase = supportLike ? 0.01 : 0.02;
     escape = 0.05;
@@ -405,7 +405,7 @@ function buildFallbackErPreset(character) {
     role = str >= end ? 'bruiser' : 'sustain';
     weapon = str >= end + 2 ? 'axe' : (dex > agi ? 'two-handed sword' : 'glove');
     trait = 'devour';
-    tacticalSkill = str >= end + 2 ? 'blaster' : 'quake';
+    tacticalSkill = str >= end + 2 ? 'quake' : 'red storm';
     aggression = 0.06;
     chase = 0.03;
     escape = 0.03;

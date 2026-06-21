@@ -108,6 +108,9 @@ import {
   pickGoalLoadoutKeys,
   buildCraftGoal,
   uniqStrings,
+  advanceEarlyRouteProgress,
+  buildEarlyRoutePlanDetails,
+  getEarlyRoutePlanTarget,
   bfsNextStepToAnyTarget,
   bfsPickSafestZone,
   computeLateGameUpgradeNeed,
@@ -123,6 +126,7 @@ import {
   normalizeInventory,
   formatInvAddNote,
   addItemToInventory,
+  markInventoryGoalItem,
   invQty,
   consumeIngredientsFromInv,
   tryAutoCraftFromLoot,
@@ -308,8 +312,6 @@ export default function SimulationPage() {
   const isFinishingRef = useRef(false);
   // ✅ 시작(1일차 낮) 기본 장비 세팅이 1회만 적용되도록 플래그
   const startStarterLoadoutAppliedRef = useRef(false);
-  // ✅ 1일차 밤 "1회 이상 이동" 달성자에게 영웅 세팅(안전망)이 1회만 적용되도록 플래그
-  const day1NightHeroCatchupAppliedRef = useRef(false);
 
   // ✅ 시뮬 랜덤 장비를 DB(Item 컬렉션)에 저장하기 위한 캐시
   // - 같은 장비를 반복 저장하지 않도록 externalId(wpn_/eq_)를 기억
@@ -1919,15 +1921,23 @@ const pickStartZoneIdForChar = (c) => {
             replaceDefaultTactical: true,
             statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
           });
+          const routePlan = buildEarlyRoutePlanDetails(erSeed, initialMap, itemsList, { routeLength: 4 });
+          const routePlanZoneIds = routePlan.zoneIds;
+          const startZoneId = routePlanZoneIds[0] || pickStartZoneIdForChar(erSeed);
           const seeded = applyPerkBundleToActor(normalizeRuntimeSurvivor({
             ...erSeed,
             tacticalSkillLevel: 1,
             hp: 100,
             maxHp: 100,
-            zoneId: pickStartZoneIdForChar(erSeed),
+            zoneId: startZoneId,
             equipped: ensureEquipped(erSeed),
             day1Moves: 0,
             day1HeroDone: false,
+            routePlanZoneIds,
+            routePlanItemIdsByZone: routePlan.itemIdsByZone || {},
+            routePlanSearchCounts: {},
+            routePlanIndex: 0,
+            routePlanSource: routePlanZoneIds.length ? 'recipe' : '',
             simCredits: Number(ruleset?.credits?.start ?? 15),
             droneLastOrderIndex: -9999,
             droneLastOrderAbsSec: -99999,
@@ -2032,6 +2042,7 @@ const pickStartZoneIdForChar = (c) => {
       participantsCount: participants.length,
       saveStatus: { hallOfFame: w ? 'pending' : 'skipped', userStats: 'pending' },
       userProgress: null,
+      matchMode: normalizeMatchMode(settings?.matchMode),
       winnerTeam: winningTeam
         ? {
             teamId: winningTeam.teamId,
@@ -2232,6 +2243,9 @@ const pickStartZoneIdForChar = (c) => {
 
     // 현재 페이즈 인덱스(배송/딜레이 처리용)
     const phaseIdxNow = worldPhaseIndex(nextDay, nextPhase);
+    const matchCfgNow = getMatchConfig(settings);
+    const isSoloMatch = matchCfgNow.matchMode === 'solo';
+    const canReviveThisMatch = !isSoloMatch;
 
     const reviveCfg = ruleset?.revive || {};
     const phaseFromTimeOfDay = (value) => String(value || 'day') === 'night' ? 'night' : 'morning';
@@ -2338,11 +2352,11 @@ const pickStartZoneIdForChar = (c) => {
 
       for (const d0 of dead) {
         const deadAt = Number(d0?.deadAtPhaseIdx ?? -9999);
-        const autoEligible = (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
+        const autoEligible = canReviveThisMatch && (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
         const paidReviveCount = Math.max(0, Math.floor(Number(d0?.paidReviveCount || 0)));
         const paidCost = paidReviveCostBase + paidReviveCostPerUse * paidReviveCount;
         const teamAlive = (Array.isArray(survivors) ? survivors : []).some((s) => Number(s?.hp || 0) > 0 && areSameTeam(s, d0));
-        const paidEligible = !autoEligible && phaseIdxNow <= paidReviveCutoffIdx && teamAlive && Number(d0?.simCredits || 0) >= paidCost;
+        const paidEligible = canReviveThisMatch && !autoEligible && phaseIdxNow <= paidReviveCutoffIdx && teamAlive && Number(d0?.simCredits || 0) >= paidCost;
         if (autoEligible || paidEligible) {
           const maxHp = Number(d0?.maxHp ?? 100);
           const revivedHp = Math.max(1, Math.floor(maxHp * reviveHpRatio));
@@ -2427,8 +2441,7 @@ const pickStartZoneIdForChar = (c) => {
             : [];
           baseInv = normalizeInventory(baseInv, ruleset);
 
-          // ✅ 1일차 제작 템포용 스타터 재료(하급 재료): 4~6종 * 3개(스택 상한 3 유지)
-          // - "1회 이동" 이후에만 실제 제작/강화가 진행되도록(=목표 조건) 재료는 미리 지급해도 OK
+          // 1일차 시작 보급은 최소 힌트만 줍니다. 실제 장비 완성은 이동 후 파밍/제작으로 진행됩니다.
           const mats = (Array.isArray(publicItems) ? publicItems : [])
             .filter((it) => it?._id)
             .filter((it) => inferItemCategory(it) === 'material')
@@ -2440,18 +2453,18 @@ const pickStartZoneIdForChar = (c) => {
             mats[i] = mats[j];
             mats[j] = tmp;
           }
-          const pickN = Math.max(4, Math.min(6, mats.length));
+          const pickN = Math.min(2, mats.length);
           let inv = baseInv;
           for (let k = 0; k < pickN; k += 1) {
             const it = mats[k];
             if (!it?._id) continue;
-            inv = addItemToInventory(inv, it, String(it._id), 3, nextDay, ruleset);
+            inv = addItemToInventory(inv, it, String(it._id), 1, nextDay, ruleset);
           }
 
-          // 🥩 시작 보급(요청): 스테이크 3개
+          // 시작 보급 음식은 생존용 1개만 지급합니다.
           const steak = findItemByKeywords(publicItems, ['스테이크', 'sizzling steak']);
           if (steak?._id) {
-            inv = addItemToInventory(inv, steak, String(steak._id), 3, nextDay, ruleset);
+            inv = addItemToInventory(inv, steak, String(steak._id), 1, nextDay, ruleset);
           }
 
           // 시작 장비(무기/신발)
@@ -2485,7 +2498,7 @@ const pickStartZoneIdForChar = (c) => {
     if (revivedNow.length) phaseSurvivors = [...phaseSurvivors, ...revivedNow];
     phaseSurvivors = normalizeRuntimeSurvivorList(phaseSurvivors);
 
-    // ✅ 1일차 "1회 이동" 영웅 세팅은 (강제 세팅) 대신 day1HeroGearDirector가 재료를 소모해 단계적으로 달성합니다.
+    // 1일차 장비 성장은 실제 레시피 제작을 우선합니다. 추상 장비 생성은 데이터 누락 시 fallback으로만 사용합니다.
 
     const newlyDead = [];
     const baseZonePop = {};
@@ -2582,7 +2595,7 @@ const pickStartZoneIdForChar = (c) => {
         if (beforeHp > 0 && afterHp <= 0) {
           updated.hp = 0;
           updated.deadAtPhaseIdx = phaseIdxNow;
-          updated.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+          updated.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
           newlyDead.push(updated);
           const cause = Array.isArray(statusTick?.ticks) && statusTick.ticks.some((tick) => Number(tick?.amount || 0) > 0)
             ? String(statusTick.ticks[0]?.name || '지속 효과')
@@ -2630,6 +2643,16 @@ const aiMove = chooseAiMoveTargets({
 });
 
 // 🤖 목표 존 유지(TTL): 목표를 몇 페이즈 유지해서 '사람처럼' 보이게 함
+const hasAiMoveTargets = Array.isArray(aiMove?.targets) && aiMove.targets.length > 0;
+const earlyRouteTarget = getEarlyRoutePlanTarget(updated, forbiddenIds, nextDay, nextPhase);
+const earlyRoutePriorityPhase = Number(nextDay || 0) === 1;
+const preferEarlyRoutePlan = !!earlyRouteTarget && (
+  (!hasAiMoveTargets)
+  || earlyRoutePriorityPhase
+);
+const plannedMove = preferEarlyRoutePlan
+  ? { targets: [earlyRouteTarget], reason: hasAiMoveTargets ? 'early_route:priority' : 'early_route' }
+  : aiMove;
 const aiCfg = ruleset?.ai || {};
 const recoverHpBelow = Math.max(0, Number(aiCfg?.recoverHpBelow ?? 38));
 const recoverMinDelta = Math.max(0, Math.floor(Number(aiCfg?.recoverMinSaferDelta ?? 1)));
@@ -2672,8 +2695,8 @@ if (mustEscape) {
     }
   }
 
-  if (!holdTarget && Array.isArray(aiMove?.targets) && aiMove.targets.length > 0) {
-    const pickedTarget = aiMove.targets
+  if (!holdTarget && Array.isArray(plannedMove?.targets) && plannedMove.targets.length > 0) {
+    const pickedTarget = plannedMove.targets
       .map((z) => String(z || ''))
       .find((z) => z && !forbiddenIds.has(String(z))) || '';
     if (pickedTarget) {
@@ -2684,8 +2707,8 @@ if (mustEscape) {
   }
 }
 
-let moveTargets = holdTarget ? [holdTarget] : (Array.isArray(aiMove?.targets) ? aiMove.targets : []);
-let moveReason = holdTarget ? `${String(aiMove?.reason || 'goal')}:ttl` : String(aiMove?.reason || '');
+let moveTargets = holdTarget ? [holdTarget] : (Array.isArray(plannedMove?.targets) ? plannedMove.targets : []);
+let moveReason = holdTarget ? `${String(plannedMove?.reason || 'goal')}:ttl` : String(plannedMove?.reason || '');
 
 // ✅ 목표/이동 후보에서 금지구역은 최대한 제외 (막혀서 멈추는 현상 방지)
 moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
@@ -2801,6 +2824,11 @@ if (String(nextZoneId) !== String(currentZone)) {
 }
 
 updated.zoneId = nextZoneId;
+advanceEarlyRouteProgress(updated, updated.zoneId, {
+  missingItemIds: (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+  searched: false,
+  maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+});
 
 const didMove = String(nextZoneId) !== String(currentZone);
 
@@ -2857,6 +2885,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
           phase: nextPhase,
           dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
           perkEffects: getActorPerkEffects(updated),
+          goalItemIds: (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+          routeItemIds: Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
+            ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')]
+            : [],
         });
         if (loot) {
           const isTransPick = String(loot?.crateType || '').toLowerCase() === 'transcend_pick' && Array.isArray(loot?.options);
@@ -2907,7 +2939,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
         // --- 음식 상자(맵 이벤트 스폰): 매일 낮 시작에 드랍 → 해당 구역 진입 시 개봉 ---
-        const foodCrate = openSpawnedFoodCrate(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, { moved: didMove });
+        const foodCrate = openSpawnedFoodCrate(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, {
+          moved: didMove,
+          goalItemIds: (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+        });
         if (foodCrate) {
           updated.inventory = addItemToInventory(updated.inventory, foodCrate.item, foodCrate.itemId, foodCrate.qty, nextDay, ruleset);
           const metaF = updated.inventory?._lastAdd;
@@ -2969,6 +3004,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
 
         // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
+        advanceEarlyRouteProgress(updated, updated.zoneId, {
+          missingItemIds: (Array.isArray(craftGoal?.missing) ? craftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
+          searched: true,
+          maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 2),
+        });
         let queuedKioskAction = (didMove || fleeInterruptReason) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
         if (queuedKioskAction?.kind === 'buy' && queuedKioskAction?.itemId && !canReceiveItem(updated.inventory, queuedKioskAction.item, queuedKioskAction.itemId, queuedKioskAction.qty || 1, ruleset)) {
           queuedKioskAction = null;
@@ -3207,7 +3247,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (!d?.itemId || !d?.item) continue;
             const q = Math.max(1, Number(d.qty || 1));
             const nm = d.item?.name || itemNameById?.[String(d.itemId || '')] || '아이템';
-            updated.inventory = addItemToInventory(updated.inventory, d.item, d.itemId, q, nextDay, ruleset);
+            const huntDropItem = markInventoryGoalItem(d.item, goalMissingIds.has(String(d.itemId || '')));
+            updated.inventory = addItemToInventory(updated.inventory, huntDropItem, d.itemId, q, nextDay, ruleset);
             const meta = updated.inventory?._lastAdd;
             const got = Math.max(0, Number(meta?.acceptedQty ?? q));
             if (shouldLogItemReceive(got, meta)) {
@@ -3476,15 +3517,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
           }
 
-          // ✅ 1일차 목표 달성(영웅 세팅): 재료를 소모해 단계적으로 제작/강화
-          // - 조건: 1일차에 최소 1회 이동(day1Moves>=1)
-          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
+          // 1일차 fallback 제작: 정상 레시피 데이터가 없을 때만 추상 장비 생성 안전망을 사용합니다.
+          const allowAbstractGearFallback = !Array.isArray(craftables) || craftables.length <= 0;
+          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, { allowAbstractFallback: allowAbstractGearFallback });
           if (heroRes?.changed && Array.isArray(heroRes.logs)) {
             heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
           }
 
-          // ✅ 후반 세팅(전설/초월) 제작: 크레딧/키오스크 루프가 실제로 장비로 이어지게 함
-          const lateRes = lateGameGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset);
+          // 후반 fallback 제작: 실제 전설/초월 레시피가 없을 때만 추상 장비 안전망을 사용합니다.
+          const lateRes = lateGameGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, { allowAbstractFallback: allowAbstractGearFallback });
           if (lateRes?.changed && Array.isArray(lateRes.logs)) {
             lateRes.logs.forEach((m) => addLog(String(m), 'highlight'));
           }
@@ -3524,7 +3565,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (updated.hp <= 0 && Number(s.hp || 0) > 0) {
             addLog(`💀 [${s.name}]이(가) 금지구역을 벗어나지 못하고 사망했습니다.`, 'death');
             updated.deadAtPhaseIdx = phaseIdxNow;
-            updated.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            updated.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newlyDead.push(updated);
           }
         }
@@ -3670,7 +3711,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             s._deathBy = 'detonation';
             s.hp = 0;
             s.deadAtPhaseIdx = phaseIdxNow;
-            s.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            s.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newlyDead.push(s);
             addLog(`💥 [${s.name}] 폭발 타이머가 0이 되어 사망했습니다. (구역: ${getZoneName(zoneId)})`, 'death');
           }
@@ -3728,15 +3769,26 @@ const didMove = String(nextZoneId) !== String(currentZone);
     battleSettings.battle.isNight = (nextPhase === 'night');
 
     // ✅ 1일차 낮(세팅 페이즈)에는 교전(PvP)을 발생시키지 않음
-    if (nextDay === 1 && nextPhase === 'morning') battleProb = 0;
+    const isDay1MorningFarmPhase = nextDay === 1 && nextPhase === 'morning';
+    if (isDay1MorningFarmPhase) battleProb = 0;
 
     const eventOffset = Number(pvpProbCfg.eventOffset ?? 0.3);
     const eventMax = Number(pvpProbCfg.eventMax ?? 0.95);
-    const eventProb = Math.min(eventMax, (battleProb * 0.55) + eventOffset + restrictedRatio * 0.10);
+    const eventProbBase = Math.min(eventMax, (battleProb * 0.55) + eventOffset + restrictedRatio * 0.10);
+    const eventProb = isDay1MorningFarmPhase
+      ? Math.min(eventProbBase, Math.max(0, Math.min(0.12, Number(pvpProbCfg.day1MorningPairEventProb ?? 0.02))))
+      : eventProbBase;
 
     // 동일 zone 교전 트리거 최소 인원(기본 2명)
     const pvpMinSameZone = Math.max(2, Math.floor(Number(pvpProbCfg.encounterMinSameZone ?? 2)));
     const assistWindowPhases = Math.max(1, Math.floor(Number(pvpProbCfg.assistWindowPhases ?? 2)));
+    const earlyRouteFarmPhase = isDay1MorningFarmPhase || (nextDay === 1 && nextPhase === 'night') || (nextDay === 2 && nextPhase === 'morning');
+    const isEarlyRouteFarmingActor = (c) => {
+      if (!earlyRouteFarmPhase || suddenDeath) return false;
+      const plan = Array.isArray(c?.routePlanZoneIds) ? c.routePlanZoneIds : [];
+      if (!plan.length) return false;
+      return Math.max(0, Number(c?.routePlanIndex || 0)) < plan.length;
+    };
 
     // 🩸 출혈(최소): 피격 시 확률로 DOT 상태이상 부여
     const bleedEnabled = pvpProbCfg.bleedEnabled !== false;
@@ -4157,15 +4209,56 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb * densityMult * pressureMult * nightMult);
       const actorMs = getEquipMoveSpeed(actor);
       const actorEr = buildErBehaviorModifier(actor, battleSettings);
+      const earlyRouteFarming = isEarlyRouteFarmingActor(actor);
+      const immediateDangerNow = Number(actor?._immediateDanger || 0) > 0 && Number(actor?._immediateDangerUntilPhaseIdx ?? -1) === phaseIdxNow;
+      const earlyFarmEncounterMult = earlyRouteFarming ? Math.max(0.05, Math.min(1, Number(pvpProbCfg.earlyRouteFarmEncounterMult ?? 0.38))) : 1;
       const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
       const aggressionEncounterBonus = suddenDeath ? 0 : Math.max(-0.06, Math.min(0.16, actorAggro * 0.18));
       const erEncounterBonus = suddenDeath ? 0 : Math.max(-0.08, Math.min(0.16, Number(actorEr?.aggressionBias || 0) + Number(actorEr?.chaseBonus || 0) * 0.35 - Number(actorEr?.escapeBonus || 0) * 0.45));
-      const battleProb2 = Math.min(0.99, Math.max(0, battleProb2Base + gatherPvpBonus + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
+      const battleProb2 = isDay1MorningFarmPhase
+        ? 0
+        : Math.min(0.99, Math.max(0, battleProb2Base * earlyFarmEncounterMult + gatherPvpBonus * (earlyRouteFarming ? 0.55 : 1) + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
 
       // 전투력 열세면 교전 회피 + 인접 안전 구역으로 이동(가능할 때)
+      if (canDual && !lowHpAvoidCombat && earlyRouteFarming && rand < battleProb2 && pvpTarget) {
+        const baseAvoid = Number(pvpProbCfg.earlyRouteFarmAvoidChance ?? 0.72);
+        const avoidChance = Math.max(0.12, Math.min(0.92,
+          baseAvoid
+          + Number(actorEr?.escapeBonus || 0) * 0.55
+          - Math.max(0, actorAggro) * 0.12
+          - (immediateDangerNow ? 0.28 : 0)
+        ));
+        if (Math.random() < avoidChance) {
+          const from = String(actor?.zoneId || '');
+          const pop = {};
+          for (const s of survivorMap.values()) {
+            if (!s || Number(s.hp || 0) <= 0) continue;
+            if (newDeadIds.includes(s._id)) continue;
+            const zid = String(s.zoneId || '');
+            if (!zid) continue;
+            pop[zid] = (pop[zid] || 0) + 1;
+          }
+          const depthMax = Math.max(1, Math.floor(Number(ruleset?.ai?.safeSearchDepth ?? 3)));
+          const minDelta = Math.max(0, Math.floor(Number(ruleset?.ai?.recoverMinSaferDelta ?? 1)));
+          const pick = bfsPickSafestZone(from, zoneGraph, forbiddenIds, pop, { maxDepth: depthMax, minDelta });
+          const dest = String(pick?.nextStep || '');
+          if (dest && dest !== from) {
+            actor.zoneId = dest;
+            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'early_route_avoid', opponentId: String(pvpTarget?._id || ''), recoverSec: 4, safeZoneSec: 3 });
+            upsertRuntimeSurvivor(survivorMap, actor);
+            addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
+            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'early_route_avoid' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          } else {
+            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'early_route_avoid_hold', opponentId: String(pvpTarget?._id || ''), recoverSec: 3 });
+            addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피`, 'system');
+          }
+          continue;
+        }
+      }
+
       if (canDual && !lowHpAvoidCombat && rand < battleProb2) {
         const targetEval = pvpTarget;
         const avoidInfo = targetEval ? shouldAvoidCombatByPower(actor, targetEval) : null;
@@ -4307,7 +4400,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           let pushedDead = false;
           if (!newDeadIds.includes(loserId)) {
             combatLoser.deadAtPhaseIdx = phaseIdxNow;
-            combatLoser.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            combatLoser.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(loserId);
             pushedDead = true;
           }
@@ -4431,7 +4524,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const victimId = String(victim?._id || '');
           if (!newDeadIds.includes(victimId)) {
             victim.deadAtPhaseIdx = phaseIdxNow;
-            victim.reviveEligible = phaseIdxNow <= reviveCutoffIdx;
+            victim.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(victimId);
             setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList([normalizeDeadSnapshot(victim, ruleset)])]);
           }
@@ -4760,7 +4853,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
 
             const tac = normalizeTac(defender?.tacticalSkill);
-            const defenseTac = ['라이트닝 쉴드', '초월', '아티팩트', '무효화'];
+            const defenseTac = ['초월', '아티팩트', '무효화'];
             if (!defenseTac.includes(tac)) return dmg;
             if (!canUseTac(defender)) return dmg;
             const tcfg = getTacTrigger(tac, 'combatDefense');
@@ -4773,7 +4866,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'highlight');
               return Math.max(0, Number(defender?.hp || 0) - 1);
             }
-            const blockCap = getTacEffectNumber(tac, 'block', 1 + lv, tac === '라이트닝 쉴드' ? 14 : 0);
+            const blockCap = getTacEffectNumber(tac, 'block', 1 + lv, 0);
             const shieldValue = getTacEffectNumber(tac, 'shieldValue', 1 + lv, blockCap);
             const shieldDuration = getTacEffectNumber(tac, 'shieldDuration', 1 + lv, 2);
             if (blockCap <= 0 && shieldValue <= 0) return dmg;
@@ -5002,7 +5095,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           addLog(eventText, 'normal');
         } else {
           // 폴백: 동적 이벤트 생성
-          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems);
+          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems, {
+            farmFocus: isDay1MorningFarmPhase || isEarlyRouteFarmingActor(actor),
+          });
           if (eventResult && eventResult.log && !eventResult.silent) {
             addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
           }
@@ -5037,13 +5132,23 @@ const didMove = String(nextZoneId) !== String(currentZone);
             ...(legacyNewItem ? [{ item: (legacyNewItem.item || legacyNewItem), itemId: (legacyNewItem.itemId || legacyNewItem.id || legacyNewItem._id || ''), qty: (legacyNewItem.qty || 1) }] : []),
           ];
           const normalizedEventDrops = normalizeRewardDropEntries(rawEventDrops, publicItems, itemNameById);
+          const eventCraftGoal = buildCraftGoal(actor.inventory, craftables, itemNameById, {
+            goalTier: actor?.goalGearTier,
+            goalItemKeys: pickGoalLoadoutKeys(actor),
+            perkEffects: perkFx,
+          });
+          const eventGoalMissingIds = new Set(
+            (Array.isArray(eventCraftGoal?.missing) ? eventCraftGoal.missing : [])
+              .map((m) => String(m?.itemId || ''))
+              .filter(Boolean)
+          );
 
           for (const resolvedDrop of normalizedEventDrops) {
             const dropId = String(resolvedDrop.itemId || '');
             if (!dropId) continue;
             const eventItemBias = getPerkEventItemBias(perkFx);
             const dropQty = maybeBoostDropQty(Math.max(1, Number(resolvedDrop.qty || 1)), eventItemBias * 0.55, 1);
-            const dropItem = resolvedDrop.item || null;
+            const dropItem = markInventoryGoalItem(resolvedDrop.item || null, eventGoalMissingIds.has(dropId));
 
             actor.inventory = addItemToInventory(actor.inventory, dropItem, dropId, dropQty, nextDay, ruleset);
             const metaD = actor.inventory && actor.inventory._lastAdd ? actor.inventory._lastAdd : null;

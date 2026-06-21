@@ -12,6 +12,7 @@ import {
 import {
   inferEquipSlot,
   inferItemCategory,
+  markInventoryGoalItem,
 } from './inventoryRules';
 import { classifySpecialByName } from './craftRuntime';
 import {
@@ -96,10 +97,20 @@ function pickAutoTranscendOption(options, publicItems) {
   return scored[0] || null;
 }
 
-
 function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const crates = Array.isArray(mapObj?.itemCrates) ? mapObj.itemCrates : [];
+  const list = Array.isArray(publicItems) ? publicItems : [];
   const perkLootBias = getPerkLootBias(opts?.perkEffects || {});
+  const goalItemIds = new Set(
+    (Array.isArray(opts?.goalItemIds) ? opts.goalItemIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  );
+  const routeItemIds = new Set(
+    (Array.isArray(opts?.routeItemIds) ? opts.routeItemIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean)
+  );
 
   // 존별 상자 허용/금지(서버(DB) 저장)
   // - map.crateAllowDeny: { [zoneId]: ['legendary_material', 'transcend_pick', ...] }  // 금지 리스트
@@ -126,6 +137,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   // 룰셋에서 구역 상자 드랍 확률을 가져옵니다(없으면 기본값 사용)
   const field = ruleset?.drops?.fieldCrate || {};
   const fallbackMaxTier = Math.max(1, Number(field?.fallbackMaxTier ?? 2));
+  const goalLootBoost = Math.max(0, Number(field?.goalLootBoost ?? 8));
 
   // 전설 재료 상자(필드) 게이트: 기본 2일차 밤 이후
   const curDay = Number(opts?.day ?? opts?.curDay ?? 0);
@@ -154,6 +166,51 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     ? (moved ? Number(field?.fallbackChanceMoved ?? 0.20) : Number(field?.fallbackChanceStay ?? 0.08))
     : (moved ? Number(field?.chanceMoved ?? 0.28) : Number(field?.chanceStay ?? 0.12));
   const chance = Math.max(0.01, Math.min(0.98, chanceBase + Math.max(-0.05, Math.min(0.16, perkLootBias * 0.18))));
+
+  const earlyRouteCfg = field?.earlyRoute || {};
+  const earlyRouteActive = routeItemIds.size > 0 && (
+    curDay === 1 ||
+    (curDay === 2 && (curPhase === 'morning' || curPhase === 'day'))
+  );
+  if (earlyRouteActive) {
+    const routeChanceBase = moved
+      ? Number(earlyRouteCfg?.chanceMoved ?? 0.72)
+      : Number(earlyRouteCfg?.chanceStay ?? 0.42);
+    const routeChance = Math.max(0.01, Math.min(0.98, routeChanceBase + Math.max(0, perkLootBias) * 0.10));
+    const routeMaxTier = Math.max(1, Number(earlyRouteCfg?.maxTier ?? fallbackMaxTier));
+    const routeWeight = Math.max(0, Number(earlyRouteCfg?.routeWeight ?? 8));
+    const routeGoalWeight = Math.max(0, Number(earlyRouteCfg?.goalWeight ?? 16));
+    const routeMaxQty = Math.max(1, Math.min(3, Number(earlyRouteCfg?.maxQty ?? 2)));
+    const routeCandidates = [...routeItemIds]
+      .map((itemId) => {
+        const item = list.find((it) => String(it?._id) === String(itemId)) || null;
+        if (!item?._id) return null;
+        if (classifySpecialByName(item?.name)) return null;
+        if (inferItemCategory(item) !== 'material') return null;
+        const tier = clampTier4(item?.tier || 1);
+        if (tier > routeMaxTier) return null;
+        const directGoal = goalItemIds.has(String(item._id));
+        const baseWeight = routeWeight + (directGoal ? routeGoalWeight : 0) + (tier <= 1 ? 2 : 0);
+        return { item, itemId: String(item._id), tier, weight: applyPerkLootWeight(baseWeight, opts?.perkEffects || {}, { rareBoost: tier >= 2 ? 0.12 : 0 }) };
+      })
+      .filter((x) => x && Number(x?.weight || 0) > 0);
+    if (routeCandidates.length && Math.random() < routeChance) {
+      const picked = pickWeighted(routeCandidates);
+      if (picked?.itemId) {
+        const qtyMax = Number(picked?.tier || 1) <= 1 ? routeMaxQty : 1;
+        const qty = Math.max(1, randInt(1, qtyMax));
+        return {
+          item: markInventoryGoalItem(picked.item, goalItemIds.has(String(picked.itemId))),
+          itemId: String(picked.itemId),
+          qty,
+          crateId: 'route_plan',
+          crateType: 'route_material',
+          zoneId: String(zoneId || ''),
+        };
+      }
+    }
+  }
+
   if (Math.random() >= chance) return null;
 
   // 1) 구역 상자 기반 드랍(맵에 crateType이 있으면 사용, 없으면 food)
@@ -189,7 +246,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       const item = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === itemId) || null;
       const special = classifySpecialByName(item?.name);
       const isEquip = inferItemCategory(item) === 'equipment';
-      const weight = applyPerkLootWeight(entry?.weight || 1, opts?.perkEffects || {}, { rareBoost: special ? 0.7 : (isEquip ? 0.35 : 0) });
+      const baseWeight = Number(entry?.weight || 1) + (goalItemIds.has(itemId) ? goalLootBoost : 0);
+      const weight = applyPerkLootWeight(baseWeight, opts?.perkEffects || {}, { rareBoost: special ? 0.7 : (isEquip ? 0.35 : 0) });
       return { ...entry, _item: item, weight };
     });
     const entry = pickWeighted(weightedLootTable);
@@ -203,12 +261,10 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       qty += 1;
     }
 
-    return { item, itemId, qty, crateId: crate?.crateId || '', crateType, zoneId: String(zoneId || '') };
+    return { item: markInventoryGoalItem(item, goalItemIds.has(itemId)), itemId, qty, crateId: crate?.crateId || '', crateType, zoneId: String(zoneId || '') };
   }
 
   // 2) fallback: 음식 상자 / 전설 재료 상자 / 초월 장비 선택 상자
-  const list = Array.isArray(publicItems) ? publicItems : [];
-
   const ct = ruleset?.drops?.crateTypes || {};
   const wFood0 = Math.max(0, Number(ct?.food?.weight ?? ct?.food ?? 80));
   const wLegendBase0 = Number(field?.legendaryMaterialWeight ?? field?.legendaryMaterial?.weight ?? ct?.legendary_material?.weight ?? ct?.legendary_material ?? 15);
@@ -268,12 +324,12 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       if (v > 0 && v <= 40) w += 1;
       if (nm.includes('천') || nm.includes('가죽') || nm.includes('돌') || nm.includes('나무') || nm.includes('철') || nm.includes('부품')) w += 1;
 
-      // ✅ 1일차 템포 튜닝: 하급 재료는 한 번에 2~3개 나오도록(영웅 세팅 목표)
-      // - 인벤 재료 스택 상한(기본 3)을 넘기지 않게 maxQty=3 유지
-      const minQty = (isDay1 && tier <= 1) ? 2 : 1;
-      const maxQty = (isDay1 && tier <= 1) ? 3 : 1;
-      if (isDay1 && tier <= 1) w += 3; // 하급 재료 우선
+      // 1일차에는 하급 재료가 잘 보이게 하되, 장비를 직접 완성시키는 묶음 지급은 피합니다.
+      const minQty = 1;
+      const maxQty = (isDay1 && tier <= 1) ? 2 : 1;
+      if (isDay1 && tier <= 1) w += 2; // 하급 재료 우선
 
+      if (goalItemIds.has(String(it._id))) w += goalLootBoost;
       pool.push({ itemId: String(it._id), weight: applyPerkLootWeight(w, opts?.perkEffects || {}, { rareBoost: tier >= 2 ? 0.15 : 0 }), minQty, maxQty });
       continue;
     }
@@ -295,7 +351,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const item = list.find((it) => String(it?._id) === itemId) || null;
   let qty = Math.max(1, randInt(entry?.minQty ?? 1, entry?.maxQty ?? 1));
   if (Math.random() < Math.max(0, perkLootBias) * 0.45) qty += 1;
-  return { item, itemId, qty, crateId: 'fallback', crateType: 'food', zoneId: String(zoneId || '') };
+  return { item: markInventoryGoalItem(item, goalItemIds.has(itemId)), itemId, qty, crateId: 'fallback', crateType: 'food', zoneId: String(zoneId || '') };
 }
 
 export {

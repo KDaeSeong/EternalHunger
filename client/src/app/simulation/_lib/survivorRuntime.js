@@ -120,6 +120,20 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     safeZoneUntil: Number.isFinite(Number(base?.safeZoneUntil)) ? Number(base.safeZoneUntil) : 0,
     aiTargetZoneId: base?.aiTargetZoneId != null ? String(base.aiTargetZoneId || '') : '',
     aiTargetTTL: Math.max(0, Number(base?.aiTargetTTL || 0)),
+    routePlanZoneIds: Array.isArray(base?.routePlanZoneIds)
+      ? base.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
+      : [],
+    routePlanItemIdsByZone: base?.routePlanItemIdsByZone && typeof base.routePlanItemIdsByZone === 'object'
+      ? Object.fromEntries(Object.entries(base.routePlanItemIdsByZone).map(([z, ids]) => [
+          String(z || ''),
+          Array.isArray(ids) ? ids.map((id) => String(id || '').trim()).filter(Boolean) : [],
+        ]))
+      : {},
+    routePlanSearchCounts: base?.routePlanSearchCounts && typeof base.routePlanSearchCounts === 'object'
+      ? Object.fromEntries(Object.entries(base.routePlanSearchCounts).map(([z, v]) => [String(z || ''), Math.max(0, Math.floor(Number(v || 0)))]))
+      : {},
+    routePlanIndex: Math.max(0, Math.floor(Number(base?.routePlanIndex || 0))),
+    routePlanSource: String(base?.routePlanSource || ''),
     _recentCombatUntil: Number.isFinite(Number(base?._recentCombatUntil)) ? Number(base._recentCombatUntil) : 0,
     _recentCombatWith: String(base?._recentCombatWith || ''),
     _recentCombatReason: String(base?._recentCombatReason || ''),

@@ -34,6 +34,15 @@ const DEFAULT_FIELD_CRATE_DROP = {
   fallbackChanceMoved: 0.20,
   fallbackChanceStay: 0.08,
   fallbackMaxTier: 2,
+  goalLootBoost: 10,
+  earlyRoute: {
+    chanceMoved: 0.78,
+    chanceStay: 0.48,
+    maxTier: 2,
+    routeWeight: 8,
+    goalWeight: 18,
+    maxQty: 2,
+  },
 
   // 전설 재료 상자(필드): 2일차 밤 이후부터만 등장(기본)
   legendaryMaterialGate: { day: 2, timeOfDay: 'night' },
@@ -311,6 +320,9 @@ export const RULESETS = {
       encounterDayScale: 0.06,
       encounterMax: 0.88,
       encounterFogBonus: 0.08,
+      day1MorningPairEventProb: 0.02,
+      earlyRouteFarmEncounterMult: 0.38,
+      earlyRouteFarmAvoidChance: 0.72,
       // 이벤트(야생/상자/보스 등) 확률의 상한/오프셋(기존 하드코딩 제거용)
       eventOffset: 0.30,
       eventMax: 0.95,
@@ -434,6 +446,9 @@ export const RULESETS = {
       encounterDayScale: 0.06,
       encounterMax: 0.88,
       encounterFogBonus: 0.00,
+      day1MorningPairEventProb: 0.02,
+      earlyRouteFarmEncounterMult: 0.38,
+      earlyRouteFarmAvoidChance: 0.72,
       eventOffset: 0.30,
       eventMax: 0.95,
 

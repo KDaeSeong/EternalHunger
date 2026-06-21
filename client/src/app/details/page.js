@@ -6,6 +6,7 @@ import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
+import { compactCharactersForSave } from '../../utils/characterPayload';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -160,7 +161,7 @@ export default function DetailsPage() {
   try {
     // 세 번째 인자로 헤더를 넣어줍니다.
     if (!token) throw new Error('로그인이 필요합니다.');
-    await apiPost('/characters/save', characters);
+    await apiPost('/characters/save', compactCharactersForSave(characters), { timeoutMs: 30000 });
     alert("완벽하게 저장되었습니다!");
   } catch (err) {
     alert("저장 실패 ㅠㅠ");

@@ -154,10 +154,11 @@ function pickMedical(publicItems) {
 }
 
 // [수정] publicItems를 추가 인자로 받아 DB(시드) 아이템 기반으로 이벤트를 생성
-export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = 'morning', publicItems = []) {
+export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = 'morning', publicItems = [], opts = {}) {
   const name = String(char?.name || '???');
   const day = Math.max(1, Number(currentDay || 1));
   const isNight = String(currentPhase || '') === 'night';
+  const farmFocus = opts?.farmFocus === true;
 
   const hp = clamp(char?.hp ?? 100, 0, 100);
   const maxHp = clamp(char?.maxHp ?? 100, 1, 999);
@@ -173,15 +174,15 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
 
   const baseNothing = 5.0;
   const baseRest = 1.4;
-  const baseScavenge = 0.85;
-  const baseFood = 0.85;
+  const baseScavenge = farmFocus ? 1.45 : 0.85;
+  const baseFood = farmFocus ? 1.05 : 0.85;
   const baseMedical = 0.6;
-  const baseMishap = 0.35;
-  const baseMinorFight = 0.35;
+  const baseMishap = farmFocus ? 0.08 : 0.35;
+  const baseMinorFight = farmFocus ? 0.03 : 0.35;
 
   const needHealBoost = hpPct < 55 ? (55 - hpPct) / 10 : 0;
-  const nightRiskBoost = isNight ? 0.6 : 0;
-  const dayLootBoost = !isNight ? 0.25 : 0;
+  const nightRiskBoost = farmFocus ? (isNight ? 0.25 : 0) : (isNight ? 0.6 : 0);
+  const dayLootBoost = !isNight ? (farmFocus ? 0.55 : 0.25) : 0;
 
   const pool = [
     { k: 'nothing', w: baseNothing + (isNight ? 0.3 : 0) },
@@ -321,4 +322,3 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
   // fallback
   return { silent: true, log: '', damage: 0, recovery: 0, drop: null };
 }
-

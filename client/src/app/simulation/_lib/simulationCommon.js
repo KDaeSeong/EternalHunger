@@ -137,6 +137,7 @@ export function tierLabelKo(tier) {
 }
 
 export function crateTypeLabel(crateType) {
+  if (String(crateType || '').toLowerCase() === 'route_material') return '루트 재료';
   const k = String(crateType || '').toLowerCase();
   if (k === 'food') return '음식 상자';
   if (k === 'legendary_material') return '전설 재료 상자';

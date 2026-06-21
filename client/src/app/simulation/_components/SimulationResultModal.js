@@ -46,6 +46,15 @@ export default function SimulationResultModal({
   const winnerAssists = winner?._id ? (assistCounts?.[winner._id] || 0) : (resultSummary?.myAssists || 0);
   const winnerTeam = resultSummary?.winnerTeam || null;
   const winnerTeamMembers = Array.isArray(winnerTeam?.members) ? winnerTeam.members : [];
+  const matchMode = String(resultSummary?.matchMode || '').toLowerCase();
+  const isSoloMatch = matchMode === 'solo';
+  const winnerLine = winner
+    ? (isSoloMatch ? '최후의 1인! 생존을 축하합니다.' : `${winnerTeam?.teamName || '우승 팀'} 생존을 축하합니다.`)
+    : '이번 경기에는 생존자가 남지 않았습니다.';
+  const winnerGroupLabel = isSoloMatch ? '최후 생존자' : '우승 팀';
+  const winnerGroupText = isSoloMatch
+    ? compactText(winner?.name)
+    : compactText(winnerTeamMembers.map((m) => m?.name).filter(Boolean).join(', '));
   const topKillLeader = resultSummary?.topKillLeader || null;
   const saveStatus = resultSummary?.saveStatus || {};
   const userProgress = resultSummary?.userProgress || null;
@@ -86,7 +95,7 @@ export default function SimulationResultModal({
           <div className="result-hero-copy">
             <div className="result-kicker">게임 종료</div>
             <h1>{winner ? winner.name : '생존자 없음'}</h1>
-            <p>{winner ? `${winnerTeam?.teamName || '우승 팀'} 생존을 축하합니다.` : '이번 경기에는 생존자가 남지 않았습니다.'}</p>
+            <p>{winnerLine}</p>
           </div>
         </section>
 
@@ -123,8 +132,8 @@ export default function SimulationResultModal({
                   </DetailRow>
                 ) : null}
                 <DetailRow label="우승자 ER 프로필">{compactText(winnerErText)}</DetailRow>
-                <DetailRow label="우승 팀">
-                  {compactText(winnerTeamMembers.map((m) => m?.name).filter(Boolean).join(', '))}
+                <DetailRow label={winnerGroupLabel}>
+                  {winnerGroupText}
                 </DetailRow>
                 <DetailRow label="특수 보상">{compactText(specialSourceSummary)}</DetailRow>
                 <DetailRow label="아이템 획득">{compactText(gainSourceSummary)}</DetailRow>

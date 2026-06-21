@@ -10,6 +10,7 @@ import {
   saveAuth,
   stripApiSuffix,
 } from '@/utils/api';
+import { compactCharactersForSave } from '@/utils/characterPayload';
 
 const S = {
   wrap: { maxWidth: 980, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 },
@@ -163,7 +164,7 @@ ${stringifyLogBody(res.data)}`);
       }
     }
 
-    await postJson('/characters/save', payload);
+    await postJson('/characters/save', compactCharactersForSave(payload));
   };
 
   return (

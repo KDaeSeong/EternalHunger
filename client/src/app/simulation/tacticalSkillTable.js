@@ -20,10 +20,14 @@ const TAC_SKILL_TABLE = {
       combat: { priority: 62, hpBelow: 45 },
     },
   },
-  '라이트닝 쉴드': {
+  '붉은 폭풍': {
     baseCdSec: 40,
-    effects: { block: { 1: 14, 2: 19 }, shieldValue: { 1: 14, 2: 19 }, shieldDuration: { 1: 2, 2: 2 } },
-    triggers: { combatDefense: { priority: 72, minIncomingDmg: 6 } },
+    effects: { escapeBonus: { 1: 0.10, 2: 0.14 }, chaseBonus: { 1: 0.05, 2: 0.08 }, openerFlatDmg: { 1: 2, 2: 4 } },
+    triggers: {
+      flee: { priority: 54, applyBonus: true },
+      chase: { priority: 44, applyBonus: true },
+      combat: { priority: 40 },
+    },
   },
   '스트라이더 A-13': {
     baseCdSec: 50,
@@ -31,14 +35,6 @@ const TAC_SKILL_TABLE = {
     triggers: {
       flee: { priority: 55, applyBonus: true },
       chase: { priority: 55, applyBonus: true, useOnCommit: true },
-    },
-  },
-  '블래스터': {
-    baseCdSec: 50,
-    effects: { escapeBonus: { 1: 0.17, 2: 0.22 }, openerFlatDmg: { 1: 3, 2: 5 } },
-    triggers: {
-      flee: { priority: 55, applyBonus: true },
-      combat: { priority: 52 },
     },
   },
   '퀘이크': {
@@ -50,11 +46,6 @@ const TAC_SKILL_TABLE = {
     baseCdSec: 50,
     effects: { openerFlatDmg: { 1: 6, 2: 10 }, selfHeal: { 1: 8, 2: 12 }, regenRecovery: { 1: 2, 2: 4 }, regenDuration: { 1: 2, 2: 2 } },
     triggers: { combat: { priority: 66, hpBelow: 70 } },
-  },
-  '거짓 서약': {
-    baseCdSec: 50,
-    effects: { openerFlatDmg: { 1: 8, 2: 13 }, selfCost: { 1: 6, 2: 8 }, selfHeal: { 1: 6, 2: 10 }, regenRecovery: { 1: 2, 2: 3 }, regenDuration: { 1: 2, 2: 2 } },
-    triggers: { combat: { priority: 74, hpBelow: 78 } },
   },
   '초월': {
     baseCdSec: 42,
@@ -87,12 +78,12 @@ const TAC_SKILL_TABLE = {
     effects: { openerFlatDmg: { 1: 8, 2: 12 }, chaseBonus: { 1: 0.08, 2: 0.12 } },
     triggers: { combat: { priority: 72 }, chase: { priority: 52, applyBonus: true } },
   },
-  '빛의 수호': {
+  '라이트 윙': {
     baseCdSec: 48,
-    effects: { escapeBonus: { 1: 0.12, 2: 0.18 }, shieldValue: { 1: 12, 2: 18 }, shieldDuration: { 1: 2, 2: 2 }, haste: { 1: 2, 2: 4 } },
+    effects: { escapeBonus: { 1: 0.12, 2: 0.18 }, chaseBonus: { 1: 0.06, 2: 0.10 }, haste: { 1: 2, 2: 4 } },
     triggers: {
       flee: { priority: 66, applyBonus: true },
-      combatDefense: { priority: 68, minIncomingDmg: 6 },
+      chase: { priority: 46, applyBonus: true },
     },
   },
   '리펄서 미사일': {
@@ -109,14 +100,42 @@ const TAC_SKILL_TABLE = {
       combat: { priority: 58 },
     },
   },
-  '아스테니아': {
-    baseCdSec: 46,
-    effects: { openerFlatDmg: { 1: 4, 2: 7 }, block: { 1: 4, 2: 7 }, chaseBonus: { 1: 0.04, 2: 0.07 } },
-    triggers: { combat: { priority: 59 }, chase: { priority: 58, applyBonus: true } },
-  },
 };
 
-export const TACTICAL_SKILL_OPTIONS_KO = Object.keys(TAC_SKILL_TABLE);
+const LEGACY_OR_COBALT_TAC_SKILLS = new Set([
+  '라이트닝 쉴드',
+  '블래스터',
+  '거짓 서약',
+  '빛의 수호',
+  '아스테니아',
+  '부착 / 추적',
+  '부착/추적',
+  '힘껏펀치',
+  '임펄스',
+  '메테오',
+  '중력장',
+  '롤링썬더',
+  '블래스터 탄환',
+]);
+
+const TAC_SKILL_REPLACEMENTS = {
+  '라이트닝 쉴드': '초월',
+  블래스터: '진실의 칼날',
+  '블래스터 탄환': '진실의 칼날',
+  '거짓 서약': '진실의 칼날',
+  '빛의 수호': '라이트 윙',
+  아스테니아: '플라즈마 대시',
+  '부착 / 추적': '블링크',
+  '부착/추적': '블링크',
+  힘껏펀치: '퀘이크',
+  임펄스: '블링크',
+  메테오: '진실의 칼날',
+  중력장: '퀘이크',
+  롤링썬더: '스트라이더 A-13',
+};
+
+export const TACTICAL_SKILL_OPTIONS_KO = Object.keys(TAC_SKILL_TABLE)
+  .filter((name) => !LEGACY_OR_COBALT_TAC_SKILLS.has(name));
 
 const TAC_SKILL_ALIASES = {
   blink: '블링크',
@@ -124,10 +143,13 @@ const TAC_SKILL_ALIASES = {
   '치유 바람': '치유의 바람',
   healingwind: '치유의 바람',
   'healing wind': '치유의 바람',
+  'red storm': '붉은 폭풍',
+  'electric shift': '붉은 폭풍',
   'lightning shield': '라이트닝 쉴드',
   shield: '라이트닝 쉴드',
   'strider a13': '스트라이더 A-13',
   'strider a-13': '스트라이더 A-13',
+  'strider - a13': '스트라이더 A-13',
   strider: '스트라이더 A-13',
   blaster: '블래스터',
   quake: '퀘이크',
@@ -136,19 +158,32 @@ const TAC_SKILL_ALIASES = {
   artifact: '아티팩트',
   nullification: '무효화',
   transcendence: '초월',
-  'wings of light': '빛의 수호',
+  'wings of light': '라이트 윙',
+  'light wing': '라이트 윙',
   'repulsor missiles': '리펄서 미사일',
   'plasma dash': '플라즈마 대시',
   asthenia: '아스테니아',
+  'attach track': '블링크',
+  'attach / track': '블링크',
+  impulse: '블링크',
+  meteor: '진실의 칼날',
+  gravity: '퀘이크',
+  'gravity field': '퀘이크',
+  'rolling thunder': '스트라이더 A-13',
 };
 
 export function normalizeSupportedTacSkill(skillName) {
   const raw = String(skillName || '').trim();
   if (!raw) return '블링크';
+  const rawReplacement = TAC_SKILL_REPLACEMENTS[raw];
+  if (rawReplacement && TACTICAL_SKILL_OPTIONS_KO.includes(rawReplacement)) return rawReplacement;
   if (TACTICAL_SKILL_OPTIONS_KO.includes(raw)) return raw;
   const key = raw.toLowerCase().replace(/\s+/g, ' ').trim();
   const alias = TAC_SKILL_ALIASES[raw] || TAC_SKILL_ALIASES[key] || TAC_SKILL_ALIASES[key.replace(/[-_]/g, ' ')];
-  if (alias && TACTICAL_SKILL_OPTIONS_KO.includes(alias)) return alias;
+  if (alias) {
+    const aliasReplacement = TAC_SKILL_REPLACEMENTS[alias] || alias;
+    if (TACTICAL_SKILL_OPTIONS_KO.includes(aliasReplacement)) return aliasReplacement;
+  }
   return '블링크';
 }
 
