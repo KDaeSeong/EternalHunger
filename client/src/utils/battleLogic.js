@@ -315,12 +315,12 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     if (erBlock1 > 0.05) {
       score1 += erBlock1 * 0.45;
       score2 -= erBlock1 * 0.65;
-      logs.push(`🛡️ [${p1.name}] ER 방어 보정: 공격 흐름 -${erBlock1.toFixed(1)}`);
+      if (erBlock1 >= 4) logs.push(`🛡️ [${p1.name}] ER 방어 보정: 공격 흐름 -${erBlock1.toFixed(1)}`);
     }
     if (erBlock2 > 0.05) {
       score2 += erBlock2 * 0.45;
       score1 -= erBlock2 * 0.65;
-      logs.push(`🛡️ [${p2.name}] ER 방어 보정: 공격 흐름 -${erBlock2.toFixed(1)}`);
+      if (erBlock2 >= 4) logs.push(`🛡️ [${p2.name}] ER 방어 보정: 공격 흐름 -${erBlock2.toFixed(1)}`);
     }
 
     // 🎯 치명타(장비 치확 기반): '실제 피해'에 가산 → 흡혈 회복에도 연동

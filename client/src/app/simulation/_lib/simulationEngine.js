@@ -236,6 +236,15 @@ import {
 import {
   safeGenerateDynamicEvent,
 } from './dynamicEventRuntime';
+import {
+  areSameTeam,
+  assignSimulationTeams,
+  getActorTeamId,
+  getActorTeamName,
+  getAliveTeams,
+  getWinningTeam,
+  pickTeamRepresentative,
+} from './teamRuntime';
 
 export {
   safeTags,
@@ -415,6 +424,13 @@ export {
   makeForceCore,
   tryAutoCraftForceCore,
   safeGenerateDynamicEvent,
+  areSameTeam,
+  assignSimulationTeams,
+  getActorTeamId,
+  getActorTeamName,
+  getAliveTeams,
+  getWinningTeam,
+  pickTeamRepresentative,
   getTimeOfDayFromPhase,
   worldTimeText,
   isAtOrAfterWorldTime,

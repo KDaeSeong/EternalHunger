@@ -1,3 +1,5 @@
+import { isAtOrAfterWorldTime } from './worldTime';
+
 function countInventoryUnits(inventory) {
   return (Array.isArray(inventory) ? inventory : []).reduce((sum, x) => sum + Math.max(0, Number(x?.qty ?? 1)), 0);
 }
@@ -49,7 +51,7 @@ function hasKioskAtZone(kiosks, mapObj, zoneId) {
 }
 
 function canUseKioskAtWorldTime(day, phase) {
-  return Number(day || 1) >= 1 && !!String(phase || 'morning');
+  return isAtOrAfterWorldTime(day, phase, 2, 'day');
 }
 
 export {

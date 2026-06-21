@@ -20,7 +20,7 @@ import {
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
-import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec } from '../../utils/rulesets';
+import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain } from '../../utils/rulesets';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationResultModal from './_components/SimulationResultModal';
@@ -132,6 +132,12 @@ import {
   lateGameGearDirector,
   tryImmediateCraftFromSpecial,
   safeGenerateDynamicEvent,
+  areSameTeam,
+  assignSimulationTeams,
+  getActorTeamName,
+  getAliveTeams,
+  getWinningTeam,
+  pickTeamRepresentative,
   getTimeOfDayFromPhase,
   worldTimeText,
   worldPhaseIndex,
@@ -230,7 +236,36 @@ export default function SimulationPage() {
     forbiddenZoneStartPhase: 'night',
     forbiddenZoneDamageBase: 1.5,
     rulesetId: 'ER_S10',
+    matchMode: 'squad',
   });
+
+  const normalizeMatchMode = (value) => (String(value || '').toLowerCase() === 'solo' ? 'solo' : 'squad');
+  const getMatchConfig = (src = settings) => {
+    const matchMode = normalizeMatchMode(src?.matchMode);
+    return matchMode === 'solo'
+      ? { matchMode, teamSize: 1, maxTeams: 24, maxParticipants: 24 }
+      : { matchMode, teamSize: 3, maxTeams: 8, maxParticipants: 24 };
+  };
+
+  const applyMatchTeams = (list, src = settings) => {
+    const cfg = getMatchConfig(src);
+    return assignSimulationTeams(
+      normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []).slice(0, cfg.maxParticipants),
+      { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
+    ).map((c) => normalizeRuntimeSurvivor(c));
+  };
+
+  const handleMatchModeChange = (value) => {
+    const matchMode = normalizeMatchMode(value);
+    const nextSettings = { ...(settings || {}), matchMode };
+    try {
+      window.localStorage.setItem('eh_sim_match_mode', matchMode);
+    } catch {}
+    setSettings(nextSettings);
+    if (day === 0 && !isGameOver) {
+      setSurvivors((prev) => applyMatchTeams(prev, nextSettings));
+    }
+  };
 
   // 🗺️ 맵 선택(로드맵 2번)
   const [maps, setMaps] = useState([]);
@@ -1751,7 +1786,19 @@ if (!who) {
         const openTradesList = getSettledArray(openTrades);
         const myTradesList = getSettledArray(mineTrades);
 
-        if (settingValue) setSettings(settingValue);
+        const storedMatchMode = (() => {
+          try {
+            return window.localStorage.getItem('eh_sim_match_mode');
+          } catch {
+            return '';
+          }
+        })();
+        const loadedSettings = {
+          ...(settings || {}),
+          ...(settingValue || {}),
+          matchMode: normalizeMatchMode(storedMatchMode || settingValue?.matchMode || settings?.matchMode),
+        };
+        setSettings(loadedSettings);
         setPublicPerks(perksList);
         applyUserEconomyProgress({
           credits: meValue?.credits,
@@ -1776,7 +1823,7 @@ if (initialMapId) {
           : ['__default__'];
 
         // 🎮 룰 프리셋에 따라 생존자 런타임 상태를 초기화
-        const ruleset = getRuleset(settingValue?.rulesetId);
+        const ruleset = getRuleset(loadedSettings?.rulesetId);
         const det = ruleset?.detonation;
         const energy = ruleset?.gadgetEnergy;
 
@@ -1896,20 +1943,20 @@ const pickStartZoneIdForChar = (c) => {
           }), initPerkBundle, { initialFill: true, applyCredits: true });
           charsWithHp.push(seeded);
         });
-        const shuffledChars = shuffleArray(charsWithHp).map((c) => normalizeRuntimeSurvivor(c));
+        const shuffledChars = applyMatchTeams(shuffleArray(charsWithHp), loadedSettings);
         setSurvivors(shuffledChars);
         setEvents(eventsList);
 
         // 킬 카운트 초기화
         const initialKills = {};
-        charList.forEach((c) => {
+        shuffledChars.forEach((c) => {
           initialKills[c._id] = 0;
         });
         setKillCounts(initialKills);
 
         // 어시스트 카운트 초기화
         const initialAssists = {};
-        charList.forEach((c) => {
+        shuffledChars.forEach((c) => {
           initialAssists[c._id] = 0;
         });
         setAssistCounts(initialAssists);
@@ -1959,9 +2006,10 @@ const pickStartZoneIdForChar = (c) => {
     isFinishingRef.current = true;
     // 게임 종료 시 오토 플레이는 자동으로 해제
     setAutoPlay(false);
-    const w = finalSurvivors[0];
     const finalKills = latestKillCounts || killCounts;
     const finalAssists = latestAssistCounts || assistCounts;
+    const winningTeam = getWinningTeam(finalSurvivors, finalKills, finalAssists);
+    const w = winningTeam?.representative || finalSurvivors[0];
     const participants = [
       ...(Array.isArray(finalSurvivors) ? finalSurvivors : []),
       ...(Array.isArray(dead) ? dead : []),
@@ -1984,6 +2032,13 @@ const pickStartZoneIdForChar = (c) => {
       participantsCount: participants.length,
       saveStatus: { hallOfFame: w ? 'pending' : 'skipped', userStats: 'pending' },
       userProgress: null,
+      winnerTeam: winningTeam
+        ? {
+            teamId: winningTeam.teamId,
+            teamName: winningTeam.teamName,
+            members: winningTeam.members.map((m) => ({ id: m?._id, name: m?.name, hp: Number(m?.hp || 0) })),
+          }
+        : null,
       topKillLeader: topKillLeader
         ? {
             id: topKillLeader._id,
@@ -1994,7 +2049,7 @@ const pickStartZoneIdForChar = (c) => {
         : null,
     });
 
-    if (w) addLog(`🏆 게임 종료! 최후의 생존자: [${w.name}]`, 'highlight');
+    if (w) addLog(`🏆 게임 종료! 최후의 팀: ${winningTeam?.teamName || getActorTeamName(w)} / 대표 생존자: [${w.name}]`, 'highlight');
     else addLog('💀 생존자가 아무도 없습니다...', 'death');
 
 
@@ -2160,7 +2215,7 @@ const pickStartZoneIdForChar = (c) => {
     }
 
     // 💰 이번 페이즈 기본 크레딧(시즌10 컨셉)
-    const baseCredits = Number(ruleset?.credits?.basePerPhase || 0);
+    const baseCredits = getNaturalCreditGain(ruleset, nextDay, nextPhase, phaseDurationSec);
 
     let earnedCredits = baseCredits;
 
@@ -2178,8 +2233,23 @@ const pickStartZoneIdForChar = (c) => {
     // 현재 페이즈 인덱스(배송/딜레이 처리용)
     const phaseIdxNow = worldPhaseIndex(nextDay, nextPhase);
 
-    // 🧬 부활 컷오프: 2일차 밤(포함)까지의 사망자는 1회 부활 가능
-    const reviveCutoffIdx = worldPhaseIndex(2, 'night');
+    const reviveCfg = ruleset?.revive || {};
+    const phaseFromTimeOfDay = (value) => String(value || 'day') === 'night' ? 'night' : 'morning';
+
+    // 🧬 부활 컷오프: 기본 2일차 밤(포함)까지 자동 부활, 5일차 낮까지 유료 부활
+    const reviveAutoCutoff = reviveCfg?.autoCutoff || {};
+    const revivePaidCutoff = reviveCfg?.paidCutoff || {};
+    const reviveCutoffIdx = worldPhaseIndex(
+      Number(reviveAutoCutoff?.day ?? 2),
+      phaseFromTimeOfDay(reviveAutoCutoff?.timeOfDay ?? reviveAutoCutoff?.phase ?? 'night')
+    );
+    const paidReviveCutoffIdx = worldPhaseIndex(
+      Number(revivePaidCutoff?.day ?? 5),
+      phaseFromTimeOfDay(revivePaidCutoff?.timeOfDay ?? revivePaidCutoff?.phase ?? 'day')
+    );
+    const paidReviveCostBase = Math.max(0, Number(reviveCfg?.paidCostBase ?? 100));
+    const paidReviveCostPerUse = Math.max(0, Number(reviveCfg?.paidCostPerUse ?? 50));
+    const reviveHpRatio = Math.max(0.05, Math.min(1, Number(reviveCfg?.hpRatio ?? 0.65)));
     let revivedNow = [];
 
     // 🎁 초월 선택 상자(개발자 도구): 한 페이즈에 1개만 선택 대기(나머지는 자동 선택)
@@ -2268,14 +2338,22 @@ const pickStartZoneIdForChar = (c) => {
 
       for (const d0 of dead) {
         const deadAt = Number(d0?.deadAtPhaseIdx ?? -9999);
-        const eligible = d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx);
-        if (eligible && !d0?.revivedOnce) {
+        const autoEligible = (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
+        const paidReviveCount = Math.max(0, Math.floor(Number(d0?.paidReviveCount || 0)));
+        const paidCost = paidReviveCostBase + paidReviveCostPerUse * paidReviveCount;
+        const teamAlive = (Array.isArray(survivors) ? survivors : []).some((s) => Number(s?.hp || 0) > 0 && areSameTeam(s, d0));
+        const paidEligible = !autoEligible && phaseIdxNow <= paidReviveCutoffIdx && teamAlive && Number(d0?.simCredits || 0) >= paidCost;
+        if (autoEligible || paidEligible) {
           const maxHp = Number(d0?.maxHp ?? 100);
-          const revivedHp = Math.max(1, Math.floor(maxHp * 0.65));
+          const revivedHp = Math.max(1, Math.floor(maxHp * reviveHpRatio));
           const zoneId = safeZonePool.length ? String(safeZonePool[Math.floor(Math.random() * safeZonePool.length)]) : String(d0?.zoneId || '');
           const reviveKit = findItemByKeywords(publicItems, ['붕대', 'bandage', '응급']);
 
           const r = normalizeRevivedSurvivor(d0, revivedHp, zoneId, phaseIdxNow, ruleset, phaseStartSec, reviveKit);
+          if (paidEligible) {
+            r.simCredits = Math.max(0, Number(r.simCredits || 0) - paidCost);
+            r.paidReviveCount = paidReviveCount + 1;
+          }
           if (useDetonation) {
             const startSec = Number(ruleset?.detonation?.startSec ?? 20);
             const maxSec = Number(ruleset?.detonation?.maxSec ?? 30);
@@ -2284,8 +2362,8 @@ const pickStartZoneIdForChar = (c) => {
           }
 
           revivedNow.push(r);
-          emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-          addLog(`✨ [${r.name}] 부활! (HP ${revivedHp}${reviveKit?._id ? ', 붕대 1 지급' : ''})`, 'highlight');
+          emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp, paid: paidEligible, cost: paidEligible ? paidCost : 0 }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          addLog(`✨ [${r.name}] ${paidEligible ? `유료 부활! (-${paidCost}Cr)` : '부활!'} (HP ${revivedHp}${reviveKit?._id ? ', 붕대 1 지급' : ''})`, 'highlight');
         } else {
           remainingDead.push(d0);
         }
@@ -2556,7 +2634,7 @@ const aiCfg = ruleset?.ai || {};
 const recoverHpBelow = Math.max(0, Number(aiCfg?.recoverHpBelow ?? 38));
 const recoverMinDelta = Math.max(0, Math.floor(Number(aiCfg?.recoverMinSaferDelta ?? 1)));
 const sameZoneOpponents = (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).filter((t) => (
-  t && String(t?._id || '') !== String(updated?._id || '') && Number(t?.hp || 0) > 0 && String(t?.zoneId || '') === String(currentZone)
+  t && String(t?._id || '') !== String(updated?._id || '') && !areSameTeam(updated, t) && Number(t?.hp || 0) > 0 && String(t?.zoneId || '') === String(currentZone)
 ));
 const worstSameZoneOpponent = sameZoneOpponents
   .slice()
@@ -4042,6 +4120,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const potentialTargets = todaysSurvivors.filter((t) => {
         if (!t || newDeadIds.includes(t._id)) return false;
         if (String(t?._id || '') === String(actor?._id || '')) return false;
+        if (areSameTeam(actor, t)) return false;
         if (String(t?.zoneId || '') !== String(actor?.zoneId || '')) return false;
         if (actorRecoveryLocked || isAiRecoveryLocked(t, phaseStartSec)) return false;
         return true;
@@ -4616,10 +4695,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const counterDamageBonus = Math.round(Math.max(0, Number(loserErDamage?.damageBonus || 0)) * erDamageScale * 0.45);
           const dmgToLoser = Math.min(98, Math.max(16, Math.round(base + ratio * 34 + winnerDamageBonus)));
           const dmgToWinner = Math.min(38, Math.max(0, Math.round(7 + (1 - ratio) * 14 + counterDamageBonus)));
-          if (winnerDamageBonus > 0 || counterDamageBonus > 0) {
+          if (winnerDamageBonus >= 4 || counterDamageBonus >= 3) {
             const bits = [];
-            if (winnerDamageBonus > 0) bits.push(`${battleWinner.name} +${winnerDamageBonus}`);
-            if (counterDamageBonus > 0) bits.push(`${loser.name} 반격 +${counterDamageBonus}`);
+            if (winnerDamageBonus >= 4) bits.push(`${battleWinner.name} +${winnerDamageBonus}`);
+            if (counterDamageBonus >= 3) bits.push(`${loser.name} 반격 +${counterDamageBonus}`);
             addLog(`⚔️ ER 피해 보정: ${bits.join(' / ')}`, 'system');
           }
 
@@ -4672,10 +4751,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
 
             const erDefense = buildErBehaviorModifier(defender, battleSettings);
-            const erBlock = Math.min(Math.max(0, dmg * 0.35), Math.floor(Math.max(0, Number(erDefense?.damageBlock || 0))));
+            const erBlockRaw = Math.min(Math.max(0, dmg * 0.35), Math.max(0, Number(erDefense?.damageBlock || 0)));
+            const erBlock = Math.min(Math.max(0, Math.round(erBlockRaw)), Math.ceil(dmg));
             if (erBlock > 0) {
               dmg = Math.max(0, dmg - erBlock);
-              addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'system');
+              if (erBlock >= 5) addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'system');
               if (dmg <= 0) return 0;
             }
 
@@ -5029,13 +5109,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
     // 💳 크레딧은 화면에 직접 띄우지 않고, 캐릭터별(simCredits)로만 누적 표시합니다.
     // - baseCredits(페이즈 기본)는 생존자에게 분배(합계=baseCredits)
     if (baseCredits > 0 && finalStepSurvivors.length > 0) {
-      const aliveCount = finalStepSurvivors.length;
-      const share = Math.floor(baseCredits / aliveCount);
-      let rem = baseCredits - share * aliveCount;
       finalStepSurvivors.forEach((s) => {
-        const add = share + (rem > 0 ? 1 : 0);
-        if (rem > 0) rem -= 1;
-        s.simCredits = Number(s.simCredits || 0) + add;
+        s.simCredits = Number(s.simCredits || 0) + baseCredits;
       });
     }
 
@@ -5053,19 +5128,29 @@ const didMove = String(nextZoneId) !== String(currentZone);
     const sdRemainAfter = (suddenDeathActiveRef.current && typeof sdEndAt === 'number')
       ? Math.ceil(sdEndAt - (matchSec + phaseDurationSec))
       : null;
-    if (suddenDeathActiveRef.current && typeof sdEndAt === 'number' && sdRemainAfter <= 0 && finalStepSurvivors.length > 1) {
-      const sorted = [...finalStepSurvivors].sort((a, b) => Number(b.hp || 0) - Number(a.hp || 0));
-      const topHp = Number(sorted[0]?.hp || 0);
-      const topList = sorted.filter((s) => Number(s.hp || 0) === topHp);
-      const wForced = topList[Math.floor(Math.random() * topList.length)];
+    const finalAliveTeams = getAliveTeams(finalStepSurvivors);
+
+    if (suddenDeathActiveRef.current && typeof sdEndAt === 'number' && sdRemainAfter <= 0 && finalAliveTeams.length > 1) {
+      const scoredTeams = finalAliveTeams
+        .map((team) => ({
+          ...team,
+          hpSum: team.members.reduce((sum, m) => sum + Math.max(0, Number(m?.hp || 0)), 0),
+          kills: team.members.reduce((sum, m) => sum + Number(updatedKillCounts?.[m?._id] || 0), 0),
+        }))
+        .sort((a, b) => (b.hpSum - a.hpSum) || (b.kills - a.kills) || (b.members.length - a.members.length));
+      const topScore = Number(scoredTeams[0]?.hpSum || 0);
+      const topList = scoredTeams.filter((team) => Number(team?.hpSum || 0) === topScore);
+      const wTeam = topList[Math.floor(Math.random() * topList.length)] || scoredTeams[0];
+      const wForced = pickTeamRepresentative(wTeam?.members || [], updatedKillCounts, updatedAssistCounts);
       const forcedDead = finalStepSurvivors
-        .filter((s) => String(s._id) !== String(wForced._id))
+        .filter((s) => !areSameTeam(s, wForced))
         .map((s) => ({ ...s, hp: 0 }));
       if (forcedDead.length) setDead((prev) => [...prev, ...normalizeRuntimeSurvivorList(forcedDead.map((x) => normalizeDeadSnapshot(x, ruleset)))]);
-      setSurvivors([normalizeRuntimeSurvivor(wForced)]);
+      const winners = (Array.isArray(wTeam?.members) ? wTeam.members : [wForced]).filter(Boolean).map((s) => normalizeRuntimeSurvivor(s));
+      setSurvivors(winners);
       setMatchSec((prev) => prev + phaseDurationSec);
-      addLog(`⏱ 서든데스 종료! 제한시간 만료로 [${wForced.name}] 승리`, 'highlight');
-      finishGame([wForced], updatedKillCounts, updatedAssistCounts);
+      addLog(`⏱ 서든데스 종료! 제한시간 만료로 ${wTeam?.teamName || getActorTeamName(wForced)} 승리`, 'highlight');
+      finishGame(winners, updatedKillCounts, updatedAssistCounts);
       return;
     }
 
@@ -5087,8 +5172,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
         .catch(() => {});
     }
 
-    if (finalStepSurvivors.length <= 1) {
-      finishGame(finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
+    if (finalAliveTeams.length <= 1) {
+      finishGame(finalAliveTeams[0]?.members || finalStepSurvivors, updatedKillCounts, updatedAssistCounts);
     }
   };
 
@@ -5174,8 +5259,9 @@ if (showMarketPanel && pendingTranscendPick) {
     if (loading || isGameOver) return;
     if (day === 0) return;
     if (!Array.isArray(survivors)) return;
-    if (survivors.length > 1) return;
-    finishGame(survivors, killCounts, assistCounts);
+    const aliveTeams = getAliveTeams(survivors);
+    if (aliveTeams.length > 1) return;
+    finishGame(aliveTeams[0]?.members || survivors, killCounts, assistCounts);
   }, [survivors.length, day, loading, isGameOver]);
 
 
@@ -5971,6 +6057,17 @@ if (showMarketPanel && pendingTranscendPick) {
 
           <div className="control-panel">
             <div className="control-row">
+              <select
+                className="autoplay-speed"
+                value={normalizeMatchMode(settings?.matchMode)}
+                onChange={(e) => handleMatchModeChange(e.target.value)}
+                disabled={loading || isAdvancing || day !== 0}
+                title="매치 모드: 시작 전 변경 가능"
+              >
+                <option value="squad">스쿼드</option>
+                <option value="solo">솔로</option>
+              </select>
+
               {isGameOver ? (
                 <button className="btn-restart" onClick={() => window.location.reload()}>🔄 다시 하기</button>
               ) : (
@@ -5988,7 +6085,7 @@ if (showMarketPanel && pendingTranscendPick) {
                         ? '⚠️ 인원 부족 (2명↑)'
                         : day === 0
                           ? '🔥 게임 시작'
-                          : survivors.length <= 1
+                          : getAliveTeams(survivors).length <= 1
                             ? '🏆 결과 확인하기'
                             : phase === 'morning'
                               ? (day >= 6 ? '🔥 서든데스 진행' : '🌙 밤으로 진행')

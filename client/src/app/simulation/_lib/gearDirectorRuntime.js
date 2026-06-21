@@ -579,15 +579,32 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   if (!k) return { changed: false, logs: [], pvpBonus: 0 };
 
   const targetTier = (k === 'vf') ? 6 : 5;
+  const craftRule = ruleset?.equipment?.immediateSpecialCraft || ruleset?.immediateSpecialCraft || {};
+  const defaultGate = k === 'vf' ? { day: 4, timeOfDay: 'day' } : { day: 2, timeOfDay: 'night' };
+  const gate = (k === 'vf' ? craftRule.transGate : craftRule.legendGate) || defaultGate;
+  const gateDay = Math.max(1, Number(gate?.day ?? defaultGate.day));
+  const gateTimeOfDay = String(gate?.timeOfDay || gate?.phase || defaultGate.timeOfDay);
+  if (!isAtOrAfterWorldTime(curDay, curPhase, gateDay, gateTimeOfDay)) return { changed: false, logs: [], pvpBonus: 0 };
+
   const inv0 = Array.isArray(actor?.inventory) ? actor.inventory : [];
 
-  // 페이즈당 과도한 즉시 제작 방지
+  // Avoid runaway instant crafting from early lucky core chains.
+  const dayKey = Math.max(0, Number(curDay || 0));
+  if (Number(actor?._specialCraftDay ?? -9999) !== dayKey) {
+    actor._specialCraftDay = dayKey;
+    actor._specialCraftDayCount = 0;
+  }
+  const dayCnt = Math.max(0, Number(actor?._specialCraftDayCount || 0));
+  const maxPerDay = Math.max(0, Math.floor(Number(craftRule.perDayMax ?? 1)));
+  if (maxPerDay <= 0 || dayCnt >= maxPerDay) return { changed: false, logs: [], pvpBonus: 0 };
+
   if (Number(actor?._specialCraftPhaseIdx ?? -9999) !== phaseIdxNow) {
     actor._specialCraftPhaseIdx = phaseIdxNow;
     actor._specialCraftCount = 0;
   }
   const cnt = Math.max(0, Number(actor?._specialCraftCount || 0));
-  if (cnt >= 2) return { changed: false, logs: [], pvpBonus: 0 };
+  const maxPerPhase = Math.max(0, Math.floor(Number(craftRule.perPhaseMax ?? 1)));
+  if (maxPerPhase <= 0 || cnt >= maxPerPhase) return { changed: false, logs: [], pvpBonus: 0 };
 
   const sid = String(specialItemId || '');
   if (!sid) return { changed: false, logs: [], pvpBonus: 0 };
@@ -624,6 +641,7 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   actor.inventory = inv;
   autoEquipBest(actor, itemMetaById);
   actor._specialCraftCount = cnt + 1;
+  actor._specialCraftDayCount = dayCnt + 1;
 
   const label = (k === 'vf') ? 'VF→초월' : (k === 'force_core') ? '포스코어→전설' : (k === 'mithril') ? '미스릴→전설' : (k === 'meteor') ? '운석→전설' : (k === 'life_tree') ? '생나→전설' : '특수재료→전설';
   const logs = [`⚒️ [${actor?.name}] 즉시 제작: ${label} → ${SLOT_ICON[slotPick] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(targetTier)})${formatInvAddNote(meta, 1, inv, ruleset)}`];

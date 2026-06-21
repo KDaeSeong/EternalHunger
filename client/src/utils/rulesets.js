@@ -7,13 +7,14 @@
 // 참고: 이터널 리턴 패치노트(1.43)에서 낮/밤 시간 조정 수치를 그대로 사용
 // - 실제 게임 내에서 추가 조정이 있을 수 있으니, 필요하면 여기만 수정하면 됩니다.
 const ER_PHASE_SECONDS = {
-  1: { morning: 90, night: 90 },
-  2: { morning: 90, night: 90 },
-  3: { morning: 90, night: 90 },
-  4: { morning: 90, night: 90 },
-  5: { morning: 90, night: 90 },
-  6: { morning: 90, night: 90 },
-  7: { morning: 90, night: 90 },
+  1: { morning: 140, night: 110 },
+  2: { morning: 130, night: 120 },
+  3: { morning: 130, night: 110 },
+  4: { morning: 100, night: 110 },
+  5: { morning: 80, night: 80 },
+  6: { morning: 70, night: 50 },
+  7: { morning: 120, night: 50 },
+  8: { morning: 150, night: 150 },
 };
 
 // ✅ Fog(퍼플 포그) 타이밍
@@ -45,7 +46,7 @@ const DEFAULT_FIELD_CRATE_DROP = {
 // - 시뮬레이터 전용: 서버 마켓 API와 별개로 동작합니다.
 const DEFAULT_MARKET_RULES = {
   kiosk: {
-    gate: { day: 1, phase: 'night' },
+    gate: { day: 2, phase: 'morning' },
     // 목표(조합) 기반이면 더 적극적으로 이용
     chanceNeed: 0.46,
     chanceIdle: 0.14,
@@ -92,7 +93,7 @@ const DEFAULT_MARKET_RULES = {
 // - 스폰/개봉/픽업/보스 드랍을 page.js 하드코딩에서 분리
 const DEFAULT_WORLD_SPAWNS = {
   core: {
-    gateDay: 1,
+    gateDay: 2,
     perDayMax: 2,
     scaleDiv: 7,
     pickChance: {
@@ -102,9 +103,9 @@ const DEFAULT_WORLD_SPAWNS = {
     keepDays: 2,
   },
   legendaryCrate: {
-    gateDay: 3,
+    gateDay: 2,
     // 튜닝(최소): 과도한 드랍 방지
-    perDayMax: 2,
+    perDayMax: 3,
     scaleDiv: 7,
     // 드랍 가중치(키 기반): page.js 하드코딩 제거용
     dropWeightsByKey: { meteor: 3, life_tree: 3, mithril: 2, force_core: 1 },
@@ -161,9 +162,9 @@ const DEFAULT_WORLD_SPAWNS = {
     keepDays: 2,
   },
   bosses: {
-    alpha: { gateDay: 3, dropKeywords: ['미스릴', 'mithril'], dmg: { min: 6, base: 22, scaleDiv: 9 }, reward: { credits: { min: 24, max: 48 }, bonusDropChance: 0.15 } },
-    omega: { gateDay: 4, dropKeywords: ['포스 코어', 'force core', 'forcecore'], dmg: { min: 8, base: 26, scaleDiv: 9 }, reward: { credits: { min: 34, max: 64 }, bonusDropChance: 0.18 } },
-    weakline: { gateDay: 5, dropKeywords: ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf'], dmg: { min: 6, base: 18, scaleDiv: 10 }, reward: { credits: { min: 50, max: 90 }, bonusDropChance: 0.22 } },
+    alpha: { gateDay: 2, dropKeywords: ['미스릴', 'mithril'], dmg: { min: 6, base: 22, scaleDiv: 9 }, reward: { credits: { min: 24, max: 48 }, bonusDropChance: 0.15 } },
+    omega: { gateDay: 3, dropKeywords: ['포스 코어', 'force core', 'forcecore'], dmg: { min: 8, base: 26, scaleDiv: 9 }, reward: { credits: { min: 34, max: 64 }, bonusDropChance: 0.18 } },
+    weakline: { gateDay: 4, dropKeywords: ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf'], dmg: { min: 6, base: 18, scaleDiv: 10 }, reward: { credits: { min: 50, max: 90 }, bonusDropChance: 0.22 } },
   },
   bossFallback: {
     retreatBase: 0.20,
@@ -248,10 +249,23 @@ export const RULESETS = {
     credits: {
       start: 15,
       basePerPhase: 18,
+      natural: {
+        earlyPerCreditSec: 1.45,
+        lateGate: { day: 2, timeOfDay: 'night' },
+        latePerCreditSec: 2,
+      },
       kill: 48,
       wildlifeKill: 34,
       mutantKill: 48,
       kioskSell: 0, // 상점 판매는 추후 상점/인벤 연동 시 산정
+    },
+
+    revive: {
+      autoCutoff: { day: 2, timeOfDay: 'night' },
+      paidCutoff: { day: 5, timeOfDay: 'day' },
+      paidCostBase: 100,
+      paidCostPerUse: 50,
+      hpRatio: 0.65,
     },
 
     // 🏪 마켓(키오스크/드론): 판매목록/가격/등장확률
@@ -346,6 +360,12 @@ export const RULESETS = {
       armorDefPerTier: 4,
       maxTier: 6,
       replaceOnlyIfBetter: true,
+      immediateSpecialCraft: {
+        legendGate: { day: 2, timeOfDay: 'night' },
+        transGate: { day: 4, timeOfDay: 'day' },
+        perDayMax: 1,
+        perPhaseMax: 1,
+      },
     },
 
     battle: {
@@ -459,6 +479,12 @@ export const RULESETS = {
       armorDefPerTier: 4,
       maxTier: 6,
       replaceOnlyIfBetter: true,
+      immediateSpecialCraft: {
+        legendGate: { day: 2, timeOfDay: 'night' },
+        transGate: { day: 4, timeOfDay: 'day' },
+        perDayMax: 1,
+        perPhaseMax: 1,
+      },
     },
 
     battle: {
@@ -511,6 +537,21 @@ export function getPhaseDurationSec(ruleset, day, phase) {
   const fallback = table[1] || { morning: 120, night: 120 };
   const row = table[dayKey] || fallback;
   return Math.max(1, Number(row?.[phase] || 120));
+}
+
+export function getNaturalCreditGain(ruleset, day, phase, durationSec) {
+  const credits = ruleset?.credits || {};
+  const natural = credits?.natural || null;
+  if (!natural) return Math.max(0, Number(credits?.basePerPhase || 0));
+
+  const curDay = Number(day || 0);
+  const curTod = phase === 'morning' ? 'day' : 'night';
+  const gateDay = Number(natural?.lateGate?.day ?? 2);
+  const gateTod = String(natural?.lateGate?.timeOfDay ?? natural?.lateGate?.phase ?? 'night');
+  const todOrder = { day: 0, night: 1 };
+  const isLate = curDay > gateDay || (curDay === gateDay && (todOrder[curTod] ?? 0) >= (todOrder[gateTod] ?? 1));
+  const interval = Math.max(0.1, Number(isLate ? natural?.latePerCreditSec : natural?.earlyPerCreditSec) || 1);
+  return Math.max(0, Math.floor(Math.max(0, Number(durationSec || 0)) / interval));
 }
 
 export function getFogLocalTimeSec(ruleset, day, phase, durationSec) {

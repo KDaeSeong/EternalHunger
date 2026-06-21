@@ -19,7 +19,6 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   const coreKeepDays = Math.max(1, Number(coreRule?.keepDays ?? 2));
 
   const legGateDay = Number(legRule?.gateDay ?? 3);
-  const legDiv = Math.max(1, Number(legRule?.scaleDiv ?? 6));
   const legMaxPerDay = Math.max(1, Number(legRule?.perDayMax ?? 3));
   const legKeepDays = Math.max(1, Number(legRule?.keepDays ?? 3));
 
@@ -107,10 +106,10 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
   const eligibleCore = getEligibleCoreSpawnZoneIds(zones, forbiddenIds, coreSpawnZoneIds);
 
-  const wantMeteor = (d === 1 && p === 'night') || (d === 2 && (p === 'morning' || p === 'night')) || (d === 3 && p === 'morning');
-  const wantTree = (d === 1 && p === 'night') ? 2 : (d === 2 && p === 'night') ? 2 : 0;
+  const meteorCount = (d === 2 && p === 'morning') ? 2 : (d === 3 && p === 'morning') ? 2 : 0;
+  const lifeTreeCount = (d === 2 && p === 'morning') ? 3 : (d === 3 && p === 'morning') ? 2 : 0;
 
-  if ((wantMeteor || wantTree > 0) && Number(s.spawnedDay.core) !== spawnKey && eligibleCore.length) {
+  if ((meteorCount > 0 || lifeTreeCount > 0) && Number(s.spawnedDay.core) !== spawnKey && eligibleCore.length) {
     const alreadyAlive = new Set(
       (Array.isArray(s.coreNodes) ? s.coreNodes : [])
         .filter((n) => !n?.picked)
@@ -138,8 +137,8 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       }
     }
 
-    if (wantTree > 0) spawnCore('life_tree', wantTree);
-    if (wantMeteor) spawnCore('meteor', 1);
+    if (lifeTreeCount > 0) spawnCore('life_tree', lifeTreeCount);
+    if (meteorCount > 0) spawnCore('meteor', meteorCount);
 
     s.spawnedDay.core = spawnKey;
     if (spawned > 0) announcements.push(`🌠 희귀 재료 자연 스폰 발생! (x${spawned})`);
@@ -174,14 +173,19 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     if (pickCount > 0) announcements.push(`🍱 음식 상자 드랍 발생! (x${pickCount})`);
   }
 
-  if (timeOfDay === 'day' && Number(curDay || 0) >= legGateDay && Number(s.spawnedDay.legendary) !== Number(curDay || 0)) {
+  const legendaryCount = (d === 2 && p === 'night') ? 3
+    : (d === 3 && (p === 'morning' || p === 'night')) ? 3
+    : (d === 4 && p === 'morning') ? 3
+    : 0;
+
+  if (legendaryCount > 0 && Number(curDay || 0) >= legGateDay && Number(s.spawnedDay.legendary) !== spawnKey) {
     const alreadyToday = new Set(
       (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : [])
         .filter((c) => Number(c?.spawnedDay) === Number(curDay || 0))
         .map((c) => String(c?.zoneId))
     );
 
-    const maxNew = Math.min(legMaxPerDay, Math.max(1, Math.floor(eligible.length / legDiv) || 1));
+    const maxNew = Math.min(legendaryCount, legMaxPerDay);
     const zonePool = eligible.filter((zid) => !alreadyToday.has(String(zid)));
     const pickCount = Math.min(maxNew, zonePool.length);
 
@@ -198,7 +202,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       });
     }
 
-    s.spawnedDay.legendary = Number(curDay || 0);
+    s.spawnedDay.legendary = spawnKey;
     if (pickCount > 0) announcements.push(`🟪 전설 재료 상자 드랍 발생! (x${pickCount})`);
   }
 
