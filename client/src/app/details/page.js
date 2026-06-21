@@ -55,6 +55,11 @@ function freshCharactersUrl() {
   return `/characters?_fresh=${Date.now()}`;
 }
 
+async function loadCharactersAfterSave(result) {
+  if (Array.isArray(result?.characters)) return result.characters;
+  return apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
+}
+
 function syncTokenCookie(token) {
   try {
     document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
@@ -199,8 +204,11 @@ export default function DetailsPage() {
         throw new Error(`저장 반영 건수가 맞지 않습니다. 요청 ${payload.length}명 / 반영 ${appliedCount}명`);
       }
     }
-    const savedCharacters = await apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
+    const savedCharacters = await loadCharactersAfterSave(result);
     const normalizedSaved = normalizeDetailsCharacterList(savedCharacters);
+    if (normalizedSaved.length !== payload.length) {
+      throw new Error(`저장 후 캐릭터 수가 맞지 않습니다. 요청 ${payload.length}명 / 저장 ${normalizedSaved.length}명`);
+    }
     const mismatches = findCharacterSaveMismatches(payload, normalizedSaved, { saveResults: result?.saveResults });
     if (mismatches.length > 0) {
       throw new Error(formatSaveMismatchMessage(mismatches));

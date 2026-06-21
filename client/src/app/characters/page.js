@@ -41,6 +41,11 @@ function freshCharactersUrl() {
   return `/characters?_fresh=${Date.now()}`;
 }
 
+async function loadCharactersAfterSave(result) {
+  if (Array.isArray(result?.characters)) return result.characters;
+  return apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
+}
+
 function syncTokenCookie(token) {
   try {
     document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
@@ -260,8 +265,11 @@ export default function CharactersPage() {
             throw new Error(`저장 반영 건수가 맞지 않습니다. 요청 ${payload.length}명 / 반영 ${appliedCount}명`);
           }
         }
-        const savedCharacters = await apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
+        const savedCharacters = await loadCharactersAfterSave(result);
         const normalizedSaved = normalizeCharacterEditorList(savedCharacters);
+        if (normalizedSaved.length !== payload.length) {
+          throw new Error(`저장 후 캐릭터 수가 맞지 않습니다. 요청 ${payload.length}명 / 저장 ${normalizedSaved.length}명`);
+        }
         const mismatches = findCharacterSaveMismatches(payload, normalizedSaved, { saveResults: result?.saveResults });
         if (mismatches.length > 0) {
           throw new Error(formatSaveMismatchMessage(mismatches));
@@ -467,7 +475,7 @@ export default function CharactersPage() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
                 <button type="button" onClick={closeConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>취소</button>
-                <button type="button" onClick={saveConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #0288d1', background: '#0288d1', color: '#fff', cursor: 'pointer' }}>저장</button>
+                <button type="button" onClick={saveConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #0288d1', background: '#0288d1', color: '#fff', cursor: 'pointer' }}>적용</button>
               </div>
             </div>
           </div>

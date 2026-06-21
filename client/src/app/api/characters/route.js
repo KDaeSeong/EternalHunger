@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // 배포 환경변수가 비어 있을 때 사용하는 임시 백엔드 fallback
 const LEGACY_BACKEND_FALLBACK = 'https://eternalhunger-e7z1.onrender.com';
 

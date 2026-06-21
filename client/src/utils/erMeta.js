@@ -1,6 +1,8 @@
 // Eternal Return inspired meta rules for the spectator simulation.
 // This is intentionally a systems model, not a verbatim live-data dump.
 
+import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
+
 export const ER_WEAPON_TYPES_KO = [
   '권총',
   '돌격소총',
@@ -455,7 +457,9 @@ export function applyErSubjectPreset(character, opts = {}) {
     erHuntBias: character.erHuntBias ?? activePreset.hunt ?? 0,
     erObjectiveBias: character.erObjectiveBias ?? activePreset.objective ?? 0,
     weaponType: normalizeErWeaponType(character.weaponType || activePreset.primaryWeapon),
-    tacticalSkill: replaceDefaultTactical && tacLooksDefault ? activePreset.tacticalSkill : character.tacticalSkill,
+    tacticalSkill: normalizeSupportedTacSkill(
+      replaceDefaultTactical && tacLooksDefault ? activePreset.tacticalSkill : character.tacticalSkill
+    ),
     stats: mergeStatBias(character.stats, activePreset.statBias, statBiasScale),
   };
 }

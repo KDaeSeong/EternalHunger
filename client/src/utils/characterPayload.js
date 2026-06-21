@@ -1,3 +1,5 @@
+import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
+
 const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
 
@@ -142,6 +144,7 @@ function stableStringify(value) {
 function comparableValueForKey(value, key) {
   if (key === 'goalGearTier') return cleanNumber(value, 6);
   if (key === 'tacticalSkillLevel') return Math.max(1, Math.min(2, cleanNumber(value, 1)));
+  if (key === 'tacticalSkill') return normalizeSupportedTacSkill(value);
   if (key === 'previewImage') return cleanPreviewImage(value) || '';
   if (key === 'name') return cleanString(value, 512) || 'Unnamed';
   if (key === 'gender') return cleanString(value, 64) || 'unknown';
@@ -218,7 +221,7 @@ export function compactCharacterForSave(character, options = {}) {
   if (c.summary !== undefined) out.summary = cleanString(c.summary, MAX_TEXT_CHARS);
   if (c.weaponType !== undefined) out.weaponType = cleanString(c.weaponType, 128) || '';
   if (c.goalGearTier !== undefined) out.goalGearTier = cleanNumber(c.goalGearTier, 6);
-  if (c.tacticalSkill !== undefined) out.tacticalSkill = cleanString(c.tacticalSkill, 128) || '';
+  if (c.tacticalSkill !== undefined) out.tacticalSkill = normalizeSupportedTacSkill(c.tacticalSkill);
   if (c.tacticalSkillLevel !== undefined) out.tacticalSkillLevel = Math.max(1, Math.min(2, cleanNumber(c.tacticalSkillLevel, 1)));
   if (c.erSubject !== undefined) out.erSubject = cleanString(c.erSubject, 128) || '';
   if (c.erRole !== undefined) out.erRole = cleanString(c.erRole, 128) || '';

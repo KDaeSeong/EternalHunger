@@ -47,6 +47,68 @@ const SIMPLE_VERIFY_FIELDS = [
 const STAT_KEYS = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
 const LOADOUT_KEYS = ['weaponKey', 'headKey', 'clothesKey', 'armKey', 'shoesKey'];
+const SUPPORTED_TAC_SKILLS = new Set([
+  '블링크',
+  '치유의 바람',
+  '붉은 폭풍',
+  '스트라이더 A-13',
+  '퀘이크',
+  '프로토콜 위반',
+  '초월',
+  '아티팩트',
+  '무효화',
+  '강한 결속',
+  '진실의 칼날',
+  '라이트 윙',
+  '리펄서 미사일',
+  '플라즈마 대시',
+]);
+const TAC_SKILL_REPLACEMENTS = {
+  '라이트닝 쉴드': '초월',
+  '블래스터': '진실의 칼날',
+  '블래스터 탄환': '진실의 칼날',
+  '거짓 서약': '진실의 칼날',
+  '빛의 수호': '라이트 윙',
+  '아스테니아': '플라즈마 대시',
+  '부착 / 추적': '블링크',
+  '부착/추적': '블링크',
+  '힘껏펀치': '퀘이크',
+  '임펄스': '블링크',
+  '메테오': '진실의 칼날',
+  '중력장': '퀘이크',
+  '롤링썬더': '스트라이더 A-13',
+};
+const TAC_SKILL_ALIASES = {
+  blink: '블링크',
+  'healing wind': '치유의 바람',
+  healingwind: '치유의 바람',
+  'red storm': '붉은 폭풍',
+  'electric shift': '붉은 폭풍',
+  'lightning shield': '라이트닝 쉴드',
+  shield: '라이트닝 쉴드',
+  'strider a13': '스트라이더 A-13',
+  'strider a-13': '스트라이더 A-13',
+  strider: '스트라이더 A-13',
+  blaster: '블래스터',
+  quake: '퀘이크',
+  'protocol violation': '프로토콜 위반',
+  'false oath': '거짓 서약',
+  artifact: '아티팩트',
+  nullification: '무효화',
+  transcendence: '초월',
+  'wings of light': '라이트 윙',
+  'light wing': '라이트 윙',
+  'repulsor missiles': '리펄서 미사일',
+  'plasma dash': '플라즈마 대시',
+  asthenia: '아스테니아',
+  'attach track': '블링크',
+  'attach / track': '블링크',
+  impulse: '블링크',
+  meteor: '진실의 칼날',
+  gravity: '퀘이크',
+  'gravity field': '퀘이크',
+  'rolling thunder': '스트라이더 A-13',
+};
 
 function parseCharacterSaveBody(body) {
   const parsed = (typeof body === 'string') ? (() => { try { return JSON.parse(body); } catch { return null; } })() : body;
@@ -66,7 +128,20 @@ function pickCharacterSavePayload(raw, itemNameMap) {
   }
 
   if (out.inventory) out.inventory = normalizeInventory(out.inventory, itemNameMap, { merge: true });
+  if (out.tacticalSkill !== undefined) out.tacticalSkill = normalizeTacticalSkill(out.tacticalSkill);
   return out;
+}
+
+function normalizeTacticalSkill(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '블링크';
+  if (SUPPORTED_TAC_SKILLS.has(raw)) return raw;
+  const replaced = TAC_SKILL_REPLACEMENTS[raw];
+  if (replaced && SUPPORTED_TAC_SKILLS.has(replaced)) return replaced;
+  const key = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+  const alias = TAC_SKILL_ALIASES[raw] || TAC_SKILL_ALIASES[key] || TAC_SKILL_ALIASES[key.replace(/[-_]/g, ' ')];
+  const aliasReplacement = TAC_SKILL_REPLACEMENTS[alias] || alias;
+  return SUPPORTED_TAC_SKILLS.has(aliasReplacement) ? aliasReplacement : '블링크';
 }
 
 function cleanComparableString(value, fallback = '') {
@@ -102,6 +177,7 @@ function comparableValue(value, field) {
   if (field === 'tacticalSkillLevel') {
     return Math.max(1, Math.min(2, cleanComparableNumber(value, 1)));
   }
+  if (field === 'tacticalSkill') return normalizeTacticalSkill(value);
   if (field === 'stats') return cleanComparableStats(value);
   if (field === 'goalLoadouts') return cleanComparableLoadouts(value);
   if (field === 'erWeapons') {
@@ -127,6 +203,12 @@ function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharact
   );
 
   const mismatches = [];
+  const expectedCount = Array.isArray(saveInputs) ? saveInputs.length : 0;
+  const savedCount = Array.isArray(savedCharacters) ? savedCharacters.length : 0;
+  if (savedCount !== expectedCount) {
+    mismatches.push({ id: 'collection', field: '__count', expected: expectedCount, actual: savedCount });
+  }
+
   for (const entry of Array.isArray(saveInputs) ? saveInputs : []) {
     const payload = entry?.payload || {};
     const requestId = String(entry?.clientId || payload?._id || '').trim();
