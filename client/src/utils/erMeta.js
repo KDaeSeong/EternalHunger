@@ -243,7 +243,7 @@ const SUBJECT_PRESET_LIST = [
 ];
 
 const ER_SIGNATURE_MODIFIERS = {
-  jackie: { name: '살육 본능', scoreScale: 0.035, lifestealPlus: 0.02, chaseBonus: 0.025, bleedChancePlus: 0.06, log: '상처를 집요하게 파고듭니다.' },
+  jackie: { name: '살육 본능', scoreScale: 0.035, lifestealPlus: 0.035, chaseBonus: 0.025, log: '상처를 집요하게 파고듭니다.' },
   aya: { name: '정밀 사격', scoreScale: 0.03, critChancePlus: 0.025, escapeBonus: 0.025, log: '거리를 유지하며 사격 각을 잡습니다.' },
   fiora: { name: '펜싱 스텝', scoreScale: 0.03, critChancePlus: 0.025, chaseBonus: 0.035, log: '짧은 진입으로 빈틈을 찌릅니다.' },
   hyunwoo: { name: '철벽 러시', scoreScale: 0.025, block: 4, openerFlatDmg: 2, log: '버티며 밀고 들어갑니다.' },
@@ -532,7 +532,6 @@ export function buildErBehaviorModifier(character, settings = {}) {
   const roleProfile = roleCombatProfile(role);
   let damageBlock = Number(roleProfile?.block || 0);
   let damageBonus = Number(roleProfile?.openerFlatDmg || 0) + Number(roleProfile?.scoreScale || 0) * 12;
-  let bleedChancePlus = 0;
   if (masteryLevel > 1) {
     damageBonus += Math.min(6, (masteryLevel - 1) * 0.35);
     damageBlock += Math.min(4, Math.floor((masteryLevel - 1) / 5));
@@ -561,7 +560,6 @@ export function buildErBehaviorModifier(character, settings = {}) {
     powerScore += Number(signature.scoreScale || 0) * 18 + Number(signature.openerFlatDmg || 0) * 0.35 + Number(signature.block || 0) * 0.18;
     damageBlock += Number(signature.block || 0);
     damageBonus += Number(signature.openerFlatDmg || 0) + Number(signature.scoreScale || 0) * 10 + Number(signature.trapPressure || 0) * 7;
-    bleedChancePlus += Number(signature.bleedChancePlus || 0);
     escapeBonus += Number(signature.escapeBonus || 0);
     chaseBonus += Number(signature.chaseBonus || 0);
     huntBias += Number(signature.huntBias || 0);
@@ -584,7 +582,6 @@ export function buildErBehaviorModifier(character, settings = {}) {
     powerScore: Math.max(0, powerScore * scale),
     damageBlock: Math.max(0, damageBlock * scale),
     damageBonus: Math.max(0, Math.min(18, damageBonus * scale)),
-    bleedChancePlus: clampBehaviorPct(bleedChancePlus * scale, 0, 0.2),
     aggressionBias: clampBehaviorPct(aggressionBias * scale),
     escapeBonus: clampBehaviorPct(escapeBonus * scale, 0, 0.35),
     chaseBonus: clampBehaviorPct(chaseBonus * scale, 0, 0.35),

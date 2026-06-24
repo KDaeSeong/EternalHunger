@@ -1,6 +1,19 @@
 // client/src/utils/itemLogic.js
 
-import { EFFECT_BLEED, EFFECT_BURN, EFFECT_FOOD_POISON, EFFECT_POISON, makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
+import {
+  EFFECT_AIRBORNE,
+  EFFECT_BURN,
+  EFFECT_COOLDOWN_UP,
+  EFFECT_FOOD_POISON,
+  EFFECT_HEAL_REDUCTION,
+  EFFECT_KNOCKBACK,
+  EFFECT_POISON,
+  EFFECT_SLOW,
+  EFFECT_STUN,
+  makeRegenEffect,
+  makeShieldEffect,
+  makeStatBuffEffect,
+} from './statusLogic';
 import { getErCapsule } from './erMeta';
 
 function safeTags(item) {
@@ -50,7 +63,17 @@ export function applyItemEffect(character, item) {
   } else if (isHeal) {
     recovery = isBandage ? 35 : 50;
     cleanse = {
-      names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON],
+      names: [
+        EFFECT_POISON,
+        EFFECT_BURN,
+        EFFECT_FOOD_POISON,
+        EFFECT_AIRBORNE,
+        EFFECT_HEAL_REDUCTION,
+        EFFECT_STUN,
+        EFFECT_KNOCKBACK,
+        EFFECT_SLOW,
+        EFFECT_COOLDOWN_UP,
+      ],
       removeAllNegative: false,
       bonusHeal: isBandage ? 4 : 6,
     };

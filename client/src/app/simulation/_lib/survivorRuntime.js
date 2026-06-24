@@ -1,9 +1,9 @@
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
-  EFFECT_BLEED,
   EFFECT_BURN,
   EFFECT_FOOD_POISON,
   EFFECT_POISON,
+  getMoveSpeedStatusBonus,
 } from '../../../utils/statusLogic';
 import { itemDisplayName, safeTags, shortText } from './simulationCommon';
 import { EQUIP_SLOTS, SLOT_ICON } from './simulationConstants';
@@ -80,7 +80,6 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
       ? base.statusImmunities.map((x) => String(x || '').trim()).filter(Boolean)
       : []
   );
-  if (perkNumber(perkFx?.bleedImmune || 0) > 0) statusImmunities.add(EFFECT_BLEED);
   if (perkNumber(perkFx?.poisonImmune || 0) > 0) {
     statusImmunities.add(EFFECT_POISON);
     statusImmunities.add(EFFECT_FOOD_POISON);
@@ -90,7 +89,6 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
   const statusResists = {
     ...(base?.statusResists && typeof base.statusResists === 'object' ? base.statusResists : {}),
   };
-  statusResists[EFFECT_BLEED] = Math.max(0, Number(statusResists[EFFECT_BLEED] || 0), Number(perkFx?.bleedResistPct || 0));
   statusResists[EFFECT_POISON] = Math.max(0, Number(statusResists[EFFECT_POISON] || 0), Number(perkFx?.poisonResistPct || 0));
   statusResists[EFFECT_FOOD_POISON] = Math.max(0, Number(statusResists[EFFECT_FOOD_POISON] || 0), Number(perkFx?.poisonResistPct || 0));
   statusResists[EFFECT_BURN] = Math.max(0, Number(statusResists[EFFECT_BURN] || 0), Number(perkFx?.burnResistPct || 0));
@@ -176,7 +174,8 @@ function getEquipMoveSpeed(actor) {
   if (shoes) ms += sumFromItem(shoes);
 
   const perkMs = perkNumber(getActorPerkEffects(actor)?.moveSpeedPlus || 0);
-  return Math.max(0, ms + perkMs);
+  const statusMs = getMoveSpeedStatusBonus(actor);
+  return Math.max(-0.75, ms + perkMs + statusMs);
 }
 
 function getEquipSummary(char) {

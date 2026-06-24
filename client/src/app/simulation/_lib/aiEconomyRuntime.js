@@ -133,6 +133,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
   const bosses = s?.bosses || {};
   const coreNodes = Array.isArray(s?.coreNodes) ? s.coreNodes : [];
   const crates = Array.isArray(s?.legendaryCrates) ? s.legendaryCrates : [];
+  const transcendCrates = Array.isArray(s?.transcendCrates) ? s.transcendCrates : [];
 
   const result = { targets: [], reason: '' };
 
@@ -161,6 +162,21 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
   const needLife = needKeys.has('life_tree');
   const needMithril = needKeys.has('mithril');
   const needForce = needKeys.has('force_core');
+
+  if (wantTransAny) {
+    const transTargets = uniqStrings(
+      transcendCrates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+    if (isAtOrAfterWorldTime(day, phase, 4, 'night') && transTargets.length) {
+      result.targets = transTargets;
+      result.reason = '초월 장비 선택 상자';
+      markObjectiveTarget(result, actor, 'transcend_crate', 'transcend_pick');
+      return result;
+    }
+  }
 
   // 0) 메인 오브젝트(자연코어) 우선: 운석/생나 스폰이 떠 있으면 크레딧 파밍보다 먼저 달려감
   const activeCoreZones = uniqStrings(

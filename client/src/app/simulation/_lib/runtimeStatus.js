@@ -1,11 +1,20 @@
 import {
-  EFFECT_BLEED,
+  EFFECT_AIRBORNE,
   EFFECT_BURN,
+  EFFECT_COOLDOWN_DOWN,
+  EFFECT_COOLDOWN_UP,
+  EFFECT_HEAL_REDUCTION,
+  EFFECT_HASTE,
+  EFFECT_KNOCKBACK,
+  EFFECT_LIFESTEAL,
   EFFECT_POISON,
   EFFECT_REGEN,
   EFFECT_SHIELD,
+  EFFECT_SLOW,
+  EFFECT_STUN,
   absorbShieldDamage,
   addOrRefreshEffect,
+  canonicalizeEffectName,
   normalizeStatusEffectList,
   purgeNegativeEffects,
 } from '../../../utils/statusLogic';
@@ -29,14 +38,38 @@ export function normalizeRuntimeEffect(effect) {
     const shield = Number(next.shieldValue);
     next.shieldValue = Number.isFinite(shield) ? Math.max(0, Math.floor(shield)) : 0;
   }
+  if (next?.healReductionPct != null) {
+    const value = Number(next.healReductionPct);
+    next.healReductionPct = Number.isFinite(value) ? Math.max(0, Math.min(0.95, value)) : 0;
+  }
+  if (next?.moveSpeedBonus != null) {
+    const value = Number(next.moveSpeedBonus);
+    next.moveSpeedBonus = Number.isFinite(value) ? Math.max(-0.75, Math.min(1.5, value)) : 0;
+  }
+  if (next?.lifestealPct != null) {
+    const value = Number(next.lifestealPct);
+    next.lifestealPct = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
+  }
+  if (next?.cooldownRateBonus != null) {
+    const value = Number(next.cooldownRateBonus);
+    next.cooldownRateBonus = Number.isFinite(value) ? Math.max(0, Math.min(1.5, value)) : 0;
+  }
+  if (next?.cooldownRatePenalty != null) {
+    const value = Number(next.cooldownRatePenalty);
+    next.cooldownRatePenalty = Number.isFinite(value) ? Math.max(0, Math.min(1.5, value)) : 0;
+  }
+  if (next?.knockbackDistance != null) {
+    const value = Number(next.knockbackDistance);
+    next.knockbackDistance = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
   if (next?.sourceId != null) next.sourceId = String(next.sourceId || '');
   return next;
 }
 
 export function getEffectIndex(character, effectName) {
   const list = Array.isArray(character?.activeEffects) ? character.activeEffects : [];
-  const key = String(effectName || '');
-  return list.findIndex((e) => String(e?.name || '') === key);
+  const key = canonicalizeEffectName(effectName);
+  return list.findIndex((e) => canonicalizeEffectName(e?.name) === key);
 }
 
 export function hasActiveEffect(character, effectName) {
@@ -102,6 +135,13 @@ export function describeRuntimeEffect(effect) {
   const name = String(eff?.name || '효과');
   if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
   if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_HEAL_REDUCTION) return `치유 감소 ${Math.round(Math.max(0, Number(eff?.healReductionPct || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_LIFESTEAL) return `흡혈 ${Math.round(Math.max(0, Number(eff?.lifestealPct || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_SLOW || name === EFFECT_HASTE) return `${name} ${Number(eff?.moveSpeedBonus || 0) >= 0 ? '+' : ''}${Math.round(Number(eff?.moveSpeedBonus || 0) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_COOLDOWN_DOWN) return `쿨다운 감소 속도 +${Math.round(Math.max(0, Number(eff?.cooldownRateBonus || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_COOLDOWN_UP) return `쿨다운 회복 둔화 ${Math.round(Math.max(0, Number(eff?.cooldownRatePenalty || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_KNOCKBACK) return `밀어짐${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}` : ''}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  if (name === EFFECT_STUN || name === EFFECT_AIRBORNE) return `${name}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
   const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
   if (statMods && Object.keys(statMods).length) {
     const bits = Object.entries(statMods).map(([k, v]) => `${String(k)} ${Number(v) > 0 ? '+' : ''}${Number(v)}`);
@@ -133,7 +173,19 @@ export function consumeShieldDamage(actor, rawDamage) {
 
 export function clearPostCombatEffects(actor) {
   if (!actor || typeof actor !== 'object') return false;
-  const res = clearNegativeStatusEffects(actor, { names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN], removeAllNegative: false });
+  const res = clearNegativeStatusEffects(actor, {
+    names: [
+      EFFECT_POISON,
+      EFFECT_BURN,
+      EFFECT_AIRBORNE,
+      EFFECT_HEAL_REDUCTION,
+      EFFECT_STUN,
+      EFFECT_KNOCKBACK,
+      EFFECT_SLOW,
+      EFFECT_COOLDOWN_UP,
+    ],
+    removeAllNegative: false,
+  });
   actor.activeEffects = Array.isArray(actor.activeEffects) ? actor.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [];
   return !!res.changed;
 }

@@ -4,6 +4,7 @@ function createInitialSpawnState(mapId = '') {
     wildlife: {},
     wildlifeSpecies: {},
     legendaryCrates: [],
+    transcendCrates: [],
     coreNodes: [],
     foodCrates: [],
     mutantWildlife: null,
@@ -14,6 +15,7 @@ function createInitialSpawnState(mapId = '') {
     },
     spawnedDay: {
       legendary: -1,
+      transcend: -1,
       core: -1,
       food: -1,
       alpha: -1,
@@ -22,7 +24,7 @@ function createInitialSpawnState(mapId = '') {
       wildlife: -1,
       mutantWildlife: -1,
     },
-    counters: { crate: 0, core: 0, food: 0 },
+    counters: { crate: 0, transcend: 0, core: 0, food: 0 },
   };
 }
 
@@ -33,6 +35,7 @@ function cloneSpawnState(state, mapId = '') {
 
   const spawnedDay = {
     legendary: Number(safe?.spawnedDay?.legendary ?? -1),
+    transcend: Number(safe?.spawnedDay?.transcend ?? -1),
     core: Number(safe?.spawnedDay?.core ?? -1),
     food: Number(safe?.spawnedDay?.food ?? -1),
     alpha: Number(safe?.spawnedDay?.alpha ?? -1),
@@ -44,6 +47,7 @@ function cloneSpawnState(state, mapId = '') {
 
   const counters = {
     crate: Number(safe?.counters?.crate ?? 0),
+    transcend: Number(safe?.counters?.transcend ?? 0),
     core: Number(safe?.counters?.core ?? 0),
     food: Number(safe?.counters?.food ?? 0),
   };
@@ -58,6 +62,7 @@ function cloneSpawnState(state, mapId = '') {
         ]))
       : {},
     legendaryCrates: Array.isArray(safe.legendaryCrates) ? safe.legendaryCrates.map((c) => ({ ...c })) : [],
+    transcendCrates: Array.isArray(safe.transcendCrates) ? safe.transcendCrates.map((c) => ({ ...c })) : [],
     coreNodes: Array.isArray(safe.coreNodes) ? safe.coreNodes.map((n) => ({ ...n })) : [],
     foodCrates: Array.isArray(safe.foodCrates) ? safe.foodCrates.map((c) => ({ ...c })) : [],
     mutantWildlife: safe?.mutantWildlife ? { ...safe.mutantWildlife } : null,

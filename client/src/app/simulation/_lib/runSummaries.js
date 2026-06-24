@@ -37,6 +37,7 @@ const DETAIL_SOURCE_LABELS = {
 const OBJECTIVE_LABELS = {
   natural_core: '코어',
   legendary_crate: '전설상자',
+  transcend_crate: '초월상자',
   boss: '보스',
   mutant_wildlife: '변이 야생동물',
   meteor: '운석',
@@ -132,6 +133,7 @@ function createObjectiveFallback() {
     total: 0,
     naturalCore: 0,
     legendaryCrate: 0,
+    transcendCrate: 0,
     boss: 0,
     mutantWildlife: 0,
     successCount: 0,
@@ -573,6 +575,7 @@ export function buildObjectiveSummary({ runEvents, zoneNameById }) {
     out.total += 1;
     if (objective === 'natural_core') out.naturalCore += 1;
     else if (objective === 'legendary_crate') out.legendaryCrate += 1;
+    else if (objective === 'transcend_crate') out.transcendCrate += 1;
     else if (objective === 'boss') out.boss += 1;
     else if (objective === 'mutant_wildlife') out.mutantWildlife += 1;
 
@@ -592,6 +595,7 @@ export function buildObjectiveSummary({ runEvents, zoneNameById }) {
   const counts = [
     out.naturalCore ? `코어 ${out.naturalCore}` : '',
     out.legendaryCrate ? `전설상자 ${out.legendaryCrate}` : '',
+    out.transcendCrate ? `초월상자 ${out.transcendCrate}` : '',
     out.boss ? `보스 ${out.boss}` : '',
     out.mutantWildlife ? `변이 ${out.mutantWildlife}` : '',
   ].filter(Boolean).join(' · ');

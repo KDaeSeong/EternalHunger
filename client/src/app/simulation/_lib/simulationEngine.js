@@ -172,6 +172,7 @@ import {
   consumeMutantWildlifeAtZone,
   openSpawnedFoodCrate,
   openSpawnedLegendaryCrate,
+  openSpawnedTranscendCrate,
   pickupSpawnedCore,
 } from './spawnConsumersRuntime';
 import {
@@ -358,6 +359,7 @@ export {
   getHyperloopDeviceZoneId,
   ensureWorldSpawns,
   openSpawnedLegendaryCrate,
+  openSpawnedTranscendCrate,
   openSpawnedFoodCrate,
   pickupSpawnedCore,
   consumeBossAtZone,

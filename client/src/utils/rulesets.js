@@ -131,6 +131,15 @@ const DEFAULT_WORLD_SPAWNS = {
     },
     keepDays: 3,
   },
+  transcendCrate: {
+    enabled: true,
+    gateDay: 4,
+    phase: 'night',
+    count: 2,
+    optionsCount: 3,
+    keepDays: 2,
+    worldOnly: true,
+  },
   foodCrate: {
     gateDay: 1,
     // 음식 상자는 초반 리스크 관리(회복 루트)용: 과도한 드랍 방지 위해 일일 상한 고정
@@ -336,6 +345,10 @@ export const RULESETS = {
       // - ratio = 내Power / (내Power + 상대Power)
       fightAvoidMinRatio: 0.44,
       fightAvoidAbsDelta: 10,
+      fightAvoidChance: 0.62,
+      fightAvoidExtremeRatio: 0.27,
+      fightAvoidExtremeDelta: 34,
+      escapeHpBelow: 34,
       powerWeaponPerTier: 3,
       powerArmorPerTier: 1.5,
     },
@@ -354,13 +367,13 @@ export const RULESETS = {
       // 교전 트리거(동일 zone에 n명 이상)
       encounterMinSameZone: 2,
       // 교전 확률(일차/포그 보정 포함)
-      encounterBase: 0.32,
+      encounterBase: 0.36,
       encounterDayScale: 0.06,
       encounterMax: 0.88,
       encounterFogBonus: 0.08,
       day1MorningPairEventProb: 0.02,
-      earlyRouteFarmEncounterMult: 0.38,
-      earlyRouteFarmAvoidChance: 0.72,
+      earlyRouteFarmEncounterMult: 0.55,
+      earlyRouteFarmAvoidChance: 0.56,
       // 이벤트(야생/상자/보스 등) 확률의 상한/오프셋(기존 하드코딩 제거용)
       eventOffset: 0.30,
       eventMax: 0.95,
@@ -368,22 +381,27 @@ export const RULESETS = {
       lootCreditRate: 0.42,
       lootCreditMin: 14,
       lootInventoryUnits: 1,
-      restHealMax: 6,
+      restHealMax: 4,
 
-      // 🩸 상태이상(최소): 출혈
-      // - 피격 시 확률로 출혈이 걸리고, 페이즈 시작마다 DOT가 들어갑니다.
-      // - 붕대/응급 아이템 사용 시 출혈을 제거(시뮬 로직에서 처리)
-      bleedEnabled: true,
-      bleedChanceOnHit: 0.22,
-      bleedMinDamage: 10,
-      bleedDurationPhases: 2,
-      bleedDotPerPhase: 6,
+      damageBase: 18,
+      damageDayScale: 3,
+      earlyLethalDamageDayEnd: 3,
+      earlyLethalDamageFlat: 8,
+      earlyLethalLowHpBonusBelow: 45,
+      earlyLethalLowHpBonus: 10,
+      earlyLethalFinishHpBelow: 12,
+      earlyLethalFinishChanceBase: 0.12,
+      earlyLethalFinishChanceDayScale: 0.05,
+      earlyLethalFinishRatioBonus: 0.12,
+      earlyLethalFinishMax: 0.34,
+      criticalFleeHpBelow: 20,
+      criticalFleeChance: 0.58,
 
 
       // 전투 후 승자 행동(추가 휴식/이동)
       postBattleMoveChance: 0.35,
       postBattleRestHpBelow: 45,
-      postBattleRestExtraHealMax: 6,
+      postBattleRestExtraHealMax: 4,
     },
 
     // 🧪 소모품(최소): 음식/의료 아이템을 전투 외 타이밍에 자동 사용
@@ -482,6 +500,12 @@ export const RULESETS = {
       earlyRouteFarmAttempts: 2,
       earlyRouteMaxSearches: 3,
       day1AbstractFallbackMaxTier: 3,
+      fightAvoidMinRatio: 0.44,
+      fightAvoidAbsDelta: 10,
+      fightAvoidChance: 0.62,
+      fightAvoidExtremeRatio: 0.27,
+      fightAvoidExtremeDelta: 34,
+      escapeHpBelow: 34,
     },
 
 
@@ -489,35 +513,40 @@ export const RULESETS = {
     worldSpawns: DEFAULT_WORLD_SPAWNS,
     pvp: {
       encounterMinSameZone: 2,
-      encounterBase: 0.32,
+      encounterBase: 0.36,
       encounterDayScale: 0.06,
       encounterMax: 0.88,
       encounterFogBonus: 0.00,
       day1MorningPairEventProb: 0.02,
-      earlyRouteFarmEncounterMult: 0.38,
-      earlyRouteFarmAvoidChance: 0.72,
+      earlyRouteFarmEncounterMult: 0.55,
+      earlyRouteFarmAvoidChance: 0.56,
       eventOffset: 0.30,
       eventMax: 0.95,
 
       lootCreditRate: 0.42,
       lootCreditMin: 14,
       lootInventoryUnits: 1,
-      restHealMax: 6,
+      restHealMax: 4,
 
-      // 🩸 상태이상(최소): 출혈
-      // - 피격 시 확률로 출혈이 걸리고, 페이즈 시작마다 DOT가 들어갑니다.
-      // - 붕대/응급 아이템 사용 시 출혈을 제거(시뮬 로직에서 처리)
-      bleedEnabled: true,
-      bleedChanceOnHit: 0.22,
-      bleedMinDamage: 10,
-      bleedDurationPhases: 2,
-      bleedDotPerPhase: 6,
+      damageBase: 18,
+      damageDayScale: 3,
+      earlyLethalDamageDayEnd: 3,
+      earlyLethalDamageFlat: 8,
+      earlyLethalLowHpBonusBelow: 45,
+      earlyLethalLowHpBonus: 10,
+      earlyLethalFinishHpBelow: 12,
+      earlyLethalFinishChanceBase: 0.12,
+      earlyLethalFinishChanceDayScale: 0.05,
+      earlyLethalFinishRatioBonus: 0.12,
+      earlyLethalFinishMax: 0.34,
+      criticalFleeHpBelow: 20,
+      criticalFleeChance: 0.58,
 
 
       // 전투 후 승자 행동(추가 휴식/이동)
       postBattleMoveChance: 0.35,
       postBattleRestHpBelow: 45,
-      postBattleRestExtraHealMax: 6,
+      postBattleRestExtraHealMax: 4,
     },
 
     // 🧪 소모품(최소): 음식/의료 아이템을 전투 외 타이밍에 자동 사용

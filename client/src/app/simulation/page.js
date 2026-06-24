@@ -8,14 +8,31 @@ import { calculateBattle } from '../../utils/battleLogic';
 import { ER_WEAPON_SKILLS, addWeaponMasteryXp, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
 import { bindReferenceErrorGuards, formatRuntimeReason } from '../../utils/runtimeErrorGuard';
 import {
-  EFFECT_BLEED,
+  EFFECT_AIRBORNE,
   EFFECT_BURN,
+  EFFECT_COOLDOWN_DOWN,
+  EFFECT_COOLDOWN_UP,
   EFFECT_FOOD_POISON,
+  EFFECT_HASTE,
+  EFFECT_HEAL_REDUCTION,
+  EFFECT_KNOCKBACK,
   EFFECT_POISON,
+  EFFECT_SLOW,
+  EFFECT_STUN,
+  applyHealingModifier,
+  getCooldownTickMultiplier,
+  getKnockbackDistance,
+  getLifestealPercent,
   getRegenValue,
   getShieldValue,
+  hasActionBlockStatus,
+  makeCooldownRateEffect,
+  makeHealReductionEffect,
+  makeLifestealEffect,
+  makeMoveSpeedEffect,
   makeShieldEffect,
   makeStatBuffEffect,
+  makeStatusValueEffect,
   updateEffects,
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
@@ -87,19 +104,20 @@ import {
   isAiRecoveryLocked,
   normalizeDeadSnapshot,
   normalizeRevivedSurvivor,
-  applyStatusEffect,
   clearNegativeStatusEffects,
   describeRuntimeEffect,
   applyRuntimeEffectPayloads,
   consumeShieldDamage,
   clearPostCombatEffects,
   hasKioskAtZone,
+  removeActiveEffect,
   createInitialSpawnState,
   zoneHasKioskFlag,
   getEligibleSpawnZoneIds,
   getHyperloopDeviceZoneId,
   ensureWorldSpawns,
   openSpawnedLegendaryCrate,
+  openSpawnedTranscendCrate,
   openSpawnedFoodCrate,
   pickupSpawnedCore,
   consumeBossAtZone,
@@ -201,8 +219,77 @@ function dedupeRuntimeParticipants(list) {
   return out;
 }
 
+const PARTICIPANT_PRESET_STORAGE_KEY = 'eh_participant_presets_v1';
+const PARTICIPANT_PRESET_SELECTED_KEY = 'eh_participant_preset_selected_v1';
+const PARTICIPANT_PRESET_LIMIT = 10;
+const PARTICIPANT_PRESET_SIZE = 24;
+const RANDOM_PARTICIPANT_PRESET_ID = '__random__';
+const CLEANSE_NEGATIVE_EFFECTS = [
+  EFFECT_POISON,
+  EFFECT_BURN,
+  EFFECT_FOOD_POISON,
+  EFFECT_AIRBORNE,
+  EFFECT_HEAL_REDUCTION,
+  EFFECT_STUN,
+  EFFECT_KNOCKBACK,
+  EFFECT_SLOW,
+  EFFECT_COOLDOWN_UP,
+];
+
+function normalizeParticipantPresetIds(ids) {
+  return uniqStr(Array.isArray(ids) ? ids : []).slice(0, PARTICIPANT_PRESET_SIZE);
+}
+
+function normalizeParticipantPreset(raw, index = 0) {
+  if (!raw || typeof raw !== 'object') return null;
+  const characterIds = normalizeParticipantPresetIds(raw.characterIds || raw.ids || []);
+  if (characterIds.length <= 0) return null;
+  const now = Date.now();
+  const id = String(raw.id || `preset-${now}-${index}`).trim();
+  return {
+    id,
+    name: String(raw.name || `프리셋 ${index + 1}`).trim() || `프리셋 ${index + 1}`,
+    characterIds,
+    matchMode: String(raw.matchMode || '').trim(),
+    createdAt: Number(raw.createdAt || now),
+    updatedAt: Number(raw.updatedAt || raw.createdAt || now),
+  };
+}
+
+function normalizeParticipantPresetList(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((row, index) => normalizeParticipantPreset(row, index))
+    .filter(Boolean)
+    .slice(0, PARTICIPANT_PRESET_LIMIT);
+}
+
+function readLocalParticipantPresets() {
+  try {
+    return normalizeParticipantPresetList(JSON.parse(localStorage.getItem(PARTICIPANT_PRESET_STORAGE_KEY) || '[]'));
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalParticipantPresets(list) {
+  try {
+    localStorage.setItem(PARTICIPANT_PRESET_STORAGE_KEY, JSON.stringify(normalizeParticipantPresetList(list)));
+  } catch {
+    // ignore local storage failures
+  }
+}
+
+function getInitialParticipantPresetId() {
+  try {
+    return localStorage.getItem(PARTICIPANT_PRESET_SELECTED_KEY) || RANDOM_PARTICIPANT_PRESET_ID;
+  } catch {
+    return RANDOM_PARTICIPANT_PRESET_ID;
+  }
+}
+
 export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
+  const [candidateSurvivors, setCandidateSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
   const [events, setEvents] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -293,6 +380,9 @@ export default function SimulationPage() {
     rulesetId: 'ER_S10',
     matchMode: 'squad',
   });
+  const [participantPresets, setParticipantPresets] = useState(readLocalParticipantPresets);
+  const [selectedParticipantPresetId, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
+  const [participantPresetName, setParticipantPresetName] = useState('');
 
   const normalizeMatchMode = (value) => (String(value || '').toLowerCase() === 'solo' ? 'solo' : 'squad');
   const getMatchConfig = (src = settings) => {
@@ -309,6 +399,66 @@ export default function SimulationPage() {
       { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
     ).map((c) => normalizeRuntimeSurvivor(c));
   };
+
+  const getParticipantPreset = (presetId = selectedParticipantPresetId) => {
+    const id = String(presetId || '');
+    if (!id || id === RANDOM_PARTICIPANT_PRESET_ID) return null;
+    return (Array.isArray(participantPresets) ? participantPresets : [])
+      .find((preset) => String(preset?.id || '') === id) || null;
+  };
+
+  const pickParticipantsForRun = (list, presetId = selectedParticipantPresetId, src = settings) => {
+    const cfg = getMatchConfig(src);
+    const pool = dedupeRuntimeParticipants(normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []));
+    const max = Math.max(2, Math.min(PARTICIPANT_PRESET_SIZE, Number(cfg.maxParticipants || PARTICIPANT_PRESET_SIZE)));
+    const preset = getParticipantPreset(presetId);
+
+    if (!preset) return shuffleArray(pool).slice(0, max);
+
+    const byId = new Map(pool.map((actor) => [getRuntimeActorKey(actor), actor]).filter(([key]) => key));
+    const picked = [];
+    const pickedKeys = new Set();
+    for (const id of normalizeParticipantPresetIds(preset.characterIds)) {
+      const key = String(id || '').trim();
+      const actor = byId.get(key);
+      if (!actor || pickedKeys.has(key)) continue;
+      picked.push(actor);
+      pickedKeys.add(key);
+      if (picked.length >= max) break;
+    }
+
+    if (picked.length < max) {
+      const fillers = shuffleArray(pool.filter((actor) => !pickedKeys.has(getRuntimeActorKey(actor))));
+      picked.push(...fillers.slice(0, max - picked.length));
+    }
+
+    return picked.slice(0, max);
+  };
+
+  const saveSelectedParticipantPresetId = (presetId) => {
+    const nextId = String(presetId || RANDOM_PARTICIPANT_PRESET_ID);
+    setSelectedParticipantPresetId(nextId);
+    try {
+      localStorage.setItem(PARTICIPANT_PRESET_SELECTED_KEY, nextId);
+    } catch {
+      // ignore local storage failures
+    }
+  };
+
+  useEffect(() => {
+    if (selectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID) return;
+    if (participantPresets.some((preset) => String(preset?.id || '') === String(selectedParticipantPresetId))) return;
+    saveSelectedParticipantPresetId(RANDOM_PARTICIPANT_PRESET_ID);
+  }, [participantPresets, selectedParticipantPresetId]);
+
+  useEffect(() => {
+    if (selectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID) {
+      setParticipantPresetName('');
+      return;
+    }
+    const preset = participantPresets.find((row) => String(row?.id || '') === String(selectedParticipantPresetId));
+    setParticipantPresetName(preset?.name || '');
+  }, [participantPresets, selectedParticipantPresetId]);
 
   const getMatchStartInfo = (list = survivors, src = settings) => {
     const cfg = getMatchConfig(src);
@@ -465,6 +615,8 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   const [myTradeOffers, setMyTradeOffers] = useState([]);
   const [qtyMap, setQtyMap] = useState({});
   const [marketMessage, setMarketMessage] = useState('');
+  const [devGrantItemId, setDevGrantItemId] = useState('');
+  const [devGrantQty, setDevGrantQty] = useState(1);
   const [tradeDraft, setTradeDraft] = useState({
     give: [{ itemId: '', qty: 1 }],
     want: [{ itemId: '', qty: 1 }],
@@ -687,11 +839,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     const maxHp = Math.max(1, Number(actor?.maxHp || 100));
     const hp = Math.max(0, Number(actor?.hp || 0));
     const effects = [];
+    const defenderEffects = [];
     const bits = [];
 
     if (code === 'devour') {
       const baseHeal = opts?.lethal ? 9 : 5;
-      const heal = Math.min(Math.max(0, maxHp - hp), baseHeal + Math.floor(Number(opts?.damageDealt || 0) * 0.06));
+      const rawHeal = Math.min(Math.max(0, maxHp - hp), baseHeal + Math.floor(Number(opts?.damageDealt || 0) * 0.06));
+      const heal = applyHealingModifier(actor, rawHeal);
       if (heal > 0) {
         actor.hp = Math.min(maxHp, hp + heal);
         bits.push(`HP +${heal}`);
@@ -758,6 +912,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
 
     const bits = [];
     const effects = [];
+    const defenderEffects = [];
     let extraDamage = 0;
 
     const scoreScale = Math.max(0, Number(skill.scoreScale || 0));
@@ -788,11 +943,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     if (lifesteal > 0) {
       const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
       const hp = Math.max(0, Number(attacker?.hp || 0));
-      const heal = Math.min(Math.max(0, maxHp - hp), Math.max(1, Math.round(damageDealt * lifesteal * 3 + (opts?.lethalPreview ? 4 : 1))));
+      const rawHeal = Math.min(Math.max(0, maxHp - hp), Math.max(1, Math.round(damageDealt * lifesteal * 3 + (opts?.lethalPreview ? 4 : 1))));
+      const heal = applyHealingModifier(attacker, rawHeal);
       if (heal > 0) {
         attacker.hp = Math.min(maxHp, hp + heal);
         bits.push(`HP +${heal}`);
       }
+      effects.push(makeLifestealEffect(Math.max(0.04, lifesteal * 2), 2, 'er_weapon_skill_lifesteal', { tags: ['positive', 'weapon_skill', 'lifesteal'] }));
     }
 
     const statBuff = {};
@@ -808,11 +965,35 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       effects.push(makeStatBuffEffect('무기 템포', statBuff, 2, 'er_weapon_skill_tempo', { tags: ['positive', 'weapon_skill'] }));
     }
 
+    if (skill.name === '어퍼컷') {
+      defenderEffects.push(makeStatusValueEffect(EFFECT_AIRBORNE, 2, 'er_weapon_skill_airborne', { tags: ['negative', 'weapon_skill', 'cc', 'airborne', 'action_block'] }));
+    } else if (skill.name === '풀스윙') {
+      defenderEffects.push(makeStatusValueEffect(EFFECT_KNOCKBACK, 2, 'er_weapon_skill_knockback', { knockbackDistance: 1, tags: ['negative', 'weapon_skill', 'cc', 'knockback', 'forced_move'] }));
+    } else if (skill.name === '갑옷깨기') {
+      defenderEffects.push(makeHealReductionEffect(0.35, 2, 'er_weapon_skill_antiheal', { tags: ['negative', 'weapon_skill', 'heal_reduction'] }));
+    } else if (skill.name === '마름쇠' || skill.name === '갈고리') {
+      defenderEffects.push(makeMoveSpeedEffect(EFFECT_SLOW, -0.16, 2, 'er_weapon_skill_slow', { tags: ['negative', 'weapon_skill', 'slow', 'move'] }));
+    } else if (skill.name === '불협화음') {
+      defenderEffects.push(makeCooldownRateEffect(EFFECT_COOLDOWN_UP, 0.18, 2, 'er_weapon_skill_discord', { tags: ['negative', 'weapon_skill', 'cooldown'] }));
+    }
+    if (mobility > 0) {
+      effects.push(makeStatusValueEffect(EFFECT_HASTE, 2, 'er_weapon_skill_haste', { moveSpeedBonus: Math.max(0.04, mobility * 1.5), cooldownRateBonus: 0.08, tags: ['positive', 'weapon_skill', 'haste', 'move', 'cooldown'] }));
+    }
+    if (skill.name === '무빙 리로드') {
+      effects.push(makeCooldownRateEffect(EFFECT_COOLDOWN_DOWN, 0.18, 2, 'er_weapon_skill_reload', { tags: ['positive', 'weapon_skill', 'cooldown'] }));
+    }
+
     const applied = effects.length ? applyRuntimeEffectPayloads(attacker, effects) : null;
+    const defenderApplied = defenderEffects.length ? applyRuntimeEffectPayloads(defender, defenderEffects) : null;
     (applied?.results || []).forEach((row) => {
       if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
       else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
       else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+    });
+    (defenderApplied?.results || []).forEach((row) => {
+      if (row?.reason === 'immune') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 면역`);
+      else if (row?.reason === 'resisted') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 저항`);
+      else if (row?.applied) bits.push(`${defender.name} ${describeRuntimeEffect(row.effect)}`);
     });
 
     if (!bits.length) return { damage: extraDamage, applied: false, skill: skill.name };
@@ -827,6 +1008,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       cooldownSec,
     }, opts?.at || null);
     emitEffectRunEvents(attacker, applied?.results || [], { source: 'weapon_skill', skill: String(skill.name || ''), reason: 'combat_after', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, opts?.at || null);
+    emitEffectRunEvents(defender, defenderApplied?.results || [], { source: 'weapon_skill', skill: String(skill.name || ''), reason: 'combat_after_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, opts?.at || null);
     return { damage: extraDamage, applied: true, skill: skill.name, cooldownSec };
   };
 
@@ -1030,13 +1212,14 @@ const devForceUseConsumable = (charId, invIndex) => {
       const cleanseCfg = effect?.cleanse && typeof effect.cleanse === 'object'
         ? effect.cleanse
         : (isBandageLikeItem(it)
-          ? { names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON], removeAllNegative: false, bonusHeal: 0 }
+          ? { names: CLEANSE_NEGATIVE_EFFECTS, removeAllNegative: false, bonusHeal: 0 }
           : null);
       const cleanse = cleanseCfg
         ? clearNegativeStatusEffects(ch, { names: Array.isArray(cleanseCfg?.names) ? cleanseCfg.names : [], removeAllNegative: cleanseCfg?.removeAllNegative === true })
         : { changed: false, removed: [] };
       if (cleanse.changed) heal += Math.max(0, perkNumber(getActorPerkEffects(ch)?.cleanseHealPlus || 0)) + Math.max(0, Number(cleanseCfg?.bonusHeal || 0));
-      ch.hp = Math.min(maxHp, beforeHp + heal);
+      const finalHeal = applyHealingModifier(ch, heal);
+      ch.hp = Math.min(maxHp, beforeHp + finalHeal);
 
       const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
       if (statBoost) {
@@ -1110,6 +1293,85 @@ const devForceUseConsumable = (charId, invIndex) => {
     const list = Array.isArray(survivors) ? survivors : [];
     return list.find((s) => String(s?._id) === String(selectedCharId)) || null;
   }, [survivors, selectedCharId], null);
+
+  function applyParticipantPresetToCurrent(presetId = selectedParticipantPresetId) {
+    if (day !== 0 || matchSec !== 0 || isAdvancing || isGameOver) {
+      setMarketMessage('참가자 프리셋은 게임 시작 전(0일차 00초)에만 적용할 수 있습니다.');
+      return;
+    }
+
+    const pool = (Array.isArray(candidateSurvivors) && candidateSurvivors.length)
+      ? candidateSurvivors
+      : survivors;
+    const picked = pickParticipantsForRun(pool, presetId, settings);
+    const assigned = applyMatchTeams(picked, settings);
+    const kills = {};
+    const assists = {};
+    assigned.forEach((actor) => {
+      const key = getRuntimeActorKey(actor);
+      if (!key) return;
+      kills[key] = 0;
+      assists[key] = 0;
+    });
+
+    setSurvivors(assigned);
+    setDead([]);
+    setKillCounts(kills);
+    setAssistCounts(assists);
+    setSelectedCharId(assigned[0]?._id || '');
+    setMarketMessage(
+      presetId === RANDOM_PARTICIPANT_PRESET_ID
+        ? `무작위 참가자 ${assigned.length}명을 다시 구성했습니다.`
+        : `참가자 프리셋을 적용했습니다. (${assigned.length}명)`
+    );
+  }
+
+  function saveCurrentParticipantPreset() {
+    const ids = normalizeParticipantPresetIds((Array.isArray(survivors) ? survivors : []).map((actor) => getRuntimeActorKey(actor)));
+    if (ids.length < 2) {
+      setMarketMessage('저장할 참가자가 부족합니다.');
+      return;
+    }
+
+    const now = Date.now();
+    const existingId = selectedParticipantPresetId !== RANDOM_PARTICIPANT_PRESET_ID ? String(selectedParticipantPresetId || '') : '';
+    const currentName = String(participantPresetName || '').trim();
+    const list = normalizeParticipantPresetList(participantPresets);
+    const existingIndex = existingId ? list.findIndex((preset) => String(preset?.id || '') === existingId) : -1;
+    if (existingIndex < 0 && list.length >= PARTICIPANT_PRESET_LIMIT) {
+      setMarketMessage(`참가자 프리셋은 최대 ${PARTICIPANT_PRESET_LIMIT}개까지 저장할 수 있습니다.`);
+      return;
+    }
+
+    const previous = existingIndex >= 0 ? list[existingIndex] : null;
+    const nextPreset = {
+      id: previous?.id || `preset-${now}`,
+      name: currentName || previous?.name || `프리셋 ${Math.min(list.length + 1, PARTICIPANT_PRESET_LIMIT)}`,
+      characterIds: ids,
+      matchMode: getMatchConfig(settings).matchMode,
+      createdAt: Number(previous?.createdAt || now),
+      updatedAt: now,
+    };
+    const next = existingIndex >= 0
+      ? list.map((preset, index) => (index === existingIndex ? nextPreset : preset))
+      : [...list, nextPreset];
+    writeLocalParticipantPresets(next);
+    setParticipantPresets(next);
+    saveSelectedParticipantPresetId(nextPreset.id);
+    setParticipantPresetName(nextPreset.name);
+    setMarketMessage(`참가자 프리셋을 저장했습니다. (${ids.length}명)`);
+  }
+
+  function deleteSelectedParticipantPreset() {
+    if (selectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID) return;
+    const id = String(selectedParticipantPresetId || '');
+    const next = normalizeParticipantPresetList(participantPresets).filter((preset) => String(preset?.id || '') !== id);
+    writeLocalParticipantPresets(next);
+    setParticipantPresets(next);
+    saveSelectedParticipantPresetId(RANDOM_PARTICIPANT_PRESET_ID);
+    setParticipantPresetName('');
+    setMarketMessage('참가자 프리셋을 삭제했습니다.');
+  }
 
   // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
   function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
@@ -1679,6 +1941,16 @@ if (!who) {
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedChar], []);
 
+  const devGrantItemOptions = useSafeMemo('devGrantItemOptions', () => {
+    return (Array.isArray(publicItems) ? publicItems : [])
+      .filter((it) => it?._id)
+      .map((it) => ({
+        ...it,
+        _label: `${itemDisplayName(it)} · T${clampTier4(it?.tier || 1)} · ${String(it?.equipSlot || it?.type || inferItemCategory(it) || '-')}`,
+      }))
+      .sort((a, b) => String(a._label || '').localeCompare(String(b._label || '')));
+  }, [publicItems], []);
+
   function getQty(key, fallback = 1) {
     const v = Number(qtyMap[key]);
     if (!Number.isFinite(v) || v <= 0) return fallback;
@@ -1693,7 +1965,11 @@ if (!who) {
     if (!serverCharacter?._id) return;
     setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => (
       String(s?._id) === String(serverCharacter?._id)
-        ? mergeServerCharacterIntoRuntimeSurvivor(s, serverCharacter)
+        ? (() => {
+          const merged = mergeServerCharacterIntoRuntimeSurvivor(s, serverCharacter);
+          autoEquipBest(merged, itemMetaById);
+          return normalizeRuntimeSurvivor(merged);
+        })()
         : normalizeRuntimeSurvivor(s)
     )));
   };
@@ -1709,9 +1985,10 @@ if (!who) {
       const list = Array.isArray(chars) ? chars : [];
       setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => {
         const found = list.find((c) => String(c?._id) === String(s?._id));
-        return found
-          ? mergeServerCharacterIntoRuntimeSurvivor(s, found)
-          : normalizeRuntimeSurvivor(s);
+        if (!found) return normalizeRuntimeSurvivor(s);
+        const merged = mergeServerCharacterIntoRuntimeSurvivor(s, found);
+        autoEquipBest(merged, itemMetaById);
+        return normalizeRuntimeSurvivor(merged);
       }));
     } catch (e) {
       // 동기화 실패는 치명적이지 않음
@@ -2065,7 +2342,10 @@ const pickStartZoneIdForChar = (c) => {
           }), initPerkBundle, { initialFill: true, applyCredits: true });
           charsWithHp.push(seeded);
         });
-        const shuffledChars = applyMatchTeams(shuffleArray(charsWithHp), loadedSettings);
+        const candidateChars = normalizeRuntimeSurvivorList(charsWithHp);
+        const selectedChars = pickParticipantsForRun(candidateChars, selectedParticipantPresetId, loadedSettings);
+        const shuffledChars = applyMatchTeams(selectedChars, loadedSettings);
+        setCandidateSurvivors(candidateChars);
         setSurvivors(shuffledChars);
         setEvents(eventsList);
 
@@ -2541,6 +2821,7 @@ const pickStartZoneIdForChar = (c) => {
         day: nextDay,
         phase: nextPhase,
         legendary: lc,
+        transcendCrates: (Array.isArray(nextSpawn?.transcendCrates) ? nextSpawn.transcendCrates : []).filter((c) => !c?.opened).length,
         foodCrates: (Array.isArray(nextSpawn?.foodCrates) ? nextSpawn.foodCrates : []).filter((c) => !c?.opened).length,
         meteor,
         lifeTree,
@@ -2754,8 +3035,22 @@ updated.inventory = Array.isArray(updated.inventory) ? updated.inventory : [];
 updated.inventory = normalizeInventory(updated.inventory, ruleset);
 updated._itemKeyById = itemKeyById;
 
-const currentZone = String(updated.zoneId || zones[0]?.zoneId || '__default__');
-const neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
+let currentZone = String(updated.zoneId || zones[0]?.zoneId || '__default__');
+let neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
+const knockbackDistance = getKnockbackDistance(updated);
+if (knockbackDistance > 0 && neighbors.length > 0) {
+  const safeNeighbors = neighbors.filter((zid) => !forbiddenIds.has(String(zid)));
+  const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
+  const pushedZone = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
+  if (pushedZone && pushedZone !== currentZone) {
+    updated.zoneId = pushedZone;
+    removeActiveEffect(updated, EFFECT_KNOCKBACK);
+    addLog(`↔️ [${updated.name}] 밀려남: ${getZoneName(currentZone)} → ${getZoneName(pushedZone)}`, 'system');
+    emitRunEvent('move', { who: String(updated?._id || ''), name: updated?.name, from: currentZone, to: pushedZone, reason: 'knockback' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+    currentZone = pushedZone;
+    neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
+  }
+}
 let nextZoneId = currentZone;
 
 const mustEscape = forbiddenIds.has(currentZone);
@@ -3165,6 +3460,35 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + crF);
             addLog(`💳 [${updated.name}] 음식 상자 보상 크레딧 +${crF}`, 'system');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: crF, source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          }
+        }
+
+        // --- 초월 장비 선택 상자(월드 스폰): 4일차 밤 위클라인과 함께 2개만 스폰 ---
+        const transcendCrate = openSpawnedTranscendCrate(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, { moved: didMove });
+        if (transcendCrate && Array.isArray(transcendCrate.options)) {
+          const devPickable = !!showMarketPanel && !pendingPickAssigned && !pendingTranscendPick && String(selectedCharId || '') === String(updated?._id || '');
+          if (devPickable) {
+            pendingPickAssigned = true;
+            setPendingTranscendPick({
+              id: String(transcendCrate?.crateId || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`),
+              characterId: String(updated?._id || ''),
+              characterName: updated?.name,
+              zoneId: String(updated?.zoneId || ''),
+              options: transcendCrate.options,
+              at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
+            });
+            addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자를 발견했습니다. (개발자 도구: 선택 대기)`, 'highlight');
+          } else {
+            const auto = pickAutoTranscendOption(transcendCrate.options, publicItems) || (transcendCrate.options[0] || null);
+            const chosenId = String(auto?.itemId || '');
+            const chosenItem = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === chosenId) || null;
+            updated.inventory = addItemToInventory(updated.inventory, chosenItem, chosenId, 1, nextDay, ruleset);
+            const metaT = updated.inventory?._lastAdd;
+            const gotT = Math.max(0, Number(metaT?.acceptedQty ?? 1));
+            const nmT = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
+            addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nmT}] ${gainText(gotT)}${formatInvAddNote(metaT, 1, updated.inventory, ruleset)}`, 'highlight');
+            emitItemGainIfAny(gotT, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto', crateId: String(transcendCrate?.crateId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            if (gotT > 0) autoEquipBest(updated, itemMetaById);
           }
         }
 
@@ -3967,9 +4291,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           // 쿨다운 감소
           if (s.cooldowns) {
-            s.cooldowns.portableSafeZone = Math.max(0, Number(s.cooldowns.portableSafeZone || 0) - tickSec);
-            s.cooldowns.cnotGate = Math.max(0, Number(s.cooldowns.cnotGate || 0) - tickSec);
-            s.cooldowns.weaponSkill = Math.max(0, Number(s.cooldowns.weaponSkill || 0) - tickSec);
+            const cooldownTick = tickSec * getCooldownTickMultiplier(s);
+            s.cooldowns.portableSafeZone = Math.max(0, Number(s.cooldowns.portableSafeZone || 0) - cooldownTick);
+            s.cooldowns.cnotGate = Math.max(0, Number(s.cooldowns.cnotGate || 0) - cooldownTick);
+            s.cooldowns.weaponSkill = Math.max(0, Number(s.cooldowns.weaponSkill || 0) - cooldownTick);
           }
 
           const zoneId = String(s.zoneId || '__default__');
@@ -4116,45 +4441,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const plan = Array.isArray(c?.routePlanZoneIds) ? c.routePlanZoneIds : [];
       if (!plan.length) return false;
       return Math.max(0, Number(c?.routePlanIndex || 0)) < plan.length;
-    };
-
-    // 🩸 출혈(최소): 피격 시 확률로 DOT 상태이상 부여
-    const bleedEnabled = pvpProbCfg.bleedEnabled !== false;
-    const bleedChanceOnHit = Number(pvpProbCfg.bleedChanceOnHit ?? 0.22);
-    const bleedMinDamage = Math.max(0, Number(pvpProbCfg.bleedMinDamage ?? 10));
-    const bleedDurationPhases = Math.max(1, Math.floor(Number(pvpProbCfg.bleedDurationPhases ?? 2)));
-    const bleedDotPerPhase = Math.max(1, Math.floor(Number(pvpProbCfg.bleedDotPerPhase ?? 6)));
-
-    const tryApplyBleed = (victim, attacker, damage) => {
-      if (!bleedEnabled) return false;
-      if (!victim || Number(victim.hp || 0) <= 0) return false;
-      const dmg = Number(damage || 0);
-      if (!(dmg >= bleedMinDamage)) return false;
-      const attackerEr = buildErBehaviorModifier(attacker, battleSettings);
-      const bleedChance = Math.max(0, Math.min(0.65, bleedChanceOnHit + Number(attackerEr?.bleedChancePlus || 0)));
-      if (Math.random() >= bleedChance) return false;
-
-      const applied = applyStatusEffect(victim, {
-        name: EFFECT_BLEED,
-        remainingDuration: bleedDurationPhases,
-        dotDamage: bleedDotPerPhase,
-        sourceId: String(attacker?._id || ''),
-        appliedPhaseIdx: phaseIdxNow,
-        tags: ['negative', 'dot', 'bleed'],
-        stackMode: 'refresh_max',
-        maxStacks: 3,
-      });
-      if (applied?.reason === 'immune') {
-        addLog(`🛡️ [${victim.name}] 출혈 면역`, 'system');
-        return false;
-      }
-      if (applied?.reason === 'resisted') {
-        addLog(`🧷 [${victim.name}] 출혈 저항`, 'system');
-        return false;
-      }
-      if (applied?.refreshed) addLog(`🩸 [${victim.name}] 출혈 연장! (${bleedDurationPhases}페이즈)`, 'highlight');
-      else if (applied?.applied) addLog(`🩸 [${victim.name}] 출혈! (${bleedDurationPhases}페이즈, -${bleedDotPerPhase}/페이즈)`, 'highlight');
-      return !!applied?.applied;
     };
 
     // 교전이 특정 캐릭터에 편향되지 않도록(선공/우선순위 이점 제거) 양방향 결과를 비교해 채택
@@ -4404,7 +4690,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (hp <= 0) return false;
 
       const inv = ch.inventory;
-      const hasCleanseTarget = [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON].some((name) => hasActiveEffect(ch, name));
+      const hasCleanseTarget = CLEANSE_NEGATIVE_EFFECTS.some((name) => hasActiveEffect(ch, name));
       const hasBandage = hasCleanseTarget && inv.some((i) => isBandageLikeItem(i));
       if (!hasBandage && hp >= hpBelow) return false;
 
@@ -4430,7 +4716,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const cleanseCfg = effect?.cleanse && typeof effect.cleanse === 'object'
         ? effect.cleanse
         : (isBandageLikeItem(itemToUse)
-          ? { names: [EFFECT_BLEED, EFFECT_POISON, EFFECT_BURN, EFFECT_FOOD_POISON], removeAllNegative: false, bonusHeal: 0 }
+          ? { names: CLEANSE_NEGATIVE_EFFECTS, removeAllNegative: false, bonusHeal: 0 }
           : null);
       const cleanse = cleanseCfg
         ? clearNegativeStatusEffects(ch, { names: Array.isArray(cleanseCfg?.names) ? cleanseCfg.names : [], removeAllNegative: cleanseCfg?.removeAllNegative === true })
@@ -4443,7 +4729,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       addLog(logText, 'highlight');
 
       const maxHp = Number(ch?.maxHp ?? 100);
-      ch.hp = Math.min(maxHp, hp + Number(effect.recovery || 0) + cleanseBonus);
+      const finalRecovery = applyHealingModifier(ch, Number(effect.recovery || 0) + cleanseBonus);
+      ch.hp = Math.min(maxHp, hp + finalRecovery);
       const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
       if (statBoost) {
         ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
@@ -4482,6 +4769,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
       actor = normalizeRuntimeSurvivor(actor);
 
       if (!actor?._id || newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
+      if (hasActionBlockStatus(actor)) {
+        const blockName = hasActiveEffect(actor, EFFECT_STUN)
+          ? EFFECT_STUN
+          : hasActiveEffect(actor, EFFECT_AIRBORNE)
+            ? EFFECT_AIRBORNE
+            : '행동 불가';
+        addLog(`💫 [${actor.name}] ${blockName} 상태로 행동하지 못했습니다.`, 'system');
+        upsertRuntimeSurvivor(survivorMap, actor);
+        continue;
+      }
 
       // 아이템 사용(전투 중 불가 / 전투 후 가능): 전투 외 타이밍에서만 호출
       tryUseConsumable(actor, 'turn_start');
@@ -4829,7 +5126,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           const maxHp = Number(combatWinner?.maxHp ?? 100);
           const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
-          const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(combatWinner.hp || 0)));
+          const restHeal = applyHealingModifier(combatWinner, Math.min(restHealMax, Math.max(0, maxHp - Number(combatWinner.hp || 0))));
           if (restHeal > 0) {
             combatWinner.hp = Math.min(maxHp, Number(combatWinner.hp || 0) + restHeal);
             addLog(`🩹 [${combatWinner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
@@ -4840,7 +5137,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const postRestExtraHealMax = Math.max(0, Math.floor(Number(pvpCfg.postBattleRestExtraHealMax ?? 6)));
           const postMoveChance = Math.max(0, Math.min(1, Number(pvpCfg.postBattleMoveChance ?? 0.35)));
           if (curHp > 0 && curHp <= postRestHpBelow) {
-            const extraHeal = Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp));
+            const extraHeal = applyHealingModifier(combatWinner, Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp)));
             if (extraHeal > 0) {
               combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
               addLog(`🧘 [${combatWinner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
@@ -4909,7 +5206,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if ((opts.allowHeal ?? true) && fleeTac === '치유의 바람' && canUseTac(flee) && Number(flee.hp || 0) > 0 && Number(flee.hp || 0) <= healBelowHp) {
             const maxHp = Number(flee?.maxHp ?? 100);
             const healCap = getTacEffectNumber('치유의 바람', 'healCap', 1 + fleeLv, 22);
-            const heal = Math.min(healCap, Math.max(0, maxHp - Number(flee.hp || 0)));
+            const rawHeal = Math.min(healCap, Math.max(0, maxHp - Number(flee.hp || 0)));
+            const heal = applyHealingModifier(flee, rawHeal);
             const regenRecovery = getTacEffectNumber('치유의 바람', 'regenRecovery', 1 + fleeLv, 4);
             const regenDuration = getTacEffectNumber('치유의 바람', 'regenDuration', 1 + fleeLv, 2);
             if (heal > 0 || regenRecovery > 0) {
@@ -5129,13 +5427,23 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const wp = estimatePower(battleWinner);
           const lp = estimatePower(loser);
           const ratio = wp / Math.max(1, wp + lp);
-          const base = 18 + nextDay * 3;
+          const loserHpBeforeDamage = Math.max(0, Number(loser.hp || 0));
+          const damageBase = Number(pvpCfg.damageBase ?? 18);
+          const damageDayScale = Number(pvpCfg.damageDayScale ?? 3);
+          const base = damageBase + nextDay * damageDayScale;
+          const earlyLethalDayEnd = Math.max(0, Math.floor(Number(pvpCfg.earlyLethalDamageDayEnd ?? 3)));
+          const earlyLethalWindow = !isDay1MorningFarmPhase && nextDay <= earlyLethalDayEnd;
+          const earlyDamageFlat = earlyLethalWindow ? Math.max(0, Number(pvpCfg.earlyLethalDamageFlat ?? 8)) : 0;
+          const earlyLowHpBonusBelow = Math.max(0, Number(pvpCfg.earlyLethalLowHpBonusBelow ?? 45));
+          const earlyLowHpBonus = (earlyLethalWindow && loserHpBeforeDamage <= earlyLowHpBonusBelow)
+            ? Math.max(0, Number(pvpCfg.earlyLethalLowHpBonus ?? 10))
+            : 0;
           const winnerErDamage = buildErBehaviorModifier(battleWinner, battleSettings);
           const loserErDamage = buildErBehaviorModifier(loser, battleSettings);
           const erDamageScale = Math.max(0, Number(battleSettings?.battle?.erDamageScale ?? 1));
           const winnerDamageBonus = Math.round(Math.max(0, Number(winnerErDamage?.damageBonus || 0)) * erDamageScale);
           const counterDamageBonus = Math.round(Math.max(0, Number(loserErDamage?.damageBonus || 0)) * erDamageScale * 0.45);
-          const dmgToLoser = Math.min(98, Math.max(16, Math.round(base + ratio * 34 + winnerDamageBonus)));
+          const dmgToLoser = Math.min(110, Math.max(16, Math.round(base + ratio * 34 + winnerDamageBonus + earlyDamageFlat + earlyLowHpBonus)));
           const dmgToWinner = Math.min(38, Math.max(0, Math.round(7 + (1 - ratio) * 14 + counterDamageBonus)));
           if (winnerDamageBonus >= 4 || counterDamageBonus >= 3) {
             const bits = [];
@@ -5162,23 +5470,31 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (cost > 0 && hp <= Math.max(12, cost + 2)) return dmg;
             applyTacUse(attacker, tac);
             if (cost > 0) attacker.hp = Math.max(1, hp - cost);
-            if (heal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + heal);
-            const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`));
+            const finalHeal = heal > 0 ? applyHealingModifier(attacker, heal) : 0;
+            if (finalHeal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + finalHeal);
+            const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`, { target: 'self' }));
+            const targetTacEffects = applyRuntimeEffectPayloads(defender, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`, { target: 'enemy' }));
             dmg += flat;
-            if (flat > 0 || heal > 0 || cost > 0 || regenRecovery > 0 || tacEffects.results.length > 0) {
+            if (flat > 0 || finalHeal > 0 || cost > 0 || regenRecovery > 0 || tacEffects.results.length > 0 || targetTacEffects.results.length > 0) {
               const bits = [];
               if (flat > 0) bits.push(`추가 피해 +${flat}`);
-              if (heal > 0) bits.push(`HP +${heal}`);
+              if (finalHeal > 0) bits.push(`HP +${finalHeal}`);
               if (cost > 0) bits.push(`HP -${cost}`);
               tacEffects.results.forEach((row) => {
                 if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
                 else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
                 else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
               });
+              targetTacEffects.results.forEach((row) => {
+                if (row?.reason === 'immune') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 면역`);
+                else if (row?.reason === 'resisted') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 저항`);
+                else if (row?.applied) bits.push(`${defender.name} ${describeRuntimeEffect(row.effect)}`);
+              });
               addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
             }
             emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitEffectRunEvents(defender, targetTacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
             return Math.max(0, dmg);
           };
           const shieldBlock = (defender, rawDmg) => {
@@ -5245,6 +5561,20 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           loser.hp = Math.max(0, Number(loser.hp || 0) - finalDmgToLoser);
           battleWinner.hp = Math.max(0, Number(battleWinner.hp || 0) - finalDmgToWinner);
+          const applyCombatLifesteal = (who, dealt) => {
+            if (!who || Number(who.hp || 0) <= 0) return 0;
+            const pct = getLifestealPercent(who);
+            if (pct <= 0 || dealt <= 0) return 0;
+            const maxHp = Math.max(1, Number(who?.maxHp || 100));
+            const rawHeal = Math.min(Math.max(0, maxHp - Number(who.hp || 0)), Math.max(1, Math.round(Number(dealt || 0) * pct)));
+            const heal = applyHealingModifier(who, rawHeal);
+            if (heal <= 0) return 0;
+            who.hp = Math.min(maxHp, Number(who.hp || 0) + heal);
+            addLog(`🩸 [${who.name}] 흡혈: HP +${heal}`, 'system');
+            return heal;
+          };
+          applyCombatLifesteal(battleWinner, finalDmgToLoser);
+          applyCombatLifesteal(loser, finalDmgToWinner);
           const weaponSkillResult = applyErWeaponSkillAfterCombat(battleWinner, loser, {
             damageDealt: finalDmgToLoser,
             lethalPreview: loser.hp <= 0,
@@ -5253,11 +5583,30 @@ const didMove = String(nextZoneId) !== String(currentZone);
             at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
           });
           const weaponSkillDamageToLoser = Math.max(0, Number(weaponSkillResult?.damage || 0));
-          const totalDmgToLoser = finalDmgToLoser + weaponSkillDamageToLoser;
+          let totalDmgToLoser = finalDmgToLoser + weaponSkillDamageToLoser;
           const totalDmgToWinner = finalDmgToWinner;
 
 
-          const lethal = loser.hp <= 0;
+          let lethal = loser.hp <= 0;
+          if (!lethal && earlyLethalWindow) {
+            const hpAfterCombat = Math.max(0, Number(loser.hp || 0));
+            const finishHpBelow = Math.max(0, Number(pvpCfg.earlyLethalFinishHpBelow ?? 12));
+            if (hpAfterCombat > 0 && hpAfterCombat <= finishHpBelow) {
+              const finishBase = Math.max(0, Number(pvpCfg.earlyLethalFinishChanceBase ?? 0.12));
+              const finishScale = Math.max(0, Number(pvpCfg.earlyLethalFinishChanceDayScale ?? 0.05));
+              const finishRatioBonus = Math.max(0, Number(pvpCfg.earlyLethalFinishRatioBonus ?? 0.12));
+              const finishMax = Math.max(0, Math.min(1, Number(pvpCfg.earlyLethalFinishMax ?? 0.34)));
+              const ratioBonus = Math.max(0, (ratio - 0.5) * 2) * finishRatioBonus;
+              const finishChance = Math.min(finishMax, finishBase + Math.max(0, nextDay - 1) * finishScale + ratioBonus);
+              if (Math.random() < finishChance) {
+                const finisherDamage = Math.max(1, Math.ceil(hpAfterCombat));
+                loser.hp = 0;
+                totalDmgToLoser += finisherDamage;
+                lethal = true;
+                addLog(`☠️ [${battleWinner.name}] 결정타로 [${loser.name}]을(를) 마무리했습니다.`, 'death');
+              }
+            }
+          }
           if (!lethal) {
             battleLog = softenNonLethalBattleLog(battleLog);
           }
@@ -5280,7 +5629,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           let postCombatFlee = null;
-          if (!lethal && Number(loser.hp || 0) > 0 && Number(loser.hp || 0) <= 18 && Math.random() < 0.78) {
+          const criticalFleeHpBelow = Math.max(0, Number(pvpCfg.criticalFleeHpBelow ?? 18));
+          const criticalFleeChance = Math.max(0, Math.min(1, Number(pvpCfg.criticalFleeChance ?? 0.78)));
+          if (!lethal && Number(loser.hp || 0) > 0 && Number(loser.hp || 0) <= criticalFleeHpBelow && Math.random() < criticalFleeChance) {
             postCombatFlee = resolveFleeSequence(loser, battleWinner, { curZone: String(loser.zoneId || battleWinner.zoneId || ''), forceAttempt: true, escapeText: '빈사 도주', moveReason: 'critical_flee' });
           }
           if (!lethal && postCombatFlee?.fatal !== true) {
@@ -5299,10 +5650,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
             },
             { day: nextDay, phase: nextPhase, sec: phaseStartSec }
           );
-
-          // 출혈 판정(피격 시)
-          tryApplyBleed(loser, battleWinner, totalDmgToLoser);
-          if (totalDmgToWinner > 0) tryApplyBleed(battleWinner, loser, totalDmgToWinner);
 
           if (postCombatFlee?.fatal === true) {
             applyCombatElimination(battleWinner, loser, { prevDamagedBy, prevDamagedPhaseIdx, killText: '빈사 추격 제압', damageDealt: totalDmgToLoser });
@@ -5335,9 +5682,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
             },
             { day: nextDay, phase: nextPhase, sec: phaseStartSec }
           );
-          // 출혈 판정(접전)
-          tryApplyBleed(actor, target, scratch);
-          tryApplyBleed(target, actor, scratch);
           if (actor.hp <= 0) markUnattributedDeath(actor, '접전 끝에 쓰러짐');
           if (target.hp <= 0) markUnattributedDeath(target, '접전 끝에 쓰러짐');
         }
@@ -5517,7 +5861,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (eventResult.recovery) {
             const maxHpNow = Math.max(1, Number(actor?.maxHp || 100));
             const bonusRecovery = Math.max(0, perkNumber(perkFx?.eventRecoveryPlus || 0));
-            actor.hp = Math.min(maxHpNow, Number(actor.hp || 0) + Math.max(0, Number(eventResult.recovery || 0)) + bonusRecovery);
+            const finalRecovery = applyHealingModifier(actor, Math.max(0, Number(eventResult.recovery || 0)) + bonusRecovery);
+            actor.hp = Math.min(maxHpNow, Number(actor.hp || 0) + finalRecovery);
           }
           const eventEffects = applyRuntimeEffectPayloads(actor, eventResult?.newEffects || eventResult?.newEffect);
           eventEffects.results.forEach((row) => {
@@ -5767,6 +6112,70 @@ if (showMarketPanel && pendingTranscendPick) {
     }
     return true;
   };
+
+  function grantRuntimeItem(actor, item, itemId, qty, ruleset) {
+    const ch = {
+      ...(actor || {}),
+      inventory: Array.isArray(actor?.inventory) ? actor.inventory.map((entry) => ({ ...entry })) : [],
+    };
+    ch.inventory = addItemToInventory(ch.inventory, item, itemId, qty, day, ruleset);
+    const meta = ch.inventory?._lastAdd || null;
+    const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
+    if (got > 0) autoEquipBest(ch, itemMetaById);
+    return { actor: normalizeRuntimeSurvivor(ch), meta, got };
+  }
+
+  function devGrantItemToSelected() {
+    if (!showMarketPanel) return;
+    if (isAdvancing || isGameOver) {
+      setMarketMessage('진행 중이거나 종료된 게임에서는 개발자 아이템 지급을 사용할 수 없습니다.');
+      return;
+    }
+    if (!ensureCharSelected()) return;
+
+    const itemId = String(devGrantItemId || '').trim();
+    const item = devGrantItemOptions.find((it) => String(it?._id || '') === itemId) || null;
+    if (!item) {
+      setMarketMessage('지급할 아이템을 선택해주세요.');
+      return;
+    }
+
+    const qty = Math.max(1, Math.min(99, Math.floor(Number(devGrantQty || 1))));
+    const ruleset = getRuleset(settings?.rulesetId);
+    const current = selectedChar;
+    if (!current) {
+      setMarketMessage('선택 캐릭터를 찾을 수 없습니다.');
+      return;
+    }
+
+    const res = grantRuntimeItem(current, item, itemId, qty, ruleset);
+    const nm = itemDisplayName(item);
+    setMarketMessage('');
+
+    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => {
+      if (String(s?._id) !== String(selectedCharId)) return s;
+      return res.actor;
+    }));
+
+    setCandidateSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => (
+      String(s?._id) === String(selectedCharId)
+        ? grantRuntimeItem(s, item, itemId, qty, ruleset).actor
+        : s
+    )));
+
+    addLog(`🛠 [${current.name}] 개발자 아이템 지급: ${itemIcon(item)} ${nm} ${gainText(res.got)}${formatInvAddNote(res.meta, qty, res.actor.inventory, ruleset)}`, res.got > 0 ? 'highlight' : 'death');
+    emitItemGainIfAny(res.got, {
+      who: current.name,
+      whoId: current._id,
+      itemId,
+      source: 'dev_tool',
+      sourceKind: 'manual_grant',
+      zoneId: current.zoneId,
+    }, { day, phase, sec: matchSec });
+    setMarketMessage(res.got > 0
+      ? `${current.name}에게 ${nm} x${res.got} 지급 완료`
+      : `${current.name}에게 ${nm} 지급 실패`);
+  }
 
   async function doCraft(itemId) {
     if (!ensureCharSelected()) return;
@@ -6121,7 +6530,21 @@ if (showMarketPanel && pendingTranscendPick) {
                   {(Array.isArray(char.activeEffects) ? char.activeEffects : []).map((eff, i) => {
                     const nm = String(eff?.name || '');
                     const dur = Number.isFinite(Number(eff?.remainingDuration)) ? Math.max(0, Number(eff.remainingDuration)) : null;
-                    const icon = nm === '출혈' ? '🩸' : nm === '식중독' ? '🤢' : nm === '중독' ? '☠️' : nm === '화상' ? '🔥' : nm === '보호막' ? '🛡️' : nm === '재생' ? '✨' : '🤕';
+                    const icon = nm === '식중독' ? '🤢'
+                      : nm === '중독' ? '☠️'
+                        : nm === '화상' ? '🔥'
+                          : nm === '보호막' ? '🛡️'
+                            : nm === '재생' ? '✨'
+                              : nm === '공중에 뜸' ? '🌀'
+                                : nm === '치유 감소' ? '🩹'
+                                  : nm === '기절' ? '💫'
+                                    : nm === '밀어짐' ? '↔️'
+                                      : nm === '둔화' ? '🐌'
+                                        : nm === '흡혈' ? '🩸'
+                                          : nm === '가속' ? '🏃'
+                                            : nm === '쿨다운 증가' ? '⏫'
+                                              : nm === '쿨다운 감소' ? '⏬'
+                                                : '🤕';
                     const stacks = Math.max(1, Number(eff?.stacks || 1));
                     const label = dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`;
                     return (
@@ -6245,6 +6668,7 @@ if (showMarketPanel && pendingTranscendPick) {
   if (!s) return null;
 
   const unopenedCrates = (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : []).filter((c) => c && !c.opened).length;
+  const unopenedTranscendCrates = (Array.isArray(s.transcendCrates) ? s.transcendCrates : []).filter((c) => c && !c.opened).length;
   const unpickedCore = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked).length;
 
   const meteorCnt = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked && String(n.kind) === 'meteor').length;
@@ -6263,12 +6687,13 @@ if (showMarketPanel && pendingTranscendPick) {
   const wildlifeTotal = eligibleWildZones.reduce((sum, zid) => sum + Math.max(0, Number(wildlifeMap?.[zid] ?? 0)), 0);
   const wildlifeEmpty = eligibleWildZones.reduce((cnt, zid) => cnt + ((Math.max(0, Number(wildlifeMap?.[zid] ?? 0)) <= 0) ? 1 : 0), 0);
 
-  if (!unopenedCrates && !unpickedCore && !alphaOn && !omegaOn && !weaklineOn && wildlifeTotal <= 0) return null;
+  if (!unopenedCrates && !unopenedTranscendCrates && !unpickedCore && !alphaOn && !omegaOn && !weaklineOn && wildlifeTotal <= 0) return null;
 
   return (
     <div className="worldspawn-toolbar">
       <span className="ws-title">🌍 월드스폰</span>
       <span className="ws-chip">🟪 전설상자: <b>{unopenedCrates}</b></span>
+      <span className="ws-chip">🎁 초월상자: <b>{unopenedTranscendCrates}</b></span>
       <span className="ws-chip">🌠 자연코어: 운석 <b>{meteorCnt}</b> / 생나 <b>{lifeTreeCnt}</b></span>
       <span className="ws-chip" title="시간대별 종별 야생동물 스폰">🦌 야생동물: <b>{wildlifeTotal}</b>{wildlifeEmpty > 0 ? ` (빈구역 ${wildlifeEmpty})` : ''}</span>
       <span className="ws-chip">👹 알파: <b>{alphaOn ? 'ON' : 'off'}</b></span>
@@ -6654,6 +7079,70 @@ if (showMarketPanel && pendingTranscendPick) {
             </div>
 
             <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+              <div className="market-title">👥 참가자 프리셋</div>
+              <div className="market-small">
+                기본은 무작위 24명입니다. 현재 참가자 24명을 최대 {PARTICIPANT_PRESET_LIMIT}개까지 저장해 시작 전에 적용할 수 있습니다.
+              </div>
+              <div className="market-row" style={{ marginTop: 8, gap: 8 }}>
+                <select
+                  value={selectedParticipantPresetId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    saveSelectedParticipantPresetId(id);
+                    const preset = (Array.isArray(participantPresets) ? participantPresets : [])
+                      .find((row) => String(row?.id || '') === String(id));
+                    setParticipantPresetName(preset?.name || '');
+                  }}
+                  style={{ width: '100%' }}
+                  disabled={isAdvancing || isGameOver}
+                >
+                  <option value={RANDOM_PARTICIPANT_PRESET_ID}>무작위 24명</option>
+                  {(Array.isArray(participantPresets) ? participantPresets : []).map((preset, index) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name || `프리셋 ${index + 1}`} ({normalizeParticipantPresetIds(preset.characterIds).length}명)
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="market-mini-btn"
+                  onClick={() => applyParticipantPresetToCurrent(selectedParticipantPresetId)}
+                  disabled={isAdvancing || isGameOver || day !== 0 || matchSec !== 0}
+                  title={(day !== 0 || matchSec !== 0) ? '게임 시작 전에만 적용할 수 있습니다.' : ''}
+                >
+                  적용
+                </button>
+              </div>
+              <div className="market-row" style={{ marginTop: 8, gap: 8 }}>
+                <input
+                  value={participantPresetName}
+                  onChange={(e) => setParticipantPresetName(e.target.value)}
+                  placeholder="프리셋 이름"
+                  style={{ width: '100%' }}
+                  disabled={isAdvancing || isGameOver}
+                />
+                <button
+                  className="market-mini-btn"
+                  onClick={saveCurrentParticipantPreset}
+                  disabled={isAdvancing || isGameOver || !survivors.length}
+                  title="현재 참가자 목록을 저장합니다."
+                >
+                  저장
+                </button>
+                <button
+                  className="market-mini-btn"
+                  onClick={deleteSelectedParticipantPreset}
+                  disabled={isAdvancing || isGameOver || selectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID}
+                >
+                  삭제
+                </button>
+              </div>
+              <div className="market-small" style={{ marginTop: 6 }}>
+                저장됨: <strong>{(Array.isArray(participantPresets) ? participantPresets : []).length}</strong>/{PARTICIPANT_PRESET_LIMIT}
+                {' · '}후보: <strong>{(Array.isArray(candidateSurvivors) && candidateSurvivors.length) || survivors.length}</strong>명
+              </div>
+            </div>
+
+            <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
               <div className="market-title">🧾 이벤트 로그(JSON)</div>
               <div className="market-small">runEvents: <strong>{runEvents.length}</strong>개 (최근 200개만 표시)</div>
               <textarea
@@ -6743,6 +7232,45 @@ if (showMarketPanel && pendingTranscendPick) {
                 </div>
               </div>
             ) : null}
+
+            {selectedCharId && selectedChar ? (
+              <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                <div className="market-title">🛠 아이템 지급(개발자)</div>
+                <div className="market-small">선택 캐릭터에게 아이템을 직접 지급합니다. 장비 아이템은 지급 후 자동 장착 규칙을 다시 적용합니다.</div>
+                <div className="market-row" style={{ marginTop: 8, gap: 8 }}>
+                  <select
+                    value={devGrantItemId}
+                    onChange={(e) => setDevGrantItemId(e.target.value)}
+                    style={{ width: '100%' }}
+                    disabled={isAdvancing || isGameOver || devGrantItemOptions.length === 0}
+                  >
+                    <option value="">(아이템 선택)</option>
+                    {devGrantItemOptions.map((it) => (
+                      <option key={`dev-grant-${it._id}`} value={it._id}>
+                        {it._label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={devGrantQty}
+                    onChange={(e) => setDevGrantQty(e.target.value)}
+                    style={{ width: 76 }}
+                    disabled={isAdvancing || isGameOver}
+                  />
+                  <button
+                    className="market-mini-btn"
+                    onClick={devGrantItemToSelected}
+                    disabled={isAdvancing || isGameOver || !devGrantItemId}
+                  >
+                    지급
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             {/* 🛠 개발자 도구: 유저가 선택 캐릭터에게 소모품을 임의로 사용 */}
             {selectedCharId && selectedChar ? (() => {
               const list = (Array.isArray(selectedChar.inventory) ? selectedChar.inventory : [])

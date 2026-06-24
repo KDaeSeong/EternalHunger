@@ -1,6 +1,5 @@
 // client/src/utils/statusLogic.js
 
-export const EFFECT_BLEED = '출혈';
 export const EFFECT_POISON = '중독';
 export const EFFECT_BURN = '화상';
 export const EFFECT_FOOD_POISON = '식중독';
@@ -8,11 +7,17 @@ export const EFFECT_SHIELD = '보호막';
 export const EFFECT_REGEN = '재생';
 export const EFFECT_FOCUS = '집중';
 export const EFFECT_STIM = '각성';
+export const EFFECT_AIRBORNE = '공중에 뜸';
+export const EFFECT_HEAL_REDUCTION = '치유 감소';
+export const EFFECT_STUN = '기절';
+export const EFFECT_KNOCKBACK = '밀어짐';
+export const EFFECT_SLOW = '둔화';
+export const EFFECT_LIFESTEAL = '흡혈';
+export const EFFECT_HASTE = '가속';
+export const EFFECT_COOLDOWN_UP = '쿨다운 증가';
+export const EFFECT_COOLDOWN_DOWN = '쿨다운 감소';
 
 const EFFECT_NAME_ALIASES = {
-  출혈: EFFECT_BLEED,
-  bleed: EFFECT_BLEED,
-  bleeding: EFFECT_BLEED,
   중독: EFFECT_POISON,
   poison: EFFECT_POISON,
   poisoned: EFFECT_POISON,
@@ -37,17 +42,40 @@ const EFFECT_NAME_ALIASES = {
   stimulant: EFFECT_STIM,
   adrenaline: EFFECT_STIM,
   energize: EFFECT_STIM,
+  '공중에 뜸': EFFECT_AIRBORNE,
+  에어본: EFFECT_AIRBORNE,
+  airborne: EFFECT_AIRBORNE,
+  knockup: EFFECT_AIRBORNE,
+  '치유 감소': EFFECT_HEAL_REDUCTION,
+  치감: EFFECT_HEAL_REDUCTION,
+  antiheal: EFFECT_HEAL_REDUCTION,
+  'heal reduction': EFFECT_HEAL_REDUCTION,
+  기절: EFFECT_STUN,
+  stun: EFFECT_STUN,
+  stunned: EFFECT_STUN,
+  밀어짐: EFFECT_KNOCKBACK,
+  넉백: EFFECT_KNOCKBACK,
+  knockback: EFFECT_KNOCKBACK,
+  pushed: EFFECT_KNOCKBACK,
+  둔화: EFFECT_SLOW,
+  slow: EFFECT_SLOW,
+  slowed: EFFECT_SLOW,
+  흡혈: EFFECT_LIFESTEAL,
+  lifesteal: EFFECT_LIFESTEAL,
+  vamp: EFFECT_LIFESTEAL,
+  가속: EFFECT_HASTE,
+  haste: EFFECT_HASTE,
+  speedup: EFFECT_HASTE,
+  '쿨다운 증가': EFFECT_COOLDOWN_UP,
+  cooldown_up: EFFECT_COOLDOWN_UP,
+  'cooldown up': EFFECT_COOLDOWN_UP,
+  '쿨다운 감소': EFFECT_COOLDOWN_DOWN,
+  cooldown_down: EFFECT_COOLDOWN_DOWN,
+  'cooldown down': EFFECT_COOLDOWN_DOWN,
+  cdr: EFFECT_COOLDOWN_DOWN,
 };
 
 export const EFFECT_META = {
-  [EFFECT_BLEED]: {
-    icon: '🩸',
-    category: 'debuff',
-    tags: ['negative', 'dot', 'bleed', 'physical'],
-    defaultDotDamage: 6,
-    stackMode: 'refresh_max',
-    maxStacks: 3,
-  },
   [EFFECT_POISON]: {
     icon: '☠️',
     category: 'debuff',
@@ -103,6 +131,77 @@ export const EFFECT_META = {
     stackMode: 'refresh_only',
     maxStacks: 1,
     statModifiers: { agi: 3, luk: 2 },
+  },
+  [EFFECT_AIRBORNE]: {
+    icon: '🌀',
+    category: 'debuff',
+    tags: ['negative', 'cc', 'airborne', 'action_block'],
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_HEAL_REDUCTION]: {
+    icon: '🩹',
+    category: 'debuff',
+    tags: ['negative', 'heal_reduction'],
+    defaultHealReductionPct: 0.45,
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_STUN]: {
+    icon: '💫',
+    category: 'debuff',
+    tags: ['negative', 'cc', 'stun', 'action_block'],
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_KNOCKBACK]: {
+    icon: '↔️',
+    category: 'debuff',
+    tags: ['negative', 'cc', 'knockback', 'forced_move'],
+    defaultKnockbackDistance: 1,
+    stackMode: 'refresh_only',
+    maxStacks: 1,
+  },
+  [EFFECT_SLOW]: {
+    icon: '🐌',
+    category: 'debuff',
+    tags: ['negative', 'slow', 'move'],
+    defaultMoveSpeedBonus: -0.18,
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_LIFESTEAL]: {
+    icon: '🩸',
+    category: 'buff',
+    tags: ['positive', 'lifesteal', 'combat'],
+    defaultLifestealPct: 0.12,
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_HASTE]: {
+    icon: '🏃',
+    category: 'buff',
+    tags: ['positive', 'haste', 'move', 'cooldown'],
+    defaultMoveSpeedBonus: 0.16,
+    defaultCooldownRateBonus: 0.12,
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_COOLDOWN_UP]: {
+    icon: '⏫',
+    category: 'debuff',
+    tags: ['negative', 'cooldown'],
+    defaultCooldownRatePenalty: 0.25,
+    stackMode: 'refresh_max',
+    maxStacks: 1,
+  },
+  [EFFECT_COOLDOWN_DOWN]: {
+    icon: '⏬',
+    category: 'buff',
+    tags: ['positive', 'cooldown'],
+    defaultCooldownRateBonus: 0.25,
+    stackMode: 'refresh_max',
+    maxStacks: 1,
   },
 };
 
@@ -162,6 +261,47 @@ export function makeStatBuffEffect(name, statModifiers = {}, duration = 2, sourc
   });
 }
 
+export function makeStatusValueEffect(name, duration = 2, sourceId = '', extra = {}) {
+  return normalizeStatusEffect({
+    ...extra,
+    name: canonicalizeEffectName(name),
+    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    stacks: Math.max(1, Math.floor(Number(extra?.stacks || 1))),
+    sourceId: String(sourceId || extra?.sourceId || ''),
+  });
+}
+
+export function makeHealReductionEffect(reductionPct = 0.45, duration = 2, sourceId = '', extra = {}) {
+  return makeStatusValueEffect(EFFECT_HEAL_REDUCTION, duration, sourceId, {
+    ...extra,
+    healReductionPct: Math.max(0, Math.min(0.95, Number(reductionPct || 0))),
+  });
+}
+
+export function makeMoveSpeedEffect(name, moveSpeedBonus = 0, duration = 2, sourceId = '', extra = {}) {
+  return makeStatusValueEffect(name, duration, sourceId, {
+    ...extra,
+    moveSpeedBonus: Number.isFinite(Number(moveSpeedBonus)) ? Number(moveSpeedBonus) : 0,
+  });
+}
+
+export function makeLifestealEffect(lifestealPct = 0.12, duration = 2, sourceId = '', extra = {}) {
+  return makeStatusValueEffect(EFFECT_LIFESTEAL, duration, sourceId, {
+    ...extra,
+    lifestealPct: Math.max(0, Math.min(1, Number(lifestealPct || 0))),
+  });
+}
+
+export function makeCooldownRateEffect(name, amount = 0.25, duration = 2, sourceId = '', extra = {}) {
+  const canon = canonicalizeEffectName(name);
+  const value = Math.max(0, Math.min(1.5, Number(amount || 0)));
+  return makeStatusValueEffect(canon, duration, sourceId, {
+    ...extra,
+    cooldownRateBonus: canon === EFFECT_COOLDOWN_DOWN ? value : Number(extra?.cooldownRateBonus || 0),
+    cooldownRatePenalty: canon === EFFECT_COOLDOWN_UP ? value : Number(extra?.cooldownRatePenalty || 0),
+  });
+}
+
 export function normalizeStatusEffect(effect) {
   if (!effect || typeof effect !== 'object') return null;
   const meta = effectMetaByName(effect?.name);
@@ -186,6 +326,24 @@ export function normalizeStatusEffect(effect) {
 
   const shield = Number(next?.shieldValue ?? next?.shield ?? next?.absorb ?? next?.amount ?? 0);
   next.shieldValue = Number.isFinite(shield) ? Math.max(0, Math.floor(shield)) : 0;
+
+  const healReduction = Number(next?.healReductionPct ?? next?.healCutPct ?? next?.antiHealPct ?? meta?.defaultHealReductionPct ?? 0);
+  next.healReductionPct = Number.isFinite(healReduction) ? Math.max(0, Math.min(0.95, healReduction)) : 0;
+
+  const moveSpeedBonus = Number(next?.moveSpeedBonus ?? next?.moveSpeedPlus ?? meta?.defaultMoveSpeedBonus ?? 0);
+  next.moveSpeedBonus = Number.isFinite(moveSpeedBonus) ? Math.max(-0.75, Math.min(1.5, moveSpeedBonus)) : 0;
+
+  const lifestealPct = Number(next?.lifestealPct ?? next?.lifestealPlus ?? meta?.defaultLifestealPct ?? 0);
+  next.lifestealPct = Number.isFinite(lifestealPct) ? Math.max(0, Math.min(1, lifestealPct)) : 0;
+
+  const cooldownRateBonus = Number(next?.cooldownRateBonus ?? next?.cooldownDownPct ?? next?.cooldownReductionPct ?? meta?.defaultCooldownRateBonus ?? 0);
+  next.cooldownRateBonus = Number.isFinite(cooldownRateBonus) ? Math.max(0, Math.min(1.5, cooldownRateBonus)) : 0;
+
+  const cooldownRatePenalty = Number(next?.cooldownRatePenalty ?? next?.cooldownUpPct ?? meta?.defaultCooldownRatePenalty ?? 0);
+  next.cooldownRatePenalty = Number.isFinite(cooldownRatePenalty) ? Math.max(0, Math.min(1.5, cooldownRatePenalty)) : 0;
+
+  const knockbackDistance = Number(next?.knockbackDistance ?? next?.distance ?? meta?.defaultKnockbackDistance ?? 0);
+  next.knockbackDistance = Number.isFinite(knockbackDistance) ? Math.max(0, Math.floor(knockbackDistance)) : 0;
 
   const stacks = Number(next?.stacks ?? 1);
   const maxStacks = Math.max(1, Number(next?.maxStacks ?? meta?.maxStacks ?? 1));
@@ -220,6 +378,65 @@ export function getShieldValue(character) {
 
 export function getRegenValue(character) {
   return Math.max(0, getEffectValueTotal(character, EFFECT_REGEN, 'recovery'));
+}
+
+function getActiveEffects(character) {
+  return (Array.isArray(character?.activeEffects) ? character.activeEffects : [])
+    .map((eff) => normalizeStatusEffect(eff))
+    .filter(Boolean);
+}
+
+export function getHealReductionPct(character) {
+  const total = getActiveEffects(character).reduce((sum, eff) => {
+    const stacks = Math.max(1, Number(eff?.stacks || 1));
+    return sum + Math.max(0, Number(eff?.healReductionPct || 0)) * stacks;
+  }, 0);
+  return Math.max(0, Math.min(0.95, total));
+}
+
+export function applyHealingModifier(character, amount) {
+  const raw = Math.max(0, Number(amount || 0));
+  if (raw <= 0) return 0;
+  const mult = 1 - getHealReductionPct(character);
+  return Math.max(0, Math.floor(raw * Math.max(0, mult)));
+}
+
+export function getMoveSpeedStatusBonus(character) {
+  const total = getActiveEffects(character).reduce((sum, eff) => {
+    const stacks = Math.max(1, Number(eff?.stacks || 1));
+    return sum + Number(eff?.moveSpeedBonus || 0) * stacks;
+  }, 0);
+  return Math.max(-0.75, Math.min(1.5, total));
+}
+
+export function getCooldownTickMultiplier(character) {
+  const effects = getActiveEffects(character);
+  const bonus = effects.reduce((sum, eff) => sum + Math.max(0, Number(eff?.cooldownRateBonus || 0)) * Math.max(1, Number(eff?.stacks || 1)), 0);
+  const penalty = effects.reduce((sum, eff) => sum + Math.max(0, Number(eff?.cooldownRatePenalty || 0)) * Math.max(1, Number(eff?.stacks || 1)), 0);
+  return Math.max(0.25, Math.min(2.5, 1 + bonus - penalty));
+}
+
+export function getLifestealPercent(character) {
+  const total = getActiveEffects(character).reduce((sum, eff) => {
+    const stacks = Math.max(1, Number(eff?.stacks || 1));
+    return sum + Math.max(0, Number(eff?.lifestealPct || 0)) * stacks;
+  }, 0);
+  return Math.max(0, Math.min(1, total));
+}
+
+export function hasActionBlockStatus(character) {
+  return getActiveEffects(character).some((eff) => {
+    const tags = new Set([...(effectMetaByName(eff?.name)?.tags || []), ...safeTags(eff?.tags)]);
+    return tags.has('action_block') || eff?.name === EFFECT_STUN || eff?.name === EFFECT_AIRBORNE;
+  });
+}
+
+export function getKnockbackDistance(character) {
+  return getActiveEffects(character).reduce((max, eff) => {
+    const tags = new Set([...(effectMetaByName(eff?.name)?.tags || []), ...safeTags(eff?.tags)]);
+    if (!tags.has('knockback') && eff?.name !== EFFECT_KNOCKBACK) return max;
+    return Math.max(max, Math.max(0, Number(eff?.knockbackDistance || 0)));
+  }, 0);
 }
 
 export function getEffectStacks(character, effectName) {
@@ -478,7 +695,7 @@ export function updateEffects(character, opts = {}) {
         ticks.push({ type: 'damage', name: eff.name, amount: dmg, stacks });
       }
       if (recovery > 0 && tags.has('regen')) {
-        const heal = recovery * stacks;
+        const heal = applyHealingModifier(character, recovery * stacks);
         hpChange += heal;
         ticks.push({ type: 'heal', name: eff.name, amount: heal, stacks });
       }

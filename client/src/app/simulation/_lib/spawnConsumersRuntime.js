@@ -10,6 +10,7 @@ import { getLegendaryCoreCandidates } from './legendaryRuntime';
 import { classifySpecialByName } from './craftRuntime';
 import { canReceiveItem, inferItemCategory, markInventoryGoalItem } from './inventoryRules';
 import { roughPower } from './combatRuntime';
+import { rollTranscendPickOptions } from './fieldLootRuntime';
 import {
   getActorPerkEffects,
   getPerkWildlifeLootBias,
@@ -199,6 +200,35 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
   const credits = Math.max(0, randInt(Math.min(minCr, maxCr), Math.max(minCr, maxCr)));
 
   return { item: pickedItem, itemId: String(picked.itemId), qty, credits, crateType: 'food', zoneId: zid };
+}
+
+function openSpawnedTranscendCrate(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
+  const s = spawnState;
+  if (!s || !Array.isArray(s.transcendCrates)) return null;
+
+  const zid = String(zoneId || '');
+  const crate = s.transcendCrates.find((c) => !c?.opened && String(c?.zoneId) === zid) || null;
+  if (!crate) return null;
+
+  const rule = ruleset?.worldSpawns?.transcendCrate || {};
+  const optCount = Math.max(2, Math.min(3, Number(rule?.optionsCount ?? ruleset?.drops?.crateTypes?.transcend_pick?.optionsCount ?? 3)));
+  const options = rollTranscendPickOptions(publicItems, optCount);
+  if (!options.length) return null;
+
+  crate.opened = true;
+  crate.openedBy = String(actor?.name || 'unknown');
+  crate.openedAt = { day: Number(curDay || 0), phase: String(curPhase || '') };
+
+  return {
+    item: null,
+    itemId: '',
+    qty: 1,
+    crateId: String(crate?.id || ''),
+    crateType: 'transcend_pick',
+    options,
+    zoneId: zid,
+    source: 'transcend_crate',
+  };
 }
 
 function pickupSpawnedCore(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
@@ -393,5 +423,6 @@ export {
   consumeMutantWildlifeAtZone,
   openSpawnedFoodCrate,
   openSpawnedLegendaryCrate,
+  openSpawnedTranscendCrate,
   pickupSpawnedCore,
 };

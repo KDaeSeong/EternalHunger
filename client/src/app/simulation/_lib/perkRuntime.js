@@ -30,10 +30,8 @@ export const PERK_EFFECT_DEFAULTS = {
   eventCreditsPct: 0,
   eventRecoveryPlus: 0,
   eventItemPlus: 0,
-  bleedResistPct: 0,
   poisonResistPct: 0,
   burnResistPct: 0,
-  bleedImmune: 0,
   poisonImmune: 0,
   burnImmune: 0,
   cleanseHealPlus: 0,
@@ -71,10 +69,8 @@ export const PERK_EFFECT_ALIASES = {
   eventCreditsPct: ['eventCreditsPct', 'scenarioCreditsPct'],
   eventRecoveryPlus: ['eventRecoveryPlus', 'scenarioRecoveryPlus'],
   eventItemPlus: ['eventItemPlus', 'scenarioItemPlus', 'eventLootPlus'],
-  bleedResistPct: ['bleedResistPct', 'bleedResist', 'bleedAvoidPct'],
   poisonResistPct: ['poisonResistPct', 'poisonResist', 'poisonAvoidPct', 'foodPoisonResistPct'],
   burnResistPct: ['burnResistPct', 'burnResist', 'burnAvoidPct'],
-  bleedImmune: ['bleedImmune', 'immuneBleed'],
   poisonImmune: ['poisonImmune', 'immunePoison', 'foodPoisonImmune'],
   burnImmune: ['burnImmune', 'immuneBurn'],
   cleanseHealPlus: ['cleanseHealPlus', 'cleanseRecoveryPlus', 'medicalRecoveryPlus'],
@@ -107,10 +103,8 @@ export function normalizePerkEffects(raw) {
   out.droneDiscountPct = normalizePerkPct(out.droneDiscountPct + out.marketDiscountPct);
   out.marketDiscountPct = normalizePerkPct(out.marketDiscountPct);
   out.saleBonusPct = normalizePerkPct(out.saleBonusPct);
-  out.bleedResistPct = normalizePerkPct(out.bleedResistPct);
   out.poisonResistPct = normalizePerkPct(out.poisonResistPct);
   out.burnResistPct = normalizePerkPct(out.burnResistPct);
-  out.bleedImmune = out.bleedImmune ? 1 : 0;
   out.poisonImmune = out.poisonImmune ? 1 : 0;
   out.burnImmune = out.burnImmune ? 1 : 0;
   return out;

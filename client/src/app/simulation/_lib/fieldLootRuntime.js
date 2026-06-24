@@ -245,7 +245,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     }
 
     // 초월 장비 선택 상자라면: 아이템을 바로 주지 않고 후보를 반환합니다.
-    if (ctLower === 'transcend_pick') {
+    const transWorldOnly = opts?.ruleset?.worldSpawns?.transcendCrate?.worldOnly !== false;
+    if (ctLower === 'transcend_pick' && !transWorldOnly) {
       const optCount = Math.max(2, Math.min(3, Number(ruleset?.drops?.crateTypes?.transcend_pick?.optionsCount ?? 3)));
       const options = rollTranscendPickOptions(publicItems, optCount);
       if (!options.length) return null;
@@ -280,7 +281,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const wFood0 = Math.max(0, Number(ct?.food?.weight ?? ct?.food ?? 80));
   const wLegendBase0 = Number(field?.legendaryMaterialWeight ?? field?.legendaryMaterial?.weight ?? ct?.legendary_material?.weight ?? ct?.legendary_material ?? 15);
   const wLegend0 = legendEnabled ? Math.max(0, wLegendBase0) : 0;
-  const wTrans0 = Math.max(0, Number(ct?.transcend_pick?.weight ?? ct?.transcend_pick ?? 5));
+  const transWorldOnly = opts?.ruleset?.worldSpawns?.transcendCrate?.worldOnly !== false;
+  const wTrans0 = transWorldOnly ? 0 : Math.max(0, Number(ct?.transcend_pick?.weight ?? ct?.transcend_pick ?? 5));
 
   // 존 금지 타입은 fallback에서도 0 처리
   const rareCrateBonus = Math.max(0, perkLootBias);

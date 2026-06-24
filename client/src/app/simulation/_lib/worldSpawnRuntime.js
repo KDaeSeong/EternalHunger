@@ -14,6 +14,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   const ws = ruleset?.worldSpawns || {};
   const coreRule = ws.core || {};
   const legRule = ws.legendaryCrate || {};
+  const transRule = ws.transcendCrate || {};
   const foodRule = ws.foodCrate || {};
 
   const coreKeepDays = Math.max(1, Number(coreRule?.keepDays ?? 2));
@@ -21,6 +22,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   const legGateDay = Number(legRule?.gateDay ?? 3);
   const legMaxPerDay = Math.max(1, Number(legRule?.perDayMax ?? 3));
   const legKeepDays = Math.max(1, Number(legRule?.keepDays ?? 3));
+  const transKeepDays = Math.max(1, Number(transRule?.keepDays ?? 2));
 
   const foodKeepDays = Math.max(1, Number(foodRule?.keepDays ?? 2));
 
@@ -305,6 +307,49 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   spawnBossAt('omega', 3);
   spawnBossAt('weakline', 4);
 
+  const transEnabled = transRule?.enabled !== false;
+  const transGateDay = Number(transRule?.gateDay ?? 4);
+  const transPhase = String(transRule?.phase ?? transRule?.timeOfDay ?? 'night');
+  const transCount = Math.max(0, Math.floor(Number(transRule?.count ?? 2)));
+  if (
+    transEnabled &&
+    transCount > 0 &&
+    d === transGateDay &&
+    p === transPhase &&
+    Number(s.spawnedDay?.transcend ?? -1) !== spawnKey
+  ) {
+    const alreadyAlive = new Set(
+      (Array.isArray(s.transcendCrates) ? s.transcendCrates : [])
+        .filter((c) => !c?.opened)
+        .map((c) => String(c?.zoneId))
+    );
+    const zonePool = eligible.filter((zid) => !alreadyAlive.has(String(zid)));
+    const pickCount = Math.min(transCount, zonePool.length);
+    if (!Array.isArray(s.transcendCrates)) s.transcendCrates = [];
+    if (!s.counters || typeof s.counters !== 'object') s.counters = {};
+
+    for (let i = 0; i < pickCount; i++) {
+      const weaklineZone = String(s?.bosses?.weakline?.zoneId || '');
+      const preferredIdx = weaklineZone ? zonePool.findIndex((zid) => String(zid) === weaklineZone) : -1;
+      const pickIdx = preferredIdx >= 0 && i === 0
+        ? preferredIdx
+        : randInt(0, Math.max(0, zonePool.length - 1));
+      const zid = zonePool.splice(pickIdx, 1)[0];
+      s.counters.transcend = Number(s.counters.transcend || 0) + 1;
+      s.transcendCrates.push({
+        id: `TCRATE_${String(curDay || 0)}_${String(s.counters.transcend)}`,
+        zoneId: String(zid),
+        spawnedDay: Number(curDay || 0),
+        opened: false,
+        openedBy: null,
+        openedAt: null,
+      });
+    }
+
+    s.spawnedDay.transcend = spawnKey;
+    if (pickCount > 0) announcements.push(`🎁 초월 장비 선택 상자 스폰! (x${pickCount})`);
+  }
+
   if (String(curPhase || '') === 'morning') {
     if (s.mutantWildlife) s.mutantWildlife = null;
   }
@@ -349,6 +394,11 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
   s.legendaryCrates = (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : [])
     .filter((c) => !c?.opened)
     .filter((c) => Number(c?.spawnedDay || 0) >= keepFromLegendary);
+
+  const keepFromTranscend = Math.max(0, Number(curDay || 0) - transKeepDays);
+  s.transcendCrates = (Array.isArray(s.transcendCrates) ? s.transcendCrates : [])
+    .filter((c) => !c?.opened)
+    .filter((c) => Number(c?.spawnedDay || 0) >= keepFromTranscend);
 
   const keepFromCore = Math.max(0, Number(curDay || 0) - coreKeepDays);
   s.coreNodes = (Array.isArray(s.coreNodes) ? s.coreNodes : [])

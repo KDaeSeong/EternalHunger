@@ -4,7 +4,7 @@
 export const TAC_SKILL_TABLE = {
   '블링크': {
     baseCdSec: 55,
-    effects: { escapeBonus: { 1: 0.22, 2: 0.28 } },
+    effects: { escapeBonus: { 1: 0.22, 2: 0.28 }, cooldownDownPct: { 1: 0.10, 2: 0.15 } },
     triggers: {
       flee: { priority: 100, applyBonus: true, useOnCommit: true },
     },
@@ -19,7 +19,7 @@ export const TAC_SKILL_TABLE = {
   },
   '붉은 폭풍': {
     baseCdSec: 40,
-    effects: { escapeBonus: { 1: 0.10, 2: 0.14 }, chaseBonus: { 1: 0.05, 2: 0.08 }, openerFlatDmg: { 1: 2, 2: 4 } },
+    effects: { escapeBonus: { 1: 0.10, 2: 0.14 }, chaseBonus: { 1: 0.05, 2: 0.08 }, openerFlatDmg: { 1: 2, 2: 4 }, haste: { 1: 1, 2: 2 } },
     triggers: {
       flee: { priority: 54, applyBonus: true },
       chase: { priority: 44, applyBonus: true },
@@ -36,12 +36,12 @@ export const TAC_SKILL_TABLE = {
   },
   '퀘이크': {
     baseCdSec: 40,
-    effects: { chaseBonus: { 1: 0.12, 2: 0.17 }, openerFlatDmg: { 1: 6, 2: 10 } },
+    effects: { chaseBonus: { 1: 0.12, 2: 0.17 }, openerFlatDmg: { 1: 6, 2: 10 }, airborne: { 1: 1, 2: 1 }, slowPct: { 1: 0.12, 2: 0.18 } },
     triggers: { chase: { priority: 68, applyBonus: true, useOnCommit: true }, combat: { priority: 58 } },
   },
   '프로토콜 위반': {
     baseCdSec: 50,
-    effects: { openerFlatDmg: { 1: 6, 2: 10 }, selfHeal: { 1: 8, 2: 12 }, regenRecovery: { 1: 2, 2: 4 }, regenDuration: { 1: 2, 2: 2 } },
+    effects: { openerFlatDmg: { 1: 6, 2: 10 }, selfHeal: { 1: 8, 2: 12 }, regenRecovery: { 1: 2, 2: 4 }, regenDuration: { 1: 2, 2: 2 }, lifestealPct: { 1: 0.08, 2: 0.12 } },
     triggers: { combat: { priority: 66, hpBelow: 70 } },
   },
   '초월': {
@@ -64,7 +64,7 @@ export const TAC_SKILL_TABLE = {
   },
   '강한 결속': {
     baseCdSec: 50,
-    effects: { openerFlatDmg: { 1: 4, 2: 7 }, selfHeal: { 1: 10, 2: 14 }, escapeBonus: { 1: 0.08, 2: 0.12 }, regenRecovery: { 1: 3, 2: 5 }, regenDuration: { 1: 2, 2: 3 } },
+    effects: { openerFlatDmg: { 1: 4, 2: 7 }, selfHeal: { 1: 10, 2: 14 }, escapeBonus: { 1: 0.08, 2: 0.12 }, regenRecovery: { 1: 3, 2: 5 }, regenDuration: { 1: 2, 2: 3 }, lifestealPct: { 1: 0.06, 2: 0.10 } },
     triggers: {
       combat: { priority: 60, hpBelow: 65 },
       flee: { priority: 44, applyBonus: true },
@@ -72,7 +72,7 @@ export const TAC_SKILL_TABLE = {
   },
   '진실의 칼날': {
     baseCdSec: 48,
-    effects: { openerFlatDmg: { 1: 8, 2: 12 }, chaseBonus: { 1: 0.08, 2: 0.12 } },
+    effects: { openerFlatDmg: { 1: 8, 2: 12 }, chaseBonus: { 1: 0.08, 2: 0.12 }, healReductionPct: { 1: 0.35, 2: 0.45 } },
     triggers: { combat: { priority: 72 }, chase: { priority: 52, applyBonus: true } },
   },
   '라이트 윙': {
@@ -85,12 +85,12 @@ export const TAC_SKILL_TABLE = {
   },
   '리펄서 미사일': {
     baseCdSec: 44,
-    effects: { openerFlatDmg: { 1: 7, 2: 12 }, chaseBonus: { 1: 0.06, 2: 0.09 } },
+    effects: { openerFlatDmg: { 1: 7, 2: 12 }, chaseBonus: { 1: 0.06, 2: 0.09 }, knockback: { 1: 1, 2: 1 }, slowPct: { 1: 0.12, 2: 0.18 } },
     triggers: { chase: { priority: 64, applyBonus: true }, combat: { priority: 67 } },
   },
   '플라즈마 대시': {
     baseCdSec: 42,
-    effects: { openerFlatDmg: { 1: 6, 2: 10 }, escapeBonus: { 1: 0.08, 2: 0.12 }, chaseBonus: { 1: 0.08, 2: 0.12 } },
+    effects: { openerFlatDmg: { 1: 6, 2: 10 }, escapeBonus: { 1: 0.08, 2: 0.12 }, chaseBonus: { 1: 0.08, 2: 0.12 }, haste: { 1: 2, 2: 3 } },
     triggers: {
       flee: { priority: 60, applyBonus: true },
       chase: { priority: 60, applyBonus: true },
