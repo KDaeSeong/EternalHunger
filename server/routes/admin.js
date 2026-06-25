@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Item = require('../models/Item'); // ★ 아이템 모델 추가!
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
-const { DEFAULT_ZONES, KIOSK_MAP_NAMES } = require('../utils/defaultZones');
+const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
 
@@ -111,59 +111,22 @@ router.get('/maps', async (req, res) => {
 // - 소방서/경찰서 맵이 없으면 기본 zones 포함으로 자동 생성
 router.post('/maps/normalize-list', async (req, res) => {
   try {
-    const normalizeName = (v) => String(v || '').trim().replace(/\s+/g, '');
-    const lower = (v) => normalizeName(v).toLowerCase();
-
-    const deleteTargets = new Set();
-    const ensureNames = ['소방서', '경찰서'];
-
-    const filter = scope(req, res);
-    if (!filter) return;
-    const all = await MapModel.find(filter).select('_id name connectedMaps');
-
-    // 1) 공원 삭제
-    const toDelete = (Array.isArray(all) ? all : []).filter((m) => deleteTargets.has(lower(m?.name)));
-    const deleteIds = toDelete.map((m) => m._id).filter(Boolean);
-    let deletedCount = 0;
-    let deletedNames = [];
-
-    if (deleteIds.length) {
-      deletedNames = toDelete.map((m) => String(m?.name || '')).filter(Boolean);
-      await MapModel.deleteMany({ ...filter, _id: { $in: deleteIds } });
-      deletedCount = deleteIds.length;
-      // 연결 관계 정리(고아 ObjectId 제거)
-      await MapModel.updateMany(
-        { ...filter, connectedMaps: { $in: deleteIds } },
-        { $pull: { connectedMaps: { $in: deleteIds } } }
-      );
-    }
-
-    // 2) 소방서/경찰서 보장
-    const existing = await MapModel.find({ ...filter, name: { $in: ensureNames } }).select('_id name');
-    const existingSet = new Set((Array.isArray(existing) ? existing : []).map((m) => normalizeName(m?.name)));
-    const createdNames = [];
-
-    for (const nm of ensureNames) {
-      if (existingSet.has(normalizeName(nm))) continue;
-      const dz = cloneDefaultZones();
-      const zoneIds = dz.map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
-      const dc = buildDefaultZoneConnections(zoneIds);
-      await new MapModel({
-        name: nm,
-        ownerUserId: filter.ownerUserId,
-        zones: dz,
-        coreSpawnZones: coreSpawnZoneIdsFromZones(dz),
-        zoneConnections: dc,
-      }).save();
-      createdNames.push(nm);
-    }
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const result = await ensureDefaultLumiaMap(userId, { force: true, cleanupLegacy: true });
+    const currentCount = await MapModel.countDocuments(ownedFilter(userId));
 
     res.json({
-      message: '맵 목록 정리 완료',
-      deletedCount,
-      deletedNames,
-      createdCount: createdNames.length,
-      createdNames,
+      message: '루미아 섬 기본 맵 정리 완료',
+      mapId: String(result?.map?._id || ''),
+      mapName: String(result?.map?.name || DEFAULT_LUMIA_MAP_NAME),
+      currentMapCount: currentCount,
+      zoneCount: Array.isArray(result?.map?.zones) ? result.map.zones.length : DEFAULT_ZONES.length,
+      created: Boolean(result?.created),
+      updated: Boolean(result?.updated),
+      migrated: Boolean(result?.migrated),
+      deletedLegacyCount: Number(result?.deletedLegacyCount || 0),
+      deletedLegacyNames: result?.deletedLegacyNames || [],
     });
   } catch (err) {
     console.error(err);
@@ -235,6 +198,91 @@ function coreSpawnZoneIdsFromZones(zones) {
     .filter((z) => z && z.coreSpawn === true)
     .map((z) => String(z.zoneId || ''))
     .filter(Boolean);
+}
+
+const DEFAULT_LUMIA_MAP_NAME = '루미아 섬';
+const DEFAULT_ZONE_ID_SET = new Set(Array.isArray(DEFAULT_ZONE_IDS) ? DEFAULT_ZONE_IDS.map(String) : []);
+const DEFAULT_ZONE_NAME_SET = new Set((Array.isArray(DEFAULT_ZONE_DEFS) ? DEFAULT_ZONE_DEFS : []).map((z) => String(z?.name || '')).filter(Boolean));
+const KIOSK_ZONE_ID_SET = new Set((Array.isArray(DEFAULT_ZONES) ? DEFAULT_ZONES : []).filter((z) => z?.hasKiosk).map((z) => String(z?.zoneId || '')).filter(Boolean));
+
+function defaultZoneCoverage(zones) {
+  const ids = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
+  let covered = 0;
+  for (const id of DEFAULT_ZONE_ID_SET) {
+    if (ids.has(id)) covered += 1;
+  }
+  return covered;
+}
+
+function looksLikeLegacyZoneNamedDefaultMap(mapDoc) {
+  const name = String(mapDoc?.name || '').trim();
+  if (!DEFAULT_ZONE_NAME_SET.has(name)) return false;
+  return defaultZoneCoverage(mapDoc?.zones) >= Math.min(18, DEFAULT_ZONE_ID_SET.size);
+}
+
+function defaultMapPatch() {
+  const dz = cloneDefaultZones();
+  const zoneIds = dz.map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
+  return {
+    name: DEFAULT_LUMIA_MAP_NAME,
+    zones: dz,
+    coreSpawnZones: coreSpawnZoneIdsFromZones(dz),
+    zoneConnections: buildDefaultZoneConnections(zoneIds),
+  };
+}
+
+async function ensureDefaultLumiaMap(userId, { force = false, cleanupLegacy = false } = {}) {
+  const ownerFilter = ownedFilter(userId);
+  const patch = defaultMapPatch();
+  let map = await MapModel.findOne(ownedFilter(userId, { name: DEFAULT_LUMIA_MAP_NAME }));
+  let created = false;
+  let updated = false;
+  let migrated = false;
+  let deletedLegacyCount = 0;
+  let deletedLegacyNames = [];
+
+  if (!map) {
+    const legacy = await MapModel.find(ownerFilter).select('_id name zones');
+    const legacyDefaultMaps = (Array.isArray(legacy) ? legacy : []).filter(looksLikeLegacyZoneNamedDefaultMap);
+    if (legacyDefaultMaps.length) {
+      map = legacyDefaultMaps[0];
+      await MapModel.updateOne(
+        ownedFilter(userId, { _id: map._id }),
+        { $set: { ...patch, ownerUserId: userId } }
+      );
+      map = await MapModel.findOne(ownedFilter(userId, { _id: map._id }));
+      migrated = true;
+
+      if (cleanupLegacy && legacyDefaultMaps.length > 1) {
+        const deleteIds = legacyDefaultMaps.slice(1).map((m) => m._id).filter(Boolean);
+        deletedLegacyNames = legacyDefaultMaps.slice(1).map((m) => String(m?.name || '')).filter(Boolean);
+        const del = await MapModel.deleteMany(ownedFilter(userId, { _id: { $in: deleteIds } }));
+        deletedLegacyCount = Number(del?.deletedCount || 0);
+        await Kiosk.deleteMany(ownedFilter(userId, { mapId: { $in: deleteIds } }));
+      }
+    }
+  }
+
+  if (!map) {
+    map = await new MapModel({ ...patch, ownerUserId: userId }).save();
+    created = true;
+  } else if (force || !Array.isArray(map?.zones) || map.zones.length === 0 || !Array.isArray(map?.zoneConnections) || map.zoneConnections.length === 0) {
+    await MapModel.updateOne(
+      ownedFilter(userId, { _id: map._id }),
+      { $set: patch }
+    );
+    map = await MapModel.findOne(ownedFilter(userId, { _id: map._id }));
+    updated = true;
+  }
+
+  return {
+    map,
+    created,
+    updated,
+    migrated,
+    deletedLegacyCount,
+    deletedLegacyNames,
+  };
 }
 
 router.post('/maps/apply-default-zones', async (req, res) => {
@@ -448,6 +496,43 @@ function mapLooksLikeKioskMap(mapName) {
   return keywords.some((k) => nm.includes(String(k).toLowerCase()));
 }
 
+function zoneLooksLikeKioskZone(zone) {
+  const zoneId = String(zone?.zoneId || '').trim();
+  if (zoneId && KIOSK_ZONE_ID_SET.has(zoneId)) return true;
+  if (zone?.hasKiosk === true) return true;
+  return mapLooksLikeKioskMap(zone?.name);
+}
+
+function listKioskTargetsForMaps(maps) {
+  const out = [];
+  for (const m of (Array.isArray(maps) ? maps : [])) {
+    const zones = Array.isArray(m?.zones) ? m.zones : [];
+    if (zones.length) {
+      for (const z of zones) {
+        const zoneId = String(z?.zoneId || '').trim();
+        if (!zoneId || !zoneLooksLikeKioskZone(z)) continue;
+        out.push({
+          map: m,
+          mapId: m._id,
+          zoneId,
+          zoneName: String(z?.name || zoneId),
+        });
+      }
+      continue;
+    }
+
+    if (mapLooksLikeKioskMap(m?.name)) {
+      out.push({
+        map: m,
+        mapId: m._id,
+        zoneId: '',
+        zoneName: String(m?.name || '지역'),
+      });
+    }
+  }
+  return out;
+}
+
 function centroidOfPolygon(poly) {
   const pts = Array.isArray(poly) ? poly : [];
   if (!pts.length) return { x: 0, y: 0 };
@@ -466,9 +551,10 @@ function centroidOfPolygon(poly) {
   return { x: sx / n, y: sy / n };
 }
 
-function buildKioskId(mapId) {
+function buildKioskId(mapId, zoneId = '') {
   const m = String(mapId || '').trim();
-  return `KIOSK_${m}`;
+  const z = String(zoneId || '').trim();
+  return z ? `KIOSK_${m}_${z}` : `KIOSK_${m}`;
 }
 
 async function buildKioskCatalogTemplate(userId) {
@@ -546,22 +632,28 @@ router.post('/kiosks/generate', async (req, res) => {
     const mapIds = Array.isArray(body.mapIds) ? body.mapIds.filter(Boolean).map(String) : null;
     const filter = ownedFilter(userId, mapIds && mapIds.length ? { _id: { $in: mapIds } } : {});
 
-    const maps = await MapModel.find(filter).select('_id name');
-    const targetMaps = (Array.isArray(maps) ? maps : []).filter((m) => mapLooksLikeKioskMap(m?.name));
-    const mapIdList = targetMaps.map((m) => m._id);
+    let maps = await MapModel.find(filter).select('_id name zones');
+    if (!maps.length && !mapIds) {
+      const ensured = await ensureDefaultLumiaMap(userId, { force: true, cleanupLegacy: false });
+      maps = ensured?.map ? [ensured.map] : [];
+    }
 
-    if (!mapIdList.length) {
+    const targets = listKioskTargetsForMaps(maps);
+    const mapIdList = Array.from(new Set(targets.map((t) => String(t?.mapId || '')).filter(Boolean)));
+
+    if (!targets.length) {
       return res.json({
-        message: '대상 맵(키오스크 지역)이 없습니다.',
+        message: '대상 키오스크 구역이 없습니다.',
         mode,
         targetMapCount: 0,
+        targetZoneCount: 0,
         createdCount: 0,
         skippedCount: 0,
         deletedCount: 0,
       });
     }
 
-    // force 모드면 먼저 삭제(맵당 1개 정책이므로 대상 맵 키오스크 전부 삭제)
+    // force 모드면 먼저 삭제(구역당 1개 정책이므로 대상 맵 키오스크 전부 삭제)
     let deletedCount = 0;
     if (mode === 'force') {
       const del = await Kiosk.deleteMany(ownedFilter(userId, { mapId: { $in: mapIdList } }));
@@ -570,28 +662,31 @@ router.post('/kiosks/generate', async (req, res) => {
 
     const existing = mode === 'force'
       ? []
-      : await Kiosk.find(ownedFilter(userId, { mapId: { $in: mapIdList } })).select('mapId kioskId');
+      : await Kiosk.find(ownedFilter(userId, { mapId: { $in: mapIdList } })).select('mapId zoneId kioskId');
 
-    const existingMapIds = new Set((Array.isArray(existing) ? existing : []).map((k) => String(k?.mapId || '')));
+    const existingTargetKeys = new Set((Array.isArray(existing) ? existing : []).map((k) => `${String(k?.mapId || '')}:${String(k?.zoneId || '')}`));
 
     const catalogTemplate = await buildKioskCatalogTemplate(userId);
 
     const toInsert = [];
     let skippedCount = 0;
 
-    for (const m of targetMaps) {
-      const mid = String(m?._id || '').trim();
+    for (const target of targets) {
+      const m = target.map;
+      const mid = String(target?.mapId || '').trim();
+      const zid = String(target?.zoneId || '').trim();
       if (!mid) continue;
-      if (existingMapIds.has(mid)) {
+      const key = `${mid}:${zid}`;
+      if (existingTargetKeys.has(key)) {
         skippedCount += 1;
         continue;
       }
       toInsert.push({
-        kioskId: buildKioskId(m._id),
+        kioskId: buildKioskId(m._id, zid),
         ownerUserId: userId,
-        name: `${String(m?.name || '지역')} 키오스크`,
+        name: `${String(target?.zoneName || m?.name || '지역')} 키오스크`,
         mapId: m._id,
-        zoneId: '',
+        zoneId: zid,
         x: 0,
         y: 0,
         catalog: catalogTemplate,
@@ -603,9 +698,10 @@ router.post('/kiosks/generate', async (req, res) => {
     }
 
     res.json({
-      message: '키오스크 생성 완료(맵당 1개)',
+      message: '키오스크 생성 완료(구역당 1개)',
       mode,
-      targetMapCount: targetMaps.length,
+      targetMapCount: mapIdList.length,
+      targetZoneCount: targets.length,
       createdCount: toInsert.length,
       skippedCount,
       deletedCount,
@@ -618,61 +714,79 @@ router.post('/kiosks/generate', async (req, res) => {
 
 // ✅ 기존 키오스크 데이터 정규화
 // POST /api/admin/kiosks/normalize
-// - 맵당 1개로 중복 제거
-// - kioskId: KIOSK_<mapId>로 통일
-// - name: <맵이름> 키오스크로 통일
-// - zoneId는 사용하지 않음(빈값)
+// - zones.hasKiosk 기준으로 구역당 1개 유지
+// - kioskId: KIOSK_<mapId>_<zoneId>로 통일
+// - zoneId가 없는 예전 맵당 키오스크는 삭제
 router.post('/kiosks/normalize', async (req, res) => {
   try {
     const userId = requireUserId(req, res);
     if (!userId) return;
-    const maps = await MapModel.find(ownedFilter(userId)).select('_id name');
-    const targetMaps = (Array.isArray(maps) ? maps : []).filter((m) => mapLooksLikeKioskMap(m?.name));
-    const mapIdList = targetMaps.map((m) => m._id);
+
+    let maps = await MapModel.find(ownedFilter(userId)).select('_id name zones');
+    if (!maps.length) {
+      const ensured = await ensureDefaultLumiaMap(userId, { force: true, cleanupLegacy: false });
+      maps = ensured?.map ? [ensured.map] : [];
+    }
+
+    const targets = listKioskTargetsForMaps(maps);
+    const mapIdList = Array.from(new Set(targets.map((t) => String(t?.mapId || '')).filter(Boolean)));
+    const targetKeys = new Set(targets.map((t) => `${String(t?.mapId || '')}:${String(t?.zoneId || '')}`));
+    const targetByKey = new Map(targets.map((t) => [`${String(t?.mapId || '')}:${String(t?.zoneId || '')}`, t]));
 
     const catalogTemplate = await buildKioskCatalogTemplate(userId);
+    const allKiosks = mapIdList.length
+      ? await Kiosk.find(ownedFilter(userId, { mapId: { $in: mapIdList } })).select('_id kioskId name mapId zoneId catalog')
+      : [];
 
-    const allKiosks = await Kiosk.find(ownedFilter(userId, { mapId: { $in: mapIdList } })).select('_id kioskId name mapId zoneId catalog');
-
-    const byMap = new Map();
+    const byTarget = new Map();
+    const staleIds = [];
     for (const k of (Array.isArray(allKiosks) ? allKiosks : [])) {
-      const mid = String(k?.mapId || '').trim();
-      if (!mid) continue;
-      if (!byMap.has(mid)) byMap.set(mid, []);
-      byMap.get(mid).push(k);
+      const key = `${String(k?.mapId || '')}:${String(k?.zoneId || '')}`;
+      if (!targetKeys.has(key)) {
+        staleIds.push(k._id);
+        continue;
+      }
+      if (!byTarget.has(key)) byTarget.set(key, []);
+      byTarget.get(key).push(k);
     }
 
     let deletedDup = 0;
+    let deletedStale = 0;
     let updated = 0;
     let created = 0;
 
-    for (const m of targetMaps) {
-      const mid = String(m?._id || '').trim();
-      if (!mid) continue;
-      const list = byMap.get(mid) || [];
+    if (staleIds.length) {
+      const del = await Kiosk.deleteMany(ownedFilter(userId, { _id: { $in: staleIds } }));
+      deletedStale = Number(del?.deletedCount || 0);
+    }
 
-      // 1) 중복 제거(1개만 유지)
+    for (const [key, target] of targetByKey.entries()) {
+      const list = byTarget.get(key) || [];
+      let keep = null;
+
       if (list.length > 1) {
-        // 카탈로그 있는 것을 우선 유지
         list.sort((a, b) => (Array.isArray(b.catalog) ? b.catalog.length : 0) - (Array.isArray(a.catalog) ? a.catalog.length : 0));
-        const keep = list[0];
+        keep = list[0];
         const delIds = list.slice(1).map((x) => x._id).filter(Boolean);
         if (delIds.length) {
           const del = await Kiosk.deleteMany(ownedFilter(userId, { _id: { $in: delIds } }));
           deletedDup += Number(del?.deletedCount || 0);
         }
-        byMap.set(mid, [keep]);
+      } else {
+        keep = list[0] || null;
       }
 
-      let k = (byMap.get(mid) || [])[0] || null;
-      if (!k) {
-        // 2) 없으면 생성
+      const m = target.map;
+      const zid = String(target.zoneId || '');
+      const nextName = `${String(target.zoneName || m?.name || '지역')} 키오스크`;
+
+      if (!keep) {
         await new Kiosk({
-          kioskId: buildKioskId(m._id),
+          kioskId: buildKioskId(m._id, zid),
           ownerUserId: userId,
-          name: `${String(m?.name || '지역')} 키오스크`,
+          name: nextName,
           mapId: m._id,
-          zoneId: '',
+          zoneId: zid,
           x: 0,
           y: 0,
           catalog: catalogTemplate,
@@ -681,21 +795,22 @@ router.post('/kiosks/normalize', async (req, res) => {
         continue;
       }
 
-      // 3) 통일 업데이트
-      k.kioskId = buildKioskId(m._id);
-      k.name = `${String(m?.name || '지역')} 키오스크`;
-      k.zoneId = '';
-      if (!Array.isArray(k.catalog) || k.catalog.length === 0) k.catalog = catalogTemplate;
-      await k.save();
+      keep.kioskId = buildKioskId(m._id, zid);
+      keep.name = nextName;
+      keep.zoneId = zid;
+      if (!Array.isArray(keep.catalog) || keep.catalog.length === 0) keep.catalog = catalogTemplate;
+      await keep.save();
       updated += 1;
     }
 
     res.json({
       message: '키오스크 정규화 완료',
-      kioskMapCount: targetMaps.length,
+      kioskMapCount: mapIdList.length,
+      kioskZoneCount: targets.length,
       created,
       updated,
       deletedDup,
+      deletedStale,
     });
   } catch (err) {
     console.error(err);
