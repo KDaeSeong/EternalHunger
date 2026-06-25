@@ -113,18 +113,18 @@ main {
 #characterRowContainer {
     display: flex;
     flex-wrap: wrap;
-    gap: 25px;
+    gap: 16px;
     justify-content: center;
-    padding: 20px;
+    padding: 12px 0;
 }
 
 .characterRowContainer2 {
     background-color: rgba(255, 255, 255, 0.9); /* 반투명 배경 */
     border: 1px solid #ddd;
-    border-radius: 15px;
-    padding: 20px;
-    width: 280px;
-    box-shadow: 5px 5px 15px rgba(0,0,0,0.08);
+    border-radius: 12px;
+    padding: 14px;
+    width: 238px;
+    box-shadow: 0 8px 18px rgba(0,0,0,0.08);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -138,32 +138,49 @@ main {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .characterRow label {
-    font-size: 0.95rem;
+    display: grid;
+    gap: 4px;
+    font-size: 0.84rem;
     font-weight: bold;
     color: #555;
 }
 
 .characterRow input[type="text"],
 .characterRow select {
-    padding: 8px;
-    font-size: 1rem;
+    min-height: 34px;
+    padding: 7px 9px;
+    font-size: 0.92rem;
     border: 1px solid #ccc;
     border-radius: 6px;
     width: 100%;
     box-sizing: border-box;
 }
 
+.characterRow label > div {
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.characterRow label > div button {
+    flex: 0 0 auto;
+}
+
+.characterRow label > div span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
 .previewImage {
     width: 100%;
-    height: 250px;
+    height: 168px;
     object-fit: cover;
-    border-radius: 8px;
-    border: 3px solid #eee;
-    margin-top: 5px;
+    border-radius: 10px;
+    border: 1px solid #eee;
+    margin-top: 2px;
     background-color: #f0f0f0;
     display: flex;
 }
@@ -172,11 +189,12 @@ main {
     background-color: #ff5252;
     color: white;
     border: none;
-    padding: 8px;
+    min-height: 32px;
+    padding: 6px 10px;
     border-radius: 6px;
     cursor: pointer;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
     transition: background 0.2s;
 }
 .deleteChar:hover { background-color: #d32f2f; }
@@ -184,11 +202,11 @@ main {
 .addImage {
     background-color: #f8f9fa;
     text-align: center;
-    padding: 10px;
+    padding: 8px 10px;
     border: 2px dashed #ccc;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.84rem;
     color: #666;
     transition: all 0.2s;
 }
@@ -279,6 +297,17 @@ header a.logo-btn:hover {
     background-clip: text;
 }
 
+.previewImage img {
+    border-radius: inherit;
+}
+
+.ai-scouter-btn,
+.er-preset-btn {
+    min-height: 34px;
+    padding: 8px 10px;
+    font-size: 0.82rem;
+}
+
 /* === Responsive form/card layout === */
 main {
     width: min(calc(100% - 24px), 1600px);
@@ -300,18 +329,37 @@ main {
 
 @media (max-width: 820px) {
     main {
-        margin: 12px auto;
-        padding: 18px;
+        margin: 8px auto;
+        padding: 14px;
         border-radius: 14px;
     }
 
     #characterRowContainer {
-        gap: 14px;
+        gap: 10px;
     }
 
     .characterRowContainer2 {
-        width: min(100%, 360px);
-        padding: 16px;
+        width: min(100%, 320px);
+        padding: 12px;
+    }
+
+    .page-header {
+        margin: 28px 0 18px;
+        padding-bottom: 14px;
+    }
+
+    .page-header h1 {
+        font-size: 1.75rem;
+        margin-bottom: 6px;
+    }
+
+    .page-header p {
+        font-size: 0.95rem;
+        line-height: 1.45;
+    }
+
+    .previewImage {
+        height: 142px;
     }
 
     .main-save-container {
@@ -333,17 +381,90 @@ main {
     main {
         width: 100%;
         margin: 0;
-        padding: 12px;
+        padding: 10px;
         border-left: 0;
         border-right: 0;
         border-radius: 0;
     }
 
+    header a.logo-btn {
+        margin-right: 4px;
+    }
+
+    #header-id1 {
+        min-height: 54px;
+    }
+
+    #header-id1 ul {
+        gap: 12px;
+        padding: 8px 10px;
+    }
+
+    #header-id1 .logo-top {
+        font-size: 0.58rem;
+        letter-spacing: 2px;
+    }
+
+    #header-id1 .logo-main,
+    .text-logo .logo-main {
+        font-size: 1.16rem;
+    }
+
+    #header-id1 a {
+        font-size: 0.82rem;
+    }
+
+    .page-header {
+        margin: 22px 0 14px;
+    }
+
+    .page-header h1 {
+        font-size: 1.55rem;
+    }
+
+    #characterRowContainer {
+        gap: 8px;
+    }
+
     .characterRowContainer2 {
         width: 100%;
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .characterRow {
+        gap: 6px;
+    }
+
+    .characterRow label {
+        font-size: 0.8rem;
+    }
+
+    .characterRow input[type="text"],
+    .characterRow select {
+        min-height: 32px;
+        padding: 6px 8px;
+        font-size: 0.9rem;
     }
 
     .previewImage {
-        height: 210px;
+        height: 118px;
+    }
+
+    .addImage {
+        padding: 7px 8px;
+        font-size: 0.8rem;
+    }
+
+    .deleteChar {
+        min-height: 30px;
+        padding: 5px 8px;
+    }
+
+    .ai-scouter-btn,
+    .er-preset-btn {
+        min-height: 31px;
+        padding: 7px 8px;
+        font-size: 0.78rem;
     }
 }
