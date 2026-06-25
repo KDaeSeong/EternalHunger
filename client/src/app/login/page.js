@@ -7,28 +7,27 @@ import { apiPost, saveAuth } from '../../utils/api';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ username: '', password: '' });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
   const router = useRouter();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
     try {
-        const res = await apiPost('/auth/login', form);
-        
-        // 1. 데이터 저장
-        saveAuth(res.token, res.user);
+      const res = await apiPost('/auth/login', form);
+      const token = res?.token;
+      const user = res?.user;
+      if (!token || !user) throw new Error('로그인 응답이 올바르지 않습니다.');
 
-        // 2. 알림 및 이동
-        alert(`${res.user.username}님, 환영합니다!`);
-        
-        // ★ router.push('/')로 메인 화면으로 즉시 이동
-        router.push('/'); 
-        
-        // 3. (선택사항) 메인 화면의 유저 상태 반영을 위해 새로고침 효과
-        // Next.js 환경에 따라 router.refresh()를 쓰거나 아래처럼 처리합니다.
-        setTimeout(() => window.location.reload(), 100); 
-
+      saveAuth(token, user);
+      setMessage(`${user.username}님, 환영합니다.`);
+      router.replace('/');
     } catch (err) {
-        alert(err.message || "로그인 실패");
+      setMessage(err.message || '로그인 실패');
+      setBusy(false);
     }
 };
 
@@ -51,6 +50,9 @@ export default function LoginPage() {
             className="auth-input" 
             placeholder="아이디" 
             required
+            value={form.username}
+            disabled={busy}
+            autoComplete="username"
             onChange={e => setForm({...form, username: e.target.value})} 
           />
           <input 
@@ -58,10 +60,16 @@ export default function LoginPage() {
             className="auth-input" 
             placeholder="비밀번호" 
             required
+            value={form.password}
+            disabled={busy}
+            autoComplete="current-password"
             onChange={e => setForm({...form, password: e.target.value})} 
           />
-          <button type="submit" className="btn-primary">로그인</button>
+          <button type="submit" className="btn-primary" disabled={busy}>{busy ? '로그인 중...' : '로그인'}</button>
         </form>
+        {message ? (
+          <div className="auth-message" role="status" aria-live="polite">{message}</div>
+        ) : null}
 
         {/* 푸터 섹션 */}
         <div className="auth-footer">

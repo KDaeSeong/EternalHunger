@@ -278,3 +278,72 @@ header a.logo-btn:hover {
     -webkit-background-clip: text;
     background-clip: text;
 }
+
+/* === Responsive form/card layout === */
+main {
+    width: min(calc(100% - 24px), 1600px);
+    min-width: 0;
+}
+
+#characterRowContainer {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.characterRowContainer2 {
+    max-width: 100%;
+}
+
+.previewImage {
+    max-width: 100%;
+}
+
+@media (max-width: 820px) {
+    main {
+        margin: 12px auto;
+        padding: 18px;
+        border-radius: 14px;
+    }
+
+    #characterRowContainer {
+        gap: 14px;
+    }
+
+    .characterRowContainer2 {
+        width: min(100%, 360px);
+        padding: 16px;
+    }
+
+    .main-save-container {
+        margin: 32px 0 46px;
+    }
+
+    .main-save-btn {
+        width: 100%;
+        padding: 14px 20px;
+        border-radius: 16px;
+    }
+
+    .main-save-btn h1 {
+        font-size: 1.16rem;
+    }
+}
+
+@media (max-width: 520px) {
+    main {
+        width: 100%;
+        margin: 0;
+        padding: 12px;
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+    }
+
+    .characterRowContainer2 {
+        width: 100%;
+    }
+
+    .previewImage {
+        height: 210px;
+    }
+}

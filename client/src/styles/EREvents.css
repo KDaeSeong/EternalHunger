@@ -131,3 +131,55 @@
     font-size: 1.2rem;
 }
 .event-item button:hover { color: red; }
+
+@media (max-width: 760px) {
+    .event-editor-container {
+        padding: 10px 0;
+    }
+
+    .input-area {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 14px;
+    }
+
+    .input-area select,
+    .input-area input {
+        width: 100%;
+        min-height: 40px;
+        font-size: 16px;
+    }
+
+    .helper-btns {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+    }
+
+    .helper-btns::-webkit-scrollbar {
+        display: none;
+    }
+
+    .helper-btns button {
+        flex: 0 0 auto;
+        min-height: 40px;
+    }
+
+    .event-item {
+        align-items: flex-start;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .event-item .badge {
+        margin-right: 0;
+    }
+
+    .event-item .text {
+        flex-basis: calc(100% - 70px);
+        min-width: 0;
+        font-size: 0.96rem;
+        overflow-wrap: anywhere;
+    }
+}

@@ -69,3 +69,26 @@
     font-size: 0.85rem;
     color: #888;
 }
+
+@media (max-width: 760px) {
+    .modifiers-container {
+        grid-template-columns: 1fr;
+        padding: 12px 0;
+        gap: 14px;
+    }
+
+    .modifier-item {
+        padding: 16px;
+    }
+
+    .mod-label {
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 1rem;
+    }
+
+    .mod-value {
+        font-size: 1.16rem;
+        white-space: nowrap;
+    }
+}

@@ -66,6 +66,23 @@
     filter: brightness(1.1);
 }
 
+.btn-primary:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+    transform: none;
+    filter: none;
+}
+
+.auth-message {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #eef6ff;
+    color: #24557d;
+    border: 1px solid #cfe7ff;
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
 .auth-footer {
     font-size: 0.9rem;
     color: #777;
@@ -96,4 +113,28 @@
 .logout-btn:hover {
     background: #d32f2f;
     transform: scale(1.05);
+}
+
+@media (max-width: 520px) {
+    .auth-page {
+        align-items: stretch;
+        padding: 14px;
+    }
+
+    .auth-card {
+        max-width: none;
+        margin: auto 0;
+        padding: 32px 20px;
+        border-radius: 14px;
+    }
+
+    .auth-logo .logo-main {
+        font-size: 1.8rem;
+    }
+
+    .auth-input,
+    .btn-primary {
+        min-height: 44px;
+        font-size: 16px;
+    }
 }

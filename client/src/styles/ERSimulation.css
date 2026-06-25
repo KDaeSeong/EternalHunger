@@ -1521,3 +1521,112 @@
     white-space: normal;
   }
 }
+
+/* === Responsive game shell refinements === */
+.simulation-page,
+.simulation-container,
+.game-screen,
+.log-window,
+.market-panel {
+  min-width: 0;
+}
+
+.log-message,
+.event-line,
+.market-row,
+.worldspawn-toolbar,
+.forbidden-top-bar {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .simulation-container {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .simulation-container.modal-layout .game-screen,
+  .game-screen {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .screen-header {
+    border-radius: 10px 10px 0 0;
+  }
+
+  .screen-header-right {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 640px) {
+  .simulation-page > header #header-id1 {
+    height: auto;
+    min-height: 56px;
+  }
+
+  .simulation-page > header #header-id1 ul {
+    gap: 14px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .simulation-page > header #header-id1 ul::-webkit-scrollbar {
+    display: none;
+  }
+
+  .survivor-board.modal-open,
+  .minimap-panel.modal-open,
+  .log-window.modal-open {
+    width: min(100vw - 16px, 720px);
+    max-width: calc(100vw - 16px);
+    height: min(88dvh, 920px);
+    max-height: 88dvh;
+    border-radius: 12px;
+  }
+
+  .screen-header-right > *,
+  .worldspawn-toolbar > *,
+  .forbidden-top-bar > * {
+    max-width: 100%;
+  }
+
+  .control-row {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .control-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .btn-secondary,
+  .prevlogs-btn,
+  .log-toggle-btn,
+  .autoplay-speed {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .simulation-container {
+    padding: 0;
+  }
+
+  .simulation-container.modal-layout .game-screen,
+  .game-screen {
+    border-radius: 0;
+    padding: 8px;
+  }
+
+  .screen-header {
+    border-radius: 0;
+  }
+
+  .log-message {
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+}

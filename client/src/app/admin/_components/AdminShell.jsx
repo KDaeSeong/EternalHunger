@@ -133,15 +133,6 @@ export default function AdminShell({ children }) {
     if (status === 'blocked_login' || status === 'blocked_admin') router.replace('/');
   }, [status, router]);
 
-  const shellStyle = { display: 'flex', minHeight: '100vh' };
-  const sidebarStyle = {
-    width: 240,
-    padding: 16,
-    borderRight: '1px solid rgba(255,255,255,0.08)',
-    background: '#0b1220',
-  };
-  const mainStyle = { flex: 1, padding: 16 };
-
   if (status === 'checking') {
     return (
       <div style={{ padding: 16 }}>
@@ -181,12 +172,12 @@ export default function AdminShell({ children }) {
   }
 
   return (
-    <div className="admin-shell" style={shellStyle}>
-      <aside className="admin-sidebar" style={sidebarStyle}>
+    <div className="admin-shell">
+      <aside className="admin-sidebar">
         <AdminNav />
       </aside>
 
-      <main className="admin-main" style={mainStyle}>
+      <main className="admin-main">
         {children}
       </main>
     </div>

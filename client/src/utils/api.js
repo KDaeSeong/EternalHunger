@@ -71,6 +71,33 @@ export function getAnyToken() {
   return normalizeToken(getToken() || getFallbackToken());
 }
 
+function getCookieSecureFlag() {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.location?.protocol === 'https:' ? '; Secure' : '';
+  } catch {
+    return '';
+  }
+}
+
+function writeAuthCookie(name, value) {
+  if (typeof document === 'undefined') return;
+  const token = normalizeToken(value);
+  const secure = getCookieSecureFlag();
+  try {
+    if (token) {
+      const maxAge = 60 * 60 * 24;
+      document.cookie = `${name}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
+    } else {
+      document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
+    }
+  } catch {}
+}
+
+export function syncAuthCookie(token) {
+  writeAuthCookie('token', token);
+}
+
 export function getUser() {
   if (typeof window === 'undefined') return null;
   try {
@@ -98,6 +125,7 @@ export function saveAuth(token, user) {
       const prevToken = normalizeToken(window.localStorage.getItem('token'));
       if (rawToken) window.localStorage.setItem('token', rawToken);
       else window.localStorage.removeItem('token');
+      syncAuthCookie(rawToken);
       didChange = didChange || prevToken !== rawToken;
     }
     if (user !== undefined) {
@@ -119,9 +147,9 @@ export function clearAuth() {
     window.localStorage.removeItem('accessToken');
     window.localStorage.removeItem('authToken');
   } catch {}
-  try {
-    document.cookie = 'token=; Max-Age=0; Path=/; SameSite=Lax';
-  } catch {}
+  writeAuthCookie('token', null);
+  writeAuthCookie('accessToken', null);
+  writeAuthCookie('authToken', null);
   emitAuthSync({ reason: 'clearAuth' });
 }
 
