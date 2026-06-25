@@ -664,7 +664,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // - "틱 기반"은 페이즈 내부를 초 단위로 계산하는 엔진이고,
   // - 오토 플레이는 "다음 페이즈" 버튼을 일정 간격으로 자동 눌러주는 UX입니다.
   const [autoPlay, setAutoPlay] = useState(false);
-  const [autoSpeed, setAutoSpeed] = useState(1); // 0.5 / 1 / 2 / 4
+  const [autoSpeed, setAutoSpeed] = useState(1); // 1 / 2 / 4 / 8 / 16 / 32
   const [isAdvancing, setIsAdvancing] = useState(false);
   const isAdvancingRef = useRef(false);
   const isRefreshingMapsRef = useRef(false);
@@ -2729,6 +2729,20 @@ const pickStartZoneIdForChar = (c) => {
     const battleSettings = { ...settings, battle: { ...(ruleset?.battle || {}), ...(settings?.battle || {}), equipment: ruleset?.equipment || {} } };
     const phaseDurationSec = getPhaseDurationSec(ruleset, nextDay, nextPhase);
     const phaseStartSec = matchSec;
+    const tickSec = Math.max(1, Math.floor(Number(ruleset?.tickSec || 1)));
+    let phaseRuntimeOffsetSec = 0;
+    let phaseActionAbsSec = phaseStartSec;
+    const currentActionSec = () => Math.max(0, Math.floor(Number(phaseActionAbsSec || phaseStartSec || 0)));
+    const atNow = () => ({ day: nextDay, phase: nextPhase, sec: currentActionSec() });
+    const reserveActionSecond = (seconds = tickSec) => {
+      const offset = Math.max(0, Math.min(phaseDurationSec, Math.floor(Number(phaseRuntimeOffsetSec || 0))));
+      phaseActionAbsSec = phaseStartSec + offset;
+      phaseRuntimeOffsetSec = Math.min(
+        phaseDurationSec,
+        offset + Math.max(1, Math.floor(Number(seconds || tickSec || 1)))
+      );
+      return phaseActionAbsSec;
+    };
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
 
     // 🔥 서든데스: 6번째 밤부터는 “마지막 1인 생존”까지 교전이 더 자주 발생하도록 가속합니다.
@@ -2895,7 +2909,7 @@ const pickStartZoneIdForChar = (c) => {
           }
 
           revivedNow.push(r);
-          emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp, paid: paidEligible, cost: paidEligible ? paidCost : 0 }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp, paid: paidEligible, cost: paidEligible ? paidCost : 0 }, atNow());
           addLog(`✨ [${r.name}] ${paidEligible ? `유료 부활! (-${paidCost}Cr)` : '부활!'} (HP ${revivedHp}${reviveKit?._id ? ', 붕대 1 지급' : ''})`, 'highlight');
         } else {
           remainingDead.push(d0);
@@ -2933,7 +2947,7 @@ const pickStartZoneIdForChar = (c) => {
         alpha: !!b?.alpha?.alive,
         omega: !!b?.omega?.alive,
         weakline: !!b?.weakline?.alive,
-      }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+      }, atNow());
     } catch {
       // ignore
     }
@@ -3150,7 +3164,7 @@ if (knockbackDistance > 0 && neighbors.length > 0) {
     updated.zoneId = pushedZone;
     removeActiveEffect(updated, EFFECT_KNOCKBACK);
     addLog(`↔️ [${updated.name}] 밀려남: ${getZoneName(currentZone)} → ${getZoneName(pushedZone)}`, 'system');
-    emitRunEvent('move', { who: String(updated?._id || ''), name: updated?.name, from: currentZone, to: pushedZone, reason: 'knockback' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+    emitRunEvent('move', { who: String(updated?._id || ''), name: updated?.name, from: currentZone, to: pushedZone, reason: 'knockback' }, atNow());
     currentZone = pushedZone;
     neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
   }
@@ -3386,7 +3400,7 @@ if (String(nextZoneId) !== String(currentZone)) {
     objectiveType: moveObjectiveType,
     objectiveSubkind: moveObjectiveSubkind,
     contestPressure: moveContestPressure,
-  }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+  }, atNow());
 } else if (mustEscape) {
   addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
 }
@@ -3448,7 +3462,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 const metaW = updated.inventory?._lastAdd;
                 const gotW = Math.max(0, Number(metaW?.acceptedQty ?? 1));
                 addLog(`💧 [${updated.name}] ${getZoneName(updated.zoneId)}에서 물 ${gainText(gotW)}${formatInvAddNote(metaW, 1, updated.inventory, ruleset)}`, 'normal');
-                emitItemGainIfAny(gotW, { who: String(updated?._id || ''), itemId: String(water._id), source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                emitItemGainIfAny(gotW, { who: String(updated?._id || ''), itemId: String(water._id), source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, atNow());
               }
             }
           }
@@ -3465,7 +3479,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 const metaS = updated.inventory?._lastAdd;
                 const gotS = Math.max(0, Number(metaS?.acceptedQty ?? 1));
                 addLog(`🔥 [${updated.name}] ${getZoneName(updated.zoneId)} 모닥불에서 고기를 구워 스테이크 ${gainText(gotS, '제작', '제작 실패')}${formatInvAddNote(metaS, 1, updated.inventory, ruleset)}`, 'highlight');
-                emitItemGainIfAny(gotS, { who: String(updated?._id || ''), itemId: String(steak._id), source: 'craft', kind: 'campfire', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                emitItemGainIfAny(gotS, { who: String(updated?._id || ''), itemId: String(steak._id), source: 'craft', kind: 'campfire', zoneId: String(updated?.zoneId || '') }, atNow());
               }
             }
           }
@@ -3497,7 +3511,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 characterName: updated?.name,
                 zoneId: String(updated?.zoneId || ''),
                 options: loot.options,
-                at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
+                at: atNow(),
               });
               addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자를 발견했습니다. (개발자 도구: 선택 대기)`, 'highlight');
             } else {
@@ -3509,7 +3523,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
               const nm = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
               addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nm}] ${gainText(got)}${formatInvAddNote(meta, 1, updated.inventory, ruleset)}`, 'highlight');
-              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, atNow());
               if (got > 0) autoEquipBest(updated, itemMetaById);
             }
           } else {
@@ -3520,7 +3534,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(got, meta)) {
               addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
             }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, atNow());
             if (got > 0) autoEquipBest(updated, itemMetaById);
           }
         }
@@ -3528,7 +3542,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // --- 필드 조합(이벤트 외): 방금 주운 재료로 1회 조합 시도 ---
         if (loot && String(loot?.crateType || '').toLowerCase() !== 'transcend_pick' && loot.itemId) {
           const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-          applyLootCraftResult(updated, crafted, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+          applyLootCraftResult(updated, crafted, itemMetaById, atNow(), updated?.zoneId);
         }
 
         if (loot && String(loot?.crateId || '') === 'route_plan') {
@@ -3563,17 +3577,17 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (shouldLogItemReceive(gotF, metaF)) {
             addLog(`🍱 [${updated.name}] ${getZoneName(updated.zoneId)}에서 음식 상자를 열어 ${itemIcon(foodCrate.item)} [${nmF}] ${gainText(gotF)}${formatInvAddNote(metaF, foodCrate.qty, updated.inventory, ruleset)}`, 'normal');
           }
-          emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, atNow());
           if (gotF > 0) {
             const craftedF = tryAutoCraftFromLoot(updated.inventory, foodCrate.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedF, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            applyLootCraftResult(updated, craftedF, itemMetaById, atNow(), updated?.zoneId);
           }
 
           const crF = Math.max(0, Number(foodCrate?.credits || 0));
           if (crF > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + crF);
             addLog(`💳 [${updated.name}] 음식 상자 보상 크레딧 +${crF}`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: crF, source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: crF, source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, atNow());
           }
         }
 
@@ -3589,7 +3603,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               characterName: updated?.name,
               zoneId: String(updated?.zoneId || ''),
               options: transcendCrate.options,
-              at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
+              at: atNow(),
             });
             addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자를 발견했습니다. (개발자 도구: 선택 대기)`, 'highlight');
           } else {
@@ -3601,7 +3615,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const gotT = Math.max(0, Number(metaT?.acceptedQty ?? 1));
             const nmT = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
             addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nmT}] ${gainText(gotT)}${formatInvAddNote(metaT, 1, updated.inventory, ruleset)}`, 'highlight');
-            emitItemGainIfAny(gotT, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto', crateId: String(transcendCrate?.crateId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(gotT, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto', crateId: String(transcendCrate?.crateId || '') }, atNow());
             if (gotT > 0) autoEquipBest(updated, itemMetaById);
           }
         }
@@ -3618,7 +3632,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (shouldLogItemReceive(got, meta, { important: true })) {
             addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
           }
-          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
 
           const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
           if (immediateCore?.changed) {
@@ -3639,10 +3653,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
             qty: got,
             success: got > 0,
             danger: Math.max(0, Number(immediateCore?.pvpBonus || 0)),
-          }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          }, atNow());
 
           const craftedN = immediateCore?.changed ? null : tryAutoCraftFromLoot(updated.inventory, corePickup.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-          applyLootCraftResult(updated, craftedN, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+          applyLootCraftResult(updated, craftedN, itemMetaById, atNow(), updated?.zoneId);
         }
 
         // --- 조합 목표(간단 AI): 현재 인벤 기준으로 '가까운' 상위 티어 1개를 목표로 삼음 ---
@@ -3683,11 +3697,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
           fallbackRouteItemIds.length > 0 &&
           fallbackRouteItemIds.some((id) => goalMissingIds.has(id));
         const deferProcureForRoute = currentRouteNeedsSearch && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
-        let queuedKioskAction = (didMove || fleeInterruptReason || deferProcureForRoute) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, phaseStartSec);
+        let queuedKioskAction = (didMove || fleeInterruptReason || deferProcureForRoute) ? null : rollKioskInteraction(mapObj, updated.zoneId, kiosks, publicItems, nextDay, nextPhase, updated, craftGoal, itemNameById, marketRules, ruleset, upgradeNeed, currentActionSec());
         if (queuedKioskAction?.kind === 'buy' && queuedKioskAction?.itemId && !canReceiveItem(updated.inventory, queuedKioskAction.item, queuedKioskAction.itemId, queuedKioskAction.qty || 1, ruleset)) {
           queuedKioskAction = null;
         }
-        let queuedDroneOrder = (didMove || fleeInterruptReason || deferProcureForRoute || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, phaseStartSec);
+        let queuedDroneOrder = (didMove || fleeInterruptReason || deferProcureForRoute || (queuedKioskAction?.itemId && queuedKioskAction?.item)) ? null : rollDroneOrder(droneOffers, mapObj, publicItems, nextDay, nextPhase, updated, phaseIdxNow, craftGoal, itemNameById, marketRules, currentActionSec());
         if (queuedDroneOrder?.itemId && !canReceiveItem(updated.inventory, queuedDroneOrder.item, queuedDroneOrder.itemId, queuedDroneOrder.qty || 1, ruleset)) {
           queuedDroneOrder = null;
         }
@@ -3895,7 +3909,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             objectiveType: String(queuedAtomicAction?.objectiveType || moveObjectiveType || ''),
             objectiveSubkind: String(queuedAtomicAction?.objectiveSubkind || moveObjectiveSubkind || ''),
             contestPressure: Math.max(0, Number(queuedAtomicAction?.contestPressure || moveContestPressure || 0)),
-          }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          }, atNow());
         }
 
         if (queuedActionType === 'routeFarm' && fallbackRouteItemIds.length > 0) {
@@ -3925,10 +3939,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(gotR, metaR)) {
               addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)} 루트 파밍: ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
             }
-            emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: String(routeLoot?.crateType || 'route_material'), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: String(routeLoot?.crateType || 'route_material'), zoneId: String(updated?.zoneId || '') }, atNow());
             if (gotR > 0) autoEquipBest(updated, itemMetaById);
             const craftedR = tryAutoCraftFromLoot(updated.inventory, routeLoot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedR, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            applyLootCraftResult(updated, craftedR, itemMetaById, atNow(), updated?.zoneId);
             const postRouteGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
               goalTier: updated?.goalGearTier,
               goalItemKeys: pickGoalLoadoutKeys(updated),
@@ -3979,7 +3993,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (creditGain > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
             addLog(`💳 [${updated.name}] ${isBossReward ? '보스 처치 보상' : isMutantReward ? '변이 야생동물 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
 
             if (isBossReward) {
               const pb = 0.45;
@@ -4005,7 +4019,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               dropCount: drops.length,
               success: true,
               danger: 0.45,
-            }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            }, atNow());
           }
           for (const d of drops) {
             if (!d?.itemId || !d?.item) continue;
@@ -4018,7 +4032,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(got, meta)) {
               addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
             }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(d.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(d.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
 
             const specialKind = classifySpecialByName(nm);
             const immediateH = tryImmediateCraftFromSpecial(updated, specialKind, String(d.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -4035,7 +4049,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
 
             const craftedH = immediateH?.changed ? null : tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedH, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            applyLootCraftResult(updated, craftedH, itemMetaById, atNow(), updated?.zoneId);
           }
 
           if (updated.hp <= 0 && Number(s.hp || 0) > 0) {
@@ -4056,7 +4070,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (shouldLogItemReceive(got, meta, { important: true })) {
             addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] ${gainText(got)}${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
           }
-          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
 
           const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
           const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -4077,7 +4091,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (legCr > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + legCr);
             addLog(`💳 [${updated.name}] 전설 상자 보상 크레딧 +${legCr}`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: legCr, source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: legCr, source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
           }
 
           emitObjectiveRunEvent(updated, 'legendary_crate', {
@@ -4088,7 +4102,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             credits: legCr,
             success: got > 0,
             danger: Math.max(0, Number(immediateLMain?.pvpBonus || 0)),
-          }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          }, atNow());
 
           const bonusDrops = Array.isArray(legendary?.bonusDrops) ? legendary.bonusDrops : [];
           for (const bd of bonusDrops) {
@@ -4101,7 +4115,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(gotB, metaB)) {
               addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] ${gainText(gotB)}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
             }
-            emitItemGainIfAny(gotB, { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(gotB, { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
 
             const specialLBKind = classifySpecialByName(String(bd?.item?.name || nmB || ''));
             const immediateLB = tryImmediateCraftFromSpecial(updated, specialLBKind, String(bd.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -4118,14 +4132,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
             if (gotB > 0 && !immediateLB?.changed) {
               const craftedB = tryAutoCraftFromLoot(updated.inventory, bd.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-              applyLootCraftResult(updated, craftedB, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+              applyLootCraftResult(updated, craftedB, itemMetaById, atNow(), updated?.zoneId);
             }
           }
 
 
           // 전설 재료도 즉시 조합 트리거(선택적)
           const craftedL = (typeof immediateLMain !== 'undefined' && immediateLMain?.changed) ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-          applyLootCraftResult(updated, craftedL, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+          applyLootCraftResult(updated, craftedL, itemMetaById, atNow(), updated?.zoneId);
         }
 
         let didProcure = false;
@@ -4162,7 +4176,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(got, meta)) {
               addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] ${gainText(got, '구매', '구매 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}${paidCost > 0 ? ` (크레딧 -${paidCost})` : ''}`, 'system');
             }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, atNow());
             if (got > 0) autoEquipBest(updated, itemMetaById);
             didProcure = true;
 
@@ -4182,7 +4196,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             }
 
             const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedK, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            applyLootCraftResult(updated, craftedK, itemMetaById, atNow(), updated?.zoneId);
           }
 
           if (kioskAction.kind === 'exchange' && Array.isArray(kioskAction.consume) && kioskAction.consume.length) {
@@ -4211,12 +4225,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (shouldLogItemReceive(got, meta, { important: true })) {
               addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] ${gainText(got, '교환', '교환 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
             }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, atNow());
             if (got > 0) autoEquipBest(updated, itemMetaById);
             didProcure = true;
 
             const craftedE = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedE, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            applyLootCraftResult(updated, craftedE, itemMetaById, atNow(), updated?.zoneId);
           }
 
           if (kioskAction.kind === 'sell') {
@@ -4225,7 +4239,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: q }]);
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + gain);
             addLog(`🏪 [${updated.name}] 키오스크 환급: [${itemNm}] x${q} → 크레딧 +${gain}`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: gain, source: 'kiosk', kind: 'sell', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: gain, source: 'kiosk', kind: 'sell', zoneId: String(updated?.zoneId || '') }, atNow());
             didProcure = true;
           }
 
@@ -4248,13 +4262,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
               if (shouldLogItemReceive(got, meta)) {
                 addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} ${gainText(got, '수령', '호출 실패')}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}${paidCost > 0 ? ` (-${paidCost}Cr, 즉시)` : ''}`, 'normal');
               }
-              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(itemId || ''), source: 'drone', zoneId: String(updated?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(itemId || ''), source: 'drone', zoneId: String(updated?.zoneId || '') }, atNow());
               if (got > 0) autoEquipBest(updated, itemMetaById);
               didProcure = true;
 
               // 즉시 지급된 아이템으로 조합이 가능해지면 자동 조합(낮은 확률)
               const craftedD = tryAutoCraftFromLoot(updated.inventory, itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-              applyLootCraftResult(updated, craftedD, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId, 'highlight');
+              applyLootCraftResult(updated, craftedD, itemMetaById, atNow(), updated?.zoneId, 'highlight');
             }
           }
         }
@@ -4267,7 +4281,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const invCraft = tryAutoCraftFromInventory(updated, craftables, itemNameById, itemMetaById, nextDay, phaseIdxNow, ruleset);
           if (invCraft?.changed) {
             addLog(String(invCraft.log), 'highlight');
-            emitCraftRunEvent(updated?._id, invCraft, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, updated?.zoneId);
+            emitCraftRunEvent(updated?._id, invCraft, atNow(), updated?.zoneId);
             const postCraftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
               goalTier: updated?.goalGearTier,
               goalItemKeys: pickGoalLoadoutKeys(updated),
@@ -4351,7 +4365,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     // 2.5) 페이즈 내부 틱 시뮬레이션(폭발 타이머)
     if (useDetonation && forbiddenIds.size > 0) {
-      const tickSec = Number(ruleset?.tickSec || 1);
       const detCfg = ruleset?.detonation || {};
       const decPerSec = Number(detCfg.decreasePerSecForbidden ?? detCfg.decreasePerSec ?? 1);
       const regenPerSec = Number(detCfg.regenPerSecOutsideForbidden ?? detCfg.regenPerSecOutside ?? 1);
@@ -4881,8 +4894,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
       else inv.splice(idx, 1);
 
       ch[usedCountKey] = usedCount + 1;
-      emitConsumableRunEvent(ch, itemToUse, { source: 'consumable', reason, heal: Math.max(0, Number(ch.hp || 0) - hp), cleansed: Array.isArray(cleanse?.removed) ? cleanse.removed.length : 0, removedEffects: Array.isArray(cleanse?.removed) ? cleanse.removed : [] }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-      emitEffectRunEvents(ch, runtimeEffects.results, { source: 'consumable', itemId: String(itemToUse?._id || itemToUse?.itemId || ''), reason }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+      emitConsumableRunEvent(ch, itemToUse, { source: 'consumable', reason, heal: Math.max(0, Number(ch.hp || 0) - hp), cleansed: Array.isArray(cleanse?.removed) ? cleanse.removed.length : 0, removedEffects: Array.isArray(cleanse?.removed) ? cleanse.removed : [] }, atNow());
+      emitEffectRunEvents(ch, runtimeEffects.results, { source: 'consumable', itemId: String(itemToUse?._id || itemToUse?.itemId || ''), reason }, atNow());
       upsertRuntimeSurvivor(survivorMap, ch);
       return true;
     };
@@ -4894,6 +4907,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       actor = actor?._id ? survivorMap.get(String(actor._id)) : null;
       if (!actor) continue;
       actor = normalizeRuntimeSurvivor(actor);
+      reserveActionSecond(tickSec);
 
       if (!actor?._id || newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
       if (hasActionBlockStatus(actor)) {
@@ -4920,13 +4934,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
         actor._gatherPvpBonusUntilPhaseIdx = null;
       }
 
-      const actorRecoveryLocked = isAiRecoveryLocked(actor, phaseStartSec);
+      const actorRecoveryLocked = isAiRecoveryLocked(actor, currentActionSec());
       const potentialTargets = todaysSurvivors.filter((t) => {
         if (!t || newDeadIds.includes(t._id)) return false;
         if (String(t?._id || '') === String(actor?._id || '')) return false;
         if (areSameTeam(actor, t)) return false;
         if (String(t?.zoneId || '') !== String(actor?.zoneId || '')) return false;
-        if (actorRecoveryLocked || isAiRecoveryLocked(t, phaseStartSec)) return false;
+        if (actorRecoveryLocked || isAiRecoveryLocked(t, currentActionSec())) return false;
         return true;
       });
       const canDual = potentialTargets.length >= (pvpMinSameZone - 1);
@@ -5015,12 +5029,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const dest = String(pick?.nextStep || '');
           if (dest && dest !== from) {
             actor.zoneId = dest;
-            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'early_route_avoid', opponentId: String(pvpTarget?._id || ''), recoverSec: 4, safeZoneSec: 3 });
+            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'early_route_avoid', opponentId: String(pvpTarget?._id || ''), recoverSec: 4, safeZoneSec: 3 });
             upsertRuntimeSurvivor(survivorMap, actor);
             addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'early_route_avoid' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'early_route_avoid' }, atNow());
           } else {
-            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'early_route_avoid_hold', opponentId: String(pvpTarget?._id || ''), recoverSec: 3 });
+            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'early_route_avoid_hold', opponentId: String(pvpTarget?._id || ''), recoverSec: 3 });
             addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피`, 'system');
           }
           continue;
@@ -5060,12 +5074,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           if (dest && dest !== from) {
             actor.zoneId = dest;
-            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'avoid_power', opponentId: String(targetEval?._id || ''), recoverSec: 6, safeZoneSec: 4 });
+            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'avoid_power', opponentId: String(targetEval?._id || ''), recoverSec: 6, safeZoneSec: 4 });
             upsertRuntimeSurvivor(survivorMap, actor);
             addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'avoid_power' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'avoid_power' }, atNow());
           } else {
-            applyAiRecoveryWindow(actor, phaseStartSec, { reason: 'avoid_power_hold', opponentId: String(targetEval?._id || ''), recoverSec: 4 });
+            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'avoid_power_hold', opponentId: String(targetEval?._id || ''), recoverSec: 4 });
             addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피`, 'system');
           }
           continue;
@@ -5090,7 +5104,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // --- 전술 스킬(시즌10) 간이 발동 로직 ---
         // - 상세설정에서 선택한 tacticalSkill 문자열을 기반으로, 도주/추격/교전에 실제 영향 부여
         // - 효과는 관전형 템포에 맞춘 단순 모델(SSOT/AI 안정화 우선)
-        const absNow = phaseStartSec;
+        const absNow = currentActionSec();
 
         // --- 전술 강화 모듈(크레딧 업그레이드) 반영 ---
         // - 인벤에 보유한 '전술 강화 모듈' 수만큼 전술 스킬 쿨다운↓ / 효과↑
@@ -5197,7 +5211,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (!opts?.skipTraitAfterBattle) {
             applyErTraitAfterBattle(combatWinner, { lethal: true, defeated: combatLoser, damageDealt: opts?.damageDealt });
           }
-          emitRunEvent('death', { who: loserId, by: winnerId, zoneId: String(combatLoser?.zoneId || combatWinner?.zoneId || actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitRunEvent('death', { who: loserId, by: winnerId, zoneId: String(combatLoser?.zoneId || combatWinner?.zoneId || actor?.zoneId || '') }, atNow());
           if (useDetonation) {
             const bonusSec = Number(ruleset?.detonation?.killBonusSec || 5);
             const baseMax = Number((combatWinner.detonationMaxSec ?? ruleset?.detonation?.maxSec) ?? 30);
@@ -5226,7 +5240,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             combatLoser.simCredits = loserCredits - stealCredit;
             combatWinner.simCredits = Number(combatWinner.simCredits || 0) + stealCredit;
             lootLines.push(`💰 크레딧 ${stealCredit}`);
-            emitRunEvent('gain', { who: winnerId, itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: winnerId, itemId: 'CREDITS', qty: stealCredit, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, atNow());
           }
           const winnerLootGoal = buildCraftGoal(combatWinner.inventory, craftables, itemNameById, {
             goalTier: combatWinner?.goalGearTier,
@@ -5250,7 +5264,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const gainMeta = combatWinner.inventory?._lastAdd;
               const got = Math.max(0, Number(gainMeta?.acceptedQty ?? 1));
               if (got > 0) {
-                emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+                emitRunEvent('gain', { who: winnerId, itemId: lootId, qty: got, source: 'pvp', from: loserId, zoneId: String(combatWinner?.zoneId || '') }, atNow());
                 lootLines.push(`${itemIcon(stub)} ${stub?.name || fallbackName} x${got}`);
                 const crafted = tryAutoCraftFromLoot(combatWinner.inventory, lootId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(combatWinner));
                 if (crafted?.inventory) {
@@ -5298,7 +5312,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`🧼 [${combatWinner.name}] 전투 후 지속 피해 상태 정리`, 'system');
           }
           clearRuntimeCombatFields(combatWinner);
-          applyAiRecoveryWindow(combatWinner, phaseStartSec, {
+          applyAiRecoveryWindow(combatWinner, currentActionSec(), {
             reason: 'post_combat',
             opponentId: loserId,
             recoverSec: 6,
@@ -5319,7 +5333,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             flushDeadSnapshots(appendPhaseDeadSnapshots(victim));
           }
           addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
-          emitRunEvent('death', { who: victimId, by: '', zoneId: String(victim?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitRunEvent('death', { who: victimId, by: '', zoneId: String(victim?.zoneId || '') }, atNow());
         };
         const resolveFleeSequence = (flee, chaser, opts = {}) => {
           const curZone = String(opts.curZone || flee?.zoneId || chaser?.zoneId || '');
@@ -5338,12 +5352,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (fleeTac === '블링크' && canUseTac(flee)) {
             const dest = pickSparseSafeNeighbor(curZone);
             flee.zoneId = String(dest || curZone);
-            applyAiRecoveryWindow(flee, phaseStartSec, { reason: 'tac_blink_escape', opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
+            applyAiRecoveryWindow(flee, currentActionSec(), { reason: 'tac_blink_escape', opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
             upsertRuntimeSurvivor(survivorMap, flee);
             applyTacUse(flee, '블링크');
             addLog(`✨ [${flee.name}] 전술 스킬(블링크)로 도주! ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'highlight');
-            emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'tac_blink_escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'blink_escape', escaped: true, caught: false, tacUsed: '블링크' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: 'tac_blink_escape' }, atNow());
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'blink_escape', escaped: true, caught: false, tacUsed: '블링크' }, atNow());
             return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id), tacUsed: '블링크' };
           }
           const healBelowHp = Number(fleeTacTrig?.hpBelow ?? 55);
@@ -5366,8 +5380,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
               });
               addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): ${bits.join(', ')}`, 'system');
-              emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: '치유의 바람', mode: 'escape_heal', zoneId: String(flee?.zoneId || curZone || ''), heal: heal }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-              emitEffectRunEvents(flee, tacEffects.results, { source: 'tactical', skill: '치유의 바람', reason: 'escape_heal', zoneId: String(flee?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: '치유의 바람', mode: 'escape_heal', zoneId: String(flee?.zoneId || curZone || ''), heal: heal }, atNow());
+              emitEffectRunEvents(flee, tacEffects.results, { source: 'tactical', skill: '치유의 바람', reason: 'escape_heal', zoneId: String(flee?.zoneId || curZone || '') }, atNow());
             }
           }
 
@@ -5402,7 +5416,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const powDelta = estimatePower(chaser) - estimatePower(flee);
           const fleeSustain = Math.min(0.14, fleeShield * 0.008 + fleeRegen * 0.02);
           const chaseSustain = Math.min(0.10, chaseShield * 0.006 + chaseRegen * 0.015);
-          const chaserRecovering = Number(chaser?._aiRecoverUntilSec || 0) > Number(phaseStartSec || 0);
+          const chaserRecovering = Number(chaser?._aiRecoverUntilSec || 0) > Number(currentActionSec() || 0);
           let pEscape = escapeBase + (fleeMs - chaseMs) * msScale;
           pEscape += (escTacBonus && canUseTac(flee) && (fleeTacTrig?.applyBonus ?? true)) ? escTacBonus : 0;
           pEscape += Number(fleeEr?.escapeBonus || 0);
@@ -5419,21 +5433,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
           pEscape = Math.max(0.05, Math.min(0.9, pEscape));
           const didEscape = (opts.forceAttempt === true) ? true : (Math.random() < pEscape);
           if (!didEscape) {
-            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(curZone || ''), outcome: 'escape_fail', escaped: false, caught: true, pEscape: Number(pEscape.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(curZone || ''), outcome: 'escape_fail', escaped: false, caught: true, pEscape: Number(pEscape.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, atNow());
             return { escaped: false, fleeId: String(flee._id), chaserId: String(chaser._id) };
           }
           if (escTacBonus && canUseTac(flee) && (fleeTacTrig?.useOnCommit ?? true)) {
             applyTacUse(flee, fleeTac);
             addLog(`💨 [${flee.name}] 전술 스킬(${fleeTac})로 도주 보정!`, 'system');
-            emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: String(fleeTac || ''), mode: 'escape_bonus', zoneId: String(flee?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: String(fleeTac || ''), mode: 'escape_bonus', zoneId: String(flee?.zoneId || curZone || '') }, atNow());
           }
 
           const dest = pickSparseSafeNeighbor(curZone);
           flee.zoneId = String(dest || curZone);
-          applyAiRecoveryWindow(flee, phaseStartSec, { reason: String(opts.moveReason || 'escape'), opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
+          applyAiRecoveryWindow(flee, currentActionSec(), { reason: String(opts.moveReason || 'escape'), opponentId: String(chaser?._id || ''), recoverSec: 8, safeZoneSec: 6 });
           upsertRuntimeSurvivor(survivorMap, flee);
           addLog(`🏃 [${flee.name}] ${opts.escapeText || '교전을 피하려 도주'}: ${getZoneName(curZone)} → ${getZoneName(flee.zoneId)}`, 'system');
-          emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: opts.moveReason || 'escape' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitRunEvent('move', { who: String(flee?._id || ''), name: flee?.name, from: curZone, to: String(flee.zoneId || ''), reason: opts.moveReason || 'escape' }, atNow());
 
           const chaseBase = Number(ruleset?.ai?.chaseBaseChance ?? 0.25);
           const chaseMsScale = Number(ruleset?.ai?.chaseMoveSpeedScale ?? 0.14);
@@ -5451,19 +5465,19 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (willChase && chaseTacBonus && canUseTac(chaser) && (chaseTacTrig?.useOnCommit ?? true)) {
             applyTacUse(chaser, chaseTac);
             addLog(`🧭 [${chaser.name}] 전술 스킬(${chaseTac})로 추격 강화!`, 'system');
-            emitRunEvent('skill', { who: String(chaser?._id || ''), whoName: chaser?.name, skill: String(chaseTac || ''), mode: 'chase_bonus', zoneId: String(chaser?.zoneId || curZone || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('skill', { who: String(chaser?._id || ''), whoName: chaser?.name, skill: String(chaseTac || ''), mode: 'chase_bonus', zoneId: String(chaser?.zoneId || curZone || '') }, atNow());
           }
           if (!willChase) {
-            applyAiRecoveryWindow(chaser, phaseStartSec, { reason: 'lost_track', opponentId: String(flee?._id || ''), recoverSec: 4, retargetZoneId: String(flee.zoneId || curZone), retargetTtl: 1 });
-            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escape_no_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            applyAiRecoveryWindow(chaser, currentActionSec(), { reason: 'lost_track', opponentId: String(flee?._id || ''), recoverSec: 4, retargetZoneId: String(flee.zoneId || curZone), retargetTtl: 1 });
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escape_no_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), fleeHpRatio: Number(fleeHpRatio.toFixed(3)), chaseHpRatio: Number(chaseHpRatio.toFixed(3)) }, atNow());
             return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
           }
 
           chaser.zoneId = String(flee.zoneId || curZone);
-          applyAiRecoveryWindow(chaser, phaseStartSec, { reason: 'chase', opponentId: String(flee?._id || ''), recoverSec: 4, retargetZoneId: String(flee.zoneId || curZone), retargetTtl: 1 });
+          applyAiRecoveryWindow(chaser, currentActionSec(), { reason: 'chase', opponentId: String(flee?._id || ''), recoverSec: 4, retargetZoneId: String(flee.zoneId || curZone), retargetTtl: 1 });
           upsertRuntimeSurvivor(survivorMap, chaser);
           addLog(`🏃‍♂️ [${chaser.name}] 추격! → ${getZoneName(chaser.zoneId)}`, 'highlight');
-          emitRunEvent('move', { who: String(chaser?._id || ''), name: chaser?.name, from: curZone, to: String(chaser.zoneId || ''), reason: 'chase' }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitRunEvent('move', { who: String(chaser?._id || ''), name: chaser?.name, from: curZone, to: String(chaser.zoneId || ''), reason: 'chase' }, atNow());
 
           const catchBase = Number(ruleset?.ai?.catchBaseChance ?? 0.35);
           const catchMsScale = Number(ruleset?.ai?.catchMoveSpeedScale ?? 0.18);
@@ -5480,7 +5494,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const caught = Math.random() < pCatch;
           if (!caught) {
             addLog(`💨 [${flee.name}] 간신히 따돌렸습니다.`, 'system');
-            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escaped_after_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'escaped_after_chase', escaped: true, caught: false, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, atNow());
             return { escaped: true, caught: false, dest: String(flee.zoneId || curZone), fleeId: String(flee._id), chaserId: String(chaser._id) };
           }
 
@@ -5490,7 +5504,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           flee.hp = Math.max(0, Number(flee.hp || 0) - pre);
           upsertRuntimeSurvivor(survivorMap, flee);
           addLog(`⚡ 추격전! [${chaser.name}]이(가) [${flee.name}]을(를) 따라잡아 기습합니다. (피해 -${pre})`, 'highlight');
-          emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'caught', escaped: true, caught: true, preDamage: pre, fatal: Number(flee.hp || 0) <= 0, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitRunEvent('chase', { who: String(flee?._id || ''), whoName: flee?.name, chaserId: String(chaser?._id || ''), chaserName: chaser?.name, zoneId: String(flee.zoneId || curZone), outcome: 'caught', escaped: true, caught: true, preDamage: pre, fatal: Number(flee.hp || 0) <= 0, pEscape: Number(pEscape.toFixed(3)), pChase: Number(pChase.toFixed(3)), pCatch: Number(pCatch.toFixed(3)) }, atNow());
           return { escaped: true, caught: true, dest: String(flee.zoneId || curZone), preDamage: pre, fatal: Number(flee.hp || 0) <= 0, fleeId: String(flee._id), chaserId: String(chaser._id) };
         };
         // 🏃 추격·도주(1단계): 이속/HP/장비차 + 제한구역 압박 기반(관전형 템포)
@@ -5636,9 +5650,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
               });
               addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
             }
-            emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-            emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-            emitEffectRunEvents(defender, targetTacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
+            emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
+            emitEffectRunEvents(defender, targetTacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, atNow());
             return Math.max(0, dmg);
           };
           const shieldBlock = (defender, rawDmg) => {
@@ -5693,8 +5707,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               if (block > 0) bits.push(`피해 -${block}`);
               addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
             }
-            emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
-            emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
+            emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
             return Math.max(0, Number(blocked?.damage || dmg));
           };
 
@@ -5723,8 +5737,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
             damageDealt: finalDmgToLoser,
             lethalPreview: loser.hp <= 0,
             settings: battleSettings,
-            nowSec: phaseStartSec,
-            at: { day: nextDay, phase: nextPhase, sec: phaseStartSec },
+            nowSec: currentActionSec(),
+            at: atNow(),
           });
           const weaponSkillDamageToLoser = Math.max(0, Number(weaponSkillResult?.damage || 0));
           let totalDmgToLoser = finalDmgToLoser + weaponSkillDamageToLoser;
@@ -5792,7 +5806,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               lethal: !!lethal || (postCombatFlee?.fatal === true),
               zoneId: String(actor?.zoneId || target?.zoneId || ''),
             },
-            { day: nextDay, phase: nextPhase, sec: phaseStartSec }
+            atNow()
           );
 
           if (postCombatFlee?.fatal === true) {
@@ -5824,7 +5838,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               lethal: false,
               zoneId: String(actor?.zoneId || target?.zoneId || ''),
             },
-            { day: nextDay, phase: nextPhase, sec: phaseStartSec }
+            atNow()
           );
           if (actor.hp <= 0) markUnattributedDeath(actor, '접전 끝에 쓰러짐');
           if (target.hp <= 0) markUnattributedDeath(target, '접전 끝에 쓰러짐');
@@ -5946,7 +5960,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (erCr > 0) {
             earnedCredits += erCr;
             actor.simCredits = Number(actor.simCredits || 0) + erCr;
-            emitRunEvent('gain', { who: String(actor && actor._id ? actor._id : ''), itemId: 'CREDITS', qty: erCr, source: 'event', zoneId: String(actor && actor.zoneId ? actor.zoneId : '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+            emitRunEvent('gain', { who: String(actor && actor._id ? actor._id : ''), itemId: 'CREDITS', qty: erCr, source: 'event', zoneId: String(actor && actor.zoneId ? actor.zoneId : '') }, atNow());
           }
 
           // ✅ 수집/사냥 이벤트 페널티: (1) 다음 페이즈 1회 교전 확률 증가 (2) 같은 페이즈 즉시 '표적 우선'
@@ -5994,10 +6008,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
             if (gotD > 0) {
               const nmD = itemDisplayName(dropItem || { _id: dropId, name: itemNameById?.[dropId] || resolvedDrop?.name });
               addLog("🧾 [" + actor.name + "] 획득: " + itemIcon(dropItem || { type: "" }) + " [" + nmD + "] x" + gotD + formatInvAddNote(metaD, dropQty, actor.inventory, ruleset), "normal");
-              emitRunEvent("gain", { who: String(actor && actor._id ? actor._id : ""), itemId: dropId, qty: gotD, source: "event", zoneId: String(actor && actor.zoneId ? actor.zoneId : "") }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+              emitRunEvent("gain", { who: String(actor && actor._id ? actor._id : ""), itemId: dropId, qty: gotD, source: "event", zoneId: String(actor && actor.zoneId ? actor.zoneId : "") }, atNow());
 
               const craftedE = tryAutoCraftFromLoot(actor.inventory, dropId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(actor));
-              applyLootCraftResult(actor, craftedE, itemMetaById, { day: nextDay, phase: nextPhase, sec: phaseStartSec }, actor?.zoneId);
+              applyLootCraftResult(actor, craftedE, itemMetaById, atNow(), actor?.zoneId);
             }
           }
 
@@ -6014,7 +6028,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             else if (row?.reason === 'resisted') addLog(`🧷 [${actor.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
             else if (row?.applied) addLog(`🪄 [${actor.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
           });
-          emitEffectRunEvents(actor, eventEffects.results, { source: 'event', reason: 'dynamic_event', zoneId: String(actor?.zoneId || '') }, { day: nextDay, phase: nextPhase, sec: phaseStartSec });
+          emitEffectRunEvents(actor, eventEffects.results, { source: 'event', reason: 'dynamic_event', zoneId: String(actor?.zoneId || '') }, atNow());
         }
 
         actor = normalizeRuntimeSurvivor(actor);
@@ -6238,9 +6252,13 @@ if (showMarketPanel && pendingTranscendPick) {
     if (showMarketPanel && pendingTranscendPick) return;
     if (startBlocked) return;
 
-    const speed = Math.max(0.25, Number(autoSpeed) || 1);
-    const baseDelayMs = 1200; // 페이즈 사이 템포(실시간 UX)
-    const delayMs = Math.max(150, Math.round(baseDelayMs / speed));
+    const speed = Math.max(1, Math.min(32, Number(autoSpeed) || 1));
+    const autoRuleset = getRuleset(settings?.rulesetId);
+    let nextAutoPhase = phase === 'morning' ? 'night' : 'morning';
+    let nextAutoDay = day;
+    if (phase === 'night') nextAutoDay += 1;
+    const virtualSeconds = day === 0 ? 1 : getPhaseDurationSec(autoRuleset, nextAutoDay, nextAutoPhase);
+    const delayMs = Math.max(32, Math.round((Math.max(1, virtualSeconds) * 1000) / speed));
 
     const id = window.setTimeout(() => {
       // ref를 통해 최신 함수 호출
@@ -6248,7 +6266,7 @@ if (showMarketPanel && pendingTranscendPick) {
     }, delayMs);
 
     return () => window.clearTimeout(id);
-  }, [autoPlay, autoSpeed, matchSec, loading, isGameOver, showMarketPanel, pendingTranscendPick, day, survivors.length, startBlocked]);
+  }, [autoPlay, autoSpeed, matchSec, loading, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked]);
 
   // ======== Market actions ========
   function ensureCharSelected() {
@@ -7157,12 +7175,14 @@ if (showMarketPanel && pendingTranscendPick) {
                 value={autoSpeed}
                 onChange={(e) => setAutoSpeed(Number(e.target.value))}
                 disabled={loading || isGameOver}
-                title="오토 플레이 배속(페이즈 간 템포)"
+                title="오토 플레이 배속: 1초 틱 기준으로 최대 32배속까지 진행합니다."
               >
-                <option value={0.5}>x0.5</option>
                 <option value={1}>x1</option>
                 <option value={2}>x2</option>
                 <option value={4}>x4</option>
+                <option value={8}>x8</option>
+                <option value={16}>x16</option>
+                <option value={32}>x32</option>
               </select>
             </div>
           </div>

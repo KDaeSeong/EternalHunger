@@ -697,6 +697,7 @@ export function updateEffects(character, opts = {}) {
   const ticks = [];
   const expired = [];
   const elapsedSec = Math.max(1, Math.floor(Number(opts?.elapsedSec ?? opts?.deltaSec ?? 1)));
+  const tickCount = Math.max(1, elapsedSec);
 
   const nextEffects = activeEffects
     .map((eff) => {
@@ -707,14 +708,14 @@ export function updateEffects(character, opts = {}) {
       const recovery = Math.max(0, Number(eff?.recovery || meta?.defaultRecovery || 0));
 
       if (dotDamage > 0 && tags.has('dot')) {
-        const dmg = dotDamage * stacks;
+        const dmg = dotDamage * stacks * tickCount;
         hpChange -= dmg;
-        ticks.push({ type: 'damage', name: eff.name, amount: dmg, stacks });
+        ticks.push({ type: 'damage', name: eff.name, amount: dmg, stacks, seconds: tickCount });
       }
       if (recovery > 0 && tags.has('regen')) {
-        const heal = applyHealingModifier(character, recovery * stacks);
+        const heal = applyHealingModifier(character, recovery * stacks * tickCount);
         hpChange += heal;
-        ticks.push({ type: 'heal', name: eff.name, amount: heal, stacks });
+        ticks.push({ type: 'heal', name: eff.name, amount: heal, stacks, seconds: tickCount });
       }
 
       if (eff?.remainingDuration == null) return eff;
