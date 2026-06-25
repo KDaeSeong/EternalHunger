@@ -9,6 +9,7 @@ const User = require('../models/User');
 const Character = require('../models/Characters');
 const Item = require('../models/Item');
 const Perk = require('../models/Perk');
+const { scopedFilter } = require('../utils/requestScope');
 
 const {
   buildItemNameMap,
@@ -32,8 +33,8 @@ router.post('/buy', async (req, res) => {
     const [user, ch, offer, items] = await Promise.all([
       User.findById(userId),
       Character.findOne({ _id: characterId, userId }),
-      DroneOffer.findById(offerId).populate('itemId'),
-      Item.find({}, '_id name'),
+      DroneOffer.findOne(scopedFilter(req, { _id: offerId })).populate('itemId'),
+      Item.find(scopedFilter(req), '_id name'),
     ]);
 
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });

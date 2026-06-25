@@ -73,7 +73,7 @@ export default function AdminPerksPage() {
       const res = await apiPost('/admin/perks', payload);
       setMessage(res?.message || '추가 완료');
       setCreateForm({ ...createForm, code: '', name: '', description: '', lpCost: 0 });
-      await load();
+      if (res?.perk) setPerks((prev) => [res.perk, ...(Array.isArray(prev) ? prev : [])]);
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
@@ -107,7 +107,7 @@ export default function AdminPerksPage() {
       const res = await apiPut(`/admin/perks/${editing._id}`, payload);
       setMessage(res?.message || '수정 완료');
       setEditing(null);
-      await load();
+      if (res?.perk) setPerks((prev) => (Array.isArray(prev) ? prev.map((row) => row._id === res.perk._id ? res.perk : row) : [res.perk]));
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
@@ -118,7 +118,7 @@ export default function AdminPerksPage() {
     try {
       const res = await apiDelete(`/admin/perks/${id}`);
       setMessage(res?.message || '삭제 완료');
-      await load();
+      setPerks((prev) => (Array.isArray(prev) ? prev.filter((row) => row._id !== id) : []));
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }

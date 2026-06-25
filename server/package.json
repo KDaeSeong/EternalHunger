@@ -24,6 +24,8 @@
     "list:er-meta": "node scripts/list_er_meta.js",
     "migrate:itemkey": "node scripts/migrate_dedupe_itemkey.js",
     "index:itemkey": "node scripts/ensure_itemkey_unique_index.js",
+    "index:admin-scope": "node scripts/ensure_scoped_admin_indexes.js",
+    "migrate:claim-admin-scope": "node scripts/claim_legacy_admin_scope.js",
     "report:coverage": "node scripts/report_item_coverage.js"
   },
   "keywords": [],

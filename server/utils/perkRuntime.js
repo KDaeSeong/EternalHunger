@@ -26,6 +26,8 @@ const DEFAULT_KEYS = {
   saleBonusPct: 0,
 };
 
+const { scopedFilter } = require('./requestScope');
+
 const EFFECT_ALIASES = {
   hpPlus: ['hpPlus', 'maxHpPlusFlat', 'healthPlus', 'healthFlat', 'hp_flat'],
   maxHpPlus: ['maxHpPlus', 'maxHealthPlus'],
@@ -98,7 +100,8 @@ function mergePerkEffects(list) {
 async function getOwnedPerkContext(user, PerkModel) {
   const codes = Array.isArray(user?.perks) ? user.perks.map((x) => String(x || '').trim()).filter(Boolean) : [];
   if (!codes.length) return { codes: [], perks: [], effects: { ...DEFAULT_KEYS } };
-  const perks = await PerkModel.find({ code: { $in: codes }, isActive: true }).lean();
+  const userId = String(user?._id || user?.id || user?.userId || '').trim();
+  const perks = await PerkModel.find(scopedFilter(userId, { code: { $in: codes }, isActive: true })).lean();
   return { codes, perks, effects: mergePerkEffects(perks.map((p) => p?.effects)) };
 }
 

@@ -63,6 +63,7 @@ function computeCraftTierFromIngredientItems(ingredientItems) {
 const Item = require('../models/Item');
 const User = require('../models/User');
 const Character = require('../models/Characters');
+const { ownedFilter, scopedFilter } = require('../utils/requestScope');
 
 const crypto = require('crypto');
 
@@ -181,6 +182,7 @@ function normalizeSimEquipmentToItemDoc(raw, userId) {
     weaponType,
     archetype,
     source: 'simulation',
+    ownerUserId: userId,
     generatedByUserId: userId,
     generatedAt: new Date(),
     description,
@@ -200,12 +202,12 @@ const {
 router.get('/equipment-list', async (req, res) => {
   try {
     const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
-    const items = await Item.find({
+    const items = await Item.find(scopedFilter(req, {
       $or: [
         { equipSlot: { $in: slots } },
         { type: { $in: ['무기', '방어구'] } },
       ]
-    }).select('itemKey externalId name type equipSlot weaponType tier rarity');
+    })).select('itemKey externalId name type equipSlot weaponType tier rarity');
 
     const out = (Array.isArray(items) ? items : []).map((it) => {
       const itemKey = String(it?.itemKey || it?.externalId || it?._id || '');
@@ -246,8 +248,8 @@ router.post('/craft', async (req, res) => {
     const [user, ch, resultItem, items] = await Promise.all([
       User.findById(userId),
       Character.findOne({ _id: characterId, userId }),
-      Item.findById(resultItemId),
-      Item.find({}, '_id name itemKey externalId tags type tier'),
+      Item.findOne(scopedFilter(req, { _id: resultItemId })),
+      Item.find(scopedFilter(req), '_id name itemKey externalId tags type tier'),
     ]);
 
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
@@ -344,7 +346,7 @@ router.post('/ingest-sim-equipments', async (req, res) => {
       const doc = normalizeSimEquipmentToItemDoc(raw, userId);
 
       // ✅ 관리자 잠금된 아이템은 시뮬 업서트가 덮어쓰지 않도록 스킵
-      const existing = await Item.findOne({ externalId: doc.externalId });
+      const existing = await Item.findOne(ownedFilter(userId, { externalId: doc.externalId }));
       if (existing && existing.lockedByAdmin === true) {
         skippedLockedCount += 1;
         saved.push(existing);
@@ -353,7 +355,7 @@ router.post('/ingest-sim-equipments', async (req, res) => {
 
       // externalId로 upsert
       const it = await Item.findOneAndUpdate(
-        { externalId: doc.externalId },
+        ownedFilter(userId, { externalId: doc.externalId }),
         { $set: doc, $setOnInsert: { createdAt: new Date() } },
         { upsert: true, new: true }
       );

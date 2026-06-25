@@ -674,12 +674,26 @@ export default function ItemsAdmin() {
   }
 
   async function saveItem(payload, id) {
+    let saved = null;
     if (id) {
-      await apiPut(`/admin/items/${id}`, payload);
+      const res = await apiPut(`/admin/items/${id}`, payload);
+      saved = res?.item || null;
     } else {
-      await apiPost('/admin/items', payload);
+      const res = await apiPost('/admin/items', payload);
+      saved = res?.item || null;
     }
-    await reloadItems();
+    if (saved && getItemMongoId(saved)) {
+      setItems((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        const savedId = getItemMongoId(saved);
+        const exists = list.some((row) => getItemMongoId(row) === savedId);
+        if (exists) return list.map((row) => (getItemMongoId(row) === savedId ? saved : row));
+        return [saved, ...list];
+      });
+      setEditorItem(saved);
+    } else {
+      await reloadItems();
+    }
   }
 
   async function deleteItem(it) {

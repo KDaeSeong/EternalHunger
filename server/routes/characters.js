@@ -4,6 +4,7 @@ const router = express.Router();
 const Character = require('../models/Characters');
 const Item = require('../models/Item');
 const { buildItemNameMap, normalizeInventory } = require('../utils/inventory');
+const { scopedFilter } = require('../utils/requestScope');
 const { verifyToken } = require('../middleware/authMiddleware'); // ★ 추가
 const mongoose = require('mongoose');
 
@@ -267,7 +268,7 @@ router.post('/save', async (req, res) => {
     if (!userId) return;
 
     // ✅ 인벤토리 정규화(legacy -> itemId)
-    const items = await Item.find({}, '_id name');
+    const items = await Item.find(scopedFilter(req), '_id name');
     const itemNameMap = buildItemNameMap(items);
     const saveInputs = rawCharList.map((raw) => ({
       raw,
@@ -357,7 +358,7 @@ router.post('/normalize-inventory', async (req, res) => {
     if (!userId) return;
     const characterId = req.body?.characterId;
 
-    const items = await Item.find({}, '_id name');
+    const items = await Item.find(scopedFilter(req), '_id name');
     const itemNameMap = buildItemNameMap(items);
 
     const query = { userId };

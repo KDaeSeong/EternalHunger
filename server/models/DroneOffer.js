@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
  * - 하급 아이템 위주로 고정 판매(혹은 페이즈별 로테이션)
  */
 const DroneOfferSchema = new mongoose.Schema({
+  ownerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   itemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
   priceCredits: { type: Number, default: 0 },
   maxTier: { type: Number, default: 1 }, // 예: tier<=1만 허용

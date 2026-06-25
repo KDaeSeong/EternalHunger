@@ -534,10 +534,14 @@ function pickStats(defObj) {
  */
 async function upsertDefaultItemTree(opts = {}) {
   const mode = (opts?.mode === 'force') ? 'force' : 'missing';
+  const ownerUserId = opts?.ownerUserId || null;
 
   // 1) 이미 존재하는 아이템 조회(name 기준)
   const names = DEFAULT_ITEM_TREE.map((x) => x.name);
-  const existing = await Item.find({ name: { $in: names } });
+  const existing = await Item.find(ownerUserId
+    ? { ownerUserId, name: { $in: names } }
+    : { $or: [{ ownerUserId: null }, { ownerUserId: { $exists: false } }], name: { $in: names } }
+  );
   const byName = new Map(existing.map((it) => [String(it.name), it]));
 
   const created = [];
@@ -562,6 +566,7 @@ async function upsertDefaultItemTree(opts = {}) {
       weaponType: String(def.weaponType || ''),
       itemSubType: String(def.itemSubType || ''),
       source: String(def.source || 'default.seed'),
+      ownerUserId,
       description: String(def.description || ''),
     };
 

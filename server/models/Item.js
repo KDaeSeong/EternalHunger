@@ -19,6 +19,7 @@ const ItemSchema = new mongoose.Schema({
   // ⚠️ default를 ''로 두면 모든 문서가 ''를 갖게 되어 unique index가 깨질 수 있으니
   // 기본값은 "없음"(undefined)으로 둡니다.
   externalId: { type: String, default: undefined },
+  ownerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
 
   name: { type: String, required: true, trim: true },
 
@@ -148,14 +149,21 @@ ItemSchema.pre('validate', function syncCreditValues() {
 });
 
 // externalId는 있으면 유니크(없어도 되는 필드이므로 sparse)
-ItemSchema.index({ externalId: 1 }, { unique: true, sparse: true });
+ItemSchema.index(
+  { ownerUserId: 1, externalId: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { externalId: { $type: 'string', $ne: '' } }
+  }
+);
 
 // itemKey는 SSOT 키(중복 방지)
 // - 기존 DB에 중복 itemKey가 남아있다면 unique index 생성이 실패할 수 있으니
 //   먼저 `npm run migrate:itemkey -- --apply`로 중복을 정리한 뒤,
 //   `npm run index:itemkey`로 unique index를 적용하세요.
 ItemSchema.index(
-  { itemKey: 1 },
+  { ownerUserId: 1, itemKey: 1 },
   {
     unique: true,
     // legacy 문서/빈 문자열 방어

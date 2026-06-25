@@ -11,11 +11,18 @@ const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
 // ★ [수정 1] 미들웨어를 정확한 경로에서 불러옵니다.
 // (방금 authMiddleware.js를 만들었다면 이 경로가 맞습니다)
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const { requireUserId, ownedFilter, withOwner } = require('../utils/requestScope');
 
 // ★ [수정 2] 이 라우터의 '모든' 요청에 대해 문지기 2명을 세웁니다.
 // 순서: 1차(로그인 확인) -> 2차(관리자 확인)
 // 이제 개별 라우트마다 verifyAdmin을 또 적을 필요가 없습니다.
 router.use(verifyToken, verifyAdmin);
+
+function scope(req, res, extra = {}) {
+  const userId = requireUserId(req, res);
+  if (!userId) return null;
+  return ownedFilter(userId, extra);
+}
 
 
 // 1. 모든 유저 LP 초기화 (시즌 초기화)
@@ -55,7 +62,9 @@ router.post('/give-lp', async (req, res) => {
 // 1. 아이템 목록 가져오기 (GET /api/admin/items)
 router.get('/items', async (req, res) => {
     try {
-        const items = await Item.find().sort({ createdAt: -1 });
+        const filter = scope(req, res);
+        if (!filter) return;
+        const items = await Item.find(filter).sort({ createdAt: -1 }).lean();
         res.json(items);
     } catch (err) { 
         res.status(500).json({ error: "아이템 로드 실패" }); 
@@ -65,7 +74,9 @@ router.get('/items', async (req, res) => {
 // 2. 아이템 추가하기 (POST /api/admin/items)
 router.post('/items', async (req, res) => {
     try {
-        const newItem = new Item(req.body);
+        const userId = requireUserId(req, res);
+        if (!userId) return;
+        const newItem = new Item(withOwner(userId, req.body));
         await newItem.save();
         res.json({ message: "아이템이 성공적으로 추가되었습니다.", item: newItem });
     } catch (err) { 
@@ -76,7 +87,9 @@ router.post('/items', async (req, res) => {
 // 아이템 삭제하기
 router.delete('/items/:id', async (req, res) => {
     try {
-        const result = await Item.deleteOne({ _id: req.params.id });
+        const filter = scope(req, res, { _id: req.params.id });
+        if (!filter) return;
+        const result = await Item.deleteOne(filter);
         if (Number(result?.deletedCount || 0) < 1) return res.status(404).json({ error: "아이템을 찾을 수 없습니다." });
         res.json({ message: "아이템이 삭제되었습니다.", deletedCount: 1, id: String(req.params.id || '') });
     } catch (err) { res.status(500).json({ error: "삭제 실패" }); }
@@ -85,7 +98,9 @@ router.delete('/items/:id', async (req, res) => {
 // 1. 모든 구역 목록 로드
 router.get('/maps', async (req, res) => {
     try {
-        const maps = await MapModel.find().populate('connectedMaps', 'name'); // 연결된 맵 이름까지 가져옴
+        const filter = scope(req, res);
+        if (!filter) return;
+        const maps = await MapModel.find(filter).populate('connectedMaps', 'name').lean(); // 연결된 맵 이름까지 가져옴
         res.json(maps);
     } catch (err) { res.status(500).json({ error: "맵 로드 실패" }); }
 });
@@ -102,7 +117,9 @@ router.post('/maps/normalize-list', async (req, res) => {
     const deleteTargets = new Set(['공원', 'park']);
     const ensureNames = ['소방서', '경찰서'];
 
-    const all = await MapModel.find().select('_id name connectedMaps');
+    const filter = scope(req, res);
+    if (!filter) return;
+    const all = await MapModel.find(filter).select('_id name connectedMaps');
 
     // 1) 공원 삭제
     const toDelete = (Array.isArray(all) ? all : []).filter((m) => deleteTargets.has(lower(m?.name)));
@@ -112,17 +129,17 @@ router.post('/maps/normalize-list', async (req, res) => {
 
     if (deleteIds.length) {
       deletedNames = toDelete.map((m) => String(m?.name || '')).filter(Boolean);
-      await MapModel.deleteMany({ _id: { $in: deleteIds } });
+      await MapModel.deleteMany({ ...filter, _id: { $in: deleteIds } });
       deletedCount = deleteIds.length;
       // 연결 관계 정리(고아 ObjectId 제거)
       await MapModel.updateMany(
-        { connectedMaps: { $in: deleteIds } },
+        { ...filter, connectedMaps: { $in: deleteIds } },
         { $pull: { connectedMaps: { $in: deleteIds } } }
       );
     }
 
     // 2) 소방서/경찰서 보장
-    const existing = await MapModel.find({ name: { $in: ensureNames } }).select('_id name');
+    const existing = await MapModel.find({ ...filter, name: { $in: ensureNames } }).select('_id name');
     const existingSet = new Set((Array.isArray(existing) ? existing : []).map((m) => normalizeName(m?.name)));
     const createdNames = [];
 
@@ -133,6 +150,7 @@ router.post('/maps/normalize-list', async (req, res) => {
       const dc = buildDefaultZoneConnections(zoneIds);
       await new MapModel({
         name: nm,
+        ownerUserId: filter.ownerUserId,
         zones: dz,
         coreSpawnZones: coreSpawnZoneIdsFromZones(dz),
         zoneConnections: dc,
@@ -156,6 +174,8 @@ router.post('/maps/normalize-list', async (req, res) => {
 // 2. 새로운 구역 생성
 router.post('/maps', async (req, res) => {
     try {
+        const userId = requireUserId(req, res);
+        if (!userId) return;
         // ✅ zones를 비워서 생성하면, 기본 구역(키오스크/일반 구역) 세트를 자동으로 넣어줍니다.
         // - 관리자 화면에서 맵을 만들 때 '기본 맵 구역'을 빠르게 세팅하기 위함
         const payload = { ...(req.body || {}) };
@@ -181,7 +201,7 @@ router.post('/maps', async (req, res) => {
               .filter(Boolean);
             payload.zoneConnections = buildDefaultZoneConnections(zoneIds);
         }
-        const newMap = new MapModel(payload);
+        const newMap = new MapModel(withOwner(userId, payload));
         await newMap.save();
         res.json({ message: "신규 구역이 생성되었습니다.", map: newMap });
     } catch (err) { res.status(500).json({ error: "구역 생성 실패" }); }
@@ -228,8 +248,8 @@ router.post('/maps/apply-default-zones', async (req, res) => {
     }
 
     const mapIds = Array.isArray(body.mapIds) ? body.mapIds.filter(Boolean).map(String) : null;
-    const filter = {};
-    if (mapIds && mapIds.length) filter._id = { $in: mapIds };
+    const filter = scope(req, res, mapIds && mapIds.length ? { _id: { $in: mapIds } } : {});
+    if (!filter) return;
 
     const maps = await MapModel.find(filter).select('_id name zones');
     const ops = [];
@@ -251,7 +271,7 @@ router.post('/maps/apply-default-zones', async (req, res) => {
       const dc = buildDefaultZoneConnections(zoneIds);
       ops.push({
         updateOne: {
-          filter: { _id: m._id },
+          filter: { _id: m._id, ownerUserId: filter.ownerUserId },
           update: { $set: { zones: dz, coreSpawnZones: coreSpawnZoneIdsFromZones(dz), zoneConnections: dc } },
         },
       });
@@ -290,7 +310,9 @@ function parseZoneIds(raw) {
 router.post('/maps/:id/core-spawn-zones', async (req, res) => {
   try {
     const mapId = String(req.params.id || '');
-    const map = await MapModel.findById(mapId).select('_id name zones coreSpawnZones');
+    const filter = scope(req, res, { _id: mapId });
+    if (!filter) return;
+    const map = await MapModel.findOne(filter).select('_id name zones coreSpawnZones');
     if (!map) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
 
     const mode = String(req.body?.mode || '').trim().toLowerCase();
@@ -353,7 +375,9 @@ function normalizeCrateAllowDeny(raw) {
 router.get('/maps/:id/crate-allow-deny', async (req, res) => {
   try {
     const mapId = String(req.params.id || '');
-    const map = await MapModel.findById(mapId).select('_id name crateAllowDeny');
+    const filter = scope(req, res, { _id: mapId });
+    if (!filter) return;
+    const map = await MapModel.findOne(filter).select('_id name crateAllowDeny');
     if (!map) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
 
     const cur = (map.crateAllowDeny && typeof map.crateAllowDeny.toObject === 'function')
@@ -368,7 +392,9 @@ router.get('/maps/:id/crate-allow-deny', async (req, res) => {
 router.post('/maps/:id/crate-allow-deny', async (req, res) => {
   try {
     const mapId = String(req.params.id || '');
-    const map = await MapModel.findById(mapId).select('_id name zones crateAllowDeny');
+    const filter = scope(req, res, { _id: mapId });
+    if (!filter) return;
+    const map = await MapModel.findOne(filter).select('_id name zones crateAllowDeny');
     if (!map) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
 
     const payload = (req.body && (req.body.crateAllowDeny ?? req.body.zoneCrateRules)) ?? {};
@@ -444,13 +470,13 @@ function buildKioskId(mapId) {
   return `KIOSK_${m}`;
 }
 
-async function buildKioskCatalogTemplate() {
+async function buildKioskCatalogTemplate(userId) {
   // ✅ 키오스크 카탈로그 템플릿(아이템 ObjectId 기반)
   // - 운석↔생나 교환
   // - 포스 코어 → 미스릴 교환
   // - 미스릴 → 전술 강화 모듈 교환
   const kioskItemNames = ['운석', '생명의 나무', '미스릴', '포스 코어', '전술 강화 모듈'];
-  const kioskItems = await Item.find({ name: { $in: kioskItemNames } }).select('_id name');
+  const kioskItems = await Item.find(ownedFilter(userId, { name: { $in: kioskItemNames } })).select('_id name');
   const itemIdByName = new Map((Array.isArray(kioskItems) ? kioskItems : []).map((it) => [String(it.name), it._id]));
 
   const priceByName = {
@@ -514,9 +540,10 @@ router.post('/kiosks/generate', async (req, res) => {
       return res.status(400).json({ error: "mode는 'missing' 또는 'force'만 가능합니다." });
     }
 
+    const userId = requireUserId(req, res);
+    if (!userId) return;
     const mapIds = Array.isArray(body.mapIds) ? body.mapIds.filter(Boolean).map(String) : null;
-    const filter = {};
-    if (mapIds && mapIds.length) filter._id = { $in: mapIds };
+    const filter = ownedFilter(userId, mapIds && mapIds.length ? { _id: { $in: mapIds } } : {});
 
     const maps = await MapModel.find(filter).select('_id name');
     const targetMaps = (Array.isArray(maps) ? maps : []).filter((m) => mapLooksLikeKioskMap(m?.name));
@@ -536,17 +563,17 @@ router.post('/kiosks/generate', async (req, res) => {
     // force 모드면 먼저 삭제(맵당 1개 정책이므로 대상 맵 키오스크 전부 삭제)
     let deletedCount = 0;
     if (mode === 'force') {
-      const del = await Kiosk.deleteMany({ mapId: { $in: mapIdList } });
+      const del = await Kiosk.deleteMany(ownedFilter(userId, { mapId: { $in: mapIdList } }));
       deletedCount = Number(del?.deletedCount || 0);
     }
 
     const existing = mode === 'force'
       ? []
-      : await Kiosk.find({ mapId: { $in: mapIdList } }).select('mapId kioskId');
+      : await Kiosk.find(ownedFilter(userId, { mapId: { $in: mapIdList } })).select('mapId kioskId');
 
     const existingMapIds = new Set((Array.isArray(existing) ? existing : []).map((k) => String(k?.mapId || '')));
 
-    const catalogTemplate = await buildKioskCatalogTemplate();
+    const catalogTemplate = await buildKioskCatalogTemplate(userId);
 
     const toInsert = [];
     let skippedCount = 0;
@@ -560,6 +587,7 @@ router.post('/kiosks/generate', async (req, res) => {
       }
       toInsert.push({
         kioskId: buildKioskId(m._id),
+        ownerUserId: userId,
         name: `${String(m?.name || '지역')} 키오스크`,
         mapId: m._id,
         zoneId: '',
@@ -595,13 +623,15 @@ router.post('/kiosks/generate', async (req, res) => {
 // - zoneId는 사용하지 않음(빈값)
 router.post('/kiosks/normalize', async (req, res) => {
   try {
-    const maps = await MapModel.find({}).select('_id name');
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const maps = await MapModel.find(ownedFilter(userId)).select('_id name');
     const targetMaps = (Array.isArray(maps) ? maps : []).filter((m) => mapLooksLikeKioskMap(m?.name));
     const mapIdList = targetMaps.map((m) => m._id);
 
-    const catalogTemplate = await buildKioskCatalogTemplate();
+    const catalogTemplate = await buildKioskCatalogTemplate(userId);
 
-    const allKiosks = await Kiosk.find({ mapId: { $in: mapIdList } }).select('_id kioskId name mapId zoneId catalog');
+    const allKiosks = await Kiosk.find(ownedFilter(userId, { mapId: { $in: mapIdList } })).select('_id kioskId name mapId zoneId catalog');
 
     const byMap = new Map();
     for (const k of (Array.isArray(allKiosks) ? allKiosks : [])) {
@@ -627,7 +657,7 @@ router.post('/kiosks/normalize', async (req, res) => {
         const keep = list[0];
         const delIds = list.slice(1).map((x) => x._id).filter(Boolean);
         if (delIds.length) {
-          const del = await Kiosk.deleteMany({ _id: { $in: delIds } });
+          const del = await Kiosk.deleteMany(ownedFilter(userId, { _id: { $in: delIds } }));
           deletedDup += Number(del?.deletedCount || 0);
         }
         byMap.set(mid, [keep]);
@@ -638,6 +668,7 @@ router.post('/kiosks/normalize', async (req, res) => {
         // 2) 없으면 생성
         await new Kiosk({
           kioskId: buildKioskId(m._id),
+          ownerUserId: userId,
           name: `${String(m?.name || '지역')} 키오스크`,
           mapId: m._id,
           zoneId: '',
@@ -676,8 +707,10 @@ router.put('/maps/:id/connect', async (req, res) => {
     const { targetMapId } = req.body;
     try {
         // 내 맵에 상대방 추가, 상대방 맵에 나를 추가 (양방향 연결)
-        await MapModel.findByIdAndUpdate(req.params.id, { $addToSet: { connectedMaps: targetMapId } });
-        await MapModel.findByIdAndUpdate(targetMapId, { $addToSet: { connectedMaps: req.params.id } });
+        const filter = scope(req, res);
+        if (!filter) return;
+        await MapModel.findOneAndUpdate({ ...filter, _id: req.params.id }, { $addToSet: { connectedMaps: targetMapId } });
+        await MapModel.findOneAndUpdate({ ...filter, _id: targetMapId }, { $addToSet: { connectedMaps: req.params.id } });
         res.json({ message: "구역 간 동선이 연결되었습니다." });
     } catch (err) { res.status(500).json({ error: "동선 연결 실패" }); }
 });
@@ -688,7 +721,9 @@ router.put('/maps/:id/connect', async (req, res) => {
 // PUT /api/admin/items/:id
 router.put('/items/:id', async (req, res) => {
   try {
-    const updated = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const updated = await Item.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ error: '아이템을 찾을 수 없습니다.' });
     res.json({ message: '아이템이 수정되었습니다.', item: updated });
   } catch (err) {
@@ -702,7 +737,9 @@ router.put('/items/:id', async (req, res) => {
 // PUT /api/admin/maps/:id
 router.put('/maps/:id', async (req, res) => {
   try {
-    const updated = await MapModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const updated = await MapModel.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
     if (!updated) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
     res.json({ message: '맵이 수정되었습니다.', map: updated });
   } catch (err) {
@@ -714,7 +751,9 @@ router.put('/maps/:id', async (req, res) => {
 // DELETE /api/admin/maps/:id
 router.delete('/maps/:id', async (req, res) => {
   try {
-    const deleted = await MapModel.findByIdAndDelete(req.params.id);
+    const filter = scope(req, res, { _id: req.params.id });
+    if (!filter) return;
+    const deleted = await MapModel.findOneAndDelete(filter);
     if (!deleted) return res.status(404).json({ error: '맵을 찾을 수 없습니다.' });
     res.json({ message: '맵이 삭제되었습니다.' });
   } catch (err) {
@@ -727,7 +766,9 @@ router.delete('/maps/:id', async (req, res) => {
 // ✅ 키오스크 CRUD(로드맵 3번)
 router.get('/kiosks', async (req, res) => {
   try {
-    const kiosks = await Kiosk.find({}).populate('mapId', 'name');
+    const filter = scope(req, res);
+    if (!filter) return;
+    const kiosks = await Kiosk.find(filter).populate('mapId', 'name').lean();
     res.json(kiosks);
   } catch (err) {
     console.error(err);
@@ -737,6 +778,8 @@ router.get('/kiosks', async (req, res) => {
 
 router.post('/kiosks', async (req, res) => {
   try {
+    const userId = requireUserId(req, res);
+    if (!userId) return;
     const payload = { ...(req.body || {}) };
     if (!payload.mapId) return res.status(400).json({ error: 'mapId가 필요합니다.' });
     if (!payload.kioskId) payload.kioskId = buildKioskId(payload.mapId);
@@ -745,7 +788,7 @@ router.post('/kiosks', async (req, res) => {
     payload.y = Number(payload.y || 0);
     if (!Array.isArray(payload.catalog)) payload.catalog = [];
 
-    const kiosk = await new Kiosk(payload).save();
+    const kiosk = await new Kiosk(withOwner(userId, payload)).save();
     res.json({ message: '키오스크가 추가되었습니다.', kiosk });
   } catch (err) {
     console.error(err);
@@ -755,7 +798,9 @@ router.post('/kiosks', async (req, res) => {
 
 router.put('/kiosks/:id', async (req, res) => {
   try {
-    const updated = await Kiosk.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const updated = await Kiosk.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
     if (!updated) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
     res.json({ message: '키오스크가 수정되었습니다.', kiosk: updated });
   } catch (err) {
@@ -766,7 +811,9 @@ router.put('/kiosks/:id', async (req, res) => {
 
 router.delete('/kiosks/:id', async (req, res) => {
   try {
-    const deleted = await Kiosk.findByIdAndDelete(req.params.id);
+    const filter = scope(req, res, { _id: req.params.id });
+    if (!filter) return;
+    const deleted = await Kiosk.findOneAndDelete(filter);
     if (!deleted) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
     res.json({ message: '키오스크가 삭제되었습니다.' });
   } catch (err) {
@@ -781,7 +828,9 @@ const DroneOffer = require('../models/DroneOffer');
 
 router.get('/drone-offers', async (req, res) => {
   try {
-    const offers = await DroneOffer.find({}).populate('itemId', 'name tier rarity');
+    const filter = scope(req, res);
+    if (!filter) return;
+    const offers = await DroneOffer.find(filter).populate('itemId', 'name tier rarity').lean();
     res.json(offers);
   } catch (err) {
     console.error(err);
@@ -791,7 +840,9 @@ router.get('/drone-offers', async (req, res) => {
 
 router.post('/drone-offers', async (req, res) => {
   try {
-    const offer = await new DroneOffer(req.body).save();
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const offer = await new DroneOffer(withOwner(userId, req.body)).save();
     res.json({ message: '드론 판매가 추가되었습니다.', offer });
   } catch (err) {
     console.error(err);
@@ -801,7 +852,9 @@ router.post('/drone-offers', async (req, res) => {
 
 router.put('/drone-offers/:id', async (req, res) => {
   try {
-    const updated = await DroneOffer.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const updated = await DroneOffer.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
     if (!updated) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     res.json({ message: '수정 완료', offer: updated });
   } catch (err) {
@@ -812,7 +865,9 @@ router.put('/drone-offers/:id', async (req, res) => {
 
 router.delete('/drone-offers/:id', async (req, res) => {
   try {
-    const deleted = await DroneOffer.findByIdAndDelete(req.params.id);
+    const filter = scope(req, res, { _id: req.params.id });
+    if (!filter) return;
+    const deleted = await DroneOffer.findOneAndDelete(filter);
     if (!deleted) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
     res.json({ message: '삭제 완료' });
   } catch (err) {
@@ -827,7 +882,9 @@ const Perk = require('../models/Perk');
 
 router.get('/perks', async (req, res) => {
   try {
-    const perks = await Perk.find({}).sort({ lpCost: 1 });
+    const filter = scope(req, res);
+    if (!filter) return;
+    const perks = await Perk.find(filter).sort({ lpCost: 1 }).lean();
     res.json(perks);
   } catch (err) {
     console.error(err);
@@ -837,7 +894,9 @@ router.get('/perks', async (req, res) => {
 
 router.post('/perks', async (req, res) => {
   try {
-    const perk = await new Perk(req.body).save();
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const perk = await new Perk(withOwner(userId, req.body)).save();
     res.json({ message: '특전이 추가되었습니다.', perk });
   } catch (err) {
     console.error(err);
@@ -847,7 +906,9 @@ router.post('/perks', async (req, res) => {
 
 router.put('/perks/:id', async (req, res) => {
   try {
-    const updated = await Perk.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+    const updated = await Perk.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
     if (!updated) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
     res.json({ message: '특전이 수정되었습니다.', perk: updated });
   } catch (err) {
@@ -858,7 +919,9 @@ router.put('/perks/:id', async (req, res) => {
 
 router.delete('/perks/:id', async (req, res) => {
   try {
-    const deleted = await Perk.findByIdAndDelete(req.params.id);
+    const filter = scope(req, res, { _id: req.params.id });
+    if (!filter) return;
+    const deleted = await Perk.findOneAndDelete(filter);
     if (!deleted) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
     res.json({ message: '특전이 삭제되었습니다.' });
   } catch (err) {
@@ -874,8 +937,10 @@ router.delete('/perks/:id', async (req, res) => {
 // body: { mode?: 'missing' | 'force' }
 router.post('/items/generate-default-tree', async (req, res) => {
   try {
+    const userId = requireUserId(req, res);
+    if (!userId) return;
     const mode = (req.body?.mode === 'force') ? 'force' : 'missing';
-    const summary = await upsertDefaultItemTree({ mode });
+    const summary = await upsertDefaultItemTree({ mode, ownerUserId: userId });
     res.json({ message: '기본 아이템 트리 적용 완료', summary });
   } catch (err) {
     console.error(err);

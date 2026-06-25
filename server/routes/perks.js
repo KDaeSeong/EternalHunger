@@ -4,6 +4,7 @@ const router = express.Router();
 
 const User = require('../models/User');
 const Perk = require('../models/Perk');
+const { scopedFilter } = require('../utils/requestScope');
 
 /**
  * 🎖️ 특전 시스템(로드맵 7번)
@@ -13,7 +14,7 @@ const Perk = require('../models/Perk');
 // 전체 특전 목록(로그인 유저 UI에서 사용)
 router.get('/available', async (req, res) => {
   try {
-    const perks = await Perk.find({ isActive: true }).sort({ lpCost: 1 });
+    const perks = await Perk.find(scopedFilter(req, { isActive: true })).sort({ lpCost: 1 });
     res.json(perks);
   } catch (err) {
     console.error(err);
@@ -27,7 +28,7 @@ router.post('/purchase', async (req, res) => {
     const code = String(req.body?.code || '').trim();
     if (!code) return res.status(400).json({ error: 'code가 필요합니다.' });
 
-    const perk = await Perk.findOne({ code, isActive: true });
+    const perk = await Perk.findOne(scopedFilter(req, { code, isActive: true }));
     if (!perk) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
 
     // 이미 구매했는지 확인 + LP 차감

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 const MapSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  ownerUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   description: String,
   image: String, // 배경 이미지 URL
   // ★ 동선: 연결된 다른 구역들의 ID 목록
@@ -88,5 +89,7 @@ const MapSchema = new mongoose.Schema({
   }],
   createdAt: { type: Date, default: Date.now }
 });
+
+MapSchema.index({ ownerUserId: 1, name: 1 });
 
 module.exports = mongoose.model('Map', MapSchema);

@@ -10,6 +10,7 @@ const Perk = require('../models/Perk');
 const ErMeta = require('../models/ErMeta');
 const { DEFAULT_ZONES } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
+const { scopedFilter } = require('../utils/requestScope');
 
 /**
  * ✅ 공개 데이터 API
@@ -27,7 +28,7 @@ router.get('/ping', async (req, res) => {
 
 router.get('/items', async (req, res) => {
   try {
-    const items = await Item.find({}).sort({ createdAt: 1 });
+    const items = await Item.find(scopedFilter(req)).sort({ createdAt: 1 });
     res.json(items);
   } catch (err) {
     console.error(err);
@@ -37,7 +38,7 @@ router.get('/items', async (req, res) => {
 
 router.get('/maps', async (req, res) => {
   try {
-    const maps = await MapModel.find({}).populate('connectedMaps', 'name');
+    const maps = await MapModel.find(scopedFilter(req)).populate('connectedMaps', 'name');
 
     // ✅ 맵 zones가 비어있으면, '기본 맵 구역' 세트를 응답에 주입합니다.
     // - DB를 강제로 수정하진 않습니다(응답 레벨에서만 보정).
@@ -77,7 +78,7 @@ router.get('/maps', async (req, res) => {
 
 router.get('/kiosks', async (req, res) => {
   try {
-    const kiosks = await Kiosk.find({})
+    const kiosks = await Kiosk.find(scopedFilter(req))
       .populate('mapId', 'name')
       .populate('catalog.itemId', 'name tier rarity baseCreditValue tags')
       .populate('catalog.exchange.giveItemId', 'name tier rarity baseCreditValue tags');
@@ -90,7 +91,7 @@ router.get('/kiosks', async (req, res) => {
 
 router.get('/drone-offers', async (req, res) => {
   try {
-    const offers = await DroneOffer.find({ isActive: true }).populate('itemId', 'name tier rarity baseCreditValue');
+    const offers = await DroneOffer.find(scopedFilter(req, { isActive: true })).populate('itemId', 'name tier rarity baseCreditValue');
     res.json(offers);
   } catch (err) {
     console.error(err);
@@ -100,7 +101,7 @@ router.get('/drone-offers', async (req, res) => {
 
 router.get('/perks', async (req, res) => {
   try {
-    const perks = await Perk.find({ isActive: true }).sort({ lpCost: 1 });
+    const perks = await Perk.find(scopedFilter(req, { isActive: true })).sort({ lpCost: 1 });
     res.json(perks);
   } catch (err) {
     console.error(err);

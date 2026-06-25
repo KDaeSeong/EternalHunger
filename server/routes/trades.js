@@ -8,6 +8,7 @@ const TradeOffer = require('../models/TradeOffer');
 const User = require('../models/User');
 const Character = require('../models/Characters');
 const Item = require('../models/Item');
+const { scopedFilter } = require('../utils/requestScope');
 
 const {
   buildItemNameMap,
@@ -59,7 +60,7 @@ router.post('/', async (req, res) => {
     if (giveN.length === 0) return res.status(400).json({ error: 'give 항목이 비었습니다.' });
 
     // 인벤토리 정규화
-    const items = await Item.find({}, '_id name');
+    const items = await Item.find(scopedFilter(req), '_id name');
     const itemNameMap = buildItemNameMap(items);
     ch.inventory = normalizeInventory(ch.inventory, itemNameMap, { merge: true });
 
@@ -119,7 +120,7 @@ router.post('/:id/accept', async (req, res) => {
       User.findById(userId),
       Character.findById(offer.fromCharacterId),
       Character.findOne({ _id: toCharacterId, userId }),
-      Item.find({}, '_id name'),
+      Item.find(scopedFilter(req), '_id name'),
     ]);
 
     if (!fromUser || !toUser) return res.status(404).json({ error: '유저 정보를 찾을 수 없습니다.' });

@@ -52,7 +52,7 @@ export default function AdminDronePage() {
       const res = await apiPost('/admin/drone-offers', payload);
       setMessage(res?.message || '추가 완료');
       setCreateForm({ itemId: '', priceCredits: 0, maxTier: 1, isActive: true });
-      await load();
+      if (res?.offer) setOffers((prev) => [res.offer, ...(Array.isArray(prev) ? prev : [])]);
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
@@ -80,7 +80,7 @@ export default function AdminDronePage() {
       const res = await apiPut(`/admin/drone-offers/${editing._id}`, payload);
       setMessage(res?.message || '수정 완료');
       setEditing(null);
-      await load();
+      if (res?.offer) setOffers((prev) => (Array.isArray(prev) ? prev.map((row) => row._id === res.offer._id ? res.offer : row) : [res.offer]));
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
@@ -91,7 +91,7 @@ export default function AdminDronePage() {
     try {
       const res = await apiDelete(`/admin/drone-offers/${id}`);
       setMessage(res?.message || '삭제 완료');
-      await load();
+      setOffers((prev) => (Array.isArray(prev) ? prev.filter((row) => row._id !== id) : []));
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }

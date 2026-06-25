@@ -48,6 +48,13 @@ export default function AdminKiosksPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
+  const hydrateKiosk = (k) => {
+    if (!k || typeof k !== 'object') return k;
+    const mapId = k.mapId?._id || k.mapId || '';
+    const map = maps.find((m) => String(m._id) === String(mapId));
+    return map ? { ...k, mapId: map } : k;
+  };
+
   const createKiosk = async () => {
     try {
       const payload = {
@@ -59,7 +66,7 @@ export default function AdminKiosksPage() {
       const res = await apiPost('/admin/kiosks', payload);
       setMessage(res?.message || '추가 완료');
       setCreateForm({ kioskId: '', name: '키오스크', mapId: '', x: 0, y: 0 });
-      await load();
+      if (res?.kiosk) setKiosks((prev) => [hydrateKiosk(res.kiosk), ...(Array.isArray(prev) ? prev : [])]);
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
@@ -107,7 +114,7 @@ export default function AdminKiosksPage() {
       const res = await apiPut(`/admin/kiosks/${editing._id}`, payload);
       setMessage(res?.message || '수정 완료');
       setEditing(null);
-      await load();
+      if (res?.kiosk) setKiosks((prev) => (Array.isArray(prev) ? prev.map((row) => row._id === res.kiosk._id ? hydrateKiosk(res.kiosk) : row) : [hydrateKiosk(res.kiosk)]));
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }
@@ -118,7 +125,7 @@ export default function AdminKiosksPage() {
     try {
       const res = await apiDelete(`/admin/kiosks/${id}`);
       setMessage(res?.message || '삭제 완료');
-      await load();
+      setKiosks((prev) => (Array.isArray(prev) ? prev.filter((row) => row._id !== id) : []));
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
     }

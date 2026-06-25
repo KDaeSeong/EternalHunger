@@ -9,6 +9,7 @@ const User = require('../models/User');
 const Character = require('../models/Characters');
 const Item = require('../models/Item');
 const Perk = require('../models/Perk');
+const { scopedFilter } = require('../utils/requestScope');
 
 const {
   buildItemNameMap,
@@ -37,10 +38,10 @@ router.post('/:id/transaction', async (req, res) => {
     if (!Number.isFinite(idx) || idx < 0) return res.status(400).json({ error: 'catalogIndex가 올바르지 않습니다.' });
 
     const [kiosk, user, ch, items] = await Promise.all([
-      Kiosk.findById(kioskId).populate('catalog.itemId').populate('catalog.exchange.giveItemId'),
+      Kiosk.findOne(scopedFilter(req, { _id: kioskId })).populate('catalog.itemId').populate('catalog.exchange.giveItemId'),
       User.findById(userId),
       Character.findOne({ _id: characterId, userId }),
-      Item.find({}, '_id name'),
+      Item.find(scopedFilter(req), '_id name'),
     ]);
 
     if (!kiosk) return res.status(404).json({ error: '키오스크를 찾을 수 없습니다.' });
