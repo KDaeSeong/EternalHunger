@@ -1,5 +1,4 @@
 import {
-  clampTier4,
   compactIO,
   itemDisplayName,
   safeTags,
@@ -13,6 +12,13 @@ export const DEFAULT_INV_RULES = {
 
 export function getInvItemId(it) {
   return String(it?.itemId || it?.id || it?._id || '');
+}
+
+function clampInventoryTier(value, category = '') {
+  const n = Number(value);
+  const maxTier = String(category || '').toLowerCase() === 'equipment' ? 6 : 4;
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(maxTier, Math.floor(n)));
 }
 
 // 시뮬에서 랜덤 생성된 장비(weapon/armor)를 DB에 저장할 때 사용하는 외부 ID
@@ -149,7 +155,7 @@ export function markInventoryGoalItem(item, isGoal = true, tagName = 'craft_goal
 
 function inventoryItemPriority(it) {
   const category = inferItemCategory(it);
-  const tier = clampTier4(it?.tier || 1);
+  const tier = clampInventoryTier(it?.tier || 1, category);
   const tags = safeTags(it).map((t) => String(t || '').toLowerCase());
 
   if (category === 'equipment') return 80 + tier * 5;
@@ -168,7 +174,7 @@ function isAutoDroppableConsumable(entry, invCfg, incomingScore) {
   const medical = tags.includes('heal') || tags.includes('medical') || isBandageLikeItem(entry);
   if (medical) return false;
 
-  const tier = clampTier4(entry?.tier || 1);
+  const tier = clampInventoryTier(entry?.tier || 1, 'consumable');
   const maxTier = Math.max(1, Number(invCfg?.autoDropConsumableMaxTier ?? 2));
   const minIncomingScore = Math.max(0, Number(invCfg?.autoDropConsumableMinIncomingScore ?? 50));
   return tier <= maxTier && incomingScore >= minIncomingScore;
@@ -187,7 +193,7 @@ function findAutoDropIndexForIncoming(list, incoming, ruleset) {
   const candidates = list
     .map((entry, index) => {
       const category = String(entry?.category || inferItemCategory(entry) || 'material');
-      const tier = clampTier4(entry?.tier || 1);
+      const tier = clampInventoryTier(entry?.tier || 1, category);
       const protectedEntry = category === 'equipment' || hasSpecialInventoryTag(entry) || hasGoalInventoryTag(entry) || tier >= 4;
       if (protectedEntry) return null;
       const disposableMaterial = category === 'material' && tier <= 2;
@@ -231,8 +237,8 @@ export function canReceiveItem(inventory, it, itemId, qty, ruleset) {
       if (existing) {
         const cfg = ruleset?.equipment || {};
         const replaceOnlyIfBetter = cfg.replaceOnlyIfBetter !== false;
-        const newTier = clampTier4(it?.tier || 1);
-        const oldTier = clampTier4(existing?.tier || 1);
+        const newTier = clampInventoryTier(it?.tier || 1, 'equipment');
+        const oldTier = clampInventoryTier(existing?.tier || 1, 'equipment');
         if (replaceOnlyIfBetter) return newTier > oldTier;
         return true;
       }
@@ -255,7 +261,7 @@ export function normalizeInventory(inventory, ruleset) {
       ...list[i],
       category,
       equipSlot: category === 'equipment' ? (list[i]?.equipSlot || inferEquipSlot(list[i]) || '') : (list[i]?.equipSlot || ''),
-      tier: clampTier4(list[i]?.tier || 1),
+      tier: clampInventoryTier(list[i]?.tier || 1, category),
       qty: Math.min(maxStack, q),
     };
   }
@@ -342,7 +348,8 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     const next = Math.min(maxStack, cur + want);
     const accepted = Math.max(0, next - cur);
     const dropped = Math.max(0, (cur + want) - next);
-    list[i] = { ...list[i], qty: next, category, tier: clampTier4(item?.tier || list[i]?.tier || 1), ...(category === 'equipment' ? { rarity: tierLabelKo(clampTier4(item?.tier || list[i]?.tier || 1)) } : {}), ...(equipSlot ? { equipSlot } : {}) };
+    const nextTier = clampInventoryTier(item?.tier || list[i]?.tier || 1, category);
+    list[i] = { ...list[i], qty: next, category, tier: nextTier, ...(category === 'equipment' ? { rarity: tierLabelKo(nextTier) } : {}), ...(equipSlot ? { equipSlot } : {}) };
     list._lastAdd = { itemId: key, acceptedQty: accepted, droppedQty: dropped, reason: dropped > 0 ? 'stack_cap' : '' };
     return list;
   }
@@ -352,8 +359,8 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     const replaceOnlyIfBetter = cfg.replaceOnlyIfBetter !== false;
     const j = list.findIndex((x) => (String(x?.category || inferItemCategory(x)) === 'equipment') && String(x?.equipSlot || inferEquipSlot(x) || '') === equipSlot);
     if (j >= 0) {
-      const oldTier = clampTier4(list[j]?.tier || 1);
-      const newTier = clampTier4(item?.tier || 1);
+      const oldTier = clampInventoryTier(list[j]?.tier || 1, 'equipment');
+      const newTier = clampInventoryTier(item?.tier || 1, 'equipment');
       const forceSameTier = !!item?._forceReplaceSameTier && (newTier === oldTier);
       if (replaceOnlyIfBetter && !(newTier > oldTier) && !forceSameTier) {
         list._lastAdd = { itemId: key, acceptedQty: 0, droppedQty: want, reason: 'equip_not_better' };
@@ -401,7 +408,7 @@ export function addItemToInventory(inventory, item, itemId, qty, day, ruleset) {
     ...(hasGoalInventoryTag(item) ? { goalItem: true } : {}),
     category,
     equipSlot: equipSlot || '',
-    tier: clampTier4(item?.tier || 1), ...(category === 'equipment' ? { rarity: tierLabelKo(clampTier4(item?.tier || 1)) } : {}),
+    tier: clampInventoryTier(item?.tier || 1, category), ...(category === 'equipment' ? { rarity: tierLabelKo(clampInventoryTier(item?.tier || 1, category)) } : {}),
     acquiredDay: Number(day || 0),
   });
   list._lastAdd = replacedMeta

@@ -1,6 +1,5 @@
 import { createEquipmentItem, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
-  clampTier4,
   compactIO,
   tierLabelKo,
 } from './simulationCommon';
@@ -71,7 +70,7 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
   let minTier = 99;
   for (const slot of EQUIP_SLOTS) {
     const best = pickBestEquipBySlot(inv, slot);
-    const t = best ? clampTier4(Number(best?.tier || 1)) : 0;
+    const t = best ? clampGearTier(Number(best?.tier || 1)) : 0;
     tiers[slot] = t;
     minTier = Math.min(minTier, t || 0);
   }
@@ -165,8 +164,8 @@ function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById
       }
       // 같은 슬롯에 이미 동급 이상이 있으면 제작하지 않음(재료 낭비 방지)
       const curBest = slot ? pickBestEquipBySlot(inv0, slot) : null;
-      const curTier = curBest ? clampTier4(Number(curBest?.tier || 1)) : 0;
-      const tgtTier = clampTier4(Number(it?.tier || 1));
+      const curTier = curBest ? clampGearTier(Number(curBest?.tier || 1)) : 0;
+      const tgtTier = clampGearTier(Number(it?.tier || 1));
 
       // 목표 장비면(같은 티어라도) 목표와 다를 때 1회 교체 제작을 허용
       const wantKey = String(goalBySlot?.[slot] || '').trim();
@@ -203,8 +202,8 @@ function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById
     const ings = compactIO(target?.recipe?.ingredients || []);
     const cat = inferItemCategory(target);
     const craftTier = (cat === 'equipment')
-      ? clampTier4(Number(target?.tier || computeCraftTierFromIngredients(ings, itemMetaById, itemNameById) || 1))
-      : clampTier4(target?.tier || 1);
+      ? clampGearTier(Number(target?.tier || computeCraftTierFromIngredients(ings, itemMetaById, itemNameById) || 1))
+      : clampGearTier(target?.tier || 1);
     const craftedItem0 = (cat === 'equipment') ? applyEquipTier(target, craftTier) : target;
 
     // 목표 장비라면 같은 티어 교체를 허용(장비 슬롯 1개 유지 정책에 막히지 않게)
@@ -260,12 +259,20 @@ function getInvId(x) {
   return String(x?.itemId || x?.id || x?._id || '');
 }
 
+function clampGearTier(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(6, Math.floor(n)));
+}
+
+const GEAR_SLOT_PRIORITY = { weapon: 0, head: 1, clothes: 2, arm: 3, shoes: 4 };
+
 function getInvTier(x, itemMetaById) {
   const t0 = Number(x?.tier);
-  if (Number.isFinite(t0) && t0 > 0) return clampTier4(t0);
+  if (Number.isFinite(t0) && t0 > 0) return clampGearTier(t0);
   const id = getInvId(x);
   const m = id ? itemMetaById?.[id] : null;
-  return clampTier4(m?.tier || 1);
+  return clampGearTier(m?.tier || 1);
 }
 
 function isLowMaterialInvEntry(x, itemMetaById, itemNameById) {
@@ -362,23 +369,24 @@ function allowAbstractGearFallback(ruleset, opts = {}) {
 }
 
 function day1AbstractFallbackMaxTier(ruleset) {
-  const configured = Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 3);
+  const configured = Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4);
   if (Number.isFinite(configured)) return Math.max(1, Math.min(4, Math.floor(configured)));
-  return 3;
+  return 4;
 }
 
 function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, day, phase, ruleset, opts = {}) {
   const d = Number(day || 0);
   const ph = String(phase || '').toLowerCase();
+  const forceRouteCompletion = opts?.forceRouteCompletion === true;
   if (d !== 1) return { changed: false, logs: [] };
   if (actor?.day1HeroDone) return { changed: false, logs: [] };
-  if (!allowAbstractGearFallback(ruleset, opts)) return { changed: false, logs: [] };
+  if (!allowAbstractGearFallback(ruleset, opts) && !forceRouteCompletion) return { changed: false, logs: [] };
 
-  // 레시피 데이터가 비어 있을 때만 쓰는 안전망입니다. 정상 경로는 실제 레시피 제작입니다.
+  // 레시피 데이터가 빈약하거나 루트 파밍 판정만 있고 조합까지 이어지지 않는 경우의 안전망입니다.
   if (!ph.includes('morning') && !ph.includes('day') && !ph.includes('night')) return { changed: false, logs: [] };
 
-  // 최소 1회 이동 후 루트 파밍이 시작된 것으로 보고 제작/강화를 진행합니다.
-  if (Math.max(0, Number(actor?.day1Moves || 0)) < 1) return { changed: false, logs: [] };
+  // 기본 fallback은 최소 1회 이동 후 작동합니다. routeFarm 호출은 파밍 액션 자체를 시작 신호로 인정합니다.
+  if (Math.max(0, Number(actor?.day1Moves || 0)) < 1 && !forceRouteCompletion) return { changed: false, logs: [] };
 
   const maxFallbackTier = day1AbstractFallbackMaxTier(ruleset);
   const logs = [];
@@ -386,6 +394,42 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   inv = normalizeInventory(inv, ruleset);
 
   const wTypeNorm = resolveActorWeaponType(actor);
+
+  if (forceRouteCompletion) {
+    const targetTier = Math.max(1, Math.min(4, Math.floor(Number(opts?.routeCompletionTier ?? maxFallbackTier))));
+    const completedSlots = [];
+
+    for (const slot of EQUIP_SLOTS) {
+      const cur = pickBestEquipBySlot(inv, slot);
+      const curTier = cur ? getInvTier(cur, itemMetaById) : 0;
+      if (curTier >= targetTier) continue;
+
+      const gear = createEquipmentItem({ slot, day: d, tier: targetTier, weaponType: slot === 'weapon' ? wTypeNorm : '' });
+      inv = ensureRoomForEquipment(inv, ruleset, itemMetaById, itemNameById);
+      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
+      const meta = inv?._lastAdd;
+      const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
+      if (got > 0) completedSlots.push(`${SLOT_ICON[slot] || '🧩'}${tierLabelKo(targetTier)}`);
+    }
+
+    actor.inventory = inv;
+    autoEquipBest(actor, itemMetaById);
+
+    const done = EQUIP_SLOTS.every((s) => {
+      const it = pickBestEquipBySlot(inv, s);
+      return it && getInvTier(it, itemMetaById) >= targetTier;
+    });
+
+    if (completedSlots.length > 0) {
+      logs.push(`🧭 [${actor?.name}] 1일차 루트 파밍 제작: ${completedSlots.join(', ')} 장비 확보`);
+    }
+    if (done) {
+      actor.day1HeroDone = true;
+      logs.push(`✅ [${actor?.name}] 1일차 낮 루트 파밍 완료: ${tierLabelKo(targetTier)} 장비 5부위 완성`);
+    }
+
+    return { changed: logs.length > 0, logs };
+  }
 
   // 1) 비어있는 방어구 슬롯을 먼저 채움(머리/옷/팔) — 2재료씩
   for (const slot of ['head', 'clothes', 'arm']) {
@@ -401,13 +445,12 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   }
 
   // 2) 무기/신발 포함 5부위 업그레이드 — 1재료씩
-  // - 실제 레시피가 없을 때만 쓰는 안전망이므로, 1일차에는 기본 T3까지만 보정합니다.
-  // - T4+는 실제 레시피 제작/오브젝트/상자 루프가 맡아야 "강제 세팅"처럼 보이지 않습니다.
+  // - 실제 레시피가 없을 때 쓰는 안전망이며, 현재 룰에서는 1일차 루트 완성 목표인 T4까지 보정합니다.
   for (const slot of EQUIP_SLOTS) {
     for (let step = 0; step < 2; step += 1) {
       const it = pickBestEquipBySlot(inv, slot);
       if (!it) break;
-      const curTier = clampTier4(Number(it?.tier || 1));
+      const curTier = clampGearTier(Number(it?.tier || 1));
       if (curTier >= maxFallbackTier) break;
 
       const low = countLowMaterials(inv, itemMetaById, itemNameById);
@@ -430,7 +473,7 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
 
   const done = EQUIP_SLOTS.every((s) => {
     const it = pickBestEquipBySlot(inv, s);
-    return it && clampTier4(Number(it?.tier || 1)) >= maxFallbackTier;
+    return it && clampGearTier(Number(it?.tier || 1)) >= maxFallbackTier;
   });
 
   if (done) {
@@ -471,9 +514,9 @@ function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   const slotOrder = EQUIP_SLOTS.slice();
   function slotTier(slot) {
     const best = pickBestEquipBySlot(inv, slot);
-    return best ? clampTier4(Number(best?.tier || 1)) : 0;
+    return best ? clampGearTier(Number(best?.tier || 1)) : 0;
   };
-  slotOrder.sort((a, b) => (slotTier(a) - slotTier(b)) || String(a).localeCompare(String(b)));
+  slotOrder.sort((a, b) => (slotTier(a) - slotTier(b)) || ((GEAR_SLOT_PRIORITY[a] ?? 99) - (GEAR_SLOT_PRIORITY[b] ?? 99)));
   const wTypeNorm = resolveActorWeaponType(actor);
 
   // 목표 티어 결정
@@ -603,9 +646,9 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   // 어떤 슬롯을 올릴지: 현재 최저 티어 슬롯부터
   function slotTier(slot) {
     const best = pickBestEquipBySlot(inv, slot);
-    return best ? clampTier4(Number(best?.tier || 1)) : 0;
+    return best ? clampGearTier(Number(best?.tier || 1)) : 0;
   };
-  const slotOrder = EQUIP_SLOTS.slice().sort((a, b) => (slotTier(a) - slotTier(b)) || String(a).localeCompare(String(b)));
+  const slotOrder = EQUIP_SLOTS.slice().sort((a, b) => (slotTier(a) - slotTier(b)) || ((GEAR_SLOT_PRIORITY[a] ?? 99) - (GEAR_SLOT_PRIORITY[b] ?? 99)));
   const slotPick = slotOrder.find((s) => slotTier(s) < targetTier) || null;
   if (!slotPick) return { changed: false, logs: [], pvpBonus: 0 };
 

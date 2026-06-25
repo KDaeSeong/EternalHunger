@@ -174,8 +174,9 @@ function getEquipMoveSpeed(actor) {
   if (shoes) ms += sumFromItem(shoes);
 
   const perkMs = perkNumber(getActorPerkEffects(actor)?.moveSpeedPlus || 0);
+  const permanentMs = Number(actor?.permanentMoveSpeed || actor?.itemPermanentBonuses?.moveSpeed || 0);
   const statusMs = getMoveSpeedStatusBonus(actor);
-  return Math.max(-0.75, ms + perkMs + statusMs);
+  return Math.max(-0.75, ms + perkMs + (Number.isFinite(permanentMs) ? permanentMs : 0) + statusMs);
 }
 
 function getEquipSummary(char) {

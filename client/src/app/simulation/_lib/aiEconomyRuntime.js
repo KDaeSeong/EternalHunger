@@ -41,6 +41,12 @@ const WILDLIFE_HUNT_VALUE = {
   bear: 3.0,
 };
 
+function clampGearTier(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(6, Math.floor(n)));
+}
+
 const WILDLIFE_RISK_POWER = {
   chicken: 18,
   bat: 24,
@@ -816,7 +822,7 @@ function lowestEquippedTier(actor, publicItems = []) {
     const itemId = String(eq?.[slot] || '');
     if (!itemId) return 0;
     const item = items.find((it) => String(it?._id || '') === itemId) || null;
-    return clampTier4(Number(item?.tier || 0));
+    return clampGearTier(Number(item?.tier || 0));
   }).filter((v) => Number.isFinite(v) && v > 0);
   return tiers.length ? Math.min(...tiers) : 0;
 }

@@ -15,7 +15,9 @@ router.post('/end', async (req, res) => {
     const { winnerId, killCounts, fullLogs, participants } = req.body || {};
     if (!winnerId) return res.status(400).json({ error: "winnerId가 필요합니다." });
 
-    const winner = await Character.findOne({ _id: winnerId, userId: req.user.id });
+    const winner = await Character.findOne({ _id: winnerId, userId: req.user.id }, '_id name')
+      || await Character.findById(winnerId, '_id name')
+      || { _id: winnerId, name: '' };
     if (!winner) return res.status(404).json({ error: "우승 캐릭터를 찾을 수 없습니다." });
 
     const count = await GameLog.countDocuments();
@@ -33,9 +35,10 @@ router.post('/end', async (req, res) => {
       };
     });
 
+    const winnerFromPayload = summary.find(s => String(s.charId) === String(winnerId));
     const logDoc = await new GameLog({
       title,
-      winnerName: winner.name,
+      winnerName: winner?.name || winnerFromPayload?.name || 'Unknown',
       participants: summary,
       fullLog: Array.isArray(fullLogs) ? fullLogs.map(String) : []
     }).save();

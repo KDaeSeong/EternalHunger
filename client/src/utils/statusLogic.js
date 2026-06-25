@@ -220,6 +220,14 @@ function effectMetaByName(name) {
   return EFFECT_META[canonicalizeEffectName(name)] || null;
 }
 
+function normalizeEffectDurationSec(duration, fallbackSec = 10, extra = {}) {
+  const raw = Number(extra?.durationSec ?? extra?.seconds ?? duration ?? fallbackSec);
+  if (!Number.isFinite(raw)) return Math.max(1, Math.floor(Number(fallbackSec || 1)));
+  const alreadySeconds = extra?.durationUnit === 'sec' || extra?.durationSec != null || extra?.seconds != null || raw > 10;
+  const sec = alreadySeconds ? raw : raw * 10;
+  return Math.max(1, Math.floor(sec));
+}
+
 export function normalizeStatusEffectList(effects) {
   const list = Array.isArray(effects) ? effects : (effects ? [effects] : []);
   return list.map((eff) => normalizeStatusEffect(eff)).filter(Boolean);
@@ -230,7 +238,8 @@ export function makeShieldEffect(shieldValue, duration = 2, sourceId = '', extra
     ...extra,
     name: EFFECT_SHIELD,
     shieldValue: Math.max(0, Math.floor(Number(shieldValue || 0))),
-    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    remainingDuration: normalizeEffectDurationSec(duration, 20, extra),
+    durationUnit: 'sec',
     stacks: Math.max(1, Math.floor(Number(extra?.stacks || 1))),
     sourceId: String(sourceId || extra?.sourceId || ''),
   });
@@ -241,7 +250,8 @@ export function makeRegenEffect(recovery, duration = 2, sourceId = '', extra = {
     ...extra,
     name: EFFECT_REGEN,
     recovery: Math.max(0, Math.floor(Number(recovery || 0))),
-    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    remainingDuration: normalizeEffectDurationSec(duration, 20, extra),
+    durationUnit: 'sec',
     stacks: Math.max(1, Math.floor(Number(extra?.stacks || 1))),
     sourceId: String(sourceId || extra?.sourceId || ''),
   });
@@ -255,7 +265,8 @@ export function makeStatBuffEffect(name, statModifiers = {}, duration = 2, sourc
     ...extra,
     name: canonicalizeEffectName(name),
     statModifiers: cleanedStats,
-    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    remainingDuration: normalizeEffectDurationSec(duration, 20, extra),
+    durationUnit: 'sec',
     stacks: Math.max(1, Math.floor(Number(extra?.stacks || 1))),
     sourceId: String(sourceId || extra?.sourceId || ''),
   });
@@ -265,7 +276,8 @@ export function makeStatusValueEffect(name, duration = 2, sourceId = '', extra =
   return normalizeStatusEffect({
     ...extra,
     name: canonicalizeEffectName(name),
-    remainingDuration: Math.max(1, Math.floor(Number(duration || 1))),
+    remainingDuration: normalizeEffectDurationSec(duration, 20, extra),
+    durationUnit: 'sec',
     stacks: Math.max(1, Math.floor(Number(extra?.stacks || 1))),
     sourceId: String(sourceId || extra?.sourceId || ''),
   });
@@ -316,7 +328,11 @@ export function normalizeStatusEffect(effect) {
   );
 
   const dur = Number(next?.remainingDuration);
-  if (Number.isFinite(dur)) next.remainingDuration = Math.max(0, Math.floor(dur));
+  if (Number.isFinite(dur)) {
+    const alreadySeconds = next?.durationUnit === 'sec' || next?.durationSec != null || dur > 10;
+    next.remainingDuration = Math.max(0, Math.floor(alreadySeconds ? dur : dur * 10));
+    next.durationUnit = 'sec';
+  }
 
   const dot = Number(next?.dotDamage ?? meta?.defaultDotDamage ?? 0);
   next.dotDamage = Number.isFinite(dot) ? Math.max(0, Math.floor(dot)) : 0;
@@ -680,6 +696,7 @@ export function updateEffects(character, opts = {}) {
   let hpChange = 0;
   const ticks = [];
   const expired = [];
+  const elapsedSec = Math.max(1, Math.floor(Number(opts?.elapsedSec ?? opts?.deltaSec ?? 1)));
 
   const nextEffects = activeEffects
     .map((eff) => {
@@ -701,8 +718,8 @@ export function updateEffects(character, opts = {}) {
       }
 
       if (eff?.remainingDuration == null) return eff;
-      const remainingDuration = Math.max(0, Number(eff.remainingDuration || 0) - 1);
-      const next = normalizeStatusEffect({ ...eff, remainingDuration });
+      const remainingDuration = Math.max(0, Number(eff.remainingDuration || 0) - elapsedSec);
+      const next = normalizeStatusEffect({ ...eff, remainingDuration, durationUnit: 'sec' });
       if (remainingDuration <= 0) expired.push(next);
       return next;
     })

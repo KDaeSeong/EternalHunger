@@ -1352,3 +1352,172 @@
 .minimap-dot.alive { background: rgba(255, 255, 255, 0.92); }
 .minimap-dot.dead { background: rgba(170, 170, 170, 0.70); }
 .minimap-dot.forbidden { background: rgba(255, 82, 82, 0.38); }
+
+@media (max-width: 760px) {
+  .simulation-page {
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .simulation-container {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px;
+    overflow-x: hidden;
+  }
+
+  .simulation-container.modal-layout .game-screen,
+  .game-screen {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: auto;
+    min-height: 100dvh;
+    padding: 10px;
+    border-radius: 0;
+  }
+
+  .screen-header {
+    padding: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .screen-header h1 {
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .screen-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .forbidden-top-bar,
+  .worldspawn-toolbar {
+    padding: 8px;
+    gap: 6px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  .forbidden-top-bar .fz-list {
+    max-width: 100%;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .log-window {
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  .log-toolbar {
+    align-items: stretch;
+  }
+
+  .log-message,
+  .log-message.death {
+    padding: 8px 9px;
+    gap: 8px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
+
+  .log-message.day-header,
+  .log-message.night-header {
+    margin: 18px 0 10px;
+    padding-top: 14px;
+    font-size: 1.05rem;
+  }
+
+  .log-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .control-panel {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+    margin: 8px -10px -10px;
+    padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.32);
+  }
+
+  .control-row {
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .btn-proceed,
+  .btn-restart {
+    flex: 1 1 160px;
+    min-width: 0;
+    padding: 12px 14px;
+    font-size: 1rem;
+  }
+
+  .btn-secondary,
+  .autoplay-speed,
+  .prevlogs-btn,
+  .log-toggle-btn {
+    min-height: 40px;
+    font-size: 0.88rem;
+  }
+
+  .market-panel {
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .market-row,
+  .market-actions {
+    align-items: stretch;
+  }
+
+  .market-row {
+    flex-direction: column;
+  }
+
+  .market-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .market-actions button {
+    flex: 1 1 96px;
+    min-height: 38px;
+  }
+
+  .market-io-row {
+    grid-template-columns: 1fr;
+  }
+
+  .survivor-card {
+    width: min(46vw, 150px);
+    padding: 10px 6px;
+  }
+
+  .survivor-card img {
+    width: 52px;
+    height: 52px;
+  }
+
+  .effect-badge {
+    max-width: 100%;
+    height: auto;
+    min-height: 18px;
+    font-size: 0.58rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+}

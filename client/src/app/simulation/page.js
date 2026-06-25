@@ -392,10 +392,20 @@ export default function SimulationPage() {
       : { matchMode, teamSize: 3, maxTeams: 8, maxParticipants: 24 };
   };
 
+  const getFullRosterLimit = (count, cfg) => {
+    const total = Math.max(0, Math.floor(Number(count || 0)));
+    const capped = Math.max(0, Math.min(PARTICIPANT_PRESET_SIZE, Number(cfg?.maxParticipants || PARTICIPANT_PRESET_SIZE), total));
+    const teamSize = Math.max(1, Math.floor(Number(cfg?.teamSize || 1)));
+    if (teamSize <= 1) return capped;
+    return Math.floor(capped / teamSize) * teamSize;
+  };
+
   const applyMatchTeams = (list, src = settings) => {
     const cfg = getMatchConfig(src);
+    const normalized = normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []);
+    const limit = getFullRosterLimit(normalized.length, cfg);
     return assignSimulationTeams(
-      normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []).slice(0, cfg.maxParticipants),
+      normalized.slice(0, limit),
       { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
     ).map((c) => normalizeRuntimeSurvivor(c));
   };
@@ -410,9 +420,10 @@ export default function SimulationPage() {
   const pickParticipantsForRun = (list, presetId = selectedParticipantPresetId, src = settings) => {
     const cfg = getMatchConfig(src);
     const pool = dedupeRuntimeParticipants(normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []));
-    const max = Math.max(2, Math.min(PARTICIPANT_PRESET_SIZE, Number(cfg.maxParticipants || PARTICIPANT_PRESET_SIZE)));
+    const max = getFullRosterLimit(pool.length, cfg);
     const preset = getParticipantPreset(presetId);
 
+    if (max <= 0) return [];
     if (!preset) return shuffleArray(pool).slice(0, max);
 
     const byId = new Map(pool.map((actor) => [getRuntimeActorKey(actor), actor]).filter(([key]) => key));
@@ -462,16 +473,19 @@ export default function SimulationPage() {
 
   const getMatchStartInfo = (list = survivors, src = settings) => {
     const cfg = getMatchConfig(src);
+    const normalized = normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []);
+    const limit = getFullRosterLimit(normalized.length, cfg);
     const assigned = assignSimulationTeams(
-      normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []).slice(0, cfg.maxParticipants),
+      normalized.slice(0, limit),
       { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
     );
     const teams = getAliveTeams(assigned);
+    const minReadyCount = cfg.teamSize <= 1 ? 2 : cfg.teamSize * 2;
     return {
       ...cfg,
       participantCount: assigned.length,
       teamCount: teams.length,
-      ready: assigned.length >= 2 && teams.length >= 2,
+      ready: assigned.length >= minReadyCount && teams.length >= 2 && (cfg.teamSize <= 1 || assigned.length % cfg.teamSize === 0),
     };
   };
 
@@ -1184,6 +1198,69 @@ const activeMapName = useSafeMemo('activeMapName', () => {
 
     setPendingTranscendPick(null);
   };
+
+  function applyPermanentConsumableBoostToActor(ch, effect, item) {
+    const boost = effect?.permanentBoost && typeof effect.permanentBoost === 'object' ? effect.permanentBoost : null;
+    if (!ch || !boost) return { applied: false, duplicate: false, log: '' };
+
+    const key = String(effect?.permanentKey || boost?.key || item?._id || item?.itemId || item?.name || '').trim();
+    if (!key) return { applied: false, duplicate: false, log: '' };
+
+    const used = ch.usedPermanentConsumables && typeof ch.usedPermanentConsumables === 'object'
+      ? { ...ch.usedPermanentConsumables }
+      : {};
+    const itemName = itemDisplayName(item);
+    if (used[key]) {
+      return { applied: false, duplicate: true, log: `♻️ [${ch.name}] ${itemName} 영구 보너스는 이미 적용되어 있습니다.` };
+    }
+    used[key] = true;
+    ch.usedPermanentConsumables = used;
+
+    ch.itemPermanentBonuses = ch.itemPermanentBonuses && typeof ch.itemPermanentBonuses === 'object'
+      ? { ...ch.itemPermanentBonuses }
+      : {};
+    const parts = [];
+
+    const maxHpPlus = Math.max(0, Math.round(Number(boost?.maxHp || 0)));
+    if (maxHpPlus > 0) {
+      const prevMax = Math.max(1, Number(ch.maxHp || 100));
+      const prevHp = Math.max(0, Number(ch.hp || 0));
+      ch.maxHp = prevMax + maxHpPlus;
+      ch.hp = Math.min(ch.maxHp, prevHp + maxHpPlus);
+      ch.itemPermanentBonuses.maxHp = Number(ch.itemPermanentBonuses.maxHp || 0) + maxHpPlus;
+      parts.push(`최대 체력 +${maxHpPlus}`);
+    }
+
+    const statBoost = boost?.stats && typeof boost.stats === 'object' ? boost.stats : {};
+    if (Object.keys(statBoost).length) {
+      ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
+      ch.itemPermanentBonuses.stats = ch.itemPermanentBonuses.stats && typeof ch.itemPermanentBonuses.stats === 'object'
+        ? { ...ch.itemPermanentBonuses.stats }
+        : {};
+      Object.entries(statBoost).forEach(([key0, value]) => {
+        const statKey = String(key0 || '').trim();
+        const v = Number(value || 0);
+        if (!statKey || !Number.isFinite(v) || v === 0) return;
+        ch.stats[statKey] = Number(ch.stats?.[statKey] || 0) + v;
+        ch.itemPermanentBonuses.stats[statKey] = Number(ch.itemPermanentBonuses.stats?.[statKey] || 0) + v;
+        parts.push(`${statKey} +${v}`);
+      });
+    }
+
+    const moveSpeedPlus = Number(boost?.moveSpeed || 0);
+    if (Number.isFinite(moveSpeedPlus) && moveSpeedPlus !== 0) {
+      ch.permanentMoveSpeed = Number(ch.permanentMoveSpeed || 0) + moveSpeedPlus;
+      ch.itemPermanentBonuses.moveSpeed = Number(ch.itemPermanentBonuses.moveSpeed || 0) + moveSpeedPlus;
+      parts.push(`이동 속도 +${moveSpeedPlus}`);
+    }
+
+    return {
+      applied: parts.length > 0,
+      duplicate: false,
+      log: parts.length ? `💊 [${ch.name}] ${itemName} 영구 보너스 적용: ${parts.join(', ')}` : '',
+    };
+  }
+
 const devForceUseConsumable = (charId, invIndex) => {
     if (!showMarketPanel) return;
     if (isAdvancing || isGameOver) return;
@@ -1230,6 +1307,8 @@ const devForceUseConsumable = (charId, invIndex) => {
           ch.stats[key] = Number(ch.stats?.[key] || 0) + v;
         });
       }
+      const permanent = applyPermanentConsumableBoostToActor(ch, effect, it);
+      if (permanent.log) addLog(permanent.log, permanent.duplicate ? 'system' : 'highlight');
       const runtimeEffects = applyRuntimeEffectPayloads(ch, effect?.newEffects);
       runtimeEffects.results.forEach((row) => {
         if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
@@ -1307,11 +1386,12 @@ const devForceUseConsumable = (charId, invIndex) => {
     const assigned = applyMatchTeams(picked, settings);
     const kills = {};
     const assists = {};
+    const shouldTrackAssists = getMatchConfig(settings).matchMode !== 'solo';
     assigned.forEach((actor) => {
       const key = getRuntimeActorKey(actor);
       if (!key) return;
       kills[key] = 0;
-      assists[key] = 0;
+      if (shouldTrackAssists) assists[key] = 0;
     });
 
     setSurvivors(assigned);
@@ -1897,10 +1977,12 @@ if (!who) {
     const m = {};
     (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
       if (!it?._id) return;
+      const rawTier = Number(it?.tier || 1);
+      const tier = Number.isFinite(rawTier) ? Math.max(1, Math.min(6, Math.floor(rawTier))) : 1;
       m[String(it._id)] = {
         name: String(it?.name || it?.text || ''),
         type: it?.type,
-        tier: clampTier4(it?.tier || 1),
+        tier,
         tags: safeTags(it),
         spawnZones: Array.isArray(it?.spawnZones) ? it.spawnZones : [],
         spawnCrateTypes: Array.isArray(it?.spawnCrateTypes) ? it.spawnCrateTypes : [],
@@ -1944,10 +2026,14 @@ if (!who) {
   const devGrantItemOptions = useSafeMemo('devGrantItemOptions', () => {
     return (Array.isArray(publicItems) ? publicItems : [])
       .filter((it) => it?._id)
-      .map((it) => ({
-        ...it,
-        _label: `${itemDisplayName(it)} · T${clampTier4(it?.tier || 1)} · ${String(it?.equipSlot || it?.type || inferItemCategory(it) || '-')}`,
-      }))
+      .map((it) => {
+        const rawTier = Number(it?.tier || 1);
+        const tier = Number.isFinite(rawTier) ? Math.max(1, Math.min(6, Math.floor(rawTier))) : 1;
+        return {
+          ...it,
+          _label: `${itemDisplayName(it)} · T${tier} · ${String(it?.equipSlot || it?.type || inferItemCategory(it) || '-')}`,
+        };
+      })
       .sort((a, b) => String(a._label || '').localeCompare(String(b._label || '')));
   }, [publicItems], []);
 
@@ -2358,8 +2444,9 @@ const pickStartZoneIdForChar = (c) => {
 
         // 어시스트 카운트 초기화
         const initialAssists = {};
+        const shouldTrackAssists = getMatchConfig(loadedSettings).matchMode !== 'solo';
         shuffledChars.forEach((c) => {
-          initialAssists[c._id] = 0;
+          if (shouldTrackAssists) initialAssists[c._id] = 0;
         });
         setAssistCounts(initialAssists);
 
@@ -2529,11 +2616,23 @@ const pickStartZoneIdForChar = (c) => {
     // 서버 저장
     try {
       if (w) {
+        const compactParticipants = participants.map((p) => {
+          const id = getRuntimeActorKey(p);
+          return {
+            _id: id,
+            id,
+            charId: id,
+            name: String(p?.name || p?.nickname || p?.charName || id || 'Unknown'),
+          };
+        });
+        const compactFullLogs = (Array.isArray(fullLogsRef.current) ? fullLogsRef.current : [])
+          .slice(-350)
+          .map((line) => String(line || '').slice(0, 600));
         await apiPost('/game/end', {
           winnerId: wId,
           killCounts: finalKills,
-          fullLogs: (Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []).slice(),
-          participants,
+          fullLogs: compactFullLogs,
+          participants: compactParticipants,
         });
         addLog('✅ 명예의 전당 저장 완료', 'system');
         setResultSummary((prev) => ({
@@ -2613,8 +2712,8 @@ const pickStartZoneIdForChar = (c) => {
     // 서든데스(6번째 밤 이후): 페이즈 고정 + 전 지역 금지 + 카운트다운
     const sdCfg = ruleset?.suddenDeath || {};
     const sdTotalSec = Math.max(10, Number(sdCfg.totalSec ?? sdCfg.durationSec ?? 180));
-    const shouldLockSuddenDeath = suddenDeathActiveRef.current || (day === 6 && phase === 'night');
-    if (shouldLockSuddenDeath) {
+    const shouldActivateSuddenDeath = !suddenDeathActiveRef.current && nextDay === 6 && nextPhase === 'night';
+    if (shouldActivateSuddenDeath) {
       // 최초 발동: 6번째 밤 이후 진행을 시도할 때
       if (!suddenDeathActiveRef.current) {
         suddenDeathActiveRef.current = true;
@@ -2622,8 +2721,6 @@ const pickStartZoneIdForChar = (c) => {
         addLog(`=== 서든데스 발동: 최종 안전구역 2곳 제외 전지역 금지 + 카운트다운 ${sdTotalSec}s ===`, 'day-header');
       }
       // 페이즈는 최대 6일차 밤에서 고정
-      nextDay = 6;
-      nextPhase = 'night';
     }
     // 🚫 금지구역 처리 방식: detonation(폭발 타이머) 설정이 있으면 타이머를 사용
     const useDetonation = !!ruleset?.detonation;
@@ -2668,9 +2765,14 @@ const pickStartZoneIdForChar = (c) => {
     // 🧬 부활 컷오프: 기본 2일차 밤(포함)까지 자동 부활, 5일차 낮까지 유료 부활
     const reviveAutoCutoff = reviveCfg?.autoCutoff || {};
     const revivePaidCutoff = reviveCfg?.paidCutoff || {};
+    const reviveWipeProtectionCutoff = reviveCfg?.teamWipeProtectionCutoff || { day: 2, timeOfDay: 'day' };
     const reviveCutoffIdx = worldPhaseIndex(
       Number(reviveAutoCutoff?.day ?? 2),
       phaseFromTimeOfDay(reviveAutoCutoff?.timeOfDay ?? reviveAutoCutoff?.phase ?? 'night')
+    );
+    const wipeProtectionCutoffIdx = worldPhaseIndex(
+      Number(reviveWipeProtectionCutoff?.day ?? 2),
+      phaseFromTimeOfDay(reviveWipeProtectionCutoff?.timeOfDay ?? reviveWipeProtectionCutoff?.phase ?? 'day')
     );
     const paidReviveCutoffIdx = worldPhaseIndex(
       Number(revivePaidCutoff?.day ?? 5),
@@ -2768,7 +2870,9 @@ const pickStartZoneIdForChar = (c) => {
       for (const d0 of dead) {
         const deadAt = Number(d0?.deadAtPhaseIdx ?? -9999);
         const teamAlive = canReviveThisMatch && (Array.isArray(survivors) ? survivors : []).some((s) => Number(s?.hp || 0) > 0 && areSameTeam(s, d0));
-        const autoEligible = canReviveThisMatch && teamAlive && (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
+        const teamWipeProtected = canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx && deadAt >= 0 && deadAt <= wipeProtectionCutoffIdx;
+        const canAutoReviveByTeamState = teamAlive || teamWipeProtected;
+        const autoEligible = canReviveThisMatch && canAutoReviveByTeamState && (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
         const paidReviveCount = Math.max(0, Math.floor(Number(d0?.paidReviveCount || 0)));
         const paidCost = paidReviveCostBase + paidReviveCostPerUse * paidReviveCount;
         const paidEligible = canReviveThisMatch && !autoEligible && phaseIdxNow <= paidReviveCutoffIdx && teamAlive && Number(d0?.simCredits || 0) >= paidCost;
@@ -2996,7 +3100,7 @@ const pickStartZoneIdForChar = (c) => {
       .map((s) => {
         const beforeHp = Number(s.hp || 0);
         const beforeEffects = Array.isArray(s?.activeEffects) ? s.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [];
-        const statusTick = updateEffects({ ...s, activeEffects: beforeEffects }, { returnMeta: true });
+        const statusTick = updateEffects({ ...s, activeEffects: beforeEffects }, { returnMeta: true, elapsedSec: phaseDurationSec });
         let updated = normalizeRuntimeSurvivor(statusTick?.character || s);
 
         (Array.isArray(statusTick?.ticks) ? statusTick.ticks : []).forEach((tick) => {
@@ -3316,6 +3420,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // ✅ 1일차 "최소 1회 이동" 목표 추적
         if (didMove && Number(nextDay || 0) === 1) {
           updated.day1Moves = Math.max(0, Number(updated.day1Moves || 0)) + 1;
+          if (String(nextPhase || '') === 'morning') {
+            const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+              allowAbstractFallback: true,
+              forceRouteCompletion: true,
+              routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
+            });
+            if (heroRes?.changed && Array.isArray(heroRes.logs)) {
+              heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
+            }
+          }
         }
 
         // 🔥 모닥불(요리) & 💧 물 채집 (서버 맵 설정 기반)
@@ -3830,6 +3944,17 @@ const didMove = String(nextZoneId) !== String(currentZone);
             });
             if (!routeGoalIdsForSearch.length) break;
             if (updated?._routePlanProgress?.advanced) break;
+          }
+        }
+
+        if (queuedActionType === 'routeFarm' && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning') {
+          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+            allowAbstractFallback: true,
+            forceRouteCompletion: true,
+            routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
+          });
+          if (heroRes?.changed && Array.isArray(heroRes.logs)) {
+            heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
           }
         }
 
@@ -4740,6 +4865,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           ch.stats[key] = Number(ch.stats?.[key] || 0) + v;
         });
       }
+      const permanent = applyPermanentConsumableBoostToActor(ch, effect, itemToUse);
+      if (permanent.log) addLog(permanent.log, permanent.duplicate ? 'system' : 'highlight');
       const runtimeEffects = applyRuntimeEffectPayloads(ch, effect?.newEffects);
       runtimeEffects.results.forEach((row) => {
         if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
@@ -4831,7 +4958,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const densityMult = 0.55 + 0.45 * densityFactor;
       const nightMult = (nextPhase === 'night') ? 1.05 : 1.0;
       const actorAggro = getPerkAggressionBias(actor);
-      const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (lowHpAvoidCombat ? 0 : battleProb * densityMult * pressureMult * nightMult);
+      const lowHpEncounterMult = lowHpAvoidCombat
+        ? Math.max(0.12, Math.min(1, Number(pvpProbCfg.lowHpEncounterMult ?? 0.38)))
+        : 1;
+      const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (battleProb * densityMult * pressureMult * nightMult * lowHpEncounterMult);
       const actorMs = getEquipMoveSpeed(actor);
       const actorEr = buildErBehaviorModifier(actor, battleSettings);
       const earlyRouteFarming = isEarlyRouteFarmingActor(actor);
@@ -4861,7 +4991,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       }
 
       // 전투력 열세면 교전 회피 + 인접 안전 구역으로 이동(가능할 때)
-      if (canDual && !lowHpAvoidCombat && earlyRouteFarming && rand < battleProb2 && pvpTarget) {
+      if (canDual && earlyRouteFarming && rand < battleProb2 && pvpTarget) {
         const baseAvoid = Number(pvpProbCfg.earlyRouteFarmAvoidChance ?? 0.72);
         const avoidChance = Math.max(0.12, Math.min(0.92,
           baseAvoid
@@ -4897,7 +5027,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         }
       }
 
-      if (canDual && !lowHpAvoidCombat && rand < battleProb2) {
+      if (canDual && rand < battleProb2) {
         const targetEval = pvpTarget;
         const avoidInfo = targetEval ? shouldAvoidCombatByPower(actor, targetEval) : null;
         if (avoidInfo) {
@@ -5044,11 +5174,25 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           roundKills[winnerId] = (roundKills[winnerId] || 0) + 1;
           let assistId = null;
-          if (prevDamagedBy && prevDamagedBy !== winnerId && prevDamagedBy !== loserId && (phaseIdxNow - prevDamagedPhaseIdx) <= assistWindowPhases) {
+          const assistActor = prevDamagedBy
+            ? (survivorMap.get(prevDamagedBy)
+              || phaseSurvivors.find((s) => String(s?._id || '') === prevDamagedBy)
+              || todaysSurvivors.find((s) => String(s?._id || '') === prevDamagedBy)
+              || null)
+            : null;
+          const canRecordAssist = !isSoloMatch
+            && assistActor
+            && String(assistActor?.name || '').trim()
+            && prevDamagedBy !== winnerId
+            && prevDamagedBy !== loserId
+            && areSameTeam(assistActor, combatWinner)
+            && !areSameTeam(assistActor, combatLoser)
+            && (phaseIdxNow - prevDamagedPhaseIdx) <= assistWindowPhases;
+          if (canRecordAssist) {
             assistId = prevDamagedBy;
             roundAssists[assistId] = (roundAssists[assistId] || 0) + 1;
           }
-          const assistName = assistId ? (survivorMap.get(assistId)?.name || assistId) : '';
+          const assistName = assistId ? String(assistActor?.name || '') : '';
           addLog(`☠️ [${combatWinner.name}] ${opts.killText || '처치'}! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
           if (!opts?.skipTraitAfterBattle) {
             applyErTraitAfterBattle(combatWinner, { lethal: true, defeated: combatLoser, damageDealt: opts?.damageDealt });
@@ -5891,10 +6035,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
     });
     setKillCounts(updatedKillCounts);
 
-    const updatedAssistCounts = { ...assistCounts };
-    Object.keys(roundAssists).forEach((aid) => {
-      updatedAssistCounts[aid] = (updatedAssistCounts[aid] || 0) + (roundAssists[aid] || 0);
-    });
+    const updatedAssistCounts = isSoloMatch ? {} : { ...assistCounts };
+    if (!isSoloMatch) {
+      Object.keys(roundAssists).forEach((aid) => {
+        updatedAssistCounts[aid] = (updatedAssistCounts[aid] || 0) + (roundAssists[aid] || 0);
+      });
+    }
     setAssistCounts(updatedAssistCounts);
 
     // 5. 생존자 업데이트
@@ -6156,12 +6302,6 @@ if (showMarketPanel && pendingTranscendPick) {
       if (String(s?._id) !== String(selectedCharId)) return s;
       return res.actor;
     }));
-
-    setCandidateSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => (
-      String(s?._id) === String(selectedCharId)
-        ? grantRuntimeItem(s, item, itemId, qty, ruleset).actor
-        : s
-    )));
 
     addLog(`🛠 [${current.name}] 개발자 아이템 지급: ${itemIcon(item)} ${nm} ${gainText(res.got)}${formatInvAddNote(res.meta, qty, res.actor.inventory, ruleset)}`, res.got > 0 ? 'highlight' : 'death');
     emitItemGainIfAny(res.got, {
@@ -6546,9 +6686,9 @@ if (showMarketPanel && pendingTranscendPick) {
                                               : nm === '쿨다운 감소' ? '⏬'
                                                 : '🤕';
                     const stacks = Math.max(1, Number(eff?.stacks || 1));
-                    const label = dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`;
+                    const label = dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}s` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`;
                     return (
-                      <span key={`${nm}-${i}`} title={dur !== null ? `${nm}${stacks > 1 ? ` x${stacks}` : ''} (${dur})` : nm} className="effect-badge">
+                      <span key={`${nm}-${i}`} title={dur !== null ? `${nm}${stacks > 1 ? ` x${stacks}` : ''} (${dur}s)` : nm} className="effect-badge">
                         {label}
                       </span>
                     );

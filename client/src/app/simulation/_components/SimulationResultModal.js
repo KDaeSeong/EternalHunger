@@ -49,6 +49,7 @@ export default function SimulationResultModal({
   const winnerTeamMembers = Array.isArray(winnerTeam?.members) ? winnerTeam.members : [];
   const matchMode = String(resultSummary?.matchMode || '').toLowerCase();
   const isSoloMatch = matchMode === 'solo';
+  const hasAssistStats = !isSoloMatch && Object.keys(assistCounts || {}).length > 0;
   const matchModeText = isSoloMatch
     ? `솔로 · ${resultSummary?.participantsCount || 0}명 / ${resultSummary?.teamCount || 0}팀`
     : `스쿼드 · ${resultSummary?.participantsCount || 0}명 / ${resultSummary?.teamCount || 0}팀 · 팀당 ${resultSummary?.teamSize || 3}명`;
@@ -119,7 +120,7 @@ export default function SimulationResultModal({
               </div>
               <div>
                 <span>대표 K/A</span>
-                <strong>{winnerKills} / {winnerAssists}</strong>
+                <strong>{hasAssistStats ? `${winnerKills} / ${winnerAssists}` : winnerKills}</strong>
               </div>
               <div>
                 <span>최다 킬</span>
@@ -172,7 +173,7 @@ export default function SimulationResultModal({
             {ranked.map((char, idx) => (
               <li key={char._id}>
                 <span>{idx + 1}위. {char.name}</span>
-                <strong>{killCounts?.[char._id] || 0}킬 / {assistCounts?.[char._id] || 0}어시</strong>
+                <strong>{hasAssistStats ? `${killCounts?.[char._id] || 0}킬 / ${assistCounts?.[char._id] || 0}어시` : `${killCounts?.[char._id] || 0}킬`}</strong>
               </li>
             ))}
           </ul>

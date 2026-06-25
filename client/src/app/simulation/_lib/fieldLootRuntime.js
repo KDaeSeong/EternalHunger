@@ -20,13 +20,19 @@ import {
   resolveLegendaryDropWeights,
 } from './legendaryRuntime';
 
+function clampDropTier(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(6, Math.floor(n)));
+}
+
 // 🎁 초월 장비 선택 상자: 후보 2~3개를 뽑아 "선택"하게 하는 최소 구현
 function rollTranscendPickOptions(publicItems, count = 3) {
   const list = Array.isArray(publicItems) ? publicItems : [];
   const equipT4 = list
     .filter((it) => it?._id)
     .filter((it) => inferItemCategory(it) === 'equipment')
-    .filter((it) => clampTier4(it?.tier || 1) >= 6);
+    .filter((it) => clampDropTier(it?.tier || 1) >= 6);
   if (!equipT4.length) return [];
 
   // 슬롯 다양성 우선(가능하면 서로 다른 슬롯)
@@ -79,7 +85,7 @@ function rollTranscendPickOptions(publicItems, count = 3) {
   return picked.map((it) => ({
     itemId: String(it._id),
     name: String(it?.name || ''),
-    tier: clampTier4(it?.tier || 4),
+    tier: clampDropTier(it?.tier || 4),
     slot: String(it?.equipSlot || inferEquipSlot(it) || ''),
   }));
 }
@@ -88,7 +94,7 @@ function pickAutoTranscendOption(options, publicItems) {
   const list = Array.isArray(publicItems) ? publicItems : [];
   const scored = (Array.isArray(options) ? options : []).map((o) => {
     const it = list.find((x) => String(x?._id) === String(o?.itemId)) || null;
-    const tier = clampTier4(it?.tier ?? o?.tier ?? 4);
+    const tier = clampDropTier(it?.tier ?? o?.tier ?? 4);
     const v = Number(it?.baseCreditValue ?? it?.value ?? 0);
     const score = tier * 100000 + v;
     return { ...o, _score: score };

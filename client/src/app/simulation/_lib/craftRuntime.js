@@ -17,6 +17,12 @@ import {
   perkNumber,
 } from './perkRuntime';
 
+function clampGearTier(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(6, Math.floor(n)));
+}
+
 export function classifySpecialByName(name) {
   const nm = String(name || '').toLowerCase();
   if (!nm) return '';
@@ -57,7 +63,7 @@ export function computeCraftTierFromIngredients(ingredients, itemMetaById, itemN
     const cat = inferItemCategory(pseudoItem);
     if (cat === 'equipment') {
       hasEquip = true;
-      maxEquipTier = Math.max(maxEquipTier, clampTier4(meta?.tier || pseudoItem?.tier || 1));
+      maxEquipTier = Math.max(maxEquipTier, clampGearTier(meta?.tier || pseudoItem?.tier || 1));
     } else if (cat === 'material') {
       if (!kind) lowMatCount += qty;
     }
@@ -67,12 +73,12 @@ export function computeCraftTierFromIngredients(ingredients, itemMetaById, itemN
   if (hasLegendaryMat) return 5;
   if (hasEquip && lowMatCount >= 1) return maxEquipTier >= 3 ? 4 : 3;
   if (!hasEquip && lowMatCount >= 2) return 1;
-  return clampTier4(Math.max(1, maxEquipTier || 1));
+  return clampGearTier(Math.max(1, maxEquipTier || 1));
 }
 
 export function applyEquipTier(item, tier) {
   if (!item) return item;
-  const t = clampTier4(tier);
+  const t = clampGearTier(tier);
   return { ...item, tier: t, rarity: tierLabelKo(t) };
 }
 
@@ -205,7 +211,7 @@ export function pickBestEquipBySlot(inventory, slot) {
   const list = Array.isArray(inventory) ? inventory : [];
   const cand = list.filter((x) => String(x?.equipSlot || inferEquipSlot(x) || '').toLowerCase() === s);
   if (!cand.length) return null;
-  cand.sort((a, b) => clampTier4(Number(b?.tier || 1)) - clampTier4(Number(a?.tier || 1)));
+  cand.sort((a, b) => clampGearTier(Number(b?.tier || 1)) - clampGearTier(Number(a?.tier || 1)));
   return cand[0] || null;
 }
 
@@ -222,7 +228,7 @@ export function tryAutoCraftFromLoot(inventory, lootedItemId, craftables, itemNa
     const cat = inferItemCategory(it);
     const key = String(it?.itemKey || it?.externalId || '').trim();
     const isGoal = key && goalKeys.has(key);
-    const tier = clampTier4(it?.tier || 1);
+    const tier = clampGearTier(it?.tier || 1);
     const ingredients = compactIO(it?.recipe?.ingredients || []);
     return (
       (isGoal ? 10000 : 0) +
@@ -313,8 +319,8 @@ export function buildCraftDebugInfo(actor, craftables, itemNameById, ruleset) {
         }
       }
       const curBest = slot ? pickBestEquipBySlot(inv0, slot) : null;
-      const curTier = curBest ? clampTier4(Number(curBest?.tier || 1)) : 0;
-      const tgtTier = clampTier4(Number(it?.tier || 1));
+      const curTier = curBest ? clampGearTier(Number(curBest?.tier || 1)) : 0;
+      const tgtTier = clampGearTier(Number(it?.tier || 1));
       const wantKey = String(goalBySlot?.[slot] || '').trim();
       const candKey = String(it?.itemKey || it?.externalId || '').trim();
       const wantGoal = !!(wantKey && candKey && wantKey === candKey);

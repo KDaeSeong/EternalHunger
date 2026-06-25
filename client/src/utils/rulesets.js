@@ -239,6 +239,9 @@ export const RULESETS = {
     // ⏱ 페이즈 내부 틱(초)
     tickSec: 1,
     phaseSecondsByDay: ER_PHASE_SECONDS,
+    suddenDeath: {
+      totalSec: 370,
+    },
 
     // 🚫 폭발 타이머(금지구역)
     // - 시작 20초 / 최대 30초 / 처치 시 +5초(캡 적용)
@@ -314,9 +317,10 @@ export const RULESETS = {
 
     revive: {
       autoCutoff: { day: 2, timeOfDay: 'night' },
+      teamWipeProtectionCutoff: { day: 2, timeOfDay: 'day' },
       paidCutoff: { day: 5, timeOfDay: 'day' },
-      paidCostBase: 100,
-      paidCostPerUse: 50,
+      paidCostBase: 200,
+      paidCostPerUse: 0,
       hpRatio: 0.65,
     },
 
@@ -333,19 +337,19 @@ export const RULESETS = {
       safeSearchDepth: 3,
 
       // 저HP 회복 우선(최소): 위험 행동(교전/사냥)보다 안전 이동을 우선
-      recoverHpBelow: 38,
+      recoverHpBelow: 30,
       recoverMinSaferDelta: 1,
       erPresetStatScale: 1,
-      earlyRouteFarmAttempts: 2,
-      earlyRouteMaxSearches: 3,
-      // 레시피 데이터 누락 시에도 1일차 장비 fallback은 T3까지만 보정합니다.
-      day1AbstractFallbackMaxTier: 3,
+      earlyRouteFarmAttempts: 5,
+      earlyRouteMaxSearches: 4,
+      // 1일차 낮 루트 파밍은 실제 ER 템포에 맞춰 영웅(T4) 5부위 완성을 목표로 합니다.
+      day1AbstractFallbackMaxTier: 4,
 
       // 전투력 낮으면 교전 회피(최소): 상대 대비 불리하면 교전을 피함
       // - ratio = 내Power / (내Power + 상대Power)
       fightAvoidMinRatio: 0.44,
       fightAvoidAbsDelta: 10,
-      fightAvoidChance: 0.62,
+      fightAvoidChance: 0.48,
       fightAvoidExtremeRatio: 0.27,
       fightAvoidExtremeDelta: 34,
       escapeHpBelow: 34,
@@ -367,13 +371,14 @@ export const RULESETS = {
       // 교전 트리거(동일 zone에 n명 이상)
       encounterMinSameZone: 2,
       // 교전 확률(일차/포그 보정 포함)
-      encounterBase: 0.36,
-      encounterDayScale: 0.06,
-      encounterMax: 0.88,
+      encounterBase: 0.42,
+      encounterDayScale: 0.075,
+      encounterMax: 0.92,
       encounterFogBonus: 0.08,
       day1MorningPairEventProb: 0.02,
-      earlyRouteFarmEncounterMult: 0.55,
-      earlyRouteFarmAvoidChance: 0.56,
+      earlyRouteFarmEncounterMult: 0.70,
+      earlyRouteFarmAvoidChance: 0.42,
+      lowHpEncounterMult: 0.38,
       // 이벤트(야생/상자/보스 등) 확률의 상한/오프셋(기존 하드코딩 제거용)
       eventOffset: 0.30,
       eventMax: 0.95,
@@ -381,21 +386,21 @@ export const RULESETS = {
       lootCreditRate: 0.42,
       lootCreditMin: 14,
       lootInventoryUnits: 1,
-      restHealMax: 4,
+      restHealMax: 3,
 
-      damageBase: 18,
-      damageDayScale: 3,
-      earlyLethalDamageDayEnd: 3,
-      earlyLethalDamageFlat: 8,
-      earlyLethalLowHpBonusBelow: 45,
-      earlyLethalLowHpBonus: 10,
-      earlyLethalFinishHpBelow: 12,
-      earlyLethalFinishChanceBase: 0.12,
-      earlyLethalFinishChanceDayScale: 0.05,
-      earlyLethalFinishRatioBonus: 0.12,
-      earlyLethalFinishMax: 0.34,
+      damageBase: 20,
+      damageDayScale: 4,
+      earlyLethalDamageDayEnd: 4,
+      earlyLethalDamageFlat: 12,
+      earlyLethalLowHpBonusBelow: 50,
+      earlyLethalLowHpBonus: 16,
+      earlyLethalFinishHpBelow: 22,
+      earlyLethalFinishChanceBase: 0.20,
+      earlyLethalFinishChanceDayScale: 0.07,
+      earlyLethalFinishRatioBonus: 0.16,
+      earlyLethalFinishMax: 0.52,
       criticalFleeHpBelow: 20,
-      criticalFleeChance: 0.58,
+      criticalFleeChance: 0.34,
 
 
       // 전투 후 승자 행동(추가 휴식/이동)
@@ -494,15 +499,15 @@ export const RULESETS = {
       safeSearchDepth: 3,
 
       // 저HP 회복 우선(최소): 위험 행동(교전/사냥)보다 안전 이동을 우선
-      recoverHpBelow: 38,
+      recoverHpBelow: 30,
       recoverMinSaferDelta: 1,
       erPresetStatScale: 0.45,
-      earlyRouteFarmAttempts: 2,
-      earlyRouteMaxSearches: 3,
-      day1AbstractFallbackMaxTier: 3,
+      earlyRouteFarmAttempts: 5,
+      earlyRouteMaxSearches: 4,
+      day1AbstractFallbackMaxTier: 4,
       fightAvoidMinRatio: 0.44,
       fightAvoidAbsDelta: 10,
-      fightAvoidChance: 0.62,
+      fightAvoidChance: 0.48,
       fightAvoidExtremeRatio: 0.27,
       fightAvoidExtremeDelta: 34,
       escapeHpBelow: 34,
@@ -513,34 +518,35 @@ export const RULESETS = {
     worldSpawns: DEFAULT_WORLD_SPAWNS,
     pvp: {
       encounterMinSameZone: 2,
-      encounterBase: 0.36,
-      encounterDayScale: 0.06,
-      encounterMax: 0.88,
+      encounterBase: 0.42,
+      encounterDayScale: 0.075,
+      encounterMax: 0.92,
       encounterFogBonus: 0.00,
       day1MorningPairEventProb: 0.02,
-      earlyRouteFarmEncounterMult: 0.55,
-      earlyRouteFarmAvoidChance: 0.56,
+      earlyRouteFarmEncounterMult: 0.70,
+      earlyRouteFarmAvoidChance: 0.42,
+      lowHpEncounterMult: 0.38,
       eventOffset: 0.30,
       eventMax: 0.95,
 
       lootCreditRate: 0.42,
       lootCreditMin: 14,
       lootInventoryUnits: 1,
-      restHealMax: 4,
+      restHealMax: 3,
 
-      damageBase: 18,
-      damageDayScale: 3,
-      earlyLethalDamageDayEnd: 3,
-      earlyLethalDamageFlat: 8,
-      earlyLethalLowHpBonusBelow: 45,
-      earlyLethalLowHpBonus: 10,
-      earlyLethalFinishHpBelow: 12,
-      earlyLethalFinishChanceBase: 0.12,
-      earlyLethalFinishChanceDayScale: 0.05,
-      earlyLethalFinishRatioBonus: 0.12,
-      earlyLethalFinishMax: 0.34,
+      damageBase: 20,
+      damageDayScale: 4,
+      earlyLethalDamageDayEnd: 4,
+      earlyLethalDamageFlat: 12,
+      earlyLethalLowHpBonusBelow: 50,
+      earlyLethalLowHpBonus: 16,
+      earlyLethalFinishHpBelow: 22,
+      earlyLethalFinishChanceBase: 0.20,
+      earlyLethalFinishChanceDayScale: 0.07,
+      earlyLethalFinishRatioBonus: 0.16,
+      earlyLethalFinishMax: 0.52,
       criticalFleeHpBelow: 20,
-      criticalFleeChance: 0.58,
+      criticalFleeChance: 0.34,
 
 
       // 전투 후 승자 행동(추가 휴식/이동)

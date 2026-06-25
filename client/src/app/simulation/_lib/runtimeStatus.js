@@ -24,7 +24,9 @@ export function normalizeRuntimeEffect(effect) {
   const next = { ...effect };
   if (next?.remainingDuration != null) {
     const dur = Number(next.remainingDuration);
-    next.remainingDuration = Number.isFinite(dur) ? Math.max(0, Math.floor(dur)) : 0;
+    const alreadySeconds = next?.durationUnit === 'sec' || next?.durationSec != null || dur > 10;
+    next.remainingDuration = Number.isFinite(dur) ? Math.max(0, Math.floor(alreadySeconds ? dur : dur * 10)) : 0;
+    next.durationUnit = 'sec';
   }
   if (next?.dotDamage != null) {
     const dot = Number(next.dotDamage);
