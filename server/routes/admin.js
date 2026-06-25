@@ -76,8 +76,9 @@ router.post('/items', async (req, res) => {
 // 아이템 삭제하기
 router.delete('/items/:id', async (req, res) => {
     try {
-        await Item.findByIdAndDelete(req.params.id);
-        res.json({ message: "아이템이 삭제되었습니다." });
+        const result = await Item.deleteOne({ _id: req.params.id });
+        if (Number(result?.deletedCount || 0) < 1) return res.status(404).json({ error: "아이템을 찾을 수 없습니다." });
+        res.json({ message: "아이템이 삭제되었습니다.", deletedCount: 1, id: String(req.params.id || '') });
     } catch (err) { res.status(500).json({ error: "삭제 실패" }); }
 });
 

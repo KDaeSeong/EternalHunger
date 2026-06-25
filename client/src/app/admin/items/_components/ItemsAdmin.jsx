@@ -39,6 +39,12 @@ const sample = [
   { id: 'sample-3', name: '헌터 키보드', kind: 'keyboard', price: 300, rarity: 'SR' },
 ];
 
+const PAGE_SIZE_OPTIONS = [50, 100, 200, 500];
+
+function getItemMongoId(it) {
+  return String(it?._id || it?.mongoId || '').trim();
+}
+
 function safeJsonParse(v, fallback) {
   try {
     return JSON.parse(v);
@@ -600,6 +606,9 @@ export default function ItemsAdmin() {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('all');
   const [simOnly, setSimOnly] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+  const [deletingIds, setDeletingIds] = useState(() => new Set());
   const [status, setStatus] = useState('loading'); // loading | ok | fallback
   const [treeBusy, setTreeBusy] = useState(false);
   const [treeMsg, setTreeMsg] = useState('');
@@ -674,14 +683,34 @@ export default function ItemsAdmin() {
   }
 
   async function deleteItem(it) {
-    const id = it?._id || it?.mongoId;
+    const id = getItemMongoId(it);
     if (!id) return;
     const name = String(it?.name || it?.itemName || '아이템');
-    const ok = window.confirm(`정말 삭제할까?\n\n- ${name}`);
+    const ok = window.confirm(`정말 삭제할까요?\n\n- ${name}`);
     if (!ok) return;
 
-    await apiDelete(`/admin/items/${id}`);
-    await reloadItems();
+    const before = items;
+    setDeletingIds((prev) => new Set([...prev, id]));
+    setItems((prev) => (Array.isArray(prev) ? prev.filter((row) => getItemMongoId(row) !== id) : []));
+    if (getItemMongoId(editorItem) === id) {
+      setEditorOpen(false);
+      setEditorItem(null);
+    }
+
+    try {
+      await apiDelete(`/admin/items/${id}`);
+      setTreeMsg(`${name} 삭제 완료`);
+    } catch (e) {
+      setItems(before);
+      setTreeMsg(`${name} 삭제 실패`);
+      throw e;
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   const filtered = useMemo(() => {
@@ -695,6 +724,18 @@ export default function ItemsAdmin() {
       return hitQ && hitK && hitSim;
     });
   }, [items, q, kind, simOnly]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, kind, simOnly, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / Math.max(1, pageSize)));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const pagedItems = useMemo(() => {
+    const size = Math.max(1, Number(pageSize || 100));
+    const start = (safePage - 1) * size;
+    return filtered.slice(start, start + size);
+  }, [filtered, pageSize, safePage]);
 
   const box = { padding: 16 };
   const card = { padding: 12, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 };
@@ -759,6 +800,37 @@ export default function ItemsAdmin() {
         </label>
       </div>
 
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, opacity: 0.85 }}>
+          표시 {filtered.length === 0 ? 0 : ((safePage - 1) * pageSize) + 1}
+          -{Math.min(filtered.length, safePage * pageSize)} / 검색 결과 {filtered.length}개
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setPage((v) => Math.max(1, v - 1))}
+            disabled={safePage <= 1}
+            style={{ ...input, cursor: safePage <= 1 ? 'not-allowed' : 'pointer' }}
+          >
+            이전
+          </button>
+          <span style={{ fontSize: 13, opacity: 0.9 }}>{safePage} / {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => setPage((v) => Math.min(totalPages, v + 1))}
+            disabled={safePage >= totalPages}
+            style={{ ...input, cursor: safePage >= totalPages ? 'not-allowed' : 'pointer' }}
+          >
+            다음
+          </button>
+          <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} style={input}>
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <option key={n} value={n}>{n}개씩</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div style={{ ...card, marginTop: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -774,7 +846,7 @@ export default function ItemsAdmin() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((it) => (
+            {pagedItems.map((it) => (
               <tr key={String(it._id || it.mongoId || it.id || Math.random())}>
                 <td style={td}>
                   <div style={{ fontFamily: 'monospace', fontSize: 12 }}>{String(it.externalId || it._id || it.mongoId || it.id || '-')}</div>
@@ -794,7 +866,13 @@ export default function ItemsAdmin() {
                 <td style={td}>{it.lockedByAdmin ? '🔒' : '-'}</td>
                 <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <button onClick={() => openEdit(it)} style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'inherit', cursor: 'pointer' }}>편집</button>
-                  <button onClick={() => deleteItem(it).catch((e) => alert(String(e?.message || e)))} style={{ marginLeft: 8, padding: '6px 10px', borderRadius: 10, border: '1px solid rgba(255,120,120,0.35)', background: 'rgba(255,80,80,0.12)', color: 'inherit', cursor: 'pointer' }}>삭제</button>
+                  <button
+                    onClick={() => deleteItem(it).catch((e) => alert(String(e?.message || e)))}
+                    disabled={deletingIds.has(getItemMongoId(it))}
+                    style={{ marginLeft: 8, padding: '6px 10px', borderRadius: 10, border: '1px solid rgba(255,120,120,0.35)', background: 'rgba(255,80,80,0.12)', color: 'inherit', cursor: deletingIds.has(getItemMongoId(it)) ? 'not-allowed' : 'pointer', opacity: deletingIds.has(getItemMongoId(it)) ? 0.55 : 1 }}
+                  >
+                    {deletingIds.has(getItemMongoId(it)) ? '삭제 중' : '삭제'}
+                  </button>
                 </td>
               </tr>
             ))}
