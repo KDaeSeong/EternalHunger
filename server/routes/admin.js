@@ -114,7 +114,7 @@ router.post('/maps/normalize-list', async (req, res) => {
     const normalizeName = (v) => String(v || '').trim().replace(/\s+/g, '');
     const lower = (v) => normalizeName(v).toLowerCase();
 
-    const deleteTargets = new Set(['공원', 'park']);
+    const deleteTargets = new Set();
     const ensureNames = ['소방서', '경찰서'];
 
     const filter = scope(req, res);
@@ -433,6 +433,7 @@ function mapLooksLikeKioskMap(mapName) {
   // 커스텀/영문 대비
   const nm = name.toLowerCase();
   const keywords = [
+    'barge', 'vessel', 'ship', '바지선',
     'hospital', '병원',
     'archery', '양궁',
     'hotel', '호텔',

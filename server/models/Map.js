@@ -61,7 +61,8 @@ const MapSchema = new mongoose.Schema({
   zoneConnections: [{
     fromZoneId: { type: String, required: true },
     toZoneId: { type: String, required: true },
-    bidirectional: { type: Boolean, default: true }
+    bidirectional: { type: Boolean, default: true },
+    connectionType: { type: String, default: 'road' }
   }],
 
   // 🚫 금지구역 설정(로드맵 2-4)

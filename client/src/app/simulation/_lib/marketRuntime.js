@@ -17,6 +17,7 @@ function kioskLegendaryPrice(key, priceByKey) {
 function zoneNameHasKiosk(name) {
   const nm = String(name || '').toLowerCase();
   const keywords = [
+    '바지선', 'barge', 'vessel', 'ship',
     '병원', 'hospital',
     '성당', 'cathedral', 'church',
     '경찰서', 'police',
@@ -47,7 +48,7 @@ function hasKioskAtZone(kiosks, mapObj, zoneId) {
 
   const zonesArr = Array.isArray(mapObj?.zones) ? mapObj.zones : [];
   const zone = zonesArr.find((z) => String(z?.zoneId || '') === zId) || null;
-  return zoneNameHasKiosk(zone?.name || '');
+  return zoneNameHasKiosk(zone?.name || '') || zoneNameHasKiosk(zone?.zoneId || '');
 }
 
 function canUseKioskAtWorldTime(day, phase) {

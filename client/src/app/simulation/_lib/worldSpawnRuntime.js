@@ -132,9 +132,10 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
       const hotspot = (wildRule?.hotspotWeights && typeof wildRule.hotspotWeights === 'object') ? wildRule.hotspotWeights : {
         forest: 2.0,
-        pond: 1.6,
         stream: 1.6,
-        beach: 1.4,
+        sandy_beach: 1.4,
+        cemetery: 1.3,
+        park: 1.2,
         port: 1.2,
       };
 

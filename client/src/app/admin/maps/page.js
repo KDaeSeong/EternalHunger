@@ -4,7 +4,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost } from '../../../utils/api';
 
 const KIOSK_MAP_NAMES = new Set([
-  '병원', '양궁장', '호텔', '창고', '연구소', '절', '소방서', '경찰서', '성당', '학교',
+  '양궁장',
+  '학교',
+  '연구소',
+  '경찰서',
+  '소방서',
+  '절',
+  '병원',
+  '창고',
+  '바지선',
+  '성당',
+  '호텔',
 ]);
 
 function looksLikeKioskMap(name) {
@@ -12,7 +22,26 @@ function looksLikeKioskMap(name) {
   if (!n) return false;
   if (KIOSK_MAP_NAMES.has(n)) return true;
   const t = n.toLowerCase();
-  const keywords = ['hospital','archery','hotel','warehouse','storage','lab','research','temple','fire','firestation','police','cathedral','church','school','academy'];
+  const keywords = [
+    'archery',
+    'school',
+    'academy',
+    'lab',
+    'research',
+    'police',
+    'fire',
+    'firestation',
+    'temple',
+    'hospital',
+    'warehouse',
+    'storage',
+    'barge',
+    'vessel',
+    'ship',
+    'cathedral',
+    'church',
+    'hotel',
+  ];
   return keywords.some((k) => t.includes(k));
 }
 
@@ -57,29 +86,40 @@ export default function AdminMapsPage() {
   return (
     <div>
       <div className="admin-topbar">
-        <h1>맵/지역</h1>
+        <h1>맵 지정</h1>
         <div className="admin-btn-row">
           <button className="admin-btn" onClick={load} disabled={busy}>새로고침</button>
           <button
             className="admin-btn"
             onClick={() => run(() => apiPost('/admin/maps/normalize-list', {}))}
             disabled={busy}
-            title="공원 삭제 + 소방서/경찰서 자동 생성"
+            title="운영 맵 목록을 기본값 기준으로 정리"
           >
             맵 목록 정리
           </button>
           <button
             className="admin-btn"
+            onClick={() => {
+              if (!confirm('현재 계정의 맵 구역/동선을 기본 루미아 연결표로 덮어쓸까요?')) return;
+              run(() => apiPost('/admin/maps/apply-default-zones', { mode: 'force' }));
+            }}
+            disabled={busy}
+            title="루미아 섬 구역 목록과 길 연결표를 현재 계정 맵에 강제 적용"
+          >
+            구역/동선 적용
+          </button>
+          <button
+            className="admin-btn"
             onClick={() => run(() => apiPost('/admin/kiosks/generate', { mode: 'missing' }))}
             disabled={busy}
-            title="키오스크 지역(병원/학교/연구소 등)에서 누락된 키오스크만 생성"
+            title="키오스크 위치 맵에서 누락된 키오스크만 생성"
           >
             키오스크 자동 생성
           </button>
           <button
             className="admin-btn danger"
             onClick={() => {
-              if (!confirm('정말로 덮어쓸까요?\n\n대상 지역의 키오스크를 전부 삭제 후, 맵당 1개로 재생성합니다.')) return;
+              if (!confirm('정말로 덮어쓸까요?\n\n대상 지역의 키오스크를 모두 삭제 후 맵당 1개로 재생성합니다.')) return;
               run(() => apiPost('/admin/kiosks/generate', { mode: 'force' }));
             }}
             disabled={busy}
@@ -90,7 +130,7 @@ export default function AdminMapsPage() {
             className="admin-btn"
             onClick={() => run(() => apiPost('/admin/kiosks/normalize', {}))}
             disabled={busy}
-            title="기존 데이터(전부 병원/중복 등)를 맵당 1개로 정리"
+            title="기존 키오스크 데이터를 맵당 1개로 정리"
           >
             키오스크 정규화
           </button>
@@ -103,7 +143,7 @@ export default function AdminMapsPage() {
           총 {maps.length}개 / 키오스크 지역 {kioskMapsCount}개
         </div>
         <div className="admin-muted" style={{ marginTop: 6 }}>
-          ※ zones(세부 존)은 운영에서 숨김 처리했습니다. 시뮬은 내부 기본값으로 동작합니다.
+          zones는 게임 런타임에서 우선 사용되며, 없으면 기본 루미아 섬 데이터로 동작합니다.
         </div>
       </div>
 

@@ -1,84 +1,112 @@
-// server/utils/defaultZoneConnections.js
-// ✅ 기본 '존 동선(인접 그래프)' 프리셋
-// - Eternal Return 루미아 섬(존 기반) 감성에 맞춰, 기본 존들이 "인접 이동" 할 수 있도록 구성
-// - 실제 맵 제작 단계에서 어드민 UI로 덮어쓸 수 있으므로, 여기서는 "기본값"만 제공합니다.
+// Default Lumia Island adjacency graph.
+// Road edges come from the user's supplied "길로 연결된 곳" table.
+// The park-cemetery jump paddle is kept as a separate connectionType.
 
-// 기본 연결(양방향)
-// NOTE: zoneId는 server/utils/defaultZones.js의 기본 zoneId와 맞춰야 합니다.
-const DEFAULT_EDGES = [
-  // 중심/도심
-  ['alley', 'hospital'],
-  ['alley', 'police'],
-  ['alley', 'cathedral'],
-  ['alley', 'warehouse'],
-  ['alley', 'residential'],
+const DEFAULT_ROAD_EDGES = [
   ['alley', 'gas_station'],
+  ['alley', 'police'],
+  ['alley', 'temple'],
 
-  // 서쪽/해안
-  ['gas_station', 'beach'],
-  ['beach', 'stream'],
-  ['beach', 'port'],
+  ['gas_station', 'archery'],
+  ['gas_station', 'school'],
+  ['gas_station', 'firestation'],
 
-  // 자연/사냥 루트
-  ['stream', 'forest'],
-  ['stream', 'pond'],
-  ['forest', 'archery'],
-  ['forest', 'temple'],
-  ['forest', 'pond'],
-  ['temple', 'pond'],
-  ['archery', 'temple'],
+  ['archery', 'school'],
+  ['archery', 'hotel'],
 
-  // 북/학군
-  ['pond', 'school'],
-  ['pond', 'lab'],
-  ['pond', 'cathedral'],
+  ['school', 'firestation'],
   ['school', 'hotel'],
-  ['hotel', 'lab'],
-  ['hotel', 'cathedral'],
-  ['hotel', 'residential'],
-  ['school', 'residential'],
-  ['hospital', 'residential'],
+  ['school', 'forest'],
+  ['school', 'lab'],
 
-  // 산업/남동
-  ['warehouse', 'factory'],
-  ['factory', 'port'],
-  ['factory', 'firestation'],
-  ['factory', 'lab'],
-  ['firestation', 'police'],
+  ['police', 'temple'],
+  ['police', 'firestation'],
+  ['police', 'stream'],
+
+  ['firestation', 'park'],
+  ['firestation', 'lab'],
+
+  ['temple', 'stream'],
+
+  ['stream', 'park'],
+  ['stream', 'hospital'],
+
+  ['park', 'hospital'],
+
+  ['hospital', 'cemetery'],
+  ['hospital', 'factory'],
+
+  ['hotel', 'beach'],
+  ['hotel', 'forest'],
+
+  ['beach', 'forest'],
+  ['beach', 'apartment'],
+
+  ['forest', 'sandy_beach'],
+  ['forest', 'apartment'],
+  ['forest', 'cathedral'],
+  ['forest', 'lab'],
+
+  ['apartment', 'sandy_beach'],
+  ['apartment', 'warehouse'],
+  ['apartment', 'cathedral'],
+
+  ['cemetery', 'cathedral'],
+  ['cemetery', 'factory'],
+  ['cemetery', 'lab'],
+
+  ['cathedral', 'warehouse'],
+  ['cathedral', 'factory'],
+  ['cathedral', 'port'],
+
   ['warehouse', 'port'],
+
+  ['port', 'barge'],
+  ['port', 'factory'],
+
+  ['barge', 'factory'],
 ];
+
+const DEFAULT_SPECIAL_EDGES = [
+  ['park', 'cemetery', 'jump_paddle'],
+];
+
+const DEFAULT_EDGES = [...DEFAULT_ROAD_EDGES, ...DEFAULT_SPECIAL_EDGES];
 
 function uniquePairs(edges) {
   const uniq = new Set();
   const out = [];
-  for (const [aRaw, bRaw] of edges) {
+  for (const edge of edges) {
+    const [aRaw, bRaw, connectionTypeRaw] = Array.isArray(edge) ? edge : [];
     const a = String(aRaw || '').trim();
     const b = String(bRaw || '').trim();
+    const connectionType = String(connectionTypeRaw || 'road').trim() || 'road';
     if (!a || !b || a === b) continue;
-    const k = a < b ? `${a}::${b}` : `${b}::${a}`;
+    const k = a < b ? `${a}::${b}::${connectionType}` : `${b}::${a}::${connectionType}`;
     if (uniq.has(k)) continue;
     uniq.add(k);
-    out.push([a, b]);
+    out.push([a, b, connectionType]);
   }
   return out;
 }
 
-/**
- * @param {string[]} zoneIds 현재 맵에 존재하는 zoneId 목록
- * @returns {{fromZoneId:string,toZoneId:string,bidirectional:boolean}[]}
- */
 function buildDefaultZoneConnections(zoneIds) {
   const set = new Set((Array.isArray(zoneIds) ? zoneIds : []).map((z) => String(z || '').trim()).filter(Boolean));
   if (set.size <= 1) return [];
 
-  const edges = uniquePairs(DEFAULT_EDGES)
+  return uniquePairs(DEFAULT_EDGES)
     .filter(([a, b]) => set.has(a) && set.has(b))
-    .map(([a, b]) => ({ fromZoneId: a, toZoneId: b, bidirectional: true }));
-
-  return edges;
+    .map(([a, b, connectionType]) => ({
+      fromZoneId: a,
+      toZoneId: b,
+      bidirectional: true,
+      connectionType,
+    }));
 }
 
 module.exports = {
+  DEFAULT_ROAD_EDGES,
+  DEFAULT_SPECIAL_EDGES,
   DEFAULT_EDGES,
   buildDefaultZoneConnections,
 };
