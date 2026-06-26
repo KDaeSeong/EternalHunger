@@ -2,8 +2,22 @@ import { zoneNameHasKiosk } from './marketRuntime';
 import { findItemByKeywords, pickWeighted } from './simulationCommon';
 import { isAtOrAfterWorldTime } from './worldTime';
 
-const LEGACY_CORE_ZONE_IDS = ['beach', 'sandy_beach', 'forest', 'stream', 'cemetery', 'factory', 'port'];
+const CORE_ZONE_ID_ALIASES = {
+  pond: 'park',
+  residential: 'apartment',
+  uptown: 'apartment',
+  high_residential: 'apartment',
+  sandy_beach: 'beach',
+  sandybeach: 'beach',
+};
+const LEGACY_CORE_ZONE_IDS = ['beach', 'forest', 'stream', 'cemetery', 'factory', 'port'];
 const LEGACY_CORE_ZONE_NAME_KEYS = ['모래사장', '숲', '개울', '연못', '공장', '항구'];
+
+function canonicalCoreZoneId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return CORE_ZONE_ID_ALIASES[raw] || raw;
+}
 
 function zoneHasKioskFlag(zone) {
   if (!zone) return false;
@@ -13,9 +27,9 @@ function zoneHasKioskFlag(zone) {
 
 function getEligibleSpawnZoneIds(zones, forbiddenIds) {
   const list = Array.isArray(zones) ? zones : [];
-  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
+  const forb = forbiddenIds instanceof Set ? new Set([...forbiddenIds].map(canonicalCoreZoneId)) : new Set();
   return list
-    .map((z) => ({ zid: String(z?.zoneId || ''), z }))
+    .map((z) => ({ zid: canonicalCoreZoneId(z?.zoneId), z }))
     .filter(({ zid }) => !!zid)
     .filter(({ zid, z }) => !forb.has(String(zid)) && !zoneHasKioskFlag(z))
     .map(({ zid }) => zid);
@@ -25,7 +39,7 @@ function zoneAllowsNaturalCore(zone, allowSet) {
   if (!zone) return false;
   if (zoneHasKioskFlag(zone)) return false;
 
-  const zid = String(zone?.zoneId || '');
+  const zid = canonicalCoreZoneId(zone?.zoneId);
 
   if (allowSet instanceof Set && allowSet.size) {
     return zid && allowSet.has(zid);
@@ -39,11 +53,11 @@ function zoneAllowsNaturalCore(zone, allowSet) {
 
 function getEligibleCoreSpawnZoneIds(zones, forbiddenIds, coreSpawnZoneIds) {
   const list = Array.isArray(zones) ? zones : [];
-  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
-  const allowSet = Array.isArray(coreSpawnZoneIds) && coreSpawnZoneIds.length ? new Set(coreSpawnZoneIds.map(String)) : null;
+  const forb = forbiddenIds instanceof Set ? new Set([...forbiddenIds].map(canonicalCoreZoneId)) : new Set();
+  const allowSet = Array.isArray(coreSpawnZoneIds) && coreSpawnZoneIds.length ? new Set(coreSpawnZoneIds.map(canonicalCoreZoneId).filter(Boolean)) : null;
 
   return list
-    .map((z) => ({ zid: String(z?.zoneId || ''), z }))
+    .map((z) => ({ zid: canonicalCoreZoneId(z?.zoneId), z }))
     .filter(({ zid }) => !!zid)
     .filter(({ zid, z }) => !forb.has(String(zid)) && zoneAllowsNaturalCore(z, allowSet))
     .map(({ zid }) => zid);
@@ -59,7 +73,8 @@ function rollNaturalCoreSpawn(mapObj, zoneId, publicItems, curDay, curPhase, opt
   const moved = !!opts.moved;
 
   const zones = Array.isArray(mapObj?.zones) ? mapObj.zones : [];
-  const z = zones.find((x) => String(x?.zoneId) === String(zoneId)) || null;
+  const targetZoneId = canonicalCoreZoneId(zoneId);
+  const z = zones.find((x) => canonicalCoreZoneId(x?.zoneId) === targetZoneId) || null;
   const zoneName = String(z?.name || '');
   const zoneHasKiosk = Boolean(opts?.isKioskZone || z?.hasKiosk);
 
@@ -69,11 +84,11 @@ function rollNaturalCoreSpawn(mapObj, zoneId, publicItems, curDay, curPhase, opt
 
   let allowed = false;
   if (mapAllow && mapAllow.length) {
-    allowed = mapAllow.includes(String(zoneId));
+    allowed = mapAllow.map(canonicalCoreZoneId).includes(targetZoneId);
   } else if (z && typeof z?.coreSpawn === 'boolean') {
     allowed = !!z.coreSpawn;
   } else {
-    allowed = LEGACY_CORE_ZONE_IDS.includes(String(zoneId)) || LEGACY_CORE_ZONE_NAME_KEYS.includes(zoneName);
+    allowed = LEGACY_CORE_ZONE_IDS.includes(targetZoneId) || LEGACY_CORE_ZONE_NAME_KEYS.includes(zoneName);
   }
 
   if (!allowed) return null;
@@ -97,6 +112,7 @@ function rollNaturalCoreSpawn(mapObj, zoneId, publicItems, curDay, curPhase, opt
 export {
   LEGACY_CORE_ZONE_IDS,
   LEGACY_CORE_ZONE_NAME_KEYS,
+  canonicalCoreZoneId,
   getEligibleCoreSpawnZoneIds,
   getEligibleSpawnZoneIds,
   rollNaturalCoreSpawn,

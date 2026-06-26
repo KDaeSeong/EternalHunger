@@ -189,40 +189,48 @@ async function upsertDefaultItemTree(opts = {}) {
   if (externalIds.length) clauses.push({ externalId: { $in: externalIds } });
 
   const existing = await Item.find(scopeQuery(ownerUserId, { $or: clauses }));
-  let indexes = indexItems(existing);
+  const indexes = indexItems(existing);
 
   const created = [];
   const updated = [];
   const skipped = [];
+  const itemOps = [];
 
   for (const def of tree) {
     const exist = findExistingForDef(def, indexes);
     const baseDoc = toBaseDoc(def, ownerUserId);
 
     if (!exist) {
-      const doc = await Item.create(baseDoc);
-      indexes = indexItems([...existing, doc]);
-      existing.push(doc);
-      created.push({ key: def.key, name: def.name, id: String(doc._id) });
+      itemOps.push({ insertOne: { document: baseDoc } });
+      created.push({ key: def.key, name: def.name });
       continue;
     }
 
     if (mode === 'force' || mode === 'replace') {
-      const doc = await Item.findByIdAndUpdate(exist._id, { $set: baseDoc }, { new: true, runValidators: true });
-      indexes = indexItems(existing.map((item) => String(item._id) === String(doc._id) ? doc : item));
-      updated.push({ key: def.key, name: def.name, id: String(doc._id) });
+      itemOps.push({
+        updateOne: {
+          filter: { _id: exist._id },
+          update: { $set: baseDoc },
+        },
+      });
+      updated.push({ key: def.key, name: def.name, id: String(exist._id) });
       continue;
     }
 
     skipped.push({ key: def.key, name: def.name, id: String(exist._id) });
   }
 
-  indexes = indexItems(await Item.find(scopeQuery(ownerUserId, { itemKey: { $in: keys } })));
+  if (itemOps.length) {
+    await Item.bulkWrite(itemOps, { ordered: false, runValidators: true });
+  }
+
+  const nextIndexes = indexItems(await Item.find(scopeQuery(ownerUserId, { itemKey: { $in: keys } })));
 
   const recipeUpdated = [];
+  const recipeOps = [];
   for (const def of tree) {
     if (!Array.isArray(def.recipeKeys) || def.recipeKeys.length === 0) continue;
-    const target = indexes.byItemKey.get(def.key);
+    const target = nextIndexes.byItemKey.get(def.key);
     if (!target) continue;
 
     if (mode !== 'force' && mode !== 'replace') {
@@ -232,19 +240,31 @@ async function upsertDefaultItemTree(opts = {}) {
 
     const ingredients = [];
     for (const row of def.recipeKeys) {
-      const ingredient = indexes.byItemKey.get(row.key);
+      const ingredient = nextIndexes.byItemKey.get(row.key);
       if (!ingredient?._id) continue;
       ingredients.push({ itemId: ingredient._id, qty: Math.max(1, Math.floor(toNumber(row.qty, 1))) });
     }
     if (!ingredients.length) continue;
 
-    target.recipe = {
-      ingredients,
-      creditsCost: def.recipeCreditsCost,
-      resultQty: def.recipeResultQty,
-    };
-    await target.save();
+    recipeOps.push({
+      updateOne: {
+        filter: { _id: target._id },
+        update: {
+          $set: {
+            recipe: {
+              ingredients,
+              creditsCost: def.recipeCreditsCost,
+              resultQty: def.recipeResultQty,
+            },
+          },
+        },
+      },
+    });
     recipeUpdated.push({ key: def.key, name: def.name, id: String(target._id) });
+  }
+
+  if (recipeOps.length) {
+    await Item.bulkWrite(recipeOps, { ordered: false, runValidators: true });
   }
 
   let deletedCount = 0;
@@ -273,10 +293,10 @@ async function upsertDefaultItemTree(opts = {}) {
     skippedCount: skipped.length,
     recipeUpdatedCount: recipeUpdated.length,
     deletedCount,
-    created,
-    updated,
-    skipped,
-    recipeUpdated,
+    created: created.slice(0, 100),
+    updated: updated.slice(0, 100),
+    skipped: skipped.slice(0, 100),
+    recipeUpdated: recipeUpdated.slice(0, 100),
     deleted,
   };
 }

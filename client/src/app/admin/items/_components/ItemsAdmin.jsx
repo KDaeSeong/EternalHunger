@@ -655,7 +655,7 @@ export default function ItemsAdmin() {
     setTreeBusy(true);
     setTreeMsg('');
     try {
-      const data = await apiPost('/admin/items/generate-default-tree', { mode });
+      const data = await apiPost('/admin/items/generate-default-tree', { mode }, { timeoutMs: 120000 });
       setTreeMsg(`✅ ${data?.message || '완료'} (tree:${data?.summary?.treeCount ?? 0}, created:${data?.summary?.createdCount ?? 0}, updated:${data?.summary?.updatedCount ?? 0}, deleted:${data?.summary?.deletedCount ?? 0}, recipe:${data?.summary?.recipeUpdatedCount ?? 0})`);
       await reloadItems();
     } catch (e) {

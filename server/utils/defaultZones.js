@@ -55,16 +55,58 @@ const ZONE_DISPLAY_NAME_OVERRIDES = {
   apartment: '고급 주택가',
 };
 
+const ZONE_ID_ALIASES = {
+  pond: 'park',
+  residential: 'apartment',
+  uptown: 'apartment',
+  high_residential: 'apartment',
+  sandy_beach: 'beach',
+  sandybeach: 'beach',
+};
+
+function canonicalZoneId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return ZONE_ID_ALIASES[raw] || raw;
+}
+
 function normalizeZoneDisplayName(zone) {
-  const zoneId = String(zone?.zoneId || '').trim();
+  const zoneId = canonicalZoneId(zone?.zoneId);
   return ZONE_DISPLAY_NAME_OVERRIDES[zoneId] || String(zone?.name || zoneId);
 }
 
 function normalizeZoneList(zones) {
-  return (Array.isArray(zones) ? zones : []).map((zone) => ({
-    ...zone,
-    name: normalizeZoneDisplayName(zone),
-  }));
+  const merged = new Map();
+  for (const rawZone of (Array.isArray(zones) ? zones : [])) {
+    const zoneId = canonicalZoneId(rawZone?.zoneId);
+    if (!zoneId) continue;
+    const zone = {
+      ...(rawZone || {}),
+      zoneId,
+      name: normalizeZoneDisplayName({ ...rawZone, zoneId }),
+    };
+    const prev = merged.get(zoneId);
+    if (!prev) {
+      merged.set(zoneId, zone);
+      continue;
+    }
+    merged.set(zoneId, {
+      ...prev,
+      ...zone,
+      zoneNo: Math.min(Number(prev.zoneNo || 9999), Number(zone.zoneNo || 9999)),
+      polygon: Array.isArray(prev.polygon) && prev.polygon.length ? prev.polygon : zone.polygon,
+      isForbidden: Boolean(prev.isForbidden || zone.isForbidden),
+      hasKiosk: Boolean(prev.hasKiosk || zone.hasKiosk),
+      coreSpawn: Boolean(prev.coreSpawn || zone.coreSpawn),
+    });
+  }
+  return [...merged.values()]
+    .sort((a, b) => Number(a.zoneNo || 9999) - Number(b.zoneNo || 9999))
+    .map((zone, idx) => ({
+      ...zone,
+      zoneNo: idx + 1,
+      name: normalizeZoneDisplayName(zone),
+    }));
 }
 
 const DEFAULT_ZONES = DEFAULT_ZONE_DEFS.map((zone, idx) => ({
@@ -84,6 +126,8 @@ module.exports = {
   CORE_SPAWN_ZONE_IDS,
   DEFAULT_ZONES,
   ZONE_DISPLAY_NAME_OVERRIDES,
+  ZONE_ID_ALIASES,
+  canonicalZoneId,
   normalizeZoneDisplayName,
   normalizeZoneList,
 };

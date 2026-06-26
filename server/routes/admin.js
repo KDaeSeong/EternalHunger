@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Item = require('../models/Item'); // ★ 아이템 모델 추가!
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
-const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES, normalizeZoneList } = require('../utils/defaultZones');
+const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES, canonicalZoneId, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
 
@@ -150,7 +150,7 @@ router.post('/maps', async (req, res) => {
             payload.zones = cloneDefaultZones();
         } else {
             // ✅ 커스텀 zones라도 zoneNo가 비어있으면 1..N으로 채워줌
-            payload.zones = payload.zones.map((z, idx) => ({
+            payload.zones = normalizeZoneList(payload.zones).map((z, idx) => ({
               ...(z || {}),
               zoneNo: Number.isFinite(Number(z?.zoneNo)) ? Number(z.zoneNo) : (idx + 1),
             }));
@@ -199,7 +199,7 @@ function coreSpawnZoneIdsFromZones(zones) {
   const list = Array.isArray(zones) ? zones : [];
   return list
     .filter((z) => z && z.coreSpawn === true)
-    .map((z) => String(z.zoneId || ''))
+    .map((z) => canonicalZoneId(z.zoneId))
     .filter(Boolean);
 }
 
@@ -209,7 +209,7 @@ const DEFAULT_ZONE_NAME_SET = new Set((Array.isArray(DEFAULT_ZONE_DEFS) ? DEFAUL
 const KIOSK_ZONE_ID_SET = new Set((Array.isArray(DEFAULT_ZONES) ? DEFAULT_ZONES : []).filter((z) => z?.hasKiosk).map((z) => String(z?.zoneId || '')).filter(Boolean));
 
 function defaultZoneCoverage(zones) {
-  const ids = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
+  const ids = new Set((Array.isArray(zones) ? zones : []).map((z) => canonicalZoneId(z?.zoneId)).filter(Boolean));
   let covered = 0;
   for (const id of DEFAULT_ZONE_ID_SET) {
     if (ids.has(id)) covered += 1;
@@ -388,9 +388,9 @@ router.post('/maps/apply-default-zones', async (req, res) => {
 //  - { coreSpawnZones: string[] | string }  // 콤마/공백 구분 가능
 //  - { mode: 'fromZones' }                 // zones[*].coreSpawn 기반으로 재생성
 function parseZoneIds(raw) {
-  if (Array.isArray(raw)) return raw.map(String);
+  if (Array.isArray(raw)) return raw.map(canonicalZoneId).filter(Boolean);
   const s = String(raw || '');
-  return s.split(/[,\s]+/g).map((v) => v.trim()).filter(Boolean);
+  return s.split(/[,\s]+/g).map(canonicalZoneId).filter(Boolean);
 }
 
 router.post('/maps/:id/core-spawn-zones', async (req, res) => {
@@ -413,7 +413,7 @@ router.post('/maps/:id/core-spawn-zones', async (req, res) => {
     const next = Array.from(new Set(parseZoneIds(nextRaw)));
 
     const validZoneIds = new Set(
-      (Array.isArray(map.zones) ? map.zones : [])
+      normalizeZoneList(map.zones)
         .map((z) => String(z?.zoneId || ''))
         .filter(Boolean)
     );

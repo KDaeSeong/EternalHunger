@@ -35,6 +35,37 @@ const DEFAULT_LUMIA_MAP_NAME = '루미아 섬';
 const DEFAULT_ZONE_COUNT = 21;
 const DEFAULT_KIOSK_ZONE_COUNT = 11;
 
+const ZONE_ID_ALIASES = {
+  pond: 'park',
+  residential: 'apartment',
+  uptown: 'apartment',
+  high_residential: 'apartment',
+  sandy_beach: 'beach',
+  sandybeach: 'beach',
+};
+
+const ZONE_DISPLAY_NAMES = {
+  park: '연못',
+  beach: '모래사장',
+  apartment: '고급 주택가',
+};
+
+function canonicalZoneId(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return ZONE_ID_ALIASES[raw] || raw;
+}
+
+function displayZoneName(zone) {
+  const zoneId = canonicalZoneId(zone?.zoneId);
+  return ZONE_DISPLAY_NAMES[zoneId] || String(zone?.name || zoneId);
+}
+
+function normalizedZoneCount(map) {
+  const zones = Array.isArray(map?.zones) ? map.zones : [];
+  return new Set(zones.map((zone) => canonicalZoneId(zone?.zoneId)).filter(Boolean)).size;
+}
+
 function looksLikeKioskMap(name) {
   const n = String(name || '').trim();
   if (!n) return false;
@@ -91,24 +122,34 @@ export default function AdminMapsPage() {
   }, []);
 
   const zoneRows = useMemo(() => {
-    const out = [];
+    const byMapZone = new Map();
     for (const m of Array.isArray(maps) ? maps : []) {
       const zones = Array.isArray(m?.zones) ? m.zones : [];
       if (zones.length) {
         zones.forEach((z, idx) => {
-          out.push({
-            key: `${m._id}:${z?.zoneId || idx}`,
+          const zoneId = canonicalZoneId(z?.zoneId) || String(idx);
+          const key = `${m._id}:${zoneId}`;
+          const row = {
+            key,
             mapId: m._id,
             mapName: m.name,
             zoneNo: Number(z?.zoneNo || idx + 1),
-            zoneId: String(z?.zoneId || ''),
-            name: String(z?.name || ''),
+            zoneId,
+            name: displayZoneName({ ...z, zoneId }),
             hasKiosk: looksLikeKioskZone(z),
             coreSpawn: z?.coreSpawn === true,
-          });
+          };
+          const prev = byMapZone.get(key);
+          byMapZone.set(key, prev ? {
+            ...prev,
+            ...row,
+            zoneNo: Math.min(prev.zoneNo, row.zoneNo),
+            hasKiosk: Boolean(prev.hasKiosk || row.hasKiosk),
+            coreSpawn: Boolean(prev.coreSpawn || row.coreSpawn),
+          } : row);
         });
       } else {
-        out.push({
+        byMapZone.set(`${m._id}:map`, {
           key: `${m._id}:map`,
           mapId: m._id,
           mapName: m.name,
@@ -120,7 +161,7 @@ export default function AdminMapsPage() {
         });
       }
     }
-    return out.sort((a, b) => String(a.mapName).localeCompare(String(b.mapName), 'ko') || a.zoneNo - b.zoneNo);
+    return [...byMapZone.values()].sort((a, b) => String(a.mapName).localeCompare(String(b.mapName), 'ko') || a.zoneNo - b.zoneNo);
   }, [maps]);
 
   const kioskZoneCount = useMemo(() => zoneRows.filter((z) => z.hasKiosk).length, [zoneRows]);
@@ -256,7 +297,7 @@ export default function AdminMapsPage() {
               <tr key={m._id}>
                 <td style={{ fontWeight: 800 }}>{m.name}</td>
                 <td className="admin-muted" style={{ fontFamily: 'ui-monospace, Menlo, monospace' }}>{m._id}</td>
-                <td className="admin-muted">{Array.isArray(m?.zones) ? m.zones.length : 0}개</td>
+                <td className="admin-muted">{normalizedZoneCount(m)}개</td>
               </tr>
             ))}
             {maps.length === 0 ? (
@@ -275,7 +316,7 @@ export default function AdminMapsPage() {
               <th>구역</th>
               <th>zoneId</th>
               <th>키오스크</th>
-              <th>자연 코어</th>
+              <th>운석/생나</th>
             </tr>
           </thead>
           <tbody>
