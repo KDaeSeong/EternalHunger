@@ -664,6 +664,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // - 오토 플레이는 "다음 페이즈" 버튼을 일정 간격으로 자동 눌러주는 UX입니다.
   const [autoPlay, setAutoPlay] = useState(false);
   const [autoSpeed, setAutoSpeed] = useState(1); // 1 / 2 / 4 / 8 / 16 / 32
+  const autoSpeedRef = useRef(1);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const isAdvancingRef = useRef(false);
   const isRefreshingMapsRef = useRef(false);
@@ -671,6 +672,20 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   const [mapRefreshToast, setMapRefreshToast] = useState(null);
   const mapRefreshToastTimerRef = useRef(null);
   const proceedPhaseGuardedRef = useRef(null);
+
+  function normalizeAutoSpeed(value) {
+    return Math.max(1, Math.min(32, Number(value) || 1));
+  }
+
+  function updateAutoSpeed(value) {
+    const next = normalizeAutoSpeed(value);
+    autoSpeedRef.current = next;
+    setAutoSpeed(next);
+  }
+
+  useEffect(() => {
+    autoSpeedRef.current = normalizeAutoSpeed(autoSpeed);
+  }, [autoSpeed]);
 
   function showMapRefreshToast(text, kind = 'info') {
     // ✅ 헤더에서 1~2초 보이는 가벼운 토스트(연타/중복 호출 대응)
@@ -2752,7 +2767,7 @@ const pickStartZoneIdForChar = (c) => {
       return phaseActionAbsSec;
     };
     const getVisibleTickDelayMs = () => {
-      const speed = Math.max(1, Math.min(32, Number(autoSpeed) || 1));
+      const speed = normalizeAutoSpeed(autoSpeedRef.current || autoSpeed);
       return Math.max(24, Math.round(1000 / speed));
     };
     const commitVisibleClock = async (absSec = phaseStartSec + phaseRuntimeOffsetSec, { wait = true } = {}) => {
@@ -6297,7 +6312,7 @@ if (showMarketPanel && pendingTranscendPick) {
     if (showMarketPanel && pendingTranscendPick) return;
     if (startBlocked) return;
 
-    const speed = Math.max(1, Math.min(32, Number(autoSpeed) || 1));
+    const speed = normalizeAutoSpeed(autoSpeedRef.current || autoSpeed);
     const delayMs = Math.max(80, Math.round(220 / speed));
 
     const id = window.setTimeout(() => {
@@ -6953,14 +6968,51 @@ if (showMarketPanel && pendingTranscendPick) {
 
               return (
                 <div className="minimap-canvas">
-                  <img
-                    className="minimap-bg"
-                    src={String(activeMap?.image || '').trim() || '/Images/ERMap.webp'}
-                    alt="Lumia Island"
-                    draggable={false}
-                  />
-
                   <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
+                    <defs>
+                      <radialGradient id="eh-minimap-ocean" cx="48%" cy="46%" r="72%">
+                        <stop offset="0%" stopColor="rgba(20, 78, 92, 0.94)" />
+                        <stop offset="62%" stopColor="rgba(10, 43, 61, 0.98)" />
+                        <stop offset="100%" stopColor="rgba(3, 14, 26, 1)" />
+                      </radialGradient>
+                      <linearGradient id="eh-minimap-land" x1="18%" y1="6%" x2="86%" y2="96%">
+                        <stop offset="0%" stopColor="rgba(58, 84, 76, 0.96)" />
+                        <stop offset="46%" stopColor="rgba(31, 66, 65, 0.98)" />
+                        <stop offset="100%" stopColor="rgba(19, 45, 52, 1)" />
+                      </linearGradient>
+                      <filter id="eh-minimap-soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2.2" floodColor="rgba(0,0,0,0.48)" />
+                      </filter>
+                    </defs>
+                    <rect className="minimap-ocean" x="0" y="0" width="100" height="100" />
+                    <path
+                      className="minimap-island-shape"
+                      d="M49 2 L65 8 L82 20 L94 38 L88 58 L94 76 L77 92 L54 98 L32 94 L14 82 L5 63 L9 41 L18 22 L33 9 Z"
+                    />
+                    <path
+                      className="minimap-inner-ridge"
+                      d="M27 18 C42 10 61 13 73 26 C86 41 79 61 65 72 C49 84 29 78 20 62 C10 45 13 28 27 18 Z"
+                    />
+                    <path
+                      className="minimap-lab-zone"
+                      d="M38 43 L52 37 L62 47 L55 60 L40 59 L33 50 Z"
+                    />
+                    {z.map((zone) => {
+                      const id = String(zone?.zoneId || '');
+                      const p = zonePos?.[id];
+                      if (!id || !p) return null;
+                      const isF = forbiddenNow.has(id);
+                      return (
+                        <circle
+                          key={`surface-${id}`}
+                          cx={p.x}
+                          cy={p.y}
+                          r={7.2}
+                          className={`minimap-zone-surface ${isF ? 'forbidden' : ''}`}
+                        />
+                      );
+                    })}
+
                     {/* 연결선 */}
                     {zoneEdges.map(([a, b]) => {
                       const pa = zonePos?.[a];
@@ -6989,9 +7041,19 @@ if (showMarketPanel && pendingTranscendPick) {
                     const aliveHere = aliveByZone[id]?.length || 0;
                     const deadHere = deadByZone[id]?.length || 0;
                     const nodeR = 4.8;
+                    const labelSize = nm.length >= 6 ? 2.05 : nm.length >= 5 ? 2.3 : 2.65;
 
                     return (
                       <g key={`z-${id}`}>
+                        <text
+                          className="minimap-zone-label"
+                          x={p.x}
+                          y={p.y - nodeR - 1.4}
+                          textAnchor="middle"
+                          fontSize={labelSize}
+                        >
+                          {nm}
+                        </text>
                         <circle
                           cx={p.x}
                           cy={p.y}
@@ -7075,6 +7137,22 @@ if (showMarketPanel && pendingTranscendPick) {
                       </g>
                     );
                   })}
+                    {recentPings.map((ping) => {
+                      const p = zonePos?.[String(ping?.zoneId || '')];
+                      if (!p) return null;
+                      return (
+                        <g
+                          key={`ping-${ping.id}`}
+                          className={`minimap-ping ${String(ping.kind || '')}`}
+                          transform={`translate(${p.x} ${p.y})`}
+                        >
+                          <circle r="7.8" />
+                          <text className="minimap-ping-icon" x="0" y="1.5" textAnchor="middle">
+                            {ping.icon}
+                          </text>
+                        </g>
+                      );
+                    })}
                   </svg>
                 </div>
               );
@@ -7229,7 +7307,7 @@ if (showMarketPanel && pendingTranscendPick) {
               <select
                 className="autoplay-speed"
                 value={autoSpeed}
-                onChange={(e) => setAutoSpeed(Number(e.target.value))}
+                onChange={(e) => updateAutoSpeed(e.target.value)}
                 disabled={loading || isGameOver}
                 title="오토 플레이 배속: 1초 틱 기준으로 최대 32배속까지 진행합니다."
               >

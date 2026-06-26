@@ -2,10 +2,12 @@
 
 /* === 페이지 레이아웃: 시뮬 페이지는 다른 페이지의 전역 main 스타일을 상속하면 화면이 잘릴 수 있음 === */
 .simulation-page {
+    --sim-shell-width: min(calc(100vw - 28px), 1580px);
     /* 다른 페이지(캐릭터/관리자 등)에서 main{} 전역 스타일(여백/테두리/패딩)을 넣어두어
        시뮬 페이지에서도 그대로 적용되면, 100vh 고정 레이아웃과 충돌하여 화면이 잘릴 수 있다.
        따라서 시뮬 페이지는 main 전역 스타일을 강제로 리셋한다. */
     margin: 0 !important;
+    width: 100% !important;
     max-width: none !important;
     padding: 0 !important;
     border: 0 !important;
@@ -24,6 +26,13 @@
 
 .simulation-page > header {
     flex: 0 0 auto;
+}
+
+.simulation-page > header #header-id1 ul {
+    width: var(--sim-shell-width);
+    max-width: var(--sim-shell-width);
+    margin: 0 auto;
+    box-sizing: border-box;
 }
 
 .simulation-page-hydrating {
@@ -63,10 +72,13 @@
     display: flex;
     gap: 30px;
     flex: 1 1 auto;
+    width: var(--sim-shell-width);
+    max-width: var(--sim-shell-width);
     min-height: 0;
     /* 내부 내용(우측 게임 화면)이 화면보다 커질 때 잘리지 않도록, 컨테이너는 스크롤 가능하게 둔다 */
     overflow: auto;
     padding: 20px;
+    margin: 0 auto;
     flex-wrap: wrap;
     align-items: stretch;
     box-sizing: border-box;
@@ -1272,36 +1284,20 @@
 
 .minimap-canvas {
   position: relative;
-  /*
-    미니맵과 배경 이미지(ERMap.webp)를 1:1로 정확히 맞추기 위해
-    캔버스를 정사각형(aspect-ratio)으로 고정한다.
-    - object-fit: contain에서 생기는 레터박스(여백) 때문에 SVG 오버레이가 틀어지던 문제 해결
-  */
   width: min(100%, 520px);
   aspect-ratio: 1 / 1;
   height: auto;
   margin: 0 auto;
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.28);
+  background: #071927;
   border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 0 34px rgba(0, 0, 0, 0.42);
 }
 
 .minimap-panel.modal-open .minimap-canvas {
   width: min(92vw, 760px);
   max-height: min(78vh, 760px);
-}
-
-.minimap-bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0.88;
-  filter: saturate(1.05) contrast(1.15);
-  user-select: none;
-  pointer-events: none;
 }
 
 .minimap-empty {
@@ -1317,14 +1313,59 @@
   display: block;
 }
 
+.minimap-ocean {
+  fill: url(#eh-minimap-ocean);
+}
+
+.minimap-island-shape {
+  fill: url(#eh-minimap-land);
+  stroke: rgba(170, 230, 230, 0.30);
+  stroke-width: 1.1;
+  filter: url(#eh-minimap-soft-shadow);
+}
+
+.minimap-inner-ridge {
+  fill: rgba(255, 255, 255, 0.035);
+  stroke: rgba(255, 255, 255, 0.10);
+  stroke-width: 0.65;
+}
+
+.minimap-lab-zone {
+  fill: rgba(255, 72, 82, 0.20);
+  stroke: rgba(255, 120, 130, 0.34);
+  stroke-width: 0.9;
+  stroke-dasharray: 1.8 1.5;
+}
+
+.minimap-zone-surface {
+  fill: rgba(255, 255, 255, 0.055);
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 0.55;
+}
+
+.minimap-zone-surface.forbidden {
+  fill: rgba(255, 82, 82, 0.24);
+  stroke: rgba(255, 130, 130, 0.34);
+}
+
 .minimap-edge {
-  stroke: rgba(255, 255, 255, 0.30);
-  stroke-width: 1.2;
+  stroke: rgba(205, 246, 255, 0.34);
+  stroke-width: 1.0;
+  stroke-linecap: round;
+}
+
+.minimap-zone-label {
+  fill: rgba(236, 250, 255, 0.92);
+  stroke: rgba(0, 0, 0, 0.72);
+  stroke-width: 0.42;
+  paint-order: stroke;
+  font-weight: 800;
+  pointer-events: none;
 }
 
 .minimap-node {
-  fill: rgba(0, 0, 0, 0.42);
-  stroke: rgba(255, 255, 255, 0.32);
+  fill: rgba(7, 18, 30, 0.78);
+  stroke: rgba(255, 255, 255, 0.48);
   stroke-width: 1.2;
 }
 
@@ -1344,13 +1385,16 @@
 }
 
 .minimap-ping {
-  display: none;
+  display: block;
+  pointer-events: none;
 }
 
 .minimap-ping circle {
   fill: none;
   stroke: rgba(180, 220, 255, 0.82);
   stroke-width: 1.1;
+  transform-origin: center;
+  transform-box: fill-box;
   animation: ehMinimapPing 0.95s ease-out infinite;
 }
 
@@ -1364,6 +1408,15 @@
   stroke: rgba(0, 0, 0, 0.35) !important;
   stroke-width: 0.35 !important;
   animation: none !important;
+}
+
+.minimap-ping-icon {
+  fill: rgba(255, 255, 255, 0.95);
+  stroke: rgba(0, 0, 0, 0.72);
+  stroke-width: 0.35;
+  paint-order: stroke;
+  font-size: 3.5px;
+  font-weight: 900;
 }
 
 .minimap-legend {
@@ -1389,6 +1442,10 @@
 .minimap-dot.forbidden { background: rgba(255, 82, 82, 0.38); }
 
 @media (max-width: 760px) {
+  .simulation-page {
+    --sim-shell-width: 100vw;
+  }
+
   .simulation-page {
     height: 100dvh;
     min-height: 100dvh;
