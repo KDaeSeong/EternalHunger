@@ -91,6 +91,8 @@ function normalizeTree(list = DEFAULT_ITEM_TREE) {
   const byKey = new Map();
   for (const raw of Array.isArray(list) ? list : []) {
     const def = normalizeTreeDef(raw);
+    const hasNamuId = cleanString(def?.key).startsWith('namu:') || cleanString(def?.externalId).startsWith('namu:');
+    if (!hasNamuId) continue;
     if (!def || byKey.has(def.key)) continue;
     byKey.set(def.key, def);
   }

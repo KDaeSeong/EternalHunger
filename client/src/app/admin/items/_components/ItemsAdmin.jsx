@@ -14,7 +14,8 @@ function adaptItem(raw) {
   const it = raw || {};
   const mongoId = it._id ?? it.id ?? it.itemId ?? it.item_id;
   const externalId = it.externalId ?? it.external_id;
-  const id = externalId ?? mongoId;
+  const itemKey = it.itemKey ?? it.key;
+  const id = itemKey ?? externalId ?? mongoId;
 
   const kind = it.kind ?? it.category ?? it.type ?? it.itemType;
   const price = it.price ?? it.gold ?? it.value ?? it.baseCreditValue ?? it.creditValue;
@@ -26,6 +27,7 @@ function adaptItem(raw) {
     id,
     mongoId,
     externalId,
+    itemKey,
     kind,
     price,
     name,
@@ -704,7 +706,7 @@ export default function ItemsAdmin() {
   async function generateDefaultTree(mode = 'missing') {
     if (treeBusy) return;
     if (mode === 'replace') {
-      const ok = window.confirm('현재 계정의 아이템을 기본 트리 818건으로 교체합니다.\n기본 트리에 없는 기존 아이템은 삭제됩니다.\n계속할까요?');
+      const ok = window.confirm('현재 계정의 아이템을 namu: 기본 트리 항목으로 교체합니다.\n기본 트리에 없는 기존 아이템은 삭제됩니다.\n계속할까요?');
       if (!ok) return;
     }
     setTreeBusy(true);
@@ -715,6 +717,31 @@ export default function ItemsAdmin() {
       await reloadItems();
     } catch (e) {
       setTreeMsg(`⚠️ 기본 아이템 트리 생성 실패: ${String(e?.message || e)}`);
+    } finally {
+      setTreeBusy(false);
+    }
+  }
+
+  async function deleteNonNamuItems() {
+    if (treeBusy) return;
+    const ok = window.confirm('ID(itemKey/externalId)에 namu:가 붙지 않은 현재 계정 아이템을 삭제합니다.\nnamu: 항목은 보존됩니다.\n계속할까요?');
+    if (!ok) return;
+
+    setTreeBusy(true);
+    setTreeMsg('');
+    let deletedTotal = 0;
+    try {
+      for (;;) {
+        const data = await apiPost('/admin/items/delete-non-namu', { limit: 200 }, { timeoutMs: 45000 });
+        const s = data?.summary || {};
+        deletedTotal += Number(s.deletedCount || 0);
+        setTreeMsg(`⏳ namu: 외 아이템 삭제 중... ${deletedTotal}개 삭제`);
+        if (s.done) break;
+      }
+      setTreeMsg(`✅ namu: 외 아이템 ${deletedTotal}개 삭제 완료`);
+      await reloadItems();
+    } catch (e) {
+      setTreeMsg(`⚠️ namu: 외 아이템 삭제 실패: ${String(e?.message || e)}`);
     } finally {
       setTreeBusy(false);
     }
@@ -860,6 +887,14 @@ export default function ItemsAdmin() {
           >
             기존 삭제 후 적용
           </button>
+          <button
+            onClick={deleteNonNamuItems}
+            disabled={treeBusy}
+            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,190,90,0.45)', background: 'rgba(255,180,60,0.12)', color: 'inherit', cursor: treeBusy ? 'not-allowed' : 'pointer' }}
+            title="itemKey/externalId 중 어느 쪽도 namu:로 시작하지 않는 현재 계정 아이템만 삭제합니다."
+          >
+            namu 외 삭제
+          </button>
         </div>
 
         <button
@@ -942,8 +977,8 @@ export default function ItemsAdmin() {
             {status !== 'loading' && pagedItems.map((it) => (
               <tr key={String(it._id || it.mongoId || it.id || Math.random())}>
                 <td style={td}>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12 }}>{String(it.externalId || it._id || it.mongoId || it.id || '-')}</div>
-                  {(it.externalId && (it._id || it.mongoId)) && (
+                  <div style={{ fontFamily: 'monospace', fontSize: 12 }}>{String(it.itemKey || it.externalId || it._id || it.mongoId || it.id || '-')}</div>
+                  {((it.itemKey || it.externalId) && (it._id || it.mongoId)) && (
                     <div style={{ fontFamily: 'monospace', fontSize: 11, opacity: 0.65, marginTop: 2 }}>mongo: {String(it._id || it.mongoId)}</div>
                   )}
                 </td>

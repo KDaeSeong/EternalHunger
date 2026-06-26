@@ -95,6 +95,86 @@ router.delete('/items/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: "삭제 실패" }); }
 });
 
+function nonNamuItemQuery() {
+  const namuPrefix = /^namu:/;
+  const notNamuField = (field) => ({
+    $or: [
+      { [field]: { $exists: false } },
+      { [field]: null },
+      { [field]: '' },
+      { [field]: { $not: namuPrefix } },
+    ],
+  });
+
+  return {
+    $and: [
+      notNamuField('itemKey'),
+      notNamuField('externalId'),
+    ],
+  };
+}
+
+// 현재 계정 아이템 중 itemKey/externalId 어디에도 namu: prefix가 없는 항목 일괄 삭제
+router.post('/items/delete-non-namu', async (req, res) => {
+  try {
+    const limit = Math.min(500, Math.max(1, Math.floor(Number(req.body?.limit || 200))));
+    const dryRun = req.body?.dryRun === true;
+    const filter = scope(req, res, nonNamuItemQuery());
+    if (!filter) return;
+
+    const targets = await Item.find(filter)
+      .select('_id itemKey externalId name')
+      .sort({ _id: 1 })
+      .limit(limit)
+      .lean();
+
+    if (dryRun) {
+      const total = await Item.countDocuments(filter);
+      return res.json({
+        message: 'namu: 외 아이템 삭제 대상 확인 완료',
+        summary: {
+          dryRun: true,
+          matchedCount: total,
+          batchCount: targets.length,
+          done: targets.length >= total,
+          targets: targets.slice(0, 50).map((item) => ({
+            id: String(item._id),
+            itemKey: String(item.itemKey || ''),
+            externalId: String(item.externalId || ''),
+            name: String(item.name || ''),
+          })),
+        },
+      });
+    }
+
+    if (!targets.length) {
+      return res.json({
+        message: 'namu: 외 아이템 삭제 완료',
+        summary: { deletedCount: 0, done: true, targets: [] },
+      });
+    }
+
+    const ids = targets.map((item) => item._id);
+    const result = await Item.deleteMany({ _id: { $in: ids } });
+    res.json({
+      message: 'namu: 외 아이템 배치 삭제 완료',
+      summary: {
+        deletedCount: Number(result?.deletedCount || 0),
+        done: targets.length < limit,
+        targets: targets.slice(0, 50).map((item) => ({
+          id: String(item._id),
+          itemKey: String(item.itemKey || ''),
+          externalId: String(item.externalId || ''),
+          name: String(item.name || ''),
+        })),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'namu: 외 아이템 삭제 실패' });
+  }
+});
+
 // 1. 모든 구역 목록 로드
 router.get('/maps', async (req, res) => {
     try {
