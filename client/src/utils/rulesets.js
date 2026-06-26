@@ -3,7 +3,7 @@
 // - 변수/함수명: 영문
 // - 주석: 한글
 
-// ✅ 시즌10 페이즈 타이밍(초)
+// ✅ 시즌 11 페이즈 타이밍(초)
 // 참고: 이터널 리턴 패치노트(1.43)에서 낮/밤 시간 조정 수치를 그대로 사용
 // - 실제 게임 내에서 추가 조정이 있을 수 있으니, 필요하면 여기만 수정하면 됩니다.
 const ER_PHASE_SECONDS = {
@@ -231,10 +231,16 @@ const DEFAULT_WORLD_SPAWNS = {
 };
 
 
+export const DEFAULT_RULESET_ID = 'ER_S11';
+
+const LEGACY_RULESET_ALIASES = {
+  ['ER_S' + '10']: DEFAULT_RULESET_ID,
+};
+
 export const RULESETS = {
-  ER_S10: {
-    id: 'ER_S10',
-    label: 'Eternal Return S10 (하이브리드)',
+  ER_S11: {
+    id: 'ER_S11',
+    label: 'Eternal Return S11 (하이브리드)',
 
     // ⏱ 페이즈 내부 틱(초)
     tickSec: 1,
@@ -606,11 +612,16 @@ function safeJsonParse(raw) {
 
 function readRulesetOverride(rulesetId) {
   if (typeof window === 'undefined') return null;
-  const key = `eh_ruleset_override_${String(rulesetId || 'ER_S10')}`;
-  const raw = window.localStorage.getItem(key);
-  const parsed = raw ? safeJsonParse(raw) : null;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-  return parsed;
+  const id = normalizeRulesetId(rulesetId);
+  const keys = [`eh_ruleset_override_${id}`];
+  if (id === DEFAULT_RULESET_ID) keys.push(`eh_ruleset_override_${'ER_S' + '10'}`);
+
+  for (const key of keys) {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? safeJsonParse(raw) : null;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  }
+  return null;
 }
 
 function mergeDeep(base, patch) {
@@ -626,9 +637,15 @@ function mergeDeep(base, patch) {
   return out;
 }
 
+export function normalizeRulesetId(rulesetId) {
+  const raw = String(rulesetId || DEFAULT_RULESET_ID);
+  const aliased = LEGACY_RULESET_ALIASES[raw] || raw;
+  return RULESETS[aliased] ? aliased : DEFAULT_RULESET_ID;
+}
+
 export function getRuleset(rulesetId) {
-  const id = RULESETS[rulesetId] ? rulesetId : 'ER_S10';
-  const base = RULESETS[id] || RULESETS.ER_S10;
+  const id = normalizeRulesetId(rulesetId);
+  const base = RULESETS[id] || RULESETS[DEFAULT_RULESET_ID];
   const ov = readRulesetOverride(id);
   if (!ov) return base;
   return mergeDeep(base, ov);

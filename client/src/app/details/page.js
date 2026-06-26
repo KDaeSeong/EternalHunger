@@ -386,7 +386,7 @@ export default function DetailsPage() {
                   </label>
 
                   <label style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: '#333' }}>전술 스킬 (시즌10 일반)</span>
+                    <span style={{ fontSize: 13, color: '#333' }}>전술 스킬 (시즌 11 일반)</span>
                     <select value={String(editTacticalSkill)} onChange={(e) => setEditTacticalSkill(e.target.value)}>
                       {TACTICAL_SKILL_OPTIONS_KO.map((s) => (
                         <option key={s} value={s}>{s}</option>

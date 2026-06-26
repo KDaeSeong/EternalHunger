@@ -19,13 +19,17 @@
     height: 100dvh;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
 .simulation-page > header {
     flex: 0 0 auto;
+    overflow: visible;
+}
+
+.simulation-page > header #header-id1 {
+    overflow: visible;
 }
 
 .simulation-page > header #header-id1 ul {
@@ -33,6 +37,23 @@
     max-width: var(--sim-shell-width);
     margin: 0 auto;
     box-sizing: border-box;
+}
+
+.simulation-page > header #header-id1 .logo-btn {
+    padding: 0 10px 0 6px;
+    overflow: visible;
+}
+
+.simulation-page > header #header-id1 .text-logo {
+    min-width: 112px;
+    overflow: visible;
+}
+
+.simulation-page > header #header-id1 .logo-main {
+    display: block;
+    line-height: 1.08;
+    letter-spacing: 0;
+    padding: 1px 0 2px;
 }
 
 .simulation-page-hydrating {
@@ -76,7 +97,7 @@
     max-width: var(--sim-shell-width);
     min-height: 0;
     /* 내부 내용(우측 게임 화면)이 화면보다 커질 때 잘리지 않도록, 컨테이너는 스크롤 가능하게 둔다 */
-    overflow: auto;
+    overflow: hidden;
     padding: 20px;
     margin: 0 auto;
     flex-wrap: wrap;
@@ -94,6 +115,9 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    flex: 1 1 auto;
+    height: 100%;
+    overflow: hidden;
 }
 
 .eh-modal-backdrop {
@@ -347,7 +371,7 @@
 /* 로그 창 */
 .log-window {
   /* 로그 길이에 맞춰 창 높이가 유동적으로 변하도록(과도한 빈 공간 방지) */
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
@@ -362,13 +386,14 @@
 .log-content {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .log-scroll-area {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
+  max-height: none !important;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 6px; /* 스크롤바와 글자 간격 */

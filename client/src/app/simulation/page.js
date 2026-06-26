@@ -37,7 +37,7 @@ import {
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
-import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain } from '../../utils/rulesets';
+import { DEFAULT_RULESET_ID, getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain, normalizeRulesetId } from '../../utils/rulesets';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationResultModal from './_components/SimulationResultModal';
@@ -376,7 +376,7 @@ export default function SimulationPage() {
     forbiddenZoneStartDay: 2,
     forbiddenZoneStartPhase: 'night',
     forbiddenZoneDamageBase: 1.5,
-    rulesetId: 'ER_S10',
+    rulesetId: 'ER_S11',
     matchMode: 'squad',
   });
   const [participantPresets, setParticipantPresets] = useState(readLocalParticipantPresets);
@@ -2729,7 +2729,7 @@ const pickStartZoneIdForChar = (c) => {
     let nextDay = day;
     if (phase === 'night') nextDay++;
 
-    // 🎮 룰 프리셋 (기본: ER_S10)
+    // 🎮 룰 프리셋 (기본: ER_S11)
     const ruleset = getRuleset(settings?.rulesetId);
 
     // 서든데스(6번째 밤 이후): 페이즈 고정 + 전 지역 금지 + 카운트다운
@@ -2797,7 +2797,7 @@ const pickStartZoneIdForChar = (c) => {
       addLog('=== 🔥 서든데스: 6번째 밤 돌입 (교전 빈도 증가) ===', 'day-header');
     }
 
-    // 💰 이번 페이즈 기본 크레딧(시즌10 컨셉)
+    // 💰 이번 페이즈 기본 크레딧(시즌 11 컨셉)
     const baseCredits = getNaturalCreditGain(ruleset, nextDay, nextPhase, phaseDurationSec);
 
     let earnedCredits = baseCredits;
@@ -4368,8 +4368,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
         }
 
 
-        // --- 시즌10 컨셉: 가젯 에너지 ---
-        if (ruleset.id === 'ER_S10') {
+        // --- 시즌 11 컨셉: 가젯 에너지 ---
+        if (ruleset.id === 'ER_S11') {
           const energyCfg = ruleset?.gadgetEnergy || {};
           const maxEnergy = Number(energyCfg.max ?? 100);
           const gain = Number(energyCfg.gainPerPhase ?? 10);
@@ -4584,7 +4584,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     // 확률 보정(룰셋 기반)
     const pvpProbCfg = ruleset?.pvp || {};
-    const fogBonus = (ruleset.id === 'ER_S10' && fogLocalSec !== null && fogLocalSec !== undefined)
+    const fogBonus = (ruleset.id === 'ER_S11' && fogLocalSec !== null && fogLocalSec !== undefined)
       ? Number(pvpProbCfg.encounterFogBonus ?? 0.08)
       : 0;
     const battleBase = Number(pvpProbCfg.encounterBase ?? 0.3);
@@ -5156,7 +5156,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
 
-        // --- 전술 스킬(시즌10) 간이 발동 로직 ---
+        // --- 전술 스킬(시즌 11) 간이 발동 로직 ---
         // - 상세설정에서 선택한 tacticalSkill 문자열을 기반으로, 도주/추격/교전에 실제 영향 부여
         // - 효과는 관전형 템포에 맞춘 단순 모델(SSOT/AI 안정화 우선)
         const absNow = currentActionSec();
@@ -6713,7 +6713,7 @@ if (showMarketPanel && pendingTranscendPick) {
                     );
                   })()}
 
-                  {settings?.rulesetId === 'ER_S10' && (
+                  {normalizeRulesetId(settings?.rulesetId) === DEFAULT_RULESET_ID && (
                     <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
                   )}
                 </div>

@@ -7,10 +7,11 @@ const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
+const { dedupeScopedPerks, ensureDefaultPublicPerks } = require('../utils/defaultPerks');
 const ErMeta = require('../models/ErMeta');
 const { DEFAULT_ZONES } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
-const { scopedFilter } = require('../utils/requestScope');
+const { getOptionalUserId, scopedFilter } = require('../utils/requestScope');
 
 /**
  * ✅ 공개 데이터 API
@@ -101,8 +102,9 @@ router.get('/drone-offers', async (req, res) => {
 
 router.get('/perks', async (req, res) => {
   try {
-    const perks = await Perk.find(scopedFilter(req, { isActive: true })).sort({ lpCost: 1 });
-    res.json(perks);
+    await ensureDefaultPublicPerks(Perk);
+    const perks = await Perk.find(scopedFilter(req, { isActive: true })).sort({ category: 1, lpCost: 1 }).lean();
+    res.json(dedupeScopedPerks(perks, getOptionalUserId(req)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '특전 로드 실패' });

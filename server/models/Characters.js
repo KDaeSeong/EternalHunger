@@ -15,7 +15,7 @@ const characterSchema = new Schema({
 
   // --- 관전형 목표 세팅 ---
   // - goalGearTier: 목표 장비 등급(영웅=4, 전설=5, 초월=6)
-  // - tacticalSkill: 시즌10 일반 게임 전술 스킬(문자열)
+  // - tacticalSkill: 시즌 11 일반 게임 전술 스킬(문자열)
   // - goalLoadouts: 목표 등급별(영웅/전설/초월) 슬롯별 목표 장비(itemKey) 세팅
   goalGearTier: { type: Number, default: 6 },
   tacticalSkill: { type: String, default: '블링크' },

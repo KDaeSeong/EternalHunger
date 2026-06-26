@@ -178,6 +178,12 @@ const myKillsTop3 = myCharTop3.kills;
             <p>자유롭게 글을 작성하고 공유합니다.</p>
         </Link>
 
+        <Link href="/perks" className="menu-card">
+            <div className="icon">LP</div>
+            <h3>특전 상점</h3>
+            <p>LP로 칭호, 배지, 프레임 같은 치장 특전을 구매합니다.</p>
+        </Link>
+
         {user?.isAdmin ? (
           <Link href="/admin" className="menu-card">
               <div className="icon">🛠️</div>

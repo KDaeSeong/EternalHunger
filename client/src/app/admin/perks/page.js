@@ -21,8 +21,8 @@ export default function AdminPerksPage() {
     name: '',
     description: '',
     lpCost: 0,
-    category: 'buff',
-    effectsText: '{\n  "hpPlus": 20\n}',
+    category: 'cosmetic',
+    effectsText: '{\n  "cosmeticKind": "title",\n  "title": "루미아 생존자",\n  "balanceAffecting": false\n}',
     isActive: true,
   });
 
@@ -72,7 +72,15 @@ export default function AdminPerksPage() {
       };
       const res = await apiPost('/admin/perks', payload);
       setMessage(res?.message || '추가 완료');
-      setCreateForm({ ...createForm, code: '', name: '', description: '', lpCost: 0 });
+      setCreateForm({
+        ...createForm,
+        code: '',
+        name: '',
+        description: '',
+        lpCost: 0,
+        category: 'cosmetic',
+        effectsText: '{\n  "cosmeticKind": "title",\n  "title": "루미아 생존자",\n  "balanceAffecting": false\n}',
+      });
       if (res?.perk) setPerks((prev) => [res.perk, ...(Array.isArray(prev) ? prev : [])]);
     } catch (e) {
       setMessage(e?.response?.data?.error || e.message);
@@ -166,8 +174,13 @@ export default function AdminPerksPage() {
             <div className="admin-field">
               <label>category</label>
               <select value={createForm.category} onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}>
-                <option value="buff">buff</option>
                 <option value="cosmetic">cosmetic</option>
+                <option value="title">title</option>
+                <option value="portrait_frame">portrait_frame</option>
+                <option value="badge">badge</option>
+                <option value="log_style">log_style</option>
+                <option value="victory_effect">victory_effect</option>
+                <option value="buff">buff</option>
                 <option value="other">other</option>
               </select>
             </div>
@@ -184,7 +197,7 @@ export default function AdminPerksPage() {
             <label>effects (JSON)</label>
             <textarea value={createForm.effectsText} onChange={(e) => setCreateForm({ ...createForm, effectsText: e.target.value })} />
           </div>
-          <div className="admin-muted" style={{ marginBottom: 10 }}>지원 키 예시: hpPlus, maxHpPlus, startCreditsPlus, atkPlus, defPlus, moveSpeedPlus, kioskDiscountPct, droneDiscountPct, craftChancePlus, goalWeightPlus, wildlifeCreditsPct, wildlifeDamageMinus, wildlifeLootPlus, eventCreditsPct, eventRecoveryPlus, eventItemPlus, poisonResistPct, burnResistPct, poisonImmune, burnImmune, cleanseHealPlus</div>
+          <div className="admin-muted" style={{ marginBottom: 10 }}>치장 키 예시: cosmeticKind, title, frame, badge, color, effect, balanceAffecting=false · 버프 키 예시: hpPlus, maxHpPlus, startCreditsPlus, atkPlus, defPlus, moveSpeedPlus, kioskDiscountPct, droneDiscountPct, craftChancePlus, goalWeightPlus, wildlifeCreditsPct, wildlifeDamageMinus, wildlifeLootPlus</div>
           <button className="admin-btn primary" onClick={create}>추가</button>
         </div>
 
@@ -247,7 +260,7 @@ export default function AdminPerksPage() {
                 <label>description</label>
                 <textarea value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} />
               </div>
-              <div className="admin-muted" style={{ marginBottom: 10 }}>지원 키 예시: hpPlus, maxHpPlus, startCreditsPlus, atkPlus, defPlus, moveSpeedPlus, kioskDiscountPct, droneDiscountPct, craftChancePlus, goalWeightPlus, wildlifeCreditsPct, wildlifeDamageMinus, wildlifeLootPlus, eventCreditsPct, eventRecoveryPlus, eventItemPlus, poisonResistPct, burnResistPct, poisonImmune, burnImmune, cleanseHealPlus</div>
+              <div className="admin-muted" style={{ marginBottom: 10 }}>치장 키 예시: cosmeticKind, title, frame, badge, color, effect, balanceAffecting=false · 버프 키 예시: hpPlus, maxHpPlus, startCreditsPlus, atkPlus, defPlus, moveSpeedPlus, kioskDiscountPct, droneDiscountPct, craftChancePlus, goalWeightPlus, wildlifeCreditsPct, wildlifeDamageMinus, wildlifeLootPlus</div>
             </div>
             <div>
               <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
@@ -258,8 +271,13 @@ export default function AdminPerksPage() {
                 <div className="admin-field">
                   <label>category</label>
                   <select value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>
-                    <option value="buff">buff</option>
                     <option value="cosmetic">cosmetic</option>
+                    <option value="title">title</option>
+                    <option value="portrait_frame">portrait_frame</option>
+                    <option value="badge">badge</option>
+                    <option value="log_style">log_style</option>
+                    <option value="victory_effect">victory_effect</option>
+                    <option value="buff">buff</option>
                     <option value="other">other</option>
                   </select>
                 </div>

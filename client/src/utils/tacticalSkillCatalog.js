@@ -1,4 +1,4 @@
-// Season 10 regular tactical skills used by the simulation.
+// Season 11 regular tactical skills used by the simulation.
 // Cobalt-only and removed/legacy skills are normalized to supported regular-game options.
 
 export const TAC_SKILL_TABLE = {

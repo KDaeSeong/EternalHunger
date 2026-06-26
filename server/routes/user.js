@@ -11,7 +11,7 @@ const User = require('../models/User');
  */
 router.get('/me', async (req, res) => {
   try {
-    const user = await User.findById(req.user.id, 'username lp credits statistics isAdmin badges createdAt');
+    const user = await User.findById(req.user.id, 'username lp credits perks statistics isAdmin badges createdAt');
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
     res.json(user);
   } catch (err) {
@@ -49,7 +49,7 @@ router.post('/update-stats', async (req, res) => {
       }
     };
 
-    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('username lp credits statistics isAdmin badges createdAt');
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('username lp credits perks statistics isAdmin badges createdAt');
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
 
     res.json({

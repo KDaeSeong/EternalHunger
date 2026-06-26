@@ -4,7 +4,16 @@ const router = express.Router();
 
 const GameSettings = require('../models/GameSettings');
 
-// ✅ 내 설정 불러오기 (없으면 기본값으로 생성)
+const CURRENT_RULESET_ID = 'ER_S11';
+const LEGACY_RULESET_ID = 'ER_S' + '10';
+
+function normalizeRulesetId(id) {
+  const raw = String(id || '').trim();
+  if (!raw || raw === LEGACY_RULESET_ID) return CURRENT_RULESET_ID;
+  return raw;
+}
+
+// Load settings. Create defaults when the user has no saved document.
 router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
@@ -14,19 +23,23 @@ router.get('/', async (req, res) => {
       settings = await new GameSettings({ userId }).save();
     }
 
+    const normalizedRulesetId = normalizeRulesetId(settings.rulesetId);
+    if (settings.rulesetId !== normalizedRulesetId) {
+      settings.rulesetId = normalizedRulesetId;
+      await settings.save();
+    }
+
     res.json(settings);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "설정 로드 실패" });
+    res.status(500).json({ error: 'settings_load_failed' });
   }
 });
 
-// ✅ 내 설정 저장/업데이트 (upsert)
+// Save settings with an explicit field allowlist.
 router.put('/', async (req, res) => {
   try {
     const userId = req.user.id;
-
-    // 허용 필드만 업데이트 (화이트리스트)
     const body = req.body || {};
     const patch = {};
 
@@ -42,13 +55,14 @@ router.put('/', async (req, res) => {
     if (body.baseBattleProb !== undefined) patch.baseBattleProb = Number(body.baseBattleProb);
     if (body.itemSpawnRate !== undefined) patch.itemSpawnRate = Number(body.itemSpawnRate);
 
-    // 🎮 룰 프리셋
     if (typeof body.rulesetId === 'string') {
-      const allowed = ['ER_S10', 'LEGACY'];
-      if (allowed.includes(body.rulesetId)) patch.rulesetId = body.rulesetId;
+      const allowed = [CURRENT_RULESET_ID, 'LEGACY', LEGACY_RULESET_ID];
+      const normalizedRulesetId = normalizeRulesetId(body.rulesetId);
+      if (allowed.includes(body.rulesetId) || allowed.includes(normalizedRulesetId)) {
+        patch.rulesetId = normalizedRulesetId;
+      }
     }
 
-    // 🗺️ 기본 맵 저장(선택값이 없으면 null로 초기화 가능)
     if (body.activeMapId !== undefined) {
       patch.activeMapId = body.activeMapId ? String(body.activeMapId) : null;
     }
@@ -59,10 +73,10 @@ router.put('/', async (req, res) => {
       { new: true, upsert: true }
     );
 
-    res.json({ message: "설정 저장 완료", settings: updated });
+    res.json({ message: 'settings_saved', settings: updated });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "설정 저장 실패" });
+    res.status(500).json({ error: 'settings_save_failed' });
   }
 });
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import '../../styles/ERModifiers.css';
-import { RULESETS } from '../../utils/rulesets';
+import { DEFAULT_RULESET_ID, RULESETS, normalizeRulesetId } from '../../utils/rulesets';
 import { apiGet, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
 
 export default function ModifiersPage() {
@@ -14,7 +14,7 @@ export default function ModifiersPage() {
   });
 
   // 룰 프리셋(시뮬레이터 규칙 세트)
-  const [rulesetId, setRulesetId] = useState('ER_S10');
+  const [rulesetId, setRulesetId] = useState(DEFAULT_RULESET_ID);
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function ModifiersPage() {
           }
 
           if (data && data.rulesetId) {
-            setRulesetId(data.rulesetId);
+            setRulesetId(normalizeRulesetId(data.rulesetId));
           }
         } catch (err) {
           console.error("설정 로드 실패:", err);
@@ -77,7 +77,7 @@ export default function ModifiersPage() {
     try {
       // 주소 변경: POST -> PUT
       // 헤더 추가: Authorization
-      await apiPut('/settings', { statWeights: weights, rulesetId });
+      await apiPut('/settings', { statWeights: weights, rulesetId: normalizeRulesetId(rulesetId) });
       alert("💾 밸런스 설정이 저장되었습니다!");
       location.reload();
     } catch (err) {
@@ -142,11 +142,11 @@ export default function ModifiersPage() {
           <div className="modifier-item">
             <div className="mod-label">
               <span>🎮 룰 프리셋 (시뮬레이터 규칙)</span>
-              <span className="mod-value">{RULESETS[rulesetId]?.label || rulesetId}</span>
+              <span className="mod-value">{RULESETS[normalizeRulesetId(rulesetId)]?.label || normalizeRulesetId(rulesetId)}</span>
             </div>
 
             <select
-              value={rulesetId}
+              value={normalizeRulesetId(rulesetId)}
               onChange={(e) => setRulesetId(e.target.value)}
               disabled={!user}
               style={{
@@ -163,7 +163,7 @@ export default function ModifiersPage() {
             </select>
 
             <div className="mod-desc">
-              {rulesetId === 'ER_S10'
+              {normalizeRulesetId(rulesetId) === DEFAULT_RULESET_ID
                 ? '⏱ 페이즈 버튼으로 진행하지만, 페이즈 내부는 틱(초) 기반으로 폭발 타이머/가젯/포그를 처리합니다.'
                 : '🧪 기존 단순화 규칙입니다(틱 기반 처리 없음).'}
             </div>

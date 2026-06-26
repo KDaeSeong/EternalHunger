@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { RULESETS, getRuleset } from '../../../utils/rulesets';
+import { DEFAULT_RULESET_ID, RULESETS, getRuleset, normalizeRulesetId } from '../../../utils/rulesets';
 
-const OV_KEY = (id) => `eh_ruleset_override_${String(id || 'ER_S10')}`;
+const OV_KEY = (id) => `eh_ruleset_override_${normalizeRulesetId(id || DEFAULT_RULESET_ID)}`;
 
 function safeParse(raw) {
   try { return JSON.parse(raw); } catch { return null; }
@@ -75,12 +75,13 @@ function rebalance3(cur, key, nextShareRaw) {
 }
 
 export default function AdminCratesPage() {
-  const [rulesetId, setRulesetId] = useState('ER_S10');
+  const [rulesetId, setRulesetId] = useState(DEFAULT_RULESET_ID);
   const [tab, setTab] = useState('food');
   const [message, setMessage] = useState('');
 
-  const base = useMemo(() => RULESETS[rulesetId] || RULESETS.ER_S10, [rulesetId]);
-  const current = useMemo(() => getRuleset(rulesetId), [rulesetId]);
+  const normalizedRulesetId = normalizeRulesetId(rulesetId);
+  const base = useMemo(() => RULESETS[normalizedRulesetId] || RULESETS[DEFAULT_RULESET_ID], [normalizedRulesetId]);
+  const current = useMemo(() => getRuleset(normalizedRulesetId), [normalizedRulesetId]);
 
   // 필드 상자 타입 비중(합=1)
   const [wFood, setWFood] = useState(0.8);
@@ -108,7 +109,7 @@ export default function AdminCratesPage() {
     setFoodJson(JSON.stringify((current?.worldSpawns || {})?.foodCrate || {}, null, 2));
     setLegendJson(JSON.stringify((current?.worldSpawns || {})?.legendaryCrate || {}, null, 2));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rulesetId]);
+  }, [normalizedRulesetId]);
 
   const save = () => {
     try {
@@ -117,7 +118,7 @@ export default function AdminCratesPage() {
       setWLegend(l);
       setWTrans(t);
 
-      const ov = readOverride(rulesetId) || {};
+      const ov = readOverride(normalizedRulesetId) || {};
       ov.drops = ov.drops || {};
       ov.drops.crateTypes = ov.drops.crateTypes || {};
       ov.worldSpawns = ov.worldSpawns || {};
@@ -132,7 +133,7 @@ export default function AdminCratesPage() {
       if (fj && typeof fj === 'object' && !Array.isArray(fj)) ov.worldSpawns.foodCrate = fj;
       if (lj && typeof lj === 'object' && !Array.isArray(lj)) ov.worldSpawns.legendaryCrate = lj;
 
-      writeOverride(rulesetId, ov);
+      writeOverride(normalizedRulesetId, ov);
       setMessage('저장 완료 (시뮬 화면 새로고침 권장)');
     } catch (e) {
       setMessage(`저장 실패: ${e?.message || e}`);
@@ -156,7 +157,7 @@ export default function AdminCratesPage() {
   };
 
   const clearOverrideAll = () => {
-    deleteOverride(rulesetId);
+    deleteOverride(normalizedRulesetId);
     setMessage('오버라이드 삭제 완료 (시뮬 화면 새로고침 권장)');
   };
 
@@ -193,7 +194,7 @@ export default function AdminCratesPage() {
         <div className="admin-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
           <div className="admin-field">
             <label>rulesetId</label>
-            <select value={rulesetId} onChange={(e) => setRulesetId(e.target.value)}>
+            <select value={normalizedRulesetId} onChange={(e) => setRulesetId(e.target.value)}>
               {Object.keys(RULESETS).map((k) => (
                 <option key={k} value={k}>{k} · {RULESETS[k]?.label || ''}</option>
               ))}

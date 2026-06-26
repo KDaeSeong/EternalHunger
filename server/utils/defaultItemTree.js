@@ -133,7 +133,7 @@ const DEFAULT_ITEM_TREE = [
     description: '기본 회복 음식. (체력 회복)\n※ 시뮬레이션에서는 자동으로 사용될 수 있습니다.',
   },
 
-  // --- 시즌10(10.0) 감성 음식/음료(최소 세트) ---
+  // --- 시즌 11(11.0) 감성 음식/음료(최소 세트) ---
   // - 실제 밸런스/효과는 시뮬 프로토타입 기준(간단 회복)
   // - type은 '소모품'으로 통일하고 tags로 food/drink를 구분
   {
@@ -200,7 +200,7 @@ const DEFAULT_ITEM_TREE = [
     stackMax: 6,
     baseCreditValue: 55,
     tags: ['food', 'healthy'],
-    description: '시즌10(10.0) 신규 시작 음식 콘셉트. (회복 강화)',
+    description: '시즌 11(11.0) 신규 시작 음식 콘셉트. (회복 강화)',
   },
 
   // --- 사냥/요리 루프용 재료/음식 ---

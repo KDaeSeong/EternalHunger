@@ -6,7 +6,7 @@ const PerkSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String, default: '' },
   lpCost: { type: Number, default: 0 },
-  category: { type: String, default: 'buff' },
+  category: { type: String, default: 'cosmetic' },
   effects: { type: Object, default: {} },
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
