@@ -1,42 +1,46 @@
 // client/src/utils/eventLogic.js
-// ✅ 관전형 시뮬(플레이어 간섭 없음) 기준의 "동적(무작위) 이벤트" 생성기
-// - 큰 보상/큰 처벌은 월드 스폰(상자/보스/변이/자연코어) 쪽에서 처리
-// - 여기서는 "작은 사건"(휴식/가벼운 탐색/소량 수급/경미한 사고)을 중심으로
-//   과도한 RNG 편향/아이템 미구축(가짜 ID) 문제를 줄입니다.
-
-// (unused) equipmentCatalog import removed
+// ER-style micro action generator used when the second-by-second simulation
+// needs a small solo action between route, object, wildlife, and combat logic.
 import { makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
 
-// --- 텍스트 톤(짧고 자연스럽게) ---
-const CONTEXTS = [
-  { text: '주변을 조심스럽게 살피며', w: 2 },
-  { text: '숨을 고르며', w: 2 },
-  { text: '발자국 소리를 죽이고', w: 1 },
-  { text: '서둘러', w: 1 },
-];
-
-function clamp(n, a, b) {
+function clamp(n, min, max) {
   const x = Number(n);
-  if (!Number.isFinite(x)) return a;
-  return Math.max(a, Math.min(b, x));
+  if (!Number.isFinite(x)) return min;
+  return Math.max(min, Math.min(max, x));
+}
+
+function randInt(min, max) {
+  const a = Math.ceil(Number(min) || 0);
+  const b = Math.floor(Number(max) || a);
+  return a + Math.floor(Math.random() * (b - a + 1));
 }
 
 function pickWeighted(list) {
-  const arr = Array.isArray(list) ? list : [];
-  const total = arr.reduce((s, x) => s + Math.max(0, Number(x?.w ?? x?.weight ?? 1)), 0);
-  if (total <= 0) return arr[0] || null;
-  let r = Math.random() * total;
-  for (const x of arr) {
-    r -= Math.max(0, Number(x?.w ?? x?.weight ?? 1));
-    if (r <= 0) return x;
+  const rows = (Array.isArray(list) ? list : []).filter(Boolean);
+  const total = rows.reduce((sum, row) => sum + Math.max(0, Number(row?.weight ?? row?.w ?? 1)), 0);
+  if (total <= 0) return rows[0] || null;
+  let roll = Math.random() * total;
+  for (const row of rows) {
+    roll -= Math.max(0, Number(row?.weight ?? row?.w ?? 1));
+    if (roll <= 0) return row;
   }
-  return arr[arr.length - 1] || null;
+  return rows[rows.length - 1] || null;
 }
 
-function readStat(actor, keys) {
-  const st = actor?.stats && typeof actor.stats === 'object' ? actor.stats : actor;
-  for (const k of keys) {
-    const v = Number(st?.[k] ?? st?.[String(k).toLowerCase?.()] ?? 0);
+function normalizeText(value) {
+  return String(value || '').trim();
+}
+
+function safeTags(item) {
+  return Array.isArray(item?.tags) ? item.tags.map((x) => String(x || '').toLowerCase()) : [];
+}
+
+function readStat(actor, names) {
+  const stats = actor?.stats && typeof actor.stats === 'object' ? actor.stats : {};
+  for (const name of names) {
+    const direct = Number(actor?.[name]);
+    if (Number.isFinite(direct)) return direct;
+    const v = Number(stats?.[name] ?? stats?.[String(name).toLowerCase()]);
     if (Number.isFinite(v)) return v;
   }
   return 0;
@@ -45,280 +49,320 @@ function readStat(actor, keys) {
 function roughPower(actor) {
   const str = readStat(actor, ['STR', 'str']);
   const agi = readStat(actor, ['AGI', 'agi']);
-  const sht = readStat(actor, ['SHOOT', 'SHT', 'shoot', 'sht']);
+  const sht = readStat(actor, ['SHT', 'sht', 'SHOOT', 'shoot']);
   const end = readStat(actor, ['END', 'end']);
   const men = readStat(actor, ['MEN', 'men']);
-  return str + agi + sht + end + men * 0.5;
+  const dex = readStat(actor, ['DEX', 'dex']);
+  return str + agi + sht + end * 0.8 + men * 0.45 + dex * 0.35;
 }
 
-function safeTags(it) {
-  if (!it) return [];
-  if (Array.isArray(it.tags)) return it.tags.map(String);
-  if (Array.isArray(it.tag)) return it.tag.map(String);
-  return [];
-}
+function inferItemCategory(item) {
+  const tags = safeTags(item);
+  const type = normalizeText(item?.type).toLowerCase();
+  const category = normalizeText(item?.category).toLowerCase();
+  const name = normalizeText(item?.name).toLowerCase();
+  const equipSlot = normalizeText(item?.equipSlot);
 
-function inferCategory(it) {
-  const tags = safeTags(it);
-  const type = String(it?.type || '').toLowerCase();
-  const name = String(it?.name || '');
-  const lower = name.toLowerCase();
-
-  // equipSlot이 있으면 장비
-  if (String(it?.equipSlot || '').trim()) return 'equipment';
-
-  const isConsumable =
-    type === 'food' ||
-    type === 'consumable' ||
+  if (equipSlot) return 'equipment';
+  if (category.includes('material') || type.includes('material') || tags.includes('material') || tags.includes('basic')) return 'material';
+  if (
+    category.includes('food') ||
+    type.includes('food') ||
+    type.includes('consumable') ||
     tags.includes('food') ||
     tags.includes('drink') ||
     tags.includes('healthy') ||
     tags.includes('heal') ||
     tags.includes('medical') ||
+    name.includes('빵') ||
+    name.includes('물') ||
     name.includes('스테이크') ||
     name.includes('치킨') ||
-    name.includes('빵') ||
-    name.includes('라면') ||
-    name.includes('피자') ||
-    name.includes('물') ||
-    lower.includes('bandage') ||
-    name.includes('붕대');
-
-  if (isConsumable) return 'consumable';
-
-  // 재료
-  if (type.includes('재료') || tags.includes('material') || tags.includes('basic')) return 'material';
-
-  // 기본값
+    name.includes('초콜릿') ||
+    name.includes('붕대')
+  ) {
+    return 'consumable';
+  }
   return 'misc';
 }
 
-function findItemsByFilter(publicItems, filterFn) {
-  const list = Array.isArray(publicItems) ? publicItems : [];
-  return list.filter((it) => it && it._id && filterFn(it));
+function itemTier(item) {
+  return clamp(item?.tier ?? item?.grade ?? 1, 1, 9);
 }
 
-function pickLowMaterial(publicItems) {
-  // Tier1 재료(하급) 위주. 고기/특수 재료는 제외(그건 사냥/스폰에서 처리)
-  const candidates = findItemsByFilter(publicItems, (it) => {
-    const cat = inferCategory(it);
-    if (cat !== 'material') return false;
-    const tier = clamp(it?.tier ?? 1, 1, 9);
-    if (tier !== 1) return false;
-    const nm = String(it?.name || '');
-    if (nm.includes('고기')) return false;
-    // 운석/생나/미스릴/포스코어/VF는 월드 스폰/보스에서
-    const low = nm.toLowerCase();
-    if (nm.includes('운석') || nm.includes('생명의') || nm.includes('미스릴') || nm.includes('포스') || low.includes('vf')) return false;
-    return true;
+function itemRarity(item) {
+  return normalizeText(item?.rarity || item?.gradeName).toLowerCase();
+}
+
+function isSpecialMaterial(item) {
+  const name = normalizeText(item?.name).toLowerCase();
+  const key = normalizeText(item?.key || item?.itemKey || item?.code).toLowerCase();
+  return (
+    name.includes('운석') ||
+    name.includes('생명의 나무') ||
+    name.includes('미스릴') ||
+    name.includes('포스 코어') ||
+    name.includes('vf') ||
+    key.includes('meteor') ||
+    key.includes('life_tree') ||
+    key.includes('mithril') ||
+    key.includes('force_core') ||
+    key.includes('vf')
+  );
+}
+
+function findItems(publicItems, predicate) {
+  return (Array.isArray(publicItems) ? publicItems : []).filter((item) => item && item._id && predicate(item));
+}
+
+function pickRouteMaterial(publicItems, actor) {
+  const goalIds = new Set(
+    [
+      ...(Array.isArray(actor?.routeMissingItemIds) ? actor.routeMissingItemIds : []),
+      ...(Array.isArray(actor?.missingItemIds) ? actor.missingItemIds : []),
+    ].map((x) => String(x || '')).filter(Boolean)
+  );
+  const materials = findItems(publicItems, (item) => {
+    if (inferItemCategory(item) !== 'material') return false;
+    if (isSpecialMaterial(item)) return false;
+    return itemTier(item) <= 2;
   });
-  if (!candidates.length) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)] || null;
+  if (!materials.length) return null;
+
+  const weighted = materials.map((item) => {
+    let weight = 1;
+    if (goalIds.has(String(item._id))) weight += 7;
+    if (itemTier(item) === 1) weight += 1.4;
+    if (itemRarity(item) === 'common') weight += 0.5;
+    return { item, weight };
+  });
+  return pickWeighted(weighted)?.item || materials[0];
 }
 
 function pickFood(publicItems) {
-  const candidates = findItemsByFilter(publicItems, (it) => {
-    const cat = inferCategory(it);
-    if (cat !== 'consumable') return false;
-    const tags = safeTags(it);
-    const nm = String(it?.name || '');
-    // 의약(붕대)은 별도 이벤트에서
-    const isMedical = tags.includes('medical') || tags.includes('heal') || nm.includes('붕대');
-    if (isMedical) return false;
-    // food/drink
-    const ok = tags.includes('food') || tags.includes('drink') || nm.includes('빵') || nm.includes('스테이크') || nm.includes('치킨') || nm.includes('물');
-    return ok;
+  const foods = findItems(publicItems, (item) => {
+    if (inferItemCategory(item) !== 'consumable') return false;
+    const tags = safeTags(item);
+    const name = normalizeText(item?.name).toLowerCase();
+    if (tags.includes('medical') || name.includes('붕대')) return false;
+    return tags.includes('food') || tags.includes('drink') || name.includes('빵') || name.includes('물') || name.includes('스테이크') || name.includes('치킨');
   });
-  if (!candidates.length) return null;
-  // 스테이크/치킨 약간 가중
-  const w = candidates.map((it) => {
-    const nm = String(it?.name || '');
-    let ww = 1;
-    if (nm.includes('스테이크') || nm.includes('치킨')) ww += 1.2;
-    if (nm.includes('당근')) ww += 0.8;
-    return { it, w: ww };
-  });
-  return (pickWeighted(w)?.it) || candidates[0];
+  if (!foods.length) return null;
+  return pickWeighted(foods.map((item) => ({ item, weight: itemTier(item) + (safeTags(item).includes('food') ? 1 : 0) })))?.item || foods[0];
 }
 
 function pickMedical(publicItems) {
-  const candidates = findItemsByFilter(publicItems, (it) => {
-    const cat = inferCategory(it);
-    if (cat !== 'consumable') return false;
-    const tags = safeTags(it);
-    const nm = String(it?.name || '');
-    return tags.includes('medical') || tags.includes('heal') || nm.includes('붕대');
+  const meds = findItems(publicItems, (item) => {
+    if (inferItemCategory(item) !== 'consumable') return false;
+    const tags = safeTags(item);
+    const name = normalizeText(item?.name).toLowerCase();
+    return tags.includes('medical') || tags.includes('heal') || name.includes('붕대') || name.includes('응급');
   });
-  if (!candidates.length) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)] || null;
+  if (!meds.length) return null;
+  return meds[Math.floor(Math.random() * meds.length)] || null;
 }
 
-// [수정] publicItems를 추가 인자로 받아 DB(시드) 아이템 기반으로 이벤트를 생성
-export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = 'morning', publicItems = [], opts = {}) {
-  const name = String(char?.name || '???');
-  const day = Math.max(1, Number(currentDay || 1));
-  const isNight = String(currentPhase || '') === 'night';
+function phaseKind(day, phase) {
+  const d = Math.max(1, Number(day || 1));
+  const p = String(phase || 'morning') === 'night' ? 'night' : 'day';
+  if (d <= 1) return p === 'day' ? 'early_route' : 'early_wildlife';
+  if (d === 2) return p === 'day' ? 'object_setup' : 'alpha_timing';
+  if (d === 3) return p === 'day' ? 'mid_object' : 'omega_timing';
+  if (d === 4) return p === 'day' ? 'legendary_upgrade' : 'weakline_timing';
+  if (d <= 6) return 'late_rotation';
+  return 'final_zone';
+}
+
+function hpPercent(actor) {
+  const maxHp = clamp(actor?.maxHp ?? 100, 1, 9999);
+  const hp = clamp(actor?.hp ?? maxHp, 0, maxHp);
+  return (hp / maxHp) * 100;
+}
+
+function inventoryPressure(actor) {
+  const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
+  const max = Number(actor?.inventoryLimit || actor?.bagLimit || 10);
+  if (!Number.isFinite(max) || max <= 0) return 0;
+  return clamp(inv.length / max, 0, 1);
+}
+
+function zoneLabel(actor) {
+  return normalizeText(actor?.zoneName || actor?.zone || actor?.zoneId || '현재 구역');
+}
+
+function silentResult() {
+  return { silent: true, log: '', damage: 0, recovery: 0, drop: null };
+}
+
+function buildActionPool(actor, day, phase, opts) {
+  const kind = phaseKind(day, phase);
+  const hpPct = hpPercent(actor);
+  const invPressure = inventoryPressure(actor);
   const farmFocus = opts?.farmFocus === true;
+  const power = roughPower(actor);
+  const lowHp = hpPct < 52;
+  const veryLowHp = hpPct < 32;
+  const fullInv = invPressure >= 0.9;
 
-  const hp = clamp(char?.hp ?? 100, 0, 100);
-  const maxHp = clamp(char?.maxHp ?? 100, 1, 999);
-  const hpPct = clamp((hp / maxHp) * 100, 0, 100);
+  const earlyRouteWeight = kind === 'early_route' ? 7 : 1.2;
+  const objectWeight = ['object_setup', 'alpha_timing', 'mid_object', 'omega_timing', 'weakline_timing'].includes(kind) ? 3.6 : 0.9;
+  const combatPrepWeight = ['late_rotation', 'final_zone'].includes(kind) ? 3.8 : 1.2;
 
-  const p = roughPower(char);
-  const context = (pickWeighted(CONTEXTS) || CONTEXTS[0]).text;
+  return [
+    { key: 'route_material', weight: (farmFocus ? 6 : earlyRouteWeight) * (fullInv ? 0.25 : 1) },
+    { key: 'food_supply', weight: (farmFocus ? 2.8 : 1.5) * (fullInv ? 0.35 : 1) + (hpPct < 75 ? 0.9 : 0) },
+    { key: 'medical_reset', weight: (lowHp ? 5.5 : 0.9) + (veryLowHp ? 3 : 0) },
+    { key: 'vision_control', weight: objectWeight + (phase === 'night' ? 0.8 : 0) },
+    { key: 'wildlife_track', weight: (kind === 'early_wildlife' ? 5.2 : 1.7) + Math.min(1.8, power / 80) },
+    { key: 'object_hold', weight: objectWeight + (kind.includes('timing') ? 1.4 : 0) },
+    { key: 'combat_reposition', weight: combatPrepWeight + (hpPct < 65 ? 1.1 : 0) },
+    { key: 'inventory_tune', weight: fullInv ? 5 : 0.7 },
+    { key: 'quiet_rotation', weight: 1.1 + (phase === 'night' ? 0.9 : 0) },
+    { key: 'silent', weight: 3.8 },
+  ];
+}
 
-  // "합리적" 이벤트 설계:
-  // - 아이템 미구축(fake id) 생성 금지
-  // - 큰 보상/특수재료는 월드 스폰에서
-  // - HP 낮으면 휴식/의약품 우선
+function routeMaterialAction(actor, publicItems, day) {
+  const item = pickRouteMaterial(publicItems, actor);
+  if (!item?._id) {
+    return {
+      log: `🧭 [${actor.name}] ${zoneLabel(actor)} 루트 상자를 훑었지만 필요한 재료가 없었습니다.`,
+      pvpBonusNext: 0.04,
+    };
+  }
+  return {
+    log: `🧭 [${actor.name}] ${zoneLabel(actor)} 루트 파밍: [${item.name}] x1 확보`,
+    drop: { item, itemId: String(item._id), qty: 1 },
+    pvpBonusNext: day <= 1 ? 0.04 : 0.08,
+  };
+}
 
-  const baseNothing = 5.0;
-  const baseRest = 1.4;
-  const baseScavenge = farmFocus ? 1.45 : 0.85;
-  const baseFood = farmFocus ? 1.05 : 0.85;
-  const baseMedical = 0.6;
-  const baseMishap = farmFocus ? 0.08 : 0.35;
-  const baseMinorFight = farmFocus ? 0.03 : 0.35;
+function foodSupplyAction(actor, publicItems) {
+  const item = pickFood(publicItems);
+  if (!item?._id) {
+    return {
+      log: `🍱 [${actor.name}] 식량 동선을 점검했지만 바로 챙길 음식은 없었습니다.`,
+      newEffects: [makeStatBuffEffect('집중', { men: 1 }, 20, 'micro_food_scan', { tags: ['positive', 'focus'] })],
+    };
+  }
+  return {
+    log: `🍱 [${actor.name}] 보급 상자에서 [${item.name}] x1을 챙겼습니다.`,
+    drop: { item, itemId: String(item._id), qty: 1 },
+    newEffects: [makeStatBuffEffect('집중', { men: 1, end: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
+    pvpBonusNext: 0.06,
+  };
+}
 
-  const needHealBoost = hpPct < 55 ? (55 - hpPct) / 10 : 0;
-  const nightRiskBoost = farmFocus ? (isNight ? 0.25 : 0) : (isNight ? 0.6 : 0);
-  const dayLootBoost = !isNight ? (farmFocus ? 0.55 : 0.25) : 0;
-
-  const pool = [
-    { k: 'nothing', w: baseNothing + (isNight ? 0.3 : 0) },
-    { k: 'rest', w: baseRest + needHealBoost },
-    { k: 'medical', w: baseMedical + needHealBoost * 0.8 },
-    { k: 'scavenge', w: baseScavenge + dayLootBoost },
-    { k: 'food', w: baseFood + (hpPct < 70 ? 0.2 : 0) },
-    { k: 'mishap', w: baseMishap + nightRiskBoost + Math.max(0, (day - 2) * 0.12) },
-    { k: 'minor_fight', w: baseMinorFight + nightRiskBoost + Math.max(0, (day - 3) * 0.10) },
+function medicalResetAction(actor, publicItems) {
+  const item = pickMedical(publicItems);
+  const missingHp = Math.max(0, Number(actor?.maxHp || 100) - Number(actor?.hp || 0));
+  const recovery = clamp(Math.floor(Math.min(16, missingHp * 0.28) + randInt(4, 8)), 4, 18);
+  const effects = [
+    makeRegenEffect(4, 30, 'micro_medical_reset'),
+    makeShieldEffect(5, 20, 'micro_medical_guard'),
   ];
 
-  const picked = pickWeighted(pool) || { k: 'nothing' };
-
-  // 1) 아무 일 없음
-  if (picked.k === 'nothing') {
-    return { silent: true, log: '', damage: 0, recovery: 0, drop: null };
-  }
-
-  // 2) 휴식/회복
-  if (picked.k === 'rest') {
-    const healBase = isNight ? 5 : 7;
-    const heal = clamp(Math.floor(healBase + Math.random() * 6 + p / 45), 3, 18);
-    const regenRecovery = clamp(Math.floor(2 + heal / 5), 2, 6);
-    const regenDuration = isNight ? 2 : 3;
-    // HP가 충분히 높으면(특히 낮) 휴식 로그는 생략해 로그 스팸을 줄입니다.
-    const silent = (!isNight && hpPct >= 85 && Math.random() < 0.65);
+  if (item?._id) {
     return {
-      silent,
-      log: silent ? '' : `🧘 [${name}] ${context} 잠시 숨을 고르며 체력을 회복했다. (HP +${heal})`,
-      damage: 0,
-      recovery: heal,
-      drop: null,
-      newEffects: [
-        makeRegenEffect(regenRecovery, regenDuration, 'event_rest'),
-        ...(isNight ? [makeShieldEffect(Math.max(4, Math.floor(heal / 2)), 1, 'event_rest_guard')] : []),
-      ],
+      log: `🚑 [${actor.name}] 응급 키트를 확보하고 전투 복귀 준비를 마쳤습니다. ([${item.name}] x1)`,
+      recovery,
+      drop: { item, itemId: String(item._id), qty: 1 },
+      newEffects: effects,
     };
   }
+  return {
+    log: `🚑 [${actor.name}] 안전한 엄폐 지점에서 빠르게 응급 정비했습니다. (HP +${recovery})`,
+    recovery,
+    newEffects: effects,
+  };
+}
 
-  // 3) 의약품 획득(HP 낮을수록)
-  if (picked.k === 'medical') {
-    const med = pickMedical(publicItems);
-    if (med?._id) {
-      return {
-        log: `🩹 [${name}] ${context} 응급 상자를 발견했다. → ${med.name} x1`,
-        damage: 0,
-        recovery: 0,
-        drop: { item: med, itemId: String(med._id), qty: 1 },
-        newEffects: [
-          makeRegenEffect(5, 2, 'event_medical'),
-          makeShieldEffect(6, 1, 'event_medical_guard'),
-        ],
-        // 노출 보너스는 최소
-        pvpBonusNext: 0.08,
-      };
-    }
-    // fallback: 회복으로 대체
-    const heal = clamp(Math.floor(4 + Math.random() * 6), 3, 12);
-    return {
-      log: `🩹 [${name}] ${context} 응급 처치를 했다. (HP +${heal})`,
-      damage: 0,
-      recovery: heal,
-      drop: null,
-      newEffects: [makeRegenEffect(4, 2, 'event_medical')],
-    };
-  }
+function visionControlAction(actor, day, phase) {
+  const isNight = phase === 'night';
+  const credits = day >= 2 ? randInt(1, 3) : 0;
+  return {
+    log: `📡 [${actor.name}] ${zoneLabel(actor)} 시야를 장악하고 ${isNight ? '야간 오브젝트 동선' : '다음 오브젝트 진입로'}를 확인했습니다.${credits ? ` (크레딧 +${credits})` : ''}`,
+    earnedCredits: credits,
+    newEffects: [makeStatBuffEffect('시야 확보', { dex: 1, men: 1 }, 30, 'micro_vision_control', { tags: ['positive', 'vision'] })],
+    pvpBonusNext: 0.12,
+  };
+}
 
-  // 4) 소량 재료 획득
-  if (picked.k === 'scavenge') {
-    // 낮에 조금 더 잘 나옴
-    const mat = pickLowMaterial(publicItems);
-    if (mat?._id) {
-      const qty = 1;
-      return {
-        log: `🧾 [${name}] ${context} 주변을 뒤져 ${mat.name} x${qty}을(를) 챙겼다.`,
-        damage: 0,
-        recovery: 0,
-        drop: { item: mat, itemId: String(mat._id), qty },
-        // 수색은 노출을 약간 올림
-        pvpBonusNext: 0.16,
-      };
-    }
-    // fallback: 경미한 크레딧
-    const cr = Math.max(0, Math.floor(Number(ruleset?.credits?.scavenge ?? 3) + Math.random() * 3));
-    return { log: `💳 [${name}] ${context} 잔돈을 주워 크레딧 +${cr}`, damage: 0, recovery: 0, earnedCredits: cr, drop: null };
-  }
+function wildlifeTrackAction(actor, day, phase) {
+  const isBearWindow = day >= 1 && phase === 'night';
+  const isMutantWindow = day >= 2;
+  const credits = randInt(isMutantWindow ? 3 : 1, isMutantWindow ? 7 : 4);
+  const damage = clamp(randInt(1, 4) - Math.floor(roughPower(actor) / 75), 0, 5);
+  const target = isMutantWindow ? '변이 야생동물' : isBearWindow ? '곰/늑대 캠프' : '닭/박쥐 캠프';
+  return {
+    log: `🐺 [${actor.name}] ${target}를 추적해 숙련도와 크레딧을 챙겼습니다.${damage ? ` (피해 -${damage})` : ''} (크레딧 +${credits})`,
+    damage,
+    earnedCredits: credits,
+    newEffects: [makeStatBuffEffect('사냥 리듬', { agi: 1, sht: 1 }, 20, 'micro_wildlife_track', { tags: ['positive', 'wildlife'] })],
+    pvpBonusNext: 0.10,
+  };
+}
 
-  // 5) 음식 획득(작게)
-  if (picked.k === 'food') {
-    const food = pickFood(publicItems);
-    if (food?._id) {
-      return {
-        log: `🍞 [${name}] ${context} 먹을 것을 발견했다. → ${food.name} x1`,
-        damage: 0,
-        recovery: 0,
-        drop: { item: food, itemId: String(food._id), qty: 1 },
-        newEffects: [
-          makeRegenEffect(3, 2, 'event_food'),
-          makeStatBuffEffect('집중', { men: 1, end: 1 }, 2, 'event_food_focus', { tags: ['positive', 'food', 'focus'] }),
-        ],
-        pvpBonusNext: 0.10,
-      };
-    }
-    return { log: `🍞 [${name}] ${context} 먹을 것을 찾았지만 쓸 만한 건 없었다.`, damage: 0, recovery: 0, drop: null };
-  }
+function objectHoldAction(actor, day, phase) {
+  const objectName = day >= 4 && phase === 'night'
+    ? '위클라인'
+    : day >= 3 && phase === 'night'
+      ? '오메가'
+      : day >= 2 && phase === 'night'
+        ? '알파'
+        : '운석/생명의 나무';
+  return {
+    log: `🎯 [${actor.name}] ${objectName} 타이밍을 보고 진입 각을 잡았습니다.`,
+    newEffects: [makeShieldEffect(4, 20, 'micro_object_hold'), makeStatBuffEffect('교전 준비', { men: 1, dex: 1 }, 30, 'micro_object_focus', { tags: ['positive', 'object'] })],
+    pvpBonusNext: 0.18,
+  };
+}
 
-  // 6) 경미한 사고(함정/낙뢰/낙상 등) — 관전형용으로 피해를 낮추고, 빈도를 줄임
-  if (picked.k === 'mishap') {
-    const base = isNight ? 4 : 3;
-    const late = Math.max(0, day - 4) * 0.5;
-    const dmg = clamp(Math.floor(base + Math.random() * 4 + late - p / 90), 1, 10);
-    return {
-      log: `⚠️ [${name}] ${context} 발밑을 잘못 디뎌 살짝 다쳤다. (피해 -${dmg})`,
-      damage: dmg,
-      recovery: 0,
-      drop: null,
-    };
-  }
+function combatRepositionAction(actor, day) {
+  const hpPct = hpPercent(actor);
+  const credits = day >= 5 ? randInt(1, 2) : 0;
+  return {
+    log: `🏃 [${actor.name}] 교전 소음을 피해 포지션을 다시 잡았습니다.${hpPct < 55 ? ' 체력이 낮아 전면전은 피합니다.' : ''}${credits ? ` (크레딧 +${credits})` : ''}`,
+    earnedCredits: credits,
+    newEffects: [makeStatBuffEffect('가속', { agi: 1 }, 20, 'micro_combat_reposition', { tags: ['positive', 'move'] })],
+    pvpBonusNext: hpPct < 55 ? 0.04 : 0.12,
+  };
+}
 
-  // 7) 작은 교전(누군가와 스쳐 싸움) — 실제 PvP는 메인 로직이 처리하므로 여기선 '경미'만
-  if (picked.k === 'minor_fight') {
-    const base = isNight ? 6 : 5;
-    const late = Math.max(0, day - 3) * 0.6;
-    const dmg = clamp(Math.floor(base + Math.random() * 6 + late - p / 80), 2, 14);
-    const cr = Math.max(0, Math.floor(Number(ruleset?.credits?.skirmish ?? 2) + Math.random() * 3));
-    return {
-      log: `⚔️ [${name}] ${context} 누군가와 마주쳐 짧게 충돌했다. (피해 -${dmg})${cr > 0 ? ` (크레딧 +${cr})` : ''}`,
-      damage: dmg,
-      recovery: 0,
-      earnedCredits: cr,
-      drop: null,
-      // 노출 증가(다음 페이즈 교전 확률 약간↑)
-      pvpBonusNext: 0.14,
-    };
-  }
+function inventoryTuneAction(actor) {
+  const credits = randInt(1, 4);
+  return {
+    log: `🎒 [${actor.name}] 가방을 정리해 루트 재료 우선순위를 다시 잡았습니다. (크레딧 +${credits})`,
+    earnedCredits: credits,
+    newEffects: [makeStatBuffEffect('정리 완료', { dex: 1 }, 20, 'micro_inventory_tune', { tags: ['positive', 'inventory'] })],
+  };
+}
 
-  // fallback
-  return { silent: true, log: '', damage: 0, recovery: 0, drop: null };
+function quietRotationAction(actor, phase) {
+  return {
+    log: `🧭 [${actor.name}] ${phase === 'night' ? '야간' : '낮'} 로테이션을 조용히 이어가며 위험 구역을 피했습니다.`,
+    newEffects: [makeShieldEffect(3, 20, 'micro_quiet_rotation')],
+    pvpBonusNext: 0.05,
+  };
+}
+
+export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = 'morning', publicItems = [], opts = {}) {
+  const actor = { ...(char || {}), name: normalizeText(char?.name || '생존자') };
+  const day = Math.max(1, Math.floor(Number(currentDay || 1)));
+  const phase = String(currentPhase || 'morning') === 'night' ? 'night' : 'morning';
+  const picked = pickWeighted(buildActionPool(actor, day, phase, opts));
+  const action = picked?.key || 'silent';
+
+  if (action === 'silent') return silentResult();
+  if (action === 'route_material') return routeMaterialAction(actor, publicItems, day, ruleset);
+  if (action === 'food_supply') return foodSupplyAction(actor, publicItems, day, ruleset);
+  if (action === 'medical_reset') return medicalResetAction(actor, publicItems, ruleset);
+  if (action === 'vision_control') return visionControlAction(actor, day, phase, ruleset);
+  if (action === 'wildlife_track') return wildlifeTrackAction(actor, day, phase, ruleset);
+  if (action === 'object_hold') return objectHoldAction(actor, day, phase, ruleset);
+  if (action === 'combat_reposition') return combatRepositionAction(actor, day, phase, ruleset);
+  if (action === 'inventory_tune') return inventoryTuneAction(actor, ruleset);
+  if (action === 'quiet_rotation') return quietRotationAction(actor, phase, ruleset);
+
+  return silentResult();
 }

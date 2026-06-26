@@ -372,7 +372,7 @@ export const RULESETS = {
       fieldCrate: DEFAULT_FIELD_CRATE_DROP,
     },
     // ⚔️ PvP(캐릭터 vs 캐릭터) 보상/회복 규칙
-    // - 1순위 목표: 사망 처리 + 루팅 + 전투 후 숨고르기 최소 규칙을 룰로 고정
+    // - 1순위 목표: 사망 처리 + 루팅 + 전투 후 재정비 최소 규칙을 룰로 고정
     pvp: {
       // 교전 트리거(동일 zone에 n명 이상)
       encounterMinSameZone: 2,

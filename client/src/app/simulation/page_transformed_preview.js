@@ -5046,7 +5046,7 @@ function safeGenerateDynamicEvent(actor, day, ruleset, phase, publicItems) {
     const res = generateDynamicEvent(actor, day, ruleset, phase, publicItems);
     if (res && typeof res === 'object') return res;
     return {
-      log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
+      log: `🧭 [${actor?.name || '생존자'}] 로테이션을 유지하며 다음 행동을 준비했습니다.`,
       damage: 0,
       recovery: 0,
       newItem: null,
@@ -5055,7 +5055,7 @@ function safeGenerateDynamicEvent(actor, day, ruleset, phase, publicItems) {
     // ruleset 미정의 등 런타임 ReferenceError 방어
     console.error('[safeGenerateDynamicEvent] fallback:', err);
     return {
-      log: `🍞 [${actor?.name || '???'}]은(는) 주변을 살폈지만 별일이 없었다.`,
+      log: `🧭 [${actor?.name || '생존자'}] 로테이션을 유지하며 다음 행동을 준비했습니다.`,
       damage: 0,
       recovery: 0,
       newItem: null,
@@ -8999,7 +8999,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const restHeal = Math.min(restHealMax, Math.max(0, maxHp - Number(winner.hp || 0)));
           if (restHeal > 0) {
             winner.hp = Math.min(maxHp, Number(winner.hp || 0) + restHeal);
-            addLog(`🩹 [${winner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
+            addLog(`🩹 [${winner.name}] 전투 후 재정비: HP +${restHeal}`, 'system');
           }
           tryUseConsumable(winner, 'after_battle');
           const curHp = Number(winner.hp || 0);
@@ -9010,7 +9010,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const extraHeal = Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp));
             if (extraHeal > 0) {
               winner.hp = Math.min(maxHp, curHp + extraHeal);
-              addLog(`🧘 [${winner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
+              addLog(`🧘 [${winner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'system');
             }
           } else if (Math.random() < postMoveChance) {
             const curZone = String(winner.zoneId || '');

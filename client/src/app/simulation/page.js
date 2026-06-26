@@ -5342,7 +5342,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const restHeal = applyHealingModifier(combatWinner, Math.min(restHealMax, Math.max(0, maxHp - Number(combatWinner.hp || 0))));
           if (restHeal > 0) {
             combatWinner.hp = Math.min(maxHp, Number(combatWinner.hp || 0) + restHeal);
-            addLog(`🩹 [${combatWinner.name}] 전투 후 숨고르기: HP +${restHeal}`, 'system');
+            addLog(`🩹 [${combatWinner.name}] 전투 후 재정비: HP +${restHeal}`, 'system');
           }
           tryUseConsumable(combatWinner, 'after_battle');
           const curHp = Number(combatWinner.hp || 0);
@@ -5353,7 +5353,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const extraHeal = applyHealingModifier(combatWinner, Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp)));
             if (extraHeal > 0) {
               combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
-              addLog(`🧘 [${combatWinner.name}] 전투 후 휴식: HP +${extraHeal}`, 'system');
+              addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'system');
             }
           } else if (Math.random() < postMoveChance) {
             const curZone = String(combatWinner.zoneId || '');

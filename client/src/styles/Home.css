@@ -868,3 +868,42 @@
         max-width: 58vw;
     }
 }
+
+/* Logo overflow guard: italic text and drop shadows need a little paint room. */
+.hero-logo-container,
+#header-id1,
+#header-id1 .logo-btn,
+#header-id1 .text-logo {
+    overflow: visible;
+}
+
+.hero-logo-container {
+    padding: 0 16px 10px;
+}
+
+.hero-logo-main {
+    display: inline-block;
+    line-height: 1.08;
+    padding: 0 0.16em 0.08em 0.04em;
+}
+
+#header-id1 .logo-btn {
+    flex: 0 0 auto;
+}
+
+#header-id1 .text-logo {
+    min-width: max-content;
+    padding: 3px 8px 5px 0;
+}
+
+#header-id1 .logo-main {
+    display: inline-block;
+    line-height: 1.08;
+    padding: 0 0.16em 0.08em 0.03em;
+}
+
+@media (min-width: 821px) {
+    #header-id1 ul {
+        overflow: visible;
+    }
+}
