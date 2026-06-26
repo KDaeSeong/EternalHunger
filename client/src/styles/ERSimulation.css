@@ -25,6 +25,37 @@
 .simulation-page > header {
     flex: 0 0 auto;
 }
+
+.simulation-page-hydrating {
+    align-items: center;
+    justify-content: center;
+    padding: 18px !important;
+    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364) !important;
+}
+
+.simulation-hydration-panel {
+    width: min(340px, 100%);
+    padding: 22px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    text-align: center;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+
+.simulation-hydration-logo {
+    color: #4ebfff;
+    font-family: 'Courier New', monospace;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+
+.simulation-hydration-text {
+    margin-top: 8px;
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 800;
+}
 /* client/src/styles/ERSimulation.css */
 
 /* 레이아웃: 좌측 명단 + 우측 화면 */

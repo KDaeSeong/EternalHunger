@@ -287,6 +287,7 @@ function getInitialParticipantPresetId() {
 }
 
 export default function SimulationPage() {
+  const [hasHydrated, setHasHydrated] = useState(false);
   const [survivors, setSurvivors] = useState([]);
   const [candidateSurvivors, setCandidateSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
@@ -6564,6 +6565,10 @@ if (showMarketPanel && pendingTranscendPick) {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
   const recentPings = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
     return safeRenderCompute('recentPings', () => buildRecentPings({ runEvents, pingNow, zonePos }), []);
@@ -6581,6 +6586,17 @@ if (showMarketPanel && pendingTranscendPick) {
   }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase, getZoneName]);
 
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
+
+  if (!hasHydrated) {
+    return (
+      <main className="simulation-page simulation-page-hydrating">
+        <div className="simulation-hydration-panel" role="status" aria-live="polite">
+          <div className="simulation-hydration-logo">ETERNAL HUNGER</div>
+          <div className="simulation-hydration-text">Loading simulation...</div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="simulation-page">
