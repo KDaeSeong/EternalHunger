@@ -423,48 +423,141 @@ main {
     }
 
     #characterRowContainer {
-        gap: 8px;
+        gap: 6px;
     }
 
     .characterRowContainer2 {
         width: 100%;
-        padding: 10px;
-        border-radius: 10px;
+        padding: 6px;
+        border-radius: 8px;
     }
 
     .characterRow {
-        gap: 6px;
+        display: grid;
+        grid-template-columns: 58px minmax(0, 1fr) minmax(0, 1fr) 42px;
+        grid-template-areas:
+            "img name name del"
+            "img gender weapon weapon"
+            "upload goal goal goal"
+            "ai ai er er";
+        gap: 4px 5px;
+        align-items: stretch;
     }
 
     .characterRow label {
-        font-size: 0.8rem;
+        font-size: 0;
+        min-width: 0;
     }
 
     .characterRow input[type="text"],
     .characterRow select {
-        min-height: 32px;
-        padding: 6px 8px;
-        font-size: 0.9rem;
+        min-height: 26px;
+        height: 26px;
+        padding: 3px 7px;
+        font-size: 0.78rem;
+        border-radius: 5px;
+    }
+
+    .characterRow .deleteChar {
+        grid-area: del;
+    }
+
+    .characterRow .previewImage {
+        grid-area: img;
+    }
+
+    .characterRow .addImage {
+        grid-area: upload;
+    }
+
+    .characterRow label:nth-of-type(2) {
+        grid-area: name;
+    }
+
+    .characterRow label:nth-of-type(3) {
+        grid-area: gender;
+    }
+
+    .characterRow label:nth-of-type(4) {
+        grid-area: weapon;
+    }
+
+    .characterRow label:nth-of-type(5) {
+        grid-area: goal;
     }
 
     .previewImage {
-        height: 118px;
+        height: 56px;
+        min-height: 56px;
+        margin: 0;
+        border-radius: 6px;
     }
 
     .addImage {
-        padding: 7px 8px;
-        font-size: 0.8rem;
+        min-height: 24px;
+        padding: 4px 5px;
+        font-size: 0.68rem;
+        line-height: 1.1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .deleteChar {
-        min-height: 30px;
-        padding: 5px 8px;
+        min-height: 26px;
+        height: 26px;
+        padding: 3px 6px;
+        margin: 0;
+        font-size: 0.7rem;
+        border-radius: 5px;
     }
 
     .ai-scouter-btn,
     .er-preset-btn {
-        min-height: 31px;
-        padding: 7px 8px;
-        font-size: 0.78rem;
+        min-height: 26px;
+        height: 26px;
+        padding: 3px 6px;
+        margin: 0;
+        font-size: 0.68rem;
+        border-radius: 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-shadow: none;
+    }
+
+    .ai-scouter-btn {
+        grid-area: ai;
+    }
+
+    .er-preset-btn {
+        grid-area: er;
+    }
+
+    .characterRow label:nth-of-type(5) > div {
+        height: 26px;
+        gap: 4px !important;
+        flex-wrap: nowrap !important;
+        min-width: 0;
+    }
+
+    .characterRow label:nth-of-type(5) button {
+        min-height: 24px;
+        height: 24px;
+        padding: 2px 6px !important;
+        border-radius: 6px !important;
+        font-size: 0.68rem;
+        white-space: nowrap;
+    }
+
+    .characterRow label:nth-of-type(5) span {
+        font-size: 0.68rem !important;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }

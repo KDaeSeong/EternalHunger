@@ -1651,6 +1651,12 @@ if (!who) {
     return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
   };
 
+  function waitMs(ms) {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, Math.max(0, Math.floor(Number(ms) || 0)));
+    });
+  };
+
   // 전투 로그 보정: 비치명(HP>0)인데도 '분쇄/처치' 같은 문구가 나오는 것을 방지
   function softenNonLethalBattleLog(s) {
     let t = String(s || '');
@@ -2745,6 +2751,29 @@ const pickStartZoneIdForChar = (c) => {
         offset + Math.max(1, Math.floor(Number(seconds || tickSec || 1)))
       );
       return phaseActionAbsSec;
+    };
+    const getVisibleTickDelayMs = () => {
+      const speed = Math.max(1, Math.min(32, Number(autoSpeed) || 1));
+      return Math.max(24, Math.round(1000 / speed));
+    };
+    const commitVisibleClock = async (absSec = phaseStartSec + phaseRuntimeOffsetSec, { wait = true } = {}) => {
+      const nextSec = Math.max(
+        phaseStartSec,
+        Math.min(phaseStartSec + phaseDurationSec, Math.floor(Number(absSec || phaseStartSec)))
+      );
+      setMatchSec(nextSec);
+      if (wait) await waitMs(getVisibleTickDelayMs());
+    };
+    const reserveVisibleSecond = async (seconds = tickSec) => {
+      const actionSec = reserveActionSecond(seconds);
+      await commitVisibleClock(phaseStartSec + phaseRuntimeOffsetSec);
+      return actionSec;
+    };
+    const runVisibleClockToPhaseEnd = async () => {
+      while (phaseRuntimeOffsetSec < phaseDurationSec) {
+        reserveActionSecond(tickSec);
+        await commitVisibleClock(phaseStartSec + phaseRuntimeOffsetSec);
+      }
     };
     const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
 
@@ -4910,7 +4939,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       actor = actor?._id ? survivorMap.get(String(actor._id)) : null;
       if (!actor) continue;
       actor = normalizeRuntimeSurvivor(actor);
-      reserveActionSecond(tickSec);
+      await reserveVisibleSecond(tickSec);
 
       if (!actor?._id || newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
       if (hasActionBlockStatus(actor)) {
@@ -6088,6 +6117,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
       ? Math.ceil(sdEndAt - (matchSec + phaseDurationSec))
       : null;
     const finalAliveTeams = getAliveTeams(finalStepSurvivors);
+    const shouldFinishByElimination = finalAliveTeams.length <= 1;
+    if (!shouldFinishByElimination) {
+      await runVisibleClockToPhaseEnd();
+    }
 
     if (suddenDeathActiveRef.current && typeof sdEndAt === 'number' && sdRemainAfter <= 0 && finalAliveTeams.length > 1) {
       const scoredTeams = finalAliveTeams
@@ -6109,7 +6142,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const winners = (Array.isArray(wTeam?.members) ? wTeam.members : [wForced]).filter(Boolean).map((s) => normalizeRuntimeSurvivor(s));
       const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);
       setSurvivors(winners);
-      setMatchSec((prev) => prev + phaseDurationSec);
+      setMatchSec(phaseStartSec + phaseDurationSec);
       addLog(`⏱ 서든데스 종료! 제한시간 만료로 ${wTeam?.teamName || getActorTeamName(wForced)} 승리`, 'highlight');
       finishGame(winners, updatedKillCounts, updatedAssistCounts, { finalDead: finalDeadForFinish });
       return;
@@ -6122,7 +6155,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     setSpawnState(nextSpawn);
 
     // 5.5) 경기 시간 진행(초)
-    setMatchSec((prev) => prev + phaseDurationSec);
+    setMatchSec(shouldFinishByElimination ? (phaseStartSec + phaseRuntimeOffsetSec) : (phaseStartSec + phaseDurationSec));
 
     // 5.6) 크레딧 적립(페이즈 보상 + 처치 보상 등)
     if (earnedCredits > 0) {
@@ -6251,17 +6284,13 @@ if (showMarketPanel && pendingTranscendPick) {
   useEffect(() => {
     if (!autoPlay) return;
     if (loading) return;
+    if (isAdvancing) return;
     if (isGameOver) return;
     if (showMarketPanel && pendingTranscendPick) return;
     if (startBlocked) return;
 
     const speed = Math.max(1, Math.min(32, Number(autoSpeed) || 1));
-    const autoRuleset = getRuleset(settings?.rulesetId);
-    let nextAutoPhase = phase === 'morning' ? 'night' : 'morning';
-    let nextAutoDay = day;
-    if (phase === 'night') nextAutoDay += 1;
-    const virtualSeconds = day === 0 ? 1 : getPhaseDurationSec(autoRuleset, nextAutoDay, nextAutoPhase);
-    const delayMs = Math.max(32, Math.round((Math.max(1, virtualSeconds) * 1000) / speed));
+    const delayMs = Math.max(80, Math.round(220 / speed));
 
     const id = window.setTimeout(() => {
       // ref를 통해 최신 함수 호출
@@ -6269,7 +6298,7 @@ if (showMarketPanel && pendingTranscendPick) {
     }, delayMs);
 
     return () => window.clearTimeout(id);
-  }, [autoPlay, autoSpeed, matchSec, loading, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked]);
+  }, [autoPlay, autoSpeed, matchSec, loading, isAdvancing, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked]);
 
   // ======== Market actions ========
   function ensureCharSelected() {
