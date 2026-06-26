@@ -4824,9 +4824,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
       };
     };
 
-    let todaysSurvivors = shuffleArray(normalizeRuntimeSurvivorList(updatedSurvivors));
-    let survivorMap = buildRuntimeSurvivorMap(todaysSurvivors);
+    let survivorMap = buildRuntimeSurvivorMap(normalizeRuntimeSurvivorList(updatedSurvivors));
+    let todaysSurvivors = [];
     let newDeadIds = [];
+    const refillActionWave = () => {
+      const liveActors = Array.from(survivorMap.values())
+        .filter((s) => s?._id && !newDeadIds.includes(s._id) && Number(s.hp || 0) > 0)
+        .map((s) => normalizeRuntimeSurvivor(s));
+      todaysSurvivors = shuffleArray(liveActors);
+      return todaysSurvivors.length;
+    };
 
     // 이번 턴 킬 모아두기
     let roundKills = {};
@@ -4933,7 +4940,9 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
     // 3. 메인 루프
-    while (todaysSurvivors.length > 0) {
+    while (phaseRuntimeOffsetSec < phaseDurationSec) {
+      if (todaysSurvivors.length <= 0 && refillActionWave() <= 0) break;
+
       let actor = todaysSurvivors.pop();
       actor = actor?._id ? survivorMap.get(String(actor._id)) : null;
       if (!actor) continue;
