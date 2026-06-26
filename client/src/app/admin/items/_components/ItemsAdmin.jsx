@@ -646,6 +646,61 @@ export default function ItemsAdmin() {
     setStatus('ok');
   }
 
+  async function runDefaultTreeBatch(mode) {
+    const limit = 100;
+    const totals = {
+      treeCount: 0,
+      createdCount: 0,
+      updatedCount: 0,
+      skippedCount: 0,
+      recipeUpdatedCount: 0,
+      deletedCount: 0,
+    };
+    const labels = { items: '아이템', recipes: '레시피', cleanup: '정리' };
+    const callBatch = async (phase, offset = 0) => {
+      const data = await apiPost('/admin/items/generate-default-tree', {
+        mode,
+        batch: true,
+        phase,
+        offset,
+        limit,
+      }, { timeoutMs: 45000 });
+      const s = data?.summary || {};
+      totals.treeCount = Math.max(totals.treeCount, Number(s.treeCount || 0));
+      totals.createdCount += Number(s.createdCount || 0);
+      totals.updatedCount += Number(s.updatedCount || 0);
+      totals.skippedCount += Number(s.skippedCount || 0);
+      totals.recipeUpdatedCount += Number(s.recipeUpdatedCount || 0);
+      totals.deletedCount += Number(s.deletedCount || 0);
+      const doneCount = phase === 'cleanup'
+        ? totals.deletedCount
+        : Math.min(Number(s.nextOffset || 0), Number(s.treeCount || 0));
+      const suffix = phase === 'cleanup'
+        ? `삭제 ${totals.deletedCount}개`
+        : `${doneCount}/${Number(s.treeCount || 0)}`;
+      setTreeMsg(`⏳ 기본 아이템 트리 ${labels[phase] || phase} 적용 중... ${suffix}`);
+      return s;
+    };
+
+    for (const phase of ['items', 'recipes']) {
+      let offset = 0;
+      for (;;) {
+        const s = await callBatch(phase, offset);
+        if (s.done) break;
+        offset = Number(s.nextOffset || 0);
+      }
+    }
+
+    if (mode === 'replace') {
+      for (;;) {
+        const s = await callBatch('cleanup', 0);
+        if (s.done) break;
+      }
+    }
+
+    return totals;
+  }
+
   async function generateDefaultTree(mode = 'missing') {
     if (treeBusy) return;
     if (mode === 'replace') {
@@ -655,8 +710,8 @@ export default function ItemsAdmin() {
     setTreeBusy(true);
     setTreeMsg('');
     try {
-      const data = await apiPost('/admin/items/generate-default-tree', { mode }, { timeoutMs: 120000 });
-      setTreeMsg(`✅ ${data?.message || '완료'} (tree:${data?.summary?.treeCount ?? 0}, created:${data?.summary?.createdCount ?? 0}, updated:${data?.summary?.updatedCount ?? 0}, deleted:${data?.summary?.deletedCount ?? 0}, recipe:${data?.summary?.recipeUpdatedCount ?? 0})`);
+      const summary = await runDefaultTreeBatch(mode);
+      setTreeMsg(`✅ 기본 아이템 트리 적용 완료 (tree:${summary.treeCount}, created:${summary.createdCount}, updated:${summary.updatedCount}, deleted:${summary.deletedCount}, recipe:${summary.recipeUpdatedCount})`);
       await reloadItems();
     } catch (e) {
       setTreeMsg(`⚠️ 기본 아이템 트리 생성 실패: ${String(e?.message || e)}`);

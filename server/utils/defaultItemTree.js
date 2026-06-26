@@ -173,6 +173,188 @@ function toBaseDoc(def, ownerUserId) {
   return doc;
 }
 
+function treeKeys(tree) {
+  return (Array.isArray(tree) ? tree : []).map((def) => def.key).filter(Boolean);
+}
+
+function sliceTree(tree, offset, limit) {
+  const safeOffset = Math.max(0, Math.floor(toNumber(offset, 0)));
+  const safeLimit = Math.min(250, Math.max(1, Math.floor(toNumber(limit, 100))));
+  return {
+    offset: safeOffset,
+    limit: safeLimit,
+    slice: tree.slice(safeOffset, safeOffset + safeLimit),
+  };
+}
+
+function sampleRows(rows) {
+  return (Array.isArray(rows) ? rows : []).slice(0, 50);
+}
+
+async function findExistingForTreeSlice(ownerUserId, defs) {
+  const keys = treeKeys(defs);
+  const externalIds = defs.map((def) => def.externalId).filter(Boolean);
+  const names = defs.map((def) => def.name).filter(Boolean);
+  const clauses = [
+    { itemKey: { $in: keys } },
+    { name: { $in: names } },
+  ];
+  if (externalIds.length) clauses.push({ externalId: { $in: externalIds } });
+  if (!keys.length && !names.length && !externalIds.length) return [];
+  return Item.find(scopeQuery(ownerUserId, { $or: clauses }));
+}
+
+async function upsertDefaultItemTreeBatch(opts = {}) {
+  const rawMode = cleanString(opts?.mode).toLowerCase();
+  const mode = rawMode === 'replace' ? 'replace' : rawMode === 'force' ? 'force' : 'missing';
+  const phase = cleanString(opts?.phase || 'items').toLowerCase();
+  const ownerUserId = opts?.ownerUserId || null;
+  const tree = normalizeTree();
+  const keys = treeKeys(tree);
+  const { offset, limit, slice } = sliceTree(tree, opts?.offset, opts?.limit);
+  const base = {
+    mode,
+    phase,
+    treeCount: tree.length,
+    offset,
+    limit,
+    nextOffset: offset + slice.length,
+    done: offset + slice.length >= tree.length,
+    createdCount: 0,
+    updatedCount: 0,
+    skippedCount: 0,
+    recipeUpdatedCount: 0,
+    deletedCount: 0,
+    created: [],
+    updated: [],
+    skipped: [],
+    recipeUpdated: [],
+    deleted: [],
+  };
+
+  if (phase === 'cleanup') {
+    if (mode !== 'replace') return { ...base, done: true, nextOffset: 0 };
+    const extras = await Item.find(scopeQuery(ownerUserId, { itemKey: { $nin: keys } }))
+      .select('_id itemKey externalId name')
+      .sort({ _id: 1 })
+      .limit(limit)
+      .lean();
+    if (!extras.length) return { ...base, done: true, nextOffset: 0 };
+    const ids = extras.map((item) => item._id);
+    const result = await Item.deleteMany({ _id: { $in: ids } });
+    const deletedCount = Number(result?.deletedCount || 0);
+    return {
+      ...base,
+      nextOffset: 0,
+      done: extras.length < limit,
+      deletedCount,
+      deleted: sampleRows(extras.map((item) => ({
+        key: cleanString(item.itemKey || item.externalId),
+        name: cleanString(item.name),
+        id: String(item._id),
+      }))),
+    };
+  }
+
+  if (!slice.length) return { ...base, done: true };
+
+  if (phase === 'recipes') {
+    const neededKeys = new Set(slice.map((def) => def.key).filter(Boolean));
+    for (const def of slice) {
+      for (const row of (Array.isArray(def.recipeKeys) ? def.recipeKeys : [])) {
+        if (row?.key) neededKeys.add(row.key);
+      }
+    }
+    const docs = await Item.find(scopeQuery(ownerUserId, { itemKey: { $in: [...neededKeys] } }));
+    const indexes = indexItems(docs);
+    const recipeUpdated = [];
+    const recipeOps = [];
+
+    for (const def of slice) {
+      if (!Array.isArray(def.recipeKeys) || def.recipeKeys.length === 0) continue;
+      const target = indexes.byItemKey.get(def.key);
+      if (!target) continue;
+      if (mode !== 'force' && mode !== 'replace') {
+        const existingIngredients = target?.recipe?.ingredients;
+        if (Array.isArray(existingIngredients) && existingIngredients.length > 0) continue;
+      }
+
+      const ingredients = [];
+      for (const row of def.recipeKeys) {
+        const ingredient = indexes.byItemKey.get(row.key);
+        if (!ingredient?._id) continue;
+        ingredients.push({ itemId: ingredient._id, qty: Math.max(1, Math.floor(toNumber(row.qty, 1))) });
+      }
+      if (!ingredients.length) continue;
+
+      recipeOps.push({
+        updateOne: {
+          filter: { _id: target._id },
+          update: {
+            $set: {
+              recipe: {
+                ingredients,
+                creditsCost: def.recipeCreditsCost,
+                resultQty: def.recipeResultQty,
+              },
+            },
+          },
+        },
+      });
+      recipeUpdated.push({ key: def.key, name: def.name, id: String(target._id) });
+    }
+
+    if (recipeOps.length) await Item.bulkWrite(recipeOps, { ordered: false, runValidators: true });
+    return {
+      ...base,
+      recipeUpdatedCount: recipeUpdated.length,
+      recipeUpdated: sampleRows(recipeUpdated),
+    };
+  }
+
+  const existing = await findExistingForTreeSlice(ownerUserId, slice);
+  const indexes = indexItems(existing);
+  const created = [];
+  const updated = [];
+  const skipped = [];
+  const itemOps = [];
+
+  for (const def of slice) {
+    const exist = findExistingForDef(def, indexes);
+    const baseDoc = toBaseDoc(def, ownerUserId);
+
+    if (!exist) {
+      itemOps.push({ insertOne: { document: baseDoc } });
+      created.push({ key: def.key, name: def.name });
+      continue;
+    }
+
+    if (mode === 'force' || mode === 'replace') {
+      itemOps.push({
+        updateOne: {
+          filter: { _id: exist._id },
+          update: { $set: baseDoc },
+        },
+      });
+      updated.push({ key: def.key, name: def.name, id: String(exist._id) });
+      continue;
+    }
+
+    skipped.push({ key: def.key, name: def.name, id: String(exist._id) });
+  }
+
+  if (itemOps.length) await Item.bulkWrite(itemOps, { ordered: false, runValidators: true });
+  return {
+    ...base,
+    createdCount: created.length,
+    updatedCount: updated.length,
+    skippedCount: skipped.length,
+    created: sampleRows(created),
+    updated: sampleRows(updated),
+    skipped: sampleRows(skipped),
+  };
+}
+
 async function upsertDefaultItemTree(opts = {}) {
   const rawMode = cleanString(opts?.mode).toLowerCase();
   const mode = rawMode === 'replace' ? 'replace' : rawMode === 'force' ? 'force' : 'missing';
@@ -304,4 +486,5 @@ async function upsertDefaultItemTree(opts = {}) {
 module.exports = {
   DEFAULT_ITEM_TREE: normalizeTree(),
   upsertDefaultItemTree,
+  upsertDefaultItemTreeBatch,
 };

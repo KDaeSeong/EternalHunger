@@ -6,7 +6,7 @@ const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES, canonicalZoneId, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
-const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
+const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../utils/defaultItemTree');
 
 // ★ [수정 1] 미들웨어를 정확한 경로에서 불러옵니다.
 // (방금 authMiddleware.js를 만들었다면 이 경로가 맞습니다)
@@ -1095,6 +1095,13 @@ router.post('/items/generate-default-tree', async (req, res) => {
     if (!userId) return;
     const rawMode = String(req.body?.mode || 'missing').trim().toLowerCase();
     const mode = rawMode === 'replace' ? 'replace' : rawMode === 'force' || rawMode === 'overwrite' ? 'force' : 'missing';
+    if (req.body?.batch === true || req.body?.phase) {
+      const phase = String(req.body?.phase || 'items').trim().toLowerCase();
+      const offset = Math.max(0, Math.floor(Number(req.body?.offset || 0)));
+      const limit = Math.min(250, Math.max(1, Math.floor(Number(req.body?.limit || 100))));
+      const summary = await upsertDefaultItemTreeBatch({ mode, ownerUserId: userId, phase, offset, limit });
+      return res.json({ message: '기본 아이템 트리 배치 적용 완료', summary });
+    }
     const summary = await upsertDefaultItemTree({ mode, ownerUserId: userId });
     res.json({ message: '기본 아이템 트리 적용 완료', summary });
   } catch (err) {
