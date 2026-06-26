@@ -3,6 +3,7 @@ import { EQUIP_SLOTS } from './simulationConstants';
 import { inferEquipSlot, inferItemCategory } from './inventoryRules';
 import { classifySpecialByName, pickGoalLoadoutKeys } from './craftRuntime';
 import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
+import { getRegionZoneWeightsForItem } from './lumiaRegionData';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 
 function normId(v) {
@@ -166,6 +167,10 @@ function buildEarlyRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
       const crateWeights = findCrateZoneWeightsForItem(mapObj, itemId, forbiddenIds);
       for (const [zoneId, crateWeight] of crateWeights.entries()) {
         addZoneScore(zoneId, ingredientWeight * (1 + Math.min(5, Number(crateWeight || 0)) / 3), itemId);
+      }
+      const regionWeights = getRegionZoneWeightsForItem(indexes.byId.get(itemId), mapObj?.zones, forbiddenIds);
+      for (const [zoneId, regionWeight] of regionWeights.entries()) {
+        addZoneScore(zoneId, ingredientWeight * (1.2 + Math.min(6, Number(regionWeight || 0)) / 3), itemId);
       }
     }
   }

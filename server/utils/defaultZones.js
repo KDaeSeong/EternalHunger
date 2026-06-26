@@ -23,13 +23,12 @@ const DEFAULT_ZONE_DEFS = [
   { zoneId: 'firestation', name: '소방서' },
   { zoneId: 'temple', name: '절' },
   { zoneId: 'stream', name: '개울' },
-  { zoneId: 'park', name: '공원' },
+  { zoneId: 'park', name: '연못' },
   { zoneId: 'hospital', name: '병원' },
   { zoneId: 'hotel', name: '호텔' },
-  { zoneId: 'beach', name: '해수욕장' },
+  { zoneId: 'beach', name: '모래사장' },
   { zoneId: 'forest', name: '숲' },
-  { zoneId: 'sandy_beach', name: '모래사장' },
-  { zoneId: 'apartment', name: '아파트단지' },
+  { zoneId: 'apartment', name: '고급 주택가' },
   { zoneId: 'cemetery', name: '묘지' },
   { zoneId: 'cathedral', name: '성당' },
   { zoneId: 'warehouse', name: '창고' },
@@ -44,11 +43,29 @@ const DEFAULT_ZONE_IDS = DEFAULT_ZONE_DEFS.map((z) => z.zoneId);
 const CORE_SPAWN_ZONE_IDS = [
   'forest',
   'stream',
-  'sandy_beach',
+  'beach',
   'cemetery',
   'factory',
   'port',
 ];
+
+const ZONE_DISPLAY_NAME_OVERRIDES = {
+  park: '연못',
+  beach: '모래사장',
+  apartment: '고급 주택가',
+};
+
+function normalizeZoneDisplayName(zone) {
+  const zoneId = String(zone?.zoneId || '').trim();
+  return ZONE_DISPLAY_NAME_OVERRIDES[zoneId] || String(zone?.name || zoneId);
+}
+
+function normalizeZoneList(zones) {
+  return (Array.isArray(zones) ? zones : []).map((zone) => ({
+    ...zone,
+    name: normalizeZoneDisplayName(zone),
+  }));
+}
 
 const DEFAULT_ZONES = DEFAULT_ZONE_DEFS.map((zone, idx) => ({
   zoneNo: idx + 1,
@@ -66,4 +83,7 @@ module.exports = {
   DEFAULT_ZONE_IDS,
   CORE_SPAWN_ZONE_IDS,
   DEFAULT_ZONES,
+  ZONE_DISPLAY_NAME_OVERRIDES,
+  normalizeZoneDisplayName,
+  normalizeZoneList,
 };

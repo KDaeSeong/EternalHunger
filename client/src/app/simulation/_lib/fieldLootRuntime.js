@@ -19,6 +19,7 @@ import {
   getLegendaryCoreCandidates,
   resolveLegendaryDropWeights,
 } from './legendaryRuntime';
+import { pickRegionLootDrop } from './lumiaRegionData';
 
 function clampDropTier(value) {
   const n = Number(value);
@@ -320,9 +321,32 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     if (options.length) return { item: null, itemId: '', qty: 1, crateId: 'fallback', crateType: 'transcend_pick', options, zoneId: String(zoneId || '') };
   }
 
+  const isDay1 = Number(curDay || 0) === 1;
+  const regionDrop = pickRegionLootDrop(zoneId, publicItems, {
+    crateType: 'region_loot',
+    goalItemIds: [...goalItemIds],
+    routeItemIds: [...routeItemIds],
+    maxQty: isDay1 ? 2 : 1,
+    filterItem: (it) => {
+      if (!it?._id) return false;
+      if (classifySpecialByName(it?.name)) return false;
+      const tier = clampTier4(it?.tier || 1);
+      const cat = inferItemCategory(it);
+      if (cat === 'material') return tier <= fallbackMaxTier;
+      if (cat === 'equipment') return tier <= 2;
+      if (cat === 'consumable') return true;
+      return false;
+    },
+  });
+  if (regionDrop?.itemId) {
+    return {
+      ...regionDrop,
+      item: markInventoryGoalItem(regionDrop.item, goalItemIds.has(String(regionDrop.itemId))),
+    };
+  }
+
   // food crate: 하급 재료 + 소모품(치유/음식)
   const pool = [];
-  const isDay1 = Number(curDay || 0) === 1;
   for (const it of list) {
     if (!it?._id) continue;
     const tier = clampTier4(it?.tier || 1);

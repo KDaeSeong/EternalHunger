@@ -648,11 +648,15 @@ export default function ItemsAdmin() {
 
   async function generateDefaultTree(mode = 'missing') {
     if (treeBusy) return;
+    if (mode === 'replace') {
+      const ok = window.confirm('현재 계정의 아이템을 기본 트리 818건으로 교체합니다.\n기본 트리에 없는 기존 아이템은 삭제됩니다.\n계속할까요?');
+      if (!ok) return;
+    }
     setTreeBusy(true);
     setTreeMsg('');
     try {
       const data = await apiPost('/admin/items/generate-default-tree', { mode });
-      setTreeMsg(`✅ ${data?.message || '완료'} (created:${data?.summary?.createdCount ?? 0}, recipe:${data?.summary?.recipeUpdatedCount ?? 0})`);
+      setTreeMsg(`✅ ${data?.message || '완료'} (tree:${data?.summary?.treeCount ?? 0}, created:${data?.summary?.createdCount ?? 0}, updated:${data?.summary?.updatedCount ?? 0}, deleted:${data?.summary?.deletedCount ?? 0}, recipe:${data?.summary?.recipeUpdatedCount ?? 0})`);
       await reloadItems();
     } catch (e) {
       setTreeMsg(`⚠️ 기본 아이템 트리 생성 실패: ${String(e?.message || e)}`);
@@ -738,10 +742,17 @@ export default function ItemsAdmin() {
       return hitQ && hitK && hitSim;
     });
   }, [items, q, kind, simOnly]);
+  const hasActiveFilter = Boolean(q.trim()) || kind !== 'all' || simOnly;
 
   useEffect(() => {
     setPage(1);
   }, [q, kind, simOnly, pageSize]);
+
+  function resetFilters() {
+    setQ('');
+    setKind('all');
+    setSimOnly(false);
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / Math.max(1, pageSize)));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -764,12 +775,12 @@ export default function ItemsAdmin() {
           <div style={{ fontSize: 22, fontWeight: 900 }}>아이템 관리</div>
           <div style={{ opacity: 0.75, marginTop: 4 }}>
             {status === 'loading' && '불러오는 중…'}
-            {status === 'ok' && `총 ${items.length}개`}
+            {status === 'ok' && `현재 계정 아이템 ${items.length}개`}
             {status === 'fallback' && `API 미연결(또는 권한/토큰 문제): 샘플 ${items.length}개 표시`}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => generateDefaultTree('missing')}
             disabled={treeBusy}
@@ -785,6 +796,14 @@ export default function ItemsAdmin() {
             title="⚠️ 동일 이름 아이템을 기본값으로 덮어씁니다(주의)"
           >
             강제 덮어쓰기
+          </button>
+          <button
+            onClick={() => generateDefaultTree('replace')}
+            disabled={treeBusy}
+            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(255,170,80,0.45)', background: 'rgba(255,150,40,0.14)', color: 'inherit', cursor: treeBusy ? 'not-allowed' : 'pointer' }}
+            title="기존 계정 아이템을 삭제하고 기본 트리 818건으로 교체합니다."
+          >
+            기존 삭제 후 적용
           </button>
         </div>
 
@@ -860,7 +879,12 @@ export default function ItemsAdmin() {
             </tr>
           </thead>
           <tbody>
-            {pagedItems.map((it) => (
+            {status === 'loading' && (
+              <tr>
+                <td style={td} colSpan={8}>아이템을 불러오는 중입니다.</td>
+              </tr>
+            )}
+            {status !== 'loading' && pagedItems.map((it) => (
               <tr key={String(it._id || it.mongoId || it.id || Math.random())}>
                 <td style={td}>
                   <div style={{ fontFamily: 'monospace', fontSize: 12 }}>{String(it.externalId || it._id || it.mongoId || it.id || '-')}</div>
@@ -890,9 +914,43 @@ export default function ItemsAdmin() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {status !== 'loading' && pagedItems.length === 0 && (
               <tr>
-                <td style={td} colSpan={8}>검색 결과가 없어.</td>
+                <td style={td} colSpan={8}>
+                  <div style={{ display: 'grid', gap: 8, padding: '4px 0' }}>
+                    <div style={{ fontWeight: 900 }}>
+                      {items.length === 0
+                        ? '현재 계정에 아이템이 없습니다.'
+                        : '필터 조건에 맞는 아이템이 없습니다.'}
+                    </div>
+                    <div style={{ opacity: 0.75, lineHeight: 1.45 }}>
+                      {items.length === 0
+                        ? '어드민 데이터가 계정별로 분리되어 있어서, 이 계정 전용 기본 아이템을 먼저 생성해야 합니다.'
+                        : '검색어, 분류, 시뮬 생성만 필터를 확인해 주세요.'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {items.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => generateDefaultTree('missing')}
+                          disabled={treeBusy}
+                          style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(120,200,255,0.35)', background: 'rgba(120,200,255,0.10)', color: 'inherit', cursor: treeBusy ? 'not-allowed' : 'pointer' }}
+                        >
+                          {treeBusy ? '생성 중…' : '기본 아이템 트리 생성'}
+                        </button>
+                      ) : null}
+                      {hasActiveFilter ? (
+                        <button
+                          type="button"
+                          onClick={resetFilters}
+                          style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'inherit', cursor: 'pointer' }}
+                        >
+                          필터 초기화
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
               </tr>
             )}
           </tbody>

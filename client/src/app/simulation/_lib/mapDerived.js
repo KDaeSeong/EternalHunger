@@ -15,7 +15,7 @@ const ZONE_POS_ALIASES = {
   병원: 'hospital',
   호텔: 'hotel',
   해수욕장: 'beach',
-  모래사장: 'sandy_beach',
+  모래사장: 'beach',
   숲: 'forest',
   아파트단지: 'apartment',
   '고급 주택가': 'apartment',
@@ -34,8 +34,8 @@ const ZONE_POS_ALIASES = {
   gas_station: 'gas_station',
   fire_station: 'firestation',
   firestation: 'firestation',
-  sandybeach: 'sandy_beach',
-  sandy_beach: 'sandy_beach',
+  sandybeach: 'beach',
+  sandy_beach: 'beach',
 };
 
 function compactZoneKey(value) {

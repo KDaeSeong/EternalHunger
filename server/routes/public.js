@@ -9,7 +9,7 @@ const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
 const { dedupeScopedPerks, ensureDefaultPublicPerks } = require('../utils/defaultPerks');
 const ErMeta = require('../models/ErMeta');
-const { DEFAULT_ZONES } = require('../utils/defaultZones');
+const { DEFAULT_ZONES, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { getOptionalUserId, scopedFilter } = require('../utils/requestScope');
 
@@ -60,7 +60,7 @@ router.get('/maps', async (req, res) => {
       }
 
       // zones 보정
-      const zones = (!Array.isArray(o?.zones) || o.zones.length === 0) ? DEFAULT_ZONES : o.zones;
+      const zones = normalizeZoneList((!Array.isArray(o?.zones) || o.zones.length === 0) ? DEFAULT_ZONES : o.zones);
 
       // zoneConnections 보정(비어있으면 기본 프리셋 주입)
       const hasConns = Array.isArray(o?.zoneConnections) && o.zoneConnections.length > 0;

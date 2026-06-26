@@ -166,6 +166,11 @@ import {
 } from './_lib/simulationEngine';
 import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
 import { LOG_DETAIL_OPEN_KEY } from './_lib/logPresentation';
+import {
+  applyRegionDataToZones,
+  getRegionData,
+  getRegionFacilityZoneIds,
+} from './_lib/lumiaRegionData';
 
 const RUNTIME_CHARACTER_SYNC_FIELDS = [
   'name',
@@ -1508,7 +1513,7 @@ const devForceUseConsumable = (charId, invIndex) => {
 
   const zones = useSafeMemo('zones', () => {
     const z = Array.isArray(activeMap?.zones) ? activeMap.zones : [];
-    return z.length ? z : [
+    const fallbackZones = [
       { zoneId: 'alley', name: '골목길', isForbidden: false },
       { zoneId: 'gas_station', name: '주유소', isForbidden: false },
       { zoneId: 'archery', name: '양궁장', isForbidden: false },
@@ -1517,13 +1522,12 @@ const devForceUseConsumable = (charId, invIndex) => {
       { zoneId: 'firestation', name: '소방서', isForbidden: false },
       { zoneId: 'temple', name: '절', isForbidden: false },
       { zoneId: 'stream', name: '개울', isForbidden: false },
-      { zoneId: 'park', name: '공원', isForbidden: false },
+      { zoneId: 'park', name: '연못', isForbidden: false },
       { zoneId: 'hospital', name: '병원', isForbidden: false },
       { zoneId: 'hotel', name: '호텔', isForbidden: false },
-      { zoneId: 'beach', name: '해수욕장', isForbidden: false },
+      { zoneId: 'beach', name: '모래사장', isForbidden: false },
       { zoneId: 'forest', name: '숲', isForbidden: false },
-      { zoneId: 'sandy_beach', name: '모래사장', isForbidden: false },
-      { zoneId: 'apartment', name: '아파트단지', isForbidden: false },
+      { zoneId: 'apartment', name: '고급 주택가', isForbidden: false },
       { zoneId: 'cemetery', name: '묘지', isForbidden: false },
       { zoneId: 'cathedral', name: '성당', isForbidden: false },
       { zoneId: 'warehouse', name: '창고', isForbidden: false },
@@ -1532,6 +1536,7 @@ const devForceUseConsumable = (charId, invIndex) => {
       { zoneId: 'factory', name: '공장', isForbidden: false },
       { zoneId: 'lab', name: '연구소', isForbidden: false },
     ];
+    return applyRegionDataToZones(z.length ? z : fallbackZones);
   }, [activeMap], []);
 
   const zoneNameById = useSafeMemo('zoneNameById', () => {
@@ -2849,9 +2854,12 @@ const pickStartZoneIdForChar = (c) => {
     // 2. 맵 내부 구역 이동 + 금지구역(구역 기반) 데미지
     const mapIdNow = String(activeMapIdRef.current || activeMapId || '');
     const mapObjRaw = activeMapRef.current || activeMap;
-    const mapObj = mapObjRaw || ((Array.isArray(zones) && zones.length)
+    const mapObjBase = mapObjRaw || ((Array.isArray(zones) && zones.length)
       ? { _id: mapIdNow || 'local', zones }
       : null);
+    const mapObj = mapObjBase
+      ? { ...mapObjBase, zones: applyRegionDataToZones(Array.isArray(mapObjBase?.zones) ? mapObjBase.zones : zones) }
+      : null;
     let forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
     let newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
 
@@ -3494,8 +3502,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
         // 🔥 모닥불(요리) & 💧 물 채집 (서버 맵 설정 기반)
         try {
-          const campfireZones = (Array.isArray(mapObj?.campfireZoneIds) ? mapObj.campfireZoneIds : []).map(String);
-          const waterZones = (Array.isArray(mapObj?.waterSourceZoneIds) ? mapObj.waterSourceZoneIds : []).map(String);
+          const campfireZones = uniqStr([
+            ...(Array.isArray(mapObj?.campfireZoneIds) ? mapObj.campfireZoneIds : []).map(String),
+            ...getRegionFacilityZoneIds('campfire', mapObj?.zones),
+          ]);
+          const waterZones = uniqStr([
+            ...(Array.isArray(mapObj?.waterSourceZoneIds) ? mapObj.waterSourceZoneIds : []).map(String),
+            ...(Array.isArray(mapObj?.zones) ? mapObj.zones : [])
+              .filter((z) => Number(getRegionData(z?.zoneId)?.resources?.['물'] || 0) > 0)
+              .map((z) => String(z?.zoneId || '')),
+          ]);
 
           // 물 채집: 해당 존이면 물을 확보(관전 템포용)
           if (waterZones.includes(String(updated.zoneId))) {

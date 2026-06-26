@@ -48,6 +48,7 @@ function hasKioskAtZone(kiosks, mapObj, zoneId) {
 
   const zonesArr = Array.isArray(mapObj?.zones) ? mapObj.zones : [];
   const zone = zonesArr.find((z) => String(z?.zoneId || '') === zId) || null;
+  if (zone?.hasKiosk === true) return true;
   return zoneNameHasKiosk(zone?.name || '') || zoneNameHasKiosk(zone?.zoneId || '');
 }
 

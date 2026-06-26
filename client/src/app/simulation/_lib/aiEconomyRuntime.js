@@ -24,13 +24,13 @@ import { ensureEquipped } from './survivorRuntime';
 import {
   classifySpecialByName,
   getOneSpecialShortMissing,
-  isItemInMapCrates,
   isSpecialCoreKind,
   normalizeGoalTier,
 } from './craftRuntime';
 import { getLegendaryCoreCandidates } from './legendaryRuntime';
 import { pickFromAllCrates } from './lootRuntime';
 import { pickGoalResourceZoneTargets } from './resourceTargetingRuntime';
+import { getRegionZoneWeightsForItem } from './lumiaRegionData';
 
 const WILDLIFE_HUNT_VALUE = {
   chicken: 1.0,
@@ -757,7 +757,11 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   }
 
   // 3) 목표 기반: 일반 재료(맵 상자풀에 존재하는 재료만 구매)
-  const needBasic = miss.find((m) => m?.itemId && !m?.special && isItemInMapCrates(mapObj, m.itemId));
+  const needBasic = miss.find((m) => {
+    if (!m?.itemId || m?.special) return false;
+    const it = findById(m.itemId) || { _id: String(m.itemId), name: String(m?.name || '') };
+    return getRegionZoneWeightsForItem(it, mapObj?.zones, new Set()).size > 0;
+  });
   if (needBasic) {
     const it = findById(needBasic.itemId);
     const cost = applyKioskCost(Number(mr?.prices?.basic ?? 10));

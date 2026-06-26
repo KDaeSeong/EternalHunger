@@ -2,7 +2,7 @@ import { zoneNameHasKiosk } from './marketRuntime';
 import { findItemByKeywords, pickWeighted } from './simulationCommon';
 import { isAtOrAfterWorldTime } from './worldTime';
 
-const LEGACY_CORE_ZONE_IDS = ['sandy_beach', 'forest', 'stream', 'cemetery', 'factory', 'port'];
+const LEGACY_CORE_ZONE_IDS = ['beach', 'sandy_beach', 'forest', 'stream', 'cemetery', 'factory', 'port'];
 const LEGACY_CORE_ZONE_NAME_KEYS = ['모래사장', '숲', '개울', '연못', '공장', '항구'];
 
 function zoneHasKioskFlag(zone) {

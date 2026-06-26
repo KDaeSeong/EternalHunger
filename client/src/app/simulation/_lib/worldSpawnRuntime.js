@@ -6,6 +6,10 @@ import {
   getEligibleCoreSpawnZoneIds,
   getEligibleSpawnZoneIds,
 } from './coreSpawnRuntime';
+import {
+  getRegionHotspotWeight,
+  getRegionWildlifeSpeciesList,
+} from './lumiaRegionData';
 
 function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, mapId, coreSpawnZoneIds, ruleset) {
   const announcements = [];
@@ -44,7 +48,12 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
     const perZoneMin = (timeOfDay === 'day') ? perZoneMinDay : perZoneMinNight;
     const extraTotal = (timeOfDay === 'day') ? extraTotalDay : extraTotalNight;
-    const targetTotal = Math.max(0, eligible.length * perZoneMin + extraTotal);
+    const regionPhaseMul = (timeOfDay === 'day') ? 0.28 : 0.36;
+    const regionTargetTotal = eligible.reduce((sum, zid) => {
+      const count = getRegionWildlifeSpeciesList(zid).length;
+      return sum + Math.max(perZoneMin, Math.ceil(count * regionPhaseMul));
+    }, 0);
+    const targetTotal = Math.max(0, regionTargetTotal + extraTotal);
 
     const defaultSpeciesByTime = {
       day: [
@@ -104,7 +113,9 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       const key = String(zid || '');
       if (!key) return;
       const list = ensureSpeciesList(key);
-      list.push(String(speciesKey || pickSpeciesKey() || 'chicken'));
+      const regionSpecies = getRegionWildlifeSpeciesList(key);
+      const pickedRegionSpecies = regionSpecies.length ? regionSpecies[randInt(0, Math.max(0, regionSpecies.length - 1))] : '';
+      list.push(String(speciesKey || pickedRegionSpecies || pickSpeciesKey() || 'chicken'));
       setWildlifeCountFromSpecies(key);
     };
 
@@ -125,15 +136,22 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
         if (!zid) continue;
         const list = ensureSpeciesList(zid);
         const legacyCount = Math.max(0, Number(s.wildlife[zid] ?? 0));
+        const regionSpecies = getRegionWildlifeSpeciesList(zid);
+        const regionMin = regionSpecies.length
+          ? Math.max(perZoneMin, Math.ceil(regionSpecies.length * regionPhaseMul))
+          : perZoneMin;
         while (list.length < legacyCount) list.push(pickSpeciesKey());
-        while (list.length < perZoneMin) list.push(pickSpeciesKey());
+        while (list.length < regionMin) {
+          const idx = list.length % Math.max(1, regionSpecies.length);
+          list.push(regionSpecies[idx] || pickSpeciesKey());
+        }
         setWildlifeCountFromSpecies(zid);
       }
 
       const hotspot = (wildRule?.hotspotWeights && typeof wildRule.hotspotWeights === 'object') ? wildRule.hotspotWeights : {
         forest: 2.0,
         stream: 1.6,
-        sandy_beach: 1.4,
+        beach: 1.4,
         cemetery: 1.3,
         park: 1.2,
         port: 1.2,
@@ -142,8 +160,9 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
       const weightOf = (zid) => {
         const k = String(zid || '');
         const v = Number(hotspot?.[k]);
-        if (Number.isFinite(v) && v > 0) return v;
-        return 1.0;
+        const regionW = getRegionHotspotWeight(k);
+        if (Number.isFinite(v) && v > 0) return Math.max(v, regionW);
+        return regionW;
       };
 
       const sumNow = () => eligible.reduce((sum, z) => sum + Math.max(0, Number(s.wildlife[String(z)] ?? 0)), 0);

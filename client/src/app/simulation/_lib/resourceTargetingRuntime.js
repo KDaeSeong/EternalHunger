@@ -1,6 +1,7 @@
 import { compactIO, safeTags } from './simulationCommon';
 import { classifySpecialByName } from './craftRuntime';
 import { findCrateZoneWeightsForItem } from './mapTargeting';
+import { getRegionData, getRegionFacilityZoneIds, getRegionZoneWeightsForItem } from './lumiaRegionData';
 
 function buildRuntimeSpawnMeta({ itemId, meta, itemName, mapObj, spawnState, forbiddenIds }) {
   const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
@@ -29,8 +30,17 @@ function buildRuntimeSpawnMeta({ itemId, meta, itemName, mapObj, spawnState, for
     }
   }
   for (const [z, w] of findCrateZoneWeightsForItem(mapObj, itemId, forb).entries()) add(z, 1.4 + Math.min(4, w / 4));
-  if ((nm.includes('물') || tags.includes('water')) && Array.isArray(mapObj?.waterSourceZoneIds)) mapObj.waterSourceZoneIds.forEach((z) => add(z, 2.2));
-  if ((nm.includes('스테이크') || tags.includes('cooked')) && Array.isArray(mapObj?.campfireZoneIds)) mapObj.campfireZoneIds.forEach((z) => add(z, 1.4));
+  for (const [z, w] of getRegionZoneWeightsForItem({ _id: itemId, name: nm, text: nm }, mapObj?.zones, forb).entries()) add(z, 1.1 + Math.min(5, w / 3));
+  if (nm.includes('물') || tags.includes('water')) {
+    if (Array.isArray(mapObj?.waterSourceZoneIds)) mapObj.waterSourceZoneIds.forEach((z) => add(z, 2.2));
+    (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
+      .filter((z) => Number(getRegionData(z?.zoneId)?.resources?.['물'] || 0) > 0)
+      .forEach((z) => add(z?.zoneId, 2.0));
+  }
+  if (nm.includes('스테이크') || tags.includes('cooked')) {
+    if (Array.isArray(mapObj?.campfireZoneIds)) mapObj.campfireZoneIds.forEach((z) => add(z, 1.4));
+    getRegionFacilityZoneIds('campfire', mapObj?.zones).forEach((z) => add(z, 1.3));
+  }
   if ((spec === 'meteor' || spec === 'life_tree') && Array.isArray(mapObj?.coreSpawnZones)) mapObj.coreSpawnZones.forEach((z) => add(z, 2.0));
   if (spec === 'mithril' && spawnState?.bosses?.alpha?.alive && spawnState.bosses.alpha.zoneId) add(spawnState.bosses.alpha.zoneId, 2.6);
   if (spec === 'force_core' && spawnState?.bosses?.omega?.alive && spawnState.bosses.omega.zoneId) add(spawnState.bosses.omega.zoneId, 2.6);

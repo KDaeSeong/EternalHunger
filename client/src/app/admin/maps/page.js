@@ -31,6 +31,10 @@ const KIOSK_ZONE_IDS = new Set([
   'hotel',
 ]);
 
+const DEFAULT_LUMIA_MAP_NAME = '루미아 섬';
+const DEFAULT_ZONE_COUNT = 21;
+const DEFAULT_KIOSK_ZONE_COUNT = 11;
+
 function looksLikeKioskMap(name) {
   const n = String(name || '').trim();
   if (!n) return false;
@@ -120,6 +124,20 @@ export default function AdminMapsPage() {
   }, [maps]);
 
   const kioskZoneCount = useMemo(() => zoneRows.filter((z) => z.hasKiosk).length, [zoneRows]);
+  const structureWarning = useMemo(() => {
+    if (!Array.isArray(maps) || maps.length === 0) return '맵이 없습니다. 루미아 맵 정리를 실행해 주세요.';
+    const hasMainMap = maps.some((m) => String(m?.name || '').trim() === DEFAULT_LUMIA_MAP_NAME);
+    if (maps.length !== 1 || !hasMainMap) {
+      return `맵 문서가 ${maps.length}개입니다. 정상 구조는 ${DEFAULT_LUMIA_MAP_NAME} 1개입니다.`;
+    }
+    if (zoneRows.length !== DEFAULT_ZONE_COUNT) {
+      return `구역 수가 ${zoneRows.length}개입니다. 정상 구조는 ${DEFAULT_ZONE_COUNT}개입니다.`;
+    }
+    if (kioskZoneCount !== DEFAULT_KIOSK_ZONE_COUNT) {
+      return `키오스크 구역 수가 ${kioskZoneCount}개입니다. 정상 구조는 ${DEFAULT_KIOSK_ZONE_COUNT}개입니다.`;
+    }
+    return '';
+  }, [maps, zoneRows.length, kioskZoneCount]);
 
   const run = async (fn) => {
     if (busy) return;
@@ -147,7 +165,7 @@ export default function AdminMapsPage() {
             className="admin-btn"
             onClick={() => run(() => apiPost('/admin/maps/normalize-list', {}))}
             disabled={busy}
-            title="현재 계정의 기본 맵을 루미아 섬 1개와 22개 구역 구조로 정리"
+            title={`현재 계정의 기본 맵을 ${DEFAULT_LUMIA_MAP_NAME} 1개와 ${DEFAULT_ZONE_COUNT}개 구역 구조로 정리`}
           >
             루미아 맵 정리
           </button>
@@ -197,9 +215,19 @@ export default function AdminMapsPage() {
           맵 {maps.length}개 / 구역 {zoneRows.length}개 / 키오스크 구역 {kioskZoneCount}개
         </div>
         <div className="admin-muted" style={{ marginTop: 6 }}>
-          화면에는 Map 문서 안의 zones를 펼쳐 보여줍니다. 정상 구조는 루미아 섬 1개 맵에 22개 구역, 키오스크 구역 11개입니다.
+          화면에는 Map 문서 안의 zones를 펼쳐 보여줍니다. 정상 구조는 {DEFAULT_LUMIA_MAP_NAME} 1개 맵에 {DEFAULT_ZONE_COUNT}개 구역, 키오스크 구역 {DEFAULT_KIOSK_ZONE_COUNT}개입니다.
         </div>
       </div>
+
+      {structureWarning ? (
+        <div className="admin-card" style={{ marginBottom: 14, borderColor: 'rgba(255, 193, 7, 0.55)' }}>
+          <div style={{ fontWeight: 900, color: '#ffd166' }}>정리 필요</div>
+          <div className="admin-muted" style={{ marginTop: 6 }}>{structureWarning}</div>
+          <div className="admin-muted" style={{ marginTop: 6 }}>
+            루미아 맵 정리 또는 구역/동선 적용을 누르면 잘못 생성된 구역명 맵을 정리하고 기본 루미아 섬 구조로 맞춥니다.
+          </div>
+        </div>
+      ) : null}
 
       {msg ? (
         <div className="admin-card" style={{ marginBottom: 14 }}>

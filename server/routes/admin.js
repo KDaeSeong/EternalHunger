@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Item = require('../models/Item'); // ★ 아이템 모델 추가!
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
-const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES } = require('../utils/defaultZones');
+const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree } = require('../utils/defaultItemTree');
 
@@ -101,13 +101,16 @@ router.get('/maps', async (req, res) => {
         const filter = scope(req, res);
         if (!filter) return;
         const maps = await MapModel.find(filter).populate('connectedMaps', 'name').lean(); // 연결된 맵 이름까지 가져옴
-        res.json(maps);
+        res.json((Array.isArray(maps) ? maps : []).map((map) => ({
+          ...map,
+          zones: normalizeZoneList(map?.zones),
+        })));
     } catch (err) { res.status(500).json({ error: "맵 로드 실패" }); }
 });
 
 // ✅ 맵 목록 정리(운영 편의)
 // POST /api/admin/maps/normalize-list
-// - 공원(Park) 맵 삭제
+// - 구역 이름으로 잘못 생성된 레거시 맵 삭제
 // - 소방서/경찰서 맵이 없으면 기본 zones 포함으로 자동 생성
 router.post('/maps/normalize-list', async (req, res) => {
   try {
@@ -220,6 +223,10 @@ function looksLikeLegacyZoneNamedDefaultMap(mapDoc) {
   return defaultZoneCoverage(mapDoc?.zones) >= Math.min(18, DEFAULT_ZONE_ID_SET.size);
 }
 
+function sameObjectId(a, b) {
+  return String(a || '') === String(b || '');
+}
+
 function defaultMapPatch() {
   const dz = cloneDefaultZones();
   const zoneIds = dz.map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
@@ -235,6 +242,8 @@ async function ensureDefaultLumiaMap(userId, { force = false, cleanupLegacy = fa
   const ownerFilter = ownedFilter(userId);
   const patch = defaultMapPatch();
   let map = await MapModel.findOne(ownedFilter(userId, { name: DEFAULT_LUMIA_MAP_NAME }));
+  const legacy = await MapModel.find(ownerFilter).select('_id name zones');
+  let legacyDefaultMaps = (Array.isArray(legacy) ? legacy : []).filter(looksLikeLegacyZoneNamedDefaultMap);
   let created = false;
   let updated = false;
   let migrated = false;
@@ -242,8 +251,6 @@ async function ensureDefaultLumiaMap(userId, { force = false, cleanupLegacy = fa
   let deletedLegacyNames = [];
 
   if (!map) {
-    const legacy = await MapModel.find(ownerFilter).select('_id name zones');
-    const legacyDefaultMaps = (Array.isArray(legacy) ? legacy : []).filter(looksLikeLegacyZoneNamedDefaultMap);
     if (legacyDefaultMaps.length) {
       map = legacyDefaultMaps[0];
       await MapModel.updateOne(
@@ -252,14 +259,6 @@ async function ensureDefaultLumiaMap(userId, { force = false, cleanupLegacy = fa
       );
       map = await MapModel.findOne(ownedFilter(userId, { _id: map._id }));
       migrated = true;
-
-      if (cleanupLegacy && legacyDefaultMaps.length > 1) {
-        const deleteIds = legacyDefaultMaps.slice(1).map((m) => m._id).filter(Boolean);
-        deletedLegacyNames = legacyDefaultMaps.slice(1).map((m) => String(m?.name || '')).filter(Boolean);
-        const del = await MapModel.deleteMany(ownedFilter(userId, { _id: { $in: deleteIds } }));
-        deletedLegacyCount = Number(del?.deletedCount || 0);
-        await Kiosk.deleteMany(ownedFilter(userId, { mapId: { $in: deleteIds } }));
-      }
     }
   }
 
@@ -273,6 +272,22 @@ async function ensureDefaultLumiaMap(userId, { force = false, cleanupLegacy = fa
     );
     map = await MapModel.findOne(ownedFilter(userId, { _id: map._id }));
     updated = true;
+  }
+
+  if (cleanupLegacy && map?._id) {
+    const deleteIds = legacyDefaultMaps
+      .filter((m) => !sameObjectId(m?._id, map?._id))
+      .map((m) => m._id)
+      .filter(Boolean);
+    if (deleteIds.length) {
+      deletedLegacyNames = legacyDefaultMaps
+        .filter((m) => !sameObjectId(m?._id, map?._id))
+        .map((m) => String(m?.name || ''))
+        .filter(Boolean);
+      const del = await MapModel.deleteMany(ownedFilter(userId, { _id: { $in: deleteIds } }));
+      deletedLegacyCount = Number(del?.deletedCount || 0);
+      await Kiosk.deleteMany(ownedFilter(userId, { mapId: { $in: deleteIds } }));
+    }
   }
 
   return {
@@ -296,6 +311,29 @@ router.post('/maps/apply-default-zones', async (req, res) => {
     }
 
     const mapIds = Array.isArray(body.mapIds) ? body.mapIds.filter(Boolean).map(String) : null;
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+
+    if (!mapIds || mapIds.length === 0) {
+      const result = await ensureDefaultLumiaMap(userId, { force: mode === 'force', cleanupLegacy: true });
+      const map = result?.map;
+      return res.json({
+        message: '루미아 섬 기본 구역/동선 적용 완료',
+        mode,
+        targetCount: map?._id ? 1 : 0,
+        updatedCount: Number(result?.created || result?.updated || result?.migrated ? 1 : 0),
+        skippedCount: Number(result?.created || result?.updated || result?.migrated ? 0 : 1),
+        mapId: String(map?._id || ''),
+        mapName: String(map?.name || DEFAULT_LUMIA_MAP_NAME),
+        zoneCount: Array.isArray(map?.zones) ? map.zones.length : DEFAULT_ZONES.length,
+        created: Boolean(result?.created),
+        updated: Boolean(result?.updated),
+        migrated: Boolean(result?.migrated),
+        deletedLegacyCount: Number(result?.deletedLegacyCount || 0),
+        deletedLegacyNames: result?.deletedLegacyNames || [],
+      });
+    }
+
     const filter = scope(req, res, mapIds && mapIds.length ? { _id: { $in: mapIds } } : {});
     if (!filter) return;
 
@@ -1055,7 +1093,8 @@ router.post('/items/generate-default-tree', async (req, res) => {
   try {
     const userId = requireUserId(req, res);
     if (!userId) return;
-    const mode = (req.body?.mode === 'force') ? 'force' : 'missing';
+    const rawMode = String(req.body?.mode || 'missing').trim().toLowerCase();
+    const mode = rawMode === 'replace' ? 'replace' : rawMode === 'force' || rawMode === 'overwrite' ? 'force' : 'missing';
     const summary = await upsertDefaultItemTree({ mode, ownerUserId: userId });
     res.json({ message: '기본 아이템 트리 적용 완료', summary });
   } catch (err) {

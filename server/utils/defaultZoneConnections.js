@@ -42,12 +42,10 @@ const DEFAULT_ROAD_EDGES = [
   ['beach', 'forest'],
   ['beach', 'apartment'],
 
-  ['forest', 'sandy_beach'],
   ['forest', 'apartment'],
   ['forest', 'cathedral'],
   ['forest', 'lab'],
 
-  ['apartment', 'sandy_beach'],
   ['apartment', 'warehouse'],
   ['apartment', 'cathedral'],
 
