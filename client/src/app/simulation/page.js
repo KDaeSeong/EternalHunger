@@ -6789,13 +6789,17 @@ if (showMarketPanel && pendingTranscendPick) {
         {/* 게임 화면 */}
         <section className={`game-screen ${phase === 'morning' ? 'morning-mode' : 'night-mode'}`}>
           <div className="screen-header">
+            <Link href="/" className="simulation-mobile-logo" aria-label="ETERNAL HUNGER 메인">
+              <span className="logo-top">ETERNAL</span>
+              <span className="logo-main">HUNGER</span>
+            </Link>
             <h1>{day === 0 ? 'GAME READY' : `DAY ${day} - ${timeOfDay === 'day' ? 'DAY' : 'NIGHT'}`}</h1>
             <div className="screen-header-right">
               <span className="weather-badge">{timeOfDay === 'day' ? '☀ 낮' : '🌙 밤'}</span>
               <span className="weather-badge">⏱ {formatClock(matchSec)}</span>
 
               <button
-                className="btn-secondary"
+                className="btn-secondary sim-mobile-core-btn"
                 onClick={() => setUiModal('map')}
                 disabled={loading || isAdvancing}
                 style={{ padding: '6px 10px', fontSize: 12 }}
@@ -6803,7 +6807,7 @@ if (showMarketPanel && pendingTranscendPick) {
                 🗺️ 미니맵
               </button>
               <button
-                className="btn-secondary"
+                className="btn-secondary sim-mobile-core-btn"
                 onClick={() => setUiModal('chars')}
                 disabled={loading || isAdvancing}
                 style={{ padding: '6px 10px', fontSize: 12 }}
@@ -6811,7 +6815,7 @@ if (showMarketPanel && pendingTranscendPick) {
                 👥 캐릭터
               </button>
               <button
-                className="btn-secondary"
+                className="btn-secondary sim-mobile-core-btn"
                 onClick={() => setUiModal('log')}
                 disabled={loading || isAdvancing}
                 style={{ padding: '6px 10px', fontSize: 12 }}
@@ -6821,7 +6825,7 @@ if (showMarketPanel && pendingTranscendPick) {
 
 
               <button
-                className="btn-secondary"
+                className="btn-secondary sim-refresh-btn"
                 onClick={() => { void fireAndReport('refreshMapSettings.manual', () => refreshMapSettingsFromServer('manual')); }}
                 disabled={loading || isAdvancing || isGameOver}
                     style={{ padding: '6px 10px', fontSize: 12 }}
@@ -6984,13 +6988,14 @@ if (showMarketPanel && pendingTranscendPick) {
                     const nm = String(getZoneName(id) || id);
                     const aliveHere = aliveByZone[id]?.length || 0;
                     const deadHere = deadByZone[id]?.length || 0;
+                    const nodeR = 4.8;
 
                     return (
                       <g key={`z-${id}`}>
                         <circle
                           cx={p.x}
                           cy={p.y}
-                          r={6.2}
+                          r={nodeR}
                           className={`minimap-node ${isF ? 'forbidden' : ''} ${isSelZone ? 'selected' : ''}`}
                         />
                         {/* 배경 지도(하이퍼루프 이미지)에 이미 지역명이 있으므로, SVG 텍스트 라벨은 숨긴다. */}
@@ -6998,14 +7003,14 @@ if (showMarketPanel && pendingTranscendPick) {
 
                         {/* 하이퍼루프 패드 */}
                         {String(hyperloopPadZoneId || '') === id ? (
-                          <text x={p.x + 6.2} y={p.y - 5.0} textAnchor="middle" fontSize="5.0" fill="rgba(180,220,255,0.92)">🌀</text>
+                          <text x={p.x + nodeR} y={p.y - 4.2} textAnchor="middle" fontSize="5.0" fill="rgba(180,220,255,0.92)">🌀</text>
                         ) : null}
 
                         {/* 생존/사망 수 */}
                         {(aliveHere > 0 || deadHere > 0) ? (
                           <text
                             x={p.x}
-                            y={p.y + 7.2}
+                            y={p.y + 5.8}
                             textAnchor="middle"
                             fontSize="3.0"
                             fill="rgba(255,255,255,0.72)"

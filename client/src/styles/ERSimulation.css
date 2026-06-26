@@ -250,6 +250,10 @@
 .screen-header h1 { margin: 0; color: #4ebfff; font-family: 'Courier New', monospace; }
 .weather-badge { background: #ff9800; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.9rem; }
 
+.simulation-mobile-logo {
+  display: none;
+}
+
 /* 금지구역 상태(상단 배지 1줄) */
 .forbidden-top-bar {
   margin: 8px 0 10px;
@@ -1754,5 +1758,84 @@
 
   .log-message {
     grid-template-columns: 28px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .simulation-page > header {
+    display: none;
+  }
+
+  .screen-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    row-gap: 6px;
+  }
+
+  .simulation-mobile-logo {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 86px;
+    text-decoration: none;
+    line-height: 1;
+  }
+
+  .simulation-mobile-logo .logo-top {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+  }
+
+  .simulation-mobile-logo .logo-main {
+    color: #4ebfff;
+    font-size: 1rem;
+    font-style: italic;
+    font-weight: 950;
+    letter-spacing: 0;
+  }
+
+  .screen-header h1 {
+    justify-self: end;
+    max-width: 100%;
+    text-align: right;
+    font-size: 0.78rem;
+  }
+
+  .screen-header-right {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+    width: 100%;
+  }
+
+  .screen-header-right .sim-mobile-core-btn {
+    order: -3;
+  }
+
+  .screen-header-right .weather-badge {
+    order: -2;
+  }
+
+  .screen-header-right .btn-secondary,
+  .screen-header-right .weather-badge {
+    width: 100%;
+    min-width: 0;
+    min-height: 30px !important;
+    padding: 5px 4px !important;
+    border-radius: 12px;
+    font-size: 0.72rem !important;
+    line-height: 1.05;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+  }
+
+  .screen-header-right .sim-refresh-btn {
+    display: none;
   }
 }

@@ -1,18 +1,99 @@
 import { getPhaseDurationSec, getRuleset } from '../../../utils/rulesets';
 import { LUMIA_ZONE_POS } from './simulationEngine';
 
+const ZONE_POS_ALIASES = {
+  골목길: 'alley',
+  주유소: 'gas_station',
+  양궁장: 'archery',
+  학교: 'school',
+  경찰서: 'police',
+  소방서: 'firestation',
+  절: 'temple',
+  개울: 'stream',
+  공원: 'park',
+  연못: 'park',
+  병원: 'hospital',
+  호텔: 'hotel',
+  해수욕장: 'beach',
+  모래사장: 'sandy_beach',
+  숲: 'forest',
+  아파트단지: 'apartment',
+  '고급 주택가': 'apartment',
+  고급주택가: 'apartment',
+  묘지: 'cemetery',
+  성당: 'cathedral',
+  창고: 'warehouse',
+  항구: 'port',
+  바지선: 'barge',
+  공장: 'factory',
+  연구소: 'lab',
+  pond: 'park',
+  residential: 'apartment',
+  uptown: 'apartment',
+  gasstation: 'gas_station',
+  gas_station: 'gas_station',
+  fire_station: 'firestation',
+  firestation: 'firestation',
+  sandybeach: 'sandy_beach',
+  sandy_beach: 'sandy_beach',
+};
+
+function compactZoneKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[()]/g, '');
+}
+
+function resolveZonePosKey(zone) {
+  const candidates = [
+    zone?.zoneId,
+    zone?.id,
+    zone?._id,
+    zone?.key,
+    zone?.name,
+    zone?.nameKr,
+    zone?.nameKo,
+    zone?.zoneName,
+    zone?.areaName,
+    zone?.placeName,
+    zone?.displayName,
+    zone?.label,
+  ];
+
+  for (const raw of candidates) {
+    const text = String(raw || '').trim();
+    if (!text) continue;
+    if (LUMIA_ZONE_POS[text]) return text;
+    if (ZONE_POS_ALIASES[text]) return ZONE_POS_ALIASES[text];
+
+    const compact = compactZoneKey(text);
+    if (LUMIA_ZONE_POS[compact]) return compact;
+    if (ZONE_POS_ALIASES[compact]) return ZONE_POS_ALIASES[compact];
+  }
+
+  return '';
+}
+
 export function buildZonePositions(zones) {
   const list = Array.isArray(zones) ? zones : [];
-  const ids = list.map((zone) => String(zone?.zoneId || '')).filter(Boolean).sort();
+  const rows = list
+    .map((zone) => ({
+      id: String(zone?.zoneId || zone?.id || zone?._id || '').trim(),
+      posKey: resolveZonePosKey(zone),
+    }))
+    .filter((row) => row.id)
+    .sort((a, b) => a.id.localeCompare(b.id));
   const out = {};
-  if (!ids.length) return out;
+  if (!rows.length) return out;
 
-  ids.forEach((id) => {
-    const pos = LUMIA_ZONE_POS[id];
+  rows.forEach(({ id, posKey }) => {
+    const pos = LUMIA_ZONE_POS[posKey] || LUMIA_ZONE_POS[id];
     if (pos) out[id] = { x: pos.x, y: pos.y };
   });
 
-  const missing = ids.filter((id) => !out[id]);
+  const missing = rows.filter(({ id }) => !out[id]).map(({ id }) => id);
   if (missing.length) {
     const cx = 50;
     const cy = 54;
