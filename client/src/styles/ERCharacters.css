@@ -392,26 +392,46 @@ main {
     }
 
     #header-id1 {
-        min-height: 54px;
+        height: auto;
+        min-height: 58px;
+        align-items: flex-start;
+        overflow: visible;
     }
 
     #header-id1 ul {
-        gap: 12px;
-        padding: 8px 10px;
+        flex-wrap: wrap;
+        align-content: center;
+        justify-content: flex-start;
+        gap: 6px 10px;
+        padding: 9px 10px;
+        overflow-x: visible;
     }
 
     #header-id1 .logo-top {
-        font-size: 0.58rem;
-        letter-spacing: 2px;
+        font-size: 0.54rem;
+        letter-spacing: 1.6px;
     }
 
     #header-id1 .logo-main,
     .text-logo .logo-main {
-        font-size: 1.16rem;
+        font-size: 1.04rem;
     }
 
     #header-id1 a {
-        font-size: 0.82rem;
+        font-size: 0.74rem;
+        line-height: 1.1;
+    }
+
+    #header-id1 .auth-menu {
+        margin-left: 0;
+        flex-basis: 100%;
+    }
+
+    #header-id1 .user-info {
+        padding: 4px 8px;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
     }
 
     .page-header {

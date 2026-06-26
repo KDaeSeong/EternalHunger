@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getApiBase, getToken, getUser, updateStoredUser } from '../../utils/api';
+import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
 import { ER_WEAPON_SKILLS, addWeaponMasteryXp, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
@@ -58,7 +58,6 @@ import {
   shuffleArray,
   EQUIP_SLOTS,
   START_WEAPON_TYPES,
-  INIT_DEPENDENCY_PATHS,
   normalizeUserStatistics,
   mergeStoredUserProgress,
   perkNumber,
@@ -338,7 +337,6 @@ export default function SimulationPage() {
   const [matchSec, setMatchSec] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
-  const initDebugLine = `init api: ${getApiBase()} | deps: ${INIT_DEPENDENCY_PATHS.join(', ')}`;
   function safeRenderCompute(label, factory, fallback) {
     try {
       return factory();
@@ -6819,10 +6817,6 @@ if (showMarketPanel && pendingTranscendPick) {
                 </span>
               ) : null}
             </div>
-          </div>
-
-          <div className="market-small" style={{ margin: '10px 0 0', padding: '8px 10px', borderRadius: 8, background: '#eef7ff', color: '#0d47a1', border: '1px solid rgba(2, 136, 209, 0.18)' }}>
-            🧪 {initDebugLine}
           </div>
 
           {detonationRiskSummary?.visible ? (

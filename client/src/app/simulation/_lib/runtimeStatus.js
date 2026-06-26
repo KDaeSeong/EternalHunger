@@ -135,21 +135,24 @@ export function describeRuntimeEffect(effect) {
   const eff = normalizeRuntimeEffect(effect);
   if (!eff) return '';
   const name = String(eff?.name || '효과');
-  if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_HEAL_REDUCTION) return `치유 감소 ${Math.round(Math.max(0, Number(eff?.healReductionPct || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_LIFESTEAL) return `흡혈 ${Math.round(Math.max(0, Number(eff?.lifestealPct || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_SLOW || name === EFFECT_HASTE) return `${name} ${Number(eff?.moveSpeedBonus || 0) >= 0 ? '+' : ''}${Math.round(Number(eff?.moveSpeedBonus || 0) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_COOLDOWN_DOWN) return `쿨다운 감소 속도 +${Math.round(Math.max(0, Number(eff?.cooldownRateBonus || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_COOLDOWN_UP) return `쿨다운 회복 둔화 ${Math.round(Math.max(0, Number(eff?.cooldownRatePenalty || 0)) * 100)}%${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_KNOCKBACK) return `밀어짐${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}` : ''}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_STUN || name === EFFECT_AIRBORNE) return `${name}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  const durationText = Number(eff?.remainingDuration || 0) > 0
+    ? ` (${Math.max(0, Math.floor(Number(eff?.remainingDuration || 0)))}초)`
+    : '';
+  if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${durationText}`;
+  if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${durationText}`;
+  if (name === EFFECT_HEAL_REDUCTION) return `치유 감소 ${Math.round(Math.max(0, Number(eff?.healReductionPct || 0)) * 100)}%${durationText}`;
+  if (name === EFFECT_LIFESTEAL) return `흡혈 ${Math.round(Math.max(0, Number(eff?.lifestealPct || 0)) * 100)}%${durationText}`;
+  if (name === EFFECT_SLOW || name === EFFECT_HASTE) return `${name} ${Number(eff?.moveSpeedBonus || 0) >= 0 ? '+' : ''}${Math.round(Number(eff?.moveSpeedBonus || 0) * 100)}%${durationText}`;
+  if (name === EFFECT_COOLDOWN_DOWN) return `쿨다운 감소 속도 +${Math.round(Math.max(0, Number(eff?.cooldownRateBonus || 0)) * 100)}%${durationText}`;
+  if (name === EFFECT_COOLDOWN_UP) return `쿨다운 회복 둔화 ${Math.round(Math.max(0, Number(eff?.cooldownRatePenalty || 0)) * 100)}%${durationText}`;
+  if (name === EFFECT_KNOCKBACK) return `밀어짐${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}` : ''}${durationText}`;
+  if (name === EFFECT_STUN || name === EFFECT_AIRBORNE) return `${name}${durationText}`;
   const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
   if (statMods && Object.keys(statMods).length) {
     const bits = Object.entries(statMods).map(([k, v]) => `${String(k)} ${Number(v) > 0 ? '+' : ''}${Number(v)}`);
-    return `${name}${bits.length ? ` [${bits.join(', ')}]` : ''}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+    return `${name}${bits.length ? ` [${bits.join(', ')}]` : ''}${durationText}`;
   }
-  return `${name}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  return `${name}${durationText}`;
 }
 
 export function applyRuntimeEffectPayloads(actor, effects) {

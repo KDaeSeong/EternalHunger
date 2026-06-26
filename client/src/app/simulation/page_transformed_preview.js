@@ -1435,14 +1435,17 @@ function describeRuntimeEffect(effect) {
   const eff = normalizeRuntimeEffect(effect);
   if (!eff) return '';
   const name = String(eff?.name || '효과');
-  if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
-  if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  const durationText = Number(eff?.remainingDuration || 0) > 0
+    ? ` (${Math.max(0, Math.floor(Number(eff?.remainingDuration || 0)))}초)`
+    : '';
+  if (name === EFFECT_SHIELD) return `보호막 +${Math.max(0, Number(eff?.shieldValue || 0))}${durationText}`;
+  if (name === EFFECT_REGEN) return `재생 ${Math.max(0, Number(eff?.recovery || 0))}${durationText}`;
   const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
   if (statMods && Object.keys(statMods).length) {
     const bits = Object.entries(statMods).map(([k, v]) => `${String(k)} ${Number(v) > 0 ? '+' : ''}${Number(v)}`);
-    return `${name}${bits.length ? ` [${bits.join(', ')}]` : ''}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+    return `${name}${bits.length ? ` [${bits.join(', ')}]` : ''}${durationText}`;
   }
-  return `${name}${Number(eff?.remainingDuration || 0) > 0 ? ` (${Math.max(0, Number(eff?.remainingDuration || 0))}턴)` : ''}`;
+  return `${name}${durationText}`;
 }
 
 function applyRuntimeEffectPayloads(actor, effects) {
