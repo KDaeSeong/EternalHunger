@@ -1355,16 +1355,17 @@
 
 @media (max-width: 760px) {
   .simulation-page {
-    height: auto;
+    height: 100dvh;
     min-height: 100dvh;
+    overflow: hidden;
   }
 
   .simulation-container {
     flex-direction: column;
     flex-wrap: nowrap;
-    gap: 8px;
-    padding: 8px;
-    overflow-x: hidden;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
   .simulation-container.modal-layout .game-screen,
@@ -1372,21 +1373,23 @@
     width: 100%;
     max-width: none;
     min-width: 0;
-    height: auto;
-    min-height: 100dvh;
-    padding: 10px;
+    height: 100%;
+    min-height: 0;
+    padding: 8px;
     border-radius: 0;
+    overflow: hidden;
   }
 
   .screen-header {
-    padding: 10px;
-    gap: 8px;
+    padding: 8px 10px;
+    gap: 6px;
     flex-wrap: wrap;
     align-items: flex-start;
+    flex: 0 0 auto;
   }
 
   .screen-header h1 {
-    font-size: 1rem;
+    font-size: 0.86rem;
     line-height: 1.25;
   }
 
@@ -1398,10 +1401,17 @@
 
   .forbidden-top-bar,
   .worldspawn-toolbar {
-    padding: 8px;
-    gap: 6px;
-    font-size: 12px;
-    border-radius: 10px;
+    margin: 6px 0;
+    padding: 7px 8px;
+    gap: 5px;
+    font-size: 11px;
+    border-radius: 9px;
+    flex: 0 0 auto;
+  }
+
+  .forbidden-top-bar .fz-chip,
+  .worldspawn-toolbar .ws-chip {
+    padding: 3px 7px;
   }
 
   .forbidden-top-bar .fz-list {
@@ -1412,63 +1422,82 @@
   }
 
   .log-window {
-    padding: 10px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px;
     border-radius: 8px;
+  }
+
+  .log-content {
+    flex: 1 1 auto;
   }
 
   .log-toolbar {
     align-items: stretch;
+    margin-bottom: 6px;
+  }
+
+  .log-top-status {
+    margin-bottom: 6px;
+    padding: 8px 10px;
+    border-radius: 10px;
+  }
+
+  .log-scroll-area {
+    flex: 1 1 auto;
+    max-height: none !important;
   }
 
   .log-message,
   .log-message.death {
-    padding: 8px 9px;
-    gap: 8px;
-    font-size: 0.92rem;
-    line-height: 1.45;
+    margin-bottom: 6px;
+    padding: 7px 8px;
+    gap: 7px;
+    font-size: 0.86rem;
+    line-height: 1.36;
   }
 
   .log-message.day-header,
   .log-message.night-header {
-    margin: 18px 0 10px;
-    padding-top: 14px;
-    font-size: 1.05rem;
+    margin: 10px 0 6px;
+    padding-top: 10px;
+    font-size: 0.94rem;
   }
 
   .log-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
   }
 
   .control-panel {
-    position: sticky;
-    bottom: 0;
+    position: relative;
     z-index: 40;
-    margin: 8px -10px -10px;
-    padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.32);
+    flex: 0 0 auto;
+    margin: 6px -8px -8px;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.28);
   }
 
   .control-row {
     justify-content: stretch;
-    gap: 8px;
+    gap: 6px;
   }
 
   .btn-proceed,
   .btn-restart {
     flex: 1 1 160px;
     min-width: 0;
-    padding: 12px 14px;
-    font-size: 1rem;
+    padding: 9px 12px;
+    font-size: 0.92rem;
   }
 
   .btn-secondary,
   .autoplay-speed,
   .prevlogs-btn,
   .log-toggle-btn {
-    min-height: 40px;
-    font-size: 0.88rem;
+    min-height: 34px;
+    font-size: 0.8rem;
   }
 
   .market-panel {
@@ -1611,10 +1640,10 @@
     order: -2;
     flex: 1 0 100%;
     width: 100%;
-    min-height: 52px;
-    padding: 12px 16px;
-    border-radius: 16px;
-    font-size: 1rem;
+    min-height: 42px;
+    padding: 9px 14px;
+    border-radius: 14px;
+    font-size: 0.92rem;
     line-height: 1.2;
     white-space: nowrap;
     writing-mode: horizontal-tb;
@@ -1627,10 +1656,10 @@
     flex: 1 1 calc(50% - 4px);
     width: auto;
     min-width: 0;
-    min-height: 40px;
-    padding: 8px 10px;
-    border-radius: 14px;
-    font-size: 0.84rem;
+    min-height: 34px;
+    padding: 7px 9px;
+    border-radius: 12px;
+    font-size: 0.78rem;
     line-height: 1.15;
     white-space: nowrap;
   }
@@ -1639,7 +1668,7 @@
   .screen-header-right .btn-secondary {
     flex: 1 1 calc(50% - 4px);
     justify-content: center;
-    min-height: 34px;
+    min-height: 32px;
     text-align: center;
   }
 
@@ -1670,26 +1699,26 @@
   }
 
   .control-panel {
-    padding: 9px 6px calc(9px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
   }
 
   .control-row {
-    gap: 7px;
+    gap: 6px;
   }
 
   .control-row > .btn-proceed,
   .control-row > .btn-restart {
-    min-height: 50px;
-    padding: 11px 12px;
+    min-height: 40px;
+    padding: 8px 12px;
   }
 
   .control-row > select,
   .control-row > .btn-secondary,
   .control-row > .autoplay-speed {
     flex-basis: calc(50% - 4px);
-    min-height: 38px;
-    padding: 7px 8px;
-    font-size: 0.78rem;
+    min-height: 32px;
+    padding: 6px 8px;
+    font-size: 0.74rem;
   }
 
   .log-message {
