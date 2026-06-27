@@ -184,7 +184,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
     }
   }
 
-  // 0) 메인 오브젝트(자연코어) 우선: 운석/생나 스폰이 떠 있으면 크레딧 파밍보다 먼저 달려감
+  // 0) 특수 재료 오브젝트 우선: 운석/생명의 나무 스폰이 떠 있으면 크레딧 파밍보다 먼저 이동
   const activeCoreZones = uniqStrings(
     coreNodes
       .filter((n) => n && !n.picked && n.zoneId)
@@ -198,7 +198,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
     const contest = forceContest || roll < 0.78;
     if (contest) {
       result.targets = activeCoreZones;
-      result.reason = '메인오브젝트(자연코어)';
+      result.reason = '특수 재료 오브젝트';
       markObjectiveTarget(result, actor, 'natural_core', 'core');
       return result;
     }
@@ -260,7 +260,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
     );
     if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargetsAny.length) {
       result.targets = coreTargetsAny;
-      result.reason = '특수재료(자연코어)';
+      result.reason = '특수 재료 오브젝트';
       markObjectiveTarget(result, actor, 'natural_core', 'core');
       return result;
     }
@@ -299,7 +299,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
 
     if (uniq.length) {
       result.targets = uniq;
-      result.reason = needMeteor && needLife ? '자연코어(운석/생나)' : needMeteor ? '자연코어(운석)' : '자연코어(생나)';
+      result.reason = needMeteor && needLife ? '특수 재료(운석/생명의 나무)' : needMeteor ? '특수 재료(운석)' : '특수 재료(생명의 나무)';
       markObjectiveTarget(result, actor, 'natural_core', needMeteor && needLife ? 'core' : needMeteor ? 'meteor' : 'life_tree');
       return result;
     }
@@ -307,7 +307,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
     // 키오스크 구매/교환이 가능한 시점이면 키오스크도 후보로
     if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
       result.targets = kioskZones;
-      result.reason = '자연코어(키오스크)';
+      result.reason = '특수 재료(키오스크)';
       return result;
     }
   }
@@ -402,7 +402,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
   );
   if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && Math.random() < 0.22) {
     result.targets = coreTargets;
-    result.reason = '자연코어 탐색';
+    result.reason = '특수 재료 탐색';
     markObjectiveTarget(result, actor, 'natural_core', 'core');
     return result;
   }

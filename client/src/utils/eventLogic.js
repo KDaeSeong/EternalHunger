@@ -1,4 +1,3 @@
-// client/src/utils/eventLogic.js
 // ER-style micro action generator used when the second-by-second simulation
 // needs a small solo action between route, object, wildlife, and combat logic.
 import { makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
@@ -14,12 +13,14 @@ const DEFAULT_ZONE_NAME_BY_ID = {
   firestation: '소방서',
   temple: '절',
   stream: '개울',
-  park: '연못',
+  pond: '연못',
   hospital: '병원',
   hotel: '호텔',
   beach: '모래사장',
+  sandy_beach: '모래사장',
   forest: '숲',
   apartment: '고급 주택가',
+  uptown: '고급 주택가',
   cemetery: '묘지',
   cathedral: '성당',
   warehouse: '창고',
@@ -248,12 +249,12 @@ function routeMaterialAction(actor, publicItems, day) {
   const item = pickRouteMaterial(publicItems, actor);
   if (!item?._id) {
     return {
-      log: `🧭 [${actor.name}] ${zoneLabel(actor)}에서 루트 상자를 확인했지만 필요한 재료가 없었습니다.`,
+      log: `🧭 [${actor.name}] ${zoneLabel(actor)} 루트 박스를 확인했지만 필요한 일반 재료를 찾지 못했습니다.`,
       pvpBonusNext: 0.04,
     };
   }
   return {
-    log: `🧭 [${actor.name}] ${zoneLabel(actor)}에서 루트 재료 [${item.name}] x1을 확보했습니다.`,
+    log: `🧭 [${actor.name}] ${zoneLabel(actor)} 루트 파밍: [${item.name}] x1 확보`,
     drop: { item, itemId: String(item._id), qty: 1 },
     pvpBonusNext: day <= 1 ? 0.04 : 0.08,
   };
@@ -263,14 +264,14 @@ function foodSupplyAction(actor, publicItems) {
   const item = pickFood(publicItems);
   if (!item?._id) {
     return {
-      log: `🍱 [${actor.name}] 음식 상자를 확인했지만 바로 챙길 음식은 없었습니다.`,
+      log: `🍱 [${actor.name}] 보급 상자를 확인했지만 바로 챙길 음식은 없었습니다.`,
       newEffects: [makeStatBuffEffect('집중', { sightRange: 0.2 }, 20, 'micro_food_scan', { tags: ['positive', 'focus'] })],
     };
   }
   return {
-    log: `🍱 [${actor.name}] 음식 상자에서 [${item.name}] x1을 챙겼습니다.`,
+    log: `🍱 [${actor.name}] 보급 상자: [${item.name}] x1 확보`,
     drop: { item, itemId: String(item._id), qty: 1 },
-    newEffects: [makeStatBuffEffect('집중', { maxHp: 3, defense: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
+    newEffects: [makeStatBuffEffect('전투 준비', { maxHp: 3, defense: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
     pvpBonusNext: 0.06,
   };
 }
@@ -286,14 +287,14 @@ function medicalResetAction(actor, publicItems) {
 
   if (item?._id) {
     return {
-      log: `🚑 [${actor.name}] 응급 상자에서 [${item.name}] x1을 챙기고 전투 복귀 준비를 마쳤습니다.`,
+      log: `🚑 [${actor.name}] 의료 보급: [${item.name}] x1 확보 후 교전 복귀 준비`,
       recovery,
       drop: { item, itemId: String(item._id), qty: 1 },
       newEffects: effects,
     };
   }
   return {
-    log: `🚑 [${actor.name}] 안전한 엄폐 지점에서 응급 처치를 마쳤습니다. (HP +${recovery})`,
+    log: `🚑 [${actor.name}] 안전한 엄폐 지점에서 응급 처치 완료 (HP +${recovery})`,
     recovery,
     newEffects: effects,
   };
@@ -303,7 +304,7 @@ function visionControlAction(actor, day, phase) {
   const isNight = phase === 'night';
   const credits = day >= 2 ? randInt(1, 3) : 0;
   return {
-    log: `📡 [${actor.name}] ${zoneLabel(actor)}의 보안 콘솔을 확인해 ${isNight ? '야간 오브젝트 동선' : '오브젝트 진입로'} 시야를 확보했습니다.${credits ? ` (크레딧 +${credits})` : ''}`,
+    log: `📡 [${actor.name}] ${zoneLabel(actor)} 시야 장악: ${isNight ? '야간 오브젝트 동선' : '오브젝트 진입로'} 확인${credits ? ` (크레딧 +${credits})` : ''}`,
     earnedCredits: credits,
     newEffects: [makeStatBuffEffect('시야 확보', { sightRange: 0.5 }, 30, 'micro_vision_control', { tags: ['positive', 'vision'] })],
     pvpBonusNext: 0.12,
@@ -315,9 +316,9 @@ function wildlifeTrackAction(actor, day, phase) {
   const isMutantWindow = day >= 2;
   const credits = randInt(isMutantWindow ? 3 : 1, isMutantWindow ? 7 : 4);
   const damage = clamp(randInt(1, 4) - Math.floor(roughPower(actor) / 75), 0, 5);
-  const target = isMutantWindow ? '변이 늑대/곰 캠프' : isBearWindow ? '곰/늑대 캠프' : '닭/박쥐 캠프';
+  const target = isMutantWindow ? '변이 동물 캠프' : isBearWindow ? '곰 캠프' : '야생동물 캠프';
   return {
-    log: `🐺 [${actor.name}] ${target}를 사냥하며 숙련도와 크레딧을 챙겼습니다.${damage ? ` (피해 -${damage})` : ''} (크레딧 +${credits})`,
+    log: `🐾 [${actor.name}] ${target}를 정리하며 숙련도와 크레딧을 챙겼습니다.${damage ? ` (피해 -${damage})` : ''} (크레딧 +${credits})`,
     damage,
     earnedCredits: credits,
     newEffects: [makeStatBuffEffect('사냥 리듬', { attackSpeed: 0.02, attackPower: 2 }, 20, 'micro_wildlife_track', { tags: ['positive', 'wildlife'] })],
@@ -344,7 +345,7 @@ function combatRepositionAction(actor, day) {
   const hpPct = hpPercent(actor);
   const credits = day >= 5 ? randInt(1, 2) : 0;
   return {
-    log: `🏃 [${actor.name}] 교전 소리를 피해 다음 부쉬로 포지션을 옮겼습니다.${hpPct < 55 ? ' 체력이 낮아 전면전은 피합니다.' : ''}${credits ? ` (크레딧 +${credits})` : ''}`,
+    log: `🏃 [${actor.name}] 다음 교전을 위해 시야 밖으로 재배치했습니다.${hpPct < 55 ? ' 체력이 낮아 정면 교전은 피합니다.' : ''}${credits ? ` (크레딧 +${credits})` : ''}`,
     earnedCredits: credits,
     newEffects: [makeStatBuffEffect('가속', { attackSpeed: 0.02 }, 20, 'micro_combat_reposition', { tags: ['positive', 'move'] })],
     pvpBonusNext: hpPct < 55 ? 0.04 : 0.12,
@@ -354,7 +355,7 @@ function combatRepositionAction(actor, day) {
 function inventoryTuneAction(actor) {
   const credits = randInt(1, 4);
   return {
-    log: `🎒 [${actor.name}] 인벤토리를 정리해 루트 재료 우선순위를 다시 잡았습니다. (크레딧 +${credits})`,
+    log: `🎒 [${actor.name}] 인벤토리를 정리하고 루트 재료 우선순위를 다시 잡았습니다. (크레딧 +${credits})`,
     earnedCredits: credits,
     newEffects: [makeStatBuffEffect('정리 완료', { sightRange: 0.2 }, 20, 'micro_inventory_tune', { tags: ['positive', 'inventory'] })],
   };
@@ -380,15 +381,15 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
   const action = picked?.key || 'silent';
 
   if (action === 'silent') return silentResult();
-  if (action === 'route_material') return routeMaterialAction(actor, publicItems, day, ruleset);
-  if (action === 'food_supply') return foodSupplyAction(actor, publicItems, day, ruleset);
-  if (action === 'medical_reset') return medicalResetAction(actor, publicItems, ruleset);
-  if (action === 'vision_control') return visionControlAction(actor, day, phase, ruleset);
-  if (action === 'wildlife_track') return wildlifeTrackAction(actor, day, phase, ruleset);
-  if (action === 'object_hold') return objectHoldAction(actor, day, phase, ruleset);
-  if (action === 'combat_reposition') return combatRepositionAction(actor, day, phase, ruleset);
-  if (action === 'inventory_tune') return inventoryTuneAction(actor, ruleset);
-  if (action === 'quiet_rotation') return quietRotationAction(actor, phase, ruleset);
+  if (action === 'route_material') return routeMaterialAction(actor, publicItems, day);
+  if (action === 'food_supply') return foodSupplyAction(actor, publicItems);
+  if (action === 'medical_reset') return medicalResetAction(actor, publicItems);
+  if (action === 'vision_control') return visionControlAction(actor, day, phase);
+  if (action === 'wildlife_track') return wildlifeTrackAction(actor, day, phase);
+  if (action === 'object_hold') return objectHoldAction(actor, day, phase);
+  if (action === 'combat_reposition') return combatRepositionAction(actor, day);
+  if (action === 'inventory_tune') return inventoryTuneAction(actor);
+  if (action === 'quiet_rotation') return quietRotationAction(actor, phase);
 
   return silentResult();
 }

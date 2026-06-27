@@ -2,7 +2,7 @@ import { generateDynamicEvent } from '../../../utils/eventLogic';
 
 function fallbackDynamicEvent(actor) {
   return {
-    log: `🧭 [${actor?.name || '생존자'}] 로테이션을 유지하며 다음 행동을 준비했습니다.`,
+    log: `🧭 [${actor?.name || '생존자'}] 다음 오브젝트와 교전 동선을 점검했습니다.`,
     damage: 0,
     recovery: 0,
     drop: null,
