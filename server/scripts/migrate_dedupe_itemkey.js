@@ -21,6 +21,21 @@ const apply = argv.has('--apply');
 const dry = argv.has('--dry') || !apply;
 const keepDupes = argv.has('--keep-duplicates');
 
+function hasOwner(ownerUserId) {
+  return ownerUserId !== undefined && ownerUserId !== null && String(ownerUserId).trim() !== '';
+}
+
+function ownerKey(ownerUserId) {
+  return hasOwner(ownerUserId) ? String(ownerUserId) : '__legacy__';
+}
+
+function itemOwnerFilter(ownerUserId, extra = {}) {
+  if (hasOwner(ownerUserId)) return { ...(extra || {}), ownerUserId };
+  const legacyClause = { $or: [{ ownerUserId: null }, { ownerUserId: { $exists: false } }] };
+  if (extra?.$or || extra?.$and) return { $and: [extra, legacyClause] };
+  return { ...(extra || {}), ...legacyClause };
+}
+
 function score(it) {
   let s = 0;
   if (it?.lockedByAdmin) s += 1000;
@@ -55,18 +70,21 @@ function mergePatch(canon, other) {
   return patch;
 }
 
-async function replaceRefs(fromId, toId) {
+async function replaceRefs(ownerUserId, fromId, toId) {
   const fromStr = String(fromId);
+  const ownerScoped = itemOwnerFilter(ownerUserId);
+  const characterScope = hasOwner(ownerUserId) ? { userId: ownerUserId } : {};
+  const tradeScope = hasOwner(ownerUserId) ? { fromUserId: ownerUserId } : {};
   const ops = [
-    Item.updateMany({ 'recipe.ingredients.itemId': fromId }, { $set: { 'recipe.ingredients.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
-    Character.updateMany({ 'inventory.itemId': fromId }, { $set: { 'inventory.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
-    Character.updateMany({ 'inventory.itemId': fromStr }, { $set: { 'inventory.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromStr }] }),
-    MapModel.updateMany({ 'itemCrates.lootTable.itemId': fromId }, { $set: { 'itemCrates.$[].lootTable.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
-    Kiosk.updateMany({ 'catalog.itemId': fromId }, { $set: { 'catalog.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
-    Kiosk.updateMany({ 'catalog.exchange.giveItemId': fromId }, { $set: { 'catalog.$[e].exchange.giveItemId': toId } }, { arrayFilters: [{ 'e.exchange.giveItemId': fromId }] }),
-    DroneOffer.updateMany({ itemId: fromId }, { $set: { itemId: toId } }),
-    TradeOffer.updateMany({ 'give.itemId': fromId }, { $set: { 'give.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
-    TradeOffer.updateMany({ 'want.itemId': fromId }, { $set: { 'want.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] })
+    Item.updateMany({ ...ownerScoped, 'recipe.ingredients.itemId': fromId }, { $set: { 'recipe.ingredients.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
+    Character.updateMany({ ...characterScope, 'inventory.itemId': fromId }, { $set: { 'inventory.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
+    Character.updateMany({ ...characterScope, 'inventory.itemId': fromStr }, { $set: { 'inventory.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromStr }] }),
+    MapModel.updateMany({ ...ownerScoped, 'itemCrates.lootTable.itemId': fromId }, { $set: { 'itemCrates.$[].lootTable.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
+    Kiosk.updateMany({ ...ownerScoped, 'catalog.itemId': fromId }, { $set: { 'catalog.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
+    Kiosk.updateMany({ ...ownerScoped, 'catalog.exchange.giveItemId': fromId }, { $set: { 'catalog.$[e].exchange.giveItemId': toId } }, { arrayFilters: [{ 'e.exchange.giveItemId': fromId }] }),
+    DroneOffer.updateMany({ ...ownerScoped, itemId: fromId }, { $set: { itemId: toId } }),
+    TradeOffer.updateMany({ ...tradeScope, 'give.itemId': fromId }, { $set: { 'give.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] }),
+    TradeOffer.updateMany({ ...tradeScope, 'want.itemId': fromId }, { $set: { 'want.$[e].itemId': toId } }, { arrayFilters: [{ 'e.itemId': fromId }] })
   ];
   if (dry) return;
   await Promise.allSettled(ops);
@@ -79,49 +97,51 @@ async function main() {
 
   try {
     const items = await Item.find({ itemKey: { $exists: true, $ne: null } })
-      .select('_id itemKey externalId name tags recipe equipSlot weaponType spawnZones spawnCrateTypes droneCreditsCost lockedByAdmin description image')
+      .select('_id ownerUserId itemKey externalId name tags recipe equipSlot weaponType spawnZones spawnCrateTypes droneCreditsCost lockedByAdmin description image')
       .lean();
 
     const groups = new Map();
     for (const it of items) {
       const k = String(it.itemKey || '').trim();
       if (!k) continue;
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(it);
+      const key = `${ownerKey(it.ownerUserId)}\t${k}`;
+      if (!groups.has(key)) groups.set(key, { ownerUserId: it.ownerUserId || null, itemKey: k, items: [] });
+      groups.get(key).items.push(it);
     }
 
-    const dupGroups = [...groups.entries()].filter(([, arr]) => arr.length > 1);
+    const dupGroups = [...groups.values()].filter((group) => group.items.length > 1);
     console.log(`[migrate:itemkey] dupKeys=${dupGroups.length} total=${items.length} dry=${dry}`);
     if (dupGroups.length === 0) return;
 
-    for (const [itemKey, arr] of dupGroups) {
+    for (const { ownerUserId, itemKey, items: arr } of dupGroups) {
       const sorted = [...arr].sort((a, b) => score(b) - score(a));
       const canon = sorted[0];
       const dupes = sorted.slice(1);
 
       console.log(`\n[migrate:itemkey] ${itemKey}`);
+      console.log(`  owner: ${ownerKey(ownerUserId)}`);
       console.log(`  keep: ${String(canon._id)} (${canon.name})`);
       dupes.forEach(d => console.log(`  dupe: ${String(d._id)} (${d.name})`));
 
       if (!dry) {
-        let canonDoc = await Item.findById(canon._id);
+        let canonDoc = await Item.findOne(itemOwnerFilter(ownerUserId, { _id: canon._id }));
         if (canonDoc) {
           for (const d of dupes) {
             const patch = mergePatch(canonDoc.toObject(), d);
             if (Object.keys(patch).length) {
-              await Item.updateOne({ _id: canon._id }, { $set: patch });
-              canonDoc = await Item.findById(canon._id);
+              await Item.updateOne(itemOwnerFilter(ownerUserId, { _id: canon._id }), { $set: patch });
+              canonDoc = await Item.findOne(itemOwnerFilter(ownerUserId, { _id: canon._id }));
             }
           }
         }
       }
 
       for (const d of dupes) {
-        await replaceRefs(d._id, canon._id);
+        await replaceRefs(ownerUserId, d._id, canon._id);
       }
 
       if (!dry && !keepDupes) {
-        await Item.deleteMany({ _id: { $in: dupes.map(d => d._id) } });
+        await Item.deleteMany(itemOwnerFilter(ownerUserId, { _id: { $in: dupes.map(d => d._id) } }));
       }
     }
 

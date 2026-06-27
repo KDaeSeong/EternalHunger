@@ -747,6 +747,35 @@ export default function ItemsAdmin() {
     }
   }
 
+  async function dedupeNamuItems() {
+    if (treeBusy) return;
+    const ok = window.confirm('현재 계정의 namu: 아이템 중 같은 ID(itemKey/externalId)를 가진 중복 항목을 정리합니다.\n레시피/스폰 정보가 더 많은 항목을 우선 보존하고, 참조도 보존 항목으로 옮깁니다.\n계속할까요?');
+    if (!ok) return;
+
+    setTreeBusy(true);
+    setTreeMsg('');
+    let deletedTotal = 0;
+    let mergedTotal = 0;
+    let refTotal = 0;
+    try {
+      for (;;) {
+        const data = await apiPost('/admin/items/dedupe', { prefix: 'namu:', limitGroups: 50 }, { timeoutMs: 45000 });
+        const s = data?.summary || {};
+        deletedTotal += Number(s.deletedCount || 0);
+        mergedTotal += Number(s.mergedCount || 0);
+        refTotal += Number(s.referenceUpdatedCount || 0);
+        setTreeMsg(`⏳ namu: 중복 정리 중... 삭제 ${deletedTotal}개 / 병합 ${mergedTotal}개 / 참조 수정 ${refTotal}개`);
+        if (s.done) break;
+      }
+      setTreeMsg(`✅ namu: 중복 정리 완료 (삭제 ${deletedTotal}개, 병합 ${mergedTotal}개, 참조 수정 ${refTotal}개)`);
+      await reloadItems();
+    } catch (e) {
+      setTreeMsg(`⚠️ namu: 중복 정리 실패: ${String(e?.message || e)}`);
+    } finally {
+      setTreeBusy(false);
+    }
+  }
+
   function openCreate() {
     setEditorMode('create');
     setEditorItem(null);
@@ -894,6 +923,14 @@ export default function ItemsAdmin() {
             title="itemKey/externalId 중 어느 쪽도 namu:로 시작하지 않는 현재 계정 아이템만 삭제합니다."
           >
             namu 외 삭제
+          </button>
+          <button
+            onClick={dedupeNamuItems}
+            disabled={treeBusy}
+            style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(120,210,255,0.45)', background: 'rgba(80,180,255,0.12)', color: 'inherit', cursor: treeBusy ? 'not-allowed' : 'pointer' }}
+            title="같은 namu: itemKey/externalId를 가진 현재 계정 아이템을 1개로 통합합니다."
+          >
+            중복 정리
           </button>
         </div>
 

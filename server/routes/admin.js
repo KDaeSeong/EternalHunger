@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Item = require('../models/Item'); // ★ 아이템 모델 추가!
+const Character = require('../models/Characters');
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
+const TradeOffer = require('../models/TradeOffer');
 const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES, canonicalZoneId, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../utils/defaultItemTree');
@@ -114,6 +116,114 @@ function nonNamuItemQuery() {
   };
 }
 
+function normalizeItemIdentity(item) {
+  const key = String(item?.itemKey || '').trim();
+  const externalId = String(item?.externalId || '').trim();
+  return key || externalId;
+}
+
+function itemCompletenessScore(item) {
+  let score = 0;
+  if (item?.lockedByAdmin) score += 1000;
+  const recipeCount = Array.isArray(item?.recipe?.ingredients) ? item.recipe.ingredients.length : 0;
+  if (recipeCount > 0) score += 500 + Math.min(recipeCount, 20);
+  if (item?.externalId) score += 50;
+  if (item?.description) score += 20;
+  if (item?.image) score += 20;
+  score += Math.min(Array.isArray(item?.tags) ? item.tags.length : 0, 20);
+  score += Math.min(Array.isArray(item?.spawnZones) ? item.spawnZones.length : 0, 20);
+  score += Math.min(Array.isArray(item?.spawnCrateTypes) ? item.spawnCrateTypes.length : 0, 20);
+  const stats = item?.stats && typeof item.stats === 'object' ? item.stats : {};
+  score += Object.values(stats).filter((v) => Number(v) !== 0).length;
+  const createdAt = item?.createdAt ? new Date(item.createdAt).getTime() : 0;
+  if (Number.isFinite(createdAt)) score += createdAt / 100000000000000;
+  return score;
+}
+
+function mergeItemPatch(canonical, duplicate) {
+  const patch = {};
+  const mergeArray = (field) => {
+    const a = Array.isArray(canonical?.[field]) ? canonical[field] : [];
+    const b = Array.isArray(duplicate?.[field]) ? duplicate[field] : [];
+    const merged = [...new Set([...a, ...b].map((v) => String(v || '').trim()).filter(Boolean))];
+    if (merged.length !== a.length) patch[field] = merged;
+  };
+
+  mergeArray('tags');
+  mergeArray('spawnZones');
+  mergeArray('spawnCrateTypes');
+  mergeArray('upgradeItemKeys');
+
+  if (!canonical?.description && duplicate?.description) patch.description = duplicate.description;
+  if (!canonical?.image && duplicate?.image) patch.image = duplicate.image;
+  if (!canonical?.externalId && duplicate?.externalId) patch.externalId = duplicate.externalId;
+  if (!canonical?.equipSlot && duplicate?.equipSlot) patch.equipSlot = duplicate.equipSlot;
+  if (!canonical?.weaponType && duplicate?.weaponType) patch.weaponType = duplicate.weaponType;
+  if (!canonical?.archetype && duplicate?.archetype) patch.archetype = duplicate.archetype;
+  if (!(Number(canonical?.droneCreditsCost) > 0) && Number(duplicate?.droneCreditsCost) > 0) {
+    patch.droneCreditsCost = Number(duplicate.droneCreditsCost);
+  }
+
+  const canonicalRecipeCount = Array.isArray(canonical?.recipe?.ingredients) ? canonical.recipe.ingredients.length : 0;
+  const duplicateRecipeCount = Array.isArray(duplicate?.recipe?.ingredients) ? duplicate.recipe.ingredients.length : 0;
+  if (canonicalRecipeCount === 0 && duplicateRecipeCount > 0) patch.recipe = duplicate.recipe;
+
+  return patch;
+}
+
+async function replaceDuplicateItemRefs(userId, fromId, toId) {
+  const fromStr = String(fromId);
+  const ops = [
+    Item.updateMany(
+      { ownerUserId: userId, 'recipe.ingredients.itemId': fromId },
+      { $set: { 'recipe.ingredients.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromId }] }
+    ),
+    Character.updateMany(
+      { userId, 'inventory.itemId': fromId },
+      { $set: { 'inventory.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromId }] }
+    ),
+    Character.updateMany(
+      { userId, 'inventory.itemId': fromStr },
+      { $set: { 'inventory.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromStr }] }
+    ),
+    MapModel.updateMany(
+      { ownerUserId: userId, 'itemCrates.lootTable.itemId': fromId },
+      { $set: { 'itemCrates.$[].lootTable.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromId }] }
+    ),
+    Kiosk.updateMany(
+      { ownerUserId: userId, 'catalog.itemId': fromId },
+      { $set: { 'catalog.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromId }] }
+    ),
+    Kiosk.updateMany(
+      { ownerUserId: userId, 'catalog.exchange.giveItemId': fromId },
+      { $set: { 'catalog.$[e].exchange.giveItemId': toId } },
+      { arrayFilters: [{ 'e.exchange.giveItemId': fromId }] }
+    ),
+    DroneOffer.updateMany({ ownerUserId: userId, itemId: fromId }, { $set: { itemId: toId } }),
+    TradeOffer.updateMany(
+      { fromUserId: userId, 'give.itemId': fromId },
+      { $set: { 'give.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromId }] }
+    ),
+    TradeOffer.updateMany(
+      { fromUserId: userId, 'want.itemId': fromId },
+      { $set: { 'want.$[e].itemId': toId } },
+      { arrayFilters: [{ 'e.itemId': fromId }] }
+    ),
+  ];
+
+  const results = await Promise.allSettled(ops);
+  return results.reduce((sum, result) => {
+    if (result.status !== 'fulfilled') return sum;
+    return sum + Number(result.value?.modifiedCount || 0);
+  }, 0);
+}
+
 // 현재 계정 아이템 중 itemKey/externalId 어디에도 namu: prefix가 없는 항목 일괄 삭제
 router.post('/items/delete-non-namu', async (req, res) => {
   try {
@@ -172,6 +282,96 @@ router.post('/items/delete-non-namu', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'namu: 외 아이템 삭제 실패' });
+  }
+});
+
+// 현재 계정 아이템 중 같은 itemKey/externalId를 가진 항목을 1개로 통합
+router.post('/items/dedupe', async (req, res) => {
+  try {
+    const userId = requireUserId(req, res);
+    if (!userId) return;
+
+    const rawPrefix = String(req.body?.prefix ?? 'namu:').trim();
+    const prefix = rawPrefix && rawPrefix.toLowerCase() !== 'all' ? rawPrefix : '';
+    const limitGroups = Math.min(200, Math.max(1, Math.floor(Number(req.body?.limitGroups || 50))));
+    const dryRun = req.body?.dryRun === true;
+
+    const items = await Item.find(ownedFilter(userId))
+      .select('_id itemKey externalId name tags recipe stats equipSlot weaponType archetype spawnZones spawnCrateTypes upgradeItemKeys droneCreditsCost lockedByAdmin description image createdAt')
+      .sort({ _id: 1 })
+      .lean();
+
+    const groups = new Map();
+    for (const item of items) {
+      const identity = normalizeItemIdentity(item);
+      if (!identity) continue;
+      if (prefix && !identity.startsWith(prefix)) continue;
+      if (!groups.has(identity)) groups.set(identity, []);
+      groups.get(identity).push(item);
+    }
+
+    const duplicateGroups = [...groups.entries()]
+      .filter(([, list]) => list.length > 1)
+      .sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+    const targets = duplicateGroups.slice(0, limitGroups);
+    let deletedCount = 0;
+    let referenceUpdatedCount = 0;
+    let mergedCount = 0;
+    const samples = [];
+
+    for (const [identity, list] of targets) {
+      const sorted = [...list].sort((a, b) => itemCompletenessScore(b) - itemCompletenessScore(a));
+      const canonical = sorted[0];
+      const duplicates = sorted.slice(1);
+      const duplicateIds = duplicates.map((item) => item._id);
+
+      samples.push({
+        key: identity,
+        keepId: String(canonical._id),
+        deleteIds: duplicateIds.map(String),
+        name: String(canonical.name || ''),
+      });
+
+      if (dryRun) continue;
+
+      let canonicalDoc = await Item.findOne(ownedFilter(userId, { _id: canonical._id }));
+      if (canonicalDoc) {
+        for (const duplicate of duplicates) {
+          const patch = mergeItemPatch(canonicalDoc.toObject(), duplicate);
+          if (Object.keys(patch).length) {
+            await Item.updateOne(ownedFilter(userId, { _id: canonical._id }), { $set: patch });
+            mergedCount += 1;
+            canonicalDoc = await Item.findOne(ownedFilter(userId, { _id: canonical._id }));
+            if (!canonicalDoc) break;
+          }
+        }
+      }
+
+      for (const duplicate of duplicates) {
+        referenceUpdatedCount += await replaceDuplicateItemRefs(userId, duplicate._id, canonical._id);
+      }
+
+      const result = await Item.deleteMany(ownedFilter(userId, { _id: { $in: duplicateIds } }));
+      deletedCount += Number(result?.deletedCount || 0);
+    }
+
+    res.json({
+      message: dryRun ? '아이템 중복 정리 대상 확인 완료' : '아이템 중복 정리 완료',
+      summary: {
+        dryRun,
+        prefix: prefix || 'all',
+        duplicateGroupCount: duplicateGroups.length,
+        processedGroupCount: targets.length,
+        deletedCount,
+        mergedCount,
+        referenceUpdatedCount,
+        done: duplicateGroups.length <= limitGroups,
+        samples: samples.slice(0, 30),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '아이템 중복 정리 실패' });
   }
 });
 

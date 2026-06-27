@@ -1,5 +1,5 @@
 // server/scripts/ensure_itemkey_unique_index.js
-// ✅ Item.itemKey unique 인덱스 적용(중복 재발 방지)
+// ✅ Item.ownerUserId + itemKey unique 인덱스 적용(중복 재발 방지)
 // 사용:
 //   MONGO_URI=... npm run index:itemkey
 
@@ -14,17 +14,17 @@ async function main() {
 
   try {
     const idx = await Item.collection.indexes();
-    const existing = idx.find((x) => x?.name === 'itemKey_1');
-    if (existing && !existing.unique) {
-      console.log('[index:itemkey] drop old index itemKey_1');
+    const oldGlobal = idx.find((x) => x?.name === 'itemKey_1');
+    if (oldGlobal) {
+      console.log('[index:itemkey] drop legacy global index itemKey_1');
       await Item.collection.dropIndex('itemKey_1');
     }
 
-    console.log('[index:itemkey] create unique index itemKey_1');
+    console.log('[index:itemkey] create account-scoped unique index ownerUserId_1_itemKey_1');
     await Item.collection.createIndex(
-      { itemKey: 1 },
+      { ownerUserId: 1, itemKey: 1 },
       {
-        name: 'itemKey_1',
+        name: 'ownerUserId_1_itemKey_1',
         unique: true,
         partialFilterExpression: { itemKey: { $type: 'string', $ne: '' } }
       }
