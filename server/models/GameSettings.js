@@ -13,16 +13,15 @@ const GameSettingsSchema = new mongoose.Schema({
   // - 관전자(Observer) 모드에서 "어떤 맵에서 시뮬을 돌릴지"를 고정하기 위한 값
   activeMapId: { type: mongoose.Schema.Types.ObjectId, ref: 'Map', required: false },
 
-  // ★ [추가됨] 스탯 가중치 (이게 있어야 보정치가 저장됩니다!)
+  // Eternal Return-style stat weights
   statWeights: {
-    str: { type: Number, default: 1.0 }, // 근력
-    agi: { type: Number, default: 1.0 }, // 민첩
-    int: { type: Number, default: 1.0 }, // 지능
-    men: { type: Number, default: 1.0 }, // 정신
-    luk: { type: Number, default: 1.0 }, // 행운
-    dex: { type: Number, default: 1.0 }, // 손재주
-    sht: { type: Number, default: 1.0 }, // 사격
-    end: { type: Number, default: 1.0 }  // 지구력
+    maxHp: { type: Number, default: 1.0 },
+    attackPower: { type: Number, default: 1.0 },
+    skillAmp: { type: Number, default: 1.0 },
+    defense: { type: Number, default: 1.0 },
+    attackSpeed: { type: Number, default: 1.0 },
+    attackRange: { type: Number, default: 1.0 },
+    sightRange: { type: Number, default: 1.0 }
   },
 
   // 💀 서든데스 설정

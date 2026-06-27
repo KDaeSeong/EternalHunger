@@ -18,6 +18,7 @@ import {
   normalizeStatusEffectList,
   purgeNegativeEffects,
 } from '../../../utils/statusLogic';
+import { getErStatLabel } from '../../../utils/erStats';
 
 export function normalizeRuntimeEffect(effect) {
   if (!effect || typeof effect !== 'object') return null;
@@ -149,7 +150,7 @@ export function describeRuntimeEffect(effect) {
   if (name === EFFECT_STUN || name === EFFECT_AIRBORNE) return `${name}${durationText}`;
   const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
   if (statMods && Object.keys(statMods).length) {
-    const bits = Object.entries(statMods).map(([k, v]) => `${String(k)} ${Number(v) > 0 ? '+' : ''}${Number(v)}`);
+    const bits = Object.entries(statMods).map(([k, v]) => `${getErStatLabel(k)} ${Number(v) > 0 ? '+' : ''}${Number(v)}`);
     return `${name}${bits.length ? ` [${bits.join(', ')}]` : ''}${durationText}`;
   }
   return `${name}${durationText}`;

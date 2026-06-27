@@ -1,9 +1,10 @@
 import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
+import { ER_STAT_KEYS, normalizeErStats } from './erStats.js';
 
 const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
 
-const STAT_KEYS = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+const STAT_KEYS = ER_STAT_KEYS;
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
 const LOADOUT_KEYS = ['weaponKey', 'headKey', 'clothesKey', 'armKey', 'shoesKey'];
 const SIMPLE_COMPARE_KEYS = [
@@ -69,10 +70,7 @@ function cleanPreviewImage(value) {
 }
 
 function cleanStats(stats) {
-  const src = stats && typeof stats === 'object' ? stats : {};
-  const out = {};
-  for (const key of STAT_KEYS) out[key] = cleanNumber(src[key], 0);
-  return out;
+  return normalizeErStats(stats);
 }
 
 function cleanLoadouts(goalLoadouts) {

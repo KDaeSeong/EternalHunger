@@ -45,7 +45,21 @@ const SIMPLE_VERIFY_FIELDS = [
   'erTrait',
 ];
 
-const STAT_KEYS = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+const DEFAULT_STATS = {
+  maxHp: 100,
+  hpGrowth: 4,
+  attackPower: 24,
+  attackPowerGrowth: 1.4,
+  skillAmp: 0,
+  skillAmpGrowth: 1.1,
+  defense: 14,
+  defenseGrowth: 0.8,
+  attackSpeed: 0.72,
+  attackSpeedGrowth: 0.015,
+  attackRange: 1.5,
+  sightRange: 8,
+};
+const STAT_KEYS = Object.keys(DEFAULT_STATS);
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
 const LOADOUT_KEYS = ['weaponKey', 'headKey', 'clothesKey', 'armKey', 'shoesKey'];
 const SUPPORTED_TAC_SKILLS = new Set([
@@ -158,7 +172,7 @@ function cleanComparableNumber(value, fallback = 0) {
 function cleanComparableStats(stats) {
   const src = stats && typeof stats === 'object' ? stats : {};
   const out = {};
-  for (const key of STAT_KEYS) out[key] = cleanComparableNumber(src[key], 0);
+  for (const key of STAT_KEYS) out[key] = cleanComparableNumber(src[key], DEFAULT_STATS[key] || 0);
   return out;
 }
 

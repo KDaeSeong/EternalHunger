@@ -51,14 +51,7 @@ function readExplicitRecovery(item) {
 }
 
 function adaptiveAttackStat(character) {
-  const stats = character?.stats && typeof character.stats === 'object' ? character.stats : {};
-  const candidates = [
-    ['int', Number(stats.int || 0)],
-    ['sht', Number(stats.sht || 0)],
-    ['str', Number(stats.str || 0)],
-  ];
-  candidates.sort((a, b) => b[1] - a[1]);
-  return candidates[0]?.[0] || 'str';
+  return 'attackPower';
 }
 
 function permanentConsumableBoost(character, item) {
@@ -74,7 +67,7 @@ function permanentConsumableBoost(character, item) {
     return { key: 'max_hp', label: '최대 체력', maxHp: Math.max(1, readNumber(stats.hp, item?.maxHp, 90) || 90) };
   }
   if (name.includes('성수') || lower.includes('holy water')) {
-    return { key: 'defense', label: '방어력', stats: { end: Math.max(1, readNumber(stats.def, item?.def, 9) || 9) } };
+    return { key: 'defense', label: '방어력', stats: { defense: Math.max(1, readNumber(stats.def, item?.def, 9) || 9) } };
   }
   if (name.includes('셀레네') || lower.includes('selene')) {
     const stat = adaptiveAttackStat(character);
@@ -94,9 +87,9 @@ function permanentConsumableBoost(character, item) {
   const moveSpeed = readNumber(stats.moveSpeed, item?.moveSpeed);
 
   if (hp > 0) boost.maxHp = hp;
-  if (def > 0) boost.stats.end = def;
+  if (def > 0) boost.stats.defense = def;
   if (atk > 0) boost.stats[adaptiveAttackStat(character)] = atk;
-  if (skillAmp > 0) boost.stats.int = Math.max(Number(boost.stats.int || 0), skillAmp);
+  if (skillAmp > 0) boost.stats.skillAmp = Math.max(Number(boost.stats.skillAmp || 0), skillAmp);
   if (moveSpeed > 0) boost.moveSpeed = moveSpeed;
 
   if (!boost.maxHp && !boost.moveSpeed && Object.keys(boost.stats).length === 0) return null;
@@ -180,7 +173,7 @@ export function applyItemEffect(character, item) {
     recovery = readExplicitRecovery(item) || (isEnergy ? 12 : 8);
     newEffects = [
       makeRegenEffect(isEnergy ? 4 : 2, 2, `${sourceId}_drink_regen`),
-      makeStatBuffEffect('각성', isEnergy ? { agi: 4, luk: 2 } : { agi: 2, men: 1 }, isEnergy ? 3 : 2, `${sourceId}_drink_stim`, { tags: ['positive', 'stim'] }),
+      makeStatBuffEffect('각성', isEnergy ? { attackSpeed: 0.05, sightRange: 0.3 } : { attackSpeed: 0.025, maxHp: 3 }, isEnergy ? 3 : 2, `${sourceId}_drink_stim`, { tags: ['positive', 'stim'] }),
     ].filter(Boolean);
     log = `🥤 [${character.name}]은(는) [${name}]을(를) 마시며 컨디션을 끌어올렸습니다. (체력 +${recovery})`;
   } else if (isFood) {
@@ -188,13 +181,13 @@ export function applyItemEffect(character, item) {
     recovery = readExplicitRecovery(item) || statHp || (isHealthy ? 30 : 15);
     newEffects = [
       makeRegenEffect(isHealthy ? 7 : 4, isHealthy ? 3 : 2, `${sourceId}_food`),
-      isHealthy ? makeStatBuffEffect('집중', { end: 2, men: 2 }, 2, `${sourceId}_focus`, { tags: ['positive', 'food', 'focus'] }) : null,
+      isHealthy ? makeStatBuffEffect('집중', { defense: 2, maxHp: 5 }, 2, `${sourceId}_focus`, { tags: ['positive', 'food', 'focus'] }) : null,
     ].filter(Boolean);
     log = `🍱 [${character.name}]은(는) 가방에서 [${name}]을(를) 꺼내 먹었습니다. (체력 +${recovery})`;
   } else if (isBook) {
-    statBoost = { int: 5 };
+    statBoost = { skillAmp: 8 };
     newEffects = [
-      makeStatBuffEffect('집중', { int: 5, men: 2 }, 3, `${sourceId}_book`, { tags: ['positive', 'focus', 'knowledge'] }),
+      makeStatBuffEffect('집중', { skillAmp: 8, sightRange: 0.4 }, 3, `${sourceId}_book`, { tags: ['positive', 'focus', 'knowledge'] }),
     ].filter(Boolean);
     log = `📖 [${character.name}]은(는) [${name}]을(를) 읽으며 지식을 습득했습니다. (지능 +5)`;
   } else {

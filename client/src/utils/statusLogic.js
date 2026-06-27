@@ -1,4 +1,5 @@
 // client/src/utils/statusLogic.js
+import { normalizeErStats, normalizeErStatDeltaMap, ER_STAT_KEYS } from './erStats';
 
 export const EFFECT_POISON = '중독';
 export const EFFECT_BURN = '화상';
@@ -99,7 +100,7 @@ export const EFFECT_META = {
     defaultDotDamage: 10,
     stackMode: 'refresh_only',
     maxStacks: 1,
-    statMultipliers: { end: 0.5 },
+    statMultipliers: { defense: 0.85 },
   },
   [EFFECT_SHIELD]: {
     icon: '🛡️',
@@ -122,7 +123,7 @@ export const EFFECT_META = {
     tags: ['positive', 'focus'],
     stackMode: 'refresh_only',
     maxStacks: 1,
-    statModifiers: { int: 5, men: 2 },
+    statModifiers: { skillAmp: 8, maxHp: 5 },
   },
   [EFFECT_STIM]: {
     icon: '⚡',
@@ -130,7 +131,7 @@ export const EFFECT_META = {
     tags: ['positive', 'stim', 'combat'],
     stackMode: 'refresh_only',
     maxStacks: 1,
-    statModifiers: { agi: 3, luk: 2 },
+    statModifiers: { attackSpeed: 0.04, sightRange: 0.2 },
   },
   [EFFECT_AIRBORNE]: {
     icon: '🌀',
@@ -258,9 +259,9 @@ export function makeRegenEffect(recovery, duration = 2, sourceId = '', extra = {
 }
 
 export function makeStatBuffEffect(name, statModifiers = {}, duration = 2, sourceId = '', extra = {}) {
-  const cleanedStats = Object.fromEntries(
+  const cleanedStats = normalizeErStatDeltaMap(Object.fromEntries(
     Object.entries(statModifiers && typeof statModifiers === 'object' ? statModifiers : {}).filter(([, v]) => Number.isFinite(Number(v)) && Number(v) !== 0)
-  );
+  ));
   return normalizeStatusEffect({
     ...extra,
     name: canonicalizeEffectName(name),
@@ -650,7 +651,7 @@ export function purgeNegativeEffects(character, opts = {}) {
 }
 
 export function getEffectiveStats(character) {
-  const effective = { ...(character?.stats || {}) };
+  const effective = normalizeErStats(character?.stats || {});
 
   (Array.isArray(character?.activeEffects) ? character.activeEffects : []).forEach((raw) => {
     const effect = normalizeStatusEffect(raw);
@@ -661,9 +662,10 @@ export function getEffectiveStats(character) {
     const statMods = effect.statModifiers && typeof effect.statModifiers === 'object'
       ? effect.statModifiers
       : (meta?.statModifiers && typeof meta.statModifiers === 'object' ? meta.statModifiers : null);
-    if (statMods) {
-      Object.keys(statMods).forEach((stat) => {
-        const delta = Number(statMods[stat] || 0);
+    const normalizedStatMods = statMods ? normalizeErStatDeltaMap(statMods) : null;
+    if (normalizedStatMods) {
+      Object.keys(normalizedStatMods).forEach((stat) => {
+        const delta = Number(normalizedStatMods[stat] || 0);
         if (!Number.isFinite(delta)) return;
         effective[stat] = Number(effective[stat] || 0) + (delta * stacks);
       });
@@ -674,18 +676,21 @@ export function getEffectiveStats(character) {
       : (meta?.statMultipliers || null);
     if (multipliers) {
       Object.keys(multipliers).forEach((stat) => {
+        if (!ER_STAT_KEYS.includes(stat)) return;
         const mul = Number(multipliers[stat] || 1);
         if (!Number.isFinite(mul)) return;
-        effective[stat] = Math.floor(Number(effective[stat] || 0) * mul);
+        effective[stat] = Number(effective[stat] || 0) * mul;
       });
     }
   });
 
   Object.keys(effective).forEach((key) => {
-    if (effective[key] < 1) effective[key] = 1;
+    if (key === 'attackSpeed') effective[key] = Math.max(0.1, effective[key]);
+    else if (key === 'skillAmp') effective[key] = Math.max(0, effective[key]);
+    else if (effective[key] < 1) effective[key] = 1;
   });
 
-  return effective;
+  return normalizeErStats(effective, { round: false });
 }
 
 export function updateEffects(character, opts = {}) {

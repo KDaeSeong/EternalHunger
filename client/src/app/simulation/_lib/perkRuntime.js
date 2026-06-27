@@ -1,3 +1,5 @@
+import { normalizeErStats } from '../../../utils/erStats';
+
 export const PERK_EFFECT_DEFAULTS = {
   hpPlus: 0,
   maxHpPlus: 0,
@@ -216,24 +218,16 @@ export function applyPerkBundleToActor(actor, bundle, opts = {}) {
   const next = actor;
 
   const baseStats = next._perkBaseStats && typeof next._perkBaseStats === 'object'
-    ? { ...next._perkBaseStats }
-    : { ...(next?.stats && typeof next.stats === 'object' ? next.stats : {}) };
+    ? normalizeErStats(next._perkBaseStats, { round: false })
+    : normalizeErStats(next?.stats, { round: false });
   next._perkBaseStats = { ...baseStats };
-  const statKeys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
   const updatedStats = { ...baseStats };
-  statKeys.forEach((key) => {
-    if (!Object.prototype.hasOwnProperty.call(updatedStats, key)) updatedStats[key] = 0;
-    updatedStats[key] = perkNumber(updatedStats[key]);
-  });
-  updatedStats.str += perkNumber(fx.strPlus) + perkNumber(fx.atkPlus);
-  updatedStats.sht += perkNumber(fx.shtPlus) + perkNumber(fx.atkPlus);
-  updatedStats.end += perkNumber(fx.endPlus) + perkNumber(fx.defPlus);
-  updatedStats.agi += perkNumber(fx.agiPlus);
-  updatedStats.int += perkNumber(fx.intPlus);
-  updatedStats.men += perkNumber(fx.menPlus);
-  updatedStats.luk += perkNumber(fx.lukPlus);
-  updatedStats.dex += perkNumber(fx.dexPlus);
-  next.stats = updatedStats;
+  updatedStats.attackPower += perkNumber(fx.atkPlus) + perkNumber(fx.strPlus) + perkNumber(fx.shtPlus);
+  updatedStats.defense += perkNumber(fx.defPlus) + perkNumber(fx.endPlus);
+  updatedStats.attackSpeed += perkNumber(fx.agiPlus) * 0.01 + perkNumber(fx.dexPlus) * 0.005;
+  updatedStats.skillAmp += perkNumber(fx.intPlus) + perkNumber(fx.menPlus) * 0.4;
+  updatedStats.sightRange += perkNumber(fx.lukPlus) * 0.03 + perkNumber(fx.dexPlus) * 0.02;
+  next.stats = normalizeErStats(updatedStats, { round: false });
 
   const baseMaxHp = perkNumber(next._perkBaseMaxHp ?? next.maxHp ?? 100) || 100;
   next._perkBaseMaxHp = baseMaxHp;

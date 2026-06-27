@@ -5,13 +5,28 @@ import Link from 'next/link';
 import '../../styles/ERModifiers.css';
 import { DEFAULT_RULESET_ID, RULESETS, normalizeRulesetId } from '../../utils/rulesets';
 import { apiGet, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
+import { ER_STAT_FIELDS } from '../../utils/erStats';
+
+const DEFAULT_STAT_WEIGHTS = ER_STAT_FIELDS
+  .filter((field) => !String(field.key).includes('Growth'))
+  .reduce((acc, field) => {
+    acc[field.key] = 1.0;
+    return acc;
+  }, {});
+
+function normalizeStatWeights(value) {
+  const src = value && typeof value === 'object' ? value : {};
+  const out = { ...DEFAULT_STAT_WEIGHTS };
+  Object.keys(out).forEach((key) => {
+    const n = Number(src[key]);
+    if (Number.isFinite(n)) out[key] = n;
+  });
+  return out;
+}
 
 export default function ModifiersPage() {
   // 스탯 가중치 상태
-  const [weights, setWeights] = useState({
-    str: 1.0, agi: 1.0, int: 1.0, men: 1.0,
-    luk: 1.0, dex: 1.0, sht: 1.0, end: 1.0
-  });
+  const [weights, setWeights] = useState(DEFAULT_STAT_WEIGHTS);
 
   // 룰 프리셋(시뮬레이터 규칙 세트)
   const [rulesetId, setRulesetId] = useState(DEFAULT_RULESET_ID);
@@ -35,7 +50,7 @@ export default function ModifiersPage() {
           const data = await apiGet('/settings');
           
           if (data && data.statWeights) {
-            setWeights(data.statWeights);
+            setWeights(normalizeStatWeights(data.statWeights));
           }
 
           if (data && data.rulesetId) {
@@ -86,10 +101,11 @@ export default function ModifiersPage() {
     }
   };
 
-  const statLabels = {
-    str: '근력 (공격력)', agi: '민첩 (선공권)', int: '지능 (변수창출)', men: '정신 (저항력)',
-    luk: '행운 (생존변수)', dex: '손재주 (정확도)', sht: '사격 (견제력)', end: '지구력 (방어력)'
-  };
+  const statLabels = Object.fromEntries(
+    ER_STAT_FIELDS
+      .filter((field) => !String(field.key).includes('Growth'))
+      .map((field) => [field.key, field.label])
+  );
 
   return (
     <main>
@@ -170,7 +186,7 @@ export default function ModifiersPage() {
             </div>
           </div>
 
-          {Object.keys(weights).map((key) => (
+          {Object.keys(DEFAULT_STAT_WEIGHTS).map((key) => (
           <div key={key} className="modifier-item">
             <div className="mod-label">
               <span>{statLabels[key] || key.toUpperCase()}</span>

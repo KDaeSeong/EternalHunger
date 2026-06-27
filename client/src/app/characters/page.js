@@ -13,6 +13,7 @@ import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simula
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
+import { DEFAULT_ER_STATS, normalizeErStats } from '../../utils/erStats';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -23,6 +24,7 @@ const GOAL_GEAR_TIERS = [
 function normalizeCharacterEditorList(data) {
   return (Array.isArray(data) ? data : []).map((c) => ({
     ...c,
+    stats: normalizeErStats(c?.stats),
     weaponType: normalizeWeaponType(c?.weaponType),
     goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
     tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
@@ -111,7 +113,7 @@ export default function CharactersPage() {
       id: Date.now(), // 임시 ID
       name: '',
       gender: '남',
-      stats: { str:0, agi:0, int:0, men:0, luk:0, dex:0, sht:0, end:0 },
+      stats: { ...DEFAULT_ER_STATS },
       image: null,
       previewImage: null,
       summary: '',
@@ -214,7 +216,7 @@ export default function CharactersPage() {
       
       const charName = data.name || "이름없음";
       const gender = data.gender || "남";
-      const newStats = data.stats || { str:0, agi:0, int:0, men:0, luk:0, dex:0, sht:0, end:0 };
+      const newStats = normalizeErStats(data.stats);
 
       // ★ 핵심 수정: 하나씩 고치지 않고, '함수형 업데이트'로 한 번에 확실하게 적용!
       setCharacters(prevCharacters => prevCharacters.map(char => {

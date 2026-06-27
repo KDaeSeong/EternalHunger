@@ -57,10 +57,10 @@ app.post('/api/analyze', async (req, res) => {
   try {
     const { text } = req.body;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const prompt = `Analyze character: "${text}". Return JSON ONLY: { "name": "Name", "gender": "남/여", "stats": { "str":0-100,"agi":0-100,"int":0-100,"men":0-100,"luk":0-100,"dex":0-100,"sht":0-100,"end":0-100 } }`;
+    const prompt = `Analyze character: "${text}". Return JSON ONLY: { "name": "Name", "gender": "남/여", "stats": { "maxHp":1-999,"hpGrowth":0-20,"attackPower":0-200,"attackPowerGrowth":0-20,"skillAmp":0-200,"skillAmpGrowth":0-20,"defense":0-200,"defenseGrowth":0-20,"attackSpeed":0.1-3,"attackSpeedGrowth":0-1,"attackRange":0.5-10,"sightRange":1-20 } }`;
     const result = await model.generateContent(prompt);
     res.json(JSON.parse(result.response.text().replace(/```json|```/g, "").trim()));
-  } catch (error) { res.json({ name: "분석실패", stats: { str:50, agi:50, int:50, men:50, luk:50, dex:50, sht:50, end:50 } }); }
+  } catch (error) { res.json({ name: "분석실패", stats: { maxHp:100, hpGrowth:4, attackPower:24, attackPowerGrowth:1.4, skillAmp:0, skillAmpGrowth:1.1, defense:14, defenseGrowth:0.8, attackSpeed:0.72, attackSpeedGrowth:0.015, attackRange:1.5, sightRange:8 } }); }
 });
 
 app.listen(PORT, () => console.log(`🔥 Server running on port ${PORT}`));

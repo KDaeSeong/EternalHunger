@@ -51,16 +51,20 @@ const characterSchema = new Schema({
     },
   },
 
-  // 2. 8대 스탯 (Deep Stats)
+  // 2. Eternal Return-style core stats
   stats: {
-    str: { type: Number, default: 10 }, // 근력
-    agi: { type: Number, default: 10 }, // 민첩
-    int: { type: Number, default: 10 }, // 지능
-    men: { type: Number, default: 10 }, // 정신
-    luk: { type: Number, default: 10 }, // 행운
-    dex: { type: Number, default: 10 }, // 손재주
-    sht: { type: Number, default: 10 }, // 사격
-    end: { type: Number, default: 10 }, // 지구력
+    maxHp: { type: Number, default: 100 },
+    hpGrowth: { type: Number, default: 4 },
+    attackPower: { type: Number, default: 24 },
+    attackPowerGrowth: { type: Number, default: 1.4 },
+    skillAmp: { type: Number, default: 0 },
+    skillAmpGrowth: { type: Number, default: 1.1 },
+    defense: { type: Number, default: 14 },
+    defenseGrowth: { type: Number, default: 0.8 },
+    attackSpeed: { type: Number, default: 0.72 },
+    attackSpeedGrowth: { type: Number, default: 0.015 },
+    attackRange: { type: Number, default: 1.5 },
+    sightRange: { type: Number, default: 8 },
   },
 
   // 인벤토리

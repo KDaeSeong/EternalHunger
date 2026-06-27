@@ -7,17 +7,16 @@ const StatusEffectSchema = new Schema({
   type: { type: String, enum: ['buff', 'debuff'], required: true },
   description: String,
 
-  // 1. 스탯 변화량 (기획서 2.2절 기반)
-  // 예: { str: 20, agi: 10 }
+  // 1. 스탯 변화량
+  // 예: { attackPower: 8, defense: 4 }
   statModifiers: {
-    str: { type: Number, default: 0 },
-    agi: { type: Number, default: 0 },
-    int: { type: Number, default: 0 },
-    men: { type: Number, default: 0 },
-    luk: { type: Number, default: 0 },
-    dex: { type: Number, default: 0 },
-    sht: { type: Number, default: 0 },
-    end: { type: Number, default: 0 },
+    maxHp: { type: Number, default: 0 },
+    attackPower: { type: Number, default: 0 },
+    skillAmp: { type: Number, default: 0 },
+    defense: { type: Number, default: 0 },
+    attackSpeed: { type: Number, default: 0 },
+    attackRange: { type: Number, default: 0 },
+    sightRange: { type: Number, default: 0 },
   },
 
   // 2. 특수 효과 태그

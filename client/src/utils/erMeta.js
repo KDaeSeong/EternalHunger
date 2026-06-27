@@ -2,6 +2,7 @@
 // This is intentionally a systems model, not a verbatim live-data dump.
 
 import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
+import { normalizeErStats, normalizeErStatDeltaMap } from './erStats.js';
 
 export const ER_WEAPON_TYPES_KO = [
   '권총',
@@ -114,7 +115,7 @@ export function getErWeaponProfile(raw) {
     ranged,
     quick: QUICK_WEAPONS.has(weaponType),
     heavy: HEAVY_WEAPONS.has(weaponType),
-    attackStat: ranged ? 'sht' : 'str',
+    attackStat: 'attackPower',
   };
 }
 
@@ -210,36 +211,36 @@ export const ER_TRAITS = {
 };
 
 const SUBJECT_PRESET_LIST = [
-  { code: 'jackie', names: ['재키', 'Jackie'], weapons: ['도끼', '단검', '양손검', '쌍검'], primaryWeapon: '도끼', tacticalSkill: '퀘이크', trait: 'devour', role: 'bruiser', statBias: { str: 4, dex: 2, end: 2 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
-  { code: 'aya', names: ['아야', 'Aya'], weapons: ['권총', '돌격소총', '저격총'], primaryWeapon: '권총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 4, dex: 2, agi: 1 }, aggression: 0.04, escape: 0.04 },
-  { code: 'fiora', names: ['피오라', 'Fiora'], weapons: ['레이피어', '창', '양손검'], primaryWeapon: '레이피어', tacticalSkill: '진실의 칼날', trait: 'sprint', role: 'duelist', statBias: { str: 3, dex: 3, agi: 2 }, aggression: 0.07, chase: 0.05 },
-  { code: 'hyunwoo', names: ['현우', 'Hyunwoo'], weapons: ['글러브', '톤파'], primaryWeapon: '글러브', tacticalSkill: '퀘이크', trait: 'fortress', role: 'tank', statBias: { str: 2, end: 4, men: 2 }, aggression: 0.03, escape: 0.02 },
-  { code: 'hyejin', names: ['혜진', 'Hyejin'], weapons: ['활', '암기'], primaryWeapon: '활', tacticalSkill: '플라즈마 대시', trait: 'ampDrone', role: 'mage', statBias: { int: 4, sht: 2, men: 2 }, aggression: 0.03, escape: 0.03 },
-  { code: 'isol', names: ['아이솔', 'Isol'], weapons: ['돌격소총', '권총'], primaryWeapon: '돌격소총', tacticalSkill: '무효화', trait: 'adrenaline', role: 'trapper', statBias: { sht: 3, int: 2, dex: 2 }, aggression: 0.03, escape: 0.05 },
-  { code: 'dailin', names: ['리 다이린', '리다이린', 'Li Dailin'], weapons: ['글러브', '쌍절곤'], primaryWeapon: '쌍절곤', tacticalSkill: '플라즈마 대시', trait: 'devour', role: 'bruiser', statBias: { str: 3, agi: 3, end: 2 }, aggression: 0.08, chase: 0.04 },
-  { code: 'yuki', names: ['유키', 'Yuki'], weapons: ['양손검', '쌍검'], primaryWeapon: '양손검', tacticalSkill: '진실의 칼날', trait: 'fortress', role: 'duelist', statBias: { str: 3, dex: 3, end: 2 }, aggression: 0.06, chase: 0.03 },
-  { code: 'hart', names: ['하트', 'Hart'], weapons: ['기타'], primaryWeapon: '기타', tacticalSkill: '치유의 바람', trait: 'ampDrone', role: 'support', statBias: { int: 3, men: 3, agi: 2 }, escape: 0.05, objective: 0.03 },
-  { code: 'shoichi', names: ['쇼이치', 'Shoichi'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'assassin', statBias: { str: 2, agi: 4, dex: 3 }, aggression: 0.08, chase: 0.07 },
-  { code: 'cathy', names: ['캐시', 'Cathy'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '치유의 바람', trait: 'devour', role: 'sustain', statBias: { str: 2, dex: 3, men: 2 }, aggression: 0.04, escape: 0.03 },
-  { code: 'rozzi', names: ['로지', 'Rozzi'], weapons: ['권총'], primaryWeapon: '권총', tacticalSkill: '플라즈마 대시', trait: 'adrenaline', role: 'skirmisher', statBias: { sht: 3, agi: 3, dex: 2 }, aggression: 0.06, chase: 0.04 },
-  { code: 'emma', names: ['엠마', 'Emma'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '아티팩트', trait: 'ampDrone', role: 'mage', statBias: { int: 4, men: 2, luk: 2 }, escape: 0.04, objective: 0.04 },
-  { code: 'sua', names: ['수아', 'Sua'], weapons: ['망치'], primaryWeapon: '망치', tacticalSkill: '초월', trait: 'fortress', role: 'tank', statBias: { str: 2, int: 2, end: 4 }, aggression: 0.03, escape: 0.03 },
-  { code: 'eleven', names: ['일레븐', 'Eleven'], weapons: ['망치'], primaryWeapon: '망치', tacticalSkill: '강한 결속', trait: 'fortress', role: 'tank', statBias: { str: 3, end: 4, men: 2 }, aggression: 0.04, hunt: 0.03 },
-  { code: 'rio', names: ['리오', 'Rio'], weapons: ['활'], primaryWeapon: '활', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 4, dex: 3, agi: 1 }, aggression: 0.05, chase: 0.03 },
-  { code: 'luke', names: ['루크', 'Luke'], weapons: ['방망이'], primaryWeapon: '방망이', tacticalSkill: '퀘이크', trait: 'devour', role: 'bruiser', statBias: { str: 4, end: 2, luk: 1 }, aggression: 0.08, hunt: 0.04 },
-  { code: 'bianca', names: ['비앙카', 'Bianca'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '아티팩트', trait: 'ampDrone', role: 'mage', statBias: { int: 4, men: 2, end: 1 }, aggression: 0.05, escape: 0.03 },
-  { code: 'mai', names: ['마이', 'Mai'], weapons: ['채찍'], primaryWeapon: '채찍', tacticalSkill: '라이트 윙', trait: 'sprint', role: 'support', statBias: { dex: 3, men: 3, agi: 2 }, escape: 0.05, objective: 0.04 },
-  { code: 'daniel', names: ['다니엘', 'Daniel'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '무효화', trait: 'sprint', role: 'assassin', statBias: { str: 3, agi: 4, dex: 2 }, aggression: 0.07, chase: 0.06 },
-  { code: 'elena', names: ['엘레나', 'Elena'], weapons: ['레이피어'], primaryWeapon: '레이피어', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'duelist', statBias: { str: 2, agi: 3, dex: 3 }, aggression: 0.05, escape: 0.05 },
-  { code: 'piolo', names: ['피올로', 'Piolo'], weapons: ['쌍절곤'], primaryWeapon: '쌍절곤', tacticalSkill: '스트라이더 A-13', trait: 'sprint', role: 'skirmisher', statBias: { str: 3, agi: 3, dex: 2 }, aggression: 0.06, chase: 0.05 },
-  { code: 'martina', names: ['마르티나', 'Martina'], weapons: ['카메라'], primaryWeapon: '카메라', tacticalSkill: '라이트 윙', trait: 'ampDrone', role: 'scout', statBias: { sht: 2, int: 3, luk: 2 }, escape: 0.05, objective: 0.06 },
-  { code: 'haze', names: ['헤이즈', 'Haze'], weapons: ['돌격소총'], primaryWeapon: '돌격소총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 4, dex: 2, agi: 1 }, aggression: 0.06, chase: 0.03 },
-  { code: 'isaac', names: ['아이작', 'Isaac'], weapons: ['톤파'], primaryWeapon: '톤파', tacticalSkill: '퀘이크', trait: 'fortress', role: 'bruiser', statBias: { str: 3, end: 3, dex: 2 }, aggression: 0.07, chase: 0.04 },
-  { code: 'theodore', names: ['테오도르', 'Theodore'], weapons: ['저격총'], primaryWeapon: '저격총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { sht: 5, dex: 2, men: 1 }, aggression: 0.04, escape: 0.02 },
-  { code: 'katja', names: ['카티야', 'Katja'], weapons: ['저격총'], primaryWeapon: '저격총', tacticalSkill: '무효화', trait: 'adrenaline', role: 'marksman', statBias: { sht: 5, agi: 2, dex: 1 }, aggression: 0.05, chase: 0.02 },
-  { code: 'charlotte', names: ['샬럿', 'Charlotte'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '치유의 바람', trait: 'ampDrone', role: 'support', statBias: { int: 3, men: 4, luk: 1 }, escape: 0.05, objective: 0.04 },
-  { code: 'bihyung', names: ['비형', 'Bihyung'], weapons: ['투척'], primaryWeapon: '투척', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'trickster', statBias: { int: 3, agi: 3, dex: 2 }, aggression: 0.05, escape: 0.05 },
-  { code: 'craver', names: ['크레이버', 'Craver'], weapons: ['도끼'], primaryWeapon: '도끼', tacticalSkill: '진실의 칼날', trait: 'devour', role: 'bruiser', statBias: { str: 4, end: 2, dex: 2 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
+  { code: 'jackie', names: ['재키', 'Jackie'], weapons: ['도끼', '단검', '양손검', '쌍검'], primaryWeapon: '도끼', tacticalSkill: '퀘이크', trait: 'devour', role: 'bruiser', statBias: { attackPower: 6.3, attackSpeed: 0.012, sightRange: 0.06, defense: 1.8, maxHp: 6 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
+  { code: 'aya', names: ['아야', 'Aya'], weapons: ['권총', '돌격소총', '저격총'], primaryWeapon: '권총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { attackPower: 5.7, attackRange: 0.12, attackSpeed: 0.024, sightRange: 0.06, defense: 0.25 }, aggression: 0.04, escape: 0.04 },
+  { code: 'fiora', names: ['피오라', 'Fiora'], weapons: ['레이피어', '창', '양손검'], primaryWeapon: '레이피어', tacticalSkill: '진실의 칼날', trait: 'sprint', role: 'duelist', statBias: { attackPower: 5.25, attackSpeed: 0.042, sightRange: 0.09, defense: 0.5 }, aggression: 0.07, chase: 0.05 },
+  { code: 'hyunwoo', names: ['현우', 'Hyunwoo'], weapons: ['글러브', '톤파'], primaryWeapon: '글러브', tacticalSkill: '퀘이크', trait: 'fortress', role: 'tank', statBias: { attackPower: 2.8, defense: 3.6, maxHp: 17, skillAmp: 1.1 }, aggression: 0.03, escape: 0.02 },
+  { code: 'hyejin', names: ['혜진', 'Hyejin'], weapons: ['활', '암기'], primaryWeapon: '활', tacticalSkill: '플라즈마 대시', trait: 'ampDrone', role: 'mage', statBias: { skillAmp: 7.9, attackPower: 2.5, attackRange: 0.06, maxHp: 5 }, aggression: 0.03, escape: 0.03 },
+  { code: 'isol', names: ['아이솔', 'Isol'], weapons: ['돌격소총', '권총'], primaryWeapon: '돌격소총', tacticalSkill: '무효화', trait: 'adrenaline', role: 'trapper', statBias: { attackPower: 4.45, attackRange: 0.09, skillAmp: 3.4, attackSpeed: 0.012, sightRange: 0.06 }, aggression: 0.03, escape: 0.05 },
+  { code: 'dailin', names: ['리 다이린', '리다이린', 'Li Dailin'], weapons: ['글러브', '쌍절곤'], primaryWeapon: '쌍절곤', tacticalSkill: '플라즈마 대시', trait: 'devour', role: 'bruiser', statBias: { attackPower: 4.2, attackSpeed: 0.036, defense: 2.55, maxHp: 6 }, aggression: 0.08, chase: 0.04 },
+  { code: 'yuki', names: ['유키', 'Yuki'], weapons: ['양손검', '쌍검'], primaryWeapon: '양손검', tacticalSkill: '진실의 칼날', trait: 'fortress', role: 'duelist', statBias: { attackPower: 5.25, attackSpeed: 0.018, sightRange: 0.09, defense: 1.8, maxHp: 6 }, aggression: 0.06, chase: 0.03 },
+  { code: 'hart', names: ['하트', 'Hart'], weapons: ['기타'], primaryWeapon: '기타', tacticalSkill: '치유의 바람', trait: 'ampDrone', role: 'support', statBias: { skillAmp: 6.75, maxHp: 7.5, attackSpeed: 0.024, defense: 0.5 }, escape: 0.05, objective: 0.03 },
+  { code: 'shoichi', names: ['쇼이치', 'Shoichi'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'assassin', statBias: { attackPower: 3.85, attackSpeed: 0.066, defense: 1, sightRange: 0.09 }, aggression: 0.08, chase: 0.07 },
+  { code: 'cathy', names: ['캐시', 'Cathy'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '치유의 바람', trait: 'devour', role: 'sustain', statBias: { attackPower: 3.85, attackSpeed: 0.018, sightRange: 0.09, skillAmp: 1.1, maxHp: 5 }, aggression: 0.04, escape: 0.03 },
+  { code: 'rozzi', names: ['로지', 'Rozzi'], weapons: ['권총'], primaryWeapon: '권총', tacticalSkill: '플라즈마 대시', trait: 'adrenaline', role: 'skirmisher', statBias: { attackPower: 4.45, attackRange: 0.09, attackSpeed: 0.048, defense: 0.75, sightRange: 0.06 }, aggression: 0.06, chase: 0.04 },
+  { code: 'emma', names: ['엠마', 'Emma'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '아티팩트', trait: 'ampDrone', role: 'mage', statBias: { skillAmp: 7.9, maxHp: 5, sightRange: 0.08 }, escape: 0.04, objective: 0.04 },
+  { code: 'sua', names: ['수아', 'Sua'], weapons: ['망치'], primaryWeapon: '망치', tacticalSkill: '초월', trait: 'fortress', role: 'tank', statBias: { attackPower: 2.8, skillAmp: 3.4, defense: 3.6, maxHp: 12 }, aggression: 0.03, escape: 0.03 },
+  { code: 'eleven', names: ['일레븐', 'Eleven'], weapons: ['망치'], primaryWeapon: '망치', tacticalSkill: '강한 결속', trait: 'fortress', role: 'tank', statBias: { attackPower: 4.2, defense: 3.6, maxHp: 17, skillAmp: 1.1 }, aggression: 0.04, hunt: 0.03 },
+  { code: 'rio', names: ['리오', 'Rio'], weapons: ['활'], primaryWeapon: '활', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { attackPower: 6.05, attackRange: 0.12, attackSpeed: 0.03, sightRange: 0.09, defense: 0.25 }, aggression: 0.05, chase: 0.03 },
+  { code: 'luke', names: ['루크', 'Luke'], weapons: ['방망이'], primaryWeapon: '방망이', tacticalSkill: '퀘이크', trait: 'devour', role: 'bruiser', statBias: { attackPower: 5.6, defense: 1.8, maxHp: 6, sightRange: 0.04 }, aggression: 0.08, hunt: 0.04 },
+  { code: 'bianca', names: ['비앙카', 'Bianca'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '아티팩트', trait: 'ampDrone', role: 'mage', statBias: { skillAmp: 7.9, maxHp: 8, defense: 0.9 }, aggression: 0.05, escape: 0.03 },
+  { code: 'mai', names: ['마이', 'Mai'], weapons: ['채찍'], primaryWeapon: '채찍', tacticalSkill: '라이트 윙', trait: 'sprint', role: 'support', statBias: { attackSpeed: 0.042, attackPower: 1.05, sightRange: 0.09, skillAmp: 1.65, maxHp: 7.5, defense: 0.5 }, escape: 0.05, objective: 0.04 },
+  { code: 'daniel', names: ['다니엘', 'Daniel'], weapons: ['단검'], primaryWeapon: '단검', tacticalSkill: '무효화', trait: 'sprint', role: 'assassin', statBias: { attackPower: 4.9, attackSpeed: 0.06, defense: 1, sightRange: 0.06 }, aggression: 0.07, chase: 0.06 },
+  { code: 'elena', names: ['엘레나', 'Elena'], weapons: ['레이피어'], primaryWeapon: '레이피어', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'duelist', statBias: { attackPower: 3.85, attackSpeed: 0.054, defense: 0.75, sightRange: 0.09 }, aggression: 0.05, escape: 0.05 },
+  { code: 'piolo', names: ['피올로', 'Piolo'], weapons: ['쌍절곤'], primaryWeapon: '쌍절곤', tacticalSkill: '스트라이더 A-13', trait: 'sprint', role: 'skirmisher', statBias: { attackPower: 4.9, attackSpeed: 0.048, defense: 0.75, sightRange: 0.06 }, aggression: 0.06, chase: 0.05 },
+  { code: 'martina', names: ['마르티나', 'Martina'], weapons: ['카메라'], primaryWeapon: '카메라', tacticalSkill: '라이트 윙', trait: 'ampDrone', role: 'scout', statBias: { attackPower: 2.5, attackRange: 0.06, skillAmp: 5.1, sightRange: 0.08 }, escape: 0.05, objective: 0.06 },
+  { code: 'haze', names: ['헤이즈', 'Haze'], weapons: ['돌격소총'], primaryWeapon: '돌격소총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { attackPower: 5.7, attackRange: 0.12, attackSpeed: 0.024, sightRange: 0.06, defense: 0.25 }, aggression: 0.06, chase: 0.03 },
+  { code: 'isaac', names: ['아이작', 'Isaac'], weapons: ['톤파'], primaryWeapon: '톤파', tacticalSkill: '퀘이크', trait: 'fortress', role: 'bruiser', statBias: { attackPower: 4.9, defense: 2.7, maxHp: 9, attackSpeed: 0.012, sightRange: 0.06 }, aggression: 0.07, chase: 0.04 },
+  { code: 'theodore', names: ['테오도르', 'Theodore'], weapons: ['저격총'], primaryWeapon: '저격총', tacticalSkill: '리펄서 미사일', trait: 'adrenaline', role: 'marksman', statBias: { attackPower: 6.95, attackRange: 0.15, attackSpeed: 0.012, sightRange: 0.06, skillAmp: 0.55, maxHp: 2.5 }, aggression: 0.04, escape: 0.02 },
+  { code: 'katja', names: ['카티야', 'Katja'], weapons: ['저격총'], primaryWeapon: '저격총', tacticalSkill: '무효화', trait: 'adrenaline', role: 'marksman', statBias: { attackPower: 6.6, attackRange: 0.15, attackSpeed: 0.03, defense: 0.5, sightRange: 0.03 }, aggression: 0.05, chase: 0.02 },
+  { code: 'charlotte', names: ['샬럿', 'Charlotte'], weapons: ['아르카나'], primaryWeapon: '아르카나', tacticalSkill: '치유의 바람', trait: 'ampDrone', role: 'support', statBias: { skillAmp: 7.3, maxHp: 10, sightRange: 0.04 }, escape: 0.05, objective: 0.04 },
+  { code: 'bihyung', names: ['비형', 'Bihyung'], weapons: ['투척'], primaryWeapon: '투척', tacticalSkill: '플라즈마 대시', trait: 'sprint', role: 'trickster', statBias: { skillAmp: 5.1, attackSpeed: 0.048, defense: 0.75, attackPower: 0.7, sightRange: 0.06 }, aggression: 0.05, escape: 0.05 },
+  { code: 'craver', names: ['크레이버', 'Craver'], weapons: ['도끼'], primaryWeapon: '도끼', tacticalSkill: '진실의 칼날', trait: 'devour', role: 'bruiser', statBias: { attackPower: 6.3, defense: 1.8, maxHp: 6, attackSpeed: 0.012, sightRange: 0.06 }, aggression: 0.08, chase: 0.03, hunt: 0.04 },
 ];
 
 const ER_SIGNATURE_MODIFIERS = {
@@ -315,10 +316,10 @@ export function getErSignatureModifier(characterOrName) {
 }
 
 function mergeStatBias(stats, bias, scale = 1) {
-  const out = { ...(stats && typeof stats === 'object' ? stats : {}) };
+  const out = normalizeErStats(stats);
   const mul = Math.max(0, Number(scale || 0));
   if (!(mul > 0)) return out;
-  Object.entries(bias || {}).forEach(([key, value]) => {
+  Object.entries(normalizeErStatDeltaMap(bias || {})).forEach(([key, value]) => {
     const add = Number(value || 0) * mul;
     if (!Number.isFinite(add) || add === 0) return;
     out[key] = Number(out[key] || 0) + add;
@@ -326,25 +327,16 @@ function mergeStatBias(stats, bias, scale = 1) {
   return out;
 }
 
-function readCharacterStat(character, key) {
-  const rawKey = String(key || '');
-  const lower = rawKey.toLowerCase();
-  const upper = rawKey.toUpperCase();
-  const stats = character?.stats && typeof character.stats === 'object' ? character.stats : {};
-  const value = Number(stats?.[rawKey] ?? stats?.[lower] ?? stats?.[upper] ?? character?.[rawKey] ?? character?.[lower] ?? character?.[upper] ?? 0);
-  return Number.isFinite(value) ? value : 0;
-}
-
 function buildFallbackErPreset(character) {
   const existingWeapon = normalizeErWeaponType(character?.weaponType || '');
-  const str = readCharacterStat(character, 'str');
-  const sht = readCharacterStat(character, 'sht') || readCharacterStat(character, 'shoot');
-  const int = readCharacterStat(character, 'int');
-  const end = readCharacterStat(character, 'end');
-  const agi = readCharacterStat(character, 'agi');
-  const dex = readCharacterStat(character, 'dex');
-  const men = readCharacterStat(character, 'men');
-  const luk = readCharacterStat(character, 'luk');
+  const stats = normalizeErStats(character?.stats || {});
+  const attack = Number(stats.attackPower || 0);
+  const amp = Number(stats.skillAmp || 0);
+  const defense = Number(stats.defense || 0);
+  const maxHp = Number(stats.maxHp || 0);
+  const attackSpeed = Number(stats.attackSpeed || 0);
+  const attackRange = Number(stats.attackRange || 0);
+  const sightRange = Number(stats.sightRange || 0);
 
   let role = 'bruiser';
   let weapon = 'axe';
@@ -356,47 +348,47 @@ function buildFallbackErPreset(character) {
   let objective = 0.02;
   let hunt = 0.02;
 
-  if (sht >= Math.max(str, int, end) && sht > 0) {
+  if (attackRange >= 3.6 || sightRange >= 9.2) {
     role = 'marksman';
-    weapon = sht >= dex + agi + 2 ? 'sniper rifle' : (agi > dex ? 'pistol' : 'assault rifle');
+    weapon = attackRange >= 5.2 ? 'sniper rifle' : (attackSpeed >= 0.85 ? 'pistol' : 'assault rifle');
     trait = 'adrenaline';
-    tacticalSkill = agi > dex ? 'plasma dash' : 'repulsor missiles';
+    tacticalSkill = attackSpeed >= 0.85 ? 'plasma dash' : 'repulsor missiles';
     aggression = 0.04;
     chase = 0.03;
     escape = 0.04;
     objective = 0.03;
-  } else if (int >= Math.max(str, sht, end) && int > 0) {
-    const supportLike = men >= Math.max(str, sht, agi) || luk >= int;
+  } else if (amp >= Math.max(attack * 1.15, 18)) {
+    const supportLike = maxHp >= 110 || sightRange >= 8.8;
     role = supportLike ? 'support' : 'mage';
-    weapon = supportLike ? (luk > men ? 'camera' : 'guitar') : 'arcana';
+    weapon = supportLike ? (sightRange >= 9 ? 'camera' : 'guitar') : 'arcana';
     trait = 'ampDrone';
-    tacticalSkill = supportLike ? 'healing wind' : (end > agi ? 'artifact' : 'protocol violation');
+    tacticalSkill = supportLike ? 'healing wind' : (defense > 18 ? 'artifact' : 'protocol violation');
     aggression = supportLike ? -0.02 : 0.03;
     chase = supportLike ? 0.01 : 0.02;
     escape = 0.05;
     objective = supportLike ? 0.07 : 0.05;
     hunt = 0.01;
-  } else if (end >= Math.max(str, sht, int, agi) && end > 0) {
+  } else if ((defense * 2 + maxHp * 0.18) >= Math.max(attack * 2.1, amp * 1.1, 42)) {
     role = 'tank';
-    weapon = str >= end - 2 ? 'hammer' : 'tonfa';
+    weapon = attack >= 24 ? 'hammer' : 'tonfa';
     trait = 'fortress';
-    tacticalSkill = str >= end - 2 ? 'transcendence' : 'nullification';
+    tacticalSkill = attack >= 24 ? 'transcendence' : 'nullification';
     aggression = 0.02;
     chase = 0.01;
     escape = 0.04;
     objective = 0.03;
-  } else if (agi >= Math.max(str, sht, int) && agi > 0) {
-    role = dex >= str ? 'assassin' : 'skirmisher';
-    weapon = dex >= str ? 'dagger' : 'glove';
+  } else if (attackSpeed >= 0.9) {
+    role = attackRange <= 1.8 ? 'assassin' : 'skirmisher';
+    weapon = attackRange <= 1.8 ? 'dagger' : 'glove';
     trait = 'sprint';
-    tacticalSkill = dex >= str ? 'plasma dash' : 'strider a-13';
+    tacticalSkill = attackRange <= 1.8 ? 'plasma dash' : 'strider a-13';
     aggression = 0.07;
     chase = 0.06;
     escape = 0.04;
     objective = 0.03;
-  } else if (dex >= Math.max(sht, int, end) && dex > 0) {
+  } else if (attackSpeed >= 0.78 && defense < 20) {
     role = 'duelist';
-    weapon = str >= dex ? 'two-handed sword' : 'rapier';
+    weapon = attack >= 28 ? 'two-handed sword' : 'rapier';
     trait = 'sprint';
     tacticalSkill = 'plasma dash';
     aggression = 0.06;
@@ -404,10 +396,10 @@ function buildFallbackErPreset(character) {
     escape = 0.04;
     objective = 0.02;
   } else {
-    role = str >= end ? 'bruiser' : 'sustain';
-    weapon = str >= end + 2 ? 'axe' : (dex > agi ? 'two-handed sword' : 'glove');
+    role = attack >= defense + 8 ? 'bruiser' : 'sustain';
+    weapon = attack >= defense + 8 ? 'axe' : (attackSpeed >= 0.78 ? 'two-handed sword' : 'glove');
     trait = 'devour';
-    tacticalSkill = str >= end + 2 ? 'quake' : 'red storm';
+    tacticalSkill = attack >= defense + 8 ? 'quake' : 'red storm';
     aggression = 0.06;
     chase = 0.03;
     escape = 0.03;
@@ -424,7 +416,7 @@ function buildFallbackErPreset(character) {
     tacticalSkill,
     trait,
     role,
-    statBias: {},
+    statBias: {  },
     aggression,
     chase,
     escape,
@@ -594,7 +586,7 @@ export const ER_CAPSULES = {
   guard: {
     names: ['방어 캡슐', '가드 캡슐', 'Defense Capsule'],
     heal: 8,
-    stats: { end: 4, men: 3 },
+    stats: { defense: 4, maxHp: 8 },
     shield: 10,
     duration: 3,
     log: '방어 캡슐로 최대 체력과 저항력이 강화됩니다.',
@@ -602,7 +594,7 @@ export const ER_CAPSULES = {
   assault: {
     names: ['공격 캡슐', 'Assault Capsule', 'Offense Capsule'],
     heal: 4,
-    stats: { str: 3, sht: 3, dex: 2 },
+    stats: { attackPower: 8, attackSpeed: 0.03 },
     regen: 4,
     duration: 3,
     log: '공격 캡슐로 공격력과 흡혈 성능이 강화됩니다.',
@@ -610,7 +602,7 @@ export const ER_CAPSULES = {
   technique: {
     names: ['기술 캡슐', 'Technique Capsule', '스킬 캡슐'],
     heal: 4,
-    stats: { int: 4, agi: 2, men: 1 },
+    stats: { skillAmp: 8, attackSpeed: 0.02 },
     regen: 3,
     duration: 3,
     log: '기술 캡슐로 적응력과 쿨다운 운용이 좋아집니다.',
@@ -676,15 +668,15 @@ export function buildErCombatModifier({ character, stats, opponentStats, equipSt
   const dayMul = 1 + Math.max(0, Number(day || 1) - 1) * 0.015;
   const attackStat = profile.attackStat;
   const attack = statValue(stats, attackStat);
-  const dex = statValue(stats, 'dex');
-  const int = statValue(stats, 'int');
-  const defenseGap = Math.max(0, statValue(stats, 'end') - statValue(opponentStats, 'end'));
+  const skillAmp = statValue(stats, 'skillAmp');
+  const attackSpeed = statValue(stats, 'attackSpeed');
+  const defenseGap = Math.max(0, statValue(stats, 'defense') - statValue(opponentStats, 'defense'));
   const equipAtk = Math.max(0, Number(equipStats?.atk || 0));
   const equipAmp = Math.max(0, Number(equipStats?.skillAmp || 0));
   const equipAtkSpeed = Math.max(0, Number(equipStats?.atkSpeed || 0));
   const masteryLevel = getWeaponMasteryLevel(character);
-  const basePressure = (attack * 0.65) + (dex * 0.22) + (int * 0.14) + (equipAtk * 0.45) + (defenseGap * 0.12);
-  const rolePressure = basePressure + statValue(stats, 'end') * 0.08 + statValue(stats, 'agi') * 0.10 + equipAmp * 10 + equipAtkSpeed * 6;
+  const basePressure = (attack * 0.65) + (skillAmp * 0.18) + (attackSpeed * 8) + (equipAtk * 0.45) + (defenseGap * 0.12);
+  const rolePressure = basePressure + statValue(stats, 'defense') * 0.08 + statValue(stats, 'sightRange') * 0.18 + statValue(stats, 'attackRange') * 0.3 + equipAmp * 10 + equipAtkSpeed * 6;
 
   let score = 0;
   let offenseBonus = 0;

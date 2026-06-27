@@ -12,6 +12,7 @@ import { getInvItemId, inferEquipSlot } from './inventoryRules';
 import { normalizeRuntimeEffect } from './runtimeStatus';
 import { normalizeSupportedTacSkill } from '../tacticalSkillTable';
 import { getWeaponMasteryLevel } from '../../../utils/erMeta';
+import { normalizeErStats } from '../../../utils/erStats';
 
 function ensureEquipped(obj) {
   const eq = obj?.equipped;
@@ -101,8 +102,9 @@ function upsertRuntimeSurvivor(runtimeMap, survivor, opts = {}) {
 
 function normalizeRuntimeSurvivor(obj, opts = {}) {
   const base = obj && typeof obj === 'object' ? obj : {};
+  const normalizedStats = normalizeErStats(base?.stats);
   const hpDefault = opts.hpDefault != null ? Number(opts.hpDefault) : 100;
-  const maxHpDefault = opts.maxHpDefault != null ? Number(opts.maxHpDefault) : 100;
+  const maxHpDefault = opts.maxHpDefault != null ? Number(opts.maxHpDefault) : Number(normalizedStats.maxHp || 100);
   const hpRaw = Number(base?.hp);
   const maxHpRaw = Number(base?.maxHp);
   const hp = Number.isFinite(hpRaw) ? hpRaw : hpDefault;
@@ -130,6 +132,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
 
   return {
     ...base,
+    stats: normalizedStats,
     inventory: normalizeRuntimeInventory(base?.inventory),
     equipped: ensureEquipped(base),
     activeEffects: Array.isArray(base?.activeEffects) ? base.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [],

@@ -3,6 +3,7 @@
 // needs a small solo action between route, object, wildlife, and combat logic.
 import { makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
 import { isItemExcludedFromFieldFarming } from './erItemFilters';
+import { normalizeErStats } from './erStats';
 
 const DEFAULT_ZONE_NAME_BY_ID = {
   alley: '골목길',
@@ -60,25 +61,17 @@ function safeTags(item) {
   return Array.isArray(item?.tags) ? item.tags.map((x) => String(x || '').toLowerCase()) : [];
 }
 
-function readStat(actor, names) {
-  const stats = actor?.stats && typeof actor.stats === 'object' ? actor.stats : {};
-  for (const name of names) {
-    const direct = Number(actor?.[name]);
-    if (Number.isFinite(direct)) return direct;
-    const v = Number(stats?.[name] ?? stats?.[String(name).toLowerCase()]);
-    if (Number.isFinite(v)) return v;
-  }
-  return 0;
-}
-
 function roughPower(actor) {
-  const str = readStat(actor, ['STR', 'str']);
-  const agi = readStat(actor, ['AGI', 'agi']);
-  const sht = readStat(actor, ['SHT', 'sht', 'SHOOT', 'shoot']);
-  const end = readStat(actor, ['END', 'end']);
-  const men = readStat(actor, ['MEN', 'men']);
-  const dex = readStat(actor, ['DEX', 'dex']);
-  return str + agi + sht + end * 0.8 + men * 0.45 + dex * 0.35;
+  const stats = normalizeErStats(actor?.stats || actor || {});
+  return (
+    Number(stats.attackPower || 0) +
+    Number(stats.skillAmp || 0) * 0.35 +
+    Number(stats.defense || 0) * 0.85 +
+    Number(stats.attackSpeed || 0) * 10 +
+    Number(stats.attackRange || 0) * 1.5 +
+    Number(stats.sightRange || 0) * 0.4 +
+    Number(stats.maxHp || 0) * 0.08
+  );
 }
 
 function inferItemCategory(item) {
@@ -271,13 +264,13 @@ function foodSupplyAction(actor, publicItems) {
   if (!item?._id) {
     return {
       log: `🍱 [${actor.name}] 음식 상자를 확인했지만 바로 챙길 음식은 없었습니다.`,
-      newEffects: [makeStatBuffEffect('집중', { men: 1 }, 20, 'micro_food_scan', { tags: ['positive', 'focus'] })],
+      newEffects: [makeStatBuffEffect('집중', { sightRange: 0.2 }, 20, 'micro_food_scan', { tags: ['positive', 'focus'] })],
     };
   }
   return {
     log: `🍱 [${actor.name}] 음식 상자에서 [${item.name}] x1을 챙겼습니다.`,
     drop: { item, itemId: String(item._id), qty: 1 },
-    newEffects: [makeStatBuffEffect('집중', { men: 1, end: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
+    newEffects: [makeStatBuffEffect('집중', { maxHp: 3, defense: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
     pvpBonusNext: 0.06,
   };
 }
@@ -312,7 +305,7 @@ function visionControlAction(actor, day, phase) {
   return {
     log: `📡 [${actor.name}] ${zoneLabel(actor)}의 보안 콘솔을 확인해 ${isNight ? '야간 오브젝트 동선' : '오브젝트 진입로'} 시야를 확보했습니다.${credits ? ` (크레딧 +${credits})` : ''}`,
     earnedCredits: credits,
-    newEffects: [makeStatBuffEffect('시야 확보', { dex: 1, men: 1 }, 30, 'micro_vision_control', { tags: ['positive', 'vision'] })],
+    newEffects: [makeStatBuffEffect('시야 확보', { sightRange: 0.5 }, 30, 'micro_vision_control', { tags: ['positive', 'vision'] })],
     pvpBonusNext: 0.12,
   };
 }
@@ -327,7 +320,7 @@ function wildlifeTrackAction(actor, day, phase) {
     log: `🐺 [${actor.name}] ${target}를 사냥하며 숙련도와 크레딧을 챙겼습니다.${damage ? ` (피해 -${damage})` : ''} (크레딧 +${credits})`,
     damage,
     earnedCredits: credits,
-    newEffects: [makeStatBuffEffect('사냥 리듬', { agi: 1, sht: 1 }, 20, 'micro_wildlife_track', { tags: ['positive', 'wildlife'] })],
+    newEffects: [makeStatBuffEffect('사냥 리듬', { attackSpeed: 0.02, attackPower: 2 }, 20, 'micro_wildlife_track', { tags: ['positive', 'wildlife'] })],
     pvpBonusNext: 0.10,
   };
 }
@@ -342,7 +335,7 @@ function objectHoldAction(actor, day, phase) {
         : '운석/생명의 나무';
   return {
     log: `🎯 [${actor.name}] ${objectName} 타이밍에 맞춰 교전 위치를 선점했습니다.`,
-    newEffects: [makeShieldEffect(4, 20, 'micro_object_hold'), makeStatBuffEffect('교전 준비', { men: 1, dex: 1 }, 30, 'micro_object_focus', { tags: ['positive', 'object'] })],
+    newEffects: [makeShieldEffect(4, 20, 'micro_object_hold'), makeStatBuffEffect('교전 준비', { sightRange: 0.3, attackPower: 1 }, 30, 'micro_object_focus', { tags: ['positive', 'object'] })],
     pvpBonusNext: 0.18,
   };
 }
@@ -353,7 +346,7 @@ function combatRepositionAction(actor, day) {
   return {
     log: `🏃 [${actor.name}] 교전 소리를 피해 다음 부쉬로 포지션을 옮겼습니다.${hpPct < 55 ? ' 체력이 낮아 전면전은 피합니다.' : ''}${credits ? ` (크레딧 +${credits})` : ''}`,
     earnedCredits: credits,
-    newEffects: [makeStatBuffEffect('가속', { agi: 1 }, 20, 'micro_combat_reposition', { tags: ['positive', 'move'] })],
+    newEffects: [makeStatBuffEffect('가속', { attackSpeed: 0.02 }, 20, 'micro_combat_reposition', { tags: ['positive', 'move'] })],
     pvpBonusNext: hpPct < 55 ? 0.04 : 0.12,
   };
 }
@@ -363,7 +356,7 @@ function inventoryTuneAction(actor) {
   return {
     log: `🎒 [${actor.name}] 인벤토리를 정리해 루트 재료 우선순위를 다시 잡았습니다. (크레딧 +${credits})`,
     earnedCredits: credits,
-    newEffects: [makeStatBuffEffect('정리 완료', { dex: 1 }, 20, 'micro_inventory_tune', { tags: ['positive', 'inventory'] })],
+    newEffects: [makeStatBuffEffect('정리 완료', { sightRange: 0.2 }, 20, 'micro_inventory_tune', { tags: ['positive', 'inventory'] })],
   };
 }
 

@@ -7,6 +7,7 @@ import '../../styles/ERDetails.css';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
+import { ER_STAT_FIELDS, normalizeErStats } from '../../utils/erStats';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -37,6 +38,7 @@ const EMPTY_LOADOUTS = {
 function normalizeDetailsCharacterList(data) {
   return (Array.isArray(data) ? data : []).map((c) => ({
     ...c,
+    stats: normalizeErStats(c?.stats),
     goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
     tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
     goalLoadouts: coerceLoadouts(c?.goalLoadouts),
@@ -173,12 +175,12 @@ export default function DetailsPage() {
 
   // 2. 스탯 변경 함수 (수정됨: _id 사용)
   const handleStatChange = (id, statName, value) => {
-    const newValue = parseInt(value) || 0;
+    const newValue = Number(value);
     setCharacters((prev) => prev.map(char => {
       // ★ 여기가 수정되었습니다 (char._id)
       if (char._id === id) {
-        const oldStats = char.stats || { str:0, agi:0, int:0, men:0, luk:0, dex:0, sht:0, end:0 };
-        return { ...char, stats: { ...oldStats, [statName]: newValue } };
+        const oldStats = normalizeErStats(char.stats);
+        return { ...char, stats: normalizeErStats({ ...oldStats, [statName]: Number.isFinite(newValue) ? newValue : 0 }) };
       }
       return char;
     }));
@@ -328,22 +330,15 @@ export default function DetailsPage() {
 
                 <div className="stats-grid">
                 {/* ▼ 스탯 한글 명칭 매핑 (수정됨) */}
-                {[
-                    { key: 'str', label: '근력 (STR)' },
-                    { key: 'agi', label: '민첩 (AGI)' },
-                    { key: 'int', label: '지능 (INT)' },
-                    { key: 'men', label: '정신 (MEN)' },
-                    { key: 'luk', label: '행운 (LUK)' },
-                    { key: 'dex', label: '손재주 (DEX)' },
-                    { key: 'sht', label: '사격 (SHT)' },
-                    { key: 'end', label: '지구력 (END)' }
-                ].map((stat) => (
+                {ER_STAT_FIELDS.map((stat) => (
                     <div key={stat.key} className="stat-item">
                     {/* 영어 대신 한글(약자) 라벨 표시 */}
                     <label>{stat.label}</label>
                     <input 
                         type="number" 
-                        value={char.stats?.[stat.key] || 0}
+                        min={stat.min ?? 0}
+                        step={stat.step ?? 1}
+                        value={normalizeErStats(char.stats)?.[stat.key] ?? stat.defaultValue ?? 0}
                         onChange={(e) => handleStatChange(char._id, stat.key, e.target.value)}
                     />
                     </div>

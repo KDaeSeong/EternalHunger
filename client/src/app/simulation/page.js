@@ -36,6 +36,7 @@ import {
   updateEffects,
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
+import { ER_STAT_KEYS, normalizeErStats } from '../../utils/erStats';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { DEFAULT_RULESET_ID, getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain, normalizeRulesetId } from '../../utils/rulesets';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
@@ -410,7 +411,7 @@ export default function SimulationPage() {
 
   // 서버 설정값
   const [settings, setSettings] = useState({
-    statWeights: { str: 1, agi: 1, int: 1, men: 1, luk: 1, dex: 1, sht: 1, end: 1 },
+    statWeights: { maxHp: 1, attackPower: 1, skillAmp: 1, defense: 1, attackSpeed: 1, attackRange: 1, sightRange: 1 },
     suddenDeathTurn: 5,
     forbiddenZoneStartDay: 2,
     forbiddenZoneStartPhase: 'night',
@@ -1079,13 +1080,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
         bits.push(`HP +${heal}`);
       }
     } else if (code === 'adrenaline') {
-      effects.push(makeStatBuffEffect('adrenaline', { agi: 2, dex: 1 }, 2, 'er_trait_adrenaline', { tags: ['positive', 'trait', 'adrenaline'] }));
+      effects.push(makeStatBuffEffect('adrenaline', { attackSpeed: 0.04, attackPower: 2 }, 2, 'er_trait_adrenaline', { tags: ['positive', 'trait', 'adrenaline'] }));
     } else if (code === 'ampDrone') {
-      effects.push(makeStatBuffEffect('focus', { int: 3, men: 1 }, 2, 'er_trait_amp_drone', { tags: ['positive', 'trait', 'amp'] }));
+      effects.push(makeStatBuffEffect('focus', { skillAmp: 6, sightRange: 0.2 }, 2, 'er_trait_amp_drone', { tags: ['positive', 'trait', 'amp'] }));
     } else if (code === 'fortress') {
       effects.push(makeShieldEffect(opts?.lethal ? 10 : 7, 2, 'er_trait_fortress', { tags: ['positive', 'trait', 'shield'] }));
     } else if (code === 'sprint') {
-      effects.push(makeStatBuffEffect('sprint', { agi: 3, dex: 1 }, 2, 'er_trait_sprint', { tags: ['positive', 'trait', 'mobility'] }));
+      effects.push(makeStatBuffEffect('sprint', { attackSpeed: 0.05, sightRange: 0.2 }, 2, 'er_trait_sprint', { tags: ['positive', 'trait', 'mobility'] }));
     }
 
     const applied = effects.length ? applyRuntimeEffectPayloads(actor, effects) : null;
@@ -1182,12 +1183,12 @@ const activeMapName = useSafeMemo('activeMapName', () => {
 
     const statBuff = {};
     if (amp > 0) {
-      statBuff.int = (statBuff.int || 0) + 2;
-      statBuff.men = (statBuff.men || 0) + 1;
+      statBuff.skillAmp = (statBuff.skillAmp || 0) + 5;
+      statBuff.sightRange = (statBuff.sightRange || 0) + 0.2;
     }
     if (mobility > 0) {
-      statBuff.agi = (statBuff.agi || 0) + 2;
-      statBuff.dex = (statBuff.dex || 0) + 1;
+      statBuff.attackSpeed = (statBuff.attackSpeed || 0) + 0.04;
+      statBuff.attackPower = (statBuff.attackPower || 0) + 1;
     }
     if (Object.keys(statBuff).length) {
       effects.push(makeStatBuffEffect('무기 템포', statBuff, 2, 'er_weapon_skill_tempo', { tags: ['positive', 'weapon_skill'] }));
@@ -2661,8 +2662,8 @@ const pickStartZoneIdForChar = (c) => {
     addFromList(c?.recommendedGear);
     addFromList(c?.advancedGear);
 
-    const st = c?.stats || c?.stat || c;
-    const keys = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
+    const st = normalizeErStats(c?.stats || c?.stat || c);
+    const keys = ER_STAT_KEYS;
     const ranked = keys.map((k) => [k, Number(st?.[k] ?? st?.[k.toUpperCase()] ?? 0)]);
     ranked.sort((a, b) => b[1] - a[1]);
     const top = ranked[0]?.[0];
@@ -2675,10 +2676,12 @@ const pickStartZoneIdForChar = (c) => {
       weapon: ['weapon', '무기', 'armory', '병기'],
       armor: ['armor', '방어구', '갑옷'],
       food: ['food', '음식', '식당', '편의'],
-      sht: ['shoot', '사격', '원거리', '총', 'gun'],
-      str: ['melee', '근접', '격투'],
-      int: ['lab', '연구', '전산', '컴퓨터'],
-      dex: ['craft', '제작', '공작'],
+      attackPower: ['attack', '공격', '무기', 'weapon', 'melee', 'shoot', 'gun'],
+      skillAmp: ['skill', '스킬', '증폭', 'lab', '연구'],
+      defense: ['defense', '방어', 'armor'],
+      attackSpeed: ['speed', '공속', '기동'],
+      attackRange: ['range', '사거리', '원거리'],
+      sightRange: ['vision', '시야', '정찰'],
     };
 
     const expanded = new Set();
@@ -2720,11 +2723,14 @@ const pickStartZoneIdForChar = (c) => {
           const routePlan = buildEarlyRoutePlanDetails(erSeed, initialMap, itemsList, { routeLength: 4 });
           const routePlanZoneIds = routePlan.zoneIds;
           const startZoneId = routePlanZoneIds[0] || pickStartZoneIdForChar(erSeed);
+          const seedStats = normalizeErStats(erSeed?.stats);
+          const seedMaxHp = Math.max(1, Math.round(Number(seedStats.maxHp || 100)));
           const seeded = applyPerkBundleToActor(normalizeRuntimeSurvivor({
             ...erSeed,
+            stats: seedStats,
             tacticalSkillLevel: Math.max(1, Math.min(2, Number(erSeed?.tacticalSkillLevel || 1))),
-            hp: 100,
-            maxHp: 100,
+            hp: seedMaxHp,
+            maxHp: seedMaxHp,
             zoneId: startZoneId,
             equipped: ensureEquipped(erSeed),
             day1Moves: 0,
@@ -3419,30 +3425,23 @@ const pickStartZoneIdForChar = (c) => {
       baseZonePop[zid] = (baseZonePop[zid] || 0) + 1;
     });
 
-    const pickStatForMovePower = (c, keys) => {
-      for (const k of keys) {
-        const v = Number(c?.stats?.[k] ?? c?.[k] ?? c?.[k?.toLowerCase?.()] ?? 0);
-        if (Number.isFinite(v) && v > 0) return v;
-      }
-      return 0;
-    };
-
     const combatScoreForMovePower = (c) => {
-      const hp = Math.max(1, Math.min(100, Number(c?.hp ?? 100)));
+      const stats = normalizeErStats(c?.stats || {});
+      const maxHp = Math.max(1, Number(c?.maxHp || stats.maxHp || 100));
+      const hp = Math.max(1, Math.min(maxHp, Number(c?.hp ?? maxHp)));
       const base =
-        pickStatForMovePower(c, ['STR', 'str']) +
-        pickStatForMovePower(c, ['AGI', 'agi']) +
-        pickStatForMovePower(c, ['SHOOT', 'shoot', 'SHT', 'sht']) +
-        pickStatForMovePower(c, ['END', 'end']) +
-        pickStatForMovePower(c, ['MEN', 'men']) * 0.5 +
-        pickStatForMovePower(c, ['INT', 'int']) * 0.3 +
-        pickStatForMovePower(c, ['DEX', 'dex']) * 0.3 +
-        pickStatForMovePower(c, ['LUK', 'luk']) * 0.2;
+        Number(stats.attackPower || 0) +
+        Number(stats.skillAmp || 0) * 0.35 +
+        Number(stats.defense || 0) * 0.85 +
+        Number(stats.attackSpeed || 0) * 10 +
+        Number(stats.attackRange || 0) * 1.5 +
+        Number(stats.sightRange || 0) * 0.4 +
+        Number(stats.maxHp || 0) * 0.08;
       const shield = Math.max(0, getShieldValue(c));
       const regen = Math.max(0, getRegenValue(c));
       const sustain = Math.min(28, shield * 0.65 + regen * 1.35);
 
-      return (base * (0.5 + hp / 200)) + sustain;
+      return (base * (0.5 + hp / Math.max(1, maxHp * 2))) + sustain;
     };
 
     const summarizeEquipTierForMovePower = (c) => {
@@ -5176,31 +5175,23 @@ const didMove = String(nextZoneId) !== String(currentZone);
       return Math.max(0, Number(c?.routePlanIndex || 0)) < plan.length;
     };
 
-    // 교전이 특정 캐릭터에 편향되지 않도록(선공/우선순위 이점 제거) 양방향 결과를 비교해 채택
-    const pickStat = (c, keys) => {
-      for (const k of keys) {
-        const v = Number(c?.stats?.[k] ?? c?.[k] ?? c?.[k?.toLowerCase?.()] ?? 0);
-        if (Number.isFinite(v) && v > 0) return v;
-      }
-      return 0;
-    };
-
     const combatScore = (c) => {
-      const hp = Math.max(1, Math.min(100, Number(c?.hp ?? 100)));
+      const stats = normalizeErStats(c?.stats || {});
+      const maxHp = Math.max(1, Number(c?.maxHp || stats.maxHp || 100));
+      const hp = Math.max(1, Math.min(maxHp, Number(c?.hp ?? maxHp)));
       const base =
-        pickStat(c, ['STR', 'str']) +
-        pickStat(c, ['AGI', 'agi']) +
-        pickStat(c, ['SHOOT', 'shoot', 'SHT', 'sht']) +
-        pickStat(c, ['END', 'end']) +
-        pickStat(c, ['MEN', 'men']) * 0.5 +
-        pickStat(c, ['INT', 'int']) * 0.3 +
-        pickStat(c, ['DEX', 'dex']) * 0.3 +
-        pickStat(c, ['LUK', 'luk']) * 0.2;
+        Number(stats.attackPower || 0) +
+        Number(stats.skillAmp || 0) * 0.35 +
+        Number(stats.defense || 0) * 0.85 +
+        Number(stats.attackSpeed || 0) * 10 +
+        Number(stats.attackRange || 0) * 1.5 +
+        Number(stats.sightRange || 0) * 0.4 +
+        Number(stats.maxHp || 0) * 0.08;
       const shield = Math.max(0, getShieldValue(c));
       const regen = Math.max(0, getRegenValue(c));
       const sustain = Math.min(28, shield * 0.65 + regen * 1.35);
 
-      return (base * (0.5 + hp / 200)) + sustain;
+      return (base * (0.5 + hp / Math.max(1, maxHp * 2))) + sustain;
     };
 
     // 🤖 AI 교전 회피(전투력 비교): 상대 대비 불리하면 교전을 피함(장비 tier + HP 포함)
@@ -5360,9 +5351,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
       let delta = (sa - sb) / total; // -1..1
       let pA = 0.5 + delta * 0.35;   // 0.15..0.85 근처
-      const la = pickStat(a, ['LUK', 'luk']) || 0;
-      const lb = pickStat(b, ['LUK', 'luk']) || 0;
-      pA += ((la - lb) / 100) * 0.05;
+      const stA = normalizeErStats(a?.stats || {});
+      const stB = normalizeErStats(b?.stats || {});
+      const tempoA = Number(stA.sightRange || 0) + Number(stA.attackSpeed || 0) * 6;
+      const tempoB = Number(stB.sightRange || 0) + Number(stB.attackSpeed || 0) * 6;
+      pA += ((tempoA - tempoB) / 30) * 0.05;
 	      pA = Math.min(0.85, Math.max(0.15, pA));
 
       const chosenId = Math.random() < pA ? String(a._id) : String(b._id);

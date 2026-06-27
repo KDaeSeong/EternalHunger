@@ -65,9 +65,9 @@ export function buildTacStatusEffects(skillName, lv, sourceId = '', opts = {}) {
   return [
     shieldValue > 0 ? makeShieldEffect(shieldValue, shieldDuration, `${sid}_shield`) : null,
     regenRecovery > 0 ? makeRegenEffect(regenRecovery, regenDuration, `${sid}_regen`) : null,
-    tenacity > 0 ? makeStatBuffEffect('집중', { end: tenacity, men: tenacity }, 2, `${sid}_tenacity`, { tags: ['positive', 'tenacity'] }) : null,
+    tenacity > 0 ? makeStatBuffEffect('집중', { defense: tenacity, maxHp: tenacity * 3 }, 2, `${sid}_tenacity`, { tags: ['positive', 'tenacity'] }) : null,
     haste > 0 ? makeStatusValueEffect(EFFECT_HASTE, 2, `${sid}_haste`, { moveSpeedBonus: Math.max(0.04, haste * 0.04), cooldownRateBonus: Math.max(0.04, haste * 0.03), tags: ['positive', 'haste', 'move', 'cooldown'] }) : null,
-    haste > 0 ? makeStatBuffEffect('각성', { agi: haste, dex: Math.max(1, Math.floor(haste / 2)) }, 2, `${sid}_haste_stats`, { tags: ['positive', 'haste'] }) : null,
+    haste > 0 ? makeStatBuffEffect('각성', { attackSpeed: haste * 0.02, sightRange: Math.max(0.1, haste * 0.08) }, 2, `${sid}_haste_stats`, { tags: ['positive', 'haste'] }) : null,
     lifestealPct > 0 ? makeLifestealEffect(lifestealPct, 2, `${sid}_lifesteal`, { tags: ['positive', 'lifesteal', 'combat'] }) : null,
     cooldownDownPct > 0 ? makeCooldownRateEffect(EFFECT_COOLDOWN_DOWN, cooldownDownPct, 2, `${sid}_cooldown_down`, { tags: ['positive', 'cooldown'] }) : null,
   ].filter(Boolean);
