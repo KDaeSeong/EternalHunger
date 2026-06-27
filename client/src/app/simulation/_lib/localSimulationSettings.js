@@ -1,5 +1,23 @@
+const LEGACY_SCENARIO_EVENT_PATTERNS = [
+  /숨을 고르/i,
+  /주변을 조심스럽게/i,
+  /발자국 소리/i,
+  /주변을 뒤져/i,
+  /먹을 것을 발견/i,
+  /발밑을 잘못/i,
+  /누군가와 마주쳐/i,
+  /짧게 충돌/i,
+  /서둘러/i,
+];
+
+export function isLegacyScenarioEventText(text) {
+  const value = String(text || '');
+  if (!value.trim()) return false;
+  return LEGACY_SCENARIO_EVENT_PATTERNS.some((pattern) => pattern.test(value));
+}
+
 export function isEnabledScenarioEvent(ev) {
-  return ev?.enabled !== false;
+  return ev?.enabled !== false && !isLegacyScenarioEventText(ev?.text);
 }
 
 export function getScenarioEventTimeOfDay(ev) {
