@@ -250,7 +250,7 @@ export function canReceiveItem(inventory, it, itemId, qty, ruleset) {
 export function normalizeInventory(inventory, ruleset) {
   const rules = getInvRules(ruleset);
   const list = (Array.isArray(inventory) ? inventory : [])
-    .map((x) => ({ ...x }))
+    .map((x, index) => ({ ...x, _normIndex: index }))
     .filter((x) => (x?.itemId || x?.id) && Math.max(0, Number(x?.qty ?? 1)) > 0);
 
   for (let i = 0; i < list.length; i++) {
@@ -266,24 +266,50 @@ export function normalizeInventory(inventory, ruleset) {
     };
   }
 
-  const kept = [];
-  const usedSlots = new Set();
-  for (let i = list.length - 1; i >= 0; i--) {
-    const isEq = String(list[i]?.category || inferItemCategory(list[i])) === 'equipment';
-    const slot = isEq ? String(list[i]?.equipSlot || inferEquipSlot(list[i]) || '') : '';
+  const equipmentBySlot = new Map();
+  const keptNonEquipment = [];
+  const isBetterEquipment = (next, prev) => {
+    if (!prev) return true;
+    const nextTier = clampInventoryTier(next?.tier || 1, 'equipment');
+    const prevTier = clampInventoryTier(prev?.tier || 1, 'equipment');
+    if (nextTier !== prevTier) return nextTier > prevTier;
+    const nextScore = inventoryItemPriority(next);
+    const prevScore = inventoryItemPriority(prev);
+    if (nextScore !== prevScore) return nextScore > prevScore;
+    const nextDay = Number(next?.acquiredDay ?? 0);
+    const prevDay = Number(prev?.acquiredDay ?? 0);
+    if (nextDay !== prevDay) return nextDay > prevDay;
+    return Number(next?._normIndex ?? 0) > Number(prev?._normIndex ?? 0);
+  };
+
+  for (const entry of list) {
+    const isEq = String(entry?.category || inferItemCategory(entry)) === 'equipment';
+    const slot = isEq ? String(entry?.equipSlot || inferEquipSlot(entry) || '') : '';
     if (isEq && slot) {
-      if (usedSlots.has(slot)) continue;
-      usedSlots.add(slot);
+      const prev = equipmentBySlot.get(slot);
+      if (isBetterEquipment(entry, prev)) equipmentBySlot.set(slot, entry);
+      continue;
     }
-    kept.push(list[i]);
+    keptNonEquipment.push(entry);
   }
-  kept.reverse();
+
+  let kept = [...keptNonEquipment, ...equipmentBySlot.values()]
+    .sort((a, b) => Number(a?._normIndex ?? 0) - Number(b?._normIndex ?? 0));
 
   if (kept.length > rules.maxSlots) {
-    kept.sort((a, b) => (Number(a?.acquiredDay ?? 0) - Number(b?.acquiredDay ?? 0)));
-    return kept.slice(Math.max(0, kept.length - rules.maxSlots));
+    kept = kept
+      .map((entry) => ({ entry, score: inventoryItemPriority(entry) }))
+      .sort((a, b) => (
+        (Number(b.score || 0) - Number(a.score || 0)) ||
+        (Number(b.entry?.acquiredDay ?? 0) - Number(a.entry?.acquiredDay ?? 0)) ||
+        (Number(b.entry?._normIndex ?? 0) - Number(a.entry?._normIndex ?? 0))
+      ))
+      .slice(0, Math.max(0, rules.maxSlots))
+      .map((row) => row.entry)
+      .sort((a, b) => Number(a?._normIndex ?? 0) - Number(b?._normIndex ?? 0));
   }
-  return kept;
+
+  return kept.map(({ _normIndex, ...entry }) => entry);
 }
 
 export function formatInvRuleState(inventory, ruleset) {

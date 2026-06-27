@@ -39,6 +39,27 @@ function getActorTeamName(actor) {
   return cleanId(actor?.name) || id || '팀';
 }
 
+function getRuntimeActorId(actor) {
+  return cleanId(actor?._id || actor?.id || actor?.charId || actor?.name);
+}
+
+function getActorTeamOriginalSize(actor, fallback = 1) {
+  const value = Number(
+    actor?.matchTeamSize ??
+    actor?.teamOriginalSize ??
+    actor?.initialTeamSize ??
+    actor?.originalTeamSize ??
+    actor?.teamSize ??
+    fallback
+  );
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : Math.max(1, Math.floor(Number(fallback || 1)));
+}
+
+function getActorTeamCapacity(actor, fallback = DEFAULT_TEAM_SIZE) {
+  const value = Number(actor?.matchTeamCapacity ?? actor?.teamCapacity ?? fallback);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : Math.max(1, Math.floor(Number(fallback || DEFAULT_TEAM_SIZE)));
+}
+
 function assignSimulationTeams(list, opts = {}) {
   const arr = Array.isArray(list) ? list : [];
   const teamSize = Math.max(1, Math.floor(Number(opts?.teamSize ?? DEFAULT_TEAM_SIZE)));
@@ -46,7 +67,7 @@ function assignSimulationTeams(list, opts = {}) {
   const preserveExisting = opts?.preserveExisting !== false;
   let nextAutoIndex = 0;
 
-  return arr.map((actor) => {
+  const assigned = arr.map((actor) => {
     if (!actor || typeof actor !== 'object') return actor;
     const existing = readTeamId(actor);
     if (existing && preserveExisting) {
@@ -67,6 +88,37 @@ function assignSimulationTeams(list, opts = {}) {
       teamSlot: ((nextAutoIndex - 1) % teamSize) + 1,
     };
   });
+
+  const grouped = new Map();
+  assigned.forEach((actor, index) => {
+    if (!actor || typeof actor !== 'object') return;
+    const teamId = getActorTeamId(actor);
+    if (!teamId) return;
+    if (!grouped.has(teamId)) grouped.set(teamId, []);
+    grouped.get(teamId).push({ actor, index });
+  });
+
+  return assigned.map((actor, index) => {
+    if (!actor || typeof actor !== 'object') return actor;
+    const teamId = getActorTeamId(actor);
+    const rows = grouped.get(teamId) || [];
+    const rosterIds = rows.map((row) => getRuntimeActorId(row.actor)).filter(Boolean);
+    const rosterNames = rows.map((row) => cleanId(row.actor?.name || row.actor?.nickname || row.actor?.charName)).filter(Boolean);
+    const slot = Math.max(1, Number(actor?.teamSlot || actor?.matchTeamSlot || (rows.findIndex((row) => row.index === index) + 1) || 1));
+    const originalSize = Math.max(1, rows.length || (teamSize === 1 ? 1 : teamSize));
+    return {
+      ...actor,
+      matchTeamId: teamId,
+      matchTeamName: getActorTeamName(actor),
+      matchTeamSlot: slot,
+      teamSlot: slot,
+      matchTeamSize: originalSize,
+      teamOriginalSize: originalSize,
+      matchTeamCapacity: teamSize,
+      matchTeamRosterIds: rosterIds,
+      matchTeamRosterNames: rosterNames,
+    };
+  });
 }
 
 function areSameTeam(a, b) {
@@ -82,10 +134,40 @@ function getAliveTeams(list) {
     const teamId = getActorTeamId(actor);
     if (!teamId) continue;
     const teamName = getActorTeamName(actor);
-    if (!teams.has(teamId)) teams.set(teamId, { teamId, teamName, members: [] });
-    teams.get(teamId).members.push(actor);
+    if (!teams.has(teamId)) {
+      teams.set(teamId, {
+        teamId,
+        teamName,
+        members: [],
+        originalSize: getActorTeamOriginalSize(actor, 1),
+        capacity: getActorTeamCapacity(actor, DEFAULT_TEAM_SIZE),
+        rosterIds: Array.isArray(actor?.matchTeamRosterIds) ? actor.matchTeamRosterIds.filter(Boolean) : [],
+        rosterNames: Array.isArray(actor?.matchTeamRosterNames) ? actor.matchTeamRosterNames.filter(Boolean) : [],
+      });
+    }
+    const team = teams.get(teamId);
+    team.members.push(actor);
+    team.originalSize = Math.max(team.originalSize || 1, getActorTeamOriginalSize(actor, team.members.length));
+    team.capacity = Math.max(team.capacity || 1, getActorTeamCapacity(actor, team.originalSize));
+    if (Array.isArray(actor?.matchTeamRosterIds) && actor.matchTeamRosterIds.length > (team.rosterIds || []).length) {
+      team.rosterIds = actor.matchTeamRosterIds.filter(Boolean);
+    }
+    if (Array.isArray(actor?.matchTeamRosterNames) && actor.matchTeamRosterNames.length > (team.rosterNames || []).length) {
+      team.rosterNames = actor.matchTeamRosterNames.filter(Boolean);
+    }
   }
-  return [...teams.values()];
+  return [...teams.values()].map((team) => {
+    const aliveCount = Array.isArray(team.members) ? team.members.length : 0;
+    const originalSize = Math.max(aliveCount, Number(team.originalSize || aliveCount || 1));
+    return {
+      ...team,
+      aliveCount,
+      originalSize,
+      missingCount: Math.max(0, originalSize - aliveCount),
+      rosterIds: Array.isArray(team.rosterIds) && team.rosterIds.length ? team.rosterIds : team.members.map((m) => getRuntimeActorId(m)).filter(Boolean),
+      rosterNames: Array.isArray(team.rosterNames) && team.rosterNames.length ? team.rosterNames : team.members.map((m) => cleanId(m?.name)).filter(Boolean),
+    };
+  });
 }
 
 function pickTeamRepresentative(members, killCounts = {}, assistCounts = {}) {
@@ -113,8 +195,10 @@ function getWinningTeam(list, killCounts = {}, assistCounts = {}) {
 export {
   areSameTeam,
   assignSimulationTeams,
+  getActorTeamCapacity,
   getActorTeamId,
   getActorTeamName,
+  getActorTeamOriginalSize,
   getAliveTeams,
   getWinningTeam,
   pickTeamRepresentative,

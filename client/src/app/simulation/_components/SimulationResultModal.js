@@ -38,6 +38,7 @@ export default function SimulationResultModal({
   topRankedCharacters,
   killCounts,
   assistCounts,
+  onExportBattleLog,
   onClose,
 }) {
   if (!open) return null;
@@ -47,16 +48,39 @@ export default function SimulationResultModal({
   const winnerAssists = winner?._id ? (assistCounts?.[winner._id] || 0) : (resultSummary?.myAssists || 0);
   const winnerTeam = resultSummary?.winnerTeam || null;
   const winnerTeamMembers = Array.isArray(winnerTeam?.members) ? winnerTeam.members : [];
+  const winnerTeamRosterNames = Array.isArray(winnerTeam?.rosterNames) && winnerTeam.rosterNames.length
+    ? winnerTeam.rosterNames.map((name) => String(name || '').trim()).filter(Boolean)
+    : winnerTeamMembers.map((m) => String(m?.name || '').trim()).filter(Boolean);
+  const winnerTeamAliveCount = Math.max(0, Number(winnerTeam?.aliveCount ?? winnerTeamMembers.length ?? 0));
+  const winnerTeamOriginalSize = Math.max(
+    winnerTeamAliveCount,
+    Number(winnerTeam?.originalSize ?? winnerTeamRosterNames.length ?? winnerTeamMembers.length ?? 0)
+  );
+  const winnerTeamCapacity = Math.max(
+    winnerTeamOriginalSize,
+    Number(winnerTeam?.capacity ?? resultSummary?.teamSize ?? winnerTeamOriginalSize)
+  );
+  const winnerTeamMissingCount = Math.max(0, Number(winnerTeam?.missingCount ?? (winnerTeamOriginalSize - winnerTeamAliveCount)));
   const matchMode = String(resultSummary?.matchMode || '').toLowerCase();
   const isSoloMatch = matchMode === 'solo';
   const hasAssistStats = !isSoloMatch && Object.keys(assistCounts || {}).length > 0;
   const matchModeText = isSoloMatch
     ? `솔로 · ${resultSummary?.participantsCount || 0}명 / ${resultSummary?.teamCount || 0}팀`
     : `스쿼드 · ${resultSummary?.participantsCount || 0}명 / ${resultSummary?.teamCount || 0}팀 · 팀당 ${resultSummary?.teamSize || 3}명`;
+  const winnerTeamStatusText = !isSoloMatch && winnerTeam
+    ? [
+      `생존 ${winnerTeamAliveCount}/${winnerTeamOriginalSize}`,
+      winnerTeamCapacity > winnerTeamOriginalSize ? `정원 ${winnerTeamCapacity}` : '',
+      winnerTeamMissingCount > 0 ? `탈락 ${winnerTeamMissingCount}명` : '전원 생존',
+    ].filter(Boolean).join(' · ')
+    : '';
+  const winnerTeamRosterText = !isSoloMatch
+    ? compactText(winnerTeamRosterNames.join(', '))
+    : '';
   const winnerLine = winner
-    ? (isSoloMatch ? '최후의 1인! 생존을 축하합니다.' : `${winnerTeam?.teamName || '우승 팀'} 생존을 축하합니다.`)
+    ? (isSoloMatch ? '최후의 1인! 생존을 축하합니다.' : `${winnerTeam?.teamName || '우승 팀'} 생존을 축하합니다. ${winnerTeamStatusText}`)
     : '이번 경기에는 생존자가 남지 않았습니다.';
-  const winnerGroupLabel = isSoloMatch ? '최후 생존자' : '우승 팀';
+  const winnerGroupLabel = isSoloMatch ? '최후 생존자' : '우승 생존자';
   const winnerGroupText = isSoloMatch
     ? compactText(winner?.name)
     : compactText(winnerTeamMembers.map((m) => m?.name).filter(Boolean).join(', '));
@@ -81,6 +105,8 @@ export default function SimulationResultModal({
     creditSourceSummary,
     gainDetailSummary,
     matchModeText,
+    winnerTeamStatusText,
+    winnerTeamRosterText,
     objectiveSummary?.line,
     objectiveSummary?.detailLine,
     runSupportSummary?.line,
@@ -118,6 +144,12 @@ export default function SimulationResultModal({
                 <span>우승 보상</span>
                 <strong>LP {resultSummary.rewardLP || 0}</strong>
               </div>
+              {!isSoloMatch && winnerTeamStatusText ? (
+                <div>
+                  <span>우승 팀 상태</span>
+                  <strong>{winnerTeamStatusText}</strong>
+                </div>
+              ) : null}
               <div>
                 <span>대표 K/A</span>
                 <strong>{hasAssistStats ? `${winnerKills} / ${winnerAssists}` : winnerKills}</strong>
@@ -144,6 +176,8 @@ export default function SimulationResultModal({
                 <DetailRow label={winnerGroupLabel}>
                   {winnerGroupText}
                 </DetailRow>
+                <DetailRow label="우승 팀 상태">{compactText(winnerTeamStatusText)}</DetailRow>
+                <DetailRow label="원래 팀원">{compactText(winnerTeamRosterText)}</DetailRow>
                 <DetailRow label="오브젝트">{compactText(objectiveSummary?.line)}</DetailRow>
                 <DetailRow label="오브젝트 상세">{compactText(objectiveSummary?.detailLine)}</DetailRow>
                 <DetailRow label="특수 보상">{compactText(specialSourceSummary)}</DetailRow>
@@ -178,6 +212,13 @@ export default function SimulationResultModal({
             ))}
           </ul>
         </section>
+
+        {typeof onExportBattleLog === 'function' ? (
+          <div className="result-export-actions">
+            <button type="button" onClick={() => onExportBattleLog('md')}>MD 저장</button>
+            <button type="button" onClick={() => onExportBattleLog('json')}>JSON 저장</button>
+          </div>
+        ) : null}
 
         <button className="close-btn" onClick={onClose}>닫기</button>
       </div>

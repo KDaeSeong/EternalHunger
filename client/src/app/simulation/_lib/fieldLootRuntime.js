@@ -20,6 +20,7 @@ import {
   resolveLegendaryDropWeights,
 } from './legendaryRuntime';
 import { pickRegionLootDrop } from './lumiaRegionData';
+import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 
 function clampDropTier(value) {
   const n = Number(value);
@@ -195,6 +196,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
       .map((itemId) => {
         const item = list.find((it) => String(it?._id) === String(itemId)) || null;
         if (!item?._id) return null;
+        if (isItemExcludedFromFieldFarming(item)) return null;
         if (classifySpecialByName(item?.name)) return null;
         const category = inferItemCategory(item);
         const isMaterial = category === 'material';
@@ -263,12 +265,13 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     const weightedLootTable = (Array.isArray(crate?.lootTable) ? crate.lootTable : []).map((entry) => {
       const itemId = String(entry?.itemId || '');
       const item = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === itemId) || null;
+      if (isItemExcludedFromFieldFarming(item)) return null;
       const special = classifySpecialByName(item?.name);
       const isEquip = inferItemCategory(item) === 'equipment';
       const baseWeight = Number(entry?.weight || 1) + (goalItemIds.has(itemId) ? goalLootBoost : 0);
       const weight = applyPerkLootWeight(baseWeight, opts?.perkEffects || {}, { rareBoost: special ? 0.7 : (isEquip ? 0.35 : 0) });
       return { ...entry, _item: item, weight };
-    });
+    }).filter(Boolean);
     const entry = pickWeighted(weightedLootTable);
     if (!entry?.itemId) return null;
 
@@ -329,6 +332,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     maxQty: isDay1 ? 2 : 1,
     filterItem: (it) => {
       if (!it?._id) return false;
+      if (isItemExcludedFromFieldFarming(it)) return false;
       if (classifySpecialByName(it?.name)) return false;
       const tier = clampTier4(it?.tier || 1);
       const cat = inferItemCategory(it);
@@ -349,6 +353,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const pool = [];
   for (const it of list) {
     if (!it?._id) continue;
+    if (isItemExcludedFromFieldFarming(it)) continue;
     const tier = clampTier4(it?.tier || 1);
     const cat = inferItemCategory(it);
 

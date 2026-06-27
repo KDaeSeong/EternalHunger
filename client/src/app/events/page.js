@@ -242,6 +242,7 @@ const handleLogout = () => {
             <li><Link href="/details">캐릭터 상세설정</Link></li>
             <li><Link href="/events">이벤트 설정</Link></li>
             <li><Link href="/modifiers">보정치 설정</Link></li>
+            <li><Link href="/help">도움말</Link></li>
 
             {/* 3. 게임 시작 버튼 (강조) */}
             <li><Link href="/simulation" style={{ color: '#0288d1', fontWeight: 'bold' }}>▶ 게임 시작</Link></li>

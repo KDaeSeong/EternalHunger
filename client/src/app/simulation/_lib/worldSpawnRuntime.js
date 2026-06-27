@@ -10,8 +10,11 @@ import {
   getRegionHotspotWeight,
   getRegionWildlifeSpeciesList,
 } from './lumiaRegionData';
+import {
+  buildDimensionRiftSpawn,
+} from './dimensionRiftRuntime';
 
-function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, mapId, coreSpawnZoneIds, ruleset) {
+function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, mapId, coreSpawnZoneIds, ruleset, opts = {}) {
   const announcements = [];
   const s = cloneSpawnState(prevState, mapId);
 
@@ -37,6 +40,11 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
 
   const eligible = getEligibleSpawnZoneIds(zones, forbiddenIds);
   if (!eligible.length) return { state: s, announcements };
+
+  const riftRes = buildDimensionRiftSpawn(s, zones, forbiddenIds, d, p, opts?.matchMode, mapId, ws?.dimensionRift || {});
+  if (Array.isArray(riftRes?.announcements) && riftRes.announcements.length) {
+    announcements.push(...riftRes.announcements);
+  }
 
   try {
     const wildRule = ws?.wildlife || {};
@@ -249,7 +257,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     s.coreZoneHistory.life_tree = [...historySets.life_tree];
 
     s.spawnedDay.core = spawnKey;
-    if (spawned > 0) announcements.push(`🌠 희귀 재료 자연 스폰 발생! (x${spawned})`);
+    if (spawned > 0) announcements.push(`🌠 오브젝트 등장: 운석/생명의 나무 (x${spawned})`);
   }
 
   const foodCount = (d === 2 && p === 'morning') ? 3 : (d === 2 && p === 'night') ? 3 : (d === 3 && p === 'morning') ? 2 : (d === 3 && p === 'night') ? 1 : 0;
@@ -278,7 +286,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     }
 
     s.spawnedDay.food = spawnKey;
-    if (pickCount > 0) announcements.push(`🍱 음식 상자 드랍 발생! (x${pickCount})`);
+    if (pickCount > 0) announcements.push(`🍱 음식 상자 보급 도착 (x${pickCount})`);
   }
 
   const legendaryCount = (d === 2 && p === 'night') ? 3
@@ -311,7 +319,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     }
 
     s.spawnedDay.legendary = spawnKey;
-    if (pickCount > 0) announcements.push(`🟪 전설 재료 상자 드랍 발생! (x${pickCount})`);
+    if (pickCount > 0) announcements.push(`🟪 전설 보급 상자 도착 (x${pickCount})`);
   }
 
   function spawnBossAt(kind, targetDay) {
@@ -336,7 +344,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     s.spawnedDay[k] = spawnKey;
 
     const label = k === 'alpha' ? '알파' : k === 'omega' ? '오메가' : '위클라인';
-    announcements.push(`⚠️ ${label}가 어딘가에 출현했다!`);
+    announcements.push(`⚠️ ${label} 출현! 위치를 확인하세요.`);
   }
 
   spawnBossAt('alpha', 2);
@@ -383,7 +391,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     }
 
     s.spawnedDay.transcend = spawnKey;
-    if (pickCount > 0) announcements.push(`🎁 초월 장비 선택 상자 스폰! (x${pickCount})`);
+    if (pickCount > 0) announcements.push(`🎁 초월 보급 상자 도착 (x${pickCount})`);
   }
 
   if (String(curPhase || '') === 'morning') {
@@ -410,7 +418,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
         ? cfgZid
         : String(eligible[randInt(0, Math.max(0, eligible.length - 1))] || '');
       if (zid) {
-        const animalPool = ['닭', '멧돼지', '곰', '늑대', '박쥐', '들개'];
+        const animalPool = ['늑대', '곰'];
         const animal = animalPool[randInt(0, animalPool.length - 1)] || '늑대';
         s.mutantWildlife = {
           zoneId: String(zid),
@@ -421,7 +429,7 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
           defeatedAt: null,
         };
         const zoneName = (Array.isArray(zones) ? zones : []).find((z) => String(z?.zoneId || '') === String(zid))?.name || zid;
-        announcements.push(`🧪 변이 야생동물(${animal}) 출현: ${zoneName}`);
+        announcements.push(`🧪 변이 ${animal} 출현: ${zoneName}`);
       }
     }
   }

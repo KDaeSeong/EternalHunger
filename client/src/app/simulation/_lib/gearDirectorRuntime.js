@@ -348,16 +348,16 @@ function autoEquipBest(actor, itemMetaById) {
   };
 
   for (const s of EQUIP_SLOTS) {
+    const best = pickBestEquipBySlot(inv, s);
     const goalKey = String(goal?.[s] || '').trim();
     if (goalKey) {
       const hit = inv.find((x) => String(x?.equipSlot || inferEquipSlot(x) || '').toLowerCase() === s && keyOfInv(x) === goalKey);
-      if (hit) {
+      if (hit && (!best || getInvTier(hit, itemMetaById) >= getInvTier(best, itemMetaById))) {
         nextEq[s] = String(getInvItemId(hit));
         continue;
       }
     }
 
-    const best = pickBestEquipBySlot(inv, s);
     if (best) nextEq[s] = String(best?.itemId || best?.id || best?._id || '');
     else nextEq[s] = null;
   }
@@ -379,7 +379,6 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   const ph = String(phase || '').toLowerCase();
   const forceRouteCompletion = opts?.forceRouteCompletion === true;
   if (d !== 1) return { changed: false, logs: [] };
-  if (actor?.day1HeroDone) return { changed: false, logs: [] };
   if (!allowAbstractGearFallback(ruleset, opts) && !forceRouteCompletion) return { changed: false, logs: [] };
 
   // 레시피 데이터가 빈약하거나 루트 파밍 판정만 있고 조합까지 이어지지 않는 경우의 안전망입니다.
@@ -397,6 +396,14 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
 
   if (forceRouteCompletion) {
     const targetTier = Math.max(1, Math.min(4, Math.floor(Number(opts?.routeCompletionTier ?? maxFallbackTier))));
+    if (actor?.day1HeroDone && EQUIP_SLOTS.every((slot) => {
+      const it = pickBestEquipBySlot(inv, slot);
+      return it && getInvTier(it, itemMetaById) >= targetTier;
+    })) {
+      actor.inventory = inv;
+      autoEquipBest(actor, itemMetaById);
+      return { changed: false, logs: [] };
+    }
     const completedSlots = [];
 
     for (const slot of EQUIP_SLOTS) {
@@ -429,6 +436,15 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
     }
 
     return { changed: logs.length > 0, logs };
+  }
+
+  if (actor?.day1HeroDone && EQUIP_SLOTS.every((slot) => {
+    const it = pickBestEquipBySlot(inv, slot);
+    return it && clampGearTier(Number(it?.tier || 1)) >= maxFallbackTier;
+  })) {
+    actor.inventory = inv;
+    autoEquipBest(actor, itemMetaById);
+    return { changed: false, logs: [] };
   }
 
   // 1) 비어있는 방어구 슬롯을 먼저 채움(머리/옷/팔) — 2재료씩

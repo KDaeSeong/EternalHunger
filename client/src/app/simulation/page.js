@@ -115,6 +115,12 @@ import {
   getEligibleSpawnZoneIds,
   getHyperloopDeviceZoneId,
   ensureWorldSpawns,
+  findDimensionRiftGiftItem,
+  getDimensionRiftGiftMeta,
+  listActiveDimensionRifts,
+  pickDimensionRiftChoice,
+  pickRiftEntrantTeams,
+  resolveDimensionRiftWinner,
   openSpawnedLegendaryCrate,
   openSpawnedTranscendCrate,
   openSpawnedFoodCrate,
@@ -155,7 +161,10 @@ import {
   safeGenerateDynamicEvent,
   areSameTeam,
   assignSimulationTeams,
+  getActorTeamCapacity,
+  getActorTeamId,
   getActorTeamName,
+  getActorTeamOriginalSize,
   getAliveTeams,
   getWinningTeam,
   pickTeamRepresentative,
@@ -228,6 +237,9 @@ const PARTICIPANT_PRESET_SELECTED_KEY = 'eh_participant_preset_selected_v1';
 const PARTICIPANT_PRESET_LIMIT = 10;
 const PARTICIPANT_PRESET_SIZE = 24;
 const RANDOM_PARTICIPANT_PRESET_ID = '__random__';
+const MARKET_CARD_RENDER_LIMIT = 40;
+const DEV_SELECT_RENDER_LIMIT = 80;
+const DEV_EVENT_PREVIEW_LIMIT = 80;
 const CLEANSE_NEGATIVE_EFFECTS = [
   EFFECT_POISON,
   EFFECT_BURN,
@@ -289,6 +301,28 @@ function getInitialParticipantPresetId() {
   } catch {
     return RANDOM_PARTICIPANT_PRESET_ID;
   }
+}
+
+function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubkind = '') {
+  const raw = String(reason || '').replace(/:ttl/g, '').replace(/:priority/g, '').trim();
+  const type = String(objectiveType || '').toLowerCase();
+  const sub = String(objectiveSubkind || '').toLowerCase();
+
+  if (raw.startsWith('early_route')) return '루트 파밍';
+  if (raw === 'recover') return '회복 동선';
+  if (raw.includes('크레딧') || raw.includes('야생동물')) return '야생동물 사냥';
+  if (raw.includes('키오스크')) return '키오스크 주문';
+  if (type === 'natural_core' || raw.includes('자연코어') || raw.includes('메인오브젝트')) {
+    if (sub === 'meteor') return '운석 확인';
+    if (sub === 'life_tree') return '생명의 나무 확인';
+    return '오브젝트 확인';
+  }
+  if (type === 'legendary_crate' || raw.includes('전설상자')) return '전설 상자 확인';
+  if (type === 'transcend_crate' || raw.includes('초월')) return '초월 상자 확인';
+  if (type === 'boss' || raw.includes('알파') || raw.includes('오메가') || raw.includes('위클라인')) return '보스 오브젝트 확인';
+  if (type === 'dimension_rift' || raw.includes('dimension_rift')) return '차원의 틈 확인';
+  if (raw.includes('재료')) return '재료 파밍';
+  return '로테이션';
 }
 
 export default function SimulationPage() {
@@ -490,6 +524,42 @@ export default function SimulationPage() {
       participantCount: assigned.length,
       teamCount: teams.length,
       ready: assigned.length >= minReadyCount && teams.length >= 2 && (cfg.teamSize <= 1 || assigned.length % cfg.teamSize === 0),
+    };
+  };
+
+  const getTeamStateForActor = (actor) => {
+    if (!actor || normalizeMatchMode(settings?.matchMode) === 'solo') return null;
+    const teamId = getActorTeamId(actor);
+    if (!teamId) return null;
+    const allActors = [
+      ...(Array.isArray(survivors) ? survivors : []),
+      ...(Array.isArray(dead) ? dead : []),
+    ];
+    const teamActors = allActors.filter((row) => getActorTeamId(row) === teamId);
+    const aliveCount = (Array.isArray(survivors) ? survivors : [])
+      .filter((row) => getActorTeamId(row) === teamId && Number(row?.hp || 0) > 0)
+      .length;
+    const rosterSize = Math.max(
+      getActorTeamOriginalSize(actor, teamActors.length || 1),
+      ...teamActors.map((row) => getActorTeamOriginalSize(row, teamActors.length || 1)),
+      teamActors.length || 1
+    );
+    const capacity = Math.max(
+      getActorTeamCapacity(actor, getMatchConfig(settings).teamSize),
+      getMatchConfig(settings).teamSize
+    );
+    const rosterNames = Array.isArray(actor?.matchTeamRosterNames) && actor.matchTeamRosterNames.length
+      ? actor.matchTeamRosterNames
+      : teamActors.map((row) => String(row?.name || '').trim()).filter(Boolean);
+    return {
+      teamId,
+      teamName: getActorTeamName(actor),
+      aliveCount,
+      rosterSize,
+      capacity,
+      missingCount: Math.max(0, rosterSize - aliveCount),
+      rosterNames,
+      label: `${getActorTeamName(actor)} · 생존 ${aliveCount}/${rosterSize}${capacity > rosterSize ? ` (정원 ${capacity})` : ''}`,
     };
   };
 
@@ -714,6 +784,11 @@ const activeMapName = useSafeMemo('activeMapName', () => {
 
   // ✅ 관전자 모드 기본: 상점/조합/교환 UI는 숨김(테스트용 토글)
   const [showMarketPanel, setShowMarketPanel] = useState(false);
+  const [showDevDebugDetails, setShowDevDebugDetails] = useState(false);
+  const [showDevEventLog, setShowDevEventLog] = useState(false);
+  const [showAllMarketRows, setShowAllMarketRows] = useState(false);
+  const [devGrantSearch, setDevGrantSearch] = useState('');
+  const [tradeWantSearch, setTradeWantSearch] = useState('');
   const [pendingTranscendPick, setPendingTranscendPick] = useState(null);
 
   // 🎲 시드 고정(랜덤 재현)
@@ -775,6 +850,126 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   };
   const addLogRef = useRef(addLog);
   addLogRef.current = addLog;
+
+  function getExportLogLines() {
+    const lines = (Array.isArray(fullLogsRef.current) ? fullLogsRef.current : [])
+      .map((line) => String(line || '').trimEnd())
+      .filter(Boolean);
+    const startIndex = lines.findIndex((line) => /1일차\s*낮|DAY\s*1\s*-\s*DAY/i.test(line));
+    return startIndex >= 0 ? lines.slice(startIndex) : lines;
+  }
+
+  function makeLogFileBaseName(ext = 'log') {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const winnerName = String(winner?.name || resultSummary?.winnerTeam?.teamName || 'battle').replace(/[\\/:*?"<>|]+/g, '').trim();
+    const compactWinner = winnerName ? `-${winnerName.slice(0, 24)}` : '';
+    return `eternal-hunger-log${compactWinner}-${stamp}.${ext}`;
+  }
+
+  function downloadTextFile(filename, text, mimeType) {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 500);
+    return true;
+  }
+
+  function buildLogExportSummary(lines) {
+    const matchCfg = getMatchConfig(settings);
+    const winnerTeam = resultSummary?.winnerTeam || null;
+    return {
+      exportedAt: new Date().toISOString(),
+      title: 'Eternal Hunger Battle Log',
+      range: '1일차 낮부터 게임 종료까지',
+      logCount: lines.length,
+      runEventCount: Array.isArray(runEvents) ? runEvents.length : 0,
+      match: {
+        mode: matchCfg.matchMode,
+        teamSize: matchCfg.teamSize,
+        participantsCount: Number(resultSummary?.participantsCount || 0),
+        teamCount: Number(resultSummary?.teamCount || 0),
+      },
+      winner: winner
+        ? {
+            id: getRuntimeActorKey(winner),
+            name: winner.name,
+            teamName: winnerTeam?.teamName || getActorTeamName(winner),
+            kills: Number(killCounts?.[getRuntimeActorKey(winner)] || resultSummary?.myKills || 0),
+            assists: Number(assistCounts?.[getRuntimeActorKey(winner)] || resultSummary?.myAssists || 0),
+          }
+        : null,
+      winnerTeam: winnerTeam
+        ? {
+            teamId: winnerTeam.teamId || '',
+            teamName: winnerTeam.teamName || '',
+            aliveCount: Number(winnerTeam.aliveCount || 0),
+            originalSize: Number(winnerTeam.originalSize || 0),
+            rosterNames: Array.isArray(winnerTeam.rosterNames) ? winnerTeam.rosterNames : [],
+          }
+        : null,
+    };
+  }
+
+  function buildMarkdownLogExport(lines, summary) {
+    const metaLines = [
+      `- 내보낸 시간: ${summary.exportedAt}`,
+      `- 범위: ${summary.range}`,
+      `- 매치: ${summary.match.mode} / 참가자 ${summary.match.participantsCount}명 / 팀 ${summary.match.teamCount}개`,
+      summary.winner ? `- 우승 대표: ${summary.winner.name}${summary.winner.teamName ? ` (${summary.winner.teamName})` : ''}` : '- 우승 대표: 없음',
+      summary.winnerTeam ? `- 우승 팀 상태: 생존 ${summary.winnerTeam.aliveCount}/${summary.winnerTeam.originalSize}` : '',
+      `- 로그 수: ${summary.logCount}`,
+    ].filter(Boolean);
+
+    const body = lines.map((line) => {
+      const text = String(line || '').trim();
+      const header = text.match(/^=+\s*(.+?)\s*=+$/);
+      if (header) return `\n## ${header[1]}\n`;
+      return `- ${text}`;
+    }).join('\n');
+
+    return [
+      '# Eternal Hunger Battle Log',
+      '',
+      ...metaLines,
+      '',
+      '---',
+      '',
+      body || '_저장할 로그가 없습니다._',
+      '',
+    ].join('\n');
+  }
+
+  function exportBattleLog(format = 'md') {
+    const fmt = String(format || 'md').toLowerCase() === 'json' ? 'json' : 'md';
+    const lines = getExportLogLines();
+    if (!lines.length) {
+      addLog('⚠️ 저장할 전투 로그가 없습니다. 게임을 시작한 뒤 다시 시도해주세요.', 'system');
+      return;
+    }
+
+    const summary = buildLogExportSummary(lines);
+    const filename = makeLogFileBaseName(fmt);
+    const payload = fmt === 'json'
+      ? JSON.stringify({
+          schema: 'eternal-hunger.battle-log.v1',
+          summary,
+          logs: lines.map((text, index) => ({ index: index + 1, text })),
+          runEvents: Array.isArray(runEvents) ? runEvents : [],
+        }, null, 2)
+      : buildMarkdownLogExport(lines, summary);
+    const ok = downloadTextFile(
+      filename,
+      payload,
+      fmt === 'json' ? 'application/json;charset=utf-8' : 'text/markdown;charset=utf-8'
+    );
+    addLog(ok ? `💾 전투 로그 저장: ${filename}` : '⚠️ 전투 로그 저장 실패', ok ? 'system' : 'death');
+  }
 
   useEffect(() => {
     const reportReferenceError = (reason, sourceLabel) => {
@@ -2065,6 +2260,105 @@ if (!who) {
       .sort((a, b) => String(a._label || '').localeCompare(String(b._label || '')));
   }, [publicItems], []);
 
+  const visibleDevGrantItemOptions = useSafeMemo('visibleDevGrantItemOptions', () => {
+    const query = String(devGrantSearch || '').trim().toLowerCase();
+    const selected = String(devGrantItemId || '');
+    const list = (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : [])
+      .filter((it) => {
+        if (!query) return true;
+        return [
+          it?._label,
+          it?.name,
+          it?._id,
+          it?.itemKey,
+          it?.externalId,
+          it?.type,
+          it?.equipSlot,
+          it?.rarity,
+        ].some((v) => String(v || '').toLowerCase().includes(query));
+      });
+    const picked = selected
+      ? (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : []).find((it) => String(it?._id || '') === selected)
+      : null;
+    const shown = list.slice(0, DEV_SELECT_RENDER_LIMIT);
+    if (picked && !shown.some((it) => String(it?._id || '') === selected)) return [picked, ...shown].slice(0, DEV_SELECT_RENDER_LIMIT);
+    return shown;
+  }, [devGrantItemOptions, devGrantSearch, devGrantItemId], []);
+
+  const tradeWantItemOptions = useSafeMemo('tradeWantItemOptions', () => {
+    const query = String(tradeWantSearch || '').trim().toLowerCase();
+    const selectedIds = new Set(
+      (Array.isArray(tradeDraft?.want) ? tradeDraft.want : [])
+        .map((row) => String(row?.itemId || ''))
+        .filter(Boolean)
+    );
+    const all = (Array.isArray(publicItems) ? publicItems : []).filter((it) => it?._id);
+    const list = all
+      .filter((it) => {
+        if (selectedIds.has(String(it?._id || ''))) return true;
+        if (!query) return true;
+        return [
+          it?.name,
+          it?._id,
+          it?.itemKey,
+          it?.externalId,
+          it?.type,
+          it?.equipSlot,
+          it?.rarity,
+        ].some((v) => String(v || '').toLowerCase().includes(query));
+      })
+      .sort((a, b) => (Number(b?.tier || 0) - Number(a?.tier || 0)) || String(a?.name || '').localeCompare(String(b?.name || '')));
+    const selected = all.filter((it) => selectedIds.has(String(it?._id || '')));
+    const shown = list.slice(0, DEV_SELECT_RENDER_LIMIT);
+    const merged = [...selected, ...shown];
+    const seen = new Set();
+    return merged.filter((it) => {
+      const id = String(it?._id || '');
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    }).slice(0, DEV_SELECT_RENDER_LIMIT);
+  }, [publicItems, tradeWantSearch, tradeDraft?.want], []);
+
+  const visibleCraftables = useSafeMemo('visibleCraftables', () => {
+    const list = Array.isArray(craftables) ? craftables : [];
+    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+  }, [craftables, showAllMarketRows], []);
+
+  const visibleKiosks = useSafeMemo('visibleKiosks', () => {
+    const list = Array.isArray(kiosks) ? kiosks : [];
+    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+  }, [kiosks, showAllMarketRows], []);
+
+  const visibleDroneOffers = useSafeMemo('visibleDroneOffers', () => {
+    const list = Array.isArray(droneOffers) ? droneOffers : [];
+    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+  }, [droneOffers, showAllMarketRows], []);
+
+  const visiblePublicPerks = useSafeMemo('visiblePublicPerks', () => {
+    const list = Array.isArray(publicPerks) ? publicPerks : [];
+    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+  }, [publicPerks, showAllMarketRows], []);
+
+  const visibleTradeOffers = useSafeMemo('visibleTradeOffers', () => {
+    const list = Array.isArray(tradeOffers) ? tradeOffers : [];
+    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+  }, [tradeOffers, showAllMarketRows], []);
+
+  const visibleMyTradeOffers = useSafeMemo('visibleMyTradeOffers', () => {
+    const list = Array.isArray(myTradeOffers) ? myTradeOffers : [];
+    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+  }, [myTradeOffers, showAllMarketRows], []);
+
+  const runEventsPreviewText = useSafeMemo('runEventsPreviewText', () => {
+    if (!showDevEventLog) return '';
+    return JSON.stringify((Array.isArray(runEvents) ? runEvents : []).slice(-DEV_EVENT_PREVIEW_LIMIT), null, 2);
+  }, [runEvents, showDevEventLog], '');
+
+  useEffect(() => {
+    setShowAllMarketRows(false);
+  }, [marketTab, showMarketPanel]);
+
   function getQty(key, fallback = 1) {
     const v = Number(qtyMap[key]);
     if (!Number.isFinite(v) || v <= 0) return fallback;
@@ -2549,6 +2843,15 @@ const pickStartZoneIdForChar = (c) => {
         return (Number(finalKills?.[bId] || 0) - Number(finalKills?.[aId] || 0)) ||
           (Number(finalAssists?.[bId] || 0) - Number(finalAssists?.[aId] || 0));
       })[0] || null;
+    const winnerTeamAliveCount = winningTeam ? Math.max(0, Number(winningTeam?.aliveCount || winningTeam?.members?.length || 0)) : 0;
+    const winnerTeamOriginalSize = winningTeam ? Math.max(winnerTeamAliveCount, Number(winningTeam?.originalSize || winnerTeamAliveCount || 1)) : 0;
+    const winnerTeamMissingCount = Math.max(0, winnerTeamOriginalSize - winnerTeamAliveCount);
+    const winnerTeamRosterNames = Array.isArray(winningTeam?.rosterNames) && winningTeam.rosterNames.length
+      ? winningTeam.rosterNames
+      : participants
+        .filter((p) => winningTeam?.teamId && getActorTeamId(p) === winningTeam.teamId)
+        .map((p) => String(p?.name || '').trim())
+        .filter(Boolean);
 
     setWinner(w);
     setIsGameOver(true);
@@ -2569,7 +2872,17 @@ const pickStartZoneIdForChar = (c) => {
         ? {
             teamId: winningTeam.teamId,
             teamName: winningTeam.teamName,
-            members: winningTeam.members.map((m) => ({ id: getRuntimeActorKey(m), name: m?.name, hp: Number(m?.hp || 0) })),
+            aliveCount: winnerTeamAliveCount,
+            originalSize: winnerTeamOriginalSize,
+            missingCount: winnerTeamMissingCount,
+            capacity: Number(winningTeam?.capacity || matchCfgForResult.teamSize || winnerTeamOriginalSize || 1),
+            rosterNames: winnerTeamRosterNames,
+            members: winningTeam.members.map((m) => ({
+              id: getRuntimeActorKey(m),
+              name: m?.name,
+              hp: Number(m?.hp || 0),
+              teamSlot: Number(m?.matchTeamSlot || m?.teamSlot || 0),
+            })),
           }
         : null,
       topKillLeader: topKillLeader
@@ -2587,7 +2900,7 @@ const pickStartZoneIdForChar = (c) => {
       addLog(
         matchModeNow === 'solo'
           ? `🏆 게임 종료! 최후의 생존자: [${w.name}]`
-          : `🏆 게임 종료! 최후의 팀: ${winningTeam?.teamName || getActorTeamName(w)} / 대표 생존자: [${w.name}]`,
+          : `🏆 게임 종료! 최후의 팀: ${winningTeam?.teamName || getActorTeamName(w)} (생존 ${winnerTeamAliveCount}/${winnerTeamOriginalSize}) / 대표 생존자: [${w.name}]`,
         'highlight'
       );
     }
@@ -2862,6 +3175,7 @@ const pickStartZoneIdForChar = (c) => {
       : null;
     let forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
     let newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
+    let suddenDeathSafeZoneIds = [];
 
 
     // ✅ 서든데스: 전 지역 금지로 0명 생존(무승부) 케이스가 발생할 수 있어, 최종 안전구역 2곳을 남깁니다.
@@ -2878,6 +3192,7 @@ const pickStartZoneIdForChar = (c) => {
         if (!safePick.includes(cand)) safePick.push(cand);
       }
       const safeSet = new Set(safePick);
+      suddenDeathSafeZoneIds = safePick.map((zid) => String(zid || '')).filter(Boolean);
 
       forbiddenIds = new Set(allZoneIds.filter((zid) => !safeSet.has(zid)));
 
@@ -2973,7 +3288,9 @@ const pickStartZoneIdForChar = (c) => {
       if (revivedNow.length) setDead(remainingDead);
     }
     // 2-0. 월드 스폰(맵 이벤트): 전설 재료 상자/보스 생성(낮 시작 시 1회)
-    const spawnRes = ensureWorldSpawns(spawnState, zones, forbiddenIds, nextDay, nextPhase, mapIdNow, mapObj?.coreSpawnZones, ruleset);
+    const spawnRes = ensureWorldSpawns(spawnState, zones, forbiddenIds, nextDay, nextPhase, mapIdNow, mapObj?.coreSpawnZones, ruleset, {
+      matchMode: matchCfgNow.matchMode,
+    });
     let nextSpawn = spawnRes.state;
     if (Array.isArray(spawnRes.announcements) && spawnRes.announcements.length) {
       spawnRes.announcements.forEach((m) => addLog(m, 'highlight'));
@@ -2995,6 +3312,7 @@ const pickStartZoneIdForChar = (c) => {
         legendary: lc,
         transcendCrates: (Array.isArray(nextSpawn?.transcendCrates) ? nextSpawn.transcendCrates : []).filter((c) => !c?.opened).length,
         foodCrates: (Array.isArray(nextSpawn?.foodCrates) ? nextSpawn.foodCrates : []).filter((c) => !c?.opened).length,
+        dimensionRifts: listActiveDimensionRifts(nextSpawn).length,
         meteor,
         lifeTree,
         wildlifeTotal,
@@ -3175,8 +3493,9 @@ const pickStartZoneIdForChar = (c) => {
           const amount = Math.max(0, Number(tick?.amount || 0));
           if (amount <= 0) return;
           const nm = String(tick?.name || '효과');
-          if (tick?.type === 'damage') addLog(`⏱️ [${updated.name}] ${nm}: HP -${amount}`, 'highlight');
-          else if (tick?.type === 'heal') addLog(`✨ [${updated.name}] ${nm}: HP +${amount}`, 'system');
+          const secText = Number(tick?.seconds || 0) > 1 ? ` (${Math.max(1, Math.floor(Number(tick.seconds)))}초)` : '';
+          if (tick?.type === 'damage') addLog(`⏱️ [${updated.name}] ${nm}: HP -${amount}${secText}`, 'highlight');
+          else if (tick?.type === 'heal') addLog(`✨ [${updated.name}] ${nm}: HP +${amount}${secText}`, 'system');
         });
         (Array.isArray(statusTick?.expired) ? statusTick.expired : []).forEach((eff) => {
           const nm = String(eff?.name || '효과');
@@ -3331,6 +3650,23 @@ let moveObjectiveType = String(updated.aiTargetObjectiveType || plannedObjective
 let moveObjectiveSubkind = String(updated.aiTargetObjectiveSubkind || plannedObjectiveSubkind || '');
 let moveContestPressure = Math.max(0, Number(updated.aiTargetContestPressure || plannedContestPressure || 0));
 
+const riftTargetsNow = (!isSoloMatch && String(nextPhase || '') === 'night' && [2, 3, 4].includes(Number(nextDay || 0)))
+  ? listActiveDimensionRifts(nextSpawn)
+    .map((r) => String(r?.zoneId || ''))
+    .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+  : [];
+if (!mustEscape && !recovering && riftTargetsNow.length > 0) {
+  const riftContestChance = Math.max(0, Math.min(1, Number(ruleset?.worldSpawns?.dimensionRift?.contestChance ?? 0.38)));
+  const wantsRift = Math.random() < riftContestChance || (String(moveObjectiveType || '') === '' && Math.random() < 0.25);
+  if (wantsRift) {
+    moveTargets = [riftTargetsNow[Math.floor(Math.random() * riftTargetsNow.length)]];
+    moveReason = 'dimension_rift';
+    moveObjectiveType = 'dimension_rift';
+    moveObjectiveSubkind = 'aglaia';
+    moveContestPressure = Math.max(moveContestPressure, 0.45);
+  }
+}
+
 // ✅ 목표/이동 후보에서 금지구역은 최대한 제외 (막혀서 멈추는 현상 방지)
 moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
 
@@ -3438,10 +3774,11 @@ if (String(nextZoneId) !== String(currentZone)) {
     if (moveReason === 'recover') {
       addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
     } else {
-      addLog(`🎯 [${updated.name}] 목표(${moveReason || 'goal'}) 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
+      const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind);
+      addLog(`🎯 [${updated.name}] ${intentLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
     }
   } else {
-    addLog(`🚶 [${updated.name}] 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
+    addLog(`🚶 [${updated.name}] 로테이션: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
   }
 
   // 🧾 AI 이동 목표/결정(재현/디버그용)
@@ -3692,7 +4029,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const got = Math.max(0, Number(meta?.acceptedQty ?? (corePickup.qty || 1)));
           const nm = corePickup.item?.name || '특수 재료';
           if (shouldLogItemReceive(got, meta, { important: true })) {
-            addLog(`✨ [${updated.name}] ${getZoneName(updated.zoneId)}에서 자연 스폰 희귀 재료 발견: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
+            addLog(`🌠 [${updated.name}] ${getZoneName(updated.zoneId)} 오브젝트 채집: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
           }
           emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
 
@@ -3999,7 +4336,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const gotR = Math.max(0, Number(metaR?.acceptedQty ?? routeLoot.qty));
             const nmR = routeLoot.item?.name || itemNameById?.[String(routeLoot.itemId || '')] || '아이템';
             if (shouldLogItemReceive(gotR, metaR)) {
-              addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)} 루트 파밍: ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
+              addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)}에서 루트 재료 ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
             }
             emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: String(routeLoot?.crateType || 'route_material'), zoneId: String(updated?.zoneId || '') }, atNow());
             if (gotR > 0) autoEquipBest(updated, itemMetaById);
@@ -4054,7 +4391,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const creditGain = Math.max(0, Number(hunt?.credits || 0));
           if (creditGain > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
-            addLog(`💳 [${updated.name}] ${isBossReward ? '보스 처치 보상' : isMutantReward ? '변이 야생동물 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
+            addLog(`💳 [${updated.name}] ${isBossReward ? '보스 처치 보상' : isMutantReward ? '변이 사냥 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
             emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
 
             if (isBossReward) {
@@ -4424,6 +4761,202 @@ const didMove = String(nextZoneId) !== String(currentZone);
         return updated;
       })
       .filter((s) => Number(s.hp || 0) > 0);
+
+    if (!isSoloMatch && String(nextPhase || '') === 'night' && [2, 3, 4].includes(Number(nextDay || 0))) {
+      const activeRifts = listActiveDimensionRifts(nextSpawn);
+      if (activeRifts.length > 0) {
+        const survivorById = buildRuntimeSurvivorMap(updatedSurvivors);
+        const safeReturnZones = (Array.isArray(zones) ? zones : [])
+          .map((z) => String(z?.zoneId || ''))
+          .filter((zid) => zid && !forbiddenIds.has(String(zid)));
+        const usedRiftTeamIds = new Set();
+        const giftMeta = getDimensionRiftGiftMeta(nextDay);
+        const rewardCredits = Math.max(0, Math.floor(Number(ruleset?.worldSpawns?.dimensionRift?.rewardCreditsByDay?.[String(nextDay)] ?? (
+          Number(nextDay || 0) === 2 ? 45 : Number(nextDay || 0) === 3 ? 65 : 90
+        ))));
+
+        const pickRiftReturnZone = (actor) => {
+          const preferred = [
+            actor?.riftReturnZoneId,
+            actor?.aiTargetZoneId,
+            Array.isArray(actor?.routePlanZoneIds) ? actor.routePlanZoneIds[Math.max(0, Number(actor?.routePlanIndex || 0))] : '',
+          ]
+            .map((z) => String(z || ''))
+            .find((z) => z && !forbiddenIds.has(String(z)));
+          if (preferred) return preferred;
+          if (safeReturnZones.length) return safeReturnZones[Math.floor(Math.random() * safeReturnZones.length)];
+          return String(actor?.zoneId || zones?.[0]?.zoneId || '');
+        };
+
+        const getCurrentTeamMembers = (team) => (Array.isArray(team?.members) ? team.members : [])
+          .map((m) => survivorById.get(String(m?._id || '')))
+          .filter((m) => m && Number(m?.hp || 0) > 0);
+
+        for (const rift of activeRifts) {
+          if (Number(rift?.day || 0) !== Number(nextDay || 0) || String(rift?.phase || '') !== String(nextPhase || '')) continue;
+          const entrantTeams = pickRiftEntrantTeams(rift, Array.from(survivorById.values()))
+            .filter((team) => team?.teamId && !usedRiftTeamIds.has(String(team.teamId)));
+
+          if (entrantTeams.length <= 0) {
+            rift.resolved = true;
+            rift.closedWithoutEntrants = true;
+            continue;
+          }
+
+          rift.entrantTeamIds = entrantTeams.map((team) => String(team.teamId || '')).filter(Boolean);
+          const riftZoneName = getZoneName(rift.zoneId);
+          addLog(`🌀 차원의 틈 진입: ${riftZoneName} · ${entrantTeams.map((team) => team.teamName || team.teamId).join(' vs ')}`, 'highlight');
+
+          const riftResult = resolveDimensionRiftWinner(entrantTeams, estimateMovePower);
+          const winnerTeam = riftResult?.winner || null;
+          const loserTeam = riftResult?.loser || null;
+          if (!winnerTeam) continue;
+
+          const winnerMembers = getCurrentTeamMembers(winnerTeam);
+          const loserMembers = getCurrentTeamMembers(loserTeam);
+          if (!winnerMembers.length) continue;
+
+          rift.resolved = true;
+          rift.winnerTeamId = String(winnerTeam.teamId || '');
+          rift.loserTeamId = String(loserTeam?.teamId || '');
+          usedRiftTeamIds.add(String(winnerTeam.teamId || ''));
+          if (loserTeam?.teamId) usedRiftTeamIds.add(String(loserTeam.teamId));
+
+          if (riftResult?.uncontested) {
+            addLog(`🌀 [${winnerTeam.teamName || winnerTeam.teamId}] 차원의 틈 무혈 점거`, 'highlight');
+          } else {
+            addLog(`⚔️ 차원의 틈 교전: [${winnerTeam.teamName || winnerTeam.teamId}] 승리`, 'death');
+          }
+
+          for (const member of winnerMembers) {
+            member.simCredits = Math.max(0, Number(member.simCredits || 0) + rewardCredits);
+            survivorById.set(String(member._id || ''), member);
+            emitRunEvent('gain', {
+              who: String(member?._id || ''),
+              itemId: 'CREDITS',
+              qty: rewardCredits,
+              source: 'dimension_rift',
+              zoneId: String(rift?.zoneId || ''),
+            }, atNow());
+          }
+
+          const representative = winnerMembers
+            .slice()
+            .sort((a, b) => Number(estimateMovePower(b) || 0) - Number(estimateMovePower(a) || 0))[0];
+
+          let giftGot = 0;
+          let choiceGot = 0;
+          let choiceItemId = '';
+          let choiceName = '';
+          if (representative) {
+            representative.inventory = normalizeInventory(representative.inventory, ruleset);
+            const giftItem = findDimensionRiftGiftItem(publicItems, nextDay);
+            if (giftItem?._id) {
+              representative.inventory = addItemToInventory(representative.inventory, giftItem, String(giftItem._id), 1, nextDay, ruleset);
+              const giftMetaAdd = representative.inventory?._lastAdd;
+              giftGot = Math.max(0, Number(giftMetaAdd?.acceptedQty ?? 1));
+            }
+
+            const choice = pickDimensionRiftChoice(publicItems, nextDay);
+            const choiceItem = choice?.item || null;
+            if (choiceItem?._id) {
+              choiceItemId = String(choiceItem._id);
+              choiceName = itemDisplayName(choiceItem);
+              representative.inventory = addItemToInventory(representative.inventory, choiceItem, choiceItemId, 1, nextDay, ruleset);
+              const choiceMeta = representative.inventory?._lastAdd;
+              choiceGot = Math.max(0, Number(choiceMeta?.acceptedQty ?? 1));
+              emitItemGainIfAny(choiceGot, {
+                who: String(representative?._id || ''),
+                itemId: choiceItemId,
+                source: 'dimension_rift',
+                zoneId: String(rift?.zoneId || ''),
+                giftRarity: String(giftMeta?.rarity || ''),
+              }, atNow());
+
+              const immediate = tryImmediateCraftFromSpecial(
+                representative,
+                classifySpecialByName(choiceName),
+                choiceItemId,
+                itemNameById,
+                itemMetaById,
+                nextDay,
+                nextPhase,
+                phaseIdxNow,
+                ruleset,
+              );
+              if (immediate?.changed) {
+                representative.inventory = immediate.inventory;
+                (Array.isArray(immediate.logs) ? immediate.logs : []).forEach((m) => addLog(String(m), 'highlight'));
+              }
+              if (choiceGot > 0) autoEquipBest(representative, itemMetaById);
+            }
+
+            survivorById.set(String(representative._id || ''), representative);
+            addLog(`🎁 [${representative.name}] 아글라이아의 선물(${giftMeta?.label || rift.giftLabel || '보상'}) ${gainText(giftGot)}${choiceName ? ` → [${choiceName}] ${gainText(choiceGot, '선택', '선택 실패')}` : ''}`, 'highlight');
+          }
+
+          if (loserTeam && loserMembers.length) {
+            const returnNames = [];
+            for (const member of loserMembers) {
+              const returnZoneId = pickRiftReturnZone(member);
+              const maxHp = Math.max(1, Number(member?.maxHp ?? 100));
+              member.hp = Math.max(1, Math.floor(maxHp * 0.65));
+              member.zoneId = returnZoneId;
+              clearRuntimeCombatFields(member);
+              applyAiRecoveryWindow(member, currentActionSec(), {
+                reason: 'dimension_rift_loss',
+                recoverSec: 8,
+                safeZoneSec: 3,
+              });
+              survivorById.set(String(member._id || ''), member);
+              returnNames.push(`${member.name}:${getZoneName(returnZoneId)}`);
+            }
+            addLog(`↩️ [${loserTeam.teamName || loserTeam.teamId}] 차원의 틈 패배 팀 부활: ${returnNames.join(', ')}`, 'system');
+          }
+
+          emitRunEvent('dimension_rift', {
+            zoneId: String(rift?.zoneId || ''),
+            winnerTeamId: String(winnerTeam?.teamId || ''),
+            loserTeamId: String(loserTeam?.teamId || ''),
+            entrantTeamIds: rift.entrantTeamIds,
+            credits: rewardCredits,
+            giftRarity: String(giftMeta?.rarity || ''),
+            choiceItemId,
+          }, atNow());
+        }
+
+        updatedSurvivors = normalizeRuntimeSurvivorList(Array.from(survivorById.values()))
+          .filter((s) => Number(s.hp || 0) > 0);
+      }
+    }
+
+    if (suddenDeathActiveRef.current && ruleset?.suddenDeath?.forceGather !== false && suddenDeathSafeZoneIds.length > 0) {
+      const aliveTeamsBeforeClash = getAliveTeams(updatedSurvivors);
+      if (aliveTeamsBeforeClash.length > 1) {
+        const clashZone = String(suddenDeathSafeZoneIds[0] || '');
+        const criticalSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5));
+        const detMax = Math.max(criticalSec + 8, Number(ruleset?.detonation?.maxSec ?? 30));
+        updatedSurvivors = normalizeRuntimeSurvivorList(
+          updatedSurvivors.map((actor) => {
+            if (!actor || Number(actor?.hp || 0) <= 0) return actor;
+            if (!clashZone || String(actor.zoneId || '') === clashZone) return actor;
+            return {
+              ...actor,
+              zoneId: clashZone,
+              detonationMaxSec: Math.max(Number(actor?.detonationMaxSec || 0), detMax),
+              detonationSec: Math.max(Number(actor?.detonationSec || 0), criticalSec + 8),
+              aiTargetZoneId: null,
+              aiTargetTTL: 0,
+            };
+          })
+        ).filter((s) => Number(s?.hp || 0) > 0);
+        addLog(`🔥 서든데스 교전 집결: 생존 팀이 ${getZoneName(clashZone)}로 진입합니다.`, 'highlight');
+        emitRunEvent('sudden_death_gather', {
+          zoneId: clashZone,
+          teamCount: aliveTeamsBeforeClash.length,
+        }, atNow());
+      }
+    }
 
     // 2.5) 페이즈 내부 틱 시뮬레이션(폭발 타이머)
     if (useDetonation && forbiddenIds.size > 0) {
@@ -5037,14 +5570,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const pvpTarget = canDual ? pickPvpTarget(potentialTargets) : null;
       const rand = Math.random();
 
+      const midgameCombatWindow = !suddenDeath && Number(nextDay || 0) >= 2 && Number(nextDay || 0) <= 4;
       const lowHpAvoidCombat = !suddenDeath && Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= Number(ruleset?.ai?.recoverHpBelow ?? 38);
       const densityFactor = Math.min(1, Math.max(0, potentialTargets.length / 3));
       const pressureMult = 0.75 + 0.25 * restrictedRatio;
       const densityMult = 0.55 + 0.45 * densityFactor;
       const nightMult = (nextPhase === 'night') ? 1.05 : 1.0;
       const actorAggro = getPerkAggressionBias(actor);
+      const midgameEncounterBonus = midgameCombatWindow ? Math.max(0, Number(pvpProbCfg.midgameEncounterBonus ?? 0.10)) : 0;
       const lowHpEncounterMult = lowHpAvoidCombat
-        ? Math.max(0.12, Math.min(1, Number(pvpProbCfg.lowHpEncounterMult ?? 0.38)))
+        ? Math.max(0.12, Math.min(1, Number(midgameCombatWindow ? (pvpProbCfg.midgameLowHpEncounterMult ?? 0.70) : (pvpProbCfg.lowHpEncounterMult ?? 0.38))))
         : 1;
       const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (battleProb * densityMult * pressureMult * nightMult * lowHpEncounterMult);
       const actorMs = getEquipMoveSpeed(actor);
@@ -5070,7 +5605,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const erEncounterBonus = suddenDeath ? 0 : Math.max(-0.08, Math.min(0.16, Number(actorEr?.aggressionBias || 0) + Number(actorEr?.chaseBonus || 0) * 0.35 - Number(actorEr?.escapeBonus || 0) * 0.45));
       const battleProb2 = isDay1MorningFarmPhase
         ? 0
-        : Math.min(0.99, Math.max(0, battleProb2Base * earlyFarmEncounterMult + gatherPvpBonus * (earlyRouteFarming ? 0.55 : 1) + objectiveEncounterBonus + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
+        : Math.min(0.99, Math.max(0, battleProb2Base * earlyFarmEncounterMult + gatherPvpBonus * (earlyRouteFarming ? 0.55 : 1) + objectiveEncounterBonus + midgameEncounterBonus + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
       if (lowHpAvoidCombat && canDual) {
         addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
       }
@@ -5824,9 +6359,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const finishBase = Math.max(0, Number(pvpCfg.earlyLethalFinishChanceBase ?? 0.12));
               const finishScale = Math.max(0, Number(pvpCfg.earlyLethalFinishChanceDayScale ?? 0.05));
               const finishRatioBonus = Math.max(0, Number(pvpCfg.earlyLethalFinishRatioBonus ?? 0.12));
+              const midgameFinishBonus = midgameCombatWindow ? Math.max(0, Number(pvpCfg.midgameLethalFinishBonus ?? 0.10)) : 0;
               const finishMax = Math.max(0, Math.min(1, Number(pvpCfg.earlyLethalFinishMax ?? 0.34)));
               const ratioBonus = Math.max(0, (ratio - 0.5) * 2) * finishRatioBonus;
-              const finishChance = Math.min(finishMax, finishBase + Math.max(0, nextDay - 1) * finishScale + ratioBonus);
+              const finishChance = Math.min(finishMax, finishBase + Math.max(0, nextDay - 1) * finishScale + ratioBonus + midgameFinishBonus);
               if (Math.random() < finishChance) {
                 const finisherDamage = Math.max(1, Math.ceil(hpAfterCombat));
                 loser.hp = 0;
@@ -6020,6 +6556,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           // 폴백: 동적 이벤트 생성
           const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems, {
             farmFocus: isDay1MorningFarmPhase || isEarlyRouteFarmingActor(actor),
+            zoneName: getZoneName(actor?.zoneId || ''),
           });
           if (eventResult && eventResult.log && !eventResult.silent) {
             addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
@@ -6114,6 +6651,65 @@ const didMove = String(nextZoneId) !== String(currentZone);
     }
 
     // 4. 킬 카운트 업데이트
+    if (suddenDeathActiveRef.current && ruleset?.suddenDeath?.forcedClash !== false) {
+      const maxClashRounds = Math.max(1, Math.floor(Number(ruleset?.suddenDeath?.forceClashMaxRounds ?? 8)));
+      const liveTeams = () => getAliveTeams(
+        Array.from(survivorMap.values())
+          .filter((s) => s && Number(s.hp || 0) > 0 && !newDeadIds.includes(s._id))
+      );
+      const scoreTeam = (team) => {
+        const members = Array.isArray(team?.members) ? team.members : [];
+        const hpSum = members.reduce((sum, m) => sum + Math.max(0, Number(m?.hp || 0)), 0);
+        const powerSum = members.reduce((sum, m) => sum + Math.max(1, Number(estimatePower(m) || 0)), 0);
+        const killSum = members.reduce((sum, m) => sum + Number(killCounts?.[m?._id] || 0) + Number(roundKills?.[m?._id] || 0), 0);
+        return powerSum + hpSum * 0.45 + killSum * 8 + Math.random() * 10;
+      };
+
+      let clashRound = 0;
+      while (clashRound < maxClashRounds) {
+        const teams = liveTeams();
+        if (teams.length <= 1) break;
+        const scored = teams
+          .map((team) => ({ team, score: scoreTeam(team) }))
+          .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+        const top = scored[0];
+        const challenger = scored[1];
+        if (!top?.team || !challenger?.team) break;
+
+        const totalScore = Math.max(1, Number(top.score || 0) + Number(challenger.score || 0));
+        const topWins = Math.random() < (Number(top.score || 0) / totalScore);
+        const winnerTeam = topWins ? top.team : challenger.team;
+        const loserTeam = topWins ? challenger.team : top.team;
+        const winnerRep = pickTeamRepresentative(winnerTeam.members, { ...killCounts, ...roundKills }, { ...assistCounts, ...roundAssists }) || winnerTeam.members?.[0];
+        const loserMembers = (Array.isArray(loserTeam?.members) ? loserTeam.members : [])
+          .map((m) => survivorMap.get(String(m?._id || '')) || m)
+          .filter((m) => m && Number(m.hp || 0) > 0 && !newDeadIds.includes(m._id));
+        if (!winnerRep || !loserMembers.length) break;
+
+        addLog(`🔥 서든데스 결판: [${winnerTeam.teamName || getActorTeamName(winnerRep)}]이(가) [${loserTeam.teamName || '상대 팀'}]을 몰아냅니다.`, 'death');
+        const winnerId = String(winnerRep?._id || '');
+        roundKills[winnerId] = (roundKills[winnerId] || 0) + loserMembers.length;
+        for (const loser of loserMembers) {
+          loser.hp = 0;
+          loser.deadAtPhaseIdx = phaseIdxNow;
+          loser.reviveEligible = false;
+          if (!newDeadIds.includes(loser._id)) newDeadIds.push(loser._id);
+          survivorMap.set(String(loser._id || ''), loser);
+          emitRunEvent('death', {
+            who: String(loser?._id || ''),
+            by: winnerId,
+            zoneId: String(loser?.zoneId || winnerRep?.zoneId || ''),
+            reason: 'sudden_death_clash',
+          }, atNow());
+        }
+        const detBonus = Math.max(5, Number(ruleset?.detonation?.killBonusSec || 5));
+        winnerRep.detonationSec = Math.max(Number(winnerRep?.detonationSec || 0), Number(ruleset?.detonation?.criticalSec || 5) + detBonus);
+        survivorMap.set(String(winnerRep._id || ''), winnerRep);
+        flushDeadSnapshots(appendPhaseDeadSnapshots(loserMembers));
+        clashRound += 1;
+      }
+    }
+
     const updatedKillCounts = { ...killCounts };
     Object.keys(roundKills).forEach((killerId) => {
       updatedKillCounts[killerId] = (updatedKillCounts[killerId] || 0) + roundKills[killerId];
@@ -6656,6 +7252,7 @@ if (showMarketPanel && pendingTranscendPick) {
             <li><Link href="/details">캐릭터 상세설정</Link></li>
             <li><Link href="/events">이벤트 설정</Link></li>
             <li><Link href="/modifiers">보정치 설정</Link></li>
+            <li><Link href="/help">도움말</Link></li>
             <li><Link href="/simulation" style={{ color: '#0288d1' }}>▶ 게임 시작</Link></li>
           </ul>
         </section>
@@ -6680,6 +7277,18 @@ if (showMarketPanel && pendingTranscendPick) {
               <div key={char._id} className="survivor-card alive">
                 <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
                 <span>{char.name}</span>
+                {(() => {
+                  const teamState = getTeamStateForActor(char);
+                  if (!teamState) return null;
+                  return (
+                    <div
+                      className={`team-status-badge ${teamState.missingCount > 0 ? 'damaged' : ''}`}
+                      title={`${teamState.teamName} 원래 팀원: ${teamState.rosterNames.join(', ') || '확인 불가'}`}
+                    >
+                      👥 {teamState.label}
+                    </div>
+                  );
+                })()}
                 <div className="skill-tag">⭐ {char.specialSkill?.name || '기본 공격'}</div>
 	                <div className={`zone-badge ${forbiddenNow.has(String(char.zoneId || '')) ? 'forbidden' : ''}`}>
 	                  📍 {getZoneName(char.zoneId || '__default__')}
@@ -6808,6 +7417,18 @@ if (showMarketPanel && pendingTranscendPick) {
               <div key={char._id} className="survivor-card dead">
                 <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
                 <span>{char.name}</span>
+                {(() => {
+                  const teamState = getTeamStateForActor(char);
+                  if (!teamState) return null;
+                  return (
+                    <div
+                      className={`team-status-badge ${teamState.missingCount > 0 ? 'damaged' : ''}`}
+                      title={`${teamState.teamName} 원래 팀원: ${teamState.rosterNames.join(', ') || '확인 불가'}`}
+                    >
+                      👥 {teamState.label}
+                    </div>
+                  );
+                })()}
                 <div className="zone-badge dead">📍 {getZoneName(char.zoneId || '__default__')}</div>
                 
                 <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
@@ -6854,6 +7475,14 @@ if (showMarketPanel && pendingTranscendPick) {
                 🧾 로그
               </button>
 
+              <button
+                className={`btn-secondary sim-devtools-btn ${showMarketPanel ? 'active' : ''}`}
+                onClick={() => setShowMarketPanel((v) => !v)}
+                style={{ padding: '6px 10px', fontSize: 12 }}
+                title="상점/조합/교환 및 테스트용 개발자 도구를 엽니다."
+              >
+                {showMarketPanel ? '🛠 도구 닫기' : '🛠 개발자'}
+              </button>
 
               <button
                 className="btn-secondary sim-refresh-btn"
@@ -6913,6 +7542,7 @@ if (showMarketPanel && pendingTranscendPick) {
 
   const unopenedCrates = (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : []).filter((c) => c && !c.opened).length;
   const unopenedTranscendCrates = (Array.isArray(s.transcendCrates) ? s.transcendCrates : []).filter((c) => c && !c.opened).length;
+  const activeDimensionRifts = listActiveDimensionRifts(s).length;
   const unpickedCore = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked).length;
 
   const meteorCnt = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked && String(n.kind) === 'meteor').length;
@@ -6931,14 +7561,15 @@ if (showMarketPanel && pendingTranscendPick) {
   const wildlifeTotal = eligibleWildZones.reduce((sum, zid) => sum + Math.max(0, Number(wildlifeMap?.[zid] ?? 0)), 0);
   const wildlifeEmpty = eligibleWildZones.reduce((cnt, zid) => cnt + ((Math.max(0, Number(wildlifeMap?.[zid] ?? 0)) <= 0) ? 1 : 0), 0);
 
-  if (!unopenedCrates && !unopenedTranscendCrates && !unpickedCore && !alphaOn && !omegaOn && !weaklineOn && wildlifeTotal <= 0) return null;
+  if (!unopenedCrates && !unopenedTranscendCrates && !activeDimensionRifts && !unpickedCore && !alphaOn && !omegaOn && !weaklineOn && wildlifeTotal <= 0) return null;
 
   return (
     <div className="worldspawn-toolbar">
       <span className="ws-title">🌍 월드스폰</span>
       <span className="ws-chip">🟪 전설상자: <b>{unopenedCrates}</b></span>
       <span className="ws-chip">🎁 초월상자: <b>{unopenedTranscendCrates}</b></span>
-      <span className="ws-chip">🌠 자연코어: 운석 <b>{meteorCnt}</b> / 생나 <b>{lifeTreeCnt}</b></span>
+      <span className="ws-chip">🌀 차원의 틈: <b>{activeDimensionRifts}</b></span>
+      <span className="ws-chip">🌠 오브젝트: 운석 <b>{meteorCnt}</b> / 생나 <b>{lifeTreeCnt}</b></span>
       <span className="ws-chip" title="시간대별 종별 야생동물 스폰">🦌 야생동물: <b>{wildlifeTotal}</b>{wildlifeEmpty > 0 ? ` (빈구역 ${wildlifeEmpty})` : ''}</span>
       <span className="ws-chip">👹 알파: <b>{alphaOn ? 'ON' : 'off'}</b></span>
       <span className="ws-chip">👹 오메가: <b>{omegaOn ? 'ON' : 'off'}</b></span>
@@ -7304,7 +7935,7 @@ if (showMarketPanel && pendingTranscendPick) {
               )}
 
               <button
-                className="btn-secondary"
+                className={`btn-secondary sim-devtools-control ${showMarketPanel ? 'active' : ''}`}
                 onClick={() => setShowMarketPanel((v) => !v)}
                 title="관전자 모드에서는 기본적으로 숨겨두고, 테스트할 때만 열어쓰세요."
               >
@@ -7356,6 +7987,49 @@ if (showMarketPanel && pendingTranscendPick) {
                   <option key={c._id} value={c._id}>{c.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="market-row" style={{ marginTop: 10, gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="market-mini-btn"
+                onClick={() => exportBattleLog('md')}
+                title="1일차 낮부터 현재까지 누적된 전투 로그를 Markdown 파일로 저장합니다."
+              >
+                로그 MD
+              </button>
+              <button
+                type="button"
+                className="market-mini-btn"
+                onClick={() => exportBattleLog('json')}
+                title="1일차 낮부터 현재까지 누적된 전투 로그와 runEvents를 JSON 파일로 저장합니다."
+              >
+                로그 JSON
+              </button>
+              <button
+                type="button"
+                className={`market-mini-btn ${showDevEventLog ? 'active' : ''}`}
+                onClick={() => setShowDevEventLog((v) => !v)}
+                title="큰 JSON 문자열 생성은 필요할 때만 켭니다."
+              >
+                {showDevEventLog ? '이벤트 JSON 숨김' : '이벤트 JSON'}
+              </button>
+              <button
+                type="button"
+                className={`market-mini-btn ${showDevDebugDetails ? 'active' : ''}`}
+                onClick={() => setShowDevDebugDetails((v) => !v)}
+                title="AI/제작/런 메트릭 상세 카드를 필요할 때만 렌더합니다."
+              >
+                {showDevDebugDetails ? '상세 디버그 숨김' : '상세 디버그'}
+              </button>
+              <button
+                type="button"
+                className={`market-mini-btn ${showAllMarketRows ? 'active' : ''}`}
+                onClick={() => setShowAllMarketRows((v) => !v)}
+                title={`상점 목록은 기본 ${MARKET_CARD_RENDER_LIMIT}개만 렌더합니다.`}
+              >
+                {showAllMarketRows ? '목록 빠르게' : `목록 ${MARKET_CARD_RENDER_LIMIT}개`}
+              </button>
             </div>
 
             <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
@@ -7452,30 +8126,37 @@ if (showMarketPanel && pendingTranscendPick) {
               </div>
             </div>
 
-            <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
-              <div className="market-title">🧾 이벤트 로그(JSON)</div>
-              <div className="market-small">runEvents: <strong>{runEvents.length}</strong>개 (최근 200개만 표시)</div>
-              <textarea
-                readOnly
-                value={JSON.stringify((Array.isArray(runEvents) ? runEvents : []).slice(-200), null, 2)}
-                style={{ width: '100%', minHeight: 160, marginTop: 8 }}
-              />
-              <div className="market-actions" style={{ marginTop: 8 }}>
-                <button
-                  onClick={() => {
-                    try {
-                      navigator.clipboard?.writeText(JSON.stringify(runEvents, null, 2));
-                      addLog('✅ 이벤트 로그 복사 완료', 'system');
-                    } catch (e) {
-                      addLog('⚠️ 이벤트 로그 복사 실패', 'death');
-                    }
-                  }}
-                  disabled={!runEvents.length}
-                >
-                  전체 복사
-                </button>
+            {showDevEventLog ? (
+              <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                <div className="market-title">🧾 이벤트 로그(JSON)</div>
+                <div className="market-small">runEvents: <strong>{runEvents.length}</strong>개 (최근 {DEV_EVENT_PREVIEW_LIMIT}개만 표시)</div>
+                <textarea
+                  readOnly
+                  value={runEventsPreviewText}
+                  style={{ width: '100%', minHeight: 160, marginTop: 8 }}
+                />
+                <div className="market-actions" style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() => {
+                      try {
+                        navigator.clipboard?.writeText(JSON.stringify(runEvents, null, 2));
+                        addLog('✅ 이벤트 로그 복사 완료', 'system');
+                      } catch (e) {
+                        addLog('⚠️ 이벤트 로그 복사 실패', 'death');
+                      }
+                    }}
+                    disabled={!runEvents.length}
+                  >
+                    전체 복사
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+                <div className="market-title">🧾 이벤트 로그(JSON)</div>
+                <div className="market-small">runEvents: <strong>{runEvents.length}</strong>개 · 필요할 때만 위의 이벤트 JSON 버튼을 켜세요.</div>
+              </div>
+            )}
 
             <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
               <div className="market-title">🌍 런 전체 요약</div>
@@ -7547,6 +8228,13 @@ if (showMarketPanel && pendingTranscendPick) {
               <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
                 <div className="market-title">🛠 아이템 지급(개발자)</div>
                 <div className="market-small">선택 캐릭터에게 아이템을 직접 지급합니다. 장비 아이템은 지급 후 자동 장착 규칙을 다시 적용합니다.</div>
+                <input
+                  value={devGrantSearch}
+                  onChange={(e) => setDevGrantSearch(e.target.value)}
+                  placeholder={`아이템 검색 후 선택 (표시 ${visibleDevGrantItemOptions.length}/${devGrantItemOptions.length})`}
+                  style={{ width: '100%', marginTop: 8 }}
+                  disabled={isAdvancing || isGameOver}
+                />
                 <div className="market-row" style={{ marginTop: 8, gap: 8 }}>
                   <select
                     value={devGrantItemId}
@@ -7555,7 +8243,7 @@ if (showMarketPanel && pendingTranscendPick) {
                     disabled={isAdvancing || isGameOver || devGrantItemOptions.length === 0}
                   >
                     <option value="">(아이템 선택)</option>
-                    {devGrantItemOptions.map((it) => (
+                    {visibleDevGrantItemOptions.map((it) => (
                       <option key={`dev-grant-${it._id}`} value={it._id}>
                         {it._label}
                       </option>
@@ -7614,7 +8302,7 @@ if (showMarketPanel && pendingTranscendPick) {
               );
             })() : null}
 
-            {selectedCharId && selectedChar ? (() => {
+            {showDevDebugDetails && selectedCharId && selectedChar ? (() => {
               const dbg = selectedChar?._craftDebug || null;
               return (
                 <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
@@ -7634,7 +8322,7 @@ if (showMarketPanel && pendingTranscendPick) {
               );
             })() : null}
 
-            {selectedCharId && selectedChar ? (() => {
+            {showDevDebugDetails && selectedCharId && selectedChar ? (() => {
               const ai = selectedChar?._aiDebug || null;
               return (
                 <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
@@ -7672,7 +8360,7 @@ if (showMarketPanel && pendingTranscendPick) {
               );
             })() : null}
 
-            {selectedCharId && selectedChar ? (() => {
+            {showDevDebugDetails && selectedCharId && selectedChar ? (() => {
               const rp = runProgressSummary || null;
               return (
                 <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
@@ -7773,34 +8461,41 @@ if (showMarketPanel && pendingTranscendPick) {
               {craftables.length === 0 ? (
                 <div className="market-card">조합 가능한 아이템이 없습니다. (관리자에서 레시피를 등록하세요)</div>
               ) : (
-                craftables.map((it) => (
-                  <div key={it._id} className="market-card">
-                    <div className="market-row">
-                      <div>
-                        <div className="market-title">{it.name}</div>
-                        <div className="market-small">tier {it.tier || 1} · {it.rarity || 'common'} · 비용 {Number(it?.recipe?.creditsCost || 0)} Cr</div>
+                <>
+                  {visibleCraftables.map((it) => (
+                    <div key={it._id} className="market-card">
+                      <div className="market-row">
+                        <div>
+                          <div className="market-title">{it.name}</div>
+                          <div className="market-small">tier {it.tier || 1} · {it.rarity || 'common'} · 비용 {Number(it?.recipe?.creditsCost || 0)} Cr</div>
+                        </div>
+                      </div>
+
+                      <div className="market-small" style={{ marginTop: 8 }}>
+                        재료: {(it.recipe.ingredients || []).map((ing) => {
+                          const ingId = String(ing.itemId);
+                          const ingName = itemNameById[ingId] || ingId;
+                          return `${ingName} x${Number(ing.qty || 1)}`;
+                        }).join(', ')}
+                      </div>
+
+                      <div className="market-actions" style={{ marginTop: 10 }}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={getQty(`craft:${it._id}`, 1)}
+                          onChange={(e) => setQty(`craft:${it._id}`, e.target.value)}
+                        />
+                        <button onClick={() => doCraft(it._id)} disabled={!selectedCharId}>조합</button>
                       </div>
                     </div>
-
-                    <div className="market-small" style={{ marginTop: 8 }}>
-                      재료: {(it.recipe.ingredients || []).map((ing) => {
-                        const ingId = String(ing.itemId);
-                        const ingName = itemNameById[ingId] || ingId;
-                        return `${ingName} x${Number(ing.qty || 1)}`;
-                      }).join(', ')}
-                    </div>
-
-                    <div className="market-actions" style={{ marginTop: 10 }}>
-                      <input
-                        type="number"
-                        min={1}
-                        value={getQty(`craft:${it._id}`, 1)}
-                        onChange={(e) => setQty(`craft:${it._id}`, e.target.value)}
-                      />
-                      <button onClick={() => doCraft(it._id)} disabled={!selectedCharId}>조합</button>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                  {craftables.length > visibleCraftables.length ? (
+                    <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
+                      조합 목록 더 보기 ({visibleCraftables.length}/{craftables.length})
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}
@@ -7810,57 +8505,69 @@ if (showMarketPanel && pendingTranscendPick) {
               {kiosks.length === 0 ? (
                 <div className="market-card">키오스크가 없습니다. (관리자에서 키오스크/카탈로그를 등록하세요)</div>
               ) : (
-                kiosks.map((k) => (
-                  <div key={k._id} className="market-card">
-                    <div className="market-row">
-                      <div>
-                        <div className="market-title">{k.name || '키오스크'}</div>
-                        <div className="market-small">위치: {k.mapId?.name || '미지정'}</div>
+                <>
+                  {visibleKiosks.map((k) => (
+                    <div key={k._id} className="market-card">
+                      <div className="market-row">
+                        <div>
+                          <div className="market-title">{k.name || '키오스크'}</div>
+                          <div className="market-small">위치: {k.mapId?.name || '미지정'}</div>
+                        </div>
+                        <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
                       </div>
-                      <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
-                    </div>
 
-                    <div style={{ marginTop: 10 }}>
-                      {(Array.isArray(k.catalog) ? k.catalog : []).map((entry, idx) => {
-                        const mode = entry.mode || 'sell';
-                        const label = mode === 'sell' ? '구매' : mode === 'buy' ? '판매' : '교환';
-                        const price = Math.max(0, Number(entry.priceCredits || 0));
+                      <div style={{ marginTop: 10 }}>
+                        {(Array.isArray(k.catalog) ? k.catalog : []).slice(0, showAllMarketRows ? undefined : MARKET_CARD_RENDER_LIMIT).map((entry, idx) => {
+                          const mode = entry.mode || 'sell';
+                          const label = mode === 'sell' ? '구매' : mode === 'buy' ? '판매' : '교환';
+                          const price = Math.max(0, Number(entry.priceCredits || 0));
 
-                        const itemId = entry.itemId?._id || entry.itemId;
-                        const itemName = entry.itemId?.name || itemNameById[String(itemId)] || String(itemId || '미지정');
+                          const itemId = entry.itemId?._id || entry.itemId;
+                          const itemName = entry.itemId?.name || itemNameById[String(itemId)] || String(itemId || '미지정');
 
-                        const exId = entry.exchange?.giveItemId?._id || entry.exchange?.giveItemId;
-                        const exName = entry.exchange?.giveItemId?.name || (exId ? (itemNameById[String(exId)] || String(exId)) : '');
-                        const exQty = Number(entry.exchange?.giveQty || 1);
+                          const exId = entry.exchange?.giveItemId?._id || entry.exchange?.giveItemId;
+                          const exName = entry.exchange?.giveItemId?.name || (exId ? (itemNameById[String(exId)] || String(exId)) : '');
+                          const exQty = Number(entry.exchange?.giveQty || 1);
 
-                        return (
-                          <div key={idx} className="market-subcard">
-                            <div className="market-row">
-                              <div>
-                                <div className="market-title">{label}: {itemName}</div>
-                                <div className="market-small">
-                                  {mode === 'exchange'
-                                    ? `재료: ${exName || '미지정'} x${exQty}`
-                                    : `단가: ${price} Cr`}
+                          return (
+                            <div key={idx} className="market-subcard">
+                              <div className="market-row">
+                                <div>
+                                  <div className="market-title">{label}: {itemName}</div>
+                                  <div className="market-small">
+                                    {mode === 'exchange'
+                                      ? `재료: ${exName || '미지정'} x${exQty}`
+                                      : `단가: ${price} Cr`}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="market-actions" style={{ marginTop: 8 }}>
-                              <input
-                                type="number"
-                                min={1}
-                                value={getQty(`kiosk:${k._id}:${idx}`, 1)}
-                                onChange={(e) => setQty(`kiosk:${k._id}:${idx}`, e.target.value)}
-                              />
-                              <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId || !itemId}>실행</button>
+                              <div className="market-actions" style={{ marginTop: 8 }}>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={getQty(`kiosk:${k._id}:${idx}`, 1)}
+                                  onChange={(e) => setQty(`kiosk:${k._id}:${idx}`, e.target.value)}
+                                />
+                                <button onClick={() => doKioskTransaction(k._id, idx)} disabled={!selectedCharId || !itemId}>실행</button>
+                              </div>
                             </div>
+                          );
+                        })}
+                        {!showAllMarketRows && Array.isArray(k.catalog) && k.catalog.length > MARKET_CARD_RENDER_LIMIT ? (
+                          <div className="market-small" style={{ marginTop: 8 }}>
+                            카탈로그 {MARKET_CARD_RENDER_LIMIT}/{k.catalog.length}개 표시 중
                           </div>
-                        );
-                      })}
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {kiosks.length > visibleKiosks.length ? (
+                    <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
+                      키오스크 더 보기 ({visibleKiosks.length}/{kiosks.length})
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}
@@ -7870,26 +8577,33 @@ if (showMarketPanel && pendingTranscendPick) {
               {droneOffers.length === 0 ? (
                 <div className="market-card">드론 판매 목록이 없습니다. (관리자에서 드론 판매를 등록하세요)</div>
               ) : (
-                droneOffers.map((o) => (
-                  <div key={o._id} className="market-card">
-                    <div className="market-row">
-                      <div>
-                        <div className="market-title">{o.itemId?.name || '아이템'}</div>
-                        <div className="market-small">가격: {Math.max(0, Number(o.priceCredits || 0))} Cr · 티어 제한 ≤ {Number(o.maxTier || 1)}</div>
+                <>
+                  {visibleDroneOffers.map((o) => (
+                    <div key={o._id} className="market-card">
+                      <div className="market-row">
+                        <div>
+                          <div className="market-title">{o.itemId?.name || '아이템'}</div>
+                          <div className="market-small">가격: {Math.max(0, Number(o.priceCredits || 0))} Cr · 티어 제한 ≤ {Number(o.maxTier || 1)}</div>
+                        </div>
+                        <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
                       </div>
-                      <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
+                      <div className="market-actions" style={{ marginTop: 10 }}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={getQty(`drone:${o._id}`, 1)}
+                          onChange={(e) => setQty(`drone:${o._id}`, e.target.value)}
+                        />
+                        <button onClick={() => doDroneBuy(o._id)} disabled={!selectedCharId}>구매</button>
+                      </div>
                     </div>
-                    <div className="market-actions" style={{ marginTop: 10 }}>
-                      <input
-                        type="number"
-                        min={1}
-                        value={getQty(`drone:${o._id}`, 1)}
-                        onChange={(e) => setQty(`drone:${o._id}`, e.target.value)}
-                      />
-                      <button onClick={() => doDroneBuy(o._id)} disabled={!selectedCharId}>구매</button>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                  {droneOffers.length > visibleDroneOffers.length ? (
+                    <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
+                      드론 목록 더 보기 ({visibleDroneOffers.length}/{droneOffers.length})
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}
@@ -7900,29 +8614,36 @@ if (showMarketPanel && pendingTranscendPick) {
               {publicPerks.length === 0 ? (
                 <div className="market-card">활성 특전이 없습니다. (관리자에서 특전을 등록하세요)</div>
               ) : (
-                publicPerks.map((perk) => {
-                  const code = String(perk?.code || '');
-                  const owned = ownedPerkCodeSet.has(code);
-                  const cost = Math.max(0, Number(perk?.lpCost || 0));
-                  const desc = String(perk?.description || perk?.effectText || perk?.summary || '').trim();
-                  return (
-                    <div key={perk?._id || code} className="market-card">
-                      <div className="market-row">
-                        <div>
-                          <div className="market-title">{perk?.name || code || '특전'}</div>
-                          <div className="market-small">코드: {code || '-'} · 비용: {cost} LP{perk?.category ? ` · ${perk.category}` : ''}</div>
+                <>
+                  {visiblePublicPerks.map((perk) => {
+                    const code = String(perk?.code || '');
+                    const owned = ownedPerkCodeSet.has(code);
+                    const cost = Math.max(0, Number(perk?.lpCost || 0));
+                    const desc = String(perk?.description || perk?.effectText || perk?.summary || '').trim();
+                    return (
+                      <div key={perk?._id || code} className="market-card">
+                        <div className="market-row">
+                          <div>
+                            <div className="market-title">{perk?.name || code || '특전'}</div>
+                            <div className="market-small">코드: {code || '-'} · 비용: {cost} LP{perk?.category ? ` · ${perk.category}` : ''}</div>
+                          </div>
+                          <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
                         </div>
-                        <button onClick={() => { void fireAndReport('market.refresh', () => loadMarket()); }} className="market-mini-btn">새로고침</button>
+                        {desc ? <div className="market-small" style={{ marginTop: 8 }}>{desc}</div> : null}
+                        <div className="market-actions" style={{ marginTop: 10 }}>
+                          <button onClick={() => doPerkPurchase(code)} disabled={!code || owned || Number(viewerLp || 0) < cost}>
+                            {owned ? '보유 중' : `구매 (${cost} LP)`}
+                          </button>
+                        </div>
                       </div>
-                      {desc ? <div className="market-small" style={{ marginTop: 8 }}>{desc}</div> : null}
-                      <div className="market-actions" style={{ marginTop: 10 }}>
-                        <button onClick={() => doPerkPurchase(code)} disabled={!code || owned || Number(viewerLp || 0) < cost}>
-                          {owned ? '보유 중' : `구매 (${cost} LP)`}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                  {publicPerks.length > visiblePublicPerks.length ? (
+                    <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
+                      특전 더 보기 ({visiblePublicPerks.length}/{publicPerks.length})
+                    </button>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}
@@ -7937,25 +8658,32 @@ if (showMarketPanel && pendingTranscendPick) {
               {tradeOffers.length === 0 ? (
                 <div className="market-card">현재 오픈 오퍼가 없습니다.</div>
               ) : (
-                tradeOffers.map((off) => (
-                  <div key={off._id} className="market-card">
-                    <div className="market-title">{off.fromCharacterId?.name || '상대'}의 오퍼</div>
-                    <div className="market-small" style={{ marginTop: 6 }}>
-                      주는 것: {(Array.isArray(off.give) ? off.give : []).map((g) => `${g.itemId?.name || g.itemId} x${g.qty}`).join(', ')}
-                    </div>
-                    <div className="market-small" style={{ marginTop: 4 }}>
-                      원하는 것: {(Array.isArray(off.want) ? off.want : []).length
-                        ? (Array.isArray(off.want) ? off.want : []).map((w) => `${w.itemId?.name || w.itemId} x${w.qty}`).join(', ')
-                        : '없음'}
-                      {Number(off.wantCredits || 0) > 0 ? ` + ${Number(off.wantCredits)} Cr` : ''}
-                    </div>
-                    {off.note ? <div className="market-small" style={{ marginTop: 6 }}>메모: {off.note}</div> : null}
+                <>
+                  {visibleTradeOffers.map((off) => (
+                    <div key={off._id} className="market-card">
+                      <div className="market-title">{off.fromCharacterId?.name || '상대'}의 오퍼</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>
+                        주는 것: {(Array.isArray(off.give) ? off.give : []).map((g) => `${g.itemId?.name || g.itemId} x${g.qty}`).join(', ')}
+                      </div>
+                      <div className="market-small" style={{ marginTop: 4 }}>
+                        원하는 것: {(Array.isArray(off.want) ? off.want : []).length
+                          ? (Array.isArray(off.want) ? off.want : []).map((w) => `${w.itemId?.name || w.itemId} x${w.qty}`).join(', ')
+                          : '없음'}
+                        {Number(off.wantCredits || 0) > 0 ? ` + ${Number(off.wantCredits)} Cr` : ''}
+                      </div>
+                      {off.note ? <div className="market-small" style={{ marginTop: 6 }}>메모: {off.note}</div> : null}
 
-                    <div className="market-actions" style={{ marginTop: 10 }}>
-                      <button onClick={() => acceptTradeOffer(off._id)} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
+                      <div className="market-actions" style={{ marginTop: 10 }}>
+                        <button onClick={() => acceptTradeOffer(off._id)} disabled={!selectedCharId || String(off?.fromCharacterId?._id || '') === String(selectedCharId)}>수락</button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {tradeOffers.length > visibleTradeOffers.length ? (
+                    <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
+                      오픈 오퍼 더 보기 ({visibleTradeOffers.length}/{tradeOffers.length})
+                    </button>
+                  ) : null}
+                </>
               )}
 
               <div className="market-row" style={{ marginTop: 16, marginBottom: 8 }}>
@@ -7966,25 +8694,32 @@ if (showMarketPanel && pendingTranscendPick) {
               {myTradeOffers.length === 0 ? (
                 <div className="market-card">내 오퍼가 없습니다.</div>
               ) : (
-                myTradeOffers.map((off) => (
-                  <div key={off._id} className="market-card">
-                    <div className="market-title">상태: {off.status}</div>
-                    <div className="market-small" style={{ marginTop: 6 }}>
-                      주는 것: {(Array.isArray(off.give) ? off.give : []).map((g) => `${g.itemId?.name || g.itemId} x${g.qty}`).join(', ')}
+                <>
+                  {visibleMyTradeOffers.map((off) => (
+                    <div key={off._id} className="market-card">
+                      <div className="market-title">상태: {off.status}</div>
+                      <div className="market-small" style={{ marginTop: 6 }}>
+                        주는 것: {(Array.isArray(off.give) ? off.give : []).map((g) => `${g.itemId?.name || g.itemId} x${g.qty}`).join(', ')}
+                      </div>
+                      <div className="market-small" style={{ marginTop: 4 }}>
+                        원하는 것: {(Array.isArray(off.want) ? off.want : []).length
+                          ? (Array.isArray(off.want) ? off.want : []).map((w) => `${w.itemId?.name || w.itemId} x${w.qty}`).join(', ')
+                          : '없음'}
+                        {Number(off.wantCredits || 0) > 0 ? ` + ${Number(off.wantCredits)} Cr` : ''}
+                      </div>
+                      <div className="market-actions" style={{ marginTop: 10 }}>
+                        {off.status === 'open' ? (
+                          <button onClick={() => cancelTradeOffer(off._id)}>취소</button>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="market-small" style={{ marginTop: 4 }}>
-                      원하는 것: {(Array.isArray(off.want) ? off.want : []).length
-                        ? (Array.isArray(off.want) ? off.want : []).map((w) => `${w.itemId?.name || w.itemId} x${w.qty}`).join(', ')
-                        : '없음'}
-                      {Number(off.wantCredits || 0) > 0 ? ` + ${Number(off.wantCredits)} Cr` : ''}
-                    </div>
-                    <div className="market-actions" style={{ marginTop: 10 }}>
-                      {off.status === 'open' ? (
-                        <button onClick={() => cancelTradeOffer(off._id)}>취소</button>
-                      ) : null}
-                    </div>
-                  </div>
-                ))
+                  ))}
+                  {myTradeOffers.length > visibleMyTradeOffers.length ? (
+                    <button type="button" className="market-mini-btn" onClick={() => setShowAllMarketRows(true)}>
+                      내 오퍼 더 보기 ({visibleMyTradeOffers.length}/{myTradeOffers.length})
+                    </button>
+                  ) : null}
+                </>
               )}
 
               <div className="market-card" style={{ marginTop: 18 }}>
@@ -8042,6 +8777,12 @@ if (showMarketPanel && pendingTranscendPick) {
 
                 <div style={{ marginTop: 14 }}>
                   <div className="market-small" style={{ fontWeight: 800 }}>원하는 것 (want)</div>
+                  <input
+                    value={tradeWantSearch}
+                    onChange={(e) => setTradeWantSearch(e.target.value)}
+                    placeholder={`원하는 아이템 검색 (표시 ${tradeWantItemOptions.length}/${publicItems.length})`}
+                    style={{ width: '100%', marginTop: 8 }}
+                  />
                   {(Array.isArray(tradeDraft.want) ? tradeDraft.want : []).map((row, idx) => (
                     <div key={idx} className="market-row" style={{ marginTop: 8, gap: 8 }}>
                       <select
@@ -8054,7 +8795,7 @@ if (showMarketPanel && pendingTranscendPick) {
                         style={{ flex: 1 }}
                       >
                         <option value="">(선택 안 함)</option>
-                        {publicItems.map((it) => (
+                        {tradeWantItemOptions.map((it) => (
                           <option key={it._id} value={it._id}>{it.name} (tier {it.tier || 1})</option>
                         ))}
                       </select>
@@ -8135,6 +8876,7 @@ if (showMarketPanel && pendingTranscendPick) {
         topRankedCharacters={topRankedCharacters}
         killCounts={killCounts}
         assistCounts={assistCounts}
+        onExportBattleLog={exportBattleLog}
         onClose={() => setShowResultModal(false)}
       />
 

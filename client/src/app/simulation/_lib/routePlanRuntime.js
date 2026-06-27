@@ -5,6 +5,7 @@ import { classifySpecialByName, pickGoalLoadoutKeys } from './craftRuntime';
 import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
 import { getRegionZoneWeightsForItem } from './lumiaRegionData';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 
 function normId(v) {
   return String(v?._id || v?.itemId || v?.id || v || '').trim();
@@ -29,6 +30,7 @@ function buildItemIndexes(publicItems) {
 
 function isEarlyRouteScorableItem(item) {
   if (!item || typeof item !== 'object') return true;
+  if (isItemExcludedFromFieldFarming(item)) return false;
   const name = String(item?.name || item?.text || '');
   if (classifySpecialByName(name)) return false;
 
@@ -91,6 +93,7 @@ function pickFallbackRouteTargets(actor, publicItems) {
   const bySlot = new Map();
 
   for (const it of Array.isArray(publicItems) ? publicItems : []) {
+    if (isItemExcludedFromFieldFarming(it)) continue;
     if (!Array.isArray(it?.recipe?.ingredients) || !it.recipe.ingredients.length) continue;
     if (inferItemCategory(it) !== 'equipment') continue;
 

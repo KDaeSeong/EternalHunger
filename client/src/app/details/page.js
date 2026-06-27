@@ -243,6 +243,7 @@ export default function DetailsPage() {
             <li><Link href="/details">캐릭터 상세설정</Link></li>
             <li><Link href="/events">이벤트 설정</Link></li>
             <li><Link href="/modifiers">보정치 설정</Link></li>
+            <li><Link href="/help">도움말</Link></li>
             
             {/* 3. 게임 시작 버튼 (강조) */}
             <li><Link href="/simulation" style={{color:'#0288d1', fontWeight:'bold'}}>▶ 게임 시작</Link></li>
@@ -313,6 +314,7 @@ export default function DetailsPage() {
                 <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                   <div style={{ fontSize: 12, color: '#666' }}>
                     목표: {GOAL_GEAR_TIERS.find((t) => t.value === Number(char?.goalGearTier || 6))?.label || '초월'} / 전술: {String(char?.tacticalSkill || '블링크')}
+                    <Link href="/help" className="inline-help-link" title="목표, 전술, 장비 용어 설명 보기">?</Link>
                   </div>
                   <button
                     type="button"
@@ -377,7 +379,10 @@ export default function DetailsPage() {
 
                 <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
                   <label style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: '#333' }}>목표 장비 등급</span>
+                    <span style={{ fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      목표 장비 등급
+                      <Link href="/help" className="inline-help-link" title="목표 장비 등급 설명 보기">?</Link>
+                    </span>
                     <select value={String(editGoalGearTier)} onChange={(e) => setEditGoalGearTier(Number(e.target.value))}>
                       {GOAL_GEAR_TIERS.map((t) => (
                         <option key={t.value} value={String(t.value)}>{t.label}</option>
@@ -386,7 +391,10 @@ export default function DetailsPage() {
                   </label>
 
                   <label style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: '#333' }}>전술 스킬 (시즌 11 일반)</span>
+                    <span style={{ fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      전술 스킬 (시즌 11 일반)
+                      <Link href="/help" className="inline-help-link" title="전술 스킬 설명 보기">?</Link>
+                    </span>
                     <select value={String(editTacticalSkill)} onChange={(e) => setEditTacticalSkill(e.target.value)}>
                       {TACTICAL_SKILL_OPTIONS_KO.map((s) => (
                         <option key={s} value={s}>{s}</option>

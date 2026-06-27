@@ -19,6 +19,7 @@ import {
   normalizeAnimalDropSource,
   rollSpecialResourceDrops,
 } from './specialResourceRuntime';
+import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 
 function openSpawnedLegendaryCrate(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
   const s = spawnState;
@@ -120,6 +121,7 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
     const out = [];
     for (const it of list) {
       if (!it?._id) continue;
+      if (isItemExcludedFromFieldFarming(it)) continue;
       const id = String(it._id);
       const sp = classifySpecialByName(it?.name);
       if (sp) continue;
@@ -412,7 +414,7 @@ function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, cu
     damage: dmg,
     credits: credit,
     drops,
-    log: `🧪 변이 야생동물(${animal}) 처치! (+${credit} Cr)`,
+    log: `🧪 변이 ${animal} 처치! (+${credit} Cr)`,
   };
 }
 

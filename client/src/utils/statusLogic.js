@@ -706,16 +706,20 @@ export function updateEffects(character, opts = {}) {
       const stacks = Math.max(1, Number(eff?.stacks || 1));
       const dotDamage = Math.max(0, Number(eff?.dotDamage || meta?.defaultDotDamage || 0));
       const recovery = Math.max(0, Number(eff?.recovery || meta?.defaultRecovery || 0));
+      const remainingBefore = Number(eff?.remainingDuration);
+      const activeSec = Number.isFinite(remainingBefore)
+        ? Math.max(0, Math.min(elapsedSec, Math.floor(remainingBefore)))
+        : tickCount;
 
-      if (dotDamage > 0 && tags.has('dot')) {
-        const dmg = dotDamage * stacks * tickCount;
+      if (activeSec > 0 && dotDamage > 0 && tags.has('dot')) {
+        const dmg = dotDamage * stacks * activeSec;
         hpChange -= dmg;
-        ticks.push({ type: 'damage', name: eff.name, amount: dmg, stacks, seconds: tickCount });
+        ticks.push({ type: 'damage', name: eff.name, amount: dmg, stacks, seconds: activeSec });
       }
-      if (recovery > 0 && tags.has('regen')) {
-        const heal = applyHealingModifier(character, recovery * stacks * tickCount);
+      if (activeSec > 0 && recovery > 0 && tags.has('regen')) {
+        const heal = applyHealingModifier(character, recovery * stacks * activeSec);
         hpChange += heal;
-        ticks.push({ type: 'heal', name: eff.name, amount: heal, stacks, seconds: tickCount });
+        ticks.push({ type: 'heal', name: eff.name, amount: heal, stacks, seconds: activeSec });
       }
 
       if (eff?.remainingDuration == null) return eff;

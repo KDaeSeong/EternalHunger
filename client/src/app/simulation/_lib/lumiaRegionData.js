@@ -1,4 +1,5 @@
 import { normalizeMatchKey, pickWeighted } from './simulationCommon';
+import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 
 // Generated from the attached Lumia Island region reference.
 // Keep this file deterministic: runtime code consumes zone loot, resource, wildlife, and facility data from here.
@@ -944,6 +945,7 @@ function listRegionLootCandidates(zoneId, publicItems, opts = {}) {
   return list
     .map((item) => {
       if (!item?._id) return null;
+      if (isItemExcludedFromFieldFarming(item)) return null;
       if (filterItem && !filterItem(item)) return null;
       const score = regionItemMatchScore(item, region);
       if (score <= 0) return null;

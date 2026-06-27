@@ -110,6 +110,7 @@ export default function ModifiersPage() {
             <li><Link href="/details">캐릭터 상세설정</Link></li>
             <li><Link href="/events">이벤트 설정</Link></li>
             <li><Link href="/modifiers" style={{color:'#0288d1'}}>보정치 설정</Link></li>
+            <li><Link href="/help">도움말</Link></li>
             <li><Link href="/simulation" style={{fontWeight:'bold'}}>▶ 게임 시작</Link></li>
 
             <li className="auth-menu">

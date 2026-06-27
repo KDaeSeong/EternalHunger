@@ -108,6 +108,30 @@ main {
     transform: translateY(-2px);
 }
 
+.inline-help-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    margin-left: 4px;
+    border: 1px solid rgba(65, 133, 179, 0.28);
+    border-radius: 50%;
+    background: #fff;
+    color: #2a6285;
+    font-size: 0.78rem;
+    font-weight: 900;
+    line-height: 1;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.inline-help-link:hover {
+    border-color: #2a6285;
+    background: rgba(65, 133, 179, 0.08);
+}
+
 
 /* === 기타 캐릭터 설정 페이지 스타일 (기존 유지/정리) === */
 #characterRowContainer {

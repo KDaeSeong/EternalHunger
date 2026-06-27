@@ -184,6 +184,12 @@ const myKillsTop3 = myCharTop3.kills;
             <p>LP로 칭호, 배지, 프레임 같은 치장 특전을 구매합니다.</p>
         </Link>
 
+        <Link href="/help" className="menu-card">
+            <div className="icon">?</div>
+            <h3>초보자 도움말</h3>
+            <p>목표, 전술, 장비, 로그 용어를 처음 보는 사람 기준으로 설명합니다.</p>
+        </Link>
+
         {user?.isAdmin ? (
           <Link href="/admin" className="menu-card">
               <div className="icon">🛠️</div>

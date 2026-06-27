@@ -25,28 +25,33 @@ const isWeaponItem = (item) => {
 
 const pickWeapon = (character) => {
   const inv = Array.isArray(character?.inventory) ? character.inventory : [];
-  // ✅ 장착 우선
   const eqId = String(character?.equipped?.weapon || '');
-  if (eqId) {
-    const picked = inv.find((i) => String(i?.itemId || i?.id || i?._id || '') === eqId);
-    if (picked) return picked;
-  }
+  const equipped = eqId
+    ? inv.find((i) => String(i?.itemId || i?.id || i?._id || '') === eqId)
+    : null;
   const candidates = inv.filter((i) => String(i?.equipSlot || '') === 'weapon' || isWeaponItem(i));
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => getTier(b) - getTier(a));
-  return candidates[0];
+  const best = candidates[0] || null;
+  if (!equipped) return best;
+  if (!best) return equipped;
+  return getTier(best) > getTier(equipped) ? best : equipped;
 };
 
 const pickEquipBySlot = (character, slot) => {
   const inv = Array.isArray(character?.inventory) ? character.inventory : [];
   const s = String(slot || '');
-  // ✅ 장착 우선
   const eqId = String(character?.equipped?.[s] || '');
-  if (eqId) {
-    const picked = inv.find((i) => String(i?.itemId || i?.id || i?._id || '') === eqId);
-    if (picked) return picked;
-  }
-  return inv.find((i) => String(i?.equipSlot || '') === s);
+  const equipped = eqId
+    ? inv.find((i) => String(i?.itemId || i?.id || i?._id || '') === eqId)
+    : null;
+  const candidates = inv.filter((i) => String(i?.equipSlot || '') === s);
+  if (!candidates.length) return equipped || null;
+  candidates.sort((a, b) => getTier(b) - getTier(a));
+  const best = candidates[0] || null;
+  if (!equipped) return best;
+  if (!best) return equipped;
+  return getTier(best) > getTier(equipped) ? best : equipped;
 };
 
 const getEquipDeltas = (character, settings = {}) => {

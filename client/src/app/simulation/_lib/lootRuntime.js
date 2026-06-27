@@ -1,5 +1,6 @@
 import { pickWeighted } from './simulationCommon';
 import { classifySpecialByName } from './craftRuntime';
+import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 
 function pickFromAllCrates(mapObj, publicItems) {
   const crates = Array.isArray(mapObj?.itemCrates) ? mapObj.itemCrates : [];
@@ -8,6 +9,8 @@ function pickFromAllCrates(mapObj, publicItems) {
     const lt = Array.isArray(c?.lootTable) ? c.lootTable : [];
     lt.forEach((e) => {
       if (!e?.itemId) return;
+      const item = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === String(e.itemId)) || null;
+      if (isItemExcludedFromFieldFarming(item)) return;
       pool.push({ itemId: String(e.itemId), weight: Math.max(0, Number(e?.weight || 1)), minQty: e?.minQty, maxQty: e?.maxQty });
     });
   });
@@ -16,6 +19,7 @@ function pickFromAllCrates(mapObj, publicItems) {
     const list = Array.isArray(publicItems) ? publicItems : [];
     for (const it of list) {
       if (!it?._id) continue;
+      if (isItemExcludedFromFieldFarming(it)) continue;
       if (String(it?.type || '') !== '재료') continue;
       const tier = Number(it?.tier || 1);
       if (tier > 2) continue;

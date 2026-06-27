@@ -11,6 +11,7 @@ function createInitialSpawnState(mapId = '') {
       life_tree: [],
     },
     foodCrates: [],
+    dimensionRifts: [],
     mutantWildlife: null,
     bosses: {
       alpha: null,
@@ -27,8 +28,9 @@ function createInitialSpawnState(mapId = '') {
       weakline: -1,
       wildlife: -1,
       mutantWildlife: -1,
+      dimensionRift: -1,
     },
-    counters: { crate: 0, transcend: 0, core: 0, food: 0 },
+    counters: { crate: 0, transcend: 0, core: 0, food: 0, dimensionRift: 0 },
   };
 }
 
@@ -47,6 +49,7 @@ function cloneSpawnState(state, mapId = '') {
     weakline: Number(safe?.spawnedDay?.weakline ?? -1),
     wildlife: Number(safe?.spawnedDay?.wildlife ?? -1),
     mutantWildlife: Number(safe?.spawnedDay?.mutantWildlife ?? -1),
+    dimensionRift: Number(safe?.spawnedDay?.dimensionRift ?? -1),
   };
 
   const counters = {
@@ -54,6 +57,7 @@ function cloneSpawnState(state, mapId = '') {
     transcend: Number(safe?.counters?.transcend ?? 0),
     core: Number(safe?.counters?.core ?? 0),
     food: Number(safe?.counters?.food ?? 0),
+    dimensionRift: Number(safe?.counters?.dimensionRift ?? 0),
   };
 
   return {
@@ -77,6 +81,12 @@ function cloneSpawnState(state, mapId = '') {
         : [],
     },
     foodCrates: Array.isArray(safe.foodCrates) ? safe.foodCrates.map((c) => ({ ...c })) : [],
+    dimensionRifts: Array.isArray(safe.dimensionRifts)
+      ? safe.dimensionRifts.map((r) => ({
+          ...r,
+          entrantTeamIds: Array.isArray(r?.entrantTeamIds) ? r.entrantTeamIds.map((x) => String(x || '')).filter(Boolean) : [],
+        }))
+      : [],
     mutantWildlife: safe?.mutantWildlife ? { ...safe.mutantWildlife } : null,
     bosses: {
       alpha: safe?.bosses?.alpha ? { ...safe.bosses.alpha } : null,

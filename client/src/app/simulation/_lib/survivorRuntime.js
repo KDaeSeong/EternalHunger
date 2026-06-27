@@ -8,23 +8,56 @@ import {
 import { itemDisplayName, safeTags, shortText } from './simulationCommon';
 import { EQUIP_SLOTS, SLOT_ICON } from './simulationConstants';
 import { getActorPerkEffects, perkNumber } from './perkRuntime';
-import { getInvItemId } from './inventoryRules';
+import { getInvItemId, inferEquipSlot } from './inventoryRules';
 import { normalizeRuntimeEffect } from './runtimeStatus';
 import { normalizeSupportedTacSkill } from '../tacticalSkillTable';
 import { getWeaponMasteryLevel } from '../../../utils/erMeta';
 
 function ensureEquipped(obj) {
   const eq = obj?.equipped;
-  if (eq && typeof eq === 'object') {
-    return {
-      weapon: eq.weapon ?? null,
-      head: eq.head ?? null,
-      clothes: eq.clothes ?? null,
-      arm: eq.arm ?? null,
-      shoes: eq.shoes ?? null,
-    };
+  const nextEq = {
+    weapon: eq && typeof eq === 'object' ? (eq.weapon ?? null) : null,
+    head: eq && typeof eq === 'object' ? (eq.head ?? null) : null,
+    clothes: eq && typeof eq === 'object' ? (eq.clothes ?? null) : null,
+    arm: eq && typeof eq === 'object' ? (eq.arm ?? null) : null,
+    shoes: eq && typeof eq === 'object' ? (eq.shoes ?? null) : null,
+  };
+
+  const inv = Array.isArray(obj?.inventory) ? obj.inventory : [];
+  const readTier = (it) => {
+    const t = Number(it?.tier ?? it?.t ?? 1);
+    return Number.isFinite(t) ? Math.max(1, Math.min(6, Math.floor(t))) : 1;
+  };
+  const byId = (id) => {
+    const sid = String(id || '');
+    if (!sid) return null;
+    return inv.find((it) => String(getInvItemId(it)) === sid) || null;
+  };
+  const bestBySlot = (slot) => {
+    const s = String(slot || '').toLowerCase();
+    const candidates = inv.filter((it) => String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase() === s);
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => (
+      (readTier(b) - readTier(a)) ||
+      (Number(b?.acquiredDay ?? 0) - Number(a?.acquiredDay ?? 0))
+    ));
+    return candidates[0] || null;
+  };
+
+  for (const slot of EQUIP_SLOTS) {
+    const current = byId(nextEq[slot]);
+    const best = bestBySlot(slot);
+    if (!best) {
+      nextEq[slot] = current ? String(getInvItemId(current)) : null;
+      continue;
+    }
+    if (!current || readTier(best) > readTier(current)) {
+      nextEq[slot] = String(getInvItemId(best));
+    } else {
+      nextEq[slot] = String(getInvItemId(current));
+    }
   }
-  return { weapon: null, head: null, clothes: null, arm: null, shoes: null };
+  return nextEq;
 }
 
 function normalizeRuntimeInventory(list) {
@@ -195,7 +228,7 @@ function getEquipSummary(char) {
 
 function getEquipTierSummary(c) {
   const inv = Array.isArray(c?.inventory) ? c.inventory : [];
-  const eq = c?.equipped || null;
+  const eq = ensureEquipped(c);
 
   function pickById(id) {
     if (!id) return null;
@@ -208,31 +241,28 @@ function getEquipTierSummary(c) {
 
   function readTier(it) {
     const t = Number(it?.tier ?? it?.t ?? 1);
-    return Number.isFinite(t) ? Math.max(1, Math.floor(t)) : 1;
+    return Number.isFinite(t) ? Math.max(1, Math.min(6, Math.floor(t))) : 1;
   };
 
-  if (eq && typeof eq === 'object') {
-    const w = pickById(eq.weapon);
-    const h = pickById(eq.head);
-    const c2 = pickById(eq.clothes);
-    const a = pickById(eq.arm);
-    const s = pickById(eq.shoes);
-
-    const weaponTier = w ? readTier(w) : 0;
-    const armorTierSum = (h ? readTier(h) : 0) + (c2 ? readTier(c2) : 0) + (a ? readTier(a) : 0) + (s ? readTier(s) : 0);
-    return { weaponTier, armorTierSum };
+  function bestTierBySlot(slot) {
+    const s = String(slot || '').toLowerCase();
+    let best = 0;
+    for (const it of inv) {
+      const slotName = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
+      const tp = String(it?.type || '').toLowerCase();
+      if (slotName === s || (s === 'weapon' && (tp === 'weapon' || tp === '무기' || tp === '臾닿린'))) {
+        best = Math.max(best, readTier(it));
+      }
+    }
+    return best;
   }
 
-  let weaponTier = 0;
-  let armorTierSum = 0;
-  const armorSlots = new Set(['head', 'clothes', 'arm', 'shoes']);
-  for (const it of inv) {
-    const slot = String(it?.equipSlot || '');
-    const tp = String(it?.type || '').toLowerCase();
-    const t = readTier(it);
-    if (slot === 'weapon' || tp === 'weapon' || tp === '무기') weaponTier = Math.max(weaponTier, t);
-    else if (armorSlots.has(slot)) armorTierSum += t;
-  }
+  const weaponEquipped = pickById(eq?.weapon);
+  const weaponTier = Math.max(weaponEquipped ? readTier(weaponEquipped) : 0, bestTierBySlot('weapon'));
+  const armorTierSum = ['head', 'clothes', 'arm', 'shoes'].reduce((sum, slot) => {
+    const equipped = pickById(eq?.[slot]);
+    return sum + Math.max(equipped ? readTier(equipped) : 0, bestTierBySlot(slot));
+  }, 0);
   return { weaponTier, armorTierSum };
 }
 
