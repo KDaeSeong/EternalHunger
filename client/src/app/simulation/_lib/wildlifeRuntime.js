@@ -12,6 +12,10 @@ import { isAtOrAfterWorldTime } from './worldTime';
 import { roughPower } from './combatRuntime';
 import { getEquipTierSummary } from './survivorRuntime';
 import { pickFromAllCrates } from './lootRuntime';
+import {
+  normalizeAnimalDropSource,
+  rollSpecialResourceDrops,
+} from './specialResourceRuntime';
 
 const WILDLIFE_SPECIES = {
   chicken: { key: 'chicken', label: '닭', icon: '🐔', dayWeight: 4, nightWeight: 1, credits: [12, 18], dmg: 4, meatQty: 0, chickenDropChance: 0.5 },
@@ -79,17 +83,13 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
       const vf = findItemByKeywords(publicItems, ['vf 혈액', 'vf 샘플', 'blood sample', '혈액 샘플', 'vf']);
       const dmg = applyPerkDamageReduction(Math.max(6, 18 - Math.floor(p / 10)), perkWildDamageMinus);
       if (vf?._id) {
-        const drops = [{ item: vf, itemId: String(vf._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.45, 1) }];
-        const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
-        const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
-        const pick = (Math.random() < (0.5 + Math.min(0.12, perkWildLootBias * 0.12)) ? meteor : tree) || meteor || tree;
-        if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
+        const drops = rollSpecialResourceDrops('weakline', publicItems, { ruleset: opts?.ruleset, perkLootBias: perkWildLootBias });
         return {
           kind: 'weakline',
           damage: dmg,
           credits: applyPerkCreditBonus(randInt(65, 95), perkWildCreditPct),
           drops,
-          log: '🧬 변이체(위클라인) 처치! VF 혈액 샘플 + (운석/생명의 나무) 획득 가능',
+          log: '🧬 변이체(위클라인) 처치! VF 혈액 샘플 획득',
         };
       }
     }
@@ -102,7 +102,7 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
           kind: 'omega',
           damage: dmg,
           credits: applyPerkCreditBonus(randInt(48, 72), perkWildCreditPct),
-          drops: [{ item: fc, itemId: String(fc._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.35, 1) }],
+          drops: rollSpecialResourceDrops('omega', publicItems, { ruleset: opts?.ruleset, perkLootBias: perkWildLootBias }),
           log: `🧿 변이체(오메가) 격파! 포스 코어 획득 가능`,
         };
       }
@@ -116,7 +116,7 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
           kind: 'alpha',
           damage: dmg,
           credits: applyPerkCreditBonus(randInt(36, 56), perkWildCreditPct),
-          drops: [{ item: mi, itemId: String(mi._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.32, 1) }],
+          drops: rollSpecialResourceDrops('alpha', publicItems, { ruleset: opts?.ruleset, perkLootBias: perkWildLootBias }),
           log: `🐺 야생동물(알파) 사냥 성공! 미스릴 획득 가능`,
         };
       }
@@ -147,12 +147,7 @@ function rollWildlifeEncounter(mapObj, zoneId, publicItems, curDay, curPhase, ac
     }
   }
 
-  if (Math.random() < Math.min(0.22, 0.05 + perkWildLootBias * 0.06)) {
-    const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
-    const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
-    const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
-    if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
-  }
+  drops.push(...rollSpecialResourceDrops(species?.key, publicItems, { ruleset: opts?.ruleset, perkLootBias: perkWildLootBias }));
 
   if (!drops.length) return null;
 
@@ -217,6 +212,7 @@ function consumeWildlifeAtZone(spawnState, mapObj, zoneId, publicItems, curDay, 
     disableBoss: true,
     force: true,
     speciesKey,
+    ruleset,
   });
 
   if (res) return res;
@@ -227,7 +223,9 @@ function consumeWildlifeAtZone(spawnState, mapObj, zoneId, publicItems, curDay, 
   const crRange = Array.isArray(species?.credits) ? species.credits : [12, 22];
   const dmg = applyPerkDamageReduction(Math.max(0, Number(species?.dmg ?? 5) - Math.floor(p / 22)), Math.max(0, perkNumber(perkFx?.wildlifeDamageMinus || 0)));
   const credits = applyPerkCreditBonus(Math.max(0, randInt(Number(crRange[0] ?? 12), Number(crRange[1] ?? 22))), perkFx?.wildlifeCreditsPct || 0);
-  return { kind: String(species?.key || 'wildlife'), damage: dmg, credits, drops: [], log: `${String(species?.icon || '🦌')} ${String(species?.label || '야생동물')} 사냥 성공` };
+  const perkWildLootBias = Math.max(0, getPerkWildlifeLootBias(perkFx));
+  const drops = rollSpecialResourceDrops(normalizeAnimalDropSource(species?.key), publicItems, { ruleset, perkLootBias: perkWildLootBias });
+  return { kind: String(species?.key || 'wildlife'), damage: dmg, credits, drops, log: `${String(species?.icon || '🦌')} ${String(species?.label || '야생동물')} 사냥 성공` };
 }
 
 export {

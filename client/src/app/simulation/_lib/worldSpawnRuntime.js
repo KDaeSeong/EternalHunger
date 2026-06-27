@@ -3,9 +3,9 @@ import { randInt } from './simulationCommon';
 import { cloneSpawnState } from './spawnStateRuntime';
 import { getTimeOfDayFromPhase } from './worldTime';
 import {
-  getEligibleCoreSpawnZoneIds,
   getEligibleSpawnZoneIds,
 } from './coreSpawnRuntime';
+import { buildCoreSpawnPlan } from './specialResourceRuntime';
 import {
   getRegionHotspotWeight,
   getRegionWildlifeSpeciesList,
@@ -196,41 +196,57 @@ function ensureWorldSpawns(prevState, zones, forbiddenIds, curDay, curPhase, map
     // ignore
   }
 
-  const eligibleCore = getEligibleCoreSpawnZoneIds(zones, forbiddenIds, coreSpawnZoneIds);
+  const usedMeteorZoneIds = [
+    ...(Array.isArray(s?.coreZoneHistory?.meteor) ? s.coreZoneHistory.meteor : []),
+    ...(Array.isArray(s?.coreNodes) ? s.coreNodes : [])
+      .filter((n) => String(n?.kind || '') === 'meteor')
+      .map((n) => String(n?.zoneId || '')),
+  ];
+  const corePlan = buildCoreSpawnPlan({
+    zones,
+    forbiddenIds,
+    day: d,
+    phase: p,
+    usedMeteorZoneIds,
+  });
 
-  const meteorCount = (d === 2 && p === 'morning') ? 2 : (d === 3 && p === 'morning') ? 2 : 0;
-  const lifeTreeCount = (d === 2 && p === 'morning') ? 3 : (d === 3 && p === 'morning') ? 2 : 0;
-
-  if ((meteorCount > 0 || lifeTreeCount > 0) && Number(s.spawnedDay.core) !== spawnKey && eligibleCore.length) {
+  if (corePlan.length > 0 && Number(s.spawnedDay.core) !== spawnKey) {
     const alreadyAlive = new Set(
       (Array.isArray(s.coreNodes) ? s.coreNodes : [])
         .filter((n) => !n?.picked)
-        .map((n) => String(n?.zoneId))
+        .map((n) => `${String(n?.kind || '')}:${String(n?.zoneId || '')}`)
     );
 
-    const zonePool = eligibleCore.filter((zid) => !alreadyAlive.has(String(zid)));
     let spawned = 0;
+    if (!s.coreZoneHistory || typeof s.coreZoneHistory !== 'object') s.coreZoneHistory = {};
+    if (!Array.isArray(s.coreZoneHistory.meteor)) s.coreZoneHistory.meteor = [];
+    if (!Array.isArray(s.coreZoneHistory.life_tree)) s.coreZoneHistory.life_tree = [];
+    const historySets = {
+      meteor: new Set(s.coreZoneHistory.meteor.map((x) => String(x || '').trim()).filter(Boolean)),
+      life_tree: new Set(s.coreZoneHistory.life_tree.map((x) => String(x || '').trim()).filter(Boolean)),
+    };
 
-    function spawnCore(kind, count) {
-      const c = Math.min(Math.max(0, Number(count || 0)), zonePool.length);
-      for (let i = 0; i < c; i++) {
-        const zid = zonePool.splice(randInt(0, Math.max(0, zonePool.length - 1)), 1)[0];
-        s.counters.core = Number(s.counters.core || 0) + 1;
-        s.coreNodes.push({
-          id: `CORE_${String(d)}_${String(s.counters.core)}`,
-          kind,
-          zoneId: String(zid),
-          spawnedDay: d,
-          picked: false,
-          pickedBy: null,
-          pickedAt: null,
-        });
-        spawned++;
-      }
+    for (const row of corePlan) {
+      const kind = String(row?.kind || '');
+      const zid = String(row?.zoneId || '');
+      if (!kind || !zid) continue;
+      if (alreadyAlive.has(`${kind}:${zid}`)) continue;
+      s.counters.core = Number(s.counters.core || 0) + 1;
+      s.coreNodes.push({
+        id: `CORE_${String(d)}_${String(s.counters.core)}`,
+        kind,
+        zoneId: zid,
+        spawnedDay: d,
+        picked: false,
+        pickedBy: null,
+        pickedAt: null,
+      });
+      if (historySets[kind]) historySets[kind].add(zid);
+      spawned++;
     }
 
-    if (lifeTreeCount > 0) spawnCore('life_tree', lifeTreeCount);
-    if (meteorCount > 0) spawnCore('meteor', meteorCount);
+    s.coreZoneHistory.meteor = [...historySets.meteor];
+    s.coreZoneHistory.life_tree = [...historySets.life_tree];
 
     s.spawnedDay.core = spawnKey;
     if (spawned > 0) announcements.push(`🌠 희귀 재료 자연 스폰 발생! (x${spawned})`);

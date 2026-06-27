@@ -6,6 +6,10 @@ function createInitialSpawnState(mapId = '') {
     legendaryCrates: [],
     transcendCrates: [],
     coreNodes: [],
+    coreZoneHistory: {
+      meteor: [],
+      life_tree: [],
+    },
     foodCrates: [],
     mutantWildlife: null,
     bosses: {
@@ -64,6 +68,14 @@ function cloneSpawnState(state, mapId = '') {
     legendaryCrates: Array.isArray(safe.legendaryCrates) ? safe.legendaryCrates.map((c) => ({ ...c })) : [],
     transcendCrates: Array.isArray(safe.transcendCrates) ? safe.transcendCrates.map((c) => ({ ...c })) : [],
     coreNodes: Array.isArray(safe.coreNodes) ? safe.coreNodes.map((n) => ({ ...n })) : [],
+    coreZoneHistory: {
+      meteor: Array.isArray(safe?.coreZoneHistory?.meteor)
+        ? safe.coreZoneHistory.meteor.map((x) => String(x || '').trim()).filter(Boolean)
+        : [],
+      life_tree: Array.isArray(safe?.coreZoneHistory?.life_tree)
+        ? safe.coreZoneHistory.life_tree.map((x) => String(x || '').trim()).filter(Boolean)
+        : [],
+    },
     foodCrates: Array.isArray(safe.foodCrates) ? safe.foodCrates.map((c) => ({ ...c })) : [],
     mutantWildlife: safe?.mutantWildlife ? { ...safe.mutantWildlife } : null,
     bosses: {

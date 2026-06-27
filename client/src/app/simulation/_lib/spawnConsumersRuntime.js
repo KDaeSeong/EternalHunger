@@ -14,8 +14,11 @@ import { rollTranscendPickOptions } from './fieldLootRuntime';
 import {
   getActorPerkEffects,
   getPerkWildlifeLootBias,
-  maybeBoostDropQty,
 } from './perkRuntime';
+import {
+  normalizeAnimalDropSource,
+  rollSpecialResourceDrops,
+} from './specialResourceRuntime';
 
 function openSpawnedLegendaryCrate(spawnState, zoneId, publicItems, curDay, curPhase, actor, ruleset, opts = {}) {
   const s = spawnState;
@@ -330,16 +333,10 @@ function consumeBossAtZone(spawnState, zoneId, publicItems, curDay, curPhase, ac
       const credits = Math.max(0, randInt(Math.min(minCr, maxCr), Math.max(minCr, maxCr)));
 
       const bonusChance = Math.max(0, Math.min(1, Number(rw?.bonusDropChance ?? 0)));
-      const drops = [{ item: drop, itemId: String(drop._id), qty: 1 }];
+      const drops = rollSpecialResourceDrops(k, publicItems, { ruleset, perkLootBias: perkWildLootBias });
+      if (!drops.length) drops.push({ item: drop, itemId: String(drop._id), qty: 1 });
       if (bonusChance > 0 && Math.random() < bonusChance) {
         drops.push({ item: drop, itemId: String(drop._id), qty: 1 });
-      }
-
-      if (k === 'weakline') {
-        const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
-        const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
-        const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
-        if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: maybeBoostDropQty(1, perkWildLootBias * 0.22, 1) });
       }
 
       return {
@@ -402,12 +399,13 @@ function consumeMutantWildlifeAtZone(spawnState, zoneId, publicItems, curDay, cu
     }
   }
 
-  if (Math.random() < 0.10) {
-    const meteor = findItemByKeywords(publicItems, ['운석', 'meteor']);
-    const tree = findItemByKeywords(publicItems, ['생명의 나무', '생나', 'tree of life', 'life tree']);
-    const pick = (Math.random() < 0.5 ? meteor : tree) || meteor || tree;
-    if (pick?._id) drops.push({ item: pick, itemId: String(pick._id), qty: 1 });
-  }
+  const perkFx = getActorPerkEffects(actor);
+  const perkWildLootBias = Math.max(0, getPerkWildlifeLootBias(perkFx));
+  drops.push(...rollSpecialResourceDrops(
+    normalizeAnimalDropSource('mutant_wildlife', animal),
+    publicItems,
+    { ruleset, perkLootBias: perkWildLootBias },
+  ));
 
   return {
     kind: 'mutant_wildlife',
