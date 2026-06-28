@@ -199,6 +199,7 @@
     align-items: center;
     gap: 15px;
     text-transform: uppercase;
+    text-decoration: none;
 }
 
 /* 마우스 올렸을 때 (호버) */

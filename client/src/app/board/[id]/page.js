@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import SiteHeader from '../../../components/SiteHeader';
+import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGet, apiPut } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 
@@ -17,10 +19,30 @@ function getUserId(user) {
   return user?._id || user?.id || user?.userId || '';
 }
 
+function normalizeIdValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value?.$oid) return String(value.$oid);
+  if (value?._id) return normalizeIdValue(value._id);
+  if (value?.id) return normalizeIdValue(value.id);
+  if (typeof value?.toString === 'function') return value.toString();
+  return '';
+}
+
+function normalizeRouteId(value) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw == null ? '' : String(raw);
+}
+
+function unwrapPost(data) {
+  const post = data?.post || data?.data || data;
+  return post && typeof post === 'object' && !Array.isArray(post) ? post : null;
+}
+
 export default function BoardDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params?.id;
+  const id = normalizeRouteId(params?.id);
 
   const [post, setPost] = useState(null);
   const [message, setMessage] = useState('');
@@ -32,6 +54,7 @@ export default function BoardDetailPage() {
   const mounted = useHydrated();
   const token = useAuthToken();
   const user = useAuthUser();
+  const { showToast } = useToast();
   const userId = useMemo(() => getUserId(user), [user]);
 
   const load = useCallback(async () => {
@@ -39,38 +62,47 @@ export default function BoardDetailPage() {
     setLoading(true);
     try {
       const data = await apiGet(`/posts/${id}`);
-      setPost(data || null);
-      setForm({ title: data?.title || '', content: data?.content || '' });
-    } catch (e) {
-      setMessage(e?.response?.data?.error || e.message || '게시글을 불러오지 못했습니다.');
+      const nextPost = unwrapPost(data);
+      setPost(nextPost);
+      setForm({ title: nextPost?.title || '', content: nextPost?.content || '' });
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
       setPost(null);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, showToast]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const canEdit = mounted && token && userId && post && String(post.authorId || '') === String(userId);
+  const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
 
   const save = async () => {
     const title = form.title.trim();
     const content = form.content.trim();
     if (!title || !content) {
-      setMessage('제목과 내용을 입력해 주세요.');
+      const nextMessage = '제목과 내용을 입력해주세요.';
+      setMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
       return;
     }
 
     setSaving(true);
     try {
       const res = await apiPut(`/posts/${id}`, { title, content });
-      setMessage(res?.message || '수정 완료');
+      const nextMessage = res?.message || '수정했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
       setEditing(false);
       await load();
-    } catch (e) {
-      setMessage(e?.response?.data?.error || e.message || '게시글 수정에 실패했습니다.');
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '게시글 수정에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setSaving(false);
     }
@@ -80,19 +112,22 @@ export default function BoardDetailPage() {
     if (!id || !window.confirm('정말 삭제할까요?')) return;
     try {
       const res = await apiDelete(`/posts/${id}`);
-      setMessage(res?.message || '삭제 완료');
+      showToast({ tone: 'success', message: res?.message || '삭제했습니다.' });
       router.push('/board');
-    } catch (e) {
-      setMessage(e?.response?.data?.error || e.message || '게시글 삭제에 실패했습니다.');
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '게시글 삭제에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
     }
   };
 
   return (
     <main className="board-page">
+      <SiteHeader />
       <section className="board-shell">
         <div className="board-head">
           <div>
-            <p className="board-eyebrow">Eternal Hunger</p>
+            <p className="board-eyebrow">Community</p>
             <h1>게시글</h1>
           </div>
           <Link href="/board" className="board-link-button">
@@ -114,13 +149,13 @@ export default function BoardDetailPage() {
               <div className="board-editor board-editor-inline">
                 <input
                   value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  onChange={(event) => setForm({ ...form, title: event.target.value })}
                   placeholder="제목"
                   maxLength={120}
                 />
                 <textarea
                   value={form.content}
-                  onChange={(e) => setForm({ ...form, content: e.target.value })}
+                  onChange={(event) => setForm({ ...form, content: event.target.value })}
                   placeholder="내용"
                   rows={10}
                 />

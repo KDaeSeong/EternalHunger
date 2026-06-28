@@ -8,6 +8,10 @@
     background-color: #f4ece1; /* 메인 배경색과 통일 */
 }
 
+.auth-shell .auth-page {
+    min-height: calc(100vh - 70px);
+}
+
 .auth-card {
     background: #fff;
     padding: 50px 40px;

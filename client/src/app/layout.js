@@ -6,6 +6,8 @@ import '../styles/EREvents.css';
 import '../styles/ERModifiers.css'; 
 import '../styles/ERAdmin.css';
 import '../styles/ERPerks.css';
+import '../styles/AppShell.css';
+import AppProviders from '../components/AppProviders';
 // import '../styles/ERMyProfile.css'; 
 import '../styles/ERSimulation.css'; 
 // (일단 주석 처리 해두고, 페이지 만들 때 하나씩 풉니다)
@@ -19,7 +21,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

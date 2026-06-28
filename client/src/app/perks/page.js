@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { apiGet, apiPost, clearAuth, getUser, updateStoredUser } from '../../utils/api';
+import SiteHeader from '../../components/SiteHeader';
+import { useToast } from '../../components/ToastProvider';
+import { apiGet, apiPost, clearAuth, updateStoredUser } from '../../utils/api';
+import { useAuthUser } from '../../utils/client-auth';
 
 const CATEGORY_LABELS = {
   title: '칭호',
@@ -53,6 +56,8 @@ function getCosmeticSummary(perk) {
 }
 
 export default function PerkShopPage() {
+  const authUser = useAuthUser();
+  const { showToast } = useToast();
   const [user, setUser] = useState(null);
   const [perks, setPerks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +80,10 @@ export default function PerkShopPage() {
     return list.filter((perk) => getCategory(perk) === activeCategory);
   }, [activeCategory, perks]);
 
+  useEffect(() => {
+    if (authUser) setUser(authUser);
+  }, [authUser]);
+
   const load = async () => {
     setLoading(true);
     setMessage('');
@@ -90,15 +99,17 @@ export default function PerkShopPage() {
         clearAuth();
         setUser(null);
       }
-      setMessage(err.message || '특전 상점을 불러오지 못했습니다.');
+      const nextMessage = err?.message || '특전 상점을 불러오지 못했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    setUser(getUser());
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const purchase = async (perk) => {
@@ -121,9 +132,13 @@ export default function PerkShopPage() {
       setPerks((prev) => (Array.isArray(prev) ? prev.map((row) => (
         String(row?.code || '') === code ? { ...row, isOwned: true } : row
       )) : []));
-      setMessage(res?.message || '특전을 구매했습니다.');
+      const nextMessage = res?.message || '특전을 구매했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
     } catch (err) {
-      setMessage(err.message || '특전 구매에 실패했습니다.');
+      const nextMessage = err?.message || '특전 구매에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusyCode('');
     }
@@ -133,28 +148,21 @@ export default function PerkShopPage() {
 
   return (
     <main className="perk-shop-page">
-      <header className="perk-shop-header">
-        <Link href="/" className="perk-shop-logo" aria-label="메인으로">
-          <span>ETERNAL</span>
-          <strong>HUNGER</strong>
-        </Link>
-        <nav className="perk-shop-nav">
-          <Link href="/">메인</Link>
-          <Link href="/simulation">게임 시작</Link>
-          <Link href="/characters">캐릭터 설정</Link>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <section className="perk-shop-hero">
         <div>
           <p className="perk-shop-eyebrow">LP Perk Shop</p>
           <h1>특전 상점</h1>
-          <p>먼저 칭호, 배지, 초상화 프레임처럼 게임 밸런스에 영향을 주지 않는 치장 특전부터 사용할 수 있습니다.</p>
+          <p>
+            먼저 칭호, 배지, 초상화 프레임처럼 게임 밸런스에 영향을 주지 않는 치장형
+            특전부터 사용할 수 있습니다.
+          </p>
         </div>
         <div className="perk-wallet">
           <span>보유 LP</span>
-          <strong>{lp.toLocaleString()}</strong>
-          <small>{user?.username ? `${user.username} 계정` : '로그인이 필요합니다'}</small>
+          <strong>{lp.toLocaleString('ko-KR')}</strong>
+          <small>{user?.username ? `${user.username} 계정` : '로그인이 필요합니다.'}</small>
         </div>
       </section>
 
@@ -162,7 +170,7 @@ export default function PerkShopPage() {
 
       {!user && !loading ? (
         <section className="perk-empty-panel">
-          <h2>로그인이 필요합니다</h2>
+          <h2>로그인이 필요합니다.</h2>
           <p>LP와 보유 특전은 계정 단위로 저장됩니다.</p>
           <Link href="/login" className="perk-primary-link">로그인하기</Link>
         </section>
@@ -182,7 +190,7 @@ export default function PerkShopPage() {
           </div>
 
           {loading ? (
-            <section className="perk-empty-panel">특전 목록을 불러오는 중입니다...</section>
+            <section className="perk-empty-panel">특전 목록을 불러오는 중입니다.</section>
           ) : (
             <section className="perk-grid">
               {filteredPerks.map((perk) => {
@@ -207,7 +215,7 @@ export default function PerkShopPage() {
                       <span className={cosmetic ? 'safe' : 'future'}>{cosmetic ? '밸런스 영향 없음' : '밸런스형'}</span>
                     </div>
                     <div className="perk-card-bottom">
-                      <strong>{cost.toLocaleString()} LP</strong>
+                      <strong>{cost.toLocaleString('ko-KR')} LP</strong>
                       <button type="button" disabled={!canBuy} onClick={() => purchase(perk)}>
                         {owned ? '보유 중' : busyCode === code ? '구매 중...' : lp < cost ? 'LP 부족' : '구매'}
                       </button>

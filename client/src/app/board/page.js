@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import SiteHeader from '../../components/SiteHeader';
+import { useToast } from '../../components/ToastProvider';
 import { apiDelete, apiGet, apiPost } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 
@@ -16,6 +18,36 @@ function getUserId(user) {
   return user?._id || user?.id || user?.userId || '';
 }
 
+function normalizePostId(post) {
+  const id = post?._id || post?.id;
+  if (!id) return '';
+  if (typeof id === 'string' || typeof id === 'number') return String(id);
+  if (id?.$oid) return String(id.$oid);
+  if (typeof id?.toString === 'function') return id.toString();
+  return '';
+}
+
+function normalizeIdValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value?.$oid) return String(value.$oid);
+  if (value?._id) return normalizeIdValue(value._id);
+  if (value?.id) return normalizeIdValue(value.id);
+  if (typeof value?.toString === 'function') return value.toString();
+  return '';
+}
+
+function unwrapPostList(data) {
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.posts)
+      ? data.posts
+      : Array.isArray(data?.data)
+        ? data.data
+        : [];
+  return list.filter((row) => row && typeof row === 'object');
+}
+
 export default function BoardPage() {
   const [posts, setPosts] = useState([]);
   const [message, setMessage] = useState('');
@@ -26,20 +58,23 @@ export default function BoardPage() {
   const mounted = useHydrated();
   const token = useAuthToken();
   const user = useAuthUser();
+  const { showToast } = useToast();
   const userId = useMemo(() => getUserId(user), [user]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await apiGet('/posts');
-      setPosts(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setMessage(e?.response?.data?.error || e.message || '게시글을 불러오지 못했습니다.');
+      setPosts(unwrapPostList(data));
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
       setPosts([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     void load();
@@ -49,18 +84,24 @@ export default function BoardPage() {
     const title = form.title.trim();
     const content = form.content.trim();
     if (!title || !content) {
-      setMessage('제목과 내용을 입력해 주세요.');
+      const nextMessage = '제목과 내용을 입력해주세요.';
+      setMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
       return;
     }
 
     setSubmitting(true);
     try {
       const res = await apiPost('/posts', { title, content });
-      setMessage(res?.message || '작성 완료');
+      const nextMessage = res?.message || '게시글을 작성했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
       setForm({ title: '', content: '' });
       await load();
-    } catch (e) {
-      setMessage(e?.response?.data?.error || e.message || '게시글 작성에 실패했습니다.');
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '게시글 작성에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setSubmitting(false);
     }
@@ -70,23 +111,28 @@ export default function BoardPage() {
     if (!id || !window.confirm('정말 삭제할까요?')) return;
     try {
       const res = await apiDelete(`/posts/${id}`);
-      setMessage(res?.message || '삭제 완료');
+      const nextMessage = res?.message || '삭제했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
       await load();
-    } catch (e) {
-      setMessage(e?.response?.data?.error || e.message || '게시글 삭제에 실패했습니다.');
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '게시글 삭제에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
     }
   };
 
   return (
     <main className="board-page">
+      <SiteHeader />
       <section className="board-shell">
         <div className="board-head">
           <div>
-            <p className="board-eyebrow">Eternal Hunger</p>
+            <p className="board-eyebrow">Community</p>
             <h1>게시판</h1>
           </div>
-          <Link href="/" className="board-link-button">
-            메인으로
+          <Link href="/simulation" className="board-link-button">
+            게임 시작
           </Link>
         </div>
 
@@ -99,13 +145,13 @@ export default function BoardPage() {
             </div>
             <input
               value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              onChange={(event) => setForm({ ...form, title: event.target.value })}
               placeholder="제목"
               maxLength={120}
             />
             <textarea
               value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
+              onChange={(event) => setForm({ ...form, content: event.target.value })}
               placeholder="내용"
               rows={4}
             />
@@ -125,9 +171,9 @@ export default function BoardPage() {
           ) : null}
 
           {!loading && posts.map((post) => {
-            const id = post?._id || post?.id;
+            const id = normalizePostId(post);
             const content = String(post?.content || '');
-            const canRemove = mounted && token && userId && String(post?.authorId || '') === String(userId);
+            const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
             return (
               <article key={id || `${post?.title}-${post?.createdAt}`} className="board-card">
                 <Link href={id ? `/board/${id}` : '/board'} className="board-card-title">

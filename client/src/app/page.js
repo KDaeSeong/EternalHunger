@@ -1,21 +1,169 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import '../styles/Home.css';
-import { AUTH_SYNC_EVENT, apiGet, clearAuth, getUser, updateStoredUser } from '../utils/api';
-import { HOF_SYNC_EVENT, HOF_SYNC_KEY, readHallOfFameState, summarizeHallOfFameTop3 } from '../utils/hallOfFame';
+import { useEffect, useMemo, useState } from 'react';
+import SiteHeader from '../components/SiteHeader';
+import { useToast } from '../components/ToastProvider';
+import { apiGet, clearAuth, updateStoredUser } from '../utils/api';
+import { useAuthUser, useHydrated } from '../utils/client-auth';
+import {
+  HOF_SYNC_EVENT,
+  HOF_SYNC_KEY,
+  readHallOfFameState,
+  summarizeHallOfFameTop3,
+} from '../utils/hallOfFame';
+
+const MENU_ITEMS = [
+  {
+    href: '/characters',
+    icon: '👥',
+    title: '캐릭터 설정',
+    body: '참가할 실험체와 무기, 목표 장비, 전술 스킬을 관리합니다.',
+  },
+  {
+    href: '/details',
+    icon: '📊',
+    title: '상세 스탯',
+    body: '체력, 공격력, 방어력, 성장 스탯을 실험체별로 조정합니다.',
+  },
+  {
+    href: '/modifiers',
+    icon: '⚖️',
+    title: '게임 밸런스',
+    body: '교전, 파밍, 야생동물, 오브젝트의 확률과 가중치를 조절합니다.',
+  },
+  {
+    href: '/perks',
+    icon: 'LP',
+    title: '특전 상점',
+    body: 'LP로 치장형 특전과 편의성 보상을 구매합니다.',
+  },
+  {
+    href: '/board',
+    icon: '📝',
+    title: '게시판',
+    body: '공지, 피드백, 시뮬레이션 로그를 공유합니다.',
+  },
+  {
+    href: '/help',
+    icon: '?',
+    title: '도움말',
+    body: '목표, 전술, 장비, 숙련도처럼 낯선 용어를 빠르게 확인합니다.',
+  },
+];
+
+function normalizeRankings(payload) {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    return {
+      wins: Array.isArray(payload.wins) ? payload.wins : [],
+      kills: Array.isArray(payload.kills) ? payload.kills : [],
+      points: Array.isArray(payload.points) ? payload.points : [],
+    };
+  }
+
+  const data = Array.isArray(payload) ? payload : [];
+  return {
+    wins: [...data].sort((a, b) => Number(b.totalWins || 0) - Number(a.totalWins || 0)).slice(0, 3),
+    kills: [...data].sort((a, b) => Number(b.totalKills || 0) - Number(a.totalKills || 0)).slice(0, 3),
+    points: [...data]
+      .sort((a, b) => {
+        const bScore = Number(b.totalWins || 0) * 100 + Number(b.totalKills || 0) * 10;
+        const aScore = Number(a.totalWins || 0) * 100 + Number(a.totalKills || 0) * 10;
+        return bScore - aScore;
+      })
+      .slice(0, 3),
+  };
+}
+
+function getDisplayName(row) {
+  return row?.username || row?.name || row?.characterName || '기록 없음';
+}
+
+function getWins(row) {
+  return Number(row?.totalWins ?? row?.records?.totalWins ?? 0);
+}
+
+function getKills(row) {
+  return Number(row?.totalKills ?? row?.records?.totalKills ?? 0);
+}
+
+function getAssists(row) {
+  return Number(row?.totalAssists ?? row?.records?.totalAssists ?? 0);
+}
+
+function getPoints(row) {
+  return Number(row?.lp ?? (getWins(row) * 100 + getKills(row) * 10));
+}
+
+function RankingList({ rows, empty, renderValue }) {
+  if (!rows?.length) return <li className="no-data">{empty}</li>;
+
+  return rows.slice(0, 3).map((row, index) => (
+    <li key={`${getDisplayName(row)}-${index}`} className={`rank-${index + 1}`}>
+      <span className="rank-badge">{index + 1}</span>
+      <div className="rank-info">
+        <span className="rank-name">{getDisplayName(row)}</span>
+        <span className="rank-val">{renderValue(row)}</span>
+      </div>
+    </li>
+  ));
+}
 
 export default function Home() {
+  const mounted = useHydrated();
+  const user = useAuthUser();
+  const { showToast } = useToast();
   const [rankings, setRankings] = useState({ wins: [], kills: [], points: [] });
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
   const [myCharTop3, setMyCharTop3] = useState({ wins: [], kills: [] });
 
-// 내 기록만 표시(명예의 전당: 최다 우승/최다 킬)
-const myUsername = user?.username ?? null;
-const myWinsTop3 = myCharTop3.wins;
-const myKillsTop3 = myCharTop3.kills;
+  const myUsername = user?.username || null;
+  const menuItems = useMemo(() => {
+    if (!user?.isAdmin) return MENU_ITEMS;
+    return [
+      ...MENU_ITEMS,
+      {
+        href: '/admin',
+        icon: '🛠',
+        title: '관리자',
+        body: '아이템, 맵, 키오스크, 특전 등 운영 데이터를 관리합니다.',
+      },
+    ];
+  }, [user?.isAdmin]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    async function refreshHome() {
+      setLoading(true);
+      try {
+        const payload = await apiGet('/rankings');
+        if (!canceled) setRankings(normalizeRankings(payload));
+      } catch (err) {
+        if (!canceled) {
+          setRankings({ wins: [], kills: [], points: [] });
+          showToast({ tone: 'warning', message: err?.message || '랭킹 정보를 불러오지 못했습니다.' });
+        }
+      } finally {
+        if (!canceled) setLoading(false);
+      }
+
+      if (!user) return;
+
+      try {
+        const me = await apiGet('/user/me');
+        if (me && typeof me === 'object') updateStoredUser((current) => ({ ...(current || {}), ...me }));
+      } catch (err) {
+        const status = Number(err?.status || 0);
+        if (status === 401 || status === 403) clearAuth();
+      }
+    }
+
+    void refreshHome();
+    return () => {
+      canceled = true;
+    };
+  }, [showToast, user]);
 
   useEffect(() => {
     const syncMyHallOfFame = () => {
@@ -28,8 +176,8 @@ const myKillsTop3 = myCharTop3.kills;
     };
 
     syncMyHallOfFame();
-
     if (typeof window === 'undefined') return undefined;
+
     const onStorage = (event) => {
       if (!event?.key) return;
       if (event.key === HOF_SYNC_KEY || event.key === `eh_hof_${myUsername}`) syncMyHallOfFame();
@@ -43,248 +191,88 @@ const myKillsTop3 = myCharTop3.kills;
     };
   }, [myUsername]);
 
-
-  // ★ 로그아웃 함수
-  const handleLogout = () => {
-    if (confirm("로그아웃 하시겠습니까?")) {
-      clearAuth();
-      setUser(null);                   
-      alert("로그아웃 되었습니다.");
-      window.location.reload();        
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const syncStoredUser = () => {
-      const savedUser = getUser();
-      setUser(savedUser || null);
-    };
-
-    const refreshHome = async () => {
-      syncStoredUser();
-      setLoading(true);
-      try {
-        const payload = await apiGet('/rankings');
-        if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-          const wins = Array.isArray(payload.wins) ? payload.wins : [];
-          const kills = Array.isArray(payload.kills) ? payload.kills : [];
-          const points = Array.isArray(payload.points) ? payload.points : [];
-          setRankings({ wins, kills, points });
-        } else {
-          const data = Array.isArray(payload) ? payload : [];
-          const wins = [...data].sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0)).slice(0, 3);
-          const kills = [...data].sort((a, b) => (b.totalKills || 0) - (a.totalKills || 0)).slice(0, 3);
-          const points = [...data]
-            .sort((a, b) => (((Number(b.totalWins) * 100) + (Number(b.totalKills) * 10)) - ((Number(a.totalWins) * 100) + (Number(a.totalKills) * 10))))
-            .slice(0, 3);
-          setRankings({ wins, kills, points });
-        }
-
-        if (getUser()) {
-          try {
-            const me = await apiGet('/user/me');
-            if (me && typeof me === 'object') {
-              setUser(me);
-              updateStoredUser((currentUser) => ({ ...(currentUser || {}), ...me }));
-            }
-          } catch (meErr) {
-            if (Number(meErr?.status || 0) === 401 || Number(meErr?.status || 0) === 403) {
-              clearAuth();
-              setUser(null);
-            }
-          }
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    syncStoredUser();
-    refreshHome();
-
-    const onFocus = () => refreshHome();
-    const onAuthSync = () => refreshHome();
-    window.addEventListener('focus', onFocus);
-    window.addEventListener(AUTH_SYNC_EVENT, onAuthSync);
-    window.addEventListener(HOF_SYNC_EVENT, onFocus);
-    return () => {
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener(AUTH_SYNC_EVENT, onAuthSync);
-      window.removeEventListener(HOF_SYNC_EVENT, onFocus);
-    };
-  }, []);
-
   return (
-    <main className="home-container">
-      {/* 상단 네비게이션 */}
-      <div className="top-nav">
-        {user ? (
-          <div className="user-info">
-            <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp || 0} · Cr: {user.credits || 0} · 특전: {Array.isArray(user.perks) ? user.perks.length : 0})</span>
-            <button className="logout-btn" onClick={handleLogout}>
-              🚪 로그아웃
-            </button>
-          </div>
-        ) : (
-          <div className="auth-btns">
-            <Link href="/login" className="login-btn">🔑 로그인</Link>
-            <Link href="/signup" className="signup-btn">📝 회원가입</Link>
-          </div>
-        )}
-      </div>
+    <main className="home-page">
+      <SiteHeader />
 
-      {/* 1. 메인 타이틀 */}
-      <section className="hero-section">
-        <div className="hero-logo-container">
+      <section className="home-container">
+        <section className="hero-section">
+          <div className="hero-logo-container" aria-label="ETERNAL HUNGER">
             <span className="hero-logo-sub">ETERNAL</span>
             <span className="hero-logo-main">HUNGER</span>
-        </div>
-        <p className="main-desc">나만의 캐릭터, 나만의 시나리오로 펼쳐지는 배틀로얄 시뮬레이터</p>
-      </section>
+          </div>
+          <p className="main-desc">
+            나만의 캐릭터와 운영 데이터로 굴리는 이터널 리턴풍 배틀로얄 시뮬레이터
+          </p>
+        </section>
 
-      {/* 2. 메뉴 카드 섹션 */}
-      <section className="menu-grid">
-        <Link href="/characters" className="menu-card">
-            <div className="icon">👥</div>
-            <h3>캐릭터 설정</h3>
-            <p>참가할 선수들을 등록하고 관리합니다.</p>
-        </Link>
-        
-        <Link href="/details" className="menu-card">
-            <div className="icon">📊</div>
-            <h3>상세 스탯</h3>
-            <p>AI 분석 및 능력치 커스텀</p>
-        </Link>
+        <section className="menu-grid" aria-label="주요 메뉴">
+          {menuItems.map((item) => (
+            <Link href={item.href} className="menu-card" key={item.href}>
+              <div className="icon">{item.icon}</div>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </Link>
+          ))}
+        </section>
 
-        <Link href="/events" className="menu-card">
-            <div className="icon">📜</div>
-            <h3>시나리오</h3>
-            <p>게임에서 발생할 사건 사고 정의</p>
-        </Link>
-
-        <Link href="/modifiers" className="menu-card">
-            <div className="icon">⚖️</div>
-            <h3>게임 밸런스</h3>
-            <p>확률 및 가중치 조절</p>
-        </Link>
-
-        <Link href="/board" className="menu-card">
-            <div className="icon">🗣️</div>
-            <h3>게시판</h3>
-            <p>자유롭게 글을 작성하고 공유합니다.</p>
-        </Link>
-
-        <Link href="/perks" className="menu-card">
-            <div className="icon">LP</div>
-            <h3>특전 상점</h3>
-            <p>LP로 칭호, 배지, 프레임 같은 치장 특전을 구매합니다.</p>
-        </Link>
-
-        <Link href="/help" className="menu-card">
-            <div className="icon">?</div>
-            <h3>초보자 도움말</h3>
-            <p>목표, 전술, 장비, 로그 용어를 처음 보는 사람 기준으로 설명합니다.</p>
-        </Link>
-
-        {user?.isAdmin ? (
-          <Link href="/admin" className="menu-card">
-              <div className="icon">🛠️</div>
-              <h3>관리자</h3>
-              <p>아이템/맵/상점/특전 관리</p>
+        <div className="start-btn-container">
+          <Link href={mounted && user ? '/simulation' : '/login'} className="start-btn">
+            {mounted && user ? '시뮬레이션 시작하기' : '로그인하고 시작하기'}
           </Link>
-        ) : null}
-      </section>
+        </div>
 
-      {/* 3. 게임 시작 버튼 */}
-      <div className="start-btn-container">
-        {user ? (
-            <Link href="/simulation">
-                <button className="start-btn">⚔️ 시뮬레이션 시작하기</button>
-            </Link>
-        ) : (
-            <Link href="/login">
-                <button className="start-btn" style={{background:'#999'}}>🔒 로그인 후 시작</button>
-            </Link>
-        )}
-      </div>
+        <section className="hall-of-fame">
+          <h2 className="hof-title">명예의 전당</h2>
 
-      {/* 4. 명예의 전당 */}
-      <section className="hall-of-fame">
-        <h2 className="hof-title">🏆 명예의 전당 🏆</h2>
-        
-        {loading ? (
-            <p style={{textAlign:'center', color:'#666'}}>데이터를 불러오는 중...</p>
-        ) : (
+          {loading ? (
+            <p style={{ textAlign: 'center', color: '#666' }}>랭킹 정보를 불러오는 중입니다.</p>
+          ) : (
             <div className="hof-grid">
-                
-                {/* 👑 최다 우승 */}
-                <div className="hof-card">
-                    <h3>👑 최다 우승</h3>
-                    <ul>
-                        {user ? (
-                        myWinsTop3 && myWinsTop3.length > 0 ? myWinsTop3.map((char, idx) => (
-                            <li key={idx} className={`rank-${idx + 1}`}>
-                                <span className="rank-badge">{idx + 1}</span>
-                                <div className="rank-info">
-                                    <span className="rank-name">{char.name}</span>
-                                    <span className="rank-val">{(char.totalWins ?? char.records?.totalWins ?? 0)}회 우승</span>
-                                </div>
-                            </li>
-                        )) : <li className="no-data">아직 내 우승 기록이 없습니다.</li>
-                    ) : (
-                        <li className="no-data">로그인 후 내 우승 기록을 확인할 수 있어요.</li>
-                    )}
-                    </ul>
-                </div>
+              <div className="hof-card">
+                <h3>내 캐릭터 승리</h3>
+                <ul>
+                  {mounted && user ? (
+                    <RankingList
+                      rows={myCharTop3.wins}
+                      empty="아직 승리 기록이 없습니다."
+                      renderValue={(row) => `${getWins(row)}승`}
+                    />
+                  ) : (
+                    <li className="no-data">로그인하면 내 캐릭터 기록을 볼 수 있습니다.</li>
+                  )}
+                </ul>
+              </div>
 
-                {/* 💀 최다 킬 */}
-                <div className="hof-card">
-                    <h3>💀 학살자 (Kills/Assists)</h3>
-                    <ul>
-                        {user ? (
-                        myKillsTop3 && myKillsTop3.length > 0 ? myKillsTop3.map((char, idx) => (
-                            <li key={idx} className={`rank-${idx + 1}`}>
-                                <span className="rank-badge">{idx + 1}</span>
-                                <div className="rank-info">
-                                    <span className="rank-name">{char.name}</span>
-                                    <span className="rank-val" style={{color:'#ff5252'}}>
-                                        {(char.totalKills ?? char.records?.totalKills ?? 0)} 킬 / {(char.totalAssists ?? char.records?.totalAssists ?? 0)} 어시
-                                    </span>
-                                </div>
-                            </li>
-                        )) : <li className="no-data">아직 내 킬 기록이 없습니다.</li>
-                    ) : (
-                        <li className="no-data">로그인 후 내 킬 기록을 확인할 수 있어요.</li>
-                    )}
-                    </ul>
-                </div>
+              <div className="hof-card">
+                <h3>내 캐릭터 킬/어시스트</h3>
+                <ul>
+                  {mounted && user ? (
+                    <RankingList
+                      rows={myCharTop3.kills}
+                      empty="아직 전투 기록이 없습니다."
+                      renderValue={(row) => `${getKills(row)}킬 / ${getAssists(row)}어시`}
+                    />
+                  ) : (
+                    <li className="no-data">로그인하면 전투 기록을 볼 수 있습니다.</li>
+                  )}
+                </ul>
+              </div>
 
-                {/* 💎 레전드 (LP) */}
-                <div className="hof-card">
-                    <h3>💎 레전드 (Points)</h3>
-                    <ul>
-                        {rankings.points && rankings.points.length > 0 ? rankings.points.map((p, idx) => (
-                            <li key={idx} className={`rank-${idx + 1}`}>
-                                <span className="rank-badge">{idx + 1}</span>
-                                <div className="rank-info">
-                                    <span className="rank-name">{p.username ?? p.name ?? 'Unknown'}</span>
-                                    <span className="rank-val" style={{color:'#7b1fa2'}}>
-                                        {p.lp ?? ((Number(p.totalWins ?? p.records?.totalWins ?? 0) * 100) + (Number(p.totalKills ?? p.records?.totalKills ?? 0) * 10))} LP
-                                    </span>
-                                </div>
-                            </li>
-                        )) : <li className="no-data">아직 기록이 없습니다.</li>}
-                    </ul>
-                </div>
-
+              <div className="hof-card">
+                <h3>LP 랭킹</h3>
+                <ul>
+                  <RankingList
+                    rows={rankings.points}
+                    empty="아직 랭킹 기록이 없습니다."
+                    renderValue={(row) => `${getPoints(row).toLocaleString('ko-KR')} LP`}
+                  />
+                </ul>
+              </div>
             </div>
-        )}
+          )}
+        </section>
       </section>
-
     </main>
   );
 }

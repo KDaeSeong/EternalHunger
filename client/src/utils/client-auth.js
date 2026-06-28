@@ -1,7 +1,42 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { AUTH_SYNC_EVENT, getToken, getUser, isAdmin } from './api';
+import { AUTH_SYNC_EVENT, getToken } from './api';
+
+let cachedUserRaw;
+let cachedUserValue = null;
+let cachedAdminRaw;
+let cachedAdminValue = false;
+
+function readLocalStorage(key) {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function getUserSnapshot() {
+  const raw = readLocalStorage('user') || 'null';
+  if (raw === cachedUserRaw) return cachedUserValue;
+  cachedUserRaw = raw;
+  try {
+    cachedUserValue = JSON.parse(raw);
+  } catch {
+    cachedUserValue = null;
+  }
+  return cachedUserValue;
+}
+
+function getAdminSnapshot() {
+  const raw = readLocalStorage('user') || 'null';
+  if (raw === cachedAdminRaw) return cachedAdminValue;
+  cachedAdminRaw = raw;
+  const user = getUserSnapshot();
+  cachedAdminValue = Boolean(user?.isAdmin);
+  return cachedAdminValue;
+}
 
 function subscribe(callback) {
   if (typeof window === 'undefined') return () => {};
@@ -25,9 +60,9 @@ export function useAuthToken() {
 }
 
 export function useAuthUser() {
-  return useSyncExternalStore(subscribe, () => getUser(), () => null);
+  return useSyncExternalStore(subscribe, getUserSnapshot, () => null);
 }
 
 export function useIsAdminSnapshot() {
-  return useSyncExternalStore(subscribe, () => isAdmin(), () => false);
+  return useSyncExternalStore(subscribe, getAdminSnapshot, () => false);
 }
