@@ -217,6 +217,7 @@ import {
   invHasSpecialKind,
   isLowMaterialInvEntry,
   lateGameGearDirector,
+  pickCatalogEquipmentItem,
   tryAutoCraftFromInventory,
   tryImmediateCraftFromSpecial,
 } from './gearDirectorRuntime';
@@ -449,6 +450,7 @@ export {
   autoEquipBest,
   day1HeroGearDirector,
   lateGameGearDirector,
+  pickCatalogEquipmentItem,
   ensureRoomForEquipment,
   tryImmediateCraftFromSpecial,
   MAT_METEOR_ID,

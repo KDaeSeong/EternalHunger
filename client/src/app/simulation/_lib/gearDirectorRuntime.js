@@ -1,4 +1,4 @@
-import { createEquipmentItem, normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import {
   compactIO,
   tierLabelKo,
@@ -305,6 +305,107 @@ function resolveActorWeaponType(actor) {
   return normalizeWeaponType(fallback);
 }
 
+function catalogItemId(item) {
+  return String(item?._id || item?.itemId || item?.id || '').trim();
+}
+
+function isGeneratedCatalogEquipment(item) {
+  const id = catalogItemId(item);
+  return id.startsWith('wpn_') || id.startsWith('eq_');
+}
+
+function catalogItemKey(item) {
+  return String(item?.itemKey || item?.externalId || '').trim();
+}
+
+function isPreferredCatalogSource(item) {
+  const key = catalogItemKey(item).toLowerCase();
+  const tags = Array.isArray(item?.tags) ? item.tags.map((x) => String(x || '').toLowerCase()) : [];
+  const source = String(item?.source || '').toLowerCase();
+  return key.startsWith('namu:') || tags.includes('namu') || source.includes('openapi') || source.includes('namu') || String(item?.erCode || '').trim();
+}
+
+function getCatalogWeaponType(item) {
+  const rawList = [
+    item?.weaponType,
+    item?.itemSubType,
+    ...(Array.isArray(item?.tags) ? item.tags : []),
+  ];
+  for (const raw of rawList) {
+    const normalized = normalizeWeaponType(String(raw || '').trim());
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
+function cloneCatalogGear(item, opts = {}) {
+  if (!item || typeof item !== 'object') return null;
+  const tier = clampGearTier(item?.tier || 1);
+  return {
+    ...item,
+    tier,
+    rarity: item?.rarity || tierLabelKo(tier),
+    equipSlot: String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase(),
+    _forceReplaceSameTier: opts?.forceReplaceSameTier === true,
+  };
+}
+
+function pickCatalogEquipmentItem(publicItems, opts = {}) {
+  const slot = String(opts?.slot || '').toLowerCase();
+  if (!slot) return null;
+  const targetTier = clampGearTier(opts?.tier || 1);
+  const preferredWeaponType = slot === 'weapon' ? normalizeWeaponType(String(opts?.weaponType || '').trim()) : '';
+  const avoid = new Set((Array.isArray(opts?.avoidItemIds) ? opts.avoidItemIds : []).map((id) => String(id || '').trim()).filter(Boolean));
+
+  const all = (Array.isArray(publicItems) ? publicItems : [])
+    .filter((item) => {
+      const id = catalogItemId(item);
+      if (!id || avoid.has(id) || isGeneratedCatalogEquipment(item)) return false;
+      if (String(item?.lockedByAdmin || '') === 'deleted') return false;
+      if (String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase() !== slot) return false;
+      return true;
+    });
+  if (!all.length) return null;
+
+  const typed = (preferredWeaponType && slot === 'weapon')
+    ? all.filter((item) => getCatalogWeaponType(item) === preferredWeaponType)
+    : all;
+  const typePool = typed.length ? typed : all;
+  const preferredSourcePool = typePool.filter(isPreferredCatalogSource);
+  const sourcePool = preferredSourcePool.length ? preferredSourcePool : typePool;
+
+  const exact = sourcePool.filter((item) => clampGearTier(item?.tier || 1) === targetTier);
+  let pool = exact;
+  if (!pool.length && opts?.allowNearestTier !== false) {
+    const lower = sourcePool
+      .filter((item) => clampGearTier(item?.tier || 1) <= targetTier)
+      .sort((a, b) => clampGearTier(b?.tier || 1) - clampGearTier(a?.tier || 1));
+    const higher = sourcePool
+      .filter((item) => clampGearTier(item?.tier || 1) > targetTier)
+      .sort((a, b) => clampGearTier(a?.tier || 1) - clampGearTier(b?.tier || 1));
+    if (lower.length) {
+      const bestTier = clampGearTier(lower[0]?.tier || 1);
+      pool = lower.filter((item) => clampGearTier(item?.tier || 1) === bestTier);
+    } else if (higher.length) {
+      const bestTier = clampGearTier(higher[0]?.tier || 1);
+      pool = higher.filter((item) => clampGearTier(item?.tier || 1) === bestTier);
+    }
+  }
+  if (!pool.length) return null;
+
+  const named = pool
+    .filter((item) => String(item?.name || '').trim())
+    .sort((a, b) => {
+      const sa = isPreferredCatalogSource(a) ? 1 : 0;
+      const sb = isPreferredCatalogSource(b) ? 1 : 0;
+      if (sb !== sa) return sb - sa;
+      return String(a?.name || '').localeCompare(String(b?.name || ''));
+    });
+  const finalPool = named.length ? named : pool;
+  const picked = finalPool[Math.floor(Math.random() * finalPool.length)] || finalPool[0];
+  return cloneCatalogGear(picked, { forceReplaceSameTier: opts?.forceReplaceSameTier === true });
+}
+
 function consumeLowMaterials(inventory, need, itemMetaById, itemNameById) {
   const want = Math.max(0, Math.floor(Number(need || 0)));
   if (want <= 0) return { inventory: Array.isArray(inventory) ? [...inventory] : [], consumed: 0 };
@@ -412,12 +513,20 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
       const curTier = cur ? getInvTier(cur, itemMetaById) : 0;
       if (curTier >= targetTier) continue;
 
-      const gear = createEquipmentItem({ slot, day: d, tier: targetTier, weaponType: slot === 'weapon' ? wTypeNorm : '' });
+      const gear = pickCatalogEquipmentItem(publicItems, {
+        slot,
+        tier: targetTier,
+        weaponType: slot === 'weapon' ? wTypeNorm : '',
+        avoidItemIds: inv.map(getInvId),
+        allowNearestTier: true,
+        forceReplaceSameTier: true,
+      });
+      if (!gear) continue;
       inv = ensureRoomForEquipment(inv, ruleset, itemMetaById, itemNameById);
-      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
+      inv = addItemToInventory(inv, gear, catalogItemId(gear), 1, d, ruleset);
       const meta = inv?._lastAdd;
       const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
-      if (got > 0) completedSlots.push(`${SLOT_ICON[slot] || '🧩'}${tierLabelKo(targetTier)}`);
+      if (got > 0) completedSlots.push(`${SLOT_ICON[slot] || '🧩'}${tierLabelKo(gear?.tier || targetTier)}`);
     }
 
     actor.inventory = inv;
@@ -455,9 +564,15 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
     if (!has && low >= 2) {
       const dec = consumeLowMaterials(inv, 2, itemMetaById, itemNameById);
       inv = dec.inventory;
-      const gear = createEquipmentItem({ slot, day: d, tier: 1, weaponType: '' });
-      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
-      logs.push(`🛠️ [${actor?.name}] fallback 제작: ${SLOT_ICON[slot] || '🧩'} ${gear?.name || '장비'} (일반)`);
+      const gear = pickCatalogEquipmentItem(publicItems, {
+        slot,
+        tier: 1,
+        avoidItemIds: inv.map(getInvId),
+        allowNearestTier: true,
+      });
+      if (!gear) continue;
+      inv = addItemToInventory(inv, gear, catalogItemId(gear), 1, d, ruleset);
+      logs.push(`🛠️ [${actor?.name}] 루트 제작 보정: ${SLOT_ICON[slot] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(gear?.tier || 1)})`);
     }
   }
 
@@ -479,9 +594,16 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
       if (dec.consumed < 1) break;
       inv = dec.inventory;
 
-      const gear = createEquipmentItem({ slot, day: d, tier: nextTier, weaponType: slot === 'weapon' ? wTypeNorm : '' });
-      inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
-      logs.push(`⬆️ [${actor?.name}] fallback 강화: ${SLOT_ICON[slot] || '🧩'} ${tierLabelKo(nextTier)} 장비 획득`);
+      const gear = pickCatalogEquipmentItem(publicItems, {
+        slot,
+        tier: nextTier,
+        weaponType: slot === 'weapon' ? wTypeNorm : '',
+        avoidItemIds: inv.map(getInvId),
+        allowNearestTier: true,
+      });
+      if (!gear) break;
+      inv = addItemToInventory(inv, gear, catalogItemId(gear), 1, d, ruleset);
+      logs.push(`⬆️ [${actor?.name}] 루트 장비 갱신: ${SLOT_ICON[slot] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(gear?.tier || nextTier)})`);
     }
   }
 
@@ -563,8 +685,15 @@ function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   if (!slotPick) return { changed: false, logs };
 
   // 인벤토리 공간(장비 교체 로직이 있으므로 canReceiveItem로 먼저 가드)
-  const gear = createEquipmentItem({ slot: slotPick, day: d, tier: targetTier, weaponType: slotPick === 'weapon' ? wTypeNorm : '' });
-  if (!canReceiveItem(inv, gear, gear.itemId, 1, ruleset)) return { changed: false, logs };
+  const gear = pickCatalogEquipmentItem(publicItems, {
+    slot: slotPick,
+    tier: targetTier,
+    weaponType: slotPick === 'weapon' ? wTypeNorm : '',
+    avoidItemIds: inv.map(getInvId),
+    allowNearestTier: true,
+  });
+  if (!gear) return { changed: false, logs };
+  if (!canReceiveItem(inv, gear, catalogItemId(gear), 1, ruleset)) return { changed: false, logs };
 
   // 재료 소모: 하급 1 + 특수 1
   const decLow = consumeLowMaterials(inv, 1, itemMetaById, itemNameById);
@@ -572,11 +701,11 @@ function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   inv = decLow.inventory;
   inv = consumeIngredientsFromInv(inv, [{ itemId: String(specialId), qty: 1 }]);
 
-  inv = addItemToInventory(inv, gear, gear.itemId, 1, d, ruleset);
+  inv = addItemToInventory(inv, gear, catalogItemId(gear), 1, d, ruleset);
   const meta = inv?._lastAdd;
   const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
   if (got > 0) {
-    logs.push(`🛠️ [${actor?.name}] 후반 제작: ${specialLabel}+하급재료 → ${SLOT_ICON[slotPick] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(targetTier)})${formatInvAddNote(meta, 1, inv, ruleset)}`);
+    logs.push(`🛠️ [${actor?.name}] 후반 제작: ${specialLabel}+하급재료 → ${SLOT_ICON[slotPick] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(gear?.tier || targetTier)})${formatInvAddNote(meta, 1, inv, ruleset)}`);
     actor.inventory = inv;
     autoEquipBest(actor, itemMetaById);
     actor.lateGameCraftPhaseIdx = phaseIdx;
@@ -621,7 +750,7 @@ function ensureRoomForEquipment(inv, ruleset, itemMetaById, itemNameById) {
   return list;
 }
 
-function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNameById, itemMetaById, curDay, curPhase, phaseIdxNow, ruleset) {
+function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, publicItems, itemNameById, itemMetaById, curDay, curPhase, phaseIdxNow, ruleset) {
   if (!actor || typeof actor !== 'object') return { changed: false, logs: [], pvpBonus: 0 };
   const k = String(specialKind || '');
   if (!k) return { changed: false, logs: [], pvpBonus: 0 };
@@ -672,16 +801,23 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   // 무기 타입은 캐릭터 선호 기준으로
   const wTypeNorm = resolveActorWeaponType(actor);
 
-  const gear = createEquipmentItem({ slot: slotPick, day: Number(curDay || 0), tier: targetTier, weaponType: slotPick === 'weapon' ? wTypeNorm : '' });
+  const gear = pickCatalogEquipmentItem(publicItems, {
+    slot: slotPick,
+    tier: targetTier,
+    weaponType: slotPick === 'weapon' ? wTypeNorm : '',
+    avoidItemIds: inv.map(getInvId),
+    allowNearestTier: true,
+  });
+  if (!gear) return { changed: false, logs: [], pvpBonus: 0 };
 
   // 공간 확보
   inv = ensureRoomForEquipment(inv, ruleset, itemMetaById, itemNameById);
-  if (!canReceiveItem(inv, gear, gear.itemId, 1, ruleset)) return { changed: false, logs: [], pvpBonus: 0 };
+  if (!canReceiveItem(inv, gear, catalogItemId(gear), 1, ruleset)) return { changed: false, logs: [], pvpBonus: 0 };
 
   // 재료 소모(특수 재료 1개)
   inv = consumeIngredientsFromInv(inv, [{ itemId: sid, qty: 1 }]);
 
-  inv = addItemToInventory(inv, gear, gear.itemId, 1, Number(curDay || 0), ruleset);
+  inv = addItemToInventory(inv, gear, catalogItemId(gear), 1, Number(curDay || 0), ruleset);
   const meta = inv?._lastAdd;
   const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
   if (got <= 0) return { changed: false, logs: [], pvpBonus: 0 };
@@ -692,7 +828,7 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, itemNam
   actor._specialCraftDayCount = dayCnt + 1;
 
   const label = (k === 'vf') ? 'VF→초월' : (k === 'force_core') ? '포스코어→전설' : (k === 'mithril') ? '미스릴→전설' : (k === 'meteor') ? '운석→전설' : (k === 'life_tree') ? '생나→전설' : '특수재료→전설';
-  const logs = [`⚒️ [${actor?.name}] 즉시 제작: ${label} → ${SLOT_ICON[slotPick] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(targetTier)})${formatInvAddNote(meta, 1, inv, ruleset)}`];
+  const logs = [`⚒️ [${actor?.name}] 즉시 제작: ${label} → ${SLOT_ICON[slotPick] || '🧩'} ${gear?.name || '장비'} (${tierLabelKo(gear?.tier || targetTier)})${formatInvAddNote(meta, 1, inv, ruleset)}`];
 
   // 수집/제작은 소음이 커서 교전을 유발(다음 페이즈 + 즉시 표적)
   const pvpBonus = (k === 'vf') ? 0.55 : 0.35;
@@ -713,6 +849,7 @@ export {
   autoEquipBest,
   day1HeroGearDirector,
   lateGameGearDirector,
+  pickCatalogEquipmentItem,
   ensureRoomForEquipment,
   tryImmediateCraftFromSpecial,
 };

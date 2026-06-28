@@ -50,7 +50,7 @@ import {
   getWildlifeDamageMultiplier,
   getWildlifeMasteryEntries,
 } from '../../utils/masteryLogic';
-import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
+import { normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { DEFAULT_RULESET_ID, getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain, normalizeRulesetId } from '../../utils/rulesets';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationLogPanel from './_components/SimulationLogPanel';
@@ -172,6 +172,7 @@ import {
   autoEquipBest,
   day1HeroGearDirector,
   lateGameGearDirector,
+  pickCatalogEquipmentItem,
   tryImmediateCraftFromSpecial,
   safeGenerateDynamicEvent,
   areSameTeam,
@@ -740,6 +741,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   const hyperloopPickLogRef = useRef({ inited: false, last: '' });
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
   const fullLogsRef = useRef([]);
+  const fullLogEntriesRef = useRef([]);
   const [logBoxMaxH, setLogBoxMaxH] = useState(420);
 
   // 🗺️ 맵/ID는 시뮬 "시작" 순간에 서버에서 새로고침할 수 있어, ref로 즉시값을 유지합니다.
@@ -857,7 +859,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   function addLog(text, type = 'normal') {
     // 전체 로그(서버 저장/결과용)는 페이즈 초기화와 무관하게 누적
     try {
-      fullLogsRef.current = [...(Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []), String(text || '')];
+      const logText = String(text || '');
+      const logType = String(type || 'normal');
+      fullLogsRef.current = [...(Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []), logText];
+      fullLogEntriesRef.current = [
+        ...(Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current : []),
+        { text: logText, type: logType },
+      ];
     } catch {}
     // ✅ React StrictMode(dev)에서는 state updater가 2번 호출될 수 있어,
     //   id 생성/카운터 증가를 updater 내부에서 처리해 key 충돌을 방지합니다.
@@ -3415,10 +3423,18 @@ const pickStartZoneIdForChar = (c) => {
             : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
           const wTypeNorm = normalizeWeaponType(wType);
 
-          const mk = (slot, wTypeArg = '') => createEquipmentItem({ slot, day: nextDay, tier: 1, weaponType: wTypeArg });
           const gear = {
-            weapon: mk('weapon', wTypeNorm),
-            shoes: mk('shoes'),
+            weapon: pickCatalogEquipmentItem(publicItems, {
+              slot: 'weapon',
+              tier: 1,
+              weaponType: wTypeNorm,
+              allowNearestTier: true,
+            }),
+            shoes: pickCatalogEquipmentItem(publicItems, {
+              slot: 'shoes',
+              tier: 1,
+              allowNearestTier: true,
+            }),
           };
 
           // ✅ 관전형: 시작 시 장비는 최소만 주고, 재료/제작으로 성장
@@ -3438,8 +3454,12 @@ const pickStartZoneIdForChar = (c) => {
           }
 
           // 시작 장비(무기/신발)
-          inv = addItemToInventory(inv, gear.weapon, gear.weapon.itemId, 1, nextDay, ruleset);
-          inv = addItemToInventory(inv, gear.shoes, gear.shoes.itemId, 1, nextDay, ruleset);
+          if (gear.weapon?._id) {
+            inv = addItemToInventory(inv, gear.weapon, String(gear.weapon._id), 1, nextDay, ruleset);
+          }
+          if (gear.shoes?._id) {
+            inv = addItemToInventory(inv, gear.shoes, String(gear.shoes._id), 1, nextDay, ruleset);
+          }
 
           return {
             ...s,
@@ -3448,8 +3468,8 @@ const pickStartZoneIdForChar = (c) => {
             inventory: inv,
             equipped: {
               ...(ensureEquipped(s) || {}),
-              weapon: gear.weapon.itemId,
-              shoes: gear.shoes.itemId,
+              weapon: gear.weapon?._id ? String(gear.weapon._id) : null,
+              shoes: gear.shoes?._id ? String(gear.shoes._id) : null,
               head: null,
               clothes: null,
               arm: null,
@@ -3460,7 +3480,7 @@ const pickStartZoneIdForChar = (c) => {
 
     if (isFirstDayStarterLoadout) {
       startStarterLoadoutAppliedRef.current = true;
-      addLog('🧰 1일차 낮: 기본 장비(일반 무기/신발)가 지급되었습니다. (관전형: 제작/루팅으로 성장)', 'highlight');
+      addLog('🧰 1일차 낮: 실제 아이템 목록에서 시작 무기/신발이 지급되었습니다. (관전형: 제작/루팅으로 성장)', 'highlight');
     }
 
 
@@ -3472,6 +3492,41 @@ const pickStartZoneIdForChar = (c) => {
 
     const newlyDead = [];
     const phaseDeadSnapshots = [];
+    const phaseDeathLogStartIndex = Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current.length : 0;
+    const fallbackDeathLogKeys = new Set();
+    const formatFallbackDeathReason = (actor) => {
+      const raw = String(actor?._deathBy || actor?.deathReason || actor?.lastDeathReason || '').toLowerCase();
+      if (raw.includes('detonation')) return '폭발 타이머';
+      if (raw.includes('forbidden')) return '금지구역';
+      if (raw.includes('wildlife') || raw.includes('hunt')) return '야생동물 교전';
+      if (raw.includes('sudden')) return '서든데스 교전';
+      if (raw.includes('accident')) return '사고';
+      if (raw.includes('status') || raw.includes('effect')) return '상태 효과';
+      if (raw.includes('elimination')) return '팀 전멸';
+      return '전투';
+    };
+    const hasDirectDeathLogForActor = (actor) => {
+      const key = getRuntimeActorKey(actor);
+      if (key && fallbackDeathLogKeys.has(key)) return true;
+      const name = String(actor?.name || '').trim();
+      if (!name) return false;
+      const marker = `[${name}]`;
+      const entries = (Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current : []).slice(phaseDeathLogStartIndex);
+      return entries.some((entry) => {
+        if (String(entry?.type || '') !== 'death') return false;
+        const text = String(entry?.text || '');
+        const markerIndex = text.indexOf(marker);
+        if (markerIndex < 0 || markerIndex > 8) return false;
+        return /사망|죽|탈락|폭발|전멸|전투불능|쓰러|치명상/.test(text);
+      });
+    };
+    const addFallbackDeathLog = (actor) => {
+      const key = getRuntimeActorKey(actor);
+      if (!key || hasDirectDeathLogForActor(actor)) return;
+      fallbackDeathLogKeys.add(key);
+      const name = String(actor?.name || '생존자').trim() || '생존자';
+      addLog(`💀 [${name}] 사망: ${formatFallbackDeathReason(actor)}`, 'death');
+    };
     const appendPhaseDeadSnapshots = (actors) => {
       const snapshots = normalizeRuntimeSurvivorList(
         (Array.isArray(actors) ? actors : [actors])
@@ -3482,6 +3537,7 @@ const pickStartZoneIdForChar = (c) => {
       for (const snapshot of snapshots) {
         const key = getRuntimeActorKey(snapshot);
         if (!key || phaseDeadSnapshots.some((entry) => getRuntimeActorKey(entry) === key)) continue;
+        addFallbackDeathLog(snapshot);
         phaseDeadSnapshots.push(snapshot);
         added.push(snapshot);
       }
@@ -4114,7 +4170,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
           if (got > 0) grantMastery(updated, 'search', 100, '자원 채취');
 
-          const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+          const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
           if (immediateCore?.changed) {
             updated.inventory = immediateCore.inventory;
             (Array.isArray(immediateCore.logs) ? immediateCore.logs : []).forEach((m) => addLog(String(m), 'highlight'));
@@ -4517,7 +4573,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(d.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
 
             const specialKind = classifySpecialByName(nm);
-            const immediateH = tryImmediateCraftFromSpecial(updated, specialKind, String(d.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+            const immediateH = tryImmediateCraftFromSpecial(updated, specialKind, String(d.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
             if (immediateH?.changed) {
               updated.inventory = immediateH.inventory;
               (Array.isArray(immediateH.logs) ? immediateH.logs : []).forEach((m) => addLog(String(m), 'highlight'));
@@ -4556,7 +4612,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (got > 0) grantMastery(updated, 'search', 350, '항공 보급');
 
           const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
-          const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+          const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
           if (immediateLMain?.changed) {
             updated.inventory = immediateLMain.inventory;
             (Array.isArray(immediateLMain.logs) ? immediateLMain.logs : []).forEach((m) => addLog(String(m), 'highlight'));
@@ -4601,7 +4657,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             emitItemGainIfAny(gotB, { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
 
             const specialLBKind = classifySpecialByName(String(bd?.item?.name || nmB || ''));
-            const immediateLB = tryImmediateCraftFromSpecial(updated, specialLBKind, String(bd.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+            const immediateLB = tryImmediateCraftFromSpecial(updated, specialLBKind, String(bd.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
             if (immediateLB?.changed) {
               updated.inventory = immediateLB.inventory;
               (Array.isArray(immediateLB.logs) ? immediateLB.logs : []).forEach((m) => addLog(String(m), 'highlight'));
@@ -4665,7 +4721,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
             // 구매 아이템도 즉시 조합 트리거(선택적)
             const specialKKind = classifySpecialByName(String(kioskAction?.item?.name || itemNm || ''));
-            const immediateK = tryImmediateCraftFromSpecial(updated, specialKKind, String(kioskAction.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+            const immediateK = tryImmediateCraftFromSpecial(updated, specialKKind, String(kioskAction.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
             if (immediateK?.changed) {
               updated.inventory = immediateK.inventory;
               (Array.isArray(immediateK.logs) ? immediateK.logs : []).forEach((m) => addLog(String(m), 'highlight'));
@@ -4984,6 +5040,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
                 representative,
                 classifySpecialByName(choiceName),
                 choiceItemId,
+                publicItems,
                 itemNameById,
                 itemMetaById,
                 nextDay,
@@ -5888,6 +5945,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const prevDamagedPhaseIdx = Number(opts.prevDamagedPhaseIdx ?? combatLoser?.lastDamagedPhaseIdx ?? -9999);
           let pushedDead = false;
           if (!newDeadIds.includes(loserId)) {
+            combatLoser._deathBy = opts?.deathReason || 'combat';
             combatLoser.deadAtPhaseIdx = phaseIdxNow;
             combatLoser.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(loserId);
@@ -6035,13 +6093,14 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const markUnattributedDeath = (victim, reasonText = '접전 중 전투불능') => {
           if (!victim) return;
           const victimId = String(victim?._id || '');
+          victim._deathBy = victim._deathBy || 'combat';
+          addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
           if (!newDeadIds.includes(victimId)) {
             victim.deadAtPhaseIdx = phaseIdxNow;
             victim.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
             newDeadIds.push(victimId);
             flushDeadSnapshots(appendPhaseDeadSnapshots(victim));
           }
-          addLog(`☠️ [${victim.name}] ${reasonText}`, 'death');
           emitRunEvent('death', { who: victimId, by: '', zoneId: String(victim?.zoneId || '') }, atNow());
         };
         const resolveFleeSequence = (flee, chaser, opts = {}) => {
@@ -6792,6 +6851,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         roundKills[winnerId] = (roundKills[winnerId] || 0) + loserMembers.length;
         for (const loser of loserMembers) {
           loser.hp = 0;
+          loser._deathBy = 'sudden_death_clash';
           loser.deadAtPhaseIdx = phaseIdxNow;
           loser.reviveEligible = false;
           if (!newDeadIds.includes(loser._id)) newDeadIds.push(loser._id);
@@ -6872,7 +6932,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
       const wForced = pickTeamRepresentative(wTeam?.members || [], updatedKillCounts, updatedAssistCounts);
       const forcedDead = finalStepSurvivors
         .filter((s) => !areSameTeam(s, wForced))
-        .map((s) => ({ ...s, hp: 0 }));
+        .map((s) => ({ ...s, hp: 0, _deathBy: 'sudden_death_timeout' }));
       const forcedDeadSnapshots = appendPhaseDeadSnapshots(forcedDead);
       flushDeadSnapshots(forcedDeadSnapshots);
       const winners = (Array.isArray(wTeam?.members) ? wTeam.members : [wForced]).filter(Boolean).map((s) => normalizeRuntimeSurvivor(s));
