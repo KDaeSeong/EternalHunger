@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
-import { ER_WEAPON_SKILLS, addWeaponMasteryXp, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
+import { ER_WEAPON_SKILLS, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
 import { bindReferenceErrorGuards, formatRuntimeReason } from '../../utils/runtimeErrorGuard';
 import {
   EFFECT_AIRBORNE,
@@ -36,7 +36,20 @@ import {
   updateEffects,
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
-import { ER_STAT_KEYS, normalizeErStats } from '../../utils/erStats';
+import { ER_STAT_KEYS, getEffectiveErStats, normalizeErStats } from '../../utils/erStats';
+import {
+  addMasteryXp,
+  addMultipleMasteryXp,
+  createInitialMasteryState,
+  getCraftMasteryXp,
+  getMasteryLabel,
+  getMovementSpeedMasteryBonus,
+  getNonCombatRegenMultiplier,
+  getPvpKillMasteryEntries,
+  getPvpMasteryEntries,
+  getWildlifeDamageMultiplier,
+  getWildlifeMasteryEntries,
+} from '../../utils/masteryLogic';
 import { createEquipmentItem, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { DEFAULT_RULESET_ID, getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain, normalizeRulesetId } from '../../utils/rulesets';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
@@ -1051,13 +1064,61 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return !quietReasons.has(reason);
   };
 
-  function grantWeaponMastery(actor, amount, reason = '') {
-    const result = addWeaponMasteryXp(actor, amount);
-    if (!result?.leveledUp) return result;
+  function applyLevelGrowth(actor, result) {
+    if (!actor || !result?.characterLeveledUp) return;
+    const before = Math.max(1, Number(result.beforeCharacterLevel || 1));
+    const after = Math.max(before, Number(result.afterCharacterLevel || before));
+    const steps = Math.max(0, after - before);
+    if (steps <= 0) return;
+    const stats = normalizeErStats(actor?.stats);
+    const hpGain = Math.max(0, Math.round(Number(stats?.hpGrowth || 0) * steps));
+    const effectiveMaxHp = Math.max(1, Math.round(Number(getEffectiveErStats(actor)?.maxHp || stats.maxHp || 100)));
+    if (hpGain > 0) {
+      actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100) + hpGain);
+      actor.hp = Math.min(Number(actor.maxHp || 1), Math.max(0, Number(actor.hp || 0) + hpGain));
+    } else {
+      actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100));
+    }
+  }
+
+  function logMasteryResult(actor, result, reason = '') {
+    if (!actor || !result) return result;
+    applyLevelGrowth(actor, result);
     const reasonText = reason ? ` · ${reason}` : '';
-    addLog(`⚔️ [${actor?.name}] 무기 숙련도 Lv.${result.afterLevel} 달성${reasonText}`, 'highlight');
+    if (result.leveledUp) {
+      addLog(`⚙️ [${actor?.name}] ${getMasteryLabel(result.category)} 숙련도 Lv.${result.afterLevel} 달성${reasonText}`, 'highlight');
+    }
+    if (result.characterLeveledUp) {
+      addLog(`⬆️ [${actor?.name}] Lv.${result.afterCharacterLevel} 달성${reasonText}`, 'highlight');
+    }
     return result;
-  };
+  }
+
+  function grantMastery(actor, category, amount, reason = '') {
+    const result = addMasteryXp(actor, category, amount);
+    return logMasteryResult(actor, result, reason);
+  }
+
+  function grantMasteries(actor, entries = [], reason = '') {
+    const results = addMultipleMasteryXp(actor, entries);
+    results.forEach((result) => logMasteryResult(actor, result, reason));
+    return results;
+  }
+
+  function grantCraftMastery(actor, crafted, itemMetaById, reason = '제작') {
+    if (!actor || !crafted?.craftedId) return [];
+    const craftedId = String(crafted.craftedId || '');
+    const meta = itemMetaById?.[craftedId] || {};
+    return grantMasteries(actor, getCraftMasteryXp(meta, crafted), reason);
+  }
+
+  function grantPvpDamageMastery(actor, payload = {}, reason = '교전') {
+    return grantMasteries(actor, getPvpMasteryEntries(payload), reason);
+  }
+
+  function grantPvpKillMastery(actor, opponent, reason = '처치') {
+    return grantMasteries(actor, getPvpKillMasteryEntries(opponent), reason);
+  }
 
   function applyErTraitAfterBattle(actor, opts = {}) {
     if (!actor || Number(actor?.hp || 0) <= 0) return null;
@@ -1114,6 +1175,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     if (damageDealt <= 0 && !opts?.lethalPreview) return { damage: 0, applied: false };
 
     const mastery = Math.max(1, Math.floor(Number(er?.masteryLevel || 1)));
+    if (mastery < 5) return { damage: 0, applied: false, skill: skill.name, locked: true };
     const nowSec = Math.max(0, Number(opts?.nowSec ?? opts?.at?.sec ?? 0));
     const currentCooldown = Math.max(0, Number(attacker?.cooldowns?.weaponSkill || 0));
     const nextReadySec = Math.max(0, Number(attacker?._weaponSkillNextAbsSec || 0));
@@ -1275,6 +1337,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     actor.inventory = crafted.inventory;
     autoEquipBest(actor, itemMeta);
     addLog(`[${actor.name}] ${crafted.log}`, logType);
+    grantCraftMastery(actor, crafted, itemMeta, '제작');
     emitCraftRunEvent(actor?._id, crafted, at, zoneId || actor?.zoneId);
     return true;
   };
@@ -2728,6 +2791,12 @@ const pickStartZoneIdForChar = (c) => {
           const seeded = applyPerkBundleToActor(normalizeRuntimeSurvivor({
             ...erSeed,
             stats: seedStats,
+            level: 1,
+            erLevel: 1,
+            masteryXp: 0,
+            mastery: createInitialMasteryState(),
+            weaponMasteryXp: 0,
+            weaponMasteryLevel: 1,
             tacticalSkillLevel: Math.max(1, Math.min(2, Number(erSeed?.tacticalSkillLevel || 1))),
             hp: seedMaxHp,
             maxHp: seedMaxHp,
@@ -3716,7 +3785,8 @@ const dangerForceSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5)
 const escapeChance = (mustEscape && curDet <= dangerForceSec) ? 1 : escapeMoveChance;
 
 const equipMs = getEquipMoveSpeed(updated);
-const msMoveBonus = Math.min(0.18, equipMs * 0.9); // 신발 이동속도 반영(이동 결정)
+const masteryMs = getMovementSpeedMasteryBonus(updated);
+const msMoveBonus = Math.min(0.18, equipMs * 0.9 + masteryMs); // 신발/이동 숙련도 반영(이동 결정)
 let baseMoveChance = mustEscape ? escapeChance : (fleeInterruptReason ? 1 : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6)));
 // ✅ 1일차 낮에는 "최소 1회 이동" 목표를 위해 이동 확률을 상향(관전 템포)
 if (!mustEscape && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning') {
@@ -3791,6 +3861,7 @@ if (String(nextZoneId) !== String(currentZone)) {
     objectiveSubkind: moveObjectiveSubkind,
     contestPressure: moveContestPressure,
   }, atNow());
+  grantMastery(updated, 'movement', 180, '지역 이동');
 } else if (mustEscape) {
   addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
 }
@@ -3922,6 +3993,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               const nm = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
               addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nm}] ${gainText(got)}${formatInvAddNote(meta, 1, updated.inventory, ruleset)}`, 'highlight');
               emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, atNow());
+              if (got > 0) grantMastery(updated, 'search', 350, '항공 보급');
               if (got > 0) autoEquipBest(updated, itemMetaById);
             }
           } else {
@@ -3933,6 +4005,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
             }
             emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, atNow());
+            if (got > 0) grantMastery(updated, 'search', 70, '상자 탐색');
             if (got > 0) autoEquipBest(updated, itemMetaById);
           }
         }
@@ -3977,6 +4050,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           emitItemGainIfAny(gotF, { who: String(updated?._id || ''), itemId: String(foodCrate.itemId || ''), source: 'foodcrate', zoneId: String(updated?.zoneId || '') }, atNow());
           if (gotF > 0) {
+            grantMastery(updated, 'search', 70, '음식 상자');
             const craftedF = tryAutoCraftFromLoot(updated.inventory, foodCrate.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
             applyLootCraftResult(updated, craftedF, itemMetaById, atNow(), updated?.zoneId);
           }
@@ -4014,6 +4088,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const nmT = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
             addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nmT}] ${gainText(gotT)}${formatInvAddNote(metaT, 1, updated.inventory, ruleset)}`, 'highlight');
             emitItemGainIfAny(gotT, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto', crateId: String(transcendCrate?.crateId || '') }, atNow());
+            if (gotT > 0) grantMastery(updated, 'search', 350, '항공 보급');
             if (gotT > 0) autoEquipBest(updated, itemMetaById);
           }
         }
@@ -4031,6 +4106,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`🌠 [${updated.name}] ${getZoneName(updated.zoneId)} 오브젝트 채집: [${nm}] ${gainText(got)}${formatInvAddNote(meta, corePickup.qty || 1, updated.inventory, ruleset)}`, 'highlight');
           }
           emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(corePickup.itemId || ''), source: 'natural', kind: String(corePickup.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
+          if (got > 0) grantMastery(updated, 'search', 100, '자원 채취');
 
           const immediateCore = tryImmediateCraftFromSpecial(updated, String(corePickup.kind || ''), String(corePickup.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
           if (immediateCore?.changed) {
@@ -4338,6 +4414,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               addLog(`🧭 [${updated.name}] ${getZoneName(updated.zoneId)}에서 루트 재료 ${itemIcon(routeLoot.item || { type: '' })} [${nmR}] ${gainText(gotR)}${formatInvAddNote(metaR, routeLoot.qty, updated.inventory, ruleset)}`, 'normal');
             }
             emitItemGainIfAny(gotR, { who: String(updated?._id || ''), itemId: String(routeLoot.itemId || ''), source: 'gather', kind: String(routeLoot?.crateType || 'route_material'), zoneId: String(updated?.zoneId || '') }, atNow());
+            if (gotR > 0) grantMastery(updated, 'search', 70, '루트 탐색');
             if (gotR > 0) autoEquipBest(updated, itemMetaById);
             const craftedR = tryAutoCraftFromLoot(updated.inventory, routeLoot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
             applyLootCraftResult(updated, craftedR, itemMetaById, atNow(), updated?.zoneId);
@@ -4384,9 +4461,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const isMutantReward = !boss && !!mutant;
         if (hunt) {
           const dmg = Math.max(0, Number(hunt.damage || 0));
+          const estimatedWildlifeDamage = Math.round((isBossReward ? 260 : isMutantReward ? 180 : 110) * getWildlifeDamageMultiplier(updated));
           updated.hp = Math.max(0, Number(updated.hp || 0) - dmg);
           addLog(`🎯 [${updated.name}] ${hunt.log}${dmg > 0 ? ` (피해 -${dmg})` : ''}`, dmg > 0 ? 'highlight' : 'normal');
-          grantWeaponMastery(updated, isBossReward ? 14 : isMutantReward ? 10 : 5, isBossReward ? '보스 처치' : isMutantReward ? '변이 사냥' : '사냥');
+          grantMasteries(updated, getWildlifeMasteryEntries({ damageDealt: estimatedWildlifeDamage, damageTaken: dmg }), isBossReward ? '보스 사냥' : isMutantReward ? '변이 사냥' : '사냥');
           const creditGain = Math.max(0, Number(hunt?.credits || 0));
           if (creditGain > 0) {
             updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
@@ -4469,6 +4547,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] ${gainText(got)}${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
           }
           emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
+          if (got > 0) grantMastery(updated, 'search', 350, '항공 보급');
 
           const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
           const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
@@ -5786,6 +5865,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             pushedDead = true;
           }
           roundKills[winnerId] = (roundKills[winnerId] || 0) + 1;
+          grantPvpKillMastery(combatWinner, combatLoser, '처치');
           let assistId = null;
           const assistActor = prevDamagedBy
             ? (survivorMap.get(prevDamagedBy)
@@ -5883,7 +5963,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           const maxHp = Number(combatWinner?.maxHp ?? 100);
           const restHealMax = Math.max(0, Math.floor(Number(pvpCfg.restHealMax ?? 8)));
-          const restHeal = applyHealingModifier(combatWinner, Math.min(restHealMax, Math.max(0, maxHp - Number(combatWinner.hp || 0))));
+          const regenMultiplier = getNonCombatRegenMultiplier(combatWinner);
+          const restHeal = applyHealingModifier(combatWinner, Math.min(Math.round(restHealMax * regenMultiplier), Math.max(0, maxHp - Number(combatWinner.hp || 0))));
           if (restHeal > 0) {
             combatWinner.hp = Math.min(maxHp, Number(combatWinner.hp || 0) + restHeal);
             addLog(`🩹 [${combatWinner.name}] 전투 후 재정비: HP +${restHeal}`, 'system');
@@ -5894,7 +5975,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const postRestExtraHealMax = Math.max(0, Math.floor(Number(pvpCfg.postBattleRestExtraHealMax ?? 6)));
           const postMoveChance = Math.max(0, Math.min(1, Number(pvpCfg.postBattleMoveChance ?? 0.35)));
           if (curHp > 0 && curHp <= postRestHpBelow) {
-            const extraHeal = applyHealingModifier(combatWinner, Math.min(postRestExtraHealMax, Math.max(0, maxHp - curHp)));
+            const extraHeal = applyHealingModifier(combatWinner, Math.min(Math.round(postRestExtraHealMax * regenMultiplier), Math.max(0, maxHp - curHp)));
             if (extraHeal > 0) {
               combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
               addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'system');
@@ -6381,10 +6462,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
           addLog(battleLog, lethal ? 'death' : 'normal');
           addLog(`🩸 피해: [${battleWinner.name}]↘[${loser.name}] -${totalDmgToLoser} (반격 -${totalDmgToWinner})`, 'highlight');
-          grantWeaponMastery(battleWinner, lethal ? 14 : 9, lethal ? '처치' : '교전 승리');
-          if (totalDmgToWinner > 0 || !lethal) {
-            grantWeaponMastery(loser, lethal ? 5 : 7, lethal ? '교전 경험' : '반격');
-          }
+          grantPvpDamageMastery(battleWinner, { damageDealt: totalDmgToLoser, damageTaken: totalDmgToWinner }, lethal ? '결정 교전' : '교전 승리');
+          grantPvpDamageMastery(loser, { damageDealt: totalDmgToWinner, damageTaken: totalDmgToLoser }, lethal ? '교전 경험' : '반격');
 
           let postCombatFlee = null;
           const criticalFleeHpBelow = Math.max(0, Number(pvpCfg.criticalFleeHpBelow ?? 18));
@@ -6424,10 +6503,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
             target.lastDamagedBy = String(actor._id);
             target.lastDamagedPhaseIdx = phaseIdxNow;
           }
+          grantPvpDamageMastery(actor, { damageDealt: scratch, damageTaken: scratch }, '접전');
+          grantPvpDamageMastery(target, { damageDealt: scratch, damageTaken: scratch }, '접전');
           addLog(battleLog, 'normal');
           addLog(`⚔️ 접전 피해: [${actor.name}] / [${target.name}] 둘 다 -${scratch}`, 'normal');
-          grantWeaponMastery(actor, 6, '접전');
-          grantWeaponMastery(target, 6, '접전');
 
           emitRunEvent(
             'battle',
@@ -6620,7 +6699,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (eventResult.recovery) {
             const maxHpNow = Math.max(1, Number(actor?.maxHp || 100));
             const bonusRecovery = Math.max(0, perkNumber(perkFx?.eventRecoveryPlus || 0));
-            const finalRecovery = applyHealingModifier(actor, Math.max(0, Number(eventResult.recovery || 0)) + bonusRecovery);
+            const finalRecovery = applyHealingModifier(actor, Math.round((Math.max(0, Number(eventResult.recovery || 0)) + bonusRecovery) * getNonCombatRegenMultiplier(actor)));
             actor.hp = Math.min(maxHpNow, Number(actor.hp || 0) + finalRecovery);
           }
           const eventEffects = applyRuntimeEffectPayloads(actor, eventResult?.newEffects || eventResult?.newEffect);

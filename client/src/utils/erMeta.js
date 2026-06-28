@@ -3,6 +3,7 @@
 
 import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
 import { normalizeErStats, normalizeErStatDeltaMap } from './erStats.js';
+import { addMasteryXp, getMasteryLevel } from './masteryLogic.js';
 
 export const ER_WEAPON_TYPES_KO = [
   '권총',
@@ -120,30 +121,11 @@ export function getErWeaponProfile(raw) {
 }
 
 export function getWeaponMasteryLevel(character) {
-  const explicit = Math.floor(Number(character?.weaponMasteryLevel || 0));
-  const xp = Math.max(0, Math.floor(Number(character?.weaponMasteryXp || 0)));
-  const fromXp = 1 + Math.floor(xp / ER_WEAPON_MASTERY_XP_PER_LEVEL);
-  const level = explicit > 0 ? Math.max(explicit, fromXp) : fromXp;
-  return Math.max(1, Math.min(ER_WEAPON_MASTERY_MAX_LEVEL, level));
+  return getMasteryLevel(character, 'weapon');
 }
 
 export function addWeaponMasteryXp(character, amount = 0) {
-  if (!character || typeof character !== 'object') return null;
-  const gain = Math.max(0, Math.floor(Number(amount || 0)));
-  if (gain <= 0) return null;
-  const beforeLevel = getWeaponMasteryLevel(character);
-  const beforeXp = Math.max(0, Math.floor(Number(character.weaponMasteryXp || 0)));
-  const nextXp = beforeXp + gain;
-  character.weaponMasteryXp = nextXp;
-  character.weaponMasteryLevel = Math.max(beforeLevel, getWeaponMasteryLevel({ ...character, weaponMasteryXp: nextXp, weaponMasteryLevel: 0 }));
-  return {
-    xpGain: gain,
-    beforeXp,
-    afterXp: nextXp,
-    beforeLevel,
-    afterLevel: character.weaponMasteryLevel,
-    leveledUp: character.weaponMasteryLevel > beforeLevel,
-  };
+  return addMasteryXp(character, 'weapon', amount);
 }
 
 export const ER_WEAPON_SKILLS = {

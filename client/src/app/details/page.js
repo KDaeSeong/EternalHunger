@@ -275,7 +275,7 @@ export default function DetailsPage() {
       </div>
 
       {/* ▼ 스탯 가이드 (새로 추가되는 부분) */}
-      <div className="stat-guide-container">
+      <div className="stat-guide-container legacy-stat-guide" aria-hidden="true">
         <h3>📊 스탯 기준표</h3>
         <div className="stat-guide-grid">
           <div className="guide-item rank-e">
@@ -297,6 +297,31 @@ export default function DetailsPage() {
           <div className="guide-item rank-ex">
             <span className="range">81 ~ 100</span>
             <span className="desc">신화 (규격 외 존재)</span>
+          </div>
+        </div>
+      </div>
+      <div className="stat-guide-container">
+        <h3>📊 스탯 기준표</h3>
+        <div className="stat-guide-grid">
+          <div className="guide-item rank-e">
+            <span className="range">Lv.1 ~ 20</span>
+            <span className="desc">모든 캐릭터는 1레벨 시작, 숙련도 누적으로 성장</span>
+          </div>
+          <div className="guide-item rank-c">
+            <span className="range">체력 / 성장 체력</span>
+            <span className="desc">레벨이 오를 때 최대 체력과 생존력이 증가</span>
+          </div>
+          <div className="guide-item rank-a">
+            <span className="range">공격력 / 스킬 증폭</span>
+            <span className="desc">무기 숙련도와 성장 스탯이 전투 피해에 반영</span>
+          </div>
+          <div className="guide-item rank-s">
+            <span className="range">방어력 / 공격속도</span>
+            <span className="desc">피해 감소, 교전 템포, 무기 스킬 발동에 영향</span>
+          </div>
+          <div className="guide-item rank-ex">
+            <span className="range">사거리 / 시야</span>
+            <span className="desc">선공, 추격, 오브젝트 접근 판단에 사용</span>
           </div>
         </div>
       </div>

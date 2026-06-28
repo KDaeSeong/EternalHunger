@@ -67,6 +67,22 @@ const characterSchema = new Schema({
     sightRange: { type: Number, default: 8 },
   },
 
+  // Match runtime growth metadata. A new simulation still starts at Lv.1;
+  // these fields are stored only so presets/admin tools can round-trip the shape.
+  level: { type: Number, default: 1 },
+  erLevel: { type: Number, default: 1 },
+  masteryXp: { type: Number, default: 0 },
+  weaponMasteryXp: { type: Number, default: 0 },
+  weaponMasteryLevel: { type: Number, default: 1 },
+  mastery: {
+    weapon: { xp: { type: Number, default: 0 }, level: { type: Number, default: 1 } },
+    defense: { xp: { type: Number, default: 0 }, level: { type: Number, default: 1 } },
+    hunting: { xp: { type: Number, default: 0 }, level: { type: Number, default: 1 } },
+    craft: { xp: { type: Number, default: 0 }, level: { type: Number, default: 1 } },
+    search: { xp: { type: Number, default: 0 }, level: { type: Number, default: 1 } },
+    movement: { xp: { type: Number, default: 0 }, level: { type: Number, default: 1 } },
+  },
+
   // 인벤토리
   // - legacy: { id, name, type, tags, acquiredDay }
   // - normalized: { itemId, name, qty, ... }

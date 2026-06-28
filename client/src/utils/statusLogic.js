@@ -1,5 +1,6 @@
 // client/src/utils/statusLogic.js
-import { normalizeErStats, normalizeErStatDeltaMap, ER_STAT_KEYS } from './erStats';
+import { normalizeErStats, normalizeErStatDeltaMap, ER_STAT_KEYS, getEffectiveErStats } from './erStats';
+import { applyMasteryStatBonuses } from './masteryLogic';
 
 export const EFFECT_POISON = '중독';
 export const EFFECT_BURN = '화상';
@@ -651,7 +652,7 @@ export function purgeNegativeEffects(character, opts = {}) {
 }
 
 export function getEffectiveStats(character) {
-  const effective = normalizeErStats(character?.stats || {});
+  const effective = applyMasteryStatBonuses(getEffectiveErStats(character), character);
 
   (Array.isArray(character?.activeEffects) ? character.activeEffects : []).forEach((raw) => {
     const effect = normalizeStatusEffect(raw);

@@ -13,6 +13,7 @@ import { normalizeRuntimeEffect } from './runtimeStatus';
 import { normalizeSupportedTacSkill } from '../tacticalSkillTable';
 import { getWeaponMasteryLevel } from '../../../utils/erMeta';
 import { normalizeErStats } from '../../../utils/erStats';
+import { normalizeMasteryState } from '../../../utils/masteryLogic';
 
 function ensureEquipped(obj) {
   const eq = obj?.equipped;
@@ -127,8 +128,9 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
   statusResists[EFFECT_POISON] = Math.max(0, Number(statusResists[EFFECT_POISON] || 0), Number(perkFx?.poisonResistPct || 0));
   statusResists[EFFECT_FOOD_POISON] = Math.max(0, Number(statusResists[EFFECT_FOOD_POISON] || 0), Number(perkFx?.poisonResistPct || 0));
   statusResists[EFFECT_BURN] = Math.max(0, Number(statusResists[EFFECT_BURN] || 0), Number(perkFx?.burnResistPct || 0));
-  const weaponMasteryXp = Math.max(0, Math.floor(Number(base?.weaponMasteryXp || 0)));
-  const weaponMasteryLevel = getWeaponMasteryLevel({ ...base, weaponMasteryXp });
+  const masteryState = normalizeMasteryState(base);
+  const weaponMasteryXp = Math.max(0, Math.floor(Number(masteryState?.weaponMasteryXp || 0)));
+  const weaponMasteryLevel = Math.max(1, Math.min(20, Number(masteryState?.weaponMasteryLevel || getWeaponMasteryLevel({ ...base, weaponMasteryXp }))));
 
   return {
     ...base,
@@ -147,6 +149,10 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     simCredits: Number.isFinite(Number(base?.simCredits)) ? Number(base.simCredits) : 0,
     tacticalSkill: normalizeSupportedTacSkill(base?.tacticalSkill),
     tacticalSkillLevel: Math.max(1, Math.min(2, Number(base?.tacticalSkillLevel || 1))),
+    mastery: masteryState.mastery,
+    masteryXp: masteryState.totalXp,
+    erLevel: masteryState.level,
+    level: masteryState.level,
     weaponMasteryXp,
     weaponMasteryLevel,
     zoneId: String(base?.zoneId || ''),
