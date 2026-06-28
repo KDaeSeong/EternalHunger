@@ -9,13 +9,13 @@ export const EFFECT_SHIELD = '보호막';
 export const EFFECT_REGEN = '재생';
 export const EFFECT_FOCUS = '집중';
 export const EFFECT_STIM = '각성';
-export const EFFECT_AIRBORNE = '공중에 뜸';
+export const EFFECT_AIRBORNE = '에어본';
 export const EFFECT_HEAL_REDUCTION = '치유 감소';
 export const EFFECT_STUN = '기절';
-export const EFFECT_KNOCKBACK = '밀어짐';
-export const EFFECT_SLOW = '둔화';
+export const EFFECT_KNOCKBACK = '넉백';
+export const EFFECT_SLOW = '이동 속도 감소';
 export const EFFECT_LIFESTEAL = '흡혈';
-export const EFFECT_HASTE = '가속';
+export const EFFECT_HASTE = '이동 속도 증가';
 export const EFFECT_COOLDOWN_UP = '쿨다운 증가';
 export const EFFECT_COOLDOWN_DOWN = '쿨다운 감소';
 
@@ -60,12 +60,14 @@ const EFFECT_NAME_ALIASES = {
   knockback: EFFECT_KNOCKBACK,
   pushed: EFFECT_KNOCKBACK,
   둔화: EFFECT_SLOW,
+  '이동 속도 감소': EFFECT_SLOW,
   slow: EFFECT_SLOW,
   slowed: EFFECT_SLOW,
   흡혈: EFFECT_LIFESTEAL,
   lifesteal: EFFECT_LIFESTEAL,
   vamp: EFFECT_LIFESTEAL,
   가속: EFFECT_HASTE,
+  '이동 속도 증가': EFFECT_HASTE,
   haste: EFFECT_HASTE,
   speedup: EFFECT_HASTE,
   '쿨다운 증가': EFFECT_COOLDOWN_UP,

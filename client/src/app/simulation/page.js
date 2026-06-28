@@ -120,6 +120,9 @@ import {
   clearNegativeStatusEffects,
   describeRuntimeEffect,
   getVisibleRuntimeEffects,
+  shouldLogRuntimeEffectApplication,
+  shouldLogRuntimeEffectExpiry,
+  shouldLogRuntimeEffectTick,
   applyRuntimeEffectPayloads,
   consumeShieldDamage,
   clearPostCombatEffects,
@@ -1168,7 +1171,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     (applied?.results || []).forEach((row) => {
       if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
       else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-      else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+        const desc = describeRuntimeEffect(row.effect);
+        if (desc) bits.push(desc);
+      }
     });
 
     if (bits.length) {
@@ -1293,12 +1299,18 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     (applied?.results || []).forEach((row) => {
       if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
       else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-      else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+        const desc = describeRuntimeEffect(row.effect);
+        if (desc) bits.push(desc);
+      }
     });
     (defenderApplied?.results || []).forEach((row) => {
       if (row?.reason === 'immune') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 면역`);
       else if (row?.reason === 'resisted') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 저항`);
-      else if (row?.applied) bits.push(`${defender.name} ${describeRuntimeEffect(row.effect)}`);
+      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+        const desc = describeRuntimeEffect(row.effect);
+        if (desc) bits.push(`${defender.name} ${desc}`);
+      }
     });
 
     if (!bits.length) return { damage: extraDamage, applied: false, skill: skill.name };
@@ -1605,7 +1617,10 @@ const devForceUseConsumable = (charId, invIndex) => {
       runtimeEffects.results.forEach((row) => {
         if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
         else if (row?.reason === 'resisted') addLog(`🧷 [${ch.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-        else if (row?.applied) addLog(`🪄 [${ch.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
+        else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+          const desc = describeRuntimeEffect(row.effect);
+          if (desc) addLog(`🪄 [${ch.name}] ${desc}`, 'system');
+        }
       });
 
       const cured = !!cleanse.changed;
@@ -3620,6 +3635,7 @@ const pickStartZoneIdForChar = (c) => {
         let updated = normalizeRuntimeSurvivor(statusTick?.character || s);
 
         (Array.isArray(statusTick?.ticks) ? statusTick.ticks : []).forEach((tick) => {
+          if (!shouldLogRuntimeEffectTick(tick)) return;
           const amount = Math.max(0, Number(tick?.amount || 0));
           if (amount <= 0) return;
           const nm = String(tick?.name || '효과');
@@ -3628,6 +3644,7 @@ const pickStartZoneIdForChar = (c) => {
           else if (tick?.type === 'heal') addLog(`✨ [${updated.name}] ${nm}: HP +${amount}${secText}`, 'system');
         });
         (Array.isArray(statusTick?.expired) ? statusTick.expired : []).forEach((eff) => {
+          if (!shouldLogRuntimeEffectExpiry(eff)) return;
           const nm = String(eff?.name || '효과');
           addLog(`⌛ [${updated.name}] ${nm} 종료`, 'system');
         });
@@ -3638,9 +3655,11 @@ const pickStartZoneIdForChar = (c) => {
           updated.deadAtPhaseIdx = phaseIdxNow;
           updated.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
           newlyDead.push(updated);
-          const cause = Array.isArray(statusTick?.ticks) && statusTick.ticks.some((tick) => Number(tick?.amount || 0) > 0)
-            ? String(statusTick.ticks[0]?.name || '지속 효과')
-            : '지속 효과';
+          const visibleDamageTick = (Array.isArray(statusTick?.ticks) ? statusTick.ticks : [])
+            .find((tick) => Number(tick?.amount || 0) > 0 && shouldLogRuntimeEffectTick(tick));
+          const cause = visibleDamageTick
+            ? String(visibleDamageTick?.name || '상태 이상')
+            : '지속 피해';
           addLog(`💀 [${updated.name}] ${cause}로 사망했습니다.`, 'death');
           return updated;
         }
@@ -5644,7 +5663,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
       runtimeEffects.results.forEach((row) => {
         if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
         else if (row?.reason === 'resisted') addLog(`🧷 [${ch.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-        else if (row?.applied) addLog(`🪄 [${ch.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
+        else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+          const desc = describeRuntimeEffect(row.effect);
+          if (desc) addLog(`🪄 [${ch.name}] ${desc}`, 'system');
+        }
       });
       const cured = !!cleanse.changed;
 
@@ -6145,9 +6167,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
               tacEffects.results.forEach((row) => {
                 if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
                 else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-                else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+                else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+                  const desc = describeRuntimeEffect(row.effect);
+                  if (desc) bits.push(desc);
+                }
               });
-              addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): ${bits.join(', ')}`, 'system');
+              if (bits.length) addLog(`🌿 [${flee.name}] 전술 스킬(치유의 바람): ${bits.join(', ')}`, 'system');
               emitRunEvent('skill', { who: String(flee?._id || ''), whoName: flee?.name, skill: '치유의 바람', mode: 'escape_heal', zoneId: String(flee?.zoneId || curZone || ''), heal: heal }, atNow());
               emitEffectRunEvents(flee, tacEffects.results, { source: 'tactical', skill: '치유의 바람', reason: 'escape_heal', zoneId: String(flee?.zoneId || curZone || '') }, atNow());
             }
@@ -6409,14 +6434,20 @@ const didMove = String(nextZoneId) !== String(currentZone);
               tacEffects.results.forEach((row) => {
                 if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
                 else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-                else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+                else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+                  const desc = describeRuntimeEffect(row.effect);
+                  if (desc) bits.push(desc);
+                }
               });
               targetTacEffects.results.forEach((row) => {
                 if (row?.reason === 'immune') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 면역`);
                 else if (row?.reason === 'resisted') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 저항`);
-                else if (row?.applied) bits.push(`${defender.name} ${describeRuntimeEffect(row.effect)}`);
+                else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+                  const desc = describeRuntimeEffect(row.effect);
+                  if (desc) bits.push(`${defender.name} ${desc}`);
+                }
               });
-              addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
+              if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
             }
             emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
             emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
@@ -6470,10 +6501,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
               tacEffects.results.forEach((row) => {
                 if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
                 else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-                else if (row?.applied) bits.push(describeRuntimeEffect(row.effect));
+                else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+                  const desc = describeRuntimeEffect(row.effect);
+                  if (desc) bits.push(desc);
+                }
               });
               if (block > 0) bits.push(`피해 -${block}`);
-              addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
+              if (bits.length) addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
             }
             emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
             emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
@@ -6794,7 +6828,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
           eventEffects.results.forEach((row) => {
             if (row?.reason === 'immune') addLog(`🛡️ [${actor.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
             else if (row?.reason === 'resisted') addLog(`🧷 [${actor.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-            else if (row?.applied) addLog(`🪄 [${actor.name}] ${describeRuntimeEffect(row.effect)}`, 'system');
+            else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+              const desc = describeRuntimeEffect(row.effect);
+              if (desc) addLog(`🪄 [${actor.name}] ${desc}`, 'system');
+            }
           });
           emitEffectRunEvents(actor, eventEffects.results, { source: 'event', reason: 'dynamic_event', zoneId: String(actor?.zoneId || '') }, atNow());
         }
@@ -7566,13 +7603,13 @@ if (showMarketPanel && pendingTranscendPick) {
                         : nm === '화상' ? '🔥'
                           : nm === '보호막' ? '🛡️'
                             : nm === '재생' ? '✨'
-                              : nm === '공중에 뜸' ? '🌀'
+                              : nm === '에어본' ? '🌀'
                                 : nm === '치유 감소' ? '🩹'
                                   : nm === '기절' ? '💫'
-                                    : nm === '밀어짐' ? '↔️'
-                                      : nm === '둔화' ? '🐌'
+                                    : nm === '넉백' ? '↔️'
+                                      : nm === '이동 속도 감소' ? '↘️'
                                         : nm === '흡혈' ? '🩸'
-                                          : nm === '가속' ? '🏃'
+                                          : nm === '이동 속도 증가' ? '↗️'
                                             : nm === '쿨다운 증가' ? '⏫'
                                               : nm === '쿨다운 감소' ? '⏬'
                                                 : '🤕';

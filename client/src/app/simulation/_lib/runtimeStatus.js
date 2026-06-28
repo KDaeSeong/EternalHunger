@@ -27,6 +27,57 @@ const INTERNAL_BOARD_SOURCE_PREFIXES = [
   'micro_',
 ];
 
+const INTERNAL_RUNTIME_EFFECT_NAMES = new Set([
+  EFFECT_SHIELD,
+  EFFECT_REGEN,
+  EFFECT_FOCUS,
+  EFFECT_STIM,
+  'adrenaline',
+  'focus',
+  'sprint',
+  '각성',
+  '무기 템포',
+  '시야 확보',
+  '전투 준비',
+  '교전 준비',
+  '사냥 리듬',
+  '정리 완료',
+]);
+
+const ER_VISIBLE_STATUS_NAMES = new Set([
+  EFFECT_AIRBORNE,
+  EFFECT_HEAL_REDUCTION,
+  EFFECT_STUN,
+  EFFECT_KNOCKBACK,
+  EFFECT_SLOW,
+  EFFECT_COOLDOWN_UP,
+  '경직',
+  '공포',
+  '도발',
+  '공격 속도 감소',
+  '매혹',
+  '수면',
+  '대상 지정 불가',
+  '무적',
+  '위장',
+  '은신',
+  '변이',
+  '붙잡힘',
+  '속박',
+  '시야 차단',
+  '실명',
+  '회피',
+  '정신 집중',
+  '제압',
+  '침묵',
+  '정신 이상',
+  '이동 방해 면역',
+  '저지 불가',
+  '모든 방해 면역',
+  '해로운 효과 면역',
+  '해로운 효과 제거',
+]);
+
 const GENERIC_STAT_EFFECT_NAMES = new Set([
   EFFECT_FOCUS,
   EFFECT_STIM,
@@ -106,8 +157,8 @@ export function hasActiveEffect(character, effectName) {
 
 export function removeActiveEffect(character, effectName) {
   const list = Array.isArray(character?.activeEffects) ? character.activeEffects : [];
-  const key = String(effectName || '');
-  const next = list.filter((e) => String(e?.name || '') !== key);
+  const key = canonicalizeEffectName(effectName);
+  const next = list.filter((e) => canonicalizeEffectName(e?.name || '') !== key);
   const removed = next.length !== list.length;
   if (removed) character.activeEffects = next;
   return removed;
@@ -188,13 +239,56 @@ function getEffectDisplayIcon(effect, displayName) {
   return String(eff?.icon || EFFECT_META?.[canonicalizeEffectName(displayName)]?.icon || EFFECT_META?.[canonicalizeEffectName(eff?.name || '')]?.icon || '✨');
 }
 
-export function shouldShowRuntimeEffectOnBoard(effect) {
+function getRuntimeEffectTags(effect) {
   const eff = normalizeRuntimeEffect(effect);
-  if (!eff) return false;
-  if (eff?.hiddenOnBoard || eff?.uiHidden || eff?.internal) return false;
+  if (!eff) return new Set();
+  const meta = EFFECT_META?.[canonicalizeEffectName(eff?.name || '')] || null;
+  return new Set([
+    ...(Array.isArray(meta?.tags) ? meta.tags : []),
+    ...(Array.isArray(eff?.tags) ? eff.tags : []),
+  ].map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean));
+}
+
+export function isInternalRuntimeEffect(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff) return true;
+  if (eff?.hiddenOnBoard || eff?.uiHidden || eff?.internal) return true;
   const sourceId = String(eff?.sourceId || '');
-  if (INTERNAL_BOARD_SOURCE_PREFIXES.some((prefix) => sourceId.startsWith(prefix))) return false;
-  return true;
+  if (INTERNAL_BOARD_SOURCE_PREFIXES.some((prefix) => sourceId.startsWith(prefix))) return true;
+  const name = canonicalizeEffectName(eff?.name || '');
+  if (INTERNAL_RUNTIME_EFFECT_NAMES.has(name)) return true;
+  const tags = getRuntimeEffectTags(eff);
+  if (tags.has('internal') || tags.has('micro')) return true;
+  const positiveOnly = tags.has('positive') && !tags.has('negative') && !tags.has('cc');
+  if (positiveOnly && !ER_VISIBLE_STATUS_NAMES.has(name)) return true;
+  return false;
+}
+
+export function isVisibleErRuntimeStatus(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff || isInternalRuntimeEffect(eff)) return false;
+  const name = canonicalizeEffectName(eff?.name || '');
+  return ER_VISIBLE_STATUS_NAMES.has(name);
+}
+
+export function shouldShowRuntimeEffectOnBoard(effect) {
+  return isVisibleErRuntimeStatus(effect);
+}
+
+export function shouldLogRuntimeEffectTick(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff || isInternalRuntimeEffect(eff)) return false;
+  const name = canonicalizeEffectName(eff?.name || '');
+  if (name === EFFECT_REGEN || name === EFFECT_SHIELD) return false;
+  return isVisibleErRuntimeStatus(eff);
+}
+
+export function shouldLogRuntimeEffectApplication(effect) {
+  return isVisibleErRuntimeStatus(effect);
+}
+
+export function shouldLogRuntimeEffectExpiry(effect) {
+  return isVisibleErRuntimeStatus(effect);
 }
 
 export function getVisibleRuntimeEffects(effects) {
@@ -244,7 +338,7 @@ export function describeRuntimeEffect(effect) {
   if (name === EFFECT_SLOW || name === EFFECT_HASTE) return `${name} ${Number(eff?.moveSpeedBonus || 0) >= 0 ? '+' : ''}${Math.round(Number(eff?.moveSpeedBonus || 0) * 100)}%${durationText}`;
   if (name === EFFECT_COOLDOWN_DOWN) return `쿨다운 감소 속도 +${Math.round(Math.max(0, Number(eff?.cooldownRateBonus || 0)) * 100)}%${durationText}`;
   if (name === EFFECT_COOLDOWN_UP) return `쿨다운 회복 둔화 ${Math.round(Math.max(0, Number(eff?.cooldownRatePenalty || 0)) * 100)}%${durationText}`;
-  if (name === EFFECT_KNOCKBACK) return `밀어짐${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}` : ''}${durationText}`;
+  if (name === EFFECT_KNOCKBACK) return `넉백${Number(eff?.knockbackDistance || 0) > 0 ? ` ${Math.max(0, Number(eff?.knockbackDistance || 0))}` : ''}${durationText}`;
   if (name === EFFECT_STUN || name === EFFECT_AIRBORNE) return `${name}${durationText}`;
   const statMods = eff?.statModifiers && typeof eff.statModifiers === 'object' ? eff.statModifiers : null;
   if (statMods && Object.keys(statMods).length) {
