@@ -6,6 +6,7 @@ import '../../styles/ERModifiers.css';
 import { DEFAULT_RULESET_ID, RULESETS, normalizeRulesetId } from '../../utils/rulesets';
 import { apiGet, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
 import { ER_STAT_FIELDS } from '../../utils/erStats';
+import SiteHeader from '../../components/SiteHeader';
 
 const DEFAULT_STAT_WEIGHTS = ER_STAT_FIELDS
   .filter((field) => !String(field.key).includes('Growth'))
@@ -108,8 +109,9 @@ export default function ModifiersPage() {
   );
 
   return (
-    <main>
-      <header>
+    <main className="modifiers-page-shell">
+      <SiteHeader className="modifiers-site-header" />
+      <header hidden aria-hidden="true">
         <section id="header-id1">
             <ul>
             <li>

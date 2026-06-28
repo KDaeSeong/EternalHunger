@@ -8,6 +8,7 @@ import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simula
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { ER_STAT_FIELDS, normalizeErStats } from '../../utils/erStats';
+import SiteHeader from '../../components/SiteHeader';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -225,8 +226,9 @@ export default function DetailsPage() {
 };
 
   return (
-    <main>
-      <header>
+    <main className="details-page-shell">
+      <SiteHeader className="details-site-header" />
+      <header hidden aria-hidden="true">
         <section id="header-id1">
             <ul>
             {/* 1. 로고 */}

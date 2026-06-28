@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiDelete, apiGet, apiPost, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
+import SiteHeader from '../../components/SiteHeader';
 
 import '../../styles/ERDetails.css';
 import '../../styles/EREvents.css';
@@ -222,8 +223,9 @@ const handleLogout = () => {
   const zones = Array.isArray(currentMap?.zones) ? currentMap.zones : [];
 
   return (
-    <main>
-      <header>
+    <main className="events-page-shell">
+      <SiteHeader className="events-site-header" />
+      <header hidden aria-hidden="true">
         <section id="header-id1">
           <ul>
             {/* 1. 로고 */}
