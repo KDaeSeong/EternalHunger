@@ -339,7 +339,7 @@ export default function DetailsPage() {
                 <span className="gender-badge">{char.gender || "남"}</span>
 
                 <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                  <div style={{ fontSize: 12, color: '#666' }}>
+                  <div className="goal-help-line">
                     목표: {GOAL_GEAR_TIERS.find((t) => t.value === Number(char?.goalGearTier || 6))?.label || '초월'} / 전술: {String(char?.tacticalSkill || '블링크')}
                     <Link href="/help" className="inline-help-link" title="목표, 전술, 장비 용어 설명 보기">?</Link>
                   </div>

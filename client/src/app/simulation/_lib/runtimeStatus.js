@@ -3,13 +3,16 @@ import {
   EFFECT_BURN,
   EFFECT_COOLDOWN_DOWN,
   EFFECT_COOLDOWN_UP,
+  EFFECT_FOCUS,
   EFFECT_HEAL_REDUCTION,
   EFFECT_HASTE,
   EFFECT_KNOCKBACK,
   EFFECT_LIFESTEAL,
+  EFFECT_META,
   EFFECT_POISON,
   EFFECT_REGEN,
   EFFECT_SHIELD,
+  EFFECT_STIM,
   EFFECT_SLOW,
   EFFECT_STUN,
   absorbShieldDamage,
@@ -19,6 +22,28 @@ import {
   purgeNegativeEffects,
 } from '../../../utils/statusLogic';
 import { getErStatLabel } from '../../../utils/erStats';
+
+const INTERNAL_BOARD_SOURCE_PREFIXES = [
+  'micro_',
+];
+
+const GENERIC_STAT_EFFECT_NAMES = new Set([
+  EFFECT_FOCUS,
+  EFFECT_STIM,
+  'adrenaline',
+  'focus',
+  'sprint',
+  '무기 템포',
+  '각성',
+]);
+
+const SOURCE_KIND_LABELS = [
+  { test: (sourceId) => sourceId.startsWith('er_trait_'), label: '특성 효과', icon: '⭐' },
+  { test: (sourceId) => sourceId.startsWith('er_weapon_skill_'), label: '무기 스킬', icon: '⚔️' },
+  { test: (sourceId) => sourceId.includes('_capsule_'), label: '아이템 효과', icon: '💊' },
+  { test: (sourceId) => sourceId.includes('_food') || sourceId.includes('_drink') || sourceId.includes('_heal') || sourceId.includes('_guard') || sourceId.includes('_book'), label: '아이템 효과', icon: '🍱' },
+  { test: (sourceId) => sourceId.includes('_tenacity') || sourceId.includes('_haste_stats'), label: '전술 효과', icon: '🎯' },
+];
 
 export function normalizeRuntimeEffect(effect) {
   if (!effect || typeof effect !== 'object') return null;
@@ -130,6 +155,79 @@ export function applyRegenEffect(actor, recovery, duration = 2, sourceId = '') {
     sourceId: String(sourceId || ''),
   });
   return { applied: !!res?.applied, recovery: rec };
+}
+
+function getEffectSourceKind(effect) {
+  const sourceId = String(effect?.sourceId || '');
+  return SOURCE_KIND_LABELS.find((row) => row.test(sourceId)) || null;
+}
+
+function getEffectDurationSec(effect) {
+  const value = Number(effect?.remainingDuration);
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : null;
+}
+
+function getEffectStackSuffix(effect) {
+  const stacks = Math.max(1, Math.floor(Number(effect?.stacks || 1)));
+  return stacks > 1 ? ` x${stacks}` : '';
+}
+
+function getEffectDisplayName(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff) return '';
+  const name = canonicalizeEffectName(eff?.name || '');
+  const sourceKind = getEffectSourceKind(eff);
+  if (sourceKind && GENERIC_STAT_EFFECT_NAMES.has(name)) return sourceKind.label;
+  return name || String(eff?.name || '');
+}
+
+function getEffectDisplayIcon(effect, displayName) {
+  const eff = normalizeRuntimeEffect(effect);
+  const sourceKind = getEffectSourceKind(eff);
+  if (sourceKind && GENERIC_STAT_EFFECT_NAMES.has(canonicalizeEffectName(eff?.name || ''))) return sourceKind.icon;
+  return String(eff?.icon || EFFECT_META?.[canonicalizeEffectName(displayName)]?.icon || EFFECT_META?.[canonicalizeEffectName(eff?.name || '')]?.icon || '✨');
+}
+
+export function shouldShowRuntimeEffectOnBoard(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff) return false;
+  if (eff?.hiddenOnBoard || eff?.uiHidden || eff?.internal) return false;
+  const sourceId = String(eff?.sourceId || '');
+  if (INTERNAL_BOARD_SOURCE_PREFIXES.some((prefix) => sourceId.startsWith(prefix))) return false;
+  return true;
+}
+
+export function getVisibleRuntimeEffects(effects) {
+  return (Array.isArray(effects) ? effects : [])
+    .map((effect) => normalizeRuntimeEffect(effect))
+    .filter((effect) => shouldShowRuntimeEffectOnBoard(effect))
+    .map((effect) => {
+      const badge = formatRuntimeEffectBadge(effect);
+      return badge
+        ? { ...effect, name: badge.name, icon: badge.icon, _boardLabel: badge.label, _boardTitle: badge.title }
+        : effect;
+    });
+}
+
+export function formatRuntimeEffectBadge(effect) {
+  const eff = normalizeRuntimeEffect(effect);
+  if (!eff || !shouldShowRuntimeEffectOnBoard(eff)) return null;
+  const displayName = getEffectDisplayName(eff);
+  if (!displayName) return null;
+  const icon = getEffectDisplayIcon(eff, displayName);
+  const dur = getEffectDurationSec(eff);
+  const stackSuffix = getEffectStackSuffix(eff);
+  const durationSuffix = dur !== null ? ` ${dur}s` : '';
+  const titleDuration = dur !== null ? ` (${dur}s)` : '';
+  const sourceKind = getEffectSourceKind(eff);
+  const rawName = String(eff?.name || '');
+  const rawSuffix = sourceKind && rawName && rawName !== displayName ? ` · ${rawName}` : '';
+  return {
+    icon,
+    name: displayName,
+    label: `${icon} ${displayName}${stackSuffix}${durationSuffix}`,
+    title: `${displayName}${stackSuffix}${titleDuration}${rawSuffix}`,
+  };
 }
 
 export function describeRuntimeEffect(effect) {

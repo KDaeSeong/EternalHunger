@@ -402,8 +402,13 @@ export default function CharactersPage() {
                 </label>
 
                 <label>
-                  목표/전술:
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span className="goal-help-title">
+                    목표/전술:
+                    <Link href="/help" className="inline-help-link" title="목표, 전술, 장비 용어 설명 보기">
+                      ?
+                    </Link>
+                  </span>
+                  <div className="goal-help-row">
                     <button
                       type="button"
                       onClick={() => openConfigModal(char)}
@@ -414,9 +419,6 @@ export default function CharactersPage() {
                     <span style={{ fontSize: 12, color: '#666' }}>
                       목표:{' '}{GOAL_GEAR_TIERS.find((x) => x.value === Number(char?.goalGearTier || 6))?.label || '초월'} / 전술:{' '}{String(char?.tacticalSkill || '블링크')}
                     </span>
-                    <Link href="/help" className="inline-help-link" title="목표, 전술, 장비 용어 설명 보기">
-                      ?
-                    </Link>
                   </div>
                 </label>
 

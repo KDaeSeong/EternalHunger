@@ -378,7 +378,8 @@ function day1HeroGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   const d = Number(day || 0);
   const ph = String(phase || '').toLowerCase();
   const forceRouteCompletion = opts?.forceRouteCompletion === true;
-  if (d !== 1) return { changed: false, logs: [] };
+  const canUseEarlyRouteFallback = d === 1 || (forceRouteCompletion && d === 2);
+  if (!canUseEarlyRouteFallback) return { changed: false, logs: [] };
   if (!allowAbstractGearFallback(ruleset, opts) && !forceRouteCompletion) return { changed: false, logs: [] };
 
   // 레시피 데이터가 빈약하거나 루트 파밍 판정만 있고 조합까지 이어지지 않는 경우의 안전망입니다.

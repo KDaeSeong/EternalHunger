@@ -401,6 +401,57 @@ main {
     }
 }
 
+/* Goal/tactical help link alignment */
+.goal-help-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: max-content;
+    max-width: 100%;
+    line-height: 1.2;
+}
+
+.goal-help-title .inline-help-link {
+    flex: 0 0 18px;
+    width: 18px;
+    height: 18px;
+    margin-left: 0;
+    font-size: 0.72rem;
+}
+
+.goal-help-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.goal-help-row > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.goal-help-row .inline-help-link {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    margin-left: 0;
+}
+
+@media (max-width: 520px) {
+    .characterRow label:nth-of-type(5) > .goal-help-row {
+        height: auto;
+        min-height: 26px;
+    }
+
+    .characterRow label:nth-of-type(5) > .goal-help-row .inline-help-link {
+        flex: 0 0 18px;
+        width: 18px;
+        height: 18px;
+    }
+}
+
 @media (max-width: 520px) {
     main {
         width: 100%;

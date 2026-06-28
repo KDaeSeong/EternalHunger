@@ -266,3 +266,47 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Goal/tactical help link alignment */
+.goal-help-line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    max-width: 100%;
+    color: #666;
+    font-size: 12px;
+    line-height: 1.35;
+    text-align: center;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+}
+
+.goal-help-line .inline-help-link {
+    flex: 0 0 20px;
+}
+
+.inline-help-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-left: 2px;
+    border: 1px solid rgba(65, 133, 179, 0.34);
+    border-radius: 50%;
+    background: #fff;
+    color: #2a6285;
+    font-size: 0.76rem;
+    font-weight: 900;
+    line-height: 1;
+    text-decoration: none;
+    box-sizing: border-box;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.inline-help-link:hover {
+    border-color: #2a6285;
+    background: rgba(65, 133, 179, 0.08);
+}

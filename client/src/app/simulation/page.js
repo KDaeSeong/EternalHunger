@@ -119,6 +119,7 @@ import {
   normalizeRevivedSurvivor,
   clearNegativeStatusEffects,
   describeRuntimeEffect,
+  getVisibleRuntimeEffects,
   applyRuntimeEffectPayloads,
   consumeShieldDamage,
   clearPostCombatEffects,
@@ -4791,7 +4792,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           // 1일차 fallback 제작: 정상 레시피 데이터가 없을 때만 추상 장비 생성 안전망을 사용합니다.
           const allowAbstractGearFallback = !Array.isArray(craftables) || craftables.length <= 0;
-          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, { allowAbstractFallback: allowAbstractGearFallback });
+          const forceEarlyHeroRouteCompletion = (
+            (Number(nextDay || 0) === 1 && String(nextPhase || '') === 'night') ||
+            (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')
+          );
+          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+            allowAbstractFallback: allowAbstractGearFallback || forceEarlyHeroRouteCompletion,
+            forceRouteCompletion: forceEarlyHeroRouteCompletion,
+            routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
+          });
           if (heroRes?.changed && Array.isArray(heroRes.logs)) {
             heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
           }
@@ -4805,6 +4814,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
         // --- 시즌 11 컨셉: 가젯 에너지 ---
+        const forceEarlyHeroRouteCompletionAnyAction = (
+          (Number(nextDay || 0) === 1 && String(nextPhase || '') === 'night') ||
+          (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')
+        );
+        if (forceEarlyHeroRouteCompletionAnyAction) {
+          const heroCatchup = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+            allowAbstractFallback: true,
+            forceRouteCompletion: true,
+            routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
+          });
+          if (heroCatchup?.changed && Array.isArray(heroCatchup.logs)) {
+            heroCatchup.logs.forEach((m) => addLog(String(m), 'highlight'));
+          }
+        }
+
         if (ruleset.id === 'ER_S11') {
           const energyCfg = ruleset?.gadgetEnergy || {};
           const maxEnergy = Number(energyCfg.max ?? 100);
@@ -7474,7 +7498,7 @@ if (showMarketPanel && pendingTranscendPick) {
                       </span>
                     );
                   })()}
-                  {(Array.isArray(char.activeEffects) ? char.activeEffects : []).map((eff, i) => {
+                  {getVisibleRuntimeEffects(char.activeEffects).map((eff, i) => {
                     const nm = String(eff?.name || '');
                     const dur = Number.isFinite(Number(eff?.remainingDuration)) ? Math.max(0, Number(eff.remainingDuration)) : null;
                     const icon = nm === '식중독' ? '🤢'
@@ -7493,9 +7517,9 @@ if (showMarketPanel && pendingTranscendPick) {
                                               : nm === '쿨다운 감소' ? '⏬'
                                                 : '🤕';
                     const stacks = Math.max(1, Number(eff?.stacks || 1));
-                    const label = dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}s` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`;
+                    const label = eff?._boardLabel || (dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}s` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`);
                     return (
-                      <span key={`${nm}-${i}`} title={dur !== null ? `${nm}${stacks > 1 ? ` x${stacks}` : ''} (${dur}s)` : nm} className="effect-badge">
+                      <span key={`${nm}-${i}`} title={eff?._boardTitle || (dur !== null ? `${nm}${stacks > 1 ? ` x${stacks}` : ''} (${dur}s)` : nm)} className="effect-badge">
                         {label}
                       </span>
                     );
