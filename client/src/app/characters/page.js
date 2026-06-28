@@ -14,6 +14,7 @@ import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { DEFAULT_ER_STATS, normalizeErStats } from '../../utils/erStats';
+import SiteHeader from '../../components/SiteHeader';
 
 const GOAL_GEAR_TIERS = [
   { value: 4, label: '영웅' },
@@ -289,8 +290,9 @@ export default function CharactersPage() {
   
 
   return (
-    <main>
-      <header>
+    <main className="characters-page-shell">
+      <SiteHeader className="characters-site-header" />
+      <header hidden aria-hidden="true">
         <section id="header-id1">
           <ul>
             {/* 1. 로고 */}

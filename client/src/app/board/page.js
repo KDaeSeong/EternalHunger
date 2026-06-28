@@ -37,6 +37,27 @@ function normalizeIdValue(value) {
   return '';
 }
 
+function safeText(value, fallback = '') {
+  if (value == null) return fallback;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const text = String(value).trim();
+    return text || fallback;
+  }
+  return fallback;
+}
+
+function normalizePost(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  return {
+    ...row,
+    _normalizedId: normalizePostId(row),
+    title: safeText(row.title, '제목 없음'),
+    content: safeText(row.content, ''),
+    createdAt: row.createdAt || row.created_at || row.date || '',
+    authorId: row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '',
+  };
+}
+
 function unwrapPostList(data) {
   const list = Array.isArray(data)
     ? data
@@ -45,7 +66,7 @@ function unwrapPostList(data) {
       : Array.isArray(data?.data)
         ? data.data
         : [];
-  return list.filter((row) => row && typeof row === 'object');
+  return list.map(normalizePost).filter(Boolean);
 }
 
 export default function BoardPage() {
@@ -171,13 +192,14 @@ export default function BoardPage() {
           ) : null}
 
           {!loading && posts.map((post) => {
-            const id = normalizePostId(post);
-            const content = String(post?.content || '');
+            const id = post?._normalizedId || normalizePostId(post);
+            const title = safeText(post?.title, '제목 없음');
+            const content = safeText(post?.content, '');
             const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
             return (
               <article key={id || `${post?.title}-${post?.createdAt}`} className="board-card">
                 <Link href={id ? `/board/${id}` : '/board'} className="board-card-title">
-                  {post?.title || '제목 없음'}
+                  {title}
                 </Link>
                 <div className="board-card-meta">{formatDate(post?.createdAt)}</div>
                 <p>{content.slice(0, 180)}{content.length > 180 ? '...' : ''}</p>

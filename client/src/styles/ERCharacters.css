@@ -10,7 +10,6 @@ body {
     min-height: 100vh;
 }
 
-
 /* === 📦 메인 컨테이너 (여기에 테두리 추가!) === */
 main {
     margin: 30px auto; /* 상하 여백 추가 */
@@ -654,5 +653,62 @@ main {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+}
+
+/* Final layout guard: keep help icons attached to their labels on every card size. */
+.characters-page-shell > .site-header {
+    margin: -12px -12px 28px;
+    border-radius: 14px;
+}
+
+.characters-page-shell > header[hidden] {
+    display: none !important;
+}
+
+.goal-help-title {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    width: auto !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    line-height: 1.2 !important;
+}
+
+.goal-help-title .inline-help-link,
+.goal-help-row .inline-help-link {
+    display: inline-flex !important;
+    flex: 0 0 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin-left: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    vertical-align: middle !important;
+}
+
+.goal-help-row {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+}
+
+.goal-help-row > span {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+@media (max-width: 520px) {
+    .goal-help-row > span {
+        display: -webkit-box !important;
+        white-space: normal !important;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
     }
 }

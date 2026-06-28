@@ -34,9 +34,29 @@ function normalizeRouteId(value) {
   return raw == null ? '' : String(raw);
 }
 
+function safeText(value, fallback = '') {
+  if (value == null) return fallback;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const text = String(value).trim();
+    return text || fallback;
+  }
+  return fallback;
+}
+
+function normalizePost(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  return {
+    ...row,
+    title: safeText(row.title, '제목 없음'),
+    content: safeText(row.content, ''),
+    createdAt: row.createdAt || row.created_at || row.date || '',
+    authorId: row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '',
+  };
+}
+
 function unwrapPost(data) {
   const post = data?.post || data?.data || data;
-  return post && typeof post === 'object' && !Array.isArray(post) ? post : null;
+  return normalizePost(post);
 }
 
 export default function BoardDetailPage() {
@@ -58,13 +78,17 @@ export default function BoardDetailPage() {
   const userId = useMemo(() => getUserId(user), [user]);
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      setPost(null);
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiGet(`/posts/${id}`);
       const nextPost = unwrapPost(data);
       setPost(nextPost);
-      setForm({ title: nextPost?.title || '', content: nextPost?.content || '' });
+      setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, '') });
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
       setMessage(nextMessage);
@@ -170,8 +194,8 @@ export default function BoardDetailPage() {
               </div>
             ) : (
               <>
-                <h2>{post.title || '제목 없음'}</h2>
-                <p className="board-detail-content">{post.content || ''}</p>
+                <h2>{safeText(post.title, '제목 없음')}</h2>
+                <p className="board-detail-content">{safeText(post.content, '')}</p>
               </>
             )}
 
