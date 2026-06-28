@@ -52,7 +52,10 @@ import {
 } from '../../utils/masteryLogic';
 import { normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { DEFAULT_RULESET_ID, getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain, normalizeRulesetId } from '../../utils/rulesets';
+import SiteHeader from '../../components/SiteHeader';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
+import SimulationControlPanel from './_components/SimulationControlPanel';
+import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationResultModal from './_components/SimulationResultModal';
 import '../../styles/ERSimulation.css';
@@ -7439,19 +7442,13 @@ if (showMarketPanel && pendingTranscendPick) {
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
 
   if (!hasHydrated) {
-    return (
-      <main className="simulation-page simulation-page-hydrating">
-        <div className="simulation-hydration-panel" role="status" aria-live="polite">
-          <div className="simulation-hydration-logo">ETERNAL HUNGER</div>
-          <div className="simulation-hydration-text">Loading simulation...</div>
-        </div>
-      </main>
-    );
+    return <SimulationHydrationPanel />;
   }
 
   return (
     <main className="simulation-page">
-      <header>
+      <SiteHeader className="simulation-site-header" />
+      <header hidden aria-hidden="true">
         <section id="header-id1">
           <ul>
             <li>
@@ -8111,7 +8108,32 @@ if (showMarketPanel && pendingTranscendPick) {
             extractActorNameFromLog={extractActorNameFromLog}
           />
 
-          <div className="control-panel">
+          <SimulationControlPanel
+            matchMode={normalizeMatchMode(settings?.matchMode)}
+            onMatchModeChange={handleMatchModeChange}
+            matchModeDisabled={loading || isAdvancing || day !== 0}
+            isGameOver={isGameOver}
+            onRestart={() => window.location.reload()}
+            onProceed={proceedPhaseGuarded}
+            actionDisabled={actionDisabled}
+            loading={loading}
+            isAdvancing={isAdvancing}
+            startBlocked={startBlocked}
+            startBlockedText={startBlockedText}
+            day={day}
+            phase={phase}
+            aliveTeamCount={getAliveTeams(survivors).length}
+            showMarketPanel={showMarketPanel}
+            onToggleDevTools={() => setShowMarketPanel((v) => !v)}
+            autoPlay={autoPlay}
+            onToggleAutoPlay={() => setAutoPlay((v) => !v)}
+            autoDisabled={loading || isGameOver || startBlocked}
+            autoSpeed={autoSpeed}
+            onAutoSpeedChange={updateAutoSpeed}
+            speedDisabled={loading || isGameOver}
+          />
+
+          <div className="control-panel" style={{ display: 'none' }} aria-hidden="true">
             <div className="control-row">
               <select
                 className="autoplay-speed"

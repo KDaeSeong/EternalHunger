@@ -28,6 +28,14 @@
     overflow: visible;
 }
 
+.simulation-page > .site-header {
+    flex: 0 0 auto;
+}
+
+.simulation-page > header[hidden] {
+    display: none !important;
+}
+
 .simulation-page > header #header-id1 {
     overflow: visible;
 }
@@ -2100,8 +2108,8 @@
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     gap: 6px;
-    min-height: 100dvh;
-    height: 100dvh;
+    min-height: 0;
+    height: 100%;
   }
 
   .screen-header {
