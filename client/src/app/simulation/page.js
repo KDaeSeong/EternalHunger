@@ -7385,7 +7385,7 @@ if (showMarketPanel && pendingTranscendPick) {
         />
       ) : null}
 
-      <div className="simulation-container modal-layout">
+      <div className={`simulation-container modal-layout ${showMarketPanel ? 'devtools-open' : ''}`}>
         {/* 생존자 현황판 */}
         <aside className={`survivor-board ${uiModal === 'chars' ? 'modal-open' : ''}`}>
           {uiModal === 'chars' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
