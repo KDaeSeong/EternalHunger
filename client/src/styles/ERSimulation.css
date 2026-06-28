@@ -1996,3 +1996,146 @@
     display: none;
   }
 }
+
+/* === 2026 responsive/performance pass === */
+.sim-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sim-diagnostics-grid > div {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+}
+
+.sim-diagnostics-grid b,
+.sim-diagnostics-grid span {
+  display: block;
+}
+
+.sim-diagnostics-grid b {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.sim-diagnostics-grid span {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  opacity: 0.76;
+}
+
+.sim-diagnostics-note {
+  margin-top: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: rgba(255, 208, 94, 0.10);
+  border: 1px solid rgba(255, 208, 94, 0.18);
+}
+
+@media (max-width: 760px) {
+  .simulation-page {
+    background: #183e49 !important;
+  }
+
+  .simulation-container {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .simulation-container.modal-layout .game-screen,
+  .game-screen {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    gap: 6px;
+    min-height: 100dvh;
+    height: 100dvh;
+  }
+
+  .screen-header {
+    min-height: 0;
+    padding: 7px 8px;
+  }
+
+  .simulation-mobile-logo {
+    min-width: 92px;
+  }
+
+  .simulation-mobile-logo .logo-main {
+    line-height: 1.05;
+    padding-bottom: 2px;
+  }
+
+  .forbidden-top-bar,
+  .worldspawn-toolbar {
+    max-height: 68px;
+    overflow-y: auto;
+  }
+
+  .log-window {
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+  }
+
+  .log-content {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .log-scroll-area {
+    min-height: 0;
+  }
+
+  .control-panel {
+    margin: 0 -8px -8px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .control-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .control-row > .btn-proceed,
+  .control-row > .btn-restart {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .control-row > select,
+  .control-row > .btn-secondary,
+  .control-row > .autoplay-speed {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .market-panel {
+    max-height: calc(100dvh - 12px);
+  }
+
+  .sim-diagnostics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .screen-header-right {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .screen-header-right .weather-badge:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .log-message {
+    font-size: 0.82rem;
+  }
+}

@@ -53,7 +53,7 @@ app.use('/api/public', require('./routes/public'));                       // 아
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-app.post('/api/analyze', async (req, res) => {
+app.post('/api/analyze', verifyToken, async (req, res) => {
   try {
     const { text } = req.body;
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });

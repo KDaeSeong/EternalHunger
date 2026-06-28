@@ -188,6 +188,11 @@ import {
   saveLocalHallOfFameBackup,
 } from './_lib/simulationEngine';
 import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
+import {
+  buildSimulationDiagnostics,
+  formatDiagnosticsLine,
+  getEmptySimulationDiagnostics,
+} from './_lib/simulationDiagnostics';
 import { LOG_DETAIL_OPEN_KEY } from './_lib/logPresentation';
 import {
   applyRegionDataToZones,
@@ -7257,6 +7262,22 @@ if (showMarketPanel && pendingTranscendPick) {
     topRankedCharacters,
   } = heavyRunSummaries;
 
+  const simulationDiagnostics = useMemo(() => {
+    if (!shouldComputeHeavyDerived) return getEmptySimulationDiagnostics();
+    return safeRenderCompute('simulationDiagnostics', () => buildSimulationDiagnostics({
+      runEvents,
+      survivors,
+      dead,
+      itemMetaById,
+      zoneNameById,
+      ruleset: getRuleset(settings?.rulesetId),
+    }), getEmptySimulationDiagnostics());
+  }, [runEvents, survivors, dead, itemMetaById, zoneNameById, settings?.rulesetId, shouldComputeHeavyDerived]);
+  const simulationDiagnosticsLine = useMemo(
+    () => formatDiagnosticsLine(simulationDiagnostics),
+    [simulationDiagnostics]
+  );
+
   const zonePos = useMemo(() => {
     if (!shouldComputeMapDerived) return {};
     return safeRenderCompute('zonePos', () => buildZonePositions(zones), {});
@@ -7269,9 +7290,10 @@ if (showMarketPanel && pendingTranscendPick) {
 
   const [pingNow, setPingNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!shouldComputeMapDerived) return undefined;
     const t = setInterval(() => setPingNow(Date.now()), 450);
     return () => clearInterval(t);
-  }, []);
+  }, [shouldComputeMapDerived]);
 
   useEffect(() => {
     setHasHydrated(true);
@@ -8239,6 +8261,34 @@ if (showMarketPanel && pendingTranscendPick) {
               <div className="market-small" style={{ marginTop: 6 }}>legend pace: <b>{String(runProgressSummary?.legendPace || 'pending')}</b> / transcend pace: <b>{String(runProgressSummary?.transPace || 'pending')}</b></div>
               <div className="market-small" style={{ marginTop: 6 }}>first legend: {String(runProgressSummary?.firstLegendText || '-')} / first transcend: {String(runProgressSummary?.firstTransText || '-')}</div>
               <div className="market-small" style={{ marginTop: 6 }}>latest legend: {String(runProgressSummary?.latestLegendText || '-')} / latest transcend: {String(runProgressSummary?.latestTransText || '-')}</div>
+            </div>
+
+            <div className="market-card sim-diagnostics-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
+              <div className="market-title">밸런스 진단</div>
+              <div className="market-small">{simulationDiagnosticsLine}</div>
+              <div className="sim-diagnostics-grid" style={{ marginTop: 8 }}>
+                <div>
+                  <b>{Number(simulationDiagnostics?.deaths?.byBand?.opening || 0)}</b>
+                  <span>1일차</span>
+                </div>
+                <div>
+                  <b>{Number(simulationDiagnostics?.deaths?.byBand?.mid || 0)}</b>
+                  <span>중반 사망</span>
+                </div>
+                <div>
+                  <b>{Number(simulationDiagnostics?.deaths?.byBand?.end || 0)}</b>
+                  <span>후반 사망</span>
+                </div>
+                <div>
+                  <b>{Number(simulationDiagnostics?.chase?.caught || 0)}</b>
+                  <span>추격 성공</span>
+                </div>
+              </div>
+              {(Array.isArray(simulationDiagnostics?.recommendations) ? simulationDiagnostics.recommendations : []).slice(0, 3).map((note, idx) => (
+                <div key={`sim-diag-note-${idx}`} className="market-small sim-diagnostics-note">
+                  {note}
+                </div>
+              ))}
             </div>
 
 

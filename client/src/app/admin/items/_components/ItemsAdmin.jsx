@@ -854,6 +854,23 @@ export default function ItemsAdmin() {
     });
   }, [items, q, kind, simOnly]);
   const hasActiveFilter = Boolean(q.trim()) || kind !== 'all' || simOnly;
+  const scopeStats = useMemo(() => {
+    const list = Array.isArray(items) ? items : [];
+    let namu = 0;
+    let simulation = 0;
+    let custom = 0;
+    let locked = 0;
+    for (const it of list) {
+      const key = String(it?.itemKey || it?.externalId || it?.id || '');
+      const isNamu = key.startsWith('namu:');
+      const isSim = isSimulationItem(it);
+      if (isNamu) namu += 1;
+      if (isSim) simulation += 1;
+      if (!isNamu && !isSim) custom += 1;
+      if (it?.lockedByAdmin) locked += 1;
+    }
+    return { total: list.length, namu, simulation, custom, locked };
+  }, [items]);
 
   useEffect(() => {
     setPage(1);
@@ -943,6 +960,36 @@ export default function ItemsAdmin() {
       </div>
 
       <div style={{ marginTop: 10, fontSize: 12, opacity: 0.95 }}>{treeMsg}</div>
+
+      <div style={{
+        ...card,
+        marginTop: 12,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: 10,
+        background: 'rgba(120,200,255,0.06)',
+      }}>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.72 }}>데이터 범위</div>
+          <div style={{ fontWeight: 900 }}>현재 로그인 계정</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.72 }}>namu 기본 트리</div>
+          <div style={{ fontWeight: 900 }}>{scopeStats.namu}개</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.72 }}>시뮬레이션 생성</div>
+          <div style={{ fontWeight: 900 }}>{scopeStats.simulation}개</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.72 }}>커스텀/기타</div>
+          <div style={{ fontWeight: 900 }}>{scopeStats.custom}개</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.72 }}>잠금</div>
+          <div style={{ fontWeight: 900 }}>{scopeStats.locked}개</div>
+        </div>
+      </div>
 
       <div style={{ display: 'flex', gap: 10, marginTop: 12, alignItems: 'center' }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름/ID 검색" style={{ ...input, flex: 1 }} />

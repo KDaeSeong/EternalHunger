@@ -258,7 +258,7 @@ export const RULESETS = {
       totalSec: 370,
       forceGather: true,
       forcedClash: true,
-      forceClashMaxRounds: 8,
+      forceClashMaxRounds: 10,
     },
 
     // 🚫 폭발 타이머(금지구역)
@@ -367,7 +367,7 @@ export const RULESETS = {
       // - ratio = 내Power / (내Power + 상대Power)
       fightAvoidMinRatio: 0.40,
       fightAvoidAbsDelta: 12,
-      fightAvoidChance: 0.34,
+      fightAvoidChance: 0.28,
       fightAvoidExtremeRatio: 0.23,
       fightAvoidExtremeDelta: 42,
       escapeHpBelow: 34,
@@ -397,8 +397,8 @@ export const RULESETS = {
       earlyRouteFarmEncounterMult: 0.82,
       earlyRouteFarmAvoidChance: 0.30,
       lowHpEncounterMult: 0.42,
-      midgameEncounterBonus: 0.12,
-      midgameLowHpEncounterMult: 0.74,
+      midgameEncounterBonus: 0.18,
+      midgameLowHpEncounterMult: 0.86,
       // 이벤트(야생/상자/보스 등) 확률의 상한/오프셋(기존 하드코딩 제거용)
       eventOffset: 0.30,
       eventMax: 0.95,
@@ -415,11 +415,11 @@ export const RULESETS = {
       earlyLethalLowHpBonusBelow: 50,
       earlyLethalLowHpBonus: 18,
       earlyLethalFinishHpBelow: 30,
-      earlyLethalFinishChanceBase: 0.26,
-      earlyLethalFinishChanceDayScale: 0.08,
-      earlyLethalFinishRatioBonus: 0.18,
-      earlyLethalFinishMax: 0.68,
-      midgameLethalFinishBonus: 0.10,
+      earlyLethalFinishChanceBase: 0.30,
+      earlyLethalFinishChanceDayScale: 0.09,
+      earlyLethalFinishRatioBonus: 0.20,
+      earlyLethalFinishMax: 0.74,
+      midgameLethalFinishBonus: 0.16,
       criticalFleeHpBelow: 20,
       criticalFleeChance: 0.18,
 
@@ -470,6 +470,16 @@ export const RULESETS = {
 
     battle: {
       erMetaScale: 1,
+    },
+
+    diagnostics: {
+      thresholds: {
+        minMidDeathShare: 0.34,
+        maxEndDeathShare: 0.52,
+        minPvpDeathShare: 0.48,
+        minCaughtShare: 0.24,
+        minHeroGearReadyShare: 0.70,
+      },
     },
   },
 
