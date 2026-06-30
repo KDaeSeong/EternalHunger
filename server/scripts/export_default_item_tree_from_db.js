@@ -39,7 +39,7 @@ function itemSeedKey(doc) {
 function sanitizeStats(stats) {
   const s = stats && typeof stats === 'object' ? stats : {};
   const out = {};
-  for (const key of ['atk', 'def', 'hp', 'skillAmp', 'atkSpeed', 'critChance', 'cdr', 'lifesteal', 'moveSpeed']) {
+  for (const key of ['atk', 'def', 'hp', 'skillAmp', 'atkSpeed', 'critChance', 'cdr', 'lifesteal', 'moveSpeed', 'armorPen', 'adaptiveForce']) {
     const value = toNumber(s[key], 0);
     if (value !== 0) out[key] = value;
   }

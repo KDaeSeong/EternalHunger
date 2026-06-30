@@ -60,7 +60,9 @@ const ItemSchema = new mongoose.Schema({
     critChance: { type: Number, default: 0 },
     cdr: { type: Number, default: 0 },
     lifesteal: { type: Number, default: 0 },
-    moveSpeed: { type: Number, default: 0 }
+    moveSpeed: { type: Number, default: 0 },
+    armorPen: { type: Number, default: 0 },
+    adaptiveForce: { type: Number, default: 0 }
   },
 
   // ✅ 장비 메타(시뮬/드랍/조합 등에서 사용)

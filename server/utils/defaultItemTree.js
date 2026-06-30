@@ -64,6 +64,8 @@ function normalizeStats(stats) {
     cdr: toNumber(s.cdr, 0),
     lifesteal: toNumber(s.lifesteal, 0),
     moveSpeed: toNumber(s.moveSpeed, 0),
+    armorPen: toNumber(s.armorPen, 0),
+    adaptiveForce: toNumber(s.adaptiveForce, 0),
   };
 }
 

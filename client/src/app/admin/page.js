@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import AdminDataHealthPanel from './_components/AdminDataHealthPanel';
 
 export const metadata = {
   title: 'Admin | EternalHunger',
@@ -11,22 +12,22 @@ const sections = [
       {
         href: '/admin/items',
         name: '아이템',
-        desc: '장비, 소모품, 음식, 재료, 드랍/제작용 아이템 데이터를 관리합니다.',
+        desc: '장비, 재료, 소모품, 조합식과 기본 아이템 트리를 관리합니다.',
       },
       {
         href: '/admin/import',
         name: '이식/임포트',
-        desc: 'NGUH JSON과 외부 정리 데이터를 병합하거나 덮어씁니다.',
+        desc: 'NGUH JSON과 위키 기반 정리 데이터를 병합하거나 덮어씁니다.',
       },
       {
         href: '/admin/maps',
         name: '맵/구역',
-        desc: '루미아 섬 구역, 파밍 구역, 금지구역 기반 데이터를 관리합니다.',
+        desc: '루미아 섬 구역, 연결 동선, 키오스크, 자연 코어 스폰 기준을 정리합니다.',
       },
       {
         href: '/admin/kiosks',
         name: '키오스크',
-        desc: '키오스크 판매 품목, 가격, 특수 재료 구매 데이터를 관리합니다.',
+        desc: '구역별 키오스크 판매 목록과 특수 재료 구매 데이터를 관리합니다.',
       },
     ],
   },
@@ -36,7 +37,7 @@ const sections = [
       {
         href: '/admin/drone',
         name: '전송 드론',
-        desc: '드론 주문 가능 품목과 즉시 지급/구매 데이터를 관리합니다.',
+        desc: '드론 주문 가능 품목과 즉시 지급 구매 데이터를 관리합니다.',
       },
       {
         href: '/admin/crates',
@@ -46,12 +47,12 @@ const sections = [
       {
         href: '/admin/credits',
         name: '크레딧',
-        desc: '사냥, 보스, 상자, 킬 보상 등 경제 값을 조정합니다.',
+        desc: '킬, 야생동물, 보스, 상자, 차원의 틈 보상 등 경제 값을 조정합니다.',
       },
       {
         href: '/admin/perks',
         name: '특전',
-        desc: '특성, 전술 보너스, 시뮬레이션용 패시브 효과를 관리합니다.',
+        desc: 'LP로 구매하는 치장형 보상과 추후 밸런스 외 보너스를 관리합니다.',
       },
     ],
   },
@@ -74,7 +75,7 @@ const sections = [
 
 export default function AdminDashboardPage() {
   const wrap = {
-    maxWidth: 1040,
+    maxWidth: 1120,
     margin: '0 auto',
     display: 'flex',
     flexDirection: 'column',
@@ -84,7 +85,7 @@ export default function AdminDashboardPage() {
   const title = {
     fontSize: 24,
     fontWeight: 900,
-    letterSpacing: '-0.2px',
+    letterSpacing: 0,
     color: '#f8fafc',
   };
 
@@ -131,8 +132,12 @@ export default function AdminDashboardPage() {
     <div style={wrap}>
       <header>
         <div style={title}>관리자 대시보드</div>
-        <div style={sub}>현재 구현된 운영 도구를 한곳에서 관리합니다.</div>
+        <div style={sub}>
+          아이템, 맵, 키오스크, 드론, 특전 등 운영 데이터를 계정별로 관리합니다.
+        </div>
       </header>
+
+      <AdminDataHealthPanel />
 
       {sections.map((section) => (
         <section key={section.title}>
@@ -151,7 +156,8 @@ export default function AdminDashboardPage() {
       <div style={status}>
         <strong style={{ color: '#e0f2fe' }}>관리자 접근 상태</strong>
         <div style={{ marginTop: 6 }}>
-          이 화면은 로그인 토큰과 관리자 권한 확인을 통과한 뒤 표시됩니다. 운영 데이터 변경은 각 관리 페이지에서 바로 처리할 수 있습니다.
+          이 화면은 로그인 토큰과 관리자 권한 확인을 통과한 뒤 표시됩니다. 운영 데이터 변경은 현재
+          로그인한 관리자 계정 범위 안에서 처리됩니다.
         </div>
       </div>
     </div>

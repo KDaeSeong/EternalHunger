@@ -1008,9 +1008,11 @@
     padding: 3px 8px;
     border-radius: 10px;
     max-width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.35;
+    word-break: keep-all;
 }
 
 .inventory-summary {
@@ -1021,6 +1023,215 @@
     padding: 2px 8px;
     border-radius: 10px;
     cursor: help;
+}
+
+.dev-grant-list {
+    margin-top: 8px;
+    max-height: 240px;
+    overflow: auto;
+    display: grid;
+    gap: 4px;
+    padding: 6px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 10px;
+    background: rgba(0,0,0,0.16);
+}
+
+.dev-grant-option {
+    width: 100%;
+    min-height: 30px;
+    padding: 6px 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-align: left;
+}
+
+.dev-grant-option:hover:not(:disabled),
+.dev-grant-option.selected {
+    border-color: rgba(80,190,255,0.75);
+    background: rgba(80,190,255,0.18);
+}
+
+.dev-grant-option span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dev-grant-picked {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.07);
+    font-size: 0.78rem;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.match-status-panel {
+    margin: 10px 0 12px;
+    padding: 14px;
+    border: 1px solid rgba(98, 214, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(4, 18, 24, 0.84);
+    color: #f3fbff;
+}
+
+.match-status-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.match-status-eyebrow {
+    margin: 0 0 2px;
+    color: #68d6ff;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.match-status-head h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0;
+}
+
+.match-status-clock {
+    min-width: 76px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 160, 20, 0.95);
+    color: #fff;
+    font-weight: 900;
+    text-align: center;
+}
+
+.match-status-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.match-status-metrics > div,
+.match-status-card {
+    min-width: 0;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.055);
+}
+
+.match-status-metrics > div {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+}
+
+.match-status-metrics span,
+.match-status-row span {
+    min-width: 0;
+    overflow: hidden;
+    color: rgba(243, 251, 255, 0.75);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.match-status-metrics strong {
+    font-size: 1rem;
+    font-weight: 950;
+}
+
+.match-status-metrics strong.danger {
+    color: #ffb1b1;
+}
+
+.match-status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.match-status-card {
+    padding: 10px;
+}
+
+.match-status-card h3 {
+    margin: 0 0 8px;
+    color: #ffe07a;
+    font-size: 0.86rem;
+    letter-spacing: 0;
+}
+
+.match-status-card p {
+    margin: 0;
+    color: rgba(243, 251, 255, 0.68);
+    font-size: 0.82rem;
+}
+
+.match-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.match-status-row:first-of-type {
+    border-top: 0;
+}
+
+.match-status-row strong {
+    flex: 0 0 auto;
+    font-size: 0.78rem;
+    font-weight: 950;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .dev-grant-list {
+        max-height: 180px;
+    }
+
+    .dev-grant-picked {
+        flex-basis: 100%;
+    }
+
+    .match-status-panel {
+        margin: 8px 0 10px;
+        padding: 10px;
+    }
+
+    .match-status-head {
+        margin-bottom: 8px;
+    }
+
+    .match-status-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .match-status-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .match-status-card:nth-child(n+3) {
+        display: none;
+    }
 }
 
 /* 툴팁: 마우스를 올렸을 때만 아이템 목록 노출 */
@@ -2194,5 +2405,126 @@
 
   .log-message {
     font-size: 0.82rem;
+  }
+}
+
+/* === Final information-priority overrides === */
+.simulation-container.modal-layout.devtools-open {
+  grid-template-columns: minmax(760px, 1fr) minmax(320px, 380px);
+  padding-bottom: 12px;
+  overflow-x: auto;
+}
+
+.simulation-container.modal-layout.devtools-open .game-screen {
+  min-width: 760px;
+}
+
+.simulation-container.modal-layout.devtools-open .market-panel {
+  min-width: 320px;
+}
+
+.market-panel {
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1180px) {
+  .simulation-container.modal-layout.devtools-open {
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .simulation-container.modal-layout.devtools-open .game-screen {
+    width: 100%;
+    min-width: 0;
+    min-height: 620px;
+  }
+
+  .simulation-container.modal-layout.devtools-open .market-panel {
+    width: 100%;
+    min-width: 0;
+    max-height: min(58dvh, 620px);
+  }
+}
+
+@media (max-width: 760px) {
+  .simulation-page {
+    --sim-shell-width: 100vw;
+  }
+
+  .simulation-container {
+    height: 100%;
+  }
+
+  .match-status-panel {
+    margin: 4px 0;
+    padding: 8px;
+  }
+
+  .match-status-head h2 {
+    font-size: 0.98rem;
+  }
+
+  .match-status-metrics > div {
+    min-height: 54px;
+    padding: 8px;
+  }
+
+  .minimap-panel.modal-open,
+  .survivor-board.modal-open,
+  .log-window.modal-open {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    height: calc(100dvh - 18px);
+    max-height: calc(100dvh - 18px);
+    border-radius: 10px;
+  }
+
+  .survivor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .survivor-card {
+    min-height: 0;
+    padding: 8px;
+  }
+
+  .survivor-card img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .minimap-legend {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 0.72rem;
+  }
+
+  .log-scroll-area {
+    scrollbar-gutter: stable;
+  }
+
+  .log-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .log-toolbar strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .survivor-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .match-status-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

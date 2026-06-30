@@ -243,6 +243,141 @@
   overflow: auto;
 }
 
+.admin-shell .admin-health-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(15, 23, 42, 0.74)),
+    rgba(15, 23, 42, 0.78);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+}
+
+.admin-shell .admin-health-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-shell .admin-health-head p {
+  margin: 0 0 4px;
+  color: #7dd3fc;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.admin-shell .admin-health-head h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.admin-shell .admin-health-head button,
+.admin-shell .admin-health-actions button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #e5e7eb;
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.admin-shell .admin-health-head button:hover,
+.admin-shell .admin-health-actions button:hover {
+  border-color: rgba(125, 211, 252, 0.58);
+  background: rgba(14, 165, 233, 0.22);
+}
+
+.admin-shell .admin-health-head button:disabled,
+.admin-shell .admin-health-actions button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.admin-shell .admin-health-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-shell .admin-health-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.38);
+}
+
+.admin-shell .admin-health-card span,
+.admin-shell .admin-health-card small {
+  display: block;
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 12px;
+}
+
+.admin-shell .admin-health-card strong {
+  display: block;
+  margin: 7px 0 4px;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.admin-shell .admin-health-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.72fr);
+  gap: 12px;
+}
+
+.admin-shell .admin-health-issues,
+.admin-shell .admin-health-actions {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.28);
+}
+
+.admin-shell .admin-health-issues strong {
+  color: #f8fafc;
+}
+
+.admin-shell .admin-health-issues ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #dbeafe;
+  line-height: 1.55;
+}
+
+.admin-shell .admin-health-ok {
+  margin-top: 8px;
+  color: #bbf7d0;
+  font-weight: 800;
+}
+
+.admin-shell .admin-health-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.admin-shell .admin-health-message {
+  padding: 10px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.10);
+  color: #fde68a;
+  font-weight: 800;
+}
+
 @media (max-width: 1100px) {
   .admin-shell {
     grid-template-columns: 220px 1fr;
@@ -338,6 +473,11 @@
     min-height: 40px;
     white-space: nowrap;
   }
+
+  .admin-shell .admin-health-cards,
+  .admin-shell .admin-health-body {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -365,5 +505,24 @@
   .admin-shell .admin-table td {
     padding: 9px 8px;
     font-size: 12px;
+  }
+
+  .admin-shell .admin-health-panel {
+    padding: 12px;
+  }
+
+  .admin-shell .admin-health-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-shell .admin-health-head button {
+    width: 100%;
+  }
+
+  .admin-shell .admin-health-cards,
+  .admin-shell .admin-health-body,
+  .admin-shell .admin-health-actions {
+    grid-template-columns: 1fr;
   }
 }

@@ -712,3 +712,328 @@ main {
         -webkit-line-clamp: 2;
     }
 }
+
+/* === Compact list + detail modal editor === */
+.character-list-compact {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 10px !important;
+    align-items: stretch;
+}
+
+.character-list-card {
+    width: auto !important;
+    display: grid !important;
+    grid-template-columns: 62px minmax(0, 1fr) minmax(260px, auto);
+    gap: 10px;
+    align-items: center;
+    padding: 10px !important;
+    border-radius: 10px !important;
+}
+
+.character-summary-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f1f3f5;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    display: grid;
+    place-items: center;
+    color: #98a2b3;
+    font-size: 0.68rem;
+    text-align: center;
+}
+
+.character-summary-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.character-summary-main {
+    min-width: 0;
+}
+
+.character-summary-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.character-summary-top strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #1f2937;
+    font-size: 1rem;
+}
+
+.character-summary-top span,
+.character-summary-meta span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #f2f4f7;
+    color: #475467;
+    font-size: 0.76rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.character-summary-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 6px;
+}
+
+.character-summary-actions {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, auto));
+    gap: 5px;
+    justify-content: end;
+}
+
+.character-summary-actions button {
+    min-height: 32px;
+    padding: 6px 9px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: #344054;
+    cursor: pointer;
+    font-weight: 900;
+    font-size: 0.76rem;
+    white-space: nowrap;
+}
+
+.character-summary-actions button:hover {
+    border-color: #4185b3;
+    background: rgba(65, 133, 179, 0.08);
+}
+
+.character-summary-actions button.danger {
+    border-color: rgba(255, 77, 79, 0.42);
+    background: #fff5f5;
+    color: #c92a2a;
+}
+
+.character-edit-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.46);
+}
+
+.character-edit-modal {
+    width: min(620px, 100%);
+    max-height: min(90vh, 760px);
+    overflow: auto;
+    padding: 16px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
+}
+
+.character-edit-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.character-edit-head p {
+    margin: 0 0 4px;
+    color: #667085;
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
+.character-edit-head h2 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.22rem;
+    letter-spacing: 0;
+}
+
+.character-edit-head button {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    border: 0;
+    border-radius: 999px;
+    background: #f2f4f7;
+    color: #111827;
+    cursor: pointer;
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.character-edit-grid {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 14px;
+}
+
+.character-edit-image {
+    display: grid;
+    gap: 8px;
+}
+
+.character-edit-image img,
+.character-edit-image > span {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    background: #f2f4f7;
+    object-fit: cover;
+    display: grid;
+    place-items: center;
+    color: #98a2b3;
+}
+
+.character-edit-image label {
+    min-height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed #98a2b3;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 900;
+}
+
+.character-edit-image input {
+    display: none;
+}
+
+.character-edit-fields {
+    display: grid;
+    gap: 12px;
+}
+
+.character-edit-fields label {
+    display: grid;
+    gap: 6px;
+    color: #344054;
+    font-size: 0.84rem;
+    font-weight: 900;
+}
+
+.character-edit-fields input,
+.character-edit-fields select {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: #fff;
+    color: #111827;
+    font-size: 1rem;
+}
+
+.character-field-help {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.character-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.character-edit-actions button {
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: #fff;
+    color: #111827;
+    cursor: pointer;
+    font-weight: 900;
+}
+
+.character-edit-actions button.primary {
+    border-color: #0288d1;
+    background: #0288d1;
+    color: #fff;
+}
+
+.main-save-btn {
+    border: 0;
+    font-size: 1.08rem;
+    font-weight: 900;
+}
+
+@media (max-width: 980px) {
+    .character-list-compact {
+        grid-template-columns: 1fr;
+    }
+
+    .character-list-card {
+        grid-template-columns: 56px minmax(0, 1fr);
+    }
+
+    .character-summary-actions {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        justify-content: stretch;
+    }
+}
+
+@media (max-width: 560px) {
+    .character-list-card {
+        grid-template-columns: 48px minmax(0, 1fr);
+        gap: 8px;
+        padding: 8px !important;
+    }
+
+    .character-summary-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+    }
+
+    .character-summary-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .character-summary-actions button {
+        min-height: 30px;
+        padding: 5px 7px;
+        font-size: 0.72rem;
+    }
+
+    .character-edit-modal {
+        max-height: 92vh;
+        padding: 12px;
+    }
+
+    .character-edit-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .character-edit-image {
+        grid-template-columns: 70px minmax(0, 1fr);
+        align-items: center;
+    }
+
+    .character-edit-image img,
+    .character-edit-image > span {
+        width: 70px;
+        height: 70px;
+        aspect-ratio: auto;
+    }
+}

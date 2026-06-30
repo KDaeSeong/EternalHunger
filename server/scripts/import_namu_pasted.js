@@ -921,7 +921,9 @@ function extractItemsAndRecipes(text) {
         skillAmp: toNum(a['스킬 증폭']),
         atkSpeed: toNum(a['공격 속도']),
         cdr: toNum(a['쿨다운 감소']),
-        lifesteal: toNum(a['모든 피해 흡혈'])
+        lifesteal: toNum(a['모든 피해 흡혈']),
+        armorPen: toNum(a['방어 관통']),
+        adaptiveForce: toNum(a['맞춤형 능력치'])
       }
     });
   }

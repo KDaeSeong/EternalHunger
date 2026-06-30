@@ -57,6 +57,7 @@ import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigg
 import SimulationControlPanel from './_components/SimulationControlPanel';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationLogPanel from './_components/SimulationLogPanel';
+import SimulationMatchStatusPanel from './_components/SimulationMatchStatusPanel';
 import SimulationResultModal from './_components/SimulationResultModal';
 import '../../styles/ERSimulation.css';
 
@@ -2376,10 +2377,16 @@ if (!who) {
     const picked = selected
       ? (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : []).find((it) => String(it?._id || '') === selected)
       : null;
-    const shown = list.slice(0, DEV_SELECT_RENDER_LIMIT);
-    if (picked && !shown.some((it) => String(it?._id || '') === selected)) return [picked, ...shown].slice(0, DEV_SELECT_RENDER_LIMIT);
-    return shown;
+    if (picked && !list.some((it) => String(it?._id || '') === selected)) return [picked, ...list];
+    return list;
   }, [devGrantItemOptions, devGrantSearch, devGrantItemId], []);
+
+  const selectedDevGrantItem = useSafeMemo('selectedDevGrantItem', () => {
+    const selected = String(devGrantItemId || '');
+    if (!selected) return null;
+    return (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : [])
+      .find((it) => String(it?._id || '') === selected) || null;
+  }, [devGrantItemOptions, devGrantItemId], null);
 
   const tradeWantItemOptions = useSafeMemo('tradeWantItemOptions', () => {
     const query = String(tradeWantSearch || '').trim().toLowerCase();
@@ -3521,6 +3528,7 @@ const pickStartZoneIdForChar = (c) => {
       if (raw.includes('accident')) return '사고';
       if (raw.includes('status') || raw.includes('effect')) return '상태 효과';
       if (raw.includes('elimination')) return '팀 전멸';
+      if (raw.includes('hp_zero')) return '체력 0';
       return '전투';
     };
     const hasDirectDeathLogForActor = (actor) => {
@@ -6911,6 +6919,33 @@ const didMove = String(nextZoneId) !== String(currentZone);
       }
     }
 
+    const reconcileZeroHpDeaths = () => {
+      const missed = [];
+      for (const s of survivorMap.values()) {
+        if (!s || !s._id) continue;
+        const id = String(s._id);
+        if (newDeadIds.includes(id)) continue;
+        if (Number(s.hp || 0) > 0) continue;
+        s.hp = 0;
+        s._deathBy = s._deathBy || 'hp_zero_reconcile';
+        s.deadAtPhaseIdx = phaseIdxNow;
+        s.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
+        newDeadIds.push(id);
+        missed.push(s);
+        emitRunEvent('death', {
+          who: id,
+          by: String(s?.lastDamagedBy || ''),
+          zoneId: String(s?.zoneId || ''),
+          reason: 'hp_zero_reconcile',
+        }, atNow());
+      }
+      if (missed.length > 0) {
+        flushDeadSnapshots(appendPhaseDeadSnapshots(missed));
+      }
+    };
+
+    reconcileZeroHpDeaths();
+
     const updatedKillCounts = { ...killCounts };
     Object.keys(roundKills).forEach((killerId) => {
       updatedKillCounts[killerId] = (updatedKillCounts[killerId] || 0) + roundKills[killerId];
@@ -8084,6 +8119,20 @@ if (showMarketPanel && pendingTranscendPick) {
             ) : null}
           </div>
 
+          <SimulationMatchStatusPanel
+            day={day}
+            phase={phase}
+            matchSec={formatClock(matchSec)}
+            survivors={survivors}
+            dead={dead}
+            killCounts={killCounts}
+            activeMap={activeMap}
+            zones={zones}
+            forbiddenNow={forbiddenNow}
+            spawnState={spawnState}
+            getZoneName={getZoneName}
+          />
+
           <SimulationLogPanel
             uiModal={uiModal}
             closeUiModal={closeUiModal}
@@ -8500,20 +8549,34 @@ if (showMarketPanel && pendingTranscendPick) {
                   style={{ width: '100%', marginTop: 8 }}
                   disabled={isAdvancing || isGameOver}
                 />
+                <div className="dev-grant-list" role="listbox" aria-label="developer item grant list">
+                  {visibleDevGrantItemOptions.length === 0 ? (
+                    <div className="market-small">검색 결과가 없습니다.</div>
+                  ) : (
+                    visibleDevGrantItemOptions.map((it) => {
+                      const id = String(it?._id || '');
+                      const selected = id && id === String(devGrantItemId || '');
+                      return (
+                        <button
+                          type="button"
+                          key={`dev-grant-${id}`}
+                          className={`dev-grant-option ${selected ? 'selected' : ''}`}
+                          onClick={() => setDevGrantItemId(id)}
+                          disabled={isAdvancing || isGameOver || !id}
+                          role="option"
+                          aria-selected={selected}
+                          title={it?._label || it?.name || id}
+                        >
+                          <span>{it?._label || it?.name || id}</span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
                 <div className="market-row" style={{ marginTop: 8, gap: 8 }}>
-                  <select
-                    value={devGrantItemId}
-                    onChange={(e) => setDevGrantItemId(e.target.value)}
-                    style={{ width: '100%' }}
-                    disabled={isAdvancing || isGameOver || devGrantItemOptions.length === 0}
-                  >
-                    <option value="">(아이템 선택)</option>
-                    {visibleDevGrantItemOptions.map((it) => (
-                      <option key={`dev-grant-${it._id}`} value={it._id}>
-                        {it._label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="dev-grant-picked" title={selectedDevGrantItem?._label || ''}>
+                    선택: {selectedDevGrantItem?._label || '-'}
+                  </div>
                   <input
                     type="number"
                     min="1"

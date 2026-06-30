@@ -515,6 +515,8 @@ function extractStats(row) {
     cdr: pickNum(row, ['cooldownReduction','CooldownReduction','cdr','Cdr']),
     lifesteal: pickNum(row, ['lifeSteal','LifeSteal','lifesteal','Lifesteal']),
     moveSpeed: pickNum(row, ['moveSpeed','MoveSpeed','moveSpeedRatio','MoveSpeedRatio']),
+    armorPen: pickNum(row, ['armorPenetrationRatio','ArmorPenetrationRatio','armorPenetration','ArmorPenetration','armorPen','ArmorPen']),
+    adaptiveForce: pickNum(row, ['adaptiveForce','AdaptiveForce','adaptiveStat','AdaptiveStat','adaptivePower','AdaptivePower']),
   };
 }
 

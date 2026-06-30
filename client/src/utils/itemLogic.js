@@ -51,7 +51,34 @@ function readExplicitRecovery(item) {
 }
 
 function adaptiveAttackStat(character) {
-  return 'attackPower';
+  const stats = character?.stats && typeof character.stats === 'object' ? character.stats : {};
+  const hint = [
+    character?.archetype,
+    character?.role,
+    character?.weaponType,
+    character?.strategy,
+  ].map((v) => String(v || '').toLowerCase()).join(' ');
+  if (
+    hint.includes('skill') ||
+    hint.includes('amp') ||
+    hint.includes('mage') ||
+    hint.includes('caster') ||
+    hint.includes('스킬') ||
+    hint.includes('스증') ||
+    hint.includes('아르카나') ||
+    hint.includes('기타') ||
+    hint.includes('카메라')
+  ) {
+    return 'skillAmp';
+  }
+  return Number(stats?.skillAmp || 0) > Number(stats?.attackPower || 0) ? 'skillAmp' : 'attackPower';
+}
+
+function adaptiveForceStats(character, value) {
+  const n = Math.max(0, Number(value || 0));
+  if (!Number.isFinite(n) || n <= 0) return {};
+  const key = adaptiveAttackStat(character);
+  return key === 'skillAmp' ? { skillAmp: n * 2 } : { attackPower: n };
 }
 
 function permanentConsumableBoost(character, item) {
@@ -70,8 +97,8 @@ function permanentConsumableBoost(character, item) {
     return { key: 'defense', label: '방어력', stats: { defense: Math.max(1, readNumber(stats.def, item?.def, 9) || 9) } };
   }
   if (name.includes('셀레네') || lower.includes('selene')) {
-    const stat = adaptiveAttackStat(character);
-    return { key: 'adaptive_power', label: '맞춤형 능력치', stats: { [stat]: Math.max(1, readNumber(stats.atk, stats.skillAmp, item?.adaptiveStat, 6) || 6) } };
+    const adaptiveForce = Math.max(1, readNumber(stats.adaptiveForce, stats.atk, stats.skillAmp, item?.adaptiveForce, item?.adaptiveStat, 6) || 6);
+    return { key: 'adaptive_power', label: '맞춤형 능력치', stats: adaptiveForceStats(character, adaptiveForce) };
   }
   if (name.includes('컴뱃 에피네프린') || lower.includes('combat epinephrine') || lower.includes('epinephrine')) {
     return { key: 'move_speed', label: '이동 속도', moveSpeed: Math.max(0.01, readNumber(stats.moveSpeed, item?.moveSpeed, 0.1) || 0.1) };
@@ -84,12 +111,21 @@ function permanentConsumableBoost(character, item) {
   const def = readNumber(stats.def, item?.def);
   const atk = readNumber(stats.atk, item?.atk);
   const skillAmp = readNumber(stats.skillAmp, item?.skillAmp);
+  const adaptiveForce = readNumber(stats.adaptiveForce, item?.adaptiveForce, item?.adaptiveStat);
+  const armorPen = readNumber(stats.armorPen, item?.armorPen);
   const moveSpeed = readNumber(stats.moveSpeed, item?.moveSpeed);
 
   if (hp > 0) boost.maxHp = hp;
   if (def > 0) boost.stats.defense = def;
-  if (atk > 0) boost.stats[adaptiveAttackStat(character)] = atk;
+  if (adaptiveForce > 0) {
+    Object.entries(adaptiveForceStats(character, adaptiveForce)).forEach(([key, value]) => {
+      boost.stats[key] = Math.max(Number(boost.stats[key] || 0), Number(value || 0));
+    });
+  } else if (atk > 0) {
+    boost.stats[adaptiveAttackStat(character)] = atk;
+  }
   if (skillAmp > 0) boost.stats.skillAmp = Math.max(Number(boost.stats.skillAmp || 0), skillAmp);
+  if (armorPen > 0) boost.stats.armorPen = armorPen;
   if (moveSpeed > 0) boost.moveSpeed = moveSpeed;
 
   if (!boost.maxHp && !boost.moveSpeed && Object.keys(boost.stats).length === 0) return null;

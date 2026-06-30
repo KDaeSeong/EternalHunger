@@ -8,6 +8,7 @@ import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simula
 import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { ER_STAT_FIELDS, normalizeErStats } from '../../utils/erStats';
+import { normalizeWeaponType } from '../../utils/equipmentCatalog';
 import SiteHeader from '../../components/SiteHeader';
 
 const GOAL_GEAR_TIERS = [
@@ -92,6 +93,7 @@ export default function DetailsPage() {
   const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
   const [editGoalLoadouts, setEditGoalLoadouts] = useState(EMPTY_LOADOUTS);
   const [equipList, setEquipList] = useState([]);
+  const [statModalCharId, setStatModalCharId] = useState(null);
 
   const [user, setUser] = useState(null);
 
@@ -140,6 +142,7 @@ export default function DetailsPage() {
   };
 
   const closeConfigModal = () => setConfigCharId(null);
+  const closeStatModal = () => setStatModalCharId(null);
 
   useEffect(() => {
     if (!configCharId) return;
@@ -158,6 +161,23 @@ export default function DetailsPage() {
       ...prev,
       [tierKey]: { ...(prev?.[tierKey] || {}), [slotKey]: String(value || '') }
     }));
+  };
+
+  const getLoadoutOptionsForSlot = (char, slot) => {
+    const slotKey = String(slot || '');
+    const charWeaponType = normalizeWeaponType(char?.weaponType || '');
+    return (Array.isArray(equipList) ? equipList : [])
+      .filter((x) => String(x?.equipSlot || '') === slotKey)
+      .filter((x) => {
+        if (slotKey !== 'weapon') return true;
+        if (!charWeaponType) return true;
+        const directType = normalizeWeaponType(x?.weaponType || '');
+        const tagType = Array.isArray(x?.tags)
+          ? x.tags.map((tag) => normalizeWeaponType(tag)).find(Boolean)
+          : '';
+        const itemWeaponType = directType || tagType;
+        return itemWeaponType ? itemWeaponType === charWeaponType : false;
+      });
   };
 
   const saveConfigModal = () => {
@@ -352,24 +372,30 @@ export default function DetailsPage() {
                   >
                     ⚙️ 목표/전술 설정
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatModalCharId(char._id)}
+                    className="details-stat-open-btn"
+                  >
+                    스탯 상세 편집
+                  </button>
                 </div>
                 </div>
 
-                <div className="stats-grid">
-                {/* ▼ 스탯 한글 명칭 매핑 (수정됨) */}
-                {ER_STAT_FIELDS.map((stat) => (
-                    <div key={stat.key} className="stat-item">
-                    {/* 영어 대신 한글(약자) 라벨 표시 */}
-                    <label>{stat.label}</label>
-                    <input 
-                        type="number" 
-                        min={stat.min ?? 0}
-                        step={stat.step ?? 1}
-                        value={normalizeErStats(char.stats)?.[stat.key] ?? stat.defaultValue ?? 0}
-                        onChange={(e) => handleStatChange(char._id, stat.key, e.target.value)}
-                    />
-                    </div>
-                ))}
+                <div className="details-stat-summary">
+                {(() => {
+                  const st = normalizeErStats(char.stats);
+                  return (
+                    <>
+                      <span>HP {st.maxHp}</span>
+                      <span>공 {st.attackPower}</span>
+                      <span>스증 {st.skillAmp}</span>
+                      <span>방 {st.defense}</span>
+                      <span>공속 {st.attackSpeed}</span>
+                      <span>사거리 {st.attackRange}</span>
+                    </>
+                  );
+                })()}
                 </div>
             </div>
             ))}
@@ -379,6 +405,46 @@ export default function DetailsPage() {
                 <h1>💾 변경사항 저장</h1>
             </div>
         </div>
+
+        {statModalCharId ? (() => {
+          const cur = characters.find((c) => String(c?._id) === String(statModalCharId)) || null;
+          if (!cur) return null;
+          return (
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="details-modal-backdrop"
+              onClick={(e) => { if (e.target === e.currentTarget) closeStatModal(); }}
+            >
+              <div className="details-stat-modal">
+                <div className="details-modal-head">
+                  <div>
+                    <p>스탯 상세 편집</p>
+                    <h2>{cur.name || '이름 없음'}</h2>
+                  </div>
+                  <button type="button" onClick={closeStatModal} aria-label="닫기">×</button>
+                </div>
+                <div className="stats-grid details-modal-stats">
+                  {ER_STAT_FIELDS.map((stat) => (
+                    <div key={stat.key} className="stat-item">
+                      <label>{stat.label}</label>
+                      <input
+                        type="number"
+                        min={stat.min ?? 0}
+                        step={stat.step ?? 1}
+                        value={normalizeErStats(cur.stats)?.[stat.key] ?? stat.defaultValue ?? 0}
+                        onChange={(e) => handleStatChange(cur._id, stat.key, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="details-modal-actions">
+                  <button type="button" onClick={closeStatModal}>닫기</button>
+                </div>
+              </div>
+            </div>
+          );
+        })() : null}
 
         {configCharId ? (() => {
           const cur = characters.find((c) => String(c?._id) === String(configCharId)) || null;
@@ -431,7 +497,7 @@ export default function DetailsPage() {
                         <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{t.label}</div>
                         <div style={{ display: 'grid', gap: 8 }}>
                           {LOADOUT_SLOTS.map((s) => {
-                            const options = equipList.filter((x) => String(x?.equipSlot || '') === s.slot);
+                            const options = getLoadoutOptionsForSlot(cur, s.slot);
                             const val = String(editGoalLoadouts?.[t.key]?.[s.key] || '');
                             return (
                               <label key={s.key} style={{ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'center', gap: 8 }}>

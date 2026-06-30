@@ -88,6 +88,12 @@ function normalizeNumber(v, def = 0) {
   return Number.isFinite(n) ? n : def;
 }
 
+function normalizeRatioNumber(v, def = 0) {
+  const n = normalizeNumber(v, def);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n > 1 ? n / 100 : n;
+}
+
 function normalizeStats(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
   return {
@@ -100,6 +106,8 @@ function normalizeStats(raw) {
     cdr: normalizeNumber(s.cdr, 0),
     lifesteal: normalizeNumber(s.lifesteal, 0),
     moveSpeed: normalizeNumber(s.moveSpeed, 0),
+    armorPen: normalizeNumber(s.armorPen, 0),
+    adaptiveForce: normalizeNumber(s.adaptiveForce, 0),
   };
 }
 
@@ -117,6 +125,8 @@ function computeEstimatedValue(stats, tier) {
   v += Math.max(0, normalizeNumber(s.cdr, 0)) * 350;
   v += Math.max(0, normalizeNumber(s.lifesteal, 0)) * 380;
   v += Math.max(0, normalizeNumber(s.moveSpeed, 0)) * 420;
+  v += Math.max(0, normalizeRatioNumber(s.armorPen, 0)) * 520;
+  v += Math.max(0, normalizeNumber(s.adaptiveForce, 0)) * 7;
   // 최소 1
   return Math.max(1, Math.round(v));
 }
@@ -207,7 +217,7 @@ router.get('/equipment-list', async (req, res) => {
         { equipSlot: { $in: slots } },
         { type: { $in: ['무기', '방어구'] } },
       ]
-    })).select('itemKey externalId name type equipSlot weaponType tier rarity');
+    })).select('itemKey externalId name type equipSlot weaponType tier rarity tags');
 
     const out = (Array.isArray(items) ? items : []).map((it) => {
       const itemKey = String(it?.itemKey || it?.externalId || it?._id || '');
@@ -219,6 +229,7 @@ router.get('/equipment-list', async (req, res) => {
         type,
         equipSlot,
         weaponType: String(it?.weaponType || ''),
+        tags: Array.isArray(it?.tags) ? it.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : [],
         tier: clampTier6(it?.tier || 1),
         rarity: String(it?.rarity || ''),
       };

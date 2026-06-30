@@ -164,6 +164,16 @@ function pickName(slot, weaponType, tier) {
 }
 
 // --- 스탯 생성 ---
+function addGeneratedAffix(stats, affix, tier, scale) {
+  const key = String(affix || '');
+  if (!stats || typeof stats !== 'object') return;
+  if (key === 'critChance') stats.critChance = Number(randFloat(0.02, 0.10) * (0.9 + scale * 0.12)).toFixed(3) * 1;
+  if (key === 'cdr') stats.cdr = Number(randFloat(0.02, 0.12) * (0.9 + scale * 0.12)).toFixed(3) * 1;
+  if (key === 'lifesteal') stats.lifesteal = Number(randFloat(0.01, 0.08) * (0.9 + scale * 0.12)).toFixed(3) * 1;
+  if (key === 'armorPen') stats.armorPen = Number(randFloat(0.015, 0.07) * (0.85 + scale * 0.10)).toFixed(3) * 1;
+  if (key === 'adaptiveForce') stats.adaptiveForce = Math.max(1, Math.round(randInt(2, 7) * scale * (tier >= 5 ? 1.15 : 1)));
+}
+
 function makeWeaponStats(tier, archetype) {
   const g = getGrade(tier);
   const scale = g.mult;
@@ -174,23 +184,27 @@ function makeWeaponStats(tier, archetype) {
   if (archetype === 'amp_only') {
     stats.atk = 0;
     stats.skillAmp = Number(randFloat(0.12, 0.26) * (0.8 + scale * 0.22)).toFixed(3) * 1;
+    addGeneratedAffix(stats, 'adaptiveForce', tier, scale);
+    if (tier >= 4) addGeneratedAffix(stats, 'cdr', tier, scale);
     return stats;
   }
 
   stats.atk = baseAtk;
   if (archetype === 'atk_speed') {
     stats.atkSpeed = Number(randFloat(0.05, 0.14) * (0.85 + scale * 0.18)).toFixed(3) * 1;
+    if (tier >= 3) addGeneratedAffix(stats, 'armorPen', tier, scale);
     return stats;
   }
   // atk_amp
   stats.skillAmp = Number(randFloat(0.06, 0.16) * (0.85 + scale * 0.18)).toFixed(3) * 1;
+  addGeneratedAffix(stats, pick(['armorPen', 'adaptiveForce']), tier, scale);
   return stats;
 }
 
 function pickAffixes(tier, exclude = []) {
   const t = Math.max(1, Math.min(6, Math.floor(Number(tier || 1))));
   const count = t <= 2 ? 1 : (t <= 4 ? 2 : 3);
-  const pool = ['critChance', 'cdr', 'lifesteal'].filter((k) => !exclude.includes(k));
+  const pool = ['critChance', 'cdr', 'lifesteal', 'armorPen', 'adaptiveForce'].filter((k) => !exclude.includes(k));
 
   const picked = [];
   while (pool.length && picked.length < count) {
@@ -213,9 +227,7 @@ function makeArmorStats(tier, slot) {
 
   const affs = pickAffixes(tier, []);
   for (const a of affs) {
-    if (a === 'critChance') stats.critChance = Number(randFloat(0.02, 0.10) * (0.9 + scale * 0.12)).toFixed(3) * 1;
-    if (a === 'cdr') stats.cdr = Number(randFloat(0.02, 0.12) * (0.9 + scale * 0.12)).toFixed(3) * 1;
-    if (a === 'lifesteal') stats.lifesteal = Number(randFloat(0.01, 0.08) * (0.9 + scale * 0.12)).toFixed(3) * 1;
+    addGeneratedAffix(stats, a, tier, scale);
   }
 
   // 신발은 이동속도 추가

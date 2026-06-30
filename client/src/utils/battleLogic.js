@@ -14,6 +14,13 @@ const clampTier = (tier, maxTier) => {
   return Math.max(1, Math.min(m, t));
 };
 
+const normalizeRatioStat = (value, max = 0.75) => {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const ratio = n > 1 ? n / 100 : n;
+  return Math.max(0, Math.min(max, ratio));
+};
+
 const isWeaponItem = (item) => {
   const t = norm(item?.type);
   // legacy(type='weapon') + normalized(한국어/동의어) 혼용
@@ -86,9 +93,9 @@ const getEquipDeltas = (character, settings = {}) => {
   };
 };
 // 장비 아이템(stats) 합산(새 카탈로그 대응)
-// - equipmentCatalog.js에서 생성되는 stats(atk/hp/skillAmp/atkSpeed/critChance/cdr/lifesteal/moveSpeed)를 전투 점수에 반영
+// - equipmentCatalog.js에서 생성되는 stats(atk/hp/skillAmp/atkSpeed/critChance/cdr/lifesteal/moveSpeed/armorPen/adaptiveForce)를 전투 점수에 반영
 const getEquipStatTotals = (character) => {
-  const totals = { atk: 0, def: 0, hp: 0, skillAmp: 0, atkSpeed: 0, critChance: 0, cdr: 0, lifesteal: 0, moveSpeed: 0, weaponType: '', weaponIsRanged: false };
+  const totals = { atk: 0, def: 0, hp: 0, skillAmp: 0, atkSpeed: 0, critChance: 0, cdr: 0, lifesteal: 0, moveSpeed: 0, armorPen: 0, adaptiveForce: 0, weaponType: '', weaponIsRanged: false };
   const add = (src) => {
     const s = src && typeof src === 'object' ? src : {};
     totals.atk += Number(s.atk || 0);
@@ -100,6 +107,8 @@ const getEquipStatTotals = (character) => {
     totals.cdr += Number(s.cdr || 0);
     totals.lifesteal += Number(s.lifesteal || 0);
     totals.moveSpeed += Number(s.moveSpeed || 0);
+    totals.armorPen += normalizeRatioStat(s.armorPen);
+    totals.adaptiveForce += Number(s.adaptiveForce || 0);
   };
 
   // 무기 1개(weapon)
@@ -121,7 +130,9 @@ const getEquipStatTotals = (character) => {
   totals.critChance = Math.max(0, Math.min(0.75, totals.critChance));
   totals.cdr = Math.max(0, Math.min(0.75, totals.cdr));
   totals.lifesteal = Math.max(0, Math.min(0.75, totals.lifesteal));
+  totals.armorPen = Math.max(0, Math.min(0.75, totals.armorPen));
   totals.skillAmp = Math.max(0, Math.min(2.5, totals.skillAmp));
+  totals.adaptiveForce = Math.max(0, totals.adaptiveForce);
   totals.hp = Math.max(0, totals.hp);
   totals.atk = Math.max(0, totals.atk);
   totals.def = Math.max(0, totals.def);
@@ -155,6 +166,40 @@ const getActiveSkillName = (character) => {
   return name;
 };
 
+const prefersSkillAmpFromAdaptiveForce = (character, stats, equipStats) => {
+  const wpn = pickWeapon(character);
+  const archetype = String(wpn?.archetype || character?.archetype || '').toLowerCase();
+  if (archetype.includes('amp')) return true;
+  const weaponType = normalizeErWeaponType(equipStats?.weaponType || wpn?.weaponType || character?.weaponType || '');
+  if (['아르카나', '기타', '카메라'].includes(weaponType)) return true;
+  const attack = Number(stats?.attackPower || 0);
+  const amp = Number(stats?.skillAmp || 0) + Number(equipStats?.skillAmp || 0) * 100;
+  return amp >= attack;
+};
+
+const resolveAdaptiveForceStats = (character, stats, equipStats) => {
+  const adaptiveForce = Math.max(0, Number(equipStats?.adaptiveForce || 0));
+  if (adaptiveForce <= 0) return { attackPower: 0, skillAmp: 0 };
+  if (prefersSkillAmpFromAdaptiveForce(character, stats, equipStats)) {
+    return { attackPower: 0, skillAmp: adaptiveForce * 2 };
+  }
+  return { attackPower: adaptiveForce, skillAmp: 0 };
+};
+
+const readRawCharacterStat = (character, key) => {
+  const direct = Number(character?.stats?.[key] ?? character?.[key]);
+  if (Number.isFinite(direct) && direct !== 0) return direct;
+  const permanent = Number(character?.itemPermanentBonuses?.stats?.[key]);
+  return Number.isFinite(permanent) ? permanent : 0;
+};
+
+const getTotalArmorPen = (character, equipStats) => {
+  return Math.max(0, Math.min(0.75,
+    normalizeRatioStat(equipStats?.armorPen) +
+    normalizeRatioStat(readRawCharacterStat(character, 'armorPen'))
+  ));
+};
+
 /**
  * ⚔️ 통합 전투 시뮬레이터 (보정치 적용됨)
  * @param {Object} p1 - 플레이어 1
@@ -172,19 +217,21 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     // ✅ 새 장비(stats) 합산(공격력/스증/공속/치확/쿨감/흡혈/체력 등)
     const es1 = getEquipStatTotals(p1);
     const es2 = getEquipStatTotals(p2);
+    const adaptive1 = resolveAdaptiveForceStats(p1, s1, es1);
+    const adaptive2 = resolveAdaptiveForceStats(p2, s2, es2);
     const s1x = {
       ...s1,
       maxHp: Number(s1?.maxHp || 0) + Number(es1.hp || 0),
-      attackPower: Number(s1?.attackPower || 0) + Number(eq1.attackPowerAdd || 0) + Number(es1.atk || 0),
-      skillAmp: Number(s1?.skillAmp || 0) + Number(es1.skillAmp || 0) * 100,
+      attackPower: Number(s1?.attackPower || 0) + Number(eq1.attackPowerAdd || 0) + Number(es1.atk || 0) + Number(adaptive1.attackPower || 0),
+      skillAmp: Number(s1?.skillAmp || 0) + Number(es1.skillAmp || 0) * 100 + Number(adaptive1.skillAmp || 0),
       defense: Number(s1?.defense || 0) + Number(eq1.defenseAdd || 0) + Number(es1.def || 0),
       attackSpeed: Number(s1?.attackSpeed || 0) + Number(es1.atkSpeed || 0),
     };
     const s2x = {
       ...s2,
       maxHp: Number(s2?.maxHp || 0) + Number(es2.hp || 0),
-      attackPower: Number(s2?.attackPower || 0) + Number(eq2.attackPowerAdd || 0) + Number(es2.atk || 0),
-      skillAmp: Number(s2?.skillAmp || 0) + Number(es2.skillAmp || 0) * 100,
+      attackPower: Number(s2?.attackPower || 0) + Number(eq2.attackPowerAdd || 0) + Number(es2.atk || 0) + Number(adaptive2.attackPower || 0),
+      skillAmp: Number(s2?.skillAmp || 0) + Number(es2.skillAmp || 0) * 100 + Number(adaptive2.skillAmp || 0),
       defense: Number(s2?.defense || 0) + Number(eq2.defenseAdd || 0) + Number(es2.def || 0),
       attackSpeed: Number(s2?.attackSpeed || 0) + Number(es2.atkSpeed || 0),
     };
@@ -228,12 +275,14 @@ export function calculateBattle(p1, p2, day, settings = {}) {
         const equipCritChance = Number(es.critChance || 0);
         const equipHp = Number(es.hp || 0);
         const equipLifesteal = Number(es.lifesteal || 0);
+        const equipArmorPen = getTotalArmorPen(char, es);
 
         // 스킬 계수: 스킬 증폭이 높을수록 강화 / 상대 방어력이 높을수록 약화
         const ampScale = Number(settings?.battle?.skillAmpScale ?? 0.006);
         const defenseResist = Number(settings?.battle?.skillDefenseResistScale ?? 0.0035);
         const offense = 1 + (Number(stats.skillAmp || 0) * Number(w.skillAmp || 1) * ampScale);
-        const resist = 1 - (Number(opponentStats.defense || 0) * Number(w.defense || 1) * defenseResist);
+        const penetratedDefense = Number(opponentStats.defense || 0) * (1 - equipArmorPen);
+        const resist = 1 - (penetratedDefense * Number(w.defense || 1) * defenseResist);
         const equipSkillMult = (1 + equipSkillAmp) * (1 + equipCdr * Number(settings?.battle?.equipCdrSkillScale ?? 0.35));
         const skillMult = Math.max(0.1, offense * Math.max(0.1, resist) * Math.max(0.1, equipSkillMult));
 
@@ -290,7 +339,7 @@ export function calculateBattle(p1, p2, day, settings = {}) {
         const hpScale = Number(settings?.battle?.equipHpScoreScale ?? 0.05);
         const extraScore = (Number(equipHp || 0) * (Number.isFinite(hpScale) ? hpScale : 0.05));
 
-        return { skillBonus, wpnBonus, skillLog, extraScore, critChance: equipCritChance, lifesteal: equipLifesteal };
+        return { skillBonus, wpnBonus, skillLog, extraScore, critChance: equipCritChance, lifesteal: equipLifesteal, armorPen: equipArmorPen };
     };
 
     const p1Bonus = getBonuses(p1, s1x, s2x, es1);
@@ -307,6 +356,11 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     score1 += (p1Bonus.skillBonus + p1Bonus.wpnBonus + Number(p1Bonus.extraScore || 0) + Number(er1.score || 0)) * suddenDeathMultiplier;
     score2 += (p2Bonus.skillBonus + p2Bonus.wpnBonus + Number(p2Bonus.extraScore || 0) + Number(er2.score || 0)) * suddenDeathMultiplier;
 
+    const armorPen1 = getTotalArmorPen(p1, es1);
+    const armorPen2 = getTotalArmorPen(p2, es2);
+    const defense2AfterPen = Number(s2x.defense || 0) * (1 - armorPen1);
+    const defense1AfterPen = Number(s1x.defense || 0) * (1 - armorPen2);
+
     const attackPressure1 = Math.max(0, (
       Number(s1x.attackPower || 0) * Number(w.attackPower || 1) +
       Number(s1x.skillAmp || 0) * 0.22 * Number(w.skillAmp || 1) +
@@ -314,7 +368,7 @@ export function calculateBattle(p1, p2, day, settings = {}) {
       Number(s1x.attackRange || 0) * 1.4 * Number(w.attackRange || 1) +
       Number(s1x.sightRange || 0) * 0.45 * Number(w.sightRange || 1)
     ) - (
-      Number(s2x.defense || 0) * 0.58 * Number(w.defense || 1) +
+      defense2AfterPen * 0.58 * Number(w.defense || 1) +
       Number(s2x.maxHp || 0) * 0.035 * Number(w.maxHp || 1)
     )) * suddenDeathMultiplier;
     const attackPressure2 = Math.max(0, (
@@ -324,7 +378,7 @@ export function calculateBattle(p1, p2, day, settings = {}) {
       Number(s2x.attackRange || 0) * 1.4 * Number(w.attackRange || 1) +
       Number(s2x.sightRange || 0) * 0.45 * Number(w.sightRange || 1)
     ) - (
-      Number(s1x.defense || 0) * 0.58 * Number(w.defense || 1) +
+      defense1AfterPen * 0.58 * Number(w.defense || 1) +
       Number(s1x.maxHp || 0) * 0.035 * Number(w.maxHp || 1)
     )) * suddenDeathMultiplier;
     score1 += attackPressure1;

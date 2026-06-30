@@ -79,6 +79,31 @@ function isSimulationItem(it) {
   return tags.includes('simulation') || tags.includes('generated');
 }
 
+function formatItemStatsSummary(it) {
+  const stats = it?.stats && typeof it.stats === 'object' ? it.stats : {};
+  const fields = [
+    ['atk', '공'],
+    ['def', '방'],
+    ['hp', '체'],
+    ['skillAmp', '스증'],
+    ['atkSpeed', '공속'],
+    ['critChance', '치확'],
+    ['cdr', '쿨감'],
+    ['lifesteal', '흡혈'],
+    ['moveSpeed', '이속'],
+    ['armorPen', '방관'],
+    ['adaptiveForce', '맞춤'],
+  ];
+  const parts = fields
+    .map(([key, label]) => {
+      const n = Number(stats?.[key] || 0);
+      if (!Number.isFinite(n) || n === 0) return '';
+      return `${label} ${n}`;
+    })
+    .filter(Boolean);
+  return parts.length ? parts.join(' · ') : '-';
+}
+
 function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -165,6 +190,8 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
         cdr: toNum(base.stats?.cdr, 0),
         lifesteal: toNum(base.stats?.lifesteal, 0),
         moveSpeed: toNum(base.stats?.moveSpeed, 0),
+        armorPen: toNum(base.stats?.armorPen, 0),
+        adaptiveForce: toNum(base.stats?.adaptiveForce, 0),
       },
     });
 
@@ -383,6 +410,8 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
         cdr: toNum(draft.stats?.cdr, 0),
         lifesteal: toNum(draft.stats?.lifesteal, 0),
         moveSpeed: toNum(draft.stats?.moveSpeed, 0),
+        armorPen: toNum(draft.stats?.armorPen, 0),
+        adaptiveForce: toNum(draft.stats?.adaptiveForce, 0),
       },
     };
 
@@ -488,6 +517,8 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
               ['cdr', '쿨감'],
               ['lifesteal', '흡혈'],
               ['moveSpeed', '이속'],
+              ['armorPen', '방어 관통'],
+              ['adaptiveForce', '맞춤형 능력치'],
             ].map(([k, labelKo]) => (
               <div key={k}>
                 <div style={label}>{labelKo} ({k})</div>
@@ -1048,6 +1079,7 @@ export default function ItemsAdmin() {
               <th style={th}>레시피</th>
               <th style={th}>가격</th>
               <th style={th}>희귀도</th>
+              <th style={th}>스탯</th>
               <th style={th}>잠금</th>
               <th style={{ ...th, textAlign: 'right' }}>작업</th>
             </tr>
@@ -1055,7 +1087,7 @@ export default function ItemsAdmin() {
           <tbody>
             {status === 'loading' && (
               <tr>
-                <td style={td} colSpan={8}>아이템을 불러오는 중입니다.</td>
+                <td style={td} colSpan={9}>아이템을 불러오는 중입니다.</td>
               </tr>
             )}
             {status !== 'loading' && pagedItems.map((it) => (
@@ -1075,6 +1107,7 @@ export default function ItemsAdmin() {
                 </td>
                 <td style={td}>{String(it.value ?? it.price ?? it.baseCreditValue ?? it.gold ?? '-')}</td>
                 <td style={td}>{String(it.rarity ?? '-')}</td>
+                <td style={{ ...td, maxWidth: 220, fontSize: 12 }}>{formatItemStatsSummary(it)}</td>
                 <td style={td}>{it.lockedByAdmin ? '🔒' : '-'}</td>
                 <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <button onClick={() => openEdit(it)} style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.06)', color: 'inherit', cursor: 'pointer' }}>편집</button>
@@ -1090,7 +1123,7 @@ export default function ItemsAdmin() {
             ))}
             {status !== 'loading' && pagedItems.length === 0 && (
               <tr>
-                <td style={td} colSpan={8}>
+                <td style={td} colSpan={9}>
                   <div style={{ display: 'grid', gap: 8, padding: '4px 0' }}>
                     <div style={{ fontWeight: 900 }}>
                       {items.length === 0
