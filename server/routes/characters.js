@@ -259,12 +259,72 @@ function getUserIdOrRespond(req, res) {
   return new mongoose.Types.ObjectId(s);
 }
 
+const CHARACTER_LIST_SELECTS = {
+  editor: [
+    'name',
+    'previewImage',
+    'summary',
+    'gender',
+    'weaponType',
+    'goalGearTier',
+    'tacticalSkill',
+    'erSubject',
+    'erRole',
+    'erTrait',
+    'erWeapons',
+    'goalLoadouts',
+    'stats',
+    'createdAt',
+  ].join(' '),
+  stats: [
+    'name',
+    'previewImage',
+    'gender',
+    'weaponType',
+    'goalGearTier',
+    'tacticalSkill',
+    'erSubject',
+    'erRole',
+    'erTrait',
+    'erWeapons',
+    'goalLoadouts',
+    'stats',
+    'createdAt',
+  ].join(' '),
+  simulation: [
+    'name',
+    'previewImage',
+    'gender',
+    'weaponType',
+    'goalGearTier',
+    'tacticalSkill',
+    'tacticalSkillLevel',
+    'erSubject',
+    'erRole',
+    'erTrait',
+    'erWeapons',
+    'goalLoadouts',
+    'stats',
+    'inventory',
+    'specialSkill',
+    'createdAt',
+  ].join(' '),
+};
+
+function getCharacterListSelect(req) {
+  const view = String(req?.query?.view || '').trim().toLowerCase();
+  return CHARACTER_LIST_SELECTS[view] || '';
+}
+
 // 1. 캐릭터 목록 불러오기 (내 것만)
 router.get('/', async (req, res) => {
   try {
     const userId = getUserIdOrRespond(req, res);
     if (!userId) return;
-    const characters = await Character.find({ userId }).sort({ createdAt: -1 });
+    const select = getCharacterListSelect(req);
+    let query = Character.find({ userId }).sort({ createdAt: -1 });
+    if (select) query = query.select(select);
+    const characters = await query.lean();
     res.json(characters);
   } catch (err) {
     res.status(500).json({ error: "불러오기 실패" });

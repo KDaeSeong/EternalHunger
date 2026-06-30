@@ -8,7 +8,7 @@ import '../../styles/Home.css';
 import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
-import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
+import { apiGet, apiGetCached, apiPost, clearApiGetCache, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { DEFAULT_ER_STATS, normalizeErStats } from '../../utils/erStats';
@@ -39,7 +39,7 @@ function formatSaveMismatchMessage(mismatches) {
 }
 
 function freshCharactersUrl() {
-  return `/characters?_fresh=${Date.now()}`;
+  return `/characters?view=editor&_fresh=${Date.now()}`;
 }
 
 async function loadCharactersAfterSave(result) {
@@ -106,7 +106,7 @@ export default function CharactersPage() {
     const token = getToken();
     if (!token) return [];
     try {
-      const data = await apiGet('/characters');
+      const data = await apiGetCached('/characters?view=editor', { ttlMs: 8000, timeoutMs: 20000 });
       const normalized = normalizeCharacterEditorList(data);
       setCharacters(normalized);
       return normalized;
@@ -252,6 +252,7 @@ export default function CharactersPage() {
       if (!token) throw new Error('로그인이 필요합니다.');
       const payload = compactCharactersForSave(characters, { previewImageIds: dirtyPreviewIds });
       const result = await apiPost('/characters/save', payload, { timeoutMs: 30000 });
+      clearApiGetCache('/characters');
       if (Array.isArray(result?.missingIds) && result.missingIds.length > 0) {
         throw new Error('일부 캐릭터를 찾을 수 없습니다. 새로고침 후 다시 저장해 주세요.');
       }
@@ -291,8 +292,20 @@ export default function CharactersPage() {
       <header hidden aria-hidden="true" />
 
       <div className="page-header">
-        <h1>캐릭터 설정</h1>
-        <p>참가 캐릭터를 추가하고 기본 정보를 관리합니다.</p>
+        <div className="page-header-row">
+          <div className="page-header-copy">
+            <h1>캐릭터 설정</h1>
+            <p>참가 캐릭터를 추가하고 기본 정보를 관리합니다.</p>
+          </div>
+          <div className="page-header-actions">
+            <button type="button" className="page-header-action-btn secondary" onClick={addCharacter}>
+              + 캐릭터 추가
+            </button>
+            <button type="button" className="page-header-action-btn primary" onClick={saveCharacters}>
+              변경사항 저장
+            </button>
+          </div>
+        </div>
       </div>
 
       <div id="characterRowContainer" className="character-list-compact">
@@ -466,15 +479,6 @@ export default function CharactersPage() {
         </div>
       ) : null}
 
-      <div id="addBtn">
-        <button id="addChar" onClick={addCharacter}>+ 캐릭터 추가</button>
-      </div>
-
-      <div className="main-save-container">
-        <button type="button" className="main-save-btn" onClick={saveCharacters}>
-          설정 저장하기
-        </button>
-      </div>
     </main>
   );
 }

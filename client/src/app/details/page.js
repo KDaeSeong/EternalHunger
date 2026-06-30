@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
-import { apiGet, apiPost, clearAuth, getToken, getUser } from '../../utils/api';
+import { apiGet, apiGetCached, apiPost, clearApiGetCache, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { ER_STAT_FIELDS, normalizeErStats } from '../../utils/erStats';
 import { normalizeWeaponType } from '../../utils/equipmentCatalog';
@@ -56,7 +56,7 @@ function formatSaveMismatchMessage(mismatches) {
 }
 
 function freshCharactersUrl() {
-  return `/characters?_fresh=${Date.now()}`;
+  return `/characters?view=stats&_fresh=${Date.now()}`;
 }
 
 async function loadCharactersAfterSave(result) {
@@ -126,7 +126,7 @@ export default function DetailsPage() {
   useEffect(() => {
     const token = getToken(); // 토큰 가져오기
     if (!token) return;
-    apiGet('/characters')
+    apiGetCached('/characters?view=stats', { ttlMs: 8000, timeoutMs: 20000 })
       .then(data => setCharacters(normalizeDetailsCharacterList(data)))
       .catch(err => console.error("로드 실패:", err));
   }, []);
@@ -149,7 +149,7 @@ export default function DetailsPage() {
     if (equipList.length > 0) return;
     const token = getToken();
     if (!token) return;
-    apiGet('/items/equipment-list').then((data) => {
+    apiGetCached('/items/equipment-list', { ttlMs: 30000, timeoutMs: 20000 }).then((data) => {
       setEquipList(Array.isArray(data) ? data : []);
     }).catch(() => {
       setEquipList([]);
@@ -217,6 +217,7 @@ export default function DetailsPage() {
     if (!token) throw new Error('로그인이 필요합니다.');
     const payload = compactCharactersForSave(characters, { omitPreviewImages: true });
     const result = await apiPost('/characters/save', payload, { timeoutMs: 30000 });
+    clearApiGetCache('/characters');
     if (Array.isArray(result?.missingIds) && result.missingIds.length > 0) {
       throw new Error('일부 캐릭터를 찾을 수 없습니다. 새로고침 후 다시 저장해주세요.');
     }
@@ -292,8 +293,17 @@ export default function DetailsPage() {
 
       {/* 심플해진 제목 */}
       <div className="page-header">
-        <h1>캐릭터 상세 설정</h1>
-        <p>AI가 분석한 스탯을 내 마음대로 수정해보세요.</p>
+        <div className="page-header-row">
+          <div className="page-header-copy">
+            <h1>캐릭터 상세 설정</h1>
+            <p>AI가 분석한 스탯을 내 마음대로 수정해보세요.</p>
+          </div>
+          <div className="page-header-actions">
+            <button type="button" className="page-header-action-btn primary" onClick={saveChanges}>
+              변경사항 저장
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ▼ 스탯 가이드 (새로 추가되는 부분) */}
@@ -400,12 +410,6 @@ export default function DetailsPage() {
             </div>
             ))}
         </div>
-        <div className="main-save-container">
-            <div className="main-save-btn" onClick={saveChanges}>
-                <h1>💾 변경사항 저장</h1>
-            </div>
-        </div>
-
         {statModalCharId ? (() => {
           const cur = characters.find((c) => String(c?._id) === String(statModalCharId)) || null;
           if (!cur) return null;

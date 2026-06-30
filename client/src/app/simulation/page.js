@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiPost, apiPut, clearAuth, getToken, getUser, updateStoredUser } from '../../utils/api';
+import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, clearAuth, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
 import { ER_WEAPON_SKILLS, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
@@ -2487,7 +2487,10 @@ if (!who) {
 
   async function syncMyState() {
     try {
-      const [me, chars] = await Promise.all([apiGet('/user/me'), apiGet('/characters')]);
+      const [me, chars] = await Promise.all([
+        apiGet('/user/me'),
+        apiGet('/characters?view=simulation'),
+      ]);
       applyUserEconomyProgress({
         credits: me?.credits,
         lp: me?.lp,
@@ -2570,10 +2573,10 @@ if (!who) {
     try {
       setMarketMessage('');
       const [itemsRes, kiosksRes, droneRes, perksRes] = await Promise.allSettled([
-        apiGet('/public/items'),
-        apiGet('/public/kiosks'),
-        apiGet('/public/drone-offers'),
-        apiGet('/public/perks'),
+        apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: 20000 }),
+        apiGetCached('/public/kiosks', { ttlMs: 60000, timeoutMs: 20000 }),
+        apiGetCached('/public/drone-offers', { ttlMs: 60000, timeoutMs: 20000 }),
+        apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: 20000 }),
       ]);
 
       setPublicItems(getSettledArray(itemsRes));
@@ -2662,30 +2665,45 @@ if (!who) {
       try {
         await apiGet('/public/ping', { timeoutMs: INIT_API_TIMEOUT_MS });
 
-        const [charList, settingValue, meValue, mapsList] = await Promise.all([
-          apiGet('/characters', { timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGet('/settings', { timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGet('/user/me', { timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGet('/public/maps', { timeoutMs: INIT_API_TIMEOUT_MS }),
+        const [charList, settingValue, meValue, mapsList, itemsValue, perksValue] = await Promise.all([
+          apiGetCached('/characters?view=simulation', { ttlMs: 8000, timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGetCached('/settings', { ttlMs: 8000, timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGetCached('/user/me', { ttlMs: 8000, timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGetCached('/public/maps', { ttlMs: 60000, timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: INIT_API_TIMEOUT_MS }),
+          apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: INIT_API_TIMEOUT_MS }),
         ]);
 
-        const [eventRes, itemsRes, kiosksRes, droneRes, perksRes, openTrades, mineTrades] = await Promise.allSettled([
-          apiGet('/events', { timeoutMs: 20000 }),
-          apiGet('/public/items', { timeoutMs: 20000 }),
-          apiGet('/public/kiosks', { timeoutMs: 20000 }),
-          apiGet('/public/drone-offers', { timeoutMs: 20000 }),
-          apiGet('/public/perks', { timeoutMs: 20000 }),
-          apiGet('/trades', { timeoutMs: 20000 }),
-          apiGet('/trades?mine=true', { timeoutMs: 20000 }),
-        ]);
+        const itemsList = Array.isArray(itemsValue) ? itemsValue : [];
+        const perksList = Array.isArray(perksValue) ? perksValue : [];
 
-        const eventsList = getSettledArray(eventRes);
-        const itemsList = getSettledArray(itemsRes);
-        const kiosksList = getSettledArray(kiosksRes);
-        const droneList = getSettledArray(droneRes);
-        const perksList = getSettledArray(perksRes);
-        const openTradesList = getSettledArray(openTrades);
-        const myTradesList = getSettledArray(mineTrades);
+        const loadDeferredInitData = () => {
+          void Promise.allSettled([
+            apiGetCached('/events', { ttlMs: 15000, timeoutMs: 20000 }),
+            apiGetCached('/public/kiosks', { ttlMs: 60000, timeoutMs: 20000 }),
+            apiGetCached('/public/drone-offers', { ttlMs: 60000, timeoutMs: 20000 }),
+            apiGet('/trades', { timeoutMs: 20000 }),
+            apiGet('/trades?mine=true', { timeoutMs: 20000 }),
+          ]).then(([eventRes, kiosksRes, droneRes, openTrades, mineTrades]) => {
+            setEvents(getSettledArray(eventRes));
+            setKiosks(getSettledArray(kiosksRes));
+            setDroneOffers(getSettledArray(droneRes));
+            setTradeOffers(getSettledArray(openTrades));
+            setMyTradeOffers(getSettledArray(mineTrades));
+
+            const failed = getRejectedLabels([
+              ['이벤트', eventRes],
+              ['키오스크', kiosksRes],
+              ['드론 판매', droneRes],
+              ['오픈 오퍼', openTrades],
+              ['내 오퍼', mineTrades],
+            ]);
+            if (failed.length) setMarketMessage(`${failed.join(', ')} 로드 실패`);
+          }).catch((err) => {
+            console.error('[simulation:deferredData]', err);
+            setMarketMessage(getApiErrorMessage(err, '보조 데이터 로드 실패'));
+          });
+        };
 
         const storedMatchMode = (() => {
           try {
@@ -2869,7 +2887,7 @@ const pickStartZoneIdForChar = (c) => {
         const shuffledChars = applyMatchTeams(selectedChars, loadedSettings);
         setCandidateSurvivors(candidateChars);
         setSurvivors(shuffledChars);
-        setEvents(eventsList);
+        setEvents([]);
 
         // 킬 카운트 초기화
         const initialKills = {};
@@ -2890,10 +2908,11 @@ const pickStartZoneIdForChar = (c) => {
         setCredits(initialCredits);
         updateStoredUser((currentUser) => ({ ...currentUser, credits: initialCredits }));
         setPublicItems(itemsList);
-        setKiosks(kiosksList);
-        setDroneOffers(droneList);
-        setTradeOffers(openTradesList);
-        setMyTradeOffers(myTradesList);
+        setPublicPerks(perksList);
+        setKiosks([]);
+        setDroneOffers([]);
+        setTradeOffers([]);
+        setMyTradeOffers([]);
 
         // 경기 시간도 초기화
         setMatchSec(0);
@@ -2905,6 +2924,7 @@ const pickStartZoneIdForChar = (c) => {
         setShowResultModal(false);
 
         addLog('📢 선수들이 경기장에 입장했습니다. 잠시 후 게임이 시작됩니다.', 'system');
+        loadDeferredInitData();
       } catch (err) {
         console.error('데이터 로드 실패:', err);
         const status = Number(err?.response?.status || 0);

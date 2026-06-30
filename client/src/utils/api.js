@@ -182,6 +182,25 @@ export function buildApiUrl(url, options = {}) {
   return `${base}${String(url || '').startsWith('/') ? url : `/${url}`}`;
 }
 
+const GET_CACHE = new Map();
+
+function buildGetCacheKey(url, options = {}) {
+  const fullUrl = buildApiUrl(url, { baseOverride: options.baseOverride });
+  const token = normalizeToken(options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken());
+  return `${fullUrl}::${token ? 'auth' : 'anon'}`;
+}
+
+export function clearApiGetCache(match = '') {
+  const needle = String(match || '');
+  if (!needle) {
+    GET_CACHE.clear();
+    return;
+  }
+  for (const key of GET_CACHE.keys()) {
+    if (key.includes(needle)) GET_CACHE.delete(key);
+  }
+}
+
 export async function apiRequest(method, url, data, options = {}) {
   const headers = {
     ...buildAuthHeaders(options.tokenOverride),
@@ -241,6 +260,30 @@ export async function apiRequest(method, url, data, options = {}) {
 }
 
 export const apiGet = (url, options) => apiRequest('GET', url, undefined, options);
+export async function apiGetCached(url, options = {}) {
+  const ttlMs = Math.max(0, Number(options.ttlMs || 10000));
+  if (options.force || ttlMs <= 0) return apiGet(url, options);
+
+  const key = buildGetCacheKey(url, options);
+  const now = Date.now();
+  const hit = GET_CACHE.get(key);
+  if (hit && hit.expiresAt > now) {
+    if (hit.promise) return hit.promise;
+    return hit.data;
+  }
+
+  const promise = apiGet(url, options)
+    .then((data) => {
+      GET_CACHE.set(key, { data, expiresAt: Date.now() + ttlMs });
+      return data;
+    })
+    .catch((err) => {
+      GET_CACHE.delete(key);
+      throw err;
+    });
+  GET_CACHE.set(key, { promise, expiresAt: now + ttlMs });
+  return promise;
+}
 export const apiPost = (url, data, options) => apiRequest('POST', url, data, options);
 export const apiPut = (url, data, options) => apiRequest('PUT', url, data, options);
 export const apiDelete = (url, options) => apiRequest('DELETE', url, undefined, options);
