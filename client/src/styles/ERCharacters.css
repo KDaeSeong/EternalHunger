@@ -716,7 +716,7 @@ main {
 /* === Compact list + detail modal editor === */
 .character-list-compact {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
     gap: 10px !important;
     align-items: stretch;
 }
@@ -724,7 +724,7 @@ main {
 .character-list-card {
     width: auto !important;
     display: grid !important;
-    grid-template-columns: 62px minmax(0, 1fr) minmax(260px, auto);
+    grid-template-columns: 62px minmax(0, 1fr);
     gap: 10px;
     align-items: center;
     padding: 10px !important;
@@ -795,21 +795,22 @@ main {
 
 .character-summary-actions {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, auto));
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 5px;
-    justify-content: end;
+    justify-content: stretch;
 }
 
 .character-summary-actions button {
     min-height: 32px;
-    padding: 6px 9px;
+    padding: 6px 7px;
     border: 1px solid #d0d5dd;
     border-radius: 8px;
     background: #fff;
     color: #344054;
     cursor: pointer;
     font-weight: 900;
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     white-space: nowrap;
 }
 
@@ -994,6 +995,10 @@ main {
 }
 
 @media (max-width: 560px) {
+    .character-list-compact {
+        grid-template-columns: 1fr;
+    }
+
     .character-list-card {
         grid-template-columns: 48px minmax(0, 1fr);
         gap: 8px;

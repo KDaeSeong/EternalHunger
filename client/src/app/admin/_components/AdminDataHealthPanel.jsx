@@ -55,6 +55,7 @@ function summarizeMaps(maps) {
   const zoneCounts = maps.map((map) => (Array.isArray(map?.zones) ? map.zones.length : 0));
   const totalZones = zoneCounts.reduce((sum, count) => sum + count, 0);
   const missingZones = maps.filter((map) => !Array.isArray(map?.zones) || map.zones.length < 19);
+  const nonStandardZoneMaps = maps.filter((map) => !Array.isArray(map?.zones) || map.zones.length !== 19);
   const legacyZones = [];
 
   for (const map of maps) {
@@ -66,7 +67,7 @@ function summarizeMaps(maps) {
     }
   }
 
-  return { totalZones, missingZones, legacyZones };
+  return { totalZones, missingZones, nonStandardZoneMaps, legacyZones };
 }
 
 export default function AdminDataHealthPanel() {
@@ -126,8 +127,8 @@ export default function AdminDataHealthPanel() {
     if (generatedItems.length) {
       issues.push(`시뮬레이션 생성 흔적 아이템 ${generatedItems.length}개`);
     }
-    if (maps.missingZones.length) {
-      issues.push(`구역 수가 부족한 맵 ${maps.missingZones.length}개`);
+    if (maps.nonStandardZoneMaps.length) {
+      issues.push(`구역 수가 19개가 아닌 맵 ${maps.nonStandardZoneMaps.length}개`);
     }
     if (maps.legacyZones.length) {
       issues.push(`롤백 대상 구역명 ${maps.legacyZones.length}개`);
@@ -167,7 +168,7 @@ export default function AdminDataHealthPanel() {
 
   const cards = [
     { label: '아이템', value: data.items.length, sub: `잠금 ${health.lockedItems.length} / 중복 ${health.duplicateGroups.length}` },
-    { label: '맵/구역', value: data.maps.length, sub: `구역 합계 ${health.maps.totalZones}` },
+    { label: '맵/구역', value: data.maps.length, sub: `구역 합계 ${health.maps.totalZones} / 기준 ${data.maps.length * 19}` },
     { label: '키오스크', value: data.kiosks.length, sub: `구역 ${health.kioskZones.size}곳` },
     { label: '드론/특전', value: `${data.droneOffers.length}/${data.perks.length}`, sub: '드론 제안 / 특전' },
   ];
@@ -205,6 +206,11 @@ export default function AdminDataHealthPanel() {
               {health.nonNamuItems.slice(0, 3).map((item) => (
                 <li key={`non-namu-${item?._id || itemIdentity(item)}`}>
                   비기본 아이템: {itemName(item)}
+                </li>
+              ))}
+              {health.maps.nonStandardZoneMaps.slice(0, 3).map((map) => (
+                <li key={`zones-${map?._id || map?.name}`}>
+                  맵 구역 수 확인: {String(map?.name || '이름 없음')} ({Array.isArray(map?.zones) ? map.zones.length : 0}개)
                 </li>
               ))}
               {health.maps.legacyZones.slice(0, 3).map((item) => (
