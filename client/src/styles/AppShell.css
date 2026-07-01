@@ -2,33 +2,142 @@
   min-width: 0;
 }
 
+:root {
+  --eh-shell-max: 1600px;
+  --eh-content-max: 1320px;
+  --eh-shell-bg: rgba(255, 255, 255, 0.84);
+  --eh-card-bg: #ffffff;
+  --eh-border-soft: rgba(22, 33, 44, 0.12);
+  --eh-border-warm: #c0a080;
+  --eh-text: #17202a;
+  --eh-muted: #5f6c78;
+  --eh-blue: #2c6f9e;
+  --eh-page-shadow: 0 14px 34px rgba(22, 33, 44, 0.10);
+  --eh-card-shadow: 0 8px 22px rgba(22, 33, 44, 0.06);
+}
+
 main > header[hidden] {
   display: none !important;
 }
 
+.characters-page-shell,
+.details-page-shell,
+.modifiers-page-shell,
+.events-page-shell,
+.board-page,
+.perk-shop-page,
+.help-page-shell {
+  width: min(calc(100% - 48px), var(--eh-shell-max));
+  min-height: calc(100vh - 48px);
+  margin: 24px auto;
+  padding: 32px;
+  border: 3px solid var(--eh-border-warm);
+  border-radius: 20px;
+  background: var(--eh-shell-bg);
+  color: var(--eh-text);
+  box-shadow: var(--eh-page-shadow);
+  box-sizing: border-box;
+}
+
+.characters-page-shell > .site-header,
 .details-page-shell > .site-header,
 .modifiers-page-shell > .site-header,
-.events-page-shell > .site-header {
-  margin: -12px -12px 28px;
-  border-radius: 14px;
-}
-
-.board-page > .site-header {
-  margin: -24px -16px 24px;
-}
-
-.perk-shop-page > .site-header {
-  margin: -24px -24px 24px;
-}
-
-.help-page-shell {
-  min-height: 100vh;
-  background: #f5efe7;
-}
-
+.events-page-shell > .site-header,
+.board-page > .site-header,
+.perk-shop-page > .site-header,
 .help-page-shell > .site-header,
 .auth-shell > .site-header {
-  margin-bottom: 24px;
+  margin: 0 0 34px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.board-shell,
+.perk-shop-hero,
+.perk-filter-row,
+.perk-grid,
+.perk-shop-message,
+.perk-empty-panel,
+.help-page,
+#detailsContainer,
+.stat-guide-container {
+  width: min(100%, var(--eh-content-max));
+  max-width: var(--eh-content-max);
+}
+
+.board-shell,
+.help-page {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.perk-shop-hero,
+.perk-filter-row,
+.perk-grid,
+.perk-shop-message,
+.perk-empty-panel {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.board-editor,
+.board-card,
+.board-message,
+.board-login-note,
+.board-empty,
+.perk-shop-hero > div,
+.perk-wallet,
+.perk-shop-message,
+.perk-empty-panel,
+.perk-card,
+.flow-card,
+.term-card,
+.stat-card,
+.stat-guide-container,
+.character-list-card {
+  border-color: var(--eh-border-soft);
+  border-radius: 8px;
+  background-color: var(--eh-card-bg);
+  box-shadow: var(--eh-card-shadow);
+}
+
+.board-page,
+.perk-shop-page,
+.help-page-shell {
+  background: var(--eh-shell-bg);
+}
+
+.board-page {
+  padding-bottom: 56px;
+}
+
+.perk-shop-page {
+  padding-bottom: 56px;
+}
+
+.help-page {
+  margin-top: 0;
+  padding: 34px 32px;
+  border: 1px solid var(--eh-border-soft);
+}
+
+.perk-shop-hero {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.perk-card.owned {
+  background: #f7fff9;
+}
+
+.board-eyebrow,
+.perk-shop-eyebrow,
+.help-kicker {
+  color: var(--eh-blue);
+}
+
+.board-head,
+.help-section {
+  border-color: rgba(22, 33, 44, 0.12);
 }
 
 .site-header {
@@ -370,23 +479,31 @@ main > header[hidden] {
 }
 
 @media (max-width: 540px) {
-  .board-page > .site-header {
-    margin: -16px -10px 16px;
+  .characters-page-shell,
+  .details-page-shell,
+  .modifiers-page-shell,
+  .events-page-shell,
+  .board-page,
+  .perk-shop-page,
+  .help-page-shell {
+    width: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 10px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
   }
 
-  .perk-shop-page > .site-header {
-    margin: -10px -10px 16px;
-  }
-
-  .help-page-shell > .site-header,
-  .auth-shell > .site-header {
-    margin-bottom: 12px;
-  }
-
+  .characters-page-shell > .site-header,
   .details-page-shell > .site-header,
   .modifiers-page-shell > .site-header,
-  .events-page-shell > .site-header {
-    margin: -8px -8px 18px;
+  .events-page-shell > .site-header,
+  .board-page > .site-header,
+  .perk-shop-page > .site-header,
+  .help-page-shell > .site-header,
+  .auth-shell > .site-header {
+    margin: 0 0 16px;
     border-radius: 12px;
   }
 
