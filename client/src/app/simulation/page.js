@@ -99,8 +99,6 @@ import {
   upsertRuntimeSurvivor,
   normalizeRuntimeSurvivor,
   getInvItemId,
-  getSimEquipExternalId,
-  isSimGeneratedEquipment,
   getEquipMoveSpeed,
   LUMIA_DEFAULT_EDGES,
   extractActorNameFromLog,
@@ -187,7 +185,6 @@ import {
   tryImmediateCraftFromSpecial,
   safeGenerateDynamicEvent,
   areSameTeam,
-  assignSimulationTeams,
   getActorTeamCapacity,
   getActorTeamId,
   getActorTeamName,
@@ -212,278 +209,49 @@ import {
   getRegionData,
   getRegionFacilityZoneIds,
 } from './_lib/lumiaRegionData';
-
-const RUNTIME_CHARACTER_SYNC_FIELDS = [
-  'name',
-  'gender',
-  'summary',
-  'previewImage',
-  'weaponType',
-  'goalGearTier',
-  'goalLoadouts',
-  'tacticalSkill',
-  'tacticalSkillLevel',
-  'characterSkillCode',
-  'characterSkillLevel',
-  'characterSkillLevels',
-  'characterSkills',
-  'erSubject',
-  'erRole',
-  'erTrait',
-  'erWeapons',
-  'stats',
-  'specialSkill',
-  'records',
-];
+import {
+  isExplicitDay1HeroRoutePlan,
+  getRuntimeRoutePlanZoneIds,
+  getRoutePlanMissingItemIds,
+  mergeMissingItemIds,
+  shouldForceDay1HeroGearCatchup,
+} from './_lib/routePlanProgressRuntime';
+import {
+  normalizeSatiety,
+  applySatietyGain,
+  decayActorSatiety,
+  isFoodRecoveryItem,
+} from './_lib/satietyRuntime';
+import { dedupeDevGrantItems } from './_lib/devGrantRuntime';
+import {
+  PARTICIPANT_PRESET_SELECTED_KEY,
+  PARTICIPANT_PRESET_LIMIT,
+  RANDOM_PARTICIPANT_PRESET_ID,
+  normalizeParticipantPresetIds,
+  normalizeParticipantPresetList,
+  readLocalParticipantPresets,
+  writeLocalParticipantPresets,
+  getInitialParticipantPresetId,
+} from './_lib/participantPresetRuntime';
+import {
+  mergeServerCharacterIntoRuntimeSurvivor,
+  getRuntimeActorKey,
+  dedupeRuntimeParticipants,
+} from './_lib/runtimeParticipantRuntime';
+import { formatMoveIntentLabel } from './_lib/moveIntentRuntime';
+import {
+  normalizeMatchMode,
+  getMatchConfig,
+  applyMatchTeams,
+  pickParticipantsForRun,
+  getMatchStartInfo,
+} from './_lib/matchRosterRuntime';
+import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
 
 const HYPERLOOP_DELAY_SEC = 3;
-
-function isExplicitDay1HeroRoutePlan(actor) {
-  const source = String(actor?.routePlanSource || '').trim();
-  return source === 'day1_hero_2zone' || source === 'day1_hero_2zone_partial';
-}
-
-function getRuntimeRoutePlanZoneIds(actor) {
-  return Array.isArray(actor?.routePlanZoneIds)
-    ? actor.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
-    : [];
-}
-
-function isRuntimeRoutePlanComplete(actor) {
-  const routePlanIds = getRuntimeRoutePlanZoneIds(actor);
-  if (!routePlanIds.length) return false;
-  return Math.max(0, Number(actor?.routePlanIndex || 0)) >= routePlanIds.length;
-}
-
-function getRoutePlanMissingItemIds(actor) {
-  if (!isExplicitDay1HeroRoutePlan(actor)) return [];
-  const requiredIds = Array.isArray(actor?.routePlanRequiredItemIds)
-    ? actor.routePlanRequiredItemIds.map((id) => String(id || '').trim()).filter(Boolean)
-    : [];
-  const requiredQtyById = actor?.routePlanRequiredQtyById && typeof actor.routePlanRequiredQtyById === 'object'
-    ? actor.routePlanRequiredQtyById
-    : {};
-  return uniqStr(requiredIds.filter((id) => {
-    const needQty = Math.max(1, Math.floor(Number(requiredQtyById?.[id] || 1)));
-    return invQty(actor?.inventory, id) < needQty;
-  }));
-}
-
-function mergeMissingItemIds(...lists) {
-  return uniqStr(lists.flatMap((list) => (
-    Array.isArray(list) ? list.map((id) => String(id || '').trim()).filter(Boolean) : []
-  )));
-}
-
-const SATIETY_DEFAULT = 70;
-const SATIETY_MAX = 100;
-
-function normalizeSatiety(value, fallback = SATIETY_DEFAULT) {
-  const n = Number(value);
-  const base = Number.isFinite(n) ? n : fallback;
-  return Math.max(0, Math.min(SATIETY_MAX, Math.round(base)));
-}
-
-function applySatietyGain(actor, amount) {
-  if (!actor || typeof actor !== 'object') return 0;
-  const gain = Math.max(0, Math.round(Number(amount || 0)));
-  if (gain <= 0) {
-    actor.satiety = normalizeSatiety(actor.satiety);
-    return 0;
-  }
-  const before = normalizeSatiety(actor.satiety);
-  actor.satiety = normalizeSatiety(before + gain, before);
-  return Math.max(0, actor.satiety - before);
-}
-
-function decayActorSatiety(actor, amount) {
-  if (!actor || typeof actor !== 'object') return 0;
-  const decay = Math.max(0, Number(amount || 0));
-  const before = normalizeSatiety(actor.satiety);
-  actor.satiety = normalizeSatiety(before - decay, before);
-  return Math.max(0, before - actor.satiety);
-}
-
-function isFoodRecoveryItem(item) {
-  const tags = safeTags(item).map((t) => String(t || '').toLowerCase());
-  const type = String(item?.type || '').toLowerCase();
-  const name = itemDisplayName(item);
-  const lower = String(name || '').toLowerCase();
-  if (lower.includes('bandage') || name.includes('붕대')) return false;
-  return (
-    type === 'food' ||
-    tags.includes('food') ||
-    tags.includes('healthy') ||
-    lower.includes('food') ||
-    lower.includes('apple') ||
-    lower.includes('steak') ||
-    name.includes('음식') ||
-    name.includes('사과') ||
-    name.includes('스테이크') ||
-    name.includes('빵') ||
-    name.includes('고기') ||
-    name.includes('치킨')
-  );
-}
-
-function getDevGrantDedupeKey(item) {
-  const stableKey = String(item?.itemKey || item?.externalId || item?.erCode || '').trim().toLowerCase();
-  if (stableKey) return `key:${stableKey}`;
-  const tier = Math.max(1, Math.min(6, Math.floor(Number(item?.tier || 1))));
-  return [
-    'shape',
-    itemDisplayName(item).trim().toLowerCase(),
-    String(item?.type || '').trim().toLowerCase(),
-    String(item?.equipSlot || '').trim().toLowerCase(),
-    String(tier),
-  ].join('|');
-}
-
-function isPreferredDevGrantItem(next, prev) {
-  if (!prev) return true;
-  const nextKey = String(next?.itemKey || next?.externalId || '').trim();
-  const prevKey = String(prev?.itemKey || prev?.externalId || '').trim();
-  if (nextKey && !prevKey) return true;
-  if (!nextKey && prevKey) return false;
-  const nextSource = String(next?.source || '').toLowerCase();
-  const prevSource = String(prev?.source || '').toLowerCase();
-  if (nextSource.includes('namu') && !prevSource.includes('namu')) return true;
-  if (!nextSource.includes('namu') && prevSource.includes('namu')) return false;
-  return String(next?._id || '').localeCompare(String(prev?._id || '')) < 0;
-}
-
-function dedupeDevGrantItems(items) {
-  const map = new Map();
-  (Array.isArray(items) ? items : []).forEach((item) => {
-    if (!item?._id) return;
-    const key = getDevGrantDedupeKey(item);
-    const prev = map.get(key);
-    if (isPreferredDevGrantItem(item, prev)) map.set(key, item);
-  });
-  return [...map.values()];
-}
-
-function shouldForceDay1HeroGearCatchup(actor, day, phase) {
-  const d = Number(day || 0);
-  const ph = String(phase || '').toLowerCase();
-  const catchupWindow = (d === 1 && ph === 'night') || (d === 2 && ph === 'morning');
-  if (!catchupWindow) return false;
-  if (!isExplicitDay1HeroRoutePlan(actor)) return true;
-  return isRuntimeRoutePlanComplete(actor);
-}
-
-function mergeServerCharacterIntoRuntimeSurvivor(runtimeSurvivor, serverCharacter) {
-  const base = runtimeSurvivor && typeof runtimeSurvivor === 'object' ? runtimeSurvivor : {};
-  const saved = serverCharacter && typeof serverCharacter === 'object' ? serverCharacter : {};
-  const next = { ...base };
-
-  for (const field of RUNTIME_CHARACTER_SYNC_FIELDS) {
-    if (saved[field] !== undefined) next[field] = saved[field];
-  }
-
-  if (saved.inventory !== undefined) next.inventory = saved.inventory;
-  if (saved.equipped !== undefined) next.equipped = saved.equipped;
-
-  return normalizeRuntimeSurvivor(next);
-}
-
-function getRuntimeActorKey(actor) {
-  return String(actor?._id || actor?.id || actor?.name || '').trim();
-}
-
-function dedupeRuntimeParticipants(list) {
-  const out = [];
-  const seen = new Set();
-  for (const actor of Array.isArray(list) ? list : []) {
-    if (!actor || typeof actor !== 'object') continue;
-    const key = getRuntimeActorKey(actor) || `idx:${out.length}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(actor);
-  }
-  return out;
-}
-
-const PARTICIPANT_PRESET_STORAGE_KEY = 'eh_participant_presets_v1';
-const PARTICIPANT_PRESET_SELECTED_KEY = 'eh_participant_preset_selected_v1';
-const PARTICIPANT_PRESET_LIMIT = 10;
-const PARTICIPANT_PRESET_SIZE = 24;
-const RANDOM_PARTICIPANT_PRESET_ID = '__random__';
 const MARKET_CARD_RENDER_LIMIT = 40;
 const DEV_SELECT_RENDER_LIMIT = 80;
 const DEV_EVENT_PREVIEW_LIMIT = 80;
-function normalizeParticipantPresetIds(ids) {
-  return uniqStr(Array.isArray(ids) ? ids : []).slice(0, PARTICIPANT_PRESET_SIZE);
-}
-
-function normalizeParticipantPreset(raw, index = 0) {
-  if (!raw || typeof raw !== 'object') return null;
-  const characterIds = normalizeParticipantPresetIds(raw.characterIds || raw.ids || []);
-  if (characterIds.length <= 0) return null;
-  const now = Date.now();
-  const id = String(raw.id || `preset-${now}-${index}`).trim();
-  return {
-    id,
-    name: String(raw.name || `프리셋 ${index + 1}`).trim() || `프리셋 ${index + 1}`,
-    characterIds,
-    matchMode: String(raw.matchMode || '').trim(),
-    createdAt: Number(raw.createdAt || now),
-    updatedAt: Number(raw.updatedAt || raw.createdAt || now),
-  };
-}
-
-function normalizeParticipantPresetList(value) {
-  return (Array.isArray(value) ? value : [])
-    .map((row, index) => normalizeParticipantPreset(row, index))
-    .filter(Boolean)
-    .slice(0, PARTICIPANT_PRESET_LIMIT);
-}
-
-function readLocalParticipantPresets() {
-  try {
-    return normalizeParticipantPresetList(JSON.parse(localStorage.getItem(PARTICIPANT_PRESET_STORAGE_KEY) || '[]'));
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalParticipantPresets(list) {
-  try {
-    localStorage.setItem(PARTICIPANT_PRESET_STORAGE_KEY, JSON.stringify(normalizeParticipantPresetList(list)));
-  } catch {
-    // ignore local storage failures
-  }
-}
-
-function getInitialParticipantPresetId() {
-  try {
-    return localStorage.getItem(PARTICIPANT_PRESET_SELECTED_KEY) || RANDOM_PARTICIPANT_PRESET_ID;
-  } catch {
-    return RANDOM_PARTICIPANT_PRESET_ID;
-  }
-}
-
-function formatMoveIntentLabel(reason, objectiveType = '', objectiveSubkind = '') {
-  const raw = String(reason || '').replace(/:ttl/g, '').replace(/:priority/g, '').trim();
-  const type = String(objectiveType || '').toLowerCase();
-  const sub = String(objectiveSubkind || '').toLowerCase();
-
-  if (raw.startsWith('early_route')) return '루트 파밍';
-  if (raw === 'recover') return '회복 우선';
-  if (raw.includes('크레딧') || raw.includes('야생동물')) return '야생동물 사냥';
-  if (raw.includes('키오스크')) return '키오스크 주문';
-  if (type === 'natural_core' || raw.includes('특수 재료')) {
-    if (sub === 'meteor') return '운석 확인';
-    if (sub === 'life_tree') return '생명의 나무 확인';
-    return '특수 재료 확인';
-  }
-  if (type === 'legendary_crate' || raw.includes('전설')) return '전설 상자 확인';
-  if (type === 'transcend_crate' || raw.includes('초월')) return '초월 상자 확인';
-  if (type === 'boss' || raw.includes('알파') || raw.includes('오메가') || raw.includes('위클라인')) return '보스 확인';
-  if (type === 'dimension_rift' || raw.includes('dimension_rift') || raw.includes('차원의 틈')) return '차원의 틈 확인';
-  if (raw.includes('재료')) return '재료 파밍';
-  return '로테이션';
-}
 
 export default function SimulationPage() {
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -582,68 +350,6 @@ export default function SimulationPage() {
   const [selectedParticipantPresetId, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
   const [participantPresetName, setParticipantPresetName] = useState('');
 
-  const normalizeMatchMode = (value) => (String(value || '').toLowerCase() === 'solo' ? 'solo' : 'squad');
-  const getMatchConfig = (src = settings) => {
-    const matchMode = normalizeMatchMode(src?.matchMode);
-    return matchMode === 'solo'
-      ? { matchMode, teamSize: 1, maxTeams: 24, maxParticipants: 24 }
-      : { matchMode, teamSize: 3, maxTeams: 8, maxParticipants: 24 };
-  };
-
-  const getFullRosterLimit = (count, cfg) => {
-    const total = Math.max(0, Math.floor(Number(count || 0)));
-    const capped = Math.max(0, Math.min(PARTICIPANT_PRESET_SIZE, Number(cfg?.maxParticipants || PARTICIPANT_PRESET_SIZE), total));
-    const teamSize = Math.max(1, Math.floor(Number(cfg?.teamSize || 1)));
-    if (teamSize <= 1) return capped;
-    return Math.floor(capped / teamSize) * teamSize;
-  };
-
-  const applyMatchTeams = (list, src = settings) => {
-    const cfg = getMatchConfig(src);
-    const normalized = normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []);
-    const limit = getFullRosterLimit(normalized.length, cfg);
-    return assignSimulationTeams(
-      normalized.slice(0, limit),
-      { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
-    ).map((c) => normalizeRuntimeSurvivor(c));
-  };
-
-  const getParticipantPreset = (presetId = selectedParticipantPresetId) => {
-    const id = String(presetId || '');
-    if (!id || id === RANDOM_PARTICIPANT_PRESET_ID) return null;
-    return (Array.isArray(participantPresets) ? participantPresets : [])
-      .find((preset) => String(preset?.id || '') === id) || null;
-  };
-
-  const pickParticipantsForRun = (list, presetId = selectedParticipantPresetId, src = settings) => {
-    const cfg = getMatchConfig(src);
-    const pool = dedupeRuntimeParticipants(normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []));
-    const max = getFullRosterLimit(pool.length, cfg);
-    const preset = getParticipantPreset(presetId);
-
-    if (max <= 0) return [];
-    if (!preset) return shuffleArray(pool).slice(0, max);
-
-    const byId = new Map(pool.map((actor) => [getRuntimeActorKey(actor), actor]).filter(([key]) => key));
-    const picked = [];
-    const pickedKeys = new Set();
-    for (const id of normalizeParticipantPresetIds(preset.characterIds)) {
-      const key = String(id || '').trim();
-      const actor = byId.get(key);
-      if (!actor || pickedKeys.has(key)) continue;
-      picked.push(actor);
-      pickedKeys.add(key);
-      if (picked.length >= max) break;
-    }
-
-    if (picked.length < max) {
-      const fillers = shuffleArray(pool.filter((actor) => !pickedKeys.has(getRuntimeActorKey(actor))));
-      picked.push(...fillers.slice(0, max - picked.length));
-    }
-
-    return picked.slice(0, max);
-  };
-
   const saveSelectedParticipantPresetId = (presetId) => {
     const nextId = String(presetId || RANDOM_PARTICIPANT_PRESET_ID);
     setSelectedParticipantPresetId(nextId);
@@ -668,24 +374,6 @@ export default function SimulationPage() {
     const preset = participantPresets.find((row) => String(row?.id || '') === String(selectedParticipantPresetId));
     setParticipantPresetName(preset?.name || '');
   }, [participantPresets, selectedParticipantPresetId]);
-
-  const getMatchStartInfo = (list = survivors, src = settings) => {
-    const cfg = getMatchConfig(src);
-    const normalized = normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []);
-    const limit = getFullRosterLimit(normalized.length, cfg);
-    const assigned = assignSimulationTeams(
-      normalized.slice(0, limit),
-      { teamSize: cfg.teamSize, maxTeams: cfg.maxTeams, preserveExisting: false }
-    );
-    const teams = getAliveTeams(assigned);
-    const minReadyCount = cfg.teamSize <= 1 ? 2 : cfg.teamSize * 2;
-    return {
-      ...cfg,
-      participantCount: assigned.length,
-      teamCount: teams.length,
-      ready: assigned.length >= minReadyCount && teams.length >= 2 && (cfg.teamSize <= 1 || assigned.length % cfg.teamSize === 0),
-    };
-  };
 
   const getTeamStateForActor = (actor) => {
     if (!actor || normalizeMatchMode(settings?.matchMode) === 'solo') return null;
@@ -803,54 +491,7 @@ export default function SimulationPage() {
   const isFinishingRef = useRef(false);
   // ✅ 시작(1일차 낮) 기본 장비 세팅이 1회만 적용되도록 플래그
   const startStarterLoadoutAppliedRef = useRef(false);
-
-  // ✅ 시뮬 랜덤 장비를 DB(Item 컬렉션)에 저장하기 위한 캐시
-  // - 같은 장비를 반복 저장하지 않도록 externalId(wpn_/eq_)를 기억
-  const simEquipSavedIdsRef = useRef(new Set());
-  const simEquipPersistBusyRef = useRef(false);
-
-  async function persistSimEquipmentsFromChars(chars, reason = 'phase') {
-    // 동시에 여러 번 호출되면 서버가 과부하/중복 저장될 수 있어 1회만 진행
-    if (simEquipPersistBusyRef.current) return;
-
-    try {
-      const arr = Array.isArray(chars) ? chars : [];
-      const picked = [];
-      const seen = new Set();
-
-      for (const c of arr) {
-        const inv = Array.isArray(c?.inventory) ? c.inventory : [];
-        for (const it of inv) {
-          if (!isSimGeneratedEquipment(it)) continue;
-          const extId = getSimEquipExternalId(it);
-          if (!extId) continue;
-          if (simEquipSavedIdsRef.current.has(extId)) continue;
-          if (seen.has(extId)) continue;
-          seen.add(extId);
-          picked.push(it);
-        }
-      }
-
-      if (!picked.length) return;
-
-      simEquipPersistBusyRef.current = true;
-      // 서버 저장(실패해도 시뮬은 계속 진행)
-      const res = await apiPost('/items/ingest-sim-equipments', {
-        items: picked,
-        reason,
-      }).catch(() => null);
-
-      // 성공 시에만 캐시 갱신
-      if (res && (res.message === 'ok' || Number(res.savedCount || 0) > 0)) {
-        for (const it of picked) {
-          const extId = getSimEquipExternalId(it);
-          if (extId) simEquipSavedIdsRef.current.add(extId);
-        }
-      }
-    } finally {
-      simEquipPersistBusyRef.current = false;
-    }
-  };
+  const persistSimEquipmentsFromChars = useSimEquipmentPersistence();
 
   // SD 서든데스(6번째 밤 이후): 페이즈 고정 + 전 구역 금지구역 + 카운트다운
   const suddenDeathActiveRef = useRef(false);
@@ -1841,7 +1482,7 @@ const devForceUseConsumable = (charId, invIndex) => {
     const pool = (Array.isArray(candidateSurvivors) && candidateSurvivors.length)
       ? candidateSurvivors
       : survivors;
-    const picked = pickParticipantsForRun(pool, presetId, settings);
+    const picked = pickParticipantsForRun(pool, participantPresets, presetId, settings);
     const assigned = applyMatchTeams(picked, settings);
     const kills = {};
     const assists = {};
@@ -3233,7 +2874,7 @@ const pickStartZoneIdForChar = (c) => {
           charsWithHp.push(seeded);
         });
         const candidateChars = normalizeRuntimeSurvivorList(charsWithHp);
-        const selectedChars = pickParticipantsForRun(candidateChars, selectedParticipantPresetId, loadedSettings);
+        const selectedChars = pickParticipantsForRun(candidateChars, participantPresets, selectedParticipantPresetId, loadedSettings);
         const shuffledChars = applyMatchTeams(selectedChars, loadedSettings);
         setCandidateSurvivors(candidateChars);
         setSurvivors(shuffledChars);
@@ -7618,7 +7259,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     if (isAdvancingRef.current) return;
     if (loading) return;
     if (isGameOver) return;
-    const startInfo = getMatchStartInfo();
+    const startInfo = getMatchStartInfo(survivors, settings);
     if (day === 0 && !startInfo.ready) {
       const needText = startInfo.matchMode === 'solo' ? '솔로는 생존자 2명 이상이 필요합니다.' : '스쿼드는 서로 다른 팀 2개 이상이 필요합니다.';
       addLog(`⚠️ 게임 시작 불가: ${needText} (현재 ${startInfo.participantCount}명 / ${startInfo.teamCount}팀)`, 'system');
@@ -7663,7 +7304,7 @@ if (showMarketPanel && pendingTranscendPick) {
     proceedPhaseGuardedRef.current = proceedPhaseGuarded;
   });
 
-  const matchStartInfo = getMatchStartInfo();
+  const matchStartInfo = getMatchStartInfo(survivors, settings);
   const startBlocked = day === 0 && !matchStartInfo.ready;
   const startBlockedText = matchStartInfo.matchMode === 'solo'
     ? `⚠️ 솔로 인원 부족 (${matchStartInfo.participantCount}/2명)`
