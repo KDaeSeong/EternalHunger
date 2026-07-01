@@ -64,6 +64,7 @@ import '../../styles/ERSimulation.css';
 const SIM_INIT_PING_TIMEOUT_MS = 5000;
 const SIM_INIT_REQUIRED_TIMEOUT_MS = Math.min(INIT_API_TIMEOUT_MS, 12000);
 const SIM_INIT_HEAVY_TIMEOUT_MS = Math.min(INIT_API_TIMEOUT_MS, 18000);
+const SIM_INIT_ITEMS_GRACE_MS = 2500;
 
 import {
   buildDetonationRiskSummary,
@@ -2706,6 +2707,32 @@ if (!who) {
     return Array.isArray(value) ? value : [];
   };
 
+  function settleWithin(promise, timeoutMs) {
+    const ms = Math.max(100, Number(timeoutMs || 1000));
+    return new Promise((resolve) => {
+      let settled = false;
+      const timer = window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve({ status: 'timeout', value: [] });
+      }, ms);
+
+      Promise.resolve(promise)
+        .then((value) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          resolve({ status: 'fulfilled', value });
+        })
+        .catch((reason) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          resolve({ status: 'rejected', reason });
+        });
+    });
+  };
+
   function getRejectedLabels(pairs) {
     return pairs
       .filter(([, result]) => result?.status === 'rejected')
@@ -2806,22 +2833,25 @@ if (!who) {
 
     const fetchData = async () => {
       try {
-        try {
-          await apiGet('/public/ping', { timeoutMs: SIM_INIT_PING_TIMEOUT_MS });
-        } catch (pingErr) {
-          console.warn('[simulation:initPing]', pingErr);
-        }
+        void apiGet('/public/ping', { timeoutMs: SIM_INIT_PING_TIMEOUT_MS })
+          .catch((pingErr) => {
+            console.warn('[simulation:initPing]', pingErr);
+          });
 
-        const [charRes, settingRes, meRes, mapsRes, itemsRes, perksRes] = await Promise.allSettled([
-          apiGetCached('/characters?view=simulation', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
-          apiGetCached('/settings', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
-          apiGetCached('/user/me', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
-          apiGetCached('/public/maps', { ttlMs: 60000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
-          apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: SIM_INIT_HEAVY_TIMEOUT_MS }),
-          apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+        const itemsLoadPromise = apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: SIM_INIT_HEAVY_TIMEOUT_MS });
+        const [criticalResults, quickItemsRes] = await Promise.all([
+          Promise.allSettled([
+            apiGetCached('/characters?view=simulation', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+            apiGetCached('/settings', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+            apiGetCached('/user/me', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+            apiGetCached('/public/maps', { ttlMs: 60000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+            apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+          ]),
+          settleWithin(itemsLoadPromise, SIM_INIT_ITEMS_GRACE_MS),
         ]);
+        const [charRes, settingRes, meRes, mapsRes, perksRes] = criticalResults;
 
-        const authRejected = [charRes, settingRes, meRes, mapsRes, itemsRes, perksRes].some((result) => {
+        const authRejected = [charRes, settingRes, meRes, mapsRes, perksRes].some((result) => {
           const status = Number(result?.reason?.response?.status || result?.reason?.status || 0);
           return result?.status === 'rejected' && (status === 401 || status === 403);
         });
@@ -2834,7 +2864,7 @@ if (!who) {
         const settingValue = getSettledValue(settingRes, {});
         const meValue = getSettledValue(meRes, {});
         const mapsList = getSettledArray(mapsRes);
-        const itemsValue = getSettledArray(itemsRes);
+        const itemsValue = getSettledArray(quickItemsRes);
         const perksValue = getSettledArray(perksRes);
 
         const initFailed = getRejectedLabels([
@@ -2842,7 +2872,6 @@ if (!who) {
           ['설정', settingRes],
           ['유저 정보', meRes],
           ['맵', mapsRes],
-          ['아이템', itemsRes],
           ['특전', perksRes],
         ]);
         if (initFailed.length) {
@@ -3031,6 +3060,71 @@ const pickStartZoneIdForChar = (c) => {
     return String(initialZoneIds?.[0] || '__default__');
   }
 };
+        const emptyRoutePlan = {
+          zoneIds: [],
+          itemIdsByZone: {},
+          targetItemIds: [],
+          requiredItemIds: [],
+          requiredQtyById: {},
+          droneItemIds: [],
+          targetNamesBySlot: {},
+          source: '',
+        };
+
+        const buildFastRoutePlanForActor = (actor, routeItems) => {
+          if (!Array.isArray(routeItems) || !routeItems.length) return emptyRoutePlan;
+          try {
+            const day1HeroRoutePlan = buildDay1HeroRoutePlanDetails(actor, initialMap, routeItems, {
+              routeLength: 2,
+              droneFallbackLimit: 1,
+              candidateLimit: 6,
+              beamLimit: 48,
+              maxRoutes: 96,
+            });
+            if (day1HeroRoutePlan?.complete) return day1HeroRoutePlan;
+            return buildEarlyRoutePlanDetails(actor, initialMap, routeItems, { routeLength: 4 }) || emptyRoutePlan;
+          } catch (routeErr) {
+            console.error('[simulation:initRoutePlan]', routeErr);
+            return emptyRoutePlan;
+          }
+        };
+
+        const mergeRoutePlanFields = (actor, routePlan, sourceFallback = 'fast_start') => {
+          const plan = routePlan || emptyRoutePlan;
+          const routePlanZoneIds = Array.isArray(plan.zoneIds) ? plan.zoneIds : [];
+          return normalizeRuntimeSurvivor({
+            ...actor,
+            routePlanZoneIds,
+            routePlanItemIdsByZone: plan.itemIdsByZone || {},
+            routePlanTargetItemIds: Array.isArray(plan.targetItemIds) ? plan.targetItemIds : [],
+            routePlanRequiredItemIds: Array.isArray(plan.requiredItemIds) ? plan.requiredItemIds : [],
+            routePlanRequiredQtyById: plan.requiredQtyById || {},
+            routePlanDroneItemIds: Array.isArray(plan.droneItemIds) ? plan.droneItemIds : [],
+            routePlanTargetNamesBySlot: plan.targetNamesBySlot || {},
+            routePlanSource: plan.source || (routePlanZoneIds.length ? 'recipe' : sourceFallback),
+          });
+        };
+
+        const applyLoadedItemsToRuntime = (loadedItems, reason = 'background') => {
+          const nextItems = Array.isArray(loadedItems) ? loadedItems : [];
+          if (!nextItems.length) return false;
+          setPublicItems(nextItems);
+          const enrichList = (list) => normalizeRuntimeSurvivorList((Array.isArray(list) ? list : []).map((actor) => {
+            const routeSource = String(actor?.routePlanSource || '');
+            const alreadyRouted = routeSource && routeSource !== 'fast_start';
+            const routeStarted = Math.max(0, Number(actor?.routePlanIndex || 0)) > 0 || actor?.day1HeroDone;
+            if (alreadyRouted || routeStarted) return actor;
+            const routePlan = buildFastRoutePlanForActor(actor, nextItems);
+            if (!Array.isArray(routePlan?.zoneIds) || !routePlan.zoneIds.length) return actor;
+            return mergeRoutePlanFields(actor, routePlan, routeSource || 'fast_start');
+          }));
+          setCandidateSurvivors((prev) => enrichList(prev));
+          setSurvivors((prev) => enrichList(prev));
+          if (reason === 'background') {
+            addLog(`📦 아이템 데이터 로드 완료: ${nextItems.length}개. 참가자 루트 파밍을 보강했습니다.`, 'system');
+          }
+          return true;
+        };
         const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
 
         const charsWithHp = [];
@@ -3039,18 +3133,12 @@ const pickStartZoneIdForChar = (c) => {
             replaceDefaultTactical: false,
             statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
           });
-          const day1HeroRoutePlan = buildDay1HeroRoutePlanDetails(erSeed, initialMap, itemsList, {
-            routeLength: 2,
-            droneFallbackLimit: 1,
-          });
-          const routePlan = day1HeroRoutePlan?.complete
-            ? day1HeroRoutePlan
-            : buildEarlyRoutePlanDetails(erSeed, initialMap, itemsList, { routeLength: 4 });
+          const routePlan = buildFastRoutePlanForActor(erSeed, itemsList);
           const routePlanZoneIds = routePlan.zoneIds;
           const startZoneId = routePlanZoneIds[0] || pickStartZoneIdForChar(erSeed);
           const seedStats = normalizeErStats(erSeed?.stats);
           const seedMaxHp = Math.max(1, Math.round(Number(seedStats.maxHp || 100)));
-          const seeded = applyPerkBundleToActor(normalizeRuntimeSurvivor({
+          const seededBase = mergeRoutePlanFields({
             ...erSeed,
             stats: seedStats,
             level: 1,
@@ -3066,16 +3154,8 @@ const pickStartZoneIdForChar = (c) => {
             equipped: ensureEquipped(erSeed),
             day1Moves: 0,
             day1HeroDone: false,
-            routePlanZoneIds,
-            routePlanItemIdsByZone: routePlan.itemIdsByZone || {},
-            routePlanTargetItemIds: Array.isArray(routePlan.targetItemIds) ? routePlan.targetItemIds : [],
-            routePlanRequiredItemIds: Array.isArray(routePlan.requiredItemIds) ? routePlan.requiredItemIds : [],
-            routePlanRequiredQtyById: routePlan.requiredQtyById || {},
-            routePlanDroneItemIds: Array.isArray(routePlan.droneItemIds) ? routePlan.droneItemIds : [],
-            routePlanTargetNamesBySlot: routePlan.targetNamesBySlot || {},
             routePlanSearchCounts: {},
             routePlanIndex: 0,
-            routePlanSource: routePlan.source || (routePlanZoneIds.length ? 'recipe' : ''),
             simCredits: Number(ruleset?.credits?.start ?? 15),
             droneLastOrderIndex: -9999,
             droneLastOrderAbsSec: -99999,
@@ -3089,7 +3169,8 @@ const pickStartZoneIdForChar = (c) => {
               weaponSkill: 0,
             },
             safeZoneUntil: 0,
-          }), initPerkBundle, { initialFill: true, applyCredits: true });
+          }, routePlan, 'fast_start');
+          const seeded = applyPerkBundleToActor(seededBase, initPerkBundle, { initialFill: true, applyCredits: true });
           charsWithHp.push(seeded);
         });
         const candidateChars = normalizeRuntimeSurvivorList(charsWithHp);
@@ -3135,6 +3216,21 @@ const pickStartZoneIdForChar = (c) => {
 
         addLog('📢 선수들이 경기장에 입장했습니다. 잠시 후 게임이 시작됩니다.', 'system');
         loadDeferredInitData();
+        if (quickItemsRes?.status === 'timeout') {
+          addLog('⏳ 아이템 데이터 로드가 늦어져 기본 배치로 먼저 준비했습니다. 도착하면 루트 파밍을 자동 보강합니다.', 'system');
+          itemsLoadPromise
+            .then((loadedItems) => {
+              applyLoadedItemsToRuntime(loadedItems, 'background');
+            })
+            .catch((itemsErr) => {
+              console.warn('[simulation:initItems.background]', itemsErr);
+              addLog(`⚠️ 아이템 데이터 백그라운드 로드 실패: ${getApiErrorMessage(itemsErr)}`, 'system');
+            });
+        } else if (quickItemsRes?.status === 'rejected') {
+          const itemErr = quickItemsRes.reason;
+          console.warn('[simulation:initItems.quick]', itemErr);
+          addLog(`⚠️ 아이템 데이터 로드 실패: ${getApiErrorMessage(itemErr)}. 기본 배치로 계속합니다.`, 'system');
+        }
       } catch (err) {
         console.error('데이터 로드 실패:', err);
         const status = Number(err?.response?.status || 0);

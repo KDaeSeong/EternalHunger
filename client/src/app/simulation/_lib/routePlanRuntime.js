@@ -314,7 +314,7 @@ function addRequirementsToState(baseReqs, addList) {
 function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, opts = {}) {
   const actorWeaponType = normalizeWeaponType(String(actor?.weaponType || '').trim());
   const heroGoalBySlot = pickHeroGoalLoadoutBySlot(actor);
-  const candidateLimit = Math.max(3, Math.floor(Number(opts.candidateLimit ?? 14)));
+  const candidateLimit = Math.max(3, Math.floor(Number(opts.candidateLimit ?? 8)));
   const bySlot = new Map();
 
   for (const slot of EQUIP_SLOTS) {
@@ -391,9 +391,16 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
   if (EQUIP_SLOTS.some((slot) => !(candidatesBySlot.get(slot) || []).length)) return empty;
 
   const droneLimit = Math.max(0, Math.floor(Number(opts.droneFallbackLimit ?? 1)));
-  const beamLimit = Math.max(20, Math.floor(Number(opts.beamLimit ?? 180)));
+  const beamLimit = Math.max(20, Math.floor(Number(opts.beamLimit ?? 64)));
   const conn = buildRouteConnectionInfo(mapObj);
-  const routes = buildRoutePairs(zoneIds);
+  const maxRoutes = Math.max(20, Math.floor(Number(opts.maxRoutes ?? 96)));
+  const routes = buildRoutePairs(zoneIds)
+    .sort((a, b) => {
+      const delta = conn.routePenalty(a) - conn.routePenalty(b);
+      if (delta) return delta;
+      return zoneTie(actor, a.join('>')) - zoneTie(actor, b.join('>'));
+    })
+    .slice(0, maxRoutes);
   let best = null;
 
   for (const route of routes) {
