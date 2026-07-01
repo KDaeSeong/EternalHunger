@@ -816,7 +816,7 @@ const RAW_LUMIA_REGION_DATA = [
     "wildlife": {},
     "campfire": false,
     "kiosk": true,
-    "hyperloop": false
+    "hyperloop": true
   }
 ];
 

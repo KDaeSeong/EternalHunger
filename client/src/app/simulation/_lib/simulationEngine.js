@@ -187,6 +187,7 @@ import {
 } from './resourceTargetingRuntime';
 import {
   advanceEarlyRouteProgress,
+  buildDay1HeroRoutePlanDetails,
   buildEarlyRoutePlan,
   buildEarlyRoutePlanDetails,
   getEarlyRoutePlanTarget,
@@ -409,6 +410,7 @@ export {
   expandMissingResourceChain,
   pickGoalResourceZoneTargets,
   advanceEarlyRouteProgress,
+  buildDay1HeroRoutePlanDetails,
   buildEarlyRoutePlan,
   buildEarlyRoutePlanDetails,
   getEarlyRoutePlanTarget,

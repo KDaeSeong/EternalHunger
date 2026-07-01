@@ -848,7 +848,18 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
 
   const credits = Math.max(0, Number(actor?.simCredits || 0));
   const items = Array.isArray(publicItems) ? publicItems : [];
-  const needId = pickMissingBasicItemId(craftGoal);
+  const routeDroneWindow = Number(curDay || 0) === 1 || (Number(curDay || 0) === 2 && String(curPhase || '').toLowerCase() === 'morning');
+  const routeDroneNeedId = routeDroneWindow
+    ? (Array.isArray(actor?.routePlanDroneItemIds) ? actor.routePlanDroneItemIds : [])
+        .map((id) => String(id || '').trim())
+        .filter(Boolean)
+        .find((id) => {
+          const needQty = Math.max(1, Math.floor(Number(actor?.routePlanRequiredQtyById?.[id] || 1)));
+          return invQty(actor?.inventory, id) < needQty;
+        }) || ''
+    : '';
+  const needId = routeDroneNeedId || pickMissingBasicItemId(craftGoal);
+  const hasRouteDroneNeed = !!routeDroneNeedId;
   const hasNeed = !!needId;
   const goalTier = normalizeGoalTier(actor?.goalGearTier ?? 6);
   const legendOverdue = goalTier >= 5 && isAtOrAfterWorldTime(curDay, curPhase, 2, 'night') && lowestEquippedTier(actor, publicItems) < 5;
@@ -860,8 +871,11 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   const lowInv = Number(dm?.chanceLowInv ?? 0.30);
   const inv2 = Number(dm?.chanceInv2 ?? 0.20);
   const def = Number(dm?.chanceDefault ?? 0.10);
-  const droneBaseChance = hasNeed ? (invCount <= 2 ? needLow : needDef) : (invCount <= 1 ? lowInv : invCount == 2 ? inv2 : def);
-  const droneUrgency = hasNeed
+  const routeNeedChance = Math.max(0, Math.min(0.98, Number(dm?.chanceRoutePlanNeed ?? 0.94)));
+  const droneBaseChance = hasRouteDroneNeed ? routeNeedChance : (hasNeed ? (invCount <= 2 ? needLow : needDef) : (invCount <= 1 ? lowInv : invCount == 2 ? inv2 : def));
+  const droneUrgency = hasRouteDroneNeed
+    ? Math.min(0.04, (credits >= Number(dm?.price ?? 10) ? 0.03 : 0) + (invCount <= 2 ? 0.01 : 0))
+    : hasNeed
     ? Math.min(0.24, ((curDay <= 2) ? 0.08 : 0) + ((credits >= Number(dm?.price ?? 10)) ? 0.10 : 0) + (invCount <= 2 ? 0.06 : 0))
     : ((curDay <= 2 && invCount <= 1) ? 0.05 : 0);
   const pacingPressure = (legendOverdue ? 0.12 : 0) + (transOverdue ? 0.16 : 0) + ((goalTier >= 5 && hasNeed && curDay <= 2) ? 0.04 : 0);
@@ -873,6 +887,22 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
     const kind = classifySpecialByName(name);
     return kind === 'vf' || isSpecialCoreKind(kind);
   };
+
+  if (hasRouteDroneNeed) {
+    const routeNeedItem = items.find((x) => String(x?._id) === String(routeDroneNeedId));
+    const routeNeedPrice = applyDroneCost(Math.max(0, Number(dm?.routeNeedFallbackPrice ?? dm?.needFallbackPrice ?? dm?.price ?? 10)));
+    if (routeNeedItem && !isSpecialName(routeNeedItem?.name) && credits >= routeNeedPrice) {
+      return {
+        kind: 'drone',
+        offerId: null,
+        item: routeNeedItem,
+        itemId: String(routeNeedItem._id),
+        qty: 1,
+        cost: routeNeedPrice,
+        source: 'route_plan_drone',
+      };
+    }
+  }
 
   // 1) droneOffers(있으면)에서 뽑기: 특수 재료(운석/생나/미스릴/포스코어/VF)는 제외
   if (Array.isArray(droneOffers) && droneOffers.length) {
@@ -890,19 +920,20 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
 
       // 목표에 필요한 재료면 가중치 크게
       const mul = Math.max(1, Number(dm?.needWeightMul ?? 8));
-      if (hasNeed && String(itemId) === String(needId)) weight *= (mul + (legendOverdue ? 4 : 0) + (transOverdue ? 6 : 0));
+      if (hasRouteDroneNeed && String(itemId) === String(routeDroneNeedId)) weight *= (mul + Math.max(10, Number(dm?.routeNeedWeightBonus ?? 16)) + (legendOverdue ? 4 : 0) + (transOverdue ? 6 : 0));
+      else if (hasNeed && String(itemId) === String(needId)) weight *= (mul + (legendOverdue ? 4 : 0) + (transOverdue ? 6 : 0));
 
-      pool.push({ kind: 'offer', offerId: offer?.offerId ?? offer?._id ?? null, item, itemId, price, weight });
+      pool.push({ kind: 'offer', offerId: offer?.offerId ?? offer?._id ?? null, item, itemId, price, weight, source: hasRouteDroneNeed && String(itemId) === String(routeDroneNeedId) ? 'route_plan_drone' : '' });
     }
   }
 
   // 1-1) 목표 재료가 있는데, offer에 없거나(혹은 전부 비쌈) pool이 비었으면 fallback로 해당 아이템을 직접 구매하는 형태(가격 고정)
   if (hasNeed && !pool.some((p) => String(p?.itemId) === String(needId))) {
     const it = items.find((x) => String(x?._id) === String(needId));
-    const nfPrice = applyDroneCost(Math.max(0, Number(dm?.needFallbackPrice ?? 10)));
+    const nfPrice = applyDroneCost(Math.max(0, Number(hasRouteDroneNeed ? (dm?.routeNeedFallbackPrice ?? dm?.needFallbackPrice ?? 10) : (dm?.needFallbackPrice ?? 10))));
     if (it && !isSpecialName(it?.name) && credits >= nfPrice) {
-      const w = Math.max(1, Number(dm?.needFallbackWeight ?? 5));
-      pool.push({ kind: 'needFallback', offerId: null, item: it, itemId: String(it._id), price: nfPrice, weight: w });
+      const w = Math.max(1, Number(hasRouteDroneNeed ? (dm?.routeNeedFallbackWeight ?? 18) : (dm?.needFallbackWeight ?? 5)));
+      pool.push({ kind: hasRouteDroneNeed ? 'routeNeedFallback' : 'needFallback', offerId: null, item: it, itemId: String(it._id), price: nfPrice, weight: w, source: hasRouteDroneNeed ? 'route_plan_drone' : 'craft_need' });
     }
   }
 
@@ -937,6 +968,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
     itemId: String(picked.itemId),
     qty,
     cost: Math.max(0, Number(picked.price || 0)),
+    source: String(picked.source || ''),
   };
 }
 

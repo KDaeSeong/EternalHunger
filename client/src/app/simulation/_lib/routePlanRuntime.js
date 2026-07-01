@@ -130,6 +130,361 @@ function pickFallbackRouteTargets(actor, publicItems) {
   return targets;
 }
 
+function pickHeroGoalLoadoutBySlot(actor) {
+  const g = actor?.goalLoadouts && typeof actor.goalLoadouts === 'object' ? actor.goalLoadouts : {};
+  const h = g?.hero && typeof g.hero === 'object' ? g.hero : {};
+  return {
+    weapon: String(h.weaponKey || '').trim(),
+    head: String(h.headKey || '').trim(),
+    clothes: String(h.clothesKey || '').trim(),
+    arm: String(h.armKey || '').trim(),
+    shoes: String(h.shoesKey || '').trim(),
+  };
+}
+
+function getItemRouteZoneIds(item, mapObj, forbiddenIds) {
+  const out = new Set();
+  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
+  const zoneRows = Array.isArray(mapObj?.zones) ? mapObj.zones : [];
+  const zoneIdSet = new Set(zoneRows.map((z) => String(z?.zoneId || '')).filter(Boolean));
+
+  const crateWeights = findCrateZoneWeightsForItem(mapObj, normId(item), forb);
+  for (const zoneId of crateWeights.keys()) {
+    const zid = String(zoneId || '').trim();
+    if (zid && zoneIdSet.has(zid) && !forb.has(zid)) out.add(zid);
+  }
+
+  const regionWeights = getRegionZoneWeightsForItem(item, mapObj?.zones, forb);
+  for (const zoneId of regionWeights.keys()) {
+    const zid = String(zoneId || '').trim();
+    if (zid && zoneIdSet.has(zid) && !forb.has(zid)) out.add(zid);
+  }
+
+  const spawnZones = new Set((Array.isArray(item?.spawnZones) ? item.spawnZones : []).map((z) => String(z || '').trim()).filter(Boolean));
+  if (spawnZones.size) {
+    for (const zone of zoneRows) {
+      const zid = String(zone?.zoneId || '').trim();
+      const name = String(zone?.name || '').trim();
+      if (zid && !forb.has(zid) && (spawnZones.has(zid) || spawnZones.has(name))) out.add(zid);
+    }
+  }
+
+  return [...out];
+}
+
+function mergeRequirement(list, item, itemId, qty, mapObj, forbiddenIds) {
+  const id = String(itemId || normId(item));
+  if (!id) return;
+  const found = list.get(id) || {
+    item,
+    itemId: id,
+    name: String(item?.name || id),
+    qty: 0,
+    tier: Number(item?.tier || 0),
+    zones: new Set(),
+  };
+  found.qty += Math.max(1, Number(qty || 1));
+  for (const zoneId of getItemRouteZoneIds(item, mapObj, forbiddenIds)) found.zones.add(zoneId);
+  list.set(id, found);
+}
+
+function collectRecipeLeafRequirements(target, indexes, mapObj, opts = {}) {
+  const byId = indexes?.byId instanceof Map ? indexes.byId : new Map();
+  const forbiddenIds = opts.forbiddenIds instanceof Set ? opts.forbiddenIds : new Set();
+  const maxDepth = Math.max(1, Math.floor(Number(opts.maxDepth ?? 5)));
+  const out = new Map();
+
+  function visit(itemId, qty, depth, seen) {
+    const id = String(itemId || '').trim();
+    if (!id) return;
+    const item = byId.get(id) || null;
+    if (!item || seen.has(id) || depth >= maxDepth) {
+      mergeRequirement(out, item || { _id: id, name: id }, id, qty, mapObj, forbiddenIds);
+      return;
+    }
+
+    const ingredients = compactIO(item?.recipe?.ingredients || []);
+    if (!ingredients.length) {
+      if (depth > 0 && isEarlyRouteScorableItem(item)) {
+        mergeRequirement(out, item, id, qty, mapObj, forbiddenIds);
+      }
+      return;
+    }
+
+    const nextSeen = new Set(seen);
+    nextSeen.add(id);
+    for (const ing of ingredients) {
+      visit(ing.itemId, qty * Math.max(1, Number(ing.qty || 1)), depth + 1, nextSeen);
+    }
+  }
+
+  visit(normId(target), 1, 0, new Set());
+  return [...out.values()].map((req) => ({
+    ...req,
+    qty: Math.max(1, Math.floor(Number(req.qty || 1))),
+    zones: [...req.zones],
+  }));
+}
+
+function buildRouteConnectionInfo(mapObj) {
+  const direct = new Set();
+  const add = (a0, b0) => {
+    const a = String(a0 || '').trim();
+    const b = String(b0 || '').trim();
+    if (!a || !b || a === b) return;
+    direct.add(`${a}::${b}`);
+  };
+  for (const c of Array.isArray(mapObj?.zoneConnections) ? mapObj.zoneConnections : []) {
+    const a = String(c?.fromZoneId || '').trim();
+    const b = String(c?.toZoneId || '').trim();
+    add(a, b);
+    if (c?.bidirectional !== false) add(b, a);
+  }
+  const hyper = new Set((Array.isArray(mapObj?.zones) ? mapObj.zones : [])
+    .filter((z) => z?.hasHyperloop === true || z?.hyperloop === true)
+    .map((z) => String(z?.zoneId || '').trim())
+    .filter(Boolean));
+  const serverPad = String(mapObj?.hyperloopDeviceZoneId || '').trim();
+  if (serverPad) hyper.add(serverPad);
+
+  return {
+    routePenalty(route) {
+      const ids = Array.isArray(route) ? route.map((z) => String(z || '').trim()).filter(Boolean) : [];
+      let penalty = 0;
+      for (let i = 0; i < ids.length - 1; i += 1) {
+        const a = ids[i];
+        const b = ids[i + 1];
+        if (direct.has(`${a}::${b}`) || hyper.has(a)) continue;
+        penalty += 1;
+      }
+      return penalty;
+    },
+  };
+}
+
+function requirementStatsForRoute(requirements, routeSet) {
+  const missing = [];
+  let missingQty = 0;
+  let coveredQty = 0;
+  let totalQty = 0;
+  for (const req of requirements instanceof Map ? requirements.values() : []) {
+    const qty = Math.max(1, Math.floor(Number(req?.qty || 1)));
+    totalQty += qty;
+    const covered = (Array.isArray(req?.zones) ? req.zones : [...(req?.zones || [])])
+      .some((z) => routeSet.has(String(z || '')));
+    if (covered) coveredQty += qty;
+    else {
+      missing.push(req);
+      missingQty += qty;
+    }
+  }
+  return { missing, missingQty, coveredQty, totalQty };
+}
+
+function cloneRequirementMap(reqs) {
+  const out = new Map();
+  for (const [id, req] of reqs instanceof Map ? reqs.entries() : []) {
+    out.set(String(id), {
+      ...req,
+      zones: new Set(Array.isArray(req.zones) ? req.zones : [...(req.zones || [])]),
+    });
+  }
+  return out;
+}
+
+function addRequirementsToState(baseReqs, addList) {
+  const out = cloneRequirementMap(baseReqs);
+  for (const req of Array.isArray(addList) ? addList : []) {
+    const id = String(req?.itemId || '').trim();
+    if (!id) continue;
+    const prev = out.get(id) || {
+      ...req,
+      qty: 0,
+      zones: new Set(),
+    };
+    prev.qty = Math.max(0, Number(prev.qty || 0)) + Math.max(1, Number(req.qty || 1));
+    const zones = prev.zones instanceof Set ? prev.zones : new Set(Array.isArray(prev.zones) ? prev.zones : []);
+    for (const z of Array.isArray(req.zones) ? req.zones : []) zones.add(String(z || ''));
+    prev.zones = zones;
+    out.set(id, prev);
+  }
+  return out;
+}
+
+function buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, opts = {}) {
+  const actorWeaponType = normalizeWeaponType(String(actor?.weaponType || '').trim());
+  const heroGoalBySlot = pickHeroGoalLoadoutBySlot(actor);
+  const candidateLimit = Math.max(3, Math.floor(Number(opts.candidateLimit ?? 14)));
+  const bySlot = new Map();
+
+  for (const slot of EQUIP_SLOTS) {
+    const goalKey = String(heroGoalBySlot?.[slot] || '').trim();
+    const goalItem = goalKey ? indexes.byKey.get(goalKey) || null : null;
+    const goalSlot = goalItem ? String(goalItem?.equipSlot || inferEquipSlot(goalItem) || '').toLowerCase() : '';
+    if (goalItem && goalSlot === slot) {
+      const requirements = collectRecipeLeafRequirements(goalItem, indexes, mapObj, opts);
+      if (requirements.length) {
+        bySlot.set(slot, [{
+          item: goalItem,
+          requirements,
+          goal: true,
+        }]);
+        continue;
+      }
+    }
+
+    const candidates = [];
+    for (const it of Array.isArray(publicItems) ? publicItems : []) {
+      if (!it?._id) continue;
+      if (isItemExcludedFromFieldFarming(it)) continue;
+      if (!Array.isArray(it?.recipe?.ingredients) || !it.recipe.ingredients.length) continue;
+      if (inferItemCategory(it) !== 'equipment') continue;
+      const itemSlot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase();
+      if (itemSlot !== slot) continue;
+      if (Number(it?.tier || 0) !== 4) continue;
+      if (slot === 'weapon') {
+        const itemWeaponType = normalizeWeaponType(String(it?.weaponType || '').trim());
+        if (actorWeaponType && itemWeaponType && itemWeaponType !== actorWeaponType) continue;
+      }
+
+      const requirements = collectRecipeLeafRequirements(it, indexes, mapObj, opts);
+      if (!requirements.length) continue;
+      const noZoneCount = requirements.filter((r) => !Array.isArray(r.zones) || r.zones.length === 0).length;
+      const highTierCount = requirements.filter((r) => Number(r.tier || 0) >= 5).length;
+      const totalQty = requirements.reduce((sum, r) => sum + Math.max(1, Number(r.qty || 1)), 0);
+      const zoneCount = new Set(requirements.flatMap((r) => Array.isArray(r.zones) ? r.zones : [])).size;
+      const score = highTierCount * 10000 + noZoneCount * 1000 + totalQty * 4 + Math.max(0, zoneCount - 2) * 3;
+      candidates.push({ item: it, requirements, goal: false, score });
+    }
+
+    candidates.sort((a, b) => Number(a.score || 0) - Number(b.score || 0) || String(a.item?.name || '').localeCompare(String(b.item?.name || ''), 'ko'));
+    bySlot.set(slot, candidates.slice(0, candidateLimit));
+  }
+
+  return bySlot;
+}
+
+function buildRoutePairs(zoneIds) {
+  const ids = uniqStrings(zoneIds);
+  const out = [];
+  if (ids.length <= 1) return ids.length ? [[ids[0]]] : [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = 0; j < ids.length; j += 1) {
+      if (i === j) continue;
+      out.push([ids[i], ids[j]]);
+    }
+  }
+  return out;
+}
+
+function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
+  const zoneIds = uniqStrings(
+    (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
+      .map((z) => String(z?.zoneId || ''))
+      .filter(Boolean)
+  );
+  const empty = { zoneIds: [], itemIdsByZone: {}, targetItemIds: [], requiredItemIds: [], requiredQtyById: {}, droneItemIds: [], complete: false, source: '' };
+  if (!zoneIds.length) return empty;
+
+  const indexes = buildItemIndexes(publicItems);
+  const candidatesBySlot = buildDay1TargetCandidatesBySlot(actor, publicItems, indexes, mapObj, opts);
+  if (EQUIP_SLOTS.some((slot) => !(candidatesBySlot.get(slot) || []).length)) return empty;
+
+  const droneLimit = Math.max(0, Math.floor(Number(opts.droneFallbackLimit ?? 1)));
+  const beamLimit = Math.max(20, Math.floor(Number(opts.beamLimit ?? 180)));
+  const conn = buildRouteConnectionInfo(mapObj);
+  const routes = buildRoutePairs(zoneIds);
+  let best = null;
+
+  for (const route of routes) {
+    const routeSet = new Set(route);
+    let states = [{ reqs: new Map(), picks: [] }];
+    for (const slot of EQUIP_SLOTS) {
+      const optsForSlot = (candidatesBySlot.get(slot) || []);
+      const next = [];
+      for (const state of states) {
+        for (const cand of optsForSlot) {
+          const reqs = addRequirementsToState(state.reqs, cand.requirements);
+          next.push({ reqs, picks: [...state.picks, { slot, item: cand.item, goal: cand.goal }] });
+        }
+      }
+      next.sort((a, b) => {
+        const sa = requirementStatsForRoute(a.reqs, routeSet);
+        const sb = requirementStatsForRoute(b.reqs, routeSet);
+        return (sa.missing.length - sb.missing.length)
+          || (sa.missingQty - sb.missingQty)
+          || (sa.totalQty - sb.totalQty);
+      });
+      states = next.slice(0, beamLimit);
+    }
+
+    for (const state of states) {
+      const stats = requirementStatsForRoute(state.reqs, routeSet);
+      const penalty = conn.routePenalty(route);
+      const score = {
+        feasible: stats.missing.length <= droneLimit && stats.missingQty <= droneLimit,
+        missingCount: stats.missing.length,
+        missingQty: stats.missingQty,
+        penalty,
+        totalQty: stats.totalQty,
+        coveredQty: stats.coveredQty,
+      };
+      const row = { route, state, stats, score };
+      if (!best) {
+        best = row;
+        continue;
+      }
+      const a = row.score;
+      const b = best.score;
+      const cmp = (a.feasible === b.feasible ? 0 : (a.feasible ? -1 : 1))
+        || (a.missingCount - b.missingCount)
+        || (a.missingQty - b.missingQty)
+        || (a.penalty - b.penalty)
+        || (b.coveredQty - a.coveredQty)
+        || (a.totalQty - b.totalQty)
+        || (zoneTie(actor, row.route.join('>')) - zoneTie(actor, best.route.join('>')));
+      if (cmp < 0) best = row;
+    }
+  }
+
+  if (!best) return empty;
+
+  const itemIdsByZone = {};
+  for (const zoneId of best.route) itemIdsByZone[String(zoneId)] = [];
+  const requiredQtyById = {};
+  const requiredItemIds = [];
+  for (const req of best.state.reqs.values()) {
+    const id = String(req.itemId || '').trim();
+    if (!id) continue;
+    requiredItemIds.push(id);
+    requiredQtyById[id] = Math.max(1, Math.floor(Number(req.qty || 1)));
+    const zones = req.zones instanceof Set ? [...req.zones] : (Array.isArray(req.zones) ? req.zones : []);
+    const assigned = best.route.find((z) => zones.includes(String(z))) || '';
+    if (assigned) itemIdsByZone[String(assigned)] = uniqStrings([...(itemIdsByZone[String(assigned)] || []), id]);
+  }
+
+  const missing = best.stats.missing.map((req) => ({
+    itemId: String(req.itemId || ''),
+    name: String(req.name || req.itemId || ''),
+    qty: Math.max(1, Math.floor(Number(req.qty || 1))),
+  })).filter((req) => req.itemId);
+
+  return {
+    zoneIds: best.route,
+    itemIdsByZone,
+    targetItemIds: best.state.picks.map((p) => normId(p.item)).filter(Boolean),
+    targetItemKeys: best.state.picks.map((p) => normKey(p.item)).filter(Boolean),
+    targetNamesBySlot: Object.fromEntries(best.state.picks.map((p) => [p.slot, String(p.item?.name || '')])),
+    requiredItemIds: uniqStrings(requiredItemIds),
+    requiredQtyById,
+    droneItemIds: missing.map((m) => m.itemId),
+    missing,
+    complete: best.score.feasible,
+    source: best.score.feasible ? 'day1_hero_2zone' : 'day1_hero_2zone_partial',
+    routePenalty: best.score.penalty,
+  };
+}
+
 function buildEarlyRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
   const zoneIds = uniqStrings(
     (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
@@ -299,6 +654,7 @@ function advanceEarlyRouteProgress(actor, zoneId, opts = {}) {
 
 export {
   advanceEarlyRouteProgress,
+  buildDay1HeroRoutePlanDetails,
   buildEarlyRoutePlan,
   buildEarlyRoutePlanDetails,
   getEarlyRoutePlanTarget,

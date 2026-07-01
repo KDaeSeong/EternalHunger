@@ -138,7 +138,7 @@ function pingIcon(event) {
   const kind = String(event?.kind || '');
   if (kind === 'battle') return '⚔️';
   if (kind === 'death') return '💀';
-  if (kind === 'move') return '🚶';
+  if (kind === 'move') return String(event?.transport || '') === 'hyperloop' ? '🌀' : '🚶';
   if (kind === 'gain') {
     const itemId = String(event?.itemId || '');
     if (itemId === 'CREDITS') return '💳';

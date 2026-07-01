@@ -154,6 +154,7 @@ import {
   buildCraftGoal,
   uniqStrings,
   advanceEarlyRouteProgress,
+  buildDay1HeroRoutePlanDetails,
   buildEarlyRoutePlanDetails,
   getEarlyRoutePlanTarget,
   bfsNextStepToAnyTarget,
@@ -227,6 +228,54 @@ const RUNTIME_CHARACTER_SYNC_FIELDS = [
   'specialSkill',
   'records',
 ];
+
+const HYPERLOOP_DELAY_SEC = 3;
+
+function isExplicitDay1HeroRoutePlan(actor) {
+  const source = String(actor?.routePlanSource || '').trim();
+  return source === 'day1_hero_2zone' || source === 'day1_hero_2zone_partial';
+}
+
+function getRuntimeRoutePlanZoneIds(actor) {
+  return Array.isArray(actor?.routePlanZoneIds)
+    ? actor.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
+    : [];
+}
+
+function isRuntimeRoutePlanComplete(actor) {
+  const routePlanIds = getRuntimeRoutePlanZoneIds(actor);
+  if (!routePlanIds.length) return false;
+  return Math.max(0, Number(actor?.routePlanIndex || 0)) >= routePlanIds.length;
+}
+
+function getRoutePlanMissingItemIds(actor) {
+  if (!isExplicitDay1HeroRoutePlan(actor)) return [];
+  const requiredIds = Array.isArray(actor?.routePlanRequiredItemIds)
+    ? actor.routePlanRequiredItemIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : [];
+  const requiredQtyById = actor?.routePlanRequiredQtyById && typeof actor.routePlanRequiredQtyById === 'object'
+    ? actor.routePlanRequiredQtyById
+    : {};
+  return uniqStr(requiredIds.filter((id) => {
+    const needQty = Math.max(1, Math.floor(Number(requiredQtyById?.[id] || 1)));
+    return invQty(actor?.inventory, id) < needQty;
+  }));
+}
+
+function mergeMissingItemIds(...lists) {
+  return uniqStr(lists.flatMap((list) => (
+    Array.isArray(list) ? list.map((id) => String(id || '').trim()).filter(Boolean) : []
+  )));
+}
+
+function shouldForceDay1HeroGearCatchup(actor, day, phase) {
+  const d = Number(day || 0);
+  const ph = String(phase || '').toLowerCase();
+  const catchupWindow = (d === 1 && ph === 'night') || (d === 2 && ph === 'morning');
+  if (!catchupWindow) return false;
+  if (!isExplicitDay1HeroRoutePlan(actor)) return true;
+  return isRuntimeRoutePlanComplete(actor);
+}
 
 function mergeServerCharacterIntoRuntimeSurvivor(runtimeSurvivor, serverCharacter) {
   const base = runtimeSurvivor && typeof runtimeSurvivor === 'object' ? runtimeSurvivor : {};
@@ -1980,7 +2029,7 @@ if (!who) {
   };
 
 
-  const zoneGraph = useSafeMemo('zoneGraph', () => {
+  const baseZoneGraph = useSafeMemo('baseZoneGraph', () => {
     const graph = {};
     const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || ''));
     zoneIds.forEach((id) => {
@@ -2022,6 +2071,61 @@ if (!who) {
     });
     return out;
   }, [activeMap, zones], {});
+
+  const hyperloopZoneIds = useSafeMemo('hyperloopZoneIds', () => {
+    const zoneSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
+    const out = [];
+    const seen = new Set();
+    const add = (zoneId) => {
+      const id = String(zoneId || '').trim();
+      if (!id || seen.has(id) || !zoneSet.has(id)) return;
+      seen.add(id);
+      out.push(id);
+    };
+
+    (Array.isArray(zones) ? zones : []).forEach((zone) => {
+      if (zone?.hasHyperloop === true || zone?.hyperloop === true) add(zone?.zoneId);
+    });
+    add(activeMap?.hyperloopDeviceZoneId);
+    return out;
+  }, [activeMap, zones], []);
+
+  const hyperloopZoneKey = hyperloopZoneIds.join('|');
+  const hyperloopZoneSet = useMemo(() => new Set(hyperloopZoneIds), [hyperloopZoneKey]);
+
+  const zoneGraph = useSafeMemo('zoneGraph', () => {
+    const graph = {};
+    const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean);
+    Object.entries(baseZoneGraph || {}).forEach(([zoneId, neighbors]) => {
+      graph[String(zoneId)] = new Set((Array.isArray(neighbors) ? neighbors : []).map((z) => String(z || '')).filter(Boolean));
+    });
+
+    const loops = hyperloopZoneIds.map((z) => String(z || '')).filter(Boolean);
+    if (loops.length) {
+      for (const loopZoneId of loops) {
+        if (!graph[loopZoneId]) graph[loopZoneId] = new Set();
+        for (const destZoneId of zoneIds) {
+          if (!destZoneId || destZoneId === loopZoneId) continue;
+          graph[loopZoneId].add(destZoneId);
+        }
+      }
+    }
+
+    const out = {};
+    Object.keys(graph).forEach((k) => {
+      out[k] = [...graph[k]];
+    });
+    return out;
+  }, [baseZoneGraph, hyperloopZoneKey], {});
+
+  const isHyperloopTransit = (fromZoneId, toZoneId) => {
+    const from = String(fromZoneId || '').trim();
+    const to = String(toZoneId || '').trim();
+    if (!from || !to || from === to) return false;
+    if (!hyperloopZoneSet.has(from)) return false;
+    const roadNeighbors = Array.isArray(baseZoneGraph?.[from]) ? baseZoneGraph[from].map((z) => String(z || '')) : [];
+    return !roadNeighbors.includes(to);
+  };
 
   const canonicalizeCharName = (name) =>
     (name || '')
@@ -2840,7 +2944,13 @@ const pickStartZoneIdForChar = (c) => {
             replaceDefaultTactical: false,
             statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
           });
-          const routePlan = buildEarlyRoutePlanDetails(erSeed, initialMap, itemsList, { routeLength: 4 });
+          const day1HeroRoutePlan = buildDay1HeroRoutePlanDetails(erSeed, initialMap, itemsList, {
+            routeLength: 2,
+            droneFallbackLimit: 1,
+          });
+          const routePlan = day1HeroRoutePlan?.complete
+            ? day1HeroRoutePlan
+            : buildEarlyRoutePlanDetails(erSeed, initialMap, itemsList, { routeLength: 4 });
           const routePlanZoneIds = routePlan.zoneIds;
           const startZoneId = routePlanZoneIds[0] || pickStartZoneIdForChar(erSeed);
           const seedStats = normalizeErStats(erSeed?.stats);
@@ -2863,9 +2973,14 @@ const pickStartZoneIdForChar = (c) => {
             day1HeroDone: false,
             routePlanZoneIds,
             routePlanItemIdsByZone: routePlan.itemIdsByZone || {},
+            routePlanTargetItemIds: Array.isArray(routePlan.targetItemIds) ? routePlan.targetItemIds : [],
+            routePlanRequiredItemIds: Array.isArray(routePlan.requiredItemIds) ? routePlan.requiredItemIds : [],
+            routePlanRequiredQtyById: routePlan.requiredQtyById || {},
+            routePlanDroneItemIds: Array.isArray(routePlan.droneItemIds) ? routePlan.droneItemIds : [],
+            routePlanTargetNamesBySlot: routePlan.targetNamesBySlot || {},
             routePlanSearchCounts: {},
             routePlanIndex: 0,
-            routePlanSource: routePlanZoneIds.length ? 'recipe' : '',
+            routePlanSource: routePlan.source || (routePlanZoneIds.length ? 'recipe' : ''),
             simCredits: Number(ruleset?.credits?.start ?? 15),
             droneLastOrderIndex: -9999,
             droneLastOrderAbsSec: -99999,
@@ -3943,8 +4058,14 @@ if (willMove) {
   }
 }
 
+const usedHyperloopMove = isHyperloopTransit(currentZone, nextZoneId);
+const moveEtaSec = usedHyperloopMove ? HYPERLOOP_DELAY_SEC : 1;
+if (usedHyperloopMove) reserveActionSecond(moveEtaSec);
+
 if (String(nextZoneId) !== String(currentZone)) {
-  if (mustEscape) {
+  if (usedHyperloopMove) {
+    addLog(`🌀 [${updated.name}] 하이퍼루프 이동(3초): ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'highlight');
+  } else if (mustEscape) {
     addLog(`⚠️ [${updated.name}] 금지구역 이탈: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
   } else if (String(moveReason || '').startsWith('flee:')) {
     const fleeLabel = moveReason === 'flee:low_hp' ? '저HP' : (moveReason === 'flee:power_gap' ? '전투력 열세' : '긴급');
@@ -3969,11 +4090,13 @@ if (String(nextZoneId) !== String(currentZone)) {
     from: String(currentZone),
     to: String(nextZoneId),
     reason: mustEscape ? 'escape' : (String(moveReason || '').startsWith('flee:') ? String(moveReason) : (moveTargets.length ? String(moveReason || 'goal') : 'wander')),
+    transport: usedHyperloopMove ? 'hyperloop' : 'walk',
+    etaSec: moveEtaSec,
     objectiveType: moveObjectiveType,
     objectiveSubkind: moveObjectiveSubkind,
     contestPressure: moveContestPressure,
   }, atNow());
-  grantMastery(updated, 'movement', 180, '지역 이동');
+  grantMastery(updated, 'movement', usedHyperloopMove ? 220 : 180, usedHyperloopMove ? '하이퍼루프 이동' : '지역 이동');
 } else if (mustEscape) {
   addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
 }
@@ -3991,7 +4114,8 @@ if (moveObjectiveType && objectiveTargetSet.has(String(updated.zoneId || '')) &&
   updated._objectiveContestPressure = 0;
   updated._objectiveContestUntilPhaseIdx = null;
 }
-const preRouteMissingItemIds = (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+const preRouteCraftMissingItemIds = (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+const preRouteMissingItemIds = mergeMissingItemIds(preRouteCraftMissingItemIds, getRoutePlanMissingItemIds(updated));
 const preRouteMappedItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
   ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
   : [];
@@ -4007,7 +4131,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // ✅ 1일차 "최소 1회 이동" 목표 추적
         if (didMove && Number(nextDay || 0) === 1) {
           updated.day1Moves = Math.max(0, Number(updated.day1Moves || 0)) + 1;
-          if (String(nextPhase || '') === 'morning') {
+          if (String(nextPhase || '') === 'morning' && !isExplicitDay1HeroRoutePlan(updated)) {
             const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
               allowAbstractFallback: true,
               forceRouteCompletion: true,
@@ -4256,16 +4380,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
         const craftGoalMissingIds = (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
           .map((m) => String(m?.itemId || ''))
           .filter(Boolean);
+        const routePlanMissingIdsNow = getRoutePlanMissingItemIds(updated);
+        const earlyRouteMissingIdsNow = mergeMissingItemIds(craftGoalMissingIds, routePlanMissingIdsNow);
         const mappedRouteItemIdsNow = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
           ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
           : [];
         advanceEarlyRouteProgress(updated, updated.zoneId, {
-          missingItemIds: craftGoalMissingIds,
-          routeItemIds: mappedRouteItemIdsNow.length ? mappedRouteItemIdsNow : craftGoalMissingIds,
+          missingItemIds: earlyRouteMissingIdsNow,
+          routeItemIds: mappedRouteItemIdsNow.length ? mappedRouteItemIdsNow : earlyRouteMissingIdsNow,
           searched: false,
           maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
         });
-        const goalMissingIds = new Set(craftGoalMissingIds);
+        const goalMissingIds = new Set(earlyRouteMissingIdsNow);
+        const routeDroneNeedIds = new Set((Array.isArray(updated?.routePlanDroneItemIds) ? updated.routePlanDroneItemIds : [])
+          .map((id) => String(id || '').trim())
+          .filter((id) => id && routePlanMissingIdsNow.includes(id)));
         const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
         const routePlanIdsNow = Array.isArray(updated?.routePlanZoneIds)
           ? updated.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
@@ -4332,7 +4461,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (queuedDroneOrder?.itemId) {
             const itemId = String(queuedDroneOrder?.itemId || '');
             const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
-            const score = 40 + (matchesGoal ? 28 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+            const matchesRouteDrone = routeDroneNeedIds.has(itemId);
+            const score = 40 + (matchesGoal ? 28 : 0) + (matchesRouteDrone ? 36 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
             scoreRows.push({
               type: 'droneOrder',
               zoneId: String(updated?.zoneId || ''),
@@ -4341,7 +4471,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               phaseIdx: Number(phaseIdxNow || 0),
               score,
               label: `drone:${String(queuedDroneOrder?.item?.name || itemNameById?.[itemId] || itemId || '')}`,
-              priorityNote: matchesGoal ? 'goal' : '',
+              priorityNote: [matchesRouteDrone ? 'route_drone' : '', matchesGoal ? 'goal' : ''].filter(Boolean).join('+'),
             });
           }
           if (craftPreview?.changed) {
@@ -4398,7 +4528,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               fromZoneId: String(currentZone || ''),
               toZoneId: String(nextZoneId || currentZone || ''),
               reason: mustEscape ? 'escape' : String(moveReason || 'goal'),
-              etaSec: 1,
+              etaSec: moveEtaSec,
+              transport: usedHyperloopMove ? 'hyperloop' : 'walk',
               phaseIdx: Number(phaseIdxNow || 0),
               score: 999,
               objectiveType: moveObjectiveType,
@@ -4412,7 +4543,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               fromZoneId: String(currentZone || ''),
               toZoneId: String(nextZoneId || currentZone || ''),
               reason: String(moveReason || `flee:${fleeInterruptReason}`),
-              etaSec: 1,
+              etaSec: moveEtaSec,
+              transport: usedHyperloopMove ? 'hyperloop' : 'walk',
               phaseIdx: Number(phaseIdxNow || 0),
               score: 998,
             };
@@ -4535,7 +4667,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               goalItemKeys: pickGoalLoadoutKeys(updated),
               perkEffects: getActorPerkEffects(updated),
             });
-            routeGoalIdsForSearch = (Array.isArray(postRouteGoal?.missing) ? postRouteGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+            const postRouteCraftMissingIds = (Array.isArray(postRouteGoal?.missing) ? postRouteGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+            routeGoalIdsForSearch = mergeMissingItemIds(postRouteCraftMissingIds, getRoutePlanMissingItemIds(updated));
             }
             advanceEarlyRouteProgress(updated, updated.zoneId, {
               missingItemIds: routeGoalIdsForSearch,
@@ -4548,7 +4681,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
         }
 
-        if (queuedActionType === 'routeFarm' && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning') {
+        if (queuedActionType === 'routeFarm' && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning' && !isExplicitDay1HeroRoutePlan(updated)) {
           const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
             allowAbstractFallback: true,
             forceRouteCompletion: true,
@@ -4876,7 +5009,8 @@ const didMove = String(nextZoneId) !== String(currentZone);
               goalItemKeys: pickGoalLoadoutKeys(updated),
               perkEffects: getActorPerkEffects(updated),
             });
-            const postCraftMissingIds = (Array.isArray(postCraftGoal?.missing) ? postCraftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+            const postCraftCraftMissingIds = (Array.isArray(postCraftGoal?.missing) ? postCraftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
+            const postCraftMissingIds = mergeMissingItemIds(postCraftCraftMissingIds, getRoutePlanMissingItemIds(updated));
             const postCraftRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated?.zoneId || '')])
               ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
               : [];
@@ -4898,10 +5032,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
           // 1일차 fallback 제작: 정상 레시피 데이터가 없을 때만 추상 장비 생성 안전망을 사용합니다.
           const allowAbstractGearFallback = !Array.isArray(craftables) || craftables.length <= 0;
-          const forceEarlyHeroRouteCompletion = (
-            (Number(nextDay || 0) === 1 && String(nextPhase || '') === 'night') ||
-            (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')
-          );
+          const forceEarlyHeroRouteCompletion = shouldForceDay1HeroGearCatchup(updated, nextDay, nextPhase);
           const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
             allowAbstractFallback: allowAbstractGearFallback || forceEarlyHeroRouteCompletion,
             forceRouteCompletion: forceEarlyHeroRouteCompletion,
@@ -4920,10 +5051,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
         // --- 시즌 11 컨셉: 가젯 에너지 ---
-        const forceEarlyHeroRouteCompletionAnyAction = (
-          (Number(nextDay || 0) === 1 && String(nextPhase || '') === 'night') ||
-          (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')
-        );
+        const forceEarlyHeroRouteCompletionAnyAction = shouldForceDay1HeroGearCatchup(updated, nextDay, nextPhase);
         if (forceEarlyHeroRouteCompletionAnyAction) {
           const heroCatchup = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
             allowAbstractFallback: true,
@@ -7412,7 +7540,7 @@ if (showMarketPanel && pendingTranscendPick) {
   ), [activeMapEff, day, phase, settings?.rulesetId]);
 
   const shouldComputeHeavyDerived = showResultModal || showMarketPanel || uiModal === 'map' || uiModal === 'chars' || uiModal === 'log';
-  const shouldComputeMapDerived = uiModal === 'map';
+  const shouldComputeMapDerived = true;
 
   // 🧾 런 요약: 획득 경로(아이템만 집계, 크레딧 제외)
   const heavyRunSummaries = useMemo(() => {
@@ -7464,8 +7592,8 @@ if (showMarketPanel && pendingTranscendPick) {
 
   const zoneEdges = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
-    return safeRenderCompute('zoneEdges', () => buildZoneEdges({ zones, zoneGraph }), []);
-  }, [zoneGraph, zones, shouldComputeMapDerived]);
+    return safeRenderCompute('zoneEdges', () => buildZoneEdges({ zones, zoneGraph: baseZoneGraph }), []);
+  }, [baseZoneGraph, zones, shouldComputeMapDerived]);
 
   const [pingNow, setPingNow] = useState(() => Date.now());
   useEffect(() => {
@@ -7846,7 +7974,7 @@ if (showMarketPanel && pendingTranscendPick) {
 })()}
 
           {/* 🗺️ 미니맵: 구역 그래프 + 캐릭터 위치 */}
-          <div className={`minimap-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
+          <div className={`minimap-panel battlefield-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
             {uiModal === 'map' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
             {(() => {
               const z = Array.isArray(zones) ? zones : [];
@@ -7878,6 +8006,11 @@ if (showMarketPanel && pendingTranscendPick) {
                 [0, 0], [3, 0], [-3, 0], [0, 3], [0, -3],
                 [3, 3], [-3, 3], [3, -3], [-3, -3],
                 [5, 0], [-5, 0], [0, 5], [0, -5],
+              ];
+              const TOKEN_OFF = [
+                [0, 0], [4.4, 0], [-4.4, 0], [0, 4.4], [0, -4.4],
+                [3.3, 3.3], [-3.3, 3.3], [3.3, -3.3], [-3.3, -3.3],
+                [6.2, 1.8], [-6.2, 1.8], [1.8, 6.2], [1.8, -6.2],
               ];
 
               return (
@@ -7956,6 +8089,7 @@ if (showMarketPanel && pendingTranscendPick) {
                     const deadHere = deadByZone[id]?.length || 0;
                     const nodeR = 4.8;
                     const labelSize = nm.length >= 6 ? 2.05 : nm.length >= 5 ? 2.3 : 2.65;
+                    const hasHyperloop = hyperloopZoneSet.has(id);
 
                     return (
                       <g key={`z-${id}`}>
@@ -7977,8 +8111,8 @@ if (showMarketPanel && pendingTranscendPick) {
                         {/* 배경 지도(하이퍼루프 이미지)에 이미 지역명이 있으므로, SVG 텍스트 라벨은 숨긴다. */}
                         <title>{nm}</title>
 
-                        {/* 하이퍼루프 패드 */}
-                        {String(hyperloopPadZoneId || '') === id ? (
+                        {/* 하이퍼루프 */}
+                        {hasHyperloop ? (
                           <text x={p.x + nodeR} y={p.y - 4.2} textAnchor="middle" fontSize="5.0" fill="rgba(180,220,255,0.92)">🌀</text>
                         ) : null}
 
@@ -7997,17 +8131,25 @@ if (showMarketPanel && pendingTranscendPick) {
 
                         {/* 캐릭터 마커 */}
                         {(aliveByZone[id] || []).slice(0, 12).map((c, idx) => {
-                          const o = OFF[idx % OFF.length];
+                          const o = TOKEN_OFF[idx % TOKEN_OFF.length];
                           const cx = p.x + o[0] * 0.55;
                           const cy = p.y + o[1] * 0.55;
                           const isSel = String(c?._id || '') === String(hyperloopCharId || '');
+                          const hpRatio = Math.max(0, Math.min(1, Number(c?.hp || 0) / Math.max(1, Number(c?.maxHp || 100))));
+                          const tokenImg = String(c?.previewImage || '/Images/default_image.png');
+                          const teamState = getTeamStateForActor(c);
+                          const teamColor = teamState?.missingCount > 0
+                            ? 'rgba(255, 180, 80, 0.94)'
+                            : 'rgba(112, 221, 148, 0.94)';
+                          const tokenTitle = `${String(c?.name || '캐릭터')} / HP ${Math.floor(Number(c?.hp || 0))}/${Math.max(1, Math.floor(Number(c?.maxHp || 100)))} / ${nm}`;
                           return (
-                            <g key={`a-${id}-${c._id || idx}`}>
+                            <g key={`a-${id}-${c._id || idx}`} className={`minimap-character-token ${isSel ? 'selected' : ''}`}>
+                              <title>{tokenTitle}</title>
                               {isSel ? (
                                 <circle
                                   cx={cx}
                                   cy={cy}
-                                  r={2.2}
+                                  r={3.3}
                                   fill="none"
                                   stroke="rgba(255,215,0,0.92)"
                                   strokeWidth="0.8"
@@ -8016,25 +8158,35 @@ if (showMarketPanel && pendingTranscendPick) {
                               <circle
                                 cx={cx}
                                 cy={cy}
-                                r={1.35}
-                                fill={isSel ? 'rgba(255,215,0,0.95)' : 'rgba(255,255,255,0.92)'}
-                                stroke="rgba(0,0,0,0.35)"
-                                strokeWidth="0.35"
+                                r={2.65}
+                                fill="rgba(8, 14, 24, 0.92)"
+                                stroke={isSel ? 'rgba(255,215,0,0.95)' : teamColor}
+                                strokeWidth="0.55"
                               />
-                              {isSel ? (
-                                <text
-                                  x={cx + 1.9}
-                                  y={cy - 1.2}
-                                  textAnchor="middle"
-                                  fontSize="3.6"
-                                  fill="rgba(255,215,0,0.95)"
-                                >
-                                  ★
-                                </text>
-                              ) : null}
+                              <image
+                                href={tokenImg}
+                                x={cx - 1.75}
+                                y={cy - 1.75}
+                                width="3.5"
+                                height="3.5"
+                                preserveAspectRatio="xMidYMid slice"
+                              />
+                              <path
+                                d={`M ${cx - 2.55} ${cy + 2.95} H ${cx - 2.55 + (5.1 * hpRatio)}`}
+                                className={hpRatio <= 0.32 ? 'minimap-token-hp critical' : 'minimap-token-hp'}
+                              />
+                              <text
+                                x={cx}
+                                y={cy + 5.8}
+                                textAnchor="middle"
+                                className="minimap-token-label"
+                              >
+                                {String(c?.name || '?').slice(0, 2)}
+                              </text>
                             </g>
                           );
-                        })}                        {(deadByZone[id] || []).slice(0, 8).map((c, idx) => {
+                        })}
+                        {(deadByZone[id] || []).slice(0, 8).map((c, idx) => {
                           const o = OFF[(idx + 2) % OFF.length];
                           return (
                             <circle

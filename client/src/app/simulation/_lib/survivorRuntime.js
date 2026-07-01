@@ -174,6 +174,21 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
           Array.isArray(ids) ? ids.map((id) => String(id || '').trim()).filter(Boolean) : [],
         ]))
       : {},
+    routePlanTargetItemIds: Array.isArray(base?.routePlanTargetItemIds)
+      ? base.routePlanTargetItemIds.map((id) => String(id || '').trim()).filter(Boolean)
+      : [],
+    routePlanRequiredItemIds: Array.isArray(base?.routePlanRequiredItemIds)
+      ? base.routePlanRequiredItemIds.map((id) => String(id || '').trim()).filter(Boolean)
+      : [],
+    routePlanRequiredQtyById: base?.routePlanRequiredQtyById && typeof base.routePlanRequiredQtyById === 'object'
+      ? Object.fromEntries(Object.entries(base.routePlanRequiredQtyById).map(([id, qty]) => [String(id || ''), Math.max(1, Math.floor(Number(qty || 1)))]))
+      : {},
+    routePlanDroneItemIds: Array.isArray(base?.routePlanDroneItemIds)
+      ? base.routePlanDroneItemIds.map((id) => String(id || '').trim()).filter(Boolean)
+      : [],
+    routePlanTargetNamesBySlot: base?.routePlanTargetNamesBySlot && typeof base.routePlanTargetNamesBySlot === 'object'
+      ? Object.fromEntries(Object.entries(base.routePlanTargetNamesBySlot).map(([slot, name]) => [String(slot || ''), String(name || '')]))
+      : {},
     routePlanSearchCounts: base?.routePlanSearchCounts && typeof base.routePlanSearchCounts === 'object'
       ? Object.fromEntries(Object.entries(base.routePlanSearchCounts).map(([z, v]) => [String(z || ''), Math.max(0, Math.floor(Number(v || 0)))]))
       : {},
