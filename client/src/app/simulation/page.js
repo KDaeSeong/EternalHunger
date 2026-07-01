@@ -61,6 +61,10 @@ import SimulationMatchStatusPanel from './_components/SimulationMatchStatusPanel
 import SimulationResultModal from './_components/SimulationResultModal';
 import '../../styles/ERSimulation.css';
 
+const SIM_INIT_PING_TIMEOUT_MS = 5000;
+const SIM_INIT_REQUIRED_TIMEOUT_MS = Math.min(INIT_API_TIMEOUT_MS, 12000);
+const SIM_INIT_HEAVY_TIMEOUT_MS = Math.min(INIT_API_TIMEOUT_MS, 18000);
+
 import {
   buildDetonationRiskSummary,
   buildRecentPings,
@@ -2802,16 +2806,54 @@ if (!who) {
 
     const fetchData = async () => {
       try {
-        await apiGet('/public/ping', { timeoutMs: INIT_API_TIMEOUT_MS });
+        try {
+          await apiGet('/public/ping', { timeoutMs: SIM_INIT_PING_TIMEOUT_MS });
+        } catch (pingErr) {
+          console.warn('[simulation:initPing]', pingErr);
+        }
 
-        const [charList, settingValue, meValue, mapsList, itemsValue, perksValue] = await Promise.all([
-          apiGetCached('/characters?view=simulation', { ttlMs: 8000, timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGetCached('/settings', { ttlMs: 8000, timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGetCached('/user/me', { ttlMs: 8000, timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGetCached('/public/maps', { ttlMs: 60000, timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: INIT_API_TIMEOUT_MS }),
-          apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: INIT_API_TIMEOUT_MS }),
+        const [charRes, settingRes, meRes, mapsRes, itemsRes, perksRes] = await Promise.allSettled([
+          apiGetCached('/characters?view=simulation', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+          apiGetCached('/settings', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+          apiGetCached('/user/me', { ttlMs: 8000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+          apiGetCached('/public/maps', { ttlMs: 60000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
+          apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: SIM_INIT_HEAVY_TIMEOUT_MS }),
+          apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: SIM_INIT_REQUIRED_TIMEOUT_MS }),
         ]);
+
+        const authRejected = [charRes, settingRes, meRes, mapsRes, itemsRes, perksRes].some((result) => {
+          const status = Number(result?.reason?.response?.status || result?.reason?.status || 0);
+          return result?.status === 'rejected' && (status === 401 || status === 403);
+        });
+        if (authRejected) {
+          redirectToLogin('세션이 만료되었습니다. 다시 로그인해주세요.', true);
+          return;
+        }
+
+        const charList = getSettledArray(charRes);
+        const settingValue = getSettledValue(settingRes, {});
+        const meValue = getSettledValue(meRes, {});
+        const mapsList = getSettledArray(mapsRes);
+        const itemsValue = getSettledArray(itemsRes);
+        const perksValue = getSettledArray(perksRes);
+
+        const initFailed = getRejectedLabels([
+          ['캐릭터', charRes],
+          ['설정', settingRes],
+          ['유저 정보', meRes],
+          ['맵', mapsRes],
+          ['아이템', itemsRes],
+          ['특전', perksRes],
+        ]);
+        if (initFailed.length) {
+          addLog(`⚠️ 초기 데이터 일부 로드 실패: ${initFailed.join(', ')}. 가능한 기본값으로 계속합니다.`, 'system');
+        }
+        if (!charList.length) {
+          addLog('⚠️ 캐릭터 목록이 비어 있습니다. 캐릭터 설정을 확인해주세요.', 'system');
+        }
+        if (!mapsList.length) {
+          addLog('⚠️ 맵 데이터를 불러오지 못했습니다. 임시 기본 구역으로 대기합니다.', 'system');
+        }
 
         const itemsList = Array.isArray(itemsValue) ? itemsValue : [];
         const perksList = Array.isArray(perksValue) ? perksValue : [];
