@@ -8189,7 +8189,7 @@ if (showMarketPanel && pendingTranscendPick) {
                           key={`surface-${id}`}
                           cx={p.x}
                           cy={p.y}
-                          r={7.2}
+                          r={6.35}
                           className={`minimap-zone-surface ${isF ? 'forbidden' : ''}`}
                         />
                       );
