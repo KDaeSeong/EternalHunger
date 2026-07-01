@@ -1028,6 +1028,84 @@ main {
     gap: 6px;
 }
 
+.character-skill-section {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.character-skill-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.character-skill-section-head strong {
+    color: #1f2937;
+    font-size: 0.95rem;
+}
+
+.character-skill-toggle {
+    display: inline-flex !important;
+    grid-template-columns: none !important;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 4px 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 999px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.8rem !important;
+}
+
+.character-skill-toggle input {
+    width: 16px;
+    height: 16px;
+    min-height: 0;
+    padding: 0;
+}
+
+.character-skill-inline-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.character-skill-level-editor {
+    display: grid;
+    gap: 6px;
+}
+
+.character-skill-level-editor > span {
+    color: #344054;
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
+.character-skill-level-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.character-skill-level-grid label {
+    gap: 4px;
+    min-width: 0;
+    color: #667085;
+    font-size: 0.72rem;
+}
+
+.character-skill-level-grid input {
+    min-height: 34px;
+    padding: 6px 7px;
+    font-size: 0.86rem;
+}
+
 .character-edit-actions {
     display: flex;
     justify-content: flex-end;
@@ -1120,5 +1198,13 @@ main {
         width: 70px;
         height: 70px;
         aspect-ratio: auto;
+    }
+
+    .character-skill-inline-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .character-skill-level-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }

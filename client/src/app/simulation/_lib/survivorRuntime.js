@@ -144,6 +144,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
       weaponSkill: 0,
       ...(base?.cooldowns && typeof base.cooldowns === 'object' ? base.cooldowns : {}),
     },
+    skillState: base?.skillState && typeof base.skillState === 'object' ? { ...base.skillState } : {},
     hp: Math.max(0, Math.min(maxHp, hp)),
     maxHp,
     simCredits: Number.isFinite(Number(base?.simCredits)) ? Number(base.simCredits) : 0,

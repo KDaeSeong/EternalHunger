@@ -85,6 +85,7 @@ function createRunSupportFallback() {
     skillUseCount: 0,
     tacticalSkillCount: 0,
     weaponSkillCount: 0,
+    characterSkillCount: 0,
     appliedEffects: 0,
     immuneEffects: 0,
     resistedEffects: 0,
@@ -92,6 +93,7 @@ function createRunSupportFallback() {
     topEffects: '',
     topTacticalSkills: '',
     topWeaponSkills: '',
+    topCharacterSkills: '',
     line: '',
     combatLine: '',
   };
@@ -408,6 +410,7 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
   const effectAcc = {};
   const tacticalSkillAcc = {};
   const weaponSkillAcc = {};
+  const characterSkillAcc = {};
 
   for (const e of (Array.isArray(runEvents) ? runEvents : [])) {
     if (!e) continue;
@@ -426,6 +429,9 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
       if (mode === 'weapon_skill') {
         out.weaponSkillCount += 1;
         if (skillName) weaponSkillAcc[skillName] = (weaponSkillAcc[skillName] || 0) + 1;
+      } else if (mode === 'character_skill') {
+        out.characterSkillCount += 1;
+        if (skillName) characterSkillAcc[skillName] = (characterSkillAcc[skillName] || 0) + 1;
       } else {
         out.tacticalSkillCount += 1;
         if (skillName) tacticalSkillAcc[skillName] = (tacticalSkillAcc[skillName] || 0) + 1;
@@ -445,11 +451,14 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
   const topEffects = topEntries(effectAcc, 4).map(([name, count]) => `${name}x${count}`).join(', ');
   const topTacticalSkills = topEntries(tacticalSkillAcc, 3).map(([name, count]) => `${name}x${count}`).join(', ');
   const topWeaponSkills = topEntries(weaponSkillAcc, 3).map(([name, count]) => `${name}x${count}`).join(', ');
+  const topCharacterSkills = topEntries(characterSkillAcc, 3).map(([name, count]) => `${name}x${count}`).join(', ');
   const skillBits = [
     `전술 ${out.tacticalSkillCount}회`,
     `무기 ${out.weaponSkillCount}회`,
+    `캐릭터 ${out.characterSkillCount}회`,
     topTacticalSkills ? `전술 TOP ${topTacticalSkills}` : '',
     topWeaponSkills ? `무기 TOP ${topWeaponSkills}` : '',
+    topCharacterSkills ? `캐릭터 TOP ${topCharacterSkills}` : '',
   ].filter(Boolean);
   return {
     ...out,
@@ -457,6 +466,7 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
     topEffects,
     topTacticalSkills,
     topWeaponSkills,
+    topCharacterSkills,
     line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · cleanse ${out.totalCleanse} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
     combatLine: skillBits.length ? skillBits.join(' · ') : '',
   };

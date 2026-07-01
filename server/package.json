@@ -26,6 +26,7 @@
     "index:itemkey": "node scripts/ensure_itemkey_unique_index.js",
     "index:admin-scope": "node scripts/ensure_scoped_admin_indexes.js",
     "migrate:claim-admin-scope": "node scripts/claim_legacy_admin_scope.js",
+    "seed:bihyung": "node scripts/upsert_bihyung_character.js",
     "report:coverage": "node scripts/report_item_coverage.js"
   },
   "keywords": [],

@@ -7,15 +7,11 @@ export const PERK_EFFECT_DEFAULTS = {
   creditsPlus: 0,
   atkPlus: 0,
   defPlus: 0,
+  skillAmpPlus: 0,
+  attackSpeedPlus: 0,
+  attackRangePlus: 0,
+  sightRangePlus: 0,
   moveSpeedPlus: 0,
-  strPlus: 0,
-  agiPlus: 0,
-  intPlus: 0,
-  menPlus: 0,
-  lukPlus: 0,
-  dexPlus: 0,
-  shtPlus: 0,
-  endPlus: 0,
   kioskDiscountPct: 0,
   droneDiscountPct: 0,
   marketDiscountPct: 0,
@@ -44,17 +40,13 @@ export const PERK_EFFECT_ALIASES = {
   maxHpPlus: ['maxHpPlus', 'maxHealthPlus'],
   startCreditsPlus: ['startCreditsPlus', 'simCreditsPlus', 'startingCreditsPlus'],
   creditsPlus: ['creditsPlus'],
-  atkPlus: ['atkPlus', 'attackPlus', 'attackFlat'],
+  atkPlus: ['atkPlus', 'attackPowerPlus', 'attackPlus', 'attackFlat'],
   defPlus: ['defPlus', 'defensePlus', 'armorPlus'],
+  skillAmpPlus: ['skillAmpPlus', 'skillAmplificationPlus', 'ampPlus'],
+  attackSpeedPlus: ['attackSpeedPlus', 'attackSpeedFlat', 'asPlus'],
+  attackRangePlus: ['attackRangePlus', 'rangePlus'],
+  sightRangePlus: ['sightRangePlus', 'visionPlus', 'sightPlus'],
   moveSpeedPlus: ['moveSpeedPlus', 'movePlus', 'msPlus'],
-  strPlus: ['strPlus'],
-  agiPlus: ['agiPlus'],
-  intPlus: ['intPlus'],
-  menPlus: ['menPlus'],
-  lukPlus: ['lukPlus'],
-  dexPlus: ['dexPlus'],
-  shtPlus: ['shtPlus'],
-  endPlus: ['endPlus'],
   kioskDiscountPct: ['kioskDiscountPct', 'kioskDiscount', 'shopDiscountPct'],
   droneDiscountPct: ['droneDiscountPct', 'droneDiscount'],
   marketDiscountPct: ['marketDiscountPct', 'marketDiscount', 'discountPct'],
@@ -222,11 +214,12 @@ export function applyPerkBundleToActor(actor, bundle, opts = {}) {
     : normalizeErStats(next?.stats, { round: false });
   next._perkBaseStats = { ...baseStats };
   const updatedStats = { ...baseStats };
-  updatedStats.attackPower += perkNumber(fx.atkPlus) + perkNumber(fx.strPlus) + perkNumber(fx.shtPlus);
-  updatedStats.defense += perkNumber(fx.defPlus) + perkNumber(fx.endPlus);
-  updatedStats.attackSpeed += perkNumber(fx.agiPlus) * 0.01 + perkNumber(fx.dexPlus) * 0.005;
-  updatedStats.skillAmp += perkNumber(fx.intPlus) + perkNumber(fx.menPlus) * 0.4;
-  updatedStats.sightRange += perkNumber(fx.lukPlus) * 0.03 + perkNumber(fx.dexPlus) * 0.02;
+  updatedStats.attackPower += perkNumber(fx.atkPlus);
+  updatedStats.defense += perkNumber(fx.defPlus);
+  updatedStats.attackSpeed += perkNumber(fx.attackSpeedPlus);
+  updatedStats.skillAmp += perkNumber(fx.skillAmpPlus);
+  updatedStats.attackRange += perkNumber(fx.attackRangePlus);
+  updatedStats.sightRange += perkNumber(fx.sightRangePlus);
   next.stats = normalizeErStats(updatedStats, { round: false });
 
   const baseMaxHp = perkNumber(next._perkBaseMaxHp ?? next.maxHp ?? 100) || 100;

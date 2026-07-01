@@ -28,6 +28,9 @@ export default function SimulationControlPanel({
   matchMode,
   onMatchModeChange,
   matchModeDisabled,
+  characterSkillsEnabled,
+  onCharacterSkillsToggle,
+  characterSkillsDisabled,
   isGameOver,
   onRestart,
   onProceed,
@@ -71,6 +74,16 @@ export default function SimulationControlPanel({
           <option value="squad">스쿼드</option>
           <option value="solo">솔로</option>
         </select>
+
+        <label className="sim-skill-toggle" title="캐릭터별 Q/W/E/R 스킬 레이어를 켜거나 끕니다.">
+          <input
+            type="checkbox"
+            checked={!!characterSkillsEnabled}
+            onChange={(event) => onCharacterSkillsToggle?.(event.target.checked)}
+            disabled={characterSkillsDisabled}
+          />
+          <span>캐릭터 스킬</span>
+        </label>
 
         {isGameOver ? (
           <button className="btn-restart" type="button" onClick={onRestart}>

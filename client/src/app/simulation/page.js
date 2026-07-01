@@ -69,6 +69,10 @@ import {
   getEmptyDetonationRiskSummary,
 } from './_lib/mapDerived';
 import {
+  applyCharacterSkillOnBasicAttack,
+  areCharacterSkillsEnabled,
+} from './_lib/characterSkillRuntime';
+import {
   safeTags,
   itemDisplayName,
   normalizeRewardDropEntries,
@@ -220,6 +224,10 @@ const RUNTIME_CHARACTER_SYNC_FIELDS = [
   'goalLoadouts',
   'tacticalSkill',
   'tacticalSkillLevel',
+  'characterSkillCode',
+  'characterSkillLevel',
+  'characterSkillLevels',
+  'characterSkills',
   'erSubject',
   'erRole',
   'erTrait',
@@ -650,6 +658,33 @@ export default function SimulationPage() {
     if (day === 0 && !isGameOver) {
       setSurvivors((prev) => applyMatchTeams(prev, nextSettings));
     }
+  };
+
+  const getCharacterSkillModeSettings = (src = settings) => {
+    const rs = getRuleset(src?.rulesetId);
+    return {
+      ...src,
+      skills: { ...(rs?.skills || {}), ...(src?.skills || {}) },
+    };
+  };
+
+  const characterSkillsEnabled = areCharacterSkillsEnabled(getCharacterSkillModeSettings(settings));
+
+  const handleCharacterSkillsToggle = (enabled) => {
+    const on = !!enabled;
+    const nextSettings = {
+      ...(settings || {}),
+      skills: {
+        ...(settings?.skills || {}),
+        enabled: on,
+        characterSkills: on,
+        aiUseSkills: on,
+      },
+    };
+    try {
+      window.localStorage.setItem('eh_sim_character_skills', on ? '1' : '0');
+    } catch {}
+    setSettings(nextSettings);
   };
 
   // 🗺️ 맵 선택(로드맵 2번)
@@ -2816,9 +2851,27 @@ if (!who) {
             return '';
           }
         })();
+        const storedCharacterSkills = (() => {
+          try {
+            return window.localStorage.getItem('eh_sim_character_skills');
+          } catch {
+            return '';
+          }
+        })();
+        const storedCharacterSkillSettings = storedCharacterSkills === '0' || storedCharacterSkills === '1'
+          ? {
+              skills: {
+                ...(settingValue?.skills || {}),
+                enabled: storedCharacterSkills === '1',
+                characterSkills: storedCharacterSkills === '1',
+                aiUseSkills: storedCharacterSkills === '1',
+              },
+            }
+          : {};
         const loadedSettings = {
           ...(settings || {}),
           ...(settingValue || {}),
+          ...storedCharacterSkillSettings,
           matchMode: normalizeMatchMode(storedMatchMode || settingValue?.matchMode || settings?.matchMode),
         };
         setSettings(loadedSettings);
@@ -3316,7 +3369,11 @@ const pickStartZoneIdForChar = (c) => {
     const useDetonation = !!ruleset?.detonation;
     const marketRules = ruleset?.market || {};
     // ⚔️ 전투 세팅: ruleset 기반 상수(장비 보정 등)를 합쳐서 전달
-    const battleSettings = { ...settings, battle: { ...(ruleset?.battle || {}), ...(settings?.battle || {}), equipment: ruleset?.equipment || {} } };
+    const battleSettings = {
+      ...settings,
+      battle: { ...(ruleset?.battle || {}), ...(settings?.battle || {}), equipment: ruleset?.equipment || {} },
+      skills: { ...(ruleset?.skills || {}), ...(settings?.skills || {}) },
+    };
     const phaseDurationSec = getPhaseDurationSec(ruleset, nextDay, nextPhase);
     const phaseStartSec = matchSec;
     const tickSec = Math.max(1, Math.floor(Number(ruleset?.tickSec || 1)));
@@ -6673,13 +6730,88 @@ const didMove = String(nextZoneId) !== String(currentZone);
             return Math.max(0, Number(blocked?.damage || dmg));
           };
 
+          const getCharacterSkillSplashTargets = (attacker, primaryTarget) => {
+            const zoneId = String(primaryTarget?.zoneId || attacker?.zoneId || '');
+            const attackerId = String(attacker?._id || '');
+            const primaryId = String(primaryTarget?._id || '');
+            if (!zoneId || !attackerId) return [];
+            return Array.from(survivorMap.values()).filter((s) => {
+              const sid = String(s?._id || '');
+              if (!sid || sid === attackerId || sid === primaryId) return false;
+              if (newDeadIds.includes(sid) || Number(s?.hp || 0) <= 0) return false;
+              if (String(s?.zoneId || '') !== zoneId) return false;
+              return !areSameTeam(attacker, s);
+            });
+          };
+
+          const applyCharacterSkillSplashDamage = (attacker, splashHits) => {
+            if (!attacker || !Array.isArray(splashHits) || splashHits.length <= 0) return 0;
+            let total = 0;
+            for (const hit of splashHits) {
+              const splashTarget = hit?.target;
+              const targetId = String(splashTarget?._id || '');
+              if (!targetId || newDeadIds.includes(targetId) || Number(splashTarget?.hp || 0) <= 0) continue;
+              const raw = Math.max(0, Number(hit?.damage || 0));
+              if (raw <= 0) continue;
+              const prevDamagedBySplash = String(splashTarget?.lastDamagedBy || '');
+              const prevDamagedPhaseIdxSplash = Number(splashTarget?.lastDamagedPhaseIdx ?? -9999);
+              const finalSplash = shieldBlock(splashTarget, raw);
+              if (finalSplash <= 0) continue;
+              splashTarget.hp = Math.max(0, Number(splashTarget.hp || 0) - finalSplash);
+              splashTarget.lastDamagedBy = String(attacker?._id || '');
+              splashTarget.lastDamagedPhaseIdx = phaseIdxNow;
+              total += finalSplash;
+              addLog(`🌀 광역 피해: [${attacker.name}] ${String(hit?.skill || '스킬')} → [${splashTarget.name}] -${finalSplash}`, 'highlight');
+              emitRunEvent('battle', {
+                a: String(attacker?._id || ''),
+                b: targetId,
+                winner: Number(splashTarget.hp || 0) <= 0 ? String(attacker?._id || '') : '',
+                lethal: Number(splashTarget.hp || 0) <= 0,
+                zoneId: String(splashTarget?.zoneId || attacker?.zoneId || ''),
+                subkind: 'character_skill_splash',
+              }, atNow());
+              grantPvpDamageMastery(attacker, { damageDealt: finalSplash, damageTaken: 0 }, '스킬 광역');
+              if (Number(splashTarget.hp || 0) <= 0) {
+                applyCombatElimination(attacker, splashTarget, {
+                  prevDamagedBy: prevDamagedBySplash,
+                  prevDamagedPhaseIdx: prevDamagedPhaseIdxSplash,
+                  killText: '스킬 처치',
+                  damageDealt: finalSplash,
+                });
+              } else {
+                upsertRuntimeSurvivor(survivorMap, splashTarget);
+              }
+            }
+            return total;
+          };
+
           const atkDmgToLoser = applyCombatTacAttack(battleWinner, loser, dmgToLoser);
           const atkDmgToWinner = applyCombatTacAttack(loser, battleWinner, dmgToWinner);
-          const finalDmgToLoser = shieldBlock(loser, atkDmgToLoser);
-          const finalDmgToWinner = shieldBlock(battleWinner, atkDmgToWinner);
+          const charSkillToLoser = applyCharacterSkillOnBasicAttack(battleWinner, loser, atkDmgToLoser, {
+            settings: battleSettings,
+            nowSec: currentActionSec(),
+            at: atNow(),
+            addLog,
+            emitRunEvent,
+            splashTargets: getCharacterSkillSplashTargets(battleWinner, loser),
+            showLog: battleSettings?.skills?.showSkillLogs !== false,
+          });
+          const charSkillToWinner = applyCharacterSkillOnBasicAttack(loser, battleWinner, atkDmgToWinner, {
+            settings: battleSettings,
+            nowSec: currentActionSec(),
+            at: atNow(),
+            addLog,
+            emitRunEvent,
+            splashTargets: getCharacterSkillSplashTargets(loser, battleWinner),
+            showLog: battleSettings?.skills?.showSkillLogs !== false,
+          });
+          const finalDmgToLoser = shieldBlock(loser, charSkillToLoser.damage);
+          const finalDmgToWinner = shieldBlock(battleWinner, charSkillToWinner.damage);
 
           loser.hp = Math.max(0, Number(loser.hp || 0) - finalDmgToLoser);
           battleWinner.hp = Math.max(0, Number(battleWinner.hp || 0) - finalDmgToWinner);
+          const splashDmgByWinner = applyCharacterSkillSplashDamage(battleWinner, charSkillToLoser.splashHits);
+          const splashDmgByLoser = applyCharacterSkillSplashDamage(loser, charSkillToWinner.splashHits);
           const applyCombatLifesteal = (who, dealt) => {
             if (!who || Number(who.hp || 0) <= 0) return 0;
             const pct = getLifestealPercent(who);
@@ -6704,6 +6836,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const weaponSkillDamageToLoser = Math.max(0, Number(weaponSkillResult?.damage || 0));
           let totalDmgToLoser = finalDmgToLoser + weaponSkillDamageToLoser;
           const totalDmgToWinner = finalDmgToWinner;
+          if (splashDmgByWinner > 0 || splashDmgByLoser > 0) {
+            const bits = [];
+            if (splashDmgByWinner > 0) bits.push(`${battleWinner.name} 광역 +${splashDmgByWinner}`);
+            if (splashDmgByLoser > 0) bits.push(`${loser.name} 광역 +${splashDmgByLoser}`);
+            addLog(`🌀 캐릭터 스킬 광역: ${bits.join(' / ')}`, 'system');
+          }
 
 
           let lethal = loser.hp <= 0;
@@ -8333,6 +8471,9 @@ if (showMarketPanel && pendingTranscendPick) {
             matchMode={normalizeMatchMode(settings?.matchMode)}
             onMatchModeChange={handleMatchModeChange}
             matchModeDisabled={loading || isAdvancing || day !== 0}
+            characterSkillsEnabled={characterSkillsEnabled}
+            onCharacterSkillsToggle={handleCharacterSkillsToggle}
+            characterSkillsDisabled={loading || isAdvancing}
             isGameOver={isGameOver}
             onRestart={() => window.location.reload()}
             onProceed={proceedPhaseGuarded}

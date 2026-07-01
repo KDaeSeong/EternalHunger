@@ -17,6 +17,11 @@ const SAVE_FIELDS = [
   'summary',
   'gender',
   'weaponType',
+  'characterTemplateId',
+  'characterSkillCode',
+  'characterSkillLevel',
+  'characterSkillLevels',
+  'characterSkills',
   'goalGearTier',
   'tacticalSkill',
   'tacticalSkillLevel',
@@ -37,6 +42,9 @@ const SIMPLE_VERIFY_FIELDS = [
   'summary',
   'gender',
   'weaponType',
+  'characterTemplateId',
+  'characterSkillCode',
+  'characterSkillLevel',
   'goalGearTier',
   'tacticalSkill',
   'tacticalSkillLevel',
@@ -187,8 +195,55 @@ function cleanComparableLoadouts(loadouts) {
   return out;
 }
 
+function cleanComparableSkillLevels(levels) {
+  const src = levels && typeof levels === 'object' ? levels : {};
+  const out = {};
+  for (const key of ['q', 'w', 'e', 'r']) {
+    out[key] = Math.max(1, Math.min(5, cleanComparableNumber(src[key], 1)));
+  }
+  return out;
+}
+
+function cleanComparableLevelArray(value, fallback = 0) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value ?? '').split(/[,\s/]+/).filter(Boolean);
+  const src = raw.length ? raw : [fallback];
+  const out = [];
+  for (let i = 0; i < 5; i += 1) {
+    const picked = src[i] ?? src[src.length - 1] ?? fallback;
+    out.push(cleanComparableNumber(picked, fallback));
+  }
+  return out;
+}
+
+function cleanComparableCharacterSkills(skills) {
+  const src = skills && typeof skills === 'object' ? skills : {};
+  const q = src.q && typeof src.q === 'object' ? src.q : {};
+  return {
+    q: {
+      enabled: q.enabled === true,
+      type: cleanComparableString(q.type, 'basic_attack_recast') || 'basic_attack_recast',
+      name: cleanComparableString(q.name, ''),
+      cooldownSec: Math.max(1, cleanComparableNumber(q.cooldownSec, 7)),
+      recastWindowSec: Math.max(1, cleanComparableNumber(q.recastWindowSec, 5)),
+      radius: Math.max(0, cleanComparableNumber(q.radius, 0)),
+      firstFlat: cleanComparableLevelArray(q.firstFlat, 0),
+      secondFlat: cleanComparableLevelArray(q.secondFlat, 0),
+      secondMaxHpPct: cleanComparableLevelArray(q.secondMaxHpPct, 0),
+      firstSkillAmpScale: Math.max(0, cleanComparableNumber(q.firstSkillAmpScale, 0)),
+      secondSkillAmpScale: Math.max(0, cleanComparableNumber(q.secondSkillAmpScale, 0)),
+    },
+  };
+}
+
 function comparableValue(value, field) {
   if (field === 'goalGearTier') return cleanComparableNumber(value, 6);
+  if (field === 'characterSkillLevel') {
+    return Math.max(1, Math.min(5, cleanComparableNumber(value, 1)));
+  }
+  if (field === 'characterSkillLevels') return cleanComparableSkillLevels(value);
+  if (field === 'characterSkills') return cleanComparableCharacterSkills(value);
   if (field === 'tacticalSkillLevel') {
     return Math.max(1, Math.min(2, cleanComparableNumber(value, 1)));
   }
@@ -240,7 +295,7 @@ function collectSaveVerificationMismatches(saveInputs, saveResults, savedCharact
         mismatches.push({ id: requestId || savedId, field });
       }
     }
-    for (const field of ['stats', 'goalLoadouts', 'erWeapons']) {
+    for (const field of ['stats', 'goalLoadouts', 'erWeapons', 'characterSkillLevels', 'characterSkills']) {
       if (payload[field] !== undefined && !sameComparableValue(payload[field], saved[field], field)) {
         mismatches.push({ id: requestId || savedId, field });
       }
@@ -266,6 +321,11 @@ const CHARACTER_LIST_SELECTS = {
     'summary',
     'gender',
     'weaponType',
+    'characterTemplateId',
+    'characterSkillCode',
+    'characterSkillLevel',
+    'characterSkillLevels',
+    'characterSkills',
     'goalGearTier',
     'tacticalSkill',
     'erSubject',
@@ -281,6 +341,11 @@ const CHARACTER_LIST_SELECTS = {
     'previewImage',
     'gender',
     'weaponType',
+    'characterTemplateId',
+    'characterSkillCode',
+    'characterSkillLevel',
+    'characterSkillLevels',
+    'characterSkills',
     'goalGearTier',
     'tacticalSkill',
     'erSubject',
@@ -296,6 +361,11 @@ const CHARACTER_LIST_SELECTS = {
     'previewImage',
     'gender',
     'weaponType',
+    'characterTemplateId',
+    'characterSkillCode',
+    'characterSkillLevel',
+    'characterSkillLevels',
+    'characterSkills',
     'goalGearTier',
     'tacticalSkill',
     'tacticalSkillLevel',

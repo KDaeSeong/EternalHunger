@@ -20,11 +20,83 @@ const GOAL_GEAR_TIERS = [
   { value: 6, label: '초월' },
 ];
 
+const SKILL_LEVEL_COUNT = 5;
+
+function cleanNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeSkillLevelArray(value, fallback = 0, opts = {}) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value ?? '').split(/[,\s/]+/).filter(Boolean);
+  const src = raw.length ? raw : [fallback];
+  const out = [];
+  for (let i = 0; i < SKILL_LEVEL_COUNT; i += 1) {
+    const picked = src[i] ?? src[src.length - 1] ?? fallback;
+    let n = cleanNumber(picked, fallback);
+    if (opts.percent && n > 0 && n <= 0.25) n *= 100;
+    out.push(opts.integer ? Math.round(n) : Number(n.toFixed(3)));
+  }
+  return out;
+}
+
+function normalizeCharacterSkillLevels(levels) {
+  const src = levels && typeof levels === 'object' ? levels : {};
+  return {
+    q: Math.max(1, Math.min(5, Math.floor(cleanNumber(src.q, 1)))),
+    w: Math.max(1, Math.min(5, Math.floor(cleanNumber(src.w, 1)))),
+    e: Math.max(1, Math.min(5, Math.floor(cleanNumber(src.e, 1)))),
+    r: Math.max(1, Math.min(5, Math.floor(cleanNumber(src.r, 1)))),
+  };
+}
+
+function createDefaultQSkill(overrides = {}) {
+  return {
+    enabled: false,
+    type: 'basic_attack_recast',
+    name: '',
+    cooldownSec: 7,
+    recastWindowSec: 5,
+    radius: 0,
+    firstFlat: [0, 0, 0, 0, 0],
+    secondFlat: [0, 0, 0, 0, 0],
+    secondMaxHpPct: [0, 0, 0, 0, 0],
+    firstSkillAmpScale: 0,
+    secondSkillAmpScale: 0,
+    ...overrides,
+  };
+}
+
+function normalizeQSkillForEditor(skills) {
+  const q = skills?.q && typeof skills.q === 'object' ? skills.q : {};
+  return createDefaultQSkill({
+    enabled: q.enabled === true,
+    type: String(q.type || 'basic_attack_recast'),
+    name: String(q.name || ''),
+    cooldownSec: Math.max(1, cleanNumber(q.cooldownSec, 7)),
+    recastWindowSec: Math.max(1, cleanNumber(q.recastWindowSec, 5)),
+    radius: Math.max(0, cleanNumber(q.radius, 0)),
+    firstFlat: normalizeSkillLevelArray(q.firstFlat, 0, { integer: true }),
+    secondFlat: normalizeSkillLevelArray(q.secondFlat, 0, { integer: true }),
+    secondMaxHpPct: normalizeSkillLevelArray(q.secondMaxHpPct, 0, { percent: true }),
+    firstSkillAmpScale: Math.max(0, cleanNumber(q.firstSkillAmpScale, 0)),
+    secondSkillAmpScale: Math.max(0, cleanNumber(q.secondSkillAmpScale, 0)),
+  });
+}
+
+function normalizeCharacterSkillsForEditor(skills) {
+  return { q: normalizeQSkillForEditor(skills) };
+}
+
 function normalizeCharacterEditorList(data) {
   return (Array.isArray(data) ? data : []).map((c) => ({
     ...c,
     stats: normalizeErStats(c?.stats),
     weaponType: normalizeWeaponType(c?.weaponType),
+    characterSkillLevels: normalizeCharacterSkillLevels(c?.characterSkillLevels),
+    characterSkills: normalizeCharacterSkillsForEditor(c?.characterSkills),
     goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
     tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
   }));
@@ -68,7 +140,10 @@ export default function CharactersPage() {
   const [editCharId, setEditCharId] = useState(null);
   const [editGoalGearTier, setEditGoalGearTier] = useState(6);
   const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
-  const [user, setUser] = useState(null);
+  const [editCharacterSkillCode, setEditCharacterSkillCode] = useState('');
+  const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
+  const [editCharacterSkills, setEditCharacterSkills] = useState(() => normalizeCharacterSkillsForEditor());
+  const [user, setUser] = useState(() => getUser() || null);
 
   const editChar = useMemo(
     () => characters.find((c) => String(characterId(c)) === String(editCharId)) || null,
@@ -79,28 +154,6 @@ export default function CharactersPage() {
     () => characters.find((c) => String(characterId(c)) === String(configCharId)) || null,
     [characters, configCharId]
   );
-
-  useEffect(() => {
-    const token = getToken();
-    if (!token) {
-      alert('로그인이 필요합니다.');
-      window.location.href = '/login';
-      return;
-    }
-    syncTokenCookie(token);
-
-    const userData = getUser();
-    if (userData) setUser(userData);
-    fetchCharacters();
-  }, []);
-
-  const handleLogout = () => {
-    if (confirm('로그아웃 하시겠습니까?')) {
-      clearAuth();
-      setUser(null);
-      window.location.reload();
-    }
-  };
 
   async function fetchCharacters() {
     const token = getToken();
@@ -116,6 +169,29 @@ export default function CharactersPage() {
     }
   }
 
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      window.location.href = '/login';
+      return;
+    }
+    syncTokenCookie(token);
+
+    const timer = window.setTimeout(() => {
+      fetchCharacters();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const handleLogout = () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      clearAuth();
+      setUser(null);
+      window.location.reload();
+    }
+  };
+
   const addCharacter = () => {
     const id = Date.now();
     const newChar = {
@@ -127,6 +203,11 @@ export default function CharactersPage() {
       previewImage: null,
       summary: '',
       weaponType: '',
+      characterTemplateId: '',
+      characterSkillCode: '',
+      characterSkillLevel: 1,
+      characterSkillLevels: { q: 1, w: 1, e: 1, r: 1 },
+      characterSkills: normalizeCharacterSkillsForEditor(),
       goalGearTier: 6,
       tacticalSkill: normalizeSupportedTacSkill('블링크'),
     };
@@ -171,6 +252,31 @@ export default function CharactersPage() {
     alert(`ER 프리셋 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}`);
   };
 
+  const updateEditQSkill = (field, value) => {
+    setEditCharacterSkills((prev) => ({
+      ...prev,
+      q: {
+        ...createDefaultQSkill(prev?.q || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateEditQSkillLevelValue = (field, index, value) => {
+    setEditCharacterSkills((prev) => {
+      const q = createDefaultQSkill(prev?.q || {});
+      const list = normalizeSkillLevelArray(q[field], 0, { percent: field === 'secondMaxHpPct' });
+      list[index] = cleanNumber(value, 0);
+      return {
+        ...prev,
+        q: {
+          ...q,
+          [field]: list,
+        },
+      };
+    });
+  };
+
   const openConfigModal = (char) => {
     const id = characterId(char);
     if (!id) return;
@@ -178,6 +284,9 @@ export default function CharactersPage() {
     const tier = Number(char?.goalGearTier || 6);
     setEditGoalGearTier([4, 5, 6].includes(tier) ? tier : 6);
     setEditTacticalSkill(normalizeSupportedTacSkill(char?.tacticalSkill) || '블링크');
+    setEditCharacterSkillCode(String(char?.characterSkillCode || char?.erSubject || '').trim());
+    setEditCharacterSkillLevels(normalizeCharacterSkillLevels(char?.characterSkillLevels));
+    setEditCharacterSkills(normalizeCharacterSkillsForEditor(char?.characterSkills));
   };
 
   const closeConfigModal = () => setConfigCharId(null);
@@ -193,6 +302,10 @@ export default function CharactersPage() {
           ...char,
           goalGearTier: Number(editGoalGearTier || 6),
           tacticalSkill: normalizeSupportedTacSkill(editTacticalSkill),
+          characterSkillCode: String(editCharacterSkillCode || '').trim(),
+          characterSkillLevel: editCharacterSkillLevels.q,
+          characterSkillLevels: normalizeCharacterSkillLevels(editCharacterSkillLevels),
+          characterSkills: normalizeCharacterSkillsForEditor(editCharacterSkills),
         };
       })
     );
@@ -313,6 +426,7 @@ export default function CharactersPage() {
           const realId = characterId(char);
           const weapon = normalizeWeaponType(char.weaponType) || '랜덤';
           const tactical = normalizeSupportedTacSkill(char.tacticalSkill) || '블링크';
+          const qSkill = char?.characterSkills?.q;
           return (
             <div className="characterRowContainer2 character-list-card" key={realId}>
               <div className="character-summary-avatar">
@@ -332,12 +446,13 @@ export default function CharactersPage() {
                   <span>무기: {weapon}</span>
                   <span>목표: {gearTierLabel(char.goalGearTier)}</span>
                   <span>전술: {tactical}</span>
+                  {qSkill?.enabled ? <span>Q: {qSkill.name || '사용자 Q'}</span> : null}
                 </div>
               </div>
 
               <div className="character-summary-actions">
                 <button type="button" onClick={() => setEditCharId(realId)}>기본 정보</button>
-                <button type="button" onClick={() => openConfigModal(char)}>목표/전술</button>
+                <button type="button" onClick={() => openConfigModal(char)}>목표/스킬</button>
                 <button type="button" onClick={() => handleAiAnalyze(realId)}>AI 분석</button>
                 <button type="button" onClick={() => applyErPresetToCharacter(realId)}>ER 프리셋</button>
                 <button type="button" className="danger" onClick={() => removeCharacter(realId)}>삭제</button>
@@ -439,7 +554,7 @@ export default function CharactersPage() {
           <div className="character-edit-modal">
             <div className="character-edit-head">
               <div>
-                <p>목표/전술 설정</p>
+                <p>목표/스킬 설정</p>
                 <h2>{configChar.name || '이름 없음'}</h2>
               </div>
               <button type="button" onClick={closeConfigModal} aria-label="닫기">×</button>
@@ -469,6 +584,147 @@ export default function CharactersPage() {
                   ))}
                 </select>
               </label>
+
+              <div className="character-skill-section">
+                <div className="character-skill-section-head">
+                  <strong>캐릭터 Q</strong>
+                  <label className="character-skill-toggle">
+                    <input
+                      type="checkbox"
+                      checked={editCharacterSkills?.q?.enabled === true}
+                      onChange={(e) => updateEditQSkill('enabled', e.target.checked)}
+                    />
+                    <span>사용</span>
+                  </label>
+                </div>
+
+                <div className="character-skill-inline-grid">
+                  <label>
+                    스킬 코드
+                    <input
+                      type="text"
+                      value={editCharacterSkillCode}
+                      onChange={(e) => setEditCharacterSkillCode(e.target.value)}
+                      placeholder="예: bihyung"
+                    />
+                  </label>
+
+                  <label>
+                    Q 레벨
+                    <input
+                      type="number"
+                      min="1"
+                      max="5"
+                      step="1"
+                      value={editCharacterSkillLevels.q}
+                      onChange={(e) => setEditCharacterSkillLevels((prev) => ({
+                        ...normalizeCharacterSkillLevels(prev),
+                        q: Math.max(1, Math.min(5, Math.floor(cleanNumber(e.target.value, 1)))),
+                      }))}
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  Q 이름
+                  <input
+                    type="text"
+                    value={editCharacterSkills?.q?.name || ''}
+                    onChange={(e) => updateEditQSkill('name', e.target.value)}
+                    placeholder="예: 도깨비 장난"
+                    disabled={editCharacterSkills?.q?.enabled !== true}
+                  />
+                </label>
+
+                <div className="character-skill-inline-grid">
+                  <label>
+                    쿨다운(초)
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.5"
+                      value={editCharacterSkills?.q?.cooldownSec ?? 7}
+                      onChange={(e) => updateEditQSkill('cooldownSec', Math.max(1, cleanNumber(e.target.value, 7)))}
+                      disabled={editCharacterSkills?.q?.enabled !== true}
+                    />
+                  </label>
+
+                  <label>
+                    재시전 시간(초)
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.5"
+                      value={editCharacterSkills?.q?.recastWindowSec ?? 5}
+                      onChange={(e) => updateEditQSkill('recastWindowSec', Math.max(1, cleanNumber(e.target.value, 5)))}
+                      disabled={editCharacterSkills?.q?.enabled !== true}
+                    />
+                  </label>
+
+                  <label>
+                    Q2 광역 범위
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={editCharacterSkills?.q?.radius ?? 0}
+                      onChange={(e) => updateEditQSkill('radius', Math.max(0, cleanNumber(e.target.value, 0)))}
+                      disabled={editCharacterSkills?.q?.enabled !== true}
+                    />
+                  </label>
+                </div>
+
+                {[
+                  ['firstFlat', 'Q1 추가 피해', 1],
+                  ['secondFlat', 'Q2 추가 피해', 1],
+                  ['secondMaxHpPct', 'Q2 최대 체력 %', 0.5],
+                ].map(([field, label, step]) => (
+                  <div className="character-skill-level-editor" key={field}>
+                    <span>{label}</span>
+                    <div className="character-skill-level-grid">
+                      {Array.from({ length: SKILL_LEVEL_COUNT }).map((_, index) => (
+                        <label key={`${field}-${index}`}>
+                          Lv.{index + 1}
+                          <input
+                            type="number"
+                            min="0"
+                            step={String(step)}
+                            value={editCharacterSkills?.q?.[field]?.[index] ?? 0}
+                            onChange={(e) => updateEditQSkillLevelValue(field, index, e.target.value)}
+                            disabled={editCharacterSkills?.q?.enabled !== true}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                <div className="character-skill-inline-grid">
+                  <label>
+                    Q1 스증 계수
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.05"
+                      value={editCharacterSkills?.q?.firstSkillAmpScale ?? 0}
+                      onChange={(e) => updateEditQSkill('firstSkillAmpScale', Math.max(0, cleanNumber(e.target.value, 0)))}
+                      disabled={editCharacterSkills?.q?.enabled !== true}
+                    />
+                  </label>
+
+                  <label>
+                    Q2 스증 계수
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.05"
+                      value={editCharacterSkills?.q?.secondSkillAmpScale ?? 0}
+                      onChange={(e) => updateEditQSkill('secondSkillAmpScale', Math.max(0, cleanNumber(e.target.value, 0)))}
+                      disabled={editCharacterSkills?.q?.enabled !== true}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div className="character-edit-actions">

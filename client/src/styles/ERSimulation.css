@@ -641,6 +641,31 @@
   cursor: not-allowed;
 }
 
+.sim-skill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 220, 255, 0.28);
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.sim-skill-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #4fd5ff;
+}
+
+.sim-skill-toggle:has(input:disabled) {
+  opacity: 0.62;
+}
+
 .btn-proceed, .btn-restart {
     padding: 15px 50px;
     font-size: 1.5rem;

@@ -12,6 +12,16 @@ const characterSchema = new Schema({
   summary: { type: String },
   gender: { type: String, default: '남' },
   weaponType: { type: String, default: '' },
+  characterTemplateId: { type: String, default: '' },
+  characterSkillCode: { type: String, default: '' },
+  characterSkillLevel: { type: Number, default: 1 },
+  characterSkillLevels: {
+    q: { type: Number, default: 1 },
+    w: { type: Number, default: 1 },
+    e: { type: Number, default: 1 },
+    r: { type: Number, default: 1 },
+  },
+  characterSkills: { type: Schema.Types.Mixed, default: {} },
 
   // --- 관전형 목표 세팅 ---
   // - goalGearTier: 목표 장비 등급(영웅=4, 전설=5, 초월=6)

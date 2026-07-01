@@ -139,6 +139,7 @@ function pingIcon(event) {
   if (kind === 'battle') return '⚔️';
   if (kind === 'death') return '💀';
   if (kind === 'move') return String(event?.transport || '') === 'hyperloop' ? '🌀' : '🚶';
+  if (kind === 'skill') return String(event?.mode || '') === 'character_skill' ? '🌀' : '🎯';
   if (kind === 'gain') {
     const itemId = String(event?.itemId || '');
     if (itemId === 'CREDITS') return '💳';

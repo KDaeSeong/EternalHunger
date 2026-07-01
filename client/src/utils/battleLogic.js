@@ -260,7 +260,7 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     const equipLog = `🧰 장비: ${formatEquipBrief(p1, eq1)} / ${formatEquipBrief(p2, eq2)}`;
     logs.push(equipLog);
 
-    // --- 2. 스킬 및 무기 보너스 (INT, MEN 적용) ---
+    // --- 2. 스킬 및 무기 보너스 (스킬증폭/장비 스탯 적용) ---
     const getBonuses = (char, stats, opponentStats, selfEquipStats) => {
         let skillBonus = 0;
         let wpnBonus = 0;

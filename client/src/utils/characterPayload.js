@@ -12,6 +12,9 @@ const SIMPLE_COMPARE_KEYS = [
   'gender',
   'summary',
   'weaponType',
+  'characterTemplateId',
+  'characterSkillCode',
+  'characterSkillLevel',
   'goalGearTier',
   'tacticalSkill',
   'tacticalSkillLevel',
@@ -84,6 +87,48 @@ function cleanLoadouts(goalLoadouts) {
   return out;
 }
 
+function cleanSkillLevels(levels) {
+  const src = levels && typeof levels === 'object' ? levels : {};
+  const out = {};
+  for (const key of ['q', 'w', 'e', 'r']) {
+    out[key] = Math.max(1, Math.min(5, cleanNumber(src[key], 1)));
+  }
+  return out;
+}
+
+function cleanLevelArray(value, fallback = 0) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value ?? '').split(/[,\s/]+/).filter(Boolean);
+  const src = raw.length ? raw : [fallback];
+  const out = [];
+  for (let i = 0; i < 5; i += 1) {
+    const picked = src[i] ?? src[src.length - 1] ?? fallback;
+    out.push(cleanNumber(picked, fallback));
+  }
+  return out;
+}
+
+function cleanCharacterSkills(skills) {
+  const src = skills && typeof skills === 'object' ? skills : {};
+  const q = src.q && typeof src.q === 'object' ? src.q : {};
+  return {
+    q: {
+      enabled: q.enabled === true,
+      type: cleanString(q.type, 64) || 'basic_attack_recast',
+      name: cleanString(q.name, 256) || '',
+      cooldownSec: Math.max(1, cleanNumber(q.cooldownSec, 7)),
+      recastWindowSec: Math.max(1, cleanNumber(q.recastWindowSec, 5)),
+      radius: Math.max(0, cleanNumber(q.radius, 0)),
+      firstFlat: cleanLevelArray(q.firstFlat, 0),
+      secondFlat: cleanLevelArray(q.secondFlat, 0),
+      secondMaxHpPct: cleanLevelArray(q.secondMaxHpPct, 0),
+      firstSkillAmpScale: Math.max(0, cleanNumber(q.firstSkillAmpScale, 0)),
+      secondSkillAmpScale: Math.max(0, cleanNumber(q.secondSkillAmpScale, 0)),
+    },
+  };
+}
+
 function cleanStatsObject(stats) {
   if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return undefined;
   const out = {};
@@ -141,6 +186,8 @@ function stableStringify(value) {
 
 function comparableValueForKey(value, key) {
   if (key === 'goalGearTier') return cleanNumber(value, 6);
+  if (key === 'characterSkillLevel') return Math.max(1, Math.min(5, cleanNumber(value, 1)));
+  if (key === 'characterSkills') return stableStringify(cleanCharacterSkills(value));
   if (key === 'tacticalSkillLevel') return Math.max(1, Math.min(2, cleanNumber(value, 1)));
   if (key === 'tacticalSkill') return normalizeSupportedTacSkill(value);
   if (key === 'previewImage') return cleanPreviewImage(value) || '';
@@ -191,6 +238,12 @@ export function findCharacterSaveMismatches(payloadCharacters, savedCharacters, 
     if (payload?.goalLoadouts !== undefined && !compareObject(payload.goalLoadouts, saved?.goalLoadouts, cleanLoadouts)) {
       mismatches.push({ id: requestId || id, field: 'goalLoadouts' });
     }
+    if (payload?.characterSkillLevels !== undefined && !compareObject(payload.characterSkillLevels, saved?.characterSkillLevels, cleanSkillLevels)) {
+      mismatches.push({ id: requestId || id, field: 'characterSkillLevels' });
+    }
+    if (payload?.characterSkills !== undefined && !compareObject(payload.characterSkills, saved?.characterSkills, cleanCharacterSkills)) {
+      mismatches.push({ id: requestId || id, field: 'characterSkills' });
+    }
     if (payload?.erWeapons !== undefined && stableStringify(cleanArrayStrings(payload.erWeapons)) !== stableStringify(cleanArrayStrings(saved?.erWeapons))) {
       mismatches.push({ id: requestId || id, field: 'erWeapons' });
     }
@@ -218,6 +271,11 @@ export function compactCharacterForSave(character, options = {}) {
 
   if (c.summary !== undefined) out.summary = cleanString(c.summary, MAX_TEXT_CHARS);
   if (c.weaponType !== undefined) out.weaponType = cleanString(c.weaponType, 128) || '';
+  if (c.characterTemplateId !== undefined) out.characterTemplateId = cleanString(c.characterTemplateId, 128) || '';
+  if (c.characterSkillCode !== undefined) out.characterSkillCode = cleanString(c.characterSkillCode, 128) || '';
+  if (c.characterSkillLevel !== undefined) out.characterSkillLevel = Math.max(1, Math.min(5, cleanNumber(c.characterSkillLevel, 1)));
+  if (c.characterSkillLevels !== undefined) out.characterSkillLevels = cleanSkillLevels(c.characterSkillLevels);
+  if (c.characterSkills !== undefined) out.characterSkills = cleanCharacterSkills(c.characterSkills);
   if (c.goalGearTier !== undefined) out.goalGearTier = cleanNumber(c.goalGearTier, 6);
   if (c.tacticalSkill !== undefined) out.tacticalSkill = normalizeSupportedTacSkill(c.tacticalSkill);
   if (c.tacticalSkillLevel !== undefined) out.tacticalSkillLevel = Math.max(1, Math.min(2, cleanNumber(c.tacticalSkillLevel, 1)));

@@ -472,6 +472,14 @@ export const RULESETS = {
       erMetaScale: 1,
     },
 
+    skills: {
+      enabled: true,
+      characterSkills: true,
+      aiUseSkills: true,
+      showSkillLogs: true,
+      cooldownScale: 1,
+    },
+
     diagnostics: {
       thresholds: {
         minMidDeathShare: 0.34,
@@ -626,6 +634,14 @@ export const RULESETS = {
 
     battle: {
       erMetaScale: 0.65,
+    },
+
+    skills: {
+      enabled: false,
+      characterSkills: false,
+      aiUseSkills: false,
+      showSkillLogs: false,
+      cooldownScale: 1,
     },
   },
 };

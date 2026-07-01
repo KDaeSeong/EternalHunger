@@ -14,7 +14,6 @@ export const ER_STAT_FIELDS = [
 ];
 
 export const ER_STAT_KEYS = ER_STAT_FIELDS.map((field) => field.key);
-export const LEGACY_STAT_KEYS = ['str', 'agi', 'int', 'men', 'luk', 'dex', 'sht', 'end'];
 
 export const DEFAULT_ER_STATS = ER_STAT_FIELDS.reduce((acc, field) => {
   acc[field.key] = field.defaultValue;
@@ -39,53 +38,13 @@ function clampStat(key, value) {
   return Math.max(min, Math.min(max, n));
 }
 
-function hasAnyKey(src, keys) {
-  return keys.some((key) => src?.[key] !== undefined || src?.[key?.toUpperCase?.()] !== undefined);
-}
-
-function old(src, key) {
-  return toNumber(src?.[key] ?? src?.[key.toUpperCase?.()] ?? 0, 0);
-}
-
-export function deriveErStatsFromLegacyStats(stats = {}) {
-  const str = old(stats, 'str');
-  const agi = old(stats, 'agi');
-  const int = old(stats, 'int');
-  const men = old(stats, 'men');
-  const luk = old(stats, 'luk');
-  const dex = old(stats, 'dex');
-  const sht = old(stats, 'sht');
-  const end = old(stats, 'end');
-  const rangedLike = sht >= Math.max(str, int, end);
-  const mageLike = int >= Math.max(str, sht, end);
-
-  return {
-    maxHp: 72 + end * 1.1 + men * 0.35 + str * 0.18,
-    hpGrowth: 2.8 + end * 0.035 + men * 0.01,
-    attackPower: 12 + Math.max(str, sht) * 0.34 + dex * 0.08,
-    attackPowerGrowth: 0.9 + Math.max(str, sht) * 0.012,
-    skillAmp: mageLike ? int * 0.48 + men * 0.12 : int * 0.22 + men * 0.05,
-    skillAmpGrowth: 0.6 + int * 0.012,
-    defense: 8 + end * 0.28 + agi * 0.08,
-    defenseGrowth: 0.45 + end * 0.01,
-    attackSpeed: 0.55 + agi * 0.004 + dex * 0.002,
-    attackSpeedGrowth: 0.008 + agi * 0.00012,
-    attackRange: rangedLike ? 4.2 + Math.min(1.4, sht * 0.015) : 1.35 + Math.min(0.45, dex * 0.006),
-    sightRange: 6.8 + dex * 0.025 + luk * 0.02,
-  };
-}
-
 export function normalizeErStats(stats = {}, opts = {}) {
   const src = stats && typeof stats === 'object' ? stats : {};
-  const hasNew = hasAnyKey(src, ER_STAT_KEYS);
-  const hasLegacy = hasAnyKey(src, LEGACY_STAT_KEYS);
-  const derived = hasLegacy ? deriveErStatsFromLegacyStats(src) : {};
-  const base = hasNew ? { ...DEFAULT_ER_STATS, ...derived } : (hasLegacy ? { ...DEFAULT_ER_STATS, ...derived } : { ...DEFAULT_ER_STATS });
 
   const out = {};
   ER_STAT_KEYS.forEach((key) => {
     const explicit = src?.[key] ?? src?.[key.toUpperCase?.()];
-    out[key] = clampStat(key, explicit !== undefined ? explicit : base[key]);
+    out[key] = clampStat(key, explicit !== undefined ? explicit : DEFAULT_ER_STATS[key]);
   });
 
   if (opts.round !== false) {
@@ -120,47 +79,14 @@ export function getEffectiveErStats(character, opts = {}) {
   return out;
 }
 
-export function legacyStatDeltaToErStatDelta(key, value) {
-  const v = toNumber(value, 0);
-  if (!v) return {};
-  switch (String(key || '').toLowerCase()) {
-    case 'str':
-      return { attackPower: v * 1.4 };
-    case 'sht':
-    case 'shoot':
-      return { attackPower: v * 1.25, attackRange: v * 0.03 };
-    case 'int':
-      return { skillAmp: v * 1.7 };
-    case 'men':
-      return { skillAmp: v * 0.55, maxHp: v * 2.5 };
-    case 'end':
-      return { defense: v * 0.9, maxHp: v * 3 };
-    case 'agi':
-      return { attackSpeed: v * 0.012, defense: v * 0.25 };
-    case 'dex':
-      return { attackSpeed: v * 0.006, attackPower: v * 0.35, sightRange: v * 0.03 };
-    case 'luk':
-      return { sightRange: v * 0.04 };
-    default:
-      return { [key]: v };
-  }
-}
-
 export function normalizeErStatDeltaMap(deltaMap = {}) {
   const src = deltaMap && typeof deltaMap === 'object' ? deltaMap : {};
   const out = {};
   Object.entries(src).forEach(([key, value]) => {
     const n = toNumber(value, 0);
     if (!n) return;
-    if (ER_STAT_KEYS.includes(key)) {
-      out[key] = toNumber(out[key], 0) + n;
-      return;
-    }
-    const mapped = legacyStatDeltaToErStatDelta(key, n);
-    Object.entries(mapped).forEach(([nextKey, nextValue]) => {
-      if (!ER_STAT_KEYS.includes(nextKey)) return;
-      out[nextKey] = toNumber(out[nextKey], 0) + toNumber(nextValue, 0);
-    });
+    if (!ER_STAT_KEYS.includes(key)) return;
+    out[key] = toNumber(out[key], 0) + n;
   });
   return out;
 }

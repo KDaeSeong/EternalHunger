@@ -225,7 +225,7 @@ export function applyItemEffect(character, item) {
     newEffects = [
       makeStatBuffEffect('집중', { skillAmp: 8, sightRange: 0.4 }, 3, `${sourceId}_book`, { tags: ['positive', 'focus', 'knowledge'] }),
     ].filter(Boolean);
-    log = `📖 [${character.name}]은(는) [${name}]을(를) 읽으며 지식을 습득했습니다. (지능 +5)`;
+    log = `📖 [${character.name}]은(는) [${name}]을(를) 읽으며 전투 감각을 정리했습니다. (스킬증폭 +8)`;
   } else {
     log = `📦 [${character.name}]은(는) [${name}]을(를) 확인했지만, 사용할 수 있는 효과가 없습니다.`;
   }
