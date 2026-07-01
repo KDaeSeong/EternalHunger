@@ -1,0 +1,34 @@
+* text=auto
+.gitattributes text eol=lf
+
+# Web source and config files should stay LF across Windows/macOS/Linux.
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.env text eol=lf
+*.example text eol=lf
+*.lock text eol=lf
+package-lock.json text eol=lf
+pnpm-lock.yaml text eol=lf
+
+# Binary assets should never be line-ending normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.svg text eol=lf
+*.pdf binary
+*.zip binary
