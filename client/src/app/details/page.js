@@ -149,7 +149,7 @@ export default function DetailsPage() {
     if (equipList.length > 0) return;
     const token = getToken();
     if (!token) return;
-    apiGetCached('/items/equipment-list', { ttlMs: 30000, timeoutMs: 20000 }).then((data) => {
+    apiGet('/items/equipment-list', { timeoutMs: 20000 }).then((data) => {
       setEquipList(Array.isArray(data) ? data : []);
     }).catch(() => {
       setEquipList([]);

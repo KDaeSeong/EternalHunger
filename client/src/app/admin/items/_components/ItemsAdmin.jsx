@@ -42,6 +42,16 @@ const sample = [
 ];
 
 const PAGE_SIZE_OPTIONS = [50, 100, 200, 500];
+const EQUIP_SLOT_OPTIONS = [
+  { value: '', label: '미지정' },
+  { value: 'weapon', label: '무기' },
+  { value: 'head', label: '머리' },
+  { value: 'clothes', label: '옷' },
+  { value: 'arm', label: '팔' },
+  { value: 'shoes', label: '신발' },
+];
+const EQUIP_SLOT_VALUES = new Set(EQUIP_SLOT_OPTIONS.map((x) => x.value));
+const ARMOR_SLOT_VALUES = new Set(['head', 'clothes', 'arm', 'shoes']);
 
 function getItemMongoId(it) {
   return String(it?._id || it?.mongoId || '').trim();
@@ -68,6 +78,16 @@ function parseTags(text) {
   const s = String(text || '');
   const list = s.split(/[\n,]+/g).map((x) => x.trim()).filter(Boolean);
   return uniqStrings(list);
+}
+
+function normalizeEquipSlot(value) {
+  const v = String(value || '').trim();
+  return EQUIP_SLOT_VALUES.has(v) ? v : '';
+}
+
+function formatEquipSlot(value) {
+  const v = normalizeEquipSlot(value);
+  return EQUIP_SLOT_OPTIONS.find((opt) => opt.value === v)?.label || '미지정';
 }
 
 function isSimulationItem(it) {
@@ -229,6 +249,38 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
     setDraft((prev) => ({ ...(prev || {}), [key]: value }));
   }
 
+  function setType(value) {
+    setDraft((prev) => {
+      const nextType = String(value || '기타');
+      const currentSlot = normalizeEquipSlot(prev?.equipSlot);
+      let nextSlot = currentSlot;
+      let nextWeaponType = prev?.weaponType || '';
+      if (nextType === '무기') {
+        nextSlot = 'weapon';
+      } else if (nextType === '방어구') {
+        if (nextSlot === 'weapon') nextSlot = '';
+        nextWeaponType = '';
+      } else {
+        nextSlot = '';
+        nextWeaponType = '';
+      }
+      return { ...(prev || {}), type: nextType, equipSlot: nextSlot, weaponType: nextWeaponType };
+    });
+  }
+
+  function setEquipSlot(value) {
+    setDraft((prev) => {
+      const nextSlot = normalizeEquipSlot(value);
+      const nextType = nextSlot === 'weapon' ? '무기' : (nextSlot ? '방어구' : (prev?.type || '기타'));
+      return {
+        ...(prev || {}),
+        type: nextType,
+        equipSlot: nextSlot,
+        weaponType: nextSlot === 'weapon' ? (prev?.weaponType || '') : '',
+      };
+    });
+  }
+
   function setStat(key, value) {
     setDraft((prev) => ({
       ...(prev || {}),
@@ -376,17 +428,24 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
       return;
     }
 
+    const type = String(draft.type || '기타');
+    const equipSlot = type === '무기' ? 'weapon' : normalizeEquipSlot(draft.equipSlot);
+    if (type === '방어구' && !ARMOR_SLOT_VALUES.has(equipSlot)) {
+      setErr('방어구는 장비 슬롯을 머리/옷/팔/신발 중 하나로 선택해야 상세 설정에 표시돼.');
+      return;
+    }
+
     const payload = {
       externalId: String(draft.externalId || '').trim() || undefined,
       name,
-      type: String(draft.type || '기타'),
+      type,
       rarity: String(draft.rarity || 'common'),
       tier: Math.max(1, Math.floor(toNum(draft.tier, 1))),
       stackMax: Math.max(1, Math.floor(toNum(draft.stackMax, 1))),
       value: Math.max(0, Math.floor(toNum(draft.value, 0))),
       tags: parseTags(draft.tagsText),
-      equipSlot: String(draft.equipSlot || ''),
-      weaponType: String(draft.weaponType || ''),
+      equipSlot: type === '무기' || type === '방어구' ? equipSlot : '',
+      weaponType: type === '무기' ? String(draft.weaponType || '') : '',
       archetype: String(draft.archetype || ''),
       description: String(draft.description || ''),
       lockedByAdmin: Boolean(draft.lockedByAdmin),
@@ -446,7 +505,7 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
 
           <div>
             <div style={label}>분류(type)</div>
-            <select value={draft?.type || '기타'} onChange={(e) => setField('type', e.target.value)} style={{ ...input, width: '100%' }}>
+            <select value={draft?.type || '기타'} onChange={(e) => setType(e.target.value)} style={{ ...input, width: '100%' }}>
               <option value="무기">무기</option>
               <option value="방어구">방어구</option>
               <option value="소모품">소모품</option>
@@ -492,7 +551,11 @@ function ItemEditorModal({ open, mode, item, allItems, onClose, onSave }) {
         <div style={{ marginTop: 12, ...grid }}>
           <div>
             <div style={label}>장비 슬롯(equipSlot)</div>
-            <input value={draft?.equipSlot || ''} onChange={(e) => setField('equipSlot', e.target.value)} placeholder="weapon/head/clothes/arm/shoes" style={{ ...input, width: '100%' }} />
+            <select value={normalizeEquipSlot(draft?.equipSlot)} onChange={(e) => setEquipSlot(e.target.value)} style={{ ...input, width: '100%' }}>
+              {EQUIP_SLOT_OPTIONS.map((opt) => (
+                <option key={opt.value || 'none'} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <div style={label}>무기 타입(weaponType)</div>
@@ -1076,6 +1139,7 @@ export default function ItemsAdmin() {
               <th style={th}>ID</th>
               <th style={th}>이름</th>
               <th style={th}>type</th>
+              <th style={th}>슬롯</th>
               <th style={th}>레시피</th>
               <th style={th}>가격</th>
               <th style={th}>희귀도</th>
@@ -1087,7 +1151,7 @@ export default function ItemsAdmin() {
           <tbody>
             {status === 'loading' && (
               <tr>
-                <td style={td} colSpan={9}>아이템을 불러오는 중입니다.</td>
+                <td style={td} colSpan={10}>아이템을 불러오는 중입니다.</td>
               </tr>
             )}
             {status !== 'loading' && pagedItems.map((it) => (
@@ -1100,6 +1164,7 @@ export default function ItemsAdmin() {
                 </td>
                 <td style={td}>{String(it.name ?? it.itemName ?? '-')}</td>
                 <td style={td}>{String(it.type ?? it.kind ?? it.category ?? '-')}</td>
+                <td style={td}>{formatEquipSlot(it.equipSlot)}</td>
                 <td style={td}>
                   {Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0
                     ? `${it.recipe.ingredients.length}개`
@@ -1123,7 +1188,7 @@ export default function ItemsAdmin() {
             ))}
             {status !== 'loading' && pagedItems.length === 0 && (
               <tr>
-                <td style={td} colSpan={9}>
+                <td style={td} colSpan={10}>
                   <div style={{ display: 'grid', gap: 8, padding: '4px 0' }}>
                     <div style={{ fontWeight: 900 }}>
                       {items.length === 0

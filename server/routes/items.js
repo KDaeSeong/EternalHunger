@@ -212,12 +212,16 @@ const {
 router.get('/equipment-list', async (req, res) => {
   try {
     const slots = ['weapon', 'head', 'clothes', 'arm', 'shoes'];
-    const items = await Item.find(scopedFilter(req, {
+    // 관리자 아이템 목록(/api/admin/items)과 같은 계정 범위를 사용합니다.
+    // scopedFilter를 쓰면 owner가 없는 레거시/공용 아이템이 섞여 상세 설정 목록만 달라집니다.
+    const items = await Item.find(ownedFilter(req, {
       $or: [
         { equipSlot: { $in: slots } },
         { type: { $in: ['무기', '방어구'] } },
       ]
-    })).select('itemKey externalId name type equipSlot weaponType tier rarity tags');
+    }))
+      .select('itemKey externalId name type equipSlot weaponType tier rarity tags createdAt')
+      .sort({ createdAt: -1, name: 1 });
 
     const out = (Array.isArray(items) ? items : []).map((it) => {
       const itemKey = String(it?.itemKey || it?.externalId || it?._id || '');
