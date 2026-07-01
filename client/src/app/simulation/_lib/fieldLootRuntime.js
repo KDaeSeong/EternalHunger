@@ -385,9 +385,10 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     if (cat === 'consumable') {
       const tags = safeTags(it);
       const t = String(it?.type || '').toLowerCase();
-      // 음식/치유 위주
-      if (t === 'food' || tags.includes('food') || tags.includes('heal') || tags.includes('medical')) {
-        pool.push({ itemId: String(it._id), weight: applyPerkLootWeight(2, opts?.perkEffects || {}, { rareBoost: tags.includes('medical') ? 0.1 : 0 }), minQty: 1, maxQty: 1 });
+      const name = String(it?.name || it?.text || '').toLowerCase();
+      // 음식 위주. 상태이상 회복/의료 아이템은 음식 상자 후보가 아니다.
+      if (t === 'food' || tags.includes('food') || tags.includes('healthy') || name.includes('사과') || name.includes('apple') || name.includes('스테이크') || name.includes('steak')) {
+        pool.push({ itemId: String(it._id), weight: applyPerkLootWeight(2, opts?.perkEffects || {}, { rareBoost: tags.includes('healthy') ? 0.1 : 0 }), minQty: 1, maxQty: 1 });
       }
     }
   }

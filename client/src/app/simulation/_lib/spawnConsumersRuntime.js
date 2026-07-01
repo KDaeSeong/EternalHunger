@@ -134,23 +134,11 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
 
       if (want === 'food') {
         if (cat !== 'consumable') continue;
-        const ok = t === 'food' || tags.includes('food') || name.includes('음식') || name.includes('빵') || name.includes('고기');
+        const ok = t === 'food' || tags.includes('food') || name.includes('음식') || name.includes('사과') || lower.includes('apple') || name.includes('빵') || name.includes('고기') || name.includes('스테이크') || lower.includes('steak');
         if (!ok) continue;
 
         let w = 3;
         if (tags.includes('healthy')) w += Math.max(0, Number(boosts?.healthyFood || 0));
-        if (goalItemIds.has(id)) w += goalLootBoost;
-        out.push({ item: it, itemId: id, weight: w });
-        continue;
-      }
-
-      if (want === 'medical') {
-        if (cat !== 'consumable') continue;
-        const ok = tags.includes('heal') || tags.includes('medical') || lower.includes('bandage') || lower.includes('medkit') || name.includes('붕대') || name.includes('응급');
-        if (!ok) continue;
-
-        let w = 3;
-        if (name.includes('붕대')) w += Math.max(0, Number(boosts?.bandageName || 0));
         if (goalItemIds.has(id)) w += goalLootBoost;
         out.push({ item: it, itemId: id, weight: w });
         continue;
@@ -184,7 +172,6 @@ function openSpawnedFoodCrate(spawnState, zoneId, publicItems, curDay, curPhase,
 
   let candidates = buildFoodCrateCandidates(catKey, tierCap);
   if (!candidates.length && catKey !== 'food') candidates = buildFoodCrateCandidates('food', tierCap);
-  if (!candidates.length && catKey !== 'medical') candidates = buildFoodCrateCandidates('medical', tierCap);
   if (!candidates.length && catKey !== 'material') candidates = buildFoodCrateCandidates('material', tierCap);
 
   const picked = pickWeighted(candidates);

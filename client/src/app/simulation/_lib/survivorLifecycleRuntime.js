@@ -162,10 +162,28 @@ function isAiRecoveryLocked(actor, absSec) {
 
 function normalizeDeadSnapshot(actor, ruleset) {
   if (!actor || typeof actor !== 'object') return actor;
+  const deathBy = String(actor?._deathBy || actor?.deathReason || actor?.lastDeathReason || '').trim();
+  const deathCauseName = String(actor?._deathCauseName || actor?.deathCauseName || actor?.deathCause || '').trim();
+  const deathKillerId = String(actor?._deathKillerId || actor?.deathKillerId || actor?.lastDamagedBy || '').trim();
+  const deathAt = Number(actor?._deathAt);
   const dead = normalizeRuntimeSurvivor(actor);
   dead.inventory = normalizeInventory(dead.inventory, ruleset);
   pruneEquippedAgainstInventory(dead);
   clearRuntimeCombatFields(dead);
+  if (deathBy) {
+    dead._deathBy = deathBy;
+    dead.deathReason = deathBy;
+    dead.lastDeathReason = deathBy;
+  }
+  if (deathCauseName) {
+    dead._deathCauseName = deathCauseName;
+    dead.deathCauseName = deathCauseName;
+  }
+  if (deathKillerId) {
+    dead._deathKillerId = deathKillerId;
+    dead.deathKillerId = deathKillerId;
+  }
+  if (Number.isFinite(deathAt) && deathAt > 0) dead._deathAt = deathAt;
   dead.hp = 0;
   return dead;
 }

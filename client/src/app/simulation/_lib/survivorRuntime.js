@@ -147,6 +147,7 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     skillState: base?.skillState && typeof base.skillState === 'object' ? { ...base.skillState } : {},
     hp: Math.max(0, Math.min(maxHp, hp)),
     maxHp,
+    satiety: Math.max(0, Math.min(100, Number.isFinite(Number(base?.satiety)) ? Number(base.satiety) : 70)),
     simCredits: Number.isFinite(Number(base?.simCredits)) ? Number(base.simCredits) : 0,
     tacticalSkill: normalizeSupportedTacSkill(base?.tacticalSkill),
     tacticalSkillLevel: Math.max(1, Math.min(2, Number(base?.tacticalSkillLevel || 1))),

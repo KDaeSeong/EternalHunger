@@ -36,10 +36,11 @@ export function normalizeRewardDropEntries(entries, publicItems, itemNameById) {
 export function itemIcon(item) {
   const t = String(item?.type || '').toLowerCase();
   const tags = safeTags(item);
-  if (tags.includes('heal') || tags.includes('medical')) return '🚑';
+  const name = String(item?.name || '');
   if (tags.includes('meat')) return '🥩';
-  if (String(item?.name || '').includes('치킨')) return '🍗';
-  if (t === 'food' || tags.includes('food') || tags.includes('healthy')) return '🍎';
+  if (name.includes('스테이크') || name.toLowerCase().includes('steak')) return '🥩';
+  if (name.includes('치킨')) return '🍗';
+  if (t === 'food' || tags.includes('food') || tags.includes('healthy') || name.includes('사과') || name.toLowerCase().includes('apple')) return '🍎';
   if (t === 'weapon' || item?.type === '무기') return '⚔️';
   if (item?.type === '방어구') return '🛡️';
   return '📦';

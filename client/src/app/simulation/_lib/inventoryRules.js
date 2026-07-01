@@ -55,26 +55,30 @@ export function inferItemCategory(it) {
   const type = String(it?.type || '').toLowerCase();
   const name = itemDisplayName(it);
   const lower = String(name || '').toLowerCase();
+  const bandageLike = lower.includes('bandage') || name.includes('붕대');
 
   if (it && typeof it === 'object') {
     const slot = String(it?.equipSlot || '').trim().toLowerCase();
     if (slot) return 'equipment';
   }
 
+  if (bandageLike) return 'material';
+
   const isConsumable =
     type === 'food' ||
     type === 'consumable' ||
     tags.includes('food') ||
     tags.includes('healthy') ||
-    tags.includes('heal') ||
-    tags.includes('medical') ||
-    lower.includes('bandage') ||
-    lower.includes('medkit') ||
+    tags.includes('capsule') ||
+    tags.includes('book') ||
+    lower.includes('apple') ||
+    lower.includes('steak') ||
     name.includes('음식') ||
+    name.includes('사과') ||
+    name.includes('스테이크') ||
     name.includes('빵') ||
     name.includes('고기') ||
-    name.includes('붕대') ||
-    name.includes('응급');
+    name.includes('치킨');
 
   const isEquipment =
     type === 'weapon' ||
@@ -122,7 +126,7 @@ export function inferEquipSlot(it) {
 export function isBandageLikeItem(it) {
   const name = itemDisplayName(it);
   const lower = String(name || '').toLowerCase();
-  return lower.includes('bandage') || lower.includes('medkit') || name.includes('붕대') || name.includes('응급');
+  return lower.includes('bandage') || name.includes('붕대');
 }
 
 function hasSpecialInventoryTag(it) {
@@ -156,24 +160,18 @@ export function markInventoryGoalItem(item, isGoal = true, tagName = 'craft_goal
 function inventoryItemPriority(it) {
   const category = inferItemCategory(it);
   const tier = clampInventoryTier(it?.tier || 1, category);
-  const tags = safeTags(it).map((t) => String(t || '').toLowerCase());
 
   if (category === 'equipment') return 80 + tier * 5;
   if (hasSpecialInventoryTag(it)) return 70 + tier * 5;
   if (hasGoalInventoryTag(it)) return 54 + tier * 5;
   if (category === 'consumable') {
-    const medical = tags.includes('heal') || tags.includes('medical') || isBandageLikeItem(it);
-    return 20 + tier * 3 + (medical ? 8 : 0);
+    return 20 + tier * 3;
   }
   return tier * 4;
 }
 
 function isAutoDroppableConsumable(entry, invCfg, incomingScore) {
   if (invCfg?.autoDropConsumablesForPriority === false) return false;
-  const tags = safeTags(entry).map((t) => String(t || '').toLowerCase());
-  const medical = tags.includes('heal') || tags.includes('medical') || isBandageLikeItem(entry);
-  if (medical) return false;
-
   const tier = clampInventoryTier(entry?.tier || 1, 'consumable');
   const maxTier = Math.max(1, Number(invCfg?.autoDropConsumableMaxTier ?? 2));
   const minIncomingScore = Math.max(0, Number(invCfg?.autoDropConsumableMinIncomingScore ?? 50));

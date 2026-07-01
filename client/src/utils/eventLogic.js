@@ -1,6 +1,6 @@
 // ER-style micro action generator used when the second-by-second simulation
 // needs a small solo action between route, object, wildlife, and combat logic.
-import { makeRegenEffect, makeShieldEffect, makeStatBuffEffect } from './statusLogic';
+import { makeShieldEffect, makeStatBuffEffect } from './statusLogic';
 import { isItemExcludedFromFieldFarming } from './erItemFilters';
 import { normalizeErStats } from './erStats';
 
@@ -91,14 +91,13 @@ function inferItemCategory(item) {
     tags.includes('food') ||
     tags.includes('drink') ||
     tags.includes('healthy') ||
-    tags.includes('heal') ||
-    tags.includes('medical') ||
+    name.includes('사과') ||
+    name.includes('apple') ||
     name.includes('빵') ||
     name.includes('물') ||
     name.includes('스테이크') ||
     name.includes('치킨') ||
-    name.includes('초콜릿') ||
-    name.includes('붕대')
+    name.includes('초콜릿')
   ) {
     return 'consumable';
   }
@@ -166,22 +165,10 @@ function pickFood(publicItems) {
     const tags = safeTags(item);
     const name = normalizeText(item?.name).toLowerCase();
     if (tags.includes('medical') || name.includes('붕대')) return false;
-    return tags.includes('food') || tags.includes('drink') || name.includes('빵') || name.includes('물') || name.includes('스테이크') || name.includes('치킨');
+    return tags.includes('food') || tags.includes('drink') || name.includes('사과') || name.includes('apple') || name.includes('빵') || name.includes('물') || name.includes('스테이크') || name.includes('steak') || name.includes('치킨');
   });
   if (!foods.length) return null;
   return pickWeighted(foods.map((item) => ({ item, weight: itemTier(item) + (safeTags(item).includes('food') ? 1 : 0) })))?.item || foods[0];
-}
-
-function pickMedical(publicItems) {
-  const meds = findItems(publicItems, (item) => {
-    if (isItemExcludedFromFieldFarming(item)) return false;
-    if (inferItemCategory(item) !== 'consumable') return false;
-    const tags = safeTags(item);
-    const name = normalizeText(item?.name).toLowerCase();
-    return tags.includes('medical') || tags.includes('heal') || name.includes('붕대') || name.includes('응급');
-  });
-  if (!meds.length) return null;
-  return meds[Math.floor(Math.random() * meds.length)] || null;
 }
 
 function phaseKind(day, phase) {
@@ -233,8 +220,7 @@ function buildActionPool(actor, day, phase, opts) {
 
   return [
     { key: 'route_material', weight: (farmFocus ? 6 : earlyRouteWeight) * (fullInv ? 0.25 : 1) },
-    { key: 'food_supply', weight: (farmFocus ? 2.8 : 1.5) * (fullInv ? 0.35 : 1) + (hpPct < 75 ? 0.9 : 0) },
-    { key: 'medical_reset', weight: (lowHp ? 5.5 : 0.9) + (veryLowHp ? 3 : 0) },
+    { key: 'food_supply', weight: (farmFocus ? 2.8 : 1.5) * (fullInv ? 0.35 : 1) + (hpPct < 75 ? 2.2 : 0) + (lowHp ? 3.6 : 0) + (veryLowHp ? 2.4 : 0) },
     { key: 'vision_control', weight: objectWeight + (phase === 'night' ? 0.8 : 0) },
     { key: 'wildlife_track', weight: (kind === 'early_wildlife' ? 5.2 : 1.7) + Math.min(1.8, power / 80) },
     { key: 'object_hold', weight: objectWeight + (kind.includes('timing') ? 1.4 : 0) },
@@ -273,30 +259,6 @@ function foodSupplyAction(actor, publicItems) {
     drop: { item, itemId: String(item._id), qty: 1 },
     newEffects: [makeStatBuffEffect('전투 준비', { maxHp: 3, defense: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
     pvpBonusNext: 0.06,
-  };
-}
-
-function medicalResetAction(actor, publicItems) {
-  const item = pickMedical(publicItems);
-  const missingHp = Math.max(0, Number(actor?.maxHp || 100) - Number(actor?.hp || 0));
-  const recovery = clamp(Math.floor(Math.min(16, missingHp * 0.28) + randInt(4, 8)), 4, 18);
-  const effects = [
-    makeRegenEffect(4, 30, 'micro_medical_reset'),
-    makeShieldEffect(5, 20, 'micro_medical_guard'),
-  ];
-
-  if (item?._id) {
-    return {
-      log: `🚑 [${actor.name}] 의료 보급: [${item.name}] x1 확보 후 교전 복귀 준비`,
-      recovery,
-      drop: { item, itemId: String(item._id), qty: 1 },
-      newEffects: effects,
-    };
-  }
-  return {
-    log: `🚑 [${actor.name}] 안전한 엄폐 지점에서 응급 처치 완료 (HP +${recovery})`,
-    recovery,
-    newEffects: effects,
   };
 }
 
@@ -383,7 +345,6 @@ export function generateDynamicEvent(char, currentDay, ruleset, currentPhase = '
   if (action === 'silent') return silentResult();
   if (action === 'route_material') return routeMaterialAction(actor, publicItems, day);
   if (action === 'food_supply') return foodSupplyAction(actor, publicItems);
-  if (action === 'medical_reset') return medicalResetAction(actor, publicItems);
   if (action === 'vision_control') return visionControlAction(actor, day, phase);
   if (action === 'wildlife_track') return wildlifeTrackAction(actor, day, phase);
   if (action === 'object_hold') return objectHoldAction(actor, day, phase);

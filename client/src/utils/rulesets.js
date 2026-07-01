@@ -158,31 +158,29 @@ const DEFAULT_WORLD_SPAWNS = {
       day: { moved: 0.70, stay: 0.55 },
       night: { moved: 0.45, stay: 0.30 },
     },
-    // 보상 풀/가중치(명시): 음식 vs 의료 vs 하급 재료
+    // 보상 풀/가중치(명시): 음식 vs 하급 재료
     rewardTable: {
       categories: [
-        { key: 'food', weight: 55, qty: { min: 1, max: 2 } },
-        { key: 'medical', weight: 25, qty: { min: 1, max: 1 } },
-        { key: 'material', weight: 20, qty: { min: 1, max: 2 }, tierCap: 1 },
+        { key: 'food', weight: 70, qty: { min: 1, max: 2 } },
+        { key: 'material', weight: 30, qty: { min: 1, max: 2 }, tierCap: 1 },
       ],
 
       // 페이즈(낮/밤)별 카테고리 가중치 보정
-      // - 체감용 최소 조정: 밤에는 의료 비중을 조금 높임
+      // - 체감용 최소 조정: 밤에는 포만감 보충용 음식 비중을 조금 높임
       phaseMulByCat: {
-        day: { food: 1.0, medical: 1.0, material: 1.0 },
-        night: { food: 0.9, medical: 1.25, material: 0.9 },
+        day: { food: 1.0, material: 1.0 },
+        night: { food: 1.15, material: 0.9 },
       },
 
       // 맵별 카테고리 가중치 보정(옵션)
       // - 키는 mapId(문자열). 기본은 default.
-      // - 맵별로 의료/재료 체감을 조금 바꾸고 싶을 때 사용.
+      // - 맵별로 음식/재료 체감을 조금 바꾸고 싶을 때 사용.
       mapMulByMapId: {
-        default: { food: 1.0, medical: 1.0, material: 1.0 },
+        default: { food: 1.0, material: 1.0 },
       },
       boosts: {
         // 태그/이름 기반 가중치 보정(간단)
         healthyFood: 2,
-        bandageName: 2,
       },
     },
     reward: {
@@ -430,11 +428,13 @@ export const RULESETS = {
       postBattleRestExtraHealMax: 4,
     },
 
-    // 🧪 소모품(최소): 음식/의료 아이템을 전투 외 타이밍에 자동 사용
+    // 🧪 소모품(최소): 음식 아이템을 전투 외 타이밍에 자동 사용
     consumables: {
       enabled: true,
       aiUseHpBelow: 60,
       afterBattleHpBelow: 50,
+      aiUseSatietyBelow: 35,
+      satietyDecayPerAction: 1,
       maxUsesPerPhase: 1,
     },
 
@@ -597,11 +597,13 @@ export const RULESETS = {
       postBattleRestExtraHealMax: 4,
     },
 
-    // 🧪 소모품(최소): 음식/의료 아이템을 전투 외 타이밍에 자동 사용
+    // 🧪 소모품(최소): 음식 아이템을 전투 외 타이밍에 자동 사용
     consumables: {
       enabled: true,
       aiUseHpBelow: 60,
       afterBattleHpBelow: 50,
+      aiUseSatietyBelow: 35,
+      satietyDecayPerAction: 1,
       maxUsesPerPhase: 1,
     },
 

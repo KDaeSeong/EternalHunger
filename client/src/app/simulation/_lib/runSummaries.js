@@ -81,7 +81,7 @@ function createRunSupportFallback() {
     autoUseCount: 0,
     manualUseCount: 0,
     totalHeal: 0,
-    totalCleanse: 0,
+    totalSatiety: 0,
     skillUseCount: 0,
     tacticalSkillCount: 0,
     weaponSkillCount: 0,
@@ -418,7 +418,7 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
       if (e.manual) out.manualUseCount += 1;
       else out.autoUseCount += 1;
       out.totalHeal += Math.max(0, Number(e.heal || 0));
-      out.totalCleanse += Math.max(0, Number(e.cleansed || 0));
+      out.totalSatiety += Math.max(0, Number(e.satiety || 0));
       const id = String(e.itemId || '');
       if (id) itemAcc[id] = (itemAcc[id] || 0) + 1;
     }
@@ -467,7 +467,7 @@ export function buildRunSupportSummary({ runEvents, itemNameById }) {
     topTacticalSkills,
     topWeaponSkills,
     topCharacterSkills,
-    line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · cleanse ${out.totalCleanse} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
+    line: `use ${out.autoUseCount + out.manualUseCount}회 (auto ${out.autoUseCount} / dev ${out.manualUseCount}) · heal ${out.totalHeal} · 포만감 ${out.totalSatiety} · skill ${out.skillUseCount} · effect ${out.appliedEffects}/${out.immuneEffects}/${out.resistedEffects}`,
     combatLine: skillBits.length ? skillBits.join(' · ') : '',
   };
 }

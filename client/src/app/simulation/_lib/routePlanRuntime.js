@@ -35,7 +35,7 @@ function isEarlyRouteScorableItem(item) {
   if (classifySpecialByName(name)) return false;
 
   const tags = Array.isArray(item?.tags) ? item.tags.map((t) => String(t || '').toLowerCase()) : [];
-  if (tags.includes('food') || tags.includes('heal') || tags.includes('medical')) return false;
+  if (tags.includes('food')) return false;
 
   const category = inferItemCategory(item);
   if (category === 'consumable') return false;
