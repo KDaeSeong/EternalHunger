@@ -7335,7 +7335,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     isRefreshingMapsRef.current = true;
     setIsRefreshingMapSettings(true);
     try {
-      const mapsRes = await apiGet('/public/maps');
+      const mapsRes = await apiGet('/public/maps', { timeoutMs: 8000 });
       const mapsList = Array.isArray(mapsRes) ? mapsRes : [];
       if (!mapsList.length) {
         addLog('⚠️ 맵 설정 새로고침 실패(맵 목록 없음)', 'death');
@@ -7733,17 +7733,11 @@ if (showMarketPanel && pendingTranscendPick) {
     return safeRenderCompute('zoneEdges', () => buildZoneEdges({ zones, zoneGraph: baseZoneGraph }), []);
   }, [baseZoneGraph, zones, shouldComputeMapDerived]);
 
-  const [pingNow, setPingNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!shouldComputeMapDerived) return undefined;
-    const t = setInterval(() => setPingNow(Date.now()), 450);
-    return () => clearInterval(t);
-  }, [shouldComputeMapDerived]);
-
   useEffect(() => {
     setHasHydrated(true);
   }, []);
 
+  const pingNow = useMemo(() => Date.now(), [runEvents]);
   const recentPings = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
     return safeRenderCompute('recentPings', () => buildRecentPings({ runEvents, pingNow, zonePos }), []);
@@ -7761,6 +7755,17 @@ if (showMarketPanel && pendingTranscendPick) {
   }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase, getZoneName]);
 
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
+  const aliveTeamCount = useMemo(() => getAliveTeams(survivors).length, [survivors]);
+  const primaryProceedLabel = useMemo(() => {
+    if (loading) return '로딩 중...';
+    if (isAdvancing) return '진행 중...';
+    if (startBlocked) return startBlockedText || '시작 조건 부족';
+    if (isGameOver) return '다시 하기';
+    if (day === 0) return '게임 시작';
+    if (aliveTeamCount <= 1) return '결과 확인';
+    if (phase === 'morning') return day >= 6 ? '서든데스' : '밤 진행';
+    return day >= 6 ? '서든데스' : '낮 진행';
+  }, [aliveTeamCount, day, isAdvancing, isGameOver, loading, phase, startBlocked, startBlockedText]);
 
   if (!hasHydrated) {
     return <SimulationHydrationPanel />;
@@ -7983,6 +7988,26 @@ if (showMarketPanel && pendingTranscendPick) {
               <span className="weather-badge">{timeOfDay === 'day' ? '☀ 낮' : '🌙 밤'}</span>
               <span className="weather-badge">⏱ {formatClock(matchSec)}</span>
 
+              {isGameOver ? (
+                <button
+                  className="btn-restart sim-header-proceed"
+                  type="button"
+                  onClick={() => window.location.reload()}
+                >
+                  {primaryProceedLabel}
+                </button>
+              ) : (
+                <button
+                  className="btn-proceed sim-header-proceed"
+                  type="button"
+                  onClick={proceedPhaseGuarded}
+                  disabled={actionDisabled}
+                  title={startBlocked ? startBlockedText : '현재 페이즈를 진행합니다.'}
+                >
+                  {primaryProceedLabel}
+                </button>
+              )}
+
               <button
                 className="btn-secondary sim-mobile-core-btn"
                 onClick={() => setUiModal('map')}
@@ -8154,34 +8179,6 @@ if (showMarketPanel && pendingTranscendPick) {
               return (
                 <div className="minimap-canvas">
                   <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
-                    <defs>
-                      <radialGradient id="eh-minimap-ocean" cx="48%" cy="46%" r="72%">
-                        <stop offset="0%" stopColor="rgba(20, 78, 92, 0.94)" />
-                        <stop offset="62%" stopColor="rgba(10, 43, 61, 0.98)" />
-                        <stop offset="100%" stopColor="rgba(3, 14, 26, 1)" />
-                      </radialGradient>
-                      <linearGradient id="eh-minimap-land" x1="18%" y1="6%" x2="86%" y2="96%">
-                        <stop offset="0%" stopColor="rgba(58, 84, 76, 0.96)" />
-                        <stop offset="46%" stopColor="rgba(31, 66, 65, 0.98)" />
-                        <stop offset="100%" stopColor="rgba(19, 45, 52, 1)" />
-                      </linearGradient>
-                      <filter id="eh-minimap-soft-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2.2" floodColor="rgba(0,0,0,0.48)" />
-                      </filter>
-                    </defs>
-                    <rect className="minimap-ocean" x="0" y="0" width="100" height="100" />
-                    <path
-                      className="minimap-island-shape"
-                      d="M49 2 L65 8 L82 20 L94 38 L88 58 L94 76 L77 92 L54 98 L32 94 L14 82 L5 63 L9 41 L18 22 L33 9 Z"
-                    />
-                    <path
-                      className="minimap-inner-ridge"
-                      d="M27 18 C42 10 61 13 73 26 C86 41 79 61 65 72 C49 84 29 78 20 62 C10 45 13 28 27 18 Z"
-                    />
-                    <path
-                      className="minimap-lab-zone"
-                      d="M38 43 L52 37 L62 47 L55 60 L40 59 L33 50 Z"
-                    />
                     {z.map((zone) => {
                       const id = String(zone?.zoneId || '');
                       const p = zonePos?.[id];
@@ -8484,7 +8481,7 @@ if (showMarketPanel && pendingTranscendPick) {
             startBlockedText={startBlockedText}
             day={day}
             phase={phase}
-            aliveTeamCount={getAliveTeams(survivors).length}
+            aliveTeamCount={aliveTeamCount}
             showMarketPanel={showMarketPanel}
             onToggleDevTools={() => setShowMarketPanel((v) => !v)}
             autoPlay={autoPlay}

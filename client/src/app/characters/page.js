@@ -1,7 +1,7 @@
 // client/src/app/characters/page.js
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import '../../styles/ERCharacters.css';
 import '../../styles/Home.css';
@@ -144,6 +144,7 @@ export default function CharactersPage() {
   const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
   const [editCharacterSkills, setEditCharacterSkills] = useState(() => normalizeCharacterSkillsForEditor());
   const [user, setUser] = useState(() => getUser() || null);
+  const backdropPointerRef = useRef(null);
 
   const editChar = useMemo(
     () => characters.find((c) => String(characterId(c)) === String(editCharId)) || null,
@@ -291,6 +292,29 @@ export default function CharactersPage() {
 
   const closeConfigModal = () => setConfigCharId(null);
   const closeEditModal = () => setEditCharId(null);
+
+  const handleBackdropPointerDown = (event) => {
+    if (event.target !== event.currentTarget) {
+      backdropPointerRef.current = null;
+      return;
+    }
+    backdropPointerRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+  };
+
+  const handleBackdropPointerUp = (event, closeModal) => {
+    const start = backdropPointerRef.current;
+    backdropPointerRef.current = null;
+    if (!start || event.target !== event.currentTarget) return;
+    const movedX = Math.abs(event.clientX - start.x);
+    const movedY = Math.abs(event.clientY - start.y);
+    if (movedX > 8 || movedY > 8) return;
+    const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
+    if (selection && !selection.isCollapsed && String(selection.toString() || '').trim()) return;
+    closeModal();
+  };
 
   const saveConfigModal = () => {
     if (!configCharId) return;
@@ -467,9 +491,8 @@ export default function CharactersPage() {
           role="dialog"
           aria-modal="true"
           className="character-edit-backdrop"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeEditModal();
-          }}
+          onPointerDown={handleBackdropPointerDown}
+          onPointerUp={(e) => handleBackdropPointerUp(e, closeEditModal)}
         >
           <div className="character-edit-modal">
             <div className="character-edit-head">
@@ -547,9 +570,8 @@ export default function CharactersPage() {
           role="dialog"
           aria-modal="true"
           className="character-edit-backdrop"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeConfigModal();
-          }}
+          onPointerDown={handleBackdropPointerDown}
+          onPointerUp={(e) => handleBackdropPointerUp(e, closeConfigModal)}
         >
           <div className="character-edit-modal">
             <div className="character-edit-head">

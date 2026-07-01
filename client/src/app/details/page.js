@@ -1,7 +1,7 @@
 // client/src/app/details/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
@@ -96,6 +96,7 @@ export default function DetailsPage() {
   const [statModalCharId, setStatModalCharId] = useState(null);
 
   const [user, setUser] = useState(null);
+  const backdropPointerRef = useRef(null);
 
   useEffect(() => {
     // ★ 1. [보안] 토큰 검사 (문지기)
@@ -143,6 +144,29 @@ export default function DetailsPage() {
 
   const closeConfigModal = () => setConfigCharId(null);
   const closeStatModal = () => setStatModalCharId(null);
+
+  const handleBackdropPointerDown = (event) => {
+    if (event.target !== event.currentTarget) {
+      backdropPointerRef.current = null;
+      return;
+    }
+    backdropPointerRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+    };
+  };
+
+  const handleBackdropPointerUp = (event, closeModal) => {
+    const start = backdropPointerRef.current;
+    backdropPointerRef.current = null;
+    if (!start || event.target !== event.currentTarget) return;
+    const movedX = Math.abs(event.clientX - start.x);
+    const movedY = Math.abs(event.clientY - start.y);
+    if (movedX > 8 || movedY > 8) return;
+    const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
+    if (selection && !selection.isCollapsed && String(selection.toString() || '').trim()) return;
+    closeModal();
+  };
 
   useEffect(() => {
     if (!configCharId) return;
@@ -418,7 +442,8 @@ export default function DetailsPage() {
               role="dialog"
               aria-modal="true"
               className="details-modal-backdrop"
-              onClick={(e) => { if (e.target === e.currentTarget) closeStatModal(); }}
+              onPointerDown={handleBackdropPointerDown}
+              onPointerUp={(e) => handleBackdropPointerUp(e, closeStatModal)}
             >
               <div className="details-stat-modal">
                 <div className="details-modal-head">
@@ -457,7 +482,8 @@ export default function DetailsPage() {
             <div
               role="dialog"
               aria-modal="true"
-              onClick={(e) => { if (e.target === e.currentTarget) closeConfigModal(); }}
+              onPointerDown={handleBackdropPointerDown}
+              onPointerUp={(e) => handleBackdropPointerUp(e, closeConfigModal)}
               style={{
                 position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 9999,

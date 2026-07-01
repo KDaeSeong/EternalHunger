@@ -125,7 +125,9 @@
     min-width: 0;
     flex: 1 1 auto;
     height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
 }
 
 .simulation-container.modal-layout.devtools-open {
@@ -1506,6 +1508,21 @@
   min-width: 0;
 }
 
+.screen-header-right .sim-header-proceed {
+  min-height: 32px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: none;
+  flex: 0 0 auto;
+}
+
+.screen-header-right .sim-header-proceed.btn-proceed {
+  min-width: 108px;
+}
+
 .map-select {
   display: flex;
   align-items: center;
@@ -1645,7 +1662,7 @@
 .game-screen > .battlefield-panel:not(.modal-open) {
   display: block;
   flex: 1 1 auto;
-  min-height: min(68vh, 760px);
+  min-height: clamp(300px, 48vh, 560px);
   margin: 10px 0 12px;
   padding: 12px;
   border-radius: 14px;
@@ -1671,8 +1688,11 @@
 
 .game-screen > .battlefield-panel:not(.modal-open) .minimap-canvas {
   width: min(100%, 860px);
-  max-height: min(66vh, 820px);
+  max-height: min(46vh, 560px);
   border-radius: 14px;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .minimap-panel.modal-open .minimap-canvas {
@@ -1691,30 +1711,6 @@
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.minimap-ocean {
-  fill: url(#eh-minimap-ocean);
-}
-
-.minimap-island-shape {
-  fill: url(#eh-minimap-land);
-  stroke: rgba(170, 230, 230, 0.30);
-  stroke-width: 1.1;
-  filter: url(#eh-minimap-soft-shadow);
-}
-
-.minimap-inner-ridge {
-  fill: rgba(255, 255, 255, 0.035);
-  stroke: rgba(255, 255, 255, 0.10);
-  stroke-width: 0.65;
-}
-
-.minimap-lab-zone {
-  fill: rgba(255, 72, 82, 0.20);
-  stroke: rgba(255, 120, 130, 0.34);
-  stroke-width: 0.9;
-  stroke-dasharray: 1.8 1.5;
 }
 
 .minimap-zone-surface {
