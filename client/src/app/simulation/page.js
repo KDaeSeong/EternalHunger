@@ -29,7 +29,6 @@ import SiteHeader from '../../components/SiteHeader';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationControlPanel from './_components/SimulationControlPanel';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
-import SimulationLegacyControlPanel from './_components/SimulationLegacyControlPanel';
 import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationMarketPanel from './_components/SimulationMarketPanel';
 import SimulationMatchStatusPanel from './_components/SimulationMatchStatusPanel';
@@ -5455,30 +5454,6 @@ if (showMarketPanel && pendingTranscendPick) {
             speedDisabled={loading || isGameOver}
           />
 
-          <SimulationLegacyControlPanel
-            actionDisabled={actionDisabled}
-            aliveTeamCount={aliveTeamCount}
-            autoDisabled={loading || isGameOver || startBlocked}
-            autoPlay={autoPlay}
-            autoSpeed={autoSpeed}
-            day={day}
-            isAdvancing={isAdvancing}
-            isGameOver={isGameOver}
-            loading={loading}
-            matchMode={normalizeMatchMode(settings?.matchMode)}
-            matchModeDisabled={loading || isAdvancing || day !== 0}
-            onAutoSpeedChange={updateAutoSpeed}
-            onMatchModeChange={handleMatchModeChange}
-            onProceed={proceedPhaseGuarded}
-            onRestart={() => window.location.reload()}
-            onToggleAutoPlay={() => setAutoPlay((value) => !value)}
-            onToggleDevTools={() => setShowMarketPanel((value) => !value)}
-            phase={phase}
-            showMarketPanel={showMarketPanel}
-            speedDisabled={loading || isGameOver}
-            startBlocked={startBlocked}
-            startBlockedText={startBlockedText}
-          />
         </section>
 
         <SimulationMarketPanel
