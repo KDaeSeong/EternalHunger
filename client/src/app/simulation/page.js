@@ -196,7 +196,6 @@ import {
   getInitialParticipantPresetId,
 } from './_lib/participantPresetRuntime';
 import {
-  mergeServerCharacterIntoRuntimeSurvivor,
   getRuntimeActorKey,
   dedupeRuntimeParticipants,
 } from './_lib/runtimeParticipantRuntime';
@@ -227,8 +226,6 @@ import {
   getRejectedLabels,
   getSettledArray,
   getSettledValue,
-  loadMarketData,
-  loadTradeData,
   redirectToLogin,
   settleWithin,
 } from './_lib/simulationInitRuntime';
@@ -307,6 +304,12 @@ import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { createMarketActionRuntime } from './_lib/marketActionRuntime';
 import { applyActiveMapIdToState, createMapActionRuntime } from './_lib/mapActionRuntime';
 import { createParticipantPresetActionRuntime } from './_lib/participantPresetActionRuntime';
+import {
+  applyUserEconomyProgressToState,
+  createMarketStateRuntime,
+  loadMarketIntoState,
+  loadTradesIntoState,
+} from './_lib/marketStateRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1319,74 +1322,53 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return JSON.stringify((Array.isArray(runEvents) ? runEvents : []).slice(-DEV_EVENT_PREVIEW_LIMIT), null, 2);
   }, [runEvents, showDevEventLog], '');
 
+  function getMarketStateActions() {
+    return createMarketStateRuntime({
+      state: {
+        itemMetaById,
+        qtyMap,
+      },
+      actions: {
+        setCredits,
+        setDroneOffers,
+        setKiosks,
+        setMarketMessage,
+        setMarketTab,
+        setMyTradeOffers,
+        setPublicItems,
+        setPublicPerks,
+        setQtyMap,
+        setShowAllMarketRows,
+        setSurvivors,
+        setTradeOffers,
+        setViewerLp,
+        setViewerPerks,
+      },
+    });
+  }
+
   function selectMarketTab(nextTab) {
-    setMarketTab(nextTab);
-    setShowAllMarketRows(false);
+    return getMarketStateActions().selectMarketTab(nextTab);
   }
 
   function getQty(key, fallback = 1) {
-    const v = Number(qtyMap[key]);
-    if (!Number.isFinite(v) || v <= 0) return fallback;
-    return Math.floor(v);
-  };
+    return getMarketStateActions().getQty(key, fallback);
+  }
 
   function setQty(key, v) {
-    setQtyMap((prev) => ({ ...prev, [key]: v }));
-  };
+    return getMarketStateActions().setQty(key, v);
+  }
 
   function patchServerCharacterState(serverCharacter) {
-    if (!serverCharacter?._id) return;
-    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => (
-      String(s?._id) === String(serverCharacter?._id)
-        ? (() => {
-          const merged = mergeServerCharacterIntoRuntimeSurvivor(s, serverCharacter);
-          autoEquipBest(merged, itemMetaById);
-          return normalizeRuntimeSurvivor(merged);
-        })()
-        : normalizeRuntimeSurvivor(s)
-    )));
-  };
-
-  async function syncMyState() {
-    try {
-      const [me, chars] = await Promise.all([
-        apiGet('/user/me'),
-        apiGet('/characters?view=simulation'),
-      ]);
-      applyUserEconomyProgress({
-        credits: me?.credits,
-        lp: me?.lp,
-        perks: Array.isArray(me?.perks) ? me.perks : undefined,
-      });
-      const list = Array.isArray(chars) ? chars : [];
-      setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => {
-        const found = list.find((c) => String(c?._id) === String(s?._id));
-        if (!found) return normalizeRuntimeSurvivor(s);
-        const merged = mergeServerCharacterIntoRuntimeSurvivor(s, found);
-        autoEquipBest(merged, itemMetaById);
-        return normalizeRuntimeSurvivor(merged);
-      }));
-    } catch (e) {
-      // 동기화 실패는 치명적이지 않음
-      console.error(e);
-    }
-  };
+    return getMarketStateActions().patchServerCharacterState(serverCharacter);
+  }
 
   function applyUserEconomyProgress(patch = {}) {
-    const hasCredits = Number.isFinite(Number(patch?.credits));
-    const hasLp = Number.isFinite(Number(patch?.lp));
-    const hasPerks = Array.isArray(patch?.perks);
+    return getMarketStateActions().applyUserEconomyProgress(patch);
+  }
 
-    if (hasCredits) setCredits(Math.max(0, Number(patch.credits || 0)));
-    if (hasLp) setViewerLp(Math.max(0, Number(patch.lp || 0)));
-    if (hasPerks) setViewerPerks((patch.perks || []).map((x) => String(x || '')).filter(Boolean));
-
-    updateStoredUser((currentUser) => ({
-      ...(currentUser || {}),
-      ...(hasCredits ? { credits: Math.max(0, Number(patch.credits || 0)) } : {}),
-      ...(hasLp ? { lp: Math.max(0, Number(patch.lp || 0)) } : {}),
-      ...(hasPerks ? { perks: (patch.perks || []).map((x) => String(x || '')).filter(Boolean) } : {}),
-    }));
+  function syncMyState() {
+    return getMarketStateActions().syncMyState();
   }
 
   useEffect(() => {
@@ -1421,31 +1403,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return () => window.clearTimeout(id);
   }, [activeViewerPerkBundle]);
 
-  async function loadMarket() {
-    try {
-      setMarketMessage('');
-      const result = await loadMarketData();
-      setPublicItems(result.publicItems);
-      setKiosks(result.kiosks);
-      setDroneOffers(result.droneOffers);
-      setPublicPerks(result.publicPerks);
-      if (result.failedLabels.length) setMarketMessage(`${result.failedLabels.join(', ')} 로드 실패`);
-    } catch (e) {
-      setMarketMessage(getApiErrorMessage(e));
-    }
-  };
+  function loadMarket() {
+    return getMarketStateActions().loadMarket();
+  }
 
-  async function loadTrades() {
-    try {
-      setMarketMessage('');
-      const result = await loadTradeData();
-      setTradeOffers(result.tradeOffers);
-      setMyTradeOffers(result.myTradeOffers);
-      if (result.failedLabels.length) setMarketMessage(`${result.failedLabels.join(', ')} 로드 실패`);
-    } catch (e) {
-      setMarketMessage(getApiErrorMessage(e));
-    }
-  };
+  function loadTrades() {
+    return getMarketStateActions().loadTrades();
+  }
 
   // 초기 데이터 로드 (캐릭터 + 이벤트 + 설정 + 상점 데이터)
   useEffect(() => {
@@ -1588,10 +1552,14 @@ const activeMapName = useSafeMemo('activeMapName', () => {
         setSelectedParticipantPresetId(initSelectedParticipantPresetId);
         setParticipantPresetName(initSelectedParticipantPresetName);
         setPublicPerks(perksList);
-        applyUserEconomyProgress({
+        applyUserEconomyProgressToState({
           credits: meValue?.credits,
           lp: meValue?.lp,
           perks: Array.isArray(meValue?.perks) ? meValue.perks : undefined,
+        }, {
+          setCredits,
+          setViewerLp,
+          setViewerPerks,
         });
 
         mapsRef.current = mapsList;
@@ -5597,10 +5565,20 @@ if (showMarketPanel && pendingTranscendPick) {
   // 탭 전환 시 필요한 데이터 갱신
   useEffect(() => {
     if (marketTab === 'trade') {
-      void fireAndReport('marketTab.loadTrades', () => loadTrades());
+      void fireAndReport('marketTab.loadTrades', () => loadTradesIntoState({
+        setMarketMessage,
+        setMyTradeOffers,
+        setTradeOffers,
+      }));
     }
     if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') {
-      void fireAndReport('marketTab.loadMarket', () => loadMarket());
+      void fireAndReport('marketTab.loadMarket', () => loadMarketIntoState({
+        setDroneOffers,
+        setKiosks,
+        setMarketMessage,
+        setPublicItems,
+        setPublicPerks,
+      }));
     }
   }, [marketTab]);
 
