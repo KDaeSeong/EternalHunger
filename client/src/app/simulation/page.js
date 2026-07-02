@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
@@ -320,8 +320,48 @@ const MARKET_CARD_RENDER_LIMIT = 40;
 const DEV_SELECT_RENDER_LIMIT = 80;
 const DEV_EVENT_PREVIEW_LIMIT = 80;
 
+function subscribeHydration() {
+  return () => {};
+}
+
+function getClientHydrationSnapshot() {
+  return true;
+}
+
+function getServerHydrationSnapshot() {
+  return false;
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function getInitialParticipantPresetName() {
+  const selectedId = getInitialParticipantPresetId();
+  if (selectedId === RANDOM_PARTICIPANT_PRESET_ID) return '';
+  const preset = readLocalParticipantPresets()
+    .find((row) => String(row?.id || '') === String(selectedId));
+  return preset?.name || '';
+}
+
+function getDefaultSimulationSettings() {
+  return {
+    statWeights: { maxHp: 1, attackPower: 1, skillAmp: 1, defense: 1, attackSpeed: 1, attackRange: 1, sightRange: 1 },
+    suddenDeathTurn: 5,
+    forbiddenZoneStartDay: 2,
+    forbiddenZoneStartPhase: 'night',
+    forbiddenZoneDamageBase: 1.5,
+    rulesetId: 'ER_S11',
+    matchMode: 'squad',
+  };
+}
+
 export default function SimulationPage() {
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const hasHydrated = useSyncExternalStore(
+    subscribeHydration,
+    getClientHydrationSnapshot,
+    getServerHydrationSnapshot
+  );
   const [survivors, setSurvivors] = useState([]);
   const [candidateSurvivors, setCandidateSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
@@ -367,7 +407,7 @@ export default function SimulationPage() {
   const [day, setDay] = useState(0);
   const [phase, setPhase] = useState('night');
   // timeOfDay: 'day' | 'night' (phase에서 파생, 날짜/스폰 게이트용)
-  const [timeOfDay, setTimeOfDay] = useState(getTimeOfDayFromPhase('night'));
+  const timeOfDay = getTimeOfDayFromPhase(phase);
   // ⏱ 경기 경과 시간(초) - 하이브리드(페이즈 버튼 + 내부 틱)에서 기준이 되는 절대 시간
   const [matchSec, setMatchSec] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -382,7 +422,8 @@ export default function SimulationPage() {
   };
 
   function useSafeMemo(label, factory, deps, fallback) {
-    return useMemo(() => safeRenderCompute(label, factory, fallback), deps);
+    void deps;
+    return safeRenderCompute(label, factory, fallback);
   };
 
 
@@ -404,18 +445,17 @@ export default function SimulationPage() {
   const [resultSummary, setResultSummary] = useState(null);
 
   // 서버 설정값
-  const [settings, setSettings] = useState({
-    statWeights: { maxHp: 1, attackPower: 1, skillAmp: 1, defense: 1, attackSpeed: 1, attackRange: 1, sightRange: 1 },
-    suddenDeathTurn: 5,
-    forbiddenZoneStartDay: 2,
-    forbiddenZoneStartPhase: 'night',
-    forbiddenZoneDamageBase: 1.5,
-    rulesetId: 'ER_S11',
-    matchMode: 'squad',
-  });
+  const [settings, setSettings] = useState(getDefaultSimulationSettings);
   const [participantPresets, setParticipantPresets] = useState(readLocalParticipantPresets);
-  const [selectedParticipantPresetId, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
-  const [participantPresetName, setParticipantPresetName] = useState('');
+  const [selectedParticipantPresetIdRaw, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
+  const selectedParticipantPresetId = (() => {
+    const rawId = String(selectedParticipantPresetIdRaw || RANDOM_PARTICIPANT_PRESET_ID);
+    if (rawId === RANDOM_PARTICIPANT_PRESET_ID) return RANDOM_PARTICIPANT_PRESET_ID;
+    return participantPresets.some((preset) => String(preset?.id || '') === rawId)
+      ? rawId
+      : RANDOM_PARTICIPANT_PRESET_ID;
+  })();
+  const [participantPresetName, setParticipantPresetName] = useState(getInitialParticipantPresetName);
 
   const saveSelectedParticipantPresetId = (presetId) => {
     const nextId = String(presetId || RANDOM_PARTICIPANT_PRESET_ID);
@@ -426,21 +466,6 @@ export default function SimulationPage() {
       // ignore local storage failures
     }
   };
-
-  useEffect(() => {
-    if (selectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID) return;
-    if (participantPresets.some((preset) => String(preset?.id || '') === String(selectedParticipantPresetId))) return;
-    saveSelectedParticipantPresetId(RANDOM_PARTICIPANT_PRESET_ID);
-  }, [participantPresets, selectedParticipantPresetId]);
-
-  useEffect(() => {
-    if (selectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID) {
-      setParticipantPresetName('');
-      return;
-    }
-    const preset = participantPresets.find((row) => String(row?.id || '') === String(selectedParticipantPresetId));
-    setParticipantPresetName(preset?.name || '');
-  }, [participantPresets, selectedParticipantPresetId]);
 
   const getTeamStateForActor = (actor) => {
     if (!actor || normalizeMatchMode(settings?.matchMode) === 'solo') return null;
@@ -521,8 +546,7 @@ export default function SimulationPage() {
   const [maps, setMaps] = useState([]);
   const [activeMapId, setActiveMapId] = useState('');
   // 🌀 하이퍼루프(맵 즉시 이동): 현재 맵에서 이동 가능한 목적지(로컬 설정)
-  const [hyperloopDestId, setHyperloopDestId] = useState('');
-  const [hyperloopCharId, setHyperloopCharId] = useState('');
+  const [hyperloopDestIdRaw, setHyperloopDestId] = useState('');
 
   // 🪟 UI 모달(미니맵/캐릭터/로그)
   const [uiModal, setUiModal] = useState(null); // 'map' | 'chars' | 'log' | null
@@ -586,7 +610,20 @@ const activeMapName = useSafeMemo('activeMapName', () => {
 
   // ✅ 상점/조합/교환 패널
   const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | perk | trade
-  const [selectedCharId, setSelectedCharId] = useState('');
+  const [selectedCharIdRaw, setSelectedCharId] = useState('');
+  const selectedCharId = (() => {
+    const list = Array.isArray(survivors) ? survivors : [];
+    if (!list.length) return '';
+    const rawId = String(selectedCharIdRaw || '');
+    if (rawId && list.some((actor) => String(actor?._id || '') === rawId)) return rawId;
+    return String(list[0]?._id || '');
+  })();
+  const hyperloopCharId = (() => {
+    const preferred = String(selectedCharId || '').trim();
+    if (preferred) return preferred;
+    const alive = (Array.isArray(survivors) ? survivors : []).filter((actor) => Number(actor?.hp || 0) > 0);
+    return String(alive[0]?._id || '');
+  })();
   const [credits, setCredits] = useState(0);
   const [publicItems, setPublicItems] = useState([]);
   const [kiosks, setKiosks] = useState([]);
@@ -621,13 +658,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   const mapsRef = useRef([]);
   const activeMapIdRef = useRef('');
   const activeMapRef = useRef(null);
-
-
-  // phase(morning/night) -> timeOfDay(day/night) 동기화
-  useEffect(() => {
-    setTimeOfDay(getTimeOfDayFromPhase(phase));
-  }, [phase]);
-
 
   // ▶️ 오토 플레이(페이즈 자동 진행)
   // - "틱 기반"은 페이즈 내부를 초 단위로 계산하는 엔진이고,
@@ -750,7 +780,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     });
   };
   const addLogRef = useRef(addLog);
-  addLogRef.current = addLog;
+
+  useEffect(() => {
+    addLogRef.current = addLog;
+  });
 
   function exportBattleLog(format = 'md') {
     const fmt = String(format || 'md').toLowerCase() === 'json' ? 'json' : 'md';
@@ -805,7 +838,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     delete eventPayload.kind;
     delete eventPayload.at;
     delete eventPayload.ts;
-    const e = { ...eventPayload, kind: String(kind || 'unknown'), at: stamp, ts: Date.now() };
+    const e = { ...eventPayload, kind: String(kind || 'unknown'), at: stamp, ts: nowMs() };
     if ((e.subkind === undefined || e.subkind === null || e.subkind === '') && payloadKind !== undefined && payloadKind !== null && String(payloadKind)) {
       e.subkind = String(payloadKind);
     }
@@ -969,21 +1002,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return () => cancelAnimationFrame(raf);
   }, [logs, prevPhaseLogs, showPrevLogs, showDetailedLogs]);
 
-// 선택 캐릭터 기본값 유지
-  useEffect(() => {
-    if (!survivors?.length) {
-      setSelectedCharId('');
-      return;
-    }
-    if (!selectedCharId) {
-      setSelectedCharId(survivors[0]._id);
-      return;
-    }
-    if (!survivors.some((s) => String(s._id) === String(selectedCharId))) {
-      setSelectedCharId(survivors[0]._id);
-    }
-  }, [survivors, selectedCharId]);
-
   const selectedChar = useSafeMemo('selectedChar', () => {
     const list = Array.isArray(survivors) ? survivors : [];
     return list.find((s) => String(s?._id) === String(selectedCharId)) || null;
@@ -1103,10 +1121,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     activeMapRef.current = activeMap;
   }, [activeMap]);
 
-  // 맵이 바뀌면 월드 스폰 상태 초기화
-  useEffect(() => {
-    setSpawnState(createInitialSpawnState(activeMapId));
-  }, [activeMapId]);
+  function applyActiveMapId(nextMapId) {
+    const id = String(nextMapId || '');
+    const prevId = String(activeMapIdRef.current || '');
+    activeMapIdRef.current = id;
+    setActiveMapId(id);
+    if (prevId !== id) setSpawnState(createInitialSpawnState(id));
+  }
 
   const zones = useSafeMemo('zones', () => {
     const z = Array.isArray(activeMap?.zones) ? activeMap.zones : [];
@@ -1144,10 +1165,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return out;
   }, [zones], {});
 
-  const getZoneName = useMemo(() => (zoneId) => {
+  function getZoneName(zoneId) {
     const key = String(zoneId || '');
     return zoneNameById[key] || key || '미상';
-  }, [zoneNameById]);
+  }
 
   // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
   const hyperloopDestIds = useSafeMemo('hyperloopDestIds', () => {
@@ -1182,35 +1203,11 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return String(actor?.zoneId || '').trim() === pad;
   }, [selectedCharId, survivors, hyperloopPadZoneId], false);
 
-  const hyperloopDestKey = hyperloopDestIds.join('|');
-
-  useEffect(() => {
-    if (!hyperloopDestIds.length) {
-      setHyperloopDestId('');
-      return;
-    }
-    if (!hyperloopDestId || !hyperloopDestIds.includes(String(hyperloopDestId))) {
-      setHyperloopDestId(String(hyperloopDestIds[0]));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hyperloopDestKey]);
-
-// 🌀 하이퍼루프 이동 대상(캐릭터) 기본값: 선택 캐릭터 우선
-useEffect(() => {
-  const preferred = String(selectedCharId || '').trim();
-  if (preferred) {
-    if (String(hyperloopCharId || '') !== preferred) setHyperloopCharId(preferred);
-    return;
-  }
-  const alive = (Array.isArray(survivors) ? survivors : []).filter((c) => Number(c?.hp || 0) > 0);
-  if (!alive.length) {
-    setHyperloopCharId('');
-    return;
-  }
-  if (!hyperloopCharId || !alive.some((c) => String(c?._id) === String(hyperloopCharId))) {
-    setHyperloopCharId(String(alive[0]?._id || ''));
-  }
-}, [survivors, hyperloopCharId, selectedCharId]);
+  const hyperloopDestId = (() => {
+    if (!hyperloopDestIds.length) return '';
+    const rawId = String(hyperloopDestIdRaw || '');
+    return rawId && hyperloopDestIds.includes(rawId) ? rawId : String(hyperloopDestIds[0]);
+  })();
 
   function doHyperloopJump(toMapId, whoId) {
     const toId = String(toMapId || '').trim();
@@ -1250,7 +1247,7 @@ if (!who) {
 
     const fromName = String(activeMapName || '현재맵');
     const toName = String(toMap?.name || '목적지');
-    setActiveMapId(toId);
+    applyActiveMapId(toId);
     setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((c) => (String(c?._id) === who ? ({ ...c, mapId: toId, zoneId: entryZoneId }) : c)));
     const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === who)?.name || '선택 캐릭터';
     addLog(`🌀 하이퍼루프 이동: ${fromName} → ${toName} (${whoName})`, 'highlight');
@@ -1268,7 +1265,7 @@ if (!who) {
   }, [activeMap, zones], []);
 
   const hyperloopZoneKey = hyperloopZoneIds.join('|');
-  const hyperloopZoneSet = useMemo(() => new Set(hyperloopZoneIds), [hyperloopZoneKey]);
+  const hyperloopZoneSet = new Set(hyperloopZoneIds);
 
   const zoneGraph = useSafeMemo('zoneGraph', () => {
     return buildHyperloopZoneGraph(baseZoneGraph, zones, hyperloopZoneIds);
@@ -1371,9 +1368,10 @@ if (!who) {
     return JSON.stringify((Array.isArray(runEvents) ? runEvents : []).slice(-DEV_EVENT_PREVIEW_LIMIT), null, 2);
   }, [runEvents, showDevEventLog], '');
 
-  useEffect(() => {
+  function selectMarketTab(nextTab) {
+    setMarketTab(nextTab);
     setShowAllMarketRows(false);
-  }, [marketTab, showMarketPanel]);
+  }
 
   function getQty(key, fallback = 1) {
     const v = Number(qtyMap[key]);
@@ -1457,9 +1455,19 @@ if (!who) {
   const activeViewerPerkBundle = useSafeMemo('activeViewerPerkBundle', () => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks], buildPerkRuntimeBundle([], []));
 
   useEffect(() => {
-    if (!Array.isArray(survivors) || survivors.length <= 0) return;
-    setSurvivors((prev) => normalizeRuntimeSurvivorList((Array.isArray(prev) ? prev : []).map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: true }))));
-    setDead((prev) => normalizeRuntimeSurvivorList((Array.isArray(prev) ? prev : []).map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: false }))));
+    const id = window.setTimeout(() => {
+      setSurvivors((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        if (!list.length) return prev;
+        return normalizeRuntimeSurvivorList(list.map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: true })));
+      });
+      setDead((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        if (!list.length) return prev;
+        return normalizeRuntimeSurvivorList(list.map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: false })));
+      });
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [activeViewerPerkBundle]);
 
   async function loadMarket() {
@@ -1608,13 +1616,26 @@ if (!who) {
               },
             }
           : {};
+        const defaultSettings = getDefaultSimulationSettings();
+        const initParticipantPresets = readLocalParticipantPresets();
+        const initSelectedParticipantPresetIdRaw = getInitialParticipantPresetId();
+        const initSelectedParticipantPresetId = initSelectedParticipantPresetIdRaw !== RANDOM_PARTICIPANT_PRESET_ID
+          && initParticipantPresets.some((preset) => String(preset?.id || '') === String(initSelectedParticipantPresetIdRaw))
+          ? String(initSelectedParticipantPresetIdRaw)
+          : RANDOM_PARTICIPANT_PRESET_ID;
+        const initSelectedParticipantPresetName = initSelectedParticipantPresetId === RANDOM_PARTICIPANT_PRESET_ID
+          ? ''
+          : (initParticipantPresets.find((preset) => String(preset?.id || '') === initSelectedParticipantPresetId)?.name || '');
         const loadedSettings = {
-          ...(settings || {}),
+          ...defaultSettings,
           ...(settingValue || {}),
           ...storedCharacterSkillSettings,
-          matchMode: normalizeMatchMode(storedMatchMode || settingValue?.matchMode || settings?.matchMode),
+          matchMode: normalizeMatchMode(storedMatchMode || settingValue?.matchMode || defaultSettings.matchMode),
         };
         setSettings(loadedSettings);
+        setParticipantPresets(initParticipantPresets);
+        setSelectedParticipantPresetId(initSelectedParticipantPresetId);
+        setParticipantPresetName(initSelectedParticipantPresetName);
         setPublicPerks(perksList);
         applyUserEconomyProgress({
           credits: meValue?.credits,
@@ -1628,8 +1649,7 @@ if (!who) {
 // 등록된 맵 중 첫 번째 맵을 시작점으로 사용합니다. (이동/진행 로직은 런타임에서 처리)
 const initialMapId = (mapsList[0]?._id ? String(mapsList[0]._id) : '');
 if (initialMapId) {
-  activeMapIdRef.current = initialMapId;
-  setActiveMapId(initialMapId);
+  applyActiveMapId(initialMapId);
 }
 
         const initialMap = mapsList.find((m) => String(m?._id) === String(initialMapId)) || null;
@@ -1843,7 +1863,7 @@ const pickStartZoneIdForChar = (c) => {
           charsWithHp.push(seeded);
         });
         const candidateChars = normalizeRuntimeSurvivorList(charsWithHp);
-        const selectedChars = pickParticipantsForRun(candidateChars, participantPresets, selectedParticipantPresetId, loadedSettings);
+        const selectedChars = pickParticipantsForRun(candidateChars, initParticipantPresets, initSelectedParticipantPresetId, loadedSettings);
         const shuffledChars = applyMatchTeams(selectedChars, loadedSettings);
         setCandidateSurvivors(candidateChars);
         setSurvivors(shuffledChars);
@@ -2142,6 +2162,12 @@ const pickStartZoneIdForChar = (c) => {
     }
   };
 
+  const finishGameRef = useRef(finishGame);
+
+  useEffect(() => {
+    finishGameRef.current = finishGame;
+  });
+
   // --- [핵심] 진행 로직 ---
   async function proceedPhase() {
     // ✅ 다음 페이즈로 넘어갈 때, 이전/현재 페이즈 UI 로그는 초기화
@@ -2235,7 +2261,6 @@ const pickStartZoneIdForChar = (c) => {
 
     setDay(nextDay);
     setPhase(nextPhase);
-    setTimeOfDay(getTimeOfDayFromPhase(nextPhase));
     addLog(`=== ${worldTimeText(nextDay, nextPhase)} (⏱ ${phaseDurationSec}s) ===`, 'day-header');
 
     // 서든데스 카운트다운 표시
@@ -5672,8 +5697,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         : String(mapsList[0]?._id || '');
 
       if (nextId) {
-        activeMapIdRef.current = nextId;
-        setActiveMapId(nextId);
+        applyActiveMapId(nextId);
         activeMapRef.current = mapsList.find((m) => String(m?._id) === nextId) || null;
       }
 
@@ -5753,8 +5777,12 @@ if (showMarketPanel && pendingTranscendPick) {
     if (!Array.isArray(survivors)) return;
     const aliveTeams = getAliveTeams(survivors);
     if (aliveTeams.length > 1) return;
-    finishGame(aliveTeams[0]?.members || survivors, killCounts, assistCounts);
-  }, [survivors.length, day, loading, isGameOver]);
+    const finalSurvivors = aliveTeams[0]?.members || survivors;
+    const id = window.setTimeout(() => {
+      finishGameRef.current?.(finalSurvivors, killCounts, assistCounts);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [survivors, day, loading, isGameOver, killCounts, assistCounts]);
 
 
   // ▶ 오토 플레이: matchSec(페이즈 종료 시 증가)를 트리거로 다음 페이즈를 자동 진행
@@ -5983,19 +6011,16 @@ if (showMarketPanel && pendingTranscendPick) {
     if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') {
       void fireAndReport('marketTab.loadMarket', () => loadMarket());
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketTab]);
 
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
   // 금지구역 로직이 동작하도록 zones 기반 fallback을 둡니다.
-  const activeMapEff = useMemo(() => activeMap || ((Array.isArray(zones) && zones.length)
+  const activeMapEff = activeMap || ((Array.isArray(zones) && zones.length)
     ? { _id: String(activeMapId || 'local'), zones }
-    : null), [activeMap, activeMapId, zones]);
-  const forbiddenNow = useMemo(() => (
-    activeMapEff
-      ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase, getRuleset(settings?.rulesetId)))
-      : new Set()
-  ), [activeMapEff, day, phase, settings?.rulesetId]);
+    : null);
+  const forbiddenNow = activeMapEff
+    ? new Set(getForbiddenZoneIdsForPhaseRuntime(activeMapEff, day, phase, zones, settings, null))
+    : new Set();
 
   const shouldComputeHeavyDerived = showResultModal || showMarketPanel || uiModal === 'map' || uiModal === 'chars' || uiModal === 'log';
   const shouldComputeMapDerived = true;
@@ -6053,17 +6078,13 @@ if (showMarketPanel && pendingTranscendPick) {
     return safeRenderCompute('zoneEdges', () => buildZoneEdges({ zones, zoneGraph: baseZoneGraph }), []);
   }, [baseZoneGraph, zones, shouldComputeMapDerived]);
 
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
-  const pingNow = useMemo(() => Date.now(), [runEvents]);
+  const pingNow = nowMs();
   const recentPings = useMemo(() => {
     if (!shouldComputeMapDerived) return [];
     return safeRenderCompute('recentPings', () => buildRecentPings({ runEvents, pingNow, zonePos }), []);
   }, [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
 
-  const detonationRiskSummary = useMemo(() => safeRenderCompute('detonationRiskSummary', () => buildDetonationRiskSummary({
+  const detonationRiskSummary = safeRenderCompute('detonationRiskSummary', () => buildDetonationRiskSummary({
     day,
     activeMap,
     zones,
@@ -6072,7 +6093,7 @@ if (showMarketPanel && pendingTranscendPick) {
     survivors,
     phase,
     getZoneName,
-  }), getEmptyDetonationRiskSummary()), [day, activeMap, zones, forbiddenNow, settings?.rulesetId, survivors, phase, getZoneName]);
+  }), getEmptyDetonationRiskSummary());
 
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
   const aliveTeamCount = useMemo(() => getAliveTeams(survivors).length, [survivors]);
@@ -6502,7 +6523,7 @@ if (showMarketPanel && pendingTranscendPick) {
           setRunSeed={setRunSeed}
           setSeedDraft={setSeedDraft}
           setEquipForSurvivor={setEquipForSurvivor}
-          setMarketTab={setMarketTab}
+          setMarketTab={selectMarketTab}
           setShowAllMarketRows={setShowAllMarketRows}
           setShowDevDebugDetails={setShowDevDebugDetails}
           setShowDevEventLog={setShowDevEventLog}
