@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, clearAuth, getToken, getUser, updateStoredUser } from '../../utils/api';
+import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
 import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
@@ -238,6 +238,17 @@ import {
   waitMs,
   softenNonLethalBattleLog,
 } from './_lib/simulationFormattingRuntime';
+import {
+  formatInitLoadError,
+  getApiErrorMessage,
+  getRejectedLabels,
+  getSettledArray,
+  getSettledValue,
+  loadMarketData,
+  loadTradeData,
+  redirectToLogin,
+  settleWithin,
+} from './_lib/simulationInitRuntime';
 import {
   buildBaseZoneGraph,
   getHyperloopZoneIds,
@@ -1476,76 +1487,15 @@ if (!who) {
     setDead((prev) => normalizeRuntimeSurvivorList((Array.isArray(prev) ? prev : []).map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: false }))));
   }, [activeViewerPerkBundle]);
 
-  function getApiErrorMessage(err, fallback = '요청 실패') {
-    return String(err?.response?.data?.error || err?.response?.data?.message || err?.message || fallback);
-  };
-
-  function getSettledValue(result, fallback = null) {
-    if (result?.status !== 'fulfilled') return fallback;
-    return result.value ?? fallback;
-  };
-
-  function getSettledArray(result) {
-    const value = getSettledValue(result, []);
-    return Array.isArray(value) ? value : [];
-  };
-
-  function settleWithin(promise, timeoutMs) {
-    const ms = Math.max(100, Number(timeoutMs || 1000));
-    return new Promise((resolve) => {
-      let settled = false;
-      const timer = window.setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        resolve({ status: 'timeout', value: [] });
-      }, ms);
-
-      Promise.resolve(promise)
-        .then((value) => {
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timer);
-          resolve({ status: 'fulfilled', value });
-        })
-        .catch((reason) => {
-          if (settled) return;
-          settled = true;
-          window.clearTimeout(timer);
-          resolve({ status: 'rejected', reason });
-        });
-    });
-  };
-
-  function getRejectedLabels(pairs) {
-    return pairs
-      .filter(([, result]) => result?.status === 'rejected')
-      .map(([label]) => label);
-  };
-
   async function loadMarket() {
     try {
       setMarketMessage('');
-      const [itemsRes, kiosksRes, droneRes, perksRes] = await Promise.allSettled([
-        apiGetCached('/public/items', { ttlMs: 60000, timeoutMs: 20000 }),
-        apiGetCached('/public/kiosks', { ttlMs: 60000, timeoutMs: 20000 }),
-        apiGetCached('/public/drone-offers', { ttlMs: 60000, timeoutMs: 20000 }),
-        apiGetCached('/public/perks', { ttlMs: 60000, timeoutMs: 20000 }),
-      ]);
-
-      setPublicItems(getSettledArray(itemsRes));
-      setKiosks(getSettledArray(kiosksRes));
-      setDroneOffers(getSettledArray(droneRes));
-      setPublicPerks(getSettledArray(perksRes));
-
-      const failed = getRejectedLabels([
-        ['아이템', itemsRes],
-        ['키오스크', kiosksRes],
-        ['드론 판매', droneRes],
-        ['특전', perksRes],
-      ]);
-      if (failed.length) {
-        setMarketMessage(`${failed.join(', ')} 로드 실패`);
-      }
+      const result = await loadMarketData();
+      setPublicItems(result.publicItems);
+      setKiosks(result.kiosks);
+      setDroneOffers(result.droneOffers);
+      setPublicPerks(result.publicPerks);
+      if (result.failedLabels.length) setMarketMessage(`${result.failedLabels.join(', ')} 로드 실패`);
     } catch (e) {
       setMarketMessage(getApiErrorMessage(e));
     }
@@ -1554,52 +1504,13 @@ if (!who) {
   async function loadTrades() {
     try {
       setMarketMessage('');
-      const [open, mine] = await Promise.allSettled([
-        apiGet('/trades'),
-        apiGet('/trades?mine=true'),
-      ]);
-      setTradeOffers(getSettledArray(open));
-      setMyTradeOffers(getSettledArray(mine));
-
-      const failed = getRejectedLabels([
-        ['오픈 오퍼', open],
-        ['내 오퍼', mine],
-      ]);
-      if (failed.length) {
-        setMarketMessage(`${failed.join(', ')} 로드 실패`);
-      }
+      const result = await loadTradeData();
+      setTradeOffers(result.tradeOffers);
+      setMyTradeOffers(result.myTradeOffers);
+      if (result.failedLabels.length) setMarketMessage(`${result.failedLabels.join(', ')} 로드 실패`);
     } catch (e) {
       setMarketMessage(getApiErrorMessage(e));
     }
-  };
-
-  function redirectToLogin(message = '로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.', shouldClearAuth = false) {
-    if (typeof window === 'undefined') return;
-    if (shouldClearAuth) clearAuth();
-    alert(message);
-    window.location.replace('/login');
-  };
-
-  function formatInitLoadError(err) {
-    const status = Number(err?.response?.status || 0);
-    const requestUrl = String(err?.requestUrl || '');
-    const path = requestUrl ? requestUrl.replace(/^https?:\/\/[^/]+/i, '') : '';
-    const label = path ? ` (${path})` : '';
-    const msg = String(err?.message || err?.originalMessage || '').trim();
-
-    if (err?.code === 'ERR_NETWORK' || /network error/i.test(msg)) {
-      return `⚠️ 서버에 연결하지 못했습니다${label}. server 실행 상태와 API 주소를 확인해주세요.`;
-    }
-    if (status === 404) {
-      return `⚠️ 필요한 API를 찾지 못했습니다${label}. API_BASE 또는 서버 라우트를 확인해주세요.`;
-    }
-    if (status >= 500) {
-      return `⚠️ 서버 내부 오류로 초기 데이터를 불러오지 못했습니다${label}. 서버 로그를 확인해주세요.`;
-    }
-    if (status > 0) {
-      return `⚠️ 초기 데이터 로드에 실패했습니다${label}. (${status}) ${msg || '요청 실패'}`;
-    }
-    return `⚠️ 초기 데이터 로드에 실패했습니다. ${msg || '알 수 없는 오류'}`;
   };
 
   // 초기 데이터 로드 (캐릭터 + 이벤트 + 설정 + 상점 데이터)
