@@ -62,6 +62,7 @@ function buildPvpPhaseRuntime(opts = {}) {
     pvpProbCfg,
     restrictedRatio,
     suddenDeath,
+    totalZonesCount,
   };
 }
 
