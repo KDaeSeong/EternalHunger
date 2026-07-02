@@ -6,7 +6,6 @@ import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, ap
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
 import { ER_WEAPON_SKILLS, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
-import { bindReferenceErrorGuards, formatRuntimeReason } from '../../utils/runtimeErrorGuard';
 import {
   EFFECT_AIRBORNE,
   EFFECT_COOLDOWN_DOWN,
@@ -74,7 +73,6 @@ import {
   areCharacterSkillsEnabled,
 } from './_lib/characterSkillRuntime';
 import {
-  safeTags,
   itemDisplayName,
   normalizeRewardDropEntries,
   itemIcon,
@@ -100,7 +98,6 @@ import {
   normalizeRuntimeSurvivor,
   getInvItemId,
   getEquipMoveSpeed,
-  LUMIA_DEFAULT_EDGES,
   extractActorNameFromLog,
   getEquipSummary,
   compactIO,
@@ -222,7 +219,6 @@ import {
   decayActorSatiety,
   isFoodRecoveryItem,
 } from './_lib/satietyRuntime';
-import { dedupeDevGrantItems } from './_lib/devGrantRuntime';
 import {
   PARTICIPANT_PRESET_SELECTED_KEY,
   PARTICIPANT_PRESET_LIMIT,
@@ -259,6 +255,26 @@ import {
   waitMs,
   softenNonLethalBattleLog,
 } from './_lib/simulationFormattingRuntime';
+import {
+  buildBaseZoneGraph,
+  getHyperloopZoneIds,
+  buildHyperloopZoneGraph,
+  isHyperloopTransit as isHyperloopTransitEdge,
+} from './_lib/mapGraphRuntime';
+import { useSimulationRuntimeGuards } from './_lib/useSimulationRuntimeGuards';
+import { useHyperloopPickLog } from './_lib/useHyperloopPickLog';
+import {
+  buildItemNameById,
+  buildItemMetaById,
+  buildItemKeyById,
+  buildCraftableItems,
+  buildInventoryOptions,
+  buildDevGrantItemOptions,
+  filterVisibleDevGrantItemOptions,
+  getSelectedDevGrantItem,
+  buildTradeWantItemOptions,
+  limitVisibleRows,
+} from './_lib/itemOptionsRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -557,7 +573,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   const hasInitialized = useRef(false);
   const forbiddenCacheRef = useRef({});
   const logSeqRef = useRef(0);
-  const hyperloopPickLogRef = useRef({ inited: false, last: '' });
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
   const fullLogsRef = useRef([]);
   const fullLogEntriesRef = useRef([]);
@@ -732,47 +747,14 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     addLog(ok ? `💾 전투 로그 저장: ${filename}` : '⚠️ 전투 로그 저장 실패', ok ? 'system' : 'death');
   }
 
-  useEffect(() => {
-    const reportReferenceError = (reason, sourceLabel) => {
-      const msg = formatRuntimeReason(reason);
-      const finalMsg = msg || 'ReferenceError';
-      console.error(`[simulation:runtime:${sourceLabel}]`, reason);
-      addLogRef.current(`🚨 런타임 참조 오류 감지(${sourceLabel}): ${finalMsg}`, 'death');
-      addLogRef.current('🛟 시뮬 진행을 보호하기 위해 현재 페이즈를 중단했습니다. 다시 진행 버튼을 눌러주세요.', 'system');
-      setAutoPlay(false);
-      isAdvancingRef.current = false;
-      setIsAdvancing(false);
-    };
+  useSimulationRuntimeGuards({
+    addLogRef,
+    setAutoPlay,
+    isAdvancingRef,
+    setIsAdvancing,
+  });
 
-    return bindReferenceErrorGuards({
-      onReferenceError: reportReferenceError,
-      // 디버깅 시 브라우저 콘솔/오버레이를 유지하기 위해 기본 동작은 막지 않는다.
-      suppressDefault: false,
-    });
-  }, []);
-
-  // 🎯 하이퍼루프 대상 변경 로그(미니맵/로그에서 구분용)
-  useEffect(() => {
-    const whoId = String(hyperloopCharId || '').trim();
-    if (!whoId) return;
-
-    const ref = hyperloopPickLogRef.current || { inited: false, last: '' };
-
-    // 초기 세팅(기본값 자동 선택)에서는 로그 스팸 방지
-    if (!ref.inited) {
-      ref.inited = true;
-      ref.last = whoId;
-      hyperloopPickLogRef.current = ref;
-      return;
-    }
-
-    if (String(ref.last || '') === whoId) return;
-    ref.last = whoId;
-    hyperloopPickLogRef.current = ref;
-
-    const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === whoId)?.name || '선택 캐릭터';
-    addLog(`🎯 하이퍼루프 대상 선택: ${whoName}`, 'system');
-  }, [hyperloopCharId, survivors]);
+  useHyperloopPickLog({ hyperloopCharId, survivors, addLog });
 
 
   // 🧾 구조적 이벤트 로그(재현/디버깅용)
@@ -1670,102 +1652,23 @@ if (!who) {
 
 
   const baseZoneGraph = useSafeMemo('baseZoneGraph', () => {
-    const graph = {};
-    const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || ''));
-    zoneIds.forEach((id) => {
-      if (id) graph[id] = new Set();
-    });
-    const conns = Array.isArray(activeMap?.zoneConnections) ? activeMap.zoneConnections : [];
-    conns.forEach((c) => {
-      const a = String(c?.fromZoneId || '');
-      const b = String(c?.toZoneId || '');
-      if (!a || !b) return;
-      if (!graph[a]) graph[a] = new Set();
-      if (!graph[b]) graph[b] = new Set();
-      graph[a].add(b);
-      if (c?.bidirectional !== false) graph[b].add(a);
-    });
-    const hasEdges = Object.values(graph).some((s) => (s?.size || 0) > 0);
-    if (!hasEdges && zoneIds.length > 1) {
-      for (const [a, b] of (Array.isArray(LUMIA_DEFAULT_EDGES) ? LUMIA_DEFAULT_EDGES : [])) {
-        if (!a || !b) continue;
-        if (!graph[a] || !graph[b]) continue;
-        graph[a].add(b);
-        graph[b].add(a);
-      }
-      const hasEdgesAfter = Object.values(graph).some((s) => (s?.size || 0) > 0);
-      if (!hasEdgesAfter) {
-        for (let i = 0; i < zoneIds.length; i += 1) {
-          const a2 = zoneIds[i];
-          const b2 = zoneIds[(i + 1) % zoneIds.length];
-          if (a2 && b2 && a2 !== b2) {
-            graph[a2].add(b2);
-            graph[b2].add(a2);
-          }
-        }
-      }
-    }
-    const out = {};
-    Object.keys(graph).forEach((k) => {
-      out[k] = [...graph[k]];
-    });
-    return out;
+    return buildBaseZoneGraph(activeMap, zones);
   }, [activeMap, zones], {});
 
   const hyperloopZoneIds = useSafeMemo('hyperloopZoneIds', () => {
-    const zoneSet = new Set((Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean));
-    const out = [];
-    const seen = new Set();
-    const add = (zoneId) => {
-      const id = String(zoneId || '').trim();
-      if (!id || seen.has(id) || !zoneSet.has(id)) return;
-      seen.add(id);
-      out.push(id);
-    };
-
-    (Array.isArray(zones) ? zones : []).forEach((zone) => {
-      if (zone?.hasHyperloop === true || zone?.hyperloop === true) add(zone?.zoneId);
-    });
-    add(activeMap?.hyperloopDeviceZoneId);
-    return out;
+    return getHyperloopZoneIds(activeMap, zones);
   }, [activeMap, zones], []);
 
   const hyperloopZoneKey = hyperloopZoneIds.join('|');
   const hyperloopZoneSet = useMemo(() => new Set(hyperloopZoneIds), [hyperloopZoneKey]);
 
   const zoneGraph = useSafeMemo('zoneGraph', () => {
-    const graph = {};
-    const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '')).filter(Boolean);
-    Object.entries(baseZoneGraph || {}).forEach(([zoneId, neighbors]) => {
-      graph[String(zoneId)] = new Set((Array.isArray(neighbors) ? neighbors : []).map((z) => String(z || '')).filter(Boolean));
-    });
+    return buildHyperloopZoneGraph(baseZoneGraph, zones, hyperloopZoneIds);
+  }, [baseZoneGraph, zones, hyperloopZoneKey], {});
 
-    const loops = hyperloopZoneIds.map((z) => String(z || '')).filter(Boolean);
-    if (loops.length) {
-      for (const loopZoneId of loops) {
-        if (!graph[loopZoneId]) graph[loopZoneId] = new Set();
-        for (const destZoneId of zoneIds) {
-          if (!destZoneId || destZoneId === loopZoneId) continue;
-          graph[loopZoneId].add(destZoneId);
-        }
-      }
-    }
-
-    const out = {};
-    Object.keys(graph).forEach((k) => {
-      out[k] = [...graph[k]];
-    });
-    return out;
-  }, [baseZoneGraph, hyperloopZoneKey], {});
-
-  const isHyperloopTransit = (fromZoneId, toZoneId) => {
-    const from = String(fromZoneId || '').trim();
-    const to = String(toZoneId || '').trim();
-    if (!from || !to || from === to) return false;
-    if (!hyperloopZoneSet.has(from)) return false;
-    const roadNeighbors = Array.isArray(baseZoneGraph?.[from]) ? baseZoneGraph[from].map((z) => String(z || '')) : [];
-    return !roadNeighbors.includes(to);
-  };
+  const isHyperloopTransit = (fromZoneId, toZoneId) => (
+    isHyperloopTransitEdge(baseZoneGraph, hyperloopZoneIds, fromZoneId, toZoneId)
+  );
 
   const canonicalizeCharName = (name) =>
     (name || '')
@@ -2030,171 +1933,63 @@ if (!who) {
     return added;
   };
   const itemNameById = useSafeMemo('itemNameById', () => {
-    const m = {};
-    (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
-      if (it?._id) m[String(it._id)] = it.name;
-    });
-    return m;
+    return buildItemNameById(publicItems);
   }, [publicItems], {});
 
   const itemMetaById = useSafeMemo('itemMetaById', () => {
-    const m = {};
-    (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
-      if (!it?._id) return;
-      const rawTier = Number(it?.tier || 1);
-      const tier = Number.isFinite(rawTier) ? Math.max(1, Math.min(6, Math.floor(rawTier))) : 1;
-      m[String(it._id)] = {
-        name: String(it?.name || it?.text || ''),
-        type: it?.type,
-        tier,
-        tags: safeTags(it),
-        spawnZones: Array.isArray(it?.spawnZones) ? it.spawnZones : [],
-        spawnCrateTypes: Array.isArray(it?.spawnCrateTypes) ? it.spawnCrateTypes : [],
-        droneCreditsCost: Math.max(0, Number(it?.droneCreditsCost || 0)),
-      };
-    });
-    return m;
+    return buildItemMetaById(publicItems);
   }, [publicItems], {});
 
   const itemKeyById = useSafeMemo('itemKeyById', () => {
-    const m = {};
-    (Array.isArray(publicItems) ? publicItems : []).forEach((it) => {
-      if (!it?._id) return;
-      const k = String(it?.itemKey || it?.externalId || '').trim();
-      if (k) m[String(it._id)] = k;
-    });
-    return m;
+    return buildItemKeyById(publicItems);
   }, [publicItems], {});
 
   const craftables = useSafeMemo('craftables', () => {
-    return (Array.isArray(publicItems) ? publicItems : [])
-      .filter((it) => Array.isArray(it?.recipe?.ingredients) && it.recipe.ingredients.length > 0)
-      .sort((a, b) => (Number(a.tier || 1) - Number(b.tier || 1)) || String(a.name).localeCompare(String(b.name)));
+    return buildCraftableItems(publicItems);
   }, [publicItems], []);
 
   const inventoryOptions = useSafeMemo('inventoryOptions', () => {
-    const inv = Array.isArray(selectedChar?.inventory) ? selectedChar.inventory : [];
-    const map = new Map();
-    inv.forEach((x) => {
-      const id = x?.itemId ? String(x.itemId) : '';
-      const name = itemDisplayName(x);
-      if (!id) return;
-      const prev = map.get(id);
-      const qty = Math.max(1, Number(x.qty || 1));
-      if (!prev) map.set(id, { itemId: id, name, qty });
-      else map.set(id, { ...prev, qty: prev.qty + qty });
-    });
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return buildInventoryOptions(selectedChar);
   }, [selectedChar], []);
 
   const devGrantItemOptions = useSafeMemo('devGrantItemOptions', () => {
-    return dedupeDevGrantItems(publicItems)
-      .filter((it) => it?._id)
-      .map((it) => {
-        const rawTier = Number(it?.tier || 1);
-        const tier = Number.isFinite(rawTier) ? Math.max(1, Math.min(6, Math.floor(rawTier))) : 1;
-        return {
-          ...it,
-          _label: `${itemDisplayName(it)} · T${tier} · ${String(it?.equipSlot || it?.type || inferItemCategory(it) || '-')}`,
-        };
-      })
-      .sort((a, b) => String(a._label || '').localeCompare(String(b._label || '')));
+    return buildDevGrantItemOptions(publicItems);
   }, [publicItems], []);
 
   const visibleDevGrantItemOptions = useSafeMemo('visibleDevGrantItemOptions', () => {
-    const query = String(devGrantSearch || '').trim().toLowerCase();
-    const selected = String(devGrantItemId || '');
-    const list = (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : [])
-      .filter((it) => {
-        if (!query) return true;
-        return [
-          it?._label,
-          it?.name,
-          it?._id,
-          it?.itemKey,
-          it?.externalId,
-          it?.type,
-          it?.equipSlot,
-          it?.rarity,
-        ].some((v) => String(v || '').toLowerCase().includes(query));
-      });
-    const picked = selected
-      ? (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : []).find((it) => String(it?._id || '') === selected)
-      : null;
-    if (picked && !list.some((it) => String(it?._id || '') === selected)) return [picked, ...list];
-    return list;
+    return filterVisibleDevGrantItemOptions(devGrantItemOptions, devGrantSearch, devGrantItemId);
   }, [devGrantItemOptions, devGrantSearch, devGrantItemId], []);
 
   const selectedDevGrantItem = useSafeMemo('selectedDevGrantItem', () => {
-    const selected = String(devGrantItemId || '');
-    if (!selected) return null;
-    return (Array.isArray(devGrantItemOptions) ? devGrantItemOptions : [])
-      .find((it) => String(it?._id || '') === selected) || null;
+    return getSelectedDevGrantItem(devGrantItemOptions, devGrantItemId);
   }, [devGrantItemOptions, devGrantItemId], null);
 
   const tradeWantItemOptions = useSafeMemo('tradeWantItemOptions', () => {
-    const query = String(tradeWantSearch || '').trim().toLowerCase();
-    const selectedIds = new Set(
-      (Array.isArray(tradeDraft?.want) ? tradeDraft.want : [])
-        .map((row) => String(row?.itemId || ''))
-        .filter(Boolean)
-    );
-    const all = (Array.isArray(publicItems) ? publicItems : []).filter((it) => it?._id);
-    const list = all
-      .filter((it) => {
-        if (selectedIds.has(String(it?._id || ''))) return true;
-        if (!query) return true;
-        return [
-          it?.name,
-          it?._id,
-          it?.itemKey,
-          it?.externalId,
-          it?.type,
-          it?.equipSlot,
-          it?.rarity,
-        ].some((v) => String(v || '').toLowerCase().includes(query));
-      })
-      .sort((a, b) => (Number(b?.tier || 0) - Number(a?.tier || 0)) || String(a?.name || '').localeCompare(String(b?.name || '')));
-    const selected = all.filter((it) => selectedIds.has(String(it?._id || '')));
-    const shown = list.slice(0, DEV_SELECT_RENDER_LIMIT);
-    const merged = [...selected, ...shown];
-    const seen = new Set();
-    return merged.filter((it) => {
-      const id = String(it?._id || '');
-      if (!id || seen.has(id)) return false;
-      seen.add(id);
-      return true;
-    }).slice(0, DEV_SELECT_RENDER_LIMIT);
+    return buildTradeWantItemOptions(publicItems, tradeWantSearch, tradeDraft?.want, DEV_SELECT_RENDER_LIMIT);
   }, [publicItems, tradeWantSearch, tradeDraft?.want], []);
 
   const visibleCraftables = useSafeMemo('visibleCraftables', () => {
-    const list = Array.isArray(craftables) ? craftables : [];
-    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+    return limitVisibleRows(craftables, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
   }, [craftables, showAllMarketRows], []);
 
   const visibleKiosks = useSafeMemo('visibleKiosks', () => {
-    const list = Array.isArray(kiosks) ? kiosks : [];
-    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+    return limitVisibleRows(kiosks, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
   }, [kiosks, showAllMarketRows], []);
 
   const visibleDroneOffers = useSafeMemo('visibleDroneOffers', () => {
-    const list = Array.isArray(droneOffers) ? droneOffers : [];
-    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+    return limitVisibleRows(droneOffers, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
   }, [droneOffers, showAllMarketRows], []);
 
   const visiblePublicPerks = useSafeMemo('visiblePublicPerks', () => {
-    const list = Array.isArray(publicPerks) ? publicPerks : [];
-    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+    return limitVisibleRows(publicPerks, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
   }, [publicPerks, showAllMarketRows], []);
 
   const visibleTradeOffers = useSafeMemo('visibleTradeOffers', () => {
-    const list = Array.isArray(tradeOffers) ? tradeOffers : [];
-    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+    return limitVisibleRows(tradeOffers, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
   }, [tradeOffers, showAllMarketRows], []);
 
   const visibleMyTradeOffers = useSafeMemo('visibleMyTradeOffers', () => {
-    const list = Array.isArray(myTradeOffers) ? myTradeOffers : [];
-    return showAllMarketRows ? list : list.slice(0, MARKET_CARD_RENDER_LIMIT);
+    return limitVisibleRows(myTradeOffers, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
   }, [myTradeOffers, showAllMarketRows], []);
 
   const runEventsPreviewText = useSafeMemo('runEventsPreviewText', () => {
