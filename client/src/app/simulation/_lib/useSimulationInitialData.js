@@ -39,7 +39,6 @@ export function useSimulationInitialData({
     setCandidateSurvivors,
     setCredits,
     setDroneOffers,
-    setEvents,
     setGameEndReason,
     setIsGameOver,
     setKiosks,
@@ -135,20 +134,17 @@ export function useSimulationInitialData({
 
         const loadDeferredInitData = () => {
           void Promise.allSettled([
-            apiGetCached('/events', { ttlMs: 15000, timeoutMs: 20000 }),
             apiGetCached('/public/kiosks', { ttlMs: 60000, timeoutMs: 20000 }),
             apiGetCached('/public/drone-offers', { ttlMs: 60000, timeoutMs: 20000 }),
             apiGet('/trades', { timeoutMs: 20000 }),
             apiGet('/trades?mine=true', { timeoutMs: 20000 }),
-          ]).then(([eventRes, kiosksRes, droneRes, openTrades, mineTrades]) => {
-            setEvents(getSettledArray(eventRes));
+          ]).then(([kiosksRes, droneRes, openTrades, mineTrades]) => {
             setKiosks(getSettledArray(kiosksRes));
             setDroneOffers(getSettledArray(droneRes));
             setTradeOffers(getSettledArray(openTrades));
             setMyTradeOffers(getSettledArray(mineTrades));
 
             const failed = getRejectedLabels([
-              ['이벤트', eventRes],
               ['키오스크', kiosksRes],
               ['드론 판매', droneRes],
               ['오픈 오퍼', openTrades],
@@ -262,7 +258,6 @@ export function useSimulationInitialData({
         });
         setCandidateSurvivors(candidateChars);
         setSurvivors(shuffledChars);
-        setEvents([]);
 
         // 킬 카운트 초기화
         const initialKills = {};
@@ -344,7 +339,6 @@ export function useSimulationInitialData({
     setCandidateSurvivors,
     setCredits,
     setDroneOffers,
-    setEvents,
     setGameEndReason,
     setIsGameOver,
     setKillCounts,

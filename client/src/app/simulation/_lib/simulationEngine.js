@@ -96,8 +96,6 @@ import {
 import {
   getHyperloopDeviceZoneId,
   getMutantWildlifeSpawnZoneId,
-  getScenarioEventTimeOfDay,
-  isEnabledScenarioEvent,
   localKeyHyperloopDeviceZone,
   localKeyHyperloops,
   localKeyMutantWildlifeZone,
@@ -320,8 +318,6 @@ export {
   extractActorNameFromLog,
   getEquipSummary,
   compactIO,
-  isEnabledScenarioEvent,
-  getScenarioEventTimeOfDay,
   localKeyHyperloops,
   localKeyHyperloopDeviceZone,
   readLocalJsonArray,

@@ -73,8 +73,6 @@ import {
   getInvItemId,
   getEquipMoveSpeed,
   extractActorNameFromLog,
-  isEnabledScenarioEvent,
-  getScenarioEventTimeOfDay,
   localKeyHyperloops,
   readLocalJsonArray,
   uniqStr,
@@ -339,7 +337,6 @@ export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
   const [candidateSurvivors, setCandidateSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
-  const [events, setEvents] = useState([]);
   const [logs, setLogs] = useState([]);
   const [prevPhaseLogs, setPrevPhaseLogs] = useState([]);
 
@@ -1326,7 +1323,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       setCandidateSurvivors,
       setCredits,
       setDroneOffers,
-      setEvents,
       setGameEndReason,
       setIsGameOver,
       setKiosks,
@@ -3500,7 +3496,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
     const {
       assistWindowPhases,
       battleProb,
-      eventProb,
       isDay1MorningFarmPhase,
       isEarlyRouteFarmingActor,
       pvpMinSameZone,
@@ -4566,116 +4561,15 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (target.hp <= 0) markUnattributedDeath(target, '접전 끝에 쓰러짐');
         }
 
-      } else if (canDual && rand < eventProb) {
-        // [🤝 2인 이벤트]
-        const targetSeed = potentialTargets[0];
-        const target = targetSeed?._id ? survivorMap.get(String(targetSeed._id)) : null;
-        if (!target || Number(target.hp || 0) <= 0) {
-          upsertRuntimeSurvivor(survivorMap, actor);
-          continue;
-        }
-        const targetIndex = todaysSurvivors.findIndex((t) => String(t?._id || '') === String(target._id));
-        if (targetIndex > -1) todaysSurvivors.splice(targetIndex, 1);
-
-        const timeKey = nextPhase === 'night' ? 'night' : 'day';
-
-        // ✅ (로드맵 6-4 + 2번 연동) 시간대/맵 조건을 우선 적용
-        let availableEvents = (Array.isArray(events) ? events : []).filter((e) => {
-          if (!e || !isEnabledScenarioEvent(e)) return false;
-          if (String(e.type || 'normal') === 'death') return false;
-
-          const sc = Number(e.survivorCount ?? (String(e.text || '').includes('{2}') ? 2 : 1));
-          const vc = Number(e.victimCount ?? 0);
-          if (sc !== 2 || vc !== 0) return false;
-
-          const tod = getScenarioEventTimeOfDay(e);
-          if (tod !== 'both' && tod !== timeKey) return false;
-
-          // mapId가 비어있으면 "어느 맵에서든" 발생 가능, 값이 있으면 현재 선택 맵과 일치해야 함
-          if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
-
-          // zoneId가 있으면, 현재 캐릭터의 구역과 일치해야 발생
-          if (e.zoneId && String(e.zoneId) !== String(actor?.zoneId || '')) return false;
-          return true;
-        });
-
-        // 구버전 이벤트(텍스트 기반) 호환
-        if (availableEvents.length === 0) {
-          availableEvents = (Array.isArray(events) ? events : []).filter((e) => {
-            if (!e?.text || !isEnabledScenarioEvent(e)) return false;
-            if (String(e.type || 'normal') === 'death') return false;
-            if (!String(e.text).includes('{2}')) return false;
-            const tod = getScenarioEventTimeOfDay(e);
-            if (tod !== 'both' && tod !== timeKey) return false;
-            if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
-	            if (e.zoneId && String(e.zoneId) !== String(actor?.zoneId || '')) return false;
-            return true;
-          });
-        }
-
-        const randomEvent = availableEvents.length
-          ? availableEvents[Math.floor(Math.random() * availableEvents.length)]
-          : null;
-
-        if (!randomEvent?.text) {
-          // (유저용 로그 아님) 조우했지만 이벤트가 없을 때는 조용히 스킵
-          upsertRuntimeSurvivor(survivorMap, actor);
-          upsertRuntimeSurvivor(survivorMap, target);
-          continue;
-        }
-        const eventText = String(randomEvent.text)
-          .replace(/\{1\}/g, `[${actor.name}]`)
-          .replace(/\{2\}/g, `[${target.name}]`);
-        addLog(eventText, 'normal');
       } else {
-        // [🌳 1인 이벤트]
-        const timeKey = nextPhase === 'night' ? 'night' : 'day';
-        let soloEvents = (Array.isArray(events) ? events : []).filter((e) => {
-          if (!e || !isEnabledScenarioEvent(e)) return false;
-          if (String(e.type || 'normal') === 'death') return false;
-
-          const sc = Number(e.survivorCount ?? 1);
-          const vc = Number(e.victimCount ?? 0);
-          if (sc !== 1 || vc !== 0) return false;
-
-          const tod = getScenarioEventTimeOfDay(e);
-          if (tod !== 'both' && tod !== timeKey) return false;
-
-          if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
-	          if (e.zoneId && String(e.zoneId) !== String(actor?.zoneId || '')) return false;
-          return true;
+        // Dynamic non-combat action
+        const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems, {
+          farmFocus: isDay1MorningFarmPhase || isEarlyRouteFarmingActor(actor),
+          zoneName: getZoneName(actor?.zoneId || ''),
         });
-
-        // 구버전 이벤트(텍스트 기반) 호환: {2} 없는 이벤트를 1인 이벤트로 취급
-        if (soloEvents.length === 0) {
-          soloEvents = (Array.isArray(events) ? events : []).filter((e) => {
-            if (!e?.text || !isEnabledScenarioEvent(e)) return false;
-            if (String(e.type || 'normal') === 'death') return false;
-            if (String(e.text).includes('{2}')) return false;
-            const tod = getScenarioEventTimeOfDay(e);
-            if (tod !== 'both' && tod !== timeKey) return false;
-            if (activeMapId && e.mapId && String(e.mapId) !== String(activeMapId)) return false;
-	            if (e.zoneId && String(e.zoneId) !== String(actor?.zoneId || '')) return false;
-            return true;
-          });
+        if (eventResult && eventResult.log && !eventResult.silent) {
+          addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
         }
-
-        const scriptSoloChance = Math.max(0, Math.min(1, Number((pvpProbCfg && pvpProbCfg.scriptSoloChance) != null ? pvpProbCfg.scriptSoloChance : 0.22)));
-        if (soloEvents.length > 0 && Math.random() < scriptSoloChance) {
-          const randomEvent = soloEvents[Math.floor(Math.random() * soloEvents.length)];
-          const eventText = String(randomEvent.text)
-            .replace(/\{1\}/g, `[${actor.name}]`)
-            .replace(/\{2\}/g, `[${actor.name}]`);
-          addLog(eventText, 'normal');
-        } else {
-          // 폴백: 동적 이벤트 생성
-          const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems, {
-            farmFocus: isDay1MorningFarmPhase || isEarlyRouteFarmingActor(actor),
-            zoneName: getZoneName(actor?.zoneId || ''),
-          });
-          if (eventResult && eventResult.log && !eventResult.silent) {
-            addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
-          }
 
           // ✅ 동적 이벤트 보상: 크레딧
           const perkFx = getActorPerkEffects(actor);
@@ -4699,13 +4593,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
 
           // ✅ 동적 이벤트 드랍(소량): addItemToInventory로 일관 처리 + 즉시 1회 조합 시도
-          // - 기존(레거시) eventResult.newItem / eventResult.drop도 같이 호환
-          const legacyNewItem = eventResult && eventResult.newItem ? eventResult.newItem : null;
-          const rawEventDrops = [
-            ...(Array.isArray(eventResult?.drops) ? eventResult.drops : []),
-            ...(eventResult?.drop ? [eventResult.drop] : []),
-            ...(legacyNewItem ? [{ item: (legacyNewItem.item || legacyNewItem), itemId: (legacyNewItem.itemId || legacyNewItem.id || legacyNewItem._id || ''), qty: (legacyNewItem.qty || 1) }] : []),
-          ];
+          const rawEventDrops = Array.isArray(eventResult?.drops) ? eventResult.drops : [];
           const normalizedEventDrops = normalizeRewardDropEntries(rawEventDrops, publicItems, itemNameById);
           const eventCraftGoal = buildCraftGoal(actor.inventory, craftables, itemNameById, {
             goalTier: actor?.goalGearTier,
@@ -4748,7 +4636,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const eventEffects = applyRuntimeEffectPayloads(actor, eventResult?.newEffects || eventResult?.newEffect);
           logRuntimeEffectResults(addLog, actor, eventEffects.results);
           emitEffectRunEvents(actor, eventEffects.results, { source: 'event', reason: 'dynamic_event', zoneId: String(actor?.zoneId || '') }, atNow());
-        }
 
         actor = normalizeRuntimeSurvivor(actor);
         if (actor.hp <= 0) {
@@ -5194,7 +5081,6 @@ if (showMarketPanel && pendingTranscendPick) {
             <li><Link href="/">메인</Link></li>
             <li><Link href="/characters">캐릭터 설정</Link></li>
             <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/events">이벤트 설정</Link></li>
             <li><Link href="/modifiers">보정치 설정</Link></li>
             <li><Link href="/help">도움말</Link></li>
             <li><Link href="/simulation" style={{ color: '#0288d1' }}>▶ 게임 시작</Link></li>

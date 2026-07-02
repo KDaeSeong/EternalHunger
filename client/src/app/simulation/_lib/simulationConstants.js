@@ -7,7 +7,6 @@ export const START_WEAPON_TYPES = [
 
 export const INIT_DEPENDENCY_PATHS = [
   '/characters',
-  '/events',
   '/settings',
   '/user/me',
   '/public/items',

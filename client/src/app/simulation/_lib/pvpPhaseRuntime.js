@@ -34,13 +34,6 @@ function buildPvpPhaseRuntime(opts = {}) {
     ? 0
     : Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
 
-  const eventOffset = Number(pvpProbCfg.eventOffset ?? 0.3);
-  const eventMax = Number(pvpProbCfg.eventMax ?? 0.95);
-  const eventProbBase = Math.min(eventMax, (battleProb * 0.55) + eventOffset + restrictedRatio * 0.10);
-  const eventProb = isDay1MorningFarmPhase
-    ? Math.min(eventProbBase, Math.max(0, Math.min(0.12, Number(pvpProbCfg.day1MorningPairEventProb ?? 0.02))))
-    : eventProbBase;
-
   const pvpMinSameZone = Math.max(2, Math.floor(Number(pvpProbCfg.encounterMinSameZone ?? 2)));
   const assistWindowPhases = Math.max(1, Math.floor(Number(pvpProbCfg.assistWindowPhases ?? 2)));
   const earlyRouteFarmPhase = isDay1MorningFarmPhase || (nextDay === 1 && nextPhase === 'night') || (nextDay === 2 && nextPhase === 'morning');
@@ -55,7 +48,6 @@ function buildPvpPhaseRuntime(opts = {}) {
     assistWindowPhases,
     battleProb,
     earlyRouteFarmPhase,
-    eventProb,
     isDay1MorningFarmPhase,
     isEarlyRouteFarmingActor,
     pvpMinSameZone,
