@@ -348,6 +348,36 @@ export function describeRuntimeEffect(effect) {
   return `${name}${durationText}`;
 }
 
+export function formatRuntimeEffectResultText(row, opts = {}) {
+  const subjectName = String(opts?.subjectName || '').trim();
+  const prefix = subjectName ? `${subjectName} ` : '';
+  if (row?.reason === 'immune') return `${prefix}${String(row?.effect?.name || '효과')} 면역`;
+  if (row?.reason === 'resisted') return `${prefix}${String(row?.effect?.name || '효과')} 저항`;
+  if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+    const desc = describeRuntimeEffect(row.effect);
+    return desc ? `${prefix}${desc}` : '';
+  }
+  return '';
+}
+
+export function collectRuntimeEffectResultTexts(rows, opts = {}) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => formatRuntimeEffectResultText(row, opts))
+    .filter(Boolean);
+}
+
+export function logRuntimeEffectResults(addLog, actor, rows, opts = {}) {
+  const actorName = String(opts?.actorName || actor?.name || '대상');
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    if (row?.reason === 'immune') addLog?.(`🛡️ [${actorName}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
+    else if (row?.reason === 'resisted') addLog?.(`🧷 [${actorName}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
+    else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+      const desc = describeRuntimeEffect(row.effect);
+      if (desc) addLog?.(`🪄 [${actorName}] ${desc}`, 'system');
+    }
+  });
+}
+
 export function applyRuntimeEffectPayloads(actor, effects) {
   const list = normalizeStatusEffectList(effects).map((x) => normalizeRuntimeEffect(x)).filter(Boolean);
   const results = [];
