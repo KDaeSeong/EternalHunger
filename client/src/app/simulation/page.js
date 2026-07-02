@@ -27,14 +27,17 @@ import {
   getWildlifeMasteryEntries,
 } from '../../utils/masteryLogic';
 import { normalizeWeaponType } from '../../utils/equipmentCatalog';
-import { DEFAULT_RULESET_ID, getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain, normalizeRulesetId } from '../../utils/rulesets';
+import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain } from '../../utils/rulesets';
 import SiteHeader from '../../components/SiteHeader';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationControlPanel from './_components/SimulationControlPanel';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationMatchStatusPanel from './_components/SimulationMatchStatusPanel';
+import SimulationMinimapPanel from './_components/SimulationMinimapPanel';
 import SimulationResultModal from './_components/SimulationResultModal';
+import SimulationSurvivorBoard from './_components/SimulationSurvivorBoard';
+import SimulationWorldSpawnToolbar from './_components/SimulationWorldSpawnToolbar';
 import '../../styles/ERSimulation.css';
 
 const SIM_INIT_PING_TIMEOUT_MS = 5000;
@@ -80,7 +83,6 @@ import {
   getInvItemId,
   getEquipMoveSpeed,
   extractActorNameFromLog,
-  getEquipSummary,
   compactIO,
   isEnabledScenarioEvent,
   getScenarioEventTimeOfDay,
@@ -101,7 +103,6 @@ import {
   applyAiRecoveryWindow,
   isAiRecoveryLocked,
   normalizeRevivedSurvivor,
-  getVisibleRuntimeEffects,
   shouldLogRuntimeEffectExpiry,
   shouldLogRuntimeEffectTick,
   applyRuntimeEffectPayloads,
@@ -110,7 +111,6 @@ import {
   hasKioskAtZone,
   removeActiveEffect,
   createInitialSpawnState,
-  zoneHasKioskFlag,
   getEligibleSpawnZoneIds,
   getHyperloopDeviceZoneId,
   ensureWorldSpawns,
@@ -6124,176 +6124,22 @@ if (showMarketPanel && pendingTranscendPick) {
       ) : null}
 
       <div className={`simulation-container modal-layout ${showMarketPanel ? 'devtools-open' : ''}`}>
-        {/* 생존자 현황판 */}
-        <aside className={`survivor-board ${uiModal === 'chars' ? 'modal-open' : ''}`}>
-          {uiModal === 'chars' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
-          <h2>생존자 ({survivors.length}명)</h2>
-          <div className="survivor-grid">
-            {survivors.map((char) => (
-              <div key={char._id} className="survivor-card alive">
-                <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
-                <span>{char.name}</span>
-                {(() => {
-                  const teamState = getTeamStateForActor(char);
-                  if (!teamState) return null;
-                  return (
-                    <div
-                      className={`team-status-badge ${teamState.missingCount > 0 ? 'damaged' : ''}`}
-                      title={`${teamState.teamName} 원래 팀원: ${teamState.rosterNames.join(', ') || '확인 불가'}`}
-                    >
-                      👥 {teamState.label}
-                    </div>
-                  );
-                })()}
-                <div className="skill-tag">⭐ {char.specialSkill?.name || '기본 공격'}</div>
-	                <div className={`zone-badge ${forbiddenNow.has(String(char.zoneId || '')) ? 'forbidden' : ''}`}>
-	                  📍 {getZoneName(char.zoneId || '__default__')}
-	                </div>
-
-                
-                <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, rowGap: 4, justifyContent: 'center', fontSize: 12, opacity: 0.95 }}>
-                  <span>❤️ {Math.max(0, Math.floor(Number(char.hp ?? 0)))}/{Math.max(1, Math.floor(Number(char.maxHp ?? 100)))}</span>
-                  {(() => {
-                    const detVal = Number(char.detonationSec);
-                    if (!Number.isFinite(detVal)) return null;
-
-                    const rs = getRuleset(settings?.rulesetId);
-                    const detMax = Number(char.detonationMaxSec ?? rs?.detonation?.maxSec ?? 30);
-                    const critical = Math.max(0, Number(rs?.detonation?.criticalSec ?? 5));
-
-                    const totalZonesForUI = Array.isArray(activeMap?.zones) ? activeMap.zones.length : (Array.isArray(zones) ? zones.length : 0);
-                    const forbiddenCnt = forbiddenNow?.size ? forbiddenNow.size : 0;
-                    const safeLeftForUI = Math.max(0, totalZonesForUI - forbiddenCnt);
-                    const detForceAll = Math.max(0, Number(rs?.detonation?.forceAllAfterSec ?? 40));
-                    const curPhaseDur = Math.max(0, Number(getPhaseDurationSec(rs, day, phase) || 0));
-                    const forceAllOn = (safeLeftForUI <= 2 && totalZonesForUI > 0 && curPhaseDur >= detForceAll);
-
-                    const zid = String(char.zoneId || '');
-                    const isForbiddenUi = forceAllOn ? true : forbiddenNow.has(zid);
-
-                    const detFloor = Math.max(0, Math.floor(detVal));
-                    const maxFloor = Number.isFinite(detMax) ? Math.max(0, Math.floor(detMax)) : null;
-                    const isCritical = detFloor <= critical;
-                    const label = maxFloor !== null ? `${detFloor}/${maxFloor}s` : `${detFloor}s`;
-
-                    return (
-                      <span
-                        title={isForbiddenUi ? '금지구역: 폭발 타이머 감소' : '안전구역: 폭발 타이머 회복'}
-                        style={{
-                          fontWeight: 900,
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          border: '1px solid rgba(255,255,255,0.20)',
-                          background: isCritical ? 'rgba(255, 82, 82, 0.42)' : isForbiddenUi ? 'rgba(255, 82, 82, 0.26)' : 'rgba(0,0,0,0.22)',
-                          color: '#fff',
-                        }}
-                      >
-                        {isCritical ? '⚠️ ' : ''}⏳ {label}
-                      </span>
-                    );
-                  })()}
-
-                  {normalizeRulesetId(settings?.rulesetId) === DEFAULT_RULESET_ID && (
-                    <span>⚡ {Number.isFinite(Number(char.gadgetEnergy)) ? Math.floor(Number(char.gadgetEnergy)) : 0}</span>
-                  )}
-                </div>
-
-                {(() => {
-                  const es = getEquipSummary(char);
-                  return (
-                    <div className="equip-summary" title={es.full}>
-                      🧰 {es.short}
-                    </div>
-                  );
-                })()}
-
-                <div className="inventory-summary">
-                  <span className="bag-icon">🎒</span>
-                  <span className="inv-count">{Array.isArray(char.inventory) ? char.inventory.length : 0}/3</span>
-                  <div className="inv-tooltip">
-                    {(Array.isArray(char.inventory) ? char.inventory : []).map((it, i) => (
-                      <div key={i} className="inv-item-mini">
-                        {itemIcon(it)} {itemDisplayName(it)}
-                        {Number(it?.qty || 1) > 1 ? ` x${Number(it.qty)}` : ''}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {killCounts[char._id] > 0 && <span className="kill-badge">⚔️{killCounts[char._id]}</span>}
-
-                <div className="status-effects-container">
-                  {(() => {
-                    const uiPhaseIdx = Math.max(0, Number(day || 0) * 2 + (timeOfDay === 'day' ? 0 : 1));
-                    const du = Number(char?._immediateDangerUntilPhaseIdx ?? -1);
-                    const dv = Math.max(0, Number(char?._immediateDanger || 0));
-                    if (dv <= 0 || du !== uiPhaseIdx) return null;
-                    const pct = Math.min(99, Math.max(1, Math.round(dv * 100)));
-                    return (
-                      <span title="수집/사냥 직후: 교전 유발(표적 우선)" className="effect-badge">
-                        ⚠️ 노출 +{pct}%
-                      </span>
-                    );
-                  })()}
-                  {getVisibleRuntimeEffects(char.activeEffects).map((eff, i) => {
-                    const nm = String(eff?.name || '');
-                    const dur = Number.isFinite(Number(eff?.remainingDuration)) ? Math.max(0, Number(eff.remainingDuration)) : null;
-                    const icon = nm === '식중독' ? '🤢'
-                      : nm === '중독' ? '☠️'
-                        : nm === '화상' ? '🔥'
-                          : nm === '보호막' ? '🛡️'
-                            : nm === '재생' ? '✨'
-                              : nm === '에어본' ? '🌀'
-                                : nm === '치유 감소' ? '🩹'
-                                  : nm === '기절' ? '💫'
-                                    : nm === '넉백' ? '↔️'
-                                      : nm === '이동 속도 감소' ? '↘️'
-                                        : nm === '흡혈' ? '🩸'
-                                          : nm === '이동 속도 증가' ? '↗️'
-                                            : nm === '쿨다운 증가' ? '⏫'
-                                              : nm === '쿨다운 감소' ? '⏬'
-                                                : '🤕';
-                    const stacks = Math.max(1, Number(eff?.stacks || 1));
-                    const label = eff?._boardLabel || (dur !== null ? `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''} ${dur}s` : `${icon}${nm}${stacks > 1 ? ` x${stacks}` : ''}`);
-                    return (
-                      <span key={`${nm}-${i}`} title={eff?._boardTitle || (dur !== null ? `${nm}${stacks > 1 ? ` x${stacks}` : ''} (${dur}s)` : nm)} className="effect-badge">
-                        {label}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <h2 style={{ marginTop: '30px', color: '#ff5252' }}>사망자 ({dead.length}명)</h2>
-          <div className="survivor-grid">
-            {dead.map((char) => (
-              <div key={char._id} className="survivor-card dead">
-                <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
-                <span>{char.name}</span>
-                {(() => {
-                  const teamState = getTeamStateForActor(char);
-                  if (!teamState) return null;
-                  return (
-                    <div
-                      className={`team-status-badge ${teamState.missingCount > 0 ? 'damaged' : ''}`}
-                      title={`${teamState.teamName} 원래 팀원: ${teamState.rosterNames.join(', ') || '확인 불가'}`}
-                    >
-                      👥 {teamState.label}
-                    </div>
-                  );
-                })()}
-                <div className="zone-badge dead">📍 {getZoneName(char.zoneId || '__default__')}</div>
-                
-                <div style={{ fontSize: 12, marginTop: 6, opacity: 0.95 }}>💳 {Number(char.simCredits || 0)} Cr</div>
-{killCounts[char._id] > 0 && <span className="kill-badge">⚔️{killCounts[char._id]}</span>}
-              </div>
-            ))}
-          </div>
-        </aside>
-
+        <SimulationSurvivorBoard
+          activeMap={activeMap}
+          closeUiModal={closeUiModal}
+          day={day}
+          dead={dead}
+          forbiddenNow={forbiddenNow}
+          getTeamStateForActor={getTeamStateForActor}
+          getZoneName={getZoneName}
+          killCounts={killCounts}
+          phase={phase}
+          settings={settings}
+          survivors={survivors}
+          timeOfDay={timeOfDay}
+          uiModal={uiModal}
+          zones={zones}
+        />
         {/* 게임 화면 */}
         <section className={`game-screen ${phase === 'morning' ? 'morning-mode' : 'night-mode'}`}>
           <div className="screen-header">
@@ -6411,339 +6257,42 @@ if (showMarketPanel && pendingTranscendPick) {
           ) : null}
 
 
-{(() => {
-  if (day <= 0) return null;
-  const s = spawnState && String(spawnState.mapId || '') === String(activeMapId || '') ? spawnState : null;
-  if (!s) return null;
+          <SimulationWorldSpawnToolbar
+            activeMapId={activeMapId}
+            day={day}
+            spawnState={spawnState}
+            zones={zones}
+          />
 
-  const unopenedCrates = (Array.isArray(s.legendaryCrates) ? s.legendaryCrates : []).filter((c) => c && !c.opened).length;
-  const unopenedTranscendCrates = (Array.isArray(s.transcendCrates) ? s.transcendCrates : []).filter((c) => c && !c.opened).length;
-  const activeDimensionRifts = listActiveDimensionRifts(s).length;
-  const unpickedCore = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked).length;
-
-  const meteorCnt = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked && String(n.kind) === 'meteor').length;
-  const lifeTreeCnt = (Array.isArray(s.coreNodes) ? s.coreNodes : []).filter((n) => n && !n.picked && String(n.kind) === 'life_tree').length;
-
-  const bosses = s.bosses || {};
-  const alphaOn = !!bosses?.alpha?.alive;
-  const omegaOn = !!bosses?.omega?.alive;
-  const weaklineOn = !!bosses?.weakline?.alive;
-
-  const wildlifeMap = (s?.wildlife && typeof s.wildlife === 'object') ? s.wildlife : {};
-  const eligibleWildZones = (Array.isArray(zones) ? zones : [])
-    .filter((z) => z && z.zoneId)
-    .filter((z) => !zoneHasKioskFlag(z))
-    .map((z) => String(z.zoneId));
-  const wildlifeTotal = eligibleWildZones.reduce((sum, zid) => sum + Math.max(0, Number(wildlifeMap?.[zid] ?? 0)), 0);
-  const wildlifeEmpty = eligibleWildZones.reduce((cnt, zid) => cnt + ((Math.max(0, Number(wildlifeMap?.[zid] ?? 0)) <= 0) ? 1 : 0), 0);
-
-  if (!unopenedCrates && !unopenedTranscendCrates && !activeDimensionRifts && !unpickedCore && !alphaOn && !omegaOn && !weaklineOn && wildlifeTotal <= 0) return null;
-
-  return (
-    <div className="worldspawn-toolbar">
-      <span className="ws-title">🌍 월드스폰</span>
-      <span className="ws-chip">🟪 전설상자: <b>{unopenedCrates}</b></span>
-      <span className="ws-chip">🎁 초월상자: <b>{unopenedTranscendCrates}</b></span>
-      <span className="ws-chip">🌀 차원의 틈: <b>{activeDimensionRifts}</b></span>
-      <span className="ws-chip">🌠 오브젝트: 운석 <b>{meteorCnt}</b> / 생나 <b>{lifeTreeCnt}</b></span>
-      <span className="ws-chip" title="시간대별 종별 야생동물 스폰">🦌 야생동물: <b>{wildlifeTotal}</b>{wildlifeEmpty > 0 ? ` (빈구역 ${wildlifeEmpty})` : ''}</span>
-      <span className="ws-chip">👹 알파: <b>{alphaOn ? 'ON' : 'off'}</b></span>
-      <span className="ws-chip">👹 오메가: <b>{omegaOn ? 'ON' : 'off'}</b></span>
-      <span className="ws-chip">👹 위클라인: <b>{weaklineOn ? 'ON' : 'off'}</b></span>
-    </div>
-  );
-})()}
-
-          {/* 🗺️ 미니맵: 구역 그래프 + 캐릭터 위치 */}
-          <div className={`minimap-panel battlefield-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
-            {uiModal === 'map' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
-            {(() => {
-              const z = Array.isArray(zones) ? zones : [];
-              if (!z.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
-
-              const aliveByZone = {};
-              (Array.isArray(survivors) ? survivors : []).forEach((c) => {
-                const mid = String(c?.mapId || '').trim();
-                if (mid && String(activeMapId || '') && mid !== String(activeMapId)) return;
-                const zid = String(c?.zoneId || '');
-                if (!zid) return;
-                if (!aliveByZone[zid]) aliveByZone[zid] = [];
-                aliveByZone[zid].push(c);
-              });
-              const deadByZone = {};
-              (Array.isArray(dead) ? dead : []).forEach((c) => {
-                const mid = String(c?.mapId || '').trim();
-                if (mid && String(activeMapId || '') && mid !== String(activeMapId)) return;
-                const zid = String(c?.zoneId || '');
-                if (!zid) return;
-                if (!deadByZone[zid]) deadByZone[zid] = [];
-                deadByZone[zid].push(c);
-              });
-
-              const hyperloopSelectedChar = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === String(hyperloopCharId)) || null;
-              const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
-
-              const OFF = [
-                [0, 0], [3, 0], [-3, 0], [0, 3], [0, -3],
-                [3, 3], [-3, 3], [3, -3], [-3, -3],
-                [5, 0], [-5, 0], [0, 5], [0, -5],
-              ];
-              const TOKEN_OFF = [
-                [0, 0], [4.4, 0], [-4.4, 0], [0, 4.4], [0, -4.4],
-                [3.3, 3.3], [-3.3, 3.3], [3.3, -3.3], [-3.3, -3.3],
-                [6.2, 1.8], [-6.2, 1.8], [1.8, 6.2], [1.8, -6.2],
-              ];
-
-              return (
-                <div className="minimap-canvas">
-                  <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
-                    {z.map((zone) => {
-                      const id = String(zone?.zoneId || '');
-                      const p = zonePos?.[id];
-                      if (!id || !p) return null;
-                      const isF = forbiddenNow.has(id);
-                      return (
-                        <circle
-                          key={`surface-${id}`}
-                          cx={p.x}
-                          cy={p.y}
-                          r={6.35}
-                          className={`minimap-zone-surface ${isF ? 'forbidden' : ''}`}
-                        />
-                      );
-                    })}
-
-                    {/* 연결선 */}
-                    {zoneEdges.map(([a, b]) => {
-                      const pa = zonePos?.[a];
-                      const pb = zonePos?.[b];
-                      if (!pa || !pb) return null;
-                      return (
-                        <line
-                          key={`e-${a}-${b}`}
-                          x1={pa.x}
-                          y1={pa.y}
-                          x2={pb.x}
-                          y2={pb.y}
-                          className="minimap-edge"
-                        />
-                      );
-                    })}
-
-                    {/* 구역 노드 */}
-                    {z.map((zone) => {
-                    const id = String(zone?.zoneId || '');
-                    const p = zonePos?.[id];
-                    if (!id || !p) return null;
-                    const isF = forbiddenNow.has(id);
-                    const isSelZone = !!selectedZoneId && selectedZoneId === id;
-                    const nm = String(getZoneName(id) || id);
-                    const aliveHere = aliveByZone[id]?.length || 0;
-                    const deadHere = deadByZone[id]?.length || 0;
-                    const nodeR = 4.8;
-                    const labelSize = nm.length >= 6 ? 2.05 : nm.length >= 5 ? 2.3 : 2.65;
-                    const hasHyperloop = hyperloopZoneSet.has(id);
-
-                    return (
-                      <g key={`z-${id}`}>
-                        <text
-                          className="minimap-zone-label"
-                          x={p.x}
-                          y={p.y - nodeR - 1.4}
-                          textAnchor="middle"
-                          fontSize={labelSize}
-                        >
-                          {nm}
-                        </text>
-                        <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r={nodeR}
-                          className={`minimap-node ${isF ? 'forbidden' : ''} ${isSelZone ? 'selected' : ''}`}
-                        />
-                        {/* 배경 지도(하이퍼루프 이미지)에 이미 지역명이 있으므로, SVG 텍스트 라벨은 숨긴다. */}
-                        <title>{nm}</title>
-
-                        {/* 하이퍼루프 */}
-                        {hasHyperloop ? (
-                          <text x={p.x + nodeR} y={p.y - 4.2} textAnchor="middle" fontSize="5.0" fill="rgba(180,220,255,0.92)">🌀</text>
-                        ) : null}
-
-                        {/* 생존/사망 수 */}
-                        {(aliveHere > 0 || deadHere > 0) ? (
-                          <text
-                            x={p.x}
-                            y={p.y + 5.8}
-                            textAnchor="middle"
-                            fontSize="3.0"
-                            fill="rgba(255,255,255,0.72)"
-                          >
-                            {aliveHere > 0 ? `+${aliveHere}` : ''}{deadHere > 0 ? ` / -${deadHere}` : ''}
-                          </text>
-                        ) : null}
-
-                        {/* 캐릭터 마커 */}
-                        {(aliveByZone[id] || []).slice(0, 12).map((c, idx) => {
-                          const o = TOKEN_OFF[idx % TOKEN_OFF.length];
-                          const cx = p.x + o[0] * 0.55;
-                          const cy = p.y + o[1] * 0.55;
-                          const isSel = String(c?._id || '') === String(hyperloopCharId || '');
-                          const hpRatio = Math.max(0, Math.min(1, Number(c?.hp || 0) / Math.max(1, Number(c?.maxHp || 100))));
-                          const tokenImg = String(c?.previewImage || '/Images/default_image.png');
-                          const teamState = getTeamStateForActor(c);
-                          const teamColor = teamState?.missingCount > 0
-                            ? 'rgba(255, 180, 80, 0.94)'
-                            : 'rgba(112, 221, 148, 0.94)';
-                          const tokenTitle = `${String(c?.name || '캐릭터')} / HP ${Math.floor(Number(c?.hp || 0))}/${Math.max(1, Math.floor(Number(c?.maxHp || 100)))} / ${nm}`;
-                          return (
-                            <g key={`a-${id}-${c._id || idx}`} className={`minimap-character-token ${isSel ? 'selected' : ''}`}>
-                              <title>{tokenTitle}</title>
-                              {isSel ? (
-                                <circle
-                                  cx={cx}
-                                  cy={cy}
-                                  r={3.3}
-                                  fill="none"
-                                  stroke="rgba(255,215,0,0.92)"
-                                  strokeWidth="0.8"
-                                />
-                              ) : null}
-                              <circle
-                                cx={cx}
-                                cy={cy}
-                                r={2.65}
-                                fill="rgba(8, 14, 24, 0.92)"
-                                stroke={isSel ? 'rgba(255,215,0,0.95)' : teamColor}
-                                strokeWidth="0.55"
-                              />
-                              <image
-                                href={tokenImg}
-                                x={cx - 1.75}
-                                y={cy - 1.75}
-                                width="3.5"
-                                height="3.5"
-                                preserveAspectRatio="xMidYMid slice"
-                              />
-                              <path
-                                d={`M ${cx - 2.55} ${cy + 2.95} H ${cx - 2.55 + (5.1 * hpRatio)}`}
-                                className={hpRatio <= 0.32 ? 'minimap-token-hp critical' : 'minimap-token-hp'}
-                              />
-                              <text
-                                x={cx}
-                                y={cy + 5.8}
-                                textAnchor="middle"
-                                className="minimap-token-label"
-                              >
-                                {String(c?.name || '?').slice(0, 2)}
-                              </text>
-                            </g>
-                          );
-                        })}
-                        {(deadByZone[id] || []).slice(0, 8).map((c, idx) => {
-                          const o = OFF[(idx + 2) % OFF.length];
-                          return (
-                            <circle
-                              key={`d-${id}-${c._id || idx}`}
-                              cx={p.x + o[0] * 0.55}
-                              cy={p.y + o[1] * 0.55}
-                              r={0.85}
-                              fill="rgba(170,170,170,0.70)"
-                              stroke="rgba(0,0,0,0.28)"
-                              strokeWidth="0.35"
-                            />
-                          );
-                        })}
-                      </g>
-                    );
-                  })}
-                    {recentPings.map((ping) => {
-                      const p = zonePos?.[String(ping?.zoneId || '')];
-                      if (!p) return null;
-                      return (
-                        <g
-                          key={`ping-${ping.id}`}
-                          className={`minimap-ping ${String(ping.kind || '')}`}
-                          transform={`translate(${p.x} ${p.y})`}
-                        >
-                          <circle r="7.8" />
-                          <text className="minimap-ping-icon" x="0" y="1.5" textAnchor="middle">
-                            {ping.icon}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                </div>
-              );
-            })()}
-            <div className="minimap-legend">
-              <span className="minimap-dot alive" /> 생존자 · <span className="minimap-dot dead" /> 사망자 · <span className="minimap-dot forbidden" /> 금지구역 · ⭐ 하이퍼루프 대상
-            </div>
-
-            {day > 0 && hyperloopDestIds.length ? (
-              <div
-                style={{
-                  marginTop: 8,
-                  padding: '8px 10px',
-                  borderRadius: 10,
-                  background: 'rgba(0,0,0,0.22)',
-                  border: '1px solid rgba(255,255,255,0.10)',
-                  fontSize: 12,
-                }}
-              >
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <span style={{ opacity: 0.9 }} title="하이퍼루프는 맵 내 장치(패드)에서만 사용 가능">
-                    🌀 하이퍼루프
-                  </span>
-                  <span style={{ opacity: 0.9 }}>
-                    패드: <b>{hyperloopPadName || hyperloopPadZoneId || '자동'}</b>
-                  </span>
-
-                  {isSelectedCharOnHyperloopPad ? (
-                    <>
-                      <select
-                        value={hyperloopDestId}
-                        onChange={(e) => setHyperloopDestId(e.target.value)}
-                        disabled={loading || isAdvancing || isGameOver}
-                        title="어드민(맵)에서 설정한 하이퍼루프 목적지(로컬 저장)"
-                        style={{
-                          padding: '6px 8px',
-                          fontSize: 12,
-                          borderRadius: 8,
-                          border: '1px solid rgba(255,255,255,0.18)',
-                          background: 'rgba(0,0,0,0.20)',
-                          color: '#fff',
-                        }}
-                      >
-                        {hyperloopDestIds.map((id) => {
-                          const m = (Array.isArray(maps) ? maps : []).find((x) => String(x?._id) === String(id)) || null;
-                          return (
-                            <option key={`hl-mm-${id}`} value={id} style={{ color: '#000' }}>
-                              {m?.name || id}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      <button
-                        className="btn-secondary"
-                        onClick={() => doHyperloopJump(hyperloopDestId, selectedCharId)}
-                        disabled={loading || isAdvancing || isGameOver || !hyperloopDestId || !selectedCharId}
-                        style={{ padding: '6px 10px', fontSize: 12 }}
-                        title="하이퍼루프: 선택 캐릭터만 목적지 맵으로 즉시 이동"
-                      >
-                        🌀 이동
-                      </button>
-                    </>
-                  ) : (
-                    <span style={{ opacity: 0.75 }} title="선택 캐릭터가 패드 구역에 있어야 사용할 수 있습니다.">
-                      선택 캐릭터가 패드 구역에 있어야 사용 가능
-                    </span>
-                  )}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
+          <SimulationMinimapPanel
+            activeMapId={activeMapId}
+            closeUiModal={closeUiModal}
+            day={day}
+            dead={dead}
+            doHyperloopJump={doHyperloopJump}
+            forbiddenNow={forbiddenNow}
+            getTeamStateForActor={getTeamStateForActor}
+            getZoneName={getZoneName}
+            hyperloopCharId={hyperloopCharId}
+            hyperloopDestId={hyperloopDestId}
+            hyperloopDestIds={hyperloopDestIds}
+            hyperloopPadName={hyperloopPadName}
+            hyperloopPadZoneId={hyperloopPadZoneId}
+            hyperloopZoneSet={hyperloopZoneSet}
+            isAdvancing={isAdvancing}
+            isGameOver={isGameOver}
+            isSelectedCharOnHyperloopPad={isSelectedCharOnHyperloopPad}
+            loading={loading}
+            maps={maps}
+            recentPings={recentPings}
+            selectedCharId={selectedCharId}
+            setHyperloopDestId={setHyperloopDestId}
+            survivors={survivors}
+            uiModal={uiModal}
+            zones={zones}
+            zoneEdges={zoneEdges}
+            zonePos={zonePos}
+          />
           <SimulationMatchStatusPanel
             day={day}
             phase={phase}
