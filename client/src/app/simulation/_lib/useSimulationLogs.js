@@ -152,7 +152,6 @@ export function useSimulationLogs({
     prevPhaseLogs,
     resetPhaseLogs,
     runEvents,
-    setLogBoxMaxH,
     setPrevPhaseLogs,
     setRunEvents,
     setShowDetailedLogs,

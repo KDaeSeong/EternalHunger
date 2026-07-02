@@ -39,13 +39,6 @@ import SimulationWorldSpawnToolbar from './_components/SimulationWorldSpawnToolb
 import '../../styles/ERSimulation.css';
 
 import {
-  buildDetonationRiskSummary,
-  buildRecentPings,
-  buildZoneEdges,
-  buildZonePositions,
-  getEmptyDetonationRiskSummary,
-} from './_lib/mapDerived';
-import {
   applyCharacterSkillOnBasicAttack,
   areCharacterSkillsEnabled,
 } from './_lib/characterSkillRuntime';
@@ -150,12 +143,6 @@ import {
   worldTimeText,
   worldPhaseIndex,
 } from './_lib/simulationEngine';
-import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
-import {
-  buildSimulationDiagnostics,
-  formatDiagnosticsLine,
-  getEmptySimulationDiagnostics,
-} from './_lib/simulationDiagnostics';
 import {
   applyRegionDataToZones,
   getRegionData,
@@ -209,7 +196,6 @@ import {
   shouldAvoidCombatByMovePower as shouldAvoidCombatByMovePowerRuntime,
 } from './_lib/movePowerRuntime';
 import { createPhaseDeathRuntime } from './_lib/phaseDeathRuntime';
-import { createSeedRng } from './_lib/randomSeedRuntime';
 import {
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
   getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
@@ -261,6 +247,10 @@ import { createParticipantPresetActionRuntime } from './_lib/participantPresetAc
 import { createDevToolActionRuntime } from './_lib/devToolActionRuntime';
 import { useSimulationMarketState } from './_lib/useSimulationMarketState';
 import { useSimulationLogs } from './_lib/useSimulationLogs';
+import { useSimulationRunSeed } from './_lib/useSimulationRunSeed';
+import { useSimulationFlowState } from './_lib/useSimulationFlowState';
+import { useSimulationUiModal } from './_lib/useSimulationUiModal';
+import { useSimulationDerivedData } from './_lib/useSimulationDerivedData';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -277,10 +267,6 @@ function getClientHydrationSnapshot() {
 
 function getServerHydrationSnapshot() {
   return false;
-}
-
-function nowMs() {
-  return Date.now();
 }
 
 function getInitialParticipantPresetName() {
@@ -358,6 +344,7 @@ export default function SimulationPage() {
   const [settings, setSettings] = useState(getDefaultSimulationSettings);
   const {
     addLog: addLogFromLogs,
+    addLogRef,
     emitRunEvent: emitRunEventFromLogs,
     exportBattleLog: exportBattleLogFromLogs,
     fullLogEntriesRef,
@@ -369,7 +356,6 @@ export default function SimulationPage() {
     prevPhaseLogs,
     resetPhaseLogs,
     runEvents,
-    setLogBoxMaxH,
     setPrevPhaseLogs,
     setRunEvents,
     setShowDetailedLogs,
@@ -491,16 +477,7 @@ export default function SimulationPage() {
   const [hyperloopDestIdRaw, setHyperloopDestId] = useState('');
 
   // 🪟 UI 모달(미니맵/캐릭터/로그)
-  const [uiModal, setUiModal] = useState(null); // 'map' | 'chars' | 'log' | null
-  const closeUiModal = () => setUiModal(null);
-
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') closeUiModal();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  const { closeUiModal, setUiModal, uiModal } = useSimulationUiModal();
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -649,104 +626,45 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // ▶️ 오토 플레이(페이즈 자동 진행)
   // - "틱 기반"은 페이즈 내부를 초 단위로 계산하는 엔진이고,
   // - 오토 플레이는 "다음 페이즈" 버튼을 일정 간격으로 자동 눌러주는 UX입니다.
-  const [autoPlay, setAutoPlay] = useState(false);
-  const [autoSpeed, setAutoSpeed] = useState(1); // 1 / 2 / 4 / 8 / 16 / 32
-  const autoSpeedRef = useRef(1);
-  const [isAdvancing, setIsAdvancing] = useState(false);
-  const isAdvancingRef = useRef(false);
-  const isRefreshingMapsRef = useRef(false);
-  const [isRefreshingMapSettings, setIsRefreshingMapSettings] = useState(false);
-  const [mapRefreshToast, setMapRefreshToast] = useState(null);
-  const mapRefreshToastTimerRef = useRef(null);
-  const proceedPhaseGuardedRef = useRef(null);
+  const {
+    autoPlay,
+    autoSpeed,
+    autoSpeedRef,
+    isAdvancing,
+    isAdvancingRef,
+    isRefreshingMapsRef,
+    isRefreshingMapSettings,
+    mapRefreshToast,
+    normalizeAutoSpeed,
+    proceedPhaseGuardedRef,
+    setAutoPlay,
+    setIsAdvancing,
+    setIsRefreshingMapSettings,
+    showMapRefreshToast,
+    updateAutoSpeed,
+  } = useSimulationFlowState();
 
-  function normalizeAutoSpeed(value) {
-    return Math.max(1, Math.min(32, Number(value) || 1));
-  }
-
-  function updateAutoSpeed(value) {
-    const next = normalizeAutoSpeed(value);
-    autoSpeedRef.current = next;
-    setAutoSpeed(next);
-  }
-
-  useEffect(() => {
-    autoSpeedRef.current = normalizeAutoSpeed(autoSpeed);
-  }, [autoSpeed]);
-
-  function showMapRefreshToast(text, kind = 'info') {
     // ✅ 헤더에서 1~2초 보이는 가벼운 토스트(연타/중복 호출 대응)
-    try {
-      if (mapRefreshToastTimerRef.current) clearTimeout(mapRefreshToastTimerRef.current);
-    } catch {}
-    setMapRefreshToast({ text: String(text || ''), kind: String(kind || 'info') });
-    mapRefreshToastTimerRef.current = setTimeout(() => {
-      setMapRefreshToast(null);
-      mapRefreshToastTimerRef.current = null;
-    }, 1700);
-  };
-
-  useEffect(() => {
-    return () => {
-      try {
-        if (mapRefreshToastTimerRef.current) clearTimeout(mapRefreshToastTimerRef.current);
-      } catch {}
-    };
-  }, []);
-
   // ✅ 관전자 모드 기본: 상점/조합/교환 UI는 숨김(테스트용 토글)
 
   // 🎲 시드 고정(랜덤 재현)
-  const SEED_STORAGE_KEY = 'eh_run_seed';
-  function getInitialSeed() {
-    try {
-      const v = localStorage.getItem(SEED_STORAGE_KEY);
-      const s = (v && String(v).trim()) ? String(v).trim() : '';
-      return s || String(Date.now());
-    } catch {
-      return String(Date.now());
-    }
-  };
-  const [runSeed, setRunSeed] = useState(getInitialSeed);
-  const [seedDraft, setSeedDraft] = useState(getInitialSeed);
-  const randomBackupRef = useRef(null);
+  const {
+    runSeed,
+    seedDraft,
+    setRunSeed,
+    setSeedDraft,
+  } = useSimulationRunSeed({
+    day,
+    isAdvancing,
+    isGameOver,
+    matchSec,
+  });
 
   // ✅ (팝업/데스크톱) 시뮬레이션 창: 로그 출력 길이에 맞춰 높이를 유동 조정
-  function resizeSimWindowToContent() {
-    try {
-      if (typeof window === 'undefined') return;
-      if (typeof window.resizeTo !== 'function') return;
-
-      const ua = String(navigator?.userAgent || '');
-      const isElectron = ua.includes('Electron');
-      const isPopup = !!window.opener;
-
       // 일반 브라우저 탭에서는 resizeTo가 기대대로 동작하지 않으므로, 팝업/데스크톱만 적용
-      if (!isElectron && !isPopup) return;
-
-      const doc = document.documentElement;
-      const body = document.body;
-      const contentH = Math.max(Number(doc?.scrollHeight || 0), Number(body?.scrollHeight || 0));
-      const chromeH = Math.max(0, Number(window.outerHeight || 0) - Number(window.innerHeight || 0));
-
-      const minH = 520;
-      const maxH = Math.max(minH, Number(screen?.availHeight || 9999) - 40);
-      const targetH = Math.max(minH, Math.min(maxH, contentH + chromeH + 20));
-
-      window.resizeTo(Number(window.outerWidth || 1280), targetH);
-    } catch {
-      // ignore
-    }
-  };
-
   function addLog(text, type = 'normal') {
     return addLogFromLogs(text, type);
   }
-  const addLogRef = useRef(addLog);
-
-  useEffect(() => {
-    addLogRef.current = addLog;
-  });
 
   function exportBattleLog(format = 'md') {
     const result = exportBattleLogFromLogs(format);
@@ -876,28 +794,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return getDevToolActions().devForceUseConsumable(charId, invIndex);
   };
 
-  useEffect(() => {
-    const el = logBoxRef.current;
-    if (!el) return;
-
     // ✅ 로그 길이에 맞춰 로그창 높이를 유동적으로 조절(최소~최대 클램프)
-    const measure = () => {
-      const h = Math.max(0, Number(el.scrollHeight || 0));
-      const desired = Math.max(180, Math.min(560, h + 8));
-      setLogBoxMaxH(desired);
-
       // ✅ 로그가 쌓여도 "페이지"가 아니라 로그 창 내부만 스크롤되게 고정
-      el.scrollTop = el.scrollHeight;
-
       // ✅ (팝업/데스크톱) 창 높이도 로그 길이에 맞춰 유동 조정
-      resizeSimWindowToContent();
-    };
-
     // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
-    const raf = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(raf);
-  }, [logs, prevPhaseLogs, showPrevLogs, showDetailedLogs, logBoxRef, setLogBoxMaxH]);
-
   function getParticipantPresetActions() {
     return createParticipantPresetActionRuntime({
       state: {
@@ -1112,27 +1012,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     isHyperloopTransitEdge(baseZoneGraph, hyperloopZoneIds, fromZoneId, toZoneId)
   );
 
-  function applyRunSeed(seedStr) {
-    const s = String(seedStr || '').trim() || '0';
-    try { localStorage.setItem(SEED_STORAGE_KEY, s); } catch {}
-    if (!randomBackupRef.current) randomBackupRef.current = Math.random;
-    Math.random = createSeedRng(`RUN:${s}`);
-  };
-
-  function restoreRandom() {
-    if (randomBackupRef.current) Math.random = randomBackupRef.current;
-  };
-
-  useEffect(() => {
     // ✅ 게임 시작 전(0일차)에만 시드를 적용해 랜덤 재현성을 확보합니다.
-    if (!runSeed) return;
-    if (isAdvancing || isGameOver) return;
-    if (day !== 0 || matchSec !== 0) return;
-    applyRunSeed(runSeed);
-  }, [runSeed, day, matchSec, isAdvancing, isGameOver]);
-
-  useEffect(() => () => restoreRandom(), []);
-
   function getForbiddenZoneIdsForPhase(mapObj, dayNum, phaseKey) {
     return getForbiddenZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
   }
@@ -4615,7 +4495,7 @@ if (showMarketPanel && pendingTranscendPick) {
     }, delayMs);
 
     return () => window.clearTimeout(id);
-  }, [autoPlay, autoSpeed, matchSec, loading, isAdvancing, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked]);
+  }, [autoPlay, autoSpeed, autoSpeedRef, matchSec, loading, isAdvancing, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked, normalizeAutoSpeed, proceedPhaseGuardedRef]);
 
   // ======== Market actions ========
   function getMarketActions() {
@@ -4694,24 +4574,8 @@ if (showMarketPanel && pendingTranscendPick) {
     ? new Set(getForbiddenZoneIdsForPhaseRuntime(activeMapEff, day, phase, zones, settings, null))
     : new Set();
 
-  const shouldComputeHeavyDerived = showResultModal || showMarketPanel || uiModal === 'map' || uiModal === 'chars' || uiModal === 'log';
-  const shouldComputeMapDerived = true;
 
   // 🧾 런 요약: 획득 경로(아이템만 집계, 크레딧 제외)
-  const heavyRunSummaries = useMemo(() => {
-    if (!shouldComputeHeavyDerived) return getEmptyRunSummaries();
-    return safeRenderCompute('heavyRunSummaries', () => buildRunSummaries({
-      runEvents,
-      itemNameById,
-      zoneNameById,
-      itemMetaById,
-      survivors,
-      dead,
-      killCounts,
-      assistCounts,
-    }), getEmptyRunSummaries());
-  }, [runEvents, itemNameById, zoneNameById, itemMetaById, survivors, dead, killCounts, assistCounts, shouldComputeHeavyDerived]);
-
   const {
     gainSourceSummary,
     creditSourceSummary,
@@ -4722,50 +4586,33 @@ if (showMarketPanel && pendingTranscendPick) {
     runActionSummary,
     objectiveSummary,
     topRankedCharacters,
-  } = heavyRunSummaries;
-
-  const simulationDiagnostics = useMemo(() => {
-    if (!shouldComputeHeavyDerived) return getEmptySimulationDiagnostics();
-    return safeRenderCompute('simulationDiagnostics', () => buildSimulationDiagnostics({
-      runEvents,
-      survivors,
-      dead,
-      itemMetaById,
-      zoneNameById,
-      ruleset: getRuleset(settings?.rulesetId),
-    }), getEmptySimulationDiagnostics());
-  }, [runEvents, survivors, dead, itemMetaById, zoneNameById, settings?.rulesetId, shouldComputeHeavyDerived]);
-  const simulationDiagnosticsLine = useMemo(
-    () => formatDiagnosticsLine(simulationDiagnostics),
-    [simulationDiagnostics]
-  );
-
-  const zonePos = useMemo(() => {
-    if (!shouldComputeMapDerived) return {};
-    return safeRenderCompute('zonePos', () => buildZonePositions(zones), {});
-  }, [zones, shouldComputeMapDerived]);
-
-  const zoneEdges = useMemo(() => {
-    if (!shouldComputeMapDerived) return [];
-    return safeRenderCompute('zoneEdges', () => buildZoneEdges({ zones, zoneGraph: baseZoneGraph }), []);
-  }, [baseZoneGraph, zones, shouldComputeMapDerived]);
-
-  const pingNow = nowMs();
-  const recentPings = useMemo(() => {
-    if (!shouldComputeMapDerived) return [];
-    return safeRenderCompute('recentPings', () => buildRecentPings({ runEvents, pingNow, zonePos }), []);
-  }, [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
-
-  const detonationRiskSummary = safeRenderCompute('detonationRiskSummary', () => buildDetonationRiskSummary({
-    day,
+    detonationRiskSummary,
+    recentPings,
+    simulationDiagnostics,
+    simulationDiagnosticsLine,
+    zoneEdges,
+    zonePos,
+  } = useSimulationDerivedData({
     activeMap,
-    zones,
+    assistCounts,
+    baseZoneGraph,
+    day,
+    dead,
     forbiddenNow,
-    rulesetId: settings?.rulesetId,
-    survivors,
-    phase,
     getZoneName,
-  }), getEmptyDetonationRiskSummary());
+    itemMetaById,
+    itemNameById,
+    killCounts,
+    phase,
+    runEvents,
+    settings,
+    showMarketPanel,
+    showResultModal,
+    survivors,
+    uiModal,
+    zoneNameById,
+    zones,
+  });
 
   const actionDisabled = loading || isAdvancing || startBlocked || (showMarketPanel && !!pendingTranscendPick);
   const aliveTeamCount = useMemo(() => getAliveTeams(survivors).length, [survivors]);
