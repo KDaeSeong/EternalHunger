@@ -108,7 +108,6 @@ import {
   hasKioskAtZone,
   removeActiveEffect,
   createInitialSpawnState,
-  getEligibleSpawnZoneIds,
   getHyperloopDeviceZoneId,
   ensureWorldSpawns,
   findDimensionRiftGiftItem,
@@ -310,6 +309,7 @@ import {
 } from './_lib/consumableRuntime';
 import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { createMarketActionRuntime } from './_lib/marketActionRuntime';
+import { applyActiveMapIdToState, createMapActionRuntime } from './_lib/mapActionRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1118,11 +1118,15 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   }, [activeMap]);
 
   function applyActiveMapId(nextMapId) {
-    const id = String(nextMapId || '');
-    const prevId = String(activeMapIdRef.current || '');
-    activeMapIdRef.current = id;
-    setActiveMapId(id);
-    if (prevId !== id) setSpawnState(createInitialSpawnState(id));
+    return applyActiveMapIdToState(nextMapId, {
+      refs: {
+        activeMapIdRef,
+      },
+      actions: {
+        setActiveMapId,
+        setSpawnState,
+      },
+    });
   }
 
   const zones = useSafeMemo('zones', () => {
@@ -1205,50 +1209,44 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return rawId && hyperloopDestIds.includes(rawId) ? rawId : String(hyperloopDestIds[0]);
   })();
 
+  function getMapActions() {
+    return createMapActionRuntime({
+      refs: {
+        activeMapIdRef,
+        activeMapRef,
+        isRefreshingMapsRef,
+        mapsRef,
+      },
+      state: {
+        activeMapId,
+        activeMapName,
+        day,
+        hyperloopPadName,
+        hyperloopPadZoneId,
+        isAdvancing,
+        isGameOver,
+        loading,
+        maps,
+        matchPhase: phase,
+        settings,
+        survivors,
+      },
+      actions: {
+        addLog,
+        applyActiveMapId,
+        emitRunEvent,
+        getForbiddenZoneIdsForPhase,
+        setIsRefreshingMapSettings,
+        setMaps,
+        setSurvivors,
+        showMapRefreshToast,
+      },
+    });
+  }
+
   function doHyperloopJump(toMapId, whoId) {
-    const toId = String(toMapId || '').trim();
-const who = String(whoId || '').trim();
-if (!who) {
-  addLog('🌀 하이퍼루프: 이동할 캐릭터를 선택하세요.', 'system');
-  return;
-}
-    if (!toId) return;
-    if (loading || isAdvancing || isGameOver) return;
-    if (day <= 0) {
-      addLog('🌀 하이퍼루프: 게임 시작 후(1일차부터) 사용할 수 있습니다.', 'system');
-      return;
-    }
-
-    // 맵 내 장치(패드) 구역에 있어야 사용 가능
-    const padZid = String(hyperloopPadZoneId || '').trim();
-    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
-    const actorZid = String(actor?.zoneId || '').trim();
-    if (!padZid || actorZid !== padZid) {
-      const padNm = String(hyperloopPadName || padZid || '하이퍼루프 구역');
-      addLog(`🌀 하이퍼루프 장치: [${padNm}]에서만 사용할 수 있습니다.`, 'system');
-      return;
-    }
-    const toMap = (Array.isArray(maps) ? maps : []).find((m) => String(m?._id) === toId) || null;
-    if (!toMap) return;
-
-    const rs = getRuleset(settings?.rulesetId);
-    const forb = new Set(getForbiddenZoneIdsForPhase(toMap, day, phase, rs));
-    const z = Array.isArray(toMap?.zones) ? toMap.zones : [];
-    const eligible = getEligibleSpawnZoneIds(z, forb);
-
-    // 목적지 맵에도 패드 구역이 있으면 그곳으로 도착(금지구역이면 예외)
-    const destPad = String(getHyperloopDeviceZoneId(toId) || '').trim();
-    const destPadOk = !!destPad && z.some((zz) => String(zz?.zoneId || '') === destPad) && !forb.has(destPad);
-    const entryZoneId = String((destPadOk ? destPad : (eligible?.[0] || z?.[0]?.zoneId)) || '__default__');
-
-    const fromName = String(activeMapName || '현재맵');
-    const toName = String(toMap?.name || '목적지');
-    applyActiveMapId(toId);
-    setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((c) => (String(c?._id) === who ? ({ ...c, mapId: toId, zoneId: entryZoneId }) : c)));
-    const whoName = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id) === who)?.name || '선택 캐릭터';
-    addLog(`🌀 하이퍼루프 이동: ${fromName} → ${toName} (${whoName})`, 'highlight');
-    emitRunEvent('hyperloop', { whoId: who, who: whoName, fromMapId: String(activeMapId || ''), toMapId: toId, toZoneId: entryZoneId });
-  };
+    return getMapActions().doHyperloopJump(toMapId, whoId);
+  }
 
 
 
@@ -5478,42 +5476,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
   // 🔄 서버 맵 설정 새로고침(관리자에서 수정한 crateAllowDeny 등 즉시 반영용)
   async function refreshMapSettingsFromServer(reason = 'manual') {
-    if (isRefreshingMapsRef.current) return false;
-    isRefreshingMapsRef.current = true;
-    setIsRefreshingMapSettings(true);
-    try {
-      const mapsRes = await apiGet('/public/maps', { timeoutMs: 8000 });
-      const mapsList = Array.isArray(mapsRes) ? mapsRes : [];
-      if (!mapsList.length) {
-        addLog('⚠️ 맵 설정 새로고침 실패(맵 목록 없음)', 'death');
-        showMapRefreshToast('맵 목록이 없습니다.', 'error');
-        return false;
-      }
-
-      mapsRef.current = mapsList;
-      setMaps(mapsList);
-
-      const keepId = String(activeMapIdRef.current || activeMapId || '');
-      const nextId = (keepId && mapsList.some((m) => String(m?._id) === keepId))
-        ? keepId
-        : String(mapsList[0]?._id || '');
-
-      if (nextId) {
-        applyActiveMapId(nextId);
-        activeMapRef.current = mapsList.find((m) => String(m?._id) === nextId) || null;
-      }
-
-      addLog(reason === 'start' ? '🔄 맵 설정을 서버에서 새로 불러왔습니다.' : '🔄 맵 설정을 새로고침했습니다.', 'system');
-      showMapRefreshToast(reason === 'start' ? '서버에서 새로 불러옴' : '새로고침 완료', 'ok');
-      return true;
-    } catch (e) {
-      addLog('⚠️ 맵 설정 새로고침 실패(기존 설정 유지)', 'death');
-      showMapRefreshToast('새로고침 실패(기존 유지)', 'error');
-      return false;
-    } finally {
-      isRefreshingMapsRef.current = false;
-      setIsRefreshingMapSettings(false);
-    }
+    return getMapActions().refreshMapSettingsFromServer(reason);
   };
 
   // 진행 버튼/오토 플레이 공용 가드(중복 호출 방지)
