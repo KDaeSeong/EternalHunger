@@ -172,7 +172,7 @@ ${stringifyLogBody(res.data)}`);
       <div>
         <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.4px' }}>NGUH JSON 이식</div>
         <div style={{ opacity: 0.85, marginTop: 6, lineHeight: 1.6 }}>
-          <b>characters.eh.json</b> (배열) 또는 <b>{`{ characters: [...] }`}</b> (NGUH 원본) 업로드를 지원합니다. 이벤트는 현재 비활성화.
+          <b>characters.eh.json</b> (배열) 또는 <b>{`{ characters: [...] }`}</b> (NGUH 원본) 업로드를 지원합니다.
         </div>
       </div>
 

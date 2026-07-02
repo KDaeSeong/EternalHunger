@@ -25,9 +25,6 @@ export const PERK_EFFECT_DEFAULTS = {
   wildlifeCreditsPct: 0,
   wildlifeDamageMinus: 0,
   wildlifeLootPlus: 0,
-  eventCreditsPct: 0,
-  eventRecoveryPlus: 0,
-  eventItemPlus: 0,
   poisonResistPct: 0,
   burnResistPct: 0,
   poisonImmune: 0,
@@ -60,9 +57,6 @@ export const PERK_EFFECT_ALIASES = {
   wildlifeCreditsPct: ['wildlifeCreditsPct', 'huntCreditsPct', 'animalCreditsPct'],
   wildlifeDamageMinus: ['wildlifeDamageMinus', 'huntDamageMinus', 'animalDamageMinus'],
   wildlifeLootPlus: ['wildlifeLootPlus', 'huntLootPlus', 'animalLootPlus'],
-  eventCreditsPct: ['eventCreditsPct', 'scenarioCreditsPct'],
-  eventRecoveryPlus: ['eventRecoveryPlus', 'scenarioRecoveryPlus'],
-  eventItemPlus: ['eventItemPlus', 'scenarioItemPlus', 'eventLootPlus'],
   poisonResistPct: ['poisonResistPct', 'poisonResist', 'poisonAvoidPct', 'foodPoisonResistPct'],
   burnResistPct: ['burnResistPct', 'burnResist', 'burnAvoidPct'],
   poisonImmune: ['poisonImmune', 'immunePoison', 'foodPoisonImmune'],
@@ -168,15 +162,6 @@ export function getPerkWildlifeLootBias(actorOrEffects) {
   const base = normalizePerkPct(fx?.lootWeightPlus || 0);
   const extra = normalizePerkPct(fx?.wildlifeLootPlus || 0);
   return Math.max(-0.6, Math.min(1.4, base + extra));
-}
-
-export function getPerkEventItemBias(actorOrEffects) {
-  const fx = actorOrEffects && typeof actorOrEffects === 'object' && Object.prototype.hasOwnProperty.call(actorOrEffects, 'eventItemPlus')
-    ? actorOrEffects
-    : getActorPerkEffects(actorOrEffects);
-  const base = Math.max(0, normalizePerkPct(fx?.lootWeightPlus || 0));
-  const extra = Math.max(0, normalizePerkPct(fx?.eventItemPlus || 0));
-  return Math.max(0, Math.min(1.2, base * 0.4 + extra));
 }
 
 export function applyPerkCreditBonus(amount, ...pctList) {

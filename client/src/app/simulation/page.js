@@ -60,7 +60,6 @@ import {
   getActorPerkEffects,
   getPerkLootBias,
   getPerkAggressionBias,
-  getPerkEventItemBias,
   applyPerkCreditBonus,
   maybeBoostDropQty,
   applyPerkBundleToActor,
@@ -142,7 +141,6 @@ import {
   lateGameGearDirector,
   pickCatalogEquipmentItem,
   tryImmediateCraftFromSpecial,
-  safeGenerateDynamicEvent,
   areSameTeam,
   getActorTeamCapacity,
   getActorTeamId,
@@ -4561,92 +4559,6 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (target.hp <= 0) markUnattributedDeath(target, '접전 끝에 쓰러짐');
         }
 
-      } else {
-        // Dynamic non-combat action
-        const eventResult = safeGenerateDynamicEvent(actor, nextDay, ruleset, nextPhase, publicItems, {
-          farmFocus: isDay1MorningFarmPhase || isEarlyRouteFarmingActor(actor),
-          zoneName: getZoneName(actor?.zoneId || ''),
-        });
-        if (eventResult && eventResult.log && !eventResult.silent) {
-          addLog(eventResult.log, Number(eventResult?.damage || 0) > 0 ? 'highlight' : 'normal');
-        }
-
-          // ✅ 동적 이벤트 보상: 크레딧
-          const perkFx = getActorPerkEffects(actor);
-          const erCr = applyPerkCreditBonus(Math.max(0, Number(eventResult?.earnedCredits || 0)), perkFx?.eventCreditsPct || 0);
-          if (erCr > 0) {
-            earnedCredits += erCr;
-            actor.simCredits = Number(actor.simCredits || 0) + erCr;
-            emitRunEvent('gain', { who: String(actor && actor._id ? actor._id : ''), itemId: 'CREDITS', qty: erCr, source: 'event', zoneId: String(actor && actor.zoneId ? actor.zoneId : '') }, atNow());
-          }
-
-          // ✅ 수집/사냥 이벤트 페널티: (1) 다음 페이즈 1회 교전 확률 증가 (2) 같은 페이즈 즉시 '표적 우선'
-          const pb = Math.max(0, Number(eventResult?.pvpBonusNext || 0));
-          if (pb > 0) {
-            // 다음 페이즈: 공격(initiator) 확률 보너스
-            actor._gatherPvpBonus = Math.max(Number(actor._gatherPvpBonus || 0), pb);
-            actor._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-
-            // 같은 페이즈: 수집 직후 노출(타겟 우선)
-            actor._immediateDanger = Math.max(Number(actor._immediateDanger || 0), pb);
-            actor._immediateDangerUntilPhaseIdx = phaseIdxNow;
-          }
-
-          // ✅ 동적 이벤트 드랍(소량): addItemToInventory로 일관 처리 + 즉시 1회 조합 시도
-          const rawEventDrops = Array.isArray(eventResult?.drops) ? eventResult.drops : [];
-          const normalizedEventDrops = normalizeRewardDropEntries(rawEventDrops, publicItems, itemNameById);
-          const eventCraftGoal = buildCraftGoal(actor.inventory, craftables, itemNameById, {
-            goalTier: actor?.goalGearTier,
-            goalItemKeys: pickGoalLoadoutKeys(actor),
-            perkEffects: perkFx,
-          });
-          const eventGoalMissingIds = new Set(
-            (Array.isArray(eventCraftGoal?.missing) ? eventCraftGoal.missing : [])
-              .map((m) => String(m?.itemId || ''))
-              .filter(Boolean)
-          );
-
-          for (const resolvedDrop of normalizedEventDrops) {
-            const dropId = String(resolvedDrop.itemId || '');
-            if (!dropId) continue;
-            const eventItemBias = getPerkEventItemBias(perkFx);
-            const dropQty = maybeBoostDropQty(Math.max(1, Number(resolvedDrop.qty || 1)), eventItemBias * 0.55, 1);
-            const dropItem = markInventoryGoalItem(resolvedDrop.item || null, eventGoalMissingIds.has(dropId));
-
-            actor.inventory = addItemToInventory(actor.inventory, dropItem, dropId, dropQty, nextDay, ruleset);
-            const metaD = actor.inventory && actor.inventory._lastAdd ? actor.inventory._lastAdd : null;
-            const gotD = Math.max(0, Number(metaD && metaD.acceptedQty != null ? metaD.acceptedQty : dropQty));
-            if (gotD > 0) {
-              const nmD = itemDisplayName(dropItem || { _id: dropId, name: itemNameById?.[dropId] || resolvedDrop?.name });
-              addLog("🧾 [" + actor.name + "] 획득: " + itemIcon(dropItem || { type: "" }) + " [" + nmD + "] x" + gotD + formatInvAddNote(metaD, dropQty, actor.inventory, ruleset), "normal");
-              emitRunEvent("gain", { who: String(actor && actor._id ? actor._id : ""), itemId: dropId, qty: gotD, source: "event", zoneId: String(actor && actor.zoneId ? actor.zoneId : "") }, atNow());
-
-              const craftedE = tryAutoCraftFromLoot(actor.inventory, dropId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(actor));
-              applyLootCraftResult(actor, craftedE, itemMetaById, atNow(), actor?.zoneId);
-            }
-          }
-
-          if (eventResult.damage) actor.hp -= eventResult.damage;
-          if (eventResult.recovery) {
-            const maxHpNow = Math.max(1, Number(actor?.maxHp || 100));
-            const bonusRecovery = Math.max(0, perkNumber(perkFx?.eventRecoveryPlus || 0));
-            const finalRecovery = applyHealingModifier(actor, Math.round((Math.max(0, Number(eventResult.recovery || 0)) + bonusRecovery) * getNonCombatRegenMultiplier(actor)));
-            actor.hp = Math.min(maxHpNow, Number(actor.hp || 0) + finalRecovery);
-          }
-          const eventEffects = applyRuntimeEffectPayloads(actor, eventResult?.newEffects || eventResult?.newEffect);
-          logRuntimeEffectResults(addLog, actor, eventEffects.results);
-          emitEffectRunEvents(actor, eventEffects.results, { source: 'event', reason: 'dynamic_event', zoneId: String(actor?.zoneId || '') }, atNow());
-
-        actor = normalizeRuntimeSurvivor(actor);
-        if (actor.hp <= 0) {
-          setDeathMetadata(actor, 'event_accident', { causeName: '사고' });
-          actor.deadAtPhaseIdx = phaseIdxNow;
-          actor.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-          addLog(`💀 [${actor.name}]이(가) 사고로 사망했습니다.`, 'death');
-          newDeadIds.push(actor._id);
-          emitDeathRunEventOnce(actor, { reason: 'event_accident', cause: '사고' });
-          flushDeadSnapshots(appendPhaseDeadSnapshots(actor));
-        }
       }
 
       upsertRuntimeSurvivor(survivorMap, actor);

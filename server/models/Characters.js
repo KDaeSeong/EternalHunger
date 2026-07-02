@@ -143,7 +143,6 @@ const characterSchema = new Schema({
 
   // 현재 캐릭터에게 적용 중인 상태 이상 목록
   activeEffects: [{
-    effectId: { type: Schema.Types.ObjectId, ref: 'StatusEffect' },
     name: String,
     remainingDuration: Number, // 남은 지속 시간
     appliedAt: { type: Date, default: Date.now }

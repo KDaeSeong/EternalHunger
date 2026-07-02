@@ -15,7 +15,6 @@ const items = [
   { href: '/admin/credits', label: '크레딧' },
   { href: '/admin/perks', label: '특전' },
   { href: '/board', label: '게시판(유저)' },
-  // 이벤트 기능은 현재 비활성화(홈/어드민에서 숨김)
 ];
 
 export default function AdminNav() {

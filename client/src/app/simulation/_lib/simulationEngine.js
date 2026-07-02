@@ -48,7 +48,6 @@ import {
   buildPerkRuntimeBundle,
   getActorPerkEffects,
   getPerkAggressionBias,
-  getPerkEventItemBias,
   getPerkLootBias,
   getPerkWildlifeLootBias,
   maybeBoostDropQty,
@@ -256,9 +255,6 @@ import {
   tryAutoCraftForceCore,
 } from './forceCoreRuntime';
 import {
-  safeGenerateDynamicEvent,
-} from './dynamicEventRuntime';
-import {
   areSameTeam,
   assignSimulationTeams,
   getActorTeamCapacity,
@@ -294,7 +290,6 @@ export {
   getPerkAggressionBias,
   applyPerkLootWeight,
   getPerkWildlifeLootBias,
-  getPerkEventItemBias,
   applyPerkCreditBonus,
   applyPerkDamageReduction,
   maybeBoostDropQty,
@@ -465,7 +460,6 @@ export {
   invHasOne,
   makeForceCore,
   tryAutoCraftForceCore,
-  safeGenerateDynamicEvent,
   areSameTeam,
   assignSimulationTeams,
   getActorTeamCapacity,
