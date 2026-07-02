@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, getToken, getUser, updateStoredUser } from '../../utils/api';
-import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
+import { buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
   EFFECT_KNOCKBACK,
@@ -17,9 +17,7 @@ import {
   hasActionBlockStatus,
   updateEffects,
 } from '../../utils/statusLogic';
-import { ER_STAT_KEYS, normalizeErStats } from '../../utils/erStats';
 import {
-  createInitialMasteryState,
   getMovementSpeedMasteryBonus,
   getNonCombatRegenMultiplier,
   getWildlifeDamageMultiplier,
@@ -127,8 +125,6 @@ import {
   buildCraftGoal,
   uniqStrings,
   advanceEarlyRouteProgress,
-  buildDay1HeroRoutePlanDetails,
-  buildEarlyRoutePlanDetails,
   getEarlyRoutePlanTarget,
   bfsNextStepToAnyTarget,
   bfsPickSafestZone,
@@ -204,7 +200,6 @@ import {
   normalizeMatchMode,
   getMatchConfig,
   applyMatchTeams,
-  pickParticipantsForRun,
   getMatchStartInfo,
 } from './_lib/matchRosterRuntime';
 import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
@@ -227,6 +222,10 @@ import {
   redirectToLogin,
   settleWithin,
 } from './_lib/simulationInitRuntime';
+import {
+  buildInitialSimulationRoster,
+  enrichInitialRoutePlansForItems,
+} from './_lib/simulationInitialRosterRuntime';
 import {
   buildBaseZoneGraph,
   getHyperloopZoneIds,
@@ -1490,10 +1489,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
         setMaps(mapsList);
 // ✅ 시뮬레이션은 "플레이어가 맵을 선택"하지 않습니다.
 // 등록된 맵 중 첫 번째 맵을 시작점으로 사용합니다. (이동/진행 로직은 런타임에서 처리)
-const initialMapId = (mapsList[0]?._id ? String(mapsList[0]._id) : '');
-if (initialMapId) {
-  applyActiveMapId(initialMapId);
-}
+        const initialMapId = (mapsList[0]?._id ? String(mapsList[0]._id) : '');
+        if (initialMapId) {
+          applyActiveMapId(initialMapId);
+        }
 
         const initialMap = mapsList.find((m) => String(m?._id) === String(initialMapId)) || null;
         activeMapRef.current = initialMap;
@@ -1502,154 +1501,15 @@ if (initialMapId) {
           : ['__default__'];
 
         // 🎮 룰 프리셋에 따라 생존자 런타임 상태를 초기화
-        const ruleset = getRuleset(loadedSettings?.rulesetId);
-        const det = ruleset?.detonation;
-        const energy = ruleset?.gadgetEnergy;
-
-// 🎒 추천 상급 장비(또는 역할)에 맞춰 시작 구역을 가중치 랜덤으로 선택
-const pickStartZoneIdForChar = (c) => {
-  try {
-    const zonesArr = Array.isArray(initialMap?.zones) ? initialMap.zones : [];
-    const fallbackPool = Array.isArray(initialZoneIds) && initialZoneIds.length ? initialZoneIds : ['__default__'];
-    const fallback = () => fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
-    if (!zonesArr.length) return fallback();
-
-    const texts = [];
-    function addText(v) {
-      if (v === null || v === undefined) return;
-      const s = String(v).trim();
-      if (s) texts.push(s.toLowerCase());
-    };
-
-    function addFromList(arr) {
-      if (!Array.isArray(arr)) return;
-      arr.forEach((g) => {
-        if (!g) return;
-        if (typeof g === 'string') {
-          addText(g);
-          return;
-        }
-        addText(g.name);
-        addText(g.kind);
-        addText(g.category);
-        addText(g.type);
-        if (Array.isArray(g.tags)) g.tags.forEach(addText);
-      });
-    };
-
-    addFromList(c?.recommendedHighGear);
-    addFromList(c?.recommendedAdvancedGear);
-    addFromList(c?.recommendedGear);
-    addFromList(c?.advancedGear);
-
-    const st = normalizeErStats(c?.stats || c?.stat || c);
-    const keys = ER_STAT_KEYS;
-    const ranked = keys.map((k) => [k, Number(st?.[k] ?? st?.[k.toUpperCase()] ?? 0)]);
-    ranked.sort((a, b) => b[1] - a[1]);
-    const top = ranked[0]?.[0];
-    if (top) addText(top);
-
-    const keywordMap = {
-      keyboard: ['keyboard', '키보드', '키보'],
-      mouse: ['mouse', '마우스'],
-      monitor: ['monitor', '모니터'],
-      weapon: ['weapon', '무기', 'armory', '병기'],
-      armor: ['armor', '방어구', '갑옷'],
-      food: ['food', '음식', '식당', '편의'],
-      attackPower: ['attack', '공격', '무기', 'weapon', 'melee', 'shoot', 'gun'],
-      skillAmp: ['skill', '스킬', '증폭', 'lab', '연구'],
-      defense: ['defense', '방어', 'armor'],
-      attackSpeed: ['speed', '공속', '기동'],
-      attackRange: ['range', '사거리', '원거리'],
-      sightRange: ['vision', '시야', '정찰'],
-    };
-
-    const expanded = new Set();
-    texts.forEach((t) => {
-      expanded.add(t);
-      Object.entries(keywordMap).forEach(([k, syns]) => {
-        const hit = t.includes(k) || syns.some((s) => t.includes(String(s).toLowerCase()));
-        if (hit) syns.forEach((s) => expanded.add(String(s).toLowerCase()));
-      });
-    });
-
-    const hints = [...expanded].filter(Boolean);
-    if (!hints.length) return fallback();
-
-    const candidates = [];
-    for (const zone of zonesArr) {
-      const name = String(zone?.name || '').toLowerCase();
-      const tags = Array.isArray(zone?.tags) ? zone.tags.map((x) => String(x).toLowerCase()) : [];
-      if (hints.some((h) => name.includes(h) || tags.includes(h))) {
-        candidates.push(String(zone?.zoneId || ''));
-      }
-    }
-
-    const pool = candidates.filter(Boolean).length ? candidates.filter(Boolean) : fallbackPool;
-    return pool[Math.floor(Math.random() * pool.length)] || fallback();
-  } catch (err) {
-    console.error('[simulation:pickStartZoneIdForChar]', err);
-    return String(initialZoneIds?.[0] || '__default__');
-  }
-};
-        const emptyRoutePlan = {
-          zoneIds: [],
-          itemIdsByZone: {},
-          targetItemIds: [],
-          requiredItemIds: [],
-          requiredQtyById: {},
-          droneItemIds: [],
-          targetNamesBySlot: {},
-          source: '',
-        };
-
-        const buildFastRoutePlanForActor = (actor, routeItems) => {
-          if (!Array.isArray(routeItems) || !routeItems.length) return emptyRoutePlan;
-          try {
-            const day1HeroRoutePlan = buildDay1HeroRoutePlanDetails(actor, initialMap, routeItems, {
-              routeLength: 2,
-              droneFallbackLimit: 1,
-              candidateLimit: 6,
-              beamLimit: 48,
-              maxRoutes: 96,
-            });
-            if (day1HeroRoutePlan?.complete) return day1HeroRoutePlan;
-            return buildEarlyRoutePlanDetails(actor, initialMap, routeItems, { routeLength: 4 }) || emptyRoutePlan;
-          } catch (routeErr) {
-            console.error('[simulation:initRoutePlan]', routeErr);
-            return emptyRoutePlan;
-          }
-        };
-
-        const mergeRoutePlanFields = (actor, routePlan, sourceFallback = 'fast_start') => {
-          const plan = routePlan || emptyRoutePlan;
-          const routePlanZoneIds = Array.isArray(plan.zoneIds) ? plan.zoneIds : [];
-          return normalizeRuntimeSurvivor({
-            ...actor,
-            routePlanZoneIds,
-            routePlanItemIdsByZone: plan.itemIdsByZone || {},
-            routePlanTargetItemIds: Array.isArray(plan.targetItemIds) ? plan.targetItemIds : [],
-            routePlanRequiredItemIds: Array.isArray(plan.requiredItemIds) ? plan.requiredItemIds : [],
-            routePlanRequiredQtyById: plan.requiredQtyById || {},
-            routePlanDroneItemIds: Array.isArray(plan.droneItemIds) ? plan.droneItemIds : [],
-            routePlanTargetNamesBySlot: plan.targetNamesBySlot || {},
-            routePlanSource: plan.source || (routePlanZoneIds.length ? 'recipe' : sourceFallback),
-          });
-        };
-
         const applyLoadedItemsToRuntime = (loadedItems, reason = 'background') => {
           const nextItems = Array.isArray(loadedItems) ? loadedItems : [];
           if (!nextItems.length) return false;
           setPublicItems(nextItems);
-          const enrichList = (list) => normalizeRuntimeSurvivorList((Array.isArray(list) ? list : []).map((actor) => {
-            const routeSource = String(actor?.routePlanSource || '');
-            const alreadyRouted = routeSource && routeSource !== 'fast_start';
-            const routeStarted = Math.max(0, Number(actor?.routePlanIndex || 0)) > 0 || actor?.day1HeroDone;
-            if (alreadyRouted || routeStarted) return actor;
-            const routePlan = buildFastRoutePlanForActor(actor, nextItems);
-            if (!Array.isArray(routePlan?.zoneIds) || !routePlan.zoneIds.length) return actor;
-            return mergeRoutePlanFields(actor, routePlan, routeSource || 'fast_start');
-          }));
+          const enrichList = (list) => enrichInitialRoutePlansForItems({
+            list,
+            routeItems: nextItems,
+            initialMap,
+          });
           setCandidateSurvivors((prev) => enrichList(prev));
           setSurvivors((prev) => enrichList(prev));
           if (reason === 'background') {
@@ -1657,57 +1517,18 @@ const pickStartZoneIdForChar = (c) => {
           }
           return true;
         };
-        const initPerkBundle = buildPerkRuntimeBundle(Array.isArray(meValue?.perks) ? meValue.perks : [], perksList);
 
-        const charsWithHp = [];
-        (Array.isArray(charList) ? charList : []).forEach((c) => {
-          const erSeed = applyErSubjectPreset(c, {
-            replaceDefaultTactical: false,
-            statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
-          });
-          const routePlan = buildFastRoutePlanForActor(erSeed, itemsList);
-          const routePlanZoneIds = routePlan.zoneIds;
-          const startZoneId = routePlanZoneIds[0] || pickStartZoneIdForChar(erSeed);
-          const seedStats = normalizeErStats(erSeed?.stats);
-          const seedMaxHp = Math.max(1, Math.round(Number(seedStats.maxHp || 100)));
-          const seededBase = mergeRoutePlanFields({
-            ...erSeed,
-            stats: seedStats,
-            level: 1,
-            erLevel: 1,
-            masteryXp: 0,
-            mastery: createInitialMasteryState(),
-            weaponMasteryXp: 0,
-            weaponMasteryLevel: 1,
-            tacticalSkillLevel: Math.max(1, Math.min(2, Number(erSeed?.tacticalSkillLevel || 1))),
-            hp: seedMaxHp,
-            maxHp: seedMaxHp,
-            zoneId: startZoneId,
-            equipped: ensureEquipped(erSeed),
-            day1Moves: 0,
-            day1HeroDone: false,
-            routePlanSearchCounts: {},
-            routePlanIndex: 0,
-            simCredits: Number(ruleset?.credits?.start ?? 15),
-            droneLastOrderIndex: -9999,
-            droneLastOrderAbsSec: -99999,
-            kioskLastInteractAbsSec: -99999,
-            detonationSec: det ? det.startSec : null,
-            detonationMaxSec: det ? det.maxSec : null,
-            gadgetEnergy: energy ? energy.start : 0,
-            cooldowns: {
-              portableSafeZone: 0,
-              cnotGate: 0,
-              weaponSkill: 0,
-            },
-            safeZoneUntil: 0,
-          }, routePlan, 'fast_start');
-          const seeded = applyPerkBundleToActor(seededBase, initPerkBundle, { initialFill: true, applyCredits: true });
-          charsWithHp.push(seeded);
+        const { candidateChars, shuffledChars } = buildInitialSimulationRoster({
+          charList,
+          routeItems: itemsList,
+          initialMap,
+          initialZoneIds,
+          loadedSettings,
+          participantPresets: initParticipantPresets,
+          selectedParticipantPresetId: initSelectedParticipantPresetId,
+          viewerPerks: Array.isArray(meValue?.perks) ? meValue.perks : [],
+          publicPerks: perksList,
         });
-        const candidateChars = normalizeRuntimeSurvivorList(charsWithHp);
-        const selectedChars = pickParticipantsForRun(candidateChars, initParticipantPresets, initSelectedParticipantPresetId, loadedSettings);
-        const shuffledChars = applyMatchTeams(selectedChars, loadedSettings);
         setCandidateSurvivors(candidateChars);
         setSurvivors(shuffledChars);
         setEvents([]);
