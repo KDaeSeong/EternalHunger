@@ -2499,6 +2499,168 @@
   }
 }
 
+/* === Desktop simulation cockpit === */
+.simulation-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(620px, 1.35fr) minmax(420px, 0.85fr);
+  gap: 14px;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.simulation-battlefield-column,
+.simulation-side-column {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.simulation-battlefield-column {
+  gap: 8px;
+}
+
+.simulation-side-column {
+  gap: 10px;
+}
+
+.simulation-battlefield-column > .worldspawn-toolbar {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.simulation-battlefield-column > .battlefield-panel:not(.modal-open) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas {
+  width: min(100%, calc(100dvh - 260px), 900px);
+  max-height: none;
+}
+
+.simulation-side-column .match-status-panel {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 12px;
+}
+
+.simulation-side-column .match-status-head {
+  margin-bottom: 8px;
+}
+
+.simulation-side-column .match-status-metrics {
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.simulation-side-column .match-status-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.simulation-side-column .match-status-card {
+  padding: 8px 10px;
+}
+
+.simulation-side-column .match-status-card h3 {
+  margin-bottom: 6px;
+}
+
+.simulation-side-column .match-status-row {
+  padding: 3px 0;
+}
+
+.simulation-side-column .log-window {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 12px;
+}
+
+.simulation-side-column .log-content,
+.simulation-side-column .log-scroll-area {
+  min-height: 0;
+}
+
+.simulation-side-column .log-scroll-area {
+  flex: 1 1 auto;
+  max-height: none !important;
+}
+
+.simulation-stage + .control-panel {
+  flex: 0 0 auto;
+  margin-top: 12px;
+}
+
+.simulation-container.modal-layout.devtools-open .simulation-stage {
+  grid-template-columns: 1fr;
+  overflow: auto;
+}
+
+@media (min-width: 1380px) {
+  .simulation-stage {
+    grid-template-columns: minmax(760px, 1.5fr) minmax(430px, 0.75fr);
+  }
+}
+
+@media (max-width: 1180px) {
+  .simulation-stage {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .simulation-battlefield-column > .battlefield-panel:not(.modal-open) {
+    min-height: clamp(300px, 42vh, 520px);
+  }
+
+  .simulation-side-column {
+    min-height: 360px;
+  }
+}
+
+@media (max-width: 760px) {
+  .simulation-stage {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .simulation-battlefield-column {
+    gap: 6px;
+  }
+
+  .simulation-battlefield-column > .battlefield-panel:not(.modal-open) {
+    flex: 0 0 auto;
+    min-height: 330px;
+    margin: 6px 0;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .simulation-battlefield-column > .battlefield-panel:not(.modal-open) .minimap-canvas {
+    width: min(100%, 430px);
+    max-height: 48vh;
+  }
+
+  .simulation-side-column {
+    min-height: 0;
+    gap: 6px;
+  }
+
+  .simulation-side-column .match-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* === Final information-priority overrides === */
 .simulation-container.modal-layout.devtools-open {
   grid-template-columns: minmax(760px, 1fr) minmax(320px, 380px);
