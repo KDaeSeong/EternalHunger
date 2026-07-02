@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
-import { calculateBattle } from '../../utils/battleLogic';
 import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
@@ -282,8 +281,12 @@ import {
   applyErTraitAfterBattle as applyErTraitAfterBattleRuntime,
   applyErWeaponSkillAfterCombat as applyErWeaponSkillAfterCombatRuntime,
   canonicalizeCharName,
-  cloneForBattle,
 } from './_lib/combatRuntime';
+import {
+  estimatePvpPower,
+  pickUnbiasedBattle as pickUnbiasedBattleRuntime,
+  shouldAvoidCombatByPvpPower,
+} from './_lib/pvpMatchupRuntime';
 import {
   grantMastery as grantMasteryRuntime,
   grantMasteries as grantMasteriesRuntime,
@@ -302,7 +305,10 @@ import {
   emitEffectRunEvents as emitEffectRunEventsRuntime,
   emitConsumableRunEvent as emitConsumableRunEventRuntime,
 } from './_lib/runEventRuntime';
-import { applyPermanentConsumableBoostToActor } from './_lib/consumableRuntime';
+import {
+  applyPermanentConsumableBoostToActor,
+  createPhaseConsumableRuntime,
+} from './_lib/consumableRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -4323,110 +4329,10 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (!plan.length) return false;
       return Math.max(0, Number(c?.routePlanIndex || 0)) < plan.length;
     };
-
-    const combatScore = (c) => {
-      const stats = normalizeErStats(c?.stats || {});
-      const maxHp = Math.max(1, Number(c?.maxHp || stats.maxHp || 100));
-      const hp = Math.max(1, Math.min(maxHp, Number(c?.hp ?? maxHp)));
-      const base =
-        Number(stats.attackPower || 0) +
-        Number(stats.skillAmp || 0) * 0.35 +
-        Number(stats.defense || 0) * 0.85 +
-        Number(stats.attackSpeed || 0) * 10 +
-        Number(stats.attackRange || 0) * 1.5 +
-        Number(stats.sightRange || 0) * 0.4 +
-        Number(stats.maxHp || 0) * 0.08;
-      const shield = Math.max(0, getShieldValue(c));
-      const regen = Math.max(0, getRegenValue(c));
-      const sustain = Math.min(28, shield * 0.65 + regen * 1.35);
-
-      return (base * (0.5 + hp / Math.max(1, maxHp * 2))) + sustain;
-    };
-
-    // 🤖 AI 교전 회피(전투력 비교): 상대 대비 불리하면 교전을 피함(장비 tier + HP 포함)
-    const summarizeEquipTier = (c) => {
-      const inv = Array.isArray(c?.inventory) ? c.inventory : [];
-      let weaponTier = 0;
-      let armorTierSum = 0;
-      for (const it of inv) {
-        const slot = String(it?.equipSlot || '');
-        const t = Math.max(1, Number(it?.tier || 1));
-        const tp = String(it?.type || '').toLowerCase();
-        if (slot === 'weapon' || tp === 'weapon' || tp === '무기') weaponTier = Math.max(weaponTier, t);
-        else if (slot === 'head' || slot === 'clothes' || slot === 'arm' || slot === 'shoes') armorTierSum += t;
-      }
-      return { weaponTier, armorTierSum };
-    };
-
-    function estimatePower(c) {
-      const base = combatScore(c);
-      const { weaponTier, armorTierSum } = summarizeEquipTier(c);
-      const pw = Number(ruleset?.ai?.powerWeaponPerTier ?? 3);
-      const pa = Number(ruleset?.ai?.powerArmorPerTier ?? 1.5);
-      const er = buildErBehaviorModifier(c, battleSettings);
-      return base + weaponTier * pw + armorTierSum * pa + Number(er?.powerScore || 0);
-    }
-
-    function shouldAvoidCombatByPower(me, opp) {
-      const myP = estimatePower(me);
-      const opP = estimatePower(opp);
-      const ratio = myP / Math.max(1, myP + opP);
-      const aggroBias = Math.max(0, getPerkAggressionBias(me));
-      const er = buildErBehaviorModifier(me, battleSettings);
-      const minRatioBase = Number(ruleset?.ai?.fightAvoidMinRatio ?? 0.40);
-      const absDeltaBase = Number(ruleset?.ai?.fightAvoidAbsDelta ?? 10);
-      const minRatio = Math.max(0.18, minRatioBase - aggroBias * 0.08 - Number(er?.aggressionBias || 0) * 0.18 - Number(er?.escapeBonus || 0) * 0.10);
-      const absDelta = Math.max(0, absDeltaBase + aggroBias * 12 + Number(er?.chaseBonus || 0) * 18);
-      if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
-      return null;
-    };
-    const pickUnbiasedBattle = (a, b) => {
-      // 교전 편향(선공/우선순위)에 의한 "항상 같은 승자" 체감 완화
-
-      // 일반 교전: 양측을 배틀용으로 복제
-      const aClone = cloneForBattle(a);
-      const bClone = cloneForBattle(b);
-
-      const r1 = calculateBattle(aClone, bClone, nextDay, battleSettings);
-
-      // 3) 선택 편향 완화: 선공/우선순위에 따른 승자 고정 체감을 줄이기 위해 확률 기반으로 흔듦
-      const id1 = r1?.winner?._id ? String(r1.winner._id) : null;
-
-      const sa = estimatePower(a);
-      const sb = estimatePower(b);
-	      const total = Math.max(1, sa + sb);
-
-      let delta = (sa - sb) / total; // -1..1
-      let pA = 0.5 + delta * 0.35;   // 0.15..0.85 근처
-      const stA = normalizeErStats(a?.stats || {});
-      const stB = normalizeErStats(b?.stats || {});
-      const tempoA = Number(stA.sightRange || 0) + Number(stA.attackSpeed || 0) * 6;
-      const tempoB = Number(stB.sightRange || 0) + Number(stB.attackSpeed || 0) * 6;
-      pA += ((tempoA - tempoB) / 30) * 0.05;
-	      pA = Math.min(0.85, Math.max(0.15, pA));
-
-      const chosenId = Math.random() < pA ? String(a._id) : String(b._id);
-
-      // 승자가 없으면 그대로 반환
-      if (!id1) return r1;
-
-      if (chosenId === id1) return r1;
-
-      // 결과 반전(난전) 처리
-      const skirmishWinner = chosenId === String(a._id) ? a : b;
-      const skirmishLoser = skirmishWinner === a ? b : a;
-      const wnRaw = skirmishWinner?.name || skirmishWinner?.character_name || skirmishWinner?.nickname || '';
-      const lnRaw = skirmishLoser?.name || skirmishLoser?.character_name || skirmishLoser?.nickname || '';
-      const wn = canonicalizeCharName(wnRaw) || wnRaw || 'UNKNOWN';
-      const ln = canonicalizeCharName(lnRaw) || lnRaw || 'UNKNOWN';
-
-      return {
-        ...r1,
-        winner: skirmishWinner,
-        type: 'kill',
-        log: `⚡ 난전! [${wn}](이)가 [${ln}](을)를 제압했습니다!`,
-      };
-    };
+    const pvpMatchupContext = { ruleset, battleSettings, nextDay };
+    const estimatePower = (actor) => estimatePvpPower(actor, pvpMatchupContext);
+    const shouldAvoidCombatByPower = (actor, opponent) => shouldAvoidCombatByPvpPower(actor, opponent, pvpMatchupContext);
+    const pickUnbiasedBattle = (actor, opponent) => pickUnbiasedBattleRuntime(actor, opponent, pvpMatchupContext);
 
     let survivorMap = buildRuntimeSurvivorMap(normalizeRuntimeSurvivorList(updatedSurvivors));
     let todaysSurvivors = [];
@@ -4443,80 +4349,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
     let roundKills = {};
     let roundAssists = {};
 
-    // 🧪 소모품 자동 사용(최소): 전투 중 사용은 없음(전투 외 타이밍에서만 호출)
     const consCfg = ruleset?.consumables || {};
-    const consEnabled = consCfg?.enabled !== false;
-    const consTurnHpBelow = Number(consCfg.aiUseHpBelow ?? 60);
-    const consAfterBattleHpBelow = Number(consCfg.afterBattleHpBelow ?? 50);
-    const consMaxUsesPerPhase = Math.max(0, Math.floor(Number(consCfg.maxUsesPerPhase ?? 1)));
-
-    const tryUseConsumable = (ch, reason) => {
-      if (!consEnabled || consMaxUsesPerPhase <= 0) return false;
-      if (!ch || !Array.isArray(ch.inventory) || ch.inventory.length === 0) return false;
-
-      // 같은 페이즈에서 과다 사용 방지(기본 1회)
-      const usedPhaseKey = 'consumableUsedPhaseIdx';
-      const usedCountKey = 'consumableUsedCount';
-      const lastPhase = Number(ch?.[usedPhaseKey] ?? -9999);
-      if (lastPhase !== phaseIdxNow) {
-        ch[usedPhaseKey] = phaseIdxNow;
-        ch[usedCountKey] = 0;
-      }
-      const usedCount = Number(ch?.[usedCountKey] ?? 0);
-      if (usedCount >= consMaxUsesPerPhase) return false;
-
-      const hp = Number(ch.hp || 0);
-      const hpBelow = reason === 'after_battle' ? consAfterBattleHpBelow : consTurnHpBelow;
-      const satiety = normalizeSatiety(ch.satiety);
-      const satietyBelow = Math.max(0, Math.min(100, Number(consCfg.aiUseSatietyBelow ?? 35)));
-      if (hp <= 0) return false;
-
-      const inv = ch.inventory;
-      if (hp >= hpBelow && satiety >= satietyBelow) return false;
-
-      // 음식 회복 아이템만 자동 사용한다. 상태이상 해제 아이템은 없다.
-      const idx = inv.findIndex((i) => isFoodRecoveryItem(i));
-      if (idx < 0) return false;
-
-      const itemToUse = inv[idx];
-      const effect = applyItemEffect(ch, itemToUse);
-      addLog(effect.log, 'highlight');
-
-      const maxHp = Number(ch?.maxHp ?? 100);
-      const finalRecovery = applyHealingModifier(ch, Number(effect.recovery || 0));
-      ch.hp = Math.min(maxHp, hp + finalRecovery);
-      const satietyGain = applySatietyGain(ch, effect?.satiety);
-      const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
-      if (statBoost) {
-        ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
-        Object.entries(statBoost).forEach(([key, value]) => {
-          const v = Number(value || 0);
-          if (!Number.isFinite(v) || v === 0) return;
-          ch.stats[key] = Number(ch.stats?.[key] || 0) + v;
-        });
-      }
-      const permanent = applyPermanentConsumableBoostToActor(ch, effect, itemToUse);
-      if (permanent.log) addLog(permanent.log, permanent.duplicate ? 'system' : 'highlight');
-      const runtimeEffects = applyRuntimeEffectPayloads(ch, effect?.newEffects);
-      runtimeEffects.results.forEach((row) => {
-        if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
-        else if (row?.reason === 'resisted') addLog(`🧷 [${ch.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-        else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-          const desc = describeRuntimeEffect(row.effect);
-          if (desc) addLog(`🪄 [${ch.name}] ${desc}`, 'system');
-        }
-      });
-      // qty 감소(서버형 인벤토리 대응)
-      const currentQty = Number(itemToUse?.qty || 1);
-      if (Number.isFinite(currentQty) && currentQty > 1) inv[idx] = { ...itemToUse, qty: currentQty - 1 };
-      else inv.splice(idx, 1);
-
-      ch[usedCountKey] = usedCount + 1;
-      emitConsumableRunEvent(ch, itemToUse, { source: 'consumable', reason, heal: Math.max(0, Number(ch.hp || 0) - hp), satiety: satietyGain }, atNow());
-      emitEffectRunEvents(ch, runtimeEffects.results, { source: 'consumable', itemId: String(itemToUse?._id || itemToUse?.itemId || ''), reason }, atNow());
-      upsertRuntimeSurvivor(survivorMap, ch);
-      return true;
-    };
+    const { tryUseConsumable } = createPhaseConsumableRuntime({
+      addLog,
+      atNow,
+      consCfg,
+      emitConsumableRunEvent,
+      emitEffectRunEvents,
+      phaseIdxNow,
+      survivorMap,
+    });
 
 
     // 3. 메인 루프
