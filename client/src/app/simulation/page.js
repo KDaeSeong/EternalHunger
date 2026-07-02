@@ -275,6 +275,11 @@ import {
   buildTradeWantItemOptions,
   limitVisibleRows,
 } from './_lib/itemOptionsRuntime';
+import { createSeedRng } from './_lib/randomSeedRuntime';
+import {
+  getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
+  getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
+} from './_lib/forbiddenZoneRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1732,30 +1737,11 @@ if (!who) {
     defender.hp = Math.max(1, defHp - openDamage);
   };
 
-  function seedRng(seedStr) {
-    // 문자열 -> 32bit seed
-    let h = 2166136261;
-    for (let i = 0; i < seedStr.length; i++) {
-      h ^= seedStr.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    // mulberry32
-    let a = h >>> 0;
-    return () => {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  };
-
-
   function applyRunSeed(seedStr) {
     const s = String(seedStr || '').trim() || '0';
     try { localStorage.setItem(SEED_STORAGE_KEY, s); } catch {}
     if (!randomBackupRef.current) randomBackupRef.current = Math.random;
-    Math.random = seedRng(`RUN:${s}`);
+    Math.random = createSeedRng(`RUN:${s}`);
   };
 
   function restoreRandom() {
@@ -1772,165 +1758,12 @@ if (!who) {
 
   useEffect(() => () => restoreRandom(), []);
 
-  // ✅ 금지구역 후보 셔플(누적 방식)
-  // - day별로 따로 섞으면(시드가 달라지면) "어제 금지"가 오늘 풀리는 현상이 생길 수 있어,
-  //   맵별로 1회만 셔플한 순서를 prefix로 잘라 "누적"되게 만듭니다.
-  function getForbiddenOrderForMap(mapObj) {
-    const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
-    const zoneIds = z.map((x) => String(x.zoneId));
-    // ✅ 초기 로드 타이밍(구역 목록이 비어있는 상태)에서 캐시가 굳어버리면
-    //    이후에도 금지구역이 0으로 고정될 수 있어, 구역 시그니처를 키에 포함합니다.
-    const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
-    const orderKey = `${String(mapObj?._id || 'no-map')}:forbidden:order:${zSig}`;
-    if (forbiddenCacheRef.current[orderKey]) return forbiddenCacheRef.current[orderKey];
-
-    const base = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
-
-    const candidates = zoneIds.filter((id) => id && !base.has(id));
-    const rng = seedRng(`FORB_ORDER:${String(mapObj?._id || '')}`);
-    for (let i = candidates.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-    }
-    forbiddenCacheRef.current[orderKey] = candidates;
-    return candidates;
+  function getForbiddenZoneIdsForPhase(mapObj, dayNum, phaseKey) {
+    return getForbiddenZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
   }
 
-  function getForbiddenZoneIdsForDay(mapObj, dayNum) {
-    const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
-    const zoneIds = z.map((x) => String(x.zoneId));
-    const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
-    const key = `${String(mapObj?._id || 'no-map')}:${dayNum}:${zSig}`;
-    if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
-
-    const base = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
-
-    const cfg = mapObj?.forbiddenZoneConfig || {};
-    // ✅ 금지구역은 기본 ON
-    // - server Map 스키마에서 forbiddenZoneConfig.enabled 기본값이 false였던 레거시 때문에
-    //   "항상 금지구역 0"으로 굳는 케이스가 있었음. 현재 룰셋에서는 설정으로만 OFF 허용.
-    const enabled = (settings?.forbiddenZoneEnabled === false) ? false : true;
-
-    // 요구사항: 2일차 밤 이후(=3일차 낮부터) "무작위 2곳"을 금지구역으로 고정
-    // - 누적 확장 X, 항상 2곳(기본 isForbidden이 있으면 여기에 추가)
-    const startDay = Number(cfg.startDay ?? cfg.startPhase ?? settings.forbiddenZoneStartDay ?? 3);
-    const count = Math.max(1, Number(cfg.count ?? cfg.perDay ?? 2));
-
-    if (enabled && dayNum >= startDay && zoneIds.length > 0) {
-      const order = getForbiddenOrderForMap(mapObj);
-      // 최소 1개의 안전구역은 남기기
-      const maxAdd = Math.max(0, zoneIds.length - 1 - base.size);
-      const extraCount = Math.min(count, Math.min(maxAdd, order.length));
-      order.slice(0, extraCount).forEach((id) => base.add(id));
-    }
-
-    const arr = [...base];
-    forbiddenCacheRef.current[key] = arr;
-    return arr;
-  }
-
-  // ✅ 금지구역(확장 규칙)
-  // - 요구사항: 2일차 밤부터 생성, 낮/밤(페이즈)마다 2곳씩 누적 확장
-  // - 마지막(=안전구역이 2곳 남는 시점)에는 더 이상 확장하지 않고, 안전구역도 40s 유예 후 카운트가 깎이도록(아래 detonation 틱) 처리
-  // - 맵의 zones[*].isForbidden은 항상 기본 금지구역으로 유지
-  function getForbiddenZoneIdsForPhase(mapObj, dayNum, phaseKey, ruleset) {
-    const effDay = Math.max(0, Number(dayNum || 0));
-    const effPhase = (String(phaseKey || '') === 'night') ? 'night' : 'morning';
-
-    const z = Array.isArray(mapObj?.zones) && mapObj.zones.length ? mapObj.zones : zones;
-    const zoneIds = z.map((x) => String(x.zoneId));
-    const zSig = zoneIds.length ? `${zoneIds.length}:${zoneIds[0]}:${zoneIds[zoneIds.length - 1]}` : '0';
-
-    const key = `${String(mapObj?._id || 'no-map')}:${String(effDay)}:${String(effPhase)}:${zSig}`;
-    if (forbiddenCacheRef.current[key]) return forbiddenCacheRef.current[key];
-
-    const base = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
-
-    const cfg = mapObj?.forbiddenZoneConfig || {};
-    // ✅ 금지구역은 기본 ON
-    // - 레거시(enabled:false 기본값)로 금지구역이 비활성화되는 문제 방지
-    const enabled = (settings?.forbiddenZoneEnabled === false) ? false : true;
-
-    // 기본값: 2일차 밤부터 시작(요구사항)
-    const startDay = Number(cfg.startDay ?? settings.forbiddenZoneStartDay ?? 2);
-    const startPhase = String(cfg.startPhase ?? cfg.startTimeOfDay ?? settings.forbiddenZoneStartPhase ?? 'night');
-    const addPerPhase = Math.max(1, Number(cfg.addPerPhase ?? cfg.perPhaseAdd ?? 2));
-
-    const phaseIdx = effDay * 2 + (effPhase === 'night' ? 1 : 0);
-    const startIdx = Math.max(0, Number(startDay || 0)) * 2 + (String(startPhase) === 'night' ? 1 : 0);
-
-    // ✅ 강제 금지: 연구소(lab)는 4일차 밤(Night 4)부터 금지구역으로 고정
-    // (ER 표준 스케줄: Research Center는 Night 4부터 제한구역)
-    const labForceIdx = 4 * 2 + 1; // 4일차 밤
-    if (zoneIds.includes('lab') && phaseIdx >= labForceIdx) base.add('lab');
-
-    if (enabled && phaseIdx >= startIdx && zoneIds.length > 0) {
-      const steps = phaseIdx - startIdx + 1;
-      const want = steps * addPerPhase;
-      const order = getForbiddenOrderForMap(mapObj);
-
-      // ✅ 마지막엔 안전구역 2곳 남기기(가능하면)
-      const safeRemain = Math.max(1, Math.floor(Number(cfg.safeRemain ?? 2)));
-      const maxAdd = Math.max(0, zoneIds.length - safeRemain - base.size);
-      const extraCount = Math.min(want, Math.min(maxAdd, order.length));
-      order.slice(0, extraCount).forEach((id) => base.add(id));
-    }
-
-    const arr = [...base];
-    forbiddenCacheRef.current[key] = arr;
-    return arr;
-  }
-
-
-
-  // ✅ 이번 페이즈에 '실제로 새로 추가된' 금지구역 zoneId만 반환
-  // - 금지구역 전체 목록(diff)으로 계산하면 캐시/로드 타이밍에 NEW가 흔들릴 수 있어,
-  //   누적 셔플(prefix) 규칙 기반으로 '이번 단계에서 추가되는 slice(2개)'만 고정합니다.
-  function getForbiddenAddedZoneIdsForPhase(mapObj, dayNum, phaseKey, ruleset) {
-    const effDay = Math.max(0, Number(dayNum || 0));
-    const effPhase = (String(phaseKey || '') === 'night') ? 'night' : 'morning';
-
-    const z = (Array.isArray(mapObj?.zones) && mapObj.zones.length) ? mapObj.zones : zones;
-    const zoneIds = z.map((x) => String(x.zoneId));
-    if (!zoneIds.length) return [];
-
-    const cfg = mapObj?.forbiddenZoneConfig || {};
-    // ✅ 금지구역은 기본 ON(설정으로만 OFF)
-    const enabled = (settings?.forbiddenZoneEnabled === false) ? false : true;
-    if (!enabled) return [];
-
-    const startDay = Number(cfg.startDay ?? settings.forbiddenZoneStartDay ?? 2);
-    const startPhase = String(cfg.startPhase ?? cfg.startTimeOfDay ?? settings.forbiddenZoneStartPhase ?? 'night');
-    const addPerPhase = Math.max(1, Number(cfg.addPerPhase ?? cfg.perPhaseAdd ?? 2));
-
-    const phaseIdx = effDay * 2 + (effPhase === 'night' ? 1 : 0);
-    const startIdx = Math.max(0, Number(startDay || 0)) * 2 + (String(startPhase) === 'night' ? 1 : 0);
-    if (phaseIdx < startIdx) return [];
-
-    // 기본 금지구역(isForbidden)은 '신규 추가' 대상에서 제외
-    // + 강제 금지(연구소): 4일차 밤부터 금지구역으로 고정
-    const labForceIdx = 4 * 2 + 1; // 4일차 밤
-    const baseSet = new Set(z.filter((x) => x?.isForbidden).map((x) => String(x.zoneId)));
-    const labForcedNow = zoneIds.includes('lab') && phaseIdx >= labForceIdx;
-    if (labForcedNow) baseSet.add('lab');
-    const baseCount = baseSet.size;
-    const safeRemain = Math.max(1, Math.floor(Number(cfg.safeRemain ?? 2)));
-    const maxAdd = Math.max(0, zoneIds.length - safeRemain - baseCount);
-
-    const order = getForbiddenOrderForMap(mapObj);
-    const steps = phaseIdx - startIdx + 1;
-
-    const cap = Math.min(maxAdd, order.length);
-    const extraCur = Math.min(steps * addPerPhase, cap);
-    const extraPrev = Math.min(Math.max(0, (steps - 1) * addPerPhase), cap);
-
-    let added = order.slice(extraPrev, extraCur).filter(Boolean);
-
-    // ✅ 연구소(lab)는 4일차 밤에 강제로 금지구역이 되므로, 그 순간에는 '이번 페이즈 신규'에 포함
-    if (zoneIds.includes('lab') && phaseIdx === labForceIdx) {
-      added = ['lab', ...added.filter((x) => String(x) !== 'lab')];
-    }
-    return added;
+  function getForbiddenAddedZoneIdsForPhase(mapObj, dayNum, phaseKey) {
+    return getForbiddenAddedZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
   };
   const itemNameById = useSafeMemo('itemNameById', () => {
     return buildItemNameById(publicItems);
