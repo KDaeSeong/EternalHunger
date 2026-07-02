@@ -65,6 +65,19 @@ function buildPvpPhaseRuntime(opts = {}) {
   };
 }
 
+function pickPvpTarget(list, survivorMap, phaseIdxNow, rng = Math.random) {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const noisy = list.filter((target) => {
+    const runtimeTarget = survivorMap?.get?.(target?._id);
+    return Number(runtimeTarget?._immediateDanger || 0) > 0
+      && Number(runtimeTarget?._immediateDangerUntilPhaseIdx ?? -1) === phaseIdxNow;
+  });
+  const pool = noisy.length ? noisy : list;
+  const picked = pool[Math.floor(rng() * pool.length)];
+  return picked ? survivorMap?.get?.(picked._id) || null : null;
+}
+
 export {
   buildPvpPhaseRuntime,
+  pickPvpTarget,
 };

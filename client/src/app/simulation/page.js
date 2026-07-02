@@ -287,7 +287,11 @@ import {
   pickUnbiasedBattle as pickUnbiasedBattleRuntime,
   shouldAvoidCombatByPvpPower,
 } from './_lib/pvpMatchupRuntime';
-import { buildPvpPhaseRuntime } from './_lib/pvpPhaseRuntime';
+import {
+  buildPvpPhaseRuntime,
+  pickPvpTarget as pickPvpTargetRuntime,
+} from './_lib/pvpPhaseRuntime';
+import { runForcedSuddenDeathClash } from './_lib/suddenDeathRuntime';
 import {
   grantMastery as grantMasteryRuntime,
   grantMasteries as grantMasteriesRuntime,
@@ -2557,6 +2561,7 @@ const pickStartZoneIdForChar = (c) => {
       emitDeathRunEventOnce,
       flushDeadSnapshots,
       phaseDeadSnapshots,
+      reconcileZeroHpDeaths,
       setDeathMetadata,
     } = createPhaseDeathRuntime({
       addLog,
@@ -4394,18 +4399,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
         actor._immediateDangerUntilPhaseIdx = null;
       }
 
-      const pickPvpTarget = (list) => {
-        if (!Array.isArray(list) || list.length === 0) return null;
-        const noisy = list.filter((t) => {
-          const tt = survivorMap.get(t._id);
-          return Number(tt?._immediateDanger || 0) > 0 && Number(tt?._immediateDangerUntilPhaseIdx ?? -1) === phaseIdxNow;
-        });
-        const pool = noisy.length ? noisy : list;
-        const picked = pool[Math.floor(Math.random() * pool.length)];
-        return picked ? survivorMap.get(picked._id) : null;
-      };
-
-      const pvpTarget = canDual ? pickPvpTarget(potentialTargets) : null;
+      const pvpTarget = canDual ? pickPvpTargetRuntime(potentialTargets, survivorMap, phaseIdxNow) : null;
       const rand = Math.random();
 
       const midgameCombatWindow = !suddenDeath && Number(nextDay || 0) >= 2 && Number(nextDay || 0) <= 4;
@@ -5600,95 +5594,30 @@ const didMove = String(nextZoneId) !== String(currentZone);
     }
 
     // 4. 킬 카운트 업데이트
-    if (suddenDeathActiveRef.current && ruleset?.suddenDeath?.forcedClash !== false) {
-      const maxClashRounds = Math.max(1, Math.floor(Number(ruleset?.suddenDeath?.forceClashMaxRounds ?? 8)));
-      const liveTeams = () => getAliveTeams(
-        Array.from(survivorMap.values())
-          .filter((s) => s && Number(s.hp || 0) > 0 && !newDeadIds.includes(s._id))
-      );
-      const scoreTeam = (team) => {
-        const members = Array.isArray(team?.members) ? team.members : [];
-        const hpSum = members.reduce((sum, m) => sum + Math.max(0, Number(m?.hp || 0)), 0);
-        const powerSum = members.reduce((sum, m) => sum + Math.max(1, Number(estimatePower(m) || 0)), 0);
-        const killSum = members.reduce((sum, m) => sum + Number(killCounts?.[m?._id] || 0) + Number(roundKills?.[m?._id] || 0), 0);
-        return powerSum + hpSum * 0.45 + killSum * 8 + Math.random() * 10;
-      };
+    runForcedSuddenDeathClash({
+      addLog,
+      appendPhaseDeadSnapshots,
+      assistCounts,
+      emitDeathRunEventOnce,
+      estimatePower,
+      flushDeadSnapshots,
+      killCounts,
+      newDeadIds,
+      phaseIdxNow,
+      roundAssists,
+      roundKills,
+      ruleset,
+      setDeathMetadata,
+      suddenDeathActive: suddenDeathActiveRef.current,
+      survivorMap,
+    });
 
-      let clashRound = 0;
-      while (clashRound < maxClashRounds) {
-        const teams = liveTeams();
-        if (teams.length <= 1) break;
-        const scored = teams
-          .map((team) => ({ team, score: scoreTeam(team) }))
-          .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
-        const top = scored[0];
-        const challenger = scored[1];
-        if (!top?.team || !challenger?.team) break;
-
-        const totalScore = Math.max(1, Number(top.score || 0) + Number(challenger.score || 0));
-        const topWins = Math.random() < (Number(top.score || 0) / totalScore);
-        const winnerTeam = topWins ? top.team : challenger.team;
-        const loserTeam = topWins ? challenger.team : top.team;
-        const winnerRep = pickTeamRepresentative(winnerTeam.members, { ...killCounts, ...roundKills }, { ...assistCounts, ...roundAssists }) || winnerTeam.members?.[0];
-        const loserMembers = (Array.isArray(loserTeam?.members) ? loserTeam.members : [])
-          .map((m) => survivorMap.get(String(m?._id || '')) || m)
-          .filter((m) => m && Number(m.hp || 0) > 0 && !newDeadIds.includes(m._id));
-        if (!winnerRep || !loserMembers.length) break;
-
-        addLog(`🔥 서든데스 결판: [${winnerTeam.teamName || getActorTeamName(winnerRep)}]이(가) [${loserTeam.teamName || '상대 팀'}]을 몰아냅니다.`, 'death');
-        const winnerId = String(winnerRep?._id || '');
-        roundKills[winnerId] = (roundKills[winnerId] || 0) + loserMembers.length;
-        for (const loser of loserMembers) {
-          loser.hp = 0;
-          setDeathMetadata(loser, 'sudden_death_clash', { causeName: '서든데스 교전', by: winnerId });
-          loser.deadAtPhaseIdx = phaseIdxNow;
-          loser.reviveEligible = false;
-          if (!newDeadIds.includes(loser._id)) newDeadIds.push(loser._id);
-          survivorMap.set(String(loser._id || ''), loser);
-          emitDeathRunEventOnce(loser, {
-            by: winnerId,
-            zoneId: String(loser?.zoneId || winnerRep?.zoneId || ''),
-            reason: 'sudden_death_clash',
-            cause: '서든데스 교전',
-          });
-        }
-        const detBonus = Math.max(5, Number(ruleset?.detonation?.killBonusSec || 5));
-        winnerRep.detonationSec = Math.max(Number(winnerRep?.detonationSec || 0), Number(ruleset?.detonation?.criticalSec || 5) + detBonus);
-        survivorMap.set(String(winnerRep._id || ''), winnerRep);
-        flushDeadSnapshots(appendPhaseDeadSnapshots(loserMembers));
-        clashRound += 1;
-      }
-    }
-
-    const reconcileZeroHpDeaths = () => {
-      const missed = [];
-      for (const s of survivorMap.values()) {
-        if (!s || !s._id) continue;
-        const id = String(s._id);
-        if (newDeadIds.includes(id)) continue;
-        if (Number(s.hp || 0) > 0) continue;
-        s.hp = 0;
-        setDeathMetadata(s, s._deathBy || 'hp_zero_reconcile', {
-          causeName: s._deathCauseName || s.deathCauseName || '체력 0',
-          by: String(s?.lastDamagedBy || ''),
-        });
-        s.deadAtPhaseIdx = phaseIdxNow;
-        s.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-        newDeadIds.push(id);
-        missed.push(s);
-        emitDeathRunEventOnce(s, {
-          by: String(s?.lastDamagedBy || ''),
-          zoneId: String(s?.zoneId || ''),
-          reason: s._deathBy || 'hp_zero_reconcile',
-          cause: s._deathCauseName || s.deathCauseName || '체력 0',
-        });
-      }
-      if (missed.length > 0) {
-        flushDeadSnapshots(appendPhaseDeadSnapshots(missed));
-      }
-    };
-
-    reconcileZeroHpDeaths();
+    reconcileZeroHpDeaths({
+      canReviveThisMatch,
+      newDeadIds,
+      reviveCutoffIdx,
+      survivorMap,
+    });
 
     const updatedKillCounts = { ...killCounts };
     Object.keys(roundKills).forEach((killerId) => {

@@ -120,6 +120,43 @@ function createPhaseDeathRuntime(opts = {}) {
     setDead?.((prev) => dedupeRuntimeParticipants([...(Array.isArray(prev) ? prev : []), ...list]));
   };
 
+  const reconcileZeroHpDeaths = (params = {}) => {
+    const {
+      canReviveThisMatch = false,
+      newDeadIds = [],
+      reviveCutoffIdx = 0,
+      survivorMap,
+    } = params;
+    const missed = [];
+    if (!survivorMap || typeof survivorMap.values !== 'function') return missed;
+
+    for (const actor of survivorMap.values()) {
+      if (!actor || !actor._id) continue;
+      const id = String(actor._id);
+      if (newDeadIds.includes(id)) continue;
+      if (Number(actor.hp || 0) > 0) continue;
+      actor.hp = 0;
+      setDeathMetadata(actor, actor._deathBy || 'hp_zero_reconcile', {
+        causeName: actor._deathCauseName || actor.deathCauseName || '체력 0',
+        by: String(actor?.lastDamagedBy || ''),
+      }, currentActionSec);
+      actor.deadAtPhaseIdx = phaseIdxNow;
+      actor.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
+      newDeadIds.push(id);
+      missed.push(actor);
+      emitDeathRunEventOnce(actor, {
+        by: String(actor?.lastDamagedBy || ''),
+        zoneId: String(actor?.zoneId || ''),
+        reason: actor._deathBy || 'hp_zero_reconcile',
+        cause: actor._deathCauseName || actor.deathCauseName || '체력 0',
+      });
+    }
+    if (missed.length > 0) {
+      flushDeadSnapshots(appendPhaseDeadSnapshots(missed));
+    }
+    return missed;
+  };
+
   return {
     addFallbackDeathLog,
     appendPhaseDeadSnapshots,
@@ -128,6 +165,7 @@ function createPhaseDeathRuntime(opts = {}) {
     formatFallbackDeathReason,
     hasDirectDeathLogForActor,
     phaseDeadSnapshots,
+    reconcileZeroHpDeaths,
     setDeathMetadata: (actor, reason, meta = {}) => setDeathMetadata(actor, reason, meta, currentActionSec),
   };
 }
