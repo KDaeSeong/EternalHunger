@@ -32,38 +32,6 @@
     flex: 0 0 auto;
 }
 
-.simulation-page > header[hidden] {
-    display: none !important;
-}
-
-.simulation-page > header #header-id1 {
-    overflow: visible;
-}
-
-.simulation-page > header #header-id1 ul {
-    width: var(--sim-shell-width);
-    max-width: var(--sim-shell-width);
-    margin: 0 auto;
-    box-sizing: border-box;
-}
-
-.simulation-page > header #header-id1 .logo-btn {
-    padding: 0 10px 0 6px;
-    overflow: visible;
-}
-
-.simulation-page > header #header-id1 .text-logo {
-    min-width: 112px;
-    overflow: visible;
-}
-
-.simulation-page > header #header-id1 .logo-main {
-    display: block;
-    line-height: 1.08;
-    letter-spacing: 0;
-    padding: 1px 0 2px;
-}
-
 .simulation-page-hydrating {
     align-items: center;
     justify-content: center;
@@ -398,7 +366,6 @@
   opacity: 0.95;
 }
 
-
 /* 월드스폰 툴바 */
 .worldspawn-toolbar {
   margin: 8px 0 10px;
@@ -613,7 +580,6 @@
 
 @keyframes blink { 50% { opacity: 0.5; } }
 
-
 /* 컨트롤 패널 (버튼) */
 .control-panel {
     padding: 20px;
@@ -716,7 +682,6 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .survivor-card { position: relative; } /* 뱃지 위치 기준점 */
-
 
 /* 🏆 결과 요약 모달창 */
 .result-modal-overlay {
@@ -1615,7 +1580,6 @@
 .invEquipBtn.off { background: rgba(255,90,90,0.18); }
 .invEquipBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-
 /* ===== 이전 페이즈 로그 토글 ===== */
 .prevlogs-row {
   display: flex;
@@ -2137,21 +2101,6 @@
 }
 
 @media (max-width: 640px) {
-  .simulation-page > header #header-id1 {
-    height: auto;
-    min-height: 56px;
-  }
-
-  .simulation-page > header #header-id1 ul {
-    gap: 14px;
-    padding: 8px 12px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .simulation-page > header #header-id1 ul::-webkit-scrollbar {
-    display: none;
-  }
 
   .survivor-board.modal-open,
   .minimap-panel.modal-open,

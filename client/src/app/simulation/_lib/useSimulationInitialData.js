@@ -64,7 +64,7 @@ export function useSimulationInitialData({
     setWinner,
   } = actions;
 
-  // 초기 데이터 로드 (캐릭터 + 이벤트 + 설정 + 상점 데이터)
+  // 초기 데이터 로드 (캐릭터 + 설정 + 맵/상점 데이터)
   useEffect(() => {
     const token = getToken();
     const me = getUser();

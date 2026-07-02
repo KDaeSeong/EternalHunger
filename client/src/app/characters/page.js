@@ -8,7 +8,7 @@ import '../../styles/Home.css';
 import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
-import { apiGet, apiGetCached, apiPost, clearApiGetCache, clearAuth, getToken, getUser } from '../../utils/api';
+import { apiGet, apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { buildQSkillCodePreview, compileNaturalQSkillDescription } from '../../utils/characterSkillCompiler';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
@@ -148,7 +148,6 @@ export default function CharactersPage() {
   const [editCharacterSkillCode, setEditCharacterSkillCode] = useState('');
   const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
   const [editCharacterSkills, setEditCharacterSkills] = useState(() => normalizeCharacterSkillsForEditor());
-  const [user, setUser] = useState(() => getUser() || null);
   const backdropPointerRef = useRef(null);
 
   const editChar = useMemo(
@@ -190,13 +189,6 @@ export default function CharactersPage() {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const handleLogout = () => {
-    if (confirm('로그아웃 하시겠습니까?')) {
-      clearAuth();
-      setUser(null);
-      window.location.reload();
-    }
-  };
 
   const addCharacter = () => {
     const id = Date.now();
@@ -444,8 +436,6 @@ export default function CharactersPage() {
   return (
     <main className="characters-page-shell">
       <SiteHeader className="characters-site-header" />
-      <header hidden aria-hidden="true" />
-
       <div className="page-header">
         <div className="page-header-row">
           <div className="page-header-copy">

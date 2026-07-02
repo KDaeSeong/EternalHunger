@@ -5067,26 +5067,6 @@ if (showMarketPanel && pendingTranscendPick) {
   return (
     <main className="simulation-page">
       <SiteHeader className="simulation-site-header" />
-      <header hidden aria-hidden="true">
-        <section id="header-id1">
-          <ul>
-            <li>
-              <Link href="/" className="logo-btn">
-                <div className="text-logo">
-                  <span className="logo-top">ETERNAL</span>
-                  <span className="logo-main">HUNGER</span>
-                </div>
-              </Link>
-            </li>
-            <li><Link href="/">메인</Link></li>
-            <li><Link href="/characters">캐릭터 설정</Link></li>
-            <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/modifiers">보정치 설정</Link></li>
-            <li><Link href="/help">도움말</Link></li>
-            <li><Link href="/simulation" style={{ color: '#0288d1' }}>▶ 게임 시작</Link></li>
-          </ul>
-        </section>
-      </header>
 
       {uiModal ? (
         <div

@@ -201,7 +201,7 @@ function zoneLabel(actor) {
 }
 
 function silentResult() {
-  return { silent: true, log: '', damage: 0, recovery: 0, drop: null };
+  return { silent: true, log: '', damage: 0, recovery: 0, drops: [] };
 }
 
 function buildActionPool(actor, day, phase, opts) {
@@ -241,7 +241,7 @@ function routeMaterialAction(actor, publicItems, day) {
   }
   return {
     log: `🧭 [${actor.name}] ${zoneLabel(actor)} 루트 파밍: [${item.name}] x1 확보`,
-    drop: { item, itemId: String(item._id), qty: 1 },
+    drops: [{ item, itemId: String(item._id), qty: 1 }],
     pvpBonusNext: day <= 1 ? 0.04 : 0.08,
   };
 }
@@ -256,7 +256,7 @@ function foodSupplyAction(actor, publicItems) {
   }
   return {
     log: `🍱 [${actor.name}] 보급 상자: [${item.name}] x1 확보`,
-    drop: { item, itemId: String(item._id), qty: 1 },
+    drops: [{ item, itemId: String(item._id), qty: 1 }],
     newEffects: [makeStatBuffEffect('전투 준비', { maxHp: 3, defense: 1 }, 20, 'micro_food_supply', { tags: ['positive', 'food', 'focus'] })],
     pvpBonusNext: 0.06,
   };

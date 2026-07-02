@@ -5,7 +5,7 @@ function fallbackDynamicEvent(actor) {
     log: `🧭 [${actor?.name || '생존자'}] 다음 오브젝트와 교전 동선을 점검했습니다.`,
     damage: 0,
     recovery: 0,
-    drop: null,
+    drops: [],
   };
 }
 

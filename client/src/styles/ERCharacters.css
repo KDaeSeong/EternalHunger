@@ -23,7 +23,6 @@ main {
     box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* 부드러운 그림자로 입체감 */
 }
 
-
 /* === 💾 공통 저장 버튼 스타일 (핵심 수정!) === */
 .main-save-container {
     display: flex;
@@ -65,7 +64,6 @@ main {
     transform: translateY(-2px);
     box-shadow: 0 5px 10px rgba(65, 133, 179, 0.3);
 }
-
 
 /* === ⚡ AI 스카우터 버튼 (캐릭터 설정 페이지용) === */
 .ai-scouter-btn {
@@ -186,7 +184,6 @@ main {
     transform: translateY(-1px);
     box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
 }
-
 
 /* === 기타 캐릭터 설정 페이지 스타일 (기존 유지/정리) === */
 #characterRowContainer {
@@ -545,49 +542,6 @@ main {
         margin-right: 4px;
     }
 
-    #header-id1 {
-        height: auto;
-        min-height: 58px;
-        align-items: flex-start;
-        overflow: visible;
-    }
-
-    #header-id1 ul {
-        flex-wrap: wrap;
-        align-content: center;
-        justify-content: flex-start;
-        gap: 6px 10px;
-        padding: 9px 10px;
-        overflow-x: visible;
-    }
-
-    #header-id1 .logo-top {
-        font-size: 0.54rem;
-        letter-spacing: 1.6px;
-    }
-
-    #header-id1 .logo-main,
-    .text-logo .logo-main {
-        font-size: 1.04rem;
-    }
-
-    #header-id1 a {
-        font-size: 0.74rem;
-        line-height: 1.1;
-    }
-
-    #header-id1 .auth-menu {
-        margin-left: 0;
-        flex-basis: 100%;
-    }
-
-    #header-id1 .user-info {
-        padding: 4px 8px;
-        gap: 6px;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-    }
-
     .page-header {
         margin: 22px 0 14px;
     }
@@ -740,10 +694,6 @@ main {
 .characters-page-shell > .site-header {
     margin: -12px -12px 28px;
     border-radius: 14px;
-}
-
-.characters-page-shell > header[hidden] {
-    display: none !important;
 }
 
 .goal-help-title {

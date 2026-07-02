@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
-import { apiGet, apiGetCached, apiPost, clearApiGetCache, clearAuth, getToken, getUser } from '../../utils/api';
+import { apiGet, apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { ER_STAT_FIELDS, normalizeErStats } from '../../utils/erStats';
 import { normalizeWeaponType } from '../../utils/equipmentCatalog';
@@ -68,7 +68,6 @@ function syncTokenCookie(token) {
   try {
     document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
   } catch {
-    // 쿠키 저장 실패해도 Authorization 헤더 경로는 계속 사용할 수 있습니다.
   }
 }
 
@@ -95,34 +94,17 @@ export default function DetailsPage() {
   const [equipList, setEquipList] = useState([]);
   const [statModalCharId, setStatModalCharId] = useState(null);
 
-  const [user, setUser] = useState(null);
   const backdropPointerRef = useRef(null);
 
   useEffect(() => {
-    // ★ 1. [보안] 토큰 검사 (문지기)
     const token = getToken();
     if (!token) {
-        alert("로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.");
-        window.location.href = '/login'; // 강제 추방
-        return;
+      alert('로그인이 필요한 기능입니다. 로그인 페이지로 이동합니다.');
+      window.location.href = '/login';
+      return;
     }
     syncTokenCookie(token);
-
-    // 화면이 켜진 뒤에만 localStorage에 접근 (에러 방지 핵심!)
-    const userData = getUser();
-    if (userData) {
-      setUser(userData);
-    }
   }, []);
-
-  const handleLogout = () => {
-    if (confirm("로그아웃 하시겠습니까?")) {
-      clearAuth();
-      setUser(null);
-      window.location.reload(); // 깔끔하게 새로고침
-    }
-  };
-
   // 1. 서버에서 캐릭터 불러오기
   useEffect(() => {
     const token = getToken(); // 토큰 가져오기
@@ -273,47 +255,6 @@ export default function DetailsPage() {
   return (
     <main className="details-page-shell">
       <SiteHeader className="details-site-header" />
-      <header hidden aria-hidden="true">
-        <section id="header-id1">
-            <ul>
-            {/* 1. 로고 */}
-            <li>
-                <Link href="/" className="logo-btn">
-                <div className="text-logo">
-                    <span className="logo-top">ETERNAL</span>
-                    <span className="logo-main">HUNGER</span>
-                </div>
-                </Link>
-            </li>
-            
-            {/* 2. 네비게이션 메뉴 */}
-            <li><Link href="/">메인</Link></li>
-            <li><Link href="/characters">캐릭터 설정</Link></li>
-            <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/events">이벤트 설정</Link></li>
-            <li><Link href="/modifiers">보정치 설정</Link></li>
-            <li><Link href="/help">도움말</Link></li>
-            
-            {/* 3. 게임 시작 버튼 (강조) */}
-            <li><Link href="/simulation" style={{color:'#0288d1', fontWeight:'bold'}}>▶ 게임 시작</Link></li>
-
-            {/* 4. ★ 우측 끝 유저 정보 (에러 방지 및 디자인 적용됨) */}
-            <li className="auth-menu">
-                {user ? (
-                <div className="user-info">
-                    <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp})</span>
-                    <button className="logout-btn" onClick={handleLogout}>🚪 로그아웃</button>
-                </div>
-                ) : (
-                <div className="auth-btns">
-                    <Link href="/login" className="login-btn">🔑 로그인</Link>
-                    <Link href="/signup" className="signup-btn">📝 회원가입</Link>
-                </div>
-                )}
-            </li>
-            </ul>
-        </section>
-        </header>
 
       {/* 심플해진 제목 */}
       <div className="page-header">
@@ -331,31 +272,6 @@ export default function DetailsPage() {
       </div>
 
       {/* ▼ 스탯 가이드 (새로 추가되는 부분) */}
-      <div className="stat-guide-container legacy-stat-guide" aria-hidden="true">
-        <h3>📊 스탯 기준표</h3>
-        <div className="stat-guide-grid">
-          <div className="guide-item rank-e">
-            <span className="range">1 ~ 20</span>
-            <span className="desc">일반인 (시민~운동선수)</span>
-          </div>
-          <div className="guide-item rank-c">
-            <span className="range">21 ~ 40</span>
-            <span className="desc">엘리트 (특수부대/천재)</span>
-          </div>
-          <div className="guide-item rank-a">
-            <span className="range">41 ~ 60</span>
-            <span className="desc">초인 (인간 한계 돌파)</span>
-          </div>
-          <div className="guide-item rank-s">
-            <span className="range">61 ~ 80</span>
-            <span className="desc">전설 (세계관 최강자)</span>
-          </div>
-          <div className="guide-item rank-ex">
-            <span className="range">81 ~ 100</span>
-            <span className="desc">신화 (규격 외 존재)</span>
-          </div>
-        </div>
-      </div>
       <div className="stat-guide-container">
         <h3>📊 스탯 기준표</h3>
         <div className="stat-guide-grid">

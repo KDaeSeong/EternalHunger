@@ -16,14 +16,9 @@
   --eh-card-shadow: 0 8px 22px rgba(22, 33, 44, 0.06);
 }
 
-main > header[hidden] {
-  display: none !important;
-}
-
 .characters-page-shell,
 .details-page-shell,
 .modifiers-page-shell,
-.events-page-shell,
 .board-page,
 .perk-shop-page,
 .help-page-shell {
@@ -42,7 +37,6 @@ main > header[hidden] {
 .characters-page-shell > .site-header,
 .details-page-shell > .site-header,
 .modifiers-page-shell > .site-header,
-.events-page-shell > .site-header,
 .board-page > .site-header,
 .perk-shop-page > .site-header,
 .help-page-shell > .site-header,
@@ -482,7 +476,6 @@ main > header[hidden] {
   .characters-page-shell,
   .details-page-shell,
   .modifiers-page-shell,
-  .events-page-shell,
   .board-page,
   .perk-shop-page,
   .help-page-shell {
@@ -498,7 +491,6 @@ main > header[hidden] {
   .characters-page-shell > .site-header,
   .details-page-shell > .site-header,
   .modifiers-page-shell > .site-header,
-  .events-page-shell > .site-header,
   .board-page > .site-header,
   .perk-shop-page > .site-header,
   .help-page-shell > .site-header,

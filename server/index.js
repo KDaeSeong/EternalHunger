@@ -32,7 +32,6 @@ const { verifyToken } = require('./middleware/authMiddleware');
 app.use('/api/auth', require('./routes/auth'));                 // 로그인/회원가입
 app.use('/api/admin', verifyToken, require('./routes/admin'));  // 관리자 (아이템/맵/키오스크 등)
 app.use('/api/characters', verifyToken, require('./routes/characters')); // 캐릭터
-app.use('/api/events', verifyToken, require('./routes/events'));         // 이벤트
 app.use('/api/settings', verifyToken, require('./routes/settings'));     // 게임 설정
 app.use('/api/game', verifyToken, require('./routes/game'));             // 게임 로그
 app.use('/api/user', verifyToken, require('./routes/user'));             // 유저 (보상/전적/크레딧 등)

@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import '../../styles/ERModifiers.css';
 import { DEFAULT_RULESET_ID, RULESETS, normalizeRulesetId } from '../../utils/rulesets';
-import { apiGet, apiPut, clearAuth, getToken, getUser } from '../../utils/api';
+import { apiGet, apiPut, getToken, getUser } from '../../utils/api';
 import { ER_STAT_FIELDS } from '../../utils/erStats';
 import SiteHeader from '../../components/SiteHeader';
 
@@ -67,13 +66,6 @@ export default function ModifiersPage() {
     fetchData();
   }, []);
 
-  const handleLogout = () => {
-    if (confirm("로그아웃 하시겠습니까?")) {
-      clearAuth();
-      setUser(null);
-      window.location.reload();
-    }
-  };
 
   const handleChange = (key, value) => {
     setWeights(prev => ({ ...prev, [key]: parseFloat(value) }));
@@ -111,41 +103,6 @@ export default function ModifiersPage() {
   return (
     <main className="modifiers-page-shell">
       <SiteHeader className="modifiers-site-header" />
-      <header hidden aria-hidden="true">
-        <section id="header-id1">
-            <ul>
-            <li>
-                <Link href="/" className="logo-btn">
-                <div className="text-logo">
-                    <span className="logo-top">ETERNAL</span>
-                    <span className="logo-main">HUNGER</span>
-                </div>
-                </Link>
-            </li>
-            
-            <li><Link href="/">메인</Link></li>
-            <li><Link href="/characters">캐릭터 설정</Link></li>
-            <li><Link href="/details">캐릭터 상세설정</Link></li>
-            <li><Link href="/events">이벤트 설정</Link></li>
-            <li><Link href="/modifiers" style={{color:'#0288d1'}}>보정치 설정</Link></li>
-            <li><Link href="/help">도움말</Link></li>
-            <li><Link href="/simulation" style={{fontWeight:'bold'}}>▶ 게임 시작</Link></li>
-
-            <li className="auth-menu">
-                {user ? (
-                <div className="user-info">
-                    <span>👤 <strong>{user.username}</strong>님 (LP: {user.lp || 0})</span>
-                    <button className="logout-btn" onClick={handleLogout}>🚪 로그아웃</button>
-                </div>
-                ) : (
-                <div className="auth-btns">
-                    <Link href="/login" className="login-btn">🔑 로그인</Link>
-                </div>
-                )}
-            </li>
-            </ul>
-        </section>
-        </header>
 
       <div className="page-header">
         <h1>게임 밸런스 / 보정치 설정</h1>
