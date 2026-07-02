@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, getToken, getUser, updateStoredUser } from '../../utils/api';
-import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
@@ -64,8 +63,6 @@ import {
   shuffleArray,
   EQUIP_SLOTS,
   START_WEAPON_TYPES,
-  normalizeUserStatistics,
-  mergeStoredUserProgress,
   perkNumber,
   buildPerkRuntimeBundle,
   getActorPerkEffects,
@@ -166,12 +163,10 @@ import {
   getActorTeamName,
   getActorTeamOriginalSize,
   getAliveTeams,
-  getWinningTeam,
   pickTeamRepresentative,
   getTimeOfDayFromPhase,
   worldTimeText,
   worldPhaseIndex,
-  saveLocalHallOfFameBackup,
 } from './_lib/simulationEngine';
 import { buildRunSummaries, getEmptyRunSummaries } from './_lib/runSummaries';
 import {
@@ -314,6 +309,7 @@ import {
   createPhaseConsumableRuntime,
   forceUseConsumableAtIndex,
 } from './_lib/consumableRuntime';
+import { finishSimulationGame } from './_lib/finishGameRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1942,226 +1938,32 @@ const pickStartZoneIdForChar = (c) => {
 
   // 최신 킬 정보 전달
   async function finishGame(finalSurvivors, latestKillCounts, latestAssistCounts, options = {}) {
-    if (isFinishingRef.current) return;
-    isFinishingRef.current = true;
-    // 게임 종료 시 오토 플레이는 자동으로 해제
-    setAutoPlay(false);
-    const finalKills = latestKillCounts || killCounts;
-    const finalAssists = latestAssistCounts || assistCounts;
-    const finalAlive = Array.isArray(finalSurvivors) ? finalSurvivors : [];
-    const finalDead = Array.isArray(options?.finalDead) ? options.finalDead : dead;
-    const winningTeam = getWinningTeam(finalAlive, finalKills, finalAssists);
-    const w = winningTeam?.representative || finalAlive[0];
-    const participants = dedupeRuntimeParticipants([
-      ...finalAlive,
-      ...(Array.isArray(finalDead) ? finalDead : []),
-    ]);
-    const matchCfgForResult = getMatchConfig(settings);
-    const totalTeamCount = new Set(
-      participants.map((p) => String(p?.teamId || p?.matchTeamId || p?._id || p?.id || '').trim()).filter(Boolean)
-    ).size;
-
-    const wId = getRuntimeActorKey(w);
-    const myKills = wId ? Number(finalKills[wId] || 0) : 0;
-    const myAssists = wId ? Number(finalAssists[wId] || 0) : 0;
-    const rewardLP = w ? (100 + myKills * 10) : 0;
-    const topKillLeader = [...participants]
-      .sort((a, b) => {
-        const aId = getRuntimeActorKey(a);
-        const bId = getRuntimeActorKey(b);
-        return (Number(finalKills?.[bId] || 0) - Number(finalKills?.[aId] || 0)) ||
-          (Number(finalAssists?.[bId] || 0) - Number(finalAssists?.[aId] || 0));
-      })[0] || null;
-    const winnerTeamAliveCount = winningTeam ? Math.max(0, Number(winningTeam?.aliveCount || winningTeam?.members?.length || 0)) : 0;
-    const winnerTeamOriginalSize = winningTeam ? Math.max(winnerTeamAliveCount, Number(winningTeam?.originalSize || winnerTeamAliveCount || 1)) : 0;
-    const winnerTeamMissingCount = Math.max(0, winnerTeamOriginalSize - winnerTeamAliveCount);
-    const winnerTeamRosterNames = Array.isArray(winningTeam?.rosterNames) && winningTeam.rosterNames.length
-      ? winningTeam.rosterNames
-      : participants
-        .filter((p) => winningTeam?.teamId && getActorTeamId(p) === winningTeam.teamId)
-        .map((p) => String(p?.name || '').trim())
-        .filter(Boolean);
-
-    setWinner(w);
-    setIsGameOver(true);
-    setShowResultModal(true);
-    setResultSummary({
-      rewardLP,
-      myKills,
-      myAssists,
-      participantsCount: participants.length,
-      saveStatus: { hallOfFame: w ? 'pending' : 'skipped', userStats: 'pending' },
-      userProgress: null,
-      matchMode: matchCfgForResult.matchMode,
-      teamSize: matchCfgForResult.teamSize,
-      maxTeams: matchCfgForResult.maxTeams,
-      teamCount: totalTeamCount,
-      aliveTeamCount: getAliveTeams(finalAlive).length,
-      winnerTeam: winningTeam
-        ? {
-            teamId: winningTeam.teamId,
-            teamName: winningTeam.teamName,
-            aliveCount: winnerTeamAliveCount,
-            originalSize: winnerTeamOriginalSize,
-            missingCount: winnerTeamMissingCount,
-            capacity: Number(winningTeam?.capacity || matchCfgForResult.teamSize || winnerTeamOriginalSize || 1),
-            rosterNames: winnerTeamRosterNames,
-            members: winningTeam.members.map((m) => ({
-              id: getRuntimeActorKey(m),
-              name: m?.name,
-              hp: Number(m?.hp || 0),
-              teamSlot: Number(m?.matchTeamSlot || m?.teamSlot || 0),
-            })),
-          }
-        : null,
-      topKillLeader: topKillLeader
-        ? {
-            id: getRuntimeActorKey(topKillLeader),
-            name: topKillLeader.name,
-            kills: Number(finalKills?.[getRuntimeActorKey(topKillLeader)] || 0),
-            assists: Number(finalAssists?.[getRuntimeActorKey(topKillLeader)] || 0),
-          }
-        : null,
+    return finishSimulationGame({
+      finalSurvivors,
+      latestAssistCounts,
+      latestKillCounts,
+      options,
+      refs: {
+        fullLogsRef,
+        isFinishingRef,
+      },
+      state: {
+        assistCounts,
+        dead,
+        killCounts,
+        settings,
+      },
+      actions: {
+        addLog,
+        setAutoPlay,
+        setCredits,
+        setIsGameOver,
+        setResultSummary,
+        setShowResultModal,
+        setWinner,
+      },
     });
-
-    if (w) {
-      const matchModeNow = normalizeMatchMode(settings?.matchMode);
-      addLog(
-        matchModeNow === 'solo'
-          ? `🏆 게임 종료! 최후의 생존자: [${w.name}]`
-          : `🏆 게임 종료! 최후의 팀: ${winningTeam?.teamName || getActorTeamName(w)} (생존 ${winnerTeamAliveCount}/${winnerTeamOriginalSize}) / 대표 생존자: [${w.name}]`,
-        'highlight'
-      );
-    }
-    else addLog('💀 생존자가 아무도 없습니다...', 'death');
-
-
-    // (3) 로컬 백업(캐릭터별: 내 명예의 전당)
-    try {
-      const me = getUser();
-      const username = me?.username || me?.id || 'guest';
-      saveLocalHallOfFameBackup(w, finalKills, finalAssists, participants);
-
-      // legacy(플레이어 단위) 기록을 1회만 캐릭터로 이관
-      if (w) {
-        writeHallOfFameState({ username }, (current) => {
-          const state = { ...(current || {}), chars: { ...(current?.chars || {}) } };
-          if (state._migratedFromPlayerV1) return state;
-          try {
-            const legacyRaw = localStorage.getItem(LEGACY_HOF_KEY);
-            const legacy = legacyRaw ? JSON.parse(legacyRaw) : null;
-            const legacyWins = Number(legacy?.wins?.[username] || 0);
-            const legacyKills = Number(legacy?.kills?.[username] || 0);
-            if (legacyWins > 0 || legacyKills > 0) {
-              const wid = String(w?._id ?? w?.id ?? '');
-              if (wid) {
-                const entry = state.chars[wid] || { name: w?.name || wid, wins: 0, kills: 0, assists: 0 };
-                entry.wins = Number(entry.wins || 0) + legacyWins;
-                entry.kills = Number(entry.kills || 0) + legacyKills;
-                state.chars[wid] = entry;
-              }
-            }
-          } catch {}
-          state._migratedFromPlayerV1 = true;
-          return state;
-        }, { migratedLegacy: true });
-      }
-
-      if (w) {
-        const raw = localStorage.getItem(LEGACY_HOF_KEY);
-        const data = raw ? JSON.parse(raw) : { wins: {}, kills: {} };
-        if (!data.wins) data.wins = {};
-        if (!data.kills) data.kills = {};
-        const wKey = String(w?._id ?? w?.id ?? '');
-        const kills = Number(finalKills?.[wKey] || 0);
-        data.wins[username] = Number(data.wins[username] || 0) + 1;
-        data.kills[username] = Number(data.kills[username] || 0) + kills;
-        localStorage.setItem(LEGACY_HOF_KEY, JSON.stringify(data));
-      }
-      emitHallOfFameSync({ username }, { reason: 'finishGame' });
-    } catch (e) {
-      console.error('hall of fame sync failed', e);
-    }
-
-    // 서버 저장
-    try {
-      if (w) {
-        const compactParticipants = participants.map((p) => {
-          const id = getRuntimeActorKey(p);
-          return {
-            _id: id,
-            id,
-            charId: id,
-            name: String(p?.name || p?.nickname || p?.charName || id || 'Unknown'),
-          };
-        });
-        const compactFullLogs = (Array.isArray(fullLogsRef.current) ? fullLogsRef.current : [])
-          .slice(-350)
-          .map((line) => String(line || '').slice(0, 600));
-        await apiPost('/game/end', {
-          winnerId: wId,
-          killCounts: finalKills,
-          fullLogs: compactFullLogs,
-          participants: compactParticipants,
-        });
-        addLog('✅ 명예의 전당 저장 완료', 'system');
-        setResultSummary((prev) => ({
-          ...(prev || {}),
-          saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'success' },
-        }));
-      }
-    } catch (e) {
-      console.error(e);
-      addLog('⚠️ 명예의 전당 저장 실패', 'death');
-      setResultSummary((prev) => ({
-        ...(prev || {}),
-        saveStatus: { ...(prev?.saveStatus || {}), hallOfFame: 'error' },
-      }));
-    }
-
-    try {
-      const res = await apiPost('/user/update-stats', {
-        kills: myKills,
-        isWin: Boolean(w),
-        lpEarned: rewardLP,
-      });
-
-      if (typeof res?.credits === 'number') setCredits(res.credits);
-
-      if (res?.user && typeof res.user === 'object') {
-        updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, res.user));
-      } else if (typeof res?.newLp === 'number' || typeof res?.credits === 'number' || res?.statistics) {
-        updateStoredUser((currentUser) => mergeStoredUserProgress(currentUser, {
-          lp: typeof res?.newLp === 'number' ? res.newLp : currentUser?.lp,
-          credits: typeof res?.credits === 'number' ? res.credits : currentUser?.credits,
-          statistics: res?.statistics || currentUser?.statistics,
-        }));
-      }
-
-      setResultSummary((prev) => ({
-        ...(prev || {}),
-        rewardLP: typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : (prev?.rewardLP ?? rewardLP),
-        userProgress: {
-          lp: typeof res?.newLp === 'number' ? res.newLp : Number(res?.user?.lp || 0),
-          credits: typeof res?.credits === 'number' ? res.credits : Number(res?.user?.credits || 0),
-          statistics: normalizeUserStatistics(res?.statistics || res?.user?.statistics),
-        },
-        saveStatus: { ...(prev?.saveStatus || {}), userStats: 'success' },
-      }));
-
-      addLog(
-        `💾 [전적 저장 완료] ${Boolean(w) ? `LP +${typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : rewardLP} 획득! ` : ''}(현재 총 LP: ${res?.newLp ?? res?.user?.lp ?? '?'})`,
-        'system'
-      );
-    } catch (e) {
-      addLog(`⚠️ 전적 저장 실패: ${e?.response?.data?.error || '서버 오류'}`, 'death');
-      setResultSummary((prev) => ({
-        ...(prev || {}),
-        saveStatus: { ...(prev?.saveStatus || {}), userStats: 'error' },
-      }));
-    }
   };
-
   const finishGameRef = useRef(finishGame);
 
   useEffect(() => {
