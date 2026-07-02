@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { AUTH_SYNC_EVENT, apiPost, getUser } from '../../utils/api';
+import { apiPost } from '../../utils/api';
 import { buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
@@ -56,13 +56,11 @@ import {
   shuffleArray,
   START_WEAPON_TYPES,
   perkNumber,
-  buildPerkRuntimeBundle,
   getActorPerkEffects,
   getPerkLootBias,
   getPerkAggressionBias,
   applyPerkCreditBonus,
   maybeBoostDropQty,
-  applyPerkBundleToActor,
   ensureEquipped,
   normalizeRuntimeEffect,
   normalizeRuntimeSurvivorList,
@@ -158,7 +156,6 @@ import {
   formatDiagnosticsLine,
   getEmptySimulationDiagnostics,
 } from './_lib/simulationDiagnostics';
-import { LOG_DETAIL_OPEN_KEY } from './_lib/logPresentation';
 import {
   applyRegionDataToZones,
   getRegionData,
@@ -194,11 +191,6 @@ import {
 } from './_lib/matchRosterRuntime';
 import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
 import {
-  appendSimulationLog,
-  emitSimulationRunEvent,
-  exportSimulationBattleLog,
-} from './_lib/logActionRuntime';
-import {
   formatClock,
   waitMs,
   softenNonLethalBattleLog,
@@ -217,18 +209,6 @@ import {
   shouldAvoidCombatByMovePower as shouldAvoidCombatByMovePowerRuntime,
 } from './_lib/movePowerRuntime';
 import { createPhaseDeathRuntime } from './_lib/phaseDeathRuntime';
-import {
-  buildItemNameById,
-  buildItemMetaById,
-  buildItemKeyById,
-  buildCraftableItems,
-  buildInventoryOptions,
-  buildDevGrantItemOptions,
-  filterVisibleDevGrantItemOptions,
-  getSelectedDevGrantItem,
-  buildTradeWantItemOptions,
-  limitVisibleRows,
-} from './_lib/itemOptionsRuntime';
 import { createSeedRng } from './_lib/randomSeedRuntime';
 import {
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
@@ -279,11 +259,8 @@ import { createMarketActionRuntime } from './_lib/marketActionRuntime';
 import { applyActiveMapIdToState, createMapActionRuntime } from './_lib/mapActionRuntime';
 import { createParticipantPresetActionRuntime } from './_lib/participantPresetActionRuntime';
 import { createDevToolActionRuntime } from './_lib/devToolActionRuntime';
-import {
-  createMarketStateRuntime,
-  loadMarketIntoState,
-  loadTradesIntoState,
-} from './_lib/marketStateRuntime';
+import { useSimulationMarketState } from './_lib/useSimulationMarketState';
+import { useSimulationLogs } from './_lib/useSimulationLogs';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -335,42 +312,6 @@ export default function SimulationPage() {
   const [survivors, setSurvivors] = useState([]);
   const [candidateSurvivors, setCandidateSurvivors] = useState([]);
   const [dead, setDead] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [prevPhaseLogs, setPrevPhaseLogs] = useState([]);
-
-  const PREVLOGS_OPEN_KEY = 'eh_prevlogs_open';
-  const [showPrevLogs, setShowPrevLogs] = useState(() => {
-    try {
-      return localStorage.getItem(PREVLOGS_OPEN_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(PREVLOGS_OPEN_KEY, showPrevLogs ? '1' : '0');
-    } catch {
-      // ignore
-    }
-  }, [showPrevLogs]);
-
-  const [showDetailedLogs, setShowDetailedLogs] = useState(() => {
-    try {
-      return localStorage.getItem(LOG_DETAIL_OPEN_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOG_DETAIL_OPEN_KEY, showDetailedLogs ? '1' : '0');
-    } catch {
-      // ignore
-    }
-  }, [showDetailedLogs]);
-  const [runEvents, setRunEvents] = useState([]);
   const [forbiddenAddedNow, setForbiddenAddedNow] = useState([]);
 
   const [day, setDay] = useState(0);
@@ -415,6 +356,38 @@ export default function SimulationPage() {
 
   // 서버 설정값
   const [settings, setSettings] = useState(getDefaultSimulationSettings);
+  const {
+    addLog: addLogFromLogs,
+    emitRunEvent: emitRunEventFromLogs,
+    exportBattleLog: exportBattleLogFromLogs,
+    fullLogEntriesRef,
+    fullLogsRef,
+    logBoxMaxH,
+    logBoxRef,
+    logWindowRef,
+    logs,
+    prevPhaseLogs,
+    resetPhaseLogs,
+    runEvents,
+    setLogBoxMaxH,
+    setPrevPhaseLogs,
+    setRunEvents,
+    setShowDetailedLogs,
+    setShowPrevLogs,
+    showDetailedLogs,
+    showPrevLogs,
+  } = useSimulationLogs({
+    day,
+    matchSec,
+    phase,
+    exportState: {
+      assistCounts,
+      killCounts,
+      resultSummary,
+      settings,
+      winner,
+    },
+  });
   const [participantPresets, setParticipantPresets] = useState(readLocalParticipantPresets);
   const [selectedParticipantPresetIdRaw, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
   const selectedParticipantPresetId = (() => {
@@ -578,49 +551,95 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   }, [survivors, dead], {});
 
   // ✅ 상점/조합/교환 패널
-  const [marketTab, setMarketTab] = useState('craft'); // craft | kiosk | drone | perk | trade
-  const [selectedCharIdRaw, setSelectedCharId] = useState('');
-  const selectedCharId = (() => {
-    const list = Array.isArray(survivors) ? survivors : [];
-    if (!list.length) return '';
-    const rawId = String(selectedCharIdRaw || '');
-    if (rawId && list.some((actor) => String(actor?._id || '') === rawId)) return rawId;
-    return String(list[0]?._id || '');
-  })();
+  const {
+    activeViewerPerkBundle,
+    applyUserEconomyProgress,
+    craftables,
+    credits,
+    devGrantItemId,
+    devGrantItemOptions,
+    devGrantQty,
+    devGrantSearch,
+    droneOffers,
+    getQty,
+    inventoryOptions,
+    itemKeyById,
+    itemMetaById,
+    itemNameById,
+    kiosks,
+    loadMarket,
+    loadTrades,
+    marketMessage,
+    marketTab,
+    myTradeOffers,
+    ownedPerkCodeSet,
+    patchServerCharacterState,
+    pendingTranscendPick,
+    publicItems,
+    publicPerks,
+    runEventsPreviewText,
+    selectedChar,
+    selectedCharId,
+    selectedDevGrantItem,
+    selectMarketTab,
+    setCredits,
+    setDevGrantItemId,
+    setDevGrantQty,
+    setDevGrantSearch,
+    setDroneOffers,
+    setKiosks,
+    setMarketMessage,
+    setMyTradeOffers,
+    setPendingTranscendPick,
+    setPublicItems,
+    setPublicPerks,
+    setQty,
+    setSelectedCharId,
+    setShowAllMarketRows,
+    setShowDevDebugDetails,
+    setShowDevEventLog,
+    setShowMarketPanel,
+    setTradeDraft,
+    setTradeOffers,
+    setTradeWantSearch,
+    setViewerLp,
+    setViewerPerks,
+    showAllMarketRows,
+    showDevDebugDetails,
+    showDevEventLog,
+    showMarketPanel,
+    syncMyState,
+    tradeDraft,
+    tradeOffers,
+    tradeWantItemOptions,
+    tradeWantSearch,
+    viewerLp,
+    viewerPerks,
+    visibleCraftables,
+    visibleDevGrantItemOptions,
+    visibleDroneOffers,
+    visibleKiosks,
+    visibleMyTradeOffers,
+    visiblePublicPerks,
+    visibleTradeOffers,
+  } = useSimulationMarketState({
+    devEventPreviewLimit: DEV_EVENT_PREVIEW_LIMIT,
+    devSelectRenderLimit: DEV_SELECT_RENDER_LIMIT,
+    fireAndReport,
+    marketCardRenderLimit: MARKET_CARD_RENDER_LIMIT,
+    runEvents,
+    setDead,
+    setSurvivors,
+    survivors,
+  });
   const hyperloopCharId = (() => {
     const preferred = String(selectedCharId || '').trim();
     if (preferred) return preferred;
     const alive = (Array.isArray(survivors) ? survivors : []).filter((actor) => Number(actor?.hp || 0) > 0);
     return String(alive[0]?._id || '');
   })();
-  const [credits, setCredits] = useState(0);
-  const [publicItems, setPublicItems] = useState([]);
-  const [kiosks, setKiosks] = useState([]);
-  const [droneOffers, setDroneOffers] = useState([]);
-  const [publicPerks, setPublicPerks] = useState([]);
-  const [tradeOffers, setTradeOffers] = useState([]);
-  const [viewerLp, setViewerLp] = useState(() => Number(getUser()?.lp || 0));
-  const [viewerPerks, setViewerPerks] = useState(() => (Array.isArray(getUser()?.perks) ? getUser().perks : []));
-  const [myTradeOffers, setMyTradeOffers] = useState([]);
-  const [qtyMap, setQtyMap] = useState({});
-  const [marketMessage, setMarketMessage] = useState('');
-  const [devGrantItemId, setDevGrantItemId] = useState('');
-  const [devGrantQty, setDevGrantQty] = useState(1);
-  const [tradeDraft, setTradeDraft] = useState({
-    give: [{ itemId: '', qty: 1 }],
-    want: [{ itemId: '', qty: 1 }],
-    wantCredits: 0,
-    note: '',
-  });
-
-  const logBoxRef = useRef(null);
-  const logWindowRef = useRef(null);
   const forbiddenCacheRef = useRef({});
-  const logSeqRef = useRef(0);
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
-  const fullLogsRef = useRef([]);
-  const fullLogEntriesRef = useRef([]);
-  const [logBoxMaxH, setLogBoxMaxH] = useState(420);
 
   // 🗺️ 맵/ID는 시뮬 "시작" 순간에 서버에서 새로고침할 수 있어, ref로 즉시값을 유지합니다.
   const mapsRef = useRef([]);
@@ -676,13 +695,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   }, []);
 
   // ✅ 관전자 모드 기본: 상점/조합/교환 UI는 숨김(테스트용 토글)
-  const [showMarketPanel, setShowMarketPanel] = useState(false);
-  const [showDevDebugDetails, setShowDevDebugDetails] = useState(false);
-  const [showDevEventLog, setShowDevEventLog] = useState(false);
-  const [showAllMarketRows, setShowAllMarketRows] = useState(false);
-  const [devGrantSearch, setDevGrantSearch] = useState('');
-  const [tradeWantSearch, setTradeWantSearch] = useState('');
-  const [pendingTranscendPick, setPendingTranscendPick] = useState(null);
 
   // 🎲 시드 고정(랜덤 재현)
   const SEED_STORAGE_KEY = 'eh_run_seed';
@@ -728,12 +740,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   };
 
   function addLog(text, type = 'normal') {
-    return appendSimulationLog({
-      text,
-      type,
-      refs: { fullLogsRef, fullLogEntriesRef, logSeqRef },
-      actions: { setLogs },
-    });
+    return addLogFromLogs(text, type);
   }
   const addLogRef = useRef(addLog);
 
@@ -742,18 +749,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   });
 
   function exportBattleLog(format = 'md') {
-    const result = exportSimulationBattleLog({
-      format,
-      refs: { fullLogsRef },
-      state: {
-        settings,
-        resultSummary,
-        runEvents,
-        winner,
-        killCounts,
-        assistCounts,
-      },
-    });
+    const result = exportBattleLogFromLogs(format);
     if (result?.status === 'empty') {
       addLog('⚠️ 저장할 전투 로그가 없습니다. 게임을 시작한 뒤 다시 시도해주세요.', 'system');
       return;
@@ -774,13 +770,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // 🧾 구조적 이벤트 로그(재현/디버깅용)
   // - 문자열 로그는 사람용, runEvents는 "룰/상태"를 요약/집계하기 위한 데이터용
   function emitRunEvent(kind, payload = {}, at = null) {
-    return emitSimulationRunEvent({
-      kind,
-      payload,
-      at,
-      state: { day, phase, matchSec },
-      actions: { setRunEvents },
-    });
+    return emitRunEventFromLogs(kind, payload, at);
   }
 
   function grantMastery(actor, category, amount, reason = '') {
@@ -791,8 +781,8 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return grantMasteriesRuntime(actor, entries, reason, addLog);
   }
 
-  function grantCraftMastery(actor, crafted, itemMetaById, reason = '제작') {
-    return grantCraftMasteryRuntime(actor, crafted, itemMetaById, reason, addLog);
+  function grantCraftMastery(actor, crafted, craftItemMetaById, reason = '제작') {
+    return grantCraftMasteryRuntime(actor, crafted, craftItemMetaById, reason, addLog);
   }
 
   function grantPvpDamageMastery(actor, payload = {}, reason = '교전') {
@@ -906,12 +896,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
     const raf = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(raf);
-  }, [logs, prevPhaseLogs, showPrevLogs, showDetailedLogs]);
-
-  const selectedChar = useSafeMemo('selectedChar', () => {
-    const list = Array.isArray(survivors) ? survivors : [];
-    return list.find((s) => String(s?._id) === String(selectedCharId)) || null;
-  }, [survivors, selectedCharId], null);
+  }, [logs, prevPhaseLogs, showPrevLogs, showDetailedLogs, logBoxRef, setLogBoxMaxH]);
 
   function getParticipantPresetActions() {
     return createParticipantPresetActionRuntime({
@@ -1155,160 +1140,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   function getForbiddenAddedZoneIdsForPhase(mapObj, dayNum, phaseKey) {
     return getForbiddenAddedZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
   };
-  const itemNameById = useSafeMemo('itemNameById', () => {
-    return buildItemNameById(publicItems);
-  }, [publicItems], {});
-
-  const itemMetaById = useSafeMemo('itemMetaById', () => {
-    return buildItemMetaById(publicItems);
-  }, [publicItems], {});
-
-  const itemKeyById = useSafeMemo('itemKeyById', () => {
-    return buildItemKeyById(publicItems);
-  }, [publicItems], {});
-
-  const craftables = useSafeMemo('craftables', () => {
-    return buildCraftableItems(publicItems);
-  }, [publicItems], []);
-
-  const inventoryOptions = useSafeMemo('inventoryOptions', () => {
-    return buildInventoryOptions(selectedChar);
-  }, [selectedChar], []);
-
-  const devGrantItemOptions = useSafeMemo('devGrantItemOptions', () => {
-    return buildDevGrantItemOptions(publicItems);
-  }, [publicItems], []);
-
-  const visibleDevGrantItemOptions = useSafeMemo('visibleDevGrantItemOptions', () => {
-    return filterVisibleDevGrantItemOptions(devGrantItemOptions, devGrantSearch, devGrantItemId);
-  }, [devGrantItemOptions, devGrantSearch, devGrantItemId], []);
-
-  const selectedDevGrantItem = useSafeMemo('selectedDevGrantItem', () => {
-    return getSelectedDevGrantItem(devGrantItemOptions, devGrantItemId);
-  }, [devGrantItemOptions, devGrantItemId], null);
-
-  const tradeWantItemOptions = useSafeMemo('tradeWantItemOptions', () => {
-    return buildTradeWantItemOptions(publicItems, tradeWantSearch, tradeDraft?.want, DEV_SELECT_RENDER_LIMIT);
-  }, [publicItems, tradeWantSearch, tradeDraft?.want], []);
-
-  const visibleCraftables = useSafeMemo('visibleCraftables', () => {
-    return limitVisibleRows(craftables, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
-  }, [craftables, showAllMarketRows], []);
-
-  const visibleKiosks = useSafeMemo('visibleKiosks', () => {
-    return limitVisibleRows(kiosks, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
-  }, [kiosks, showAllMarketRows], []);
-
-  const visibleDroneOffers = useSafeMemo('visibleDroneOffers', () => {
-    return limitVisibleRows(droneOffers, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
-  }, [droneOffers, showAllMarketRows], []);
-
-  const visiblePublicPerks = useSafeMemo('visiblePublicPerks', () => {
-    return limitVisibleRows(publicPerks, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
-  }, [publicPerks, showAllMarketRows], []);
-
-  const visibleTradeOffers = useSafeMemo('visibleTradeOffers', () => {
-    return limitVisibleRows(tradeOffers, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
-  }, [tradeOffers, showAllMarketRows], []);
-
-  const visibleMyTradeOffers = useSafeMemo('visibleMyTradeOffers', () => {
-    return limitVisibleRows(myTradeOffers, showAllMarketRows, MARKET_CARD_RENDER_LIMIT);
-  }, [myTradeOffers, showAllMarketRows], []);
-
-  const runEventsPreviewText = useSafeMemo('runEventsPreviewText', () => {
-    if (!showDevEventLog) return '';
-    return JSON.stringify((Array.isArray(runEvents) ? runEvents : []).slice(-DEV_EVENT_PREVIEW_LIMIT), null, 2);
-  }, [runEvents, showDevEventLog], '');
-
-  function getMarketStateActions() {
-    return createMarketStateRuntime({
-      state: {
-        itemMetaById,
-        qtyMap,
-      },
-      actions: {
-        setCredits,
-        setDroneOffers,
-        setKiosks,
-        setMarketMessage,
-        setMarketTab,
-        setMyTradeOffers,
-        setPublicItems,
-        setPublicPerks,
-        setQtyMap,
-        setShowAllMarketRows,
-        setSurvivors,
-        setTradeOffers,
-        setViewerLp,
-        setViewerPerks,
-      },
-    });
-  }
-
-  function selectMarketTab(nextTab) {
-    return getMarketStateActions().selectMarketTab(nextTab);
-  }
-
-  function getQty(key, fallback = 1) {
-    return getMarketStateActions().getQty(key, fallback);
-  }
-
-  function setQty(key, v) {
-    return getMarketStateActions().setQty(key, v);
-  }
-
-  function patchServerCharacterState(serverCharacter) {
-    return getMarketStateActions().patchServerCharacterState(serverCharacter);
-  }
-
-  function applyUserEconomyProgress(patch = {}) {
-    return getMarketStateActions().applyUserEconomyProgress(patch);
-  }
-
-  function syncMyState() {
-    return getMarketStateActions().syncMyState();
-  }
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const syncViewerProgress = () => {
-      const u = getUser();
-      setViewerLp(Math.max(0, Number(u?.lp || 0)));
-      setViewerPerks(Array.isArray(u?.perks) ? u.perks.map((x) => String(x || '')).filter(Boolean) : []);
-      if (Number.isFinite(Number(u?.credits))) setCredits(Math.max(0, Number(u.credits || 0)));
-    };
-    syncViewerProgress();
-    window.addEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
-    return () => window.removeEventListener(AUTH_SYNC_EVENT, syncViewerProgress);
-  }, []);
-
-  const ownedPerkCodeSet = useSafeMemo('ownedPerkCodeSet', () => new Set((Array.isArray(viewerPerks) ? viewerPerks : []).map((x) => String(x || ''))), [viewerPerks], new Set());
-  const activeViewerPerkBundle = useSafeMemo('activeViewerPerkBundle', () => buildPerkRuntimeBundle(viewerPerks, publicPerks), [viewerPerks, publicPerks], buildPerkRuntimeBundle([], []));
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      setSurvivors((prev) => {
-        const list = Array.isArray(prev) ? prev : [];
-        if (!list.length) return prev;
-        return normalizeRuntimeSurvivorList(list.map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: true })));
-      });
-      setDead((prev) => {
-        const list = Array.isArray(prev) ? prev : [];
-        if (!list.length) return prev;
-        return normalizeRuntimeSurvivorList(list.map((s) => applyPerkBundleToActor({ ...s }, activeViewerPerkBundle, { applyCredits: false })));
-      });
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [activeViewerPerkBundle]);
-
-  function loadMarket() {
-    return getMarketStateActions().loadMarket();
-  }
-
-  function loadTrades() {
-    return getMarketStateActions().loadTrades();
-  }
-
   useSimulationInitialData({
     refs: { activeMapRef, mapsRef },
     helpers: {
@@ -1384,11 +1215,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // --- [핵심] 진행 로직 ---
   async function proceedPhase() {
     // ✅ 다음 페이즈로 넘어갈 때, 이전/현재 페이즈 UI 로그는 초기화
-    setPrevPhaseLogs([]);
-    setShowPrevLogs(false);
-    setLogs(() => []);
-    logSeqRef.current = 0;
-    setLogBoxMaxH(180);
+    resetPhaseLogs();
 
     // 1. 페이즈 및 날짜 변경
     let nextPhase = phase === 'morning' ? 'night' : 'morning';
@@ -4858,25 +4685,6 @@ if (showMarketPanel && pendingTranscendPick) {
   }
 
   // 탭 전환 시 필요한 데이터 갱신
-  useEffect(() => {
-    if (marketTab === 'trade') {
-      void fireAndReport('marketTab.loadTrades', () => loadTradesIntoState({
-        setMarketMessage,
-        setMyTradeOffers,
-        setTradeOffers,
-      }));
-    }
-    if (marketTab === 'craft' || marketTab === 'kiosk' || marketTab === 'drone' || marketTab === 'perk') {
-      void fireAndReport('marketTab.loadMarket', () => loadMarketIntoState({
-        setDroneOffers,
-        setKiosks,
-        setMarketMessage,
-        setPublicItems,
-        setPublicPerks,
-      }));
-    }
-  }, [marketTab]);
-
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
   // 금지구역 로직이 동작하도록 zones 기반 fallback을 둡니다.
   const activeMapEff = activeMap || ((Array.isArray(zones) && zones.length)
