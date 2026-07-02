@@ -266,12 +266,8 @@ import {
 import {
   applyErTraitAfterBattle as applyErTraitAfterBattleRuntime,
   applyErWeaponSkillAfterCombat as applyErWeaponSkillAfterCombatRuntime,
-  applyIaidoOpener,
   canonicalizeCharName,
   cloneForBattle,
-  isShirokoBase,
-  isShirokoTerror,
-  prepareBattleSkills,
 } from './_lib/combatRuntime';
 import {
   grantMastery as grantMasteryRuntime,
@@ -4605,114 +4601,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
       if (ratio < minRatio || (opP - myP) >= absDelta) return { myP, opP, ratio };
       return null;
     };
-    // ✅ 장비 쿨감(CDR) 합산: 스킬 발동 확률에 반영
-    // - equipped 슬롯(id) 기준으로 inventory에서 아이템을 찾아 stats.cdr 합산
-    const getEquippedCdr = (c) => {
-      const inv = Array.isArray(c?.inventory) ? c.inventory : [];
-      const eq = c?.equipped || {};
-      const pickById = (id) => {
-        if (!id) return null;
-        const sid = String(id);
-        return inv.find((it) => String(it?.itemId || it?.id || it?._id || '') === sid) || null;
-      };
-      let sum = 0;
-      for (const s of ['weapon', 'head', 'clothes', 'arm', 'shoes']) {
-        const it = pickById(eq?.[s]);
-        if (it?.stats?.cdr != null) sum += Number(it.stats.cdr || 0);
-      }
-      return Math.max(0, Math.min(0.75, sum));
-    };
-
-
-    const getSpecialSkillChance = (c) => {
-      const s = c?.specialSkill;
-      const name = String(s?.name || '').trim();
-      if (!name) return 0;
-      // 기본값은 스킬 없음 처리
-      if (name === '평범함' || name === '없음' || name.toLowerCase() === 'none') return 0;
-
-      // 타입이 명시돼 있고 combat이 아니면 전투 스킬로 취급하지 않음
-      const type = String(s?.type || '').trim();
-      if (type && type !== 'combat') return 0;
-
-      // 데이터에 명시된 확률이 있으면 우선
-      const explicit = s?.procChance ?? s?.chance ?? s?.proc;
-      if (typeof explicit === 'number' && explicit >= 0 && explicit <= 1) return explicit;
-      // 기본값(너무 자주 터지면 체감이 "항상 스킬"이 됨)
-      const base = Number(settings?.battle?.skillProcDefault ?? 0.35);
-
-      // ✅ CDR(쿨감)로 스킬 발동 빈도 상승
-      const cdr = getEquippedCdr(c);
-      const cdrScale = Number(settings?.battle?.cdrProcScale ?? 0.25); // CDR 0.75면 +0.1875p
-      const bonus = cdr * (Number.isFinite(cdrScale) ? cdrScale : 0.25);
-      const cap = Number(settings?.battle?.skillProcCap ?? 0.9);
-
-      // 특정 케이스 체감 보정(테러 발도는 조금 높게)
-      if (name.includes('발도')) {
-        const b = Number(settings?.battle?.iaidoSkillProc ?? 0.65);
-        return Math.max(0, Math.min(cap, b + bonus * 0.5));
-      }
-      return Math.max(0, Math.min(cap, base + bonus));
-    };
-
-
-    const rollSpecialSkillForBattle = (c) => {
-      // 전투용 스킬 정규화(시로코/테러 파생 포함)
-      prepareBattleSkills(c);
-      if (!c?.specialSkill) return false;
-      const p = getSpecialSkillChance(c);
-      if (!(p > 0)) {
-        c.specialSkill = null;
-        return false;
-      }
-      const did = Math.random() < p;
-      if (!did) c.specialSkill = null;
-      return did;
-    };
-
     const pickUnbiasedBattle = (a, b) => {
       // 교전 편향(선공/우선순위)에 의한 "항상 같은 승자" 체감 완화
-      // + 스킬(특수기)도 매 교전마다 확률로 발동하도록 롤링
 
-      // 1) 시로코 테러(발도) 오프너: 체감상 "드론에 씹혀서 발도 자체가 안 뜨는" 상황 완화
-      const aIsTerror = isShirokoTerror(a);
-      const bIsTerror = isShirokoTerror(b);
-      const hasTerror = aIsTerror || bIsTerror;
-      const hasBaseShiroko = isShirokoBase(a) || isShirokoBase(b);
-
-      const iaidoProc = Number(settings?.battle?.iaidoProc ?? 0.55);
-      if (hasTerror && hasBaseShiroko && Math.random() < iaidoProc) {
-        const terror = aIsTerror ? a : b;
-        const shiroko = isShirokoBase(a) ? a : b;
-
-        const terrorClone = cloneForBattle(terror);
-        const shirokoClone = cloneForBattle(shiroko);
-
-        // 전투 스킬 정규화(파생 스킬 포함)
-        prepareBattleSkills(terrorClone);
-        prepareBattleSkills(shirokoClone);
-
-        // 발도는 "발동" 자체를 보장(이 분기 자체가 발동 이벤트)
-        terrorClone.specialSkill = { name: '발도', type: 'combat' };
-
-        // 대신, 이 교전에서는 상대 특수스킬을 잠깐 끄고(동시 발동 느낌 제거) 진행
-        shirokoClone.specialSkill = null;
-
-        applyIaidoOpener(terrorClone, shirokoClone, battleSettings);
-        const rIaido = calculateBattle(terrorClone, shirokoClone, nextDay, battleSettings);
-
-        const prefix = `⚔️ [${terror.name}] 발도! 선제 공격으로 교전이 시작됩니다.`;
-        return {
-          ...rIaido,
-          log: `${prefix} ${rIaido?.log || ''}`.trim(),
-        };
-      }
-
-      // 2) 일반 교전: 양측을 배틀용으로 복제 + 특수기 발동 확률 롤
+      // 일반 교전: 양측을 배틀용으로 복제
       const aClone = cloneForBattle(a);
       const bClone = cloneForBattle(b);
-      rollSpecialSkillForBattle(aClone);
-      rollSpecialSkillForBattle(bClone);
 
       const r1 = calculateBattle(aClone, bClone, nextDay, battleSettings);
 

@@ -1076,6 +1076,48 @@ main {
     gap: 8px;
 }
 
+.character-skill-compiler {
+    display: grid;
+    gap: 8px;
+}
+
+.character-skill-compiler textarea {
+    min-height: 92px;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.character-skill-compiler-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.character-skill-compiler-actions button {
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid #0288d1;
+    border-radius: 8px;
+    background: #0288d1;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 900;
+}
+
+.character-skill-compiler pre {
+    max-height: 180px;
+    overflow: auto;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #111827;
+    color: #f8fafc;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 .character-skill-level-editor {
     display: grid;
     gap: 6px;

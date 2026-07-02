@@ -56,56 +56,12 @@ function canonicalizeCharName(name) {
     .trim();
 }
 
-function normalizeForSkillKey(name) {
-  return canonicalizeCharName(String(name || '')).replace(/\s+/g, '');
-}
-
-function isShirokoTerror(character) {
-  const name = normalizeForSkillKey(character?.name);
-  return name.includes('시로코') && name.includes('테러');
-}
-
-function isShirokoBase(character) {
-  const name = normalizeForSkillKey(character?.name);
-  return name.includes('시로코') && !name.includes('테러');
-}
-
 function cloneForBattle(obj) {
   try {
     return structuredClone(obj);
   } catch {
     return JSON.parse(JSON.stringify(obj));
   }
-}
-
-function prepareBattleSkills(character) {
-  if (!character) return character;
-  const raw = String(character?.specialSkill?.name || '').trim();
-  const isDefault = !raw || raw === '평범함' || raw === '없음' || raw.toLowerCase() === 'none';
-
-  if (isShirokoBase(character)) {
-    character.specialSkill = { ...(character.specialSkill || {}), name: '드론 지원', type: 'combat' };
-    return character;
-  }
-  if (isShirokoTerror(character)) {
-    character.specialSkill = { ...(character.specialSkill || {}), name: '심연의 힘', type: 'combat' };
-    return character;
-  }
-
-  if (isDefault) {
-    character.specialSkill = null;
-    return character;
-  }
-
-  if (character.specialSkill && !character.specialSkill.type) character.specialSkill.type = 'combat';
-  return character;
-}
-
-function applyIaidoOpener(attacker, defender, battleSettings) {
-  const openDamage = Number(battleSettings?.battle?.iaidoOpenDamage ?? 38);
-  const defMax = Number(defender?.maxHp ?? 100);
-  const defHp = Number(defender?.hp ?? defMax);
-  defender.hp = Math.max(1, defHp - openDamage);
 }
 
 function applyErTraitAfterBattle(actor, opts = {}) {
@@ -302,12 +258,8 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
 export {
   applyErTraitAfterBattle,
   applyErWeaponSkillAfterCombat,
-  applyIaidoOpener,
   canonicalizeCharName,
   cloneForBattle,
-  isShirokoBase,
-  isShirokoTerror,
-  prepareBattleSkills,
   readStat,
   roughPower,
 };

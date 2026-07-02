@@ -158,14 +158,6 @@ const formatEquipBrief = (character, eq) => {
   return `[${name}] ${parts.join(' ')}`;
 };
 
-const getActiveSkillName = (character) => {
-  const name = String(character?.specialSkill?.name || '').trim();
-  if (!name) return '';
-  // 기본값(=스킬 없음) 취급
-  if (name === '평범함' || name === '없음' || name.toLowerCase() === 'none') return '';
-  return name;
-};
-
 const prefersSkillAmpFromAdaptiveForce = (character, stats, equipStats) => {
   const wpn = pickWeapon(character);
   const archetype = String(wpn?.archetype || character?.archetype || '').toLowerCase();
@@ -260,64 +252,18 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     const equipLog = `🧰 장비: ${formatEquipBrief(p1, eq1)} / ${formatEquipBrief(p2, eq2)}`;
     logs.push(equipLog);
 
-    // --- 2. 스킬 및 무기 보너스 (스킬증폭/장비 스탯 적용) ---
-    const getBonuses = (char, stats, opponentStats, selfEquipStats) => {
-        let skillBonus = 0;
+    // --- 2. 무기 및 장비 보너스 ---
+    const getBonuses = (char, stats, selfEquipStats) => {
         let wpnBonus = 0;
-        let skillLog = "";
 
         // 🧰 장비(stats) 합산 값
         const es = selfEquipStats || {};
-        const equipSkillAmp = Number(es.skillAmp || 0);
-        const equipCdr = Number(es.cdr || 0);
         const equipAtk = Number(es.atk || 0);
         const equipAtkSpeed = Number(es.atkSpeed || 0);
         const equipCritChance = Number(es.critChance || 0);
         const equipHp = Number(es.hp || 0);
         const equipLifesteal = Number(es.lifesteal || 0);
         const equipArmorPen = getTotalArmorPen(char, es);
-
-        // 스킬 계수: 스킬 증폭이 높을수록 강화 / 상대 방어력이 높을수록 약화
-        const ampScale = Number(settings?.battle?.skillAmpScale ?? 0.006);
-        const defenseResist = Number(settings?.battle?.skillDefenseResistScale ?? 0.0035);
-        const offense = 1 + (Number(stats.skillAmp || 0) * Number(w.skillAmp || 1) * ampScale);
-        const penetratedDefense = Number(opponentStats.defense || 0) * (1 - equipArmorPen);
-        const resist = 1 - (penetratedDefense * Number(w.defense || 1) * defenseResist);
-        const equipSkillMult = (1 + equipSkillAmp) * (1 + equipCdr * Number(settings?.battle?.equipCdrSkillScale ?? 0.35));
-        const skillMult = Math.max(0.1, offense * Math.max(0.1, resist) * Math.max(0.1, equipSkillMult));
-
-        // ✅ 특수스킬은 시뮬레이션에서 "발동 롤"이 난 경우만 들어오도록(=specialSkill 존재) 설계
-        const skillName = getActiveSkillName(char);
-
-        // [스킬] 시로코(기본): 드론 지원 (확률 발동)
-        if (skillName && skillName.includes('드론')) {
-            const droneScale = Number(settings?.battle?.shirokoDroneScale ?? 0.18);
-            skillBonus = (Number(stats.attackPower || 0) * Number(w.attackPower || 1) * droneScale) * skillMult;
-            skillLog = `🚁 [${char.name}]의 드론 지원 사격!`;
-        }
-
-        // [스킬] 시로코 테러: 심연의 힘 (체력이 충분히 깎였을 때만 폭발)
-        if (skillName && skillName.includes('심연')) {
-            const maxHp = Number(char?.maxHp ?? 100);
-            const hp = Number(char?.hp ?? maxHp);
-            const hpRatio = maxHp > 0 ? hp / maxHp : 1;
-            const triggerBelow = Number(settings?.battle?.terrorAbyssHpBelow ?? 0.65); // HP 65% 이하부터 발동 가능
-            if (hpRatio <= triggerBelow) {
-                const missing = Math.max(0, maxHp - hp);
-                const abyssScale = Number(settings?.battle?.terrorAbyssScale ?? 0.45);
-                skillBonus = (missing * abyssScale) * skillMult;
-                if (skillBonus > 12) skillLog = `🌑 [${char.name}]의 심연이 폭발합니다!`;
-            }
-        }
-
-        // [스킬] 발도(오프너): 선제 기세 보너스(가벼운 점수 보정)
-        // - 실제 선제 피해는 시뮬레이션(page.js)의 applyIaidoOpener에서 처리됨
-        if (skillName && skillName.includes('발도')) {
-            const iaidoScale = Number(settings?.battle?.iaidoScale ?? 0.12);
-            const base = (Number(stats.attackSpeed || 0) * 35 * Number(w.attackSpeed || 1)) + (Number(stats.sightRange || 0) * Number(w.sightRange || 1));
-            skillBonus = base * iaidoScale * (1 + day * 0.02);
-            skillLog = `⚡ [${char.name}]의 발도!`;
-        }
 
         // [무기] 인벤토리 확인 (type: weapon/무기 혼용 + 태그 기반)
         const wpn = pickWeapon(char);
@@ -330,31 +276,25 @@ export function calculateBattle(p1, p2, day, settings = {}) {
             wpnBonus *= tierMult * (1 + Math.max(0, Number(equipAtkSpeed || 0)));
         }
 
-        // 과도한 폭주 방지(체감 밸런스): 스킬 보너스 상한
-        const cap = Number(settings?.battle?.skillBonusCap ?? 60);
-        if (Number.isFinite(cap) && cap > 0) skillBonus = Math.min(skillBonus, cap);
-
         // 🧩 장비 부가 스코어(체력)
 // - 흡혈은 "피해 후 회복"으로 따로 처리(아래 lifesteal 섹션)
         const hpScale = Number(settings?.battle?.equipHpScoreScale ?? 0.05);
         const extraScore = (Number(equipHp || 0) * (Number.isFinite(hpScale) ? hpScale : 0.05));
 
-        return { skillBonus, wpnBonus, skillLog, extraScore, critChance: equipCritChance, lifesteal: equipLifesteal, armorPen: equipArmorPen };
+        return { wpnBonus, extraScore, critChance: equipCritChance, lifesteal: equipLifesteal, armorPen: equipArmorPen };
     };
 
-    const p1Bonus = getBonuses(p1, s1x, s2x, es1);
-    const p2Bonus = getBonuses(p2, s2x, s1x, es2);
+    const p1Bonus = getBonuses(p1, s1x, es1);
+    const p2Bonus = getBonuses(p2, s2x, es2);
     const er1 = buildErCombatModifier({ character: p1, stats: s1x, opponentStats: s2x, equipStats: es1, day, settings });
     const er2 = buildErCombatModifier({ character: p2, stats: s2x, opponentStats: s1x, equipStats: es2, day, settings });
 
-    if (p1Bonus.skillLog) logs.push(p1Bonus.skillLog);
-    if (p2Bonus.skillLog) logs.push(p2Bonus.skillLog);
     if (er1.log) logs.push(`[${p1.name}] ${er1.log}`);
     if (er2.log) logs.push(`[${p2.name}] ${er2.log}`);
 
     // --- 3. 점수 합산 (가중치 적용) ---
-    score1 += (p1Bonus.skillBonus + p1Bonus.wpnBonus + Number(p1Bonus.extraScore || 0) + Number(er1.score || 0)) * suddenDeathMultiplier;
-    score2 += (p2Bonus.skillBonus + p2Bonus.wpnBonus + Number(p2Bonus.extraScore || 0) + Number(er2.score || 0)) * suddenDeathMultiplier;
+    score1 += (p1Bonus.wpnBonus + Number(p1Bonus.extraScore || 0) + Number(er1.score || 0)) * suddenDeathMultiplier;
+    score2 += (p2Bonus.wpnBonus + Number(p2Bonus.extraScore || 0) + Number(er2.score || 0)) * suddenDeathMultiplier;
 
     const armorPen1 = getTotalArmorPen(p1, es1);
     const armorPen2 = getTotalArmorPen(p2, es2);
@@ -389,9 +329,9 @@ export function calculateBattle(p1, p2, day, settings = {}) {
     score1 += tempo1;
     score2 += tempo2;
 
-    // 🧨 공격량(피해량) 베이스: 스킬/무기 + 공격 압박
-    const offenseBase1 = ((Number(p1Bonus.skillBonus || 0) + Number(p1Bonus.wpnBonus || 0) + Number(er1.offenseBonus || 0)) * suddenDeathMultiplier) + attackPressure1 + tempo1 * 0.35;
-    const offenseBase2 = ((Number(p2Bonus.skillBonus || 0) + Number(p2Bonus.wpnBonus || 0) + Number(er2.offenseBonus || 0)) * suddenDeathMultiplier) + attackPressure2 + tempo2 * 0.35;
+    // 🧨 공격량(피해량) 베이스: 무기 + 공격 압박
+    const offenseBase1 = ((Number(p1Bonus.wpnBonus || 0) + Number(er1.offenseBonus || 0)) * suddenDeathMultiplier) + attackPressure1 + tempo1 * 0.35;
+    const offenseBase2 = ((Number(p2Bonus.wpnBonus || 0) + Number(er2.offenseBonus || 0)) * suddenDeathMultiplier) + attackPressure2 + tempo2 * 0.35;
     const erBlockScale = Number(settings?.battle?.erBlockScale ?? 0.75);
     const erBlockCapRatio = Math.max(0, Math.min(0.75, Number(settings?.battle?.erBlockCapRatio ?? 0.42)));
     const erBlock1 = Math.min(Math.max(0, offenseBase2 * erBlockCapRatio), Math.max(0, Number(er1.block || 0) * erBlockScale));

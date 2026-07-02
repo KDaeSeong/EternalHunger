@@ -10,6 +10,7 @@ import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiGetCached, apiPost, clearApiGetCache, clearAuth, getToken, getUser } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
+import { buildQSkillCodePreview, compileNaturalQSkillDescription } from '../../utils/characterSkillCompiler';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { DEFAULT_ER_STATS, normalizeErStats } from '../../utils/erStats';
 import SiteHeader from '../../components/SiteHeader';
@@ -57,12 +58,14 @@ function createDefaultQSkill(overrides = {}) {
     enabled: false,
     type: 'basic_attack_recast',
     name: '',
+    sourceText: '',
     cooldownSec: 7,
     recastWindowSec: 5,
     radius: 0,
     firstFlat: [0, 0, 0, 0, 0],
     secondFlat: [0, 0, 0, 0, 0],
     secondMaxHpPct: [0, 0, 0, 0, 0],
+    secondCurrentHpPct: [0, 0, 0, 0, 0],
     firstSkillAmpScale: 0,
     secondSkillAmpScale: 0,
     ...overrides,
@@ -75,12 +78,14 @@ function normalizeQSkillForEditor(skills) {
     enabled: q.enabled === true,
     type: String(q.type || 'basic_attack_recast'),
     name: String(q.name || ''),
+    sourceText: String(q.sourceText || ''),
     cooldownSec: Math.max(1, cleanNumber(q.cooldownSec, 7)),
     recastWindowSec: Math.max(1, cleanNumber(q.recastWindowSec, 5)),
     radius: Math.max(0, cleanNumber(q.radius, 0)),
     firstFlat: normalizeSkillLevelArray(q.firstFlat, 0, { integer: true }),
     secondFlat: normalizeSkillLevelArray(q.secondFlat, 0, { integer: true }),
     secondMaxHpPct: normalizeSkillLevelArray(q.secondMaxHpPct, 0, { percent: true }),
+    secondCurrentHpPct: normalizeSkillLevelArray(q.secondCurrentHpPct, 0, { percent: true }),
     firstSkillAmpScale: Math.max(0, cleanNumber(q.firstSkillAmpScale, 0)),
     secondSkillAmpScale: Math.max(0, cleanNumber(q.secondSkillAmpScale, 0)),
   });
@@ -266,7 +271,8 @@ export default function CharactersPage() {
   const updateEditQSkillLevelValue = (field, index, value) => {
     setEditCharacterSkills((prev) => {
       const q = createDefaultQSkill(prev?.q || {});
-      const list = normalizeSkillLevelArray(q[field], 0, { percent: field === 'secondMaxHpPct' });
+      const isPercentField = field === 'secondMaxHpPct' || field === 'secondCurrentHpPct';
+      const list = normalizeSkillLevelArray(q[field], 0, { percent: isPercentField });
       list[index] = cleanNumber(value, 0);
       return {
         ...prev,
@@ -276,6 +282,18 @@ export default function CharactersPage() {
         },
       };
     });
+  };
+
+  const compileEditQSkillDescription = () => {
+    const q = createDefaultQSkill(editCharacterSkills?.q || {});
+    const result = compileNaturalQSkillDescription(q.sourceText, q);
+    setEditCharacterSkills((prev) => ({
+      ...prev,
+      q: normalizeQSkillForEditor({ q: result.skill }),
+    }));
+    if (result.warnings?.length) {
+      alert(result.warnings.join('\n'));
+    }
   };
 
   const openConfigModal = (char) => {
@@ -620,6 +638,21 @@ export default function CharactersPage() {
                   </label>
                 </div>
 
+                <div className="character-skill-compiler">
+                  <label>
+                    Q 설명
+                    <textarea
+                      value={editCharacterSkills?.q?.sourceText || ''}
+                      onChange={(e) => updateEditQSkill('sourceText', e.target.value)}
+                      placeholder="적 1인에게 10/20/30/40/50 피해, 5초 안에 한번 더 발동하면 20/30/40/50/60, 범위 1, 현재 체력의 1/1/2/2/3퍼센트 추가 피해"
+                    />
+                  </label>
+                  <div className="character-skill-compiler-actions">
+                    <button type="button" onClick={compileEditQSkillDescription}>생성</button>
+                  </div>
+                  <pre>{buildQSkillCodePreview(editCharacterSkills?.q)}</pre>
+                </div>
+
                 <div className="character-skill-inline-grid">
                   <label>
                     스킬 코드
@@ -699,6 +732,7 @@ export default function CharactersPage() {
                 {[
                   ['firstFlat', 'Q1 추가 피해', 1],
                   ['secondFlat', 'Q2 추가 피해', 1],
+                  ['secondCurrentHpPct', 'Q2 현재 체력 %', 0.5],
                   ['secondMaxHpPct', 'Q2 최대 체력 %', 0.5],
                 ].map(([field, label, step]) => (
                   <div className="character-skill-level-editor" key={field}>

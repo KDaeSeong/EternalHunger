@@ -15,7 +15,8 @@ const BIHYUNG_Q = {
   radius: 1,
   firstFlat: [10, 20, 30, 40, 50],
   secondFlat: [20, 30, 40, 50, 60],
-  secondMaxHpPct: [1, 1, 2, 2, 3],
+  secondMaxHpPct: [0, 0, 0, 0, 0],
+  secondCurrentHpPct: [1, 1, 2, 2, 3],
   firstSkillAmpScale: 0,
   secondSkillAmpScale: 0,
   source: 'builtin',
@@ -90,7 +91,8 @@ function normalizeCustomQSkill(actor) {
   const firstFlat = levelArray(raw.firstFlat, 0).map((n) => Math.max(0, Math.round(n)));
   const secondFlat = levelArray(raw.secondFlat, 0).map((n) => Math.max(0, Math.round(n)));
   const secondMaxHpPct = levelArray(raw.secondMaxHpPct, 0).map((n) => Math.max(0, Number(n) || 0));
-  const hasDamage = [...firstFlat, ...secondFlat, ...secondMaxHpPct].some((n) => Number(n || 0) > 0);
+  const secondCurrentHpPct = levelArray(raw.secondCurrentHpPct, 0).map((n) => Math.max(0, Number(n) || 0));
+  const hasDamage = [...firstFlat, ...secondFlat, ...secondMaxHpPct, ...secondCurrentHpPct].some((n) => Number(n || 0) > 0);
   if (!hasDamage && !explicitName) return null;
 
   return {
@@ -105,6 +107,7 @@ function normalizeCustomQSkill(actor) {
     firstFlat,
     secondFlat,
     secondMaxHpPct,
+    secondCurrentHpPct,
     firstSkillAmpScale: Math.max(0, Number(raw.firstSkillAmpScale || 0)),
     secondSkillAmpScale: Math.max(0, Number(raw.secondSkillAmpScale || 0)),
     source: 'custom',
@@ -170,6 +173,26 @@ function stageLabel(stage) {
   return stage === 2 ? 'Q2' : 'Q1';
 }
 
+function getTargetHpSnapshot(target) {
+  const effective = getEffectiveStats(target);
+  const maxHp = Math.max(1, Number(target?.maxHp || effective?.maxHp || 100));
+  const currentHp = Math.max(0, Number(target?.hp ?? maxHp));
+  return { maxHp, currentHp };
+}
+
+function getSecondStageDamage(target, idx, secondFlat, secondMaxHpPct, secondCurrentHpPct, skillAmpDamage) {
+  const { maxHp, currentHp } = getTargetHpSnapshot(target);
+  const maxHpDamage = Math.max(0, Math.round(maxHp * readPct(secondMaxHpPct[idx])));
+  const currentHpDamage = Math.max(0, Math.round(currentHp * readPct(secondCurrentHpPct[idx])));
+  const damage = Math.max(0, Math.round(
+    Number(secondFlat[idx] || 0)
+    + maxHpDamage
+    + currentHpDamage
+    + Math.max(0, Number(skillAmpDamage || 0))
+  ));
+  return { damage, maxHpDamage, currentHpDamage };
+}
+
 function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts = {}) {
   const rawBaseDamage = Math.max(0, Number(baseDamage || 0));
   if (!attacker || !defender || rawBaseDamage <= 0) {
@@ -204,20 +227,20 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
   const firstFlat = levelArray(def.firstFlat, 0);
   const secondFlat = levelArray(def.secondFlat, 0);
   const secondMaxHpPct = levelArray(def.secondMaxHpPct, 0);
+  const secondCurrentHpPct = levelArray(def.secondCurrentHpPct, 0);
   let stage = 1;
   let extraDamage = Math.max(0, Math.round(Number(firstFlat[idx] || 0)));
   let maxHpDamage = 0;
+  let currentHpDamage = 0;
   let splashHits = [];
 
   if (hasRecast) {
     stage = 2;
-    const defenderMaxHp = Math.max(1, Number(defender?.maxHp || getEffectiveStats(defender)?.maxHp || 100));
-    maxHpDamage = Math.max(0, Math.round(defenderMaxHp * readPct(secondMaxHpPct[idx])));
-    extraDamage = Math.max(0, Math.round(
-      Number(secondFlat[idx] || 0)
-      + maxHpDamage
-      + getSkillAmpDamage(attacker, def, 'secondSkillAmpScale', 'bihyungQSecondSkillAmpScale', settings)
-    ));
+    const secondSkillAmpDamage = getSkillAmpDamage(attacker, def, 'secondSkillAmpScale', 'bihyungQSecondSkillAmpScale', settings);
+    const primaryDamage = getSecondStageDamage(defender, idx, secondFlat, secondMaxHpPct, secondCurrentHpPct, secondSkillAmpDamage);
+    extraDamage = primaryDamage.damage;
+    maxHpDamage = primaryDamage.maxHpDamage;
+    currentHpDamage = primaryDamage.currentHpDamage;
     q.stage = 'cooldown';
     q.recastUntil = 0;
     q.cooldownUntil = nowSec + Math.max(1, Math.round(Number(def.cooldownSec || 7) * getCooldownScale(settings)));
@@ -225,13 +248,18 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
     const splashTargets = Number(def.radius || 0) > 0 && Array.isArray(opts?.splashTargets) ? opts.splashTargets : [];
     splashHits = splashTargets
       .filter((target) => target && String(target?._id || '') !== String(defender?._id || '') && Number(target?.hp || 0) > 0)
-      .map((target) => ({
-        target,
-        damage: extraDamage,
-        skill: def.name,
-        stage,
-        radius: def.radius,
-      }));
+      .map((target) => {
+        const splashDamage = getSecondStageDamage(target, idx, secondFlat, secondMaxHpPct, secondCurrentHpPct, secondSkillAmpDamage);
+        return {
+          target,
+          damage: splashDamage.damage,
+          maxHpDamage: splashDamage.maxHpDamage,
+          currentHpDamage: splashDamage.currentHpDamage,
+          skill: def.name,
+          stage,
+          radius: def.radius,
+        };
+      });
   } else {
     extraDamage += getSkillAmpDamage(attacker, def, 'firstSkillAmpScale', 'bihyungQFirstSkillAmpScale', settings);
     q.stage = 'recast';
@@ -248,6 +276,7 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
   const finalDamage = rawBaseDamage + extraDamage;
   const bits = [`추가 피해 +${extraDamage}`];
   if (stage === 2 && maxHpDamage > 0) bits.push(`최대 체력 피해 +${maxHpDamage}`);
+  if (stage === 2 && currentHpDamage > 0) bits.push(`현재 체력 피해 +${currentHpDamage}`);
   if (stage === 2 && splashHits.length) bits.push(`광역 ${splashHits.length}명`);
 
   const log = `[${attacker.name}] ${def.name} ${stageLabel(stage)}: ${bits.join(', ')}`;
@@ -268,6 +297,7 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
       level,
       damage: extraDamage,
       maxHpDamage,
+      currentHpDamage,
       splashCount: splashHits.length,
       zoneId: String(attacker?.zoneId || defender?.zoneId || ''),
     }, opts?.at || null);
@@ -279,6 +309,8 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
     stage,
     level,
     skill: def.name,
+    maxHpDamage,
+    currentHpDamage,
     splashHits,
     applied: true,
   };
