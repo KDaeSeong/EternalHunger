@@ -62,7 +62,6 @@ import {
   normalizeRewardDropEntries,
   itemIcon,
   shuffleArray,
-  EQUIP_SLOTS,
   START_WEAPON_TYPES,
   perkNumber,
   buildPerkRuntimeBundle,
@@ -299,12 +298,12 @@ import {
 } from './_lib/runEventRuntime';
 import {
   createPhaseConsumableRuntime,
-  forceUseConsumableAtIndex,
 } from './_lib/consumableRuntime';
 import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { createMarketActionRuntime } from './_lib/marketActionRuntime';
 import { applyActiveMapIdToState, createMapActionRuntime } from './_lib/mapActionRuntime';
 import { createParticipantPresetActionRuntime } from './_lib/participantPresetActionRuntime';
+import { createDevToolActionRuntime } from './_lib/devToolActionRuntime';
 import {
   applyUserEconomyProgressToState,
   createMarketStateRuntime,
@@ -917,64 +916,36 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // - 전투 중 사용 불가: 진행 중(isAdvancing)일 때는 버튼을 비활성화합니다.
   
   // 🎁 개발자 도구: 초월 장비 선택 상자(선택 대기) 처리
-  function resolvePendingTranscendPick(optionIndex, method = 'manual') {
-    if (!pendingTranscendPick) return;
-
-    const pending = pendingTranscendPick;
-    const ruleset = getRuleset(settings?.rulesetId);
-    const options = Array.isArray(pending?.options) ? pending.options : [];
-    const chosen = (Number(optionIndex) === -1) ? pickAutoTranscendOption(options, publicItems) : (options[Number(optionIndex)] || null);
-
-    if (!chosen?.itemId) {
-      setPendingTranscendPick(null);
-      return;
-    }
-
-    const item = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === String(chosen.itemId)) || null;
-
-    setSurvivors((prev) => {
-      const next = (Array.isArray(prev) ? prev : []).map((c) => ({
-        ...c,
-        inventory: Array.isArray(c?.inventory) ? c.inventory.map((i) => ({ ...i })) : [],
-      }));
-      const idx = next.findIndex((c) => String(c?._id) === String(pending.characterId));
-      if (idx < 0) return prev;
-
-      const ch = next[idx];
-      ch.inventory = addItemToInventory(ch.inventory, item, String(chosen.itemId), 1, day, ruleset);
-      const meta = ch.inventory?._lastAdd || null;
-      const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
-      const nm = itemDisplayName(item || { _id: chosen.itemId, name: chosen.name });
-      addLog(`🎁 [${ch.name}] 초월 장비 선택 상자 선택 → ${itemIcon(item)} ${nm} ${gainText(got)}${formatInvAddNote(meta, 1, ch.inventory, ruleset)}`, 'highlight');
-      emitItemGainIfAny(got, { who: ch.name, whoId: ch._id, itemId: String(chosen.itemId), source: 'box', sourceKind: 'transcend_pick', zoneId: pending.zoneId, choice: method }, pending.at || { day, phase, sec: matchSec });
-      if (got > 0) autoEquipBest(ch, {});
-      return next;
-    });
-
-    setPendingTranscendPick(null);
-  };
-
-  const devForceUseConsumable = (charId, invIndex) => {
-    if (!showMarketPanel) return;
-    if (isAdvancing || isGameOver) return;
-
-    setSurvivors((prev) => {
-      const next = (Array.isArray(prev) ? prev : []).map((c) => ({
-        ...c,
-        inventory: Array.isArray(c?.inventory) ? c.inventory.map((i) => ({ ...i })) : [],
-      }));
-      const idx = next.findIndex((c) => String(c?._id) === String(charId));
-      if (idx < 0) return prev;
-
-      const ch = next[idx];
-      const result = forceUseConsumableAtIndex(ch, invIndex, {
+  function getDevToolActions() {
+    return createDevToolActionRuntime({
+      state: {
+        day,
+        isAdvancing,
+        isGameOver,
+        matchSec,
+        pendingTranscendPick,
+        phase,
+        publicItems,
+        settings,
+        showMarketPanel,
+      },
+      actions: {
         addLog,
         emitConsumableRunEvent,
         emitEffectRunEvents,
-      });
-      if (!result.used) return prev;
-      return next;
+        emitItemGainIfAny,
+        setPendingTranscendPick,
+        setSurvivors,
+      },
     });
+  }
+
+  function resolvePendingTranscendPick(optionIndex, method = 'manual') {
+    return getDevToolActions().resolvePendingTranscendPick(optionIndex, method);
+  };
+
+  const devForceUseConsumable = (charId, invIndex) => {
+    return getDevToolActions().devForceUseConsumable(charId, invIndex);
   };
 
   useEffect(() => {
@@ -1046,19 +1017,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
 
   // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
   function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
-    const sid = String(survivorId || '');
-    const sslot = String(slot || '');
-    if (!sid || !EQUIP_SLOTS.includes(sslot)) return;
-
-    setSurvivors((prev) =>
-      (Array.isArray(prev) ? prev : []).map((s) => {
-        const id = String(s?._id || s?.id || s?.name || '');
-        if (id !== sid) return s;
-        const eq = { ...ensureEquipped(s) };
-        eq[sslot] = itemIdOrNull ? String(itemIdOrNull) : null;
-        return { ...s, equipped: eq };
-      })
-    );
+    return getDevToolActions().setEquipForSurvivor(survivorId, slot, itemIdOrNull);
   };
 
 
