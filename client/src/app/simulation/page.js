@@ -5,14 +5,10 @@ import Link from 'next/link';
 import { AUTH_SYNC_EVENT, INIT_API_TIMEOUT_MS, apiGet, apiGetCached, apiPost, apiPut, clearAuth, getToken, getUser, updateStoredUser } from '../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../utils/hallOfFame';
 import { calculateBattle } from '../../utils/battleLogic';
-import { ER_WEAPON_SKILLS, applyErSubjectPreset, buildErBehaviorModifier, getErTrait } from '../../utils/erMeta';
+import { applyErSubjectPreset, buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
-  EFFECT_COOLDOWN_DOWN,
-  EFFECT_COOLDOWN_UP,
-  EFFECT_HASTE,
   EFFECT_KNOCKBACK,
-  EFFECT_SLOW,
   EFFECT_STUN,
   applyHealingModifier,
   getCooldownTickMultiplier,
@@ -21,27 +17,14 @@ import {
   getRegenValue,
   getShieldValue,
   hasActionBlockStatus,
-  makeCooldownRateEffect,
-  makeHealReductionEffect,
-  makeLifestealEffect,
-  makeMoveSpeedEffect,
-  makeShieldEffect,
-  makeStatBuffEffect,
-  makeStatusValueEffect,
   updateEffects,
 } from '../../utils/statusLogic';
 import { applyItemEffect } from '../../utils/itemLogic';
-import { ER_STAT_KEYS, getEffectiveErStats, normalizeErStats } from '../../utils/erStats';
+import { ER_STAT_KEYS, normalizeErStats } from '../../utils/erStats';
 import {
-  addMasteryXp,
-  addMultipleMasteryXp,
   createInitialMasteryState,
-  getCraftMasteryXp,
-  getMasteryLabel,
   getMovementSpeedMasteryBonus,
   getNonCombatRegenMultiplier,
-  getPvpKillMasteryEntries,
-  getPvpMasteryEntries,
   getWildlifeDamageMultiplier,
   getWildlifeMasteryEntries,
 } from '../../utils/masteryLogic';
@@ -280,6 +263,23 @@ import {
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
   getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
 } from './_lib/forbiddenZoneRuntime';
+import {
+  applyErTraitAfterBattle as applyErTraitAfterBattleRuntime,
+  applyErWeaponSkillAfterCombat as applyErWeaponSkillAfterCombatRuntime,
+  applyIaidoOpener,
+  canonicalizeCharName,
+  cloneForBattle,
+  isShirokoBase,
+  isShirokoTerror,
+  prepareBattleSkills,
+} from './_lib/combatRuntime';
+import {
+  grantMastery as grantMasteryRuntime,
+  grantMasteries as grantMasteriesRuntime,
+  grantCraftMastery as grantCraftMasteryRuntime,
+  grantPvpDamageMastery as grantPvpDamageMasteryRuntime,
+  grantPvpKillMastery as grantPvpKillMasteryRuntime,
+} from './_lib/masteryProgressRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -798,252 +798,37 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return !quietReasons.has(reason);
   };
 
-  function applyLevelGrowth(actor, result) {
-    if (!actor || !result?.characterLeveledUp) return;
-    const before = Math.max(1, Number(result.beforeCharacterLevel || 1));
-    const after = Math.max(before, Number(result.afterCharacterLevel || before));
-    const steps = Math.max(0, after - before);
-    if (steps <= 0) return;
-    const stats = normalizeErStats(actor?.stats);
-    const hpGain = Math.max(0, Math.round(Number(stats?.hpGrowth || 0) * steps));
-    const effectiveMaxHp = Math.max(1, Math.round(Number(getEffectiveErStats(actor)?.maxHp || stats.maxHp || 100)));
-    if (hpGain > 0) {
-      actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100) + hpGain);
-      actor.hp = Math.min(Number(actor.maxHp || 1), Math.max(0, Number(actor.hp || 0) + hpGain));
-    } else {
-      actor.maxHp = Math.max(effectiveMaxHp, Number(actor.maxHp || stats.maxHp || 100));
-    }
-  }
-
-  function logMasteryResult(actor, result, reason = '') {
-    if (!actor || !result) return result;
-    applyLevelGrowth(actor, result);
-    const reasonText = reason ? ` · ${reason}` : '';
-    if (result.leveledUp) {
-      addLog(`⚙️ [${actor?.name}] ${getMasteryLabel(result.category)} 숙련도 Lv.${result.afterLevel} 달성${reasonText}`, 'highlight');
-    }
-    if (result.characterLeveledUp) {
-      addLog(`⬆️ [${actor?.name}] Lv.${result.afterCharacterLevel} 달성${reasonText}`, 'highlight');
-    }
-    return result;
-  }
-
   function grantMastery(actor, category, amount, reason = '') {
-    const result = addMasteryXp(actor, category, amount);
-    return logMasteryResult(actor, result, reason);
+    return grantMasteryRuntime(actor, category, amount, reason, addLog);
   }
 
   function grantMasteries(actor, entries = [], reason = '') {
-    const results = addMultipleMasteryXp(actor, entries);
-    results.forEach((result) => logMasteryResult(actor, result, reason));
-    return results;
+    return grantMasteriesRuntime(actor, entries, reason, addLog);
   }
 
   function grantCraftMastery(actor, crafted, itemMetaById, reason = '제작') {
-    if (!actor || !crafted?.craftedId) return [];
-    const craftedId = String(crafted.craftedId || '');
-    const meta = itemMetaById?.[craftedId] || {};
-    return grantMasteries(actor, getCraftMasteryXp(meta, crafted), reason);
+    return grantCraftMasteryRuntime(actor, crafted, itemMetaById, reason, addLog);
   }
 
   function grantPvpDamageMastery(actor, payload = {}, reason = '교전') {
-    return grantMasteries(actor, getPvpMasteryEntries(payload), reason);
+    return grantPvpDamageMasteryRuntime(actor, payload, reason, addLog);
   }
 
   function grantPvpKillMastery(actor, opponent, reason = '처치') {
-    return grantMasteries(actor, getPvpKillMasteryEntries(opponent), reason);
+    return grantPvpKillMasteryRuntime(actor, opponent, reason, addLog);
   }
 
   function applyErTraitAfterBattle(actor, opts = {}) {
-    if (!actor || Number(actor?.hp || 0) <= 0) return null;
-    const trait = getErTrait(actor);
-    const code = String(trait?.code || '');
-    if (!code) return null;
-
-    const maxHp = Math.max(1, Number(actor?.maxHp || 100));
-    const hp = Math.max(0, Number(actor?.hp || 0));
-    const effects = [];
-    const defenderEffects = [];
-    const bits = [];
-
-    if (code === 'devour') {
-      const baseHeal = opts?.lethal ? 9 : 5;
-      const rawHeal = Math.min(Math.max(0, maxHp - hp), baseHeal + Math.floor(Number(opts?.damageDealt || 0) * 0.06));
-      const heal = applyHealingModifier(actor, rawHeal);
-      if (heal > 0) {
-        actor.hp = Math.min(maxHp, hp + heal);
-        bits.push(`HP +${heal}`);
-      }
-    } else if (code === 'adrenaline') {
-      effects.push(makeStatBuffEffect('adrenaline', { attackSpeed: 0.04, attackPower: 2 }, 2, 'er_trait_adrenaline', { tags: ['positive', 'trait', 'adrenaline'] }));
-    } else if (code === 'ampDrone') {
-      effects.push(makeStatBuffEffect('focus', { skillAmp: 6, sightRange: 0.2 }, 2, 'er_trait_amp_drone', { tags: ['positive', 'trait', 'amp'] }));
-    } else if (code === 'fortress') {
-      effects.push(makeShieldEffect(opts?.lethal ? 10 : 7, 2, 'er_trait_fortress', { tags: ['positive', 'trait', 'shield'] }));
-    } else if (code === 'sprint') {
-      effects.push(makeStatBuffEffect('sprint', { attackSpeed: 0.05, sightRange: 0.2 }, 2, 'er_trait_sprint', { tags: ['positive', 'trait', 'mobility'] }));
-    }
-
-    const applied = effects.length ? applyRuntimeEffectPayloads(actor, effects) : null;
-    (applied?.results || []).forEach((row) => {
-      if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
-      else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-        const desc = describeRuntimeEffect(row.effect);
-        if (desc) bits.push(desc);
-      }
-    });
-
-    if (bits.length) {
-      addLog(`🧬 [${actor.name}] 특성(${trait.name || code}) 발동: ${bits.join(', ')}`, 'system');
-    }
-    return { trait: code, applied: bits.length > 0 };
+    return applyErTraitAfterBattleRuntime(actor, { ...opts, addLog });
   };
 
   function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
-    if (!attacker || !defender) return { damage: 0, applied: false };
-    if (Number(attacker?.hp || 0) <= 0) return { damage: 0, applied: false };
-
-    const er = buildErBehaviorModifier(attacker, opts?.settings || {});
-    const skill = ER_WEAPON_SKILLS[er?.weaponType] || null;
-    if (!skill?.name) return { damage: 0, applied: false };
-
-    const damageDealt = Math.max(0, Number(opts?.damageDealt || 0));
-    if (damageDealt <= 0 && !opts?.lethalPreview) return { damage: 0, applied: false };
-
-    const mastery = Math.max(1, Math.floor(Number(er?.masteryLevel || 1)));
-    if (mastery < 5) return { damage: 0, applied: false, skill: skill.name, locked: true };
-    const nowSec = Math.max(0, Number(opts?.nowSec ?? opts?.at?.sec ?? 0));
-    const currentCooldown = Math.max(0, Number(attacker?.cooldowns?.weaponSkill || 0));
-    const nextReadySec = Math.max(0, Number(attacker?._weaponSkillNextAbsSec || 0));
-    if (currentCooldown > 0 || (nowSec > 0 && nextReadySec > nowSec)) {
-      return {
-        damage: 0,
-        applied: false,
-        skill: skill.name,
-        cooldown: true,
-        cooldownSec: currentCooldown || Math.max(0, nextReadySec - nowSec),
-      };
-    }
-
-    const procChance = Math.min(0.78, Math.max(0.24, 0.36 + mastery * 0.01 + (opts?.lethalPreview ? 0.1 : 0)));
-    if (Math.random() >= procChance) return { damage: 0, applied: false };
-
-    const baseCooldownSec = Math.max(18, Number(opts?.settings?.battle?.weaponSkillCooldownSec ?? opts?.settings?.weaponSkillCooldownSec ?? 34));
-    const masteryCooldownReduction = Math.min(8, Math.max(0, Math.floor((mastery - 1) / 3)));
-    const cooldownSec = Math.max(16, Math.round(baseCooldownSec - masteryCooldownReduction));
-    if (!attacker.cooldowns || typeof attacker.cooldowns !== 'object') attacker.cooldowns = {};
-    attacker.cooldowns.weaponSkill = cooldownSec;
-    if (nowSec > 0) attacker._weaponSkillNextAbsSec = nowSec + cooldownSec;
-    attacker._weaponSkillLastUsed = String(skill.name || '');
-    attacker._weaponSkillLastUsedAt = nowSec;
-
-    const bits = [];
-    const effects = [];
-    const defenderEffects = [];
-    let extraDamage = 0;
-
-    const scoreScale = Math.max(0, Number(skill.scoreScale || 0));
-    const flat = Math.max(0, Number(skill.openerFlatDmg || 0));
-    const crit = Math.max(0, Number(skill.critChancePlus || 0));
-    const amp = Math.max(0, Number(skill.skillAmpPlus || 0));
-    const block = Math.max(0, Number(skill.block || 0));
-    const lifesteal = Math.max(0, Number(skill.lifestealPlus || 0));
-    const mobility = Math.max(0, Number(skill.chaseBonus || 0), Number(skill.escapeBonus || 0));
-
-    if (Number(defender?.hp || 0) > 0) {
-      const pressure = scoreScale * 42 + flat + crit * 70 + amp * 55;
-      const rolled = Math.round(pressure + Math.max(0, mastery - 1) * 0.18);
-      extraDamage = Math.min(Math.max(0, Number(defender.hp || 0)), Math.max(0, rolled));
-      if (extraDamage >= 3) {
-        defender.hp = Math.max(0, Number(defender.hp || 0) - extraDamage);
-        bits.push(`추가 피해 +${extraDamage}`);
-      } else {
-        extraDamage = 0;
-      }
-    }
-
-    if (block > 0) {
-      const shield = Math.min(14, Math.max(3, Math.round(block * 0.9 + mastery * 0.2)));
-      effects.push(makeShieldEffect(shield, 2, 'er_weapon_skill_block', { tags: ['positive', 'weapon_skill', 'shield'] }));
-    }
-
-    if (lifesteal > 0) {
-      const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
-      const hp = Math.max(0, Number(attacker?.hp || 0));
-      const rawHeal = Math.min(Math.max(0, maxHp - hp), Math.max(1, Math.round(damageDealt * lifesteal * 3 + (opts?.lethalPreview ? 4 : 1))));
-      const heal = applyHealingModifier(attacker, rawHeal);
-      if (heal > 0) {
-        attacker.hp = Math.min(maxHp, hp + heal);
-        bits.push(`HP +${heal}`);
-      }
-      effects.push(makeLifestealEffect(Math.max(0.04, lifesteal * 2), 2, 'er_weapon_skill_lifesteal', { tags: ['positive', 'weapon_skill', 'lifesteal'] }));
-    }
-
-    const statBuff = {};
-    if (amp > 0) {
-      statBuff.skillAmp = (statBuff.skillAmp || 0) + 5;
-      statBuff.sightRange = (statBuff.sightRange || 0) + 0.2;
-    }
-    if (mobility > 0) {
-      statBuff.attackSpeed = (statBuff.attackSpeed || 0) + 0.04;
-      statBuff.attackPower = (statBuff.attackPower || 0) + 1;
-    }
-    if (Object.keys(statBuff).length) {
-      effects.push(makeStatBuffEffect('무기 템포', statBuff, 2, 'er_weapon_skill_tempo', { tags: ['positive', 'weapon_skill'] }));
-    }
-
-    if (skill.name === '어퍼컷') {
-      defenderEffects.push(makeStatusValueEffect(EFFECT_AIRBORNE, 2, 'er_weapon_skill_airborne', { tags: ['negative', 'weapon_skill', 'cc', 'airborne', 'action_block'] }));
-    } else if (skill.name === '풀스윙') {
-      defenderEffects.push(makeStatusValueEffect(EFFECT_KNOCKBACK, 2, 'er_weapon_skill_knockback', { knockbackDistance: 1, tags: ['negative', 'weapon_skill', 'cc', 'knockback', 'forced_move'] }));
-    } else if (skill.name === '갑옷깨기') {
-      defenderEffects.push(makeHealReductionEffect(0.35, 2, 'er_weapon_skill_antiheal', { tags: ['negative', 'weapon_skill', 'heal_reduction'] }));
-    } else if (skill.name === '마름쇠' || skill.name === '갈고리') {
-      defenderEffects.push(makeMoveSpeedEffect(EFFECT_SLOW, -0.16, 2, 'er_weapon_skill_slow', { tags: ['negative', 'weapon_skill', 'slow', 'move'] }));
-    } else if (skill.name === '불협화음') {
-      defenderEffects.push(makeCooldownRateEffect(EFFECT_COOLDOWN_UP, 0.18, 2, 'er_weapon_skill_discord', { tags: ['negative', 'weapon_skill', 'cooldown'] }));
-    }
-    if (mobility > 0) {
-      effects.push(makeStatusValueEffect(EFFECT_HASTE, 2, 'er_weapon_skill_haste', { moveSpeedBonus: Math.max(0.04, mobility * 1.5), cooldownRateBonus: 0.08, tags: ['positive', 'weapon_skill', 'haste', 'move', 'cooldown'] }));
-    }
-    if (skill.name === '무빙 리로드') {
-      effects.push(makeCooldownRateEffect(EFFECT_COOLDOWN_DOWN, 0.18, 2, 'er_weapon_skill_reload', { tags: ['positive', 'weapon_skill', 'cooldown'] }));
-    }
-
-    const applied = effects.length ? applyRuntimeEffectPayloads(attacker, effects) : null;
-    const defenderApplied = defenderEffects.length ? applyRuntimeEffectPayloads(defender, defenderEffects) : null;
-    (applied?.results || []).forEach((row) => {
-      if (row?.reason === 'immune') bits.push(`${String(row?.effect?.name || '효과')} 면역`);
-      else if (row?.reason === 'resisted') bits.push(`${String(row?.effect?.name || '효과')} 저항`);
-      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-        const desc = describeRuntimeEffect(row.effect);
-        if (desc) bits.push(desc);
-      }
+    return applyErWeaponSkillAfterCombatRuntime(attacker, defender, {
+      ...opts,
+      addLog,
+      emitRunEvent,
+      emitEffectRunEvents,
     });
-    (defenderApplied?.results || []).forEach((row) => {
-      if (row?.reason === 'immune') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 면역`);
-      else if (row?.reason === 'resisted') bits.push(`${defender.name} ${String(row?.effect?.name || '효과')} 저항`);
-      else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-        const desc = describeRuntimeEffect(row.effect);
-        if (desc) bits.push(`${defender.name} ${desc}`);
-      }
-    });
-
-    if (!bits.length) return { damage: extraDamage, applied: false, skill: skill.name };
-
-    addLog(`🗡️ [${attacker.name}] 무기 스킬(${skill.name}): ${bits.join(', ')}`, 'highlight');
-    emitRunEvent('skill', {
-      who: String(attacker?._id || ''),
-      whoName: attacker?.name,
-      skill: String(skill.name || ''),
-      mode: 'weapon_skill',
-      zoneId: String(attacker?.zoneId || defender?.zoneId || ''),
-      cooldownSec,
-    }, opts?.at || null);
-    emitEffectRunEvents(attacker, applied?.results || [], { source: 'weapon_skill', skill: String(skill.name || ''), reason: 'combat_after', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, opts?.at || null);
-    emitEffectRunEvents(defender, defenderApplied?.results || [], { source: 'weapon_skill', skill: String(skill.name || ''), reason: 'combat_after_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, opts?.at || null);
-    return { damage: extraDamage, applied: true, skill: skill.name, cooldownSec };
   };
 
   function emitItemGainIfAny(qty, payload = {}, at = null) {
@@ -1674,68 +1459,6 @@ if (!who) {
   const isHyperloopTransit = (fromZoneId, toZoneId) => (
     isHyperloopTransitEdge(baseZoneGraph, hyperloopZoneIds, fromZoneId, toZoneId)
   );
-
-  const canonicalizeCharName = (name) =>
-    (name || '')
-      .replace(/\s*[•·・]\s*/g, '·')
-      .replace(/\s*-\s*/g, '·')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-
-  const normalizeForSkillKey = (name) => canonicalizeCharName(String(name || '')).replace(/\s+/g, '');
-  function isShirokoTerror(c) {
-    const n = normalizeForSkillKey(c?.name);
-    return n.includes('시로코') && n.includes('테러');
-  };
-  function isShirokoBase(c) {
-    const n = normalizeForSkillKey(c?.name);
-    return n.includes('시로코') && !n.includes('테러');
-  };
-  function cloneForBattle(obj) {
-    try {
-      return structuredClone(obj);
-    } catch {
-      return JSON.parse(JSON.stringify(obj));
-    }
-  };
-
-  // ✅ 전투 전용 스킬 세팅
-  // - DB에 specialSkill이 없거나 기본값(평범함)인 캐릭도 전투에서 "의도한" 스킬만 쓰도록 정규화
-  // - 기존 battleLogic.js는 name.includes 기반으로 항상 발동해 밸런스가 무너지는 문제가 있었고,
-  //   현재는 specialSkill(=발동 롤 성공 여부)에 따라 스킬이 적용되도록 수정되어 있음.
-  function prepareBattleSkills(c) {
-    if (!c) return c;
-    const raw = String(c?.specialSkill?.name || '').trim();
-    const isDefault = !raw || raw === '평범함' || raw === '없음' || raw.toLowerCase() === 'none';
-
-    // 시로코(기본) / 시로코 테러는 이름 기반으로 스킬을 부여
-    if (isShirokoBase(c)) {
-      c.specialSkill = { ...(c.specialSkill || {}), name: '드론 지원', type: 'combat' };
-      return c;
-    }
-    if (isShirokoTerror(c)) {
-      c.specialSkill = { ...(c.specialSkill || {}), name: '심연의 힘', type: 'combat' };
-      return c;
-    }
-
-    // 그 외는 "평범함" 같은 기본값이면 스킬 없음으로 처리
-    if (isDefault) {
-      c.specialSkill = null;
-      return c;
-    }
-
-    // 명시된 스킬은 타입이 없으면 combat으로 보정
-    if (c.specialSkill && !c.specialSkill.type) c.specialSkill.type = 'combat';
-    return c;
-  };
-  function applyIaidoOpener(attacker, defender, battleSettings) {
-    // 발도: 선제 타격으로 체력을 먼저 깎아 "스킬을 못 쓰고 죽는" 체감 완화
-    const openDamage = Number(battleSettings?.battle?.iaidoOpenDamage ?? 38);
-    const defMax = Number(defender?.maxHp ?? 100);
-    const defHp = Number(defender?.hp ?? defMax);
-    defender.hp = Math.max(1, defHp - openDamage);
-  };
 
   function applyRunSeed(seedStr) {
     const s = String(seedStr || '').trim() || '0';
