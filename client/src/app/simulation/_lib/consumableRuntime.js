@@ -1,6 +1,7 @@
 import { applyItemEffect } from '../../../utils/itemLogic';
 import { applyHealingModifier } from '../../../utils/statusLogic';
-import { itemDisplayName } from './simulationCommon';
+import { inferItemCategory } from './inventoryRules';
+import { itemDisplayName, itemIcon } from './simulationCommon';
 import {
   applyRuntimeEffectPayloads,
   describeRuntimeEffect,
@@ -168,4 +169,72 @@ export function createPhaseConsumableRuntime(opts = {}) {
   };
 
   return { tryUseConsumable };
+}
+
+export function forceUseConsumableAtIndex(actor, invIndex, opts = {}) {
+  const {
+    addLog,
+    emitConsumableRunEvent,
+    emitEffectRunEvents,
+  } = opts;
+  if (!actor || !Array.isArray(actor.inventory)) return { used: false };
+
+  const inventory = actor.inventory;
+  const itemIndex = Number(invIndex);
+  if (!Number.isFinite(itemIndex) || itemIndex < 0 || itemIndex >= inventory.length) return { used: false };
+
+  const item = inventory[itemIndex];
+  if (inferItemCategory(item) !== 'consumable') return { used: false };
+
+  const beforeHp = Number(actor.hp || 0);
+  const maxHp = Number(actor?.maxHp ?? 100);
+  const effect = applyItemEffect(actor, item);
+  const heal = Math.max(0, Number(effect?.recovery || 0));
+  const finalHeal = applyHealingModifier(actor, heal);
+  actor.hp = Math.min(maxHp, beforeHp + finalHeal);
+  const satietyGain = applySatietyGain(actor, effect?.satiety);
+
+  const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
+  if (statBoost) {
+    actor.stats = actor.stats && typeof actor.stats === 'object' ? { ...actor.stats } : {};
+    Object.entries(statBoost).forEach(([key, value]) => {
+      const statValue = Number(value || 0);
+      if (!Number.isFinite(statValue) || statValue === 0) return;
+      actor.stats[key] = Number(actor.stats?.[key] || 0) + statValue;
+    });
+  }
+
+  const permanent = applyPermanentConsumableBoostToActor(actor, effect, item);
+  if (permanent.log) addLog?.(permanent.log, permanent.duplicate ? 'system' : 'highlight');
+
+  const runtimeEffects = applyRuntimeEffectPayloads(actor, effect?.newEffects);
+  runtimeEffects.results.forEach((row) => {
+    if (row?.reason === 'immune') addLog?.(`🛡️ [${actor.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
+    else if (row?.reason === 'resisted') addLog?.(`🧷 [${actor.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
+    else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
+      const desc = describeRuntimeEffect(row.effect);
+      if (desc) addLog?.(`🪄 [${actor.name}] ${desc}`, 'system');
+    }
+  });
+
+  const currentQty = Number(item?.qty || 1);
+  if (Number.isFinite(currentQty) && currentQty > 1) inventory[itemIndex] = { ...item, qty: currentQty - 1 };
+  else inventory.splice(itemIndex, 1);
+
+  const delta = Math.max(0, Number(actor.hp || 0) - beforeHp);
+  const itemName = itemDisplayName(item);
+  addLog?.(`🧪 [${actor.name}] 강제 사용: ${itemIcon(item)} ${itemName} (+${delta} HP${satietyGain ? `, 포만감 +${satietyGain}` : ''})`, 'highlight');
+  emitConsumableRunEvent?.(actor, item, {
+    source: 'consumable',
+    reason: 'dev_force',
+    manual: true,
+    heal: delta,
+    satiety: satietyGain,
+  });
+  emitEffectRunEvents?.(actor, runtimeEffects.results, {
+    source: 'consumable',
+    itemId: String(item?._id || item?.itemId || ''),
+    reason: 'dev_force',
+  });
+  return { used: true, actor, item, heal: delta, satiety: satietyGain };
 }

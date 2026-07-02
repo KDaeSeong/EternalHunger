@@ -18,7 +18,6 @@ import {
   hasActionBlockStatus,
   updateEffects,
 } from '../../utils/statusLogic';
-import { applyItemEffect } from '../../utils/itemLogic';
 import { ER_STAT_KEYS, normalizeErStats } from '../../utils/erStats';
 import {
   createInitialMasteryState,
@@ -196,9 +195,7 @@ import {
 } from './_lib/routePlanProgressRuntime';
 import {
   normalizeSatiety,
-  applySatietyGain,
   decayActorSatiety,
-  isFoodRecoveryItem,
 } from './_lib/satietyRuntime';
 import {
   PARTICIPANT_PRESET_SELECTED_KEY,
@@ -311,8 +308,8 @@ import {
   emitConsumableRunEvent as emitConsumableRunEventRuntime,
 } from './_lib/runEventRuntime';
 import {
-  applyPermanentConsumableBoostToActor,
   createPhaseConsumableRuntime,
+  forceUseConsumableAtIndex,
 } from './_lib/consumableRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
@@ -937,52 +934,12 @@ const activeMapName = useSafeMemo('activeMapName', () => {
       if (idx < 0) return prev;
 
       const ch = next[idx];
-      const inv = Array.isArray(ch?.inventory) ? ch.inventory : [];
-      const ii = Number(invIndex);
-      if (!Number.isFinite(ii) || ii < 0 || ii >= inv.length) return prev;
-
-      const it = inv[ii];
-      if (inferItemCategory(it) !== 'consumable') return prev;
-
-      const beforeHp = Number(ch.hp || 0);
-      const maxHp = Number(ch?.maxHp ?? 100);
-
-      const effect = applyItemEffect(ch, it);
-      const heal = Math.max(0, Number(effect?.recovery || 0));
-      const finalHeal = applyHealingModifier(ch, heal);
-      ch.hp = Math.min(maxHp, beforeHp + finalHeal);
-      const satietyGain = applySatietyGain(ch, effect?.satiety);
-
-      const statBoost = effect?.statBoost && typeof effect.statBoost === 'object' ? effect.statBoost : null;
-      if (statBoost) {
-        ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
-        Object.entries(statBoost).forEach(([key, value]) => {
-          const v = Number(value || 0);
-          if (!Number.isFinite(v) || v === 0) return;
-          ch.stats[key] = Number(ch.stats?.[key] || 0) + v;
-        });
-      }
-      const permanent = applyPermanentConsumableBoostToActor(ch, effect, it);
-      if (permanent.log) addLog(permanent.log, permanent.duplicate ? 'system' : 'highlight');
-      const runtimeEffects = applyRuntimeEffectPayloads(ch, effect?.newEffects);
-      runtimeEffects.results.forEach((row) => {
-        if (row?.reason === 'immune') addLog(`🛡️ [${ch.name}] ${String(row?.effect?.name || '효과')} 면역`, 'system');
-        else if (row?.reason === 'resisted') addLog(`🧷 [${ch.name}] ${String(row?.effect?.name || '효과')} 저항`, 'system');
-        else if (row?.applied && shouldLogRuntimeEffectApplication(row.effect)) {
-          const desc = describeRuntimeEffect(row.effect);
-          if (desc) addLog(`🪄 [${ch.name}] ${desc}`, 'system');
-        }
+      const result = forceUseConsumableAtIndex(ch, invIndex, {
+        addLog,
+        emitConsumableRunEvent,
+        emitEffectRunEvents,
       });
-
-      const curQty = Number(it?.qty || 1);
-      if (Number.isFinite(curQty) && curQty > 1) inv[ii] = { ...it, qty: curQty - 1 };
-      else inv.splice(ii, 1);
-
-      const delta = Math.max(0, Number(ch.hp || 0) - beforeHp);
-      const nm = itemDisplayName(it);
-      addLog(`🧪 [${ch.name}] 강제 사용: ${itemIcon(it)} ${nm} (+${delta} HP${satietyGain ? `, 포만감 +${satietyGain}` : ''})`, 'highlight');
-      emitConsumableRunEvent(ch, it, { source: 'consumable', reason: 'dev_force', manual: true, heal: delta, satiety: satietyGain });
-      emitEffectRunEvents(ch, runtimeEffects.results, { source: 'consumable', itemId: String(it?._id || it?.itemId || ''), reason: 'dev_force' });
+      if (!result.used) return prev;
       return next;
     });
   };
