@@ -107,6 +107,11 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
   const needCreditsForLegend = wantLegend && simCredits < legendCost;
   const needCreditsForTrans = wantTrans && simCredits < transCost;
   const farmCredits = needCreditsForLegend || needCreditsForTrans;
+  const canMarketNow = canUseKioskAtWorldTime(day, phase);
+  const stillBelowGoal = minTier < goalTier;
+  const surplusLegendBudget = simCredits >= Math.max(legendCost, 200);
+  const surplusTransBudget = simCredits >= Math.max(transCost, 500);
+  const spendSurplus = canMarketNow && stillBelowGoal && (surplusLegendBudget || surplusTransBudget);
 
   return {
     goalTier,
@@ -123,6 +128,9 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
     hasVf,
     hasLegendMatAny,
     farmCredits,
+    spendSurplus,
+    surplusLegendBudget,
+    surplusTransBudget,
     legendCost,
     forceCost,
     transCost,

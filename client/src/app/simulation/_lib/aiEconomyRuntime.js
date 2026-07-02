@@ -9,7 +9,7 @@ import {
 import { EQUIP_SLOTS } from './simulationConstants';
 import { isAtOrAfterWorldTime } from './worldTime';
 import { applyPerkDiscount, getActorPerkEffects, perkNumber } from './perkRuntime';
-import { invQty } from './inventoryRules';
+import { canReceiveItem, invQty } from './inventoryRules';
 import {
   canUseKioskAtWorldTime,
   hasKioskAtZone,
@@ -152,6 +152,7 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
   const hasLegendMatAny = !!up?.hasLegendMatAny;
   const hasVfAny = !!up?.hasVf;
   const farmCredits = !!up?.farmCredits;
+  const spendSurplus = !!up?.spendSurplus;
 
   const legendCost = Math.max(0, Number(up?.legendCost ?? 200));
   const forceCost = Math.max(0, Number(up?.forceCost ?? 350));
@@ -220,6 +221,12 @@ function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState
       result.reason = '크레딧 파밍(야생동물)';
       return result;
     }
+  }
+
+  if (spendSurplus && canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= Math.min(legendCost, transCost || legendCost)) {
+    result.targets = kioskZones;
+    result.reason = 'surplus credits kiosk';
+    return result;
   }
 
   // 1) VF: 위클라인(5일차) 우선, 그 다음 키오스크 구매(4일차)
@@ -438,11 +445,12 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const up = (upgradeNeed && typeof upgradeNeed === 'object') ? upgradeNeed : null;
   const oneSpecialShort = getOneSpecialShortMissing(craftGoal);
   const hasNeed = miss.length > 0;
-  const hasUpgradeNeed = !!up?.wantLegend || !!up?.wantTrans || !!up?.farmCredits;
+  const hasUpgradeNeed = !!up?.wantLegend || !!up?.wantTrans || !!up?.farmCredits || !!up?.spendSurplus;
   const legendOverdue = !!up?.legendOverdue;
   const transOverdue = !!up?.transOverdue;
   const nearLegend = !!up?.nearLegend;
   const nearTrans = !!up?.nearTrans;
+  const spendSurplus = !!up?.spendSurplus;
   const hasMeaningfulNeed = hasNeed || hasUpgradeNeed;
   const cats = mr?.categories || {};
   const allowVf = cats?.vf !== false;
@@ -457,20 +465,24 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const earlyProcureBonus = (curDay <= 2) ? 0.08 : 0;
   const savedPlanLegendBonus = oneSpecialShort ? (oneSpecialShort?.special === 'vf' ? 0.18 : 0.15) : 0;
   const pacingPressure = (legendOverdue ? 0.14 : (nearLegend ? 0.05 : 0)) + (transOverdue ? 0.18 : (nearTrans ? 0.06 : 0));
+  const surplusPressure = spendSurplus
+    ? Math.min(0.30, 0.10 + Math.max(0, simCredits - 250) / 2400)
+    : 0;
   const urgencyBonus = hasMeaningfulNeed
     ? Math.min(0.24,
         needCount * 0.04
         + (up?.wantLegend ? 0.03 : 0)
         + (up?.wantTrans ? 0.05 : 0)
         + (up?.farmCredits ? 0.02 : 0)
+        + (spendSurplus ? 0.10 : 0)
       )
     : 0;
   const affordableNeedBonus = hasMeaningfulNeed
     ? (simCredits >= Number(mr?.prices?.basic ?? 10) ? 0.12 : 0)
     : 0;
   const chance = hasMeaningfulNeed
-    ? Math.min(0.995, chanceNeed + earlyProcureBonus + urgencyBonus + affordableNeedBonus + savedPlanLegendBonus + pacingPressure + perkChanceBonus)
-    : Math.min(0.55, chanceIdle + ((curDay <= 2 && simCredits >= Number(mr?.prices?.basic ?? 10)) ? 0.04 : 0) + (legendOverdue ? 0.04 : 0) + perkChanceBonus);
+    ? Math.min(0.995, chanceNeed + earlyProcureBonus + urgencyBonus + affordableNeedBonus + savedPlanLegendBonus + pacingPressure + surplusPressure + perkChanceBonus)
+    : Math.min(0.75, chanceIdle + ((curDay <= 2 && simCredits >= Number(mr?.prices?.basic ?? 10)) ? 0.04 : 0) + (legendOverdue ? 0.04 : 0) + surplusPressure + perkChanceBonus);
 
   // ✅ 서버(어드민)에서 편집한 키오스크 카탈로그가 있으면 그대로 사용(우선)
   // - 카탈로그는 각 키오스크 문서(Kiosk.catalog)에 저장되며, /public/kiosks로 내려옵니다.
@@ -586,6 +598,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const forceCoreItem = findByTag('force_core') || findItemByKeywords(items, ['포스 코어', 'force core']);
   const tacModuleItem = findByTag('tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical']);
 
+  const surplusVfItem = findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']);
   const tacUpgradeMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level'); // 'level' | 'stack'
   const TAC_MAX_LV = 2;
   const tacSkillLv = Math.max(1, Math.min(TAC_MAX_LV, Math.floor(Number(actor?.tacticalSkillLevel || 1))));
@@ -606,6 +619,46 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const preserveNeededSpecials = mr?.exchange?.preserveNeededSpecials !== false;
   const spareForceNeed = Math.max(0, Number(mr?.exchange?.spareForceCoreToMithril ?? 1));
   const spareMithrilNeed = Math.max(0, Number(mr?.exchange?.spareMithrilToTacModule ?? 2));
+
+  if (spendSurplus) {
+    const surplusBuyChance = Math.min(0.98, Number(mr?.surplus?.buyChance ?? 0.72) + Math.max(0, simCredits - 500) / 3200);
+    const buyRows = [];
+    const pushBuy = (item, cost, label, key = '') => {
+      if (!item?._id) return;
+      const itemId = String(item._id);
+      const safeCost = Math.max(0, Number(cost || 0));
+      if (safeCost <= 0 || simCredits < safeCost) return;
+      if (!canReceiveItem(inv, item, itemId, 1, ruleset)) return;
+      const have = invQty(inv, itemId);
+      const holdLimit = key === 'vf' ? 1 : key === 'tac' ? 1 : 2;
+      if (have >= holdLimit) return;
+      buyRows.push({ item, itemId, cost: safeCost, label, key, have });
+    };
+
+    if (allowVf && up?.wantTrans && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
+      pushBuy(surplusVfItem, applyKioskCost(Number(mr?.prices?.vf ?? 500)), 'surplus VF', 'vf');
+    }
+
+    if (allowLegendary && (up?.wantLegend || up?.surplusLegendBudget)) {
+      const cores = [
+        { key: 'meteor', item: meteorItem, cost: applyKioskCost(kioskLegendaryPrice('meteor', mr?.prices?.legendaryByKey)) },
+        { key: 'life_tree', item: lifeTreeItem, cost: applyKioskCost(kioskLegendaryPrice('life_tree', mr?.prices?.legendaryByKey)) },
+        { key: 'mithril', item: mithrilItem, cost: applyKioskCost(kioskLegendaryPrice('mithril', mr?.prices?.legendaryByKey)) },
+        { key: 'force_core', item: forceCoreItem, cost: applyKioskCost(kioskLegendaryPrice('force_core', mr?.prices?.legendaryByKey)) },
+      ].sort((a, b) => (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)));
+      for (const row of cores) pushBuy(row.item, row.cost, `surplus legendary ${row.key}`, row.key);
+    }
+
+    if (!tacIsLvMax) {
+      pushBuy(tacModuleItem, applyKioskCost(Number(mr?.prices?.tacModule ?? 10)), 'surplus tactical module', 'tac');
+    }
+
+    if (buyRows.length && Math.random() < surplusBuyChance) {
+      const picked = buyRows
+        .sort((a, b) => (a.have - b.have) || (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)))[0];
+      return { kind: 'buy', item: picked.item, itemId: picked.itemId, qty: 1, cost: picked.cost, label: picked.label };
+    }
+  }
 
   // 0-A) 즉시 교환: 포코→미스릴, 미스릴→모듈, 모듈→크레딧(환급)
   // - 관전 템포를 위해 교환은 확률로 과도한 반복을 줄입니다.
@@ -873,13 +926,23 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   const def = Number(dm?.chanceDefault ?? 0.10);
   const routeNeedChance = Math.max(0, Math.min(0.98, Number(dm?.chanceRoutePlanNeed ?? 0.94)));
   const droneBaseChance = hasRouteDroneNeed ? routeNeedChance : (hasNeed ? (invCount <= 2 ? needLow : needDef) : (invCount <= 1 ? lowInv : invCount == 2 ? inv2 : def));
+  const surplusMinCredits = Math.max(0, Number(dm?.surplusMinCredits ?? 180));
+  const surplusCreditPressure = credits >= Math.max(900, surplusMinCredits * 5)
+    ? 0.42
+    : credits >= Math.max(600, surplusMinCredits * 3)
+      ? 0.30
+      : credits >= Math.max(350, surplusMinCredits * 2)
+        ? 0.18
+        : credits >= surplusMinCredits
+          ? 0.08
+          : 0;
   const droneUrgency = hasRouteDroneNeed
     ? Math.min(0.04, (credits >= Number(dm?.price ?? 10) ? 0.03 : 0) + (invCount <= 2 ? 0.01 : 0))
     : hasNeed
     ? Math.min(0.24, ((curDay <= 2) ? 0.08 : 0) + ((credits >= Number(dm?.price ?? 10)) ? 0.10 : 0) + (invCount <= 2 ? 0.06 : 0))
     : ((curDay <= 2 && invCount <= 1) ? 0.05 : 0);
   const pacingPressure = (legendOverdue ? 0.12 : 0) + (transOverdue ? 0.16 : 0) + ((goalTier >= 5 && hasNeed && curDay <= 2) ? 0.04 : 0);
-  const baseChance = Math.min(0.98, droneBaseChance + droneUrgency + pacingPressure + perkChanceBonus);
+  const baseChance = Math.min(0.98, droneBaseChance + droneUrgency + pacingPressure + surplusCreditPressure + perkChanceBonus);
   if (Math.random() >= baseChance) return null;
 
   const pool = [];

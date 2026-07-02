@@ -2449,6 +2449,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
           const simCredits = Math.max(0, Number(updated?.simCredits || 0));
           const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
+          const spendSurplusBias = upgradeNeed?.spendSurplus ? Math.min(18, 6 + Math.floor(simCredits / 250)) : 0;
           const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
           const transBias = upgradeNeed?.wantTrans ? 8 : 0;
           const scoreRows = [];
@@ -2459,7 +2460,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const kind = String(queuedKioskAction?.kind || 'buy');
             const isSell = kind === 'sell';
             const score =
-              (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44)
+              (isSell ? (18 + farmCreditsBias + Math.max(0, simCredits >= 300 ? 6 : 0)) : 44 + spendSurplusBias)
               + (matchesGoal ? 26 : 0)
               + (isSell ? 0 : legendBias + transBias)
               + (kind === 'exchange' ? 6 : 0)
@@ -2479,7 +2480,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
             const itemId = String(queuedDroneOrder?.itemId || '');
             const matchesGoal = goalMissingIds.has(itemId) || (goalTargetId && goalTargetId === itemId);
             const matchesRouteDrone = routeDroneNeedIds.has(itemId);
-            const score = 40 + (matchesGoal ? 28 : 0) + (matchesRouteDrone ? 36 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+            const score = 40 + spendSurplusBias + (matchesGoal ? 28 : 0) + (matchesRouteDrone ? 36 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
             scoreRows.push({
               type: 'droneOrder',
               zoneId: String(updated?.zoneId || ''),
@@ -2631,6 +2632,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
           wantLegend: !!upgradeNeed?.wantLegend,
           wantTrans: !!upgradeNeed?.wantTrans,
           farmCredits: !!upgradeNeed?.farmCredits,
+          spendSurplus: !!upgradeNeed?.spendSurplus,
         };
         if (blockedReasons.length || ['flee', 'routeFarm', 'kioskBuy', 'kioskExchange', 'kioskSell', 'droneOrder', 'craft'].includes(queuedActionType)) {
           emitQueueRunEvent(updated, {

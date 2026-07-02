@@ -79,6 +79,7 @@ const DEFAULT_MARKET_RULES = {
       spareMithrilToTacModule: 2,
     },
     fallback: { vfChance: 0.40, legendaryChance: 0.34, basicChance: 0.55 },
+    surplus: { buyChance: 0.72 },
   },
   drone: {
     enabled: true,
@@ -90,6 +91,7 @@ const DEFAULT_MARKET_RULES = {
     chanceLowInv: 0.34,
     chanceInv2: 0.24,
     chanceDefault: 0.12,
+    surplusMinCredits: 180,
     // 목표 재료 가중치
     needWeightMul: 12,
     needFallbackWeight: 8,
