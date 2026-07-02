@@ -291,6 +291,7 @@ import {
   emitEffectRunEvents as emitEffectRunEventsRuntime,
   emitConsumableRunEvent as emitConsumableRunEventRuntime,
 } from './_lib/runEventRuntime';
+import { applyPermanentConsumableBoostToActor } from './_lib/consumableRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -901,69 +902,7 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     setPendingTranscendPick(null);
   };
 
-  function applyPermanentConsumableBoostToActor(ch, effect, item) {
-    const boost = effect?.permanentBoost && typeof effect.permanentBoost === 'object' ? effect.permanentBoost : null;
-    if (!ch || !boost) return { applied: false, duplicate: false, log: '' };
-
-    const key = String(effect?.permanentKey || boost?.key || item?._id || item?.itemId || item?.name || '').trim();
-    if (!key) return { applied: false, duplicate: false, log: '' };
-
-    const used = ch.usedPermanentConsumables && typeof ch.usedPermanentConsumables === 'object'
-      ? { ...ch.usedPermanentConsumables }
-      : {};
-    const itemName = itemDisplayName(item);
-    if (used[key]) {
-      return { applied: false, duplicate: true, log: `♻️ [${ch.name}] ${itemName} 영구 보너스는 이미 적용되어 있습니다.` };
-    }
-    used[key] = true;
-    ch.usedPermanentConsumables = used;
-
-    ch.itemPermanentBonuses = ch.itemPermanentBonuses && typeof ch.itemPermanentBonuses === 'object'
-      ? { ...ch.itemPermanentBonuses }
-      : {};
-    const parts = [];
-
-    const maxHpPlus = Math.max(0, Math.round(Number(boost?.maxHp || 0)));
-    if (maxHpPlus > 0) {
-      const prevMax = Math.max(1, Number(ch.maxHp || 100));
-      const prevHp = Math.max(0, Number(ch.hp || 0));
-      ch.maxHp = prevMax + maxHpPlus;
-      ch.hp = Math.min(ch.maxHp, prevHp + maxHpPlus);
-      ch.itemPermanentBonuses.maxHp = Number(ch.itemPermanentBonuses.maxHp || 0) + maxHpPlus;
-      parts.push(`최대 체력 +${maxHpPlus}`);
-    }
-
-    const statBoost = boost?.stats && typeof boost.stats === 'object' ? boost.stats : {};
-    if (Object.keys(statBoost).length) {
-      ch.stats = ch.stats && typeof ch.stats === 'object' ? { ...ch.stats } : {};
-      ch.itemPermanentBonuses.stats = ch.itemPermanentBonuses.stats && typeof ch.itemPermanentBonuses.stats === 'object'
-        ? { ...ch.itemPermanentBonuses.stats }
-        : {};
-      Object.entries(statBoost).forEach(([key0, value]) => {
-        const statKey = String(key0 || '').trim();
-        const v = Number(value || 0);
-        if (!statKey || !Number.isFinite(v) || v === 0) return;
-        ch.stats[statKey] = Number(ch.stats?.[statKey] || 0) + v;
-        ch.itemPermanentBonuses.stats[statKey] = Number(ch.itemPermanentBonuses.stats?.[statKey] || 0) + v;
-        parts.push(`${statKey} +${v}`);
-      });
-    }
-
-    const moveSpeedPlus = Number(boost?.moveSpeed || 0);
-    if (Number.isFinite(moveSpeedPlus) && moveSpeedPlus !== 0) {
-      ch.permanentMoveSpeed = Number(ch.permanentMoveSpeed || 0) + moveSpeedPlus;
-      ch.itemPermanentBonuses.moveSpeed = Number(ch.itemPermanentBonuses.moveSpeed || 0) + moveSpeedPlus;
-      parts.push(`이동 속도 +${moveSpeedPlus}`);
-    }
-
-    return {
-      applied: parts.length > 0,
-      duplicate: false,
-      log: parts.length ? `💊 [${ch.name}] ${itemName} 영구 보너스 적용: ${parts.join(', ')}` : '',
-    };
-  }
-
-const devForceUseConsumable = (charId, invIndex) => {
+  const devForceUseConsumable = (charId, invIndex) => {
     if (!showMarketPanel) return;
     if (isAdvancing || isGameOver) return;
 
