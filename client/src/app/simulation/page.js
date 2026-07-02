@@ -209,12 +209,10 @@ import {
 } from './_lib/matchRosterRuntime';
 import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
 import {
-  getExportLogLines,
-  makeLogFileBaseName,
-  downloadTextFile,
-  buildLogExportSummary,
-  buildMarkdownLogExport,
-} from './_lib/logExportRuntime';
+  appendSimulationLog,
+  emitSimulationRunEvent,
+  exportSimulationBattleLog,
+} from './_lib/logActionRuntime';
 import {
   formatClock,
   waitMs,
@@ -756,25 +754,13 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   };
 
   function addLog(text, type = 'normal') {
-    // 전체 로그(서버 저장/결과용)는 페이즈 초기화와 무관하게 누적
-    try {
-      const logText = String(text || '');
-      const logType = String(type || 'normal');
-      fullLogsRef.current = [...(Array.isArray(fullLogsRef.current) ? fullLogsRef.current : []), logText];
-      fullLogEntriesRef.current = [
-        ...(Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current : []),
-        { text: logText, type: logType },
-      ];
-    } catch {}
-    // ✅ React StrictMode(dev)에서는 state updater가 2번 호출될 수 있어,
-    //   id 생성/카운터 증가를 updater 내부에서 처리해 key 충돌을 방지합니다.
-    setLogs((prev) => {
-      logSeqRef.current += 1;
-      const rand = Math.random().toString(16).slice(2);
-      const id = `${Date.now()}-${logSeqRef.current}-${rand}`;
-      return [...prev, { text, type, id }];
+    return appendSimulationLog({
+      text,
+      type,
+      refs: { fullLogsRef, fullLogEntriesRef, logSeqRef },
+      actions: { setLogs },
     });
-  };
+  }
   const addLogRef = useRef(addLog);
 
   useEffect(() => {
@@ -782,37 +768,23 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   });
 
   function exportBattleLog(format = 'md') {
-    const fmt = String(format || 'md').toLowerCase() === 'json' ? 'json' : 'md';
-    const lines = getExportLogLines(fullLogsRef.current);
-    if (!lines.length) {
+    const result = exportSimulationBattleLog({
+      format,
+      refs: { fullLogsRef },
+      state: {
+        settings,
+        resultSummary,
+        runEvents,
+        winner,
+        killCounts,
+        assistCounts,
+      },
+    });
+    if (result?.status === 'empty') {
       addLog('⚠️ 저장할 전투 로그가 없습니다. 게임을 시작한 뒤 다시 시도해주세요.', 'system');
       return;
     }
-
-    const summary = buildLogExportSummary({
-      lines,
-      settings,
-      resultSummary,
-      runEvents,
-      winner,
-      killCounts,
-      assistCounts,
-    });
-    const filename = makeLogFileBaseName({ winner, resultSummary }, fmt);
-    const payload = fmt === 'json'
-      ? JSON.stringify({
-          schema: 'eternal-hunger.battle-log.v1',
-          summary,
-          logs: lines.map((text, index) => ({ index: index + 1, text })),
-          runEvents: Array.isArray(runEvents) ? runEvents : [],
-        }, null, 2)
-      : buildMarkdownLogExport(lines, summary);
-    const ok = downloadTextFile(
-      filename,
-      payload,
-      fmt === 'json' ? 'application/json;charset=utf-8' : 'text/markdown;charset=utf-8'
-    );
-    addLog(ok ? `💾 전투 로그 저장: ${filename}` : '⚠️ 전투 로그 저장 실패', ok ? 'system' : 'death');
+    addLog(result?.ok ? `💾 전투 로그 저장: ${result.filename}` : '⚠️ 전투 로그 저장 실패', result?.ok ? 'system' : 'death');
   }
 
   useSimulationRuntimeGuards({
@@ -828,22 +800,14 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   // 🧾 구조적 이벤트 로그(재현/디버깅용)
   // - 문자열 로그는 사람용, runEvents는 "룰/상태"를 요약/집계하기 위한 데이터용
   function emitRunEvent(kind, payload = {}, at = null) {
-    const stamp = at || { day, phase, sec: matchSec };
-    const eventPayload = payload && typeof payload === 'object' ? { ...payload } : {};
-    const payloadKind = eventPayload.kind;
-    delete eventPayload.kind;
-    delete eventPayload.at;
-    delete eventPayload.ts;
-    const e = { ...eventPayload, kind: String(kind || 'unknown'), at: stamp, ts: nowMs() };
-    if ((e.subkind === undefined || e.subkind === null || e.subkind === '') && payloadKind !== undefined && payloadKind !== null && String(payloadKind)) {
-      e.subkind = String(payloadKind);
-    }
-    setRunEvents((prev) => {
-      const next = [...(Array.isArray(prev) ? prev : []), e];
-      const max = 5000;
-      return next.length > max ? next.slice(next.length - max) : next;
+    return emitSimulationRunEvent({
+      kind,
+      payload,
+      at,
+      state: { day, phase, matchSec },
+      actions: { setRunEvents },
     });
-  };
+  }
 
   function grantMastery(actor, category, amount, reason = '') {
     return grantMasteryRuntime(actor, category, amount, reason, addLog);
