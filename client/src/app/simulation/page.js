@@ -185,8 +185,6 @@ import {
   getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
 } from './_lib/forbiddenZoneRuntime';
 import {
-  applyErTraitAfterBattle as applyErTraitAfterBattleRuntime,
-  applyErWeaponSkillAfterCombat as applyErWeaponSkillAfterCombatRuntime,
   canonicalizeCharName,
 } from './_lib/combatRuntime';
 import {
@@ -204,22 +202,9 @@ import {
   logRuntimeEffectResults,
 } from './_lib/runtimeStatus';
 import {
-  grantMastery as grantMasteryRuntime,
-  grantMasteries as grantMasteriesRuntime,
-  grantCraftMastery as grantCraftMasteryRuntime,
-  grantPvpDamageMastery as grantPvpDamageMasteryRuntime,
-  grantPvpKillMastery as grantPvpKillMasteryRuntime,
-} from './_lib/masteryProgressRuntime';
-import {
   gainText,
   shouldLogItemReceive,
-  emitItemGainIfAny as emitItemGainIfAnyRuntime,
-  emitCraftRunEvent as emitCraftRunEventRuntime,
-  emitObjectiveRunEvent as emitObjectiveRunEventRuntime,
   getLootCraftOptions,
-  emitQueueRunEvent as emitQueueRunEventRuntime,
-  emitEffectRunEvents as emitEffectRunEventsRuntime,
-  emitConsumableRunEvent as emitConsumableRunEventRuntime,
 } from './_lib/runEventRuntime';
 import {
   createPhaseConsumableRuntime,
@@ -236,6 +221,7 @@ import { useSimulationUiModal } from './_lib/useSimulationUiModal';
 import { useSimulationDerivedData } from './_lib/useSimulationDerivedData';
 import { useSimulationMapState } from './_lib/useSimulationMapState';
 import { useSimulationParticipantPresets } from './_lib/useSimulationParticipantPresets';
+import { useSimulationEventActions } from './_lib/useSimulationEventActions';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -686,72 +672,24 @@ export default function SimulationPage() {
     return emitRunEventFromLogs(kind, payload, at);
   }
 
-  function grantMastery(actor, category, amount, reason = '') {
-    return grantMasteryRuntime(actor, category, amount, reason, addLog);
-  }
-
-  function grantMasteries(actor, entries = [], reason = '') {
-    return grantMasteriesRuntime(actor, entries, reason, addLog);
-  }
-
-  function grantCraftMastery(actor, crafted, craftItemMetaById, reason = '제작') {
-    return grantCraftMasteryRuntime(actor, crafted, craftItemMetaById, reason, addLog);
-  }
-
-  function grantPvpDamageMastery(actor, payload = {}, reason = '교전') {
-    return grantPvpDamageMasteryRuntime(actor, payload, reason, addLog);
-  }
-
-  function grantPvpKillMastery(actor, opponent, reason = '처치') {
-    return grantPvpKillMasteryRuntime(actor, opponent, reason, addLog);
-  }
-
-  function applyErTraitAfterBattle(actor, opts = {}) {
-    return applyErTraitAfterBattleRuntime(actor, { ...opts, addLog });
-  };
-
-  function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
-    return applyErWeaponSkillAfterCombatRuntime(attacker, defender, {
-      ...opts,
-      addLog,
-      emitRunEvent,
-      emitEffectRunEvents,
-    });
-  };
-
-  function emitItemGainIfAny(qty, payload = {}, at = null) {
-    return emitItemGainIfAnyRuntime(emitRunEvent, qty, payload, at);
-  };
-
-  function emitCraftRunEvent(who, crafted, at = null, zoneId = '') {
-    return emitCraftRunEventRuntime(emitRunEvent, who, crafted, at, zoneId);
-  };
-
-  function emitObjectiveRunEvent(actor, objective, payload = {}, at = null) {
-    return emitObjectiveRunEventRuntime(emitRunEvent, actor, objective, payload, at);
-  };
-
-  function applyLootCraftResult(actor, crafted, itemMeta, at = null, zoneId = '', logType = 'normal') {
-    if (!actor || !crafted?.inventory) return false;
-    actor.inventory = crafted.inventory;
-    autoEquipBest(actor, itemMeta);
-    addLog(`[${actor.name}] ${crafted.log}`, logType);
-    grantCraftMastery(actor, crafted, itemMeta, '제작');
-    emitCraftRunEvent(actor?._id, crafted, at, zoneId || actor?.zoneId);
-    return true;
-  };
-
-  function emitQueueRunEvent(who, payload = {}, at = null) {
-    return emitQueueRunEventRuntime(emitRunEvent, who, payload, at);
-  };
-
-  function emitEffectRunEvents(who, rows, meta = {}, at = null) {
-    return emitEffectRunEventsRuntime(emitRunEvent, who, rows, meta, at);
-  };
-
-  function emitConsumableRunEvent(who, item, meta = {}, at = null) {
-    return emitConsumableRunEventRuntime(emitRunEvent, who, item, meta, at);
-  };
+  const {
+    applyErTraitAfterBattle,
+    applyErWeaponSkillAfterCombat,
+    applyLootCraftResult,
+    emitConsumableRunEvent,
+    emitCraftRunEvent,
+    emitEffectRunEvents,
+    emitItemGainIfAny,
+    emitObjectiveRunEvent,
+    emitQueueRunEvent,
+    grantMasteries,
+    grantMastery,
+    grantPvpDamageMastery,
+    grantPvpKillMastery,
+  } = useSimulationEventActions({
+    addLog,
+    emitRunEvent,
+  });
 
   // 🛠 개발자 도구: 선택 캐릭터에게 소모품을 임의로 사용(강제)
   // - 전투 중 사용 불가: 진행 중(isAdvancing)일 때는 버튼을 비활성화합니다.
