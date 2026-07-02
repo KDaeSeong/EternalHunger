@@ -63,8 +63,6 @@ import {
   getInvItemId,
   getEquipMoveSpeed,
   extractActorNameFromLog,
-  localKeyHyperloops,
-  readLocalJsonArray,
   uniqStr,
   randInt,
   clampTier4,
@@ -87,8 +85,6 @@ import {
   clearPostCombatEffects,
   hasKioskAtZone,
   removeActiveEffect,
-  createInitialSpawnState,
-  getHyperloopDeviceZoneId,
   ensureWorldSpawns,
   findDimensionRiftGiftItem,
   getDimensionRiftGiftMeta,
@@ -160,12 +156,6 @@ import {
   decayActorSatiety,
 } from './_lib/satietyRuntime';
 import {
-  PARTICIPANT_PRESET_SELECTED_KEY,
-  RANDOM_PARTICIPANT_PRESET_ID,
-  readLocalParticipantPresets,
-  getInitialParticipantPresetId,
-} from './_lib/participantPresetRuntime';
-import {
   getRuntimeActorKey,
   dedupeRuntimeParticipants,
 } from './_lib/runtimeParticipantRuntime';
@@ -183,12 +173,6 @@ import {
   softenNonLethalBattleLog,
 } from './_lib/simulationFormattingRuntime';
 import { useSimulationInitialData } from './_lib/useSimulationInitialData';
-import {
-  buildBaseZoneGraph,
-  getHyperloopZoneIds,
-  buildHyperloopZoneGraph,
-  isHyperloopTransit as isHyperloopTransitEdge,
-} from './_lib/mapGraphRuntime';
 import { useSimulationRuntimeGuards } from './_lib/useSimulationRuntimeGuards';
 import { useHyperloopPickLog } from './_lib/useHyperloopPickLog';
 import {
@@ -242,8 +226,7 @@ import {
 } from './_lib/consumableRuntime';
 import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { createMarketActionRuntime } from './_lib/marketActionRuntime';
-import { applyActiveMapIdToState, createMapActionRuntime } from './_lib/mapActionRuntime';
-import { createParticipantPresetActionRuntime } from './_lib/participantPresetActionRuntime';
+import { createMapActionRuntime } from './_lib/mapActionRuntime';
 import { createDevToolActionRuntime } from './_lib/devToolActionRuntime';
 import { useSimulationMarketState } from './_lib/useSimulationMarketState';
 import { useSimulationLogs } from './_lib/useSimulationLogs';
@@ -251,6 +234,8 @@ import { useSimulationRunSeed } from './_lib/useSimulationRunSeed';
 import { useSimulationFlowState } from './_lib/useSimulationFlowState';
 import { useSimulationUiModal } from './_lib/useSimulationUiModal';
 import { useSimulationDerivedData } from './_lib/useSimulationDerivedData';
+import { useSimulationMapState } from './_lib/useSimulationMapState';
+import { useSimulationParticipantPresets } from './_lib/useSimulationParticipantPresets';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -267,14 +252,6 @@ function getClientHydrationSnapshot() {
 
 function getServerHydrationSnapshot() {
   return false;
-}
-
-function getInitialParticipantPresetName() {
-  const selectedId = getInitialParticipantPresetId();
-  if (selectedId === RANDOM_PARTICIPANT_PRESET_ID) return '';
-  const preset = readLocalParticipantPresets()
-    .find((row) => String(row?.id || '') === String(selectedId));
-  return preset?.name || '';
 }
 
 function getDefaultSimulationSettings() {
@@ -374,27 +351,6 @@ export default function SimulationPage() {
       winner,
     },
   });
-  const [participantPresets, setParticipantPresets] = useState(readLocalParticipantPresets);
-  const [selectedParticipantPresetIdRaw, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
-  const selectedParticipantPresetId = (() => {
-    const rawId = String(selectedParticipantPresetIdRaw || RANDOM_PARTICIPANT_PRESET_ID);
-    if (rawId === RANDOM_PARTICIPANT_PRESET_ID) return RANDOM_PARTICIPANT_PRESET_ID;
-    return participantPresets.some((preset) => String(preset?.id || '') === rawId)
-      ? rawId
-      : RANDOM_PARTICIPANT_PRESET_ID;
-  })();
-  const [participantPresetName, setParticipantPresetName] = useState(getInitialParticipantPresetName);
-
-  const saveSelectedParticipantPresetId = (presetId) => {
-    const nextId = String(presetId || RANDOM_PARTICIPANT_PRESET_ID);
-    setSelectedParticipantPresetId(nextId);
-    try {
-      localStorage.setItem(PARTICIPANT_PRESET_SELECTED_KEY, nextId);
-    } catch {
-      // ignore local storage failures
-    }
-  };
-
   const getTeamStateForActor = (actor) => {
     if (!actor || normalizeMatchMode(settings?.matchMode) === 'solo') return null;
     const teamId = getActorTeamId(actor);
@@ -470,12 +426,6 @@ export default function SimulationPage() {
     setSettings(nextSettings);
   };
 
-  // 🗺️ 맵 선택(로드맵 2번)
-  const [maps, setMaps] = useState([]);
-  const [activeMapId, setActiveMapId] = useState('');
-  // 🌀 하이퍼루프(맵 즉시 이동): 현재 맵에서 이동 가능한 목적지(로컬 설정)
-  const [hyperloopDestIdRaw, setHyperloopDestId] = useState('');
-
   // 🪟 UI 모달(미니맵/캐릭터/로그)
   const { closeUiModal, setUiModal, uiModal } = useSimulationUiModal();
 
@@ -495,9 +445,6 @@ export default function SimulationPage() {
     };
   }, []);
 
-  // 🧩 월드 스폰 상태(전설 재료 상자/보스) - 맵별로 관리
-  const [spawnState, setSpawnState] = useState(() => createInitialSpawnState(activeMapId));
-
   const isFinishingRef = useRef(false);
   // ✅ 시작(1일차 낮) 기본 장비 세팅이 1회만 적용되도록 플래그
   const startStarterLoadoutAppliedRef = useRef(false);
@@ -508,12 +455,6 @@ export default function SimulationPage() {
   const suddenDeathEndAtSecRef = useRef(null);
   const suddenDeathForbiddenAnnouncedRef = useRef(false);
 
-
-
-const activeMapName = useSafeMemo('activeMapName', () => {
-  const list = Array.isArray(maps) ? maps : [];
-  return list.find((m) => String(m?._id) === String(activeMapId))?.name || '맵 없음';
-}, [maps, activeMapId], '맵 없음');
 
   // 로그에서 [이름]을 파싱해 아이콘을 붙이기 위한 캐시
   const actorAvatarByName = useSafeMemo('actorAvatarByName', () => {
@@ -609,6 +550,36 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     setSurvivors,
     survivors,
   });
+  const {
+    activeMap,
+    activeMapId,
+    activeMapIdRef,
+    activeMapName,
+    activeMapRef,
+    applyActiveMapId,
+    baseZoneGraph,
+    getZoneName,
+    hyperloopDestId,
+    hyperloopDestIds,
+    hyperloopPadName,
+    hyperloopPadZoneId,
+    hyperloopZoneSet,
+    isHyperloopTransit,
+    isSelectedCharOnHyperloopPad,
+    maps,
+    mapsRef,
+    setHyperloopDestId,
+    setMaps,
+    setSpawnState,
+    spawnState,
+    zoneGraph,
+    zoneNameById,
+    zones,
+  } = useSimulationMapState({
+    selectedCharId,
+    survivors,
+  });
+
   const hyperloopCharId = (() => {
     const preferred = String(selectedCharId || '').trim();
     if (preferred) return preferred;
@@ -617,11 +588,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   })();
   const forbiddenCacheRef = useRef({});
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
-
-  // 🗺️ 맵/ID는 시뮬 "시작" 순간에 서버에서 새로고침할 수 있어, ref로 즉시값을 유지합니다.
-  const mapsRef = useRef([]);
-  const activeMapIdRef = useRef('');
-  const activeMapRef = useRef(null);
 
   // ▶️ 오토 플레이(페이즈 자동 진행)
   // - "틱 기반"은 페이즈 내부를 초 단위로 계산하는 엔진이고,
@@ -658,6 +624,35 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     isAdvancing,
     isGameOver,
     matchSec,
+  });
+
+  const {
+    applyParticipantPresetToCurrent,
+    deleteSelectedParticipantPreset,
+    participantPresetName,
+    participantPresets,
+    saveCurrentParticipantPreset,
+    saveSelectedParticipantPresetId,
+    selectedParticipantPresetId,
+    setParticipantPresetName,
+    setParticipantPresets,
+    setSelectedParticipantPresetId,
+  } = useSimulationParticipantPresets({
+    candidateSurvivors,
+    day,
+    isAdvancing,
+    isGameOver,
+    matchSec,
+    settings,
+    survivors,
+    actions: {
+      setAssistCounts,
+      setDead,
+      setKillCounts,
+      setMarketMessage,
+      setSelectedCharId,
+      setSurvivors,
+    },
   });
 
   // ✅ (팝업/데스크톱) 시뮬레이션 창: 로그 출력 길이에 맞춰 높이를 유동 조정
@@ -794,164 +789,10 @@ const activeMapName = useSafeMemo('activeMapName', () => {
     return getDevToolActions().devForceUseConsumable(charId, invIndex);
   };
 
-    // ✅ 로그 길이에 맞춰 로그창 높이를 유동적으로 조절(최소~최대 클램프)
-      // ✅ 로그가 쌓여도 "페이지"가 아니라 로그 창 내부만 스크롤되게 고정
-      // ✅ (팝업/데스크톱) 창 높이도 로그 길이에 맞춰 유동 조정
-    // 렌더 직후 실제 scrollHeight를 잡기 위해 한 프레임 뒤에 측정
-  function getParticipantPresetActions() {
-    return createParticipantPresetActionRuntime({
-      state: {
-        candidateSurvivors,
-        day,
-        isAdvancing,
-        isGameOver,
-        matchSec,
-        participantPresetName,
-        participantPresets,
-        selectedParticipantPresetId,
-        settings,
-        survivors,
-      },
-      actions: {
-        saveSelectedParticipantPresetId,
-        setAssistCounts,
-        setDead,
-        setKillCounts,
-        setMarketMessage,
-        setParticipantPresetName,
-        setParticipantPresets,
-        setSelectedCharId,
-        setSurvivors,
-      },
-    });
-  }
-
-  function applyParticipantPresetToCurrent(presetId = selectedParticipantPresetId) {
-    return getParticipantPresetActions().applyParticipantPresetToCurrent(presetId);
-  }
-
-  function saveCurrentParticipantPreset() {
-    return getParticipantPresetActions().saveCurrentParticipantPreset();
-  }
-
-  function deleteSelectedParticipantPreset() {
-    return getParticipantPresetActions().deleteSelectedParticipantPreset();
-  }
-
   // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
   function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
     return getDevToolActions().setEquipForSurvivor(survivorId, slot, itemIdOrNull);
   };
-
-
-  const activeMap = useSafeMemo('activeMap', () => {
-    const list = Array.isArray(maps) ? maps : [];
-    return list.find((m) => String(m?._id) === String(activeMapId)) || null;
-  }, [maps, activeMapId], null);
-
-  // ref 동기화(즉시 접근 필요)
-  useEffect(() => {
-    mapsRef.current = Array.isArray(maps) ? maps : [];
-  }, [maps]);
-  useEffect(() => {
-    activeMapIdRef.current = String(activeMapId || '');
-  }, [activeMapId]);
-  useEffect(() => {
-    activeMapRef.current = activeMap;
-  }, [activeMap]);
-
-  function applyActiveMapId(nextMapId) {
-    return applyActiveMapIdToState(nextMapId, {
-      refs: {
-        activeMapIdRef,
-      },
-      actions: {
-        setActiveMapId,
-        setSpawnState,
-      },
-    });
-  }
-
-  const zones = useSafeMemo('zones', () => {
-    const z = Array.isArray(activeMap?.zones) ? activeMap.zones : [];
-    const fallbackZones = [
-      { zoneId: 'alley', name: '골목길', isForbidden: false },
-      { zoneId: 'gas_station', name: '주유소', isForbidden: false },
-      { zoneId: 'archery', name: '양궁장', isForbidden: false },
-      { zoneId: 'school', name: '학교', isForbidden: false },
-      { zoneId: 'police', name: '경찰서', isForbidden: false },
-      { zoneId: 'firestation', name: '소방서', isForbidden: false },
-      { zoneId: 'temple', name: '절', isForbidden: false },
-      { zoneId: 'stream', name: '개울', isForbidden: false },
-      { zoneId: 'park', name: '연못', isForbidden: false },
-      { zoneId: 'hospital', name: '병원', isForbidden: false },
-      { zoneId: 'hotel', name: '호텔', isForbidden: false },
-      { zoneId: 'beach', name: '모래사장', isForbidden: false },
-      { zoneId: 'forest', name: '숲', isForbidden: false },
-      { zoneId: 'apartment', name: '고급 주택가', isForbidden: false },
-      { zoneId: 'cemetery', name: '묘지', isForbidden: false },
-      { zoneId: 'cathedral', name: '성당', isForbidden: false },
-      { zoneId: 'warehouse', name: '창고', isForbidden: false },
-      { zoneId: 'port', name: '항구', isForbidden: false },
-      { zoneId: 'barge', name: '바지선', isForbidden: false },
-      { zoneId: 'factory', name: '공장', isForbidden: false },
-      { zoneId: 'lab', name: '연구소', isForbidden: false },
-    ];
-    return applyRegionDataToZones(z.length ? z : fallbackZones);
-  }, [activeMap], []);
-
-  const zoneNameById = useSafeMemo('zoneNameById', () => {
-    const out = {};
-    (Array.isArray(zones) ? zones : []).forEach((z) => {
-      if (z?.zoneId) out[String(z.zoneId)] = z.name || String(z.zoneId);
-    });
-    return out;
-  }, [zones], {});
-
-  function getZoneName(zoneId) {
-    const key = String(zoneId || '');
-    return zoneNameById[key] || key || '미상';
-  }
-
-  // 🌀 하이퍼루프 목적지(로컬 설정): eh_map_hyperloops_{mapId}
-  const hyperloopDestIds = useSafeMemo('hyperloopDestIds', () => {
-    const ids = uniqStr(readLocalJsonArray(localKeyHyperloops(activeMapId)));
-    if (!ids.length) return [];
-    const mapSet = new Set((Array.isArray(maps) ? maps : []).map((m) => String(m?._id || '')));
-    return ids.filter((id) => mapSet.has(String(id)));
-  }, [activeMapId, maps], []);
-
-  // 🌀 하이퍼루프 장치(패드) 구역(로컬 설정): eh_hyperloop_zone_{mapId}
-  const hyperloopPadZoneId = useSafeMemo('hyperloopPadZoneId', () => {
-    const serverZoneId = String(activeMap?.hyperloopDeviceZoneId || '').trim();
-    if (serverZoneId) return serverZoneId;
-    const saved = String(getHyperloopDeviceZoneId(activeMapId) || '').trim();
-    if (saved) return saved;
-    const z = Array.isArray(zones) ? zones : [];
-    return String(z?.[0]?.zoneId || '');
-  }, [activeMapId, zones, activeMap], '');
-
-  const hyperloopPadName = useSafeMemo('hyperloopPadName', () => {
-    const zid = String(hyperloopPadZoneId || '').trim();
-    if (!zid) return '';
-    return String(getZoneName(zid) || zid);
-  }, [hyperloopPadZoneId, zoneNameById], '');
-
-  const isSelectedCharOnHyperloopPad = useSafeMemo('isSelectedCharOnHyperloopPad', () => {
-    const who = String(selectedCharId || '').trim();
-    if (!who) return false;
-    const pad = String(hyperloopPadZoneId || '').trim();
-    if (!pad) return false;
-    const actor = (Array.isArray(survivors) ? survivors : []).find((c) => String(c?._id || '') === who) || null;
-    return String(actor?.zoneId || '').trim() === pad;
-  }, [selectedCharId, survivors, hyperloopPadZoneId], false);
-
-  const hyperloopDestId = (() => {
-    if (!hyperloopDestIds.length) return '';
-    const rawId = String(hyperloopDestIdRaw || '');
-    return rawId && hyperloopDestIds.includes(rawId) ? rawId : String(hyperloopDestIds[0]);
-  })();
-
   function getMapActions() {
     return createMapActionRuntime({
       refs: {
@@ -990,28 +831,6 @@ const activeMapName = useSafeMemo('activeMapName', () => {
   function doHyperloopJump(toMapId, whoId) {
     return getMapActions().doHyperloopJump(toMapId, whoId);
   }
-
-
-
-  const baseZoneGraph = useSafeMemo('baseZoneGraph', () => {
-    return buildBaseZoneGraph(activeMap, zones);
-  }, [activeMap, zones], {});
-
-  const hyperloopZoneIds = useSafeMemo('hyperloopZoneIds', () => {
-    return getHyperloopZoneIds(activeMap, zones);
-  }, [activeMap, zones], []);
-
-  const hyperloopZoneKey = hyperloopZoneIds.join('|');
-  const hyperloopZoneSet = new Set(hyperloopZoneIds);
-
-  const zoneGraph = useSafeMemo('zoneGraph', () => {
-    return buildHyperloopZoneGraph(baseZoneGraph, zones, hyperloopZoneIds);
-  }, [baseZoneGraph, zones, hyperloopZoneKey], {});
-
-  const isHyperloopTransit = (fromZoneId, toZoneId) => (
-    isHyperloopTransitEdge(baseZoneGraph, hyperloopZoneIds, fromZoneId, toZoneId)
-  );
-
     // ✅ 게임 시작 전(0일차)에만 시드를 적용해 랜덤 재현성을 확보합니다.
   function getForbiddenZoneIdsForPhase(mapObj, dayNum, phaseKey) {
     return getForbiddenZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
