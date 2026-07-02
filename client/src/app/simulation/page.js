@@ -31,6 +31,7 @@ import SiteHeader from '../../components/SiteHeader';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationControlPanel from './_components/SimulationControlPanel';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
+import SimulationLegacyControlPanel from './_components/SimulationLegacyControlPanel';
 import SimulationLogPanel from './_components/SimulationLogPanel';
 import SimulationMarketPanel from './_components/SimulationMarketPanel';
 import SimulationMatchStatusPanel from './_components/SimulationMatchStatusPanel';
@@ -5951,77 +5952,30 @@ if (showMarketPanel && pendingTranscendPick) {
             speedDisabled={loading || isGameOver}
           />
 
-          <div className="control-panel" style={{ display: 'none' }} aria-hidden="true">
-            <div className="control-row">
-              <select
-                className="autoplay-speed"
-                value={normalizeMatchMode(settings?.matchMode)}
-                onChange={(e) => handleMatchModeChange(e.target.value)}
-                disabled={loading || isAdvancing || day !== 0}
-                title="매치 모드: 시작 전 변경 가능"
-              >
-                <option value="squad">스쿼드</option>
-                <option value="solo">솔로</option>
-              </select>
-
-              {isGameOver ? (
-                <button className="btn-restart" onClick={() => window.location.reload()}>🔄 다시 하기</button>
-              ) : (
-                <button
-                  className="btn-proceed"
-                  onClick={proceedPhaseGuarded}
-                  disabled={actionDisabled}
-                  style={{ opacity: actionDisabled ? 0.5 : 1 }}
-                >
-                  {loading
-                    ? '⏳ 로딩 중...'
-                    : isAdvancing
-                      ? '⏩ 진행 중...'
-                      : startBlocked
-                        ? startBlockedText
-                        : day === 0
-                          ? '🔥 게임 시작'
-                          : getAliveTeams(survivors).length <= 1
-                            ? '🏆 결과 확인하기'
-                            : phase === 'morning'
-                              ? (day >= 6 ? '🔥 서든데스 진행' : '🌙 밤으로 진행')
-                              : (day >= 6 ? '🔥 서든데스 진행' : '🌞 다음 날 낮으로 진행')}
-                </button>
-              )}
-
-              <button
-                className={`btn-secondary sim-devtools-control ${showMarketPanel ? 'active' : ''}`}
-                onClick={() => setShowMarketPanel((v) => !v)}
-                title="관전자 모드에서는 기본적으로 숨겨두고, 테스트할 때만 열어쓰세요."
-              >
-                {showMarketPanel ? '🛠 개발자 도구 닫기' : '🛠 개발자 도구'}
-              </button>
-
-              <button
-                className="btn-secondary"
-                onClick={() => setAutoPlay((v) => !v)}
-                disabled={loading || isGameOver || startBlocked}
-                title="오토 플레이: 다음 페이즈 버튼을 자동으로 눌러 진행합니다(페이즈 내부는 틱 엔진으로 계산)."
-              >
-                {autoPlay ? '⏸ 오토' : '▶ 오토'}
-              </button>
-
-              <select
-                className="autoplay-speed"
-                value={autoSpeed}
-                onChange={(e) => updateAutoSpeed(e.target.value)}
-                disabled={loading || isGameOver}
-                title="오토 플레이 배속: 1초 틱 기준으로 최대 32배속까지 진행합니다."
-              >
-                <option value={1}>x1</option>
-                <option value={2}>x2</option>
-                <option value={4}>x4</option>
-                <option value={8}>x8</option>
-                <option value={16}>x16</option>
-                <option value={32}>x32</option>
-              </select>
-            </div>
-          </div>
+          <SimulationLegacyControlPanel
+            actionDisabled={actionDisabled}
+            aliveTeamCount={aliveTeamCount}
+            autoDisabled={loading || isGameOver || startBlocked}
+            autoPlay={autoPlay}
+            autoSpeed={autoSpeed}
+            day={day}
+            isAdvancing={isAdvancing}
+            isGameOver={isGameOver}
+            loading={loading}
+            matchMode={normalizeMatchMode(settings?.matchMode)}
+            matchModeDisabled={loading || isAdvancing || day !== 0}
+            onAutoSpeedChange={updateAutoSpeed}
+            onMatchModeChange={handleMatchModeChange}
+            onProceed={proceedPhaseGuarded}
+            onRestart={() => window.location.reload()}
+            onToggleAutoPlay={() => setAutoPlay((value) => !value)}
+            onToggleDevTools={() => setShowMarketPanel((value) => !value)}
+            phase={phase}
+            showMarketPanel={showMarketPanel}
+            speedDisabled={loading || isGameOver}
+            startBlocked={startBlocked}
+            startBlockedText={startBlockedText}
+          />
         </section>
 
         <SimulationMarketPanel
