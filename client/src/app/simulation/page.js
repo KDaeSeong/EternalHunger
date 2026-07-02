@@ -287,6 +287,7 @@ import {
   pickUnbiasedBattle as pickUnbiasedBattleRuntime,
   shouldAvoidCombatByPvpPower,
 } from './_lib/pvpMatchupRuntime';
+import { buildPvpPhaseRuntime } from './_lib/pvpPhaseRuntime';
 import {
   grantMastery as grantMasteryRuntime,
   grantMasteries as grantMasteriesRuntime,
@@ -4285,50 +4286,28 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
     flushDeadSnapshots(appendPhaseDeadSnapshots(newlyDead));
 
-    // 확률 보정(룰셋 기반)
-    const pvpProbCfg = ruleset?.pvp || {};
-    const fogBonus = (ruleset.id === 'ER_S11' && fogLocalSec !== null && fogLocalSec !== undefined)
-      ? Number(pvpProbCfg.encounterFogBonus ?? 0.08)
-      : 0;
-    const battleBase = Number(pvpProbCfg.encounterBase ?? 0.3);
-    const battleScale = Number(pvpProbCfg.encounterDayScale ?? 0.05);
-    const battleMax = Number(pvpProbCfg.encounterMax ?? 0.85);
-    const sdStartIdx = worldPhaseIndex(6, 'night');
-    const phaseIdxNext = worldPhaseIndex(nextDay, nextPhase);
-    const suddenDeath = phaseIdxNext >= sdStartIdx;
-
-    // 6번째 밤 이전까지는 교전(엔카운터)을 낮게, 제한구역이 늘수록(=압박) 점점 상승
-    const totalZonesCount = Math.max(1, Array.isArray(mapObj?.zones) ? mapObj.zones.length : 19);
-    const restrictedRatio = Math.max(0, Math.min(1, forbiddenIds.size / totalZonesCount));
-    const paceBonus = suddenDeath ? 0.35 : Math.min(0.25, 0.05 + Math.max(0, nextDay - 1) * 0.02 + restrictedRatio * 0.25);
-    const battleCap = suddenDeath ? 0.99 : Math.max(battleMax, 0.88);
-    let battleProb = Math.min(battleCap, battleBase + nextDay * battleScale + fogBonus + paceBonus);
+    const {
+      assistWindowPhases,
+      battleProb,
+      eventProb,
+      isDay1MorningFarmPhase,
+      isEarlyRouteFarmingActor,
+      pvpMinSameZone,
+      pvpProbCfg,
+      restrictedRatio,
+      suddenDeath,
+    } = buildPvpPhaseRuntime({
+      fogLocalSec,
+      forbiddenIds,
+      mapObj,
+      nextDay,
+      nextPhase,
+      ruleset,
+    });
 
     // 전투 알고리즘 보정값(ER 느낌): 제한구역 압박/밤 여부를 전투 계산에도 전달
     battleSettings.battle.pressure = restrictedRatio;
     battleSettings.battle.isNight = (nextPhase === 'night');
-
-    // ✅ 1일차 낮(세팅 페이즈)에는 교전(PvP)을 발생시키지 않음
-    const isDay1MorningFarmPhase = nextDay === 1 && nextPhase === 'morning';
-    if (isDay1MorningFarmPhase) battleProb = 0;
-
-    const eventOffset = Number(pvpProbCfg.eventOffset ?? 0.3);
-    const eventMax = Number(pvpProbCfg.eventMax ?? 0.95);
-    const eventProbBase = Math.min(eventMax, (battleProb * 0.55) + eventOffset + restrictedRatio * 0.10);
-    const eventProb = isDay1MorningFarmPhase
-      ? Math.min(eventProbBase, Math.max(0, Math.min(0.12, Number(pvpProbCfg.day1MorningPairEventProb ?? 0.02))))
-      : eventProbBase;
-
-    // 동일 zone 교전 트리거 최소 인원(기본 2명)
-    const pvpMinSameZone = Math.max(2, Math.floor(Number(pvpProbCfg.encounterMinSameZone ?? 2)));
-    const assistWindowPhases = Math.max(1, Math.floor(Number(pvpProbCfg.assistWindowPhases ?? 2)));
-    const earlyRouteFarmPhase = isDay1MorningFarmPhase || (nextDay === 1 && nextPhase === 'night') || (nextDay === 2 && nextPhase === 'morning');
-    const isEarlyRouteFarmingActor = (c) => {
-      if (!earlyRouteFarmPhase || suddenDeath) return false;
-      const plan = Array.isArray(c?.routePlanZoneIds) ? c.routePlanZoneIds : [];
-      if (!plan.length) return false;
-      return Math.max(0, Number(c?.routePlanIndex || 0)) < plan.length;
-    };
     const pvpMatchupContext = { ruleset, battleSettings, nextDay };
     const estimatePower = (actor) => estimatePvpPower(actor, pvpMatchupContext);
     const shouldAvoidCombatByPower = (actor, opponent) => shouldAvoidCombatByPvpPower(actor, opponent, pvpMatchupContext);
