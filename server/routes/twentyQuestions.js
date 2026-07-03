@@ -8,11 +8,22 @@ const { getOptionalUserId } = require('../utils/requestScope');
 const { createNotification } = require('../utils/notifications');
 
 const CATEGORY_LABELS = {
+  free: '자유',
   game: '게임',
   character: '캐릭터',
   item: '아이템',
-  free: '자유',
+  country: '나라',
+  place: '지명',
+  person: '인물',
+  food: '음식',
+  organism: '생물',
+  comic: '만화',
+  movie: '영화',
+  drama: '드라마',
+  program: '프로그램',
 };
+
+const ROOM_CATEGORIES = TwentyQuestionsRoom.ROOM_CATEGORIES || Object.keys(CATEGORY_LABELS);
 
 const RESPONSE_LABELS = {
   pending: '대기',
@@ -169,7 +180,7 @@ router.get('/', async (req, res) => {
     const category = normalizeText(req.query?.category, 20);
     const filter = {};
     if (['active', 'solved', 'closed'].includes(status)) filter.status = status;
-    if (['game', 'character', 'item', 'free'].includes(category)) filter.category = category;
+    if (ROOM_CATEGORIES.includes(category)) filter.category = category;
 
     const rooms = await TwentyQuestionsRoom.find(filter)
       .populate('hostId', 'username nickname')
@@ -203,7 +214,7 @@ router.post('/', verifyToken, async (req, res) => {
     const answer = normalizeText(req.body?.answer, 120);
     const hint = normalizeText(req.body?.hint, 180);
     const rawCategory = normalizeText(req.body?.category, 20);
-    const category = ['game', 'character', 'item', 'free'].includes(rawCategory) ? rawCategory : 'free';
+    const category = ROOM_CATEGORIES.includes(rawCategory) ? rawCategory : 'free';
 
     if (!title || !answer) {
       return res.status(400).json({ error: '방 제목과 정답을 입력해주세요.' });

@@ -2,6 +2,21 @@ const mongoose = require('mongoose');
 
 const QUESTION_RESPONSES = ['pending', 'yes', 'no', 'maybe'];
 const ROOM_STATUSES = ['active', 'solved', 'closed'];
+const ROOM_CATEGORIES = [
+  'free',
+  'game',
+  'character',
+  'item',
+  'country',
+  'place',
+  'person',
+  'food',
+  'organism',
+  'comic',
+  'movie',
+  'drama',
+  'program',
+];
 
 const TwentyQuestionsQuestionSchema = new mongoose.Schema({
   askerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -21,7 +36,7 @@ const TwentyQuestionsRoomSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true, maxlength: 80 },
   category: {
     type: String,
-    enum: ['game', 'character', 'item', 'free'],
+    enum: ROOM_CATEGORIES,
     default: 'free',
     index: true,
   },
@@ -38,4 +53,8 @@ const TwentyQuestionsRoomSchema = new mongoose.Schema({
 TwentyQuestionsRoomSchema.index({ status: 1, updatedAt: -1 });
 TwentyQuestionsRoomSchema.index({ category: 1, updatedAt: -1 });
 
-module.exports = mongoose.model('TwentyQuestionsRoom', TwentyQuestionsRoomSchema);
+const TwentyQuestionsRoom = mongoose.model('TwentyQuestionsRoom', TwentyQuestionsRoomSchema);
+
+TwentyQuestionsRoom.ROOM_CATEGORIES = ROOM_CATEGORIES;
+
+module.exports = TwentyQuestionsRoom;

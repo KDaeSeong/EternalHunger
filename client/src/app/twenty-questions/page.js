@@ -13,6 +13,15 @@ const CATEGORIES = [
   { value: 'game', label: '게임' },
   { value: 'character', label: '캐릭터' },
   { value: 'item', label: '아이템' },
+  { value: 'country', label: '나라' },
+  { value: 'place', label: '지명' },
+  { value: 'person', label: '인물' },
+  { value: 'food', label: '음식' },
+  { value: 'organism', label: '생물' },
+  { value: 'comic', label: '만화' },
+  { value: 'movie', label: '영화' },
+  { value: 'drama', label: '드라마' },
+  { value: 'program', label: '프로그램' },
 ];
 
 const STATUS_FILTERS = [

@@ -26,6 +26,15 @@ const ROOM_CATEGORY_LABELS = {
   game: '게임',
   character: '캐릭터',
   item: '아이템',
+  country: '나라',
+  place: '지명',
+  person: '인물',
+  food: '음식',
+  organism: '생물',
+  comic: '만화',
+  movie: '영화',
+  drama: '드라마',
+  program: '프로그램',
 };
 
 function normalizeList(value) {
