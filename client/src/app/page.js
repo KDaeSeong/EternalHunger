@@ -152,7 +152,7 @@ function HubLinkList({ items, empty, type }) {
         const href = type === 'room' ? `/twenty-questions/${item._id}` : `/board/${item._id}`;
         const meta = type === 'room'
           ? `질문 ${formatNumber(item.questionCount)} · 시도 ${formatNumber(item.guessCount)}`
-          : `댓글 ${formatNumber(item.commentCount)} · ${formatDate(item.createdAt) || '날짜 없음'}`;
+          : `조회 ${formatNumber(item.viewCount)} · 추천 ${formatNumber(item.reactionCount)} · 댓글 ${formatNumber(item.commentCount)} · ${formatDate(item.createdAt) || '날짜 없음'}`;
         return (
           <Link href={href} key={`${type}-${item._id || item.title}`}>
             <strong>{safeText(item.title, '제목 없음')}</strong>

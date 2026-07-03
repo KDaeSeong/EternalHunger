@@ -204,7 +204,7 @@ export default function SearchPage() {
                     <strong>{safeText(post.title, '제목 없음')}</strong>
                     <p>{safeText(post.contentPreview, '미리보기가 없습니다.')}</p>
                     <small>
-                      {safeText(post.authorName, '익명')} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.updatedAt || post.createdAt) || '날짜 없음'}
+                      {safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.updatedAt || post.createdAt) || '날짜 없음'}
                     </small>
                   </Link>
                 ))}

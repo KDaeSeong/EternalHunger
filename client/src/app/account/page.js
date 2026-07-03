@@ -290,7 +290,7 @@ export default function AccountPage() {
                     {activity.recentPosts.map((post) => (
                       <Link href={`/board/${post._id}`} key={post._id}>
                         <strong>{safeText(post.title, '제목 없음')}</strong>
-                        <span>{CATEGORY_LABELS[post.category] || post.category || '자유'} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.createdAt) || '날짜 없음'}</span>
+                        <span>{CATEGORY_LABELS[post.category] || post.category || '자유'} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.createdAt) || '날짜 없음'}</span>
                       </Link>
                     ))}
                   </div>

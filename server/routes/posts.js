@@ -97,6 +97,7 @@ function serializePostDetail(post) {
     noticePinnedAt: post?.noticePinnedAt || null,
     commentCount: Number(post?.commentCount ?? comments.length ?? 0),
     reactionCount: Number(post?.reactionCount || 0),
+    viewCount: Number(post?.viewCount || 0),
     comments: comments.map(serializeComment),
     createdAt: post?.createdAt || null,
     updatedAt: post?.updatedAt || null,
@@ -116,6 +117,7 @@ function serializePostSummary(post, author) {
     noticePinnedAt: post?.noticePinnedAt || null,
     commentCount: Number(post?.commentCount || 0),
     reactionCount: Number(post?.reactionCount || 0),
+    viewCount: Number(post?.viewCount || 0),
     createdAt: post?.createdAt || null,
     updatedAt: post?.updatedAt || null,
   };
@@ -182,6 +184,7 @@ router.get('/', async (req, res) => {
           isNotice: 1,
           noticePinnedAt: 1,
           reactionCount: { $ifNull: ['$reactionCount', 0] },
+          viewCount: { $ifNull: ['$viewCount', 0] },
           createdAt: 1,
           updatedAt: 1,
           contentPreview: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, POST_PREVIEW_LENGTH] },
@@ -206,7 +209,7 @@ router.get('/bookmarks', verifyToken, async (req, res) => {
     const bookmarks = await PostBookmark.find({ userId: req.user.id })
       .populate({
         path: 'postId',
-        select: 'authorId category title content isNotice noticePinnedAt commentCount reactionCount createdAt updatedAt',
+        select: 'authorId category title content isNotice noticePinnedAt commentCount reactionCount viewCount createdAt updatedAt',
         populate: { path: 'authorId', select: 'username nickname' },
       })
       .sort({ createdAt: -1 })
@@ -321,6 +324,7 @@ router.post('/:id/reaction', verifyToken, async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    await Post.findByIdAndUpdate(req.params.id, { $inc: { viewCount: 1 } }).select('_id').lean();
     const post = await findPostWithUsers(req.params.id);
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
     res.json({ post: serializePostDetail(post) });
@@ -346,6 +350,7 @@ router.post('/', verifyToken, async (req, res) => {
       content,
       commentCount: 0,
       reactionCount: 0,
+      viewCount: 0,
       comments: [],
     });
 

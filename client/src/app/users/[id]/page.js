@@ -218,7 +218,7 @@ export default function UserProfilePage() {
                         <strong>{safeText(post.title, '제목 없음')}</strong>
                         <span>
                           {post.isNotice ? '공지 · ' : ''}
-                          {CATEGORY_LABELS[post.category] || post.category || '자유'} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.createdAt)}
+                          {CATEGORY_LABELS[post.category] || post.category || '자유'} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.createdAt)}
                         </span>
                       </Link>
                     ))}

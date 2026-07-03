@@ -104,6 +104,7 @@ function mapPublicPost(post) {
     isNotice: Boolean(post?.isNotice),
     commentCount: toNonNegativeInt(post?.commentCount),
     reactionCount: toNonNegativeInt(post?.reactionCount),
+    viewCount: toNonNegativeInt(post?.viewCount),
     contentPreview: cleanText(post?.content, 120),
     createdAt: post?.createdAt || null,
     updatedAt: post?.updatedAt || null,
@@ -287,7 +288,7 @@ router.get('/users/:id', async (req, res) => {
       topTeams,
     ] = await Promise.all([
       Post.find({ authorId: userId })
-        .select('_id title category content isNotice commentCount reactionCount createdAt updatedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount createdAt updatedAt')
         .sort({ isNotice: -1, noticePinnedAt: -1, createdAt: -1 })
         .limit(6)
         .lean(),
@@ -354,13 +355,13 @@ router.get('/home-hub', async (req, res) => {
       TwentyQuestionsRoom.countDocuments({}),
       TwentyQuestionsRoom.countDocuments({ status: 'active' }),
       Post.find({ isNotice: true })
-        .select('_id title category content isNotice commentCount reactionCount authorId createdAt updatedAt noticePinnedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
         .populate('authorId', 'username nickname')
         .sort({ noticePinnedAt: -1, createdAt: -1 })
         .limit(3)
         .lean(),
       Post.find({})
-        .select('_id title category content isNotice commentCount reactionCount authorId createdAt updatedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ createdAt: -1 })
         .limit(6)
@@ -417,19 +418,19 @@ router.get('/guides', async (req, res) => {
       categorySummary,
     ] = await Promise.all([
       Post.find({ category: { $in: guideCategories }, isNotice: true })
-        .select('_id title category content isNotice commentCount reactionCount authorId createdAt updatedAt noticePinnedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
         .populate('authorId', 'username nickname')
         .sort({ noticePinnedAt: -1, createdAt: -1 })
         .limit(4)
         .lean(),
       Post.find({ category: { $in: guideCategories } })
-        .select('_id title category content isNotice commentCount reactionCount authorId createdAt updatedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ createdAt: -1 })
         .limit(8)
         .lean(),
       Post.find({ category: { $in: discussionCategories } })
-        .select('_id title category content isNotice commentCount reactionCount authorId createdAt updatedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ updatedAt: -1, createdAt: -1 })
         .limit(8)
@@ -489,7 +490,7 @@ router.get('/search', async (req, res) => {
       characters,
     ] = await Promise.all([
       Post.find({ $or: [{ title: pattern }, { content: pattern }] })
-        .select('_id title category content isNotice commentCount reactionCount authorId createdAt updatedAt noticePinnedAt')
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
         .populate('authorId', 'username nickname')
         .sort({ isNotice: -1, noticePinnedAt: -1, updatedAt: -1, createdAt: -1 })
         .limit(10)

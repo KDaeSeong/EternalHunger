@@ -37,6 +37,7 @@ function normalizePost(row) {
     contentPreview: safeText(row.contentPreview, ''),
     commentCount: Number(row.commentCount || 0),
     reactionCount: Number(row.reactionCount || 0),
+    viewCount: Number(row.viewCount || 0),
     savedAt: row.savedAt || row.createdAt || '',
     createdAt: row.createdAt || '',
   };
@@ -177,7 +178,7 @@ export default function BookmarksPage() {
                     <h2><Link href={`/board/${post._id}`}>{post.title}</Link></h2>
                     <p>{post.contentPreview || '미리보기 내용이 없습니다.'}</p>
                     <small>
-                      작성자 {post.authorName} · 추천 {post.reactionCount.toLocaleString('ko-KR')} · 댓글 {post.commentCount.toLocaleString('ko-KR')} · 저장 {formatDate(post.savedAt) || '-'}
+                      작성자 {post.authorName} · 조회 {post.viewCount.toLocaleString('ko-KR')} · 추천 {post.reactionCount.toLocaleString('ko-KR')} · 댓글 {post.commentCount.toLocaleString('ko-KR')} · 저장 {formatDate(post.savedAt) || '-'}
                     </small>
                   </div>
                   <button type="button" onClick={() => removeBookmark(post._id)} disabled={removingId === post._id}>

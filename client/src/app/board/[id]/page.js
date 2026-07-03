@@ -83,6 +83,7 @@ function normalizePost(row) {
     categoryLabel: safeText(row.categoryLabel, '자유'),
     commentCount: Number(row.commentCount ?? comments.length ?? 0),
     reactionCount: Number(row.reactionCount || 0),
+    viewCount: Number(row.viewCount || 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
     comments,
@@ -483,6 +484,10 @@ export default function BoardDetailPage() {
                   <div>
                     <dt>추천</dt>
                     <dd>{Number(post.reactionCount || 0)}</dd>
+                  </div>
+                  <div>
+                    <dt>조회</dt>
+                    <dd>{Number(post.viewCount || 0)}</dd>
                   </div>
                   <div>
                     <dt>등록일</dt>

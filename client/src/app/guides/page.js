@@ -96,7 +96,7 @@ function GuidePostList({ posts, empty }) {
           <strong>{safeText(post.title, '제목 없음')}</strong>
           <p>{safeText(post.contentPreview, '미리보기가 없습니다.')}</p>
           <small>
-            {safeText(post.authorName, '익명')} · 댓글 {Number(post.commentCount || 0).toLocaleString('ko-KR')} · {formatDate(post.createdAt)}
+            {safeText(post.authorName, '익명')} · 조회 {Number(post.viewCount || 0).toLocaleString('ko-KR')} · 추천 {Number(post.reactionCount || 0).toLocaleString('ko-KR')} · 댓글 {Number(post.commentCount || 0).toLocaleString('ko-KR')} · {formatDate(post.createdAt)}
           </small>
         </Link>
       ))}
