@@ -53,7 +53,9 @@ function normalizePost(row) {
     ...row,
     _normalizedId: normalizePostId(row),
     title: safeText(row.title, '제목 없음'),
-    content: safeText(row.content, ''),
+    content: safeText(row.content ?? row.contentPreview, ''),
+    contentPreview: safeText(row.contentPreview ?? row.content, ''),
+    commentCount: Number(row.commentCount || 0),
     createdAt: row.createdAt || row.created_at || row.date || '',
     authorId,
     authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
@@ -277,6 +279,7 @@ export default function BoardPage() {
                 {filteredPosts.map((post, index) => {
                   const id = post?._normalizedId || normalizePostId(post);
                   const title = safeText(post?.title, '제목 없음');
+                  const preview = safeText(post?.contentPreview || post?.content, '');
                   const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
                   const rowNo = filteredPosts.length - index;
                   return (
@@ -284,7 +287,9 @@ export default function BoardPage() {
                       <td className="board-cell-no" data-label="번호">{rowNo}</td>
                       <td className="board-cell-title" data-label="제목">
                         <Link href={id ? `/board/${id}` : '/board'} className="board-row-title">
-                          {title}
+                          <span>{title}</span>
+                          <small>{preview ? `${preview}${preview.length >= 160 ? '...' : ''}` : '미리보기 없음'}</small>
+                          <em>댓글 {Number(post?.commentCount || 0)}</em>
                         </Link>
                       </td>
                       <td data-label="작성자">{safeText(post?.authorName, '익명')}</td>

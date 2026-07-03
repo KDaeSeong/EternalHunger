@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiDelete, apiGet, apiPut } from '../../../utils/api';
+import { apiDelete, apiGet, apiPost, apiPut } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 
 function formatDate(value) {
@@ -43,13 +43,30 @@ function safeText(value, fallback = '') {
   return fallback;
 }
 
-function normalizePost(row) {
+function normalizeComment(row) {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
   const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
   return {
     ...row,
+    _normalizedId: normalizeIdValue(row._id || row.id),
+    authorId,
+    authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
+    content: safeText(row.content, ''),
+    createdAt: row.createdAt || row.created_at || row.date || '',
+    updatedAt: row.updatedAt || row.updated_at || '',
+  };
+}
+
+function normalizePost(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
+  const comments = Array.isArray(row.comments) ? row.comments.map(normalizeComment).filter(Boolean) : [];
+  return {
+    ...row,
     title: safeText(row.title, '제목 없음'),
     content: safeText(row.content, ''),
+    commentCount: Number(row.commentCount ?? comments.length ?? 0),
+    comments,
     createdAt: row.createdAt || row.created_at || row.date || '',
     updatedAt: row.updatedAt || row.updated_at || '',
     authorId,
@@ -73,6 +90,9 @@ export default function BoardDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: '', content: '' });
+  const [commentText, setCommentText] = useState('');
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState('');
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -108,6 +128,14 @@ export default function BoardDetailPage() {
   }, [load]);
 
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
+  const comments = Array.isArray(post?.comments) ? post.comments : [];
+
+  const applyPostResponse = (data) => {
+    const nextPost = unwrapPost(data);
+    if (!nextPost) return;
+    setPost(nextPost);
+    setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, '') });
+  };
 
   const save = async () => {
     const title = form.title.trim();
@@ -146,6 +174,50 @@ export default function BoardDetailPage() {
       const nextMessage = err?.response?.data?.error || err.message || '게시글 삭제에 실패했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
+    }
+  };
+
+  const createComment = async () => {
+    const content = commentText.trim();
+    if (!content) {
+      const nextMessage = '댓글 내용을 입력해주세요.';
+      setMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+
+    setCommentSubmitting(true);
+    try {
+      const res = await apiPost(`/posts/${id}/comments`, { content });
+      applyPostResponse(res);
+      setCommentText('');
+      const nextMessage = res?.message || '댓글을 작성했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '댓글 작성에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
+  const removeComment = async (commentId) => {
+    if (!commentId || !window.confirm('댓글을 삭제할까요?')) return;
+    setDeletingCommentId(commentId);
+    try {
+      const res = await apiDelete(`/posts/${id}/comments/${commentId}`);
+      applyPostResponse(res);
+      const nextMessage = res?.message || '댓글을 삭제했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '댓글 삭제에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setDeletingCommentId('');
     }
   };
 
@@ -206,6 +278,10 @@ export default function BoardDetailPage() {
                     <dd>{safeText(post.authorName, '익명')}</dd>
                   </div>
                   <div>
+                    <dt>댓글</dt>
+                    <dd>{Number(post.commentCount || comments.length)}</dd>
+                  </div>
+                  <div>
                     <dt>등록일</dt>
                     <dd>{formatDate(post.createdAt)}</dd>
                   </div>
@@ -232,6 +308,59 @@ export default function BoardDetailPage() {
                 </button>
               </div>
             ) : null}
+
+            <section className="board-comments">
+              <div className="board-comments-head">
+                <h3>댓글 {comments.length}</h3>
+              </div>
+
+              {mounted && token ? (
+                <div className="board-comment-form">
+                  <textarea
+                    value={commentText}
+                    onChange={(event) => setCommentText(event.target.value)}
+                    placeholder="댓글을 입력하세요"
+                    rows={3}
+                    maxLength={1200}
+                  />
+                  <button type="button" onClick={createComment} disabled={commentSubmitting}>
+                    {commentSubmitting ? '작성 중...' : '댓글 작성'}
+                  </button>
+                </div>
+              ) : (
+                <div className="board-login-note board-comment-login">로그인하면 댓글을 작성할 수 있습니다.</div>
+              )}
+
+              <div className="board-comment-list">
+                {comments.length === 0 ? <div className="board-empty board-comment-empty">아직 댓글이 없습니다.</div> : null}
+                {comments.map((comment) => {
+                  const commentId = comment?._normalizedId || normalizeIdValue(comment?._id || comment?.id);
+                  const canRemoveComment = mounted && token && userId && (
+                    normalizeIdValue(comment?.authorId) === String(userId) ||
+                    normalizeIdValue(post?.authorId) === String(userId)
+                  );
+                  return (
+                    <article className="board-comment-item" key={commentId || `${comment.authorName}-${comment.createdAt}`}>
+                      <div>
+                        <strong>{safeText(comment.authorName, '익명')}</strong>
+                        <span>{formatDate(comment.createdAt)}</span>
+                      </div>
+                      <p>{safeText(comment.content, '')}</p>
+                      {canRemoveComment ? (
+                        <button
+                          type="button"
+                          className="board-danger board-danger-compact"
+                          onClick={() => removeComment(commentId)}
+                          disabled={deletingCommentId === commentId}
+                        >
+                          {deletingCommentId === commentId ? '삭제 중...' : '삭제'}
+                        </button>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           </article>
         )}
       </section>

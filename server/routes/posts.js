@@ -1,75 +1,161 @@
-// server/routes/posts.js
-// 게시판(로드맵 8번)
-// - 조회(GET)은 공개
-// - 작성/수정/삭제는 로그인 필요
-
 const express = require('express');
 const router = express.Router();
 
 const Post = require('../models/Post');
+const User = require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 
-// =========================
-// ✅ 목록 조회 (공개)
-// GET /api/posts
+const POST_LIST_LIMIT = 100;
+const POST_PREVIEW_LENGTH = 160;
+
+function normalizeId(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value?._id) return normalizeId(value._id);
+  if (value?.id) return normalizeId(value.id);
+  if (value?.$oid) return String(value.$oid);
+  if (typeof value?.toString === 'function') return value.toString();
+  return '';
+}
+
+function cleanText(value, maxLength) {
+  return String(value || '').trim().slice(0, maxLength);
+}
+
+function userSummary(user) {
+  if (!user || typeof user !== 'object') return null;
+  return {
+    _id: normalizeId(user),
+    username: user.username || '',
+    nickname: user.nickname || '',
+  };
+}
+
+function displayName(user) {
+  return String(user?.nickname || user?.username || '익명').trim() || '익명';
+}
+
+function serializeComment(comment) {
+  return {
+    _id: normalizeId(comment),
+    authorId: userSummary(comment?.authorId),
+    authorName: displayName(comment?.authorId),
+    content: comment?.content || '',
+    createdAt: comment?.createdAt || null,
+    updatedAt: comment?.updatedAt || null,
+  };
+}
+
+function serializePostDetail(post) {
+  const comments = Array.isArray(post?.comments) ? post.comments : [];
+  return {
+    _id: normalizeId(post),
+    authorId: userSummary(post?.authorId),
+    authorName: displayName(post?.authorId),
+    title: post?.title || '',
+    content: post?.content || '',
+    contentPreview: cleanText(post?.content, POST_PREVIEW_LENGTH),
+    commentCount: Number(post?.commentCount ?? comments.length ?? 0),
+    comments: comments.map(serializeComment),
+    createdAt: post?.createdAt || null,
+    updatedAt: post?.updatedAt || null,
+  };
+}
+
+function serializePostSummary(post, author) {
+  return {
+    _id: normalizeId(post),
+    authorId: userSummary(author || post?.authorId),
+    authorName: displayName(author || post?.authorId),
+    title: post?.title || '',
+    contentPreview: post?.contentPreview || '',
+    commentCount: Number(post?.commentCount || 0),
+    createdAt: post?.createdAt || null,
+    updatedAt: post?.updatedAt || null,
+  };
+}
+
+async function findPostWithUsers(id) {
+  return Post.findById(id)
+    .populate('authorId', 'username nickname')
+    .populate('comments.authorId', 'username nickname')
+    .lean();
+}
+
+async function getAuthorMap(authorIds) {
+  const ids = [...new Set(authorIds.map(normalizeId).filter(Boolean))];
+  if (!ids.length) return new Map();
+  const users = await User.find({ _id: { $in: ids } })
+    .select('username nickname')
+    .lean();
+  return new Map(users.map((user) => [normalizeId(user), user]));
+}
+
 router.get('/', async (req, res) => {
   try {
-    const posts = await Post.find({})
-      .populate('authorId', 'username nickname')
-      .sort({ createdAt: -1 })
-      .lean();
-    res.json(posts);
+    const posts = await Post.aggregate([
+      { $sort: { createdAt: -1 } },
+      { $limit: POST_LIST_LIMIT },
+      {
+        $project: {
+          authorId: 1,
+          title: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          contentPreview: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, POST_PREVIEW_LENGTH] },
+          commentCount: {
+            $ifNull: ['$commentCount', { $size: { $ifNull: ['$comments', []] } }],
+          },
+        },
+      },
+    ]);
+    const authors = await getAuthorMap(posts.map((post) => post.authorId));
+    res.json({
+      posts: posts.map((post) => serializePostSummary(post, authors.get(normalizeId(post.authorId)))),
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: '게시글 로드 실패' });
+    res.status(500).json({ error: '게시글 목록을 불러오지 못했습니다.' });
   }
 });
 
-// =========================
-// ✅ 단건 조회 (공개)
-// GET /api/posts/:id
 router.get('/:id', async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id)
-      .populate('authorId', 'username nickname')
-      .lean();
+    const post = await findPostWithUsers(req.params.id);
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
-    res.json(post);
+    res.json({ post: serializePostDetail(post) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: '게시글 조회 실패' });
+    res.status(500).json({ error: '게시글을 불러오지 못했습니다.' });
   }
 });
 
-// =========================
-// ✅ 작성 (로그인 필요)
-// POST /api/posts
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const title = cleanText(req.body?.title, 120);
+    const content = cleanText(req.body?.content, 10000);
     if (!title || !content) {
       return res.status(400).json({ error: '제목과 내용을 입력해주세요.' });
     }
 
     const post = await Post.create({
       authorId: req.user.id,
-      title: String(title).trim(),
-      content: String(content).trim(),
+      title,
+      content,
+      commentCount: 0,
+      comments: [],
     });
 
-    res.json({ message: '작성 완료', post });
+    const populated = await findPostWithUsers(post._id);
+    res.json({ message: '게시글을 작성했습니다.', post: serializePostDetail(populated) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: '게시글 작성 실패' });
+    res.status(500).json({ error: '게시글 작성에 실패했습니다.' });
   }
 });
 
-// =========================
-// ✅ 수정 (로그인 + 작성자만)
-// PUT /api/posts/:id
 router.put('/:id', verifyToken, async (req, res) => {
   try {
-    const { title, content } = req.body;
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
 
@@ -77,20 +163,67 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ error: '작성자만 수정할 수 있습니다.' });
     }
 
-    if (typeof title === 'string') post.title = title.trim();
-    if (typeof content === 'string') post.content = content.trim();
+    if (typeof req.body?.title === 'string') post.title = cleanText(req.body.title, 120);
+    if (typeof req.body?.content === 'string') post.content = cleanText(req.body.content, 10000);
+    if (!post.title || !post.content) {
+      return res.status(400).json({ error: '제목과 내용을 입력해주세요.' });
+    }
     await post.save();
 
-    res.json({ message: '수정 완료', post });
+    const populated = await findPostWithUsers(post._id);
+    res.json({ message: '게시글을 수정했습니다.', post: serializePostDetail(populated) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: '게시글 수정 실패' });
+    res.status(500).json({ error: '게시글 수정에 실패했습니다.' });
   }
 });
 
-// =========================
-// ✅ 삭제 (로그인 + 작성자만)
-// DELETE /api/posts/:id
+router.post('/:id/comments', verifyToken, async (req, res) => {
+  try {
+    const content = cleanText(req.body?.content, 1200);
+    if (!content) return res.status(400).json({ error: '댓글 내용을 입력해주세요.' });
+
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    post.comments.push({ authorId: req.user.id, content });
+    post.commentCount = post.comments.length;
+    await post.save();
+
+    const populated = await findPostWithUsers(post._id);
+    res.json({ message: '댓글을 작성했습니다.', post: serializePostDetail(populated) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '댓글 작성에 실패했습니다.' });
+  }
+});
+
+router.delete('/:id/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+
+    const isPostAuthor = String(post.authorId) === String(req.user.id);
+    const isCommentAuthor = String(comment.authorId) === String(req.user.id);
+    if (!isPostAuthor && !isCommentAuthor) {
+      return res.status(403).json({ error: '댓글 작성자 또는 게시글 작성자만 삭제할 수 있습니다.' });
+    }
+
+    post.comments.pull({ _id: req.params.commentId });
+    post.commentCount = post.comments.length;
+    await post.save();
+
+    const populated = await findPostWithUsers(post._id);
+    res.json({ message: '댓글을 삭제했습니다.', post: serializePostDetail(populated) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '댓글 삭제에 실패했습니다.' });
+  }
+});
+
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);
@@ -101,10 +234,10 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 
     await Post.findByIdAndDelete(req.params.id);
-    res.json({ message: '삭제 완료' });
+    res.json({ message: '게시글을 삭제했습니다.' });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: '게시글 삭제 실패' });
+    res.status(500).json({ error: '게시글 삭제에 실패했습니다.' });
   }
 });
 
