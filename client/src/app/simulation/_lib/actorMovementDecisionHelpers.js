@@ -93,6 +93,36 @@ export function clearActorMoveTargetMemory(actor) {
   return updated;
 }
 
+function isDay1MorningPhase(day, phase) {
+  return Number(day || 0) === 1 && String(phase || '') === 'morning';
+}
+
+function pickNextRouteZoneAfterCurrent(actor, currentZone, forbiddenIds) {
+  const plan = (Array.isArray(actor?.routePlanZoneIds) ? actor.routePlanZoneIds : [])
+    .map((zoneId) => String(zoneId || '').trim())
+    .filter(Boolean);
+  if (!plan.length) return '';
+
+  const current = String(currentZone || '').trim();
+  const forb = forbiddenIds instanceof Set ? forbiddenIds : new Set();
+  const routeIndex = Math.max(0, Math.floor(Number(actor?.routePlanIndex || 0)));
+  let currentPlanIndex = -1;
+
+  for (let i = routeIndex; i < plan.length; i += 1) {
+    if (String(plan[i] || '') === current) {
+      currentPlanIndex = i;
+      break;
+    }
+  }
+
+  const startIndex = Math.max(routeIndex, currentPlanIndex >= 0 ? currentPlanIndex + 1 : routeIndex);
+  for (let i = startIndex; i < plan.length; i += 1) {
+    const zoneId = String(plan[i] || '').trim();
+    if (zoneId && zoneId !== current && !forb.has(zoneId)) return zoneId;
+  }
+  return '';
+}
+
 export function resolveActorMoveTargetMemory({
   state = {},
 } = {}) {
@@ -109,13 +139,27 @@ export function resolveActorMoveTargetMemory({
   let updated = actor || {};
   const hasAiMoveTargets = Array.isArray(aiMove?.targets) && aiMove.targets.length > 0;
   const earlyRouteTarget = getEarlyRoutePlanTarget(updated, forbiddenIds, day, phase);
+  const earlyRouteAdvanceTarget = (
+    isDay1MorningPhase(day, phase)
+    && earlyRouteTarget
+    && String(earlyRouteTarget) === String(currentZone)
+    && Math.max(0, Number(updated.day1Moves || 0)) < 1
+  )
+    ? pickNextRouteZoneAfterCurrent(updated, currentZone, forbiddenIds)
+    : '';
+  const earlyRouteMoveTarget = earlyRouteAdvanceTarget || earlyRouteTarget;
   const earlyRoutePriorityPhase = Number(day || 0) === 1;
-  const preferEarlyRoutePlan = !!earlyRouteTarget && (
+  const preferEarlyRoutePlan = !!earlyRouteMoveTarget && (
     (!hasAiMoveTargets)
     || earlyRoutePriorityPhase
   );
   const plannedMove = preferEarlyRoutePlan
-    ? { targets: [earlyRouteTarget], reason: hasAiMoveTargets ? 'early_route:priority' : 'early_route' }
+    ? {
+      targets: [earlyRouteMoveTarget],
+      reason: earlyRouteAdvanceTarget
+        ? 'early_route:advance'
+        : (hasAiMoveTargets ? 'early_route:priority' : 'early_route'),
+    }
     : aiMove;
   const aiCfg = ruleset?.ai || {};
   const ttlMin = Math.max(1, Number(aiCfg?.targetTtlMin ?? 2));
@@ -197,18 +241,20 @@ export function resolveActorNextMoveZone({
   const equipMoveSpeed = getEquipMoveSpeed(updated);
   const masteryMoveSpeed = getMovementSpeedMasteryBonus(updated);
   const moveSpeedBonus = Math.min(0.18, equipMoveSpeed * 0.9 + masteryMoveSpeed);
+  const forceFirstDayMorningMove = !mustEscape
+    && isDay1MorningPhase(day, phase)
+    && Math.max(0, Number(updated.day1Moves || 0)) < 1
+    && neighbors.length > 0;
   let baseMoveChance = mustEscape
     ? escapeChance
     : (fleeInterruptReason ? 1 : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6)));
-  if (!mustEscape && Number(day || 0) === 1 && String(phase || '') === 'morning') {
+  if (!mustEscape && isDay1MorningPhase(day, phase)) {
     baseMoveChance = Math.max(baseMoveChance, 0.92);
   }
   const moveChance = Math.min(0.98, baseMoveChance + moveSpeedBonus);
   let willMove = Math.random() < moveChance;
 
-  if (!mustEscape && Number(day || 0) === 1 && String(phase || '') === 'morning' && Math.max(0, Number(updated.day1Moves || 0)) < 1) {
-    if (neighbors.length > 0) willMove = true;
-  }
+  if (forceFirstDayMorningMove) willMove = true;
 
   let nextZoneId = currentZone;
   if (willMove) {
@@ -232,6 +278,12 @@ export function resolveActorNextMoveZone({
     } else {
       nextZoneId = currentZone;
     }
+  }
+
+  if (forceFirstDayMorningMove && String(nextZoneId) === String(currentZone)) {
+    const safeNeighbors = neighbors.filter((zoneId) => !forbiddenIds.has(String(zoneId)));
+    const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
+    nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
   }
 
   return {
