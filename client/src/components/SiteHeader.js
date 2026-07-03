@@ -8,22 +8,29 @@ import { useAuthUser, useHydrated } from '../utils/client-auth';
 import { NOTIFICATIONS_SYNC_EVENT, NOTIFICATIONS_SYNC_STORAGE_KEY } from '../utils/notification-events';
 import { useToast } from './ToastProvider';
 
-const NAV_ITEMS = [
+const PRIMARY_NAV_ITEMS = [
   { href: '/', label: '메인' },
   { href: '/search', label: '검색' },
   { href: '/characters', label: '캐릭터 설정' },
   { href: '/records', label: '기록소' },
   { href: '/leaderboard', label: '랭킹' },
+  { href: '/board', label: '게시판' },
+  { href: '/twenty-questions', label: '스무고개' },
+  { href: '/simulation', label: '게임 시작', emphasis: true },
+];
+
+const MORE_NAV_ITEMS = [
   { href: '/details', label: '상세 설정' },
   { href: '/modifiers', label: '보정치' },
   { href: '/perks', label: '특전 상점' },
-  { href: '/board', label: '게시판' },
   { href: '/bookmarks', label: '저장글' },
-  { href: '/twenty-questions', label: '스무고개' },
   { href: '/guides', label: '가이드' },
   { href: '/help', label: '도움말' },
-  { href: '/simulation', label: '게임 시작', emphasis: true },
 ];
+
+function isNavActive(pathname, href) {
+  return href === '/' ? pathname === '/' : pathname?.startsWith(href);
+}
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
@@ -45,6 +52,8 @@ export default function SiteHeader({ className = '' }) {
   const perkCount = Array.isArray(user?.perks) ? user.perks.length : 0;
   const [unreadState, setUnreadState] = useState({ userKey: '', count: 0 });
   const visibleUnreadCount = userKey && unreadState.userKey === userKey ? unreadState.count : 0;
+  const adminActive = Boolean(loggedIn && user?.isAdmin && pathname?.startsWith('/admin'));
+  const moreActive = adminActive || MORE_NAV_ITEMS.some((item) => isNavActive(pathname, item.href));
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +131,23 @@ export default function SiteHeader({ className = '' }) {
     router.refresh();
   };
 
+  const renderNavLink = (item) => {
+    const active = isNavActive(pathname, item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={[
+          active ? 'is-active' : '',
+          item.emphasis ? 'is-emphasis' : '',
+        ].filter(Boolean).join(' ')}
+      >
+        {item.emphasis ? '▶ ' : ''}
+        {item.label}
+      </Link>
+    );
+  };
+
   return (
     <header className={`site-header ${className}`.trim()}>
       <div className="site-header__inner">
@@ -131,23 +157,16 @@ export default function SiteHeader({ className = '' }) {
         </Link>
 
         <nav className="site-header__nav" aria-label="주요 메뉴">
-          {NAV_ITEMS.map((item) => {
-            const active = item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={[
-                  active ? 'is-active' : '',
-                  item.emphasis ? 'is-emphasis' : '',
-                ].filter(Boolean).join(' ')}
-              >
-                {item.emphasis ? '▶ ' : ''}
-                {item.label}
-              </Link>
-            );
-          })}
-          {loggedIn && user?.isAdmin ? <Link href="/admin">관리자</Link> : null}
+          {PRIMARY_NAV_ITEMS.map(renderNavLink)}
+          <details className={`site-header__more ${moreActive ? 'is-active' : ''}`}>
+            <summary>더보기</summary>
+            <div className="site-header__more-menu">
+              {MORE_NAV_ITEMS.map(renderNavLink)}
+              {loggedIn && user?.isAdmin ? (
+                <Link href="/admin" className={adminActive ? 'is-active' : ''}>관리자</Link>
+              ) : null}
+            </div>
+          </details>
         </nav>
 
         <div className="site-header__auth">
