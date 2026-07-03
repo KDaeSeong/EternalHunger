@@ -172,10 +172,6 @@ export default function DetailsPage() {
       <div className="stat-guide-container">
         <h3>📊 스탯 기준표</h3>
         <div className="stat-guide-grid">
-          <div className="guide-item rank-e">
-            <span className="range">Lv.1 ~ 20</span>
-            <span className="desc">모든 캐릭터는 1레벨 시작, 숙련도 누적으로 성장</span>
-          </div>
           <div className="guide-item rank-c">
             <span className="range">체력 / 성장 체력</span>
             <span className="desc">레벨이 오를 때 최대 체력과 생존력이 증가</span>

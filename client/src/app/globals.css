@@ -112,7 +112,9 @@ textarea {
 }
 
 .board-link-button {
+  appearance: none;
   flex: 0 0 auto;
+  font: inherit;
   padding: 9px 12px;
   background: #ffffff;
   color: #1b4f73;

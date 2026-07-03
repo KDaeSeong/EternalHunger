@@ -81,6 +81,7 @@ export default function BoardPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ title: '', content: '' });
+  const [writerOpen, setWriterOpen] = useState(false);
   const [query, setQuery] = useState('');
 
   const mounted = useHydrated();
@@ -123,6 +124,11 @@ export default function BoardPage() {
     void Promise.resolve().then(load);
   }, [load]);
 
+  useEffect(() => {
+    if (!mounted || token) return;
+    setWriterOpen(false);
+  }, [mounted, token]);
+
   const create = async () => {
     const title = form.title.trim();
     const content = form.content.trim();
@@ -140,6 +146,7 @@ export default function BoardPage() {
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
       setForm({ title: '', content: '' });
+      setWriterOpen(false);
       await load();
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글 작성에 실패했습니다.';
@@ -175,6 +182,17 @@ export default function BoardPage() {
             <h1>게시판</h1>
           </div>
           <div className="board-head-actions">
+            {mounted && token ? (
+              <button
+                type="button"
+                className="board-link-button"
+                onClick={() => setWriterOpen((value) => !value)}
+                aria-expanded={writerOpen}
+                aria-controls="board-write-panel"
+              >
+                {writerOpen ? '닫기' : '글쓰기'}
+              </button>
+            ) : null}
             <Link href="/simulation" className="board-link-button">
               게임 시작
             </Link>
@@ -199,8 +217,8 @@ export default function BoardPage() {
           </label>
         </div>
 
-        {mounted && token ? (
-          <div className="board-write-panel">
+        {mounted && token && writerOpen ? (
+          <div className="board-write-panel" id="board-write-panel">
             <div className="board-editor-title">
               글쓰기 {user ? <span>작성자: {getUserDisplayName(user)}</span> : null}
             </div>
