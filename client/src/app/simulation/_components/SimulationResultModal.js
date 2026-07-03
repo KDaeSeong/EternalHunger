@@ -5,6 +5,7 @@ import { buildErBehaviorModifier } from '../../../utils/erMeta';
 function saveLabel(value) {
   if (value === 'success') return '완료';
   if (value === 'error') return '실패';
+  if (value === 'skipped_devtools') return '개발자 도구 제외';
   if (value === 'skipped') return '건너뜀';
   return '대기';
 }
@@ -104,6 +105,7 @@ export default function SimulationResultModal({
     gainSourceSummary,
     creditSourceSummary,
     gainDetailSummary,
+    resultSummary?.devRunTainted ? 'devtools' : '',
     matchModeText,
     winnerTeamStatusText,
     winnerTeamRosterText,
@@ -120,6 +122,9 @@ export default function SimulationResultModal({
       <div className="result-modal">
         {gameEndReason?.type === 'timelimit6night' ? (
           <div className="result-alert">타임리밋 종료: 6일차 밤 도달</div>
+        ) : null}
+        {resultSummary?.devRunTainted ? (
+          <div className="result-alert">개발자 도구 조작 감지: 명예의 전당 기록과 보상 지급에서 제외됩니다.</div>
         ) : null}
 
         <section className="result-hero">
@@ -166,6 +171,9 @@ export default function SimulationResultModal({
                 <DetailRow label="저장 상태">
                   명예의 전당 {saveLabel(saveStatus.hallOfFame)} / 유저 전적 {saveLabel(saveStatus.userStats)}
                 </DetailRow>
+                {resultSummary?.devRunTainted ? (
+                  <DetailRow label="개발자 도구">명예의 전당/보상 제외</DetailRow>
+                ) : null}
                 {userProgress ? (
                   <DetailRow label="누적 전적">
                     {userProgress.statistics?.totalGames || 0}전 / {userProgress.statistics?.totalWins || 0}승 / {userProgress.statistics?.totalKills || 0}킬 · LP {userProgress.lp || 0} · 크레딧 {userProgress.credits || 0}

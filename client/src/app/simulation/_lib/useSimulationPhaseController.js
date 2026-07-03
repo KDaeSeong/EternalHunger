@@ -29,6 +29,7 @@ export function useSimulationPhaseController({
     activeMapIdRef,
     activeMapRef,
     autoSpeedRef,
+    devRunTaintedRef,
     fullLogEntriesRef,
     fullLogsRef,
     isAdvancingRef,
@@ -48,6 +49,7 @@ export function useSimulationPhaseController({
     craftables,
     day,
     dead,
+    devRunTainted,
     droneOffers,
     isAdvancing,
     isGameOver,
@@ -136,6 +138,7 @@ export function useSimulationPhaseController({
       state: {
         assistCounts,
         dead,
+        devRunTainted: Boolean(devRunTainted || devRunTaintedRef?.current),
         killCounts,
         settings,
       },

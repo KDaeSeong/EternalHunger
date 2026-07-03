@@ -26,6 +26,7 @@ export function createDevToolActionRuntime(context = {}) {
     publicItems,
     settings,
     showMarketPanel,
+    survivors,
   } = state;
 
   const {
@@ -33,6 +34,7 @@ export function createDevToolActionRuntime(context = {}) {
     emitConsumableRunEvent = () => {},
     emitEffectRunEvents = () => {},
     emitItemGainIfAny = () => {},
+    markDevRunTainted = () => {},
     setPendingTranscendPick = () => {},
     setSurvivors = () => {},
   } = actions;
@@ -65,6 +67,7 @@ export function createDevToolActionRuntime(context = {}) {
       const meta = character.inventory?._lastAdd || null;
       const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
       const name = itemDisplayName(item || { _id: chosen.itemId, name: chosen.name });
+      if (got > 0) markDevRunTainted();
       addLog(`🎁 [${character.name}] 초월 장비 선택 상자 선택 → ${itemIcon(item)} ${name} ${gainText(got)}${formatInvAddNote(meta, 1, character.inventory, ruleset)}`, 'highlight');
       emitItemGainIfAny(got, { who: character.name, whoId: character._id, itemId: String(chosen.itemId), source: 'box', sourceKind: 'transcend_pick', zoneId: pending.zoneId, choice: method }, pending.at || { day, phase, sec: matchSec });
       if (got > 0) autoEquipBest(character, {});
@@ -93,6 +96,7 @@ export function createDevToolActionRuntime(context = {}) {
         emitEffectRunEvents,
       });
       if (!result.used) return prev;
+      markDevRunTainted();
       return next;
     });
   }
@@ -101,13 +105,21 @@ export function createDevToolActionRuntime(context = {}) {
     const sid = String(survivorId || '');
     const sslot = String(slot || '');
     if (!sid || !EQUIP_SLOTS.includes(sslot)) return;
+    const nextItemId = itemIdOrNull ? String(itemIdOrNull) : null;
+    const current = (Array.isArray(survivors) ? survivors : []).find((survivor) => {
+      const id = String(survivor?._id || survivor?.id || survivor?.name || '');
+      return id === sid;
+    });
+    const currentEquipped = current ? ensureEquipped(current) : null;
+    if (!currentEquipped || String(currentEquipped[sslot] || '') === String(nextItemId || '')) return;
+    markDevRunTainted();
 
     setSurvivors((prev) =>
       (Array.isArray(prev) ? prev : []).map((survivor) => {
         const id = String(survivor?._id || survivor?.id || survivor?.name || '');
         if (id !== sid) return survivor;
         const equipped = { ...ensureEquipped(survivor) };
-        equipped[sslot] = itemIdOrNull ? String(itemIdOrNull) : null;
+        equipped[sslot] = nextItemId;
         return { ...survivor, equipped };
       })
     );

@@ -72,6 +72,7 @@ export default function SimulationPage() {
   const [gameEndReason, setGameEndReason] = useState(null); // 게임 종료 사유(예: 6번째 밤 타임리밋)
   const [winner, setWinner] = useState(null);
   const [resultSummary, setResultSummary] = useState(null);
+  const [devRunTainted, setDevRunTainted] = useState(false);
 
   // 서버 설정값
   const [settings, setSettings] = useState(getDefaultSimulationSettings);
@@ -152,6 +153,7 @@ export default function SimulationPage() {
   }, []);
 
   const isFinishingRef = useRef(false);
+  const devRunTaintedRef = useRef(false);
   // ✅ 시작(1일차 낮) 기본 장비 세팅이 1회만 적용되도록 플래그
   const startStarterLoadoutAppliedRef = useRef(false);
   const persistSimEquipmentsFromChars = useSimEquipmentPersistence();
@@ -281,6 +283,22 @@ export default function SimulationPage() {
     survivors,
   });
 
+  function handleDevToolsToggle() {
+    if (showMarketPanel) {
+      setShowMarketPanel(false);
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      const ok = window.confirm(
+        '개발자 도구를 활성화하면 수동 조작이 가능합니다.\n\n아이템 지급, 장비 변경, 소모품 강제 사용 등으로 조작된 실행은 명예의 전당에 기록되지 않고 보상도 지급되지 않습니다.\n\n계속할까요?'
+      );
+      if (!ok) return;
+    }
+
+    setShowMarketPanel(true);
+  }
+
   const hyperloopCharId = getPreferredHyperloopCharId(selectedCharId, survivors);
   const forbiddenCacheRef = useRef({});
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
@@ -357,6 +375,13 @@ export default function SimulationPage() {
     return addLogFromLogs(text, type);
   }
 
+  function markDevRunTainted() {
+    if (devRunTaintedRef.current) return;
+    devRunTaintedRef.current = true;
+    setDevRunTainted(true);
+    addLog('개발자 도구 조작이 감지되었습니다. 이 실행은 명예의 전당 기록과 보상 지급에서 제외됩니다.', 'system');
+  }
+
   function exportBattleLog(format = 'md') {
     const result = exportBattleLogFromLogs(format);
     if (result?.status === 'empty') {
@@ -416,12 +441,14 @@ export default function SimulationPage() {
       publicItems,
       settings,
       showMarketPanel,
+      survivors,
     },
     actions: {
       addLog,
       emitConsumableRunEvent,
       emitEffectRunEvents,
       emitItemGainIfAny,
+      markDevRunTainted,
       setPendingTranscendPick,
       setSurvivors,
     },
@@ -511,6 +538,7 @@ export default function SimulationPage() {
       activeMapIdRef,
       activeMapRef,
       autoSpeedRef,
+      devRunTaintedRef,
       fullLogEntriesRef,
       fullLogsRef,
       isAdvancingRef,
@@ -530,6 +558,7 @@ export default function SimulationPage() {
       craftables,
       day,
       dead,
+      devRunTainted,
       droneOffers,
       isAdvancing,
       isGameOver,
@@ -633,6 +662,7 @@ export default function SimulationPage() {
       getQty,
       loadMarket,
       loadTrades,
+      markDevRunTainted,
       patchServerCharacterState,
       setMarketMessage,
       setSurvivors,
@@ -771,6 +801,7 @@ export default function SimulationPage() {
       matchSec={matchSec}
       myTradeOffers={myTradeOffers}
       objectiveSummary={objectiveSummary}
+      onToggleDevTools={handleDevToolsToggle}
       ownedPerkCodeSet={ownedPerkCodeSet}
       participantPresetName={participantPresetName}
       participantPresets={participantPresets}

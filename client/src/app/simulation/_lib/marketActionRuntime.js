@@ -47,6 +47,7 @@ export function createMarketActionRuntime(context = {}) {
     getQty = (_key, fallback = 1) => fallback,
     loadMarket = async () => {},
     loadTrades = async () => {},
+    markDevRunTainted = () => {},
     patchServerCharacterState = () => {},
     setMarketMessage = () => {},
     setSurvivors = () => {},
@@ -100,6 +101,7 @@ export function createMarketActionRuntime(context = {}) {
     const res = grantRuntimeItem(current, item, itemId, qty, ruleset);
     const nm = itemDisplayName(item);
     setMarketMessage('');
+    if (res.got > 0) markDevRunTainted();
 
     setSurvivors((prev) => (Array.isArray(prev) ? prev : []).map((s) => {
       if (String(s?._id) !== String(selectedCharId)) return s;

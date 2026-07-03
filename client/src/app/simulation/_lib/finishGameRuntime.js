@@ -29,6 +29,7 @@ export async function finishSimulationGame(opts = {}) {
   const {
     assistCounts,
     dead,
+    devRunTainted,
     killCounts,
     settings,
   } = state;
@@ -64,7 +65,8 @@ export async function finishSimulationGame(opts = {}) {
   const winnerId = getRuntimeActorKey(winner);
   const myKills = winnerId ? Number(finalKills[winnerId] || 0) : 0;
   const myAssists = winnerId ? Number(finalAssists[winnerId] || 0) : 0;
-  const rewardLP = winner ? (100 + myKills * 10) : 0;
+  const isDevRunTainted = Boolean(devRunTainted);
+  const rewardLP = isDevRunTainted ? 0 : (winner ? (100 + myKills * 10) : 0);
   const topKillLeader = [...participants]
     .sort((a, b) => {
       const aId = getRuntimeActorKey(a);
@@ -90,8 +92,11 @@ export async function finishSimulationGame(opts = {}) {
     myKills,
     myAssists,
     participantsCount: participants.length,
-    saveStatus: { hallOfFame: winner ? 'pending' : 'skipped', userStats: 'pending' },
+    saveStatus: isDevRunTainted
+      ? { hallOfFame: 'skipped_devtools', userStats: 'skipped_devtools' }
+      : { hallOfFame: winner ? 'pending' : 'skipped', userStats: 'pending' },
     userProgress: null,
+    devRunTainted: isDevRunTainted,
     matchMode: matchCfgForResult.matchMode,
     teamSize: matchCfgForResult.teamSize,
     maxTeams: matchCfgForResult.maxTeams,
@@ -134,6 +139,11 @@ export async function finishSimulationGame(opts = {}) {
     );
   } else {
     addLog?.('💀 생존자가 아무도 없습니다...', 'death');
+  }
+
+  if (isDevRunTainted) {
+    addLog?.('개발자 도구 조작이 감지되어 명예의 전당 기록과 보상 지급을 건너뜁니다.', 'system');
+    return;
   }
 
   try {

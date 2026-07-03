@@ -96,6 +96,7 @@ export default function SimulationPageView({
   matchSec,
   myTradeOffers,
   objectiveSummary,
+  onToggleDevTools = () => {},
   ownedPerkCodeSet,
   participantPresetName,
   participantPresets,
@@ -284,7 +285,7 @@ export default function SimulationPageView({
 
               <button
                 className={`btn-secondary sim-devtools-btn ${showMarketPanel ? 'active' : ''}`}
-                onClick={() => setShowMarketPanel((v) => !v)}
+                onClick={onToggleDevTools}
                 style={{ padding: '6px 10px', fontSize: 12 }}
                 title="상점/조합/교환 및 테스트용 개발자 도구를 엽니다."
               >
@@ -442,7 +443,7 @@ export default function SimulationPageView({
             phase={phase}
             aliveTeamCount={aliveTeamCount}
             showMarketPanel={showMarketPanel}
-            onToggleDevTools={() => setShowMarketPanel((v) => !v)}
+            onToggleDevTools={onToggleDevTools}
             autoPlay={autoPlay}
             onToggleAutoPlay={() => setAutoPlay((v) => !v)}
             autoDisabled={loading || isGameOver || startBlocked}
