@@ -57,7 +57,6 @@ import {
   getEquipMoveSpeed,
   extractActorNameFromLog,
   uniqStr,
-  randInt,
   clampTier4,
   tierLabelKo,
   crateTypeLabel,
@@ -92,7 +91,6 @@ import {
   buildCraftGoal,
   uniqStrings,
   advanceEarlyRouteProgress,
-  getEarlyRoutePlanTarget,
   bfsNextStepToAnyTarget,
   bfsPickSafestZone,
   computeLateGameUpgradeNeed,
@@ -217,7 +215,9 @@ import {
 import { applyActorPhaseStatusTick } from './_lib/phaseActorStatusRuntime';
 import {
   applyActorKnockbackMovement,
+  clearActorMoveTargetMemory,
   initializeActorPhaseMovementState,
+  resolveActorMoveTargetMemory,
 } from './_lib/phaseActorMovementRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
@@ -1142,17 +1142,6 @@ const aiMove = chooseAiMoveTargets({
   itemNameById,
 });
 
-// 🤖 목표 존 유지(TTL): 목표를 몇 페이즈 유지해서 '사람처럼' 보이게 함
-const hasAiMoveTargets = Array.isArray(aiMove?.targets) && aiMove.targets.length > 0;
-const earlyRouteTarget = getEarlyRoutePlanTarget(updated, forbiddenIds, nextDay, nextPhase);
-const earlyRoutePriorityPhase = Number(nextDay || 0) === 1;
-const preferEarlyRoutePlan = !!earlyRouteTarget && (
-  (!hasAiMoveTargets)
-  || earlyRoutePriorityPhase
-);
-const plannedMove = preferEarlyRoutePlan
-  ? { targets: [earlyRouteTarget], reason: hasAiMoveTargets ? 'early_route:priority' : 'early_route' }
-  : aiMove;
 const aiCfg = ruleset?.ai || {};
 const recoverHpBelow = Math.max(0, Number(aiCfg?.recoverHpBelow ?? 38));
 const recoverMinDelta = Math.max(0, Math.floor(Number(aiCfg?.recoverMinSaferDelta ?? 1)));
@@ -1170,60 +1159,26 @@ const powerFleeInterrupt = !mustEscape && !!avoidInfoNow && ((Number(avoidInfoNo
 const fleeInterruptReason = mustEscape ? 'forbidden' : (lowHpFleeInterrupt ? 'low_hp' : (powerFleeInterrupt ? 'power_gap' : ''));
 const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
 
-const ttlMin = Math.max(1, Number(aiCfg?.targetTtlMin ?? 2));
-const ttlMax = Math.max(ttlMin, Number(aiCfg?.targetTtlMax ?? 4));
-const clearOnReach = aiCfg?.clearOnReach !== false;
-const plannedObjectiveType = String(plannedMove?.objectiveType || '');
-const plannedObjectiveSubkind = String(plannedMove?.objectiveSubkind || '');
-const plannedContestPressure = Math.max(0, Number(plannedMove?.contestPressure || 0));
-
-let holdTarget = null;
-
-// 금지구역이면 목표 유지 대신 목표를 초기화(생존 우선)
-if (mustEscape) {
-  updated.aiTargetZoneId = null;
-  updated.aiTargetTTL = 0;
-  updated.aiTargetObjectiveType = '';
-  updated.aiTargetObjectiveSubkind = '';
-  updated.aiTargetContestPressure = 0;
-} else {
-  const saved = String(updated.aiTargetZoneId || '');
-  const ttlNow = Math.max(0, Number(updated.aiTargetTTL || 0));
-
-  if (saved && ttlNow > 0 && !forbiddenIds.has(saved)) {
-    holdTarget = saved;
-    // 페이즈마다 TTL 감소
-    updated.aiTargetTTL = ttlNow - 1;
-    if (clearOnReach && String(currentZone) === saved) {
-      holdTarget = null;
-      updated.aiTargetZoneId = null;
-      updated.aiTargetTTL = 0;
-      updated.aiTargetObjectiveType = '';
-      updated.aiTargetObjectiveSubkind = '';
-      updated.aiTargetContestPressure = 0;
-    }
-  }
-
-  if (!holdTarget && Array.isArray(plannedMove?.targets) && plannedMove.targets.length > 0) {
-    const pickedTarget = plannedMove.targets
-      .map((z) => String(z || ''))
-      .find((z) => z && !forbiddenIds.has(String(z))) || '';
-    if (pickedTarget) {
-      updated.aiTargetZoneId = pickedTarget;
-      updated.aiTargetTTL = randInt(ttlMin, ttlMax);
-      updated.aiTargetObjectiveType = plannedObjectiveType;
-      updated.aiTargetObjectiveSubkind = plannedObjectiveSubkind;
-      updated.aiTargetContestPressure = plannedContestPressure;
-      holdTarget = pickedTarget;
-    }
-  }
-}
-
-let moveTargets = holdTarget ? [holdTarget] : (Array.isArray(plannedMove?.targets) ? plannedMove.targets : []);
-let moveReason = holdTarget ? `${String(plannedMove?.reason || 'goal')}:ttl` : String(plannedMove?.reason || '');
-let moveObjectiveType = String(updated.aiTargetObjectiveType || plannedObjectiveType || '');
-let moveObjectiveSubkind = String(updated.aiTargetObjectiveSubkind || plannedObjectiveSubkind || '');
-let moveContestPressure = Math.max(0, Number(updated.aiTargetContestPressure || plannedContestPressure || 0));
+// 🤖 목표 존 유지(TTL): 목표를 몇 페이즈 유지해서 '사람처럼' 보이게 함
+const targetMemory = resolveActorMoveTargetMemory({
+  state: {
+    actor: updated,
+    aiMove,
+    currentZone,
+    day: nextDay,
+    forbiddenIds,
+    mustEscape,
+    phase: nextPhase,
+    ruleset,
+  },
+});
+updated = targetMemory.actor;
+const holdTarget = targetMemory.holdTarget;
+let moveTargets = targetMemory.moveTargets;
+let moveReason = targetMemory.moveReason;
+let moveObjectiveType = targetMemory.moveObjectiveType;
+let moveObjectiveSubkind = targetMemory.moveObjectiveSubkind;
+let moveContestPressure = targetMemory.moveContestPressure;
 
 const riftTargetsNow = (!isSoloMatch && String(nextPhase || '') === 'night' && [2, 3, 4].includes(Number(nextDay || 0)))
   ? listActiveDimensionRifts(nextSpawn)
@@ -1246,11 +1201,7 @@ if (!mustEscape && !recovering && riftTargetsNow.length > 0) {
 moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
 
 if (fleeInterruptReason) {
-  updated.aiTargetZoneId = null;
-  updated.aiTargetTTL = 0;
-  updated.aiTargetObjectiveType = '';
-  updated.aiTargetObjectiveSubkind = '';
-  updated.aiTargetContestPressure = 0;
+  updated = clearActorMoveTargetMemory(updated);
   moveObjectiveType = '';
   moveObjectiveSubkind = '';
   moveContestPressure = 0;
@@ -1263,11 +1214,7 @@ if (fleeInterruptReason) {
   moveReason = `flee:${String(fleeInterruptReason)}`;
 } else if (recovering) {
   // 회복 우선: 목표/보스 추적보다 안전/저인구 존으로 분산(인접 1칸에만 갇히지 않게 BFS 사용)
-  updated.aiTargetZoneId = null;
-  updated.aiTargetTTL = 0;
-  updated.aiTargetObjectiveType = '';
-  updated.aiTargetObjectiveSubkind = '';
-  updated.aiTargetContestPressure = 0;
+  updated = clearActorMoveTargetMemory(updated);
   moveObjectiveType = '';
   moveObjectiveSubkind = '';
   moveContestPressure = 0;
