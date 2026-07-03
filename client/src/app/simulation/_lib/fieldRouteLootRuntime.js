@@ -35,7 +35,11 @@ export function rollEarlyRouteLoot({
   const routeChanceBase = moved
     ? Number(earlyRouteCfg?.chanceMoved ?? 0.72)
     : Number(routeFarmOnly ? (earlyRouteCfg?.chanceFarm ?? 0.82) : (earlyRouteCfg?.chanceStay ?? 0.42));
-  const routeChance = Math.max(0.01, Math.min(0.98, routeChanceBase + Math.max(0, perkLootBias) * 0.10));
+  const guaranteeDay1Search = earlyRouteCfg?.guaranteeDay1Search !== false;
+  const guaranteedDay1RouteSearch = guaranteeDay1Search && curDay === 1 && (moved || routeFarmOnly);
+  const routeChance = guaranteedDay1RouteSearch
+    ? 1
+    : Math.max(0.01, Math.min(0.98, routeChanceBase + Math.max(0, perkLootBias) * 0.10));
   const routeMaxTier = Math.max(1, Number(earlyRouteCfg?.maxTier ?? fallbackMaxTier));
   const routeEquipmentMaxTier = Math.max(1, Number(earlyRouteCfg?.equipmentMaxTier ?? 2));
   const routeWeight = Math.max(0, Number(earlyRouteCfg?.routeWeight ?? 8));

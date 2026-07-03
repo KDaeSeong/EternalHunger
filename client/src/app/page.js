@@ -21,6 +21,12 @@ const MENU_ITEMS = [
     body: '참가할 실험체와 무기, 목표 장비, 전술 스킬을 관리합니다.',
   },
   {
+    href: '/records',
+    icon: '🏆',
+    title: '기록소',
+    body: '캐릭터별 전적과 같은 로스터로 쌓인 팀 전적을 확인합니다.',
+  },
+  {
     href: '/details',
     icon: '📊',
     title: '상세 스탯',

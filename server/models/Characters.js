@@ -125,6 +125,7 @@ const characterSchema = new Schema({
   // 3. 명예의 전당 기록용 (누적 데이터)
   records: {
     totalKills: { type: Number, default: 0 },
+    totalAssists: { type: Number, default: 0 },
     totalWins: { type: Number, default: 0 },
     gamesPlayed: { type: Number, default: 0 }, // 참가한 횟수
     deathCount: { type: Number, default: 0 }   // 사망한 횟수

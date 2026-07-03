@@ -9,6 +9,7 @@ import { useToast } from './ToastProvider';
 const NAV_ITEMS = [
   { href: '/', label: '메인' },
   { href: '/characters', label: '캐릭터 설정' },
+  { href: '/records', label: '기록소' },
   { href: '/details', label: '상세 설정' },
   { href: '/modifiers', label: '보정치' },
   { href: '/perks', label: '특전 상점' },

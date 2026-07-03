@@ -9,7 +9,13 @@ const GameLogSchema = new mongoose.Schema({
     charId: String,
     name: String,
     killCount: Number,
-    isWinner: Boolean
+    assistCount: Number,
+    isWinner: Boolean,
+    alive: Boolean,
+    teamId: String,
+    teamName: String,
+    rosterIds: [String],
+    rosterNames: [String]
   }],
   fullLog: [String]    // 전체 로그 내용 (텍스트 배열)
 });

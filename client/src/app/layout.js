@@ -5,6 +5,7 @@ import '../styles/ERDetails.css';
 import '../styles/ERModifiers.css'; 
 import '../styles/ERAdmin.css';
 import '../styles/ERPerks.css';
+import '../styles/ERRecords.css';
 import '../styles/AppShell.css';
 import AppProviders from '../components/AppProviders';
 import '../styles/ERSimulation.css'; 

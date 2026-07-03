@@ -211,6 +211,7 @@ export async function finishSimulationGame(opts = {}) {
 
   try {
     if (winner) {
+      const aliveIds = new Set(finalAlive.map((actor) => getRuntimeActorKey(actor)).filter(Boolean));
       const compactParticipants = participants.map((participant) => {
         const id = getRuntimeActorKey(participant);
         return {
@@ -218,6 +219,12 @@ export async function finishSimulationGame(opts = {}) {
           id,
           charId: id,
           name: String(participant?.name || participant?.nickname || participant?.charName || id || 'Unknown'),
+          alive: aliveIds.has(id),
+          teamId: getActorTeamId(participant),
+          teamName: getActorTeamName(participant),
+          teamSlot: Number(participant?.matchTeamSlot || participant?.teamSlot || 0),
+          rosterIds: Array.isArray(participant?.matchTeamRosterIds) ? participant.matchTeamRosterIds : [],
+          rosterNames: Array.isArray(participant?.matchTeamRosterNames) ? participant.matchTeamRosterNames : [],
         };
       });
       const compactFullLogs = (Array.isArray(fullLogsRef?.current) ? fullLogsRef.current : [])
@@ -225,7 +232,11 @@ export async function finishSimulationGame(opts = {}) {
         .map((line) => String(line || '').slice(0, 600));
       await apiPost('/game/end', {
         winnerId,
+        winnerTeamId: winningTeam?.teamId || getActorTeamId(winner),
+        matchMode: matchCfgForResult.matchMode,
+        teamSize: matchCfgForResult.teamSize,
         killCounts: finalKills,
+        assistCounts: finalAssists,
         fullLogs: compactFullLogs,
         participants: compactParticipants,
       });
