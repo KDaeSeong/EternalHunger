@@ -5,9 +5,7 @@ import {
   hasActionBlockStatus,
 } from '../../../utils/statusLogic';
 import {
-  applyAiRecoveryWindow,
   areSameTeam,
-  bfsPickSafestZone,
   buildRuntimeSurvivorMap,
   getEquipMoveSpeed,
   getPerkAggressionBias,
@@ -30,18 +28,7 @@ import {
   buildPvpPhaseRuntime,
   pickPvpTarget,
 } from './pvpPhaseRuntime';
-
-function buildZonePopulation(survivorMap, newDeadIds) {
-  const population = {};
-  for (const survivor of survivorMap.values()) {
-    if (!survivor || Number(survivor.hp || 0) <= 0) continue;
-    if (newDeadIds.includes(survivor._id)) continue;
-    const zoneId = String(survivor.zoneId || '');
-    if (!zoneId) continue;
-    population[zoneId] = (population[zoneId] || 0) + 1;
-  }
-  return population;
-}
+import { resolvePvpAvoidanceMove } from './phasePvpAvoidanceRuntime';
 
 export async function runPvpActionLoop({
   actions = {},
@@ -244,22 +231,28 @@ export async function runPvpActionLoop({
         - (immediateDangerNow ? 0.28 : 0)
       ));
       if (Math.random() < avoidChance) {
-        const from = String(actor?.zoneId || '');
-        const population = buildZonePopulation(survivorMap, newDeadIds);
-        const depthMax = Math.max(1, Math.floor(Number(ruleset?.ai?.safeSearchDepth ?? 3)));
-        const minDelta = Math.max(0, Math.floor(Number(ruleset?.ai?.recoverMinSaferDelta ?? 1)));
-        const pick = bfsPickSafestZone(from, zoneGraph, forbiddenIds, population, { maxDepth: depthMax, minDelta });
-        const dest = String(pick?.nextStep || '');
-        if (dest && dest !== from) {
-          actor.zoneId = dest;
-          applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'early_route_avoid', opponentId: String(pvpTarget?._id || ''), recoverSec: 4, safeZoneSec: 3 });
-          upsertRuntimeSurvivor(survivorMap, actor);
-          addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-          emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'early_route_avoid' }, atNow());
-        } else {
-          applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'early_route_avoid_hold', opponentId: String(pvpTarget?._id || ''), recoverSec: 3 });
-          addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피`, 'system');
-        }
+        resolvePvpAvoidanceMove({
+          actions: { addLog, atNow, emitRunEvent, getZoneName },
+          state: {
+            actor,
+            currentActionSec,
+            forbiddenIds,
+            newDeadIds,
+            opponent: pvpTarget,
+            reason: 'early_route_avoid',
+            recoverSec: 4,
+            ruleset,
+            safeZoneSec: 3,
+            survivorMap,
+            zoneGraph,
+          },
+          text: {
+            holdLog: () => `🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피`,
+            holdReason: 'early_route_avoid_hold',
+            holdRecoverSec: 3,
+            moveLog: ({ dest, from }) => `🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`,
+          },
+        });
         continue;
       }
     }
@@ -279,23 +272,28 @@ export async function runPvpActionLoop({
         if (!willAvoid) {
           addLog(`🔥 [${actor.name}] 불리하지만 [${opponentName}]과 교전합니다!`, 'highlight');
         } else {
-          const from = String(actor?.zoneId || '');
-          const population = buildZonePopulation(survivorMap, newDeadIds);
-          const depthMax = Math.max(1, Math.floor(Number(ruleset?.ai?.safeSearchDepth ?? 3)));
-          const minDelta = Math.max(0, Math.floor(Number(ruleset?.ai?.recoverMinSaferDelta ?? 1)));
-          const pick = bfsPickSafestZone(from, zoneGraph, forbiddenIds, population, { maxDepth: depthMax, minDelta });
-          const dest = String(pick?.nextStep || '');
-
-          if (dest && dest !== from) {
-            actor.zoneId = dest;
-            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'avoid_power', opponentId: String(targetEval?._id || ''), recoverSec: 6, safeZoneSec: 4 });
-            upsertRuntimeSurvivor(survivorMap, actor);
-            addLog(`🏃 [${actor.name}] 전투력 열세로 [${opponentName}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'avoid_power' }, atNow());
-          } else {
-            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'avoid_power_hold', opponentId: String(targetEval?._id || ''), recoverSec: 4 });
-            addLog(`🏃 [${actor.name}] 전투력 열세로 [${opponentName}] 교전 회피`, 'system');
-          }
+          resolvePvpAvoidanceMove({
+            actions: { addLog, atNow, emitRunEvent, getZoneName },
+            state: {
+              actor,
+              currentActionSec,
+              forbiddenIds,
+              newDeadIds,
+              opponent: targetEval,
+              reason: 'avoid_power',
+              recoverSec: 6,
+              ruleset,
+              safeZoneSec: 4,
+              survivorMap,
+              zoneGraph,
+            },
+            text: {
+              holdLog: () => `🏃 [${actor.name}] 전투력 열세로 [${opponentName}] 교전 회피`,
+              holdReason: 'avoid_power_hold',
+              holdRecoverSec: 4,
+              moveLog: ({ dest, from }) => `🏃 [${actor.name}] 전투력 열세로 [${opponentName}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`,
+            },
+          });
           continue;
         }
       }
