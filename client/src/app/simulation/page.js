@@ -15,7 +15,6 @@ import {
   hasActionBlockStatus,
 } from '../../utils/statusLogic';
 import {
-  getMovementSpeedMasteryBonus,
   getNonCombatRegenMultiplier,
   getWildlifeDamageMultiplier,
   getWildlifeMasteryEntries,
@@ -91,7 +90,6 @@ import {
   buildCraftGoal,
   uniqStrings,
   advanceEarlyRouteProgress,
-  bfsNextStepToAnyTarget,
   bfsPickSafestZone,
   computeLateGameUpgradeNeed,
   chooseAiMoveTargets,
@@ -217,6 +215,7 @@ import {
   applyActorKnockbackMovement,
   clearActorMoveTargetMemory,
   initializeActorPhaseMovementState,
+  resolveActorNextMoveZone,
   resolveActorMoveTargetMemory,
 } from './_lib/phaseActorMovementRuntime';
 
@@ -1231,60 +1230,23 @@ if (fleeInterruptReason) {
 
 // 금지구역이면 "탈출 시도" 확률만 올리고, 100% 강제 이탈은 하지 않습니다.
 // (요구사항: 금지구역에 일정 시간 머무르면 사망 => 실제로 '머무를' 수 있어야 함)
-const forbidCfg = ruleset?.forbidden || {};
-const escapeMoveChance = Math.min(1, Math.max(0, Number(forbidCfg.escapeMoveChance ?? 0.85)));
-// detonation이 임계치 근처면(=곧 폭발) 탈출 시도를 더 강하게 합니다.
-const curDet = Number.isFinite(Number(updated.detonationSec)) ? Number(updated.detonationSec) : 999;
-const dangerForceSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5) + 2);
-const escapeChance = (mustEscape && curDet <= dangerForceSec) ? 1 : escapeMoveChance;
-
-const equipMs = getEquipMoveSpeed(updated);
-const masteryMs = getMovementSpeedMasteryBonus(updated);
-const msMoveBonus = Math.min(0.18, equipMs * 0.9 + masteryMs); // 신발/이동 숙련도 반영(이동 결정)
-let baseMoveChance = mustEscape ? escapeChance : (fleeInterruptReason ? 1 : (recovering ? 0.95 : (moveTargets.length ? 0.88 : 0.6)));
-// ✅ 1일차 낮에는 "최소 1회 이동" 목표를 위해 이동 확률을 상향(관전 템포)
-if (!mustEscape && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning') {
-  baseMoveChance = Math.max(baseMoveChance, 0.92);
-}
-const moveChance = Math.min(0.98, baseMoveChance + msMoveBonus);
-let willMove = Math.random() < moveChance;
-
-// ✅ 관전형 요구사항: 1일차 낮에는 '최소 1회 이동'을 거의 확정으로 보장
-// - day1Moves가 0인 상태에서만 강제(이후에는 원래 확률로)
-if (!mustEscape && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning' && Math.max(0, Number(updated.day1Moves || 0)) < 1) {
-  if (neighbors.length > 0) willMove = true;
-}
-
-if (willMove) {
-  if (mustEscape) {
-    // 금지구역이면 우선 안전한 곳으로 이동
-    if (neighbors.length > 0) {
-      const safeNeighbors = neighbors.filter((zid) => !forbiddenIds.has(String(zid)));
-      const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-      nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
-    } else {
-      // 연결 정보가 없으면(=neighbors가 비면) "맵 전체 순간이동" 대신 제자리(동선 데이터는 zoneConnections로 보강)
-      nextZoneId = currentZone;
-    }
-  } else if (moveTargets.length) {
-    const tset = new Set(moveTargets.map((z) => String(z)));
-    const stepRes = bfsNextStepToAnyTarget(currentZone, tset, zoneGraph, forbiddenIds);
-
-    const picked = stepRes.nextStep || (tset.has(currentZone) ? currentZone : String(moveTargets[0] || currentZone));
-    if (picked && !forbiddenIds.has(String(picked))) nextZoneId = String(picked);
-  } else {
-    // 기본: 랜덤 인접 이동
-    if (neighbors.length > 0) {
-      const safeNeighbors = neighbors.filter((zid) => !forbiddenIds.has(String(zid)));
-      const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-      nextZoneId = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
-    } else {
-      // 연결 정보가 없으면(=neighbors가 비면) "맵 전체 랜덤" 대신 제자리
-      nextZoneId = currentZone;
-    }
-  }
-}
-
+const nextMove = resolveActorNextMoveZone({
+  state: {
+    actor: updated,
+    currentZone,
+    day: nextDay,
+    fleeInterruptReason,
+    forbiddenIds,
+    moveTargets,
+    mustEscape,
+    neighbors,
+    phase: nextPhase,
+    recovering,
+    ruleset,
+    zoneGraph,
+  },
+});
+nextZoneId = nextMove.nextZoneId;
 const usedHyperloopMove = isHyperloopTransit(currentZone, nextZoneId);
 const moveEtaSec = usedHyperloopMove ? HYPERLOOP_DELAY_SEC : 1;
 if (usedHyperloopMove) reserveActionSecond(moveEtaSec);
