@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const TwentyQuestionsRoom = require('../models/TwentyQuestionsRoom');
+require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { getOptionalUserId } = require('../utils/requestScope');
 
