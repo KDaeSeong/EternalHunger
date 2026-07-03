@@ -8,7 +8,6 @@ import {
   EFFECT_AIRBORNE,
   EFFECT_STUN,
   applyHealingModifier,
-  getCooldownTickMultiplier,
   getLifestealPercent,
   getRegenValue,
   getShieldValue,
@@ -125,6 +124,7 @@ import { openLegendaryCrateForActor } from './_lib/phaseLegendaryCrateRuntime';
 import { runCraftAction } from './_lib/phaseCraftActionRuntime';
 import { runProcurementAction } from './_lib/phaseProcurementActionRuntime';
 import { runActorPostActionPhase } from './_lib/phaseActorPostActionRuntime';
+import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -2011,176 +2011,33 @@ const didMove = String(nextZoneId) !== String(currentZone);
       }
     }
 
-    // 2.5) 페이즈 내부 틱 시뮬레이션(폭발 타이머)
-    if (useDetonation && forbiddenIds.size > 0) {
-      const detCfg = ruleset?.detonation || {};
-      const decPerSec = Number(detCfg.decreasePerSecForbidden ?? detCfg.decreasePerSec ?? 1);
-      const regenPerSec = Number(detCfg.regenPerSecOutsideForbidden ?? detCfg.regenPerSecOutside ?? 1);
-      const criticalSec = Number(detCfg.criticalSec || 5);
-
-      const psz = ruleset?.gadgets?.portableSafeZone || {};
-      const pszCost = Number(psz.energyCost || 40);
-      const pszCd = Number(psz.cooldownSec || 30);
-      const pszDur = Number(psz.durationSec || 7);
-
-      const cnot = ruleset?.gadgets?.cnotGate || {};
-      const cnotCost = Number(cnot.energyCost || 30);
-      const cnotCd = Number(cnot.cooldownSec || 10);
-
-      const allZoneIds = (Array.isArray(mapObj?.zones) && mapObj.zones.length)
-        ? mapObj.zones.map((z) => String(z.zoneId))
-        : [...forbiddenIds];
-
-      // 🧨 엔드게임: 안전구역이 2곳만 남으면(=마지막 단계), 40s 유예 후 안전구역도 폭발 타이머가 감소합니다.
-      const safeLeft = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid))).length;
-      const allowForceAll = !suddenDeathActiveRef.current;
-      const forceAllAfterSec = (allowForceAll && safeLeft <= 2) ? Math.max(0, Number(detCfg.forceAllAfterSec ?? 40)) : null;
-      if (forceAllAfterSec !== null) {
-        addLog(`⏳ 안전구역 유예 ${forceAllAfterSec}s: 이후 모든 구역에서 폭발 타이머가 감소합니다.`, 'system');
-      }
-
-      const pickSafeZone = (fromZoneId) => {
-        const neighbors = Array.isArray(zoneGraph[fromZoneId]) ? zoneGraph[fromZoneId] : [];
-        const safeNeighbors = neighbors.map(String).filter((zid) => !forbiddenIds.has(String(zid)));
-        if (safeNeighbors.length) return String(safeNeighbors[Math.floor(Math.random() * safeNeighbors.length)]);
-        const safeAll = allZoneIds.filter((zid) => !forbiddenIds.has(String(zid)));
-        if (safeAll.length) return String(safeAll[Math.floor(Math.random() * safeAll.length)]);
-        return String(fromZoneId);
-      };
-
-      // 🌫️ 퍼플 포그(서브웨더) - Day2/Day3/Day4 중간(단순 모델)
-      const fogWarningSec = Number(ruleset?.fog?.warningSec || 30);
-      const fogDurationSec = Number(ruleset?.fog?.durationSec || 45);
-      const fogStartLocal = (fogLocalSec === null || fogLocalSec === undefined) ? null : Number(fogLocalSec);
-      const fogWarnLocal = (fogStartLocal !== null) ? Math.max(0, fogStartLocal - fogWarningSec) : null;
-      const fogEndLocal = (fogStartLocal !== null) ? fogStartLocal + fogDurationSec : null;
-
-      let aliveMap = buildRuntimeSurvivorMap(updatedSurvivors);
-      aliveMap = new Map(Array.from(aliveMap.values()).map((s) => [String(s._id), { ...s, cooldowns: { ...(s.cooldowns || {}) } }]));
-
-      for (let t = 0; t < phaseDurationSec; t += tickSec) {
-        const absSec = phaseStartSec + t;
-
-        // 퍼플 포그 안내 로그(과도한 로그 방지: 1회씩만)
-        if (fogWarnLocal !== null && t === fogWarnLocal) {
-          addLog(`🌫️ 퍼플 포그 경고! 약 ${fogWarningSec}s 후, 일부 구역에서 시야가 악화됩니다.`, 'system');
-        }
-        if (fogStartLocal !== null && t === fogStartLocal) {
-          addLog(`🌫️ 퍼플 포그 확산! (약 ${fogDurationSec}s)`, 'highlight');
-        }
-        if (fogEndLocal !== null && t === fogEndLocal) {
-          addLog(`🌫️ 퍼플 포그가 걷혔습니다.`, 'system');
-        }
-
-        for (const s of aliveMap.values()) {
-          if (!s || Number(s.hp || 0) <= 0) continue;
-
-          // 쿨다운 감소
-          if (s.cooldowns) {
-            const cooldownTick = tickSec * getCooldownTickMultiplier(s);
-            s.cooldowns.portableSafeZone = Math.max(0, Number(s.cooldowns.portableSafeZone || 0) - cooldownTick);
-            s.cooldowns.cnotGate = Math.max(0, Number(s.cooldowns.cnotGate || 0) - cooldownTick);
-            s.cooldowns.weaponSkill = Math.max(0, Number(s.cooldowns.weaponSkill || 0) - cooldownTick);
-          }
-
-          const zoneId = String(s.zoneId || '__default__');
-          const forceAllNow = (forceAllAfterSec !== null && t >= forceAllAfterSec);
-          const isForbidden = forceAllNow ? true : forbiddenIds.has(zoneId);
-
-          if (forceAllAfterSec !== null && t === forceAllAfterSec) {
-            addLog('⚠️ 유예 종료: 안전구역도 위험해졌습니다.', 'highlight');
-          }
-
-          if (!isForbidden) {
-            // 안전 구역: 폭발 타이머 회복
-            if (s.detonationSec !== null && s.detonationSec !== undefined) {
-              const maxDet = Number(s.detonationMaxSec || detCfg.maxSec || 30);
-              s.detonationSec = Math.min(maxDet, Number(s.detonationSec || 0) + regenPerSec * tickSec);
-            }
-            // 로그 스팸 방지: 안전구역에선 경고 마일스톤을 초기화
-            s._detLogLastMilestone = null;
-            continue;
-          }
-
-          // 제한구역: 폭발 타이머는 "금지구역에 있으면 무조건 감소"합니다.
-          // (안전지대/개인 보호 효과가 있더라도 감소하며, 엔드게임(forceAllNow)도 동일)
-
-          // 제한구역: 폭발 타이머 감소(휴대용 안전지대 전개 중이면 감소를 멈춥니다.)
-          const isProtected = Number(s.safeZoneUntil || 0) > absSec;
-          if (!isProtected) {
-            s.detonationSec = Math.max(0, Number(s.detonationSec || 0) - decPerSec * tickSec);
-          }
-
-          // ⏳ 경고 로그(마일스톤) - 과도한 로그 방지
-          const detFloor = Math.max(0, Math.floor(Number(s.detonationSec || 0)));
-          const milestones = Array.isArray(detCfg.logMilestones) ? detCfg.logMilestones.map((x) => Math.floor(Number(x))) : [15, 10, 5, 3, 1, 0];
-          if (milestones.includes(detFloor) && Number(s._detLogLastMilestone) !== detFloor) {
-            s._detLogLastMilestone = detFloor;
-            addLog(`⏳ [${s.name}] 폭발 타이머 ${detFloor}s (구역: ${getZoneName(zoneId)})`, 'system');
-          }
-
-          // 위기: 가젯 사용 시도(단순 모델)
-          if (Number(s.detonationSec || 0) <= criticalSec) {
-            const energyNow = Number(s.gadgetEnergy || 0);
-
-            // 1) CNOT 게이트(간이 텔레포트)
-            if (Number(s.cooldowns?.cnotGate || 0) <= 0 && energyNow >= cnotCost) {
-              const dest = pickSafeZone(zoneId);
-              if (dest && String(dest) !== zoneId) {
-                s.zoneId = String(dest);
-                s.gadgetEnergy = energyNow - cnotCost;
-                s.cooldowns.cnotGate = cnotCd;
-                addLog(`🌀 [${s.name}] CNOT 게이트 발동 → ${getZoneName(dest)} (에너지 -${cnotCost})`, 'highlight');
-              }
-            }
-
-            // 2) 휴대용 안전지대(간이 개인 보호)
-            const afterEnergy = Number(s.gadgetEnergy || 0);
-            if (forbiddenIds.has(String(s.zoneId || zoneId)) && Number(s.cooldowns?.portableSafeZone || 0) <= 0 && afterEnergy >= pszCost) {
-              s.gadgetEnergy = afterEnergy - pszCost;
-              s.cooldowns.portableSafeZone = pszCd;
-              s.safeZoneUntil = absSec + pszDur;
-              addLog(`🛡️ [${s.name}] 휴대용 안전지대 전개 (${pszDur}s) (에너지 -${pszCost})`, 'highlight');
-            }
-          }
-
-          // 폭발 타이머 만료 → 사망
-          if (Number(s.detonationSec || 0) <= 0) {
-            setDeathMetadata(s, 'detonation', { causeName: '폭발 타이머', atSec: absSec });
-            s.hp = 0;
-            s.deadAtPhaseIdx = phaseIdxNow;
-            s.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-            newlyDead.push(s);
-            emitDeathRunEventOnce(s, { reason: 'detonation', cause: '폭발 타이머', at: atNow() });
-            addLog(`💥 [${s.name}] 폭발 타이머가 0이 되어 사망했습니다. (구역: ${getZoneName(zoneId)})`, 'death');
-          }
-        }
-      }
-
-      // ✅ 무승부 방지: 서든데스에서 전원 폭발로 0명이 되면, 가장 늦게 죽은 1명을 승자로 판정
-      if (suddenDeathActiveRef.current) {
-        const aliveNow = Array.from(aliveMap.values()).filter((x) => Number(x?.hp || 0) > 0);
-        if (aliveNow.length === 0) {
-          const deadNow = Array.from(aliveMap.values()).filter((x) => Number(x?.hp || 0) <= 0);
-          if (deadNow.length) {
-            const lastAt = Math.max(...deadNow.map((x) => Number(x?._deathAt || 0)));
-            const candidates = deadNow.filter((x) => Number(x?._deathAt || 0) === lastAt);
-            const lastWinner = candidates[Math.floor(Math.random() * candidates.length)];
-            if (lastWinner) {
-              // dead 목록에 들어간 winner를 되살리기
-              const idx = newlyDead.findIndex((deadEntry) => String(deadEntry?._id) === String(lastWinner?._id));
-              if (idx >= 0) newlyDead.splice(idx, 1);
-              lastWinner.hp = Math.max(1, Number(lastWinner.hp || 1));
-              aliveMap.set(lastWinner._id, lastWinner);
-              addLog(`⚖️ 전원 폭발! 마지막까지 버틴 [${lastWinner.name}] 승리(무승부 방지)`, 'highlight');
-            }
-          }
-        }
-      }
-
-// 반영
-      updatedSurvivors = normalizeRuntimeSurvivorList(Array.from(aliveMap.values())).filter((s) => Number(s.hp || 0) > 0);
-    }
+    const detonationTickResult = runDetonationTickPhase({
+      state: {
+        canReviveThisMatch,
+        fogLocalSec,
+        forbiddenIds,
+        mapObj,
+        newlyDead,
+        phaseDurationSec,
+        phaseIdxNow,
+        phaseStartSec,
+        reviveCutoffIdx,
+        ruleset,
+        suddenDeathActive: suddenDeathActiveRef.current,
+        tickSec,
+        updatedSurvivors,
+        useDetonation,
+        zoneGraph,
+      },
+      actions: {
+        addLog,
+        atNow,
+        emitDeathRunEventOnce,
+        getZoneName,
+        setDeathMetadata,
+      },
+    });
+    updatedSurvivors = detonationTickResult.updatedSurvivors;
 
     flushDeadSnapshots(appendPhaseDeadSnapshots(newlyDead));
 
