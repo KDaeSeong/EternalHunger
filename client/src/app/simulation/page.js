@@ -132,6 +132,7 @@ import {
 } from './_lib/combatRuntime';
 import { createPhaseCombatTacticalRuntime } from './_lib/phaseCombatTacticalRuntime';
 import { createPhaseCombatFleeRuntime } from './_lib/phaseCombatFleeRuntime';
+import { createPhaseCombatSkillSplashRuntime } from './_lib/phaseCombatSkillSplashRuntime';
 import {
   estimatePvpPower,
   pickUnbiasedBattle as pickUnbiasedBattleRuntime,
@@ -1972,6 +1973,25 @@ export default function SimulationPage() {
           }
           emitDeathRunEventOnce(victim, { reason: victim._deathBy || 'combat_unattributed', cause: reasonText });
         };
+        const skillSplashRuntime = createPhaseCombatSkillSplashRuntime({
+          state: {
+            newDeadIds,
+            phaseIdxNow,
+            survivorMap,
+          },
+          actions: {
+            addLog,
+            applyCombatElimination,
+            atNow,
+            emitRunEvent,
+            grantPvpDamageMastery,
+            shieldBlock,
+          },
+        });
+        const {
+          applyCharacterSkillSplashDamage,
+          getCharacterSkillSplashTargets,
+        } = skillSplashRuntime;
         // 🏃 추격·도주(1단계): 이속/HP/장비차 + 제한구역 압박 기반(관전형 템포)
         const escapeOutcome = (() => {
           const curZone = String(actor?.zoneId || target?.zoneId || '');
@@ -2074,63 +2094,6 @@ export default function SimulationPage() {
             if (counterDamageBonus >= 3) bits.push(`${loser.name} 반격 +${counterDamageBonus}`);
             addLog(`⚔️ ER 피해 보정: ${bits.join(' / ')}`, 'system');
           }
-
-          const getCharacterSkillSplashTargets = (attacker, primaryTarget) => {
-            const zoneId = String(primaryTarget?.zoneId || attacker?.zoneId || '');
-            const attackerId = String(attacker?._id || '');
-            const primaryId = String(primaryTarget?._id || '');
-            if (!zoneId || !attackerId) return [];
-            return Array.from(survivorMap.values()).filter((s) => {
-              const sid = String(s?._id || '');
-              if (!sid || sid === attackerId || sid === primaryId) return false;
-              if (newDeadIds.includes(sid) || Number(s?.hp || 0) <= 0) return false;
-              if (String(s?.zoneId || '') !== zoneId) return false;
-              return !areSameTeam(attacker, s);
-            });
-          };
-
-          const applyCharacterSkillSplashDamage = (attacker, splashHits) => {
-            if (!attacker || !Array.isArray(splashHits) || splashHits.length <= 0) return 0;
-            let total = 0;
-            for (const hit of splashHits) {
-              const splashTarget = hit?.target;
-              const targetId = String(splashTarget?._id || '');
-              if (!targetId || newDeadIds.includes(targetId) || Number(splashTarget?.hp || 0) <= 0) continue;
-              const raw = Math.max(0, Number(hit?.damage || 0));
-              if (raw <= 0) continue;
-              const prevDamagedBySplash = String(splashTarget?.lastDamagedBy || '');
-              const prevDamagedPhaseIdxSplash = Number(splashTarget?.lastDamagedPhaseIdx ?? -9999);
-              const finalSplash = shieldBlock(splashTarget, raw);
-              if (finalSplash <= 0) continue;
-              splashTarget.hp = Math.max(0, Number(splashTarget.hp || 0) - finalSplash);
-              splashTarget.lastDamagedBy = String(attacker?._id || '');
-              splashTarget.lastDamagedPhaseIdx = phaseIdxNow;
-              total += finalSplash;
-              addLog(`🌀 광역 피해: [${attacker.name}] ${String(hit?.skill || '스킬')} → [${splashTarget.name}] -${finalSplash}`, 'highlight');
-              emitRunEvent('battle', {
-                a: String(attacker?._id || ''),
-                b: targetId,
-                winner: Number(splashTarget.hp || 0) <= 0 ? String(attacker?._id || '') : '',
-                lethal: Number(splashTarget.hp || 0) <= 0,
-                zoneId: String(splashTarget?.zoneId || attacker?.zoneId || ''),
-                subkind: 'character_skill_splash',
-              }, atNow());
-              grantPvpDamageMastery(attacker, { damageDealt: finalSplash, damageTaken: 0 }, '스킬 광역');
-              if (Number(splashTarget.hp || 0) <= 0) {
-                applyCombatElimination(attacker, splashTarget, {
-                  prevDamagedBy: prevDamagedBySplash,
-                  prevDamagedPhaseIdx: prevDamagedPhaseIdxSplash,
-                  killText: '스킬 처치',
-                  deathReason: 'character_skill_splash',
-                  deathCauseName: `${String(hit?.skill || '스킬')} 광역 피해`,
-                  damageDealt: finalSplash,
-                });
-              } else {
-                upsertRuntimeSurvivor(survivorMap, splashTarget);
-              }
-            }
-            return total;
-          };
 
           const atkDmgToLoser = applyCombatTacAttack(battleWinner, loser, dmgToLoser);
           const atkDmgToWinner = applyCombatTacAttack(loser, battleWinner, dmgToWinner);
