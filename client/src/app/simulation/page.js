@@ -21,7 +21,6 @@ import {
   perkNumber,
   applyPerkCreditBonus,
   maybeBoostDropQty,
-  normalizeRuntimeSurvivorList,
   getInvItemId,
   extractActorNameFromLog,
   uniqStr,
@@ -49,7 +48,6 @@ import {
   normalizeMatchMode,
   getMatchConfig,
   applyMatchTeams,
-  getMatchStartInfo,
 } from './_lib/matchRosterRuntime';
 import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
 import {
@@ -58,13 +56,12 @@ import {
 import { useSimulationInitialData } from './_lib/useSimulationInitialData';
 import { useSimulationRuntimeGuards } from './_lib/useSimulationRuntimeGuards';
 import { useHyperloopPickLog } from './_lib/useHyperloopPickLog';
-import { createPhaseDeathRuntime } from './_lib/phaseDeathRuntime';
 import { logRuntimeEffectResults } from './_lib/runtimeStatus';
-import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { useSimulationMarketState } from './_lib/useSimulationMarketState';
 import { useSimulationMarketActions } from './_lib/useSimulationMarketActions';
 import { useSimulationMapActions } from './_lib/useSimulationMapActions';
 import { useSimulationDevToolActions } from './_lib/useSimulationDevToolActions';
+import { useSimulationPhaseController } from './_lib/useSimulationPhaseController';
 import { useSimulationLogs } from './_lib/useSimulationLogs';
 import { useSimulationRunSeed } from './_lib/useSimulationRunSeed';
 import { useSimulationFlowState } from './_lib/useSimulationFlowState';
@@ -73,21 +70,7 @@ import { useSimulationDerivedData } from './_lib/useSimulationDerivedData';
 import { useSimulationMapState } from './_lib/useSimulationMapState';
 import { useSimulationParticipantPresets } from './_lib/useSimulationParticipantPresets';
 import { useSimulationEventActions } from './_lib/useSimulationEventActions';
-import {
-  beginSimulationPhase,
-  prepareForbiddenZonePhase,
-} from './_lib/phasePreparationRuntime';
-import {
-  buildStarterLoadoutSurvivorsForPhase,
-  prepareWorldSpawnsForPhase,
-} from './_lib/phaseSpawnRuntime';
-import { runPhaseRevival } from './_lib/phaseRevivalRuntime';
-import { runPhaseActorActionPipeline } from './_lib/phaseActorActionPipelineRuntime';
-import { finalizeSimulationPhase } from './_lib/phaseFinalizationRuntime';
-import { runPvpActionLoop } from './_lib/phasePvpActionLoopRuntime';
-import { runPhaseWorldResolution } from './_lib/phaseWorldResolutionRuntime';
 
-const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
 const DEV_SELECT_RENDER_LIMIT = 80;
 const DEV_EVENT_PREVIEW_LIMIT = 80;
@@ -656,514 +639,103 @@ export default function SimulationPage() {
     },
   });
 
-  // 최신 킬 정보 전달
-  async function finishGame(finalSurvivors, latestKillCounts, latestAssistCounts, options = {}) {
-    return finishSimulationGame({
-      finalSurvivors,
-      latestAssistCounts,
-      latestKillCounts,
-      options,
-      refs: {
-        fullLogsRef,
-        isFinishingRef,
-      },
-      state: {
-        assistCounts,
-        dead,
-        killCounts,
-        settings,
-      },
-      actions: {
-        addLog,
-        setAutoPlay,
-        setCredits,
-        setIsGameOver,
-        setResultSummary,
-        setShowResultModal,
-        setWinner,
-      },
-    });
-  };
-  const finishGameRef = useRef(finishGame);
-
-  useEffect(() => {
-    finishGameRef.current = finishGame;
-  });
-
-  // --- [핵심] 진행 로직 ---
-  async function proceedPhase() {
-    const {
-      atNow,
-      baseCredits,
-      battleSettings,
-      canReviveThisMatch,
-      currentActionSec,
-      fogLocalSec,
-      getPhaseRuntimeOffsetSec,
-      isSoloMatch,
-      marketRules,
-      matchCfgNow,
-      nextDay,
-      nextPhase,
-      phaseDurationSec,
-      phaseIdxNow,
-      phaseStartSec,
-      reserveActionSecond,
-      reserveVisibleSecond,
-      ruleset,
-      runVisibleClockToPhaseEnd,
-      tickSec,
-      useDetonation,
-    } = beginSimulationPhase({
-      refs: {
-        autoSpeedRef,
-        suddenDeathActiveRef,
-        suddenDeathEndAtSecRef,
-      },
-      state: {
-        autoSpeed,
-        day,
-        matchSec,
-        phase,
-        settings,
-      },
-      actions: {
-        addLog,
-        normalizeAutoSpeed,
-        resetPhaseLogs,
-        setDay,
-        setMatchSec,
-        setPhase,
-      },
-    });
-    let earnedCredits = baseCredits;
-
-    // 🎁 초월 선택 상자(개발자 도구): 한 페이즈에 1개만 선택 대기(나머지는 자동 선택)
-    let pendingPickAssigned = false;
-
-    // 2. 맵 내부 구역 이동 + 금지구역(구역 기반) 데미지
-    const {
-      damagePerTick,
-      forbiddenIds,
-      mapIdNow,
-      mapObj,
-      suddenDeathSafeZoneIds,
-      totalZones,
-    } = prepareForbiddenZonePhase({
-      refs: {
-        activeMapIdRef,
-        activeMapRef,
-        suddenDeathActiveRef,
-        suddenDeathForbiddenAnnouncedRef,
-      },
-      state: {
-        activeMap,
-        activeMapId,
-        nextDay,
-        nextPhase,
-        ruleset,
-        settings,
-        useDetonation,
-        zones,
-      },
-      helpers: {
-        getForbiddenAddedZoneIdsForPhase,
-        getForbiddenZoneIdsForPhase,
-        getZoneName,
-      },
-      actions: {
-        addLog,
-        setForbiddenAddedNow,
-      },
-    });
-
-    const {
-      reviveCutoffIdx,
-      revivedNow,
-    } = runPhaseRevival({
-      state: {
-        canReviveThisMatch,
-        dead,
-        forbiddenIds,
-        mapObj,
-        phaseIdxNow,
-        phaseStartSec,
-        publicItems,
-        reviveCfg: ruleset?.revive || {},
-        ruleset,
-        survivors,
-        useDetonation,
-      },
-      actions: {
-        addLog,
-        atNow,
-        emitRunEvent,
-        setDead,
-      },
-    });
-    const nextSpawn = prepareWorldSpawnsForPhase({
-      state: {
-        forbiddenIds,
-        mapIdNow,
-        mapObj,
-        matchMode: matchCfgNow.matchMode,
-        nextDay,
-        nextPhase,
-        ruleset,
-        spawnState,
-        zones,
-      },
-      actions: {
-        addLog,
-        atNow,
-        emitRunEvent,
-      },
-    });
-
-    let phaseSurvivors = buildStarterLoadoutSurvivorsForPhase({
-      refs: {
-        startStarterLoadoutAppliedRef,
-      },
-      state: {
-        nextDay,
-        nextPhase,
-        publicItems,
-        ruleset,
-        survivors,
-      },
-      actions: {
-        addLog,
-      },
-    });
-
-
-    // ✅ 부활자는 이번 페이즈부터 다시 생존자로 합류
-    if (revivedNow.length) phaseSurvivors = [...phaseSurvivors, ...revivedNow];
-    phaseSurvivors = normalizeRuntimeSurvivorList(phaseSurvivors);
-
-    // 1일차 장비 성장은 실제 레시피 제작을 우선합니다. 추상 장비 생성은 데이터 누락 시 fallback으로만 사용합니다.
-
-    const newlyDead = [];
-    const phaseDeathLogStartIndex = Array.isArray(fullLogEntriesRef.current) ? fullLogEntriesRef.current.length : 0;
-    const {
-      appendPhaseDeadSnapshots,
-      emitDeathRunEventOnce,
-      flushDeadSnapshots,
-      phaseDeadSnapshots,
-      reconcileZeroHpDeaths,
-      setDeathMetadata,
-    } = createPhaseDeathRuntime({
-      addLog,
-      atNow,
-      currentActionSec,
-      emitRunEvent,
+  const {
+    proceedPhaseGuarded,
+    startBlocked,
+    startBlockedText,
+  } = useSimulationPhaseController({
+    refs: {
+      activeMapIdRef,
+      activeMapRef,
+      autoSpeedRef,
       fullLogEntriesRef,
-      phaseDeathLogStartIndex,
-      phaseIdxNow,
-      ruleset,
+      fullLogsRef,
+      isAdvancingRef,
+      isFinishingRef,
+      proceedPhaseGuardedRef,
+      startStarterLoadoutAppliedRef,
+      suddenDeathActiveRef,
+      suddenDeathEndAtSecRef,
+      suddenDeathForbiddenAnnouncedRef,
+    },
+    state: {
+      activeMap,
+      activeMapId,
+      assistCounts,
+      autoPlay,
+      autoSpeed,
+      craftables,
+      day,
+      dead,
+      droneOffers,
+      isAdvancing,
+      isGameOver,
+      itemKeyById,
+      itemMetaById,
+      itemNameById,
+      kiosks,
+      killCounts,
+      loading,
+      matchSec,
+      pendingTranscendPick,
+      phase,
+      publicItems,
+      runSeed,
+      selectedCharId,
+      settings,
+      showMarketPanel,
+      spawnState,
+      survivors,
+      zoneGraph,
+      zones,
+    },
+    helpers: {
+      getForbiddenAddedZoneIdsForPhase,
+      getForbiddenZoneIdsForPhase,
+      getZoneName,
+      isHyperloopTransit,
+    },
+    actions: {
+      addLog,
+      applyErTraitAfterBattle,
+      applyErWeaponSkillAfterCombat,
+      applyLootCraftResult,
+      applyUserEconomyProgress,
+      emitConsumableRunEvent,
+      emitCraftRunEvent,
+      emitEffectRunEvents,
+      emitItemGainIfAny,
+      emitObjectiveRunEvent,
+      emitQueueRunEvent,
+      emitRunEvent,
+      grantMasteries,
+      grantMastery,
+      grantPvpDamageMastery,
+      grantPvpKillMastery,
+      normalizeAutoSpeed,
+      persistSimEquipmentsFromChars,
+      refreshMapSettingsFromServer,
+      resetPhaseLogs,
+      setAssistCounts,
+      setAutoPlay,
+      setCredits,
+      setDay,
       setDead,
-    });
-    const movePowerContext = { ruleset, battleSettings };
-    const actorActionPipelineResult = runPhaseActorActionPipeline({
-      state: {
-        canReviveThisMatch,
-        craftables,
-        currentActionSec,
-        damagePerTick,
-        droneOffers,
-        forbiddenIds,
-        hyperloopDelaySec: HYPERLOOP_DELAY_SEC,
-        isSoloMatch,
-        itemKeyById,
-        itemMetaById,
-        itemNameById,
-        kiosks,
-        mapObj,
-        marketRules,
-        movePowerContext,
-        nextDay,
-        nextPhase,
-        nextSpawn,
-        pendingPickAssigned,
-        pendingTranscendPick,
-        phaseDurationSec,
-        phaseIdxNow,
-        phaseSurvivors,
-        publicItems,
-        reviveCutoffIdx,
-        ruleset,
-        selectedCharId,
-        showMarketPanel,
-        useDetonation,
-        zoneGraph,
-        zones,
-      },
-      actions: {
-        addLog,
-        applyLootCraftResult,
-        atNow,
-        emitCraftRunEvent,
-        emitDeathRunEventOnce,
-        emitItemGainIfAny,
-        emitObjectiveRunEvent,
-        emitQueueRunEvent,
-        emitRunEvent,
-        getZoneName,
-        grantMastery,
-        grantMasteries,
-        isHyperloopTransit,
-        reserveActionSecond,
-        setDeathMetadata,
-        setPendingTranscendPick,
-      },
-    });
-    pendingPickAssigned = actorActionPipelineResult.pendingPickAssigned;
-    if (Array.isArray(actorActionPipelineResult.newlyDead) && actorActionPipelineResult.newlyDead.length) {
-      newlyDead.push(...actorActionPipelineResult.newlyDead);
-    }
-    let updatedSurvivors = Array.isArray(actorActionPipelineResult.updatedSurvivors)
-      ? actorActionPipelineResult.updatedSurvivors
-      : [];
-
-    const worldResolutionResult = runPhaseWorldResolution({
-      refs: {
-        suddenDeathActiveRef,
-      },
-      state: {
-        canReviveThisMatch,
-        currentActionSec,
-        fogLocalSec,
-        forbiddenIds,
-        isSoloMatch,
-        itemMetaById,
-        itemNameById,
-        mapObj,
-        movePowerContext,
-        newlyDead,
-        nextDay,
-        nextPhase,
-        nextSpawn,
-        phaseDurationSec,
-        phaseIdxNow,
-        phaseStartSec,
-        publicItems,
-        reviveCutoffIdx,
-        ruleset,
-        suddenDeathSafeZoneIds,
-        tickSec,
-        updatedSurvivors,
-        useDetonation,
-        zoneGraph,
-        zones,
-      },
-      actions: {
-        addLog,
-        appendPhaseDeadSnapshots,
-        atNow,
-        emitDeathRunEventOnce,
-        emitItemGainIfAny,
-        emitRunEvent,
-        flushDeadSnapshots,
-        getZoneName,
-        setDeathMetadata,
-      },
-    });
-    updatedSurvivors = worldResolutionResult.updatedSurvivors;
-    const pvpActionLoopResult = await runPvpActionLoop({
-      state: {
-        battleSettings,
-        canReviveThisMatch,
-        craftables,
-        currentActionSec,
-        fogLocalSec,
-        forbiddenIds,
-        getPhaseRuntimeOffsetSec,
-        isSoloMatch,
-        itemMetaById,
-        itemNameById,
-        mapObj,
-        nextDay,
-        nextPhase,
-        phaseDurationSec,
-        phaseIdxNow,
-        phaseSurvivors,
-        publicItems,
-        reviveCutoffIdx,
-        ruleset,
-        tickSec,
-        updatedSurvivors,
-        useDetonation,
-        zoneGraph,
-      },
-      actions: {
-        addEarnedCredits: (amount) => {
-          earnedCredits += Math.max(0, Number(amount || 0));
-        },
-        addLog,
-        appendPhaseDeadSnapshots,
-        applyErTraitAfterBattle,
-        applyErWeaponSkillAfterCombat,
-        atNow,
-        emitConsumableRunEvent,
-        emitDeathRunEventOnce,
-        emitEffectRunEvents,
-        emitRunEvent,
-        flushDeadSnapshots,
-        getZoneName,
-        grantPvpDamageMastery,
-        grantPvpKillMastery,
-        reserveVisibleSecond,
-        setDeathMetadata,
-      },
-    });
-    const {
-      estimatePower,
-      newDeadIds,
-      roundAssists,
-      roundKills,
-      survivorMap,
-    } = pvpActionLoopResult;
-    const phaseFinalizationResult = await finalizeSimulationPhase({
-      refs: {
-        suddenDeathActiveRef,
-        suddenDeathEndAtSecRef,
-      },
-      state: {
-        assistCounts,
-        baseCredits,
-        canReviveThisMatch,
-        dead,
-        earnedCredits,
-        estimatePower,
-        getPhaseRuntimeOffsetSec,
-        isSoloMatch,
-        killCounts,
-        matchSec,
-        newDeadIds,
-        nextDay,
-        nextPhase,
-        nextSpawn,
-        phaseDeadSnapshots,
-        phaseDurationSec,
-        phaseIdxNow,
-        phaseStartSec,
-        reviveCutoffIdx,
-        roundAssists,
-        roundKills,
-        ruleset,
-        survivorMap,
-      },
-      actions: {
-        addLog,
-        appendPhaseDeadSnapshots,
-        applyUserEconomyProgress,
-        emitDeathRunEventOnce,
-        finishGame,
-        flushDeadSnapshots,
-        persistSimEquipmentsFromChars,
-        reconcileZeroHpDeaths,
-        runVisibleClockToPhaseEnd,
-        setAssistCounts,
-        setDeathMetadata,
-        setKillCounts,
-        setMatchSec,
-        setSpawnState,
-        setSurvivors,
-      },
-    });
-    if (phaseFinalizationResult?.shouldReturn) return;
-  };
-
-  // 진행 버튼/오토 플레이 공용 가드(중복 호출 방지)
-  async function proceedPhaseGuarded() {
-    if (isAdvancingRef.current) return;
-    if (loading) return;
-    if (isGameOver) return;
-    const startInfo = getMatchStartInfo(survivors, settings);
-    if (day === 0 && !startInfo.ready) {
-      const needText = startInfo.matchMode === 'solo' ? '솔로는 생존자 2명 이상이 필요합니다.' : '스쿼드는 서로 다른 팀 2개 이상이 필요합니다.';
-      addLog(`⚠️ 게임 시작 불가: ${needText} (현재 ${startInfo.participantCount}명 / ${startInfo.teamCount}팀)`, 'system');
-      return;
-    }
-if (showMarketPanel && pendingTranscendPick) {
-      addLog('🎁 초월 장비 선택 상자: 먼저 선택을 완료하세요.', 'system');
-      return;
-    }
-
-    isAdvancingRef.current = true;
-    setIsAdvancing(true);
-    try {
-      // ✅ "게임 시작" 순간(0일차 첫 진행)에는 맵 설정을 서버에서 강제 새로고침하여,
-      //    Admin에서 수정한 crateAllowDeny 등이 즉시 반영되게 합니다.
-      if (day === 0 && matchSec === 0) {
-        await refreshMapSettingsFromServer('start');
-      }
-
-      // 🧾 런 시작(시드 재현): "첫 진행" 순간에만 1회 기록
-      if (day === 0 && matchSec === 0) {
-        setRunEvents([{
-          kind: 'run_start',
-          at: { day, phase, sec: matchSec },
-          seed: runSeed,
-          matchMode: startInfo.matchMode,
-          teamSize: startInfo.teamSize,
-          maxTeams: startInfo.maxTeams,
-          participantCount: startInfo.participantCount,
-          teamCount: startInfo.teamCount,
-        }]);
-      }
-      await proceedPhase();
-    } finally {
-      isAdvancingRef.current = false;
-      setIsAdvancing(false);
-    }
-  };
-
-  // 오토 플레이가 항상 최신 proceed를 호출하도록 ref에 연결
-  useEffect(() => {
-    proceedPhaseGuardedRef.current = proceedPhaseGuarded;
+      setForbiddenAddedNow,
+      setIsAdvancing,
+      setIsGameOver,
+      setKillCounts,
+      setMatchSec,
+      setPendingTranscendPick,
+      setPhase,
+      setResultSummary,
+      setRunEvents,
+      setShowResultModal,
+      setSpawnState,
+      setSurvivors,
+      setWinner,
+    },
   });
-
-  const matchStartInfo = getMatchStartInfo(survivors, settings);
-  const startBlocked = day === 0 && !matchStartInfo.ready;
-  const startBlockedText = matchStartInfo.matchMode === 'solo'
-    ? `⚠️ 솔로 인원 부족 (${matchStartInfo.participantCount}/2명)`
-    : `⚠️ 팀 부족 (${matchStartInfo.teamCount}/2팀 · ${matchStartInfo.participantCount}명)`;
-
-  // ✅ 생존자 1명(또는 0명) 남으면 즉시 종료(틱/타이머 사망도 포함)
-  useEffect(() => {
-    if (loading || isGameOver) return;
-    if (day === 0) return;
-    if (!Array.isArray(survivors)) return;
-    const aliveTeams = getAliveTeams(survivors);
-    if (aliveTeams.length > 1) return;
-    const finalSurvivors = aliveTeams[0]?.members || survivors;
-    const id = window.setTimeout(() => {
-      finishGameRef.current?.(finalSurvivors, killCounts, assistCounts);
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [survivors, day, loading, isGameOver, killCounts, assistCounts]);
-
-
-  // ▶ 오토 플레이: matchSec(페이즈 종료 시 증가)를 트리거로 다음 페이즈를 자동 진행
-  useEffect(() => {
-    if (!autoPlay) return;
-    if (loading) return;
-    if (isAdvancing) return;
-    if (isGameOver) return;
-    if (showMarketPanel && pendingTranscendPick) return;
-    if (startBlocked) return;
-
-    const speed = normalizeAutoSpeed(autoSpeedRef.current || autoSpeed);
-    const delayMs = Math.max(80, Math.round(220 / speed));
-
-    const id = window.setTimeout(() => {
-      // ref를 통해 최신 함수 호출
-      proceedPhaseGuardedRef.current?.();
-    }, delayMs);
-
-    return () => window.clearTimeout(id);
-  }, [autoPlay, autoSpeed, autoSpeedRef, matchSec, loading, isAdvancing, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked, normalizeAutoSpeed, proceedPhaseGuardedRef]);
 
   const {
     acceptTradeOffer,
