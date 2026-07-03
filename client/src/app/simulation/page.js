@@ -6,11 +6,9 @@ import { apiPost } from '../../utils/api';
 import { buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
-  EFFECT_KNOCKBACK,
   EFFECT_STUN,
   applyHealingModifier,
   getCooldownTickMultiplier,
-  getKnockbackDistance,
   getLifestealPercent,
   getRegenValue,
   getShieldValue,
@@ -77,7 +75,6 @@ import {
   consumeShieldDamage,
   clearPostCombatEffects,
   hasKioskAtZone,
-  removeActiveEffect,
   findDimensionRiftGiftItem,
   getDimensionRiftGiftMeta,
   listActiveDimensionRifts,
@@ -218,6 +215,10 @@ import {
   prepareWorldSpawnsForPhase,
 } from './_lib/phaseSpawnRuntime';
 import { applyActorPhaseStatusTick } from './_lib/phaseActorStatusRuntime';
+import {
+  applyActorKnockbackMovement,
+  initializeActorPhaseMovementState,
+} from './_lib/phaseActorMovementRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1094,33 +1095,29 @@ export default function SimulationPage() {
         }
 
         // --- 이동 ---
-updated.simCredits = updated.simCredits ?? 0;
-updated.droneLastOrderIndex = updated.droneLastOrderIndex ?? -9999;
-updated.droneLastOrderAbsSec = updated.droneLastOrderAbsSec ?? -99999;
-updated.kioskLastInteractAbsSec = updated.kioskLastInteractAbsSec ?? -99999;
-updated.aiTargetZoneId = updated.aiTargetZoneId ?? null;
-updated.aiTargetTTL = updated.aiTargetTTL ?? 0;
-updated.inventory = Array.isArray(updated.inventory) ? updated.inventory : [];
-updated.inventory = normalizeInventory(updated.inventory, ruleset);
-updated._itemKeyById = itemKeyById;
+        updated = initializeActorPhaseMovementState(updated, {
+          itemKeyById,
+          ruleset,
+        });
 
-let currentZone = String(updated.zoneId || zones[0]?.zoneId || '__default__');
-let neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
-const knockbackDistance = getKnockbackDistance(updated);
-if (knockbackDistance > 0 && neighbors.length > 0) {
-  const safeNeighbors = neighbors.filter((zid) => !forbiddenIds.has(String(zid)));
-  const candidates = safeNeighbors.length ? safeNeighbors : neighbors;
-  const pushedZone = String(candidates[Math.floor(Math.random() * candidates.length)] || currentZone);
-  if (pushedZone && pushedZone !== currentZone) {
-    updated.zoneId = pushedZone;
-    removeActiveEffect(updated, EFFECT_KNOCKBACK);
-    addLog(`↔️ [${updated.name}] 밀려남: ${getZoneName(currentZone)} → ${getZoneName(pushedZone)}`, 'system');
-    emitRunEvent('move', { who: String(updated?._id || ''), name: updated?.name, from: currentZone, to: pushedZone, reason: 'knockback' }, atNow());
-    currentZone = pushedZone;
-    neighbors = Array.isArray(zoneGraph[currentZone]) ? zoneGraph[currentZone] : [];
-  }
-}
-let nextZoneId = currentZone;
+        const knockbackMovement = applyActorKnockbackMovement({
+          state: {
+            actor: updated,
+            forbiddenIds,
+            zoneGraph,
+            zones,
+          },
+          actions: {
+            addLog,
+            atNow,
+            emitRunEvent,
+            getZoneName,
+          },
+        });
+        updated = knockbackMovement.actor;
+        let currentZone = knockbackMovement.currentZone;
+        let neighbors = knockbackMovement.neighbors;
+        let nextZoneId = currentZone;
 
 const mustEscape = forbiddenIds.has(currentZone);
 
