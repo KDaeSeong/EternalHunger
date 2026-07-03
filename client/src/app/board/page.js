@@ -16,6 +16,13 @@ const BOARD_CATEGORIES = [
   { value: 'game', label: '게임' },
 ];
 
+const BOARD_SORTS = [
+  { value: 'latest', label: '최신순' },
+  { value: 'popular', label: '인기순' },
+  { value: 'views', label: '조회순' },
+  { value: 'comments', label: '댓글순' },
+];
+
 function formatDate(value) {
   if (!value) return '날짜 없음';
   const date = new Date(value);
@@ -106,6 +113,7 @@ export default function BoardPage() {
   const [writerOpen, setWriterOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('latest');
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -125,6 +133,7 @@ export default function BoardPage() {
       const params = new URLSearchParams();
       if (query.trim()) params.set('q', query.trim());
       if (categoryFilter) params.set('category', categoryFilter);
+      if (sortOrder && sortOrder !== 'latest') params.set('sort', sortOrder);
       const suffix = params.toString() ? `?${params.toString()}` : '';
       const data = await apiGetCached(`/posts${suffix}`, {
         ttlMs: 10000,
@@ -140,7 +149,7 @@ export default function BoardPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, query, showToast]);
+  }, [categoryFilter, query, showToast, sortOrder]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -151,8 +160,10 @@ export default function BoardPage() {
     const params = new URLSearchParams(window.location.search);
     const nextQuery = safeText(params.get('q'), '');
     const nextCategory = safeText(params.get('category'), '');
+    const nextSort = safeText(params.get('sort'), '');
     if (nextQuery) setQuery(nextQuery);
     if (BOARD_CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
+    if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
   }, []);
 
   useEffect(() => {
@@ -261,6 +272,14 @@ export default function BoardPage() {
               <option value="">전체</option>
               {BOARD_CATEGORIES.map((category) => (
                 <option key={category.value} value={category.value}>{category.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="board-search board-sort-filter">
+            <span>정렬</span>
+            <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+              {BOARD_SORTS.map((sort) => (
+                <option key={sort.value} value={sort.value}>{sort.label}</option>
               ))}
             </select>
           </label>

@@ -45,6 +45,25 @@ function normalizeCategoryFilter(value) {
   return POST_CATEGORIES.includes(category) ? category : '';
 }
 
+function normalizeSort(value) {
+  const sort = cleanText(value, 40);
+  return ['latest', 'popular', 'views', 'comments'].includes(sort) ? sort : 'latest';
+}
+
+function buildPostSort(sort) {
+  const pinned = { isNotice: -1, noticePinnedAt: -1 };
+  if (sort === 'popular') {
+    return { ...pinned, reactionCount: -1, viewCount: -1, commentCount: -1, createdAt: -1 };
+  }
+  if (sort === 'views') {
+    return { ...pinned, viewCount: -1, reactionCount: -1, commentCount: -1, createdAt: -1 };
+  }
+  if (sort === 'comments') {
+    return { ...pinned, commentCount: -1, reactionCount: -1, viewCount: -1, createdAt: -1 };
+  }
+  return { ...pinned, createdAt: -1 };
+}
+
 function escapeRegExp(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -155,6 +174,7 @@ router.get('/', async (req, res) => {
   try {
     const q = cleanText(req.query?.q, 80);
     const category = normalizeCategoryFilter(req.query?.category);
+    const sort = normalizeSort(req.query?.sort);
     const match = {};
     if (category) match.category = category;
     if (q) {
@@ -174,8 +194,6 @@ router.get('/', async (req, res) => {
 
     const posts = await Post.aggregate([
       ...(Object.keys(match).length ? [{ $match: match }] : []),
-      { $sort: { isNotice: -1, noticePinnedAt: -1, createdAt: -1 } },
-      { $limit: POST_LIST_LIMIT },
       {
         $project: {
           authorId: 1,
@@ -193,6 +211,8 @@ router.get('/', async (req, res) => {
           },
         },
       },
+      { $sort: buildPostSort(sort) },
+      { $limit: POST_LIST_LIMIT },
     ]);
     const authors = await getAuthorMap(posts.map((post) => post.authorId));
     res.json({
