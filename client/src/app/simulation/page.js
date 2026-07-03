@@ -2,12 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { buildErBehaviorModifier } from '../../utils/erMeta';
-import {
-  EFFECT_AIRBORNE,
-  EFFECT_STUN,
-  hasActionBlockStatus,
-} from '../../utils/statusLogic';
 import { getRuleset } from '../../utils/rulesets';
 import SiteHeader from '../../components/SiteHeader';
 import SimulationControlPanel from './_components/SimulationControlPanel';
@@ -24,33 +18,22 @@ import '../../styles/ERSimulation.css';
 import { areCharacterSkillsEnabled } from './_lib/characterSkillRuntime';
 import {
   itemIcon,
-  shuffleArray,
   perkNumber,
-  getPerkAggressionBias,
   applyPerkCreditBonus,
   maybeBoostDropQty,
   normalizeRuntimeSurvivorList,
-  buildRuntimeSurvivorMap,
-  upsertRuntimeSurvivor,
-  normalizeRuntimeSurvivor,
   getInvItemId,
-  getEquipMoveSpeed,
   extractActorNameFromLog,
   uniqStr,
   clampTier4,
   tierLabelKo,
-  applyAiRecoveryWindow,
-  isAiRecoveryLocked,
   classifySpecialByName,
   uniqStrings,
-  bfsPickSafestZone,
   inferEquipSlot,
-  hasActiveEffect,
   canReceiveItem,
   normalizeInventory,
   invQty,
   consumeIngredientsFromInv,
-  areSameTeam,
   getActorTeamCapacity,
   getActorTeamId,
   getActorTeamName,
@@ -62,7 +45,6 @@ import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
 import { runDimensionRiftPhase } from './_lib/phaseDimensionRiftRuntime';
 import {
   normalizeSatiety,
-  decayActorSatiety,
 } from './_lib/satietyRuntime';
 import { getRuntimeActorKey } from './_lib/runtimeParticipantRuntime';
 import {
@@ -83,21 +65,8 @@ import {
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
   getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
 } from './_lib/forbiddenZoneRuntime';
-import {
-  estimatePvpPower,
-  pickUnbiasedBattle as pickUnbiasedBattleRuntime,
-  shouldAvoidCombatByPvpPower,
-} from './_lib/pvpMatchupRuntime';
-import {
-  buildPvpPhaseRuntime,
-  pickPvpTarget as pickPvpTargetRuntime,
-} from './_lib/pvpPhaseRuntime';
-import { runPhaseCombatEncounter } from './_lib/phaseCombatEncounterRuntime';
 import { runSuddenDeathGatherPhase } from './_lib/suddenDeathRuntime';
 import { logRuntimeEffectResults } from './_lib/runtimeStatus';
-import {
-  createPhaseConsumableRuntime,
-} from './_lib/consumableRuntime';
 import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { createMarketActionRuntime } from './_lib/marketActionRuntime';
 import { createMapActionRuntime } from './_lib/mapActionRuntime';
@@ -122,6 +91,7 @@ import {
 import { runPhaseRevival } from './_lib/phaseRevivalRuntime';
 import { runPhaseActorActionPipeline } from './_lib/phaseActorActionPipelineRuntime';
 import { finalizeSimulationPhase } from './_lib/phaseFinalizationRuntime';
+import { runPvpActionLoop } from './_lib/phasePvpActionLoopRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1057,316 +1027,60 @@ export default function SimulationPage() {
 
     flushDeadSnapshots(appendPhaseDeadSnapshots(newlyDead));
 
+    const pvpActionLoopResult = await runPvpActionLoop({
+      state: {
+        battleSettings,
+        canReviveThisMatch,
+        craftables,
+        currentActionSec,
+        fogLocalSec,
+        forbiddenIds,
+        getPhaseRuntimeOffsetSec,
+        isSoloMatch,
+        itemMetaById,
+        itemNameById,
+        mapObj,
+        nextDay,
+        nextPhase,
+        phaseDurationSec,
+        phaseIdxNow,
+        phaseSurvivors,
+        publicItems,
+        reviveCutoffIdx,
+        ruleset,
+        tickSec,
+        updatedSurvivors,
+        useDetonation,
+        zoneGraph,
+      },
+      actions: {
+        addEarnedCredits: (amount) => {
+          earnedCredits += Math.max(0, Number(amount || 0));
+        },
+        addLog,
+        appendPhaseDeadSnapshots,
+        applyErTraitAfterBattle,
+        applyErWeaponSkillAfterCombat,
+        atNow,
+        emitConsumableRunEvent,
+        emitDeathRunEventOnce,
+        emitEffectRunEvents,
+        emitRunEvent,
+        flushDeadSnapshots,
+        getZoneName,
+        grantPvpDamageMastery,
+        grantPvpKillMastery,
+        reserveVisibleSecond,
+        setDeathMetadata,
+      },
+    });
     const {
-      assistWindowPhases,
-      battleProb,
-      isDay1MorningFarmPhase,
-      isEarlyRouteFarmingActor,
-      pvpMinSameZone,
-      pvpProbCfg,
-      restrictedRatio,
-      suddenDeath,
-      totalZonesCount,
-    } = buildPvpPhaseRuntime({
-      fogLocalSec,
-      forbiddenIds,
-      mapObj,
-      nextDay,
-      nextPhase,
-      ruleset,
-    });
-
-    // 전투 알고리즘 보정값(ER 느낌): 제한구역 압박/밤 여부를 전투 계산에도 전달
-    battleSettings.battle.pressure = restrictedRatio;
-    battleSettings.battle.isNight = (nextPhase === 'night');
-    const pvpMatchupContext = { ruleset, battleSettings, nextDay };
-    const estimatePower = (actor) => estimatePvpPower(actor, pvpMatchupContext);
-    const shouldAvoidCombatByPower = (actor, opponent) => shouldAvoidCombatByPvpPower(actor, opponent, pvpMatchupContext);
-    const pickUnbiasedBattle = (actor, opponent) => pickUnbiasedBattleRuntime(actor, opponent, pvpMatchupContext);
-
-    let survivorMap = buildRuntimeSurvivorMap(normalizeRuntimeSurvivorList(updatedSurvivors));
-    let todaysSurvivors = [];
-    let newDeadIds = [];
-    const refillActionWave = () => {
-      const liveActors = Array.from(survivorMap.values())
-        .filter((s) => s?._id && !newDeadIds.includes(s._id) && Number(s.hp || 0) > 0)
-        .map((s) => normalizeRuntimeSurvivor(s));
-      todaysSurvivors = shuffleArray(liveActors);
-      return todaysSurvivors.length;
-    };
-
-    // 이번 턴 킬 모아두기
-    let roundKills = {};
-    let roundAssists = {};
-
-    const consCfg = ruleset?.consumables || {};
-    const { tryUseConsumable } = createPhaseConsumableRuntime({
-      addLog,
-      atNow,
-      consCfg,
-      emitConsumableRunEvent,
-      emitEffectRunEvents,
-      phaseIdxNow,
+      estimatePower,
+      newDeadIds,
+      roundAssists,
+      roundKills,
       survivorMap,
-    });
-
-
-    // 3. 메인 루프
-    while (getPhaseRuntimeOffsetSec() < phaseDurationSec) {
-      if (todaysSurvivors.length <= 0 && refillActionWave() <= 0) break;
-
-      let actor = todaysSurvivors.pop();
-      actor = actor?._id ? survivorMap.get(String(actor._id)) : null;
-      if (!actor) continue;
-      actor = normalizeRuntimeSurvivor(actor);
-      decayActorSatiety(actor, consCfg?.satietyDecayPerAction ?? 1);
-      await reserveVisibleSecond(tickSec);
-
-      if (!actor?._id || newDeadIds.includes(actor._id) || actor.hp <= 0) continue;
-      if (hasActionBlockStatus(actor)) {
-        const blockName = hasActiveEffect(actor, EFFECT_STUN)
-          ? EFFECT_STUN
-          : hasActiveEffect(actor, EFFECT_AIRBORNE)
-            ? EFFECT_AIRBORNE
-            : '행동 불가';
-        addLog(`💫 [${actor.name}] ${blockName} 상태로 행동하지 못했습니다.`, 'system');
-        upsertRuntimeSurvivor(survivorMap, actor);
-        continue;
-      }
-
-      // 아이템 사용(전투 중 불가 / 전투 후 가능): 전투 외 타이밍에서만 호출
-      tryUseConsumable(actor, 'turn_start');
-
-      // ✅ 수집 이벤트 페널티: 다음 페이즈 1회 교전 확률 보너스
-      let gatherPvpBonus = 0;
-      const gatherUntil = Number(actor?._gatherPvpBonusUntilPhaseIdx ?? -1);
-      if (gatherUntil === phaseIdxNow) {
-        gatherPvpBonus = Math.max(0, Number(actor?._gatherPvpBonus || 0));
-      } else if (gatherUntil > -1 && gatherUntil < phaseIdxNow) {
-        actor._gatherPvpBonus = 0;
-        actor._gatherPvpBonusUntilPhaseIdx = null;
-      }
-
-      const actorRecoveryLocked = isAiRecoveryLocked(actor, currentActionSec());
-      const potentialTargets = todaysSurvivors.filter((t) => {
-        if (!t || newDeadIds.includes(t._id)) return false;
-        if (String(t?._id || '') === String(actor?._id || '')) return false;
-        if (areSameTeam(actor, t)) return false;
-        if (String(t?.zoneId || '') !== String(actor?.zoneId || '')) return false;
-        if (actorRecoveryLocked || isAiRecoveryLocked(t, currentActionSec())) return false;
-        return true;
-      });
-      const canDual = potentialTargets.length >= (pvpMinSameZone - 1);
-
-      // ✅ 즉시 위험(수집/사냥 직후): 같은 페이즈에서 '표적 우선' (다음 페이즈로 넘어가면 자동 해제)
-      const dangerUntil = Number(actor?._immediateDangerUntilPhaseIdx ?? -1);
-      if (dangerUntil > -1 && dangerUntil < phaseIdxNow) {
-        actor._immediateDanger = 0;
-        actor._immediateDangerUntilPhaseIdx = null;
-      }
-
-      const pvpTarget = canDual ? pickPvpTargetRuntime(potentialTargets, survivorMap, phaseIdxNow) : null;
-      const rand = Math.random();
-
-      const midgameCombatWindow = !suddenDeath && Number(nextDay || 0) >= 2 && Number(nextDay || 0) <= 4;
-      const lowHpAvoidCombat = !suddenDeath && Number(actor.hp || 0) > 0 && Number(actor.hp || 0) <= Number(ruleset?.ai?.recoverHpBelow ?? 38);
-      const densityFactor = Math.min(1, Math.max(0, potentialTargets.length / 3));
-      const pressureMult = 0.75 + 0.25 * restrictedRatio;
-      const densityMult = 0.55 + 0.45 * densityFactor;
-      const nightMult = (nextPhase === 'night') ? 1.05 : 1.0;
-      const actorAggro = getPerkAggressionBias(actor);
-      const midgameEncounterBonus = midgameCombatWindow ? Math.max(0, Number(pvpProbCfg.midgameEncounterBonus ?? 0.10)) : 0;
-      const lowHpEncounterMult = lowHpAvoidCombat
-        ? Math.max(0.12, Math.min(1, Number(midgameCombatWindow ? (pvpProbCfg.midgameLowHpEncounterMult ?? 0.70) : (pvpProbCfg.lowHpEncounterMult ?? 0.38))))
-        : 1;
-      const battleProb2Base = suddenDeath ? Math.max(0.95, battleProb) : (battleProb * densityMult * pressureMult * nightMult * lowHpEncounterMult);
-      const actorMs = getEquipMoveSpeed(actor);
-      const actorEr = buildErBehaviorModifier(actor, battleSettings);
-      const earlyRouteFarming = isEarlyRouteFarmingActor(actor);
-      const immediateDangerNow = Number(actor?._immediateDanger || 0) > 0 && Number(actor?._immediateDangerUntilPhaseIdx ?? -1) === phaseIdxNow;
-      const actorObjectivePressure = Number(actor?._objectiveContestUntilPhaseIdx ?? -1) === phaseIdxNow
-        ? Math.max(0, Number(actor?._objectiveContestPressure || 0))
-        : 0;
-      if (Number(actor?._objectiveContestUntilPhaseIdx ?? -1) > -1 && Number(actor?._objectiveContestUntilPhaseIdx ?? -1) < phaseIdxNow) {
-        actor._objectiveContestType = '';
-        actor._objectiveContestSubkind = '';
-        actor._objectiveContestPressure = 0;
-        actor._objectiveContestUntilPhaseIdx = null;
-      }
-      const targetObjectivePressure = pvpTarget && Number(pvpTarget?._objectiveContestUntilPhaseIdx ?? -1) === phaseIdxNow
-        ? Math.max(0, Number(pvpTarget?._objectiveContestPressure || 0))
-        : 0;
-      const objectiveEncounterBonus = suddenDeath ? 0 : Math.max(actorObjectivePressure, targetObjectivePressure);
-      const earlyFarmEncounterMult = earlyRouteFarming ? Math.max(0.05, Math.min(1, Number(pvpProbCfg.earlyRouteFarmEncounterMult ?? 0.38))) : 1;
-      const evadeBonus = suddenDeath ? 0 : Math.min(0.18, actorMs * 0.9); // 이동속도 높을수록 교전 회피(추격 회피)
-      const aggressionEncounterBonus = suddenDeath ? 0 : Math.max(-0.06, Math.min(0.16, actorAggro * 0.18));
-      const erEncounterBonus = suddenDeath ? 0 : Math.max(-0.08, Math.min(0.16, Number(actorEr?.aggressionBias || 0) + Number(actorEr?.chaseBonus || 0) * 0.35 - Number(actorEr?.escapeBonus || 0) * 0.45));
-      const battleProb2 = isDay1MorningFarmPhase
-        ? 0
-        : Math.min(0.99, Math.max(0, battleProb2Base * earlyFarmEncounterMult + gatherPvpBonus * (earlyRouteFarming ? 0.55 : 1) + objectiveEncounterBonus + midgameEncounterBonus + aggressionEncounterBonus + erEncounterBonus - evadeBonus));
-      if (lowHpAvoidCombat && canDual) {
-        addLog(`🛡️ [${actor.name}] 저HP로 교전 회피`, 'system');
-      }
-
-      // 전투력 열세면 교전 회피 + 인접 안전 구역으로 이동(가능할 때)
-      if (canDual && earlyRouteFarming && rand < battleProb2 && pvpTarget) {
-        const baseAvoid = Number(pvpProbCfg.earlyRouteFarmAvoidChance ?? 0.72);
-        const avoidChance = Math.max(0.12, Math.min(0.92,
-          baseAvoid
-          + Number(actorEr?.escapeBonus || 0) * 0.55
-          - Math.max(0, actorAggro) * 0.12
-          - (immediateDangerNow ? 0.28 : 0)
-        ));
-        if (Math.random() < avoidChance) {
-          const from = String(actor?.zoneId || '');
-          const pop = {};
-          for (const s of survivorMap.values()) {
-            if (!s || Number(s.hp || 0) <= 0) continue;
-            if (newDeadIds.includes(s._id)) continue;
-            const zid = String(s.zoneId || '');
-            if (!zid) continue;
-            pop[zid] = (pop[zid] || 0) + 1;
-          }
-          const depthMax = Math.max(1, Math.floor(Number(ruleset?.ai?.safeSearchDepth ?? 3)));
-          const minDelta = Math.max(0, Math.floor(Number(ruleset?.ai?.recoverMinSaferDelta ?? 1)));
-          const pick = bfsPickSafestZone(from, zoneGraph, forbiddenIds, pop, { maxDepth: depthMax, minDelta });
-          const dest = String(pick?.nextStep || '');
-          if (dest && dest !== from) {
-            actor.zoneId = dest;
-            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'early_route_avoid', opponentId: String(pvpTarget?._id || ''), recoverSec: 4, safeZoneSec: 3 });
-            upsertRuntimeSurvivor(survivorMap, actor);
-            addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'early_route_avoid' }, atNow());
-          } else {
-            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'early_route_avoid_hold', opponentId: String(pvpTarget?._id || ''), recoverSec: 3 });
-            addLog(`🏃 [${actor.name}] 초반 루트 파밍 중 교전 회피`, 'system');
-          }
-          continue;
-        }
-      }
-
-      if (canDual && rand < battleProb2) {
-        const targetEval = pvpTarget;
-        const avoidInfo = targetEval ? shouldAvoidCombatByPower(actor, targetEval) : null;
-        if (avoidInfo) {
-          const oppName = String(targetEval?.name || '상대');
-          const delta = Number(avoidInfo.opP || 0) - Number(avoidInfo.myP || 0);
-          const avoidChanceBase = Number(ruleset?.ai?.fightAvoidChance ?? 0.75);
-          const avoidChance = Math.min(0.95, avoidChanceBase + Math.min(0.25, actorMs * 1.5)); // 신발 이속이 높을수록 회피 확률 증가
-          const extremeRatio = Number(ruleset?.ai?.fightAvoidExtremeRatio ?? 0.30);
-          const extremeDelta = Number(ruleset?.ai?.fightAvoidExtremeDelta ?? 25);
-          const willAvoid = suddenDeath ? false : ((avoidInfo.ratio < extremeRatio || delta >= extremeDelta) ? true : (Math.random() < avoidChance));
-
-          if (!willAvoid) {
-            addLog(`🔥 [${actor.name}] 불리하지만 [${oppName}]과 교전합니다!`, 'highlight');
-          } else {
-          const from = String(actor?.zoneId || '');
-          const pop = {};
-          for (const s of survivorMap.values()) {
-            if (!s || Number(s.hp || 0) <= 0) continue;
-            if (newDeadIds.includes(s._id)) continue;
-            const zid = String(s.zoneId || '');
-            if (!zid) continue;
-            pop[zid] = (pop[zid] || 0) + 1;
-          }
-
-          const depthMax = Math.max(1, Math.floor(Number(ruleset?.ai?.safeSearchDepth ?? 3)));
-          const minDelta = Math.max(0, Math.floor(Number(ruleset?.ai?.recoverMinSaferDelta ?? 1)));
-          const pick = bfsPickSafestZone(from, zoneGraph, forbiddenIds, pop, { maxDepth: depthMax, minDelta });
-
-          let dest = String(pick?.nextStep || '');
-
-          if (dest && dest !== from) {
-            actor.zoneId = dest;
-            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'avoid_power', opponentId: String(targetEval?._id || ''), recoverSec: 6, safeZoneSec: 4 });
-            upsertRuntimeSurvivor(survivorMap, actor);
-            addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피: ${getZoneName(from)} → ${getZoneName(dest)}`, 'system');
-            emitRunEvent('move', { who: String(actor?._id || ''), name: actor?.name, from, to: dest, reason: 'avoid_power' }, atNow());
-          } else {
-            applyAiRecoveryWindow(actor, currentActionSec(), { reason: 'avoid_power_hold', opponentId: String(targetEval?._id || ''), recoverSec: 4 });
-            addLog(`🏃 [${actor.name}] 전투력 열세로 [${oppName}] 교전 회피`, 'system');
-          }
-          continue;
-          }
-        }
-      }
-
-      if (canDual && rand < battleProb2) {
-        // [⚔️ 전투]
-        let target = pvpTarget;
-        if (!target) {
-          upsertRuntimeSurvivor(survivorMap, actor);
-          continue;
-        }
-
-        // 상대방 행동권 사용
-        const targetIndex = todaysSurvivors.findIndex((t) => t._id === target._id);
-        if (targetIndex > -1) todaysSurvivors.splice(targetIndex, 1);
-
-
-
-        const combatEncounterResult = runPhaseCombatEncounter({
-          state: {
-            actor,
-            assistWindowPhases,
-            battleSettings,
-            canReviveThisMatch,
-            craftables,
-            currentActionSec,
-            estimatePower,
-            forbiddenIds,
-            isDay1MorningFarmPhase,
-            isSoloMatch,
-            itemMetaById,
-            itemNameById,
-            midgameCombatWindow,
-            newDeadIds,
-            nextDay,
-            phaseIdxNow,
-            phaseSurvivors,
-            pickUnbiasedBattle,
-            publicItems,
-            restrictedRatio,
-            reviveCutoffIdx,
-            roundAssists,
-            roundKills,
-            ruleset,
-            shouldAvoidCombatByPower,
-            survivorMap,
-            target,
-            todaysSurvivors,
-            totalZonesCount,
-            useDetonation,
-            zoneGraph,
-          },
-          actions: {
-            addEarnedCredits: (amount) => {
-              earnedCredits += Math.max(0, Number(amount || 0));
-            },
-            addLog,
-            appendPhaseDeadSnapshots,
-            applyErTraitAfterBattle,
-            applyErWeaponSkillAfterCombat,
-            atNow,
-            emitDeathRunEventOnce,
-            emitEffectRunEvents,
-            emitRunEvent,
-            flushDeadSnapshots,
-            getZoneName,
-            grantPvpDamageMastery,
-            grantPvpKillMastery,
-            setDeathMetadata,
-            tryUseConsumable,
-          },
-        });
-        actor = combatEncounterResult.actor || actor;
-        target = combatEncounterResult.target || target;
-        if (combatEncounterResult.skipRemainingTurn) continue;
-      }
-
-      upsertRuntimeSurvivor(survivorMap, actor);
-    }
-
+    } = pvpActionLoopResult;
     const phaseFinalizationResult = await finalizeSimulationPhase({
       refs: {
         suddenDeathActiveRef,
