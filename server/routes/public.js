@@ -13,6 +13,34 @@ const { DEFAULT_ZONES, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { getOptionalUserId, scopedFilter } = require('../utils/requestScope');
 
+const PUBLIC_ITEM_SELECT = [
+  '_id',
+  'itemKey',
+  'externalId',
+  'name',
+  'type',
+  'tags',
+  'rarity',
+  'tier',
+  'erCode',
+  'itemSubType',
+  'stackMax',
+  'value',
+  'baseCreditValue',
+  'recipe',
+  'stats',
+  'equipSlot',
+  'weaponType',
+  'archetype',
+  'spawnZones',
+  'spawnCrateTypes',
+  'droneCreditsCost',
+  'upgradeItemKeys',
+  'source',
+  'lockedByAdmin',
+  'description',
+].join(' ');
+
 /**
  * ✅ 공개 데이터 API
  * - 시뮬레이션/에디터/메인에서 필요한 '기본 데이터'를 비로그인으로도 조회 가능
@@ -29,7 +57,10 @@ router.get('/ping', async (req, res) => {
 
 router.get('/items', async (req, res) => {
   try {
-    const items = await Item.find(scopedFilter(req)).sort({ createdAt: 1 });
+    const items = await Item.find(scopedFilter(req))
+      .select(PUBLIC_ITEM_SELECT)
+      .sort({ createdAt: 1 })
+      .lean();
     res.json(items);
   } catch (err) {
     console.error(err);
@@ -39,7 +70,9 @@ router.get('/items', async (req, res) => {
 
 router.get('/maps', async (req, res) => {
   try {
-    const maps = await MapModel.find(scopedFilter(req)).populate('connectedMaps', 'name');
+    const maps = await MapModel.find(scopedFilter(req))
+      .populate('connectedMaps', 'name')
+      .lean();
 
     // ✅ 맵 zones가 비어있으면, '기본 맵 구역' 세트를 응답에 주입합니다.
     // - DB를 강제로 수정하진 않습니다(응답 레벨에서만 보정).
@@ -80,9 +113,11 @@ router.get('/maps', async (req, res) => {
 router.get('/kiosks', async (req, res) => {
   try {
     const kiosks = await Kiosk.find(scopedFilter(req))
+      .select('_id kioskId name mapId zoneId x y catalog')
       .populate('mapId', 'name')
       .populate('catalog.itemId', 'name tier rarity baseCreditValue tags')
-      .populate('catalog.exchange.giveItemId', 'name tier rarity baseCreditValue tags');
+      .populate('catalog.exchange.giveItemId', 'name tier rarity baseCreditValue tags')
+      .lean();
     res.json(kiosks);
   } catch (err) {
     console.error(err);
@@ -92,7 +127,10 @@ router.get('/kiosks', async (req, res) => {
 
 router.get('/drone-offers', async (req, res) => {
   try {
-    const offers = await DroneOffer.find(scopedFilter(req, { isActive: true })).populate('itemId', 'name tier rarity baseCreditValue');
+    const offers = await DroneOffer.find(scopedFilter(req, { isActive: true }))
+      .select('_id itemId priceCredits maxTier')
+      .populate('itemId', 'name tier rarity baseCreditValue')
+      .lean();
     res.json(offers);
   } catch (err) {
     console.error(err);
