@@ -6,6 +6,7 @@ import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGet, apiRequest } from '../../utils/api';
 import { useAuthToken, useHydrated } from '../../utils/client-auth';
+import { emitNotificationsSync } from '../../utils/notification-events';
 
 function safeText(value, fallback = '') {
   const text = String(value || '').trim();
@@ -76,8 +77,10 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const data = await apiGet('/notifications?limit=80', { timeoutMs: 12000 });
+      const nextUnreadCount = Number(data?.unreadCount || 0);
       setNotifications(unwrapNotifications(data));
-      setUnreadCount(Number(data?.unreadCount || 0));
+      setUnreadCount(nextUnreadCount);
+      emitNotificationsSync({ unreadCount: nextUnreadCount });
     } catch (err) {
       setNotifications([]);
       setUnreadCount(0);
@@ -103,10 +106,13 @@ export default function NotificationsPage() {
     try {
       const data = await apiRequest('PATCH', `/notifications/${id}/read`, {});
       const nextNotification = normalizeNotification(data?.notification);
+      const wasUnread = notifications.some((item) => item._id === id && item.unread);
+      const nextUnreadCount = Math.max(0, Number(unreadCount || 0) - (wasUnread ? 1 : 0));
       setNotifications((current) => current.map((item) => (
         item._id === id ? { ...item, ...(nextNotification || {}), unread: false } : item
       )));
-      setUnreadCount((value) => Math.max(0, Number(value || 0) - 1));
+      setUnreadCount(nextUnreadCount);
+      emitNotificationsSync({ unreadCount: nextUnreadCount });
     } catch (err) {
       showToast({ tone: 'danger', message: err?.message || '알림 읽음 처리에 실패했습니다.' });
     } finally {
@@ -120,6 +126,7 @@ export default function NotificationsPage() {
       await apiRequest('PATCH', '/notifications/read-all', {});
       setNotifications((current) => current.map((item) => ({ ...item, unread: false, readAt: item.readAt || new Date().toISOString() })));
       setUnreadCount(0);
+      emitNotificationsSync({ unreadCount: 0 });
       showToast({ tone: 'success', message: '모든 알림을 읽음 처리했습니다.' });
     } catch (err) {
       showToast({ tone: 'danger', message: err?.message || '알림 읽음 처리에 실패했습니다.' });

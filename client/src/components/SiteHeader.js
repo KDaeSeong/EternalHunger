@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiGet, clearAuth } from '../utils/api';
 import { useAuthUser, useHydrated } from '../utils/client-auth';
+import { NOTIFICATIONS_SYNC_EVENT, NOTIFICATIONS_SYNC_STORAGE_KEY } from '../utils/notification-events';
 import { useToast } from './ToastProvider';
 
 const NAV_ITEMS = [
@@ -40,30 +41,80 @@ export default function SiteHeader({ className = '' }) {
   const { showToast } = useToast();
 
   const loggedIn = hydrated && Boolean(user);
+  const userKey = loggedIn ? String(user?._id || user?.id || user?.userId || user?.username || '') : '';
   const perkCount = Array.isArray(user?.perks) ? user.perks.length : 0;
-  const [unreadCount, setUnreadCount] = useState(0);
-  const visibleUnreadCount = loggedIn ? unreadCount : 0;
+  const [unreadState, setUnreadState] = useState({ userKey: '', count: 0 });
+  const visibleUnreadCount = userKey && unreadState.userKey === userKey ? unreadState.count : 0;
 
   useEffect(() => {
     let cancelled = false;
-    if (!loggedIn) {
+    if (!loggedIn || !userKey) {
       return () => {
         cancelled = true;
       };
     }
 
-    apiGet('/notifications?unread=1&limit=1', { timeoutMs: 8000 })
-      .then((data) => {
-        if (!cancelled) setUnreadCount(Number(data?.unreadCount || 0));
-      })
-      .catch(() => {
-        if (!cancelled) setUnreadCount(0);
+    const setUnreadCount = (value) => {
+      const count = Number(value || 0);
+      setUnreadState({
+        userKey,
+        count: Number.isFinite(count) && count > 0 ? Math.floor(count) : 0,
       });
+    };
+
+    const setCountFromDetail = (detail) => {
+      const nextCount = Number(detail?.unreadCount);
+      if (Number.isFinite(nextCount) && nextCount >= 0) {
+        setUnreadCount(Math.floor(nextCount));
+        return true;
+      }
+      return false;
+    };
+
+    const refreshUnreadCount = () => {
+      apiGet('/notifications?unread=1&limit=1', { timeoutMs: 8000 })
+        .then((data) => {
+          if (!cancelled) setUnreadCount(Number(data?.unreadCount || 0));
+        })
+        .catch(() => {
+          if (!cancelled) setUnreadCount(0);
+        });
+    };
+
+    const handleSync = (event) => {
+      if (cancelled || setCountFromDetail(event?.detail)) return;
+      refreshUnreadCount();
+    };
+
+    const handleStorage = (event) => {
+      if (cancelled || event.key !== NOTIFICATIONS_SYNC_STORAGE_KEY) return;
+      try {
+        if (!setCountFromDetail(JSON.parse(event.newValue || '{}'))) refreshUnreadCount();
+      } catch {
+        refreshUnreadCount();
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refreshUnreadCount();
+    };
+
+    refreshUnreadCount();
+    const intervalId = window.setInterval(refreshUnreadCount, 60000);
+    window.addEventListener(NOTIFICATIONS_SYNC_EVENT, handleSync);
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', refreshUnreadCount);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener(NOTIFICATIONS_SYNC_EVENT, handleSync);
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', refreshUnreadCount);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [loggedIn]);
+  }, [loggedIn, pathname, userKey]);
 
   const handleLogout = () => {
     clearAuth();
