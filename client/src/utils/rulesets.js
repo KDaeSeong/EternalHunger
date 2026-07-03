@@ -83,6 +83,7 @@ const DEFAULT_MARKET_RULES = {
   },
   drone: {
     enabled: true,
+    maxTier: 1,
     // 드론은 하급 보급(즉시 지급)용: 고정 가격
     price: 10,
     // 인벤이 비었거나 목표 재료가 있으면 조금 더 자주 호출

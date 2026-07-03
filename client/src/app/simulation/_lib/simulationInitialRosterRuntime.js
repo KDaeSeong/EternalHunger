@@ -165,7 +165,9 @@ export function enrichInitialRoutePlansForItems({
     const routeSource = String(actor?.routePlanSource || '');
     const alreadyRouted = routeSource && routeSource !== 'fast_start';
     const routeStarted = Math.max(0, Number(actor?.routePlanIndex || 0)) > 0 || actor?.day1HeroDone;
-    if (alreadyRouted || routeStarted) return actor;
+    const hasRoutePlan = Array.isArray(actor?.routePlanZoneIds) && actor.routePlanZoneIds.length > 0;
+    const hasRouteTargets = Array.isArray(actor?.routePlanRequiredItemIds) && actor.routePlanRequiredItemIds.length > 0;
+    if (alreadyRouted || (routeStarted && hasRoutePlan && hasRouteTargets)) return actor;
 
     const routePlan = buildInitialFastRoutePlan(actor, initialMap, routeItems);
     if (!Array.isArray(routePlan?.zoneIds) || !routePlan.zoneIds.length) return actor;
@@ -213,7 +215,8 @@ export function buildInitialSimulationRoster({
       hp: seedMaxHp,
       maxHp: seedMaxHp,
       zoneId: startZoneId,
-      equipped: ensureEquipped(erSeed),
+      inventory: [],
+      equipped: ensureEquipped({ inventory: [], equipped: {} }),
       day1Moves: 0,
       day1HeroDone: false,
       routePlanSearchCounts: {},

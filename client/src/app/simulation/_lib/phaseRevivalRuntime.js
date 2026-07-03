@@ -276,7 +276,16 @@ export function runPhaseRevival({
       }
     }
 
-    if (revivedNow.length) setDead(remainingDead);
+    if (revivedNow.length) {
+      const revivedIds = new Set(revivedNow.map((actor) => actorId(actor)).filter(Boolean));
+      const remainingById = new Map(remainingDead.map((actor) => [actorId(actor), actor]).filter(([id]) => id));
+      setDead((prev) => {
+        const source = Array.isArray(prev) ? prev : dead;
+        return source
+          .filter((actor) => !revivedIds.has(actorId(actor)))
+          .map((actor) => remainingById.get(actorId(actor)) || actor);
+      });
+    }
   }
 
   return {

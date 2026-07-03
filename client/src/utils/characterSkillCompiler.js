@@ -1,8 +1,10 @@
 const NUMBER_SEQUENCE = String.raw`([+-]?\d+(?:\.\d+)?(?:\s*\/\s*[+-]?\d+(?:\.\d+)?){0,4})`;
 import {
   CHARACTER_SKILL_SLOT_LABELS,
+  CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
   cleanNumber,
   createDefaultCompiledSkill,
+  normalizeCharacterSkillType,
   normalizePctInput,
   normalizeSkillText,
   normalizeSlot,
@@ -11,9 +13,11 @@ import {
 
 export {
   ACTIVE_CHARACTER_SKILL_SLOTS,
+  CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_SKILL_SLOTS,
   createDefaultCompiledSkill,
+  normalizeCharacterSkillType,
 } from './characterSkillCompilerCore';
 
 const STAT_KEYWORDS = [
@@ -209,6 +213,30 @@ function copyArrayIfFound(skill, field, value) {
   if (Array.isArray(value)) skill[field] = value;
 }
 
+function hasPositiveLevelValues(...lists) {
+  return lists.flatMap((list) => (Array.isArray(list) ? list : []))
+    .some((n) => Number(n || 0) > 0);
+}
+
+function inferCompiledActiveSkillType(text, skill) {
+  if (/기본\s*공격|평타|basic attack|recast|재발동|2번째|second/i.test(text)) {
+    return 'basic_attack_enhance';
+  }
+  const hasDamage = hasPositiveLevelValues(
+    skill.firstFlat,
+    skill.secondFlat,
+    skill.flatDamage,
+    skill.maxHpPct,
+    skill.currentHpPct,
+    skill.secondMaxHpPct,
+    skill.secondCurrentHpPct
+  );
+  if (hasDamage) return 'attack_skill';
+  if (hasPositiveLevelValues(skill.heal)) return 'heal_skill';
+  if (hasPositiveLevelValues(skill.shield)) return 'shield_skill';
+  return normalizeCharacterSkillType(skill.type, skill.slot);
+}
+
 function buildWarnings(skill) {
   const warnings = [];
   const hasDamage = [
@@ -314,8 +342,10 @@ export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q'
 
   copyArrayIfFound(skill, 'currentHpPct', extractHpPct(first || text, 'current'));
   copyArrayIfFound(skill, 'maxHpPct', extractHpPct(first || text, 'max'));
-  copyArrayIfFound(skill, 'secondCurrentHpPct', extractHpPct(second || text, 'current'));
-  copyArrayIfFound(skill, 'secondMaxHpPct', extractHpPct(second || text, 'max'));
+  if (second) {
+    copyArrayIfFound(skill, 'secondCurrentHpPct', extractHpPct(second, 'current'));
+    copyArrayIfFound(skill, 'secondMaxHpPct', extractHpPct(second, 'max'));
+  }
   copyArrayIfFound(skill, 'heal', extractLevelValue(text, ['회복', 'heal', 'healing']));
   copyArrayIfFound(skill, 'shield', extractLevelValue(text, ['보호막', 'shield', 'barrier']));
 
@@ -338,12 +368,21 @@ export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q'
     skill.type = 'passive_stat';
     skill.trigger = 'always';
     skill.cooldownSec = 0;
-  } else if (skill.recastWindowSec > 0 || /다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|recast/i.test(text)) {
+  } else if (recastWindowSec > 0 || /다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|recast/i.test(text)) {
     skill.statModifiers = {};
-    skill.type = 'basic_attack_recast';
+    skill.type = 'basic_attack_enhance';
   } else {
     skill.statModifiers = {};
-    skill.type = skill.type === 'passive_stat' ? 'combat_effect' : skill.type;
+    skill.type = inferCompiledActiveSkillType(text, skill);
+  }
+  const hasSecondStage = hasPositiveLevelValues(
+    skill.secondFlat,
+    skill.secondMaxHpPct,
+    skill.secondCurrentHpPct,
+    [skill.secondSkillAmpScale]
+  );
+  if (skillSlot !== 'passive' && (!hasSecondStage || skill.type !== 'basic_attack_enhance')) {
+    skill.recastWindowSec = 0;
   }
 
   skill.tags = buildTags(text, skill);

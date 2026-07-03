@@ -130,6 +130,15 @@ function makeSkillHit(target, damageInfo, def, stage, opts = {}) {
   };
 }
 
+function hasSecondStagePayload(def) {
+  return [
+    ...(Array.isArray(def?.secondFlat) ? def.secondFlat : []),
+    ...(Array.isArray(def?.secondMaxHpPct) ? def.secondMaxHpPct : []),
+    ...(Array.isArray(def?.secondCurrentHpPct) ? def.secondCurrentHpPct : []),
+    Number(def?.secondSkillAmpScale || 0),
+  ].some((n) => Number(n || 0) > 0);
+}
+
 function buildSplashHits(attacker, defender, def, idx, stage, settings, splashTargets) {
   const radius = Number(def.radius || 0);
   if (radius <= 0 || !Array.isArray(splashTargets)) return [];
@@ -151,7 +160,9 @@ function applySingleSkillOnBasicAttack(attacker, defender, def, opts = {}) {
   const recastUntil = Math.max(0, Number(slotState.recastUntil || 0));
   const hasRecast = String(slotState.stage || '') === 'recast' && recastUntil >= nowSec;
   const cooldownReady = cooldownUntil <= nowSec;
-  const isRecastSkill = String(def.type || '') === BASIC_ATTACK_RECAST_TYPE;
+  const isRecastSkill = String(def.type || '') === BASIC_ATTACK_RECAST_TYPE
+    && Number(def.recastWindowSec || 0) > 0
+    && hasSecondStagePayload(def);
 
   if (!hasRecast && !cooldownReady) return null;
   if (!isRecastSkill && !cooldownReady) return null;

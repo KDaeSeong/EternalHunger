@@ -2,7 +2,7 @@ import { pickWeighted } from './simulationCommon';
 import { EQUIP_SLOTS } from './simulationConstants';
 import { isAtOrAfterWorldTime } from './worldTime';
 import { applyPerkDiscount, getActorPerkEffects, perkNumber } from './perkRuntime';
-import { invQty } from './inventoryRules';
+import { inferItemCategory, invQty } from './inventoryRules';
 import { ensureEquipped } from './survivorRuntime';
 import {
   classifySpecialByName,
@@ -92,11 +92,19 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
     const kind = classifySpecialByName(name);
     return kind === 'vf' || isSpecialCoreKind(kind);
   }
+  const droneMaxTier = Math.max(1, Math.floor(Number(dm?.maxTier ?? 1)));
+  function isDroneEligibleItem(item) {
+    if (!item || typeof item !== 'object') return false;
+    if (isSpecialName(item?.name)) return false;
+    const category = inferItemCategory(item);
+    const tier = clampGearTier(item?.tier || 1);
+    return category === 'material' && tier <= droneMaxTier;
+  }
 
   if (hasRouteDroneNeed) {
     const routeNeedItem = items.find((x) => String(x?._id) === String(routeDroneNeedId));
     const routeNeedPrice = applyDroneCost(Math.max(0, Number(dm?.routeNeedFallbackPrice ?? dm?.needFallbackPrice ?? dm?.price ?? 10)));
-    if (routeNeedItem && !isSpecialName(routeNeedItem?.name) && credits >= routeNeedPrice) {
+    if (isDroneEligibleItem(routeNeedItem) && credits >= routeNeedPrice) {
       return {
         kind: 'drone',
         offerId: null,
@@ -117,7 +125,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
       if (!itemId || !item) continue;
 
       const nm = String(item?.name || '');
-      if (isSpecialName(nm)) continue;
+      if (!isDroneEligibleItem({ ...item, name: nm })) continue;
       if (credits < price) continue;
 
       let weight = Math.max(1, Number(offer?.weight ?? 1));
@@ -132,7 +140,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
   if (hasNeed && !pool.some((p) => String(p?.itemId) === String(needId))) {
     const it = items.find((x) => String(x?._id) === String(needId));
     const nfPrice = applyDroneCost(Math.max(0, Number(hasRouteDroneNeed ? (dm?.routeNeedFallbackPrice ?? dm?.needFallbackPrice ?? 10) : (dm?.needFallbackPrice ?? 10))));
-    if (it && !isSpecialName(it?.name) && credits >= nfPrice) {
+    if (isDroneEligibleItem(it) && credits >= nfPrice) {
       const w = Math.max(1, Number(hasRouteDroneNeed ? (dm?.routeNeedFallbackWeight ?? 18) : (dm?.needFallbackWeight ?? 5)));
       pool.push({ kind: hasRouteDroneNeed ? 'routeNeedFallback' : 'needFallback', offerId: null, item: it, itemId: String(it._id), price: nfPrice, weight: w, source: hasRouteDroneNeed ? 'route_plan_drone' : 'craft_need' });
     }
@@ -143,7 +151,7 @@ function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, acto
     for (const it of items) {
       const name = String(it?.name || '');
       if (!name) continue;
-      if (isSpecialName(name)) continue;
+      if (!isDroneEligibleItem(it)) continue;
 
       const low = name.toLowerCase();
       const ok = fallbackKeywords.some((k) => low.includes(String(k).toLowerCase()));

@@ -9,6 +9,24 @@ export const CHARACTER_SKILL_SLOT_LABELS = {
   r: 'R',
   passive: 'Passive',
 };
+export const CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS = [
+  { value: 'attack_skill', label: '공격 스킬' },
+  { value: 'heal_skill', label: '회복 스킬' },
+  { value: 'shield_skill', label: '보호막 스킬' },
+  { value: 'basic_attack_enhance', label: '기본 공격 강화' },
+];
+
+export function normalizeCharacterSkillType(value, slot = 'q') {
+  if (slot === 'passive') return 'passive_stat';
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'basic_attack_recast' || key === 'basic_attack' || key === 'basic_attack_enhance') {
+    return 'basic_attack_enhance';
+  }
+  if (key === 'heal' || key === 'healing' || key === 'heal_skill') return 'heal_skill';
+  if (key === 'shield' || key === 'barrier' || key === 'shield_skill') return 'shield_skill';
+  if (key === 'combat_effect' || key === 'damage' || key === 'attack' || key === 'attack_skill') return 'attack_skill';
+  return 'attack_skill';
+}
 
 export function cleanNumber(value, fallback = 0) {
   const n = Number(value);
@@ -67,8 +85,8 @@ export function createDefaultCompiledSkill(base = {}, slot = 'q') {
   const defaultType = skillSlot === 'passive'
     ? 'passive_stat'
     : skillSlot === 'q'
-      ? 'basic_attack_recast'
-      : 'combat_effect';
+      ? 'basic_attack_enhance'
+      : 'attack_skill';
   const cooldown = defaultCooldownForSlot(skillSlot);
   const rawStatModifiers = base.statModifiers && typeof base.statModifiers === 'object'
     ? base.statModifiers
@@ -76,12 +94,12 @@ export function createDefaultCompiledSkill(base = {}, slot = 'q') {
   return {
     enabled: base.enabled === true,
     slot: skillSlot,
-    type: String(base.type || defaultType),
+    type: normalizeCharacterSkillType(base.type || defaultType, skillSlot),
     trigger: String(base.trigger || (skillSlot === 'passive' ? 'always' : 'basic_attack')),
     name: String(base.name || ''),
     sourceText: String(base.sourceText || ''),
     cooldownSec: Math.max(skillSlot === 'passive' ? 0 : 1, cleanNumber(base.cooldownSec, cooldown)),
-    recastWindowSec: Math.max(0, cleanNumber(base.recastWindowSec, skillSlot === 'q' ? 5 : 0)),
+    recastWindowSec: Math.max(0, cleanNumber(base.recastWindowSec, 0)),
     range: Math.max(0, cleanNumber(base.range, 0)),
     castDelaySec: Math.max(0, cleanNumber(base.castDelaySec, 0)),
     recoveryDelaySec: Math.max(0, cleanNumber(base.recoveryDelaySec, 0)),

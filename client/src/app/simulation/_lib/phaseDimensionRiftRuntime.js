@@ -17,7 +17,7 @@ import {
   tryImmediateCraftFromSpecial,
 } from './simulationEngine';
 import { gainText } from './runEventRuntime';
-import { estimateMovePowerRuntime } from './movePowerRuntime';
+import { estimateMovePower as estimateMovePowerRuntime } from './movePowerRuntime';
 
 export function runDimensionRiftPhase({
   actions = {},

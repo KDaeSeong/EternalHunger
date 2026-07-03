@@ -26,6 +26,7 @@ export function useCharacterSkillConfigEditor({
   const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
   const [editCharacterSkills, setEditCharacterSkills] = useState(() => normalizeCharacterSkillsForEditor());
   const [activeSkillSlot, setActiveSkillSlot] = useState('q');
+  const [manualSkillInputEnabled, setManualSkillInputEnabled] = useState(false);
 
   const configChar = useMemo(
     () => characters.find((c) => String(characterId(c)) === String(configCharId)) || null,
@@ -84,6 +85,7 @@ export function useCharacterSkillConfigEditor({
     setEditCharacterSkillLevels(normalizeCharacterSkillLevels(char?.characterSkillLevels));
     setEditCharacterSkills(normalizeCharacterSkillsForEditor(char?.characterSkills));
     setActiveSkillSlot('q');
+    setManualSkillInputEnabled(false);
   };
 
   const closeConfigModal = () => setConfigCharId(null);
@@ -118,6 +120,7 @@ export function useCharacterSkillConfigEditor({
     editCharacterSkills,
     editGoalGearTier,
     editTacticalSkill,
+    manualSkillInputEnabled,
     openConfigModal,
     saveConfigModal,
     setActiveSkillSlot,
@@ -125,6 +128,7 @@ export function useCharacterSkillConfigEditor({
     setEditCharacterSkillLevels,
     setEditGoalGearTier,
     setEditTacticalSkill,
+    setManualSkillInputEnabled,
     updateEditSkill,
     updateEditSkillLevelValue,
   };

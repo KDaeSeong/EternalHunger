@@ -269,7 +269,7 @@ export async function runSimulationPhaseCycle({
       nextPhase,
       phaseDurationSec,
       phaseIdxNow,
-      phaseSurvivors,
+      phaseSurvivors: updatedSurvivors,
       publicItems,
       reviveCutoffIdx,
       ruleset,

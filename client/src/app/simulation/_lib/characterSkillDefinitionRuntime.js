@@ -1,11 +1,12 @@
 import {
   ACTIVE_CHARACTER_SKILL_SLOTS,
   CHARACTER_SKILL_SLOT_LABELS,
+  normalizeCharacterSkillType,
 } from '../../../utils/characterSkillCompiler';
 
 const CHARACTER_SKILL_MODE = 'character_skill';
-const BASIC_ATTACK_RECAST_TYPE = 'basic_attack_recast';
-const COMBAT_EFFECT_TYPE = 'combat_effect';
+const BASIC_ATTACK_RECAST_TYPE = 'basic_attack_enhance';
+const COMBAT_EFFECT_TYPE = 'attack_skill';
 const PASSIVE_STAT_TYPE = 'passive_stat';
 const SKILL_LEVELS = 5;
 
@@ -159,11 +160,11 @@ function normalizeCustomSkill(actor, slot) {
     id: cleanSkillText(raw.id, `custom_${String(actor?._id || actor?.id || 'actor')}_${skillSlot}`),
     characterCode: cleanSkillText(actor?.characterSkillCode || actor?.erSubject || actor?.code, 'custom'),
     slot: skillSlot,
-    type: cleanSkillText(raw.type, defaultType),
+    type: normalizeCharacterSkillType(cleanSkillText(raw.type, defaultType), skillSlot),
     trigger: cleanSkillText(raw.trigger, isPassive ? 'always' : 'basic_attack'),
     name: explicitName || `${CHARACTER_SKILL_SLOT_LABELS[skillSlot] || skillSlot.toUpperCase()} skill`,
     cooldownSec: clamp(raw.cooldownSec ?? defaultCooldown, isPassive ? 0 : 1, 180),
-    recastWindowSec: clamp(raw.recastWindowSec ?? (skillSlot === 'q' ? 5 : 0), 0, 30),
+    recastWindowSec: clamp(raw.recastWindowSec ?? 0, 0, 30),
     range: clamp(raw.range ?? 0, 0, 20),
     castDelaySec: clamp(raw.castDelaySec ?? 0, 0, 10),
     recoveryDelaySec: clamp(raw.recoveryDelaySec ?? 0, 0, 10),

@@ -24,7 +24,7 @@ import {
 const SIM_INIT_PING_TIMEOUT_MS = 5000;
 const SIM_INIT_REQUIRED_TIMEOUT_MS = Math.min(INIT_API_TIMEOUT_MS, 12000);
 const SIM_INIT_HEAVY_TIMEOUT_MS = Math.min(INIT_API_TIMEOUT_MS, 18000);
-const SIM_INIT_ITEMS_GRACE_MS = 2500;
+const SIM_INIT_ITEMS_GRACE_MS = 8000;
 
 export function useSimulationInitialData({
   refs = {},

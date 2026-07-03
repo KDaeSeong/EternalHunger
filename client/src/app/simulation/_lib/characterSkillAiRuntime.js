@@ -142,6 +142,11 @@ function utilityIsWorthUsing(attacker, def, idx) {
   return casterHp.ratio <= defaultThreshold || Number(def?.shield?.[idx] || 0) > 0;
 }
 
+function isBasicAttackEnhanceSkill(def) {
+  const type = String(def?.type || '');
+  return type === 'basic_attack_enhance' || type === 'basic_attack_recast';
+}
+
 export function selectCharacterSkillAiDecision({
   attacker,
   defender,
@@ -162,7 +167,7 @@ export function selectCharacterSkillAiDecision({
     return { shouldUse: false, reason: 'caster_hp_condition', timing };
   }
 
-  const lockToAttackTarget = def?.lockToAttackTarget !== false && String(def?.type || '') === 'basic_attack_recast';
+  const lockToAttackTarget = def?.lockToAttackTarget !== false && isBasicAttackEnhanceSkill(def);
   const allCandidates = uniqueAliveTargets([defender, ...splashTargets])
     .filter((target) => actorId(target) !== actorId(attacker))
     .filter((target) => targetPassesHpCondition(target, def))

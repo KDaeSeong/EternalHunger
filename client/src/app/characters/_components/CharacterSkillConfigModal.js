@@ -25,6 +25,7 @@ function CharacterSkillConfigModal({
   activeSkillSlot,
   editGoalGearTier,
   editTacticalSkill,
+  manualSkillInputEnabled = false,
   onBackdropPointerDown,
   onBackdropPointerUp,
   onClose,
@@ -34,6 +35,7 @@ function CharacterSkillConfigModal({
   onSetCharacterSkillCode,
   onSetCharacterSkillLevels,
   onSetGoalGearTier,
+  onSetManualSkillInputEnabled = () => {},
   onSetTacticalSkill,
   onUpdateSkill,
   onUpdateSkillLevelValue,
@@ -126,66 +128,80 @@ function CharacterSkillConfigModal({
               </label>
               <div className="character-skill-compiler-actions">
                 <button type="button" onClick={() => onCompileSkillDescription(slot)}>자동 작성</button>
-              </div>
-              <pre>{buildSkillCodePreview(skill)}</pre>
-            </div>
-
-            <div className="character-skill-inline-grid">
-              <label>
-                스킬 코드
-                <input
-                  type="text"
-                  value={editCharacterSkillCode}
-                  onChange={(event) => onSetCharacterSkillCode(event.target.value)}
-                  placeholder="예: bihyung"
-                />
-              </label>
-
-              {!isPassive ? (
-                <label>
-                  {CHARACTER_SKILL_SLOT_LABELS[slot]} 레벨
+                <label className="character-skill-toggle character-skill-manual-toggle">
                   <input
-                    type="number"
-                    min="1"
-                    max="5"
-                    step="1"
-                    value={editCharacterSkillLevels?.[slot] || 1}
-                    onChange={(event) => onSetCharacterSkillLevels((prev) => ({
-                      ...normalizeCharacterSkillLevels(prev),
-                      [slot]: Math.max(1, Math.min(5, Math.floor(cleanNumber(event.target.value, 1)))),
-                    }))}
+                    type="checkbox"
+                    checked={manualSkillInputEnabled}
+                    onChange={(event) => onSetManualSkillInputEnabled(event.target.checked)}
                   />
+                  <span>수동 편집</span>
                 </label>
+              </div>
+              {manualSkillInputEnabled ? (
+                <pre>{buildSkillCodePreview(skill)}</pre>
               ) : null}
             </div>
 
-            <label>
-              스킬 이름
-              <input
-                type="text"
-                value={skill.name || ''}
-                onChange={(event) => onUpdateSkill(slot, 'name', event.target.value)}
-                placeholder={isPassive ? '패시브 이름' : `${CHARACTER_SKILL_SLOT_LABELS[slot]} 이름`}
-                disabled={disabled}
-              />
-            </label>
+            {manualSkillInputEnabled ? (
+              <>
+                <div className="character-skill-inline-grid">
+                  <label>
+                    스킬 코드
+                    <input
+                      type="text"
+                      value={editCharacterSkillCode}
+                      onChange={(event) => onSetCharacterSkillCode(event.target.value)}
+                      placeholder="예: bihyung"
+                    />
+                  </label>
 
-            {!isPassive ? (
-              <CharacterActiveSkillFields
-                disabled={disabled}
-                onUpdateSkill={onUpdateSkill}
-                onUpdateSkillLevelValue={onUpdateSkillLevelValue}
-                skill={skill}
-                slot={slot}
-              />
-            ) : (
-              <CharacterPassiveSkillFields
-                disabled={disabled}
-                onUpdateSkill={onUpdateSkill}
-                skill={skill}
-                slot={slot}
-              />
-            )}
+                  {!isPassive ? (
+                    <label>
+                      {CHARACTER_SKILL_SLOT_LABELS[slot]} 최대 레벨
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={editCharacterSkillLevels?.[slot] || 1}
+                        onChange={(event) => onSetCharacterSkillLevels((prev) => ({
+                          ...normalizeCharacterSkillLevels(prev),
+                          [slot]: Math.max(1, Math.min(5, Math.floor(cleanNumber(event.target.value, 1)))),
+                        }))}
+                      />
+                    </label>
+                  ) : null}
+                </div>
+
+                <label>
+                  스킬 이름
+                  <input
+                    type="text"
+                    value={skill.name || ''}
+                    onChange={(event) => onUpdateSkill(slot, 'name', event.target.value)}
+                    placeholder={isPassive ? '패시브 이름' : `${CHARACTER_SKILL_SLOT_LABELS[slot]} 이름`}
+                    disabled={disabled}
+                  />
+                </label>
+
+                {!isPassive ? (
+                  <CharacterActiveSkillFields
+                    disabled={disabled}
+                    onUpdateSkill={onUpdateSkill}
+                    onUpdateSkillLevelValue={onUpdateSkillLevelValue}
+                    skill={skill}
+                    slot={slot}
+                  />
+                ) : (
+                  <CharacterPassiveSkillFields
+                    disabled={disabled}
+                    onUpdateSkill={onUpdateSkill}
+                    skill={skill}
+                    slot={slot}
+                  />
+                )}
+              </>
+            ) : null}
           </div>
         </div>
 

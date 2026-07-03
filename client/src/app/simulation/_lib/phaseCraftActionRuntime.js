@@ -5,10 +5,8 @@ import {
   pickGoalLoadoutKeys,
   tryAutoCraftFromInventory,
 } from './simulationEngine';
-import {
-  advanceActorRouteProgressForGoal,
-  shouldForceDay1HeroGearCatchup,
-} from './routePlanProgressRuntime';
+import { advanceActorRouteProgressForGoal } from './phaseRouteProgressRuntime';
+import { shouldForceDay1HeroGearCatchup } from './routePlanProgressRuntime';
 
 export function runCraftAction({
   actions = {},

@@ -1,6 +1,8 @@
 import {
+  CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_SKILL_SLOTS,
+  normalizeCharacterSkillType,
 } from '../../../utils/characterSkillCompiler';
 import {
   SKILL_LEVEL_COUNT,
@@ -69,12 +71,13 @@ export function CharacterActiveSkillFields({
         <label>
           타입
           <select
-            value={skill.type || (slot === 'q' ? 'basic_attack_recast' : 'combat_effect')}
+            value={normalizeCharacterSkillType(skill.type, slot)}
             onChange={(event) => onUpdateSkill(slot, 'type', event.target.value)}
             disabled={disabled}
           >
-            <option value="combat_effect">일반 전투 효과</option>
-            <option value="basic_attack_recast">기본 공격/재발동</option>
+            {CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </label>
 

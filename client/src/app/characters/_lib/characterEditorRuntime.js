@@ -1,7 +1,11 @@
 import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { apiGet } from '../../../utils/api';
 import { DEFAULT_ER_STATS, normalizeErStats } from '../../../utils/erStats';
-import { CHARACTER_SKILL_SLOTS, createDefaultCompiledSkill } from '../../../utils/characterSkillCompiler';
+import {
+  CHARACTER_SKILL_SLOTS,
+  createDefaultCompiledSkill,
+  normalizeCharacterSkillType,
+} from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 
 const GOAL_GEAR_TIERS = [
@@ -77,12 +81,12 @@ function normalizeCharacterSkillForEditor(skills, slot = 'q') {
   const normalized = createDefaultCharacterSkill({
     enabled: raw.enabled === true,
     slot: skillSlot,
-    type: String(raw.type || ''),
+    type: normalizeCharacterSkillType(raw.type, skillSlot),
     trigger: String(raw.trigger || ''),
     name: String(raw.name || ''),
     sourceText: String(raw.sourceText || ''),
     cooldownSec: Math.max(skillSlot === 'passive' ? 0 : 1, cleanNumber(raw.cooldownSec, skillSlot === 'q' ? 7 : 12)),
-    recastWindowSec: Math.max(0, cleanNumber(raw.recastWindowSec, skillSlot === 'q' ? 5 : 0)),
+    recastWindowSec: Math.max(0, cleanNumber(raw.recastWindowSec, 0)),
     range: Math.max(0, cleanNumber(raw.range, 0)),
     castDelaySec: Math.max(0, cleanNumber(raw.castDelaySec, 0)),
     recoveryDelaySec: Math.max(0, cleanNumber(raw.recoveryDelaySec, 0)),
@@ -111,7 +115,7 @@ function normalizeCharacterSkillForEditor(skills, slot = 'q') {
     statModifiers: cleanStatModifiers(raw.statModifiers),
     tags: Array.isArray(raw.tags) ? raw.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 16) : [],
   }, skillSlot);
-  if (skillSlot === 'q' && !raw.type) normalized.type = 'basic_attack_recast';
+  if (skillSlot === 'q' && !raw.type) normalized.type = 'basic_attack_enhance';
   return normalized;
 }
 

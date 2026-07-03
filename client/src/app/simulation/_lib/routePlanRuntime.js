@@ -30,6 +30,10 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
   if (EQUIP_SLOTS.some((slot) => !(candidatesBySlot.get(slot) || []).length)) return empty;
 
   const droneLimit = Math.max(0, Math.floor(Number(opts.droneFallbackLimit ?? 1)));
+  const droneMaxTier = Math.max(1, Math.floor(Number(opts.droneMaxTier ?? 1)));
+  const isDroneFallbackReq = (req) => Math.max(1, Number(req?.tier || 1)) <= droneMaxTier;
+  const sumReqQty = (reqs) => (Array.isArray(reqs) ? reqs : [])
+    .reduce((sum, req) => sum + Math.max(1, Math.floor(Number(req?.qty || 1))), 0);
   const beamLimit = Math.max(20, Math.floor(Number(opts.beamLimit ?? 64)));
   const conn = buildRouteConnectionInfo(mapObj);
   const maxRoutes = Math.max(20, Math.floor(Number(opts.maxRoutes ?? 96)));
@@ -66,9 +70,12 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
 
     for (const state of states) {
       const stats = requirementStatsForRoute(state.reqs, routeSet);
+      const droneFallbackMissing = stats.missing.filter(isDroneFallbackReq);
+      const droneBlockedMissing = stats.missing.length - droneFallbackMissing.length;
+      const droneFallbackMissingQty = sumReqQty(droneFallbackMissing);
       const penalty = conn.routePenalty(route);
       const score = {
-        feasible: stats.missing.length <= droneLimit && stats.missingQty <= droneLimit,
+        feasible: droneBlockedMissing <= 0 && droneFallbackMissing.length <= droneLimit && droneFallbackMissingQty <= droneLimit,
         missingCount: stats.missing.length,
         missingQty: stats.missingQty,
         penalty,
@@ -113,6 +120,7 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
     itemId: String(req.itemId || ''),
     name: String(req.name || req.itemId || ''),
     qty: Math.max(1, Math.floor(Number(req.qty || 1))),
+    tier: Math.max(1, Number(req.tier || 1)),
   })).filter((req) => req.itemId);
 
   return {
@@ -123,7 +131,7 @@ function buildDay1HeroRoutePlanDetails(actor, mapObj, publicItems, opts = {}) {
     targetNamesBySlot: Object.fromEntries(best.state.picks.map((p) => [p.slot, String(p.item?.name || '')])),
     requiredItemIds: uniqStrings(requiredItemIds),
     requiredQtyById,
-    droneItemIds: missing.map((m) => m.itemId),
+    droneItemIds: missing.filter(isDroneFallbackReq).map((m) => m.itemId),
     missing,
     complete: best.score.feasible,
     source: best.score.feasible ? 'day1_hero_2zone' : 'day1_hero_2zone_partial',

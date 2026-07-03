@@ -129,7 +129,28 @@ export function isBandageLikeItem(it) {
 
 export function hasSpecialInventoryTag(it) {
   const tags = safeTags(it).map((t) => String(t || '').toLowerCase());
-  const name = String(itemDisplayName(it) || '').toLowerCase();
+  const rawName = String(itemDisplayName(it) || '');
+  const name = rawName.toLowerCase();
+  const compactName = rawName.replace(/\s+/g, '').toLowerCase();
+  const specialNameTokens = [
+    '운석',
+    '생명의나무',
+    '생나',
+    '미스릴',
+    '포스코어',
+    '혈액샘플',
+    '전술강화모듈',
+    '아글라이아',
+    '아이가이',
+    'life tree',
+    'tree of life',
+    'meteor',
+    'mithril',
+    'force core',
+    'blood sample',
+    'tactical module',
+    'aglaia',
+  ];
   return tags.some((t) => (
     t.includes('legendary_core') ||
     t.includes('meteor') ||
@@ -139,7 +160,8 @@ export function hasSpecialInventoryTag(it) {
     t.includes('vf') ||
     t.includes('transcend') ||
     t.includes('tac_skill_module')
-  )) || name.includes('meteor') || name.includes('mithril') || name.includes('force core') || name.includes('blood sample');
+  )) || specialNameTokens.some((token) => compactName.includes(String(token).replace(/\s+/g, '').toLowerCase()))
+    || name.includes('meteor') || name.includes('mithril') || name.includes('force core') || name.includes('blood sample');
 }
 
 export function hasGoalInventoryTag(it) {

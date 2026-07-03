@@ -1,5 +1,6 @@
 import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
 import { ER_STAT_KEYS, normalizeErStats } from './erStats.js';
+import { normalizeCharacterSkillType } from './characterSkillCompilerCore.js';
 
 const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
@@ -141,17 +142,17 @@ function cleanPctInput(value, fallback = 0) {
 function cleanCharacterSkill(raw, slot) {
   const src = raw && typeof raw === 'object' ? raw : {};
   const isPassive = slot === 'passive';
-  const defaultType = isPassive ? 'passive_stat' : slot === 'q' ? 'basic_attack_recast' : 'combat_effect';
+  const defaultType = isPassive ? 'passive_stat' : slot === 'q' ? 'basic_attack_enhance' : 'attack_skill';
   const defaultCooldown = slot === 'r' ? 60 : slot === 'e' ? 18 : slot === 'w' ? 12 : slot === 'q' ? 7 : 0;
   const out = {
     enabled: src.enabled === true,
     slot,
-    type: cleanString(src.type, 64) || defaultType,
+    type: normalizeCharacterSkillType(cleanString(src.type, 64) || defaultType, slot),
     trigger: cleanString(src.trigger, 64) || (isPassive ? 'always' : 'basic_attack'),
     name: cleanString(src.name, 256) || '',
     sourceText: cleanString(src.sourceText, MAX_TEXT_CHARS) || '',
     cooldownSec: Math.max(isPassive ? 0 : 1, cleanNumber(src.cooldownSec, defaultCooldown)),
-    recastWindowSec: Math.max(0, cleanNumber(src.recastWindowSec, slot === 'q' ? 5 : 0)),
+    recastWindowSec: Math.max(0, cleanNumber(src.recastWindowSec, 0)),
     range: Math.max(0, cleanNumber(src.range, 0)),
     castDelaySec: Math.max(0, cleanNumber(src.castDelaySec, 0)),
     recoveryDelaySec: Math.max(0, cleanNumber(src.recoveryDelaySec, 0)),
