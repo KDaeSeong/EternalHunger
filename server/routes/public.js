@@ -138,7 +138,7 @@ function mapCharacterRecord(row) {
   return {
     _id: normalizeId(row),
     name: row?.name || '',
-    previewImage: row?.previewImage || '',
+    previewImage: '',
     weaponType: row?.weaponType || '',
     gamesPlayed,
     totalWins,
@@ -228,7 +228,7 @@ router.get('/users/:id', async (req, res) => {
       TwentyQuestionsRoom.countDocuments({ hostId: userId }),
       TwentyQuestionsRoom.countDocuments({ hostId: userId, status: 'solved' }),
       Character.find({ userId })
-        .select('name previewImage weaponType records')
+        .select('name weaponType records')
         .sort({ 'records.totalWins': -1, 'records.gamesPlayed': -1, 'records.totalKills': -1, name: 1 })
         .limit(6)
         .lean(),
