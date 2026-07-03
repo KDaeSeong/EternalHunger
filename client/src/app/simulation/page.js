@@ -41,8 +41,6 @@ import {
   getAliveTeams,
   getTimeOfDayFromPhase,
 } from './_lib/simulationEngine';
-import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
-import { runDimensionRiftPhase } from './_lib/phaseDimensionRiftRuntime';
 import {
   normalizeSatiety,
 } from './_lib/satietyRuntime';
@@ -65,7 +63,6 @@ import {
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
   getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
 } from './_lib/forbiddenZoneRuntime';
-import { runSuddenDeathGatherPhase } from './_lib/suddenDeathRuntime';
 import { logRuntimeEffectResults } from './_lib/runtimeStatus';
 import { finishSimulationGame } from './_lib/finishGameRuntime';
 import { createMarketActionRuntime } from './_lib/marketActionRuntime';
@@ -92,6 +89,7 @@ import { runPhaseRevival } from './_lib/phaseRevivalRuntime';
 import { runPhaseActorActionPipeline } from './_lib/phaseActorActionPipelineRuntime';
 import { finalizeSimulationPhase } from './_lib/phaseFinalizationRuntime';
 import { runPvpActionLoop } from './_lib/phasePvpActionLoopRuntime';
+import { runPhaseWorldResolution } from './_lib/phaseWorldResolutionRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -954,79 +952,50 @@ export default function SimulationPage() {
       ? actorActionPipelineResult.updatedSurvivors
       : [];
 
-    const dimensionRiftResult = runDimensionRiftPhase({
+    const worldResolutionResult = runPhaseWorldResolution({
+      refs: {
+        suddenDeathActiveRef,
+      },
       state: {
+        canReviveThisMatch,
         currentActionSec,
+        fogLocalSec,
         forbiddenIds,
         isSoloMatch,
         itemMetaById,
         itemNameById,
+        mapObj,
         movePowerContext,
+        newlyDead,
         nextDay,
         nextPhase,
         nextSpawn,
-        phaseIdxNow,
-        publicItems,
-        ruleset,
-        updatedSurvivors,
-        zones,
-      },
-      actions: {
-        addLog,
-        atNow,
-        emitItemGainIfAny,
-        emitRunEvent,
-        getZoneName,
-      },
-    });
-    updatedSurvivors = dimensionRiftResult.updatedSurvivors;
-
-    const suddenDeathGatherResult = runSuddenDeathGatherPhase({
-      state: {
-        ruleset,
-        suddenDeathActive: suddenDeathActiveRef.current,
-        suddenDeathSafeZoneIds,
-        updatedSurvivors,
-      },
-      actions: {
-        addLog,
-        atNow,
-        emitRunEvent,
-        getZoneName,
-      },
-    });
-    updatedSurvivors = suddenDeathGatherResult.updatedSurvivors;
-
-    const detonationTickResult = runDetonationTickPhase({
-      state: {
-        canReviveThisMatch,
-        fogLocalSec,
-        forbiddenIds,
-        mapObj,
-        newlyDead,
         phaseDurationSec,
         phaseIdxNow,
         phaseStartSec,
+        publicItems,
         reviveCutoffIdx,
         ruleset,
-        suddenDeathActive: suddenDeathActiveRef.current,
+        suddenDeathSafeZoneIds,
         tickSec,
         updatedSurvivors,
         useDetonation,
         zoneGraph,
+        zones,
       },
       actions: {
         addLog,
+        appendPhaseDeadSnapshots,
         atNow,
         emitDeathRunEventOnce,
+        emitItemGainIfAny,
+        emitRunEvent,
+        flushDeadSnapshots,
         getZoneName,
         setDeathMetadata,
       },
     });
-    updatedSurvivors = detonationTickResult.updatedSurvivors;
-
-    flushDeadSnapshots(appendPhaseDeadSnapshots(newlyDead));
-
+    updatedSurvivors = worldResolutionResult.updatedSurvivors;
     const pvpActionLoopResult = await runPvpActionLoop({
       state: {
         battleSettings,
