@@ -124,6 +124,7 @@ import { runRouteFarmAction } from './_lib/phaseRouteFarmRuntime';
 import { runHuntAction } from './_lib/phaseHuntActionRuntime';
 import { openLegendaryCrateForActor } from './_lib/phaseLegendaryCrateRuntime';
 import { runCraftAction } from './_lib/phaseCraftActionRuntime';
+import { runProcurementAction } from './_lib/phaseProcurementActionRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -1736,138 +1737,30 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
         updated = legendaryCrateResult.actor;
 
-        let didProcure = false;
-
-        // --- 키오스크/드론(구매/교환): 원자 액션(kioskBuy/kioskExchange/kioskSell/droneOrder)일 때만 실행 ---
-        if (['kioskBuy','kioskExchange','kioskSell','droneOrder'].includes(queuedActionType)) {
-          const kioskAction = queuedKioskAction;
-          if (['kioskBuy','kioskExchange','kioskSell'].includes(queuedActionType) && kioskAction?.itemId && kioskAction?.item) {
-          const itemNm = kioskAction.item?.name || kioskAction.label || '아이템';
-
-          if (kioskAction.kind === 'buy') {
-            const cost = Math.max(0, Number(kioskAction.cost || 0));
-            updated.inventory = addItemToInventory(updated.inventory, kioskAction.item, kioskAction.itemId, kioskAction.qty || 1, nextDay, ruleset);
-            const meta = updated.inventory?._lastAdd;
-            const want = Math.max(1, Number(kioskAction.qty || 1));
-            const got = Math.max(0, Number(meta?.acceptedQty ?? want));
-            const paidCost = got > 0 ? cost : 0;
-            if (paidCost > 0) updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - paidCost);
-
-            // ✅ 전술 강화 모듈: (level 모드) 즉시 소비 → 전술 스킬 레벨 +1
-            // - 모듈을 인벤에 쌓아두지 않고, 즉시 레벨로 전환(관전 템포)
-            const tacMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level');
-            const tags = Array.isArray(kioskAction?.item?.tags) ? kioskAction.item.tags : [];
-            const isTacModule = String(itemNm || '').includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
-            if (tacMode === 'level' && isTacModule && got > 0) {
-              const beforeLv = Math.max(1, Math.min(2, Math.floor(Number(updated?.tacticalSkillLevel || 1))));
-              const inc = Math.max(0, Math.min(2 - beforeLv, Math.floor(got)));
-              if (inc > 0) {
-                updated.tacticalSkillLevel = beforeLv + inc;
-                updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: inc }]);
-                addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
-              }
-            }
-            if (shouldLogItemReceive(got, meta)) {
-              addLog(`🏪 [${updated.name}] 키오스크 ${kioskAction.label ? `(${kioskAction.label}) ` : ''}구매: [${itemNm}] ${gainText(got, '구매', '구매 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}${paidCost > 0 ? ` (크레딧 -${paidCost})` : ''}`, 'system');
-            }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'buy', zoneId: String(updated?.zoneId || '') }, atNow());
-            if (got > 0) autoEquipBest(updated, itemMetaById);
-            didProcure = true;
-
-            // 구매 아이템도 즉시 조합 트리거(선택적)
-            const specialKKind = classifySpecialByName(String(kioskAction?.item?.name || itemNm || ''));
-            const immediateK = tryImmediateCraftFromSpecial(updated, specialKKind, String(kioskAction.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
-            if (immediateK?.changed) {
-              updated.inventory = immediateK.inventory;
-              (Array.isArray(immediateK.logs) ? immediateK.logs : []).forEach((m) => addLog(String(m), 'highlight'));
-            }
-            if (Number(immediateK?.pvpBonus || 0) > 0) {
-              const pb = Number(immediateK.pvpBonus || 0);
-              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
-              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
-              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
-            }
-
-            const craftedK = immediateK?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedK, itemMetaById, atNow(), updated?.zoneId);
-          }
-
-          if (kioskAction.kind === 'exchange' && Array.isArray(kioskAction.consume) && kioskAction.consume.length) {
-            const consumedNames = kioskAction.consume
-              .map((x) => `${itemNameById?.[String(x.itemId)] || String(x.itemId)} x${x.qty || 1}`)
-              .join(' + ');
-            updated.inventory = consumeIngredientsFromInv(updated.inventory, kioskAction.consume);
-            updated.inventory = addItemToInventory(updated.inventory, kioskAction.item, kioskAction.itemId, kioskAction.qty || 1, nextDay, ruleset);
-            const meta = updated.inventory?._lastAdd;
-            const want = Math.max(1, Number(kioskAction.qty || 1));
-            const got = Math.max(0, Number(meta?.acceptedQty ?? want));
-
-            // ✅ 전술 강화 모듈: (level 모드) 즉시 소비 → 전술 스킬 레벨 +1
-            const tacMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level');
-            const tags = Array.isArray(kioskAction?.item?.tags) ? kioskAction.item.tags : [];
-            const isTacModule = String(itemNm || '').includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
-            if (tacMode === 'level' && isTacModule && got > 0) {
-              const beforeLv = Math.max(1, Math.min(2, Math.floor(Number(updated?.tacticalSkillLevel || 1))));
-              const inc = Math.max(0, Math.min(2 - beforeLv, Math.floor(got)));
-              if (inc > 0) {
-                updated.tacticalSkillLevel = beforeLv + inc;
-                updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: inc }]);
-                addLog(`🎛️ [${updated.name}] 전술 강화 모듈 사용 → 전술 스킬 레벨 +${inc} (Lv.${updated.tacticalSkillLevel})`, 'highlight');
-              }
-            }
-            if (shouldLogItemReceive(got, meta, { important: true })) {
-              addLog(`🏪 [${updated.name}] 키오스크 교환: ${consumedNames} → [${itemNm}] ${gainText(got, '교환', '교환 실패')}${formatInvAddNote(meta, want, updated.inventory, ruleset)}`, 'system');
-            }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(kioskAction.itemId || ''), source: 'kiosk', kind: 'exchange', zoneId: String(updated?.zoneId || '') }, atNow());
-            if (got > 0) autoEquipBest(updated, itemMetaById);
-            didProcure = true;
-
-            const craftedE = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedE, itemMetaById, atNow(), updated?.zoneId);
-          }
-
-          if (kioskAction.kind === 'sell') {
-            const q = Math.max(1, Number(kioskAction.qty || 1));
-            const gain = Math.max(0, Number(kioskAction.credits || 0));
-            updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(kioskAction.itemId || ''), qty: q }]);
-            updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + gain);
-            addLog(`🏪 [${updated.name}] 키오스크 환급: [${itemNm}] x${q} → 크레딧 +${gain}`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: gain, source: 'kiosk', kind: 'sell', zoneId: String(updated?.zoneId || '') }, atNow());
-            didProcure = true;
-          }
-
-          }
-          if (!didProcure && queuedActionType === 'droneOrder') {
-            // --- 드론 호출(하급 아이템 보급): 즉시 지급 ---
-            const droneOrder = queuedDroneOrder;
-            if (droneOrder?.itemId && Number(droneOrder?.cost || 0) <= Number(updated.simCredits || 0)) {
-            const cost = Math.max(0, Number(droneOrder.cost || 0));
-
-            const qty = Math.max(1, Number(droneOrder.qty || 1));
-            const item = droneOrder?.item || null;
-            const itemId = String(droneOrder.itemId || item?._id || '');
-            if (itemId) {
-              updated.inventory = addItemToInventory(updated.inventory, item, itemId, qty, nextDay, ruleset);
-              const meta = updated.inventory?._lastAdd;
-              const got = Math.max(0, Number(meta?.acceptedQty ?? qty));
-              const paidCost = got > 0 ? cost : 0;
-              if (paidCost > 0) updated.simCredits = Math.max(0, Number(updated.simCredits || 0) - paidCost);
-              if (shouldLogItemReceive(got, meta)) {
-                addLog(`🚁 [${updated.name}] 드론 호출: ${item?.name || itemNameById?.[itemId] || '아이템'} ${gainText(got, '수령', '호출 실패')}${formatInvAddNote(meta, qty, updated.inventory, ruleset)}${paidCost > 0 ? ` (-${paidCost}Cr, 즉시)` : ''}`, 'normal');
-              }
-              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(itemId || ''), source: 'drone', zoneId: String(updated?.zoneId || '') }, atNow());
-              if (got > 0) autoEquipBest(updated, itemMetaById);
-              didProcure = true;
-
-              // 즉시 지급된 아이템으로 조합이 가능해지면 자동 조합(낮은 확률)
-              const craftedD = tryAutoCraftFromLoot(updated.inventory, itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-              applyLootCraftResult(updated, craftedD, itemMetaById, atNow(), updated?.zoneId, 'highlight');
-            }
-          }
-        }
-
-        }
+        const procurementActionResult = runProcurementAction({
+          state: {
+            actor: updated,
+            craftables,
+            itemMetaById,
+            itemNameById,
+            nextDay,
+            nextPhase,
+            phaseIdxNow,
+            publicItems,
+            queuedActionType,
+            queuedDroneOrder,
+            queuedKioskAction,
+            ruleset,
+          },
+          actions: {
+            addLog,
+            applyLootCraftResult,
+            atNow,
+            emitItemGainIfAny,
+            emitRunEvent,
+          },
+        });
+        updated = procurementActionResult.actor;
 
         const craftActionResult = runCraftAction({
           state: {
