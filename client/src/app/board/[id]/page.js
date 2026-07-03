@@ -66,6 +66,8 @@ function normalizePost(row) {
     title: safeText(row.title, '제목 없음'),
     content: safeText(row.content, ''),
     commentCount: Number(row.commentCount ?? comments.length ?? 0),
+    isNotice: Boolean(row.isNotice),
+    noticePinnedAt: row.noticePinnedAt || '',
     comments,
     createdAt: row.createdAt || row.created_at || row.date || '',
     updatedAt: row.updatedAt || row.updated_at || '',
@@ -93,6 +95,7 @@ export default function BoardDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState('');
+  const [noticeSaving, setNoticeSaving] = useState(false);
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -128,6 +131,7 @@ export default function BoardDetailPage() {
   }, [load]);
 
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
+  const canManageNotice = mounted && token && Boolean(user?.isAdmin) && post;
   const comments = Array.isArray(post?.comments) ? post.comments : [];
 
   const applyPostResponse = (data) => {
@@ -221,6 +225,24 @@ export default function BoardDetailPage() {
     }
   };
 
+  const toggleNotice = async () => {
+    if (!post) return;
+    setNoticeSaving(true);
+    try {
+      const res = await apiPost(`/posts/${id}/notice`, { isNotice: !post.isNotice });
+      applyPostResponse(res);
+      const nextMessage = res?.message || '공지 상태를 변경했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '공지 상태 변경에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setNoticeSaving(false);
+    }
+  };
+
   return (
     <main className="board-page">
       <SiteHeader />
@@ -269,7 +291,9 @@ export default function BoardDetailPage() {
             ) : (
               <>
                 <div className="board-post-head">
-                  <div className="board-post-kicker">자유</div>
+                  <div className={`board-post-kicker ${post.isNotice ? 'is-notice' : ''}`}>
+                    {post.isNotice ? '공지' : '자유'}
+                  </div>
                   <h2>{safeText(post.title, '제목 없음')}</h2>
                 </div>
                 <dl className="board-post-meta">
@@ -305,6 +329,19 @@ export default function BoardDetailPage() {
                 ) : null}
                 <button type="button" className="board-danger" onClick={remove}>
                   삭제
+                </button>
+              </div>
+            ) : null}
+
+            {canManageNotice ? (
+              <div className="board-actions board-admin-actions">
+                <button
+                  type="button"
+                  className="board-secondary"
+                  onClick={toggleNotice}
+                  disabled={noticeSaving}
+                >
+                  {noticeSaving ? '저장 중...' : post.isNotice ? '공지 해제' : '공지 고정'}
                 </button>
               </div>
             ) : null}

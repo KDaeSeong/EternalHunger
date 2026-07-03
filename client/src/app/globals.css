@@ -172,6 +172,12 @@ textarea {
   font-weight: 800;
 }
 
+.board-post-kicker.is-notice {
+  border-color: #d4b84c;
+  background: #fff7cf;
+  color: #6f5700;
+}
+
 .board-search {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -337,6 +343,10 @@ textarea {
   font-weight: 900;
 }
 
+.board-row-title.is-notice em {
+  color: #6f5700;
+}
+
 .board-row-title:hover {
   color: #1b6fa2;
 }
@@ -433,6 +443,10 @@ textarea {
 .board-actions .board-secondary {
   background: #f3f4f6;
   color: #111827;
+}
+
+.board-admin-actions {
+  background: #fffdf2;
 }
 
 .board-danger,

@@ -35,6 +35,15 @@ function displayName(user) {
   return String(user?.nickname || user?.username || '익명').trim() || '익명';
 }
 
+async function requireAdminUser(req, res) {
+  const user = await User.findById(req.user.id).select('isAdmin').lean();
+  if (!user?.isAdmin) {
+    res.status(403).json({ error: '관리자만 사용할 수 있습니다.' });
+    return null;
+  }
+  return user;
+}
+
 function serializeComment(comment) {
   return {
     _id: normalizeId(comment),
@@ -55,6 +64,8 @@ function serializePostDetail(post) {
     title: post?.title || '',
     content: post?.content || '',
     contentPreview: cleanText(post?.content, POST_PREVIEW_LENGTH),
+    isNotice: Boolean(post?.isNotice),
+    noticePinnedAt: post?.noticePinnedAt || null,
     commentCount: Number(post?.commentCount ?? comments.length ?? 0),
     comments: comments.map(serializeComment),
     createdAt: post?.createdAt || null,
@@ -69,6 +80,8 @@ function serializePostSummary(post, author) {
     authorName: displayName(author || post?.authorId),
     title: post?.title || '',
     contentPreview: post?.contentPreview || '',
+    isNotice: Boolean(post?.isNotice),
+    noticePinnedAt: post?.noticePinnedAt || null,
     commentCount: Number(post?.commentCount || 0),
     createdAt: post?.createdAt || null,
     updatedAt: post?.updatedAt || null,
@@ -94,12 +107,14 @@ async function getAuthorMap(authorIds) {
 router.get('/', async (req, res) => {
   try {
     const posts = await Post.aggregate([
-      { $sort: { createdAt: -1 } },
+      { $sort: { isNotice: -1, noticePinnedAt: -1, createdAt: -1 } },
       { $limit: POST_LIST_LIMIT },
       {
         $project: {
           authorId: 1,
           title: 1,
+          isNotice: 1,
+          noticePinnedAt: 1,
           createdAt: 1,
           updatedAt: 1,
           contentPreview: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, POST_PREVIEW_LENGTH] },
@@ -195,6 +210,30 @@ router.post('/:id/comments', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '댓글 작성에 실패했습니다.' });
+  }
+});
+
+router.post('/:id/notice', verifyToken, async (req, res) => {
+  try {
+    const admin = await requireAdminUser(req, res);
+    if (!admin) return;
+
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const nextPinned = req.body?.isNotice !== undefined ? Boolean(req.body.isNotice) : !post.isNotice;
+    post.isNotice = nextPinned;
+    post.noticePinnedAt = nextPinned ? new Date() : null;
+    await post.save();
+
+    const populated = await findPostWithUsers(post._id);
+    res.json({
+      message: nextPinned ? '공지로 고정했습니다.' : '공지 고정을 해제했습니다.',
+      post: serializePostDetail(populated),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '공지 상태 변경에 실패했습니다.' });
   }
 });
 

@@ -56,6 +56,8 @@ function normalizePost(row) {
     content: safeText(row.content ?? row.contentPreview, ''),
     contentPreview: safeText(row.contentPreview ?? row.content, ''),
     commentCount: Number(row.commentCount || 0),
+    isNotice: Boolean(row.isNotice),
+    noticePinnedAt: row.noticePinnedAt || '',
     createdAt: row.createdAt || row.created_at || row.date || '',
     authorId,
     authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
@@ -286,10 +288,10 @@ export default function BoardPage() {
                     <tr key={id || `${post?.title}-${post?.createdAt}`}>
                       <td className="board-cell-no" data-label="번호">{rowNo}</td>
                       <td className="board-cell-title" data-label="제목">
-                        <Link href={id ? `/board/${id}` : '/board'} className="board-row-title">
+                        <Link href={id ? `/board/${id}` : '/board'} className={`board-row-title ${post?.isNotice ? 'is-notice' : ''}`}>
                           <span>{title}</span>
                           <small>{preview ? `${preview}${preview.length >= 160 ? '...' : ''}` : '미리보기 없음'}</small>
-                          <em>댓글 {Number(post?.commentCount || 0)}</em>
+                          <em>{post?.isNotice ? '공지 · ' : ''}댓글 {Number(post?.commentCount || 0)}</em>
                         </Link>
                       </td>
                       <td data-label="작성자">{safeText(post?.authorName, '익명')}</td>
