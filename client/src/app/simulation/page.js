@@ -15,7 +15,6 @@ import {
   getRegenValue,
   getShieldValue,
   hasActionBlockStatus,
-  updateEffects,
 } from '../../utils/statusLogic';
 import {
   getMovementSpeedMasteryBonus,
@@ -52,7 +51,6 @@ import {
   getPerkAggressionBias,
   applyPerkCreditBonus,
   maybeBoostDropQty,
-  normalizeRuntimeEffect,
   normalizeRuntimeSurvivorList,
   buildRuntimeSurvivorMap,
   upsertRuntimeSurvivor,
@@ -75,8 +73,6 @@ import {
   applyAiRecoveryWindow,
   isAiRecoveryLocked,
   normalizeRevivedSurvivor,
-  shouldLogRuntimeEffectExpiry,
-  shouldLogRuntimeEffectTick,
   applyRuntimeEffectPayloads,
   consumeShieldDamage,
   clearPostCombatEffects,
@@ -221,6 +217,7 @@ import {
   buildStarterLoadoutSurvivorsForPhase,
   prepareWorldSpawnsForPhase,
 } from './_lib/phaseSpawnRuntime';
+import { applyActorPhaseStatusTick } from './_lib/phaseActorStatusRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1076,40 +1073,23 @@ export default function SimulationPage() {
 
     let updatedSurvivors = (Array.isArray(phaseSurvivors) ? phaseSurvivors : [])
       .map((s) => {
-        const beforeHp = Number(s.hp || 0);
-        const beforeEffects = Array.isArray(s?.activeEffects) ? s.activeEffects.map((x) => normalizeRuntimeEffect(x)).filter(Boolean) : [];
-        const statusTick = updateEffects({ ...s, activeEffects: beforeEffects }, { returnMeta: true, elapsedSec: phaseDurationSec });
-        let updated = normalizeRuntimeSurvivor(statusTick?.character || s);
-
-        (Array.isArray(statusTick?.ticks) ? statusTick.ticks : []).forEach((tick) => {
-          if (!shouldLogRuntimeEffectTick(tick)) return;
-          const amount = Math.max(0, Number(tick?.amount || 0));
-          if (amount <= 0) return;
-          const nm = String(tick?.name || '효과');
-          const secText = Number(tick?.seconds || 0) > 1 ? ` (${Math.max(1, Math.floor(Number(tick.seconds)))}초)` : '';
-          if (tick?.type === 'damage') addLog(`⏱️ [${updated.name}] ${nm}: HP -${amount}${secText}`, 'highlight');
-          else if (tick?.type === 'heal') addLog(`✨ [${updated.name}] ${nm}: HP +${amount}${secText}`, 'system');
+        const statusTickResult = applyActorPhaseStatusTick({
+          state: {
+            actor: s,
+            canReviveThisMatch,
+            elapsedSec: phaseDurationSec,
+            phaseIdxNow,
+            reviveCutoffIdx,
+          },
+          actions: {
+            addLog,
+            emitDeathRunEventOnce,
+            setDeathMetadata,
+          },
         });
-        (Array.isArray(statusTick?.expired) ? statusTick.expired : []).forEach((eff) => {
-          if (!shouldLogRuntimeEffectExpiry(eff)) return;
-          const nm = String(eff?.name || '효과');
-          addLog(`⌛ [${updated.name}] ${nm} 종료`, 'system');
-        });
-
-        const afterHp = Number(updated.hp || 0);
-        if (beforeHp > 0 && afterHp <= 0) {
-          updated.hp = 0;
-          const visibleDamageTick = (Array.isArray(statusTick?.ticks) ? statusTick.ticks : [])
-            .find((tick) => Number(tick?.amount || 0) > 0 && shouldLogRuntimeEffectTick(tick));
-          const cause = visibleDamageTick
-            ? String(visibleDamageTick?.name || '상태 이상')
-            : '지속 피해';
-          setDeathMetadata(updated, 'status_effect', { causeName: cause });
-          updated.deadAtPhaseIdx = phaseIdxNow;
-          updated.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
+        let updated = statusTickResult.actor;
+        if (statusTickResult.died) {
           newlyDead.push(updated);
-          emitDeathRunEventOnce(updated, { reason: 'status_effect', cause });
-          addLog(`💀 [${updated.name}] ${cause}로 사망했습니다.`, 'death');
           return updated;
         }
 
