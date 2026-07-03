@@ -19,7 +19,7 @@ const WIKI_SECTIONS = [
     id: 'start',
     title: '처음 시작',
     tag: 'Start',
-    summary: '캐릭터 설정, 목표 장비, 전술 스킬을 먼저 확인하고 시뮬레이션을 돌립니다.',
+    summary: '캐릭터 설정, 초월 장비 세팅, 전술 스킬을 먼저 확인하고 시뮬레이션을 돌립니다.',
     links: [
       { href: '/characters', label: '캐릭터 설정' },
       { href: '/simulation', label: '게임 시작' },
@@ -30,7 +30,7 @@ const WIKI_SECTIONS = [
     id: 'build',
     title: '빌드와 파밍',
     tag: 'Build',
-    summary: '목표 장비 티어, 루트 파밍, 드론 호출, 키오스크 교환 흐름을 점검합니다.',
+    summary: '초월 장비 세팅, 루트 파밍, 드론 호출, 키오스크 교환 흐름을 점검합니다.',
     links: [
       { href: '/details', label: '상세 설정' },
       { href: '/modifiers', label: '보정치' },

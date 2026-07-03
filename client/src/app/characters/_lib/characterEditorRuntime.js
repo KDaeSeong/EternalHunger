@@ -8,12 +8,6 @@ import {
 } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 
-const GOAL_GEAR_TIERS = [
-  { value: 4, label: '영웅' },
-  { value: 5, label: '전설' },
-  { value: 6, label: '초월' },
-];
-
 const SKILL_LEVEL_COUNT = 5;
 
 function cleanNumber(value, fallback = 0) {
@@ -140,7 +134,7 @@ function normalizeCharacterEditorList(data) {
     weaponType: normalizeWeaponType(c?.weaponType),
     characterSkillLevels: normalizeCharacterSkillLevels(c?.characterSkillLevels),
     characterSkills: normalizeCharacterSkillsForEditor(c?.characterSkills),
-    goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
+    goalGearTier: 6,
     tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
   }));
 }
@@ -172,8 +166,8 @@ function characterId(char) {
   return char?._id || char?.id;
 }
 
-function gearTierLabel(value) {
-  return GOAL_GEAR_TIERS.find((x) => x.value === Number(value || 6))?.label || '초월';
+function gearTierLabel() {
+  return '초월';
 }
 
 function createBlankCharacter(id) {
@@ -197,7 +191,6 @@ function createBlankCharacter(id) {
 }
 
 export {
-  GOAL_GEAR_TIERS,
   SKILL_LEVEL_COUNT,
   WEAPON_TYPES_KO,
   characterId,

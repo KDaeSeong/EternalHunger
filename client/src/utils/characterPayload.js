@@ -242,7 +242,7 @@ function stableStringify(value) {
 }
 
 function comparableValueForKey(value, key) {
-  if (key === 'goalGearTier') return cleanNumber(value, 6);
+  if (key === 'goalGearTier') return 6;
   if (key === 'characterSkillLevel') return Math.max(1, Math.min(5, cleanNumber(value, 1)));
   if (key === 'characterSkills') return stableStringify(cleanCharacterSkills(value));
   if (key === 'tacticalSkillLevel') return Math.max(1, Math.min(2, cleanNumber(value, 1)));
@@ -333,7 +333,7 @@ export function compactCharacterForSave(character, options = {}) {
   if (c.characterSkillLevel !== undefined) out.characterSkillLevel = Math.max(1, Math.min(5, cleanNumber(c.characterSkillLevel, 1)));
   if (c.characterSkillLevels !== undefined) out.characterSkillLevels = cleanSkillLevels(c.characterSkillLevels);
   if (c.characterSkills !== undefined) out.characterSkills = cleanCharacterSkills(c.characterSkills);
-  if (c.goalGearTier !== undefined) out.goalGearTier = cleanNumber(c.goalGearTier, 6);
+  out.goalGearTier = 6;
   if (c.tacticalSkill !== undefined) out.tacticalSkill = normalizeSupportedTacSkill(c.tacticalSkill);
   if (c.tacticalSkillLevel !== undefined) out.tacticalSkillLevel = Math.max(1, Math.min(2, cleanNumber(c.tacticalSkillLevel, 1)));
   if (c.erSubject !== undefined) out.erSubject = cleanString(c.erSubject, 128) || '';

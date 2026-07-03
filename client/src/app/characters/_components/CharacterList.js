@@ -37,7 +37,7 @@ function CharacterList({
               </div>
               <div className="character-summary-meta">
                 <span>무기: {weapon}</span>
-                <span>목표: {gearTierLabel(char.goalGearTier)}</span>
+                <span>장비: {gearTierLabel()}</span>
                 <span>전술: {tactical}</span>
                 {activeSkills.length ? (
                   <span>
@@ -49,7 +49,7 @@ function CharacterList({
 
             <div className="character-summary-actions">
               <button type="button" onClick={() => onEditBasic(realId)}>기본 정보</button>
-              <button type="button" onClick={() => onOpenConfig(char)}>목표/스킬</button>
+              <button type="button" onClick={() => onOpenConfig(char)}>전술/스킬</button>
               <button type="button" onClick={() => onAnalyze(realId)}>AI 분석</button>
               <button type="button" onClick={() => onApplyErPreset(realId)}>ER 프리셋</button>
               <button type="button" className="danger" onClick={() => onRemove(realId)}>삭제</button>

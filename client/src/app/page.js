@@ -25,7 +25,7 @@ const MENU_ITEMS = [
     href: '/characters',
     tag: 'Roster',
     title: '캐릭터 설정',
-    body: '캐릭터, 무기, 목표 장비, 스킬 구성을 관리합니다.',
+    body: '캐릭터, 무기, 초월 장비 세팅, 스킬 구성을 관리합니다.',
   },
   {
     href: '/search',

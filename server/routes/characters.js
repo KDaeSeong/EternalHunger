@@ -163,6 +163,7 @@ function pickCharacterSavePayload(raw, itemNameMap) {
     if (src[field] !== undefined) out[field] = src[field];
   }
 
+  out.goalGearTier = 6;
   if (out.inventory) out.inventory = normalizeInventory(out.inventory, itemNameMap, { merge: true });
   if (out.tacticalSkill !== undefined) out.tacticalSkill = normalizeTacticalSkill(out.tacticalSkill);
   return out;
@@ -294,7 +295,7 @@ function cleanComparableCharacterSkills(skills) {
 }
 
 function comparableValue(value, field) {
-  if (field === 'goalGearTier') return cleanComparableNumber(value, 6);
+  if (field === 'goalGearTier') return 6;
   if (field === 'characterSkillLevel') {
     return Math.max(1, Math.min(5, cleanComparableNumber(value, 1)));
   }

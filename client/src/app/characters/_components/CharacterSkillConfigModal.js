@@ -6,7 +6,6 @@ import {
 } from '../../../utils/characterSkillCompiler';
 import { TACTICAL_SKILL_OPTIONS_KO } from '../../simulation/tacticalSkillTable';
 import {
-  GOAL_GEAR_TIERS,
   cleanNumber,
   normalizeCharacterSkillLevels,
 } from '../_lib/characterEditorRuntime';
@@ -23,7 +22,6 @@ function CharacterSkillConfigModal({
   editCharacterSkillLevels,
   editCharacterSkills,
   activeSkillSlot,
-  editGoalGearTier,
   editTacticalSkill,
   manualSkillInputEnabled = false,
   onBackdropPointerDown,
@@ -34,7 +32,6 @@ function CharacterSkillConfigModal({
   onSetActiveSkillSlot,
   onSetCharacterSkillCode,
   onSetCharacterSkillLevels,
-  onSetGoalGearTier,
   onSetManualSkillInputEnabled = () => {},
   onSetTacticalSkill,
   onUpdateSkill,
@@ -58,25 +55,13 @@ function CharacterSkillConfigModal({
       <div className="character-edit-modal">
         <div className="character-edit-head">
           <div>
-            <p>목표/스킬 설정</p>
+            <p>전술/스킬 설정</p>
             <h2>{character.name || '이름 없음'}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="닫기">x</button>
         </div>
 
         <div className="character-edit-fields">
-          <label>
-            <span className="character-field-help">
-              목표 장비 등급
-              <Link href="/help" className="inline-help-link" title="목표 장비 등급 안내">?</Link>
-            </span>
-            <select value={String(editGoalGearTier)} onChange={(event) => onSetGoalGearTier(Number(event.target.value))}>
-              {GOAL_GEAR_TIERS.map((tier) => (
-                <option key={tier.value} value={String(tier.value)}>{tier.label}</option>
-              ))}
-            </select>
-          </label>
-
           <label>
             <span className="character-field-help">
               전술 스킬

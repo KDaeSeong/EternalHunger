@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { TACTICAL_SKILL_OPTIONS_KO } from '../../simulation/tacticalSkillTable';
 import {
-  GOAL_GEAR_TIERS,
   LOADOUT_SLOTS,
   LOADOUT_TIERS,
   getLoadoutOptionsForSlot,
@@ -9,7 +8,6 @@ import {
 
 function DetailsGoalConfigModal({
   character,
-  editGoalGearTier,
   editGoalLoadouts,
   editTacticalSkill,
   equipList,
@@ -17,12 +15,12 @@ function DetailsGoalConfigModal({
   onBackdropPointerUp,
   onClose,
   onSave,
-  onSetGoalGearTier,
   onSetTacticalSkill,
   onUpdateLoadout,
 }) {
   if (!character) return null;
   const name = character?.name || '캐릭터';
+  const transcendLoadoutTiers = LOADOUT_TIERS.filter((tier) => tier.key === 'transcend');
 
   return (
     <div
@@ -37,23 +35,11 @@ function DetailsGoalConfigModal({
     >
       <div style={{ width: 'min(560px, 100%)', background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>⚙️ {name} 목표 세팅</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>⚙️ {name} 전술/장비 세팅</h2>
           <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
-              목표 장비 등급
-              <Link href="/help" className="inline-help-link" title="목표 장비 등급 설명 보기">?</Link>
-            </span>
-            <select value={String(editGoalGearTier)} onChange={(event) => onSetGoalGearTier(Number(event.target.value))}>
-              {GOAL_GEAR_TIERS.map((tier) => (
-                <option key={tier.value} value={String(tier.value)}>{tier.label}</option>
-              ))}
-            </select>
-          </label>
-
           <label style={{ display: 'grid', gap: 6 }}>
             <span style={{ fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
               전술 스킬 (시즌 11 일반)
@@ -67,8 +53,8 @@ function DetailsGoalConfigModal({
           </label>
 
           <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'grid', gap: 10 }}>
-            <div style={{ fontSize: 13, color: '#333' }}>목표 장비 세팅 (등급별)</div>
-            {LOADOUT_TIERS.map((tier) => (
+            <div style={{ fontSize: 13, color: '#333' }}>초월 장비 세팅</div>
+            {transcendLoadoutTiers.map((tier) => (
               <div key={tier.key} style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{tier.label}</div>
                 <div style={{ display: 'grid', gap: 8 }}>

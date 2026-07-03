@@ -26,7 +26,6 @@ export default function DetailsPage() {
   const [characters, setCharacters] = useState([]);
 
   const [configCharId, setConfigCharId] = useState(null);
-  const [editGoalGearTier, setEditGoalGearTier] = useState(6);
   const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
   const [editGoalLoadouts, setEditGoalLoadouts] = useState(EMPTY_LOADOUTS);
   const [equipList, setEquipList] = useState([]);
@@ -55,8 +54,6 @@ export default function DetailsPage() {
     const id = char?._id;
     if (!id) return;
     setConfigCharId(id);
-    const tier = Number(char?.goalGearTier || 6);
-    setEditGoalGearTier([4, 5, 6].includes(tier) ? tier : 6);
     setEditTacticalSkill(normalizeSupportedTacSkill(char?.tacticalSkill));
     setEditGoalLoadouts(coerceLoadouts(char?.goalLoadouts));
   };
@@ -89,7 +86,7 @@ export default function DetailsPage() {
       if (String(c?._id) !== String(configCharId)) return c;
       return {
         ...c,
-        goalGearTier: Number(editGoalGearTier || 6),
+        goalGearTier: 6,
         tacticalSkill: normalizeSupportedTacSkill(editTacticalSkill),
         goalLoadouts: coerceLoadouts(editGoalLoadouts),
       };
@@ -211,7 +208,7 @@ export default function DetailsPage() {
 
                 <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                   <div className="goal-help-line">
-                    목표: {getGoalGearTierLabel(char?.goalGearTier)} / 전술: {String(char?.tacticalSkill || '블링크')}
+                    장비: {getGoalGearTierLabel()} / 전술: {String(char?.tacticalSkill || '블링크')}
                     <Link href="/help" className="inline-help-link" title="목표, 전술, 장비 용어 설명 보기">?</Link>
                   </div>
                   <button
@@ -219,7 +216,7 @@ export default function DetailsPage() {
                     onClick={() => openConfigModal(char)}
                     style={{ padding: '8px 10px', borderRadius: 12, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
                   >
-                    ⚙️ 목표/전술 설정
+                    ⚙️ 전술/장비 설정
                   </button>
                   <button
                     type="button"
@@ -292,7 +289,6 @@ export default function DetailsPage() {
 
         <DetailsGoalConfigModal
           character={characters.find((c) => String(c?._id) === String(configCharId)) || null}
-          editGoalGearTier={editGoalGearTier}
           editGoalLoadouts={editGoalLoadouts}
           editTacticalSkill={editTacticalSkill}
           equipList={equipList}
@@ -300,7 +296,6 @@ export default function DetailsPage() {
           onBackdropPointerUp={handleBackdropPointerUp}
           onClose={closeConfigModal}
           onSave={saveConfigModal}
-          onSetGoalGearTier={setEditGoalGearTier}
           onSetTacticalSkill={setEditTacticalSkill}
           onUpdateLoadout={updateLoadout}
         />

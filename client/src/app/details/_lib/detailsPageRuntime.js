@@ -3,12 +3,6 @@ import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { normalizeErStats } from '../../../utils/erStats';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 
-const GOAL_GEAR_TIERS = [
-  { value: 4, label: '영웅' },
-  { value: 5, label: '전설' },
-  { value: 6, label: '초월' },
-];
-
 const LOADOUT_TIERS = [
   { key: 'hero', label: '영웅' },
   { key: 'legend', label: '전설' },
@@ -46,7 +40,7 @@ function normalizeDetailsCharacterList(data) {
   return (Array.isArray(data) ? data : []).map((char) => ({
     ...char,
     stats: normalizeErStats(char?.stats),
-    goalGearTier: [4, 5, 6].includes(Number(char?.goalGearTier)) ? Number(char.goalGearTier) : 6,
+    goalGearTier: 6,
     tacticalSkill: normalizeSupportedTacSkill(char?.tacticalSkill),
     goalLoadouts: coerceLoadouts(char?.goalLoadouts),
   }));
@@ -76,8 +70,8 @@ function syncTokenCookie(token) {
   }
 }
 
-function getGoalGearTierLabel(value) {
-  return GOAL_GEAR_TIERS.find((tier) => tier.value === Number(value || 6))?.label || '초월';
+function getGoalGearTierLabel() {
+  return '초월';
 }
 
 function getLoadoutOptionsForSlot(char, slot, equipList) {
@@ -99,7 +93,6 @@ function getLoadoutOptionsForSlot(char, slot, equipList) {
 
 export {
   EMPTY_LOADOUTS,
-  GOAL_GEAR_TIERS,
   LOADOUT_SLOTS,
   LOADOUT_TIERS,
   coerceLoadouts,

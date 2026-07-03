@@ -93,16 +93,13 @@ export function isItemInMapCrates(mapObj, itemId) {
   return false;
 }
 
-export function normalizeGoalTier(tier) {
-  const t = Number(tier);
-  if (t === 4 || t === 5 || t === 6) return t;
+export function normalizeGoalTier() {
   return 6;
 }
 
 export function pickGoalLoadoutBySlot(actor) {
-  const t = normalizeGoalTier(actor?.goalGearTier ?? 6);
   const g = actor?.goalLoadouts && typeof actor.goalLoadouts === 'object' ? actor.goalLoadouts : {};
-  const b = (t === 4 ? g.hero : t === 5 ? g.legend : g.transcend) || null;
+  const b = g.transcend || null;
   if (!b || typeof b !== 'object') return { weapon: '', head: '', clothes: '', arm: '', shoes: '' };
   return {
     weapon: String(b.weaponKey || '').trim(),

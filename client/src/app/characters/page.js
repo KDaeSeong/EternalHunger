@@ -43,7 +43,6 @@ export default function CharactersPage() {
     editCharacterSkillCode,
     editCharacterSkillLevels,
     editCharacterSkills,
-    editGoalGearTier,
     editTacticalSkill,
     manualSkillInputEnabled,
     openConfigModal,
@@ -51,7 +50,6 @@ export default function CharactersPage() {
     setActiveSkillSlot,
     setEditCharacterSkillCode,
     setEditCharacterSkillLevels,
-    setEditGoalGearTier,
     setEditTacticalSkill,
     setManualSkillInputEnabled,
     updateEditSkill,
@@ -265,7 +263,6 @@ export default function CharactersPage() {
         editCharacterSkillLevels={editCharacterSkillLevels}
         editCharacterSkills={editCharacterSkills}
         activeSkillSlot={activeSkillSlot}
-        editGoalGearTier={editGoalGearTier}
         editTacticalSkill={editTacticalSkill}
         manualSkillInputEnabled={manualSkillInputEnabled}
         onBackdropPointerDown={handleBackdropPointerDown}
@@ -276,7 +273,6 @@ export default function CharactersPage() {
         onSetActiveSkillSlot={setActiveSkillSlot}
         onSetCharacterSkillCode={setEditCharacterSkillCode}
         onSetCharacterSkillLevels={setEditCharacterSkillLevels}
-        onSetGoalGearTier={setEditGoalGearTier}
         onSetManualSkillInputEnabled={setManualSkillInputEnabled}
         onSetTacticalSkill={setEditTacticalSkill}
         onUpdateSkill={updateEditSkill}

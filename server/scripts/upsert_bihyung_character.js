@@ -41,7 +41,7 @@ function bihyungTemplate() {
     erRole: 'trickster',
     erTrait: 'sprint',
     erWeapons: ['\uD22C\uCC99'],
-    goalGearTier: 4,
+    goalGearTier: 6,
     stats: {
       maxHp: 106,
       hpGrowth: 4,

@@ -24,9 +24,9 @@ const characterSchema = new Schema({
   characterSkills: { type: Schema.Types.Mixed, default: {} },
 
   // --- 관전형 목표 세팅 ---
-  // - goalGearTier: 목표 장비 등급(영웅=4, 전설=5, 초월=6)
+  // - goalGearTier: 장비 목표 티어는 초월(6) 고정
   // - tacticalSkill: 시즌 11 일반 게임 전술 스킬(문자열)
-  // - goalLoadouts: 목표 등급별(영웅/전설/초월) 슬롯별 목표 장비(itemKey) 세팅
+  // - goalLoadouts: 초월 슬롯별 목표 장비(itemKey) 세팅
   goalGearTier: { type: Number, default: 6 },
   tacticalSkill: { type: String, default: '블링크' },
   // 전술 스킬 레벨(런 단위): Lv.1 시작, 최대 Lv.2 (런 시작 시 1로 초기화)

@@ -207,7 +207,7 @@ const {
   countInInventory,
 } = require('../utils/inventory');
 
-// ✅ 목표 장비 세팅용: 장비 목록(슬롯별) 제공
+// ✅ 초월 장비 세팅용: 장비 목록(슬롯별) 제공
 // GET /api/items/equipment-list
 router.get('/equipment-list', async (req, res) => {
   try {

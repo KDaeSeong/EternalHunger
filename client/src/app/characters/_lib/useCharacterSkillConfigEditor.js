@@ -20,7 +20,6 @@ export function useCharacterSkillConfigEditor({
   setCharacters,
 } = {}) {
   const [configCharId, setConfigCharId] = useState(null);
-  const [editGoalGearTier, setEditGoalGearTier] = useState(6);
   const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
   const [editCharacterSkillCode, setEditCharacterSkillCode] = useState('');
   const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
@@ -78,8 +77,6 @@ export function useCharacterSkillConfigEditor({
     const id = characterId(char);
     if (!id) return;
     setConfigCharId(id);
-    const tier = Number(char?.goalGearTier || 6);
-    setEditGoalGearTier([4, 5, 6].includes(tier) ? tier : 6);
     setEditTacticalSkill(normalizeSupportedTacSkill(char?.tacticalSkill) || '블링크');
     setEditCharacterSkillCode(String(char?.characterSkillCode || char?.erSubject || '').trim());
     setEditCharacterSkillLevels(normalizeCharacterSkillLevels(char?.characterSkillLevels));
@@ -98,7 +95,7 @@ export function useCharacterSkillConfigEditor({
         if (String(id) !== String(configCharId)) return char;
         return {
           ...char,
-          goalGearTier: Number(editGoalGearTier || 6),
+          goalGearTier: 6,
           tacticalSkill: normalizeSupportedTacSkill(editTacticalSkill),
           characterSkillCode: String(editCharacterSkillCode || '').trim(),
           characterSkillLevel: editCharacterSkillLevels.q,
@@ -118,7 +115,6 @@ export function useCharacterSkillConfigEditor({
     editCharacterSkillCode,
     editCharacterSkillLevels,
     editCharacterSkills,
-    editGoalGearTier,
     editTacticalSkill,
     manualSkillInputEnabled,
     openConfigModal,
@@ -126,7 +122,6 @@ export function useCharacterSkillConfigEditor({
     setActiveSkillSlot,
     setEditCharacterSkillCode,
     setEditCharacterSkillLevels,
-    setEditGoalGearTier,
     setEditTacticalSkill,
     setManualSkillInputEnabled,
     updateEditSkill,
