@@ -14,6 +14,7 @@ import { buildQSkillCodePreview, compileNaturalQSkillDescription } from '../../u
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { normalizeErStats } from '../../utils/erStats';
 import SiteHeader from '../../components/SiteHeader';
+import CharacterList from './_components/CharacterList';
 import {
   GOAL_GEAR_TIERS,
   SKILL_LEVEL_COUNT,
@@ -23,7 +24,6 @@ import {
   createBlankCharacter,
   createDefaultQSkill,
   formatSaveMismatchMessage,
-  gearTierLabel,
   loadCharactersAfterSave,
   normalizeCharacterEditorList,
   normalizeCharacterSkillLevels,
@@ -332,46 +332,14 @@ export default function CharactersPage() {
         </div>
       </div>
 
-      <div id="characterRowContainer" className="character-list-compact">
-        {characters.map((char) => {
-          const realId = characterId(char);
-          const weapon = normalizeWeaponType(char.weaponType) || '랜덤';
-          const tactical = normalizeSupportedTacSkill(char.tacticalSkill) || '블링크';
-          const qSkill = char?.characterSkills?.q;
-          return (
-            <div className="characterRowContainer2 character-list-card" key={realId}>
-              <div className="character-summary-avatar">
-                {char.previewImage ? (
-                  <img src={char.previewImage} alt={`${char.name || '캐릭터'} 미리보기`} />
-                ) : (
-                  <span>이미지 없음</span>
-                )}
-              </div>
-
-              <div className="character-summary-main">
-                <div className="character-summary-top">
-                  <strong>{char.name || '이름 없음'}</strong>
-                  <span>{char.gender || '여'}</span>
-                </div>
-                <div className="character-summary-meta">
-                  <span>무기: {weapon}</span>
-                  <span>목표: {gearTierLabel(char.goalGearTier)}</span>
-                  <span>전술: {tactical}</span>
-                  {qSkill?.enabled ? <span>Q: {qSkill.name || '사용자 Q'}</span> : null}
-                </div>
-              </div>
-
-              <div className="character-summary-actions">
-                <button type="button" onClick={() => setEditCharId(realId)}>기본 정보</button>
-                <button type="button" onClick={() => openConfigModal(char)}>목표/스킬</button>
-                <button type="button" onClick={() => handleAiAnalyze(realId)}>AI 분석</button>
-                <button type="button" onClick={() => applyErPresetToCharacter(realId)}>ER 프리셋</button>
-                <button type="button" className="danger" onClick={() => removeCharacter(realId)}>삭제</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <CharacterList
+        characters={characters}
+        onAnalyze={handleAiAnalyze}
+        onApplyErPreset={applyErPresetToCharacter}
+        onEditBasic={setEditCharId}
+        onOpenConfig={openConfigModal}
+        onRemove={removeCharacter}
+      />
 
       {editChar ? (
         <div
