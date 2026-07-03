@@ -10,7 +10,6 @@ import {
   getPerkLootBias,
 } from './perkRuntime';
 import {
-  inferEquipSlot,
   inferItemCategory,
   markInventoryGoalItem,
 } from './inventoryRules';
@@ -21,88 +20,13 @@ import {
 } from './legendaryRuntime';
 import { pickRegionLootDrop } from './lumiaRegionData';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
+import { rollTranscendPickOptions } from './fieldTranscendLootRuntime';
+import { rollEarlyRouteLoot } from './fieldRouteLootRuntime';
 
 function clampDropTier(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 1;
   return Math.max(1, Math.min(6, Math.floor(n)));
-}
-
-// 🎁 초월 장비 선택 상자: 후보 2~3개를 뽑아 "선택"하게 하는 최소 구현
-function rollTranscendPickOptions(publicItems, count = 3) {
-  const list = Array.isArray(publicItems) ? publicItems : [];
-  const equipT4 = list
-    .filter((it) => it?._id)
-    .filter((it) => inferItemCategory(it) === 'equipment')
-    .filter((it) => clampDropTier(it?.tier || 1) >= 6);
-  if (!equipT4.length) return [];
-
-  // 슬롯 다양성 우선(가능하면 서로 다른 슬롯)
-  const bySlot = {};
-  for (const it of equipT4) {
-    const slot = String(it?.equipSlot || inferEquipSlot(it) || '').toLowerCase() || 'etc';
-    if (!bySlot[slot]) bySlot[slot] = [];
-    bySlot[slot].push(it);
-  }
-
-  const slots = Object.keys(bySlot);
-  for (let i = slots.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = slots[i];
-    slots[i] = slots[j];
-    slots[j] = tmp;
-  }
-
-  const picked = [];
-  const used = new Set();
-
-  for (const s of slots) {
-    if (picked.length >= count) break;
-    const arr = bySlot[s] || [];
-    if (!arr.length) continue;
-    const it = arr[Math.floor(Math.random() * arr.length)];
-    const id = String(it?._id || '');
-    if (!id || used.has(id)) continue;
-    used.add(id);
-    picked.push(it);
-  }
-
-  if (picked.length < Math.min(count, equipT4.length)) {
-    const rest = equipT4.filter((it) => !used.has(String(it?._id || '')));
-    for (let i = rest.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = rest[i];
-      rest[i] = rest[j];
-      rest[j] = tmp;
-    }
-    for (const it of rest) {
-      if (picked.length >= count) break;
-      const id = String(it?._id || '');
-      if (!id || used.has(id)) continue;
-      used.add(id);
-      picked.push(it);
-    }
-  }
-
-  return picked.map((it) => ({
-    itemId: String(it._id),
-    name: String(it?.name || ''),
-    tier: clampDropTier(it?.tier || 4),
-    slot: String(it?.equipSlot || inferEquipSlot(it) || ''),
-  }));
-}
-
-function pickAutoTranscendOption(options, publicItems) {
-  const list = Array.isArray(publicItems) ? publicItems : [];
-  const scored = (Array.isArray(options) ? options : []).map((o) => {
-    const it = list.find((x) => String(x?._id) === String(o?.itemId)) || null;
-    const tier = clampDropTier(it?.tier ?? o?.tier ?? 4);
-    const v = Number(it?.baseCreditValue ?? it?.value ?? 0);
-    const score = tier * 100000 + v;
-    return { ...o, _score: score };
-  });
-  scored.sort((a, b) => Number(b?._score || 0) - Number(a?._score || 0));
-  return scored[0] || null;
 }
 
 function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
@@ -175,61 +99,20 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     : (moved ? Number(field?.chanceMoved ?? 0.28) : Number(field?.chanceStay ?? 0.12));
   const chance = Math.max(0.01, Math.min(0.98, chanceBase + Math.max(-0.05, Math.min(0.16, perkLootBias * 0.18))));
 
-  const earlyRouteCfg = field?.earlyRoute || {};
-  const earlyRouteActive = routeItemIds.size > 0 && (
-    curDay === 1 ||
-    (curDay === 2 && (curPhase === 'morning' || curPhase === 'day'))
-  );
-  if (earlyRouteActive) {
-    const routeFarmOnly = opts?.routeFarm === true || opts?.routeFarmOnly === true;
-    const routeChanceBase = moved
-      ? Number(earlyRouteCfg?.chanceMoved ?? 0.72)
-      : Number(routeFarmOnly ? (earlyRouteCfg?.chanceFarm ?? 0.82) : (earlyRouteCfg?.chanceStay ?? 0.42));
-    const routeChance = Math.max(0.01, Math.min(0.98, routeChanceBase + Math.max(0, perkLootBias) * 0.10));
-    const routeMaxTier = Math.max(1, Number(earlyRouteCfg?.maxTier ?? fallbackMaxTier));
-    const routeEquipmentMaxTier = Math.max(1, Number(earlyRouteCfg?.equipmentMaxTier ?? 2));
-    const routeWeight = Math.max(0, Number(earlyRouteCfg?.routeWeight ?? 8));
-    const routeGoalWeight = Math.max(0, Number(earlyRouteCfg?.goalWeight ?? 16));
-    const routeEquipmentWeight = Math.max(0, Number(earlyRouteCfg?.equipmentWeight ?? 6));
-    const routeMaxQty = Math.max(1, Math.min(3, Number(earlyRouteCfg?.maxQty ?? 2)));
-    const routeCandidates = [...routeItemIds]
-      .map((itemId) => {
-        const item = list.find((it) => String(it?._id) === String(itemId)) || null;
-        if (!item?._id) return null;
-        if (isItemExcludedFromFieldFarming(item)) return null;
-        if (classifySpecialByName(item?.name)) return null;
-        const category = inferItemCategory(item);
-        const isMaterial = category === 'material';
-        const isLowEquip = category === 'equipment';
-        if (!isMaterial && !isLowEquip) return null;
-        const tier = clampTier4(item?.tier || 1);
-        if (isMaterial && tier > routeMaxTier) return null;
-        if (isLowEquip && tier > routeEquipmentMaxTier) return null;
-        const directGoal = goalItemIds.has(String(item._id));
-        const baseWeight = routeWeight + (isLowEquip ? routeEquipmentWeight : 0) + (directGoal ? routeGoalWeight : 0) + (tier <= 1 ? 2 : 0);
-        return { item, itemId: String(item._id), tier, weight: applyPerkLootWeight(baseWeight, opts?.perkEffects || {}, { rareBoost: tier >= 2 ? 0.12 : 0 }) };
-      })
-      .filter((x) => x && Number(x?.weight || 0) > 0);
-    if (routeCandidates.length && Math.random() < routeChance) {
-      const picked = pickWeighted(routeCandidates);
-      if (picked?.itemId) {
-        const pickedCategory = inferItemCategory(picked?.item);
-        const qtyMax = pickedCategory === 'material' && Number(picked?.tier || 1) <= 1 ? routeMaxQty : 1;
-        const qty = Math.max(1, randInt(1, qtyMax));
-        const crateType = pickedCategory === 'equipment' ? 'route_equipment' : 'route_material';
-        return {
-          item: markInventoryGoalItem(picked.item, true, 'route_goal'),
-          itemId: String(picked.itemId),
-          qty,
-          crateId: 'route_plan',
-          crateType,
-          routeFarm: routeFarmOnly,
-          zoneId: String(zoneId || ''),
-        };
-      }
-    }
-    if (routeFarmOnly) return null;
-  }
+  const earlyRouteLoot = rollEarlyRouteLoot({
+    curDay,
+    curPhase,
+    fallbackMaxTier,
+    field,
+    goalItemIds,
+    list,
+    moved,
+    opts,
+    perkLootBias,
+    routeItemIds,
+    zoneId,
+  });
+  if (earlyRouteLoot.handled) return earlyRouteLoot.loot;
 
   if (Math.random() >= chance) return null;
 
@@ -244,7 +127,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
     // 전설 재료 상자라면: 룰셋 dropWeightsByKey 기준으로 운석/생나/미스릴/포스코어를 굴립니다.
     if (ctLower === 'legendary_material') {
       const legendaryWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
-  const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
+      const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
       const picked = pickWeighted(candidates);
       const item = picked?.item || null;
       if (item?._id) {
@@ -312,7 +195,7 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 
   if (pickedType === 'legendary_material') {
     const legendaryWeights = resolveLegendaryDropWeights(opts, opts?.ruleset || null);
-  const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
+    const candidates = getLegendaryCoreCandidates(publicItems, legendaryWeights);
     const picked = pickWeighted(candidates);
     const item = picked?.item || null;
     if (item?._id) return { item, itemId: String(item._id), qty: 1, crateId: 'fallback', crateType: 'legendary_material', zoneId: String(zoneId || '') };
@@ -404,7 +287,9 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
 }
 
 export {
-  rollTranscendPickOptions,
-  pickAutoTranscendOption,
   rollFieldLoot,
 };
+export {
+  pickAutoTranscendOption,
+  rollTranscendPickOptions,
+} from './fieldTranscendLootRuntime';
