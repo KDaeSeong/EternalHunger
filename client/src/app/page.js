@@ -58,10 +58,10 @@ const MENU_ITEMS = [
     body: '스탯, 성장값, 캐릭터별 세부 값을 조정합니다.',
   },
   {
-    href: '/help',
+    href: '/guides',
     tag: 'Guide',
-    title: '가이드',
-    body: '규칙, 장비, 용어, 진행 구조를 빠르게 확인합니다.',
+    title: '가이드 허브',
+    body: '규칙, 공략 글, 시뮬레이션 토론을 한곳에서 확인합니다.',
   },
 ];
 

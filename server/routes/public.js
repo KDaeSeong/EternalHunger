@@ -123,6 +123,13 @@ function mapHubPost(post) {
   };
 }
 
+function mapGuidePost(post) {
+  return {
+    ...mapHubPost(post),
+    contentPreview: cleanText(post?.content, 180),
+  };
+}
+
 function mapPublicRoom(room) {
   const questions = Array.isArray(room?.questions) ? room.questions : [];
   const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
@@ -372,6 +379,63 @@ router.get('/home-hub', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '홈 허브 정보를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/guides', async (req, res) => {
+  try {
+    const guideCategories = ['guide', 'simulation', 'game'];
+    const discussionCategories = ['guide', 'feedback', 'bug', 'simulation', 'game'];
+    const [
+      featuredGuides,
+      recentGuides,
+      recentDiscussions,
+      categorySummary,
+    ] = await Promise.all([
+      Post.find({ category: { $in: guideCategories }, isNotice: true })
+        .select('_id title category content isNotice commentCount authorId createdAt updatedAt noticePinnedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ noticePinnedAt: -1, createdAt: -1 })
+        .limit(4)
+        .lean(),
+      Post.find({ category: { $in: guideCategories } })
+        .select('_id title category content isNotice commentCount authorId createdAt updatedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .lean(),
+      Post.find({ category: { $in: discussionCategories } })
+        .select('_id title category content isNotice commentCount authorId createdAt updatedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(8)
+        .lean(),
+      Post.aggregate([
+        { $match: { category: { $in: discussionCategories } } },
+        {
+          $group: {
+            _id: '$category',
+            count: { $sum: 1 },
+            latestAt: { $max: '$createdAt' },
+          },
+        },
+        { $sort: { count: -1, _id: 1 } },
+      ]),
+    ]);
+
+    res.json({
+      featuredGuides: featuredGuides.map(mapGuidePost),
+      recentGuides: recentGuides.map(mapGuidePost),
+      recentDiscussions: recentDiscussions.map(mapGuidePost),
+      categories: categorySummary.map((row) => ({
+        category: row?._id || 'free',
+        count: toNonNegativeInt(row?.count),
+        latestAt: row?.latestAt || null,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '가이드 정보를 불러오지 못했습니다.' });
   }
 });
 

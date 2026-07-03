@@ -22,6 +22,7 @@
 .account-page-shell,
 .notifications-page-shell,
 .profile-page-shell,
+.guides-page-shell,
 .board-page,
 .perk-shop-page,
 .help-page-shell {
@@ -43,6 +44,7 @@
 .account-page-shell > .site-header,
 .notifications-page-shell > .site-header,
 .profile-page-shell > .site-header,
+.guides-page-shell > .site-header,
 .board-page > .site-header,
 .perk-shop-page > .site-header,
 .help-page-shell > .site-header,
@@ -129,6 +131,10 @@
 }
 
 .profile-page-shell {
+  padding-bottom: 56px;
+}
+
+.guides-page-shell {
   padding-bottom: 56px;
 }
 
@@ -651,6 +657,231 @@
   font-weight: 900;
 }
 
+.guides-page {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.guides-hero,
+.guides-stats a,
+.guides-wiki-card,
+.guides-panel,
+.guides-empty {
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.guides-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+}
+
+.guides-kicker {
+  margin: 0 0 6px;
+  color: var(--eh-blue);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.guides-hero h1 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.guides-hero p:not(.guides-kicker) {
+  max-width: 720px;
+  margin: 10px 0 0;
+  color: #4f5d69;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.guides-hero > a,
+.guides-panel-title a,
+.guides-wiki-card a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #0878bd;
+  color: #fff;
+  font-weight: 900;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.guides-hero > a:hover {
+  border-color: #155779;
+  background: #155779;
+}
+
+.guides-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.guides-stats a {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: inherit;
+  padding: 14px;
+  text-decoration: none;
+}
+
+.guides-stats a:hover,
+.guides-post-list a:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  background: #f4faff;
+}
+
+.guides-stats span,
+.guides-stats small,
+.guides-post-list small,
+.guides-post-list p {
+  color: #66727e;
+  font-weight: 800;
+}
+
+.guides-stats span {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.guides-stats strong {
+  color: #17202a;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.guides-wiki-grid,
+.guides-content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.guides-wiki-card,
+.guides-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.guides-wiki-card > span,
+.guides-post-list > a > span {
+  width: max-content;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #f2f5f7;
+  color: #43505c;
+  padding: 0 9px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.guides-wiki-card h2,
+.guides-panel-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.guides-wiki-card p {
+  margin: 0;
+  color: #52606d;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.guides-wiki-card > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guides-wiki-card a,
+.guides-panel-title a {
+  min-height: 32px;
+  border-color: rgba(22, 33, 44, 0.16);
+  background: #fff;
+  color: #24313d;
+  font-size: 0.84rem;
+}
+
+.guides-wiki-card a:hover,
+.guides-panel-title a:hover {
+  border-color: rgba(44, 111, 158, 0.34);
+  background: #eff8ff;
+  color: #155779;
+}
+
+.guides-panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.guides-post-list {
+  display: grid;
+  gap: 8px;
+}
+
+.guides-post-list a {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+  color: inherit;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.guides-post-list strong,
+.guides-post-list p,
+.guides-post-list small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.guides-post-list strong {
+  color: #17202a;
+  line-height: 1.35;
+}
+
+.guides-post-list p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.guides-empty {
+  padding: 16px;
+  color: #6a7480;
+  font-weight: 900;
+}
+
 .notifications-page {
   width: min(100%, var(--eh-content-max));
   margin: 0 auto;
@@ -1097,6 +1328,7 @@
   .account-page-shell,
   .notifications-page-shell,
   .profile-page-shell,
+  .guides-page-shell,
   .board-page,
   .perk-shop-page,
   .help-page-shell {
@@ -1115,6 +1347,7 @@
   .account-page-shell > .site-header,
   .notifications-page-shell > .site-header,
   .profile-page-shell > .site-header,
+  .guides-page-shell > .site-header,
   .board-page > .site-header,
   .perk-shop-page > .site-header,
   .help-page-shell > .site-header,
@@ -1245,18 +1478,25 @@
   .profile-hero,
   .profile-grid,
   .profile-stats,
-  .profile-record-stats {
+  .profile-record-stats,
+  .guides-stats,
+  .guides-wiki-grid,
+  .guides-content-grid {
     grid-template-columns: 1fr;
   }
 
-  .notifications-head {
+  .notifications-head,
+  .guides-hero,
+  .guides-panel-title {
     display: grid;
   }
 
   .notifications-head button,
   .notifications-actions,
   .notifications-actions a,
-  .notifications-actions button {
+  .notifications-actions button,
+  .guides-hero > a,
+  .guides-panel-title a {
     width: 100%;
   }
 }

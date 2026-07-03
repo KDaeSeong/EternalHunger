@@ -141,6 +141,15 @@ export default function BoardPage() {
   }, [load]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const nextQuery = safeText(params.get('q'), '');
+    const nextCategory = safeText(params.get('category'), '');
+    if (nextQuery) setQuery(nextQuery);
+    if (BOARD_CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
+  }, []);
+
+  useEffect(() => {
     if (!mounted || token) return;
     setWriterOpen(false);
   }, [mounted, token]);
