@@ -98,7 +98,7 @@ export function createPhaseCombatTacticalRuntime({
       if (cost > 0) bits.push(`HP -${cost}`);
       bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
       bits.push(...collectRuntimeEffectResultTexts(targetTacEffects.results, { subjectName: defender.name }));
-      if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
+      if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'combat-detail');
     }
 
     emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
@@ -113,7 +113,7 @@ export function createPhaseCombatTacticalRuntime({
 
     const preShield = consumeShieldDamage(defender, damage);
     if (preShield.absorbed > 0) {
-      addLog(`🛡️ [${defender.name}] 보호막: 피해 -${preShield.absorbed}`, 'system');
+      addLog(`🛡️ [${defender.name}] 보호막: 피해 -${preShield.absorbed}`, 'combat-detail');
       damage = Math.max(0, Number(preShield.damage || 0));
       if (damage <= 0) return 0;
     }
@@ -123,7 +123,7 @@ export function createPhaseCombatTacticalRuntime({
     const erBlock = Math.min(Math.max(0, Math.round(erBlockRaw)), Math.ceil(damage));
     if (erBlock > 0) {
       damage = Math.max(0, damage - erBlock);
-      if (erBlock >= 5) addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'system');
+      if (erBlock >= 5) addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'combat-detail');
       if (damage <= 0) return 0;
     }
 
@@ -140,7 +140,7 @@ export function createPhaseCombatTacticalRuntime({
     const negateLethal = getTacEffectNumber(tac, 'negateLethal', 1 + level, 0) > 0;
     if (negateLethal && damage >= Number(defender?.hp || 0)) {
       applyTacUse(defender, tac);
-      addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'highlight');
+      addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'combat-detail');
       return Math.max(0, Number(defender?.hp || 0) - 1);
     }
 
@@ -156,7 +156,7 @@ export function createPhaseCombatTacticalRuntime({
       const bits = [];
       bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
       if (block > 0) bits.push(`피해 -${block}`);
-      if (bits.length) addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
+      if (bits.length) addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'combat-detail');
     }
     emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
     emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());

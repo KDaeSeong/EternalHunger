@@ -15,7 +15,7 @@ function applyCombatLifesteal(who, dealt, { addLog = () => {} } = {}) {
   const heal = applyHealingModifier(who, rawHeal);
   if (heal <= 0) return 0;
   who.hp = Math.min(maxHp, Number(who.hp || 0) + heal);
-  addLog(`🩸 [${who.name}] 흡혈: HP +${heal}`, 'system');
+  addLog(`🩸 [${who.name}] 흡혈: HP +${heal}`, 'combat-detail');
   return heal;
 }
 
@@ -103,7 +103,7 @@ export function resolveCombatWinnerOutcome({
     const bits = [];
     if (winnerDamageBonus >= 4) bits.push(`${battleWinner.name} +${winnerDamageBonus}`);
     if (counterDamageBonus >= 3) bits.push(`${loser.name} 반격 +${counterDamageBonus}`);
-    addLog(`⚔️ ER 피해 보정: ${bits.join(' / ')}`, 'system');
+    addLog(`⚔️ ER 피해 보정: ${bits.join(' / ')}`, 'combat-detail');
   }
 
   const atkDmgToLoser = applyCombatTacAttack(battleWinner, loser, dmgToLoser);
@@ -150,7 +150,7 @@ export function resolveCombatWinnerOutcome({
     const bits = [];
     if (splashDmgByWinner > 0) bits.push(`${battleWinner.name} 광역 +${splashDmgByWinner}`);
     if (splashDmgByLoser > 0) bits.push(`${loser.name} 광역 +${splashDmgByLoser}`);
-    addLog(`🌀 캐릭터 스킬 광역: ${bits.join(' / ')}`, 'system');
+    addLog(`🌀 캐릭터 스킬 광역: ${bits.join(' / ')}`, 'combat-detail');
   }
 
   let lethal = loser.hp <= 0;
@@ -170,7 +170,7 @@ export function resolveCombatWinnerOutcome({
         loser.hp = 0;
         totalDmgToLoser += finisherDamage;
         lethal = true;
-        addLog(`☠️ [${battleWinner.name}] 결정타로 [${loser.name}]을(를) 마무리했습니다.`, 'death');
+        addLog(`☠️ [${battleWinner.name}] 결정타로 [${loser.name}]을(를) 마무리했습니다.`, 'combat-detail');
       }
     }
   }
@@ -186,8 +186,8 @@ export function resolveCombatWinnerOutcome({
     loser.lastDamagedBy = String(winnerId);
     loser.lastDamagedPhaseIdx = phaseIdxNow;
   }
-  addLog(battleLog, lethal ? 'death' : 'normal');
-  addLog(`🩸 피해: [${battleWinner.name}]↘[${loser.name}] -${totalDmgToLoser} (반격 -${totalDmgToWinner})`, 'highlight');
+  addLog(battleLog, 'combat-detail');
+  addLog(`🩸 피해: [${battleWinner.name}]↘[${loser.name}] -${totalDmgToLoser} (반격 -${totalDmgToWinner})`, 'combat-detail');
   grantPvpDamageMastery(battleWinner, { damageDealt: totalDmgToLoser, damageTaken: totalDmgToWinner }, lethal ? '결정 교전' : '교전 승리');
   grantPvpDamageMastery(loser, { damageDealt: totalDmgToWinner, damageTaken: totalDmgToLoser }, lethal ? '교전 경험' : '반격');
 

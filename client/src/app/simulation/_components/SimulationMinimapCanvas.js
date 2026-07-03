@@ -229,7 +229,7 @@ export default function SimulationMinimapCanvas({
               className={`minimap-ping ${String(ping.kind || '')}`}
               transform={`translate(${p.x} ${p.y})`}
             >
-              <circle r="7.8" />
+              <circle r="6.8" />
               <text className="minimap-ping-icon" x="0" y="1.5" textAnchor="middle">
                 {ping.icon}
               </text>

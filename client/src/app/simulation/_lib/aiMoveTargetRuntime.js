@@ -61,6 +61,20 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const needForce = needKeys.has('force_core');
   const hasMeteorInv = actorHasSpecialKind(actor, 'meteor', itemMetaById, itemNameById);
   const hasLifeInv = actorHasSpecialKind(actor, 'life_tree', itemMetaById, itemNameById);
+  const pickWildlifeTargets = () => {
+    if (!s?.wildlife || typeof s.wildlife !== 'object') return [];
+    return Object.entries(s.wildlife)
+      .map(([z, c]) => ({
+        z: String(z),
+        c: Math.max(0, Number(c || 0)),
+        score: scoreWildlifeZoneForActor(s, z, actor),
+      }))
+      .filter((x) => x.z && !forbiddenIds.has(String(x.z)) && (x.c > 0 || x.score > 0))
+      .sort((a, b) => (b.score - a.score) || (b.c - a.c) || a.z.localeCompare(b.z))
+      .slice(0, 6)
+      .map((x) => x.z)
+      .filter(Boolean);
+  };
 
   if (kioskZones.length) {
     if (needVf && isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= transCost) {
@@ -118,7 +132,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
     const key = String(actor?._id || actor?.id || actor?.name || '');
     const roll = (hash32(key) % 100) / 100;
     const forceContest = (wantLegendAny && !hasLegendMatAny) || needMeteor || needLife || needMithril || needForce || needVf;
-    const contest = forceContest || roll < 0.78;
+    const contest = forceContest || roll < 0.90;
     if (contest) {
       result.targets = activeCoreZones;
       result.reason = '특수 재료 오브젝트';
@@ -128,18 +142,27 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   }
 
   if (farmCredits && s?.wildlife && typeof s.wildlife === 'object') {
-    const entries = Object.entries(s.wildlife)
-      .map(([z, c]) => ({
-        z: String(z),
-        c: Math.max(0, Number(c || 0)),
-        score: scoreWildlifeZoneForActor(s, z, actor),
-      }))
-      .filter((x) => x.z && !forbiddenIds.has(String(x.z)) && (x.c > 0 || x.score > 0))
-      .sort((a, b) => (b.score - a.score) || (b.c - a.c) || a.z.localeCompare(b.z));
-    const top = entries.slice(0, 6).map((x) => x.z).filter(Boolean);
+    const top = pickWildlifeTargets();
     if (top.length) {
       result.targets = top;
       result.reason = '크레딧 파밍(야생동물)';
+      return result;
+    }
+  }
+
+  const hasStrategicFarmGoal = hasGoal
+    || needVf
+    || needMeteor
+    || needLife
+    || needMithril
+    || needForce
+    || (wantLegendAny && !hasLegendMatAny)
+    || (wantTransAny && !hasVfAny);
+  if (!hasStrategicFarmGoal && isAtOrAfterWorldTime(day, phase, 1, 'night')) {
+    const top = pickWildlifeTargets();
+    if (top.length && Math.random() < 0.46) {
+      result.targets = top;
+      result.reason = '야생동물 사냥';
       return result;
     }
   }
@@ -171,7 +194,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
         .map((c) => String(c.zoneId))
         .filter((zid) => zid && !forbiddenIds.has(String(zid)))
     );
-    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargetsAny.length) {
+    if (isAtOrAfterWorldTime(day, phase, 2, 'night') && crateTargetsAny.length) {
       result.targets = crateTargetsAny;
       result.reason = '특수재료(전설상자)';
       markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
@@ -191,7 +214,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
       return result;
     }
 
-    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
+    if (isAtOrAfterWorldTime(day, phase, 2, 'night') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
       result.targets = [String(bosses.alpha.zoneId)];
       result.reason = '특수재료(알파)';
       markObjectiveTarget(result, actor, 'boss', 'alpha');
@@ -237,7 +260,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   }
 
   if (needMithril) {
-    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
+    if (isAtOrAfterWorldTime(day, phase, 2, 'night') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
       result.targets = [String(bosses.alpha.zoneId)];
       result.reason = '미스릴(알파)';
       markObjectiveTarget(result, actor, 'boss', 'alpha');
@@ -250,7 +273,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
         .map((c) => String(c.zoneId))
         .filter((zid) => zid && !forbiddenIds.has(String(zid)))
     );
-    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length) {
+    if (isAtOrAfterWorldTime(day, phase, 2, 'night') && crateTargets.length) {
       result.targets = crateTargets;
       result.reason = '미스릴(전설상자)';
       markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
@@ -278,7 +301,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
         .map((c) => String(c.zoneId))
         .filter((zid) => zid && !forbiddenIds.has(String(zid)))
     );
-    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length) {
+    if (isAtOrAfterWorldTime(day, phase, 2, 'night') && crateTargets.length) {
       result.targets = crateTargets;
       result.reason = '포스코어(전설상자)';
       markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
@@ -307,7 +330,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
         .map((c) => String(c.zoneId))
         .filter((zid) => zid && !forbiddenIds.has(String(zid)))
     );
-  if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length && Math.random() < 0.18) {
+  if (isAtOrAfterWorldTime(day, phase, 2, 'night') && crateTargets.length && Math.random() < 0.30) {
     result.targets = crateTargets;
     result.reason = '전설상자 탐색';
     markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
@@ -320,7 +343,7 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
       .map((n) => String(n.zoneId))
       .filter((zid) => zid && !forbiddenIds.has(String(zid)))
   );
-  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && Math.random() < 0.22) {
+  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && Math.random() < 0.32) {
     result.targets = coreTargets;
     result.reason = '특수 재료 탐색';
     markObjectiveTarget(result, actor, 'natural_core', 'core');

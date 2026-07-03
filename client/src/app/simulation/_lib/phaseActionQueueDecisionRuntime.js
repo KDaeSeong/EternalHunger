@@ -97,10 +97,15 @@ export function prepareActorPhaseActionQueue({
     if (didMove || fleeInterruptReason) return [];
     const lowHpRatio = Math.max(0, Math.min(1, Number(updated?.hp || 0) / Math.max(1, Number(updated?.maxHp || 100))));
     const simCredits = Math.max(0, Number(updated?.simCredits || 0));
+    const dayNumber = Math.max(1, Number(nextDay || 1));
+    const phaseKey = String(nextPhase || '');
+    const afterOpeningRouteWindow = dayNumber > 1 || (dayNumber === 1 && phaseKey === 'night');
     const farmCreditsBias = upgradeNeed?.farmCredits ? 10 : 0;
     const spendSurplusBias = upgradeNeed?.spendSurplus ? Math.min(18, 6 + Math.floor(simCredits / 250)) : 0;
     const legendBias = upgradeNeed?.wantLegend ? 6 : 0;
     const transBias = upgradeNeed?.wantTrans ? 8 : 0;
+    const wildlifeTempoBias = afterOpeningRouteWindow ? (dayNumber === 1 ? 14 : 10) : 0;
+    const objectiveActionBias = moveObjectiveType ? Math.min(18, 8 + Math.round(Math.max(0, Number(moveContestPressure || 0)) * 36)) : 0;
     const scoreRows = [];
 
     if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
@@ -131,7 +136,7 @@ export function prepareActorPhaseActionQueue({
       const itemId = String(queuedDroneOrder?.itemId || '');
       const matchesGoal = goalMissingSet.has(itemId) || (goalTargetId && goalTargetId === itemId);
       const matchesRouteDrone = routeDroneNeedIds.has(itemId);
-      const score = 40 + spendSurplusBias + (matchesGoal ? 28 : 0) + (matchesRouteDrone ? 36 : 0) + legendBias + transBias - (simCredits < 40 ? 10 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+      const score = 32 + spendSurplusBias + (matchesGoal ? 22 : 0) + (matchesRouteDrone ? 24 : 0) + legendBias + transBias - (simCredits < 40 ? 14 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
       scoreRows.push({
         type: 'droneOrder',
         zoneId: String(updated?.zoneId || ''),
@@ -167,7 +172,7 @@ export function prepareActorPhaseActionQueue({
         zoneId: String(updated?.zoneId || ''),
         etaSec: 1,
         phaseIdx: Number(phaseIdxNow || 0),
-        score: 34 + (fallbackRouteItemIds.length ? 4 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
+        score: 42 + (fallbackRouteItemIds.length ? 8 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
         label: 'routeFarm',
         priorityNote: currentRouteItemIds.length ? 'early_route+materials' : 'early_route+fallback',
       });
@@ -177,9 +182,9 @@ export function prepareActorPhaseActionQueue({
         zoneId: String(updated?.zoneId || ''),
         etaSec: 1,
         phaseIdx: Number(phaseIdxNow || 0),
-        score: 24 + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
+        score: 24 + wildlifeTempoBias + objectiveActionBias + farmCreditsBias + (lowHpRatio <= 0.35 ? 6 : 0) + (craftPreview?.changed ? -10 : 0),
         label: 'hunt',
-        priorityNote: farmCreditsBias > 0 ? 'credits' : '',
+        priorityNote: [farmCreditsBias > 0 ? 'credits' : '', wildlifeTempoBias > 0 ? 'wildlife' : '', objectiveActionBias > 0 ? 'objective' : ''].filter(Boolean).join('+'),
       });
     }
 

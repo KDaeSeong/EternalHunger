@@ -38,6 +38,11 @@ const ZONE_POS_ALIASES = {
   sandy_beach: 'beach',
 };
 
+const RECENT_PING_TTL_MS = 4500;
+const RECENT_PING_LIMIT = 5;
+const RECENT_PING_TAIL = 220;
+const IMPORTANT_GAIN_SOURCES = new Set(['legend', 'natural', 'boss', 'mutant', 'transcend', 'rift']);
+
 function compactZoneKey(value) {
   return String(value || '')
     .trim()
@@ -138,6 +143,15 @@ function pingIcon(event) {
   const kind = String(event?.kind || '');
   if (kind === 'battle') return '⚔️';
   if (kind === 'death') return '💀';
+  if (kind === 'objective') {
+    const objective = String(event?.objective || '');
+    const subkind = String(event?.subkind || event?.objectiveSubkind || '');
+    if (objective === 'boss') return '👹';
+    if (objective === 'legendary_crate' || objective === 'transcend_crate') return '🎁';
+    if (objective === 'natural_core' && subkind.includes('life')) return '🌳';
+    if (objective === 'natural_core') return '✨';
+    return '⭐';
+  }
   if (kind === 'move') return String(event?.transport || '') === 'hyperloop' ? '🌀' : '🚶';
   if (kind === 'skill') return String(event?.mode || '') === 'character_skill' ? '🌀' : '🎯';
   if (kind === 'gain') {
@@ -153,17 +167,39 @@ function pingIcon(event) {
   return '•';
 }
 
+function shouldShowRecentPing(event) {
+  const kind = String(event?.kind || '');
+  if (kind === 'death') return true;
+  if (kind === 'objective') return true;
+  if (kind === 'battle') return event?.lethal === true || String(event?.winner || '');
+  if (kind === 'gain') {
+    const itemId = String(event?.itemId || '');
+    if (itemId === 'CREDITS') return false;
+    return IMPORTANT_GAIN_SOURCES.has(String(event?.source || ''));
+  }
+  return false;
+}
+
+function pingPriority(event) {
+  const kind = String(event?.kind || '');
+  if (kind === 'death') return 5;
+  if (kind === 'objective') return 4;
+  if (kind === 'battle') return 3;
+  if (kind === 'gain') return 2;
+  return 1;
+}
+
 export function buildRecentPings({ runEvents, pingNow, zonePos }) {
   const now = Number(pingNow || Date.now());
-  const ttlMs = 8000;
-  const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-260);
-  const out = [];
+  const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-RECENT_PING_TAIL);
+  const candidates = [];
   const uniq = new Set();
 
   for (let i = tail.length - 1; i >= 0; i -= 1) {
     const event = tail[i];
     const ts = Number(event?.ts || 0);
-    if (!ts || (now - ts) > ttlMs) continue;
+    if (!ts || (now - ts) > RECENT_PING_TTL_MS) continue;
+    if (!shouldShowRecentPing(event)) continue;
     const zoneId = pingZoneId(event);
     if (!zoneId || !zonePos?.[zoneId]) continue;
 
@@ -171,18 +207,19 @@ export function buildRecentPings({ runEvents, pingNow, zonePos }) {
     if (uniq.has(key)) continue;
     uniq.add(key);
 
-    out.push({
+    candidates.push({
       id: String(event._id || event.ts || `${i}`),
       zoneId,
       kind: String(event.kind || ''),
       icon: pingIcon(event),
+      priority: pingPriority(event),
       ts,
     });
-
-    if (out.length >= 14) break;
   }
 
-  return out;
+  return candidates
+    .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)) || (Number(b.ts || 0) - Number(a.ts || 0)))
+    .slice(0, RECENT_PING_LIMIT);
 }
 
 export function getEmptyDetonationRiskSummary() {

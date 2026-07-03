@@ -241,7 +241,7 @@ function applyErWeaponSkillAfterCombat(attacker, defender, opts = {}) {
 
   if (!bits.length) return { damage: extraDamage, applied: false, skill: skill.name };
 
-  opts?.addLog?.(`🗡️ [${attacker.name}] 무기 스킬(${skill.name}): ${bits.join(', ')}`, 'highlight');
+  opts?.addLog?.(`🗡️ [${attacker.name}] 무기 스킬(${skill.name}): ${bits.join(', ')}`, 'combat-detail');
   opts?.emitRunEvent?.('skill', {
     who: String(attacker?._id || ''),
     whoName: attacker?.name,

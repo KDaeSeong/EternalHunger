@@ -308,8 +308,8 @@ export function runPhaseCombatEncounter({
   }
   grantPvpDamageMastery(actor, { damageDealt: scratch, damageTaken: scratch }, '접전');
   grantPvpDamageMastery(target, { damageDealt: scratch, damageTaken: scratch }, '접전');
-  addLog(battleLog, 'normal');
-  addLog(`⚔️ 접전 피해: [${actor.name}] / [${target.name}] 둘 다 -${scratch}`, 'normal');
+  addLog(battleLog, 'combat-detail');
+  addLog(`⚔️ 접전 피해: [${actor.name}] / [${target.name}] 둘 다 -${scratch}`, 'combat-detail');
 
   emitRunEvent(
     'battle',

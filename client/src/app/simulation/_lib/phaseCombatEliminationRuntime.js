@@ -107,7 +107,8 @@ export function createPhaseCombatEliminationRuntime({
     }
 
     const assistName = assistId ? String(assistActor?.name || '') : '';
-    addLog(`☠️ [${combatWinner.name}] ${opts.killText || '처치'}! (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
+    const killVerb = String(opts.killText || '처치').trim() || '처치';
+    addLog(`☠️ [${combatWinner.name}] → [${combatLoser.name}] ${killVerb} (+1킬${assistId ? `, 어시: ${assistName}` : ''})`, 'death');
 
     if (!opts?.skipTraitAfterBattle) {
       applyErTraitAfterBattle(combatWinner, { lethal: true, defeated: combatLoser, damageDealt: opts?.damageDealt });
@@ -127,7 +128,7 @@ export function createPhaseCombatEliminationRuntime({
       combatWinner.detonationMaxSec = nextMax;
       const baseCur = Number((combatWinner.detonationSec ?? ruleset?.detonation?.startSec) ?? 20);
       combatWinner.detonationSec = Math.min(nextMax, baseCur + bonusSec);
-      addLog(`⏱️ [${combatWinner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'system');
+      addLog(`⏱️ [${combatWinner.name}] 처치 보상: 금지구역 제한시간 +${bonusSec}s`, 'combat-detail');
 
       const killCredit = Number(ruleset?.credits?.kill || 0);
       if (killCredit > 0) {
@@ -193,7 +194,7 @@ export function createPhaseCombatEliminationRuntime({
     autoEquipBest(combatWinner, itemMetaById);
     pruneEquippedAgainstInventory(combatLoser);
 
-    if (lootLines.length) addLog(`🧾 루팅: [${combatWinner.name}] ← [${combatLoser.name}] (${lootLines.join(', ')})`, 'normal');
+    if (lootLines.length) addLog(`🧾 루팅: [${combatWinner.name}] ← [${combatLoser.name}] (${lootLines.join(', ')})`, 'combat-detail');
     if (craftLogs.length) {
       for (const line of craftLogs) addLog(line, 'highlight');
     }
@@ -204,7 +205,7 @@ export function createPhaseCombatEliminationRuntime({
     const restHeal = applyHealingModifier(combatWinner, Math.min(Math.round(restHealMax * regenMultiplier), Math.max(0, maxHp - Number(combatWinner.hp || 0))));
     if (restHeal > 0) {
       combatWinner.hp = Math.min(maxHp, Number(combatWinner.hp || 0) + restHeal);
-      addLog(`🩹 [${combatWinner.name}] 전투 후 재정비: HP +${restHeal}`, 'system');
+      addLog(`🩹 [${combatWinner.name}] 전투 후 재정비: HP +${restHeal}`, 'combat-detail');
     }
 
     tryUseConsumable(combatWinner, 'after_battle');
@@ -217,19 +218,19 @@ export function createPhaseCombatEliminationRuntime({
       const extraHeal = applyHealingModifier(combatWinner, Math.min(Math.round(postRestExtraHealMax * regenMultiplier), Math.max(0, maxHp - curHp)));
       if (extraHeal > 0) {
         combatWinner.hp = Math.min(maxHp, curHp + extraHeal);
-        addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'system');
+        addLog(`🧘 [${combatWinner.name}] 전투 후 응급 처치: HP +${extraHeal}`, 'combat-detail');
       }
     } else if (Math.random() < postMoveChance) {
       const curZone = String(combatWinner.zoneId || '');
       const nextZone = pickSparseSafeNeighbor(curZone);
       if (nextZone && nextZone !== curZone) {
         combatWinner.zoneId = nextZone;
-        addLog(`🚶 [${combatWinner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'system');
+        addLog(`🚶 [${combatWinner.name}] 전투 후 이동: ${getZoneName(nextZone)}`, 'combat-detail');
       }
     }
 
     if (clearPostCombatEffects(combatWinner)) {
-      addLog(`🧼 [${combatWinner.name}] 전투 후 지속 피해 상태 정리`, 'system');
+      addLog(`🧼 [${combatWinner.name}] 전투 후 지속 피해 상태 정리`, 'combat-detail');
     }
     clearRuntimeCombatFields(combatWinner);
     applyAiRecoveryWindow(combatWinner, currentActionSec(), {

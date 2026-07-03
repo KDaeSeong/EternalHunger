@@ -1,7 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { getHiddenLogCount, getKillLogs, getVisibleLogs } from '../_lib/logPresentation';
+import {
+  getCombatDetailLogs,
+  getHiddenLogCount,
+  getKillLogs,
+  getVisibleLogs,
+} from '../_lib/logPresentation';
+
+const LOG_VIEW = {
+  SUMMARY: 'summary',
+  KILL: 'kill',
+  COMBAT: 'combat',
+};
 
 function LogMessage({ log, actorAvatarByName, extractActorNameFromLog, prefix = '' }) {
   const who = extractActorNameFromLog ? extractActorNameFromLog(log.text) : '';
@@ -48,14 +59,30 @@ export default function SimulationLogPanel({
   extractActorNameFromLog,
 }) {
   const detailed = !!showDetailedLogs;
-  const [showKillLogsOnly, setShowKillLogsOnly] = useState(false);
-  const visibleLogs = showKillLogsOnly ? getKillLogs(logs) : getVisibleLogs(logs, { detailed });
-  const hiddenCount = showKillLogsOnly ? 0 : getHiddenLogCount(logs, visibleLogs, { detailed });
-  const visiblePrevLogs = showKillLogsOnly ? getKillLogs(prevPhaseLogs) : getVisibleLogs(prevPhaseLogs, { detailed });
-  const hiddenPrevCount = showKillLogsOnly ? 0 : getHiddenLogCount(prevPhaseLogs, visiblePrevLogs, { detailed });
+  const [logViewMode, setLogViewMode] = useState(() => (detailed ? LOG_VIEW.COMBAT : LOG_VIEW.SUMMARY));
+  const isKillView = logViewMode === LOG_VIEW.KILL;
+  const isCombatView = logViewMode === LOG_VIEW.COMBAT;
+  const visibleLogs = isKillView
+    ? getKillLogs(logs)
+    : isCombatView
+      ? getCombatDetailLogs(logs)
+      : getVisibleLogs(logs, { detailed: false });
+  const hiddenCount = logViewMode === LOG_VIEW.SUMMARY ? getHiddenLogCount(logs, visibleLogs, { detailed: false }) : 0;
+  const visiblePrevLogs = isKillView
+    ? getKillLogs(prevPhaseLogs)
+    : isCombatView
+      ? getCombatDetailLogs(prevPhaseLogs)
+      : getVisibleLogs(prevPhaseLogs, { detailed: false });
+  const hiddenPrevCount = logViewMode === LOG_VIEW.SUMMARY ? getHiddenLogCount(prevPhaseLogs, visiblePrevLogs, { detailed: false }) : 0;
   const forbiddenSet = forbiddenNow instanceof Set ? forbiddenNow : new Set();
-  const currentKillCount = showKillLogsOnly ? visibleLogs.length : 0;
-  const prevKillCount = showKillLogsOnly ? visiblePrevLogs.length : 0;
+  const currentKillCount = isKillView ? visibleLogs.length : 0;
+  const prevKillCount = isKillView ? visiblePrevLogs.length : 0;
+  const currentCombatCount = isCombatView ? visibleLogs.length : 0;
+
+  const selectLogMode = (mode) => {
+    setLogViewMode(mode);
+    setShowDetailedLogs(mode === LOG_VIEW.COMBAT);
+  };
 
   return (
     <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
@@ -91,26 +118,35 @@ export default function SimulationLogPanel({
 
         <div className="log-toolbar">
           <span className="log-toolbar-title">
-            {showKillLogsOnly ? '킬 로그' : (detailed ? '전체 로그' : '요약 로그')}
-            {showKillLogsOnly ? ` · ${currentKillCount}개` : (!detailed && hiddenCount > 0 ? ` · ${hiddenCount}개 숨김` : '')}
+            {isKillView ? '킬 로그' : (isCombatView ? '전투 상세' : '요약 로그')}
+            {isKillView ? ` · ${currentKillCount}개` : ''}
+            {isCombatView ? ` · ${currentCombatCount}개` : ''}
+            {logViewMode === LOG_VIEW.SUMMARY && hiddenCount > 0 ? ` · ${hiddenCount}개 숨김` : ''}
           </span>
           <div className="log-toolbar-actions">
             <button
               type="button"
-              className={`log-toggle-btn ${showKillLogsOnly ? 'active' : ''}`}
-              onClick={() => setShowKillLogsOnly((v) => !v)}
-              title="전투 처치와 킬 관련 로그만 따로 봅니다."
+              className={`log-toggle-btn ${logViewMode === LOG_VIEW.SUMMARY ? 'active' : ''}`}
+              onClick={() => selectLogMode(LOG_VIEW.SUMMARY)}
+              title="핵심 이벤트만 간단히 봅니다."
             >
-              킬 로그
+              요약
             </button>
             <button
               type="button"
-              className="log-toggle-btn"
-              onClick={() => setShowDetailedLogs((v) => !v)}
-              title="요약은 킬, 사망, 제작, 전투, 금지구역 같은 핵심 이벤트만 보여줍니다."
-              disabled={showKillLogsOnly}
+              className={`log-toggle-btn ${isKillView ? 'active' : ''}`}
+              onClick={() => selectLogMode(LOG_VIEW.KILL)}
+              title="처치 결과만 따로 봅니다."
             >
-              {detailed ? '요약 보기' : '전체 보기'}
+              킬
+            </button>
+            <button
+              type="button"
+              className={`log-toggle-btn ${isCombatView ? 'active' : ''}`}
+              onClick={() => selectLogMode(LOG_VIEW.COMBAT)}
+              title="장비, 스킬, 피해량 같은 전투 계산 로그를 봅니다."
+            >
+              전투 상세
             </button>
           </div>
         </div>
@@ -123,7 +159,7 @@ export default function SimulationLogPanel({
               title="이전 페이즈 로그를 펼치거나 숨깁니다."
             >
               {showPrevLogs ? '이전 페이즈 로그 숨기기' : '이전 페이즈 로그 보기'}
-              {showKillLogsOnly ? ` (${prevKillCount}개)` : (!detailed && hiddenPrevCount > 0 ? ` (${hiddenPrevCount}개 숨김)` : '')}
+              {isKillView ? ` (${prevKillCount}개)` : (logViewMode === LOG_VIEW.SUMMARY && hiddenPrevCount > 0 ? ` (${hiddenPrevCount}개 숨김)` : '')}
             </button>
           </div>
         ) : null}
@@ -139,8 +175,8 @@ export default function SimulationLogPanel({
                   extractActorNameFromLog={extractActorNameFromLog}
                 />
               ))}
-              {showKillLogsOnly && !visiblePrevLogs.length ? (
-                <div className="log-empty-state">이전 페이즈에 표시할 킬 로그가 없습니다.</div>
+              {(isKillView || isCombatView) && !visiblePrevLogs.length ? (
+                <div className="log-empty-state">이전 페이즈에 표시할 {isKillView ? '킬 로그' : '전투 상세 로그'}가 없습니다.</div>
               ) : null}
             </div>
           </div>
@@ -155,8 +191,8 @@ export default function SimulationLogPanel({
               extractActorNameFromLog={extractActorNameFromLog}
             />
           ))}
-          {showKillLogsOnly && !visibleLogs.length ? (
-            <div className="log-empty-state">표시할 킬 로그가 없습니다.</div>
+          {(isKillView || isCombatView) && !visibleLogs.length ? (
+            <div className="log-empty-state">표시할 {isKillView ? '킬 로그' : '전투 상세 로그'}가 없습니다.</div>
           ) : null}
         </div>
       </div>

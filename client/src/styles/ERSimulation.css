@@ -522,7 +522,7 @@
 
 .log-toggle-btn {
   flex: 0 0 auto;
-  min-width: 86px;
+  min-width: 70px;
   height: 32px;
   padding: 0 12px;
   border: 1px solid rgba(255,255,255,0.18);
@@ -601,6 +601,13 @@
     color: #ffd700; /* 금색 */
     font-weight: 800;
     border-bottom: 1px dashed #ffd700;
+}
+
+.log-message.combat-detail {
+    border-color: rgba(120, 190, 255, 0.22);
+    background: rgba(20, 42, 58, 0.42);
+    color: rgba(214, 234, 255, 0.82);
+    font-size: 0.98rem;
 }
 
 /* 화면 흔들림 애니메이션 */
@@ -1818,16 +1825,17 @@
 .minimap-ping circle {
   fill: none;
   stroke: rgba(180, 220, 255, 0.82);
-  stroke-width: 1.1;
+  stroke-width: 0.9;
   transform-origin: center;
   transform-box: fill-box;
-  animation: ehMinimapPing 0.95s ease-out infinite;
+  animation: ehMinimapPing 1.15s ease-out 2 forwards;
 }
 
 .minimap-ping.move circle { stroke: rgba(180, 220, 255, 0.82); }
 .minimap-ping.gain circle { stroke: rgba(170, 255, 190, 0.82); }
 .minimap-ping.battle circle { stroke: rgba(255, 210, 140, 0.86); }
 .minimap-ping.death circle { stroke: rgba(255, 120, 120, 0.86); }
+.minimap-ping.objective circle { stroke: rgba(255, 221, 120, 0.86); }
 
 .minimap-ping-core {
   fill: rgba(255, 255, 255, 0.92) !important;
