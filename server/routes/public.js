@@ -62,6 +62,10 @@ function cleanText(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength);
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function toNonNegativeInt(value) {
   const n = Number(value || 0);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
@@ -127,6 +131,13 @@ function mapGuidePost(post) {
   return {
     ...mapHubPost(post),
     contentPreview: cleanText(post?.content, 180),
+  };
+}
+
+function mapSearchPost(post) {
+  return {
+    ...mapGuidePost(post),
+    resultType: post?.category === 'guide' ? 'guide' : 'post',
   };
 }
 
@@ -436,6 +447,88 @@ router.get('/guides', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '가이드 정보를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/search', async (req, res) => {
+  try {
+    const query = cleanText(req.query?.q, 80);
+    const emptyResults = {
+      posts: [],
+      rooms: [],
+      users: [],
+      characters: [],
+    };
+
+    if (!query) {
+      return res.json({
+        query: '',
+        counts: { total: 0, posts: 0, rooms: 0, users: 0, characters: 0 },
+        results: emptyResults,
+      });
+    }
+
+    const pattern = new RegExp(escapeRegExp(query), 'i');
+    const [
+      posts,
+      rooms,
+      users,
+      characters,
+    ] = await Promise.all([
+      Post.find({ $or: [{ title: pattern }, { content: pattern }] })
+        .select('_id title category content isNotice commentCount authorId createdAt updatedAt noticePinnedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ isNotice: -1, noticePinnedAt: -1, updatedAt: -1, createdAt: -1 })
+        .limit(10)
+        .lean(),
+      TwentyQuestionsRoom.find({ $or: [{ title: pattern }, { hint: pattern }] })
+        .select('_id title category hint status maxQuestions questions guesses hostId solvedBy solvedAt createdAt updatedAt')
+        .populate('hostId', 'username nickname')
+        .populate('solvedBy', 'username nickname')
+        .sort({ status: 1, updatedAt: -1 })
+        .limit(8)
+        .lean(),
+      User.find({ $or: [{ username: pattern }, { nickname: pattern }] })
+        .select('username nickname lp createdAt')
+        .sort({ lp: -1, createdAt: 1 })
+        .limit(8)
+        .lean(),
+      Character.find({
+        $or: [
+          { name: pattern },
+          { weaponType: pattern },
+          { erSubject: pattern },
+          { erRole: pattern },
+        ],
+      })
+        .select('name weaponType records userId createdAt')
+        .populate('userId', 'username nickname')
+        .sort({ 'records.totalWins': -1, 'records.totalKills': -1, 'records.gamesPlayed': -1, name: 1 })
+        .limit(8)
+        .lean(),
+    ]);
+
+    const results = {
+      posts: posts.map(mapSearchPost),
+      rooms: rooms.map(mapHubRoom),
+      users: users.map(mapHubUserRank),
+      characters: characters.map(mapHubCharacterRank),
+    };
+
+    res.json({
+      query,
+      counts: {
+        posts: results.posts.length,
+        rooms: results.rooms.length,
+        users: results.users.length,
+        characters: results.characters.length,
+        total: results.posts.length + results.rooms.length + results.users.length + results.characters.length,
+      },
+      results,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '검색 결과를 불러오지 못했습니다.' });
   }
 });
 

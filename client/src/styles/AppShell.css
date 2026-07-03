@@ -23,6 +23,7 @@
 .notifications-page-shell,
 .profile-page-shell,
 .guides-page-shell,
+.search-page-shell,
 .board-page,
 .perk-shop-page,
 .help-page-shell {
@@ -45,6 +46,7 @@
 .notifications-page-shell > .site-header,
 .profile-page-shell > .site-header,
 .guides-page-shell > .site-header,
+.search-page-shell > .site-header,
 .board-page > .site-header,
 .perk-shop-page > .site-header,
 .help-page-shell > .site-header,
@@ -135,6 +137,10 @@
 }
 
 .guides-page-shell {
+  padding-bottom: 56px;
+}
+
+.search-page-shell {
   padding-bottom: 56px;
 }
 
@@ -882,6 +888,256 @@
   font-weight: 900;
 }
 
+.search-page {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.search-hero,
+.search-summary > div,
+.search-panel,
+.search-empty {
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.search-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 460px);
+  align-items: end;
+  gap: 18px;
+  padding: 22px;
+}
+
+.search-kicker {
+  margin: 0 0 6px;
+  color: var(--eh-blue);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.search-hero h1 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.search-hero p:not(.search-kicker) {
+  max-width: 720px;
+  margin: 10px 0 0;
+  color: #4f5d69;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.search-form {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.search-form input {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #ccd5dd;
+  border-radius: 8px;
+  background: #fff;
+  color: #17202a;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 800;
+}
+
+.search-form input:focus {
+  border-color: rgba(8, 120, 189, 0.52);
+  box-shadow: 0 0 0 3px rgba(8, 120, 189, 0.10);
+  outline: none;
+}
+
+.search-form button,
+.search-error button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #0878bd;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 14px;
+}
+
+.search-form button:disabled {
+  border-color: #c7cdd3;
+  background: #d8dde2;
+  color: #6f7983;
+  cursor: not-allowed;
+}
+
+.search-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.search-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.search-summary span,
+.search-result-list small,
+.search-result-list p,
+.search-compact-list small {
+  color: #66727e;
+  font-weight: 800;
+}
+
+.search-summary span {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.search-summary strong {
+  color: #17202a;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.search-content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.search-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.search-panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.search-panel-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.search-panel-title span {
+  min-width: 30px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #eef8ff;
+  color: #155779;
+  padding: 0 9px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.search-result-list,
+.search-compact-list {
+  display: grid;
+  gap: 8px;
+}
+
+.search-result-list a,
+.search-compact-list a,
+.search-compact-list > div {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+  color: inherit;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.search-result-list a:hover,
+.search-compact-list a:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  background: #f4faff;
+}
+
+.search-result-list a > span {
+  width: max-content;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #f2f5f7;
+  color: #43505c;
+  padding: 0 9px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.search-result-list strong,
+.search-result-list p,
+.search-result-list small,
+.search-compact-list strong,
+.search-compact-list small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.search-result-list strong,
+.search-compact-list strong {
+  color: #17202a;
+  line-height: 1.35;
+}
+
+.search-result-list p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.search-empty {
+  padding: 16px;
+  color: #6a7480;
+  font-weight: 900;
+}
+
+.search-start {
+  text-align: center;
+}
+
+.search-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #9a3c3f;
+}
+
+.search-error p {
+  margin: 0;
+}
+
 .notifications-page {
   width: min(100%, var(--eh-content-max));
   margin: 0 auto;
@@ -1329,6 +1585,7 @@
   .notifications-page-shell,
   .profile-page-shell,
   .guides-page-shell,
+  .search-page-shell,
   .board-page,
   .perk-shop-page,
   .help-page-shell {
@@ -1348,6 +1605,7 @@
   .notifications-page-shell > .site-header,
   .profile-page-shell > .site-header,
   .guides-page-shell > .site-header,
+  .search-page-shell > .site-header,
   .board-page > .site-header,
   .perk-shop-page > .site-header,
   .help-page-shell > .site-header,
@@ -1481,13 +1739,17 @@
   .profile-record-stats,
   .guides-stats,
   .guides-wiki-grid,
-  .guides-content-grid {
+  .guides-content-grid,
+  .search-hero,
+  .search-summary,
+  .search-content-grid {
     grid-template-columns: 1fr;
   }
 
   .notifications-head,
   .guides-hero,
-  .guides-panel-title {
+  .guides-panel-title,
+  .search-error {
     display: grid;
   }
 
@@ -1496,7 +1758,12 @@
   .notifications-actions a,
   .notifications-actions button,
   .guides-hero > a,
-  .guides-panel-title a {
+  .guides-panel-title a,
+  .search-error button {
     width: 100%;
+  }
+
+  .search-form {
+    grid-template-columns: 1fr;
   }
 }

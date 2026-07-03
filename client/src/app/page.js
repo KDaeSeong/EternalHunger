@@ -28,6 +28,12 @@ const MENU_ITEMS = [
     body: '캐릭터, 무기, 목표 장비, 스킬 구성을 관리합니다.',
   },
   {
+    href: '/search',
+    tag: 'Search',
+    title: '통합 검색',
+    body: '게시글, 스무고개, 유저, 캐릭터 기록을 한 번에 찾습니다.',
+  },
+  {
     href: '/records',
     tag: 'Stats',
     title: '기록소',
