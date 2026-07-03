@@ -4,85 +4,21 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
-import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
+import { normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGet, apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
 import { ER_STAT_FIELDS, normalizeErStats } from '../../utils/erStats';
-import { normalizeWeaponType } from '../../utils/equipmentCatalog';
 import SiteHeader from '../../components/SiteHeader';
-
-const GOAL_GEAR_TIERS = [
-  { value: 4, label: '영웅' },
-  { value: 5, label: '전설' },
-  { value: 6, label: '초월' },
-];
-
-const LOADOUT_TIERS = [
-  { key: 'hero', label: '영웅' },
-  { key: 'legend', label: '전설' },
-  { key: 'transcend', label: '초월' },
-];
-
-const LOADOUT_SLOTS = [
-  { key: 'weaponKey', label: '무기', slot: 'weapon' },
-  { key: 'headKey', label: '머리', slot: 'head' },
-  { key: 'clothesKey', label: '옷', slot: 'clothes' },
-  { key: 'armKey', label: '팔', slot: 'arm' },
-  { key: 'shoesKey', label: '신발', slot: 'shoes' },
-];
-
-const EMPTY_LOADOUTS = {
-  hero: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
-  legend: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
-  transcend: { weaponKey: '', headKey: '', clothesKey: '', armKey: '', shoesKey: '' },
-};
-
-function normalizeDetailsCharacterList(data) {
-  return (Array.isArray(data) ? data : []).map((c) => ({
-    ...c,
-    stats: normalizeErStats(c?.stats),
-    goalGearTier: [4, 5, 6].includes(Number(c?.goalGearTier)) ? Number(c.goalGearTier) : 6,
-    tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
-    goalLoadouts: coerceLoadouts(c?.goalLoadouts),
-  }));
-}
-
-function formatSaveMismatchMessage(mismatches) {
-  const sample = (Array.isArray(mismatches) ? mismatches : [])
-    .slice(0, 5)
-    .map((m) => `${m.field}:${String(m.id || '').slice(-6)}`)
-    .join(', ');
-  return `저장 후 서버 재조회 값이 요청값과 다릅니다.${sample ? ` (${sample})` : ''}`;
-}
-
-function freshCharactersUrl() {
-  return `/characters?view=stats&_fresh=${Date.now()}`;
-}
-
-async function loadCharactersAfterSave(result) {
-  if (Array.isArray(result?.characters)) return result.characters;
-  return apiGet(freshCharactersUrl(), { timeoutMs: 30000 });
-}
-
-function syncTokenCookie(token) {
-  try {
-    document.cookie = `token=${encodeURIComponent(token)}; path=/; SameSite=Lax`;
-  } catch {
-  }
-}
-
-function coerceLoadouts(raw) {
-  const src = raw && typeof raw === 'object' ? raw : {};
-  const out = JSON.parse(JSON.stringify(EMPTY_LOADOUTS));
-  for (const t of LOADOUT_TIERS) {
-    const tierObj = src?.[t.key] && typeof src[t.key] === 'object' ? src[t.key] : {};
-    for (const s of LOADOUT_SLOTS) {
-      const v = tierObj?.[s.key];
-      out[t.key][s.key] = typeof v === 'string' ? v : '';
-    }
-  }
-  return out;
-}
+import DetailsGoalConfigModal from './_components/DetailsGoalConfigModal';
+import {
+  EMPTY_LOADOUTS,
+  coerceLoadouts,
+  formatSaveMismatchMessage,
+  getGoalGearTierLabel,
+  loadCharactersAfterSave,
+  normalizeDetailsCharacterList,
+  syncTokenCookie,
+} from './_lib/detailsPageRuntime';
 
 export default function DetailsPage() {
   const [characters, setCharacters] = useState([]);
@@ -167,23 +103,6 @@ export default function DetailsPage() {
       ...prev,
       [tierKey]: { ...(prev?.[tierKey] || {}), [slotKey]: String(value || '') }
     }));
-  };
-
-  const getLoadoutOptionsForSlot = (char, slot) => {
-    const slotKey = String(slot || '');
-    const charWeaponType = normalizeWeaponType(char?.weaponType || '');
-    return (Array.isArray(equipList) ? equipList : [])
-      .filter((x) => String(x?.equipSlot || '') === slotKey)
-      .filter((x) => {
-        if (slotKey !== 'weapon') return true;
-        if (!charWeaponType) return true;
-        const directType = normalizeWeaponType(x?.weaponType || '');
-        const tagType = Array.isArray(x?.tags)
-          ? x.tags.map((tag) => normalizeWeaponType(tag)).find(Boolean)
-          : '';
-        const itemWeaponType = directType || tagType;
-        return itemWeaponType ? itemWeaponType === charWeaponType : false;
-      });
   };
 
   const saveConfigModal = () => {
@@ -312,7 +231,7 @@ export default function DetailsPage() {
 
                 <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
                   <div className="goal-help-line">
-                    목표: {GOAL_GEAR_TIERS.find((t) => t.value === Number(char?.goalGearTier || 6))?.label || '초월'} / 전술: {String(char?.tacticalSkill || '블링크')}
+                    목표: {getGoalGearTierLabel(char?.goalGearTier)} / 전술: {String(char?.tacticalSkill || '블링크')}
                     <Link href="/help" className="inline-help-link" title="목표, 전술, 장비 용어 설명 보기">?</Link>
                   </div>
                   <button
@@ -391,88 +310,20 @@ export default function DetailsPage() {
           );
         })() : null}
 
-        {configCharId ? (() => {
-          const cur = characters.find((c) => String(c?._id) === String(configCharId)) || null;
-          const name = cur?.name || '캐릭터';
-          return (
-            <div
-              role="dialog"
-              aria-modal="true"
-              onPointerDown={handleBackdropPointerDown}
-              onPointerUp={(e) => handleBackdropPointerUp(e, closeConfigModal)}
-              style={{
-                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 9999,
-              }}
-            >
-              <div style={{ width: 'min(560px, 100%)', background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.25)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <h2 style={{ margin: 0, fontSize: 18 }}>⚙️ {name} 목표 세팅</h2>
-                  <button type="button" onClick={closeConfigModal} style={{ border: 'none', background: 'transparent', fontSize: 18, cursor: 'pointer' }}>✕</button>
-                </div>
-
-                <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-                  <label style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      목표 장비 등급
-                      <Link href="/help" className="inline-help-link" title="목표 장비 등급 설명 보기">?</Link>
-                    </span>
-                    <select value={String(editGoalGearTier)} onChange={(e) => setEditGoalGearTier(Number(e.target.value))}>
-                      {GOAL_GEAR_TIERS.map((t) => (
-                        <option key={t.value} value={String(t.value)}>{t.label}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label style={{ display: 'grid', gap: 6 }}>
-                    <span style={{ fontSize: 13, color: '#333', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      전술 스킬 (시즌 11 일반)
-                      <Link href="/help" className="inline-help-link" title="전술 스킬 설명 보기">?</Link>
-                    </span>
-                    <select value={String(editTacticalSkill)} onChange={(e) => setEditTacticalSkill(e.target.value)}>
-                      {TACTICAL_SKILL_OPTIONS_KO.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div style={{ borderTop: '1px solid #eee', paddingTop: 10, display: 'grid', gap: 10 }}>
-                    <div style={{ fontSize: 13, color: '#333' }}>목표 장비 세팅 (등급별)</div>
-                    {LOADOUT_TIERS.map((t) => (
-                      <div key={t.key} style={{ border: '1px solid #f0f0f0', borderRadius: 12, padding: 10 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{t.label}</div>
-                        <div style={{ display: 'grid', gap: 8 }}>
-                          {LOADOUT_SLOTS.map((s) => {
-                            const options = getLoadoutOptionsForSlot(cur, s.slot);
-                            const val = String(editGoalLoadouts?.[t.key]?.[s.key] || '');
-                            return (
-                              <label key={s.key} style={{ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 12, color: '#444' }}>{s.label}</span>
-                                <select value={val} onChange={(e) => updateLoadout(t.key, s.key, e.target.value)}>
-                                  <option value="">(미지정)</option>
-                                  {options.map((o) => (
-                                    <option key={o.itemKey} value={o.itemKey}>
-                                      {o.name}{o.tier ? ` (T${o.tier})` : ''}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-                  <button type="button" onClick={closeConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}>취소</button>
-                  <button type="button" onClick={saveConfigModal} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #0288d1', background: '#0288d1', color: '#fff', cursor: 'pointer' }}>적용</button>
-                </div>
-              </div>
-            </div>
-          );
-        })() : null}
+        <DetailsGoalConfigModal
+          character={characters.find((c) => String(c?._id) === String(configCharId)) || null}
+          editGoalGearTier={editGoalGearTier}
+          editGoalLoadouts={editGoalLoadouts}
+          editTacticalSkill={editTacticalSkill}
+          equipList={equipList}
+          onBackdropPointerDown={handleBackdropPointerDown}
+          onBackdropPointerUp={handleBackdropPointerUp}
+          onClose={closeConfigModal}
+          onSave={saveConfigModal}
+          onSetGoalGearTier={setEditGoalGearTier}
+          onSetTacticalSkill={setEditTacticalSkill}
+          onUpdateLoadout={updateLoadout}
+        />
     </main>
   );
 }
