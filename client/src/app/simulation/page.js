@@ -24,7 +24,7 @@ import {
   getWildlifeMasteryEntries,
 } from '../../utils/masteryLogic';
 import { normalizeWeaponType } from '../../utils/equipmentCatalog';
-import { getRuleset, getPhaseDurationSec, getFogLocalTimeSec, getNaturalCreditGain } from '../../utils/rulesets';
+import { getRuleset } from '../../utils/rulesets';
 import SiteHeader from '../../components/SiteHeader';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
 import SimulationControlPanel from './_components/SimulationControlPanel';
@@ -136,11 +136,9 @@ import {
   getAliveTeams,
   pickTeamRepresentative,
   getTimeOfDayFromPhase,
-  worldTimeText,
   worldPhaseIndex,
 } from './_lib/simulationEngine';
 import {
-  applyRegionDataToZones,
   getRegionData,
   getRegionFacilityZoneIds,
 } from './_lib/lumiaRegionData';
@@ -169,7 +167,6 @@ import {
 import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
 import {
   formatClock,
-  waitMs,
   softenNonLethalBattleLog,
 } from './_lib/simulationFormattingRuntime';
 import { useSimulationInitialData } from './_lib/useSimulationInitialData';
@@ -222,6 +219,10 @@ import { useSimulationDerivedData } from './_lib/useSimulationDerivedData';
 import { useSimulationMapState } from './_lib/useSimulationMapState';
 import { useSimulationParticipantPresets } from './_lib/useSimulationParticipantPresets';
 import { useSimulationEventActions } from './_lib/useSimulationEventActions';
+import {
+  beginSimulationPhase,
+  prepareForbiddenZonePhase,
+} from './_lib/phasePreparationRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -851,106 +852,51 @@ export default function SimulationPage() {
 
   // --- [핵심] 진행 로직 ---
   async function proceedPhase() {
-    // ✅ 다음 페이즈로 넘어갈 때, 이전/현재 페이즈 UI 로그는 초기화
-    resetPhaseLogs();
-
-    // 1. 페이즈 및 날짜 변경
-    let nextPhase = phase === 'morning' ? 'night' : 'morning';
-    let nextDay = day;
-    if (phase === 'night') nextDay++;
-
-    // 🎮 룰 프리셋 (기본: ER_S11)
-    const ruleset = getRuleset(settings?.rulesetId);
-
-    // 서든데스(6번째 밤 이후): 페이즈 고정 + 전 지역 금지 + 카운트다운
-    const sdCfg = ruleset?.suddenDeath || {};
-    const sdTotalSec = Math.max(10, Number(sdCfg.totalSec ?? sdCfg.durationSec ?? 180));
-    const shouldActivateSuddenDeath = !suddenDeathActiveRef.current && nextDay === 6 && nextPhase === 'night';
-    if (shouldActivateSuddenDeath) {
-      // 최초 발동: 6번째 밤 이후 진행을 시도할 때
-      if (!suddenDeathActiveRef.current) {
-        suddenDeathActiveRef.current = true;
-        if (typeof suddenDeathEndAtSecRef.current !== 'number') suddenDeathEndAtSecRef.current = matchSec + sdTotalSec;
-        addLog(`=== 서든데스 발동: 최종 안전구역 2곳 제외 전지역 금지 + 카운트다운 ${sdTotalSec}s ===`, 'day-header');
-      }
-      // 페이즈는 최대 6일차 밤에서 고정
-    }
-    // 🚫 금지구역 처리 방식: detonation(폭발 타이머) 설정이 있으면 타이머를 사용
-    const useDetonation = !!ruleset?.detonation;
-    const marketRules = ruleset?.market || {};
-    // ⚔️ 전투 세팅: ruleset 기반 상수(장비 보정 등)를 합쳐서 전달
-    const battleSettings = {
-      ...settings,
-      battle: { ...(ruleset?.battle || {}), ...(settings?.battle || {}), equipment: ruleset?.equipment || {} },
-      skills: { ...(ruleset?.skills || {}), ...(settings?.skills || {}) },
-    };
-    const phaseDurationSec = getPhaseDurationSec(ruleset, nextDay, nextPhase);
-    const phaseStartSec = matchSec;
-    const tickSec = Math.max(1, Math.floor(Number(ruleset?.tickSec || 1)));
-    let phaseRuntimeOffsetSec = 0;
-    let phaseActionAbsSec = phaseStartSec;
-    const currentActionSec = () => Math.max(0, Math.floor(Number(phaseActionAbsSec || phaseStartSec || 0)));
-    const atNow = () => ({ day: nextDay, phase: nextPhase, sec: currentActionSec() });
-    const reserveActionSecond = (seconds = tickSec) => {
-      const offset = Math.max(0, Math.min(phaseDurationSec, Math.floor(Number(phaseRuntimeOffsetSec || 0))));
-      phaseActionAbsSec = phaseStartSec + offset;
-      phaseRuntimeOffsetSec = Math.min(
-        phaseDurationSec,
-        offset + Math.max(1, Math.floor(Number(seconds || tickSec || 1)))
-      );
-      return phaseActionAbsSec;
-    };
-    const getVisibleTickDelayMs = () => {
-      const speed = normalizeAutoSpeed(autoSpeedRef.current || autoSpeed);
-      return Math.max(24, Math.round(1000 / speed));
-    };
-    const commitVisibleClock = async (absSec = phaseStartSec + phaseRuntimeOffsetSec, { wait = true } = {}) => {
-      const nextSec = Math.max(
-        phaseStartSec,
-        Math.min(phaseStartSec + phaseDurationSec, Math.floor(Number(absSec || phaseStartSec)))
-      );
-      setMatchSec(nextSec);
-      if (wait) await waitMs(getVisibleTickDelayMs());
-    };
-    const reserveVisibleSecond = async (seconds = tickSec) => {
-      const actionSec = reserveActionSecond(seconds);
-      await commitVisibleClock(phaseStartSec + phaseRuntimeOffsetSec);
-      return actionSec;
-    };
-    const runVisibleClockToPhaseEnd = async () => {
-      while (phaseRuntimeOffsetSec < phaseDurationSec) {
-        reserveActionSecond(tickSec);
-        await commitVisibleClock(phaseStartSec + phaseRuntimeOffsetSec);
-      }
-    };
-    const fogLocalSec = getFogLocalTimeSec(ruleset, nextDay, nextPhase, phaseDurationSec);
-
-    // 🔥 서든데스: 6번째 밤부터는 “마지막 1인 생존”까지 교전이 더 자주 발생하도록 가속합니다.
-    // - (기존) 6번째 밤 강제 종료는 제거
-    if (!suddenDeathActiveRef.current && nextDay === 6 && nextPhase === 'night') {
-      addLog('=== 🔥 서든데스: 6번째 밤 돌입 (교전 빈도 증가) ===', 'day-header');
-    }
-
-    // 💰 이번 페이즈 기본 크레딧(시즌 11 컨셉)
-    const baseCredits = getNaturalCreditGain(ruleset, nextDay, nextPhase, phaseDurationSec);
-
+    const {
+      atNow,
+      baseCredits,
+      battleSettings,
+      canReviveThisMatch,
+      currentActionSec,
+      fogLocalSec,
+      getPhaseRuntimeOffsetSec,
+      isSoloMatch,
+      marketRules,
+      matchCfgNow,
+      nextDay,
+      nextPhase,
+      phaseDurationSec,
+      phaseIdxNow,
+      phaseStartSec,
+      reserveActionSecond,
+      reserveVisibleSecond,
+      ruleset,
+      runVisibleClockToPhaseEnd,
+      tickSec,
+      useDetonation,
+    } = beginSimulationPhase({
+      refs: {
+        autoSpeedRef,
+        suddenDeathActiveRef,
+        suddenDeathEndAtSecRef,
+      },
+      state: {
+        autoSpeed,
+        day,
+        matchSec,
+        phase,
+        settings,
+      },
+      actions: {
+        addLog,
+        normalizeAutoSpeed,
+        resetPhaseLogs,
+        setDay,
+        setMatchSec,
+        setPhase,
+      },
+    });
     let earnedCredits = baseCredits;
-
-    setDay(nextDay);
-    setPhase(nextPhase);
-    addLog(`=== ${worldTimeText(nextDay, nextPhase)} (⏱ ${phaseDurationSec}s) ===`, 'day-header');
-
-    // 서든데스 카운트다운 표시
-    if (suddenDeathActiveRef.current && typeof suddenDeathEndAtSecRef.current === 'number') {
-      const remain = Math.max(0, Math.ceil(suddenDeathEndAtSecRef.current - matchSec));
-      addLog(`서든데스 카운트다운: ${remain}s`, 'system');
-    }
-
-    // 현재 페이즈 인덱스(배송/딜레이 처리용)
-    const phaseIdxNow = worldPhaseIndex(nextDay, nextPhase);
-    const matchCfgNow = getMatchConfig(settings);
-    const isSoloMatch = matchCfgNow.matchMode === 'solo';
-    const canReviveThisMatch = !isSoloMatch;
 
     const reviveCfg = ruleset?.revive || {};
     const phaseFromTimeOfDay = (value) => String(value || 'day') === 'night' ? 'night' : 'morning';
@@ -980,83 +926,40 @@ export default function SimulationPage() {
     let pendingPickAssigned = false;
 
     // 2. 맵 내부 구역 이동 + 금지구역(구역 기반) 데미지
-    const mapIdNow = String(activeMapIdRef.current || activeMapId || '');
-    const mapObjRaw = activeMapRef.current || activeMap;
-    const mapObjBase = mapObjRaw || ((Array.isArray(zones) && zones.length)
-      ? { _id: mapIdNow || 'local', zones }
-      : null);
-    const mapObj = mapObjBase
-      ? { ...mapObjBase, zones: applyRegionDataToZones(Array.isArray(mapObjBase?.zones) ? mapObjBase.zones : zones) }
-      : null;
-    let forbiddenIds = mapObj ? new Set(getForbiddenZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset)) : new Set();
-    let newlyAddedForbidden = mapObj ? getForbiddenAddedZoneIdsForPhase(mapObj, nextDay, nextPhase, ruleset) : [];
-    let suddenDeathSafeZoneIds = [];
-
-
-    // ✅ 서든데스: 전 지역 금지로 0명 생존(무승부) 케이스가 발생할 수 있어, 최종 안전구역 2곳을 남깁니다.
-    // - 기본: 소방서/골목길(2번째 이미지 동선 기준)
-    if (suddenDeathActiveRef.current && mapObj && Array.isArray(mapObj.zones)) {
-      const allZoneIds = mapObj.zones
-        .map((z) => String(z?.zoneId ?? z?.id ?? z?._id ?? ''))
-        .filter(Boolean);
-
-      const preferred = ['firestation', 'alley'];
-      const safePick = preferred.filter((zid) => allZoneIds.includes(zid));
-      while (safePick.length < 2 && allZoneIds.length) {
-        const cand = allZoneIds[Math.floor(Math.random() * allZoneIds.length)];
-        if (!safePick.includes(cand)) safePick.push(cand);
-      }
-      const safeSet = new Set(safePick);
-      suddenDeathSafeZoneIds = safePick.map((zid) => String(zid || '')).filter(Boolean);
-
-      forbiddenIds = new Set(allZoneIds.filter((zid) => !safeSet.has(zid)));
-
-      if (!suddenDeathForbiddenAnnouncedRef.current) {
-        newlyAddedForbidden = allZoneIds.filter((zid) => !safeSet.has(zid));
-        suddenDeathForbiddenAnnouncedRef.current = true;
-      } else {
-        newlyAddedForbidden = [];
-      }
-
-      addLog(`🟩 최종 안전구역: ${safePick.map((z) => getZoneName(z)).join(', ')}`, 'highlight');
-    }
-
-    setForbiddenAddedNow(newlyAddedForbidden);
-    const forbiddenNames = [...forbiddenIds].map((zid) => getZoneName(zid)).join(', ');
-    const forbiddenAddedNames = newlyAddedForbidden.map((zid) => getZoneName(zid)).join(', ');
-
-    const cfg = mapObj?.forbiddenZoneConfig || {};
-    // LEGACY 규칙: 금지구역 체류 시 HP 감소
-    const damagePerTick = Number(cfg.damagePerTick ?? 0) || Math.round(nextDay * (settings.forbiddenZoneDamageBase || 1.5));
-    // 🧾 금지구역 상태(디버그/재현용): 페이즈 전환마다 1줄로 표준 로그를 남깁니다.
-    const totalZones = (Array.isArray(mapObj?.zones) && mapObj.zones.length) ? mapObj.zones.length : (Array.isArray(zones) ? zones.length : 0);
-    const safeZones = Math.max(0, totalZones - forbiddenIds.size);
-    const fzEnabled = cfg.enabled !== false;
-    const fzStartDay = Number(cfg.startDay ?? settings.forbiddenZoneStartDay ?? 2);
-    const fzStartPhase = String(cfg.startPhase ?? cfg.startTimeOfDay ?? settings.forbiddenZoneStartPhase ?? 'night');
-    const fzPhaseIdx = nextDay * 2 + (nextPhase === 'night' ? 1 : 0);
-    const fzStartIdx = Math.max(0, fzStartDay) * 2 + (fzStartPhase === 'night' ? 1 : 0);
-    const fzStateText = (!fzEnabled)
-      ? 'OFF'
-      : (fzPhaseIdx < fzStartIdx ? `대기(${fzStartDay}일차 ${fzStartPhase === 'night' ? '밤' : '낮'}부터)` : 'ON');
-    addLog(`🚫 금지구역 업데이트: +${newlyAddedForbidden.length} · 금지 ${forbiddenIds.size}/${totalZones} · 안전 ${safeZones} · ${fzStateText}`, 'system');
-
-
-    if (forbiddenIds.size > 0) {
-      if (newlyAddedForbidden.length > 0) {
-        addLog(`🚫 금지구역 확장: ${forbiddenAddedNames}`, 'highlight');
-      }
-      if (useDetonation) {
-        const startSec = Number(ruleset?.detonation?.startSec || 20);
-        const maxSec = Number(ruleset?.detonation?.maxSec || 30);
-        addLog(`⚠️ 제한구역: ${forbiddenNames} (폭발 타이머: 기본 ${startSec}s / 최대 ${maxSec}s)`, 'system');
-      } else {
-        addLog(`⚠️ 금지구역: ${forbiddenNames} (해당 구역 체류 시 HP -${damagePerTick})`, 'system');
-      }
-    }
-
-
-
+    const {
+      damagePerTick,
+      forbiddenIds,
+      mapIdNow,
+      mapObj,
+      suddenDeathSafeZoneIds,
+      totalZones,
+    } = prepareForbiddenZonePhase({
+      refs: {
+        activeMapIdRef,
+        activeMapRef,
+        suddenDeathActiveRef,
+        suddenDeathForbiddenAnnouncedRef,
+      },
+      state: {
+        activeMap,
+        activeMapId,
+        nextDay,
+        nextPhase,
+        ruleset,
+        settings,
+        useDetonation,
+        zones,
+      },
+      helpers: {
+        getForbiddenAddedZoneIdsForPhase,
+        getForbiddenZoneIdsForPhase,
+        getZoneName,
+      },
+      actions: {
+        addLog,
+        setForbiddenAddedNow,
+      },
+    });
 
     // 🧬 부활 처리: deadAtPhaseIdx(사망 시점)가 컷오프 이하이면 다음 페이즈 시작에 1회 부활
     if (Array.isArray(dead) && dead.length) {
@@ -3010,7 +2913,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
 
 
     // 3. 메인 루프
-    while (phaseRuntimeOffsetSec < phaseDurationSec) {
+    while (getPhaseRuntimeOffsetSec() < phaseDurationSec) {
       if (todaysSurvivors.length <= 0 && refillActionWave() <= 0) break;
 
       let actor = todaysSurvivors.pop();
@@ -4141,7 +4044,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
     setSpawnState(nextSpawn);
 
     // 5.5) 경기 시간 진행(초)
-    setMatchSec(shouldFinishByElimination ? (phaseStartSec + phaseRuntimeOffsetSec) : (phaseStartSec + phaseDurationSec));
+    setMatchSec(shouldFinishByElimination ? (phaseStartSec + getPhaseRuntimeOffsetSec()) : (phaseStartSec + phaseDurationSec));
 
     // 5.6) 크레딧 적립(페이즈 보상 + 처치 보상 등)
     if (earnedCredits > 0) {
