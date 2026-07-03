@@ -76,7 +76,6 @@ import {
   pickDimensionRiftChoice,
   pickRiftEntrantTeams,
   resolveDimensionRiftWinner,
-  openSpawnedLegendaryCrate,
   openSpawnedTranscendCrate,
   openSpawnedFoodCrate,
   pickupSpawnedCore,
@@ -124,6 +123,7 @@ import {
 } from './_lib/phaseRouteProgressRuntime';
 import { runRouteFarmAction } from './_lib/phaseRouteFarmRuntime';
 import { runHuntAction } from './_lib/phaseHuntActionRuntime';
+import { openLegendaryCrateForActor } from './_lib/phaseLegendaryCrateRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -1709,88 +1709,32 @@ const didMove = String(nextZoneId) !== String(currentZone);
           if (huntAction.died) newlyDead.push(updated);
         }
 
-        // --- 전설 재료 상자(맵 이벤트 스폰): 3일차 '낮' 이후부터 맵 어딘가에 드랍 → 해당 구역 진입 시 개봉 ---
-        const legendary = openSpawnedLegendaryCrate(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, { moved: didMove });
-        if (legendary) {
-          updated.inventory = addItemToInventory(updated.inventory, legendary.item, legendary.itemId, legendary.qty, nextDay, ruleset);
-          const meta = updated.inventory?._lastAdd;
-          const got = Math.max(0, Number(meta?.acceptedQty ?? legendary.qty));
-          const nm = legendary.item?.name || '전설 재료';
-          if (shouldLogItemReceive(got, meta, { important: true })) {
-            addLog(`🟪 [${updated.name}] ${getZoneName(updated.zoneId)}에서 🎁 전설 재료 상자를 열어 [${nm}] ${gainText(got)}${formatInvAddNote(meta, legendary.qty, updated.inventory, ruleset)}`, 'normal');
-          }
-          emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(legendary.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
-          if (got > 0) grantMastery(updated, 'search', 350, '항공 보급');
-
-          const specialLKindMain = classifySpecialByName(String(legendary?.item?.name || ''));
-          const immediateLMain = tryImmediateCraftFromSpecial(updated, specialLKindMain, String(legendary.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
-          if (immediateLMain?.changed) {
-            updated.inventory = immediateLMain.inventory;
-            (Array.isArray(immediateLMain.logs) ? immediateLMain.logs : []).forEach((m) => addLog(String(m), 'highlight'));
-          }
-          if (Number(immediateLMain?.pvpBonus || 0) > 0) {
-            const pb = Number(immediateLMain.pvpBonus || 0);
-            updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
-            updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-            updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
-            updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
-          }
-
-          // 크레딧 보상 + 추가드랍(룰셋 기반)
-          const legCr = Math.max(0, Number(legendary?.credits || 0));
-          if (legCr > 0) {
-            updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + legCr);
-            addLog(`💳 [${updated.name}] 전설 상자 보상 크레딧 +${legCr}`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: legCr, source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
-          }
-
-          emitObjectiveRunEvent(updated, 'legendary_crate', {
-            subkind: 'legendary_material',
-            itemId: String(legendary.itemId || ''),
-            itemName: String(nm || ''),
-            qty: got,
-            credits: legCr,
-            success: got > 0,
-            danger: Math.max(0, Number(immediateLMain?.pvpBonus || 0)),
-          }, atNow());
-
-          const bonusDrops = Array.isArray(legendary?.bonusDrops) ? legendary.bonusDrops : [];
-          for (const bd of bonusDrops) {
-            if (!bd?.itemId || !bd?.item) continue;
-            const q = Math.max(1, Number(bd.qty || 1));
-            updated.inventory = addItemToInventory(updated.inventory, bd.item, bd.itemId, q, nextDay, ruleset);
-            const metaB = updated.inventory?._lastAdd;
-            const gotB = Math.max(0, Number(metaB?.acceptedQty ?? q));
-            const nmB = bd.item?.name || '전설 재료';
-            if (shouldLogItemReceive(gotB, metaB)) {
-              addLog(`🟪 [${updated.name}] 전설 상자 추가드랍: [${nmB}] ${gainText(gotB)}${formatInvAddNote(metaB, q, updated.inventory, ruleset)}`, 'highlight');
-            }
-            emitItemGainIfAny(gotB, { who: String(updated?._id || ''), itemId: String(bd.itemId || ''), source: 'legend', zoneId: String(updated?.zoneId || '') }, atNow());
-
-            const specialLBKind = classifySpecialByName(String(bd?.item?.name || nmB || ''));
-            const immediateLB = tryImmediateCraftFromSpecial(updated, specialLBKind, String(bd.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
-            if (immediateLB?.changed) {
-              updated.inventory = immediateLB.inventory;
-              (Array.isArray(immediateLB.logs) ? immediateLB.logs : []).forEach((m) => addLog(String(m), 'highlight'));
-            }
-            if (Number(immediateLB?.pvpBonus || 0) > 0) {
-              const pb = Number(immediateLB.pvpBonus || 0);
-              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
-              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
-              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
-            }
-            if (gotB > 0 && !immediateLB?.changed) {
-              const craftedB = tryAutoCraftFromLoot(updated.inventory, bd.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-              applyLootCraftResult(updated, craftedB, itemMetaById, atNow(), updated?.zoneId);
-            }
-          }
-
-
-          // 전설 재료도 즉시 조합 트리거(선택적)
-          const craftedL = (typeof immediateLMain !== 'undefined' && immediateLMain?.changed) ? null : tryAutoCraftFromLoot(updated.inventory, legendary.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-          applyLootCraftResult(updated, craftedL, itemMetaById, atNow(), updated?.zoneId);
-        }
+        const legendaryCrateResult = openLegendaryCrateForActor({
+          state: {
+            actor: updated,
+            craftables,
+            didMove,
+            itemMetaById,
+            itemNameById,
+            nextDay,
+            nextPhase,
+            nextSpawn,
+            phaseIdxNow,
+            publicItems,
+            ruleset,
+          },
+          actions: {
+            addLog,
+            applyLootCraftResult,
+            atNow,
+            emitItemGainIfAny,
+            emitObjectiveRunEvent,
+            emitRunEvent,
+            getZoneName,
+            grantMastery,
+          },
+        });
+        updated = legendaryCrateResult.actor;
 
         let didProcure = false;
 
