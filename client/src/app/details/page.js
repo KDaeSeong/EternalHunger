@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
@@ -202,7 +203,13 @@ export default function DetailsPage() {
                 
                 <div className="char-info">
                 {/* 이미지가 없으면 기본 이미지 표시 */}
-                <img src={char.previewImage || '/Images/default_image.png'} alt={char.name} />
+                <Image
+                  src={char.previewImage || '/Images/default_image.png'}
+                  alt={char.name || '캐릭터 이미지'}
+                  width={96}
+                  height={96}
+                  unoptimized
+                />
                 <h3>{char.name || "이름없음"}</h3>
                 <span className="gender-badge">{char.gender || "남"}</span>
 
