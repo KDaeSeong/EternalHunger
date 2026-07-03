@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { apiPost } from '../../utils/api';
 import { buildErBehaviorModifier } from '../../utils/erMeta';
 import {
   EFFECT_AIRBORNE,
@@ -57,7 +56,6 @@ import {
   getActorTeamName,
   getActorTeamOriginalSize,
   getAliveTeams,
-  pickTeamRepresentative,
   getTimeOfDayFromPhase,
 } from './_lib/simulationEngine';
 import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
@@ -66,10 +64,7 @@ import {
   normalizeSatiety,
   decayActorSatiety,
 } from './_lib/satietyRuntime';
-import {
-  getRuntimeActorKey,
-  dedupeRuntimeParticipants,
-} from './_lib/runtimeParticipantRuntime';
+import { getRuntimeActorKey } from './_lib/runtimeParticipantRuntime';
 import {
   normalizeMatchMode,
   getMatchConfig,
@@ -98,10 +93,7 @@ import {
   pickPvpTarget as pickPvpTargetRuntime,
 } from './_lib/pvpPhaseRuntime';
 import { runPhaseCombatEncounter } from './_lib/phaseCombatEncounterRuntime';
-import {
-  runForcedSuddenDeathClash,
-  runSuddenDeathGatherPhase,
-} from './_lib/suddenDeathRuntime';
+import { runSuddenDeathGatherPhase } from './_lib/suddenDeathRuntime';
 import { logRuntimeEffectResults } from './_lib/runtimeStatus';
 import {
   createPhaseConsumableRuntime,
@@ -129,6 +121,7 @@ import {
 } from './_lib/phaseSpawnRuntime';
 import { runPhaseRevival } from './_lib/phaseRevivalRuntime';
 import { runPhaseActorActionPipeline } from './_lib/phaseActorActionPipelineRuntime';
+import { finalizeSimulationPhase } from './_lib/phaseFinalizationRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1374,134 +1367,55 @@ export default function SimulationPage() {
       upsertRuntimeSurvivor(survivorMap, actor);
     }
 
-    // 4. 킬 카운트 업데이트
-    runForcedSuddenDeathClash({
-      addLog,
-      appendPhaseDeadSnapshots,
-      assistCounts,
-      emitDeathRunEventOnce,
-      estimatePower,
-      flushDeadSnapshots,
-      killCounts,
-      newDeadIds,
-      phaseIdxNow,
-      roundAssists,
-      roundKills,
-      ruleset,
-      setDeathMetadata,
-      suddenDeathActive: suddenDeathActiveRef.current,
-      survivorMap,
+    const phaseFinalizationResult = await finalizeSimulationPhase({
+      refs: {
+        suddenDeathActiveRef,
+        suddenDeathEndAtSecRef,
+      },
+      state: {
+        assistCounts,
+        baseCredits,
+        canReviveThisMatch,
+        dead,
+        earnedCredits,
+        estimatePower,
+        getPhaseRuntimeOffsetSec,
+        isSoloMatch,
+        killCounts,
+        matchSec,
+        newDeadIds,
+        nextDay,
+        nextPhase,
+        nextSpawn,
+        phaseDeadSnapshots,
+        phaseDurationSec,
+        phaseIdxNow,
+        phaseStartSec,
+        reviveCutoffIdx,
+        roundAssists,
+        roundKills,
+        ruleset,
+        survivorMap,
+      },
+      actions: {
+        addLog,
+        appendPhaseDeadSnapshots,
+        applyUserEconomyProgress,
+        emitDeathRunEventOnce,
+        finishGame,
+        flushDeadSnapshots,
+        persistSimEquipmentsFromChars,
+        reconcileZeroHpDeaths,
+        runVisibleClockToPhaseEnd,
+        setAssistCounts,
+        setDeathMetadata,
+        setKillCounts,
+        setMatchSec,
+        setSpawnState,
+        setSurvivors,
+      },
     });
-
-    reconcileZeroHpDeaths({
-      canReviveThisMatch,
-      newDeadIds,
-      reviveCutoffIdx,
-      survivorMap,
-    });
-
-    const updatedKillCounts = { ...killCounts };
-    Object.keys(roundKills).forEach((killerId) => {
-      updatedKillCounts[killerId] = (updatedKillCounts[killerId] || 0) + roundKills[killerId];
-    });
-    setKillCounts(updatedKillCounts);
-
-    const updatedAssistCounts = isSoloMatch ? {} : { ...assistCounts };
-    if (!isSoloMatch) {
-      Object.keys(roundAssists).forEach((aid) => {
-        updatedAssistCounts[aid] = (updatedAssistCounts[aid] || 0) + (roundAssists[aid] || 0);
-      });
-    }
-    setAssistCounts(updatedAssistCounts);
-
-    // 5. 생존자 업데이트
-    const finalStepSurvivors = Array.from(survivorMap.values())
-      .filter((s) => !newDeadIds.includes(s?._id))
-      .map((s) => normalizeRuntimeSurvivor(s));
-
-    // 💳 크레딧은 화면에 직접 띄우지 않고, 캐릭터별(simCredits)로만 누적 표시합니다.
-    // - baseCredits(페이즈 기본)는 생존자에게 분배(합계=baseCredits)
-    if (baseCredits > 0 && finalStepSurvivors.length > 0) {
-      finalStepSurvivors.forEach((s) => {
-        s.simCredits = Number(s.simCredits || 0) + baseCredits;
-      });
-    }
-
-    // ✅ 시뮬에서 생성된 랜덤 장비를 DB에 저장(관리자 아이템 목록에서 확인 가능)
-    // - 저장 실패(토큰 만료/서버 다운)해도 시뮬 진행은 계속
-    // NOTE: off-map 생존자(관전/퇴장) 분기는 아직 미사용이므로 finalStepSurvivors만 저장한다.
-    persistSimEquipmentsFromChars(
-      (Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []),
-      `phase:d${nextDay}_${nextPhase}`
-    ).catch(() => {});
-
-
-    // SD 서든데스: 카운트다운 종료 시 강제 결판(최후 1인)
-    const sdEndAt = suddenDeathEndAtSecRef.current;
-    const sdRemainAfter = (suddenDeathActiveRef.current && typeof sdEndAt === 'number')
-      ? Math.ceil(sdEndAt - (matchSec + phaseDurationSec))
-      : null;
-    const finalAliveTeams = getAliveTeams(finalStepSurvivors);
-    const shouldFinishByElimination = finalAliveTeams.length <= 1;
-    if (!shouldFinishByElimination) {
-      await runVisibleClockToPhaseEnd();
-    }
-
-    if (suddenDeathActiveRef.current && typeof sdEndAt === 'number' && sdRemainAfter <= 0 && finalAliveTeams.length > 1) {
-      const scoredTeams = finalAliveTeams
-        .map((team) => ({
-          ...team,
-          hpSum: team.members.reduce((sum, m) => sum + Math.max(0, Number(m?.hp || 0)), 0),
-          kills: team.members.reduce((sum, m) => sum + Number(updatedKillCounts?.[m?._id] || 0), 0),
-        }))
-        .sort((a, b) => (b.hpSum - a.hpSum) || (b.kills - a.kills) || (b.members.length - a.members.length));
-      const topScore = Number(scoredTeams[0]?.hpSum || 0);
-      const topList = scoredTeams.filter((team) => Number(team?.hpSum || 0) === topScore);
-      const wTeam = topList[Math.floor(Math.random() * topList.length)] || scoredTeams[0];
-      const wForced = pickTeamRepresentative(wTeam?.members || [], updatedKillCounts, updatedAssistCounts);
-      const forcedDead = finalStepSurvivors
-        .filter((s) => !areSameTeam(s, wForced))
-        .map((s) => {
-          const deadActor = { ...s, hp: 0 };
-          setDeathMetadata(deadActor, 'sudden_death_timeout', { causeName: '서든데스 시간 만료' });
-          deadActor.deadAtPhaseIdx = phaseIdxNow;
-          deadActor.reviveEligible = false;
-          emitDeathRunEventOnce(deadActor, { reason: 'sudden_death_timeout', cause: '서든데스 시간 만료' });
-          return deadActor;
-        });
-      const forcedDeadSnapshots = appendPhaseDeadSnapshots(forcedDead);
-      flushDeadSnapshots(forcedDeadSnapshots);
-      const winners = (Array.isArray(wTeam?.members) ? wTeam.members : [wForced]).filter(Boolean).map((s) => normalizeRuntimeSurvivor(s));
-      const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);
-      setSurvivors(winners);
-      setMatchSec(phaseStartSec + phaseDurationSec);
-      addLog(`⏱ 서든데스 종료! 제한시간 만료로 ${wTeam?.teamName || getActorTeamName(wForced)} 승리`, 'highlight');
-      finishGame(winners, updatedKillCounts, updatedAssistCounts, { finalDead: finalDeadForFinish });
-      return;
-    }
-
-    // NOTE: offMapSurvivors는 아직 정의/사용하지 않으므로, 렌더는 최종 생존자만 반영
-    setSurvivors((Array.isArray(finalStepSurvivors) ? finalStepSurvivors : []).map((s) => normalizeRuntimeSurvivor(s)));
-
-    // 월드 스폰 상태 반영(상자 개봉/보스 처치 등)
-    setSpawnState(nextSpawn);
-
-    // 5.5) 경기 시간 진행(초)
-    setMatchSec(shouldFinishByElimination ? (phaseStartSec + getPhaseRuntimeOffsetSec()) : (phaseStartSec + phaseDurationSec));
-
-    // 5.6) 크레딧 적립(페이즈 보상 + 처치 보상 등)
-    if (earnedCredits > 0) {
-      apiPost('/credits/earn', { amount: earnedCredits })
-        .then((res) => {
-          applyUserEconomyProgress({ credits: res?.credits });
-        })
-        .catch(() => {});
-    }
-
-    if (finalAliveTeams.length <= 1) {
-      const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);
-      finishGame(finalAliveTeams[0]?.members || finalStepSurvivors, updatedKillCounts, updatedAssistCounts, { finalDead: finalDeadForFinish });
-    }
+    if (phaseFinalizationResult?.shouldReturn) return;
   };
 
   // 🔄 서버 맵 설정 새로고침(관리자에서 수정한 crateAllowDeny 등 즉시 반영용)
