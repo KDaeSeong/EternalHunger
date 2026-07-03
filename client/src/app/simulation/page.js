@@ -1,42 +1,29 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { getRuleset } from '../../utils/rulesets';
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationPageView from './_components/SimulationPageView';
 import '../../styles/ERSimulation.css';
 
 import { areCharacterSkillsEnabled } from './_lib/characterSkillRuntime';
 import {
-  itemIcon,
-  perkNumber,
-  applyPerkCreditBonus,
-  maybeBoostDropQty,
-  getInvItemId,
-  uniqStr,
-  clampTier4,
-  tierLabelKo,
-  classifySpecialByName,
-  uniqStrings,
-  inferEquipSlot,
-  canReceiveItem,
-  normalizeInventory,
-  invQty,
-  consumeIngredientsFromInv,
-  getActorTeamCapacity,
-  getActorTeamId,
-  getActorTeamName,
-  getActorTeamOriginalSize,
-} from './_lib/simulationEngine';
-import {
-  normalizeSatiety,
-} from './_lib/satietyRuntime';
-import { getRuntimeActorKey } from './_lib/runtimeParticipantRuntime';
-import {
-  normalizeMatchMode,
-  getMatchConfig,
   applyMatchTeams,
+  normalizeMatchMode,
 } from './_lib/matchRosterRuntime';
+import {
+  buildActorAvatarByName,
+  buildActorTeamState,
+  buildCharacterSkillModeSettings,
+  buildCharacterSkillsToggleSettings,
+  fireAndReport,
+  getActiveMapForForbiddenZones,
+  getClientHydrationSnapshot,
+  getDefaultSimulationSettings,
+  getPreferredHyperloopCharId,
+  getServerHydrationSnapshot,
+  safeRenderCompute,
+  subscribeHydration,
+} from './_lib/simulationPageRuntime';
 import { useSimEquipmentPersistence } from './_lib/useSimEquipmentPersistence';
 import { useSimulationInitialData } from './_lib/useSimulationInitialData';
 import { useSimulationRuntimeGuards } from './_lib/useSimulationRuntimeGuards';
@@ -60,30 +47,6 @@ const MARKET_CARD_RENDER_LIMIT = 40;
 const DEV_SELECT_RENDER_LIMIT = 80;
 const DEV_EVENT_PREVIEW_LIMIT = 80;
 
-function subscribeHydration() {
-  return () => {};
-}
-
-function getClientHydrationSnapshot() {
-  return true;
-}
-
-function getServerHydrationSnapshot() {
-  return false;
-}
-
-function getDefaultSimulationSettings() {
-  return {
-    statWeights: { maxHp: 1, attackPower: 1, skillAmp: 1, defense: 1, attackSpeed: 1, attackRange: 1, sightRange: 1 },
-    suddenDeathTurn: 5,
-    forbiddenZoneStartDay: 2,
-    forbiddenZoneStartPhase: 'night',
-    forbiddenZoneDamageBase: 1.5,
-    rulesetId: 'ER_S11',
-    matchMode: 'squad',
-  };
-}
-
 export default function SimulationPage() {
   const hasHydrated = useSyncExternalStore(
     subscribeHydration,
@@ -101,29 +64,6 @@ export default function SimulationPage() {
   const [matchSec, setMatchSec] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   const [loading, setLoading] = useState(true);
-  function safeRenderCompute(label, factory, fallback) {
-    try {
-      return factory();
-    } catch (err) {
-      console.error(`[simulation:${label}]`, err);
-      return fallback;
-    }
-  };
-
-  function useSafeMemo(label, factory, deps, fallback) {
-    void deps;
-    return safeRenderCompute(label, factory, fallback);
-  };
-
-
-  function fireAndReport(label, job) {
-    return Promise.resolve()
-      .then(() => job())
-      .catch((err) => {
-        console.error(`[simulation:${label}]`, err);
-        throw err;
-      });
-  };
 
   // 킬 카운트 및 결과창 관리
   const [killCounts, setKillCounts] = useState({});
@@ -167,41 +107,7 @@ export default function SimulationPage() {
       winner,
     },
   });
-  const getTeamStateForActor = (actor) => {
-    if (!actor || normalizeMatchMode(settings?.matchMode) === 'solo') return null;
-    const teamId = getActorTeamId(actor);
-    if (!teamId) return null;
-    const allActors = [
-      ...(Array.isArray(survivors) ? survivors : []),
-      ...(Array.isArray(dead) ? dead : []),
-    ];
-    const teamActors = allActors.filter((row) => getActorTeamId(row) === teamId);
-    const aliveCount = (Array.isArray(survivors) ? survivors : [])
-      .filter((row) => getActorTeamId(row) === teamId && Number(row?.hp || 0) > 0)
-      .length;
-    const rosterSize = Math.max(
-      getActorTeamOriginalSize(actor, teamActors.length || 1),
-      ...teamActors.map((row) => getActorTeamOriginalSize(row, teamActors.length || 1)),
-      teamActors.length || 1
-    );
-    const capacity = Math.max(
-      getActorTeamCapacity(actor, getMatchConfig(settings).teamSize),
-      getMatchConfig(settings).teamSize
-    );
-    const rosterNames = Array.isArray(actor?.matchTeamRosterNames) && actor.matchTeamRosterNames.length
-      ? actor.matchTeamRosterNames
-      : teamActors.map((row) => String(row?.name || '').trim()).filter(Boolean);
-    return {
-      teamId,
-      teamName: getActorTeamName(actor),
-      aliveCount,
-      rosterSize,
-      capacity,
-      missingCount: Math.max(0, rosterSize - aliveCount),
-      rosterNames,
-      label: `${getActorTeamName(actor)} · 생존 ${aliveCount}/${rosterSize}${capacity > rosterSize ? ` (정원 ${capacity})` : ''}`,
-    };
-  };
+  const getTeamStateForActor = (actor) => buildActorTeamState(actor, settings, survivors, dead);
 
   const handleMatchModeChange = (value) => {
     const matchMode = normalizeMatchMode(value);
@@ -215,27 +121,11 @@ export default function SimulationPage() {
     }
   };
 
-  const getCharacterSkillModeSettings = (src = settings) => {
-    const rs = getRuleset(src?.rulesetId);
-    return {
-      ...src,
-      skills: { ...(rs?.skills || {}), ...(src?.skills || {}) },
-    };
-  };
-
-  const characterSkillsEnabled = areCharacterSkillsEnabled(getCharacterSkillModeSettings(settings));
+  const characterSkillsEnabled = areCharacterSkillsEnabled(buildCharacterSkillModeSettings(settings));
 
   const handleCharacterSkillsToggle = (enabled) => {
     const on = !!enabled;
-    const nextSettings = {
-      ...(settings || {}),
-      skills: {
-        ...(settings?.skills || {}),
-        enabled: on,
-        characterSkills: on,
-        aiUseSkills: on,
-      },
-    };
+    const nextSettings = buildCharacterSkillsToggleSettings(settings, on);
     try {
       window.localStorage.setItem('eh_sim_character_skills', on ? '1' : '0');
     } catch {}
@@ -273,16 +163,11 @@ export default function SimulationPage() {
 
 
   // 로그에서 [이름]을 파싱해 아이콘을 붙이기 위한 캐시
-  const actorAvatarByName = useSafeMemo('actorAvatarByName', () => {
-    const out = {};
-    const all = [...(Array.isArray(survivors) ? survivors : []), ...(Array.isArray(dead) ? dead : [])];
-    for (const c of all) {
-      const name = String(c?.name || '').trim();
-      const img = String(c?.previewImage || c?.image || '').trim();
-      if (name && img && !out[name]) out[name] = img;
-    }
-    return out;
-  }, [survivors, dead], {});
+  const actorAvatarByName = safeRenderCompute(
+    'actorAvatarByName',
+    () => buildActorAvatarByName(survivors, dead),
+    {}
+  );
 
   // ✅ 상점/조합/교환 패널
   const {
@@ -396,12 +281,7 @@ export default function SimulationPage() {
     survivors,
   });
 
-  const hyperloopCharId = (() => {
-    const preferred = String(selectedCharId || '').trim();
-    if (preferred) return preferred;
-    const alive = (Array.isArray(survivors) ? survivors : []).filter((actor) => Number(actor?.hp || 0) > 0);
-    return String(alive[0]?._id || '');
-  })();
+  const hyperloopCharId = getPreferredHyperloopCharId(selectedCharId, survivors);
   const forbiddenCacheRef = useRef({});
   // ✅ UI용 logs는 "현재 페이즈"만 보여주고, 전체 기록은 따로 누적합니다.
 
@@ -764,9 +644,7 @@ export default function SimulationPage() {
   // 탭 전환 시 필요한 데이터 갱신
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
   // 금지구역 로직이 동작하도록 zones 기반 fallback을 둡니다.
-  const activeMapEff = activeMap || ((Array.isArray(zones) && zones.length)
-    ? { _id: String(activeMapId || 'local'), zones }
-    : null);
+  const activeMapEff = getActiveMapForForbiddenZones(activeMap, activeMapId, zones);
   const forbiddenNow = activeMapEff
     ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase))
     : new Set();
