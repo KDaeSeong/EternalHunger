@@ -449,6 +449,45 @@ textarea {
   background: #fffdf2;
 }
 
+.board-report-actions {
+  background: #f8fafc;
+}
+
+.board-report-panel {
+  display: grid;
+  gap: 12px;
+  padding: 18px 22px;
+  border-top: 1px solid rgba(20, 25, 35, 0.10);
+  background: #fff8f3;
+}
+
+.board-report-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.board-report-grid select,
+.board-report-grid textarea {
+  width: 100%;
+  border: 1px solid #d4dde6;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  padding: 10px 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.board-report-grid textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.board-report-submit {
+  padding: 0;
+  border-top: 0;
+}
+
 .board-danger,
 .board-actions .board-danger {
   margin-top: 12px;
@@ -563,6 +602,12 @@ textarea {
 .board-comment-item .board-danger {
   justify-self: start;
   margin-top: 0;
+}
+
+.board-comment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .board-danger.board-danger-compact {

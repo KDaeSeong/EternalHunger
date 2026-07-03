@@ -14,6 +14,7 @@ const items = [
   { href: '/admin/crates', label: '상자(드랍)' },
   { href: '/admin/credits', label: '크레딧' },
   { href: '/admin/perks', label: '특전' },
+  { href: '/admin/reports', label: '신고 관리' },
   { href: '/board', label: '게시판(유저)' },
 ];
 

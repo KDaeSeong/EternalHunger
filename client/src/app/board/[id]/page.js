@@ -96,6 +96,9 @@ export default function BoardDetailPage() {
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState('');
   const [noticeSaving, setNoticeSaving] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
+  const [reportForm, setReportForm] = useState({ reason: 'other', detail: '' });
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -243,6 +246,36 @@ export default function BoardDetailPage() {
     }
   };
 
+  const openReport = (target) => {
+    setReportTarget(target);
+    setReportForm({ reason: 'other', detail: '' });
+  };
+
+  const submitReport = async () => {
+    if (!reportTarget) return;
+    setReportSubmitting(true);
+    try {
+      const res = await apiPost('/reports', {
+        targetType: reportTarget.targetType,
+        postId: id,
+        commentId: reportTarget.commentId || '',
+        reason: reportForm.reason,
+        detail: reportForm.detail.trim(),
+      });
+      const nextMessage = res?.message || '신고를 접수했습니다.';
+      setMessage(nextMessage);
+      setReportTarget(null);
+      setReportForm({ reason: 'other', detail: '' });
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '신고 접수에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
   return (
     <main className="board-page">
       <SiteHeader />
@@ -333,6 +366,14 @@ export default function BoardDetailPage() {
               </div>
             ) : null}
 
+            {mounted && token && !editing ? (
+              <div className="board-actions board-report-actions">
+                <button type="button" className="board-secondary" onClick={() => openReport({ targetType: 'post', label: '게시글' })}>
+                  신고
+                </button>
+              </div>
+            ) : null}
+
             {canManageNotice ? (
               <div className="board-actions board-admin-actions">
                 <button
@@ -344,6 +385,42 @@ export default function BoardDetailPage() {
                   {noticeSaving ? '저장 중...' : post.isNotice ? '공지 해제' : '공지 고정'}
                 </button>
               </div>
+            ) : null}
+
+            {reportTarget ? (
+              <section className="board-report-panel">
+                <div className="board-comments-head">
+                  <h3>{reportTarget.label} 신고</h3>
+                </div>
+                <div className="board-report-grid">
+                  <select
+                    value={reportForm.reason}
+                    onChange={(event) => setReportForm({ ...reportForm, reason: event.target.value })}
+                    aria-label="신고 사유"
+                  >
+                    <option value="spam">스팸</option>
+                    <option value="abuse">욕설/비방</option>
+                    <option value="spoiler">스포일러</option>
+                    <option value="offtopic">주제 이탈</option>
+                    <option value="other">기타</option>
+                  </select>
+                  <textarea
+                    value={reportForm.detail}
+                    onChange={(event) => setReportForm({ ...reportForm, detail: event.target.value })}
+                    placeholder="상세 내용을 입력하세요"
+                    rows={3}
+                    maxLength={1000}
+                  />
+                  <div className="board-actions board-report-submit">
+                    <button type="button" onClick={submitReport} disabled={reportSubmitting}>
+                      {reportSubmitting ? '접수 중...' : '신고 접수'}
+                    </button>
+                    <button type="button" className="board-secondary" onClick={() => setReportTarget(null)} disabled={reportSubmitting}>
+                      취소
+                    </button>
+                  </div>
+                </div>
+              </section>
             ) : null}
 
             <section className="board-comments">
@@ -383,16 +460,23 @@ export default function BoardDetailPage() {
                         <span>{formatDate(comment.createdAt)}</span>
                       </div>
                       <p>{safeText(comment.content, '')}</p>
-                      {canRemoveComment ? (
-                        <button
-                          type="button"
-                          className="board-danger board-danger-compact"
-                          onClick={() => removeComment(commentId)}
-                          disabled={deletingCommentId === commentId}
-                        >
-                          {deletingCommentId === commentId ? '삭제 중...' : '삭제'}
-                        </button>
-                      ) : null}
+                      <div className="board-comment-actions">
+                        {mounted && token ? (
+                          <button type="button" className="board-secondary board-danger-compact" onClick={() => openReport({ targetType: 'comment', commentId, label: '댓글' })}>
+                            신고
+                          </button>
+                        ) : null}
+                        {canRemoveComment ? (
+                          <button
+                            type="button"
+                            className="board-danger board-danger-compact"
+                            onClick={() => removeComment(commentId)}
+                            disabled={deletingCommentId === commentId}
+                          >
+                            {deletingCommentId === commentId ? '삭제 중...' : '삭제'}
+                          </button>
+                        ) : null}
+                      </div>
                     </article>
                   );
                 })}
