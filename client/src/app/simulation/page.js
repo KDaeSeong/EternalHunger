@@ -108,7 +108,6 @@ import {
   tryAutoCraftFromLoot,
   tryAutoCraftFromInventory,
   autoEquipBest,
-  day1HeroGearDirector,
   lateGameGearDirector,
   tryImmediateCraftFromSpecial,
   areSameTeam,
@@ -134,6 +133,7 @@ import {
 } from './_lib/routePlanProgressRuntime';
 import {
   advanceActorRouteProgressForGoal,
+  runDay1HeroGearDirectorWithLogs,
 } from './_lib/phaseRouteProgressRuntime';
 import {
   normalizeSatiety,
@@ -1073,6 +1073,11 @@ export default function SimulationPage() {
       baseZonePop[zid] = (baseZonePop[zid] || 0) + 1;
     });
     const movePowerContext = { ruleset, battleSettings };
+    const runDay1HeroGear = (actor, options) => runDay1HeroGearDirectorWithLogs({
+      state: { actor, publicItems, itemNameById, itemMetaById, day: nextDay, phase: nextPhase, ruleset },
+      actions: { addLog },
+      options,
+    });
 
     let updatedSurvivors = (Array.isArray(phaseSurvivors) ? phaseSurvivors : [])
       .map((s) => {
@@ -1320,14 +1325,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
         if (didMove && Number(nextDay || 0) === 1) {
           updated.day1Moves = Math.max(0, Number(updated.day1Moves || 0)) + 1;
           if (String(nextPhase || '') === 'morning' && !isExplicitDay1HeroRoutePlan(updated)) {
-            const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+            runDay1HeroGear(updated, {
               allowAbstractFallback: true,
               forceRouteCompletion: true,
               routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
             });
-            if (heroRes?.changed && Array.isArray(heroRes.logs)) {
-              heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
-            }
           }
         }
 
@@ -1866,14 +1868,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
         }
 
         if (queuedActionType === 'routeFarm' && Number(nextDay || 0) === 1 && String(nextPhase || '') === 'morning' && !isExplicitDay1HeroRoutePlan(updated)) {
-          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+          runDay1HeroGear(updated, {
             allowAbstractFallback: true,
             forceRouteCompletion: true,
             routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
           });
-          if (heroRes?.changed && Array.isArray(heroRes.logs)) {
-            heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
-          }
         }
 
         if (queuedActionType === 'hunt') {
@@ -2217,14 +2216,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
           // 1일차 fallback 제작: 정상 레시피 데이터가 없을 때만 추상 장비 생성 안전망을 사용합니다.
           const allowAbstractGearFallback = !Array.isArray(craftables) || craftables.length <= 0;
           const forceEarlyHeroRouteCompletion = shouldForceDay1HeroGearCatchup(updated, nextDay, nextPhase);
-          const heroRes = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+          runDay1HeroGear(updated, {
             allowAbstractFallback: allowAbstractGearFallback || forceEarlyHeroRouteCompletion,
             forceRouteCompletion: forceEarlyHeroRouteCompletion,
             routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
           });
-          if (heroRes?.changed && Array.isArray(heroRes.logs)) {
-            heroRes.logs.forEach((m) => addLog(String(m), 'highlight'));
-          }
 
           // 후반 fallback 제작: 실제 전설/초월 레시피가 없을 때만 추상 장비 안전망을 사용합니다.
           const lateRes = lateGameGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, { allowAbstractFallback: allowAbstractGearFallback });
@@ -2237,14 +2233,11 @@ const didMove = String(nextZoneId) !== String(currentZone);
         // --- 시즌 11 컨셉: 가젯 에너지 ---
         const forceEarlyHeroRouteCompletionAnyAction = shouldForceDay1HeroGearCatchup(updated, nextDay, nextPhase);
         if (forceEarlyHeroRouteCompletionAnyAction) {
-          const heroCatchup = day1HeroGearDirector(updated, publicItems, itemNameById, itemMetaById, nextDay, nextPhase, ruleset, {
+          runDay1HeroGear(updated, {
             allowAbstractFallback: true,
             forceRouteCompletion: true,
             routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
           });
-          if (heroCatchup?.changed && Array.isArray(heroCatchup.logs)) {
-            heroCatchup.logs.forEach((m) => addLog(String(m), 'highlight'));
-          }
         }
 
         if (ruleset.id === 'ER_S11') {

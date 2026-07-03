@@ -1,4 +1,7 @@
-import { advanceEarlyRouteProgress } from './simulationEngine';
+import {
+  advanceEarlyRouteProgress,
+  day1HeroGearDirector,
+} from './simulationEngine';
 import {
   getRoutePlanMissingItemIds,
   mergeMissingItemIds,
@@ -46,4 +49,37 @@ export function advanceActorRouteProgressForGoal({
     routeItemIds,
     routePlanMissingItemIds,
   };
+}
+
+export function runDay1HeroGearDirectorWithLogs({
+  actions = {},
+  options = {},
+  state = {},
+} = {}) {
+  const {
+    actor,
+    day,
+    itemMetaById,
+    itemNameById,
+    phase,
+    publicItems,
+    ruleset,
+  } = state;
+  const { addLog = () => {} } = actions;
+  const result = day1HeroGearDirector(
+    actor,
+    publicItems,
+    itemNameById,
+    itemMetaById,
+    day,
+    phase,
+    ruleset,
+    options
+  );
+
+  if (result?.changed && Array.isArray(result.logs)) {
+    result.logs.forEach((message) => addLog(String(message), 'highlight'));
+  }
+
+  return result;
 }
