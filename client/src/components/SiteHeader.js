@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { clearAuth } from '../utils/api';
+import { useEffect, useState } from 'react';
+import { apiGet, clearAuth } from '../utils/api';
 import { useAuthUser, useHydrated } from '../utils/client-auth';
 import { useToast } from './ToastProvider';
 
@@ -36,6 +37,29 @@ export default function SiteHeader({ className = '' }) {
 
   const loggedIn = hydrated && Boolean(user);
   const perkCount = Array.isArray(user?.perks) ? user.perks.length : 0;
+  const [unreadCount, setUnreadCount] = useState(0);
+  const visibleUnreadCount = loggedIn ? unreadCount : 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!loggedIn) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    apiGet('/notifications?unread=1&limit=1', { timeoutMs: 8000 })
+      .then((data) => {
+        if (!cancelled) setUnreadCount(Number(data?.unreadCount || 0));
+      })
+      .catch(() => {
+        if (!cancelled) setUnreadCount(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loggedIn]);
 
   const handleLogout = () => {
     clearAuth();
@@ -76,6 +100,14 @@ export default function SiteHeader({ className = '' }) {
             <span className="site-header__auth-skeleton">확인 중</span>
           ) : loggedIn ? (
             <>
+              <Link
+                href="/notifications"
+                className={`site-header__notify ${visibleUnreadCount > 0 ? 'has-unread' : ''}`}
+                aria-label={`알림 ${visibleUnreadCount}개`}
+              >
+                알림
+                {visibleUnreadCount > 0 ? <span>{visibleUnreadCount > 99 ? '99+' : visibleUnreadCount}</span> : null}
+              </Link>
               <Link href="/account" className="site-header__user" title="계정 설정">
                 <strong>{getDisplayName(user)}</strong>
                 <small>LP {formatNumber(user.lp)} · Cr {formatNumber(user.credits)} · 특전 {perkCount}</small>

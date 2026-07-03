@@ -20,6 +20,7 @@
 .details-page-shell,
 .modifiers-page-shell,
 .account-page-shell,
+.notifications-page-shell,
 .board-page,
 .perk-shop-page,
 .help-page-shell {
@@ -39,6 +40,7 @@
 .details-page-shell > .site-header,
 .modifiers-page-shell > .site-header,
 .account-page-shell > .site-header,
+.notifications-page-shell > .site-header,
 .board-page > .site-header,
 .perk-shop-page > .site-header,
 .help-page-shell > .site-header,
@@ -105,6 +107,7 @@
 
 .board-page,
 .account-page-shell,
+.notifications-page-shell,
 .perk-shop-page,
 .help-page-shell {
   background: var(--eh-shell-bg);
@@ -115,6 +118,10 @@
 }
 
 .account-page-shell {
+  padding-bottom: 56px;
+}
+
+.notifications-page-shell {
   padding-bottom: 56px;
 }
 
@@ -268,6 +275,41 @@
   box-shadow: 0 7px 18px rgba(22, 33, 44, 0.08);
 }
 
+.site-header__notify {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 8px;
+  background: #fff;
+  color: #14608d;
+  padding: 0 10px;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.site-header__notify:hover,
+.site-header__notify.has-unread {
+  border-color: rgba(8, 120, 189, 0.38);
+  background: #eff8ff;
+}
+
+.site-header__notify span {
+  min-width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #d83232;
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 0 5px;
+}
+
 .site-header__user strong,
 .site-header__user small {
   min-width: 0;
@@ -327,6 +369,158 @@
 .account-page {
   display: grid;
   gap: 16px;
+}
+
+.notifications-page {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.notifications-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(22, 33, 44, 0.12);
+}
+
+.notifications-kicker {
+  margin: 0 0 4px;
+  color: var(--eh-blue);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.notifications-head h1 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.15;
+}
+
+.notifications-head button,
+.notifications-empty a,
+.notifications-actions a,
+.notifications-actions button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #0878bd;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.notifications-head button:disabled,
+.notifications-actions button:disabled {
+  border-color: #c7cdd3;
+  background: #d8dde2;
+  color: #6f7983;
+  cursor: not-allowed;
+}
+
+.notifications-empty,
+.notifications-card {
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.notifications-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 18px;
+  color: #5f6c78;
+  font-weight: 900;
+}
+
+.notifications-empty p {
+  margin: 0;
+}
+
+.notifications-list {
+  display: grid;
+  gap: 10px;
+}
+
+.notifications-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+}
+
+.notifications-card.is-unread {
+  border-color: rgba(44, 111, 158, 0.34);
+  background: #f6fbff;
+}
+
+.notifications-card-main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.notifications-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notifications-title-row strong,
+.notifications-card-main p,
+.notifications-card-main small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.notifications-title-row strong {
+  color: #17202a;
+  font-size: 1rem;
+}
+
+.notifications-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #d83232;
+}
+
+.notifications-card-main p {
+  margin: 0;
+  color: #334252;
+  line-height: 1.5;
+}
+
+.notifications-card-main small {
+  color: #6b7783;
+  font-weight: 800;
+}
+
+.notifications-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notifications-actions button {
+  border-color: rgba(22, 33, 44, 0.16);
+  background: #fff;
+  color: #24313d;
 }
 
 .account-head {
@@ -621,6 +815,7 @@
   .details-page-shell,
   .modifiers-page-shell,
   .account-page-shell,
+  .notifications-page-shell,
   .board-page,
   .perk-shop-page,
   .help-page-shell {
@@ -637,6 +832,7 @@
   .details-page-shell > .site-header,
   .modifiers-page-shell > .site-header,
   .account-page-shell > .site-header,
+  .notifications-page-shell > .site-header,
   .board-page > .site-header,
   .perk-shop-page > .site-header,
   .help-page-shell > .site-header,
@@ -673,6 +869,11 @@
     max-width: none;
     flex: 1 1 auto;
     padding: 7px 10px;
+  }
+
+  .site-header__notify {
+    min-height: 34px;
+    padding: 0 8px;
   }
 
   .site-header__auth-links {
@@ -755,5 +956,21 @@
 
   .site-header__user small {
     display: none;
+  }
+
+  .notifications-head,
+  .notifications-card {
+    grid-template-columns: 1fr;
+  }
+
+  .notifications-head {
+    display: grid;
+  }
+
+  .notifications-head button,
+  .notifications-actions,
+  .notifications-actions a,
+  .notifications-actions button {
+    width: 100%;
   }
 }

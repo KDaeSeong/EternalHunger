@@ -4,6 +4,7 @@ const router = express.Router();
 const Post = require('../models/Post');
 const User = require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
+const { createNotification } = require('../utils/notifications');
 
 const POST_LIST_LIMIT = 100;
 const POST_PREVIEW_LENGTH = 160;
@@ -255,6 +256,16 @@ router.post('/:id/comments', verifyToken, async (req, res) => {
     post.comments.push({ authorId: req.user.id, content });
     post.commentCount = post.comments.length;
     await post.save();
+
+    await createNotification({
+      userId: post.authorId,
+      actorId: req.user.id,
+      type: 'post_comment',
+      title: '새 댓글',
+      message: `"${post.title || '게시글'}"에 댓글이 달렸습니다.`,
+      link: `/board/${post._id}`,
+      meta: { postId: normalizeId(post), commentCount: post.commentCount },
+    });
 
     const populated = await findPostWithUsers(post._id);
     res.json({ message: '댓글을 작성했습니다.', post: serializePostDetail(populated) });

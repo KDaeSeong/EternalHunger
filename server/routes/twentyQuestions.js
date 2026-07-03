@@ -5,6 +5,7 @@ const TwentyQuestionsRoom = require('../models/TwentyQuestionsRoom');
 require('../models/User');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { getOptionalUserId } = require('../utils/requestScope');
+const { createNotification } = require('../utils/notifications');
 
 const CATEGORY_LABELS = {
   game: '게임',
@@ -210,6 +211,16 @@ router.post('/:id/questions', verifyToken, async (req, res) => {
     room.questions.push({ askerId: req.user.id, text });
     await room.save();
 
+    await createNotification({
+      userId: room.hostId,
+      actorId: req.user.id,
+      type: 'twenty_question',
+      title: '새 스무고개 질문',
+      message: `"${room.title || '스무고개'}" 방에 새 질문이 등록되었습니다.`,
+      link: `/twenty-questions/${room._id}`,
+      meta: { roomId: normalizeId(room), questionCount: room.questions.length },
+    });
+
     const populated = await findRoomWithUsers(room._id);
     res.json({ message: '질문을 등록했습니다.', room: serializeRoomDetail(populated, req.user.id) });
   } catch (err) {
@@ -237,6 +248,16 @@ router.post('/:id/questions/:questionId/answer', verifyToken, async (req, res) =
     question.answeredAt = new Date();
     await room.save();
 
+    await createNotification({
+      userId: question.askerId,
+      actorId: req.user.id,
+      type: 'twenty_answer',
+      title: '스무고개 질문 답변',
+      message: `"${room.title || '스무고개'}" 방의 질문에 답변이 달렸습니다.`,
+      link: `/twenty-questions/${room._id}`,
+      meta: { roomId: normalizeId(room), questionId: normalizeId(question), response },
+    });
+
     const populated = await findRoomWithUsers(room._id);
     res.json({ message: '답변을 저장했습니다.', room: serializeRoomDetail(populated, req.user.id) });
   } catch (err) {
@@ -262,6 +283,18 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
       room.solvedAt = new Date();
     }
     await room.save();
+
+    if (correct) {
+      await createNotification({
+        userId: room.hostId,
+        actorId: req.user.id,
+        type: 'twenty_solved',
+        title: '스무고개 정답',
+        message: `"${room.title || '스무고개'}" 방의 정답을 맞힌 참가자가 있습니다.`,
+        link: `/twenty-questions/${room._id}`,
+        meta: { roomId: normalizeId(room), guessCount: room.guesses.length },
+      });
+    }
 
     const populated = await findRoomWithUsers(room._id);
     res.json({

@@ -5,6 +5,7 @@ const router = express.Router();
 const Post = require('../models/Post');
 const Report = require('../models/Report');
 const { verifyAdmin } = require('../middleware/authMiddleware');
+const { createNotification } = require('../utils/notifications');
 
 const REASON_LABELS = {
   spam: '스팸',
@@ -209,6 +210,16 @@ router.patch('/:id', verifyAdmin, async (req, res) => {
     report.handledBy = req.user.id;
     report.handledAt = ['resolved', 'dismissed'].includes(status) ? new Date() : null;
     await report.save();
+
+    await createNotification({
+      userId: report.reporterId,
+      actorId: req.user.id,
+      type: 'report_status',
+      title: '신고 처리 상태 변경',
+      message: `신고 상태가 ${STATUS_LABELS[status] || status} 상태로 변경되었습니다.`,
+      link: buildTargetUrl(report.postId),
+      meta: { reportId: normalizeId(report), status },
+    });
 
     const populated = await Report.findById(report._id)
       .populate('reporterId', 'username nickname')

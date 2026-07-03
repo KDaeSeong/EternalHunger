@@ -39,6 +39,7 @@ app.use('/api/user', verifyToken, require('./routes/user'));             // 유�
 app.use('/api/credits', verifyToken, require('./routes/credits'));         // 크레딧
 app.use('/api/perks', verifyToken, require('./routes/perks'));             // 특전 구매/관리
 app.use('/api/reports', verifyToken, require('./routes/reports'));         // 신고/관리
+app.use('/api/notifications', verifyToken, require('./routes/notifications')); // 알림
 
 // ✅ 아이템/거래/상점 행동(로드맵 1,3,4)
 app.use('/api/items', verifyToken, require('./routes/items'));             // 조합 등
