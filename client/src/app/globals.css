@@ -146,7 +146,7 @@ textarea {
 
 .board-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) minmax(150px, 210px);
   align-items: center;
   gap: 12px;
   padding: 12px 0;
@@ -188,7 +188,8 @@ textarea {
   font-weight: 800;
 }
 
-.board-search input {
+.board-search input,
+.board-search select {
   min-width: 0;
   width: 100%;
   border: 1px solid rgba(20, 25, 35, 0.16);
@@ -219,13 +220,15 @@ textarea {
 
 .board-write-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
   gap: 8px;
 }
 
 .board-write-panel input,
+.board-write-panel select,
 .board-write-panel textarea,
 .board-editor input,
+.board-editor select,
 .board-editor textarea {
   width: 100%;
   border: 1px solid rgba(20, 25, 35, 0.16);

@@ -8,6 +8,15 @@ import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGet, apiPost, apiPut } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 
+const BOARD_CATEGORIES = [
+  { value: 'free', label: '자유' },
+  { value: 'guide', label: '공략' },
+  { value: 'feedback', label: '피드백' },
+  { value: 'bug', label: '버그' },
+  { value: 'simulation', label: '시뮬레이션' },
+  { value: 'game', label: '게임' },
+];
+
 function formatDate(value) {
   if (!value) return '날짜 없음';
   const date = new Date(value);
@@ -65,6 +74,8 @@ function normalizePost(row) {
     ...row,
     title: safeText(row.title, '제목 없음'),
     content: safeText(row.content, ''),
+    category: safeText(row.category, 'free'),
+    categoryLabel: safeText(row.categoryLabel, '자유'),
     commentCount: Number(row.commentCount ?? comments.length ?? 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
@@ -91,7 +102,7 @@ export default function BoardDetailPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '' });
+  const [form, setForm] = useState({ title: '', content: '', category: 'free' });
   const [commentText, setCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState('');
@@ -118,7 +129,7 @@ export default function BoardDetailPage() {
       const data = await apiGet(`/posts/${id}`);
       const nextPost = unwrapPost(data);
       setPost(nextPost);
-      setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, '') });
+      setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free') });
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
       setMessage(nextMessage);
@@ -141,7 +152,7 @@ export default function BoardDetailPage() {
     const nextPost = unwrapPost(data);
     if (!nextPost) return;
     setPost(nextPost);
-    setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, '') });
+    setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free') });
   };
 
   const save = async () => {
@@ -156,7 +167,7 @@ export default function BoardDetailPage() {
 
     setSaving(true);
     try {
-      const res = await apiPut(`/posts/${id}`, { title, content });
+      const res = await apiPut(`/posts/${id}`, { title, content, category: form.category || 'free' });
       const nextMessage = res?.message || '수정했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
@@ -300,6 +311,15 @@ export default function BoardDetailPage() {
           <article className="board-post-view">
             {editing ? (
               <div className="board-editor board-editor-inline board-post-editor">
+                <select
+                  value={form.category}
+                  onChange={(event) => setForm({ ...form, category: event.target.value })}
+                  aria-label="게시글 분류"
+                >
+                  {BOARD_CATEGORIES.map((category) => (
+                    <option key={category.value} value={category.value}>{category.label}</option>
+                  ))}
+                </select>
                 <input
                   value={form.title}
                   onChange={(event) => setForm({ ...form, title: event.target.value })}
@@ -325,7 +345,7 @@ export default function BoardDetailPage() {
               <>
                 <div className="board-post-head">
                   <div className={`board-post-kicker ${post.isNotice ? 'is-notice' : ''}`}>
-                    {post.isNotice ? '공지' : '자유'}
+                    {post.isNotice ? `공지 · ${post.categoryLabel}` : post.categoryLabel}
                   </div>
                   <h2>{safeText(post.title, '제목 없음')}</h2>
                 </div>

@@ -7,6 +7,15 @@ import { useToast } from '../../components/ToastProvider';
 import { apiDelete, apiGet, apiPost } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 
+const BOARD_CATEGORIES = [
+  { value: 'free', label: '자유' },
+  { value: 'guide', label: '공략' },
+  { value: 'feedback', label: '피드백' },
+  { value: 'bug', label: '버그' },
+  { value: 'simulation', label: '시뮬레이션' },
+  { value: 'game', label: '게임' },
+];
+
 function formatDate(value) {
   if (!value) return '날짜 없음';
   const date = new Date(value);
@@ -58,6 +67,8 @@ function normalizePost(row) {
     commentCount: Number(row.commentCount || 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
+    category: safeText(row.category, 'free'),
+    categoryLabel: safeText(row.categoryLabel, '자유'),
     createdAt: row.createdAt || row.created_at || row.date || '',
     authorId,
     authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
@@ -84,25 +95,17 @@ export default function BoardPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '' });
+  const [form, setForm] = useState({ title: '', content: '', category: 'free' });
   const [writerOpen, setWriterOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   const mounted = useHydrated();
   const token = useAuthToken();
   const user = useAuthUser();
   const { showToast } = useToast();
   const userId = useMemo(() => getUserId(user), [user]);
-  const filteredPosts = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) return posts;
-    return posts.filter((post) => [
-      post?.title,
-      post?.content,
-      post?.authorName,
-      post?.authorId,
-    ].some((value) => String(value || '').toLowerCase().includes(keyword)));
-  }, [posts, query]);
+  const filteredPosts = posts;
   const myPostCount = useMemo(() => {
     if (!mounted || !userId) return 0;
     return posts.filter((post) => normalizeIdValue(post?.authorId) === String(userId)).length;
@@ -112,7 +115,11 @@ export default function BoardPage() {
     await Promise.resolve();
     setLoading(true);
     try {
-      const data = await apiGet('/posts');
+      const params = new URLSearchParams();
+      if (query.trim()) params.set('q', query.trim());
+      if (categoryFilter) params.set('category', categoryFilter);
+      const suffix = params.toString() ? `?${params.toString()}` : '';
+      const data = await apiGet(`/posts${suffix}`);
       setPosts(unwrapPostList(data));
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
@@ -122,7 +129,7 @@ export default function BoardPage() {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [categoryFilter, query, showToast]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -136,6 +143,7 @@ export default function BoardPage() {
   const create = async () => {
     const title = form.title.trim();
     const content = form.content.trim();
+    const category = form.category || 'free';
     if (!title || !content) {
       const nextMessage = '제목과 내용을 입력해주세요.';
       setMessage(nextMessage);
@@ -145,11 +153,11 @@ export default function BoardPage() {
 
     setSubmitting(true);
     try {
-      const res = await apiPost('/posts', { title, content });
+      const res = await apiPost('/posts', { title, content, category });
       const nextMessage = res?.message || '게시글을 작성했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
-      setForm({ title: '', content: '' });
+      setForm({ title: '', content: '', category: 'free' });
       setWriterOpen(false);
       await load();
     } catch (err) {
@@ -219,6 +227,15 @@ export default function BoardPage() {
               placeholder="제목, 내용, 작성자"
             />
           </label>
+          <label className="board-search board-category-filter">
+            <span>분류</span>
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="">전체</option>
+              {BOARD_CATEGORIES.map((category) => (
+                <option key={category.value} value={category.value}>{category.label}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {mounted && token && writerOpen ? (
@@ -227,6 +244,15 @@ export default function BoardPage() {
               글쓰기 {user ? <span>작성자: {getUserDisplayName(user)}</span> : null}
             </div>
             <div className="board-write-grid">
+              <select
+                value={form.category}
+                onChange={(event) => setForm({ ...form, category: event.target.value })}
+                aria-label="게시글 분류"
+              >
+                {BOARD_CATEGORIES.map((category) => (
+                  <option key={category.value} value={category.value}>{category.label}</option>
+                ))}
+              </select>
               <input
                 value={form.title}
                 onChange={(event) => setForm({ ...form, title: event.target.value })}

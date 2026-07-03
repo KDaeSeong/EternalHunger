@@ -7,6 +7,15 @@ const { verifyToken } = require('../middleware/authMiddleware');
 
 const POST_LIST_LIMIT = 100;
 const POST_PREVIEW_LENGTH = 160;
+const POST_CATEGORIES = Post.POST_CATEGORIES || ['free', 'guide', 'feedback', 'bug', 'simulation', 'game'];
+const CATEGORY_LABELS = {
+  free: '자유',
+  guide: '공략',
+  feedback: '피드백',
+  bug: '버그',
+  simulation: '시뮬레이션',
+  game: '게임',
+};
 
 function normalizeId(value) {
   if (!value) return '';
@@ -20,6 +29,20 @@ function normalizeId(value) {
 
 function cleanText(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength);
+}
+
+function normalizeCategory(value) {
+  const category = cleanText(value, 40);
+  return POST_CATEGORIES.includes(category) ? category : 'free';
+}
+
+function normalizeCategoryFilter(value) {
+  const category = cleanText(value, 40);
+  return POST_CATEGORIES.includes(category) ? category : '';
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function userSummary(user) {
@@ -61,6 +84,8 @@ function serializePostDetail(post) {
     _id: normalizeId(post),
     authorId: userSummary(post?.authorId),
     authorName: displayName(post?.authorId),
+    category: normalizeCategory(post?.category),
+    categoryLabel: CATEGORY_LABELS[normalizeCategory(post?.category)] || CATEGORY_LABELS.free,
     title: post?.title || '',
     content: post?.content || '',
     contentPreview: cleanText(post?.content, POST_PREVIEW_LENGTH),
@@ -78,6 +103,8 @@ function serializePostSummary(post, author) {
     _id: normalizeId(post),
     authorId: userSummary(author || post?.authorId),
     authorName: displayName(author || post?.authorId),
+    category: normalizeCategory(post?.category),
+    categoryLabel: CATEGORY_LABELS[normalizeCategory(post?.category)] || CATEGORY_LABELS.free,
     title: post?.title || '',
     contentPreview: post?.contentPreview || '',
     isNotice: Boolean(post?.isNotice),
@@ -106,12 +133,33 @@ async function getAuthorMap(authorIds) {
 
 router.get('/', async (req, res) => {
   try {
+    const q = cleanText(req.query?.q, 80);
+    const category = normalizeCategoryFilter(req.query?.category);
+    const match = {};
+    if (category) match.category = category;
+    if (q) {
+      const pattern = new RegExp(escapeRegExp(q), 'i');
+      const matchingAuthors = await User.find({
+        $or: [
+          { username: pattern },
+          { nickname: pattern },
+        ],
+      }).select('_id').lean();
+      match.$or = [
+        { title: pattern },
+        { content: pattern },
+        ...(matchingAuthors.length ? [{ authorId: { $in: matchingAuthors.map((user) => user._id) } }] : []),
+      ];
+    }
+
     const posts = await Post.aggregate([
+      ...(Object.keys(match).length ? [{ $match: match }] : []),
       { $sort: { isNotice: -1, noticePinnedAt: -1, createdAt: -1 } },
       { $limit: POST_LIST_LIMIT },
       {
         $project: {
           authorId: 1,
+          category: 1,
           title: 1,
           isNotice: 1,
           noticePinnedAt: 1,
@@ -149,12 +197,14 @@ router.post('/', verifyToken, async (req, res) => {
   try {
     const title = cleanText(req.body?.title, 120);
     const content = cleanText(req.body?.content, 10000);
+    const category = normalizeCategory(req.body?.category);
     if (!title || !content) {
       return res.status(400).json({ error: '제목과 내용을 입력해주세요.' });
     }
 
     const post = await Post.create({
       authorId: req.user.id,
+      category,
       title,
       content,
       commentCount: 0,
@@ -178,6 +228,7 @@ router.put('/:id', verifyToken, async (req, res) => {
       return res.status(403).json({ error: '작성자만 수정할 수 있습니다.' });
     }
 
+    if (typeof req.body?.category === 'string') post.category = normalizeCategory(req.body.category);
     if (typeof req.body?.title === 'string') post.title = cleanText(req.body.title, 120);
     if (typeof req.body?.content === 'string') post.content = cleanText(req.body.content, 10000);
     if (!post.title || !post.content) {
