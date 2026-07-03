@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import '../../styles/ERCharacters.css';
 import '../../styles/Home.css';
-import { normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { TACTICAL_SKILL_OPTIONS_KO, normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
@@ -14,11 +13,11 @@ import { buildQSkillCodePreview, compileNaturalQSkillDescription } from '../../u
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { normalizeErStats } from '../../utils/erStats';
 import SiteHeader from '../../components/SiteHeader';
+import CharacterBasicEditModal from './_components/CharacterBasicEditModal';
 import CharacterList from './_components/CharacterList';
 import {
   GOAL_GEAR_TIERS,
   SKILL_LEVEL_COUNT,
-  WEAPON_TYPES_KO,
   characterId,
   cleanNumber,
   createBlankCharacter,
@@ -341,84 +340,14 @@ export default function CharactersPage() {
         onRemove={removeCharacter}
       />
 
-      {editChar ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="character-edit-backdrop"
-          onPointerDown={handleBackdropPointerDown}
-          onPointerUp={(e) => handleBackdropPointerUp(e, closeEditModal)}
-        >
-          <div className="character-edit-modal">
-            <div className="character-edit-head">
-              <div>
-                <p>기본 정보 편집</p>
-                <h2>{editChar.name || '이름 없음'}</h2>
-              </div>
-              <button type="button" onClick={closeEditModal} aria-label="닫기">×</button>
-            </div>
-
-            <div className="character-edit-grid">
-              <div className="character-edit-image">
-                {editChar.previewImage ? (
-                  <img src={editChar.previewImage} alt="미리보기" />
-                ) : (
-                  <span>이미지 없음</span>
-                )}
-                <label>
-                  이미지 선택
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleImageUpload(e, characterId(editChar))}
-                  />
-                </label>
-              </div>
-
-              <div className="character-edit-fields">
-                <label>
-                  이름
-                  <input
-                    type="text"
-                    value={editChar.name || ''}
-                    onChange={(e) => updateCharacter(characterId(editChar), 'name', e.target.value)}
-                    placeholder="캐릭터 이름"
-                  />
-                </label>
-
-                <label>
-                  성별
-                  <select
-                    value={editChar.gender || '여'}
-                    onChange={(e) => updateCharacter(characterId(editChar), 'gender', e.target.value)}
-                  >
-                    <option value="여">여</option>
-                    <option value="남">남</option>
-                    <option value="무성">무성</option>
-                  </select>
-                </label>
-
-                <label>
-                  사용 무기
-                  <select
-                    value={normalizeWeaponType(editChar.weaponType) || ''}
-                    onChange={(e) => updateCharacter(characterId(editChar), 'weaponType', normalizeWeaponType(e.target.value))}
-                  >
-                    <option value="">랜덤</option>
-                    {WEAPON_TYPES_KO.map((w) => (
-                      <option key={w} value={w}>{w}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div className="character-edit-actions">
-              <button type="button" onClick={closeEditModal}>닫기</button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <CharacterBasicEditModal
+        character={editChar}
+        onBackdropPointerDown={handleBackdropPointerDown}
+        onBackdropPointerUp={handleBackdropPointerUp}
+        onClose={closeEditModal}
+        onImageUpload={handleImageUpload}
+        onUpdateCharacter={updateCharacter}
+      />
 
       {configChar ? (
         <div
