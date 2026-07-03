@@ -125,6 +125,35 @@ function serializeRoomDetail(room, userId) {
   };
 }
 
+function serializeCreatedRoomFallback(room, userId) {
+  const plain = typeof room?.toObject === 'function' ? room.toObject() : (room || {});
+  const revealAnswer = canRevealAnswer(plain, userId);
+  return {
+    _id: normalizeId(plain),
+    title: plain.title || '',
+    category: plain.category || 'free',
+    categoryLabel: CATEGORY_LABELS[plain.category] || CATEGORY_LABELS.free,
+    hint: plain.hint || '',
+    status: plain.status || 'active',
+    maxQuestions: Number(plain.maxQuestions || 20),
+    questionCount: Array.isArray(plain.questions) ? plain.questions.length : 0,
+    pendingCount: Array.isArray(plain.questions) ? plain.questions.filter((q) => q?.response === 'pending').length : 0,
+    guessCount: Array.isArray(plain.guesses) ? plain.guesses.length : 0,
+    host: compactUser(plain.hostId),
+    hostName: displayName(plain.hostId),
+    solvedBy: compactUser(plain.solvedBy),
+    solvedByName: plain.solvedBy ? displayName(plain.solvedBy) : '',
+    solvedAt: plain.solvedAt || null,
+    createdAt: plain.createdAt || null,
+    updatedAt: plain.updatedAt || null,
+    isHost: isHost(plain, userId),
+    answer: revealAnswer ? plain.answer || '' : '',
+    answerRevealed: revealAnswer,
+    questions: [],
+    guesses: [],
+  };
+}
+
 async function findRoomWithUsers(id) {
   return TwentyQuestionsRoom.findById(id)
     .populate('hostId', 'username nickname')
@@ -189,8 +218,23 @@ router.post('/', verifyToken, async (req, res) => {
       maxQuestions: 20,
     });
 
-    const populated = await findRoomWithUsers(room._id);
-    res.json({ message: '스무고개 방을 만들었습니다.', room: serializeRoomDetail(populated, req.user.id) });
+    let responseRoom = room;
+    try {
+      const populated = await findRoomWithUsers(room._id);
+      if (populated) responseRoom = populated;
+    } catch (populateErr) {
+      console.error('twenty questions create populate failed:', populateErr);
+    }
+
+    let payloadRoom;
+    try {
+      payloadRoom = serializeRoomDetail(responseRoom, req.user.id);
+    } catch (serializeErr) {
+      console.error('twenty questions create serialize failed:', serializeErr);
+      payloadRoom = serializeCreatedRoomFallback(room, req.user.id);
+    }
+
+    res.json({ message: '스무고개 방을 만들었습니다.', room: payloadRoom });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '스무고개 방 생성에 실패했습니다.' });

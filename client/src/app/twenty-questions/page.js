@@ -158,6 +158,10 @@ export default function TwentyQuestionsPage() {
       if (roomId) router.push(`/twenty-questions/${roomId}`);
       else await loadRooms();
     } catch (err) {
+      clearApiGetCache('/twenty-questions');
+      clearApiGetCache('/public/home-hub');
+      clearApiGetCache('/public/search');
+      await loadRooms();
       showToast({ tone: 'danger', message: err?.message || '스무고개 방 생성에 실패했습니다.' });
     } finally {
       setCreating(false);
