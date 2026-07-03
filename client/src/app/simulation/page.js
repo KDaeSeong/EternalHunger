@@ -93,10 +93,7 @@ import {
 import {
   isExplicitDay1HeroRoutePlan,
 } from './_lib/routePlanProgressRuntime';
-import {
-  advanceActorRouteProgressForGoal,
-  runDay1HeroGearDirectorWithLogs,
-} from './_lib/phaseRouteProgressRuntime';
+import { runDay1HeroGearDirectorWithLogs } from './_lib/phaseRouteProgressRuntime';
 import { runRouteFarmAction } from './_lib/phaseRouteFarmRuntime';
 import { runHuntAction } from './_lib/phaseHuntActionRuntime';
 import { openLegendaryCrateForActor } from './_lib/phaseLegendaryCrateRuntime';
@@ -184,7 +181,7 @@ import {
 } from './_lib/phaseSpawnRuntime';
 import { applyActorPhaseStatusTick } from './_lib/phaseActorStatusRuntime';
 import { runActorMovementDecisionPhase } from './_lib/phaseActorMovementRuntime';
-import { prepareActorPhaseActionQueue } from './_lib/phaseActionQueueRuntime';
+import { prepareActorPhaseActionPlan } from './_lib/phaseActionQueueRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1211,59 +1208,15 @@ export default function SimulationPage() {
 
         const isKioskZone = hasKioskAtZone(kiosks, mapObj, updated.zoneId);
 
-        // --- 조합 목표(간단 AI): 현재 인벤 기준으로 '가까운' 상위 티어 1개를 목표로 삼음 ---
-        const craftGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
-          goalTier: updated?.goalGearTier,
-          goalItemKeys: pickGoalLoadoutKeys(updated),
-          perkEffects: getActorPerkEffects(updated),
-        });
-
-        // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
-        const routeProgressNow = advanceActorRouteProgressForGoal({
-          actor: updated,
-          craftGoal,
-          ruleset,
-          searched: false,
-          zoneId: updated.zoneId,
-        });
-        const routePlanMissingIdsNow = routeProgressNow.routePlanMissingItemIds;
-        const earlyRouteMissingIdsNow = routeProgressNow.missingItemIds;
-        const mappedRouteItemIdsNow = routeProgressNow.mappedRouteItemIds;
-        const goalMissingIds = new Set(earlyRouteMissingIdsNow);
-        const routeDroneNeedIds = new Set((Array.isArray(updated?.routePlanDroneItemIds) ? updated.routePlanDroneItemIds : [])
-          .map((id) => String(id || '').trim())
-          .filter((id) => id && routePlanMissingIdsNow.includes(id)));
-        const goalTargetId = String(craftGoal?.target?._id || craftGoal?.target?.itemId || '');
-        const routePlanIdsNow = Array.isArray(updated?.routePlanZoneIds)
-          ? updated.routePlanZoneIds.map((z) => String(z || '').trim()).filter(Boolean)
-          : [];
-        const earlyRouteActionActive = (
-          (Number(nextDay || 0) === 1 || (Number(nextDay || 0) === 2 && String(nextPhase || '') === 'morning')) &&
-          routePlanIdsNow.length > 0 &&
-          Math.max(0, Number(updated?.routePlanIndex || 0)) < routePlanIdsNow.length
-        );
-        const currentRouteItemIds = mappedRouteItemIdsNow;
-        const fallbackRouteItemIds = currentRouteItemIds.length
-          ? currentRouteItemIds
-          : [...goalMissingIds].filter(Boolean);
-        const currentRouteNeedsSearch = earlyRouteActionActive &&
-          fallbackRouteItemIds.length > 0 &&
-          fallbackRouteItemIds.some((id) => goalMissingIds.has(id));
-        const actionQueue = prepareActorPhaseActionQueue({
+        const actionPlan = prepareActorPhaseActionPlan({
           state: {
             actor: updated,
             craftables,
-            craftGoal,
             currentActionSec,
-            currentRouteItemIds,
-            currentRouteNeedsSearch,
+            currentZone,
             didMove,
             droneOffers,
-            earlyRouteActionActive,
-            fallbackRouteItemIds,
             fleeInterruptReason,
-            goalMissingIds,
-            goalTargetId,
             holdTarget,
             itemKeyById,
             itemMetaById,
@@ -1283,9 +1236,7 @@ export default function SimulationPage() {
             phaseIdxNow,
             publicItems,
             recovering,
-            routePlanMissingIdsNow,
             ruleset,
-            currentZone,
             upgradeNeed,
             usedHyperloopMove,
           },
@@ -1295,10 +1246,12 @@ export default function SimulationPage() {
             getZoneName,
           },
         });
-        updated = actionQueue.actor;
-        const queuedKioskAction = actionQueue.queuedKioskAction;
-        const queuedDroneOrder = actionQueue.queuedDroneOrder;
-        const queuedActionType = actionQueue.queuedActionType;
+        updated = actionPlan.actor;
+        const fallbackRouteItemIds = actionPlan.fallbackRouteItemIds;
+        const goalMissingIds = actionPlan.goalMissingIds;
+        const queuedKioskAction = actionPlan.queuedKioskAction;
+        const queuedDroneOrder = actionPlan.queuedDroneOrder;
+        const queuedActionType = actionPlan.queuedActionType;
 
         if (queuedActionType === 'routeFarm' && fallbackRouteItemIds.length > 0) {
           runRouteFarmAction({
