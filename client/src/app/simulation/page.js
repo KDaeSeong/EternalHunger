@@ -16,8 +16,6 @@ import {
 } from '../../utils/statusLogic';
 import {
   getNonCombatRegenMultiplier,
-  getWildlifeDamageMultiplier,
-  getWildlifeMasteryEntries,
 } from '../../utils/masteryLogic';
 import { getRuleset } from '../../utils/rulesets';
 import SiteHeader from '../../components/SiteHeader';
@@ -39,7 +37,6 @@ import {
 } from './_lib/characterSkillRuntime';
 import {
   itemDisplayName,
-  normalizeRewardDropEntries,
   itemIcon,
   shuffleArray,
   perkNumber,
@@ -83,8 +80,6 @@ import {
   openSpawnedTranscendCrate,
   openSpawnedFoodCrate,
   pickupSpawnedCore,
-  consumeBossAtZone,
-  consumeMutantWildlifeAtZone,
   classifySpecialByName,
   pickGoalLoadoutKeys,
   buildCraftGoal,
@@ -92,14 +87,12 @@ import {
   bfsPickSafestZone,
   computeLateGameUpgradeNeed,
   chooseAiMoveTargets,
-  consumeWildlifeAtZone,
   inferEquipSlot,
   hasActiveEffect,
   canReceiveItem,
   normalizeInventory,
   formatInvAddNote,
   addItemToInventory,
-  markInventoryGoalItem,
   invQty,
   consumeIngredientsFromInv,
   tryAutoCraftFromLoot,
@@ -130,6 +123,7 @@ import {
   runDay1HeroGearDirectorWithLogs,
 } from './_lib/phaseRouteProgressRuntime';
 import { runRouteFarmAction } from './_lib/phaseRouteFarmRuntime';
+import { runHuntAction } from './_lib/phaseHuntActionRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -1678,96 +1672,41 @@ const didMove = String(nextZoneId) !== String(currentZone);
         }
 
         if (queuedActionType === 'hunt') {
-        // --- 보스(맵 이벤트 스폰): 알파/오메가/위클라인 ---
-        const boss = recovering ? null : consumeBossAtZone(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset);
-
-        // --- 변이 야생동물(요청): 매 밤 스폰(로컬 설정 zone) ---
-        const mutant = boss ? null : (recovering ? null : consumeMutantWildlifeAtZone(nextSpawn, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset));
-
-        // --- 야생동물 사냥(일반): 존 스폰 카운트 기반(매 페이즈 스폰 체크/파밍 강화) ---
-        const hunt = boss || mutant || consumeWildlifeAtZone(nextSpawn, mapObj, updated.zoneId, publicItems, nextDay, nextPhase, updated, ruleset, { moved: didMove, isKioskZone, recovering });
-
-        const isBossReward = !!boss;
-        const isMutantReward = !boss && !!mutant;
-        if (hunt) {
-          const dmg = Math.max(0, Number(hunt.damage || 0));
-          const estimatedWildlifeDamage = Math.round((isBossReward ? 260 : isMutantReward ? 180 : 110) * getWildlifeDamageMultiplier(updated));
-          updated.hp = Math.max(0, Number(updated.hp || 0) - dmg);
-          addLog(`🎯 [${updated.name}] ${hunt.log}${dmg > 0 ? ` (피해 -${dmg})` : ''}`, dmg > 0 ? 'highlight' : 'normal');
-          grantMasteries(updated, getWildlifeMasteryEntries({ damageDealt: estimatedWildlifeDamage, damageTaken: dmg }), isBossReward ? '보스 사냥' : isMutantReward ? '변이 사냥' : '사냥');
-          const creditGain = Math.max(0, Number(hunt?.credits || 0));
-          if (creditGain > 0) {
-            updated.simCredits = Math.max(0, Number(updated.simCredits || 0) + creditGain);
-            addLog(`💳 [${updated.name}] ${isBossReward ? '보스 처치 보상' : isMutantReward ? '변이 사냥 보상' : '사냥 보상'} (크레딧 +${creditGain})`, 'system');
-            emitRunEvent('gain', { who: String(updated?._id || ''), itemId: 'CREDITS', qty: creditGain, source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
-
-            if (isBossReward) {
-              const pb = 0.45;
-              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
-              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
-              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
-            }
-          }
-
-
-
-          const drops = normalizeRewardDropEntries(
-            Array.isArray(hunt?.drops) ? hunt.drops : (hunt?.drop ? [hunt.drop] : []),
-            publicItems,
-            itemNameById,
-          );
-          if (isBossReward) {
-            emitObjectiveRunEvent(updated, 'boss', {
-              subkind: String(hunt?.kind || ''),
-              credits: creditGain,
-              damage: dmg,
-              dropCount: drops.length,
-              success: true,
-              danger: 0.45,
-            }, atNow());
-          }
-          for (const d of drops) {
-            if (!d?.itemId || !d?.item) continue;
-            const q = Math.max(1, Number(d.qty || 1));
-            const nm = d.item?.name || itemNameById?.[String(d.itemId || '')] || '아이템';
-            const huntDropItem = markInventoryGoalItem(d.item, goalMissingIds.has(String(d.itemId || '')));
-            updated.inventory = addItemToInventory(updated.inventory, huntDropItem, d.itemId, q, nextDay, ruleset);
-            const meta = updated.inventory?._lastAdd;
-            const got = Math.max(0, Number(meta?.acceptedQty ?? q));
-            if (shouldLogItemReceive(got, meta)) {
-              addLog(`🧾 [${updated.name}] 드랍: ${itemIcon(d.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, q, updated.inventory, ruleset)}`, 'normal');
-            }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(d.itemId || ''), source: isBossReward ? 'boss' : isMutantReward ? 'mutant' : 'hunt', kind: String(hunt?.kind || ''), zoneId: String(updated?.zoneId || '') }, atNow());
-
-            const specialKind = classifySpecialByName(nm);
-            const immediateH = tryImmediateCraftFromSpecial(updated, specialKind, String(d.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
-            if (immediateH?.changed) {
-              updated.inventory = immediateH.inventory;
-              (Array.isArray(immediateH.logs) ? immediateH.logs : []).forEach((m) => addLog(String(m), 'highlight'));
-            }
-            if (Number(immediateH?.pvpBonus || 0) > 0) {
-              const pb = Number(immediateH.pvpBonus || 0);
-              updated._gatherPvpBonus = Math.max(Number(updated._gatherPvpBonus || 0), pb);
-              updated._gatherPvpBonusUntilPhaseIdx = phaseIdxNow + 1;
-              updated._immediateDanger = Math.max(Number(updated._immediateDanger || 0), pb);
-              updated._immediateDangerUntilPhaseIdx = phaseIdxNow;
-            }
-
-            const craftedH = immediateH?.changed ? null : tryAutoCraftFromLoot(updated.inventory, d.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-            applyLootCraftResult(updated, craftedH, itemMetaById, atNow(), updated?.zoneId);
-          }
-
-          if (updated.hp <= 0 && Number(s.hp || 0) > 0) {
-            setDeathMetadata(updated, 'wildlife_hunt', { causeName: '사냥 중 치명상' });
-            updated.deadAtPhaseIdx = phaseIdxNow;
-            updated.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-            addLog(`💀 [${updated.name}]이(가) 사냥 중 치명상을 입고 사망했습니다.`, 'death');
-            emitDeathRunEventOnce(updated, { reason: 'wildlife_hunt', cause: '사냥 중 치명상' });
-            newlyDead.push(updated);
-          }
-        }
-
+          const huntAction = runHuntAction({
+            state: {
+              actor: updated,
+              canReviveThisMatch,
+              craftables,
+              didMove,
+              goalMissingIds,
+              isKioskZone,
+              itemMetaById,
+              itemNameById,
+              mapObj,
+              nextDay,
+              nextPhase,
+              nextSpawn,
+              phaseIdxNow,
+              publicItems,
+              recovering,
+              reviveCutoffIdx,
+              ruleset,
+              wasAlive: Number(s.hp || 0) > 0,
+            },
+            actions: {
+              addLog,
+              applyLootCraftResult,
+              atNow,
+              emitDeathRunEventOnce,
+              emitItemGainIfAny,
+              emitObjectiveRunEvent,
+              emitRunEvent,
+              grantMasteries,
+              setDeathMetadata,
+            },
+          });
+          updated = huntAction.actor;
+          if (huntAction.died) newlyDead.push(updated);
         }
 
         // --- 전설 재료 상자(맵 이벤트 스폰): 3일차 '낮' 이후부터 맵 어딘가에 드랍 → 해당 구역 진입 시 개봉 ---
