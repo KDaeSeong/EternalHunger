@@ -39,6 +39,13 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+function formatRoomAttemptMeta(room) {
+  const questionCount = Number(room?.questionCount || 0);
+  const guessCount = Number(room?.guessCount || 0);
+  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : questionCount + guessCount);
+  return `사용 ${formatNumber(attemptCount)}/${formatNumber(room?.maxQuestions || 20)} · 질문 ${formatNumber(questionCount)} · 시도 ${formatNumber(guessCount)}`;
+}
+
 function formatRate(value) {
   return `${Math.round(Number(value || 0) * 1000) / 10}%`;
 }
@@ -303,7 +310,7 @@ export default function UserProfilePage() {
                       <Link href={`/twenty-questions/${room._id}`} key={room._id}>
                         <strong>{safeText(room.title, '제목 없음')}</strong>
                         <span>
-                          {ROOM_STATUS_LABELS[room.status] || room.status || '진행 중'} · 질문 {formatNumber(room.questionCount)} · 시도 {formatNumber(room.guessCount)}
+                          {ROOM_STATUS_LABELS[room.status] || room.status || '진행 중'} · {formatRoomAttemptMeta(room)}
                         </span>
                       </Link>
                     ))}

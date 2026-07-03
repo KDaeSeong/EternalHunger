@@ -51,6 +51,10 @@ function statusLabel(status) {
 
 function normalizeRoom(row) {
   if (!row || typeof row !== 'object') return null;
+  const questionCount = Number(row.questionCount || 0);
+  const guessCount = Number(row.guessCount || 0);
+  const maxQuestions = Number(row.maxQuestions || 20);
+  const attemptCount = Number(row.attemptCount != null ? row.attemptCount : questionCount + guessCount);
   return {
     ...row,
     _id: safeText(row._id || row.id, ''),
@@ -59,10 +63,12 @@ function normalizeRoom(row) {
     hint: safeText(row.hint, ''),
     hostName: safeText(row.hostName || row.host?.nickname || row.host?.username, '익명'),
     status: safeText(row.status, 'active'),
-    questionCount: Number(row.questionCount || 0),
-    maxQuestions: Number(row.maxQuestions || 20),
+    questionCount,
+    maxQuestions,
     pendingCount: Number(row.pendingCount || 0),
-    guessCount: Number(row.guessCount || 0),
+    guessCount,
+    attemptCount,
+    remainingCount: Math.max(0, Number(row.remainingCount != null ? row.remainingCount : maxQuestions - attemptCount)),
   };
 }
 
@@ -270,7 +276,7 @@ export default function TwentyQuestionsPage() {
         ) : null}
 
         {!mounted || token ? null : (
-          <div className="twenty-note">로그인하면 스무고개 방을 만들고 질문할 수 있습니다.</div>
+          <div className="twenty-note">로그인하면 스무고개 방을 만들고 질문/정답 도전에 참여할 수 있습니다.</div>
         )}
 
         <section className="twenty-room-grid" aria-label="스무고개 방 목록">
@@ -292,7 +298,8 @@ export default function TwentyQuestionsPage() {
               <p>{room.hint || '힌트 없음'}</p>
               <div className="twenty-card-meta">
                 <span>방장 {room.hostName}</span>
-                <span>질문 {room.questionCount}/{room.maxQuestions}</span>
+                <span>사용 {room.attemptCount}/{room.maxQuestions}</span>
+                <span>질문 {room.questionCount}</span>
                 <span>도전 {room.guessCount}</span>
                 {room.pendingCount > 0 ? <span>답변 대기 {room.pendingCount}</span> : null}
               </div>

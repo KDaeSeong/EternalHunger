@@ -162,14 +162,21 @@ function mapSearchPost(post) {
 function mapPublicRoom(room) {
   const questions = Array.isArray(room?.questions) ? room.questions : [];
   const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
+  const maxQuestions = Math.max(1, Number(room?.maxQuestions || 20));
+  const questionCount = questions.length;
+  const guessCount = guesses.length;
+  const attemptCount = questionCount + guessCount;
   return {
     _id: normalizeId(room),
     title: room?.title || '',
     category: room?.category || 'free',
     hint: room?.hint || '',
     status: room?.status || 'active',
-    questionCount: questions.length,
-    guessCount: guesses.length,
+    maxQuestions,
+    questionCount,
+    guessCount,
+    attemptCount,
+    remainingCount: Math.max(0, maxQuestions - attemptCount),
     solvedBy: room?.solvedBy && typeof room.solvedBy === 'object' ? {
       _id: normalizeId(room.solvedBy),
       username: room.solvedBy.username || '',

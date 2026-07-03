@@ -74,6 +74,28 @@ function canRevealAnswer(room, userId) {
   return isHost(room, userId) || room?.status === 'solved' || room?.status === 'closed';
 }
 
+function getMaxAttempts(room) {
+  return Math.max(1, Number(room?.maxQuestions || 20));
+}
+
+function getAttemptCounts(room) {
+  const questions = Array.isArray(room?.questions) ? room.questions : [];
+  const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
+  const maxQuestions = getMaxAttempts(room);
+  const questionCount = questions.length;
+  const guessCount = guesses.length;
+  const attemptCount = questionCount + guessCount;
+  return {
+    questions,
+    guesses,
+    maxQuestions,
+    questionCount,
+    guessCount,
+    attemptCount,
+    remainingCount: Math.max(0, maxQuestions - attemptCount),
+  };
+}
+
 function serializeQuestion(question) {
   return {
     _id: normalizeId(question),
@@ -100,8 +122,14 @@ function serializeGuess(guess) {
 }
 
 function serializeRoomSummary(room) {
-  const questions = Array.isArray(room?.questions) ? room.questions : [];
-  const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
+  const {
+    questions,
+    maxQuestions,
+    questionCount,
+    guessCount,
+    attemptCount,
+    remainingCount,
+  } = getAttemptCounts(room);
   return {
     _id: normalizeId(room),
     title: room?.title || '',
@@ -109,10 +137,12 @@ function serializeRoomSummary(room) {
     categoryLabel: CATEGORY_LABELS[room?.category] || CATEGORY_LABELS.free,
     hint: room?.hint || '',
     status: room?.status || 'active',
-    maxQuestions: Number(room?.maxQuestions || 20),
-    questionCount: questions.length,
+    maxQuestions,
+    questionCount,
     pendingCount: questions.filter((q) => q?.response === 'pending').length,
-    guessCount: guesses.length,
+    guessCount,
+    attemptCount,
+    remainingCount,
     host: compactUser(room?.hostId),
     hostName: displayName(room?.hostId),
     solvedBy: compactUser(room?.solvedBy),
@@ -139,6 +169,7 @@ function serializeRoomDetail(room, userId) {
 function serializeCreatedRoomFallback(room, userId) {
   const plain = typeof room?.toObject === 'function' ? room.toObject() : (room || {});
   const revealAnswer = canRevealAnswer(plain, userId);
+  const counts = getAttemptCounts(plain);
   return {
     _id: normalizeId(plain),
     title: plain.title || '',
@@ -146,10 +177,12 @@ function serializeCreatedRoomFallback(room, userId) {
     categoryLabel: CATEGORY_LABELS[plain.category] || CATEGORY_LABELS.free,
     hint: plain.hint || '',
     status: plain.status || 'active',
-    maxQuestions: Number(plain.maxQuestions || 20),
-    questionCount: Array.isArray(plain.questions) ? plain.questions.length : 0,
-    pendingCount: Array.isArray(plain.questions) ? plain.questions.filter((q) => q?.response === 'pending').length : 0,
-    guessCount: Array.isArray(plain.guesses) ? plain.guesses.length : 0,
+    maxQuestions: counts.maxQuestions,
+    questionCount: counts.questionCount,
+    pendingCount: counts.questions.filter((q) => q?.response === 'pending').length,
+    guessCount: counts.guessCount,
+    attemptCount: counts.attemptCount,
+    remainingCount: counts.remainingCount,
     host: compactUser(plain.hostId),
     hostName: displayName(plain.hostId),
     solvedBy: compactUser(plain.solvedBy),
@@ -260,8 +293,9 @@ router.post('/:id/questions', verifyToken, async (req, res) => {
     const room = await TwentyQuestionsRoom.findById(req.params.id);
     if (!room) return res.status(404).json({ error: '스무고개 방을 찾을 수 없습니다.' });
     if (room.status !== 'active') return res.status(400).json({ error: '진행 중인 방에만 질문할 수 있습니다.' });
-    if ((room.questions || []).length >= Number(room.maxQuestions || 20)) {
-      return res.status(400).json({ error: '질문 20개를 모두 사용했습니다.' });
+    const counts = getAttemptCounts(room);
+    if (counts.attemptCount >= counts.maxQuestions) {
+      return res.status(400).json({ error: `질문/정답 도전 ${counts.maxQuestions}회를 모두 사용했습니다.` });
     }
 
     room.questions.push({ askerId: req.user.id, text });
@@ -274,7 +308,7 @@ router.post('/:id/questions', verifyToken, async (req, res) => {
       title: '새 스무고개 질문',
       message: `"${room.title || '스무고개'}" 방에 새 질문이 등록되었습니다.`,
       link: `/twenty-questions/${room._id}`,
-      meta: { roomId: normalizeId(room), questionCount: room.questions.length },
+      meta: { roomId: normalizeId(room), questionCount: room.questions.length, attemptCount: getAttemptCounts(room).attemptCount },
     });
 
     const populated = await findRoomWithUsers(room._id);
@@ -330,6 +364,10 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
     const room = await TwentyQuestionsRoom.findById(req.params.id);
     if (!room) return res.status(404).json({ error: '스무고개 방을 찾을 수 없습니다.' });
     if (room.status !== 'active') return res.status(400).json({ error: '진행 중인 방에서만 정답을 맞힐 수 있습니다.' });
+    const counts = getAttemptCounts(room);
+    if (counts.attemptCount >= counts.maxQuestions) {
+      return res.status(400).json({ error: `질문/정답 도전 ${counts.maxQuestions}회를 모두 사용했습니다.` });
+    }
 
     const correct = normalizeAnswer(text) === normalizeAnswer(room.answer);
     room.guesses.push({ guesserId: req.user.id, text, correct });
@@ -348,7 +386,7 @@ router.post('/:id/guesses', verifyToken, async (req, res) => {
         title: '스무고개 정답',
         message: `"${room.title || '스무고개'}" 방의 정답을 맞힌 참가자가 있습니다.`,
         link: `/twenty-questions/${room._id}`,
-        meta: { roomId: normalizeId(room), guessCount: room.guesses.length },
+        meta: { roomId: normalizeId(room), guessCount: room.guesses.length, attemptCount: getAttemptCounts(room).attemptCount },
       });
     }
 

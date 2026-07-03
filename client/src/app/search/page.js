@@ -222,16 +222,19 @@ export default function SearchPage() {
 
             <ResultPanel title="스무고개" count={results.rooms.length} empty="일치하는 방이 없습니다.">
               <div className="search-result-list">
-                {results.rooms.map((room) => (
-                  <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
-                    <span>{ROOM_CATEGORY_LABELS[room.category] || room.category || '방'}</span>
-                    <strong>{safeText(room.title, '제목 없음')}</strong>
-                    <p>{safeText(room.hint, '힌트 없음')}</p>
-                    <small>
-                      {safeText(room.hostName, '익명')} · 질문 {formatNumber(room.questionCount)} · 도전 {formatNumber(room.guessCount)}
-                    </small>
-                  </Link>
-                ))}
+                {results.rooms.map((room) => {
+                  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+                  return (
+                    <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
+                      <span>{ROOM_CATEGORY_LABELS[room.category] || room.category || '방'}</span>
+                      <strong>{safeText(room.title, '제목 없음')}</strong>
+                      <p>{safeText(room.hint, '힌트 없음')}</p>
+                      <small>
+                        {safeText(room.hostName, '익명')} · 사용 {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)} · 질문 {formatNumber(room.questionCount)} · 도전 {formatNumber(room.guessCount)}
+                      </small>
+                    </Link>
+                  );
+                })}
               </div>
             </ResultPanel>
 

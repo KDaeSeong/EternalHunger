@@ -59,6 +59,12 @@ function normalizeList(value) {
 function normalizeRoom(payload) {
   const row = payload?.room || payload?.data || payload;
   if (!row || typeof row !== 'object') return null;
+  const questions = normalizeList(row.questions);
+  const guesses = normalizeList(row.guesses);
+  const questionCount = Number(row.questionCount || questions.length);
+  const guessCount = Number(row.guessCount || guesses.length);
+  const maxQuestions = Number(row.maxQuestions || 20);
+  const attemptCount = Number(row.attemptCount != null ? row.attemptCount : questionCount + guessCount);
   return {
     ...row,
     _id: safeText(row._id || row.id, ''),
@@ -69,15 +75,17 @@ function normalizeRoom(payload) {
     hostName: safeText(row.hostName || row.host?.nickname || row.host?.username, '익명'),
     solvedByName: safeText(row.solvedByName || row.solvedBy?.nickname || row.solvedBy?.username, ''),
     status: safeText(row.status, 'active'),
-    maxQuestions: Number(row.maxQuestions || 20),
-    questionCount: Number(row.questionCount || normalizeList(row.questions).length),
+    maxQuestions,
+    questionCount,
     pendingCount: Number(row.pendingCount || 0),
-    guessCount: Number(row.guessCount || normalizeList(row.guesses).length),
+    guessCount,
+    attemptCount,
+    remainingCount: Math.max(0, Number(row.remainingCount != null ? row.remainingCount : maxQuestions - attemptCount)),
     answer: safeText(row.answer, ''),
     answerRevealed: Boolean(row.answerRevealed),
     isHost: Boolean(row.isHost),
-    questions: normalizeList(row.questions),
-    guesses: normalizeList(row.guesses),
+    questions,
+    guesses,
   };
 }
 
@@ -122,9 +130,9 @@ export default function TwentyQuestionsRoomPage() {
     [room?.questions]
   );
   const active = room?.status === 'active';
-  const questionsLeft = Math.max(0, Number(room?.maxQuestions || 20) - Number(room?.questionCount || 0));
+  const attemptsLeft = Math.max(0, Number(room?.remainingCount != null ? room.remainingCount : Number(room?.maxQuestions || 20) - Number(room?.attemptCount || 0)));
   const canInteract = hydrated && token && active;
-  const canAsk = canInteract && questionsLeft > 0;
+  const canUseAttempt = canInteract && attemptsLeft > 0;
 
   const applyRoomResponse = (data) => {
     const nextRoom = normalizeRoom(data);
@@ -143,6 +151,10 @@ export default function TwentyQuestionsRoomPage() {
     const text = questionText.trim();
     if (!text) {
       showToast({ tone: 'warning', message: '질문을 입력해주세요.' });
+      return;
+    }
+    if (!canUseAttempt) {
+      showToast({ tone: 'warning', message: '질문/정답 도전 횟수를 모두 사용했습니다.' });
       return;
     }
     setSubmitting('question');
@@ -178,6 +190,10 @@ export default function TwentyQuestionsRoomPage() {
     const text = guessText.trim();
     if (!text) {
       showToast({ tone: 'warning', message: '정답 도전을 입력해주세요.' });
+      return;
+    }
+    if (!canUseAttempt) {
+      showToast({ tone: 'warning', message: '질문/정답 도전 횟수를 모두 사용했습니다.' });
       return;
     }
     setSubmitting('guess');
@@ -252,8 +268,9 @@ export default function TwentyQuestionsRoomPage() {
                     ) : room.hostName}
                   </dd>
                 </div>
-                <div><dt>질문</dt><dd>{room.questionCount}/{room.maxQuestions}</dd></div>
-                <div><dt>남은 질문</dt><dd>{questionsLeft}</dd></div>
+                <div><dt>사용</dt><dd>{room.attemptCount}/{room.maxQuestions}</dd></div>
+                <div><dt>남은 횟수</dt><dd>{attemptsLeft}</dd></div>
+                <div><dt>질문</dt><dd>{room.questionCount}</dd></div>
                 <div><dt>정답 도전</dt><dd>{room.guessCount}</dd></div>
               </dl>
               {room.hint ? <p className="twenty-hint">힌트: {room.hint}</p> : null}
@@ -271,17 +288,17 @@ export default function TwentyQuestionsRoomPage() {
                 <div className="twenty-action-panel">
                   <div className="twenty-panel-title">
                     <strong>질문</strong>
-                    <span>{questionsLeft}개 남음</span>
+                    <span>{attemptsLeft}회 남음</span>
                   </div>
                   <textarea
                     value={questionText}
                     onChange={(event) => setQuestionText(event.target.value)}
-                    placeholder={canAsk ? '예/아니오로 답할 수 있는 질문' : '질문을 모두 사용했습니다'}
+                    placeholder={canUseAttempt ? '예/아니오로 답할 수 있는 질문' : '질문/정답 도전 횟수를 모두 사용했습니다'}
                     rows={4}
                     maxLength={220}
-                    disabled={!canAsk}
+                    disabled={!canUseAttempt}
                   />
-                  <button type="button" onClick={addQuestion} disabled={!canAsk || submitting === 'question'}>
+                  <button type="button" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
                     {submitting === 'question' ? '등록 중...' : '질문하기'}
                   </button>
                 </div>
@@ -289,15 +306,16 @@ export default function TwentyQuestionsRoomPage() {
                 <div className="twenty-action-panel">
                   <div className="twenty-panel-title">
                     <strong>정답 도전</strong>
-                    <span>{statusLabel(room.status)}</span>
+                    <span>{attemptsLeft}회 남음</span>
                   </div>
                   <input
                     value={guessText}
                     onChange={(event) => setGuessText(event.target.value)}
-                    placeholder="정답 입력"
+                    placeholder={canUseAttempt ? '정답 입력' : '질문/정답 도전 횟수를 모두 사용했습니다'}
                     maxLength={120}
+                    disabled={!canUseAttempt}
                   />
-                  <button type="button" onClick={submitGuess} disabled={submitting === 'guess'}>
+                  <button type="button" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
                     {submitting === 'guess' ? '도전 중...' : '도전'}
                   </button>
                 </div>

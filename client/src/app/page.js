@@ -150,8 +150,10 @@ function HubLinkList({ items, empty, type }) {
     <div className="home-link-list">
       {items.map((item) => {
         const href = type === 'room' ? `/twenty-questions/${item._id}` : `/board/${item._id}`;
+        const roomAttemptCount = Number(item?.attemptCount != null ? item.attemptCount : Number(item?.questionCount || 0) + Number(item?.guessCount || 0));
+        const roomMaxQuestions = Number(item?.maxQuestions || 20);
         const meta = type === 'room'
-          ? `질문 ${formatNumber(item.questionCount)} · 시도 ${formatNumber(item.guessCount)}`
+          ? `사용 ${formatNumber(roomAttemptCount)}/${formatNumber(roomMaxQuestions)} · 질문 ${formatNumber(item.questionCount)} · 시도 ${formatNumber(item.guessCount)}`
           : `조회 ${formatNumber(item.viewCount)} · 추천 ${formatNumber(item.reactionCount)} · 댓글 ${formatNumber(item.commentCount)} · ${formatDate(item.createdAt) || '날짜 없음'}`;
         return (
           <Link href={href} key={`${type}-${item._id || item.title}`}>
