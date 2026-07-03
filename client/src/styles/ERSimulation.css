@@ -513,6 +513,13 @@
   white-space: nowrap;
 }
 
+.log-toolbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
 .log-toggle-btn {
   flex: 0 0 auto;
   min-width: 86px;
@@ -527,8 +534,37 @@
   cursor: pointer;
 }
 
+.log-toggle-btn.active {
+  border-color: rgba(255, 204, 102, 0.72);
+  background: rgba(255, 204, 102, 0.22);
+  color: #fff2be;
+}
+
+.log-toggle-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .log-toggle-btn:hover {
   background: rgba(255,255,255,0.18);
+}
+
+.log-toggle-btn.active:hover {
+  background: rgba(255, 204, 102, 0.28);
+}
+
+.log-toggle-btn:disabled:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.log-empty-state {
+  padding: 14px 12px;
+  border: 1px dashed rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.72);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-align: center;
 }
 
 .log-message.day-header { 
@@ -1989,7 +2025,14 @@
 
   .log-toolbar {
     align-items: stretch;
+    flex-wrap: wrap;
     margin-bottom: 6px;
+  }
+
+  .log-toolbar-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
 
   .log-top-status {

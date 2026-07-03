@@ -8,6 +8,8 @@ const IMPORTANT_TEXT_RE = /게임 종료|최후|승리|킬|처치|사망|전원 
 
 const LOW_SIGNAL_TEXT_RE = /목표\(|이동:|교전 회피|인터럽트 도주|회복 우선 이동|획득 실패|가방 가득|x0|크레딧 \+|보상 크레딧|폭발 타이머 (?:15|10|5)s|재생: HP|종료$|면역$|저항$|보호막: 피해|드론 호출:|음식 상자|주변을|로테이션|재정비|머무릅니다/i;
 
+const NON_KILL_DEATH_TEXT_RE = /금지구역|제한구역|폭발|폭발 타이머|사냥 중|치명상|시체|소멸|부활|전멸 방지|저장 실패|로드 실패|초기 데이터|런타임|오류|경고|생존자가 아무도|detonation|forbidden|wildlife|hunt|revive|error|failed/i;
+
 function normalizeLog(log, index) {
   if (log && typeof log === 'object') {
     return {
@@ -34,6 +36,15 @@ export function isSummaryLog(log) {
   return IMPORTANT_TEXT_RE.test(text);
 }
 
+export function isKillLog(log) {
+  const normalized = normalizeLog(log, 0);
+  const type = String(normalized?.type || 'system');
+  const text = String(normalized?.text || '');
+  if (!text.trim()) return false;
+  if (type !== 'death') return false;
+  return !NON_KILL_DEATH_TEXT_RE.test(text);
+}
+
 export function getVisibleLogs(logs, { detailed = false, limit = SUMMARY_LIMIT } = {}) {
   const list = (Array.isArray(logs) ? logs : []).map(normalizeLog);
   if (detailed) return list;
@@ -41,6 +52,12 @@ export function getVisibleLogs(logs, { detailed = false, limit = SUMMARY_LIMIT }
   const summary = list.filter(isSummaryLog);
   const base = summary.length ? summary : list;
   return base.slice(-Math.max(1, Number(limit || SUMMARY_LIMIT)));
+}
+
+export function getKillLogs(logs, { limit = 0 } = {}) {
+  const killLogs = (Array.isArray(logs) ? logs : []).map(normalizeLog).filter(isKillLog);
+  const max = Math.max(0, Number(limit || 0));
+  return max > 0 ? killLogs.slice(-max) : killLogs;
 }
 
 export function getHiddenLogCount(logs, visibleLogs, { detailed = false } = {}) {

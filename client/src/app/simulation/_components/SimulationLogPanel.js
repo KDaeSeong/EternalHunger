@@ -1,6 +1,7 @@
 'use client';
 
-import { getHiddenLogCount, getVisibleLogs } from '../_lib/logPresentation';
+import { useState } from 'react';
+import { getHiddenLogCount, getKillLogs, getVisibleLogs } from '../_lib/logPresentation';
 
 function LogMessage({ log, actorAvatarByName, extractActorNameFromLog, prefix = '' }) {
   const who = extractActorNameFromLog ? extractActorNameFromLog(log.text) : '';
@@ -47,11 +48,14 @@ export default function SimulationLogPanel({
   extractActorNameFromLog,
 }) {
   const detailed = !!showDetailedLogs;
-  const visibleLogs = getVisibleLogs(logs, { detailed });
-  const hiddenCount = getHiddenLogCount(logs, visibleLogs, { detailed });
-  const visiblePrevLogs = getVisibleLogs(prevPhaseLogs, { detailed });
-  const hiddenPrevCount = getHiddenLogCount(prevPhaseLogs, visiblePrevLogs, { detailed });
+  const [showKillLogsOnly, setShowKillLogsOnly] = useState(false);
+  const visibleLogs = showKillLogsOnly ? getKillLogs(logs) : getVisibleLogs(logs, { detailed });
+  const hiddenCount = showKillLogsOnly ? 0 : getHiddenLogCount(logs, visibleLogs, { detailed });
+  const visiblePrevLogs = showKillLogsOnly ? getKillLogs(prevPhaseLogs) : getVisibleLogs(prevPhaseLogs, { detailed });
+  const hiddenPrevCount = showKillLogsOnly ? 0 : getHiddenLogCount(prevPhaseLogs, visiblePrevLogs, { detailed });
   const forbiddenSet = forbiddenNow instanceof Set ? forbiddenNow : new Set();
+  const currentKillCount = showKillLogsOnly ? visibleLogs.length : 0;
+  const prevKillCount = showKillLogsOnly ? visiblePrevLogs.length : 0;
 
   return (
     <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
@@ -87,17 +91,28 @@ export default function SimulationLogPanel({
 
         <div className="log-toolbar">
           <span className="log-toolbar-title">
-            {detailed ? '전체 로그' : '요약 로그'}
-            {!detailed && hiddenCount > 0 ? ` · ${hiddenCount}개 숨김` : ''}
+            {showKillLogsOnly ? '킬 로그' : (detailed ? '전체 로그' : '요약 로그')}
+            {showKillLogsOnly ? ` · ${currentKillCount}개` : (!detailed && hiddenCount > 0 ? ` · ${hiddenCount}개 숨김` : '')}
           </span>
-          <button
-            type="button"
-            className="log-toggle-btn"
-            onClick={() => setShowDetailedLogs((v) => !v)}
-            title="요약은 킬, 사망, 제작, 전투, 금지구역 같은 핵심 이벤트만 보여줍니다."
-          >
-            {detailed ? '요약 보기' : '전체 보기'}
-          </button>
+          <div className="log-toolbar-actions">
+            <button
+              type="button"
+              className={`log-toggle-btn ${showKillLogsOnly ? 'active' : ''}`}
+              onClick={() => setShowKillLogsOnly((v) => !v)}
+              title="전투 처치와 킬 관련 로그만 따로 봅니다."
+            >
+              킬 로그
+            </button>
+            <button
+              type="button"
+              className="log-toggle-btn"
+              onClick={() => setShowDetailedLogs((v) => !v)}
+              title="요약은 킬, 사망, 제작, 전투, 금지구역 같은 핵심 이벤트만 보여줍니다."
+              disabled={showKillLogsOnly}
+            >
+              {detailed ? '요약 보기' : '전체 보기'}
+            </button>
+          </div>
         </div>
 
         {Array.isArray(prevPhaseLogs) && prevPhaseLogs.length ? (
@@ -108,7 +123,7 @@ export default function SimulationLogPanel({
               title="이전 페이즈 로그를 펼치거나 숨깁니다."
             >
               {showPrevLogs ? '이전 페이즈 로그 숨기기' : '이전 페이즈 로그 보기'}
-              {!detailed && hiddenPrevCount > 0 ? ` (${hiddenPrevCount}개 숨김)` : ''}
+              {showKillLogsOnly ? ` (${prevKillCount}개)` : (!detailed && hiddenPrevCount > 0 ? ` (${hiddenPrevCount}개 숨김)` : '')}
             </button>
           </div>
         ) : null}
@@ -124,6 +139,9 @@ export default function SimulationLogPanel({
                   extractActorNameFromLog={extractActorNameFromLog}
                 />
               ))}
+              {showKillLogsOnly && !visiblePrevLogs.length ? (
+                <div className="log-empty-state">이전 페이즈에 표시할 킬 로그가 없습니다.</div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -137,6 +155,9 @@ export default function SimulationLogPanel({
               extractActorNameFromLog={extractActorNameFromLog}
             />
           ))}
+          {showKillLogsOnly && !visibleLogs.length ? (
+            <div className="log-empty-state">표시할 킬 로그가 없습니다.</div>
+          ) : null}
         </div>
       </div>
     </div>
