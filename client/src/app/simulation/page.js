@@ -65,14 +65,11 @@ import {
   consumeShieldDamage,
   clearPostCombatEffects,
   hasKioskAtZone,
-  listActiveDimensionRifts,
   classifySpecialByName,
   pickGoalLoadoutKeys,
   buildCraftGoal,
   uniqStrings,
   bfsPickSafestZone,
-  computeLateGameUpgradeNeed,
-  chooseAiMoveTargets,
   inferEquipSlot,
   hasActiveEffect,
   canReceiveItem,
@@ -119,7 +116,6 @@ import {
   getRuntimeActorKey,
   dedupeRuntimeParticipants,
 } from './_lib/runtimeParticipantRuntime';
-import { formatMoveIntentLabel } from './_lib/moveIntentRuntime';
 import {
   normalizeMatchMode,
   getMatchConfig,
@@ -134,10 +130,6 @@ import {
 import { useSimulationInitialData } from './_lib/useSimulationInitialData';
 import { useSimulationRuntimeGuards } from './_lib/useSimulationRuntimeGuards';
 import { useHyperloopPickLog } from './_lib/useHyperloopPickLog';
-import {
-  estimateMovePower as estimateMovePowerRuntime,
-  shouldAvoidCombatByMovePower as shouldAvoidCombatByMovePowerRuntime,
-} from './_lib/movePowerRuntime';
 import { createPhaseDeathRuntime } from './_lib/phaseDeathRuntime';
 import {
   getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
@@ -191,13 +183,7 @@ import {
   prepareWorldSpawnsForPhase,
 } from './_lib/phaseSpawnRuntime';
 import { applyActorPhaseStatusTick } from './_lib/phaseActorStatusRuntime';
-import {
-  applyActorKnockbackMovement,
-  clearActorMoveTargetMemory,
-  initializeActorPhaseMovementState,
-  resolveActorNextMoveZone,
-  resolveActorMoveTargetMemory,
-} from './_lib/phaseActorMovementRuntime';
+import { runActorMovementDecisionPhase } from './_lib/phaseActorMovementRuntime';
 import { prepareActorPhaseActionQueue } from './_lib/phaseActionQueueRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
@@ -1079,16 +1065,26 @@ export default function SimulationPage() {
           return updated;
         }
 
-        // --- 이동 ---
-        updated = initializeActorPhaseMovementState(updated, {
-          itemKeyById,
-          ruleset,
-        });
-
-        const knockbackMovement = applyActorKnockbackMovement({
+        const movementResult = runActorMovementDecisionPhase({
           state: {
             actor: updated,
+            baseZonePop,
+            craftables,
             forbiddenIds,
+            hyperloopDelaySec: HYPERLOOP_DELAY_SEC,
+            isSoloMatch,
+            itemKeyById,
+            itemMetaById,
+            itemNameById,
+            kiosks,
+            mapObj,
+            movePowerContext,
+            nextDay,
+            nextPhase,
+            nextSpawn,
+            phaseIdxNow,
+            phaseSurvivors,
+            ruleset,
             zoneGraph,
             zones,
           },
@@ -1097,207 +1093,27 @@ export default function SimulationPage() {
             atNow,
             emitRunEvent,
             getZoneName,
+            grantMastery,
+            isHyperloopTransit,
+            reserveActionSecond,
           },
         });
-        updated = knockbackMovement.actor;
-        let currentZone = knockbackMovement.currentZone;
-        let neighbors = knockbackMovement.neighbors;
-        let nextZoneId = currentZone;
-
-const mustEscape = forbiddenIds.has(currentZone);
-
-// 목표 기반 이동: 조합 목표/월드 스폰/키오스크를 고려
-const preGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
-  goalTier: updated?.goalGearTier,
-  goalItemKeys: pickGoalLoadoutKeys(updated),
-  perkEffects: getActorPerkEffects(updated),
-});
-const upgradeNeed = computeLateGameUpgradeNeed(updated, itemMetaById, itemNameById, nextDay, nextPhase, ruleset);
-const aiMove = chooseAiMoveTargets({
-  actor: updated,
-  craftGoal: preGoal,
-  upgradeNeed,
-  mapObj,
-  spawnState: nextSpawn,
-  forbiddenIds,
-  day: nextDay,
-  phase: nextPhase,
-  kiosks,
-  itemMetaById,
-  itemNameById,
-});
-
-const aiCfg = ruleset?.ai || {};
-const recoverHpBelow = Math.max(0, Number(aiCfg?.recoverHpBelow ?? 38));
-const recoverMinDelta = Math.max(0, Math.floor(Number(aiCfg?.recoverMinSaferDelta ?? 1)));
-const sameZoneOpponents = (Array.isArray(phaseSurvivors) ? phaseSurvivors : []).filter((t) => (
-  t && String(t?._id || '') !== String(updated?._id || '') && !areSameTeam(updated, t) && Number(t?.hp || 0) > 0 && String(t?.zoneId || '') === String(currentZone)
-));
-const worstSameZoneOpponent = sameZoneOpponents
-  .slice()
-  .sort((a, b) => Number(estimateMovePowerRuntime(b, movePowerContext) || 0) - Number(estimateMovePowerRuntime(a, movePowerContext) || 0))[0] || null;
-const avoidInfoNow = worstSameZoneOpponent ? shouldAvoidCombatByMovePowerRuntime(updated, worstSameZoneOpponent, movePowerContext) : null;
-const extremeRatio = Number(aiCfg?.fightAvoidExtremeRatio ?? 0.30);
-const extremeDelta = Number(aiCfg?.fightAvoidExtremeDelta ?? 25);
-const lowHpFleeInterrupt = !mustEscape && sameZoneOpponents.length > 0 && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
-const powerFleeInterrupt = !mustEscape && !!avoidInfoNow && ((Number(avoidInfoNow?.ratio || 1) < extremeRatio) || ((Number(avoidInfoNow?.opP || 0) - Number(avoidInfoNow?.myP || 0)) >= extremeDelta));
-const fleeInterruptReason = mustEscape ? 'forbidden' : (lowHpFleeInterrupt ? 'low_hp' : (powerFleeInterrupt ? 'power_gap' : ''));
-const recovering = !mustEscape && !fleeInterruptReason && Number(updated.hp || 0) > 0 && Number(updated.hp || 0) <= recoverHpBelow;
-
-// 🤖 목표 존 유지(TTL): 목표를 몇 페이즈 유지해서 '사람처럼' 보이게 함
-const targetMemory = resolveActorMoveTargetMemory({
-  state: {
-    actor: updated,
-    aiMove,
-    currentZone,
-    day: nextDay,
-    forbiddenIds,
-    mustEscape,
-    phase: nextPhase,
-    ruleset,
-  },
-});
-updated = targetMemory.actor;
-const holdTarget = targetMemory.holdTarget;
-let moveTargets = targetMemory.moveTargets;
-let moveReason = targetMemory.moveReason;
-let moveObjectiveType = targetMemory.moveObjectiveType;
-let moveObjectiveSubkind = targetMemory.moveObjectiveSubkind;
-let moveContestPressure = targetMemory.moveContestPressure;
-
-const riftTargetsNow = (!isSoloMatch && String(nextPhase || '') === 'night' && [2, 3, 4].includes(Number(nextDay || 0)))
-  ? listActiveDimensionRifts(nextSpawn)
-    .map((r) => String(r?.zoneId || ''))
-    .filter((zid) => zid && !forbiddenIds.has(String(zid)))
-  : [];
-if (!mustEscape && !recovering && riftTargetsNow.length > 0) {
-  const riftContestChance = Math.max(0, Math.min(1, Number(ruleset?.worldSpawns?.dimensionRift?.contestChance ?? 0.38)));
-  const wantsRift = Math.random() < riftContestChance || (String(moveObjectiveType || '') === '' && Math.random() < 0.25);
-  if (wantsRift) {
-    moveTargets = [riftTargetsNow[Math.floor(Math.random() * riftTargetsNow.length)]];
-    moveReason = 'dimension_rift';
-    moveObjectiveType = 'dimension_rift';
-    moveObjectiveSubkind = 'aglaia';
-    moveContestPressure = Math.max(moveContestPressure, 0.45);
-  }
-}
-
-// ✅ 목표/이동 후보에서 금지구역은 최대한 제외 (막혀서 멈추는 현상 방지)
-moveTargets = uniqStrings(moveTargets.map((z) => String(z || ''))).filter((z) => z && !forbiddenIds.has(String(z)));
-
-if (fleeInterruptReason) {
-  updated = clearActorMoveTargetMemory(updated);
-  moveObjectiveType = '';
-  moveObjectiveSubkind = '';
-  moveContestPressure = 0;
-  const depthMax = Math.max(1, Math.floor(Number(aiCfg?.safeSearchDepth ?? 3)));
-  const pick = bfsPickSafestZone(currentZone, zoneGraph, forbiddenIds, baseZonePop, { maxDepth: depthMax, minDelta: Math.max(1, recoverMinDelta) });
-  const best = String(pick?.target || currentZone);
-  if (best && best !== currentZone && !forbiddenIds.has(String(best))) {
-    moveTargets = [String(best)];
-  }
-  moveReason = `flee:${String(fleeInterruptReason)}`;
-} else if (recovering) {
-  // 회복 우선: 목표/보스 추적보다 안전/저인구 존으로 분산(인접 1칸에만 갇히지 않게 BFS 사용)
-  updated = clearActorMoveTargetMemory(updated);
-  moveObjectiveType = '';
-  moveObjectiveSubkind = '';
-  moveContestPressure = 0;
-
-  const depthMax = Math.max(1, Math.floor(Number(aiCfg?.safeSearchDepth ?? 3)));
-  const pick = bfsPickSafestZone(currentZone, zoneGraph, forbiddenIds, baseZonePop, { maxDepth: depthMax, minDelta: recoverMinDelta });
-
-  const best = String(pick?.target || currentZone);
-  if (best && best !== currentZone && !forbiddenIds.has(String(best))) {
-    moveTargets = [String(best)];
-    moveReason = 'recover';
-  }
-}
-
-// 금지구역이면 "탈출 시도" 확률만 올리고, 100% 강제 이탈은 하지 않습니다.
-// (요구사항: 금지구역에 일정 시간 머무르면 사망 => 실제로 '머무를' 수 있어야 함)
-const nextMove = resolveActorNextMoveZone({
-  state: {
-    actor: updated,
-    currentZone,
-    day: nextDay,
-    fleeInterruptReason,
-    forbiddenIds,
-    moveTargets,
-    mustEscape,
-    neighbors,
-    phase: nextPhase,
-    recovering,
-    ruleset,
-    zoneGraph,
-  },
-});
-nextZoneId = nextMove.nextZoneId;
-const usedHyperloopMove = isHyperloopTransit(currentZone, nextZoneId);
-const moveEtaSec = usedHyperloopMove ? HYPERLOOP_DELAY_SEC : 1;
-if (usedHyperloopMove) reserveActionSecond(moveEtaSec);
-
-if (String(nextZoneId) !== String(currentZone)) {
-  if (usedHyperloopMove) {
-    addLog(`🌀 [${updated.name}] 하이퍼루프 이동(3초): ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'highlight');
-  } else if (mustEscape) {
-    addLog(`⚠️ [${updated.name}] 금지구역 이탈: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
-  } else if (String(moveReason || '').startsWith('flee:')) {
-    const fleeLabel = moveReason === 'flee:low_hp' ? '저HP' : (moveReason === 'flee:power_gap' ? '전투력 열세' : '긴급');
-    addLog(`🏃 [${updated.name}] ${fleeLabel} 인터럽트 도주: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
-  } else if (forbiddenIds.has(String(nextZoneId))) {
-    addLog(`⚠️ [${updated.name}] 금지구역 진입: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
-  } else if (moveTargets.length) {
-    if (moveReason === 'recover') {
-      addLog(`🛟 [${updated.name}] 회복 우선 이동: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'system');
-    } else {
-      const intentLabel = formatMoveIntentLabel(moveReason, moveObjectiveType, moveObjectiveSubkind);
-      addLog(`🎯 [${updated.name}] ${intentLabel}: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
-    }
-  } else {
-    addLog(`🚶 [${updated.name}] 로테이션: ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'normal');
-  }
-
-  // 🧾 AI 이동 목표/결정(재현/디버그용)
-  emitRunEvent('move', {
-    who: String(updated?._id || ''),
-    name: updated?.name,
-    from: String(currentZone),
-    to: String(nextZoneId),
-    reason: mustEscape ? 'escape' : (String(moveReason || '').startsWith('flee:') ? String(moveReason) : (moveTargets.length ? String(moveReason || 'goal') : 'wander')),
-    transport: usedHyperloopMove ? 'hyperloop' : 'walk',
-    etaSec: moveEtaSec,
-    objectiveType: moveObjectiveType,
-    objectiveSubkind: moveObjectiveSubkind,
-    contestPressure: moveContestPressure,
-  }, atNow());
-  grantMastery(updated, 'movement', usedHyperloopMove ? 220 : 180, usedHyperloopMove ? '하이퍼루프 이동' : '지역 이동');
-} else if (mustEscape) {
-  addLog(`⛔ [${updated.name}] 금지구역(${getZoneName(currentZone)})에 머무릅니다...`, 'death');
-}
-
-updated.zoneId = nextZoneId;
-const objectiveTargetSet = new Set((Array.isArray(moveTargets) ? moveTargets : []).map((z) => String(z || '')).filter(Boolean));
-if (moveObjectiveType && objectiveTargetSet.has(String(updated.zoneId || '')) && moveContestPressure > 0) {
-  updated._objectiveContestType = moveObjectiveType;
-  updated._objectiveContestSubkind = moveObjectiveSubkind;
-  updated._objectiveContestPressure = moveContestPressure;
-  updated._objectiveContestUntilPhaseIdx = phaseIdxNow;
-} else if (Number(updated?._objectiveContestUntilPhaseIdx ?? -1) < phaseIdxNow) {
-  updated._objectiveContestType = '';
-  updated._objectiveContestSubkind = '';
-  updated._objectiveContestPressure = 0;
-  updated._objectiveContestUntilPhaseIdx = null;
-}
-advanceActorRouteProgressForGoal({
-  actor: updated,
-  craftGoal: preGoal,
-  ruleset,
-  searched: false,
-  zoneId: updated.zoneId,
-});
-
-const didMove = String(nextZoneId) !== String(currentZone);
+        updated = movementResult.actor;
+        const currentZone = movementResult.currentZone;
+        const nextZoneId = movementResult.nextZoneId;
+        const didMove = movementResult.didMove;
+        const preGoal = movementResult.preGoal;
+        const upgradeNeed = movementResult.upgradeNeed;
+        const holdTarget = movementResult.holdTarget;
+        const moveReason = movementResult.moveReason;
+        const moveObjectiveType = movementResult.moveObjectiveType;
+        const moveObjectiveSubkind = movementResult.moveObjectiveSubkind;
+        const moveContestPressure = movementResult.moveContestPressure;
+        const fleeInterruptReason = movementResult.fleeInterruptReason;
+        const recovering = movementResult.recovering;
+        const mustEscape = movementResult.mustEscape;
+        const usedHyperloopMove = movementResult.usedHyperloopMove;
+        const moveEtaSec = movementResult.moveEtaSec;
 
         // ✅ 1일차 "최소 1회 이동" 목표 추적
         if (didMove && Number(nextDay || 0) === 1) {
