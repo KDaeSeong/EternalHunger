@@ -1,14 +1,12 @@
 // client/src/app/characters/page.js
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import '../../styles/ERCharacters.css';
 import '../../styles/Home.css';
 import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
-import { normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
-import { CHARACTER_SKILL_SLOTS, compileNaturalSkillDescription } from '../../utils/characterSkillCompiler';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { normalizeErStats } from '../../utils/erStats';
 import SiteHeader from '../../components/SiteHeader';
@@ -17,41 +15,46 @@ import CharacterList from './_components/CharacterList';
 import CharacterSkillConfigModal from './_components/CharacterSkillConfigModal';
 import {
   characterId,
-  cleanNumber,
   createBlankCharacter,
-  createDefaultCharacterSkill,
   formatSaveMismatchMessage,
   loadCharactersAfterSave,
   normalizeCharacterEditorList,
-  normalizeCharacterSkillLevels,
-  normalizeCharacterSkillForEditor,
-  normalizeCharacterSkillsForEditor,
-  normalizeSkillLevelArray,
   syncTokenCookie,
 } from './_lib/characterEditorRuntime';
+import { useCharacterSkillConfigEditor } from './_lib/useCharacterSkillConfigEditor';
+import { useModalBackdropClose } from '../_lib/useModalBackdropClose';
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState([]);
   const [dirtyPreviewIds, setDirtyPreviewIds] = useState(() => new Set());
-  const [configCharId, setConfigCharId] = useState(null);
   const [editCharId, setEditCharId] = useState(null);
-  const [editGoalGearTier, setEditGoalGearTier] = useState(6);
-  const [editTacticalSkill, setEditTacticalSkill] = useState('블링크');
-  const [editCharacterSkillCode, setEditCharacterSkillCode] = useState('');
-  const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
-  const [editCharacterSkills, setEditCharacterSkills] = useState(() => normalizeCharacterSkillsForEditor());
-  const [activeSkillSlot, setActiveSkillSlot] = useState('q');
-  const backdropPointerRef = useRef(null);
+  const { handleBackdropPointerDown, handleBackdropPointerUp } = useModalBackdropClose();
 
   const editChar = useMemo(
     () => characters.find((c) => String(characterId(c)) === String(editCharId)) || null,
     [characters, editCharId]
   );
 
-  const configChar = useMemo(
-    () => characters.find((c) => String(characterId(c)) === String(configCharId)) || null,
-    [characters, configCharId]
-  );
+  const {
+    activeSkillSlot,
+    closeConfigModal,
+    compileEditSkillDescription,
+    configChar,
+    editCharacterSkillCode,
+    editCharacterSkillLevels,
+    editCharacterSkills,
+    editGoalGearTier,
+    editTacticalSkill,
+    openConfigModal,
+    saveConfigModal,
+    setActiveSkillSlot,
+    setEditCharacterSkillCode,
+    setEditCharacterSkillLevels,
+    setEditGoalGearTier,
+    setEditTacticalSkill,
+    updateEditSkill,
+    updateEditSkillLevelValue,
+  } = useCharacterSkillConfigEditor({ characters, setCharacters });
 
   async function fetchCharacters() {
     const token = getToken();
@@ -127,109 +130,7 @@ export default function CharactersPage() {
     alert(`ER 프리셋 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}`);
   };
 
-  const normalizeEditableSkillSlot = (slot) => (
-    CHARACTER_SKILL_SLOTS.includes(String(slot || '').toLowerCase()) ? String(slot || '').toLowerCase() : 'q'
-  );
-
-  const updateEditSkill = (slot, field, value) => {
-    const skillSlot = normalizeEditableSkillSlot(slot);
-    setEditCharacterSkills((prev) => ({
-      ...prev,
-      [skillSlot]: {
-        ...createDefaultCharacterSkill(prev?.[skillSlot] || {}, skillSlot),
-        [field]: value,
-      },
-    }));
-  };
-
-  const updateEditSkillLevelValue = (slot, field, index, value) => {
-    const skillSlot = normalizeEditableSkillSlot(slot);
-    setEditCharacterSkills((prev) => {
-      const skill = createDefaultCharacterSkill(prev?.[skillSlot] || {}, skillSlot);
-      const isPercentField = field === 'secondMaxHpPct' || field === 'secondCurrentHpPct' || field === 'maxHpPct' || field === 'currentHpPct';
-      const list = normalizeSkillLevelArray(skill[field], 0, { percent: isPercentField });
-      list[index] = cleanNumber(value, 0);
-      return {
-        ...prev,
-        [skillSlot]: {
-          ...skill,
-          [field]: list,
-        },
-      };
-    });
-  };
-
-  const compileEditSkillDescription = (slot = activeSkillSlot) => {
-    const skillSlot = normalizeEditableSkillSlot(slot);
-    const skill = createDefaultCharacterSkill(editCharacterSkills?.[skillSlot] || {}, skillSlot);
-    const result = compileNaturalSkillDescription(skill.sourceText, skill, skillSlot);
-    setEditCharacterSkills((prev) => ({
-      ...prev,
-      [skillSlot]: normalizeCharacterSkillForEditor({ [skillSlot]: result.skill }, skillSlot),
-    }));
-    if (result.warnings?.length) {
-      alert(result.warnings.join('\n'));
-    }
-  };
-
-  const openConfigModal = (char) => {
-    const id = characterId(char);
-    if (!id) return;
-    setConfigCharId(id);
-    const tier = Number(char?.goalGearTier || 6);
-    setEditGoalGearTier([4, 5, 6].includes(tier) ? tier : 6);
-    setEditTacticalSkill(normalizeSupportedTacSkill(char?.tacticalSkill) || '블링크');
-    setEditCharacterSkillCode(String(char?.characterSkillCode || char?.erSubject || '').trim());
-    setEditCharacterSkillLevels(normalizeCharacterSkillLevels(char?.characterSkillLevels));
-    setEditCharacterSkills(normalizeCharacterSkillsForEditor(char?.characterSkills));
-    setActiveSkillSlot('q');
-  };
-
-  const closeConfigModal = () => setConfigCharId(null);
   const closeEditModal = () => setEditCharId(null);
-
-  const handleBackdropPointerDown = (event) => {
-    if (event.target !== event.currentTarget) {
-      backdropPointerRef.current = null;
-      return;
-    }
-    backdropPointerRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-    };
-  };
-
-  const handleBackdropPointerUp = (event, closeModal) => {
-    const start = backdropPointerRef.current;
-    backdropPointerRef.current = null;
-    if (!start || event.target !== event.currentTarget) return;
-    const movedX = Math.abs(event.clientX - start.x);
-    const movedY = Math.abs(event.clientY - start.y);
-    if (movedX > 8 || movedY > 8) return;
-    const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
-    if (selection && !selection.isCollapsed && String(selection.toString() || '').trim()) return;
-    closeModal();
-  };
-
-  const saveConfigModal = () => {
-    if (!configCharId) return;
-    setCharacters((prev) =>
-      prev.map((char) => {
-        const id = characterId(char);
-        if (String(id) !== String(configCharId)) return char;
-        return {
-          ...char,
-          goalGearTier: Number(editGoalGearTier || 6),
-          tacticalSkill: normalizeSupportedTacSkill(editTacticalSkill),
-          characterSkillCode: String(editCharacterSkillCode || '').trim(),
-          characterSkillLevel: editCharacterSkillLevels.q,
-          characterSkillLevels: normalizeCharacterSkillLevels(editCharacterSkillLevels),
-          characterSkills: normalizeCharacterSkillsForEditor(editCharacterSkills),
-        };
-      })
-    );
-    closeConfigModal();
-  };
 
   const handleImageUpload = (e, targetId) => {
     const file = e.target.files?.[0];

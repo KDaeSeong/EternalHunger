@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationPageView from './_components/SimulationPageView';
 import '../../styles/ERSimulation.css';
@@ -38,6 +38,7 @@ import { useSimulationEventActions } from './_lib/useSimulationEventActions';
 import { useSimulationBrowserErrorLogging } from './_lib/useSimulationBrowserErrorLogging';
 import { useSimulationDevRunGuard } from './_lib/useSimulationDevRunGuard';
 import { useSimulationSettingsControls } from './_lib/useSimulationSettingsControls';
+import { useSimulationMatchState } from './_lib/useSimulationMatchState';
 import { buildSimulationPageViewProps } from './_lib/simulationPageViewProps';
 
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -50,29 +51,14 @@ export default function SimulationPage() {
     getClientHydrationSnapshot,
     getServerHydrationSnapshot
   );
-  const [survivors, setSurvivors] = useState([]);
-  const [candidateSurvivors, setCandidateSurvivors] = useState([]);
-  const [dead, setDead] = useState([]);
-  const [forbiddenAddedNow, setForbiddenAddedNow] = useState([]);
-
-  const [day, setDay] = useState(0);
-  const [phase, setPhase] = useState('night');
-  // ⏱ 경기 경과 시간(초) - 하이브리드(페이즈 버튼 + 내부 틱)에서 기준이 되는 절대 시간
-  const [matchSec, setMatchSec] = useState(0);
-  const [isGameOver, setIsGameOver] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  // 킬 카운트 및 결과창 관리
-  const [killCounts, setKillCounts] = useState({});
-  const [assistCounts, setAssistCounts] = useState({});
-  const [showResultModal, setShowResultModal] = useState(false);
-  const [gameEndReason, setGameEndReason] = useState(null); // 게임 종료 사유(예: 6번째 밤 타임리밋)
-  const [winner, setWinner] = useState(null);
-  const [winnerPredictionId, setWinnerPredictionId] = useState('');
-  const [resultSummary, setResultSummary] = useState(null);
-
-  // 서버 설정값
-  const [settings, setSettings] = useState(getDefaultSimulationSettings);
+  const {
+    assistCounts, candidateSurvivors, day, dead, forbiddenAddedNow, gameEndReason,
+    isGameOver, killCounts, loading, matchSec, phase, resultSummary,
+    setAssistCounts, setCandidateSurvivors, setDay, setDead, setForbiddenAddedNow,
+    setGameEndReason, setIsGameOver, setKillCounts, setLoading, setMatchSec, setPhase,
+    setResultSummary, setSettings, setShowResultModal, setSurvivors, setWinner,
+    setWinnerPredictionId, settings, showResultModal, survivors, winner, winnerPredictionId,
+  } = useSimulationMatchState();
   const simulationLogs = useSimulationLogs({
     day,
     matchSec,

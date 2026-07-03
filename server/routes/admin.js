@@ -6,6 +6,7 @@ const Character = require('../models/Characters');
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const TradeOffer = require('../models/TradeOffer');
+const DroneOffer = require('../models/DroneOffer');
 const { DEFAULT_ZONES, DEFAULT_ZONE_IDS, DEFAULT_ZONE_DEFS, KIOSK_MAP_NAMES, canonicalZoneId, normalizeZoneList } = require('../utils/defaultZones');
 const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections');
 const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../utils/defaultItemTree');
@@ -14,11 +15,15 @@ const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../utils/
 // (방금 authMiddleware.js를 만들었다면 이 경로가 맞습니다)
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 const { requireUserId, ownedFilter, withOwner } = require('../utils/requestScope');
+const adminDroneOfferRoutes = require('./admin/droneOffers');
+const adminPerkRoutes = require('./admin/perks');
 
 // ★ [수정 2] 이 라우터의 '모든' 요청에 대해 문지기 2명을 세웁니다.
 // 순서: 1차(로그인 확인) -> 2차(관리자 확인)
 // 이제 개별 라우트마다 verifyAdmin을 또 적을 필요가 없습니다.
 router.use(verifyToken, verifyAdmin);
+router.use('/drone-offers', adminDroneOfferRoutes);
+router.use('/perks', adminPerkRoutes);
 
 function scope(req, res, extra = {}) {
   const userId = requireUserId(req, res);
@@ -1255,116 +1260,6 @@ router.delete('/kiosks/:id', async (req, res) => {
     res.status(500).json({ error: '키오스크 삭제 실패' });
   }
 });
-
-// =========================
-// ✅ 드론 판매 목록 CRUD(로드맵 4번)
-const DroneOffer = require('../models/DroneOffer');
-
-router.get('/drone-offers', async (req, res) => {
-  try {
-    const filter = scope(req, res);
-    if (!filter) return;
-    const offers = await DroneOffer.find(filter).populate('itemId', 'name tier rarity').lean();
-    res.json(offers);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '드론 판매 목록 로드 실패' });
-  }
-});
-
-router.post('/drone-offers', async (req, res) => {
-  try {
-    const userId = requireUserId(req, res);
-    if (!userId) return;
-    const offer = await new DroneOffer(withOwner(userId, req.body)).save();
-    res.json({ message: '드론 판매가 추가되었습니다.', offer });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '저장 실패' });
-  }
-});
-
-router.put('/drone-offers/:id', async (req, res) => {
-  try {
-    const userId = requireUserId(req, res);
-    if (!userId) return;
-    const updated = await DroneOffer.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
-    if (!updated) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
-    res.json({ message: '수정 완료', offer: updated });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '수정 실패' });
-  }
-});
-
-router.delete('/drone-offers/:id', async (req, res) => {
-  try {
-    const filter = scope(req, res, { _id: req.params.id });
-    if (!filter) return;
-    const deleted = await DroneOffer.findOneAndDelete(filter);
-    if (!deleted) return res.status(404).json({ error: '항목을 찾을 수 없습니다.' });
-    res.json({ message: '삭제 완료' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '삭제 실패' });
-  }
-});
-
-// =========================
-// ✅ 특전 CRUD(로드맵 7번)
-const Perk = require('../models/Perk');
-
-router.get('/perks', async (req, res) => {
-  try {
-    const filter = scope(req, res);
-    if (!filter) return;
-    const perks = await Perk.find(filter).sort({ lpCost: 1 }).lean();
-    res.json(perks);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '특전 로드 실패' });
-  }
-});
-
-router.post('/perks', async (req, res) => {
-  try {
-    const userId = requireUserId(req, res);
-    if (!userId) return;
-    const perk = await new Perk(withOwner(userId, req.body)).save();
-    res.json({ message: '특전이 추가되었습니다.', perk });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '특전 저장 실패' });
-  }
-});
-
-router.put('/perks/:id', async (req, res) => {
-  try {
-    const userId = requireUserId(req, res);
-    if (!userId) return;
-    const updated = await Perk.findOneAndUpdate(ownedFilter(userId, { _id: req.params.id }), withOwner(userId, req.body), { new: true });
-    if (!updated) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
-    res.json({ message: '특전이 수정되었습니다.', perk: updated });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '특전 수정 실패' });
-  }
-});
-
-router.delete('/perks/:id', async (req, res) => {
-  try {
-    const filter = scope(req, res, { _id: req.params.id });
-    if (!filter) return;
-    const deleted = await Perk.findOneAndDelete(filter);
-    if (!deleted) return res.status(404).json({ error: '특전을 찾을 수 없습니다.' });
-    res.json({ message: '특전이 삭제되었습니다.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '특전 삭제 실패' });
-  }
-});
-
-
 
 // ✅ 기본 아이템/레시피 트리 자동 생성(프로토타입)
 // POST /api/admin/items/generate-default-tree

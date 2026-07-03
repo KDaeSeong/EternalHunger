@@ -1,7 +1,7 @@
 // client/src/app/details/page.js
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import '../../styles/ERDetails.css'; 
 import { normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
@@ -19,6 +19,7 @@ import {
   normalizeDetailsCharacterList,
   syncTokenCookie,
 } from './_lib/detailsPageRuntime';
+import { useModalBackdropClose } from '../_lib/useModalBackdropClose';
 
 export default function DetailsPage() {
   const [characters, setCharacters] = useState([]);
@@ -29,8 +30,7 @@ export default function DetailsPage() {
   const [editGoalLoadouts, setEditGoalLoadouts] = useState(EMPTY_LOADOUTS);
   const [equipList, setEquipList] = useState([]);
   const [statModalCharId, setStatModalCharId] = useState(null);
-
-  const backdropPointerRef = useRef(null);
+  const { handleBackdropPointerDown, handleBackdropPointerUp } = useModalBackdropClose();
 
   useEffect(() => {
     const token = getToken();
@@ -62,29 +62,6 @@ export default function DetailsPage() {
 
   const closeConfigModal = () => setConfigCharId(null);
   const closeStatModal = () => setStatModalCharId(null);
-
-  const handleBackdropPointerDown = (event) => {
-    if (event.target !== event.currentTarget) {
-      backdropPointerRef.current = null;
-      return;
-    }
-    backdropPointerRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-    };
-  };
-
-  const handleBackdropPointerUp = (event, closeModal) => {
-    const start = backdropPointerRef.current;
-    backdropPointerRef.current = null;
-    if (!start || event.target !== event.currentTarget) return;
-    const movedX = Math.abs(event.clientX - start.x);
-    const movedY = Math.abs(event.clientY - start.y);
-    if (movedX > 8 || movedY > 8) return;
-    const selection = typeof window !== 'undefined' ? window.getSelection?.() : null;
-    if (selection && !selection.isCollapsed && String(selection.toString() || '').trim()) return;
-    closeModal();
-  };
 
   useEffect(() => {
     if (!configCharId) return;
