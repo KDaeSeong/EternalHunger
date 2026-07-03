@@ -23,7 +23,6 @@ import {
   getWildlifeDamageMultiplier,
   getWildlifeMasteryEntries,
 } from '../../utils/masteryLogic';
-import { normalizeWeaponType } from '../../utils/equipmentCatalog';
 import { getRuleset } from '../../utils/rulesets';
 import SiteHeader from '../../components/SiteHeader';
 import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
@@ -47,14 +46,12 @@ import {
   normalizeRewardDropEntries,
   itemIcon,
   shuffleArray,
-  START_WEAPON_TYPES,
   perkNumber,
   getActorPerkEffects,
   getPerkLootBias,
   getPerkAggressionBias,
   applyPerkCreditBonus,
   maybeBoostDropQty,
-  ensureEquipped,
   normalizeRuntimeEffect,
   normalizeRuntimeSurvivorList,
   buildRuntimeSurvivorMap,
@@ -85,7 +82,6 @@ import {
   clearPostCombatEffects,
   hasKioskAtZone,
   removeActiveEffect,
-  ensureWorldSpawns,
   findDimensionRiftGiftItem,
   getDimensionRiftGiftMeta,
   listActiveDimensionRifts,
@@ -111,7 +107,6 @@ import {
   rollKioskInteraction,
   rollDroneOrder,
   consumeWildlifeAtZone,
-  inferItemCategory,
   inferEquipSlot,
   hasActiveEffect,
   canReceiveItem,
@@ -126,7 +121,6 @@ import {
   autoEquipBest,
   day1HeroGearDirector,
   lateGameGearDirector,
-  pickCatalogEquipmentItem,
   tryImmediateCraftFromSpecial,
   areSameTeam,
   getActorTeamCapacity,
@@ -223,6 +217,10 @@ import {
   beginSimulationPhase,
   prepareForbiddenZonePhase,
 } from './_lib/phasePreparationRuntime';
+import {
+  buildStarterLoadoutSurvivorsForPhase,
+  prepareWorldSpawnsForPhase,
+} from './_lib/phaseSpawnRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
 const MARKET_CARD_RENDER_LIMIT = 40;
@@ -1005,112 +1003,40 @@ export default function SimulationPage() {
 
       if (revivedNow.length) setDead(remainingDead);
     }
-    // 2-0. 월드 스폰(맵 이벤트): 전설 재료 상자/보스 생성(낮 시작 시 1회)
-    const spawnRes = ensureWorldSpawns(spawnState, zones, forbiddenIds, nextDay, nextPhase, mapIdNow, mapObj?.coreSpawnZones, ruleset, {
-      matchMode: matchCfgNow.matchMode,
+    const nextSpawn = prepareWorldSpawnsForPhase({
+      state: {
+        forbiddenIds,
+        mapIdNow,
+        mapObj,
+        matchMode: matchCfgNow.matchMode,
+        nextDay,
+        nextPhase,
+        ruleset,
+        spawnState,
+        zones,
+      },
+      actions: {
+        addLog,
+        atNow,
+        emitRunEvent,
+      },
     });
-    let nextSpawn = spawnRes.state;
-    if (Array.isArray(spawnRes.announcements) && spawnRes.announcements.length) {
-      spawnRes.announcements.forEach((m) => addLog(m, 'highlight'));
-    }
 
-    // 🧾 월드 스폰 상태(재현/디버그용)
-    try {
-      const lc = (Array.isArray(nextSpawn?.legendaryCrates) ? nextSpawn.legendaryCrates : []).filter((c) => !c?.opened).length;
-      const cores = (Array.isArray(nextSpawn?.coreNodes) ? nextSpawn.coreNodes : []).filter((n) => !n?.picked);
-      const meteor = cores.filter((n) => String(n?.kind) === 'meteor').length;
-      const lifeTree = cores.filter((n) => String(n?.kind) === 'life_tree').length;
-      const b = nextSpawn?.bosses || {};
-      const wildlifeTotal = (nextSpawn?.wildlife && typeof nextSpawn.wildlife === 'object')
-        ? Object.values(nextSpawn.wildlife).reduce((sum, v) => sum + Math.max(0, Number(v || 0)), 0)
-        : 0;
-      emitRunEvent('spawn_state', {
-        day: nextDay,
-        phase: nextPhase,
-        legendary: lc,
-        transcendCrates: (Array.isArray(nextSpawn?.transcendCrates) ? nextSpawn.transcendCrates : []).filter((c) => !c?.opened).length,
-        foodCrates: (Array.isArray(nextSpawn?.foodCrates) ? nextSpawn.foodCrates : []).filter((c) => !c?.opened).length,
-        dimensionRifts: listActiveDimensionRifts(nextSpawn).length,
-        meteor,
-        lifeTree,
-        wildlifeTotal,
-        alpha: !!b?.alpha?.alive,
-        omega: !!b?.omega?.alive,
-        weakline: !!b?.weakline?.alive,
-      }, atNow());
-    } catch {
-      // ignore
-    }
-
-    // ✅ 관전형: 1일차 낮에는 "기본 장비"만 지급하고, 제작/루팅으로 성장하게 합니다.
-    const isFirstDayStarterLoadout = (nextDay === 1 && nextPhase === 'morning' && !startStarterLoadoutAppliedRef.current);
-    let phaseSurvivors = isFirstDayStarterLoadout
-      ? (Array.isArray(survivors) ? survivors : []).map((s) => {
-          const preferredWeaponType = normalizeWeaponType(String(s?.weaponType || '').trim());
-          const wType = preferredWeaponType
-            ? preferredWeaponType
-            : START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
-          const wTypeNorm = normalizeWeaponType(wType);
-
-          const gear = {
-            weapon: pickCatalogEquipmentItem(publicItems, {
-              slot: 'weapon',
-              tier: 1,
-              weaponType: wTypeNorm,
-              allowNearestTier: true,
-            }),
-            shoes: pickCatalogEquipmentItem(publicItems, {
-              slot: 'shoes',
-              tier: 1,
-              allowNearestTier: true,
-            }),
-          };
-
-          // ✅ 관전형: 시작 시 장비는 최소만 주고, 재료/제작으로 성장
-          // - 인벤토리엔 '재료/소모품'만 남기고 장비는 초기화
-          let baseInv = Array.isArray(s?.inventory)
-            ? s.inventory.filter((x) => String(x?.category || inferItemCategory(x)) !== 'equipment')
-            : [];
-          baseInv = normalizeInventory(baseInv, ruleset);
-
-          // 1일차 시작에는 제작 재료를 지급하지 않습니다. 장비 완성은 이동 후 루트 파밍/제작으로 진행됩니다.
-          let inv = baseInv;
-
-          // 시작 보급 음식은 생존용 1개만 지급합니다.
-          const steak = findItemByKeywords(publicItems, ['스테이크', 'sizzling steak']);
-          if (steak?._id) {
-            inv = addItemToInventory(inv, steak, String(steak._id), 1, nextDay, ruleset);
-          }
-
-          // 시작 장비(무기/신발)
-          if (gear.weapon?._id) {
-            inv = addItemToInventory(inv, gear.weapon, String(gear.weapon._id), 1, nextDay, ruleset);
-          }
-          if (gear.shoes?._id) {
-            inv = addItemToInventory(inv, gear.shoes, String(gear.shoes._id), 1, nextDay, ruleset);
-          }
-
-          return {
-            ...s,
-            day1Moves: 0,
-            day1HeroDone: false,
-            inventory: inv,
-            equipped: {
-              ...(ensureEquipped(s) || {}),
-              weapon: gear.weapon?._id ? String(gear.weapon._id) : null,
-              shoes: gear.shoes?._id ? String(gear.shoes._id) : null,
-              head: null,
-              clothes: null,
-              arm: null,
-            },
-          };
-        })
-      : (Array.isArray(survivors) ? survivors : []);
-
-    if (isFirstDayStarterLoadout) {
-      startStarterLoadoutAppliedRef.current = true;
-      addLog('🧰 1일차 낮: 실제 아이템 목록에서 시작 무기/신발이 지급되었습니다. (관전형: 제작/루팅으로 성장)', 'highlight');
-    }
+    let phaseSurvivors = buildStarterLoadoutSurvivorsForPhase({
+      refs: {
+        startStarterLoadoutAppliedRef,
+      },
+      state: {
+        nextDay,
+        nextPhase,
+        publicItems,
+        ruleset,
+        survivors,
+      },
+      actions: {
+        addLog,
+      },
+    });
 
 
     // ✅ 부활자는 이번 페이즈부터 다시 생존자로 합류
