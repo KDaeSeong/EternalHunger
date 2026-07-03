@@ -1291,10 +1291,42 @@
 }
 
 .account-head {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(22, 33, 44, 0.12);
+}
+
+.account-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.account-head > a,
+.account-panel-title a,
+.account-quick-actions a {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #fff;
+  color: #14608d;
+  font-weight: 900;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.account-head > a:hover,
+.account-panel-title a:hover,
+.account-quick-actions a:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  background: #eff8ff;
+  color: #155779;
 }
 
 .account-kicker {
@@ -1318,6 +1350,160 @@
   display: grid;
   gap: 14px;
   padding: 18px;
+}
+
+.account-dashboard,
+.account-activity-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.account-dashboard {
+  grid-template-columns: minmax(320px, 0.78fr) minmax(0, 1.22fr);
+  align-items: start;
+}
+
+.account-activity-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.account-dashboard .account-panel,
+.account-activity-grid .account-panel {
+  width: 100%;
+  min-width: 0;
+}
+
+.account-panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.account-panel-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.05rem;
+}
+
+.account-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.account-overview-stats > div {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  border: 1px solid #e1e7ec;
+  border-radius: 8px;
+  background: #f8fafb;
+  padding: 12px;
+}
+
+.account-overview-stats span,
+.account-overview-stats small,
+.account-link-list span,
+.account-record-row small,
+.account-record-row > span {
+  color: #66727e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.account-overview-stats strong {
+  color: #17202a;
+  font-size: 21px;
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
+.account-badge-list,
+.account-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-badge-list span {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #fff8dc;
+  color: #6a5600;
+  padding: 0 10px;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.account-link-list,
+.account-record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.account-link-list a,
+.account-record-row,
+.account-empty {
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+}
+
+.account-link-list a {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: inherit;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.account-link-list a:hover {
+  border-color: rgba(44, 111, 158, 0.35);
+  background: #f4faff;
+}
+
+.account-link-list strong,
+.account-link-list span,
+.account-record-row strong,
+.account-record-row small,
+.account-record-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.account-link-list strong,
+.account-record-row strong {
+  color: #17202a;
+}
+
+.account-record-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+}
+
+.account-record-row div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.account-empty {
+  padding: 16px;
+  color: #66727e;
+  font-weight: 900;
+}
+
+.account-empty.compact {
+  box-shadow: none;
 }
 
 .account-summary {
@@ -1737,6 +1923,9 @@
   .profile-grid,
   .profile-stats,
   .profile-record-stats,
+  .account-dashboard,
+  .account-activity-grid,
+  .account-overview-stats,
   .guides-stats,
   .guides-wiki-grid,
   .guides-content-grid,
@@ -1747,6 +1936,7 @@
   }
 
   .notifications-head,
+  .account-head,
   .guides-hero,
   .guides-panel-title,
   .search-error {
@@ -1757,6 +1947,7 @@
   .notifications-actions,
   .notifications-actions a,
   .notifications-actions button,
+  .account-head > a,
   .guides-hero > a,
   .guides-panel-title a,
   .search-error button {
@@ -1764,6 +1955,10 @@
   }
 
   .search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .account-record-row {
     grid-template-columns: 1fr;
   }
 }
