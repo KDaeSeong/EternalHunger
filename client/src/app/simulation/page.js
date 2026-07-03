@@ -54,9 +54,7 @@ import {
   uniqStr,
   clampTier4,
   tierLabelKo,
-  crateTypeLabel,
   pickAutoTranscendOption,
-  rollFieldLoot,
   findItemByKeywords,
   pickUnitsFromInventory,
   removePickedUnitsFromInventory,
@@ -118,6 +116,7 @@ import { runActorPostActionPhase } from './_lib/phaseActorPostActionRuntime';
 import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
 import { runDimensionRiftPhase } from './_lib/phaseDimensionRiftRuntime';
 import { runFacilityGatherPhase } from './_lib/phaseFacilityGatherRuntime';
+import { runFieldLootPhase } from './_lib/phaseFieldLootRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -1337,81 +1336,36 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
         updated = facilityGatherResult.actor;
 
-        // --- 필드 파밍(이벤트 외): 이동/탐색 중 아이템 획득 ---
-        const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
-          moved: didMove,
-          day: nextDay,
-          phase: nextPhase,
-          dropWeightsByKey: ruleset?.worldSpawns?.legendaryCrate?.dropWeightsByKey,
-          perkEffects: getActorPerkEffects(updated),
-          goalItemIds: (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean),
-          routeItemIds: Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
-            ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')]
-            : [],
-        });
-        if (loot) {
-          const isTransPick = String(loot?.crateType || '').toLowerCase() === 'transcend_pick' && Array.isArray(loot?.options);
-          if (isTransPick) {
-            const devPickable = !!showMarketPanel && !pendingPickAssigned && !pendingTranscendPick && String(selectedCharId || '') === String(updated?._id || '');
-            if (devPickable) {
-              pendingPickAssigned = true;
-              setPendingTranscendPick({
-                id: `${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
-                characterId: String(updated?._id || ''),
-                characterName: updated?.name,
-                zoneId: String(updated?.zoneId || ''),
-                options: loot.options,
-                at: atNow(),
-              });
-              addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자를 발견했습니다. (개발자 도구: 선택 대기)`, 'highlight');
-            } else {
-              const auto = pickAutoTranscendOption(loot.options, publicItems) || (loot.options[0] || null);
-              const chosenId = String(auto?.itemId || '');
-              const chosenItem = (Array.isArray(publicItems) ? publicItems : []).find((it) => String(it?._id) === chosenId) || null;
-              updated.inventory = addItemToInventory(updated.inventory, chosenItem, chosenId, 1, nextDay, ruleset);
-              const meta = updated.inventory?._lastAdd;
-              const got = Math.max(0, Number(meta?.acceptedQty ?? 1));
-              const nm = itemDisplayName(chosenItem || { _id: chosenId, name: auto?.name });
-              addLog(`🎁 [${updated.name}] ${getZoneName(updated.zoneId)}에서 초월 장비 선택 상자 오픈 → ${itemIcon(chosenItem)} [${nm}] ${gainText(got)}${formatInvAddNote(meta, 1, updated.inventory, ruleset)}`, 'highlight');
-              emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: chosenId, source: 'box', sourceKind: 'transcend_pick', zoneId: String(updated?.zoneId || ''), choice: 'auto' }, atNow());
-              if (got > 0) grantMastery(updated, 'search', 350, '항공 보급');
-              if (got > 0) autoEquipBest(updated, itemMetaById);
-            }
-          } else {
-            updated.inventory = addItemToInventory(updated.inventory, loot.item, loot.itemId, loot.qty, nextDay, ruleset);
-            const meta = updated.inventory?._lastAdd;
-            const got = Math.max(0, Number(meta?.acceptedQty ?? loot.qty));
-            const nm = loot.item?.name || '아이템';
-            if (shouldLogItemReceive(got, meta)) {
-              addLog(`📦 [${updated.name}] ${getZoneName(updated.zoneId)}에서 ${crateTypeLabel(loot.crateType)} ${itemIcon(loot.item || { type: '' })} [${nm}] ${gainText(got)}${formatInvAddNote(meta, loot.qty, updated.inventory, ruleset)}`, 'normal');
-            }
-            emitItemGainIfAny(got, { who: String(updated?._id || ''), itemId: String(loot.itemId || ''), source: 'box', sourceKind: String(loot?.crateType || ''), zoneId: String(updated?.zoneId || '') }, atNow());
-            if (got > 0) grantMastery(updated, 'search', 70, '상자 탐색');
-            if (got > 0) autoEquipBest(updated, itemMetaById);
-          }
-        }
-
-        // --- 필드 조합(이벤트 외): 방금 주운 재료로 1회 조합 시도 ---
-        if (loot && String(loot?.crateType || '').toLowerCase() !== 'transcend_pick' && loot.itemId) {
-          const crafted = tryAutoCraftFromLoot(updated.inventory, loot.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
-          applyLootCraftResult(updated, crafted, itemMetaById, atNow(), updated?.zoneId);
-        }
-
-        if (loot && String(loot?.crateId || '') === 'route_plan') {
-          const postLootGoal = buildCraftGoal(updated.inventory, craftables, itemNameById, {
-            goalTier: updated?.goalGearTier,
-            goalItemKeys: pickGoalLoadoutKeys(updated),
-            perkEffects: getActorPerkEffects(updated),
-          });
-          advanceActorRouteProgressForGoal({
+        const fieldLootResult = runFieldLootPhase({
+          state: {
             actor: updated,
-            craftGoal: postLootGoal,
-            includeRoutePlanMissing: false,
+            craftables,
+            didMove,
+            itemMetaById,
+            itemNameById,
+            mapObj,
+            nextDay,
+            nextPhase,
+            pendingPickAssigned,
+            pendingTranscendPick,
+            preGoal,
+            publicItems,
             ruleset,
-            searched: true,
-            zoneId: updated.zoneId,
-          });
-        }
+            selectedCharId,
+            showMarketPanel,
+          },
+          actions: {
+            addLog,
+            applyLootCraftResult,
+            atNow,
+            emitItemGainIfAny,
+            getZoneName,
+            grantMastery,
+            setPendingTranscendPick,
+          },
+        });
+        updated = fieldLootResult.actor;
+        pendingPickAssigned = fieldLootResult.pendingPickAssigned;
 
 
         // --- 음식 상자(맵 이벤트 스폰): 매일 낮 시작에 드랍 → 해당 구역 진입 시 개봉 ---
@@ -1608,7 +1562,7 @@ const didMove = String(nextZoneId) !== String(currentZone);
               craftables,
               fallbackRouteItemIds,
               goalMissingIds: [...goalMissingIds],
-              initialLoot: loot,
+              initialLoot: fieldLootResult.loot,
               itemMetaById,
               itemNameById,
               mapObj,
