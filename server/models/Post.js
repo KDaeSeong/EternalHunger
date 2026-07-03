@@ -19,6 +19,7 @@ const PostSchema = new mongoose.Schema({
   isNotice: { type: Boolean, default: false, index: true },
   noticePinnedAt: { type: Date, default: null },
   commentCount: { type: Number, default: 0, min: 0 },
+  reactionCount: { type: Number, default: 0, min: 0 },
   comments: [PostCommentSchema],
 }, { timestamps: true });
 

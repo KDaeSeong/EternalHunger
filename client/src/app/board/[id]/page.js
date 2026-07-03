@@ -82,6 +82,7 @@ function normalizePost(row) {
     category: safeText(row.category, 'free'),
     categoryLabel: safeText(row.categoryLabel, '자유'),
     commentCount: Number(row.commentCount ?? comments.length ?? 0),
+    reactionCount: Number(row.reactionCount || 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
     comments,
@@ -118,6 +119,9 @@ export default function BoardDetailPage() {
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [bookmarkSaving, setBookmarkSaving] = useState(false);
+  const [reacted, setReacted] = useState(false);
+  const [reactionLoading, setReactionLoading] = useState(false);
+  const [reactionSaving, setReactionSaving] = useState(false);
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -178,6 +182,31 @@ export default function BoardDetailPage() {
     void loadBookmarkStatus();
   }, [loadBookmarkStatus, mounted]);
 
+  const loadReactionStatus = useCallback(async () => {
+    if (!id || !token) {
+      setReacted(false);
+      return;
+    }
+
+    setReactionLoading(true);
+    try {
+      const data = await apiGet(`/posts/${id}/reaction`, { timeoutMs: 10000 });
+      setReacted(Boolean(data?.reacted));
+      if (Number.isFinite(Number(data?.reactionCount))) {
+        setPost((current) => current ? { ...current, reactionCount: Number(data.reactionCount) } : current);
+      }
+    } catch {
+      setReacted(false);
+    } finally {
+      setReactionLoading(false);
+    }
+  }, [id, token]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    void loadReactionStatus();
+  }, [loadReactionStatus, mounted]);
+
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
   const canManageNotice = mounted && token && Boolean(user?.isAdmin) && post;
   const comments = Array.isArray(post?.comments) ? post.comments : [];
@@ -213,6 +242,27 @@ export default function BoardDetailPage() {
       showToast({ tone: 'danger', message: err?.message || '게시글 저장 상태 변경에 실패했습니다.' });
     } finally {
       setBookmarkSaving(false);
+    }
+  };
+
+  const toggleReaction = async () => {
+    if (!id || reactionSaving) return;
+    setReactionSaving(true);
+    try {
+      const res = await apiPost(`/posts/${id}/reaction`, {}, { timeoutMs: 10000 });
+      setReacted(Boolean(res?.reacted));
+      if (Number.isFinite(Number(res?.reactionCount))) {
+        setPost((current) => current ? { ...current, reactionCount: Number(res.reactionCount) } : current);
+      }
+      clearPostCaches();
+      showToast({
+        tone: res?.reacted ? 'success' : 'warning',
+        message: res?.message || (res?.reacted ? '게시글을 추천했습니다.' : '게시글 추천을 취소했습니다.'),
+      });
+    } catch (err) {
+      showToast({ tone: 'danger', message: err?.message || '게시글 추천 상태 변경에 실패했습니다.' });
+    } finally {
+      setReactionSaving(false);
     }
   };
 
@@ -431,6 +481,10 @@ export default function BoardDetailPage() {
                     <dd>{Number(post.commentCount || comments.length)}</dd>
                   </div>
                   <div>
+                    <dt>추천</dt>
+                    <dd>{Number(post.reactionCount || 0)}</dd>
+                  </div>
+                  <div>
                     <dt>등록일</dt>
                     <dd>{formatDate(post.createdAt)}</dd>
                   </div>
@@ -460,6 +514,14 @@ export default function BoardDetailPage() {
 
             {mounted && token && !editing ? (
               <div className="board-actions board-report-actions">
+                <button
+                  type="button"
+                  className="board-secondary"
+                  onClick={toggleReaction}
+                  disabled={reactionSaving || reactionLoading}
+                >
+                  {reacted ? '추천됨' : '추천'}
+                </button>
                 <button
                   type="button"
                   className="board-secondary"

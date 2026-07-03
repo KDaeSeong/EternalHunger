@@ -70,6 +70,7 @@ function normalizePost(row) {
     content: safeText(row.content ?? row.contentPreview, ''),
     contentPreview: safeText(row.contentPreview ?? row.content, ''),
     commentCount: Number(row.commentCount || 0),
+    reactionCount: Number(row.reactionCount || 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
     category: safeText(row.category, 'free'),
@@ -345,7 +346,7 @@ export default function BoardPage() {
                         <Link href={id ? `/board/${id}` : '/board'} className={`board-row-title ${post?.isNotice ? 'is-notice' : ''}`}>
                           <span>{title}</span>
                           <small>{preview ? `${preview}${preview.length >= 160 ? '...' : ''}` : '미리보기 없음'}</small>
-                          <em>{post?.isNotice ? '공지 · ' : ''}댓글 {Number(post?.commentCount || 0)}</em>
+                          <em>{post?.isNotice ? '공지 · ' : ''}추천 {Number(post?.reactionCount || 0)} · 댓글 {Number(post?.commentCount || 0)}</em>
                         </Link>
                       </td>
                       <td data-label="작성자">

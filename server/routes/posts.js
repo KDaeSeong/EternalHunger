@@ -4,6 +4,7 @@ const router = express.Router();
 const Post = require('../models/Post');
 const User = require('../models/User');
 const PostBookmark = require('../models/PostBookmark');
+const PostReaction = require('../models/PostReaction');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { createNotification } = require('../utils/notifications');
 
@@ -95,6 +96,7 @@ function serializePostDetail(post) {
     isNotice: Boolean(post?.isNotice),
     noticePinnedAt: post?.noticePinnedAt || null,
     commentCount: Number(post?.commentCount ?? comments.length ?? 0),
+    reactionCount: Number(post?.reactionCount || 0),
     comments: comments.map(serializeComment),
     createdAt: post?.createdAt || null,
     updatedAt: post?.updatedAt || null,
@@ -113,6 +115,7 @@ function serializePostSummary(post, author) {
     isNotice: Boolean(post?.isNotice),
     noticePinnedAt: post?.noticePinnedAt || null,
     commentCount: Number(post?.commentCount || 0),
+    reactionCount: Number(post?.reactionCount || 0),
     createdAt: post?.createdAt || null,
     updatedAt: post?.updatedAt || null,
   };
@@ -178,6 +181,7 @@ router.get('/', async (req, res) => {
           title: 1,
           isNotice: 1,
           noticePinnedAt: 1,
+          reactionCount: { $ifNull: ['$reactionCount', 0] },
           createdAt: 1,
           updatedAt: 1,
           contentPreview: { $substrCP: [{ $ifNull: ['$content', ''] }, 0, POST_PREVIEW_LENGTH] },
@@ -202,7 +206,7 @@ router.get('/bookmarks', verifyToken, async (req, res) => {
     const bookmarks = await PostBookmark.find({ userId: req.user.id })
       .populate({
         path: 'postId',
-        select: 'authorId category title content isNotice noticePinnedAt commentCount createdAt updatedAt',
+        select: 'authorId category title content isNotice noticePinnedAt commentCount reactionCount createdAt updatedAt',
         populate: { path: 'authorId', select: 'username nickname' },
       })
       .sort({ createdAt: -1 })
@@ -258,6 +262,63 @@ router.post('/:id/bookmark', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/:id/reaction', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).select('_id reactionCount').lean();
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const reaction = await PostReaction.findOne({ userId: req.user.id, postId: post._id })
+      .select('_id createdAt')
+      .lean();
+    res.json({
+      reacted: Boolean(reaction),
+      reactedAt: reaction?.createdAt || null,
+      reactionCount: Number(post.reactionCount || 0),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '추천 상태를 확인하지 못했습니다.' });
+  }
+});
+
+router.post('/:id/reaction', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).select('_id').lean();
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const existing = await PostReaction.findOne({ userId: req.user.id, postId: post._id });
+    let reacted = false;
+    if (existing) {
+      await PostReaction.deleteOne({ _id: existing._id });
+    } else {
+      await PostReaction.create({ userId: req.user.id, postId: post._id });
+      reacted = true;
+    }
+
+    const reactionCount = await PostReaction.countDocuments({ postId: post._id });
+    await Post.updateOne({ _id: post._id }, { $set: { reactionCount } });
+
+    res.json({
+      message: reacted ? '게시글을 추천했습니다.' : '게시글 추천을 취소했습니다.',
+      reacted,
+      reactionCount,
+    });
+  } catch (err) {
+    if (err?.code === 11000) {
+      const post = await Post.findById(req.params.id).select('_id reactionCount').lean();
+      const reactionCount = post ? await PostReaction.countDocuments({ postId: post._id }) : 0;
+      if (post) await Post.updateOne({ _id: post._id }, { $set: { reactionCount } });
+      return res.json({
+        message: '이미 추천한 글입니다.',
+        reacted: true,
+        reactionCount,
+      });
+    }
+    console.error(err);
+    res.status(500).json({ error: '게시글 추천 상태 변경에 실패했습니다.' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const post = await findPostWithUsers(req.params.id);
@@ -284,6 +345,7 @@ router.post('/', verifyToken, async (req, res) => {
       title,
       content,
       commentCount: 0,
+      reactionCount: 0,
       comments: [],
     });
 
@@ -411,6 +473,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
 
     await Post.findByIdAndDelete(req.params.id);
     await PostBookmark.deleteMany({ postId: post._id });
+    await PostReaction.deleteMany({ postId: post._id });
     res.json({ message: '게시글을 삭제했습니다.' });
   } catch (err) {
     console.error(err);

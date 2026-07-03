@@ -383,7 +383,7 @@ textarea {
 
 .board-post-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin: 0;
   border-bottom: 1px solid rgba(20, 25, 35, 0.10);
 }
