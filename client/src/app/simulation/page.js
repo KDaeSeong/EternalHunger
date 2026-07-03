@@ -45,10 +45,8 @@ import {
   uniqStr,
   clampTier4,
   tierLabelKo,
-  findItemByKeywords,
   applyAiRecoveryWindow,
   isAiRecoveryLocked,
-  normalizeRevivedSurvivor,
   classifySpecialByName,
   uniqStrings,
   bfsPickSafestZone,
@@ -66,7 +64,6 @@ import {
   getAliveTeams,
   pickTeamRepresentative,
   getTimeOfDayFromPhase,
-  worldPhaseIndex,
 } from './_lib/simulationEngine';
 import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
 import { runDimensionRiftPhase } from './_lib/phaseDimensionRiftRuntime';
@@ -142,6 +139,7 @@ import {
   buildStarterLoadoutSurvivorsForPhase,
   prepareWorldSpawnsForPhase,
 } from './_lib/phaseSpawnRuntime';
+import { runPhaseRevival } from './_lib/phaseRevivalRuntime';
 import { runPhaseActorActionPipeline } from './_lib/phaseActorActionPipelineRuntime';
 
 const HYPERLOOP_DELAY_SEC = 3;
@@ -818,30 +816,6 @@ export default function SimulationPage() {
     });
     let earnedCredits = baseCredits;
 
-    const reviveCfg = ruleset?.revive || {};
-    const phaseFromTimeOfDay = (value) => String(value || 'day') === 'night' ? 'night' : 'morning';
-
-    // 🧬 부활 컷오프: 기본 2일차 밤(포함)까지 자동 부활, 5일차 낮까지 유료 부활
-    const reviveAutoCutoff = reviveCfg?.autoCutoff || {};
-    const revivePaidCutoff = reviveCfg?.paidCutoff || {};
-    const reviveWipeProtectionCutoff = reviveCfg?.teamWipeProtectionCutoff || { day: 2, timeOfDay: 'day' };
-    const reviveCutoffIdx = worldPhaseIndex(
-      Number(reviveAutoCutoff?.day ?? 2),
-      phaseFromTimeOfDay(reviveAutoCutoff?.timeOfDay ?? reviveAutoCutoff?.phase ?? 'night')
-    );
-    const wipeProtectionCutoffIdx = worldPhaseIndex(
-      Number(reviveWipeProtectionCutoff?.day ?? 2),
-      phaseFromTimeOfDay(reviveWipeProtectionCutoff?.timeOfDay ?? reviveWipeProtectionCutoff?.phase ?? 'day')
-    );
-    const paidReviveCutoffIdx = worldPhaseIndex(
-      Number(revivePaidCutoff?.day ?? 5),
-      phaseFromTimeOfDay(revivePaidCutoff?.timeOfDay ?? revivePaidCutoff?.phase ?? 'day')
-    );
-    const paidReviveCostBase = Math.max(0, Number(reviveCfg?.paidCostBase ?? 100));
-    const paidReviveCostPerUse = Math.max(0, Number(reviveCfg?.paidCostPerUse ?? 50));
-    const reviveHpRatio = Math.max(0.05, Math.min(1, Number(reviveCfg?.hpRatio ?? 0.65)));
-    let revivedNow = [];
-
     // 🎁 초월 선택 상자(개발자 도구): 한 페이즈에 1개만 선택 대기(나머지는 자동 선택)
     let pendingPickAssigned = false;
 
@@ -881,50 +855,30 @@ export default function SimulationPage() {
       },
     });
 
-    // 🧬 부활 처리: deadAtPhaseIdx(사망 시점)가 컷오프 이하이면 다음 페이즈 시작에 1회 부활
-    if (Array.isArray(dead) && dead.length) {
-      const safeZonePool = (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
-        .map((z) => String(z?.zoneId ?? z?.id ?? z?._id ?? ''))
-        .filter((zid) => zid && !forbiddenIds.has(String(zid)));
-      const remainingDead = [];
-
-      for (const d0 of dead) {
-        const deadAt = Number(d0?.deadAtPhaseIdx ?? -9999);
-        const teamAlive = canReviveThisMatch && (Array.isArray(survivors) ? survivors : []).some((s) => Number(s?.hp || 0) > 0 && areSameTeam(s, d0));
-        const teamWipeProtected = canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx && deadAt >= 0 && deadAt <= wipeProtectionCutoffIdx;
-        const canAutoReviveByTeamState = teamAlive || teamWipeProtected;
-        const autoEligible = canReviveThisMatch && canAutoReviveByTeamState && (d0?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx)) && !d0?.revivedOnce;
-        const paidReviveCount = Math.max(0, Math.floor(Number(d0?.paidReviveCount || 0)));
-        const paidCost = paidReviveCostBase + paidReviveCostPerUse * paidReviveCount;
-        const paidEligible = canReviveThisMatch && !autoEligible && phaseIdxNow <= paidReviveCutoffIdx && teamAlive && Number(d0?.simCredits || 0) >= paidCost;
-        if (autoEligible || paidEligible) {
-          const maxHp = Number(d0?.maxHp ?? 100);
-          const revivedHp = Math.max(1, Math.floor(maxHp * reviveHpRatio));
-          const zoneId = safeZonePool.length ? String(safeZonePool[Math.floor(Math.random() * safeZonePool.length)]) : String(d0?.zoneId || '');
-          const reviveKit = findItemByKeywords(publicItems, ['붕대', 'bandage', '응급']);
-
-          const r = normalizeRevivedSurvivor(d0, revivedHp, zoneId, phaseIdxNow, ruleset, phaseStartSec, reviveKit);
-          if (paidEligible) {
-            r.simCredits = Math.max(0, Number(r.simCredits || 0) - paidCost);
-            r.paidReviveCount = paidReviveCount + 1;
-          }
-          if (useDetonation) {
-            const startSec = Number(ruleset?.detonation?.startSec ?? 20);
-            const maxSec = Number(ruleset?.detonation?.maxSec ?? 30);
-            r.detonationMaxSec = maxSec;
-            r.detonationSec = Math.min(maxSec, startSec);
-          }
-
-          revivedNow.push(r);
-          emitRunEvent('revive', { who: String(r._id || ''), zoneId: String(zoneId || ''), hp: revivedHp, paid: paidEligible, cost: paidEligible ? paidCost : 0 }, atNow());
-          addLog(`✨ [${r.name}] ${paidEligible ? `유료 부활! (-${paidCost}Cr)` : '부활!'} (HP ${revivedHp}${reviveKit?._id ? ', 붕대 1 지급' : ''})`, 'highlight');
-        } else {
-          remainingDead.push(d0);
-        }
-      }
-
-      if (revivedNow.length) setDead(remainingDead);
-    }
+    const {
+      reviveCutoffIdx,
+      revivedNow,
+    } = runPhaseRevival({
+      state: {
+        canReviveThisMatch,
+        dead,
+        forbiddenIds,
+        mapObj,
+        phaseIdxNow,
+        phaseStartSec,
+        publicItems,
+        reviveCfg: ruleset?.revive || {},
+        ruleset,
+        survivors,
+        useDetonation,
+      },
+      actions: {
+        addLog,
+        atNow,
+        emitRunEvent,
+        setDead,
+      },
+    });
     const nextSpawn = prepareWorldSpawnsForPhase({
       state: {
         forbiddenIds,
