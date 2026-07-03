@@ -59,16 +59,12 @@ import { useSimulationInitialData } from './_lib/useSimulationInitialData';
 import { useSimulationRuntimeGuards } from './_lib/useSimulationRuntimeGuards';
 import { useHyperloopPickLog } from './_lib/useHyperloopPickLog';
 import { createPhaseDeathRuntime } from './_lib/phaseDeathRuntime';
-import {
-  getForbiddenZoneIdsForPhase as getForbiddenZoneIdsForPhaseRuntime,
-  getForbiddenAddedZoneIdsForPhase as getForbiddenAddedZoneIdsForPhaseRuntime,
-} from './_lib/forbiddenZoneRuntime';
 import { logRuntimeEffectResults } from './_lib/runtimeStatus';
 import { finishSimulationGame } from './_lib/finishGameRuntime';
-import { createMarketActionRuntime } from './_lib/marketActionRuntime';
-import { createMapActionRuntime } from './_lib/mapActionRuntime';
-import { createDevToolActionRuntime } from './_lib/devToolActionRuntime';
 import { useSimulationMarketState } from './_lib/useSimulationMarketState';
+import { useSimulationMarketActions } from './_lib/useSimulationMarketActions';
+import { useSimulationMapActions } from './_lib/useSimulationMapActions';
+import { useSimulationDevToolActions } from './_lib/useSimulationDevToolActions';
 import { useSimulationLogs } from './_lib/useSimulationLogs';
 import { useSimulationRunSeed } from './_lib/useSimulationRunSeed';
 import { useSimulationFlowState } from './_lib/useSimulationFlowState';
@@ -559,92 +555,69 @@ export default function SimulationPage() {
     emitRunEvent,
   });
 
-  // 🛠 개발자 도구: 선택 캐릭터에게 소모품을 임의로 사용(강제)
-  // - 전투 중 사용 불가: 진행 중(isAdvancing)일 때는 버튼을 비활성화합니다.
-  
-  // 🎁 개발자 도구: 초월 장비 선택 상자(선택 대기) 처리
-  function getDevToolActions() {
-    return createDevToolActionRuntime({
-      state: {
-        day,
-        isAdvancing,
-        isGameOver,
-        matchSec,
-        pendingTranscendPick,
-        phase,
-        publicItems,
-        settings,
-        showMarketPanel,
-      },
-      actions: {
-        addLog,
-        emitConsumableRunEvent,
-        emitEffectRunEvents,
-        emitItemGainIfAny,
-        setPendingTranscendPick,
-        setSurvivors,
-      },
-    });
-  }
-
-  function resolvePendingTranscendPick(optionIndex, method = 'manual') {
-    return getDevToolActions().resolvePendingTranscendPick(optionIndex, method);
-  };
-
-  const devForceUseConsumable = (charId, invIndex) => {
-    return getDevToolActions().devForceUseConsumable(charId, invIndex);
-  };
-
-  // 🎒 장비 장착/해제(런타임): equipped[slot]에 itemId를 저장
-  function setEquipForSurvivor(survivorId, slot, itemIdOrNull) {
-    return getDevToolActions().setEquipForSurvivor(survivorId, slot, itemIdOrNull);
-  };
-  function getMapActions() {
-    return createMapActionRuntime({
-      refs: {
-        activeMapIdRef,
-        activeMapRef,
-        isRefreshingMapsRef,
-        mapsRef,
-      },
-      state: {
-        activeMapId,
-        activeMapName,
-        day,
-        hyperloopPadName,
-        hyperloopPadZoneId,
-        isAdvancing,
-        isGameOver,
-        loading,
-        maps,
-        matchPhase: phase,
-        settings,
-        survivors,
-      },
-      actions: {
-        addLog,
-        applyActiveMapId,
-        emitRunEvent,
-        getForbiddenZoneIdsForPhase,
-        setIsRefreshingMapSettings,
-        setMaps,
-        setSurvivors,
-        showMapRefreshToast,
-      },
-    });
-  }
-
-  function doHyperloopJump(toMapId, whoId) {
-    return getMapActions().doHyperloopJump(toMapId, whoId);
-  }
-    // ✅ 게임 시작 전(0일차)에만 시드를 적용해 랜덤 재현성을 확보합니다.
-  function getForbiddenZoneIdsForPhase(mapObj, dayNum, phaseKey) {
-    return getForbiddenZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
-  }
-
-  function getForbiddenAddedZoneIdsForPhase(mapObj, dayNum, phaseKey) {
-    return getForbiddenAddedZoneIdsForPhaseRuntime(mapObj, dayNum, phaseKey, zones, settings, forbiddenCacheRef.current);
-  };
+  const {
+    devForceUseConsumable,
+    resolvePendingTranscendPick,
+    setEquipForSurvivor,
+  } = useSimulationDevToolActions({
+    state: {
+      day,
+      isAdvancing,
+      isGameOver,
+      matchSec,
+      pendingTranscendPick,
+      phase,
+      publicItems,
+      settings,
+      showMarketPanel,
+    },
+    actions: {
+      addLog,
+      emitConsumableRunEvent,
+      emitEffectRunEvents,
+      emitItemGainIfAny,
+      setPendingTranscendPick,
+      setSurvivors,
+    },
+  });
+  const {
+    doHyperloopJump,
+    getForbiddenAddedZoneIdsForPhase,
+    getForbiddenZoneIdsForPhase,
+    refreshMapSettingsFromServer,
+  } = useSimulationMapActions({
+    refs: {
+      activeMapIdRef,
+      activeMapRef,
+      forbiddenCacheRef,
+      isRefreshingMapsRef,
+      mapsRef,
+    },
+    state: {
+      activeMapId,
+      activeMapName,
+      day,
+      hyperloopPadName,
+      hyperloopPadZoneId,
+      isAdvancing,
+      isGameOver,
+      loading,
+      maps,
+      matchPhase: phase,
+      settings,
+      survivors,
+      zones,
+    },
+    actions: {
+      addLog,
+      applyActiveMapId,
+      emitRunEvent,
+      setIsRefreshingMapSettings,
+      setMaps,
+      setSurvivors,
+      showMapRefreshToast,
+    },
+  });
   useSimulationInitialData({
     refs: { activeMapRef, mapsRef },
     helpers: {
@@ -1101,11 +1074,6 @@ export default function SimulationPage() {
     if (phaseFinalizationResult?.shouldReturn) return;
   };
 
-  // 🔄 서버 맵 설정 새로고침(관리자에서 수정한 crateAllowDeny 등 즉시 반영용)
-  async function refreshMapSettingsFromServer(reason = 'manual') {
-    return getMapActions().refreshMapSettingsFromServer(reason);
-  };
-
   // 진행 버튼/오토 플레이 공용 가드(중복 호출 방지)
   async function proceedPhaseGuarded() {
     if (isAdvancingRef.current) return;
@@ -1197,72 +1165,46 @@ if (showMarketPanel && pendingTranscendPick) {
     return () => window.clearTimeout(id);
   }, [autoPlay, autoSpeed, autoSpeedRef, matchSec, loading, isAdvancing, isGameOver, showMarketPanel, pendingTranscendPick, day, phase, settings?.rulesetId, survivors.length, startBlocked, normalizeAutoSpeed, proceedPhaseGuardedRef]);
 
-  // ======== Market actions ========
-  function getMarketActions() {
-    return createMarketActionRuntime({
-      state: {
-        day,
-        devGrantItemId,
-        devGrantItemOptions,
-        devGrantQty,
-        isAdvancing,
-        isGameOver,
-        itemMetaById,
-        matchSec,
-        phase,
-        selectedChar,
-        selectedCharId,
-        settings,
-        showMarketPanel,
-        tradeDraft,
-      },
-      actions: {
-        addLog,
-        applyUserEconomyProgress,
-        emitItemGainIfAny,
-        getQty,
-        loadMarket,
-        loadTrades,
-        patchServerCharacterState,
-        setMarketMessage,
-        setSurvivors,
-        setTradeDraft,
-        syncMyState,
-      },
-    });
-  }
-
-  function devGrantItemToSelected() {
-    return getMarketActions().devGrantItemToSelected();
-  }
-
-  function doCraft(itemId) {
-    return getMarketActions().doCraft(itemId);
-  }
-
-  function doKioskTransaction(kioskId, catalogIndex) {
-    return getMarketActions().doKioskTransaction(kioskId, catalogIndex);
-  }
-
-  function doDroneBuy(offerId) {
-    return getMarketActions().doDroneBuy(offerId);
-  }
-
-  function doPerkPurchase(code) {
-    return getMarketActions().doPerkPurchase(code);
-  }
-
-  function createTradeOffer() {
-    return getMarketActions().createTradeOffer();
-  }
-
-  function cancelTradeOffer(offerId) {
-    return getMarketActions().cancelTradeOffer(offerId);
-  }
-
-  function acceptTradeOffer(offerId) {
-    return getMarketActions().acceptTradeOffer(offerId);
-  }
+  const {
+    acceptTradeOffer,
+    cancelTradeOffer,
+    createTradeOffer,
+    devGrantItemToSelected,
+    doCraft,
+    doDroneBuy,
+    doKioskTransaction,
+    doPerkPurchase,
+  } = useSimulationMarketActions({
+    state: {
+      day,
+      devGrantItemId,
+      devGrantItemOptions,
+      devGrantQty,
+      isAdvancing,
+      isGameOver,
+      itemMetaById,
+      matchSec,
+      phase,
+      selectedChar,
+      selectedCharId,
+      settings,
+      showMarketPanel,
+      tradeDraft,
+    },
+    actions: {
+      addLog,
+      applyUserEconomyProgress,
+      emitItemGainIfAny,
+      getQty,
+      loadMarket,
+      loadTrades,
+      patchServerCharacterState,
+      setMarketMessage,
+      setSurvivors,
+      setTradeDraft,
+      syncMyState,
+    },
+  });
 
   // 탭 전환 시 필요한 데이터 갱신
   // activeMap 로딩이 순간적으로 비는 경우(=맵 미지정/리프레시 타이밍)에도
@@ -1271,7 +1213,7 @@ if (showMarketPanel && pendingTranscendPick) {
     ? { _id: String(activeMapId || 'local'), zones }
     : null);
   const forbiddenNow = activeMapEff
-    ? new Set(getForbiddenZoneIdsForPhaseRuntime(activeMapEff, day, phase, zones, settings, null))
+    ? new Set(getForbiddenZoneIdsForPhase(activeMapEff, day, phase))
     : new Set();
 
 
