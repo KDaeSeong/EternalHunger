@@ -133,6 +133,9 @@ import {
   shouldForceDay1HeroGearCatchup,
 } from './_lib/routePlanProgressRuntime';
 import {
+  advanceActorRouteProgressForGoal,
+} from './_lib/phaseRouteProgressRuntime';
+import {
   normalizeSatiety,
   decayActorSatiety,
 } from './_lib/satietyRuntime';
@@ -1303,16 +1306,12 @@ if (moveObjectiveType && objectiveTargetSet.has(String(updated.zoneId || '')) &&
   updated._objectiveContestPressure = 0;
   updated._objectiveContestUntilPhaseIdx = null;
 }
-const preRouteCraftMissingItemIds = (Array.isArray(preGoal?.missing) ? preGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
-const preRouteMissingItemIds = mergeMissingItemIds(preRouteCraftMissingItemIds, getRoutePlanMissingItemIds(updated));
-const preRouteMappedItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
-  ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
-  : [];
-advanceEarlyRouteProgress(updated, updated.zoneId, {
-  missingItemIds: preRouteMissingItemIds,
-  routeItemIds: preRouteMappedItemIds.length ? preRouteMappedItemIds : preRouteMissingItemIds,
+advanceActorRouteProgressForGoal({
+  actor: updated,
+  craftGoal: preGoal,
+  ruleset,
   searched: false,
-  maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
+  zoneId: updated.zoneId,
 });
 
 const didMove = String(nextZoneId) !== String(currentZone);
@@ -1447,15 +1446,13 @@ const didMove = String(nextZoneId) !== String(currentZone);
             goalItemKeys: pickGoalLoadoutKeys(updated),
             perkEffects: getActorPerkEffects(updated),
           });
-          const postLootMissingIds = (Array.isArray(postLootGoal?.missing) ? postLootGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
-          const postLootRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated?.zoneId || '')])
-            ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
-            : [];
-          advanceEarlyRouteProgress(updated, updated.zoneId, {
-            missingItemIds: postLootMissingIds,
-            routeItemIds: postLootRouteItemIds.length ? postLootRouteItemIds : postLootMissingIds,
+          advanceActorRouteProgressForGoal({
+            actor: updated,
+            craftGoal: postLootGoal,
+            includeRoutePlanMissing: false,
+            ruleset,
             searched: true,
-            maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
+            zoneId: updated.zoneId,
           });
         }
 
@@ -1566,20 +1563,16 @@ const didMove = String(nextZoneId) !== String(currentZone);
         });
 
         // ✅ 1초 tick 행동 큐(1차): 이동/사냥/구매/제작 중 1개만 실행
-        const craftGoalMissingIds = (Array.isArray(craftGoal?.missing) ? craftGoal.missing : [])
-          .map((m) => String(m?.itemId || ''))
-          .filter(Boolean);
-        const routePlanMissingIdsNow = getRoutePlanMissingItemIds(updated);
-        const earlyRouteMissingIdsNow = mergeMissingItemIds(craftGoalMissingIds, routePlanMissingIdsNow);
-        const mappedRouteItemIdsNow = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated.zoneId || '')])
-          ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
-          : [];
-        advanceEarlyRouteProgress(updated, updated.zoneId, {
-          missingItemIds: earlyRouteMissingIdsNow,
-          routeItemIds: mappedRouteItemIdsNow.length ? mappedRouteItemIdsNow : earlyRouteMissingIdsNow,
+        const routeProgressNow = advanceActorRouteProgressForGoal({
+          actor: updated,
+          craftGoal,
+          ruleset,
           searched: false,
-          maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
+          zoneId: updated.zoneId,
         });
+        const routePlanMissingIdsNow = routeProgressNow.routePlanMissingItemIds;
+        const earlyRouteMissingIdsNow = routeProgressNow.missingItemIds;
+        const mappedRouteItemIdsNow = routeProgressNow.mappedRouteItemIds;
         const goalMissingIds = new Set(earlyRouteMissingIdsNow);
         const routeDroneNeedIds = new Set((Array.isArray(updated?.routePlanDroneItemIds) ? updated.routePlanDroneItemIds : [])
           .map((id) => String(id || '').trim())
@@ -2204,16 +2197,12 @@ const didMove = String(nextZoneId) !== String(currentZone);
               goalItemKeys: pickGoalLoadoutKeys(updated),
               perkEffects: getActorPerkEffects(updated),
             });
-            const postCraftCraftMissingIds = (Array.isArray(postCraftGoal?.missing) ? postCraftGoal.missing : []).map((m) => String(m?.itemId || '')).filter(Boolean);
-            const postCraftMissingIds = mergeMissingItemIds(postCraftCraftMissingIds, getRoutePlanMissingItemIds(updated));
-            const postCraftRouteItemIds = Array.isArray(updated?.routePlanItemIdsByZone?.[String(updated?.zoneId || '')])
-              ? updated.routePlanItemIdsByZone[String(updated.zoneId || '')].map((id) => String(id || '').trim()).filter(Boolean)
-              : [];
-            advanceEarlyRouteProgress(updated, updated.zoneId, {
-              missingItemIds: postCraftMissingIds,
-              routeItemIds: postCraftRouteItemIds.length ? postCraftRouteItemIds : postCraftMissingIds,
+            advanceActorRouteProgressForGoal({
+              actor: updated,
+              craftGoal: postCraftGoal,
+              ruleset,
               searched: false,
-              maxSearches: Number(ruleset?.ai?.earlyRouteMaxSearches ?? 3),
+              zoneId: updated.zoneId,
             });
           }
           else if (String(selectedCharId || '') === String(updated?._id || '')) {
