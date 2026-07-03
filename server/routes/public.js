@@ -111,6 +111,19 @@ function mapPublicPost(post) {
   };
 }
 
+function mapPublicCommentActivity(row) {
+  const comment = row?.comments || row?.comment || {};
+  return {
+    _id: normalizeId(comment),
+    postId: normalizeId(row),
+    postTitle: row?.title || '',
+    postCategory: row?.category || 'free',
+    contentPreview: cleanText(comment?.content, 140),
+    createdAt: comment?.createdAt || null,
+    updatedAt: comment?.updatedAt || null,
+  };
+}
+
 function mapCompactUser(user) {
   if (!user || typeof user !== 'object') return null;
   return {
@@ -281,6 +294,7 @@ router.get('/users/:id', async (req, res) => {
       recentPosts,
       postCount,
       commentAgg,
+      recentComments,
       recentRooms,
       hostedRoomCount,
       solvedHostedRoomCount,
@@ -297,6 +311,23 @@ router.get('/users/:id', async (req, res) => {
         { $unwind: '$comments' },
         { $match: { 'comments.authorId': userId } },
         { $count: 'count' },
+      ]),
+      Post.aggregate([
+        { $match: { 'comments.authorId': userId } },
+        { $project: {
+          title: 1,
+          category: 1,
+          comments: {
+            $filter: {
+              input: '$comments',
+              as: 'comment',
+              cond: { $eq: ['$$comment.authorId', userId] },
+            },
+          },
+        } },
+        { $unwind: '$comments' },
+        { $sort: { 'comments.createdAt': -1, _id: -1 } },
+        { $limit: 6 },
       ]),
       TwentyQuestionsRoom.find({ hostId: userId })
         .populate('solvedBy', 'username nickname')
@@ -325,6 +356,7 @@ router.get('/users/:id', async (req, res) => {
         solvedHostedRoomCount: toNonNegativeInt(solvedHostedRoomCount),
       },
       recentPosts: recentPosts.map(mapPublicPost),
+      recentComments: recentComments.map(mapPublicCommentActivity),
       recentRooms: recentRooms.map(mapPublicRoom),
       topCharacters: topCharacters.map(mapCharacterRecord),
       topTeams: topTeams.map(mapTeamRecord),

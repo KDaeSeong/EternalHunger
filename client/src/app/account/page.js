@@ -11,6 +11,7 @@ const EMPTY_ACTIVITY = {
   user: null,
   summary: {},
   recentPosts: [],
+  recentComments: [],
   recentRooms: [],
   topCharacters: [],
   topTeams: [],
@@ -58,6 +59,7 @@ function normalizeActivity(payload) {
     user: src.user && typeof src.user === 'object' ? src.user : null,
     summary: src.summary && typeof src.summary === 'object' ? src.summary : {},
     recentPosts: normalizeList(src.recentPosts),
+    recentComments: normalizeList(src.recentComments),
     recentRooms: normalizeList(src.recentRooms),
     topCharacters: normalizeList(src.topCharacters),
     topTeams: normalizeList(src.topTeams),
@@ -295,6 +297,24 @@ export default function AccountPage() {
                     ))}
                   </div>
                 ) : <div className="account-empty compact">작성한 게시글이 없습니다.</div>}
+              </section>
+
+              <section className="account-panel">
+                <div className="account-panel-title">
+                  <h2>최근 댓글</h2>
+                  <Link href="/board">게시판</Link>
+                </div>
+                {activity.recentComments.length ? (
+                  <div className="account-link-list">
+                    {activity.recentComments.map((comment) => (
+                      <Link href={`/board/${comment.postId}`} key={comment._id || `${comment.postId}-${comment.createdAt || ''}`}>
+                        <strong>{safeText(comment.postTitle, '제목 없음')}</strong>
+                        <span>{CATEGORY_LABELS[comment.postCategory] || comment.postCategory || '자유'} · {formatDate(comment.createdAt) || '날짜 없음'}</span>
+                        <small>{safeText(comment.contentPreview, '내용 없음')}</small>
+                      </Link>
+                    ))}
+                  </div>
+                ) : <div className="account-empty compact">작성한 댓글이 없습니다.</div>}
               </section>
 
               <section className="account-panel">

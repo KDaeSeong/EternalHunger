@@ -60,6 +60,7 @@ function normalizeProfile(payload) {
     user,
     summary: src.summary && typeof src.summary === 'object' ? src.summary : {},
     recentPosts: normalizeList(src.recentPosts),
+    recentComments: normalizeList(src.recentComments),
     recentRooms: normalizeList(src.recentRooms),
     topCharacters: normalizeList(src.topCharacters),
     topTeams: normalizeList(src.topTeams),
@@ -224,6 +225,24 @@ export default function UserProfilePage() {
                     ))}
                   </div>
                 ) : <div className="profile-empty compact">작성한 게시글이 없습니다.</div>}
+              </section>
+
+              <section className="profile-panel">
+                <div className="profile-panel-title">
+                  <h2>최근 댓글</h2>
+                  <Link href="/board">게시판</Link>
+                </div>
+                {profile.recentComments.length ? (
+                  <div className="profile-link-list">
+                    {profile.recentComments.map((comment) => (
+                      <Link href={`/board/${comment.postId}`} key={comment._id || `${comment.postId}-${comment.createdAt || ''}`}>
+                        <strong>{safeText(comment.postTitle, '제목 없음')}</strong>
+                        <span>{CATEGORY_LABELS[comment.postCategory] || comment.postCategory || '자유'} · {formatDate(comment.createdAt) || '날짜 없음'}</span>
+                        <small>{safeText(comment.contentPreview, '내용 없음')}</small>
+                      </Link>
+                    ))}
+                  </div>
+                ) : <div className="profile-empty compact">작성한 댓글이 없습니다.</div>}
               </section>
 
               <section className="profile-panel">
