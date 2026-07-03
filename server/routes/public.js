@@ -81,6 +81,7 @@ function mapPublicUser(user) {
     _id: normalizeId(user),
     username: user?.username || '',
     nickname: user?.nickname || '',
+    profileBio: user?.profileBio || '',
     displayName: displayName(user),
     lp: Number(user?.lp || 0),
     badges: Array.isArray(user?.badges) ? user.badges.map((badge) => ({
@@ -130,6 +131,7 @@ function mapCompactUser(user) {
     _id: normalizeId(user),
     username: user.username || '',
     nickname: user.nickname || '',
+    profileBio: user.profileBio || '',
     displayName: displayName(user),
   };
 }
@@ -286,7 +288,7 @@ router.get('/users/:id', async (req, res) => {
 
     const userId = new mongoose.Types.ObjectId(id);
     const user = await User.findById(userId)
-      .select('username nickname lp statistics badges createdAt')
+      .select('username nickname profileBio lp statistics badges createdAt')
       .lean();
     if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
 
@@ -405,7 +407,7 @@ router.get('/home-hub', async (req, res) => {
         .limit(6)
         .lean(),
       User.find({})
-        .select('username nickname lp createdAt')
+        .select('username nickname profileBio lp createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(5)
         .lean(),
@@ -535,7 +537,7 @@ router.get('/search', async (req, res) => {
         .limit(8)
         .lean(),
       User.find({ $or: [{ username: pattern }, { nickname: pattern }] })
-        .select('username nickname lp createdAt')
+        .select('username nickname profileBio lp createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(8)
         .lean(),
@@ -592,7 +594,7 @@ router.get('/leaderboard', async (req, res) => {
       Character.countDocuments({}),
       TeamRecord.countDocuments({}),
       User.find({})
-        .select('username nickname lp statistics createdAt')
+        .select('username nickname profileBio lp statistics createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(25)
         .lean(),

@@ -165,6 +165,7 @@ export default function UserProfilePage() {
     ? Number(stats.totalWins || 0) / Number(stats.totalGames || 1)
     : 0;
   const displayName = safeText(user?.displayName || user?.nickname || user?.username, '사용자');
+  const profileBio = safeText(user?.profileBio, '');
   const badges = useMemo(() => normalizeList(user?.badges).filter((badge) => safeText(badge?.name)), [user?.badges]);
 
   return (
@@ -187,6 +188,7 @@ export default function UserProfilePage() {
                 <p className="profile-kicker">User Profile</p>
                 <h1>{displayName}</h1>
                 <span>{user.username ? `@${user.username}` : '아이디 없음'} · 가입일 {formatDate(user.createdAt) || '-'}</span>
+                {profileBio ? <p className="profile-bio">{profileBio}</p> : null}
               </div>
             </section>
 

@@ -15,6 +15,7 @@ function publicUser(user) {
     _id: user._id,
     username: user.username,
     nickname: user.nickname || '',
+    profileBio: user.profileBio || '',
     lp: Number(user.lp || 0),
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],

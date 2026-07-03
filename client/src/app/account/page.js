@@ -112,6 +112,7 @@ export default function AccountPage() {
   const user = useAuthUser();
   const { showToast } = useToast();
   const [draftNickname, setDraftNickname] = useState(null);
+  const [draftBio, setDraftBio] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [activity, setActivity] = useState(() => normalizeActivity(null));
@@ -121,7 +122,10 @@ export default function AccountPage() {
   const currentNickname = cleanNickname(user?.nickname);
   const nicknameValue = draftNickname === null ? currentNickname : draftNickname;
   const nextNickname = cleanNickname(nicknameValue);
-  const isDirty = nextNickname !== currentNickname;
+  const currentBio = String(user?.profileBio || '');
+  const bioValue = draftBio === null ? currentBio : draftBio;
+  const nextBio = String(bioValue || '').trim();
+  const isDirty = nextNickname !== currentNickname || nextBio !== currentBio;
   const userId = getUserId(user);
 
   const loadActivity = useCallback(async (options = {}) => {
@@ -168,7 +172,7 @@ export default function AccountPage() {
   const summary = activity.summary || {};
   const badges = useMemo(() => normalizeList(activityUser?.badges).filter((badge) => safeText(badge?.name)), [activityUser?.badges]);
 
-  const saveNickname = async (event) => {
+  const saveProfile = async (event) => {
     event.preventDefault();
     if (saving || !user) return;
 
@@ -179,23 +183,31 @@ export default function AccountPage() {
       return;
     }
 
+    if (nextBio.length > 240) {
+      const nextMessage = '소개는 240자 이내로 입력해주세요.';
+      setMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+
     setSaving(true);
     setMessage('');
     try {
-      const res = await apiPut('/user/nickname', { nickname: nextNickname });
-      const nextUser = res?.user || { ...user, nickname: nextNickname };
+      const res = await apiPut('/user/profile', { nickname: nextNickname, profileBio: nextBio });
+      const nextUser = res?.user || { ...user, nickname: nextNickname, profileBio: nextBio };
       updateStoredUser((current) => ({ ...(current || {}), ...nextUser }));
       setDraftNickname(nextUser.nickname || nextNickname);
+      setDraftBio(nextUser.profileBio || '');
       const nextUserId = getUserId(nextUser) || userId;
       if (nextUserId) clearApiGetCache(`/public/users/${nextUserId}`);
       clearApiGetCache('/public/home-hub');
       clearApiGetCache('/public/search');
-      const nextMessage = res?.message || '닉네임을 저장했습니다.';
+      const nextMessage = res?.message || '프로필을 저장했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
       void loadActivity({ force: true });
     } catch (err) {
-      const nextMessage = err?.message || '닉네임 저장에 실패했습니다.';
+      const nextMessage = err?.message || '프로필 저장에 실패했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
@@ -225,7 +237,7 @@ export default function AccountPage() {
         ) : (
           <>
             <div className="account-dashboard">
-              <form className="account-panel account-form" onSubmit={saveNickname}>
+              <form className="account-panel account-form" onSubmit={saveProfile}>
                 <div className="account-summary">
                   <span>현재 표시명</span>
                   <strong>{getDisplayName(user)}</strong>
@@ -241,6 +253,19 @@ export default function AccountPage() {
                     maxLength={20}
                     disabled={saving}
                   />
+                </label>
+
+                <label className="account-field">
+                  <span>소개</span>
+                  <textarea
+                    value={bioValue}
+                    onChange={(event) => setDraftBio(event.target.value)}
+                    placeholder="공개 프로필에 표시할 짧은 소개"
+                    maxLength={240}
+                    rows={4}
+                    disabled={saving}
+                  />
+                  <small>{nextBio.length}/240</small>
                 </label>
 
                 {message ? <div className="account-message">{message}</div> : null}
