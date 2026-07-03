@@ -229,6 +229,93 @@
   font-size: 0.9rem;
 }
 
+.tactical-skill-note {
+  margin: 0 0 14px;
+  color: #4b5563;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+
+.tactical-skill-note strong {
+  color: #5b2f99;
+}
+
+.tactical-skill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tactical-skill-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(47, 116, 160, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+}
+
+.tactical-skill-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tactical-skill-card h3 {
+  margin: 0;
+  color: #172635;
+  font-size: 1.02rem;
+}
+
+.tactical-skill-card-head span {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: rgba(91, 47, 153, 0.1);
+  color: #5b2f99;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.tactical-skill-card p,
+.tactical-upgrade span,
+.tactical-skill-card li {
+  color: #5f6670;
+  font-size: 0.88rem;
+  line-height: 1.58;
+  word-break: keep-all;
+}
+
+.tactical-skill-card p {
+  margin: 0 0 11px;
+}
+
+.tactical-upgrade {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(47, 116, 160, 0.08);
+}
+
+.tactical-upgrade strong {
+  color: #2f74a0;
+  font-size: 0.8rem;
+}
+
+.tactical-skill-card ul {
+  display: grid;
+  gap: 5px;
+  margin: 11px 0 0;
+  padding-left: 18px;
+}
+
+.tactical-skill-card li::marker {
+  color: #2f74a0;
+}
+
 .help-quickstart ol {
   display: grid;
   gap: 10px;
@@ -252,7 +339,8 @@
 
 @media (max-width: 900px) {
   .flow-grid,
-  .term-grid {
+  .term-grid,
+  .tactical-skill-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -292,7 +380,8 @@
   }
 
   .flow-grid,
-  .term-grid {
+  .term-grid,
+  .tactical-skill-grid {
     grid-template-columns: 1fr;
   }
 }

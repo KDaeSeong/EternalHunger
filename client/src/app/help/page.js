@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import SiteHeader from '../../components/SiteHeader';
+import { TAC_SKILL_TABLE, TACTICAL_SKILL_OPTIONS_KO } from '../../utils/tacticalSkillCatalog';
 import '../../styles/ERHelp.css';
 
 const flowCards = [
@@ -73,6 +74,11 @@ const quickStarts = [
   '비교가 필요하면 seed를 고정하고 MD 또는 JSON 로그를 저장해 같은 조건으로 다시 돌립니다.',
 ];
 
+const tacticalSkillRows = TACTICAL_SKILL_OPTIONS_KO.map((name) => ({
+  name,
+  ...TAC_SKILL_TABLE[name],
+}));
+
 export default function HelpPage() {
   return (
     <main className="help-page-shell">
@@ -128,6 +134,37 @@ export default function HelpPage() {
         <section className="help-section help-quickstart">
           <div className="help-section-title">
             <span>03</span>
+            <h2>전술 스킬 효과</h2>
+          </div>
+          <p className="tactical-skill-note">
+            처음에는 1레벨로 시작하며, <strong>전술 강화 모듈</strong>을 소모하면 2레벨로 강화할 수 있습니다.
+            전술 스킬 쿨다운은 쿨다운 감소 스탯의 영향을 받지 않습니다.
+          </p>
+          <div className="tactical-skill-grid">
+            {tacticalSkillRows.map((skill) => (
+              <article className="tactical-skill-card" key={skill.name}>
+                <div className="tactical-skill-card-head">
+                  <h3>{skill.name}</h3>
+                  <span>Lv.1 / Lv.2</span>
+                </div>
+                <p>{skill.summary}</p>
+                <div className="tactical-upgrade">
+                  <strong>모듈 강화</strong>
+                  <span>{skill.moduleUpgrade}</span>
+                </div>
+                <ul>
+                  {(Array.isArray(skill.guideStats) ? skill.guideStats : []).map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="help-section help-quickstart">
+          <div className="help-section-title">
+            <span>04</span>
             <h2>처음 실행할 때</h2>
           </div>
           <ol>

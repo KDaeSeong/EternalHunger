@@ -17,6 +17,7 @@ import {
 } from '../../utils/statusLogic';
 import {
   getTacBaseCdSec,
+  getTacCooldownSec,
   getTacEffectNumber,
   getTacTrigger,
   normalizeSupportedTacSkill,
@@ -25,6 +26,7 @@ import {
 
 export {
   getTacBaseCdSec,
+  getTacCooldownSec,
   getTacEffectNumber,
   getTacTrigger,
   normalizeSupportedTacSkill,

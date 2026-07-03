@@ -2,7 +2,7 @@ import { buildErBehaviorModifier } from '../../../utils/erMeta';
 import { applyHealingModifier } from '../../../utils/statusLogic';
 import {
   buildTacStatusEffects,
-  getTacBaseCdSec,
+  getTacCooldownSec,
   getTacEffectNumber,
   getTacTrigger,
   normalizeSupportedTacSkill,
@@ -51,10 +51,8 @@ export function createPhaseCombatTacticalRuntime({
   const normalizeTac = (value) => normalizeSupportedTacSkill(value);
 
   const tacCdSec = (name, actor) => {
-    const base = getTacBaseCdSec(name);
     const level = tacModuleLevel(actor);
-    const mult = Math.max(0.70, 1 - (level * 0.05));
-    return Math.max(12, Math.round(base * mult));
+    return getTacCooldownSec(name, 1 + level);
   };
 
   const canUseTac = (actor) => (absNow >= Number(actor?._tacNextAbsSec || 0));
