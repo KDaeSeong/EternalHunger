@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
-import { apiDelete, apiGet, apiPost } from '../../utils/api';
+import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 
 const BOARD_CATEGORIES = [
@@ -124,7 +124,11 @@ export default function BoardPage() {
       if (query.trim()) params.set('q', query.trim());
       if (categoryFilter) params.set('category', categoryFilter);
       const suffix = params.toString() ? `?${params.toString()}` : '';
-      const data = await apiGet(`/posts${suffix}`);
+      const data = await apiGetCached(`/posts${suffix}`, {
+        ttlMs: 10000,
+        timeoutMs: 12000,
+        storage: 'session',
+      });
       setPosts(unwrapPostList(data));
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
@@ -171,6 +175,10 @@ export default function BoardPage() {
       const nextMessage = res?.message || '게시글을 작성했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
+      clearApiGetCache('/posts');
+      clearApiGetCache('/public/home-hub');
+      clearApiGetCache('/public/guides');
+      clearApiGetCache('/public/search');
       setForm({ title: '', content: '', category: 'free' });
       setWriterOpen(false);
       await load();
@@ -190,6 +198,10 @@ export default function BoardPage() {
       const nextMessage = res?.message || '삭제했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
+      clearApiGetCache('/posts');
+      clearApiGetCache('/public/home-hub');
+      clearApiGetCache('/public/guides');
+      clearApiGetCache('/public/search');
       await load();
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글 삭제에 실패했습니다.';

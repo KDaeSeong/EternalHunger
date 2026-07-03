@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
-import { apiGet } from '../../utils/api';
+import { apiGetCached } from '../../utils/api';
 
 const CATEGORY_LABELS = {
   guide: '공략',
@@ -112,7 +112,11 @@ export default function GuidesPage() {
   const loadGuides = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiGet('/public/guides', { timeoutMs: 15000 });
+      const data = await apiGetCached('/public/guides', {
+        ttlMs: 60000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
       setPayload(normalizePayload(data));
     } catch (err) {
       setPayload(normalizePayload(null));

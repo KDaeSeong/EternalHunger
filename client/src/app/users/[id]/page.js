@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiGet } from '../../../utils/api';
+import { apiGetCached } from '../../../utils/api';
 
 const CATEGORY_LABELS = {
   free: '자유',
@@ -138,7 +138,11 @@ export default function UserProfilePage() {
     setLoading(true);
     setError('');
     try {
-      const data = await apiGet(`/public/users/${id}`, { timeoutMs: 15000 });
+      const data = await apiGetCached(`/public/users/${id}`, {
+        ttlMs: 30000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
       setProfile(normalizeProfile(data));
     } catch (err) {
       const message = err?.message || '사용자 프로필을 불러오지 못했습니다.';

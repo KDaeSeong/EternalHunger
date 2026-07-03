@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
-import { apiGet } from '../../utils/api';
+import { apiGetCached } from '../../utils/api';
 
 const EMPTY_RESULTS = {
   query: '',
@@ -107,7 +107,11 @@ export default function SearchPage() {
 
     setLoading(true);
     try {
-      const data = await apiGet(`/public/search?q=${encodeURIComponent(nextQuery)}`, { timeoutMs: 15000 });
+      const data = await apiGetCached(`/public/search?q=${encodeURIComponent(nextQuery)}`, {
+        ttlMs: 15000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
       setPayload(normalizePayload(data));
     } catch (err) {
       const message = err?.message || '검색 결과를 불러오지 못했습니다.';

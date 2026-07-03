@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
-import { apiGet, apiPost } from '../../utils/api';
+import { apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
 
 const CATEGORIES = [
@@ -95,7 +95,11 @@ export default function TwentyQuestionsPage() {
       if (statusFilter) params.set('status', statusFilter);
       if (categoryFilter) params.set('category', categoryFilter);
       const suffix = params.toString() ? `?${params.toString()}` : '';
-      const data = await apiGet(`/twenty-questions${suffix}`, { timeoutMs: 15000 });
+      const data = await apiGetCached(`/twenty-questions${suffix}`, {
+        ttlMs: 5000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
       setRooms(unwrapRooms(data));
     } catch (err) {
       const message = err?.message || '스무고개 방을 불러오지 못했습니다.';
@@ -146,6 +150,9 @@ export default function TwentyQuestionsPage() {
       const data = await apiPost('/twenty-questions', payload, { timeoutMs: 15000 });
       const roomId = data?.room?._id || data?.room?.id;
       showToast({ tone: 'success', message: data?.message || '스무고개 방을 만들었습니다.' });
+      clearApiGetCache('/twenty-questions');
+      clearApiGetCache('/public/home-hub');
+      clearApiGetCache('/public/search');
       setForm({ title: '', category: 'free', hint: '', answer: '' });
       setWriterOpen(false);
       if (roomId) router.push(`/twenty-questions/${roomId}`);

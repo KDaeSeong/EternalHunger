@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiDelete, apiGet, apiPost, apiPut } from '../../../utils/api';
+import { apiDelete, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 
 const BOARD_CATEGORIES = [
@@ -131,7 +131,11 @@ export default function BoardDetailPage() {
     }
     setLoading(true);
     try {
-      const data = await apiGet(`/posts/${id}`);
+      const data = await apiGetCached(`/posts/${id}`, {
+        ttlMs: 10000,
+        timeoutMs: 12000,
+        storage: 'session',
+      });
       const nextPost = unwrapPost(data);
       setPost(nextPost);
       setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free') });
@@ -160,6 +164,14 @@ export default function BoardDetailPage() {
     setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free') });
   };
 
+  const clearPostCaches = () => {
+    clearApiGetCache(`/posts/${id}`);
+    clearApiGetCache('/posts');
+    clearApiGetCache('/public/home-hub');
+    clearApiGetCache('/public/guides');
+    clearApiGetCache('/public/search');
+  };
+
   const save = async () => {
     const title = form.title.trim();
     const content = form.content.trim();
@@ -176,6 +188,7 @@ export default function BoardDetailPage() {
       const nextMessage = res?.message || '수정했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
+      clearPostCaches();
       setEditing(false);
       await load();
     } catch (err) {
@@ -192,6 +205,7 @@ export default function BoardDetailPage() {
     try {
       const res = await apiDelete(`/posts/${id}`);
       showToast({ tone: 'success', message: res?.message || '삭제했습니다.' });
+      clearPostCaches();
       router.push('/board');
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글 삭제에 실패했습니다.';
@@ -217,6 +231,7 @@ export default function BoardDetailPage() {
       const nextMessage = res?.message || '댓글을 작성했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
+      clearPostCaches();
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '댓글 작성에 실패했습니다.';
       setMessage(nextMessage);
@@ -235,6 +250,7 @@ export default function BoardDetailPage() {
       const nextMessage = res?.message || '댓글을 삭제했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
+      clearPostCaches();
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '댓글 삭제에 실패했습니다.';
       setMessage(nextMessage);
@@ -253,6 +269,7 @@ export default function BoardDetailPage() {
       const nextMessage = res?.message || '공지 상태를 변경했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
+      clearPostCaches();
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '공지 상태 변경에 실패했습니다.';
       setMessage(nextMessage);

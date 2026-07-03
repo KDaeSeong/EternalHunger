@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../components/SiteHeader';
 import { useToast } from '../components/ToastProvider';
-import { apiGet, clearAuth, updateStoredUser } from '../utils/api';
+import { apiGet, apiGetCached, clearAuth, updateStoredUser } from '../utils/api';
 import { useAuthUser, useHydrated } from '../utils/client-auth';
 import {
   HOF_SYNC_EVENT,
@@ -202,7 +202,11 @@ export default function Home() {
     async function refreshHome() {
       setLoading(true);
       try {
-        const payload = await apiGet('/public/home-hub', { timeoutMs: 15000 });
+        const payload = await apiGetCached('/public/home-hub', {
+          ttlMs: 30000,
+          timeoutMs: 15000,
+          storage: 'session',
+        });
         if (!canceled) setHub(normalizeHub(payload));
       } catch (err) {
         if (!canceled) {

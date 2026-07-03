@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiGet, apiPost } from '../../../utils/api';
+import { apiGet, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
 
 const RESPONSE_OPTIONS = [
@@ -131,6 +131,14 @@ export default function TwentyQuestionsRoomPage() {
     if (nextRoom) setRoom(nextRoom);
   };
 
+  const clearRoomCaches = () => {
+    clearApiGetCache(`/twenty-questions/${id}`);
+    clearApiGetCache('/twenty-questions');
+    clearApiGetCache('/public/home-hub');
+    clearApiGetCache('/public/search');
+    clearApiGetCache('/public/users');
+  };
+
   const addQuestion = async () => {
     const text = questionText.trim();
     if (!text) {
@@ -141,6 +149,7 @@ export default function TwentyQuestionsRoomPage() {
     try {
       const data = await apiPost(`/twenty-questions/${id}/questions`, { text }, { timeoutMs: 15000 });
       applyRoomResponse(data);
+      clearRoomCaches();
       setQuestionText('');
       showToast({ tone: 'success', message: data?.message || '질문을 등록했습니다.' });
     } catch (err) {
@@ -156,6 +165,7 @@ export default function TwentyQuestionsRoomPage() {
     try {
       const data = await apiPost(`/twenty-questions/${id}/questions/${questionId}/answer`, { response }, { timeoutMs: 15000 });
       applyRoomResponse(data);
+      clearRoomCaches();
       showToast({ tone: 'success', message: data?.message || '답변을 저장했습니다.' });
     } catch (err) {
       showToast({ tone: 'danger', message: err?.message || '답변 저장에 실패했습니다.' });
@@ -174,6 +184,7 @@ export default function TwentyQuestionsRoomPage() {
     try {
       const data = await apiPost(`/twenty-questions/${id}/guesses`, { text }, { timeoutMs: 15000 });
       applyRoomResponse(data);
+      clearRoomCaches();
       setGuessText('');
       showToast({ tone: data?.correct ? 'success' : 'warning', message: data?.message || '정답 도전을 기록했습니다.' });
     } catch (err) {
@@ -189,6 +200,7 @@ export default function TwentyQuestionsRoomPage() {
     try {
       const data = await apiPost(`/twenty-questions/${id}/close`, {}, { timeoutMs: 15000 });
       applyRoomResponse(data);
+      clearRoomCaches();
       showToast({ tone: 'success', message: data?.message || '방을 종료했습니다.' });
     } catch (err) {
       showToast({ tone: 'danger', message: err?.message || '방 종료에 실패했습니다.' });

@@ -119,6 +119,7 @@ export function emitAuthSync(detail = {}) {
 export function saveAuth(token, user) {
   if (typeof window === 'undefined') return;
   let didChange = false;
+  let authTokenChanged = false;
   try {
     if (token !== undefined) {
       const rawToken = normalizeToken(token);
@@ -126,7 +127,8 @@ export function saveAuth(token, user) {
       if (rawToken) window.localStorage.setItem('token', rawToken);
       else window.localStorage.removeItem('token');
       syncAuthCookie(rawToken);
-      didChange = didChange || prevToken !== rawToken;
+      authTokenChanged = prevToken !== rawToken;
+      didChange = didChange || authTokenChanged;
     }
     if (user !== undefined) {
       const nextUserRaw = user === null ? null : JSON.stringify(user);
@@ -136,6 +138,7 @@ export function saveAuth(token, user) {
       didChange = didChange || prevUserRaw !== nextUserRaw;
     }
   } catch {}
+  if (authTokenChanged) clearApiGetCache();
   if (didChange) emitAuthSync({ reason: 'saveAuth' });
 }
 
@@ -150,6 +153,7 @@ export function clearAuth() {
   writeAuthCookie('token', null);
   writeAuthCookie('accessToken', null);
   writeAuthCookie('authToken', null);
+  clearApiGetCache();
   emitAuthSync({ reason: 'clearAuth' });
 }
 
@@ -183,22 +187,127 @@ export function buildApiUrl(url, options = {}) {
 }
 
 const GET_CACHE = new Map();
+const PERSISTENT_GET_CACHE_PREFIX = 'eh_get_cache:';
+const PERSISTENT_GET_CACHE_INDEX = 'eh_get_cache:index';
 
 function buildGetCacheKey(url, options = {}) {
   const fullUrl = buildApiUrl(url, { baseOverride: options.baseOverride });
   const token = normalizeToken(options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken());
-  return `${fullUrl}::${token ? 'auth' : 'anon'}`;
+  const tokenScope = token ? `auth:${hashCacheKey(token)}` : 'anon';
+  return `${fullUrl}::${tokenScope}`;
+}
+
+function canUseSessionGetCache(options = {}) {
+  if (options.storage !== 'session' || typeof window === 'undefined') return false;
+  try {
+    return Boolean(window.sessionStorage);
+  } catch {
+    return false;
+  }
+}
+
+function hashCacheKey(value) {
+  const text = String(value || '');
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) + hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function getPersistentCacheIndex() {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(window.sessionStorage.getItem(PERSISTENT_GET_CACHE_INDEX) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+
+function setPersistentCacheIndex(index) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(PERSISTENT_GET_CACHE_INDEX, JSON.stringify(index || {}));
+  } catch {}
+}
+
+function persistentGetCacheKey(rawKey) {
+  return `${PERSISTENT_GET_CACHE_PREFIX}${hashCacheKey(rawKey)}`;
+}
+
+function readPersistentGetCache(rawKey, options = {}) {
+  if (!canUseSessionGetCache(options)) return null;
+  const storageKey = persistentGetCacheKey(rawKey);
+  try {
+    const cached = JSON.parse(window.sessionStorage.getItem(storageKey) || 'null');
+    if (!cached || cached.expiresAt <= Date.now()) {
+      window.sessionStorage.removeItem(storageKey);
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistentGetCache(rawKey, data, expiresAt, options = {}) {
+  if (!canUseSessionGetCache(options)) return;
+  const storageKey = persistentGetCacheKey(rawKey);
+  try {
+    window.sessionStorage.setItem(storageKey, JSON.stringify({ data, expiresAt }));
+    const index = getPersistentCacheIndex();
+    index[storageKey] = rawKey;
+    setPersistentCacheIndex(index);
+  } catch {}
+}
+
+function clearPersistentGetCache(match = '') {
+  if (typeof window === 'undefined') return;
+  let storage = null;
+  try {
+    storage = window.sessionStorage;
+  } catch {
+    return;
+  }
+  if (!storage) return;
+
+  const index = getPersistentCacheIndex();
+  const needle = String(match || '');
+  let didChange = false;
+
+  Object.entries(index).forEach(([storageKey, rawKey]) => {
+    if (!needle || String(rawKey || '').includes(needle)) {
+      try {
+        storage.removeItem(storageKey);
+      } catch {}
+      delete index[storageKey];
+      didChange = true;
+    }
+  });
+
+  if (!needle) {
+    try {
+      Object.keys(storage)
+        .filter((key) => key.startsWith(PERSISTENT_GET_CACHE_PREFIX))
+        .forEach((key) => storage.removeItem(key));
+    } catch {}
+  }
+
+  if (didChange || !needle) setPersistentCacheIndex(index);
 }
 
 export function clearApiGetCache(match = '') {
   const needle = String(match || '');
   if (!needle) {
     GET_CACHE.clear();
+    clearPersistentGetCache();
     return;
   }
   for (const key of GET_CACHE.keys()) {
     if (key.includes(needle)) GET_CACHE.delete(key);
   }
+  clearPersistentGetCache(needle);
 }
 
 export async function apiRequest(method, url, data, options = {}) {
@@ -272,9 +381,17 @@ export async function apiGetCached(url, options = {}) {
     return hit.data;
   }
 
+  const persisted = readPersistentGetCache(key, options);
+  if (persisted) {
+    GET_CACHE.set(key, { data: persisted.data, expiresAt: persisted.expiresAt });
+    return persisted.data;
+  }
+
   const promise = apiGet(url, options)
     .then((data) => {
-      GET_CACHE.set(key, { data, expiresAt: Date.now() + ttlMs });
+      const expiresAt = Date.now() + ttlMs;
+      GET_CACHE.set(key, { data, expiresAt });
+      writePersistentGetCache(key, data, expiresAt, options);
       return data;
     })
     .catch((err) => {

@@ -70,6 +70,23 @@ function copyRequestHeaders(request, fallbackToken) {
   return headers;
 }
 
+function getCacheControl(path, method, hasAuth) {
+  if (String(method || '').toUpperCase() !== 'GET' || hasAuth) return 'no-store, max-age=0';
+
+  const normalized = String(path || '').replace(/^\/+|\/+$/g, '');
+  if (/^public\/(items|maps|kiosks|drone-offers|perks|er-meta)$/.test(normalized)) {
+    return 'public, max-age=60, stale-while-revalidate=120';
+  }
+  if (/^public\/(home-hub|guides|search)$/.test(normalized) || /^public\/users\/[^/]+$/.test(normalized)) {
+    return 'public, max-age=15, stale-while-revalidate=45';
+  }
+  if (normalized === 'posts' || /^posts\/[^/]+$/.test(normalized) || normalized === 'twenty-questions') {
+    return 'public, max-age=10, stale-while-revalidate=30';
+  }
+
+  return 'no-store, max-age=0';
+}
+
 async function proxy(request, context) {
   const backend = getBackendBase(request);
   if (!backend) {
@@ -93,6 +110,7 @@ async function proxy(request, context) {
   const token = await getTokenFromCookies();
   const method = request.method || 'GET';
   const headers = copyRequestHeaders(request, token);
+  const cacheControl = getCacheControl(path, method, headers.has('Authorization'));
   const target = `${backend}/api/${path}${url.search || ''}`;
 
   const init = {
@@ -116,7 +134,7 @@ async function proxy(request, context) {
     status: res.status,
     headers: {
       'Content-Type': contentType,
-      'Cache-Control': 'no-store, max-age=0',
+      'Cache-Control': cacheControl,
     },
   });
 }
