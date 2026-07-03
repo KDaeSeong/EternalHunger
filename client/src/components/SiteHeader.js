@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/modifiers', label: '보정치' },
   { href: '/perks', label: '특전 상점' },
   { href: '/board', label: '게시판' },
+  { href: '/twenty-questions', label: '스무고개' },
   { href: '/help', label: '도움말' },
   { href: '/simulation', label: '게임 시작', emphasis: true },
 ];

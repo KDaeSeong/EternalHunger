@@ -51,6 +51,12 @@ const MENU_ITEMS = [
     body: '공지, 피드백, 시뮬레이션 로그를 공유합니다.',
   },
   {
+    href: '/twenty-questions',
+    icon: '20',
+    title: '스무고개',
+    body: '방을 만들고 질문과 정답 도전으로 짧게 같이 플레이합니다.',
+  },
+  {
     href: '/help',
     icon: '?',
     title: '도움말',
