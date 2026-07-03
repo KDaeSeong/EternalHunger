@@ -12,8 +12,13 @@ function phaseFromTimeOfDay(value) {
 
 function getRevivePhaseConfig(reviveCfg = {}) {
   const reviveAutoCutoff = reviveCfg?.autoCutoff || {};
+  const revivePaidStart = reviveCfg?.paidStart || {};
   const revivePaidCutoff = reviveCfg?.paidCutoff || {};
   const reviveWipeProtectionCutoff = reviveCfg?.teamWipeProtectionCutoff || { day: 2, timeOfDay: 'day' };
+  const paidReviveCutoffIdx = worldPhaseIndex(
+    Number(revivePaidCutoff?.day ?? 5),
+    phaseFromTimeOfDay(revivePaidCutoff?.timeOfDay ?? revivePaidCutoff?.phase ?? 'day')
+  );
 
   return {
     corpseWindowSec: Math.max(1, Number(reviveCfg?.corpseWindowSec ?? 30)),
@@ -21,15 +26,17 @@ function getRevivePhaseConfig(reviveCfg = {}) {
     corpseDamageDivisor: Math.max(1, Number(reviveCfg?.corpseDamageDivisor ?? 12)),
     autoDelaySecPerLevel: Math.max(0, Number(reviveCfg?.autoDelaySecPerLevel ?? 5)),
     paidReviveCostBase: Math.max(0, Number(reviveCfg?.paidCostBase ?? 200)),
-    paidReviveCostPerUse: Math.max(0, Number(reviveCfg?.paidCostPerUse ?? 50)),
-    paidReviveCutoffIdx: worldPhaseIndex(
-      Number(revivePaidCutoff?.day ?? 6),
-      phaseFromTimeOfDay(revivePaidCutoff?.timeOfDay ?? revivePaidCutoff?.phase ?? 'day')
+    paidReviveCostPerUse: Math.max(0, Number(reviveCfg?.paidCostPerUse ?? 0)),
+    paidReviveStartIdx: worldPhaseIndex(
+      Number(revivePaidStart?.day ?? 3),
+      phaseFromTimeOfDay(revivePaidStart?.timeOfDay ?? revivePaidStart?.phase ?? 'day')
     ),
-    reviveCutoffIdx: worldPhaseIndex(
-      Number(reviveAutoCutoff?.day ?? 3),
+    paidReviveCutoffIdx,
+    autoReviveIdx: worldPhaseIndex(
+      Number(reviveAutoCutoff?.day ?? 2),
       phaseFromTimeOfDay(reviveAutoCutoff?.timeOfDay ?? reviveAutoCutoff?.phase ?? 'night')
     ),
+    reviveCutoffIdx: paidReviveCutoffIdx,
     reviveHpRatio: Math.max(0.05, Math.min(1, Number(reviveCfg?.hpRatio ?? 0.65))),
     wipeProtectionCutoffIdx: worldPhaseIndex(
       Number(reviveWipeProtectionCutoff?.day ?? 2),
@@ -144,9 +151,11 @@ export function runPhaseRevival({
     setDead = () => {},
   } = actions;
   const {
+    autoReviveIdx,
     paidReviveCostBase,
     paidReviveCostPerUse,
     paidReviveCutoffIdx,
+    paidReviveStartIdx,
     reviveCutoffIdx,
     reviveHpRatio,
     wipeProtectionCutoffIdx,
@@ -166,7 +175,9 @@ export function runPhaseRevival({
         survivor && Number(survivor?.hp || 0) > 0 && areSameTeam(survivor, deadActor)
       ));
       const teamAlive = canReviveThisMatch && teammates.length > 0;
+      const wipeProtectionActive = canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx;
       const teamWipeProtected = canReviveThisMatch
+        && wipeProtectionActive
         && deadAt >= 0
         && deadAt <= wipeProtectionCutoffIdx
         && !deadActor?.revivedOnce;
@@ -180,19 +191,19 @@ export function runPhaseRevival({
         }
       }
 
-      const sameZoneReviver = canReviveThisMatch && corpseRemainingSec >= corpseCfg.corpseInteractSec
+      const sameZoneReviver = canReviveThisMatch
+        && wipeProtectionActive
+        && corpseRemainingSec >= corpseCfg.corpseInteractSec
         ? chooseSameZoneReviver(deadActor, survivors)
         : null;
-      const autoDelaySec = actorLevel(deadActor) * Math.max(0, Number(corpseCfg.autoDelaySecPerLevel || 0));
-      const deathAtSec = getDeathAtSec(deadActor);
-      const autoDelayReady = deathAtSec == null || Number(phaseStartSec || 0) >= deathAtSec + autoDelaySec;
-      const canAutoReviveByTeamState = teamWipeProtected || (teamAlive && phaseIdxNow >= worldPhaseIndex(2, 'night'));
+      const canAutoReviveByTeamState = teamWipeProtected || (teamAlive && phaseIdxNow === autoReviveIdx);
       const autoEligible = canReviveThisMatch
         && !sameZoneReviver
         && canAutoReviveByTeamState
-        && (deadActor?.reviveEligible === true || (deadAt >= 0 && deadAt <= reviveCutoffIdx))
+        && deadAt >= 0
+        && deadAt <= autoReviveIdx
         && !deadActor?.revivedOnce
-        && (teamWipeProtected || autoDelayReady);
+        && (teamWipeProtected || phaseIdxNow === autoReviveIdx);
       const paidReviveCount = Math.max(0, Math.floor(Number(deadActor?.paidReviveCount || 0)));
       const paidCost = paidReviveCostBase + paidReviveCostPerUse * paidReviveCount;
       const kioskReviver = findKioskReviver(deadActor, survivors, kiosks, mapObj);
@@ -200,8 +211,11 @@ export function runPhaseRevival({
       const paidEligible = canReviveThisMatch
         && !sameZoneReviver
         && !autoEligible
+        && phaseIdxNow >= paidReviveStartIdx
         && phaseIdxNow <= paidReviveCutoffIdx
-        && phaseIdxNow > reviveCutoffIdx
+        && deadAt >= 0
+        && deadAt <= paidReviveCutoffIdx
+        && !deadActor?.revivedOnce
         && teamAlive
         && kioskReviver
         && teamCreditPool >= paidCost;

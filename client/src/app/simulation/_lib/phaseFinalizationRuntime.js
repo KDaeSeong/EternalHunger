@@ -123,11 +123,12 @@ export async function finalizeSimulationPhase({
     : null;
   const finalAliveTeams = getAliveTeams(finalStepSurvivors);
   const aliveTeamIds = new Set(finalAliveTeams.map((team) => String(team?.teamId || '')).filter(Boolean));
+  const wipeProtectionActive = canReviveThisMatch && phaseIdxNow <= wipeProtectionCutoffIdx;
   const reviveProtectedDeadTeamIds = new Set(
     dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots])
       .filter((actor) => {
         const deadAt = Number(actor?.deadAtPhaseIdx ?? -9999);
-        return canReviveThisMatch
+        return wipeProtectionActive
           && deadAt >= 0
           && deadAt <= wipeProtectionCutoffIdx
           && !actor?.revivedOnce;
@@ -136,7 +137,7 @@ export async function finalizeSimulationPhase({
       .filter(Boolean)
   );
   const protectedContestTeamIds = new Set([...aliveTeamIds, ...reviveProtectedDeadTeamIds]);
-  const shouldDeferEliminationForRevive = canReviveThisMatch
+  const shouldDeferEliminationForRevive = wipeProtectionActive
     && finalAliveTeams.length <= 1
     && protectedContestTeamIds.size > finalAliveTeams.length;
   const shouldFinishByElimination = finalAliveTeams.length <= 1 && !shouldDeferEliminationForRevive;
