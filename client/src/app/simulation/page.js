@@ -18,7 +18,7 @@ import {
 } from '../../utils/masteryLogic';
 import { getRuleset } from '../../utils/rulesets';
 import SiteHeader from '../../components/SiteHeader';
-import { buildTacStatusEffects, getTacBaseCdSec, getTacEffectNumber, getTacTrigger, normalizeSupportedTacSkill } from './tacticalSkillTable';
+import { buildTacStatusEffects, getTacEffectNumber, getTacTrigger } from './tacticalSkillTable';
 import SimulationControlPanel from './_components/SimulationControlPanel';
 import SimulationHydrationPanel from './_components/SimulationHydrationPanel';
 import SimulationLogPanel from './_components/SimulationLogPanel';
@@ -62,7 +62,6 @@ import {
   isAiRecoveryLocked,
   normalizeRevivedSurvivor,
   applyRuntimeEffectPayloads,
-  consumeShieldDamage,
   clearPostCombatEffects,
   hasKioskAtZone,
   classifySpecialByName,
@@ -135,6 +134,7 @@ import {
 import {
   canonicalizeCharName,
 } from './_lib/combatRuntime';
+import { createPhaseCombatTacticalRuntime } from './_lib/phaseCombatTacticalRuntime';
 import {
   estimatePvpPower,
   pickUnbiasedBattle as pickUnbiasedBattleRuntime,
@@ -1751,52 +1751,28 @@ export default function SimulationPage() {
 
 
 
-        // --- 전술 스킬(시즌 11) 간이 발동 로직 ---
-        // - 상세설정에서 선택한 tacticalSkill 문자열을 기반으로, 도주/추격/교전에 실제 영향 부여
-        // - 효과는 관전형 템포에 맞춘 단순 모델(SSOT/AI 안정화 우선)
         const absNow = currentActionSec();
-
-        // --- 전술 강화 모듈(크레딧 업그레이드) 반영 ---
-        // - 인벤에 보유한 '전술 강화 모듈' 수만큼 전술 스킬 쿨다운↓ / 효과↑
-        // - 관전형을 위한 단순 모델(최대 5스택)
-        const tacModuleLevel = (c) => {
-          const mode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level');
-          if (mode === 'level') {
-            // 전술 스킬 레벨: Lv.1~2 (보정치는 Lv-1)
-            const lv = Math.max(1, Math.min(2, Math.floor(Number(c?.tacticalSkillLevel || 1))));
-            return lv - 1;
-          }
-          const inv = Array.isArray(c?.inventory) ? c.inventory : [];
-          let n = 0;
-          for (const it of inv) {
-            const nm = String(it?.name || '').trim();
-            const tags = Array.isArray(it?.tags) ? it.tags : [];
-            const isModule = nm.includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
-            if (!isModule) continue;
-            n += Math.max(0, Number(it?.qty || 1));
-          }
-          // stack 모드는 호환 유지(보정치 최대 1)
-          return Math.max(0, Math.min(1, Math.floor(n)));
-        };
-        const normalizeTac = (v) => {
-          return normalizeSupportedTacSkill(v);
-        };
-        const tacCdSec = (name, who) => {
-          // 전술 스킬 쿨다운: 테이블 기반(튜닝 용이)
-          const base = getTacBaseCdSec(name);
-
-          const lv = tacModuleLevel(who);
-          const mult = Math.max(0.70, 1 - (lv * 0.05)); // 최대 30% 감소
-          return Math.max(12, Math.round(base * mult));
-        };
-        const canUseTac = (c) => (absNow >= Number(c?._tacNextAbsSec || 0));
-        const applyTacUse = (c, name) => {
-          if (!c) return;
-          const n = normalizeTac(name);
-          c._tacNextAbsSec = absNow + tacCdSec(n, c);
-          c._tacLastUsed = n;
-          c._tacLastUsedAt = absNow;
-        };
+        const tacticalRuntime = createPhaseCombatTacticalRuntime({
+          state: {
+            absNow,
+            battleSettings,
+            ruleset,
+          },
+          actions: {
+            addLog,
+            atNow,
+            emitEffectRunEvents,
+            emitRunEvent,
+          },
+        });
+        const {
+          applyCombatTacAttack,
+          applyTacUse,
+          canUseTac,
+          normalizeTac,
+          shieldBlock,
+          tacModuleLevel,
+        } = tacticalRuntime;
         const pvpCfg = ruleset?.pvp || {};
         const pickSparseSafeNeighbor = (fromZoneId) => {
           const from = String(fromZoneId || '');
@@ -2266,96 +2242,6 @@ export default function SimulationPage() {
             if (counterDamageBonus >= 3) bits.push(`${loser.name} 반격 +${counterDamageBonus}`);
             addLog(`⚔️ ER 피해 보정: ${bits.join(' / ')}`, 'system');
           }
-
-
-          const applyCombatTacAttack = (attacker, defender, baseDmg) => {
-            const tac = normalizeTac(attacker?.tacticalSkill);
-            const trig = getTacTrigger(tac, 'combat');
-            const lv = tacModuleLevel(attacker);
-            const hp = Number(attacker?.hp || 0);
-            const maxHp = Math.max(1, Number(attacker?.maxHp || 100));
-            if (!trig || !canUseTac(attacker)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
-            if (Number(trig?.hpBelow || 999) < 999 && hp > Number(trig?.hpBelow || 999)) return Math.max(0, Math.floor(Number(baseDmg || 0)));
-            let dmg = Math.max(0, Math.floor(Number(baseDmg || 0)));
-            const flat = getTacEffectNumber(tac, 'openerFlatDmg', 1 + lv, 0);
-            const heal = getTacEffectNumber(tac, 'selfHeal', 1 + lv, 0);
-            const cost = getTacEffectNumber(tac, 'selfCost', 1 + lv, 0);
-            const regenRecovery = getTacEffectNumber(tac, 'regenRecovery', 1 + lv, 0);
-            const regenDuration = getTacEffectNumber(tac, 'regenDuration', 1 + lv, 2);
-            if (cost > 0 && hp <= Math.max(12, cost + 2)) return dmg;
-            applyTacUse(attacker, tac);
-            if (cost > 0) attacker.hp = Math.max(1, hp - cost);
-            const finalHeal = heal > 0 ? applyHealingModifier(attacker, heal) : 0;
-            if (finalHeal > 0) attacker.hp = Math.min(maxHp, Number(attacker.hp || hp) + finalHeal);
-            const tacEffects = applyRuntimeEffectPayloads(attacker, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`, { target: 'self' }));
-            const targetTacEffects = applyRuntimeEffectPayloads(defender, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`, { target: 'enemy' }));
-            dmg += flat;
-            if (flat > 0 || finalHeal > 0 || cost > 0 || regenRecovery > 0 || tacEffects.results.length > 0 || targetTacEffects.results.length > 0) {
-              const bits = [];
-              if (flat > 0) bits.push(`추가 피해 +${flat}`);
-              if (finalHeal > 0) bits.push(`HP +${finalHeal}`);
-              if (cost > 0) bits.push(`HP -${cost}`);
-              bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
-              bits.push(...collectRuntimeEffectResultTexts(targetTacEffects.results, { subjectName: defender.name }));
-              if (bits.length) addLog(`🧠 [${attacker.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
-            }
-            emitRunEvent('skill', { who: String(attacker?._id || ''), whoName: attacker?.name, skill: String(tac || ''), mode: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
-            emitEffectRunEvents(attacker, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack', zoneId: String(attacker?.zoneId || defender?.zoneId || '') }, atNow());
-            emitEffectRunEvents(defender, targetTacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_attack_target', zoneId: String(defender?.zoneId || attacker?.zoneId || '') }, atNow());
-            return Math.max(0, dmg);
-          };
-          const shieldBlock = (defender, rawDmg) => {
-            let dmg = Math.max(0, Number(rawDmg || 0));
-            if (dmg <= 0) return dmg;
-
-            const preShield = consumeShieldDamage(defender, dmg);
-            if (preShield.absorbed > 0) {
-              addLog(`🛡️ [${defender.name}] 보호막: 피해 -${preShield.absorbed}`, 'system');
-              dmg = Math.max(0, Number(preShield.damage || 0));
-              if (dmg <= 0) return 0;
-            }
-
-            const erDefense = buildErBehaviorModifier(defender, battleSettings);
-            const erBlockRaw = Math.min(Math.max(0, dmg * 0.35), Math.max(0, Number(erDefense?.damageBlock || 0)));
-            const erBlock = Math.min(Math.max(0, Math.round(erBlockRaw)), Math.ceil(dmg));
-            if (erBlock > 0) {
-              dmg = Math.max(0, dmg - erBlock);
-              if (erBlock >= 5) addLog(`🛡️ [${defender.name}] ER 방어: 피해 -${erBlock}`, 'system');
-              if (dmg <= 0) return 0;
-            }
-
-            const tac = normalizeTac(defender?.tacticalSkill);
-            const defenseTac = ['초월', '아티팩트', '무효화'];
-            if (!defenseTac.includes(tac)) return dmg;
-            if (!canUseTac(defender)) return dmg;
-            const tcfg = getTacTrigger(tac, 'combatDefense');
-            const minDmg = Math.max(0, Number(tcfg?.minIncomingDmg ?? 0));
-            if (minDmg > 0 && dmg < minDmg) return dmg;
-            const lv = tacModuleLevel(defender);
-            const negateLethal = getTacEffectNumber(tac, 'negateLethal', 1 + lv, 0) > 0;
-            if (negateLethal && dmg >= Number(defender?.hp || 0)) {
-              applyTacUse(defender, tac);
-              addLog(`🗿 [${defender.name}] 전술 스킬(${tac}): 치명타격 무효`, 'highlight');
-              return Math.max(0, Number(defender?.hp || 0) - 1);
-            }
-            const blockCap = getTacEffectNumber(tac, 'block', 1 + lv, 0);
-            const shieldValue = getTacEffectNumber(tac, 'shieldValue', 1 + lv, blockCap);
-            const shieldDuration = getTacEffectNumber(tac, 'shieldDuration', 1 + lv, 2);
-            if (blockCap <= 0 && shieldValue <= 0) return dmg;
-            applyTacUse(defender, tac);
-            const tacEffects = applyRuntimeEffectPayloads(defender, buildTacStatusEffects(tac, 1 + lv, `tac_${String(tac || '').replace(/\s+/g, '_')}`));
-            const blocked = consumeShieldDamage(defender, dmg);
-            const block = Math.max(0, Number(blocked?.absorbed || 0));
-            if (block > 0 || tacEffects.results.length > 0) {
-              const bits = [];
-              bits.push(...collectRuntimeEffectResultTexts(tacEffects.results));
-              if (block > 0) bits.push(`피해 -${block}`);
-              if (bits.length) addLog(`⚡ [${defender.name}] 전술 스킬(${tac}): ${bits.join(', ')}`, 'highlight');
-            }
-            emitRunEvent('skill', { who: String(defender?._id || ''), whoName: defender?.name, skill: String(tac || ''), mode: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
-            emitEffectRunEvents(defender, tacEffects.results, { source: 'tactical', skill: String(tac || ''), reason: 'combat_defense', zoneId: String(defender?.zoneId || '') }, atNow());
-            return Math.max(0, Number(blocked?.damage || dmg));
-          };
 
           const getCharacterSkillSplashTargets = (attacker, primaryTarget) => {
             const zoneId = String(primaryTarget?.zoneId || attacker?.zoneId || '');
