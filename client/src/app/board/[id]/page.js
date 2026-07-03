@@ -112,6 +112,8 @@ export default function BoardDetailPage() {
   const [form, setForm] = useState({ title: '', content: '', category: 'free' });
   const [commentText, setCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [editingComment, setEditingComment] = useState({ id: '', content: '' });
+  const [editingCommentSaving, setEditingCommentSaving] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState('');
   const [noticeSaving, setNoticeSaving] = useState(false);
   const [reportTarget, setReportTarget] = useState(null);
@@ -352,6 +354,43 @@ export default function BoardDetailPage() {
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setDeletingCommentId('');
+    }
+  };
+
+  const startEditComment = (comment) => {
+    const commentId = comment?._normalizedId || normalizeIdValue(comment?._id || comment?.id);
+    setEditingComment({ id: commentId, content: safeText(comment?.content, '') });
+  };
+
+  const cancelEditComment = () => {
+    setEditingComment({ id: '', content: '' });
+  };
+
+  const updateComment = async () => {
+    const commentId = editingComment.id;
+    const content = editingComment.content.trim();
+    if (!commentId || !content) {
+      const nextMessage = '댓글 내용을 입력해주세요.';
+      setMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+
+    setEditingCommentSaving(true);
+    try {
+      const res = await apiPut(`/posts/${id}/comments/${commentId}`, { content });
+      applyPostResponse(res);
+      cancelEditComment();
+      const nextMessage = res?.message || '댓글을 수정했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+      clearPostCaches();
+    } catch (err) {
+      const nextMessage = err?.response?.data?.error || err.message || '댓글 수정에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setEditingCommentSaving(false);
     }
   };
 
@@ -620,6 +659,8 @@ export default function BoardDetailPage() {
                     normalizeIdValue(comment?.authorId) === String(userId) ||
                     normalizeIdValue(post?.authorId) === String(userId)
                   );
+                  const canEditComment = mounted && token && userId && normalizeIdValue(comment?.authorId) === String(userId);
+                  const isEditingComment = editingComment.id === commentId;
                   return (
                     <article className="board-comment-item" key={commentId || `${comment.authorName}-${comment.createdAt}`}>
                       <div>
@@ -630,11 +671,35 @@ export default function BoardDetailPage() {
                         ) : <strong>{safeText(comment.authorName, '익명')}</strong>}
                         <span>{formatDate(comment.createdAt)}</span>
                       </div>
-                      <p>{safeText(comment.content, '')}</p>
+                      {isEditingComment ? (
+                        <div className="board-comment-edit">
+                          <textarea
+                            value={editingComment.content}
+                            onChange={(event) => setEditingComment({ id: commentId, content: event.target.value })}
+                            rows={3}
+                            maxLength={1200}
+                          />
+                          <div className="board-comment-actions">
+                            <button type="button" onClick={updateComment} disabled={editingCommentSaving}>
+                              {editingCommentSaving ? '저장 중...' : '저장'}
+                            </button>
+                            <button type="button" className="board-secondary" onClick={cancelEditComment} disabled={editingCommentSaving}>
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p>{safeText(comment.content, '')}</p>
+                      )}
                       <div className="board-comment-actions">
                         {mounted && token ? (
                           <button type="button" className="board-secondary board-danger-compact" onClick={() => openReport({ targetType: 'comment', commentId, label: '댓글' })}>
                             신고
+                          </button>
+                        ) : null}
+                        {canEditComment && !isEditingComment ? (
+                          <button type="button" className="board-secondary" onClick={() => startEditComment(comment)}>
+                            수정
                           </button>
                         ) : null}
                         {canRemoveComment ? (

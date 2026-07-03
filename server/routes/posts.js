@@ -501,6 +501,32 @@ router.post('/:id/notice', verifyToken, async (req, res) => {
   }
 });
 
+router.put('/:id/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const content = cleanText(req.body?.content, 1200);
+    if (!content) return res.status(400).json({ error: '댓글 내용을 입력해주세요.' });
+
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ error: '댓글을 찾을 수 없습니다.' });
+
+    if (String(comment.authorId) !== String(req.user.id)) {
+      return res.status(403).json({ error: '댓글 작성자만 수정할 수 있습니다.' });
+    }
+
+    comment.content = content;
+    await post.save();
+
+    const populated = await findPostWithUsers(post._id);
+    res.json({ message: '댓글을 수정했습니다.', post: serializePostDetail(populated) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '댓글 수정에 실패했습니다.' });
+  }
+});
+
 router.delete('/:id/comments/:commentId', verifyToken, async (req, res) => {
   try {
     const post = await Post.findById(req.params.id);

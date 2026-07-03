@@ -558,7 +558,8 @@ textarea {
   gap: 10px;
 }
 
-.board-comment-form textarea {
+.board-comment-form textarea,
+.board-comment-edit textarea {
   width: 100%;
   min-height: 92px;
   border: 1px solid #d4dde6;
@@ -569,6 +570,15 @@ textarea {
   font: inherit;
   font-weight: 700;
   resize: vertical;
+}
+
+.board-comment-edit {
+  display: grid;
+  gap: 8px;
+}
+
+.board-comment-edit textarea {
+  min-height: 82px;
 }
 
 .board-comment-form button {
@@ -613,6 +623,11 @@ textarea {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.board-comment-item > .board-comment-edit {
+  display: grid;
+  align-items: stretch;
 }
 
 .board-comment-item strong {
