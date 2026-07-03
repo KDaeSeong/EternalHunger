@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
 
 function saveLabel(value) {
@@ -141,7 +142,15 @@ export default function SimulationResultModal({
 
         <section className="result-hero">
           {winner ? (
-            <img src={winner.previewImage || '/Images/default_image.png'} alt="" aria-hidden="true" className="winner-img" />
+            <Image
+              src={winner.previewImage || '/Images/default_image.png'}
+              alt=""
+              width={86}
+              height={86}
+              aria-hidden="true"
+              className="winner-img"
+              unoptimized
+            />
           ) : null}
           <div className="result-hero-copy">
             <div className="result-kicker">게임 종료</div>

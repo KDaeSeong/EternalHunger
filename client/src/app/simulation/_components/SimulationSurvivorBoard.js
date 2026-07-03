@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { DEFAULT_RULESET_ID, getPhaseDurationSec, getRuleset, normalizeRulesetId } from '../../../utils/rulesets';
 import { itemDisplayName, itemIcon } from '../_lib/simulationCommon';
 import { getVisibleRuntimeEffects } from '../_lib/runtimeStatus';
@@ -128,7 +129,13 @@ function AliveSurvivorCard(props) {
 
   return (
     <div className="survivor-card alive">
-      <img src={actor.previewImage || '/Images/default_image.png'} alt={actor.name} />
+      <Image
+        src={actor.previewImage || '/Images/default_image.png'}
+        alt={actor.name}
+        width={60}
+        height={60}
+        unoptimized
+      />
       <span>{actor.name}</span>
       <TeamBadge actor={actor} getTeamStateForActor={getTeamStateForActor} />
       <div className="skill-tag">⭐ {actor.specialSkill?.name || '기본 공격'}</div>
@@ -156,7 +163,13 @@ function AliveSurvivorCard(props) {
 function DeadSurvivorCard({ actor, getTeamStateForActor, getZoneName, killCounts }) {
   return (
     <div className="survivor-card dead">
-      <img src={actor.previewImage || '/Images/default_image.png'} alt={actor.name} />
+      <Image
+        src={actor.previewImage || '/Images/default_image.png'}
+        alt={actor.name}
+        width={60}
+        height={60}
+        unoptimized
+      />
       <span>{actor.name}</span>
       <TeamBadge actor={actor} getTeamStateForActor={getTeamStateForActor} />
       <div className="zone-badge dead">📍 {getZoneName(actor.zoneId || '__default__')}</div>

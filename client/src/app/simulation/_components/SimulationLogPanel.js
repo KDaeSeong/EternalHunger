@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import {
   getCombatDetailLogs,
@@ -29,7 +30,18 @@ function LogMessage({ log, actorAvatarByName, extractActorNameFromLog, prefix = 
         lineHeight: 1.45,
       }}
     >
-      {avatar ? <img className="log-avatar" src={avatar} alt="" aria-hidden="true" loading="lazy" /> : null}
+      {avatar ? (
+        <Image
+          className="log-avatar"
+          src={avatar}
+          alt=""
+          width={44}
+          height={44}
+          aria-hidden="true"
+          loading="lazy"
+          unoptimized
+        />
+      ) : null}
       <div className="log-text">{prefix}{log.text}</div>
     </div>
   );
