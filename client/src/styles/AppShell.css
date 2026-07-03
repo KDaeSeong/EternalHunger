@@ -24,6 +24,7 @@
 .profile-page-shell,
 .guides-page-shell,
 .search-page-shell,
+.leaderboard-page-shell,
 .board-page,
 .perk-shop-page,
 .help-page-shell {
@@ -47,6 +48,7 @@
 .profile-page-shell > .site-header,
 .guides-page-shell > .site-header,
 .search-page-shell > .site-header,
+.leaderboard-page-shell > .site-header,
 .board-page > .site-header,
 .perk-shop-page > .site-header,
 .help-page-shell > .site-header,
@@ -141,6 +143,10 @@
 }
 
 .search-page-shell {
+  padding-bottom: 56px;
+}
+
+.leaderboard-page-shell {
   padding-bottom: 56px;
 }
 
@@ -1138,6 +1144,269 @@
   margin: 0;
 }
 
+.leaderboard-page {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.leaderboard-hero,
+.leaderboard-summary > div,
+.leaderboard-top-grid article,
+.leaderboard-panel,
+.leaderboard-empty {
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.leaderboard-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+}
+
+.leaderboard-kicker {
+  margin: 0 0 6px;
+  color: var(--eh-blue);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.leaderboard-hero h1 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.leaderboard-hero p:not(.leaderboard-kicker),
+.leaderboard-panel-title p {
+  margin: 8px 0 0;
+  color: #4f5d69;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.leaderboard-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-hero-actions a,
+.leaderboard-hero-actions button,
+.leaderboard-error button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #0878bd;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.leaderboard-hero-actions a {
+  border-color: rgba(22, 33, 44, 0.16);
+  background: #fff;
+  color: #24313d;
+}
+
+.leaderboard-hero-actions button:disabled {
+  border-color: #c7cdd3;
+  background: #d8dde2;
+  color: #6f7983;
+  cursor: not-allowed;
+}
+
+.leaderboard-summary,
+.leaderboard-top-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.leaderboard-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.leaderboard-top-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.leaderboard-summary > div,
+.leaderboard-top-grid article {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+}
+
+.leaderboard-summary span,
+.leaderboard-top-grid span,
+.leaderboard-list small,
+.leaderboard-panel-title p {
+  color: #66727e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.leaderboard-summary strong {
+  color: #17202a;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.leaderboard-top-grid strong,
+.leaderboard-top-grid p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.leaderboard-top-grid strong {
+  color: #17202a;
+  font-size: 1.05rem;
+}
+
+.leaderboard-top-grid p {
+  margin: 0;
+  color: #155779;
+  font-weight: 900;
+}
+
+.leaderboard-content-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.leaderboard-panel {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.leaderboard-panel-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.leaderboard-panel-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.08rem;
+}
+
+.leaderboard-panel-title > span {
+  min-width: 30px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #eef8ff;
+  color: #155779;
+  padding: 0 9px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard-list a,
+.leaderboard-list li > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+  color: inherit;
+  padding: 10px;
+  text-decoration: none;
+}
+
+.leaderboard-list a:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  background: #f4faff;
+}
+
+.leaderboard-rank {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e0f2fe;
+  color: #075985;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.leaderboard-list strong,
+.leaderboard-list small,
+.leaderboard-list b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.leaderboard-list strong,
+.leaderboard-list small {
+  display: block;
+}
+
+.leaderboard-list strong {
+  color: #17202a;
+  line-height: 1.3;
+}
+
+.leaderboard-list b {
+  color: #155779;
+  font-size: 0.92rem;
+  white-space: nowrap;
+}
+
+.leaderboard-empty {
+  padding: 16px;
+  color: #6a7480;
+  font-weight: 900;
+}
+
+.leaderboard-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #9a3c3f;
+}
+
+.leaderboard-error p {
+  margin: 0;
+}
+
 .notifications-page {
   width: min(100%, var(--eh-content-max));
   margin: 0 auto;
@@ -1772,6 +2041,7 @@
   .profile-page-shell,
   .guides-page-shell,
   .search-page-shell,
+  .leaderboard-page-shell,
   .board-page,
   .perk-shop-page,
   .help-page-shell {
@@ -1792,6 +2062,7 @@
   .profile-page-shell > .site-header,
   .guides-page-shell > .site-header,
   .search-page-shell > .site-header,
+  .leaderboard-page-shell > .site-header,
   .board-page > .site-header,
   .perk-shop-page > .site-header,
   .help-page-shell > .site-header,
@@ -1931,7 +2202,10 @@
   .guides-content-grid,
   .search-hero,
   .search-summary,
-  .search-content-grid {
+  .search-content-grid,
+  .leaderboard-summary,
+  .leaderboard-top-grid,
+  .leaderboard-content-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1939,7 +2213,9 @@
   .account-head,
   .guides-hero,
   .guides-panel-title,
-  .search-error {
+  .search-error,
+  .leaderboard-hero,
+  .leaderboard-error {
     display: grid;
   }
 
@@ -1950,7 +2226,11 @@
   .account-head > a,
   .guides-hero > a,
   .guides-panel-title a,
-  .search-error button {
+  .search-error button,
+  .leaderboard-hero-actions,
+  .leaderboard-hero-actions a,
+  .leaderboard-hero-actions button,
+  .leaderboard-error button {
     width: 100%;
   }
 
@@ -1960,5 +2240,15 @@
 
   .account-record-row {
     grid-template-columns: 1fr;
+  }
+
+  .leaderboard-list a,
+  .leaderboard-list li > div {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .leaderboard-list b {
+    grid-column: 2;
+    white-space: normal;
   }
 }

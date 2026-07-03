@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: '/search', label: '검색' },
   { href: '/characters', label: '캐릭터 설정' },
   { href: '/records', label: '기록소' },
+  { href: '/leaderboard', label: '랭킹' },
   { href: '/details', label: '상세 설정' },
   { href: '/modifiers', label: '보정치' },
   { href: '/perks', label: '특전 상점' },

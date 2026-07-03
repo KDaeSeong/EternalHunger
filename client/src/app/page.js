@@ -40,6 +40,12 @@ const MENU_ITEMS = [
     body: '캐릭터별, 팀별 전적과 승률을 확인합니다.',
   },
   {
+    href: '/leaderboard',
+    tag: 'Rank',
+    title: '리더보드',
+    body: 'LP, 캐릭터, 팀 기준으로 사이트 전체 순위를 비교합니다.',
+  },
+  {
     href: '/board',
     tag: 'Board',
     title: '게시판',

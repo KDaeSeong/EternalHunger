@@ -77,7 +77,7 @@ function getCacheControl(path, method, hasAuth) {
   if (/^public\/(items|maps|kiosks|drone-offers|perks|er-meta)$/.test(normalized)) {
     return 'public, max-age=60, stale-while-revalidate=120';
   }
-  if (/^public\/(home-hub|guides|search)$/.test(normalized) || /^public\/users\/[^/]+$/.test(normalized)) {
+  if (/^public\/(home-hub|guides|search|leaderboard)$/.test(normalized) || /^public\/users\/[^/]+$/.test(normalized)) {
     return 'public, max-age=15, stale-while-revalidate=45';
   }
   if (normalized === 'posts' || /^posts\/[^/]+$/.test(normalized) || normalized === 'twenty-questions') {

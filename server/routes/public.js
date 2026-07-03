@@ -195,12 +195,16 @@ function mapCharacterRecord(row) {
 }
 
 function mapHubUserRank(row) {
+  const statistics = row?.statistics || {};
   return {
     _id: normalizeId(row),
     username: row?.username || '',
     nickname: row?.nickname || '',
     displayName: displayName(row),
     lp: Number(row?.lp || 0),
+    totalGames: toNonNegativeInt(statistics.totalGames),
+    totalWins: toNonNegativeInt(statistics.totalWins),
+    totalKills: toNonNegativeInt(statistics.totalKills),
     createdAt: row?.createdAt || null,
   };
 }
@@ -233,6 +237,14 @@ function mapTeamRecord(row) {
     winRate: gamesPlayed > 0 ? totalWins / gamesPlayed : 0,
     kda: Math.round(((totalKills + totalAssists) / Math.max(1, deathCount)) * 100) / 100,
     lastMatchAt: row?.lastMatchAt || null,
+  };
+}
+
+function mapHubTeamRank(row) {
+  return {
+    ...mapTeamRecord(row),
+    owner: mapCompactUser(row?.userId),
+    ownerName: displayName(row?.userId),
   };
 }
 
@@ -529,6 +541,53 @@ router.get('/search', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '검색 결과를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const [
+      userCount,
+      characterCount,
+      teamCount,
+      users,
+      characters,
+      teams,
+    ] = await Promise.all([
+      User.countDocuments({}),
+      Character.countDocuments({}),
+      TeamRecord.countDocuments({}),
+      User.find({})
+        .select('username nickname lp statistics createdAt')
+        .sort({ lp: -1, createdAt: 1 })
+        .limit(25)
+        .lean(),
+      Character.find({})
+        .select('name weaponType records userId createdAt')
+        .populate('userId', 'username nickname')
+        .sort({ 'records.totalWins': -1, 'records.totalKills': -1, 'records.gamesPlayed': -1, name: 1 })
+        .limit(25)
+        .lean(),
+      TeamRecord.find({})
+        .populate('userId', 'username nickname')
+        .sort({ totalWins: -1, gamesPlayed: -1, totalKills: -1, totalAssists: -1, updatedAt: -1 })
+        .limit(25)
+        .lean(),
+    ]);
+
+    res.json({
+      counts: {
+        users: toNonNegativeInt(userCount),
+        characters: toNonNegativeInt(characterCount),
+        teams: toNonNegativeInt(teamCount),
+      },
+      users: users.map(mapHubUserRank),
+      characters: characters.map(mapHubCharacterRank),
+      teams: teams.map(mapHubTeamRank),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '리더보드를 불러오지 못했습니다.' });
   }
 });
 
