@@ -3,6 +3,7 @@ import { dedupeRuntimeParticipants } from './runtimeParticipantRuntime';
 import { normalizeRuntimeSurvivor } from './survivorRuntime';
 import {
   areSameTeam,
+  getActorTeamId,
   getActorTeamName,
   getAliveTeams,
   pickTeamRepresentative,
@@ -38,6 +39,7 @@ export async function finalizeSimulationPhase({
     phaseIdxNow = 0,
     phaseStartSec = 0,
     reviveCutoffIdx = 0,
+    wipeProtectionCutoffIdx = -1,
     roundAssists = {},
     roundKills = {},
     ruleset,
@@ -120,7 +122,27 @@ export async function finalizeSimulationPhase({
     ? Math.ceil(sdEndAt - (matchSec + phaseDurationSec))
     : null;
   const finalAliveTeams = getAliveTeams(finalStepSurvivors);
-  const shouldFinishByElimination = finalAliveTeams.length <= 1;
+  const aliveTeamIds = new Set(finalAliveTeams.map((team) => String(team?.teamId || '')).filter(Boolean));
+  const reviveProtectedDeadTeamIds = new Set(
+    dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots])
+      .filter((actor) => {
+        const deadAt = Number(actor?.deadAtPhaseIdx ?? -9999);
+        return canReviveThisMatch
+          && deadAt >= 0
+          && deadAt <= wipeProtectionCutoffIdx
+          && !actor?.revivedOnce;
+      })
+      .map((actor) => getActorTeamId(actor))
+      .filter(Boolean)
+  );
+  const protectedContestTeamIds = new Set([...aliveTeamIds, ...reviveProtectedDeadTeamIds]);
+  const shouldDeferEliminationForRevive = canReviveThisMatch
+    && finalAliveTeams.length <= 1
+    && protectedContestTeamIds.size > finalAliveTeams.length;
+  const shouldFinishByElimination = finalAliveTeams.length <= 1 && !shouldDeferEliminationForRevive;
+  if (shouldDeferEliminationForRevive) {
+    addLog('🛡️ 스쿼드 전멸 방지: 2일차 낮까지 부활 가능한 팀이 남아 있어 게임 종료를 보류합니다.', 'system');
+  }
   if (!shouldFinishByElimination) {
     await runVisibleClockToPhaseEnd();
   }
@@ -178,7 +200,7 @@ export async function finalizeSimulationPhase({
       .catch(() => {});
   }
 
-  if (finalAliveTeams.length <= 1) {
+  if (shouldFinishByElimination) {
     const finalDeadForFinish = dedupeRuntimeParticipants([...(Array.isArray(dead) ? dead : []), ...phaseDeadSnapshots]);
     finishGame(finalAliveTeams[0]?.members || finalStepSurvivors, updatedKillCounts, updatedAssistCounts, { finalDead: finalDeadForFinish });
   }

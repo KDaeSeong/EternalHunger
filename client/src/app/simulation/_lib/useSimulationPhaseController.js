@@ -242,12 +242,14 @@ export function useSimulationPhaseController({
 
     const {
       reviveCutoffIdx,
+      wipeProtectionCutoffIdx,
       revivedNow,
     } = runPhaseRevival({
       state: {
         canReviveThisMatch,
         dead,
         forbiddenIds,
+        kiosks,
         mapObj,
         phaseIdxNow,
         phaseStartSec,
@@ -507,6 +509,7 @@ export function useSimulationPhaseController({
         phaseIdxNow,
         phaseStartSec,
         reviveCutoffIdx,
+        wipeProtectionCutoffIdx,
         roundAssists,
         roundKills,
         ruleset,

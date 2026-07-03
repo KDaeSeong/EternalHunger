@@ -334,9 +334,13 @@ export const RULESETS = {
     },
 
     revive: {
-      autoCutoff: { day: 2, timeOfDay: 'night' },
+      corpseWindowSec: 30,
+      corpseInteractSec: 5,
+      corpseDamageDivisor: 12,
+      autoDelaySecPerLevel: 5,
+      autoCutoff: { day: 3, timeOfDay: 'night' },
       teamWipeProtectionCutoff: { day: 2, timeOfDay: 'day' },
-      paidCutoff: { day: 5, timeOfDay: 'day' },
+      paidCutoff: { day: 6, timeOfDay: 'day' },
       paidCostBase: 200,
       paidCostPerUse: 0,
       hpRatio: 0.65,

@@ -183,7 +183,14 @@ function normalizeDeadSnapshot(actor, ruleset) {
     dead._deathKillerId = deathKillerId;
     dead.deathKillerId = deathKillerId;
   }
-  if (Number.isFinite(deathAt) && deathAt > 0) dead._deathAt = deathAt;
+  if (Number.isFinite(deathAt) && deathAt >= 0) {
+    const corpseWindowSec = Math.max(1, Number(ruleset?.revive?.corpseWindowSec ?? 30));
+    dead._deathAt = deathAt;
+    dead.deathAtSec = deathAt;
+    dead.corpseStartedAtSec = deathAt;
+    dead.corpseExpiresAtSec = deathAt + corpseWindowSec;
+    dead.corpseRemainingSec = Math.max(0, Number(dead?.corpseRemainingSec ?? corpseWindowSec));
+  }
   dead.hp = 0;
   return dead;
 }
