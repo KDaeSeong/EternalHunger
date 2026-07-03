@@ -108,6 +108,18 @@ function markObjectiveTarget(result, actor, objectiveType, subkind = '') {
   return result;
 }
 
+function actorHasSpecialKind(actor, kind, itemMetaById, itemNameById) {
+  const target = String(kind || '');
+  if (!target) return false;
+  return (Array.isArray(actor?.inventory) ? actor.inventory : []).some((entry) => {
+    const id = String(entry?.itemId || entry?.id || entry?._id || '');
+    const qty = Math.max(0, Number(entry?.qty ?? 1));
+    if (qty <= 0) return false;
+    const name = String(entry?.name || entry?.text || itemNameById?.[id] || itemMetaById?.[id]?.name || '');
+    return classifySpecialByName(name) === target;
+  });
+}
+
 export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState, forbiddenIds, day, phase, kiosks, itemMetaById = null, itemNameById = null }) {
   const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
   const hasGoal = !!craftGoal?.target && miss.length > 0;
@@ -126,12 +138,14 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
   const up = (upgradeNeed && typeof upgradeNeed === 'object') ? upgradeNeed : null;
   const wantLegendAny = !!up?.wantLegend;
   const wantTransAny = !!up?.wantTrans;
+  const shouldDeferVfForLegend = Number(up?.goalTier || 0) >= 6 && Math.max(0, Number(up?.minTier || 0)) < 5;
   const hasLegendMatAny = !!up?.hasLegendMatAny;
   const hasVfAny = !!up?.hasVf;
   const farmCredits = !!up?.farmCredits;
   const spendSurplus = !!up?.spendSurplus;
 
   const legendCost = Math.max(0, Number(up?.legendCost ?? 200));
+  const mithrilCost = Math.max(0, Number(up?.mithrilCost ?? 250));
   const forceCost = Math.max(0, Number(up?.forceCost ?? 350));
   const transCost = Math.max(0, Number(up?.transCost ?? 500));
 
@@ -141,13 +155,46 @@ export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spa
       .filter(Boolean)
   );
 
-  const needVf = needKeys.has('vf') || (wantTransAny && !hasVfAny);
+  const needVf = (needKeys.has('vf') && !shouldDeferVfForLegend) || (wantTransAny && !hasVfAny);
   const needMeteor = needKeys.has('meteor');
   const needLife = needKeys.has('life_tree');
   const needMithril = needKeys.has('mithril');
   const needForce = needKeys.has('force_core');
+  const hasMeteorInv = actorHasSpecialKind(actor, 'meteor', itemMetaById, itemNameById);
+  const hasLifeInv = actorHasSpecialKind(actor, 'life_tree', itemMetaById, itemNameById);
 
-  if (wantTransAny) {
+  if (kioskZones.length) {
+    if (needVf && isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= transCost) {
+      result.targets = kioskZones;
+      result.reason = 'VF(키오스크 구매)';
+      return result;
+    }
+
+    const neededLegendCost = needForce
+      ? ((hasMeteorInv || hasLifeInv) ? legendCost : forceCost)
+      : needMithril
+        ? mithrilCost
+        : legendCost;
+    if ((needMeteor || needLife || needMithril || needForce) && canUseKioskAtWorldTime(day, phase) && simCredits >= neededLegendCost) {
+      result.targets = kioskZones;
+      result.reason = needForce ? '포스코어(키오스크 구매)' : '전설 재료(키오스크 구매)';
+      return result;
+    }
+
+    if (!shouldDeferVfForLegend && wantTransAny && !hasVfAny && isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= transCost) {
+      result.targets = kioskZones;
+      result.reason = '초월 목표 VF 구매';
+      return result;
+    }
+
+    if (wantLegendAny && !hasLegendMatAny && canUseKioskAtWorldTime(day, phase) && simCredits >= Math.min(legendCost, mithrilCost, forceCost)) {
+      result.targets = kioskZones;
+      result.reason = '전설 목표 재료 구매';
+      return result;
+    }
+  }
+
+  if (wantTransAny && !shouldDeferVfForLegend) {
     const transTargets = uniqStrings(
       transcendCrates
         .filter((c) => c && !c.opened && c.zoneId)

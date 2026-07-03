@@ -128,7 +128,15 @@ export function runProcurementAction({
       if (got > 0) autoEquipBest(updated, itemMetaById);
       didProcure = true;
 
-      const craftedE = tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
+      const specialEKind = classifySpecialByName(String(kioskAction?.item?.name || itemNm || ''));
+      const immediateE = tryImmediateCraftFromSpecial(updated, specialEKind, String(kioskAction.itemId || ''), publicItems, itemNameById, itemMetaById, nextDay, nextPhase, phaseIdxNow, ruleset);
+      if (immediateE?.changed) {
+        updated.inventory = immediateE.inventory;
+        (Array.isArray(immediateE.logs) ? immediateE.logs : []).forEach((message) => addLog(String(message), 'highlight'));
+      }
+      applyImmediateDanger(updated, immediateE, phaseIdxNow);
+
+      const craftedE = immediateE?.changed ? null : tryAutoCraftFromLoot(updated.inventory, kioskAction.itemId, craftables, itemNameById, itemMetaById, nextDay, ruleset, getLootCraftOptions(updated));
       applyLootCraftResult(updated, craftedE, itemMetaById, atNow(), updated?.zoneId);
     }
 

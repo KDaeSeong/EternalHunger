@@ -6,7 +6,6 @@ import {
 import {
   EQUIP_SLOTS,
   SLOT_ICON,
-  START_WEAPON_TYPES,
 } from './simulationConstants';
 import { isAtOrAfterWorldTime, worldPhaseIndex } from './worldTime';
 import { canUseKioskAtWorldTime } from './marketRuntime';
@@ -33,6 +32,14 @@ import {
   pickBestEquipBySlot,
   pickGoalLoadoutBySlot,
 } from './craftRuntime';
+import {
+  catalogItemId,
+  clampGearTier,
+  getInvId,
+  getInvTier,
+  pickCatalogEquipmentItem,
+  resolveActorWeaponType,
+} from './gearCatalogRuntime';
 
 // --- 전설/초월 세팅 목표(관전형 AI) ---
 // - 목적: "파밍(크레딧) → 키오스크 구매 → 전설/초월 제작" 루프를 목표로 움직이게 함
@@ -90,28 +97,32 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
   const goalTier = normalizeGoalTier(actor?.goalGearTier ?? 6);
   const allowLegend = goalTier >= 5;
   const allowTrans = goalTier >= 6;
+  const transGateOpen = isAtOrAfterWorldTime(day, phase, 4, 'day');
 
   // 키오스크가 2일차 낮부터 의미 있게 동작하므로, 목표도 그 시점부터 활성화
   const nearLegend = allowLegend && minTier >= 4 && minTier < 5;
-  const nearTrans = allowTrans && minTier >= 5 && minTier < 6;
+  const nearTrans = allowTrans && transGateOpen && minTier >= 5 && minTier < 6;
   const wantLegend = allowLegend && ((nearLegend && canUseKioskAtWorldTime(day, phase)) || isAtOrAfterWorldTime(day, phase, 2, 'day')) && minTier < 5;
-  const wantTrans = allowTrans && ((nearTrans && canUseKioskAtWorldTime(day, phase)) || isAtOrAfterWorldTime(day, phase, 3, 'day')) && minTier < 6;
+  const wantTrans = allowTrans && transGateOpen && minTier >= 5 && minTier < 6;
+  const prepareTransCredits = allowTrans && !transGateOpen && minTier >= 5 && minTier < 6 && simCredits < Math.max(0, Number(ruleset?.market?.kiosk?.prices?.vf ?? 500));
   const legendOverdue = allowLegend && ((nearLegend && isAtOrAfterWorldTime(day, phase, 1, 'night')) || isAtOrAfterWorldTime(day, phase, 2, 'day')) && minTier < 5;
-  const transOverdue = allowTrans && ((nearTrans && isAtOrAfterWorldTime(day, phase, 3, 'day')) || isAtOrAfterWorldTime(day, phase, 3, 'night')) && minTier < 6;
+  const transOverdue = allowTrans && transGateOpen && minTier >= 5 && minTier < 6;
 
   const legendCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.legendaryByKey?.meteor ?? 200));
+  const mithrilCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.legendaryByKey?.mithril ?? 250));
   const forceCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.legendaryByKey?.force_core ?? 350));
   const transCost = Math.max(0, Number(ruleset?.market?.kiosk?.prices?.vf ?? 500));
 
   // 크레딧 파밍 필요(키오스크 구매/후반 세팅 가속)
   const needCreditsForLegend = wantLegend && simCredits < legendCost;
-  const needCreditsForTrans = wantTrans && simCredits < transCost;
+  const needCreditsForTrans = (wantTrans || prepareTransCredits) && simCredits < transCost;
   const farmCredits = needCreditsForLegend || needCreditsForTrans;
   const canMarketNow = canUseKioskAtWorldTime(day, phase);
-  const stillBelowGoal = minTier < goalTier;
   const surplusLegendBudget = simCredits >= Math.max(legendCost, 200);
   const surplusTransBudget = simCredits >= Math.max(transCost, 500);
-  const spendSurplus = canMarketNow && stillBelowGoal && (surplusLegendBudget || surplusTransBudget);
+  const canSpendForLegend = allowLegend && minTier < 5;
+  const canSpendForTrans = allowTrans && transGateOpen && minTier >= 5 && minTier < 6;
+  const spendSurplus = canMarketNow && ((canSpendForLegend && surplusLegendBudget) || (canSpendForTrans && surplusTransBudget));
 
   return {
     goalTier,
@@ -121,6 +132,8 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
     lowCount,
     wantLegend,
     wantTrans,
+    prepareTransCredits,
+    transGateOpen,
     nearLegend,
     nearTrans,
     legendOverdue,
@@ -132,6 +145,7 @@ function computeLateGameUpgradeNeed(actor, itemMetaById, itemNameById, day, phas
     surplusLegendBudget,
     surplusTransBudget,
     legendCost,
+    mithrilCost,
     forceCost,
     transCost,
   };
@@ -263,25 +277,7 @@ function tryAutoCraftFromInventory(actor, craftables, itemNameById, itemMetaById
 // - 아래 로직은 imported recipe가 없는 개발/데이터 누락 상황에서만 선택적으로 사용합니다.
 // ===============================
 
-function getInvId(x) {
-  return String(x?.itemId || x?.id || x?._id || '');
-}
-
-function clampGearTier(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 1;
-  return Math.max(1, Math.min(6, Math.floor(n)));
-}
-
 const GEAR_SLOT_PRIORITY = { weapon: 0, head: 1, clothes: 2, arm: 3, shoes: 4 };
-
-function getInvTier(x, itemMetaById) {
-  const t0 = Number(x?.tier);
-  if (Number.isFinite(t0) && t0 > 0) return clampGearTier(t0);
-  const id = getInvId(x);
-  const m = id ? itemMetaById?.[id] : null;
-  return clampGearTier(m?.tier || 1);
-}
 
 function isLowMaterialInvEntry(x, itemMetaById, itemNameById) {
   if (!x || typeof x !== 'object') return false;
@@ -306,112 +302,17 @@ function countLowMaterials(inventory, itemMetaById, itemNameById) {
   }, 0);
 }
 
-function resolveActorWeaponType(actor) {
-  const preferred = normalizeWeaponType(String(actor?.weaponType || '').trim());
-  if (preferred) return preferred;
-  const fallback = START_WEAPON_TYPES[Math.floor(Math.random() * START_WEAPON_TYPES.length)];
-  return normalizeWeaponType(fallback);
-}
-
-function catalogItemId(item) {
-  return String(item?._id || item?.itemId || item?.id || '').trim();
-}
-
-function isGeneratedCatalogEquipment(item) {
-  const id = catalogItemId(item);
-  return id.startsWith('wpn_') || id.startsWith('eq_');
-}
-
-function catalogItemKey(item) {
-  return String(item?.itemKey || item?.externalId || '').trim();
-}
-
-function isPreferredCatalogSource(item) {
-  const key = catalogItemKey(item).toLowerCase();
-  const tags = Array.isArray(item?.tags) ? item.tags.map((x) => String(x || '').toLowerCase()) : [];
-  const source = String(item?.source || '').toLowerCase();
-  return key.startsWith('namu:') || tags.includes('namu') || source.includes('openapi') || source.includes('namu') || String(item?.erCode || '').trim();
-}
-
-function getCatalogWeaponType(item) {
-  const rawList = [
-    item?.weaponType,
-    item?.itemSubType,
-    ...(Array.isArray(item?.tags) ? item.tags : []),
-  ];
-  for (const raw of rawList) {
-    const normalized = normalizeWeaponType(String(raw || '').trim());
-    if (normalized) return normalized;
+function orderUpgradeSlotsByTier(inv, targetTier) {
+  function slotTier(slot) {
+    const best = pickBestEquipBySlot(inv, slot);
+    return best ? clampGearTier(Number(best?.tier || 1)) : 0;
   }
-  return '';
-}
 
-function cloneCatalogGear(item, opts = {}) {
-  if (!item || typeof item !== 'object') return null;
-  const tier = clampGearTier(item?.tier || 1);
-  return {
-    ...item,
-    tier,
-    rarity: item?.rarity || tierLabelKo(tier),
-    equipSlot: String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase(),
-    _forceReplaceSameTier: opts?.forceReplaceSameTier === true,
-  };
-}
-
-function pickCatalogEquipmentItem(publicItems, opts = {}) {
-  const slot = String(opts?.slot || '').toLowerCase();
-  if (!slot) return null;
-  const targetTier = clampGearTier(opts?.tier || 1);
-  const preferredWeaponType = slot === 'weapon' ? normalizeWeaponType(String(opts?.weaponType || '').trim()) : '';
-  const avoid = new Set((Array.isArray(opts?.avoidItemIds) ? opts.avoidItemIds : []).map((id) => String(id || '').trim()).filter(Boolean));
-
-  const all = (Array.isArray(publicItems) ? publicItems : [])
-    .filter((item) => {
-      const id = catalogItemId(item);
-      if (!id || avoid.has(id) || isGeneratedCatalogEquipment(item)) return false;
-      if (String(item?.lockedByAdmin || '') === 'deleted') return false;
-      if (String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase() !== slot) return false;
-      return true;
-    });
-  if (!all.length) return null;
-
-  const typed = (preferredWeaponType && slot === 'weapon')
-    ? all.filter((item) => getCatalogWeaponType(item) === preferredWeaponType)
-    : all;
-  const typePool = typed.length ? typed : all;
-  const preferredSourcePool = typePool.filter(isPreferredCatalogSource);
-  const sourcePool = preferredSourcePool.length ? preferredSourcePool : typePool;
-
-  const exact = sourcePool.filter((item) => clampGearTier(item?.tier || 1) === targetTier);
-  let pool = exact;
-  if (!pool.length && opts?.allowNearestTier !== false) {
-    const lower = sourcePool
-      .filter((item) => clampGearTier(item?.tier || 1) <= targetTier)
-      .sort((a, b) => clampGearTier(b?.tier || 1) - clampGearTier(a?.tier || 1));
-    const higher = sourcePool
-      .filter((item) => clampGearTier(item?.tier || 1) > targetTier)
-      .sort((a, b) => clampGearTier(a?.tier || 1) - clampGearTier(b?.tier || 1));
-    if (lower.length) {
-      const bestTier = clampGearTier(lower[0]?.tier || 1);
-      pool = lower.filter((item) => clampGearTier(item?.tier || 1) === bestTier);
-    } else if (higher.length) {
-      const bestTier = clampGearTier(higher[0]?.tier || 1);
-      pool = higher.filter((item) => clampGearTier(item?.tier || 1) === bestTier);
-    }
+  const baseOrder = EQUIP_SLOTS.slice().sort((a, b) => (slotTier(a) - slotTier(b)) || ((GEAR_SLOT_PRIORITY[a] ?? 99) - (GEAR_SLOT_PRIORITY[b] ?? 99)));
+  if (Number(targetTier || 0) >= 6 && slotTier('weapon') < Number(targetTier || 0)) {
+    return ['weapon', ...baseOrder.filter((slot) => slot !== 'weapon')];
   }
-  if (!pool.length) return null;
-
-  const named = pool
-    .filter((item) => String(item?.name || '').trim())
-    .sort((a, b) => {
-      const sa = isPreferredCatalogSource(a) ? 1 : 0;
-      const sb = isPreferredCatalogSource(b) ? 1 : 0;
-      if (sb !== sa) return sb - sa;
-      return String(a?.name || '').localeCompare(String(b?.name || ''));
-    });
-  const finalPool = named.length ? named : pool;
-  const picked = finalPool[Math.floor(Math.random() * finalPool.length)] || finalPool[0];
-  return cloneCatalogGear(picked, { forceReplaceSameTier: opts?.forceReplaceSameTier === true });
+  return baseOrder;
 }
 
 function consumeLowMaterials(inventory, need, itemMetaById, itemNameById) {
@@ -657,17 +558,15 @@ function lateGameGearDirector(actor, publicItems, itemNameById, itemMetaById, da
   // 하급 재료 1개는 필수
   if (Number(up.lowCount || 0) < 1) return { changed: false, logs };
 
-  // 어떤 슬롯을 올릴지: 현재 최저 티어 슬롯부터
-  const slotOrder = EQUIP_SLOTS.slice();
-  function slotTier(slot) {
-    const best = pickBestEquipBySlot(inv, slot);
-    return best ? clampGearTier(Number(best?.tier || 1)) : 0;
-  };
-  slotOrder.sort((a, b) => (slotTier(a) - slotTier(b)) || ((GEAR_SLOT_PRIORITY[a] ?? 99) - (GEAR_SLOT_PRIORITY[b] ?? 99)));
   const wTypeNorm = resolveActorWeaponType(actor);
 
   // 목표 티어 결정
   const targetTier = up.wantTrans ? 6 : 5;
+  const slotOrder = orderUpgradeSlotsByTier(inv, targetTier);
+  const slotTier = (slot) => {
+    const best = pickBestEquipBySlot(inv, slot);
+    return best ? clampGearTier(Number(best?.tier || 1)) : 0;
+  };
 
   // 재료 선택(우선순위)
   const vfId = findInvItemIdBySpecialKind(inv, 'vf', itemMetaById, itemNameById);
@@ -765,7 +664,7 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, publicI
 
   const targetTier = (k === 'vf') ? 6 : 5;
   const craftRule = ruleset?.equipment?.immediateSpecialCraft || ruleset?.immediateSpecialCraft || {};
-  const defaultGate = k === 'vf' ? { day: 4, timeOfDay: 'day' } : { day: 2, timeOfDay: 'night' };
+  const defaultGate = k === 'vf' ? { day: 4, timeOfDay: 'day' } : { day: 2, timeOfDay: 'day' };
   const gate = (k === 'vf' ? craftRule.transGate : craftRule.legendGate) || defaultGate;
   const gateDay = Math.max(1, Number(gate?.day ?? defaultGate.day));
   const gateTimeOfDay = String(gate?.timeOfDay || gate?.phase || defaultGate.timeOfDay);
@@ -796,13 +695,19 @@ function tryImmediateCraftFromSpecial(actor, specialKind, specialItemId, publicI
   if (invQty(inv0, sid) <= 0) return { changed: false, logs: [], pvpBonus: 0 };
 
   let inv = normalizeInventory(inv0, ruleset);
+  if (k === 'vf' && EQUIP_SLOTS.some((slot) => {
+    const best = pickBestEquipBySlot(inv, slot);
+    return !best || clampGearTier(Number(best?.tier || 1)) < 5;
+  })) {
+    return { changed: false, logs: [], pvpBonus: 0 };
+  }
 
-  // 어떤 슬롯을 올릴지: 현재 최저 티어 슬롯부터
-  function slotTier(slot) {
+  // 초월은 무기부터, 그 외에는 현재 최저 티어 슬롯부터 올린다.
+  const slotOrder = orderUpgradeSlotsByTier(inv, targetTier);
+  const slotTier = (slot) => {
     const best = pickBestEquipBySlot(inv, slot);
     return best ? clampGearTier(Number(best?.tier || 1)) : 0;
   };
-  const slotOrder = EQUIP_SLOTS.slice().sort((a, b) => (slotTier(a) - slotTier(b)) || ((GEAR_SLOT_PRIORITY[a] ?? 99) - (GEAR_SLOT_PRIORITY[b] ?? 99)));
   const slotPick = slotOrder.find((s) => slotTier(s) < targetTier) || null;
   if (!slotPick) return { changed: false, logs: [], pvpBonus: 0 };
 

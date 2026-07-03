@@ -67,7 +67,7 @@ const DEFAULT_MARKET_RULES = {
     prices: {
       vf: 500,
       basic: 10,
-      legendaryByKey: { meteor: 200, life_tree: 200, mithril: 200, force_core: 350 },
+      legendaryByKey: { meteor: 200, life_tree: 200, mithril: 250, force_core: 350 },
     },
     buySuccess: { vf: 0.90, legendary: 0.92, basic: 0.88 },
     exchange: {

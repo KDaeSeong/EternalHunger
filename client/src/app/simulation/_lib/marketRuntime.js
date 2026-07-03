@@ -9,9 +9,9 @@ function kioskLegendaryPrice(key, priceByKey) {
   const v = Number(table?.[key]);
   if (Number.isFinite(v) && v > 0) return v;
 
-  if (key === 'force_core') return 1200;
-  if (key === 'mithril') return 900;
-  return 800;
+  if (key === 'force_core') return 350;
+  if (key === 'mithril') return 250;
+  return 200;
 }
 
 function zoneNameHasKiosk(name) {

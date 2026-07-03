@@ -66,6 +66,12 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const nearTrans = !!up?.nearTrans;
   const spendSurplus = !!up?.spendSurplus;
   const hasMeaningfulNeed = hasNeed || hasUpgradeNeed;
+  const shouldDeferVfForLegend = Number(up?.goalTier || 0) >= 6 && Math.max(0, Number(up?.minTier || 0)) < 5;
+  const missingSpecialKeys = new Set(
+    miss
+      .map((m) => String(m?.special || classifySpecialByName(m?.name) || ''))
+      .filter((key) => key === 'vf' || isSpecialCoreKind(key))
+  );
   const cats = mr?.categories || {};
   const allowVf = cats?.vf !== false;
   const allowLegendary = cats?.legendary !== false;
@@ -193,7 +199,30 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const itemId = String(r?.itemId?._id || r?.itemId || '').trim();
     return itemId && miss.some((m) => String(m?.itemId || '') === itemId);
   });
-  if (!hasCatalogNeed) {
+  const kioskSpecialPrice = (key) => {
+    const k = String(key || '');
+    if (k === 'vf') return applyKioskCost(Number(mr?.prices?.vf ?? 500));
+    return applyKioskCost(kioskLegendaryPrice(k, mr?.prices?.legendaryByKey));
+  };
+  const canBuyMissingSpecialNow = [...missingSpecialKeys].some((key) => {
+    if (key === 'vf') return !shouldDeferVfForLegend && allowVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && simCredits >= kioskSpecialPrice('vf');
+    return allowLegendary && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day') && simCredits >= kioskSpecialPrice(key);
+  });
+  const canBuyUpgradeSpecialNow = (
+    (!shouldDeferVfForLegend && allowVf && up?.wantTrans && !up?.hasVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && simCredits >= kioskSpecialPrice('vf'))
+    || (allowLegendary && up?.wantLegend && !up?.hasLegendMatAny && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day') && simCredits >= Math.min(
+      kioskSpecialPrice('meteor'),
+      kioskSpecialPrice('life_tree'),
+      kioskSpecialPrice('mithril'),
+      kioskSpecialPrice('force_core')
+    ))
+  );
+  const canBuyForceCoreComponentNow = missingSpecialKeys.has('force_core')
+    && allowLegendary
+    && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')
+    && simCredits >= Math.min(kioskSpecialPrice('meteor'), kioskSpecialPrice('life_tree'));
+  const shouldForceKioskAttempt = canBuyMissingSpecialNow || canBuyUpgradeSpecialNow || canBuyForceCoreComponentNow;
+  if (!hasCatalogNeed && !shouldForceKioskAttempt) {
     // 업그레이드 목표(전설/초월)만 있어도 키오스크를 '조금 더 자주' 사용
     if (Math.random() >= chance) return null;
   }
@@ -233,6 +262,83 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   const preserveNeededSpecials = mr?.exchange?.preserveNeededSpecials !== false;
   const spareForceNeed = Math.max(0, Number(mr?.exchange?.spareForceCoreToMithril ?? 1));
   const spareMithrilNeed = Math.max(0, Number(mr?.exchange?.spareMithrilToTacModule ?? 2));
+  const specialItemByKey = {
+    meteor: meteorItem,
+    life_tree: lifeTreeItem,
+    mithril: mithrilItem,
+    force_core: forceCoreItem,
+    vf: surplusVfItem,
+  };
+  const canBuySpecialKeyNow = (key) => {
+    const k = String(key || '');
+    if (k === 'vf') return !shouldDeferVfForLegend && allowVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day');
+    return allowLegendary && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day');
+  };
+  const makeSpecialBuy = (key, label) => {
+    const k = String(key || '');
+    const item = specialItemByKey[k] || null;
+    if (!item?._id) return null;
+    if (!canBuySpecialKeyNow(k)) return null;
+    const cost = kioskSpecialPrice(k);
+    if (simCredits < cost) return null;
+    return { kind: 'buy', item, itemId: String(item._id), qty: 1, cost, label };
+  };
+
+  // 목표 장비가 특정 특수 재료를 요구하면 키오스크 도착 시 확률 없이 즉시 처리한다.
+  const needsForceCoreGoal = missingSpecialKeys.has('force_core');
+  if (needsForceCoreGoal && forceCoreItem?._id && allowLegendary && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')) {
+    if (has(meteorItem, 1) && has(lifeTreeItem, 1)) {
+      return {
+        kind: 'exchange',
+        item: forceCoreItem,
+        itemId: String(forceCoreItem._id),
+        qty: 1,
+        consume: [
+          { itemId: String(meteorItem._id), qty: 1 },
+          { itemId: String(lifeTreeItem._id), qty: 1 },
+        ],
+        label: '운석+생나→포스 코어 조합',
+      };
+    }
+
+    const forceBuy = makeSpecialBuy('force_core', '포스 코어(목표)');
+    if (forceBuy) return forceBuy;
+
+    if (has(meteorItem, 1) && !has(lifeTreeItem, 1)) {
+      const lifeBuy = makeSpecialBuy('life_tree', '포스 코어 재료(생나)');
+      if (lifeBuy) return lifeBuy;
+    }
+    if (has(lifeTreeItem, 1) && !has(meteorItem, 1)) {
+      const meteorBuy = makeSpecialBuy('meteor', '포스 코어 재료(운석)');
+      if (meteorBuy) return meteorBuy;
+    }
+
+    return null;
+  }
+
+  if (missingSpecialKeys.has('vf')) {
+    const vfBuy = makeSpecialBuy('vf', 'VF 혈액 샘플(목표)');
+    if (vfBuy) return vfBuy;
+  }
+
+  for (const key of ['meteor', 'life_tree', 'mithril']) {
+    if (!missingSpecialKeys.has(key)) continue;
+    const buy = makeSpecialBuy(key, `전설 재료(${key})`);
+    if (buy) return buy;
+  }
+
+  if (up?.wantTrans && !up?.hasVf) {
+    const vfBuy = makeSpecialBuy('vf', 'VF 혈액 샘플(초월 목표)');
+    if (vfBuy) return vfBuy;
+  }
+
+  if (up?.wantLegend && !up?.hasLegendMatAny) {
+    const candidates = ['meteor', 'life_tree', 'mithril', 'force_core']
+      .map((key) => ({ key, buy: makeSpecialBuy(key, `전설 재료(${key})`) }))
+      .filter((row) => row.buy)
+      .sort((a, b) => Number(a.buy.cost || 0) - Number(b.buy.cost || 0));
+    if (candidates[0]?.buy) return candidates[0].buy;
+  }
 
   if (spendSurplus) {
     const surplusBuyChance = Math.min(0.98, Number(mr?.surplus?.buyChance ?? 0.72) + Math.max(0, simCredits - 500) / 3200);
@@ -323,17 +429,19 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   // 0-C-0) Saved Plan식 추천: 목표 상위 장비가 '특수 재료 1개만 부족'하면 그 재료를 최우선 구매
   if (oneSpecialShort) {
     const key = String(oneSpecialShort.special || '');
-    const onePick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : (key === 'vf' ? findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']) : tacModuleItem);
-    const oneCost = (key === 'vf')
-      ? applyKioskCost(Number(mr?.prices?.vf ?? 500))
-      : ((key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
-        ? applyKioskCost(kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey))
-        : applyKioskCost(Number(mr?.prices?.tacModule ?? 10)));
-    const oneOk = key === 'vf'
-      ? Number(mr?.buySuccess?.vf ?? 0.95)
-      : Number(mr?.buySuccess?.legendary ?? 0.95);
-    if (onePick?._id && simCredits >= oneCost && Math.random() < Math.min(0.995, oneOk + 0.06)) {
-      return { kind: 'buy', item: onePick, itemId: String(onePick._id), qty: 1, cost: oneCost, label: `추천 특수재료(${key})` };
+    if (!(key === 'vf' && shouldDeferVfForLegend)) {
+      const onePick = (key === 'meteor') ? meteorItem : (key === 'life_tree') ? lifeTreeItem : (key === 'mithril') ? mithrilItem : (key === 'force_core') ? forceCoreItem : (key === 'vf' ? findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']) : tacModuleItem);
+      const oneCost = (key === 'vf')
+        ? applyKioskCost(Number(mr?.prices?.vf ?? 500))
+        : ((key === 'meteor' || key === 'life_tree' || key === 'mithril' || key === 'force_core')
+          ? applyKioskCost(kioskLegendaryPrice(String(key), mr?.prices?.legendaryByKey))
+          : applyKioskCost(Number(mr?.prices?.tacModule ?? 10)));
+      const oneOk = key === 'vf'
+        ? Number(mr?.buySuccess?.vf ?? 0.95)
+        : Number(mr?.buySuccess?.legendary ?? 0.95);
+      if (onePick?._id && simCredits >= oneCost && Math.random() < Math.min(0.995, oneOk + 0.06)) {
+        return { kind: 'buy', item: onePick, itemId: String(onePick._id), qty: 1, cost: oneCost, label: `추천 특수재료(${key})` };
+      }
     }
   }
 
@@ -367,7 +475,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     const buyOkVf = Number(mr?.buySuccess?.vf ?? 0.85);
 
     // (A) 초월: VF 혈액 샘플
-    if (allowVf && up.wantTrans && !up.hasVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
+    if (!shouldDeferVfForLegend && allowVf && up.wantTrans && !up.hasVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
       const vfItem2 = findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']);
       const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
       if (vfItem2?._id && simCredits >= cost && Math.random() < buyOkVf) {
@@ -393,7 +501,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
 
   // 1) 목표 기반: VF 혈액 샘플 (룰셋 가격/성공률)
   const needVf = miss.find((m) => m?.special === 'vf' || classifySpecialByName(m?.name) === 'vf');
-  if (needVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
+  if (!shouldDeferVfForLegend && needVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
     const vfItem = findById(needVf.itemId) || findItemByKeywords(items, ['vf', '혈액', '샘플', 'sample']);
     const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
     const ok = Number(mr?.buySuccess?.vf ?? 0.85);
@@ -444,7 +552,7 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   // 4-1) 4일차 낮 이후: VF 혈액 샘플(500 크레딧) 구매 가능
   if (isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
     const vfChance = Number(mr?.fallback?.vfChance ?? 0.25);
-    if (allowVf && Math.random() < vfChance) {
+    if (!shouldDeferVfForLegend && allowVf && Math.random() < vfChance) {
       const vf = findItemByKeywords(items, ['vf', '혈액', '샘플', 'sample']);
       const cost = applyKioskCost(Number(mr?.prices?.vf ?? 500));
       if (vf && simCredits >= cost) return { kind: 'buy', item: vf, itemId: String(vf._id), qty: 1, cost, label: 'VF 혈액 샘플' };
