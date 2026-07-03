@@ -114,7 +114,6 @@ import {
 } from './_lib/lumiaRegionData';
 import {
   isExplicitDay1HeroRoutePlan,
-  shouldForceDay1HeroGearCatchup,
 } from './_lib/routePlanProgressRuntime';
 import {
   advanceActorRouteProgressForGoal,
@@ -125,6 +124,7 @@ import { runHuntAction } from './_lib/phaseHuntActionRuntime';
 import { openLegendaryCrateForActor } from './_lib/phaseLegendaryCrateRuntime';
 import { runCraftAction } from './_lib/phaseCraftActionRuntime';
 import { runProcurementAction } from './_lib/phaseProcurementActionRuntime';
+import { runActorPostActionPhase } from './_lib/phaseActorPostActionRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -1786,54 +1786,30 @@ const didMove = String(nextZoneId) !== String(currentZone);
         updated = craftActionResult.actor;
 
 
-        // --- 시즌 11 컨셉: 가젯 에너지 ---
-        const forceEarlyHeroRouteCompletionAnyAction = shouldForceDay1HeroGearCatchup(updated, nextDay, nextPhase);
-        if (forceEarlyHeroRouteCompletionAnyAction) {
-          runDay1HeroGear(updated, {
-            allowAbstractFallback: true,
-            forceRouteCompletion: true,
-            routeCompletionTier: Number(ruleset?.ai?.day1AbstractFallbackMaxTier ?? 4),
-          });
-        }
-
-        if (ruleset.id === 'ER_S11') {
-          const energyCfg = ruleset?.gadgetEnergy || {};
-          const maxEnergy = Number(energyCfg.max ?? 100);
-          const gain = Number(energyCfg.gainPerPhase ?? 10);
-          const curEnergy = Number(updated.gadgetEnergy ?? 0);
-          updated.gadgetEnergy = Math.min(maxEnergy, curEnergy + gain);
-          if (!updated.cooldowns) updated.cooldowns = { portableSafeZone: 0, cnotGate: 0 };
-          if (updated.safeZoneUntil === undefined || updated.safeZoneUntil === null) updated.safeZoneUntil = 0;
-        }
-
-        // --- 폭발 타이머(금지구역) ---
-        // - 룰셋이 detonation을 제공하면, 어떤 규칙이든 폭발 타이머를 사용합니다.
-        if (useDetonation) {
-          // 기존 저장 데이터와 호환: 필드가 없으면 기본값 주입
-          const detCfg = ruleset?.detonation || {};
-          if (updated.detonationSec === undefined || updated.detonationSec === null) updated.detonationSec = Number(detCfg.startSec ?? 20);
-          if (updated.detonationMaxSec === undefined || updated.detonationMaxSec === null) updated.detonationMaxSec = Number(detCfg.maxSec ?? 30);
-        }
-
-        // --- 금지구역 피해(LEGACY) ---
-        // - detonation이 없을 때만 HP 감소 규칙을 사용
-        if (!useDetonation) {
-          if (forbiddenIds.size > 0 && forbiddenIds.has(String(updated.zoneId))) {
-            updated.hp = Math.max(0, Number(updated.hp || 0) - damagePerTick);
-            if (updated.hp > 0) {
-              addLog(`☠️ [${updated.name}] 금지구역(${getZoneName(updated.zoneId)}) 피해: HP -${damagePerTick}`, 'death');
-            }
-          }
-
-          if (updated.hp <= 0 && Number(s.hp || 0) > 0) {
-            setDeathMetadata(updated, 'forbidden_zone', { causeName: '금지구역 피해' });
-            addLog(`💀 [${s.name}]이(가) 금지구역을 벗어나지 못하고 사망했습니다.`, 'death');
-            updated.deadAtPhaseIdx = phaseIdxNow;
-            updated.reviveEligible = canReviveThisMatch && phaseIdxNow <= reviveCutoffIdx;
-            emitDeathRunEventOnce(updated, { reason: 'forbidden_zone', cause: '금지구역 피해' });
-            newlyDead.push(updated);
-          }
-        }
+        const postActionResult = runActorPostActionPhase({
+          state: {
+            actor: updated,
+            canReviveThisMatch,
+            damagePerTick,
+            forbiddenIds,
+            nextDay,
+            nextPhase,
+            phaseIdxNow,
+            reviveCutoffIdx,
+            ruleset,
+            sourceActor: s,
+            useDetonation,
+          },
+          actions: {
+            addLog,
+            emitDeathRunEventOnce,
+            getZoneName,
+            runDay1HeroGear,
+            setDeathMetadata,
+          },
+        });
+        updated = postActionResult.actor;
+        if (postActionResult.died) newlyDead.push(updated);
         return updated;
       })
       .filter((s) => Number(s.hp || 0) > 0);
