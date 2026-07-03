@@ -103,10 +103,6 @@ import {
   worldPhaseIndex,
 } from './_lib/simulationEngine';
 import {
-  getRegionData,
-  getRegionFacilityZoneIds,
-} from './_lib/lumiaRegionData';
-import {
   isExplicitDay1HeroRoutePlan,
 } from './_lib/routePlanProgressRuntime';
 import {
@@ -121,6 +117,7 @@ import { runProcurementAction } from './_lib/phaseProcurementActionRuntime';
 import { runActorPostActionPhase } from './_lib/phaseActorPostActionRuntime';
 import { runDetonationTickPhase } from './_lib/phaseDetonationTickRuntime';
 import { runDimensionRiftPhase } from './_lib/phaseDimensionRiftRuntime';
+import { runFacilityGatherPhase } from './_lib/phaseFacilityGatherRuntime';
 import {
   normalizeSatiety,
   decayActorSatiety,
@@ -1323,54 +1320,22 @@ const didMove = String(nextZoneId) !== String(currentZone);
           }
         }
 
-        // 🔥 모닥불(요리) & 💧 물 채집 (서버 맵 설정 기반)
-        try {
-          const campfireZones = uniqStr([
-            ...(Array.isArray(mapObj?.campfireZoneIds) ? mapObj.campfireZoneIds : []).map(String),
-            ...getRegionFacilityZoneIds('campfire', mapObj?.zones),
-          ]);
-          const waterZones = uniqStr([
-            ...(Array.isArray(mapObj?.waterSourceZoneIds) ? mapObj.waterSourceZoneIds : []).map(String),
-            ...(Array.isArray(mapObj?.zones) ? mapObj.zones : [])
-              .filter((z) => Number(getRegionData(z?.zoneId)?.resources?.['물'] || 0) > 0)
-              .map((z) => String(z?.zoneId || '')),
-          ]);
-
-          // 물 채집: 해당 존이면 물을 확보(관전 템포용)
-          if (waterZones.includes(String(updated.zoneId))) {
-            const water = findItemByKeywords(publicItems, ['물', 'water']);
-            if (water?._id) {
-              const have = invQty(updated.inventory, String(water._id));
-              const chance = have <= 0 ? 0.85 : have < 2 ? 0.55 : 0.25;
-              if (Math.random() < chance && canReceiveItem(updated.inventory, water, String(water._id), 1, ruleset)) {
-                updated.inventory = addItemToInventory(updated.inventory, water, String(water._id), 1, nextDay, ruleset);
-                const metaW = updated.inventory?._lastAdd;
-                const gotW = Math.max(0, Number(metaW?.acceptedQty ?? 1));
-                addLog(`💧 [${updated.name}] ${getZoneName(updated.zoneId)}에서 물 ${gainText(gotW)}${formatInvAddNote(metaW, 1, updated.inventory, ruleset)}`, 'normal');
-                emitItemGainIfAny(gotW, { who: String(updated?._id || ''), itemId: String(water._id), source: 'gather', kind: 'water', zoneId: String(updated?.zoneId || '') }, atNow());
-              }
-            }
-          }
-
-          // 모닥불 요리: 고기 1개를 스테이크 1개로 변환(페이즈당 1회)
-          if (campfireZones.includes(String(updated.zoneId))) {
-            const meat = findItemByKeywords(publicItems, ['고기']);
-            const steak = findItemByKeywords(publicItems, ['스테이크', 'sizzling steak']);
-            if (meat?._id && steak?._id) {
-              const haveMeat = invQty(updated.inventory, String(meat._id));
-              if (haveMeat >= 1 && canReceiveItem(updated.inventory, steak, String(steak._id), 1, ruleset)) {
-                updated.inventory = consumeIngredientsFromInv(updated.inventory, [{ itemId: String(meat._id), qty: 1 }]);
-                updated.inventory = addItemToInventory(updated.inventory, steak, String(steak._id), 1, nextDay, ruleset);
-                const metaS = updated.inventory?._lastAdd;
-                const gotS = Math.max(0, Number(metaS?.acceptedQty ?? 1));
-                addLog(`🔥 [${updated.name}] ${getZoneName(updated.zoneId)} 모닥불에서 고기를 구워 스테이크 ${gainText(gotS, '제작', '제작 실패')}${formatInvAddNote(metaS, 1, updated.inventory, ruleset)}`, 'highlight');
-                emitItemGainIfAny(gotS, { who: String(updated?._id || ''), itemId: String(steak._id), source: 'craft', kind: 'campfire', zoneId: String(updated?.zoneId || '') }, atNow());
-              }
-            }
-          }
-        } catch {
-          // ignore
-        }
+        const facilityGatherResult = runFacilityGatherPhase({
+          state: {
+            actor: updated,
+            mapObj,
+            nextDay,
+            publicItems,
+            ruleset,
+          },
+          actions: {
+            addLog,
+            atNow,
+            emitItemGainIfAny,
+            getZoneName,
+          },
+        });
+        updated = facilityGatherResult.actor;
 
         // --- 필드 파밍(이벤트 외): 이동/탐색 중 아이템 획득 ---
         const loot = rollFieldLoot(mapObj, updated.zoneId, publicItems, ruleset, {
