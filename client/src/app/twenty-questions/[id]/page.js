@@ -19,6 +19,21 @@ function safeText(value, fallback = '') {
   return text || fallback;
 }
 
+function normalizeIdValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value?.$oid) return String(value.$oid);
+  if (value?._id && value._id !== value) return normalizeIdValue(value._id);
+  if (value?.id && value.id !== value) return normalizeIdValue(value.id);
+  if (typeof value?.toString === 'function') return value.toString();
+  return '';
+}
+
+function userProfileHref(value) {
+  const id = normalizeIdValue(value);
+  return id ? `/users/${id}` : '';
+}
+
 function normalizeRouteId(value) {
   const raw = Array.isArray(value) ? value[0] : value;
   return raw == null ? '' : String(raw);
@@ -50,6 +65,7 @@ function normalizeRoom(payload) {
     title: safeText(row.title, '제목 없음'),
     categoryLabel: safeText(row.categoryLabel, '자유'),
     hint: safeText(row.hint, ''),
+    hostId: row.hostId || row.host?._id || row.host?.id || '',
     hostName: safeText(row.hostName || row.host?.nickname || row.host?.username, '익명'),
     solvedByName: safeText(row.solvedByName || row.solvedBy?.nickname || row.solvedBy?.username, ''),
     status: safeText(row.status, 'active'),
@@ -216,7 +232,14 @@ export default function TwentyQuestionsRoomPage() {
                 <span className="twenty-pill">{room.categoryLabel}</span>
               </div>
               <dl>
-                <div><dt>방장</dt><dd>{room.hostName}</dd></div>
+                <div>
+                  <dt>방장</dt>
+                  <dd>
+                    {userProfileHref(room.hostId) ? (
+                      <Link href={userProfileHref(room.hostId)} className="profile-inline-link">{room.hostName}</Link>
+                    ) : room.hostName}
+                  </dd>
+                </div>
                 <div><dt>질문</dt><dd>{room.questionCount}/{room.maxQuestions}</dd></div>
                 <div><dt>남은 질문</dt><dd>{questionsLeft}</dd></div>
                 <div><dt>정답 도전</dt><dd>{room.guessCount}</dd></div>

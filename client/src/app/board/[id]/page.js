@@ -32,10 +32,15 @@ function normalizeIdValue(value) {
   if (!value) return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   if (value?.$oid) return String(value.$oid);
-  if (value?._id) return normalizeIdValue(value._id);
-  if (value?.id) return normalizeIdValue(value.id);
+  if (value?._id && value._id !== value) return normalizeIdValue(value._id);
+  if (value?.id && value.id !== value) return normalizeIdValue(value.id);
   if (typeof value?.toString === 'function') return value.toString();
   return '';
+}
+
+function userProfileHref(value) {
+  const id = normalizeIdValue(value);
+  return id ? `/users/${id}` : '';
 }
 
 function normalizeRouteId(value) {
@@ -352,7 +357,13 @@ export default function BoardDetailPage() {
                 <dl className="board-post-meta">
                   <div>
                     <dt>작성자</dt>
-                    <dd>{safeText(post.authorName, '익명')}</dd>
+                    <dd>
+                      {userProfileHref(post.authorId) ? (
+                        <Link href={userProfileHref(post.authorId)} className="profile-inline-link">
+                          {safeText(post.authorName, '익명')}
+                        </Link>
+                      ) : safeText(post.authorName, '익명')}
+                    </dd>
                   </div>
                   <div>
                     <dt>댓글</dt>
@@ -476,7 +487,11 @@ export default function BoardDetailPage() {
                   return (
                     <article className="board-comment-item" key={commentId || `${comment.authorName}-${comment.createdAt}`}>
                       <div>
-                        <strong>{safeText(comment.authorName, '익명')}</strong>
+                        {userProfileHref(comment.authorId) ? (
+                          <Link href={userProfileHref(comment.authorId)} className="profile-inline-link">
+                            <strong>{safeText(comment.authorName, '익명')}</strong>
+                          </Link>
+                        ) : <strong>{safeText(comment.authorName, '익명')}</strong>}
                         <span>{formatDate(comment.createdAt)}</span>
                       </div>
                       <p>{safeText(comment.content, '')}</p>

@@ -40,10 +40,15 @@ function normalizeIdValue(value) {
   if (!value) return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   if (value?.$oid) return String(value.$oid);
-  if (value?._id) return normalizeIdValue(value._id);
-  if (value?.id) return normalizeIdValue(value.id);
+  if (value?._id && value._id !== value) return normalizeIdValue(value._id);
+  if (value?.id && value.id !== value) return normalizeIdValue(value.id);
   if (typeof value?.toString === 'function') return value.toString();
   return '';
+}
+
+function userProfileHref(value) {
+  const id = normalizeIdValue(value);
+  return id ? `/users/${id}` : '';
 }
 
 function safeText(value, fallback = '') {
@@ -310,6 +315,8 @@ export default function BoardPage() {
                   const preview = safeText(post?.contentPreview || post?.content, '');
                   const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
                   const rowNo = filteredPosts.length - index;
+                  const authorHref = userProfileHref(post?.authorId);
+                  const authorName = safeText(post?.authorName, '익명');
                   return (
                     <tr key={id || `${post?.title}-${post?.createdAt}`}>
                       <td className="board-cell-no" data-label="번호">{rowNo}</td>
@@ -320,7 +327,9 @@ export default function BoardPage() {
                           <em>{post?.isNotice ? '공지 · ' : ''}댓글 {Number(post?.commentCount || 0)}</em>
                         </Link>
                       </td>
-                      <td data-label="작성자">{safeText(post?.authorName, '익명')}</td>
+                      <td data-label="작성자">
+                        {authorHref ? <Link href={authorHref} className="profile-inline-link">{authorName}</Link> : authorName}
+                      </td>
                       <td data-label="등록일">{formatDate(post?.createdAt)}</td>
                       <td className="board-cell-action" data-label="관리">
                         {canRemove ? (

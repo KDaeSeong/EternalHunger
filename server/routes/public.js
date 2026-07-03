@@ -1,7 +1,13 @@
 // server/routes/public.js
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 
+const User = require('../models/User');
+const Post = require('../models/Post');
+const TwentyQuestionsRoom = require('../models/TwentyQuestionsRoom');
+const Character = require('../models/Characters');
+const TeamRecord = require('../models/TeamRecord');
 const Item = require('../models/Item');
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
@@ -41,6 +47,131 @@ const PUBLIC_ITEM_SELECT = [
   'description',
 ].join(' ');
 
+function normalizeId(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value?.toHexString === 'function') return value.toHexString();
+  if (value?._id && value._id !== value) return normalizeId(value._id);
+  if (value?.id && value.id !== value) return normalizeId(value.id);
+  if (value?.$oid) return String(value.$oid);
+  if (typeof value?.toString === 'function') return value.toString();
+  return '';
+}
+
+function cleanText(value, maxLength) {
+  return String(value || '').trim().slice(0, maxLength);
+}
+
+function toNonNegativeInt(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function displayName(user) {
+  return String(user?.nickname || user?.username || '익명').trim() || '익명';
+}
+
+function mapPublicUser(user) {
+  const statistics = user?.statistics || {};
+  return {
+    _id: normalizeId(user),
+    username: user?.username || '',
+    nickname: user?.nickname || '',
+    displayName: displayName(user),
+    lp: Number(user?.lp || 0),
+    badges: Array.isArray(user?.badges) ? user.badges.map((badge) => ({
+      name: badge?.name || '',
+      unlockedAt: badge?.unlockedAt || null,
+    })).filter((badge) => badge.name) : [],
+    statistics: {
+      totalGames: toNonNegativeInt(statistics.totalGames),
+      totalWins: toNonNegativeInt(statistics.totalWins),
+      totalKills: toNonNegativeInt(statistics.totalKills),
+    },
+    createdAt: user?.createdAt || null,
+  };
+}
+
+function mapPublicPost(post) {
+  return {
+    _id: normalizeId(post),
+    title: post?.title || '',
+    category: post?.category || 'free',
+    isNotice: Boolean(post?.isNotice),
+    commentCount: toNonNegativeInt(post?.commentCount),
+    contentPreview: cleanText(post?.content, 120),
+    createdAt: post?.createdAt || null,
+    updatedAt: post?.updatedAt || null,
+  };
+}
+
+function mapPublicRoom(room) {
+  const questions = Array.isArray(room?.questions) ? room.questions : [];
+  const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
+  return {
+    _id: normalizeId(room),
+    title: room?.title || '',
+    category: room?.category || 'free',
+    hint: room?.hint || '',
+    status: room?.status || 'active',
+    questionCount: questions.length,
+    guessCount: guesses.length,
+    solvedBy: room?.solvedBy && typeof room.solvedBy === 'object' ? {
+      _id: normalizeId(room.solvedBy),
+      username: room.solvedBy.username || '',
+      nickname: room.solvedBy.nickname || '',
+      displayName: displayName(room.solvedBy),
+    } : null,
+    solvedAt: room?.solvedAt || null,
+    createdAt: room?.createdAt || null,
+    updatedAt: room?.updatedAt || null,
+  };
+}
+
+function mapCharacterRecord(row) {
+  const records = row?.records || {};
+  const gamesPlayed = toNonNegativeInt(records.gamesPlayed);
+  const totalWins = toNonNegativeInt(records.totalWins);
+  const totalKills = toNonNegativeInt(records.totalKills);
+  const totalAssists = toNonNegativeInt(records.totalAssists);
+  const deathCount = toNonNegativeInt(records.deathCount);
+  return {
+    _id: normalizeId(row),
+    name: row?.name || '',
+    previewImage: row?.previewImage || '',
+    weaponType: row?.weaponType || '',
+    gamesPlayed,
+    totalWins,
+    totalKills,
+    totalAssists,
+    deathCount,
+    winRate: gamesPlayed > 0 ? totalWins / gamesPlayed : 0,
+    kda: Math.round(((totalKills + totalAssists) / Math.max(1, deathCount)) * 100) / 100,
+  };
+}
+
+function mapTeamRecord(row) {
+  const gamesPlayed = toNonNegativeInt(row?.gamesPlayed);
+  const totalWins = toNonNegativeInt(row?.totalWins);
+  const totalKills = toNonNegativeInt(row?.totalKills);
+  const totalAssists = toNonNegativeInt(row?.totalAssists);
+  const deathCount = toNonNegativeInt(row?.deathCount);
+  return {
+    _id: normalizeId(row),
+    teamKey: row?.teamKey || '',
+    teamName: row?.teamName || '',
+    rosterNames: Array.isArray(row?.rosterNames) ? row.rosterNames.map(String).filter(Boolean) : [],
+    gamesPlayed,
+    totalWins,
+    totalKills,
+    totalAssists,
+    deathCount,
+    winRate: gamesPlayed > 0 ? totalWins / gamesPlayed : 0,
+    kda: Math.round(((totalKills + totalAssists) / Math.max(1, deathCount)) * 100) / 100,
+    lastMatchAt: row?.lastMatchAt || null,
+  };
+}
+
 /**
  * ✅ 공개 데이터 API
  * - 시뮬레이션/에디터/메인에서 필요한 '기본 데이터'를 비로그인으로도 조회 가능
@@ -52,6 +183,77 @@ router.get('/ping', async (req, res) => {
     res.json({ ok: true, ts: Date.now() });
   } catch (err) {
     res.status(500).json({ error: '핑 실패' });
+  }
+});
+
+router.get('/users/:id', async (req, res) => {
+  try {
+    const id = normalizeId(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+    }
+
+    const userId = new mongoose.Types.ObjectId(id);
+    const user = await User.findById(userId)
+      .select('username nickname lp statistics badges createdAt')
+      .lean();
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    const [
+      recentPosts,
+      postCount,
+      commentAgg,
+      recentRooms,
+      hostedRoomCount,
+      solvedHostedRoomCount,
+      topCharacters,
+      topTeams,
+    ] = await Promise.all([
+      Post.find({ authorId: userId })
+        .select('_id title category content isNotice commentCount createdAt updatedAt')
+        .sort({ isNotice: -1, noticePinnedAt: -1, createdAt: -1 })
+        .limit(6)
+        .lean(),
+      Post.countDocuments({ authorId: userId }),
+      Post.aggregate([
+        { $unwind: '$comments' },
+        { $match: { 'comments.authorId': userId } },
+        { $count: 'count' },
+      ]),
+      TwentyQuestionsRoom.find({ hostId: userId })
+        .populate('solvedBy', 'username nickname')
+        .sort({ updatedAt: -1 })
+        .limit(6)
+        .lean(),
+      TwentyQuestionsRoom.countDocuments({ hostId: userId }),
+      TwentyQuestionsRoom.countDocuments({ hostId: userId, status: 'solved' }),
+      Character.find({ userId })
+        .select('name previewImage weaponType records')
+        .sort({ 'records.totalWins': -1, 'records.gamesPlayed': -1, 'records.totalKills': -1, name: 1 })
+        .limit(6)
+        .lean(),
+      TeamRecord.find({ userId })
+        .sort({ totalWins: -1, gamesPlayed: -1, totalKills: -1, updatedAt: -1 })
+        .limit(6)
+        .lean(),
+    ]);
+
+    res.json({
+      user: mapPublicUser(user),
+      summary: {
+        postCount: toNonNegativeInt(postCount),
+        commentCount: toNonNegativeInt(commentAgg?.[0]?.count),
+        hostedRoomCount: toNonNegativeInt(hostedRoomCount),
+        solvedHostedRoomCount: toNonNegativeInt(solvedHostedRoomCount),
+      },
+      recentPosts: recentPosts.map(mapPublicPost),
+      recentRooms: recentRooms.map(mapPublicRoom),
+      topCharacters: topCharacters.map(mapCharacterRecord),
+      topTeams: topTeams.map(mapTeamRecord),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '사용자 프로필을 불러오지 못했습니다.' });
   }
 });
 
