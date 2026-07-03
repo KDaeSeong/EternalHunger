@@ -6,6 +6,7 @@ const router = express.Router();
 const User = require('../models/User');
 const Post = require('../models/Post');
 const TwentyQuestionsRoom = require('../models/TwentyQuestionsRoom');
+const UserFollow = require('../models/UserFollow');
 const Character = require('../models/Characters');
 const TeamRecord = require('../models/TeamRecord');
 const Item = require('../models/Item');
@@ -287,6 +288,10 @@ router.get('/users/:id', async (req, res) => {
     }
 
     const userId = new mongoose.Types.ObjectId(id);
+    const viewerIdRaw = getOptionalUserId(req);
+    const viewerId = mongoose.Types.ObjectId.isValid(String(viewerIdRaw || ''))
+      ? new mongoose.Types.ObjectId(viewerIdRaw)
+      : null;
     const user = await User.findById(userId)
       .select('username nickname profileBio lp statistics badges createdAt')
       .lean();
@@ -300,6 +305,9 @@ router.get('/users/:id', async (req, res) => {
       recentRooms,
       hostedRoomCount,
       solvedHostedRoomCount,
+      followerCount,
+      followingCount,
+      viewerFollow,
       topCharacters,
       topTeams,
     ] = await Promise.all([
@@ -338,6 +346,11 @@ router.get('/users/:id', async (req, res) => {
         .lean(),
       TwentyQuestionsRoom.countDocuments({ hostId: userId }),
       TwentyQuestionsRoom.countDocuments({ hostId: userId, status: 'solved' }),
+      UserFollow.countDocuments({ followingId: userId }),
+      UserFollow.countDocuments({ followerId: userId }),
+      viewerId && normalizeId(viewerId) !== normalizeId(userId)
+        ? UserFollow.exists({ followerId: viewerId, followingId: userId })
+        : null,
       Character.find({ userId })
         .select('name weaponType records')
         .sort({ 'records.totalWins': -1, 'records.gamesPlayed': -1, 'records.totalKills': -1, name: 1 })
@@ -356,6 +369,12 @@ router.get('/users/:id', async (req, res) => {
         commentCount: toNonNegativeInt(commentAgg?.[0]?.count),
         hostedRoomCount: toNonNegativeInt(hostedRoomCount),
         solvedHostedRoomCount: toNonNegativeInt(solvedHostedRoomCount),
+        followerCount: toNonNegativeInt(followerCount),
+        followingCount: toNonNegativeInt(followingCount),
+      },
+      viewerFollow: {
+        following: Boolean(viewerFollow),
+        isSelf: Boolean(viewerId && normalizeId(viewerId) === normalizeId(userId)),
       },
       recentPosts: recentPosts.map(mapPublicPost),
       recentComments: recentComments.map(mapPublicCommentActivity),

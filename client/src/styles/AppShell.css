@@ -499,6 +499,45 @@
   overflow-wrap: anywhere;
 }
 
+.profile-follow-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.profile-follow-row span {
+  color: #66727e;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.profile-follow-row button,
+.profile-follow-row a {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(44, 111, 158, 0.24);
+  border-radius: 8px;
+  background: #eef8ff;
+  color: #155779;
+  padding: 0 12px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.profile-follow-row button {
+  cursor: pointer;
+}
+
+.profile-follow-row button:disabled {
+  background: #edf1f4;
+  color: #73808c;
+  cursor: not-allowed;
+}
+
 .profile-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

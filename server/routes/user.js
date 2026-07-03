@@ -1,8 +1,11 @@
 // server/routes/user.js
 const express = require('express');
+const mongoose = require('mongoose');
 const router = express.Router();
 
 const User = require('../models/User');
+const UserFollow = require('../models/UserFollow');
+const { createNotification } = require('../utils/notifications');
 
 const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks statistics isAdmin badges createdAt';
 
@@ -16,6 +19,37 @@ function normalizeProfileBio(raw) {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function normalizeId(value) {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value?.toHexString === 'function') return value.toHexString();
+  if (value?._id && value._id !== value) return normalizeId(value._id);
+  if (value?.id && value.id !== value) return normalizeId(value.id);
+  if (typeof value?.toString === 'function') return value.toString();
+  return '';
+}
+
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(String(value || ''));
+}
+
+async function getFollowState(targetUserId, viewerId) {
+  const [followerCount, followingCount, existingFollow] = await Promise.all([
+    UserFollow.countDocuments({ followingId: targetUserId }),
+    UserFollow.countDocuments({ followerId: targetUserId }),
+    viewerId && normalizeId(viewerId) !== normalizeId(targetUserId)
+      ? UserFollow.exists({ followerId: viewerId, followingId: targetUserId })
+      : null,
+  ]);
+
+  return {
+    followerCount,
+    followingCount,
+    following: Boolean(existingFollow),
+    isSelf: Boolean(viewerId && normalizeId(viewerId) === normalizeId(targetUserId)),
+  };
 }
 
 function publicUser(user) {
@@ -95,6 +129,83 @@ router.put('/profile', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '프로필 저장에 실패했습니다.' });
+  }
+});
+
+router.get('/follows/:targetUserId', async (req, res) => {
+  try {
+    const targetUserId = String(req.params.targetUserId || '');
+    if (!isValidObjectId(targetUserId)) {
+      return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+    }
+
+    const target = await User.findById(targetUserId).select('_id').lean();
+    if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    res.json(await getFollowState(target._id, req.user.id));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '팔로우 상태를 확인하지 못했습니다.' });
+  }
+});
+
+router.post('/follows/:targetUserId', async (req, res) => {
+  try {
+    const targetUserId = String(req.params.targetUserId || '');
+    if (!isValidObjectId(targetUserId)) {
+      return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+    }
+    if (normalizeId(targetUserId) === normalizeId(req.user.id)) {
+      return res.status(400).json({ error: '자기 자신은 팔로우할 수 없습니다.' });
+    }
+
+    const target = await User.findById(targetUserId).select('_id username nickname').lean();
+    if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    try {
+      await UserFollow.create({ followerId: req.user.id, followingId: target._id });
+      await createNotification({
+        userId: target._id,
+        actorId: req.user.id,
+        type: 'user_follow',
+        title: '새 팔로워',
+        message: '새 사용자가 회원님을 팔로우했습니다.',
+        link: `/users/${req.user.id}`,
+        meta: { followerId: normalizeId(req.user.id) },
+      });
+    } catch (err) {
+      if (err?.code !== 11000) throw err;
+    }
+
+    res.json({
+      message: '팔로우했습니다.',
+      ...(await getFollowState(target._id, req.user.id)),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '팔로우에 실패했습니다.' });
+  }
+});
+
+router.delete('/follows/:targetUserId', async (req, res) => {
+  try {
+    const targetUserId = String(req.params.targetUserId || '');
+    if (!isValidObjectId(targetUserId)) {
+      return res.status(400).json({ error: '사용자 ID가 올바르지 않습니다.' });
+    }
+
+    const target = await User.findById(targetUserId).select('_id').lean();
+    if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    await UserFollow.deleteOne({ followerId: req.user.id, followingId: target._id });
+    res.json({
+      message: '팔로우를 해제했습니다.',
+      ...(await getFollowState(target._id, req.user.id)),
+      following: false,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '팔로우 해제에 실패했습니다.' });
   }
 });
 

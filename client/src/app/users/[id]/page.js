@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiGetCached } from '../../../utils/api';
+import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
+import { useAuthToken, useHydrated } from '../../../utils/client-auth';
 
 const CATEGORY_LABELS = {
   free: '자유',
@@ -62,6 +63,7 @@ function normalizeProfile(payload) {
     recentPosts: normalizeList(src.recentPosts),
     recentComments: normalizeList(src.recentComments),
     recentRooms: normalizeList(src.recentRooms),
+    viewerFollow: src.viewerFollow && typeof src.viewerFollow === 'object' ? src.viewerFollow : {},
     topCharacters: normalizeList(src.topCharacters),
     topTeams: normalizeList(src.topTeams),
   };
@@ -124,9 +126,12 @@ export default function UserProfilePage() {
   const params = useParams();
   const id = normalizeRouteId(params?.id);
   const { showToast } = useToast();
+  const hydrated = useHydrated();
+  const token = useAuthToken();
   const [profile, setProfile] = useState(() => normalizeProfile(null));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [followSaving, setFollowSaving] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!id) {
@@ -157,9 +162,11 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     void loadProfile();
-  }, [loadProfile]);
+  }, [loadProfile, token]);
 
   const user = profile.user;
+  const summary = profile.summary || {};
+  const viewerFollow = profile.viewerFollow || {};
   const stats = user?.statistics || {};
   const winRate = Number(stats.totalGames || 0) > 0
     ? Number(stats.totalWins || 0) / Number(stats.totalGames || 1)
@@ -167,6 +174,34 @@ export default function UserProfilePage() {
   const displayName = safeText(user?.displayName || user?.nickname || user?.username, '사용자');
   const profileBio = safeText(user?.profileBio, '');
   const badges = useMemo(() => normalizeList(user?.badges).filter((badge) => safeText(badge?.name)), [user?.badges]);
+
+  const toggleFollow = async () => {
+    if (!id || !token || viewerFollow.isSelf) return;
+    setFollowSaving(true);
+    try {
+      const data = viewerFollow.following
+        ? await apiDelete(`/user/follows/${id}`)
+        : await apiPost(`/user/follows/${id}`, {});
+      setProfile((current) => ({
+        ...current,
+        summary: {
+          ...(current.summary || {}),
+          followerCount: Number(data?.followerCount || 0),
+          followingCount: Number(data?.followingCount || 0),
+        },
+        viewerFollow: {
+          following: Boolean(data?.following),
+          isSelf: Boolean(data?.isSelf),
+        },
+      }));
+      clearApiGetCache(`/public/users/${id}`);
+      showToast({ tone: 'success', message: data?.message || (viewerFollow.following ? '팔로우를 해제했습니다.' : '팔로우했습니다.') });
+    } catch (err) {
+      showToast({ tone: 'danger', message: err?.message || '팔로우 상태 변경에 실패했습니다.' });
+    } finally {
+      setFollowSaving(false);
+    }
+  };
 
   return (
     <main className="profile-page-shell">
@@ -189,14 +224,24 @@ export default function UserProfilePage() {
                 <h1>{displayName}</h1>
                 <span>{user.username ? `@${user.username}` : '아이디 없음'} · 가입일 {formatDate(user.createdAt) || '-'}</span>
                 {profileBio ? <p className="profile-bio">{profileBio}</p> : null}
+                <div className="profile-follow-row">
+                  <span>팔로워 {formatNumber(summary.followerCount)} · 팔로잉 {formatNumber(summary.followingCount)}</span>
+                  {viewerFollow.isSelf ? null : hydrated && token ? (
+                    <button type="button" onClick={toggleFollow} disabled={followSaving}>
+                      {followSaving ? '처리 중...' : viewerFollow.following ? '팔로잉' : '팔로우'}
+                    </button>
+                  ) : (
+                    <Link href="/login">팔로우</Link>
+                  )}
+                </div>
               </div>
             </section>
 
             <section className="profile-stats" aria-label="사용자 요약">
               <div><span>LP</span><strong>{formatNumber(user.lp)}</strong></div>
               <div><span>전적</span><strong>{formatNumber(stats.totalGames)}전</strong><small>승률 {formatRate(winRate)}</small></div>
-              <div><span>게시글</span><strong>{formatNumber(profile.summary.postCount)}</strong><small>댓글 {formatNumber(profile.summary.commentCount)}</small></div>
-              <div><span>스무고개</span><strong>{formatNumber(profile.summary.hostedRoomCount)}방</strong><small>해결 {formatNumber(profile.summary.solvedHostedRoomCount)}</small></div>
+              <div><span>게시글</span><strong>{formatNumber(summary.postCount)}</strong><small>댓글 {formatNumber(summary.commentCount)}</small></div>
+              <div><span>스무고개</span><strong>{formatNumber(summary.hostedRoomCount)}방</strong><small>해결 {formatNumber(summary.solvedHostedRoomCount)}</small></div>
             </section>
 
             {badges.length ? (
