@@ -61,6 +61,7 @@ function normalizeRoom(payload) {
   if (!row || typeof row !== 'object') return null;
   const questions = normalizeList(row.questions);
   const guesses = normalizeList(row.guesses);
+  const hintMessages = normalizeList(row.hintMessages);
   const questionCount = Number(row.questionCount || questions.length);
   const guessCount = Number(row.guessCount || guesses.length);
   const maxQuestions = Number(row.maxQuestions || 20);
@@ -86,6 +87,7 @@ function normalizeRoom(payload) {
     isHost: Boolean(row.isHost),
     questions,
     guesses,
+    hintMessages,
   };
 }
 
@@ -101,6 +103,7 @@ export default function TwentyQuestionsRoomPage() {
   const [loading, setLoading] = useState(true);
   const [questionText, setQuestionText] = useState('');
   const [guessText, setGuessText] = useState('');
+  const [hintText, setHintText] = useState('');
   const [submitting, setSubmitting] = useState('');
 
   const loadRoom = useCallback(async () => {
@@ -128,6 +131,10 @@ export default function TwentyQuestionsRoomPage() {
   const pendingQuestions = useMemo(
     () => normalizeList(room?.questions).filter((question) => question?.response === 'pending'),
     [room?.questions]
+  );
+  const hintMessages = useMemo(
+    () => normalizeList(room?.hintMessages),
+    [room?.hintMessages]
   );
   const active = room?.status === 'active';
   const attemptsLeft = Math.max(0, Number(room?.remainingCount != null ? room.remainingCount : Number(room?.maxQuestions || 20) - Number(room?.attemptCount || 0)));
@@ -205,6 +212,30 @@ export default function TwentyQuestionsRoomPage() {
       showToast({ tone: data?.correct ? 'success' : 'warning', message: data?.message || '정답 도전을 기록했습니다.' });
     } catch (err) {
       showToast({ tone: 'danger', message: err?.message || '정답 도전에 실패했습니다.' });
+    } finally {
+      setSubmitting('');
+    }
+  };
+
+  const sendHintMessage = async () => {
+    const text = hintText.trim();
+    if (!text) {
+      showToast({ tone: 'warning', message: '힌트를 입력해주세요.' });
+      return;
+    }
+    if (!room?.isHost || !active) {
+      showToast({ tone: 'warning', message: '방장만 진행 중인 방에 힌트를 남길 수 있습니다.' });
+      return;
+    }
+    setSubmitting('hint');
+    try {
+      const data = await apiPost(`/twenty-questions/${id}/hints`, { text }, { timeoutMs: 15000 });
+      applyRoomResponse(data);
+      clearRoomCaches();
+      setHintText('');
+      showToast({ tone: 'success', message: data?.message || '힌트를 등록했습니다.' });
+    } catch (err) {
+      showToast({ tone: 'danger', message: err?.message || '힌트 등록에 실패했습니다.' });
     } finally {
       setSubmitting('');
     }
@@ -321,6 +352,42 @@ export default function TwentyQuestionsRoomPage() {
                 </div>
               </section>
             ) : null}
+
+            <section className="twenty-chat-panel">
+              <div className="twenty-panel-title">
+                <strong>힌트 채팅</strong>
+                <span>{hintMessages.length}</span>
+              </div>
+              <div className="twenty-chat-list">
+                {hintMessages.length === 0 ? <div className="twenty-empty compact">아직 힌트가 없습니다.</div> : null}
+                {hintMessages.map((message, index) => (
+                  <article className="twenty-chat-message" key={message._id || index}>
+                    <div>
+                      <strong>{message.authorName || room.hostName || '방장'}</strong>
+                      <small>{formatDate(message.createdAt)}</small>
+                    </div>
+                    <p>{message.text}</p>
+                  </article>
+                ))}
+              </div>
+              {room.isHost && active ? (
+                <div className="twenty-chat-input">
+                  <textarea
+                    value={hintText}
+                    onChange={(event) => setHintText(event.target.value)}
+                    placeholder="참가자에게 공개할 힌트"
+                    rows={3}
+                    maxLength={240}
+                    disabled={submitting === 'hint'}
+                  />
+                  <button type="button" onClick={sendHintMessage} disabled={submitting === 'hint'}>
+                    {submitting === 'hint' ? '등록 중...' : '힌트 등록'}
+                  </button>
+                </div>
+              ) : active ? (
+                <div className="twenty-chat-locked">방장만 힌트를 남길 수 있습니다.</div>
+              ) : null}
+            </section>
 
             {room.isHost && pendingQuestions.length > 0 ? (
               <section className="twenty-host-panel">

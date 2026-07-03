@@ -121,6 +121,17 @@ function serializeGuess(guess) {
   };
 }
 
+function serializeHintMessage(message) {
+  return {
+    _id: normalizeId(message),
+    author: compactUser(message.authorId),
+    authorName: displayName(message.authorId),
+    text: message.text || '',
+    createdAt: message.createdAt || null,
+    updatedAt: message.updatedAt || null,
+  };
+}
+
 function serializeRoomSummary(room) {
   const {
     questions,
@@ -163,6 +174,7 @@ function serializeRoomDetail(room, userId) {
     answerRevealed: revealAnswer,
     questions: (Array.isArray(room?.questions) ? room.questions : []).map(serializeQuestion),
     guesses: (Array.isArray(room?.guesses) ? room.guesses : []).map(serializeGuess),
+    hintMessages: (Array.isArray(room?.hintMessages) ? room.hintMessages : []).map(serializeHintMessage),
   };
 }
 
@@ -195,6 +207,7 @@ function serializeCreatedRoomFallback(room, userId) {
     answerRevealed: revealAnswer,
     questions: [],
     guesses: [],
+    hintMessages: [],
   };
 }
 
@@ -204,6 +217,7 @@ async function findRoomWithUsers(id) {
     .populate('solvedBy', 'username nickname')
     .populate('questions.askerId', 'username nickname')
     .populate('guesses.guesserId', 'username nickname')
+    .populate('hintMessages.authorId', 'username nickname')
     .lean();
 }
 
@@ -316,6 +330,27 @@ router.post('/:id/questions', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '질문 등록에 실패했습니다.' });
+  }
+});
+
+router.post('/:id/hints', verifyToken, async (req, res) => {
+  try {
+    const text = normalizeText(req.body?.text, 240);
+    if (!text) return res.status(400).json({ error: '힌트를 입력해주세요.' });
+
+    const room = await TwentyQuestionsRoom.findById(req.params.id);
+    if (!room) return res.status(404).json({ error: '스무고개 방을 찾을 수 없습니다.' });
+    if (!isHost(room, req.user.id)) return res.status(403).json({ error: '방장만 힌트를 남길 수 있습니다.' });
+    if (room.status !== 'active') return res.status(400).json({ error: '진행 중인 방에만 힌트를 남길 수 있습니다.' });
+
+    room.hintMessages.push({ authorId: req.user.id, text });
+    await room.save();
+
+    const populated = await findRoomWithUsers(room._id);
+    res.json({ message: '힌트를 등록했습니다.', room: serializeRoomDetail(populated, req.user.id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '힌트 등록에 실패했습니다.' });
   }
 });
 

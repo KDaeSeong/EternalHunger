@@ -31,6 +31,11 @@ const TwentyQuestionsGuessSchema = new mongoose.Schema({
   correct: { type: Boolean, default: false },
 }, { timestamps: true });
 
+const TwentyQuestionsHintMessageSchema = new mongoose.Schema({
+  authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  text: { type: String, required: true, trim: true, maxlength: 240 },
+}, { timestamps: true });
+
 const TwentyQuestionsRoomSchema = new mongoose.Schema({
   hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   title: { type: String, required: true, trim: true, maxlength: 80 },
@@ -48,6 +53,7 @@ const TwentyQuestionsRoomSchema = new mongoose.Schema({
   solvedAt: { type: Date, default: null },
   questions: [TwentyQuestionsQuestionSchema],
   guesses: [TwentyQuestionsGuessSchema],
+  hintMessages: [TwentyQuestionsHintMessageSchema],
 }, { timestamps: true });
 
 TwentyQuestionsRoomSchema.index({ status: 1, updatedAt: -1 });
