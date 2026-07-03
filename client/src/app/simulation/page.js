@@ -165,7 +165,10 @@ import {
   buildPvpPhaseRuntime,
   pickPvpTarget as pickPvpTargetRuntime,
 } from './_lib/pvpPhaseRuntime';
-import { runForcedSuddenDeathClash } from './_lib/suddenDeathRuntime';
+import {
+  runForcedSuddenDeathClash,
+  runSuddenDeathGatherPhase,
+} from './_lib/suddenDeathRuntime';
 import {
   collectRuntimeEffectResultTexts,
   logRuntimeEffectResults,
@@ -1837,33 +1840,21 @@ const didMove = String(nextZoneId) !== String(currentZone);
     });
     updatedSurvivors = dimensionRiftResult.updatedSurvivors;
 
-    if (suddenDeathActiveRef.current && ruleset?.suddenDeath?.forceGather !== false && suddenDeathSafeZoneIds.length > 0) {
-      const aliveTeamsBeforeClash = getAliveTeams(updatedSurvivors);
-      if (aliveTeamsBeforeClash.length > 1) {
-        const clashZone = String(suddenDeathSafeZoneIds[0] || '');
-        const criticalSec = Math.max(0, Number(ruleset?.detonation?.criticalSec ?? 5));
-        const detMax = Math.max(criticalSec + 8, Number(ruleset?.detonation?.maxSec ?? 30));
-        updatedSurvivors = normalizeRuntimeSurvivorList(
-          updatedSurvivors.map((actor) => {
-            if (!actor || Number(actor?.hp || 0) <= 0) return actor;
-            if (!clashZone || String(actor.zoneId || '') === clashZone) return actor;
-            return {
-              ...actor,
-              zoneId: clashZone,
-              detonationMaxSec: Math.max(Number(actor?.detonationMaxSec || 0), detMax),
-              detonationSec: Math.max(Number(actor?.detonationSec || 0), criticalSec + 8),
-              aiTargetZoneId: null,
-              aiTargetTTL: 0,
-            };
-          })
-        ).filter((s) => Number(s?.hp || 0) > 0);
-        addLog(`🔥 서든데스 교전 집결: 생존 팀이 ${getZoneName(clashZone)}로 진입합니다.`, 'highlight');
-        emitRunEvent('sudden_death_gather', {
-          zoneId: clashZone,
-          teamCount: aliveTeamsBeforeClash.length,
-        }, atNow());
-      }
-    }
+    const suddenDeathGatherResult = runSuddenDeathGatherPhase({
+      state: {
+        ruleset,
+        suddenDeathActive: suddenDeathActiveRef.current,
+        suddenDeathSafeZoneIds,
+        updatedSurvivors,
+      },
+      actions: {
+        addLog,
+        atNow,
+        emitRunEvent,
+        getZoneName,
+      },
+    });
+    updatedSurvivors = suddenDeathGatherResult.updatedSurvivors;
 
     const detonationTickResult = runDetonationTickPhase({
       state: {
