@@ -330,7 +330,7 @@ router.get('/:id/reaction', verifyToken, async (req, res) => {
 
 router.post('/:id/reaction', verifyToken, async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).select('_id').lean();
+    const post = await Post.findById(req.params.id).select('_id authorId title').lean();
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
 
     const existing = await PostReaction.findOne({ userId: req.user.id, postId: post._id });
@@ -344,6 +344,22 @@ router.post('/:id/reaction', verifyToken, async (req, res) => {
 
     const reactionCount = await PostReaction.countDocuments({ postId: post._id });
     await Post.updateOne({ _id: post._id }, { $set: { reactionCount } });
+
+    if (reacted) {
+      await createNotification({
+        userId: post.authorId,
+        actorId: req.user.id,
+        type: 'post_reaction',
+        title: '새 추천',
+        message: `"${post.title || '게시글'}"에 추천이 추가되었습니다.`,
+        link: `/board/${post._id}`,
+        meta: {
+          postId: normalizeId(post),
+          reactionCount,
+          reactionUserId: normalizeId(req.user.id),
+        },
+      });
+    }
 
     res.json({
       message: reacted ? '게시글을 추천했습니다.' : '게시글 추천을 취소했습니다.',

@@ -148,7 +148,7 @@ export default function NotificationsPage() {
           <div className="notifications-empty">알림을 확인하는 중입니다.</div>
         ) : !token ? (
           <div className="notifications-empty">
-            <p>로그인하면 댓글, 신고 처리, 스무고개 진행 알림을 볼 수 있습니다.</p>
+            <p>로그인하면 추천, 댓글, 신고 처리, 스무고개 진행 알림을 볼 수 있습니다.</p>
             <Link href="/login">로그인</Link>
           </div>
         ) : notifications.length === 0 ? (
