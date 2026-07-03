@@ -52,6 +52,12 @@ const MENU_ITEMS = [
     body: '공지, 공략, 피드백, 버그 제보를 모아봅니다.',
   },
   {
+    href: '/bookmarks',
+    tag: 'Save',
+    title: '저장글',
+    body: '다시 볼 게시글과 공략을 개인 목록에 모아둡니다.',
+  },
+  {
     href: '/twenty-questions',
     tag: '20Q',
     title: '스무고개',

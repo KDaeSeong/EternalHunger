@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiDelete, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../utils/api';
+import { apiDelete, apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
 
 const BOARD_CATEGORIES = [
@@ -115,6 +115,9 @@ export default function BoardDetailPage() {
   const [reportTarget, setReportTarget] = useState(null);
   const [reportForm, setReportForm] = useState({ reason: 'other', detail: '' });
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [bookmarkSaving, setBookmarkSaving] = useState(false);
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -153,6 +156,28 @@ export default function BoardDetailPage() {
     void Promise.resolve().then(load);
   }, [load]);
 
+  const loadBookmarkStatus = useCallback(async () => {
+    if (!id || !token) {
+      setBookmarked(false);
+      return;
+    }
+
+    setBookmarkLoading(true);
+    try {
+      const data = await apiGet(`/posts/${id}/bookmark`, { timeoutMs: 10000 });
+      setBookmarked(Boolean(data?.bookmarked));
+    } catch {
+      setBookmarked(false);
+    } finally {
+      setBookmarkLoading(false);
+    }
+  }, [id, token]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    void loadBookmarkStatus();
+  }, [loadBookmarkStatus, mounted]);
+
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
   const canManageNotice = mounted && token && Boolean(user?.isAdmin) && post;
   const comments = Array.isArray(post?.comments) ? post.comments : [];
@@ -166,10 +191,29 @@ export default function BoardDetailPage() {
 
   const clearPostCaches = () => {
     clearApiGetCache(`/posts/${id}`);
+    clearApiGetCache('/posts/bookmarks');
     clearApiGetCache('/posts');
     clearApiGetCache('/public/home-hub');
     clearApiGetCache('/public/guides');
     clearApiGetCache('/public/search');
+  };
+
+  const toggleBookmark = async () => {
+    if (!id || bookmarkSaving) return;
+    setBookmarkSaving(true);
+    try {
+      const res = await apiPost(`/posts/${id}/bookmark`, {}, { timeoutMs: 10000 });
+      setBookmarked(Boolean(res?.bookmarked));
+      clearPostCaches();
+      showToast({
+        tone: res?.bookmarked ? 'success' : 'warning',
+        message: res?.message || (res?.bookmarked ? '게시글을 저장했습니다.' : '저장한 글에서 해제했습니다.'),
+      });
+    } catch (err) {
+      showToast({ tone: 'danger', message: err?.message || '게시글 저장 상태 변경에 실패했습니다.' });
+    } finally {
+      setBookmarkSaving(false);
+    }
   };
 
   const save = async () => {
@@ -416,6 +460,14 @@ export default function BoardDetailPage() {
 
             {mounted && token && !editing ? (
               <div className="board-actions board-report-actions">
+                <button
+                  type="button"
+                  className="board-secondary"
+                  onClick={toggleBookmark}
+                  disabled={bookmarkSaving || bookmarkLoading}
+                >
+                  {bookmarked ? '저장됨' : '저장'}
+                </button>
                 <button type="button" className="board-secondary" onClick={() => openReport({ targetType: 'post', label: '게시글' })}>
                   신고
                 </button>

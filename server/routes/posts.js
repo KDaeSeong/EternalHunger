@@ -3,6 +3,7 @@ const router = express.Router();
 
 const Post = require('../models/Post');
 const User = require('../models/User');
+const PostBookmark = require('../models/PostBookmark');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { createNotification } = require('../utils/notifications');
 
@@ -117,6 +118,18 @@ function serializePostSummary(post, author) {
   };
 }
 
+function serializeBookmarkedPost(bookmark) {
+  const post = bookmark?.postId && typeof bookmark.postId === 'object' ? bookmark.postId : null;
+  if (!post) return null;
+  return {
+    ...serializePostSummary({
+      ...post,
+      contentPreview: cleanText(post.content, POST_PREVIEW_LENGTH),
+    }, post.authorId),
+    savedAt: bookmark?.createdAt || null,
+  };
+}
+
 async function findPostWithUsers(id) {
   return Post.findById(id)
     .populate('authorId', 'username nickname')
@@ -181,6 +194,67 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '게시글 목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/bookmarks', verifyToken, async (req, res) => {
+  try {
+    const bookmarks = await PostBookmark.find({ userId: req.user.id })
+      .populate({
+        path: 'postId',
+        select: 'authorId category title content isNotice noticePinnedAt commentCount createdAt updatedAt',
+        populate: { path: 'authorId', select: 'username nickname' },
+      })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json({
+      posts: bookmarks.map(serializeBookmarkedPost).filter(Boolean),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '저장한 글을 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/:id/bookmark', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).select('_id').lean();
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const bookmark = await PostBookmark.findOne({ userId: req.user.id, postId: post._id })
+      .select('_id createdAt')
+      .lean();
+    res.json({
+      bookmarked: Boolean(bookmark),
+      savedAt: bookmark?.createdAt || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '저장 상태를 확인하지 못했습니다.' });
+  }
+});
+
+router.post('/:id/bookmark', verifyToken, async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id).select('_id').lean();
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+
+    const existing = await PostBookmark.findOne({ userId: req.user.id, postId: post._id });
+    if (existing) {
+      await PostBookmark.deleteOne({ _id: existing._id });
+      return res.json({ message: '저장한 글에서 해제했습니다.', bookmarked: false, savedAt: null });
+    }
+
+    const bookmark = await PostBookmark.create({ userId: req.user.id, postId: post._id });
+    res.json({ message: '게시글을 저장했습니다.', bookmarked: true, savedAt: bookmark.createdAt });
+  } catch (err) {
+    if (err?.code === 11000) {
+      return res.json({ message: '이미 저장한 글입니다.', bookmarked: true });
+    }
+    console.error(err);
+    res.status(500).json({ error: '게시글 저장 상태 변경에 실패했습니다.' });
   }
 });
 
@@ -336,6 +410,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 
     await Post.findByIdAndDelete(req.params.id);
+    await PostBookmark.deleteMany({ postId: post._id });
     res.json({ message: '게시글을 삭제했습니다.' });
   } catch (err) {
     console.error(err);

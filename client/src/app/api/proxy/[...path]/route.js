@@ -5,6 +5,7 @@ export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { Buffer } from 'node:buffer';
 
 // 배포 환경변수가 비어 있을 때 사용하는 임시 백엔드 fallback
 const LEGACY_BACKEND_FALLBACK = 'https://eternalhunger-e7z1.onrender.com';
@@ -120,13 +121,26 @@ async function proxy(request, context) {
   };
 
   if (!['GET', 'HEAD'].includes(method.toUpperCase())) {
-    if (request.body) {
-      init.body = request.body;
-      init.duplex = 'half';
-    }
+    const body = Buffer.from(await request.arrayBuffer());
+    if (body.byteLength > 0) init.body = body;
   }
 
-  const res = await fetch(target, init);
+  let res;
+  try {
+    res = await fetch(target, init);
+  } catch (err) {
+    console.error('api proxy request failed:', {
+      path,
+      method,
+      target,
+      message: err?.message || String(err),
+    });
+    return NextResponse.json(
+      { error: '서버 요청을 전달하지 못했습니다. 잠시 후 다시 시도해 주세요.' },
+      { status: 502, headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    );
+  }
+
   const contentType = res.headers.get('content-type') || 'application/json';
   const body = await res.text();
 
