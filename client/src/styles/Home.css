@@ -1,719 +1,391 @@
-/* 메인 컨테이너 (중앙의 하얀 틀) */
+.home-page {
+  min-height: 100vh;
+  background: #f3f6fb;
+  color: #17202a;
+}
+
 .home-container {
-    position: relative;
-    max-width: 1400px; /* ★ 기존 1100px -> 1400px로 변경 (시원하게 넓힘) */
-    margin: 40px auto;
-    background: #fff;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    padding: 60px 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  width: min(calc(100% - 48px), 1440px);
+  margin: 24px auto 56px;
+  display: grid;
+  gap: 18px;
 }
 
-/* === 메인 타이틀 (Hero Section) === */
-.hero-section {
-    text-align: center;
-    padding-top: 80px;         /* ★ 로고 윗공간을 대폭 늘려 프로필과 격리 */
-    margin-bottom: 50px;       /* 아래 메뉴들과의 간격 */
-    width: 100%;
-}
-
-/* 타이틀 컨테이너 */
-.hero-logo-container {
-    overflow: visible;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    line-height: 1; /* 줄 간격 좁힘 */
-    margin-bottom: 20px;
-}
-
-/* 위쪽 작은 글씨 (PROJECT) */
-.hero-logo-sub {
-    font-family: 'Arial Black', sans-serif;
-    font-size: 1.5rem; /* 적당한 크기 */
-    color: #999;       /* 연한 회색 */
-    letter-spacing: 12px; /* 자간을 아주 넓게 */
-    margin-bottom: 0px;   /* ARENA와 딱 붙게 */
-    margin-left: 12px;    /* 자간 때문에 생기는 중심축 오차 보정 */
-    font-style: italic;   /* 속도감 */
-}
-
-/* 아래쪽 큰 글씨 (ARENA) */
-.hero-logo-main {
-    font-family: 'Arial Black', 'Impact', sans-serif;
-    font-size: 6rem;      /* 아주 크게! */
-    font-weight: 900;
-    font-style: italic;
-    
-    /* 파란색 그라데이션 적용 */
-    background: linear-gradient(45deg, #4185b3, #2a6285);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    
-    /* 그림자로 입체감 */
-    filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.15));
-    
-    letter-spacing: -2px; /* 글자끼리 꽉 차게 */
-}
-
-/* 설명 문구 */
-.main-desc {
-    font-size: 1.1rem;
-    color: #666;
-    margin-top: 15px;
-    text-align: center;        /* ★ 텍스트 자체를 중앙으로 정렬 */
-    width: 100%;               /* 가로 공간 확보 */
-}
-
-.main-logo {
-    width: 150px;
-    margin-bottom: 20px;
-    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.1));
-}
-
-.main-title {
-    font-size: 3.5rem;
-    font-weight: 900;
-    color: #444;
-    margin: 0;
-    letter-spacing: 5px;
-    text-shadow: 2px 2px 0px rgba(255,255,255,0.5);
-    font-family: 'Arial Black', sans-serif;
-}
-
-.main-desc {
-    font-size: 1.2rem;
-    color: #777;
-    margin-top: 10px;
-    font-weight: 500;
-}
-
-/* === 메뉴 카드 그리드 === */
-.menu-grid {
-    display: grid;
-    /* 카드가 너무 좁아지면 자동으로 줄바꿈 되도록 설정 (반응형) */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
-    gap: 30px; /* 간격도 조금 더 넓힘 */
-    margin-bottom: 60px;
-    width: 100%; /* 부모 컨테이너 꽉 채우기 */
-}
-
-/* 3. 메뉴 카드 디자인 수정 */
+.home-command,
+.home-metrics > div,
+.home-panel,
 .menu-card {
-    background: white;
-    padding: 40px 30px; /* ★ 패딩을 늘려서 내부 공간 확보 */
-    border-radius: 20px;
-    text-decoration: none;
-    color: #333;
-    border: 2px solid transparent;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px; /* 아이콘과 글자 사이 간격 */
-    border: 2px solid skyblue;
-    
-    /* ★ 단어 단위 줄바꿈 (글자가 뚝 끊기는 현상 방지) */
-    word-break: keep-all; 
-    white-space: pre-wrap; 
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(22, 33, 44, 0.06);
 }
 
-/* 4. 아이콘 크기 키우기 */
-/* page.js에는 className="icon"으로 되어 있으므로 이에 맞춰 수정 */
-.menu-card .icon {
-    font-size: 4.5rem; /* ★ 3rem -> 4.5rem (아이콘 대폭 확대) */
-    margin-bottom: 15px;
-    line-height: 1;
+.home-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+  padding: 24px;
+}
+
+.home-kicker,
+.home-section-title p {
+  margin: 0 0 6px;
+  color: #2c6f9e;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.home-command h1,
+.home-section-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.home-command p:not(.home-kicker) {
+  max-width: 760px;
+  margin: 10px 0 0;
+  color: #4f5d69;
+  font-size: 1rem;
+  line-height: 1.6;
+  font-weight: 800;
+}
+
+.home-command-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.home-primary-action,
+.home-secondary-action,
+.home-panel-title a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.home-primary-action {
+  border: 1px solid #2677a6;
+  background: #2c6f9e;
+  color: #fff;
+  padding: 0 16px;
+}
+
+.home-primary-action:hover {
+  border-color: #155779;
+  background: #155779;
+}
+
+.home-secondary-action,
+.home-panel-title a {
+  border: 1px solid rgba(22, 33, 44, 0.16);
+  background: #fff;
+  color: #24313d;
+  padding: 0 12px;
+}
+
+.home-secondary-action:hover,
+.home-panel-title a:hover {
+  border-color: rgba(44, 111, 158, 0.34);
+  background: #eff8ff;
+  color: #155779;
+}
+
+.home-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.home-metrics > div {
+  min-height: 82px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 14px;
+}
+
+.home-metrics span,
+.home-ranking-list small,
+.home-link-list span {
+  color: #66727e;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.home-metrics strong {
+  color: #17202a;
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.home-hub-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.7fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.home-main-column,
+.home-side-column,
+.home-tools {
+  display: grid;
+  gap: 14px;
+}
+
+.home-panel {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.home-panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-panel-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.home-panel-title a {
+  min-height: 32px;
+  font-size: 0.84rem;
+}
+
+.home-link-list,
+.home-ranking-list {
+  display: grid;
+  gap: 8px;
+}
+
+.home-link-list a {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+  color: inherit;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.home-link-list a:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  background: #f4faff;
+}
+
+.home-link-list strong,
+.home-link-list span,
+.home-ranking-list a,
+.home-ranking-list strong,
+.home-ranking-list small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-link-list strong {
+  color: #17202a;
+  font-size: 0.96rem;
+}
+
+.home-empty {
+  border: 1px dashed #d7e0e8;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: #6a7480;
+  padding: 14px;
+  font-weight: 900;
+}
+
+.home-ranking-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home-ranking-list li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #edf1f4;
+  padding: 8px 0;
+}
+
+.home-ranking-list li:last-child {
+  border-bottom: 0;
+}
+
+.home-ranking-list li > span {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #eef8ff;
+  color: #155779;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.home-ranking-list li:first-child > span {
+  background: #fff8dc;
+  color: #6a5600;
+}
+
+.home-ranking-list li > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.home-ranking-list a,
+.home-ranking-list strong {
+  color: #17202a;
+  font-size: 0.94rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.home-ranking-list a:hover {
+  color: #0878bd;
+}
+
+.home-section-title {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.home-section-title h2 {
+  font-size: clamp(22px, 3vw, 30px);
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.menu-card {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  color: inherit;
+  padding: 16px;
+  text-decoration: none;
+}
+
+.menu-card:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  box-shadow: 0 12px 28px rgba(22, 33, 44, 0.1);
+}
+
+.menu-card.is-emphasis {
+  border-color: rgba(44, 111, 158, 0.32);
+  background: #f6fbff;
+}
+
+.menu-card > span {
+  width: max-content;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #f2f5f7;
+  color: #43505c;
+  padding: 0 9px;
+  font-size: 0.75rem;
+  font-weight: 900;
 }
 
 .menu-card h3 {
-    margin: 0;
-    font-size: 1.5rem; /* 제목도 살짝 키움 */
-    font-weight: 800;  /* 더 굵게 */
-    margin-bottom: 5px;
+  margin: 0;
+  color: #17202a;
+  font-size: 1.05rem;
+  line-height: 1.25;
 }
 
 .menu-card p {
-    margin: 0;
-    font-size: 1rem; /* 설명 글씨 크기 조정 */
-    color: #888;
-    line-height: 1.6; /* 줄 간격 넉넉하게 */
-    text-align: center;
+  margin: 0;
+  color: #5f6c78;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  font-weight: 800;
 }
 
-/* 카드 호버 효과 */
-.menu-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+@media (max-width: 920px) {
+  .home-container {
+    width: min(calc(100% - 20px), 100%);
+    margin: 10px auto 34px;
+  }
+
+  .home-command,
+  .home-hub-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .home-command-actions {
+    justify-content: stretch;
+  }
+
+  .home-primary-action,
+  .home-secondary-action {
+    flex: 1 1 180px;
+  }
+
+  .home-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-/* 색상별 포인트 */
-.card-1:hover { border-color: #4caf50; }
-.card-2:hover { border-color: #2196f3; }
-.card-3:hover { border-color: #ff9800; }
-.card-4:hover { border-color: #9c27b0; }
+@media (max-width: 540px) {
+  .home-container {
+    width: 100%;
+    padding: 0 10px 24px;
+  }
 
-/* client/src/styles/Home.css 수정 */
-/* client/src/styles/Home.css 수정 */
+  .home-command,
+  .home-panel,
+  .menu-card {
+    padding: 14px;
+  }
 
-/* === ▶ 게임 시작 버튼 영역 === */
-.start-btn-container {
-    margin: 60px 0 80px 0;
-    text-align: center;
-    display: flex;
-    justify-content: center;
-}
+  .home-metrics,
+  .menu-grid {
+    grid-template-columns: 1fr;
+  }
 
-/* 버튼 본체 (파란색 버전) */
-.start-btn {
-    /* 배경: 시원한 오션 블루 그라데이션 */
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    color: white;
-    
-    /* 크기와 폰트 */
-    padding: 20px 60px;
-    font-size: 1.6rem;
-    font-weight: 800;
-    font-family: 'Arial Black', sans-serif;
-    
-    /* 모양 */
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    
-    /* 그림자 (파란색 빛) - 버튼 색에 맞춰 수정 */
-    box-shadow: 0 10px 25px rgba(0, 242, 254, 0.4);
-    
-    /* 애니메이션 설정 */
-    transition: all 0.3s ease;
-    animation: pulse-blue 2s infinite; /* 애니메이션 이름 변경 */
-    
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    text-transform: uppercase;
-    text-decoration: none;
-}
-
-/* 마우스 올렸을 때 (호버) */
-.start-btn:hover {
-    transform: translateY(-5px) scale(1.05);
-    /* 호버 시 조금 더 진한 파란색 그림자 */
-    box-shadow: 0 20px 40px rgba(79, 172, 254, 0.6);
-    /* 그라데이션 방향 반전으로 살짝 움직이는 느낌 */
-    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-}
-
-/* 클릭했을 때 */
-.start-btn:active {
-    transform: translateY(-2px) scale(0.98);
-    box-shadow: 0 5px 15px rgba(0, 242, 254, 0.4);
-}
-
-/* 💙 파란색 두근두근 애니메이션 정의 */
-@keyframes pulse-blue {
-    0% {
-        box-shadow: 0 0 0 0 rgba(0, 242, 254, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 20px rgba(0, 242, 254, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(0, 242, 254, 0);
-    }
-}
-
-/* 애니메이션 */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* client/src/styles/Home.css 맨 아래 추가 */
-
-/* === 🏆 명예의 전당 === */
-.hall-of-fame {
-    margin-top: 80px;
-    padding-top: 40px;
-    border-top: 2px dashed #eee;
-    text-align: center;
-}
-
-.hof-title {
-    font-size: 2rem;
-    color: #333;
-    margin-bottom: 30px;
-    text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
-}
-
-.hof-grid {
-    display: flex;
-    justify-content: center;
-    gap: 30px;
-    flex-wrap: wrap;
-}
-
-/* 랭킹 카드 박스 */
-.hof-card {
-    background: white;
-    width: 300px;
-    border-radius: 15px;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-    padding: 20px;
-    border: 1px solid #eee;
-}
-
-.hof-card h3 {
-    margin-top: 0;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #f0f0f0;
-    color: #444;
-}
-
-.hof-card ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.hof-card li {
-    display: flex;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid #f9f9f9;
-}
-
-.hof-card li:last-child {
-    border-bottom: none;
-}
-
-/* 순위별 강조 (1,2,3등 배경색) */
-.hof-card li.rank-1 { background: linear-gradient(90deg, #fff, #fffde7); border-radius: 10px; }
-.hof-card li.rank-2 { background: linear-gradient(90deg, #fff, #f5f5f5); border-radius: 10px; }
-.hof-card li.rank-3 { background: linear-gradient(90deg, #fff, #fff3e0); border-radius: 10px; }
-
-/* 뱃지, 이미지, 텍스트 */
-.rank-badge {
-    font-size: 1.2rem;
-    width: 40px;
-    font-weight: bold;
-}
-.hof-card img {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 10px;
-    border: 1px solid #ddd;
-}
-.rank-info {
-    display: flex;
-    flex-direction: column;
+  .home-panel-title {
     align-items: flex-start;
-}
-.rank-name {
-    font-size: 0.9rem;
-    font-weight: bold;
-    color: #333;
-}
-.rank-val {
-    font-size: 0.8rem;
-    color: #666;
-}
-/* 상단 내비게이션 (틀 내부 우측 상단으로 이동) */
-.top-nav {
-    position: absolute;
-    top: 20px;
-    right: 25px;
-    z-index: 10;
-}
-
-/* 버튼 크기 및 스타일 미세 조정 */
-.auth-btns a, .user-info button {
-    padding: 8px 18px;         /* 너무 커지지 않게 조정 */
-    font-size: 0.85rem;        /* 틀에 어울리는 적당한 크기 */
-    border-radius: 8px;        /* 너무 동그란 것보다 약간 각진 게 틀과 잘 어울림 */
-    margin: 5px;
-}
-
-/* 유저 정보 바 (그림자 및 여백 미세 조정) */
-.user-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 10px 20px;        /* 안쪽 여백을 늘려 더 여유롭게 */
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /* 부드러운 그림자로 틀과 분리 */
-}
-
-/* 유저 이름 스팬 */
-.user-info span {
-    font-size: 0.95rem;
-    color: #333;
-    font-weight: 500;
-}
-
-/* 로그인 버튼: 깔끔한 화이트/그레이 */
-.login-btn {
-    color: #444;
-    background: #fff;
-    box-shadow: 0 4px 10px rgba(255, 255, 255, 0.3);
-    border: 1px solid skyblue;
-    text-align: center;
-}
-
-.login-btn:hover {
-    background: #f0f0f0;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(255, 255, 255, 0.4);
-}
-
-/* 회원가입 버튼: 화려한 블루 그라데이션 (시뮬레이션 시작 버튼과 통일감) */
-.signup-btn {
-    color: #fff;
-    background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
-    box-shadow: 0 4px 10px rgba(0, 210, 255, 0.3);
-}
-
-.signup-btn:hover {
-    filter: brightness(1.1);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(0, 210, 255, 0.4);
-}
-
-/* 로그아웃 버튼 */
-.user-info button {
-    background: rgba(255, 82, 82, 0.1);
-    color: #ff5252;
-    border: 1px solid #ff5252;
-}
-
-.user-info button:hover {
-    background: #ff5252;
-    color: #fff;
-}
-
-/* 로그아웃 버튼 보강 */
-.logout-btn {
-    background: #fff0f0;    /* 아주 연한 빨간 배경 */
-    color: #ff5252;
-    border: 1px solid #ff5252;
-    padding: 6px 14px;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;               /* 이모지와 텍스트 사이 간격 */
-}
-
-.logout-btn:hover {
-    background: #ff5252;
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(255, 82, 82, 0.2);
-}
-
-/* 데이터가 없을 때 */
-.no-data {
-    color: #999;
-    font-style: italic;
-    padding: 20px 0;
-    text-align: center;
-}
-
-/* =========================================
-   🏆 명예의 전당 (Hall of Fame) 스타일
-   ========================================= */
-
-.hall-of-fame {
-    margin-top: 80px;
-    padding: 60px 20px;
-    background: linear-gradient(to bottom, #f8f9fa, #e9ecef); /* 은은한 그라데이션 배경 */
-    border-radius: 30px;
-    text-align: center;
-    box-shadow: inset 0 0 20px rgba(0,0,0,0.03);
-}
-
-.hof-title {
-    font-size: 2.2rem;
-    color: #2c3e50;
-    margin-bottom: 40px;
-    font-weight: 900;
-    letter-spacing: -1px;
-    text-shadow: 2px 2px 0px rgba(0,0,0,0.05);
-    display: inline-block;
-    background: linear-gradient(120deg, #2c3e50, #3498db);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.hof-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* 반응형 배치 */
-    gap: 30px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-/* 랭킹 카드 (박스) */
-.hof-card {
-    background: white;
-    padding: 25px;
-    border-radius: 20px;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.05);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    border: 1px solid rgba(0,0,0,0.02);
-    overflow: hidden;
-    position: relative;
-}
-
-.hof-card:hover {
-    transform: translateY(-7px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-}
-
-/* 카드 제목 */
-.hof-card h3 {
-    font-size: 1.1rem;
-    color: #7f8c8d;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #f0f0f0;
-    padding-bottom: 15px;
-    font-weight: 800;
-}
-
-/* 랭킹 리스트 아이템 */
-.hof-card ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.hof-card li {
-    display: flex;
-    align-items: center;
-    background: #fff;
-    padding: 12px 15px;
-    margin-bottom: 10px;
-    border-radius: 12px;
-    border: 1px solid #eee;
-    transition: all 0.2s;
-}
-
-.hof-card li:hover {
-    background: #fafafa;
-    transform: scale(1.02);
-}
-
-/* 🏅 순위 뱃지 (기본) */
-.rank-badge {
-    width: 32px;
-    height: 32px;
-    background: #ecf0f1;
-    color: #7f8c8d;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    margin-right: 15px;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-
-/* 🥇 1위 (골드) - 특별 대우 */
-.rank-1 {
-    background: linear-gradient(to right, #fffdf0, #fff) !important;
-    border: 1px solid #ffe082 !important;
-    box-shadow: 0 4px 10px rgba(255, 215, 0, 0.15);
-}
-
-.rank-1 .rank-badge {
-    background: linear-gradient(135deg, #ffd700, #fdb931);
-    color: white;
-    box-shadow: 0 2px 5px rgba(255, 215, 0, 0.4);
-    font-size: 1.1rem;
-}
-
-/* 🥈 2위 (실버) */
-.rank-2 .rank-badge {
-    background: linear-gradient(135deg, #bdc3c7, #95a5a6);
-    color: white;
-    box-shadow: 0 2px 5px rgba(189, 195, 199, 0.4);
-}
-
-/* 🥉 3위 (브론즈) */
-.rank-3 .rank-badge {
-    background: linear-gradient(135deg, #edc988, #d35400); /* 구리빛 */
-    color: white;
-    box-shadow: 0 2px 5px rgba(211, 84, 0, 0.3);
-}
-
-/* 유저 정보 텍스트 */
-.rank-info {
-    display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    overflow: hidden;
-}
+  }
 
-.rank-name {
-    font-weight: 700;
-    font-size: 1rem;
-    color: #2c3e50;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 180px;
-}
-
-.rank-val {
-    font-size: 0.8rem;
-    color: #95a5a6;
-    margin-top: 3px;
-    font-weight: 600;
-}
-
-/* 데이터 없음 메시지 */
-.no-data {
-    color: #bdc3c7;
-    font-style: italic;
-    padding: 30px 0;
-}
-
-/* === Responsive shell: Naver-like compact desktop/mobile flow === */
-.home-container {
-    width: min(calc(100% - 32px), 1400px);
-    min-width: 0;
-    padding: clamp(28px, 5vw, 60px) clamp(16px, 4vw, 40px);
-    margin: clamp(12px, 4vw, 40px) auto;
-}
-
-.hero-logo-main {
-    font-size: clamp(3rem, 11vw, 6rem);
-    letter-spacing: 0;
-}
-
-.hero-logo-sub {
-    font-size: clamp(0.9rem, 3.4vw, 1.5rem);
-    letter-spacing: clamp(5px, 1.6vw, 12px);
-}
-
-.menu-grid,
-.hof-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-}
-
-.menu-card,
-.hof-card {
-    min-width: 0;
-}
-
-@media (max-width: 820px) {
-    .top-nav {
-        position: static;
-        width: 100%;
-        margin-bottom: 18px;
-    }
-
-    .auth-btns,
-    .user-info {
-        width: 100%;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-
-    .hero-section {
-        padding-top: 24px;
-        margin-bottom: 32px;
-    }
-
-    .main-desc {
-        font-size: 0.98rem;
-        line-height: 1.55;
-        padding: 0 6px;
-    }
-
-    .menu-grid {
-        gap: 14px;
-        margin-bottom: 34px;
-    }
-
-    .menu-card {
-        padding: 24px 18px;
-        border-radius: 14px;
-        gap: 10px;
-    }
-
-    .menu-card .icon {
-        font-size: 3.1rem;
-        margin-bottom: 6px;
-    }
-
-    .menu-card h3 {
-        font-size: 1.18rem;
-    }
-
-    .start-btn-container {
-        margin: 34px 0 44px;
-    }
-
-    .start-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 16px 20px;
-        font-size: 1.15rem;
-        border-radius: 16px;
-    }
-
-    .hall-of-fame {
-        margin-top: 42px;
-        padding: 34px 12px;
-        border-radius: 18px;
-    }
-
-}
-
-@media (max-width: 420px) {
-    .home-container {
-        width: 100%;
-        margin: 0;
-        border-radius: 0;
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
-    .menu-grid,
-    .hof-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .rank-name {
-        max-width: 58vw;
-    }
-}
-
-.hero-logo-container {
-    padding: 0 16px 10px;
-}
-
-.hero-logo-main {
-    display: inline-block;
-    line-height: 1.08;
-    padding: 0 0.16em 0.08em 0.04em;
-}
-
-@media (min-width: 821px) {
-
+  .home-panel-title a {
+    width: 100%;
+  }
 }

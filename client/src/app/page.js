@@ -15,80 +15,102 @@ import {
 
 const MENU_ITEMS = [
   {
+    href: '/simulation',
+    tag: 'Play',
+    title: '게임 시작',
+    body: '현재 데이터로 시뮬레이션을 실행하고 결과를 기록합니다.',
+    emphasis: true,
+  },
+  {
     href: '/characters',
-    icon: '👥',
+    tag: 'Roster',
     title: '캐릭터 설정',
-    body: '참가할 실험체와 무기, 목표 장비, 전술 스킬을 관리합니다.',
+    body: '캐릭터, 무기, 목표 장비, 스킬 구성을 관리합니다.',
   },
   {
     href: '/records',
-    icon: '🏆',
+    tag: 'Stats',
     title: '기록소',
-    body: '캐릭터별 전적과 같은 로스터로 쌓인 팀 전적을 확인합니다.',
-  },
-  {
-    href: '/details',
-    icon: '📊',
-    title: '상세 스탯',
-    body: '체력, 공격력, 방어력, 성장 스탯을 실험체별로 조정합니다.',
-  },
-  {
-    href: '/modifiers',
-    icon: '⚖️',
-    title: '게임 밸런스',
-    body: '교전, 파밍, 야생동물, 오브젝트의 확률과 가중치를 조절합니다.',
-  },
-  {
-    href: '/perks',
-    icon: 'LP',
-    title: '특전 상점',
-    body: 'LP로 치장형 특전과 편의성 보상을 구매합니다.',
+    body: '캐릭터별, 팀별 전적과 승률을 확인합니다.',
   },
   {
     href: '/board',
-    icon: '📝',
+    tag: 'Board',
     title: '게시판',
-    body: '공지, 피드백, 시뮬레이션 로그를 공유합니다.',
+    body: '공지, 공략, 피드백, 버그 제보를 모아봅니다.',
   },
   {
     href: '/twenty-questions',
-    icon: '20',
+    tag: '20Q',
     title: '스무고개',
-    body: '방을 만들고 질문과 정답 도전으로 짧게 같이 플레이합니다.',
+    body: '방을 만들고 질문과 정답 시도로 같이 플레이합니다.',
+  },
+  {
+    href: '/perks',
+    tag: 'LP',
+    title: '특전 상점',
+    body: 'LP로 장기 성장용 특전을 구매합니다.',
+  },
+  {
+    href: '/details',
+    tag: 'Tune',
+    title: '상세 설정',
+    body: '스탯, 성장값, 캐릭터별 세부 값을 조정합니다.',
   },
   {
     href: '/help',
-    icon: '?',
-    title: '도움말',
-    body: '목표, 전술, 장비, 숙련도처럼 낯선 용어를 빠르게 확인합니다.',
+    tag: 'Guide',
+    title: '가이드',
+    body: '규칙, 장비, 용어, 진행 구조를 빠르게 확인합니다.',
   },
 ];
 
-function normalizeRankings(payload) {
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-    return {
-      wins: Array.isArray(payload.wins) ? payload.wins : [],
-      kills: Array.isArray(payload.kills) ? payload.kills : [],
-      points: Array.isArray(payload.points) ? payload.points : [],
-    };
-  }
+const EMPTY_HUB = {
+  counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
+  notices: [],
+  recentPosts: [],
+  activeRooms: [],
+  rankings: { points: [], characters: [] },
+};
 
-  const data = Array.isArray(payload) ? payload : [];
+function normalizeList(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeText(value, fallback = '') {
+  const text = String(value || '').trim();
+  return text || fallback;
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString('ko-KR');
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
+}
+
+function normalizeHub(payload) {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const rankings = src.rankings && typeof src.rankings === 'object' ? src.rankings : {};
   return {
-    wins: [...data].sort((a, b) => Number(b.totalWins || 0) - Number(a.totalWins || 0)).slice(0, 3),
-    kills: [...data].sort((a, b) => Number(b.totalKills || 0) - Number(a.totalKills || 0)).slice(0, 3),
-    points: [...data]
-      .sort((a, b) => {
-        const bScore = Number(b.totalWins || 0) * 100 + Number(b.totalKills || 0) * 10;
-        const aScore = Number(a.totalWins || 0) * 100 + Number(a.totalKills || 0) * 10;
-        return bScore - aScore;
-      })
-      .slice(0, 3),
+    counts: { ...EMPTY_HUB.counts, ...(src.counts || {}) },
+    notices: normalizeList(src.notices),
+    recentPosts: normalizeList(src.recentPosts),
+    activeRooms: normalizeList(src.activeRooms),
+    rankings: {
+      points: normalizeList(rankings.points),
+      characters: normalizeList(rankings.characters),
+    },
   };
 }
 
-function getDisplayName(row) {
-  return row?.nickname || row?.username || row?.name || row?.characterName || '기록 없음';
+function userHref(user) {
+  const id = user?._id || user?.id;
+  return id ? `/users/${id}` : '';
 }
 
 function getWins(row) {
@@ -103,29 +125,54 @@ function getAssists(row) {
   return Number(row?.totalAssists ?? row?.records?.totalAssists ?? 0);
 }
 
-function getPoints(row) {
-  return Number(row?.lp ?? (getWins(row) * 100 + getKills(row) * 10));
+function HubLinkList({ items, empty, type }) {
+  if (!items.length) return <div className="home-empty">{empty}</div>;
+
+  return (
+    <div className="home-link-list">
+      {items.map((item) => {
+        const href = type === 'room' ? `/twenty-questions/${item._id}` : `/board/${item._id}`;
+        const meta = type === 'room'
+          ? `질문 ${formatNumber(item.questionCount)} · 시도 ${formatNumber(item.guessCount)}`
+          : `댓글 ${formatNumber(item.commentCount)} · ${formatDate(item.createdAt) || '날짜 없음'}`;
+        return (
+          <Link href={href} key={`${type}-${item._id || item.title}`}>
+            <strong>{safeText(item.title, '제목 없음')}</strong>
+            <span>{meta}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
 }
 
-function RankingList({ rows, empty, renderValue }) {
-  if (!rows?.length) return <li className="no-data">{empty}</li>;
+function RankingRows({ rows, empty, renderValue, renderName, renderHref }) {
+  if (!rows.length) return <div className="home-empty">{empty}</div>;
 
-  return rows.slice(0, 3).map((row, index) => (
-    <li key={`${getDisplayName(row)}-${index}`} className={`rank-${index + 1}`}>
-      <span className="rank-badge">{index + 1}</span>
-      <div className="rank-info">
-        <span className="rank-name">{getDisplayName(row)}</span>
-        <span className="rank-val">{renderValue(row)}</span>
-      </div>
-    </li>
-  ));
+  return (
+    <ol className="home-ranking-list">
+      {rows.slice(0, 5).map((row, index) => {
+        const name = renderName(row);
+        const href = renderHref?.(row) || '';
+        return (
+          <li key={`${name}-${index}`}>
+            <span>{index + 1}</span>
+            <div>
+              {href ? <Link href={href}>{name}</Link> : <strong>{name}</strong>}
+              <small>{renderValue(row)}</small>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 export default function Home() {
   const mounted = useHydrated();
   const user = useAuthUser();
   const { showToast } = useToast();
-  const [rankings, setRankings] = useState({ wins: [], kills: [], points: [] });
+  const [hub, setHub] = useState(EMPTY_HUB);
   const [loading, setLoading] = useState(true);
   const [myCharTop3, setMyCharTop3] = useState({ wins: [], kills: [] });
 
@@ -136,9 +183,9 @@ export default function Home() {
       ...MENU_ITEMS,
       {
         href: '/admin',
-        icon: '🛠',
+        tag: 'Admin',
         title: '관리자',
-        body: '아이템, 맵, 키오스크, 특전 등 운영 데이터를 관리합니다.',
+        body: '아이템, 맵, 키오스크, 특전, 신고 상태를 관리합니다.',
       },
     ];
   }, [user?.isAdmin]);
@@ -149,12 +196,12 @@ export default function Home() {
     async function refreshHome() {
       setLoading(true);
       try {
-        const payload = await apiGet('/rankings');
-        if (!canceled) setRankings(normalizeRankings(payload));
+        const payload = await apiGet('/public/home-hub', { timeoutMs: 15000 });
+        if (!canceled) setHub(normalizeHub(payload));
       } catch (err) {
         if (!canceled) {
-          setRankings({ wins: [], kills: [], points: [] });
-          showToast({ tone: 'warning', message: err?.message || '랭킹 정보를 불러오지 못했습니다.' });
+          setHub(EMPTY_HUB);
+          showToast({ tone: 'warning', message: err?.message || '홈 정보를 불러오지 못했습니다.' });
         }
       } finally {
         if (!canceled) setLoading(false);
@@ -203,86 +250,123 @@ export default function Home() {
     };
   }, [myUsername]);
 
+  const notices = hub.notices.length ? hub.notices : hub.recentPosts.filter((post) => post.isNotice).slice(0, 3);
+
   return (
     <main className="home-page">
       <SiteHeader />
 
       <section className="home-container">
-        <section className="hero-section">
-          <div className="hero-logo-container" aria-label="ETERNAL HUNGER">
-            <span className="hero-logo-sub">ETERNAL</span>
-            <span className="hero-logo-main">HUNGER</span>
+        <section className="home-command">
+          <div>
+            <p className="home-kicker">Eternal Hunger Hub</p>
+            <h1>ETERNAL HUNGER</h1>
+            <p>
+              시뮬레이션, 기록소, 게시판, 스무고개를 한 화면에서 확인하는 커뮤니티 허브입니다.
+            </p>
           </div>
-          <p className="main-desc">
-            나만의 캐릭터와 운영 데이터로 굴리는 이터널 리턴풍 배틀로얄 시뮬레이터
-          </p>
-        </section>
-
-        <section className="menu-grid" aria-label="주요 메뉴">
-          {menuItems.map((item) => (
-            <Link href={item.href} className="menu-card" key={item.href}>
-              <div className="icon">{item.icon}</div>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
+          <div className="home-command-actions">
+            <Link href={mounted && user ? '/simulation' : '/login'} className="home-primary-action">
+              {mounted && user ? '게임 시작' : '로그인하고 시작'}
             </Link>
-          ))}
+            <Link href="/board" className="home-secondary-action">게시판</Link>
+          </div>
         </section>
 
-        <div className="start-btn-container">
-          <Link href={mounted && user ? '/simulation' : '/login'} className="start-btn">
-            {mounted && user ? '시뮬레이션 시작하기' : '로그인하고 시작하기'}
-          </Link>
-        </div>
+        <section className="home-metrics" aria-label="사이트 요약">
+          <div><span>사용자</span><strong>{formatNumber(hub.counts.users)}</strong></div>
+          <div><span>캐릭터</span><strong>{formatNumber(hub.counts.characters)}</strong></div>
+          <div><span>게시글</span><strong>{formatNumber(hub.counts.posts)}</strong></div>
+          <div><span>진행 중 스무고개</span><strong>{formatNumber(hub.counts.activeRooms)}</strong></div>
+        </section>
 
-        <section className="hall-of-fame">
-          <h2 className="hof-title">명예의 전당</h2>
-
-          {loading ? (
-            <p style={{ textAlign: 'center', color: '#666' }}>랭킹 정보를 불러오는 중입니다.</p>
-          ) : (
-            <div className="hof-grid">
-              <div className="hof-card">
-                <h3>내 캐릭터 승리</h3>
-                <ul>
-                  {mounted && user ? (
-                    <RankingList
-                      rows={myCharTop3.wins}
-                      empty="아직 승리 기록이 없습니다."
-                      renderValue={(row) => `${getWins(row)}승`}
-                    />
-                  ) : (
-                    <li className="no-data">로그인하면 내 캐릭터 기록을 볼 수 있습니다.</li>
-                  )}
-                </ul>
+        <section className="home-hub-layout" aria-label="커뮤니티 현황">
+          <div className="home-main-column">
+            <section className="home-panel">
+              <div className="home-panel-title">
+                <h2>공지</h2>
+                <Link href="/board">전체 보기</Link>
               </div>
+              {loading ? <div className="home-empty">홈 정보를 불러오는 중입니다.</div> : (
+                <HubLinkList items={notices} empty="아직 공지가 없습니다." type="post" />
+              )}
+            </section>
 
-              <div className="hof-card">
-                <h3>내 캐릭터 킬/어시스트</h3>
-                <ul>
-                  {mounted && user ? (
-                    <RankingList
-                      rows={myCharTop3.kills}
-                      empty="아직 전투 기록이 없습니다."
-                      renderValue={(row) => `${getKills(row)}킬 / ${getAssists(row)}어시`}
-                    />
-                  ) : (
-                    <li className="no-data">로그인하면 전투 기록을 볼 수 있습니다.</li>
-                  )}
-                </ul>
+            <section className="home-panel">
+              <div className="home-panel-title">
+                <h2>최신 게시글</h2>
+                <Link href="/board">글 보러 가기</Link>
               </div>
+              <HubLinkList items={hub.recentPosts} empty="아직 게시글이 없습니다." type="post" />
+            </section>
 
-              <div className="hof-card">
-                <h3>LP 랭킹</h3>
-                <ul>
-                  <RankingList
-                    rows={rankings.points}
-                    empty="아직 랭킹 기록이 없습니다."
-                    renderValue={(row) => `${getPoints(row).toLocaleString('ko-KR')} LP`}
-                  />
-                </ul>
+            <section className="home-panel">
+              <div className="home-panel-title">
+                <h2>진행 중인 스무고개</h2>
+                <Link href="/twenty-questions">방 목록</Link>
               </div>
-            </div>
-          )}
+              <HubLinkList items={hub.activeRooms} empty="진행 중인 방이 없습니다." type="room" />
+            </section>
+          </div>
+
+          <aside className="home-side-column" aria-label="랭킹">
+            <section className="home-panel">
+              <div className="home-panel-title">
+                <h2>LP 랭킹</h2>
+              </div>
+              <RankingRows
+                rows={hub.rankings.points}
+                empty="아직 랭킹이 없습니다."
+                renderName={(row) => safeText(row.displayName || row.nickname || row.username, '사용자')}
+                renderHref={(row) => userHref(row)}
+                renderValue={(row) => `${formatNumber(row.lp)} LP`}
+              />
+            </section>
+
+            <section className="home-panel">
+              <div className="home-panel-title">
+                <h2>캐릭터 랭킹</h2>
+              </div>
+              <RankingRows
+                rows={hub.rankings.characters}
+                empty="아직 캐릭터 기록이 없습니다."
+                renderName={(row) => safeText(row.name, '캐릭터')}
+                renderValue={(row) => `${formatNumber(row.totalWins)}승 · ${formatNumber(row.totalKills)}킬`}
+              />
+            </section>
+
+            <section className="home-panel">
+              <div className="home-panel-title">
+                <h2>내 명예의 전당</h2>
+              </div>
+              {mounted && user ? (
+                <RankingRows
+                  rows={myCharTop3.wins}
+                  empty="아직 내 승리 기록이 없습니다."
+                  renderName={(row) => safeText(row.name, '캐릭터')}
+                  renderValue={(row) => `${getWins(row)}승 · ${getKills(row)}킬 · ${getAssists(row)}도움`}
+                />
+              ) : (
+                <div className="home-empty">로그인하면 내 캐릭터 기록을 볼 수 있습니다.</div>
+              )}
+            </section>
+          </aside>
+        </section>
+
+        <section className="home-tools" aria-label="주요 기능">
+          <div className="home-section-title">
+            <p>Tools</p>
+            <h2>바로가기</h2>
+          </div>
+          <div className="menu-grid">
+            {menuItems.map((item) => (
+              <Link href={item.href} className={`menu-card ${item.emphasis ? 'is-emphasis' : ''}`} key={item.href}>
+                <span>{item.tag}</span>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </Link>
+            ))}
+          </div>
         </section>
       </section>
     </main>

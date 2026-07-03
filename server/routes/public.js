@@ -105,6 +105,24 @@ function mapPublicPost(post) {
   };
 }
 
+function mapCompactUser(user) {
+  if (!user || typeof user !== 'object') return null;
+  return {
+    _id: normalizeId(user),
+    username: user.username || '',
+    nickname: user.nickname || '',
+    displayName: displayName(user),
+  };
+}
+
+function mapHubPost(post) {
+  return {
+    ...mapPublicPost(post),
+    author: mapCompactUser(post?.authorId),
+    authorName: displayName(post?.authorId),
+  };
+}
+
 function mapPublicRoom(room) {
   const questions = Array.isArray(room?.questions) ? room.questions : [];
   const guesses = Array.isArray(room?.guesses) ? room.guesses : [];
@@ -128,6 +146,14 @@ function mapPublicRoom(room) {
   };
 }
 
+function mapHubRoom(room) {
+  return {
+    ...mapPublicRoom(room),
+    host: mapCompactUser(room?.hostId),
+    hostName: displayName(room?.hostId),
+  };
+}
+
 function mapCharacterRecord(row) {
   const records = row?.records || {};
   const gamesPlayed = toNonNegativeInt(records.gamesPlayed);
@@ -147,6 +173,26 @@ function mapCharacterRecord(row) {
     deathCount,
     winRate: gamesPlayed > 0 ? totalWins / gamesPlayed : 0,
     kda: Math.round(((totalKills + totalAssists) / Math.max(1, deathCount)) * 100) / 100,
+  };
+}
+
+function mapHubUserRank(row) {
+  return {
+    _id: normalizeId(row),
+    username: row?.username || '',
+    nickname: row?.nickname || '',
+    displayName: displayName(row),
+    lp: Number(row?.lp || 0),
+    createdAt: row?.createdAt || null,
+  };
+}
+
+function mapHubCharacterRank(row) {
+  const mapped = mapCharacterRecord(row);
+  return {
+    ...mapped,
+    owner: mapCompactUser(row?.userId),
+    ownerName: displayName(row?.userId),
   };
 }
 
@@ -254,6 +300,78 @@ router.get('/users/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '사용자 프로필을 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/home-hub', async (req, res) => {
+  try {
+    const [
+      userCount,
+      postCount,
+      characterCount,
+      roomCount,
+      activeRoomCount,
+      notices,
+      recentPosts,
+      activeRooms,
+      topUsers,
+      topCharacters,
+    ] = await Promise.all([
+      User.countDocuments({}),
+      Post.countDocuments({}),
+      Character.countDocuments({}),
+      TwentyQuestionsRoom.countDocuments({}),
+      TwentyQuestionsRoom.countDocuments({ status: 'active' }),
+      Post.find({ isNotice: true })
+        .select('_id title category content isNotice commentCount authorId createdAt updatedAt noticePinnedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ noticePinnedAt: -1, createdAt: -1 })
+        .limit(3)
+        .lean(),
+      Post.find({})
+        .select('_id title category content isNotice commentCount authorId createdAt updatedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+      TwentyQuestionsRoom.find({ status: 'active' })
+        .select('_id title category hint status maxQuestions questions guesses hostId createdAt updatedAt')
+        .populate('hostId', 'username nickname')
+        .sort({ updatedAt: -1 })
+        .limit(6)
+        .lean(),
+      User.find({})
+        .select('username nickname lp createdAt')
+        .sort({ lp: -1, createdAt: 1 })
+        .limit(5)
+        .lean(),
+      Character.find({})
+        .select('name weaponType records userId createdAt')
+        .populate('userId', 'username nickname')
+        .sort({ 'records.totalWins': -1, 'records.totalKills': -1, 'records.gamesPlayed': -1, name: 1 })
+        .limit(5)
+        .lean(),
+    ]);
+
+    res.json({
+      counts: {
+        users: toNonNegativeInt(userCount),
+        posts: toNonNegativeInt(postCount),
+        characters: toNonNegativeInt(characterCount),
+        rooms: toNonNegativeInt(roomCount),
+        activeRooms: toNonNegativeInt(activeRoomCount),
+      },
+      notices: notices.map(mapHubPost),
+      recentPosts: recentPosts.map(mapHubPost),
+      activeRooms: activeRooms.map(mapHubRoom),
+      rankings: {
+        points: topUsers.map(mapHubUserRank),
+        characters: topCharacters.map(mapHubCharacterRank),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '홈 허브 정보를 불러오지 못했습니다.' });
   }
 });
 
