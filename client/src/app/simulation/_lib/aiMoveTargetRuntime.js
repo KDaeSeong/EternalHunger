@@ -1,0 +1,385 @@
+import {
+  hash32,
+} from './simulationCommon';
+import { isAtOrAfterWorldTime } from './worldTime';
+import {
+  canUseKioskAtWorldTime,
+} from './marketRuntime';
+import { roughPower } from './combatRuntime';
+import {
+  listKioskZoneIdsForMap,
+  uniqStrings,
+} from './mapTargeting';
+import {
+  classifySpecialByName,
+} from './craftRuntime';
+import { pickGoalResourceZoneTargets } from './resourceTargetingRuntime';
+
+const WILDLIFE_HUNT_VALUE = {
+  chicken: 1.0,
+  bat: 1.1,
+  boar: 1.8,
+  dog: 1.7,
+  wolf: 2.4,
+  bear: 3.0,
+};
+
+const WILDLIFE_RISK_POWER = {
+  chicken: 18,
+  bat: 24,
+  boar: 34,
+  dog: 34,
+  wolf: 46,
+  bear: 58,
+};
+
+function normalizeWildlifeKey(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw === '닭' || raw === 'chicken') return 'chicken';
+  if (raw === '박쥐' || raw === 'bat') return 'bat';
+  if (raw === '멧돼지' || raw === 'boar') return 'boar';
+  if (raw === '들개' || raw === 'dog') return 'dog';
+  if (raw === '늑대' || raw === 'wolf') return 'wolf';
+  if (raw === '곰' || raw === 'bear') return 'bear';
+  return raw;
+}
+
+function scoreWildlifeZoneForActor(spawnState, zoneId, actor) {
+  const zid = String(zoneId || '');
+  if (!zid) return 0;
+
+  const fallbackCount = Math.max(0, Number(spawnState?.wildlife?.[zid] ?? 0));
+  const speciesList = Array.isArray(spawnState?.wildlifeSpecies?.[zid])
+    ? spawnState.wildlifeSpecies[zid]
+    : [];
+  if (!fallbackCount && !speciesList.length) return 0;
+
+  const power = Math.max(1, roughPower(actor));
+  const list = speciesList.length
+    ? speciesList.map(normalizeWildlifeKey).filter(Boolean)
+    : Array.from({ length: fallbackCount }, () => 'boar');
+
+  const score = list.reduce((sum, speciesKey) => {
+    const value = Math.max(0.5, Number(WILDLIFE_HUNT_VALUE[speciesKey] || 1.4));
+    const riskPower = Math.max(1, Number(WILDLIFE_RISK_POWER[speciesKey] || 36));
+    const riskMul = power >= riskPower
+      ? 1 + Math.min(0.22, (power - riskPower) / 260)
+      : Math.max(0.38, power / riskPower);
+    return sum + value * riskMul;
+  }, 0);
+
+  return Math.max(score, fallbackCount * 0.6);
+}
+
+function hpRatio(actor) {
+  return Math.max(0, Math.min(1, Number(actor?.hp || 0) / Math.max(1, Number(actor?.maxHp || 100))));
+}
+
+function objectiveContestPressure(actor, objectiveType = '', subkind = '') {
+  const type = String(objectiveType || '');
+  const sub = String(subkind || '').toLowerCase();
+  const power = Math.max(1, roughPower(actor));
+  const hp = hpRatio(actor);
+  const base = type === 'boss'
+    ? (sub.includes('weak') || sub.includes('wick') ? 0.28 : sub.includes('omega') ? 0.24 : 0.21)
+    : type === 'legendary_crate'
+      ? 0.18
+      : type === 'natural_core'
+        ? 0.16
+        : 0.10;
+  const gate = type === 'boss'
+    ? (sub.includes('weak') || sub.includes('wick') ? 82 : sub.includes('omega') ? 68 : 56)
+    : type === 'legendary_crate'
+      ? 46
+      : type === 'natural_core'
+        ? 36
+        : 34;
+  const powerMul = power >= gate ? Math.min(1.18, 1 + (power - gate) / 260) : Math.max(0.28, power / Math.max(1, gate));
+  const hpMul = hp <= 0.28 ? 0.22 : hp <= 0.42 ? 0.48 : hp <= 0.60 ? 0.78 : 1;
+  return Math.max(0, Math.min(0.32, base * powerMul * hpMul));
+}
+
+function markObjectiveTarget(result, actor, objectiveType, subkind = '') {
+  if (!result || !objectiveType) return result;
+  result.objectiveType = String(objectiveType || '');
+  result.objectiveSubkind = String(subkind || '');
+  result.contestPressure = objectiveContestPressure(actor, objectiveType, subkind);
+  return result;
+}
+
+export function chooseAiMoveTargets({ actor, craftGoal, upgradeNeed, mapObj, spawnState, forbiddenIds, day, phase, kiosks, itemMetaById = null, itemNameById = null }) {
+  const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
+  const hasGoal = !!craftGoal?.target && miss.length > 0;
+
+  const s = spawnState && typeof spawnState === 'object' ? spawnState : null;
+  const bosses = s?.bosses || {};
+  const coreNodes = Array.isArray(s?.coreNodes) ? s.coreNodes : [];
+  const crates = Array.isArray(s?.legendaryCrates) ? s.legendaryCrates : [];
+  const transcendCrates = Array.isArray(s?.transcendCrates) ? s.transcendCrates : [];
+
+  const result = { targets: [], reason: '' };
+
+  const simCredits = Math.max(0, Number(actor?.simCredits || 0));
+  const kioskZones = listKioskZoneIdsForMap(mapObj, kiosks, forbiddenIds);
+
+  const up = (upgradeNeed && typeof upgradeNeed === 'object') ? upgradeNeed : null;
+  const wantLegendAny = !!up?.wantLegend;
+  const wantTransAny = !!up?.wantTrans;
+  const hasLegendMatAny = !!up?.hasLegendMatAny;
+  const hasVfAny = !!up?.hasVf;
+  const farmCredits = !!up?.farmCredits;
+  const spendSurplus = !!up?.spendSurplus;
+
+  const legendCost = Math.max(0, Number(up?.legendCost ?? 200));
+  const forceCost = Math.max(0, Number(up?.forceCost ?? 350));
+  const transCost = Math.max(0, Number(up?.transCost ?? 500));
+
+  const needKeys = new Set(
+    miss
+      .map((m) => String(m?.special || classifySpecialByName(m?.name) || ''))
+      .filter(Boolean)
+  );
+
+  const needVf = needKeys.has('vf') || (wantTransAny && !hasVfAny);
+  const needMeteor = needKeys.has('meteor');
+  const needLife = needKeys.has('life_tree');
+  const needMithril = needKeys.has('mithril');
+  const needForce = needKeys.has('force_core');
+
+  if (wantTransAny) {
+    const transTargets = uniqStrings(
+      transcendCrates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+    if (isAtOrAfterWorldTime(day, phase, 4, 'night') && transTargets.length) {
+      result.targets = transTargets;
+      result.reason = '초월 장비 선택 상자';
+      markObjectiveTarget(result, actor, 'transcend_crate', 'transcend_pick');
+      return result;
+    }
+  }
+
+  const activeCoreZones = uniqStrings(
+    coreNodes
+      .filter((n) => n && !n.picked && n.zoneId)
+      .map((n) => String(n.zoneId))
+      .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+  );
+  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && activeCoreZones.length) {
+    const key = String(actor?._id || actor?.id || actor?.name || '');
+    const roll = (hash32(key) % 100) / 100;
+    const forceContest = (wantLegendAny && !hasLegendMatAny) || needMeteor || needLife || needMithril || needForce || needVf;
+    const contest = forceContest || roll < 0.78;
+    if (contest) {
+      result.targets = activeCoreZones;
+      result.reason = '특수 재료 오브젝트';
+      markObjectiveTarget(result, actor, 'natural_core', 'core');
+      return result;
+    }
+  }
+
+  if (farmCredits && s?.wildlife && typeof s.wildlife === 'object') {
+    const entries = Object.entries(s.wildlife)
+      .map(([z, c]) => ({
+        z: String(z),
+        c: Math.max(0, Number(c || 0)),
+        score: scoreWildlifeZoneForActor(s, z, actor),
+      }))
+      .filter((x) => x.z && !forbiddenIds.has(String(x.z)) && (x.c > 0 || x.score > 0))
+      .sort((a, b) => (b.score - a.score) || (b.c - a.c) || a.z.localeCompare(b.z));
+    const top = entries.slice(0, 6).map((x) => x.z).filter(Boolean);
+    if (top.length) {
+      result.targets = top;
+      result.reason = '크레딧 파밍(야생동물)';
+      return result;
+    }
+  }
+
+  if (spendSurplus && canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= Math.min(legendCost, transCost || legendCost)) {
+    result.targets = kioskZones;
+    result.reason = 'surplus credits kiosk';
+    return result;
+  }
+
+  if (needVf) {
+    if (isAtOrAfterWorldTime(day, phase, 5, 'day') && bosses?.weakline?.alive && bosses.weakline.zoneId && !forbiddenIds.has(String(bosses.weakline.zoneId))) {
+      result.targets = [String(bosses.weakline.zoneId)];
+      result.reason = 'VF(위클라인)';
+      markObjectiveTarget(result, actor, 'boss', 'weakline');
+      return result;
+    }
+    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && simCredits >= transCost && kioskZones.length) {
+      result.targets = kioskZones;
+      result.reason = 'VF(키오스크)';
+      return result;
+    }
+  }
+
+  if (wantLegendAny && !hasLegendMatAny) {
+    const crateTargetsAny = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargetsAny.length) {
+      result.targets = crateTargetsAny;
+      result.reason = '특수재료(전설상자)';
+      markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
+      return result;
+    }
+
+    const coreTargetsAny = uniqStrings(
+      coreNodes
+        .filter((n) => n && !n.picked && n.zoneId)
+        .map((n) => String(n.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+    if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargetsAny.length) {
+      result.targets = coreTargetsAny;
+      result.reason = '특수 재료 오브젝트';
+      markObjectiveTarget(result, actor, 'natural_core', 'core');
+      return result;
+    }
+
+    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
+      result.targets = [String(bosses.alpha.zoneId)];
+      result.reason = '특수재료(알파)';
+      markObjectiveTarget(result, actor, 'boss', 'alpha');
+      return result;
+    }
+    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && bosses?.omega?.alive && bosses.omega.zoneId && !forbiddenIds.has(String(bosses.omega.zoneId))) {
+      result.targets = [String(bosses.omega.zoneId)];
+      result.reason = '특수재료(오메가)';
+      markObjectiveTarget(result, actor, 'boss', 'omega');
+      return result;
+    }
+
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
+      result.targets = kioskZones;
+      result.reason = '특수재료(키오스크)';
+      return result;
+    }
+  }
+
+  if (needMeteor || needLife) {
+    const kinds = [];
+    if (needMeteor) kinds.push('meteor');
+    if (needLife) kinds.push('life_tree');
+
+    const targets = coreNodes
+      .filter((n) => n && !n.picked && kinds.includes(String(n.kind)) && n.zoneId)
+      .map((n) => String(n.zoneId))
+      .filter((zid) => zid && !forbiddenIds.has(String(zid)));
+    const uniq = uniqStrings(targets);
+
+    if (uniq.length) {
+      result.targets = uniq;
+      result.reason = needMeteor && needLife ? '특수 재료(운석/생명의 나무)' : needMeteor ? '특수 재료(운석)' : '특수 재료(생명의 나무)';
+      markObjectiveTarget(result, actor, 'natural_core', needMeteor && needLife ? 'core' : needMeteor ? 'meteor' : 'life_tree');
+      return result;
+    }
+
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
+      result.targets = kioskZones;
+      result.reason = '특수 재료(키오스크)';
+      return result;
+    }
+  }
+
+  if (needMithril) {
+    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && bosses?.alpha?.alive && bosses.alpha.zoneId && !forbiddenIds.has(String(bosses.alpha.zoneId))) {
+      result.targets = [String(bosses.alpha.zoneId)];
+      result.reason = '미스릴(알파)';
+      markObjectiveTarget(result, actor, 'boss', 'alpha');
+      return result;
+    }
+
+    const crateTargets = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length) {
+      result.targets = crateTargets;
+      result.reason = '미스릴(전설상자)';
+      markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
+      return result;
+    }
+
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= legendCost) {
+      result.targets = kioskZones;
+      result.reason = '미스릴(키오스크)';
+      return result;
+    }
+  }
+
+  if (needForce) {
+    if (isAtOrAfterWorldTime(day, phase, 4, 'day') && bosses?.omega?.alive && bosses.omega.zoneId && !forbiddenIds.has(String(bosses.omega.zoneId))) {
+      result.targets = [String(bosses.omega.zoneId)];
+      result.reason = '포스코어(오메가)';
+      markObjectiveTarget(result, actor, 'boss', 'omega');
+      return result;
+    }
+
+    const crateTargets = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+    if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length) {
+      result.targets = crateTargets;
+      result.reason = '포스코어(전설상자)';
+      markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
+      return result;
+    }
+
+    if (canUseKioskAtWorldTime(day, phase) && kioskZones.length && simCredits >= forceCost) {
+      result.targets = kioskZones;
+      result.reason = '포스코어(키오스크)';
+      return result;
+    }
+  }
+
+  if (hasGoal) {
+    const zonesForGoal = pickGoalResourceZoneTargets(mapObj, s, forbiddenIds, miss, itemMetaById, itemNameById);
+    if (zonesForGoal.length) {
+      result.targets = zonesForGoal;
+      result.reason = '재료 파밍(목표)';
+      return result;
+    }
+  }
+
+  const crateTargets = uniqStrings(
+      crates
+        .filter((c) => c && !c.opened && c.zoneId)
+        .map((c) => String(c.zoneId))
+        .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+    );
+  if (isAtOrAfterWorldTime(day, phase, 3, 'day') && crateTargets.length && Math.random() < 0.18) {
+    result.targets = crateTargets;
+    result.reason = '전설상자 탐색';
+    markObjectiveTarget(result, actor, 'legendary_crate', 'legendary_material');
+    return result;
+  }
+
+  const coreTargets = uniqStrings(
+    coreNodes
+      .filter((n) => n && !n.picked && n.zoneId)
+      .map((n) => String(n.zoneId))
+      .filter((zid) => zid && !forbiddenIds.has(String(zid)))
+  );
+  if (isAtOrAfterWorldTime(day, phase, 1, 'night') && coreTargets.length && Math.random() < 0.22) {
+    result.targets = coreTargets;
+    result.reason = '특수 재료 탐색';
+    markObjectiveTarget(result, actor, 'natural_core', 'core');
+    return result;
+  }
+
+  return result;
+}
