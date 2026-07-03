@@ -21,6 +21,10 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+function getDisplayName(user) {
+  return String(user?.nickname || user?.username || '사용자').trim() || '사용자';
+}
+
 export default function SiteHeader({ className = '' }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -70,10 +74,10 @@ export default function SiteHeader({ className = '' }) {
             <span className="site-header__auth-skeleton">확인 중</span>
           ) : loggedIn ? (
             <>
-              <span className="site-header__user">
-                <strong>{user.username || '사용자'}</strong>
+              <Link href="/account" className="site-header__user" title="계정 설정">
+                <strong>{getDisplayName(user)}</strong>
                 <small>LP {formatNumber(user.lp)} · Cr {formatNumber(user.credits)} · 특전 {perkCount}</small>
-              </span>
+              </Link>
               <button type="button" className="site-header__logout" onClick={handleLogout}>
                 로그아웃
               </button>

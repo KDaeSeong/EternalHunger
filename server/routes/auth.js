@@ -5,11 +5,16 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
+function normalizeNickname(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ');
+}
+
 function publicUser(user) {
   return {
     id: user._id,
     _id: user._id,
     username: user.username,
+    nickname: user.nickname || '',
     lp: Number(user.lp || 0),
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
@@ -20,7 +25,12 @@ function publicUser(user) {
 router.post('/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = new User({ username, password });
+    const nickname = normalizeNickname(req.body?.nickname);
+    if (nickname && (nickname.length < 2 || nickname.length > 20)) {
+      return res.status(400).json({ error: '닉네임은 2~20자로 입력해주세요.' });
+    }
+
+    const user = new User({ username, password, nickname });
     await user.save();
     res.status(201).json({ message: '회원가입 성공' });
   } catch (err) {

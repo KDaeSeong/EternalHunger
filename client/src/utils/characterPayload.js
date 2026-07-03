@@ -7,6 +7,19 @@ const MAX_TEXT_CHARS = 4000;
 const STAT_KEYS = ER_STAT_KEYS;
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
 const LOADOUT_KEYS = ['weaponKey', 'headKey', 'clothesKey', 'armKey', 'shoesKey'];
+const ACTIVE_SKILL_SLOTS = ['q', 'w', 'e', 'r'];
+const CHARACTER_SKILL_SLOTS = [...ACTIVE_SKILL_SLOTS, 'passive'];
+const SKILL_LEVEL_ARRAY_FIELDS = [
+  'firstFlat',
+  'secondFlat',
+  'flatDamage',
+  'maxHpPct',
+  'currentHpPct',
+  'secondMaxHpPct',
+  'secondCurrentHpPct',
+  'heal',
+  'shield',
+];
 const SIMPLE_COMPARE_KEYS = [
   'name',
   'gender',
@@ -109,26 +122,67 @@ function cleanLevelArray(value, fallback = 0) {
   return out;
 }
 
+function cleanSkillStatModifiers(statModifiers) {
+  const src = statModifiers && typeof statModifiers === 'object' ? statModifiers : {};
+  const out = {};
+  for (const key of ER_STAT_KEYS) {
+    const value = cleanNumber(src[key], 0);
+    if (value !== 0) out[key] = value;
+  }
+  return out;
+}
+
+function cleanPctInput(value, fallback = 0) {
+  const n = cleanNumber(value, fallback);
+  if (n <= 0) return 0;
+  return n > 1 ? n / 100 : n;
+}
+
+function cleanCharacterSkill(raw, slot) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const isPassive = slot === 'passive';
+  const defaultType = isPassive ? 'passive_stat' : slot === 'q' ? 'basic_attack_recast' : 'combat_effect';
+  const defaultCooldown = slot === 'r' ? 60 : slot === 'e' ? 18 : slot === 'w' ? 12 : slot === 'q' ? 7 : 0;
+  const out = {
+    enabled: src.enabled === true,
+    slot,
+    type: cleanString(src.type, 64) || defaultType,
+    trigger: cleanString(src.trigger, 64) || (isPassive ? 'always' : 'basic_attack'),
+    name: cleanString(src.name, 256) || '',
+    sourceText: cleanString(src.sourceText, MAX_TEXT_CHARS) || '',
+    cooldownSec: Math.max(isPassive ? 0 : 1, cleanNumber(src.cooldownSec, defaultCooldown)),
+    recastWindowSec: Math.max(0, cleanNumber(src.recastWindowSec, slot === 'q' ? 5 : 0)),
+    range: Math.max(0, cleanNumber(src.range, 0)),
+    castDelaySec: Math.max(0, cleanNumber(src.castDelaySec, 0)),
+    recoveryDelaySec: Math.max(0, cleanNumber(src.recoveryDelaySec, 0)),
+    useCondition: cleanString(src.useCondition, 64) || 'auto',
+    targetPriority: cleanString(src.targetPriority, 64) || 'auto',
+    minExpectedDamage: Math.max(0, cleanNumber(src.minExpectedDamage, 1)),
+    minSplashTargets: Math.max(0, Math.floor(cleanNumber(src.minSplashTargets, 0))),
+    minCasterHpPct: cleanPctInput(src.minCasterHpPct, 0),
+    maxCasterHpPct: cleanPctInput(src.maxCasterHpPct, 0),
+    minTargetHpPct: cleanPctInput(src.minTargetHpPct, 0),
+    maxTargetHpPct: cleanPctInput(src.maxTargetHpPct, 0),
+    radius: Math.max(0, cleanNumber(src.radius, 0)),
+    durationSec: Math.max(0, cleanNumber(src.durationSec, 0)),
+    firstSkillAmpScale: Math.max(0, cleanNumber(src.firstSkillAmpScale, 0)),
+    secondSkillAmpScale: Math.max(0, cleanNumber(src.secondSkillAmpScale, 0)),
+    skillAmpScale: Math.max(0, cleanNumber(src.skillAmpScale ?? src.firstSkillAmpScale, 0)),
+    statModifiers: cleanSkillStatModifiers(src.statModifiers),
+    tags: Array.isArray(src.tags) ? src.tags.map((tag) => cleanString(tag, 128)).filter(Boolean).slice(0, 16) : [],
+  };
+  for (const field of SKILL_LEVEL_ARRAY_FIELDS) {
+    out[field] = cleanLevelArray(src[field], 0);
+  }
+  if (!isPassive && !src.flatDamage && src.firstFlat) out.flatDamage = cleanLevelArray(src.firstFlat, 0);
+  return out;
+}
+
 function cleanCharacterSkills(skills) {
   const src = skills && typeof skills === 'object' ? skills : {};
-  const q = src.q && typeof src.q === 'object' ? src.q : {};
-  return {
-    q: {
-      enabled: q.enabled === true,
-      type: cleanString(q.type, 64) || 'basic_attack_recast',
-      name: cleanString(q.name, 256) || '',
-      sourceText: cleanString(q.sourceText, MAX_TEXT_CHARS) || '',
-      cooldownSec: Math.max(1, cleanNumber(q.cooldownSec, 7)),
-      recastWindowSec: Math.max(1, cleanNumber(q.recastWindowSec, 5)),
-      radius: Math.max(0, cleanNumber(q.radius, 0)),
-      firstFlat: cleanLevelArray(q.firstFlat, 0),
-      secondFlat: cleanLevelArray(q.secondFlat, 0),
-      secondMaxHpPct: cleanLevelArray(q.secondMaxHpPct, 0),
-      secondCurrentHpPct: cleanLevelArray(q.secondCurrentHpPct, 0),
-      firstSkillAmpScale: Math.max(0, cleanNumber(q.firstSkillAmpScale, 0)),
-      secondSkillAmpScale: Math.max(0, cleanNumber(q.secondSkillAmpScale, 0)),
-    },
-  };
+  return Object.fromEntries(
+    CHARACTER_SKILL_SLOTS.map((slot) => [slot, cleanCharacterSkill(src[slot], slot)])
+  );
 }
 
 function cleanStatsObject(stats) {

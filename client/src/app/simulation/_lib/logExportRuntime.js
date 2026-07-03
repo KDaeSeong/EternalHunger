@@ -72,6 +72,12 @@ export function buildLogExportSummary({
           rosterNames: Array.isArray(winnerTeam.rosterNames) ? winnerTeam.rosterNames : [],
         }
       : null,
+    lpReward: {
+      total: Number(resultSummary?.rewardLP || 0),
+      base: Number(resultSummary?.rewardBaseLP || 0),
+      predictionBonus: Number(resultSummary?.rewardPredictionBonusLP || 0),
+      prediction: resultSummary?.winnerPrediction || null,
+    },
   };
 }
 
@@ -82,6 +88,10 @@ export function buildMarkdownLogExport(lines, summary) {
     `- 매치: ${summary.match.mode} / 참가자 ${summary.match.participantsCount}명 / 팀 ${summary.match.teamCount}개`,
     summary.winner ? `- 우승 대표: ${summary.winner.name}${summary.winner.teamName ? ` (${summary.winner.teamName})` : ''}` : '- 우승 대표: 없음',
     summary.winnerTeam ? `- 우승 팀 상태: 생존 ${summary.winnerTeam.aliveCount}/${summary.winnerTeam.originalSize}` : '',
+    `- LP 보상: ${summary.lpReward.total} (기본 ${summary.lpReward.base} / 예측 ${summary.lpReward.predictionBonus})`,
+    summary.lpReward.prediction?.predictedId
+      ? `- 승자 예측: ${summary.lpReward.prediction.predictedName || '선택한 참가자'} / ${summary.lpReward.prediction.correct ? '성공' : '실패'}`
+      : '- 승자 예측: 없음',
     `- 로그 수: ${summary.logCount}`,
   ].filter(Boolean);
 

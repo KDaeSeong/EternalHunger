@@ -9,7 +9,7 @@ import { apiPost } from '../../utils/api';
 import '../../styles/Auth.css';
 
 export default function SignupPage() {
-  const [form, setForm] = useState({ username: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ username: '', nickname: '', password: '', confirmPassword: '' });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const router = useRouter();
@@ -31,6 +31,7 @@ export default function SignupPage() {
     try {
       await apiPost('/auth/signup', {
         username: form.username,
+        nickname: form.nickname,
         password: form.password,
       });
 
@@ -69,6 +70,16 @@ export default function SignupPage() {
               disabled={busy}
               autoComplete="username"
               onChange={(event) => setForm({ ...form, username: event.target.value })}
+            />
+            <input
+              type="text"
+              className="auth-input"
+              placeholder="닉네임 (선택)"
+              value={form.nickname}
+              disabled={busy}
+              maxLength={20}
+              autoComplete="nickname"
+              onChange={(event) => setForm({ ...form, nickname: event.target.value })}
             />
             <input
               type="password"

@@ -1,6 +1,7 @@
 import { apiPost, getUser, updateStoredUser } from '../../../utils/api';
 import { LEGACY_HOF_KEY, emitHallOfFameSync, writeHallOfFameState } from '../../../utils/hallOfFame';
 import { getMatchConfig, normalizeMatchMode } from './matchRosterRuntime';
+import { buildLpRewardSummary, formatLpRewardBreakdown } from './lpRewardRuntime';
 import { dedupeRuntimeParticipants, getRuntimeActorKey } from './runtimeParticipantRuntime';
 import {
   getActorTeamId,
@@ -32,6 +33,7 @@ export async function finishSimulationGame(opts = {}) {
     devRunTainted,
     killCounts,
     settings,
+    winnerPredictionId,
   } = state;
   const {
     addLog,
@@ -66,7 +68,15 @@ export async function finishSimulationGame(opts = {}) {
   const myKills = winnerId ? Number(finalKills[winnerId] || 0) : 0;
   const myAssists = winnerId ? Number(finalAssists[winnerId] || 0) : 0;
   const isDevRunTainted = Boolean(devRunTainted);
-  const rewardLP = isDevRunTainted ? 0 : (winner ? (100 + myKills * 10) : 0);
+  const lpRewardSummary = buildLpRewardSummary({
+    getActorKey: getRuntimeActorKey,
+    isDevRunTainted,
+    participants,
+    predictedWinnerId: winnerPredictionId,
+    winner,
+    winningTeam,
+  });
+  const rewardLP = lpRewardSummary.totalLP;
   const topKillLeader = [...participants]
     .sort((a, b) => {
       const aId = getRuntimeActorKey(a);
@@ -89,6 +99,14 @@ export async function finishSimulationGame(opts = {}) {
   setShowResultModal?.(true);
   setResultSummary?.({
     rewardLP,
+    rewardBaseLP: lpRewardSummary.baseLP,
+    rewardPredictionBonusLP: lpRewardSummary.predictionBonusLP,
+    winnerPrediction: {
+      predictedId: lpRewardSummary.predictedWinnerId,
+      predictedName: lpRewardSummary.predictedName,
+      correct: lpRewardSummary.predictionCorrect,
+      bonusLP: lpRewardSummary.predictionBonusLP,
+    },
     myKills,
     myAssists,
     participantsCount: participants.length,
@@ -248,6 +266,8 @@ export async function finishSimulationGame(opts = {}) {
     setResultSummary?.((prev) => ({
       ...(prev || {}),
       rewardLP: typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : (prev?.rewardLP ?? rewardLP),
+      rewardBaseLP: prev?.rewardBaseLP ?? lpRewardSummary.baseLP,
+      rewardPredictionBonusLP: prev?.rewardPredictionBonusLP ?? lpRewardSummary.predictionBonusLP,
       userProgress: {
         lp: typeof res?.newLp === 'number' ? res.newLp : Number(res?.user?.lp || 0),
         credits: typeof res?.credits === 'number' ? res.credits : Number(res?.user?.credits || 0),
@@ -257,7 +277,7 @@ export async function finishSimulationGame(opts = {}) {
     }));
 
     addLog?.(
-      `💾 [전적 저장 완료] ${Boolean(winner) ? `LP +${typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : rewardLP} 획득! ` : ''}(현재 총 LP: ${res?.newLp ?? res?.user?.lp ?? '?'})`,
+      `💾 [전적 저장 완료] LP +${typeof res?.lpEarnedApplied === 'number' ? res.lpEarnedApplied : rewardLP} 획득 (${formatLpRewardBreakdown(lpRewardSummary)}) (현재 총 LP: ${res?.newLp ?? res?.user?.lp ?? '?'})`,
       'system'
     );
   } catch (error) {

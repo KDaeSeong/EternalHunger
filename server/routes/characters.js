@@ -70,6 +70,19 @@ const DEFAULT_STATS = {
 const STAT_KEYS = Object.keys(DEFAULT_STATS);
 const LOADOUT_TIERS = ['hero', 'legend', 'transcend'];
 const LOADOUT_KEYS = ['weaponKey', 'headKey', 'clothesKey', 'armKey', 'shoesKey'];
+const ACTIVE_SKILL_SLOTS = ['q', 'w', 'e', 'r'];
+const CHARACTER_SKILL_SLOTS = [...ACTIVE_SKILL_SLOTS, 'passive'];
+const SKILL_LEVEL_ARRAY_FIELDS = [
+  'firstFlat',
+  'secondFlat',
+  'flatDamage',
+  'maxHpPct',
+  'currentHpPct',
+  'secondMaxHpPct',
+  'secondCurrentHpPct',
+  'heal',
+  'shield',
+];
 const SUPPORTED_TAC_SKILLS = new Set([
   '블링크',
   '치유의 바람',
@@ -217,26 +230,67 @@ function cleanComparableLevelArray(value, fallback = 0) {
   return out;
 }
 
+function cleanComparableSkillStatModifiers(statModifiers) {
+  const src = statModifiers && typeof statModifiers === 'object' ? statModifiers : {};
+  const out = {};
+  for (const key of STAT_KEYS) {
+    const value = cleanComparableNumber(src[key], 0);
+    if (value !== 0) out[key] = value;
+  }
+  return out;
+}
+
+function cleanComparablePctInput(value, fallback = 0) {
+  const n = cleanComparableNumber(value, fallback);
+  if (n <= 0) return 0;
+  return n > 1 ? n / 100 : n;
+}
+
+function cleanComparableCharacterSkill(raw, slot) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const isPassive = slot === 'passive';
+  const defaultType = isPassive ? 'passive_stat' : slot === 'q' ? 'basic_attack_recast' : 'combat_effect';
+  const defaultCooldown = slot === 'r' ? 60 : slot === 'e' ? 18 : slot === 'w' ? 12 : slot === 'q' ? 7 : 0;
+  const out = {
+    enabled: src.enabled === true,
+    slot,
+    type: cleanComparableString(src.type, defaultType) || defaultType,
+    trigger: cleanComparableString(src.trigger, isPassive ? 'always' : 'basic_attack') || (isPassive ? 'always' : 'basic_attack'),
+    name: cleanComparableString(src.name, ''),
+    sourceText: cleanComparableString(src.sourceText, ''),
+    cooldownSec: Math.max(isPassive ? 0 : 1, cleanComparableNumber(src.cooldownSec, defaultCooldown)),
+    recastWindowSec: Math.max(0, cleanComparableNumber(src.recastWindowSec, slot === 'q' ? 5 : 0)),
+    range: Math.max(0, cleanComparableNumber(src.range, 0)),
+    castDelaySec: Math.max(0, cleanComparableNumber(src.castDelaySec, 0)),
+    recoveryDelaySec: Math.max(0, cleanComparableNumber(src.recoveryDelaySec, 0)),
+    useCondition: cleanComparableString(src.useCondition, 'auto') || 'auto',
+    targetPriority: cleanComparableString(src.targetPriority, 'auto') || 'auto',
+    minExpectedDamage: Math.max(0, cleanComparableNumber(src.minExpectedDamage, 1)),
+    minSplashTargets: Math.max(0, Math.floor(cleanComparableNumber(src.minSplashTargets, 0))),
+    minCasterHpPct: cleanComparablePctInput(src.minCasterHpPct, 0),
+    maxCasterHpPct: cleanComparablePctInput(src.maxCasterHpPct, 0),
+    minTargetHpPct: cleanComparablePctInput(src.minTargetHpPct, 0),
+    maxTargetHpPct: cleanComparablePctInput(src.maxTargetHpPct, 0),
+    radius: Math.max(0, cleanComparableNumber(src.radius, 0)),
+    durationSec: Math.max(0, cleanComparableNumber(src.durationSec, 0)),
+    firstSkillAmpScale: Math.max(0, cleanComparableNumber(src.firstSkillAmpScale, 0)),
+    secondSkillAmpScale: Math.max(0, cleanComparableNumber(src.secondSkillAmpScale, 0)),
+    skillAmpScale: Math.max(0, cleanComparableNumber(src.skillAmpScale ?? src.firstSkillAmpScale, 0)),
+    statModifiers: cleanComparableSkillStatModifiers(src.statModifiers),
+    tags: (Array.isArray(src.tags) ? src.tags : []).map((tag) => cleanComparableString(tag, '')).filter(Boolean).slice(0, 16),
+  };
+  for (const field of SKILL_LEVEL_ARRAY_FIELDS) {
+    out[field] = cleanComparableLevelArray(src[field], 0);
+  }
+  if (!isPassive && !src.flatDamage && src.firstFlat) out.flatDamage = cleanComparableLevelArray(src.firstFlat, 0);
+  return out;
+}
+
 function cleanComparableCharacterSkills(skills) {
   const src = skills && typeof skills === 'object' ? skills : {};
-  const q = src.q && typeof src.q === 'object' ? src.q : {};
-  return {
-    q: {
-      enabled: q.enabled === true,
-      type: cleanComparableString(q.type, 'basic_attack_recast') || 'basic_attack_recast',
-      name: cleanComparableString(q.name, ''),
-      sourceText: cleanComparableString(q.sourceText, ''),
-      cooldownSec: Math.max(1, cleanComparableNumber(q.cooldownSec, 7)),
-      recastWindowSec: Math.max(1, cleanComparableNumber(q.recastWindowSec, 5)),
-      radius: Math.max(0, cleanComparableNumber(q.radius, 0)),
-      firstFlat: cleanComparableLevelArray(q.firstFlat, 0),
-      secondFlat: cleanComparableLevelArray(q.secondFlat, 0),
-      secondMaxHpPct: cleanComparableLevelArray(q.secondMaxHpPct, 0),
-      secondCurrentHpPct: cleanComparableLevelArray(q.secondCurrentHpPct, 0),
-      firstSkillAmpScale: Math.max(0, cleanComparableNumber(q.firstSkillAmpScale, 0)),
-      secondSkillAmpScale: Math.max(0, cleanComparableNumber(q.secondSkillAmpScale, 0)),
-    },
-  };
+  return Object.fromEntries(
+    CHARACTER_SKILL_SLOTS.map((slot) => [slot, cleanComparableCharacterSkill(src[slot], slot)])
+  );
 }
 
 function comparableValue(value, field) {

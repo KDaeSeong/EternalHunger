@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
+  nickname: { type: String, default: '', trim: true, maxlength: 20 },
   password: { type: String, required: true },
   lp: { type: Number, default: 0 }, 
 

@@ -24,10 +24,26 @@ function getProceedLabel({
   return Number(day || 0) >= 6 ? '서든데스 진행' : '다음 낮으로 진행';
 }
 
+function getActorId(actor) {
+  return String(actor?._id || actor?.id || actor?.charId || '').trim();
+}
+
+function getPredictionLabel(actor, matchMode) {
+  const name = String(actor?.name || actor?.nickname || actor?.charName || '이름 없음').trim();
+  if (normalizeMode(matchMode) === 'solo') return name;
+  const teamName = String(actor?.teamName || actor?.squadName || actor?.matchTeamName || '').trim();
+  return teamName ? `${name} · ${teamName}` : name;
+}
+
 export default function SimulationControlPanel({
   matchMode,
   onMatchModeChange,
   matchModeDisabled,
+  matchSec,
+  survivors,
+  winnerPredictionId,
+  onWinnerPredictionChange,
+  winnerPredictionDisabled,
   characterSkillsEnabled,
   onCharacterSkillsToggle,
   characterSkillsDisabled,
@@ -63,6 +79,31 @@ export default function SimulationControlPanel({
 
   return (
     <div className="control-panel">
+      <div className="prediction-row">
+        <label className="winner-prediction-control">
+          <span>승자 예측</span>
+          <select
+            value={winnerPredictionId || ''}
+            onChange={(event) => onWinnerPredictionChange?.(event.target.value)}
+            disabled={winnerPredictionDisabled}
+            title="경기 시작 전에 우승자를 예측하면 성공 시 LP 100을 추가로 받습니다."
+          >
+            <option value="">예측 안 함</option>
+            {(Array.isArray(survivors) ? survivors : []).map((actor) => {
+              const id = getActorId(actor);
+              if (!id) return null;
+              return (
+                <option value={id} key={id}>
+                  {getPredictionLabel(actor, matchMode)}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+        <span className="winner-prediction-help">
+          기본 50 LP · 예측 성공 +100 LP{Number(matchSec || 0) > 0 ? ' · 경기 시작 후 변경 불가' : ''}
+        </span>
+      </div>
       <div className="control-row">
         <select
           className="autoplay-speed"

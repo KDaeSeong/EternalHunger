@@ -1,6 +1,7 @@
 import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { apiGet } from '../../../utils/api';
 import { DEFAULT_ER_STATS, normalizeErStats } from '../../../utils/erStats';
+import { CHARACTER_SKILL_SLOTS, createDefaultCompiledSkill } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 
 const GOAL_GEAR_TIERS = [
@@ -41,46 +42,91 @@ function normalizeCharacterSkillLevels(levels) {
   };
 }
 
-function createDefaultQSkill(overrides = {}) {
-  return {
+function normalizeSkillSlot(slot) {
+  const key = String(slot || 'q').trim().toLowerCase();
+  return CHARACTER_SKILL_SLOTS.includes(key) ? key : 'q';
+}
+
+function cleanStatModifiers(statModifiers) {
+  const src = statModifiers && typeof statModifiers === 'object' ? statModifiers : {};
+  return Object.fromEntries(
+    Object.entries(src)
+      .map(([key, value]) => [key, cleanNumber(value, 0)])
+      .filter(([, value]) => Number.isFinite(value) && value !== 0)
+  );
+}
+
+function cleanPctInput(value, fallback = 0) {
+  const n = cleanNumber(value, fallback);
+  if (n <= 0) return 0;
+  return n > 1 ? n / 100 : n;
+}
+
+function createDefaultCharacterSkill(overrides = {}, slot = 'q') {
+  const skillSlot = normalizeSkillSlot(overrides.slot || slot);
+  return createDefaultCompiledSkill({
     enabled: false,
-    type: 'basic_attack_recast',
-    name: '',
-    sourceText: '',
-    cooldownSec: 7,
-    recastWindowSec: 5,
-    radius: 0,
-    firstFlat: [0, 0, 0, 0, 0],
-    secondFlat: [0, 0, 0, 0, 0],
-    secondMaxHpPct: [0, 0, 0, 0, 0],
-    secondCurrentHpPct: [0, 0, 0, 0, 0],
-    firstSkillAmpScale: 0,
-    secondSkillAmpScale: 0,
     ...overrides,
-  };
+    slot: skillSlot,
+  }, skillSlot);
+}
+
+function normalizeCharacterSkillForEditor(skills, slot = 'q') {
+  const skillSlot = normalizeSkillSlot(slot);
+  const raw = skills?.[skillSlot] && typeof skills[skillSlot] === 'object' ? skills[skillSlot] : {};
+  const normalized = createDefaultCharacterSkill({
+    enabled: raw.enabled === true,
+    slot: skillSlot,
+    type: String(raw.type || ''),
+    trigger: String(raw.trigger || ''),
+    name: String(raw.name || ''),
+    sourceText: String(raw.sourceText || ''),
+    cooldownSec: Math.max(skillSlot === 'passive' ? 0 : 1, cleanNumber(raw.cooldownSec, skillSlot === 'q' ? 7 : 12)),
+    recastWindowSec: Math.max(0, cleanNumber(raw.recastWindowSec, skillSlot === 'q' ? 5 : 0)),
+    range: Math.max(0, cleanNumber(raw.range, 0)),
+    castDelaySec: Math.max(0, cleanNumber(raw.castDelaySec, 0)),
+    recoveryDelaySec: Math.max(0, cleanNumber(raw.recoveryDelaySec, 0)),
+    useCondition: String(raw.useCondition || 'auto'),
+    targetPriority: String(raw.targetPriority || 'auto'),
+    minExpectedDamage: Math.max(0, cleanNumber(raw.minExpectedDamage, 1)),
+    minSplashTargets: Math.max(0, Math.floor(cleanNumber(raw.minSplashTargets, 0))),
+    minCasterHpPct: cleanPctInput(raw.minCasterHpPct, 0),
+    maxCasterHpPct: cleanPctInput(raw.maxCasterHpPct, 0),
+    minTargetHpPct: cleanPctInput(raw.minTargetHpPct, 0),
+    maxTargetHpPct: cleanPctInput(raw.maxTargetHpPct, 0),
+    radius: Math.max(0, cleanNumber(raw.radius, 0)),
+    durationSec: Math.max(0, cleanNumber(raw.durationSec, 0)),
+    firstFlat: normalizeSkillLevelArray(raw.firstFlat, 0, { integer: true }),
+    secondFlat: normalizeSkillLevelArray(raw.secondFlat, 0, { integer: true }),
+    flatDamage: normalizeSkillLevelArray(raw.flatDamage ?? raw.firstFlat, 0, { integer: true }),
+    maxHpPct: normalizeSkillLevelArray(raw.maxHpPct, 0, { percent: true }),
+    currentHpPct: normalizeSkillLevelArray(raw.currentHpPct, 0, { percent: true }),
+    secondMaxHpPct: normalizeSkillLevelArray(raw.secondMaxHpPct, 0, { percent: true }),
+    secondCurrentHpPct: normalizeSkillLevelArray(raw.secondCurrentHpPct, 0, { percent: true }),
+    heal: normalizeSkillLevelArray(raw.heal, 0, { integer: true }),
+    shield: normalizeSkillLevelArray(raw.shield, 0, { integer: true }),
+    firstSkillAmpScale: Math.max(0, cleanNumber(raw.firstSkillAmpScale, 0)),
+    secondSkillAmpScale: Math.max(0, cleanNumber(raw.secondSkillAmpScale, 0)),
+    skillAmpScale: Math.max(0, cleanNumber(raw.skillAmpScale ?? raw.firstSkillAmpScale, 0)),
+    statModifiers: cleanStatModifiers(raw.statModifiers),
+    tags: Array.isArray(raw.tags) ? raw.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 16) : [],
+  }, skillSlot);
+  if (skillSlot === 'q' && !raw.type) normalized.type = 'basic_attack_recast';
+  return normalized;
+}
+
+function createDefaultQSkill(overrides = {}) {
+  return createDefaultCharacterSkill(overrides, 'q');
 }
 
 function normalizeQSkillForEditor(skills) {
-  const q = skills?.q && typeof skills.q === 'object' ? skills.q : {};
-  return createDefaultQSkill({
-    enabled: q.enabled === true,
-    type: String(q.type || 'basic_attack_recast'),
-    name: String(q.name || ''),
-    sourceText: String(q.sourceText || ''),
-    cooldownSec: Math.max(1, cleanNumber(q.cooldownSec, 7)),
-    recastWindowSec: Math.max(1, cleanNumber(q.recastWindowSec, 5)),
-    radius: Math.max(0, cleanNumber(q.radius, 0)),
-    firstFlat: normalizeSkillLevelArray(q.firstFlat, 0, { integer: true }),
-    secondFlat: normalizeSkillLevelArray(q.secondFlat, 0, { integer: true }),
-    secondMaxHpPct: normalizeSkillLevelArray(q.secondMaxHpPct, 0, { percent: true }),
-    secondCurrentHpPct: normalizeSkillLevelArray(q.secondCurrentHpPct, 0, { percent: true }),
-    firstSkillAmpScale: Math.max(0, cleanNumber(q.firstSkillAmpScale, 0)),
-    secondSkillAmpScale: Math.max(0, cleanNumber(q.secondSkillAmpScale, 0)),
-  });
+  return normalizeCharacterSkillForEditor(skills, 'q');
 }
 
 function normalizeCharacterSkillsForEditor(skills) {
-  return { q: normalizeQSkillForEditor(skills) };
+  return Object.fromEntries(
+    CHARACTER_SKILL_SLOTS.map((slot) => [slot, normalizeCharacterSkillForEditor(skills, slot)])
+  );
 }
 
 function normalizeCharacterEditorList(data) {
@@ -153,12 +199,14 @@ export {
   characterId,
   cleanNumber,
   createBlankCharacter,
+  createDefaultCharacterSkill,
   createDefaultQSkill,
   formatSaveMismatchMessage,
   gearTierLabel,
   loadCharactersAfterSave,
   normalizeCharacterEditorList,
   normalizeCharacterSkillLevels,
+  normalizeCharacterSkillForEditor,
   normalizeCharacterSkillsForEditor,
   normalizeQSkillForEditor,
   normalizeSkillLevelArray,

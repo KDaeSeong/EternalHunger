@@ -88,6 +88,16 @@ export default function SimulationResultModal({
   const topKillLeader = resultSummary?.topKillLeader || null;
   const saveStatus = resultSummary?.saveStatus || {};
   const userProgress = resultSummary?.userProgress || null;
+  const rewardBreakdown = resultSummary
+    ? [
+      Number(resultSummary?.rewardBaseLP || 0) > 0 ? `기본 ${Number(resultSummary.rewardBaseLP || 0)} LP` : '',
+      Number(resultSummary?.rewardPredictionBonusLP || 0) > 0 ? `예측 성공 ${Number(resultSummary.rewardPredictionBonusLP || 0)} LP` : '',
+    ].filter(Boolean).join(' + ') || '보상 없음'
+    : '';
+  const prediction = resultSummary?.winnerPrediction || null;
+  const predictionText = prediction?.predictedId
+    ? `${prediction.predictedName || '선택한 참가자'} · ${prediction.correct ? '성공' : '실패'}`
+    : '예측 안 함';
   const winnerEr = winner ? buildErBehaviorModifier(winner) : null;
   const winnerErText = winnerEr
     ? [
@@ -107,6 +117,8 @@ export default function SimulationResultModal({
     gainDetailSummary,
     resultSummary?.devRunTainted ? 'devtools' : '',
     matchModeText,
+    rewardBreakdown,
+    predictionText,
     winnerTeamStatusText,
     winnerTeamRosterText,
     objectiveSummary?.line,
@@ -146,7 +158,7 @@ export default function SimulationResultModal({
                 <strong>{resultSummary.participantsCount || 0}명</strong>
               </div>
               <div>
-                <span>우승 보상</span>
+                <span>LP 보상</span>
                 <strong>LP {resultSummary.rewardLP || 0}</strong>
               </div>
               {!isSoloMatch && winnerTeamStatusText ? (
@@ -180,6 +192,8 @@ export default function SimulationResultModal({
                   </DetailRow>
                 ) : null}
                 <DetailRow label="매치 모드">{compactText(matchModeText)}</DetailRow>
+                <DetailRow label="LP 보상 내역">{compactText(rewardBreakdown)}</DetailRow>
+                <DetailRow label="승자 예측">{compactText(predictionText)}</DetailRow>
                 <DetailRow label="우승자 ER 프로필">{compactText(winnerErText)}</DetailRow>
                 <DetailRow label={winnerGroupLabel}>
                   {winnerGroupText}

@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
       .sort({ 'records.totalKills': -1 })
       .limit(3);
 
-    const points = await User.find({}, 'username lp')
+    const points = await User.find({}, 'username nickname lp')
       .sort({ lp: -1 })
       .limit(3);
 

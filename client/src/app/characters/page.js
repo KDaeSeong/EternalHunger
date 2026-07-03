@@ -8,7 +8,7 @@ import { applyErSubjectPreset, getErSubjectPreset } from '../../utils/erMeta';
 import { normalizeSupportedTacSkill } from '../simulation/tacticalSkillTable';
 import { apiGetCached, apiPost, clearApiGetCache, getToken } from '../../utils/api';
 import { compactCharactersForSave, findCharacterSaveMismatches } from '../../utils/characterPayload';
-import { compileNaturalQSkillDescription } from '../../utils/characterSkillCompiler';
+import { CHARACTER_SKILL_SLOTS, compileNaturalSkillDescription } from '../../utils/characterSkillCompiler';
 import { readCompressedPreviewImage } from '../../utils/previewImage';
 import { normalizeErStats } from '../../utils/erStats';
 import SiteHeader from '../../components/SiteHeader';
@@ -19,13 +19,13 @@ import {
   characterId,
   cleanNumber,
   createBlankCharacter,
-  createDefaultQSkill,
+  createDefaultCharacterSkill,
   formatSaveMismatchMessage,
   loadCharactersAfterSave,
   normalizeCharacterEditorList,
   normalizeCharacterSkillLevels,
+  normalizeCharacterSkillForEditor,
   normalizeCharacterSkillsForEditor,
-  normalizeQSkillForEditor,
   normalizeSkillLevelArray,
   syncTokenCookie,
 } from './_lib/characterEditorRuntime';
@@ -40,6 +40,7 @@ export default function CharactersPage() {
   const [editCharacterSkillCode, setEditCharacterSkillCode] = useState('');
   const [editCharacterSkillLevels, setEditCharacterSkillLevels] = useState(() => normalizeCharacterSkillLevels());
   const [editCharacterSkills, setEditCharacterSkills] = useState(() => normalizeCharacterSkillsForEditor());
+  const [activeSkillSlot, setActiveSkillSlot] = useState('q');
   const backdropPointerRef = useRef(null);
 
   const editChar = useMemo(
@@ -126,38 +127,45 @@ export default function CharactersPage() {
     alert(`ER 프리셋 적용: ${preset.names?.[0] || preset.code} / ${preset.primaryWeapon} / ${preset.tacticalSkill}`);
   };
 
-  const updateEditQSkill = (field, value) => {
+  const normalizeEditableSkillSlot = (slot) => (
+    CHARACTER_SKILL_SLOTS.includes(String(slot || '').toLowerCase()) ? String(slot || '').toLowerCase() : 'q'
+  );
+
+  const updateEditSkill = (slot, field, value) => {
+    const skillSlot = normalizeEditableSkillSlot(slot);
     setEditCharacterSkills((prev) => ({
       ...prev,
-      q: {
-        ...createDefaultQSkill(prev?.q || {}),
+      [skillSlot]: {
+        ...createDefaultCharacterSkill(prev?.[skillSlot] || {}, skillSlot),
         [field]: value,
       },
     }));
   };
 
-  const updateEditQSkillLevelValue = (field, index, value) => {
+  const updateEditSkillLevelValue = (slot, field, index, value) => {
+    const skillSlot = normalizeEditableSkillSlot(slot);
     setEditCharacterSkills((prev) => {
-      const q = createDefaultQSkill(prev?.q || {});
-      const isPercentField = field === 'secondMaxHpPct' || field === 'secondCurrentHpPct';
-      const list = normalizeSkillLevelArray(q[field], 0, { percent: isPercentField });
+      const skill = createDefaultCharacterSkill(prev?.[skillSlot] || {}, skillSlot);
+      const isPercentField = field === 'secondMaxHpPct' || field === 'secondCurrentHpPct' || field === 'maxHpPct' || field === 'currentHpPct';
+      const list = normalizeSkillLevelArray(skill[field], 0, { percent: isPercentField });
       list[index] = cleanNumber(value, 0);
       return {
         ...prev,
-        q: {
-          ...q,
+        [skillSlot]: {
+          ...skill,
           [field]: list,
         },
       };
     });
   };
 
-  const compileEditQSkillDescription = () => {
-    const q = createDefaultQSkill(editCharacterSkills?.q || {});
-    const result = compileNaturalQSkillDescription(q.sourceText, q);
+  const compileEditSkillDescription = (slot = activeSkillSlot) => {
+    const skillSlot = normalizeEditableSkillSlot(slot);
+    const skill = createDefaultCharacterSkill(editCharacterSkills?.[skillSlot] || {}, skillSlot);
+    const result = compileNaturalSkillDescription(skill.sourceText, skill, skillSlot);
     setEditCharacterSkills((prev) => ({
       ...prev,
-      q: normalizeQSkillForEditor({ q: result.skill }),
+      [skillSlot]: normalizeCharacterSkillForEditor({ [skillSlot]: result.skill }, skillSlot),
     }));
     if (result.warnings?.length) {
       alert(result.warnings.join('\n'));
@@ -174,6 +182,7 @@ export default function CharactersPage() {
     setEditCharacterSkillCode(String(char?.characterSkillCode || char?.erSubject || '').trim());
     setEditCharacterSkillLevels(normalizeCharacterSkillLevels(char?.characterSkillLevels));
     setEditCharacterSkills(normalizeCharacterSkillsForEditor(char?.characterSkills));
+    setActiveSkillSlot('q');
   };
 
   const closeConfigModal = () => setConfigCharId(null);
@@ -352,19 +361,21 @@ export default function CharactersPage() {
         editCharacterSkillCode={editCharacterSkillCode}
         editCharacterSkillLevels={editCharacterSkillLevels}
         editCharacterSkills={editCharacterSkills}
+        activeSkillSlot={activeSkillSlot}
         editGoalGearTier={editGoalGearTier}
         editTacticalSkill={editTacticalSkill}
         onBackdropPointerDown={handleBackdropPointerDown}
         onBackdropPointerUp={handleBackdropPointerUp}
         onClose={closeConfigModal}
-        onCompileQSkillDescription={compileEditQSkillDescription}
+        onCompileSkillDescription={compileEditSkillDescription}
         onSave={saveConfigModal}
+        onSetActiveSkillSlot={setActiveSkillSlot}
         onSetCharacterSkillCode={setEditCharacterSkillCode}
         onSetCharacterSkillLevels={setEditCharacterSkillLevels}
         onSetGoalGearTier={setEditGoalGearTier}
         onSetTacticalSkill={setEditTacticalSkill}
-        onUpdateQSkill={updateEditQSkill}
-        onUpdateQSkillLevelValue={updateEditQSkillLevelValue}
+        onUpdateSkill={updateEditSkill}
+        onUpdateSkillLevelValue={updateEditSkillLevelValue}
       />
 
     </main>

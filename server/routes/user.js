@@ -4,6 +4,27 @@ const router = express.Router();
 
 const User = require('../models/User');
 
+function normalizeNickname(raw) {
+  return String(raw || '').trim().replace(/\s+/g, ' ');
+}
+
+function publicUser(user) {
+  if (!user) return null;
+  return {
+    id: user._id,
+    _id: user._id,
+    username: user.username,
+    nickname: user.nickname || '',
+    lp: Number(user.lp || 0),
+    credits: Number(user.credits || 0),
+    perks: Array.isArray(user.perks) ? user.perks : [],
+    statistics: user.statistics,
+    isAdmin: Boolean(user.isAdmin),
+    badges: Array.isArray(user.badges) ? user.badges : [],
+    createdAt: user.createdAt,
+  };
+}
+
 /**
  * ✅ 내 계정 정보
  * GET /api/user/me
@@ -11,12 +32,33 @@ const User = require('../models/User');
  */
 router.get('/me', async (req, res) => {
   try {
-    const user = await User.findById(req.user.id, 'username lp credits perks statistics isAdmin badges createdAt');
+    const user = await User.findById(req.user.id, 'username nickname lp credits perks statistics isAdmin badges createdAt');
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
-    res.json(user);
+    res.json(publicUser(user));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '유저 조회 실패' });
+  }
+});
+
+router.put('/nickname', async (req, res) => {
+  try {
+    const nickname = normalizeNickname(req.body?.nickname);
+    if (nickname.length < 2 || nickname.length > 20) {
+      return res.status(400).json({ error: '닉네임은 2~20자로 입력해주세요.' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { nickname } },
+      { new: true }
+    ).select('username nickname lp credits perks statistics isAdmin badges createdAt');
+    if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
+
+    res.json({ message: '닉네임을 저장했습니다.', user: publicUser(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '닉네임 저장 실패' });
   }
 });
 
@@ -49,7 +91,7 @@ router.post('/update-stats', async (req, res) => {
       }
     };
 
-    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('username lp credits perks statistics isAdmin badges createdAt');
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true }).select('username nickname lp credits perks statistics isAdmin badges createdAt');
     if (!user) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
 
     res.json({
@@ -59,7 +101,7 @@ router.post('/update-stats', async (req, res) => {
       credits: user.credits,
       creditsEarnedApplied: creditsEarned,
       statistics: user.statistics,
-      user
+      user: publicUser(user)
     });
   } catch (err) {
     console.error(err);

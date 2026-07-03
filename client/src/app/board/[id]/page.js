@@ -45,12 +45,15 @@ function safeText(value, fallback = '') {
 
 function normalizePost(row) {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
   return {
     ...row,
     title: safeText(row.title, '제목 없음'),
     content: safeText(row.content, ''),
     createdAt: row.createdAt || row.created_at || row.date || '',
-    authorId: row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '',
+    updatedAt: row.updatedAt || row.updated_at || '',
+    authorId,
+    authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
   };
 }
 
@@ -78,6 +81,7 @@ export default function BoardDetailPage() {
   const userId = useMemo(() => getUserId(user), [user]);
 
   const load = useCallback(async () => {
+    await Promise.resolve();
     if (!id) {
       setLoading(false);
       setPost(null);
@@ -100,7 +104,7 @@ export default function BoardDetailPage() {
   }, [id, showToast]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
@@ -166,11 +170,9 @@ export default function BoardDetailPage() {
         ) : !post ? (
           <div className="board-empty">게시글을 찾을 수 없습니다.</div>
         ) : (
-          <article className="board-card board-detail-card">
-            <div className="board-card-meta">{formatDate(post.createdAt)}</div>
-
+          <article className="board-post-view">
             {editing ? (
-              <div className="board-editor board-editor-inline">
+              <div className="board-editor board-editor-inline board-post-editor">
                 <input
                   value={form.title}
                   onChange={(event) => setForm({ ...form, title: event.target.value })}
@@ -194,7 +196,26 @@ export default function BoardDetailPage() {
               </div>
             ) : (
               <>
-                <h2>{safeText(post.title, '제목 없음')}</h2>
+                <div className="board-post-head">
+                  <div className="board-post-kicker">자유</div>
+                  <h2>{safeText(post.title, '제목 없음')}</h2>
+                </div>
+                <dl className="board-post-meta">
+                  <div>
+                    <dt>작성자</dt>
+                    <dd>{safeText(post.authorName, '익명')}</dd>
+                  </div>
+                  <div>
+                    <dt>등록일</dt>
+                    <dd>{formatDate(post.createdAt)}</dd>
+                  </div>
+                  {post.updatedAt && post.updatedAt !== post.createdAt ? (
+                    <div>
+                      <dt>수정일</dt>
+                      <dd>{formatDate(post.updatedAt)}</dd>
+                    </div>
+                  ) : null}
+                </dl>
                 <p className="board-detail-content">{safeText(post.content, '')}</p>
               </>
             )}

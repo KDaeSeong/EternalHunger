@@ -48,13 +48,15 @@ function safeText(value, fallback = '') {
 
 function normalizePost(row) {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
   return {
     ...row,
     _normalizedId: normalizePostId(row),
     title: safeText(row.title, '제목 없음'),
     content: safeText(row.content, ''),
     createdAt: row.createdAt || row.created_at || row.date || '',
-    authorId: row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '',
+    authorId,
+    authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
   };
 }
 
@@ -69,20 +71,40 @@ function unwrapPostList(data) {
   return list.map(normalizePost).filter(Boolean);
 }
 
+function getUserDisplayName(user) {
+  return safeText(user?.nickname, '') || safeText(user?.username, '사용자');
+}
+
 export default function BoardPage() {
   const [posts, setPosts] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ title: '', content: '' });
+  const [query, setQuery] = useState('');
 
   const mounted = useHydrated();
   const token = useAuthToken();
   const user = useAuthUser();
   const { showToast } = useToast();
   const userId = useMemo(() => getUserId(user), [user]);
+  const filteredPosts = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return posts;
+    return posts.filter((post) => [
+      post?.title,
+      post?.content,
+      post?.authorName,
+      post?.authorId,
+    ].some((value) => String(value || '').toLowerCase().includes(keyword)));
+  }, [posts, query]);
+  const myPostCount = useMemo(() => {
+    if (!mounted || !userId) return 0;
+    return posts.filter((post) => normalizeIdValue(post?.authorId) === String(userId)).length;
+  }, [mounted, posts, userId]);
 
   const load = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     try {
       const data = await apiGet('/posts');
@@ -98,7 +120,7 @@ export default function BoardPage() {
   }, [showToast]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const create = async () => {
@@ -152,65 +174,118 @@ export default function BoardPage() {
             <p className="board-eyebrow">Community</p>
             <h1>게시판</h1>
           </div>
-          <Link href="/simulation" className="board-link-button">
-            게임 시작
-          </Link>
+          <div className="board-head-actions">
+            <Link href="/simulation" className="board-link-button">
+              게임 시작
+            </Link>
+          </div>
         </div>
 
         {message ? <div className="board-message">{message}</div> : null}
 
-        {mounted && token ? (
-          <div className="board-editor">
-            <div className="board-editor-title">
-              글쓰기 {user?.username ? <span>작성자: {user.username}</span> : null}
-            </div>
+        <div className="board-toolbar">
+          <div className="board-counts">
+            <span>전체 {posts.length}</span>
+            <span>검색 {filteredPosts.length}</span>
+            {mounted && token ? <span>내 글 {myPostCount}</span> : null}
+          </div>
+          <label className="board-search">
+            <span>검색</span>
             <input
-              value={form.title}
-              onChange={(event) => setForm({ ...form, title: event.target.value })}
-              placeholder="제목"
-              maxLength={120}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="제목, 내용, 작성자"
             />
+          </label>
+        </div>
+
+        {mounted && token ? (
+          <div className="board-write-panel">
+            <div className="board-editor-title">
+              글쓰기 {user ? <span>작성자: {getUserDisplayName(user)}</span> : null}
+            </div>
+            <div className="board-write-grid">
+              <input
+                value={form.title}
+                onChange={(event) => setForm({ ...form, title: event.target.value })}
+                placeholder="제목"
+                maxLength={120}
+              />
+              <button type="button" onClick={create} disabled={submitting}>
+                {submitting ? '작성 중...' : '등록'}
+              </button>
+            </div>
             <textarea
               value={form.content}
               onChange={(event) => setForm({ ...form, content: event.target.value })}
               placeholder="내용"
               rows={4}
             />
-            <button type="button" onClick={create} disabled={submitting}>
-              {submitting ? '작성 중...' : '작성'}
-            </button>
           </div>
         ) : (
           <div className="board-login-note">로그인하면 글을 작성할 수 있습니다.</div>
         )}
 
-        <div className="board-list">
+        <div className="board-table-wrap">
           {loading ? <div className="board-empty">게시글을 불러오는 중입니다.</div> : null}
 
           {!loading && posts.length === 0 ? (
             <div className="board-empty">아직 작성된 글이 없습니다.</div>
           ) : null}
 
-          {!loading && posts.map((post) => {
-            const id = post?._normalizedId || normalizePostId(post);
-            const title = safeText(post?.title, '제목 없음');
-            const content = safeText(post?.content, '');
-            const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
-            return (
-              <article key={id || `${post?.title}-${post?.createdAt}`} className="board-card">
-                <Link href={id ? `/board/${id}` : '/board'} className="board-card-title">
-                  {title}
-                </Link>
-                <div className="board-card-meta">{formatDate(post?.createdAt)}</div>
-                <p>{content.slice(0, 180)}{content.length > 180 ? '...' : ''}</p>
-                {canRemove ? (
-                  <button type="button" className="board-danger" onClick={() => remove(id)}>
-                    삭제
-                  </button>
-                ) : null}
-              </article>
-            );
-          })}
+          {!loading && posts.length > 0 && filteredPosts.length === 0 ? (
+            <div className="board-empty">검색 결과가 없습니다.</div>
+          ) : null}
+
+          {!loading && filteredPosts.length > 0 ? (
+            <table className="board-table">
+              <colgroup>
+                <col className="board-col-no" />
+                <col className="board-col-title" />
+                <col className="board-col-author" />
+                <col className="board-col-date" />
+                <col className="board-col-action" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>번호</th>
+                  <th>제목</th>
+                  <th>작성자</th>
+                  <th>등록일</th>
+                  <th>관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPosts.map((post, index) => {
+                  const id = post?._normalizedId || normalizePostId(post);
+                  const title = safeText(post?.title, '제목 없음');
+                  const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
+                  const rowNo = filteredPosts.length - index;
+                  return (
+                    <tr key={id || `${post?.title}-${post?.createdAt}`}>
+                      <td className="board-cell-no" data-label="번호">{rowNo}</td>
+                      <td className="board-cell-title" data-label="제목">
+                        <Link href={id ? `/board/${id}` : '/board'} className="board-row-title">
+                          {title}
+                        </Link>
+                      </td>
+                      <td data-label="작성자">{safeText(post?.authorName, '익명')}</td>
+                      <td data-label="등록일">{formatDate(post?.createdAt)}</td>
+                      <td className="board-cell-action" data-label="관리">
+                        {canRemove ? (
+                          <button type="button" className="board-danger board-danger-compact" onClick={() => remove(id)}>
+                            삭제
+                          </button>
+                        ) : (
+                          <span className="board-action-dash">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
         </div>
       </section>
     </main>

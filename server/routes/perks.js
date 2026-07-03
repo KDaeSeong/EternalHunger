@@ -13,6 +13,7 @@ function publicUser(user) {
     _id: user._id,
     id: user._id,
     username: user.username,
+    nickname: user.nickname || '',
     lp: Number(user.lp || 0),
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
@@ -41,7 +42,7 @@ function decoratePerks(perks, user) {
 router.get('/available', async (req, res) => {
   try {
     await ensureDefaultPublicPerks(Perk);
-    const user = await User.findById(req.user.id).select('username lp credits perks isAdmin badges statistics').lean();
+    const user = await User.findById(req.user.id).select('username nickname lp credits perks isAdmin badges statistics').lean();
     if (!user) return res.status(404).json({ error: 'user_not_found' });
 
     const rows = await Perk.find(scopedFilter(req, { isActive: true })).sort({ category: 1, lpCost: 1 }).lean();

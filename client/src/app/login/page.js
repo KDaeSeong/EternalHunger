@@ -28,7 +28,7 @@ export default function LoginPage() {
       if (!token || !user) throw new Error('로그인 응답이 올바르지 않습니다.');
 
       saveAuth(token, user);
-      showToast({ tone: 'success', message: `${user.username || '사용자'}님, 환영합니다.` });
+      showToast({ tone: 'success', message: `${user.nickname || user.username || '사용자'}님, 환영합니다.` });
       router.replace('/');
     } catch (err) {
       const nextMessage = err?.message || '로그인에 실패했습니다.';

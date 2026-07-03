@@ -1,4 +1,5 @@
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { CHARACTER_SKILL_SLOT_LABELS, CHARACTER_SKILL_SLOTS } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 import { characterId, gearTierLabel } from '../_lib/characterEditorRuntime';
 
@@ -16,7 +17,9 @@ function CharacterList({
         const realId = characterId(char);
         const weapon = normalizeWeaponType(char.weaponType) || '랜덤';
         const tactical = normalizeSupportedTacSkill(char.tacticalSkill) || '블링크';
-        const qSkill = char?.characterSkills?.q;
+        const activeSkills = CHARACTER_SKILL_SLOTS
+          .map((slot) => [slot, char?.characterSkills?.[slot]])
+          .filter(([, skill]) => skill?.enabled);
         return (
           <div className="characterRowContainer2 character-list-card" key={realId}>
             <div className="character-summary-avatar">
@@ -36,7 +39,11 @@ function CharacterList({
                 <span>무기: {weapon}</span>
                 <span>목표: {gearTierLabel(char.goalGearTier)}</span>
                 <span>전술: {tactical}</span>
-                {qSkill?.enabled ? <span>Q: {qSkill.name || '사용자 Q'}</span> : null}
+                {activeSkills.length ? (
+                  <span>
+                    Skills: {activeSkills.map(([slot, skill]) => `${CHARACTER_SKILL_SLOT_LABELS[slot]} ${skill.name || '사용'}`).join(', ')}
+                  </span>
+                ) : null}
               </div>
             </div>
 

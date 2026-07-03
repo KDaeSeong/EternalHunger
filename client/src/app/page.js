@@ -76,7 +76,7 @@ function normalizeRankings(payload) {
 }
 
 function getDisplayName(row) {
-  return row?.username || row?.name || row?.characterName || '기록 없음';
+  return row?.nickname || row?.username || row?.name || row?.characterName || '기록 없음';
 }
 
 function getWins(row) {

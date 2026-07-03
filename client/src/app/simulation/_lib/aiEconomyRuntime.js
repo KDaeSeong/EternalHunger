@@ -1,42 +1,35 @@
 import {
   clampTier4,
   findItemByKeywords,
-  pickWeighted,
   randInt,
-  shuffleArray,
 } from './simulationCommon';
-import { EQUIP_SLOTS } from './simulationConstants';
 import { isAtOrAfterWorldTime } from './worldTime';
 import { applyPerkDiscount, getActorPerkEffects, perkNumber } from './perkRuntime';
-import { canReceiveItem, invQty } from './inventoryRules';
+import { invQty } from './inventoryRules';
 import {
   canUseKioskAtWorldTime,
   hasKioskAtZone,
   kioskLegendaryPrice,
 } from './marketRuntime';
-import { ensureEquipped } from './survivorRuntime';
 import {
   classifySpecialByName,
   getOneSpecialShortMissing,
   isSpecialCoreKind,
-  normalizeGoalTier,
 } from './craftRuntime';
 import { getLegendaryCoreCandidates } from './legendaryRuntime';
 import { pickFromAllCrates } from './lootRuntime';
 import { getRegionZoneWeightsForItem } from './lumiaRegionData';
 import { chooseAiMoveTargets } from './aiMoveTargetRuntime';
-
-function clampGearTier(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(6, Math.floor(n)));
-}
-
-function pickMissingBasicItemId(craftGoal) {
-  const miss = Array.isArray(craftGoal?.missing) ? craftGoal.missing : [];
-  const hit = miss.find((m) => m?.itemId && !m?.special);
-  return hit?.itemId ? String(hit.itemId) : '';
-}
+import {
+  lowestEquippedTier,
+  pickMissingBasicItemId,
+  rollDroneOrder,
+} from './aiDroneRuntime';
+import { pickKioskCatalogAction } from './aiKioskCatalogRuntime';
+import { pickKioskExchangeAction } from './aiKioskExchangeRuntime';
+import { pickKioskPrioritySpecialAction } from './aiKioskPriorityRuntime';
+import { pickKioskSurplusBuyAction } from './aiKioskSurplusRuntime';
+import { resolveKioskSpecialItems } from './aiKioskSpecialItemsRuntime';
 
 function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPhase, actor, craftGoal, itemNameById, marketRules, ruleset = null, upgradeNeed = null, absSecNow = 0) {
   const mr = marketRules?.kiosk || {};
@@ -116,85 +109,6 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   // 카탈로그 가격이 과도하게 크면(예: 800~1200) 시뮬 기본 규칙으로 fallback
   if (catalog.length && catalog.some((r) => Number(r?.priceCredits || 0) > 650)) catalog = [];
 
-  function pickFromCatalog() {
-    if (!catalog.length) return null;
-
-    const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
-    const credits = Math.max(0, Number(actor?.simCredits || 0));
-    const missIds = new Set((Array.isArray(miss) ? miss : []).map((m) => String(m?.itemId || '')).filter(Boolean));
-
-    const normId = (v) => String(v?._id || v || '').trim();
-
-    // 1) 목표 기반: 부족한 아이템(정확히 itemId 매칭)이 카탈로그에 있으면 우선 수행
-    for (const row of catalog) {
-      const itemId = normId(row?.itemId);
-      if (!itemId || !missIds.has(itemId)) continue;
-
-      const mode = String(row?.mode || 'sell');
-      if (mode === 'sell') {
-        const cost = applyKioskCost(Math.max(0, Number(row?.priceCredits || 0)));
-        if (credits >= cost) return { kind: 'buy', item: findById(itemId) || row.itemId, itemId, qty: 1, cost, label: '카탈로그 구매' };
-      }
-      if (mode === 'exchange') {
-        const giveId = normId(row?.exchange?.giveItemId);
-        const giveQty = Math.max(1, Number(row?.exchange?.giveQty || 1));
-        if (giveId && invQty(inv, giveId) >= giveQty) {
-          return { kind: 'exchange', item: findById(itemId) || row.itemId, itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
-        }
-      }
-    }
-
-    // 2) 교환 우선: 가진 재료로 가능한 exchange를 실행(경제 안정화 위해 확률 게이트)
-    const exch = catalog.filter((r) => String(r?.mode) === 'exchange');
-    if (exch.length && Math.random() < (hasMeaningfulNeed ? 0.82 : 0.60)) {
-      const shuffled = shuffleArray(exch);
-      for (const row of shuffled) {
-        const itemId = normId(row?.itemId);
-        const giveId = normId(row?.exchange?.giveItemId);
-        const giveQty = Math.max(1, Number(row?.exchange?.giveQty || 1));
-        if (!itemId || !giveId) continue;
-        if (invQty(inv, giveId) >= giveQty) {
-          return { kind: 'exchange', item: findById(itemId) || row.itemId, itemId, qty: 1, consume: [{ itemId: giveId, qty: giveQty }], label: '카탈로그 교환' };
-        }
-      }
-    }
-
-    // 3) 환급(키오스크 buy = 유저 sell): 가진 아이템을 credits로 환전(낮은 확률)
-    const refunds = catalog.filter((r) => String(r?.mode) === 'buy');
-    if (refunds.length && Math.random() < (hasMeaningfulNeed ? 0.10 : 0.18)) {
-      const shuffled = shuffleArray(refunds);
-      for (const row of shuffled) {
-        const itemId = normId(row?.itemId);
-        const gain = Math.max(0, Number(row?.priceCredits || 0));
-        if (!itemId || gain <= 0) continue;
-        if (invQty(inv, itemId) >= 1) return { kind: 'sell', item: findById(itemId) || row.itemId, itemId, qty: 1, credits: gain, label: '카탈로그 환급' };
-      }
-    }
-
-    // 4) 구매(sell = 유저 buy): 저가 항목만 가끔 구매
-    const buys = catalog.filter((r) => String(r?.mode) === 'sell');
-    if (buys.length && Math.random() < (hasMeaningfulNeed ? 0.34 : 0.18)) {
-      const isLvMax = (String(ruleset?.ai?.tacModuleUpgradeMode || 'level') === 'level') && (Number(actor?.tacticalSkillLevel || 1) >= 2);
-      const shuffled = shuffleArray(buys);
-      for (const row of shuffled) {
-        const itemId = normId(row?.itemId);
-        const cost = applyKioskCost(Math.max(0, Number(row?.priceCredits || 0)));
-        if (!itemId) continue;
-        // (level 모드) 전술 스킬 레벨이 MAX면 모듈을 랜덤 구매하지 않음(낭비 방지)
-        if (isLvMax) {
-          const it = findById(itemId) || row?.itemId;
-          const nm = String(it?.name || '');
-          const tags = Array.isArray(it?.tags) ? it.tags : [];
-          const isTacModule = nm.includes('전술 강화 모듈') || tags.some((t) => String(t).toLowerCase().includes('tac_skill_module'));
-          if (isTacModule) continue;
-        }
-        if (cost <= 0 || credits >= cost) return { kind: 'buy', item: findById(itemId) || row.itemId, itemId, qty: 1, cost, label: '카탈로그 구매' };
-      }
-    }
-
-    return null;
-  };
-
   const hasCatalogNeed = catalog.some((r) => {
     const itemId = String(r?.itemId?._id || r?.itemId || '').trim();
     return itemId && miss.some((m) => String(m?.itemId || '') === itemId);
@@ -226,7 +140,15 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
     // 업그레이드 목표(전설/초월)만 있어도 키오스크를 '조금 더 자주' 사용
     if (Math.random() >= chance) return null;
   }
-  const pickedByCatalog = pickFromCatalog();
+  const pickedByCatalog = pickKioskCatalogAction({
+    catalog,
+    actor,
+    miss,
+    hasMeaningfulNeed,
+    applyKioskCost,
+    findById,
+    ruleset,
+  });
   if (pickedByCatalog) return pickedByCatalog;
 
   // --- 우선 교환/환급 규칙(키오스크 핵심) ---
@@ -234,197 +156,71 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   // - 미스릴 → 전술 강화 모듈
   // - 전술 강화 모듈 → 크레딧 환급
   // - 운석 ↔ 생명의 나무 (상호 교환)
-  const findByTag = (tagKey) => items.find((x) => Array.isArray(x?.tags) && x.tags.some((t) => String(t).toLowerCase() == String(tagKey).toLowerCase())) || null;
-  const meteorItem = findByTag('meteor') || findItemByKeywords(items, ['운석', 'meteor']);
-  const lifeTreeItem = findByTag('life_tree') || findItemByKeywords(items, ['생명의 나무', 'tree of life', 'life tree']);
-  const mithrilItem = findByTag('mithril') || findItemByKeywords(items, ['미스릴', 'mythril', 'mithril']);
-  const forceCoreItem = findByTag('force_core') || findItemByKeywords(items, ['포스 코어', 'force core']);
-  const tacModuleItem = findByTag('tac_skill_module') || findItemByKeywords(items, ['전술 강화 모듈', 'tac. skill module', 'tactical']);
-
-  const surplusVfItem = findItemByKeywords(items, ['vf', '혈액', '샘플', 'blood sample']);
+  const specialItems = resolveKioskSpecialItems(items);
+  const {
+    meteorItem,
+    lifeTreeItem,
+    mithrilItem,
+    forceCoreItem,
+    tacModuleItem,
+    surplusVfItem,
+  } = specialItems;
   const tacUpgradeMode = String(ruleset?.ai?.tacModuleUpgradeMode || 'level'); // 'level' | 'stack'
   const TAC_MAX_LV = 2;
   const tacSkillLv = Math.max(1, Math.min(TAC_MAX_LV, Math.floor(Number(actor?.tacticalSkillLevel || 1))));
   const tacIsLvMax = (tacUpgradeMode === 'level') && (tacSkillLv >= TAC_MAX_LV);
 
-  function getPrice(it, fallback) {
-    const v = Number(it?.baseCreditValue ?? it?.value ?? it?.price ?? fallback);
-    return (Number.isFinite(v) && v > 0) ? v : Math.max(0, Number(fallback || 0));
-  };
-
   const inv = Array.isArray(actor?.inventory) ? actor.inventory : [];
-  const has = (it, q=1) => (it?._id ? invQty(inv, String(it._id)) : 0) >= Math.max(1, Number(q||1));
-  const missNeedCount = (specialKey) => (Array.isArray(miss) ? miss : []).reduce((sum, m) => {
-    const key = String(m?.special || classifySpecialByName(m?.name) || '');
-    if (key !== String(specialKey || '')) return sum;
-    return sum + Math.max(0, Number(m?.need || 1) - Number(m?.have || 0));
-  }, 0);
-  const preserveNeededSpecials = mr?.exchange?.preserveNeededSpecials !== false;
-  const spareForceNeed = Math.max(0, Number(mr?.exchange?.spareForceCoreToMithril ?? 1));
-  const spareMithrilNeed = Math.max(0, Number(mr?.exchange?.spareMithrilToTacModule ?? 2));
-  const specialItemByKey = {
-    meteor: meteorItem,
-    life_tree: lifeTreeItem,
-    mithril: mithrilItem,
-    force_core: forceCoreItem,
-    vf: surplusVfItem,
-  };
-  const canBuySpecialKeyNow = (key) => {
-    const k = String(key || '');
-    if (k === 'vf') return !shouldDeferVfForLegend && allowVf && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day');
-    return allowLegendary && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day');
-  };
-  const makeSpecialBuy = (key, label) => {
-    const k = String(key || '');
-    const item = specialItemByKey[k] || null;
-    if (!item?._id) return null;
-    if (!canBuySpecialKeyNow(k)) return null;
-    const cost = kioskSpecialPrice(k);
-    if (simCredits < cost) return null;
-    return { kind: 'buy', item, itemId: String(item._id), qty: 1, cost, label };
-  };
+  const prioritySpecialAction = pickKioskPrioritySpecialAction({
+    missingSpecialKeys,
+    specialItems,
+    inv,
+    simCredits,
+    up,
+    curDay,
+    curPhase,
+    allowVf,
+    allowLegendary,
+    shouldDeferVfForLegend,
+    kioskSpecialPrice,
+  });
+  if (prioritySpecialAction !== undefined) return prioritySpecialAction;
 
-  // 목표 장비가 특정 특수 재료를 요구하면 키오스크 도착 시 확률 없이 즉시 처리한다.
-  const needsForceCoreGoal = missingSpecialKeys.has('force_core');
-  if (needsForceCoreGoal && forceCoreItem?._id && allowLegendary && isAtOrAfterWorldTime(curDay, curPhase, 2, 'day')) {
-    if (has(meteorItem, 1) && has(lifeTreeItem, 1)) {
-      return {
-        kind: 'exchange',
-        item: forceCoreItem,
-        itemId: String(forceCoreItem._id),
-        qty: 1,
-        consume: [
-          { itemId: String(meteorItem._id), qty: 1 },
-          { itemId: String(lifeTreeItem._id), qty: 1 },
-        ],
-        label: '운석+생나→포스 코어 조합',
-      };
-    }
+  const surplusBuy = pickKioskSurplusBuyAction({
+    spendSurplus,
+    mr,
+    simCredits,
+    inv,
+    ruleset,
+    up,
+    curDay,
+    curPhase,
+    allowVf,
+    allowLegendary,
+    surplusVfItem,
+    meteorItem,
+    lifeTreeItem,
+    mithrilItem,
+    forceCoreItem,
+    tacModuleItem,
+    applyKioskCost,
+    tacIsLvMax,
+  });
+  if (surplusBuy) return surplusBuy;
 
-    const forceBuy = makeSpecialBuy('force_core', '포스 코어(목표)');
-    if (forceBuy) return forceBuy;
-
-    if (has(meteorItem, 1) && !has(lifeTreeItem, 1)) {
-      const lifeBuy = makeSpecialBuy('life_tree', '포스 코어 재료(생나)');
-      if (lifeBuy) return lifeBuy;
-    }
-    if (has(lifeTreeItem, 1) && !has(meteorItem, 1)) {
-      const meteorBuy = makeSpecialBuy('meteor', '포스 코어 재료(운석)');
-      if (meteorBuy) return meteorBuy;
-    }
-
-    return null;
-  }
-
-  if (missingSpecialKeys.has('vf')) {
-    const vfBuy = makeSpecialBuy('vf', 'VF 혈액 샘플(목표)');
-    if (vfBuy) return vfBuy;
-  }
-
-  for (const key of ['meteor', 'life_tree', 'mithril']) {
-    if (!missingSpecialKeys.has(key)) continue;
-    const buy = makeSpecialBuy(key, `전설 재료(${key})`);
-    if (buy) return buy;
-  }
-
-  if (up?.wantTrans && !up?.hasVf) {
-    const vfBuy = makeSpecialBuy('vf', 'VF 혈액 샘플(초월 목표)');
-    if (vfBuy) return vfBuy;
-  }
-
-  if (up?.wantLegend && !up?.hasLegendMatAny) {
-    const candidates = ['meteor', 'life_tree', 'mithril', 'force_core']
-      .map((key) => ({ key, buy: makeSpecialBuy(key, `전설 재료(${key})`) }))
-      .filter((row) => row.buy)
-      .sort((a, b) => Number(a.buy.cost || 0) - Number(b.buy.cost || 0));
-    if (candidates[0]?.buy) return candidates[0].buy;
-  }
-
-  if (spendSurplus) {
-    const surplusBuyChance = Math.min(0.98, Number(mr?.surplus?.buyChance ?? 0.72) + Math.max(0, simCredits - 500) / 3200);
-    const buyRows = [];
-    const pushBuy = (item, cost, label, key = '') => {
-      if (!item?._id) return;
-      const itemId = String(item._id);
-      const safeCost = Math.max(0, Number(cost || 0));
-      if (safeCost <= 0 || simCredits < safeCost) return;
-      if (!canReceiveItem(inv, item, itemId, 1, ruleset)) return;
-      const have = invQty(inv, itemId);
-      const holdLimit = key === 'vf' ? 1 : key === 'tac' ? 1 : 2;
-      if (have >= holdLimit) return;
-      buyRows.push({ item, itemId, cost: safeCost, label, key, have });
-    };
-
-    if (allowVf && up?.wantTrans && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day')) {
-      pushBuy(surplusVfItem, applyKioskCost(Number(mr?.prices?.vf ?? 500)), 'surplus VF', 'vf');
-    }
-
-    if (allowLegendary && (up?.wantLegend || up?.surplusLegendBudget)) {
-      const cores = [
-        { key: 'meteor', item: meteorItem, cost: applyKioskCost(kioskLegendaryPrice('meteor', mr?.prices?.legendaryByKey)) },
-        { key: 'life_tree', item: lifeTreeItem, cost: applyKioskCost(kioskLegendaryPrice('life_tree', mr?.prices?.legendaryByKey)) },
-        { key: 'mithril', item: mithrilItem, cost: applyKioskCost(kioskLegendaryPrice('mithril', mr?.prices?.legendaryByKey)) },
-        { key: 'force_core', item: forceCoreItem, cost: applyKioskCost(kioskLegendaryPrice('force_core', mr?.prices?.legendaryByKey)) },
-      ].sort((a, b) => (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)));
-      for (const row of cores) pushBuy(row.item, row.cost, `surplus legendary ${row.key}`, row.key);
-    }
-
-    if (!tacIsLvMax) {
-      pushBuy(tacModuleItem, applyKioskCost(Number(mr?.prices?.tacModule ?? 10)), 'surplus tactical module', 'tac');
-    }
-
-    if (buyRows.length && Math.random() < surplusBuyChance) {
-      const picked = buyRows
-        .sort((a, b) => (a.have - b.have) || (a.cost - b.cost) || String(a.key).localeCompare(String(b.key)))[0];
-      return { kind: 'buy', item: picked.item, itemId: picked.itemId, qty: 1, cost: picked.cost, label: picked.label };
-    }
-  }
-
-  // 0-A) 즉시 교환: 포코→미스릴, 미스릴→모듈, 모듈→크레딧(환급)
-  // - 관전 템포를 위해 교환은 확률로 과도한 반복을 줄입니다.
-  const forceCoreHave = forceCoreItem?._id ? invQty(inv, String(forceCoreItem._id)) : 0;
-  const mithrilHave = mithrilItem?._id ? invQty(inv, String(mithrilItem._id)) : 0;
-  const needForceCount = missNeedCount('force_core');
-  const needMithrilCount = missNeedCount('mithril');
-  const canExchangeForceCore = forceCoreItem && mithrilItem && has(forceCoreItem, 1)
-    && (!preserveNeededSpecials || (!up?.wantLegend && !up?.wantTrans) || (forceCoreHave - needForceCount) >= spareForceNeed);
-  if (canExchangeForceCore && Math.random() < 0.42) {
-    return { kind: 'exchange', item: mithrilItem, itemId: String(mithrilItem._id), qty: 1, consume: [{ itemId: String(forceCoreItem._id), qty: 1 }], label: '포스 코어→미스릴' };
-  }
-  // (level 모드) 전술 스킬 레벨이 MAX면 미스릴→모듈 교환을 중단(낭비 방지)
-  const canExchangeMithril = mithrilItem && tacModuleItem && !tacIsLvMax && has(mithrilItem, 1)
-    && (!preserveNeededSpecials || (!up?.wantLegend && !up?.wantTrans) || (mithrilHave - needMithrilCount) >= spareMithrilNeed);
-  if (canExchangeMithril && Math.random() < 0.38) {
-    return { kind: 'exchange', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, consume: [{ itemId: String(mithrilItem._id), qty: 1 }], label: '미스릴→전술 강화 모듈' };
-  }
-
-  // 전술 강화 모듈: (level 모드) 전술 스킬 레벨업 재료 / (stack 모드) 보유 스택 기반 강화
   const tacModuleHave = tacModuleItem?._id ? invQty(inv, String(tacModuleItem._id)) : 0;
-  if (tacUpgradeMode !== 'level') {
-    // stack 모드에서만 환급을 적극 허용
-    if (tacModuleItem && tacModuleHave >= 2 && Math.random() < 0.55) {
-      const gain = getPrice(tacModuleItem, 100);
-      return { kind: 'sell', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, credits: gain, label: '전술 강화 모듈 환급' };
-    }
-  } else {
-    // level 모드에서는 레벨업이 끝나기 전까지 환급을 거의 하지 않음
-    if (tacModuleItem && tacSkillLv >= TAC_MAX_LV && tacModuleHave >= 1 && Math.random() < 0.25) {
-      const gain = getPrice(tacModuleItem, 100);
-      return { kind: 'sell', item: tacModuleItem, itemId: String(tacModuleItem._id), qty: 1, credits: gain, label: '전술 강화 모듈 환급(레벨MAX)' };
-    }
-  }
-
-  // 0-B) 목표 기반 상호 교환: 운석↔생나
-  const needMeteor = miss.some((m) => (m?.special === 'meteor' || classifySpecialByName(m?.name) === 'meteor'));
-  const needTree = miss.some((m) => (m?.special === 'life_tree' || classifySpecialByName(m?.name) === 'life_tree'));
-  if (meteorItem && lifeTreeItem) {
-    if (needTree && has(meteorItem, 1) && Math.random() < 0.75) {
-      return { kind: 'exchange', item: lifeTreeItem, itemId: String(lifeTreeItem._id), qty: 1, consume: [{ itemId: String(meteorItem._id), qty: 1 }], label: '운석→생명의 나무' };
-    }
-    if (needMeteor && has(lifeTreeItem, 1) && Math.random() < 0.75) {
-      return { kind: 'exchange', item: meteorItem, itemId: String(meteorItem._id), qty: 1, consume: [{ itemId: String(lifeTreeItem._id), qty: 1 }], label: '생명의 나무→운석' };
-    }
-  }
+  const exchangeAction = pickKioskExchangeAction({
+    specialItems,
+    inv,
+    miss,
+    up,
+    mr,
+    tacUpgradeMode,
+    tacIsLvMax,
+    tacSkillLv,
+    tacMaxLevel: TAC_MAX_LV,
+  });
+  if (exchangeAction) return exchangeAction;
 
   // 0-C-0) Saved Plan식 추천: 목표 상위 장비가 '특수 재료 1개만 부족'하면 그 재료를 최우선 구매
   if (oneSpecialShort) {
@@ -592,170 +388,6 @@ function rollKioskInteraction(mapObj, zoneId, kiosks, publicItems, curDay, curPh
   return null;
 }
 
-
-// --- 전송 드론(하급 아이템) 호출: 즉시 지급 ---
-function lowestEquippedTier(actor, publicItems = []) {
-  const eq = ensureEquipped(actor);
-  const items = Array.isArray(publicItems) ? publicItems : [];
-  const tiers = EQUIP_SLOTS.map((slot) => {
-    const itemId = String(eq?.[slot] || '');
-    if (!itemId) return 0;
-    const item = items.find((it) => String(it?._id || '') === itemId) || null;
-    return clampGearTier(Number(item?.tier || 0));
-  }).filter((v) => Number.isFinite(v) && v > 0);
-  return tiers.length ? Math.min(...tiers) : 0;
-}
-
-function rollDroneOrder(droneOffers, mapObj, publicItems, curDay, curPhase, actor, phaseIdxNow, craftGoal, itemNameById, marketRules, absSecNow = 0) {
-  // 드론은 언제든 호출 가능(하급 아이템 보급용). 캐릭터가 자동으로 호출하며, '즉시 지급' 규칙을 따른다.
-  // 너무 잦으면 재미가 깨지므로 확률 + 초 단위 쿨다운으로 제어한다.
-  const dm = marketRules?.drone || {};
-  if (dm?.enabled === false) return null;
-  const perkFx = getActorPerkEffects(actor);
-  const perkChanceBonus = Math.max(0, perkNumber(perkFx.droneChancePlus || 0)) + Math.max(0, perkNumber(perkFx.craftChancePlus || 0)) * 0.01;
-  const applyDroneCost = (value) => applyPerkDiscount(value, perkFx.droneDiscountPct, perkFx.marketDiscountPct);
-
-  const invCount = Array.isArray(actor?.inventory) ? actor.inventory.length : 0;
-
-  // 실제 ER Remote Drone은 credits만 있으면 anytime, anywhere 호출 가능하다.
-  // 시뮬은 1 tick 1 행동 규칙과 비용 조건만 유지하고, 인위적 cooldown gate는 제거한다.
-  const absNow = Number(absSecNow || 0);
-
-  const credits = Math.max(0, Number(actor?.simCredits || 0));
-  const items = Array.isArray(publicItems) ? publicItems : [];
-  const routeDroneWindow = Number(curDay || 0) === 1 || (Number(curDay || 0) === 2 && String(curPhase || '').toLowerCase() === 'morning');
-  const routeDroneNeedId = routeDroneWindow
-    ? (Array.isArray(actor?.routePlanDroneItemIds) ? actor.routePlanDroneItemIds : [])
-        .map((id) => String(id || '').trim())
-        .filter(Boolean)
-        .find((id) => {
-          const needQty = Math.max(1, Math.floor(Number(actor?.routePlanRequiredQtyById?.[id] || 1)));
-          return invQty(actor?.inventory, id) < needQty;
-        }) || ''
-    : '';
-  const needId = routeDroneNeedId || pickMissingBasicItemId(craftGoal);
-  const hasRouteDroneNeed = !!routeDroneNeedId;
-  const hasNeed = !!needId;
-  const goalTier = normalizeGoalTier(actor?.goalGearTier ?? 6);
-  const legendOverdue = goalTier >= 5 && isAtOrAfterWorldTime(curDay, curPhase, 2, 'night') && lowestEquippedTier(actor, publicItems) < 5;
-  const transOverdue = goalTier >= 6 && isAtOrAfterWorldTime(curDay, curPhase, 4, 'day') && lowestEquippedTier(actor, publicItems) < 6;
-
-  // 목표(조합)에서 부족한 하급 재료가 있으면 조금 더 자주 호출
-  const needLow = Number(dm?.chanceNeedLowInv ?? 0.55);
-  const needDef = Number(dm?.chanceNeedDefault ?? 0.38);
-  const lowInv = Number(dm?.chanceLowInv ?? 0.30);
-  const inv2 = Number(dm?.chanceInv2 ?? 0.20);
-  const def = Number(dm?.chanceDefault ?? 0.10);
-  const routeNeedChance = Math.max(0, Math.min(0.98, Number(dm?.chanceRoutePlanNeed ?? 0.94)));
-  const droneBaseChance = hasRouteDroneNeed ? routeNeedChance : (hasNeed ? (invCount <= 2 ? needLow : needDef) : (invCount <= 1 ? lowInv : invCount == 2 ? inv2 : def));
-  const surplusMinCredits = Math.max(0, Number(dm?.surplusMinCredits ?? 180));
-  const surplusCreditPressure = credits >= Math.max(900, surplusMinCredits * 5)
-    ? 0.42
-    : credits >= Math.max(600, surplusMinCredits * 3)
-      ? 0.30
-      : credits >= Math.max(350, surplusMinCredits * 2)
-        ? 0.18
-        : credits >= surplusMinCredits
-          ? 0.08
-          : 0;
-  const droneUrgency = hasRouteDroneNeed
-    ? Math.min(0.04, (credits >= Number(dm?.price ?? 10) ? 0.03 : 0) + (invCount <= 2 ? 0.01 : 0))
-    : hasNeed
-    ? Math.min(0.24, ((curDay <= 2) ? 0.08 : 0) + ((credits >= Number(dm?.price ?? 10)) ? 0.10 : 0) + (invCount <= 2 ? 0.06 : 0))
-    : ((curDay <= 2 && invCount <= 1) ? 0.05 : 0);
-  const pacingPressure = (legendOverdue ? 0.12 : 0) + (transOverdue ? 0.16 : 0) + ((goalTier >= 5 && hasNeed && curDay <= 2) ? 0.04 : 0);
-  const baseChance = Math.min(0.98, droneBaseChance + droneUrgency + pacingPressure + surplusCreditPressure + perkChanceBonus);
-  if (Math.random() >= baseChance) return null;
-
-  const pool = [];
-  function isSpecialName(name) {
-    const kind = classifySpecialByName(name);
-    return kind === 'vf' || isSpecialCoreKind(kind);
-  };
-
-  if (hasRouteDroneNeed) {
-    const routeNeedItem = items.find((x) => String(x?._id) === String(routeDroneNeedId));
-    const routeNeedPrice = applyDroneCost(Math.max(0, Number(dm?.routeNeedFallbackPrice ?? dm?.needFallbackPrice ?? dm?.price ?? 10)));
-    if (routeNeedItem && !isSpecialName(routeNeedItem?.name) && credits >= routeNeedPrice) {
-      return {
-        kind: 'drone',
-        offerId: null,
-        item: routeNeedItem,
-        itemId: String(routeNeedItem._id),
-        qty: 1,
-        cost: routeNeedPrice,
-        source: 'route_plan_drone',
-      };
-    }
-  }
-
-  // 1) droneOffers(있으면)에서 뽑기: 특수 재료(운석/생나/미스릴/포스코어/VF)는 제외
-  if (Array.isArray(droneOffers) && droneOffers.length) {
-    for (const offer of droneOffers) {
-      const price = applyDroneCost(Math.max(0, Number(offer?.price ?? offer?.cost ?? 0)));
-      const itemId = String(offer?.itemId ?? offer?.item?._id ?? '');
-      const item = offer?.item || (itemId ? items.find((x) => String(x?._id) === itemId) : null);
-      if (!itemId || !item) continue;
-
-      const nm = String(item?.name || '');
-      if (isSpecialName(nm)) continue;
-      if (credits < price) continue;
-
-      let weight = Math.max(1, Number(offer?.weight ?? 1));
-
-      // 목표에 필요한 재료면 가중치 크게
-      const mul = Math.max(1, Number(dm?.needWeightMul ?? 8));
-      if (hasRouteDroneNeed && String(itemId) === String(routeDroneNeedId)) weight *= (mul + Math.max(10, Number(dm?.routeNeedWeightBonus ?? 16)) + (legendOverdue ? 4 : 0) + (transOverdue ? 6 : 0));
-      else if (hasNeed && String(itemId) === String(needId)) weight *= (mul + (legendOverdue ? 4 : 0) + (transOverdue ? 6 : 0));
-
-      pool.push({ kind: 'offer', offerId: offer?.offerId ?? offer?._id ?? null, item, itemId, price, weight, source: hasRouteDroneNeed && String(itemId) === String(routeDroneNeedId) ? 'route_plan_drone' : '' });
-    }
-  }
-
-  // 1-1) 목표 재료가 있는데, offer에 없거나(혹은 전부 비쌈) pool이 비었으면 fallback로 해당 아이템을 직접 구매하는 형태(가격 고정)
-  if (hasNeed && !pool.some((p) => String(p?.itemId) === String(needId))) {
-    const it = items.find((x) => String(x?._id) === String(needId));
-    const nfPrice = applyDroneCost(Math.max(0, Number(hasRouteDroneNeed ? (dm?.routeNeedFallbackPrice ?? dm?.needFallbackPrice ?? 10) : (dm?.needFallbackPrice ?? 10))));
-    if (it && !isSpecialName(it?.name) && credits >= nfPrice) {
-      const w = Math.max(1, Number(hasRouteDroneNeed ? (dm?.routeNeedFallbackWeight ?? 18) : (dm?.needFallbackWeight ?? 5)));
-      pool.push({ kind: hasRouteDroneNeed ? 'routeNeedFallback' : 'needFallback', offerId: null, item: it, itemId: String(it._id), price: nfPrice, weight: w, source: hasRouteDroneNeed ? 'route_plan_drone' : 'craft_need' });
-    }
-  }
-
-  // 2) fallback: 공용 아이템 중 하급 재료 느낌(가격 고정)에서 뽑기
-  if (!pool.length && items.length) {
-    const fallbackKeywords = Array.isArray(dm?.fallbackKeywords) ? dm.fallbackKeywords : ['천', '가죽', '철', '돌', '나뭇', 'wood', 'leather', 'fabric', 'iron', 'stone'];
-    for (const it of items) {
-      const name = String(it?.name || '');
-      if (!name) continue;
-      if (isSpecialName(name)) continue;
-
-      const low = name.toLowerCase();
-      const ok = fallbackKeywords.some((k) => low.includes(String(k).toLowerCase()));
-      if (!ok) continue;
-
-      const price = applyDroneCost(Math.max(0, Number(dm?.price ?? 10)));
-      if (credits >= price) {
-        pool.push({ kind: 'fallback', offerId: null, item: it, itemId: String(it._id), price, weight: 1 });
-      }
-    }
-  }
-
-  if (!pool.length) return null;
-  const picked = pickWeighted(pool);
-  if (!picked?.itemId) return null;
-
-  const qty = 1;
-  return {
-    kind: 'drone',
-    offerId: picked.offerId,
-    item: picked.item,
-    itemId: String(picked.itemId),
-    qty,
-    cost: Math.max(0, Number(picked.price || 0)),
-    source: String(picked.source || ''),
-  };
-}
 
 export {
   chooseAiMoveTargets,

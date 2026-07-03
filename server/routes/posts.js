@@ -14,7 +14,10 @@ const { verifyToken } = require('../middleware/authMiddleware');
 // GET /api/posts
 router.get('/', async (req, res) => {
   try {
-    const posts = await Post.find({}).sort({ createdAt: -1 }).lean();
+    const posts = await Post.find({})
+      .populate('authorId', 'username nickname')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(posts);
   } catch (err) {
     console.error(err);
@@ -27,7 +30,9 @@ router.get('/', async (req, res) => {
 // GET /api/posts/:id
 router.get('/:id', async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).lean();
+    const post = await Post.findById(req.params.id)
+      .populate('authorId', 'username nickname')
+      .lean();
     if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
     res.json(post);
   } catch (err) {

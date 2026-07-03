@@ -1,15 +1,41 @@
 const SKILL_LEVEL_COUNT = 5;
-const NUMBER_SEQUENCE = String.raw`(\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?){0,4})`;
+const NUMBER_SEQUENCE = String.raw`([+-]?\d+(?:\.\d+)?(?:\s*\/\s*[+-]?\d+(?:\.\d+)?){0,4})`;
+
+export const ACTIVE_CHARACTER_SKILL_SLOTS = ['q', 'w', 'e', 'r'];
+export const CHARACTER_SKILL_SLOTS = [...ACTIVE_CHARACTER_SKILL_SLOTS, 'passive'];
+export const CHARACTER_SKILL_SLOT_LABELS = {
+  q: 'Q',
+  w: 'W',
+  e: 'E',
+  r: 'R',
+  passive: 'Passive',
+};
+
+const STAT_KEYWORDS = [
+  { key: 'maxHp', patterns: ['체력', '최대 체력', 'hp', 'max hp', 'health'] },
+  { key: 'attackPower', patterns: ['공격력', '공격', 'attack power', 'atk', 'attack'] },
+  { key: 'skillAmp', patterns: ['스킬증폭', '스킬 증폭', '스증', 'skill amp', 'amp'] },
+  { key: 'defense', patterns: ['방어력', '방어', 'defense', 'def'] },
+  { key: 'attackRange', patterns: ['사정거리', '사거리', 'attack range', 'range'] },
+  { key: 'sightRange', patterns: ['시야', 'sight range', 'vision', 'sight'] },
+  { key: 'attackSpeed', patterns: ['공격속도', '공속', 'attack speed', 'atk speed'] },
+];
 
 function cleanNumber(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
+function normalizeSlot(slot) {
+  const key = String(slot || 'q').trim().toLowerCase();
+  return CHARACTER_SKILL_SLOTS.includes(key) ? key : 'q';
+}
+
 function normalizeSkillText(value) {
   return String(value || '')
     .normalize('NFKC')
-    .replace(/[，。]/g, ' ')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -33,21 +59,71 @@ function toLevelArray(value, fallback = 0, opts = {}) {
   return out;
 }
 
-function defaultQSkill(base = {}) {
+function defaultCooldownForSlot(slot) {
+  if (slot === 'r') return 60;
+  if (slot === 'e') return 18;
+  if (slot === 'w') return 12;
+  if (slot === 'passive') return 0;
+  return 7;
+}
+
+function normalizePctInput(value, fallback = 0) {
+  const n = cleanNumber(value, fallback);
+  if (n <= 0) return 0;
+  return n > 1 ? n / 100 : n;
+}
+
+export function createDefaultCompiledSkill(base = {}, slot = 'q') {
+  const skillSlot = normalizeSlot(base.slot || slot);
+  const defaultType = skillSlot === 'passive'
+    ? 'passive_stat'
+    : skillSlot === 'q'
+      ? 'basic_attack_recast'
+      : 'combat_effect';
+  const cooldown = defaultCooldownForSlot(skillSlot);
+  const rawStatModifiers = base.statModifiers && typeof base.statModifiers === 'object'
+    ? base.statModifiers
+    : {};
   return {
     enabled: base.enabled === true,
-    type: 'basic_attack_recast',
-    name: String(base.name || '사용자 Q'),
-    cooldownSec: Math.max(1, cleanNumber(base.cooldownSec, 7)),
-    recastWindowSec: Math.max(1, cleanNumber(base.recastWindowSec, 5)),
+    slot: skillSlot,
+    type: String(base.type || defaultType),
+    trigger: String(base.trigger || (skillSlot === 'passive' ? 'always' : 'basic_attack')),
+    name: String(base.name || ''),
+    sourceText: String(base.sourceText || ''),
+    cooldownSec: Math.max(skillSlot === 'passive' ? 0 : 1, cleanNumber(base.cooldownSec, cooldown)),
+    recastWindowSec: Math.max(0, cleanNumber(base.recastWindowSec, skillSlot === 'q' ? 5 : 0)),
+    range: Math.max(0, cleanNumber(base.range, 0)),
+    castDelaySec: Math.max(0, cleanNumber(base.castDelaySec, 0)),
+    recoveryDelaySec: Math.max(0, cleanNumber(base.recoveryDelaySec, 0)),
+    useCondition: String(base.useCondition || 'auto'),
+    targetPriority: String(base.targetPriority || 'auto'),
+    minExpectedDamage: Math.max(0, cleanNumber(base.minExpectedDamage, 1)),
+    minSplashTargets: Math.max(0, Math.floor(cleanNumber(base.minSplashTargets, 0))),
+    minCasterHpPct: normalizePctInput(base.minCasterHpPct, 0),
+    maxCasterHpPct: normalizePctInput(base.maxCasterHpPct, 0),
+    minTargetHpPct: normalizePctInput(base.minTargetHpPct, 0),
+    maxTargetHpPct: normalizePctInput(base.maxTargetHpPct, 0),
     radius: Math.max(0, cleanNumber(base.radius, 0)),
+    durationSec: Math.max(0, cleanNumber(base.durationSec, 0)),
     firstFlat: toLevelArray(base.firstFlat, 0, { integer: true }),
     secondFlat: toLevelArray(base.secondFlat, 0, { integer: true }),
+    flatDamage: toLevelArray(base.flatDamage ?? base.firstFlat, 0, { integer: true }),
+    maxHpPct: toLevelArray(base.maxHpPct, 0),
+    currentHpPct: toLevelArray(base.currentHpPct, 0),
     secondMaxHpPct: toLevelArray(base.secondMaxHpPct, 0),
     secondCurrentHpPct: toLevelArray(base.secondCurrentHpPct, 0),
+    heal: toLevelArray(base.heal, 0, { integer: true }),
+    shield: toLevelArray(base.shield, 0, { integer: true }),
     firstSkillAmpScale: Math.max(0, cleanNumber(base.firstSkillAmpScale, 0)),
     secondSkillAmpScale: Math.max(0, cleanNumber(base.secondSkillAmpScale, 0)),
-    sourceText: String(base.sourceText || ''),
+    skillAmpScale: Math.max(0, cleanNumber(base.skillAmpScale ?? base.firstSkillAmpScale, 0)),
+    statModifiers: Object.fromEntries(
+      Object.entries(rawStatModifiers)
+        .map(([key, value]) => [key, cleanNumber(value, 0)])
+        .filter(([, value]) => Number.isFinite(value) && value !== 0)
+    ),
+    tags: Array.isArray(base.tags) ? base.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 16) : [],
   };
 }
 
@@ -59,91 +135,254 @@ function matchNumberSequence(text, patterns) {
   return '';
 }
 
+function matchAllNumberSequences(text, pattern) {
+  const out = [];
+  const rx = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+  let match = rx.exec(text);
+  while (match) {
+    if (match[1]) out.push(match[1]);
+    match = rx.exec(text);
+  }
+  return out;
+}
+
+function splitRecastSegments(text) {
+  const marker = text.search(/(?:다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|두\s*번째|second|recast)/i);
+  if (marker < 0) return { first: text, second: '' };
+  return {
+    first: text.slice(0, marker),
+    second: text.slice(marker),
+  };
+}
+
+function extractCooldownSec(text) {
+  const patterns = [
+    /(?:쿨타임|쿨|재사용\s*대기\s*시간|재사용|cooldown|cd)\s*:?\s*(\d+(?:\.\d+)?)\s*(?:초|s|sec)?/i,
+    /(\d+(?:\.\d+)?)\s*(?:초|s|sec)\s*(?:쿨타임|쿨|재사용|cooldown|cd)/i,
+  ];
+  const seq = matchNumberSequence(text, patterns);
+  return seq ? cleanNumber(seq, 0) : 0;
+}
+
 function extractRecastWindowSec(text) {
-  const match = text.match(/(\d+(?:\.\d+)?)\s*초\s*(?:안|이내|내)/);
-  return match ? cleanNumber(match[1], 0) : 0;
+  const patterns = [
+    /(\d+(?:\.\d+)?)\s*(?:초|s|sec)\s*(?:안에|이내|동안)[^.!?]{0,40}(?:다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|second|recast)/i,
+    /(?:다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|second|recast)[^.!?]{0,40}(\d+(?:\.\d+)?)\s*(?:초|s|sec)/i,
+  ];
+  const seq = matchNumberSequence(text, patterns);
+  return seq ? cleanNumber(seq, 0) : 0;
 }
 
 function extractRadius(text) {
-  const match = text.match(/(?:범위|반경|광역\s*범위)\s*(\d+(?:\.\d+)?)/);
-  return match ? cleanNumber(match[1], 0) : null;
+  const patterns = [
+    /(?:범위|반경|광역\s*범위|radius|aoe)\s*:?\s*(\d+(?:\.\d+)?)/i,
+    /(\d+(?:\.\d+)?)\s*(?:범위|반경|radius)/i,
+  ];
+  const seq = matchNumberSequence(text, patterns);
+  if (seq) return cleanNumber(seq, 0);
+  return /광역|범위|area|aoe/i.test(text) ? 1 : null;
 }
 
-function extractFirstFlat(text) {
-  const firstSegment = text.split(/(?:5?\s*초\s*(?:안|이내|내))?\s*(?:한\s*번\s*더|한번\s*더|다시|재사용|재시전|2타|Q2|q2|두\s*번째)/)[0] || text;
-  const seq = matchNumberSequence(firstSegment, [
-    new RegExp(`${NUMBER_SEQUENCE}\\s*(?:의\\s*)?(?:추가\\s*)?피해`),
-    new RegExp(`(?:적\\s*\\d*\\s*인에게|대상에게|다음\\s*기본\\s*공격|Q1|q1|첫\\s*공격)[^\\d]{0,40}${NUMBER_SEQUENCE}`),
-  ]);
-  return seq ? toLevelArray(seq, 0, { integer: true }) : null;
-}
-
-function extractSecondFlat(text) {
+function extractRange(text) {
   const seq = matchNumberSequence(text, [
-    new RegExp(`(?:한\\s*번\\s*더|한번\\s*더|다시|재사용|재시전|추가\\s*발동|2타|Q2|q2|두\\s*번째)[^\\d]{0,90}${NUMBER_SEQUENCE}`),
-    new RegExp(`(?:다음\\s*공격|두\\s*번째\\s*공격)[^\\d]{0,40}${NUMBER_SEQUENCE}\\s*(?:의\\s*)?(?:광역\\s*)?(?:추가\\s*)?피해`),
+    /(?:사거리|사용\s*거리|시전\s*거리|range)\s*:?\s*(\d+(?:\.\d+)?)/i,
+    /(\d+(?:\.\d+)?)\s*(?:사거리|사용\s*거리|시전\s*거리|range)/i,
+  ]);
+  return seq ? cleanNumber(seq, 0) : 0;
+}
+
+function extractTimingSec(text, kind) {
+  const word = kind === 'cast'
+    ? String.raw`(?:선딜|시전\s*시간|캐스팅|cast\s*delay|cast\s*time)`
+    : String.raw`(?:후딜|경직|회복\s*시간|backswing|recovery)`;
+  const seq = matchNumberSequence(text, [
+    new RegExp(`${word}\\s*:?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:초|s|sec)?`, 'i'),
+    new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(?:초|s|sec)\\s*${word}`, 'i'),
+  ]);
+  return seq ? cleanNumber(seq, 0) : 0;
+}
+
+function inferTargetPriority(text, skill) {
+  if (/광역|범위|다수|여러|cluster|aoe|area/i.test(text)) return 'cluster';
+  if (/처치|마무리|결정타|kill|finish|execute/i.test(text)) return 'killable';
+  if (/체력(?:이)?\s*(?:낮|적)|낮은\s*(?:체력|hp)|lowest|low\s*hp/i.test(text)) return 'lowest_hp';
+  if (/최대\s*(?:체력|hp)|max\s*hp/i.test(text)) return 'highest_max_hp';
+  if (skill.radius > 0) return 'cluster';
+  if ([...skill.maxHpPct, ...skill.secondMaxHpPct].some((n) => n > 0)) return 'highest_max_hp';
+  if ([...skill.currentHpPct, ...skill.secondCurrentHpPct].some((n) => n > 0)) return 'lowest_hp';
+  return 'auto';
+}
+
+function inferUseCondition(text) {
+  if (/처치|마무리|결정타|kill|finish|execute/i.test(text)) return 'finish';
+  if (/방어|보호|위급|체력.*(?:이하|낮)|defensive|low\s*hp/i.test(text)) return 'defensive';
+  if (/견제|poke|harass/i.test(text)) return 'harass';
+  return 'auto';
+}
+
+function extractHpConditionPct(text, subject, direction) {
+  const subjectWord = subject === 'caster'
+    ? String.raw`(?:내|자신|시전자|사용자|caster|self)`
+    : String.raw`(?:대상|적|target|enemy)`;
+  const dirWord = direction === 'max'
+    ? String.raw`(?:이하|미만|낮을\s*때|below|under|less)`
+    : String.raw`(?:이상|초과|높을\s*때|above|over|more)`;
+  const seq = matchNumberSequence(text, [
+    new RegExp(`${subjectWord}[^%\\d]{0,30}(?:체력|hp)[^%\\d]{0,20}${NUMBER_SEQUENCE}\\s*(?:%|퍼센트)[^.!?]{0,20}${dirWord}`, 'i'),
+    new RegExp(`${subjectWord}[^.!?]{0,40}${dirWord}[^%\\d]{0,20}${NUMBER_SEQUENCE}\\s*(?:%|퍼센트)`, 'i'),
+  ]);
+  return seq ? normalizePctInput(seq, 0) : 0;
+}
+
+function extractFlatDamage(text) {
+  const seq = matchNumberSequence(text, [
+    new RegExp(`${NUMBER_SEQUENCE}\\s*(?:의\\s*)?(?:추가\\s*)?(?:광역\\s*)?(?:피해|데미지|damage|dmg)`, 'i'),
+    new RegExp(`(?:피해|데미지|damage|dmg)[^\\d+-]{0,20}${NUMBER_SEQUENCE}`, 'i'),
   ]);
   return seq ? toLevelArray(seq, 0, { integer: true }) : null;
 }
 
 function extractHpPct(text, kind) {
   const hpWord = kind === 'current'
-    ? String.raw`(?:현재\s*체력|현재\s*HP|남은\s*체력|남은\s*HP)`
-    : String.raw`(?:최대\s*체력|최대\s*HP)`;
+    ? String.raw`(?:현재\s*(?:체력|HP)|남은\s*(?:체력|HP)|current\s*hp|remaining\s*hp)`
+    : String.raw`(?:(?:대상\s*)?최대\s*(?:체력|HP)|max\s*hp)`;
   const seq = matchNumberSequence(text, [
-    new RegExp(`${hpWord}(?:의)?[^\\d]{0,30}${NUMBER_SEQUENCE}\\s*(?:%|퍼센트|프로)`),
-    new RegExp(`${NUMBER_SEQUENCE}\\s*(?:%|퍼센트|프로)[^,.;\\n]{0,30}${hpWord}`),
+    new RegExp(`${hpWord}[^\\d+-]{0,40}${NUMBER_SEQUENCE}\\s*(?:%|퍼센트)`, 'i'),
+    new RegExp(`${NUMBER_SEQUENCE}\\s*(?:%|퍼센트)[^,.;\\n]{0,40}${hpWord}`, 'i'),
   ]);
   return seq ? toLevelArray(seq, 0) : null;
 }
 
+function extractSkillAmpScale(text) {
+  const match = text.match(/(?:스킬\s*증폭|스증|skill\s*amp|amp)[^+\-\d]{0,20}([+-]?\d+(?:\.\d+)?)\s*(%)?/i);
+  if (!match) return 0;
+  const n = cleanNumber(match[1], 0);
+  if (match[2] || n > 5) return Math.max(0, n / 100);
+  return Math.max(0, n);
+}
+
+function extractLevelValue(text, words) {
+  const wordPattern = words.join('|');
+  const seq = matchNumberSequence(text, [
+    new RegExp(`${NUMBER_SEQUENCE}\\s*(?:의\\s*)?(?:${wordPattern})`, 'i'),
+    new RegExp(`(?:${wordPattern})[^\\d+-]{0,20}${NUMBER_SEQUENCE}`, 'i'),
+  ]);
+  return seq ? toLevelArray(seq, 0, { integer: true }) : null;
+}
+
+function keywordToRegex(keyword) {
+  return keyword
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\s+/g, String.raw`\s*`);
+}
+
+function extractStatModifiers(text) {
+  const out = {};
+  for (const stat of STAT_KEYWORDS) {
+    for (const keyword of stat.patterns) {
+      const word = keywordToRegex(keyword);
+      const patterns = [
+        new RegExp(`(?:${word})[^+\\-\\d]{0,16}([+-]?\\d+(?:\\.\\d+)?)`, 'i'),
+        new RegExp(`([+-]?\\d+(?:\\.\\d+)?)\\s*(?:${word})`, 'i'),
+      ];
+      const seq = matchNumberSequence(text, patterns);
+      if (!seq) continue;
+      const value = cleanNumber(seq, 0);
+      if (value !== 0) out[stat.key] = (out[stat.key] || 0) + value;
+      break;
+    }
+  }
+  return out;
+}
+
+function buildTags(text, skill) {
+  const tags = new Set(Array.isArray(skill.tags) ? skill.tags : []);
+  if (/기본\s*공격|평타|basic attack/i.test(text)) tags.add('basic_attack');
+  if (/다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|second|recast/i.test(text)) tags.add('recast');
+  if (/광역|범위|aoe|area/i.test(text)) tags.add('area');
+  if (/회복|heal/i.test(text)) tags.add('heal');
+  if (/보호막|shield|barrier/i.test(text)) tags.add('shield');
+  if (skill.slot === 'passive') tags.add('passive');
+  return Array.from(tags).slice(0, 16);
+}
+
+function copyArrayIfFound(skill, field, value) {
+  if (Array.isArray(value)) skill[field] = value;
+}
+
 function buildWarnings(skill) {
   const warnings = [];
-  if (!skill.firstFlat.some((n) => n > 0)) warnings.push('Q1 피해를 찾지 못했습니다.');
-  if (!skill.secondFlat.some((n) => n > 0)) warnings.push('Q2 피해를 찾지 못했습니다.');
-  if (!skill.secondCurrentHpPct.some((n) => n > 0) && !skill.secondMaxHpPct.some((n) => n > 0)) {
-    warnings.push('Q2 체력 비례 피해를 찾지 못했습니다.');
+  const hasDamage = [
+    ...skill.firstFlat,
+    ...skill.secondFlat,
+    ...skill.flatDamage,
+    ...skill.maxHpPct,
+    ...skill.currentHpPct,
+    ...skill.secondMaxHpPct,
+    ...skill.secondCurrentHpPct,
+  ].some((n) => Number(n || 0) > 0);
+  const hasUtility = [...skill.heal, ...skill.shield].some((n) => Number(n || 0) > 0);
+  const hasPassiveStats = Object.keys(skill.statModifiers || {}).length > 0;
+  if (!hasDamage && !hasUtility && !hasPassiveStats) {
+    warnings.push('인식된 피해/회복/보호막/패시브 스탯 효과가 없습니다.');
+  }
+  if (skill.type === 'basic_attack_recast' && !skill.secondFlat.some((n) => n > 0) && !skill.secondCurrentHpPct.some((n) => n > 0) && !skill.secondMaxHpPct.some((n) => n > 0)) {
+    warnings.push('재발동 피해를 찾지 못했습니다. 필요하면 2타 피해를 직접 확인하세요.');
   }
   return warnings;
 }
 
 function normalizePreviewSkill(skill = {}) {
-  const q = defaultQSkill(skill);
+  const s = createDefaultCompiledSkill(skill, skill.slot || 'q');
   return {
-    enabled: q.enabled === true,
-    type: q.type,
-    name: q.name,
-    cooldownSec: q.cooldownSec,
-    recastWindowSec: q.recastWindowSec,
-    radius: q.radius,
-    firstFlat: q.firstFlat,
-    secondFlat: q.secondFlat,
-    secondCurrentHpPct: q.secondCurrentHpPct,
-    secondMaxHpPct: q.secondMaxHpPct,
-    firstSkillAmpScale: q.firstSkillAmpScale,
-    secondSkillAmpScale: q.secondSkillAmpScale,
+    enabled: s.enabled === true,
+    slot: s.slot,
+    type: s.type,
+    trigger: s.trigger,
+    name: s.name,
+    cooldownSec: s.cooldownSec,
+    recastWindowSec: s.recastWindowSec,
+    range: s.range,
+    castDelaySec: s.castDelaySec,
+    recoveryDelaySec: s.recoveryDelaySec,
+    useCondition: s.useCondition,
+    targetPriority: s.targetPriority,
+    minExpectedDamage: s.minExpectedDamage,
+    minSplashTargets: s.minSplashTargets,
+    minCasterHpPct: s.minCasterHpPct,
+    maxCasterHpPct: s.maxCasterHpPct,
+    minTargetHpPct: s.minTargetHpPct,
+    maxTargetHpPct: s.maxTargetHpPct,
+    radius: s.radius,
+    durationSec: s.durationSec,
+    firstFlat: s.firstFlat,
+    secondFlat: s.secondFlat,
+    flatDamage: s.flatDamage,
+    maxHpPct: s.maxHpPct,
+    currentHpPct: s.currentHpPct,
+    secondCurrentHpPct: s.secondCurrentHpPct,
+    secondMaxHpPct: s.secondMaxHpPct,
+    heal: s.heal,
+    shield: s.shield,
+    firstSkillAmpScale: s.firstSkillAmpScale,
+    secondSkillAmpScale: s.secondSkillAmpScale,
+    skillAmpScale: s.skillAmpScale,
+    statModifiers: s.statModifiers,
+    tags: s.tags,
   };
 }
 
-export function compileNaturalQSkillDescription(sourceText, base = {}) {
+export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q') {
+  const skillSlot = normalizeSlot(slot || base.slot);
   const text = normalizeSkillText(sourceText);
-  const skill = defaultQSkill({ ...base, sourceText: text });
+  const skill = createDefaultCompiledSkill({ ...base, slot: skillSlot, sourceText: text }, skillSlot);
   skill.enabled = true;
   if (!text) {
-    return { skill, warnings: ['Q 설명이 비어 있습니다.'] };
+    return { skill, warnings: [`${CHARACTER_SKILL_SLOT_LABELS[skillSlot]} 설명이 비어 있습니다.`] };
   }
 
-  const firstFlat = extractFirstFlat(text);
-  if (firstFlat) skill.firstFlat = firstFlat;
-
-  const secondFlat = extractSecondFlat(text);
-  if (secondFlat) skill.secondFlat = secondFlat;
-
-  const currentHpPct = extractHpPct(text, 'current');
-  if (currentHpPct) skill.secondCurrentHpPct = currentHpPct;
-
-  const maxHpPct = extractHpPct(text, 'max');
-  if (maxHpPct) skill.secondMaxHpPct = maxHpPct;
+  const cooldownSec = extractCooldownSec(text);
+  if (cooldownSec > 0) skill.cooldownSec = cooldownSec;
 
   const recastWindowSec = extractRecastWindowSec(text);
   if (recastWindowSec > 0) skill.recastWindowSec = recastWindowSec;
@@ -151,13 +390,85 @@ export function compileNaturalQSkillDescription(sourceText, base = {}) {
   const radius = extractRadius(text);
   if (radius !== null) skill.radius = radius;
 
+  const range = extractRange(text);
+  if (range > 0) skill.range = range;
+
+  const castDelaySec = extractTimingSec(text, 'cast');
+  if (castDelaySec > 0) skill.castDelaySec = castDelaySec;
+
+  const recoveryDelaySec = extractTimingSec(text, 'recovery');
+  if (recoveryDelaySec > 0) skill.recoveryDelaySec = recoveryDelaySec;
+
+  const duration = matchNumberSequence(text, [
+    /(?:지속|duration)[^+\-\d]{0,20}(\d+(?:\.\d+)?)\s*(?:초|s|sec)?/i,
+    /(\d+(?:\.\d+)?)\s*(?:초|s|sec)\s*(?:동안|지속|duration)/i,
+  ]);
+  if (duration) skill.durationSec = cleanNumber(duration, 0);
+
+  const { first, second } = splitRecastSegments(text);
+  const firstFlat = extractFlatDamage(first || text);
+  copyArrayIfFound(skill, 'firstFlat', firstFlat);
+  copyArrayIfFound(skill, 'flatDamage', firstFlat);
+
+  const secondFlat = second ? extractFlatDamage(second) : null;
+  copyArrayIfFound(skill, 'secondFlat', secondFlat);
+
+  copyArrayIfFound(skill, 'currentHpPct', extractHpPct(first || text, 'current'));
+  copyArrayIfFound(skill, 'maxHpPct', extractHpPct(first || text, 'max'));
+  copyArrayIfFound(skill, 'secondCurrentHpPct', extractHpPct(second || text, 'current'));
+  copyArrayIfFound(skill, 'secondMaxHpPct', extractHpPct(second || text, 'max'));
+  copyArrayIfFound(skill, 'heal', extractLevelValue(text, ['회복', 'heal', 'healing']));
+  copyArrayIfFound(skill, 'shield', extractLevelValue(text, ['보호막', 'shield', 'barrier']));
+
+  const ampScales = matchAllNumberSequences(text, /(?:스킬\s*증폭|스증|skill\s*amp|amp)[^+\-\d]{0,20}([+-]?\d+(?:\.\d+)?)\s*(%)?/i);
+  const firstAmp = extractSkillAmpScale(first || text);
+  const secondAmp = second ? extractSkillAmpScale(second) : 0;
+  if (firstAmp > 0) {
+    skill.firstSkillAmpScale = firstAmp;
+    skill.skillAmpScale = firstAmp;
+  } else if (ampScales.length > 0) {
+    const raw = cleanNumber(ampScales[0], 0);
+    const scale = raw > 5 ? raw / 100 : raw;
+    skill.firstSkillAmpScale = Math.max(0, scale);
+    skill.skillAmpScale = Math.max(0, scale);
+  }
+  if (secondAmp > 0) skill.secondSkillAmpScale = secondAmp;
+
+  if (skillSlot === 'passive') {
+    skill.statModifiers = extractStatModifiers(text);
+    skill.type = 'passive_stat';
+    skill.trigger = 'always';
+    skill.cooldownSec = 0;
+  } else if (skill.recastWindowSec > 0 || /다시|재사용|재발동|한\s*번\s*더|한번\s*더|2타|recast/i.test(text)) {
+    skill.statModifiers = {};
+    skill.type = 'basic_attack_recast';
+  } else {
+    skill.statModifiers = {};
+    skill.type = skill.type === 'passive_stat' ? 'combat_effect' : skill.type;
+  }
+
+  skill.tags = buildTags(text, skill);
+  skill.targetPriority = inferTargetPriority(text, skill);
+  skill.useCondition = inferUseCondition(text);
+  skill.minCasterHpPct = extractHpConditionPct(text, 'caster', 'min');
+  skill.maxCasterHpPct = extractHpConditionPct(text, 'caster', 'max');
+  skill.minTargetHpPct = extractHpConditionPct(text, 'target', 'min');
+  skill.maxTargetHpPct = extractHpConditionPct(text, 'target', 'max');
   return {
     skill,
     warnings: buildWarnings(skill),
   };
 }
 
+export function compileNaturalQSkillDescription(sourceText, base = {}) {
+  return compileNaturalSkillDescription(sourceText, base, 'q');
+}
+
+export function buildSkillCodePreview(skill = {}) {
+  const normalized = normalizePreviewSkill(skill);
+  return `const ${normalized.slot}Skill = ${JSON.stringify(normalized, null, 2)};`;
+}
+
 export function buildQSkillCodePreview(skill = {}) {
-  const q = normalizePreviewSkill(skill);
-  return `const qSkill = ${JSON.stringify(q, null, 2)};`;
+  return buildSkillCodePreview({ ...skill, slot: 'q' });
 }

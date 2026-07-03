@@ -58,16 +58,17 @@ export function createPhaseCombatSkillSplashRuntime({
       splashTarget.lastDamagedPhaseIdx = phaseIdxNow;
       total += finalSplash;
 
-      addLog(`🌀 광역 피해: [${attacker.name}] ${String(hit?.skill || '스킬')} → [${splashTarget.name}] -${finalSplash}`, 'highlight');
+      const hitKindText = hit?.primary ? '스킬 피해' : '광역 피해';
+      addLog(`🌀 ${hitKindText}: [${attacker.name}] ${String(hit?.skill || '스킬')} → [${splashTarget.name}] -${finalSplash}`, 'highlight');
       emitRunEvent('battle', {
         a: String(attacker?._id || ''),
         b: targetId,
         winner: Number(splashTarget.hp || 0) <= 0 ? String(attacker?._id || '') : '',
         lethal: Number(splashTarget.hp || 0) <= 0,
         zoneId: String(splashTarget?.zoneId || attacker?.zoneId || ''),
-        subkind: 'character_skill_splash',
+        subkind: hit?.primary ? 'character_skill_direct' : 'character_skill_splash',
       }, atNow());
-      grantPvpDamageMastery(attacker, { damageDealt: finalSplash, damageTaken: 0 }, '스킬 광역');
+      grantPvpDamageMastery(attacker, { damageDealt: finalSplash, damageTaken: 0 }, hit?.primary ? '스킬' : '스킬 광역');
 
       if (Number(splashTarget.hp || 0) <= 0) {
         applyCombatElimination(attacker, splashTarget, {
@@ -75,7 +76,7 @@ export function createPhaseCombatSkillSplashRuntime({
           prevDamagedPhaseIdx: prevDamagedPhaseIdxSplash,
           killText: '스킬 처치',
           deathReason: 'character_skill_splash',
-          deathCauseName: `${String(hit?.skill || '스킬')} 광역 피해`,
+          deathCauseName: `${String(hit?.skill || '스킬')} ${hit?.primary ? '피해' : '광역 피해'}`,
           damageDealt: finalSplash,
         });
       } else {

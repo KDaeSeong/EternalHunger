@@ -1,164 +1,28 @@
-import { getEffectiveStats } from '../../../utils/statusLogic';
-
-const CHARACTER_SKILL_MODE = 'character_skill';
-const BASIC_ATTACK_RECAST_TYPE = 'basic_attack_recast';
-const SKILL_LEVELS = 5;
-
-const BIHYUNG_Q = {
-  id: 'bihyung_q',
-  characterCode: 'bihyung',
-  slot: 'q',
-  type: BASIC_ATTACK_RECAST_TYPE,
-  name: '도깨비 장난',
-  cooldownSec: 7,
-  recastWindowSec: 5,
-  radius: 1,
-  firstFlat: [10, 20, 30, 40, 50],
-  secondFlat: [20, 30, 40, 50, 60],
-  secondMaxHpPct: [0, 0, 0, 0, 0],
-  secondCurrentHpPct: [1, 1, 2, 2, 3],
-  firstSkillAmpScale: 0,
-  secondSkillAmpScale: 0,
-  source: 'builtin',
-};
-
-const CHARACTER_SKILL_CATALOG = {
-  bihyung: {
-    q: BIHYUNG_Q,
-  },
-};
-
-function clamp(n, min, max) {
-  const v = Number(n);
-  if (!Number.isFinite(v)) return min;
-  return Math.max(min, Math.min(max, v));
-}
-
-function cleanSkillText(value, fallback = '') {
-  const text = String(value || '').trim();
-  return text || fallback;
-}
-
-function normalizeText(value) {
-  return String(value || '')
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[\s._-]+/g, '')
-    .trim();
-}
-
-function levelArray(value, fallback = 0) {
-  const raw = Array.isArray(value)
-    ? value
-    : String(value ?? '')
-      .split(/[,\s/]+/)
-      .filter(Boolean);
-  const src = raw.length ? raw : [fallback];
-  const out = [];
-  for (let i = 0; i < SKILL_LEVELS; i += 1) {
-    const picked = src[i] ?? src[src.length - 1] ?? fallback;
-    const n = Number(picked);
-    out.push(Number.isFinite(n) ? n : fallback);
-  }
-  return out;
-}
+import {
+  ACTIVE_CHARACTER_SKILL_SLOTS,
+  BASIC_ATTACK_RECAST_TYPE,
+  CHARACTER_SKILL_MODE,
+  CHARACTER_SKILL_SLOT_LABELS,
+  PASSIVE_STAT_TYPE,
+  areCharacterSkillsEnabled,
+  getCharacterSkillDef,
+  getCharacterSkillLevel,
+  getCooldownScale,
+  levelValue,
+  normalizeSkillState,
+  resolveCharacterSkillCode,
+} from './characterSkillDefinitionRuntime';
+import { selectCharacterSkillAiDecision } from './characterSkillAiRuntime';
+import {
+  addOrRefreshEffect,
+  getEffectiveStats,
+  makeShieldEffect,
+} from '../../../utils/statusLogic';
 
 function readPct(value) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return n > 0.25 ? n / 100 : n;
-}
-
-function resolveCharacterSkillCode(actor) {
-  const explicit = normalizeText(actor?.characterSkillCode || actor?.erSubject || actor?.subjectCode || actor?.code);
-  if (explicit === 'bihyung' || explicit === 'bihyeong') return 'bihyung';
-
-  const name = normalizeText(actor?.name || actor?.nickname || actor?.characterName);
-  if (name.includes('비형') || name.includes('bihyung') || name.includes('bihyeong')) return 'bihyung';
-  return explicit || '';
-}
-
-function normalizeCustomQSkill(actor) {
-  const skills = actor?.characterSkills && typeof actor.characterSkills === 'object'
-    ? actor.characterSkills
-    : actor?.customSkills && typeof actor.customSkills === 'object'
-      ? actor.customSkills
-      : {};
-  const raw = skills?.q && typeof skills.q === 'object' ? skills.q : null;
-  if (!raw || raw.enabled === false) return null;
-
-  const explicitName = cleanSkillText(raw.name, '');
-  const firstFlat = levelArray(raw.firstFlat, 0).map((n) => Math.max(0, Math.round(n)));
-  const secondFlat = levelArray(raw.secondFlat, 0).map((n) => Math.max(0, Math.round(n)));
-  const secondMaxHpPct = levelArray(raw.secondMaxHpPct, 0).map((n) => Math.max(0, Number(n) || 0));
-  const secondCurrentHpPct = levelArray(raw.secondCurrentHpPct, 0).map((n) => Math.max(0, Number(n) || 0));
-  const hasDamage = [...firstFlat, ...secondFlat, ...secondMaxHpPct, ...secondCurrentHpPct].some((n) => Number(n || 0) > 0);
-  if (!hasDamage && !explicitName) return null;
-
-  return {
-    id: cleanSkillText(raw.id, `custom_${String(actor?._id || actor?.id || 'actor')}_q`),
-    characterCode: cleanSkillText(actor?.characterSkillCode || actor?.erSubject || actor?.code, 'custom'),
-    slot: 'q',
-    type: cleanSkillText(raw.type, BASIC_ATTACK_RECAST_TYPE),
-    name: explicitName || '사용자 Q',
-    cooldownSec: clamp(raw.cooldownSec ?? 7, 1, 120),
-    recastWindowSec: clamp(raw.recastWindowSec ?? 5, 1, 30),
-    radius: clamp(raw.radius ?? 0, 0, 5),
-    firstFlat,
-    secondFlat,
-    secondMaxHpPct,
-    secondCurrentHpPct,
-    firstSkillAmpScale: Math.max(0, Number(raw.firstSkillAmpScale || 0)),
-    secondSkillAmpScale: Math.max(0, Number(raw.secondSkillAmpScale || 0)),
-    source: 'custom',
-  };
-}
-
-function getCharacterSkillDef(actor, slot) {
-  const skillSlot = String(slot || '').toLowerCase();
-  if (skillSlot === 'q') {
-    const custom = normalizeCustomQSkill(actor);
-    if (custom) return custom;
-  }
-
-  const code = resolveCharacterSkillCode(actor);
-  return code && skillSlot ? CHARACTER_SKILL_CATALOG?.[code]?.[skillSlot] || null : null;
-}
-
-function getCharacterSkillLevel(actor, slot) {
-  const skillSlot = String(slot || '').toLowerCase();
-  const explicit = Number(
-    actor?.characterSkillLevels?.[skillSlot]
-    ?? actor?.skillLevels?.[skillSlot]
-    ?? actor?.characterSkillLevel
-  );
-  if (Number.isFinite(explicit) && explicit > 0) return Math.floor(clamp(explicit, 1, 5));
-
-  const level = Math.max(1, Math.floor(Number(actor?.erLevel || actor?.level || 1)));
-  return Math.floor(clamp(1 + Math.floor((level - 1) / 4), 1, 5));
-}
-
-function normalizeSkillState(actor) {
-  const src = actor?.skillState && typeof actor.skillState === 'object' ? actor.skillState : {};
-  return {
-    ...src,
-    q: src?.q && typeof src.q === 'object' ? { ...src.q } : {},
-  };
-}
-
-function areCharacterSkillsEnabled(settings = {}) {
-  const skills = settings?.skills && typeof settings.skills === 'object' ? settings.skills : {};
-  if (settings?.battle?.characterSkillsEnabled === false) return false;
-  if (settings?.characterSkillsEnabled === false) return false;
-  if (skills.enabled === false) return false;
-  if (skills.characterSkills === false) return false;
-  if (skills.aiUseSkills === false) return false;
-  return true;
-}
-
-function getCooldownScale(settings = {}) {
-  const skills = settings?.skills && typeof settings.skills === 'object' ? settings.skills : {};
-  return clamp(skills.cooldownScale ?? 1, 0.25, 4);
 }
 
 function getSkillAmpDamage(actor, def, key, fallbackSettingsKey, settings) {
@@ -169,10 +33,6 @@ function getSkillAmpDamage(actor, def, key, fallbackSettingsKey, settings) {
   return Math.max(0, Math.round(Number(stats?.skillAmp || 0) * scale));
 }
 
-function stageLabel(stage) {
-  return stage === 2 ? 'Q2' : 'Q1';
-}
-
 function getTargetHpSnapshot(target) {
   const effective = getEffectiveStats(target);
   const maxHp = Math.max(1, Number(target?.maxHp || effective?.maxHp || 100));
@@ -180,17 +40,226 @@ function getTargetHpSnapshot(target) {
   return { maxHp, currentHp };
 }
 
-function getSecondStageDamage(target, idx, secondFlat, secondMaxHpPct, secondCurrentHpPct, skillAmpDamage) {
+function actorId(actor) {
+  return String(actor?._id || actor?.id || '');
+}
+
+function getHpScaledDamage(target, idx, maxHpPct, currentHpPct) {
   const { maxHp, currentHp } = getTargetHpSnapshot(target);
-  const maxHpDamage = Math.max(0, Math.round(maxHp * readPct(secondMaxHpPct[idx])));
-  const currentHpDamage = Math.max(0, Math.round(currentHp * readPct(secondCurrentHpPct[idx])));
-  const damage = Math.max(0, Math.round(
-    Number(secondFlat[idx] || 0)
-    + maxHpDamage
-    + currentHpDamage
-    + Math.max(0, Number(skillAmpDamage || 0))
-  ));
-  return { damage, maxHpDamage, currentHpDamage };
+  const maxHpDamage = Math.max(0, Math.round(maxHp * readPct(levelValue(maxHpPct, idx, 0))));
+  const currentHpDamage = Math.max(0, Math.round(currentHp * readPct(levelValue(currentHpPct, idx, 0))));
+  return { maxHpDamage, currentHpDamage };
+}
+
+function calculateSkillDamage(attacker, defender, def, idx, stage, settings) {
+  const isSecond = stage === 2;
+  const flat = isSecond
+    ? levelValue(def.secondFlat, idx, 0)
+    : Math.max(levelValue(def.flatDamage, idx, 0), levelValue(def.firstFlat, idx, 0));
+  const hpScaled = isSecond
+    ? getHpScaledDamage(defender, idx, def.secondMaxHpPct, def.secondCurrentHpPct)
+    : getHpScaledDamage(defender, idx, def.maxHpPct, def.currentHpPct);
+  const skillAmpDamage = getSkillAmpDamage(
+    attacker,
+    def,
+    isSecond ? 'secondSkillAmpScale' : 'skillAmpScale',
+    isSecond ? 'bihyungQSecondSkillAmpScale' : 'bihyungQFirstSkillAmpScale',
+    settings
+  ) || (isSecond ? 0 : getSkillAmpDamage(attacker, def, 'firstSkillAmpScale', 'bihyungQFirstSkillAmpScale', settings));
+  const damage = Math.max(0, Math.round(flat + hpScaled.maxHpDamage + hpScaled.currentHpDamage + skillAmpDamage));
+  return {
+    damage,
+    maxHpDamage: hpScaled.maxHpDamage,
+    currentHpDamage: hpScaled.currentHpDamage,
+    skillAmpDamage,
+  };
+}
+
+function applySelfUtility(attacker, def, idx) {
+  let healAmount = Math.max(0, Math.round(levelValue(def.heal, idx, 0)));
+  const shieldValue = Math.max(0, Math.round(levelValue(def.shield, idx, 0)));
+  const maxHp = Math.max(1, Number(attacker?.maxHp || getEffectiveStats(attacker)?.maxHp || 100));
+
+  if (healAmount > 0) {
+    const before = Math.max(0, Number(attacker.hp || 0));
+    attacker.hp = Math.max(0, Math.min(maxHp, before + healAmount));
+    healAmount = Math.max(0, Math.round(Number(attacker.hp || 0) - before));
+  }
+
+  if (shieldValue > 0) {
+    const result = addOrRefreshEffect(attacker, makeShieldEffect(
+      shieldValue,
+      Math.max(2, Number(def.durationSec || 2)),
+      def.id || def.name,
+      { tags: ['positive', 'shield', 'character_skill'] }
+    ));
+    attacker.activeEffects = result.character.activeEffects;
+  }
+
+  return { healAmount, shieldValue };
+}
+
+function setSkillCooldown(stateSlot, def, nowSec, settings) {
+  stateSlot.stage = 'cooldown';
+  stateSlot.recastUntil = 0;
+  stateSlot.cooldownUntil = nowSec + Math.max(1, Math.round(Number(def.cooldownSec || 1) * getCooldownScale(settings)));
+}
+
+function buildSkillLogBits(damageInfo, utility, splashHits) {
+  const bits = [];
+  const splashCount = splashHits.filter((hit) => !hit?.primary).length;
+  if (damageInfo.damage > 0) bits.push(`추가 피해 +${damageInfo.damage}`);
+  if (damageInfo.maxHpDamage > 0) bits.push(`최대 체력 피해 +${damageInfo.maxHpDamage}`);
+  if (damageInfo.currentHpDamage > 0) bits.push(`현재 체력 피해 +${damageInfo.currentHpDamage}`);
+  if (utility.healAmount > 0) bits.push(`회복 +${utility.healAmount}`);
+  if (utility.shieldValue > 0) bits.push(`보호막 +${utility.shieldValue}`);
+  if (splashCount > 0) bits.push(`광역 ${splashCount}명`);
+  return bits;
+}
+
+function makeSkillHit(target, damageInfo, def, stage, opts = {}) {
+  return {
+    target,
+    damage: damageInfo.damage,
+    maxHpDamage: damageInfo.maxHpDamage,
+    currentHpDamage: damageInfo.currentHpDamage,
+    skill: def.name,
+    stage,
+    radius: opts.radius ?? Number(def.radius || 0),
+    primary: opts.primary === true,
+  };
+}
+
+function buildSplashHits(attacker, defender, def, idx, stage, settings, splashTargets) {
+  const radius = Number(def.radius || 0);
+  if (radius <= 0 || !Array.isArray(splashTargets)) return [];
+  return splashTargets
+    .filter((target) => target && actorId(target) !== actorId(defender) && Number(target?.hp || 0) > 0)
+    .map((target) => {
+      const splashDamage = calculateSkillDamage(attacker, target, def, idx, stage, settings);
+      return makeSkillHit(target, splashDamage, def, stage, { radius });
+    });
+}
+
+function applySingleSkillOnBasicAttack(attacker, defender, def, opts = {}) {
+  const settings = opts?.settings || {};
+  const nowSec = Math.max(0, Number(opts?.nowSec || 0));
+  const state = opts.state;
+  const slotState = state[def.slot] || {};
+  state[def.slot] = slotState;
+  const cooldownUntil = Math.max(0, Number(slotState.cooldownUntil || 0));
+  const recastUntil = Math.max(0, Number(slotState.recastUntil || 0));
+  const hasRecast = String(slotState.stage || '') === 'recast' && recastUntil >= nowSec;
+  const cooldownReady = cooldownUntil <= nowSec;
+  const isRecastSkill = String(def.type || '') === BASIC_ATTACK_RECAST_TYPE;
+
+  if (!hasRecast && !cooldownReady) return null;
+  if (!isRecastSkill && !cooldownReady) return null;
+
+  const level = getCharacterSkillLevel(attacker, def.slot);
+  const idx = level - 1;
+  const stage = hasRecast ? 2 : 1;
+  const estimateDamage = (target) => calculateSkillDamage(attacker, target, def, idx, stage, settings);
+  const aiDecision = selectCharacterSkillAiDecision({
+    attacker,
+    defender,
+    def,
+    idx,
+    stage,
+    settings,
+    splashTargets: opts?.splashTargets,
+    estimateDamage,
+    opts,
+  });
+  if (!aiDecision.shouldUse) return null;
+
+  const skillTarget = aiDecision.target || defender;
+  const targetIsDefender = actorId(skillTarget) === actorId(defender);
+  const damageInfo = estimateDamage(skillTarget);
+  const utility = applySelfUtility(attacker, def, idx);
+
+  if (isRecastSkill && !hasRecast && Number(def.recastWindowSec || 0) > 0) {
+    slotState.stage = 'recast';
+    slotState.recastUntil = nowSec + Math.max(1, Number(def.recastWindowSec || 5));
+    slotState.cooldownUntil = nowSec + Math.max(1, Math.round(Number(def.cooldownSec || 7) * getCooldownScale(settings)));
+  } else {
+    setSkillCooldown(slotState, def, nowSec, settings);
+  }
+
+  const splashCandidates = targetIsDefender
+    ? opts?.splashTargets
+    : [defender, ...(Array.isArray(opts?.splashTargets) ? opts.splashTargets : [])];
+  const splashHits = damageInfo.damage > 0
+    ? buildSplashHits(attacker, skillTarget, def, idx, stage, settings, splashCandidates)
+    : [];
+  if (!targetIsDefender && damageInfo.damage > 0) {
+    splashHits.unshift(makeSkillHit(skillTarget, damageInfo, def, stage, { primary: true, radius: 0 }));
+  }
+
+  slotState.lastUsedAt = nowSec;
+  slotState.lastStage = stage;
+  slotState.level = level;
+  slotState.source = def.source || '';
+  slotState.lastAiReason = aiDecision.reason || '';
+  slotState.lastTargetId = actorId(skillTarget);
+  slotState.lastCastDelaySec = aiDecision.timing?.castDelaySec || 0;
+  slotState.lastRecoveryDelaySec = aiDecision.timing?.recoveryDelaySec || 0;
+
+  const bits = buildSkillLogBits(damageInfo, utility, splashHits);
+  if (typeof opts?.addLog === 'function' && opts?.showLog !== false && bits.length) {
+    const label = stage === 2 ? `${CHARACTER_SKILL_SLOT_LABELS[def.slot]}2` : CHARACTER_SKILL_SLOT_LABELS[def.slot];
+    opts.addLog(`[${attacker.name}] ${def.name} ${label} → [${skillTarget.name}]: ${bits.join(', ')}`, 'highlight');
+  }
+  if (typeof opts?.emitRunEvent === 'function' && bits.length) {
+    opts.emitRunEvent('skill', {
+      who: String(attacker?._id || ''),
+      whoName: attacker?.name,
+      target: actorId(skillTarget),
+      targetName: skillTarget?.name,
+      skill: def.name,
+      slot: def.slot,
+      mode: CHARACTER_SKILL_MODE,
+      source: def.source || '',
+      stage,
+      level,
+      damage: damageInfo.damage,
+      maxHpDamage: damageInfo.maxHpDamage,
+      currentHpDamage: damageInfo.currentHpDamage,
+      heal: utility.healAmount,
+      shield: utility.shieldValue,
+      splashCount: splashHits.filter((hit) => !hit?.primary).length,
+      directRetarget: !targetIsDefender,
+      aiReason: aiDecision.reason || '',
+      targetPriority: aiDecision.targetPriority || '',
+      targetScore: Math.round(Number(aiDecision.targetScore || 0) * 100) / 100,
+      castDelaySec: aiDecision.timing?.castDelaySec || 0,
+      recoveryDelaySec: aiDecision.timing?.recoveryDelaySec || 0,
+      actionLockSec: aiDecision.timing?.actionLockSec || 0,
+      zoneId: String(attacker?.zoneId || defender?.zoneId || ''),
+    }, opts?.at || null);
+  }
+
+  const directDamage = targetIsDefender ? damageInfo.damage : 0;
+  return {
+    damage: directDamage,
+    extraDamage: directDamage,
+    stage,
+    level,
+    skill: def.name,
+    slot: def.slot,
+    maxHpDamage: targetIsDefender ? damageInfo.maxHpDamage : 0,
+    currentHpDamage: targetIsDefender ? damageInfo.currentHpDamage : 0,
+    heal: utility.healAmount,
+    shield: utility.shieldValue,
+    target: skillTarget,
+    targetId: actorId(skillTarget),
+    directRetarget: !targetIsDefender,
+    aiReason: aiDecision.reason || '',
+    targetPriority: aiDecision.targetPriority || '',
+    timing: aiDecision.timing,
+    splashHits,
+    applied: bits.length > 0,
+  };
 }
 
 function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts = {}) {
@@ -204,115 +273,45 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
     return { damage: rawBaseDamage, extraDamage: 0, stage: 0, splashHits: [], applied: false };
   }
 
-  const def = getCharacterSkillDef(attacker, 'q');
-  if (!def || String(def.type || BASIC_ATTACK_RECAST_TYPE) !== BASIC_ATTACK_RECAST_TYPE) {
-    return { damage: rawBaseDamage, extraDamage: 0, stage: 0, splashHits: [], applied: false };
-  }
-
-  const nowSec = Math.max(0, Number(opts?.nowSec || 0));
   const state = normalizeSkillState(attacker);
-  const q = state.q;
-  const recastUntil = Math.max(0, Number(q.recastUntil || 0));
-  const cooldownUntil = Math.max(0, Number(q.cooldownUntil || 0));
-  const hasRecast = String(q.stage || '') === 'recast' && recastUntil >= nowSec;
-  const cooldownReady = cooldownUntil <= nowSec;
+  const defs = ACTIVE_CHARACTER_SKILL_SLOTS
+    .map((slot) => getCharacterSkillDef(attacker, slot))
+    .filter((def) => def && String(def.type || '') !== PASSIVE_STAT_TYPE);
 
-  if (!hasRecast && !cooldownReady) {
+  if (!defs.length) {
     attacker.skillState = state;
     return { damage: rawBaseDamage, extraDamage: 0, stage: 0, splashHits: [], applied: false };
   }
 
-  const level = getCharacterSkillLevel(attacker, 'q');
-  const idx = level - 1;
-  const firstFlat = levelArray(def.firstFlat, 0);
-  const secondFlat = levelArray(def.secondFlat, 0);
-  const secondMaxHpPct = levelArray(def.secondMaxHpPct, 0);
-  const secondCurrentHpPct = levelArray(def.secondCurrentHpPct, 0);
-  let stage = 1;
-  let extraDamage = Math.max(0, Math.round(Number(firstFlat[idx] || 0)));
-  let maxHpDamage = 0;
-  let currentHpDamage = 0;
-  let splashHits = [];
-
-  if (hasRecast) {
-    stage = 2;
-    const secondSkillAmpDamage = getSkillAmpDamage(attacker, def, 'secondSkillAmpScale', 'bihyungQSecondSkillAmpScale', settings);
-    const primaryDamage = getSecondStageDamage(defender, idx, secondFlat, secondMaxHpPct, secondCurrentHpPct, secondSkillAmpDamage);
-    extraDamage = primaryDamage.damage;
-    maxHpDamage = primaryDamage.maxHpDamage;
-    currentHpDamage = primaryDamage.currentHpDamage;
-    q.stage = 'cooldown';
-    q.recastUntil = 0;
-    q.cooldownUntil = nowSec + Math.max(1, Math.round(Number(def.cooldownSec || 7) * getCooldownScale(settings)));
-
-    const splashTargets = Number(def.radius || 0) > 0 && Array.isArray(opts?.splashTargets) ? opts.splashTargets : [];
-    splashHits = splashTargets
-      .filter((target) => target && String(target?._id || '') !== String(defender?._id || '') && Number(target?.hp || 0) > 0)
-      .map((target) => {
-        const splashDamage = getSecondStageDamage(target, idx, secondFlat, secondMaxHpPct, secondCurrentHpPct, secondSkillAmpDamage);
-        return {
-          target,
-          damage: splashDamage.damage,
-          maxHpDamage: splashDamage.maxHpDamage,
-          currentHpDamage: splashDamage.currentHpDamage,
-          skill: def.name,
-          stage,
-          radius: def.radius,
-        };
-      });
-  } else {
-    extraDamage += getSkillAmpDamage(attacker, def, 'firstSkillAmpScale', 'bihyungQFirstSkillAmpScale', settings);
-    q.stage = 'recast';
-    q.recastUntil = nowSec + Math.max(1, Number(def.recastWindowSec || 5));
-    q.cooldownUntil = nowSec + Math.max(1, Math.round(Number(def.cooldownSec || 7) * getCooldownScale(settings)));
+  const results = [];
+  for (const def of defs) {
+    const result = applySingleSkillOnBasicAttack(attacker, defender, def, { ...opts, state });
+    if (result?.applied) results.push(result);
   }
 
-  q.lastUsedAt = nowSec;
-  q.lastStage = stage;
-  q.level = level;
-  q.source = def.source || '';
   attacker.skillState = state;
-
-  const finalDamage = rawBaseDamage + extraDamage;
-  const bits = [`추가 피해 +${extraDamage}`];
-  if (stage === 2 && maxHpDamage > 0) bits.push(`최대 체력 피해 +${maxHpDamage}`);
-  if (stage === 2 && currentHpDamage > 0) bits.push(`현재 체력 피해 +${currentHpDamage}`);
-  if (stage === 2 && splashHits.length) bits.push(`광역 ${splashHits.length}명`);
-
-  const log = `[${attacker.name}] ${def.name} ${stageLabel(stage)}: ${bits.join(', ')}`;
-  if (typeof opts?.addLog === 'function' && opts?.showLog !== false) {
-    opts.addLog(`🌀 ${log}`, 'highlight');
+  if (!results.length) {
+    return { damage: rawBaseDamage, extraDamage: 0, stage: 0, splashHits: [], applied: false };
   }
-  if (typeof opts?.emitRunEvent === 'function') {
-    opts.emitRunEvent('skill', {
-      who: String(attacker?._id || ''),
-      whoName: attacker?.name,
-      target: String(defender?._id || ''),
-      targetName: defender?.name,
-      skill: def.name,
-      slot: def.slot,
-      mode: CHARACTER_SKILL_MODE,
-      source: def.source || '',
-      stage,
-      level,
-      damage: extraDamage,
-      maxHpDamage,
-      currentHpDamage,
-      splashCount: splashHits.length,
-      zoneId: String(attacker?.zoneId || defender?.zoneId || ''),
-    }, opts?.at || null);
-  }
+
+  const extraDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.extraDamage || 0)), 0);
+  const splashHits = results.flatMap((result) => Array.isArray(result.splashHits) ? result.splashHits : []);
+  const maxHpDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.maxHpDamage || 0)), 0);
+  const currentHpDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.currentHpDamage || 0)), 0);
+  const first = results[0];
 
   return {
-    damage: finalDamage,
+    damage: rawBaseDamage + extraDamage,
     extraDamage,
-    stage,
-    level,
-    skill: def.name,
+    stage: first.stage,
+    level: first.level,
+    skill: results.map((result) => result.skill).filter(Boolean).join(', '),
+    slot: first.slot,
     maxHpDamage,
     currentHpDamage,
     splashHits,
     applied: true,
+    results,
   };
 }
 

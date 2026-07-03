@@ -1020,6 +1020,30 @@ main {
     padding: 0;
 }
 
+.character-skill-tabs {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.character-skill-tabs button {
+    min-height: 34px;
+    padding: 0 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    color: #344054;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
+.character-skill-tabs button.active {
+    border-color: #0288d1;
+    background: #e0f2fe;
+    color: #075985;
+}
+
 .character-skill-inline-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1083,6 +1107,10 @@ main {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
+}
+
+.character-skill-level-grid.passive {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .character-skill-level-grid label {
