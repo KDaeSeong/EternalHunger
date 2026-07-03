@@ -79,6 +79,7 @@ export default function TwentyQuestionsPage() {
 
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [creating, setCreating] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
@@ -88,6 +89,7 @@ export default function TwentyQuestionsPage() {
 
   const loadRooms = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
@@ -96,8 +98,9 @@ export default function TwentyQuestionsPage() {
       const data = await apiGet(`/twenty-questions${suffix}`, { timeoutMs: 15000 });
       setRooms(unwrapRooms(data));
     } catch (err) {
-      setRooms([]);
-      showToast({ tone: 'danger', message: err?.message || '스무고개 방을 불러오지 못했습니다.' });
+      const message = err?.message || '스무고개 방을 불러오지 못했습니다.';
+      setLoadError(message);
+      showToast({ tone: 'danger', message });
     } finally {
       setLoading(false);
     }
@@ -252,7 +255,13 @@ export default function TwentyQuestionsPage() {
 
         <section className="twenty-room-grid" aria-label="스무고개 방 목록">
           {loading ? <div className="twenty-empty">방을 불러오는 중입니다.</div> : null}
-          {!loading && filteredRooms.length === 0 ? <div className="twenty-empty">표시할 방이 없습니다.</div> : null}
+          {!loading && loadError ? (
+            <div className="twenty-empty twenty-error">
+              <span>{loadError}</span>
+              <button type="button" onClick={() => void loadRooms()}>다시 불러오기</button>
+            </div>
+          ) : null}
+          {!loading && !loadError && filteredRooms.length === 0 ? <div className="twenty-empty">표시할 방이 없습니다.</div> : null}
           {!loading && filteredRooms.map((room) => (
             <Link href={`/twenty-questions/${room._id}`} className="twenty-room-card" key={room._id}>
               <div className="twenty-card-top">

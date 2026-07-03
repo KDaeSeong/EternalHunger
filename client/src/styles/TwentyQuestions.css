@@ -261,6 +261,19 @@
   box-shadow: none;
 }
 
+.twenty-empty.twenty-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #9a3c3f;
+}
+
+.twenty-empty.twenty-error span {
+  min-width: min(100%, 280px);
+}
+
 .twenty-room-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
