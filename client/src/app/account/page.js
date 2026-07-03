@@ -273,6 +273,7 @@ export default function AccountPage() {
                   <Link href="/characters">캐릭터 설정</Link>
                   <Link href="/board">게시판</Link>
                   <Link href="/twenty-questions">스무고개</Link>
+                  <Link href="/reports">신고 내역</Link>
                 </div>
               </section>
             </div>

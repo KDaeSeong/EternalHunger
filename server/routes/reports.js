@@ -170,6 +170,40 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get('/mine', async (req, res) => {
+  try {
+    const reporterId = req.user.id;
+    const reports = await Report.find({ reporterId })
+      .populate('reporterId', 'username nickname')
+      .populate('handledBy', 'username nickname')
+      .populate('postId', 'title createdAt')
+      .sort({ createdAt: -1 })
+      .limit(80)
+      .lean();
+
+    const [open, reviewing, resolved, dismissed] = await Promise.all([
+      Report.countDocuments({ reporterId, status: 'open' }),
+      Report.countDocuments({ reporterId, status: 'reviewing' }),
+      Report.countDocuments({ reporterId, status: 'resolved' }),
+      Report.countDocuments({ reporterId, status: 'dismissed' }),
+    ]);
+
+    res.json({
+      reports: reports.map(serializeReport),
+      summary: {
+        open,
+        reviewing,
+        resolved,
+        dismissed,
+        total: open + reviewing + resolved + dismissed,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '내 신고 내역을 불러오지 못했습니다.' });
+  }
+});
+
 router.get('/', verifyAdmin, async (req, res) => {
   try {
     const status = normalizeStatus(req.query?.status);
