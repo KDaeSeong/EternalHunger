@@ -23,6 +23,8 @@ const BOARD_SORTS = [
   { value: 'comments', label: '댓글순' },
 ];
 
+const BOARD_PAGE_SIZE = 20;
+
 function formatDate(value) {
   if (!value) return '날짜 없음';
   const date = new Date(value);
@@ -100,6 +102,21 @@ function unwrapPostList(data) {
   return list.map(normalizePost).filter(Boolean);
 }
 
+function normalizePagination(raw, fallbackCount = 0, fallbackPage = 1) {
+  const page = Math.max(1, Number(raw?.page || fallbackPage || 1));
+  const limit = Math.max(1, Number(raw?.limit || BOARD_PAGE_SIZE));
+  const total = Math.max(0, Number(raw?.total ?? fallbackCount ?? 0));
+  const totalPages = Math.max(1, Number(raw?.totalPages || Math.ceil(total / limit) || 1));
+  return {
+    page,
+    limit,
+    total,
+    totalPages,
+    hasPrev: Boolean(raw?.hasPrev ?? page > 1),
+    hasNext: Boolean(raw?.hasNext ?? page < totalPages),
+  };
+}
+
 function getUserDisplayName(user) {
   return safeText(user?.nickname, '') || safeText(user?.username, '사용자');
 }
@@ -114,6 +131,8 @@ export default function BoardPage() {
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [sortOrder, setSortOrder] = useState('latest');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(() => normalizePagination(null));
 
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -134,13 +153,19 @@ export default function BoardPage() {
       if (query.trim()) params.set('q', query.trim());
       if (categoryFilter) params.set('category', categoryFilter);
       if (sortOrder && sortOrder !== 'latest') params.set('sort', sortOrder);
+      if (page > 1) params.set('page', String(page));
+      params.set('limit', String(BOARD_PAGE_SIZE));
       const suffix = params.toString() ? `?${params.toString()}` : '';
       const data = await apiGetCached(`/posts${suffix}`, {
         ttlMs: 10000,
         timeoutMs: 12000,
         storage: 'session',
       });
-      setPosts(unwrapPostList(data));
+      const nextPosts = unwrapPostList(data);
+      const nextPagination = normalizePagination(data?.pagination, nextPosts.length, page);
+      setPosts(nextPosts);
+      setPagination(nextPagination);
+      if (nextPagination.page !== page) setPage(nextPagination.page);
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
       setMessage(nextMessage);
@@ -149,7 +174,7 @@ export default function BoardPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, query, showToast, sortOrder]);
+  }, [categoryFilter, page, query, showToast, sortOrder]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -161,9 +186,11 @@ export default function BoardPage() {
     const nextQuery = safeText(params.get('q'), '');
     const nextCategory = safeText(params.get('category'), '');
     const nextSort = safeText(params.get('sort'), '');
+    const nextPage = Number(params.get('page') || 1);
     if (nextQuery) setQuery(nextQuery);
     if (BOARD_CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
     if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
+    if (Number.isFinite(nextPage) && nextPage > 1) setPage(Math.floor(nextPage));
   }, []);
 
   useEffect(() => {
@@ -194,7 +221,8 @@ export default function BoardPage() {
       clearApiGetCache('/public/search');
       setForm({ title: '', content: '', category: 'free' });
       setWriterOpen(false);
-      await load();
+      if (page !== 1) setPage(1);
+      else await load();
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글 작성에 실패했습니다.';
       setMessage(nextMessage);
@@ -254,21 +282,31 @@ export default function BoardPage() {
 
         <div className="board-toolbar">
           <div className="board-counts">
-            <span>전체 {posts.length}</span>
-            <span>검색 {filteredPosts.length}</span>
+            <span>전체 {pagination.total}</span>
+            <span>현재 {filteredPosts.length}</span>
+            <span>{pagination.page}/{pagination.totalPages}페이지</span>
             {mounted && token ? <span>내 글 {myPostCount}</span> : null}
           </div>
           <label className="board-search">
             <span>검색</span>
             <input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
               placeholder="제목, 내용, 작성자"
             />
           </label>
           <label className="board-search board-category-filter">
             <span>분류</span>
-            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <select
+              value={categoryFilter}
+              onChange={(event) => {
+                setCategoryFilter(event.target.value);
+                setPage(1);
+              }}
+            >
               <option value="">전체</option>
               {BOARD_CATEGORIES.map((category) => (
                 <option key={category.value} value={category.value}>{category.label}</option>
@@ -277,7 +315,13 @@ export default function BoardPage() {
           </label>
           <label className="board-search board-sort-filter">
             <span>정렬</span>
-            <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+            <select
+              value={sortOrder}
+              onChange={(event) => {
+                setSortOrder(event.target.value);
+                setPage(1);
+              }}
+            >
               {BOARD_SORTS.map((sort) => (
                 <option key={sort.value} value={sort.value}>{sort.label}</option>
               ))}
@@ -356,7 +400,7 @@ export default function BoardPage() {
                   const title = safeText(post?.title, '제목 없음');
                   const preview = safeText(post?.contentPreview || post?.content, '');
                   const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
-                  const rowNo = filteredPosts.length - index;
+                  const rowNo = Math.max(1, Number(pagination.total || filteredPosts.length) - ((Number(pagination.page || 1) - 1) * Number(pagination.limit || BOARD_PAGE_SIZE)) - index);
                   const authorHref = userProfileHref(post?.authorId);
                   const authorName = safeText(post?.authorName, '익명');
                   return (
@@ -387,6 +431,18 @@ export default function BoardPage() {
                 })}
               </tbody>
             </table>
+          ) : null}
+
+          {!loading && pagination.totalPages > 1 ? (
+            <div className="board-pagination" aria-label="게시판 페이지 이동">
+              <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={!pagination.hasPrev}>
+                이전
+              </button>
+              <span>{pagination.page} / {pagination.totalPages}</span>
+              <button type="button" onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))} disabled={!pagination.hasNext}>
+                다음
+              </button>
+            </div>
           ) : null}
         </div>
       </section>

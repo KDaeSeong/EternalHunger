@@ -8,7 +8,8 @@ const PostReaction = require('../models/PostReaction');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { createNotification } = require('../utils/notifications');
 
-const POST_LIST_LIMIT = 100;
+const POST_DEFAULT_PAGE_SIZE = 20;
+const POST_MAX_PAGE_SIZE = 50;
 const POST_PREVIEW_LENGTH = 160;
 const POST_CATEGORIES = Post.POST_CATEGORIES || ['free', 'guide', 'feedback', 'bug', 'simulation', 'game'];
 const CATEGORY_LABELS = {
@@ -48,6 +49,12 @@ function normalizeCategoryFilter(value) {
 function normalizeSort(value) {
   const sort = cleanText(value, 40);
   return ['latest', 'popular', 'views', 'comments'].includes(sort) ? sort : 'latest';
+}
+
+function normalizePositiveInt(value, fallback, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(Math.floor(n), max);
 }
 
 function buildPostSort(sort) {
@@ -175,6 +182,8 @@ router.get('/', async (req, res) => {
     const q = cleanText(req.query?.q, 80);
     const category = normalizeCategoryFilter(req.query?.category);
     const sort = normalizeSort(req.query?.sort);
+    const limit = normalizePositiveInt(req.query?.limit, POST_DEFAULT_PAGE_SIZE, POST_MAX_PAGE_SIZE);
+    const requestedPage = normalizePositiveInt(req.query?.page, 1, 1000000);
     const match = {};
     if (category) match.category = category;
     if (q) {
@@ -191,6 +200,11 @@ router.get('/', async (req, res) => {
         ...(matchingAuthors.length ? [{ authorId: { $in: matchingAuthors.map((user) => user._id) } }] : []),
       ];
     }
+
+    const total = await Post.countDocuments(match);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const page = Math.min(requestedPage, totalPages);
+    const skip = (page - 1) * limit;
 
     const posts = await Post.aggregate([
       ...(Object.keys(match).length ? [{ $match: match }] : []),
@@ -212,11 +226,21 @@ router.get('/', async (req, res) => {
         },
       },
       { $sort: buildPostSort(sort) },
-      { $limit: POST_LIST_LIMIT },
+      { $skip: skip },
+      { $limit: limit },
     ]);
     const authors = await getAuthorMap(posts.map((post) => post.authorId));
     res.json({
       posts: posts.map((post) => serializePostSummary(post, authors.get(normalizeId(post.authorId)))),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasPrev: page > 1,
+        hasNext: page < totalPages,
+      },
+      sort,
     });
   } catch (err) {
     console.error(err);
