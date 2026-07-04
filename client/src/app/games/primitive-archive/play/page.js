@@ -17,8 +17,10 @@ import {
   ZONES,
   actionChance,
   averageParty,
+  autoEquipAction,
   buyPerkAction,
   campFacilityRows,
+  clearAllEquipmentAction,
   createNewState,
   equipmentChoicesForSlot,
   equipmentInventoryRows,
@@ -451,6 +453,17 @@ export default function PrimitiveArchivePlayPage() {
             <div className="games-panel-title">
               <h2>장비</h2>
               <span>{actor?.name || '대상'} · 보온 {actor ? currentEquipmentRows.reduce((sum, row) => sum + Number(row.insulation || 0), 0) : 0}</span>
+            </div>
+            <div className="games-chip-row" style={{ marginBottom: 12 }}>
+              <button type="button" className="tcg-secondary-action" onClick={() => setState((current) => autoEquipAction(current, 'role'))}>
+                역할 추천 장착
+              </button>
+              <button type="button" className="tcg-secondary-action" onClick={() => setState((current) => autoEquipAction(current, 'weather'))}>
+                날씨 대응 장착
+              </button>
+              <button type="button" className="tcg-secondary-action" onClick={() => setState((current) => clearAllEquipmentAction(current))}>
+                전체 해제
+              </button>
             </div>
             <div className="game-save-list">
               {currentEquipmentRows.map((row) => {

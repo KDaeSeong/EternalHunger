@@ -655,6 +655,103 @@ export function setEquipmentSlotAction(state, actorId, slot, nextItemId) {
   return addLog(next, `${actor.name} 장비 변경: ${EQUIPMENT_SLOT_LABELS[slot]} = ${nextItemId ? ITEMS[nextItemId].name : '없음'}`);
 }
 
+function buildEquipmentPool(state) {
+  const pool = { ...state.inventory };
+  const equipment = normalizeEquipment(state.equipment, state.party);
+  Object.values(equipment).forEach((slots) => {
+    Object.values(slots || {}).forEach((itemId) => {
+      if (!itemId) return;
+      pool[itemId] = Number(pool[itemId] || 0) + 1;
+    });
+  });
+  return pool;
+}
+
+function preferredActionForRole(role) {
+  if (role === '사냥') return 'hunt';
+  if (role === '제작') return 'craft';
+  return 'gather';
+}
+
+function equipmentScoreFor(actor, itemId, mode, weather) {
+  const item = ITEMS[itemId];
+  if (!item || item.type !== 'equip') return -Infinity;
+  const weatherCold = Math.max(0, Number(weather?.cold || 0));
+  const weatherWeight = mode === 'weather' ? 9 + weatherCold * 0.35 : 3 + weatherCold * 0.12;
+  let score = Number(item.insulation || 0) * weatherWeight;
+  const preferredAction = preferredActionForRole(actor?.role);
+
+  Object.entries(item.successAdd || {}).forEach(([action, value]) => {
+    const actionWeight = action === preferredAction
+      ? mode === 'weather' ? 80 : 150
+      : mode === 'weather' ? 55 : 65;
+    score += Number(value || 0) * actionWeight;
+  });
+
+  Object.entries(item.staminaAdd || {}).forEach(([action, value]) => {
+    const staminaWeight = action === preferredAction ? 8 : action === 'rest' ? 5 : 6;
+    score += -Number(value || 0) * staminaWeight;
+  });
+
+  score -= Number(item.weight || 0) * (mode === 'weather' ? 0.3 : 0.2);
+  return score;
+}
+
+function bestEquipmentForSlot(state, pool, actor, slot, mode) {
+  let bestId = '';
+  let bestScore = 0;
+  Object.entries(pool).forEach(([itemId, qty]) => {
+    if (Number(qty || 0) <= 0) return;
+    const item = ITEMS[itemId];
+    if (!item || item.type !== 'equip' || item.slot !== slot) return;
+    const score = equipmentScoreFor(actor, itemId, mode, state.weather);
+    if (score > bestScore) {
+      bestId = itemId;
+      bestScore = score;
+    }
+  });
+  return bestId;
+}
+
+function countEquipmentChanges(before, after, party) {
+  return party.reduce((sum, member) => {
+    const prev = before[member.id] || emptyEquipmentSlots();
+    const next = after[member.id] || emptyEquipmentSlots();
+    return sum + EQUIPMENT_SLOTS.filter((slot) => (prev[slot] || '') !== (next[slot] || '')).length;
+  }, 0);
+}
+
+export function autoEquipAction(state, mode = 'role') {
+  const current = normalizeState(state);
+  const safeMode = mode === 'weather' ? 'weather' : 'role';
+  const before = normalizeEquipment(current.equipment, current.party);
+  const pool = buildEquipmentPool(current);
+  const equipment = {};
+
+  current.party.forEach((actor) => {
+    equipment[actor.id] = emptyEquipmentSlots();
+    EQUIPMENT_SLOTS.forEach((slot) => {
+      const itemId = bestEquipmentForSlot(current, pool, actor, slot, safeMode);
+      if (!itemId) return;
+      equipment[actor.id][slot] = itemId;
+      pool[itemId] = Math.max(0, Number(pool[itemId] || 0) - 1);
+    });
+  });
+
+  const inventory = Object.fromEntries(Object.entries(pool).filter(([, qty]) => Number(qty || 0) > 0));
+  const changed = countEquipmentChanges(before, equipment, current.party);
+  const modeLabel = safeMode === 'weather' ? '날씨' : '역할';
+  return addLog({ ...current, inventory, equipment }, `장비 자동 장착 완료(${modeLabel} 모드). 변경 슬롯 ${changed}개.`);
+}
+
+export function clearAllEquipmentAction(state) {
+  const current = normalizeState(state);
+  const pool = buildEquipmentPool(current);
+  const equipment = Object.fromEntries(current.party.map((member) => [member.id, emptyEquipmentSlots()]));
+  const inventory = Object.fromEntries(Object.entries(pool).filter(([, qty]) => Number(qty || 0) > 0));
+  return addLog({ ...current, inventory, equipment }, '모든 학생의 장비를 해제했습니다.');
+}
+
 export function averageParty(state, key) {
   if (!state.party.length) return 0;
   return Math.round(state.party.reduce((sum, member) => sum + Number(member[key] || 0), 0) / state.party.length);
