@@ -13,6 +13,7 @@ import {
   SAVE_VERSION,
   STUDENTS,
   achievementRows,
+  applyOfflineProgressAction,
   applyUpgradeAction,
   attemptTowerAction,
   availableEnhanceSlots,
@@ -127,13 +128,16 @@ export default function SchaleIdlePlayPage() {
     }
     setBusy('save');
     try {
+      const savedAt = new Date().toISOString();
+      const stateForSave = { ...state, lastSavedAt: savedAt, updatedAt: savedAt };
       await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `Schale Idle F${state.maxClearedFloor} T${state.towerMaxCleared}`,
+        saveName: `Schale Idle F${stateForSave.maxClearedFloor} T${stateForSave.towerMaxCleared}`,
         version: SAVE_VERSION,
-        summary: summaryForState(state),
-        payload: { state },
-        lastPlayedAt: new Date().toISOString(),
+        summary: summaryForState(stateForSave),
+        payload: { state: stateForSave },
+        lastPlayedAt: savedAt,
       }, { timeoutMs: 15000 });
+      setState(stateForSave);
       clearApiGetCache('/game-saves');
       setMessage('Schale Idle RPG 진행 상태를 저장했습니다.');
       showToast({ tone: 'success', message: 'Schale Idle RPG 진행 상태를 저장했습니다.' });
@@ -160,10 +164,15 @@ export default function SchaleIdlePlayPage() {
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      setState(normalizeState(detail?.save?.payload?.state));
+      const restored = applyOfflineProgressAction(normalizeState(detail?.save?.payload?.state));
+      setState(restored);
       setSelectedSalvageUids([]);
-      setMessage('저장된 Schale Idle RPG 진행 상태를 불러왔습니다.');
-      showToast({ tone: 'success', message: '저장된 Schale Idle RPG 진행 상태를 불러왔습니다.' });
+      const offline = restored.offlineLastSummary;
+      const loadedMessage = offline?.waves
+        ? `저장된 Schale Idle RPG 진행 상태를 불러왔습니다. 오프라인 ${offline.waves}웨이브 보상도 반영했습니다.`
+        : '저장된 Schale Idle RPG 진행 상태를 불러왔습니다.';
+      setMessage(loadedMessage);
+      showToast({ tone: 'success', message: loadedMessage });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
       setMessage(nextMessage);
@@ -272,6 +281,7 @@ export default function SchaleIdlePlayPage() {
             <SmallStat label="스태미나" value={`${state.stamina}/100`} />
             <SmallStat label="보스 처치" value={state.counters.KILL_BOSS} />
             <SmallStat label="누적 클리어" value={state.counters.CLEAR_FLOOR} />
+            <SmallStat label="오프라인" value={state.offlineLastSummary?.waves ? `${state.offlineLastSummary.waves}웨이브` : '없음'} />
             <SmallStat label="대사" value={leader.lines.clear} />
           </div>
           <label className="game-save-json-field">
@@ -285,6 +295,21 @@ export default function SchaleIdlePlayPage() {
             <ActionButton onClick={() => setState((current) => resolveDutyAction(current, 120))}>2시간 정산</ActionButton>
             <ActionButton onClick={() => setState((current) => restAction(current))}>재정비</ActionButton>
           </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>오프라인 보상</h2>
+            <span>{state.offlineLastSummary?.waves ? `${Math.floor(Number(state.offlineLastSummary.deltaMs || 0) / 60000)}분` : '없음'}</span>
+          </div>
+          {state.offlineLastSummary?.waves ? (
+            <div className="games-rank-split">
+              <SmallStat label="웨이브" value={state.offlineLastSummary.waves} />
+              <SmallStat label="크레딧" value={`${Number(state.offlineLastSummary.creditsGained || 0).toLocaleString('ko-KR')} Cr`} />
+              <SmallStat label="토큰" value={`+${Number(state.offlineLastSummary.tokensGained || 0)}`} />
+              <SmallStat label="상한" value={state.offlineLastSummary.capped ? '8시간 적용' : '미적용'} />
+            </div>
+          ) : <div className="games-empty">저장 데이터를 불러오면 지난 접속 시간에 따른 오프라인 보상이 표시됩니다.</div>}
         </section>
 
         <section className="games-panel">

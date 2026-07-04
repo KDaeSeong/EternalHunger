@@ -88,6 +88,9 @@ const UPGRADE_COST_PARAMS = {
   },
 };
 
+const OFFLINE_CAP_MS = 8 * 60 * 60 * 1000;
+const OFFLINE_WAVE_MS = 60 * 1000;
+
 export const TOWER = {
   id: 'tower_trial',
   name: '시련의 탑',
@@ -402,6 +405,8 @@ export function createNewState(options = {}) {
     equippedTitleId: null,
     lastDutyReport: null,
     towerLastBatchReport: null,
+    lastSavedAt: now,
+    offlineLastSummary: null,
     log: ['샬레 당직이 시작됐습니다. 방치 정산으로 층을 밀고, 재료를 모아 장비를 제작하세요.'],
   };
 }
@@ -428,6 +433,8 @@ export function normalizeState(value) {
     equippedTitleId: typeof value.equippedTitleId === 'string' ? value.equippedTitleId : null,
     lastDutyReport: value.lastDutyReport && typeof value.lastDutyReport === 'object' ? value.lastDutyReport : base.lastDutyReport,
     towerLastBatchReport: value.towerLastBatchReport && typeof value.towerLastBatchReport === 'object' ? value.towerLastBatchReport : base.towerLastBatchReport,
+    lastSavedAt: typeof value.lastSavedAt === 'string' ? value.lastSavedAt : (typeof value.updatedAt === 'string' ? value.updatedAt : base.lastSavedAt),
+    offlineLastSummary: value.offlineLastSummary && typeof value.offlineLastSummary === 'object' ? value.offlineLastSummary : base.offlineLastSummary,
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
 }
@@ -1272,6 +1279,52 @@ export function resolveDutyAction(state, minutes = 60) {
   return addLog(next, `${minutes}분 방치 정산: ${cleared}층 클리어, +${Math.round(credits)} Cr, 보스 ${bosses}회. ${cleared ? leader.lines.clear : '추가 클리어는 없었습니다.'}`);
 }
 
+function parseSavedAt(value, fallback = Date.now()) {
+  const raw = typeof value === 'number' ? value : new Date(value || '').getTime();
+  return Number.isFinite(raw) ? raw : fallback;
+}
+
+export function applyOfflineProgressAction(state, nowMs = Date.now()) {
+  const current = normalizeState(state);
+  const lastMs = parseSavedAt(current.lastSavedAt || current.updatedAt || current.startedAt, nowMs);
+  const deltaMs = Math.max(0, Math.min(OFFLINE_CAP_MS, nowMs - lastMs));
+  const waves = Math.floor(deltaMs / OFFLINE_WAVE_MS);
+  const nowIso = new Date(nowMs).toISOString();
+  if (waves <= 0) {
+    return {
+      ...current,
+      lastSavedAt: nowIso,
+      updatedAt: nowIso,
+      offlineLastSummary: null,
+    };
+  }
+
+  const floorBase = Math.max(1, Math.floor(Number(current.towerMaxCleared || current.maxClearedFloor || current.floor || 1)));
+  const creditsPerWave = Math.round((15 + floorBase * 2) * rewardCreditMul(current));
+  const creditsGained = waves * creditsPerWave;
+  const tokensGained = Math.floor(waves / 10);
+  const next = addLifetimeCounters({
+    ...current,
+    credits: Math.round(Number(current.credits || 0) + creditsGained),
+    inventory: addItem(current.inventory, 'itm_tower_token', tokensGained),
+    lastSavedAt: nowIso,
+    updatedAt: nowIso,
+    offlineLastSummary: {
+      at: nowIso,
+      deltaMs,
+      waves,
+      creditsGained,
+      tokensGained,
+      capped: nowMs - lastMs > OFFLINE_CAP_MS,
+    },
+  }, {
+    EARN_CREDITS: creditsGained,
+  });
+
+  const minutes = Math.floor(deltaMs / 60000);
+  return addLog(next, `오프라인 진행: ${minutes}분 / ${waves}웨이브 보상, +${creditsGained} Cr, 시련 토큰 +${tokensGained}`);
+}
+
 export function restAction(state) {
   const current = normalizeState(state);
   const recovery = Math.round(35 * upgradeMultipliers(current.upgrades).staminaMul);
@@ -1928,6 +1981,11 @@ export function summaryForState(state) {
       toFloor: current.lastDutyReport.toFloor,
       credits: current.lastDutyReport.totalCreditsGained,
       stoppedReason: current.lastDutyReport.stoppedReason,
+    } : null,
+    offlineLastSummary: current.offlineLastSummary ? {
+      waves: Number(current.offlineLastSummary.waves || 0),
+      credits: Number(current.offlineLastSummary.creditsGained || 0),
+      tokens: Number(current.offlineLastSummary.tokensGained || 0),
     } : null,
   };
 }
