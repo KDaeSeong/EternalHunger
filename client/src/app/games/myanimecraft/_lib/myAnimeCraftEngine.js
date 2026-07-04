@@ -1547,7 +1547,33 @@ function lineupFor(teamData, fixtureId) {
   return Array.from({ length: 5 }, (_, index) => sorted[(index + offset) % sorted.length]);
 }
 
-function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlayer, setNo, scoreHome, scoreAway }) {
+function acePlayerFor(teamData) {
+  return [...teamData.roster].sort((a, b) => (
+    averageStats(b)
+    + Number(b.level || 0) * 18
+    + Number(b.fame || 0) / 24
+    + Number(b.condition || 0) * 0.4
+  ) - (
+    averageStats(a)
+    + Number(a.level || 0) * 18
+    + Number(a.fame || 0) / 24
+    + Number(a.condition || 0) * 0.4
+  ))[0] || teamData.roster[0];
+}
+
+function aceSetMultiplier(member) {
+  const stats = member?.stats || {};
+  const clutch = (
+    Number(stats.attack || 0) * 0.22
+    + Number(stats.defense || 0) * 0.18
+    + Number(stats.strategy || 0) * 0.2
+    + Number(stats.sense || 0) * 0.16
+    + Number(stats.control || 0) * 0.24
+  ) / 500;
+  return 1 + clamp((clutch - 1) * 0.035 + Number(member?.fame || 0) / 36000, 0, 0.055);
+}
+
+function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlayer, setNo, scoreHome, scoreAway, isAceSet = false }) {
   const mapIds = state.mapPool.length ? state.mapPool : MAPS.map((item) => item.id);
   const map = mapById(mapIds[(fixture.round + setNo - 2) % mapIds.length]);
   const seed = `${state.runId}|${fixture.id}|${setNo}|${scoreHome}-${scoreAway}`;
@@ -1560,8 +1586,8 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const awayBuildPhase = stylePhaseBonus(awayBuild.style);
   const homeCounter = counterBonus(homeBuild.style, awayBuild.style);
   const awayCounter = counterBonus(awayBuild.style, homeBuild.style);
-  const homeBaseMul = conditionMultiplier(homePlayer) * levelMultiplier(homePlayer) * mapMultiplier(homePlayer.race, awayPlayer.race, map) * Number(homePlayer.equipmentMul || 1);
-  const awayBaseMul = conditionMultiplier(awayPlayer) * levelMultiplier(awayPlayer) * mapMultiplier(awayPlayer.race, homePlayer.race, map) * Number(awayPlayer.equipmentMul || 1);
+  const homeBaseMul = conditionMultiplier(homePlayer) * levelMultiplier(homePlayer) * mapMultiplier(homePlayer.race, awayPlayer.race, map) * Number(homePlayer.equipmentMul || 1) * (isAceSet ? aceSetMultiplier(homePlayer) : 1);
+  const awayBaseMul = conditionMultiplier(awayPlayer) * levelMultiplier(awayPlayer) * mapMultiplier(awayPlayer.race, homePlayer.race, map) * Number(awayPlayer.equipmentMul || 1) * (isAceSet ? aceSetMultiplier(awayPlayer) : 1);
   const coachMul = (style) => (
     style === 'balanced' ? 1.01
     : style === 'macro' ? 1.008
@@ -1578,7 +1604,7 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const awayMid = awayPhase.mid * awayBaseMul * (1 + awayBuildPhase.mid + awayCounter * 0.55) * awayCoachMul;
   const awayLate = awayPhase.late * awayBaseMul * (1 + awayBuildPhase.late + awayCounter * 0.3) * awayCoachMul;
   const diff = 0.34 * (homeEarly - awayEarly) + 0.36 * (homeMid - awayMid) + 0.3 * (homeLate - awayLate);
-  const importance = importanceForSet(scoreHome, scoreAway);
+  const importance = importanceForSet(scoreHome, scoreAway) + (isAceSet ? 0.15 : 0);
   const homePressure = pressureOf(homePlayer, awayPlayer, homeTeam);
   const awayPressure = pressureOf(awayPlayer, homePlayer, awayTeam);
   let noiseAmp = baseNoiseAmp(homePlayer, awayPlayer);
@@ -1591,6 +1617,7 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const homeWin = rng() < pHome;
   return {
     setNo,
+    isAceSet: Boolean(isAceSet),
     mapId: map.id,
     mapName: map.name,
     homePlayerId: homePlayer.id,
@@ -1612,6 +1639,8 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     noiseAmp: Math.round(noiseAmp),
     counterHome: Math.round(homeCounter * 1000) / 10,
     counterAway: Math.round(awayCounter * 1000) / 10,
+    aceBoostHome: isAceSet ? Math.round((aceSetMultiplier(homePlayer) - 1) * 1000) / 10 : 0,
+    aceBoostAway: isAceSet ? Math.round((aceSetMultiplier(awayPlayer) - 1) * 1000) / 10 : 0,
   };
 }
 
@@ -1625,16 +1654,20 @@ function simulateFixture(state, fixture) {
   const sets = [];
 
   for (let setNo = 1; setNo <= 5 && scoreHome < 3 && scoreAway < 3; setNo += 1) {
+    const isAceSet = setNo === 5 && scoreHome === 2 && scoreAway === 2;
+    const homePlayer = isAceSet ? acePlayerFor(homeTeam) : homeLineup[(setNo - 1) % homeLineup.length];
+    const awayPlayer = isAceSet ? acePlayerFor(awayTeam) : awayLineup[(setNo - 1) % awayLineup.length];
     const setResult = simulateSet({
       state,
       fixture,
       homeTeam,
       awayTeam,
-      homePlayer: homeLineup[(setNo - 1) % homeLineup.length],
-      awayPlayer: awayLineup[(setNo - 1) % awayLineup.length],
+      homePlayer,
+      awayPlayer,
       setNo,
       scoreHome,
       scoreAway,
+      isAceSet,
     });
     sets.push(setResult);
     if (setResult.winnerTeamId === homeTeam.id) scoreHome += 1;
@@ -1722,10 +1755,11 @@ function advanceWeekIfNeeded(state) {
 
 function addResultLog(state, result) {
   const winner = result.winnerTeamId === result.homeTeamId ? result.homeTeamName : result.awayTeamName;
+  const aceSet = result.sets.find((setResult) => setResult.isAceSet);
   return {
     ...state,
     log: [
-      `${result.round}주차 ${result.homeTeamName} ${result.scoreHome}:${result.scoreAway} ${result.awayTeamName} - ${winner} 승`,
+      `${result.round}주차 ${result.homeTeamName} ${result.scoreHome}:${result.scoreAway} ${result.awayTeamName} - ${winner} 승${aceSet ? ` · 에이스전 ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}` : ''}`,
       ...state.log,
     ].slice(0, 90),
   };
@@ -2956,6 +2990,9 @@ export function summaryForState(state) {
     week: current.week,
     played: getPlayedCount(current),
     total: getTotalFixtureCount(current),
+    proleagueAceSets: current.fixtures.reduce((sum, fixture) => (
+      sum + (Array.isArray(fixture.result?.sets) ? fixture.result.sets.filter((setResult) => setResult.isAceSet).length : 0)
+    ), 0),
     leader: leader?.teamName || '',
     champion: current.championTeamId ? teamName(current, current.championTeamId) : '',
     teams: current.teams.length,

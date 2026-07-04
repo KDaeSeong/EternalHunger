@@ -280,12 +280,13 @@ export default function MyAnimeCraftPlayPage() {
               {lastMatch.sets.map((setResult) => (
                 <div key={`${lastMatch.matchId}-${setResult.setNo}`}>
                   <strong>
-                    {setResult.setNo}세트 · {setResult.mapName} · {setResult.homePlayerName} {BUILD_STYLE_LABELS[setResult.homeBuildStyle] || setResult.homeBuildStyle}
+                    {setResult.setNo}세트{setResult.isAceSet ? ' · 에이스전' : ''} · {setResult.mapName} · {setResult.homePlayerName} {BUILD_STYLE_LABELS[setResult.homeBuildStyle] || setResult.homeBuildStyle}
                     {' vs '}
                     {setResult.awayPlayerName} {BUILD_STYLE_LABELS[setResult.awayBuildStyle] || setResult.awayBuildStyle}
                   </strong>
                   <span>
                     {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
+                    {setResult.isAceSet ? ` · 에이스 보정 ${setResult.aceBoostHome >= 0 ? '+' : ''}${setResult.aceBoostHome}%/${setResult.aceBoostAway >= 0 ? '+' : ''}${setResult.aceBoostAway}%` : ''}
                   </span>
                 </div>
               ))}
