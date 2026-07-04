@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
+import UserFollowPreview from '../../components/UserFollowPreview';
 import { apiGetCached, apiPut, clearApiGetCache, updateStoredUser } from '../../utils/api';
 import { useAuthUser, useHydrated } from '../../utils/client-auth';
 
@@ -15,6 +16,7 @@ const EMPTY_ACTIVITY = {
   recentRooms: [],
   topCharacters: [],
   topTeams: [],
+  social: { followers: [], following: [] },
 };
 
 const CATEGORY_LABELS = {
@@ -63,6 +65,10 @@ function normalizeActivity(payload) {
     recentRooms: normalizeList(src.recentRooms),
     topCharacters: normalizeList(src.topCharacters),
     topTeams: normalizeList(src.topTeams),
+    social: {
+      followers: normalizeList(src.social?.followers),
+      following: normalizeList(src.social?.following),
+    },
   };
 }
 
@@ -312,6 +318,14 @@ export default function AccountPage() {
                 </div>
               </section>
             </div>
+
+            <UserFollowPreview
+              panelClassName="account-panel account-social-panel"
+              followers={activity.social.followers}
+              following={activity.social.following}
+              followerCount={summary.followerCount}
+              followingCount={summary.followingCount}
+            />
 
             <div className="account-activity-grid">
               <section className="account-panel">

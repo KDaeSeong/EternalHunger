@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
+import UserFollowPreview from '../../../components/UserFollowPreview';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
 
@@ -73,6 +74,10 @@ function normalizeProfile(payload) {
     viewerFollow: src.viewerFollow && typeof src.viewerFollow === 'object' ? src.viewerFollow : {},
     topCharacters: normalizeList(src.topCharacters),
     topTeams: normalizeList(src.topTeams),
+    social: {
+      followers: normalizeList(src.social?.followers),
+      following: normalizeList(src.social?.following),
+    },
   };
 }
 
@@ -259,6 +264,13 @@ export default function UserProfilePage() {
                 </div>
               </section>
             ) : null}
+
+            <UserFollowPreview
+              followers={profile.social.followers}
+              following={profile.social.following}
+              followerCount={summary.followerCount}
+              followingCount={summary.followingCount}
+            />
 
             <div className="profile-grid">
               <section className="profile-panel">

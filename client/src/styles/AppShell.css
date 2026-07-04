@@ -674,6 +674,142 @@
   color: #0878bd;
 }
 
+.account-social-panel {
+  width: 100%;
+}
+
+.follow-preview-panel {
+  min-width: 0;
+}
+
+.follow-preview-title,
+.follow-preview-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.follow-preview-title h2,
+.follow-preview-group-title h3 {
+  margin: 0;
+  color: #17202a;
+}
+
+.follow-preview-title h2 {
+  font-size: 1.05rem;
+}
+
+.follow-preview-title a {
+  color: #14608d;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.follow-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.follow-preview-group {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.follow-preview-group-title h3 {
+  font-size: 0.96rem;
+}
+
+.follow-preview-group-title span {
+  border-radius: 999px;
+  background: #eef5fa;
+  color: #14608d;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.follow-preview-list {
+  display: grid;
+  gap: 8px;
+}
+
+.follow-preview-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+  color: inherit;
+  padding: 10px;
+  text-decoration: none;
+}
+
+.follow-preview-row:hover {
+  border-color: rgba(44, 111, 158, 0.35);
+  background: #f4faff;
+}
+
+.follow-preview-avatar {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d8e1ec;
+  border-radius: 8px;
+  background: #e8eef6;
+  color: #0b77b7;
+  font-weight: 900;
+}
+
+.follow-preview-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.follow-preview-main strong,
+.follow-preview-main small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.follow-preview-main strong {
+  color: #17202a;
+  font-size: 0.94rem;
+}
+
+.follow-preview-main small {
+  color: #66727e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.follow-preview-row b {
+  border-radius: 999px;
+  background: #e7f7ed;
+  color: #21704b;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.follow-preview-empty {
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #f9fbfc;
+  color: #66727e;
+  padding: 12px;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
 .profile-badges > div:last-child {
   display: flex;
   flex-wrap: wrap;
@@ -2884,6 +3020,10 @@
   padding: 18px;
 }
 
+.account-social-panel {
+  width: 100%;
+}
+
 .account-dashboard,
 .account-activity-grid {
   display: grid;
@@ -4008,6 +4148,7 @@
   .account-dashboard,
   .account-activity-grid,
   .account-overview-stats,
+  .follow-preview-grid,
   .guides-stats,
   .guides-wiki-grid,
   .guides-rulebook-grid,
