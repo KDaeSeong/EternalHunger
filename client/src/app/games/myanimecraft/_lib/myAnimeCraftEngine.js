@@ -32,6 +32,15 @@ const FREE_AGENT_NAMES = [
   ['Aki', 'Tempo'],
 ];
 
+const ECON_TAG_LABELS = {
+  MATCH_REWARD: '경기 상금',
+  PAYROLL: '연봉',
+  SPONSOR: '스폰서',
+  TRAINING: '훈련',
+  FA: 'FA 영입',
+  BONUS: '보너스',
+};
+
 const TEAM_BLUEPRINTS = [
   {
     id: 'team-home',
@@ -145,6 +154,7 @@ export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const teams = TEAM_BLUEPRINTS.map(cloneTeam);
   const fixtures = generateSchedule(teams);
+  const contracts = ensureContractsForTeams(teams, {}, 1);
   return {
     runId: options.runId || `sl-${Date.now().toString(36)}`,
     startedAt: now,
@@ -155,6 +165,9 @@ export function createNewState(options = {}) {
     mapPool: MAPS.map((item) => item.id),
     fixtures,
     standings: createStandings(teams),
+    contracts,
+    econLogs: [],
+    seasonReports: [],
     freeAgentSeq: 0,
     log: ['시즌 1이 개막했습니다. 다음 경기나 이번 주 전체 진행을 눌러 리그를 진행하세요.'],
     ended: false,
@@ -167,11 +180,15 @@ export function normalizeState(value) {
   if (!value || typeof value !== 'object') return base;
   const teams = Array.isArray(value.teams) && value.teams.length ? value.teams.map(cloneTeam) : base.teams;
   const fixtures = Array.isArray(value.fixtures) && value.fixtures.length ? value.fixtures : generateSchedule(teams);
+  const seasonNo = Number(value.seasonNo || base.seasonNo || 1);
   return {
     ...base,
     ...value,
     teams,
     fixtures,
+    contracts: ensureContractsForTeams(teams, value.contracts, seasonNo),
+    econLogs: normalizeEconLogs(value.econLogs),
+    seasonReports: Array.isArray(value.seasonReports) ? value.seasonReports.slice(0, 60) : base.seasonReports,
     standings: Array.isArray(value.standings) && value.standings.length ? value.standings : rebuildStandings(teams, fixtures),
     mapPool: Array.isArray(value.mapPool) && value.mapPool.length ? value.mapPool : base.mapPool,
     freeAgentSeq: Number(value.freeAgentSeq || 0),
@@ -293,6 +310,140 @@ export function calcTeamPayroll(teamData) {
   return teamData.roster.reduce((sum, member) => sum + Math.max(10, Math.floor(calcPlayerMarketValue(member) * 0.22)), 0);
 }
 
+function createPlayerContract(member, teamId, seasonNo, overrides = {}) {
+  const marketValue = calcPlayerMarketValue(member);
+  return {
+    playerId: member.id,
+    teamId,
+    salary: Math.max(10, Math.floor(Number(overrides.salary ?? marketValue * 0.22))),
+    signingBonus: Math.max(0, Math.floor(Number(overrides.signingBonus ?? 0))),
+    yearsLeft: clamp(Number(overrides.yearsLeft ?? 2), 1, 5),
+    startedSeasonNo: Number(overrides.startedSeasonNo || seasonNo || 1),
+  };
+}
+
+function ensureContractsForTeams(teams, existing, seasonNo = 1) {
+  const source = existing && typeof existing === 'object' ? existing : {};
+  return teams.reduce((contracts, teamData) => {
+    teamData.roster.forEach((member) => {
+      const previous = source[member.id];
+      contracts[member.id] = createPlayerContract(member, teamData.id, seasonNo, previous || {});
+    });
+    return contracts;
+  }, {});
+}
+
+function teamPayrollFromContracts(contracts, teamData) {
+  return teamData.roster.reduce((sum, member) => {
+    const contract = contracts?.[member.id];
+    return sum + Number(contract?.salary || Math.max(10, Math.floor(calcPlayerMarketValue(member) * 0.22)));
+  }, 0);
+}
+
+function contractRowsForTeam(state, teamId) {
+  const teamData = getTeam(state, teamId);
+  return teamData.roster.map((member) => {
+    const contract = state.contracts?.[member.id] || createPlayerContract(member, teamData.id, state.seasonNo);
+    return {
+      playerId: member.id,
+      playerName: member.name,
+      salary: Number(contract.salary || 0),
+      yearsLeft: Number(contract.yearsLeft || 0),
+      signingBonus: Number(contract.signingBonus || 0),
+      marketValue: calcPlayerMarketValue(member),
+    };
+  }).sort((a, b) => b.salary - a.salary || a.playerName.localeCompare(b.playerName, 'ko-KR'));
+}
+
+function normalizeEconLogs(logs) {
+  if (!Array.isArray(logs)) return [];
+  return logs
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      id: String(entry.id || `econ-${Date.now().toString(36)}`),
+      seasonNo: Number(entry.seasonNo || 1),
+      week: Number(entry.week || 0),
+      teamId: String(entry.teamId || ''),
+      teamName: String(entry.teamName || ''),
+      tag: String(entry.tag || 'BONUS'),
+      amount: Math.trunc(Number(entry.amount || 0)),
+      note: String(entry.note || ''),
+      at: Number(entry.at || Date.now()),
+      meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : {},
+    }))
+    .slice(0, 160);
+}
+
+function addEconLog(state, params) {
+  const teamData = params.teamId ? getTeam(state, params.teamId) : null;
+  const entry = {
+    id: `econ-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    seasonNo: Number(params.seasonNo ?? state.seasonNo ?? 1),
+    week: Number(params.week ?? state.week ?? 0),
+    teamId: params.teamId || '',
+    teamName: params.teamName || teamData?.name || '',
+    tag: params.tag || 'BONUS',
+    amount: Math.trunc(Number(params.amount || 0)),
+    note: params.note || ECON_TAG_LABELS[params.tag] || '경제 로그',
+    at: params.at || Date.now(),
+    meta: params.meta || {},
+  };
+  return {
+    ...state,
+    econLogs: [entry, ...normalizeEconLogs(state.econLogs)].slice(0, 160),
+  };
+}
+
+export function getTeamContractRows(state, teamId) {
+  const current = normalizeState(state);
+  return contractRowsForTeam(current, teamId);
+}
+
+export function econSummary(state, teamId) {
+  const current = normalizeState(state);
+  const logs = normalizeEconLogs(current.econLogs).filter((entry) => !teamId || entry.teamId === teamId);
+  const income = logs.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0);
+  const expense = logs.filter((entry) => entry.amount < 0).reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
+  const contracts = teamId ? contractRowsForTeam(current, teamId) : [];
+  return {
+    income,
+    expense,
+    net: income - expense,
+    count: logs.length,
+    last: logs.slice(0, 8),
+    payroll: teamId ? teamPayrollFromContracts(current.contracts, getTeam(current, teamId)) : 0,
+    expiringCount: contracts.filter((item) => item.yearsLeft <= 1).length,
+  };
+}
+
+function buildSeasonReport(state) {
+  const leader = getTopTeams(state, 1)[0];
+  const seasonLogs = normalizeEconLogs(state.econLogs).filter((entry) => entry.seasonNo === Number(state.seasonNo || 1));
+  const income = seasonLogs.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0);
+  const expense = seasonLogs.filter((entry) => entry.amount < 0).reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
+  return {
+    seasonNo: Number(state.seasonNo || 1),
+    createdAt: Date.now(),
+    championTeamId: leader?.teamId || '',
+    championTeamName: leader?.teamName || '',
+    played: getPlayedCount(state),
+    total: getTotalFixtureCount(state),
+    income,
+    expense,
+    net: income - expense,
+    score: scoreState(state),
+  };
+}
+
+function appendSeasonReport(state) {
+  const existing = Array.isArray(state.seasonReports) ? state.seasonReports : [];
+  if (existing.some((report) => Number(report.seasonNo) === Number(state.seasonNo))) return state;
+  return {
+    ...state,
+    seasonReports: [buildSeasonReport(state), ...existing].slice(0, 60),
+  };
+}
+
 function rankedIndex(state, teamId) {
   return getTopTeams(state, state.teams.length).findIndex((row) => row.teamId === teamId);
 }
@@ -339,7 +490,7 @@ export function careerSummary(state, teamId) {
   const teamData = getTeam(current, teamId);
   const career = normalizeTeamCareer(teamData);
   const standing = getStanding(current, teamId);
-  const payroll = calcTeamPayroll(teamData);
+  const payroll = teamPayrollFromContracts(current.contracts, teamData);
   const preview = makeFreeAgentCandidate(current, teamId, 0);
   return {
     ...career,
@@ -519,12 +670,12 @@ function advanceWeekIfNeeded(state) {
 
   if (allDone) {
     const leader = getTopTeams(state, 1)[0];
-    return {
+    return appendSeasonReport({
       ...state,
       ended: true,
       championTeamId: leader?.teamId || '',
       log: [`${leader?.teamName || '선두 팀'}이 시즌 ${state.seasonNo} 우승을 확정했습니다.`, ...state.log].slice(0, 90),
-    };
+    });
   }
 
   if (currentRoundDone && state.week < totalRounds) {
@@ -570,6 +721,23 @@ export function simulateNextMatchAction(state) {
     teams: tuneRosterAfterMatch(current.teams, result),
     updatedAt: new Date().toISOString(),
   };
+  [
+    { teamId: result.homeTeamId, amount: result.winnerTeamId === result.homeTeamId ? 150 : 70 },
+    { teamId: result.awayTeamId, amount: result.winnerTeamId === result.awayTeamId ? 150 : 70 },
+  ].forEach((reward) => {
+    next = addEconLog(next, {
+      tag: 'MATCH_REWARD',
+      teamId: reward.teamId,
+      amount: reward.amount,
+      note: `${fixture.id} 경기 상금`,
+      meta: {
+        matchId: result.matchId,
+        winnerTeamId: result.winnerTeamId,
+        scoreHome: result.scoreHome,
+        scoreAway: result.scoreAway,
+      },
+    });
+  });
   next = addResultLog(next, result);
   return advanceWeekIfNeeded(next);
 }
@@ -602,7 +770,13 @@ export function negotiateSponsorAction(state, teamId) {
       fanBase: career.fanBase + fanGain,
     },
   }));
-  return addStateLog(next, `${teamData.name} 스폰서 협상: +${gain} Cr, 팬 +${fanGain}${tierGain ? ', 스폰서 등급 상승' : ''}`);
+  return addStateLog(addEconLog(next, {
+    tag: 'SPONSOR',
+    teamId,
+    amount: gain,
+    note: '스폰서 협상',
+    meta: { fanGain, tierGain },
+  }), `${teamData.name} 스폰서 협상: +${gain} Cr, 팬 +${fanGain}${tierGain ? ', 스폰서 등급 상승' : ''}`);
 }
 
 export function investTrainingAction(state, teamId) {
@@ -634,7 +808,13 @@ export function investTrainingAction(state, teamId) {
       }, {}),
     })),
   }));
-  return addStateLog(next, `${teamData.name} 훈련 투자: -${cost} Cr, 훈련 Lv.${clamp(career.trainingLevel + 1, 1, 8)}`);
+  return addStateLog(addEconLog(next, {
+    tag: 'TRAINING',
+    teamId,
+    amount: -cost,
+    note: '훈련 투자',
+    meta: { statGain, trainingLevel: clamp(career.trainingLevel + 1, 1, 8) },
+  }), `${teamData.name} 훈련 투자: -${cost} Cr, 훈련 Lv.${clamp(career.trainingLevel + 1, 1, 8)}`);
 }
 
 export function signFreeAgentAction(state, teamId) {
@@ -651,7 +831,7 @@ export function signFreeAgentAction(state, teamId) {
     return addStateLog(current, `${teamData.name} FA 영입 실패: ${offer.player.name} 계약금 ${offer.signingBonus} Cr 필요`);
   }
   const career = normalizeTeamCareer(teamData);
-  const next = syncTeamEconomy(
+  let next = syncTeamEconomy(
     {
       ...current,
       freeAgentSeq: Number(current.freeAgentSeq || 0) + 1,
@@ -664,21 +844,42 @@ export function signFreeAgentAction(state, teamId) {
         ...career,
         scoutingLevel: clamp(career.scoutingLevel + 1, 1, 8),
         fanBase: career.fanBase + Math.round(offer.player.fame / 4),
-        payrollPressure: calcTeamPayroll({ ...team, roster: [...team.roster, offer.player] }) + offer.salary,
+        payrollPressure: calcTeamPayroll({ ...team, roster: [...team.roster, offer.player] }),
       },
       roster: [...team.roster, offer.player],
     }),
   );
-  return addStateLog(next, `${teamData.name} FA 영입: ${offer.player.name} 계약금 -${offer.signingBonus} Cr, 연봉 ${offer.salary} Cr/${offer.yearsLeft}년`);
+  next = {
+    ...next,
+    contracts: {
+      ...next.contracts,
+      [offer.player.id]: createPlayerContract(offer.player, teamId, current.seasonNo, {
+        salary: offer.salary,
+        signingBonus: offer.signingBonus,
+        yearsLeft: offer.yearsLeft,
+        startedSeasonNo: current.seasonNo,
+      }),
+    },
+  };
+  return addStateLog(addEconLog(next, {
+    tag: 'FA',
+    teamId,
+    amount: -offer.signingBonus,
+    note: `${offer.player.name} FA 계약금`,
+    meta: { playerId: offer.player.id, playerName: offer.player.name, salary: offer.salary, yearsLeft: offer.yearsLeft },
+  }), `${teamData.name} FA 영입: ${offer.player.name} 계약금 -${offer.signingBonus} Cr, 연봉 ${offer.salary} Cr/${offer.yearsLeft}년`);
 }
 
 export function startNextSeasonAction(state) {
   const current = normalizeState(state);
   const next = createNewState();
+  const nextSeasonNo = Number(current.seasonNo || 1) + 1;
+  const payrollByTeam = new Map();
   const carriedTeams = current.teams.map((teamData) => {
     const career = normalizeTeamCareer(teamData);
     const standing = getStanding(current, teamData.id);
-    const payroll = calcTeamPayroll(teamData);
+    const payroll = teamPayrollFromContracts(current.contracts, teamData);
+    payrollByTeam.set(teamData.id, payroll);
     const moneyAfterPayroll = Number(standing?.money ?? teamData.money ?? 0) - payroll;
     return cloneTeam({
       ...teamData,
@@ -696,17 +897,42 @@ export function startNextSeasonAction(state) {
     });
   });
   const fixtures = generateSchedule(carriedTeams);
-  return {
+  let rolledContracts = ensureContractsForTeams(carriedTeams, current.contracts, nextSeasonNo);
+  rolledContracts = Object.fromEntries(Object.entries(rolledContracts).map(([playerId, contract]) => [
+    playerId,
+    {
+      ...contract,
+      yearsLeft: Math.max(1, Number(contract.yearsLeft || 2) - 1),
+      salary: Math.max(10, Number(contract.salary || 0) + (Number(contract.yearsLeft || 2) <= 1 ? 4 : 0)),
+    },
+  ]));
+  let nextState = {
     ...next,
     runId: current.runId,
     startedAt: current.startedAt,
-    seasonNo: Number(current.seasonNo || 1) + 1,
+    seasonNo: nextSeasonNo,
     teams: carriedTeams,
     fixtures,
     standings: createStandings(carriedTeams),
+    contracts: rolledContracts,
+    econLogs: normalizeEconLogs(current.econLogs),
+    seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.slice(0, 60) : [],
     freeAgentSeq: Number(current.freeAgentSeq || 0),
     log: [`시즌 ${Number(current.seasonNo || 1) + 1}이 새로 시작됐습니다.`, ...current.log].slice(0, 90),
   };
+  payrollByTeam.forEach((payroll, teamId) => {
+    if (payroll <= 0) return;
+    nextState = addEconLog(nextState, {
+      tag: 'PAYROLL',
+      teamId,
+      amount: -payroll,
+      seasonNo: nextSeasonNo,
+      week: 0,
+      note: `시즌 ${nextSeasonNo} 연봉 지급`,
+      meta: { payroll, rosterCount: getTeam(current, teamId).roster.length },
+    });
+  });
+  return nextState;
 }
 
 export function getTopTeams(state, limit = 10) {
@@ -786,6 +1012,8 @@ export function summaryForState(state) {
       const career = normalizeTeamCareer(teamData);
       return sum + career.fanBase + career.sponsorTier * 250 + career.trainingLevel * 180 + career.scoutingLevel * 140;
     }, 0)),
+    econLogs: normalizeEconLogs(current.econLogs).length,
+    seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.length : 0,
     score: scoreState(current),
   };
 }

@@ -14,6 +14,7 @@ import {
   SAVE_VERSION,
   careerSummary,
   createNewState,
+  econSummary,
   fixtureLabel,
   getCurrentFixtures,
   getFreeAgentPreview,
@@ -21,6 +22,7 @@ import {
   getPlayTimeSec,
   getSourceSummary,
   getTeam,
+  getTeamContractRows,
   getTopTeams,
   getTotalFixtureCount,
   normalizeState,
@@ -67,6 +69,8 @@ export default function MyAnimeCraftPlayPage() {
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
   const selectedCareer = careerSummary(state, selectedTeam.id);
   const freeAgentPreview = getFreeAgentPreview(state, selectedTeam.id);
+  const selectedEconomy = econSummary(state, selectedTeam.id);
+  const selectedContracts = getTeamContractRows(state, selectedTeam.id);
   const sourceSummary = getSourceSummary();
   const played = getPlayedCount(state);
   const total = getTotalFixtureCount(state);
@@ -258,6 +262,12 @@ export default function MyAnimeCraftPlayPage() {
             <SmallStat label="예상 연봉" value={`${selectedCareer.payroll.toLocaleString('ko-KR')} Cr`} />
             <SmallStat label="FA 후보" value={`${freeAgentPreview.player.name} · ${freeAgentPreview.signingBonus} Cr`} />
           </div>
+          <div className="games-rank-split">
+            <SmallStat label="시즌 수입" value={`${selectedEconomy.income.toLocaleString('ko-KR')} Cr`} />
+            <SmallStat label="시즌 지출" value={`${selectedEconomy.expense.toLocaleString('ko-KR')} Cr`} />
+            <SmallStat label="순이익" value={`${selectedEconomy.net.toLocaleString('ko-KR')} Cr`} />
+            <SmallStat label="만료 임박" value={`${selectedEconomy.expiringCount}명`} />
+          </div>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={ended} onClick={() => setState((current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
             <ActionButton disabled={ended} onClick={() => setState((current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
@@ -291,15 +301,21 @@ export default function MyAnimeCraftPlayPage() {
             <span>{selectedTeam.roster.length}명</span>
           </div>
           <div className="game-save-list">
-            {selectedTeam.roster.slice(0, 8).map((member) => (
-              <article className="game-save-row" key={member.id}>
-                <div>
-                  <span>{RACE_LABELS[member.race] || member.race} · Lv.{member.level} · 컨디션 {member.condition}</span>
-                  <strong>{member.name}</strong>
-                </div>
-                <strong>{member.fame.toLocaleString('ko-KR')}</strong>
-              </article>
-            ))}
+            {selectedTeam.roster.slice(0, 8).map((member) => {
+              const contract = selectedContracts.find((item) => item.playerId === member.id);
+              return (
+                <article className="game-save-row" key={member.id}>
+                  <div>
+                    <span>
+                      {RACE_LABELS[member.race] || member.race} · Lv.{member.level} · 컨디션 {member.condition}
+                      {contract ? ` · 연봉 ${contract.salary}Cr · ${contract.yearsLeft}년` : ''}
+                    </span>
+                    <strong>{member.name}</strong>
+                  </div>
+                  <strong>{member.fame.toLocaleString('ko-KR')}</strong>
+                </article>
+              );
+            })}
           </div>
         </section>
 
@@ -314,6 +330,22 @@ export default function MyAnimeCraftPlayPage() {
                 <strong>{line}</strong>
               </div>
             ))}
+          </div>
+          <div className="games-panel-title" style={{ marginTop: 16 }}>
+            <h2>경제 로그</h2>
+            <span>{selectedEconomy.count}건</span>
+          </div>
+          <div className="games-activity-list">
+            {selectedEconomy.last.length ? selectedEconomy.last.map((entry) => (
+              <div key={entry.id}>
+                <strong>{entry.note}</strong>
+                <span>{entry.amount >= 0 ? '+' : ''}{entry.amount.toLocaleString('ko-KR')} Cr · {entry.week}주차</span>
+              </div>
+            )) : (
+              <div>
+                <strong>아직 경제 로그가 없습니다.</strong>
+              </div>
+            )}
           </div>
           <div className="games-panel-title" style={{ marginTop: 16 }}>
             <h2>시즌 맵풀</h2>
