@@ -15,7 +15,7 @@ import {
 
 const MENU_ITEMS = [
   {
-    href: '/simulation',
+    href: '/eternalhunger',
     tag: 'Play',
     title: '게임 시작',
     body: '현재 데이터로 시뮬레이션을 실행하고 결과를 기록합니다.',

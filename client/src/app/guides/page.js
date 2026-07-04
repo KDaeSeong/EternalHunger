@@ -22,7 +22,7 @@ const WIKI_SECTIONS = [
     summary: '캐릭터 설정, 초월 장비 세팅, 전술 스킬을 먼저 확인하고 시뮬레이션을 돌립니다.',
     links: [
       { href: '/characters', label: '캐릭터 설정' },
-      { href: '/simulation', label: '게임 시작' },
+      { href: '/eternalhunger', label: '게임 시작' },
       { href: '/help', label: '기본 도움말' },
     ],
   },
@@ -72,7 +72,7 @@ const RULEBOOK_SECTIONS = [
       '5일차 낮 이후 다음 페이즈부터는 부활할 수 없습니다.',
     ],
     links: [
-      { href: '/simulation', label: '시뮬레이션' },
+      { href: '/eternalhunger', label: '시뮬레이션' },
       { href: '/records', label: '기록소' },
     ],
   },
