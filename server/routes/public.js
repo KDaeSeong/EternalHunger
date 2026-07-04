@@ -721,20 +721,48 @@ router.get('/games/:slug/hub', async (req, res) => {
 router.get('/activity', async (req, res) => {
   try {
     const limit = Math.max(1, Math.min(80, Number(req.query?.limit || 40)));
+    const scope = String(req.query?.scope || 'all').trim() === 'following' ? 'following' : 'all';
+    const viewerIdRaw = getOptionalUserId(req);
+    const viewerId = mongoose.Types.ObjectId.isValid(String(viewerIdRaw || ''))
+      ? new mongoose.Types.ObjectId(viewerIdRaw)
+      : null;
+    let followingIds = [];
+    if (scope === 'following') {
+      if (!viewerId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+      const follows = await UserFollow.find({ followerId: viewerId }).select('followingId').lean();
+      followingIds = follows
+        .map((row) => row?.followingId)
+        .filter(Boolean);
+      if (!followingIds.length) {
+        return res.json({
+          scope: { mode: scope, followingCount: 0 },
+          counts: { total: 0, posts: 0, comments: 0, rooms: 0, solvedRooms: 0 },
+          activity: [],
+        });
+      }
+    }
+    const authorFilter = scope === 'following' ? { authorId: { $in: followingIds } } : {};
+    const commentMatch = scope === 'following'
+      ? { 'comments.0': { $exists: true }, 'comments.authorId': { $in: followingIds } }
+      : { 'comments.0': { $exists: true } };
+    const roomFilter = scope === 'following'
+      ? { $or: [{ hostId: { $in: followingIds } }, { solvedBy: { $in: followingIds } }] }
+      : {};
     const [
       recentPosts,
       recentComments,
       recentRooms,
     ] = await Promise.all([
-      Post.find({})
+      Post.find(authorFilter)
         .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean(),
       Post.aggregate([
-        { $match: { 'comments.0': { $exists: true } } },
+        { $match: commentMatch },
         { $unwind: '$comments' },
+        ...(scope === 'following' ? [{ $match: { 'comments.authorId': { $in: followingIds } } }] : []),
         { $sort: { 'comments.createdAt': -1, _id: -1 } },
         { $limit: limit },
         {
@@ -758,7 +786,7 @@ router.get('/activity', async (req, res) => {
           },
         },
       ]),
-      TwentyQuestionsRoom.find({})
+      TwentyQuestionsRoom.find(roomFilter)
         .select('_id title category hint status maxQuestions questions guesses hostId solvedBy solvedAt createdAt updatedAt')
         .populate('hostId', 'username nickname')
         .populate('solvedBy', 'username nickname')
@@ -776,6 +804,10 @@ router.get('/activity', async (req, res) => {
       .slice(0, limit);
 
     res.json({
+      scope: {
+        mode: scope,
+        followingCount: followingIds.length,
+      },
       counts: {
         total: activity.length,
         posts: activity.filter((row) => row.kind === 'post').length,

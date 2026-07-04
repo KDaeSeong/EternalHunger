@@ -1302,6 +1302,7 @@
 
 .activity-actions,
 .activity-tabs,
+.activity-scope-tabs,
 .activity-meta,
 .activity-card__head {
   display: flex;
@@ -1316,6 +1317,7 @@
 
 .activity-actions a,
 .activity-actions button,
+.activity-scope-tabs button,
 .activity-tabs button,
 .activity-empty button {
   min-height: 38px;
@@ -1334,6 +1336,7 @@
 
 .activity-actions a:first-of-type,
 .activity-actions button,
+.activity-scope-tabs button.is-active,
 .activity-tabs button.is-active,
 .activity-empty button {
   background: #0878bd;
@@ -1349,6 +1352,7 @@
 
 .activity-actions a:hover,
 .activity-actions button:hover,
+.activity-scope-tabs button:hover,
 .activity-tabs button:hover,
 .activity-empty button:hover,
 .activity-card:hover {
@@ -1388,6 +1392,21 @@
   grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
   gap: 12px;
   padding: 14px;
+}
+
+.activity-filter-groups {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.activity-scope-tabs button {
+  border-color: rgba(22, 33, 44, 0.12);
+  min-height: 34px;
+}
+
+.activity-scope-tabs button.is-active {
+  background: #2c6f9e;
 }
 
 .activity-toolbar input {

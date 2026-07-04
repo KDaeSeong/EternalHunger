@@ -5,11 +5,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
+import { useAuthToken, useHydrated } from '../../utils/client-auth';
 
 const EMPTY_FEED = {
   counts: { total: 0, posts: 0, comments: 0, rooms: 0, solvedRooms: 0 },
+  scope: { mode: 'all', followingCount: 0 },
   activity: [],
 };
+
+const SCOPE_FILTERS = [
+  { value: 'all', label: '전체 활동' },
+  { value: 'following', label: '팔로잉' },
+];
 
 const KIND_FILTERS = [
   { value: 'all', label: '전체' },
@@ -55,8 +62,13 @@ function normalizeCounts(value) {
 
 function normalizeFeed(payload) {
   const src = payload && typeof payload === 'object' ? payload : {};
+  const scope = src.scope && typeof src.scope === 'object' ? src.scope : {};
   return {
     counts: normalizeCounts(src.counts),
+    scope: {
+      mode: safeText(scope.mode, 'all'),
+      followingCount: Number(scope.followingCount || 0),
+    },
     activity: normalizeList(src.activity),
   };
 }
@@ -140,18 +152,28 @@ function ActivityCard({ row }) {
 }
 
 export default function ActivityPage() {
+  const hydrated = useHydrated();
+  const token = useAuthToken();
   const { showToast } = useToast();
   const [feed, setFeed] = useState(EMPTY_FEED);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('all');
   const [kindFilter, setKindFilter] = useState('all');
   const [query, setQuery] = useState('');
 
   const loadFeed = useCallback(async (options = {}) => {
+    if (scopeFilter === 'following' && !token) {
+      setFeed({ ...EMPTY_FEED, scope: { mode: 'following', followingCount: 0 } });
+      setError('');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      const payload = await apiGetCached('/public/activity?limit=60', {
+      const payload = await apiGetCached(`/public/activity?limit=60&scope=${encodeURIComponent(scopeFilter)}`, {
         ttlMs: 12000,
         timeoutMs: 15000,
         storage: 'session',
@@ -166,11 +188,12 @@ export default function ActivityPage() {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [scopeFilter, showToast, token]);
 
   useEffect(() => {
+    if (!hydrated) return;
     void loadFeed();
-  }, [loadFeed]);
+  }, [hydrated, loadFeed]);
 
   const filteredActivity = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -207,17 +230,31 @@ export default function ActivityPage() {
         </section>
 
         <section className="activity-toolbar" aria-label="활동 필터">
-          <div className="activity-tabs">
-            {KIND_FILTERS.map((item) => (
-              <button
-                type="button"
-                className={kindFilter === item.value ? 'is-active' : ''}
-                onClick={() => setKindFilter(item.value)}
-                key={item.value}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="activity-filter-groups">
+            <div className="activity-scope-tabs" aria-label="피드 범위">
+              {SCOPE_FILTERS.map((item) => (
+                <button
+                  type="button"
+                  className={scopeFilter === item.value ? 'is-active' : ''}
+                  onClick={() => setScopeFilter(item.value)}
+                  key={item.value}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="activity-tabs" aria-label="활동 종류">
+              {KIND_FILTERS.map((item) => (
+                <button
+                  type="button"
+                  className={kindFilter === item.value ? 'is-active' : ''}
+                  onClick={() => setKindFilter(item.value)}
+                  key={item.value}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
           <input
             value={query}
@@ -241,7 +278,13 @@ export default function ActivityPage() {
             ))
           ) : (
             <div className="activity-empty">
-              {loading ? '활동을 불러오는 중입니다.' : '표시할 활동이 없습니다.'}
+              {loading
+                ? '활동을 불러오는 중입니다.'
+                : scopeFilter === 'following' && !token
+                  ? '로그인하면 팔로우한 유저의 활동을 따로 볼 수 있습니다.'
+                  : scopeFilter === 'following' && feed.scope.followingCount === 0
+                    ? '아직 팔로우한 유저가 없습니다.'
+                    : '표시할 활동이 없습니다.'}
             </div>
           )}
         </section>
