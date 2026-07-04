@@ -121,15 +121,96 @@ function DeckEntryLine({ cardId, count }) {
   );
 }
 
-function ZonePill({ label, value }) {
+const ZONE_LABELS = {
+  deck: '덱',
+  hand: '패',
+  soul: '소울',
+  damage: '데미지',
+  drop: '드롭',
+  removed: '제외',
+  gzone: 'G존',
+};
+
+function ZonePill({ label, value, active, onClick }) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className="games-filter-chip"
+        onClick={onClick}
+        aria-pressed={active}
+        style={{
+          borderColor: active ? '#38bdf8' : undefined,
+          color: active ? '#e0f2fe' : undefined,
+          cursor: 'pointer',
+        }}
+      >
+        {label} {value}
+      </button>
+    );
+  }
   return <span className="games-filter-chip">{label} {value}</span>;
 }
 
-function Field({ title, player, side, selectedAttacker, onCircleClick }) {
+function zoneCardIds(player, zoneKey) {
+  const cards = player?.[zoneKey];
+  return Array.isArray(cards) ? cards : [];
+}
+
+function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onClose }) {
+  if (!zoneView) return null;
+  const player = duel.players[zoneView.side];
+  const cards = zoneCardIds(player, zoneView.zone);
+  const filteredCards = zoneView.zone === 'gzone' && gzoneFilter !== 'all'
+    ? cards.filter((cardId) => {
+      const type = getCard(cardId)?.type;
+      return gzoneFilter === 'unit' ? type === 'g-unit' : type === 'g-guardian';
+    })
+    : cards;
+  const shownCards = [...filteredCards].reverse();
+  const damageCards = zoneCardIds(player, 'damage');
+  const cbUsed = zoneView.zone === 'damage' ? Math.max(0, Math.min(damageCards.length, Number(player.cbUsedTotal || 0))) : 0;
+  const sideLabel = SIDE_LABELS[zoneView.side];
+  const zoneLabel = ZONE_LABELS[zoneView.zone] || zoneView.zone;
+
+  return (
+    <section className="games-panel">
+      <div className="games-panel-title">
+        <h2>{sideLabel} {zoneLabel}</h2>
+        <span>{shownCards.length}/{cards.length}장</span>
+      </div>
+      <div className="game-save-actions" style={{ marginBottom: 12 }}>
+        {zoneView.zone === 'gzone' ? (
+          <>
+            <button type="button" onClick={() => onFilterChange('all')} disabled={gzoneFilter === 'all'}>전체</button>
+            <button type="button" onClick={() => onFilterChange('unit')} disabled={gzoneFilter === 'unit'}>G 유닛</button>
+            <button type="button" onClick={() => onFilterChange('guardian')} disabled={gzoneFilter === 'guardian'}>G 가디언</button>
+          </>
+        ) : null}
+        <button type="button" onClick={onClose}>닫기</button>
+      </div>
+      <div className="game-save-list">
+        {shownCards.length ? shownCards.map((cardId, index) => {
+          const originalIndex = zoneView.zone === 'damage' ? cards.length - 1 - index : -1;
+          const right = zoneView.zone === 'damage' && originalIndex < cbUsed ? 'CB' : undefined;
+          return <CardSummary cardId={cardId} right={right} key={`${zoneView.side}-${zoneView.zone}-${cardId}-${index}`} />;
+        }) : (
+          <div className="game-save-row">
+            <div><strong>표시할 카드가 없습니다.</strong></div>
+            <strong>-</strong>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function Field({ title, player, side, selectedAttacker, zoneView, onCircleClick, onZoneClick }) {
   const rows = [
     ['RC_BL', 'RC_BC', 'RC_BR'],
     ['RC_FL', 'VC', 'RC_FR'],
   ];
+  const zoneActive = (zone) => zoneView?.side === side && zoneView?.zone === zone;
   return (
     <section className="games-panel">
       <div className="games-panel-title">
@@ -137,12 +218,13 @@ function Field({ title, player, side, selectedAttacker, onCircleClick }) {
         <span>{player.isStrided ? 'STRIDE' : 'NORMAL'}</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-        <ZonePill label="덱" value={player.deck.length} />
-        <ZonePill label="패" value={player.hand.length} />
-        <ZonePill label="소울" value={player.soul.length} />
-        <ZonePill label="데미지" value={player.damage.length} />
-        <ZonePill label="드롭" value={player.drop.length} />
-        <ZonePill label="G존" value={player.gzone.length} />
+        <ZonePill label="덱" value={zoneCardIds(player, 'deck').length} active={zoneActive('deck')} onClick={() => onZoneClick(side, 'deck')} />
+        <ZonePill label="패" value={zoneCardIds(player, 'hand').length} />
+        <ZonePill label="소울" value={zoneCardIds(player, 'soul').length} active={zoneActive('soul')} onClick={() => onZoneClick(side, 'soul')} />
+        <ZonePill label="데미지" value={zoneCardIds(player, 'damage').length} active={zoneActive('damage')} onClick={() => onZoneClick(side, 'damage')} />
+        <ZonePill label="드롭" value={zoneCardIds(player, 'drop').length} active={zoneActive('drop')} onClick={() => onZoneClick(side, 'drop')} />
+        <ZonePill label="제외" value={zoneCardIds(player, 'removed').length} active={zoneActive('removed')} onClick={() => onZoneClick(side, 'removed')} />
+        <ZonePill label="G존" value={zoneCardIds(player, 'gzone').length} active={zoneActive('gzone')} onClick={() => onZoneClick(side, 'gzone')} />
       </div>
       <div style={{ display: 'grid', gap: 8 }}>
         {rows.map((row) => (
@@ -231,6 +313,8 @@ export default function BaVanguardPlayPage() {
   const [selectedAttacker, setSelectedAttacker] = useState(null);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [zoneView, setZoneView] = useState(null);
+  const [gzoneFilter, setGzoneFilter] = useState('all');
 
   const deck = getPreset(presetId);
   const opponentDeck = getPreset(opponentPresetId);
@@ -259,6 +343,11 @@ export default function BaVanguardPlayPage() {
     });
   };
 
+  const openZone = (side, zone) => {
+    setZoneView({ side, zone });
+    if (zone === 'gzone') setGzoneFilter('all');
+  };
+
   const startNewDuel = (nextSeed = seed) => {
     setDuel(initDuelState({
       meDeck: deck,
@@ -269,6 +358,7 @@ export default function BaVanguardPlayPage() {
     }));
     setSelectedHandIndex(null);
     setSelectedAttacker(null);
+    setZoneView(null);
     setMessage('새 플레이테스트를 시작했습니다.');
   };
 
@@ -438,6 +528,7 @@ export default function BaVanguardPlayPage() {
       }));
       setSelectedHandIndex(null);
       setSelectedAttacker(null);
+      setZoneView(null);
       setMessage('저장된 BA Vanguard 플레이테스트 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 BA Vanguard 플레이테스트 상태를 불러왔습니다.' });
     } catch (err) {
@@ -597,9 +688,33 @@ export default function BaVanguardPlayPage() {
       </section>
 
       <section className="games-detail-grid">
-        <Field title="AI 필드" player={opp} side="opp" selectedAttacker={selectedAttacker} onCircleClick={onOppCircleClick} />
-        <Field title="내 필드" player={me} side="me" selectedAttacker={selectedAttacker} onCircleClick={onMyCircleClick} />
+        <Field
+          title="AI 필드"
+          player={opp}
+          side="opp"
+          selectedAttacker={selectedAttacker}
+          zoneView={zoneView}
+          onCircleClick={onOppCircleClick}
+          onZoneClick={openZone}
+        />
+        <Field
+          title="내 필드"
+          player={me}
+          side="me"
+          selectedAttacker={selectedAttacker}
+          zoneView={zoneView}
+          onCircleClick={onMyCircleClick}
+          onZoneClick={openZone}
+        />
       </section>
+
+      <ZoneExplorer
+        duel={duel}
+        zoneView={zoneView}
+        gzoneFilter={gzoneFilter}
+        onFilterChange={setGzoneFilter}
+        onClose={() => setZoneView(null)}
+      />
 
       <section className="games-dashboard">
         <section className="games-panel">
