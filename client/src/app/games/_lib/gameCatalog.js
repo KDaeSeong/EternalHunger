@@ -8,7 +8,7 @@ export const GAME_CATALOG = [
     detail: '시뮬레이션 플레이, 캐릭터 설정, 전적 저장, 랭킹 흐름이 직접 연결된 현재 사이트의 중심 게임입니다.',
     primaryHref: '/simulation',
     primaryLabel: '게임 시작',
-    boardHref: '/board?category=simulation',
+    boardHref: '/board?gameSlug=eternal-hunger',
     boardLabel: '시뮬레이션 글',
     recordHref: '/records',
     recordLabel: '기록소',

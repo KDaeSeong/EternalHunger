@@ -146,7 +146,7 @@ textarea {
 
 .board-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) minmax(140px, 190px) minmax(130px, 180px);
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 280px) minmax(130px, 170px) minmax(150px, 210px) minmax(120px, 160px);
   align-items: center;
   gap: 12px;
   padding: 12px 0;
@@ -220,7 +220,7 @@ textarea {
 
 .board-write-grid {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) auto;
+  grid-template-columns: 150px 180px minmax(0, 1fr) auto;
   gap: 8px;
 }
 
@@ -410,6 +410,19 @@ textarea {
   color: #111827;
   font-size: 26px;
   line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.board-post-game {
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid rgba(44, 111, 158, 0.20);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1b4f73;
+  font-size: 12px;
+  font-weight: 900;
   overflow-wrap: anywhere;
 }
 

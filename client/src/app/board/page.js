@@ -6,6 +6,7 @@ import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
+import { GAME_CATALOG, GAME_ROADMAP } from '../games/_lib/gameCatalog';
 
 const BOARD_CATEGORIES = [
   { value: 'free', label: '자유' },
@@ -24,6 +25,32 @@ const BOARD_SORTS = [
 ];
 
 const BOARD_PAGE_SIZE = 20;
+
+function normalizeGameSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function getGameOptions() {
+  const seen = new Set();
+  return [...GAME_CATALOG, ...GAME_ROADMAP].reduce((list, game) => {
+    const value = normalizeGameSlug(game?.slug);
+    if (!value || seen.has(value)) return list;
+    seen.add(value);
+    list.push({ value, label: safeText(game?.title, value) });
+    return list;
+  }, []);
+}
+
+function gameLabelForSlug(options, slug) {
+  const value = normalizeGameSlug(slug);
+  if (!value) return '';
+  return options.find((option) => option.value === value)?.label || value;
+}
 
 function formatDate(value) {
   if (!value) return '날짜 없음';
@@ -83,6 +110,7 @@ function normalizePost(row) {
     viewCount: Number(row.viewCount || 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
+    gameSlug: normalizeGameSlug(row.gameSlug),
     category: safeText(row.category, 'free'),
     categoryLabel: safeText(row.categoryLabel, '자유'),
     createdAt: row.createdAt || row.created_at || row.date || '',
@@ -122,14 +150,16 @@ function getUserDisplayName(user) {
 }
 
 export default function BoardPage() {
+  const gameOptions = useMemo(getGameOptions, []);
   const [posts, setPosts] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '', category: 'free' });
+  const [form, setForm] = useState({ title: '', content: '', category: 'free', gameSlug: '' });
   const [writerOpen, setWriterOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [gameFilter, setGameFilter] = useState('');
   const [sortOrder, setSortOrder] = useState('latest');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(() => normalizePagination(null));
@@ -152,6 +182,7 @@ export default function BoardPage() {
       const params = new URLSearchParams();
       if (query.trim()) params.set('q', query.trim());
       if (categoryFilter) params.set('category', categoryFilter);
+      if (gameFilter) params.set('gameSlug', gameFilter);
       if (sortOrder && sortOrder !== 'latest') params.set('sort', sortOrder);
       if (page > 1) params.set('page', String(page));
       params.set('limit', String(BOARD_PAGE_SIZE));
@@ -174,7 +205,7 @@ export default function BoardPage() {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, page, query, showToast, sortOrder]);
+  }, [categoryFilter, gameFilter, page, query, showToast, sortOrder]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -185,14 +216,16 @@ export default function BoardPage() {
     const params = new URLSearchParams(window.location.search);
     const nextQuery = safeText(params.get('q'), '');
     const nextCategory = safeText(params.get('category'), '');
+    const nextGameSlug = normalizeGameSlug(params.get('gameSlug'));
     const nextSort = safeText(params.get('sort'), '');
     const nextPage = Number(params.get('page') || 1);
     if (nextQuery) setQuery(nextQuery);
     if (BOARD_CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
+    if (nextGameSlug) setGameFilter(nextGameSlug);
     if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
     if (Number.isFinite(nextPage) && nextPage > 1) setPage(Math.floor(nextPage));
     if (params.get('write') === '1') setWriterOpen(true);
-  }, []);
+  }, [gameOptions]);
 
   useEffect(() => {
     if (!mounted || token) return;
@@ -203,6 +236,7 @@ export default function BoardPage() {
     const title = form.title.trim();
     const content = form.content.trim();
     const category = form.category || 'free';
+    const gameSlug = normalizeGameSlug(form.gameSlug);
     if (!title || !content) {
       const nextMessage = '제목과 내용을 입력해주세요.';
       setMessage(nextMessage);
@@ -212,7 +246,7 @@ export default function BoardPage() {
 
     setSubmitting(true);
     try {
-      const res = await apiPost('/posts', { title, content, category });
+      const res = await apiPost('/posts', { title, content, category, gameSlug });
       const nextMessage = res?.message || '게시글을 작성했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
@@ -220,7 +254,7 @@ export default function BoardPage() {
       clearApiGetCache('/public/home-hub');
       clearApiGetCache('/public/guides');
       clearApiGetCache('/public/search');
-      setForm({ title: '', content: '', category: 'free' });
+      setForm({ title: '', content: '', category: 'free', gameSlug: '' });
       setWriterOpen(false);
       if (page !== 1) setPage(1);
       else await load();
@@ -314,6 +348,24 @@ export default function BoardPage() {
               ))}
             </select>
           </label>
+          <label className="board-search board-game-filter">
+            <span>게임</span>
+            <select
+              value={gameFilter}
+              onChange={(event) => {
+                setGameFilter(normalizeGameSlug(event.target.value));
+                setPage(1);
+              }}
+            >
+              <option value="">전체</option>
+              {gameFilter && !gameOptions.some((game) => game.value === gameFilter) ? (
+                <option value={gameFilter}>{gameFilter}</option>
+              ) : null}
+              {gameOptions.map((game) => (
+                <option key={game.value} value={game.value}>{game.label}</option>
+              ))}
+            </select>
+          </label>
           <label className="board-search board-sort-filter">
             <span>정렬</span>
             <select
@@ -343,6 +395,19 @@ export default function BoardPage() {
               >
                 {BOARD_CATEGORIES.map((category) => (
                   <option key={category.value} value={category.value}>{category.label}</option>
+                ))}
+              </select>
+              <select
+                value={form.gameSlug}
+                onChange={(event) => setForm({ ...form, gameSlug: normalizeGameSlug(event.target.value) })}
+                aria-label="게임 선택"
+              >
+                <option value="">게임 선택 안 함</option>
+                {form.gameSlug && !gameOptions.some((game) => game.value === form.gameSlug) ? (
+                  <option value={form.gameSlug}>{form.gameSlug}</option>
+                ) : null}
+                {gameOptions.map((game) => (
+                  <option key={game.value} value={game.value}>{game.label}</option>
                 ))}
               </select>
               <input
@@ -403,6 +468,7 @@ export default function BoardPage() {
                   const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
                   const rowNo = Math.max(1, Number(pagination.total || filteredPosts.length) - ((Number(pagination.page || 1) - 1) * Number(pagination.limit || BOARD_PAGE_SIZE)) - index);
                   const authorHref = userProfileHref(post?.authorId);
+                  const gameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
                   const authorName = safeText(post?.authorName, '익명');
                   return (
                     <tr key={id || `${post?.title}-${post?.createdAt}`}>
@@ -410,6 +476,7 @@ export default function BoardPage() {
                       <td className="board-cell-title" data-label="제목">
                         <Link href={id ? `/board/${id}` : '/board'} className={`board-row-title ${post?.isNotice ? 'is-notice' : ''}`}>
                           <span>{title}</span>
+                          {gameLabel ? <small>{gameLabel}</small> : null}
                           <small>{preview ? `${preview}${preview.length >= 160 ? '...' : ''}` : '미리보기 없음'}</small>
                           <em>{post?.isNotice ? '공지 · ' : ''}조회 {Number(post?.viewCount || 0)} · 추천 {Number(post?.reactionCount || 0)} · 댓글 {Number(post?.commentCount || 0)}</em>
                         </Link>

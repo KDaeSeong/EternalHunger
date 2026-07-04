@@ -14,6 +14,7 @@ const PostCommentSchema = new mongoose.Schema({
 const PostSchema = new mongoose.Schema({
   authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   category: { type: String, enum: POST_CATEGORIES, default: 'free', index: true },
+  gameSlug: { type: String, default: '', trim: true, lowercase: true, maxlength: 80, index: true },
   title: { type: String, required: true, trim: true, maxlength: 120 },
   content: { type: String, required: true, trim: true, maxlength: 10000 },
   isNotice: { type: Boolean, default: false, index: true },
@@ -26,6 +27,7 @@ const PostSchema = new mongoose.Schema({
 
 PostSchema.index({ isNotice: -1, noticePinnedAt: -1, createdAt: -1 });
 PostSchema.index({ category: 1, isNotice: -1, noticePinnedAt: -1, createdAt: -1 });
+PostSchema.index({ gameSlug: 1, category: 1, isNotice: -1, noticePinnedAt: -1, createdAt: -1 });
 
 module.exports = mongoose.model('Post', PostSchema);
 module.exports.POST_CATEGORIES = POST_CATEGORIES;

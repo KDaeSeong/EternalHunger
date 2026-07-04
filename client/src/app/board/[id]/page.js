@@ -7,6 +7,7 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
+import { GAME_CATALOG, GAME_ROADMAP } from '../../games/_lib/gameCatalog';
 
 const BOARD_CATEGORIES = [
   { value: 'free', label: '자유' },
@@ -16,6 +17,32 @@ const BOARD_CATEGORIES = [
   { value: 'simulation', label: '시뮬레이션' },
   { value: 'game', label: '게임' },
 ];
+
+function normalizeGameSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+function getGameOptions() {
+  const seen = new Set();
+  return [...GAME_CATALOG, ...GAME_ROADMAP].reduce((list, game) => {
+    const value = normalizeGameSlug(game?.slug);
+    if (!value || seen.has(value)) return list;
+    seen.add(value);
+    list.push({ value, label: safeText(game?.title, value) });
+    return list;
+  }, []);
+}
+
+function gameLabelForSlug(options, slug) {
+  const value = normalizeGameSlug(slug);
+  if (!value) return '';
+  return options.find((option) => option.value === value)?.label || value;
+}
 
 function formatDate(value) {
   if (!value) return '날짜 없음';
@@ -86,6 +113,7 @@ function normalizePost(row) {
     viewCount: Number(row.viewCount || 0),
     isNotice: Boolean(row.isNotice),
     noticePinnedAt: row.noticePinnedAt || '',
+    gameSlug: normalizeGameSlug(row.gameSlug),
     comments,
     createdAt: row.createdAt || row.created_at || row.date || '',
     updatedAt: row.updatedAt || row.updated_at || '',
@@ -103,13 +131,14 @@ export default function BoardDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = normalizeRouteId(params?.id);
+  const gameOptions = useMemo(getGameOptions, []);
 
   const [post, setPost] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: '', content: '', category: 'free' });
+  const [form, setForm] = useState({ title: '', content: '', category: 'free', gameSlug: '' });
   const [commentText, setCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [editingComment, setEditingComment] = useState({ id: '', content: '' });
@@ -148,7 +177,7 @@ export default function BoardDetailPage() {
       });
       const nextPost = unwrapPost(data);
       setPost(nextPost);
-      setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free') });
+      setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free'), gameSlug: normalizeGameSlug(nextPost?.gameSlug) });
     } catch (err) {
       const nextMessage = err?.response?.data?.error || err.message || '게시글을 불러오지 못했습니다.';
       setMessage(nextMessage);
@@ -213,12 +242,13 @@ export default function BoardDetailPage() {
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
   const canManageNotice = mounted && token && Boolean(user?.isAdmin) && post;
   const comments = Array.isArray(post?.comments) ? post.comments : [];
+  const postGameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
 
   const applyPostResponse = (data) => {
     const nextPost = unwrapPost(data);
     if (!nextPost) return;
     setPost(nextPost);
-    setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free') });
+    setForm({ title: safeText(nextPost?.title, ''), content: safeText(nextPost?.content, ''), category: safeText(nextPost?.category, 'free'), gameSlug: normalizeGameSlug(nextPost?.gameSlug) });
   };
 
   const clearPostCaches = () => {
@@ -281,7 +311,7 @@ export default function BoardDetailPage() {
 
     setSaving(true);
     try {
-      const res = await apiPut(`/posts/${id}`, { title, content, category: form.category || 'free' });
+      const res = await apiPut(`/posts/${id}`, { title, content, category: form.category || 'free', gameSlug: normalizeGameSlug(form.gameSlug) });
       const nextMessage = res?.message || '수정했습니다.';
       setMessage(nextMessage);
       showToast({ tone: 'success', message: nextMessage });
@@ -476,6 +506,19 @@ export default function BoardDetailPage() {
                     <option key={category.value} value={category.value}>{category.label}</option>
                   ))}
                 </select>
+                <select
+                  value={form.gameSlug}
+                  onChange={(event) => setForm({ ...form, gameSlug: normalizeGameSlug(event.target.value) })}
+                  aria-label="게임 선택"
+                >
+                  <option value="">게임 선택 안 함</option>
+                  {form.gameSlug && !gameOptions.some((game) => game.value === form.gameSlug) ? (
+                    <option value={form.gameSlug}>{form.gameSlug}</option>
+                  ) : null}
+                  {gameOptions.map((game) => (
+                    <option key={game.value} value={game.value}>{game.label}</option>
+                  ))}
+                </select>
                 <input
                   value={form.title}
                   onChange={(event) => setForm({ ...form, title: event.target.value })}
@@ -505,6 +548,7 @@ export default function BoardDetailPage() {
                   </div>
                   <h2>{safeText(post.title, '제목 없음')}</h2>
                 </div>
+                {postGameLabel ? <div className="board-post-game">{postGameLabel}</div> : null}
                 <dl className="board-post-meta">
                   <div>
                     <dt>작성자</dt>

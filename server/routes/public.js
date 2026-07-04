@@ -67,6 +67,15 @@ function cleanText(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength);
 }
 
+function normalizeGameSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
 function escapeRegExp(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -107,6 +116,7 @@ function mapPublicPost(post) {
     _id: normalizeId(post),
     title: post?.title || '',
     category: post?.category || 'free',
+    gameSlug: normalizeGameSlug(post?.gameSlug),
     isNotice: Boolean(post?.isNotice),
     commentCount: toNonNegativeInt(post?.commentCount),
     reactionCount: toNonNegativeInt(post?.reactionCount),
@@ -124,6 +134,7 @@ function mapPublicCommentActivity(row) {
     postId: normalizeId(row),
     postTitle: row?.title || '',
     postCategory: row?.category || 'free',
+    gameSlug: normalizeGameSlug(row?.gameSlug),
     contentPreview: cleanText(comment?.content, 140),
     createdAt: comment?.createdAt || null,
     updatedAt: comment?.updatedAt || null,
@@ -305,6 +316,7 @@ function mapActivityPost(post) {
     title: post?.title || '',
     label: post?.isNotice ? '공지' : '게시글',
     category: post?.category || 'free',
+    gameSlug: normalizeGameSlug(post?.gameSlug),
     href: `/board/${normalizeId(post)}`,
     actor: mapCompactUser(post?.authorId),
     actorName: displayName(post?.authorId),
@@ -327,6 +339,7 @@ function mapActivityComment(row) {
     title: row?.title || '',
     label: '댓글',
     category: row?.category || 'free',
+    gameSlug: normalizeGameSlug(row?.gameSlug),
     href: `/board/${normalizeId(row)}`,
     actor: mapCompactUser(comment?.authorId),
     actorName: displayName(comment?.authorId),
@@ -523,7 +536,7 @@ router.get('/users/:id', async (req, res) => {
       socialPreview,
     ] = await Promise.all([
       Post.find({ authorId: userId })
-        .select('_id title category content isNotice commentCount reactionCount viewCount createdAt updatedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount createdAt updatedAt')
         .sort({ isNotice: -1, noticePinnedAt: -1, createdAt: -1 })
         .limit(6)
         .lean(),
@@ -538,6 +551,7 @@ router.get('/users/:id', async (req, res) => {
         { $project: {
           title: 1,
           category: 1,
+          gameSlug: 1,
           comments: {
             $filter: {
               input: '$comments',
@@ -621,13 +635,13 @@ router.get('/home-hub', async (req, res) => {
       TwentyQuestionsRoom.countDocuments({}),
       TwentyQuestionsRoom.countDocuments({ status: 'active' }),
       Post.find({ isNotice: true })
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
         .populate('authorId', 'username nickname')
         .sort({ noticePinnedAt: -1, createdAt: -1 })
         .limit(3)
         .lean(),
       Post.find({})
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ createdAt: -1 })
         .limit(6)
@@ -683,7 +697,12 @@ router.get('/games/:slug/hub', async (req, res) => {
     }
 
     const postCategories = isTwentyQuestions ? ['game', 'free'] : ['simulation', 'guide', 'game'];
-    const postFilter = { category: { $in: postCategories } };
+    const postFilter = {
+      $or: [
+        { gameSlug: slug },
+        { category: { $in: postCategories }, gameSlug: { $in: ['', null] } },
+      ],
+    };
 
     if (isTwentyQuestions) {
       const [
@@ -705,7 +724,7 @@ router.get('/games/:slug/hub', async (req, res) => {
         TwentyQuestionsRoom.countDocuments({ status: 'solved' }),
         TwentyQuestionsRoom.countDocuments({ status: 'closed' }),
         Post.find(postFilter)
-          .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+          .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
           .populate('authorId', 'username nickname')
           .sort({ updatedAt: -1, createdAt: -1 })
           .limit(6)
@@ -772,7 +791,7 @@ router.get('/games/:slug/hub', async (req, res) => {
       TeamRecord.countDocuments({}),
       GameLog.countDocuments({}),
       Post.find(postFilter)
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ updatedAt: -1, createdAt: -1 })
         .limit(6)
@@ -864,7 +883,7 @@ router.get('/activity', async (req, res) => {
       recentRooms,
     ] = await Promise.all([
       Post.find(authorFilter)
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ createdAt: -1 })
         .limit(limit)
@@ -889,6 +908,7 @@ router.get('/activity', async (req, res) => {
           $project: {
             title: 1,
             category: 1,
+            gameSlug: 1,
             commentCount: 1,
             reactionCount: 1,
             viewCount: 1,
@@ -944,19 +964,19 @@ router.get('/guides', async (req, res) => {
       categorySummary,
     ] = await Promise.all([
       Post.find({ category: { $in: guideCategories }, isNotice: true })
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
         .populate('authorId', 'username nickname')
         .sort({ noticePinnedAt: -1, createdAt: -1 })
         .limit(4)
         .lean(),
       Post.find({ category: { $in: guideCategories } })
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ createdAt: -1 })
         .limit(8)
         .lean(),
       Post.find({ category: { $in: discussionCategories } })
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
         .populate('authorId', 'username nickname')
         .sort({ updatedAt: -1, createdAt: -1 })
         .limit(8)
@@ -1016,7 +1036,7 @@ router.get('/search', async (req, res) => {
       characters,
     ] = await Promise.all([
       Post.find({ $or: [{ title: pattern }, { content: pattern }] })
-        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
+        .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt noticePinnedAt')
         .populate('authorId', 'username nickname')
         .sort({ isNotice: -1, noticePinnedAt: -1, updatedAt: -1, createdAt: -1 })
         .limit(10)

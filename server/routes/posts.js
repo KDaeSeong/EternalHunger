@@ -46,6 +46,15 @@ function normalizeCategoryFilter(value) {
   return POST_CATEGORIES.includes(category) ? category : '';
 }
 
+function normalizeGameSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
 function normalizeSort(value) {
   const sort = cleanText(value, 40);
   return ['latest', 'popular', 'views', 'comments'].includes(sort) ? sort : 'latest';
@@ -116,6 +125,7 @@ function serializePostDetail(post) {
     authorName: displayName(post?.authorId),
     category: normalizeCategory(post?.category),
     categoryLabel: CATEGORY_LABELS[normalizeCategory(post?.category)] || CATEGORY_LABELS.free,
+    gameSlug: normalizeGameSlug(post?.gameSlug),
     title: post?.title || '',
     content: post?.content || '',
     contentPreview: cleanText(post?.content, POST_PREVIEW_LENGTH),
@@ -137,6 +147,7 @@ function serializePostSummary(post, author) {
     authorName: displayName(author || post?.authorId),
     category: normalizeCategory(post?.category),
     categoryLabel: CATEGORY_LABELS[normalizeCategory(post?.category)] || CATEGORY_LABELS.free,
+    gameSlug: normalizeGameSlug(post?.gameSlug),
     title: post?.title || '',
     contentPreview: post?.contentPreview || '',
     isNotice: Boolean(post?.isNotice),
@@ -181,11 +192,13 @@ router.get('/', async (req, res) => {
   try {
     const q = cleanText(req.query?.q, 80);
     const category = normalizeCategoryFilter(req.query?.category);
+    const gameSlug = normalizeGameSlug(req.query?.gameSlug);
     const sort = normalizeSort(req.query?.sort);
     const limit = normalizePositiveInt(req.query?.limit, POST_DEFAULT_PAGE_SIZE, POST_MAX_PAGE_SIZE);
     const requestedPage = normalizePositiveInt(req.query?.page, 1, 1000000);
     const match = {};
     if (category) match.category = category;
+    if (gameSlug) match.gameSlug = gameSlug;
     if (q) {
       const pattern = new RegExp(escapeRegExp(q), 'i');
       const matchingAuthors = await User.find({
@@ -212,6 +225,7 @@ router.get('/', async (req, res) => {
         $project: {
           authorId: 1,
           category: 1,
+          gameSlug: 1,
           title: 1,
           isNotice: 1,
           noticePinnedAt: 1,
@@ -253,7 +267,7 @@ router.get('/bookmarks', verifyToken, async (req, res) => {
     const bookmarks = await PostBookmark.find({ userId: req.user.id })
       .populate({
         path: 'postId',
-        select: 'authorId category title content isNotice noticePinnedAt commentCount reactionCount viewCount createdAt updatedAt',
+        select: 'authorId category gameSlug title content isNotice noticePinnedAt commentCount reactionCount viewCount createdAt updatedAt',
         populate: { path: 'authorId', select: 'username nickname' },
       })
       .sort({ createdAt: -1 })
@@ -399,6 +413,7 @@ router.post('/', verifyToken, async (req, res) => {
     const title = cleanText(req.body?.title, 120);
     const content = cleanText(req.body?.content, 10000);
     const category = normalizeCategory(req.body?.category);
+    const gameSlug = normalizeGameSlug(req.body?.gameSlug);
     if (!title || !content) {
       return res.status(400).json({ error: '제목과 내용을 입력해주세요.' });
     }
@@ -406,6 +421,7 @@ router.post('/', verifyToken, async (req, res) => {
     const post = await Post.create({
       authorId: req.user.id,
       category,
+      gameSlug: category === 'game' || gameSlug ? gameSlug : '',
       title,
       content,
       commentCount: 0,
@@ -432,6 +448,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
 
     if (typeof req.body?.category === 'string') post.category = normalizeCategory(req.body.category);
+    if (typeof req.body?.gameSlug === 'string') post.gameSlug = normalizeGameSlug(req.body.gameSlug);
     if (typeof req.body?.title === 'string') post.title = cleanText(req.body.title, 120);
     if (typeof req.body?.content === 'string') post.content = cleanText(req.body.content, 10000);
     if (!post.title || !post.content) {
