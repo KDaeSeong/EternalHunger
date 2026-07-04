@@ -1,76 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../../components/SiteHeader';
-
-const CARD_LIBRARY = {
-  striker: {
-    id: 'striker',
-    name: '전열 스트라이커',
-    role: 'Unit',
-    cost: 1,
-    attack: 2,
-    health: 2,
-    text: '낮은 코스트로 전열을 빠르게 채웁니다.',
-    tone: 'red',
-  },
-  guardian: {
-    id: 'guardian',
-    name: '실드 가디언',
-    role: 'Unit',
-    cost: 2,
-    attack: 1,
-    health: 5,
-    text: '튼튼한 체력으로 다음 턴을 버팁니다.',
-    tone: 'blue',
-  },
-  sniper: {
-    id: 'sniper',
-    name: '후열 스나이퍼',
-    role: 'Unit',
-    cost: 3,
-    attack: 4,
-    health: 2,
-    text: '필드에 남으면 강한 압박을 만듭니다.',
-    tone: 'violet',
-  },
-  repair: {
-    id: 'repair',
-    name: '응급 정비',
-    role: 'Tactic',
-    cost: 1,
-    attack: 0,
-    health: 0,
-    text: '내 본부 체력을 3 회복합니다.',
-    tone: 'green',
-  },
-  barrage: {
-    id: 'barrage',
-    name: '집중 포화',
-    role: 'Tactic',
-    cost: 2,
-    attack: 0,
-    health: 0,
-    text: '상대 본부에 3 피해를 줍니다.',
-    tone: 'gold',
-  },
-};
-
-const STARTING_DECK = [
-  'striker',
-  'guardian',
-  'striker',
-  'repair',
-  'sniper',
-  'barrage',
-  'guardian',
-  'striker',
-  'barrage',
-  'repair',
-  'sniper',
-  'striker',
-].map((id, index) => ({ ...CARD_LIBRARY[id], instanceId: `${id}-${index}` }));
+import { apiGet, apiGetCached } from '../../../../utils/api';
+import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import {
+  FALLBACK_DECK_CARD_IDS,
+  FALLBACK_TCG_CARDS,
+  buildDeckFromIds,
+  normalizeCards,
+} from '../_lib/tcgCatalog';
 
 function drawCards(state, count) {
   const deck = [...state.deck];
@@ -88,14 +28,14 @@ function drawCards(state, count) {
   return { ...state, deck, hand, log: log.slice(0, 12) };
 }
 
-function createInitialState() {
+function createInitialState(deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)) {
   const base = {
     turn: 1,
     playerHealth: 20,
     enemyHealth: 20,
     maxEnergy: 1,
     energy: 1,
-    deck: STARTING_DECK,
+    deck: deckCards,
     hand: [],
     board: [],
     enemyBoard: [
@@ -131,6 +71,14 @@ function resolveTactic(card, state) {
       winner: enemyHealth <= 0 ? 'player' : state.winner,
     };
   }
+  if (card.id === 'barrier') {
+    return {
+      ...state,
+      playerHealth: clampHealth(state.playerHealth + 2),
+      discard: [...state.discard, card],
+      log: [`${card.name}: 본부 체력 +2`, ...state.log].slice(0, 12),
+    };
+  }
   return {
     ...state,
     discard: [...state.discard, card],
@@ -142,7 +90,67 @@ function cardPower(card) {
 }
 
 export default function DualAcademyTcgPlayPage() {
-  const [state, setState] = useState(createInitialState);
+  const mounted = useHydrated();
+  const token = useAuthToken();
+  const [cardCatalog, setCardCatalog] = useState(FALLBACK_TCG_CARDS);
+  const [deckCardIds, setDeckCardIds] = useState(FALLBACK_DECK_CARD_IDS);
+  const [deckName, setDeckName] = useState('스타터 덱');
+  const [loadingDeck, setLoadingDeck] = useState(true);
+  const [deckMessage, setDeckMessage] = useState('');
+  const [state, setState] = useState(() => createInitialState(buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)));
+
+  const resetWithDeck = useCallback((cardIds, cards) => {
+    setState(createInitialState(buildDeckFromIds(cardIds, cards)));
+  }, []);
+
+  const loadDeck = useCallback(async () => {
+    if (!mounted) return;
+    setLoadingDeck(true);
+    setDeckMessage('');
+    try {
+      const cardPayload = await apiGetCached('/tcg/cards', {
+        ttlMs: 60000,
+        timeoutMs: 12000,
+        storage: 'session',
+      });
+      const nextCards = normalizeCards(cardPayload?.cards);
+      let nextCardIds = Array.isArray(cardPayload?.defaultDeckCardIds) && cardPayload.defaultDeckCardIds.length
+        ? cardPayload.defaultDeckCardIds
+        : FALLBACK_DECK_CARD_IDS;
+      let nextDeckName = '기본 덱';
+
+      if (token) {
+        try {
+          const deckPayload = await apiGet('/tcg/decks/active', { timeoutMs: 12000 });
+          if (Array.isArray(deckPayload?.deck?.cardIds) && deckPayload.deck.cardIds.length) {
+            nextCardIds = deckPayload.deck.cardIds;
+            nextDeckName = deckPayload.deck.name || nextDeckName;
+          }
+        } catch (err) {
+          setDeckMessage(err?.message || '저장된 덱을 불러오지 못해 기본 덱을 사용합니다.');
+        }
+      } else {
+        setDeckMessage('로그인하면 저장된 덱을 사용할 수 있습니다.');
+      }
+
+      setCardCatalog(nextCards);
+      setDeckCardIds(nextCardIds);
+      setDeckName(nextDeckName);
+      resetWithDeck(nextCardIds, nextCards);
+    } catch (err) {
+      setDeckMessage(err?.message || '카드 정보를 불러오지 못해 기본 덱을 사용합니다.');
+      setCardCatalog(FALLBACK_TCG_CARDS);
+      setDeckCardIds(FALLBACK_DECK_CARD_IDS);
+      setDeckName('기본 덱');
+      resetWithDeck(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS);
+    } finally {
+      setLoadingDeck(false);
+    }
+  }, [mounted, resetWithDeck, token]);
+
+  useEffect(() => {
+    void loadDeck();
+  }, [loadDeck]);
 
   const handCost = useMemo(
     () => state.hand.reduce((sum, card) => sum + Number(card.cost || 0), 0),
@@ -220,7 +228,7 @@ export default function DualAcademyTcgPlayPage() {
     });
   };
 
-  const resetMatch = () => setState(createInitialState());
+  const resetMatch = () => resetWithDeck(deckCardIds, cardCatalog);
 
   return (
     <main className="tcg-page-shell">
@@ -233,6 +241,7 @@ export default function DualAcademyTcgPlayPage() {
           </div>
           <nav>
             <Link href="/games/dual-academy-tcg">상세</Link>
+            <Link href="/games/dual-academy-tcg/deck">덱 편집</Link>
             <Link href="/board?category=game&gameSlug=dual-academy-tcg">게시판</Link>
             <button type="button" onClick={resetMatch}>새 매치</button>
           </nav>
@@ -266,6 +275,8 @@ export default function DualAcademyTcgPlayPage() {
         <section className="tcg-layout">
           <aside className="tcg-panel">
             <h2>덱</h2>
+            <p className="tcg-deck-name">{loadingDeck ? '덱 불러오는 중' : deckName}</p>
+            {deckMessage ? <p className="tcg-deck-message">{deckMessage}</p> : null}
             <div className="tcg-deck-count">
               <strong>{state.deck.length}</strong>
               <span>남은 카드</span>

@@ -4180,6 +4180,13 @@
   align-items: start;
 }
 
+.tcg-deck-editor {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
 .tcg-panel,
 .tcg-board,
 .tcg-hand {
@@ -4216,6 +4223,41 @@
 .tcg-deck-count span {
   color: #64717d;
   font-weight: 900;
+}
+
+.tcg-deck-name,
+.tcg-deck-message {
+  margin: 8px 0 0;
+  color: #5f6c78;
+  font-size: 0.86rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.tcg-deck-message.is-danger {
+  color: #8b2c23;
+}
+
+.tcg-deck-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.tcg-deck-field span {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.tcg-deck-field input {
+  width: 100%;
+  border: 1px solid rgba(22, 33, 44, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 10px 11px;
+  font-weight: 850;
 }
 
 .tcg-small-stats {
@@ -4273,6 +4315,13 @@
 
 .tcg-hand-row {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.tcg-card-library {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .tcg-card {
@@ -4351,6 +4400,39 @@
   width: 100%;
 }
 
+.tcg-card-controls {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 8px;
+}
+
+.tcg-card-controls strong {
+  min-height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #f7fafc;
+}
+
+.tcg-primary-action {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 14px;
+  border: 1px solid rgba(44, 111, 158, 0.32);
+  border-radius: 8px;
+  background: #2c6f9e;
+  color: #ffffff;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.tcg-primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .tcg-card button:disabled,
 .tcg-lane-title button:disabled {
   cursor: not-allowed;
@@ -4398,7 +4480,8 @@
   }
 
   .tcg-scoreboard,
-  .tcg-layout {
+  .tcg-layout,
+  .tcg-deck-editor {
     grid-template-columns: 1fr;
   }
 }
