@@ -33,6 +33,7 @@ import {
   guardGGuardian,
   initDuelState,
   mulliganAll,
+  normalizeRules,
   retireCircle,
   rideFromHand,
   scoreDeck,
@@ -218,11 +219,13 @@ export default function BaVanguardPlayPage() {
   const [presetId, setPresetId] = useState(PRESET_DECKS[0]?.id || '');
   const [opponentPresetId, setOpponentPresetId] = useState(PRESET_DECKS[1]?.id || PRESET_DECKS[0]?.id || '');
   const [seed, setSeed] = useState(2401);
+  const [rules, setRules] = useState(() => normalizeRules(DEFAULT_RULES));
   const [autoGuardMe, setAutoGuardMe] = useState(false);
   const [duel, setDuel] = useState(() => initDuelState({
     meDeck: getPreset(PRESET_DECKS[0]?.id),
     oppDeck: getPreset(PRESET_DECKS[1]?.id || PRESET_DECKS[0]?.id),
     seed: 2401,
+    firstTurnNoDraw: rules.firstTurnNoDraw,
   }));
   const [selectedHandIndex, setSelectedHandIndex] = useState(null);
   const [selectedAttacker, setSelectedAttacker] = useState(null);
@@ -231,14 +234,14 @@ export default function BaVanguardPlayPage() {
 
   const deck = getPreset(presetId);
   const opponentDeck = getPreset(opponentPresetId);
-  const validation = useMemo(() => validateDeck(deck), [deck]);
-  const opponentValidation = useMemo(() => validateDeck(opponentDeck), [opponentDeck]);
+  const validation = useMemo(() => validateDeck(deck, rules), [deck, rules]);
+  const opponentValidation = useMemo(() => validateDeck(opponentDeck, rules), [opponentDeck, rules]);
   const summary = useMemo(() => summarizeDeck(deck), [deck]);
   const openingHand = useMemo(() => drawOpeningHand(deck, seed, 5), [deck, seed]);
-  const deckReport = useMemo(() => deckConsistencyReport(deck, seed), [deck, seed]);
+  const deckReport = useMemo(() => deckConsistencyReport(deck, seed, rules), [deck, seed, rules]);
   const openingStats = deckReport.opening;
   const compositionRows = deckReport.composition;
-  const score = scoreDeck(deck);
+  const score = scoreDeck(deck, rules);
   const duelSummary = summarizeDuel(duel);
   const visibleCards = CARDS.filter((card) => card.clan === deck.clan);
   const valid = validation.errors.length === 0 && opponentValidation.errors.length === 0;
@@ -262,7 +265,7 @@ export default function BaVanguardPlayPage() {
       oppDeck: opponentDeck,
       seed: nextSeed,
       first: 'me',
-      firstTurnNoDraw: DEFAULT_RULES.firstTurnNoDraw,
+      firstTurnNoDraw: rules.firstTurnNoDraw,
     }));
     setSelectedHandIndex(null);
     setSelectedAttacker(null);
@@ -276,7 +279,7 @@ export default function BaVanguardPlayPage() {
         if (next.winner) break;
         if (next.battle?.defenderSide === 'me' && !autoGuardMe) break;
         if (next.active === 'me' && !next.battle) break;
-        const progressed = aiStep(next, DEFAULT_RULES.firstTurnNoDraw, autoGuardMe);
+        const progressed = aiStep(next, rules.firstTurnNoDraw, autoGuardMe);
         if (!progressed) break;
       }
       return next;
@@ -288,7 +291,7 @@ export default function BaVanguardPlayPage() {
     setSelectedHandIndex(null);
     mutateDuel((next) => {
       if (next.phase === 'END') endTurn(next);
-      else advancePhase(next, DEFAULT_RULES.firstTurnNoDraw);
+      else advancePhase(next, rules.firstTurnNoDraw);
     });
     setTimeout(runAiUntilStop, 0);
   };
@@ -342,7 +345,7 @@ export default function BaVanguardPlayPage() {
     if (!selectedAttacker || !canControl || duel.phase !== 'BATTLE') return;
     mutateDuel((next) => {
       declareAttack(next, selectedAttacker, circle);
-      aiStep(next, DEFAULT_RULES.firstTurnNoDraw, autoGuardMe);
+      aiStep(next, rules.firstTurnNoDraw, autoGuardMe);
     });
     setSelectedAttacker(null);
   };
@@ -364,6 +367,10 @@ export default function BaVanguardPlayPage() {
     setTimeout(runAiUntilStop, 0);
   };
 
+  const setRuleOption = (key, value) => {
+    setRules((current) => normalizeRules({ ...current, [key]: value }));
+  };
+
   const saveRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 BA Vanguard 플레이테스트 상태를 저장할 수 있습니다.');
@@ -380,10 +387,11 @@ export default function BaVanguardPlayPage() {
           deckName: deck.name,
           opponentDeckName: opponentDeck.name,
           clan: deck.clan,
+          rules,
           score,
           duel: duelSummary,
         },
-        payload: { presetId, opponentPresetId, seed, autoGuardMe, duel },
+        payload: { presetId, opponentPresetId, seed, rules, autoGuardMe, duel },
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
@@ -416,14 +424,17 @@ export default function BaVanguardPlayPage() {
       const nextPreset = getPreset(payload.presetId)?.id || PRESET_DECKS[0].id;
       const nextOpp = getPreset(payload.opponentPresetId)?.id || PRESET_DECKS[1]?.id || PRESET_DECKS[0].id;
       const nextSeed = Number(payload.seed || 2401);
+      const nextRules = normalizeRules(payload.rules);
       setPresetId(nextPreset);
       setOpponentPresetId(nextOpp);
       setSeed(nextSeed);
+      setRules(nextRules);
       setAutoGuardMe(Boolean(payload.autoGuardMe));
       setDuel(payload.duel || initDuelState({
         meDeck: getPreset(nextPreset),
         oppDeck: getPreset(nextOpp),
         seed: nextSeed,
+        firstTurnNoDraw: nextRules.firstTurnNoDraw,
       }));
       setSelectedHandIndex(null);
       setSelectedAttacker(null);
@@ -455,10 +466,11 @@ export default function BaVanguardPlayPage() {
           deckName: deck.name,
           opponentDeckName: opponentDeck.name,
           clan: deck.clan,
+          rules,
           openingHand: openingHand.map(cardName),
           duel: duelSummary,
         },
-        payload: { presetId, opponentPresetId, seed, deck, opponentDeck, validation, duel },
+        payload: { presetId, opponentPresetId, seed, rules, deck, opponentDeck, validation, duel },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
       setMessage('BA Vanguard 플레이테스트 결과를 전적에 기록했습니다.');
@@ -535,6 +547,19 @@ export default function BaVanguardPlayPage() {
             <input type="checkbox" checked={autoGuardMe} onChange={(event) => setAutoGuardMe(event.target.checked)} />
             내 방어 자동 처리
           </label>
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 900 }}>
+              <input type="checkbox" checked={rules.allowMixedClan} onChange={(event) => setRuleOption('allowMixedClan', event.target.checked)} />
+              학원(클랜) 혼합 허용
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 900 }}>
+              <input type="checkbox" checked={rules.firstTurnNoDraw} onChange={(event) => setRuleOption('firstTurnNoDraw', event.target.checked)} />
+              선공 1턴 드로우/공격 제한
+            </label>
+            <p style={{ margin: 0, color: '#94a3b8', fontWeight: 800, lineHeight: 1.45 }}>
+              룰 옵션은 덱 검증과 새 듀얼 시작부터 적용됩니다.
+            </p>
+          </div>
           <div className="game-save-actions" style={{ marginTop: 12 }}>
             <button type="button" onClick={() => startNewDuel(seed)}>설정으로 재시작</button>
             <button type="button" onClick={runAiUntilStop}>AI 진행</button>
@@ -547,7 +572,8 @@ export default function BaVanguardPlayPage() {
             <span>{duel.winner ? `${SIDE_LABELS[duel.winner]} 승리` : `${SIDE_LABELS[duel.active]} 차례`}</span>
           </div>
           <div className="games-rank-split">
-            <SmallStat label="선공 규칙" value={DEFAULT_RULES.firstTurnNoDraw ? 'ON' : 'OFF'} />
+            <SmallStat label="선공 제한" value={rules.firstTurnNoDraw ? 'ON' : 'OFF'} />
+            <SmallStat label="혼합 클랜" value={rules.allowMixedClan ? '허용' : '금지'} />
             <SmallStat label="패" value={`${me.hand.length}/${opp.hand.length}`} />
             <SmallStat label="덱" value={`${me.deck.length}/${opp.deck.length}`} />
           </div>
@@ -653,7 +679,7 @@ export default function BaVanguardPlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>덱 요약</h2>
-            <span>{summary.mainCount}/{DEFAULT_RULES.mainSize}</span>
+            <span>{summary.mainCount}/{rules.mainSize}</span>
           </div>
           <div className="games-rank-split">
             <SmallStat label="평균 파워" value={summary.averagePower.toLocaleString('ko-KR')} />

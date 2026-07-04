@@ -14,6 +14,18 @@ export const DEFAULT_RULES = {
   firstTurnNoDraw: true,
 };
 
+export function normalizeRules(value = {}) {
+  const numberKeys = ['mainSize', 'triggerSize', 'starterSize', 'gZoneMax', 'maxCopies', 'recommendedGrade3', 'minGGuardians'];
+  const next = { ...DEFAULT_RULES };
+  numberKeys.forEach((key) => {
+    const raw = Number(value?.[key]);
+    if (Number.isFinite(raw) && raw > 0) next[key] = Math.round(raw);
+  });
+  next.allowMixedClan = value?.allowMixedClan === undefined ? DEFAULT_RULES.allowMixedClan : Boolean(value.allowMixedClan);
+  next.firstTurnNoDraw = value?.firstTurnNoDraw === undefined ? DEFAULT_RULES.firstTurnNoDraw : Boolean(value.firstTurnNoDraw);
+  return next;
+}
+
 export const CIRCLES = ['RC_BL', 'RC_BC', 'RC_BR', 'RC_FL', 'VC', 'RC_FR'];
 export const REAR_CIRCLES = ['RC_FL', 'RC_FR', 'RC_BL', 'RC_BR', 'RC_BC'];
 export const PHASES = ['STAND', 'DRAW', 'MAIN', 'BATTLE', 'END'];
@@ -324,6 +336,7 @@ export function countEntries(entries) {
 }
 
 export function validateDeck(deck, rules = DEFAULT_RULES) {
+  const activeRules = normalizeRules(rules);
   const errors = [];
   const warnings = [];
   const mainIds = expandEntries(deck?.main);
@@ -332,13 +345,13 @@ export function validateDeck(deck, rules = DEFAULT_RULES) {
   const gCards = gIds.map(getCard).filter(Boolean);
   const allEntries = [...(deck?.main || []), ...(deck?.gzone || [])];
 
-  if (mainIds.length !== rules.mainSize) errors.push(`메인 덱은 ${rules.mainSize}장이어야 합니다. 현재 ${mainIds.length}장입니다.`);
-  if (gIds.length > rules.gZoneMax) errors.push(`G존은 최대 ${rules.gZoneMax}장입니다. 현재 ${gIds.length}장입니다.`);
+  if (mainIds.length !== activeRules.mainSize) errors.push(`메인 덱은 ${activeRules.mainSize}장이어야 합니다. 현재 ${mainIds.length}장입니다.`);
+  if (gIds.length > activeRules.gZoneMax) errors.push(`G존은 최대 ${activeRules.gZoneMax}장입니다. 현재 ${gIds.length}장입니다.`);
 
   allEntries.forEach((entry) => {
     const card = getCard(entry.cardId);
     if (!card) errors.push(`존재하지 않는 카드: ${entry.cardId}`);
-    if (Number(entry.count || 0) > rules.maxCopies) errors.push(`${card?.name || entry.cardId}는 ${rules.maxCopies}장까지만 넣을 수 있습니다.`);
+    if (Number(entry.count || 0) > activeRules.maxCopies) errors.push(`${card?.name || entry.cardId}는 ${activeRules.maxCopies}장까지만 넣을 수 있습니다.`);
     if (Number(entry.count || 0) < 0) errors.push(`${card?.name || entry.cardId}의 매수가 음수입니다.`);
   });
 
@@ -349,18 +362,18 @@ export function validateDeck(deck, rules = DEFAULT_RULES) {
   const grade3 = mainCards.filter((card) => card.type === 'normal' && Number(card.grade || 0) === 3);
   const clans = new Set([...mainCards, ...gCards].map((card) => card.clan));
 
-  if (triggers.length !== rules.triggerSize) errors.push(`트리거는 ${rules.triggerSize}장이어야 합니다. 현재 ${triggers.length}장입니다.`);
-  if (heals.length > rules.maxCopies) errors.push(`힐 트리거는 최대 ${rules.maxCopies}장입니다. 현재 ${heals.length}장입니다.`);
-  if (starters.length !== rules.starterSize) errors.push(`스타터는 ${rules.starterSize}장이어야 합니다. 현재 ${starters.length}장입니다.`);
-  if (sentinels.length > rules.maxCopies) errors.push(`센티넬은 최대 ${rules.maxCopies}장입니다. 현재 ${sentinels.length}장입니다.`);
-  if (!rules.allowMixedClan && clans.size > 1) errors.push(`클랜이 섞여 있습니다: ${[...clans].join(', ')}`);
-  if (grade3.length !== rules.recommendedGrade3) warnings.push(`권장 G3 매수는 ${rules.recommendedGrade3}장입니다. 현재 ${grade3.length}장입니다.`);
+  if (triggers.length !== activeRules.triggerSize) errors.push(`트리거는 ${activeRules.triggerSize}장이어야 합니다. 현재 ${triggers.length}장입니다.`);
+  if (heals.length > activeRules.maxCopies) errors.push(`힐 트리거는 최대 ${activeRules.maxCopies}장입니다. 현재 ${heals.length}장입니다.`);
+  if (starters.length !== activeRules.starterSize) errors.push(`스타터는 ${activeRules.starterSize}장이어야 합니다. 현재 ${starters.length}장입니다.`);
+  if (sentinels.length > activeRules.maxCopies) errors.push(`센티넬은 최대 ${activeRules.maxCopies}장입니다. 현재 ${sentinels.length}장입니다.`);
+  if (!activeRules.allowMixedClan && clans.size > 1) errors.push(`클랜이 섞여 있습니다: ${[...clans].join(', ')}`);
+  if (grade3.length !== activeRules.recommendedGrade3) warnings.push(`권장 G3 매수는 ${activeRules.recommendedGrade3}장입니다. 현재 ${grade3.length}장입니다.`);
 
   gCards.forEach((card) => {
     if (card.type !== 'g-unit' && card.type !== 'g-guardian') errors.push(`G존에는 G 유닛/G 가디언만 들어갈 수 있습니다: ${card.name}`);
   });
   const guardians = gCards.filter((card) => card.type === 'g-guardian').length;
-  if (gIds.length > 0 && guardians < rules.minGGuardians) warnings.push(`G 가디언은 최소 ${rules.minGGuardians}장 이상을 권장합니다. 현재 ${guardians}장입니다.`);
+  if (gIds.length > 0 && guardians < activeRules.minGGuardians) warnings.push(`G 가디언은 최소 ${activeRules.minGGuardians}장 이상을 권장합니다. 현재 ${guardians}장입니다.`);
 
   return { errors, warnings };
 }
@@ -502,8 +515,8 @@ export function openingHandStats(deck, seed = Date.now(), samples = 160, handSiz
   };
 }
 
-export function deckConsistencyReport(deck, seed = Date.now()) {
-  const validation = validateDeck(deck);
+export function deckConsistencyReport(deck, seed = Date.now(), rules = DEFAULT_RULES) {
+  const validation = validateDeck(deck, rules);
   const summary = summarizeDeck(deck);
   const composition = deckCompositionRows(deck);
   const opening = openingHandStats(deck, seed);
@@ -527,8 +540,8 @@ export function deckConsistencyReport(deck, seed = Date.now()) {
   };
 }
 
-export function scoreDeck(deck) {
-  const validation = validateDeck(deck);
+export function scoreDeck(deck, rules = DEFAULT_RULES) {
+  const validation = validateDeck(deck, rules);
   const summary = summarizeDeck(deck);
   return Math.max(0, Math.round(
     1000
