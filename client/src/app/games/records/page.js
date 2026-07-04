@@ -7,7 +7,7 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthUser, useHydrated } from '../../../utils/client-auth';
-import { GAME_CATALOG, GAME_ROADMAP } from '../_lib/gameCatalog';
+import { GAME_CATALOG, GAME_ROADMAP, dynamicGameCandidateToGame } from '../_lib/gameCatalog';
 
 const RESULT_LABELS = {
   win: '승리',
@@ -31,9 +31,13 @@ function cleanKey(value, fallback = '') {
     .slice(0, 80);
 }
 
-function getGameOptions() {
+function normalizeDynamicGames(payload) {
+  return normalizeList(payload?.candidates).map(dynamicGameCandidateToGame).filter(Boolean);
+}
+
+function getGameOptions(dynamicGames = []) {
   const map = new Map();
-  [...GAME_CATALOG, ...GAME_ROADMAP].forEach((game) => {
+  [...GAME_CATALOG, ...GAME_ROADMAP, ...dynamicGames].forEach((game) => {
     if (!game?.slug) return;
     map.set(game.slug, { slug: game.slug, title: game.title || game.slug });
   });
@@ -87,12 +91,12 @@ function GameRecordsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
-  const gameOptions = useMemo(getGameOptions, []);
   const requestedGameSlug = cleanKey(searchParams.get('gameSlug'));
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [dynamicGames, setDynamicGames] = useState([]);
   const [gameSlug, setGameSlug] = useState(requestedGameSlug);
   const [form, setForm] = useState({
     gameSlug: requestedGameSlug || 'dual-academy-tcg',
@@ -104,6 +108,7 @@ function GameRecordsContent() {
     summaryText: JSON.stringify({ deck: 'sample', opponent: 'ai' }, null, 2),
     payloadText: JSON.stringify({ events: [] }, null, 2),
   });
+  const gameOptions = useMemo(() => getGameOptions(dynamicGames), [dynamicGames]);
 
   useEffect(() => {
     setGameSlug(requestedGameSlug);
@@ -111,6 +116,19 @@ function GameRecordsContent() {
       setForm((current) => ({ ...current, gameSlug: requestedGameSlug }));
     }
   }, [requestedGameSlug]);
+
+  const loadGameCandidates = useCallback(async () => {
+    try {
+      const payload = await apiGetCached('/public/game-candidates', {
+        ttlMs: 30000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
+      setDynamicGames(normalizeDynamicGames(payload));
+    } catch {
+      setDynamicGames([]);
+    }
+  }, []);
 
   const loadRecords = useCallback(async (options = {}) => {
     if (!user) {
@@ -142,6 +160,10 @@ function GameRecordsContent() {
   useEffect(() => {
     if (hydrated) void loadRecords();
   }, [hydrated, loadRecords]);
+
+  useEffect(() => {
+    void loadGameCandidates();
+  }, [loadGameCandidates]);
 
   const createRecord = async (event) => {
     event.preventDefault();

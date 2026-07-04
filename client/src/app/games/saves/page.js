@@ -7,7 +7,7 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGet, apiGetCached, apiPut, clearApiGetCache } from '../../../utils/api';
 import { useAuthUser, useHydrated } from '../../../utils/client-auth';
-import { GAME_CATALOG, GAME_ROADMAP } from '../_lib/gameCatalog';
+import { GAME_CATALOG, GAME_ROADMAP, dynamicGameCandidateToGame } from '../_lib/gameCatalog';
 
 const DEFAULT_PAYLOAD = JSON.stringify({
   createdFrom: 'games-save-manager',
@@ -47,9 +47,13 @@ function formatBytes(value) {
   return `${Math.floor(bytes)} B`;
 }
 
-function getGameOptions() {
+function normalizeDynamicGames(payload) {
+  return normalizeList(payload?.candidates).map(dynamicGameCandidateToGame).filter(Boolean);
+}
+
+function getGameOptions(dynamicGames = []) {
   const map = new Map();
-  [...GAME_CATALOG, ...GAME_ROADMAP].forEach((game) => {
+  [...GAME_CATALOG, ...GAME_ROADMAP, ...dynamicGames].forEach((game) => {
     if (!game?.slug) return;
     map.set(game.slug, {
       slug: game.slug,
@@ -89,12 +93,12 @@ function GameSavesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
-  const gameOptions = useMemo(getGameOptions, []);
   const requestedGameSlug = cleanKey(searchParams.get('gameSlug'));
   const [saves, setSaves] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [dynamicGames, setDynamicGames] = useState([]);
   const [gameSlug, setGameSlug] = useState(requestedGameSlug);
   const [form, setForm] = useState({
     gameSlug: requestedGameSlug || 'dual-academy-tcg',
@@ -104,6 +108,7 @@ function GameSavesContent() {
     summaryText: JSON.stringify({ progress: 'new' }, null, 2),
     payloadText: DEFAULT_PAYLOAD,
   });
+  const gameOptions = useMemo(() => getGameOptions(dynamicGames), [dynamicGames]);
 
   useEffect(() => {
     setGameSlug(requestedGameSlug);
@@ -111,6 +116,19 @@ function GameSavesContent() {
       setForm((current) => ({ ...current, gameSlug: requestedGameSlug }));
     }
   }, [requestedGameSlug]);
+
+  const loadGameCandidates = useCallback(async () => {
+    try {
+      const payload = await apiGetCached('/public/game-candidates', {
+        ttlMs: 30000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
+      setDynamicGames(normalizeDynamicGames(payload));
+    } catch {
+      setDynamicGames([]);
+    }
+  }, []);
 
   const loadSaves = useCallback(async (options = {}) => {
     if (!user) {
@@ -142,6 +160,10 @@ function GameSavesContent() {
   useEffect(() => {
     if (hydrated) void loadSaves();
   }, [hydrated, loadSaves]);
+
+  useEffect(() => {
+    void loadGameCandidates();
+  }, [loadGameCandidates]);
 
   const saveSlot = async (event) => {
     event.preventDefault();
