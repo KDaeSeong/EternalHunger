@@ -96,9 +96,10 @@ Checked: 2026-07-04
 - Route: `/games/dual-academy-tcg/play`; deck editor: `/games/dual-academy-tcg/deck`.
 - Included loop: deck loading, hand/deck/board/discard state, energy turns, unit summon, tactic effects, combat, guard/quick/pierce/shield keywords, enemy auto-turn, room state sync, save/load, and match record.
 - v13 event layer: draw, summon, effect, attack, turn-start, prompt, win, and greet actions now emit a bounded duel event stream with Yuuka/Hina character callouts.
+- v13 card layer: the uploaded Gehenna/Trinity/Millennium monster, spell, field, and counter-trap cards are mapped into the site card pool with simplified Unit/Tactic stats and playable effects for draw, damage, shield, destroy, and banish actions.
 - Site API integration: quick save through `/game-saves/dual-academy-tcg/quick-match`; room state sync through `/game-rooms/:id/state`; match result through `/game-records/dual-academy-tcg`.
 - Source basis: `C:\2저장고\마이애니메\dual-academy-tcg-v13-fix-emitEvent`, especially the `emitEvent`/character quote flow from `src\duel\engine.ts` and `src\data\characters.ts`.
-- Next step: port the original full phase model, spell/trap zones, field cards, chain prompt, counter-trap response, and larger card DB behind the current site shell.
+- Next step: port the original full phase model, spell/trap zones, field cards, chain prompt, and counter-trap response behind the current site shell.
 
 ## Tonkatsu Teacher Slice Status
 

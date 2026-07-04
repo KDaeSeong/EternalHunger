@@ -20,18 +20,18 @@ import {
 
 const QUICK_SAVE_SLOT = 'quick-match';
 const ENEMY_DECK_CARD_IDS = [
-  'guardian',
-  'striker',
-  'charger',
-  'repair',
-  'barrage',
-  'sniper',
-  'guardian',
-  'barrier',
-  'captain',
-  'striker',
-  'barrage',
-  'charger',
+  'GEH-HINA-01',
+  'GEH-TUNE-01',
+  'GEH-FIELD-01',
+  'TRI-MIKA-01',
+  'TRI-TUNE-01',
+  'TRI-NORMAL-01',
+  'MIL-YUUKA-01',
+  'MIL-TUNE-01',
+  'MIL-NORMAL-01',
+  'MIL-FIELD-01',
+  'GEH-SEINA-01',
+  'TRI-COUNTER-01',
 ];
 
 const MAX_DUEL_EVENTS = 120;
@@ -220,26 +220,28 @@ function clampHealth(value) {
 }
 
 function resolveTactic(card, state) {
-  if (card.id === 'repair') {
+  const effect = effectKey(card);
+  if (effect === 'heal') {
     return emitEvent({
       ...state,
-      playerHealth: clampHealth(state.playerHealth + 3),
+      playerHealth: clampHealth(state.playerHealth + effectAmount(card, 3)),
       discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 본부 체력 +3`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
+    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 본부 체력 회복`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
   }
-  if (card.id === 'barrage') {
-    const enemyHealth = Math.max(0, state.enemyHealth - 3);
+  if (effect === 'damage') {
+    const amount = effectAmount(card, 3);
+    const enemyHealth = Math.max(0, state.enemyHealth - amount);
     const next = emitEvent({
       ...state,
       enemyHealth,
       discard: [...state.discard, card],
       winner: enemyHealth <= 0 ? 'player' : state.winner,
-    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 상대 본부에 3 피해`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount: 3 });
+    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 상대 본부에 ${amount} 피해`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount });
     return enemyHealth <= 0
       ? emitEvent(next, 'WIN', 'player', eventLine('player', 'WIN', '승리했습니다.'))
       : next;
   }
-  if (card.id === 'barrier') {
+  if (effect === 'shield') {
     const targetIndex = shieldTargetIndex(state.board);
     if (targetIndex >= 0) {
       const board = state.board.slice();
@@ -256,6 +258,35 @@ function resolveTactic(card, state) {
       playerHealth: clampHealth(state.playerHealth + 2),
       discard: [...state.discard, card],
     }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 본부 체력 +2`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
+  }
+  if (effect === 'draw' || effect === 'draw-heal') {
+    const drawCount = effectAmount(card, 1);
+    let next = {
+      ...state,
+      discard: [...state.discard, card],
+      playerHealth: effect === 'draw-heal' ? clampHealth(state.playerHealth + 1) : state.playerHealth,
+    };
+    next = drawCards(next, drawCount);
+    return emitEvent(next, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: ${drawCount}장 드로우`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount: drawCount });
+  }
+  if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-unit') {
+    const targetIndex = effect === 'banish-enemy-unit'
+      ? strongestUnitIndex(state.enemyBoard)
+      : weakestUnitIndex(state.enemyBoard);
+    if (targetIndex < 0) {
+      return emitEvent({
+        ...state,
+        discard: [...state.discard, card],
+      }, 'EFFECT_ACTIVATE', 'player', `${card.name}: 제거할 상대 유닛이 없습니다.`, { cardId: card.id, cardName: card.name });
+    }
+    const target = state.enemyBoard[targetIndex];
+    const enemyBoard = state.enemyBoard.slice();
+    enemyBoard.splice(targetIndex, 1);
+    return emitEvent({
+      ...state,
+      enemyBoard,
+      discard: [...state.discard, card],
+    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: ${target.name} 제거`, { cardName: card.name }), { cardId: card.id, cardName: card.name, target: target.name });
   }
   return emitEvent({
     ...state,
@@ -324,6 +355,28 @@ function shieldTargetIndex(units) {
   return openTarget >= 0 ? openTarget : weakestUnitIndex(units);
 }
 
+function strongestUnitIndex(units) {
+  if (!Array.isArray(units) || !units.length) return -1;
+  return units.reduce((bestIndex, unit, index) => (
+    cardPower(unit) > cardPower(units[bestIndex]) ? index : bestIndex
+  ), 0);
+}
+
+function effectKey(card) {
+  if (card?.effect) return card.effect;
+  if (card?.effectId === 'E_DRAW_1') return 'draw';
+  if (card?.effectId === 'E_DESTROY_OPP_MONSTER') return 'destroy-enemy-unit';
+  if (card?.effectId === 'E_BANISH_ANY_CARD') return 'banish-enemy-unit';
+  if (card?.id === 'repair') return 'heal';
+  if (card?.id === 'barrage') return 'damage';
+  if (card?.id === 'barrier') return 'shield';
+  return 'none';
+}
+
+function effectAmount(card, fallback = 1) {
+  return Math.max(1, Number(card?.effectAmount || fallback));
+}
+
 function KeywordBadges({ card }) {
   const labels = keywordLabels(card);
   const shielded = Boolean(card?.shield);
@@ -371,7 +424,8 @@ function resolveCombat(attacker, defender) {
 }
 
 function resolveEnemyTactic(card, state) {
-  if (card.id === 'barrier') {
+  const effect = effectKey(card);
+  if (effect === 'shield') {
     const targetIndex = shieldTargetIndex(state.enemyBoard);
     if (targetIndex >= 0) {
       const enemyBoard = state.enemyBoard.slice();
@@ -389,24 +443,54 @@ function resolveEnemyTactic(card, state) {
       discard: [...state.discard, card],
     }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `적 ${card.name}: 적 본부 회복`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
   }
-  if (card.id === 'repair') {
+  if (effect === 'heal') {
     return emitEvent({
       ...state,
-      enemyHealth: clampHealth(state.enemyHealth + 3),
+      enemyHealth: clampHealth(state.enemyHealth + effectAmount(card, 3)),
       discard: [...state.discard, card],
     }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: 상대 본부 회복`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
   }
-  if (card.id === 'barrage') {
-    const playerHealth = Math.max(0, state.playerHealth - 3);
+  if (effect === 'damage') {
+    const amount = effectAmount(card, 3);
+    const playerHealth = Math.max(0, state.playerHealth - amount);
     const next = emitEvent({
       ...state,
       playerHealth,
       discard: [...state.discard, card],
       winner: playerHealth <= 0 ? 'enemy' : state.winner,
-    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: 내 본부에 3 피해`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount: 3 });
+    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: 내 본부에 ${amount} 피해`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount });
     return playerHealth <= 0
       ? emitEvent(next, 'WIN', 'enemy', eventLine('enemy', 'WIN', '패배했습니다.'))
       : next;
+  }
+  if (effect === 'draw' || effect === 'draw-heal') {
+    const drawCount = effectAmount(card, 1);
+    let next = {
+      ...state,
+      discard: [...state.discard, card],
+      enemyHealth: effect === 'draw-heal' ? clampHealth(state.enemyHealth + 1) : state.enemyHealth,
+    };
+    next = drawEnemyCards(next, drawCount);
+    return emitEvent(next, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: ${drawCount}장 드로우`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount: drawCount });
+  }
+  if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-unit') {
+    const targetIndex = effect === 'banish-enemy-unit'
+      ? strongestUnitIndex(state.board)
+      : weakestUnitIndex(state.board);
+    if (targetIndex < 0) {
+      return emitEvent({
+        ...state,
+        discard: [...state.discard, card],
+      }, 'EFFECT_ACTIVATE', 'enemy', `상대 ${card.name}: 제거할 내 유닛이 없습니다.`, { cardId: card.id, cardName: card.name });
+    }
+    const target = state.board[targetIndex];
+    const board = state.board.slice();
+    board.splice(targetIndex, 1);
+    return emitEvent({
+      ...state,
+      board,
+      discard: [...state.discard, card],
+    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: ${target.name} 제거`, { cardName: card.name }), { cardId: card.id, cardName: card.name, target: target.name });
   }
   return emitEvent({
     ...state,
