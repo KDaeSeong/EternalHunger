@@ -45,6 +45,69 @@ function stampText(at) {
   return `${day}일차 ${phaseLabel}`;
 }
 
+function compactRunEventsForStorage(runEvents) {
+  const allowedKeys = [
+    'kind',
+    'subkind',
+    'who',
+    'whoId',
+    'whoName',
+    'name',
+    'source',
+    'sourceKind',
+    'src',
+    'itemId',
+    'qty',
+    'tier',
+    'chosen',
+    'reason',
+    'outcome',
+    'objectiveType',
+    'objectiveSubkind',
+    'zoneId',
+    'from',
+    'to',
+    'fromMapId',
+    'toMapId',
+    'toZoneId',
+    'chaserId',
+    'chaserName',
+    'skill',
+    'mode',
+    'heal',
+    'damage',
+    'preDamage',
+    'pEscape',
+    'pChase',
+    'pCatch',
+    'tacUsed',
+    'fatal',
+    'escaped',
+    'caught',
+  ];
+  return (Array.isArray(runEvents) ? runEvents : [])
+    .slice(-2000)
+    .map((event) => {
+      if (!event || typeof event !== 'object') return null;
+      const out = {};
+      for (const key of allowedKeys) {
+        if (event[key] === undefined || event[key] === null) continue;
+        if (typeof event[key] === 'object') continue;
+        out[key] = typeof event[key] === 'string' ? event[key].slice(0, 180) : event[key];
+      }
+      if (event.at && typeof event.at === 'object') {
+        out.at = {
+          day: Number(event.at.day || 0),
+          phase: String(event.at.phase || '').slice(0, 20),
+          sec: Number(event.at.sec || 0),
+        };
+      }
+      if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map((reason) => String(reason || '').slice(0, 120));
+      return Object.keys(out).length ? out : null;
+    })
+    .filter(Boolean);
+}
+
 function buildRunSummary({ fullLogs, matchMode, participants, runEvents }) {
   const safeParticipants = Array.isArray(participants) ? participants : [];
   const events = Array.isArray(runEvents) ? runEvents : [];
@@ -283,11 +346,12 @@ router.post('/end', async (req, res) => {
 
     const winnerFromPayload = summary.find(s => String(s.charId) === String(winnerId));
     const fullLog = Array.isArray(fullLogs) ? fullLogs.map(String) : [];
+    const storedRunEvents = compactRunEventsForStorage(runEvents);
     const summaryDoc = buildRunSummary({
       fullLogs: fullLog,
       matchMode,
       participants: summary,
-      runEvents,
+      runEvents: storedRunEvents,
     });
 
     const winnerTeamPayload = summary.find((s) => s.isWinner && s.teamId === resolvedWinnerTeamId) || summary.find((s) => s.isWinner);
@@ -301,6 +365,7 @@ router.post('/end', async (req, res) => {
       teamSize: Number(teamSize || 0),
       participants: summary,
       fullLog,
+      runEvents: storedRunEvents,
       summary: summaryDoc,
     }).save();
 

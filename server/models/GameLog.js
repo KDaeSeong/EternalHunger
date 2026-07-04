@@ -22,6 +22,7 @@ const GameLogSchema = new mongoose.Schema({
     rosterNames: [String],
   }],
   fullLog: [String],
+  runEvents: [mongoose.Schema.Types.Mixed],
   summary: {
     participantCount: Number,
     teamCount: Number,

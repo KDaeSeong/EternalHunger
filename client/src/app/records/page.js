@@ -199,7 +199,10 @@ function RunCard({ run, previous }) {
           <h2>{winnerTeam}</h2>
           <p>{String(run?.matchMode || '').toLowerCase() === 'solo' ? '솔로' : `스쿼드 · 팀당 ${formatNumber(run?.teamSize || 0)}명`}</p>
         </div>
-        <strong>{formatNumber(run?.participantCount)}명 / {formatNumber(run?.teamCount)}팀</strong>
+        <div className="records-run-meta">
+          <strong>{formatNumber(run?.participantCount)}명 / {formatNumber(run?.teamCount)}팀</strong>
+          {run?.id ? <Link href={`/records/runs/${run.id}`}>리플레이</Link> : null}
+        </div>
       </header>
 
       <div className="records-run-metrics">

@@ -256,6 +256,30 @@
     white-space: nowrap;
 }
 
+.records-run-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.records-run-meta a,
+.records-detail-actions a,
+.records-raw-log-toggle button {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    border: 1px solid #0288d1;
+    border-radius: 8px;
+    background: #0288d1;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+    text-decoration: none;
+}
+
 .records-run-metrics {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -310,6 +334,271 @@
     border-radius: 999px;
     background: #f1f5f9;
     color: #334155;
+}
+
+.records-run-detail {
+    display: grid;
+    gap: 14px;
+}
+
+.records-detail-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.records-detail-head p {
+    margin: 0 0 6px;
+    color: #0b77b7;
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.records-detail-head h1 {
+    margin: 0;
+    color: #111827;
+    font-size: 28px;
+    letter-spacing: 0;
+}
+
+.records-detail-head span {
+    display: block;
+    margin-top: 7px;
+    color: #526174;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.records-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.records-detail-actions a {
+    border-color: #cbd5e1;
+    background: #fff;
+    color: #102033;
+}
+
+.records-detail-grid {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.records-detail-card,
+.records-timeline-panel {
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.records-detail-card-head,
+.records-timeline-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px;
+    border-bottom: 1px solid #e5edf5;
+    background: #fbfdff;
+}
+
+.records-detail-card-head h2,
+.records-timeline-toolbar h2,
+.records-timeline-group h2 {
+    margin: 0;
+    color: #111827;
+    font-size: 17px;
+    letter-spacing: 0;
+}
+
+.records-detail-card-head span {
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #075985;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.records-participant-list {
+    display: grid;
+}
+
+.records-participant-list div {
+    display: grid;
+    gap: 3px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.records-participant-list div:last-child {
+    border-bottom: 0;
+}
+
+.records-participant-list div.winner {
+    background: #fefce8;
+}
+
+.records-participant-list strong {
+    color: #111827;
+    font-weight: 900;
+}
+
+.records-participant-list span,
+.records-participant-list small,
+.records-timeline-toolbar p {
+    margin: 0;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.records-timeline-toolbar {
+    align-items: flex-end;
+}
+
+.records-timeline-filters {
+    display: inline-grid;
+    grid-template-columns: repeat(5, minmax(56px, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.records-timeline-filters button {
+    min-height: 30px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #526174;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.records-timeline-filters button.active {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.records-timeline-groups {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+}
+
+.records-timeline-group {
+    display: grid;
+    gap: 8px;
+}
+
+.records-timeline-group h2 {
+    padding-left: 2px;
+    font-size: 15px;
+}
+
+.records-timeline-items {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.records-timeline-item {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid #e5edf5;
+    border-left-width: 5px;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.records-timeline-item > span {
+    color: #667085;
+    font-size: 12px;
+    font-weight: 900;
+    word-break: break-word;
+}
+
+.records-timeline-item strong {
+    display: block;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.records-timeline-item p {
+    margin: 4px 0 0;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.records-timeline-item.tone-danger {
+    border-left-color: #ef4444;
+}
+
+.records-timeline-item.tone-success {
+    border-left-color: #10b981;
+}
+
+.records-timeline-item.tone-loot {
+    border-left-color: #f59e0b;
+}
+
+.records-timeline-item.tone-move {
+    border-left-color: #0288d1;
+}
+
+.records-timeline-item.tone-warning {
+    border-left-color: #a855f7;
+}
+
+.records-timeline-item.tone-info {
+    border-left-color: #94a3b8;
+}
+
+.records-raw-log-toggle {
+    display: flex;
+    justify-content: center;
+    padding: 0 14px 14px;
+}
+
+.records-raw-log-toggle button {
+    cursor: pointer;
+}
+
+.records-log-box {
+    max-height: 360px;
+    margin: 0 14px 14px;
+    padding: 12px;
+    overflow: auto;
+    border: 1px solid #e5edf5;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #e5edf5;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
 }
 
 .records-empty {
@@ -367,6 +656,38 @@
 
     .records-run-card header span {
         justify-self: start;
+    }
+
+    .records-run-meta {
+        justify-content: flex-start;
+    }
+
+    .records-detail-head,
+    .records-timeline-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .records-detail-actions,
+    .records-detail-actions a,
+    .records-timeline-filters {
+        width: 100%;
+    }
+
+    .records-detail-actions a {
+        flex: 1 1 120px;
+    }
+
+    .records-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .records-timeline-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .records-timeline-item {
+        grid-template-columns: 1fr;
     }
 
     .records-table {
