@@ -17,12 +17,14 @@ import {
   SUBJECT_POLICY_MODES,
   SUBJECT_SHOWCASE_ACTIONS,
   SUBJECTS,
+  TEACHER_ACTIONS,
   WEEK_SCHEDULE,
   WORK_ACTIONS,
   applyPolicyPreset,
   applySchoolVisionAction,
   applySubjectPolicyAction,
   applySubjectShowcaseAction,
+  applyTeacherAction,
   applyWorkAction,
   careerTrackRows,
   clubRows,
@@ -47,6 +49,7 @@ import {
   subjectShowcaseRows,
   subjectShowcaseSummary,
   summaryForState,
+  teacherRows,
 } from '../_lib/schoolSimulatorEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -111,6 +114,8 @@ export default function SchoolSimulatorPlayPage() {
   const [careerTrackId, setCareerTrackId] = useState(CAREER_TRACKS[0].id);
   const [clubId, setClubId] = useState('club_research');
   const [festivalId, setFestivalId] = useState(FESTIVAL_TYPES[0].id);
+  const [teacherId, setTeacherId] = useState('t_hina');
+  const [teacherActionId, setTeacherActionId] = useState(TEACHER_ACTIONS[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -121,6 +126,7 @@ export default function SchoolSimulatorPlayPage() {
   const subjectShowcases = useMemo(() => subjectShowcaseRows(state), [state]);
   const subjectShowcaseSummaryData = useMemo(() => subjectShowcaseSummary(state), [state]);
   const clubs = useMemo(() => clubRows(state), [state]);
+  const teachers = useMemo(() => teacherRows(state), [state]);
   const careerRows = useMemo(() => careerTrackRows(state), [state]);
   const festival = useMemo(() => festivalStatus(state), [state]);
   const report = useMemo(() => semesterReport(state), [state]);
@@ -142,6 +148,8 @@ export default function SchoolSimulatorPlayPage() {
   const selectedCareer = CAREER_TRACKS.find((track) => track.id === careerTrackId) || CAREER_TRACKS[0];
   const selectedClub = clubs.find((club) => club.id === clubId) || clubs[0];
   const selectedFestival = FESTIVAL_TYPES.find((item) => item.id === festivalId) || FESTIVAL_TYPES[0];
+  const selectedTeacher = teachers.find((teacher) => teacher.id === teacherId) || teachers[0];
+  const selectedTeacherAction = TEACHER_ACTIONS.find((item) => item.id === teacherActionId) || TEACHER_ACTIONS[0];
   const weekInfo = WEEK_SCHEDULE[state.school.week] || { label: '학기 종료', examType: null };
 
   const startNewRun = () => {
@@ -712,14 +720,44 @@ export default function SchoolSimulatorPlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>교사와 시설</h2>
-            <span>{state.teachers.length}명 / {state.facilities.length}곳</span>
+            <span>{teachers.length}명 / {state.facilities.length}곳</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>교사</span>
+            <select value={selectedTeacher?.id || teacherId} onChange={(event) => setTeacherId(event.target.value)}>
+              {teachers.map((teacher) => <option value={teacher.id} key={teacher.id}>{teacher.name} · {teacher.subject} · {teacher.actionHint}</option>)}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>교사 액션</span>
+            <select value={teacherActionId} onChange={(event) => setTeacherActionId(event.target.value)}>
+              {TEACHER_ACTIONS.map((action) => (
+                <option value={action.id} key={action.id}>{action.label} / AP {action.apCost} / {action.budgetCost.toLocaleString('ko-KR')}</option>
+              ))}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="평가" value={`${selectedTeacher?.evaluationGrade || '-'} / ${selectedTeacher?.evaluationScore || 0}`} />
+            <SmallStat label="이탈 위험" value={selectedTeacher?.attritionRisk || 0} />
+            <SmallStat label="계약" value={selectedTeacher?.contractWeeksRemaining ?? '-'} />
+            <SmallStat label="상태" value={selectedTeacher?.contractStatus || '-'} />
+          </div>
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            <ActionButton
+              onClick={() => setState((current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
+              disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
+            >
+              {selectedTeacherAction.label} 실행
+            </ActionButton>
+            <p style={{ color: '#52677a', fontWeight: 700, margin: 0 }}>{selectedTeacherAction.description}</p>
           </div>
           <div className="game-save-list">
-            {state.teachers.slice(0, 4).map((teacher) => (
+            {teachers.slice(0, 6).map((teacher) => (
               <article className="game-save-row" key={teacher.id}>
                 <div>
-                  <span>{teacher.subject} / 피로 {teacher.fatigue}</span>
+                  <span>{teacher.subject} / 피로 {teacher.fatigue} / 사기 {teacher.morale}</span>
                   <strong>{teacher.name}</strong>
+                  <small>{teacher.rank} · {teacher.actionHint}{teacher.profileLog?.[0] ? ` · ${teacher.profileLog[0]}` : ''}</small>
                 </div>
                 <strong>{teacher.teachingSkill}</strong>
               </article>

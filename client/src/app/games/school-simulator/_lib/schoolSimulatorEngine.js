@@ -36,6 +36,15 @@ export const WORK_ACTIONS = [
   { id: 'festivalPrep', label: '축제 준비', apCost: 3, budgetCost: 260, tags: ['community'], description: '공동체성과 자치를 크게 올리지만 학업 집중은 다소 흔들립니다.', effects: { community: 4, autonomy: 3, satisfaction: 2, academic: -1, stress: 0.5 } },
 ];
 
+export const TEACHER_ACTIONS = [
+  { id: 'teacher_recovery', label: '교사 회복일', apCost: 2, budgetCost: 180, description: '피로가 높은 교사를 쉬게 해 사기와 유지 안정성을 회복합니다.' },
+  { id: 'mentor_case_conference', label: '멘토 사례 회의', apCost: 2, budgetCost: 160, description: '담당 과목 학생의 스트레스와 만족도를 관리하고 상담 역량을 올립니다.' },
+  { id: 'teacher_promotion_review', label: '승진 심사', apCost: 2, budgetCost: 220, description: '성과가 충분한 교사의 직급을 올리고 수업/상담 역량을 강화합니다.' },
+  { id: 'teacher_contract_renewal', label: '계약 갱신', apCost: 1, budgetCost: 120, description: '계약 불안을 낮추고 교사 사기를 안정화합니다.' },
+  { id: 'teacher_short_leave', label: '단기 휴직', apCost: 1, budgetCost: 90, description: '소진 위험 교사를 2주간 휴직 처리해 회복 루틴을 시작합니다.' },
+  { id: 'teacher_evaluation_review', label: '교사 평가', apCost: 1, budgetCost: 80, description: '현재 성과를 평가하고 피드백으로 사기를 보정합니다.' },
+];
+
 const TEACHER_SEEDS = [
   { id: 't_hina', name: '히나', subject: '수학', teachingSkill: 82, counselingSkill: 58, warmth: 60, fatigue: 32, morale: 74 },
   { id: 't_noa', name: '노아', subject: '국어', teachingSkill: 78, counselingSkill: 66, warmth: 68, fatigue: 26, morale: 76 },
@@ -213,7 +222,7 @@ export function createNewState(options = {}) {
     },
     player: { mode, name: options.playerName || '플레이어', energy: 72, mental: 68, insight: 55, network: 42, weeklyActionPoint: 7, burnoutRisk: 14 },
     students: createStudents(),
-    teachers: TEACHER_SEEDS.map((teacher) => ({ ...teacher })),
+    teachers: TEACHER_SEEDS.map((teacher, index) => normalizeTeacher(teacher, index)),
     facilities: FACILITY_SEEDS.map((facility) => ({ ...facility })),
     clubs: createDefaultClubs(),
     subjectShowcases: createSubjectShowcases(),
@@ -244,7 +253,7 @@ export function normalizeState(value) {
     } : base.school,
     player: value.player && typeof value.player === 'object' ? { ...base.player, ...value.player } : base.player,
     students: Array.isArray(value.students) && value.students.length ? value.students.map((student, index) => normalizeStudent(student, index)) : base.students,
-    teachers: Array.isArray(value.teachers) && value.teachers.length ? value.teachers : base.teachers,
+    teachers: Array.isArray(value.teachers) && value.teachers.length ? value.teachers.map((teacher, index) => normalizeTeacher(teacher, index)) : base.teachers,
     facilities: Array.isArray(value.facilities) && value.facilities.length ? value.facilities : base.facilities,
     clubs: Array.isArray(value.clubs) && value.clubs.length ? normalizeClubs(value.clubs, value.students || base.students) : normalizeClubs(base.clubs, value.students || base.students),
     subjectShowcases: normalizeSubjectShowcases(value.subjectShowcases),
@@ -367,6 +376,56 @@ function normalizeStudent(student, index = 0) {
     careerTrack: student.careerTrack || CAREER_TRACKS[index % CAREER_TRACKS.length].id,
     clubId: student.clubId || CLUB_TEMPLATES[index % CLUB_TEMPLATES.length].id,
     clubRole: student.clubRole || (index % 7 === 0 ? 'leader' : 'member'),
+  };
+}
+
+function teacherEvaluationScore(teacher) {
+  return clamp(
+    Number(teacher.teachingSkill || 50) * 0.36
+    + Number(teacher.counselingSkill || 50) * 0.22
+    + Number(teacher.morale || 50) * 0.2
+    + Number(teacher.warmth || 50) * 0.12
+    + (100 - Number(teacher.fatigue || 0)) * 0.1,
+    0,
+    100,
+  );
+}
+
+function computeTeacherAttritionRisk(teacher) {
+  return clamp(
+    Number(teacher.fatigue || 0) * 0.52
+    + (100 - Number(teacher.morale || 50)) * 0.34
+    + (Number(teacher.contractWeeksRemaining || 12) <= 3 ? 14 : 0)
+    - Number(teacher.warmth || 50) * 0.08,
+    0,
+    100,
+  );
+}
+
+function normalizeTeacher(teacher, index = 0) {
+  const next = {
+    ...TEACHER_SEEDS[index % TEACHER_SEEDS.length],
+    ...teacher,
+  };
+  const evaluationScore = Math.round(teacherEvaluationScore(next));
+  return {
+    ...next,
+    teachingSkill: clamp(next.teachingSkill, 0, 100),
+    counselingSkill: clamp(next.counselingSkill, 0, 100),
+    warmth: clamp(next.warmth, 0, 100),
+    fatigue: clamp(next.fatigue, 0, 100),
+    morale: clamp(next.morale, 0, 100),
+    rank: next.rank || '교사',
+    contractWeeksRemaining: Math.max(0, Math.round(Number(next.contractWeeksRemaining ?? 18))),
+    contractStatus: next.contractStatus || (next.isOnLeave ? '휴직 중' : '안정'),
+    isOnLeave: Boolean(next.isOnLeave),
+    leaveWeeksRemaining: Math.max(0, Math.round(Number(next.leaveWeeksRemaining || 0))),
+    leaveLabel: next.leaveLabel || '',
+    promotionTrack: Math.max(0, Math.round(Number(next.promotionTrack || 0))),
+    evaluationScore,
+    evaluationGrade: gradeFromScore(evaluationScore),
+    attritionRisk: Math.round(Number.isFinite(Number(next.attritionRisk)) ? Number(next.attritionRisk) : computeTeacherAttritionRisk(next)),
+    profileLog: Array.isArray(next.profileLog) ? next.profileLog.slice(-12) : [],
   };
 }
 
@@ -793,6 +852,134 @@ export function restAction(state) {
       weeklyActionPoint: Math.max(0, Number(current.player.weeklyActionPoint || 0) - 2),
     },
   }, '짧은 휴식을 취했습니다. 체력과 정신력이 회복됩니다.');
+}
+
+function teacherWeekLabel(state) {
+  return `${state.school.year}학년도 ${state.school.semester}학기 ${state.school.week}주`;
+}
+
+function appendTeacherLog(teacher, state, message) {
+  return {
+    ...teacher,
+    profileLog: [`[${teacherWeekLabel(state)}] ${message}`].concat(teacher.profileLog || []).slice(0, 12),
+  };
+}
+
+export function applyTeacherAction(state, teacherId, actionId) {
+  let current = normalizeState(state);
+  const action = TEACHER_ACTIONS.find((item) => item.id === actionId) || TEACHER_ACTIONS[0];
+  const teacherIndex = current.teachers.findIndex((teacher) => teacher.id === teacherId);
+  if (teacherIndex < 0) return addLog(current, '교사를 찾을 수 없습니다.');
+  if (Number(current.player.weeklyActionPoint || 0) < action.apCost) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < action.budgetCost) return addLog(current, '예산이 부족합니다.');
+
+  let teacher = { ...current.teachers[teacherIndex] };
+  if (action.id === 'teacher_short_leave' && teacher.isOnLeave) return addLog(current, '이미 휴직 중인 교사입니다.');
+
+  let school = {
+    ...current.school,
+    budget: Number(current.school.budget || 0) - action.budgetCost,
+    expense: Number(current.school.expense || 0) + action.budgetCost,
+    reputation: { ...current.school.reputation },
+    admissions: { ...current.school.admissions },
+  };
+  let students = current.students;
+  const rankLadder = ['교사', '선임교사', '멘토교사'];
+  const subject = SUBJECTS.find((item) => item.teacherSubject === teacher.subject) || SUBJECTS[SUBJECTS.length - 1];
+
+  if (action.id === 'teacher_recovery') {
+    teacher = {
+      ...teacher,
+      fatigue: clamp(Number(teacher.fatigue || 0) - 14, 0, 100),
+      morale: clamp(Number(teacher.morale || 0) + 10, 0, 100),
+      attritionRisk: clamp(Number(teacher.attritionRisk || 0) - 12, 0, 100),
+    };
+    teacher = appendTeacherLog(teacher, current, '교사 회복일 배정');
+  } else if (action.id === 'mentor_case_conference') {
+    students = students.map((student) => (
+      student.favoriteSubject === subject.id || student.weakSubject === subject.id
+        ? {
+          ...student,
+          stress: clamp(Number(student.stress || 0) - 2, 0, 100),
+          satisfaction: clamp(Number(student.satisfaction || 0) + 2, 0, 100),
+          health: clamp(Number(student.health || 0) + 1, 0, 100),
+        }
+        : student
+    ));
+    teacher = {
+      ...teacher,
+      counselingSkill: clamp(Number(teacher.counselingSkill || 0) + 1, 0, 100),
+      morale: clamp(Number(teacher.morale || 0) + 4, 0, 100),
+      fatigue: clamp(Number(teacher.fatigue || 0) + 1, 0, 100),
+    };
+    teacher = appendTeacherLog(teacher, current, `${subject.label} 멘토 사례 회의 진행`);
+  } else if (action.id === 'teacher_promotion_review') {
+    const score = teacherEvaluationScore(teacher);
+    const currentRankIndex = Math.max(0, rankLadder.indexOf(teacher.rank || '교사'));
+    teacher = { ...teacher, promotionTrack: Number(teacher.promotionTrack || 0) + 1 };
+    if (score >= 70 && currentRankIndex < rankLadder.length - 1) {
+      teacher = {
+        ...teacher,
+        rank: rankLadder[currentRankIndex + 1],
+        teachingSkill: clamp(Number(teacher.teachingSkill || 0) + 2, 0, 100),
+        counselingSkill: clamp(Number(teacher.counselingSkill || 0) + 1, 0, 100),
+        morale: clamp(Number(teacher.morale || 0) + 8, 0, 100),
+      };
+      school.reputation.academic = clamp(Number(school.reputation.academic || 0) + 1, 0, 100);
+      school.reputation.community = clamp(Number(school.reputation.community || 0) + 1, 0, 100);
+      teacher = appendTeacherLog(teacher, current, `승진 심사 통과: ${teacher.rank}`);
+    } else {
+      teacher = { ...teacher, morale: clamp(Number(teacher.morale || 0) + 3, 0, 100) };
+      teacher = appendTeacherLog(teacher, current, '승진 심사 피드백 반영');
+    }
+  } else if (action.id === 'teacher_contract_renewal') {
+    teacher = {
+      ...teacher,
+      contractWeeksRemaining: 24,
+      contractStatus: '안정',
+      morale: clamp(Number(teacher.morale || 0) + 6, 0, 100),
+      attritionRisk: clamp(Number(teacher.attritionRisk || 0) - 10, 0, 100),
+    };
+    teacher = appendTeacherLog(teacher, current, '계약 갱신 완료');
+  } else if (action.id === 'teacher_short_leave') {
+    teacher = {
+      ...teacher,
+      isOnLeave: true,
+      leaveWeeksRemaining: 2,
+      leaveLabel: '단기 휴직',
+      contractStatus: '휴직 중',
+      fatigue: clamp(Number(teacher.fatigue || 0) - 4, 0, 100),
+      morale: clamp(Number(teacher.morale || 0) + 2, 0, 100),
+    };
+    school.riskLevel = clamp(Number(school.riskLevel || 0) + 1, 0, 100);
+    teacher = appendTeacherLog(teacher, current, '단기 휴직 시작');
+  } else if (action.id === 'teacher_evaluation_review') {
+    const score = Math.round(teacherEvaluationScore(teacher));
+    const grade = gradeFromScore(score);
+    teacher = {
+      ...teacher,
+      evaluationScore: score,
+      evaluationGrade: grade,
+      morale: clamp(Number(teacher.morale || 0) + (score >= 76 ? 4 : 2), 0, 100),
+    };
+    teacher = appendTeacherLog(teacher, current, `교사 평가 ${grade}등급 / ${score}점`);
+  }
+
+  const teachers = current.teachers.map((item, index) => (
+    index === teacherIndex ? normalizeTeacher(teacher, index) : item
+  ));
+
+  current = {
+    ...current,
+    player: {
+      ...current.player,
+      weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - action.apCost,
+    },
+    school,
+    students,
+    teachers,
+  };
+  return addLog(current, `${teacher.name} 교사에게 ${action.label}을(를) 적용했습니다.`);
 }
 
 export function applySubjectPolicyAction(state, subjectId, modeId) {
@@ -1225,11 +1412,33 @@ export function endWeekAction(state) {
   const clubResult = processClubWeekly(current, students, current.clubs || []);
   students = clubResult.students;
 
-  let teachers = current.teachers.map((teacher) => ({
-    ...teacher,
-    fatigue: clamp(teacher.fatigue + 4 + Number(policy.effects.teacherFatigue || 0), 0, 100),
-    morale: clamp(teacher.morale - 1 + Number(policy.effects.teacherMorale || 0), 0, 100),
-  }));
+  let teachers = current.teachers.map((teacher, index) => {
+    if (teacher.isOnLeave) {
+      const leaveWeeksRemaining = Math.max(0, Number(teacher.leaveWeeksRemaining || 0) - 1);
+      let nextTeacher = {
+        ...teacher,
+        leaveWeeksRemaining,
+        fatigue: clamp(Number(teacher.fatigue || 0) - 8, 0, 100),
+        morale: clamp(Number(teacher.morale || 0) + 5, 0, 100),
+      };
+      if (leaveWeeksRemaining <= 0) {
+        nextTeacher = {
+          ...nextTeacher,
+          isOnLeave: false,
+          leaveLabel: '',
+          contractStatus: '안정',
+        };
+        nextTeacher = appendTeacherLog(nextTeacher, current, '휴직 복귀');
+      }
+      return normalizeTeacher(nextTeacher, index);
+    }
+    return normalizeTeacher({
+      ...teacher,
+      contractWeeksRemaining: Math.max(0, Number(teacher.contractWeeksRemaining || 0) - 1),
+      fatigue: clamp(Number(teacher.fatigue || 0) + 4 + Number(policy.effects.teacherFatigue || 0), 0, 100),
+      morale: clamp(Number(teacher.morale || 0) - 1 + Number(policy.effects.teacherMorale || 0), 0, 100),
+    }, index);
+  });
   let facilities = current.facilities.map((facility) => ({ ...facility, condition: clamp(facility.condition - 2, 0, 100) }));
   const subjectShowcaseResult = processSubjectShowcasesWeekly(current, students, clubResult.school, teachers);
   students = subjectShowcaseResult.students;
@@ -1423,6 +1632,27 @@ export function subjectShowcaseSummary(state) {
     totalBrandSignal: rows.reduce((sum, row) => sum + Number(row.brandPotential || 0), 0),
     note: rows[0] ? `${rows[0].label} 공개 활동 잠재력이 가장 높습니다.` : '교과 공개 활동을 준비할 수 있습니다.',
   };
+}
+
+export function teacherRows(state) {
+  const current = normalizeState(state);
+  return current.teachers.map((teacher, index) => {
+    const normalized = normalizeTeacher(teacher, index);
+    const actionHint = normalized.isOnLeave
+      ? `휴직 ${normalized.leaveWeeksRemaining}주 남음`
+      : normalized.attritionRisk >= 65
+        ? '유지 면담 권장'
+        : normalized.fatigue >= 65
+          ? '회복일 권장'
+          : normalized.contractWeeksRemaining <= 3
+            ? '계약 갱신 검토'
+            : '안정';
+    return {
+      ...normalized,
+      actionHint,
+      profileLog: (normalized.profileLog || []).slice(0, 4),
+    };
+  });
 }
 
 export function clubRows(state) {
