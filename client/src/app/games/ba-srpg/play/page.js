@@ -13,33 +13,44 @@ import {
   QUICK_SAVE_SLOT,
   RECIPES,
   SAVE_VERSION,
-  SHOP_ITEMS,
+  EDICTS,
+  PROPERTIES,
   attackSelectedAction,
   autoPlayerTurnAction,
   battlePower,
   buyItemAction,
+  buyPropertyAction,
   cellContent,
   claimQuestAction,
+  cancelRentPropertyAction,
   consumeBandageAction,
   craftRecipeAction,
   createNewState,
+  edictRows,
+  enactEdictAction,
   endTurnAction,
   equipWeaponAction,
   equipmentRows,
-  getItem,
   getMission,
   getPlayTimeSec,
+  guildRankInfo,
   inventoryRows,
   itemName,
   moveSelectedAction,
   normalizeState,
+  propertyRows,
   questRows,
+  recipeRows,
+  rentPropertyAction,
   restAction,
   scoreState,
   selectEnemyAction,
   selectUnitAction,
+  shopRows,
   startMissionAction,
   summaryForState,
+  toggleLeasePropertyAction,
+  townSummary,
 } from '../_lib/baSrpgEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -88,6 +99,8 @@ export default function BaSrpgPlayPage() {
   const [state, setState] = useState(() => createNewState());
   const [missionId, setMissionId] = useState('m001');
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
+  const [propertyId, setPropertyId] = useState(PROPERTIES[0].id);
+  const [edictId, setEdictId] = useState(EDICTS[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -98,9 +111,17 @@ export default function BaSrpgPlayPage() {
   const rows = useMemo(() => inventoryRows(state), [state]);
   const equips = useMemo(() => equipmentRows(state), [state]);
   const quests = useMemo(() => questRows(state), [state]);
+  const shop = useMemo(() => shopRows(state), [state]);
+  const recipes = useMemo(() => recipeRows(state), [state]);
+  const properties = useMemo(() => propertyRows(state), [state]);
+  const edicts = useMemo(() => edictRows(state), [state]);
+  const town = useMemo(() => townSummary(state), [state]);
+  const guildRank = useMemo(() => guildRankInfo(state), [state]);
   const score = scoreState(state);
   const power = battlePower(state);
-  const selectedRecipe = RECIPES.find((recipe) => recipe.id === recipeId) || RECIPES[0];
+  const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
+  const selectedProperty = properties.find((property) => property.id === propertyId) || properties[0];
+  const selectedEdict = edicts.find((edict) => edict.id === edictId) || edicts[0];
   const cleared = battle.phase === 'cleared';
   const failed = battle.phase === 'failed';
 
@@ -191,6 +212,8 @@ export default function BaSrpgPlayPage() {
     setState(nextState);
     setMissionId(nextState.selectedMissionId);
     setRecipeId(RECIPES[0].id);
+    setPropertyId(PROPERTIES[0].id);
+    setEdictId(EDICTS[0].id);
     setMessage('');
   };
 
@@ -212,9 +235,12 @@ export default function BaSrpgPlayPage() {
 
   const metrics = [
     { label: '임무', value: mission.name },
+    { label: '일차', value: state.day },
     { label: '턴', value: battle.turn },
     { label: '전투력', value: power.toLocaleString('ko-KR') },
     { label: '승리', value: state.battleWins },
+    { label: '길드', value: `${guildRank.rank} (${guildRank.rep})` },
+    { label: '부동산', value: town.activeProperties },
     { label: '크레딧', value: `${Number(state.credit || 0).toLocaleString('ko-KR')} Cr` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -292,6 +318,75 @@ export default function BaSrpgPlayPage() {
         </section>
       </section>
 
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>타운 허브</h2>
+            <span>{town.activeEdictName}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="휴식 비용" value={`${town.restCost} Cr`} />
+            <SmallStat label="상점 할인" value={`${town.shopDiscountPct}%`} />
+            <SmallStat label="길드 랭크" value={guildRank.rank} />
+            <SmallStat label="다음 랭크" value={guildRank.nextRep == null ? '최대' : `${guildRank.remaining} Rep`} />
+          </div>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
+            보유 {town.ownedProperties} · 활성 {town.activeProperties} · 임차 {town.rentedProperties} · 임대 {town.leasedProperties}
+          </p>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>부동산</h2>
+            <span>{selectedProperty.status}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>시설</span>
+            <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
+              {properties.map((property) => (
+                <option value={property.id} key={property.id}>{property.name} · {property.status}</option>
+              ))}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedProperty.desc}</p>
+          <div className="games-rank-split">
+            <SmallStat label="구매" value={`${selectedProperty.buyPrice} Cr`} />
+            <SmallStat label="임차" value={`${selectedProperty.rentFee} Cr`} />
+            <SmallStat label="유지비" value={`${selectedProperty.rentCostPerDay} Cr`} />
+            <SmallStat label="임대수익" value={`${selectedProperty.leaseIncomePerDay} Cr`} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={selectedProperty.owned} onClick={() => setState((current) => buyPropertyAction(current, propertyId))}>구매</ActionButton>
+            <ActionButton disabled={selectedProperty.owned || Boolean(selectedProperty.rented)} onClick={() => setState((current) => rentPropertyAction(current, propertyId))}>3일 임차</ActionButton>
+            <ActionButton disabled={!selectedProperty.rented} onClick={() => setState((current) => cancelRentPropertyAction(current, propertyId))}>임차 종료</ActionButton>
+            <ActionButton disabled={!selectedProperty.owned} onClick={() => setState((current) => toggleLeasePropertyAction(current, propertyId))}>
+              {selectedProperty.leased ? '임대 종료' : '임대 시작'}
+            </ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>칙령</h2>
+            <span>{town.activeEdictName}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>월간 칙령</span>
+            <select value={edictId} onChange={(event) => setEdictId(event.target.value)}>
+              {edicts.map((edict) => <option value={edict.id} key={edict.id}>{edict.name}</option>)}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedEdict.desc}</p>
+          <div className="games-rank-split">
+            <SmallStat label="상태" value={selectedEdict.active ? '발효 중' : selectedEdict.available ? '발령 가능' : '이번 달 마감'} />
+            <SmallStat label="주기" value="월간" />
+          </div>
+          <ActionButton disabled={!selectedEdict.available} onClick={() => setState((current) => enactEdictAction(current, edictId))}>
+            칙령 발령
+          </ActionButton>
+        </section>
+      </section>
+
       <section className="games-panel">
         <div className="games-panel-title">
           <h2>전장</h2>
@@ -362,19 +457,20 @@ export default function BaSrpgPlayPage() {
           <label className="game-save-json-field">
             <span>제작</span>
             <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
-              {RECIPES.map((recipe) => <option value={recipe.id} key={recipe.id}>{recipe.name}</option>)}
+              {recipes.map((recipe) => <option value={recipe.id} key={recipe.id}>{recipe.name}</option>)}
             </select>
           </label>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
             필요: {selectedRecipe.inputs.map((input) => `${itemName(input.itemId)} ${input.qty}`).join(', ')} · {selectedRecipe.costCredit} Cr
+            {selectedRecipe.baseCostCredit !== selectedRecipe.costCredit ? ` (기본 ${selectedRecipe.baseCostCredit})` : ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
           </div>
           <div className="games-chip-row" style={{ marginTop: 10 }}>
-            {SHOP_ITEMS.map((item) => (
+            {shop.map((item) => (
               <button type="button" className="srpg-shop-chip" key={item.itemId} onClick={() => setState((current) => buyItemAction(current, item.itemId))}>
-                {itemName(item.itemId)} {item.price}Cr
+                {item.name} {item.price}Cr{item.basePrice !== item.price ? `/${item.basePrice}` : ''}
               </button>
             ))}
           </div>
@@ -423,17 +519,17 @@ export default function BaSrpgPlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>의뢰</h2>
-            <span>{state.completedQuestIds.length}/{quests.length}</span>
+            <span>{Object.keys(state.questClaims || {}).length}회 보고</span>
           </div>
           <div className="game-save-list">
             {quests.map((quest) => (
               <article className="game-save-row" key={quest.id}>
                 <div>
-                  <span>{quest.done ? '완료 가능' : '진행 중'}</span>
+                  <span>{quest.cadence} · {quest.progress}/{quest.required} · {quest.claimed ? '보고 완료' : quest.done ? '보고 가능' : '진행 중'}</span>
                   <strong>{quest.title}</strong>
                 </div>
                 <button type="button" className="tcg-primary-action" disabled={!quest.done || quest.claimed} onClick={() => setState((current) => claimQuestAction(current, quest.id))}>
-                  {quest.claimed ? '수령' : '보고'}
+                  {quest.claimed ? '완료' : '보고'}
                 </button>
               </article>
             ))}

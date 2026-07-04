@@ -136,10 +136,10 @@ Checked: 2026-07-04
 ## BA SRPG Slice Status
 
 - Route: `/games/ba-srpg/play`
-- Included loop: mission selection, tactical grid movement, AP, range, cover/obstacle tiles, enemy phase, mission rewards, inn rest, crafting, shop purchases, equipment, and guild quest reporting.
+- Included loop: mission selection, tactical grid movement, AP, range, cover/obstacle tiles, enemy phase, mission rewards, inn rest with daily property settlement, crafting, discounted shop purchases, equipment, guild rank table, daily/weekly/monthly/yearly quest cadence, property buy/rent/lease, monthly edicts, and guild quest reporting.
 - Site API integration: quick save through `/game-saves/ba-srpg/ba-srpg-main`; tactical-grid snapshot through `/game-records/ba-srpg`.
 - Source basis: `C:\2저장고\마이애니메\ba-srpg\ba-srpg-frontend\public\srpg` and the monolithic `App.tsx` game flow.
-- Next step: import the original town hub, property, edict, quest cadence reset, and richer battle UI rules behind the site save/record shell.
+- Next step: import the original formation roster, richer skill/status runtime rules, property/town artwork affordances, and deeper battle HUD calculations behind the site save/record shell.
 
 ## School Simulator Slice Status
 

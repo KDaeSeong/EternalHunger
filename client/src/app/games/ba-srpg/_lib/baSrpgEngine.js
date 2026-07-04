@@ -82,8 +82,8 @@ export const STUDENTS = [
 ];
 
 export const RECIPES = [
-  { id: 'r_bandage', name: '붕대 만들기', inputs: [{ itemId: 'mat_wood', qty: 2 }], outputs: [{ itemId: 'con_bandage', qty: 1 }], costCredit: 5 },
-  { id: 'r_knife', name: '나이프 제작', inputs: [{ itemId: 'mat_stone', qty: 2 }, { itemId: 'mat_wood', qty: 1 }], outputs: [{ itemId: 'eq_knife', qty: 1 }], costCredit: 10 },
+  { id: 'r_bandage', name: '붕대 만들기', inputs: [{ itemId: 'mat_wood', qty: 2 }], outputs: [{ itemId: 'con_bandage', qty: 1 }], costCredit: 5, requiredFacility: 'workbench' },
+  { id: 'r_knife', name: '나이프 제작', inputs: [{ itemId: 'mat_stone', qty: 2 }, { itemId: 'mat_wood', qty: 1 }], outputs: [{ itemId: 'eq_knife', qty: 1 }], costCredit: 10, requiredFacility: 'workbench' },
 ];
 
 export const SHOP_ITEMS = [
@@ -93,27 +93,137 @@ export const SHOP_ITEMS = [
   { itemId: 'eq_knife', price: 30, stock: 1 },
 ];
 
+export const ECONOMY = {
+  startingCredit: 500,
+  innRestCost: 50,
+  shop: { priceMulMin: 0.9, priceMulMax: 1.1, stockBumpMax: 3 },
+  guild: {
+    rankTable: [
+      { minRep: 0, rank: 'F', nextRep: 100 },
+      { minRep: 100, rank: 'E', nextRep: 250 },
+      { minRep: 250, rank: 'D', nextRep: 500 },
+      { minRep: 500, rank: 'C', nextRep: 1000 },
+      { minRep: 1000, rank: 'B', nextRep: 2000 },
+      { minRep: 2000, rank: 'A', nextRep: 4000 },
+      { minRep: 4000, rank: 'S', nextRep: null },
+    ],
+  },
+};
+
+export const PROPERTIES = [
+  {
+    id: 'prop_shop_kiosk',
+    name: '상가 키오스크',
+    facility: 'shop',
+    buyPrice: 900,
+    rentFee: 150,
+    rentCostPerDay: 15,
+    leaseIncomePerDay: 40,
+    desc: '상점과 연결되는 소형 점포입니다. 상점 가격 변동 폭을 낮춥니다.',
+  },
+  {
+    id: 'prop_guild_branch',
+    name: '길드 지부 사무실',
+    facility: 'guild',
+    buyPrice: 1400,
+    rentFee: 220,
+    rentCostPerDay: 25,
+    leaseIncomePerDay: 65,
+    desc: '길드 평판/랭크 업무를 돕는 사무실입니다. 의뢰 평판 보상이 10% 증가합니다.',
+  },
+  {
+    id: 'prop_inn_room',
+    name: '여관 전용 객실',
+    facility: 'inn',
+    buyPrice: 1100,
+    rentFee: 180,
+    rentCostPerDay: 20,
+    leaseIncomePerDay: 50,
+    desc: '여관 숙박 품질을 개선합니다. 휴식 비용이 10% 감소합니다.',
+  },
+  {
+    id: 'prop_craft_shed',
+    name: '소형 제작 작업장',
+    facility: 'craft',
+    buyPrice: 1000,
+    rentFee: 170,
+    rentCostPerDay: 18,
+    leaseIncomePerDay: 45,
+    desc: '제작과 연동되는 작업장입니다. 제작 비용이 5% 감소합니다.',
+  },
+];
+
+export const EDICTS = [
+  {
+    id: 'ed_shop_discount_5',
+    name: '상업 장려령',
+    desc: '이번 달 동안 상점 판매가가 5% 할인됩니다.',
+    cadence: 'monthly',
+    effects: [{ type: 'shop_price_multiplier', value: 0.95 }],
+  },
+  {
+    id: 'ed_inn_rest_discount_10',
+    name: '숙박 지원령',
+    desc: '이번 달 동안 여관 휴식 비용이 10% 할인됩니다.',
+    cadence: 'monthly',
+    effects: [{ type: 'inn_rest_cost_multiplier', value: 0.9 }],
+  },
+];
+
 export const QUESTS = [
   {
     id: 'q_bandage_delivery',
     title: '붕대 납품',
+    text: '붕대 1개를 가져오면 간단한 보상을 드립니다.',
+    cadence: 'daily',
     requirement: { type: 'haveItem', itemId: 'con_bandage', qty: 1 },
     reward: { credit: 80, items: [{ itemId: 'mat_wood', qty: 1 }] },
     repReward: 5,
   },
   {
-    id: 'q_first_victory',
-    title: '첫 승리 보고',
-    requirement: { type: 'battleWin', count: 1 },
-    reward: { credit: 100, items: [{ itemId: 'con_bandage', qty: 1 }] },
-    repReward: 3,
-  },
-  {
     id: 'q_weekly_training',
     title: '주간 훈련 보고',
+    text: '이번 주에 전투 2회 승리하고 보고하세요.',
+    cadence: 'weekly',
     requirement: { type: 'battleWin', count: 2 },
     reward: { credit: 200, items: [{ itemId: 'mat_stone', qty: 1 }] },
     repReward: 10,
+  },
+  {
+    id: 'q_monthly_supplies',
+    title: '월간 보급',
+    text: '이번 달 보급품으로 나무 3개를 전달하세요.',
+    cadence: 'monthly',
+    requirement: { type: 'haveItem', itemId: 'mat_wood', qty: 3 },
+    reward: { credit: 350, items: [{ itemId: 'con_bandage', qty: 1 }] },
+    repReward: 15,
+  },
+  {
+    id: 'q_yearly_review',
+    title: '연간 전투 성과',
+    text: '올해 전투 5회 승리한 기록을 제출하세요.',
+    cadence: 'yearly',
+    requirement: { type: 'battleWin', count: 5 },
+    reward: { credit: 900, items: [{ itemId: 'eq_knife', qty: 1 }] },
+    repReward: 40,
+  },
+  {
+    id: 'q_knife_check',
+    title: '무기 점검',
+    text: '나이프 장비 1개를 가져오면 크레딧을 드립니다.',
+    cadence: 'once',
+    requirement: { type: 'haveItem', itemId: 'eq_knife', qty: 1 },
+    reward: { credit: 120, items: [] },
+    repReward: 5,
+  },
+  {
+    id: 'q_first_victory',
+    title: '첫 승리 보고',
+    text: '전투에서 1회 승리하고 보고하세요.',
+    cadence: 'once',
+    requirement: { type: 'battleWin', count: 1 },
+    reward: { credit: 100, items: [{ itemId: 'con_bandage', qty: 1 }] },
+    repReward: 3,
   },
 ];
 
@@ -127,15 +237,19 @@ export function createNewState(options = {}) {
     startedAt: now,
     updatedAt: now,
     day: 1,
-    credit: 500,
+    credit: ECONOMY.startingCredit,
     guildRep: 0,
     selectedMissionId: 'm001',
     inventory: { mat_wood: 3, con_bandage: 1 },
     equipment: [],
     weaponUid: '',
     battleWins: 0,
+    battleWinLog: [],
     completedMissionIds: [],
     completedQuestIds: [],
+    questClaims: {},
+    properties: { ownedIds: [], leasedOutIds: [], rented: {} },
+    edictState: { monthly: null },
     battle: createBattle('m001'),
     log: ['출정 준비가 끝났습니다. 학생을 선택하고 이동/공격으로 첫 임무를 정리하세요.'],
   };
@@ -149,11 +263,38 @@ export function normalizeState(value) {
     ...value,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment: Array.isArray(value.equipment) ? value.equipment : base.equipment,
+    battleWinLog: Array.isArray(value.battleWinLog) ? value.battleWinLog : base.battleWinLog,
     completedMissionIds: Array.isArray(value.completedMissionIds) ? value.completedMissionIds : base.completedMissionIds,
     completedQuestIds: Array.isArray(value.completedQuestIds) ? value.completedQuestIds : base.completedQuestIds,
+    questClaims: value.questClaims && typeof value.questClaims === 'object' ? value.questClaims : questClaimsFromCompleted(value.completedQuestIds),
+    properties: normalizeProperties(value.properties),
+    edictState: normalizeEdictState(value.edictState),
     battle: value.battle && typeof value.battle === 'object' ? normalizeBattle(value.battle) : createBattle(value.selectedMissionId || 'm001'),
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
+}
+
+function questClaimsFromCompleted(completedQuestIds = []) {
+  return Array.isArray(completedQuestIds)
+    ? completedQuestIds.reduce((next, questId) => ({ ...next, [questId]: { lastPeriodKey: 'legacy-once' } }), {})
+    : {};
+}
+
+function normalizeProperties(value = {}) {
+  return {
+    ownedIds: Array.isArray(value?.ownedIds) ? value.ownedIds.filter((id) => PROPERTIES.some((property) => property.id === id)) : [],
+    leasedOutIds: Array.isArray(value?.leasedOutIds) ? value.leasedOutIds.filter((id) => PROPERTIES.some((property) => property.id === id)) : [],
+    rented: value?.rented && typeof value.rented === 'object'
+      ? Object.fromEntries(Object.entries(value.rented).filter(([id]) => PROPERTIES.some((property) => property.id === id)))
+      : {},
+  };
+}
+
+function normalizeEdictState(value = {}) {
+  const monthly = value?.monthly && typeof value.monthly === 'object' && EDICTS.some((edict) => edict.id === value.monthly.edictId)
+    ? { periodKey: String(value.monthly.periodKey || ''), edictId: value.monthly.edictId }
+    : null;
+  return { monthly };
 }
 
 function normalizeBattle(battle) {
@@ -226,8 +367,10 @@ function addItem(inventory, itemId, qty) {
   };
 }
 
-function addItems(inventory, items = []) {
-  return items.reduce((next, item) => addItem(next, item.itemId, item.qty), inventory);
+function itemCount(state, itemId) {
+  const inventoryCount = Number(state.inventory?.[itemId] || 0);
+  const equipmentCount = (state.equipment || []).filter((item) => item.itemId === itemId).length;
+  return inventoryCount + equipmentCount;
 }
 
 function hasItems(inventory, items = []) {
@@ -255,6 +398,134 @@ function createRng(seed) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function periodKeyFor(cadence = 'once', day = 1) {
+  const safeDay = Math.max(1, Math.floor(Number(day || 1)));
+  if (cadence === 'daily') return `d${safeDay}`;
+  if (cadence === 'weekly') return `w${Math.floor((safeDay - 1) / 7) + 1}`;
+  if (cadence === 'monthly') return `m${Math.floor((safeDay - 1) / 30) + 1}`;
+  if (cadence === 'yearly') return `y${Math.floor((safeDay - 1) / 365) + 1}`;
+  return 'once';
+}
+
+function getProperty(propertyId) {
+  return PROPERTIES.find((property) => property.id === propertyId) || null;
+}
+
+function hasActiveFacility(state, facility) {
+  const properties = normalizeProperties(state.properties);
+  return PROPERTIES.some((property) => {
+    if (property.facility !== facility) return false;
+    const ownedActive = properties.ownedIds.includes(property.id) && !properties.leasedOutIds.includes(property.id);
+    const rentedActive = Boolean(properties.rented[property.id]);
+    return ownedActive || rentedActive;
+  });
+}
+
+function activeMonthlyEdict(state) {
+  const current = normalizeState(state);
+  const monthly = current.edictState?.monthly;
+  if (!monthly?.edictId || monthly.periodKey !== periodKeyFor('monthly', current.day)) return null;
+  return EDICTS.find((edict) => edict.id === monthly.edictId) || null;
+}
+
+function edictEffectMultiplier(edict, effectType) {
+  const effect = edict?.effects?.find((item) => item.type === effectType);
+  return Number.isFinite(effect?.value) ? Number(effect.value) : 1;
+}
+
+function shopPriceMultiplier(state) {
+  const edictMul = edictEffectMultiplier(activeMonthlyEdict(state), 'shop_price_multiplier');
+  const shopFacilityMul = hasActiveFacility(state, 'shop') ? 0.98 : 1;
+  return edictMul * shopFacilityMul;
+}
+
+function adjustedShopPrice(state, line) {
+  return Math.max(1, Math.floor(Number(line.price || 0) * shopPriceMultiplier(state)));
+}
+
+function innRestCost(state) {
+  const edictMul = edictEffectMultiplier(activeMonthlyEdict(state), 'inn_rest_cost_multiplier');
+  const innFacilityMul = hasActiveFacility(state, 'inn') ? 0.9 : 1;
+  return Math.max(0, Math.floor(ECONOMY.innRestCost * edictMul * innFacilityMul));
+}
+
+function craftCost(state, recipe) {
+  const craftFacilityMul = hasActiveFacility(state, 'craft') ? 0.95 : 1;
+  return Math.max(0, Math.floor(Number(recipe.costCredit || 0) * craftFacilityMul));
+}
+
+function guildRepReward(state, baseRep) {
+  const rep = Math.max(0, Math.floor(Number(baseRep || 0)));
+  if (!rep) return { total: 0, bonus: 0 };
+  const bonus = hasActiveFacility(state, 'guild') ? Math.max(1, Math.floor(rep * 0.1)) : 0;
+  return { total: rep + bonus, bonus };
+}
+
+function questCadence(quest) {
+  return ['daily', 'weekly', 'monthly', 'yearly', 'once'].includes(quest?.cadence) ? quest.cadence : 'once';
+}
+
+function questPeriodKey(state, quest) {
+  return periodKeyFor(questCadence(quest), state.day);
+}
+
+function hasClaimedQuest(state, quest) {
+  const cadence = questCadence(quest);
+  const entry = state.questClaims?.[quest.id];
+  if (cadence === 'once') return Boolean(entry) || state.completedQuestIds.includes(quest.id);
+  return entry?.lastPeriodKey === questPeriodKey(state, quest);
+}
+
+function battleWinCountForQuest(state, quest) {
+  const cadence = questCadence(quest);
+  if (cadence === 'once') return Number(state.battleWins || 0);
+  const periodKey = questPeriodKey(state, quest);
+  return (state.battleWinLog || []).filter((entry) => periodKeyFor(cadence, entry.day) === periodKey).length;
+}
+
+function settlePropertyDay(state, nextDay) {
+  const properties = normalizeProperties(state.properties);
+  const rented = { ...properties.rented };
+  let leaseIncome = 0;
+  let rentPaid = 0;
+  let expiredCount = 0;
+  let rentCanceled = 0;
+
+  properties.leasedOutIds.forEach((propertyId) => {
+    const property = getProperty(propertyId);
+    if (property && properties.ownedIds.includes(propertyId)) leaseIncome += Number(property.leaseIncomePerDay || 0);
+  });
+
+  Object.entries(rented).forEach(([propertyId, rentInfo]) => {
+    const untilDay = Number(rentInfo?.untilDay || 0);
+    if (untilDay < nextDay) {
+      delete rented[propertyId];
+      expiredCount += 1;
+      return;
+    }
+    const property = getProperty(propertyId);
+    rentPaid += Number(property?.rentCostPerDay || 0);
+  });
+
+  let credit = Number(state.credit || 0) + leaseIncome;
+  if (rentPaid > credit) {
+    rentCanceled = Object.keys(rented).length;
+    Object.keys(rented).forEach((propertyId) => { delete rented[propertyId]; });
+    rentPaid = 0;
+  } else {
+    credit -= rentPaid;
+  }
+
+  return {
+    credit,
+    properties: { ...properties, rented },
+    leaseIncome,
+    rentPaid,
+    expiredCount,
+    rentCanceled,
+  };
 }
 
 function distance(a, b) {
@@ -347,6 +618,10 @@ function grantMissionReward(state, battle) {
     credit: Number(state.credit || 0) + credit,
     inventory: rewards.inventory,
     battleWins: Number(state.battleWins || 0) + 1,
+    battleWinLog: [
+      { day: Number(state.day || 1), missionId: mission.id, credit },
+      ...(Array.isArray(state.battleWinLog) ? state.battleWinLog : []),
+    ].slice(0, 120),
     completedMissionIds: [...completedSet],
     battle,
   };
@@ -532,22 +807,32 @@ export function autoPlayerTurnAction(state) {
 
 export function restAction(state) {
   const current = normalizeState(state);
+  const nextDay = Number(current.day || 1) + 1;
+  const restCost = innRestCost(current);
+  const settled = settlePropertyDay({ ...current, credit: Math.max(0, Number(current.credit || 0) - restCost) }, nextDay);
+  const parts = [`여관에서 하루를 쉬었습니다. 학생 HP가 회복됐습니다. -${restCost} Cr`];
+  if (settled.leaseIncome) parts.push(`임대 수익 +${settled.leaseIncome} Cr`);
+  if (settled.rentPaid) parts.push(`임차 유지비 -${settled.rentPaid} Cr`);
+  if (settled.expiredCount) parts.push(`임차 만료 ${settled.expiredCount}건`);
+  if (settled.rentCanceled) parts.push(`유지비 부족으로 임차 종료 ${settled.rentCanceled}건`);
   return addLog({
     ...current,
-    day: Number(current.day || 1) + 1,
+    day: nextDay,
     battle: {
       ...current.battle,
       units: current.battle.units.map((unit) => ({ ...unit, hp: unit.maxHp, ap: 2, acted: false })),
       phase: current.battle.phase === 'failed' ? 'player' : current.battle.phase,
     },
-    credit: Math.max(0, Number(current.credit || 0) - 50),
-  }, '여관에서 하루를 쉬었습니다. 학생 HP가 회복됐습니다. -50 Cr');
+    credit: settled.credit,
+    properties: settled.properties,
+  }, parts.join(' / '));
 }
 
 export function craftRecipeAction(state, recipeId) {
   const current = normalizeState(state);
   const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
-  if (Number(current.credit || 0) < recipe.costCredit) return addLog(current, '제작 비용이 부족합니다.');
+  const costCredit = craftCost(current, recipe);
+  if (Number(current.credit || 0) < costCredit) return addLog(current, '제작 비용이 부족합니다.');
   if (!hasItems(current.inventory, recipe.inputs)) return addLog(current, '제작 재료가 부족합니다.');
   let inventory = spendItems(current.inventory, recipe.inputs);
   let equipment = current.equipment;
@@ -561,10 +846,10 @@ export function craftRecipeAction(state, recipeId) {
   });
   return addLog({
     ...current,
-    credit: Number(current.credit || 0) - recipe.costCredit,
+    credit: Number(current.credit || 0) - costCredit,
     inventory,
     equipment,
-  }, `${recipe.name} 완료.`);
+  }, `${recipe.name} 완료. -${costCredit} Cr`);
 }
 
 export function equipWeaponAction(state, uid) {
@@ -578,47 +863,167 @@ export function equipWeaponAction(state, uid) {
 export function buyItemAction(state, itemId) {
   const current = normalizeState(state);
   const line = SHOP_ITEMS.find((item) => item.itemId === itemId) || SHOP_ITEMS[0];
-  if (Number(current.credit || 0) < line.price) return addLog(current, '크레딧이 부족합니다.');
+  const price = adjustedShopPrice(current, line);
+  if (Number(current.credit || 0) < price) return addLog(current, '크레딧이 부족합니다.');
   const item = getItem(line.itemId);
   if (item?.kind === 'equipment') {
     return addLog({
       ...current,
-      credit: Number(current.credit || 0) - line.price,
+      credit: Number(current.credit || 0) - price,
       equipment: [...current.equipment, { uid: `${item.id}-${Date.now().toString(36)}`, itemId: item.id }],
-    }, `${item.name} 구매.`);
+    }, `${item.name} 구매. -${price} Cr`);
   }
   return addLog({
     ...current,
-    credit: Number(current.credit || 0) - line.price,
+    credit: Number(current.credit || 0) - price,
     inventory: addItem(current.inventory, line.itemId, 1),
-  }, `${itemName(line.itemId)} 구매.`);
+  }, `${itemName(line.itemId)} 구매. -${price} Cr`);
 }
 
 function questComplete(state, quest) {
-  if (quest.requirement.type === 'battleWin') return Number(state.battleWins || 0) >= quest.requirement.count;
-  if (quest.requirement.type === 'haveItem') return Number(state.inventory[quest.requirement.itemId] || 0) >= quest.requirement.qty;
+  if (quest.requirement.type === 'battleWin') return battleWinCountForQuest(state, quest) >= quest.requirement.count;
+  if (quest.requirement.type === 'haveItem') return itemCount(state, quest.requirement.itemId) >= quest.requirement.qty;
   return false;
 }
 
 function spendQuestRequirement(state, quest) {
-  if (quest.requirement.type !== 'haveItem') return state.inventory;
-  return addItem(state.inventory, quest.requirement.itemId, -quest.requirement.qty);
+  if (quest.requirement.type !== 'haveItem') return { inventory: state.inventory, equipment: state.equipment };
+  const item = getItem(quest.requirement.itemId);
+  if (item?.kind === 'equipment') {
+    let remaining = Number(quest.requirement.qty || 0);
+    const equipment = [];
+    state.equipment.forEach((entry) => {
+      if (entry.itemId === quest.requirement.itemId && remaining > 0) {
+        remaining -= 1;
+        return;
+      }
+      equipment.push(entry);
+    });
+    return { inventory: state.inventory, equipment, weaponUid: equipment.some((entry) => entry.uid === state.weaponUid) ? state.weaponUid : '' };
+  }
+  return { inventory: addItem(state.inventory, quest.requirement.itemId, -quest.requirement.qty), equipment: state.equipment };
+}
+
+function applyQuestReward(state, quest) {
+  const spent = spendQuestRequirement(state, quest);
+  let inventory = spent.inventory;
+  let equipment = spent.equipment;
+  (quest.reward.items || []).forEach((reward) => {
+    const item = getItem(reward.itemId);
+    if (item?.kind === 'equipment') {
+      Array.from({ length: Number(reward.qty || 0) }).forEach(() => {
+        equipment = [...equipment, { uid: `${item.id}-${Date.now().toString(36)}-${equipment.length}`, itemId: item.id }];
+      });
+      return;
+    }
+    inventory = addItem(inventory, reward.itemId, reward.qty);
+  });
+  return { inventory, equipment, weaponUid: spent.weaponUid ?? state.weaponUid };
 }
 
 export function claimQuestAction(state, questId) {
   const current = normalizeState(state);
   const quest = QUESTS.find((item) => item.id === questId) || QUESTS[0];
-  if (current.completedQuestIds.includes(quest.id)) return addLog(current, '이미 완료한 의뢰입니다.');
+  if (hasClaimedQuest(current, quest)) return addLog(current, '이번 기간에는 이미 보고한 의뢰입니다.');
   if (!questComplete(current, quest)) return addLog(current, `${quest.title} 조건이 부족합니다.`);
   const completed = new Set(current.completedQuestIds);
-  completed.add(quest.id);
+  if (questCadence(quest) === 'once') completed.add(quest.id);
+  const rep = guildRepReward(current, quest.repReward || 0);
+  const rewardPayload = applyQuestReward(current, quest);
+  const questClaims = {
+    ...current.questClaims,
+    [quest.id]: {
+      lastPeriodKey: questPeriodKey(current, quest),
+      cadence: questCadence(quest),
+      claimedAtDay: Number(current.day || 1),
+    },
+  };
   return addLog({
     ...current,
     completedQuestIds: [...completed],
-    inventory: addItems(spendQuestRequirement(current, quest), quest.reward.items),
+    questClaims,
+    inventory: rewardPayload.inventory,
+    equipment: rewardPayload.equipment,
+    weaponUid: rewardPayload.weaponUid,
     credit: Number(current.credit || 0) + Number(quest.reward.credit || 0),
-    guildRep: Number(current.guildRep || 0) + Number(quest.repReward || 0),
-  }, `${quest.title} 완료. +${quest.reward.credit || 0} Cr, 평판 +${quest.repReward || 0}`);
+    guildRep: Number(current.guildRep || 0) + rep.total,
+  }, `${quest.title} 완료. +${quest.reward.credit || 0} Cr, 평판 +${rep.total}${rep.bonus ? ` (시설 보너스 +${rep.bonus})` : ''}`);
+}
+
+export function buyPropertyAction(state, propertyId) {
+  const current = normalizeState(state);
+  const property = getProperty(propertyId) || PROPERTIES[0];
+  const properties = normalizeProperties(current.properties);
+  if (properties.ownedIds.includes(property.id)) return addLog(current, '이미 소유한 부동산입니다.');
+  if (Number(current.credit || 0) < property.buyPrice) return addLog(current, '부동산 구매 크레딧이 부족합니다.');
+  const rented = { ...properties.rented };
+  delete rented[property.id];
+  return addLog({
+    ...current,
+    credit: Number(current.credit || 0) - Number(property.buyPrice || 0),
+    properties: { ...properties, rented, ownedIds: [...properties.ownedIds, property.id] },
+  }, `${property.name}을(를) 구매했습니다. -${property.buyPrice} Cr`);
+}
+
+export function rentPropertyAction(state, propertyId) {
+  const current = normalizeState(state);
+  const property = getProperty(propertyId) || PROPERTIES[0];
+  const properties = normalizeProperties(current.properties);
+  if (properties.ownedIds.includes(property.id)) return addLog(current, '소유한 부동산은 임차할 수 없습니다.');
+  if (properties.rented[property.id]) return addLog(current, '이미 임차 중인 부동산입니다.');
+  if (Number(current.credit || 0) < property.rentFee) return addLog(current, '부동산 임차 크레딧이 부족합니다.');
+  return addLog({
+    ...current,
+    credit: Number(current.credit || 0) - Number(property.rentFee || 0),
+    properties: {
+      ...properties,
+      rented: {
+        ...properties.rented,
+        [property.id]: { untilDay: Number(current.day || 1) + 3 },
+      },
+    },
+  }, `${property.name}을(를) 3일간 임차했습니다. -${property.rentFee} Cr`);
+}
+
+export function cancelRentPropertyAction(state, propertyId) {
+  const current = normalizeState(state);
+  const property = getProperty(propertyId) || PROPERTIES[0];
+  const properties = normalizeProperties(current.properties);
+  if (!properties.rented[property.id]) return addLog(current, '임차 중인 부동산이 아닙니다.');
+  const rented = { ...properties.rented };
+  delete rented[property.id];
+  return addLog({
+    ...current,
+    properties: { ...properties, rented },
+  }, `${property.name} 임차를 종료했습니다.`);
+}
+
+export function toggleLeasePropertyAction(state, propertyId) {
+  const current = normalizeState(state);
+  const property = getProperty(propertyId) || PROPERTIES[0];
+  const properties = normalizeProperties(current.properties);
+  if (!properties.ownedIds.includes(property.id)) return addLog(current, '소유한 부동산만 임대할 수 있습니다.');
+  const leased = properties.leasedOutIds.includes(property.id);
+  return addLog({
+    ...current,
+    properties: {
+      ...properties,
+      leasedOutIds: leased
+        ? properties.leasedOutIds.filter((id) => id !== property.id)
+        : [...properties.leasedOutIds, property.id],
+    },
+  }, leased ? `${property.name} 임대를 종료했습니다.` : `${property.name} 임대를 시작했습니다. 하루 +${property.leaseIncomePerDay} Cr`);
+}
+
+export function enactEdictAction(state, edictId) {
+  const current = normalizeState(state);
+  const edict = EDICTS.find((item) => item.id === edictId) || EDICTS[0];
+  const periodKey = periodKeyFor('monthly', current.day);
+  if (current.edictState?.monthly?.periodKey === periodKey) return addLog(current, '이번 달에는 이미 칙령을 발령했습니다.');
+  return addLog({
+    ...current,
+    edictState: { monthly: { periodKey, edictId: edict.id } },
+  }, `${edict.name}을(를) 이번 달 칙령으로 발령했습니다.`);
 }
 
 export function inventoryRows(state) {
@@ -646,9 +1051,90 @@ export function questRows(state) {
   const current = normalizeState(state);
   return QUESTS.map((quest) => ({
     ...quest,
+    cadence: questCadence(quest),
+    periodKey: questPeriodKey(current, quest),
+    progress: quest.requirement.type === 'battleWin' ? battleWinCountForQuest(current, quest) : itemCount(current, quest.requirement.itemId),
+    required: quest.requirement.type === 'battleWin' ? quest.requirement.count : quest.requirement.qty,
     done: questComplete(current, quest),
-    claimed: current.completedQuestIds.includes(quest.id),
+    claimed: hasClaimedQuest(current, quest),
   }));
+}
+
+export function shopRows(state) {
+  const current = normalizeState(state);
+  return SHOP_ITEMS.map((line) => ({
+    ...line,
+    item: getItem(line.itemId),
+    name: itemName(line.itemId),
+    price: adjustedShopPrice(current, line),
+    basePrice: line.price,
+  }));
+}
+
+export function recipeRows(state) {
+  const current = normalizeState(state);
+  return RECIPES.map((recipe) => ({
+    ...recipe,
+    costCredit: craftCost(current, recipe),
+    baseCostCredit: recipe.costCredit,
+  }));
+}
+
+export function propertyRows(state) {
+  const current = normalizeState(state);
+  const properties = normalizeProperties(current.properties);
+  return PROPERTIES.map((property) => {
+    const rented = properties.rented[property.id] || null;
+    const owned = properties.ownedIds.includes(property.id);
+    const leased = properties.leasedOutIds.includes(property.id);
+    return {
+      ...property,
+      owned,
+      leased,
+      rented,
+      active: (owned && !leased) || Boolean(rented),
+      status: owned ? (leased ? '임대 중' : '소유/사용 중') : rented ? `임차 중(~${rented.untilDay}일)` : '미보유',
+    };
+  });
+}
+
+export function edictRows(state) {
+  const current = normalizeState(state);
+  const active = activeMonthlyEdict(current);
+  return EDICTS.map((edict) => ({
+    ...edict,
+    active: active?.id === edict.id,
+    available: !current.edictState?.monthly || current.edictState.monthly.periodKey !== periodKeyFor('monthly', current.day),
+  }));
+}
+
+export function guildRankInfo(state) {
+  const current = normalizeState(state);
+  const rep = Math.max(0, Math.floor(Number(current.guildRep || 0)));
+  const table = [...ECONOMY.guild.rankTable].sort((a, b) => a.minRep - b.minRep);
+  const currentRank = table.filter((row) => rep >= row.minRep).at(-1) || table[0];
+  return {
+    rep,
+    rank: currentRank.rank,
+    nextRep: currentRank.nextRep,
+    remaining: currentRank.nextRep == null ? 0 : Math.max(0, currentRank.nextRep - rep),
+  };
+}
+
+export function townSummary(state) {
+  const current = normalizeState(state);
+  const properties = propertyRows(current);
+  const edict = activeMonthlyEdict(current);
+  return {
+    restCost: innRestCost(current),
+    shopDiscountPct: Math.max(0, Math.round((1 - shopPriceMultiplier(current)) * 100)),
+    activeProperties: properties.filter((property) => property.active).length,
+    ownedProperties: properties.filter((property) => property.owned).length,
+    rentedProperties: properties.filter((property) => property.rented).length,
+    leasedProperties: properties.filter((property) => property.leased).length,
+    activeEdictName: edict?.name || '없음',
+    guildRank: guildRankInfo(current).rank,
+  };
 }
 
 export function battlePower(state) {
@@ -661,11 +1147,17 @@ export function battlePower(state) {
 
 export function scoreState(state) {
   const current = normalizeState(state);
+  const properties = propertyRows(current);
+  const rank = guildRankInfo(current);
   return Math.max(0, Math.round(
     Number(current.credit || 0)
     + Number(current.guildRep || 0) * 12
     + Number(current.battleWins || 0) * 180
-    + Number(current.completedQuestIds.length || 0) * 90
+    + Object.keys(current.questClaims || {}).length * 90
+    + properties.filter((property) => property.owned).length * 220
+    + properties.filter((property) => property.active).length * 80
+    + (activeMonthlyEdict(current) ? 120 : 0)
+    + rank.rep * 2
     + battlePower(current) * 3
   ));
 }
@@ -678,13 +1170,18 @@ export function getPlayTimeSec(state) {
 
 export function summaryForState(state) {
   const current = normalizeState(state);
+  const town = townSummary(current);
+  const rank = guildRankInfo(current);
   return {
     day: current.day,
     mission: getMission(current.selectedMissionId).name,
     battleWins: current.battleWins,
     credit: current.credit,
     guildRep: current.guildRep,
-    quests: current.completedQuestIds.length,
+    guildRank: rank.rank,
+    quests: Object.keys(current.questClaims || {}).length,
+    properties: town.activeProperties,
+    edict: town.activeEdictName,
     score: scoreState(current),
   };
 }
