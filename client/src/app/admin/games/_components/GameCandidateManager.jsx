@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiDelete, apiGet, apiPost, clearApiGetCache } from '../../../../utils/api';
 import { useToast } from '../../../../components/ToastProvider';
+import { GAME_ADAPTER_PRESETS, findGameAdapterPreset } from '../../../games/_lib/gameCatalog';
 
 const DEFAULT_FORM = {
   slug: '',
@@ -72,6 +73,13 @@ const styles = {
     color: '#b6c2d6',
     lineHeight: 1.5,
     fontWeight: 700,
+  },
+  hint: {
+    margin: 0,
+    color: '#bfdbfe',
+    lineHeight: 1.45,
+    fontSize: 13,
+    fontWeight: 850,
   },
   formGrid: {
     display: 'grid',
@@ -211,6 +219,7 @@ export default function GameCandidateManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const selectedAdapterPreset = findGameAdapterPreset(form.adapter);
 
   const sortedEntries = useMemo(() => (
     [...entries].sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
@@ -238,6 +247,22 @@ export default function GameCandidateManager() {
   const updateForm = (key, value) => {
     if (key === 'slug') {
       setForm((current) => ({ ...current, slug: cleanSlug(value) }));
+      return;
+    }
+    if (key === 'adapter') {
+      const preset = findGameAdapterPreset(value);
+      setForm((current) => ({
+        ...current,
+        adapter: value,
+        ...(preset ? {
+          roomSystem: preset.roomSystem,
+          resultMode: preset.resultMode,
+          supportsRooms: preset.roomSystem !== 'none',
+          supportsStateSync: Boolean(preset.supportsStateSync),
+          supportsRecords: Boolean(preset.supportsRecords),
+          supportsSaves: Boolean(preset.supportsSaves),
+        } : {}),
+      }));
       return;
     }
     if (key === 'roomSystem') {
@@ -360,7 +385,12 @@ export default function GameCandidateManager() {
           </label>
           <label style={styles.label}>
             어댑터
-            <input style={styles.input} value={form.adapter} disabled={saving} onChange={(event) => updateForm('adapter', event.target.value)} />
+            <select style={styles.input} value={form.adapter} disabled={saving} onChange={(event) => updateForm('adapter', event.target.value)}>
+              {form.adapter && !findGameAdapterPreset(form.adapter) ? <option value={form.adapter}>{form.adapter}</option> : null}
+              {GAME_ADAPTER_PRESETS.map((preset) => (
+                <option value={preset.adapter} key={preset.adapter}>{preset.label} · {preset.adapter}</option>
+              ))}
+            </select>
           </label>
           <label style={styles.label}>
             방 시스템
@@ -379,6 +409,8 @@ export default function GameCandidateManager() {
             <input style={styles.input} type="number" value={form.sortOrder} disabled={saving} onChange={(event) => updateForm('sortOrder', Number(event.target.value || 0))} />
           </label>
         </div>
+
+        {selectedAdapterPreset ? <p style={styles.hint}>{selectedAdapterPreset.description}</p> : null}
 
         <div style={styles.formGrid}>
           <label style={styles.label}>

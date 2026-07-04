@@ -12,6 +12,144 @@ export const GAME_INTEGRATION_DEFAULTS = {
   resultMode: 'manual',
 };
 
+export const GAME_ADAPTER_PRESETS = [
+  {
+    adapter: 'discussion',
+    label: '논의/기획',
+    roomSystem: 'none',
+    resultMode: 'manual',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '게시판과 문서로 기획을 정리하는 초기 후보입니다.',
+  },
+  {
+    adapter: 'shared-game-room',
+    label: '공용 게임방',
+    roomSystem: 'game-room',
+    resultMode: 'room-record',
+    supportsStateSync: true,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '공용 방, 상태 저장, 수동 결과 기록을 사용하는 이식 기본형입니다.',
+  },
+  {
+    adapter: 'simulation',
+    label: '시뮬레이션',
+    roomSystem: 'none',
+    resultMode: 'run-summary',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: false,
+    description: '단독 시뮬레이션 실행 결과를 전적/요약으로 남기는 구조입니다.',
+  },
+  {
+    adapter: 'twenty-questions',
+    label: '스무고개 전용',
+    roomSystem: 'twenty-questions',
+    resultMode: 'host-judged',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: false,
+    description: '방장 판정과 질문/정답 카운트를 사용하는 전용 방 구조입니다.',
+  },
+  {
+    adapter: 'survival-loop',
+    label: '생존 루프',
+    roomSystem: 'game-room',
+    resultMode: 'survival-score',
+    supportsStateSync: true,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '채집, 제작, 생존 상태를 방 상태로 누적하는 구조입니다.',
+  },
+  {
+    adapter: 'management-loop',
+    label: '경영 루프',
+    roomSystem: 'game-room',
+    resultMode: 'ledger-score',
+    supportsStateSync: true,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '자원, 매출, 일정 같은 장부형 진행 상태를 저장합니다.',
+  },
+  {
+    adapter: 'idle-rpg',
+    label: '방치 RPG',
+    roomSystem: 'none',
+    resultMode: 'account-progress',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '계정 단위 성장과 반복 보상을 기록하는 구조입니다.',
+  },
+  {
+    adapter: 'tactical-grid',
+    label: '전술 그리드',
+    roomSystem: 'game-room',
+    resultMode: 'mission-clear',
+    supportsStateSync: true,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '턴, 좌표, 미션 클리어 상태를 방 상태로 저장합니다.',
+  },
+  {
+    adapter: 'league-sim',
+    label: '리그 시뮬레이션',
+    roomSystem: 'none',
+    resultMode: 'league-standing',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '시즌, 순위표, 경기 결과를 누적하는 리그형 구조입니다.',
+  },
+  {
+    adapter: 'school-sim',
+    label: '학교 운영',
+    roomSystem: 'none',
+    resultMode: 'term-report',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '주차/학기 단위 결과를 보고서처럼 남기는 구조입니다.',
+  },
+  {
+    adapter: 'challenge-sim',
+    label: '챌린지',
+    roomSystem: 'none',
+    resultMode: 'challenge-score',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '문제 풀이, 점수, 제출 결과를 기록하는 구조입니다.',
+  },
+  {
+    adapter: 'transport-sim',
+    label: '운송 시뮬레이션',
+    roomSystem: 'none',
+    resultMode: 'route-score',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '노선, 시간표, 수송 성과를 기록하는 구조입니다.',
+  },
+  {
+    adapter: 'business-ledger',
+    label: '사업 장부',
+    roomSystem: 'none',
+    resultMode: 'ledger-score',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '거래와 재무 기록 중심의 장부형 구조입니다.',
+  },
+];
+
+export function findGameAdapterPreset(adapter) {
+  const key = String(adapter || '').trim();
+  return GAME_ADAPTER_PRESETS.find((preset) => preset.adapter === key) || null;
+}
+
 const GAME_INTEGRATIONS = {
   'eternal-hunger': {
     stage: 'live',
@@ -358,17 +496,19 @@ export function dynamicGameCandidateToGame(candidate) {
   if (!candidate || typeof candidate !== 'object') return null;
   const slug = String(candidate.slug || '').trim();
   if (!slug) return null;
-  const roomSystem = candidate.roomSystem || 'none';
+  const adapter = candidate.adapter || 'discussion';
+  const adapterPreset = findGameAdapterPreset(adapter);
+  const roomSystem = candidate.roomSystem || adapterPreset?.roomSystem || 'none';
   const integration = {
     stage: candidate.stage || 'planned',
     stageLabel: candidate.stageLabel || '이식 후보',
-    adapter: candidate.adapter || 'discussion',
+    adapter,
     roomSystem,
     supportsRooms: Boolean(candidate.supportsRooms || roomSystem !== 'none'),
     supportsStateSync: Boolean(candidate.supportsStateSync),
     supportsRecords: candidate.supportsRecords !== false,
     supportsSaves: candidate.supportsSaves !== false,
-    resultMode: candidate.resultMode || 'manual',
+    resultMode: candidate.resultMode || adapterPreset?.resultMode || 'manual',
   };
   return withGameIntegration({
     slug,
