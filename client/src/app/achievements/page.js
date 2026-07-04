@@ -20,6 +20,12 @@ const EMPTY_PAYLOAD = {
     totalCount: 0,
   },
   totals: {},
+  onboarding: {
+    completedCount: 0,
+    totalCount: 0,
+    steps: [],
+    next: [],
+  },
   sections: [],
   achievements: [],
   next: [],
@@ -54,6 +60,12 @@ function normalizePayload(payload) {
     user: src.user || null,
     season: { ...EMPTY_PAYLOAD.season, ...season },
     totals: src.totals && typeof src.totals === 'object' ? src.totals : {},
+    onboarding: {
+      ...EMPTY_PAYLOAD.onboarding,
+      ...(src.onboarding && typeof src.onboarding === 'object' ? src.onboarding : {}),
+      steps: normalizeList(src.onboarding?.steps),
+      next: normalizeList(src.onboarding?.next),
+    },
     sections: normalizeList(src.sections),
     achievements: normalizeList(src.achievements),
     next: normalizeList(src.next),
@@ -115,6 +127,44 @@ function AchievementCard({ achievement, compact = false }) {
       </div>
       {href ? <Link href={href}>{completed ? '관련 화면 보기' : '진행하러 가기'}</Link> : null}
     </article>
+  );
+}
+
+function OnboardingPanel({ onboarding }) {
+  const steps = normalizeList(onboarding?.steps);
+  if (!steps.length) return null;
+
+  return (
+    <section className="achievements-panel">
+      <div className="achievements-panel-title">
+        <div>
+          <span>Start</span>
+          <h2>시작 체크리스트</h2>
+        </div>
+        <strong className="achievements-panel-badge">
+          {formatNumber(onboarding?.completedCount)} / {formatNumber(onboarding?.totalCount)}
+        </strong>
+      </div>
+      <div className="achievements-onboarding-list">
+        {steps.map((step) => {
+          const completed = Boolean(step?.completed);
+          return (
+            <Link
+              href={safeText(step?.href, '/achievements')}
+              className={`achievements-onboarding-step ${completed ? 'is-complete' : ''}`}
+              key={step?.id || step?.title}
+            >
+              <span>{completed ? '완료' : '진행'}</span>
+              <div>
+                <strong>{safeText(step?.title, '시작 항목')}</strong>
+                <small>{safeText(step?.description, '')}</small>
+              </div>
+              <em>{safeText(step?.cta, '바로가기')}</em>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -215,6 +265,8 @@ export default function AchievementsPage() {
                 <button type="button" onClick={() => void loadAchievements()}>다시 불러오기</button>
               </div>
             ) : null}
+
+            <OnboardingPanel onboarding={payload.onboarding} />
 
             <section className="achievements-panel">
               <div className="achievements-panel-title">

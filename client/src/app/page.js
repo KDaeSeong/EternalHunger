@@ -125,6 +125,11 @@ const EMPTY_PROGRESS = {
     totalCount: 0,
   },
   next: [],
+  onboarding: {
+    completedCount: 0,
+    totalCount: 0,
+    next: [],
+  },
 };
 
 function normalizeList(value) {
@@ -174,6 +179,11 @@ function normalizeProgress(payload) {
   return {
     season: { ...EMPTY_PROGRESS.season, ...season },
     next: normalizeList(src.next).slice(0, 3),
+    onboarding: {
+      ...EMPTY_PROGRESS.onboarding,
+      ...(src.onboarding && typeof src.onboarding === 'object' ? src.onboarding : {}),
+      next: normalizeList(src.onboarding?.next).slice(0, 3),
+    },
   };
 }
 
@@ -225,6 +235,25 @@ function NextGoalRows({ goals }) {
           </Link>
         );
       })}
+    </div>
+  );
+}
+
+function OnboardingRows({ onboarding }) {
+  const steps = normalizeList(onboarding?.next).slice(0, 3);
+  if (!steps.length) return <div className="home-empty">시작 체크리스트를 모두 완료했습니다.</div>;
+
+  return (
+    <div className="home-onboarding-rows">
+      {steps.map((step) => (
+        <Link href={safeText(step?.href, '/achievements')} className="home-onboarding-row" key={step?.id || step?.title}>
+          <span>다음</span>
+          <div>
+            <strong>{safeText(step?.title, '시작 항목')}</strong>
+            <small>{safeText(step?.description, '')}</small>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 }
@@ -448,6 +477,15 @@ export default function Home() {
               </div>
             </div>
             {progressError ? <div className="home-empty">{progressError}</div> : <NextGoalRows goals={progress.next} />}
+            {!progressError ? (
+              <div className="home-onboarding-box">
+                <div className="home-mini-title">
+                  <strong>시작 체크리스트</strong>
+                  <span>{formatNumber(progress.onboarding.completedCount)} / {formatNumber(progress.onboarding.totalCount)}</span>
+                </div>
+                <OnboardingRows onboarding={progress.onboarding} />
+              </div>
+            ) : null}
             <div className="home-personal-actions">
               <Link href="/achievements">업적 전체 보기</Link>
               <Link href="/records">기록소</Link>

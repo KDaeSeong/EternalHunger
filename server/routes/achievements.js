@@ -84,6 +84,17 @@ function buildAchievement({ id, section, title, description, value, target, poin
   };
 }
 
+function buildOnboardingStep({ id, title, description, completed, href, cta }) {
+  return {
+    id,
+    title,
+    description,
+    completed: Boolean(completed),
+    href: href || '',
+    cta: cta || '바로가기',
+  };
+}
+
 function summarizeSections(achievements) {
   const bySection = new Map();
   for (const achievement of achievements) {
@@ -107,6 +118,17 @@ function summarizeSections(achievements) {
   return Array.from(bySection.values());
 }
 
+function summarizeOnboarding(steps) {
+  const rows = Array.isArray(steps) ? steps : [];
+  const completedCount = rows.filter((step) => step.completed).length;
+  return {
+    completedCount,
+    totalCount: rows.length,
+    steps: rows,
+    next: rows.filter((step) => !step.completed).slice(0, 3),
+  };
+}
+
 router.get('/', async (req, res) => {
   try {
     const userId = getUserIdOrRespond(req, res);
@@ -122,7 +144,7 @@ router.get('/', async (req, res) => {
       hostedRoomCount,
       solvedRoomCount,
     ] = await Promise.all([
-      User.findById(userId).select('username nickname lp credits badges statistics').lean(),
+      User.findById(userId).select('username nickname lp credits badges perks statistics').lean(),
       Character.countDocuments({ userId }),
       TeamRecord.find({ userId }).select('gamesPlayed totalWins totalKills totalAssists deathCount').lean(),
       GameLog.countDocuments({ userId }),
@@ -162,7 +184,67 @@ router.get('/', async (req, res) => {
       comments: toNonNegativeInt(commentAgg?.[0]?.count),
       hostedRooms: toNonNegativeInt(hostedRoomCount),
       solvedRooms: toNonNegativeInt(solvedRoomCount),
+      perks: Array.isArray(user.perks) ? user.perks.length : 0,
     };
+
+    const onboarding = summarizeOnboarding([
+      buildOnboardingStep({
+        id: 'profile',
+        title: '프로필 이름 정하기',
+        description: '닉네임을 설정하면 랭킹과 게시판에서 알아보기 쉽습니다.',
+        completed: Boolean(String(user.nickname || '').trim()),
+        href: '/account',
+        cta: '계정 설정',
+      }),
+      buildOnboardingStep({
+        id: 'first_character',
+        title: '첫 캐릭터 등록',
+        description: '시뮬레이션에 참가할 캐릭터를 1명 이상 만듭니다.',
+        completed: totals.characters >= 1,
+        href: '/characters',
+        cta: '캐릭터 설정',
+      }),
+      buildOnboardingStep({
+        id: 'first_match',
+        title: '첫 경기 실행',
+        description: '현재 로스터로 시뮬레이션을 1회 완료합니다.',
+        completed: totals.totalGames >= 1,
+        href: '/simulation',
+        cta: '게임 시작',
+      }),
+      buildOnboardingStep({
+        id: 'first_record',
+        title: '기록 확인',
+        description: '저장된 경기 기록과 캐릭터/팀 전적을 확인합니다.',
+        completed: totals.runs >= 1 || totals.totalGames >= 1,
+        href: '/records',
+        cta: '기록소',
+      }),
+      buildOnboardingStep({
+        id: 'community',
+        title: '커뮤니티 참여',
+        description: '게시글이나 댓글로 공략, 피드백, 버그를 남깁니다.',
+        completed: totals.posts + totals.comments >= 1,
+        href: '/board',
+        cta: '게시판',
+      }),
+      buildOnboardingStep({
+        id: 'twenty_questions',
+        title: '스무고개 입장',
+        description: '방을 만들거나 정답을 맞혀 커뮤니티 게임에 참여합니다.',
+        completed: totals.hostedRooms + totals.solvedRooms >= 1,
+        href: '/twenty-questions',
+        cta: '방 목록',
+      }),
+      buildOnboardingStep({
+        id: 'first_perk',
+        title: '특전 확인',
+        description: 'LP로 장기 성장용 특전을 구매합니다.',
+        completed: totals.perks >= 1,
+        href: '/perks',
+        cta: '특전 상점',
+      }),
+    ]);
 
     const achievements = [
       buildAchievement({
@@ -329,6 +411,7 @@ router.get('/', async (req, res) => {
         totalCount: achievements.length,
       },
       totals,
+      onboarding,
       sections: summarizeSections(achievements),
       achievements,
       next,

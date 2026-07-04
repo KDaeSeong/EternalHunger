@@ -206,6 +206,38 @@
   gap: 10px;
 }
 
+.home-onboarding-box {
+  display: grid;
+  gap: 8px;
+}
+
+.home-mini-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-mini-title strong {
+  color: #17202a;
+  font-size: 0.94rem;
+}
+
+.home-mini-title span {
+  border-radius: 999px;
+  background: rgba(8, 120, 189, 0.1);
+  color: #14608d;
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 4px 8px;
+}
+
+.home-onboarding-rows {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .home-goal-row {
   min-width: 0;
   display: grid;
@@ -219,13 +251,49 @@
   text-decoration: none;
 }
 
+.home-onboarding-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e0e7ed;
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: inherit;
+  padding: 11px 12px;
+  text-decoration: none;
+}
+
 .home-goal-row:hover {
   border-color: rgba(44, 111, 158, 0.36);
   background: #f4faff;
 }
 
+.home-onboarding-row:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  background: #f4faff;
+}
+
+.home-onboarding-row > span {
+  border-radius: 999px;
+  background: #fff4dd;
+  color: #875c06;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
+.home-onboarding-row div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
 .home-goal-row strong,
-.home-goal-row span {
+.home-goal-row span,
+.home-onboarding-row strong,
+.home-onboarding-row small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -236,6 +304,18 @@
   color: #17202a;
   font-size: 0.95rem;
   line-height: 1.25;
+}
+
+.home-onboarding-row strong {
+  color: #17202a;
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.home-onboarding-row small {
+  color: #66727e;
+  font-size: 0.78rem;
+  font-weight: 850;
 }
 
 .home-goal-row .home-progress-bar {
@@ -485,7 +565,8 @@
   .home-command,
   .home-personal-main,
   .home-hub-layout,
-  .home-next-goals {
+  .home-next-goals,
+  .home-onboarding-rows {
     grid-template-columns: 1fr;
   }
 
@@ -519,6 +600,7 @@
 
   .home-metrics,
   .home-next-goals,
+  .home-onboarding-rows,
   .menu-grid {
     grid-template-columns: 1fr;
   }
