@@ -18,6 +18,12 @@ const NEXT_STATUS = [
   { value: 'dismissed', label: '기각' },
 ];
 
+const SUSPEND_OPTIONS = [
+  { value: '1', label: '1일 정지' },
+  { value: '7', label: '7일 정지' },
+  { value: '30', label: '30일 정지' },
+];
+
 function safeText(value, fallback = '') {
   const text = String(value || '').trim();
   return text || fallback;
@@ -39,6 +45,7 @@ function normalizeReport(row) {
     statusLabel: safeText(row.statusLabel, '접수'),
     reasonLabel: safeText(row.reasonLabel, '기타'),
     reporterName: safeText(row.reporterName || row.reporter?.nickname || row.reporter?.username, '익명'),
+    targetUserId: safeText(row.targetUserId, ''),
     target: row.target && typeof row.target === 'object' ? row.target : {},
   };
 }
@@ -60,6 +67,7 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [notes, setNotes] = useState({});
+  const [suspendDays, setSuspendDays] = useState({});
   const [savingId, setSavingId] = useState('');
 
   const loadReports = useCallback(async () => {
@@ -74,6 +82,13 @@ export default function AdminReportsPage() {
         const next = { ...current };
         nextReports.forEach((report) => {
           if (next[report._id] === undefined) next[report._id] = report.adminNote || '';
+        });
+        return next;
+      });
+      setSuspendDays((current) => {
+        const next = { ...current };
+        nextReports.forEach((report) => {
+          if (next[report._id] === undefined) next[report._id] = '7';
         });
         return next;
       });
@@ -104,6 +119,23 @@ export default function AdminReportsPage() {
       await loadReports();
     } catch (err) {
       setMessage(err?.message || '신고 상태 저장에 실패했습니다.');
+    } finally {
+      setSavingId('');
+    }
+  };
+
+  const suspendTarget = async (report) => {
+    if (!report?._id) return;
+    setSavingId(report._id);
+    try {
+      const data = await apiRequest('POST', `/reports/${report._id}/suspend-target`, {
+        days: Number(suspendDays[report._id] || 7),
+        adminNote: notes[report._id] || '',
+      }, { timeoutMs: 20000 });
+      setMessage(data?.message || '대상 계정을 정지했습니다.');
+      await loadReports();
+    } catch (err) {
+      setMessage(err?.message || '대상 계정 정지에 실패했습니다.');
     } finally {
       setSavingId('');
     }
@@ -199,6 +231,27 @@ export default function AdminReportsPage() {
                   {savingId === report._id ? '저장 중...' : option.label}
                 </button>
               ))}
+              {(report.targetUserId || report.target?.authorId) && report.status !== 'resolved' ? (
+                <>
+                  <select
+                    value={suspendDays[report._id] || '7'}
+                    onChange={(event) => setSuspendDays({ ...suspendDays, [report._id]: event.target.value })}
+                    disabled={savingId === report._id}
+                  >
+                    {SUSPEND_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="admin-btn danger"
+                    onClick={() => suspendTarget(report)}
+                    disabled={savingId === report._id}
+                  >
+                    대상 정지
+                  </button>
+                </>
+              ) : null}
             </div>
           </article>
         ))}

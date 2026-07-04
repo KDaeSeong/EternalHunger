@@ -171,6 +171,15 @@
   margin-top: 10px;
 }
 
+.admin-shell .admin-btn-row select {
+  min-height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(11, 14, 20, 0.88);
+  color: rgba(232, 236, 255, 0.95);
+  padding: 0 12px;
+}
+
 .admin-shell .admin-btn {
   padding: 10px 12px;
   border-radius: 10px;

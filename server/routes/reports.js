@@ -71,6 +71,27 @@ function isValidObjectId(value) {
   return mongoose.Types.ObjectId.isValid(String(value || ''));
 }
 
+function toSuspendDays(value) {
+  const days = Number(value || 0);
+  if (!Number.isFinite(days) || days <= 0) return 7;
+  return Math.max(1, Math.min(365, Math.floor(days)));
+}
+
+function resolveReportTargetUserId(report) {
+  if (report?.targetType === 'user') return normalizeId(report.targetUserId);
+  return normalizeId(report?.targetSnapshot?.authorId);
+}
+
+async function serializeReportById(reportId) {
+  const populated = await Report.findById(reportId)
+    .populate('reporterId', 'username nickname')
+    .populate('handledBy', 'username nickname')
+    .populate('postId', 'title createdAt')
+    .populate('targetUserId', 'username nickname profileBio createdAt')
+    .lean();
+  return populated ? serializeReport(populated) : null;
+}
+
 function serializeReport(report) {
   const snapshot = report?.targetSnapshot || {};
   const post = report?.postId && typeof report.postId === 'object' ? report.postId : null;
@@ -283,6 +304,83 @@ router.get('/', verifyAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '신고 목록을 불러오지 못했습니다.' });
+  }
+});
+
+router.post('/:id/suspend-target', verifyAdmin, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) return res.status(400).json({ error: '신고 ID가 올바르지 않습니다.' });
+
+    const report = await Report.findById(req.params.id);
+    if (!report) return res.status(404).json({ error: '신고를 찾을 수 없습니다.' });
+
+    const targetUserId = resolveReportTargetUserId(report);
+    if (!isValidObjectId(targetUserId)) {
+      return res.status(400).json({ error: '정지할 대상 사용자를 찾을 수 없습니다.' });
+    }
+    if (normalizeId(targetUserId) === normalizeId(req.user.id)) {
+      return res.status(400).json({ error: '자기 자신은 정지할 수 없습니다.' });
+    }
+
+    const target = await User.findById(targetUserId).select('_id username nickname isAdmin').lean();
+    if (!target) return res.status(404).json({ error: '정지할 사용자를 찾을 수 없습니다.' });
+    if (target.isAdmin) return res.status(400).json({ error: '관리자 계정은 신고 화면에서 정지할 수 없습니다.' });
+
+    const days = toSuspendDays(req.body?.days);
+    const reason = cleanText(req.body?.reason || req.body?.adminNote || report.detail || '신고 처리에 따른 계정 정지', 500);
+    const suspendedUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    await User.findByIdAndUpdate(target._id, {
+      $set: {
+        moderationStatus: 'suspended',
+        moderationReason: reason,
+        suspendedUntil,
+        moderatedBy: req.user.id,
+        moderatedAt: new Date(),
+      },
+    });
+
+    report.status = 'resolved';
+    report.adminNote = cleanText(req.body?.adminNote || `${days}일 계정 정지: ${reason}`, 1000);
+    report.handledBy = req.user.id;
+    report.handledAt = new Date();
+    await report.save();
+
+    await Promise.all([
+      createNotification({
+        userId: report.reporterId,
+        actorId: req.user.id,
+        type: 'report_status',
+        title: '신고 처리 완료',
+        message: '신고 대상에 대한 계정 정지 조치가 완료되었습니다.',
+        link: buildTargetUrl(report.targetType, report.targetType === 'user' ? report.targetUserId : report.postId),
+        meta: { reportId: normalizeId(report), status: report.status },
+      }),
+      createNotification({
+        userId: target._id,
+        actorId: req.user.id,
+        type: 'system',
+        title: '계정 정지 안내',
+        message: `${days}일 동안 계정 이용이 제한됩니다.`,
+        link: '/account',
+        meta: { reportId: normalizeId(report), suspendedUntil },
+      }),
+    ]);
+
+    res.json({
+      message: `${displayName(target)} 계정을 ${days}일 정지했습니다.`,
+      report: await serializeReportById(report._id),
+      moderation: {
+        userId: normalizeId(target),
+        displayName: displayName(target),
+        moderationStatus: 'suspended',
+        moderationReason: reason,
+        suspendedUntil,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '계정 정지 처리에 실패했습니다.' });
   }
 });
 

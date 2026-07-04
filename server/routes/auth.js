@@ -9,6 +9,12 @@ function normalizeNickname(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ');
 }
 
+function isSuspensionActive(user) {
+  if (user?.moderationStatus !== 'suspended') return false;
+  if (!user.suspendedUntil) return true;
+  return new Date(user.suspendedUntil).getTime() > Date.now();
+}
+
 function publicUser(user) {
   return {
     id: user._id,
@@ -20,6 +26,9 @@ function publicUser(user) {
     credits: Number(user.credits || 0),
     perks: Array.isArray(user.perks) ? user.perks : [],
     isAdmin: Boolean(user.isAdmin),
+    moderationStatus: user.moderationStatus || 'active',
+    moderationReason: user.moderationReason || '',
+    suspendedUntil: user.suspendedUntil || null,
   };
 }
 
@@ -52,6 +61,14 @@ router.post('/login', async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    if (isSuspensionActive(user)) {
+      return res.status(403).json({
+        error: '정지된 계정입니다.',
+        moderationStatus: user.moderationStatus,
+        moderationReason: user.moderationReason || '',
+        suspendedUntil: user.suspendedUntil || null,
+      });
+    }
 
     const token = jwt.sign({ id: user._id }, process.env.MY_SECRET_KEY, { expiresIn: '1d' });
     res.json({ token, user: publicUser(user) });
