@@ -5253,6 +5253,39 @@
   cursor: not-allowed;
 }
 
+.schale-salvage-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border: 1px solid rgba(100, 113, 125, 0.22);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #17202a;
+  padding: 7px 11px;
+  font-weight: 950;
+}
+
+.schale-salvage-toggle span {
+  border-radius: 999px;
+  background: #dbe4ea;
+  color: #4b5563;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.schale-salvage-toggle.is-on {
+  border-color: rgba(8, 120, 189, 0.28);
+  background: #e8f5ff;
+  color: #1f5f86;
+}
+
+.schale-salvage-toggle.is-on span {
+  background: #0878bd;
+  color: #fff;
+}
+
 .games-empty {
   justify-content: space-between;
   min-height: 58px;

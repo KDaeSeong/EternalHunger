@@ -36,6 +36,7 @@ import {
   salvageRows,
   salvageSummary,
   scoreState,
+  setSalvageCandidateOnlyAction,
   slotLabel,
   summaryForState,
   teamPower,
@@ -279,7 +280,9 @@ export default function SchaleIdlePlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!selectedSlot} onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}>선택 장비 강화</ActionButton>
             <ActionButton disabled={!selectedEquip} onClick={() => setState((current) => rerollEquipmentAction(current, selectedSlot))}>선택 장비 옵션 재련</ActionButton>
-            <ActionButton disabled={!salvage.length} onClick={() => setState((current) => autoSalvageAction(current))}>자동 분해 실행</ActionButton>
+            <ActionButton disabled={!salvageInfo.executableCount} onClick={() => setState((current) => autoSalvageAction(current))}>
+              자동 분해 실행{salvageInfo.candidateOnly ? ' · 후보만' : ''}
+            </ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 1))}>탑 1회 도전</ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 5))}>탑 5회 도전</ActionButton>
           </div>
@@ -349,17 +352,39 @@ export default function SchaleIdlePlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>분해 대기열</h2>
-            <button type="button" className="tcg-primary-action" disabled={!salvage.length} onClick={() => setState((current) => autoSalvageAction(current))}>
+            <button type="button" className="tcg-primary-action" disabled={!salvageInfo.executableCount} onClick={() => setState((current) => autoSalvageAction(current))}>
               자동 분해{salvageInfo.candidateOnly ? ' · 후보만' : ''}
             </button>
           </div>
           {salvage.length ? (
             <>
+              <div className="games-chip-row" style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className={`schale-salvage-toggle${salvageInfo.candidateOnly ? ' is-on' : ''}`}
+                  onClick={() => setState((current) => setSalvageCandidateOnlyAction(current, !salvageInfo.candidateOnly))}
+                >
+                  후보만 분해
+                  {salvageInfo.candidateOnly ? <span>ON</span> : <span>OFF</span>}
+                </button>
+              </div>
               <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
-                후보만 분해 ON · 장착 장비 {salvageInfo.protectedEquipped}개는 보호 중입니다. 실행 전 예상 보상과 위험 후보를 확인하세요.
+                {salvageInfo.candidateOnly ? (
+                  <>
+                    <strong>후보만 분해 ON</strong> · 실행 대상 {salvageInfo.executableCount}개 / 보호 유지 {salvageInfo.protectedByCandidateOnly}개입니다.
+                    장착 장비 {salvageInfo.protectedEquipped}개는 별도로 보호 중입니다.
+                  </>
+                ) : (
+                  <>
+                    <strong>후보만 분해 OFF</strong> · 전체 대기열 {salvageInfo.totalQueued}개를 자동 분해 대상으로 처리합니다.
+                    위험 후보까지 포함되므로 실행 전 목록을 확인하세요.
+                  </>
+                )}
               </div>
               <div className="games-rank-split" style={{ marginBottom: 12 }}>
-                <SmallStat label="후보" value={`${salvageInfo.queued}개`} />
+                <SmallStat label="대기열" value={`${salvageInfo.totalQueued}개`} />
+                <SmallStat label="실행 대상" value={`${salvageInfo.executableCount}개`} />
+                <SmallStat label="보호" value={`${salvageInfo.protectedByCandidateOnly}개`} />
                 <SmallStat label="고철" value={salvageInfo.totals.scrap} />
                 <SmallStat label="강화석" value={salvageInfo.totals.stone} />
                 <SmallStat label="리롤권" value={salvageInfo.totals.ticket} />

@@ -290,6 +290,9 @@ export function createNewState(options = {}) {
       itm_reroll_ticket: 1,
     },
     salvageQueue: [],
+    salvageSettings: {
+      candidateOnly: true,
+    },
     towerShop: {
       dailyKey: '',
       dailyBought: {},
@@ -330,6 +333,7 @@ export function normalizeState(value) {
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment,
     salvageQueue: Array.isArray(value.salvageQueue) ? value.salvageQueue.slice(0, 40) : base.salvageQueue,
+    salvageSettings: normalizeSalvageSettings(value.salvageSettings, base.salvageSettings),
     towerShop,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     claimedMissions: Array.isArray(value.claimedMissions) ? value.claimedMissions : base.claimedMissions,
@@ -533,6 +537,13 @@ function normalizeTowerShop(value, fallback) {
   };
 }
 
+function normalizeSalvageSettings(value, fallback = { candidateOnly: true }) {
+  const source = value && typeof value === 'object' ? value : fallback;
+  return {
+    candidateOnly: source.candidateOnly !== false,
+  };
+}
+
 function getKstDateParts(now = Date.now()) {
   const date = new Date(now + 9 * 60 * 60 * 1000);
   const dayKey = date.toISOString().slice(0, 10);
@@ -574,6 +585,16 @@ function salvageValue(equip) {
     stone: rank >= RARITY_RANK.RARE ? 1 + Math.floor(enhance / 3) : Math.floor(enhance / 4),
     ticket: rank >= RARITY_RANK.EPIC && enhance >= 6 ? 1 : 0,
   };
+}
+
+function isHighRiskSalvageEntry(entry) {
+  return rarityRank(entry?.rarity) >= RARITY_RANK.RARE
+    || Number(entry?.enhance || 0) >= 3
+    || Number(entry?.score || 0) >= 120;
+}
+
+function salvageTargetRows(rows = [], candidateOnly = true) {
+  return candidateOnly ? rows.filter((entry) => !isHighRiskSalvageEntry(entry)) : rows;
 }
 
 function makeSalvageEntry(equip, reason) {
@@ -1019,9 +1040,14 @@ export function autoSalvageAction(state) {
   const current = normalizeState(state);
   const queue = Array.isArray(current.salvageQueue) ? current.salvageQueue : [];
   if (!queue.length) return addLog(current, '자동 분해할 장비가 없습니다.');
+  const candidateOnly = current.salvageSettings?.candidateOnly !== false;
+  const targetQueue = salvageTargetRows(queue, candidateOnly);
+  const targetUids = new Set(targetQueue.map((entry) => entry.uid));
+  const remainingQueue = queue.filter((entry) => !targetUids.has(entry.uid));
+  if (!targetQueue.length) return addLog(current, '후보만 분해 ON 상태에서 실행할 안전 후보가 없습니다. 전체 분해가 필요하면 후보만 분해를 끄세요.');
 
   let inventory = current.inventory;
-  const totals = queue.reduce((sum, entry) => {
+  const totals = targetQueue.reduce((sum, entry) => {
     const value = salvageValue(entry);
     return {
       scrap: sum.scrap + value.scrap,
@@ -1037,9 +1063,21 @@ export function autoSalvageAction(state) {
   return addLog({
     ...current,
     inventory,
-    salvageQueue: [],
-    counters: bumpCounter(current.counters, 'SALVAGE', queue.length),
-  }, `자동 분해 ${queue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}`);
+    salvageQueue: remainingQueue,
+    counters: bumpCounter(current.counters, 'SALVAGE', targetQueue.length),
+  }, `자동 분해 ${targetQueue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}${remainingQueue.length ? ` / 보호로 ${remainingQueue.length}개 유지` : ''}`);
+}
+
+export function setSalvageCandidateOnlyAction(state, enabled) {
+  const current = normalizeState(state);
+  const candidateOnly = enabled !== false;
+  return addLog({
+    ...current,
+    salvageSettings: {
+      ...current.salvageSettings,
+      candidateOnly,
+    },
+  }, candidateOnly ? '후보만 분해를 켰습니다. 위험 후보는 자동 분해에서 보호됩니다.' : '후보만 분해를 껐습니다. 자동 분해가 전체 대기열을 처리합니다.');
 }
 
 function grantTowerShopReward(current, offer, rng) {
@@ -1244,10 +1282,14 @@ export function inventoryRows(state) {
 
 export function salvageRows(state) {
   const current = normalizeState(state);
+  const candidateOnly = current.salvageSettings?.candidateOnly !== false;
+  const targetUids = new Set(salvageTargetRows(current.salvageQueue, candidateOnly).map((entry) => entry.uid));
   return current.salvageQueue.map((entry) => {
     const value = salvageValue(entry);
     return {
       ...entry,
+      highRisk: isHighRiskSalvageEntry(entry),
+      executable: targetUids.has(entry.uid),
       rewardText: `고철 ${value.scrap}${value.stone ? `, 강화석 ${value.stone}` : ''}${value.ticket ? `, 리롤권 ${value.ticket}` : ''}`,
     };
   });
@@ -1256,7 +1298,10 @@ export function salvageRows(state) {
 export function salvageSummary(state) {
   const current = normalizeState(state);
   const rows = salvageRows(current);
-  const totals = rows.reduce((sum, entry) => {
+  const candidateOnly = current.salvageSettings?.candidateOnly !== false;
+  const executableRows = rows.filter((entry) => entry.executable);
+  const protectedRows = rows.filter((entry) => !entry.executable);
+  const totals = executableRows.reduce((sum, entry) => {
     const value = salvageValue(entry);
     return {
       scrap: sum.scrap + value.scrap,
@@ -1273,11 +1318,14 @@ export function salvageSummary(state) {
     [entry.slot]: Number(next[entry.slot] || 0) + 1,
   }), {});
   const riskyRows = rows
-    .filter((entry) => rarityRank(entry.rarity) >= RARITY_RANK.RARE || Number(entry.enhance || 0) >= 3 || Number(entry.score || 0) >= 120)
+    .filter((entry) => entry.highRisk)
     .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
   return {
-    queued: rows.length,
-    candidateOnly: true,
+    queued: executableRows.length,
+    totalQueued: rows.length,
+    executableCount: executableRows.length,
+    protectedByCandidateOnly: protectedRows.length,
+    candidateOnly,
     protectedEquipped: getEquippedList(current).length,
     totals,
     totalRewardText: `고철 ${totals.scrap}${totals.stone ? `, 강화석 ${totals.stone}` : ''}${totals.ticket ? `, 리롤권 ${totals.ticket}` : ''}`,
