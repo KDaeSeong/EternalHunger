@@ -112,10 +112,10 @@ Checked: 2026-07-04
 ## BA Vanguard Slice Status
 
 - Route: `/games/ba-vanguard/play`
-- Included loop: P-G card library, Gehenna/Trinity/Millennium sample deck presets, deck rule validation, opening-hand shuffle test.
-- Site API integration: quick save through `/game-saves/ba-vanguard/ba-vanguard-main`; deck-test record through `/game-records/ba-vanguard`.
+- Included loop: P-G card library, Gehenna/Trinity/Millennium sample deck presets, deck rule validation, opening-hand shuffle test, duel state, ride/call/retire, stride, VC act, battle declaration, boost, guard, G guardian, drive/damage checks, trigger effects, 6-damage win, and simple AI progression.
+- Site API integration: quick save through `/game-saves/ba-vanguard/ba-vanguard-main`; playtest record through `/game-records/ba-vanguard`.
 - Source basis: `C:\2저장고\마이애니메\ba-vanguard`.
-- Next step: import the original battle playtest engine and room state sync.
+- Next step: add room state sync/multiplayer sharing, richer original card-specific skill coverage, and modal zone inspection for deck/drop/soul/damage/G zone.
 
 ## MyAnimeCraft Slice Status
 

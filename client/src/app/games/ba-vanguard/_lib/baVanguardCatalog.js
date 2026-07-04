@@ -1,6 +1,6 @@
 export const GAME_SLUG = 'ba-vanguard';
 export const QUICK_SAVE_SLOT = 'ba-vanguard-main';
-export const SAVE_VERSION = 'ba-vanguard-v1';
+export const SAVE_VERSION = 'ba-vanguard-v2';
 
 export const DEFAULT_RULES = {
   mainSize: 50,
@@ -11,6 +11,16 @@ export const DEFAULT_RULES = {
   recommendedGrade3: 8,
   minGGuardians: 2,
   allowMixedClan: false,
+  firstTurnNoDraw: true,
+};
+
+export const CIRCLES = ['RC_BL', 'RC_BC', 'RC_BR', 'RC_FL', 'VC', 'RC_FR'];
+export const REAR_CIRCLES = ['RC_FL', 'RC_FR', 'RC_BL', 'RC_BR', 'RC_BC'];
+export const PHASES = ['STAND', 'DRAW', 'MAIN', 'BATTLE', 'END'];
+
+export const SIDE_LABELS = {
+  me: '나',
+  opp: 'AI',
 };
 
 const CLANS = [
@@ -51,176 +61,181 @@ function clanCards(clan) {
       grade: 0,
       power: 6000,
       shield: 0,
-      text: 'First vanguard. Moves to soul after the first ride.',
+      text: 'First vanguard. First ride 이후 소울로 들어가는 시작 카드입니다.',
       tone: clan.tone,
       tags: ['starter', clan.style],
     },
-    ...['critical', 'draw', 'stand', 'heal'].map((trigger) => ({
+    ...[
+      ['critical', 'Critical Trigger'],
+      ['draw', 'Draw Trigger'],
+      ['stand', 'Stand Trigger'],
+      ['heal', 'Heal Trigger'],
+    ].map(([trigger, label]) => ({
       id: `${prefix}_TR_${trigger.toUpperCase()}`,
-      name: `${clan.label} ${trigger} trigger`,
+      name: `${clan.label} ${label}`,
       clan: clan.label,
       type: 'trigger',
       trigger,
       grade: 0,
       power: 5000,
       shield: 10000,
-      text: `${trigger} trigger. +10000 power and trigger effect in drive or damage check.`,
+      text: `${label}. Drive/Damage check에서 VC에 +10000을 부여하고 트리거 효과를 처리합니다.`,
       tone: clan.tone,
       tags: ['trigger', trigger],
     })),
     {
       id: `${prefix}_PG_001`,
-      name: `${clan.label} perfect guard`,
+      name: `${clan.label} Perfect Guard`,
       clan: clan.label,
       type: 'sentinel',
       grade: 1,
       power: 7000,
       shield: 0,
-      text: 'Sentinel. Discard one card to fully guard one attack.',
+      text: 'Sentinel. 패에서 1장을 버리고 한 번의 VC 공격을 완전히 막습니다.',
       tone: clan.tone,
       tags: ['sentinel', 'guard'],
     },
     {
       id: `${prefix}_G1_001`,
-      name: `${clan.support} tactical aide`,
+      name: `${clan.support} Tactical Aide`,
       clan: clan.label,
       type: 'normal',
       grade: 1,
       power: 8000,
       shield: 5000,
-      text: 'When called, draw one card in the playtest log.',
+      text: '콜하면 전열을 보조하는 안정적인 Grade 1 유닛입니다.',
       tone: clan.tone,
       tags: ['grade1', 'draw'],
     },
     {
       id: `${prefix}_G1_002`,
-      name: `${clan.label} field operator`,
+      name: `${clan.label} Field Operator`,
       clan: clan.label,
       type: 'normal',
       grade: 1,
       power: 8000,
       shield: 5000,
-      text: 'Boosted attacks get +2000 in the simplified playtest.',
+      text: '같은 세로줄의 앞열 유닛을 부스트하는 기본 Grade 1입니다.',
       tone: clan.tone,
       tags: ['grade1', 'boost'],
     },
     {
       id: `${prefix}_G1_003`,
-      name: `${clan.label} reserve student`,
+      name: `${clan.label} Reserve Student`,
       clan: clan.label,
       type: 'normal',
       grade: 1,
       power: 7000,
       shield: 5000,
-      text: 'Flexible grade 1 slot for clean 50-card preset construction.',
+      text: '50장 프리셋 구성을 위한 유연한 Grade 1 슬롯입니다.',
       tone: clan.tone,
       tags: ['grade1'],
     },
     {
       id: `${prefix}_G2_001`,
-      name: `${clan.label} frontliner`,
+      name: `${clan.label} Frontliner`,
       clan: clan.label,
       type: 'normal',
       grade: 2,
       power: 10000,
       shield: 5000,
-      text: 'Gets +3000 when attacking a vanguard in the simplified test.',
+      text: 'VC를 공격할 때 이번 전투 동안 +3000을 받습니다.',
       tone: clan.tone,
       tags: ['grade2', 'attack'],
     },
     {
       id: `${prefix}_G2_002`,
-      name: `${clan.label} interceptor`,
+      name: `${clan.label} Interceptor`,
       clan: clan.label,
       type: 'normal',
       grade: 2,
       power: 9000,
       shield: 5000,
-      text: 'Can intercept from the front row during guard simulation.',
+      text: '방어 시 가드 수치로 활용하기 좋은 Grade 2 유닛입니다.',
       tone: clan.tone,
       tags: ['grade2', 'intercept'],
     },
     {
       id: `${prefix}_G2_003`,
-      name: `${clan.label} tactical reserve`,
+      name: `${clan.label} Tactical Reserve`,
       clan: clan.label,
       type: 'normal',
       grade: 2,
       power: 9000,
       shield: 5000,
-      text: 'Single-copy bridge slot used by the imported sample deck.',
+      text: '라이드 라인을 안정화하는 보조 Grade 2 슬롯입니다.',
       tone: clan.tone,
       tags: ['grade2'],
     },
     {
       id: `${prefix}_G3_001`,
-      name: `${clan.lead} vanguard`,
+      name: `${clan.lead} Vanguard`,
       clan: clan.label,
       type: 'normal',
       grade: 3,
       power: 13000,
       shield: 0,
-      text: 'Main grade 3 ride target. Enables the clan stride plan.',
+      text: '메인 Grade 3 라이드 타깃입니다. 스트라이드 플랜을 여는 핵심 유닛입니다.',
       tone: clan.tone,
       tags: ['grade3', 'vanguard', clan.style],
     },
     {
       id: `${prefix}_G3_002`,
-      name: `${clan.support} grade 3`,
+      name: `${clan.support} Grade 3`,
       clan: clan.label,
       type: 'normal',
       grade: 3,
       power: 13000,
       shield: 0,
-      text: 'Secondary grade 3 target. Keeps the ride line stable.',
+      text: '보조 Grade 3 라이드 타깃입니다. 라이드 실패 확률을 줄여줍니다.',
       tone: clan.tone,
       tags: ['grade3', 'backup'],
     },
     {
       id: `${prefix}_GU_001`,
-      name: `${clan.label} stride unit`,
+      name: `${clan.label} Stride Unit`,
       clan: clan.label,
       type: 'g-unit',
       grade: 4,
       power: 15000,
       shield: 0,
-      text: 'Stride unit. Gains power from rear-guard pressure in the prototype.',
+      text: 'Stride. 공격 선언 시 리어가드 수에 따라 추가 파워를 얻습니다.',
       tone: clan.tone,
       tags: ['gzone', 'stride'],
     },
     {
       id: `${prefix}_GU_002`,
-      name: `${clan.label} finisher stride`,
+      name: `${clan.label} Finisher Stride`,
       clan: clan.label,
       type: 'g-unit',
       grade: 4,
       power: 15000,
       shield: 0,
-      text: 'Finisher stride used in the sample G zone.',
+      text: '결정력 높은 Stride. VC 공격 시 추가 파워를 받습니다.',
       tone: clan.tone,
       tags: ['gzone', 'finisher'],
     },
     {
       id: `${prefix}_GG_001`,
-      name: `${clan.label} G guardian`,
+      name: `${clan.label} G Guardian`,
       clan: clan.label,
       type: 'g-guardian',
       grade: 4,
       power: 0,
       shield: 15000,
-      text: 'G guardian. Adds shield during guard simulation.',
+      text: 'G Guardian. 패 1장을 비용으로 높은 실드 값을 제공합니다.',
       tone: clan.tone,
       tags: ['gzone', 'guard'],
     },
     {
       id: `${prefix}_GG_002`,
-      name: `${clan.label} emergency guard`,
+      name: `${clan.label} Emergency Guard`,
       clan: clan.label,
       type: 'g-guardian',
       grade: 4,
       power: 0,
       shield: 15000,
-      text: 'Second G guardian slot for rule recommendation checks.',
+      text: '두 번째 G Guardian 슬롯입니다. 고데미지 상황에서 우선 사용됩니다.',
       tone: clan.tone,
       tags: ['gzone', 'guard'],
     },
@@ -239,7 +254,7 @@ function presetFor(clan) {
     id: `preset_${clan.key}`,
     name: `${clan.label} P-G sample deck`,
     clan: clan.label,
-    description: `${clan.lead}/${clan.support} 중심의 imported BA Vanguard sample slice입니다.`,
+    description: `${clan.lead}/${clan.support} 중심의 P-G 샘플 덱입니다. 50장 메인 덱, 16장 이하 G존, 트리거 16장 규칙을 기준으로 구성했습니다.`,
     main: [
       { cardId: idFor(clan.key, 'ST_001'), count: 1 },
       { cardId: idFor(clan.key, 'TR_CRITICAL'), count: 4 },
@@ -306,7 +321,7 @@ export function validateDeck(deck, rules = DEFAULT_RULES) {
 
   allEntries.forEach((entry) => {
     const card = getCard(entry.cardId);
-    if (!card) errors.push(`알 수 없는 카드: ${entry.cardId}`);
+    if (!card) errors.push(`존재하지 않는 카드: ${entry.cardId}`);
     if (Number(entry.count || 0) > rules.maxCopies) errors.push(`${card?.name || entry.cardId}는 ${rules.maxCopies}장까지만 넣을 수 있습니다.`);
     if (Number(entry.count || 0) < 0) errors.push(`${card?.name || entry.cardId}의 매수가 음수입니다.`);
   });
@@ -321,7 +336,7 @@ export function validateDeck(deck, rules = DEFAULT_RULES) {
   if (triggers.length !== rules.triggerSize) errors.push(`트리거는 ${rules.triggerSize}장이어야 합니다. 현재 ${triggers.length}장입니다.`);
   if (heals.length > rules.maxCopies) errors.push(`힐 트리거는 최대 ${rules.maxCopies}장입니다. 현재 ${heals.length}장입니다.`);
   if (starters.length !== rules.starterSize) errors.push(`스타터는 ${rules.starterSize}장이어야 합니다. 현재 ${starters.length}장입니다.`);
-  if (sentinels.length > rules.maxCopies) errors.push(`센티널은 최대 ${rules.maxCopies}장입니다. 현재 ${sentinels.length}장입니다.`);
+  if (sentinels.length > rules.maxCopies) errors.push(`센티넬은 최대 ${rules.maxCopies}장입니다. 현재 ${sentinels.length}장입니다.`);
   if (!rules.allowMixedClan && clans.size > 1) errors.push(`클랜이 섞여 있습니다: ${[...clans].join(', ')}`);
   if (grade3.length !== rules.recommendedGrade3) warnings.push(`권장 G3 매수는 ${rules.recommendedGrade3}장입니다. 현재 ${grade3.length}장입니다.`);
 
@@ -385,4 +400,741 @@ export function scoreDeck(deck) {
     - validation.errors.length * 220
     - validation.warnings.length * 55
   ));
+}
+
+function opponent(side) {
+  return side === 'me' ? 'opp' : 'me';
+}
+
+function emptyCircles() {
+  return {
+    VC: null,
+    RC_FL: null,
+    RC_FR: null,
+    RC_BL: null,
+    RC_BR: null,
+    RC_BC: null,
+  };
+}
+
+function createUnit(cardId) {
+  return {
+    uid: `${cardId}-${Math.random().toString(36).slice(2, 8)}`,
+    cardId,
+    isRest: false,
+    powerMod: 0,
+    critMod: 0,
+  };
+}
+
+function pushLog(duel, side, message) {
+  const label = SIDE_LABELS[side] || side;
+  duel.log = [`[${label}] ${message}`, ...(duel.log || [])].slice(0, 200);
+}
+
+function pushBattleNote(duel, message) {
+  if (duel.battle) duel.battle.note.push(message);
+}
+
+function initPlayerState(deckMain, deckG, seed) {
+  return {
+    deck: shuffle(deckMain, seed),
+    hand: [],
+    soul: [],
+    damage: [],
+    drop: [],
+    removed: [],
+    gzone: shuffle(deckG, seed + 1337),
+    circles: emptyCircles(),
+    heart: null,
+    isStrided: false,
+    usedAct: {},
+    cbUsedTotal: 0,
+  };
+}
+
+function placeStarterFromDeck(duel, side) {
+  const player = duel.players[side];
+  if (player.circles.VC) return false;
+  let index = player.deck.findIndex((cardId) => getCard(cardId)?.type === 'starter');
+  if (index < 0) index = 0;
+  const cardId = player.deck.splice(index, 1)[0];
+  if (!cardId) return false;
+  player.circles.VC = createUnit(cardId);
+  pushLog(duel, side, `${cardName(cardId)}를 시작 VC에 배치했습니다.`);
+  return true;
+}
+
+export function initDuelState({
+  meDeck,
+  oppDeck,
+  seed = Date.now(),
+  first = 'me',
+  firstTurnNoDraw = DEFAULT_RULES.firstTurnNoDraw,
+}) {
+  const duel = {
+    players: {
+      me: initPlayerState(expandEntries(meDeck?.main), expandEntries(meDeck?.gzone), Number(seed || 1)),
+      opp: initPlayerState(expandEntries(oppDeck?.main), expandEntries(oppDeck?.gzone), Number(seed || 1) + 777),
+    },
+    active: first,
+    first,
+    firstTurnNoDraw,
+    turn: 1,
+    phase: 'STAND',
+    battle: null,
+    log: [],
+    winner: null,
+    mulliganDone: { me: false, opp: false },
+  };
+
+  placeStarterFromDeck(duel, 'me');
+  placeStarterFromDeck(duel, 'opp');
+  draw(duel, 'me', 5);
+  draw(duel, 'opp', 5);
+  pushLog(duel, 'me', '듀얼을 시작했습니다.');
+  pushLog(duel, 'opp', '상대가 준비되었습니다.');
+  return duel;
+}
+
+export function draw(duel, side, count = 1) {
+  if (duel.winner) return false;
+  const player = duel.players[side];
+  let drawn = 0;
+  for (let index = 0; index < count; index += 1) {
+    const top = player.deck.shift();
+    if (!top) {
+      duel.winner = opponent(side);
+      pushLog(duel, side, '덱이 비어 패배했습니다.');
+      return false;
+    }
+    player.hand.push(top);
+    drawn += 1;
+  }
+  if (drawn > 0) pushLog(duel, side, `${drawn}장 드로우했습니다.`);
+  return true;
+}
+
+export function mulliganAll(duel, side) {
+  if (duel.winner || duel.turn !== 1 || duel.phase !== 'STAND' || duel.battle || duel.mulliganDone?.[side]) return false;
+  const player = duel.players[side];
+  const count = player.hand.length;
+  player.deck = shuffle([...player.hand, ...player.deck], duel.turn * 1000 + count + (side === 'me' ? 17 : 31));
+  player.hand = [];
+  draw(duel, side, count);
+  duel.mulliganDone[side] = true;
+  pushLog(duel, side, `멀리건으로 ${count}장을 교체했습니다.`);
+  return true;
+}
+
+function removeFromHand(player, cardId) {
+  const index = player.hand.indexOf(cardId);
+  if (index < 0) return false;
+  player.hand.splice(index, 1);
+  return true;
+}
+
+function standAll(player) {
+  Object.values(player.circles).forEach((unit) => {
+    if (unit) unit.isRest = false;
+  });
+}
+
+function resetMods(player) {
+  Object.values(player.circles).forEach((unit) => {
+    if (!unit) return;
+    unit.powerMod = 0;
+    unit.critMod = 0;
+  });
+  if (player.heart) {
+    player.heart.powerMod = 0;
+    player.heart.critMod = 0;
+  }
+}
+
+export function advancePhase(duel, firstTurnNoDraw = DEFAULT_RULES.firstTurnNoDraw) {
+  if (duel.winner || (duel.battle && duel.battle.step !== 'DONE')) return false;
+  const index = PHASES.indexOf(duel.phase);
+  const next = PHASES[Math.min(index + 1, PHASES.length - 1)] || 'STAND';
+  const side = duel.active;
+  duel.phase = next;
+
+  if (next === 'STAND') {
+    standAll(duel.players[side]);
+    pushLog(duel, side, '스탠드 페이즈에 진입했습니다.');
+  }
+  if (next === 'DRAW') {
+    const skip = firstTurnNoDraw && duel.turn === 1 && side === duel.first;
+    if (skip) pushLog(duel, side, '선공 첫 턴 드로우를 생략했습니다.');
+    else draw(duel, side, 1);
+  }
+  if (next === 'MAIN') pushLog(duel, side, '메인 페이즈에 진입했습니다.');
+  if (next === 'BATTLE') {
+    const skip = firstTurnNoDraw && duel.turn === 1 && side === duel.first;
+    if (skip) {
+      duel.phase = 'END';
+      pushLog(duel, side, '선공 첫 턴 배틀 페이즈를 생략했습니다.');
+    } else {
+      pushLog(duel, side, '배틀 페이즈에 진입했습니다.');
+    }
+  }
+  if (next === 'END') pushLog(duel, side, '엔드 페이즈에 진입했습니다.');
+  return true;
+}
+
+export function endTurn(duel) {
+  if (duel.winner || (duel.battle && duel.battle.step !== 'DONE')) return false;
+  const player = duel.players[duel.active];
+  if (player.isStrided && player.heart && player.circles.VC) {
+    const gUnit = player.circles.VC.cardId;
+    player.gzone.push(gUnit);
+    player.circles.VC = player.heart;
+    player.heart = null;
+    player.isStrided = false;
+    pushLog(duel, duel.active, `${cardName(gUnit)}가 G존으로 돌아갔습니다.`);
+  }
+  resetMods(player);
+  player.usedAct = {};
+
+  duel.active = opponent(duel.active);
+  duel.turn += 1;
+  duel.phase = 'STAND';
+  standAll(duel.players[duel.active]);
+  pushLog(duel, duel.active, `턴 ${duel.turn}을 시작합니다.`);
+  return true;
+}
+
+export function rideFromHand(duel, side, cardId) {
+  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side) return false;
+  const player = duel.players[side];
+  if (!removeFromHand(player, cardId)) return false;
+  const prev = player.circles.VC;
+  if (prev) player.soul.push(prev.cardId);
+  player.circles.VC = createUnit(cardId);
+  player.isStrided = false;
+  player.heart = null;
+  pushLog(duel, side, `${cardName(cardId)}에 라이드했습니다.`);
+  return true;
+}
+
+export function autoRide(duel, side) {
+  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side) return false;
+  const player = duel.players[side];
+  const vcCard = getCard(player.circles.VC?.cardId);
+  const currentGrade = vcCard?.grade ?? -1;
+  const wantGrade = Math.min(currentGrade + 1, 3);
+  const pick = player.hand.find((cardId) => {
+    const card = getCard(cardId);
+    return card && card.grade === wantGrade && card.type === 'normal';
+  });
+  if (!pick) {
+    pushLog(duel, side, `자동 라이드 실패: Grade ${wantGrade} 후보가 없습니다.`);
+    return false;
+  }
+  return rideFromHand(duel, side, pick);
+}
+
+export function callFromHand(duel, side, cardId, circle) {
+  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side || circle === 'VC') return false;
+  const player = duel.players[side];
+  if (player.circles[circle]) return false;
+  if (!removeFromHand(player, cardId)) return false;
+  player.circles[circle] = createUnit(cardId);
+  pushLog(duel, side, `${cardName(cardId)}를 ${circle}에 콜했습니다.`);
+  return true;
+}
+
+export function retireCircle(duel, side, circle) {
+  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side || circle === 'VC') return false;
+  const player = duel.players[side];
+  const unit = player.circles[circle];
+  if (!unit) return false;
+  player.drop.push(unit.cardId);
+  player.circles[circle] = null;
+  pushLog(duel, side, `${cardName(unit.cardId)}를 퇴각시켰습니다.`);
+  return true;
+}
+
+function gradeOf(cardId) {
+  return getCard(cardId)?.grade ?? 0;
+}
+
+export function strideWithAutoCost(duel, side) {
+  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side) return false;
+  const player = duel.players[side];
+  const vc = player.circles.VC;
+  const vcCard = getCard(vc?.cardId);
+  if (!vc || !vcCard || vcCard.grade < 3 || player.isStrided) {
+    pushLog(duel, side, '스트라이드 조건을 만족하지 못했습니다.');
+    return false;
+  }
+
+  const gIndex = player.gzone.findIndex((cardId) => getCard(cardId)?.type === 'g-unit');
+  if (gIndex < 0) {
+    pushLog(duel, side, 'G존에 사용할 G 유닛이 없습니다.');
+    return false;
+  }
+
+  const costs = [...player.hand].sort((a, b) => gradeOf(a) - gradeOf(b));
+  const discard = [];
+  let totalGrade = 0;
+  for (const cardId of costs) {
+    discard.push(cardId);
+    totalGrade += gradeOf(cardId);
+    if (totalGrade >= 3) break;
+  }
+  if (totalGrade < 3) {
+    pushLog(duel, side, '스트라이드 비용이 부족합니다.');
+    return false;
+  }
+
+  discard.forEach((cardId) => {
+    removeFromHand(player, cardId);
+    player.drop.push(cardId);
+  });
+
+  const gUnit = player.gzone.splice(gIndex, 1)[0];
+  player.heart = vc;
+  player.circles.VC = createUnit(gUnit);
+  player.isStrided = true;
+  pushLog(duel, side, `${cardName(gUnit)}로 스트라이드했습니다. 비용 ${discard.length}장을 버렸습니다.`);
+  return true;
+}
+
+export function activateVCAct(duel, side, costCardId) {
+  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side) return false;
+  const player = duel.players[side];
+  const vc = player.circles.VC;
+  const card = getCard(vc?.cardId);
+  if (!vc || !card) return false;
+  const key = `${vc.cardId}-ACT`;
+  if (player.usedAct[key] === duel.turn) {
+    pushLog(duel, side, '이번 턴에 이미 VC 스킬을 사용했습니다.');
+    return false;
+  }
+
+  let paid = false;
+  if (costCardId && player.hand.includes(costCardId)) {
+    removeFromHand(player, costCardId);
+    player.drop.push(costCardId);
+    paid = true;
+  } else if (player.soul.length > 0) {
+    const soul = player.soul.pop();
+    player.drop.push(soul);
+    paid = true;
+  }
+
+  if (!paid) {
+    pushLog(duel, side, 'VC 스킬 비용으로 사용할 패 또는 소울이 없습니다.');
+    return false;
+  }
+
+  player.usedAct[key] = duel.turn;
+  if (card.clan === 'Gehenna') {
+    draw(duel, side, 1);
+    pushLog(duel, side, `${card.name} 스킬: 비용을 지불하고 1장 드로우했습니다.`);
+  } else {
+    vc.powerMod += card.type === 'g-unit' ? 10000 : 5000;
+    pushLog(duel, side, `${card.name} 스킬: 이번 턴 VC 파워가 상승했습니다.`);
+  }
+  return true;
+}
+
+function boosterFor(circle) {
+  if (circle === 'RC_FL') return 'RC_BL';
+  if (circle === 'RC_FR') return 'RC_BR';
+  if (circle === 'VC') return 'RC_BC';
+  return null;
+}
+
+function powerOfUnit(unit) {
+  if (!unit) return 0;
+  return Number(getCard(unit.cardId)?.power || 0) + Number(unit.powerMod || 0);
+}
+
+function battleAttackPower(duel, battle) {
+  const attacker = duel.players[battle.attackerSide].circles[battle.attackerCircle];
+  return powerOfUnit(attacker) + Number(battle.boostPower || 0) + Number(battle.attackBonus || 0);
+}
+
+function driveCount(unit) {
+  const card = getCard(unit?.cardId);
+  if (!card) return 0;
+  return card.type === 'g-unit' || card.grade >= 3 ? 2 : 1;
+}
+
+function applyTrigger(duel, side, trigger, source) {
+  const player = duel.players[side];
+  const vc = player.circles.VC;
+  if (vc) vc.powerMod += 10000;
+  pushBattleNote(duel, `[${source}] ${trigger} trigger: VC +10000`);
+
+  if (trigger === 'critical' && vc) {
+    vc.critMod += 1;
+    pushBattleNote(duel, `[${source}] Critical: VC Critical +1`);
+  }
+  if (trigger === 'draw') draw(duel, side, 1);
+  if (trigger === 'stand') {
+    const restRear = REAR_CIRCLES.find((circle) => player.circles[circle]?.isRest);
+    if (restRear) {
+      player.circles[restRear].isRest = false;
+      pushBattleNote(duel, `[${source}] Stand: ${restRear}를 스탠드했습니다.`);
+    }
+  }
+  if (trigger === 'heal') {
+    const other = duel.players[opponent(side)];
+    if (player.damage.length >= other.damage.length && player.damage.length > 0) {
+      const healed = player.damage.pop();
+      player.drop.push(healed);
+      player.cbUsedTotal = Math.min(player.cbUsedTotal || 0, player.damage.length);
+      pushBattleNote(duel, `[${source}] Heal: 데미지 1장을 회복했습니다.`);
+    }
+  }
+}
+
+function addAttackBonuses(duel, battle) {
+  const player = duel.players[battle.attackerSide];
+  const unit = player.circles[battle.attackerCircle];
+  const card = getCard(unit?.cardId);
+  if (!unit || !card) return;
+
+  if (card.tags?.includes('attack') && battle.defenderCircle === 'VC') {
+    battle.attackBonus += 3000;
+    battle.note.push(`${card.name}: VC 공격 보너스 +3000`);
+  }
+  if (battle.attackerCircle === 'VC' && card.type === 'g-unit') {
+    const rearCount = REAR_CIRCLES.filter((circle) => Boolean(player.circles[circle])).length;
+    if (card.tags?.includes('stride') && rearCount > 0) {
+      const add = rearCount * 3000;
+      battle.attackBonus += add;
+      battle.note.push(`${card.name}: 리어가드 ${rearCount}장으로 +${add}`);
+    }
+    if (card.tags?.includes('finisher')) {
+      battle.attackBonus += 5000;
+      battle.note.push(`${card.name}: 피니셔 보너스 +5000`);
+    }
+  }
+}
+
+export function canAttack(duel, side, circle) {
+  const unit = duel.players[side]?.circles?.[circle];
+  return Boolean(unit && !unit.isRest && !duel.battle && duel.phase === 'BATTLE' && duel.active === side && !duel.winner);
+}
+
+export function declareAttack(duel, attackerCircle, defenderCircle = 'VC') {
+  if (duel.winner || duel.phase !== 'BATTLE' || duel.battle) return false;
+  if (duel.firstTurnNoDraw && duel.turn === 1 && duel.active === duel.first) {
+    pushLog(duel, duel.active, '선공 첫 턴에는 공격할 수 없습니다.');
+    return false;
+  }
+
+  const attackerSide = duel.active;
+  const defenderSide = opponent(attackerSide);
+  const attacker = duel.players[attackerSide].circles[attackerCircle];
+  const defender = duel.players[defenderSide].circles[defenderCircle];
+  if (!attacker || !defender || attacker.isRest) return false;
+
+  attacker.isRest = true;
+  const boosterCircle = boosterFor(attackerCircle);
+  let boostPower = 0;
+  if (boosterCircle) {
+    const booster = duel.players[attackerSide].circles[boosterCircle];
+    if (booster && !booster.isRest) {
+      booster.isRest = true;
+      boostPower = powerOfUnit(booster);
+    }
+  }
+
+  duel.battle = {
+    attackerSide,
+    attackerCircle,
+    defenderSide,
+    defenderCircle,
+    boosterCircle: boostPower ? boosterCircle : null,
+    boostPower,
+    attackBonus: 0,
+    guardCards: [],
+    guardShield: 0,
+    perfectGuard: false,
+    driveChecks: [],
+    damageChecks: [],
+    note: [],
+    step: 'GUARD',
+  };
+
+  if (boostPower) duel.battle.note.push(`부스트: ${boosterCircle} +${boostPower}`);
+  addAttackBonuses(duel, duel.battle);
+  pushLog(duel, attackerSide, `${cardName(attacker.cardId)}가 ${defenderCircle}를 공격했습니다.`);
+  return true;
+}
+
+function lowestShieldCard(hand, excludeCardId) {
+  return [...hand]
+    .filter((cardId) => cardId !== excludeCardId)
+    .map((cardId) => ({ cardId, shield: Number(getCard(cardId)?.shield || 0), trigger: getCard(cardId)?.type === 'trigger' }))
+    .sort((a, b) => (a.shield === b.shield ? Number(a.trigger) - Number(b.trigger) : a.shield - b.shield))[0]?.cardId || null;
+}
+
+export function guardAddFromHand(duel, defenderSide, cardId) {
+  const battle = duel.battle;
+  if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== defenderSide || battle.defenderCircle !== 'VC') return false;
+  const player = duel.players[defenderSide];
+  const card = getCard(cardId);
+  if (!card || !removeFromHand(player, cardId)) return false;
+
+  if (card.type === 'sentinel') {
+    const cost = lowestShieldCard(player.hand, cardId);
+    if (!cost || !removeFromHand(player, cost)) {
+      player.hand.push(cardId);
+      return false;
+    }
+    player.drop.push(cost);
+    battle.perfectGuard = true;
+    battle.guardCards.push(cardId);
+    battle.note.push(`${card.name}: ${cardName(cost)}를 버리고 완전 가드`);
+  } else {
+    battle.guardShield += Number(card.shield || 0);
+    battle.guardCards.push(cardId);
+    battle.note.push(`${card.name}: 실드 +${Number(card.shield || 0)}`);
+  }
+
+  pushLog(duel, defenderSide, `${card.name}를 가드에 사용했습니다.`);
+  return true;
+}
+
+export function guardGGuardian(duel, defenderSide, costCardId) {
+  const battle = duel.battle;
+  if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== defenderSide || battle.defenderCircle !== 'VC') return false;
+  const player = duel.players[defenderSide];
+  const guardian = player.gzone
+    .map((cardId, index) => ({ cardId, index, shield: Number(getCard(cardId)?.shield || 0) }))
+    .filter((row) => getCard(row.cardId)?.type === 'g-guardian')
+    .sort((a, b) => b.shield - a.shield)[0];
+  if (!guardian) return false;
+
+  const cost = costCardId && player.hand.includes(costCardId) ? costCardId : lowestShieldCard(player.hand);
+  if (!cost || !removeFromHand(player, cost)) return false;
+  player.drop.push(cost);
+
+  const guardianId = player.gzone.splice(guardian.index, 1)[0];
+  const shield = Number(getCard(guardianId)?.shield || 0);
+  battle.guardShield += shield;
+  battle.guardCards.push(guardianId);
+  battle.note.push(`${cardName(guardianId)}: G 가디언 실드 +${shield} / 비용 ${cardName(cost)}`);
+  pushLog(duel, defenderSide, `${cardName(guardianId)}를 G 가디언으로 사용했습니다.`);
+  return true;
+}
+
+export function guardEnd(duel) {
+  const battle = duel.battle;
+  if (!battle || battle.step !== 'GUARD') return false;
+  battle.step = 'RESOLVE';
+  resolveBattle(duel);
+  battle.step = 'DONE';
+
+  const defender = duel.players[battle.defenderSide];
+  battle.guardCards.forEach((cardId) => {
+    if (getCard(cardId)?.type === 'g-guardian') defender.gzone.push(cardId);
+    else defender.drop.push(cardId);
+  });
+  duel.battle = null;
+  return true;
+}
+
+function resolveBattle(duel) {
+  const battle = duel.battle;
+  const attackerPlayer = duel.players[battle.attackerSide];
+  const defenderPlayer = duel.players[battle.defenderSide];
+  const attacker = attackerPlayer.circles[battle.attackerCircle];
+  const defender = defenderPlayer.circles[battle.defenderCircle];
+  if (!attacker || !defender) return;
+
+  if (battle.attackerCircle === 'VC') {
+    const checks = driveCount(attacker);
+    for (let index = 0; index < checks; index += 1) {
+      const top = attackerPlayer.deck.shift();
+      if (!top) {
+        duel.winner = battle.defenderSide;
+        pushLog(duel, battle.attackerSide, '드라이브 체크 중 덱이 비었습니다.');
+        return;
+      }
+      attackerPlayer.hand.push(top);
+      battle.driveChecks.push(top);
+      const trigger = getCard(top)?.trigger;
+      if (trigger) applyTrigger(duel, battle.attackerSide, trigger, 'drive');
+    }
+  }
+
+  const attackPower = battleAttackPower(duel, battle);
+  const defenderPower = powerOfUnit(defender) + (battle.defenderCircle === 'VC' ? battle.guardShield : 0);
+  const hit = battle.defenderCircle === 'VC' && battle.perfectGuard ? false : attackPower >= defenderPower;
+  battle.note.push(`파워 비교: 공격 ${attackPower} vs 방어 ${defenderPower}`);
+
+  if (!hit) {
+    pushLog(duel, battle.attackerSide, '공격이 막혔습니다.');
+    return;
+  }
+
+  pushLog(duel, battle.attackerSide, '공격이 히트했습니다.');
+  if (battle.defenderCircle !== 'VC') {
+    defenderPlayer.drop.push(defender.cardId);
+    defenderPlayer.circles[battle.defenderCircle] = null;
+    pushLog(duel, battle.defenderSide, `${cardName(defender.cardId)}가 퇴각했습니다.`);
+    return;
+  }
+
+  const critical = 1 + Number(attacker.critMod || 0);
+  for (let index = 0; index < critical; index += 1) {
+    const top = defenderPlayer.deck.shift();
+    if (!top) {
+      duel.winner = battle.attackerSide;
+      pushLog(duel, battle.defenderSide, '데미지 체크 중 덱이 비었습니다.');
+      return;
+    }
+    defenderPlayer.damage.push(top);
+    battle.damageChecks.push(top);
+    const trigger = getCard(top)?.trigger;
+    if (trigger) applyTrigger(duel, battle.defenderSide, trigger, 'damage');
+    if (defenderPlayer.damage.length >= 6) {
+      duel.winner = battle.attackerSide;
+      pushLog(duel, battle.attackerSide, '6데미지로 승리했습니다.');
+      return;
+    }
+  }
+}
+
+function emptyRearCircle(player) {
+  return REAR_CIRCLES.find((circle) => !player.circles[circle]) || null;
+}
+
+function bestCallFromHand(player) {
+  return [...player.hand]
+    .map((cardId) => {
+      const card = getCard(cardId);
+      if (!card || card.type === 'sentinel') return null;
+      const triggerPenalty = card.type === 'trigger' ? 1 : 0;
+      return { cardId, grade: card.grade, power: Number(card.power || 0), triggerPenalty };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (a.triggerPenalty - b.triggerPenalty) || (b.power - a.power) || (b.grade - a.grade))[0]?.cardId || null;
+}
+
+function aiMainPhase(duel) {
+  const side = 'opp';
+  const player = duel.players[side];
+  autoRide(duel, side);
+  strideWithAutoCost(duel, side);
+  for (let index = 0; index < 2; index += 1) {
+    const circle = emptyRearCircle(player);
+    const cardId = bestCallFromHand(player);
+    if (!circle || !cardId) break;
+    callFromHand(duel, side, cardId, circle);
+  }
+  activateVCAct(duel, side);
+}
+
+function aiGuard(duel) {
+  const battle = duel.battle;
+  if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== 'opp' || battle.defenderCircle !== 'VC') return false;
+  const player = duel.players.opp;
+  const defender = player.circles.VC;
+  const attackPower = battleAttackPower(duel, battle);
+  const baseDefense = powerOfUnit(defender);
+
+  if (baseDefense + battle.guardShield > attackPower) return true;
+  const sentinel = player.hand.find((cardId) => getCard(cardId)?.type === 'sentinel');
+  if (player.damage.length >= 4 && sentinel && player.hand.length >= 2) return guardAddFromHand(duel, 'opp', sentinel);
+  if (player.damage.length >= 3 && guardGGuardian(duel, 'opp')) return true;
+
+  const guards = [...player.hand]
+    .map((cardId) => ({ cardId, shield: Number(getCard(cardId)?.shield || 0), sentinel: getCard(cardId)?.type === 'sentinel' }))
+    .filter((row) => row.shield > 0 && !row.sentinel)
+    .sort((a, b) => b.shield - a.shield);
+
+  for (const guard of guards) {
+    if (baseDefense + battle.guardShield > attackPower) break;
+    guardAddFromHand(duel, 'opp', guard.cardId);
+  }
+  return true;
+}
+
+function aiBattlePhase(duel, autoGuardMe = false) {
+  if (duel.active !== 'opp' || duel.phase !== 'BATTLE' || duel.battle) return false;
+  const attackers = ['RC_FL', 'RC_FR', 'VC', 'RC_BL', 'RC_BR', 'RC_BC'];
+  for (const circle of attackers) {
+    if (!canAttack(duel, 'opp', circle)) continue;
+    if (!duel.players.me.circles.VC) return false;
+    if (!declareAttack(duel, circle, 'VC')) continue;
+    if (autoGuardMe) {
+      autoGuardPlayer(duel, 'me');
+      guardEnd(duel);
+    }
+    return true;
+  }
+  return false;
+}
+
+export function autoGuardPlayer(duel, side) {
+  const battle = duel.battle;
+  if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== side || battle.defenderCircle !== 'VC') return false;
+  const player = duel.players[side];
+  const defender = player.circles.VC;
+  const attackPower = battleAttackPower(duel, battle);
+  const baseDefense = powerOfUnit(defender);
+  if (baseDefense + battle.guardShield > attackPower) return true;
+
+  const best = [...player.hand]
+    .map((cardId) => ({ cardId, shield: Number(getCard(cardId)?.shield || 0), sentinel: getCard(cardId)?.type === 'sentinel' }))
+    .filter((row) => row.shield > 0 && !row.sentinel)
+    .sort((a, b) => b.shield - a.shield)[0]?.cardId;
+  if (best) guardAddFromHand(duel, side, best);
+  return true;
+}
+
+export function aiStep(duel, firstTurnNoDraw = DEFAULT_RULES.firstTurnNoDraw, autoGuardMe = false) {
+  if (duel.winner) return false;
+
+  if (duel.battle && duel.battle.step === 'GUARD') {
+    if (duel.battle.defenderSide === 'opp') {
+      aiGuard(duel);
+      guardEnd(duel);
+      return true;
+    }
+    if (duel.battle.defenderSide === 'me' && autoGuardMe) {
+      autoGuardPlayer(duel, 'me');
+      guardEnd(duel);
+      return true;
+    }
+    return false;
+  }
+
+  if (duel.active !== 'opp') return false;
+  if (duel.phase === 'STAND' || duel.phase === 'DRAW') return advancePhase(duel, firstTurnNoDraw);
+  if (duel.phase === 'MAIN') {
+    aiMainPhase(duel);
+    return advancePhase(duel, firstTurnNoDraw);
+  }
+  if (duel.phase === 'BATTLE') {
+    const attacked = aiBattlePhase(duel, autoGuardMe);
+    if (!attacked && !duel.battle) return advancePhase(duel, firstTurnNoDraw);
+    return true;
+  }
+  if (duel.phase === 'END') return endTurn(duel);
+  return false;
+}
+
+export function summarizeDuel(duel) {
+  return {
+    turn: duel.turn,
+    phase: duel.phase,
+    active: duel.active,
+    winner: duel.winner,
+    meDamage: duel.players.me.damage.length,
+    oppDamage: duel.players.opp.damage.length,
+    meHand: duel.players.me.hand.length,
+    oppHand: duel.players.opp.hand.length,
+    meDeck: duel.players.me.deck.length,
+    oppDeck: duel.players.opp.deck.length,
+    logHead: duel.log?.[0] || '',
+  };
 }
