@@ -196,6 +196,99 @@ export const FESTIVAL_TYPES = [
   { id: 'wellbeing_day', label: '회복 주간', metric: 'welfare', weeks: 1, budgetCost: 260 },
 ];
 
+export const WEEKLY_EVENT_TEMPLATES = [
+  {
+    id: 'exam_pressure',
+    title: '시험 불안 확산',
+    tone: 'warn',
+    category: '학생 생활',
+    condition: 'exam_or_stress',
+    target: 'stress_students',
+    summary: '시험 일정과 과제 압박이 겹치며 일부 학생의 불안이 눈에 띄게 올라갑니다.',
+    initialEffects: { targetStress: 3, targetSatisfaction: -1, risk: 2, welfare: -1 },
+    choices: [
+      { id: 'counseling', label: '상담 집중 배치', apCost: 1, budgetCost: 140, result: '상담 인력을 집중 배치해 불안이 높은 학생을 빠르게 안정시켰습니다.', effects: { targetStress: -7, targetHealth: 2, welfare: 1, risk: -2, teacherFatigue: 1 } },
+      { id: 'workload', label: '과제량 조정', apCost: 1, budgetCost: 60, result: '과제량을 조정해 전체 스트레스를 낮췄지만 학업 평판 상승세는 조금 둔화됐습니다.', effects: { allStress: -2, allSatisfaction: 1, academic: -1 } },
+      { id: 'observe', label: '담임 관찰', apCost: 0, budgetCost: 0, result: '담임 관찰로 비용은 아꼈지만 불안 신호가 일부 남았습니다.', effects: { targetStress: 1, risk: 1 } },
+    ],
+  },
+  {
+    id: 'teacher_burnout',
+    title: '교사 과부하 경보',
+    tone: 'critical',
+    category: '교사 조직',
+    condition: 'teacher_fatigue',
+    target: 'tired_teacher',
+    summary: '핵심 교사의 피로가 누적되어 수업 품질과 유지 안정성에 경보가 들어왔습니다.',
+    initialEffects: { teacherFatigue: 4, teacherMorale: -3, risk: 2 },
+    choices: [
+      { id: 'substitute', label: '대체 수업 편성', apCost: 1, budgetCost: 180, result: '대체 수업을 편성해 과부하를 낮추고 수업 공백을 막았습니다.', effects: { teacherFatigue: -9, teacherMorale: 4, academic: 1, risk: -2 } },
+      { id: 'peer_support', label: '동료 공동지도', apCost: 1, budgetCost: 90, result: '동료 교사 공동지도로 부담을 나눴습니다.', effects: { teacherFatigue: -5, allTeacherMorale: 1, community: 1, risk: -1 } },
+      { id: 'push_through', label: '일정 유지', apCost: 0, budgetCost: 0, result: '일정을 유지했지만 교사 피로와 이탈 위험이 더 커졌습니다.', effects: { teacherFatigue: 3, teacherMorale: -2, risk: 2 } },
+    ],
+  },
+  {
+    id: 'facility_complaint',
+    title: '시설 민원 접수',
+    tone: 'warn',
+    category: '시설 안전',
+    condition: 'facility_low',
+    target: 'weak_facility',
+    summary: '낡은 시설에 대한 민원이 들어와 안전 평판과 학교 신뢰가 흔들립니다.',
+    initialEffects: { facilityCondition: -3, safety: -2, risk: 3 },
+    choices: [
+      { id: 'repair', label: '긴급 보수', apCost: 1, budgetCost: 260, result: '긴급 보수로 민원을 빠르게 잠재우고 안전 신뢰를 회복했습니다.', effects: { facilityCondition: 11, safety: 3, risk: -3 } },
+      { id: 'notice', label: '개선 일정 공지', apCost: 1, budgetCost: 70, result: '개선 일정을 공개해 불신 확산을 막았습니다.', effects: { facilityCondition: 3, safety: 1, community: 1, risk: -1 } },
+      { id: 'defer', label: '다음 주로 이월', apCost: 0, budgetCost: 0, result: '처리를 미루며 시설 불만이 더 누적됐습니다.', effects: { facilityCondition: -2, safety: -1, risk: 2 } },
+    ],
+  },
+  {
+    id: 'parent_interest',
+    title: '학부모 관심 급증',
+    tone: 'good',
+    category: '입학 홍보',
+    condition: 'admissions_window',
+    target: 'admissions',
+    summary: '최근 공개 활동과 평판이 학부모 커뮤니티에서 회자되며 문의가 늘었습니다.',
+    initialEffects: { applications: 3, brand: 2, inboundInterest: 2 },
+    choices: [
+      { id: 'open_house', label: '입학 설명회 개최', apCost: 1, budgetCost: 180, result: '입학 설명회가 성공해 지원자와 신입생 질이 함께 올랐습니다.', effects: { applications: 8, brand: 3, inboundInterest: 4, intakeQuality: 2 } },
+      { id: 'online_pack', label: '온라인 안내 강화', apCost: 1, budgetCost: 80, result: '온라인 안내를 정비해 적은 비용으로 문의 전환율을 올렸습니다.', effects: { applications: 4, brand: 2, inboundInterest: 2 } },
+      { id: 'no_extra', label: '기존 홍보 유지', apCost: 0, budgetCost: 0, result: '추가 대응 없이 자연 유입만 받았습니다.', effects: { applications: 1, inboundInterest: 1 } },
+    ],
+  },
+  {
+    id: 'club_momentum',
+    title: '동아리 자치 탄력',
+    tone: 'good',
+    category: '학생 자치',
+    condition: 'club_active',
+    target: 'club_students',
+    summary: '동아리 활동이 학생들 사이에서 좋은 분위기를 만들며 자치 참여가 살아납니다.',
+    initialEffects: { allSatisfaction: 1, allAutonomy: 1, autonomy: 1, community: 1 },
+    choices: [
+      { id: 'mini_grant', label: '소액 활동비 지원', apCost: 1, budgetCost: 120, result: '소액 활동비가 동아리 분위기와 자치 참여를 크게 밀어 올렸습니다.', effects: { targetAutonomy: 5, targetSatisfaction: 3, autonomy: 2, community: 1 } },
+      { id: 'student_led', label: '학생 주도 발표', apCost: 1, budgetCost: 60, result: '학생 주도 발표로 공동체 평판과 브랜드 신호가 좋아졌습니다.', effects: { targetAutonomy: 3, community: 2, brand: 2 } },
+      { id: 'watch', label: '자율 진행', apCost: 0, budgetCost: 0, result: '자율 진행으로 작은 성장만 확보했습니다.', effects: { targetAutonomy: 1, targetSatisfaction: 1 } },
+    ],
+  },
+  {
+    id: 'relationship_conflict',
+    title: '학급 관계 갈등',
+    tone: 'warn',
+    category: '관계망',
+    condition: 'relationship_low',
+    target: 'low_relation_students',
+    summary: '학급 내 갈등 조짐이 커져 만족도와 관계 안정성이 흔들립니다.',
+    initialEffects: { targetRelation: -4, targetSatisfaction: -2, targetStress: 2, risk: 2 },
+    choices: [
+      { id: 'mediation', label: '관계 조정 회의', apCost: 1, budgetCost: 120, result: '관계 조정 회의로 갈등 학생들의 관계 안정성을 회복했습니다.', effects: { targetRelation: 8, targetStress: -3, welfare: 1, community: 1, risk: -2 } },
+      { id: 'class_project', label: '공동 프로젝트 배정', apCost: 1, budgetCost: 150, result: '공동 프로젝트가 자치와 공동체성을 동시에 끌어올렸습니다.', effects: { targetRelation: 4, targetAutonomy: 3, community: 2, academic: 1 } },
+      { id: 'monitor', label: '주의 관찰', apCost: 0, budgetCost: 0, result: '주의 관찰만 진행해 갈등의 확산은 막지 못했습니다.', effects: { targetStress: 1, risk: 1 } },
+    ],
+  },
+];
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const mode = options.mode || 'principal';
@@ -227,6 +320,7 @@ export function createNewState(options = {}) {
     clubs: createDefaultClubs(),
     subjectShowcases: createSubjectShowcases(),
     careerReports: [],
+    events: createEmptyWeeklyEvents(),
     weeklyModifiers: {},
     recentExamResults: [],
     semesterHistory: [],
@@ -258,6 +352,7 @@ export function normalizeState(value) {
     clubs: Array.isArray(value.clubs) && value.clubs.length ? normalizeClubs(value.clubs, value.students || base.students) : normalizeClubs(base.clubs, value.students || base.students),
     subjectShowcases: normalizeSubjectShowcases(value.subjectShowcases),
     careerReports: Array.isArray(value.careerReports) ? value.careerReports.slice(0, 30) : base.careerReports,
+    events: normalizeWeeklyEvents(value.events),
     weeklyModifiers: value.weeklyModifiers && typeof value.weeklyModifiers === 'object' ? value.weeklyModifiers : {},
     recentExamResults: Array.isArray(value.recentExamResults) ? value.recentExamResults : [],
     semesterHistory: Array.isArray(value.semesterHistory) ? value.semesterHistory : [],
@@ -458,6 +553,281 @@ function normalizeClubs(clubs = [], students = []) {
       influence: clamp((club.level || 1) * 10 + 34 + members.length * 2.4 + (leader ? 5 : 0) + (club.clubMood - 50) * 0.15, 0, 100),
     };
   });
+}
+
+function createEmptyWeeklyEvents() {
+  return { pending: null, history: [] };
+}
+
+function normalizeWeeklyEvent(event) {
+  if (!event || typeof event !== 'object') return null;
+  const template = WEEKLY_EVENT_TEMPLATES.find((item) => item.id === event.templateId);
+  const choices = Array.isArray(event.choices) && event.choices.length
+    ? event.choices
+    : template?.choices || [];
+  return {
+    id: String(event.id || `${event.templateId || 'event'}-${event.weekLabel || 'unknown'}`),
+    templateId: String(event.templateId || template?.id || 'custom'),
+    title: String(event.title || template?.title || '주간 사건'),
+    tone: String(event.tone || template?.tone || 'warn'),
+    category: String(event.category || template?.category || '운영'),
+    summary: String(event.summary || template?.summary || ''),
+    weekLabel: String(event.weekLabel || ''),
+    targetLabel: String(event.targetLabel || '학교 전체'),
+    targetStudentIds: Array.isArray(event.targetStudentIds) ? event.targetStudentIds : [],
+    targetTeacherId: event.targetTeacherId || '',
+    targetFacilityId: event.targetFacilityId || '',
+    createdAt: event.createdAt || '',
+    choiceId: event.choiceId || '',
+    choiceLabel: event.choiceLabel || '',
+    result: event.result || '',
+    resolvedAt: event.resolvedAt || '',
+    choices: choices.map((choice) => ({
+      id: String(choice.id),
+      label: String(choice.label),
+      apCost: Math.max(0, Math.round(Number(choice.apCost || 0))),
+      budgetCost: Math.max(0, Math.round(Number(choice.budgetCost || 0))),
+      result: String(choice.result || ''),
+      effects: choice.effects && typeof choice.effects === 'object' ? choice.effects : {},
+    })),
+  };
+}
+
+function normalizeWeeklyEvents(value = {}) {
+  const pending = normalizeWeeklyEvent(value?.pending);
+  const history = Array.isArray(value?.history)
+    ? value.history.map((event) => normalizeWeeklyEvent(event)).filter(Boolean).slice(0, 20)
+    : [];
+  return { pending, history };
+}
+
+function seededNumber(parts = []) {
+  const text = parts.join('|');
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0);
+}
+
+function pickBySeed(list, seed) {
+  if (!list.length) return null;
+  return list[seed % list.length];
+}
+
+function eventWeekLabel(state) {
+  return `${state.school.year}년 ${state.school.semester}학기 ${state.school.week}주`;
+}
+
+function compactNames(items, fallback = '학교 전체') {
+  const names = items.map((item) => item?.name).filter(Boolean);
+  if (!names.length) return fallback;
+  if (names.length <= 2) return names.join(', ');
+  return `${names.slice(0, 2).join(', ')} 외 ${names.length - 2}명`;
+}
+
+function weeklyEventConditionMatches(template, state, students, teachers, facilities, weekInfo) {
+  const avgStress = average(students.map((student) => student.stress));
+  const avgRelation = average(students.map((student) => student.relationStability));
+  const avgFacility = average(facilities.map((facility) => facility.condition));
+  const maxTeacherFatigue = Math.max(...teachers.map((teacher) => Number(teacher.fatigue || 0)), 0);
+  const clubInfluence = average(normalizeClubs(state.clubs, students).map((club) => club.influence));
+  switch (template.condition) {
+    case 'exam_or_stress':
+      return Boolean(weekInfo.examType) || avgStress >= 56;
+    case 'teacher_fatigue':
+      return maxTeacherFatigue >= 46 || state.school.week >= 7;
+    case 'facility_low':
+      return avgFacility <= 70 || Number(state.school.riskLevel || 0) >= 34;
+    case 'admissions_window':
+      return [2, 4, 8, 10].includes(Number(state.school.week || 0))
+        || Number(state.school.admissions?.brandAwareness || 0) >= 54;
+    case 'club_active':
+      return clubInfluence >= 48 && !weekInfo.examType;
+    case 'relationship_low':
+      return avgRelation <= 62 || Number(state.school.culture?.community || 0) <= 54;
+    default:
+      return true;
+  }
+}
+
+function buildWeeklyEventTargets(template, state, students, teachers, facilities, seed) {
+  if (template.target === 'stress_students') {
+    const targetStudents = students.slice().sort((a, b) => Number(b.stress || 0) - Number(a.stress || 0)).slice(0, 4);
+    return {
+      targetLabel: compactNames(targetStudents, '불안 학생군'),
+      targetStudentIds: targetStudents.map((student) => student.id),
+    };
+  }
+  if (template.target === 'low_relation_students') {
+    const targetStudents = students.slice().sort((a, b) => Number(a.relationStability || 0) - Number(b.relationStability || 0)).slice(0, 4);
+    return {
+      targetLabel: compactNames(targetStudents, '관계 취약 학생군'),
+      targetStudentIds: targetStudents.map((student) => student.id),
+    };
+  }
+  if (template.target === 'club_students') {
+    const clubs = normalizeClubs(state.clubs, students).slice().sort((a, b) => Number(b.influence || 0) - Number(a.influence || 0));
+    const club = clubs[0];
+    const targetStudents = students.filter((student) => student.clubId === club?.id).slice(0, 6);
+    return {
+      targetLabel: club?.label || compactNames(targetStudents, '동아리 학생군'),
+      targetStudentIds: targetStudents.map((student) => student.id),
+    };
+  }
+  if (template.target === 'tired_teacher') {
+    const teacher = teachers.slice().sort((a, b) => Number(b.fatigue || 0) - Number(a.fatigue || 0))[seed % Math.max(1, Math.min(3, teachers.length))] || teachers[0];
+    return {
+      targetLabel: teacher?.name || '교사',
+      targetTeacherId: teacher?.id || '',
+    };
+  }
+  if (template.target === 'weak_facility') {
+    const facility = facilities.slice().sort((a, b) => Number(a.condition || 0) - Number(b.condition || 0))[0];
+    return {
+      targetLabel: facility?.name || '시설',
+      targetFacilityId: facility?.id || '',
+    };
+  }
+  return { targetLabel: '입학 문의', targetStudentIds: [] };
+}
+
+function buildWeeklyEvent(template, state, weekInfo, targets, seed) {
+  const weekLabel = eventWeekLabel(state);
+  return normalizeWeeklyEvent({
+    id: `${template.id}-${state.school.year}-${state.school.semester}-${state.school.week}-${seed % 997}`,
+    templateId: template.id,
+    title: template.title,
+    tone: template.tone,
+    category: template.category,
+    summary: template.summary,
+    weekLabel,
+    targetLabel: targets.targetLabel,
+    targetStudentIds: targets.targetStudentIds || [],
+    targetTeacherId: targets.targetTeacherId || '',
+    targetFacilityId: targets.targetFacilityId || '',
+    createdAt: new Date().toISOString(),
+    choices: template.choices,
+  });
+}
+
+function adjustStudentSubjectScores(student, delta) {
+  if (!delta) return student.subjectScores || {};
+  const scores = student.subjectScores && typeof student.subjectScores === 'object' ? student.subjectScores : createSubjectScores(0, student.favoriteSubject, student.weakSubject);
+  return SUBJECTS.reduce((next, subject) => ({
+    ...next,
+    [subject.id]: clamp(Number(scores[subject.id] ?? student.understanding ?? 50) + delta, 0, 100),
+  }), {});
+}
+
+function applyEventStudentEffects(student, effects, targeted) {
+  const prefix = targeted ? 'target' : 'all';
+  const scoreDelta = Number(effects[`${prefix}Understanding`] || 0);
+  const subjectScores = scoreDelta ? adjustStudentSubjectScores(student, scoreDelta) : student.subjectScores;
+  const next = {
+    ...student,
+    subjectScores,
+    stress: clamp(Number(student.stress || 0) + Number(effects[`${prefix}Stress`] || 0), 0, 100),
+    satisfaction: clamp(Number(student.satisfaction || 0) + Number(effects[`${prefix}Satisfaction`] || 0), 0, 100),
+    health: clamp(Number(student.health || 0) + Number(effects[`${prefix}Health`] || 0), 0, 100),
+    relationStability: clamp(Number(student.relationStability || 0) + Number(effects[`${prefix}Relation`] || 0), 0, 100),
+    autonomyParticipation: clamp(Number(student.autonomyParticipation || 0) + Number(effects[`${prefix}Autonomy`] || 0), 0, 100),
+    careerReadiness: clamp(Number(student.careerReadiness || 0) + Number(effects[`${prefix}Career`] || 0), 0, 100),
+  };
+  return {
+    ...next,
+    understanding: scoreDelta ? Math.round(average(Object.values(subjectScores))) : next.understanding,
+  };
+}
+
+function applyWeeklyEventEffects(context, effects = {}, event = {}) {
+  const targetStudentIds = new Set(event.targetStudentIds || []);
+  const students = context.students.map((student) => {
+    let next = student;
+    if (targetStudentIds.has(student.id)) next = applyEventStudentEffects(next, effects, true);
+    if (Object.keys(effects).some((key) => key.startsWith('all'))) next = applyEventStudentEffects(next, effects, false);
+    return next;
+  });
+  const teachers = context.teachers.map((teacher) => {
+    if (event.targetTeacherId && teacher.id !== event.targetTeacherId) {
+      return {
+        ...teacher,
+        morale: clamp(Number(teacher.morale || 0) + Number(effects.allTeacherMorale || 0), 0, 100),
+      };
+    }
+    const next = {
+      ...teacher,
+      fatigue: clamp(Number(teacher.fatigue || 0) + Number(effects.teacherFatigue || 0), 0, 100),
+      morale: clamp(Number(teacher.morale || 0) + Number(effects.teacherMorale || 0) + Number(effects.allTeacherMorale || 0), 0, 100),
+      teachingSkill: clamp(Number(teacher.teachingSkill || 0) + Number(effects.teacherSkill || 0), 0, 100),
+      counselingSkill: clamp(Number(teacher.counselingSkill || 0) + Number(effects.counselingSkill || 0), 0, 100),
+    };
+    return normalizeTeacher(next, context.teachers.indexOf(teacher));
+  });
+  const facilities = context.facilities.map((facility) => (
+    event.targetFacilityId && facility.id !== event.targetFacilityId
+      ? facility
+      : { ...facility, condition: clamp(Number(facility.condition || 0) + Number(effects.facilityCondition || 0), 0, 100) }
+  ));
+  const school = {
+    ...context.school,
+    budget: Number(context.school.budget || 0) + Number(effects.budget || 0),
+    income: Number(context.school.income || 0) + Math.max(0, Number(effects.budget || 0)),
+    expense: Number(context.school.expense || 0) + Math.max(0, -Number(effects.budget || 0)),
+    riskLevel: clamp(Number(context.school.riskLevel || 0) + Number(effects.risk || 0), 0, 100),
+    culture: {
+      ...context.school.culture,
+      academic: clamp(Number(context.school.culture.academic || 0) + Number(effects.academic || 0), 0, 100),
+      welfare: clamp(Number(context.school.culture.welfare || 0) + Number(effects.welfare || 0), 0, 100),
+      autonomy: clamp(Number(context.school.culture.autonomy || 0) + Number(effects.autonomy || 0), 0, 100),
+      community: clamp(Number(context.school.culture.community || 0) + Number(effects.community || 0), 0, 100),
+    },
+    reputation: {
+      ...context.school.reputation,
+      academic: clamp(Number(context.school.reputation.academic || 0) + Number(effects.academic || 0), 0, 100),
+      wellbeing: clamp(Number(context.school.reputation.wellbeing || 0) + Number(effects.welfare || 0), 0, 100),
+      autonomy: clamp(Number(context.school.reputation.autonomy || 0) + Number(effects.autonomy || 0), 0, 100),
+      community: clamp(Number(context.school.reputation.community || 0) + Number(effects.community || 0), 0, 100),
+      safety: clamp(Number(context.school.reputation.safety || 0) + Number(effects.safety || 0), 0, 100),
+      finance: clamp(Number(context.school.reputation.finance || 0) + Number(effects.finance || 0), 0, 100),
+    },
+    admissions: {
+      ...context.school.admissions,
+      applications: Math.max(0, Math.round(Number(context.school.admissions.applications || 0) + Number(effects.applications || 0))),
+      brandAwareness: clamp(Number(context.school.admissions.brandAwareness || 0) + Number(effects.brand || 0), 0, 100),
+      inboundInterest: clamp(Number(context.school.admissions.inboundInterest || 0) + Number(effects.inboundInterest || 0), 0, 100),
+      nextIntakeQuality: clamp(Number(context.school.admissions.nextIntakeQuality || 0) + Number(effects.intakeQuality || 0), 0, 100),
+    },
+  };
+  return { ...context, students, teachers, facilities, school };
+}
+
+function processWeeklyEvent(state, students, school, teachers, facilities, weekInfo) {
+  const events = normalizeWeeklyEvents(state.events);
+  if (events.pending) {
+    return {
+      students,
+      school: { ...school, riskLevel: clamp(Number(school.riskLevel || 0) + 1, 0, 100) },
+      teachers,
+      facilities,
+      events,
+      logs: [`미해결 사건 [${events.pending.title}]이 남아 운영 위험이 소폭 증가했습니다.`],
+    };
+  }
+  const context = { ...state, students, school, teachers, facilities };
+  const eligible = WEEKLY_EVENT_TEMPLATES.filter((template) => weeklyEventConditionMatches(template, context, students, teachers, facilities, weekInfo));
+  if (!eligible.length) return { students, school, teachers, facilities, events, logs: [] };
+  const seed = seededNumber([state.runId, state.school.year, state.school.semester, state.school.week, students.length, Math.round(average(students.map((student) => student.stress)))]);
+  const template = pickBySeed(eligible, seed);
+  const targets = buildWeeklyEventTargets(template, context, students, teachers, facilities, seed);
+  const event = buildWeeklyEvent(template, state, weekInfo, targets, seed);
+  const applied = applyWeeklyEventEffects({ students, school, teachers, facilities }, template.initialEffects, event);
+  return {
+    ...applied,
+    events: { pending: event, history: events.history },
+    logs: [`주간 사건 발생: ${event.title} · ${event.targetLabel}. ${event.summary}`],
+  };
 }
 
 function clamp(value, min, max) {
@@ -852,6 +1222,53 @@ export function restAction(state) {
       weeklyActionPoint: Math.max(0, Number(current.player.weeklyActionPoint || 0) - 2),
     },
   }, '짧은 휴식을 취했습니다. 체력과 정신력이 회복됩니다.');
+}
+
+export function applyWeeklyEventChoice(state, choiceId) {
+  const current = normalizeState(state);
+  const event = current.events.pending;
+  if (!event) return addLog(current, '대응할 주간 사건이 없습니다.');
+  const choice = event.choices.find((item) => item.id === choiceId) || event.choices[0];
+  if (!choice) return addLog(current, '선택 가능한 대응이 없습니다.');
+  if (Number(current.player.weeklyActionPoint || 0) < choice.apCost) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < choice.budgetCost) return addLog(current, '예산이 부족합니다.');
+
+  const baseContext = {
+    students: current.students,
+    teachers: current.teachers,
+    facilities: current.facilities,
+    school: {
+      ...current.school,
+      budget: Number(current.school.budget || 0) - choice.budgetCost,
+      expense: Number(current.school.expense || 0) + choice.budgetCost,
+    },
+  };
+  const applied = applyWeeklyEventEffects(baseContext, choice.effects, event);
+  const resolvedEvent = {
+    ...event,
+    choiceId: choice.id,
+    choiceLabel: choice.label,
+    result: choice.result,
+    resolvedAt: new Date().toISOString(),
+  };
+
+  return addLog({
+    ...current,
+    students: applied.students,
+    teachers: applied.teachers,
+    facilities: applied.facilities,
+    school: applied.school,
+    player: {
+      ...current.player,
+      weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - choice.apCost,
+      energy: clamp(Number(current.player.energy || 0) - Math.max(0, choice.apCost - 1), 0, 100),
+      mental: clamp(Number(current.player.mental || 0) - Math.max(0, choice.apCost - 1), 0, 100),
+    },
+    events: {
+      pending: null,
+      history: [resolvedEvent, ...(current.events.history || [])].slice(0, 20),
+    },
+  }, `${event.title} 대응: ${choice.label}. ${choice.result}`);
 }
 
 function teacherWeekLabel(state) {
@@ -1466,6 +1883,14 @@ export function endWeekAction(state) {
   const festivalResult = processFestivalWeekly(current, students, school);
   students = festivalResult.students;
   school = festivalResult.school;
+  let facilitiesAfterEvents = facilities;
+  let events = current.events;
+  const weeklyEventResult = processWeeklyEvent(current, students, school, teachers, facilitiesAfterEvents, weekInfo);
+  students = weeklyEventResult.students;
+  school = weeklyEventResult.school;
+  teachers = weeklyEventResult.teachers;
+  facilitiesAfterEvents = weeklyEventResult.facilities;
+  events = weeklyEventResult.events;
 
   const nextWeek = Number(school.week || 1) + 1;
   const semesterEnded = nextWeek > 12;
@@ -1473,7 +1898,7 @@ export function endWeekAction(state) {
   const completedSemester = school.semester;
   let semesterHistory = current.semesterHistory;
   if (semesterEnded) {
-    semesterHistory = [createSemesterReport({ ...current, school, students, teachers, facilities, recentExamResults: exams })].concat(semesterHistory).slice(0, 10);
+    semesterHistory = [createSemesterReport({ ...current, school, students, teachers, facilities: facilitiesAfterEvents, events, recentExamResults: exams })].concat(semesterHistory).slice(0, 10);
     school.week = 1;
     school.semester += 1;
     if (school.semester > 2) {
@@ -1490,11 +1915,12 @@ export function endWeekAction(state) {
     school,
     students,
     teachers,
-    facilities,
+    facilities: facilitiesAfterEvents,
     clubs: clubResult.clubs,
     subjectShowcases: subjectShowcaseResult.subjectShowcases,
     recentExamResults: exams,
     semesterHistory,
+    events,
     player: {
       ...current.player,
       weeklyActionPoint: 7,
@@ -1509,7 +1935,7 @@ export function endWeekAction(state) {
   }
 
   const examText = exams.length ? ` 시험 평균 ${examAvg}점.` : '';
-  const eventLogs = [...clubResult.logs, ...subjectShowcaseResult.logs, ...festivalResult.logs];
+  const eventLogs = [...clubResult.logs, ...subjectShowcaseResult.logs, ...festivalResult.logs, ...weeklyEventResult.logs];
   const eventText = eventLogs.length ? ` ${eventLogs.join(' ')}` : '';
   return addLog(current, `${weekInfo.label} 주간 정산 완료. 수입 +${income} / 유지비 -${maintenance}.${examText}${eventText}${semesterEnded ? ' 학기가 종료되어 보고서가 생성됐습니다.' : ''}`);
 }
@@ -1788,6 +2214,17 @@ export function festivalStatus(state) {
   };
 }
 
+export function weeklyEventReport(state) {
+  const current = normalizeState(state);
+  const events = normalizeWeeklyEvents(current.events);
+  return {
+    pending: events.pending,
+    history: events.history,
+    count: events.history.length + (events.pending ? 1 : 0),
+    status: events.pending ? '대응 필요' : '대기',
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const avg = getAverages(current);
@@ -1834,6 +2271,8 @@ export function summaryForState(state) {
     careerReadiness: Math.round(average(current.students.map((student) => student.careerReadiness))),
     clubInfluence: Math.round(average(clubRows(current).map((club) => club.influence))),
     festivalHistory: current.school.festival?.history?.length || 0,
+    weeklyEvents: current.events?.history?.length || 0,
+    pendingEvent: current.events?.pending?.title || '',
     longTerm: `${current.longTerm?.evaluation?.grade || '-'} / ${current.longTerm?.evaluation?.score || 0}`,
     vision: current.longTerm?.evaluation?.visionLabel || visionById(current.school.vision).label,
     score: scoreState(current),

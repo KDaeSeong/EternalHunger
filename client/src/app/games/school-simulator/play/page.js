@@ -25,6 +25,7 @@ import {
   applySubjectPolicyAction,
   applySubjectShowcaseAction,
   applyTeacherAction,
+  applyWeeklyEventChoice,
   applyWorkAction,
   careerTrackRows,
   clubRows,
@@ -50,6 +51,7 @@ import {
   subjectShowcaseSummary,
   summaryForState,
   teacherRows,
+  weeklyEventReport,
 } from '../_lib/schoolSimulatorEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -129,6 +131,7 @@ export default function SchoolSimulatorPlayPage() {
   const teachers = useMemo(() => teacherRows(state), [state]);
   const careerRows = useMemo(() => careerTrackRows(state), [state]);
   const festival = useMemo(() => festivalStatus(state), [state]);
+  const events = useMemo(() => weeklyEventReport(state), [state]);
   const report = useMemo(() => semesterReport(state), [state]);
   const longTerm = useMemo(() => longTermReport(state), [state]);
   const score = scoreState(state);
@@ -275,6 +278,7 @@ export default function SchoolSimulatorPlayPage() {
     { label: '학생', value: state.students.length },
     { label: '과목', value: Math.round(subjectRows.reduce((sum, row) => sum + Number(row.averageScore || 0), 0) / Math.max(1, subjectRows.length)) },
     { label: '진로', value: Math.round(state.students.reduce((sum, student) => sum + Number(student.careerReadiness || 0), 0) / Math.max(1, state.students.length)) },
+    { label: '사건', value: events.pending ? '대응' : events.history.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -353,6 +357,72 @@ export default function SchoolSimulatorPlayPage() {
                 <strong>성과</strong>
               </article>
             ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>주간 사건 대응</h2>
+            <span>{events.status}</span>
+          </div>
+          {events.pending ? (
+            <>
+              <div className="game-save-row">
+                <div>
+                  <span>{events.pending.category} · {events.pending.weekLabel} · {events.pending.targetLabel}</span>
+                  <strong>{events.pending.title}</strong>
+                  <small>{events.pending.summary}</small>
+                </div>
+                <strong>{events.pending.tone === 'good' ? '호재' : events.pending.tone === 'critical' ? '긴급' : '주의'}</strong>
+              </div>
+              <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                {events.pending.choices.map((choice) => (
+                  <ActionButton
+                    key={choice.id}
+                    onClick={() => setState((current) => applyWeeklyEventChoice(current, choice.id))}
+                    disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}
+                  >
+                    {choice.label} · AP {choice.apCost} · {choice.budgetCost.toLocaleString('ko-KR')}
+                  </ActionButton>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="games-empty">미해결 사건이 없습니다. 주차를 정산하면 학생, 교사, 시설, 모집 관련 사건이 발생할 수 있습니다.</div>
+          )}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>사건 처리 기록</h2>
+            <span>{events.history.length}건</span>
+          </div>
+          <div className="game-save-list">
+            {events.history.length ? events.history.slice(0, 4).map((event) => (
+              <article className="game-save-row" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
+                <div>
+                  <span>{event.category} · {event.choiceLabel || '대응 완료'}</span>
+                  <strong>{event.title}</strong>
+                  <small>{event.result || event.summary}</small>
+                </div>
+                <strong>{event.weekLabel}</strong>
+              </article>
+            )) : <div className="games-empty">아직 처리한 사건이 없습니다.</div>}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>사건 영향</h2>
+            <span>운영 변수</span>
+          </div>
+          <div className="game-save-list">
+            <ScoreBar label="위험 억제" value={100 - state.school.riskLevel} />
+            <ScoreBar label="안전 평판" value={state.school.reputation.safety} />
+            <ScoreBar label="관계 안정" value={averages.relation} />
+            <ScoreBar label="교사 안정" value={100 - averages.teacherFatigue} />
           </div>
         </section>
       </section>
