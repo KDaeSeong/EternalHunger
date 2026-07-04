@@ -183,6 +183,21 @@ export const TOURNAMENT_TIERS = [
   { id: 'advanced', name: '상급', entryGold: 340, targetScore: 86, rewardGold: 720, rewardRep: 58, rewardShards: 14, unlockRecipes: [] },
 ];
 
+const JUDGE_AI_CHEFS = [
+  { id: 'sakuroko', name: '사쿠라코 셰프', style: '정석', preferTags: ['fried', 'hearty'], avoidTags: ['spicy'] },
+  { id: 'rico', name: '리코 셰프', style: '실험파', preferTags: ['sweet', 'dessert'], avoidTags: ['hearty'] },
+  { id: 'hina', name: '히나 셰프', style: '강공', preferTags: ['spicy', 'fried'], avoidTags: ['light'] },
+  { id: 'noa', name: '노아 셰프', style: '분석', preferTags: ['salad', 'light'], avoidTags: ['cheese'] },
+  { id: 'mika', name: '미카 셰프', style: '중량감', preferTags: ['cheese', 'hearty'], avoidTags: ['dessert'] },
+  { id: 'shiroko', name: '시로코 셰프', style: '속도전', preferTags: ['fried', 'light'], avoidTags: ['curry'] },
+];
+
+export const JUDGE_BATCH_MODE_LABELS = {
+  random: '랜덤 선택',
+  strong: '강한 쪽 선택',
+  weak: '약한 쪽 선택',
+};
+
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -226,7 +241,10 @@ export function createNewState(options = {}) {
     },
     mealTokens: {},
     students: makeStudents(),
-    counters: { crafted: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0 },
+    judgeMatch: null,
+    judgeHistory: [],
+    lastJudgeBatch: null,
+    counters: { crafted: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0 },
     log: ['Day 1: 돈카츠 가게를 열었습니다. 재료를 관리하고 메뉴를 만들어 학생들을 지원하세요.'],
     ended: false,
   };
@@ -253,6 +271,9 @@ export function normalizeState(value) {
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     mealTokens: value.mealTokens && typeof value.mealTokens === 'object' ? value.mealTokens : base.mealTokens,
     students: Array.isArray(value.students) && value.students.length ? value.students : base.students,
+    judgeMatch: value.judgeMatch && typeof value.judgeMatch === 'object' ? value.judgeMatch : null,
+    judgeHistory: Array.isArray(value.judgeHistory) ? value.judgeHistory.slice(0, 50) : base.judgeHistory,
+    lastJudgeBatch: value.lastJudgeBatch && typeof value.lastJudgeBatch === 'object' ? value.lastJudgeBatch : null,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     log: Array.isArray(value.log) ? value.log.slice(0, 80) : base.log,
   };
@@ -626,10 +647,9 @@ export function currentTournamentTheme(state) {
   return TOURNAMENT_THEMES[index] || TOURNAMENT_THEMES[0];
 }
 
-function computeTournamentScore(state, recipeId) {
+function computeRecipeScoreForTheme(state, recipeId, theme, options = {}) {
   const current = normalizeState(state);
   const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
-  const theme = currentTournamentTheme(current);
   const ctx = buildFacilityContext(current);
   const tagHits = theme.targetTags.filter((tag) => recipe.tags.includes(tag)).length;
   const avoidHits = theme.avoidTags.filter((tag) => recipe.tags.includes(tag)).length;
@@ -639,7 +659,8 @@ function computeTournamentScore(state, recipeId) {
   const balance = clamp(55 + Math.min(30, ingredientVariety * 5) + (recipe.category === 'main' ? 4 : 0) - avoidHits * 8, 0, 100);
   const tech = clamp(48 + ingredientVariety * 6 + Number(recipe.power || 0) * 0.8 + Number(current.counters.crafted || 0) * 0.5, 0, 100);
   const creativity = clamp(35 + tagVariety * 7 + ingredientVariety * 4 + Math.min(20, Number(current.recipeShards || 0)), 0, 100);
-  const total = clamp((themeScore * 0.35 + balance * 0.25 + tech * 0.25 + creativity * 0.15) * ctx.contestScoreMult, 0, 150);
+  const styleBonus = Number(options.styleBonus || 0);
+  const total = clamp((themeScore * 0.35 + balance * 0.25 + tech * 0.25 + creativity * 0.15) * ctx.contestScoreMult + styleBonus, 0, 150);
   return {
     recipe,
     theme,
@@ -647,7 +668,16 @@ function computeTournamentScore(state, recipeId) {
     balance: Math.round(balance),
     tech: Math.round(tech),
     creativity: Math.round(creativity),
-    total: Math.round(total),
+    total: Math.round(total * 10) / 10,
+  };
+}
+
+function computeTournamentScore(state, recipeId) {
+  const current = normalizeState(state);
+  const score = computeRecipeScoreForTheme(current, recipeId, currentTournamentTheme(current));
+  return {
+    ...score,
+    total: Math.round(score.total),
   };
 }
 
@@ -700,6 +730,221 @@ export function enterTournamentAction(state, recipeId, tierId = 'rookie') {
   }, `${tier.name} 대회 ${won ? '우승' : '참가'}: ${recipe.name} ${preview.total}점 / 목표 ${tier.targetScore}점`);
 }
 
+function judgeCandidateRecipes(tierId) {
+  if (tierId === 'rookie') {
+    return RECIPES.filter((recipe) => DEFAULT_UNLOCKED_RECIPES.includes(recipe.id));
+  }
+  if (tierId === 'intermediate') {
+    return RECIPES.filter((recipe) => !['curry_tonkatsu'].includes(recipe.id));
+  }
+  return RECIPES;
+}
+
+function randomPick(list, fallback) {
+  if (!Array.isArray(list) || !list.length) return fallback;
+  return list[Math.floor(Math.random() * list.length)] || fallback;
+}
+
+function pickDistinctPair(list, fallback) {
+  const first = randomPick(list, fallback);
+  if (!list.length) return [fallback, fallback];
+  const rest = list.filter((item) => item !== first);
+  return [first, randomPick(rest.length ? rest : list, fallback)];
+}
+
+function buildChefEntry(state, recipe, theme, chef) {
+  const preferHits = chef.preferTags.filter((tag) => recipe.tags.includes(tag)).length;
+  const avoidHits = chef.avoidTags.filter((tag) => recipe.tags.includes(tag)).length;
+  const themeHits = theme.targetTags.filter((tag) => recipe.tags.includes(tag)).length;
+  const styleBonus = preferHits * 4 - avoidHits * 3 + themeHits * 2 + (Math.random() * 6 - 3);
+  const score = computeRecipeScoreForTheme(state, recipe.id, theme, { styleBonus });
+  const appealTags = Array.from(new Set([...theme.targetTags, ...chef.preferTags]))
+    .filter((tag) => recipe.tags.includes(tag))
+    .slice(0, 2);
+  const appeal = appealTags.length
+    ? `${chef.style} 감각으로 #${appealTags.join(' #')} 포인트를 밀어붙입니다.`
+    : `${chef.style} 스타일로 안정적인 완성도를 노립니다.`;
+  return {
+    name: chef.name,
+    recipeId: recipe.id,
+    recipeName: recipe.name,
+    appeal,
+    total: score.total,
+  };
+}
+
+function buildJudgeMatch(state, tierId = 'rookie') {
+  const current = normalizeState(state);
+  const tier = TOURNAMENT_TIERS.find((item) => item.id === tierId) || TOURNAMENT_TIERS[0];
+  const previousThemeId = current.judgeMatch?.themeId;
+  const themes = TOURNAMENT_THEMES.filter((theme) => theme.id !== previousThemeId);
+  const theme = randomPick(themes.length ? themes : TOURNAMENT_THEMES, TOURNAMENT_THEMES[0]);
+  const candidates = judgeCandidateRecipes(tier.id);
+  const [chefA, chefB] = pickDistinctPair(JUDGE_AI_CHEFS, JUDGE_AI_CHEFS[0]);
+  const [recipeA, recipeB] = pickDistinctPair(candidates, RECIPES[0]);
+  const entryA = buildChefEntry(current, recipeA, theme, chefA);
+  const entryB = buildChefEntry(current, recipeB, theme, chefB);
+  return {
+    id: `judge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+    tierId: tier.id,
+    tierName: tier.name,
+    themeId: theme.id,
+    themeName: theme.name,
+    themeDesc: theme.desc,
+    aiAName: entryA.name,
+    aiBName: entryB.name,
+    aiARecipeId: entryA.recipeId,
+    aiBRecipeId: entryB.recipeId,
+    aiARecipeName: entryA.recipeName,
+    aiBRecipeName: entryB.recipeName,
+    aiAAppeal: entryA.appeal,
+    aiBAppeal: entryB.appeal,
+    aiATotal: entryA.total,
+    aiBTotal: entryB.total,
+    createdAt: new Date().toISOString(),
+    resolved: false,
+  };
+}
+
+function winnerForJudgeMatch(match) {
+  if (!match) return 'A';
+  const a = Number(match.aiATotal || 0);
+  const b = Number(match.aiBTotal || 0);
+  if (Math.abs(a - b) <= 0.05) return 'A';
+  return a >= b ? 'A' : 'B';
+}
+
+function resolveJudgeMatch(state, match, pick, judgeText = '') {
+  const current = normalizeState(state);
+  const judgePick = pick === 'B' ? 'B' : 'A';
+  const winner = winnerForJudgeMatch(match);
+  const tie = Math.abs(Number(match.aiATotal || 0) - Number(match.aiBTotal || 0)) <= 0.05;
+  const correct = tie || judgePick === winner;
+  const rewardGold = correct ? 50 : 20;
+  const rewardShards = correct ? 3 : 1;
+  const entry = {
+    id: match.id,
+    tierId: match.tierId,
+    themeId: match.themeId,
+    themeName: match.themeName,
+    aiAName: match.aiAName,
+    aiBName: match.aiBName,
+    aiARecipeId: match.aiARecipeId,
+    aiBRecipeId: match.aiBRecipeId,
+    aiARecipeName: match.aiARecipeName,
+    aiBRecipeName: match.aiBRecipeName,
+    aiAAppeal: match.aiAAppeal,
+    aiBAppeal: match.aiBAppeal,
+    aiATotal: match.aiATotal,
+    aiBTotal: match.aiBTotal,
+    judgePick,
+    winner,
+    judgeText,
+    correct,
+    judgedAt: new Date().toISOString(),
+  };
+  return {
+    ...current,
+    gold: Number(current.gold || 0) + rewardGold,
+    recipeShards: Number(current.recipeShards || 0) + rewardShards,
+    judgeHistory: [entry, ...current.judgeHistory].slice(0, 50),
+    judgeMatch: {
+      ...match,
+      resolved: true,
+      judgePick,
+      winner,
+      judgeText,
+      correct,
+    },
+    counters: {
+      ...current.counters,
+      judgeMatches: Number(current.counters.judgeMatches || 0) + 1,
+      judgeCorrect: Number(current.counters.judgeCorrect || 0) + (correct ? 1 : 0),
+    },
+  };
+}
+
+export function startJudgeMatchAction(state, tierId = 'rookie') {
+  const current = normalizeState(state);
+  return addLog({
+    ...current,
+    judgeMatch: buildJudgeMatch(current, tierId),
+  }, `${tournamentTierName(tierId)} 심사 매치를 준비했습니다.`);
+}
+
+export function submitJudgePickAction(state, pick, judgeText = '') {
+  const current = normalizeState(state);
+  const match = current.judgeMatch;
+  if (!match || match.resolved) return addLog(current, '진행 중인 심사 매치가 없습니다. 새 심사 매치를 먼저 준비하세요.');
+  const resolved = resolveJudgeMatch(current, match, pick, judgeText);
+  const chosen = pick === 'B' ? resolved.judgeMatch.aiBName : resolved.judgeMatch.aiAName;
+  return addLog(resolved, `${chosen} 선택: ${resolved.judgeMatch.correct ? '정답' : '오답'}입니다. 보상 +${resolved.judgeMatch.correct ? 50 : 20}G`);
+}
+
+export function runJudgeBatchAction(state, tierId = 'rookie', count = 10, mode = 'random') {
+  let current = normalizeState(state);
+  const total = clamp(Math.round(Number(count || 10)), 1, 50);
+  const safeMode = Object.prototype.hasOwnProperty.call(JUDGE_BATCH_MODE_LABELS, mode) ? mode : 'random';
+  const beforeCorrect = Number(current.counters.judgeCorrect || 0);
+  const beforeMatches = Number(current.counters.judgeMatches || 0);
+  for (let index = 0; index < total; index += 1) {
+    const match = buildJudgeMatch(current, tierId);
+    const winner = winnerForJudgeMatch(match);
+    const loser = winner === 'A' ? 'B' : 'A';
+    const pick = safeMode === 'strong' ? winner : safeMode === 'weak' ? loser : (Math.random() < 0.5 ? 'A' : 'B');
+    current = resolveJudgeMatch(current, match, pick, `자동심사#${index + 1} [${JUDGE_BATCH_MODE_LABELS[safeMode]}]`);
+  }
+  const correct = Number(current.counters.judgeCorrect || 0) - beforeCorrect;
+  const matches = Number(current.counters.judgeMatches || 0) - beforeMatches;
+  const lastJudgeBatch = {
+    tierId: TOURNAMENT_TIERS.find((tier) => tier.id === tierId)?.id || TOURNAMENT_TIERS[0].id,
+    mode: safeMode,
+    count: matches,
+    correct,
+    accuracy: matches ? Math.round((correct / matches) * 100) : 0,
+    rewardGold: correct * 50 + (matches - correct) * 20,
+    rewardShards: correct * 3 + (matches - correct),
+    createdAt: new Date().toISOString(),
+  };
+  return addLog({
+    ...current,
+    lastJudgeBatch,
+  }, `자동 심사 ${matches}판 완료: ${correct}/${matches} 정답 (${lastJudgeBatch.accuracy}%).`);
+}
+
+export function clearJudgeHistoryAction(state) {
+  const current = normalizeState(state);
+  return addLog({
+    ...current,
+    judgeMatch: null,
+    judgeHistory: [],
+    lastJudgeBatch: null,
+  }, '심사 기록과 현재 매치를 초기화했습니다.');
+}
+
+export function judgeSummary(state) {
+  const current = normalizeState(state);
+  const judged = current.judgeHistory.length;
+  const correct = current.judgeHistory.filter((entry) => entry.correct).length;
+  const accuracy = judged ? Math.round((correct / judged) * 100) : 0;
+  const rank = judged < 5 ? '견습 심사원' : accuracy >= 75 ? '정밀 심사원' : accuracy >= 55 ? '실전 심사원' : '수련 심사원';
+  const modeCounts = current.judgeHistory.reduce((next, entry) => {
+    const text = entry.judgeText || '';
+    const mode = text.includes(JUDGE_BATCH_MODE_LABELS.strong) ? 'strong' : text.includes(JUDGE_BATCH_MODE_LABELS.weak) ? 'weak' : text.includes('자동심사') ? 'random' : 'manual';
+    return { ...next, [mode]: Number(next[mode] || 0) + 1 };
+  }, { manual: 0, random: 0, strong: 0, weak: 0 });
+  return {
+    match: current.judgeMatch,
+    history: current.judgeHistory.slice(0, 8),
+    judged,
+    correct,
+    accuracy,
+    rank,
+    modeCounts,
+    lastBatch: current.lastJudgeBatch,
+  };
+}
+
 export function facilityRows(state) {
   const current = normalizeState(state);
   return FACILITIES.map((facility) => {
@@ -741,6 +986,8 @@ export function scoreState(state) {
     + Number(state.counters.facilityUpgrades || 0) * 55
     + Number(state.counters.researches || 0) * 90
     + Number(state.counters.tournamentWins || 0) * 220
+    + Number(state.counters.judgeMatches || 0) * 8
+    + Number(state.counters.judgeCorrect || 0) * 35
     + averageStudents(state, 'morale') * 4
   ));
 }
@@ -771,6 +1018,10 @@ export function summaryForState(state) {
     facilities: Object.values(state.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0),
     researches: Number(state.counters?.researches || 0),
     tournamentWins: Number(state.counters?.tournamentWins || 0),
+    judgeMatches: Number(state.counters?.judgeMatches || 0),
+    judgeAccuracy: Number(state.counters?.judgeMatches || 0)
+      ? Math.round((Number(state.counters?.judgeCorrect || 0) / Number(state.counters?.judgeMatches || 0)) * 100)
+      : 0,
     score: scoreState(state),
   };
 }

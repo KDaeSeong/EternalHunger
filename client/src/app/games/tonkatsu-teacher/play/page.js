@@ -9,6 +9,7 @@ import GamePlayShell from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   INGREDIENTS,
+  JUDGE_BATCH_MODE_LABELS,
   QUICK_SAVE_SLOT,
   RECIPES,
   SAVE_VERSION,
@@ -17,6 +18,7 @@ import {
   battleAction,
   buildFacilityContext,
   buyIngredientAction,
+  clearJudgeHistoryAction,
   craftRecipeAction,
   createNewState,
   enterTournamentAction,
@@ -28,6 +30,7 @@ import {
   getStudent,
   ingredientName,
   inventoryCount,
+  judgeSummary,
   mealTokenCount,
   nextDayAction,
   normalizeState,
@@ -35,9 +38,12 @@ import {
   recipeRows,
   researchRecipeAction,
   researchRows,
+  runJudgeBatchAction,
   scoreState,
   sellRecipeAction,
   setBusinessModeAction,
+  startJudgeMatchAction,
+  submitJudgePickAction,
   summaryForState,
   tournamentPreview,
   upgradeFacilityAction,
@@ -69,6 +75,11 @@ export default function TonkatsuTeacherPlayPage() {
   const [ingredientId, setIngredientId] = useState('pork');
   const [studentId, setStudentId] = useState('yuuka');
   const [tournamentTierId, setTournamentTierId] = useState('rookie');
+  const [judgeTierId, setJudgeTierId] = useState('rookie');
+  const [judgePick, setJudgePick] = useState('A');
+  const [judgeText, setJudgeText] = useState('');
+  const [judgeBatchCount, setJudgeBatchCount] = useState(10);
+  const [judgeBatchMode, setJudgeBatchMode] = useState('random');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -81,6 +92,8 @@ export default function TonkatsuTeacherPlayPage() {
   const researches = researchRows(state);
   const facilityContext = buildFacilityContext(state);
   const tournament = tournamentPreview(state, recipeId, tournamentTierId);
+  const judge = judgeSummary(state);
+  const judgeMatch = judge.match;
   const score = scoreState(state);
   const ended = Boolean(state.ended);
   const canAct = !ended;
@@ -180,6 +193,11 @@ export default function TonkatsuTeacherPlayPage() {
     setIngredientId('pork');
     setStudentId('yuuka');
     setTournamentTierId('rookie');
+    setJudgeTierId('rookie');
+    setJudgePick('A');
+    setJudgeText('');
+    setJudgeBatchCount(10);
+    setJudgeBatchMode('random');
     setMessage('');
   };
 
@@ -408,6 +426,109 @@ export default function TonkatsuTeacherPlayPage() {
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
           </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>심사위원</h2>
+            <span>{judge.rank}</span>
+          </div>
+          <div className="games-rank-split">
+            <MiniRow label="심사" value={judge.judged} />
+            <MiniRow label="정답" value={judge.correct} />
+            <MiniRow label="정확도" value={`${judge.accuracy}%`} />
+          </div>
+          {judge.lastBatch ? (
+            <p style={{ color: '#fbbf24', fontWeight: 900, lineHeight: 1.5 }}>
+              최근 자동심사 {judge.lastBatch.correct}/{judge.lastBatch.count} 정답 ({judge.lastBatch.accuracy}%) · {JUDGE_BATCH_MODE_LABELS[judge.lastBatch.mode] || '자동'}
+            </p>
+          ) : (
+            <p style={{ color: '#94a3b8', fontWeight: 800, lineHeight: 1.5 }}>셰프들의 제출작을 보고 승자를 맞히는 대회 전용 심사 모드입니다.</p>
+          )}
+          <label className="game-save-json-field">
+            <span>심사 티어</span>
+            <select value={judgeTierId} onChange={(event) => setJudgeTierId(event.target.value)}>
+              {TOURNAMENT_TIERS.map((tier) => <option value={tier.id} key={tier.id}>{tier.name}</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split" style={{ marginTop: 10 }}>
+            <label className="game-save-json-field">
+              <span>자동 횟수</span>
+              <select value={judgeBatchCount} onChange={(event) => setJudgeBatchCount(Number(event.target.value))}>
+                {[5, 10, 20, 50].map((count) => <option value={count} key={count}>{count}회</option>)}
+              </select>
+            </label>
+            <label className="game-save-json-field">
+              <span>자동 방식</span>
+              <select value={judgeBatchMode} onChange={(event) => setJudgeBatchMode(event.target.value)}>
+                {Object.entries(JUDGE_BATCH_MODE_LABELS).map(([mode, label]) => <option value={mode} key={mode}>{label}</option>)}
+              </select>
+            </label>
+          </div>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            <ActionButton disabled={!canAct} onClick={() => {
+              setJudgePick('A');
+              setJudgeText('');
+              setState((current) => startJudgeMatchAction(current, judgeTierId));
+            }}>새 심사 매치</ActionButton>
+            <ActionButton disabled={!canAct} onClick={() => setState((current) => runJudgeBatchAction(current, judgeTierId, judgeBatchCount, judgeBatchMode))}>자동 심사 실행</ActionButton>
+            <ActionButton disabled={!canAct || (!judge.judged && !judgeMatch)} onClick={() => setState((current) => clearJudgeHistoryAction(current))}>심사 기록 초기화</ActionButton>
+          </div>
+
+          {judgeMatch ? (
+            <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+              <div className="games-rank-split">
+                <MiniRow label="테마" value={judgeMatch.themeName || judgeMatch.themeId} />
+                <MiniRow label="티어" value={judgeMatch.tierName || judgeMatch.tierId} />
+                <MiniRow label="결과" value={judgeMatch.resolved ? (judgeMatch.correct ? '정답' : '오답') : '판정 대기'} />
+              </div>
+              <article className="game-save-row">
+                <div>
+                  <span>A · {judgeMatch.aiAName}</span>
+                  <strong>{judgeMatch.aiARecipeName || recipeName(judgeMatch.aiARecipeId)}</strong>
+                  <small>{judgeMatch.aiAAppeal}</small>
+                </div>
+                <strong>{judgeMatch.resolved ? `${judgeMatch.aiATotal}점` : '비공개'}</strong>
+              </article>
+              <article className="game-save-row">
+                <div>
+                  <span>B · {judgeMatch.aiBName}</span>
+                  <strong>{judgeMatch.aiBRecipeName || recipeName(judgeMatch.aiBRecipeId)}</strong>
+                  <small>{judgeMatch.aiBAppeal}</small>
+                </div>
+                <strong>{judgeMatch.resolved ? `${judgeMatch.aiBTotal}점` : '비공개'}</strong>
+              </article>
+              <label className="game-save-json-field">
+                <span>선택</span>
+                <select value={judgePick} onChange={(event) => setJudgePick(event.target.value)}>
+                  <option value="A">A 셰프</option>
+                  <option value="B">B 셰프</option>
+                </select>
+              </label>
+              <label className="game-save-json-field">
+                <span>심사 메모</span>
+                <input value={judgeText} onChange={(event) => setJudgeText(event.target.value)} placeholder="판정 근거를 적어두세요" />
+              </label>
+              <ActionButton disabled={!canAct || judgeMatch.resolved} onClick={() => setState((current) => submitJudgePickAction(current, judgePick, judgeText))}>판정 제출</ActionButton>
+            </div>
+          ) : (
+            <div className="games-empty" style={{ marginTop: 14 }}>새 심사 매치를 준비하면 A/B 셰프의 제출작이 표시됩니다.</div>
+          )}
+
+          {judge.history.length ? (
+            <div className="game-save-list" style={{ marginTop: 14 }}>
+              {judge.history.map((entry, index) => (
+                <article className="game-save-row" key={`${entry.id || entry.judgedAt}-${index}`}>
+                  <div>
+                    <span>{entry.themeName || entry.themeId} · {entry.judgePick} 선택</span>
+                    <strong>{entry.correct ? '정답' : '오답'} · {entry.aiAName} vs {entry.aiBName}</strong>
+                    <small>{entry.judgeText || '메모 없음'}</small>
+                  </div>
+                  <strong>{entry.aiATotal}:{entry.aiBTotal}</strong>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="games-panel">
