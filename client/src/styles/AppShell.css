@@ -5239,7 +5239,8 @@
 }
 
 .game-room-record-grid label,
-.game-room-record-note {
+.game-room-record-note,
+.game-room-restore-actions {
   min-width: 0;
   display: grid;
   gap: 6px;
@@ -5291,6 +5292,27 @@
   padding: 0 14px;
   font-weight: 900;
   text-decoration: none;
+}
+
+.game-room-restore-actions {
+  align-content: end;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game-room-restore-actions button {
+  min-height: 42px;
+  border: 1px solid rgba(44, 111, 158, 0.20);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b6fa2;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.game-room-restore-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .game-room-adapter-note {
@@ -5528,6 +5550,10 @@
 
   .game-room-record-grid label:first-child {
     grid-column: auto;
+  }
+
+  .game-room-restore-actions {
+    grid-template-columns: 1fr;
   }
 
   .game-save-row button,

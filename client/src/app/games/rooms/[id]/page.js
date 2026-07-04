@@ -74,8 +74,24 @@ function activeRoomPlayers(room) {
   return Array.isArray(room?.players) ? room.players.filter((player) => player?.status !== 'left') : [];
 }
 
+function normalizeList(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function playerDisplayName(player) {
   return safeText(player?.displayName || player?.user?.displayName || player?.user?.nickname || player?.user?.username, '사용자');
+}
+
+function isRoomSaveSlot(save) {
+  const summary = save?.summary && typeof save.summary === 'object' ? save.summary : {};
+  return summary.source === 'game-room';
+}
+
+function saveSlotLabel(save) {
+  const summary = save?.summary && typeof save.summary === 'object' ? save.summary : {};
+  const revision = Number(summary.revision || 0);
+  const roomTitle = safeText(summary.roomTitle, save?.saveName || save?.slotKey || '저장 슬롯');
+  return `${roomTitle} · ${save?.slotKey || 'slot'} · r${revision}`;
 }
 
 function buildDefaultRecordForm(room) {
@@ -208,6 +224,9 @@ export default function GameRoomDetailPage() {
   const [error, setError] = useState('');
   const [saveForm, setSaveForm] = useState(() => buildDefaultSaveForm(null));
   const [recordForm, setRecordForm] = useState(() => buildDefaultRecordForm(null));
+  const [restoreSlots, setRestoreSlots] = useState([]);
+  const [restoreSlotId, setRestoreSlotId] = useState('');
+  const [restoreLoadedFor, setRestoreLoadedFor] = useState('');
 
   const game = findGameBySlug(room?.gameSlug);
   const currentUserId = userIdOf(user);
@@ -220,6 +239,7 @@ export default function GameRoomDetailPage() {
   const currentReady = currentPlayer?.status === 'ready';
   const active = room && !['finished', 'closed'].includes(room.status);
   const canSaveRoom = Boolean(room && (room.isParticipant || room.isHost));
+  const canRestoreRoom = Boolean(canSaveRoom && active);
   const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && roomPlayers.length);
   const playHref = room?.gameSlug === 'dual-academy-tcg'
     ? `/games/dual-academy-tcg/play?roomId=${id}`
@@ -261,6 +281,12 @@ export default function GameRoomDetailPage() {
     ));
   }, [room]);
 
+  useEffect(() => {
+    setRestoreSlots([]);
+    setRestoreSlotId('');
+    setRestoreLoadedFor('');
+  }, [room?._id]);
+
   const runAction = async (key, path, body = {}) => {
     if (!token || busy) return;
     setBusy(key);
@@ -301,6 +327,70 @@ export default function GameRoomDetailPage() {
       showToast({ tone: 'success', message: res?.message || '방 상태를 저장 슬롯에 저장했습니다.' });
     } catch (err) {
       const message = err?.message || '방 상태 저장에 실패했습니다.';
+      setError(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const loadRestoreSlots = async () => {
+    if (!token || busy || !room?.gameSlug) return;
+    setBusy('load-saves');
+    setError('');
+    try {
+      const data = await apiGet(`/game-saves?gameSlug=${room.gameSlug}`, { timeoutMs: 15000 });
+      const slots = normalizeList(data?.saves).filter(isRoomSaveSlot);
+      setRestoreSlots(slots);
+      setRestoreSlotId((current) => (
+        current && slots.some((slot) => slot.id === current)
+          ? current
+          : slots[0]?.id || ''
+      ));
+      setRestoreLoadedFor(room._id || room.id || '');
+      showToast({
+        tone: slots.length ? 'success' : 'warning',
+        message: slots.length ? '저장 슬롯을 불러왔습니다.' : '복원할 방 저장 슬롯이 없습니다.',
+      });
+    } catch (err) {
+      const message = err?.message || '저장 슬롯을 불러오지 못했습니다.';
+      setError(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const restoreRoomSnapshot = async () => {
+    if (!token || busy || !room || !restoreSlotId) return;
+    setBusy('restore-slot');
+    setError('');
+    try {
+      const detail = await apiGet(`/game-saves/${restoreSlotId}`, { timeoutMs: 15000 });
+      const save = detail?.save || {};
+      const payload = save.payload && typeof save.payload === 'object' ? save.payload : {};
+      if (save.gameSlug && save.gameSlug !== room.gameSlug) {
+        throw new Error('현재 방과 다른 게임의 저장 슬롯입니다.');
+      }
+      if (payload.source !== 'game-room') {
+        throw new Error('게임방 상태 저장 슬롯만 복원할 수 있습니다.');
+      }
+      const state = payload.state && typeof payload.state === 'object' ? payload.state : {};
+      const settings = payload.settings && typeof payload.settings === 'object' ? payload.settings : {};
+      const summary = payload.summary && typeof payload.summary === 'object' ? payload.summary : {};
+      const res = await apiPost(`/game-rooms/${id}/state`, {
+        state,
+        settings,
+        summary,
+        revision: Number(room.revision || 0),
+      }, { timeoutMs: 20000 });
+      clearApiGetCache('/game-rooms');
+      setRoom(res?.room || room);
+      showToast({ tone: 'success', message: '저장 슬롯에서 방 상태를 복원했습니다.' });
+    } catch (err) {
+      const nextRoom = err?.response?.data?.room;
+      if (nextRoom) setRoom(nextRoom);
+      const message = err?.message || '방 상태 복원에 실패했습니다.';
       setError(message);
       showToast({ tone: 'danger', message });
     } finally {
@@ -487,6 +577,40 @@ export default function GameRoomDetailPage() {
                   <Link href={`/games/saves?gameSlug=${room.gameSlug}`}>저장 슬롯 보기</Link>
                 </div>
               </form>
+            ) : null}
+
+            {canRestoreRoom ? (
+              <section className="games-panel game-room-record-panel">
+                <div className="games-panel-title">
+                  <h2>진행 복원</h2>
+                  <span>{restoreLoadedFor === room._id ? `${restoreSlots.length}개 슬롯` : '슬롯 미조회'}</span>
+                </div>
+                <div className="game-room-record-grid is-save">
+                  <label>
+                    <span>저장 슬롯</span>
+                    <select
+                      value={restoreSlotId}
+                      disabled={Boolean(busy) || !restoreSlots.length}
+                      onChange={(event) => setRestoreSlotId(event.target.value)}
+                    >
+                      {restoreSlots.length ? restoreSlots.map((slot) => (
+                        <option value={slot.id} key={slot.id}>{saveSlotLabel(slot)}</option>
+                      )) : <option value="">저장 슬롯 없음</option>}
+                    </select>
+                  </label>
+                  <div className="game-room-restore-actions">
+                    <button type="button" onClick={loadRestoreSlots} disabled={Boolean(busy)}>
+                      {busy === 'load-saves' ? '조회 중...' : '슬롯 조회'}
+                    </button>
+                    <button type="button" onClick={restoreRoomSnapshot} disabled={Boolean(busy) || !restoreSlotId}>
+                      {busy === 'restore-slot' ? '복원 중...' : '방에 복원'}
+                    </button>
+                  </div>
+                </div>
+                <div className="game-room-record-help">
+                  선택한 저장 슬롯의 상태 데이터와 설정을 현재 방에 적용합니다. 복원 시 현재 방 리비전이 변경됩니다.
+                </div>
+              </section>
             ) : null}
 
             {canRecordResult ? (

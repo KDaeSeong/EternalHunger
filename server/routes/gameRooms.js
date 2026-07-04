@@ -36,6 +36,10 @@ function normalizeObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function hasOwn(value, key) {
+  return Boolean(value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, key));
+}
+
 function getJsonBytes(value) {
   return Buffer.byteLength(JSON.stringify(value ?? null), 'utf8');
 }
@@ -417,7 +421,8 @@ router.post('/:id/state', verifyToken, async (req, res) => {
 
     room.state = state;
     room.stateBytes = stateBytes;
-    room.summary = normalizeObject(req.body?.summary || room.summary);
+    room.summary = hasOwn(req.body, 'summary') ? normalizeObject(req.body.summary) : normalizeObject(room.summary);
+    if (hasOwn(req.body, 'settings')) room.settings = normalizeObject(req.body.settings);
     room.revision = Number(room.revision || 0) + 1;
     room.lastActivityAt = new Date();
     await room.save();
