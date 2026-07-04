@@ -144,10 +144,10 @@ Checked: 2026-07-04
 ## School Simulator Slice Status
 
 - Route: `/games/school-simulator/play`
-- Included loop: weekly school operations, policy presets, AP/budget spending, student growth/stress, teacher fatigue/morale, facility condition, exam weeks, semester reports, rest action, and school score summary.
+- Included loop: weekly school operations, policy presets, AP/budget spending, student growth/stress, teacher fatigue/morale, facility condition, subject policy/presentation actions, admissions campaigns, career counseling, club recruitment/showcases, festival planning, exam weeks, semester reports, rest action, and school score summary.
 - Site API integration: quick save through `/game-saves/school-simulator/school-simulator-main`; term-report snapshot through `/game-records/school-simulator`.
 - Source basis: `C:\2저장고\마이애니메\school-simulator-step23` JavaScript simulation, seeds, and Step 23 UI flow.
-- Next step: import the original admissions, career, club, festival, and subject-specific presentation/evaluation flows behind the site save/record shell.
+- Next step: import the original full classroom model, teacher relation events, long-term evaluation rules, and richer student/facility detail screens behind the site save/record shell.
 
 ## SI Coding Sim Slice Status
 

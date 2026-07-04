@@ -8,22 +8,38 @@ import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
+  CAREER_TRACKS,
+  FESTIVAL_TYPES,
   POLICY_PRESETS,
   QUICK_SAVE_SLOT,
+  RECRUITMENT_STRATEGIES,
   SAVE_VERSION,
+  SUBJECT_POLICY_MODES,
+  SUBJECTS,
   WEEK_SCHEDULE,
   WORK_ACTIONS,
   applyPolicyPreset,
+  applySubjectPolicyAction,
   applyWorkAction,
+  careerTrackRows,
+  clubRows,
   createNewState,
   endWeekAction,
+  festivalStatus,
   getAtRiskStudents,
   getAverages,
   getPlayTimeSec,
   getTopStudents,
+  launchFestivalAction,
   normalizeState,
   restAction,
+  runAdmissionCampaignAction,
+  runCareerCounselingAction,
+  runClubRecruitmentAction,
+  runSubjectPresentationAction,
   scoreState,
+  startClubShowcaseAction,
+  subjectPolicyRows,
   summaryForState,
 } from '../_lib/schoolSimulatorEngine';
 
@@ -82,15 +98,31 @@ export default function SchoolSimulatorPlayPage() {
   const [state, setState] = useState(() => createNewState());
   const [actionId, setActionId] = useState(WORK_ACTIONS[0].id);
   const [policyId, setPolicyId] = useState(POLICY_PRESETS[0].id);
+  const [subjectId, setSubjectId] = useState(SUBJECTS[0].id);
+  const [subjectModeId, setSubjectModeId] = useState(SUBJECT_POLICY_MODES[0].id);
+  const [recruitmentStrategyId, setRecruitmentStrategyId] = useState(RECRUITMENT_STRATEGIES[0].id);
+  const [careerTrackId, setCareerTrackId] = useState(CAREER_TRACKS[0].id);
+  const [clubId, setClubId] = useState('club_research');
+  const [festivalId, setFestivalId] = useState(FESTIVAL_TYPES[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
   const averages = useMemo(() => getAverages(state), [state]);
   const topStudents = useMemo(() => getTopStudents(state, 'understanding', 5), [state]);
   const riskStudents = useMemo(() => getAtRiskStudents(state), [state]);
+  const subjectRows = useMemo(() => subjectPolicyRows(state), [state]);
+  const clubs = useMemo(() => clubRows(state), [state]);
+  const careerRows = useMemo(() => careerTrackRows(state), [state]);
+  const festival = useMemo(() => festivalStatus(state), [state]);
   const score = scoreState(state);
   const selectedAction = WORK_ACTIONS.find((action) => action.id === actionId) || WORK_ACTIONS[0];
   const selectedPolicy = POLICY_PRESETS.find((policy) => policy.id === policyId) || POLICY_PRESETS[0];
+  const selectedSubject = subjectRows.find((subject) => subject.id === subjectId) || subjectRows[0];
+  const selectedSubjectMode = SUBJECT_POLICY_MODES.find((mode) => mode.id === subjectModeId) || SUBJECT_POLICY_MODES[0];
+  const selectedRecruitment = RECRUITMENT_STRATEGIES.find((strategy) => strategy.id === recruitmentStrategyId) || RECRUITMENT_STRATEGIES[0];
+  const selectedCareer = CAREER_TRACKS.find((track) => track.id === careerTrackId) || CAREER_TRACKS[0];
+  const selectedClub = clubs.find((club) => club.id === clubId) || clubs[0];
+  const selectedFestival = FESTIVAL_TYPES.find((item) => item.id === festivalId) || FESTIVAL_TYPES[0];
   const weekInfo = WEEK_SCHEDULE[state.school.week] || { label: '학기 종료', examType: null };
 
   const startNewRun = () => {
@@ -98,6 +130,12 @@ export default function SchoolSimulatorPlayPage() {
     setState(nextState);
     setActionId(WORK_ACTIONS[0].id);
     setPolicyId(nextState.school.policyPreset);
+    setSubjectId(SUBJECTS[0].id);
+    setSubjectModeId(SUBJECT_POLICY_MODES[0].id);
+    setRecruitmentStrategyId(RECRUITMENT_STRATEGIES[0].id);
+    setCareerTrackId(CAREER_TRACKS[0].id);
+    setClubId('club_research');
+    setFestivalId(FESTIVAL_TYPES[0].id);
     setMessage('');
   };
 
@@ -207,6 +245,8 @@ export default function SchoolSimulatorPlayPage() {
     { label: '예산', value: state.school.budget.toLocaleString('ko-KR') },
     { label: 'AP', value: state.player.weeklyActionPoint },
     { label: '학생', value: state.students.length },
+    { label: '과목', value: Math.round(subjectRows.reduce((sum, row) => sum + Number(row.averageScore || 0), 0) / Math.max(1, subjectRows.length)) },
+    { label: '진로', value: Math.round(state.students.reduce((sum, student) => sum + Number(student.careerReadiness || 0), 0) / Math.max(1, state.students.length)) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -295,6 +335,81 @@ export default function SchoolSimulatorPlayPage() {
             <ActionButton onClick={() => setState((current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
             <ActionButton onClick={() => setState((current) => restAction(current))} disabled={state.player.weeklyActionPoint < 2}>지친 운영진 휴식</ActionButton>
           </div>
+        </section>
+      </section>
+
+      <section className="games-detail-grid">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>과목 운영</h2>
+            <span>{selectedSubject.teacherName}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>교과</span>
+            <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
+              {subjectRows.map((subject) => (
+                <option value={subject.id} key={subject.id}>{subject.label} · 평균 {subject.averageScore}</option>
+              ))}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>방식</span>
+            <select value={subjectModeId} onChange={(event) => setSubjectModeId(event.target.value)}>
+              {SUBJECT_POLICY_MODES.map((mode) => <option value={mode.id} key={mode.id}>{mode.label}</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="현재 방식" value={selectedSubject.modeLabel} />
+            <SmallStat label="평균" value={selectedSubject.averageScore} />
+            <SmallStat label="교사" value={selectedSubject.teacherName} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
+            <ActionButton onClick={() => setState((current) => runSubjectPresentationAction(current, subjectId))} disabled={state.player.weeklyActionPoint < 2}>교과 발표 수업</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>입학 모집</h2>
+            <span>{selectedRecruitment.label}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>모집 전략</span>
+            <select value={recruitmentStrategyId} onChange={(event) => setRecruitmentStrategyId(event.target.value)}>
+              {RECRUITMENT_STRATEGIES.map((strategy) => <option value={strategy.id} key={strategy.id}>{strategy.label}</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="지원자" value={state.school.admissions.applications} />
+            <SmallStat label="관심도" value={state.school.admissions.inboundInterest} />
+            <SmallStat label="신입 질" value={state.school.admissions.nextIntakeQuality} />
+            <SmallStat label="홍보 탄력" value={state.school.admissions.marketingMomentum || 0} />
+          </div>
+          <ActionButton onClick={() => setState((current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
+            모집 캠페인
+          </ActionButton>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>진로 지도</h2>
+            <span>{selectedCareer.label}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>트랙</span>
+            <select value={careerTrackId} onChange={(event) => setCareerTrackId(event.target.value)}>
+              {careerRows.map((track) => <option value={track.id} key={track.id}>{track.label} · {track.count}명</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="평균 준비" value={careerRows.find((track) => track.id === careerTrackId)?.averageReadiness || 0} />
+            <SmallStat label="기록" value={state.careerReports.length} />
+            <SmallStat label="대상" value="하위 6명" />
+          </div>
+          <ActionButton onClick={() => setState((current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
+            진로 상담 실행
+          </ActionButton>
         </section>
       </section>
 
@@ -400,6 +515,80 @@ export default function SchoolSimulatorPlayPage() {
                 <strong>{facility.condition}</strong>
               </article>
             ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>동아리</h2>
+            <span>{selectedClub.label}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>동아리</span>
+            <select value={clubId} onChange={(event) => setClubId(event.target.value)}>
+              {clubs.map((club) => <option value={club.id} key={club.id}>{club.label} · {club.memberCount}/{club.capacity}</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="분위기" value={selectedClub.clubMood} />
+            <SmallStat label="영향력" value={selectedClub.influence} />
+            <SmallStat label="리더" value={selectedClub.leaderStudentName} />
+            <SmallStat label="발표회" value={selectedClub.showcaseWeeksRemaining ? `${selectedClub.showcaseWeeksRemaining}주` : '대기'} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+            <ActionButton onClick={() => setState((current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>축제</h2>
+            <span>{festival.active ? `${festival.active.weeksRemaining}주 남음` : '대기'}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>행사</span>
+            <select value={festivalId} onChange={(event) => setFestivalId(event.target.value)} disabled={Boolean(festival.active)}>
+              {FESTIVAL_TYPES.map((item) => <option value={item.id} key={item.id}>{item.label} · {item.budgetCost.toLocaleString('ko-KR')}</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="선택" value={selectedFestival.label} />
+            <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
+            <SmallStat label="기록" value={festival.history.length} />
+          </div>
+          <ActionButton onClick={() => setState((current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+            행사 시작
+          </ActionButton>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>진로/행사 기록</h2>
+            <span>{state.careerReports.length + festival.history.length}건</span>
+          </div>
+          <div className="game-save-list">
+            {state.careerReports.slice(0, 3).map((report, index) => (
+              <article className="game-save-row" key={`${report.trackId}-${index}`}>
+                <div>
+                  <span>진로 · {report.students}명</span>
+                  <strong>{report.label}</strong>
+                </div>
+                <strong>{report.week}주</strong>
+              </article>
+            ))}
+            {festival.history.slice(0, 3).map((event, index) => (
+              <article className="game-save-row" key={`${event.label}-${index}`}>
+                <div>
+                  <span>행사 · {event.metric}</span>
+                  <strong>{event.label}</strong>
+                </div>
+                <strong>{event.winnerName}</strong>
+              </article>
+            ))}
+            {!state.careerReports.length && !festival.history.length ? <div className="games-empty">아직 진로/행사 기록이 없습니다.</div> : null}
           </div>
         </section>
       </section>

@@ -57,6 +57,54 @@ const FACILITY_SEEDS = [
   { id: 'f_club', name: '동아리관', type: 'club', condition: 68, capacity: 60 },
 ];
 
+export const SUBJECTS = [
+  { id: 'math', label: '수학', teacherSubject: '수학', core: true },
+  { id: 'language', label: '국어', teacherSubject: '국어', core: true },
+  { id: 'english', label: '영어', teacherSubject: '영어', core: true },
+  { id: 'social', label: '사회', teacherSubject: '사회', core: true },
+  { id: 'science', label: '과학', teacherSubject: '과학', core: true },
+  { id: 'arts', label: '예술', teacherSubject: '예술', core: false },
+  { id: 'physical', label: '체육', teacherSubject: '체육', core: false },
+  { id: 'project', label: '프로젝트', teacherSubject: '생활지도', core: false },
+];
+
+export const SUBJECT_POLICY_MODES = [
+  { id: 'balanced', label: '균형 수업', learning: 1.0, stress: 0, autonomy: 0.4, satisfaction: 0.3 },
+  { id: 'lecture', label: '강의 집중', learning: 1.35, stress: 1.2, autonomy: -0.3, satisfaction: -0.2 },
+  { id: 'discussion', label: '토론 수업', learning: 1.05, stress: 0.4, autonomy: 1.4, satisfaction: 0.7 },
+  { id: 'project', label: '프로젝트형', learning: 1.15, stress: 0.8, autonomy: 1.1, satisfaction: 0.9 },
+  { id: 'coaching', label: '보충 코칭', learning: 1.2, stress: -0.8, autonomy: 0.2, satisfaction: 0.5 },
+];
+
+export const CLUB_TEMPLATES = [
+  { id: 'club_research', label: '탐구 동아리', theme: 'academic', capacity: 10, level: 1 },
+  { id: 'club_creative', label: '창작 동아리', theme: 'creative', capacity: 10, level: 1 },
+  { id: 'club_leadership', label: '자치 리더 동아리', theme: 'leadership', capacity: 8, level: 1 },
+  { id: 'club_healing', label: '회복 지원 동아리', theme: 'wellbeing', capacity: 8, level: 1 },
+];
+
+export const CAREER_TRACKS = [
+  { id: 'academic', label: '학업 심화', understanding: 3, diligence: 2, autonomy: 0, satisfaction: 0 },
+  { id: 'research', label: '연구 프로젝트', understanding: 2, diligence: 1, autonomy: 2, satisfaction: 0 },
+  { id: 'creative', label: '창작 포트폴리오', understanding: 1, diligence: 0, autonomy: 2, satisfaction: 2 },
+  { id: 'community', label: '지역사회 연계', understanding: 0, diligence: 1, autonomy: 2, satisfaction: 2 },
+  { id: 'wellbeing', label: '회복 상담', understanding: 0, diligence: 0, autonomy: 1, satisfaction: 3, stress: -4, health: 2 },
+];
+
+export const RECRUITMENT_STRATEGIES = [
+  { id: 'balanced', label: '균형 모집', admissions: 2, brand: 2, quality: 1 },
+  { id: 'academic', label: '학업 성과 홍보', admissions: 2, brand: 3, quality: 3, academic: 1 },
+  { id: 'welfare', label: '복지·안전 홍보', admissions: 2, brand: 2, quality: 2, wellbeing: 1 },
+  { id: 'culture', label: '자치·문화 홍보', admissions: 3, brand: 3, quality: 1, community: 1 },
+];
+
+export const FESTIVAL_TYPES = [
+  { id: 'class_festival', label: '학급 축제', metric: 'community', weeks: 2, budgetCost: 380 },
+  { id: 'club_showcase', label: '동아리 발표회', metric: 'autonomy', weeks: 2, budgetCost: 320 },
+  { id: 'subject_expo', label: '교과 박람회', metric: 'academic', weeks: 2, budgetCost: 420 },
+  { id: 'wellbeing_day', label: '회복 주간', metric: 'welfare', weeks: 1, budgetCost: 260 },
+];
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const mode = options.mode || 'principal';
@@ -73,15 +121,19 @@ export function createNewState(options = {}) {
       income: 0,
       expense: 0,
       policyPreset: 'balanced',
+      subjectPolicies: createSubjectPolicies(),
       culture: { autonomy: 56, academic: 52, welfare: 60, community: 50 },
       reputation: { academic: 50, wellbeing: 58, safety: 62, autonomy: 56, community: 50, finance: 52 },
-      admissions: { applications: 58, competitionRate: 3.6, brandAwareness: 50, inboundInterest: 52, nextIntakeQuality: 60 },
+      admissions: { applications: 58, competitionRate: 3.6, brandAwareness: 50, inboundInterest: 52, nextIntakeQuality: 60, recruitmentStrategy: 'balanced', marketingMomentum: 0 },
+      festival: { active: null, history: [] },
       riskLevel: 16,
     },
     player: { mode, name: options.playerName || '플레이어', energy: 72, mental: 68, insight: 55, network: 42, weeklyActionPoint: 7, burnoutRisk: 14 },
     students: createStudents(),
     teachers: TEACHER_SEEDS.map((teacher) => ({ ...teacher })),
     facilities: FACILITY_SEEDS.map((facility) => ({ ...facility })),
+    clubs: createDefaultClubs(),
+    careerReports: [],
     weeklyModifiers: {},
     recentExamResults: [],
     semesterHistory: [],
@@ -95,11 +147,21 @@ export function normalizeState(value) {
   return {
     ...base,
     ...value,
-    school: value.school && typeof value.school === 'object' ? { ...base.school, ...value.school, culture: { ...base.school.culture, ...(value.school.culture || {}) }, reputation: { ...base.school.reputation, ...(value.school.reputation || {}) }, admissions: { ...base.school.admissions, ...(value.school.admissions || {}) } } : base.school,
+    school: value.school && typeof value.school === 'object' ? {
+      ...base.school,
+      ...value.school,
+      culture: { ...base.school.culture, ...(value.school.culture || {}) },
+      reputation: { ...base.school.reputation, ...(value.school.reputation || {}) },
+      admissions: { ...base.school.admissions, ...(value.school.admissions || {}) },
+      subjectPolicies: normalizeSubjectPolicies(value.school.subjectPolicies),
+      festival: { ...base.school.festival, ...(value.school.festival || {}), history: Array.isArray(value.school.festival?.history) ? value.school.festival.history.slice(0, 8) : [] },
+    } : base.school,
     player: value.player && typeof value.player === 'object' ? { ...base.player, ...value.player } : base.player,
-    students: Array.isArray(value.students) && value.students.length ? value.students : base.students,
+    students: Array.isArray(value.students) && value.students.length ? value.students.map((student, index) => normalizeStudent(student, index)) : base.students,
     teachers: Array.isArray(value.teachers) && value.teachers.length ? value.teachers : base.teachers,
     facilities: Array.isArray(value.facilities) && value.facilities.length ? value.facilities : base.facilities,
+    clubs: Array.isArray(value.clubs) && value.clubs.length ? normalizeClubs(value.clubs, value.students || base.students) : normalizeClubs(base.clubs, value.students || base.students),
+    careerReports: Array.isArray(value.careerReports) ? value.careerReports.slice(0, 30) : base.careerReports,
     weeklyModifiers: value.weeklyModifiers && typeof value.weeklyModifiers === 'object' ? value.weeklyModifiers : {},
     recentExamResults: Array.isArray(value.recentExamResults) ? value.recentExamResults : [],
     semesterHistory: Array.isArray(value.semesterHistory) ? value.semesterHistory : [],
@@ -111,19 +173,105 @@ function createStudents() {
   return STUDENT_NAMES.map((name, index) => {
     const grade = 1 + (index % 3);
     const variance = (index * 7) % 17;
+    const favoriteSubject = SUBJECTS[index % SUBJECTS.length].id;
+    const weakSubject = SUBJECTS[(index + 3) % SUBJECTS.length].id;
+    const subjectScores = createSubjectScores(index, favoriteSubject, weakSubject);
+    const club = CLUB_TEMPLATES[index % CLUB_TEMPLATES.length];
     return {
       id: `s_${index + 1}`,
       name,
       grade,
       classNo: 1 + (index % 2),
       diligence: clamp(54 + variance, 0, 100),
-      understanding: clamp(50 + ((index * 11) % 23), 0, 100),
+      understanding: Math.round(average(Object.values(subjectScores))),
+      subjectScores,
+      favoriteSubject,
+      weakSubject,
       stress: clamp(28 + ((index * 5) % 28), 0, 100),
       satisfaction: clamp(58 + ((index * 3) % 19), 0, 100),
       health: clamp(72 - (index % 5) * 3, 0, 100),
       autonomyParticipation: clamp(42 + ((index * 9) % 33), 0, 100),
       relationStability: clamp(50 + ((index * 13) % 29), 0, 100),
       careerReadiness: clamp(35 + ((index * 6) % 30), 0, 100),
+      careerTrack: CAREER_TRACKS[index % CAREER_TRACKS.length].id,
+      clubId: club.id,
+      clubRole: index % 7 === 0 ? 'leader' : 'member',
+    };
+  });
+}
+
+function createSubjectScores(index, favoriteSubject, weakSubject) {
+  return SUBJECTS.reduce((next, subject, subjectIndex) => {
+    const base = 48 + ((index * 9 + subjectIndex * 5) % 24);
+    const adjusted = base + (subject.id === favoriteSubject ? 10 : 0) - (subject.id === weakSubject ? 8 : 0);
+    return { ...next, [subject.id]: clamp(adjusted, 0, 100) };
+  }, {});
+}
+
+function createSubjectPolicies() {
+  return SUBJECTS.reduce((next, subject) => ({
+    ...next,
+    [subject.id]: { subject: subject.id, mode: 'balanced' },
+  }), {});
+}
+
+function normalizeSubjectPolicies(value = {}) {
+  const base = createSubjectPolicies();
+  return SUBJECTS.reduce((next, subject) => ({
+    ...next,
+    [subject.id]: {
+      ...base[subject.id],
+      ...(value?.[subject.id] || {}),
+      mode: SUBJECT_POLICY_MODES.some((mode) => mode.id === value?.[subject.id]?.mode) ? value[subject.id].mode : 'balanced',
+    },
+  }), {});
+}
+
+function normalizeStudent(student, index = 0) {
+  const favoriteSubject = student.favoriteSubject || SUBJECTS[index % SUBJECTS.length].id;
+  const weakSubject = student.weakSubject || SUBJECTS[(index + 3) % SUBJECTS.length].id;
+  const subjectScores = student.subjectScores && typeof student.subjectScores === 'object'
+    ? SUBJECTS.reduce((next, subject) => ({ ...next, [subject.id]: clamp(student.subjectScores[subject.id] ?? student.understanding ?? 50, 0, 100) }), {})
+    : createSubjectScores(index, favoriteSubject, weakSubject);
+  return {
+    ...student,
+    subjectScores,
+    favoriteSubject,
+    weakSubject,
+    understanding: Math.round(average(Object.values(subjectScores))),
+    careerTrack: student.careerTrack || CAREER_TRACKS[index % CAREER_TRACKS.length].id,
+    clubId: student.clubId || CLUB_TEMPLATES[index % CLUB_TEMPLATES.length].id,
+    clubRole: student.clubRole || (index % 7 === 0 ? 'leader' : 'member'),
+  };
+}
+
+function createDefaultClubs() {
+  return CLUB_TEMPLATES.map((club) => ({
+    ...club,
+    influence: 50,
+    clubMood: 56,
+    showcaseWeeksRemaining: 0,
+    eventHistory: [],
+    memberCount: 0,
+    memberNames: [],
+    leaderStudentId: null,
+    leaderStudentName: '미지정',
+  }));
+}
+
+function normalizeClubs(clubs = [], students = []) {
+  const previous = Object.fromEntries(clubs.map((club) => [club.id, club]));
+  return createDefaultClubs().map((base) => {
+    const club = { ...base, ...(previous[base.id] || {}) };
+    const members = students.filter((student) => student.clubId === club.id);
+    const leader = members.find((student) => student.clubRole === 'leader') || members.slice().sort((a, b) => Number(b.autonomyParticipation || 0) - Number(a.autonomyParticipation || 0))[0];
+    return {
+      ...club,
+      memberCount: members.length,
+      memberNames: members.slice(0, 5).map((student) => student.name),
+      leaderStudentId: leader?.id || null,
+      leaderStudentName: leader?.name || '미지정',
+      influence: clamp((club.level || 1) * 10 + 34 + members.length * 2.4 + (leader ? 5 : 0) + (club.clubMood - 50) * 0.15, 0, 100),
     };
   });
 }
@@ -184,6 +332,44 @@ function applyTeacherEffects(teachers, effects = {}) {
     morale: clamp(teacher.morale + Number(effects.teacherMorale || 0), 0, 100),
     fatigue: clamp(teacher.fatigue + Number(effects.teacherFatigue || 0), 0, 100),
   }));
+}
+
+function subjectPolicyMode(state, subjectId) {
+  const modeId = state.school.subjectPolicies?.[subjectId]?.mode || 'balanced';
+  return SUBJECT_POLICY_MODES.find((mode) => mode.id === modeId) || SUBJECT_POLICY_MODES[0];
+}
+
+function teacherForSubject(state, subject) {
+  return state.teachers.find((teacher) => teacher.subject === subject.teacherSubject)
+    || state.teachers.find((teacher) => teacher.subject === '생활지도')
+    || state.teachers[0];
+}
+
+function applySubjectLearning(student, state, weekInfo, teachingBase) {
+  const nextScores = { ...student.subjectScores };
+  let stressDelta = 0;
+  let satisfactionDelta = 0;
+  let autonomyDelta = 0;
+  SUBJECTS.forEach((subject) => {
+    const teacher = teacherForSubject(state, subject);
+    const mode = subjectPolicyMode(state, subject.id);
+    const favorite = student.favoriteSubject === subject.id ? 1.2 : 1;
+    const weak = student.weakSubject === subject.id ? 0.85 : 1;
+    const examBoost = weekInfo.examType ? 0.4 : 0;
+    const gain = (teachingBase * 0.55 + Number(teacher?.teachingSkill || 60) / 55 + examBoost) * mode.learning * favorite * weak;
+    nextScores[subject.id] = clamp(Number(nextScores[subject.id] || 50) + gain, 0, 100);
+    stressDelta += mode.stress / SUBJECTS.length;
+    satisfactionDelta += mode.satisfaction / SUBJECTS.length;
+    autonomyDelta += mode.autonomy / SUBJECTS.length;
+  });
+  return {
+    ...student,
+    subjectScores: nextScores,
+    understanding: Math.round(average(Object.values(nextScores))),
+    stress: clamp(student.stress + stressDelta, 0, 100),
+    satisfaction: clamp(student.satisfaction + satisfactionDelta, 0, 100),
+    autonomyParticipation: clamp(student.autonomyParticipation + autonomyDelta, 0, 100),
+  };
 }
 
 export function applyWorkAction(state, actionId) {
@@ -248,14 +434,273 @@ export function restAction(state) {
   }, '짧은 휴식을 취했습니다. 체력과 정신력이 회복됩니다.');
 }
 
+export function applySubjectPolicyAction(state, subjectId, modeId) {
+  const current = normalizeState(state);
+  const subject = SUBJECTS.find((item) => item.id === subjectId) || SUBJECTS[0];
+  const mode = SUBJECT_POLICY_MODES.find((item) => item.id === modeId) || SUBJECT_POLICY_MODES[0];
+  if (Number(current.player.weeklyActionPoint || 0) < 1) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < 80) return addLog(current, '예산이 부족합니다.');
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 1 },
+    school: {
+      ...current.school,
+      budget: Number(current.school.budget || 0) - 80,
+      expense: Number(current.school.expense || 0) + 80,
+      subjectPolicies: { ...current.school.subjectPolicies, [subject.id]: { subject: subject.id, mode: mode.id } },
+    },
+    teachers: current.teachers.map((teacher) => (
+      teacher.subject === subject.teacherSubject ? { ...teacher, fatigue: clamp(teacher.fatigue + 1, 0, 100) } : teacher
+    )),
+  }, `${subject.label} 수업 방식을 ${mode.label}로 조정했습니다.`);
+}
+
+export function runAdmissionCampaignAction(state, strategyId) {
+  const current = normalizeState(state);
+  const strategy = RECRUITMENT_STRATEGIES.find((item) => item.id === strategyId) || RECRUITMENT_STRATEGIES[0];
+  if (Number(current.player.weeklyActionPoint || 0) < 2) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < 240) return addLog(current, '예산이 부족합니다.');
+  const admissions = current.school.admissions;
+  const academicSignal = strategy.academic ? Number(current.school.reputation.academic || 0) / 35 : 0;
+  const wellbeingSignal = strategy.wellbeing ? Number(current.school.reputation.wellbeing || 0) / 38 : 0;
+  const communitySignal = strategy.community ? Number(current.school.reputation.community || 0) / 40 : 0;
+  const applicationsGain = Math.round(3 + strategy.admissions + academicSignal + wellbeingSignal + communitySignal);
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 2, network: clamp(Number(current.player.network || 0) + 2, 0, 100) },
+    school: {
+      ...current.school,
+      budget: Number(current.school.budget || 0) - 240,
+      expense: Number(current.school.expense || 0) + 240,
+      admissions: {
+        ...admissions,
+        recruitmentStrategy: strategy.id,
+        marketingMomentum: clamp(Number(admissions.marketingMomentum || 0) + 9, 0, 100),
+        brandAwareness: clamp(Number(admissions.brandAwareness || 0) + strategy.brand, 0, 100),
+        inboundInterest: clamp(Number(admissions.inboundInterest || 0) + strategy.admissions + 2, 0, 100),
+        applications: Math.max(0, Number(admissions.applications || 0) + applicationsGain),
+        nextIntakeQuality: clamp(Number(admissions.nextIntakeQuality || 0) + strategy.quality, 0, 100),
+      },
+    },
+  }, `${strategy.label} 캠페인을 진행했습니다. 지원자 +${applicationsGain}, 다음 신입생 질 +${strategy.quality}`);
+}
+
+export function runCareerCounselingAction(state, trackId) {
+  const current = normalizeState(state);
+  const track = CAREER_TRACKS.find((item) => item.id === trackId) || CAREER_TRACKS[0];
+  if (Number(current.player.weeklyActionPoint || 0) < 2) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < 180) return addLog(current, '예산이 부족합니다.');
+  const targetIds = current.students.slice().sort((a, b) => Number(a.careerReadiness || 0) - Number(b.careerReadiness || 0)).slice(0, 6).map((student) => student.id);
+  const students = current.students.map((student) => {
+    if (!targetIds.includes(student.id)) return student;
+    return {
+      ...student,
+      careerTrack: track.id,
+      careerReadiness: clamp(Number(student.careerReadiness || 0) + 8 + Number(track.understanding || 0), 0, 100),
+      diligence: clamp(student.diligence + Number(track.diligence || 0), 0, 100),
+      understanding: clamp(student.understanding + Number(track.understanding || 0), 0, 100),
+      autonomyParticipation: clamp(student.autonomyParticipation + Number(track.autonomy || 0), 0, 100),
+      satisfaction: clamp(student.satisfaction + Number(track.satisfaction || 0), 0, 100),
+      stress: clamp(student.stress + Number(track.stress || 0), 0, 100),
+      health: clamp(student.health + Number(track.health || 0), 0, 100),
+    };
+  });
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 2 },
+    school: {
+      ...current.school,
+      budget: Number(current.school.budget || 0) - 180,
+      expense: Number(current.school.expense || 0) + 180,
+      reputation: {
+        ...current.school.reputation,
+        academic: clamp(current.school.reputation.academic + (track.id === 'academic' ? 1 : 0), 0, 100),
+        community: clamp(current.school.reputation.community + (track.id === 'community' ? 1 : 0), 0, 100),
+      },
+    },
+    students,
+    careerReports: [{ week: current.school.week, trackId: track.id, label: track.label, students: targetIds.length }, ...current.careerReports].slice(0, 30),
+  }, `${track.label} 진로 상담을 진행했습니다. 대상 ${targetIds.length}명`);
+}
+
+export function runSubjectPresentationAction(state, subjectId) {
+  const current = normalizeState(state);
+  const subject = SUBJECTS.find((item) => item.id === subjectId) || SUBJECTS[0];
+  if (Number(current.player.weeklyActionPoint || 0) < 2) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < 220) return addLog(current, '예산이 부족합니다.');
+  const subjectAverage = Math.round(average(current.students.map((student) => student.subjectScores?.[subject.id] || student.understanding || 50)));
+  const teacher = teacherForSubject(current, subject);
+  const presentationScore = clamp(subjectAverage * 0.68 + Number(teacher?.teachingSkill || 60) * 0.22 + Number(current.school.culture.autonomy || 50) * 0.1, 0, 100);
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 2 },
+    school: {
+      ...current.school,
+      budget: Number(current.school.budget || 0) - 220,
+      expense: Number(current.school.expense || 0) + 220,
+      reputation: { ...current.school.reputation, academic: clamp(current.school.reputation.academic + presentationScore / 32, 0, 100), community: clamp(current.school.reputation.community + presentationScore / 55, 0, 100) },
+      admissions: { ...current.school.admissions, brandAwareness: clamp(current.school.admissions.brandAwareness + presentationScore / 40, 0, 100), inboundInterest: clamp(current.school.admissions.inboundInterest + presentationScore / 60, 0, 100) },
+    },
+    teachers: current.teachers.map((item) => (item.id === teacher?.id ? { ...item, fatigue: clamp(item.fatigue + 3, 0, 100), morale: clamp(item.morale + 1, 0, 100) } : item)),
+  }, `${subject.label} 발표 수업을 열었습니다. 발표 점수 ${presentationScore}점`);
+}
+
+export function runClubRecruitmentAction(state, clubId) {
+  const current = normalizeState(state);
+  const club = current.clubs.find((item) => item.id === clubId) || current.clubs[0];
+  if (Number(current.player.weeklyActionPoint || 0) < 2) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < 140) return addLog(current, '예산이 부족합니다.');
+  const memberCount = current.students.filter((student) => student.clubId === club.id).length;
+  const capacityLeft = Math.max(0, Number(club.capacity || 8) - memberCount);
+  const candidates = current.students.filter((student) => student.clubId !== club.id).slice(0, Math.min(3, capacityLeft));
+  if (!candidates.length) return addLog(current, `${club.label}에 추가 모집할 여유가 없습니다.`);
+  const candidateIds = new Set(candidates.map((student) => student.id));
+  const students = current.students.map((student) => (candidateIds.has(student.id) ? { ...student, clubId: club.id, clubRole: student.clubRole || 'member', satisfaction: clamp(student.satisfaction + 1, 0, 100) } : student));
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 2 },
+    school: { ...current.school, budget: Number(current.school.budget || 0) - 140, expense: Number(current.school.expense || 0) + 140 },
+    students,
+    clubs: normalizeClubs(current.clubs, students),
+  }, `${club.label} 신규 모집으로 ${candidates.length}명이 합류했습니다.`);
+}
+
+export function startClubShowcaseAction(state, clubId) {
+  const current = normalizeState(state);
+  const club = current.clubs.find((item) => item.id === clubId) || current.clubs[0];
+  if (Number(current.player.weeklyActionPoint || 0) < 2) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < 180) return addLog(current, '예산이 부족합니다.');
+  if (Number(club.showcaseWeeksRemaining || 0) > 0) return addLog(current, `${club.label} 발표회는 이미 준비 중입니다.`);
+  const clubs = current.clubs.map((item) => (item.id === club.id ? { ...item, showcaseWeeksRemaining: 2, clubMood: clamp(item.clubMood + 3, 0, 100) } : item));
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 2 },
+    school: { ...current.school, budget: Number(current.school.budget || 0) - 180, expense: Number(current.school.expense || 0) + 180 },
+    clubs,
+  }, `${club.label} 발표회를 준비합니다. 2주 뒤 결과가 정산됩니다.`);
+}
+
+export function launchFestivalAction(state, festivalId) {
+  const current = normalizeState(state);
+  const festival = FESTIVAL_TYPES.find((item) => item.id === festivalId) || FESTIVAL_TYPES[0];
+  if (current.school.festival?.active) return addLog(current, '이미 진행 중인 행사가 있습니다.');
+  if (Number(current.player.weeklyActionPoint || 0) < 3) return addLog(current, 'AP가 부족합니다.');
+  if (Number(current.school.budget || 0) < festival.budgetCost) return addLog(current, '예산이 부족합니다.');
+  return addLog({
+    ...current,
+    player: { ...current.player, weeklyActionPoint: Number(current.player.weeklyActionPoint || 0) - 3 },
+    school: {
+      ...current.school,
+      budget: Number(current.school.budget || 0) - festival.budgetCost,
+      expense: Number(current.school.expense || 0) + festival.budgetCost,
+      festival: { ...current.school.festival, active: { id: festival.id, label: festival.label, metric: festival.metric, weeksRemaining: festival.weeks } },
+    },
+  }, `${festival.label}를 시작했습니다. ${festival.weeks}주 뒤 결과가 정산됩니다.`);
+}
+
 function runExam(state, weekInfo) {
   if (!weekInfo.examType) return [];
   const weight = weekInfo.examType === 'final' ? 1.35 : weekInfo.examType === 'midterm' ? 1.15 : 0.75;
   return state.students.map((student) => ({
     studentId: student.id,
     name: student.name,
-    score: clamp((student.diligence * 0.34 + student.understanding * 0.46 + student.health * 0.1 + (100 - student.stress) * 0.1) * weight, 0, 100),
+    score: clamp((student.diligence * 0.26 + student.understanding * 0.42 + average(Object.values(student.subjectScores || {})) * 0.16 + student.health * 0.08 + (100 - student.stress) * 0.08) * weight, 0, 100),
   })).sort((a, b) => b.score - a.score);
+}
+
+function processClubWeekly(state, students, clubs) {
+  let nextStudents = students.map((student) => ({ ...student }));
+  let school = { ...state.school, reputation: { ...state.school.reputation }, culture: { ...state.school.culture }, festival: { ...state.school.festival } };
+  const logs = [];
+  let nextClubs = normalizeClubs(clubs, nextStudents).map((club) => {
+    const members = nextStudents.filter((student) => student.clubId === club.id);
+    nextStudents = nextStudents.map((student) => {
+      if (student.clubId !== club.id) return student;
+      const leaderBonus = student.clubRole === 'leader' ? 1 : 0;
+      if (club.theme === 'academic') {
+        const subjectScores = { ...student.subjectScores, math: clamp((student.subjectScores?.math || 50) + 1, 0, 100), science: clamp((student.subjectScores?.science || 50) + 1, 0, 100) };
+        return { ...student, subjectScores, diligence: clamp(student.diligence + club.level + leaderBonus, 0, 100), understanding: Math.round(average(Object.values(subjectScores))), stress: clamp(student.stress - 1, 0, 100) };
+      }
+      if (club.theme === 'creative') {
+        const subjectScores = { ...student.subjectScores, arts: clamp((student.subjectScores?.arts || 50) + 2, 0, 100) };
+        return { ...student, subjectScores, satisfaction: clamp(student.satisfaction + 2 + leaderBonus, 0, 100), autonomyParticipation: clamp(student.autonomyParticipation + 1, 0, 100), understanding: Math.round(average(Object.values(subjectScores))) };
+      }
+      if (club.theme === 'leadership') {
+        return { ...student, autonomyParticipation: clamp(student.autonomyParticipation + 2 + leaderBonus, 0, 100), relationStability: clamp(student.relationStability + 2, 0, 100), satisfaction: clamp(student.satisfaction + 1, 0, 100) };
+      }
+      return { ...student, stress: clamp(student.stress - 2, 0, 100), health: clamp(student.health + 1, 0, 100), satisfaction: clamp(student.satisfaction + 1 + leaderBonus, 0, 100) };
+    });
+
+    let nextClub = { ...club };
+    if (nextClub.showcaseWeeksRemaining > 0) {
+      nextClub.showcaseWeeksRemaining -= 1;
+      if (nextClub.showcaseWeeksRemaining === 0) {
+        school.reputation.academic = clamp(school.reputation.academic + (club.theme === 'academic' ? 3 : 1), 0, 100);
+        school.reputation.autonomy = clamp(school.reputation.autonomy + (club.theme === 'leadership' ? 3 : 1), 0, 100);
+        school.reputation.wellbeing = clamp(school.reputation.wellbeing + (club.theme === 'wellbeing' ? 3 : 1), 0, 100);
+        school.reputation.community = clamp(school.reputation.community + 2, 0, 100);
+        school.admissions.brandAwareness = clamp(school.admissions.brandAwareness + 2, 0, 100);
+        nextClub = {
+          ...nextClub,
+          eventHistory: [`발표회 성공 · ${members.length}명 참여`, ...(nextClub.eventHistory || [])].slice(0, 5),
+          clubMood: clamp(nextClub.clubMood + 4, 0, 100),
+        };
+        logs.push(`${nextClub.label} 발표회가 마무리되어 학교 평판이 상승했습니다.`);
+      }
+    }
+    return nextClub;
+  });
+  nextClubs = normalizeClubs(nextClubs, nextStudents);
+  return { students: nextStudents, clubs: nextClubs, school, logs };
+}
+
+function processFestivalWeekly(state, students, school) {
+  if (!school.festival?.active) return { students, school, logs: [] };
+  const active = { ...school.festival.active, weeksRemaining: Number(school.festival.active.weeksRemaining || 0) - 1 };
+  if (active.weeksRemaining > 0) {
+    return { students, school: { ...school, festival: { ...school.festival, active } }, logs: [] };
+  }
+  const metricMap = {
+    academic: (student) => student.understanding + student.diligence,
+    autonomy: (student) => student.autonomyParticipation + student.relationStability,
+    community: (student) => student.satisfaction + student.relationStability,
+    welfare: (student) => 100 - student.stress + student.health,
+  };
+  const metric = metricMap[active.metric] || metricMap.community;
+  const ranked = students.slice().sort((a, b) => metric(b) - metric(a));
+  const winner = ranked[0];
+  const nextStudents = students.map((student) => ({
+    ...student,
+    satisfaction: clamp(student.satisfaction + (student.id === winner?.id ? 5 : 2), 0, 100),
+    relationStability: clamp(student.relationStability + 2, 0, 100),
+    stress: clamp(student.stress - 1, 0, 100),
+  }));
+  const nextSchool = {
+    ...school,
+    culture: {
+      ...school.culture,
+      community: clamp(school.culture.community + 2, 0, 100),
+      autonomy: clamp(school.culture.autonomy + (active.metric === 'autonomy' ? 2 : 1), 0, 100),
+      academic: clamp(school.culture.academic + (active.metric === 'academic' ? 2 : 0), 0, 100),
+      welfare: clamp(school.culture.welfare + (active.metric === 'welfare' ? 2 : 0), 0, 100),
+    },
+    reputation: {
+      ...school.reputation,
+      community: clamp(school.reputation.community + 3, 0, 100),
+      academic: clamp(school.reputation.academic + (active.metric === 'academic' ? 2 : 0), 0, 100),
+      wellbeing: clamp(school.reputation.wellbeing + (active.metric === 'welfare' ? 2 : 0), 0, 100),
+    },
+    admissions: {
+      ...school.admissions,
+      brandAwareness: clamp(school.admissions.brandAwareness + 3, 0, 100),
+      inboundInterest: clamp(school.admissions.inboundInterest + 2, 0, 100),
+    },
+    festival: {
+      active: null,
+      history: [{ label: active.label, winnerName: winner?.name || '없음', metric: active.metric, week: school.week }, ...(school.festival.history || [])].slice(0, 8),
+    },
+  };
+  return { students: nextStudents, school: nextSchool, logs: [`${active.label}가 종료되었습니다. 대표 학생: ${winner?.name || '없음'}.`] };
 }
 
 export function endWeekAction(state) {
@@ -267,15 +712,20 @@ export function endWeekAction(state) {
   const teachingBase = avgTeacherSkill / 26 + Number(current.school.culture.academic || 0) / 32 + facilityAvg / 60;
   const welfareBase = Number(current.school.culture.welfare || 0) / 34 + average(current.teachers.map((teacher) => teacher.counselingSkill)) / 42;
 
-  let students = current.students.map((student) => ({
-    ...student,
-    diligence: clamp(student.diligence + teachingBase * 0.8 + Number(policy.effects.diligence || 0) * 0.6, 0, 100),
-    understanding: clamp(student.understanding + teachingBase + Number(policy.effects.understanding || 0) * 0.7, 0, 100),
-    stress: clamp(student.stress + 2.1 - welfareBase * 0.65 + Number(policy.effects.stress || 0) * 0.4, 0, 100),
-    satisfaction: clamp(student.satisfaction + Number(current.school.culture.community || 0) / 55 + Number(policy.effects.satisfaction || 0) * 0.35, 0, 100),
-    health: clamp(student.health - 1 + Number(policy.effects.health || 0) * 0.35, 0, 100),
-    careerReadiness: clamp(student.careerReadiness + student.understanding / 120 + student.autonomyParticipation / 150, 0, 100),
-  }));
+  let students = current.students.map((student) => {
+    const learned = applySubjectLearning(student, current, weekInfo, teachingBase);
+    return {
+      ...learned,
+      diligence: clamp(learned.diligence + teachingBase * 0.8 + Number(policy.effects.diligence || 0) * 0.6, 0, 100),
+      stress: clamp(learned.stress + 2.1 - welfareBase * 0.65 + Number(policy.effects.stress || 0) * 0.4, 0, 100),
+      satisfaction: clamp(learned.satisfaction + Number(current.school.culture.community || 0) / 55 + Number(policy.effects.satisfaction || 0) * 0.35, 0, 100),
+      health: clamp(learned.health - 1 + Number(policy.effects.health || 0) * 0.35, 0, 100),
+      careerReadiness: clamp(learned.careerReadiness + learned.understanding / 120 + learned.autonomyParticipation / 150, 0, 100),
+    };
+  });
+
+  const clubResult = processClubWeekly(current, students, current.clubs || []);
+  students = clubResult.students;
 
   let teachers = current.teachers.map((teacher) => ({
     ...teacher,
@@ -289,11 +739,12 @@ export function endWeekAction(state) {
   const examAvg = exams.length ? Math.round(average(exams.map((row) => row.score))) : 0;
   let school = {
     ...current.school,
+    ...clubResult.school,
     budget: Number(current.school.budget || 0) + income - maintenance,
     income: Number(current.school.income || 0) + income,
     expense: Number(current.school.expense || 0) + maintenance,
-    reputation: { ...current.school.reputation },
-    admissions: { ...current.school.admissions },
+    reputation: { ...clubResult.school.reputation },
+    admissions: { ...clubResult.school.admissions },
     riskLevel: clamp(Number(current.school.riskLevel || 0) + (average(students.map((student) => student.stress)) > 70 ? 3 : -1) + (facilityAvg < 50 ? 2 : 0), 0, 100),
   };
   if (exams.length) school.reputation.academic = clamp(school.reputation.academic + (examAvg - 60) / 9, 0, 100);
@@ -301,6 +752,10 @@ export function endWeekAction(state) {
   school.admissions.brandAwareness = clamp(school.admissions.brandAwareness + Number(school.reputation.academic || 0) / 90 + Number(school.reputation.community || 0) / 140, 0, 100);
   school.admissions.inboundInterest = clamp(school.admissions.inboundInterest + Number(school.reputation.wellbeing || 0) / 120, 0, 100);
   school.admissions.competitionRate = Math.max(0.8, Math.round((1.2 + school.admissions.brandAwareness / 24 + school.admissions.inboundInterest / 42) * 10) / 10);
+
+  const festivalResult = processFestivalWeekly(current, students, school);
+  students = festivalResult.students;
+  school = festivalResult.school;
 
   const nextWeek = Number(school.week || 1) + 1;
   const semesterEnded = nextWeek > 12;
@@ -324,6 +779,7 @@ export function endWeekAction(state) {
     students,
     teachers,
     facilities,
+    clubs: clubResult.clubs,
     recentExamResults: exams,
     semesterHistory,
     player: {
@@ -337,7 +793,8 @@ export function endWeekAction(state) {
   };
 
   const examText = exams.length ? ` 시험 평균 ${examAvg}점.` : '';
-  return addLog(current, `${weekInfo.label} 주간 정산 완료. 수입 +${income} / 유지비 -${maintenance}.${examText}${semesterEnded ? ' 학기가 종료되어 보고서가 생성됐습니다.' : ''}`);
+  const eventText = [...clubResult.logs, ...festivalResult.logs].length ? ` ${[...clubResult.logs, ...festivalResult.logs].join(' ')}` : '';
+  return addLog(current, `${weekInfo.label} 주간 정산 완료. 수입 +${income} / 유지비 -${maintenance}.${examText}${eventText}${semesterEnded ? ' 학기가 종료되어 보고서가 생성됐습니다.' : ''}`);
 }
 
 function graduateAndRecruit(students, school) {
@@ -401,14 +858,53 @@ export function getAtRiskStudents(state) {
     .slice(0, 6);
 }
 
+export function subjectPolicyRows(state) {
+  const current = normalizeState(state);
+  return SUBJECTS.map((subject) => {
+    const policy = current.school.subjectPolicies?.[subject.id] || { mode: 'balanced' };
+    const mode = SUBJECT_POLICY_MODES.find((item) => item.id === policy.mode) || SUBJECT_POLICY_MODES[0];
+    const teacher = teacherForSubject(current, subject);
+    const averageScore = Math.round(average(current.students.map((student) => student.subjectScores?.[subject.id] || student.understanding || 50)));
+    return { ...subject, mode: mode.id, modeLabel: mode.label, teacherName: teacher?.name || '미지정', averageScore };
+  });
+}
+
+export function clubRows(state) {
+  const current = normalizeState(state);
+  return normalizeClubs(current.clubs, current.students);
+}
+
+export function careerTrackRows(state) {
+  const current = normalizeState(state);
+  return CAREER_TRACKS.map((track) => ({
+    ...track,
+    count: current.students.filter((student) => student.careerTrack === track.id).length,
+    averageReadiness: Math.round(average(current.students.filter((student) => student.careerTrack === track.id).map((student) => student.careerReadiness))),
+  }));
+}
+
+export function festivalStatus(state) {
+  const current = normalizeState(state);
+  return {
+    active: current.school.festival?.active || null,
+    history: current.school.festival?.history || [],
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const avg = getAverages(current);
+  const subjectAverage = Math.round(average(subjectPolicyRows(current).map((row) => row.averageScore)));
+  const careerAverage = Math.round(average(current.students.map((student) => student.careerReadiness)));
+  const clubInfluence = Math.round(average(clubRows(current).map((club) => club.influence)));
   return Math.max(0, Math.round(
     Number(current.school.budget || 0) / 24
-    + avg.understanding * 12
+    + avg.understanding * 10
+    + subjectAverage * 4
     + avg.satisfaction * 10
     + avg.autonomy * 7
+    + careerAverage * 4
+    + clubInfluence * 3
     + avg.teacherMorale * 6
     + avg.facilityCondition * 5
     - avg.stress * 6
@@ -435,6 +931,10 @@ export function summaryForState(state) {
     academic: avg.understanding,
     stress: avg.stress,
     satisfaction: avg.satisfaction,
+    subjectAverage: Math.round(average(subjectPolicyRows(current).map((row) => row.averageScore))),
+    careerReadiness: Math.round(average(current.students.map((student) => student.careerReadiness))),
+    clubInfluence: Math.round(average(clubRows(current).map((club) => club.influence))),
+    festivalHistory: current.school.festival?.history?.length || 0,
     score: scoreState(current),
   };
 }
