@@ -31,6 +31,7 @@ import {
   getSeasonShopRows,
   getPlayedCount,
   getPlayTimeSec,
+  getSeasonReportRows,
   getSourceSummary,
   getTopPlayers,
   getTeam,
@@ -95,6 +96,7 @@ export default function MyAnimeCraftPlayPage() {
   const personalRows = useMemo(() => getPersonalLeagueRows(state, 12), [state]);
   const winnersSummary = useMemo(() => getWinnersLeagueSummary(state), [state]);
   const winnersRows = useMemo(() => getWinnersLeagueRows(state, 10), [state]);
+  const seasonReports = useMemo(() => getSeasonReportRows(state, 8), [state]);
   const lastMatch = useMemo(() => state.fixtures
     .map((fixture) => fixture.result)
     .filter(Boolean)
@@ -235,6 +237,7 @@ export default function MyAnimeCraftPlayPage() {
     { label: '선두', value: leader?.teamName || '-' },
     { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : `${personalSummary.played}/${personalSummary.total || '-'}` },
     { label: '위너스', value: winnersSummary.stage === 'DONE' ? winnersSummary.championTeamName || '완료' : `${winnersSummary.scoreHome}:${winnersSummary.scoreAway}` },
+    { label: '리포트', value: seasonReports.length },
     { label: '팀', value: state.teams.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -594,6 +597,39 @@ export default function MyAnimeCraftPlayPage() {
                 <strong>{row.wins}승 {row.losses}패 · {row.diff >= 0 ? '+' : ''}{row.diff}</strong>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시즌 리포트</h2>
+            <span>{seasonReports.length}개</span>
+          </div>
+          <div className="game-save-list">
+            {seasonReports.length ? seasonReports.map((report) => (
+              <article className="game-save-row" key={`season-report-${report.seasonNo}`}>
+                <div>
+                  <span>
+                    시즌 {report.seasonNo} · 경기 {report.played}/{report.total} · 수지 {report.net >= 0 ? '+' : ''}{report.net.toLocaleString('ko-KR')} Cr
+                  </span>
+                  <strong>{report.championTeamName || '우승팀 없음'}</strong>
+                  <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
+                    개인리그 {report.personalChampionPlayerName || '-'}{report.personalChampionTeamName ? ` · ${report.personalChampionTeamName}` : ''}
+                    {' · '}
+                    위너스 {report.winnersChampionTeamName || '-'}
+                  </small>
+                </div>
+                <strong>{report.score.toLocaleString('ko-KR')}</strong>
+              </article>
+            )) : (
+              <article className="game-save-row">
+                <div>
+                  <span>시즌 종료 후 자동 생성</span>
+                  <strong>아직 시즌 리포트가 없습니다.</strong>
+                </div>
+                <strong>대기</strong>
+              </article>
+            )}
           </div>
         </section>
 

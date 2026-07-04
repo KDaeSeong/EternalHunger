@@ -1448,6 +1448,30 @@ function appendSeasonReport(state) {
   };
 }
 
+export function getSeasonReportRows(state, limit = 8) {
+  const current = normalizeState(state);
+  return (Array.isArray(current.seasonReports) ? current.seasonReports : [])
+    .map((report) => ({
+      seasonNo: Number(report.seasonNo || 0),
+      championTeamId: String(report.championTeamId || ''),
+      championTeamName: String(report.championTeamName || ''),
+      personalChampionPlayerId: String(report.personalChampionPlayerId || ''),
+      personalChampionPlayerName: String(report.personalChampionPlayerName || ''),
+      personalChampionTeamName: String(report.personalChampionTeamName || ''),
+      winnersChampionTeamId: String(report.winnersChampionTeamId || ''),
+      winnersChampionTeamName: String(report.winnersChampionTeamName || ''),
+      played: Math.max(0, Math.floor(Number(report.played || 0))),
+      total: Math.max(0, Math.floor(Number(report.total || 0))),
+      income: Math.round(Number(report.income || 0)),
+      expense: Math.round(Number(report.expense || 0)),
+      net: Math.round(Number(report.net || 0)),
+      score: Math.round(Number(report.score || 0)),
+      createdAt: Number(report.createdAt || 0),
+    }))
+    .sort((a, b) => b.seasonNo - a.seasonNo || b.createdAt - a.createdAt)
+    .slice(0, limit);
+}
+
 function rankedIndex(state, teamId) {
   return getTopTeams(state, state.teams.length).findIndex((row) => row.teamId === teamId);
 }
