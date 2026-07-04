@@ -57,6 +57,9 @@ export const LEDGER_RESTORE_TABLES = [
   { tableName: 'inventory_balance', label: '재고 장부', key: 'inventory', kind: 'objectMap' },
   { tableName: 'sales_order', label: '주문', key: 'orders', kind: 'array' },
   { tableName: 'account_receivable', label: '매출채권', key: 'receivables', kind: 'array' },
+  { tableName: 'vat_payment', label: '부가세 납부', key: 'vatPayments', kind: 'array' },
+  { tableName: 'inventory_valuation', label: '재고평가', key: 'inventoryValuations', kind: 'array' },
+  { tableName: 'inventory_write_down', label: '재고 손상/환입', key: 'inventoryWriteDowns', kind: 'array' },
   { tableName: 'monthly_settlement', label: '월말 결산', key: 'settlements', kind: 'array' },
   { tableName: 'global_export_plan', label: '수출 계획', key: 'global.exportPlans', kind: 'array' },
   { tableName: 'global_import_plan', label: '수입 계획', key: 'global.importPlans', kind: 'array' },
@@ -75,6 +78,9 @@ const LEDGER_TABLE_PARENT_DEPENDENCIES = {
   inventory_balance: ['company_info'],
   sales_order: ['company_info'],
   account_receivable: ['company_info', 'sales_order'],
+  vat_payment: ['company_info'],
+  inventory_valuation: ['company_info', 'inventory_balance'],
+  inventory_write_down: ['company_info', 'inventory_balance'],
   monthly_settlement: ['company_info'],
   global_export_plan: ['company_info'],
   global_import_plan: ['company_info'],
@@ -125,6 +131,9 @@ export function createNewState(options = {}) {
       createReceivableSeed(2, 'blue-collect', 9680000, 3000000, 'PARTIAL'),
       createReceivableSeed(3, 'globe-media', 5016000, 0, 'OVERDUE'),
     ],
+    vatPayments: [],
+    inventoryValuations: [],
+    inventoryWriteDowns: [],
     settlements: [
       {
         year: 2026,
@@ -195,6 +204,9 @@ export function normalizeState(value) {
     inventory: value.inventory && typeof value.inventory === 'object' ? { ...base.inventory, ...value.inventory } : base.inventory,
     orders: Array.isArray(value.orders) ? value.orders : base.orders,
     receivables: Array.isArray(value.receivables) ? value.receivables : base.receivables,
+    vatPayments: Array.isArray(value.vatPayments) ? value.vatPayments.slice(0, 36) : base.vatPayments,
+    inventoryValuations: Array.isArray(value.inventoryValuations) ? value.inventoryValuations.slice(0, 72) : base.inventoryValuations,
+    inventoryWriteDowns: Array.isArray(value.inventoryWriteDowns) ? value.inventoryWriteDowns.slice(0, 36) : base.inventoryWriteDowns,
     settlements: Array.isArray(value.settlements) ? value.settlements : base.settlements,
     ledgerSnapshots: Array.isArray(value.ledgerSnapshots) ? value.ledgerSnapshots : [],
     restoreHistory: Array.isArray(value.restoreHistory) ? value.restoreHistory.slice(0, 12) : [],
@@ -297,6 +309,124 @@ export function inboundInventoryAction(state, productId, quantity) {
       [product.id]: { ...stock, onHand: nextQty, avgCost: Math.round(totalCost / Math.max(1, nextQty)) },
     },
   }, `${product.name} ${qty}개를 생산 입고했습니다. ${formatMoney(cost)} 지출.`);
+}
+
+export function closeInventoryValuationAction(state) {
+  const current = normalizeState(state);
+  const year = Number(current.company.year || 2026);
+  const month = Number(current.company.month || 1);
+  const existingRows = current.inventoryValuations.filter((row) => !(row.year === year && row.month === month));
+  const existingWriteDowns = current.inventoryWriteDowns.filter((row) => !(row.year === year && row.month === month));
+  let inventory = JSON.parse(JSON.stringify(current.inventory));
+  let totalWriteDown = 0;
+  let totalReversal = 0;
+  const valuationRows = inventoryRows(current).map((row) => {
+    const onHand = Number(row.onHand || 0);
+    const avgCost = Number(row.avgCost || row.unitCost || 0);
+    const bookAmount = Number(row.amount || 0);
+    const nrvRate = estimateInventoryNrvRate(row, current);
+    const nrvUnitAmount = Math.round(avgCost * nrvRate);
+    const nrvTotalAmount = Math.round(nrvUnitAmount * onHand);
+    const priorBalance = priorInventoryWriteDownBalance(current, row.id, year, month);
+    let writeDownAmount = 0;
+    let reversalAmount = 0;
+    let closingAmount = bookAmount;
+    let valuationStatus = 'BOOKED';
+    if (onHand > 0 && nrvTotalAmount < bookAmount) {
+      writeDownAmount = bookAmount - nrvTotalAmount;
+      totalWriteDown += writeDownAmount;
+      closingAmount = bookAmount - writeDownAmount;
+      valuationStatus = 'WRITE_DOWN';
+    } else if (onHand > 0 && nrvTotalAmount > bookAmount && priorBalance > 0) {
+      reversalAmount = Math.min(priorBalance, nrvTotalAmount - bookAmount);
+      totalReversal += reversalAmount;
+      closingAmount = bookAmount + reversalAmount;
+      valuationStatus = 'REVERSAL';
+    }
+    const closingAvgCost = onHand > 0 ? Math.round(closingAmount / Math.max(1, onHand)) : avgCost;
+    inventory = {
+      ...inventory,
+      [row.id]: {
+        ...(inventory[row.id] || {}),
+        onHand,
+        reserved: Number(row.reserved || 0),
+        avgCost: closingAvgCost,
+      },
+    };
+    return {
+      id: `VAL-${year}-${String(month).padStart(2, '0')}-${row.id}`,
+      year,
+      month,
+      productId: row.id,
+      productName: row.name,
+      onHand,
+      avgUnitCostBefore: avgCost,
+      bookAmountBefore: bookAmount,
+      nrvUnitAmount,
+      nrvTotalAmount,
+      writeDownAmount,
+      reversalAmount,
+      closingAvgUnitCost: closingAvgCost,
+      closingInventoryAmount: closingAmount,
+      valuationStatus,
+    };
+  });
+  const writeDownRows = valuationRows
+    .filter((row) => row.writeDownAmount > 0 || row.reversalAmount > 0)
+    .map((row) => ({
+      id: `WD-${row.year}-${String(row.month).padStart(2, '0')}-${row.productId}`,
+      year: row.year,
+      month: row.month,
+      productId: row.productId,
+      productName: row.productName,
+      eventType: row.writeDownAmount > 0 ? 'WRITE_DOWN' : 'REVERSAL',
+      writeDownAmount: row.writeDownAmount,
+      reversalAmount: row.reversalAmount,
+      netEffectAmount: row.writeDownAmount - row.reversalAmount,
+      note: row.writeDownAmount > 0 ? `${row.productName} NRV 손상 반영` : `${row.productName} NRV 회복에 따른 손상 환입`,
+    }));
+  return addLog({
+    ...current,
+    inventory,
+    inventoryValuations: [...valuationRows, ...existingRows].slice(0, 72),
+    inventoryWriteDowns: [...writeDownRows, ...existingWriteDowns].slice(0, 36),
+    company: {
+      ...current.company,
+      reputation: clamp(Number(current.company.reputation || 0) + (totalWriteDown > 0 ? -1 : totalReversal > 0 ? 1 : 0), 0, 100),
+    },
+  }, `${year}-${String(month).padStart(2, '0')} 재고평가 완료. 손상 ${formatMoney(totalWriteDown)} / 환입 ${formatMoney(totalReversal)}.`);
+}
+
+export function payVatAction(state, targetYear, targetMonth, paymentAmount = null) {
+  const current = normalizeState(state);
+  const year = Number(targetYear || current.company.year || 2026);
+  const month = Math.max(1, Math.min(12, Number(targetMonth || current.company.month || 1)));
+  const schedule = vatScheduleRows(current, year).find((row) => row.targetMonth === month);
+  if (!schedule || schedule.invoiceVatAmount <= 0) return addLog(current, '납부할 부가세가 없습니다.');
+  const amount = Math.max(0, Math.round(Number(paymentAmount == null ? schedule.remainingAmount : paymentAmount)));
+  if (!amount) return addLog(current, '부가세 납부액을 입력하세요.');
+  if (amount > schedule.remainingAmount) return addLog(current, `부가세 납부액이 잔액을 초과했습니다. 잔액 ${formatMoney(schedule.remainingAmount)}.`);
+  if (Number(current.company.cashKrw || 0) < amount) return addLog(current, '현금이 부족해 부가세를 납부할 수 없습니다.');
+  const payment = {
+    id: `VAT-${year}-${String(month).padStart(2, '0')}-${Date.now().toString(36)}`,
+    targetYear: year,
+    targetMonth: month,
+    paymentDate: `${current.company.year}-${String(current.company.month).padStart(2, '0')}-25`,
+    payableBefore: schedule.remainingAmount,
+    paymentAmount: amount,
+    remainingAfter: Math.max(0, schedule.remainingAmount - amount),
+    paymentMethod: 'BANK',
+    referenceNo: `AUTO-${current.company.year}${String(current.company.month).padStart(2, '0')}`,
+    note: `${year}-${String(month).padStart(2, '0')} 부가세 납부`,
+  };
+  return addLog({
+    ...current,
+    company: {
+      ...current.company,
+      cashKrw: Number(current.company.cashKrw || 0) - amount,
+    },
+    vatPayments: [payment, ...current.vatPayments].slice(0, 36),
+  }, `${year}-${String(month).padStart(2, '0')} 부가세 ${formatMoney(amount)} 납부 완료.`);
 }
 
 export function marketingCampaignAction(state, productId) {
@@ -630,7 +760,10 @@ export function monthEndCloseAction(state) {
   const sales = monthOrders.reduce((sum, order) => sum + order.unitPrice * Number(order.shippedQty || order.quantity || 0), 0);
   const cogs = monthOrders.reduce((sum, order) => sum + order.unitCost * Number(order.shippedQty || order.quantity || 0), 0);
   const expense = FIXED_EXPENSES.reduce((sum, item) => sum + item.amount, 0);
-  const operatingProfit = sales - cogs - expense;
+  const inventoryWriteDownNet = current.inventoryWriteDowns
+    .filter((row) => Number(row.year || 0) === year && Number(row.month || 0) === month)
+    .reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0);
+  const operatingProfit = sales - cogs - expense - inventoryWriteDownNet;
   const tax = operatingProfit > 0 ? Math.round(operatingProfit * 0.22) : 0;
   const netProfit = operatingProfit - tax;
   const cashOutflow = cogs + expense + tax;
@@ -642,6 +775,7 @@ export function monthEndCloseAction(state) {
     month,
     totalSales: sales,
     totalCost: cogs + expense,
+    inventoryWriteDownNet,
     operatingProfit,
     tax,
     netProfit,
@@ -818,6 +952,8 @@ export function ledgerDiffRows(state) {
     numberDiffRow('주문', before.orderCount, after.orderCount, '건'),
     numberDiffRow('출고 주문', before.shippedOrders, after.shippedOrders, '건'),
     numberDiffRow('미수 채권', before.openReceivables, after.openReceivables, '건'),
+    numberDiffRow('VAT 납부', before.vatPaymentCount, after.vatPaymentCount, '건'),
+    moneyDiffRow('재고 손상 순액', before.inventoryWriteDownAmount, after.inventoryWriteDownAmount),
     numberDiffRow('수출 결과', before.exportResultCount, after.exportResultCount, '건'),
     numberDiffRow('수입 결과', before.importResultCount, after.importResultCount, '건'),
     numberDiffRow('결산', before.settlementCount, after.settlementCount, '건'),
@@ -957,6 +1093,67 @@ export function inventoryRows(state) {
   });
 }
 
+export function inventoryValuationRows(state) {
+  return normalizeState(state).inventoryValuations
+    .map((row) => ({
+      ...row,
+      productName: row.productName || getProduct(row.productId)?.name || row.productId,
+    }))
+    .sort((a, b) => b.year - a.year || b.month - a.month || String(a.productName).localeCompare(String(b.productName)));
+}
+
+export function inventoryWriteDownRows(state) {
+  return normalizeState(state).inventoryWriteDowns
+    .map((row) => ({
+      ...row,
+      productName: row.productName || getProduct(row.productId)?.name || row.productId,
+    }))
+    .sort((a, b) => b.year - a.year || b.month - a.month || String(a.productName).localeCompare(String(b.productName)));
+}
+
+export function vatPaymentRows(state) {
+  return normalizeState(state).vatPayments
+    .slice()
+    .sort((a, b) => b.targetYear - a.targetYear || b.targetMonth - a.targetMonth || String(b.id).localeCompare(String(a.id)));
+}
+
+export function vatScheduleRows(state, year = null) {
+  const current = normalizeState(state);
+  const targetYear = Number(year || current.company.year || 2026);
+  const orders = orderRows(current).filter((order) => order.year === targetYear && (order.status === 'SHIPPED' || order.status === 'COMPLETED'));
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const invoiceVatAmount = orders
+      .filter((order) => Number(order.month || 0) === month)
+      .reduce((sum, order) => sum + Number(order.vatAmount || 0), 0);
+    const paidAmount = current.vatPayments
+      .filter((payment) => Number(payment.targetYear || 0) === targetYear && Number(payment.targetMonth || 0) === month)
+      .reduce((sum, payment) => sum + Number(payment.paymentAmount || 0), 0);
+    const remainingAmount = Math.max(0, invoiceVatAmount - paidAmount);
+    const due = advanceMonth(targetYear, month);
+    const overdue = Number(current.company.year || 0) > due.year
+      || (Number(current.company.year || 0) === due.year && Number(current.company.month || 0) > due.month);
+    const status = invoiceVatAmount <= 0
+      ? 'NO_TAX'
+      : remainingAmount <= 0
+        ? 'PAID'
+        : overdue
+          ? 'OVERDUE'
+          : 'DUE';
+    return {
+      id: `${targetYear}-${String(month).padStart(2, '0')}`,
+      targetYear,
+      targetMonth: month,
+      dueDate: `${due.year}-${String(due.month).padStart(2, '0')}-25`,
+      invoiceVatAmount,
+      paidAmount,
+      remainingAmount,
+      status,
+      note: status === 'NO_TAX' ? '발급된 세금계산서 부가세가 없습니다.' : status === 'PAID' ? '납부 완료' : status === 'OVERDUE' ? '납부 예정일 경과' : '납부 예정',
+    };
+  });
+}
+
 export function orderRows(state) {
   const current = normalizeState(state);
   return current.orders.map((order) => {
@@ -1061,8 +1258,10 @@ export function reportSummary(state) {
   const global = globalTradeSummary(current);
   const capital = capitalMarketSummary(current);
   const latestSettlement = current.settlements[0] || null;
+  const vatPayableAmount = vatScheduleRows(current, current.company.year).reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
+  const inventoryWriteDownBalance = current.inventoryWriteDowns.reduce((sum, row) => sum + Number(row.writeDownAmount || 0) - Number(row.reversalAmount || 0), 0);
   const assets = Number(current.company.cashKrw || 0) + inventoryAmount + receivableAmount + global.openForeignReceivableKrw;
-  const liabilities = Math.max(0, receivableAmount * 0.08 + (latestSettlement?.tax || 0) + capital.debtKrw);
+  const liabilities = Math.max(0, receivableAmount * 0.08 + vatPayableAmount + (latestSettlement?.tax || 0) + capital.debtKrw);
   const equity = assets - liabilities;
   const sales = (latestSettlement?.totalSales || orderRows(current).filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED').reduce((sum, order) => sum + order.amount, 0)) + global.exportSalesKrw;
   return {
@@ -1070,6 +1269,8 @@ export function reportSummary(state) {
     liabilities,
     equity,
     inventoryAmount,
+    vatPayableAmount,
+    inventoryWriteDownBalance,
     receivableAmount,
     foreignReceivableAmount: global.openForeignReceivableKrw,
     latestSettlement,
@@ -1115,12 +1316,20 @@ export function managementReport(state) {
   const inventoryMonths = Number(((summary.inventoryAmount / inventoryTurnoverBase) || 0).toFixed(2));
   const cashRunwayMonths = Number((Number(current.company.cashKrw || 0) / Math.max(1, fixedExpenses)).toFixed(2));
   const receivableRatio = summary.assets ? Number(((summary.receivableAmount / summary.assets) * 100).toFixed(1)) : 0;
+  const currentVatRows = vatScheduleRows(current, current.company.year);
+  const overdueVatAmount = currentVatRows.filter((row) => row.status === 'OVERDUE').reduce((sum, row) => sum + Number(row.remainingAmount || 0), 0);
+  const currentInventoryWriteDownNet = current.inventoryWriteDowns
+    .filter((row) => Number(row.year || 0) === Number(current.company.year || 0))
+    .reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0);
   const recommendations = [];
 
   if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
   if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 월말 결산 전에 회수 액션을 우선 처리하는 편이 좋습니다.');
   if (overdueAmount > 0) recommendations.push('연체 채권이 있습니다. 신용한도와 신규 주문 승인 기준을 보수적으로 두세요.');
   if (inventoryMonths >= 2) recommendations.push('재고 회전이 느립니다. 캠페인이나 출고 주문으로 재고를 줄일 필요가 있습니다.');
+  if (summary.vatPayableAmount > 0) recommendations.push('부가세 미납 잔액이 있습니다. 결산 전 VAT 예정표를 확인하고 납부를 반영하세요.');
+  if (overdueVatAmount > 0) recommendations.push('기한이 지난 부가세가 있습니다. 현금 유출 계획을 조정하세요.');
+  if (currentInventoryWriteDownNet > 0) recommendations.push('재고 손상 순액이 누적되고 있습니다. 저회전 상품 입고와 캠페인을 재점검하세요.');
   if (cashRunwayMonths < 6) recommendations.push('현금 런웨이가 짧습니다. 생산 입고보다 채권 회수와 흑자 주문을 우선하세요.');
   if (!current.ledgerSnapshots.length) recommendations.push('장부 스냅샷이 없습니다. 주요 액션 전후로 스냅샷을 남기면 복원 실험이 가능합니다.');
   if (global.activeExports || global.activeImports) recommendations.push('활성 수출입 계획이 있습니다. 글로벌 정산으로 해외 매출과 수입 재고를 원장에 반영하세요.');
@@ -1151,6 +1360,9 @@ export function managementReport(state) {
       inventoryAmount: summary.inventoryAmount,
       inventoryMonths,
       receivableRatio,
+      vatPayableAmount: summary.vatPayableAmount,
+      inventoryWriteDownBalance: summary.inventoryWriteDownBalance,
+      currentInventoryWriteDownNet,
     },
     productRows: topRowsFromMap(productSales, formatMoney).slice(0, 5),
     categoryRows: topRowsFromMap(categorySales, formatMoney),
@@ -1160,6 +1372,8 @@ export function managementReport(state) {
       { label: '매출채권 비중', value: `${receivableRatio}%` },
       { label: '연체 채권', value: formatMoney(overdueAmount) },
       { label: '재고 회전 월수', value: `${inventoryMonths}개월` },
+      { label: 'VAT 미납', value: formatMoney(summary.vatPayableAmount) },
+      { label: '재고 손상잔액', value: formatMoney(summary.inventoryWriteDownBalance) },
       { label: '외화채권', value: formatMoney(global.openForeignReceivableKrw) },
       { label: '공시위험', value: `${capital.disclosureRisk}/100` },
       { label: '장부 스냅샷', value: `${current.ledgerSnapshots.length}개` },
@@ -1184,6 +1398,8 @@ export function scoreState(state) {
     + report.shippedOrders * 120
     + (latest ? Number(latest.netProfit || 0) / 250000 : 0)
     - report.openReceivables * 80
+    - Number(report.vatPayableAmount || 0) / 900000
+    - Number(report.inventoryWriteDownBalance || 0) / 500000
     - management.capital.disclosureRisk * 15
   ));
 }
@@ -1205,6 +1421,10 @@ export function summaryForState(state) {
     receivables: report.receivableAmount,
     foreignReceivables: report.foreignReceivableAmount,
     inventory: report.inventoryAmount,
+    vatPayable: report.vatPayableAmount,
+    inventoryWriteDownBalance: report.inventoryWriteDownBalance,
+    vatPayments: current.vatPayments.length,
+    inventoryValuations: current.inventoryValuations.length,
     snapshots: current.ledgerSnapshots.length,
     bookmarks: current.reportBookmarks.length,
     exports: current.exportHistory.length,
@@ -1262,6 +1482,24 @@ function getMarket(id) {
   return GLOBAL_MARKETS.find((market) => market.id === id) || null;
 }
 
+function estimateInventoryNrvRate(row, state) {
+  const product = getProduct(row.id || row.productId);
+  const hype = Number(product?.hype || row.hype || 50);
+  const onHand = Number(row.onHand || 0);
+  const reserved = Number(row.reserved || 0);
+  const turnoverPressure = onHand > Math.max(120, reserved * 4) ? 0.1 : onHand < reserved + 40 ? -0.04 : 0;
+  const hypeDiscount = hype < 35 ? 0.12 : hype < 50 ? 0.06 : hype >= 70 ? -0.05 : 0;
+  const reputationLift = Number(state.company?.reputation || 50) >= 68 ? -0.03 : 0;
+  return Math.max(0.62, Math.min(1.08, 1 - turnoverPressure - hypeDiscount - reputationLift));
+}
+
+function priorInventoryWriteDownBalance(state, productId, year, month) {
+  return normalizeState(state).inventoryWriteDowns
+    .filter((row) => row.productId === productId)
+    .filter((row) => Number(row.year || 0) < year || (Number(row.year || 0) === year && Number(row.month || 0) < month))
+    .reduce((sum, row) => sum + Number(row.writeDownAmount || 0) - Number(row.reversalAmount || 0), 0);
+}
+
 function outstandingByPartner(state, partnerId) {
   return receivableRows(state)
     .filter((row) => row.partnerId === partnerId)
@@ -1279,6 +1517,9 @@ function snapshotPayload(state) {
     inventory: JSON.parse(JSON.stringify(state.inventory)),
     orders: JSON.parse(JSON.stringify(state.orders)),
     receivables: JSON.parse(JSON.stringify(state.receivables)),
+    vatPayments: JSON.parse(JSON.stringify(state.vatPayments || [])),
+    inventoryValuations: JSON.parse(JSON.stringify(state.inventoryValuations || [])),
+    inventoryWriteDowns: JSON.parse(JSON.stringify(state.inventoryWriteDowns || [])),
     settlements: JSON.parse(JSON.stringify(state.settlements)),
     global: JSON.parse(JSON.stringify(state.global)),
     capitalMarket: JSON.parse(JSON.stringify(state.capitalMarket)),
@@ -1291,6 +1532,8 @@ function ledgerComparableSummary(payload) {
   const inventoryEntries = Object.values(payload.inventory || {});
   const receivableEntries = Object.values(payload.receivables || {});
   const orderEntries = Object.values(payload.orders || {});
+  const vatPaymentEntries = Object.values(payload.vatPayments || {});
+  const inventoryWriteDownEntries = Object.values(payload.inventoryWriteDowns || {});
   const company = payload.company || {};
   const global = normalizeGlobalState(payload.global, createNewState().global);
   const capitalMarket = normalizeCapitalMarketState(payload.capitalMarket, createNewState().capitalMarket);
@@ -1309,6 +1552,8 @@ function ledgerComparableSummary(payload) {
     exportResultCount: global.exportResults.length,
     importResultCount: global.importResults.length,
     settlementCount: Array.isArray(payload.settlements) ? payload.settlements.length : 0,
+    vatPaymentCount: vatPaymentEntries.length,
+    inventoryWriteDownAmount: inventoryWriteDownEntries.reduce((sum, row) => sum + Number(row.netEffectAmount || 0), 0),
     reputation: Number(company.reputation || 0),
     fanBase: Number(company.fanBase || 0),
     investorTrust: Number(capitalMarket.investorTrust || 0),
@@ -1474,6 +1719,9 @@ function tableDiffFor(snapshotPayloadValue, currentPayloadValue, table) {
 function ledgerRowCount(state) {
   return currentArrayCount(state.orders)
     + currentArrayCount(state.receivables)
+    + currentArrayCount(state.vatPayments)
+    + currentArrayCount(state.inventoryValuations)
+    + currentArrayCount(state.inventoryWriteDowns)
     + Object.keys(state.inventory || {}).length
     + currentArrayCount(state.settlements)
     + currentArrayCount(state.global?.exportPlans)

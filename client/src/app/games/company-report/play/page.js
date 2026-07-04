@@ -22,6 +22,7 @@ import {
   bookmarkCurrentReportAction,
   capitalMarketSummary,
   closeCapitalMarketAction,
+  closeInventoryValuationAction,
   createLedgerSnapshotAction,
   createDisclosureAction,
   createExportPlanAction,
@@ -39,6 +40,8 @@ import {
   getPlayTimeSec,
   inboundInventoryAction,
   inventoryRows,
+  inventoryValuationRows,
+  inventoryWriteDownRows,
   ledgerDiffRows,
   ledgerRestorePlan,
   marketingCampaignAction,
@@ -46,6 +49,7 @@ import {
   monthEndCloseAction,
   normalizeState,
   orderRows,
+  payVatAction,
   receivableRows,
   reportSummary,
   restoreLedgerSnapshotAction,
@@ -55,6 +59,8 @@ import {
   shipOrderAction,
   settleGlobalTradeAction,
   summaryForState,
+  vatPaymentRows,
+  vatScheduleRows,
 } from '../_lib/companyReportEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -75,7 +81,7 @@ function SmallStat({ label, value }) {
 }
 
 function StatusBadge({ value }) {
-  const tone = value === 'COLLECTED' || value === 'COMPLETED' ? '통과' : value === 'OVERDUE' ? '위험' : '진행';
+  const tone = value === 'COLLECTED' || value === 'COMPLETED' || value === 'PAID' || value === 'NO_TAX' ? '통과' : value === 'OVERDUE' ? '위험' : '진행';
   return <span className="game-save-chip">{tone} {value}</span>;
 }
 
@@ -104,7 +110,9 @@ export default function CompanyReportPlayPage() {
   const [disclosureTypeId, setDisclosureTypeId] = useState(CAPITAL_DISCLOSURE_TYPES[0].id);
   const [financingTypeId, setFinancingTypeId] = useState(CAPITAL_FINANCING_TYPES[0].id);
   const [restoreMode, setRestoreMode] = useState('FULL_LEDGER');
-  const [selectedRestoreTables, setSelectedRestoreTables] = useState('sales_order, account_receivable, inventory_balance');
+  const [selectedRestoreTables, setSelectedRestoreTables] = useState('sales_order, account_receivable, inventory_balance, vat_payment, inventory_valuation, inventory_write_down');
+  const [selectedVatKey, setSelectedVatKey] = useState('');
+  const [vatPaymentAmount, setVatPaymentAmount] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -115,19 +123,37 @@ export default function CompanyReportPlayPage() {
   const capitalSummary = useMemo(() => capitalMarketSummary(state), [state]);
   const markets = useMemo(() => globalMarketRows(), []);
   const stocks = useMemo(() => inventoryRows(state), [state]);
+  const inventoryValuations = useMemo(() => inventoryValuationRows(state), [state]);
+  const inventoryWriteDowns = useMemo(() => inventoryWriteDownRows(state), [state]);
   const orders = useMemo(() => orderRows(state), [state]);
   const receivables = useMemo(() => receivableRows(state), [state]);
+  const vatSchedule = useMemo(() => vatScheduleRows(state), [state]);
+  const vatPayments = useMemo(() => vatPaymentRows(state), [state]);
   const foreignReceivables = useMemo(() => globalReceivableRows(state), [state]);
   const ledgerDiff = useMemo(() => ledgerDiffRows(state), [state]);
   const restorePlan = useMemo(() => ledgerRestorePlan(state, restoreMode, selectedRestoreTables), [state, restoreMode, selectedRestoreTables]);
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders.find((order) => order.status === 'CONFIRMED') || orders[0];
   const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId) || receivables.find((ar) => ar.remaining > 0) || receivables[0];
+  const selectedVatRow = vatSchedule.find((row) => row.id === selectedVatKey) || vatSchedule.find((row) => row.remainingAmount > 0) || vatSchedule[0];
   const selectedForeignAr = foreignReceivables.find((ar) => ar.id === selectedForeignArId) || foreignReceivables.find((ar) => ar.remainingKrw > 0) || foreignReceivables[0];
+  const vatPayAmount = Math.max(0, Math.round(Number(vatPaymentAmount || selectedVatRow?.remainingAmount || 0)));
   const latestSettlement = report.latestSettlement;
   const latestSnapshot = state.ledgerSnapshots[0];
   const latestBookmark = state.reportBookmarks[0];
   const latestExport = state.exportHistory[0];
   const latestRestore = state.restoreHistory[0];
+
+  const handleVatSelect = (key) => {
+    const row = vatSchedule.find((item) => item.id === key);
+    setSelectedVatKey(key);
+    setVatPaymentAmount(row?.remainingAmount ? String(row.remainingAmount) : '');
+  };
+
+  const runVatPayment = () => {
+    if (!selectedVatRow) return;
+    setState((current) => payVatAction(current, selectedVatRow.targetYear, selectedVatRow.targetMonth, vatPayAmount));
+    setVatPaymentAmount('');
+  };
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -144,7 +170,9 @@ export default function CompanyReportPlayPage() {
     setDisclosureTypeId(CAPITAL_DISCLOSURE_TYPES[0].id);
     setFinancingTypeId(CAPITAL_FINANCING_TYPES[0].id);
     setRestoreMode('FULL_LEDGER');
-    setSelectedRestoreTables('sales_order, account_receivable, inventory_balance');
+    setSelectedRestoreTables('sales_order, account_receivable, inventory_balance, vat_payment, inventory_valuation, inventory_write_down');
+    setSelectedVatKey('');
+    setVatPaymentAmount('');
     setMessage('');
   };
 
@@ -191,6 +219,8 @@ export default function CompanyReportPlayPage() {
       setState(normalizeState(detail?.save?.payload?.state));
       setSelectedOrderId('');
       setSelectedReceivableId('');
+      setSelectedVatKey('');
+      setVatPaymentAmount('');
       setMessage('저장된 Company Report 원장 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Company Report 원장 상태를 불러왔습니다.' });
     } catch (err) {
@@ -332,6 +362,8 @@ export default function CompanyReportPlayPage() {
             <SmallStat label="팬덤" value={state.company.fanBase.toLocaleString('ko-KR')} />
             <SmallStat label="자산" value={formatMoney(report.assets)} />
             <SmallStat label="자본" value={formatMoney(report.equity)} />
+            <SmallStat label="VAT 미납" value={formatMoney(report.vatPayableAmount)} />
+            <SmallStat label="재고손상" value={formatMoney(report.inventoryWriteDownBalance)} />
           </div>
           <label className="game-save-json-field">
             <span>복원 모드</span>
@@ -349,6 +381,7 @@ export default function CompanyReportPlayPage() {
             />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
             <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
             <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
             <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
@@ -423,6 +456,111 @@ export default function CompanyReportPlayPage() {
             <ActionButton onClick={() => setState((current) => decideDividendAction(current))}>배당 결정</ActionButton>
             <ActionButton onClick={() => setState((current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
             <ActionButton onClick={() => setState((current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>VAT 예정표</h2>
+            <span>{formatMoney(report.vatPayableAmount)} 미납</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="과세월" value={selectedVatRow ? `${selectedVatRow.targetYear}-${String(selectedVatRow.targetMonth).padStart(2, '0')}` : '-'} />
+            <SmallStat label="세액" value={formatMoney(selectedVatRow?.invoiceVatAmount || 0)} />
+            <SmallStat label="납부" value={formatMoney(selectedVatRow?.paidAmount || 0)} />
+            <SmallStat label="잔액" value={formatMoney(selectedVatRow?.remainingAmount || 0)} />
+          </div>
+          <label className="game-save-json-field">
+            <span>납부 대상</span>
+            <select value={selectedVatRow?.id || ''} onChange={(event) => handleVatSelect(event.target.value)}>
+              {vatSchedule.map((row) => (
+                <option value={row.id} key={row.id}>
+                  {row.targetYear}-{String(row.targetMonth).padStart(2, '0')} / {row.status} / {formatMoney(row.remainingAmount)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>납부액</span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              value={vatPaymentAmount}
+              onChange={(event) => setVatPaymentAmount(event.target.value)}
+              placeholder={selectedVatRow ? String(selectedVatRow.remainingAmount) : '0'}
+            />
+          </label>
+          <div className="game-save-list">
+            <article className="game-save-row">
+              <div>
+                <span>납부기한 {selectedVatRow?.dueDate || '-'}</span>
+                <strong>{selectedVatRow?.note || '납부 대상 없음'}</strong>
+              </div>
+              <StatusBadge value={selectedVatRow?.status || 'NO_TAX'} />
+            </article>
+          </div>
+          <ActionButton
+            disabled={!selectedVatRow || selectedVatRow.remainingAmount <= 0 || vatPayAmount <= 0 || vatPayAmount > selectedVatRow.remainingAmount || Number(state.company.cashKrw || 0) < vatPayAmount}
+            onClick={runVatPayment}
+          >
+            선택 VAT 납부
+          </ActionButton>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>VAT 납부 이력</h2>
+            <span>{vatPayments.length}건</span>
+          </div>
+          <div className="game-save-list">
+            {vatPayments.length ? vatPayments.slice(0, 6).map((payment) => (
+              <article className="game-save-row" key={payment.id}>
+                <div>
+                  <span>{payment.paymentDate} / {payment.referenceNo}</span>
+                  <strong>{payment.targetYear}-{String(payment.targetMonth).padStart(2, '0')} 부가세</strong>
+                  <span>납부 후 잔액 {formatMoney(payment.remainingAfter)}</span>
+                </div>
+                <strong>{formatMoney(payment.paymentAmount)}</strong>
+              </article>
+            )) : <div className="games-empty">VAT를 납부하면 이력이 표시됩니다.</div>}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>재고평가 / 손상</h2>
+            <span>{inventoryValuations.length} rows</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="평가행" value={inventoryValuations.length} />
+            <SmallStat label="손상/환입" value={inventoryWriteDowns.length} />
+            <SmallStat label="손상잔액" value={formatMoney(report.inventoryWriteDownBalance)} />
+            <SmallStat label="재고장부" value={formatMoney(report.inventoryAmount)} />
+          </div>
+          <ActionButton onClick={() => setState((current) => closeInventoryValuationAction(current))}>현재 월 재고평가 실행</ActionButton>
+          <div className="game-save-list">
+            {inventoryWriteDowns.length ? inventoryWriteDowns.slice(0, 6).map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.year}-{String(row.month).padStart(2, '0')} / {row.eventType}</span>
+                  <strong>{row.productName}</strong>
+                  <span>{row.note}</span>
+                </div>
+                <strong>{formatMoney(row.netEffectAmount)}</strong>
+              </article>
+            )) : inventoryValuations.length ? inventoryValuations.slice(0, 6).map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.year}-{String(row.month).padStart(2, '0')} / {row.valuationStatus}</span>
+                  <strong>{row.productName}</strong>
+                  <span>NRV {formatMoney(row.nrvTotalAmount)} / 장부 {formatMoney(row.closingInventoryAmount)}</span>
+                </div>
+                <strong>{row.onHand}개</strong>
+              </article>
+            )) : <div className="games-empty">월말 재고평가를 실행하면 평가와 손상/환입 이력이 표시됩니다.</div>}
           </div>
         </section>
       </section>
@@ -663,6 +801,8 @@ export default function CompanyReportPlayPage() {
             <SmallStat label="부채" value={formatMoney(report.liabilities)} />
             <SmallStat label="재고" value={formatMoney(report.inventoryAmount)} />
             <SmallStat label="매출" value={formatMoney(report.sales)} />
+            <SmallStat label="VAT" value={formatMoney(report.vatPayableAmount)} />
+            <SmallStat label="손상잔액" value={formatMoney(report.inventoryWriteDownBalance)} />
           </div>
           {latestSettlement ? (
             <div className="game-save-list">
