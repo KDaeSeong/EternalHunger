@@ -12,369 +12,60 @@ import {
   FALLBACK_TCG_CARDS,
   TCG_CHARACTERS,
   TCG_GAME_SLUG,
-  buildDeckFromIds,
   hasKeyword,
   keywordLabels,
   normalizeCards,
 } from '../_lib/tcgCatalog';
+import {
+  ENGINE_VERSION,
+  PLAYER_LABELS,
+  QUICK_SAVE_SLOT,
+  activateCounterTrap,
+  activateFromHand,
+  activateFieldIgnition,
+  activateSetCard,
+  advancePhase,
+  autoPlayEnemy,
+  chooseTarget,
+  confirmTrigger,
+  createDuelState,
+  declareAttack,
+  normalizeDuelState,
+  normalSummon,
+  passResponse,
+  resolveChain,
+  serializeDuelState,
+  setSpellTrap,
+  summarizeDuel,
+} from '../_lib/tcgDuelEngine';
 
-const QUICK_SAVE_SLOT = 'quick-match';
-const ENEMY_DECK_CARD_IDS = [
-  'GEH-HINA-01',
-  'GEH-TUNE-01',
-  'GEH-FIELD-01',
-  'TRI-MIKA-01',
-  'TRI-TUNE-01',
-  'TRI-NORMAL-01',
-  'MIL-YUUKA-01',
-  'MIL-TUNE-01',
-  'MIL-NORMAL-01',
-  'MIL-FIELD-01',
-  'GEH-SEINA-01',
-  'TRI-COUNTER-01',
-];
-
-const MAX_DUEL_EVENTS = 120;
-
-function createDuelEvent(type, actor, text, payload = {}, turn = 1) {
-  return {
-    id: `evt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-    at: new Date().toISOString(),
-    turn,
-    type,
-    actor,
-    text,
-    payload,
-  };
+function cardKind(card) {
+  if (!card) return 'Unknown';
+  if (card.role === 'Unit') return 'Monster';
+  if (card.tags?.includes('trap') || card.tags?.includes('counter')) return 'Trap';
+  return 'Spell';
 }
 
-function emitEvent(state, type, actor, text, payload = {}) {
-  const event = createDuelEvent(type, actor, text, payload, state.turn);
-  return {
-    ...state,
-    events: [event, ...(state.events || [])].slice(0, MAX_DUEL_EVENTS),
-    log: [text, ...(state.log || [])].slice(0, 12),
-  };
+function subType(card) {
+  if (!card) return '';
+  if (card.tags?.includes('field')) return 'Field';
+  if (card.tags?.includes('counter')) return 'Counter';
+  if (card.tags?.includes('quick')) return 'Quick';
+  return '';
 }
 
-function characterQuote(actor, type) {
-  return TCG_CHARACTERS[actor]?.quotes?.[type] || TCG_CHARACTERS[actor]?.quotes?.TURN_START || '';
+function cardAtk(card) {
+  return Number(card?.attack || card?.atk || 0);
 }
 
-function eventLine(actor, type, fallback, payload = {}) {
-  const quote = characterQuote(actor, type);
-  const card = payload.cardName ? ` [${payload.cardName}]` : '';
-  return quote ? `${TCG_CHARACTERS[actor]?.name || actor}: ${quote}${card}` : fallback;
-}
-
-function createMatchId() {
-  return `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function buildEnemyDeck(cards) {
-  return buildDeckFromIds(ENEMY_DECK_CARD_IDS, cards)
-    .map((card, index) => ({ ...card, instanceId: `enemy-${card.id}-${index}` }));
-}
-
-function drawCards(state, count) {
-  const deck = [...state.deck];
-  const hand = [...state.hand];
-  let nextState = { ...state };
-  for (let i = 0; i < count; i += 1) {
-    const next = deck.shift();
-    if (!next) {
-      nextState = emitEvent(nextState, 'DRAW', 'player', '덱이 비었습니다.');
-      break;
-    }
-    hand.push(next);
-    nextState = emitEvent(
-      nextState,
-      'DRAW',
-      'player',
-      eventLine('player', 'DRAW', `${next.name} 카드를 뽑았습니다.`, { cardName: next.name }),
-      { cardId: next.id, cardName: next.name },
-    );
-  }
-  return { ...nextState, deck, hand };
-}
-
-function drawEnemyCards(state, count) {
-  const enemyDeck = [...(state.enemyDeck || [])];
-  const enemyHand = [...(state.enemyHand || [])];
-  let nextState = { ...state };
-  for (let i = 0; i < count; i += 1) {
-    const next = enemyDeck.shift();
-    if (!next) {
-      nextState = emitEvent(nextState, 'DRAW', 'enemy', '상대 덱이 비었습니다.');
-      break;
-    }
-    enemyHand.push(next);
-    nextState = emitEvent(
-      nextState,
-      'DRAW',
-      'enemy',
-      eventLine('enemy', 'DRAW', '상대가 카드 1장을 뽑았습니다.', { cardName: next.name }),
-      { cardId: next.id, cardName: next.name },
-    );
-  }
-  return { ...nextState, enemyDeck, enemyHand };
-}
-
-function createInitialState(
-  deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS),
-  enemyDeckCards = buildEnemyDeck(FALLBACK_TCG_CARDS),
-) {
-  const base = {
-    matchId: createMatchId(),
-    startedAt: new Date().toISOString(),
-    turn: 1,
-    playerHealth: 20,
-    enemyHealth: 20,
-    maxEnergy: 1,
-    energy: 1,
-    enemyMaxEnergy: 1,
-    enemyEnergy: 1,
-    deck: deckCards,
-    hand: [],
-    board: [],
-    enemyDeck: enemyDeckCards,
-    enemyHand: [],
-    enemyBoard: [],
-    discard: [],
-    log: ['훈련 매치가 시작되었습니다.'],
-    events: [],
-    playerCharacterId: TCG_CHARACTERS.player.id,
-    enemyCharacterId: TCG_CHARACTERS.enemy.id,
-    winner: '',
-  };
-  const greeted = emitEvent(
-    emitEvent(base, 'GREET', 'player', eventLine('player', 'GREET', '훈련 매치가 시작되었습니다.')),
-    'GREET',
-    'enemy',
-    eventLine('enemy', 'GREET', '상대가 응답했습니다.'),
-  );
-  return drawEnemyCards(drawCards(greeted, 4), 3);
-}
-
-function normalizeSavedState(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return {
-    matchId: value.matchId || createMatchId(),
-    startedAt: value.startedAt || new Date().toISOString(),
-    turn: Math.max(1, Number(value.turn || 1)),
-    playerHealth: clampHealth(value.playerHealth ?? 20),
-    enemyHealth: clampHealth(value.enemyHealth ?? 20),
-    maxEnergy: Math.max(1, Math.min(10, Number(value.maxEnergy || 1))),
-    energy: Math.max(0, Math.min(10, Number(value.energy || 0))),
-    enemyMaxEnergy: Math.max(1, Math.min(10, Number(value.enemyMaxEnergy || 1))),
-    enemyEnergy: Math.max(0, Math.min(10, Number(value.enemyEnergy || 0))),
-    deck: Array.isArray(value.deck) ? value.deck : [],
-    hand: Array.isArray(value.hand) ? value.hand : [],
-    board: Array.isArray(value.board) ? value.board : [],
-    enemyDeck: Array.isArray(value.enemyDeck) ? value.enemyDeck : [],
-    enemyHand: Array.isArray(value.enemyHand) ? value.enemyHand : [],
-    enemyBoard: Array.isArray(value.enemyBoard) ? value.enemyBoard : [],
-    discard: Array.isArray(value.discard) ? value.discard : [],
-    log: Array.isArray(value.log) ? value.log.slice(0, 12) : [],
-    events: Array.isArray(value.events) ? value.events.slice(0, MAX_DUEL_EVENTS) : [],
-    playerCharacterId: value.playerCharacterId || TCG_CHARACTERS.player.id,
-    enemyCharacterId: value.enemyCharacterId || TCG_CHARACTERS.enemy.id,
-    winner: ['player', 'enemy'].includes(value.winner) ? value.winner : '',
-  };
-}
-
-function matchPayload(state) {
-  return {
-    matchId: state.matchId,
-    startedAt: state.startedAt,
-    turn: state.turn,
-    playerHealth: state.playerHealth,
-    enemyHealth: state.enemyHealth,
-    maxEnergy: state.maxEnergy,
-    energy: state.energy,
-    enemyMaxEnergy: state.enemyMaxEnergy,
-    enemyEnergy: state.enemyEnergy,
-    deck: state.deck,
-    hand: state.hand,
-    board: state.board,
-    enemyDeck: state.enemyDeck,
-    enemyHand: state.enemyHand,
-    enemyBoard: state.enemyBoard,
-    discard: state.discard,
-    log: state.log,
-    events: state.events,
-    playerCharacterId: state.playerCharacterId,
-    enemyCharacterId: state.enemyCharacterId,
-    winner: state.winner,
-  };
+function cardHealth(card) {
+  return Number(card?.currentHealth ?? card?.health ?? 0);
 }
 
 function getPlayTimeSec(startedAt) {
   const start = new Date(startedAt || '').getTime();
   if (!Number.isFinite(start)) return 0;
   return Math.max(0, Math.floor((Date.now() - start) / 1000));
-}
-
-function clampHealth(value) {
-  return Math.max(0, Math.min(30, Number(value || 0)));
-}
-
-function resolveTactic(card, state) {
-  const effect = effectKey(card);
-  if (effect === 'heal') {
-    return emitEvent({
-      ...state,
-      playerHealth: clampHealth(state.playerHealth + effectAmount(card, 3)),
-      discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 본부 체력 회복`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-  }
-  if (effect === 'damage') {
-    const amount = effectAmount(card, 3);
-    const enemyHealth = Math.max(0, state.enemyHealth - amount);
-    const next = emitEvent({
-      ...state,
-      enemyHealth,
-      discard: [...state.discard, card],
-      winner: enemyHealth <= 0 ? 'player' : state.winner,
-    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 상대 본부에 ${amount} 피해`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount });
-    return enemyHealth <= 0
-      ? emitEvent(next, 'WIN', 'player', eventLine('player', 'WIN', '승리했습니다.'))
-      : next;
-  }
-  if (effect === 'shield') {
-    const targetIndex = shieldTargetIndex(state.board);
-    if (targetIndex >= 0) {
-      const board = state.board.slice();
-      const target = board[targetIndex];
-      board[targetIndex] = { ...target, shield: true };
-      return emitEvent({
-        ...state,
-        board,
-        discard: [...state.discard, card],
-      }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: ${target.name} 보호막`, { cardName: card.name }), { cardId: card.id, cardName: card.name, target: target.name });
-    }
-    return emitEvent({
-      ...state,
-      playerHealth: clampHealth(state.playerHealth + 2),
-      discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: 본부 체력 +2`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-  }
-  if (effect === 'draw' || effect === 'draw-heal') {
-    const drawCount = effectAmount(card, 1);
-    let next = {
-      ...state,
-      discard: [...state.discard, card],
-      playerHealth: effect === 'draw-heal' ? clampHealth(state.playerHealth + 1) : state.playerHealth,
-    };
-    next = drawCards(next, drawCount);
-    return emitEvent(next, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: ${drawCount}장 드로우`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount: drawCount });
-  }
-  if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-unit') {
-    const targetIndex = effect === 'banish-enemy-unit'
-      ? strongestUnitIndex(state.enemyBoard)
-      : weakestUnitIndex(state.enemyBoard);
-    if (targetIndex < 0) {
-      return emitEvent({
-        ...state,
-        discard: [...state.discard, card],
-      }, 'EFFECT_ACTIVATE', 'player', `${card.name}: 제거할 상대 유닛이 없습니다.`, { cardId: card.id, cardName: card.name });
-    }
-    const target = state.enemyBoard[targetIndex];
-    const enemyBoard = state.enemyBoard.slice();
-    enemyBoard.splice(targetIndex, 1);
-    return emitEvent({
-      ...state,
-      enemyBoard,
-      discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name}: ${target.name} 제거`, { cardName: card.name }), { cardId: card.id, cardName: card.name, target: target.name });
-  }
-  return emitEvent({
-    ...state,
-    discard: [...state.discard, card],
-  }, 'EFFECT_ACTIVATE', 'player', eventLine('player', 'EFFECT_ACTIVATE', `${card.name} 효과 처리`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-}
-
-function cardPower(card) {
-  return Number(card.attack || 0) + Number(card.health || 0);
-}
-
-function unitHealth(unit) {
-  return Number(unit?.currentHealth ?? unit?.health ?? 0);
-}
-
-function withUnitState(card, ready = false) {
-  return {
-    ...card,
-    ready: Boolean(ready),
-    currentHealth: unitHealth(card) || Number(card.health || 0),
-    shield: Boolean(card.shield),
-  };
-}
-
-function applyDamage(unit, damage) {
-  const amount = Math.max(0, Number(damage || 0));
-  if (amount > 0 && unit?.shield) {
-    return {
-      ...unit,
-      shield: false,
-    };
-  }
-  return {
-    ...unit,
-    currentHealth: unitHealth(unit) - amount,
-  };
-}
-
-function weakestUnitIndex(units) {
-  if (!Array.isArray(units) || !units.length) return -1;
-  return units.reduce((bestIndex, unit, index) => (
-    unitHealth(unit) < unitHealth(units[bestIndex]) ? index : bestIndex
-  ), 0);
-}
-
-function preferredTargetIndex(units) {
-  if (!Array.isArray(units) || !units.length) return -1;
-  const guarded = units
-    .map((unit, index) => ({ unit, index }))
-    .filter(({ unit }) => hasKeyword(unit, 'guard') && unitHealth(unit) > 0);
-  if (guarded.length) {
-    return guarded.reduce((best, current) => (
-      unitHealth(current.unit) < unitHealth(best.unit) ? current : best
-    ), guarded[0]).index;
-  }
-  return weakestUnitIndex(units);
-}
-
-function hasGuardUnit(units) {
-  return Array.isArray(units) && units.some((unit) => hasKeyword(unit, 'guard') && unitHealth(unit) > 0);
-}
-
-function shieldTargetIndex(units) {
-  if (!Array.isArray(units) || !units.length) return -1;
-  const openTarget = units.findIndex((unit) => !unit.shield);
-  return openTarget >= 0 ? openTarget : weakestUnitIndex(units);
-}
-
-function strongestUnitIndex(units) {
-  if (!Array.isArray(units) || !units.length) return -1;
-  return units.reduce((bestIndex, unit, index) => (
-    cardPower(unit) > cardPower(units[bestIndex]) ? index : bestIndex
-  ), 0);
-}
-
-function effectKey(card) {
-  if (card?.effect) return card.effect;
-  if (card?.effectId === 'E_DRAW_1') return 'draw';
-  if (card?.effectId === 'E_DESTROY_OPP_MONSTER') return 'destroy-enemy-unit';
-  if (card?.effectId === 'E_BANISH_ANY_CARD') return 'banish-enemy-unit';
-  if (card?.id === 'repair') return 'heal';
-  if (card?.id === 'barrage') return 'damage';
-  if (card?.id === 'barrier') return 'shield';
-  return 'none';
-}
-
-function effectAmount(card, fallback = 1) {
-  return Math.max(1, Number(card?.effectAmount || fallback));
 }
 
 function KeywordBadges({ card }) {
@@ -386,6 +77,216 @@ function KeywordBadges({ card }) {
       {labels.map((label) => <span key={label}>{label}</span>)}
       {shielded ? <span className="tcg-shield-badge">보호막</span> : null}
     </div>
+  );
+}
+
+function CardFace({ card, small = false }) {
+  if (!card) return <span>비어 있음</span>;
+  if (card.face === 'down') return <span>세트 카드</span>;
+  return (
+    <>
+      <strong>{card.name}</strong>
+      <KeywordBadges card={card} />
+      {cardKind(card) === 'Monster' ? (
+        <span>ATK {cardAtk(card)} / HP {cardHealth(card)}{card.hasAttacked ? ' / 공격 완료' : ''}</span>
+      ) : (
+        <span>{cardKind(card)} {subType(card)}</span>
+      )}
+      {!small && card.text ? <p>{Array.isArray(card.text) ? card.text.join(' ') : card.text}</p> : null}
+    </>
+  );
+}
+
+function ZoneButton({ card, label, active, highlight, onClick, children }) {
+  return (
+    <button
+      type="button"
+      className={`tcg-card ${card?.tone ? `is-${card.tone}` : ''} ${active ? 'is-selected' : ''} ${highlight ? 'is-targetable' : ''}`}
+      onClick={onClick}
+      style={{
+        minHeight: 118,
+        opacity: card ? 1 : 0.78,
+      }}
+    >
+      <div className="tcg-card-head">
+        <span>{label}</span>
+        <strong>{card ? cardKind(card) : 'EMPTY'}</strong>
+      </div>
+      <div className="tcg-card-art" />
+      {children || <CardFace card={card} small />}
+    </button>
+  );
+}
+
+function PlayerField({
+  title,
+  playerKey,
+  player,
+  state,
+  selectedAttacker,
+  setSelectedAttacker,
+  selectedHandId,
+  onSummon,
+  onSet,
+  onActivateSet,
+  onAttack,
+  promptTargets,
+  onPickPromptTarget,
+}) {
+  const isCurrent = state.turnPlayer === playerKey;
+  const canMain = isCurrent && (state.phase === 'MAIN1' || state.phase === 'MAIN2') && !state.winner && state.prompt.kind === 'NONE' && state.chain.length === 0;
+  const canBattle = isCurrent && state.phase === 'BATTLE' && !state.winner && state.prompt.kind === 'NONE' && state.chain.length === 0;
+  const targetKey = (zone, slot) => `${playerKey}:${zone}:${slot}`;
+  return (
+    <section className={`tcg-lane ${playerKey === 'enemy' ? 'is-enemy' : ''}`}>
+      <div className="tcg-lane-title">
+        <h2>{title}</h2>
+        <span>덱 {player.deck.length} / 패 {player.hand.length} / 묘지 {player.grave.length} / 제외 {player.banished.length}</span>
+      </div>
+
+      <div className="tcg-card-row" style={{ marginBottom: 10 }}>
+        {player.monster.map((card, slot) => {
+          const key = targetKey('monster', slot);
+          const isPromptTarget = promptTargets.has(key);
+          const isSelected = selectedAttacker?.player === playerKey && selectedAttacker?.slot === slot;
+          return (
+            <ZoneButton
+              key={key}
+              card={card}
+              label={`M${slot + 1}`}
+              active={isSelected}
+              highlight={isPromptTarget}
+              onClick={() => {
+                if (isPromptTarget) return onPickPromptTarget(playerKey, 'monster', slot);
+                if (playerKey === state.turnPlayer && canBattle && card && !card.hasAttacked) {
+                  setSelectedAttacker({ player: playerKey, slot });
+                  return;
+                }
+                if (selectedAttacker && selectedAttacker.player === state.turnPlayer && playerKey !== state.turnPlayer) onAttack(selectedAttacker.slot, slot);
+              }}
+            >
+              <CardFace card={card} small />
+              {canMain && selectedHandId && !card ? <span>소환 가능</span> : null}
+            </ZoneButton>
+          );
+        })}
+      </div>
+
+      <div className="tcg-card-row">
+        {player.spellTrap.map((card, slot) => {
+          const key = targetKey('spellTrap', slot);
+          const isPromptTarget = promptTargets.has(key);
+          return (
+            <ZoneButton
+              key={key}
+              card={card}
+              label={`S/T ${slot + 1}`}
+              highlight={isPromptTarget}
+              onClick={() => {
+                if (isPromptTarget) return onPickPromptTarget(playerKey, 'spellTrap', slot);
+                if (canMain && selectedHandId && !card) return onSet(slot);
+                if (canMain && card && card.face === 'down') return onActivateSet(slot);
+              }}
+            >
+              <CardFace card={card} small />
+              {canMain && selectedHandId && !card ? <span>세트 가능</span> : null}
+            </ZoneButton>
+          );
+        })}
+      </div>
+
+      <div className="tcg-card-row" style={{ marginTop: 10 }}>
+        {(() => {
+          const key = targetKey('field', 0);
+          const isPromptTarget = promptTargets.has(key);
+          return (
+            <ZoneButton
+              card={player.field}
+              label="FIELD"
+              highlight={isPromptTarget}
+              onClick={() => {
+                if (isPromptTarget) return onPickPromptTarget(playerKey, 'field', 0);
+              }}
+            >
+              <CardFace card={player.field} small />
+            </ZoneButton>
+          );
+        })()}
+        {playerKey === state.turnPlayer && canMain && selectedHandId ? (
+          <button type="button" className="tcg-core-target" onClick={() => onSummon(firstEmptySlot(player.monster))} disabled={firstEmptySlot(player.monster) < 0}>
+            <strong>선택 카드 소환</strong>
+            <span>빈 몬스터 존 자동 선택</span>
+          </button>
+        ) : null}
+        {selectedAttacker && playerKey !== state.turnPlayer && !player.monster.some(Boolean) ? (
+          <button type="button" className="tcg-core-target" onClick={() => onAttack(selectedAttacker.slot, null)}>
+            <strong>직접 공격</strong>
+            <span>{PLAYER_LABELS[playerKey]} LP를 공격합니다.</span>
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function firstEmptySlot(zone) {
+  return Array.isArray(zone) ? zone.findIndex((row) => !row) : -1;
+}
+
+function PromptPanel({ state, setState }) {
+  const prompt = state.prompt;
+  if (prompt.kind === 'NONE' && !state.chain.length) return null;
+  const player = prompt.player || state.turnPlayer;
+  const counterSlots = prompt.kind === 'RESPOND'
+    ? state.players[player]?.spellTrap
+      .map((card, slot) => ({ card, slot }))
+      .filter(({ card }) => card && cardKind(card) === 'Trap' && subType(card) === 'Counter')
+    : [];
+
+  return (
+    <section className="tcg-result">
+      {prompt.kind === 'RESPOND' ? (
+        <>
+          <strong>{PLAYER_LABELS[player]} 응답 창</strong>
+          <span>체인 {state.chain.length}개가 대기 중입니다.</span>
+          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+            {counterSlots.map(({ card, slot }) => (
+              <button type="button" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
+                {card.name} 발동
+              </button>
+            ))}
+            <button type="button" onClick={() => setState((current) => resolveChain(passResponse(current)))}>
+              응답 없음
+            </button>
+          </div>
+        </>
+      ) : null}
+      {prompt.kind === 'SELECT_TARGET' ? (
+        <>
+          <strong>{prompt.title}</strong>
+          <span>필드에서 강조된 카드를 누르거나 아래 대상 버튼을 누르세요.</span>
+          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+            {prompt.options.map((option) => (
+              <button type="button" key={`${option.player}-${option.zone}-${option.slot}`} onClick={() => setState((current) => chooseTarget(current, option))}>
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {prompt.kind === 'TRIGGER_CONFIRM' ? (
+        <>
+          <strong>{prompt.title}</strong>
+          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+            <button type="button" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</button>
+            <button type="button" onClick={() => setState((current) => confirmTrigger(current, false))}>넘기기</button>
+          </div>
+        </>
+      ) : null}
+      {prompt.kind === 'NONE' && state.chain.length ? (
+        <button type="button" onClick={() => setState((current) => resolveChain(current))}>체인 해결</button>
+      ) : null}
+    </section>
   );
 }
 
@@ -404,203 +305,6 @@ export default function DualAcademyTcgPlayPage() {
   );
 }
 
-function resolveCombat(attacker, defender) {
-  const defenderStartHealth = unitHealth(defender);
-  const nextAttacker = {
-    ...applyDamage(attacker, Number(defender.attack || 0)),
-    ready: false,
-  };
-  const nextDefender = applyDamage(defender, Number(attacker.attack || 0));
-  const defenderDead = nextDefender.currentHealth <= 0;
-  return {
-    attacker: nextAttacker,
-    defender: nextDefender,
-    attackerDead: nextAttacker.currentHealth <= 0,
-    defenderDead,
-    pierceDamage: defenderDead && hasKeyword(attacker, 'pierce')
-      ? Math.max(0, Number(attacker.attack || 0) - defenderStartHealth)
-      : 0,
-  };
-}
-
-function resolveEnemyTactic(card, state) {
-  const effect = effectKey(card);
-  if (effect === 'shield') {
-    const targetIndex = shieldTargetIndex(state.enemyBoard);
-    if (targetIndex >= 0) {
-      const enemyBoard = state.enemyBoard.slice();
-      const target = enemyBoard[targetIndex];
-      enemyBoard[targetIndex] = { ...target, shield: true };
-      return emitEvent({
-        ...state,
-        enemyBoard,
-        discard: [...state.discard, card],
-      }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `적 ${card.name}: ${target.name} 보호막`, { cardName: card.name }), { cardId: card.id, cardName: card.name, target: target.name });
-    }
-    return emitEvent({
-      ...state,
-      enemyHealth: clampHealth(state.enemyHealth + 2),
-      discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `적 ${card.name}: 적 본부 회복`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-  }
-  if (effect === 'heal') {
-    return emitEvent({
-      ...state,
-      enemyHealth: clampHealth(state.enemyHealth + effectAmount(card, 3)),
-      discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: 상대 본부 회복`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-  }
-  if (effect === 'damage') {
-    const amount = effectAmount(card, 3);
-    const playerHealth = Math.max(0, state.playerHealth - amount);
-    const next = emitEvent({
-      ...state,
-      playerHealth,
-      discard: [...state.discard, card],
-      winner: playerHealth <= 0 ? 'enemy' : state.winner,
-    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: 내 본부에 ${amount} 피해`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount });
-    return playerHealth <= 0
-      ? emitEvent(next, 'WIN', 'enemy', eventLine('enemy', 'WIN', '패배했습니다.'))
-      : next;
-  }
-  if (effect === 'draw' || effect === 'draw-heal') {
-    const drawCount = effectAmount(card, 1);
-    let next = {
-      ...state,
-      discard: [...state.discard, card],
-      enemyHealth: effect === 'draw-heal' ? clampHealth(state.enemyHealth + 1) : state.enemyHealth,
-    };
-    next = drawEnemyCards(next, drawCount);
-    return emitEvent(next, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: ${drawCount}장 드로우`, { cardName: card.name }), { cardId: card.id, cardName: card.name, amount: drawCount });
-  }
-  if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-unit') {
-    const targetIndex = effect === 'banish-enemy-unit'
-      ? strongestUnitIndex(state.board)
-      : weakestUnitIndex(state.board);
-    if (targetIndex < 0) {
-      return emitEvent({
-        ...state,
-        discard: [...state.discard, card],
-      }, 'EFFECT_ACTIVATE', 'enemy', `상대 ${card.name}: 제거할 내 유닛이 없습니다.`, { cardId: card.id, cardName: card.name });
-    }
-    const target = state.board[targetIndex];
-    const board = state.board.slice();
-    board.splice(targetIndex, 1);
-    return emitEvent({
-      ...state,
-      board,
-      discard: [...state.discard, card],
-    }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name}: ${target.name} 제거`, { cardName: card.name }), { cardId: card.id, cardName: card.name, target: target.name });
-  }
-  return emitEvent({
-    ...state,
-    discard: [...state.discard, card],
-  }, 'EFFECT_ACTIVATE', 'enemy', eventLine('enemy', 'EFFECT_ACTIVATE', `상대 ${card.name} 효과 처리`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-}
-
-function playEnemyCards(state) {
-  let next = state;
-  let guard = 0;
-  while (!next.winner && guard < 8) {
-    guard += 1;
-    const affordable = next.enemyHand
-      .filter((card) => Number(card.cost || 0) <= next.enemyEnergy)
-      .sort((a, b) => {
-        const aRole = a.role === 'Unit' ? 0 : 1;
-        const bRole = b.role === 'Unit' ? 0 : 1;
-        return aRole - bRole || Number(b.cost || 0) - Number(a.cost || 0);
-      });
-    const card = affordable[0];
-    if (!card) break;
-
-    next = {
-      ...next,
-      enemyHand: next.enemyHand.filter((row) => row.instanceId !== card.instanceId),
-      enemyEnergy: next.enemyEnergy - Number(card.cost || 0),
-    };
-
-    if (card.role === 'Tactic') {
-      next = resolveEnemyTactic(card, next);
-    } else {
-      next = emitEvent({
-        ...next,
-        enemyBoard: [...next.enemyBoard, withUnitState(card, hasKeyword(card, 'quick'))],
-      }, 'SUMMON', 'enemy', eventLine('enemy', 'SUMMON', `상대가 ${card.name} 배치`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-    }
-  }
-  return next;
-}
-
-function resolveEnemyAttacks(state) {
-  let next = state;
-  const attackers = [...next.enemyBoard];
-  for (const attacker of attackers) {
-    if (next.winner) break;
-    const liveIndex = next.enemyBoard.findIndex((unit) => unit.instanceId === attacker.instanceId);
-    if (liveIndex < 0 || !next.enemyBoard[liveIndex]?.ready) continue;
-
-    const targetIndex = preferredTargetIndex(next.board);
-    if (targetIndex >= 0) {
-      const target = next.board[targetIndex];
-      const combat = resolveCombat(next.enemyBoard[liveIndex], target);
-      const enemyBoard = next.enemyBoard.slice();
-      const board = next.board.slice();
-      if (combat.attackerDead) enemyBoard.splice(liveIndex, 1);
-      else enemyBoard[liveIndex] = combat.attacker;
-      if (combat.defenderDead) board.splice(targetIndex, 1);
-      else board[targetIndex] = combat.defender;
-      const playerHealth = combat.pierceDamage > 0
-        ? Math.max(0, next.playerHealth - combat.pierceDamage)
-        : next.playerHealth;
-      next = {
-        ...next,
-        enemyBoard,
-        board,
-        playerHealth,
-        winner: playerHealth <= 0 ? 'enemy' : next.winner,
-      };
-      next = emitEvent(next, 'ATTACK_DECLARE', 'enemy', eventLine('enemy', 'ATTACK_DECLARE', `상대 ${attacker.name}이(가) ${target.name}와 교전`, { cardName: attacker.name }), { cardId: attacker.id, cardName: attacker.name, target: target.name });
-      if (playerHealth <= 0) next = emitEvent(next, 'WIN', 'enemy', eventLine('enemy', 'WIN', '패배했습니다.'));
-    } else {
-      const playerHealth = Math.max(0, next.playerHealth - Number(attacker.attack || 0));
-      next = emitEvent({
-        ...next,
-        playerHealth,
-        enemyBoard: next.enemyBoard.map((unit) => (
-          unit.instanceId === attacker.instanceId ? { ...unit, ready: false } : unit
-        )),
-        winner: playerHealth <= 0 ? 'enemy' : next.winner,
-      }, 'ATTACK_DECLARE', 'enemy', eventLine('enemy', 'ATTACK_DECLARE', `상대 ${attacker.name} 공격: ${attacker.attack} 피해`, { cardName: attacker.name }), { cardId: attacker.id, cardName: attacker.name, amount: attacker.attack });
-      if (playerHealth <= 0) next = emitEvent(next, 'WIN', 'enemy', eventLine('enemy', 'WIN', '패배했습니다.'));
-    }
-  }
-  return next;
-}
-
-function runEnemyTurn(state) {
-  const enemyMaxEnergy = Math.min(10, Number(state.enemyMaxEnergy || 1) + 1);
-  let next = emitEvent({
-    ...state,
-    enemyMaxEnergy,
-    enemyEnergy: enemyMaxEnergy,
-    enemyBoard: state.enemyBoard.map((unit) => ({ ...unit, ready: true })),
-  }, 'TURN_START', 'enemy', eventLine('enemy', 'TURN_START', '상대 턴 시작'));
-  next = drawEnemyCards(next, 1);
-  next = playEnemyCards(next);
-  next = resolveEnemyAttacks(next);
-  if (next.winner) return next;
-
-  const maxEnergy = Math.min(10, Number(next.maxEnergy || 1) + 1);
-  const playerTurn = emitEvent({
-    ...next,
-    turn: next.turn + 1,
-    maxEnergy,
-    energy: maxEnergy,
-    board: next.board.map((unit) => ({ ...unit, ready: true })),
-  }, 'TURN_START', 'player', eventLine('player', 'TURN_START', '내 턴 시작'));
-  return drawCards(playerTurn, 1);
-}
-
 function DualAcademyTcgPlayContent() {
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -609,7 +313,7 @@ function DualAcademyTcgPlayContent() {
   const { showToast } = useToast();
   const [cardCatalog, setCardCatalog] = useState(FALLBACK_TCG_CARDS);
   const [deckCardIds, setDeckCardIds] = useState(FALLBACK_DECK_CARD_IDS);
-  const [deckName, setDeckName] = useState('스타터 덱');
+  const [deckName, setDeckName] = useState('기본 덱');
   const [loadingDeck, setLoadingDeck] = useState(true);
   const [deckMessage, setDeckMessage] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
@@ -620,13 +324,15 @@ function DualAcademyTcgPlayContent() {
   const [roomSyncMessage, setRoomSyncMessage] = useState('');
   const [recordedMatchIds, setRecordedMatchIds] = useState([]);
   const [recordMessage, setRecordMessage] = useState('');
-  const [selectedAttackerId, setSelectedAttackerId] = useState('');
-  const [state, setState] = useState(() => createInitialState(buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)));
+  const [selectedHandId, setSelectedHandId] = useState('');
+  const [selectedAttacker, setSelectedAttacker] = useState(null);
+  const [state, setState] = useState(() => createDuelState());
 
   const resetWithDeck = useCallback((cardIds, cards) => {
     setRecordMessage('');
-    setSelectedAttackerId('');
-    setState(createInitialState(buildDeckFromIds(cardIds, cards), buildEnemyDeck(cards)));
+    setSelectedHandId('');
+    setSelectedAttacker(null);
+    setState(createDuelState({ deckCardIds: cardIds, cardCatalog: cards }));
   }, []);
 
   const loadDeck = useCallback(async () => {
@@ -690,22 +396,21 @@ function DualAcademyTcgPlayContent() {
     }
 
     const roomState = nextRoom.state && typeof nextRoom.state === 'object' ? nextRoom.state : {};
-    const restored = normalizeSavedState(roomState.state);
+    const nextCards = normalizeCards(roomState.cardCatalog);
+    const nextCardIds = Array.isArray(roomState.deckCardIds) && roomState.deckCardIds.length ? roomState.deckCardIds : deckCardIds;
+    const restored = normalizeDuelState(roomState.state, { deckCardIds: nextCardIds, cardCatalog: nextCards });
     if (!restored) {
       setDeckMessage(options.emptyMessage || '게임방에 저장된 매치가 없어 현재 덱으로 시작합니다.');
       setRoomSyncMessage('');
       return false;
     }
 
-    const nextCards = normalizeCards(roomState.cardCatalog);
-    const nextCardIds = Array.isArray(roomState.deckCardIds) && roomState.deckCardIds.length
-      ? roomState.deckCardIds
-      : deckCardIds;
     setCardCatalog(nextCards);
     setDeckCardIds(nextCardIds);
     setDeckName(roomState.deckName || nextRoom.title || deckName);
     setRecordMessage('');
-    setSelectedAttackerId('');
+    setSelectedHandId('');
+    setSelectedAttacker(null);
     setState(restored);
     setLocalRoomDirty(false);
     setRoomSyncMessage('');
@@ -727,9 +432,8 @@ function DualAcademyTcgPlayContent() {
       setRoomBusy(true);
       try {
         const payload = await apiGet(`/game-rooms/${roomId}`, { timeoutMs: 12000 });
-        const nextRoom = payload?.room || null;
         if (!cancelled) {
-          applyRoomMatch(nextRoom, {
+          applyRoomMatch(payload?.room || null, {
             message: '게임방 매치를 불러왔습니다.',
             emptyMessage: '게임방에 저장된 매치가 없어 현재 덱으로 시작합니다.',
           });
@@ -772,7 +476,7 @@ function DualAcademyTcgPlayContent() {
         }
         applyRoomMatch(nextRoom, { message: '게임방 매치가 자동 갱신되었습니다.' });
       } catch {
-        // Polling is best-effort; direct save/load buttons still surface errors.
+        // Polling is best-effort.
       }
     };
     const intervalId = window.setInterval(pollRoom, 8000);
@@ -789,25 +493,23 @@ function DualAcademyTcgPlayContent() {
       try {
         setRecordedMatchIds((current) => current.includes(state.matchId) ? current : [...current, state.matchId]);
         const result = state.winner === 'player' ? 'win' : 'loss';
-        const score = Math.max(0, Number(state.enemyHealth <= 0 ? state.playerHealth : state.enemyHealth));
+        const score = state.winner === 'player' ? 100 + Math.floor(state.players.player.lp / 100) : Math.floor(state.players.enemy.lp / 100);
         const payload = {
-          title: 'Dual Academy TCG 훈련 매치',
-          mode: 'prototype',
+          title: 'Dual Academy TCG v13 듀얼',
+          mode: 'v13-zone-engine',
           result,
-          score: state.winner === 'player' ? 100 + state.playerHealth + Math.max(0, 12 - state.turn) : score,
+          score,
           playTimeSec: getPlayTimeSec(state.startedAt),
           summary: {
             deckName,
-            turn: state.turn,
-            playerHealth: state.playerHealth,
-            enemyHealth: state.enemyHealth,
-            remainingDeck: state.deck.length,
+            ...summarizeDuel(state),
             result,
           },
           payload: {
             deckName,
             deckCardIds,
-            state: matchPayload(state),
+            engineVersion: ENGINE_VERSION,
+            state: serializeDuelState(state),
           },
         };
         if (roomId) {
@@ -844,135 +546,64 @@ function DualAcademyTcgPlayContent() {
     };
   }, [deckCardIds, deckName, mounted, recordedMatchIds, room?.hostId, roomId, state, token]);
 
-  const handCost = useMemo(
-    () => state.hand.reduce((sum, card) => sum + Number(card.cost || 0), 0),
-    [state.hand],
-  );
+  useEffect(() => {
+    if (state.turnPlayer !== 'enemy') return;
+    if (state.prompt.kind === 'RESPOND' && state.prompt.player !== 'enemy') return;
+    const timer = window.setTimeout(() => {
+      setState((current) => autoPlayEnemy(current));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [state.turnPlayer, state.phase, state.prompt.kind, state.prompt.player, state.chain.length]);
 
-  const boardPower = useMemo(
-    () => state.board.reduce((sum, card) => sum + cardPower(card), 0),
-    [state.board],
-  );
-
-  const selectedAttacker = useMemo(
-    () => state.board.find((unit) => unit.instanceId === selectedAttackerId) || null,
-    [selectedAttackerId, state.board],
-  );
   const latestEvent = Array.isArray(state.events) ? state.events[0] : null;
   const latestCharacter = latestEvent?.actor && TCG_CHARACTERS[latestEvent.actor]
     ? TCG_CHARACTERS[latestEvent.actor]
     : TCG_CHARACTERS.player;
+  const selectedCard = state.players.player.hand.find((card) => card.instanceId === selectedHandId) || null;
+  const summary = summarizeDuel(state);
+  const canAct = !state.winner && state.turnPlayer === 'player' && state.prompt.kind === 'NONE' && state.chain.length === 0;
+  const canMain = canAct && (state.phase === 'MAIN1' || state.phase === 'MAIN2');
+  const promptTargets = useMemo(() => {
+    const out = new Set();
+    if (state.prompt.kind === 'SELECT_TARGET') {
+      state.prompt.options.forEach((opt) => out.add(`${opt.player}:${opt.zone}:${opt.slot}`));
+    }
+    return out;
+  }, [state.prompt]);
 
   useEffect(() => {
-    if (!selectedAttackerId) return;
-    const unit = state.board.find((row) => row.instanceId === selectedAttackerId);
-    if (!unit || !unit.ready || state.winner) setSelectedAttackerId('');
-  }, [selectedAttackerId, state.board, state.winner]);
+    if (!selectedHandId) return;
+    if (!state.players.player.hand.some((card) => card.instanceId === selectedHandId)) setSelectedHandId('');
+  }, [selectedHandId, state.players.player.hand]);
 
-  const canAct = !state.winner;
-
-  const playCard = (instanceId) => {
-    if (!canAct) return;
+  const markDirty = () => {
     if (roomId) {
       setLocalRoomDirty(true);
       setRoomSyncMessage('');
     }
-    setState((current) => {
-      const card = current.hand.find((row) => row.instanceId === instanceId);
-      if (!card) return current;
-      if (card.cost > current.energy) {
-        return emitEvent(current, 'PROMPT', 'player', `에너지가 부족합니다. (${card.cost})`);
-      }
-      const hand = current.hand.filter((row) => row.instanceId !== instanceId);
-      const nextBase = {
-        ...current,
-        hand,
-        energy: current.energy - card.cost,
-      };
-      if (card.role === 'Tactic') return resolveTactic(card, nextBase);
-      return emitEvent({
-        ...nextBase,
-        board: [...current.board, withUnitState(card, hasKeyword(card, 'quick'))],
-      }, 'SUMMON', 'player', eventLine('player', 'SUMMON', `${card.name} 배치`, { cardName: card.name }), { cardId: card.id, cardName: card.name });
-    });
   };
 
-  const attackTarget = (instanceId, targetInstanceId = '') => {
-    if (!canAct) return;
-    if (roomId) {
-      setLocalRoomDirty(true);
-      setRoomSyncMessage('');
+  const act = (mutator) => {
+    markDirty();
+    setState((current) => mutator(current));
+  };
+
+  const playSelected = () => {
+    if (!selectedCard || !canMain) return;
+    if (cardKind(selectedCard) === 'Monster') {
+      const slot = firstEmptySlot(state.players.player.monster);
+      if (slot >= 0) act((current) => normalSummon(current, selectedCard.instanceId, slot));
+      setSelectedHandId('');
+      return;
     }
-    setSelectedAttackerId('');
-    setState((current) => {
-      const unit = current.board.find((row) => row.instanceId === instanceId);
-      if (!unit || !unit.ready) return current;
-      const unitIndex = current.board.findIndex((row) => row.instanceId === instanceId);
-      const targetIndex = targetInstanceId
-        ? current.enemyBoard.findIndex((row) => row.instanceId === targetInstanceId)
-        : -1;
-      if (targetIndex >= 0) {
-        const target = current.enemyBoard[targetIndex];
-        if (hasGuardUnit(current.enemyBoard) && !hasKeyword(target, 'guard')) {
-          return emitEvent(current, 'PROMPT', 'player', '도발 유닛을 먼저 공격해야 합니다.');
-        }
-        const combat = resolveCombat(unit, target);
-        const board = current.board.slice();
-        const enemyBoard = current.enemyBoard.slice();
-        if (combat.attackerDead) board.splice(unitIndex, 1);
-        else board[unitIndex] = combat.attacker;
-        if (combat.defenderDead) enemyBoard.splice(targetIndex, 1);
-        else enemyBoard[targetIndex] = combat.defender;
-        const enemyHealth = combat.pierceDamage > 0
-          ? Math.max(0, current.enemyHealth - combat.pierceDamage)
-          : current.enemyHealth;
-        let next = {
-          ...current,
-          board,
-          enemyBoard,
-          enemyHealth,
-          winner: enemyHealth <= 0 ? 'player' : current.winner,
-        };
-        next = emitEvent(next, 'ATTACK_DECLARE', 'player', eventLine('player', 'ATTACK_DECLARE', `${unit.name}이(가) ${target.name}와 교전`, { cardName: unit.name }), { cardId: unit.id, cardName: unit.name, target: target.name });
-        return enemyHealth <= 0
-          ? emitEvent(next, 'WIN', 'player', eventLine('player', 'WIN', '승리했습니다.'))
-          : next;
-      }
-
-      if (current.enemyBoard.length) {
-        return emitEvent(current, 'PROMPT', 'player', '공격할 상대 유닛을 선택해주세요.');
-      }
-
-      const enemyHealth = Math.max(0, current.enemyHealth - Number(unit.attack || 0));
-      const next = emitEvent({
-        ...current,
-        enemyHealth,
-        board: current.board.map((row) => (
-          row.instanceId === instanceId ? { ...row, ready: false } : row
-        )),
-        winner: enemyHealth <= 0 ? 'player' : current.winner,
-      }, 'ATTACK_DECLARE', 'player', eventLine('player', 'ATTACK_DECLARE', `${unit.name} 공격: ${unit.attack} 피해`, { cardName: unit.name }), { cardId: unit.id, cardName: unit.name, amount: unit.attack });
-      return enemyHealth <= 0
-        ? emitEvent(next, 'WIN', 'player', eventLine('player', 'WIN', '승리했습니다.'))
-        : next;
-    });
-  };
-
-  const selectAttacker = (instanceId) => {
-    if (!canAct) return;
-    const unit = state.board.find((row) => row.instanceId === instanceId);
-    if (!unit || !unit.ready) return;
-    setSelectedAttackerId((current) => current === instanceId ? '' : instanceId);
-  };
-
-  const endTurn = () => {
-    if (!canAct) return;
-    if (roomId) {
-      setLocalRoomDirty(true);
-      setRoomSyncMessage('');
+    if (cardKind(selectedCard) === 'Trap') {
+      const slot = firstEmptySlot(state.players.player.spellTrap);
+      if (slot >= 0) act((current) => setSpellTrap(current, selectedCard.instanceId, slot));
+      setSelectedHandId('');
+      return;
     }
-    setSelectedAttackerId('');
-    setState((current) => runEnemyTurn(current));
+    act((current) => activateFromHand(current, selectedCard.instanceId));
+    setSelectedHandId('');
   };
 
   const saveMatch = async () => {
@@ -984,19 +615,17 @@ function DualAcademyTcgPlayContent() {
     try {
       await apiPut(`/game-saves/${TCG_GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
         saveName: `${deckName} ${state.turn}턴`,
-        version: 'tcg-prototype-v1',
+        version: ENGINE_VERSION,
         summary: {
           deckName,
-          turn: state.turn,
-          playerHealth: state.playerHealth,
-          enemyHealth: state.enemyHealth,
-          winner: state.winner || 'playing',
+          ...summary,
         },
         payload: {
           deckName,
           deckCardIds,
           cardCatalog,
-          state: matchPayload(state),
+          engineVersion: ENGINE_VERSION,
+          state: serializeDuelState(state),
         },
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
@@ -1020,9 +649,7 @@ function DualAcademyTcgPlayContent() {
     setSaveBusy(true);
     try {
       const list = await apiGet(`/game-saves?gameSlug=${TCG_GAME_SLUG}`, { timeoutMs: 12000 });
-      const quickSave = Array.isArray(list?.saves)
-        ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT)
-        : null;
+      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
         setDeckMessage('저장된 매치가 없습니다.');
         return;
@@ -1030,20 +657,19 @@ function DualAcademyTcgPlayContent() {
 
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const payload = detail?.save?.payload || {};
-      const restored = normalizeSavedState(payload.state);
+      const nextCards = normalizeCards(payload.cardCatalog);
+      const nextCardIds = Array.isArray(payload.deckCardIds) && payload.deckCardIds.length ? payload.deckCardIds : deckCardIds;
+      const restored = normalizeDuelState(payload.state, { deckCardIds: nextCardIds, cardCatalog: nextCards });
       if (!restored) {
         setDeckMessage('저장된 매치 데이터가 올바르지 않습니다.');
         return;
       }
-      const nextCards = normalizeCards(payload.cardCatalog);
-      const nextCardIds = Array.isArray(payload.deckCardIds) && payload.deckCardIds.length
-        ? payload.deckCardIds
-        : deckCardIds;
       setCardCatalog(nextCards);
       setDeckCardIds(nextCardIds);
       setDeckName(payload.deckName || detail?.save?.summary?.deckName || deckName);
       setRecordMessage('');
-      setSelectedAttackerId('');
+      setSelectedHandId('');
+      setSelectedAttacker(null);
       setState(restored);
       if (roomId) {
         setLocalRoomDirty(true);
@@ -1075,16 +701,14 @@ function DualAcademyTcgPlayContent() {
         revision: room?.revision,
         summary: {
           deckName,
-          turn: state.turn,
-          playerHealth: state.playerHealth,
-          enemyHealth: state.enemyHealth,
-          winner: state.winner || 'playing',
+          ...summary,
         },
         state: {
           deckName,
           deckCardIds,
           cardCatalog,
-          state: matchPayload(state),
+          engineVersion: ENGINE_VERSION,
+          state: serializeDuelState(state),
         },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-rooms');
@@ -1112,10 +736,7 @@ function DualAcademyTcgPlayContent() {
   };
 
   const resetMatch = () => {
-    if (roomId) {
-      setLocalRoomDirty(true);
-      setRoomSyncMessage('');
-    }
+    markDirty();
     resetWithDeck(deckCardIds, cardCatalog);
   };
 
@@ -1126,7 +747,7 @@ function DualAcademyTcgPlayContent() {
         <header className="tcg-topbar">
           <div>
             <p>Dual Academy TCG</p>
-            <h1>훈련 매치</h1>
+            <h1>v13 듀얼</h1>
           </div>
           <nav>
             <Link href="/games/dual-academy-tcg">상세</Link>
@@ -1154,28 +775,28 @@ function DualAcademyTcgPlayContent() {
 
         <section className="tcg-scoreboard" aria-label="match status">
           <div>
-            <span>내 본부</span>
-            <strong>{state.playerHealth}</strong>
+            <span>내 LP</span>
+            <strong>{state.players.player.lp}</strong>
           </div>
           <div>
-            <span>상대 본부</span>
-            <strong>{state.enemyHealth}</strong>
+            <span>AI LP</span>
+            <strong>{state.players.enemy.lp}</strong>
           </div>
           <div>
             <span>턴</span>
             <strong>{state.turn}</strong>
           </div>
           <div>
-            <span>에너지</span>
-            <strong>{state.energy}/{state.maxEnergy}</strong>
+            <span>차례</span>
+            <strong>{PLAYER_LABELS[state.turnPlayer]}</strong>
           </div>
           <div>
-            <span>상대 에너지</span>
-            <strong>{state.enemyEnergy}/{state.enemyMaxEnergy}</strong>
+            <span>페이즈</span>
+            <strong>{state.phase}</strong>
           </div>
           <div>
-            <span>v13 이벤트</span>
-            <strong>{Array.isArray(state.events) ? state.events.length : 0}</strong>
+            <span>체인</span>
+            <strong>{state.chain.length}</strong>
           </div>
         </section>
 
@@ -1186,87 +807,89 @@ function DualAcademyTcgPlayContent() {
           </section>
         ) : null}
 
+        <PromptPanel state={state} setState={(updater) => {
+          markDirty();
+          setState(updater);
+        }} />
+
         <section className="tcg-layout">
           <aside className="tcg-panel">
             <h2>덱</h2>
             <p className="tcg-deck-name">{loadingDeck ? '덱 불러오는 중' : deckName}</p>
             {deckMessage ? <p className="tcg-deck-message">{deckMessage}</p> : null}
             <div className="tcg-deck-count">
-              <strong>{state.deck.length}</strong>
+              <strong>{state.players.player.deck.length}</strong>
               <span>남은 카드</span>
             </div>
             <dl className="tcg-small-stats">
               <div>
-                <dt>손패 비용</dt>
-                <dd>{handCost}</dd>
+                <dt>내 묘지</dt>
+                <dd>{state.players.player.grave.length}</dd>
               </div>
               <div>
-                <dt>필드 전력</dt>
-                <dd>{boardPower}</dd>
+                <dt>내 제외</dt>
+                <dd>{state.players.player.banished.length}</dd>
               </div>
               <div>
-                <dt>버린 카드</dt>
-                <dd>{state.discard.length}</dd>
+                <dt>v13 이벤트</dt>
+                <dd>{state.events.length}</dd>
               </div>
             </dl>
+            <button type="button" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
+              필드 효과
+            </button>
+            <button type="button" className="tcg-primary-action" onClick={() => act((current) => resolveChain(passResponse(current)))} disabled={state.prompt.kind !== 'RESPOND' || state.prompt.player !== 'player'}>
+              응답 없이 해결
+            </button>
           </aside>
 
           <section className="tcg-board">
-            <div className="tcg-lane is-enemy">
-              <div className="tcg-lane-title">
-                <h2>상대 필드</h2>
-                <span>필드 {state.enemyBoard.length} / 손패 {state.enemyHand.length} / 덱 {state.enemyDeck.length}</span>
-              </div>
-              <div className="tcg-card-row">
-                {state.enemyBoard.map((card) => (
-                  <article className={`tcg-card is-enemy-card ${selectedAttacker ? 'is-targetable' : ''}`} key={card.instanceId || card.id}>
-                    <div className="tcg-card-art" />
-                    <strong>{card.name}</strong>
-                    <KeywordBadges card={card} />
-                    <span>ATK {card.attack} / HP {unitHealth(card)}</span>
-                    <button
-                      type="button"
-                      onClick={() => attackTarget(selectedAttackerId, card.instanceId)}
-                      disabled={!selectedAttacker || !canAct}
-                    >
-                      대상 공격
-                    </button>
-                  </article>
-                ))}
-                {!state.enemyBoard.length ? (
-                  <div className="tcg-core-target">
-                    <strong>상대 본부</strong>
-                    <span>방어 유닛 없음</span>
-                    <button
-                      type="button"
-                      onClick={() => attackTarget(selectedAttackerId)}
-                      disabled={!selectedAttacker || !canAct}
-                    >
-                      본부 공격
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="tcg-lane">
-              <div className="tcg-lane-title">
-                <h2>내 필드</h2>
-                <button type="button" onClick={endTurn} disabled={!canAct}>턴 종료</button>
-              </div>
-              <div className="tcg-card-row">
-                {state.board.length ? state.board.map((card) => (
-                  <article className={`tcg-card is-${card.tone} ${selectedAttackerId === card.instanceId ? 'is-selected' : ''}`} key={card.instanceId}>
-                    <div className="tcg-card-art" />
-                    <strong>{card.name}</strong>
-                    <KeywordBadges card={card} />
-                    <span>ATK {card.attack} / HP {card.currentHealth}</span>
-                    <button type="button" onClick={() => selectAttacker(card.instanceId)} disabled={!card.ready || !canAct}>
-                      {selectedAttackerId === card.instanceId ? '선택됨' : card.ready ? '공격 선택' : '대기'}
-                    </button>
-                  </article>
-                )) : <div className="tcg-empty-zone">배치된 유닛이 없습니다.</div>}
-              </div>
+            <PlayerField
+              title="AI 필드"
+              playerKey="enemy"
+              player={state.players.enemy}
+              state={state}
+              selectedAttacker={selectedAttacker}
+              setSelectedAttacker={setSelectedAttacker}
+              selectedHandId={selectedHandId}
+              onSummon={() => {}}
+              onSet={() => {}}
+              onActivateSet={() => {}}
+              onAttack={(attackerSlot, targetSlot) => {
+                act((current) => declareAttack(current, attackerSlot, targetSlot));
+                setSelectedAttacker(null);
+              }}
+              promptTargets={promptTargets}
+              onPickPromptTarget={(player, zone, slot) => act((current) => chooseTarget(current, { player, zone, slot }))}
+            />
+            <PlayerField
+              title="내 필드"
+              playerKey="player"
+              player={state.players.player}
+              state={state}
+              selectedAttacker={selectedAttacker}
+              setSelectedAttacker={setSelectedAttacker}
+              selectedHandId={selectedHandId}
+              onSummon={(slot) => {
+                if (!selectedHandId || slot < 0) return;
+                act((current) => normalSummon(current, selectedHandId, slot));
+                setSelectedHandId('');
+              }}
+              onSet={(slot) => {
+                if (!selectedHandId) return;
+                act((current) => setSpellTrap(current, selectedHandId, slot));
+                setSelectedHandId('');
+              }}
+              onActivateSet={(slot) => act((current) => activateSetCard(current, slot))}
+              onAttack={() => {}}
+              promptTargets={promptTargets}
+              onPickPromptTarget={(player, zone, slot) => act((current) => chooseTarget(current, { player, zone, slot }))}
+            />
+            <div className="tcg-lane-title" style={{ marginTop: 12 }}>
+              <h2>페이즈 컨트롤</h2>
+              <button type="button" onClick={() => act((current) => advancePhase(current))} disabled={!canAct && state.prompt.kind === 'NONE'}>
+                다음 페이즈
+              </button>
             </div>
           </section>
 
@@ -1278,16 +901,16 @@ function DualAcademyTcgPlayContent() {
               <p>{latestEvent?.text || '이벤트 대기 중입니다.'}</p>
             </section>
             <ol>
-              {(state.events || []).slice(0, 10).map((event) => (
+              {(state.events || []).slice(0, 12).map((event) => (
                 <li key={event.id}>
-                  T{event.turn} · {event.type} · {event.text}
+                  T{event.turn} · {event.phase} · {event.type} · {event.text}
                 </li>
               ))}
               {!(state.events || []).length ? <li>아직 이벤트가 없습니다.</li> : null}
             </ol>
-            <h2>텍스트 로그</h2>
+            <h2>로그</h2>
             <ol>
-              {state.log.map((line, index) => (
+              {state.log.slice(0, 16).map((line, index) => (
                 <li key={`${line}-${index}`}>{line}</li>
               ))}
             </ol>
@@ -1296,26 +919,35 @@ function DualAcademyTcgPlayContent() {
 
         <section className="tcg-hand">
           <div className="tcg-lane-title">
-            <h2>손패</h2>
-            <span>{state.hand.length}</span>
+            <h2>내 패</h2>
+            <span>{state.players.player.hand.length}장 · 선택: {selectedCard?.name || '없음'}</span>
+          </div>
+          <div className="tcg-card-controls" style={{ marginBottom: 12 }}>
+            <button type="button" onClick={playSelected} disabled={!selectedCard || !canMain}>
+              선택 카드 실행
+            </button>
+            <button type="button" onClick={() => setSelectedHandId('')} disabled={!selectedHandId}>
+              선택 해제
+            </button>
           </div>
           <div className="tcg-hand-row">
-            {state.hand.map((card) => (
-              <article className={`tcg-card is-${card.tone}`} key={card.instanceId}>
+            {state.players.player.hand.map((card) => (
+              <article className={`tcg-card is-${card.tone} ${selectedHandId === card.instanceId ? 'is-selected' : ''}`} key={card.instanceId}>
                 <div className="tcg-card-head">
-                  <span>{card.cost}</span>
-                  <strong>{card.role}</strong>
+                  <span>{card.cost ?? '-'}</span>
+                  <strong>{cardKind(card)} {subType(card)}</strong>
                 </div>
                 <div className="tcg-card-art" />
                 <h3>{card.name}</h3>
                 <KeywordBadges card={card} />
-                <p>{card.text}</p>
-                {card.role === 'Unit' ? <span>ATK {card.attack} / HP {card.health}</span> : null}
-                <button type="button" onClick={() => playCard(card.instanceId)} disabled={!canAct || card.cost > state.energy}>
-                  사용
+                <p>{Array.isArray(card.text) ? card.text.join(' ') : card.text}</p>
+                {cardKind(card) === 'Monster' ? <span>ATK {cardAtk(card)} / HP {card.health}</span> : null}
+                <button type="button" onClick={() => setSelectedHandId((current) => current === card.instanceId ? '' : card.instanceId)} disabled={!canMain}>
+                  {selectedHandId === card.instanceId ? '선택됨' : '선택'}
                 </button>
               </article>
             ))}
+            {!state.players.player.hand.length ? <div className="tcg-empty-zone">패가 없습니다.</div> : null}
           </div>
         </section>
       </section>
