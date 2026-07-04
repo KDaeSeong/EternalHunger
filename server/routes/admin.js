@@ -18,6 +18,7 @@ const { requireUserId, ownedFilter, withOwner } = require('../utils/requestScope
 const { createNotification } = require('../utils/notifications');
 const adminAuditRoutes = require('./admin/audit');
 const adminDroneOfferRoutes = require('./admin/droneOffers');
+const adminGameCatalogRoutes = require('./admin/gameCatalog');
 const adminPerkRoutes = require('./admin/perks');
 
 // ★ [수정 2] 이 라우터의 '모든' 요청에 대해 문지기 2명을 세웁니다.
@@ -26,6 +27,7 @@ const adminPerkRoutes = require('./admin/perks');
 router.use(verifyToken, verifyAdmin);
 router.use('/audit', adminAuditRoutes);
 router.use('/drone-offers', adminDroneOfferRoutes);
+router.use('/games', adminGameCatalogRoutes);
 router.use('/perks', adminPerkRoutes);
 
 function scope(req, res, extra = {}) {

@@ -8,6 +8,7 @@ import {
   gameBoardWriteHref,
   gameRoomCreateHref,
 } from '../../games/_lib/gameCatalog';
+import GameCandidateManager from './_components/GameCandidateManager';
 
 export const metadata = {
   title: '게임 이식 관리 | EternalHunger',
@@ -278,6 +279,8 @@ export default function AdminGamesPage() {
           <strong style={styles.metricValue}>{avgProgress}%</strong>
         </div>
       </section>
+
+      <GameCandidateManager />
 
       <section style={styles.grid} aria-label="게임별 이식 상태">
         {rows.map((row) => {
