@@ -7,6 +7,7 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached } from '../../../utils/api';
 import {
+  dynamicGameCandidateToGame,
   findGameBySlug,
   GAME_CATALOG,
   gameBoardWriteHref,
@@ -60,6 +61,14 @@ function normalizeHub(payload) {
       teams: normalizeList(rankings.teams),
     },
   };
+}
+
+function findDynamicGameCandidate(payload, slug) {
+  const key = String(slug || '').trim();
+  if (!key) return null;
+  return normalizeList(payload?.candidates)
+    .map(dynamicGameCandidateToGame)
+    .find((game) => game?.slug === key) || null;
 }
 
 function safeText(value, fallback = '') {
@@ -171,11 +180,15 @@ function ActivityPanel({ title, href, items, empty, renderItem, linkLabel = '전
 export default function GameDetailPage() {
   const params = useParams();
   const slug = normalizeRouteId(params?.slug);
-  const game = findGameBySlug(slug);
+  const staticGame = useMemo(() => findGameBySlug(slug), [slug]);
   const { showToast } = useToast();
   const [hub, setHub] = useState(EMPTY_HUB);
+  const [dynamicGame, setDynamicGame] = useState(null);
+  const [dynamicLookupDone, setDynamicLookupDone] = useState(Boolean(staticGame));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const game = staticGame || dynamicGame;
+  const resolvingGame = !staticGame && !dynamicLookupDone;
 
   const loadHub = useCallback(async (options = {}) => {
     if (!game) return;
@@ -200,9 +213,42 @@ export default function GameDetailPage() {
   }, [game, showToast]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!slug || staticGame) {
+      setDynamicGame(null);
+      setDynamicLookupDone(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDynamicGame(null);
+    setDynamicLookupDone(false);
+
+    (async () => {
+      try {
+        const payload = await apiGetCached('/public/game-candidates', {
+          ttlMs: 30000,
+          timeoutMs: 15000,
+          storage: 'session',
+        });
+        if (!cancelled) setDynamicGame(findDynamicGameCandidate(payload, slug));
+      } catch {
+        if (!cancelled) setDynamicGame(null);
+      } finally {
+        if (!cancelled) setDynamicLookupDone(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, staticGame]);
+
+  useEffect(() => {
     if (game) void loadHub();
-    else setLoading(false);
-  }, [game, loadHub]);
+    else if (!resolvingGame) setLoading(false);
+  }, [game, loadHub, resolvingGame]);
 
   const relevantPosts = useMemo(() => {
     if (!game) return [];
@@ -228,6 +274,19 @@ export default function GameDetailPage() {
   const portingChecklist = game ? getGamePortingChecklist(game) : [];
   const portingProgress = game ? getGamePortingProgress(game) : { done: 0, total: 0, label: '0/0' };
   const integrationHref = integration.roomSystem === 'game-room' ? gameRoomCreateHref(game) : game?.primaryHref || '/games';
+
+  if (!game && resolvingGame) {
+    return (
+      <main className="games-page-shell">
+        <SiteHeader />
+        <section className="games-page">
+          <div className="games-empty">
+            <span>게임 정보를 불러오는 중입니다.</span>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   if (!game) {
     return (

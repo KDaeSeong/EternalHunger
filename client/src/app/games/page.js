@@ -8,6 +8,7 @@ import { apiGetCached } from '../../utils/api';
 import {
   GAME_CATALOG,
   GAME_ROADMAP,
+  dynamicGameCandidateToGame,
   findGameBySlug,
   gameDetailHref,
   getGameIntegration,
@@ -40,6 +41,10 @@ function normalizeHub(payload) {
   };
 }
 
+function normalizeDynamicGames(payload) {
+  return normalizeList(payload?.candidates).map(dynamicGameCandidateToGame).filter(Boolean);
+}
+
 function safeText(value, fallback = '') {
   const text = String(value || '').trim();
   return text || fallback;
@@ -65,13 +70,14 @@ function roomHref(room) {
   return room?.href || (room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`);
 }
 
-function roomGameTitle(room) {
-  return findGameBySlug(room?.gameSlug)?.title || room?.gameSlug || '게임';
+function roomGameTitle(room, gameTitleBySlug = new Map()) {
+  const slug = String(room?.gameSlug || '').trim();
+  return gameTitleBySlug.get(slug) || findGameBySlug(slug)?.title || slug || '게임';
 }
 
-function roomMeta(room) {
+function roomMeta(room, gameTitleBySlug) {
   if (room?.roomType === 'game-room') {
-    return `${roomGameTitle(room)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
+    return `${roomGameTitle(room, gameTitleBySlug)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
   }
   const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
   return `스무고개 · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)} · ${safeText(room.categoryLabel, room.category || '자유')}`;
@@ -133,7 +139,7 @@ function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
 
 function RoadmapCard({ item, index }) {
   const game = findGameBySlug(item.slug) || item;
-  const integration = getGameIntegration(game.slug);
+  const integration = getGameIntegration(game);
   const checklist = getGamePortingChecklist(game);
   const progress = getGamePortingProgress(game);
   return (
@@ -192,6 +198,7 @@ function ActivityList({ title, href, items, empty, renderItem }) {
 export default function GamesPage() {
   const { showToast } = useToast();
   const [hub, setHub] = useState(EMPTY_HUB);
+  const [dynamicCandidates, setDynamicCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -206,9 +213,21 @@ export default function GamesPage() {
         force: Boolean(options.force),
       });
       setHub(normalizeHub(payload));
+      try {
+        const candidatePayload = await apiGetCached('/public/game-candidates', {
+          ttlMs: 30000,
+          timeoutMs: 15000,
+          storage: 'session',
+          force: Boolean(options.force),
+        });
+        setDynamicCandidates(normalizeDynamicGames(candidatePayload));
+      } catch {
+        setDynamicCandidates([]);
+      }
     } catch (err) {
       const message = err?.message || '게임 허브 정보를 불러오지 못했습니다.';
       setHub(EMPTY_HUB);
+      setDynamicCandidates([]);
       setError(message);
       showToast({ tone: 'warning', message });
     } finally {
@@ -228,6 +247,14 @@ export default function GamesPage() {
   const topCharacter = hub.rankings.characters[0] || null;
   const topUser = hub.rankings.points[0] || null;
   const derived = useMemo(() => ({ topUser, topCharacter }), [topCharacter, topUser]);
+  const gameTitleBySlug = useMemo(() => new Map(dynamicCandidates.map((game) => [game.slug, game.title])), [dynamicCandidates]);
+  const roadmapGames = useMemo(() => {
+    const staticSlugs = new Set([...GAME_CATALOG, ...GAME_ROADMAP].map((game) => game.slug));
+    return [
+      ...GAME_ROADMAP,
+      ...dynamicCandidates.filter((game) => game?.slug && !staticSlugs.has(game.slug)),
+    ];
+  }, [dynamicCandidates]);
   const games = useMemo(() => GAME_CATALOG.map((game) => ({
     tone: game.tone,
     title: game.title,
@@ -296,7 +323,7 @@ export default function GamesPage() {
             <Link href="/board?category=game">아이디어 논의</Link>
           </div>
           <div className="games-roadmap-grid">
-            {GAME_ROADMAP.map((item, index) => (
+            {roadmapGames.map((item, index) => (
               <RoadmapCard item={item} index={index} key={item.slug} />
             ))}
           </div>
@@ -311,7 +338,7 @@ export default function GamesPage() {
             renderItem={(room) => (
               <Link href={roomHref(room)} key={`room-${room._id || room.title}`}>
                 <strong>{safeText(room.title, '제목 없음')}</strong>
-                <span>{roomMeta(room)}</span>
+                <span>{roomMeta(room, gameTitleBySlug)}</span>
               </Link>
             )}
           />

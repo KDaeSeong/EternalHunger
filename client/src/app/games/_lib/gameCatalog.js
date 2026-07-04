@@ -272,9 +272,13 @@ export const GAME_ROADMAP = [
 export function getGameIntegration(slugOrGame) {
   const slug = typeof slugOrGame === 'object' ? slugOrGame?.slug : slugOrGame;
   const key = String(slug || '').trim();
+  const dynamicIntegration = typeof slugOrGame === 'object' && slugOrGame?.integration && typeof slugOrGame.integration === 'object'
+    ? slugOrGame.integration
+    : {};
   return {
     ...GAME_INTEGRATION_DEFAULTS,
     ...(GAME_INTEGRATIONS[key] || {}),
+    ...dynamicIntegration,
   };
 }
 
@@ -282,13 +286,13 @@ export function withGameIntegration(game) {
   if (!game) return null;
   return {
     ...game,
-    integration: getGameIntegration(game.slug),
+    integration: getGameIntegration(game),
   };
 }
 
 export function getGamePortingChecklist(gameOrSlug) {
   const game = typeof gameOrSlug === 'object' ? gameOrSlug : findGameBySlug(gameOrSlug);
-  const integration = getGameIntegration(game?.slug);
+  const integration = getGameIntegration(game);
   const primaryHref = String(game?.primaryHref || '');
   const hasPlayableRoute = Boolean(primaryHref && !primaryHref.startsWith('/board'));
 
@@ -348,6 +352,52 @@ export function getGamePortingProgress(gameOrSlug) {
     ratio: done / total,
     label: `${done}/${total}`,
   };
+}
+
+export function dynamicGameCandidateToGame(candidate) {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const slug = String(candidate.slug || '').trim();
+  if (!slug) return null;
+  const roomSystem = candidate.roomSystem || 'none';
+  const integration = {
+    stage: candidate.stage || 'planned',
+    stageLabel: candidate.stageLabel || '이식 후보',
+    adapter: candidate.adapter || 'discussion',
+    roomSystem,
+    supportsRooms: Boolean(candidate.supportsRooms || roomSystem !== 'none'),
+    supportsStateSync: Boolean(candidate.supportsStateSync),
+    supportsRecords: candidate.supportsRecords !== false,
+    supportsSaves: candidate.supportsSaves !== false,
+    resultMode: candidate.resultMode || 'manual',
+  };
+  return withGameIntegration({
+    slug,
+    title: candidate.title || slug,
+    subtitle: candidate.subtitle || 'Candidate',
+    priority: candidate.priority || '후보',
+    scope: candidate.scope || '',
+    summary: candidate.summary || candidate.nextStep || '관리자 후보 저장소에 등록된 게임입니다.',
+    nextStep: candidate.nextStep || '',
+    tone: 'roadmap',
+    detail: candidate.summary || candidate.nextStep || '관리자 후보 저장소에 등록된 게임입니다.',
+    primaryHref: `/board?category=game&gameSlug=${slug}&write=1`,
+    primaryLabel: '이식 논의',
+    boardHref: `/board?category=game&gameSlug=${slug}`,
+    boardLabel: '게임 게시판',
+    recordHref: `/games/records?gameSlug=${slug}`,
+    recordLabel: '전적',
+    guideHref: '/guides',
+    guideLabel: '가이드',
+    visual: '',
+    metrics: ['posts', 'rooms', 'runs'],
+    statusItems: [
+      candidate.scope ? `범위: ${candidate.scope}` : '',
+      candidate.nextStep || '',
+    ].filter(Boolean),
+    integration,
+    isRoadmap: true,
+    isDynamicCandidate: true,
+  });
 }
 
 export function getAllGames() {

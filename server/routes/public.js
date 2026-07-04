@@ -16,6 +16,7 @@ const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
 const DroneOffer = require('../models/DroneOffer');
 const Perk = require('../models/Perk');
+const GameCatalogEntry = require('../models/GameCatalogEntry');
 const { dedupeScopedPerks, ensureDefaultPublicPerks } = require('../utils/defaultPerks');
 const ErMeta = require('../models/ErMeta');
 const { DEFAULT_ZONES, normalizeZoneList } = require('../utils/defaultZones');
@@ -158,6 +159,30 @@ function mapHubPost(post) {
     ...mapPublicPost(post),
     author: mapCompactUser(post?.authorId),
     authorName: displayName(post?.authorId),
+  };
+}
+
+function mapPublicGameCandidate(row) {
+  return {
+    id: normalizeId(row),
+    slug: normalizeGameSlug(row?.slug),
+    title: row?.title || '',
+    subtitle: row?.subtitle || '',
+    priority: row?.priority || '후보',
+    stage: row?.stage || 'planned',
+    stageLabel: row?.stageLabel || '이식 후보',
+    adapter: row?.adapter || 'discussion',
+    roomSystem: row?.roomSystem || 'none',
+    resultMode: row?.resultMode || 'manual',
+    scope: row?.scope || '',
+    summary: row?.summary || '',
+    nextStep: row?.nextStep || '',
+    supportsRooms: Boolean(row?.supportsRooms),
+    supportsStateSync: Boolean(row?.supportsStateSync),
+    supportsRecords: Boolean(row?.supportsRecords),
+    supportsSaves: Boolean(row?.supportsSaves),
+    sortOrder: Number(row?.sortOrder || 1000),
+    updatedAt: row?.updatedAt || null,
   };
 }
 
@@ -764,6 +789,19 @@ router.get('/home-hub', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '홈 허브 정보를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/game-candidates', async (req, res) => {
+  try {
+    const rows = await GameCatalogEntry.find({ visible: true })
+      .sort({ sortOrder: 1, updatedAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ candidates: rows.map(mapPublicGameCandidate) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '게임 후보 목록을 불러오지 못했습니다.' });
   }
 });
 
