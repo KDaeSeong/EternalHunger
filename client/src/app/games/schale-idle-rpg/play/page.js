@@ -12,14 +12,17 @@ import {
   RECIPES,
   SAVE_VERSION,
   STUDENTS,
+  achievementRows,
   attemptTowerAction,
   availableEnhanceSlots,
   autoSalvageAction,
+  claimAchievementRewardsAction,
   buyTowerShopOfferAction,
   claimMissionRewardsAction,
   craftRecipeAction,
   createNewState,
   enhanceEquipmentAction,
+  equipTitleAction,
   getEquippedList,
   getLeader,
   getPlayTimeSec,
@@ -35,6 +38,7 @@ import {
   slotLabel,
   summaryForState,
   teamPower,
+  titleRows,
   towerShopRows,
 } from '../_lib/schaleIdleEngine';
 
@@ -82,6 +86,8 @@ export default function SchaleIdlePlayPage() {
   const enhanceSlots = useMemo(() => availableEnhanceSlots(state), [state]);
   const rows = useMemo(() => inventoryRows(state), [state]);
   const missions = useMemo(() => missionRows(state), [state]);
+  const achievements = useMemo(() => achievementRows(state), [state]);
+  const titles = useMemo(() => titleRows(state), [state]);
   const salvage = useMemo(() => salvageRows(state), [state]);
   const shopOffers = useMemo(() => towerShopRows(state), [state]);
   const leader = getLeader(state);
@@ -90,6 +96,8 @@ export default function SchaleIdlePlayPage() {
   const selectedEquip = selectedSlot ? state.equipment?.[selectedSlot] : null;
   const power = teamPower(state);
   const score = scoreState(state);
+  const claimableAchievements = achievements.filter((achievement) => achievement.canClaim).length;
+  const equippedTitle = titles.find((title) => title.equipped);
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -194,6 +202,7 @@ export default function SchaleIdlePlayPage() {
     { label: '탑', value: `${state.towerMaxCleared}층` },
     { label: '전투력', value: power.toLocaleString('ko-KR') },
     { label: '크레딧', value: `${Number(state.credits || 0).toLocaleString('ko-KR')} Cr` },
+    { label: '업적', value: `${achievements.filter((achievement) => achievement.claimed).length}/${achievements.length}` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -372,6 +381,88 @@ export default function SchaleIdlePlayPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>업적</h2>
+            <button type="button" className="tcg-primary-action" disabled={!claimableAchievements} onClick={() => setState((current) => claimAchievementRewardsAction(current))}>
+              {claimableAchievements ? `${claimableAchievements}개 수령` : '수령 없음'}
+            </button>
+          </div>
+          <div className="game-save-list">
+            {achievements.map((achievement) => (
+              <article className="game-save-row" key={achievement.id}>
+                <div>
+                  <span>{achievement.progress}/{achievement.target}{achievement.titleName ? ` · ${achievement.titleName}` : ''}</span>
+                  <strong>{achievement.name}</strong>
+                  <small>{achievement.desc}</small>
+                </div>
+                <strong>{achievement.claimed ? '수령' : achievement.done ? '완료' : '진행'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>칭호</h2>
+            <span>{equippedTitle ? equippedTitle.name : '미장착'}</span>
+          </div>
+          <div className="game-save-list">
+            {titles.map((title) => (
+              <article className="game-save-row" key={title.id}>
+                <div>
+                  <span>{title.kind === 'POWER_MUL' ? '전투력' : '크레딧'} x{Number(title.mul || 1).toFixed(2)}</span>
+                  <strong>{title.name}</strong>
+                  <small>{title.desc}</small>
+                </div>
+                <button type="button" disabled={!title.unlocked} onClick={() => setState((current) => equipTitleAction(current, title.equipped ? null : title.id))}>
+                  {title.equipped ? '해제' : title.unlocked ? '장착' : '잠김'}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>근무 보고서</h2>
+            <span>{state.lastDutyReport ? `${state.lastDutyReport.fromFloor}-${state.lastDutyReport.toFloor}층` : '없음'}</span>
+          </div>
+          {state.lastDutyReport ? (
+            <div className="games-activity-list">
+              <div>
+                <strong>획득 {Number(state.lastDutyReport.totalCreditsGained || 0).toLocaleString('ko-KR')} Cr · {state.lastDutyReport.stoppedReason}</strong>
+              </div>
+              {(state.lastDutyReport.highlights || []).map((line, index) => (
+                <div key={`${line}-${index}`}>
+                  <strong>{line}</strong>
+                </div>
+              ))}
+            </div>
+          ) : <div className="games-empty">아직 방치 정산 보고서가 없습니다.</div>}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>탑 보고서</h2>
+            <span>{state.towerLastBatchReport ? `${state.towerLastBatchReport.successes}승 ${state.towerLastBatchReport.failures}패` : '없음'}</span>
+          </div>
+          {state.towerLastBatchReport ? (
+            <div className="games-activity-list">
+              <div>
+                <strong>획득 {Number(state.towerLastBatchReport.creditsGained || 0).toLocaleString('ko-KR')} Cr · 토큰 {Number(state.towerLastBatchReport.tokensGained || 0)}</strong>
+              </div>
+              {(state.towerLastBatchReport.logs || []).map((line, index) => (
+                <div key={`${line}-${index}`}>
+                  <strong>{line}</strong>
+                </div>
+              ))}
+            </div>
+          ) : <div className="games-empty">아직 탑 도전 보고서가 없습니다.</div>}
         </section>
       </section>
 

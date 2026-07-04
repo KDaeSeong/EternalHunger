@@ -184,6 +184,86 @@ const AFFIX_TEMPLATES = [
   },
 ];
 
+export const TITLES = [
+  { id: 'title_rookie', name: '신입 당번', desc: '크레딧 획득 +1%', kind: 'REWARD_MUL', mul: 1.01 },
+  { id: 'title_tower', name: '탑 등반가', desc: '크레딧 획득 +2%', kind: 'REWARD_MUL', mul: 1.02 },
+  { id: 'title_smith', name: '장비 장인', desc: '전투력 +2%', kind: 'POWER_MUL', mul: 1.02 },
+  { id: 'title_veteran', name: '베테랑 당번', desc: '크레딧 획득 +3%', kind: 'REWARD_MUL', mul: 1.03 },
+  { id: 'title_boss_hunter', name: '보스 헌터', desc: '전투력 +3%', kind: 'POWER_MUL', mul: 1.03 },
+];
+
+export const ACHIEVEMENTS = [
+  {
+    id: 'ach_floor_20',
+    name: '현장 적응',
+    desc: '메인 스테이지 20층 클리어',
+    rewardCredits: 2000,
+    unlockTitleId: 'title_rookie',
+    action: 'MAX_FLOOR',
+    target: 20,
+  },
+  {
+    id: 'ach_tower_10',
+    name: '초급 등반',
+    desc: '시련의 탑 10층 클리어',
+    rewardCredits: 3000,
+    unlockTitleId: 'title_tower',
+    action: 'MAX_TOWER',
+    target: 10,
+  },
+  {
+    id: 'ach_enhance_5',
+    name: '강화 첫 발',
+    desc: '강화 +5 장비 1개 보유',
+    rewardCredits: 2500,
+    unlockTitleId: 'title_smith',
+    action: 'ENHANCED_EQUIP',
+    target: 5,
+  },
+  {
+    id: 'ach_clear_200',
+    name: '꾸준한 당번',
+    desc: '메인 웨이브 200회 클리어',
+    rewardCredits: 4000,
+    action: 'CLEAR_FLOOR',
+    target: 200,
+  },
+  {
+    id: 'ach_boss_30',
+    name: '보스 처리반',
+    desc: '보스/중간보스 30회 처치',
+    rewardCredits: 5000,
+    action: 'KILL_BOSS',
+    target: 30,
+  },
+  {
+    id: 'ach_earn_50k',
+    name: '재정 담당',
+    desc: '크레딧 50,000 획득',
+    rewardCredits: 4500,
+    action: 'EARN_CREDITS',
+    target: 50000,
+  },
+  {
+    id: 'ach_clear_500',
+    name: '장기 근무',
+    desc: '메인 웨이브 500회 클리어',
+    rewardCredits: 8000,
+    unlockTitleId: 'title_veteran',
+    action: 'CLEAR_FLOOR',
+    target: 500,
+  },
+  {
+    id: 'ach_boss_100',
+    name: '특수임무 숙련자',
+    desc: '보스/중간보스 100회 처치',
+    rewardCredits: 9000,
+    unlockTitleId: 'title_boss_hunter',
+    action: 'KILL_BOSS',
+    target: 100,
+  },
+];
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   return {
@@ -229,6 +309,12 @@ export function createNewState(options = {}) {
       SHOP_BUY: 0,
     },
     claimedMissions: [],
+    lifetimeCounters: {},
+    achievementClaims: {},
+    unlockedTitleIds: [],
+    equippedTitleId: null,
+    lastDutyReport: null,
+    towerLastBatchReport: null,
     log: ['샬레 당직이 시작됐습니다. 방치 정산으로 층을 밀고, 재료를 모아 장비를 제작하세요.'],
   };
 }
@@ -247,6 +333,12 @@ export function normalizeState(value) {
     towerShop,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     claimedMissions: Array.isArray(value.claimedMissions) ? value.claimedMissions : base.claimedMissions,
+    lifetimeCounters: value.lifetimeCounters && typeof value.lifetimeCounters === 'object' ? normalizeCounters(value.lifetimeCounters) : base.lifetimeCounters,
+    achievementClaims: value.achievementClaims && typeof value.achievementClaims === 'object' ? { ...value.achievementClaims } : base.achievementClaims,
+    unlockedTitleIds: Array.isArray(value.unlockedTitleIds) ? Array.from(new Set(value.unlockedTitleIds.filter((item) => typeof item === 'string'))) : base.unlockedTitleIds,
+    equippedTitleId: typeof value.equippedTitleId === 'string' ? value.equippedTitleId : null,
+    lastDutyReport: value.lastDutyReport && typeof value.lastDutyReport === 'object' ? value.lastDutyReport : base.lastDutyReport,
+    towerLastBatchReport: value.towerLastBatchReport && typeof value.towerLastBatchReport === 'object' ? value.towerLastBatchReport : base.towerLastBatchReport,
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
 }
@@ -318,6 +410,26 @@ function bumpCounter(counters, action, amount = 1) {
     ...counters,
     [action]: Number(counters[action] || 0) + Number(amount || 0),
   };
+}
+
+function normalizeCounters(value = {}) {
+  return Object.fromEntries(Object.entries(value || {}).map(([key, amount]) => [
+    key,
+    Math.max(0, Math.floor(Number(amount || 0))),
+  ]));
+}
+
+function bumpLifetimeCounter(state, action, amount = 1) {
+  return {
+    ...state,
+    lifetimeCounters: bumpCounter(normalizeCounters(state.lifetimeCounters), action, amount),
+  };
+}
+
+function addLifetimeCounters(state, entries = {}) {
+  return Object.entries(entries).reduce((next, [action, amount]) => (
+    Number(amount || 0) > 0 ? bumpLifetimeCounter(next, action, amount) : next
+  ), state);
 }
 
 function rarityRank(rarity) {
@@ -538,6 +650,65 @@ export function getEquippedList(state) {
   return Object.values(current.equipment).filter(Boolean).sort((a, b) => slotLabel(a.slot).localeCompare(slotLabel(b.slot), 'ko-KR'));
 }
 
+function titleById(titleId) {
+  return TITLES.find((title) => title.id === titleId) || null;
+}
+
+function getEquippedTitle(state) {
+  const current = normalizeState(state);
+  const title = titleById(current.equippedTitleId);
+  if (!title || !current.unlockedTitleIds.includes(title.id)) return null;
+  return title;
+}
+
+function rewardCreditMul(state) {
+  const title = getEquippedTitle(state);
+  return title?.kind === 'REWARD_MUL' ? Number(title.mul || 1) : 1;
+}
+
+function powerTitleMul(state) {
+  const title = getEquippedTitle(state);
+  return title?.kind === 'POWER_MUL' ? Number(title.mul || 1) : 1;
+}
+
+function achievementProgress(current, achievement) {
+  if (achievement.action === 'MAX_FLOOR') return Number(current.maxClearedFloor || 0);
+  if (achievement.action === 'MAX_TOWER') return Number(current.towerMaxCleared || 0);
+  if (achievement.action === 'ENHANCED_EQUIP') {
+    return getEquippedList(current).some((equip) => Number(equip.enhance || 0) >= achievement.target) ? 1 : 0;
+  }
+  return Number(current.lifetimeCounters?.[achievement.action] || 0);
+}
+
+export function achievementRows(state) {
+  const current = normalizeState(state);
+  return ACHIEVEMENTS.map((achievement) => {
+    const target = achievement.action === 'ENHANCED_EQUIP' ? 1 : Number(achievement.target || 1);
+    const rawProgress = achievementProgress(current, achievement);
+    const progress = achievement.action === 'ENHANCED_EQUIP' ? rawProgress : Math.min(rawProgress, target);
+    const done = rawProgress >= target;
+    const claimed = Boolean(current.achievementClaims?.[achievement.id]);
+    return {
+      ...achievement,
+      progress,
+      target,
+      done,
+      claimed,
+      canClaim: done && !claimed,
+      titleName: achievement.unlockTitleId ? titleById(achievement.unlockTitleId)?.name || achievement.unlockTitleId : '',
+    };
+  });
+}
+
+export function titleRows(state) {
+  const current = normalizeState(state);
+  return TITLES.map((title) => ({
+    ...title,
+    unlocked: current.unlockedTitleIds.includes(title.id),
+    equipped: current.unlockedTitleIds.includes(title.id) && current.equippedTitleId === title.id,
+  }));
+}
+
 export function teamPower(state) {
   const current = normalizeState(state);
   let add = 0;
@@ -553,7 +724,7 @@ export function teamPower(state) {
     staminaMul *= Number(stats.staminaMul || 1) * rolls.staminaMulMul * (1 + enhance * 0.02);
   });
   const staminaFactor = clamp(0.62 + (Number(current.stamina || 0) / 100) * 0.5, 0.45, 1.12);
-  return Math.round((Number(current.basePower || 0) + add) * mul * staminaFactor * staminaMul);
+  return Math.round((Number(current.basePower || 0) + add) * mul * staminaFactor * staminaMul * powerTitleMul(current));
 }
 
 function dutyDifficulty(floor) {
@@ -591,6 +762,59 @@ function rollDrops(inventory, floor, rng) {
   return next;
 }
 
+function compressDutyHighlights(details, maxLines = 8) {
+  const lines = [];
+  let runStart = null;
+  let runEnd = null;
+  let runCredits = 0;
+  const flush = () => {
+    if (runStart == null || runEnd == null) return;
+    lines.push(runStart === runEnd
+      ? `F${runStart} 클리어 (+${Math.floor(runCredits)} Cr)`
+      : `F${runStart}~F${runEnd} 클리어 (+${Math.floor(runCredits)} Cr)`);
+    runStart = null;
+    runEnd = null;
+    runCredits = 0;
+  };
+
+  details.forEach((entry) => {
+    if (entry.kind === 'FLOOR_CLEAR') {
+      if (runStart == null) {
+        runStart = entry.floor;
+        runEnd = entry.floor;
+        runCredits = Number(entry.creditsGained || 0);
+      } else if (entry.floor === runEnd + 1) {
+        runEnd = entry.floor;
+        runCredits += Number(entry.creditsGained || 0);
+      } else {
+        flush();
+        runStart = entry.floor;
+        runEnd = entry.floor;
+        runCredits = Number(entry.creditsGained || 0);
+      }
+      return;
+    }
+    flush();
+    if (entry.kind === 'BOSS_RESULT') lines.push(`F${entry.floor} 보스전: ${entry.message}`);
+    else if (entry.kind === 'LOOT') lines.push(`F${entry.floor} 전리품: ${entry.items.map((item) => `${itemName(item.itemId)}x${item.qty}`).join(', ')}`);
+    else if (entry.kind === 'FAILED') lines.push(`F${entry.floor} 실패: ${entry.message}`);
+  });
+  flush();
+  return lines.slice(0, maxLines);
+}
+
+function makeDutyReport({ fromFloor, toFloor, totalCreditsGained, stoppedReason, details }) {
+  return {
+    at: Date.now(),
+    fromFloor,
+    toFloor,
+    totalCreditsGained: Math.round(totalCreditsGained),
+    stoppedReason,
+    highlights: compressDutyHighlights(details),
+    details: details.slice(-40),
+  };
+}
+
 export function resolveDutyAction(state, minutes = 60) {
   let next = normalizeState(state);
   const leader = getLeader(next);
@@ -602,6 +826,9 @@ export function resolveDutyAction(state, minutes = 60) {
   let floor = Number(next.floor || 1);
   let inventory = next.inventory;
   let stamina = Number(next.stamina || 0);
+  const fromFloor = floor;
+  const details = [];
+  const rewardMul = rewardCreditMul(next);
 
   while (seconds > 0 && stamina > 8) {
     const power = teamPower({ ...next, floor, stamina, inventory });
@@ -611,7 +838,8 @@ export function resolveDutyAction(state, minutes = 60) {
     if (seconds < clearSec) break;
     seconds -= clearSec;
     if (rng() > probability) {
-      return addLog({
+      details.push({ kind: 'FAILED', floor, message: leader.lines.fail });
+      const failedState = addLifetimeCounters({
         ...next,
         floor,
         maxClearedFloor: Math.max(Number(next.maxClearedFloor || 0), floor - 1),
@@ -623,19 +851,37 @@ export function resolveDutyAction(state, minutes = 60) {
           CLEAR_FLOOR: Number(next.counters.CLEAR_FLOOR || 0) + cleared,
           KILL_BOSS: Number(next.counters.KILL_BOSS || 0) + bosses,
         },
+        lastDutyReport: makeDutyReport({
+          fromFloor,
+          toFloor: Math.max(fromFloor, floor - 1),
+          totalCreditsGained: credits,
+          stoppedReason: 'FAILED',
+          details,
+        }),
+      }, {
+        CLEAR_FLOOR: cleared,
+        KILL_BOSS: bosses,
+        EARN_CREDITS: credits,
+      });
+      return addLog({
+        ...failedState,
       }, `${floor}층 정산 실패. ${leader.lines.fail}`);
     }
 
-    const reward = creditReward(floor);
+    const reward = Math.round(creditReward(floor) * rewardMul);
     credits += reward;
     cleared += 1;
-    if (floor % 10 === 0) bosses += 1;
+    details.push({ kind: 'FLOOR_CLEAR', floor, creditsGained: reward });
+    if (floor % 10 === 0) {
+      bosses += 1;
+      details.push({ kind: 'BOSS_RESULT', floor, win: true, message: '보스 처치 성공', creditsGained: reward });
+    }
     inventory = rollDrops(inventory, floor, rng);
     stamina = clamp(stamina - (floor % 10 === 0 ? 3.2 : 1.3), 0, 100);
     floor += 1;
   }
 
-  next = {
+  next = addLifetimeCounters({
     ...next,
     floor,
     maxClearedFloor: Math.max(Number(next.maxClearedFloor || 0), floor - 1),
@@ -647,7 +893,18 @@ export function resolveDutyAction(state, minutes = 60) {
       CLEAR_FLOOR: Number(next.counters.CLEAR_FLOOR || 0) + cleared,
       KILL_BOSS: Number(next.counters.KILL_BOSS || 0) + bosses,
     },
-  };
+    lastDutyReport: makeDutyReport({
+      fromFloor,
+      toFloor: Math.max(fromFloor, floor - 1),
+      totalCreditsGained: credits,
+      stoppedReason: seconds <= 0 ? 'TIME_OUT' : 'NONE',
+      details,
+    }),
+  }, {
+    CLEAR_FLOOR: cleared,
+    KILL_BOSS: bosses,
+    EARN_CREDITS: credits,
+  });
   return addLog(next, `${minutes}분 방치 정산: ${cleared}층 클리어, +${Math.round(credits)} Cr, 보스 ${bosses}회. ${cleared ? leader.lines.clear : '추가 클리어는 없었습니다.'}`);
 }
 
@@ -682,14 +939,14 @@ export function craftRecipeAction(state, recipeId) {
     inventory = addItem(inventory, recipe.produces.itemId, recipe.produces.qty);
   }
 
-  return addLog({
+  return addLog(addLifetimeCounters({
     ...current,
     credits: Number(current.credits || 0) - recipe.credits,
     inventory,
     equipment,
     salvageQueue,
     counters: bumpCounter(current.counters, 'CRAFT', 1),
-  }, message);
+  }, { CRAFT: 1 }), message);
 }
 
 export function enhanceEquipmentAction(state, slot) {
@@ -706,7 +963,7 @@ export function enhanceEquipmentAction(state, slot) {
   const chance = clamp(0.82 - level * 0.045, 0.22, 0.9);
   const success = rng() < chance;
   const nextEquip = success ? { ...equip, enhance: level + 1 } : equip;
-  return addLog({
+  return addLog(addLifetimeCounters({
     ...current,
     credits: Number(current.credits || 0) - costCredits,
     inventory: addItem(current.inventory, 'itm_enhance_stone', -costStones),
@@ -715,7 +972,10 @@ export function enhanceEquipmentAction(state, slot) {
       ...bumpCounter(current.counters, 'ENHANCE_TRY', 1),
       ENHANCE_SUCCESS: Number(current.counters.ENHANCE_SUCCESS || 0) + (success ? 1 : 0),
     },
-  }, `${equip.name} +${level} 강화 ${success ? `성공. +${level + 1}` : '실패.'} 성공률 ${Math.round(chance * 100)}%`);
+  }, {
+    ENHANCE_TRY: 1,
+    ENHANCE_SUCCESS: success ? 1 : 0,
+  }), `${equip.name} +${level} 강화 ${success ? `성공. +${level + 1}` : '실패.'} 성공률 ${Math.round(chance * 100)}%`);
 }
 
 export function rerollEquipmentAction(state, slot) {
@@ -846,9 +1106,11 @@ export function attemptTowerAction(state, count = 1) {
   let next = normalizeState(state);
   const rng = createRng(`${next.runId}|tower|${next.towerFloor}|${next.counters.ATTEMPT_TOWER}|${count}`);
   const requested = Math.max(1, Number(count || 1));
+  const rewardMul = rewardCreditMul(next);
   let successCount = 0;
   let failCount = 0;
   let credits = 0;
+  const logs = [];
 
   for (let index = 0; index < requested; index += 1) {
     if (Number(next.inventory.itm_tower_key || 0) <= 0) break;
@@ -860,10 +1122,11 @@ export function attemptTowerAction(state, count = 1) {
       counters: bumpCounter(next.counters, 'ATTEMPT_TOWER', 1),
     };
     if (rng() < probability) {
-      const reward = towerReward(floor);
+      const reward = Math.round(towerReward(floor) * rewardMul);
       const tokenGain = 1 + Math.floor((floor - 1) / 10) + (floor % 5 === 0 ? 1 : 0);
       successCount += 1;
       credits += reward;
+      logs.push(`F${floor} 성공: +${reward} Cr, 토큰 +${tokenGain}`);
       let inventory = addItem(next.inventory, 'itm_tower_token', tokenGain);
       if (floor % TOWER.milestoneEvery === 0) inventory = addItem(inventory, 'itm_tower_key', 1);
       next = {
@@ -877,6 +1140,7 @@ export function attemptTowerAction(state, count = 1) {
       };
     } else {
       failCount += 1;
+      logs.push(`F${floor} 실패: 성공률 ${Math.round(probability * 100)}%`);
       next = {
         ...next,
         towerLossStreak: Number(next.towerLossStreak || 0) + 1,
@@ -885,6 +1149,25 @@ export function attemptTowerAction(state, count = 1) {
     }
   }
 
+  next = addLifetimeCounters({
+    ...next,
+    towerLastBatchReport: {
+      at: Date.now(),
+      requested,
+      successes: successCount,
+      failures: failCount,
+      creditsGained: credits,
+      tokensGained: logs.reduce((sum, line) => {
+        const match = line.match(/토큰 \+(\d+)/);
+        return sum + Number(match?.[1] || 0);
+      }, 0),
+      logs: logs.slice(-30),
+    },
+  }, {
+    ATTEMPT_TOWER: successCount + failCount,
+    CLEAR_TOWER: successCount,
+    EARN_CREDITS: credits,
+  });
   return addLog(next, `시련의 탑 ${requested}회 요청: 성공 ${successCount}, 실패 ${failCount}, +${credits} Cr.`);
 }
 
@@ -894,24 +1177,61 @@ export function claimMissionRewardsAction(state) {
   let credits = 0;
   let inventory = next.inventory;
   const claimedSet = new Set(next.claimedMissions);
+  const rewardMul = rewardCreditMul(next);
 
   MISSIONS.forEach((mission) => {
     if (claimedSet.has(mission.id)) return;
     if (Number(next.counters[mission.action] || 0) < mission.target) return;
     claimedSet.add(mission.id);
     claimed += 1;
-    credits += Number(mission.rewardCredits || 0);
+    credits += Math.round(Number(mission.rewardCredits || 0) * rewardMul);
     inventory = addItems(inventory, mission.rewardItems);
   });
 
   if (!claimed) return addLog(next, '수령 가능한 미션 보상이 없습니다.');
-  next = {
+  next = addLifetimeCounters({
     ...next,
     credits: Number(next.credits || 0) + credits,
     inventory,
     claimedMissions: [...claimedSet],
-  };
+  }, { EARN_CREDITS: credits });
   return addLog(next, `미션 ${claimed}개 보상 수령. +${credits} Cr.`);
+}
+
+export function claimAchievementRewardsAction(state) {
+  let next = normalizeState(state);
+  const rows = achievementRows(next);
+  const rewardMul = rewardCreditMul(next);
+  let claimed = 0;
+  let credits = 0;
+  const claims = { ...next.achievementClaims };
+  const titleIds = new Set(next.unlockedTitleIds);
+
+  rows.forEach((achievement) => {
+    if (!achievement.canClaim) return;
+    claims[achievement.id] = true;
+    claimed += 1;
+    credits += Math.round(Number(achievement.rewardCredits || 0) * rewardMul);
+    if (achievement.unlockTitleId) titleIds.add(achievement.unlockTitleId);
+  });
+
+  if (!claimed) return addLog(next, '수령 가능한 업적 보상이 없습니다.');
+  next = addLifetimeCounters({
+    ...next,
+    credits: Number(next.credits || 0) + credits,
+    achievementClaims: claims,
+    unlockedTitleIds: [...titleIds],
+  }, { EARN_CREDITS: credits });
+  return addLog(next, `업적 ${claimed}개 보상 수령. +${credits} Cr${titleIds.size !== next.unlockedTitleIds.length ? ', 새 칭호 해금' : ''}.`);
+}
+
+export function equipTitleAction(state, titleId) {
+  const current = normalizeState(state);
+  if (!titleId) return addLog({ ...current, equippedTitleId: null }, '칭호를 해제했습니다.');
+  const title = titleById(titleId);
+  if (!title) return addLog(current, '칭호를 찾을 수 없습니다.');
+  if (!current.unlockedTitleIds.includes(title.id)) return addLog(current, `${title.name} 칭호는 아직 해금되지 않았습니다.`);
+  return addLog({ ...current, equippedTitleId: title.id }, `${title.name} 칭호를 장착했습니다. ${title.desc}`);
 }
 
 export function inventoryRows(state) {
@@ -980,6 +1300,7 @@ export function scoreState(state) {
     + Number(current.counters.REROLL || 0) * 40
     + Number(current.counters.SALVAGE || 0) * 12
     + Number(current.counters.SHOP_BUY || 0) * 35
+    + achievementRows(current).filter((achievement) => achievement.claimed).length * 250
   ));
 }
 
@@ -1004,5 +1325,13 @@ export function summaryForState(state) {
     salvaged: Number(current.counters.SALVAGE || 0),
     towerShopBuys: Number(current.counters.SHOP_BUY || 0),
     salvageQueued: current.salvageQueue.length,
+    achievements: achievementRows(current).filter((achievement) => achievement.claimed).length,
+    equippedTitle: titleById(current.equippedTitleId)?.name || '',
+    lastDutyReport: current.lastDutyReport ? {
+      fromFloor: current.lastDutyReport.fromFloor,
+      toFloor: current.lastDutyReport.toFloor,
+      credits: current.lastDutyReport.totalCreditsGained,
+      stoppedReason: current.lastDutyReport.stoppedReason,
+    } : null,
   };
 }
