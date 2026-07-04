@@ -5223,6 +5223,36 @@
   font-weight: 950;
 }
 
+.srpg-shop-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  min-width: 112px;
+  padding: 8px 10px;
+}
+
+.srpg-shop-chip span,
+.srpg-shop-chip small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srpg-shop-chip small {
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.srpg-shop-chip:disabled {
+  background: #f1f3f5;
+  color: #9aa4af;
+  cursor: not-allowed;
+}
+
 .games-empty {
   justify-content: space-between;
   min-height: 58px;

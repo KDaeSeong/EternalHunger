@@ -232,8 +232,9 @@ const COVER = new Set(['2,0', '2,4', '5,3']);
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
+  const runId = options.runId || `srpg-${Date.now().toString(36)}`;
   return {
-    runId: options.runId || `srpg-${Date.now().toString(36)}`,
+    runId,
     startedAt: now,
     updatedAt: now,
     day: 1,
@@ -250,6 +251,7 @@ export function createNewState(options = {}) {
     questClaims: {},
     properties: { ownedIds: [], leasedOutIds: [], rented: {} },
     edictState: { monthly: null },
+    shopState: createShopState(runId, 1),
     battle: createBattle('m001'),
     log: ['출정 준비가 끝났습니다. 학생을 선택하고 이동/공격으로 첫 임무를 정리하세요.'],
   };
@@ -258,9 +260,13 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
+  const runId = String(value.runId || base.runId);
+  const day = Math.max(1, Math.floor(Number(value.day || base.day || 1)));
   return {
     ...base,
     ...value,
+    runId,
+    day,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment: Array.isArray(value.equipment) ? value.equipment : base.equipment,
     battleWinLog: Array.isArray(value.battleWinLog) ? value.battleWinLog : base.battleWinLog,
@@ -269,6 +275,7 @@ export function normalizeState(value) {
     questClaims: value.questClaims && typeof value.questClaims === 'object' ? value.questClaims : questClaimsFromCompleted(value.completedQuestIds),
     properties: normalizeProperties(value.properties),
     edictState: normalizeEdictState(value.edictState),
+    shopState: normalizeShopState(value.shopState, runId, day),
     battle: value.battle && typeof value.battle === 'object' ? normalizeBattle(value.battle) : createBattle(value.selectedMissionId || 'm001'),
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
@@ -396,6 +403,82 @@ function createRng(seed) {
   };
 }
 
+const SHOP_REFRESH_BASE_COST = 20;
+const SHOP_REFRESH_COST_STEP = 10;
+
+function safeWholeNumber(value, fallback = 0) {
+  const number = Math.floor(Number(value));
+  return Number.isFinite(number) ? Math.max(0, number) : fallback;
+}
+
+function shopSeedFor(runId, day, refreshCount) {
+  return `${runId || GAME_SLUG}|shop|d${Math.max(1, safeWholeNumber(day, 1))}|r${safeWholeNumber(refreshCount, 0)}`;
+}
+
+function generatedShopRows(seed) {
+  const rng = createRng(seed);
+  const priceMin = Math.min(ECONOMY.shop.priceMulMin, ECONOMY.shop.priceMulMax);
+  const priceMax = Math.max(ECONOMY.shop.priceMulMin, ECONOMY.shop.priceMulMax);
+  const stockBumpMax = safeWholeNumber(ECONOMY.shop.stockBumpMax, 0);
+  return SHOP_ITEMS.map((line) => {
+    const basePrice = Math.max(0, Math.floor(Number(line.price || 0)));
+    const priceMul = priceMin + rng() * (priceMax - priceMin);
+    const price = Math.max(1, Math.floor(basePrice * priceMul));
+    const hasStock = typeof line.stock === 'number';
+    const stock = hasStock
+      ? Math.max(0, Math.floor(Number(line.stock || 0)) + Math.floor(rng() * (stockBumpMax + 1)))
+      : null;
+    return { itemId: line.itemId, price, stock };
+  });
+}
+
+function createShopState(runId, day = 1, refreshCount = 0, paidRefreshCount = 0, freeRefreshUsed = false) {
+  const safeDay = Math.max(1, safeWholeNumber(day, 1));
+  const safeRefreshCount = safeWholeNumber(refreshCount, 0);
+  const seed = shopSeedFor(runId, safeDay, safeRefreshCount);
+  return {
+    day: safeDay,
+    seed,
+    refreshCount: safeRefreshCount,
+    paidRefreshCount: safeWholeNumber(paidRefreshCount, 0),
+    freeRefreshUsed: freeRefreshUsed === true,
+    rows: generatedShopRows(seed),
+  };
+}
+
+function normalizeShopState(value, runId, day) {
+  const safeDay = Math.max(1, safeWholeNumber(day, 1));
+  const refreshCount = safeWholeNumber(value?.refreshCount ?? value?.rerollCount, 0);
+  const paidRefreshCount = safeWholeNumber(value?.paidRefreshCount ?? value?.rerollCount, 0);
+  const freeRefreshUsed = value?.freeRefreshUsed === true || value?.freeRerollUsed === true;
+  const generated = createShopState(runId, safeDay, refreshCount, paidRefreshCount, freeRefreshUsed);
+  if (!value || typeof value !== 'object' || Math.max(1, safeWholeNumber(value.day, safeDay)) !== safeDay) {
+    return generated;
+  }
+  const rows = Array.isArray(value.rows) ? value.rows : [];
+  const normalizedRows = SHOP_ITEMS.map((line) => {
+    const generatedRow = generated.rows.find((row) => row.itemId === line.itemId) || { price: line.price, stock: line.stock ?? null };
+    const savedRow = rows.find((row) => row?.itemId === line.itemId) || null;
+    const stockFromLegacy = value.stockByItemId && typeof value.stockByItemId === 'object'
+      ? value.stockByItemId[line.itemId]
+      : undefined;
+    const rawStock = savedRow?.stock ?? stockFromLegacy ?? generatedRow.stock;
+    return {
+      itemId: line.itemId,
+      price: Math.max(1, safeWholeNumber(savedRow?.price ?? generatedRow.price, line.price)),
+      stock: rawStock == null && typeof line.stock !== 'number'
+        ? null
+        : Math.max(0, safeWholeNumber(rawStock, generatedRow.stock ?? 0)),
+    };
+  });
+  return { ...generated, rows: normalizedRows };
+}
+
+function shopRefreshCost(state) {
+  const shopState = normalizeShopState(state.shopState, state.runId, state.day);
+  return SHOP_REFRESH_BASE_COST + safeWholeNumber(shopState.paidRefreshCount, 0) * SHOP_REFRESH_COST_STEP;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -421,6 +504,15 @@ function hasActiveFacility(state, facility) {
     const rentedActive = Boolean(properties.rented[property.id]);
     return ownedActive || rentedActive;
   });
+}
+
+function hasOwnedActiveFacility(state, facility) {
+  const properties = normalizeProperties(state.properties);
+  return PROPERTIES.some((property) => (
+    property.facility === facility
+    && properties.ownedIds.includes(property.id)
+    && !properties.leasedOutIds.includes(property.id)
+  ));
 }
 
 function activeMonthlyEdict(state) {
@@ -825,6 +917,7 @@ export function restAction(state) {
     },
     credit: settled.credit,
     properties: settled.properties,
+    shopState: createShopState(current.runId, nextDay),
   }, parts.join(' / '));
 }
 
@@ -862,22 +955,58 @@ export function equipWeaponAction(state, uid) {
 
 export function buyItemAction(state, itemId) {
   const current = normalizeState(state);
-  const line = SHOP_ITEMS.find((item) => item.itemId === itemId) || SHOP_ITEMS[0];
-  const price = adjustedShopPrice(current, line);
+  const shop = shopRows(current);
+  const line = shop.find((item) => item.itemId === itemId) || shop[0];
+  const price = line.price;
+  if (line.stock != null && Number(line.stock || 0) <= 0) return addLog(current, '상점 재고가 없습니다.');
   if (Number(current.credit || 0) < price) return addLog(current, '크레딧이 부족합니다.');
   const item = getItem(line.itemId);
+  const nextShopState = {
+    ...current.shopState,
+    rows: current.shopState.rows.map((row) => (
+      row.itemId === line.itemId && row.stock != null
+        ? { ...row, stock: Math.max(0, Number(row.stock || 0) - 1) }
+        : row
+    )),
+  };
   if (item?.kind === 'equipment') {
     return addLog({
       ...current,
       credit: Number(current.credit || 0) - price,
+      shopState: nextShopState,
       equipment: [...current.equipment, { uid: `${item.id}-${Date.now().toString(36)}`, itemId: item.id }],
     }, `${item.name} 구매. -${price} Cr`);
   }
   return addLog({
     ...current,
     credit: Number(current.credit || 0) - price,
+    shopState: nextShopState,
     inventory: addItem(current.inventory, line.itemId, 1),
   }, `${itemName(line.itemId)} 구매. -${price} Cr`);
+}
+
+export function refreshShopAction(state, useFree = false) {
+  const current = normalizeState(state);
+  const shopState = normalizeShopState(current.shopState, current.runId, current.day);
+  const freeAvailable = hasOwnedActiveFacility(current, 'shop') && !shopState.freeRefreshUsed;
+  const paidCost = shopRefreshCost(current);
+  if (useFree && !freeAvailable) return addLog(current, '사용 가능한 무료 상점 갱신이 없습니다.');
+  if (!useFree && Number(current.credit || 0) < paidCost) return addLog(current, '상점 갱신 크레딧이 부족합니다.');
+
+  const nextPaidRefreshCount = useFree ? shopState.paidRefreshCount : shopState.paidRefreshCount + 1;
+  const nextFreeRefreshUsed = useFree ? true : shopState.freeRefreshUsed;
+  const nextShopState = createShopState(
+    current.runId,
+    current.day,
+    shopState.refreshCount + 1,
+    nextPaidRefreshCount,
+    nextFreeRefreshUsed,
+  );
+  return addLog({
+    ...current,
+    credit: useFree ? current.credit : Number(current.credit || 0) - paidCost,
+    shopState: nextShopState,
+  }, useFree ? '상점을 무료로 갱신했습니다.' : `상점을 갱신했습니다. -${paidCost} Cr`);
 }
 
 function questComplete(state, quest) {
@@ -1062,13 +1191,20 @@ export function questRows(state) {
 
 export function shopRows(state) {
   const current = normalizeState(state);
-  return SHOP_ITEMS.map((line) => ({
-    ...line,
-    item: getItem(line.itemId),
-    name: itemName(line.itemId),
-    price: adjustedShopPrice(current, line),
-    basePrice: line.price,
-  }));
+  const shopState = normalizeShopState(current.shopState, current.runId, current.day);
+  return SHOP_ITEMS.map((line) => {
+    const generated = shopState.rows.find((row) => row.itemId === line.itemId) || { price: line.price, stock: line.stock ?? null };
+    const pricedLine = { ...line, price: generated.price };
+    return {
+      ...line,
+      item: getItem(line.itemId),
+      name: itemName(line.itemId),
+      price: adjustedShopPrice(current, pricedLine),
+      dailyPrice: generated.price,
+      basePrice: line.price,
+      stock: generated.stock,
+    };
+  });
 }
 
 export function recipeRows(state) {
@@ -1125,9 +1261,18 @@ export function townSummary(state) {
   const current = normalizeState(state);
   const properties = propertyRows(current);
   const edict = activeMonthlyEdict(current);
+  const shopState = normalizeShopState(current.shopState, current.runId, current.day);
+  const hasOwnedShop = hasOwnedActiveFacility(current, 'shop');
   return {
     restCost: innRestCost(current),
     shopDiscountPct: Math.max(0, Math.round((1 - shopPriceMultiplier(current)) * 100)),
+    shopRefreshCost: shopRefreshCost(current),
+    shopRefreshCount: shopState.refreshCount,
+    shopPaidRefreshCount: shopState.paidRefreshCount,
+    shopFreeRefreshUsed: shopState.freeRefreshUsed,
+    shopFreeRefreshAvailable: hasOwnedShop && !shopState.freeRefreshUsed,
+    shopFreeRefreshLeft: hasOwnedShop && !shopState.freeRefreshUsed ? 1 : 0,
+    hasOwnedShop,
     activeProperties: properties.filter((property) => property.active).length,
     ownedProperties: properties.filter((property) => property.owned).length,
     rentedProperties: properties.filter((property) => property.rented).length,

@@ -40,6 +40,7 @@ import {
   normalizeState,
   propertyRows,
   questRows,
+  refreshShopAction,
   recipeRows,
   rentPropertyAction,
   restAction,
@@ -467,10 +468,32 @@ export default function BaSrpgPlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
           </div>
+          <div className="games-rank-split" style={{ marginTop: 10 }}>
+            <SmallStat label="상점 갱신" value={`${town.shopRefreshCount}회`} />
+            <SmallStat label="유료 갱신" value={`${town.shopPaidRefreshCount}회`} />
+            <SmallStat label="무료" value={`${town.shopFreeRefreshLeft}/1`} />
+            <SmallStat label="갱신 비용" value={`${town.shopRefreshCost} Cr`} />
+          </div>
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            <ActionButton disabled={!town.shopFreeRefreshAvailable} onClick={() => setState((current) => refreshShopAction(current, true))}>
+              무료 상점 갱신
+            </ActionButton>
+            <ActionButton disabled={Number(state.credit || 0) < Number(town.shopRefreshCost || 0)} onClick={() => setState((current) => refreshShopAction(current, false))}>
+              유료 상점 갱신
+            </ActionButton>
+          </div>
           <div className="games-chip-row" style={{ marginTop: 10 }}>
             {shop.map((item) => (
-              <button type="button" className="srpg-shop-chip" key={item.itemId} onClick={() => setState((current) => buyItemAction(current, item.itemId))}>
-                {item.name} {item.price}Cr{item.basePrice !== item.price ? `/${item.basePrice}` : ''}
+              <button
+                type="button"
+                className="srpg-shop-chip"
+                key={item.itemId}
+                disabled={(item.stock != null && Number(item.stock || 0) <= 0) || Number(state.credit || 0) < Number(item.price || 0)}
+                title={item.stock == null ? '재고 무제한' : `재고 ${item.stock}`}
+                onClick={() => setState((current) => buyItemAction(current, item.itemId))}
+              >
+                <span>{item.name} {item.price}Cr{item.basePrice !== item.price ? `/${item.basePrice}` : ''}</span>
+                <small>재고 {item.stock == null ? '∞' : item.stock}</small>
               </button>
             ))}
           </div>
