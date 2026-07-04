@@ -6,7 +6,16 @@ export const EQUIPMENT_SLOT_LABELS = {
   tool: '도구',
   weapon: '무기',
   top: '상의',
+  bottom: '하의',
   accessory: '장신구',
+  hat: '모자',
+  shoes: '신발',
+  earmuffs: '귀마개',
+  socks: '양말',
+  gloves: '장갑',
+  armWarmers: '토시',
+  leggings: '레깅스',
+  pauldron: '견갑',
 };
 
 const EQUIPMENT_SLOTS = Object.keys(EQUIPMENT_SLOT_LABELS);
@@ -39,10 +48,10 @@ export const STUDENTS = [
 ];
 
 export const ZONES = [
-  { id: 'forest', name: '숲', gather: [['wood', 2], ['fiber', 1], ['berry', 1]], hunt: [['hide', 1], ['meat', 1]], note: '나무와 섬유가 안정적으로 나옵니다.' },
-  { id: 'river', name: '강가', gather: [['stone', 2], ['clay', 1], ['herb', 1]], hunt: [['meat', 1], ['bone', 1]], note: '돌과 약초를 모으기 좋습니다.' },
-  { id: 'cave', name: '동굴', gather: [['stone', 2], ['flint', 1]], hunt: [['bone', 2], ['hide', 1]], note: '부싯돌과 뼈가 잘 나오지만 위험합니다.' },
-  { id: 'plains', name: '초원', gather: [['fiber', 2], ['berry', 1]], hunt: [['meat', 2], ['hide', 1]], note: '식량과 대형 사냥감 기회가 있습니다.' },
+  { id: 'forest', name: '숲', gather: [['wood', 2], ['fiber', 1], ['berry', 1], ['resin', 1, 0.35]], hunt: [['hide', 1], ['meat', 1], ['sinew', 1, 0.22]], note: '나무와 섬유가 안정적으로 나오고, 수지를 찾을 수 있습니다.' },
+  { id: 'river', name: '강가', gather: [['stone', 2], ['clay', 1], ['herb', 1], ['resin', 1, 0.18]], hunt: [['meat', 1], ['bone', 1], ['tooth', 1, 0.16]], note: '돌과 약초를 모으기 좋고, 작은 사냥감의 이빨을 얻을 수 있습니다.' },
+  { id: 'cave', name: '동굴', gather: [['stone', 2], ['flint', 1], ['obsidian_shard', 1, 0.22]], hunt: [['bone', 2], ['hide', 1], ['tooth', 1, 0.24], ['mutant_gland', 1, 0.08]], note: '부싯돌과 뼈가 잘 나오지만 위험합니다. 드물게 흑요석과 변이체 부산물이 나옵니다.' },
+  { id: 'plains', name: '초원', gather: [['fiber', 2], ['berry', 1], ['herb', 1, 0.25]], hunt: [['meat', 2], ['hide', 1], ['sinew', 1, 0.28], ['dino_hide', 1, 0.14], ['dino_bone', 1, 0.12], ['rune_shard', 1, 0.05]], note: '식량과 대형 사냥감 기회가 있습니다. 희귀한 공룡 소재도 노릴 수 있습니다.' },
 ];
 
 export const ITEMS = {
@@ -51,27 +60,87 @@ export const ITEMS = {
   fiber: { name: '섬유', icon: 'fiber', weight: 1 },
   hide: { name: '가죽', icon: 'hide', weight: 1 },
   bone: { name: '뼈', icon: 'bone', weight: 1 },
+  sinew: { name: '힘줄', icon: 'hide', weight: 1 },
+  tooth: { name: '이빨', icon: 'bone', weight: 1 },
+  dino_hide: { name: '공룡 가죽', icon: 'hide', weight: 2 },
+  dino_bone: { name: '공룡 뼈', icon: 'bone', weight: 2 },
+  mutant_gland: { name: '변이체 분비물', icon: 'herb', weight: 1 },
+  obsidian_shard: { name: '흑요석 조각', icon: 'stone', weight: 1 },
+  rune_shard: { name: '룬 파편', icon: 'artifact', weight: 1 },
   flint: { name: '부싯돌', icon: 'stone', weight: 1 },
   clay: { name: '점토', icon: 'stone', weight: 1 },
+  resin: { name: '수지', icon: 'wood', weight: 1 },
   herb: { name: '약초', icon: 'herb', weight: 1 },
-  berry: { name: '베리', icon: 'food', weight: 1 },
-  meat: { name: '고기', icon: 'food', weight: 1 },
-  cooked_meat: { name: '구운 고기', icon: 'food', weight: 1 },
+  berry: { name: '베리', icon: 'food', weight: 1, type: 'food', nutrition: 8, heal: 0 },
+  meat: { name: '고기', icon: 'food', weight: 1, type: 'food', nutrition: 12, heal: 0 },
+  cooked_meat: { name: '구운 고기', icon: 'food', weight: 1, type: 'food', nutrition: 28, heal: 6 },
+  jerky: { name: '육포', icon: 'food', weight: 1, type: 'food', nutrition: 18, heal: 2 },
+  herb_tonic: { name: '약초 달임', icon: 'herb', weight: 1, type: 'food', nutrition: 0, heal: 12 },
   twine: { name: '끈', icon: 'fiber', weight: 1 },
   leather_strip: { name: '가죽끈', icon: 'hide', weight: 1 },
   stone_axe: { name: '돌도끼', icon: 'tool', weight: 3, type: 'equip', slot: 'tool', successAdd: { gather: 0.08, craft: 0.03 }, staminaAdd: { gather: -2 } },
   bow: { name: '활', icon: 'weapon', weight: 2, type: 'equip', slot: 'weapon', successAdd: { hunt: 0.1 }, staminaAdd: { hunt: -1 } },
+  flint_knife: { name: '부싯돌 칼', icon: 'tool', weight: 1, type: 'equip', slot: 'tool', successAdd: { craft: 0.06, gather: 0.02 }, staminaAdd: { craft: -2 } },
+  bone_pick: { name: '뼈 곡괭이', icon: 'tool', weight: 2, type: 'equip', slot: 'tool', successAdd: { gather: 0.08 }, staminaAdd: { gather: -1 } },
+  spear: { name: '창', icon: 'weapon', weight: 3, type: 'equip', slot: 'weapon', successAdd: { hunt: 0.06 }, staminaAdd: { hunt: -1 } },
+  sling: { name: '투석구', icon: 'weapon', weight: 1, type: 'equip', slot: 'weapon', successAdd: { hunt: 0.05 } },
+  atlatl: { name: '투창기(아틀라틀)', icon: 'weapon', weight: 2, type: 'equip', slot: 'weapon', successAdd: { hunt: 0.1 } },
   hide_coat: { name: '가죽 상의', icon: 'armor', weight: 2, type: 'equip', slot: 'top', insulation: 3, staminaAdd: { rest: -1 } },
+  hide_pants: { name: '가죽 하의', icon: 'armor', weight: 2, type: 'equip', slot: 'bottom', insulation: 2 },
+  hat_fur: { name: '털모자', icon: 'armor', weight: 1, type: 'equip', slot: 'hat', insulation: 1 },
+  shoes_leather: { name: '가죽 신발', icon: 'armor', weight: 1, type: 'equip', slot: 'shoes', insulation: 1, staminaAdd: { gather: -1 } },
+  earmuffs: { name: '귀마개', icon: 'armor', weight: 1, type: 'equip', slot: 'earmuffs', insulation: 1 },
+  socks: { name: '양말', icon: 'armor', weight: 1, type: 'equip', slot: 'socks', insulation: 1 },
+  gloves: { name: '장갑', icon: 'armor', weight: 1, type: 'equip', slot: 'gloves', insulation: 1, successAdd: { craft: 0.03 } },
+  arm_warmers: { name: '토시', icon: 'armor', weight: 1, type: 'equip', slot: 'armWarmers', insulation: 1 },
+  leggings: { name: '레깅스', icon: 'armor', weight: 1, type: 'equip', slot: 'leggings', insulation: 1 },
+  pauldron: { name: '견갑', icon: 'armor', weight: 2, type: 'equip', slot: 'pauldron', successAdd: { hunt: 0.03 } },
+  fur_coat: { name: '털 상의', icon: 'armor', weight: 3, type: 'equip', slot: 'top', insulation: 4, staminaAdd: { rest: -1 } },
+  fur_pants: { name: '털 하의', icon: 'armor', weight: 3, type: 'equip', slot: 'bottom', insulation: 3 },
+  fur_hat: { name: '두꺼운 털모자', icon: 'armor', weight: 1, type: 'equip', slot: 'hat', insulation: 2 },
+  fur_boots: { name: '털 부츠', icon: 'armor', weight: 2, type: 'equip', slot: 'shoes', insulation: 2, staminaAdd: { gather: -1 } },
+  fur_earmuffs: { name: '두꺼운 귀마개', icon: 'armor', weight: 1, type: 'equip', slot: 'earmuffs', insulation: 2 },
+  fur_socks: { name: '두꺼운 양말', icon: 'armor', weight: 1, type: 'equip', slot: 'socks', insulation: 2 },
+  fur_gloves: { name: '두꺼운 장갑', icon: 'armor', weight: 1, type: 'equip', slot: 'gloves', insulation: 2, successAdd: { craft: 0.04 } },
   charm: { name: '부싯돌 장신구', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { craft: 0.04, gather: 0.02 } },
+  hunter_talisman: { name: '사냥 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { hunt: 0.06 } },
+  crafter_amulet: { name: '제작 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { craft: 0.06 } },
+  gatherer_charm: { name: '채집 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { gather: 0.06 } },
 };
 
 export const RECIPES = [
   { id: 'twine', name: '끈', requires: { fiber: 2 }, baseChance: 0.9, reward: { twine: 1 }, note: '초기 제작 재료입니다.' },
   { id: 'stone_axe', name: '돌도끼', requires: { wood: 2, stone: 3 }, baseChance: 0.7, reward: { stone_axe: 1 }, note: '채집 성공률을 올립니다.' },
   { id: 'bow', name: '활', requires: { wood: 2, fiber: 3, twine: 1 }, baseChance: 0.62, reward: { bow: 1 }, note: '사냥 성공률을 올립니다.' },
+  { id: 'flint_knife', name: '부싯돌 칼', requires: { flint: 2, wood: 1, twine: 1 }, baseChance: 0.72, reward: { flint_knife: 1 }, note: '제작과 채집을 동시에 보조하는 정밀 도구입니다.' },
+  { id: 'bone_pick', name: '뼈 곡괭이', requires: { bone: 2, wood: 1, twine: 1 }, baseChance: 0.72, reward: { bone_pick: 1 }, note: '채집 성공률과 피로 관리에 유리합니다.' },
+  { id: 'spear', name: '창', requires: { wood: 2, stone: 2, twine: 1 }, baseChance: 0.66, reward: { spear: 1 }, note: '초기 사냥 안정성을 올리는 무기입니다.' },
+  { id: 'sling', name: '투석구', requires: { fiber: 3, leather_strip: 1 }, baseChance: 0.72, reward: { sling: 1 }, note: '가벼운 사냥 무기입니다.' },
+  { id: 'atlatl', name: '투창기(아틀라틀)', requires: { wood: 3, bone: 2, twine: 2 }, baseChance: 0.58, reward: { atlatl: 1 }, note: '큰 사냥감을 노리기 위한 중급 사냥 무기입니다.' },
   { id: 'leather_strip', name: '가죽끈', requires: { hide: 2 }, baseChance: 0.78, reward: { leather_strip: 1 }, note: '장비 제작에 쓰이는 중간 재료입니다.' },
   { id: 'hide_coat', name: '가죽 상의', requires: { hide: 3, fiber: 2, leather_strip: 1 }, baseChance: 0.58, reward: { hide_coat: 1 }, note: '추위 피해를 줄이는 방한 장비입니다.' },
+  { id: 'hide_pants', name: '가죽 하의', requires: { hide: 3, fiber: 1 }, baseChance: 0.62, reward: { hide_pants: 1 }, note: '하의 슬롯 방한 장비입니다.' },
+  { id: 'shoes_leather', name: '가죽 신발', requires: { hide: 2, fiber: 1 }, baseChance: 0.72, reward: { shoes_leather: 1 }, note: '발 보호와 채집 피로 관리에 도움을 줍니다.' },
+  { id: 'hat_fur', name: '털모자', requires: { hide: 2, fiber: 1 }, baseChance: 0.72, reward: { hat_fur: 1 }, note: '모자 슬롯 방한 장비입니다.' },
+  { id: 'earmuffs', name: '귀마개', requires: { fiber: 2, hide: 1 }, baseChance: 0.8, reward: { earmuffs: 1 }, note: '귀마개 슬롯의 가벼운 방한 장비입니다.' },
+  { id: 'socks', name: '양말', requires: { fiber: 2 }, baseChance: 0.84, reward: { socks: 1 }, note: '양말 슬롯의 기초 방한 장비입니다.' },
+  { id: 'gloves', name: '장갑', requires: { fiber: 2, hide: 1 }, baseChance: 0.8, reward: { gloves: 1 }, note: '제작 감각을 보조하는 장갑입니다.' },
+  { id: 'arm_warmers', name: '토시', requires: { fiber: 2 }, baseChance: 0.84, reward: { arm_warmers: 1 }, note: '토시 슬롯의 기초 방한 장비입니다.' },
+  { id: 'leggings', name: '레깅스', requires: { fiber: 3 }, baseChance: 0.76, reward: { leggings: 1 }, note: '레깅스 슬롯 방한 장비입니다.' },
+  { id: 'pauldron', name: '견갑', requires: { bone: 2, hide: 1, fiber: 1 }, baseChance: 0.58, reward: { pauldron: 1 }, note: '사냥 위험을 감수하는 방어 장비입니다.' },
+  { id: 'fur_coat', name: '털 상의', requires: { dino_hide: 2, hide: 2, fiber: 2 }, baseChance: 0.52, reward: { fur_coat: 1 }, note: '혹한 대응용 상위 방한 장비입니다.' },
+  { id: 'fur_pants', name: '털 하의', requires: { dino_hide: 2, hide: 1, fiber: 1 }, baseChance: 0.54, reward: { fur_pants: 1 }, note: '혹한 대응용 상위 하의입니다.' },
+  { id: 'fur_hat', name: '두꺼운 털모자', requires: { dino_hide: 1, hide: 1, fiber: 1 }, baseChance: 0.6, reward: { fur_hat: 1 }, note: '모자 슬롯의 상위 방한 장비입니다.' },
+  { id: 'fur_boots', name: '털 부츠', requires: { dino_hide: 1, hide: 1, fiber: 1 }, baseChance: 0.6, reward: { fur_boots: 1 }, note: '신발 슬롯의 상위 방한 장비입니다.' },
+  { id: 'fur_earmuffs', name: '두꺼운 귀마개', requires: { dino_hide: 1, fiber: 1 }, baseChance: 0.66, reward: { fur_earmuffs: 1 }, note: '귀마개 슬롯의 상위 방한 장비입니다.' },
+  { id: 'fur_socks', name: '두꺼운 양말', requires: { dino_hide: 1, fiber: 1 }, baseChance: 0.66, reward: { fur_socks: 1 }, note: '양말 슬롯의 상위 방한 장비입니다.' },
+  { id: 'fur_gloves', name: '두꺼운 장갑', requires: { dino_hide: 1, fiber: 1 }, baseChance: 0.66, reward: { fur_gloves: 1 }, note: '제작 보조가 붙은 상위 장갑입니다.' },
   { id: 'charm', name: '부싯돌 장신구', requires: { flint: 1, bone: 1, twine: 1 }, baseChance: 0.66, reward: { charm: 1 }, note: '제작과 채집 감각을 보조합니다.' },
+  { id: 'hunter_talisman', name: '사냥 부적', requires: { tooth: 1, bone: 1, fiber: 1 }, baseChance: 0.66, reward: { hunter_talisman: 1 }, note: '사냥 담당자에게 좋은 장신구입니다.' },
+  { id: 'crafter_amulet', name: '제작 부적', requires: { flint: 1, bone: 1, fiber: 1 }, baseChance: 0.66, reward: { crafter_amulet: 1 }, note: '제작 담당자에게 좋은 장신구입니다.' },
+  { id: 'gatherer_charm', name: '채집 부적', requires: { resin: 1, bone: 1, fiber: 1 }, baseChance: 0.66, reward: { gatherer_charm: 1 }, note: '채집 담당자에게 좋은 장신구입니다.' },
+  { id: 'jerky', name: '육포', requires: { meat: 2, resin: 1 }, baseChance: 0.8, reward: { jerky: 1 }, note: '가벼운 회복과 허기 관리용 보존식입니다.' },
+  { id: 'herb_tonic', name: '약초 달임', requires: { herb: 2, berry: 1 }, baseChance: 0.72, reward: { herb_tonic: 1 }, note: '허기는 줄지 않지만 HP 회복량이 큽니다.' },
 ];
 
 export const TECH_TREE = [
@@ -774,7 +843,16 @@ export function formatRequires(requires) {
 }
 
 export function formatGains(entries) {
+  if (!entries.length) return '획득 없음';
   return entries.map(([id, qty]) => `${itemName(id)} +${qty}`).join(', ');
+}
+
+function rollZoneGains(entries, rng = Math.random) {
+  return entries.reduce((gains, [id, qty, chance = 1]) => {
+    if (rng() > chance) return gains;
+    gains.push([id, qty + (rng() < 0.18 ? 1 : 0)]);
+    return gains;
+  }, []);
 }
 
 export function runGatherAction(state, actorId, zoneId, options = {}) {
@@ -784,7 +862,7 @@ export function runGatherAction(state, actorId, zoneId, options = {}) {
   const ok = (options.rng || Math.random)() < chance;
   let next = state;
   if (ok) {
-    const gains = zone.gather.map(([id, qty]) => [id, qty + ((options.rng || Math.random)() < 0.18 ? 1 : 0)]);
+    const gains = rollZoneGains(zone.gather, options.rng || Math.random);
     next = {
       ...next,
       inventory: addItems(next.inventory, gains),
@@ -804,7 +882,7 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
   const ok = (options.rng || Math.random)() < chance;
   let next = state;
   if (ok) {
-    const gains = zone.hunt.map(([id, qty]) => [id, qty + ((options.rng || Math.random)() < 0.24 ? 1 : 0)]);
+    const gains = rollZoneGains(zone.hunt, options.rng || Math.random);
     next = {
       ...next,
       inventory: addItems(next.inventory, gains),
@@ -845,10 +923,12 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
 
 export function runEatAction(state, actorId, options = {}) {
   const actor = getActor(state, actorId);
-  const foodId = Number(state.inventory.cooked_meat || 0) > 0 ? 'cooked_meat' : Number(state.inventory.berry || 0) > 0 ? 'berry' : Number(state.inventory.meat || 0) > 0 ? 'meat' : '';
+  const foodId = ['cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+    .find((id) => ITEMS[id]?.type === 'food' && Number(state.inventory[id] || 0) > 0) || '';
   if (!foodId) return addLog(state, '먹을 음식이 없습니다. 채집이나 사냥으로 식량을 확보하세요.');
-  const nutrition = foodId === 'cooked_meat' ? 28 : foodId === 'meat' ? 12 : 8;
-  const heal = foodId === 'cooked_meat' ? 6 : 0;
+  const food = ITEMS[foodId];
+  const nutrition = Number(food.nutrition || 0);
+  const heal = Number(food.heal || 0);
   const target = getActor(state, actorId);
   let next = {
     ...state,

@@ -315,7 +315,7 @@ export default function PrimitiveArchivePlayPage() {
     <GamePlayShell
       kicker="Primitive Archive"
       title="원시 아카이브"
-      description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프를 반복하며 며칠이나 버티는지 보는 첫 이식 slice입니다."
+      description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프, 연구, 장비 빌드를 반복하며 며칠이나 버티는지 보는 생존 시뮬레이션입니다."
       summaryLabel="Primitive Archive 요약"
       actions={playActions}
       metrics={playMetrics}
