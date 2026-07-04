@@ -156,9 +156,9 @@ export default function SiteHeader({ className = '' }) {
   return (
     <header className={`site-header ${className}`.trim()}>
       <div className="site-header__inner">
-        <Link href="/" className="site-header__logo" aria-label="ETERNAL HUNGER 메인">
-          <span>ETERNAL</span>
-          <strong>HUNGER</strong>
+        <Link href="/" className="site-header__logo" aria-label="케이(Kei)의 게임개발소 메인">
+          <span>케이(Kei)의</span>
+          <strong>게임개발소</strong>
         </Link>
 
         <nav className="site-header__nav" aria-label="주요 메뉴">

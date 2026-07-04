@@ -14,8 +14,8 @@ import '../styles/ERSimulation.css';
 // (일단 주석 처리 해두고, 페이지 만들 때 하나씩 풉니다)
 
 export const metadata = {
-  title: "ETERNAL HUNGER",
-  description: "ETERNAL HUNGER - 관전형 생존 배틀 시뮬레이션",
+  title: "케이(Kei)의 게임개발소",
+  description: "케이(Kei)의 게임개발소 - 게임, 기록, 저장, 커뮤니티를 한곳에 모은 종합 게임 사이트",
 };
 
 export default function RootLayout({ children }) {

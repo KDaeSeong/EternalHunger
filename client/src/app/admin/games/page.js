@@ -11,7 +11,7 @@ import {
 import GameCandidateManager from './_components/GameCandidateManager';
 
 export const metadata = {
-  title: '게임 이식 관리 | EternalHunger',
+  title: '게임 이식 관리 | 케이(Kei)의 게임개발소',
 };
 
 function pct(value) {

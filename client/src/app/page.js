@@ -441,10 +441,10 @@ export default function Home() {
       <section className="home-container">
         <section className="home-command">
           <div>
-            <p className="home-kicker">Eternal Hunger Hub</p>
-            <h1>ETERNAL HUNGER</h1>
+            <p className="home-kicker">Kei Game Lab</p>
+            <h1>케이(Kei)의 게임개발소</h1>
             <p>
-              시뮬레이션, 기록소, 게시판, 스무고개를 한 화면에서 확인하는 커뮤니티 허브입니다.
+              Eternal Hunger를 비롯한 여러 게임, 기록소, 저장 슬롯, 게시판, 스무고개를 한곳에 모은 종합 게임 사이트입니다.
             </p>
           </div>
           <div className="home-command-actions">

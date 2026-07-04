@@ -11,7 +11,7 @@ export default function GlobalError({ error, reset }) {
   return (
     <main className="app-error-boundary">
       <section className="app-error-card">
-        <p className="app-error-eyebrow">ETERNAL HUNGER</p>
+        <p className="app-error-eyebrow">케이(Kei)의 게임개발소</p>
         <h1>화면을 불러오지 못했습니다</h1>
         <p>
           페이지를 여는 중 클라이언트 오류가 발생했습니다. 다시 시도하거나 메인 화면으로 돌아가주세요.
