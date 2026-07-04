@@ -354,6 +354,25 @@ function mapHubRun(row) {
   };
 }
 
+function mapHubRoomResult(room) {
+  const base = mapSharedGameRoom(room);
+  const result = room?.result && typeof room.result === 'object' ? room.result : {};
+  return {
+    _id: normalizeId(room),
+    kind: 'room-result',
+    gameSlug: base.gameSlug,
+    href: base.href,
+    title: result.roomTitle || base.title || '게임 결과',
+    playedAt: room?.recordedAt || room?.endedAt || room?.updatedAt || null,
+    matchMode: base.mode,
+    status: base.status,
+    playerCount: base.playerCount,
+    recordCount: toNonNegativeInt(room?.recordCount),
+    winnerUserId: normalizeId(result.winnerUserId),
+    summary: result,
+  };
+}
+
 function mapActivityPost(post) {
   return {
     _id: `post-${normalizeId(post)}`,
@@ -764,11 +783,13 @@ router.get('/games/:slug/hub', async (req, res) => {
     if (!isEternalHunger && !isTwentyQuestions) {
       const roomFilter = { gameSlug: slug, visibility: 'public' };
       const activeRoomFilter = { ...roomFilter, status: { $in: ['open', 'playing'] } };
-      const [userCount, postCount, roomCount, activeRoomCount, recentPosts, activeRooms, recentRooms] = await Promise.all([
+      const recordedRoomFilter = { ...roomFilter, recordedAt: { $ne: null } };
+      const [userCount, postCount, roomCount, activeRoomCount, runCount, recentPosts, activeRooms, recentRooms, recentRuns] = await Promise.all([
         User.countDocuments(VISIBLE_USER_FILTER),
         Post.countDocuments({ gameSlug: slug }),
         GameRoom.countDocuments(roomFilter),
         GameRoom.countDocuments(activeRoomFilter),
+        GameRoom.countDocuments(recordedRoomFilter),
         Post.find({ gameSlug: slug })
           .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
           .populate('authorId', 'username nickname')
@@ -787,6 +808,12 @@ router.get('/games/:slug/hub', async (req, res) => {
           .sort({ lastActivityAt: -1, updatedAt: -1 })
           .limit(6)
           .lean(),
+        GameRoom.find(recordedRoomFilter)
+          .select('_id gameSlug title mode status visibility maxPlayers players summary result recordedAt recordCount hostId createdAt updatedAt endedAt lastActivityAt')
+          .populate('hostId', 'username nickname')
+          .sort({ recordedAt: -1, updatedAt: -1 })
+          .limit(6)
+          .lean(),
       ]);
 
       return res.json({
@@ -796,7 +823,7 @@ router.get('/games/:slug/hub', async (req, res) => {
           posts: toNonNegativeInt(postCount),
           characters: 0,
           teams: 0,
-          runs: 0,
+          runs: toNonNegativeInt(runCount),
           rooms: toNonNegativeInt(roomCount),
           activeRooms: toNonNegativeInt(activeRoomCount),
           visibleRooms: activeRooms.length,
@@ -804,7 +831,7 @@ router.get('/games/:slug/hub', async (req, res) => {
         recentPosts: recentPosts.map(mapHubPost),
         activeRooms: activeRooms.map(mapSharedGameRoom),
         recentRooms: recentRooms.map(mapSharedGameRoom),
-        recentRuns: [],
+        recentRuns: recentRuns.map(mapHubRoomResult),
         rankings: {
           points: [],
           characters: [],

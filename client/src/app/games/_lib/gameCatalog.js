@@ -326,7 +326,7 @@ export function findGameBySlug(slug) {
     guideHref: '/guides',
     guideLabel: '가이드',
     visual: '',
-    metrics: ['posts'],
+    metrics: ['posts', 'rooms', 'runs'],
     statusItems: [
       roadmapGame.scope ? `범위: ${roadmapGame.scope}` : '',
       roadmapGame.nextStep || '',

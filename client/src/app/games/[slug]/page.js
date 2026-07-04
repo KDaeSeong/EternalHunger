@@ -97,6 +97,21 @@ function roomMeta(room) {
   return `${roomStatusLabel(room.status)} · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)}`;
 }
 
+function runHref(run, fallback = '/records') {
+  return run?.href || fallback;
+}
+
+function runTitle(run) {
+  return safeText(run?.winnerTeamName || run?.winnerName || run?.title, '결과');
+}
+
+function runMeta(run) {
+  if (run?.kind === 'room-result' || run?.recordCount != null) {
+    return `${formatDate(run.playedAt) || '-'} · ${safeText(run.matchMode, '모드 없음')} · 기록 ${formatNumber(run.recordCount)}건`;
+  }
+  return `${formatDate(run?.playedAt) || '-'} · 킬 ${formatNumber(run?.totalKills)} · 부활 ${formatNumber(run?.totalRevives)} · 초월 ${formatNumber(run?.transCount)}`;
+}
+
 function metricValueForKey(key, hub) {
   const topUser = hub.rankings.points[0] || null;
   if (key === 'characters') return hub.counts.characters;
@@ -314,6 +329,18 @@ export default function GameDetailPage() {
                   <Link href={roomHref(room)} key={`roadmap-room-${room._id || room.title}`}>
                     <strong>{safeText(room.title, '게임방')}</strong>
                     <span>{roomMeta(room)}</span>
+                  </Link>
+                )}
+              />
+              <ActivityPanel
+                title="최근 전적"
+                href={game.recordHref}
+                items={hub.recentRuns.slice(0, 6)}
+                empty={loading ? '최근 전적을 불러오는 중입니다.' : '아직 기록된 전적이 없습니다.'}
+                renderItem={(run) => (
+                  <Link href={runHref(run, game.recordHref)} key={`roadmap-run-${run._id || run.playedAt || run.title}`}>
+                    <strong>{runTitle(run)}</strong>
+                    <span>{runMeta(run)}</span>
                   </Link>
                 )}
               />
