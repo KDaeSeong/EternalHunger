@@ -15,6 +15,7 @@ import {
   RACE_LABELS,
   SAVE_VERSION,
   advancePersonalLeagueAction,
+  advanceWinnersLeagueAction,
   applyTradeAction,
   buyShopItemAction,
   careerSummary,
@@ -45,6 +46,7 @@ import {
   simulateNextMatchAction,
   simulateWeekAction,
   startPersonalLeagueAction,
+  startWinnersLeagueAction,
   startNextSeasonAction,
   summaryForState,
   teamPower,
@@ -52,6 +54,8 @@ import {
   tradePreview,
   unequipSlotAction,
   consumeInventoryItemAction,
+  getWinnersLeagueRows,
+  getWinnersLeagueSummary,
 } from '../_lib/myAnimeCraftEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -89,6 +93,8 @@ export default function MyAnimeCraftPlayPage() {
   const playerRankings = useMemo(() => getTopPlayers(state, 10), [state]);
   const personalSummary = useMemo(() => getPersonalLeagueSummary(state), [state]);
   const personalRows = useMemo(() => getPersonalLeagueRows(state, 12), [state]);
+  const winnersSummary = useMemo(() => getWinnersLeagueSummary(state), [state]);
+  const winnersRows = useMemo(() => getWinnersLeagueRows(state, 10), [state]);
   const lastMatch = useMemo(() => state.fixtures
     .map((fixture) => fixture.result)
     .filter(Boolean)
@@ -228,6 +234,7 @@ export default function MyAnimeCraftPlayPage() {
     { label: '경기', value: `${played}/${total}` },
     { label: '선두', value: leader?.teamName || '-' },
     { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : `${personalSummary.played}/${personalSummary.total || '-'}` },
+    { label: '위너스', value: winnersSummary.stage === 'DONE' ? winnersSummary.championTeamName || '완료' : `${winnersSummary.scoreHome}:${winnersSummary.scoreAway}` },
     { label: '팀', value: state.teams.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -242,7 +249,7 @@ export default function MyAnimeCraftPlayPage() {
     <GamePlayShell
       kicker="Starleague Sim"
       title="MyAnimeCraft Starleague"
-      description="업로드된 Starleague Sim 데이터를 기반으로 팀 리그와 개인리그를 함께 진행합니다. 경기 결과, 순위표, 저장 슬롯, 전적 기록까지 사이트 규격에 맞춰 연결했습니다."
+      description="업로드된 Starleague Sim 데이터를 기반으로 팀 리그, 개인리그, 위너스리그를 함께 진행합니다. 경기 결과, 순위표, 저장 슬롯, 전적 기록까지 사이트 규격에 맞춰 연결했습니다."
       summaryLabel="Starleague Sim 요약"
       actions={actions}
       metrics={metrics}
@@ -344,6 +351,53 @@ export default function MyAnimeCraftPlayPage() {
               </article>
             )) : (
               <div className="games-empty">개인리그 대진이 아직 없습니다.</div>
+            )}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>위너스리그</h2>
+            <span>
+              {winnersSummary.stage === 'NOT_STARTED'
+                ? '대기'
+                : winnersSummary.stage === 'DONE'
+                  ? '완료'
+                  : `${winnersSummary.scoreHome}:${winnersSummary.scoreAway}`}
+            </span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="HOME" value={winnersSummary.homeTeamName || selectedTeam.name} />
+            <SmallStat label="AWAY" value={winnersSummary.awayTeamName || '상위 팀'} />
+            <SmallStat label="진행" value={`${winnersSummary.played}/${winnersSummary.total}`} />
+            <SmallStat label="우승" value={winnersSummary.championTeamName || '-'} />
+          </div>
+          <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
+            {winnersSummary.nextMatchLabel || (winnersSummary.championTeamName
+              ? `${winnersSummary.championTeamName} 우승`
+              : '선택한 팀과 상위 팀이 7판 4선 승자연전으로 맞붙습니다.')}
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={winnersSummary.stage === 'DONE'} onClick={() => setState((current) => (
+              winnersSummary.stage === 'NOT_STARTED'
+                ? startWinnersLeagueAction(current, selectedTeam.id)
+                : advanceWinnersLeagueAction(current)
+            ))}>
+              {winnersSummary.stage === 'NOT_STARTED' ? '위너스리그 시작' : '다음 세트 진행'}
+            </ActionButton>
+          </div>
+          <div className="game-save-list" style={{ marginTop: 16 }}>
+            {winnersRows.length ? winnersRows.map((setResult) => (
+              <article className="game-save-row" key={setResult.id}>
+                <div>
+                  <span>{setResult.label} · {setResult.mapName} · 홈 승률 {setResult.probabilityHome}%</span>
+                  <strong>{setResult.homePlayerName} vs {setResult.awayPlayerName}</strong>
+                  <small>승자 {setResult.winnerPlayerName} · {setResult.homeBuildName} / {setResult.awayBuildName}</small>
+                </div>
+                <strong>{setResult.winnerTeamName}</strong>
+              </article>
+            )) : (
+              <div className="games-empty">위너스리그 세트 기록이 아직 없습니다.</div>
             )}
           </div>
         </section>
@@ -554,7 +608,7 @@ export default function MyAnimeCraftPlayPage() {
                   <span>
                     {index + 1}위 · {row.teamName} · {RACE_LABELS[row.race] || row.race}
                     {' · '}
-                    매치 {row.matchWins}-{row.matchLosses} · 세트 {row.setWins}-{row.setLosses} · 개인 {row.personalWins}-{row.personalLosses}
+                    매치 {row.matchWins}-{row.matchLosses} · 세트 {row.setWins}-{row.setLosses} · 개인 {row.personalWins}-{row.personalLosses} · 위너스 {row.winnersWins}-{row.winnersLosses}
                   </span>
                   <strong>{row.playerName}</strong>
                   <span>전력 {row.skill} · 승률 {row.winRate}% · 명성 {row.fame.toLocaleString('ko-KR')}</span>

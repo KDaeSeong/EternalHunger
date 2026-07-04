@@ -79,6 +79,7 @@ const ECON_TAG_LABELS = {
   FA: 'FA 영입',
   TRADE: '트레이드',
   PERSONAL: '개인리그',
+  WINNERS: '위너스리그',
   BONUS: '보너스',
 };
 
@@ -402,6 +403,25 @@ function createEmptyPersonalLeague(seasonNo = 1) {
   };
 }
 
+function createEmptyWinnersLeague(seasonNo = 1) {
+  return {
+    seasonNo: Number(seasonNo || 1),
+    stage: 'NOT_STARTED',
+    homeTeamId: '',
+    awayTeamId: '',
+    scoreHome: 0,
+    scoreAway: 0,
+    currentHomePlayerId: '',
+    currentAwayPlayerId: '',
+    usedHomePlayerIds: [],
+    usedAwayPlayerIds: [],
+    sets: [],
+    championTeamId: '',
+    runnerUpTeamId: '',
+    updatedAt: 0,
+  };
+}
+
 function normalizePersonalParticipant(value) {
   if (!value || typeof value !== 'object') return null;
   const playerId = String(value.playerId || '').trim();
@@ -466,6 +486,54 @@ function normalizePersonalLeague(value, seasonNo = 1) {
   };
 }
 
+function normalizeWinnersSet(value) {
+  if (!value || typeof value !== 'object') return null;
+  return {
+    id: String(value.id || `winners-${Date.now().toString(36)}`),
+    setNo: Math.max(1, Math.floor(Number(value.setNo || 1))),
+    mapName: String(value.mapName || ''),
+    homePlayerId: String(value.homePlayerId || ''),
+    homePlayerName: String(value.homePlayerName || ''),
+    awayPlayerId: String(value.awayPlayerId || ''),
+    awayPlayerName: String(value.awayPlayerName || ''),
+    winnerTeamId: String(value.winnerTeamId || ''),
+    winnerTeamName: String(value.winnerTeamName || ''),
+    winnerPlayerId: String(value.winnerPlayerId || ''),
+    winnerPlayerName: String(value.winnerPlayerName || ''),
+    probabilityHome: Math.round(Number(value.probabilityHome || 0)),
+    durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
+    homeBuildName: String(value.homeBuildName || ''),
+    awayBuildName: String(value.awayBuildName || ''),
+    playedAt: Number(value.playedAt || Date.now()),
+  };
+}
+
+function normalizeWinnersLeague(value, seasonNo = 1) {
+  const targetSeason = Number(seasonNo || 1);
+  if (!value || typeof value !== 'object' || Number(value.seasonNo || targetSeason) !== targetSeason) {
+    return createEmptyWinnersLeague(targetSeason);
+  }
+  const stage = ['NOT_STARTED', 'IN_PROGRESS', 'DONE'].includes(value.stage) ? value.stage : 'NOT_STARTED';
+  return {
+    ...createEmptyWinnersLeague(targetSeason),
+    ...value,
+    seasonNo: targetSeason,
+    stage,
+    homeTeamId: String(value.homeTeamId || ''),
+    awayTeamId: String(value.awayTeamId || ''),
+    scoreHome: Math.max(0, Math.floor(Number(value.scoreHome || 0))),
+    scoreAway: Math.max(0, Math.floor(Number(value.scoreAway || 0))),
+    currentHomePlayerId: String(value.currentHomePlayerId || ''),
+    currentAwayPlayerId: String(value.currentAwayPlayerId || ''),
+    usedHomePlayerIds: Array.isArray(value.usedHomePlayerIds) ? value.usedHomePlayerIds.map(String).slice(0, 12) : [],
+    usedAwayPlayerIds: Array.isArray(value.usedAwayPlayerIds) ? value.usedAwayPlayerIds.map(String).slice(0, 12) : [],
+    sets: Array.isArray(value.sets) ? value.sets.map(normalizeWinnersSet).filter(Boolean).slice(0, 20) : [],
+    championTeamId: String(value.championTeamId || ''),
+    runnerUpTeamId: String(value.runnerUpTeamId || ''),
+    updatedAt: Number(value.updatedAt || 0),
+  };
+}
+
 function normalizePersonalHistory(history) {
   if (!Array.isArray(history)) return [];
   return history
@@ -480,6 +548,25 @@ function normalizePersonalHistory(history) {
       runnerUpPlayerName: String(entry.runnerUpPlayerName || ''),
       runnerUpTeamName: String(entry.runnerUpTeamName || ''),
       played: Math.max(0, Math.floor(Number(entry.played || 0))),
+      at: Number(entry.at || Date.now()),
+    }))
+    .slice(0, 40);
+}
+
+function normalizeWinnersHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      seasonNo: Number(entry.seasonNo || 1),
+      championTeamId: String(entry.championTeamId || ''),
+      championTeamName: String(entry.championTeamName || ''),
+      runnerUpTeamId: String(entry.runnerUpTeamId || ''),
+      runnerUpTeamName: String(entry.runnerUpTeamName || ''),
+      scoreHome: Math.max(0, Math.floor(Number(entry.scoreHome || 0))),
+      scoreAway: Math.max(0, Math.floor(Number(entry.scoreAway || 0))),
+      allKillPlayerName: String(entry.allKillPlayerName || ''),
+      sets: Math.max(0, Math.floor(Number(entry.sets || 0))),
       at: Number(entry.at || Date.now()),
     }))
     .slice(0, 40);
@@ -508,6 +595,8 @@ export function createNewState(options = {}) {
     seasonReports: [],
     personalLeague: createEmptyPersonalLeague(1),
     personalHistory: [],
+    winnersLeague: createEmptyWinnersLeague(1),
+    winnersHistory: [],
     freeAgentSeq: 0,
     log: ['시즌 1이 개막했습니다. 다음 경기나 이번 주 전체 진행을 눌러 리그를 진행하세요.'],
     ended: false,
@@ -536,6 +625,8 @@ export function normalizeState(value) {
     seasonReports: Array.isArray(value.seasonReports) ? value.seasonReports.slice(0, 60) : base.seasonReports,
     personalLeague: normalizePersonalLeague(value.personalLeague, seasonNo),
     personalHistory: normalizePersonalHistory(value.personalHistory),
+    winnersLeague: normalizeWinnersLeague(value.winnersLeague, seasonNo),
+    winnersHistory: normalizeWinnersHistory(value.winnersHistory),
     standings: Array.isArray(value.standings) && value.standings.length ? value.standings : rebuildStandings(teams, fixtures),
     mapPool: Array.isArray(value.mapPool) && value.mapPool.length ? value.mapPool : base.mapPool,
     freeAgentSeq: Number(value.freeAgentSeq || 0),
@@ -1324,6 +1415,8 @@ function buildSeasonReport(state) {
   const leader = getTopTeams(state, 1)[0];
   const personal = normalizePersonalLeague(state.personalLeague, state.seasonNo);
   const personalChampion = personalParticipantById(personal, personal.championPlayerId);
+  const winners = normalizeWinnersLeague(state.winnersLeague, state.seasonNo);
+  const winnersChampion = winners.championTeamId ? getTeam(state, winners.championTeamId) : null;
   const seasonLogs = normalizeEconLogs(state.econLogs).filter((entry) => entry.seasonNo === Number(state.seasonNo || 1));
   const income = seasonLogs.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0);
   const expense = seasonLogs.filter((entry) => entry.amount < 0).reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
@@ -1335,6 +1428,8 @@ function buildSeasonReport(state) {
     personalChampionPlayerId: personal.championPlayerId || '',
     personalChampionPlayerName: personalChampion?.playerName || '',
     personalChampionTeamName: personalChampion?.teamName || '',
+    winnersChampionTeamId: winners.championTeamId || '',
+    winnersChampionTeamName: winnersChampion?.name || '',
     played: getPlayedCount(state),
     total: getTotalFixtureCount(state),
     income,
@@ -2080,6 +2175,302 @@ export function getPersonalLeagueRows(state, limit = 12) {
     .slice(0, limit);
 }
 
+function winnersLineupFor(state, teamData) {
+  const equippedTeam = teamWithEquipment(state, teamData);
+  return [...equippedTeam.roster]
+    .sort((a, b) => (
+      averageStats(b) + Number(b.level || 0) * 12 + Number(b.fame || 0) / 25
+    ) - (
+      averageStats(a) + Number(a.level || 0) * 12 + Number(a.fame || 0) / 25
+    ))
+    .slice(0, 7);
+}
+
+function firstAvailableWinnersPlayer(lineup, usedIds) {
+  const used = new Set(Array.isArray(usedIds) ? usedIds : []);
+  return lineup.find((member) => !used.has(member.id)) || lineup[lineup.length - 1] || null;
+}
+
+function appendWinnersHistory(state, winners) {
+  const existing = normalizeWinnersHistory(state.winnersHistory);
+  if (existing.some((entry) => Number(entry.seasonNo) === Number(state.seasonNo || 1))) return state;
+  const championTeam = getTeam(state, winners.championTeamId);
+  const runnerUpTeam = getTeam(state, winners.runnerUpTeamId);
+  const setWins = new Map();
+  winners.sets.forEach((setResult) => {
+    setWins.set(setResult.winnerPlayerName, Number(setWins.get(setResult.winnerPlayerName) || 0) + 1);
+  });
+  const allKillPlayerName = [...setWins.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+  return {
+    ...state,
+    winnersHistory: [{
+      seasonNo: Number(state.seasonNo || 1),
+      championTeamId: championTeam?.id || winners.championTeamId || '',
+      championTeamName: championTeam?.name || winners.championTeamId || '',
+      runnerUpTeamId: runnerUpTeam?.id || winners.runnerUpTeamId || '',
+      runnerUpTeamName: runnerUpTeam?.name || winners.runnerUpTeamId || '',
+      scoreHome: winners.scoreHome,
+      scoreAway: winners.scoreAway,
+      allKillPlayerName,
+      sets: winners.sets.length,
+      at: Date.now(),
+    }, ...existing].slice(0, 40),
+  };
+}
+
+function applyWinnersSetGrowth(state, setResult) {
+  const loserPlayerId = setResult.homePlayerId === setResult.winnerPlayerId ? setResult.awayPlayerId : setResult.homePlayerId;
+  return {
+    ...state,
+    teams: state.teams.map((teamData) => ({
+      ...teamData,
+      roster: teamData.roster.map((member) => {
+        if (member.id === setResult.winnerPlayerId) {
+          return {
+            ...member,
+            condition: clamp(Number(member.condition || 100) - 2, 35, 100),
+            fame: Math.max(0, Number(member.fame || 0) + 11),
+            stats: {
+              ...member.stats,
+              attack: clamp(Number(member.stats?.attack || 0) + 1, 0, 1000),
+              control: clamp(Number(member.stats?.control || 0) + 1, 0, 1000),
+            },
+          };
+        }
+        if (member.id === loserPlayerId) {
+          return {
+            ...member,
+            condition: clamp(Number(member.condition || 100) - 6, 30, 100),
+            fame: Math.max(0, Number(member.fame || 0) + 2),
+          };
+        }
+        return member;
+      }),
+    })),
+  };
+}
+
+function addWinnersSetAllowance(state, setResult) {
+  const loserTeamId = setResult.winnerTeamId === setResult.homeTeamId ? setResult.awayTeamId : setResult.homeTeamId;
+  let next = state;
+  [
+    { teamId: setResult.winnerTeamId, amount: 45, result: '승' },
+    { teamId: loserTeamId, amount: 18, result: '패' },
+  ].forEach((row) => {
+    if (!row.teamId) return;
+    next = syncTeamEconomy(next, row.teamId, (team) => ({
+      ...team,
+      money: Number(team.money || 0) + row.amount,
+    }));
+    next = addEconLog(next, {
+      tag: 'WINNERS',
+      teamId: row.teamId,
+      amount: row.amount,
+      note: `위너스리그 ${setResult.setNo}세트 ${row.result} 수당`,
+      meta: { setId: setResult.id, winnerPlayerId: setResult.winnerPlayerId },
+    });
+  });
+  return next;
+}
+
+function awardWinnersChampion(state, winners) {
+  let next = state;
+  [
+    { teamId: winners.championTeamId, amount: 520, label: '우승 상금' },
+    { teamId: winners.runnerUpTeamId, amount: 240, label: '준우승 상금' },
+  ].forEach((row) => {
+    if (!row.teamId) return;
+    next = syncTeamEconomy(next, row.teamId, (team) => ({
+      ...team,
+      money: Number(team.money || 0) + row.amount,
+    }));
+    next = addEconLog(next, {
+      tag: 'WINNERS',
+      teamId: row.teamId,
+      amount: row.amount,
+      note: `위너스리그 ${row.label}`,
+      meta: { seasonNo: winners.seasonNo, scoreHome: winners.scoreHome, scoreAway: winners.scoreAway },
+    });
+  });
+  next = appendWinnersHistory(next, winners);
+  return addStateLog(next, `${teamName(next, winners.championTeamId)}이 시즌 ${winners.seasonNo} 위너스리그에서 ${winners.scoreHome}:${winners.scoreAway}로 승리했습니다.`);
+}
+
+export function startWinnersLeagueAction(state, homeTeamId = '') {
+  const current = normalizeState(state);
+  const existing = normalizeWinnersLeague(current.winnersLeague, current.seasonNo);
+  if (existing.stage === 'IN_PROGRESS') return addStateLog(current, '이미 위너스리그가 진행 중입니다.');
+  if (existing.stage === 'DONE') return addStateLog(current, '이번 시즌 위너스리그는 이미 종료됐습니다.');
+
+  const homeTeam = getTeam(current, homeTeamId);
+  const opponent = getTopTeams(current, current.teams.length).find((row) => row.teamId !== homeTeam.id)
+    || current.teams.find((teamData) => teamData.id !== homeTeam.id);
+  const awayTeam = getTeam(current, opponent?.teamId || opponent?.id);
+  const homeLineup = winnersLineupFor(current, homeTeam);
+  const awayLineup = winnersLineupFor(current, awayTeam);
+  const homePlayer = firstAvailableWinnersPlayer(homeLineup, []);
+  const awayPlayer = firstAvailableWinnersPlayer(awayLineup, []);
+  if (!homePlayer || !awayPlayer || homeTeam.id === awayTeam.id) return addStateLog(current, '위너스리그를 시작할 팀과 선수가 부족합니다.');
+
+  return addStateLog({
+    ...current,
+    winnersLeague: {
+      seasonNo: current.seasonNo,
+      stage: 'IN_PROGRESS',
+      homeTeamId: homeTeam.id,
+      awayTeamId: awayTeam.id,
+      scoreHome: 0,
+      scoreAway: 0,
+      currentHomePlayerId: homePlayer.id,
+      currentAwayPlayerId: awayPlayer.id,
+      usedHomePlayerIds: [homePlayer.id],
+      usedAwayPlayerIds: [awayPlayer.id],
+      sets: [],
+      championTeamId: '',
+      runnerUpTeamId: '',
+      updatedAt: Date.now(),
+    },
+    updatedAt: new Date().toISOString(),
+  }, `위너스리그 개막: ${homeTeam.name} vs ${awayTeam.name}`);
+}
+
+export function advanceWinnersLeagueAction(state) {
+  let current = normalizeState(state);
+  let winners = normalizeWinnersLeague(current.winnersLeague, current.seasonNo);
+  if (winners.stage === 'NOT_STARTED') return startWinnersLeagueAction(current);
+  if (winners.stage === 'DONE') return addStateLog(current, '위너스리그가 이미 종료됐습니다.');
+
+  const rawHomeTeam = getTeam(current, winners.homeTeamId);
+  const rawAwayTeam = getTeam(current, winners.awayTeamId);
+  const homeTeam = teamWithEquipment(current, rawHomeTeam);
+  const awayTeam = teamWithEquipment(current, rawAwayTeam);
+  const homeLineup = winnersLineupFor(current, rawHomeTeam);
+  const awayLineup = winnersLineupFor(current, rawAwayTeam);
+  const homePlayer = homeLineup.find((member) => member.id === winners.currentHomePlayerId) || firstAvailableWinnersPlayer(homeLineup, winners.usedHomePlayerIds);
+  const awayPlayer = awayLineup.find((member) => member.id === winners.currentAwayPlayerId) || firstAvailableWinnersPlayer(awayLineup, winners.usedAwayPlayerIds);
+  if (!homePlayer || !awayPlayer) return addStateLog(current, '위너스리그 출전 선수를 찾을 수 없습니다.');
+
+  const setNo = winners.sets.length + 1;
+  const setResult = simulateSet({
+    state: current,
+    fixture: {
+      id: `WL-S${winners.seasonNo}-SET${setNo}`,
+      round: setNo,
+    },
+    homeTeam,
+    awayTeam,
+    homePlayer,
+    awayPlayer,
+    setNo,
+    scoreHome: winners.scoreHome,
+    scoreAway: winners.scoreAway,
+  });
+  const scoreHome = winners.scoreHome + (setResult.winnerTeamId === homeTeam.id ? 1 : 0);
+  const scoreAway = winners.scoreAway + (setResult.winnerTeamId === awayTeam.id ? 1 : 0);
+  const winnerTeamName = setResult.winnerTeamId === homeTeam.id ? homeTeam.name : awayTeam.name;
+  const winnerPlayerName = setResult.winnerPlayerId === homePlayer.id ? homePlayer.name : awayPlayer.name;
+  const setRecord = {
+    id: `WL-S${winners.seasonNo}-SET${setNo}`,
+    setNo,
+    mapName: setResult.mapName,
+    homeTeamId: homeTeam.id,
+    awayTeamId: awayTeam.id,
+    homePlayerId: homePlayer.id,
+    homePlayerName: homePlayer.name,
+    awayPlayerId: awayPlayer.id,
+    awayPlayerName: awayPlayer.name,
+    winnerTeamId: setResult.winnerTeamId,
+    winnerTeamName,
+    winnerPlayerId: setResult.winnerPlayerId,
+    winnerPlayerName,
+    probabilityHome: setResult.probabilityHome,
+    durationSec: setResult.durationSec,
+    homeBuildName: setResult.homeBuildName,
+    awayBuildName: setResult.awayBuildName,
+    playedAt: Date.now(),
+  };
+
+  const nextHomeUsed = new Set(winners.usedHomePlayerIds);
+  const nextAwayUsed = new Set(winners.usedAwayPlayerIds);
+  let nextHomePlayerId = homePlayer.id;
+  let nextAwayPlayerId = awayPlayer.id;
+  if (setResult.winnerTeamId === homeTeam.id) {
+    const nextAwayPlayer = firstAvailableWinnersPlayer(awayLineup, [...nextAwayUsed]);
+    if (nextAwayPlayer) {
+      nextAwayUsed.add(nextAwayPlayer.id);
+      nextAwayPlayerId = nextAwayPlayer.id;
+    }
+  } else {
+    const nextHomePlayer = firstAvailableWinnersPlayer(homeLineup, [...nextHomeUsed]);
+    if (nextHomePlayer) {
+      nextHomeUsed.add(nextHomePlayer.id);
+      nextHomePlayerId = nextHomePlayer.id;
+    }
+  }
+
+  const done = scoreHome >= 4 || scoreAway >= 4 || setNo >= 7;
+  winners = {
+    ...winners,
+    stage: done ? 'DONE' : 'IN_PROGRESS',
+    scoreHome,
+    scoreAway,
+    currentHomePlayerId: done ? '' : nextHomePlayerId,
+    currentAwayPlayerId: done ? '' : nextAwayPlayerId,
+    usedHomePlayerIds: [...nextHomeUsed],
+    usedAwayPlayerIds: [...nextAwayUsed],
+    sets: [...winners.sets, setRecord],
+    championTeamId: done ? (scoreHome > scoreAway ? homeTeam.id : awayTeam.id) : '',
+    runnerUpTeamId: done ? (scoreHome > scoreAway ? awayTeam.id : homeTeam.id) : '',
+    updatedAt: Date.now(),
+  };
+
+  current = {
+    ...current,
+    winnersLeague: winners,
+    updatedAt: new Date().toISOString(),
+  };
+  current = applyWinnersSetGrowth(current, setRecord);
+  current = addWinnersSetAllowance(current, setRecord);
+  current = addStateLog(current, `위너스리그 ${setNo}세트: ${homePlayer.name} vs ${awayPlayer.name} - ${winnerPlayerName} 승 (${scoreHome}:${scoreAway})`);
+  if (done) return awardWinnersChampion(current, winners);
+  return current;
+}
+
+export function getWinnersLeagueSummary(state) {
+  const current = normalizeState(state);
+  const winners = normalizeWinnersLeague(current.winnersLeague, current.seasonNo);
+  const homeTeam = winners.homeTeamId ? getTeam(current, winners.homeTeamId) : null;
+  const awayTeam = winners.awayTeamId ? getTeam(current, winners.awayTeamId) : null;
+  const currentHome = homeTeam?.roster.find((member) => member.id === winners.currentHomePlayerId);
+  const currentAway = awayTeam?.roster.find((member) => member.id === winners.currentAwayPlayerId);
+  const champion = winners.championTeamId ? getTeam(current, winners.championTeamId) : null;
+  return {
+    seasonNo: winners.seasonNo,
+    stage: winners.stage,
+    homeTeamName: homeTeam?.name || '',
+    awayTeamName: awayTeam?.name || '',
+    scoreHome: winners.scoreHome,
+    scoreAway: winners.scoreAway,
+    played: winners.sets.length,
+    total: 7,
+    nextMatchLabel: winners.stage === 'IN_PROGRESS' ? `${currentHome?.name || '-'} vs ${currentAway?.name || '-'}` : '',
+    championTeamName: champion?.name || '',
+    historyCount: normalizeWinnersHistory(current.winnersHistory).length,
+  };
+}
+
+export function getWinnersLeagueRows(state, limit = 10) {
+  const current = normalizeState(state);
+  const winners = normalizeWinnersLeague(current.winnersLeague, current.seasonNo);
+  return winners.sets
+    .map((setResult) => ({
+      ...setResult,
+      label: `${setResult.setNo}세트`,
+    }))
+    .sort((a, b) => b.setNo - a.setNo)
+    .slice(0, limit);
+}
+
 export function negotiateSponsorAction(state, teamId) {
   const current = normalizeState(state);
   if (current.ended) return addStateLog(current, '시즌 종료 후에는 스폰서 협상을 진행할 수 없습니다.');
@@ -2341,6 +2732,8 @@ export function startNextSeasonAction(state) {
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.slice(0, 60) : [],
     personalLeague: createEmptyPersonalLeague(nextSeasonNo),
     personalHistory: normalizePersonalHistory(current.personalHistory),
+    winnersLeague: createEmptyWinnersLeague(nextSeasonNo),
+    winnersHistory: normalizeWinnersHistory(current.winnersHistory),
     freeAgentSeq: Number(current.freeAgentSeq || 0),
     log: [`시즌 ${Number(current.seasonNo || 1) + 1}이 새로 시작됐습니다.`, ...current.log].slice(0, 90),
   };
@@ -2406,6 +2799,8 @@ export function getTopPlayers(state, limit = 12) {
         setLosses: 0,
         personalWins: 0,
         personalLosses: 0,
+        winnersWins: 0,
+        winnersLosses: 0,
       });
     });
   });
@@ -2454,6 +2849,15 @@ export function getTopPlayers(state, limit = 12) {
     if (loserRecord) loserRecord.personalLosses += 1;
   });
 
+  normalizeWinnersLeague(current.winnersLeague, current.seasonNo).sets.forEach((setResult) => {
+    if (!setResult.winnerPlayerId) return;
+    const loserId = setResult.homePlayerId === setResult.winnerPlayerId ? setResult.awayPlayerId : setResult.homePlayerId;
+    const winnerRecord = records.get(setResult.winnerPlayerId);
+    const loserRecord = records.get(loserId);
+    if (winnerRecord) winnerRecord.winnersWins += 1;
+    if (loserRecord) loserRecord.winnersLosses += 1;
+  });
+
   return [...records.values()]
     .map((record) => {
       const matchDiff = record.matchWins - record.matchLosses;
@@ -2466,6 +2870,7 @@ export function getTopPlayers(state, limit = 12) {
         + record.matchWins * 120
         + record.setWins * 20
         + record.personalWins * 65
+        + record.winnersWins * 58
         + record.level * 40
         + record.fame * 2
         + setDiff * 12
@@ -2511,6 +2916,7 @@ export function scoreState(state) {
   const current = normalizeState(state);
   const leader = getTopTeams(current, 1)[0];
   const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  const winners = normalizeWinnersLeague(current.winnersLeague, current.seasonNo);
   const careerScore = current.teams.reduce((sum, teamData) => {
     const career = normalizeTeamCareer(teamData);
     return sum + career.sponsorTier * 80 + career.trainingLevel * 55 + career.scoutingLevel * 45 + career.fanBase / 90;
@@ -2529,6 +2935,8 @@ export function scoreState(state) {
     + itemScore
     + personal.matches.filter((match) => match.played).length * 28
     + (personal.stage === 'DONE' ? 450 : 0)
+    + winners.sets.length * 34
+    + (winners.stage === 'DONE' ? 380 : 0)
   ));
 }
 
@@ -2542,6 +2950,7 @@ export function summaryForState(state) {
   const current = normalizeState(state);
   const leader = getTopTeams(current, 1)[0];
   const personalSummary = getPersonalLeagueSummary(current);
+  const winnersSummary = getWinnersLeagueSummary(current);
   return {
     seasonNo: current.seasonNo,
     week: current.week,
@@ -2564,6 +2973,15 @@ export function summaryForState(state) {
       championName: personalSummary.championName,
       championTeamName: personalSummary.championTeamName,
       historyCount: personalSummary.historyCount,
+    },
+    winnersLeague: {
+      stage: winnersSummary.stage,
+      scoreHome: winnersSummary.scoreHome,
+      scoreAway: winnersSummary.scoreAway,
+      played: winnersSummary.played,
+      total: winnersSummary.total,
+      championTeamName: winnersSummary.championTeamName,
+      historyCount: winnersSummary.historyCount,
     },
     inventoryItems: createInventories(current.teams, current.inventories).reduce((sum, inventory) => (
       sum + inventory.items.reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0)
