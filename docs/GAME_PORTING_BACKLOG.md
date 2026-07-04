@@ -113,3 +113,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/myanimecraft/myanimecraft-main`; league snapshot record through `/game-records/myanimecraft`.
 - Source basis: `C:\2저장고\마이애니메\starleague-masterdata.json` and `C:\2저장고\마이애니메\myanimecraft`.
 - Next step: replace the simplified match model with selected original `simulateSet`, career economy, personal league, and postseason modules.
+
+## Schale Idle RPG Slice Status
+
+- Route: `/games/schale-idle-rpg/play`
+- Included loop: idle floor settlement, stamina recovery, equipment crafting, equipment enhancement, Trial Tower attempts, mission rewards, inventory/equipment summary.
+- Site API integration: quick save through `/game-saves/schale-idle-rpg/schale-idle-rpg-main`; account-progress snapshot through `/game-records/schale-idle-rpg`.
+- Source basis: `C:\2저장고\마이애니메\Schale_idle_rpg_v1_34`.
+- Next step: import the original equipment instance, reroll, auto-salvage, tower shop, and migration rules behind the simplified site shell.
