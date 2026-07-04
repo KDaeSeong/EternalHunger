@@ -15,6 +15,7 @@ const { upsertDefaultItemTree, upsertDefaultItemTreeBatch } = require('../utils/
 // (방금 authMiddleware.js를 만들었다면 이 경로가 맞습니다)
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 const { requireUserId, ownedFilter, withOwner } = require('../utils/requestScope');
+const adminAuditRoutes = require('./admin/audit');
 const adminDroneOfferRoutes = require('./admin/droneOffers');
 const adminPerkRoutes = require('./admin/perks');
 
@@ -22,6 +23,7 @@ const adminPerkRoutes = require('./admin/perks');
 // 순서: 1차(로그인 확인) -> 2차(관리자 확인)
 // 이제 개별 라우트마다 verifyAdmin을 또 적을 필요가 없습니다.
 router.use(verifyToken, verifyAdmin);
+router.use('/audit', adminAuditRoutes);
 router.use('/drone-offers', adminDroneOfferRoutes);
 router.use('/perks', adminPerkRoutes);
 

@@ -10,6 +10,11 @@ const sections = [
     title: '콘텐츠 데이터',
     items: [
       {
+        href: '/admin/audit',
+        name: '데이터 검수',
+        desc: '중복, 참조 끊김, 드론 티어, 캐릭터 목표 장비와 스킬 스크립트를 점검합니다.',
+      },
+      {
         href: '/admin/items',
         name: '아이템',
         desc: '장비, 재료, 소모품, 조합식과 기본 아이템 트리를 관리합니다.',
