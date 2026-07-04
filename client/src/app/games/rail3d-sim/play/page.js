@@ -27,6 +27,7 @@ import {
   setStepSecondsAction,
   stepAction,
   summaryForState,
+  trainDebugDetail,
   trainRows,
 } from '../_lib/rail3dEngine';
 
@@ -47,7 +48,7 @@ function SmallStat({ label, value }) {
   );
 }
 
-function RailMap({ state }) {
+function RailMap({ state, selectedTrainId }) {
   const view = mapViewState(state);
   const xs = view.nodes.map((node) => node.x);
   const zs = view.nodes.map((node) => node.z);
@@ -85,9 +86,10 @@ function RailMap({ state }) {
         const yOffset = index % 2 === 0 ? -18 : 42;
         const fill = train.signalState === 'STOP' ? '#e84855' : train.phase === 'DONE' ? '#8ea3ad' : '#39c6f0';
         const station = stationByStop.get(train.pose.edgeId + ':' + train.pose.headS);
+        const selected = train.id === selectedTrainId;
         return (
           <g key={train.id}>
-            <circle cx={train.point.x} cy={train.point.z + yOffset} r="15" fill={fill} stroke="#f7fbff" strokeWidth="4" />
+            <circle cx={train.point.x} cy={train.point.z + yOffset} r={selected ? 21 : 15} fill={selected ? '#fbbf24' : fill} stroke="#f7fbff" strokeWidth={selected ? 5 : 4} />
             <text x={train.point.x} y={train.point.z + yOffset + 5} fill="#071923" textAnchor="middle" fontSize="12" fontWeight="900">{train.id}</text>
             {station ? <title>{station.name}</title> : null}
           </g>
@@ -102,6 +104,7 @@ export default function Rail3dSimPlayPage() {
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
+  const [selectedTrainId, setSelectedTrainId] = useState('T1');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -109,13 +112,16 @@ export default function Rail3dSimPlayPage() {
   const blocks = useMemo(() => blockSummary(state), [state]);
   const segments = useMemo(() => segmentSummary(state), [state]);
   const report = useMemo(() => scheduleReport(state), [state]);
+  const selectedTrain = useMemo(() => trainDebugDetail(state, selectedTrainId), [state, selectedTrainId]);
   const score = scoreState(state);
   const completed = rows.filter((row) => row.phase === 'DONE').length;
   const stopped = rows.filter((row) => row.signalState === 'STOP').length;
   const tokenWaits = rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length;
 
   const startNewRun = () => {
-    setState(createNewState());
+    const nextState = createNewState();
+    setState(nextState);
+    setSelectedTrainId(nextState.trains[0]?.id || 'T1');
     setMessage('');
   };
 
@@ -159,7 +165,9 @@ export default function Rail3dSimPlayPage() {
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      setState(normalizeState(detail?.save?.payload?.state));
+      const nextState = normalizeState(detail?.save?.payload?.state);
+      setState(nextState);
+      setSelectedTrainId(nextState.trains[0]?.id || 'T1');
       setMessage('저장된 Rail3D Sim 진행 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Rail3D Sim 진행 상태를 불러왔습니다.' });
     } catch (err) {
@@ -248,6 +256,12 @@ export default function Rail3dSimPlayPage() {
             <SmallStat label="블록" value={blocks.total} />
           </div>
           <label className="game-save-json-field">
+            <span>선택 열차</span>
+            <select value={selectedTrain?.id || selectedTrainId} onChange={(event) => setSelectedTrainId(event.target.value)}>
+              {rows.map((row) => <option value={row.id} key={row.id}>{row.id} / {row.serviceName}</option>)}
+            </select>
+          </label>
+          <label className="game-save-json-field">
             <span>스텝 초</span>
             <select value={state.stepSeconds} onChange={(event) => setState((current) => setStepSecondsAction(current, event.target.value))}>
               {[10, 30, 60, 120, 300].map((seconds) => <option value={seconds} key={seconds}>{seconds}s</option>)}
@@ -296,8 +310,77 @@ export default function Rail3dSimPlayPage() {
           <h2>미니맵</h2>
           <span>sampleTrack.json</span>
         </div>
-        <RailMap state={state} />
+        <RailMap state={state} selectedTrainId={selectedTrain?.id || selectedTrainId} />
       </section>
+
+      {selectedTrain ? (
+        <section className="games-dashboard">
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>선택 열차 디버그</h2>
+              <span>{selectedTrain.id} / {selectedTrain.signalState}</span>
+            </div>
+            <div className="games-rank-split">
+              <SmallStat label="상태" value={selectedTrain.phase} />
+              <SmallStat label="현재 역" value={selectedTrain.currentStation} />
+              <SmallStat label="다음 역" value={selectedTrain.nextStation} />
+              <SmallStat label="속도" value={`${selectedTrain.speedKmh || 0}km/h`} />
+              <SmallStat label="현재 블록" value={selectedTrain.occupiedBlockId || '-'} />
+              <SmallStat label="예약 블록" value={selectedTrain.reservedBlocks.length} />
+              <SmallStat label="세그먼트" value={selectedTrain.segmentId || '-'} />
+              <SmallStat label="토큰" value={selectedTrain.segmentOwner ? `${selectedTrain.segmentOwner} 점유` : 'FREE'} />
+            </div>
+            <div className="game-save-list" style={{ marginTop: 12 }}>
+              <article className="game-save-row">
+                <div>
+                  <span>{selectedTrain.pose.edgeId} / {Math.round(selectedTrain.pose.headS)}m / dir {selectedTrain.pose.dir}</span>
+                  <strong>{selectedTrain.blockedBy ? `${selectedTrain.blockedBy} 때문에 대기` : '진행 가능'}</strong>
+                  <small>
+                    {selectedTrain.stopReason
+                      ? `${selectedTrain.stopReason.kind}${selectedTrain.stopReason.segmentId ? ` · ${selectedTrain.stopReason.segmentId}` : ''}`
+                      : '신호 대기 없음'}
+                  </small>
+                </div>
+                <strong>{selectedTrain.waitSeconds || 0}s</strong>
+              </article>
+              <article className="game-save-row">
+                <div>
+                  <span>{selectedTrain.segmentEdges.length ? selectedTrain.segmentEdges.join(', ') : '세그먼트 edge 없음'}</span>
+                  <strong>예약: {selectedTrain.reservedBlocks.map((block) => block.id).join(', ') || '없음'}</strong>
+                  <small>점유: {selectedTrain.occupiedBlocks.map((block) => block.id).join(', ') || '없음'}</small>
+                </div>
+                <strong>{selectedTrain.segmentEntries.join(', ') || '-'}</strong>
+              </article>
+            </div>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>선택 열차 정차표</h2>
+              <span>{selectedTrain.stops.length} stops</span>
+            </div>
+            <div className="game-save-list">
+              {selectedTrain.stops.map((stop) => (
+                <article className="game-save-row" key={`${selectedTrain.id}-${stop.index}`}>
+                  <div>
+                    <span>
+                      {formatTime(stop.scheduledArriveS)} 도착 / {formatTime(stop.scheduledDepartS)} 출발
+                      {stop.arriveDelayS !== null ? ` · 지연 ${Math.max(0, stop.arriveDelayS)}s` : ''}
+                    </span>
+                    <strong>{stop.stationName}</strong>
+                    <small>
+                      실제 도착 {stop.actualArriveS === null ? '-' : formatTime(stop.actualArriveS)}
+                      {' · '}
+                      실제 출발 {stop.actualDepartS === null ? '-' : formatTime(stop.actualDepartS)}
+                    </small>
+                  </div>
+                  <strong>{stop.status}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+        </section>
+      ) : null}
 
       <section className="games-dashboard">
         <section className="games-panel">

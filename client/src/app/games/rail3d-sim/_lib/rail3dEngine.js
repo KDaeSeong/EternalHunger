@@ -139,6 +139,68 @@ export function trainRows(state) {
   });
 }
 
+export function trainDebugDetail(state, trainId = '') {
+  const current = normalizeState(state);
+  const servicesById = servicesMap();
+  const train = current.trains.find((item) => item.id === trainId) || current.trains[0] || null;
+  if (!train) return null;
+  const service = servicesById[train.serviceId] || { id: train.serviceId, name: train.serviceId, stops: [] };
+  const row = trainRows(current).find((item) => item.id === train.id) || null;
+  const occupiedBlockId = blockKey(train.pose.edgeId, train.pose.headS);
+  const ownedBlocks = current.blocks
+    .filter((block) => block.owner === train.id)
+    .map((block) => ({
+      id: block.id,
+      edgeId: block.edgeId,
+      range: `${Math.round(block.s0)}-${Math.round(block.s1)}m`,
+      state: block.state,
+    }));
+  const segment = SEGMENTS.find((item) => item.id === row?.segmentId) || null;
+  const segmentToken = current.segmentTokens.find((item) => item.segmentId === row?.segmentId) || null;
+  const stops = (service.stops || []).map((stop, index) => {
+    const actualArrive = train.actualArriveS?.[index];
+    const actualDepart = train.actualDepartS?.[index];
+    const hasArrived = Number.isFinite(Number(actualArrive));
+    const hasDeparted = Number.isFinite(Number(actualDepart));
+    let status = '대기';
+    if (hasDeparted) status = '출발';
+    else if (hasArrived || train.stopIndex === index) status = train.phase === 'DWELL' ? '정차' : '도착';
+    else if (train.nextStopIndex === index && train.phase === 'RUNNING') status = '접근';
+    if (train.phase === 'DONE' && index === (service.stops || []).length - 1) status = '종착';
+    return {
+      index,
+      stationId: stop.stationId,
+      stationName: stationName(stop.stationId),
+      status,
+      scheduledArriveS: Number(stop.arriveS || 0),
+      scheduledDepartS: Number(stop.departS || stop.arriveS || 0),
+      actualArriveS: hasArrived ? Number(actualArrive) : null,
+      actualDepartS: hasDeparted ? Number(actualDepart) : null,
+      arriveDelayS: hasArrived ? Number(actualArrive) - Number(stop.arriveS || 0) : null,
+      departDelayS: hasDeparted ? Number(actualDepart) - Number(stop.departS || stop.arriveS || 0) : null,
+    };
+  });
+  return {
+    ...row,
+    id: train.id,
+    serviceId: service.id,
+    serviceName: service.name || service.id,
+    pose: { ...train.pose },
+    stopIndex: train.stopIndex,
+    nextStopIndex: train.nextStopIndex,
+    currentStation: stops[train.stopIndex]?.stationName || '출발 전',
+    nextStation: stops[train.nextStopIndex]?.stationName || row?.nextStation || '종착',
+    occupiedBlockId,
+    ownedBlocks,
+    reservedBlocks: ownedBlocks.filter((block) => block.state === 'RESERVED'),
+    occupiedBlocks: ownedBlocks.filter((block) => block.state === 'OCCUPIED'),
+    segmentEdges: segment?.edgeIds || [],
+    segmentEntries: segment?.entryStations || [],
+    segmentOwner: segmentToken?.owner || null,
+    stops,
+  };
+}
+
 export function blockSummary(state) {
   const current = normalizeState(state);
   return current.blocks.reduce((summary, block) => {
