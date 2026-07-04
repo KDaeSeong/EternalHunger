@@ -78,6 +78,7 @@ const ECON_TAG_LABELS = {
   TRAINING: '훈련',
   FA: 'FA 영입',
   TRADE: '트레이드',
+  PERSONAL: '개인리그',
   BONUS: '보너스',
 };
 
@@ -160,6 +161,13 @@ export const ITEM_DEFS = [
     effects: { conditionDelta: 12, fameDelta: 5 },
   },
 ];
+
+const PERSONAL_ROUND_LABELS = {
+  1: '16강',
+  2: '8강',
+  3: '4강',
+  4: '결승',
+};
 
 const TEAM_BLUEPRINTS = [
   {
@@ -380,6 +388,103 @@ export function getSourceSummary() {
   };
 }
 
+function createEmptyPersonalLeague(seasonNo = 1) {
+  return {
+    seasonNo: Number(seasonNo || 1),
+    stage: 'NOT_STARTED',
+    phase: '대기',
+    currentRound: 0,
+    participants: [],
+    matches: [],
+    championPlayerId: '',
+    runnerUpPlayerId: '',
+    updatedAt: 0,
+  };
+}
+
+function normalizePersonalParticipant(value) {
+  if (!value || typeof value !== 'object') return null;
+  const playerId = String(value.playerId || '').trim();
+  const teamId = String(value.teamId || '').trim();
+  if (!playerId || !teamId) return null;
+  return {
+    seed: Math.max(1, Math.floor(Number(value.seed || 1))),
+    playerId,
+    playerName: String(value.playerName || playerId),
+    teamId,
+    teamName: String(value.teamName || teamId),
+    race: String(value.race || ''),
+    rating: Math.round(Number(value.rating || 0)),
+  };
+}
+
+function normalizePersonalMatch(value) {
+  if (!value || typeof value !== 'object') return null;
+  const playerAId = String(value.playerAId || '').trim();
+  const playerBId = String(value.playerBId || '').trim();
+  if (!playerAId || !playerBId) return null;
+  return {
+    id: String(value.id || `personal-${Date.now().toString(36)}`),
+    round: Math.max(1, Math.floor(Number(value.round || 1))),
+    bracketIndex: Math.max(0, Math.floor(Number(value.bracketIndex || 0))),
+    playerAId,
+    playerBId,
+    scoreA: Math.max(0, Math.floor(Number(value.scoreA || 0))),
+    scoreB: Math.max(0, Math.floor(Number(value.scoreB || 0))),
+    winnerId: String(value.winnerId || ''),
+    setWinners: Array.isArray(value.setWinners) ? value.setWinners.map(String).slice(0, 5) : [],
+    mapNames: Array.isArray(value.mapNames) ? value.mapNames.map(String).slice(0, 5) : [],
+    played: Boolean(value.played),
+    playedAt: Number(value.playedAt || 0),
+  };
+}
+
+function normalizePersonalLeague(value, seasonNo = 1) {
+  const targetSeason = Number(seasonNo || 1);
+  if (!value || typeof value !== 'object' || Number(value.seasonNo || targetSeason) !== targetSeason) {
+    return createEmptyPersonalLeague(targetSeason);
+  }
+  const stage = ['NOT_STARTED', 'IN_PROGRESS', 'DONE'].includes(value.stage) ? value.stage : 'NOT_STARTED';
+  const participants = Array.isArray(value.participants)
+    ? value.participants.map(normalizePersonalParticipant).filter(Boolean).slice(0, 64)
+    : [];
+  const matches = Array.isArray(value.matches)
+    ? value.matches.map(normalizePersonalMatch).filter(Boolean).slice(0, 80)
+    : [];
+  return {
+    ...createEmptyPersonalLeague(targetSeason),
+    ...value,
+    seasonNo: targetSeason,
+    stage,
+    phase: String(value.phase || (stage === 'NOT_STARTED' ? '대기' : '16강')),
+    currentRound: Math.max(0, Math.floor(Number(value.currentRound || 0))),
+    participants,
+    matches,
+    championPlayerId: String(value.championPlayerId || ''),
+    runnerUpPlayerId: String(value.runnerUpPlayerId || ''),
+    updatedAt: Number(value.updatedAt || 0),
+  };
+}
+
+function normalizePersonalHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter((entry) => entry && typeof entry === 'object')
+    .map((entry) => ({
+      seasonNo: Number(entry.seasonNo || 1),
+      championPlayerId: String(entry.championPlayerId || ''),
+      championPlayerName: String(entry.championPlayerName || ''),
+      championTeamId: String(entry.championTeamId || ''),
+      championTeamName: String(entry.championTeamName || ''),
+      runnerUpPlayerId: String(entry.runnerUpPlayerId || ''),
+      runnerUpPlayerName: String(entry.runnerUpPlayerName || ''),
+      runnerUpTeamName: String(entry.runnerUpTeamName || ''),
+      played: Math.max(0, Math.floor(Number(entry.played || 0))),
+      at: Number(entry.at || Date.now()),
+    }))
+    .slice(0, 40);
+}
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const runId = options.runId || `sl-${Date.now().toString(36)}`;
@@ -401,6 +506,8 @@ export function createNewState(options = {}) {
     shop: null,
     econLogs: [],
     seasonReports: [],
+    personalLeague: createEmptyPersonalLeague(1),
+    personalHistory: [],
     freeAgentSeq: 0,
     log: ['시즌 1이 개막했습니다. 다음 경기나 이번 주 전체 진행을 눌러 리그를 진행하세요.'],
     ended: false,
@@ -427,6 +534,8 @@ export function normalizeState(value) {
     inventories: createInventories(teams, value.inventories),
     econLogs: normalizeEconLogs(value.econLogs),
     seasonReports: Array.isArray(value.seasonReports) ? value.seasonReports.slice(0, 60) : base.seasonReports,
+    personalLeague: normalizePersonalLeague(value.personalLeague, seasonNo),
+    personalHistory: normalizePersonalHistory(value.personalHistory),
     standings: Array.isArray(value.standings) && value.standings.length ? value.standings : rebuildStandings(teams, fixtures),
     mapPool: Array.isArray(value.mapPool) && value.mapPool.length ? value.mapPool : base.mapPool,
     freeAgentSeq: Number(value.freeAgentSeq || 0),
@@ -1213,6 +1322,8 @@ export function consumeInventoryItemAction(state, teamId, playerId, itemId) {
 
 function buildSeasonReport(state) {
   const leader = getTopTeams(state, 1)[0];
+  const personal = normalizePersonalLeague(state.personalLeague, state.seasonNo);
+  const personalChampion = personalParticipantById(personal, personal.championPlayerId);
   const seasonLogs = normalizeEconLogs(state.econLogs).filter((entry) => entry.seasonNo === Number(state.seasonNo || 1));
   const income = seasonLogs.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0);
   const expense = seasonLogs.filter((entry) => entry.amount < 0).reduce((sum, entry) => sum + Math.abs(entry.amount), 0);
@@ -1221,6 +1332,9 @@ function buildSeasonReport(state) {
     createdAt: Date.now(),
     championTeamId: leader?.teamId || '',
     championTeamName: leader?.teamName || '',
+    personalChampionPlayerId: personal.championPlayerId || '',
+    personalChampionPlayerName: personalChampion?.playerName || '',
+    personalChampionTeamName: personalChampion?.teamName || '',
     played: getPlayedCount(state),
     total: getTotalFixtureCount(state),
     income,
@@ -1574,6 +1688,398 @@ export function simulateWeekAction(state) {
   return next;
 }
 
+function personalRoundLabel(round) {
+  return PERSONAL_ROUND_LABELS[Number(round || 0)] || `${round}라운드`;
+}
+
+function personalPlayerRows(state) {
+  return state.teams.flatMap((teamData) => {
+    const equippedTeam = teamWithEquipment(state, teamData);
+    return teamData.roster.map((member) => {
+      const equippedMember = equippedTeam.roster.find((row) => row.id === member.id) || member;
+      const rating = Math.round(
+        averageStats(equippedMember)
+        + Number(member.level || 0) * 18
+        + Number(member.fame || 0) * 0.18
+        + Number(member.condition || 0) * 0.45,
+      );
+      return {
+        playerId: member.id,
+        playerName: member.name,
+        teamId: teamData.id,
+        teamName: teamData.name,
+        race: member.race,
+        rating,
+      };
+    });
+  }).sort((a, b) => b.rating - a.rating || a.playerName.localeCompare(b.playerName, 'ko-KR'));
+}
+
+function buildPersonalParticipants(state, size = 16) {
+  return personalPlayerRows(state)
+    .slice(0, size)
+    .map((row, index) => ({
+      ...row,
+      seed: index + 1,
+    }));
+}
+
+function makePersonalRoundMatches(playerIds, round, seasonNo) {
+  const ordered = [...playerIds];
+  const paired = [];
+  for (let index = 0; index < ordered.length / 2; index += 1) {
+    paired.push({
+      id: `PL-S${seasonNo}-R${round}-M${index + 1}`,
+      round,
+      bracketIndex: index,
+      playerAId: ordered[index],
+      playerBId: ordered[ordered.length - 1 - index],
+      scoreA: 0,
+      scoreB: 0,
+      winnerId: '',
+      setWinners: [],
+      mapNames: [],
+      played: false,
+      playedAt: 0,
+    });
+  }
+  return paired;
+}
+
+function personalParticipantById(personal, playerId) {
+  return personal.participants.find((item) => item.playerId === playerId) || null;
+}
+
+function findPlayerContext(state, playerId) {
+  for (const teamData of state.teams) {
+    const rawPlayer = teamData.roster.find((member) => member.id === playerId);
+    if (!rawPlayer) continue;
+    const equippedTeam = teamWithEquipment(state, teamData);
+    const playerData = equippedTeam.roster.find((member) => member.id === playerId) || rawPlayer;
+    return {
+      team: teamData,
+      equippedTeam,
+      player: playerData,
+      rawPlayer,
+    };
+  }
+  return null;
+}
+
+function simulatePersonalMatch(state, match) {
+  const home = findPlayerContext(state, match.playerAId);
+  const away = findPlayerContext(state, match.playerBId);
+  if (!home || !away) {
+    return {
+      ...match,
+      played: true,
+      winnerId: home?.player?.id || away?.player?.id || match.playerAId,
+      playedAt: Date.now(),
+    };
+  }
+
+  const winNeed = Number(match.round || 1) >= 3 ? 3 : 2;
+  let scoreA = 0;
+  let scoreB = 0;
+  const setWinners = [];
+  const mapNames = [];
+  for (let setNo = 1; setNo <= winNeed * 2 - 1 && scoreA < winNeed && scoreB < winNeed; setNo += 1) {
+    const setResult = simulateSet({
+      state,
+      fixture: {
+        id: match.id,
+        round: Number(match.round || 1),
+      },
+      homeTeam: home.equippedTeam,
+      awayTeam: away.equippedTeam,
+      homePlayer: home.player,
+      awayPlayer: away.player,
+      setNo,
+      scoreHome: scoreA,
+      scoreAway: scoreB,
+    });
+    setWinners.push(setResult.winnerPlayerId);
+    mapNames.push(setResult.mapName);
+    if (setResult.winnerPlayerId === home.player.id) scoreA += 1;
+    else scoreB += 1;
+  }
+
+  return {
+    ...match,
+    scoreA,
+    scoreB,
+    winnerId: scoreA > scoreB ? home.player.id : away.player.id,
+    setWinners,
+    mapNames,
+    played: true,
+    playedAt: Date.now(),
+  };
+}
+
+function applyPersonalMatchGrowth(state, match) {
+  const winnerId = match.winnerId;
+  const loserId = match.playerAId === winnerId ? match.playerBId : match.playerAId;
+  const round = Number(match.round || 1);
+  return {
+    ...state,
+    teams: state.teams.map((teamData) => ({
+      ...teamData,
+      roster: teamData.roster.map((member) => {
+        if (member.id === winnerId) {
+          return {
+            ...member,
+            condition: clamp(Number(member.condition || 100) - 2, 35, 100),
+            fame: Math.max(0, Number(member.fame || 0) + 10 + round * 3),
+            stats: {
+              ...member.stats,
+              sense: clamp(Number(member.stats?.sense || 0) + 1, 0, 1000),
+              control: clamp(Number(member.stats?.control || 0) + 1, 0, 1000),
+            },
+          };
+        }
+        if (member.id === loserId) {
+          return {
+            ...member,
+            condition: clamp(Number(member.condition || 100) - 5, 30, 100),
+            fame: Math.max(0, Number(member.fame || 0) + 3 + round),
+          };
+        }
+        return member;
+      }),
+    })),
+  };
+}
+
+function addPersonalMatchAllowance(state, match) {
+  const winner = findPlayerContext(state, match.winnerId);
+  const loserId = match.playerAId === match.winnerId ? match.playerBId : match.playerAId;
+  const loser = findPlayerContext(state, loserId);
+  const winAmount = 35 + Number(match.round || 1) * 15;
+  const loseAmount = 12 + Number(match.round || 1) * 8;
+  let next = state;
+  [
+    { ctx: winner, amount: winAmount, result: '승' },
+    { ctx: loser, amount: loseAmount, result: '패' },
+  ].forEach((row) => {
+    if (!row.ctx?.team?.id) return;
+    next = syncTeamEconomy(next, row.ctx.team.id, (team) => ({
+      ...team,
+      money: Number(team.money || 0) + row.amount,
+    }));
+    next = addEconLog(next, {
+      tag: 'PERSONAL',
+      teamId: row.ctx.team.id,
+      amount: row.amount,
+      note: `개인리그 ${personalRoundLabel(match.round)} ${row.result} 수당: ${row.ctx.player.name}`,
+      meta: { matchId: match.id, playerId: row.ctx.player.id, round: match.round },
+    });
+  });
+  return next;
+}
+
+function appendPersonalHistory(state, personal, champion, runnerUp) {
+  const existing = normalizePersonalHistory(state.personalHistory);
+  if (existing.some((entry) => Number(entry.seasonNo) === Number(state.seasonNo || 1))) return state;
+  return {
+    ...state,
+    personalHistory: [{
+      seasonNo: Number(state.seasonNo || 1),
+      championPlayerId: champion?.playerId || '',
+      championPlayerName: champion?.playerName || '',
+      championTeamId: champion?.teamId || '',
+      championTeamName: champion?.teamName || '',
+      runnerUpPlayerId: runnerUp?.playerId || '',
+      runnerUpPlayerName: runnerUp?.playerName || '',
+      runnerUpTeamName: runnerUp?.teamName || '',
+      played: personal.matches.filter((match) => match.played).length,
+      at: Date.now(),
+    }, ...existing].slice(0, 40),
+  };
+}
+
+function awardPersonalChampion(state, personal, finalMatch) {
+  const champion = personalParticipantById(personal, finalMatch.winnerId);
+  const runnerUpId = finalMatch.playerAId === finalMatch.winnerId ? finalMatch.playerBId : finalMatch.playerAId;
+  const runnerUp = personalParticipantById(personal, runnerUpId);
+  let next = state;
+  [
+    { participant: champion, amount: 600, label: '우승 상금' },
+    { participant: runnerUp, amount: 300, label: '준우승 상금' },
+  ].forEach((row) => {
+    if (!row.participant?.teamId) return;
+    next = syncTeamEconomy(next, row.participant.teamId, (team) => ({
+      ...team,
+      money: Number(team.money || 0) + row.amount,
+    }));
+    next = addEconLog(next, {
+      tag: 'PERSONAL',
+      teamId: row.participant.teamId,
+      amount: row.amount,
+      note: `개인리그 ${row.label}: ${row.participant.playerName}`,
+      meta: { playerId: row.participant.playerId, seasonNo: personal.seasonNo },
+    });
+  });
+  next = appendPersonalHistory(next, personal, champion, runnerUp);
+  return addStateLog(next, `${champion?.playerName || '선수'}가 시즌 ${personal.seasonNo} 개인리그 우승을 차지했습니다.`);
+}
+
+function advancePersonalRoundIfNeeded(state) {
+  const personal = normalizePersonalLeague(state.personalLeague, state.seasonNo);
+  if (personal.stage !== 'IN_PROGRESS') return state;
+  const currentRound = Number(personal.currentRound || 1);
+  const roundMatches = personal.matches
+    .filter((match) => Number(match.round) === currentRound)
+    .sort((a, b) => a.bracketIndex - b.bracketIndex);
+  if (!roundMatches.length || roundMatches.some((match) => !match.played || !match.winnerId)) return state;
+
+  const winners = roundMatches.map((match) => match.winnerId);
+  if (winners.length <= 1) {
+    const finalMatch = roundMatches[0];
+    const finishedPersonal = {
+      ...personal,
+      stage: 'DONE',
+      phase: '완료',
+      championPlayerId: finalMatch.winnerId,
+      runnerUpPlayerId: finalMatch.playerAId === finalMatch.winnerId ? finalMatch.playerBId : finalMatch.playerAId,
+      updatedAt: Date.now(),
+    };
+    return awardPersonalChampion({
+      ...state,
+      personalLeague: finishedPersonal,
+      updatedAt: new Date().toISOString(),
+    }, finishedPersonal, finalMatch);
+  }
+
+  const nextRound = currentRound + 1;
+  const nextMatches = makePersonalRoundMatches(winners, nextRound, personal.seasonNo);
+  return addStateLog({
+    ...state,
+    personalLeague: {
+      ...personal,
+      currentRound: nextRound,
+      phase: personalRoundLabel(nextRound),
+      matches: [...personal.matches, ...nextMatches],
+      updatedAt: Date.now(),
+    },
+    updatedAt: new Date().toISOString(),
+  }, `개인리그 ${personalRoundLabel(nextRound)} 대진이 확정됐습니다.`);
+}
+
+export function startPersonalLeagueAction(state) {
+  const current = normalizeState(state);
+  const existing = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  if (existing.stage === 'IN_PROGRESS') return addStateLog(current, '이미 개인리그가 진행 중입니다.');
+  if (existing.stage === 'DONE') return addStateLog(current, '이번 시즌 개인리그는 이미 종료됐습니다.');
+
+  const participants = buildPersonalParticipants(current, 16);
+  if (participants.length < 2) return addStateLog(current, '개인리그를 시작할 선수가 부족합니다.');
+  const matches = makePersonalRoundMatches(participants.map((item) => item.playerId), 1, current.seasonNo);
+  return addStateLog({
+    ...current,
+    personalLeague: {
+      seasonNo: current.seasonNo,
+      stage: 'IN_PROGRESS',
+      phase: personalRoundLabel(1),
+      currentRound: 1,
+      participants,
+      matches,
+      championPlayerId: '',
+      runnerUpPlayerId: '',
+      updatedAt: Date.now(),
+    },
+    updatedAt: new Date().toISOString(),
+  }, `시즌 ${current.seasonNo} 개인리그가 개막했습니다. 상위 ${participants.length}명이 16강 토너먼트를 진행합니다.`);
+}
+
+export function advancePersonalLeagueAction(state) {
+  let current = normalizeState(state);
+  const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  if (personal.stage === 'NOT_STARTED') return startPersonalLeagueAction(current);
+  if (personal.stage === 'DONE') return addStateLog(current, '개인리그가 이미 종료됐습니다.');
+
+  current = advancePersonalRoundIfNeeded(current);
+  let nextPersonal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  if (nextPersonal.stage === 'DONE') return current;
+  const match = nextPersonal.matches.find((item) => Number(item.round) === Number(nextPersonal.currentRound) && !item.played)
+    || nextPersonal.matches.find((item) => !item.played);
+  if (!match) return advancePersonalRoundIfNeeded(current);
+
+  const result = simulatePersonalMatch(current, match);
+  nextPersonal = {
+    ...nextPersonal,
+    matches: nextPersonal.matches.map((item) => (item.id === match.id ? result : item)),
+    updatedAt: Date.now(),
+  };
+  current = {
+    ...current,
+    personalLeague: nextPersonal,
+    updatedAt: new Date().toISOString(),
+  };
+  current = applyPersonalMatchGrowth(current, result);
+  current = addPersonalMatchAllowance(current, result);
+
+  const participantA = personalParticipantById(nextPersonal, result.playerAId);
+  const participantB = personalParticipantById(nextPersonal, result.playerBId);
+  const winner = personalParticipantById(nextPersonal, result.winnerId);
+  current = addStateLog(
+    current,
+    `개인리그 ${personalRoundLabel(result.round)}: ${participantA?.playerName || result.playerAId} ${result.scoreA}:${result.scoreB} ${participantB?.playerName || result.playerBId} - ${winner?.playerName || result.winnerId} 승`,
+  );
+  return advancePersonalRoundIfNeeded(current);
+}
+
+export function getPersonalLeagueSummary(state) {
+  const current = normalizeState(state);
+  const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  const nextMatch = personal.matches.find((match) => Number(match.round) === Number(personal.currentRound) && !match.played)
+    || personal.matches.find((match) => !match.played)
+    || null;
+  const champion = personalParticipantById(personal, personal.championPlayerId);
+  const runnerUp = personalParticipantById(personal, personal.runnerUpPlayerId);
+  const a = nextMatch ? personalParticipantById(personal, nextMatch.playerAId) : null;
+  const b = nextMatch ? personalParticipantById(personal, nextMatch.playerBId) : null;
+  return {
+    seasonNo: personal.seasonNo,
+    stage: personal.stage,
+    phase: personal.phase,
+    currentRound: personal.currentRound,
+    participants: personal.participants.length,
+    played: personal.matches.filter((match) => match.played).length,
+    total: personal.matches.length,
+    championName: champion?.playerName || '',
+    championTeamName: champion?.teamName || '',
+    runnerUpName: runnerUp?.playerName || '',
+    nextMatchLabel: nextMatch ? `${personalRoundLabel(nextMatch.round)} · ${a?.playerName || nextMatch.playerAId} vs ${b?.playerName || nextMatch.playerBId}` : '',
+    historyCount: normalizePersonalHistory(current.personalHistory).length,
+  };
+}
+
+export function getPersonalLeagueRows(state, limit = 12) {
+  const current = normalizeState(state);
+  const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  return personal.matches
+    .map((match) => {
+      const a = personalParticipantById(personal, match.playerAId);
+      const b = personalParticipantById(personal, match.playerBId);
+      const winner = personalParticipantById(personal, match.winnerId);
+      return {
+        ...match,
+        roundLabel: personalRoundLabel(match.round),
+        playerAName: a?.playerName || match.playerAId,
+        playerBName: b?.playerName || match.playerBId,
+        playerATeamName: a?.teamName || '',
+        playerBTeamName: b?.teamName || '',
+        winnerName: winner?.playerName || '',
+      };
+    })
+    .sort((a, b) => (
+      Number(a.played) - Number(b.played)
+      || a.round - b.round
+      || a.bracketIndex - b.bracketIndex
+    ))
+    .slice(0, limit);
+}
+
 export function negotiateSponsorAction(state, teamId) {
   const current = normalizeState(state);
   if (current.ended) return addStateLog(current, '시즌 종료 후에는 스폰서 협상을 진행할 수 없습니다.');
@@ -1833,6 +2339,8 @@ export function startNextSeasonAction(state) {
     inventories: createInventories(carriedTeams, current.inventories),
     econLogs: normalizeEconLogs(current.econLogs),
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.slice(0, 60) : [],
+    personalLeague: createEmptyPersonalLeague(nextSeasonNo),
+    personalHistory: normalizePersonalHistory(current.personalHistory),
     freeAgentSeq: Number(current.freeAgentSeq || 0),
     log: [`시즌 ${Number(current.seasonNo || 1) + 1}이 새로 시작됐습니다.`, ...current.log].slice(0, 90),
   };
@@ -1896,6 +2404,8 @@ export function getTopPlayers(state, limit = 12) {
         matchLosses: 0,
         setWins: 0,
         setLosses: 0,
+        personalWins: 0,
+        personalLosses: 0,
       });
     });
   });
@@ -1935,6 +2445,15 @@ export function getTopPlayers(state, limit = 12) {
     });
   });
 
+  normalizePersonalLeague(current.personalLeague, current.seasonNo).matches.forEach((match) => {
+    if (!match.played || !match.winnerId) return;
+    const loserId = match.playerAId === match.winnerId ? match.playerBId : match.playerAId;
+    const winnerRecord = records.get(match.winnerId);
+    const loserRecord = records.get(loserId);
+    if (winnerRecord) winnerRecord.personalWins += 1;
+    if (loserRecord) loserRecord.personalLosses += 1;
+  });
+
   return [...records.values()]
     .map((record) => {
       const matchDiff = record.matchWins - record.matchLosses;
@@ -1946,6 +2465,7 @@ export function getTopPlayers(state, limit = 12) {
         record.skill
         + record.matchWins * 120
         + record.setWins * 20
+        + record.personalWins * 65
         + record.level * 40
         + record.fame * 2
         + setDiff * 12
@@ -1990,6 +2510,7 @@ export function getTotalFixtureCount(state) {
 export function scoreState(state) {
   const current = normalizeState(state);
   const leader = getTopTeams(current, 1)[0];
+  const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
   const careerScore = current.teams.reduce((sum, teamData) => {
     const career = normalizeTeamCareer(teamData);
     return sum + career.sponsorTier * 80 + career.trainingLevel * 55 + career.scoutingLevel * 45 + career.fanBase / 90;
@@ -2006,6 +2527,8 @@ export function scoreState(state) {
     + current.standings.reduce((sum, row) => sum + Number(row.money || 0), 0) / 12
     + careerScore
     + itemScore
+    + personal.matches.filter((match) => match.played).length * 28
+    + (personal.stage === 'DONE' ? 450 : 0)
   ));
 }
 
@@ -2018,6 +2541,7 @@ export function getPlayTimeSec(state) {
 export function summaryForState(state) {
   const current = normalizeState(state);
   const leader = getTopTeams(current, 1)[0];
+  const personalSummary = getPersonalLeagueSummary(current);
   return {
     seasonNo: current.seasonNo,
     week: current.week,
@@ -2032,6 +2556,15 @@ export function summaryForState(state) {
     }, 0)),
     econLogs: normalizeEconLogs(current.econLogs).length,
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.length : 0,
+    personalLeague: {
+      stage: personalSummary.stage,
+      phase: personalSummary.phase,
+      played: personalSummary.played,
+      total: personalSummary.total,
+      championName: personalSummary.championName,
+      championTeamName: personalSummary.championTeamName,
+      historyCount: personalSummary.historyCount,
+    },
     inventoryItems: createInventories(current.teams, current.inventories).reduce((sum, inventory) => (
       sum + inventory.items.reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0)
     ), 0),

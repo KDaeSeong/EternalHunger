@@ -14,6 +14,7 @@ import {
   QUICK_SAVE_SLOT,
   RACE_LABELS,
   SAVE_VERSION,
+  advancePersonalLeagueAction,
   applyTradeAction,
   buyShopItemAction,
   careerSummary,
@@ -24,6 +25,8 @@ import {
   fixtureLabel,
   getCurrentFixtures,
   getFreeAgentPreview,
+  getPersonalLeagueRows,
+  getPersonalLeagueSummary,
   getSeasonShopRows,
   getPlayedCount,
   getPlayTimeSec,
@@ -41,6 +44,7 @@ import {
   signFreeAgentAction,
   simulateNextMatchAction,
   simulateWeekAction,
+  startPersonalLeagueAction,
   startNextSeasonAction,
   summaryForState,
   teamPower,
@@ -83,6 +87,8 @@ export default function MyAnimeCraftPlayPage() {
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
   const playerRankings = useMemo(() => getTopPlayers(state, 10), [state]);
+  const personalSummary = useMemo(() => getPersonalLeagueSummary(state), [state]);
+  const personalRows = useMemo(() => getPersonalLeagueRows(state, 12), [state]);
   const lastMatch = useMemo(() => state.fixtures
     .map((fixture) => fixture.result)
     .filter(Boolean)
@@ -221,6 +227,7 @@ export default function MyAnimeCraftPlayPage() {
     { label: '주차', value: `${state.week}/9` },
     { label: '경기', value: `${played}/${total}` },
     { label: '선두', value: leader?.teamName || '-' },
+    { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : `${personalSummary.played}/${personalSummary.total || '-'}` },
     { label: '팀', value: state.teams.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -235,7 +242,7 @@ export default function MyAnimeCraftPlayPage() {
     <GamePlayShell
       kicker="Starleague Sim"
       title="MyAnimeCraft Starleague"
-      description="업로드된 Starleague Sim 데이터를 기반으로 팀 리그 시즌을 진행하는 1차 이식 slice입니다. 경기 결과, 순위표, 저장 슬롯, 전적 기록까지 사이트 규격에 맞춰 연결했습니다."
+      description="업로드된 Starleague Sim 데이터를 기반으로 팀 리그와 개인리그를 함께 진행합니다. 경기 결과, 순위표, 저장 슬롯, 전적 기록까지 사이트 규격에 맞춰 연결했습니다."
       summaryLabel="Starleague Sim 요약"
       actions={actions}
       metrics={metrics}
@@ -294,6 +301,50 @@ export default function MyAnimeCraftPlayPage() {
                 <strong>{fixture.played ? '완료' : '대기'}</strong>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>개인리그</h2>
+            <span>
+              {personalSummary.stage === 'NOT_STARTED'
+                ? '대기'
+                : personalSummary.stage === 'DONE'
+                  ? '완료'
+                  : personalSummary.phase}
+            </span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="참가" value={`${personalSummary.participants || 0}명`} />
+            <SmallStat label="진행" value={`${personalSummary.played}/${personalSummary.total || 0}`} />
+            <SmallStat label="우승" value={personalSummary.championName || '-'} />
+          </div>
+          <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
+            {personalSummary.nextMatchLabel || (personalSummary.championName
+              ? `${personalSummary.championName} · ${personalSummary.championTeamName}`
+              : '상위 선수 16명으로 개인 토너먼트를 시작합니다.')}
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={personalSummary.stage === 'DONE'} onClick={() => setState((current) => (
+              personalSummary.stage === 'NOT_STARTED' ? startPersonalLeagueAction(current) : advancePersonalLeagueAction(current)
+            ))}>
+              {personalSummary.stage === 'NOT_STARTED' ? '개인리그 시작' : '다음 개인전 진행'}
+            </ActionButton>
+          </div>
+          <div className="game-save-list" style={{ marginTop: 16 }}>
+            {personalRows.length ? personalRows.map((match) => (
+              <article className="game-save-row" key={match.id}>
+                <div>
+                  <span>{match.roundLabel} · {match.played ? '완료' : '대기'}</span>
+                  <strong>{match.playerAName} {match.played ? match.scoreA : '-'}:{match.played ? match.scoreB : '-'} {match.playerBName}</strong>
+                  <small>{match.played ? `승자 ${match.winnerName} · ${match.mapNames.join(' / ')}` : `${match.playerATeamName} vs ${match.playerBTeamName}`}</small>
+                </div>
+                <strong>{match.played ? '결과' : '예정'}</strong>
+              </article>
+            )) : (
+              <div className="games-empty">개인리그 대진이 아직 없습니다.</div>
+            )}
           </div>
         </section>
 
@@ -503,7 +554,7 @@ export default function MyAnimeCraftPlayPage() {
                   <span>
                     {index + 1}위 · {row.teamName} · {RACE_LABELS[row.race] || row.race}
                     {' · '}
-                    매치 {row.matchWins}-{row.matchLosses} · 세트 {row.setWins}-{row.setLosses}
+                    매치 {row.matchWins}-{row.matchLosses} · 세트 {row.setWins}-{row.setLosses} · 개인 {row.personalWins}-{row.personalLosses}
                   </span>
                   <strong>{row.playerName}</strong>
                   <span>전력 {row.skill} · 승률 {row.winRate}% · 명성 {row.fame.toLocaleString('ko-KR')}</span>
