@@ -7,6 +7,7 @@ const items = [
   { href: '/', label: '메인 화면' },
   { href: '/admin', label: '대시보드' },
   { href: '/admin/users', label: '유저 관리' },
+  { href: '/admin/games', label: '게임 이식' },
   { href: '/admin/audit', label: '데이터 검사' },
   { href: '/admin/items', label: '아이템' },
   { href: '/admin/import', label: '데이터 가져오기' },

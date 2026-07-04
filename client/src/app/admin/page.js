@@ -7,6 +7,16 @@ export const metadata = {
 
 const sections = [
   {
+    title: '게임 허브',
+    items: [
+      {
+        href: '/admin/games',
+        name: '게임 이식 관리',
+        desc: '게임별 이식 단계, 공통 연결 상태, 다음 작업과 운영 바로가기를 확인합니다.',
+      },
+    ],
+  },
+  {
     title: '콘텐츠 데이터',
     items: [
       {
