@@ -8,6 +8,26 @@ import { apiGet, apiRequest } from '../../utils/api';
 import { useAuthToken, useHydrated } from '../../utils/client-auth';
 import { emitNotificationsSync } from '../../utils/notification-events';
 
+const NOTIFICATION_FILTERS = [
+  { key: 'all', label: '전체', match: () => true },
+  { key: 'unread', label: '읽지 않음', match: (row) => row.unread },
+  { key: 'board', label: '게시판', match: (row) => ['post_comment', 'post_reaction'].includes(row.type) },
+  { key: 'twenty', label: '스무고개', match: (row) => String(row.type || '').startsWith('twenty_') },
+  { key: 'follow', label: '팔로우', match: (row) => row.type === 'user_follow' },
+  { key: 'system', label: '시스템', match: (row) => ['report_status', 'system'].includes(row.type) },
+];
+
+const TYPE_LABELS = {
+  post_comment: '댓글',
+  post_reaction: '추천',
+  user_follow: '팔로우',
+  report_status: '신고',
+  twenty_question: '질문',
+  twenty_answer: '답변',
+  twenty_solved: '정답',
+  system: '시스템',
+};
+
 function safeText(value, fallback = '') {
   const text = String(value || '').trim();
   return text || fallback;
@@ -43,7 +63,9 @@ function normalizeNotification(row) {
     message: safeText(row.message, ''),
     link: safeText(row.link, ''),
     actorName: safeText(row.actorName || row.actor?.nickname || row.actor?.username, ''),
+    type: safeText(row.type, 'system'),
     unread: Boolean(row.unread || !row.readAt),
+    readAt: row.readAt || null,
     createdAt: row.createdAt || '',
   };
 }
@@ -65,6 +87,7 @@ export default function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const loadNotifications = useCallback(async () => {
     if (!token) {
@@ -99,6 +122,20 @@ export default function NotificationsPage() {
     () => unreadCount > 0 || notifications.some((notification) => notification.unread),
     [notifications, unreadCount]
   );
+
+  const notificationCounts = useMemo(() => {
+    const entries = {};
+    for (const filter of NOTIFICATION_FILTERS) {
+      entries[filter.key] = notifications.filter(filter.match).length;
+    }
+    entries.unread = unreadCount;
+    return entries;
+  }, [notifications, unreadCount]);
+
+  const filteredNotifications = useMemo(() => {
+    const filter = NOTIFICATION_FILTERS.find((row) => row.key === activeFilter) || NOTIFICATION_FILTERS[0];
+    return notifications.filter(filter.match);
+  }, [activeFilter, notifications]);
 
   const markRead = async (id) => {
     if (!id) return;
@@ -151,6 +188,24 @@ export default function NotificationsPage() {
           ) : null}
         </div>
 
+        {token ? (
+          <div className="notifications-filter-bar" role="tablist" aria-label="알림 필터">
+            {NOTIFICATION_FILTERS.map((filter) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeFilter === filter.key}
+                className={`notifications-filter-button ${activeFilter === filter.key ? 'is-active' : ''}`}
+                onClick={() => setActiveFilter(filter.key)}
+                key={filter.key}
+              >
+                {filter.label}
+                <span>{notificationCounts[filter.key] || 0}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         {!hydrated || loading ? (
           <div className="notifications-empty">알림을 확인하는 중입니다.</div>
         ) : !token ? (
@@ -160,9 +215,11 @@ export default function NotificationsPage() {
           </div>
         ) : notifications.length === 0 ? (
           <div className="notifications-empty">아직 알림이 없습니다.</div>
+        ) : filteredNotifications.length === 0 ? (
+          <div className="notifications-empty">이 필터에 해당하는 알림이 없습니다.</div>
         ) : (
           <div className="notifications-list">
-            {notifications.map((notification) => (
+            {filteredNotifications.map((notification) => (
               <article
                 className={`notifications-card ${notification.unread ? 'is-unread' : ''}`}
                 key={notification._id}
@@ -171,6 +228,7 @@ export default function NotificationsPage() {
                   <div className="notifications-title-row">
                     {notification.unread ? <span className="notifications-dot" aria-label="읽지 않음" /> : null}
                     <strong>{notification.title}</strong>
+                    <span className="notifications-type-pill">{TYPE_LABELS[notification.type] || '알림'}</span>
                   </div>
                   <p>{notification.message}</p>
                   <small>
