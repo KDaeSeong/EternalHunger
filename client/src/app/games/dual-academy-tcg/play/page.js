@@ -15,9 +15,28 @@ import {
 } from '../_lib/tcgCatalog';
 
 const QUICK_SAVE_SLOT = 'quick-match';
+const ENEMY_DECK_CARD_IDS = [
+  'guardian',
+  'striker',
+  'charger',
+  'repair',
+  'barrage',
+  'sniper',
+  'guardian',
+  'barrier',
+  'captain',
+  'striker',
+  'barrage',
+  'charger',
+];
 
 function createMatchId() {
   return `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildEnemyDeck(cards) {
+  return buildDeckFromIds(ENEMY_DECK_CARD_IDS, cards)
+    .map((card, index) => ({ ...card, instanceId: `enemy-${card.id}-${index}` }));
 }
 
 function drawCards(state, count) {
@@ -36,7 +55,26 @@ function drawCards(state, count) {
   return { ...state, deck, hand, log: log.slice(0, 12) };
 }
 
-function createInitialState(deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)) {
+function drawEnemyCards(state, count) {
+  const enemyDeck = [...(state.enemyDeck || [])];
+  const enemyHand = [...(state.enemyHand || [])];
+  const log = [...state.log];
+  for (let i = 0; i < count; i += 1) {
+    const next = enemyDeck.shift();
+    if (!next) {
+      log.unshift('상대 덱이 비었습니다.');
+      break;
+    }
+    enemyHand.push(next);
+    log.unshift(`상대가 카드 1장을 뽑았습니다.`);
+  }
+  return { ...state, enemyDeck, enemyHand, log: log.slice(0, 12) };
+}
+
+function createInitialState(
+  deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS),
+  enemyDeckCards = buildEnemyDeck(FALLBACK_TCG_CARDS),
+) {
   const base = {
     matchId: createMatchId(),
     startedAt: new Date().toISOString(),
@@ -45,17 +83,19 @@ function createInitialState(deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS,
     enemyHealth: 20,
     maxEnergy: 1,
     energy: 1,
+    enemyMaxEnergy: 1,
+    enemyEnergy: 1,
     deck: deckCards,
     hand: [],
     board: [],
-    enemyBoard: [
-      { id: 'dummy-guard', name: '훈련용 전열', attack: 1, health: 4 },
-    ],
+    enemyDeck: enemyDeckCards,
+    enemyHand: [],
+    enemyBoard: [],
     discard: [],
     log: ['훈련 매치가 시작되었습니다.'],
     winner: '',
   };
-  return drawCards(base, 4);
+  return drawEnemyCards(drawCards(base, 4), 3);
 }
 
 function normalizeSavedState(value) {
@@ -68,9 +108,13 @@ function normalizeSavedState(value) {
     enemyHealth: clampHealth(value.enemyHealth ?? 20),
     maxEnergy: Math.max(1, Math.min(10, Number(value.maxEnergy || 1))),
     energy: Math.max(0, Math.min(10, Number(value.energy || 0))),
+    enemyMaxEnergy: Math.max(1, Math.min(10, Number(value.enemyMaxEnergy || 1))),
+    enemyEnergy: Math.max(0, Math.min(10, Number(value.enemyEnergy || 0))),
     deck: Array.isArray(value.deck) ? value.deck : [],
     hand: Array.isArray(value.hand) ? value.hand : [],
     board: Array.isArray(value.board) ? value.board : [],
+    enemyDeck: Array.isArray(value.enemyDeck) ? value.enemyDeck : [],
+    enemyHand: Array.isArray(value.enemyHand) ? value.enemyHand : [],
     enemyBoard: Array.isArray(value.enemyBoard) ? value.enemyBoard : [],
     discard: Array.isArray(value.discard) ? value.discard : [],
     log: Array.isArray(value.log) ? value.log.slice(0, 12) : [],
@@ -87,9 +131,13 @@ function matchPayload(state) {
     enemyHealth: state.enemyHealth,
     maxEnergy: state.maxEnergy,
     energy: state.energy,
+    enemyMaxEnergy: state.enemyMaxEnergy,
+    enemyEnergy: state.enemyEnergy,
     deck: state.deck,
     hand: state.hand,
     board: state.board,
+    enemyDeck: state.enemyDeck,
+    enemyHand: state.enemyHand,
     enemyBoard: state.enemyBoard,
     discard: state.discard,
     log: state.log,
@@ -144,6 +192,158 @@ function cardPower(card) {
   return Number(card.attack || 0) + Number(card.health || 0);
 }
 
+function unitHealth(unit) {
+  return Number(unit?.currentHealth ?? unit?.health ?? 0);
+}
+
+function weakestUnitIndex(units) {
+  if (!Array.isArray(units) || !units.length) return -1;
+  return units.reduce((bestIndex, unit, index) => (
+    unitHealth(unit) < unitHealth(units[bestIndex]) ? index : bestIndex
+  ), 0);
+}
+
+function resolveCombat(attacker, defender) {
+  const nextAttacker = {
+    ...attacker,
+    currentHealth: unitHealth(attacker) - Number(defender.attack || 0),
+    ready: false,
+  };
+  const nextDefender = {
+    ...defender,
+    currentHealth: unitHealth(defender) - Number(attacker.attack || 0),
+  };
+  return {
+    attacker: nextAttacker,
+    defender: nextDefender,
+    attackerDead: nextAttacker.currentHealth <= 0,
+    defenderDead: nextDefender.currentHealth <= 0,
+  };
+}
+
+function resolveEnemyTactic(card, state) {
+  if (card.id === 'repair' || card.id === 'barrier') {
+    return {
+      ...state,
+      enemyHealth: clampHealth(state.enemyHealth + (card.id === 'repair' ? 3 : 2)),
+      discard: [...state.discard, card],
+      log: [`상대 ${card.name}: 상대 본부 회복`, ...state.log].slice(0, 12),
+    };
+  }
+  if (card.id === 'barrage') {
+    const playerHealth = Math.max(0, state.playerHealth - 3);
+    return {
+      ...state,
+      playerHealth,
+      discard: [...state.discard, card],
+      log: [`상대 ${card.name}: 내 본부에 3 피해`, ...state.log].slice(0, 12),
+      winner: playerHealth <= 0 ? 'enemy' : state.winner,
+    };
+  }
+  return {
+    ...state,
+    discard: [...state.discard, card],
+  };
+}
+
+function playEnemyCards(state) {
+  let next = state;
+  let guard = 0;
+  while (!next.winner && guard < 8) {
+    guard += 1;
+    const affordable = next.enemyHand
+      .filter((card) => Number(card.cost || 0) <= next.enemyEnergy)
+      .sort((a, b) => {
+        const aRole = a.role === 'Unit' ? 0 : 1;
+        const bRole = b.role === 'Unit' ? 0 : 1;
+        return aRole - bRole || Number(b.cost || 0) - Number(a.cost || 0);
+      });
+    const card = affordable[0];
+    if (!card) break;
+
+    next = {
+      ...next,
+      enemyHand: next.enemyHand.filter((row) => row.instanceId !== card.instanceId),
+      enemyEnergy: next.enemyEnergy - Number(card.cost || 0),
+    };
+
+    if (card.role === 'Tactic') {
+      next = resolveEnemyTactic(card, next);
+    } else {
+      next = {
+        ...next,
+        enemyBoard: [...next.enemyBoard, { ...card, ready: false, currentHealth: card.health }],
+        log: [`상대가 ${card.name} 배치`, ...next.log].slice(0, 12),
+      };
+    }
+  }
+  return next;
+}
+
+function resolveEnemyAttacks(state) {
+  let next = state;
+  const attackers = [...next.enemyBoard];
+  for (const attacker of attackers) {
+    if (next.winner) break;
+    const liveIndex = next.enemyBoard.findIndex((unit) => unit.instanceId === attacker.instanceId);
+    if (liveIndex < 0 || !next.enemyBoard[liveIndex]?.ready) continue;
+
+    const targetIndex = weakestUnitIndex(next.board);
+    if (targetIndex >= 0) {
+      const target = next.board[targetIndex];
+      const combat = resolveCombat(next.enemyBoard[liveIndex], target);
+      const enemyBoard = next.enemyBoard.slice();
+      const board = next.board.slice();
+      if (combat.attackerDead) enemyBoard.splice(liveIndex, 1);
+      else enemyBoard[liveIndex] = combat.attacker;
+      if (combat.defenderDead) board.splice(targetIndex, 1);
+      else board[targetIndex] = combat.defender;
+      next = {
+        ...next,
+        enemyBoard,
+        board,
+        log: [`상대 ${attacker.name}이(가) ${target.name}와 교전`, ...next.log].slice(0, 12),
+      };
+    } else {
+      const playerHealth = Math.max(0, next.playerHealth - Number(attacker.attack || 0));
+      next = {
+        ...next,
+        playerHealth,
+        enemyBoard: next.enemyBoard.map((unit) => (
+          unit.instanceId === attacker.instanceId ? { ...unit, ready: false } : unit
+        )),
+        log: [`상대 ${attacker.name} 공격: ${attacker.attack} 피해`, ...next.log].slice(0, 12),
+        winner: playerHealth <= 0 ? 'enemy' : next.winner,
+      };
+    }
+  }
+  return next;
+}
+
+function runEnemyTurn(state) {
+  const enemyMaxEnergy = Math.min(10, Number(state.enemyMaxEnergy || 1) + 1);
+  let next = drawEnemyCards({
+    ...state,
+    enemyMaxEnergy,
+    enemyEnergy: enemyMaxEnergy,
+    enemyBoard: state.enemyBoard.map((unit) => ({ ...unit, ready: true })),
+    log: ['상대 턴 시작', ...state.log].slice(0, 12),
+  }, 1);
+  next = playEnemyCards(next);
+  next = resolveEnemyAttacks(next);
+  if (next.winner) return next;
+
+  const maxEnergy = Math.min(10, Number(next.maxEnergy || 1) + 1);
+  return drawCards({
+    ...next,
+    turn: next.turn + 1,
+    maxEnergy,
+    energy: maxEnergy,
+    board: next.board.map((unit) => ({ ...unit, ready: true })),
+    log: ['내 턴 시작', ...next.log].slice(0, 12),
+  }, 1);
+}
+
 export default function DualAcademyTcgPlayPage() {
   const mounted = useHydrated();
   const token = useAuthToken();
@@ -160,7 +360,7 @@ export default function DualAcademyTcgPlayPage() {
 
   const resetWithDeck = useCallback((cardIds, cards) => {
     setRecordMessage('');
-    setState(createInitialState(buildDeckFromIds(cardIds, cards)));
+    setState(createInitialState(buildDeckFromIds(cardIds, cards), buildEnemyDeck(cards)));
   }, []);
 
   const loadDeck = useCallback(async () => {
@@ -299,7 +499,26 @@ export default function DualAcademyTcgPlayPage() {
     setState((current) => {
       const unit = current.board.find((row) => row.instanceId === instanceId);
       if (!unit || !unit.ready) return current;
-      const enemyHealth = Math.max(0, current.enemyHealth - unit.attack);
+      const unitIndex = current.board.findIndex((row) => row.instanceId === instanceId);
+      const targetIndex = weakestUnitIndex(current.enemyBoard);
+      if (targetIndex >= 0) {
+        const target = current.enemyBoard[targetIndex];
+        const combat = resolveCombat(unit, target);
+        const board = current.board.slice();
+        const enemyBoard = current.enemyBoard.slice();
+        if (combat.attackerDead) board.splice(unitIndex, 1);
+        else board[unitIndex] = combat.attacker;
+        if (combat.defenderDead) enemyBoard.splice(targetIndex, 1);
+        else enemyBoard[targetIndex] = combat.defender;
+        return {
+          ...current,
+          board,
+          enemyBoard,
+          log: [`${unit.name}이(가) ${target.name}와 교전`, ...current.log].slice(0, 12),
+        };
+      }
+
+      const enemyHealth = Math.max(0, current.enemyHealth - Number(unit.attack || 0));
       return {
         ...current,
         enemyHealth,
@@ -314,22 +533,7 @@ export default function DualAcademyTcgPlayPage() {
 
   const endTurn = () => {
     if (!canAct) return;
-    setState((current) => {
-      const enemyAttack = current.enemyBoard.reduce((sum, unit) => sum + Number(unit.attack || 0), 0);
-      const playerHealth = Math.max(0, current.playerHealth - enemyAttack);
-      const maxEnergy = Math.min(10, current.maxEnergy + 1);
-      const next = drawCards({
-        ...current,
-        turn: current.turn + 1,
-        playerHealth,
-        maxEnergy,
-        energy: maxEnergy,
-        board: current.board.map((unit) => ({ ...unit, ready: true })),
-        log: [`상대 턴: 본부에 ${enemyAttack} 피해`, ...current.log].slice(0, 12),
-        winner: playerHealth <= 0 ? 'enemy' : current.winner,
-      }, 1);
-      return next;
-    });
+    setState((current) => runEnemyTurn(current));
   };
 
   const saveMatch = async () => {
@@ -450,6 +654,10 @@ export default function DualAcademyTcgPlayPage() {
             <span>에너지</span>
             <strong>{state.energy}/{state.maxEnergy}</strong>
           </div>
+          <div>
+            <span>상대 에너지</span>
+            <strong>{state.enemyEnergy}/{state.enemyMaxEnergy}</strong>
+          </div>
         </section>
 
         {state.winner ? (
@@ -488,14 +696,14 @@ export default function DualAcademyTcgPlayPage() {
             <div className="tcg-lane is-enemy">
               <div className="tcg-lane-title">
                 <h2>상대 필드</h2>
-                <span>{state.enemyBoard.length}</span>
+                <span>필드 {state.enemyBoard.length} / 손패 {state.enemyHand.length} / 덱 {state.enemyDeck.length}</span>
               </div>
               <div className="tcg-card-row">
                 {state.enemyBoard.map((card) => (
                   <article className="tcg-card is-enemy-card" key={card.id}>
                     <div className="tcg-card-art" />
                     <strong>{card.name}</strong>
-                    <span>ATK {card.attack} / HP {card.health}</span>
+                    <span>ATK {card.attack} / HP {unitHealth(card)}</span>
                   </article>
                 ))}
               </div>
