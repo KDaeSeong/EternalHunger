@@ -66,6 +66,13 @@ export default function SiCodingSimPlayPage() {
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
   const [selectedFileId, setSelectedFileId] = useState('');
+  const [taskFilters, setTaskFilters] = useState({
+    query: '',
+    difficulty: 'all',
+    status: 'all',
+    tag: 'all',
+    capability: 'all',
+  });
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const codePanelRef = useRef(null);
@@ -75,6 +82,29 @@ export default function SiCodingSimPlayPage() {
 
   const rows = useMemo(() => taskRows(state), [state]);
   const projectRows = useMemo(() => projectProgressRows(state), [state]);
+  const taskTagOptions = useMemo(() => Array.from(new Set(rows.flatMap((row) => row.tags || []))).sort((a, b) => a.localeCompare(b, 'ko-KR')), [rows]);
+  const filteredRows = useMemo(() => {
+    const query = taskFilters.query.trim().toLowerCase();
+    return rows.filter((row) => {
+      const searchable = [
+        row.id,
+        row.projectName,
+        row.client,
+        row.modeLabel,
+        row.difficulty,
+        row.status,
+        ...(row.tags || []),
+      ].join(' ').toLowerCase();
+      if (query && !searchable.includes(query)) return false;
+      if (taskFilters.difficulty !== 'all' && row.difficulty !== taskFilters.difficulty) return false;
+      if (taskFilters.status !== 'all' && row.status !== taskFilters.status) return false;
+      if (taskFilters.tag !== 'all' && !(row.tags || []).includes(taskFilters.tag)) return false;
+      if (taskFilters.capability === 'execution' && !row.executionCount && !row.hiddenExecutionCount && !row.checkCount) return false;
+      if (taskFilters.capability === 'document' && !row.documentCount && !row.checkpointCount) return false;
+      if (taskFilters.capability === 'hint' && !row.hintCount) return false;
+      return true;
+    });
+  }, [rows, taskFilters]);
   const task = getCurrentTask(state);
   const files = task?.files || [];
   const activeFile = files.find((file) => file.id === selectedFileId) || files[0] || null;
@@ -88,6 +118,11 @@ export default function SiCodingSimPlayPage() {
   const documentPlay = task?.documentPlay || null;
   const execution = task?.execution || null;
   const insightRows = Object.entries(task?.passiveInsights || {});
+  const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
+
+  const updateTaskFilter = (key, value) => {
+    setTaskFilters((current) => ({ ...current, [key]: value }));
+  };
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -344,6 +379,10 @@ export default function SiCodingSimPlayPage() {
             <SmallStat label="검수" value={outcome ? `${outcome.score}점` : '미제출'} />
             <SmallStat label="힌트" value={`${revealedHints.length}/${task.hints?.length || 0}`} />
             <SmallStat label="마감" value={task.deadline} />
+            <SmallStat label="파일" value={`${files.length}개`} />
+            <SmallStat label="문서/체크" value={`${currentTaskRow?.documentCount || 0}/${currentTaskRow?.checkpointCount || 0}`} />
+            <SmallStat label="실행/정적" value={`${(currentTaskRow?.executionCount || 0) + (currentTaskRow?.hiddenExecutionCount || 0)}/${currentTaskRow?.checkCount || 0}`} />
+            <SmallStat label="상태" value={currentTaskRow?.status || '미제출'} />
           </div>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{task.summary}</p>
           <div className="games-chip-row">
@@ -426,15 +465,67 @@ export default function SiCodingSimPlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>과제 목록</h2>
-            <span>{rows.length}개</span>
+            <span>{filteredRows.length}/{rows.length}개</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <label className="game-save-json-field" style={{ margin: 0 }}>
+              <span>검색</span>
+              <input
+                value={taskFilters.query}
+                onChange={(event) => updateTaskFilter('query', event.target.value)}
+                placeholder="과제, 프로젝트, 태그"
+              />
+            </label>
+            <label className="game-save-json-field" style={{ margin: 0 }}>
+              <span>난이도</span>
+              <select value={taskFilters.difficulty} onChange={(event) => updateTaskFilter('difficulty', event.target.value)}>
+                <option value="all">전체</option>
+                {Array.from(new Set(rows.map((row) => row.difficulty))).map((difficulty) => <option value={difficulty} key={difficulty}>{difficulty}</option>)}
+              </select>
+            </label>
+            <label className="game-save-json-field" style={{ margin: 0 }}>
+              <span>상태</span>
+              <select value={taskFilters.status} onChange={(event) => updateTaskFilter('status', event.target.value)}>
+                <option value="all">전체</option>
+                {Array.from(new Set(rows.map((row) => row.status))).map((status) => <option value={status} key={status}>{status}</option>)}
+              </select>
+            </label>
+            <label className="game-save-json-field" style={{ margin: 0 }}>
+              <span>태그</span>
+              <select value={taskFilters.tag} onChange={(event) => updateTaskFilter('tag', event.target.value)}>
+                <option value="all">전체</option>
+                {taskTagOptions.map((tag) => <option value={tag} key={tag}>{tag}</option>)}
+              </select>
+            </label>
+            <label className="game-save-json-field" style={{ margin: 0 }}>
+              <span>특성</span>
+              <select value={taskFilters.capability} onChange={(event) => updateTaskFilter('capability', event.target.value)}>
+                <option value="all">전체</option>
+                <option value="execution">실행/정적 채점</option>
+                <option value="document">문서 체크</option>
+                <option value="hint">힌트 있음</option>
+              </select>
+            </label>
+          </div>
+          <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+            <strong>필터 결과 {filteredRows.length}개</strong>
+            {' · '}
+            실행형 {filteredRows.filter((row) => row.executionCount || row.hiddenExecutionCount || row.checkCount).length}개
+            {' · '}
+            문서 체크 {filteredRows.filter((row) => row.documentCount || row.checkpointCount).length}개
+            {' · '}
+            힌트 {filteredRows.filter((row) => row.hintCount).length}개
           </div>
           <div className="game-save-list">
-            {rows.map((row) => (
+            {filteredRows.map((row) => (
               <article className="game-save-row" key={row.id}>
                 <div>
-                  <span>{row.difficulty} / {row.modeLabel} · 문서 {row.documentCount} · 실행 {row.executionCount}</span>
+                  <span>{row.difficulty} / {row.modeLabel} · 문서 {row.documentCount} · 체크 {row.checkpointCount} · 실행 {row.executionCount + row.hiddenExecutionCount} · 정적 {row.checkCount}</span>
                   <strong>{row.id}</strong>
                   <span>{row.projectName}</span>
+                  <div className="games-chip-row">
+                    {(row.tags || []).slice(0, 5).map((tag) => <span className="game-save-chip" key={`${row.id}-${tag}`}>{tag}</span>)}
+                  </div>
                   <div className="games-chip-row" style={{ marginTop: 8 }}>
                     <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>코드</button>
                     <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'hint')} disabled={!row.hintCount}>힌트</button>
@@ -447,6 +538,7 @@ export default function SiCodingSimPlayPage() {
                 </button>
               </article>
             ))}
+            {!filteredRows.length ? <div className="games-empty">현재 필터에 맞는 과제가 없습니다.</div> : null}
           </div>
         </section>
 
