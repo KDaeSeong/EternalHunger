@@ -20,6 +20,7 @@ import {
   WEEK_SCHEDULE,
   WORK_ACTIONS,
   applyPolicyPreset,
+  applySchoolVisionAction,
   applySubjectPolicyAction,
   applySubjectShowcaseAction,
   applyWorkAction,
@@ -33,6 +34,7 @@ import {
   getPlayTimeSec,
   getTopStudents,
   launchFestivalAction,
+  longTermReport,
   normalizeState,
   restAction,
   runAdmissionCampaignAction,
@@ -122,6 +124,7 @@ export default function SchoolSimulatorPlayPage() {
   const careerRows = useMemo(() => careerTrackRows(state), [state]);
   const festival = useMemo(() => festivalStatus(state), [state]);
   const report = useMemo(() => semesterReport(state), [state]);
+  const longTerm = useMemo(() => longTermReport(state), [state]);
   const score = scoreState(state);
   const selectedAction = WORK_ACTIONS.find((action) => action.id === actionId) || WORK_ACTIONS[0];
   const selectedPolicy = POLICY_PRESETS.find((policy) => policy.id === policyId) || POLICY_PRESETS[0];
@@ -277,12 +280,75 @@ export default function SchoolSimulatorPlayPage() {
     <GamePlayShell
       kicker="School Simulator"
       title="학교 운영 시뮬레이터"
-      description="업로드된 School Simulator Step 23의 주간 운영, 정책 프리셋, 학생/교사/시설 지표, 시험과 학기 보고 흐름을 사이트용 플레이 slice로 이식했습니다."
+      description="업로드된 School Simulator Step 23의 주간 운영, 장기 학교 비전, 정책 프리셋, 학생/교사/시설 지표, 시험과 학기 보고 흐름을 사이트용 플레이로 이식했습니다."
       summaryLabel="School Simulator 요약"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>장기 학교 비전</h2>
+            <span>{longTerm.evaluation.visionLabel}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>비전</span>
+            <select value={state.school.vision} onChange={(event) => setState((current) => applySchoolVisionAction(current, event.target.value))}>
+              {longTerm.visions.map((vision) => <option value={vision.id} key={vision.id}>{vision.label}</option>)}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{longTerm.evaluation.goal}</p>
+          <div className="games-rank-split">
+            <SmallStat label="평가" value={`${longTerm.evaluation.grade}등급`} />
+            <SmallStat label="종합" value={longTerm.evaluation.score} />
+            <SmallStat label="목표 기간" value={`${longTerm.targetYears}년`} />
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>장기 지표</h2>
+            <span>{longTerm.evaluation.note}</span>
+          </div>
+          <div className="game-save-list">
+            <ScoreBar label="학업" value={longTerm.evaluation.metrics.academic} />
+            <ScoreBar label="복지" value={longTerm.evaluation.metrics.wellbeing} />
+            <ScoreBar label="자율" value={longTerm.evaluation.metrics.autonomy} />
+            <ScoreBar label="공동체" value={longTerm.evaluation.metrics.community} />
+            <ScoreBar label="입학" value={longTerm.evaluation.metrics.admissions} />
+            <ScoreBar label="교사 안정" value={longTerm.evaluation.metrics.teacher} />
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>위기와 성취</h2>
+            <span>기록 {longTerm.evaluationHistory.length}</span>
+          </div>
+          <div className="game-save-list">
+            {longTerm.risks.slice(0, 3).map((risk) => (
+              <article className="game-save-row" key={`${risk.level}-${risk.title}`}>
+                <div>
+                  <span>{risk.detail}</span>
+                  <strong>{risk.title}</strong>
+                </div>
+                <strong>{risk.level === 'critical' ? '긴급' : risk.level === 'warn' ? '주의' : '안정'}</strong>
+              </article>
+            ))}
+            {longTerm.achievements.slice(0, 2).map((achievement) => (
+              <article className="game-save-row" key={achievement.id}>
+                <div>
+                  <span>{achievement.year}년 {achievement.semester}학기 {achievement.week}주</span>
+                  <strong>{achievement.label}</strong>
+                </div>
+                <strong>성과</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">

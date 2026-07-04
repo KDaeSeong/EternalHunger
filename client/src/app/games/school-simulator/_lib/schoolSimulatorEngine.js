@@ -128,6 +128,58 @@ export const RECRUITMENT_STRATEGIES = [
   { id: 'culture', label: '자치·문화 홍보', admissions: 3, brand: 3, quality: 1, community: 1 },
 ];
 
+export const SCHOOL_VISIONS = [
+  {
+    id: 'balanced_growth',
+    label: '균형 성장형 학교',
+    short: '성적, 복지, 자치, 재정을 고르게 끌어올리는 표준 성장 노선입니다.',
+    goal: '3년 안에 학업, 복지, 공동체, 재정 평가를 모두 60 이상으로 안정화',
+    weights: { academic: 1, wellbeing: 1, autonomy: 0.8, community: 0.9, finance: 1, admissions: 0.7, teacher: 0.8, career: 0.7 },
+  },
+  {
+    id: 'academic_mastery',
+    label: '학업 명문형 학교',
+    short: '수업 완성도와 시험 성취를 앞세우되 학생 지원 체계를 함께 관리하는 노선입니다.',
+    goal: '학업 평판 75 이상, 교과 평균 70 이상, 입학 경쟁률 4.0 이상 달성',
+    weights: { academic: 1.8, wellbeing: 0.6, autonomy: 0.4, community: 0.5, finance: 0.8, admissions: 1.1, teacher: 0.9, career: 1 },
+  },
+  {
+    id: 'democratic_autonomy',
+    label: '자치·민주형 학교',
+    short: '학생회, 학급 자치, 동아리 자율성을 학교 브랜드의 핵심으로 삼는 노선입니다.',
+    goal: '자율 문화 80 이상, 학생회 권한 70 이상, 공동체 평판 70 이상 달성',
+    weights: { academic: 0.6, wellbeing: 0.9, autonomy: 1.8, community: 1.4, finance: 0.5, admissions: 0.8, teacher: 0.7, career: 0.7 },
+  },
+  {
+    id: 'welfare_recovery',
+    label: '복지·회복형 학교',
+    short: '상담, 회복, 적응, 안전을 중심에 두고 낙오 없이 성장시키는 노선입니다.',
+    goal: '학생 평균 스트레스 45 이하, 복지 평판 80 이상, 지원 학생 회복률 향상',
+    weights: { academic: 0.7, wellbeing: 1.9, autonomy: 0.7, community: 1.1, finance: 0.6, admissions: 0.6, teacher: 1, career: 0.7 },
+  },
+  {
+    id: 'creative_culture',
+    label: '창작·문화형 학교',
+    short: '예술, 프로젝트, 축제, 발표 활동으로 학교 색깔을 만드는 노선입니다.',
+    goal: '동아리, 성취 발표, 과목 주간 행사를 바탕으로 브랜드 인지도 75 이상 달성',
+    weights: { academic: 0.8, wellbeing: 0.9, autonomy: 1.2, community: 1.3, finance: 0.6, admissions: 1, teacher: 0.8, career: 0.9 },
+  },
+  {
+    id: 'research_specialized',
+    label: '연구 특성화 학교',
+    short: '탐구 프로젝트, 심화 세미나, 연구 트랙 학생을 중심으로 성취를 쌓는 노선입니다.',
+    goal: '연구·심화 학생군을 키워 학업 평판과 졸업 준비도를 동시에 끌어올리기',
+    weights: { academic: 1.5, wellbeing: 0.7, autonomy: 0.8, community: 0.6, finance: 0.7, admissions: 1, teacher: 1.1, career: 1.3 },
+  },
+  {
+    id: 'community_linked',
+    label: '지역사회 연계형 학교',
+    short: '지역 프로젝트, 동문, 학부모 신뢰, 공동체 평판을 축으로 삼는 노선입니다.',
+    goal: '공동체 평판 75 이상, 동문·지역 프로그램 누적, 입학 신뢰 기반 확보',
+    weights: { academic: 0.7, wellbeing: 1, autonomy: 1, community: 1.8, finance: 0.8, admissions: 1, teacher: 0.8, career: 0.9 },
+  },
+];
+
 export const FESTIVAL_TYPES = [
   { id: 'class_festival', label: '학급 축제', metric: 'community', weeks: 2, budgetCost: 380 },
   { id: 'club_showcase', label: '동아리 발표회', metric: 'autonomy', weeks: 2, budgetCost: 320 },
@@ -138,7 +190,7 @@ export const FESTIVAL_TYPES = [
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const mode = options.mode || 'principal';
-  return {
+  const state = {
     runId: options.runId || `school-${Date.now().toString(36)}`,
     startedAt: now,
     updatedAt: now,
@@ -156,6 +208,7 @@ export function createNewState(options = {}) {
       reputation: { academic: 50, wellbeing: 58, safety: 62, autonomy: 56, community: 50, finance: 52 },
       admissions: { applications: 58, competitionRate: 3.6, brandAwareness: 50, inboundInterest: 52, nextIntakeQuality: 60, recruitmentStrategy: 'balanced', marketingMomentum: 0 },
       festival: { active: null, history: [] },
+      vision: 'balanced_growth',
       riskLevel: 16,
     },
     player: { mode, name: options.playerName || '플레이어', energy: 72, mental: 68, insight: 55, network: 42, weeklyActionPoint: 7, burnoutRisk: 14 },
@@ -168,14 +221,16 @@ export function createNewState(options = {}) {
     weeklyModifiers: {},
     recentExamResults: [],
     semesterHistory: [],
+    longTerm: { targetYears: 3, visionHistory: [], evaluationHistory: [], achievements: [], lastRecordedSemesterKey: '' },
     log: ['새 학교 운영을 시작했습니다. AP와 예산을 써서 주간 행동을 고르고 주차를 정산하세요.'],
   };
+  return withLongTermState(state);
 }
 
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
-  return {
+  const normalized = {
     ...base,
     ...value,
     school: value.school && typeof value.school === 'object' ? {
@@ -197,8 +252,10 @@ export function normalizeState(value) {
     weeklyModifiers: value.weeklyModifiers && typeof value.weeklyModifiers === 'object' ? value.weeklyModifiers : {},
     recentExamResults: Array.isArray(value.recentExamResults) ? value.recentExamResults : [],
     semesterHistory: Array.isArray(value.semesterHistory) ? value.semesterHistory : [],
+    longTerm: value.longTerm && typeof value.longTerm === 'object' ? value.longTerm : base.longTerm,
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   };
+  return withLongTermState(normalized);
 }
 
 function createStudents() {
@@ -354,12 +411,204 @@ function average(values) {
   return list.reduce((sum, value) => sum + Number(value || 0), 0) / list.length;
 }
 
-function addLog(state, message) {
+function visionById(visionId) {
+  return SCHOOL_VISIONS.find((vision) => vision.id === visionId) || SCHOOL_VISIONS[0];
+}
+
+function gradeFromScore(score) {
+  if (score >= 88) return 'S';
+  if (score >= 76) return 'A';
+  if (score >= 64) return 'B';
+  if (score >= 50) return 'C';
+  return 'D';
+}
+
+function subjectAverageRaw(state) {
+  const scores = [];
+  (state.students || []).forEach((student) => {
+    Object.values(student.subjectScores || {}).forEach((score) => scores.push(Number(score)));
+  });
+  return average(scores) || average((state.students || []).map((student) => student.understanding));
+}
+
+function teacherStabilityRaw(state) {
+  const teachers = state.teachers || [];
+  if (!teachers.length) return 50;
+  return clamp(average(teachers.map((teacher) => (
+    (100 - Number(teacher.fatigue || 0)) * 0.3
+    + Number(teacher.morale || 50) * 0.45
+    + Number(teacher.teachingSkill || 50) * 0.25
+  ))), 0, 100);
+}
+
+function budgetScoreRaw(state) {
+  const budget = Number(state.school?.budget || 0);
+  if (budget >= 30000) return 90;
+  if (budget >= 18000) return 78;
+  if (budget >= 10000) return 65;
+  if (budget >= 5000) return 50;
+  if (budget >= 1000) return 35;
+  return 15;
+}
+
+function longTermMetricsRaw(state) {
+  const school = state.school || {};
+  const rep = school.reputation || {};
+  const culture = school.culture || {};
+  const admissions = school.admissions || {};
+  const students = state.students || [];
+  const avgStress = average(students.map((student) => student.stress));
+  const avgSatisfaction = average(students.map((student) => student.satisfaction));
+  const avgRelation = average(students.map((student) => student.relationStability));
+  const avgAutonomy = average(students.map((student) => student.autonomyParticipation));
+  const subjectAverage = subjectAverageRaw(state);
+  const competitionScore = clamp(Number(admissions.competitionRate || 1) * 18, 0, 100);
+  const intakeScore = Number(admissions.nextIntakeQuality || 50);
+  const brandScore = Number(admissions.brandAwareness || admissions.inboundInterest || 50);
+
   return {
+    academic: clamp(Number(rep.academic || 50) * 0.35 + Number(culture.academic || 50) * 0.25 + subjectAverage * 0.4, 0, 100),
+    wellbeing: clamp(Number(rep.wellbeing || 50) * 0.3 + Number(culture.welfare || 50) * 0.3 + avgSatisfaction * 0.2 + (100 - avgStress) * 0.2, 0, 100),
+    autonomy: clamp(Number(rep.autonomy || 50) * 0.35 + Number(culture.autonomy || 50) * 0.4 + avgAutonomy * 0.25, 0, 100),
+    community: clamp(Number(rep.community || 50) * 0.35 + Number(culture.community || 50) * 0.35 + avgRelation * 0.3, 0, 100),
+    finance: clamp(Number(rep.finance || 50) * 0.45 + budgetScoreRaw(state) * 0.55, 0, 100),
+    admissions: clamp(competitionScore * 0.35 + intakeScore * 0.35 + brandScore * 0.3, 0, 100),
+    teacher: teacherStabilityRaw(state),
+    career: clamp(average(students.map((student) => student.careerReadiness)), 0, 100),
+    safety: clamp(Number(rep.safety || 50) * 0.7 + (100 - Number(school.riskLevel || 0)) * 0.3, 0, 100),
+    avgStress: clamp(avgStress, 0, 100),
+  };
+}
+
+function evaluateLongTermRaw(state) {
+  const vision = visionById(state.school?.vision || 'balanced_growth');
+  const metrics = longTermMetricsRaw(state);
+  const totalWeight = Object.values(vision.weights).reduce((sum, weight) => sum + Number(weight || 0), 0);
+  const weighted = Object.entries(vision.weights).reduce((sum, [key, weight]) => sum + Number(metrics[key] || 0) * Number(weight || 0), 0);
+  const score = clamp(weighted / Math.max(1, totalWeight), 0, 100);
+  const grade = gradeFromScore(score);
+  return {
+    visionId: vision.id,
+    visionLabel: vision.label,
+    score,
+    grade,
+    metrics,
+    goal: vision.goal,
+    short: vision.short,
+    note: grade === 'S'
+      ? '목표 학교상에 매우 근접했습니다.'
+      : grade === 'A'
+        ? '장기 방향이 안정적으로 자리 잡고 있습니다.'
+        : grade === 'B'
+          ? '기본 노선은 유지되지만 취약 영역 보강이 필요합니다.'
+          : grade === 'C'
+            ? '장기 목표 달성까지 구조적 보완이 필요합니다.'
+            : '학교의 장기 목표가 흔들리고 있습니다. 우선순위를 재정렬해야 합니다.',
+  };
+}
+
+function longTermRisksRaw(state, evaluation) {
+  const metrics = evaluation.metrics;
+  const school = state.school || {};
+  const teachers = state.teachers || [];
+  const admissions = school.admissions || {};
+  const risks = [];
+  const addRisk = (level, title, detail, action) => risks.push({ level, title, detail, action });
+
+  if (Number(school.budget || 0) < 1000) addRisk('critical', '재정 파탄 위험', '가용 예산이 1,000 미만입니다.', '유지비와 장기 투자를 즉시 조정하세요.');
+  else if (Number(school.budget || 0) < 5000) addRisk('warn', '재정 압박', '예산 여력이 낮습니다.', '시설 확장보다 유지·회복 중심 운영이 안전합니다.');
+  if (metrics.avgStress >= 78 || metrics.wellbeing < 42) addRisk('critical', '학생 회복 한계', '학생 스트레스가 높거나 복지 지표가 낮습니다.', '상담·휴식·시험 피드백 루프가 필요합니다.');
+  else if (metrics.avgStress >= 65 || metrics.wellbeing < 55) addRisk('warn', '학생 피로 누적', '성적 압박과 행사 일정을 조절해야 합니다.', '회복형 프로그램을 붙이세요.');
+
+  const attritionCount = teachers.filter((teacher) => Number(teacher.fatigue || 0) >= 78 && Number(teacher.morale || 100) <= 45).length;
+  if (attritionCount >= 3 || metrics.teacher < 42) addRisk('critical', '교사 이탈 위험', '핵심 교사 소진이 커졌습니다.', '회복일, 유지 면담, 보직 부담 조정이 필요합니다.');
+  else if (attritionCount >= 1 || metrics.teacher < 55) addRisk('warn', '교사 피로 경보', '일부 교사의 피로와 이탈 위험이 보입니다.', '협업·휴식 루프를 확인하세요.');
+  if (Number(admissions.competitionRate || 0) < 1.2 || metrics.admissions < 40) addRisk('critical', '입학 기반 붕괴 위험', '지원자 수와 입학 매력이 낮습니다.', '홍보, 동문 성과, 학교 비전을 다시 연결하세요.');
+  else if (Number(admissions.competitionRate || 0) < 2 || metrics.admissions < 55) addRisk('warn', '모집 경쟁력 약화', '학교 브랜드와 모집 전략의 방향성이 약합니다.', '공개수업·성취 발표를 활용하세요.');
+  if (metrics.safety < 45 || Number(school.riskLevel || 0) >= 70) addRisk('critical', '안전 신뢰도 위기', '학교 리스크와 안전 평판이 위험 구간입니다.', '시설 보수와 갈등 대응을 우선하세요.');
+  else if (metrics.safety < 58 || Number(school.riskLevel || 0) >= 50) addRisk('warn', '운영 리스크 상승', '작은 사건이 누적되고 있습니다.', '시설·관계·보고 체계를 점검하세요.');
+  if (!risks.length) addRisk('good', '중대 위기 없음', '현재 장기 목표를 위협하는 핵심 위기는 없습니다.', '다음 학기 투자를 준비해도 좋습니다.');
+  return risks;
+}
+
+function updateLongTermAchievementsRaw(state, longTerm, evaluation) {
+  const achievements = Array.isArray(longTerm.achievements) ? [...longTerm.achievements] : [];
+  const hasAchievement = (id) => achievements.some((item) => item.id === id);
+  const addAchievement = (id, label) => {
+    if (!hasAchievement(id)) achievements.unshift({ id, label, year: state.school.year, semester: state.school.semester, week: state.school.week });
+  };
+  if (evaluation.score >= 70) addAchievement('longterm_b', '장기 평가 70점 돌파');
+  if (evaluation.score >= 82) addAchievement('longterm_a', '장기 평가 A권 진입');
+  if (Number(evaluation.metrics.teacher || 0) >= 75) addAchievement('teacher_stable', '교사 유지 안정권 진입');
+  if (Number(evaluation.metrics.admissions || 0) >= 75) addAchievement('admissions_power', '모집 경쟁력 우수권 진입');
+  if (Number(evaluation.metrics.wellbeing || 0) >= 75) addAchievement('welfare_model', '복지·회복 모델학교 신호 확보');
+  return achievements.slice(0, 10);
+}
+
+function withLongTermState(state) {
+  const visionId = visionById(state.school?.vision || 'balanced_growth').id;
+  const baseLongTerm = state.longTerm && typeof state.longTerm === 'object' ? state.longTerm : {};
+  const shaped = {
+    ...state,
+    school: { ...state.school, vision: visionId },
+    longTerm: {
+      targetYears: Math.max(1, Number(baseLongTerm.targetYears || 3)),
+      visionHistory: Array.isArray(baseLongTerm.visionHistory) ? baseLongTerm.visionHistory.slice(0, 12) : [],
+      evaluationHistory: Array.isArray(baseLongTerm.evaluationHistory) ? baseLongTerm.evaluationHistory.slice(0, 12) : [],
+      achievements: Array.isArray(baseLongTerm.achievements) ? baseLongTerm.achievements.slice(0, 10) : [],
+      lastRecordedSemesterKey: typeof baseLongTerm.lastRecordedSemesterKey === 'string' ? baseLongTerm.lastRecordedSemesterKey : '',
+    },
+  };
+  const evaluation = evaluateLongTermRaw(shaped);
+  const risks = longTermRisksRaw(shaped, evaluation);
+  return {
+    ...shaped,
+    longTerm: {
+      ...shaped.longTerm,
+      evaluation,
+      risks,
+      achievements: updateLongTermAchievementsRaw(shaped, shaped.longTerm, evaluation),
+    },
+  };
+}
+
+function recordLongTermSemesterEvaluation(state, year, semester) {
+  const current = withLongTermState(state);
+  const key = `${year}-${semester}`;
+  if (current.longTerm.lastRecordedSemesterKey === key) return current;
+  const evaluation = current.longTerm.evaluation;
+  const riskCount = (current.longTerm.risks || []).filter((risk) => risk.level !== 'good').length;
+  return withLongTermState({
+    ...current,
+    longTerm: {
+      ...current.longTerm,
+      evaluationHistory: [{
+        key,
+        year,
+        semester,
+        visionLabel: evaluation.visionLabel,
+        score: evaluation.score,
+        grade: evaluation.grade,
+        academic: evaluation.metrics.academic,
+        wellbeing: evaluation.metrics.wellbeing,
+        autonomy: evaluation.metrics.autonomy,
+        community: evaluation.metrics.community,
+        finance: evaluation.metrics.finance,
+        admissions: evaluation.metrics.admissions,
+        teacher: evaluation.metrics.teacher,
+        riskCount,
+      }, ...(current.longTerm.evaluationHistory || [])].slice(0, 12),
+      lastRecordedSemesterKey: key,
+    },
+  });
+}
+
+function addLog(state, message) {
+  return withLongTermState({
     ...state,
     updatedAt: new Date().toISOString(),
     log: [message, ...state.log].slice(0, 120),
-  };
+  });
 }
 
 function applyCulture(state, effects = {}) {
@@ -510,6 +759,26 @@ export function applyPolicyPreset(state, presetId) {
   };
   current = applyCulture(current, preset.effects);
   return addLog(current, `정책 프리셋을 ${preset.label}(으)로 변경했습니다.`);
+}
+
+export function applySchoolVisionAction(state, visionId) {
+  const current = normalizeState(state);
+  const vision = visionById(visionId);
+  if (current.school.vision === vision.id) return addLog(current, '이미 적용 중인 장기 비전입니다.');
+  return addLog({
+    ...current,
+    school: { ...current.school, vision: vision.id },
+    longTerm: {
+      ...current.longTerm,
+      visionHistory: [{
+        year: current.school.year,
+        semester: current.school.semester,
+        week: current.school.week,
+        visionId: vision.id,
+        label: vision.label,
+      }, ...(current.longTerm.visionHistory || [])].slice(0, 12),
+    },
+  }, `장기 학교 비전을 [${vision.label}](으)로 설정했습니다.`);
 }
 
 export function restAction(state) {
@@ -991,6 +1260,8 @@ export function endWeekAction(state) {
 
   const nextWeek = Number(school.week || 1) + 1;
   const semesterEnded = nextWeek > 12;
+  const completedYear = school.year;
+  const completedSemester = school.semester;
   let semesterHistory = current.semesterHistory;
   if (semesterEnded) {
     semesterHistory = [createSemesterReport({ ...current, school, students, teachers, facilities, recentExamResults: exams })].concat(semesterHistory).slice(0, 10);
@@ -1024,6 +1295,9 @@ export function endWeekAction(state) {
     },
     weeklyModifiers: {},
   };
+  if (semesterEnded) {
+    current = recordLongTermSemesterEvaluation(current, completedYear, completedSemester);
+  }
 
   const examText = exams.length ? ` 시험 평균 ${examAvg}점.` : '';
   const eventLogs = [...clubResult.logs, ...subjectShowcaseResult.logs, ...festivalResult.logs];
@@ -1165,6 +1439,20 @@ export function careerTrackRows(state) {
   }));
 }
 
+export function longTermReport(state) {
+  const current = normalizeState(state);
+  return {
+    visions: SCHOOL_VISIONS,
+    currentVision: visionById(current.school.vision),
+    evaluation: current.longTerm.evaluation,
+    risks: current.longTerm.risks || [],
+    achievements: current.longTerm.achievements || [],
+    evaluationHistory: current.longTerm.evaluationHistory || [],
+    visionHistory: current.longTerm.visionHistory || [],
+    targetYears: current.longTerm.targetYears || 3,
+  };
+}
+
 export function semesterReport(state) {
   const current = normalizeState(state);
   const avg = getAverages(current);
@@ -1276,6 +1564,7 @@ export function scoreState(state) {
   const subjectAverage = Math.round(average(subjectPolicyRows(current).map((row) => row.averageScore)));
   const careerAverage = Math.round(average(current.students.map((student) => student.careerReadiness)));
   const clubInfluence = Math.round(average(clubRows(current).map((club) => club.influence)));
+  const longTermScore = Number(current.longTerm?.evaluation?.score || 0);
   return Math.max(0, Math.round(
     Number(current.school.budget || 0) / 24
     + avg.understanding * 10
@@ -1286,6 +1575,7 @@ export function scoreState(state) {
     + clubInfluence * 3
     + avg.teacherMorale * 6
     + avg.facilityCondition * 5
+    + longTermScore * 5
     - avg.stress * 6
     - Number(current.school.riskLevel || 0) * 7
   ));
@@ -1314,6 +1604,8 @@ export function summaryForState(state) {
     careerReadiness: Math.round(average(current.students.map((student) => student.careerReadiness))),
     clubInfluence: Math.round(average(clubRows(current).map((club) => club.influence))),
     festivalHistory: current.school.festival?.history?.length || 0,
+    longTerm: `${current.longTerm?.evaluation?.grade || '-'} / ${current.longTerm?.evaluation?.score || 0}`,
+    vision: current.longTerm?.evaluation?.visionLabel || visionById(current.school.vision).label,
     score: scoreState(current),
   };
 }
