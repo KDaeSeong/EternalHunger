@@ -19,11 +19,12 @@ const UserSchema = new mongoose.Schema({
   
   // ★ 관리자 여부 추가 (기본값은 false)
   isAdmin: { type: Boolean, default: false },
-  moderationStatus: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
+  moderationStatus: { type: String, enum: ['active', 'suspended', 'deactivated'], default: 'active', index: true },
   moderationReason: { type: String, default: '', trim: true, maxlength: 500 },
   suspendedUntil: { type: Date, default: null, index: true },
   moderatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   moderatedAt: { type: Date, default: null },
+  deactivatedAt: { type: Date, default: null, index: true },
   badges: [{
     name: String,
     unlockedAt: { type: Date, default: Date.now }

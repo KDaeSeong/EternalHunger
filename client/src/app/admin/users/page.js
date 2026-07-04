@@ -7,6 +7,7 @@ const STATUS_OPTIONS = [
   { value: '', label: '전체' },
   { value: 'active', label: '정상' },
   { value: 'suspended', label: '정지' },
+  { value: 'deactivated', label: '탈퇴' },
   { value: 'admin', label: '관리자' },
 ];
 
@@ -57,11 +58,13 @@ function normalizeUser(row) {
     moderationReason: safeText(row.moderationReason, ''),
     suspendedUntil: row.suspendedUntil || null,
     suspensionActive: Boolean(row.suspensionActive),
+    deactivatedAt: row.deactivatedAt || null,
     createdAt: row.createdAt || null,
   };
 }
 
 function userStatusLabel(user) {
+  if (user.moderationStatus === 'deactivated') return '탈퇴';
   if (user.isAdmin) return '관리자';
   if (user.suspensionActive) return '정지';
   if (user.moderationStatus === 'suspended') return '정지 만료';
@@ -70,7 +73,7 @@ function userStatusLabel(user) {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, admins: 0, suspended: 0 });
+  const [summary, setSummary] = useState({ total: 0, admins: 0, suspended: 0, deactivated: 0 });
   const [searchInput, setSearchInput] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -97,7 +100,7 @@ export default function AdminUsersPage() {
       const data = await apiGet(`/admin/users?${params}`, { timeoutMs: 20000 });
       const nextUsers = (Array.isArray(data?.users) ? data.users : []).map(normalizeUser).filter(Boolean);
       setUsers(nextUsers);
-      setSummary(data?.summary || { total: 0, admins: 0, suspended: 0 });
+      setSummary(data?.summary || { total: 0, admins: 0, suspended: 0, deactivated: 0 });
       setTotalPages(Math.max(1, Number(data?.totalPages || 1)));
       setDaysById((current) => {
         const next = { ...current };
@@ -184,6 +187,7 @@ export default function AdminUsersPage() {
         <div><span>전체</span><strong>{formatNumber(summary.total)}</strong></div>
         <div><span>관리자</span><strong>{formatNumber(summary.admins)}</strong></div>
         <div><span>정지</span><strong>{formatNumber(summary.suspended)}</strong></div>
+        <div><span>탈퇴</span><strong>{formatNumber(summary.deactivated)}</strong></div>
       </section>
 
       <section className="admin-card admin-user-toolbar">
@@ -235,9 +239,12 @@ export default function AdminUsersPage() {
                     <div className="admin-muted">가입 {formatDate(user.createdAt)}</div>
                   </td>
                   <td>
-                    <span className={`admin-user-status is-${user.suspensionActive ? 'suspended' : user.isAdmin ? 'admin' : 'active'}`}>
+                    <span className={`admin-user-status is-${user.moderationStatus === 'deactivated' ? 'deactivated' : user.suspensionActive ? 'suspended' : user.isAdmin ? 'admin' : 'active'}`}>
                       {userStatusLabel(user)}
                     </span>
+                    {user.deactivatedAt ? (
+                      <div className="admin-muted">탈퇴 {formatDate(user.deactivatedAt)}</div>
+                    ) : null}
                     {user.suspendedUntil ? (
                       <div className="admin-muted">해제 예정 {formatDate(user.suspendedUntil)}</div>
                     ) : null}
@@ -257,7 +264,7 @@ export default function AdminUsersPage() {
                       maxLength={500}
                       rows={3}
                       placeholder="정지 사유"
-                      disabled={user.isAdmin || savingId === user._id}
+                      disabled={user.isAdmin || user.moderationStatus === 'deactivated' || savingId === user._id}
                     />
                     {user.moderationReason ? (
                       <div className="admin-muted">현재 사유: {user.moderationReason}</div>
@@ -268,7 +275,7 @@ export default function AdminUsersPage() {
                       <select
                         value={daysById[user._id] || '7'}
                         onChange={(event) => setDaysById({ ...daysById, [user._id]: event.target.value })}
-                        disabled={user.isAdmin || savingId === user._id}
+                        disabled={user.isAdmin || user.moderationStatus === 'deactivated' || savingId === user._id}
                       >
                         {SUSPEND_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>{option.label}</option>
@@ -278,7 +285,7 @@ export default function AdminUsersPage() {
                         type="button"
                         className="admin-btn danger"
                         onClick={() => suspendUser(user)}
-                        disabled={user.isAdmin || savingId === user._id}
+                        disabled={user.isAdmin || user.moderationStatus === 'deactivated' || savingId === user._id}
                       >
                         {savingId === user._id ? '처리 중...' : '정지'}
                       </button>

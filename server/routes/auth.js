@@ -15,6 +15,10 @@ function isSuspensionActive(user) {
   return new Date(user.suspendedUntil).getTime() > Date.now();
 }
 
+function isAccountDeactivated(user) {
+  return user?.moderationStatus === 'deactivated';
+}
+
 function publicUser(user) {
   return {
     id: user._id,
@@ -61,6 +65,12 @@ router.post('/login', async (req, res) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    if (isAccountDeactivated(user)) {
+      return res.status(403).json({
+        error: '탈퇴한 계정입니다.',
+        moderationStatus: 'deactivated',
+      });
+    }
     if (isSuspensionActive(user)) {
       return res.status(403).json({
         error: '정지된 계정입니다.',

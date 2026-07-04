@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import UserFollowPreview from '../../components/UserFollowPreview';
-import { apiGetCached, apiPut, clearApiGetCache, updateStoredUser } from '../../utils/api';
+import { apiGetCached, apiPost, apiPut, clearApiGetCache, clearAuth, updateStoredUser } from '../../utils/api';
 import { useAuthUser, useHydrated } from '../../utils/client-auth';
 
 const EMPTY_ACTIVITY = {
@@ -121,6 +122,7 @@ function AccountRecordRows({ rows, type }) {
 }
 
 export default function AccountPage() {
+  const router = useRouter();
   const hydrated = useHydrated();
   const user = useAuthUser();
   const { showToast } = useToast();
@@ -131,6 +133,9 @@ export default function AccountPage() {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState('');
+  const [deactivateForm, setDeactivateForm] = useState({ currentPassword: '', confirmText: '' });
+  const [deactivateSaving, setDeactivateSaving] = useState(false);
+  const [deactivateMessage, setDeactivateMessage] = useState('');
   const [activity, setActivity] = useState(() => normalizeActivity(null));
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
@@ -281,6 +286,47 @@ export default function AccountPage() {
     }
   };
 
+  const deactivateAccount = async (event) => {
+    event.preventDefault();
+    if (deactivateSaving || !user) return;
+
+    const currentPassword = String(deactivateForm.currentPassword || '');
+    const confirmText = String(deactivateForm.confirmText || '').trim();
+
+    if (!currentPassword) {
+      const nextMessage = '현재 비밀번호를 입력해주세요.';
+      setDeactivateMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+    if (confirmText !== '탈퇴') {
+      const nextMessage = '확인 문구에 탈퇴를 입력해주세요.';
+      setDeactivateMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+
+    const ok = window.confirm('계정을 탈퇴 처리하면 다시 로그인할 수 없습니다. 계속하시겠습니까?');
+    if (!ok) return;
+
+    setDeactivateSaving(true);
+    setDeactivateMessage('');
+    try {
+      const res = await apiPost('/user/deactivate', { currentPassword, confirmText }, { timeoutMs: 20000 });
+      const nextMessage = res?.message || '계정이 탈퇴 처리되었습니다.';
+      setDeactivateMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+      clearAuth();
+      router.replace('/');
+    } catch (err) {
+      const nextMessage = err?.message || '계정 탈퇴 처리에 실패했습니다.';
+      setDeactivateMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setDeactivateSaving(false);
+    }
+  };
+
   return (
     <main className="account-page-shell">
       <SiteHeader />
@@ -416,6 +462,43 @@ export default function AccountPage() {
               <div className="account-actions">
                 <button type="submit" disabled={passwordSaving}>
                   {passwordSaving ? '변경 중...' : '비밀번호 변경'}
+                </button>
+              </div>
+            </form>
+
+            <form className="account-panel account-danger-panel" onSubmit={deactivateAccount}>
+              <div className="account-panel-title">
+                <h2>계정 탈퇴</h2>
+              </div>
+              <p>
+                탈퇴하면 현재 계정으로 다시 로그인할 수 없습니다. 작성한 게시글과 기록은 서비스 흐름 보존을 위해
+                남지만, 계정명과 프로필 정보는 탈퇴 계정으로 정리됩니다.
+              </p>
+              <div className="account-security-grid">
+                <label className="account-field">
+                  <span>현재 비밀번호</span>
+                  <input
+                    type="password"
+                    value={deactivateForm.currentPassword}
+                    onChange={(event) => setDeactivateForm({ ...deactivateForm, currentPassword: event.target.value })}
+                    autoComplete="current-password"
+                    disabled={deactivateSaving}
+                  />
+                </label>
+                <label className="account-field">
+                  <span>확인 문구</span>
+                  <input
+                    value={deactivateForm.confirmText}
+                    onChange={(event) => setDeactivateForm({ ...deactivateForm, confirmText: event.target.value })}
+                    placeholder="탈퇴"
+                    disabled={deactivateSaving}
+                  />
+                </label>
+              </div>
+              {deactivateMessage ? <div className="account-message danger">{deactivateMessage}</div> : null}
+              <div className="account-actions">
+                <button type="submit" className="danger" disabled={deactivateSaving}>
+                  {deactivateSaving ? '처리 중...' : '계정 탈퇴'}
                 </button>
               </div>
             </form>

@@ -8,6 +8,10 @@ function isSuspensionActive(user) {
   return new Date(user.suspendedUntil).getTime() > Date.now();
 }
 
+function isAccountDeactivated(user) {
+  return user?.moderationStatus === 'deactivated';
+}
+
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -21,6 +25,12 @@ const verifyToken = async (req, res, next) => {
       .lean();
 
     if (!user) return res.status(401).json({ error: '사용자를 찾을 수 없습니다.' });
+    if (isAccountDeactivated(user)) {
+      return res.status(403).json({
+        error: '탈퇴한 계정입니다.',
+        moderationStatus: 'deactivated',
+      });
+    }
     if (isSuspensionActive(user)) {
       return res.status(403).json({
         error: '정지된 계정입니다.',

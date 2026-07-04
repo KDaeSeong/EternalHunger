@@ -77,6 +77,7 @@ function serializeAdminUser(user) {
         suspendedUntil: user?.suspendedUntil || null,
         suspensionActive: isSuspensionActive(user),
         moderatedAt: user?.moderatedAt || null,
+        deactivatedAt: user?.deactivatedAt || null,
         createdAt: user?.createdAt || null,
     };
 }
@@ -94,6 +95,7 @@ router.get('/users', async (req, res) => {
             filter.$or = [{ username: pattern }, { nickname: pattern }];
         }
         if (status === 'suspended') filter.moderationStatus = 'suspended';
+        if (status === 'deactivated') filter.moderationStatus = 'deactivated';
         if (status === 'active') {
             filter.$and = [
                 ...(Array.isArray(filter.$and) ? filter.$and : []),
@@ -105,7 +107,7 @@ router.get('/users', async (req, res) => {
         const [total, users, summary] = await Promise.all([
             User.countDocuments(filter),
             User.find(filter)
-                .select('username nickname lp credits statistics isAdmin moderationStatus moderationReason suspendedUntil moderatedAt createdAt')
+                .select('username nickname lp credits statistics isAdmin moderationStatus moderationReason suspendedUntil moderatedAt deactivatedAt createdAt')
                 .sort({ createdAt: -1 })
                 .skip((page - 1) * limit)
                 .limit(limit)
@@ -114,6 +116,7 @@ router.get('/users', async (req, res) => {
                 User.countDocuments({}),
                 User.countDocuments({ isAdmin: true }),
                 User.countDocuments({ moderationStatus: 'suspended' }),
+                User.countDocuments({ moderationStatus: 'deactivated' }),
             ]),
         ]);
 
@@ -127,6 +130,7 @@ router.get('/users', async (req, res) => {
                 total: Number(summary[0] || 0),
                 admins: Number(summary[1] || 0),
                 suspended: Number(summary[2] || 0),
+                deactivated: Number(summary[3] || 0),
             },
         });
     } catch (err) {
@@ -144,9 +148,12 @@ router.post('/users/:id/suspend', async (req, res) => {
             return res.status(400).json({ error: '자기 계정은 정지할 수 없습니다.' });
         }
 
-        const target = await User.findById(targetId).select('username nickname isAdmin');
+        const target = await User.findById(targetId).select('username nickname isAdmin moderationStatus');
         if (!target) return res.status(404).json({ error: '유저를 찾을 수 없습니다.' });
         if (target.isAdmin) return res.status(400).json({ error: '관리자 계정은 정지할 수 없습니다.' });
+        if (target.moderationStatus === 'deactivated') {
+            return res.status(400).json({ error: '탈퇴한 계정은 정지 처리할 수 없습니다.' });
+        }
 
         const days = toSuspendDays(req.body?.days);
         const reason = cleanText(req.body?.reason || '운영 정책 위반으로 계정이 정지되었습니다.', 500);
@@ -165,7 +172,7 @@ router.post('/users/:id/suspend', async (req, res) => {
                 },
             },
             { new: true }
-        ).select('username nickname lp credits statistics isAdmin moderationStatus moderationReason suspendedUntil moderatedAt createdAt').lean();
+        ).select('username nickname lp credits statistics isAdmin moderationStatus moderationReason suspendedUntil moderatedAt deactivatedAt createdAt').lean();
 
         await createNotification({
             userId: targetId,
@@ -204,7 +211,7 @@ router.post('/users/:id/unsuspend', async (req, res) => {
                 },
             },
             { new: true }
-        ).select('username nickname lp credits statistics isAdmin moderationStatus moderationReason suspendedUntil moderatedAt createdAt').lean();
+        ).select('username nickname lp credits statistics isAdmin moderationStatus moderationReason suspendedUntil moderatedAt deactivatedAt createdAt').lean();
 
         await createNotification({
             userId: targetId,

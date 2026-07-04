@@ -5,6 +5,8 @@ const router = express.Router();
 const User = require('../models/User');
 const Character = require('../models/Characters');
 
+const VISIBLE_USER_FILTER = { moderationStatus: { $ne: 'deactivated' } };
+
 /**
  * ✅ 랭킹 (Top 3)
  * - wins : 캐릭터 기준 총 우승
@@ -24,7 +26,7 @@ router.get('/', async (req, res) => {
       .sort({ 'records.totalKills': -1 })
       .limit(3);
 
-    const points = await User.find({}, 'username nickname lp')
+    const points = await User.find(VISIBLE_USER_FILTER, 'username nickname lp')
       .sort({ lp: -1 })
       .limit(3);
 

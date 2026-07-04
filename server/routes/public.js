@@ -22,6 +22,7 @@ const { buildDefaultZoneConnections } = require('../utils/defaultZoneConnections
 const { getOptionalUserId, scopedFilter } = require('../utils/requestScope');
 
 const PUBLIC_FOLLOW_USER_SELECT = 'username nickname profileBio lp statistics badges createdAt';
+const VISIBLE_USER_FILTER = { moderationStatus: { $ne: 'deactivated' } };
 
 const PUBLIC_ITEM_SELECT = [
   '_id',
@@ -501,7 +502,7 @@ router.get('/users/:id', async (req, res) => {
     const viewerId = mongoose.Types.ObjectId.isValid(String(viewerIdRaw || ''))
       ? new mongoose.Types.ObjectId(viewerIdRaw)
       : null;
-    const user = await User.findById(userId)
+    const user = await User.findOne({ _id: userId, ...VISIBLE_USER_FILTER })
       .select('username nickname profileBio lp statistics badges createdAt')
       .lean();
     if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
@@ -614,7 +615,7 @@ router.get('/home-hub', async (req, res) => {
       topUsers,
       topCharacters,
     ] = await Promise.all([
-      User.countDocuments({}),
+      User.countDocuments(VISIBLE_USER_FILTER),
       Post.countDocuments({}),
       Character.countDocuments({}),
       TwentyQuestionsRoom.countDocuments({}),
@@ -637,7 +638,7 @@ router.get('/home-hub', async (req, res) => {
         .sort({ updatedAt: -1 })
         .limit(6)
         .lean(),
-      User.find({})
+      User.find(VISIBLE_USER_FILTER)
         .select('username nickname profileBio lp createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(5)
@@ -697,7 +698,7 @@ router.get('/games/:slug/hub', async (req, res) => {
         recentRooms,
         topUsers,
       ] = await Promise.all([
-        User.countDocuments({}),
+        User.countDocuments(VISIBLE_USER_FILTER),
         Post.countDocuments(postFilter),
         TwentyQuestionsRoom.countDocuments({}),
         TwentyQuestionsRoom.countDocuments({ status: 'active' }),
@@ -723,7 +724,7 @@ router.get('/games/:slug/hub', async (req, res) => {
           .sort({ updatedAt: -1 })
           .limit(6)
           .lean(),
-        User.find({})
+        User.find(VISIBLE_USER_FILTER)
           .select('username nickname profileBio lp statistics createdAt')
           .sort({ lp: -1, createdAt: 1 })
           .limit(5)
@@ -765,7 +766,7 @@ router.get('/games/:slug/hub', async (req, res) => {
       topCharacters,
       topTeams,
     ] = await Promise.all([
-      User.countDocuments({}),
+      User.countDocuments(VISIBLE_USER_FILTER),
       Post.countDocuments(postFilter),
       Character.countDocuments({}),
       TeamRecord.countDocuments({}),
@@ -781,7 +782,7 @@ router.get('/games/:slug/hub', async (req, res) => {
         .sort({ playedAt: -1, _id: -1 })
         .limit(6)
         .lean(),
-      User.find({})
+      User.find(VISIBLE_USER_FILTER)
         .select('username nickname profileBio lp statistics createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(5)
@@ -1027,7 +1028,7 @@ router.get('/search', async (req, res) => {
         .sort({ status: 1, updatedAt: -1 })
         .limit(8)
         .lean(),
-      User.find({ $or: [{ username: pattern }, { nickname: pattern }] })
+      User.find({ ...VISIBLE_USER_FILTER, $or: [{ username: pattern }, { nickname: pattern }] })
         .select('username nickname profileBio lp createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(8)
@@ -1081,10 +1082,10 @@ router.get('/leaderboard', async (req, res) => {
       characters,
       teams,
     ] = await Promise.all([
-      User.countDocuments({}),
+      User.countDocuments(VISIBLE_USER_FILTER),
       Character.countDocuments({}),
       TeamRecord.countDocuments({}),
-      User.find({})
+      User.find(VISIBLE_USER_FILTER)
         .select('username nickname profileBio lp statistics createdAt')
         .sort({ lp: -1, createdAt: 1 })
         .limit(25)

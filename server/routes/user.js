@@ -163,6 +163,63 @@ router.put('/password', async (req, res) => {
   }
 });
 
+router.post('/deactivate', async (req, res) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '');
+    const confirmText = String(req.body?.confirmText || '').trim();
+
+    if (!currentPassword) {
+      return res.status(400).json({ error: '현재 비밀번호를 입력해주세요.' });
+    }
+    if (confirmText !== '탈퇴') {
+      return res.status(400).json({ error: '확인 문구에 탈퇴를 입력해주세요.' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    if (user.isAdmin) {
+      return res.status(400).json({ error: '관리자 계정은 유저 관리 화면에서 권한을 넘긴 뒤 처리해주세요.' });
+    }
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
+
+    const now = new Date();
+    const suffix = String(user._id || req.user.id);
+    user.username = `deactivated_${suffix}`;
+    user.nickname = '탈퇴한 사용자';
+    user.profileBio = '';
+    user.password = `deactivated:${suffix}:${now.getTime()}:${Math.random()}`;
+    user.lp = 0;
+    user.credits = 0;
+    user.perks = [];
+    user.badges = [];
+    user.personalHistory = [];
+    user.moderationStatus = 'deactivated';
+    user.moderationReason = '사용자 요청으로 탈퇴 처리됨';
+    user.suspendedUntil = null;
+    user.moderatedBy = user._id;
+    user.moderatedAt = now;
+    user.deactivatedAt = now;
+
+    await user.save();
+    await UserFollow.deleteMany({
+      $or: [
+        { followerId: user._id },
+        { followingId: user._id },
+      ],
+    });
+
+    res.json({ message: '계정이 탈퇴 처리되었습니다.' });
+  } catch (err) {
+    console.error(err);
+    if (err?.code === 11000) {
+      return res.status(409).json({ error: '탈퇴 처리 중 계정 식별자 충돌이 발생했습니다. 다시 시도해주세요.' });
+    }
+    res.status(500).json({ error: '계정 탈퇴 처리에 실패했습니다.' });
+  }
+});
+
 router.get('/follows/:targetUserId', async (req, res) => {
   try {
     const targetUserId = String(req.params.targetUserId || '');

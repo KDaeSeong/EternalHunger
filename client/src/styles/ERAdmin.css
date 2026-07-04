@@ -437,7 +437,7 @@
 
 .admin-user-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -527,6 +527,11 @@
 .admin-user-status.is-suspended {
   border-color: rgba(248, 113, 113, 0.55);
   color: #fecaca;
+}
+
+.admin-user-status.is-deactivated {
+  border-color: rgba(148, 163, 184, 0.55);
+  color: #cbd5e1;
 }
 
 .admin-user-message {
