@@ -329,6 +329,7 @@ export default function Rail3dSimPlayPage() {
               <SmallStat label="속도" value={`${selectedTrain.speedKmh || 0}km/h`} />
               <SmallStat label="현재 블록" value={selectedTrain.occupiedBlockId || '-'} />
               <SmallStat label="예약 블록" value={selectedTrain.reservedBlocks.length} />
+              <SmallStat label="Lookahead" value={selectedTrain.reservationLookahead} />
               <SmallStat label="세그먼트" value={selectedTrain.segmentId || '-'} />
               <SmallStat label="토큰" value={selectedTrain.segmentOwner ? `${selectedTrain.segmentOwner} 점유` : 'FREE'} />
             </div>
@@ -464,6 +465,7 @@ export default function Rail3dSimPlayPage() {
               <SmallStat label="다음 역" value={row.nextStation} />
               <SmallStat label="속도" value={`${row.speedKmh}km/h`} />
               <SmallStat label="대기" value={`${row.waitSeconds}s`} />
+              <SmallStat label="Lookahead" value={row.reservationLookahead} />
             </div>
             <div className="game-save-list">
               <article className="game-save-row">

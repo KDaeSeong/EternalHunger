@@ -135,6 +135,7 @@ export function trainRows(state) {
       speedKmh: Math.round(train.speedKmh),
       waitSeconds: Math.round(train.waitSeconds || 0),
       lastArrivalDelay,
+      reservationLookahead: reservationLookaheadForTrain(current, train),
     };
   });
 }
@@ -194,6 +195,7 @@ export function trainDebugDetail(state, trainId = '') {
     ownedBlocks,
     reservedBlocks: ownedBlocks.filter((block) => block.state === 'RESERVED'),
     occupiedBlocks: ownedBlocks.filter((block) => block.state === 'OCCUPIED'),
+    reservationLookahead: reservationLookaheadForTrain(current, train),
     segmentEdges: segment?.edgeIds || [],
     segmentEntries: segment?.entryStations || [],
     segmentOwner: segmentToken?.owner || null,
@@ -485,7 +487,8 @@ function refreshBlocks(state) {
     if (!key) return;
     occupied.add(key);
     const parsed = parseBlockKey(key);
-    for (let offset = 1; offset <= Number(state.lookaheadBlocks || 0); offset += 1) {
+    const lookahead = reservationLookaheadForTrain(state, train);
+    for (let offset = 1; offset <= lookahead; offset += 1) {
       const reserveId = `${parsed.edgeId}:${parsed.index + offset * (train.pose.dir === -1 ? -1 : 1)}`;
       if (!occupied.has(reserveId)) reserved.set(reserveId, train.id);
     }
@@ -554,6 +557,22 @@ function findBlocker(key, occupied, lookaheadBlocks) {
     if (Math.abs(other.index - parsed.index) <= lookaheadBlocks) return owner;
   }
   return null;
+}
+
+function reservationLookaheadForTrain(state, train) {
+  const base = Math.max(0, Math.min(3, Math.round(Number(state.lookaheadBlocks || 0))));
+  if (!base || train.phase === 'DONE') return 0;
+  if (train.phase !== 'DWELL') return base;
+
+  const service = servicesMap()[train.serviceId];
+  const stop = service?.stops?.[train.stopIndex];
+  if (!stop) return Math.min(1, base);
+
+  const departS = Number(stop.departS || stop.arriveS || 0);
+  const secondsUntilDepart = departS - Number(state.nowS || 0);
+  if (secondsUntilDepart > 10) return Math.min(1, base);
+  if (secondsUntilDepart > 3) return Math.min(2, base);
+  return base;
 }
 
 function parseBlockKey(key) {
