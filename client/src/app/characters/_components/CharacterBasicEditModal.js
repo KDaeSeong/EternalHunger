@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { WEAPON_TYPES_KO, characterId } from '../_lib/characterEditorRuntime';
 
@@ -32,7 +33,13 @@ function CharacterBasicEditModal({
         <div className="character-edit-grid">
           <div className="character-edit-image">
             {character.previewImage ? (
-              <img src={character.previewImage} alt="미리보기" />
+              <Image
+                src={character.previewImage}
+                alt="미리보기"
+                width={180}
+                height={180}
+                unoptimized
+              />
             ) : (
               <span>이미지 없음</span>
             )}

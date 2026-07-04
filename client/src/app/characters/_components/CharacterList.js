@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
 import { CHARACTER_SKILL_SLOT_LABELS, CHARACTER_SKILL_SLOTS } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
@@ -24,7 +25,13 @@ function CharacterList({
           <div className="characterRowContainer2 character-list-card" key={realId}>
             <div className="character-summary-avatar">
               {char.previewImage ? (
-                <img src={char.previewImage} alt={`${char.name || '캐릭터'} 미리보기`} />
+                <Image
+                  src={char.previewImage}
+                  alt={`${char.name || '캐릭터'} 미리보기`}
+                  width={58}
+                  height={58}
+                  unoptimized
+                />
               ) : (
                 <span>이미지 없음</span>
               )}
