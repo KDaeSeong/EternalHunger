@@ -55,6 +55,43 @@ function ActionButton({ children, disabled, onClick }) {
   );
 }
 
+const PARTY_SORT_OPTIONS = [
+  { value: 'default', label: '기본' },
+  { value: 'recommend', label: '추천' },
+  { value: 'stamina', label: '스태미나' },
+  { value: 'success', label: '성공률' },
+];
+
+function clampRatio(value) {
+  return Math.max(0, Math.min(1, Number(value || 0)));
+}
+
+function chanceText(value) {
+  return `${Math.round(clampRatio(value) * 100)}%`;
+}
+
+function roleActionForMember(member) {
+  if (member?.role === '사냥') return 'hunt';
+  if (member?.role === '제작') return 'craft';
+  return 'gather';
+}
+
+function actionLabel(action) {
+  if (action === 'hunt') return '사냥';
+  if (action === 'craft') return '제작';
+  return '채집';
+}
+
+function vitalBadges(member) {
+  const badges = [];
+  if (Number(member.hp || 0) <= 0) badges.push('탈진');
+  else if (Number(member.hp || 0) <= 35) badges.push('부상');
+  if (Number(member.hunger || 0) >= 80) badges.push('허기');
+  if (Number(member.stamina || 0) <= 25) badges.push('피로');
+  if (!badges.length) badges.push('양호');
+  return badges;
+}
+
 export default function PrimitiveArchivePlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -63,6 +100,7 @@ export default function PrimitiveArchivePlayPage() {
   const [actorId, setActorId] = useState('shiroko');
   const [zoneId, setZoneId] = useState('forest');
   const [recipeId, setRecipeId] = useState('twine');
+  const [partySort, setPartySort] = useState('default');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -84,6 +122,36 @@ export default function PrimitiveArchivePlayPage() {
   const currentEquipmentRows = useMemo(() => equipmentRows(state, actorId), [state, actorId]);
   const equipmentInventory = useMemo(() => equipmentInventoryRows(state), [state]);
   const insulation = partyInsulation(state);
+  const partyView = useMemo(() => {
+    const rows = state.party.map((member, index) => {
+      const chances = {
+        gather: actionChance(state, member.id, 'gather', 0.5),
+        hunt: actionChance(state, member.id, 'hunt', 0.42),
+        craft: actionChance(state, member.id, 'craft', recipe.baseChance - 0.18),
+      };
+      const basisAction = roleActionForMember(member);
+      const basisChance = chances[basisAction];
+      const staminaRatio = clampRatio(Number(member.stamina || 0) / 100);
+      const hpRatio = clampRatio(Number(member.hp || 0) / 100);
+      const hungerSafety = clampRatio((100 - Number(member.hunger || 0)) / 100);
+      const recommendScore = basisChance * 0.62 + staminaRatio * 0.22 + hpRatio * 0.08 + hungerSafety * 0.08;
+      return {
+        member,
+        index,
+        chances,
+        basisAction,
+        basisChance,
+        staminaRatio,
+        recommendScore,
+        badges: vitalBadges(member),
+      };
+    });
+
+    if (partySort === 'stamina') return rows.sort((a, b) => b.staminaRatio - a.staminaRatio || a.index - b.index);
+    if (partySort === 'success') return rows.sort((a, b) => b.basisChance - a.basisChance || a.index - b.index);
+    if (partySort === 'recommend') return rows.sort((a, b) => b.recommendScore - a.recommendScore || a.index - b.index);
+    return rows;
+  }, [partySort, recipe.baseChance, state]);
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
@@ -259,8 +327,16 @@ export default function PrimitiveArchivePlayPage() {
               <h2>파티</h2>
               <span>{state.weather.name} · {state.weather.temp}°C</span>
             </div>
+            <label className="game-save-json-field">
+              <span>정렬</span>
+              <select value={partySort} onChange={(event) => setPartySort(event.target.value)}>
+                {PARTY_SORT_OPTIONS.map((option) => (
+                  <option value={option.value} key={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
             <div style={{ display: 'grid', gap: 10 }}>
-              {state.party.map((member) => (
+              {partyView.map(({ member, chances, basisAction, basisChance, badges }) => (
                 <button
                   type="button"
                   key={member.id}
@@ -283,7 +359,12 @@ export default function PrimitiveArchivePlayPage() {
                   <Image src={member.portrait} alt={member.name} width={52} height={52} />
                   <span>
                     <strong style={{ display: 'block' }}>{member.name} · {member.role}</strong>
-                    <small style={{ display: 'block', color: '#cbd5e1', marginTop: 3 }}>HP {member.hp} · 허기 {member.hunger} · ST {member.stamina}</small>
+                    <small style={{ display: 'block', color: '#cbd5e1', marginTop: 3 }}>
+                      HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · {badges.join(' / ')}
+                    </small>
+                    <small style={{ display: 'block', color: '#bae6fd', marginTop: 3 }}>
+                      추천 {actionLabel(basisAction)} {chanceText(basisChance)} · 채집 {chanceText(chances.gather)} · 사냥 {chanceText(chances.hunt)} · 제작 {chanceText(chances.craft)}
+                    </small>
                     <small style={{ display: 'block', color: '#94a3b8', marginTop: 3 }}>{member.trait}</small>
                   </span>
                 </button>
