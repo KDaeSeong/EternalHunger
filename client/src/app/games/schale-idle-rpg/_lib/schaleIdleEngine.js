@@ -597,6 +597,26 @@ function salvageTargetRows(rows = [], candidateOnly = true) {
   return candidateOnly ? rows.filter((entry) => !isHighRiskSalvageEntry(entry)) : rows;
 }
 
+function salvageTotals(rows = []) {
+  return rows.reduce((sum, entry) => {
+    const value = salvageValue(entry);
+    return {
+      scrap: sum.scrap + value.scrap,
+      stone: sum.stone + value.stone,
+      ticket: sum.ticket + value.ticket,
+    };
+  }, { scrap: 0, stone: 0, ticket: 0 });
+}
+
+function salvageRewardText(totals) {
+  return `고철 ${totals.scrap}${totals.stone ? `, 강화석 ${totals.stone}` : ''}${totals.ticket ? `, 리롤권 ${totals.ticket}` : ''}`;
+}
+
+function normalizeSelectedSalvageUids(selectedUids = []) {
+  if (!Array.isArray(selectedUids)) return new Set();
+  return new Set(selectedUids.filter((uid) => typeof uid === 'string' && uid.trim()));
+}
+
 function makeSalvageEntry(equip, reason) {
   return {
     uid: equip.uid,
@@ -1047,14 +1067,7 @@ export function autoSalvageAction(state) {
   if (!targetQueue.length) return addLog(current, '후보만 분해 ON 상태에서 실행할 안전 후보가 없습니다. 전체 분해가 필요하면 후보만 분해를 끄세요.');
 
   let inventory = current.inventory;
-  const totals = targetQueue.reduce((sum, entry) => {
-    const value = salvageValue(entry);
-    return {
-      scrap: sum.scrap + value.scrap,
-      stone: sum.stone + value.stone,
-      ticket: sum.ticket + value.ticket,
-    };
-  }, { scrap: 0, stone: 0, ticket: 0 });
+  const totals = salvageTotals(targetQueue);
 
   inventory = addItem(inventory, 'itm_scrap', totals.scrap);
   if (totals.stone > 0) inventory = addItem(inventory, 'itm_enhance_stone', totals.stone);
@@ -1066,6 +1079,41 @@ export function autoSalvageAction(state) {
     salvageQueue: remainingQueue,
     counters: bumpCounter(current.counters, 'SALVAGE', targetQueue.length),
   }, `자동 분해 ${targetQueue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}${remainingQueue.length ? ` / 보호로 ${remainingQueue.length}개 유지` : ''}`);
+}
+
+export function salvageSelectedAction(state, selectedUids = []) {
+  const current = normalizeState(state);
+  const queue = Array.isArray(current.salvageQueue) ? current.salvageQueue : [];
+  const selectedUidSet = normalizeSelectedSalvageUids(selectedUids);
+  if (!selectedUidSet.size) return addLog(current, '선택 분해할 장비를 먼저 고르세요.');
+
+  const selectedQueue = queue.filter((entry) => selectedUidSet.has(entry.uid));
+  if (!selectedQueue.length) return addLog(current, '선택한 장비가 분해 대기열에 없습니다.');
+
+  const candidateOnly = current.salvageSettings?.candidateOnly !== false;
+  const targetQueue = salvageTargetRows(selectedQueue, candidateOnly);
+  if (!targetQueue.length) {
+    return addLog(current, candidateOnly
+      ? '후보만 분해 ON 상태라 선택한 장비가 모두 보호되었습니다.'
+      : '선택한 장비 중 실행할 분해 후보가 없습니다.');
+  }
+
+  const targetUids = new Set(targetQueue.map((entry) => entry.uid));
+  const remainingQueue = queue.filter((entry) => !targetUids.has(entry.uid));
+  let inventory = current.inventory;
+  const totals = salvageTotals(targetQueue);
+
+  inventory = addItem(inventory, 'itm_scrap', totals.scrap);
+  if (totals.stone > 0) inventory = addItem(inventory, 'itm_enhance_stone', totals.stone);
+  if (totals.ticket > 0) inventory = addItem(inventory, 'itm_reroll_ticket', totals.ticket);
+
+  const protectedCount = selectedQueue.length - targetQueue.length;
+  return addLog({
+    ...current,
+    inventory,
+    salvageQueue: remainingQueue,
+    counters: bumpCounter(current.counters, 'SALVAGE', targetQueue.length),
+  }, `선택 분해 ${targetQueue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}${protectedCount ? ` / 후보 보호 ${protectedCount}개` : ''}`);
 }
 
 export function setSalvageCandidateOnlyAction(state, enabled) {
@@ -1301,14 +1349,7 @@ export function salvageSummary(state) {
   const candidateOnly = current.salvageSettings?.candidateOnly !== false;
   const executableRows = rows.filter((entry) => entry.executable);
   const protectedRows = rows.filter((entry) => !entry.executable);
-  const totals = executableRows.reduce((sum, entry) => {
-    const value = salvageValue(entry);
-    return {
-      scrap: sum.scrap + value.scrap,
-      stone: sum.stone + value.stone,
-      ticket: sum.ticket + value.ticket,
-    };
-  }, { scrap: 0, stone: 0, ticket: 0 });
+  const totals = salvageTotals(executableRows);
   const byRarity = rows.reduce((next, entry) => ({
     ...next,
     [entry.rarity]: Number(next[entry.rarity] || 0) + 1,
@@ -1328,11 +1369,35 @@ export function salvageSummary(state) {
     candidateOnly,
     protectedEquipped: getEquippedList(current).length,
     totals,
-    totalRewardText: `고철 ${totals.scrap}${totals.stone ? `, 강화석 ${totals.stone}` : ''}${totals.ticket ? `, 리롤권 ${totals.ticket}` : ''}`,
+    totalRewardText: salvageRewardText(totals),
     highRiskCount: riskyRows.length,
     topRiskRows: riskyRows.slice(0, 3),
     byRarityText: Object.entries(byRarity).map(([rarity, count]) => `${rarity} ${count}`).join(' · ') || '없음',
     bySlotText: Object.entries(bySlot).map(([slot, count]) => `${slotLabel(slot)} ${count}`).join(' · ') || '없음',
+  };
+}
+
+export function selectedSalvageSummary(state, selectedUids = []) {
+  const current = normalizeState(state);
+  const selectedUidSet = normalizeSelectedSalvageUids(selectedUids);
+  const rows = salvageRows(current).filter((entry) => selectedUidSet.has(entry.uid));
+  const executableRows = rows.filter((entry) => entry.executable);
+  const protectedRows = rows.filter((entry) => !entry.executable);
+  const totals = salvageTotals(executableRows);
+  const riskyRows = rows
+    .filter((entry) => entry.highRisk)
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+  return {
+    selectedCount: rows.length,
+    requestedCount: selectedUidSet.size,
+    staleCount: Math.max(0, selectedUidSet.size - rows.length),
+    executableCount: executableRows.length,
+    protectedByCandidateOnly: protectedRows.length,
+    candidateOnly: current.salvageSettings?.candidateOnly !== false,
+    totals,
+    totalRewardText: salvageRewardText(totals),
+    highRiskCount: riskyRows.length,
+    topRiskRows: riskyRows.slice(0, 3),
   };
 }
 

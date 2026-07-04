@@ -35,7 +35,9 @@ import {
   restAction,
   salvageRows,
   salvageSummary,
+  salvageSelectedAction,
   scoreState,
+  selectedSalvageSummary,
   setSalvageCandidateOnlyAction,
   slotLabel,
   summaryForState,
@@ -81,6 +83,7 @@ export default function SchaleIdlePlayPage() {
   const [state, setState] = useState(() => createNewState());
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
   const [enhanceSlot, setEnhanceSlot] = useState('');
+  const [selectedSalvageUids, setSelectedSalvageUids] = useState([]);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -92,6 +95,14 @@ export default function SchaleIdlePlayPage() {
   const titles = useMemo(() => titleRows(state), [state]);
   const salvage = useMemo(() => salvageRows(state), [state]);
   const salvageInfo = useMemo(() => salvageSummary(state), [state]);
+  const validSelectedSalvageUids = useMemo(() => {
+    const uidSet = new Set(salvage.map((entry) => entry.uid));
+    return selectedSalvageUids.filter((uid) => uidSet.has(uid));
+  }, [salvage, selectedSalvageUids]);
+  const selectedSalvageInfo = useMemo(
+    () => selectedSalvageSummary(state, validSelectedSalvageUids),
+    [state, validSelectedSalvageUids],
+  );
   const shopOffers = useMemo(() => towerShopRows(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
@@ -143,6 +154,7 @@ export default function SchaleIdlePlayPage() {
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       setState(normalizeState(detail?.save?.payload?.state));
+      setSelectedSalvageUids([]);
       setMessage('저장된 Schale Idle RPG 진행 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Schale Idle RPG 진행 상태를 불러왔습니다.' });
     } catch (err) {
@@ -186,7 +198,25 @@ export default function SchaleIdlePlayPage() {
     setState(createNewState());
     setRecipeId(RECIPES[0].id);
     setEnhanceSlot('');
+    setSelectedSalvageUids([]);
     setMessage('');
+  };
+
+  const runAutoSalvage = () => {
+    setState((current) => autoSalvageAction(current));
+    setSelectedSalvageUids([]);
+  };
+
+  const runSelectedSalvage = () => {
+    const selectedUids = validSelectedSalvageUids;
+    setState((current) => salvageSelectedAction(current, selectedUids));
+    setSelectedSalvageUids([]);
+  };
+
+  const toggleSalvageSelection = (uid) => {
+    setSelectedSalvageUids((current) => (
+      current.includes(uid) ? current.filter((item) => item !== uid) : [...current, uid]
+    ));
   };
 
   const actions = (
@@ -280,7 +310,7 @@ export default function SchaleIdlePlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!selectedSlot} onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}>선택 장비 강화</ActionButton>
             <ActionButton disabled={!selectedEquip} onClick={() => setState((current) => rerollEquipmentAction(current, selectedSlot))}>선택 장비 옵션 재련</ActionButton>
-            <ActionButton disabled={!salvageInfo.executableCount} onClick={() => setState((current) => autoSalvageAction(current))}>
+            <ActionButton disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
               자동 분해 실행{salvageInfo.candidateOnly ? ' · 후보만' : ''}
             </ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 1))}>탑 1회 도전</ActionButton>
@@ -352,7 +382,7 @@ export default function SchaleIdlePlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>분해 대기열</h2>
-            <button type="button" className="tcg-primary-action" disabled={!salvageInfo.executableCount} onClick={() => setState((current) => autoSalvageAction(current))}>
+            <button type="button" className="tcg-primary-action" disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
               자동 분해{salvageInfo.candidateOnly ? ' · 후보만' : ''}
             </button>
           </div>
@@ -366,6 +396,30 @@ export default function SchaleIdlePlayPage() {
                 >
                   후보만 분해
                   {salvageInfo.candidateOnly ? <span>ON</span> : <span>OFF</span>}
+                </button>
+                <button
+                  type="button"
+                  className="schale-salvage-toggle"
+                  disabled={!salvageInfo.executableCount}
+                  onClick={() => setSelectedSalvageUids(salvage.filter((entry) => entry.executable).map((entry) => entry.uid))}
+                >
+                  실행 대상 선택
+                </button>
+                <button
+                  type="button"
+                  className="schale-salvage-toggle"
+                  disabled={!validSelectedSalvageUids.length}
+                  onClick={() => setSelectedSalvageUids([])}
+                >
+                  선택 해제
+                </button>
+                <button
+                  type="button"
+                  className="tcg-primary-action"
+                  disabled={!selectedSalvageInfo.executableCount}
+                  onClick={runSelectedSalvage}
+                >
+                  선택 분해
                 </button>
               </div>
               <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
@@ -390,6 +444,16 @@ export default function SchaleIdlePlayPage() {
                 <SmallStat label="리롤권" value={salvageInfo.totals.ticket} />
                 <SmallStat label="위험 후보" value={`${salvageInfo.highRiskCount}개`} />
               </div>
+              {validSelectedSalvageUids.length ? (
+                <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+                  <strong>선택 {selectedSalvageInfo.selectedCount}개</strong>
+                  {' · '}
+                  실행 {selectedSalvageInfo.executableCount}개 / 보호 {selectedSalvageInfo.protectedByCandidateOnly}개
+                  {' · '}
+                  예상 보상 {selectedSalvageInfo.totalRewardText}
+                  {selectedSalvageInfo.candidateOnly && selectedSalvageInfo.highRiskCount ? ' · 위험 후보는 보호됩니다.' : ''}
+                </div>
+              ) : null}
               <div className="game-save-list">
                 <article className="game-save-row">
                   <div>
@@ -412,8 +476,16 @@ export default function SchaleIdlePlayPage() {
                       <span>{slotLabel(entry.slot)} · {entry.rarity} · {entry.reason}</span>
                       <strong>{entry.name}</strong>
                       <small>{entry.rewardText}</small>
+                      <small>점수 {entry.score} · {entry.executable ? '실행 대상' : '보호'}</small>
                     </div>
-                    <strong>{entry.score}</strong>
+                    <label className="schale-salvage-check">
+                      <input
+                        type="checkbox"
+                        checked={validSelectedSalvageUids.includes(entry.uid)}
+                        onChange={() => toggleSalvageSelection(entry.uid)}
+                      />
+                      <span>선택</span>
+                    </label>
                   </article>
                 ))}
               </div>
