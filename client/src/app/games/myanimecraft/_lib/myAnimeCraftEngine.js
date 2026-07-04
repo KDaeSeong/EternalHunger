@@ -73,11 +73,92 @@ const FREE_AGENT_NAMES = [
 const ECON_TAG_LABELS = {
   MATCH_REWARD: '경기 상금',
   PAYROLL: '연봉',
+  SHOP: '상점 구매',
   SPONSOR: '스폰서',
   TRAINING: '훈련',
   FA: 'FA 영입',
   BONUS: '보너스',
 };
+
+export const EQUIPMENT_SLOT_LABELS = {
+  keyboard: '키보드',
+  mouse: '마우스',
+  monitor: '모니터',
+  gear: '기어',
+};
+
+export const ITEM_DEFS = [
+  {
+    id: 'it-kb-1',
+    name: '게이밍 키보드(기본)',
+    kind: 'keyboard',
+    price: 120,
+    effects: { statsDelta: { control: 18, harass: 10 } },
+  },
+  {
+    id: 'it-ms-1',
+    name: '게이밍 마우스(기본)',
+    kind: 'mouse',
+    price: 140,
+    effects: { statsDelta: { control: 15, scout: 8 } },
+  },
+  {
+    id: 'it-mn-1',
+    name: '144Hz 모니터(기본)',
+    kind: 'monitor',
+    price: 220,
+    effects: { statsDelta: { sense: 12, control: 10 } },
+  },
+  {
+    id: 'it-gear-1',
+    name: '팀 분석 노트',
+    kind: 'gear',
+    price: 160,
+    effects: { statsDelta: { strategy: 14, scout: 10 } },
+  },
+  {
+    id: 'it-kb-2',
+    name: '프로 키보드',
+    kind: 'keyboard',
+    price: 320,
+    effects: { statsDelta: { control: 32, harass: 18, attack: 8 } },
+  },
+  {
+    id: 'it-ms-2',
+    name: '프로 마우스',
+    kind: 'mouse',
+    price: 340,
+    effects: { statsDelta: { control: 28, scout: 20, sense: 8 } },
+  },
+  {
+    id: 'it-mn-2',
+    name: '240Hz 모니터',
+    kind: 'monitor',
+    price: 460,
+    effects: { statsDelta: { sense: 24, control: 18, defense: 8 } },
+  },
+  {
+    id: 'it-gear-2',
+    name: '빌드 연구 파일',
+    kind: 'gear',
+    price: 380,
+    effects: { statsDelta: { strategy: 30, macro: 16, scout: 12 } },
+  },
+  {
+    id: 'it-cons-1',
+    name: '에너지 드링크',
+    kind: 'consumable',
+    price: 25,
+    effects: { conditionDelta: 8 },
+  },
+  {
+    id: 'it-cons-2',
+    name: '멘탈 케어',
+    kind: 'consumable',
+    price: 40,
+    effects: { conditionDelta: 12, fameDelta: 5 },
+  },
+];
 
 const TEAM_BLUEPRINTS = [
   {
@@ -179,6 +260,116 @@ function cloneTeam(teamData) {
   };
 }
 
+function itemById(itemId) {
+  return ITEM_DEFS.find((item) => item.id === itemId) || null;
+}
+
+function equipmentSlotOfKind(kind) {
+  if (kind === 'keyboard') return 'keyboard';
+  if (kind === 'mouse') return 'mouse';
+  if (kind === 'monitor') return 'monitor';
+  if (kind === 'gear') return 'gear';
+  return null;
+}
+
+function normalizeInventoryEntry(entry, teamId) {
+  const items = Array.isArray(entry?.items)
+    ? entry.items
+      .filter((item) => item && itemById(item.itemId))
+      .map((item) => ({
+        itemId: item.itemId,
+        qty: clamp(Math.floor(Number(item.qty || 0)), 0, 9999),
+      }))
+      .filter((item) => item.qty > 0)
+    : [];
+  const equipped = entry?.equipped && typeof entry.equipped === 'object' ? entry.equipped : {};
+  return {
+    teamId,
+    items,
+    equipped: Object.fromEntries(Object.entries(equipped).map(([playerId, slots]) => [
+      playerId,
+      Object.fromEntries(Object.entries(slots || {}).filter(([, itemId]) => {
+        const item = itemById(itemId);
+        return item && equipmentSlotOfKind(item.kind);
+      })),
+    ])),
+  };
+}
+
+function createInventories(teams, existing = []) {
+  const source = Array.isArray(existing) ? existing : [];
+  return teams.map((teamData) => {
+    const previous = source.find((item) => item?.teamId === teamData.id);
+    return normalizeInventoryEntry(previous, teamData.id);
+  });
+}
+
+function shopWeek(stateLike) {
+  return Number(stateLike?.week || 1);
+}
+
+function buildShopOffers(seedBase, seasonNo, week) {
+  const rng = createRng(`${seedBase}|shop|s${seasonNo}|w${week}`);
+  const byKind = ['consumable', 'keyboard', 'mouse', 'monitor', 'gear'].map((kind) => {
+    const pool = ITEM_DEFS.filter((item) => item.kind === kind);
+    return pool[Math.floor(rng() * pool.length) % pool.length];
+  }).filter(Boolean);
+  const extras = [...ITEM_DEFS]
+    .sort((a, b) => {
+      const aRoll = createRng(`${seedBase}|${seasonNo}|${week}|${a.id}`)();
+      const bRoll = createRng(`${seedBase}|${seasonNo}|${week}|${b.id}`)();
+      return aRoll - bRoll;
+    })
+    .filter((item) => !byKind.some((picked) => picked.id === item.id))
+    .slice(0, 3);
+  const picked = [...byKind, ...extras].slice(0, 8);
+  const featuredId = picked.length ? picked[Math.floor(rng() * picked.length) % picked.length].id : '';
+  return picked.map((item) => {
+    const salePct = item.id === featuredId ? Math.floor(20 + rng() * 26) : (rng() < 0.25 ? Math.floor(10 + rng() * 31) : 0);
+    const price = Math.max(1, Math.floor(item.price * (100 - salePct) / 100));
+    const stock = item.kind === 'consumable' ? Math.floor(3 + rng() * 4) : Math.floor(1 + rng() * 2);
+    return {
+      offerId: `offer-${seasonNo}-${week}-${item.id}`,
+      itemId: item.id,
+      basePrice: item.price,
+      price,
+      stock: item.id === featuredId ? stock + 2 : stock,
+      salePct,
+      featured: item.id === featuredId,
+    };
+  });
+}
+
+function ensureShop(state) {
+  const seasonNo = Number(state.seasonNo || 1);
+  const week = shopWeek(state);
+  const shop = state.shop && typeof state.shop === 'object' ? state.shop : null;
+  if (!shop || Number(shop.seasonNo) !== seasonNo || Number(shop.week) !== week || !Array.isArray(shop.offers)) {
+    return {
+      seasonNo,
+      week,
+      offers: buildShopOffers(state.runId || 'starleague', seasonNo, week),
+      lastRerollAt: Date.now(),
+    };
+  }
+  return {
+    ...shop,
+    seasonNo,
+    week,
+    offers: shop.offers
+      .filter((offer) => offer && itemById(offer.itemId))
+      .map((offer) => ({
+        offerId: String(offer.offerId || `offer-${seasonNo}-${week}-${offer.itemId}`),
+        itemId: offer.itemId,
+        basePrice: Math.max(1, Math.floor(Number(offer.basePrice || itemById(offer.itemId)?.price || 1))),
+        price: Math.max(1, Math.floor(Number(offer.price || itemById(offer.itemId)?.price || 1))),
+        stock: clamp(Math.floor(Number(offer.stock || 0)), 0, 99),
+        salePct: Math.max(0, Math.floor(Number(offer.salePct || 0))),
+        featured: Boolean(offer.featured),
+      })),
+  };
+}
+
 export function getSourceSummary() {
   return {
     teams: TEAM_BLUEPRINTS.length,
@@ -190,11 +381,12 @@ export function getSourceSummary() {
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
+  const runId = options.runId || `sl-${Date.now().toString(36)}`;
   const teams = TEAM_BLUEPRINTS.map(cloneTeam);
   const fixtures = generateSchedule(teams);
   const contracts = ensureContractsForTeams(teams, {}, 1);
-  return {
-    runId: options.runId || `sl-${Date.now().toString(36)}`,
+  const state = {
+    runId,
     startedAt: now,
     updatedAt: now,
     seasonNo: 1,
@@ -204,12 +396,18 @@ export function createNewState(options = {}) {
     fixtures,
     standings: createStandings(teams),
     contracts,
+    inventories: createInventories(teams),
+    shop: null,
     econLogs: [],
     seasonReports: [],
     freeAgentSeq: 0,
     log: ['시즌 1이 개막했습니다. 다음 경기나 이번 주 전체 진행을 눌러 리그를 진행하세요.'],
     ended: false,
     championTeamId: '',
+  };
+  return {
+    ...state,
+    shop: ensureShop(state),
   };
 }
 
@@ -219,18 +417,23 @@ export function normalizeState(value) {
   const teams = Array.isArray(value.teams) && value.teams.length ? value.teams.map(cloneTeam) : base.teams;
   const fixtures = Array.isArray(value.fixtures) && value.fixtures.length ? value.fixtures : generateSchedule(teams);
   const seasonNo = Number(value.seasonNo || base.seasonNo || 1);
-  return {
+  const merged = {
     ...base,
     ...value,
     teams,
     fixtures,
     contracts: ensureContractsForTeams(teams, value.contracts, seasonNo),
+    inventories: createInventories(teams, value.inventories),
     econLogs: normalizeEconLogs(value.econLogs),
     seasonReports: Array.isArray(value.seasonReports) ? value.seasonReports.slice(0, 60) : base.seasonReports,
     standings: Array.isArray(value.standings) && value.standings.length ? value.standings : rebuildStandings(teams, fixtures),
     mapPool: Array.isArray(value.mapPool) && value.mapPool.length ? value.mapPool : base.mapPool,
     freeAgentSeq: Number(value.freeAgentSeq || 0),
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
+  };
+  return {
+    ...merged,
+    shop: ensureShop(merged),
   };
 }
 
@@ -653,6 +856,257 @@ export function econSummary(state, teamId) {
   };
 }
 
+function getTeamInventory(state, teamId) {
+  return createInventories(state.teams, state.inventories).find((item) => item.teamId === teamId) || normalizeInventoryEntry(null, teamId);
+}
+
+function addInventoryItem(state, teamId, itemId, qty = 1) {
+  const amount = clamp(Math.floor(Number(qty || 0)), 0, 9999);
+  if (!amount) return state;
+  const inventories = createInventories(state.teams, state.inventories).map((inventory) => {
+    if (inventory.teamId !== teamId) return inventory;
+    const items = [...inventory.items];
+    const index = items.findIndex((item) => item.itemId === itemId);
+    if (index >= 0) items[index] = { ...items[index], qty: clamp(Number(items[index].qty || 0) + amount, 0, 9999) };
+    else items.push({ itemId, qty: amount });
+    return { ...inventory, items };
+  });
+  return { ...state, inventories };
+}
+
+function consumeInventoryItem(state, teamId, itemId, qty = 1) {
+  const amount = clamp(Math.floor(Number(qty || 0)), 0, 9999);
+  if (!amount) return state;
+  const inventories = createInventories(state.teams, state.inventories).map((inventory) => {
+    if (inventory.teamId !== teamId) return inventory;
+    const items = inventory.items
+      .map((item) => (item.itemId === itemId ? { ...item, qty: clamp(Number(item.qty || 0) - amount, 0, 9999) } : item))
+      .filter((item) => item.qty > 0);
+    return { ...inventory, items };
+  });
+  return { ...state, inventories };
+}
+
+function equippedItemUseCount(inventory, itemId, exceptPlayerId = '') {
+  return Object.entries(inventory.equipped || {}).reduce((sum, [playerId, slots]) => {
+    if (playerId === exceptPlayerId) return sum;
+    return sum + Object.values(slots || {}).filter((id) => id === itemId).length;
+  }, 0);
+}
+
+function inventoryQty(inventory, itemId) {
+  return Number(inventory.items.find((item) => item.itemId === itemId)?.qty || 0);
+}
+
+function inferSetKey(itemId) {
+  return String(itemId || '').match(/-(\d+)$/)?.[1] || null;
+}
+
+function applyEquippedToPlayer(playerData, inventory) {
+  const equipped = inventory?.equipped?.[playerData.id];
+  if (!equipped) return playerData;
+  const stats = { ...(playerData.stats || {}) };
+  Object.values(equipped).forEach((itemId) => {
+    const item = itemById(itemId);
+    Object.entries(item?.effects?.statsDelta || {}).forEach(([key, amount]) => {
+      stats[key] = Number(stats[key] || 0) + Number(amount || 0);
+    });
+  });
+
+  const slotIds = Object.values(equipped).filter(Boolean);
+  let equipmentMul = 1;
+  if (slotIds.length === 2) equipmentMul = 1.01;
+  else if (slotIds.length === 3) equipmentMul = 1.025;
+  else if (slotIds.length >= 4) equipmentMul = 1.04;
+
+  const setKeys = slotIds.map(inferSetKey).filter(Boolean);
+  if (setKeys.length >= 3 && setKeys.every((key) => key === setKeys[0])) equipmentMul += 0.02;
+  else if (setKeys.length === 2 && setKeys[0] === setKeys[1]) equipmentMul += 0.008;
+
+  return {
+    ...playerData,
+    stats,
+    equipmentMul: clamp(equipmentMul, 0.9, 1.12),
+  };
+}
+
+function teamWithEquipment(state, teamData) {
+  const inventory = getTeamInventory(state, teamData.id);
+  return {
+    ...teamData,
+    roster: teamData.roster.map((member) => applyEquippedToPlayer(member, inventory)),
+  };
+}
+
+export function getSeasonShopRows(state) {
+  const current = normalizeState(state);
+  return ensureShop(current).offers.map((offer) => {
+    const item = itemById(offer.itemId);
+    return {
+      ...offer,
+      name: item?.name || offer.itemId,
+      kind: item?.kind || 'other',
+      slot: equipmentSlotOfKind(item?.kind),
+      effects: item?.effects || {},
+    };
+  });
+}
+
+export function inventoryRowsForTeam(state, teamId) {
+  const current = normalizeState(state);
+  const inventory = getTeamInventory(current, teamId);
+  return inventory.items.map((entry) => {
+    const item = itemById(entry.itemId);
+    return {
+      ...entry,
+      name: item?.name || entry.itemId,
+      kind: item?.kind || 'other',
+      slot: equipmentSlotOfKind(item?.kind),
+      equippedCount: equippedItemUseCount(inventory, entry.itemId),
+      effects: item?.effects || {},
+    };
+  }).sort((a, b) => String(a.kind).localeCompare(String(b.kind), 'ko-KR') || a.name.localeCompare(b.name, 'ko-KR'));
+}
+
+export function equipmentRowsForPlayer(state, teamId, playerId) {
+  const current = normalizeState(state);
+  const inventory = getTeamInventory(current, teamId);
+  const slots = inventory.equipped?.[playerId] || {};
+  return Object.entries(EQUIPMENT_SLOT_LABELS).map(([slot, label]) => {
+    const itemId = slots[slot] || '';
+    const item = itemById(itemId);
+    return {
+      slot,
+      label,
+      itemId,
+      itemName: item?.name || '',
+      effects: item?.effects || {},
+    };
+  });
+}
+
+export function buyShopItemAction(state, teamId, offerId) {
+  let current = normalizeState(state);
+  if (current.ended) return addStateLog(current, '시즌 종료 후에는 상점 구매를 진행할 수 없습니다.');
+  const shop = ensureShop(current);
+  const offer = shop.offers.find((item) => item.offerId === offerId);
+  if (!offer) return addStateLog(current, '상점 상품을 찾을 수 없습니다.');
+  if (Number(offer.stock || 0) <= 0) return addStateLog(current, '해당 상품은 품절됐습니다.');
+  const item = itemById(offer.itemId);
+  if (!item) return addStateLog(current, '아이템 정보를 찾을 수 없습니다.');
+  const teamData = getTeam(current, teamId);
+  const standing = getStanding(current, teamId);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  if (money < offer.price) return addStateLog(current, `${teamData.name} 상점 구매 실패: ${offer.price} Cr 필요, 보유 ${money} Cr`);
+
+  current = syncTeamEconomy(current, teamId, (team) => ({
+    ...team,
+    money: Number(team.money || 0) - offer.price,
+  }));
+  current = addInventoryItem({
+    ...current,
+    shop: {
+      ...shop,
+      offers: shop.offers.map((row) => (row.offerId === offerId ? { ...row, stock: Math.max(0, Number(row.stock || 0) - 1) } : row)),
+    },
+  }, teamId, item.id, 1);
+  current = addEconLog(current, {
+    teamId,
+    tag: 'SHOP',
+    amount: -offer.price,
+    note: `${teamData.name} 상점 구매: ${item.name}`,
+    meta: { itemId: item.id, itemName: item.name, price: offer.price },
+  });
+  return addStateLog(current, `${teamData.name} 상점 구매: ${item.name} -${offer.price} Cr`);
+}
+
+export function equipInventoryItemAction(state, teamId, playerId, itemId) {
+  const current = normalizeState(state);
+  const item = itemById(itemId);
+  const slot = equipmentSlotOfKind(item?.kind);
+  if (!item || !slot) return addStateLog(current, '장착할 수 없는 아이템입니다.');
+  const teamData = getTeam(current, teamId);
+  const playerData = teamData.roster.find((member) => member.id === playerId);
+  if (!playerData) return addStateLog(current, '선수를 찾을 수 없습니다.');
+  const inventory = getTeamInventory(current, teamId);
+  const currentSlots = inventory.equipped[playerId] || {};
+  const equippedElsewhere = equippedItemUseCount(inventory, itemId, playerId);
+  const alreadyOnPlayer = Object.values(currentSlots).filter((id) => id === itemId).length;
+  if (inventoryQty(inventory, itemId) <= equippedElsewhere + alreadyOnPlayer && currentSlots[slot] !== itemId) {
+    return addStateLog(current, `${item.name} 보유 수량이 부족합니다.`);
+  }
+  const inventories = createInventories(current.teams, current.inventories).map((row) => {
+    if (row.teamId !== teamId) return row;
+    return {
+      ...row,
+      equipped: {
+        ...row.equipped,
+        [playerId]: {
+          ...(row.equipped[playerId] || {}),
+          [slot]: itemId,
+        },
+      },
+    };
+  });
+  return addStateLog({
+    ...current,
+    inventories,
+    updatedAt: new Date().toISOString(),
+  }, `${playerData.name} ${EQUIPMENT_SLOT_LABELS[slot]} 장착: ${item.name}`);
+}
+
+export function unequipSlotAction(state, teamId, playerId, slot) {
+  const current = normalizeState(state);
+  const teamData = getTeam(current, teamId);
+  const playerData = teamData.roster.find((member) => member.id === playerId);
+  const inventories = createInventories(current.teams, current.inventories).map((row) => {
+    if (row.teamId !== teamId) return row;
+    const nextSlots = { ...(row.equipped[playerId] || {}) };
+    delete nextSlots[slot];
+    return {
+      ...row,
+      equipped: {
+        ...row.equipped,
+        [playerId]: nextSlots,
+      },
+    };
+  });
+  return addStateLog({
+    ...current,
+    inventories,
+    updatedAt: new Date().toISOString(),
+  }, `${playerData?.name || '선수'} ${EQUIPMENT_SLOT_LABELS[slot] || slot} 장착을 해제했습니다.`);
+}
+
+export function consumeInventoryItemAction(state, teamId, playerId, itemId) {
+  let current = normalizeState(state);
+  const item = itemById(itemId);
+  if (!item || item.kind !== 'consumable') return addStateLog(current, '사용할 수 없는 아이템입니다.');
+  const inventory = getTeamInventory(current, teamId);
+  if (inventoryQty(inventory, itemId) <= 0) return addStateLog(current, `${item.name} 보유 수량이 없습니다.`);
+  const teamData = getTeam(current, teamId);
+  const playerData = teamData.roster.find((member) => member.id === playerId);
+  if (!playerData) return addStateLog(current, '선수를 찾을 수 없습니다.');
+  const conditionDelta = Number(item.effects?.conditionDelta || 0);
+  const fameDelta = Number(item.effects?.fameDelta || 0);
+  current = {
+    ...current,
+    teams: current.teams.map((team) => (team.id === teamId ? {
+      ...team,
+      roster: team.roster.map((member) => (member.id === playerId ? {
+        ...member,
+        condition: clamp(Number(member.condition || 0) + conditionDelta, 0, 100),
+        fame: Math.max(0, Math.round(Number(member.fame || 0) + fameDelta)),
+      } : member)),
+    } : team)),
+  };
+  current = consumeInventoryItem(current, teamId, itemId, 1);
+  return addStateLog({
+    ...current,
+    updatedAt: new Date().toISOString(),
+  }, `${playerData.name}에게 ${item.name} 사용: 컨디션 +${conditionDelta}${fameDelta ? `, 명성 +${fameDelta}` : ''}`);
+}
+
 function buildSeasonReport(state) {
   const leader = getTopTeams(state, 1)[0];
   const seasonLogs = normalizeEconLogs(state.econLogs).filter((entry) => entry.seasonNo === Number(state.seasonNo || 1));
@@ -691,7 +1145,7 @@ function makeFreeAgentCandidate(state, teamId, seqOffset = 0) {
   const seq = Number(state.freeAgentSeq || 0) + seqOffset;
   const rng = createRng(`${state.runId}|fa|${state.seasonNo}|${state.week}|${teamId}|${seq}`);
   const nameParts = FREE_AGENT_NAMES[Math.floor(rng() * FREE_AGENT_NAMES.length) % FREE_AGENT_NAMES.length];
-  const base = clamp(teamPower(teamData) + career.scoutingLevel * 10 + Math.round((rng() - 0.35) * 72), 420, 660);
+  const base = clamp(teamPower(teamData, state) + career.scoutingLevel * 10 + Math.round((rng() - 0.35) * 72), 420, 660);
   const race = ['T', 'Z', 'P'][Math.floor(rng() * 3) % 3];
   const level = clamp(3 + Math.floor((base - 420) / 45), 3, 8);
   const stats = CAREER_STAT_KEYS.reduce((acc, key, index) => {
@@ -793,8 +1247,8 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const awayBuildPhase = stylePhaseBonus(awayBuild.style);
   const homeCounter = counterBonus(homeBuild.style, awayBuild.style);
   const awayCounter = counterBonus(awayBuild.style, homeBuild.style);
-  const homeBaseMul = conditionMultiplier(homePlayer) * levelMultiplier(homePlayer) * mapMultiplier(homePlayer.race, awayPlayer.race, map);
-  const awayBaseMul = conditionMultiplier(awayPlayer) * levelMultiplier(awayPlayer) * mapMultiplier(awayPlayer.race, homePlayer.race, map);
+  const homeBaseMul = conditionMultiplier(homePlayer) * levelMultiplier(homePlayer) * mapMultiplier(homePlayer.race, awayPlayer.race, map) * Number(homePlayer.equipmentMul || 1);
+  const awayBaseMul = conditionMultiplier(awayPlayer) * levelMultiplier(awayPlayer) * mapMultiplier(awayPlayer.race, homePlayer.race, map) * Number(awayPlayer.equipmentMul || 1);
   const coachMul = (style) => (
     style === 'balanced' ? 1.01
     : style === 'macro' ? 1.008
@@ -849,8 +1303,8 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
 }
 
 function simulateFixture(state, fixture) {
-  const homeTeam = getTeam(state, fixture.homeTeamId);
-  const awayTeam = getTeam(state, fixture.awayTeamId);
+  const homeTeam = teamWithEquipment(state, getTeam(state, fixture.homeTeamId));
+  const awayTeam = teamWithEquipment(state, getTeam(state, fixture.awayTeamId));
   const homeLineup = lineupFor(homeTeam, fixture.id);
   const awayLineup = lineupFor(awayTeam, fixture.id);
   let scoreHome = 0;
@@ -1024,7 +1478,7 @@ export function negotiateSponsorAction(state, teamId) {
   const career = normalizeTeamCareer(teamData);
   const rankBonus = Math.max(0, current.teams.length - Math.max(0, rank)) * 14;
   const gain = Math.round(170 + career.sponsorTier * 85 + career.fanBase / 70 + rankBonus);
-  const fanGain = Math.round(80 + career.sponsorTier * 25 + Math.max(0, teamPower(teamData) - 480) * 0.6);
+  const fanGain = Math.round(80 + career.sponsorTier * 25 + Math.max(0, teamPower(teamData, current) - 480) * 0.6);
   const tierGain = rank >= 0 && rank <= 2 && career.sponsorTier < 6 ? 1 : 0;
   const next = syncTeamEconomy(current, teamId, (team) => ({
     ...team,
@@ -1180,10 +1634,15 @@ export function startNextSeasonAction(state) {
     fixtures,
     standings: createStandings(carriedTeams),
     contracts: rolledContracts,
+    inventories: createInventories(carriedTeams, current.inventories),
     econLogs: normalizeEconLogs(current.econLogs),
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.slice(0, 60) : [],
     freeAgentSeq: Number(current.freeAgentSeq || 0),
     log: [`시즌 ${Number(current.seasonNo || 1) + 1}이 새로 시작됐습니다.`, ...current.log].slice(0, 90),
+  };
+  nextState = {
+    ...nextState,
+    shop: ensureShop(nextState),
   };
   payrollByTeam.forEach((payroll, teamId) => {
     if (payroll <= 0) return;
@@ -1247,12 +1706,18 @@ export function scoreState(state) {
     const career = normalizeTeamCareer(teamData);
     return sum + career.sponsorTier * 80 + career.trainingLevel * 55 + career.scoutingLevel * 45 + career.fanBase / 90;
   }, 0);
+  const itemScore = createInventories(current.teams, current.inventories).reduce((sum, inventory) => {
+    const owned = inventory.items.reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0);
+    const equipped = Object.values(inventory.equipped || {}).reduce((slotSum, slots) => slotSum + Object.values(slots || {}).filter(Boolean).length, 0);
+    return sum + owned * 8 + equipped * 28;
+  }, 0);
   return Math.max(0, Math.round(
     getPlayedCount(current) * 35
     + Number(leader?.wins || 0) * 180
     + Number(leader?.diff || 0) * 24
     + current.standings.reduce((sum, row) => sum + Number(row.money || 0), 0) / 12
     + careerScore
+    + itemScore
   ));
 }
 
@@ -1279,13 +1744,17 @@ export function summaryForState(state) {
     }, 0)),
     econLogs: normalizeEconLogs(current.econLogs).length,
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.length : 0,
+    inventoryItems: createInventories(current.teams, current.inventories).reduce((sum, inventory) => (
+      sum + inventory.items.reduce((itemSum, item) => itemSum + Number(item.qty || 0), 0)
+    ), 0),
     score: scoreState(current),
   };
 }
 
-export function teamPower(teamData) {
-  if (!teamData?.roster?.length) return 0;
-  const sorted = [...teamData.roster]
+export function teamPower(teamData, state = null) {
+  const resolvedTeam = state ? teamWithEquipment(normalizeState(state), teamData) : teamData;
+  if (!resolvedTeam?.roster?.length) return 0;
+  const sorted = [...resolvedTeam.roster]
     .sort((a, b) => averageStats(b) - averageStats(a))
     .slice(0, 5);
   return Math.round(sorted.reduce((sum, member) => sum + averageStats(member), 0) / sorted.length);

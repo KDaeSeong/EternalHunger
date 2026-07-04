@@ -8,17 +8,22 @@ import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
   BUILD_STYLE_LABELS,
+  EQUIPMENT_SLOT_LABELS,
   GAME_SLUG,
   MAPS,
   QUICK_SAVE_SLOT,
   RACE_LABELS,
   SAVE_VERSION,
+  buyShopItemAction,
   careerSummary,
   createNewState,
   econSummary,
+  equipInventoryItemAction,
+  equipmentRowsForPlayer,
   fixtureLabel,
   getCurrentFixtures,
   getFreeAgentPreview,
+  getSeasonShopRows,
   getPlayedCount,
   getPlayTimeSec,
   getSourceSummary,
@@ -28,6 +33,7 @@ import {
   getTotalFixtureCount,
   normalizeState,
   investTrainingAction,
+  inventoryRowsForTeam,
   negotiateSponsorAction,
   scoreState,
   signFreeAgentAction,
@@ -36,6 +42,8 @@ import {
   startNextSeasonAction,
   summaryForState,
   teamPower,
+  unequipSlotAction,
+  consumeInventoryItemAction,
 } from '../_lib/myAnimeCraftEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -61,6 +69,7 @@ export default function MyAnimeCraftPlayPage() {
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
   const [selectedTeamId, setSelectedTeamId] = useState(() => createNewState().teams[0].id);
+  const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -71,11 +80,17 @@ export default function MyAnimeCraftPlayPage() {
     .filter(Boolean)
     .sort((a, b) => Number(b.playedAt || 0) - Number(a.playedAt || 0))[0], [state.fixtures]);
   const selectedTeam = getTeam(state, selectedTeamId);
+  const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
   const selectedCareer = careerSummary(state, selectedTeam.id);
   const freeAgentPreview = getFreeAgentPreview(state, selectedTeam.id);
   const selectedEconomy = econSummary(state, selectedTeam.id);
   const selectedContracts = getTeamContractRows(state, selectedTeam.id);
+  const shopRows = useMemo(() => getSeasonShopRows(state), [state]);
+  const inventoryRows = useMemo(() => inventoryRowsForTeam(state, selectedTeam.id), [state, selectedTeam.id]);
+  const equipmentRows = useMemo(() => (
+    selectedPlayer ? equipmentRowsForPlayer(state, selectedTeam.id, selectedPlayer.id) : []
+  ), [state, selectedTeam.id, selectedPlayer]);
   const sourceSummary = getSourceSummary();
   const played = getPlayedCount(state);
   const total = getTotalFixtureCount(state);
@@ -276,7 +291,7 @@ export default function MyAnimeCraftPlayPage() {
           </label>
           <div className="games-rank-split">
             <SmallStat label="감독" value={selectedTeam.coach} />
-            <SmallStat label="전력" value={teamPower(selectedTeam)} />
+            <SmallStat label="전력" value={teamPower(selectedTeam, state)} />
             <SmallStat label="자금" value={`${Number(selectedStanding?.money || selectedTeam.money || 0).toLocaleString('ko-KR')} Cr`} />
           </div>
           <div className="games-rank-split">
@@ -297,6 +312,84 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => setState((current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
             <ActionButton disabled={ended} onClick={() => setState((current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
             <ActionButton disabled={ended} onClick={() => setState((current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>주간 상점</h2>
+            <span>{state.shop?.week || state.week}주차</span>
+          </div>
+          <div className="game-save-list">
+            {shopRows.map((offer) => (
+              <article className="game-save-row" key={offer.offerId}>
+                <div>
+                  <span>
+                    {offer.featured ? '추천 · ' : ''}{EQUIPMENT_SLOT_LABELS[offer.slot] || offer.kind}
+                    {offer.salePct ? ` · ${offer.salePct}% 할인` : ''}
+                  </span>
+                  <strong>{offer.name}</strong>
+                  <small>
+                    {offer.effects?.statsDelta ? Object.entries(offer.effects.statsDelta).map(([key, amount]) => `${key}+${amount}`).join(' · ') : ''}
+                    {offer.effects?.conditionDelta ? `컨디션 +${offer.effects.conditionDelta}` : ''}
+                    {offer.effects?.fameDelta ? ` · 명성 +${offer.effects.fameDelta}` : ''}
+                  </small>
+                </div>
+                <button type="button" disabled={ended || offer.stock <= 0} onClick={() => setState((current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
+                  {offer.stock <= 0 ? '품절' : `${offer.price} Cr`}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>장비 관리</h2>
+            <span>{selectedPlayer?.name || '선수 없음'}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>대상 선수</span>
+            <select value={selectedPlayer?.id || ''} onChange={(event) => setSelectedPlayerId(event.target.value)}>
+              {selectedTeam.roster.map((member) => (
+                <option value={member.id} key={member.id}>{member.name} · {RACE_LABELS[member.race] || member.race}</option>
+              ))}
+            </select>
+          </label>
+          <div className="game-save-list">
+            {equipmentRows.map((row) => (
+              <article className="game-save-row" key={row.slot}>
+                <div>
+                  <span>{row.label}</span>
+                  <strong>{row.itemName || '미장착'}</strong>
+                </div>
+                <button type="button" disabled={!row.itemId} onClick={() => setState((current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</button>
+              </article>
+            ))}
+          </div>
+          <div className="games-panel-title" style={{ marginTop: 16 }}>
+            <h2>인벤토리</h2>
+            <span>{inventoryRows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개</span>
+          </div>
+          <div className="game-save-list">
+            {inventoryRows.length ? inventoryRows.map((item) => (
+              <article className="game-save-row" key={item.itemId}>
+                <div>
+                  <span>
+                    {EQUIPMENT_SLOT_LABELS[item.slot] || '소모품'} · 보유 {item.qty}
+                    {item.equippedCount ? ` · 장착 ${item.equippedCount}` : ''}
+                  </span>
+                  <strong>{item.name}</strong>
+                </div>
+                {item.slot ? (
+                  <button type="button" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => setState((current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</button>
+                ) : (
+                  <button type="button" disabled={!selectedPlayer || item.qty <= 0} onClick={() => setState((current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</button>
+                )}
+              </article>
+            )) : (
+              <div className="games-empty">보유 아이템이 없습니다.</div>
+            )}
           </div>
         </section>
       </section>
