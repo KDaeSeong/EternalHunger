@@ -137,3 +137,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/school-simulator/school-simulator-main`; term-report snapshot through `/game-records/school-simulator`.
 - Source basis: `C:\2저장고\마이애니메\school-simulator-step23` JavaScript simulation, seeds, and Step 23 UI flow.
 - Next step: import the original admissions, career, club, festival, and subject-specific presentation/evaluation flows behind the site save/record shell.
+
+## SI Coding Sim Slice Status
+
+- Route: `/games/si-coding-sim/play`
+- Included loop: Step AQ/AR task pack loading, task selection, code file editing, report writing, hint reveal cost, includes/notIncludes/anyIncludes judge rules, resource settlement, project grade evaluation, and run log.
+- Site API integration: quick save through `/game-saves/si-coding-sim/si-coding-sim-main`; challenge-score snapshot through `/game-records/si-coding-sim`.
+- Source basis: `C:\2저장고\마이애니메\si-coding-sim_stepAQ_AR\prototype\data\task-pack-stepAQ_AR.json` and `data\judge-rules.json`.
+- Next step: import the original execution harness, company support budget, contract negotiation, follow-up branch, seed generation, and career progression UI.

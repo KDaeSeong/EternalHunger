@@ -1,0 +1,311 @@
+{
+  "version": "1.3.0",
+  "supportedRules": [
+    "includes",
+    "notIncludes",
+    "anyIncludes"
+  ],
+  "resourceSettlement": {
+    "base": {
+      "stamina": 100,
+      "mentality": 100,
+      "clientTrust": 50,
+      "techDebt": 25
+    },
+    "scoreBands": [
+      "100",
+      "75-99",
+      "0-74"
+    ],
+    "difficultyWeights": [
+      "Easy",
+      "Normal",
+      "Hard"
+    ]
+  },
+  "notes": [
+    "문자열 기반 판정만 지원",
+    "언어별 파서 미도입 상태",
+    "과제별 제출 결과는 taskOutcomes에 보관 후 총합 재계산",
+    "부분 통과/실패 시 최신 제출 기준 리스크 로그와 재작업 수를 생성",
+    "리스크 severity와 난이도에 따라 추가 자원 패널티를 별도 합산",
+    "현장 힌트는 수동 열람 시 즉시 자원 비용이 반영됨",
+    "과제별 제한 시간을 넘긴 뒤 제출하면 난이도 가중 시간 초과 비용이 추가 반영됨",
+    "프로젝트 종료 판정은 전체 제출률/열린 리스크/자원 상태를 수동 평가 버튼으로 계산한 뒤 후속 투입 분기와 차기 프로젝트 시드 3종까지 자동 생성한다",
+    "차기 프로젝트 시드에서 선택한 후보를 실제 플레이 가능한 새 과제 3종 세트로 승격해, 시작 자원을 이월한 채 다음 현장을 바로 시작할 수 있다",
+    "프로젝트 히스토리를 기준으로 회사 평판과 직급을 누적 계산하고, 차기 현장 시작 시 직급별 자원 보정을 즉시 적용한다",
+    "현장 시작 시 계약금이 선지급되고, 프로젝트 종료 시 등급/리스크/협상안에 따라 성과급과 페널티가 따로 정산되어 예비비로 누적된다",
+    "예비비를 써서 힌트 비용 1회, 시간 초과 1단위, 열린 리스크/재작업 1단계를 완화하는 회사 지원 시스템이 추가되었다"
+  ],
+  "riskSettlement": {
+    "bands": [
+      "clear",
+      "partial_rework",
+      "high_risk_rework"
+    ],
+    "openRiskSource": "latest_failed_checks",
+    "reworkSource": "score_band_fixed",
+    "severity": [
+      "안정/해소",
+      "보통",
+      "높음"
+    ],
+    "extraPenalty": "risk_severity_and_difficulty_weighted"
+  },
+  "hintSettlement": {
+    "mode": "manual_reveal_immediate_cost",
+    "costByDifficulty": {
+      "Easy": {
+        "stamina": -1,
+        "mentality": 0,
+        "clientTrust": 0,
+        "techDebt": 1
+      },
+      "Normal": {
+        "stamina": -2,
+        "mentality": 0,
+        "clientTrust": 0,
+        "techDebt": 1
+      },
+      "Hard": {
+        "stamina": -3,
+        "mentality": -1,
+        "clientTrust": 0,
+        "techDebt": 2
+      }
+    },
+    "applyTiming": "on_hint_reveal"
+  },
+  "timeSettlement": {
+    "mode": "task_timer_overtime_penalty",
+    "applyTiming": "on_submit",
+    "unitSeconds": 30,
+    "costByDifficultyPerUnit": {
+      "Easy": {
+        "stamina": -1,
+        "mentality": 0,
+        "clientTrust": 0,
+        "techDebt": 0
+      },
+      "Normal": {
+        "stamina": -1,
+        "mentality": -1,
+        "clientTrust": 0,
+        "techDebt": 1
+      },
+      "Hard": {
+        "stamina": -2,
+        "mentality": -1,
+        "clientTrust": -1,
+        "techDebt": 1
+      }
+    }
+  },
+  "projectEndSettlement": {
+    "mode": "manual_project_closure_evaluation",
+    "applyTiming": "on_project_evaluate",
+    "required": "all_tasks_submitted_for_final_grade",
+    "grades": [
+      "보류",
+      "FAIL",
+      "C",
+      "B",
+      "A",
+      "S"
+    ],
+    "inputs": [
+      "submitted_tasks",
+      "failed_tasks",
+      "open_risks",
+      "reworks",
+      "stamina",
+      "mentality",
+      "clientTrust",
+      "techDebt"
+    ]
+  },
+  "followUpSettlement": {
+    "mode": "post_project_branch_preview",
+    "applyTiming": "after_project_evaluation",
+    "inputs": [
+      "project_grade",
+      "stamina",
+      "mentality",
+      "clientTrust",
+      "techDebt",
+      "open_risks"
+    ],
+    "branches": [
+      "긴급 하자보수 재투입",
+      "하자보수 연장 투입",
+      "조건부 유지보수/안정화",
+      "안정 운영/차기 고도화",
+      "확장 수주/계열사 추천"
+    ]
+  },
+  "seedGeneration": {
+    "mode": "next_project_seed_generation",
+    "applyTiming": "after_follow_up_plan",
+    "inputs": [
+      "follow_up_code",
+      "next_start_resources",
+      "project_grade"
+    ],
+    "groups": [
+      "recovery",
+      "warranty",
+      "maintenance",
+      "upgrade",
+      "strategic"
+    ],
+    "output": [
+      "seed_candidates_3",
+      "starting_resources",
+      "pressure_level",
+      "kickoff_focus",
+      "primary_docs"
+    ]
+  },
+  "seedPromotion": {
+    "mode": "seed_to_playable_task_pack_promotion",
+    "applyTiming": "manual_seed_selection",
+    "output": [
+      "generated_task_pack",
+      "next_project_start_resources",
+      "playable_tasks_3"
+    ]
+  },
+  "projectHistory": {
+    "archiveTrigger": "startNextPack",
+    "fields": [
+      "projectName",
+      "client",
+      "grade",
+      "failedCount",
+      "openRiskCount",
+      "reworkCount",
+      "totalSubmissionCount",
+      "totalHintsUsed",
+      "totalOvertimeUnits",
+      "totalElapsedSeconds",
+      "startResources",
+      "endResources",
+      "followUpTitle",
+      "nextFocus",
+      "nextPackTitle",
+      "totalSupportSpend"
+    ],
+    "order": "latest_first"
+  },
+  "careerProgression": {
+    "trigger": "after_project_archive",
+    "inputs": [
+      "project_history",
+      "grade",
+      "failed_tasks",
+      "open_risks",
+      "end_resources",
+      "follow_up_title"
+    ],
+    "reputationBands": [
+      "위기 거래처",
+      "일반 협력사",
+      "안정 운영 벤더",
+      "핵심 협력사",
+      "전략 파트너"
+    ],
+    "rankBands": [
+      "초급 투입",
+      "주니어 개발자",
+      "중급 개발자",
+      "현장 해결사",
+      "고급 개발자",
+      "수석 / PM 후보"
+    ],
+    "nextStartBonus": "rank_weighted_resource_bonus"
+  },
+  "meta": {
+    "step": "T",
+    "contractNegotiationMode": "career_aware_contract_negotiation",
+    "contractFinanceMode": "advance_and_close_settlement"
+  },
+  "contractFinance": {
+    "mode": "advance_and_close_settlement",
+    "applyTiming": [
+      "on_project_start",
+      "on_project_archive"
+    ],
+    "inputs": [
+      "negotiation_option",
+      "project_grade",
+      "failed_tasks",
+      "open_risks",
+      "reworks",
+      "clientTrust",
+      "techDebt"
+    ],
+    "advanceRateByNegotiation": {
+      "SAFE": 0.48,
+      "BALANCED": 0.42,
+      "AGGRESSIVE": 0.34
+    },
+    "closeSettlement": "performance_payout_plus_grade_bonus_minus_penalty",
+    "outputs": [
+      "cash_reserve",
+      "total_advance",
+      "total_performance",
+      "total_penalty",
+      "total_net_revenue"
+    ]
+  },
+  "companySupport": {
+    "mode": "company_support_budget_relief",
+    "applyTiming": [
+      "manual_current_task_support",
+      "immediate_resource_recalculation"
+    ],
+    "actions": {
+      "hint": {
+        "effect": "negate_one_hint_penalty",
+        "costPtByDifficulty": {
+          "Easy": 6,
+          "Normal": 9,
+          "Hard": 12
+        }
+      },
+      "overtime": {
+        "effect": "negate_one_overtime_unit_penalty",
+        "costPtByDifficulty": {
+          "Easy": 7,
+          "Normal": 10,
+          "Hard": 13
+        }
+      },
+      "risk": {
+        "effect": "reduce_open_risk_and_rework_by_one",
+        "costPtByDifficulty": {
+          "Easy": 10,
+          "Normal": 14,
+          "Hard": 18
+        }
+      }
+    },
+    "financeEffect": "cash_reserve_decrease_and_support_cost_log"
+  },
+  "stepV": {
+    "fileAwareChecks": {
+      "supported": true,
+      "description": "check 또는 rule에 fileId를 지정하면 해당 파일 source만 판정 대상으로 사용한다."
+    }
+  }
+,
+  "stepW": {
+    "summary": "core stats, domain skills, auto traits and passive effects",
+    "highlights": [
+      "analysis/recommended file",
+      "focus buffer before overtime penalty",
+      "effective report min length",
+      "trait-based passive memo and hotfix relief"
+    ]
+  }
+}
