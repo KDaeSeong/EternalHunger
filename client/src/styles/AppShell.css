@@ -4967,6 +4967,246 @@
   line-height: 1.45;
 }
 
+.game-room-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.4fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.game-room-toolbar select,
+.game-room-create-grid input,
+.game-room-create-grid select {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid rgba(22, 33, 44, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 0 12px;
+  font-weight: 850;
+}
+
+.game-room-toolbar a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.20);
+  border-radius: 8px;
+  color: #1b6fa2;
+  padding: 0 12px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.games-panel-title > span {
+  color: #64717d;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.game-room-create-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.game-room-create-grid label {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.game-room-create-grid label > span {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.game-room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.game-room-card {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 16px;
+  text-decoration: none;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.game-room-card:hover,
+.game-room-toolbar a:hover {
+  border-color: rgba(8, 120, 189, 0.36);
+  box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.game-room-card__top,
+.game-room-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.game-room-card h2,
+.game-room-card p,
+.game-room-card small {
+  margin: 0;
+}
+
+.game-room-card h2 {
+  overflow-wrap: anywhere;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.game-room-card p,
+.game-room-card small,
+.game-room-card__meta span,
+.game-room-card__top > span:not(.game-room-status) {
+  color: #64717d;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.game-room-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  background: #edf7ef;
+  color: #1f6f45;
+  padding: 0 9px;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.game-room-status.is-playing {
+  background: #fff5e2;
+  color: #8a520c;
+}
+
+.game-room-status.is-finished,
+.game-room-status.is-closed {
+  background: #f2f4f6;
+  color: #64717d;
+}
+
+.game-room-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game-room-action-grid button,
+.game-room-detail-page .games-empty button {
+  min-height: 40px;
+  border: 1px solid rgba(44, 111, 158, 0.20);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b6fa2;
+  padding: 0 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.game-room-action-grid button.is-danger {
+  border-color: rgba(220, 38, 38, 0.22);
+  color: #b91c1c;
+}
+
+.game-room-action-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.game-room-info-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.game-room-info-list div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.game-room-info-list dt,
+.game-room-info-list dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.game-room-info-list dt {
+  color: #64717d;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.game-room-info-list dd {
+  color: #17202a;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.game-room-player-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.game-room-player {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #f9fbfd;
+  padding: 12px;
+}
+
+.game-room-player strong,
+.game-room-player span,
+.game-room-player em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-room-player strong {
+  color: #17202a;
+  font-size: 0.96rem;
+}
+
+.game-room-player span,
+.game-room-player em {
+  color: #64717d;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.game-room-player.is-ready {
+  border-color: rgba(47, 143, 97, 0.24);
+  background: #f0faf4;
+}
+
 @media (max-width: 920px) {
   .site-header__inner {
     grid-template-columns: auto minmax(0, 1fr);
@@ -5001,7 +5241,10 @@
   }
 
   .game-save-form-grid,
-  .game-save-row {
+  .game-save-row,
+  .game-room-toolbar,
+  .game-room-create-grid,
+  .game-room-info-list div {
     grid-template-columns: 1fr;
   }
 

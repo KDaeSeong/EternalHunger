@@ -199,6 +199,7 @@ export default function GameDetailPage() {
             <p>{game.detail}</p>
             <div className="games-hero-actions">
               <Link href={game.primaryHref}>{game.primaryLabel}</Link>
+              <Link href={`/games/rooms?gameSlug=${game.slug}`}>게임방</Link>
               <Link href={game.boardHref}>{game.boardLabel}</Link>
               <Link href={game.recordHref}>{game.recordLabel}</Link>
               <Link href={game.guideHref}>{game.guideLabel}</Link>
