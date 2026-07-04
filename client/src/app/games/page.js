@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
-import { GAME_CATALOG, GAME_ROADMAP, gameDetailHref } from './_lib/gameCatalog';
+import { GAME_CATALOG, GAME_ROADMAP, findGameBySlug, gameDetailHref } from './_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
@@ -51,6 +51,22 @@ function formatDate(value) {
 function userHref(user) {
   const id = user?._id || user?.id;
   return id ? `/users/${id}` : '';
+}
+
+function roomHref(room) {
+  return room?.href || (room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`);
+}
+
+function roomGameTitle(room) {
+  return findGameBySlug(room?.gameSlug)?.title || room?.gameSlug || '게임';
+}
+
+function roomMeta(room) {
+  if (room?.roomType === 'game-room') {
+    return `${roomGameTitle(room)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
+  }
+  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+  return `스무고개 · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)} · ${safeText(room.categoryLabel, room.category || '자유')}`;
 }
 
 function metricValueForKey(key, hub, derived) {
@@ -267,19 +283,16 @@ export default function GamesPage() {
 
         <section className="games-dashboard">
           <ActivityList
-            title="진행 중인 스무고개"
-            href="/twenty-questions"
+            title="진행 중인 게임방"
+            href="/games/rooms"
             items={hub.activeRooms.slice(0, 6)}
-            empty="진행 중인 방이 없습니다."
-            renderItem={(room) => {
-              const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
-              return (
-                <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
-                  <strong>{safeText(room.title, '제목 없음')}</strong>
-                  <span>{safeText(room.hostName, '익명')} · {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)} · {safeText(room.categoryLabel, room.category || '자유')}</span>
-                </Link>
-              );
-            }}
+            empty="진행 중인 게임방이 없습니다."
+            renderItem={(room) => (
+              <Link href={roomHref(room)} key={`room-${room._id || room.title}`}>
+                <strong>{safeText(room.title, '제목 없음')}</strong>
+                <span>{roomMeta(room)}</span>
+              </Link>
+            )}
           />
 
           <ActivityList

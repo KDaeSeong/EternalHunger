@@ -81,6 +81,18 @@ function userHref(user) {
   return id ? `/users/${id}` : '';
 }
 
+function roomHref(room) {
+  return room?.href || (room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`);
+}
+
+function roomSummary(room) {
+  if (room?.roomType === 'game-room') {
+    return `${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
+  }
+  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+  return `${safeText(room.hostName, '익명')} · 사용 ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)} · 질문 ${formatNumber(room.questionCount)} · 도전 ${formatNumber(room.guessCount)}`;
+}
+
 function ResultPanel({ title, count, empty, children }) {
   return (
     <section className="search-panel">
@@ -220,17 +232,16 @@ export default function SearchPage() {
               </div>
             </ResultPanel>
 
-            <ResultPanel title="스무고개" count={results.rooms.length} empty="일치하는 방이 없습니다.">
+            <ResultPanel title="방" count={results.rooms.length} empty="일치하는 방이 없습니다.">
               <div className="search-result-list">
                 {results.rooms.map((room) => {
-                  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
                   return (
-                    <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
+                    <Link href={roomHref(room)} key={`room-${room._id || room.title}`}>
                       <span>{ROOM_CATEGORY_LABELS[room.category] || room.category || '방'}</span>
                       <strong>{safeText(room.title, '제목 없음')}</strong>
-                      <p>{safeText(room.hint, '힌트 없음')}</p>
+                      <p>{safeText(room.hint, room.roomType === 'game-room' ? safeText(room.gameSlug, '게임방') : '힌트 없음')}</p>
                       <small>
-                        {safeText(room.hostName, '익명')} · 사용 {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)} · 질문 {formatNumber(room.questionCount)} · 도전 {formatNumber(room.guessCount)}
+                        {roomSummary(room)}
                       </small>
                     </Link>
                   );

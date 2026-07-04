@@ -77,9 +77,24 @@ function formatPercent(value) {
 }
 
 function roomStatusLabel(value) {
+  if (value === 'open') return '모집';
+  if (value === 'playing') return '진행';
+  if (value === 'finished') return '완료';
   if (value === 'solved') return '정답';
   if (value === 'closed') return '종료';
   return '진행';
+}
+
+function roomHref(room) {
+  return room?.href || (room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`);
+}
+
+function roomMeta(room) {
+  if (room?.roomType === 'game-room') {
+    return `${roomStatusLabel(room.status)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명`;
+  }
+  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+  return `${roomStatusLabel(room.status)} · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)}`;
 }
 
 function metricValueForKey(key, hub) {
@@ -253,18 +268,32 @@ export default function GameDetailPage() {
 
         <section className="games-dashboard">
           {game.isRoadmap ? (
-            <ActivityPanel
-              title="이식 논의"
-              href={game.boardHref}
-              items={relevantPosts}
-              empty={loading ? '관련 글을 불러오는 중입니다.' : '아직 이식 논의 글이 없습니다.'}
-              renderItem={(post) => (
-                <Link href={`/board/${post._id}`} key={`roadmap-post-${post._id || post.title}`}>
-                  <strong>{safeText(post.title, '제목 없음')}</strong>
-                  <span>{safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · {formatDate(post.createdAt || post.updatedAt) || '-'}</span>
-                </Link>
-              )}
-            />
+            <>
+              <ActivityPanel
+                title="진행 중인 게임방"
+                href={`/games/rooms?gameSlug=${game.slug}`}
+                items={hub.activeRooms.slice(0, 6)}
+                empty={loading ? '게임방을 불러오는 중입니다.' : '진행 중인 게임방이 없습니다.'}
+                renderItem={(room) => (
+                  <Link href={roomHref(room)} key={`roadmap-room-${room._id || room.title}`}>
+                    <strong>{safeText(room.title, '게임방')}</strong>
+                    <span>{roomMeta(room)}</span>
+                  </Link>
+                )}
+              />
+              <ActivityPanel
+                title="이식 논의"
+                href={game.boardHref}
+                items={relevantPosts}
+                empty={loading ? '관련 글을 불러오는 중입니다.' : '아직 이식 논의 글이 없습니다.'}
+                renderItem={(post) => (
+                  <Link href={`/board/${post._id}`} key={`roadmap-post-${post._id || post.title}`}>
+                    <strong>{safeText(post.title, '제목 없음')}</strong>
+                    <span>{safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · {formatDate(post.createdAt || post.updatedAt) || '-'}</span>
+                  </Link>
+                )}
+              />
+            </>
           ) : game.slug === 'twenty-questions' ? (
             <>
               <ActivityPanel
@@ -275,7 +304,7 @@ export default function GameDetailPage() {
                 renderItem={(room) => {
                   const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
                   return (
-                    <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
+                    <Link href={roomHref(room)} key={`room-${room._id || room.title}`}>
                       <strong>{safeText(room.title, '제목 없음')}</strong>
                       <span>{safeText(room.hostName, '익명')} · {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)} · {safeText(room.categoryLabel, room.category || '자유')}</span>
                     </Link>
@@ -290,7 +319,7 @@ export default function GameDetailPage() {
                 renderItem={(room) => {
                   const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
                   return (
-                    <Link href={`/twenty-questions/${room._id}`} key={`recent-room-${room._id || room.title}`}>
+                    <Link href={roomHref(room)} key={`recent-room-${room._id || room.title}`}>
                       <strong>{safeText(room.title, '제목 없음')}</strong>
                       <span>{roomStatusLabel(room.status)} · {safeText(room.hostName, '익명')} · {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)}</span>
                     </Link>
@@ -300,6 +329,18 @@ export default function GameDetailPage() {
             </>
           ) : (
             <>
+              <ActivityPanel
+                title="진행 중인 게임방"
+                href={`/games/rooms?gameSlug=${game.slug}`}
+                items={hub.activeRooms.slice(0, 6)}
+                empty={loading ? '게임방을 불러오는 중입니다.' : '진행 중인 게임방이 없습니다.'}
+                renderItem={(room) => (
+                  <Link href={roomHref(room)} key={`game-room-${room._id || room.title}`}>
+                    <strong>{safeText(room.title, '게임방')}</strong>
+                    <span>{roomMeta(room)}</span>
+                  </Link>
+                )}
+              />
               <ActivityPanel
                 title="최근 경기"
                 href="/records"
