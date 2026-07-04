@@ -13,6 +13,7 @@ import {
   SAVE_VERSION,
   STUDENTS,
   achievementRows,
+  applyUpgradeAction,
   attemptTowerAction,
   availableEnhanceSlots,
   autoSalvageAction,
@@ -46,6 +47,7 @@ import {
   towerShopRotationSummary,
   titleRows,
   towerShopRows,
+  upgradeRows,
 } from '../_lib/schaleIdleEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -95,6 +97,7 @@ export default function SchaleIdlePlayPage() {
   const missions = useMemo(() => missionRows(state), [state]);
   const achievements = useMemo(() => achievementRows(state), [state]);
   const titles = useMemo(() => titleRows(state), [state]);
+  const upgrades = useMemo(() => upgradeRows(state), [state]);
   const salvage = useMemo(() => salvageRows(state), [state]);
   const salvageInfo = useMemo(() => salvageSummary(state), [state]);
   const validSelectedSalvageUids = useMemo(() => {
@@ -115,6 +118,7 @@ export default function SchaleIdlePlayPage() {
   const score = scoreState(state);
   const claimableAchievements = achievements.filter((achievement) => achievement.canClaim).length;
   const equippedTitle = titles.find((title) => title.equipped);
+  const totalUpgradeLevel = upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0);
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -239,6 +243,7 @@ export default function SchaleIdlePlayPage() {
     { label: '전투력', value: power.toLocaleString('ko-KR') },
     { label: '크레딧', value: `${Number(state.credits || 0).toLocaleString('ko-KR')} Cr` },
     { label: '업적', value: `${achievements.filter((achievement) => achievement.claimed).length}/${achievements.length}` },
+    { label: '연구', value: `Lv.${totalUpgradeLevel}` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -318,6 +323,26 @@ export default function SchaleIdlePlayPage() {
             </ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 1))}>탑 1회 도전</ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 5))}>탑 5회 도전</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>상시 연구</h2>
+            <span>총 Lv.{totalUpgradeLevel}</span>
+          </div>
+          <div className="game-save-list">
+            {upgrades.map((upgrade) => (
+              <article className="game-save-row" key={upgrade.id}>
+                <div>
+                  <span>Lv.{upgrade.level} → Lv.{upgrade.nextLevel} · {Number(upgrade.costCredits || 0).toLocaleString('ko-KR')} Cr</span>
+                  <strong>{upgrade.name}</strong>
+                  <small>{upgrade.bonusText || '보정 없음'}</small>
+                  <small>필요: {upgrade.costItemText || '없음'}</small>
+                </div>
+                <button type="button" disabled={!upgrade.canUpgrade} onClick={() => setState((current) => applyUpgradeAction(current, upgrade.id))}>연구</button>
+              </article>
+            ))}
           </div>
         </section>
       </section>

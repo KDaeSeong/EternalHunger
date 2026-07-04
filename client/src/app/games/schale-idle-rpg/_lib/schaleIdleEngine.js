@@ -30,8 +30,13 @@ export const ITEMS = [
   { id: 'itm_optic_lens', name: '광학 렌즈', rarity: 'UNCOMMON', sellValue: 5, stackable: true },
   { id: 'itm_alloy_plate', name: '합금 플레이트', rarity: 'RARE', sellValue: 12, stackable: true },
   { id: 'itm_servo_joint', name: '서보 조인트', rarity: 'RARE', sellValue: 14, stackable: true },
+  { id: 'itm_encrypted_chip', name: '암호화 칩', rarity: 'EPIC', sellValue: 35, stackable: true },
+  { id: 'itm_titan_core', name: '타이탄 코어 파편', rarity: 'EPIC', sellValue: 45, stackable: true },
   { id: 'itm_memory_chip', name: '메모리 칩', rarity: 'RARE', sellValue: 22, stackable: true },
   { id: 'itm_enhance_stone', name: '강화석', rarity: 'RARE', sellValue: 35, stackable: true },
+  { id: 'itm_protect_ticket', name: '만능 강화 보호권', rarity: 'UNCOMMON', sellValue: 18, stackable: true },
+  { id: 'itm_protect_downgrade', name: '하락 방지권', rarity: 'UNCOMMON', sellValue: 20, stackable: true },
+  { id: 'itm_protect_destroy', name: '파괴 방지권', rarity: 'RARE', sellValue: 45, stackable: true },
   { id: 'itm_tower_key', name: '시련의 탑 열쇠', rarity: 'RARE', sellValue: 30, stackable: true },
   { id: 'itm_tower_token', name: '시련 토큰', rarity: 'RARE', sellValue: 12, stackable: true },
   { id: 'itm_reroll_ticket', name: '옵션 리롤권', rarity: 'EPIC', sellValue: 45, stackable: true },
@@ -53,7 +58,35 @@ export const RECIPES = [
   { id: 'rcp_spare_battery_pack', name: '예비 배터리 팩 제작', credits: 140, requires: { itm_scrap: 18, itm_battery: 3 }, produces: { itemId: 'eq_spare_battery_pack', qty: 1 } },
   { id: 'rcp_shale_badge', name: '샬레 휘장 제작', credits: 300, requires: { itm_scrap: 55, itm_memory_chip: 3, itm_battery: 4 }, produces: { itemId: 'eq_shale_badge', qty: 1 } },
   { id: 'rcp_enhance_stone', name: '강화석 제작', credits: 90, requires: { itm_scrap: 16, itm_battery: 1 }, produces: { itemId: 'itm_enhance_stone', qty: 1 } },
+  { id: 'rcp_protect_ticket', name: '강화 보호권 제작', credits: 120, requires: { itm_memory_chip: 2, itm_battery: 2, itm_scrap: 10 }, produces: { itemId: 'itm_protect_ticket', qty: 1 } },
+  { id: 'rcp_protect_downgrade', name: '하락 방지권 제작', credits: 180, requires: { itm_scrap: 60, itm_memory_chip: 10 }, produces: { itemId: 'itm_protect_downgrade', qty: 1 } },
+  { id: 'rcp_protect_destroy', name: '파괴 방지권 제작', credits: 420, requires: { itm_scrap: 120, itm_memory_chip: 30, itm_battery: 10 }, produces: { itemId: 'itm_protect_destroy', qty: 1 } },
+  { id: 'rcp_tower_key', name: '시련의 탑 열쇠 제작', credits: 260, requires: { itm_scrap: 80, itm_battery: 20 }, produces: { itemId: 'itm_tower_key', qty: 1 } },
 ];
+
+export const UPGRADE_DEFS = [
+  { id: 'UPG_FIREPOWER', name: '화력 연구', powerMulPerLevel: 0.05 },
+  { id: 'UPG_ARMOR', name: '방호 정비', powerMulPerLevel: 0.03 },
+  { id: 'UPG_LOGISTICS', name: '보급/피로 관리', powerMulPerLevel: 0.01, staminaMulPerLevel: 0.05 },
+];
+
+const UPGRADE_COST_PARAMS = {
+  UPG_FIREPOWER: {
+    baseCredits: 60,
+    growth: 1.35,
+    baseItems: { itm_scrap: 12, itm_battery: 1 },
+  },
+  UPG_ARMOR: {
+    baseCredits: 55,
+    growth: 1.33,
+    baseItems: { itm_scrap: 10, itm_bandage: 2 },
+  },
+  UPG_LOGISTICS: {
+    baseCredits: 50,
+    growth: 1.3,
+    baseItems: { itm_scrap: 8, itm_battery: 1 },
+  },
+};
 
 export const TOWER = {
   id: 'tower_trial',
@@ -326,6 +359,7 @@ export function createNewState(options = {}) {
     credits: 720,
     stamina: 100,
     basePower: 180,
+    upgrades: defaultUpgrades(),
     equipment: {},
     inventory: {
       itm_scrap: 80,
@@ -359,6 +393,7 @@ export function createNewState(options = {}) {
       REROLL: 0,
       SALVAGE: 0,
       SHOP_BUY: 0,
+      UPGRADE: 0,
     },
     claimedMissions: [],
     lifetimeCounters: {},
@@ -380,6 +415,7 @@ export function normalizeState(value) {
     ...base,
     ...value,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
+    upgrades: normalizeUpgrades(value.upgrades),
     equipment,
     salvageQueue: Array.isArray(value.salvageQueue) ? value.salvageQueue.slice(0, 40) : base.salvageQueue,
     salvageSettings: normalizeSalvageSettings(value.salvageSettings, base.salvageSettings),
@@ -479,6 +515,42 @@ function normalizeCounters(value = {}) {
     key,
     Math.max(0, Math.floor(Number(amount || 0))),
   ]));
+}
+
+function defaultUpgrades() {
+  return Object.fromEntries(UPGRADE_DEFS.map((upgrade) => [upgrade.id, 0]));
+}
+
+function normalizeUpgrades(value = {}) {
+  const base = defaultUpgrades();
+  return Object.fromEntries(UPGRADE_DEFS.map((upgrade) => [
+    upgrade.id,
+    Math.max(0, Math.floor(Number(value?.[upgrade.id] ?? base[upgrade.id] ?? 0))),
+  ]));
+}
+
+function upgradeCost(id, nextLevel) {
+  const params = UPGRADE_COST_PARAMS[id] || UPGRADE_COST_PARAMS.UPG_FIREPOWER;
+  const level = Math.max(1, Math.floor(Number(nextLevel || 1)));
+  const scale = Math.pow(Number(params.growth || 1.3), level - 1);
+  const items = Object.fromEntries(Object.entries(params.baseItems || {}).map(([itemId, qty]) => [
+    itemId,
+    Math.max(1, Math.ceil(Number(qty || 0) * scale)),
+  ]));
+  return {
+    credits: Math.max(1, Math.ceil(Number(params.baseCredits || 0) * scale)),
+    items,
+  };
+}
+
+function upgradeMultipliers(upgrades = {}) {
+  return UPGRADE_DEFS.reduce((next, def) => {
+    const level = Math.max(0, Math.floor(Number(upgrades?.[def.id] || 0)));
+    return {
+      powerMul: next.powerMul * (1 + Number(def.powerMulPerLevel || 0) * level),
+      staminaMul: next.staminaMul * (1 + Number(def.staminaMulPerLevel || 0) * level),
+    };
+  }, { powerMul: 1, staminaMul: 1 });
 }
 
 function bumpLifetimeCounter(state, action, amount = 1) {
@@ -1004,6 +1076,7 @@ export function teamPower(state) {
   let add = 0;
   let mul = 1;
   let staminaMul = 1;
+  const upgrades = upgradeMultipliers(current.upgrades);
   getEquippedList(current).forEach((equip) => {
     const normalized = normalizeEquipmentInstance(equip);
     const stats = getItem(normalized.itemId)?.equip || {};
@@ -1013,8 +1086,8 @@ export function teamPower(state) {
     mul *= Number(stats.powerMul || 1) * rolls.powerMulMul * (1 + enhance * 0.01);
     staminaMul *= Number(stats.staminaMul || 1) * rolls.staminaMulMul * (1 + enhance * 0.02);
   });
-  const staminaFactor = clamp(0.62 + (Number(current.stamina || 0) / 100) * 0.5, 0.45, 1.12);
-  return Math.round((Number(current.basePower || 0) + add) * mul * staminaFactor * staminaMul * powerTitleMul(current));
+  const staminaFactor = clamp(0.62 + (Number(current.stamina || 0) / 100) * 0.5 * upgrades.staminaMul, 0.45, 1.2);
+  return Math.round((Number(current.basePower || 0) + add) * mul * staminaFactor * staminaMul * powerTitleMul(current) * upgrades.powerMul);
 }
 
 function dutyDifficulty(floor) {
@@ -1119,6 +1192,7 @@ export function resolveDutyAction(state, minutes = 60) {
   const fromFloor = floor;
   const details = [];
   const rewardMul = rewardCreditMul(next);
+  const fatigueMul = 1 / upgradeMultipliers(next.upgrades).staminaMul;
 
   while (seconds > 0 && stamina > 8) {
     const power = teamPower({ ...next, floor, stamina, inventory });
@@ -1167,7 +1241,7 @@ export function resolveDutyAction(state, minutes = 60) {
       details.push({ kind: 'BOSS_RESULT', floor, win: true, message: '보스 처치 성공', creditsGained: reward });
     }
     inventory = rollDrops(inventory, floor, rng);
-    stamina = clamp(stamina - (floor % 10 === 0 ? 3.2 : 1.3), 0, 100);
+    stamina = clamp(stamina - (floor % 10 === 0 ? 3.2 : 1.3) * fatigueMul, 0, 100);
     floor += 1;
   }
 
@@ -1200,10 +1274,34 @@ export function resolveDutyAction(state, minutes = 60) {
 
 export function restAction(state) {
   const current = normalizeState(state);
+  const recovery = Math.round(35 * upgradeMultipliers(current.upgrades).staminaMul);
   return addLog({
     ...current,
-    stamina: clamp(Number(current.stamina || 0) + 35, 0, 100),
-  }, '재정비로 스태미나를 회복했습니다.');
+    stamina: clamp(Number(current.stamina || 0) + recovery, 0, 100),
+  }, `재정비로 스태미나를 ${recovery} 회복했습니다.`);
+}
+
+export function applyUpgradeAction(state, upgradeId) {
+  const current = normalizeState(state);
+  const def = UPGRADE_DEFS.find((upgrade) => upgrade.id === upgradeId);
+  if (!def) return addLog(current, '연구 항목을 찾을 수 없습니다.');
+  const level = Math.max(0, Math.floor(Number(current.upgrades[def.id] || 0)));
+  const cost = upgradeCost(def.id, level + 1);
+  if (Number(current.credits || 0) < cost.credits) return addLog(current, `${def.name} 연구 실패. 크레딧이 부족합니다.`);
+  if (!hasItems(current.inventory, cost.items)) return addLog(current, `${def.name} 연구 실패. 필요한 재료가 부족합니다.`);
+
+  const next = addLifetimeCounters({
+    ...current,
+    credits: Number(current.credits || 0) - cost.credits,
+    inventory: spendItems(current.inventory, cost.items),
+    upgrades: {
+      ...current.upgrades,
+      [def.id]: level + 1,
+    },
+    counters: bumpCounter(current.counters, 'UPGRADE', 1),
+  }, { UPGRADE: 1 });
+
+  return addLog(next, `${def.name} Lv.${level} -> Lv.${level + 1} 연구 완료. 전투력이 상승했습니다.`);
 }
 
 export function craftRecipeAction(state, recipeId) {
@@ -1252,11 +1350,24 @@ export function enhanceEquipmentAction(state, slot) {
   const rng = createRng(`${current.runId}|enhance|${slot}|${level}|${current.counters.ENHANCE_TRY}`);
   const chance = clamp(0.82 - level * 0.045, 0.22, 0.9);
   const success = rng() < chance;
-  const nextEquip = success ? { ...equip, enhance: level + 1 } : equip;
+  let inventory = addItem(current.inventory, 'itm_enhance_stone', -costStones);
+  let nextEquip = success ? { ...equip, enhance: level + 1 } : equip;
+  let penaltyText = '';
+  if (!success && level >= 5) {
+    const protectItem = ['itm_protect_ticket', 'itm_protect_downgrade', 'itm_protect_charm']
+      .find((itemId) => Number(inventory[itemId] || 0) > 0);
+    if (protectItem) {
+      inventory = addItem(inventory, protectItem, -1);
+      penaltyText = ` ${itemName(protectItem)}로 하락을 막았습니다.`;
+    } else {
+      nextEquip = { ...equip, enhance: Math.max(0, level - 1) };
+      penaltyText = ` 실패 패널티로 +${nextEquip.enhance}까지 하락했습니다.`;
+    }
+  }
   return addLog(addLifetimeCounters({
     ...current,
     credits: Number(current.credits || 0) - costCredits,
-    inventory: addItem(current.inventory, 'itm_enhance_stone', -costStones),
+    inventory,
     equipment: { ...current.equipment, [slot]: nextEquip },
     counters: {
       ...bumpCounter(current.counters, 'ENHANCE_TRY', 1),
@@ -1265,7 +1376,7 @@ export function enhanceEquipmentAction(state, slot) {
   }, {
     ENHANCE_TRY: 1,
     ENHANCE_SUCCESS: success ? 1 : 0,
-  }), `${equip.name} +${level} 강화 ${success ? `성공. +${level + 1}` : '실패.'} 성공률 ${Math.round(chance * 100)}%`);
+  }), `${equip.name} +${level} 강화 ${success ? `성공. +${level + 1}` : `실패.${penaltyText}`} 성공률 ${Math.round(chance * 100)}%`);
 }
 
 export function rerollEquipmentAction(state, slot) {
@@ -1735,6 +1846,29 @@ export function availableEnhanceSlots(state) {
   return getEquippedList(state).map((equip) => equip.slot);
 }
 
+export function upgradeRows(state) {
+  const current = normalizeState(state);
+  return UPGRADE_DEFS.map((def) => {
+    const level = Math.max(0, Math.floor(Number(current.upgrades[def.id] || 0)));
+    const cost = upgradeCost(def.id, level + 1);
+    const costItemText = Object.entries(cost.items)
+      .map(([itemId, qty]) => `${itemName(itemId)} ${qty}`)
+      .join(', ');
+    const powerBonus = Math.round(Number(def.powerMulPerLevel || 0) * 100);
+    const staminaBonus = Math.round(Number(def.staminaMulPerLevel || 0) * 100);
+    return {
+      ...def,
+      level,
+      nextLevel: level + 1,
+      costCredits: cost.credits,
+      costItems: cost.items,
+      costItemText,
+      bonusText: `${powerBonus ? `전투력 +${powerBonus}%/Lv` : ''}${staminaBonus ? ` · 스태미나 효율 +${staminaBonus}%/Lv` : ''}`.trim(),
+      canUpgrade: Number(current.credits || 0) >= cost.credits && hasItems(current.inventory, cost.items),
+    };
+  });
+}
+
 export function missionRows(state) {
   const current = normalizeState(state);
   const claimed = new Set(current.claimedMissions);
@@ -1760,6 +1894,7 @@ export function scoreState(state) {
     + Number(current.counters.REROLL || 0) * 40
     + Number(current.counters.SALVAGE || 0) * 12
     + Number(current.counters.SHOP_BUY || 0) * 35
+    + Number(current.counters.UPGRADE || 0) * 120
     + achievementRows(current).filter((achievement) => achievement.claimed).length * 250
   ));
 }
@@ -1784,6 +1919,7 @@ export function summaryForState(state) {
     rerolls: Number(current.counters.REROLL || 0),
     salvaged: Number(current.counters.SALVAGE || 0),
     towerShopBuys: Number(current.counters.SHOP_BUY || 0),
+    upgrades: { ...current.upgrades },
     salvageQueued: current.salvageQueue.length,
     achievements: achievementRows(current).filter((achievement) => achievement.claimed).length,
     equippedTitle: titleById(current.equippedTitleId)?.name || '',
