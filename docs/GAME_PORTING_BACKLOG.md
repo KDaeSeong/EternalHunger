@@ -91,6 +91,15 @@ Checked: 2026-07-04
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
 - Next step: replace the simplified engine internals with selected original core modules while keeping the site save/record shell stable.
 
+## Dual Academy TCG v13 Slice Status
+
+- Route: `/games/dual-academy-tcg/play`; deck editor: `/games/dual-academy-tcg/deck`.
+- Included loop: deck loading, hand/deck/board/discard state, energy turns, unit summon, tactic effects, combat, guard/quick/pierce/shield keywords, enemy auto-turn, room state sync, save/load, and match record.
+- v13 event layer: draw, summon, effect, attack, turn-start, prompt, win, and greet actions now emit a bounded duel event stream with Yuuka/Hina character callouts.
+- Site API integration: quick save through `/game-saves/dual-academy-tcg/quick-match`; room state sync through `/game-rooms/:id/state`; match result through `/game-records/dual-academy-tcg`.
+- Source basis: `C:\2저장고\마이애니메\dual-academy-tcg-v13-fix-emitEvent`, especially the `emitEvent`/character quote flow from `src\duel\engine.ts` and `src\data\characters.ts`.
+- Next step: port the original full phase model, spell/trap zones, field cards, chain prompt, counter-trap response, and larger card DB behind the current site shell.
+
 ## Tonkatsu Teacher Slice Status
 
 - Route: `/games/tonkatsu-teacher/play`

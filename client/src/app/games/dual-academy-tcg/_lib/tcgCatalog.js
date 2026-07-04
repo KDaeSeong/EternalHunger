@@ -13,6 +13,43 @@ export const TCG_KEYWORD_LABELS = {
   shield: '보호막',
 };
 
+export const TCG_CHARACTERS = {
+  player: {
+    id: 'YUUKA',
+    name: '하야세 유우카',
+    academy: '밀레니엄',
+    tone: 'blue',
+    quotes: {
+      GREET: '하야세 유우카입니다. 효율적으로 진행하죠.',
+      TURN_START: '계산 완료. 실행하죠.',
+      DRAW: '데이터가 충분해요.',
+      SUMMON: '리소스를 투입합니다.',
+      EFFECT_ACTIVATE: '효과 적용. 처리합니다.',
+      ATTACK_DECLARE: '계산된 공격입니다.',
+      DAMAGE_TAKEN: '손실 기록. 회수 계획으로 전환.',
+      WIN: '결과: 승리. 비용 대비 효율 양호.',
+      LOSE: '재검증이 필요하네요.',
+    },
+  },
+  enemy: {
+    id: 'HINA',
+    name: '소라사키 히나',
+    academy: '게헨나',
+    tone: 'red',
+    quotes: {
+      GREET: '게헨나 선도부, 출석했습니다.',
+      TURN_START: '내 차례군요. 정리하겠습니다.',
+      DRAW: '상황은 충분히 읽었어요.',
+      SUMMON: '전선에 투입.',
+      EFFECT_ACTIVATE: '효과를 사용하죠.',
+      ATTACK_DECLARE: '끝내겠습니다.',
+      DAMAGE_TAKEN: '피해는 감수합니다.',
+      WIN: '정리 완료. 다음 업무로 넘어가죠.',
+      LOSE: '판단이 늦었네요. 다음엔 고치겠습니다.',
+    },
+  },
+};
+
 export const FALLBACK_TCG_CARDS = [
   { id: 'striker', name: '전열 스트라이커', role: 'Unit', cost: 1, attack: 2, health: 2, text: '낮은 코스트로 전열을 빠르게 채웁니다.', tone: 'red', rarity: 'common', keywords: [] },
   { id: 'guardian', name: '실드 가디언', role: 'Unit', cost: 2, attack: 1, health: 5, text: '도발. 튼튼한 체력으로 공격을 대신 받아냅니다.', tone: 'blue', rarity: 'common', keywords: ['guard'] },
