@@ -209,6 +209,76 @@ export function summaryForState(state) {
   };
 }
 
+export function scheduleReport(state) {
+  const current = normalizeState(state);
+  const servicesById = servicesMap();
+  const trains = current.trains.map((train) => {
+    const service = servicesById[train.serviceId] || { id: train.serviceId, name: train.serviceId, stops: [] };
+    const stops = (service.stops || []).map((stop, index) => {
+      const actualArrive = train.actualArriveS?.[index];
+      const actualDepart = train.actualDepartS?.[index];
+      const hasArrived = Number.isFinite(Number(actualArrive));
+      const hasDeparted = Number.isFinite(Number(actualDepart));
+      let status = '대기';
+      if (hasDeparted) status = '출발';
+      else if (hasArrived || train.stopIndex === index) status = train.phase === 'DWELL' ? '정차' : '도착';
+      else if (train.nextStopIndex === index && train.phase === 'RUNNING') status = '접근';
+      if (train.phase === 'DONE' && index === (service.stops || []).length - 1) status = '종착';
+      return {
+        index,
+        stationId: stop.stationId,
+        stationName: stationName(stop.stationId),
+        status,
+        scheduledArriveS: Number(stop.arriveS || 0),
+        scheduledDepartS: Number(stop.departS || stop.arriveS || 0),
+        actualArriveS: hasArrived ? Number(actualArrive) : null,
+        actualDepartS: hasDeparted ? Number(actualDepart) : null,
+        arriveDelayS: hasArrived ? Number(actualArrive) - Number(stop.arriveS || 0) : null,
+        departDelayS: hasDeparted ? Number(actualDepart) - Number(stop.departS || stop.arriveS || 0) : null,
+      };
+    });
+    const arrived = stops.filter((stop) => stop.actualArriveS !== null).length;
+    const positiveDelayS = stops.reduce((sum, stop) => sum + Math.max(0, Number(stop.arriveDelayS || 0)), 0);
+    const maxDelayS = stops.reduce((max, stop) => Math.max(max, Math.max(0, Number(stop.arriveDelayS || 0))), 0);
+    const nextStop = stops[train.nextStopIndex] || stops[train.stopIndex] || null;
+    return {
+      id: train.id,
+      serviceId: service.id,
+      serviceName: service.name || service.id,
+      phase: train.phase,
+      signalState: train.signalState,
+      stopReason: train.stopReason || null,
+      blockedBy: train.blockedBy || null,
+      tokenWait: train.tokenWait || null,
+      waitSeconds: Math.round(Number(train.waitSeconds || 0)),
+      arrived,
+      totalStops: stops.length,
+      remaining: Math.max(0, stops.length - arrived),
+      nextStation: nextStop?.stationName || '종착',
+      positiveDelayS: Math.round(positiveDelayS),
+      maxDelayS: Math.round(maxDelayS),
+      stops,
+    };
+  });
+  const totals = {
+    trains: trains.length,
+    completed: trains.filter((train) => train.phase === 'DONE').length,
+    stopped: trains.filter((train) => train.signalState === 'STOP').length,
+    tokenWaits: trains.filter((train) => train.stopReason?.kind === 'TOKEN_WAIT').length,
+    totalWaitS: trains.reduce((sum, train) => sum + train.waitSeconds, 0),
+    totalDelayS: trains.reduce((sum, train) => sum + train.positiveDelayS, 0),
+    maxDelayS: trains.reduce((max, train) => Math.max(max, train.maxDelayS), 0),
+    arrivedStops: trains.reduce((sum, train) => sum + train.arrived, 0),
+    totalStops: trains.reduce((sum, train) => sum + train.totalStops, 0),
+  };
+  const recommendations = [];
+  if (totals.tokenWaits) recommendations.push('단선 구간 토큰 대기가 발생했습니다. 출발 간격이나 lookahead 블록을 조정해 보세요.');
+  if (totals.stopped && !totals.tokenWaits) recommendations.push('블록 점유 때문에 정지 중인 열차가 있습니다. 예약 블록 수를 줄이면 흐름이 개선될 수 있습니다.');
+  if (totals.totalDelayS > 120) recommendations.push('누적 지연이 큽니다. 정차 시간이 짧은 역과 병목 구간을 우선 확인하세요.');
+  if (!recommendations.length) recommendations.push('현재 운행은 시간표 기준으로 안정권입니다.');
+  return { trains, totals, recommendations };
+}
+
 export function formatTime(totalSeconds) {
   const safe = Math.max(0, Math.round(Number(totalSeconds || 0)));
   const minutes = Math.floor(safe / 60);

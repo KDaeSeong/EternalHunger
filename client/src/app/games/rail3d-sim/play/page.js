@@ -20,6 +20,7 @@ import {
   normalizeState,
   pointOnEdge,
   runForAction,
+  scheduleReport,
   scoreState,
   segmentSummary,
   setLookaheadBlocksAction,
@@ -107,6 +108,7 @@ export default function Rail3dSimPlayPage() {
   const rows = useMemo(() => trainRows(state), [state]);
   const blocks = useMemo(() => blockSummary(state), [state]);
   const segments = useMemo(() => segmentSummary(state), [state]);
+  const report = useMemo(() => scheduleReport(state), [state]);
   const score = scoreState(state);
   const completed = rows.filter((row) => row.phase === 'DONE').length;
   const stopped = rows.filter((row) => row.signalState === 'STOP').length;
@@ -295,6 +297,48 @@ export default function Rail3dSimPlayPage() {
           <span>sampleTrack.json</span>
         </div>
         <RailMap state={state} />
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시간표 리포트</h2>
+            <span>{report.totals.arrivedStops}/{report.totals.totalStops} stops</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="종착" value={`${report.totals.completed}/${report.totals.trains}`} />
+            <SmallStat label="누적 지연" value={`${report.totals.totalDelayS}s`} />
+            <SmallStat label="최대 지연" value={`${report.totals.maxDelayS}s`} />
+            <SmallStat label="총 대기" value={`${report.totals.totalWaitS}s`} />
+          </div>
+          <div className="games-activity-list" style={{ marginTop: 12 }}>
+            {report.recommendations.map((line) => (
+              <div key={line}><strong>{line}</strong></div>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>열차별 시간표</h2>
+            <span>{report.trains.length}편성</span>
+          </div>
+          <div className="game-save-list">
+            {report.trains.map((train) => (
+              <article className="game-save-row" key={train.id}>
+                <div>
+                  <span>{train.serviceName} · 다음 {train.nextStation} · {train.arrived}/{train.totalStops} stop</span>
+                  <strong>{train.id} {train.signalState} · {train.phase}</strong>
+                  <small>
+                    지연 {train.positiveDelayS}s · 대기 {train.waitSeconds}s
+                    {train.stopReason ? ` · ${train.stopReason.kind}${train.blockedBy ? ` by ${train.blockedBy}` : ''}` : ''}
+                  </small>
+                </div>
+                <strong>{train.remaining ? `${train.remaining} 남음` : '완료'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
       </section>
 
       <section className="games-dashboard">
