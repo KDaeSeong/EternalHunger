@@ -25,6 +25,12 @@ const UserSchema = new mongoose.Schema({
   moderatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   moderatedAt: { type: Date, default: null },
   deactivatedAt: { type: Date, default: null, index: true },
+  agreements: {
+    termsAcceptedAt: { type: Date, default: null },
+    privacyAcceptedAt: { type: Date, default: null },
+    termsVersion: { type: String, default: '2026-07-04' },
+    privacyVersion: { type: String, default: '2026-07-04' },
+  },
   badges: [{
     name: String,
     unlockedAt: { type: Date, default: Date.now }

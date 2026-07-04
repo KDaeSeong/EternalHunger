@@ -9,20 +9,34 @@ import { apiPost } from '../../utils/api';
 import '../../styles/Auth.css';
 
 export default function SignupPage() {
-  const [form, setForm] = useState({ username: '', nickname: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({
+    username: '',
+    nickname: '',
+    password: '',
+    confirmPassword: '',
+    acceptTerms: false,
+    acceptPrivacy: false,
+  });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const router = useRouter();
   const { showToast } = useToast();
+
+  const setWarning = (nextMessage) => {
+    setMessage(nextMessage);
+    showToast({ tone: 'warning', message: nextMessage });
+  };
 
   const handleSignup = async (event) => {
     event.preventDefault();
     if (busy) return;
 
     if (form.password !== form.confirmPassword) {
-      const nextMessage = '비밀번호가 일치하지 않습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'warning', message: nextMessage });
+      setWarning('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (!form.acceptTerms || !form.acceptPrivacy) {
+      setWarning('이용약관과 개인정보 처리방침에 동의해주세요.');
       return;
     }
 
@@ -33,6 +47,8 @@ export default function SignupPage() {
         username: form.username,
         nickname: form.nickname,
         password: form.password,
+        acceptTerms: form.acceptTerms,
+        acceptPrivacy: form.acceptPrivacy,
       });
 
       showToast({ tone: 'success', message: '회원가입이 완료되었습니다. 로그인해주세요.' });
@@ -56,8 +72,8 @@ export default function SignupPage() {
           </div>
 
           <h2>회원가입</h2>
-          <p style={{ color: '#666', marginTop: '-10px' }}>
-            내 캐릭터와 시뮬레이션 기록을 저장할 계정을 만듭니다.
+          <p className="auth-copy">
+            캐릭터, 시뮬레이션 기록, 커뮤니티 활동을 저장할 계정을 만듭니다.
           </p>
 
           <form onSubmit={handleSignup} className="auth-form">
@@ -74,7 +90,7 @@ export default function SignupPage() {
             <input
               type="text"
               className="auth-input"
-              placeholder="닉네임 (선택)"
+              placeholder="닉네임(선택)"
               value={form.nickname}
               disabled={busy}
               maxLength={20}
@@ -101,6 +117,32 @@ export default function SignupPage() {
               autoComplete="new-password"
               onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })}
             />
+
+            <div className="auth-consent-box">
+              <label className="auth-consent">
+                <input
+                  type="checkbox"
+                  checked={form.acceptTerms}
+                  disabled={busy}
+                  onChange={(event) => setForm({ ...form, acceptTerms: event.target.checked })}
+                />
+                <span>
+                  <Link href="/terms">이용약관</Link>에 동의합니다.
+                </span>
+              </label>
+              <label className="auth-consent">
+                <input
+                  type="checkbox"
+                  checked={form.acceptPrivacy}
+                  disabled={busy}
+                  onChange={(event) => setForm({ ...form, acceptPrivacy: event.target.checked })}
+                />
+                <span>
+                  <Link href="/privacy">개인정보 처리방침</Link>에 동의합니다.
+                </span>
+              </label>
+            </div>
+
             <button type="submit" className="btn-primary" disabled={busy}>
               {busy ? '가입 중...' : '가입하기'}
             </button>
@@ -113,7 +155,7 @@ export default function SignupPage() {
           ) : null}
 
           <div className="auth-footer">
-            이미 계정이 있으신가요?
+            이미 계정이 있나요?
             <Link href="/login" className="auth-link">
               로그인하기
             </Link>

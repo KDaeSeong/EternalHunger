@@ -40,11 +40,28 @@ router.post('/signup', async (req, res) => {
   try {
     const { username, password } = req.body;
     const nickname = normalizeNickname(req.body?.nickname);
+    const acceptTerms = req.body?.acceptTerms === true || req.body?.acceptTerms === 'true';
+    const acceptPrivacy = req.body?.acceptPrivacy === true || req.body?.acceptPrivacy === 'true';
     if (nickname && (nickname.length < 2 || nickname.length > 20)) {
       return res.status(400).json({ error: '닉네임은 2~20자로 입력해주세요.' });
     }
 
-    const user = new User({ username, password, nickname });
+    if (!acceptTerms || !acceptPrivacy) {
+      return res.status(400).json({ error: '이용약관과 개인정보 처리방침에 동의해주세요.' });
+    }
+
+    const acceptedAt = new Date();
+    const user = new User({
+      username,
+      password,
+      nickname,
+      agreements: {
+        termsAcceptedAt: acceptedAt,
+        privacyAcceptedAt: acceptedAt,
+        termsVersion: '2026-07-04',
+        privacyVersion: '2026-07-04',
+      },
+    });
     await user.save();
     res.status(201).json({ message: '회원가입 성공' });
   } catch (err) {
