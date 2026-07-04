@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
+import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
-import { findGameBySlug, gameDetailHref } from '../../_lib/gameCatalog';
+import { dynamicGameCandidateToGame, findGameBySlug, gameDetailHref } from '../../_lib/gameCatalog';
 
 const RECORD_RESULT_OPTIONS = [
   ['none', '기록'],
@@ -76,6 +76,14 @@ function activeRoomPlayers(room) {
 
 function normalizeList(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function findDynamicGameCandidate(payload, slug) {
+  const key = String(slug || '').trim();
+  if (!key) return null;
+  return normalizeList(payload?.candidates)
+    .map(dynamicGameCandidateToGame)
+    .find((game) => game?.slug === key) || null;
 }
 
 function playerDisplayName(player) {
@@ -227,8 +235,10 @@ export default function GameRoomDetailPage() {
   const [restoreSlots, setRestoreSlots] = useState([]);
   const [restoreSlotId, setRestoreSlotId] = useState('');
   const [restoreLoadedFor, setRestoreLoadedFor] = useState('');
+  const [dynamicGame, setDynamicGame] = useState(null);
 
-  const game = findGameBySlug(room?.gameSlug);
+  const staticGame = useMemo(() => findGameBySlug(room?.gameSlug), [room?.gameSlug]);
+  const game = staticGame || dynamicGame;
   const currentUserId = userIdOf(user);
   const roomPlayers = useMemo(() => activeRoomPlayers(room), [room]);
   const currentPlayer = useMemo(() => (
@@ -270,6 +280,34 @@ export default function GameRoomDetailPage() {
   useEffect(() => {
     void loadRoom();
   }, [loadRoom]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const slug = String(room?.gameSlug || '').trim();
+    if (!slug || staticGame) {
+      setDynamicGame(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      try {
+        const payload = await apiGetCached('/public/game-candidates', {
+          ttlMs: 30000,
+          timeoutMs: 15000,
+          storage: 'session',
+        });
+        if (!cancelled) setDynamicGame(findDynamicGameCandidate(payload, slug));
+      } catch {
+        if (!cancelled) setDynamicGame(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [room?.gameSlug, staticGame]);
 
   useEffect(() => {
     if (!room?._id) return;

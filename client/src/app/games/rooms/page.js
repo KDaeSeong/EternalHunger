@@ -7,7 +7,14 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
-import { findGameBySlug, gameDetailHref, getAllGames, getGameIntegration, getGameRoomOptions } from '../_lib/gameCatalog';
+import {
+  dynamicGameCandidateToGame,
+  findGameBySlug,
+  gameDetailHref,
+  getAllGames,
+  getGameIntegration,
+  getGameRoomOptions,
+} from '../_lib/gameCatalog';
 
 const STATUS_OPTIONS = [
   { value: '', label: '진행 가능' },
@@ -22,8 +29,20 @@ const DEFAULT_ROOM_GAME_SLUG = ROOM_GAME_OPTIONS[0]?.slug || 'dual-academy-tcg';
 const DEFAULT_ROOM_INTEGRATION = getGameIntegration(DEFAULT_ROOM_GAME_SLUG);
 const DEFAULT_ROOM_MAX_PLAYERS = DEFAULT_ROOM_INTEGRATION.maxPlayers || 4;
 
-function isRoomEnabledGameSlug(slug) {
-  return ROOM_GAME_OPTIONS.some((game) => game.slug === slug);
+function mergeGamesBySlug(baseGames, extraGames) {
+  const bySlug = new Map();
+  [...baseGames, ...extraGames].forEach((game) => {
+    if (game?.slug && !bySlug.has(game.slug)) bySlug.set(game.slug, game);
+  });
+  return Array.from(bySlug.values());
+}
+
+function isRoomEnabledGameSlug(slug, options = ROOM_GAME_OPTIONS) {
+  return options.some((game) => game.slug === slug);
+}
+
+function normalizeDynamicGames(payload) {
+  return normalizeList(payload?.candidates).map(dynamicGameCandidateToGame).filter(Boolean);
 }
 
 function normalizeList(value) {
@@ -50,8 +69,8 @@ function statusLabel(value) {
   return '대기';
 }
 
-function gameTitle(slug) {
-  return findGameBySlug(slug)?.title || slug || '게임';
+function gameTitle(slug, gameBySlug = new Map()) {
+  return gameBySlug.get(slug)?.title || findGameBySlug(slug)?.title || slug || '게임';
 }
 
 function GameRoomsContent() {
@@ -66,6 +85,7 @@ function GameRoomsContent() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [dynamicGames, setDynamicGames] = useState([]);
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
@@ -75,11 +95,32 @@ function GameRoomsContent() {
     maxPlayers: DEFAULT_ROOM_MAX_PLAYERS,
   });
 
-  const gameOptions = useMemo(getAllGames, []);
-  const roomGameOptions = useMemo(() => ROOM_GAME_OPTIONS, []);
-  const selectedGame = findGameBySlug(gameSlug);
-  const selectedRoomGame = findGameBySlug(form.gameSlug);
-  const selectedRoomIntegration = getGameIntegration(form.gameSlug);
+  const gameOptions = useMemo(() => mergeGamesBySlug(getAllGames(), dynamicGames), [dynamicGames]);
+  const roomGameOptions = useMemo(
+    () => mergeGamesBySlug(
+      ROOM_GAME_OPTIONS,
+      dynamicGames.filter((game) => game?.integration?.roomSystem === 'game-room'),
+    ),
+    [dynamicGames],
+  );
+  const gameBySlug = useMemo(() => new Map(gameOptions.map((game) => [game.slug, game])), [gameOptions]);
+  const roomGameBySlug = useMemo(() => new Map(roomGameOptions.map((game) => [game.slug, game])), [roomGameOptions]);
+  const selectedGame = gameBySlug.get(gameSlug) || findGameBySlug(gameSlug);
+  const selectedRoomGame = roomGameBySlug.get(form.gameSlug) || findGameBySlug(form.gameSlug);
+  const selectedRoomIntegration = getGameIntegration(selectedRoomGame || form.gameSlug);
+
+  const loadGameCandidates = useCallback(async () => {
+    try {
+      const payload = await apiGetCached('/public/game-candidates', {
+        ttlMs: 30000,
+        timeoutMs: 15000,
+        storage: 'session',
+      });
+      setDynamicGames(normalizeDynamicGames(payload));
+    } catch {
+      setDynamicGames([]);
+    }
+  }, []);
 
   const loadRooms = useCallback(async (options = {}) => {
     setLoading(true);
@@ -109,10 +150,28 @@ function GameRoomsContent() {
     void loadRooms();
   }, [loadRooms]);
 
+  useEffect(() => {
+    void loadGameCandidates();
+  }, [loadGameCandidates]);
+
+  useEffect(() => {
+    const requested = String(initialGameSlug || '').trim();
+    if (!requested || !isRoomEnabledGameSlug(requested, roomGameOptions)) return;
+    setForm((current) => {
+      if (current.gameSlug === requested || current.gameSlug !== DEFAULT_ROOM_GAME_SLUG) return current;
+      const game = roomGameBySlug.get(requested) || requested;
+      const integration = getGameIntegration(game);
+      const minPlayers = Number(integration.minPlayers || 1);
+      const maxPlayers = Number(integration.maxPlayers || 64);
+      const nextMaxPlayers = Math.max(minPlayers, Math.min(maxPlayers, Number(current.maxPlayers || maxPlayers)));
+      return { ...current, gameSlug: requested, maxPlayers: nextMaxPlayers };
+    });
+  }, [initialGameSlug, roomGameBySlug, roomGameOptions]);
+
   const updateForm = (key, value) => {
     setForm((current) => {
       if (key !== 'gameSlug') return { ...current, [key]: value };
-      const integration = getGameIntegration(value);
+      const integration = getGameIntegration(roomGameBySlug.get(value) || value);
       const minPlayers = Number(integration.minPlayers || 1);
       const maxPlayers = Number(integration.maxPlayers || 64);
       const nextMaxPlayers = Math.max(minPlayers, Math.min(maxPlayers, Number(current.maxPlayers || maxPlayers)));
@@ -122,7 +181,7 @@ function GameRoomsContent() {
 
   const createRoom = async () => {
     if (!token || creating) return;
-    const title = safeText(form.title, `${gameTitle(form.gameSlug)} 방`);
+    const title = safeText(form.title, `${gameTitle(form.gameSlug, gameBySlug)} 방`);
     const minPlayers = Number(selectedRoomIntegration.minPlayers || 1);
     const maxPlayers = Number(selectedRoomIntegration.maxPlayers || 64);
     const nextMaxPlayers = Math.max(minPlayers, Math.min(maxPlayers, Number(form.maxPlayers || maxPlayers)));
@@ -134,7 +193,7 @@ function GameRoomsContent() {
         mode: form.mode,
         maxPlayers: nextMaxPlayers,
         summary: {
-          gameTitle: gameTitle(form.gameSlug),
+          gameTitle: gameTitle(form.gameSlug, gameBySlug),
           adapter: selectedRoomIntegration.adapter,
           stage: selectedRoomIntegration.stage,
           resultMode: selectedRoomIntegration.resultMode,
@@ -246,7 +305,7 @@ function GameRoomsContent() {
             <Link href={`/games/rooms/${room.id || room._id}`} className="game-room-card" key={room.id || room._id}>
               <div className="game-room-card__top">
                 <span className={`game-room-status is-${room.status}`}>{statusLabel(room.status)}</span>
-                <span>{gameTitle(room.gameSlug)}</span>
+                <span>{gameTitle(room.gameSlug, gameBySlug)}</span>
               </div>
               <h2>{safeText(room.title, '게임방')}</h2>
               <p>{safeText(room.mode, '모드 미지정')}</p>
