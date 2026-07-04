@@ -134,6 +134,16 @@ export default function TwentyQuestionsPage() {
     setWriterOpen(false);
   }, [mounted, token]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const nextStatus = safeText(params.get('status'), '');
+    const nextCategory = safeText(params.get('category'), '');
+    if (STATUS_FILTERS.some((item) => item.value === nextStatus)) setStatusFilter(nextStatus);
+    if (CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
+    if (params.get('create') === '1') setWriterOpen(true);
+  }, []);
+
   const filteredRooms = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return rooms;

@@ -22,6 +22,12 @@ const MENU_ITEMS = [
     emphasis: true,
   },
   {
+    href: '/games',
+    tag: 'Hub',
+    title: '게임 허브',
+    body: '플레이, 커뮤니티 게임, 게시판 활동, 기록 흐름을 한 화면에서 확인합니다.',
+  },
+  {
     href: '/characters',
     tag: 'Roster',
     title: '캐릭터 설정',

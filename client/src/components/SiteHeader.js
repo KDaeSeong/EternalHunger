@@ -20,6 +20,7 @@ const PRIMARY_NAV_ITEMS = [
 ];
 
 const MORE_NAV_ITEMS = [
+  { href: '/games', label: '게임 허브' },
   { href: '/details', label: '상세 설정' },
   { href: '/modifiers', label: '보정치' },
   { href: '/perks', label: '특전 상점' },
