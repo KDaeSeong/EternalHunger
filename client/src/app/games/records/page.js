@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
@@ -55,6 +56,14 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
 }
 
+function formatDuration(sec) {
+  const total = Math.max(0, Math.floor(Number(sec || 0)));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  if (hours > 0) return `${hours}시간 ${minutes}분`;
+  return `${minutes}분`;
+}
+
 function summarizeRecord(record) {
   const summary = record?.summary && typeof record.summary === 'object' ? record.summary : {};
   const rows = Object.entries(summary)
@@ -63,17 +72,30 @@ function summarizeRecord(record) {
   return rows.length ? rows.map(([key, value]) => `${key}: ${String(value)}`).join(' · ') : '요약 없음';
 }
 
-export default function GameRecordsPage() {
+function RecordMetric({ label, value }) {
+  return (
+    <div className="games-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function GameRecordsContent() {
   const hydrated = useHydrated();
   const user = useAuthUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
   const gameOptions = useMemo(getGameOptions, []);
+  const requestedGameSlug = cleanKey(searchParams.get('gameSlug'));
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [gameSlug, setGameSlug] = useState(requestedGameSlug);
   const [form, setForm] = useState({
-    gameSlug: 'dual-academy-tcg',
+    gameSlug: requestedGameSlug || 'dual-academy-tcg',
     title: '테스트 매치',
     mode: 'solo',
     result: 'win',
@@ -83,6 +105,13 @@ export default function GameRecordsPage() {
     payloadText: JSON.stringify({ events: [] }, null, 2),
   });
 
+  useEffect(() => {
+    setGameSlug(requestedGameSlug);
+    if (requestedGameSlug) {
+      setForm((current) => ({ ...current, gameSlug: requestedGameSlug }));
+    }
+  }, [requestedGameSlug]);
+
   const loadRecords = useCallback(async (options = {}) => {
     if (!user) {
       setRecords([]);
@@ -91,7 +120,10 @@ export default function GameRecordsPage() {
     setLoading(true);
     setMessage('');
     try {
-      const data = await apiGetCached('/game-records', {
+      const params = new URLSearchParams();
+      if (gameSlug) params.set('gameSlug', gameSlug);
+      const endpoint = `/game-records${params.toString() ? `?${params.toString()}` : ''}`;
+      const data = await apiGetCached(endpoint, {
         ttlMs: 15000,
         timeoutMs: 15000,
         storage: 'session',
@@ -105,7 +137,7 @@ export default function GameRecordsPage() {
     } finally {
       setLoading(false);
     }
-  }, [showToast, user]);
+  }, [gameSlug, showToast, user]);
 
   useEffect(() => {
     if (hydrated) void loadRecords();
@@ -185,6 +217,21 @@ export default function GameRecordsPage() {
     gameOptions.forEach((game) => map.set(game.slug, game.title));
     return map;
   }, [gameOptions]);
+  const selectedGameTitle = gameSlug ? gameTitleBySlug.get(gameSlug) || gameSlug : '전체 게임';
+  const recordStats = useMemo(() => {
+    const total = records.length;
+    const wins = records.filter((record) => ['win', 'clear'].includes(record.result)).length;
+    const bestScore = records.reduce((best, record) => Math.max(best, Number(record.score || 0)), 0);
+    const totalPlayTimeSec = records.reduce((sum, record) => sum + Number(record.playTimeSec || 0), 0);
+    return { total, wins, bestScore, totalPlayTimeSec };
+  }, [records]);
+
+  const updateGameFilter = (nextValue) => {
+    const nextGameSlug = cleanKey(nextValue);
+    setGameSlug(nextGameSlug);
+    const href = nextGameSlug ? `/games/records?gameSlug=${encodeURIComponent(nextGameSlug)}` : '/games/records';
+    router.push(href);
+  };
 
   return (
     <main className="games-page-shell">
@@ -212,7 +259,25 @@ export default function GameRecordsPage() {
             <Link href="/login">로그인</Link>
           </div>
         ) : (
-          <section className="games-dashboard game-saves-dashboard">
+          <>
+            <section className="game-room-toolbar" aria-label="게임 기록 필터">
+              <select value={gameSlug} onChange={(event) => updateGameFilter(event.target.value)}>
+                <option value="">전체 게임</option>
+                {gameOptions.map((game) => <option value={game.slug} key={game.slug}>{game.title}</option>)}
+              </select>
+              {gameSlug ? <Link href={`/games/${gameSlug}`}>게임 상세</Link> : <Link href="/games">게임 허브</Link>}
+              <Link href={`/games/rooms${gameSlug ? `?gameSlug=${gameSlug}` : ''}`}>게임방</Link>
+            </section>
+
+            <section className="games-summary" aria-label="게임 기록 요약">
+              <RecordMetric label="범위" value={selectedGameTitle} />
+              <RecordMetric label="기록" value={`${formatNumber(recordStats.total)}건`} />
+              <RecordMetric label="승리/클리어" value={`${formatNumber(recordStats.wins)}건`} />
+              <RecordMetric label="최고 점수" value={formatNumber(recordStats.bestScore)} />
+              <RecordMetric label="플레이 시간" value={formatDuration(recordStats.totalPlayTimeSec)} />
+            </section>
+
+            <section className="games-dashboard game-saves-dashboard">
             <form className="games-panel game-save-editor" onSubmit={createRecord}>
               <div className="games-panel-title">
                 <h2>기록 저장</h2>
@@ -325,8 +390,24 @@ export default function GameRecordsPage() {
               )}
             </section>
           </section>
+          </>
         )}
       </section>
     </main>
+  );
+}
+
+export default function GameRecordsPage() {
+  return (
+    <Suspense fallback={(
+      <main className="games-page-shell">
+        <SiteHeader />
+        <section className="games-page game-records-page">
+          <div className="games-empty">게임 기록을 불러오는 중입니다.</div>
+        </section>
+      </main>
+    )}>
+      <GameRecordsContent />
+    </Suspense>
   );
 }
