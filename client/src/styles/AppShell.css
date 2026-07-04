@@ -4011,6 +4011,24 @@
   line-height: 1.45;
 }
 
+.games-roadmap-card__link {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 8px;
+  background: #f7fafc;
+  color: #1b4f73;
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.games-roadmap-card__link:hover {
+  background: #edf5fb;
+}
+
 .game-saves-dashboard {
   align-items: start;
 }

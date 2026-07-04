@@ -129,6 +129,7 @@ function RoadmapCard({ item, index }) {
           <dd>{item.nextStep}</dd>
         </div>
       </dl>
+      <Link href={gameDetailHref(item)} className="games-roadmap-card__link">상세 보기</Link>
     </article>
   );
 }

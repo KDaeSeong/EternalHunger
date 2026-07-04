@@ -251,7 +251,20 @@ export default function GameDetailPage() {
         </section>
 
         <section className="games-dashboard">
-          {game.slug === 'twenty-questions' ? (
+          {game.isRoadmap ? (
+            <ActivityPanel
+              title="이식 논의"
+              href={game.boardHref}
+              items={relevantPosts}
+              empty={loading ? '관련 글을 불러오는 중입니다.' : '아직 이식 논의 글이 없습니다.'}
+              renderItem={(post) => (
+                <Link href={`/board/${post._id}`} key={`roadmap-post-${post._id || post.title}`}>
+                  <strong>{safeText(post.title, '제목 없음')}</strong>
+                  <span>{safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · {formatDate(post.createdAt || post.updatedAt) || '-'}</span>
+                </Link>
+              )}
+            />
+          ) : game.slug === 'twenty-questions' ? (
             <>
               <ActivityPanel
                 title="진행 중인 방"
@@ -327,6 +340,7 @@ export default function GameDetailPage() {
             </>
           )}
 
+          {!game.isRoadmap ? (
           <ActivityPanel
             title="최근 관련 글"
             href={game.boardHref}
@@ -339,6 +353,7 @@ export default function GameDetailPage() {
               </Link>
             )}
           />
+          ) : null}
 
           <section className="games-panel">
             <div className="games-panel-title">

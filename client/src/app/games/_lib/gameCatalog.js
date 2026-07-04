@@ -150,7 +150,32 @@ export const GAME_ROADMAP = [
 
 export function findGameBySlug(slug) {
   const key = String(slug || '').trim();
-  return GAME_CATALOG.find((game) => game.slug === key) || null;
+  const liveGame = GAME_CATALOG.find((game) => game.slug === key);
+  if (liveGame) return liveGame;
+
+  const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
+  if (!roadmapGame) return null;
+
+  return {
+    ...roadmapGame,
+    tone: 'roadmap',
+    detail: roadmapGame.summary || '',
+    primaryHref: `/board?category=game&gameSlug=${key}&write=1`,
+    primaryLabel: '이식 논의',
+    boardHref: `/board?category=game&gameSlug=${key}`,
+    boardLabel: '게임 게시판',
+    recordHref: `/games/records?gameSlug=${key}`,
+    recordLabel: '전적',
+    guideHref: '/guides',
+    guideLabel: '가이드',
+    visual: '',
+    metrics: ['posts'],
+    statusItems: [
+      roadmapGame.scope ? `범위: ${roadmapGame.scope}` : '',
+      roadmapGame.nextStep || '',
+    ].filter(Boolean),
+    isRoadmap: true,
+  };
 }
 
 export function gameDetailHref(game) {

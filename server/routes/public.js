@@ -692,10 +692,6 @@ router.get('/games/:slug/hub', async (req, res) => {
     const slug = cleanText(req.params.slug, 60);
     const isEternalHunger = slug === 'eternal-hunger';
     const isTwentyQuestions = slug === 'twenty-questions';
-    if (!isEternalHunger && !isTwentyQuestions) {
-      return res.status(404).json({ error: '게임을 찾을 수 없습니다.' });
-    }
-
     const postCategories = isTwentyQuestions ? ['game', 'free'] : ['simulation', 'guide', 'game'];
     const postFilter = {
       $or: [
@@ -703,6 +699,42 @@ router.get('/games/:slug/hub', async (req, res) => {
         { category: { $in: postCategories }, gameSlug: { $in: ['', null] } },
       ],
     };
+
+    if (!isEternalHunger && !isTwentyQuestions) {
+      const [userCount, postCount, recentPosts] = await Promise.all([
+        User.countDocuments(VISIBLE_USER_FILTER),
+        Post.countDocuments({ gameSlug: slug }),
+        Post.find({ gameSlug: slug })
+          .select('_id title category gameSlug content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+          .populate('authorId', 'username nickname')
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .limit(6)
+          .lean(),
+      ]);
+
+      return res.json({
+        slug,
+        counts: {
+          users: toNonNegativeInt(userCount),
+          posts: toNonNegativeInt(postCount),
+          characters: 0,
+          teams: 0,
+          runs: 0,
+          rooms: 0,
+          activeRooms: 0,
+          visibleRooms: 0,
+        },
+        recentPosts: recentPosts.map(mapHubPost),
+        activeRooms: [],
+        recentRooms: [],
+        recentRuns: [],
+        rankings: {
+          points: [],
+          characters: [],
+          teams: [],
+        },
+      });
+    }
 
     if (isTwentyQuestions) {
       const [
