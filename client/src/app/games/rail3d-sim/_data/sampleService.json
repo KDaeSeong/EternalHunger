@@ -1,0 +1,76 @@
+{
+  "services": [
+    {
+      "id": "SV1",
+      "name": "Local A",
+      "stops": [
+        {
+          "stationId": "S1",
+          "arriveS": 0,
+          "departS": 10
+        },
+        {
+          "stationId": "S2",
+          "arriveS": 180,
+          "departS": 200
+        },
+        {
+          "stationId": "S3",
+          "arriveS": 420,
+          "departS": 430
+        }
+      ]
+    },
+    {
+      "id": "SV2",
+      "name": "Local B",
+      "stops": [
+        {
+          "stationId": "S1",
+          "arriveS": 60,
+          "departS": 70
+        },
+        {
+          "stationId": "S2",
+          "arriveS": 240,
+          "departS": 260
+        },
+        {
+          "stationId": "S3",
+          "arriveS": 480,
+          "departS": 490
+        }
+      ]
+    }
+  ],
+  "trains": [
+    {
+      "id": "T1",
+      "serviceId": "SV1",
+      "spawn": {
+        "edgeId": "E0",
+        "headS": 5,
+        "dir": 1
+      },
+      "kin": {
+        "aAccel": 0.9,
+        "aBrake": 1.1,
+        "vmaxKmh": 110
+      }
+    },
+    {
+      "id": "T2",
+      "serviceId": "SV2",
+      "spawn": {
+        "edgeId": "E0",
+        "headS": 0,
+        "dir": 1
+      },
+      "kin": {
+        "aAccel": 0.8,
+        "aBrake": 1.1,
+        "vmaxKmh": 110
+      }
+    }
+  ]
+}

@@ -4909,6 +4909,15 @@
   gap: 8px;
 }
 
+.rail-map {
+  width: 100%;
+  min-height: 260px;
+  border-radius: 8px;
+  border: 1px solid rgba(38, 115, 166, 0.22);
+  background: #071923;
+  display: block;
+}
+
 .games-tag {
   display: inline-flex;
   align-items: center;

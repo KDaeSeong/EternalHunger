@@ -145,3 +145,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/si-coding-sim/si-coding-sim-main`; challenge-score snapshot through `/game-records/si-coding-sim`.
 - Source basis: `C:\2저장고\마이애니메\si-coding-sim_stepAQ_AR\prototype\data\task-pack-stepAQ_AR.json` and `data\judge-rules.json`.
 - Next step: import the original execution harness, company support budget, contract negotiation, follow-up branch, seed generation, and career progression UI.
+
+## Rail3D Sim Slice Status
+
+- Route: `/games/rail3d-sim/play`
+- Included loop: sample track/service data loading, timetable step progression, station dwell/run/done phases, block occupancy, STOP/GO signal state, delay/wait summary, SVG minimap, and route-score record snapshot.
+- Site API integration: quick save through `/game-saves/rail3d-sim/rail3d-sim-main`; transport-sim snapshot through `/game-records/rail3d-sim`.
+- Source basis: `C:\2저장고\마이애니메\rail3d-sim\src\data\sampleTrack.json`, `sampleService.json`, and the MVP debug loop structure from `src\engine\mainLoop.ts`.
+- Next step: port the original route cache, reservation lookahead, token segment wait, richer MiniMap overlays, and eventually a dedicated Three.js 3D view.

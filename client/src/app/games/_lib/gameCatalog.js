@@ -253,8 +253,8 @@ const GAME_INTEGRATIONS = {
     resultMode: 'challenge-score',
   },
   'rail3d-sim': {
-    stage: 'planned',
-    stageLabel: '실험 후보',
+    stage: 'prototype',
+    stageLabel: '프로토타입',
     adapter: 'transport-sim',
     supportsRecords: true,
     supportsSaves: true,
@@ -578,7 +578,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({

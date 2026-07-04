@@ -1,0 +1,15 @@
+{
+  "segments": [
+    {
+      "id": "SEG_SINGLE_MAIN",
+      "edgeIds": [
+        "E0",
+        "E1"
+      ],
+      "entryStations": [
+        "S1",
+        "S3"
+      ]
+    }
+  ]
+}
