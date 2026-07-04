@@ -69,11 +69,19 @@ Checked: 2026-07-04
 
 ## Immediate Implementation Plan
 
-1. Add a `primitive-archive` playable route under `client/src/app/games/primitive-archive/play`.
-2. Copy only the minimal core modules needed for one playable loop; avoid importing the whole Vite shell.
-3. Wrap state in the existing game save API contract:
+1. Done: add a `primitive-archive` playable route under `client/src/app/games/primitive-archive/play`.
+2. Done: expose one minimal loop without importing the whole Vite shell.
+3. Done: wrap state in the existing game save API contract:
    - save key: `primitive-archive-main`
    - version: `primitive-archive-v1`
    - summary: day, party, HP/hunger, camp level, inventory weight
-4. Submit run/end summaries to `/game-records/primitive-archive`.
-5. Once the slice works, mark the static catalog integration as prototype-ready.
+4. Done: submit run/end summaries to `/game-records/primitive-archive`.
+5. Done: mark the static catalog integration as prototype-ready.
+
+## Primitive Archive Slice Status
+
+- Route: `/games/primitive-archive/play`
+- Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state.
+- Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
+- Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
+- Next step: replace the simplified loop with selected original core modules once the route shape is accepted.

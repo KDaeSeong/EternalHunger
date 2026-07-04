@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#102b0b"/>
+      <stop offset="1" stop-color="#2a7a1b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="24" fill="url(#bg)"/>
+
+  <circle cx="128" cy="94" r="46" fill="rgba(255,255,255,0.18)"/>
+  <path d="M60 220v-18c0-42 34-76 76-76s76 34 76 76v18H60z" fill="rgba(255,255,255,0.12)"/>
+
+  <text x="18" y="36" fill="rgba(255,255,255,0.9)" font-size="20" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-weight="700">Noa</text>
+  <text x="18" y="60" fill="rgba(255,255,255,0.75)" font-size="16" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">노아</text>
+</svg>

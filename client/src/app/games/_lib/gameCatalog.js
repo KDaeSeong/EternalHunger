@@ -183,8 +183,8 @@ const GAME_INTEGRATIONS = {
     maxPlayers: 2,
   },
   'primitive-archive': {
-    stage: 'planned',
-    stageLabel: '이식 대기',
+    stage: 'prototype',
+    stageLabel: '프로토타입',
     adapter: 'survival-loop',
     supportsRecords: true,
     supportsSaves: true,
@@ -565,7 +565,8 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const hasPrototype = key === 'dual-academy-tcg';
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'primitive-archive']);
+  const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({
     ...roadmapGame,
