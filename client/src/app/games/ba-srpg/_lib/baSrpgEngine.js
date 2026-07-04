@@ -105,9 +105,10 @@ export const STUDENTS = [
 ];
 
 export const STATUS_DEFS = {
-  st_bleed: { id: 'st_bleed', name: '출혈', kind: 'DoT', tickDamage: 4, maxStacks: 1 },
-  st_burn: { id: 'st_burn', name: '화상', kind: 'DoT', tickDamage: 5, maxStacks: 2 },
-  st_stun: { id: 'st_stun', name: '기절', kind: 'Control', tickDamage: 0, maxStacks: 1 },
+  st_bleed: { id: 'st_bleed', name: '출혈', kind: 'DoT', tickDamage: 4, maxStacks: 1, merge: 'refresh' },
+  st_burn: { id: 'st_burn', name: '화상', kind: 'DoT', tickDamage: 5, maxStacks: 2, merge: 'stackLimited' },
+  st_stun: { id: 'st_stun', name: '기절', kind: 'Control', tickDamage: 0, maxStacks: 1, merge: 'extendOnly' },
+  st_confuse: { id: 'st_confuse', name: '혼란', kind: 'Debuff', tickDamage: 0, maxStacks: 1, merge: 'refresh', accuracyMod: -0.2 },
 };
 
 export const TACTICAL_SKILLS = [
@@ -174,6 +175,20 @@ export const TACTICAL_SKILLS = [
     duration: 1,
     accuracyAdd: 0.08,
     desc: '대상에게 60% 확률로 기절을 부여합니다. 기절한 적은 다음 적 턴 행동을 건너뜁니다.',
+  },
+  {
+    id: 'sk_confuse_shot',
+    name: '교란 사격',
+    apCost: 2,
+    target: 'enemy',
+    rangeMin: 3,
+    rangeMax: 7,
+    damageMul: 1,
+    statusId: 'st_confuse',
+    statusChance: 0.8,
+    duration: 2,
+    accuracyAdd: 0.02,
+    desc: '무기 피해를 주고 80% 확률로 혼란을 부여합니다. 혼란 대상은 명중률이 20% 감소합니다.',
   },
 ];
 
@@ -776,6 +791,14 @@ function coverDamageNote(actor) {
   return reduction > 0 ? ` (엄폐 피해감소 -${reduction})` : '';
 }
 
+function statusAccuracyMod(actor) {
+  return (actor?.statuses || []).reduce((sum, status) => {
+    const def = STATUS_DEFS[status?.id];
+    if (!def || Number(status.duration || 0) <= 0) return sum;
+    return sum + Number(def.accuracyMod || 0);
+  }, 0);
+}
+
 function selectedUnit(battle) {
   return battle.units.find((unit) => unit.id === battle.selectedUnitId && unit.hp > 0)
     || battle.units.find((unit) => unit.hp > 0)
@@ -841,11 +864,12 @@ function applyStatus(actor, statusId, duration = 2) {
   const def = STATUS_DEFS[statusId];
   if (!def) return actor;
   const statuses = Array.isArray(actor.statuses) ? actor.statuses : [];
+  const nextDuration = Math.max(1, safeWholeNumber(duration, 1));
   const existing = statuses.find((status) => status.id === statusId);
   if (!existing) {
     return {
       ...actor,
-      statuses: [...statuses, { id: statusId, duration: Math.max(1, safeWholeNumber(duration, 1)), stacks: 1 }],
+      statuses: [...statuses, { id: statusId, duration: nextDuration, stacks: 1 }],
     };
   }
   return {
@@ -853,10 +877,11 @@ function applyStatus(actor, statusId, duration = 2) {
     statuses: statuses.map((status) => {
       if (status.id !== statusId) return status;
       const maxStacks = def.maxStacks || 1;
+      const stackGain = def.merge === 'stackLimited' ? 1 : 0;
       return {
         ...status,
-        duration: Math.max(Number(status.duration || 1), Math.max(1, safeWholeNumber(duration, 1))),
-        stacks: Math.min(maxStacks, Math.max(1, Number(status.stacks || 1) + (statusId === 'st_burn' ? 1 : 0))),
+        duration: Math.max(Number(status.duration || 1), nextDuration),
+        stacks: Math.min(maxStacks, Math.max(1, Number(status.stacks || 1) + stackGain)),
       };
     }),
   };
@@ -1044,7 +1069,7 @@ export function attackSelectedAction(state, enemyId) {
   if (distance(unit, enemy) > Number(unit.range || 1)) return addLog(current, `${enemy.name}이(가) 사거리 밖입니다.`);
   const bonus = weaponBonus(current);
   const rng = createRng(`${current.runId}|atk|${battle.turn}|${unit.id}|${enemy.id}|${unit.ap}|${enemy.hp}`);
-  const hit = rng() < clamp(0.78 + bonus.acc / 100 - tileDefense(enemy.x, enemy.y) * 0.04, 0.35, 0.97);
+  const hit = rng() < clamp(0.78 + bonus.acc / 100 + statusAccuracyMod(unit) - tileDefense(enemy.x, enemy.y) * 0.04, 0.35, 0.97);
   const rawDamage = Math.max(1, Number(unit.atk || 0) + bonus.atk - Number(enemy.def || 0) - tileDefense(enemy.x, enemy.y));
   const damage = hit ? rawDamage : 0;
   const damageResult = absorbDamage(enemy, damage);
@@ -1104,7 +1129,7 @@ export function executeSkillAction(state, skillId) {
 
   const bonus = weaponBonus(current);
   const rng = createRng(`${current.runId}|skill|${battle.turn}|${unit.id}|${enemy.id}|${skill.id}|${unit.ap}|${enemy.hp}`);
-  const hitChance = clamp(0.78 + Number(skill.accuracyAdd || 0) + bonus.acc / 100 - tileDefense(enemy.x, enemy.y) * 0.04, 0.3, 0.97);
+  const hitChance = clamp(0.78 + Number(skill.accuracyAdd || 0) + bonus.acc / 100 + statusAccuracyMod(unit) - tileDefense(enemy.x, enemy.y) * 0.04, 0.3, 0.97);
   const hit = rng() < hitChance;
   const rawDamage = Math.max(0, Math.floor(
     (Number(unit.atk || 0) + bonus.atk + (skill.techDamage ? 2 : 0))
@@ -1237,12 +1262,20 @@ function enemyPhase(state) {
       if (nextDistance > range) return;
     }
 
+    const rng = createRng(`${state.runId}|enemy|${battle.turn}|${actor.id}|${target.id}|${actor.hp}|${target.hp}`);
+    const hitChance = clamp(0.78 + statusAccuracyMod(actor) - tileDefense(target.x, target.y) * 0.04, 0.25, 0.95);
+    const hit = rng() < hitChance;
+    const confusionText = hasStatus(actor, 'st_confuse') ? ' (혼란)' : '';
+    if (!hit) {
+      messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} -> ${target.name} 공격 빗나감${confusionText}`));
+      return;
+    }
     const damage = Math.max(1, Number(actor.atk || 0) - Number(target.def || 0) - tileDefense(target.x, target.y));
     const damageResult = absorbDamage(target, damage);
     units = units.map((unit) => (
       unit.id === target.id ? damageResult.actor : unit
     ));
-    messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} -> ${target.name} ${damage} 피해${coverDamageNote(target)}${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`));
+    messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} -> ${target.name} ${damage} 피해${coverDamageNote(target)}${confusionText}${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`));
   });
 
   const ticked = processRoundEndTicks({ ...battle, units, enemies });
