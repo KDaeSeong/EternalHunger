@@ -222,6 +222,7 @@ export default function GamesPage() {
               {loading ? '갱신 중...' : '새로고침'}
             </button>
             <Link href="/games/saves">저장 슬롯</Link>
+            <Link href="/games/records">게임 기록</Link>
             <Link href="/simulation">바로 시작</Link>
           </div>
         </section>
