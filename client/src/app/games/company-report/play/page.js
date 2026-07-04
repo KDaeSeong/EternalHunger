@@ -521,6 +521,7 @@ export default function CompanyReportPlayPage() {
             <SmallStat label="대상 테이블" value={restorePlan.targetTables.length} />
             <SmallStat label="삭제 예정" value={`${restorePlan.deletedRowCount} rows`} />
             <SmallStat label="삽입 예정" value={`${restorePlan.insertedRowCount} rows`} />
+            <SmallStat label="FK 순환" value={restorePlan.cycleDetected ? '감지' : '없음'} />
           </div>
           <div className="game-save-list" style={{ marginTop: 12 }}>
             <article className="game-save-row">
@@ -705,6 +706,7 @@ export default function CompanyReportPlayPage() {
                 <div>
                   <span>{item.type} / {item.restoreMode} / {item.targetTableCount} tables</span>
                   <strong>{item.message || `${item.beforeDiffStatus || '-'} → ${item.afterDiffStatus || '-'}`}</strong>
+                  <span>{item.deleteOrder?.length ? `delete ${item.deleteOrder.slice(0, 3).join(' → ')} / insert ${item.insertOrder.slice(0, 3).join(' → ')}` : '복원 순서 없음'}</span>
                   <span>{item.checksum || '-'}</span>
                 </div>
                 <strong>{item.status}</strong>

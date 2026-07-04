@@ -70,25 +70,23 @@ export const LEDGER_RESTORE_TABLES = [
   { tableName: 'stock_price_history', label: '주가 이력', key: 'capitalMarket.stockHistory', kind: 'array' },
 ];
 
-const LEDGER_DELETE_ORDER = [
-  'account_receivable',
-  'sales_order',
-  'global_export_result',
-  'global_import_result',
-  'foreign_receivable',
-  'hedge_contract',
-  'global_export_plan',
-  'global_import_plan',
-  'dividend_decision',
-  'financing_plan',
-  'capital_disclosure',
-  'stock_price_history',
-  'monthly_settlement',
-  'inventory_balance',
-  'company_info',
-];
-
-const LEDGER_INSERT_ORDER = [...LEDGER_DELETE_ORDER].reverse();
+const LEDGER_TABLE_PARENT_DEPENDENCIES = {
+  company_info: [],
+  inventory_balance: ['company_info'],
+  sales_order: ['company_info'],
+  account_receivable: ['company_info', 'sales_order'],
+  monthly_settlement: ['company_info'],
+  global_export_plan: ['company_info'],
+  global_import_plan: ['company_info'],
+  global_export_result: ['company_info', 'global_export_plan'],
+  global_import_result: ['company_info', 'global_import_plan'],
+  foreign_receivable: ['company_info', 'global_export_plan'],
+  hedge_contract: ['company_info'],
+  capital_disclosure: ['company_info'],
+  dividend_decision: ['company_info'],
+  financing_plan: ['company_info'],
+  stock_price_history: ['company_info'],
+};
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -705,6 +703,9 @@ export function dryRunLedgerRestoreAction(state, restoreMode = 'FULL_LEDGER', ta
     restoreMode: plan.restoreMode,
     status: plan.dryRunStatus,
     targetTableCount: plan.targetTables.length,
+    deleteOrder: plan.deleteOrder,
+    insertOrder: plan.insertOrder,
+    cycleDetected: plan.cycleDetected,
     message: plan.message,
     checksum: plan.snapshotChecksum,
   };
@@ -760,6 +761,9 @@ export function restoreLedgerSnapshotAction(state, restoreMode = 'FULL_LEDGER', 
     targetTableCount: plan.targetTables.length,
     deletedRowCount: plan.deletedRowCount,
     insertedRowCount: plan.insertedRowCount,
+    deleteOrder: plan.deleteOrder,
+    insertOrder: plan.insertOrder,
+    cycleDetected: plan.cycleDetected,
     checksum: plan.snapshotChecksum,
   };
   return addLog({
@@ -843,6 +847,8 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
       targetTables: [],
       deleteOrder: [],
       insertOrder: [],
+      cycleDetected: false,
+      missingDependencies: [],
       tableDiffs: [],
       deletedRowCount: 0,
       insertedRowCount: 0,
@@ -860,14 +866,15 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
   const currentChecksum = ledgerManifestChecksum(snapshotPayload(current), selection.tables);
   const tableDiffs = selection.tables.map((table) => tableDiffFor(snapshot.payload, snapshotPayload(current), table));
   const changedCount = tableDiffs.filter((row) => row.diffStatus !== 'MATCH').length;
+  const restoreOrder = buildLedgerRestoreOrder(selection.tables);
   const warnings = [
     ...selection.warnings,
     ...(!snapshotChecksumValid ? ['스냅샷 manifest checksum이 전체 row JSON 재계산값과 다릅니다.'] : []),
+    ...(restoreOrder.cycleDetected ? ['FK 의존성 그래프에 순환이 감지되어 자동 물리 복원 전 별도 검토가 필요합니다.'] : []),
+    ...restoreOrder.missingDependencies.map((entry) => `${entry.tableName} 복원 시 부모 테이블 ${entry.missing.join(', ')}이(가) 선택되지 않았습니다.`),
     ...(changedCount ? [`현재 원장과 스냅샷 사이에 ${changedCount}개 테이블 차이가 있습니다.`] : ['현재 원장과 선택 스냅샷이 이미 일치합니다.']),
   ];
-  const blocked = Boolean(selection.blocked || !snapshotChecksumValid);
-  const deleteOrder = orderedTables(selection.tables, LEDGER_DELETE_ORDER);
-  const insertOrder = orderedTables(selection.tables, LEDGER_INSERT_ORDER);
+  const blocked = Boolean(selection.blocked || !snapshotChecksumValid || restoreOrder.cycleDetected);
   const deletedRowCount = tableDiffs.reduce((sum, row) => sum + row.currentRowCount, 0);
   const insertedRowCount = tableDiffs.reduce((sum, row) => sum + row.snapshotRowCount, 0);
   return {
@@ -888,8 +895,10 @@ export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText
       snapshotRowCount: tableRows(snapshot.payload, table).length,
       currentRowCount: tableRows(snapshotPayload(current), table).length,
     })),
-    deleteOrder,
-    insertOrder,
+    deleteOrder: restoreOrder.deleteOrder,
+    insertOrder: restoreOrder.insertOrder,
+    cycleDetected: restoreOrder.cycleDetected,
+    missingDependencies: restoreOrder.missingDependencies,
     tableDiffs,
     deletedRowCount,
     insertedRowCount,
@@ -1332,9 +1341,48 @@ function resolveRestoreTables(restoreMode, tablesText = '') {
   };
 }
 
-function orderedTables(tables, order) {
-  const selected = new Set(tables.map((table) => table.tableName));
-  return order.filter((tableName) => selected.has(tableName));
+function buildLedgerRestoreOrder(tables) {
+  const selectedNames = tables.map((table) => table.tableName);
+  const selected = new Set(selectedNames);
+  const availableTables = new Set(LEDGER_RESTORE_TABLES.map((table) => table.tableName));
+  const parentDependencies = new Map();
+  const missingDependencies = [];
+
+  selectedNames.forEach((tableName) => {
+    const parents = (LEDGER_TABLE_PARENT_DEPENDENCIES[tableName] || []).filter((parent) => availableTables.has(parent));
+    const selectedParents = parents.filter((parent) => selected.has(parent));
+    const missing = parents.filter((parent) => !selected.has(parent));
+    parentDependencies.set(tableName, selectedParents);
+    if (missing.length) missingDependencies.push({ tableName, missing });
+  });
+
+  const insertOrder = [];
+  const visiting = new Set();
+  const visited = new Set();
+  let cycleDetected = false;
+
+  const visit = (tableName) => {
+    if (visited.has(tableName)) return;
+    if (visiting.has(tableName)) {
+      cycleDetected = true;
+      return;
+    }
+    visiting.add(tableName);
+    (parentDependencies.get(tableName) || []).forEach(visit);
+    visiting.delete(tableName);
+    visited.add(tableName);
+    if (!insertOrder.includes(tableName)) insertOrder.push(tableName);
+  };
+
+  selectedNames.forEach(visit);
+
+  const stableInsertOrder = cycleDetected ? selectedNames : insertOrder;
+  return {
+    insertOrder: stableInsertOrder,
+    deleteOrder: [...stableInsertOrder].reverse(),
+    cycleDetected,
+    missingDependencies,
+  };
 }
 
 function getPathValue(source, path) {
