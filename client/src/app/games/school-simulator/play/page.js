@@ -15,11 +15,13 @@ import {
   RECRUITMENT_STRATEGIES,
   SAVE_VERSION,
   SUBJECT_POLICY_MODES,
+  SUBJECT_SHOWCASE_ACTIONS,
   SUBJECTS,
   WEEK_SCHEDULE,
   WORK_ACTIONS,
   applyPolicyPreset,
   applySubjectPolicyAction,
+  applySubjectShowcaseAction,
   applyWorkAction,
   careerTrackRows,
   clubRows,
@@ -36,11 +38,12 @@ import {
   runAdmissionCampaignAction,
   runCareerCounselingAction,
   runClubRecruitmentAction,
-  runSubjectPresentationAction,
   scoreState,
   semesterReport,
   startClubShowcaseAction,
   subjectPolicyRows,
+  subjectShowcaseRows,
+  subjectShowcaseSummary,
   summaryForState,
 } from '../_lib/schoolSimulatorEngine';
 
@@ -101,6 +104,7 @@ export default function SchoolSimulatorPlayPage() {
   const [policyId, setPolicyId] = useState(POLICY_PRESETS[0].id);
   const [subjectId, setSubjectId] = useState(SUBJECTS[0].id);
   const [subjectModeId, setSubjectModeId] = useState(SUBJECT_POLICY_MODES[0].id);
+  const [subjectShowcaseActionId, setSubjectShowcaseActionId] = useState(SUBJECT_SHOWCASE_ACTIONS[0].id);
   const [recruitmentStrategyId, setRecruitmentStrategyId] = useState(RECRUITMENT_STRATEGIES[0].id);
   const [careerTrackId, setCareerTrackId] = useState(CAREER_TRACKS[0].id);
   const [clubId, setClubId] = useState('club_research');
@@ -112,6 +116,8 @@ export default function SchoolSimulatorPlayPage() {
   const topStudents = useMemo(() => getTopStudents(state, 'understanding', 5), [state]);
   const riskStudents = useMemo(() => getAtRiskStudents(state), [state]);
   const subjectRows = useMemo(() => subjectPolicyRows(state), [state]);
+  const subjectShowcases = useMemo(() => subjectShowcaseRows(state), [state]);
+  const subjectShowcaseSummaryData = useMemo(() => subjectShowcaseSummary(state), [state]);
   const clubs = useMemo(() => clubRows(state), [state]);
   const careerRows = useMemo(() => careerTrackRows(state), [state]);
   const festival = useMemo(() => festivalStatus(state), [state]);
@@ -121,6 +127,14 @@ export default function SchoolSimulatorPlayPage() {
   const selectedPolicy = POLICY_PRESETS.find((policy) => policy.id === policyId) || POLICY_PRESETS[0];
   const selectedSubject = subjectRows.find((subject) => subject.id === subjectId) || subjectRows[0];
   const selectedSubjectMode = SUBJECT_POLICY_MODES.find((mode) => mode.id === subjectModeId) || SUBJECT_POLICY_MODES[0];
+  const selectedSubjectShowcase = subjectShowcases.find((subject) => subject.id === subjectId) || subjectShowcases[0];
+  const selectedSubjectShowcaseAction = SUBJECT_SHOWCASE_ACTIONS.find((action) => action.id === subjectShowcaseActionId) || SUBJECT_SHOWCASE_ACTIONS[0];
+  const selectedSubjectShowcaseActive = Number(selectedSubjectShowcase?.[selectedSubjectShowcaseAction.field] || 0) > 0;
+  const selectedSubjectShowcaseTargets = selectedSubjectShowcaseAction.id === 'publicLesson'
+    ? selectedSubjectShowcase?.publicTargets || 0
+    : selectedSubjectShowcaseAction.id === 'achievementPresentation'
+      ? selectedSubjectShowcase?.presentationTargets || 0
+      : selectedSubjectShowcase?.weekTargets || 0;
   const selectedRecruitment = RECRUITMENT_STRATEGIES.find((strategy) => strategy.id === recruitmentStrategyId) || RECRUITMENT_STRATEGIES[0];
   const selectedCareer = CAREER_TRACKS.find((track) => track.id === careerTrackId) || CAREER_TRACKS[0];
   const selectedClub = clubs.find((club) => club.id === clubId) || clubs[0];
@@ -134,6 +148,7 @@ export default function SchoolSimulatorPlayPage() {
     setPolicyId(nextState.school.policyPreset);
     setSubjectId(SUBJECTS[0].id);
     setSubjectModeId(SUBJECT_POLICY_MODES[0].id);
+    setSubjectShowcaseActionId(SUBJECT_SHOWCASE_ACTIONS[0].id);
     setRecruitmentStrategyId(RECRUITMENT_STRATEGIES[0].id);
     setCareerTrackId(CAREER_TRACKS[0].id);
     setClubId('club_research');
@@ -365,10 +380,41 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="평균" value={selectedSubject.averageScore} />
             <SmallStat label="교사" value={selectedSubject.teacherName} />
           </div>
+          <label className="game-save-json-field">
+            <span>공개 활동</span>
+            <select value={subjectShowcaseActionId} onChange={(event) => setSubjectShowcaseActionId(event.target.value)}>
+              {SUBJECT_SHOWCASE_ACTIONS.map((action) => (
+                <option value={action.id} key={action.id}>
+                  {action.label} / AP {action.apCost} / {action.budgetCost.toLocaleString('ko-KR')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
+            {selectedSubjectShowcaseAction.description}
+          </p>
+          <div className="games-rank-split">
+            <SmallStat label="진행 상태" value={selectedSubjectShowcase?.activeText || '대기'} />
+            <SmallStat label="대상 후보" value={`${selectedSubjectShowcaseTargets}명`} />
+            <SmallStat label="브랜드 잠재" value={selectedSubjectShowcase?.brandPotential || 0} />
+            <SmallStat label="진행 활동" value={subjectShowcaseSummaryData.activeCount} />
+          </div>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton onClick={() => setState((current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
-            <ActionButton onClick={() => setState((current) => runSubjectPresentationAction(current, subjectId))} disabled={state.player.weeklyActionPoint < 2}>교과 발표 수업</ActionButton>
+            <ActionButton
+              onClick={() => setState((current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
+              disabled={
+                state.player.weeklyActionPoint < selectedSubjectShowcaseAction.apCost
+                || state.school.budget < selectedSubjectShowcaseAction.budgetCost
+                || selectedSubjectShowcaseActive
+              }
+            >
+              공개 활동 시작
+            </ActionButton>
           </div>
+          <p style={{ color: '#6c7884', fontWeight: 800, lineHeight: 1.55 }}>
+            {selectedSubjectShowcase?.lastLog || subjectShowcaseSummaryData.note}
+          </p>
         </section>
 
         <section className="games-panel">
