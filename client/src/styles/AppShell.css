@@ -21,6 +21,7 @@
 .modifiers-page-shell,
 .account-page-shell,
 .notifications-page-shell,
+.achievements-page-shell,
 .profile-page-shell,
 .reports-page-shell,
 .bookmarks-page-shell,
@@ -49,6 +50,7 @@
 .modifiers-page-shell > .site-header,
 .account-page-shell > .site-header,
 .notifications-page-shell > .site-header,
+.achievements-page-shell > .site-header,
 .profile-page-shell > .site-header,
 .reports-page-shell > .site-header,
 .bookmarks-page-shell > .site-header,
@@ -124,6 +126,7 @@
 .board-page,
 .account-page-shell,
 .notifications-page-shell,
+.achievements-page-shell,
 .profile-page-shell,
 .bookmarks-page-shell,
 .games-page-shell,
@@ -142,6 +145,10 @@
 }
 
 .notifications-page-shell {
+  padding-bottom: 56px;
+}
+
+.achievements-page-shell {
   padding-bottom: 56px;
 }
 
@@ -2463,6 +2470,256 @@
   color: #24313d;
 }
 
+.achievements-page {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.achievements-hero,
+.achievements-panel,
+.achievements-empty,
+.achievements-metric,
+.achievements-section-card,
+.achievements-card {
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.achievements-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 18px;
+  padding: 22px;
+}
+
+.achievements-kicker,
+.achievements-panel-title span,
+.achievements-card-title span,
+.achievements-section-card span {
+  margin: 0;
+  color: var(--eh-blue);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.achievements-hero h1 {
+  margin: 4px 0 8px;
+  color: #17202a;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.15;
+}
+
+.achievements-hero p:not(.achievements-kicker),
+.achievements-card p,
+.achievements-empty p {
+  margin: 0;
+  color: #4d5b68;
+  line-height: 1.55;
+}
+
+.achievements-hero-actions,
+.achievements-panel-title,
+.achievements-card-title,
+.achievements-card-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.achievements-hero-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.achievements-hero-actions a,
+.achievements-hero-actions button,
+.achievements-panel-title a,
+.achievements-empty a,
+.achievements-empty button,
+.achievements-card a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #0878bd;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.achievements-hero-actions a,
+.achievements-panel-title a,
+.achievements-card a {
+  background: #fff;
+  color: #14608d;
+}
+
+.achievements-hero-actions button:disabled {
+  border-color: #c7cdd3;
+  background: #d8dde2;
+  color: #6f7983;
+  cursor: not-allowed;
+}
+
+.achievements-summary,
+.achievements-section-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.achievements-metric,
+.achievements-section-card {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.achievements-metric span,
+.achievements-metric small,
+.achievements-section-card small {
+  min-width: 0;
+  color: #667481;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.achievements-metric strong,
+.achievements-section-card strong {
+  min-width: 0;
+  color: #17202a;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.achievements-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.achievements-panel-title {
+  align-items: flex-start;
+}
+
+.achievements-panel-title h2 {
+  margin: 3px 0 0;
+  color: #17202a;
+  font-size: 1.25rem;
+}
+
+.achievements-next-grid,
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.achievements-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.achievements-group {
+  display: grid;
+  gap: 10px;
+}
+
+.achievements-group h3 {
+  margin: 0;
+  color: #24313d;
+  font-size: 1rem;
+}
+
+.achievements-card {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.achievements-card.is-compact {
+  align-content: start;
+}
+
+.achievements-card.is-complete {
+  border-color: rgba(42, 145, 87, 0.28);
+  background: #f6fff9;
+}
+
+.achievements-card-title {
+  align-items: flex-start;
+}
+
+.achievements-card-title h3 {
+  margin: 3px 0 0;
+  color: #17202a;
+  font-size: 1rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.achievements-card-title strong {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(8, 120, 189, 0.1);
+  color: #14608d;
+  font-size: 0.78rem;
+  padding: 5px 9px;
+}
+
+.achievements-card-progress {
+  align-items: center;
+}
+
+.achievements-card-progress small {
+  flex: 0 0 auto;
+  color: #667481;
+  font-weight: 900;
+}
+
+.achievements-progress {
+  width: 100%;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7edf2;
+}
+
+.achievements-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2c6f9e, #2a9157);
+}
+
+.achievements-empty {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 18px;
+  color: #5f6c78;
+  font-weight: 900;
+}
+
+.achievements-error {
+  color: #9a3c3f;
+}
+
 .account-head {
   display: flex;
   align-items: flex-start;
@@ -3187,7 +3444,13 @@
 .games-card-actions a:hover,
 .games-hero-actions a:hover,
 .games-hero-actions button:hover,
-.games-empty button:hover {
+.games-empty button:hover,
+.achievements-hero-actions a:hover,
+.achievements-hero-actions button:hover,
+.achievements-panel-title a:hover,
+.achievements-empty a:hover,
+.achievements-empty button:hover,
+.achievements-card a:hover {
   border-color: rgba(8, 120, 189, 0.36);
   box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
 }
@@ -3428,7 +3691,9 @@
   }
 
   .games-grid,
-  .games-dashboard {
+  .games-dashboard,
+  .achievements-next-grid,
+  .achievements-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3452,6 +3717,7 @@
   .modifiers-page-shell,
   .account-page-shell,
   .notifications-page-shell,
+  .achievements-page-shell,
   .profile-page-shell,
   .reports-page-shell,
   .bookmarks-page-shell,
@@ -3477,6 +3743,7 @@
   .modifiers-page-shell > .site-header,
   .account-page-shell > .site-header,
   .notifications-page-shell > .site-header,
+  .achievements-page-shell > .site-header,
   .profile-page-shell > .site-header,
   .reports-page-shell > .site-header,
   .bookmarks-page-shell > .site-header,
@@ -3614,6 +3881,11 @@
 
   .notifications-head,
   .notifications-card,
+  .achievements-hero,
+  .achievements-summary,
+  .achievements-section-grid,
+  .achievements-next-grid,
+  .achievements-grid,
   .profile-hero,
   .profile-grid,
   .profile-stats,
@@ -3647,6 +3919,7 @@
   }
 
   .notifications-head,
+  .achievements-panel-title,
   .reports-hero,
   .reports-card header,
   .bookmarks-hero,
@@ -3667,6 +3940,13 @@
   .notifications-actions,
   .notifications-actions a,
   .notifications-actions button,
+  .achievements-hero-actions,
+  .achievements-hero-actions a,
+  .achievements-hero-actions button,
+  .achievements-panel-title a,
+  .achievements-empty a,
+  .achievements-empty button,
+  .achievements-card a,
   .reports-hero-actions,
   .reports-hero-actions a,
   .reports-hero-actions button,

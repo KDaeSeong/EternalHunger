@@ -21,6 +21,7 @@ const PRIMARY_NAV_ITEMS = [
 
 const MORE_NAV_ITEMS = [
   { href: '/games', label: '게임 허브' },
+  { href: '/achievements', label: '업적' },
   { href: '/balance', label: '밸런스 분석' },
   { href: '/activity', label: '활동 피드' },
   { href: '/details', label: '상세 설정' },
