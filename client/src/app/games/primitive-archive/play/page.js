@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
@@ -16,6 +16,7 @@ import {
   ZONES,
   actionChance,
   averageParty,
+  buyPerkAction,
   createNewState,
   formatRequires,
   getActor,
@@ -23,14 +24,21 @@ import {
   inventoryWeight,
   itemName,
   normalizeState,
+  perkRows,
+  researchSummary,
   runCampAction,
   runCraftAction,
   runEatAction,
   runGatherAction,
   runHuntAction,
+  runResearchAction,
   runRestAction,
   scoreState,
+  selectTechAction,
+  settleRunAction,
+  startNewRunFromMeta,
   summaryForState,
+  techRows,
 } from '../_lib/primitiveArchiveEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -64,6 +72,9 @@ export default function PrimitiveArchivePlayPage() {
   const gatherChance = actionChance(state, actorId, 'gather', 0.5);
   const huntChance = actionChance(state, actorId, 'hunt', 0.42);
   const craftChance = recipe ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
+  const research = useMemo(() => researchSummary(state), [state]);
+  const techs = useMemo(() => techRows(state), [state]);
+  const perks = useMemo(() => perkRows(state), [state]);
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
@@ -91,6 +102,11 @@ export default function PrimitiveArchivePlayPage() {
   const runRest = () => {
     if (!canAct) return;
     setState((current) => runRestAction(current, actorId));
+  };
+
+  const runResearch = () => {
+    if (!canAct) return;
+    setState((current) => runResearchAction(current, actorId));
   };
 
   const runCamp = (kind) => {
@@ -170,7 +186,7 @@ export default function PrimitiveArchivePlayPage() {
       clearApiGetCache('/game-records');
       setMessage('런 결과를 전적에 기록했습니다.');
       showToast({ tone: 'success', message: '런 결과를 전적에 기록했습니다.' });
-      setState((current) => ({ ...current, ended: true }));
+      setState((current) => settleRunAction(current));
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
       setMessage(nextMessage);
@@ -181,7 +197,7 @@ export default function PrimitiveArchivePlayPage() {
   };
 
   const startNewRun = () => {
-    setState(createNewState());
+    setState((current) => startNewRunFromMeta(current));
     setActorId('shiroko');
     setZoneId('forest');
     setRecipeId('twine');
@@ -194,6 +210,7 @@ export default function PrimitiveArchivePlayPage() {
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
+      <button type="button" onClick={() => setState((current) => settleRunAction(current))}>런 정산</button>
       <Link href="/games/primitive-archive">상세</Link>
     </>
   );
@@ -204,6 +221,8 @@ export default function PrimitiveArchivePlayPage() {
     { label: 'HP', value: hp },
     { label: '허기', value: hunger },
     { label: '스태미나', value: stamina },
+    { label: '연구', value: `${research.completed}/${research.total}` },
+    { label: '특전', value: state.meta.perkPoints },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -312,6 +331,66 @@ export default function PrimitiveArchivePlayPage() {
               <ActionButton disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
               <ActionButton disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
               <ActionButton disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
+            </div>
+          </section>
+        </section>
+
+        <section className="games-dashboard">
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>연구</h2>
+              <span>{research.completed}/{research.total}</span>
+            </div>
+            <label className="game-save-json-field">
+              <span>목표 기술</span>
+              <select
+                value={state.research.selectedTechId}
+                onChange={(event) => setState((current) => selectTechAction(current, event.target.value))}
+              >
+                {techs.map((tech) => (
+                  <option value={tech.id} key={tech.id} disabled={!tech.available && !tech.completed && !tech.selected}>
+                    {tech.completed ? '완료 · ' : tech.selected ? '선택 · ' : tech.available ? '가능 · ' : '잠김 · '}
+                    {tech.name} ({tech.progress}/{tech.cost})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="games-rank-split">
+              <div><span>선택</span><strong>{research.selected?.name || '-'}</strong></div>
+              <div><span>진행</span><strong>{research.selected?.progressPct || 0}%</strong></div>
+              <div><span>가능</span><strong>{research.available}</strong></div>
+            </div>
+            <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
+              유레카: {research.selected?.eureka?.desc || '없음'} {research.selected?.eurekaDone ? '· 달성' : ''}
+            </p>
+            <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>
+              연구 실행
+            </ActionButton>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>특전</h2>
+              <span>{state.meta.perkPoints} pt</span>
+            </div>
+            <div className="game-save-list">
+              {perks.map((perk) => (
+                <article className="game-save-row" key={perk.id}>
+                  <div>
+                    <span>Lv.{perk.level}/{perk.maxLevel} · 비용 {perk.cost}</span>
+                    <strong>{perk.name}</strong>
+                    <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>{perk.desc}</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="tcg-primary-action"
+                    disabled={!perk.canBuy}
+                    onClick={() => setState((current) => buyPerkAction(current, perk.id))}
+                  >
+                    {perk.maxed ? '완료' : '구매'}
+                  </button>
+                </article>
+              ))}
             </div>
           </section>
         </section>

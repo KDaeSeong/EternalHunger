@@ -86,10 +86,10 @@ Checked: 2026-07-04
 ## Primitive Archive Slice Status
 
 - Route: `/games/primitive-archive/play`
-- Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state.
+- Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state, early tech tree research, eureka triggers, research passives, run settlement, perk points, perk shop, and perk-applied new runs.
 - Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
-- Next step: replace the simplified engine internals with selected original core modules while keeping the site save/record shell stable.
+- Next step: import the remaining original tech tree, recipe/item gates, equipment/loadout recommendation, and full research modal map behind the site save/record shell.
 
 ## Dual Academy TCG v13 Slice Status
 
