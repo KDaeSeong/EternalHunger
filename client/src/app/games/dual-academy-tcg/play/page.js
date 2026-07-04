@@ -26,9 +26,12 @@ import {
   activateCounterTrap,
   activateFromHand,
   activateFieldIgnition,
+  activateHinaIgnition,
   activateSetCard,
+  activateYuukaQuick,
   advancePhase,
   autoPlayEnemy,
+  chooseFromDeck,
   chooseTarget,
   confirmTrigger,
   createDuelState,
@@ -86,10 +89,12 @@ function KeywordBadges({ card }) {
 function CardFace({ card, small = false }) {
   if (!card) return <span>비어 있음</span>;
   if (card.face === 'down') return <span>세트 카드</span>;
+  const dataCounters = Number(card.dataCounters || 0);
   return (
     <>
       <strong>{card.name}</strong>
       <KeywordBadges card={card} />
+      {dataCounters > 0 ? <span>DATA {dataCounters}</span> : null}
       {cardKind(card) === 'Monster' ? (
         <span>ATK {cardAtk(card)} / HP {cardHealth(card)}{card.hasAttacked ? ' / 공격 완료' : ''}</span>
       ) : (
@@ -337,6 +342,19 @@ function PromptPanel({ state, setState }) {
           <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {prompt.options.map((option) => (
               <button type="button" key={`${option.player}-${option.zone}-${option.slot}`} onClick={() => setState((current) => chooseTarget(current, option))}>
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {prompt.kind === 'SELECT_FROM_DECK' ? (
+        <>
+          <strong>{prompt.title}</strong>
+          <span>덱에서 가져올 카드를 선택하세요.</span>
+          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+            {prompt.options.map((option) => (
+              <button type="button" key={`${option.deckIndex}-${option.cardId}`} onClick={() => setState((current) => chooseFromDeck(current, option.deckIndex))}>
                 {option.label}
               </button>
             ))}
@@ -674,6 +692,27 @@ function DualAcademyTcgPlayContent() {
     }
     return out;
   }, [state.prompt]);
+  const monsterEffectRows = useMemo(() => (
+    state.players.player.monster
+      .map((card, slot) => ({ card, slot }))
+      .filter(({ card }) => card?.id === 'GEH-HINA-01' || card?.id === 'MIL-YUUKA-01')
+      .map(({ card, slot }) => {
+        const isHina = card.id === 'GEH-HINA-01';
+        const key = isHina ? 'GEH-HINA-01:HINA_IGNITION_2' : 'MIL-YUUKA-01:YUUKA_IGNITION_2';
+        const used = Boolean(state.players.player.flags.usedEffects?.[key]);
+        const disabled = !canMain || used || (isHina && Number(state.players.player.lp || 0) <= 800);
+        return {
+          id: `${card.id}-${slot}`,
+          slot,
+          name: card.name,
+          disabled,
+          label: isHina ? `히나 ② · M${slot + 1}` : `유우카 ② · M${slot + 1}`,
+          detail: isHina ? 'LP 800 지불, 필드 카드 1장 파괴' : '자신 필드 카드 DATA +1 / 보호막',
+          action: isHina ? 'hina' : 'yuuka',
+          status: used ? '사용됨' : disabled ? '대기' : '발동 가능',
+        };
+      })
+  ), [canMain, state.players.player.flags.usedEffects, state.players.player.lp, state.players.player.monster]);
 
   useEffect(() => {
     if (!selectedHandId) return;
@@ -985,6 +1024,24 @@ function DualAcademyTcgPlayContent() {
             <button type="button" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
               필드 효과
             </button>
+            <div className="tcg-card-controls" style={{ marginTop: 12 }}>
+              {monsterEffectRows.map((row) => (
+                <button
+                  type="button"
+                  key={row.id}
+                  onClick={() => act((current) => (
+                    row.action === 'hina'
+                      ? activateHinaIgnition(current, row.slot)
+                      : activateYuukaQuick(current, row.slot)
+                  ))}
+                  disabled={row.disabled}
+                  title={row.detail}
+                >
+                  {row.label} · {row.status}
+                </button>
+              ))}
+              {!monsterEffectRows.length ? <span>발동 가능한 몬스터 효과 없음</span> : null}
+            </div>
             <button type="button" className="tcg-primary-action" onClick={() => act((current) => resolveChain(passResponse(current)))} disabled={state.prompt.kind !== 'RESPOND' || state.prompt.player !== 'player'}>
               응답 없이 해결
             </button>

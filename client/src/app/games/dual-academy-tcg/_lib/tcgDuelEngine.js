@@ -88,6 +88,7 @@ function spellSubType(card) {
 }
 
 function effectKey(card) {
+  if (card?.effect === 'banish-enemy-unit') return 'banish-enemy-card';
   if (card?.effect) return card.effect;
   if (card?.effectId === 'E_DRAW_1') return 'draw';
   if (card?.effectId === 'E_DESTROY_OPP_MONSTER') return 'destroy-enemy-unit';
@@ -301,6 +302,23 @@ function updatePlayer(state, player, updater) {
   };
 }
 
+function effectUsed(ps, key) {
+  return Boolean(ps?.flags?.usedEffects?.[key]);
+}
+
+function markEffectUsed(ps, key) {
+  return {
+    ...ps,
+    flags: {
+      ...ps.flags,
+      usedEffects: {
+        ...ps.flags.usedEffects,
+        [key]: true,
+      },
+    },
+  };
+}
+
 function finishGame(state, winner) {
   if (!PLAYERS.includes(winner) || state.winner) return state;
   const won = emit({
@@ -508,16 +526,95 @@ export function passResponse(state) {
 
 export function confirmTrigger(state, accept) {
   if (state.prompt.kind !== 'TRIGGER_CONFIRM') return state;
-  const { player } = state.prompt;
+  const { player, slot } = state.prompt;
   let next = { ...state, prompt: { kind: 'NONE' } };
   if (!accept) return emit(next, 'PROMPT', player, '유우카 트리거를 넘겼습니다.');
   const ps = next.players[player];
-  const index = ps.deck.findIndex((card) => cardType(card) === 'Spell');
-  if (index < 0) return emit(next, 'PROMPT', player, '덱에 가져올 마법 카드가 없습니다.');
-  const deck = ps.deck.slice();
-  const [picked] = deck.splice(index, 1);
-  next = updatePlayer(next, player, (current) => ({ ...current, deck, hand: [...current.hand, picked] }));
-  return emit(next, 'EFFECT_ACTIVATE', player, `유우카 효과로 ${picked.name}를 패에 넣었습니다.`);
+  const monster = ps.monster[slot];
+  if (!monster || monster.id !== 'MIL-YUUKA-01') return emit(next, 'PROMPT', player, '유우카가 필드에 없습니다.');
+  const key = 'MIL-YUUKA-01:YUUKA_TRIGGER_1';
+  if (effectUsed(ps, key)) return emit(next, 'PROMPT', player, '이번 턴 이미 사용한 효과입니다.');
+  const options = ps.deck
+    .map((card, deckIndex) => ({ card, deckIndex }))
+    .filter(({ card }) => cardType(card) === 'Spell' && String(card.academy || '').includes('밀레니엄'))
+    .map(({ card, deckIndex }) => ({
+      deckIndex,
+      cardId: card.id,
+      label: `${card.name} (${cardKindLabel(card)})`,
+    }));
+  if (!options.length) return emit(next, 'PROMPT', player, '덱에 가져올 밀레니엄 마법 카드가 없습니다.');
+  const link = makeChainLink(player, { zone: 'monster', slot }, monster, { effect: 'yuuka-search' });
+  next = updatePlayer(next, player, (current) => markEffectUsed(current, key));
+  next = emit(next, 'EFFECT_ACTIVATE', player, `${monster.name} ① 발동: 덱에서 밀레니엄 마법을 선택합니다.`);
+  return {
+    ...next,
+    chain: [link, ...next.chain],
+    prompt: { kind: 'SELECT_FROM_DECK', player, chainId: link.chainId, title: '유우카 ①: 덱에서 밀레니엄 마법 1장 선택', options },
+  };
+}
+
+function cardKindLabel(card) {
+  const kind = cardType(card);
+  const subtype = spellSubType(card);
+  return kind === 'Monster' ? kind : `${kind}/${subtype}`;
+}
+
+export function chooseFromDeck(state, deckIndex) {
+  if (state.prompt.kind !== 'SELECT_FROM_DECK') return state;
+  const { player, chainId } = state.prompt;
+  const picked = state.prompt.options.find((option) => Number(option.deckIndex) === Number(deckIndex));
+  if (!picked) return emit(state, 'PROMPT', player, '선택할 수 없는 카드입니다.');
+  const chain = state.chain.map((link) => (
+    link.chainId === chainId
+      ? { ...link, meta: { ...link.meta, deckIndex: picked.deckIndex, pickedCardId: picked.cardId } }
+      : link
+  ));
+  return resolveChain({
+    ...state,
+    chain,
+    prompt: { kind: 'NONE' },
+  });
+}
+
+export function activateHinaIgnition(state, slot) {
+  const player = state.turnPlayer;
+  if (isLocked(state) || !canMainPhase(state)) return emit(state, 'PROMPT', player, 'MAIN 페이즈에만 히나 효과를 사용할 수 있습니다.');
+  const ps = state.players[player];
+  const card = ps.monster[slot];
+  if (!card || card.id !== 'GEH-HINA-01') return emit(state, 'PROMPT', player, '해당 몬스터 존에 히나가 없습니다.');
+  const key = 'GEH-HINA-01:HINA_IGNITION_2';
+  if (effectUsed(ps, key)) return emit(state, 'PROMPT', player, '히나 ②는 이번 턴 이미 사용했습니다.');
+  if (ps.lp <= 800) return emit(state, 'PROMPT', player, '히나 ②를 사용하려면 LP가 801 이상 필요합니다.');
+  const paid = updatePlayer(state, player, (current) => markEffectUsed({ ...current, lp: current.lp - 800 }, key));
+  const link = makeChainLink(player, { zone: 'monster', slot }, card, { effect: 'hina-destroy-any' });
+  const options = targetOptions(paid, player, 'hina-destroy-any');
+  let next = emit(paid, 'EFFECT_ACTIVATE', player, `${card.name} ② 발동: LP 800을 지불하고 필드 카드 1장을 파괴합니다.`);
+  if (!options.length) return emit(next, 'PROMPT', player, '파괴할 카드가 없습니다.');
+  return {
+    ...next,
+    chain: [link, ...next.chain],
+    prompt: { kind: 'SELECT_TARGET', player, chainId: link.chainId, title: '히나 ②: 파괴할 카드 선택', options },
+  };
+}
+
+export function activateYuukaQuick(state, slot) {
+  const player = state.turnPlayer;
+  if (isLocked(state) || !canMainPhase(state)) return emit(state, 'PROMPT', player, 'MAIN 페이즈에만 유우카 효과를 사용할 수 있습니다.');
+  const ps = state.players[player];
+  const card = ps.monster[slot];
+  if (!card || card.id !== 'MIL-YUUKA-01') return emit(state, 'PROMPT', player, '해당 몬스터 존에 유우카가 없습니다.');
+  const key = 'MIL-YUUKA-01:YUUKA_IGNITION_2';
+  if (effectUsed(ps, key)) return emit(state, 'PROMPT', player, '유우카 ②는 이번 턴 이미 사용했습니다.');
+  const marked = updatePlayer(state, player, (current) => markEffectUsed(current, key));
+  const link = makeChainLink(player, { zone: 'monster', slot }, card, { effect: 'yuuka-data-shield' });
+  const options = targetOptions(marked, player, 'own-card');
+  let next = emit(marked, 'EFFECT_ACTIVATE', player, `${card.name} ② 발동: 자신 필드 카드에 DATA와 보호막을 부여합니다.`);
+  if (!options.length) return emit(next, 'PROMPT', player, '대상으로 선택할 자신 필드 카드가 없습니다.');
+  return {
+    ...next,
+    chain: [link, ...next.chain],
+    prompt: { kind: 'SELECT_TARGET', player, chainId: link.chainId, title: '유우카 ②: DATA를 놓을 카드 선택', options },
+  };
 }
 
 function findTargetForEffect(state, owner, effect) {
@@ -531,6 +628,13 @@ function findTargetForEffect(state, owner, effect) {
     if (monsterSlot >= 0) return { player: op, zone: 'monster', slot: monsterSlot };
     const stSlot = state.players[op].spellTrap.findIndex(Boolean);
     if (stSlot >= 0) return { player: op, zone: 'spellTrap', slot: stSlot };
+    if (state.players[op].field) return { player: op, zone: 'field', slot: 0 };
+  }
+  if (effect === 'hina-destroy-any') {
+    const enemyMonsterSlot = strongestMonsterSlot(state.players[op].monster);
+    if (enemyMonsterSlot >= 0) return { player: op, zone: 'monster', slot: enemyMonsterSlot };
+    const enemyStSlot = state.players[op].spellTrap.findIndex(Boolean);
+    if (enemyStSlot >= 0) return { player: op, zone: 'spellTrap', slot: enemyStSlot };
     if (state.players[op].field) return { player: op, zone: 'field', slot: 0 };
   }
   return null;
@@ -580,9 +684,18 @@ function removePersistentSource(state, link) {
   return state;
 }
 
-function applySimpleEffect(state, owner, card, target) {
+function applySimpleEffect(state, owner, card, target, effectOverride = '', meta = {}) {
   const op = opponent(owner);
-  const effect = effectKey(card);
+  const effect = effectOverride || effectKey(card);
+  if (effect === 'yuuka-search') {
+    const deckIndex = Number(meta.deckIndex);
+    const ps = state.players[owner];
+    const picked = ps.deck[deckIndex];
+    if (!picked) return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과로 가져올 카드가 없습니다.`);
+    const deck = ps.deck.slice();
+    const [drawn] = deck.splice(deckIndex, 1);
+    return emit(updatePlayer(state, owner, (player) => ({ ...player, deck, hand: [...player.hand, { ...drawn, face: 'up' }] })), 'EFFECT_ACTIVATE', owner, `유우카 ①: ${drawn.name}를 패에 넣었습니다.`);
+  }
   if (effect === 'damage') {
     const amount = effectAmount(card, 3) * 400;
     const nextLp = Math.max(0, state.players[op].lp - amount);
@@ -608,12 +721,46 @@ function applySimpleEffect(state, owner, card, target) {
     }
     return updatePlayer(state, owner, (player) => ({ ...player, lp: player.lp + 400 }));
   }
-  if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-card') {
+  if (effect === 'yuuka-data-shield') {
+    if (!target) return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과 대상이 없습니다.`);
+    return applyDataShield(state, target, owner, card.name);
+  }
+  if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-card' || effect === 'hina-destroy-any') {
     const actualTarget = target || findTargetForEffect(state, owner, effect);
     if (!actualTarget) return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과 대상이 없습니다.`);
     return removeTarget(state, actualTarget, effect === 'banish-enemy-card' ? 'banish' : 'destroy', owner, card.name);
   }
   return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과를 처리했습니다.`);
+}
+
+function applyDataShield(state, target, actor, sourceName) {
+  const ps = state.players[target.player];
+  const applyToCard = (card) => ({
+    ...card,
+    dataCounters: Number(card?.dataCounters || 0) + 1,
+    shield: true,
+    protectedUntilTurn: state.turn,
+  });
+  if (target.zone === 'monster') {
+    const monster = ps.monster.slice();
+    const card = monster[target.slot];
+    if (!card) return state;
+    monster[target.slot] = applyToCard(card);
+    return emit(updatePlayer(state, target.player, (player) => ({ ...player, monster })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name}에 DATA +1 / 보호막`);
+  }
+  if (target.zone === 'spellTrap') {
+    const spellTrap = ps.spellTrap.slice();
+    const card = spellTrap[target.slot];
+    if (!card) return state;
+    spellTrap[target.slot] = applyToCard(card);
+    return emit(updatePlayer(state, target.player, (player) => ({ ...player, spellTrap })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name}에 DATA +1 / 보호막`);
+  }
+  if (target.zone === 'field') {
+    const card = ps.field;
+    if (!card) return state;
+    return emit(updatePlayer(state, target.player, (player) => ({ ...player, field: applyToCard(card) })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name}에 DATA +1 / 보호막`);
+  }
+  return state;
 }
 
 function removeTarget(state, target, mode, actor, sourceName) {
@@ -675,8 +822,8 @@ export function resolveChain(state) {
 
     const owner = link.owner;
     const card = findCardByInstanceOrId(next, owner, link.cardId, link.source) || { id: link.cardId, name: link.cardName };
-    const effect = effectKey(card);
-    if ((effect === 'destroy-enemy-unit' || effect === 'banish-enemy-card') && !link.meta?.target) {
+    const effect = link.meta?.effect || effectKey(card);
+    if ((effect === 'destroy-enemy-unit' || effect === 'banish-enemy-card' || effect === 'hina-destroy-any' || effect === 'yuuka-data-shield') && !link.meta?.target) {
       const options = targetOptions(next, owner, effect);
       if (options.length) {
         return {
@@ -686,7 +833,7 @@ export function resolveChain(state) {
         };
       }
     }
-    next = applySimpleEffect(next, owner, card, link.meta?.target);
+    next = applySimpleEffect(next, owner, card, link.meta?.target, effect, link.meta);
     if (link.source.zone === 'spellTrap' && spellSubType(card) !== 'Continuous') next = removePersistentSource(next, link);
   }
   return next;
@@ -722,6 +869,11 @@ export function targetOptions(state, owner, effect) {
   };
   if (effect === 'destroy-enemy-unit') addMonster(op);
   if (effect === 'banish-enemy-card') addCards(op);
+  if (effect === 'hina-destroy-any') {
+    addCards(op);
+    addCards(owner);
+  }
+  if (effect === 'own-card' || effect === 'yuuka-data-shield') addCards(owner);
   return result;
 }
 
