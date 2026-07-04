@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGetCached, apiPut, clearApiGetCache } from '../../../utils/api';
@@ -67,23 +68,43 @@ function summarizeSave(save) {
   return rows.length ? rows.map(([key, value]) => `${key}: ${String(value)}`).join(' · ') : '요약 없음';
 }
 
-export default function GameSavesPage() {
+function SaveMetric({ label, value }) {
+  return (
+    <div className="games-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function GameSavesContent() {
   const hydrated = useHydrated();
   const user = useAuthUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { showToast } = useToast();
   const gameOptions = useMemo(getGameOptions, []);
+  const requestedGameSlug = cleanKey(searchParams.get('gameSlug'));
   const [saves, setSaves] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [gameSlug, setGameSlug] = useState(requestedGameSlug);
   const [form, setForm] = useState({
-    gameSlug: 'dual-academy-tcg',
+    gameSlug: requestedGameSlug || 'dual-academy-tcg',
     slotKey: 'slot-1',
     saveName: '기본 슬롯',
     version: '1',
     summaryText: JSON.stringify({ progress: 'new' }, null, 2),
     payloadText: DEFAULT_PAYLOAD,
   });
+
+  useEffect(() => {
+    setGameSlug(requestedGameSlug);
+    if (requestedGameSlug) {
+      setForm((current) => ({ ...current, gameSlug: requestedGameSlug }));
+    }
+  }, [requestedGameSlug]);
 
   const loadSaves = useCallback(async (options = {}) => {
     if (!user) {
@@ -93,7 +114,10 @@ export default function GameSavesPage() {
     setLoading(true);
     setMessage('');
     try {
-      const data = await apiGetCached('/game-saves', {
+      const params = new URLSearchParams();
+      if (gameSlug) params.set('gameSlug', gameSlug);
+      const endpoint = `/game-saves${params.toString() ? `?${params.toString()}` : ''}`;
+      const data = await apiGetCached(endpoint, {
         ttlMs: 15000,
         timeoutMs: 15000,
         storage: 'session',
@@ -107,7 +131,7 @@ export default function GameSavesPage() {
     } finally {
       setLoading(false);
     }
-  }, [showToast, user]);
+  }, [gameSlug, showToast, user]);
 
   useEffect(() => {
     if (hydrated) void loadSaves();
@@ -185,6 +209,23 @@ export default function GameSavesPage() {
     gameOptions.forEach((game) => map.set(game.slug, game.title));
     return map;
   }, [gameOptions]);
+  const selectedGameTitle = gameSlug ? gameTitleBySlug.get(gameSlug) || gameSlug : '전체 게임';
+  const saveStats = useMemo(() => {
+    const total = saves.length;
+    const totalBytes = saves.reduce((sum, save) => sum + Number(save.payloadBytes || 0), 0);
+    const latest = saves.reduce((best, save) => {
+      const time = new Date(save.updatedAt || save.createdAt || 0).getTime();
+      return Number.isFinite(time) && time > best ? time : best;
+    }, 0);
+    return { total, totalBytes, latest };
+  }, [saves]);
+
+  const updateGameFilter = (nextValue) => {
+    const nextGameSlug = cleanKey(nextValue);
+    setGameSlug(nextGameSlug);
+    const href = nextGameSlug ? `/games/saves?gameSlug=${encodeURIComponent(nextGameSlug)}` : '/games/saves';
+    router.push(href);
+  };
 
   return (
     <main className="games-page-shell">
@@ -213,6 +254,22 @@ export default function GameSavesPage() {
           </div>
         ) : (
           <>
+            <section className="game-room-toolbar" aria-label="게임 저장 슬롯 필터">
+              <select value={gameSlug} onChange={(event) => updateGameFilter(event.target.value)}>
+                <option value="">전체 게임</option>
+                {gameOptions.map((game) => <option value={game.slug} key={game.slug}>{game.title}</option>)}
+              </select>
+              {gameSlug ? <Link href={`/games/${gameSlug}`}>게임 상세</Link> : <Link href="/games">게임 허브</Link>}
+              <Link href={`/games/records${gameSlug ? `?gameSlug=${gameSlug}` : ''}`}>전적</Link>
+            </section>
+
+            <section className="games-summary" aria-label="게임 저장 슬롯 요약">
+              <SaveMetric label="범위" value={selectedGameTitle} />
+              <SaveMetric label="저장 슬롯" value={`${Number(saveStats.total || 0).toLocaleString('ko-KR')}개`} />
+              <SaveMetric label="데이터" value={formatBytes(saveStats.totalBytes)} />
+              <SaveMetric label="최신 갱신" value={saveStats.latest ? formatDateTime(saveStats.latest) : '-'} />
+            </section>
+
             <section className="games-dashboard game-saves-dashboard">
               <form className="games-panel game-save-editor" onSubmit={saveSlot}>
                 <div className="games-panel-title">
@@ -309,5 +366,20 @@ export default function GameSavesPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function GameSavesPage() {
+  return (
+    <Suspense fallback={(
+      <main className="games-page-shell">
+        <SiteHeader />
+        <section className="games-page game-saves-page">
+          <div className="games-empty">게임 저장 슬롯을 불러오는 중입니다.</div>
+        </section>
+      </main>
+    )}>
+      <GameSavesContent />
+    </Suspense>
   );
 }
