@@ -28,6 +28,12 @@ const MENU_ITEMS = [
     body: '플레이, 커뮤니티 게임, 게시판 활동, 기록 흐름을 한 화면에서 확인합니다.',
   },
   {
+    href: '/achievements',
+    tag: 'Season',
+    title: '업적',
+    body: '시즌 점수와 다음 목표를 확인합니다.',
+  },
+  {
     href: '/activity',
     tag: 'Feed',
     title: '활동 피드',
@@ -109,6 +115,18 @@ const EMPTY_HUB = {
   rankings: { points: [], characters: [] },
 };
 
+const EMPTY_PROGRESS = {
+  season: {
+    name: '프리시즌',
+    title: '기반 시즌',
+    score: 0,
+    maxScore: 0,
+    completedCount: 0,
+    totalCount: 0,
+  },
+  next: [],
+};
+
 function normalizeList(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -120,6 +138,12 @@ function safeText(value, fallback = '') {
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString('ko-KR');
+}
+
+function formatPercent(value) {
+  const n = Number(value || 0);
+  const safe = Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0;
+  return `${Math.round(safe * 100)}%`;
 }
 
 function formatDate(value) {
@@ -144,6 +168,15 @@ function normalizeHub(payload) {
   };
 }
 
+function normalizeProgress(payload) {
+  const src = payload && typeof payload === 'object' ? payload : {};
+  const season = src.season && typeof src.season === 'object' ? src.season : {};
+  return {
+    season: { ...EMPTY_PROGRESS.season, ...season },
+    next: normalizeList(src.next).slice(0, 3),
+  };
+}
+
 function userHref(user) {
   const id = user?._id || user?.id;
   return id ? `/users/${id}` : '';
@@ -159,6 +192,41 @@ function getKills(row) {
 
 function getAssists(row) {
   return Number(row?.totalAssists ?? row?.records?.totalAssists ?? 0);
+}
+
+function getUserKey(user) {
+  return String(user?._id || user?.id || user?.userId || user?.username || '').trim();
+}
+
+function ProgressBar({ value }) {
+  return (
+    <div className="home-progress-bar" aria-label={`진행도 ${formatPercent(value)}`}>
+      <span style={{ width: formatPercent(value) }} />
+    </div>
+  );
+}
+
+function NextGoalRows({ goals }) {
+  if (!goals.length) return <div className="home-empty">지금 표시할 다음 목표가 없습니다.</div>;
+
+  return (
+    <div className="home-next-goals">
+      {goals.map((goal) => {
+        const href = safeText(goal?.href, '/achievements');
+        const valueText = `${formatNumber(goal?.value)} / ${formatNumber(goal?.target)}`;
+        return (
+          <Link href={href} className="home-goal-row" key={goal?.id || goal?.title}>
+            <div>
+              <strong>{safeText(goal?.title, '업적')}</strong>
+              <span>{safeText(goal?.sectionLabel, '업적')} · {valueText}</span>
+            </div>
+            <small>{formatPercent(goal?.progress)}</small>
+            <ProgressBar value={goal?.progress} />
+          </Link>
+        );
+      })}
+    </div>
+  );
 }
 
 function HubLinkList({ items, empty, type }) {
@@ -212,9 +280,13 @@ export default function Home() {
   const { showToast } = useToast();
   const [hub, setHub] = useState(EMPTY_HUB);
   const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(EMPTY_PROGRESS);
+  const [progressLoading, setProgressLoading] = useState(false);
+  const [progressError, setProgressError] = useState('');
   const [myCharTop3, setMyCharTop3] = useState({ wins: [], kills: [] });
 
   const myUsername = user?.username || null;
+  const userKey = getUserKey(user);
   const menuItems = useMemo(() => {
     if (!user?.isAdmin) return MENU_ITEMS;
     return [
@@ -265,6 +337,45 @@ export default function Home() {
       canceled = true;
     };
   }, [showToast, user]);
+
+  useEffect(() => {
+    let canceled = false;
+
+    if (!mounted || !userKey) {
+      setProgress(EMPTY_PROGRESS);
+      setProgressLoading(false);
+      setProgressError('');
+      return () => {
+        canceled = true;
+      };
+    }
+
+    async function refreshProgress() {
+      setProgressLoading(true);
+      setProgressError('');
+      try {
+        const payload = await apiGet('/achievements', { timeoutMs: 12000 });
+        if (!canceled) setProgress(normalizeProgress(payload));
+      } catch (err) {
+        if (!canceled) {
+          const status = Number(err?.status || 0);
+          if (status === 401 || status === 403) {
+            clearAuth();
+          } else {
+            setProgress(EMPTY_PROGRESS);
+            setProgressError(err?.message || '내 목표를 불러오지 못했습니다.');
+          }
+        }
+      } finally {
+        if (!canceled) setProgressLoading(false);
+      }
+    }
+
+    void refreshProgress();
+    return () => {
+      canceled = true;
+    };
+  }, [mounted, userKey]);
 
   useEffect(() => {
     const syncMyHallOfFame = () => {
@@ -321,6 +432,29 @@ export default function Home() {
           <div><span>게시글</span><strong>{formatNumber(hub.counts.posts)}</strong></div>
           <div><span>진행 중 스무고개</span><strong>{formatNumber(hub.counts.activeRooms)}</strong></div>
         </section>
+
+        {mounted && user ? (
+          <section className="home-personal" aria-label="내 진행 상황">
+            <div className="home-personal-main">
+              <div>
+                <p className="home-kicker">{safeText(progress.season.name, '프리시즌')}</p>
+                <h2>내 진행 보드</h2>
+                <p>{progressLoading ? '목표를 불러오는 중입니다.' : '오늘 이어서 할 목표를 확인합니다.'}</p>
+              </div>
+              <div className="home-personal-score">
+                <strong>{formatNumber(progress.season.score)} / {formatNumber(progress.season.maxScore)} pt</strong>
+                <span>{formatNumber(progress.season.completedCount)} / {formatNumber(progress.season.totalCount)} 완료</span>
+                <ProgressBar value={progress.season.maxScore ? Number(progress.season.score || 0) / Number(progress.season.maxScore || 1) : 0} />
+              </div>
+            </div>
+            {progressError ? <div className="home-empty">{progressError}</div> : <NextGoalRows goals={progress.next} />}
+            <div className="home-personal-actions">
+              <Link href="/achievements">업적 전체 보기</Link>
+              <Link href="/records">기록소</Link>
+              <Link href="/simulation">게임 시작</Link>
+            </div>
+          </section>
+        ) : null}
 
         <section className="home-hub-layout" aria-label="커뮤니티 현황">
           <div className="home-main-column">
