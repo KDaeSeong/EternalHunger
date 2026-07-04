@@ -9,10 +9,23 @@ import { apiGetCached } from '../../../utils/api';
 import { findGameBySlug, GAME_CATALOG, gameDetailHref } from '../_lib/gameCatalog';
 
 const EMPTY_HUB = {
-  counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
+  counts: {
+    users: 0,
+    posts: 0,
+    characters: 0,
+    teams: 0,
+    runs: 0,
+    rooms: 0,
+    activeRooms: 0,
+    solvedRooms: 0,
+    closedRooms: 0,
+    visibleRooms: 0,
+  },
   recentPosts: [],
   activeRooms: [],
-  rankings: { points: [], characters: [] },
+  recentRooms: [],
+  recentRuns: [],
+  rankings: { points: [], characters: [], teams: [] },
 };
 
 function normalizeRouteId(value) {
@@ -31,9 +44,12 @@ function normalizeHub(payload) {
     counts: { ...EMPTY_HUB.counts, ...(src.counts || {}) },
     recentPosts: normalizeList(src.recentPosts),
     activeRooms: normalizeList(src.activeRooms),
+    recentRooms: normalizeList(src.recentRooms),
+    recentRuns: normalizeList(src.recentRuns),
     rankings: {
       points: normalizeList(rankings.points),
       characters: normalizeList(rankings.characters),
+      teams: normalizeList(rankings.teams),
     },
   };
 }
@@ -54,23 +70,41 @@ function formatDate(value) {
   return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
 }
 
+function formatPercent(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return '0%';
+  return `${Math.round(n * 100)}%`;
+}
+
+function roomStatusLabel(value) {
+  if (value === 'solved') return '정답';
+  if (value === 'closed') return '종료';
+  return '진행';
+}
+
 function metricValueForKey(key, hub) {
   const topUser = hub.rankings.points[0] || null;
   if (key === 'characters') return hub.counts.characters;
+  if (key === 'teams') return hub.counts.teams;
+  if (key === 'runs') return hub.counts.runs;
   if (key === 'posts') return hub.counts.posts;
   if (key === 'topLp') return topUser?.lp || 0;
   if (key === 'rooms') return hub.counts.rooms;
   if (key === 'activeRooms') return hub.counts.activeRooms;
-  if (key === 'visibleRooms') return hub.activeRooms.length;
+  if (key === 'solvedRooms') return hub.counts.solvedRooms;
+  if (key === 'visibleRooms') return hub.counts.visibleRooms || hub.activeRooms.length;
   return 0;
 }
 
 function metricLabelForKey(key) {
   if (key === 'characters') return '캐릭터';
+  if (key === 'teams') return '팀 전적';
+  if (key === 'runs') return '저장 경기';
   if (key === 'posts') return '게시글';
   if (key === 'topLp') return '최고 LP';
   if (key === 'rooms') return '전체 방';
   if (key === 'activeRooms') return '진행 중';
+  if (key === 'solvedRooms') return '정답 방';
   if (key === 'visibleRooms') return '표시 방';
   return '지표';
 }
@@ -84,12 +118,12 @@ function GameMetric({ label, value }) {
   );
 }
 
-function ActivityPanel({ title, href, items, empty, renderItem }) {
+function ActivityPanel({ title, href, items, empty, renderItem, linkLabel = '전체 보기' }) {
   return (
     <section className="games-panel">
       <div className="games-panel-title">
         <h2>{title}</h2>
-        <Link href={href}>전체 보기</Link>
+        <Link href={href}>{linkLabel}</Link>
       </div>
       {items.length ? <div className="games-activity-list">{items.map(renderItem)}</div> : <div className="games-empty">{empty}</div>}
     </section>
@@ -106,10 +140,11 @@ export default function GameDetailPage() {
   const [error, setError] = useState('');
 
   const loadHub = useCallback(async (options = {}) => {
+    if (!game) return;
     setLoading(true);
     setError('');
     try {
-      const payload = await apiGetCached('/public/home-hub', {
+      const payload = await apiGetCached(`/public/games/${game.slug}/hub`, {
         ttlMs: 30000,
         timeoutMs: 15000,
         storage: 'session',
@@ -124,7 +159,7 @@ export default function GameDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [game, showToast]);
 
   useEffect(() => {
     if (game) void loadHub();
@@ -133,10 +168,7 @@ export default function GameDetailPage() {
 
   const relevantPosts = useMemo(() => {
     if (!game) return [];
-    if (game.slug === 'twenty-questions') {
-      return hub.recentPosts.filter((post) => ['game', 'free'].includes(String(post?.category || ''))).slice(0, 6);
-    }
-    return hub.recentPosts.filter((post) => ['simulation', 'guide', 'game'].includes(String(post?.category || ''))).slice(0, 6);
+    return hub.recentPosts.slice(0, 6);
   }, [game, hub.recentPosts]);
 
   const relatedGames = useMemo(() => GAME_CATALOG.filter((row) => row.slug !== slug), [slug]);
@@ -220,35 +252,93 @@ export default function GameDetailPage() {
 
         <section className="games-dashboard">
           {game.slug === 'twenty-questions' ? (
-            <ActivityPanel
-              title="진행 중인 방"
-              href="/twenty-questions"
-              items={hub.activeRooms.slice(0, 6)}
-              empty={loading ? '방 정보를 불러오는 중입니다.' : '진행 중인 방이 없습니다.'}
-              renderItem={(room) => {
-                const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
-                return (
-                  <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
-                    <strong>{safeText(room.title, '제목 없음')}</strong>
-                    <span>{safeText(room.hostName, '익명')} · {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)} · {safeText(room.categoryLabel, room.category || '자유')}</span>
-                  </Link>
-                );
-              }}
-            />
+            <>
+              <ActivityPanel
+                title="진행 중인 방"
+                href="/twenty-questions"
+                items={hub.activeRooms.slice(0, 6)}
+                empty={loading ? '방 정보를 불러오는 중입니다.' : '진행 중인 방이 없습니다.'}
+                renderItem={(room) => {
+                  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+                  return (
+                    <Link href={`/twenty-questions/${room._id}`} key={`room-${room._id || room.title}`}>
+                      <strong>{safeText(room.title, '제목 없음')}</strong>
+                      <span>{safeText(room.hostName, '익명')} · {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)} · {safeText(room.categoryLabel, room.category || '자유')}</span>
+                    </Link>
+                  );
+                }}
+              />
+              <ActivityPanel
+                title="최근 방"
+                href="/twenty-questions"
+                items={hub.recentRooms.slice(0, 6)}
+                empty={loading ? '최근 방을 불러오는 중입니다.' : '표시할 방이 없습니다.'}
+                renderItem={(room) => {
+                  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
+                  return (
+                    <Link href={`/twenty-questions/${room._id}`} key={`recent-room-${room._id || room.title}`}>
+                      <strong>{safeText(room.title, '제목 없음')}</strong>
+                      <span>{roomStatusLabel(room.status)} · {safeText(room.hostName, '익명')} · {formatNumber(attemptCount)}/{formatNumber(room.maxQuestions || 20)}</span>
+                    </Link>
+                  );
+                }}
+              />
+            </>
           ) : (
-            <ActivityPanel
-              title="최근 관련 글"
-              href={game.boardHref}
-              items={relevantPosts}
-              empty={loading ? '게시글을 불러오는 중입니다.' : '표시할 게시글이 없습니다.'}
-              renderItem={(post) => (
-                <Link href={`/board/${post._id}`} key={`post-${post._id || post.title}`}>
-                  <strong>{safeText(post.title, '제목 없음')}</strong>
-                  <span>{safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · {formatDate(post.createdAt || post.updatedAt) || '-'}</span>
-                </Link>
-              )}
-            />
+            <>
+              <ActivityPanel
+                title="최근 경기"
+                href="/records"
+                items={hub.recentRuns.slice(0, 6)}
+                empty={loading ? '최근 경기를 불러오는 중입니다.' : '저장된 경기 기록이 없습니다.'}
+                renderItem={(run) => (
+                  <Link href="/records" key={`run-${run._id || run.playedAt || run.title}`}>
+                    <strong>{safeText(run.winnerTeamName || run.winnerName || run.title, '승자 미기록')}</strong>
+                    <span>{formatDate(run.playedAt) || '-'} · 킬 {formatNumber(run.totalKills)} · 부활 {formatNumber(run.totalRevives)} · 초월 {formatNumber(run.transCount)}</span>
+                  </Link>
+                )}
+              />
+              <ActivityPanel
+                title="상위 캐릭터"
+                href="/leaderboard"
+                items={hub.rankings.characters.slice(0, 6)}
+                empty={loading ? '캐릭터 랭킹을 불러오는 중입니다.' : '표시할 캐릭터 전적이 없습니다.'}
+                linkLabel="랭킹"
+                renderItem={(row) => (
+                  <Link href="/leaderboard" key={`char-rank-${row._id || row.name}`}>
+                    <strong>{safeText(row.name, '이름 없음')}</strong>
+                    <span>{safeText(row.ownerName, '익명')} · 승 {formatNumber(row.totalWins)} · 킬 {formatNumber(row.totalKills)} · 승률 {formatPercent(row.winRate)}</span>
+                  </Link>
+                )}
+              />
+              <ActivityPanel
+                title="상위 팀"
+                href="/leaderboard"
+                items={hub.rankings.teams.slice(0, 6)}
+                empty={loading ? '팀 랭킹을 불러오는 중입니다.' : '표시할 팀 전적이 없습니다.'}
+                linkLabel="랭킹"
+                renderItem={(row) => (
+                  <Link href="/leaderboard" key={`team-rank-${row._id || row.teamKey || row.teamName}`}>
+                    <strong>{safeText(row.teamName || row.rosterNames?.join(' / '), '팀 이름 없음')}</strong>
+                    <span>{safeText(row.ownerName, '익명')} · 승 {formatNumber(row.totalWins)} · 킬 {formatNumber(row.totalKills)} · 승률 {formatPercent(row.winRate)}</span>
+                  </Link>
+                )}
+              />
+            </>
           )}
+
+          <ActivityPanel
+            title="최근 관련 글"
+            href={game.boardHref}
+            items={relevantPosts}
+            empty={loading ? '게시글을 불러오는 중입니다.' : '표시할 게시글이 없습니다.'}
+            renderItem={(post) => (
+              <Link href={`/board/${post._id}`} key={`post-${post._id || post.title}`}>
+                <strong>{safeText(post.title, '제목 없음')}</strong>
+                <span>{safeText(post.authorName, '익명')} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · {formatDate(post.createdAt || post.updatedAt) || '-'}</span>
+              </Link>
+            )}
+          />
 
           <section className="games-panel">
             <div className="games-panel-title">

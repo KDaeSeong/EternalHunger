@@ -9,6 +9,7 @@ const TwentyQuestionsRoom = require('../models/TwentyQuestionsRoom');
 const UserFollow = require('../models/UserFollow');
 const Character = require('../models/Characters');
 const TeamRecord = require('../models/TeamRecord');
+const GameLog = require('../models/GameLog');
 const Item = require('../models/Item');
 const MapModel = require('../models/Map');
 const Kiosk = require('../models/Kiosk');
@@ -270,6 +271,27 @@ function mapHubTeamRank(row) {
     ...mapTeamRecord(row),
     owner: mapCompactUser(row?.userId),
     ownerName: displayName(row?.userId),
+  };
+}
+
+function mapHubRun(row) {
+  const summary = row?.summary || {};
+  return {
+    _id: normalizeId(row),
+    title: row?.title || '',
+    playedAt: row?.playedAt || null,
+    winnerName: row?.winnerName || '',
+    winnerTeamName: row?.winnerTeamName || '',
+    matchMode: row?.matchMode || '',
+    teamSize: toNonNegativeInt(row?.teamSize),
+    participantCount: toNonNegativeInt(summary.participantCount),
+    teamCount: toNonNegativeInt(summary.teamCount),
+    totalKills: toNonNegativeInt(summary.totalKills),
+    totalAssists: toNonNegativeInt(summary.totalAssists),
+    totalDeaths: toNonNegativeInt(summary.totalDeaths),
+    totalRevives: toNonNegativeInt(summary.totalRevives),
+    legendCount: toNonNegativeInt(summary.legendCount),
+    transCount: toNonNegativeInt(summary.transCount),
   };
 }
 
@@ -538,6 +560,161 @@ router.get('/home-hub', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '홈 허브 정보를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/games/:slug/hub', async (req, res) => {
+  try {
+    const slug = cleanText(req.params.slug, 60);
+    const isEternalHunger = slug === 'eternal-hunger';
+    const isTwentyQuestions = slug === 'twenty-questions';
+    if (!isEternalHunger && !isTwentyQuestions) {
+      return res.status(404).json({ error: '게임을 찾을 수 없습니다.' });
+    }
+
+    const postCategories = isTwentyQuestions ? ['game', 'free'] : ['simulation', 'guide', 'game'];
+    const postFilter = { category: { $in: postCategories } };
+
+    if (isTwentyQuestions) {
+      const [
+        userCount,
+        postCount,
+        roomCount,
+        activeRoomCount,
+        solvedRoomCount,
+        closedRoomCount,
+        recentPosts,
+        activeRooms,
+        recentRooms,
+        topUsers,
+      ] = await Promise.all([
+        User.countDocuments({}),
+        Post.countDocuments(postFilter),
+        TwentyQuestionsRoom.countDocuments({}),
+        TwentyQuestionsRoom.countDocuments({ status: 'active' }),
+        TwentyQuestionsRoom.countDocuments({ status: 'solved' }),
+        TwentyQuestionsRoom.countDocuments({ status: 'closed' }),
+        Post.find(postFilter)
+          .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+          .populate('authorId', 'username nickname')
+          .sort({ updatedAt: -1, createdAt: -1 })
+          .limit(6)
+          .lean(),
+        TwentyQuestionsRoom.find({ status: 'active' })
+          .select('_id title category hint status maxQuestions questions guesses hostId solvedBy solvedAt createdAt updatedAt')
+          .populate('hostId', 'username nickname')
+          .populate('solvedBy', 'username nickname')
+          .sort({ updatedAt: -1 })
+          .limit(6)
+          .lean(),
+        TwentyQuestionsRoom.find({})
+          .select('_id title category hint status maxQuestions questions guesses hostId solvedBy solvedAt createdAt updatedAt')
+          .populate('hostId', 'username nickname')
+          .populate('solvedBy', 'username nickname')
+          .sort({ updatedAt: -1 })
+          .limit(6)
+          .lean(),
+        User.find({})
+          .select('username nickname profileBio lp statistics createdAt')
+          .sort({ lp: -1, createdAt: 1 })
+          .limit(5)
+          .lean(),
+      ]);
+
+      return res.json({
+        slug,
+        counts: {
+          users: toNonNegativeInt(userCount),
+          posts: toNonNegativeInt(postCount),
+          rooms: toNonNegativeInt(roomCount),
+          activeRooms: toNonNegativeInt(activeRoomCount),
+          solvedRooms: toNonNegativeInt(solvedRoomCount),
+          closedRooms: toNonNegativeInt(closedRoomCount),
+          visibleRooms: activeRooms.length,
+        },
+        recentPosts: recentPosts.map(mapHubPost),
+        activeRooms: activeRooms.map(mapHubRoom),
+        recentRooms: recentRooms.map(mapHubRoom),
+        recentRuns: [],
+        rankings: {
+          points: topUsers.map(mapHubUserRank),
+          characters: [],
+          teams: [],
+        },
+      });
+    }
+
+    const [
+      userCount,
+      postCount,
+      characterCount,
+      teamCount,
+      runCount,
+      recentPosts,
+      recentRuns,
+      topUsers,
+      topCharacters,
+      topTeams,
+    ] = await Promise.all([
+      User.countDocuments({}),
+      Post.countDocuments(postFilter),
+      Character.countDocuments({}),
+      TeamRecord.countDocuments({}),
+      GameLog.countDocuments({}),
+      Post.find(postFilter)
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(6)
+        .lean(),
+      GameLog.find({})
+        .select('title playedAt winnerName winnerTeamName matchMode teamSize summary')
+        .sort({ playedAt: -1, _id: -1 })
+        .limit(6)
+        .lean(),
+      User.find({})
+        .select('username nickname profileBio lp statistics createdAt')
+        .sort({ lp: -1, createdAt: 1 })
+        .limit(5)
+        .lean(),
+      Character.find({})
+        .select('name weaponType records userId createdAt')
+        .populate('userId', 'username nickname')
+        .sort({ 'records.totalWins': -1, 'records.totalKills': -1, 'records.gamesPlayed': -1, name: 1 })
+        .limit(6)
+        .lean(),
+      TeamRecord.find({})
+        .populate('userId', 'username nickname')
+        .sort({ totalWins: -1, gamesPlayed: -1, totalKills: -1, totalAssists: -1, updatedAt: -1 })
+        .limit(6)
+        .lean(),
+    ]);
+
+    return res.json({
+      slug,
+      counts: {
+        users: toNonNegativeInt(userCount),
+        posts: toNonNegativeInt(postCount),
+        characters: toNonNegativeInt(characterCount),
+        teams: toNonNegativeInt(teamCount),
+        runs: toNonNegativeInt(runCount),
+        rooms: 0,
+        activeRooms: 0,
+        visibleRooms: 0,
+      },
+      recentPosts: recentPosts.map(mapHubPost),
+      activeRooms: [],
+      recentRooms: [],
+      recentRuns: recentRuns.map(mapHubRun),
+      rankings: {
+        points: topUsers.map(mapHubUserRank),
+        characters: topCharacters.map(mapHubCharacterRank),
+        teams: topTeams.map(mapHubTeamRank),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '게임 허브 정보를 불러오지 못했습니다.' });
   }
 });
 

@@ -15,7 +15,7 @@ export const GAME_CATALOG = [
     guideHref: '/guides',
     guideLabel: '가이드',
     visual: 'map',
-    metrics: ['characters', 'posts', 'topLp'],
+    metrics: ['characters', 'teams', 'runs'],
     statusItems: [
       '참가 캐릭터와 상세 설정을 직접 편집합니다.',
       '경기 종료 후 캐릭터별, 팀별 전적을 저장합니다.',
@@ -37,7 +37,7 @@ export const GAME_CATALOG = [
     recordLabel: '방 목록',
     guideHref: '/board?category=game',
     guideLabel: '게임 게시판',
-    metrics: ['rooms', 'activeRooms', 'visibleRooms'],
+    metrics: ['rooms', 'activeRooms', 'solvedRooms'],
     statusItems: [
       '방 생성 후 정답은 방장과 종료된 방에서만 공개됩니다.',
       '질문과 정답 도전이 모두 제한 횟수를 소모합니다.',
