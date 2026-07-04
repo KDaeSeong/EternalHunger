@@ -1680,6 +1680,98 @@ export function getTopTeams(state, limit = 10) {
     .slice(0, limit);
 }
 
+export function getTopPlayers(state, limit = 12) {
+  const current = normalizeState(state);
+  const records = new Map();
+
+  current.teams.forEach((teamData) => {
+    teamData.roster.forEach((member) => {
+      records.set(member.id, {
+        playerId: member.id,
+        playerName: member.name,
+        teamId: teamData.id,
+        teamName: teamData.name,
+        race: member.race,
+        level: Number(member.level || 0),
+        condition: Number(member.condition || 0),
+        fame: Number(member.fame || 0),
+        skill: Math.round(averageStats(teamWithEquipment(current, teamData).roster.find((row) => row.id === member.id) || member)),
+        matchWins: 0,
+        matchLosses: 0,
+        setWins: 0,
+        setLosses: 0,
+      });
+    });
+  });
+
+  current.fixtures.forEach((fixture) => {
+    const result = fixture.result;
+    if (!fixture.played || !result) return;
+    const homePlayers = new Set();
+    const awayPlayers = new Set();
+    result.sets.forEach((setResult) => {
+      if (setResult.homePlayerId) homePlayers.add(setResult.homePlayerId);
+      if (setResult.awayPlayerId) awayPlayers.add(setResult.awayPlayerId);
+
+      const homeRecord = records.get(setResult.homePlayerId);
+      const awayRecord = records.get(setResult.awayPlayerId);
+      if (homeRecord) {
+        if (setResult.winnerPlayerId === setResult.homePlayerId) homeRecord.setWins += 1;
+        else homeRecord.setLosses += 1;
+      }
+      if (awayRecord) {
+        if (setResult.winnerPlayerId === setResult.awayPlayerId) awayRecord.setWins += 1;
+        else awayRecord.setLosses += 1;
+      }
+    });
+
+    homePlayers.forEach((playerId) => {
+      const record = records.get(playerId);
+      if (!record) return;
+      if (result.winnerTeamId === result.homeTeamId) record.matchWins += 1;
+      else record.matchLosses += 1;
+    });
+    awayPlayers.forEach((playerId) => {
+      const record = records.get(playerId);
+      if (!record) return;
+      if (result.winnerTeamId === result.awayTeamId) record.matchWins += 1;
+      else record.matchLosses += 1;
+    });
+  });
+
+  return [...records.values()]
+    .map((record) => {
+      const matchDiff = record.matchWins - record.matchLosses;
+      const setDiff = record.setWins - record.setLosses;
+      const winRate = record.matchWins + record.matchLosses
+        ? Math.round((record.matchWins / (record.matchWins + record.matchLosses)) * 100)
+        : 0;
+      const score = Math.round(
+        record.skill
+        + record.matchWins * 120
+        + record.setWins * 20
+        + record.level * 40
+        + record.fame * 2
+        + setDiff * 12
+        + matchDiff * 35,
+      );
+      return {
+        ...record,
+        matchDiff,
+        setDiff,
+        winRate,
+        score,
+      };
+    })
+    .sort((a, b) => (
+      b.score - a.score
+      || b.matchWins - a.matchWins
+      || b.setDiff - a.setDiff
+      || a.playerName.localeCompare(b.playerName, 'ko-KR')
+    ))
+    .slice(0, limit);
+}
+
 export function getCurrentFixtures(state) {
   const current = normalizeState(state);
   return current.fixtures.filter((fixture) => fixture.round === current.week);

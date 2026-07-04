@@ -27,6 +27,7 @@ import {
   getPlayedCount,
   getPlayTimeSec,
   getSourceSummary,
+  getTopPlayers,
   getTeam,
   getTeamContractRows,
   getTopTeams,
@@ -75,6 +76,7 @@ export default function MyAnimeCraftPlayPage() {
 
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
+  const playerRankings = useMemo(() => getTopPlayers(state, 10), [state]);
   const lastMatch = useMemo(() => state.fixtures
     .map((fixture) => fixture.result)
     .filter(Boolean)
@@ -408,6 +410,29 @@ export default function MyAnimeCraftPlayPage() {
                   <strong>{row.teamName}</strong>
                 </div>
                 <strong>{row.wins}승 {row.losses}패 · {row.diff >= 0 ? '+' : ''}{row.diff}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>선수 랭킹</h2>
+            <span>{playerRankings.length}명</span>
+          </div>
+          <div className="game-save-list">
+            {playerRankings.map((row, index) => (
+              <article className="game-save-row" key={row.playerId}>
+                <div>
+                  <span>
+                    {index + 1}위 · {row.teamName} · {RACE_LABELS[row.race] || row.race}
+                    {' · '}
+                    매치 {row.matchWins}-{row.matchLosses} · 세트 {row.setWins}-{row.setLosses}
+                  </span>
+                  <strong>{row.playerName}</strong>
+                  <span>전력 {row.skill} · 승률 {row.winRate}% · 명성 {row.fame.toLocaleString('ko-KR')}</span>
+                </div>
+                <strong>{row.score.toLocaleString('ko-KR')}</strong>
               </article>
             ))}
           </div>
