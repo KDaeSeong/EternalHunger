@@ -77,6 +77,7 @@ const ECON_TAG_LABELS = {
   SPONSOR: '스폰서',
   TRAINING: '훈련',
   FA: 'FA 영입',
+  TRADE: '트레이드',
   BONUS: '보너스',
 };
 
@@ -750,6 +751,80 @@ export function calcTeamPayroll(teamData) {
   return teamData.roster.reduce((sum, member) => sum + Math.max(10, Math.floor(calcPlayerMarketValue(member) * 0.22)), 0);
 }
 
+function findPlayerOnTeam(teamData, playerId) {
+  return teamData?.roster?.find((member) => member.id === playerId) || teamData?.roster?.[0] || null;
+}
+
+function estimateTradeInternal(state, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs = 0) {
+  const current = normalizeState(state);
+  const ourTeam = getTeam(current, ourTeamId);
+  const theirTeam = getTeam(current, theirTeamId);
+  const ourPlayer = findPlayerOnTeam(ourTeam, ourPlayerId);
+  const theirPlayer = findPlayerOnTeam(theirTeam, theirPlayerId);
+  if (!ourTeam || !theirTeam || ourTeam.id === theirTeam.id || !ourPlayer || !theirPlayer) {
+    return {
+      ok: false,
+      acceptChance: 0,
+      ratio: 0,
+      note: '트레이드 상대와 선수를 다시 선택하세요.',
+      ourValue: 0,
+      theirValue: 0,
+      cashFromUs: 0,
+      canTrade: false,
+    };
+  }
+
+  const cash = Math.max(0, Math.floor(Number(cashFromUs || 0)));
+  const ourValue = calcPlayerMarketValue(ourPlayer);
+  const theirValue = calcPlayerMarketValue(theirPlayer);
+  const receivedByOpponent = ourValue + cash;
+  const givenByOpponent = Math.max(1, theirValue);
+  const ratio = receivedByOpponent / givenByOpponent;
+  let acceptChance = 0.1;
+  let note = '상대가 관심이 적습니다.';
+
+  if (ratio >= 1.25) {
+    acceptChance = 0.95;
+    note = '상대 입장에서 매우 유리합니다.';
+  } else if (ratio >= 1.1) {
+    acceptChance = 0.85;
+    note = '상대 입장에서 유리합니다.';
+  } else if (ratio >= 1.0) {
+    acceptChance = 0.6;
+    note = '대체로 납득 가능한 제안입니다.';
+  } else if (ratio >= 0.92) {
+    acceptChance = 0.35;
+    note = '살짝 손해라서 고민합니다.';
+  }
+
+  if (!current.ended) {
+    acceptChance *= 0.7;
+    note = `(시즌 중) ${note}`;
+  }
+
+  const ourStanding = getStanding(current, ourTeam.id);
+  const ourMoney = Number(ourStanding?.money ?? ourTeam.money ?? 0);
+  const canTrade = ourMoney >= cash && ourTeam.roster.length >= 5 && theirTeam.roster.length >= 5;
+  return {
+    ok: true,
+    acceptChance: clamp(acceptChance, 0.05, 0.98),
+    ratio: Math.round(ratio * 1000) / 1000,
+    note,
+    ourValue,
+    theirValue,
+    cashFromUs: cash,
+    ourTeamId: ourTeam.id,
+    ourTeamName: ourTeam.name,
+    theirTeamId: theirTeam.id,
+    theirTeamName: theirTeam.name,
+    ourPlayerId: ourPlayer.id,
+    ourPlayerName: ourPlayer.name,
+    theirPlayerId: theirPlayer.id,
+    theirPlayerName: theirPlayer.name,
+    canTrade,
+  };
+}
+
 function createPlayerContract(member, teamId, seasonNo, overrides = {}) {
   const marketValue = calcPlayerMarketValue(member);
   return {
@@ -837,6 +912,35 @@ function addEconLog(state, params) {
 export function getTeamContractRows(state, teamId) {
   const current = normalizeState(state);
   return contractRowsForTeam(current, teamId);
+}
+
+export function tradeCandidateRows(state, ourTeamId) {
+  const current = normalizeState(state);
+  const ourTeam = getTeam(current, ourTeamId);
+  return current.teams
+    .filter((teamData) => teamData.id !== ourTeam.id)
+    .map((teamData) => ({
+      teamId: teamData.id,
+      teamName: teamData.name,
+      coach: teamData.coach,
+      power: teamPower(teamData, current),
+      roster: teamData.roster
+        .map((member) => ({
+          playerId: member.id,
+          playerName: member.name,
+          race: member.race,
+          level: Number(member.level || 0),
+          condition: Number(member.condition || 0),
+          fame: Number(member.fame || 0),
+          marketValue: calcPlayerMarketValue(member),
+        }))
+        .sort((a, b) => b.marketValue - a.marketValue || a.playerName.localeCompare(b.playerName, 'ko-KR')),
+    }))
+    .sort((a, b) => b.power - a.power || a.teamName.localeCompare(b.teamName, 'ko-KR'));
+}
+
+export function tradePreview(state, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs = 0) {
+  return estimateTradeInternal(state, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs);
 }
 
 export function econSummary(state, teamId) {
@@ -1587,6 +1691,98 @@ export function signFreeAgentAction(state, teamId) {
     note: `${offer.player.name} FA 계약금`,
     meta: { playerId: offer.player.id, playerName: offer.player.name, salary: offer.salary, yearsLeft: offer.yearsLeft },
   }), `${teamData.name} FA 영입: ${offer.player.name} 계약금 -${offer.signingBonus} Cr, 연봉 ${offer.salary} Cr/${offer.yearsLeft}년`);
+}
+
+export function applyTradeAction(state, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs = 0) {
+  let current = normalizeState(state);
+  const preview = estimateTradeInternal(current, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs);
+  if (!preview.ok) return addStateLog(current, preview.note);
+  if (!preview.canTrade) {
+    return addStateLog(current, `${preview.ourTeamName} 트레이드 실패: 현금 또는 로스터 조건을 확인하세요.`);
+  }
+
+  const rng = createRng(`${current.runId}|trade|${current.seasonNo}|${current.week}|${preview.ourPlayerId}|${preview.theirPlayerId}|${preview.cashFromUs}`);
+  if (rng() >= preview.acceptChance) {
+    return addStateLog(current, `${preview.theirTeamName}이(가) 트레이드를 거절했습니다. ${preview.note} 수락률 ${Math.round(preview.acceptChance * 100)}%`);
+  }
+
+  const ourTeam = getTeam(current, preview.ourTeamId);
+  const theirTeam = getTeam(current, preview.theirTeamId);
+  const ourPlayer = findPlayerOnTeam(ourTeam, preview.ourPlayerId);
+  const theirPlayer = findPlayerOnTeam(theirTeam, preview.theirPlayerId);
+  const cash = preview.cashFromUs;
+
+  current = {
+    ...current,
+    teams: current.teams.map((teamData) => {
+      if (teamData.id === preview.ourTeamId) {
+        return cloneTeam({
+          ...teamData,
+          roster: teamData.roster
+            .filter((member) => member.id !== ourPlayer.id)
+            .concat({ ...theirPlayer }),
+        });
+      }
+      if (teamData.id === preview.theirTeamId) {
+        return cloneTeam({
+          ...teamData,
+          roster: teamData.roster
+            .filter((member) => member.id !== theirPlayer.id)
+            .concat({ ...ourPlayer }),
+        });
+      }
+      return teamData;
+    }),
+    standings: current.standings.map((row) => {
+      if (row.teamId === preview.ourTeamId) return { ...row, money: Number(row.money || 0) - cash };
+      if (row.teamId === preview.theirTeamId) return { ...row, money: Number(row.money || 0) + cash };
+      return row;
+    }),
+    inventories: createInventories(current.teams, current.inventories).map((inventory) => {
+      if (inventory.teamId === preview.ourTeamId) {
+        const equipped = { ...(inventory.equipped || {}) };
+        delete equipped[ourPlayer.id];
+        return { ...inventory, equipped };
+      }
+      if (inventory.teamId === preview.theirTeamId) {
+        const equipped = { ...(inventory.equipped || {}) };
+        delete equipped[theirPlayer.id];
+        return { ...inventory, equipped };
+      }
+      return inventory;
+    }),
+    contracts: {
+      ...current.contracts,
+      [ourPlayer.id]: {
+        ...(current.contracts?.[ourPlayer.id] || createPlayerContract(ourPlayer, preview.theirTeamId, current.seasonNo)),
+        teamId: preview.theirTeamId,
+      },
+      [theirPlayer.id]: {
+        ...(current.contracts?.[theirPlayer.id] || createPlayerContract(theirPlayer, preview.ourTeamId, current.seasonNo)),
+        teamId: preview.ourTeamId,
+      },
+    },
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (cash > 0) {
+    current = addEconLog(current, {
+      tag: 'TRADE',
+      teamId: preview.ourTeamId,
+      amount: -cash,
+      note: `${preview.theirPlayerName} 트레이드 현금 보상`,
+      meta: { trade: true, theirTeamId: preview.theirTeamId, ourPlayerId: preview.ourPlayerId, theirPlayerId: preview.theirPlayerId },
+    });
+    current = addEconLog(current, {
+      tag: 'TRADE',
+      teamId: preview.theirTeamId,
+      amount: cash,
+      note: `${preview.ourPlayerName} 트레이드 현금 수령`,
+      meta: { trade: true, ourTeamId: preview.ourTeamId, ourPlayerId: preview.ourPlayerId, theirPlayerId: preview.theirPlayerId },
+    });
+  }
+
+  return addStateLog(current, `트레이드 성사: ${preview.ourTeamName} ${preview.ourPlayerName} + ${cash}Cr ↔ ${preview.theirTeamName} ${preview.theirPlayerName}`);
 }
 
 export function startNextSeasonAction(state) {

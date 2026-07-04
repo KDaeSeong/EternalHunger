@@ -14,6 +14,7 @@ import {
   QUICK_SAVE_SLOT,
   RACE_LABELS,
   SAVE_VERSION,
+  applyTradeAction,
   buyShopItemAction,
   careerSummary,
   createNewState,
@@ -43,6 +44,8 @@ import {
   startNextSeasonAction,
   summaryForState,
   teamPower,
+  tradeCandidateRows,
+  tradePreview,
   unequipSlotAction,
   consumeInventoryItemAction,
 } from '../_lib/myAnimeCraftEngine';
@@ -71,6 +74,9 @@ export default function MyAnimeCraftPlayPage() {
   const [state, setState] = useState(() => createNewState());
   const [selectedTeamId, setSelectedTeamId] = useState(() => createNewState().teams[0].id);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [tradeTargetTeamId, setTradeTargetTeamId] = useState(() => createNewState().teams[1]?.id || '');
+  const [tradeTargetPlayerId, setTradeTargetPlayerId] = useState('');
+  const [tradeCash, setTradeCash] = useState(0);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -83,6 +89,12 @@ export default function MyAnimeCraftPlayPage() {
     .sort((a, b) => Number(b.playedAt || 0) - Number(a.playedAt || 0))[0], [state.fixtures]);
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
+  const tradeTeams = useMemo(() => tradeCandidateRows(state, selectedTeam.id), [state, selectedTeam.id]);
+  const tradeTargetTeam = tradeTeams.find((team) => team.teamId === tradeTargetTeamId) || tradeTeams[0];
+  const tradeTargetPlayer = tradeTargetTeam?.roster.find((member) => member.playerId === tradeTargetPlayerId) || tradeTargetTeam?.roster[0];
+  const tradeInfo = tradeTargetTeam && selectedPlayer && tradeTargetPlayer
+    ? tradePreview(state, selectedTeam.id, selectedPlayer.id, tradeTargetTeam.teamId, tradeTargetPlayer.playerId, tradeCash)
+    : null;
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
   const selectedCareer = careerSummary(state, selectedTeam.id);
   const freeAgentPreview = getFreeAgentPreview(state, selectedTeam.id);
@@ -143,6 +155,8 @@ export default function MyAnimeCraftPlayPage() {
       const nextState = normalizeState(detail?.save?.payload?.state);
       setState(nextState);
       setSelectedTeamId(nextState.teams[0]?.id || '');
+      setTradeTargetTeamId(nextState.teams[1]?.id || '');
+      setTradeTargetPlayerId('');
       setMessage('저장된 Starleague Sim 시즌을 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Starleague Sim 시즌을 불러왔습니다.' });
     } catch (err) {
@@ -186,6 +200,9 @@ export default function MyAnimeCraftPlayPage() {
     const nextState = createNewState();
     setState(nextState);
     setSelectedTeamId(nextState.teams[0]?.id || '');
+    setTradeTargetTeamId(nextState.teams[1]?.id || '');
+    setTradeTargetPlayerId('');
+    setTradeCash(0);
     setMessage('');
   };
 
@@ -343,6 +360,65 @@ export default function MyAnimeCraftPlayPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>트레이드</h2>
+            <span>{tradeInfo ? `${Math.round(tradeInfo.acceptChance * 100)}%` : '대기'}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>상대 팀</span>
+            <select value={tradeTargetTeam?.teamId || ''} onChange={(event) => {
+              setTradeTargetTeamId(event.target.value);
+              setTradeTargetPlayerId('');
+            }}>
+              {tradeTeams.map((team) => (
+                <option value={team.teamId} key={team.teamId}>{team.teamName} · 전력 {team.power}</option>
+              ))}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>상대 선수</span>
+            <select value={tradeTargetPlayer?.playerId || ''} onChange={(event) => setTradeTargetPlayerId(event.target.value)} disabled={!tradeTargetTeam}>
+              {(tradeTargetTeam?.roster || []).map((member) => (
+                <option value={member.playerId} key={member.playerId}>
+                  {member.playerName} · {RACE_LABELS[member.race] || member.race} · 가치 {member.marketValue}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>현금 보정</span>
+            <input
+              type="number"
+              min="0"
+              step="25"
+              value={tradeCash}
+              onChange={(event) => setTradeCash(Math.max(0, Number(event.target.value || 0)))}
+            />
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="우리 선수" value={`${selectedPlayer?.name || '-'} · ${tradeInfo?.ourValue || 0}`} />
+            <SmallStat label="상대 선수" value={`${tradeTargetPlayer?.playerName || '-'} · ${tradeInfo?.theirValue || 0}`} />
+            <SmallStat label="가치비" value={tradeInfo ? tradeInfo.ratio.toFixed(2) : '-'} />
+          </div>
+          <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
+            {tradeInfo?.note || '트레이드할 선수와 상대 팀을 선택하세요.'}
+          </p>
+          <ActionButton
+            disabled={!tradeInfo?.canTrade}
+            onClick={() => setState((current) => applyTradeAction(
+              current,
+              selectedTeam.id,
+              selectedPlayer.id,
+              tradeTargetTeam.teamId,
+              tradeTargetPlayer.playerId,
+              tradeCash,
+            ))}
+          >
+            1:1 트레이드 제안
+          </ActionButton>
         </section>
 
         <section className="games-panel">
