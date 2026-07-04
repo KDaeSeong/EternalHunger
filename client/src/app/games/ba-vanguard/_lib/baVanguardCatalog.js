@@ -23,6 +23,22 @@ export const SIDE_LABELS = {
   opp: 'AI',
 };
 
+const TYPE_LABELS = {
+  starter: '스타터',
+  trigger: '트리거',
+  sentinel: '센티넬',
+  normal: '노멀',
+  'g-unit': 'G 유닛',
+  'g-guardian': 'G 가디언',
+};
+
+const TRIGGER_LABELS = {
+  critical: '크리티컬',
+  draw: '드로우',
+  stand: '스탠드',
+  heal: '힐',
+};
+
 const CLANS = [
   {
     key: 'gehenna',
@@ -386,6 +402,129 @@ export function shuffle(values, seed = Date.now()) {
 
 export function drawOpeningHand(deck, seed = Date.now(), size = 5) {
   return shuffle(expandEntries(deck?.main), seed).slice(0, size);
+}
+
+function roundOne(value) {
+  return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function percent(hits, total) {
+  return total ? roundOne((hits / total) * 100) : 0;
+}
+
+export function deckCompositionRows(deck) {
+  const rows = new Map();
+  const zones = [
+    { key: 'main', label: '메인', entries: deck?.main || [] },
+    { key: 'gzone', label: 'G존', entries: deck?.gzone || [] },
+  ];
+
+  zones.forEach((zone) => {
+    zone.entries.forEach((entry) => {
+      const card = getCard(entry.cardId);
+      const count = Math.max(0, Number(entry.count || 0));
+      if (!card || count <= 0) return;
+      const grade = Number(card.grade || 0);
+      const trigger = card.trigger || '';
+      const key = `${zone.key}:${grade}:${card.type}:${trigger}`;
+      const current = rows.get(key) || {
+        key,
+        zone: zone.key,
+        zoneLabel: zone.label,
+        grade,
+        type: card.type,
+        trigger,
+        count: 0,
+        powerTotal: 0,
+        shieldTotal: 0,
+      };
+      current.count += count;
+      current.powerTotal += Number(card.power || 0) * count;
+      current.shieldTotal += Number(card.shield || 0) * count;
+      rows.set(key, current);
+    });
+  });
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      label: `${row.zoneLabel} G${row.grade} ${TYPE_LABELS[row.type] || row.type}${row.trigger ? `(${TRIGGER_LABELS[row.trigger] || row.trigger})` : ''}`,
+      averagePower: row.count ? Math.round(row.powerTotal / row.count) : 0,
+    }))
+    .sort((a, b) => {
+      if (a.zone !== b.zone) return a.zone === 'main' ? -1 : 1;
+      if (a.grade !== b.grade) return a.grade - b.grade;
+      return a.label.localeCompare(b.label, 'ko-KR');
+    });
+}
+
+export function openingHandStats(deck, seed = Date.now(), samples = 160, handSize = 5) {
+  const ids = expandEntries(deck?.main);
+  const sampleTotal = Math.max(1, Number(samples || 1));
+  const totals = {
+    grade1: 0,
+    grade2: 0,
+    grade3: 0,
+    rideLine: 0,
+    sentinel: 0,
+    triggers: 0,
+    shield: 0,
+    power: 0,
+  };
+
+  for (let index = 0; index < sampleTotal; index += 1) {
+    const hand = shuffle(ids, (Number(seed || 1) + index * 2654435761) >>> 0).slice(0, handSize);
+    const cards = hand.map(getCard).filter(Boolean);
+    const hasGrade1 = cards.some((card) => Number(card.grade || 0) === 1);
+    const hasGrade2 = cards.some((card) => Number(card.grade || 0) === 2);
+    const hasGrade3 = cards.some((card) => Number(card.grade || 0) === 3);
+    if (hasGrade1) totals.grade1 += 1;
+    if (hasGrade2) totals.grade2 += 1;
+    if (hasGrade3) totals.grade3 += 1;
+    if (hasGrade1 && hasGrade2 && hasGrade3) totals.rideLine += 1;
+    if (cards.some((card) => card.type === 'sentinel')) totals.sentinel += 1;
+    totals.triggers += cards.filter((card) => card.type === 'trigger').length;
+    totals.shield += cards.reduce((sum, card) => sum + Number(card.shield || 0), 0);
+    totals.power += cards.reduce((sum, card) => sum + Number(card.power || 0), 0);
+  }
+
+  return {
+    samples: sampleTotal,
+    handSize,
+    grade1Rate: percent(totals.grade1, sampleTotal),
+    grade2Rate: percent(totals.grade2, sampleTotal),
+    grade3Rate: percent(totals.grade3, sampleTotal),
+    rideLineRate: percent(totals.rideLine, sampleTotal),
+    sentinelRate: percent(totals.sentinel, sampleTotal),
+    triggerAverage: roundOne(totals.triggers / sampleTotal),
+    shieldAverage: Math.round(totals.shield / sampleTotal),
+    powerAverage: Math.round(totals.power / sampleTotal),
+  };
+}
+
+export function deckConsistencyReport(deck, seed = Date.now()) {
+  const validation = validateDeck(deck);
+  const summary = summarizeDeck(deck);
+  const composition = deckCompositionRows(deck);
+  const opening = openingHandStats(deck, seed);
+  const recommendations = [];
+
+  if (validation.errors.length) recommendations.push('필수 규칙 오류가 있습니다. 메인 덱/G존/트리거 매수부터 맞춰 주세요.');
+  if (opening.grade1Rate < 75) recommendations.push('오프닝 G1 확보율이 낮습니다. G1 라인을 늘리면 라이드 사고가 줄어듭니다.');
+  if (opening.grade2Rate < 70) recommendations.push('오프닝 G2 확보율이 낮습니다. 초중반 필드 전개가 끊길 수 있습니다.');
+  if (opening.grade3Rate < 55) recommendations.push('G3 접근률이 낮습니다. 스트라이드 전환이 늦어질 수 있습니다.');
+  if (opening.rideLineRate < 25) recommendations.push('G1/G2/G3 동시 확보율이 낮습니다. 멀리건 기준을 보수적으로 잡는 편이 좋습니다.');
+  if (opening.sentinelRate < 30) recommendations.push('센티넬 접근률이 낮습니다. 방어 안정성이 떨어질 수 있습니다.');
+  if (summary.totalShield < 220000) recommendations.push('총 실드가 낮은 편입니다. 방어용 G1/G2 또는 트리거 비중을 점검해 주세요.');
+  if (!recommendations.length) recommendations.push('오프닝과 방어 수치가 안정권입니다. 현재 프리셋으로 바로 테스트해도 됩니다.');
+
+  return {
+    validation,
+    summary,
+    composition,
+    opening,
+    recommendations,
+  };
 }
 
 export function scoreDeck(deck) {
