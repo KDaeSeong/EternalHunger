@@ -19,6 +19,25 @@ export const PRODUCTS = [
   { id: 'video-furina', name: '푸리나 스페셜 영상 컬렉션', category: 'VIDEO', character: '푸리나', unitPrice: 52000, unitCost: 16000, hype: 70 },
 ];
 
+export const GLOBAL_MARKETS = [
+  { id: 'jp-retail', name: '일본 오프라인 서점', currency: 'JPY', exchangeRateKrw: 9.2, demand: 78, logisticsCostPerUnitKrw: 1400, localizationCostKrw: 7200000, tariffRate: 2.5 },
+  { id: 'na-stream', name: '북미 스트리밍 플랫폼', currency: 'USD', exchangeRateKrw: 1370, demand: 66, logisticsCostPerUnitKrw: 2600, localizationCostKrw: 11800000, tariffRate: 4.0 },
+  { id: 'eu-event', name: '유럽 이벤트 벤더', currency: 'EUR', exchangeRateKrw: 1490, demand: 58, logisticsCostPerUnitKrw: 3100, localizationCostKrw: 9400000, tariffRate: 5.5 },
+];
+
+export const CAPITAL_DISCLOSURE_TYPES = [
+  { id: 'EARNINGS_CALL', label: '실적 발표', trustDelta: 4, riskDelta: -3, costKrw: 2400000 },
+  { id: 'AUDIT_RESPONSE', label: '감사 대응', trustDelta: 2, riskDelta: -6, costKrw: 5200000 },
+  { id: 'GOVERNANCE_FIX', label: '지배구조 개선', trustDelta: 5, riskDelta: -4, costKrw: 7800000 },
+  { id: 'CLARIFICATION', label: '정정 공시', trustDelta: 1, riskDelta: -2, costKrw: 1800000 },
+];
+
+export const CAPITAL_FINANCING_TYPES = [
+  { id: 'RIGHTS_OFFERING', label: '유상증자', cashKrw: 240000000, trustDelta: -3, riskDelta: 2, shareDelta: 18000 },
+  { id: 'CORPORATE_BOND', label: '회사채 발행', cashKrw: 180000000, trustDelta: -1, riskDelta: 4, debtKrw: 180000000 },
+  { id: 'CONVERTIBLE_BOND', label: '전환사채', cashKrw: 160000000, trustDelta: 1, riskDelta: 3, debtKrw: 120000000, shareDelta: 6000 },
+];
+
 const FIXED_EXPENSES = [
   { type: 'PAYROLL', label: '인건비', amount: 100800000 },
   { type: 'MARKETING', label: '기본 마케팅비', amount: 42000000 },
@@ -79,6 +98,44 @@ export function createNewState(options = {}) {
     ledgerSnapshots: [],
     reportBookmarks: [],
     exportHistory: [],
+    global: {
+      exportPlans: [],
+      importPlans: [],
+      exportResults: [],
+      importResults: [],
+      foreignReceivables: [],
+      hedgeContracts: [],
+      exchangeRateLog: GLOBAL_MARKETS.map((market) => ({
+        marketId: market.id,
+        currency: market.currency,
+        year: 2026,
+        month: 2,
+        exchangeRateKrw: market.exchangeRateKrw,
+      })),
+      nextExportNo: 1,
+      nextImportNo: 1,
+      nextForeignArNo: 1,
+      nextHedgeNo: 1,
+    },
+    capitalMarket: {
+      listed: true,
+      sharePrice: 12800,
+      sharesOutstanding: 120000,
+      investorTrust: 64,
+      disclosureRisk: 14,
+      debtKrw: 0,
+      disclosures: [],
+      dividends: [],
+      financingPlans: [],
+      riskEvents: [],
+      stockHistory: [
+        { year: 2026, month: 1, sharePrice: 12400, investorTrust: 61, disclosureRisk: 18 },
+      ],
+      nextDisclosureNo: 1,
+      nextDividendNo: 1,
+      nextFinancingNo: 1,
+      nextRiskNo: 1,
+    },
     nextOrderNo: 5,
     nextReceivableNo: 4,
     log: ['청람 경영 원장을 불러왔습니다. 주문, 출고, 회수, 월말 결산을 진행해 보고서를 갱신하세요.'],
@@ -99,6 +156,8 @@ export function normalizeState(value) {
     ledgerSnapshots: Array.isArray(value.ledgerSnapshots) ? value.ledgerSnapshots : [],
     reportBookmarks: Array.isArray(value.reportBookmarks) ? value.reportBookmarks.slice(0, 12) : [],
     exportHistory: Array.isArray(value.exportHistory) ? value.exportHistory.slice(0, 12) : [],
+    global: normalizeGlobalState(value.global, base.global),
+    capitalMarket: normalizeCapitalMarketState(value.capitalMarket, base.capitalMarket),
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   };
 }
@@ -213,6 +272,312 @@ export function marketingCampaignAction(state, productId) {
   }, `${product.name} 캠페인을 집행했습니다. 평판과 팬덤이 상승했습니다.`);
 }
 
+export function createExportPlanAction(state, marketId, productId, plannedUnits) {
+  const current = normalizeState(state);
+  const market = getMarket(marketId);
+  const product = getProduct(productId);
+  const units = Math.max(1, Math.round(Number(plannedUnits || 1)));
+  if (!market || !product) return current;
+  const plan = {
+    id: `EX-${current.company.year}-${String(current.global.nextExportNo).padStart(4, '0')}`,
+    marketId: market.id,
+    productId: product.id,
+    plannedUnits: units,
+    exchangeRateKrw: market.exchangeRateKrw,
+    status: 'ACTIVE',
+    year: current.company.year,
+    month: current.company.month,
+  };
+  return addLog({
+    ...current,
+    global: {
+      ...current.global,
+      exportPlans: [plan, ...current.global.exportPlans].slice(0, 16),
+      nextExportNo: Number(current.global.nextExportNo || 1) + 1,
+    },
+  }, `${market.name} 수출 계획 ${plan.id}를 등록했습니다. ${product.name} ${units}개.`);
+}
+
+export function createImportPlanAction(state, marketId, productId, plannedUnits) {
+  const current = normalizeState(state);
+  const market = getMarket(marketId);
+  const product = getProduct(productId);
+  const units = Math.max(1, Math.round(Number(plannedUnits || 1)));
+  if (!market || !product) return current;
+  const plan = {
+    id: `IM-${current.company.year}-${String(current.global.nextImportNo).padStart(4, '0')}`,
+    marketId: market.id,
+    productId: product.id,
+    plannedUnits: units,
+    exchangeRateKrw: market.exchangeRateKrw,
+    status: 'ACTIVE',
+    year: current.company.year,
+    month: current.company.month,
+  };
+  return addLog({
+    ...current,
+    global: {
+      ...current.global,
+      importPlans: [plan, ...current.global.importPlans].slice(0, 16),
+      nextImportNo: Number(current.global.nextImportNo || 1) + 1,
+    },
+  }, `${market.name} 수입 계획 ${plan.id}를 등록했습니다. ${product.name} ${units}개.`);
+}
+
+export function createHedgeContractAction(state) {
+  const current = normalizeState(state);
+  const summary = globalTradeSummary(current);
+  const notionalKrw = Math.max(50000000, Math.round((summary.openForeignReceivableKrw || 0) * 0.65));
+  const premiumKrw = Math.round(notionalKrw * 0.012);
+  if (Number(current.company.cashKrw || 0) < premiumKrw) return addLog(current, '현금이 부족해 환헤지 프리미엄을 납부할 수 없습니다.');
+  const hedge = {
+    id: `HG-${current.company.year}-${String(current.global.nextHedgeNo).padStart(4, '0')}`,
+    notionalKrw,
+    premiumKrw,
+    status: 'ACTIVE',
+    year: current.company.year,
+    month: current.company.month,
+  };
+  return addLog({
+    ...current,
+    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) - premiumKrw },
+    global: {
+      ...current.global,
+      hedgeContracts: [hedge, ...current.global.hedgeContracts].slice(0, 12),
+      nextHedgeNo: Number(current.global.nextHedgeNo || 1) + 1,
+    },
+  }, `${hedge.id} 환헤지 계약을 체결했습니다. 프리미엄 ${formatMoney(premiumKrw)}.`);
+}
+
+export function settleGlobalTradeAction(state) {
+  const current = normalizeState(state);
+  const activeExports = current.global.exportPlans.filter((plan) => plan.status === 'ACTIVE');
+  const activeImports = current.global.importPlans.filter((plan) => plan.status === 'ACTIVE');
+  if (!activeExports.length && !activeImports.length) return addLog(current, '정산할 활성 수출입 계획이 없습니다.');
+
+  let cashKrw = Number(current.company.cashKrw || 0);
+  let nextForeignNo = Number(current.global.nextForeignArNo || 1);
+  let nextInventory = JSON.parse(JSON.stringify(current.inventory));
+  const exportResults = [];
+  const importResults = [];
+  const foreignReceivables = [];
+  const hedgeEffectKrw = current.global.hedgeContracts
+    .filter((hedge) => hedge.status === 'ACTIVE')
+    .reduce((sum, hedge) => sum + Math.round(Number(hedge.notionalKrw || 0) * 0.018), 0);
+
+  for (const plan of activeExports) {
+    const market = getMarket(plan.marketId);
+    const product = getProduct(plan.productId);
+    if (!market || !product) continue;
+    const soldUnits = Math.max(1, Math.round(Number(plan.plannedUnits || 0) * Math.min(1.15, (market.demand + Number(current.company.reputation || 0)) / 165)));
+    const salesKrw = Math.round(product.unitPrice * soldUnits * (1 + market.demand / 230));
+    const exportCostKrw = Math.round(product.unitCost * soldUnits + market.logisticsCostPerUnitKrw * soldUnits + market.localizationCostKrw);
+    if (cashKrw < exportCostKrw) return addLog(current, `${plan.id} 정산에 필요한 현금 ${formatMoney(exportCostKrw)}이 부족합니다.`);
+    cashKrw -= exportCostKrw;
+    const fxGainLossKrw = Math.round(salesKrw * ((market.exchangeRateKrw - Number(plan.exchangeRateKrw || market.exchangeRateKrw)) / Math.max(1, Number(plan.exchangeRateKrw || market.exchangeRateKrw))));
+    const receivableAmountKrw = Math.max(0, salesKrw + fxGainLossKrw);
+    const foreignAr = {
+      id: `FAR-${current.company.year}-${String(nextForeignNo).padStart(4, '0')}`,
+      marketId: market.id,
+      productId: product.id,
+      amountKrw: receivableAmountKrw,
+      collectedKrw: 0,
+      currency: market.currency,
+      status: 'OPEN',
+      year: current.company.year,
+      month: current.company.month,
+    };
+    nextForeignNo += 1;
+    foreignReceivables.push(foreignAr);
+    exportResults.push({
+      id: `EXR-${plan.id}`,
+      planId: plan.id,
+      marketId: market.id,
+      productId: product.id,
+      soldUnits,
+      salesKrw,
+      exportCostKrw,
+      fxGainLossKrw,
+      receivableAmountKrw,
+      year: current.company.year,
+      month: current.company.month,
+    });
+  }
+
+  for (const plan of activeImports) {
+    const market = getMarket(plan.marketId);
+    const product = getProduct(plan.productId);
+    if (!market || !product) continue;
+    const units = Math.max(1, Math.round(Number(plan.plannedUnits || 0)));
+    const landedUnitCostKrw = Math.round(product.unitCost * 0.72 + market.logisticsCostPerUnitKrw + product.unitCost * (market.tariffRate / 100));
+    const landedCostKrw = landedUnitCostKrw * units;
+    if (cashKrw < landedCostKrw) return addLog(current, `${plan.id} 수입 입고에 필요한 현금 ${formatMoney(landedCostKrw)}이 부족합니다.`);
+    cashKrw -= landedCostKrw;
+    const stock = nextInventory[product.id] || { onHand: 0, reserved: 0, avgCost: product.unitCost };
+    const nextQty = Number(stock.onHand || 0) + units;
+    const totalCost = Number(stock.onHand || 0) * Number(stock.avgCost || product.unitCost) + landedCostKrw;
+    nextInventory[product.id] = { ...stock, onHand: nextQty, avgCost: Math.round(totalCost / Math.max(1, nextQty)) };
+    importResults.push({
+      id: `IMR-${plan.id}`,
+      planId: plan.id,
+      marketId: market.id,
+      productId: product.id,
+      units,
+      landedUnitCostKrw,
+      landedCostKrw,
+      year: current.company.year,
+      month: current.company.month,
+    });
+  }
+
+  cashKrw += hedgeEffectKrw;
+  return addLog({
+    ...current,
+    company: {
+      ...current.company,
+      cashKrw,
+      reputation: clamp(Number(current.company.reputation || 0) + exportResults.length * 2 + importResults.length, 0, 100),
+      fanBase: Number(current.company.fanBase || 0) + exportResults.reduce((sum, row) => sum + row.soldUnits * 12, 0),
+    },
+    inventory: nextInventory,
+    global: {
+      ...current.global,
+      exportPlans: current.global.exportPlans.map((plan) => plan.status === 'ACTIVE' ? { ...plan, status: 'COMPLETED' } : plan),
+      importPlans: current.global.importPlans.map((plan) => plan.status === 'ACTIVE' ? { ...plan, status: 'COMPLETED' } : plan),
+      exportResults: [...exportResults, ...current.global.exportResults].slice(0, 18),
+      importResults: [...importResults, ...current.global.importResults].slice(0, 18),
+      foreignReceivables: [...foreignReceivables, ...current.global.foreignReceivables].slice(0, 18),
+      hedgeContracts: current.global.hedgeContracts.map((hedge) => hedge.status === 'ACTIVE' ? { ...hedge, status: 'SETTLED', settlementKrw: Math.round(Number(hedge.notionalKrw || 0) * 0.018) } : hedge),
+      nextForeignArNo: nextForeignNo,
+    },
+  }, `글로벌 수출입 정산 완료. 수출 ${exportResults.length}건, 수입 ${importResults.length}건, 헤지효과 ${formatMoney(hedgeEffectKrw)}.`);
+}
+
+export function collectForeignReceivableAction(state, foreignArId) {
+  const current = normalizeState(state);
+  const row = current.global.foreignReceivables.find((item) => item.id === foreignArId);
+  if (!row) return current;
+  const remaining = Math.max(0, Number(row.amountKrw || 0) - Number(row.collectedKrw || 0));
+  if (!remaining) return addLog(current, '이미 회수 완료된 외화채권입니다.');
+  return addLog({
+    ...current,
+    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) + remaining },
+    global: {
+      ...current.global,
+      foreignReceivables: current.global.foreignReceivables.map((item) => item.id === row.id ? { ...item, collectedKrw: item.amountKrw, status: 'COLLECTED' } : item),
+    },
+  }, `${getMarket(row.marketId)?.name || '해외 시장'} 외화채권 ${formatMoney(remaining)}을 회수했습니다.`);
+}
+
+export function createDisclosureAction(state, disclosureTypeId) {
+  const current = normalizeState(state);
+  const type = CAPITAL_DISCLOSURE_TYPES.find((item) => item.id === disclosureTypeId) || CAPITAL_DISCLOSURE_TYPES[0];
+  if (Number(current.company.cashKrw || 0) < type.costKrw) return addLog(current, '현금이 부족해 공시 대응을 진행할 수 없습니다.');
+  const disclosure = {
+    id: `DSC-${current.company.year}-${String(current.capitalMarket.nextDisclosureNo).padStart(4, '0')}`,
+    type: type.id,
+    label: type.label,
+    costKrw: type.costKrw,
+    trustDelta: type.trustDelta,
+    riskDelta: type.riskDelta,
+    year: current.company.year,
+    month: current.company.month,
+  };
+  return addLog({
+    ...current,
+    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) - type.costKrw },
+    capitalMarket: {
+      ...current.capitalMarket,
+      investorTrust: clamp(Number(current.capitalMarket.investorTrust || 0) + type.trustDelta, 0, 100),
+      disclosureRisk: clamp(Number(current.capitalMarket.disclosureRisk || 0) + type.riskDelta, 0, 100),
+      disclosures: [disclosure, ...current.capitalMarket.disclosures].slice(0, 16),
+      nextDisclosureNo: Number(current.capitalMarket.nextDisclosureNo || 1) + 1,
+    },
+  }, `${type.label} 공시 대응을 진행했습니다. 투자자 신뢰 ${type.trustDelta >= 0 ? '+' : ''}${type.trustDelta}.`);
+}
+
+export function decideDividendAction(state) {
+  const current = normalizeState(state);
+  const amountKrw = Math.round(Number(current.capitalMarket.sharesOutstanding || 0) * 120);
+  if (Number(current.company.cashKrw || 0) < amountKrw) return addLog(current, '현금이 부족해 배당을 결정할 수 없습니다.');
+  const dividend = {
+    id: `DIV-${current.company.year}-${String(current.capitalMarket.nextDividendNo).padStart(4, '0')}`,
+    amountKrw,
+    perShareKrw: 120,
+    year: current.company.year,
+    month: current.company.month,
+  };
+  return addLog({
+    ...current,
+    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) - amountKrw },
+    capitalMarket: {
+      ...current.capitalMarket,
+      investorTrust: clamp(Number(current.capitalMarket.investorTrust || 0) + 3, 0, 100),
+      dividends: [dividend, ...current.capitalMarket.dividends].slice(0, 12),
+      nextDividendNo: Number(current.capitalMarket.nextDividendNo || 1) + 1,
+    },
+  }, `주당 ${formatMoney(dividend.perShareKrw)} 배당을 결정했습니다. 총 ${formatMoney(amountKrw)}.`);
+}
+
+export function raiseCapitalAction(state, financingTypeId) {
+  const current = normalizeState(state);
+  const type = CAPITAL_FINANCING_TYPES.find((item) => item.id === financingTypeId) || CAPITAL_FINANCING_TYPES[0];
+  const plan = {
+    id: `FIN-${current.company.year}-${String(current.capitalMarket.nextFinancingNo).padStart(4, '0')}`,
+    type: type.id,
+    label: type.label,
+    cashKrw: type.cashKrw,
+    debtKrw: type.debtKrw || 0,
+    shareDelta: type.shareDelta || 0,
+    year: current.company.year,
+    month: current.company.month,
+  };
+  return addLog({
+    ...current,
+    company: { ...current.company, cashKrw: Number(current.company.cashKrw || 0) + type.cashKrw },
+    capitalMarket: {
+      ...current.capitalMarket,
+      sharesOutstanding: Number(current.capitalMarket.sharesOutstanding || 0) + Number(type.shareDelta || 0),
+      debtKrw: Number(current.capitalMarket.debtKrw || 0) + Number(type.debtKrw || 0),
+      investorTrust: clamp(Number(current.capitalMarket.investorTrust || 0) + type.trustDelta, 0, 100),
+      disclosureRisk: clamp(Number(current.capitalMarket.disclosureRisk || 0) + type.riskDelta, 0, 100),
+      financingPlans: [plan, ...current.capitalMarket.financingPlans].slice(0, 12),
+      nextFinancingNo: Number(current.capitalMarket.nextFinancingNo || 1) + 1,
+    },
+  }, `${type.label}으로 ${formatMoney(type.cashKrw)}을 조달했습니다.`);
+}
+
+export function closeCapitalMarketAction(state) {
+  const current = normalizeState(state);
+  const summary = reportSummary(current);
+  const global = globalTradeSummary(current);
+  const trust = Number(current.capitalMarket.investorTrust || 0);
+  const risk = Number(current.capitalMarket.disclosureRisk || 0);
+  const salesMomentum = Math.min(8, Math.round((summary.sales + global.exportSalesKrw) / 25000000));
+  const profitSignal = (summary.latestSettlement?.netProfit || managementReport(current).income.operatingProfit) >= 0 ? 2 : -3;
+  const trustDelta = profitSignal + salesMomentum - Math.round(risk / 28);
+  const nextTrust = clamp(trust + trustDelta, 0, 100);
+  const priceMovePct = (nextTrust - trust) * 0.018 + salesMomentum * 0.006 - risk * 0.0015;
+  const nextSharePrice = Math.max(1000, Math.round(Number(current.capitalMarket.sharePrice || 1000) * (1 + priceMovePct)));
+  const stockPoint = {
+    year: current.company.year,
+    month: current.company.month,
+    sharePrice: nextSharePrice,
+    investorTrust: nextTrust,
+    disclosureRisk: clamp(risk - 1, 0, 100),
+  };
+  return addLog({
+    ...current,
+    capitalMarket: {
+      ...current.capitalMarket,
+      sharePrice: nextSharePrice,
+      investorTrust: nextTrust,
+      disclosureRisk: stockPoint.disclosureRisk,
+      stockHistory: [stockPoint, ...current.capitalMarket.stockHistory].slice(0, 18),
+    },
+  }, `자본시장 월마감 완료. 주가 ${formatMoney(nextSharePrice)}, 투자자 신뢰 ${nextTrust}.`);
+}
+
 export function monthEndCloseAction(state) {
   const current = normalizeState(state);
   const year = Number(current.company.year || 2026);
@@ -261,7 +626,7 @@ export function createLedgerSnapshotAction(state) {
     createdAt: new Date().toISOString(),
     label: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 원장 스냅샷`,
     checksum,
-    rowCount: current.orders.length + current.receivables.length + Object.keys(current.inventory).length + current.settlements.length + 1,
+    rowCount: ledgerRowCount(current),
     payload,
   };
   return addLog({
@@ -274,11 +639,12 @@ export function restoreLatestSnapshotAction(state) {
   const current = normalizeState(state);
   const snapshot = current.ledgerSnapshots[0];
   if (!snapshot?.payload) return addLog(current, '복원할 원장 스냅샷이 없습니다.');
-  return addLog({
+  const restored = normalizeState({
     ...current,
     ...snapshot.payload,
     ledgerSnapshots: current.ledgerSnapshots,
-  }, `${snapshot.label} 기준으로 원장 상태를 복원했습니다.`);
+  });
+  return addLog(restored, `${snapshot.label} 기준으로 원장 상태를 복원했습니다.`);
 }
 
 export function bookmarkCurrentReportAction(state) {
@@ -322,12 +688,18 @@ export function ledgerDiffRows(state) {
     moneyDiffRow('현금', before.cashKrw, after.cashKrw),
     moneyDiffRow('재고 장부', before.inventoryAmount, after.inventoryAmount),
     moneyDiffRow('채권 잔액', before.receivableAmount, after.receivableAmount),
+    moneyDiffRow('외화채권', before.foreignReceivableAmount, after.foreignReceivableAmount),
+    moneyDiffRow('시가총액', before.marketCapKrw, after.marketCapKrw),
     numberDiffRow('주문', before.orderCount, after.orderCount, '건'),
     numberDiffRow('출고 주문', before.shippedOrders, after.shippedOrders, '건'),
     numberDiffRow('미수 채권', before.openReceivables, after.openReceivables, '건'),
+    numberDiffRow('수출 결과', before.exportResultCount, after.exportResultCount, '건'),
+    numberDiffRow('수입 결과', before.importResultCount, after.importResultCount, '건'),
     numberDiffRow('결산', before.settlementCount, after.settlementCount, '건'),
     numberDiffRow('평판', before.reputation, after.reputation),
     numberDiffRow('팬덤', before.fanBase, after.fanBase, '명'),
+    numberDiffRow('투자자 신뢰', before.investorTrust, after.investorTrust),
+    numberDiffRow('공시위험', before.disclosureRisk, after.disclosureRisk),
   ];
 }
 
@@ -343,8 +715,12 @@ export function createProgressExportAction(state) {
     `Cash: ${formatMoney(current.company.cashKrw)}`,
     `Assets: ${formatMoney(summary.assets)}`,
     `Receivables: ${formatMoney(summary.receivableAmount)}`,
+    `Foreign Receivables: ${formatMoney(summary.foreignReceivableAmount)}`,
     `Sales: ${formatMoney(management.income.sales)}`,
     `Operating Profit: ${formatMoney(management.income.operatingProfit)}`,
+    `Global Export Sales: ${formatMoney(management.global.exportSalesKrw)}`,
+    `Market Cap: ${formatMoney(management.capital.marketCapKrw)}`,
+    `Investor Trust: ${management.capital.investorTrust}`,
     `Snapshots: ${current.ledgerSnapshots.length}`,
     diffRows.length ? 'Ledger Diff:' : 'Ledger Diff: no snapshot',
     ...diffRows.map((row) => `- ${row.label}: ${row.before} -> ${row.after} (${row.deltaText})`),
@@ -353,7 +729,7 @@ export function createProgressExportAction(state) {
     id: `EXP-${Date.now().toString(36)}`,
     createdAt: new Date().toISOString(),
     exportType: 'MANAGEMENT_REPORT',
-    itemCount: 8 + diffRows.length,
+    itemCount: 12 + diffRows.length,
     exportNote: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 진행 보고서`,
     checksum: simpleChecksum(content),
     content,
@@ -402,21 +778,95 @@ export function receivableRows(state) {
   }));
 }
 
+export function globalMarketRows() {
+  return GLOBAL_MARKETS.map((market) => ({
+    ...market,
+    exchangeRateLabel: `${market.currency} ${market.exchangeRateKrw.toLocaleString('ko-KR')}원`,
+    demandLabel: `${market.demand}/100`,
+    tariffLabel: `${market.tariffRate}%`,
+  }));
+}
+
+export function globalReceivableRows(state) {
+  const current = normalizeState(state);
+  return current.global.foreignReceivables.map((row) => ({
+    ...row,
+    marketName: getMarket(row.marketId)?.name || row.marketId,
+    productName: getProduct(row.productId)?.name || row.productId,
+    remainingKrw: Math.max(0, Number(row.amountKrw || 0) - Number(row.collectedKrw || 0)),
+  }));
+}
+
+export function globalTradeSummary(state) {
+  const current = normalizeState(state);
+  const exportSalesKrw = current.global.exportResults.reduce((sum, row) => sum + Number(row.salesKrw || 0), 0);
+  const exportCostKrw = current.global.exportResults.reduce((sum, row) => sum + Number(row.exportCostKrw || 0), 0);
+  const importLandedCostKrw = current.global.importResults.reduce((sum, row) => sum + Number(row.landedCostKrw || 0), 0);
+  const openForeignReceivableKrw = globalReceivableRows(current).reduce((sum, row) => sum + Number(row.remainingKrw || 0), 0);
+  const hedgeNotionalKrw = current.global.hedgeContracts
+    .filter((hedge) => hedge.status === 'ACTIVE')
+    .reduce((sum, hedge) => sum + Number(hedge.notionalKrw || 0), 0);
+  return {
+    activeExports: current.global.exportPlans.filter((plan) => plan.status === 'ACTIVE').length,
+    activeImports: current.global.importPlans.filter((plan) => plan.status === 'ACTIVE').length,
+    completedExports: current.global.exportResults.length,
+    completedImports: current.global.importResults.length,
+    exportSalesKrw,
+    exportCostKrw,
+    exportProfitKrw: exportSalesKrw - exportCostKrw,
+    importLandedCostKrw,
+    openForeignReceivableKrw,
+    collectedForeignReceivableKrw: current.global.foreignReceivables.reduce((sum, row) => sum + Number(row.collectedKrw || 0), 0),
+    hedgeNotionalKrw,
+    hedgeCount: current.global.hedgeContracts.length,
+  };
+}
+
+export function capitalMarketSummary(state) {
+  const current = normalizeState(state);
+  const marketCapKrw = Number(current.capitalMarket.sharePrice || 0) * Number(current.capitalMarket.sharesOutstanding || 0);
+  const latestStock = current.capitalMarket.stockHistory[0] || null;
+  const previousStock = current.capitalMarket.stockHistory[1] || null;
+  const priceDelta = latestStock && previousStock ? Number(latestStock.sharePrice || 0) - Number(previousStock.sharePrice || 0) : 0;
+  const alerts = [];
+  if (Number(current.capitalMarket.disclosureRisk || 0) >= 35) alerts.push('공시위험이 높습니다. 감사 대응이나 정정 공시가 필요합니다.');
+  if (Number(current.capitalMarket.investorTrust || 0) < 45) alerts.push('투자자 신뢰가 낮습니다. 실적 발표 또는 배당 정책을 검토하세요.');
+  if (Number(current.capitalMarket.debtKrw || 0) > marketCapKrw * 0.3) alerts.push('상장 부채 비중이 커졌습니다. 추가 차입은 보수적으로 봐야 합니다.');
+  if (!alerts.length) alerts.push('상장 상태가 안정권입니다. 글로벌 매출 확대와 정기 공시를 유지하세요.');
+  return {
+    marketCapKrw,
+    sharePrice: Number(current.capitalMarket.sharePrice || 0),
+    sharesOutstanding: Number(current.capitalMarket.sharesOutstanding || 0),
+    investorTrust: Number(current.capitalMarket.investorTrust || 0),
+    disclosureRisk: Number(current.capitalMarket.disclosureRisk || 0),
+    debtKrw: Number(current.capitalMarket.debtKrw || 0),
+    priceDelta,
+    disclosureCount: current.capitalMarket.disclosures.length,
+    dividendCount: current.capitalMarket.dividends.length,
+    financingCount: current.capitalMarket.financingPlans.length,
+    stockHistoryCount: current.capitalMarket.stockHistory.length,
+    alerts,
+  };
+}
+
 export function reportSummary(state) {
   const current = normalizeState(state);
   const inventoryAmount = inventoryRows(current).reduce((sum, row) => sum + row.amount, 0);
   const receivableAmount = receivableRows(current).reduce((sum, row) => sum + row.remaining, 0);
+  const global = globalTradeSummary(current);
+  const capital = capitalMarketSummary(current);
   const latestSettlement = current.settlements[0] || null;
-  const assets = Number(current.company.cashKrw || 0) + inventoryAmount + receivableAmount;
-  const liabilities = Math.max(0, receivableAmount * 0.08 + (latestSettlement?.tax || 0));
+  const assets = Number(current.company.cashKrw || 0) + inventoryAmount + receivableAmount + global.openForeignReceivableKrw;
+  const liabilities = Math.max(0, receivableAmount * 0.08 + (latestSettlement?.tax || 0) + capital.debtKrw);
   const equity = assets - liabilities;
-  const sales = latestSettlement?.totalSales || orderRows(current).filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED').reduce((sum, order) => sum + order.amount, 0);
+  const sales = (latestSettlement?.totalSales || orderRows(current).filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED').reduce((sum, order) => sum + order.amount, 0)) + global.exportSalesKrw;
   return {
     assets,
     liabilities,
     equity,
     inventoryAmount,
     receivableAmount,
+    foreignReceivableAmount: global.openForeignReceivableKrw,
     latestSettlement,
     sales,
     openReceivables: receivableRows(current).filter((row) => row.remaining > 0).length,
@@ -433,13 +883,15 @@ function topRowsFromMap(map, formatter = (value) => value) {
 export function managementReport(state) {
   const current = normalizeState(state);
   const summary = reportSummary(current);
+  const global = globalTradeSummary(current);
+  const capital = capitalMarketSummary(current);
   const orders = orderRows(current);
   const receivables = receivableRows(current);
   const shipped = orders.filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED');
   const categorySales = new Map();
   const characterSales = new Map();
   const productSales = new Map();
-  const cogs = shipped.reduce((sum, order) => {
+  const localCogs = shipped.reduce((sum, order) => {
     const product = getProduct(order.productId);
     const shippedQty = Number(order.shippedQty || order.quantity || 0);
     const salesAmount = Number(order.unitPrice || 0) * shippedQty;
@@ -448,6 +900,7 @@ export function managementReport(state) {
     productSales.set(product?.name || order.productName || order.productId, (productSales.get(product?.name || order.productName || order.productId) || 0) + salesAmount);
     return sum + Number(order.unitCost || 0) * shippedQty;
   }, 0);
+  const cogs = localCogs + global.exportCostKrw;
   const fixedExpenses = FIXED_EXPENSES.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const grossProfit = summary.sales - cogs;
   const operatingProfit = summary.latestSettlement?.operatingProfit ?? grossProfit - fixedExpenses;
@@ -465,6 +918,9 @@ export function managementReport(state) {
   if (inventoryMonths >= 2) recommendations.push('재고 회전이 느립니다. 캠페인이나 출고 주문으로 재고를 줄일 필요가 있습니다.');
   if (cashRunwayMonths < 6) recommendations.push('현금 런웨이가 짧습니다. 생산 입고보다 채권 회수와 흑자 주문을 우선하세요.');
   if (!current.ledgerSnapshots.length) recommendations.push('장부 스냅샷이 없습니다. 주요 액션 전후로 스냅샷을 남기면 복원 실험이 가능합니다.');
+  if (global.activeExports || global.activeImports) recommendations.push('활성 수출입 계획이 있습니다. 글로벌 정산으로 해외 매출과 수입 재고를 원장에 반영하세요.');
+  if (global.openForeignReceivableKrw > summary.assets * 0.18) recommendations.push('외화채권 비중이 큽니다. 환헤지 또는 외화채권 회수를 먼저 처리하는 편이 좋습니다.');
+  if (capital.disclosureRisk >= 35) recommendations.push('공시위험이 높습니다. 자본시장 월마감 전 공시 대응을 실행하세요.');
   if (!recommendations.length) recommendations.push('재무 구조가 안정권입니다. 주문 확대나 캠페인 테스트를 진행해도 됩니다.');
 
   return {
@@ -499,8 +955,12 @@ export function managementReport(state) {
       { label: '매출채권 비중', value: `${receivableRatio}%` },
       { label: '연체 채권', value: formatMoney(overdueAmount) },
       { label: '재고 회전 월수', value: `${inventoryMonths}개월` },
+      { label: '외화채권', value: formatMoney(global.openForeignReceivableKrw) },
+      { label: '공시위험', value: `${capital.disclosureRisk}/100` },
       { label: '장부 스냅샷', value: `${current.ledgerSnapshots.length}개` },
     ],
+    global,
+    capital,
     recommendations,
   };
 }
@@ -508,14 +968,18 @@ export function managementReport(state) {
 export function scoreState(state) {
   const current = normalizeState(state);
   const report = reportSummary(current);
+  const management = managementReport(current);
   const latest = report.latestSettlement;
   return Math.max(0, Math.round(
     Number(current.company.cashKrw || 0) / 1000000
     + Number(current.company.reputation || 0) * 18
     + Number(current.company.fanBase || 0) / 300
+    + management.global.exportProfitKrw / 350000
+    + management.capital.investorTrust * 12
     + report.shippedOrders * 120
     + (latest ? Number(latest.netProfit || 0) / 250000 : 0)
     - report.openReceivables * 80
+    - management.capital.disclosureRisk * 15
   ));
 }
 
@@ -534,10 +998,15 @@ export function summaryForState(state) {
     cashKrw: current.company.cashKrw,
     assets: report.assets,
     receivables: report.receivableAmount,
+    foreignReceivables: report.foreignReceivableAmount,
     inventory: report.inventoryAmount,
     snapshots: current.ledgerSnapshots.length,
     bookmarks: current.reportBookmarks.length,
     exports: current.exportHistory.length,
+    globalExports: current.global.exportResults.length,
+    globalImports: current.global.importResults.length,
+    investorTrust: current.capitalMarket.investorTrust,
+    disclosureRisk: current.capitalMarket.disclosureRisk,
     score: scoreState(current),
   };
 }
@@ -584,6 +1053,10 @@ function getProduct(id) {
   return PRODUCTS.find((product) => product.id === id) || null;
 }
 
+function getMarket(id) {
+  return GLOBAL_MARKETS.find((market) => market.id === id) || null;
+}
+
 function outstandingByPartner(state, partnerId) {
   return receivableRows(state)
     .filter((row) => row.partnerId === partnerId)
@@ -602,6 +1075,8 @@ function snapshotPayload(state) {
     orders: JSON.parse(JSON.stringify(state.orders)),
     receivables: JSON.parse(JSON.stringify(state.receivables)),
     settlements: JSON.parse(JSON.stringify(state.settlements)),
+    global: JSON.parse(JSON.stringify(state.global)),
+    capitalMarket: JSON.parse(JSON.stringify(state.capitalMarket)),
     nextOrderNo: state.nextOrderNo,
     nextReceivableNo: state.nextReceivableNo,
   };
@@ -612,17 +1087,90 @@ function ledgerComparableSummary(payload) {
   const receivableEntries = Object.values(payload.receivables || {});
   const orderEntries = Object.values(payload.orders || {});
   const company = payload.company || {};
+  const global = normalizeGlobalState(payload.global, createNewState().global);
+  const capitalMarket = normalizeCapitalMarketState(payload.capitalMarket, createNewState().capitalMarket);
+  const foreignReceivableAmount = global.foreignReceivables.reduce((sum, row) => sum + Math.max(0, Number(row.amountKrw || 0) - Number(row.collectedKrw || 0)), 0);
+  const marketCapKrw = Number(capitalMarket.sharePrice || 0) * Number(capitalMarket.sharesOutstanding || 0);
   return {
     period: `${company.year || '-'}-${String(company.month || 0).padStart(2, '0')}`,
     cashKrw: Number(company.cashKrw || 0),
     inventoryAmount: inventoryEntries.reduce((sum, row) => sum + Number(row.onHand || 0) * Number(row.avgCost || 0), 0),
     receivableAmount: receivableEntries.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0) - Number(row.collected || 0)), 0),
+    foreignReceivableAmount,
+    marketCapKrw,
     orderCount: orderEntries.length,
     shippedOrders: orderEntries.filter((row) => row.status === 'SHIPPED' || row.status === 'COMPLETED').length,
     openReceivables: receivableEntries.filter((row) => Math.max(0, Number(row.amount || 0) - Number(row.collected || 0)) > 0).length,
+    exportResultCount: global.exportResults.length,
+    importResultCount: global.importResults.length,
     settlementCount: Array.isArray(payload.settlements) ? payload.settlements.length : 0,
     reputation: Number(company.reputation || 0),
     fanBase: Number(company.fanBase || 0),
+    investorTrust: Number(capitalMarket.investorTrust || 0),
+    disclosureRisk: Number(capitalMarket.disclosureRisk || 0),
+  };
+}
+
+function ledgerRowCount(state) {
+  return currentArrayCount(state.orders)
+    + currentArrayCount(state.receivables)
+    + Object.keys(state.inventory || {}).length
+    + currentArrayCount(state.settlements)
+    + currentArrayCount(state.global?.exportPlans)
+    + currentArrayCount(state.global?.importPlans)
+    + currentArrayCount(state.global?.exportResults)
+    + currentArrayCount(state.global?.importResults)
+    + currentArrayCount(state.global?.foreignReceivables)
+    + currentArrayCount(state.global?.hedgeContracts)
+    + currentArrayCount(state.capitalMarket?.disclosures)
+    + currentArrayCount(state.capitalMarket?.dividends)
+    + currentArrayCount(state.capitalMarket?.financingPlans)
+    + currentArrayCount(state.capitalMarket?.stockHistory)
+    + 1;
+}
+
+function currentArrayCount(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function normalizeGlobalState(value, fallback) {
+  const source = value && typeof value === 'object' ? value : {};
+  return {
+    ...fallback,
+    ...source,
+    exportPlans: Array.isArray(source.exportPlans) ? source.exportPlans.slice(0, 16) : fallback.exportPlans,
+    importPlans: Array.isArray(source.importPlans) ? source.importPlans.slice(0, 16) : fallback.importPlans,
+    exportResults: Array.isArray(source.exportResults) ? source.exportResults.slice(0, 18) : fallback.exportResults,
+    importResults: Array.isArray(source.importResults) ? source.importResults.slice(0, 18) : fallback.importResults,
+    foreignReceivables: Array.isArray(source.foreignReceivables) ? source.foreignReceivables.slice(0, 18) : fallback.foreignReceivables,
+    hedgeContracts: Array.isArray(source.hedgeContracts) ? source.hedgeContracts.slice(0, 12) : fallback.hedgeContracts,
+    exchangeRateLog: Array.isArray(source.exchangeRateLog) ? source.exchangeRateLog.slice(0, 24) : fallback.exchangeRateLog,
+    nextExportNo: Number(source.nextExportNo || fallback.nextExportNo || 1),
+    nextImportNo: Number(source.nextImportNo || fallback.nextImportNo || 1),
+    nextForeignArNo: Number(source.nextForeignArNo || fallback.nextForeignArNo || 1),
+    nextHedgeNo: Number(source.nextHedgeNo || fallback.nextHedgeNo || 1),
+  };
+}
+
+function normalizeCapitalMarketState(value, fallback) {
+  const source = value && typeof value === 'object' ? value : {};
+  return {
+    ...fallback,
+    ...source,
+    sharePrice: Math.max(1000, Math.round(Number(source.sharePrice || fallback.sharePrice || 1000))),
+    sharesOutstanding: Math.max(1, Math.round(Number(source.sharesOutstanding || fallback.sharesOutstanding || 1))),
+    investorTrust: clamp(source.investorTrust ?? fallback.investorTrust, 0, 100),
+    disclosureRisk: clamp(source.disclosureRisk ?? fallback.disclosureRisk, 0, 100),
+    debtKrw: Math.max(0, Math.round(Number(source.debtKrw || fallback.debtKrw || 0))),
+    disclosures: Array.isArray(source.disclosures) ? source.disclosures.slice(0, 16) : fallback.disclosures,
+    dividends: Array.isArray(source.dividends) ? source.dividends.slice(0, 12) : fallback.dividends,
+    financingPlans: Array.isArray(source.financingPlans) ? source.financingPlans.slice(0, 12) : fallback.financingPlans,
+    riskEvents: Array.isArray(source.riskEvents) ? source.riskEvents.slice(0, 12) : fallback.riskEvents,
+    stockHistory: Array.isArray(source.stockHistory) ? source.stockHistory.slice(0, 18) : fallback.stockHistory,
+    nextDisclosureNo: Number(source.nextDisclosureNo || fallback.nextDisclosureNo || 1),
+    nextDividendNo: Number(source.nextDividendNo || fallback.nextDividendNo || 1),
+    nextFinancingNo: Number(source.nextFinancingNo || fallback.nextFinancingNo || 1),
+    nextRiskNo: Number(source.nextRiskNo || fallback.nextRiskNo || 1),
   };
 }
 

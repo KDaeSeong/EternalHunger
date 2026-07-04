@@ -7,18 +7,32 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
+  CAPITAL_DISCLOSURE_TYPES,
+  CAPITAL_FINANCING_TYPES,
   GAME_SLUG,
+  GLOBAL_MARKETS,
   PARTNERS,
   PRODUCTS,
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
   collectReceivableAction,
+  collectForeignReceivableAction,
   bookmarkCurrentReportAction,
+  capitalMarketSummary,
+  closeCapitalMarketAction,
   createLedgerSnapshotAction,
+  createDisclosureAction,
+  createExportPlanAction,
+  createHedgeContractAction,
+  createImportPlanAction,
   createNewState,
   createOrderAction,
   createProgressExportAction,
+  decideDividendAction,
   formatMoney,
+  globalMarketRows,
+  globalReceivableRows,
+  globalTradeSummary,
   getPlayTimeSec,
   inboundInventoryAction,
   inventoryRows,
@@ -31,8 +45,10 @@ import {
   receivableRows,
   reportSummary,
   restoreLatestSnapshotAction,
+  raiseCapitalAction,
   scoreState,
   shipOrderAction,
+  settleGlobalTradeAction,
   summaryForState,
 } from '../_lib/companyReportEngine';
 
@@ -58,6 +74,14 @@ function StatusBadge({ value }) {
   return <span className="game-save-chip">{tone} {value}</span>;
 }
 
+function getMarketName(id) {
+  return GLOBAL_MARKETS.find((market) => market.id === id)?.name || id;
+}
+
+function getProductName(id) {
+  return PRODUCTS.find((product) => product.id === id)?.name || id;
+}
+
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -68,18 +92,29 @@ export default function CompanyReportPlayPage() {
   const [quantity, setQuantity] = useState(40);
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [selectedReceivableId, setSelectedReceivableId] = useState('');
+  const [globalMarketId, setGlobalMarketId] = useState(GLOBAL_MARKETS[0].id);
+  const [globalProductId, setGlobalProductId] = useState(PRODUCTS[0].id);
+  const [globalUnits, setGlobalUnits] = useState(120);
+  const [selectedForeignArId, setSelectedForeignArId] = useState('');
+  const [disclosureTypeId, setDisclosureTypeId] = useState(CAPITAL_DISCLOSURE_TYPES[0].id);
+  const [financingTypeId, setFinancingTypeId] = useState(CAPITAL_FINANCING_TYPES[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
   const score = scoreState(state);
   const report = useMemo(() => reportSummary(state), [state]);
   const management = useMemo(() => managementReport(state), [state]);
+  const globalSummary = useMemo(() => globalTradeSummary(state), [state]);
+  const capitalSummary = useMemo(() => capitalMarketSummary(state), [state]);
+  const markets = useMemo(() => globalMarketRows(), []);
   const stocks = useMemo(() => inventoryRows(state), [state]);
   const orders = useMemo(() => orderRows(state), [state]);
   const receivables = useMemo(() => receivableRows(state), [state]);
+  const foreignReceivables = useMemo(() => globalReceivableRows(state), [state]);
   const ledgerDiff = useMemo(() => ledgerDiffRows(state), [state]);
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders.find((order) => order.status === 'CONFIRMED') || orders[0];
   const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId) || receivables.find((ar) => ar.remaining > 0) || receivables[0];
+  const selectedForeignAr = foreignReceivables.find((ar) => ar.id === selectedForeignArId) || foreignReceivables.find((ar) => ar.remainingKrw > 0) || foreignReceivables[0];
   const latestSettlement = report.latestSettlement;
   const latestSnapshot = state.ledgerSnapshots[0];
   const latestBookmark = state.reportBookmarks[0];
@@ -93,6 +128,12 @@ export default function CompanyReportPlayPage() {
     setQuantity(40);
     setSelectedOrderId('');
     setSelectedReceivableId('');
+    setGlobalMarketId(GLOBAL_MARKETS[0].id);
+    setGlobalProductId(PRODUCTS[0].id);
+    setGlobalUnits(120);
+    setSelectedForeignArId('');
+    setDisclosureTypeId(CAPITAL_DISCLOSURE_TYPES[0].id);
+    setFinancingTypeId(CAPITAL_FINANCING_TYPES[0].id);
     setMessage('');
   };
 
@@ -193,6 +234,8 @@ export default function CompanyReportPlayPage() {
     { label: '월', value: `${state.company.year}-${String(state.company.month).padStart(2, '0')}` },
     { label: '현금', value: formatMoney(state.company.cashKrw) },
     { label: '채권', value: formatMoney(report.receivableAmount) },
+    { label: '외화채권', value: formatMoney(globalSummary.openForeignReceivableKrw) },
+    { label: '주가', value: formatMoney(capitalSummary.sharePrice) },
     { label: '스냅샷', value: state.ledgerSnapshots.length },
     { label: '북마크', value: state.reportBookmarks.length },
     { label: '내보내기', value: state.exportHistory.length },
@@ -203,6 +246,7 @@ export default function CompanyReportPlayPage() {
     message ? { key: 'message', text: message } : null,
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만 저장, 불러오기, 전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
     report.openReceivables >= 3 ? { key: 'ar-risk', tone: 'error', text: '미수 채권이 많습니다. 월말 결산 전 회수를 진행하는 편이 좋습니다.' } : null,
+    capitalSummary.disclosureRisk >= 35 ? { key: 'disclosure-risk', tone: 'error', text: '공시위험이 높습니다. 상장 월마감 전 공시 대응을 권장합니다.' } : null,
   ];
 
   return (
@@ -284,6 +328,73 @@ export default function CompanyReportPlayPage() {
             <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
             <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
             <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>글로벌 수출입</h2>
+            <span>{globalSummary.activeExports + globalSummary.activeImports} active</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>시장</span>
+            <select value={globalMarketId} onChange={(event) => setGlobalMarketId(event.target.value)}>
+              {markets.map((market) => <option value={market.id} key={market.id}>{market.name} / {market.exchangeRateLabel}</option>)}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>상품</span>
+            <select value={globalProductId} onChange={(event) => setGlobalProductId(event.target.value)}>
+              {PRODUCTS.map((product) => <option value={product.id} key={product.id}>{product.name}</option>)}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>수량</span>
+            <input type="number" min="1" max="9999" value={globalUnits} onChange={(event) => setGlobalUnits(event.target.value)} />
+          </label>
+          <label className="game-save-json-field">
+            <span>외화채권</span>
+            <select value={selectedForeignAr?.id || ''} onChange={(event) => setSelectedForeignArId(event.target.value)}>
+              {foreignReceivables.length ? foreignReceivables.map((ar) => <option value={ar.id} key={ar.id}>{ar.id} / {ar.marketName} / {formatMoney(ar.remainingKrw)}</option>) : <option value="">회수 대기 없음</option>}
+            </select>
+          </label>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
+            <ActionButton onClick={() => setState((current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
+            <ActionButton onClick={() => setState((current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+            <ActionButton onClick={() => setState((current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
+            <ActionButton disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => setState((current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>상장 / 투자자</h2>
+            <span>신뢰 {capitalSummary.investorTrust}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>공시 대응</span>
+            <select value={disclosureTypeId} onChange={(event) => setDisclosureTypeId(event.target.value)}>
+              {CAPITAL_DISCLOSURE_TYPES.map((type) => <option value={type.id} key={type.id}>{type.label} / {formatMoney(type.costKrw)}</option>)}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>조달 방식</span>
+            <select value={financingTypeId} onChange={(event) => setFinancingTypeId(event.target.value)}>
+              {CAPITAL_FINANCING_TYPES.map((type) => <option value={type.id} key={type.id}>{type.label} / {formatMoney(type.cashKrw)}</option>)}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="시가총액" value={formatMoney(capitalSummary.marketCapKrw)} />
+            <SmallStat label="공시위험" value={`${capitalSummary.disclosureRisk}/100`} />
+            <SmallStat label="상장부채" value={formatMoney(capitalSummary.debtKrw)} />
+            <SmallStat label="주식수" value={capitalSummary.sharesOutstanding.toLocaleString('ko-KR')} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
+            <ActionButton onClick={() => setState((current) => decideDividendAction(current))}>배당 결정</ActionButton>
+            <ActionButton onClick={() => setState((current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
+            <ActionButton onClick={() => setState((current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
           </div>
         </section>
       </section>
@@ -369,6 +480,100 @@ export default function CompanyReportPlayPage() {
                 <strong>{row.deltaText}</strong>
               </article>
             )) : <div className="games-empty">스냅샷을 생성하면 현재 원장과의 차이를 볼 수 있습니다.</div>}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>글로벌 성과</h2>
+            <span>StepD slice</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="수출매출" value={formatMoney(globalSummary.exportSalesKrw)} />
+            <SmallStat label="수출손익" value={formatMoney(globalSummary.exportProfitKrw)} />
+            <SmallStat label="수입원가" value={formatMoney(globalSummary.importLandedCostKrw)} />
+            <SmallStat label="헤지계약" value={`${globalSummary.hedgeCount}건`} />
+          </div>
+          <div className="game-save-list">
+            {state.global.exportResults.slice(0, 4).map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.year}-{String(row.month).padStart(2, '0')} / {getMarketName(row.marketId)}</span>
+                  <strong>{getProductName(row.productId)} 수출</strong>
+                  <span>{row.soldUnits}개 / 비용 {formatMoney(row.exportCostKrw)}</span>
+                </div>
+                <strong>{formatMoney(row.salesKrw)}</strong>
+              </article>
+            ))}
+            {!state.global.exportResults.length ? <div className="games-empty">수출 계획을 등록하고 글로벌 정산을 실행하면 성과가 표시됩니다.</div> : null}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>외화채권 / 수입</h2>
+            <span>{formatMoney(globalSummary.openForeignReceivableKrw)}</span>
+          </div>
+          <div className="game-save-list">
+            {foreignReceivables.slice(0, 5).map((ar) => (
+              <article className="game-save-row" key={ar.id}>
+                <div>
+                  <span>{ar.marketName} / {ar.currency}</span>
+                  <strong>{ar.id}</strong>
+                  <span>{ar.productName} / 회수 {formatMoney(ar.collectedKrw)}</span>
+                </div>
+                <StatusBadge value={ar.status} />
+              </article>
+            ))}
+            {!foreignReceivables.length ? <div className="games-empty">해외 매출 정산 후 외화채권이 생성됩니다.</div> : null}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>자본시장</h2>
+            <span>StepE slice</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="주가" value={formatMoney(capitalSummary.sharePrice)} />
+            <SmallStat label="변동" value={formatMoney(capitalSummary.priceDelta)} />
+            <SmallStat label="투자자 신뢰" value={`${capitalSummary.investorTrust}/100`} />
+            <SmallStat label="공시위험" value={`${capitalSummary.disclosureRisk}/100`} />
+          </div>
+          <div className="games-activity-list" style={{ marginTop: 12 }}>
+            {capitalSummary.alerts.map((line) => (
+              <div key={line}><strong>{line}</strong></div>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>공시 / 조달 이력</h2>
+            <span>{capitalSummary.disclosureCount + capitalSummary.financingCount + capitalSummary.dividendCount}건</span>
+          </div>
+          <div className="game-save-list">
+            {state.capitalMarket.disclosures.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.type} / 비용 {formatMoney(row.costKrw)}</span>
+                  <strong>{row.label}</strong>
+                </div>
+                <strong>{row.trustDelta >= 0 ? '+' : ''}{row.trustDelta}</strong>
+              </article>
+            ))}
+            {state.capitalMarket.financingPlans.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.type} / 부채 {formatMoney(row.debtKrw)}</span>
+                  <strong>{row.label}</strong>
+                </div>
+                <strong>{formatMoney(row.cashKrw)}</strong>
+              </article>
+            ))}
+            {!state.capitalMarket.disclosures.length && !state.capitalMarket.financingPlans.length ? <div className="games-empty">공시 대응이나 자금 조달을 실행하면 이력이 표시됩니다.</div> : null}
           </div>
         </section>
       </section>
