@@ -59,6 +59,70 @@ const WIKI_SECTIONS = [
   },
 ];
 
+const RULEBOOK_SECTIONS = [
+  {
+    id: 'revive',
+    title: '이터널 헝거 진행 규칙',
+    tag: 'Simulation',
+    items: [
+      '2일차 낮까지는 스쿼드 전멸을 방지합니다.',
+      '2일차 밤은 팀이 전멸하지 않았을 때만 자동 부활합니다.',
+      '3일차 낮부터 5일차 낮까지는 키오스크에서 200크레딧으로 부활합니다.',
+      '부활 비용이 부족하면 팀원 크레딧에서 부족분을 차감합니다.',
+      '5일차 낮 이후 다음 페이즈부터는 부활할 수 없습니다.',
+    ],
+    links: [
+      { href: '/simulation', label: '시뮬레이션' },
+      { href: '/records', label: '기록소' },
+    ],
+  },
+  {
+    id: 'equipment',
+    title: '장비와 파밍 규칙',
+    tag: 'Equipment',
+    items: [
+      '목표 장비 등급은 초월 기준으로 고정합니다.',
+      '전송 드론은 루트 파밍 보조용 저티어 재료 중심으로 사용합니다.',
+      '고급 핵심 재료는 제작 목표 보호 대상으로 취급합니다.',
+      '기본 배치 아이템은 시작 안정성을 위한 장치이고, 실제 성장은 루트 파밍과 제작으로 보강합니다.',
+    ],
+    links: [
+      { href: '/details', label: '상세 설정' },
+      { href: '/admin/items', label: '아이템 관리' },
+    ],
+  },
+  {
+    id: 'twenty',
+    title: '스무고개 운영 규칙',
+    tag: 'Twenty Questions',
+    items: [
+      '질문과 정답 도전은 모두 제한 횟수를 소모합니다.',
+      '정답은 방장과 종료된 방에서만 공개됩니다.',
+      '힌트 채팅은 방장만 남길 수 있습니다.',
+      '카테고리는 나라, 지명, 인물, 음식, 생물, 만화, 영화, 게임, 드라마, 프로그램 등을 지원합니다.',
+    ],
+    links: [
+      { href: '/twenty-questions', label: '방 목록' },
+      { href: '/twenty-questions?create=1', label: '방 만들기' },
+    ],
+  },
+  {
+    id: 'skills',
+    title: '스킬과 전술 작성 기준',
+    tag: 'Skills',
+    items: [
+      '스킬 타입은 공격, 회복, 보호막, 기본 공격 강화로 분리합니다.',
+      'Q 최대 레벨처럼 최대치를 말할 때는 명시적으로 표기합니다.',
+      '두 번째 공격은 설명에 있는 경우에만 작성합니다.',
+      '전술 스킬은 Lv.1로 시작하고 전술 강화 모듈로 Lv.2까지 강화합니다.',
+    ],
+    links: [
+      { href: '/characters', label: '캐릭터 설정' },
+      { href: '/help', label: '전술 스킬 도움말' },
+    ],
+  },
+];
+
 function normalizeList(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -165,6 +229,23 @@ export default function GuidesPage() {
               <span>{section.tag}</span>
               <h2>{section.title}</h2>
               <p>{section.summary}</p>
+              <div>
+                {section.links.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="guides-rulebook-grid" aria-label="핵심 규칙">
+          {RULEBOOK_SECTIONS.map((section) => (
+            <article className="guides-rulebook-card" key={section.id}>
+              <div className="guides-rulebook-head">
+                <span>{section.tag}</span>
+                <h2>{section.title}</h2>
+              </div>
+              <ul>
+                {section.items.map((item) => <li key={item}>{item}</li>)}
+              </ul>
               <div>
                 {section.links.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}
               </div>

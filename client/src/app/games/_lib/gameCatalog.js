@@ -35,8 +35,8 @@ export const GAME_CATALOG = [
     boardLabel: '진행 중인 방',
     recordHref: '/twenty-questions',
     recordLabel: '방 목록',
-    guideHref: '/board?category=game',
-    guideLabel: '게임 게시판',
+    guideHref: '/guides',
+    guideLabel: '가이드',
     metrics: ['rooms', 'activeRooms', 'solvedRooms'],
     statusItems: [
       '방 생성 후 정답은 방장과 종료된 방에서만 공개됩니다.',
