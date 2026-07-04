@@ -3,12 +3,11 @@
 import Link from 'next/link';
 import SiteHeader from '../../components/SiteHeader';
 import {
+  SRPG_GAME_SLUGS,
   findGameBySlug,
   gameDetailHref,
   getGamePortingProgress,
 } from '../games/_lib/gameCatalog';
-
-const SRPG_GAME_SLUGS = ['ba-srpg'];
 
 function GameMetric({ label, value }) {
   return (

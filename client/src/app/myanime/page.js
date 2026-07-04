@@ -3,24 +3,11 @@
 import Link from 'next/link';
 import SiteHeader from '../../components/SiteHeader';
 import {
+  MYANIME_GAME_SLUGS,
   findGameBySlug,
   gameDetailHref,
   getGamePortingProgress,
 } from '../games/_lib/gameCatalog';
-
-const MYANIME_GAME_SLUGS = [
-  'myanimecraft',
-  'dual-academy-tcg',
-  'ba-vanguard',
-  'schale-idle-rpg',
-  'school-simulator',
-  'tonkatsu-teacher',
-  'si-coding-sim',
-  'rail3d-sim',
-  'company-report',
-  'racing-logos-demo',
-  'primitive-archive',
-];
 
 function GameMetric({ label, value }) {
   return (

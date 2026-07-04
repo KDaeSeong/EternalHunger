@@ -175,8 +175,8 @@ export default function DualAcademyTcgDeckPage() {
             <h1>덱 편집</h1>
           </div>
           <nav>
-            <Link href="/games/dual-academy-tcg/play">플레이</Link>
-            <Link href="/games/dual-academy-tcg">상세</Link>
+            <Link href="/myanime/dual-academy-tcg/play">플레이</Link>
+            <Link href="/myanime/dual-academy-tcg">상세</Link>
             <button type="button" onClick={resetDefault}>기본 덱</button>
           </nav>
         </header>

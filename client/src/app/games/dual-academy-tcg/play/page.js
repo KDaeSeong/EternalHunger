@@ -870,8 +870,8 @@ function DualAcademyTcgPlayContent() {
             <h1>v13 듀얼</h1>
           </div>
           <nav>
-            <Link href="/games/dual-academy-tcg">상세</Link>
-            <Link href="/games/dual-academy-tcg/deck">덱 편집</Link>
+            <Link href="/myanime/dual-academy-tcg">상세</Link>
+            <Link href="/myanime/dual-academy-tcg/deck">덱 편집</Link>
             <Link href="/board?category=game&gameSlug=dual-academy-tcg">게시판</Link>
             <button type="button" onClick={saveMatch} disabled={saveBusy}>저장</button>
             <button type="button" onClick={loadMatch} disabled={saveBusy}>불러오기</button>

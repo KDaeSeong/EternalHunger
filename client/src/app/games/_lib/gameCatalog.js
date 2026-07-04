@@ -12,10 +12,26 @@ export const GAME_INTEGRATION_DEFAULTS = {
   resultMode: 'manual',
 };
 
+export const MYANIME_GAME_SLUGS = [
+  'myanimecraft',
+  'dual-academy-tcg',
+  'ba-vanguard',
+  'schale-idle-rpg',
+  'school-simulator',
+  'tonkatsu-teacher',
+  'si-coding-sim',
+  'rail3d-sim',
+  'company-report',
+  'racing-logos-demo',
+  'primitive-archive',
+];
+
+export const SRPG_GAME_SLUGS = ['ba-srpg'];
+
 export const GAME_ENTRY_ROUTES = {
   'eternal-hunger': '/eternalhunger',
-  myanimecraft: '/games/myanimecraft/play',
-  'ba-srpg': '/games/ba-srpg/play',
+  ...Object.fromEntries(MYANIME_GAME_SLUGS.map((slug) => [slug, `/myanime/${slug}/play`])),
+  ...Object.fromEntries(SRPG_GAME_SLUGS.map((slug) => [slug, `/srpg/${slug}/play`])),
 };
 
 export const GAME_ADAPTER_PRESETS = [
@@ -611,7 +627,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim', 'company-report', 'racing-logos-demo']);
+  const prototypeRoutes = new Set([...MYANIME_GAME_SLUGS, ...SRPG_GAME_SLUGS]);
   const playableAliases = GAME_ENTRY_ROUTES;
   const hasPrototype = prototypeRoutes.has(key);
 
@@ -638,5 +654,8 @@ export function findGameBySlug(slug) {
 }
 
 export function gameDetailHref(game) {
-  return `/games/${game.slug}`;
+  const slug = String(game?.slug || '').trim();
+  if (MYANIME_GAME_SLUGS.includes(slug)) return `/myanime/${slug}`;
+  if (SRPG_GAME_SLUGS.includes(slug)) return `/srpg/${slug}`;
+  return `/games/${slug}`;
 }

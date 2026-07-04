@@ -252,7 +252,7 @@ export default function GameRoomDetailPage() {
   const canRestoreRoom = Boolean(canSaveRoom && active);
   const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && roomPlayers.length);
   const playHref = room?.gameSlug === 'dual-academy-tcg'
-    ? `/games/dual-academy-tcg/play?roomId=${id}`
+    ? `/myanime/dual-academy-tcg/play?roomId=${id}`
     : game?.primaryHref || '';
 
   const loadRoom = useCallback(async () => {

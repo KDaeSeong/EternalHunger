@@ -199,6 +199,61 @@ export function buildEvents(state) {
   });
 }
 
+export function localPackMatrix(state) {
+  const tracks = buildTracks(state);
+  const events = buildEvents(state);
+  const trackRows = tracks.map((track) => {
+    const missing = [
+      track.hasLocalName ? '' : '트랙명',
+      track.hasLogoOverride ? '' : '로고키',
+    ].filter(Boolean);
+    return {
+      id: `track-${track.id}`,
+      kind: 'track',
+      kindLabel: '트랙',
+      sourceId: track.id,
+      name: track.name,
+      requiredKey: `trackNames.${track.id}`,
+      logoKeyPath: `trackLogoKeyOverrides.${track.id}`,
+      logoKey: track.logoKey,
+      candidateText: track.localCandidates.join(' / '),
+      hasName: track.hasLocalName,
+      hasLogo: track.hasLogoOverride,
+      complete: missing.length === 0,
+      status: missing.length ? `${missing.join(', ')} 필요` : '완료',
+    };
+  });
+  const eventRows = events.map((event) => ({
+    id: `event-${event.id}`,
+    kind: 'event',
+    kindLabel: '이벤트',
+    sourceId: event.id,
+    name: event.raceName,
+    requiredKey: `eventNames.${event.id}`,
+    logoKeyPath: `tracks.${event.trackId}`,
+    logoKey: event.trackLogoKey,
+    candidateText: event.localCandidates.join(' / '),
+    hasName: event.hasLocalName,
+    hasLogo: true,
+    complete: event.hasLocalName,
+    status: event.hasLocalName ? '완료' : '이벤트명 필요',
+  }));
+  const rows = [...trackRows, ...eventRows];
+  return {
+    rows,
+    totals: {
+      rows: rows.length,
+      completed: rows.filter((row) => row.complete).length,
+      missingNames: rows.filter((row) => !row.hasName).length,
+      missingLogoOverrides: trackRows.filter((row) => !row.hasLogo).length,
+      localCandidateCount: rows.reduce((sum, row) => sum + (row.candidateText ? row.candidateText.split(' / ').length : 0), 0),
+      trackNameCount: trackRows.filter((row) => row.hasName).length,
+      eventNameCount: eventRows.filter((row) => row.hasName).length,
+      logoOverrideCount: trackRows.filter((row) => row.hasLogo).length,
+    },
+  };
+}
+
 export function visibleTracks(state) {
   const current = normalizeState(state);
   return buildTracks(current).filter((track) => matchFilters(track, current.filters));
@@ -230,11 +285,14 @@ export function getPlayTimeSec(state) {
 export function summaryForState(state) {
   const current = normalizeState(state);
   const audit = latestAudit(current);
+  const matrix = localPackMatrix(current);
   return {
     tracks: CORE_TRACKS.length,
     events: CORE_EVENTS.length,
     completeness: audit.completeness,
     placeholderOnly: audit.placeholderOnly,
+    missingNames: matrix.totals.missingNames,
+    missingLogoOverrides: matrix.totals.missingLogoOverrides,
     raceCards: current.raceCards.length,
     score: scoreState(current),
   };

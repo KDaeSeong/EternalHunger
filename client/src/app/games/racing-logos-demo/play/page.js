@@ -20,6 +20,7 @@ import {
   generateRaceCardAction,
   getPlayTimeSec,
   latestAudit,
+  localPackMatrix,
   normalizeState,
   parseLocalPackText,
   sampleLocalPackText,
@@ -140,6 +141,7 @@ export default function RacingLogosDemoPlayPage() {
   const allTracks = useMemo(() => buildTracks(state), [state]);
   const allEvents = useMemo(() => buildEvents(state), [state]);
   const audit = latestAudit(state);
+  const packMatrix = useMemo(() => localPackMatrix(state), [state]);
   const score = scoreState(state);
   const latestRaceCard = state.raceCards[0];
 
@@ -268,7 +270,7 @@ export default function RacingLogosDemoPlayPage() {
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/games/racing-logos-demo">상세</Link>
+      <Link href="/myanime/racing-logos-demo">상세</Link>
     </>
   );
 
@@ -383,6 +385,32 @@ export default function RacingLogosDemoPlayPage() {
               </article>
             ))}
             {!state.auditHistory.length ? <div className="games-empty">아직 감사 기록이 없습니다.</div> : null}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>로컬팩 매트릭스</h2>
+            <span>{packMatrix.totals.completed}/{packMatrix.totals.rows}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="누락 이름" value={packMatrix.totals.missingNames} />
+            <SmallStat label="누락 로고키" value={packMatrix.totals.missingLogoOverrides} />
+            <SmallStat label="트랙명" value={packMatrix.totals.trackNameCount} />
+            <SmallStat label="이벤트명" value={packMatrix.totals.eventNameCount} />
+          </div>
+          <div className="game-save-list">
+            {packMatrix.rows.map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.kindLabel} / {row.requiredKey}</span>
+                  <strong>{row.name}</strong>
+                  <span>{row.logoKeyPath} · logoKey: {row.logoKey}</span>
+                  <span>{row.candidateText}</span>
+                </div>
+                <span className="game-save-chip">{row.status}</span>
+              </article>
+            ))}
           </div>
         </section>
       </section>
