@@ -155,13 +155,14 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
+  const hasPrototype = key === 'dual-academy-tcg';
 
   return {
     ...roadmapGame,
     tone: 'roadmap',
     detail: roadmapGame.summary || '',
-    primaryHref: `/board?category=game&gameSlug=${key}&write=1`,
-    primaryLabel: '이식 논의',
+    primaryHref: hasPrototype ? `/games/${key}/play` : `/board?category=game&gameSlug=${key}&write=1`,
+    primaryLabel: hasPrototype ? '프로토타입 플레이' : '이식 논의',
     boardHref: `/board?category=game&gameSlug=${key}`,
     boardLabel: '게임 게시판',
     recordHref: `/games/records?gameSlug=${key}`,

@@ -4037,6 +4037,372 @@
   min-width: 0;
 }
 
+.tcg-page-shell {
+  min-height: 100vh;
+  padding-bottom: 56px;
+  background: #f5f7f8;
+}
+
+.tcg-arena {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+  padding: 26px 32px 40px;
+}
+
+.tcg-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--eh-card-shadow);
+  padding: 18px;
+}
+
+.tcg-topbar p,
+.tcg-topbar h1 {
+  margin: 0;
+}
+
+.tcg-topbar p {
+  color: #2c6f9e;
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.tcg-topbar h1 {
+  color: #17202a;
+  font-size: clamp(1.7rem, 3vw, 2.35rem);
+  line-height: 1.12;
+}
+
+.tcg-topbar nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tcg-topbar a,
+.tcg-topbar button,
+.tcg-lane-title button,
+.tcg-card button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.24);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b4f73;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tcg-topbar a,
+.tcg-topbar button,
+.tcg-lane-title button {
+  padding: 0 13px;
+}
+
+.tcg-topbar button,
+.tcg-lane-title button {
+  font: inherit;
+}
+
+.tcg-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tcg-scoreboard div,
+.tcg-panel,
+.tcg-board,
+.tcg-hand,
+.tcg-result {
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.tcg-scoreboard div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.tcg-scoreboard span,
+.tcg-small-stats dt,
+.tcg-lane-title span,
+.tcg-card-head strong {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.tcg-scoreboard strong {
+  color: #17202a;
+  font-size: 1.5rem;
+}
+
+.tcg-result {
+  padding: 14px 16px;
+  color: #17202a;
+  font-size: 1.1rem;
+  font-weight: 950;
+}
+
+.tcg-result.is-player {
+  border-color: rgba(33, 150, 83, 0.28);
+  background: #f0fff6;
+  color: #116633;
+}
+
+.tcg-result.is-enemy {
+  border-color: rgba(196, 66, 54, 0.28);
+  background: #fff4f2;
+  color: #8b2c23;
+}
+
+.tcg-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 280px;
+  gap: 14px;
+  align-items: start;
+}
+
+.tcg-panel,
+.tcg-board,
+.tcg-hand {
+  min-width: 0;
+  padding: 16px;
+}
+
+.tcg-panel h2,
+.tcg-lane-title h2,
+.tcg-hand h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1rem;
+}
+
+.tcg-deck-count {
+  min-height: 112px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  margin: 12px 0;
+  border: 1px solid rgba(44, 111, 158, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(44, 111, 158, 0.12), rgba(255, 255, 255, 0.7)),
+    repeating-linear-gradient(45deg, rgba(22, 33, 44, 0.06), rgba(22, 33, 44, 0.06) 4px, transparent 4px, transparent 9px);
+}
+
+.tcg-deck-count strong {
+  color: #17202a;
+  font-size: 2rem;
+}
+
+.tcg-deck-count span {
+  color: #64717d;
+  font-weight: 900;
+}
+
+.tcg-small-stats {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.tcg-small-stats div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid rgba(22, 33, 44, 0.08);
+  padding-top: 8px;
+}
+
+.tcg-small-stats dd {
+  margin: 0;
+  color: #17202a;
+  font-weight: 950;
+}
+
+.tcg-board {
+  display: grid;
+  gap: 14px;
+  background: #f9fbfc;
+}
+
+.tcg-lane {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.08);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.tcg-lane.is-enemy {
+  background: #fff8f6;
+}
+
+.tcg-lane-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tcg-card-row,
+.tcg-hand-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.tcg-hand-row {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.tcg-card {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 10px;
+}
+
+.tcg-card.is-red { border-top: 4px solid #c44236; }
+.tcg-card.is-blue { border-top: 4px solid #2c6f9e; }
+.tcg-card.is-violet { border-top: 4px solid #6a55a3; }
+.tcg-card.is-green { border-top: 4px solid #2f8f61; }
+.tcg-card.is-gold { border-top: 4px solid #b98024; }
+
+.tcg-card.is-enemy-card {
+  border-top: 4px solid #7d4a3c;
+}
+
+.tcg-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tcg-card-head > span {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #17202a;
+  color: #ffffff;
+  font-weight: 950;
+}
+
+.tcg-card-art {
+  min-height: 70px;
+  border-radius: 7px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), transparent 28%),
+    linear-gradient(135deg, rgba(44, 111, 158, 0.28), rgba(196, 66, 54, 0.18)),
+    #edf2f5;
+}
+
+.tcg-card h3,
+.tcg-card p {
+  margin: 0;
+}
+
+.tcg-card h3,
+.tcg-card strong {
+  overflow-wrap: anywhere;
+}
+
+.tcg-card p {
+  min-height: 44px;
+  color: #5f6c78;
+  font-size: 0.86rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.tcg-card > span {
+  color: #17202a;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.tcg-card button {
+  width: 100%;
+}
+
+.tcg-card button:disabled,
+.tcg-lane-title button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.tcg-empty-zone {
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(22, 33, 44, 0.20);
+  border-radius: 8px;
+  color: #64717d;
+  font-weight: 900;
+}
+
+.tcg-log ol {
+  display: grid;
+  gap: 8px;
+  max-height: 390px;
+  margin: 12px 0 0;
+  padding-left: 18px;
+  overflow: auto;
+}
+
+.tcg-log li {
+  color: #3f4c57;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+@media (max-width: 980px) {
+  .tcg-arena {
+    padding: 18px 16px 32px;
+  }
+
+  .tcg-topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tcg-topbar nav {
+    justify-content: flex-start;
+  }
+
+  .tcg-scoreboard,
+  .tcg-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .game-save-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
