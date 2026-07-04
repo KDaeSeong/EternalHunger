@@ -356,10 +356,12 @@ export default function DualAcademyTcgPlayPage() {
   const [saveBusy, setSaveBusy] = useState(false);
   const [recordedMatchIds, setRecordedMatchIds] = useState([]);
   const [recordMessage, setRecordMessage] = useState('');
+  const [selectedAttackerId, setSelectedAttackerId] = useState('');
   const [state, setState] = useState(() => createInitialState(buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)));
 
   const resetWithDeck = useCallback((cardIds, cards) => {
     setRecordMessage('');
+    setSelectedAttackerId('');
     setState(createInitialState(buildDeckFromIds(cardIds, cards), buildEnemyDeck(cards)));
   }, []);
 
@@ -466,6 +468,17 @@ export default function DualAcademyTcgPlayPage() {
     [state.board],
   );
 
+  const selectedAttacker = useMemo(
+    () => state.board.find((unit) => unit.instanceId === selectedAttackerId) || null,
+    [selectedAttackerId, state.board],
+  );
+
+  useEffect(() => {
+    if (!selectedAttackerId) return;
+    const unit = state.board.find((row) => row.instanceId === selectedAttackerId);
+    if (!unit || !unit.ready || state.winner) setSelectedAttackerId('');
+  }, [selectedAttackerId, state.board, state.winner]);
+
   const canAct = !state.winner;
 
   const playCard = (instanceId) => {
@@ -494,13 +507,16 @@ export default function DualAcademyTcgPlayPage() {
     });
   };
 
-  const attackWithCard = (instanceId) => {
+  const attackTarget = (instanceId, targetInstanceId = '') => {
     if (!canAct) return;
+    setSelectedAttackerId('');
     setState((current) => {
       const unit = current.board.find((row) => row.instanceId === instanceId);
       if (!unit || !unit.ready) return current;
       const unitIndex = current.board.findIndex((row) => row.instanceId === instanceId);
-      const targetIndex = weakestUnitIndex(current.enemyBoard);
+      const targetIndex = targetInstanceId
+        ? current.enemyBoard.findIndex((row) => row.instanceId === targetInstanceId)
+        : -1;
       if (targetIndex >= 0) {
         const target = current.enemyBoard[targetIndex];
         const combat = resolveCombat(unit, target);
@@ -518,6 +534,13 @@ export default function DualAcademyTcgPlayPage() {
         };
       }
 
+      if (current.enemyBoard.length) {
+        return {
+          ...current,
+          log: ['공격할 상대 유닛을 선택해주세요.', ...current.log].slice(0, 12),
+        };
+      }
+
       const enemyHealth = Math.max(0, current.enemyHealth - Number(unit.attack || 0));
       return {
         ...current,
@@ -531,8 +554,16 @@ export default function DualAcademyTcgPlayPage() {
     });
   };
 
+  const selectAttacker = (instanceId) => {
+    if (!canAct) return;
+    const unit = state.board.find((row) => row.instanceId === instanceId);
+    if (!unit || !unit.ready) return;
+    setSelectedAttackerId((current) => current === instanceId ? '' : instanceId);
+  };
+
   const endTurn = () => {
     if (!canAct) return;
+    setSelectedAttackerId('');
     setState((current) => runEnemyTurn(current));
   };
 
@@ -604,6 +635,7 @@ export default function DualAcademyTcgPlayPage() {
       setDeckCardIds(nextCardIds);
       setDeckName(payload.deckName || detail?.save?.summary?.deckName || deckName);
       setRecordMessage('');
+      setSelectedAttackerId('');
       setState(restored);
       setDeckMessage('저장된 매치를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 매치를 불러왔습니다.' });
@@ -700,12 +732,32 @@ export default function DualAcademyTcgPlayPage() {
               </div>
               <div className="tcg-card-row">
                 {state.enemyBoard.map((card) => (
-                  <article className="tcg-card is-enemy-card" key={card.id}>
+                  <article className={`tcg-card is-enemy-card ${selectedAttacker ? 'is-targetable' : ''}`} key={card.instanceId || card.id}>
                     <div className="tcg-card-art" />
                     <strong>{card.name}</strong>
                     <span>ATK {card.attack} / HP {unitHealth(card)}</span>
+                    <button
+                      type="button"
+                      onClick={() => attackTarget(selectedAttackerId, card.instanceId)}
+                      disabled={!selectedAttacker || !canAct}
+                    >
+                      대상 공격
+                    </button>
                   </article>
                 ))}
+                {!state.enemyBoard.length ? (
+                  <div className="tcg-core-target">
+                    <strong>상대 본부</strong>
+                    <span>방어 유닛 없음</span>
+                    <button
+                      type="button"
+                      onClick={() => attackTarget(selectedAttackerId)}
+                      disabled={!selectedAttacker || !canAct}
+                    >
+                      본부 공격
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -716,12 +768,12 @@ export default function DualAcademyTcgPlayPage() {
               </div>
               <div className="tcg-card-row">
                 {state.board.length ? state.board.map((card) => (
-                  <article className={`tcg-card is-${card.tone}`} key={card.instanceId}>
+                  <article className={`tcg-card is-${card.tone} ${selectedAttackerId === card.instanceId ? 'is-selected' : ''}`} key={card.instanceId}>
                     <div className="tcg-card-art" />
                     <strong>{card.name}</strong>
                     <span>ATK {card.attack} / HP {card.currentHealth}</span>
-                    <button type="button" onClick={() => attackWithCard(card.instanceId)} disabled={!card.ready || !canAct}>
-                      공격
+                    <button type="button" onClick={() => selectAttacker(card.instanceId)} disabled={!card.ready || !canAct}>
+                      {selectedAttackerId === card.instanceId ? '선택됨' : card.ready ? '공격 선택' : '대기'}
                     </button>
                   </article>
                 )) : <div className="tcg-empty-zone">배치된 유닛이 없습니다.</div>}

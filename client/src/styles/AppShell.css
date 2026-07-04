@@ -4357,6 +4357,53 @@
   border-top: 4px solid #7d4a3c;
 }
 
+.tcg-card.is-selected {
+  border-color: rgba(44, 111, 158, 0.55);
+  box-shadow: 0 0 0 3px rgba(44, 111, 158, 0.16);
+}
+
+.tcg-card.is-targetable {
+  border-color: rgba(196, 66, 54, 0.36);
+}
+
+.tcg-core-target {
+  min-height: 146px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  border: 1px dashed rgba(196, 66, 54, 0.30);
+  border-radius: 8px;
+  background: #fffaf8;
+  color: #7d4a3c;
+  padding: 12px;
+}
+
+.tcg-core-target strong,
+.tcg-core-target span {
+  overflow-wrap: anywhere;
+}
+
+.tcg-core-target span {
+  color: #8a655e;
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.tcg-core-target button {
+  min-height: 36px;
+  border: 1px solid rgba(196, 66, 54, 0.28);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #8b2c23;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.tcg-core-target button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .tcg-card-head {
   display: flex;
   align-items: center;
