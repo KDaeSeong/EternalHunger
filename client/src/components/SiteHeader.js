@@ -16,7 +16,7 @@ const PRIMARY_NAV_ITEMS = [
   { href: '/leaderboard', label: '랭킹' },
   { href: '/board', label: '게시판' },
   { href: '/twenty-questions', label: '스무고개' },
-  { href: '/eternalhunger', label: '게임 시작', emphasis: true },
+  { href: '/eternalhunger', label: '이터널 헝거', emphasis: true },
 ];
 
 const MORE_NAV_ITEMS = [

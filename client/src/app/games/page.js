@@ -8,6 +8,8 @@ import { apiGetCached } from '../../utils/api';
 import {
   GAME_CATALOG,
   GAME_ROADMAP,
+  MYANIME_GAME_SLUGS,
+  SRPG_GAME_SLUGS,
   dynamicGameCandidateToGame,
   findGameBySlug,
   gameDetailHref,
@@ -137,6 +139,32 @@ function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
   );
 }
 
+function GameFamilyCard({ tone, kicker, title, body, href, stats, links }) {
+  return (
+    <article className={`games-family-card is-${tone}`}>
+      <div>
+        <span>{kicker}</span>
+        <h3>{title}</h3>
+        <p>{body}</p>
+      </div>
+      <div className="games-family-stats">
+        {stats.map((stat) => (
+          <div key={`${title}-${stat.label}`}>
+            <span>{stat.label}</span>
+            <strong>{stat.value}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="games-family-actions">
+        <Link href={href}>허브 열기</Link>
+        {links.map((link) => (
+          <Link href={link.href} key={`${title}-${link.href}`}>{link.label}</Link>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 function RoadmapCard({ item, index }) {
   const game = findGameBySlug(item.slug) || item;
   const integration = getGameIntegration(game);
@@ -248,6 +276,64 @@ export default function GamesPage() {
   const topUser = hub.rankings.points[0] || null;
   const derived = useMemo(() => ({ topUser, topCharacter }), [topCharacter, topUser]);
   const gameTitleBySlug = useMemo(() => new Map(dynamicCandidates.map((game) => [game.slug, game.title])), [dynamicCandidates]);
+  const gameFamilies = useMemo(() => {
+    const eternal = findGameBySlug('eternal-hunger');
+    const myAnimeGames = MYANIME_GAME_SLUGS.map(findGameBySlug).filter(Boolean);
+    const srpgGames = SRPG_GAME_SLUGS.map(findGameBySlug).filter(Boolean);
+    const myAnimePlayable = myAnimeGames.filter((game) => !String(game.primaryHref || '').startsWith('/board')).length;
+    const srpgPlayable = srpgGames.filter((game) => !String(game.primaryHref || '').startsWith('/board')).length;
+
+    return [
+      {
+        tone: 'battle',
+        kicker: 'Main Game',
+        title: '이터널 헝거',
+        body: '배틀 시뮬레이션, 캐릭터 설정, 기록소, 밸런스 흐름을 전용 주소로 분리합니다.',
+        href: '/eternalhunger',
+        stats: [
+          { label: '주소', value: '/eternalhunger' },
+          { label: '캐릭터', value: formatNumber(hub.counts.characters) },
+          { label: '상태', value: eternal?.integration?.stageLabel || '운영' },
+        ],
+        links: [
+          { href: '/records', label: '기록소' },
+          { href: '/board?gameSlug=eternal-hunger', label: '게시판' },
+        ],
+      },
+      {
+        tone: 'community',
+        kicker: 'Prototype Hub',
+        title: 'MyAnime',
+        body: '업로드된 MyAnime 계열 프로토타입을 한 허브에 모으고, 각 게임은 하위 주소로 이동합니다.',
+        href: '/myanime',
+        stats: [
+          { label: '주소', value: '/myanime' },
+          { label: '게임', value: formatNumber(myAnimeGames.length) },
+          { label: '플레이', value: formatNumber(myAnimePlayable) },
+        ],
+        links: [
+          { href: myAnimeGames[0]?.primaryHref || '/myanime', label: '첫 게임' },
+          { href: '/games/records', label: '기록' },
+        ],
+      },
+      {
+        tone: 'srpg',
+        kicker: 'Tactical Hub',
+        title: 'SRPG',
+        body: '그리드 전투와 미션형 게임은 SRPG 전용 허브로 분리해서 별도 장르처럼 키웁니다.',
+        href: '/srpg',
+        stats: [
+          { label: '주소', value: '/srpg' },
+          { label: '게임', value: formatNumber(srpgGames.length) },
+          { label: '플레이', value: formatNumber(srpgPlayable) },
+        ],
+        links: [
+          { href: srpgGames[0]?.primaryHref || '/srpg', label: '첫 미션' },
+          { href: '/games/saves', label: '저장' },
+        ],
+      },
+    ];
+  }, [hub.counts.characters]);
   const roadmapGames = useMemo(() => {
     const staticSlugs = new Set([...GAME_CATALOG, ...GAME_ROADMAP].map((game) => game.slug));
     return [
@@ -306,6 +392,22 @@ export default function GamesPage() {
             <button type="button" onClick={() => void loadHub({ force: true })}>다시 불러오기</button>
           </div>
         ) : null}
+
+        <section className="games-family-section" aria-label="게임군 바로가기">
+          <div className="games-roadmap-title">
+            <div>
+              <p className="games-kicker">Routes</p>
+              <h2>게임별 주소 분리</h2>
+              <p>메인 게임과 이식 게임을 같은 목록에 섞지 않고, 성격별 허브에서 시작하도록 나눕니다.</p>
+            </div>
+            <Link href="/games">전체 게임 보기</Link>
+          </div>
+          <div className="games-family-grid">
+            {gameFamilies.map((family) => (
+              <GameFamilyCard key={family.href} {...family} />
+            ))}
+          </div>
+        </section>
 
         <section className="games-grid" aria-label="게임 목록">
           {games.map((game) => (

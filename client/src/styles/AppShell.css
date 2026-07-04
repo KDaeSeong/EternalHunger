@@ -3807,6 +3807,121 @@
   gap: 14px;
 }
 
+.games-family-section {
+  display: grid;
+  gap: 14px;
+}
+
+.games-family-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.games-family-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--eh-card-shadow);
+  padding: 18px;
+}
+
+.games-family-card.is-battle {
+  border-top: 4px solid #2c6f9e;
+}
+
+.games-family-card.is-community {
+  border-top: 4px solid #3b8a65;
+}
+
+.games-family-card.is-srpg {
+  border-top: 4px solid #6f63b8;
+}
+
+.games-family-card > div:first-child > span {
+  color: #2c6f9e;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.games-family-card h3 {
+  margin: 5px 0 0;
+  color: #17202a;
+  font-size: 1.28rem;
+  line-height: 1.22;
+}
+
+.games-family-card p {
+  margin: 10px 0 0;
+  color: #5f6c78;
+  font-size: 0.92rem;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.games-family-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.games-family-stats div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 8px;
+  background: #f7fafc;
+  padding: 10px;
+}
+
+.games-family-stats span {
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.games-family-stats strong {
+  min-width: 0;
+  color: #17202a;
+  font-size: 0.92rem;
+  font-weight: 950;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.games-family-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.games-family-actions a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b4f73;
+  font-weight: 900;
+  padding: 0 13px;
+  text-decoration: none;
+}
+
+.games-family-actions a:first-child {
+  background: #2c6f9e;
+  color: #ffffff;
+}
+
 .games-card {
   min-width: 0;
   overflow: hidden;
@@ -5951,6 +6066,7 @@
   }
 
   .games-grid,
+  .games-family-grid,
   .games-roadmap-grid,
   .games-dashboard,
   .achievements-next-grid,
