@@ -15,6 +15,12 @@ export const INGREDIENTS = [
   { id: 'cheese', name: '치즈', price: 28, rarity: 2, tags: ['cheese'] },
   { id: 'gochujang', name: '고추장', price: 28, rarity: 2, tags: ['spicy'] },
   { id: 'curry', name: '카레가루', price: 30, rarity: 2, tags: ['curry'] },
+  { id: 'garlic', name: '마늘', price: 12, rarity: 1, tags: ['aroma', 'savory', 'garlic'] },
+  { id: 'soy_sauce', name: '간장', price: 12, rarity: 1, tags: ['sauce', 'umami', 'salty', 'soy'] },
+  { id: 'butter', name: '버터', price: 30, rarity: 2, tags: ['buttery', 'rich', 'creamy'] },
+  { id: 'lemon', name: '레몬', price: 26, rarity: 2, tags: ['citrus', 'light', 'refreshing', 'fruit'] },
+  { id: 'honey', name: '꿀', price: 30, rarity: 2, tags: ['sweet', 'honey', 'dessert'] },
+  { id: 'yogurt', name: '요거트', price: 24, rarity: 2, tags: ['yogurt', 'cool', 'dessert', 'creamy'] },
 ];
 
 export const RECIPES = [
@@ -64,6 +70,7 @@ export const RECIPES = [
     yieldTokens: 1,
     sellPrice: 112,
     power: 28,
+    unlock: { type: 'research' },
     note: '공격적인 학생에게 잘 맞는 고화력 메뉴입니다.',
   },
   {
@@ -76,6 +83,7 @@ export const RECIPES = [
     yieldTokens: 1,
     sellPrice: 126,
     power: 31,
+    unlock: { type: 'research' },
     note: '방어형 학생에게 안정적인 전투 보정을 줍니다.',
   },
   {
@@ -88,7 +96,125 @@ export const RECIPES = [
     yieldTokens: 1,
     sellPrice: 136,
     power: 34,
+    unlock: { type: 'tournament', tier: 'rookie' },
     note: '체력과 방어를 함께 밀어주는 든든한 메뉴입니다.',
+  },
+  {
+    id: 'apple_sauce_tonkatsu',
+    name: '사과 소스 돈카츠',
+    category: 'main',
+    tags: ['fried', 'tonkatsu', 'sweet'],
+    needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, apple: 2, rice: 1 },
+    craftCost: 28,
+    yieldTokens: 1,
+    sellPrice: 118,
+    power: 27,
+    unlock: { type: 'research' },
+    note: '달콤한 소스와 튀김 조합으로 드랍 보정이 좋은 메뉴입니다.',
+  },
+  {
+    id: 'crispy_katsu_sand',
+    name: '바삭 돈카츠 샌드',
+    category: 'main',
+    tags: ['fried', 'tonkatsu', 'speed'],
+    needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 2, oil: 1, cabbage: 1 },
+    craftCost: 26,
+    yieldTokens: 1,
+    sellPrice: 106,
+    power: 26,
+    unlock: { type: 'facility', facilityId: 'counter', level: 2 },
+    note: '영업 카운터 확장 후 만드는 빠른 회전용 메뉴입니다.',
+  },
+  {
+    id: 'croquette',
+    name: '감자 고로케',
+    category: 'side',
+    tags: ['fried', 'hearty'],
+    needs: { breadcrumb: 1, egg: 1, flour: 1, oil: 1, rice: 1 },
+    craftCost: 18,
+    yieldTokens: 1,
+    sellPrice: 72,
+    power: 20,
+    unlock: { type: 'facility', facilityId: 'fryer', level: 2 },
+    note: '튀김기 강화 후 해금되는 든든한 사이드 메뉴입니다.',
+  },
+  {
+    id: 'milk_ice',
+    name: '밀크 아이스',
+    category: 'dessert',
+    tags: ['dessert', 'cool'],
+    needs: { milk: 2, apple: 1 },
+    craftCost: 14,
+    yieldTokens: 1,
+    sellPrice: 62,
+    power: 16,
+    unlock: { type: 'tournament', tier: 'intermediate' },
+    note: '중급 대회 이후 활용하기 좋은 시원한 후식입니다.',
+  },
+  {
+    id: 'garlic_soy_grilled_pork',
+    name: '마늘 간장 그릴 포크',
+    category: 'main',
+    tags: ['grilled', 'smoky', 'savory', 'garlic', 'soy'],
+    needs: { pork: 1, garlic: 1, soy_sauce: 1, rice: 1 },
+    craftCost: 34,
+    yieldTokens: 1,
+    sellPrice: 128,
+    power: 32,
+    unlock: { type: 'facility', facilityId: 'grill', level: 1 },
+    note: '그릴 스테이션으로 여는 훈연 계열 첫 메뉴입니다.',
+  },
+  {
+    id: 'honey_lemon_tonkatsu',
+    name: '허니 레몬 글레이즈 돈카츠',
+    category: 'main',
+    tags: ['fried', 'tonkatsu', 'citrus', 'honey', 'sweet', 'refreshing'],
+    needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, honey: 1, lemon: 1 },
+    craftCost: 42,
+    yieldTokens: 1,
+    sellPrice: 154,
+    power: 38,
+    unlock: { type: 'tournament', tier: 'advanced' },
+    note: '상급 대회 이후 해금되는 고급 글레이즈 메뉴입니다.',
+  },
+  {
+    id: 'butter_curry_tonkatsu',
+    name: '버터 풍미 카레 돈카츠',
+    category: 'main',
+    tags: ['fried', 'tonkatsu', 'curry', 'buttery', 'rich'],
+    needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, curry: 1, butter: 1 },
+    craftCost: 46,
+    yieldTokens: 1,
+    sellPrice: 162,
+    power: 40,
+    unlock: { type: 'research' },
+    note: '연구로 해금하는 고급 카레 메뉴입니다.',
+  },
+  {
+    id: 'yogurt_parfait',
+    name: '요거트 파르페',
+    category: 'dessert',
+    tags: ['dessert', 'yogurt', 'cool', 'fruit', 'refreshing'],
+    needs: { yogurt: 1, apple: 1, honey: 1 },
+    craftCost: 20,
+    yieldTokens: 1,
+    sellPrice: 82,
+    power: 19,
+    unlock: { type: 'tournament', tier: 'intermediate' },
+    note: '중급 대회 보상권에서 열리는 회복형 디저트입니다.',
+  },
+  {
+    id: 'garlic_cabbage',
+    name: '마늘 간장 양배추무침',
+    category: 'side',
+    tags: ['side', 'garlic', 'savory', 'light'],
+    needs: { cabbage: 1, garlic: 1, soy_sauce: 1 },
+    craftCost: 18,
+    yieldTokens: 1,
+    sellPrice: 68,
+    power: 18,
+    unlock: { type: 'research' },
+    note: '저비용 연구로 여는 가벼운 마늘 간장 사이드입니다.',
   },
 ];
 
@@ -103,8 +229,11 @@ export const STUDENTS = [
 export const DEFAULT_UNLOCKED_RECIPES = ['basic_tonkatsu', 'cabbage_salad', 'milk_pudding'];
 
 export const RESEARCH_PROJECTS = [
+  { recipeId: 'apple_sauce_tonkatsu', name: '사과 소스 돈카츠 연구', gold: 180, recipeShards: 20 },
   { recipeId: 'spicy_tonkatsu', name: '매운 돈카츠 연구', gold: 220, recipeShards: 6 },
   { recipeId: 'cheese_tonkatsu', name: '치즈 돈카츠 연구', gold: 280, recipeShards: 8 },
+  { recipeId: 'butter_curry_tonkatsu', name: '버터 카레 돈카츠 연구', gold: 80, recipeShards: 8 },
+  { recipeId: 'garlic_cabbage', name: '마늘 양배추무침 연구', gold: 40, recipeShards: 4 },
 ];
 
 export const FACILITIES = [
@@ -166,6 +295,16 @@ export const FACILITIES = [
       { level: 4, gold: 720, recipeShardBonus: 3, contestMult: 1.1 },
     ],
   },
+  {
+    id: 'grill',
+    name: '그릴 스테이션',
+    maxLevel: 3,
+    effect: 'grilled',
+    levels: [
+      { level: 2, gold: 240, productionMult: 1.1, failReduce: 0.03 },
+      { level: 3, gold: 600, productionMult: 1.2, failReduce: 0.06, contestMult: 1.05 },
+    ],
+  },
 ];
 
 export const TOURNAMENT_THEMES = [
@@ -179,8 +318,8 @@ export const TOURNAMENT_THEMES = [
 
 export const TOURNAMENT_TIERS = [
   { id: 'rookie', name: '루키', entryGold: 90, targetScore: 58, rewardGold: 180, rewardRep: 14, rewardShards: 4, unlockRecipes: ['curry_tonkatsu'] },
-  { id: 'intermediate', name: '중급', entryGold: 180, targetScore: 72, rewardGold: 360, rewardRep: 30, rewardShards: 8, unlockRecipes: [] },
-  { id: 'advanced', name: '상급', entryGold: 340, targetScore: 86, rewardGold: 720, rewardRep: 58, rewardShards: 14, unlockRecipes: [] },
+  { id: 'intermediate', name: '중급', entryGold: 180, targetScore: 72, rewardGold: 360, rewardRep: 30, rewardShards: 8, unlockRecipes: ['milk_ice', 'yogurt_parfait'] },
+  { id: 'advanced', name: '상급', entryGold: 340, targetScore: 86, rewardGold: 720, rewardRep: 58, rewardShards: 14, unlockRecipes: ['honey_lemon_tonkatsu'] },
 ];
 
 const JUDGE_AI_CHEFS = [
@@ -246,6 +385,8 @@ export function createNewState(options = {}) {
       cabbage: 3,
       apple: 2,
       milk: 2,
+      garlic: 2,
+      soy_sauce: 2,
     },
     mealTokens: {},
     students: makeStudents(),
@@ -303,6 +444,18 @@ export function tournamentTierName(id) {
   return TOURNAMENT_TIERS.find((item) => item.id === id)?.name || id;
 }
 
+const TIER_ORDER = {
+  rookie: 1,
+  intermediate: 2,
+  advanced: 3,
+};
+
+function isTierCleared(clearedTiers = [], tierId = '') {
+  const required = Number(TIER_ORDER[tierId] || 0);
+  if (!required) return false;
+  return clearedTiers.some((cleared) => Number(TIER_ORDER[cleared] || 0) >= required);
+}
+
 export function buildFacilityContext(state) {
   const current = normalizeState(state);
   const ctx = {
@@ -348,7 +501,17 @@ export function buildFacilityContext(state) {
 
 export function isRecipeUnlocked(state, recipeId) {
   const current = normalizeState(state);
-  return current.unlockedRecipeIds.includes(recipeId);
+  if (current.unlockedRecipeIds.includes(recipeId)) return true;
+  const recipe = RECIPES.find((item) => item.id === recipeId);
+  const unlock = recipe?.unlock;
+  if (!unlock) return DEFAULT_UNLOCKED_RECIPES.includes(recipeId);
+  if (unlock.type === 'facility') {
+    return Number(current.facilityLevels?.[unlock.facilityId] || 1) >= Number(unlock.level || 1);
+  }
+  if (unlock.type === 'tournament') {
+    return isTierCleared(current.clearedTournamentTiers, unlock.tier);
+  }
+  return false;
 }
 
 export function recipeRows(state) {
@@ -356,8 +519,17 @@ export function recipeRows(state) {
   return RECIPES.map((recipe) => {
     const unlocked = isRecipeUnlocked(current, recipe.id);
     const research = RESEARCH_PROJECTS.find((project) => project.recipeId === recipe.id);
-    const tournamentLocked = recipe.id === 'curry_tonkatsu' && !current.clearedTournamentTiers.includes('rookie');
-    const reason = unlocked ? '' : research ? `연구 필요: ${research.gold}G + 조각 ${research.recipeShards}` : tournamentLocked ? '루키 대회 우승 필요' : '해금 필요';
+    const unlock = recipe.unlock || {};
+    const facility = unlock.type === 'facility' ? FACILITIES.find((item) => item.id === unlock.facilityId) : null;
+    const reason = unlocked
+      ? ''
+      : research
+        ? `연구 필요: ${research.gold}G + 조각 ${research.recipeShards}`
+        : unlock.type === 'facility'
+          ? `${facility?.name || unlock.facilityId} Lv.${unlock.level || 1} 필요`
+          : unlock.type === 'tournament'
+            ? `${tournamentTierName(unlock.tier)} 대회 우승 필요`
+            : '해금 필요';
     return { ...recipe, unlocked, reason };
   });
 }
