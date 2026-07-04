@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
-import { GAME_CATALOG, gameDetailHref } from './_lib/gameCatalog';
+import { GAME_CATALOG, GAME_ROADMAP, gameDetailHref } from './_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
@@ -103,6 +103,32 @@ function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
           ))}
         </div>
       </div>
+    </article>
+  );
+}
+
+function RoadmapCard({ item, index }) {
+  return (
+    <article className="games-roadmap-card">
+      <div className="games-roadmap-card__head">
+        <span>{String(index + 1).padStart(2, '0')}</span>
+        <div>
+          <p>{item.subtitle}</p>
+          <h3>{item.title}</h3>
+        </div>
+        <strong>{item.priority}</strong>
+      </div>
+      <p>{item.summary}</p>
+      <dl>
+        <div>
+          <dt>범위</dt>
+          <dd>{item.scope}</dd>
+        </div>
+        <div>
+          <dt>다음 작업</dt>
+          <dd>{item.nextStep}</dd>
+        </div>
+      </dl>
     </article>
   );
 }
@@ -217,6 +243,22 @@ export default function GamesPage() {
           {games.map((game) => (
             <GameCard key={game.title} {...game} />
           ))}
+        </section>
+
+        <section className="games-roadmap" aria-label="이식 예정 게임">
+          <div className="games-roadmap-title">
+            <div>
+              <p className="games-kicker">Roadmap</p>
+              <h2>이식 예정 게임</h2>
+              <p>첨부된 프로토타입을 현재 사이트에 붙이기 쉬운 순서대로 정리했습니다.</p>
+            </div>
+            <Link href="/board?category=game">아이디어 논의</Link>
+          </div>
+          <div className="games-roadmap-grid">
+            {GAME_ROADMAP.map((item, index) => (
+              <RoadmapCard item={item} index={index} key={item.slug} />
+            ))}
+          </div>
         </section>
 
         <section className="games-dashboard">

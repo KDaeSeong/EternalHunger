@@ -3813,6 +3813,154 @@
   border-top: 4px solid #2c6f9e;
 }
 
+.games-roadmap {
+  display: grid;
+  gap: 14px;
+}
+
+.games-roadmap-title {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+}
+
+.games-roadmap-title h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.55rem;
+  line-height: 1.18;
+}
+
+.games-roadmap-title p:not(.games-kicker) {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: #64717d;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.games-roadmap-title a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b4f73;
+  font-weight: 900;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.games-roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.games-roadmap-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--eh-card-shadow);
+  padding: 16px;
+}
+
+.games-roadmap-card__head {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.games-roadmap-card__head > span {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #edf5fb;
+  color: #1b6fa2;
+  font-size: 0.8rem;
+  font-weight: 950;
+}
+
+.games-roadmap-card__head p,
+.games-roadmap-card__head h3,
+.games-roadmap-card > p,
+.games-roadmap-card dd {
+  min-width: 0;
+}
+
+.games-roadmap-card__head p {
+  margin: 0 0 4px;
+  color: #2c6f9e;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.games-roadmap-card__head h3 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
+.games-roadmap-card__head strong {
+  border: 1px solid rgba(44, 111, 158, 0.18);
+  border-radius: 999px;
+  background: #f7fafc;
+  color: #1b4f73;
+  font-size: 0.76rem;
+  font-weight: 950;
+  padding: 7px 9px;
+  white-space: nowrap;
+}
+
+.games-roadmap-card > p {
+  margin: 0;
+  color: #5f6c78;
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.games-roadmap-card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.games-roadmap-card dl div {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid rgba(22, 33, 44, 0.08);
+  padding-top: 8px;
+}
+
+.games-roadmap-card dt {
+  color: #64717d;
+  font-size: 0.75rem;
+  font-weight: 950;
+}
+
+.games-roadmap-card dd {
+  margin: 0;
+  color: #17202a;
+  font-size: 0.86rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
 .games-dashboard {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4116,10 +4264,19 @@
   }
 
   .games-grid,
+  .games-roadmap-grid,
   .games-dashboard,
   .achievements-next-grid,
   .achievements-grid {
     grid-template-columns: 1fr;
+  }
+
+  .games-roadmap-title {
+    grid-template-columns: 1fr;
+  }
+
+  .games-roadmap-title a {
+    width: fit-content;
   }
 
   .games-card.has-visual {
