@@ -26,11 +26,60 @@
 }
 
 .auth-logo {
-    margin-bottom: 10px;
+    display: inline-grid;
+    grid-template-columns: 42px auto;
+    align-items: center;
+    justify-content: center;
+    column-gap: 12px;
+    margin: 0 auto 10px;
+    text-align: left;
 }
 
-.auth-logo .logo-sub { font-size: 0.9rem; font-weight: bold; color: #888; display: block; }
-.auth-logo .logo-main { font-size: 2.2rem; font-weight: 900; color: #44688d; }
+.auth-logo::before {
+    content: 'K';
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(35, 106, 158, 0.22);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ffffff 0%, #eef8ff 48%, #d8ecff 100%);
+    box-shadow: 0 12px 24px rgba(35, 106, 158, 0.16);
+    color: #236a9e;
+    font-size: 1.28rem;
+    font-style: italic;
+    font-weight: 1000;
+}
+
+.auth-logo .logo-sub {
+    color: #7d858d;
+    font-size: 0.72rem;
+    font-weight: 950;
+    display: block;
+    line-height: 1;
+}
+
+.auth-logo .logo-main {
+    position: relative;
+    display: inline-block;
+    color: #236a9e;
+    font-size: 1.72rem;
+    font-style: italic;
+    font-weight: 1000;
+    line-height: 1.05;
+    text-shadow: 0 1px 0 #ffffff, 0 10px 22px rgba(35, 106, 158, 0.16);
+}
+
+.auth-logo .logo-main::after {
+    content: '';
+    position: absolute;
+    left: 3px;
+    right: 0;
+    bottom: -5px;
+    height: 5px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(35, 106, 158, 0.22), rgba(35, 106, 158, 0));
+}
 
 .auth-form {
     display: flex;

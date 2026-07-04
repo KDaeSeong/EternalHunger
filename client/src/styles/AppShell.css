@@ -238,35 +238,69 @@
 }
 
 .site-header__logo {
-  width: clamp(128px, 11vw, 170px);
+  width: clamp(148px, 12vw, 188px);
   min-width: 0;
   display: grid;
-  gap: 3px;
-  padding: 2px 10px 4px 0;
-  color: #2c6f9e;
+  grid-template-columns: 34px minmax(0, 1fr);
+  column-gap: 9px;
+  align-items: center;
+  padding: 2px 8px 4px 0;
+  color: #236a9e;
   line-height: 1;
   text-decoration: none;
   overflow: visible;
 }
 
+.site-header__logo::before {
+  content: 'K';
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(35, 106, 158, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #edf7ff 48%, #dceeff 100%);
+  color: #236a9e;
+  box-shadow: 0 8px 18px rgba(35, 106, 158, 0.13);
+  font-size: 1.05rem;
+  font-style: italic;
+  font-weight: 1000;
+}
+
 .site-header__logo span {
-  color: #858b92;
-  font-size: 0.66rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
+  color: #7d858d;
+  font-size: 0.62rem;
+  font-weight: 950;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 
 .site-header__logo strong {
+  position: relative;
   display: inline-block;
-  padding-right: 0.18em;
-  color: #2c6f9e;
-  font-size: 1.18rem;
+  width: max-content;
+  max-width: 100%;
+  padding-right: 0.12em;
+  color: #236a9e;
+  font-size: 1.12rem;
   font-style: italic;
-  font-weight: 900;
+  font-weight: 1000;
   line-height: 1.08;
   letter-spacing: 0;
   white-space: nowrap;
+  text-shadow: 0 1px 0 #ffffff, 0 8px 18px rgba(35, 106, 158, 0.16);
+}
+
+.site-header__logo strong::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 0;
+  bottom: -3px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(35, 106, 158, 0.22), rgba(35, 106, 158, 0));
 }
 
 .site-header__nav {
