@@ -19,6 +19,19 @@ export const MAPS = [
   { id: 'map-8', name: '그라운드 제로', matchupBalance: {} },
 ];
 
+const CAREER_STAT_KEYS = ['attack', 'defense', 'strategy', 'sense', 'macro', 'scout', 'control', 'harass'];
+
+const FREE_AGENT_NAMES = [
+  ['Nova', 'Rush'],
+  ['Mika', 'Orbit'],
+  ['Seri', 'Vector'],
+  ['Kanna', 'Forge'],
+  ['Rin', 'Anchor'],
+  ['Haru', 'Signal'],
+  ['Yuzu', 'Prime'],
+  ['Aki', 'Tempo'],
+];
+
 const TEAM_BLUEPRINTS = [
   {
     id: 'team-home',
@@ -109,8 +122,11 @@ function generatedRoster(teamId, prefix, count, base) {
 function cloneTeam(teamData) {
   return {
     ...teamData,
+    money: Number(teamData.money || 0),
+    career: normalizeTeamCareer(teamData),
     roster: teamData.roster.map((member) => ({
       ...member,
+      salaryStep: Number(member.salaryStep || 0),
       stats: { ...member.stats },
     })),
   };
@@ -139,6 +155,7 @@ export function createNewState(options = {}) {
     mapPool: MAPS.map((item) => item.id),
     fixtures,
     standings: createStandings(teams),
+    freeAgentSeq: 0,
     log: ['시즌 1이 개막했습니다. 다음 경기나 이번 주 전체 진행을 눌러 리그를 진행하세요.'],
     ended: false,
     championTeamId: '',
@@ -157,6 +174,7 @@ export function normalizeState(value) {
     fixtures,
     standings: Array.isArray(value.standings) && value.standings.length ? value.standings : rebuildStandings(teams, fixtures),
     mapPool: Array.isArray(value.mapPool) && value.mapPool.length ? value.mapPool : base.mapPool,
+    freeAgentSeq: Number(value.freeAgentSeq || 0),
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
 }
@@ -222,6 +240,116 @@ function createRng(seed) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function statAverageFromStats(stats = {}) {
+  return CAREER_STAT_KEYS.reduce((sum, key) => sum + Number(stats[key] || 0), 0) / CAREER_STAT_KEYS.length;
+}
+
+function normalizeTeamCareer(teamData) {
+  const roster = Array.isArray(teamData.roster) ? teamData.roster : [];
+  const rosterFame = roster.reduce((sum, member) => sum + Number(member.fame || 0), 0);
+  const baseFan = Math.round(900 + rosterFame / Math.max(1, roster.length) * 5 + Math.max(0, teamPower(teamData)) * 2);
+  const career = teamData.career && typeof teamData.career === 'object' ? teamData.career : {};
+  return {
+    sponsorTier: clamp(Number(career.sponsorTier || 1), 1, 6),
+    fanBase: Math.max(0, Math.round(Number(career.fanBase || baseFan))),
+    trainingLevel: clamp(Number(career.trainingLevel || 1), 1, 8),
+    scoutingLevel: clamp(Number(career.scoutingLevel || 1), 1, 8),
+    payrollPressure: Math.max(0, Math.round(Number(career.payrollPressure || calcTeamPayroll(teamData)))),
+  };
+}
+
+function addStateLog(state, line) {
+  return {
+    ...state,
+    log: [line, ...state.log].slice(0, 90),
+  };
+}
+
+function syncTeamEconomy(state, teamId, updater) {
+  const teamData = getTeam(state, teamId);
+  const standing = getStanding(state, teamId);
+  const currentMoney = Number(standing?.money ?? teamData.money ?? 0);
+  const updatedTeam = updater({ ...teamData, money: currentMoney, career: normalizeTeamCareer(teamData) }, currentMoney);
+  const nextMoney = Number(updatedTeam.money ?? currentMoney);
+  return {
+    ...state,
+    teams: state.teams.map((item) => (item.id === teamId ? cloneTeam(updatedTeam) : item)),
+    standings: state.standings.map((row) => (row.teamId === teamId ? { ...row, money: nextMoney } : row)),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export function calcPlayerMarketValue(member) {
+  const avg = statAverageFromStats(member?.stats || {});
+  const fame = Number(member?.fame || 0);
+  const salaryStep = Number(member?.salaryStep || 0);
+  return clamp(Math.floor(avg * 0.82 + Number(member?.level || 1) * 24 + fame * 0.32 + salaryStep * 12), 60, 560);
+}
+
+export function calcTeamPayroll(teamData) {
+  if (!Array.isArray(teamData?.roster)) return 0;
+  return teamData.roster.reduce((sum, member) => sum + Math.max(10, Math.floor(calcPlayerMarketValue(member) * 0.22)), 0);
+}
+
+function rankedIndex(state, teamId) {
+  return getTopTeams(state, state.teams.length).findIndex((row) => row.teamId === teamId);
+}
+
+function makeFreeAgentCandidate(state, teamId, seqOffset = 0) {
+  const teamData = getTeam(state, teamId);
+  const career = normalizeTeamCareer(teamData);
+  const seq = Number(state.freeAgentSeq || 0) + seqOffset;
+  const rng = createRng(`${state.runId}|fa|${state.seasonNo}|${state.week}|${teamId}|${seq}`);
+  const nameParts = FREE_AGENT_NAMES[Math.floor(rng() * FREE_AGENT_NAMES.length) % FREE_AGENT_NAMES.length];
+  const base = clamp(teamPower(teamData) + career.scoutingLevel * 10 + Math.round((rng() - 0.35) * 72), 420, 660);
+  const race = ['T', 'Z', 'P'][Math.floor(rng() * 3) % 3];
+  const level = clamp(3 + Math.floor((base - 420) / 45), 3, 8);
+  const stats = CAREER_STAT_KEYS.reduce((acc, key, index) => {
+    acc[key] = clamp(Math.round(base + (rng() - 0.5) * 58 + (index % 2 === 0 ? 8 : -4)), 260, 820);
+    return acc;
+  }, {});
+  const candidate = {
+    id: `fa-${state.seasonNo}-${state.week}-${teamId}-${seq + 1}`,
+    name: `${nameParts[0]} ${nameParts[1]}`,
+    race,
+    level,
+    condition: 92,
+    fame: Math.round(80 + level * 32 + rng() * 180),
+    salaryStep: 0,
+    stats,
+  };
+  const marketValue = calcPlayerMarketValue(candidate);
+  return {
+    player: candidate,
+    signingBonus: Math.max(110, Math.floor(marketValue * 0.62)),
+    salary: Math.max(16, Math.floor(marketValue * 0.28)),
+    yearsLeft: marketValue >= 320 || level >= 7 ? 3 : 2,
+  };
+}
+
+export function getFreeAgentPreview(state, teamId) {
+  const current = normalizeState(state);
+  return makeFreeAgentCandidate(current, teamId, 0);
+}
+
+export function careerSummary(state, teamId) {
+  const current = normalizeState(state);
+  const teamData = getTeam(current, teamId);
+  const career = normalizeTeamCareer(teamData);
+  const standing = getStanding(current, teamId);
+  const payroll = calcTeamPayroll(teamData);
+  const preview = makeFreeAgentCandidate(current, teamId, 0);
+  return {
+    ...career,
+    money: Number(standing?.money ?? teamData.money ?? 0),
+    payroll,
+    rosterValue: teamData.roster.reduce((sum, member) => sum + calcPlayerMarketValue(member), 0),
+    freeAgentCost: preview.signingBonus,
+    freeAgentName: preview.player.name,
+    freeAgentRace: preview.player.race,
+  };
 }
 
 function mapById(id) {
@@ -455,14 +583,128 @@ export function simulateWeekAction(state) {
   return next;
 }
 
+export function negotiateSponsorAction(state, teamId) {
+  const current = normalizeState(state);
+  if (current.ended) return addStateLog(current, '시즌 종료 후에는 스폰서 협상을 진행할 수 없습니다.');
+  const teamData = getTeam(current, teamId);
+  const rank = rankedIndex(current, teamId);
+  const career = normalizeTeamCareer(teamData);
+  const rankBonus = Math.max(0, current.teams.length - Math.max(0, rank)) * 14;
+  const gain = Math.round(170 + career.sponsorTier * 85 + career.fanBase / 70 + rankBonus);
+  const fanGain = Math.round(80 + career.sponsorTier * 25 + Math.max(0, teamPower(teamData) - 480) * 0.6);
+  const tierGain = rank >= 0 && rank <= 2 && career.sponsorTier < 6 ? 1 : 0;
+  const next = syncTeamEconomy(current, teamId, (team) => ({
+    ...team,
+    money: Number(team.money || 0) + gain,
+    career: {
+      ...career,
+      sponsorTier: clamp(career.sponsorTier + tierGain, 1, 6),
+      fanBase: career.fanBase + fanGain,
+    },
+  }));
+  return addStateLog(next, `${teamData.name} 스폰서 협상: +${gain} Cr, 팬 +${fanGain}${tierGain ? ', 스폰서 등급 상승' : ''}`);
+}
+
+export function investTrainingAction(state, teamId) {
+  const current = normalizeState(state);
+  if (current.ended) return addStateLog(current, '시즌 종료 후에는 훈련 투자를 진행할 수 없습니다.');
+  const teamData = getTeam(current, teamId);
+  const career = normalizeTeamCareer(teamData);
+  const standing = getStanding(current, teamId);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  const cost = Math.round(150 + career.trainingLevel * 95 + teamData.roster.length * 8);
+  if (money < cost) {
+    return addStateLog(current, `${teamData.name} 훈련 투자 실패: ${cost} Cr 필요, 보유 ${money} Cr`);
+  }
+  const statGain = 2 + Math.floor(career.trainingLevel / 2);
+  const next = syncTeamEconomy(current, teamId, (team) => ({
+    ...team,
+    money: Number(team.money || 0) - cost,
+    career: {
+      ...career,
+      trainingLevel: clamp(career.trainingLevel + 1, 1, 8),
+    },
+    roster: team.roster.map((member, index) => ({
+      ...member,
+      condition: clamp(Number(member.condition || 100) + 8, 0, 100),
+      fame: Number(member.fame || 0) + (index < 5 ? 5 : 2),
+      stats: CAREER_STAT_KEYS.reduce((acc, key) => {
+        acc[key] = clamp(Number(member.stats?.[key] || 0) + statGain + (index < 5 ? 1 : 0), 0, 1000);
+        return acc;
+      }, {}),
+    })),
+  }));
+  return addStateLog(next, `${teamData.name} 훈련 투자: -${cost} Cr, 훈련 Lv.${clamp(career.trainingLevel + 1, 1, 8)}`);
+}
+
+export function signFreeAgentAction(state, teamId) {
+  const current = normalizeState(state);
+  if (current.ended) return addStateLog(current, '시즌 종료 후에는 FA 영입을 진행할 수 없습니다.');
+  const teamData = getTeam(current, teamId);
+  const standing = getStanding(current, teamId);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  if (teamData.roster.length >= 12) {
+    return addStateLog(current, `${teamData.name} FA 영입 실패: 로스터가 가득 찼습니다.`);
+  }
+  const offer = makeFreeAgentCandidate(current, teamId, 0);
+  if (money < offer.signingBonus) {
+    return addStateLog(current, `${teamData.name} FA 영입 실패: ${offer.player.name} 계약금 ${offer.signingBonus} Cr 필요`);
+  }
+  const career = normalizeTeamCareer(teamData);
+  const next = syncTeamEconomy(
+    {
+      ...current,
+      freeAgentSeq: Number(current.freeAgentSeq || 0) + 1,
+    },
+    teamId,
+    (team) => ({
+      ...team,
+      money: Number(team.money || 0) - offer.signingBonus,
+      career: {
+        ...career,
+        scoutingLevel: clamp(career.scoutingLevel + 1, 1, 8),
+        fanBase: career.fanBase + Math.round(offer.player.fame / 4),
+        payrollPressure: calcTeamPayroll({ ...team, roster: [...team.roster, offer.player] }) + offer.salary,
+      },
+      roster: [...team.roster, offer.player],
+    }),
+  );
+  return addStateLog(next, `${teamData.name} FA 영입: ${offer.player.name} 계약금 -${offer.signingBonus} Cr, 연봉 ${offer.salary} Cr/${offer.yearsLeft}년`);
+}
+
 export function startNextSeasonAction(state) {
   const current = normalizeState(state);
   const next = createNewState();
+  const carriedTeams = current.teams.map((teamData) => {
+    const career = normalizeTeamCareer(teamData);
+    const standing = getStanding(current, teamData.id);
+    const payroll = calcTeamPayroll(teamData);
+    const moneyAfterPayroll = Number(standing?.money ?? teamData.money ?? 0) - payroll;
+    return cloneTeam({
+      ...teamData,
+      money: moneyAfterPayroll,
+      career: {
+        ...career,
+        fanBase: Math.round(career.fanBase * 1.04),
+        payrollPressure: payroll,
+      },
+      roster: teamData.roster.map((member) => ({
+        ...member,
+        condition: clamp(Number(member.condition || 100) + (moneyAfterPayroll >= 0 ? 18 : -8), 30, 100),
+        fame: Math.max(0, Number(member.fame || 0) + (current.championTeamId === teamData.id ? 24 : 8)),
+      })),
+    });
+  });
+  const fixtures = generateSchedule(carriedTeams);
   return {
     ...next,
     runId: current.runId,
     startedAt: current.startedAt,
     seasonNo: Number(current.seasonNo || 1) + 1,
+    teams: carriedTeams,
+    fixtures,
+    standings: createStandings(carriedTeams),
+    freeAgentSeq: Number(current.freeAgentSeq || 0),
     log: [`시즌 ${Number(current.seasonNo || 1) + 1}이 새로 시작됐습니다.`, ...current.log].slice(0, 90),
   };
 }
@@ -510,11 +752,16 @@ export function getTotalFixtureCount(state) {
 export function scoreState(state) {
   const current = normalizeState(state);
   const leader = getTopTeams(current, 1)[0];
+  const careerScore = current.teams.reduce((sum, teamData) => {
+    const career = normalizeTeamCareer(teamData);
+    return sum + career.sponsorTier * 80 + career.trainingLevel * 55 + career.scoutingLevel * 45 + career.fanBase / 90;
+  }, 0);
   return Math.max(0, Math.round(
     getPlayedCount(current) * 35
     + Number(leader?.wins || 0) * 180
     + Number(leader?.diff || 0) * 24
     + current.standings.reduce((sum, row) => sum + Number(row.money || 0), 0) / 12
+    + careerScore
   ));
 }
 
@@ -534,6 +781,11 @@ export function summaryForState(state) {
     total: getTotalFixtureCount(current),
     leader: leader?.teamName || '',
     champion: current.championTeamId ? teamName(current, current.championTeamId) : '',
+    teams: current.teams.length,
+    careerValue: Math.round(current.teams.reduce((sum, teamData) => {
+      const career = normalizeTeamCareer(teamData);
+      return sum + career.fanBase + career.sponsorTier * 250 + career.trainingLevel * 180 + career.scoutingLevel * 140;
+    }, 0)),
     score: scoreState(current),
   };
 }

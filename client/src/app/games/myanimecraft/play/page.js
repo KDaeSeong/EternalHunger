@@ -12,9 +12,11 @@ import {
   QUICK_SAVE_SLOT,
   RACE_LABELS,
   SAVE_VERSION,
+  careerSummary,
   createNewState,
   fixtureLabel,
   getCurrentFixtures,
+  getFreeAgentPreview,
   getPlayedCount,
   getPlayTimeSec,
   getSourceSummary,
@@ -22,7 +24,10 @@ import {
   getTopTeams,
   getTotalFixtureCount,
   normalizeState,
+  investTrainingAction,
+  negotiateSponsorAction,
   scoreState,
+  signFreeAgentAction,
   simulateNextMatchAction,
   simulateWeekAction,
   startNextSeasonAction,
@@ -60,6 +65,8 @@ export default function MyAnimeCraftPlayPage() {
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
+  const selectedCareer = careerSummary(state, selectedTeam.id);
+  const freeAgentPreview = getFreeAgentPreview(state, selectedTeam.id);
   const sourceSummary = getSourceSummary();
   const played = getPlayedCount(state);
   const total = getTotalFixtureCount(state);
@@ -242,6 +249,19 @@ export default function MyAnimeCraftPlayPage() {
             <SmallStat label="감독" value={selectedTeam.coach} />
             <SmallStat label="전력" value={teamPower(selectedTeam)} />
             <SmallStat label="자금" value={`${Number(selectedStanding?.money || selectedTeam.money || 0).toLocaleString('ko-KR')} Cr`} />
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="스폰서" value={`Lv.${selectedCareer.sponsorTier}`} />
+            <SmallStat label="팬" value={selectedCareer.fanBase.toLocaleString('ko-KR')} />
+            <SmallStat label="훈련" value={`Lv.${selectedCareer.trainingLevel}`} />
+            <SmallStat label="스카우팅" value={`Lv.${selectedCareer.scoutingLevel}`} />
+            <SmallStat label="예상 연봉" value={`${selectedCareer.payroll.toLocaleString('ko-KR')} Cr`} />
+            <SmallStat label="FA 후보" value={`${freeAgentPreview.player.name} · ${freeAgentPreview.signingBonus} Cr`} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={ended} onClick={() => setState((current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
+            <ActionButton disabled={ended} onClick={() => setState((current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
+            <ActionButton disabled={ended} onClick={() => setState((current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
           </div>
         </section>
       </section>
