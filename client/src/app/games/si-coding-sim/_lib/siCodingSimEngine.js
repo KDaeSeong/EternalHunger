@@ -73,8 +73,56 @@ export function taskRows(state) {
       score: outcome?.score ?? null,
       status: outcome ? outcomeStatus(outcome.score) : '미제출',
       hints,
+      hintCount: Array.isArray(task.hints) ? task.hints.length : 0,
+      documentCount: Array.isArray(task.documents) ? task.documents.length : 0,
+      checkpointCount: Array.isArray(task.documentPlay?.reviewItems) ? task.documentPlay.reviewItems.length : 0,
+      executionCount: Array.isArray(task.execution?.tests) ? task.execution.tests.length : 0,
+      hiddenExecutionCount: Array.isArray(task.execution?.hiddenTests) ? task.execution.hiddenTests.length : 0,
+      checkCount: Array.isArray(task.judge?.checks) ? task.judge.checks.length : 0,
     };
   });
+}
+
+export function projectProgressRows(state) {
+  const current = normalizeState(state);
+  const groups = new Map();
+  TASKS.forEach((task) => {
+    const projectName = task.projectName || task.client || '미분류 프로젝트';
+    if (!groups.has(projectName)) {
+      groups.set(projectName, {
+        projectName,
+        firstTaskId: task.id,
+        totalTasks: 0,
+        submittedTasks: 0,
+        perfectTasks: 0,
+        partialTasks: 0,
+        riskyTasks: 0,
+        documentTasks: 0,
+        executionTasks: 0,
+        totalScore: 0,
+        active: false,
+      });
+    }
+    const group = groups.get(projectName);
+    const outcome = current.taskOutcomes[task.id] || null;
+    group.totalTasks += 1;
+    group.documentTasks += (task.documentPlay || (task.documents || []).length) ? 1 : 0;
+    group.executionTasks += (task.execution?.enabled || (task.execution?.tests || []).length) ? 1 : 0;
+    group.active = group.active || task.id === current.currentTaskId;
+    if (outcome) {
+      const score = Number(outcome.score || 0);
+      group.submittedTasks += 1;
+      group.totalScore += score;
+      if (score === 100) group.perfectTasks += 1;
+      else if (score >= 75) group.partialTasks += 1;
+      else group.riskyTasks += 1;
+    }
+  });
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    progressPct: Math.round((group.submittedTasks / Math.max(1, group.totalTasks)) * 100),
+    averageScore: group.submittedTasks ? Math.round(group.totalScore / group.submittedTasks) : 0,
+  }));
 }
 
 export function selectTaskAction(state, taskId) {

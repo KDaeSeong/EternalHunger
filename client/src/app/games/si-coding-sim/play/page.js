@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
@@ -19,6 +19,7 @@ import {
   getReportText,
   getRevealedHints,
   normalizeState,
+  projectProgressRows,
   resetTaskAction,
   revealHintAction,
   scoreState,
@@ -67,8 +68,13 @@ export default function SiCodingSimPlayPage() {
   const [selectedFileId, setSelectedFileId] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const codePanelRef = useRef(null);
+  const hintPanelRef = useRef(null);
+  const documentPanelRef = useRef(null);
+  const executionPanelRef = useRef(null);
 
   const rows = useMemo(() => taskRows(state), [state]);
+  const projectRows = useMemo(() => projectProgressRows(state), [state]);
   const task = getCurrentTask(state);
   const files = task?.files || [];
   const activeFile = files.find((file) => file.id === selectedFileId) || files[0] || null;
@@ -79,6 +85,9 @@ export default function SiCodingSimPlayPage() {
   const outcome = task ? state.taskOutcomes[task.id] : null;
   const latestEvaluation = state.projectEvaluations[0] || null;
   const score = scoreState(state);
+  const documentPlay = task?.documentPlay || null;
+  const execution = task?.execution || null;
+  const insightRows = Object.entries(task?.passiveInsights || {});
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -170,10 +179,25 @@ export default function SiCodingSimPlayPage() {
     }
   };
 
-  const selectTask = (taskId) => {
+  const scrollToPanel = (panel) => {
+    const refByPanel = {
+      code: codePanelRef,
+      hint: hintPanelRef,
+      document: documentPanelRef,
+      execution: executionPanelRef,
+    };
+    const ref = refByPanel[panel];
+    if (!ref?.current) return;
+    window.setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 40);
+  };
+
+  const selectTask = (taskId, panel) => {
     const nextTask = TASKS.find((item) => item.id === taskId) || TASKS[0];
     setSelectedFileId(nextTask?.files?.[0]?.id || '');
     setState((current) => selectTaskAction(current, taskId));
+    scrollToPanel(panel);
   };
 
   const actions = (
@@ -226,6 +250,81 @@ export default function SiCodingSimPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <section className="games-detail-grid">
+        <section className="games-panel" ref={documentPanelRef}>
+          <div className="games-panel-title">
+            <h2>문서 체크포인트</h2>
+            <span>{task.documents?.length || 0}개 문서</span>
+          </div>
+          {documentPlay ? (
+            <div className="game-save-list" style={{ marginBottom: 14 }}>
+              <article className="game-save-row">
+                <div>
+                  <span>{documentPlay.summary}</span>
+                  <strong>{documentPlay.title}</strong>
+                </div>
+                <strong>오답 허용 {documentPlay.allowWrongSelections ?? 0}</strong>
+              </article>
+              {(documentPlay.reviewItems || []).map((item) => (
+                <article className="game-save-row" key={item.id}>
+                  <div>
+                    <span>{item.detail} · 출처 {item.sourceDocId}</span>
+                    <strong>{item.title}</strong>
+                  </div>
+                  <strong>{item.required ? '필수' : '함정'}</strong>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          <div className="game-save-list">
+            {(task.documents || []).map((doc) => (
+              <article className="game-save-row" key={doc.id}>
+                <div>
+                  <span>{doc.id}</span>
+                  <strong>{doc.title}</strong>
+                  <span style={{ whiteSpace: 'pre-wrap' }}>{doc.content}</span>
+                </div>
+              </article>
+            ))}
+            {!(task.documents || []).length ? <div className="games-empty">연결된 문서가 없습니다.</div> : null}
+          </div>
+        </section>
+
+        <section className="games-panel" ref={executionPanelRef}>
+          <div className="games-panel-title">
+            <h2>실행/채점 피드백</h2>
+            <span>{execution?.mockType || task.judgeMode || 'static'}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="공개 테스트" value={execution?.tests?.length || 0} />
+            <SmallStat label="숨김 테스트" value={execution?.hiddenTests?.length || 0} />
+            <SmallStat label="정적 체크" value={task.judge?.checks?.length || 0} />
+            <SmallStat label="엔트리" value={execution?.entryFileId || '-'} />
+          </div>
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            {(execution?.tests || []).map((test, index) => (
+              <article className="game-save-row" key={`${test.description}-${index}`}>
+                <div>
+                  <span>{test.assertions?.length || 0}개 assertion</span>
+                  <strong>{test.description}</strong>
+                </div>
+                <strong>{test.invoke?.type || 'none'}</strong>
+              </article>
+            ))}
+            {(task.judge?.checks || []).map((check) => (
+              <article className="game-save-row" key={check.id || check.description}>
+                <div>
+                  <span>{check.failReason || '정적 규칙 검사'}</span>
+                  <strong>{check.description || check.label}</strong>
+                </div>
+                <strong>{check.rules?.length || 0}</strong>
+              </article>
+            ))}
+            {!execution?.tests?.length && !task.judge?.checks?.length ? <div className="games-empty">실행 또는 정적 채점 규칙이 없습니다.</div> : null}
+          </div>
+        </section>
+      </section>
+
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -286,19 +385,19 @@ export default function SiCodingSimPlayPage() {
       <section className="games-dashboard">
         <section className="games-panel">
           <div className="games-panel-title">
-            <h2>과제 목록</h2>
-            <span>{rows.length}개</span>
+            <h2>프로젝트 진행도</h2>
+            <span>{projectRows.length}개 프로젝트</span>
           </div>
           <div className="game-save-list">
-            {rows.map((row) => (
-              <article className="game-save-row" key={row.id}>
+            {projectRows.map((project) => (
+              <article className="game-save-row" key={project.projectName} style={project.active ? { borderColor: '#2673a6' } : null}>
                 <div>
-                  <span>{row.difficulty} / {row.modeLabel}</span>
-                  <strong>{row.id}</strong>
-                  <span>{row.projectName}</span>
+                  <span>완료 {project.submittedTasks}/{project.totalTasks} · 문서 {project.documentTasks} · 실행 {project.executionTasks}</span>
+                  <strong>{project.projectName}</strong>
+                  <span>평균 {project.averageScore}점 · 완전 {project.perfectTasks} · 부분 {project.partialTasks} · 위험 {project.riskyTasks}</span>
                 </div>
-                <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id)}>
-                  {row.score === null ? row.status : `${row.score}점`}
+                <button type="button" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId, 'code')}>
+                  {project.progressPct}%
                 </button>
               </article>
             ))}
@@ -306,6 +405,52 @@ export default function SiCodingSimPlayPage() {
         </section>
 
         <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>현재 과제 인사이트</h2>
+            <span>{task.cardSummary?.execution || 'static-check'}</span>
+          </div>
+          <div className="game-save-list">
+            {insightRows.length ? insightRows.map(([key, value]) => (
+              <article className="game-save-row" key={key}>
+                <div>
+                  <span>{key}</span>
+                  <strong>{value}</strong>
+                </div>
+              </article>
+            )) : <div className="games-empty">이 과제에는 별도 인사이트가 없습니다.</div>}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>과제 목록</h2>
+            <span>{rows.length}개</span>
+          </div>
+          <div className="game-save-list">
+            {rows.map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.difficulty} / {row.modeLabel} · 문서 {row.documentCount} · 실행 {row.executionCount}</span>
+                  <strong>{row.id}</strong>
+                  <span>{row.projectName}</span>
+                  <div className="games-chip-row" style={{ marginTop: 8 }}>
+                    <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>코드</button>
+                    <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'hint')} disabled={!row.hintCount}>힌트</button>
+                    <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'document')} disabled={!row.documentCount && !row.checkpointCount}>문서</button>
+                    <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'execution')} disabled={!row.executionCount && !row.checkCount}>실행</button>
+                  </div>
+                </div>
+                <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>
+                  {row.score === null ? row.status : `${row.score}점`}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel" ref={hintPanelRef}>
           <div className="games-panel-title">
             <h2>힌트</h2>
             <span>{revealedHints.length}/{task.hints?.length || 0}</span>
@@ -324,7 +469,7 @@ export default function SiCodingSimPlayPage() {
       </section>
 
       <section className="games-detail-grid">
-        <section className="games-panel">
+        <section className="games-panel" ref={codePanelRef}>
           <div className="games-panel-title">
             <h2>코드 파일</h2>
             <span>{activeFile?.path || activeFileId}</span>
