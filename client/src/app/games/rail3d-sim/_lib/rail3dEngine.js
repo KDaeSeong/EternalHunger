@@ -1,4 +1,5 @@
 import sampleService from '../_data/sampleService.json';
+import sampleSegments from '../_data/sampleSegments.json';
 import sampleTrack from '../_data/sampleTrack.json';
 
 export const GAME_SLUG = 'rail3d-sim';
@@ -7,6 +8,7 @@ export const SAVE_VERSION = 'rail3d-sim-v1';
 
 export const TRACK = sampleTrack;
 export const SERVICE = sampleService;
+export const SEGMENTS = sampleSegments.segments || [];
 
 const DEFAULT_STEP_SECONDS = 30;
 
@@ -41,6 +43,7 @@ export function createNewState(options = {}) {
     lookaheadBlocks: 1,
     trains,
     blocks: buildBlocks(),
+    segmentTokens: buildSegmentTokens(trains),
     log: ['Rail3D MVP 노선 시뮬레이션을 시작했습니다. Step으로 시간표와 블록 점유를 확인하세요.'],
   };
   return refreshBlocks(state);
@@ -54,6 +57,7 @@ export function normalizeState(value) {
     ...value,
     trains: Array.isArray(value.trains) && value.trains.length ? value.trains : base.trains,
     blocks: Array.isArray(value.blocks) && value.blocks.length ? value.blocks : base.blocks,
+    segmentTokens: Array.isArray(value.segmentTokens) ? value.segmentTokens : base.segmentTokens,
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   });
 }
@@ -63,8 +67,9 @@ export function stepAction(state, seconds = null) {
   const dt = Number(seconds || current.stepSeconds || DEFAULT_STEP_SECONDS);
   const nextNow = Number(current.nowS || 0) + dt;
   const occupied = new Map();
+  const segmentOwners = buildSegmentOwnerMap(current.trains);
   const nextTrains = current.trains.map((train) => {
-    const advanced = advanceTrain(current, train, nextNow, dt, occupied);
+    const advanced = advanceTrain(current, train, nextNow, dt, occupied, segmentOwners);
     const key = blockKey(advanced.pose.edgeId, advanced.pose.headS);
     if (key && advanced.phase !== 'DONE') occupied.set(key, advanced.id);
     return advanced;
@@ -121,6 +126,9 @@ export function trainRows(state) {
       phase: train.phase,
       signalState: train.signalState,
       blockedBy: train.blockedBy,
+      stopReason: train.stopReason || null,
+      tokenWait: train.tokenWait || null,
+      segmentId: segmentIdForPose(train.pose),
       nextStation,
       edgeId: train.pose.edgeId,
       headS: Math.round(train.pose.headS),
@@ -140,6 +148,20 @@ export function blockSummary(state) {
   }, { total: 0, FREE: 0, OCCUPIED: 0, RESERVED: 0 });
 }
 
+export function segmentSummary(state) {
+  const current = normalizeState(state);
+  const owners = buildSegmentOwnerMap(current.trains);
+  return SEGMENTS.map((segment) => ({
+    id: segment.id,
+    edgeIds: segment.edgeIds || [],
+    entryStations: segment.entryStations || [],
+    owner: owners.get(segment.id) || null,
+    waiting: current.trains
+      .filter((train) => train.stopReason?.kind === 'TOKEN_WAIT' && train.tokenWait === segment.id)
+      .map((train) => train.id),
+  }));
+}
+
 export function mapViewState(state) {
   const current = normalizeState(state);
   return {
@@ -147,6 +169,7 @@ export function mapViewState(state) {
     edges: TRACK.edges,
     stations: TRACK.stations,
     blocks: current.blocks,
+    segments: segmentSummary(current),
     trains: current.trains.map((train) => ({
       ...train,
       point: pointOnEdge(train.pose.edgeId, train.pose.headS),
@@ -160,8 +183,9 @@ export function scoreState(state) {
   const arrivedStops = current.trains.reduce((sum, train) => sum + Object.keys(train.actualArriveS || {}).length, 0);
   const totalDelay = rows.reduce((sum, row) => sum + Math.max(0, Number(row.lastArrivalDelay || 0)), 0);
   const totalWait = rows.reduce((sum, row) => sum + Number(row.waitSeconds || 0), 0);
+  const tokenWait = rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length;
   const completed = rows.filter((row) => row.phase === 'DONE').length;
-  return Math.max(0, Math.round(arrivedStops * 180 + completed * 600 - totalDelay * 4 - totalWait * 0.5));
+  return Math.max(0, Math.round(arrivedStops * 180 + completed * 600 - totalDelay * 4 - totalWait * 0.5 - tokenWait * 120));
 }
 
 export function getPlayTimeSec(state) {
@@ -179,6 +203,7 @@ export function summaryForState(state) {
     trains: rows.length,
     completed: rows.filter((row) => row.phase === 'DONE').length,
     stopped: rows.filter((row) => row.signalState === 'STOP').length,
+    tokenWaits: rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length,
     waitSeconds: rows.reduce((sum, row) => sum + row.waitSeconds, 0),
     score: scoreState(current),
   };
@@ -191,7 +216,7 @@ export function formatTime(totalSeconds) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function advanceTrain(state, train, nowS, dt, occupied) {
+function advanceTrain(state, train, nowS, dt, occupied, segmentOwners) {
   const service = servicesMap()[train.serviceId];
   if (!service) return train;
   const stops = service.stops || [];
@@ -200,6 +225,8 @@ function advanceTrain(state, train, nowS, dt, occupied) {
     ...train,
     blockedBy: null,
     signalState: 'GO',
+    stopReason: null,
+    tokenWait: null,
   };
   const currentStop = stops[next.stopIndex];
   const targetStop = stops[next.nextStopIndex];
@@ -225,6 +252,26 @@ function advanceTrain(state, train, nowS, dt, occupied) {
   const fromPoint = getStopPoint(currentStop.stationId);
   const toPoint = getStopPoint(targetStop.stationId);
   const desiredPose = interpolateStopPoints(fromPoint, toPoint, progress);
+  const currentSegmentId = segmentIdForPose(next.pose);
+  const desiredSegmentId = segmentIdForPose(desiredPose);
+  if (currentSegmentId && currentSegmentId !== desiredSegmentId && segmentOwners.get(currentSegmentId) === next.id) {
+    segmentOwners.delete(currentSegmentId);
+  }
+  if (desiredSegmentId) {
+    const segmentOwner = segmentOwners.get(desiredSegmentId);
+    if (segmentOwner && segmentOwner !== next.id) {
+      return {
+        ...next,
+        signalState: 'STOP',
+        blockedBy: segmentOwner,
+        stopReason: { kind: 'TOKEN_WAIT', blockedBy: segmentOwner, segmentId: desiredSegmentId },
+        tokenWait: desiredSegmentId,
+        speedKmh: 0,
+        waitSeconds: Number(next.waitSeconds || 0) + dt,
+      };
+    }
+    segmentOwners.set(desiredSegmentId, next.id);
+  }
   const key = blockKey(desiredPose.edgeId, desiredPose.headS);
   const blocker = key ? findBlocker(key, occupied, Number(state.lookaheadBlocks || 0)) : null;
   if (blocker && blocker !== next.id) {
@@ -232,13 +279,17 @@ function advanceTrain(state, train, nowS, dt, occupied) {
       ...next,
       signalState: 'STOP',
       blockedBy: blocker,
+      stopReason: { kind: 'BLOCKED', blockedBy: blocker, segmentId: desiredSegmentId },
       speedKmh: 0,
       waitSeconds: Number(next.waitSeconds || 0) + dt,
     };
   }
 
   next.pose = desiredPose;
-  next.speedKmh = Math.round(distanceBetweenStops(fromPoint, toPoint) / Math.max(1, arriveS - departS) * 3.6);
+  next.speedKmh = Math.round(Math.min(
+    distanceBetweenStops(fromPoint, toPoint) / Math.max(1, arriveS - departS) * 3.6,
+    speedLimitForEdge(desiredPose.edgeId),
+  ));
   if (progress >= 1) {
     next.phase = 'DWELL';
     next.speedKmh = 0;
@@ -279,7 +330,32 @@ function refreshBlocks(state) {
   return {
     ...state,
     blocks: nextBlocks,
+    segmentTokens: buildSegmentTokens(state.trains),
   };
+}
+
+function buildSegmentTokens(trains) {
+  const owners = buildSegmentOwnerMap(trains);
+  return SEGMENTS.map((segment) => ({
+    segmentId: segment.id,
+    owner: owners.get(segment.id) || null,
+  }));
+}
+
+function buildSegmentOwnerMap(trains) {
+  const owners = new Map();
+  (trains || []).forEach((train) => {
+    if (!train || train.phase === 'DONE') return;
+    const segmentId = segmentIdForPose(train.pose);
+    if (segmentId && !owners.has(segmentId)) owners.set(segmentId, train.id);
+  });
+  return owners;
+}
+
+function segmentIdForPose(pose) {
+  if (!pose?.edgeId) return '';
+  const segment = SEGMENTS.find((item) => Array.isArray(item.edgeIds) && item.edgeIds.includes(pose.edgeId));
+  return segment?.id || '';
 }
 
 function buildBlocks() {
@@ -324,6 +400,11 @@ function blockKey(edgeId, headS) {
 
 function servicesMap() {
   return Object.fromEntries((SERVICE.services || []).map((service) => [service.id, service]));
+}
+
+function speedLimitForEdge(edgeId) {
+  const limit = (TRACK.speedLimits || []).find((item) => item.edgeId === edgeId)?.limitKmh;
+  return Number(limit || 120);
 }
 
 function getStopPoint(stationId) {

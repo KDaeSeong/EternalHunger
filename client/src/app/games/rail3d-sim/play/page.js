@@ -10,6 +10,7 @@ import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
+  SEGMENTS,
   TRACK,
   blockSummary,
   createNewState,
@@ -20,6 +21,7 @@ import {
   pointOnEdge,
   runForAction,
   scoreState,
+  segmentSummary,
   setLookaheadBlocksAction,
   setStepSecondsAction,
   stepAction,
@@ -104,9 +106,11 @@ export default function Rail3dSimPlayPage() {
 
   const rows = useMemo(() => trainRows(state), [state]);
   const blocks = useMemo(() => blockSummary(state), [state]);
+  const segments = useMemo(() => segmentSummary(state), [state]);
   const score = scoreState(state);
   const completed = rows.filter((row) => row.phase === 'DONE').length;
   const stopped = rows.filter((row) => row.signalState === 'STOP').length;
+  const tokenWaits = rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length;
 
   const startNewRun = () => {
     setState(createNewState());
@@ -208,7 +212,8 @@ export default function Rail3dSimPlayPage() {
     { label: '열차', value: rows.length },
     { label: '종착', value: `${completed}/${rows.length}` },
     { label: 'STOP', value: stopped },
-    { label: '점유 블록', value: blocks.OCCUPIED },
+    { label: 'TOKEN', value: tokenWaits },
+    { label: 'SEG', value: SEGMENTS.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -270,8 +275,16 @@ export default function Rail3dSimPlayPage() {
             <SmallStat label="RESERVED" value={blocks.RESERVED} />
             <SmallStat label="대기초" value={rows.reduce((sum, row) => sum + row.waitSeconds, 0)} />
           </div>
-          <div className="games-empty">
-            현재 slice는 원본 MVP의 디버그 목적에 맞춰 블록 점유와 STOP 신호를 우선 표시합니다. 전체 3D 렌더링은 다음 단계에서 Three.js로 분리하는 편이 맞습니다.
+          <div className="game-save-list">
+            {segments.map((segment) => (
+              <article className="game-save-row" key={segment.id}>
+                <div>
+                  <span>{segment.edgeIds.join(', ')} · entry {segment.entryStations.join(', ') || '-'}</span>
+                  <strong>{segment.id}</strong>
+                </div>
+                <strong>{segment.owner ? `${segment.owner} 점유` : 'FREE'}{segment.waiting.length ? ` · 대기 ${segment.waiting.join(', ')}` : ''}</strong>
+              </article>
+            ))}
           </div>
         </section>
       </section>
@@ -300,10 +313,10 @@ export default function Rail3dSimPlayPage() {
             <div className="game-save-list">
               <article className="game-save-row">
                 <div>
-                  <span>{row.edgeId} / {row.headS}m</span>
+                  <span>{row.edgeId} / {row.headS}m · {row.segmentId || 'segment 없음'}</span>
                   <strong>{row.blockedBy ? `${row.blockedBy} 때문에 대기` : '진행 가능'}</strong>
                 </div>
-                <strong>{row.lastArrivalDelay > 0 ? `+${row.lastArrivalDelay}s` : '정시'}</strong>
+                <strong>{row.stopReason?.kind === 'TOKEN_WAIT' ? 'TOKEN_WAIT' : row.lastArrivalDelay > 0 ? `+${row.lastArrivalDelay}s` : '정시'}</strong>
               </article>
             </div>
           </section>
