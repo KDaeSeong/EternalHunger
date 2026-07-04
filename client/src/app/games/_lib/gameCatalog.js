@@ -221,8 +221,8 @@ const GAME_INTEGRATIONS = {
     resultMode: 'account-progress',
   },
   'ba-srpg': {
-    stage: 'planned',
-    stageLabel: '장기 설계',
+    stage: 'prototype',
+    stageLabel: '프로토타입',
     adapter: 'tactical-grid',
     supportsRecords: true,
     supportsSaves: true,
@@ -578,7 +578,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({

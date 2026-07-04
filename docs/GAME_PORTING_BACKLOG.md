@@ -121,3 +121,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/schale-idle-rpg/schale-idle-rpg-main`; account-progress snapshot through `/game-records/schale-idle-rpg`.
 - Source basis: `C:\2저장고\마이애니메\Schale_idle_rpg_v1_34`.
 - Next step: import the original equipment instance, reroll, auto-salvage, tower shop, and migration rules behind the simplified site shell.
+
+## BA SRPG Slice Status
+
+- Route: `/games/ba-srpg/play`
+- Included loop: mission selection, tactical grid movement, AP, range, cover/obstacle tiles, enemy phase, mission rewards, inn rest, crafting, shop purchases, equipment, and guild quest reporting.
+- Site API integration: quick save through `/game-saves/ba-srpg/ba-srpg-main`; tactical-grid snapshot through `/game-records/ba-srpg`.
+- Source basis: `C:\2저장고\마이애니메\ba-srpg\ba-srpg-frontend\public\srpg` and the monolithic `App.tsx` game flow.
+- Next step: import the original town hub, property, edict, quest cadence reset, and richer battle UI rules behind the site save/record shell.

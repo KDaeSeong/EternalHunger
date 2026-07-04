@@ -4923,6 +4923,86 @@
   font-weight: 900;
 }
 
+.srpg-board {
+  display: grid;
+  grid-template-columns: repeat(var(--srpg-cols), minmax(42px, 1fr));
+  gap: 6px;
+}
+
+.srpg-cell {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  aspect-ratio: 1;
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #17202a;
+  font-weight: 900;
+}
+
+.srpg-cell strong,
+.srpg-cell span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.srpg-cell strong {
+  font-size: 0.88rem;
+}
+
+.srpg-cell span {
+  color: #64717d;
+  font-size: 0.72rem;
+}
+
+.srpg-cell.is-unit {
+  border-color: rgba(8, 120, 189, 0.35);
+  background: #e8f5ff;
+}
+
+.srpg-cell.is-enemy {
+  border-color: rgba(185, 28, 28, 0.26);
+  background: #fff1f1;
+}
+
+.srpg-cell.is-cover {
+  background: #eef7ef;
+  color: #287a3e;
+}
+
+.srpg-cell.is-obstacle {
+  background: #e5e7eb;
+  color: #64717d;
+  cursor: not-allowed;
+}
+
+.srpg-cell.is-selected {
+  outline: 3px solid rgba(8, 120, 189, 0.34);
+}
+
+.srpg-cell.is-target {
+  outline: 3px solid rgba(220, 38, 38, 0.28);
+}
+
+.srpg-pad {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(42px, 1fr));
+  gap: 8px;
+}
+
+.srpg-pad button,
+.srpg-shop-chip {
+  min-height: 38px;
+  border: 1px solid rgba(8, 120, 189, 0.18);
+  border-radius: 8px;
+  background: #f4f9fd;
+  color: #1f5f86;
+  font-weight: 950;
+}
+
 .games-empty {
   justify-content: space-between;
   min-height: 58px;

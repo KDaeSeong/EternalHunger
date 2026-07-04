@@ -1,0 +1,459 @@
+'use client';
+
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { useToast } from '../../../../components/ToastProvider';
+import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
+import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GamePlayShell from '../../_components/GamePlayShell';
+import {
+  GAME_SLUG,
+  GRID,
+  MISSIONS,
+  QUICK_SAVE_SLOT,
+  RECIPES,
+  SAVE_VERSION,
+  SHOP_ITEMS,
+  attackSelectedAction,
+  autoPlayerTurnAction,
+  battlePower,
+  buyItemAction,
+  cellContent,
+  claimQuestAction,
+  consumeBandageAction,
+  craftRecipeAction,
+  createNewState,
+  endTurnAction,
+  equipWeaponAction,
+  equipmentRows,
+  getItem,
+  getMission,
+  getPlayTimeSec,
+  inventoryRows,
+  itemName,
+  moveSelectedAction,
+  normalizeState,
+  questRows,
+  restAction,
+  scoreState,
+  selectEnemyAction,
+  selectUnitAction,
+  startMissionAction,
+  summaryForState,
+} from '../_lib/baSrpgEngine';
+
+function ActionButton({ children, disabled, onClick }) {
+  return (
+    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function SmallStat({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function BoardCell({ content, selected, target, onClick }) {
+  const label = content.actor?.name || (content.type === 'cover' ? '엄폐' : content.type === 'obstacle' ? '장애물' : '');
+  return (
+    <button
+      type="button"
+      className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}`}
+      disabled={content.type === 'obstacle'}
+      onClick={onClick}
+      title={label}
+    >
+      {content.actor ? (
+        <>
+          <strong>{content.actor.name.slice(0, 2)}</strong>
+          <span>{content.actor.hp}/{content.actor.maxHp}</span>
+        </>
+      ) : (
+        <span>{content.type === 'cover' ? '▣' : content.type === 'obstacle' ? '×' : ''}</span>
+      )}
+    </button>
+  );
+}
+
+export default function BaSrpgPlayPage() {
+  const token = useAuthToken();
+  const hydrated = useHydrated();
+  const { showToast } = useToast();
+  const [state, setState] = useState(() => createNewState());
+  const [missionId, setMissionId] = useState('m001');
+  const [recipeId, setRecipeId] = useState(RECIPES[0].id);
+  const [busy, setBusy] = useState('');
+  const [message, setMessage] = useState('');
+
+  const battle = state.battle;
+  const mission = getMission(battle.missionId);
+  const selectedUnit = battle.units.find((unit) => unit.id === battle.selectedUnitId) || battle.units[0];
+  const targetEnemy = battle.enemies.find((enemy) => enemy.id === battle.targetEnemyId && enemy.hp > 0);
+  const rows = useMemo(() => inventoryRows(state), [state]);
+  const equips = useMemo(() => equipmentRows(state), [state]);
+  const quests = useMemo(() => questRows(state), [state]);
+  const score = scoreState(state);
+  const power = battlePower(state);
+  const selectedRecipe = RECIPES.find((recipe) => recipe.id === recipeId) || RECIPES[0];
+  const cleared = battle.phase === 'cleared';
+  const failed = battle.phase === 'failed';
+
+  const saveRun = async () => {
+    if (!token || busy) {
+      setMessage('로그인하면 BA SRPG 진행 상태를 저장 슬롯에 저장할 수 있습니다.');
+      return;
+    }
+    setBusy('save');
+    try {
+      await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
+        saveName: `BA SRPG Day ${state.day}`,
+        version: SAVE_VERSION,
+        summary: summaryForState(state),
+        payload: { state },
+        lastPlayedAt: new Date().toISOString(),
+      }, { timeoutMs: 15000 });
+      clearApiGetCache('/game-saves');
+      setMessage('BA SRPG 진행 상태를 저장했습니다.');
+      showToast({ tone: 'success', message: 'BA SRPG 진행 상태를 저장했습니다.' });
+    } catch (err) {
+      const nextMessage = err?.message || '저장에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const loadRun = async () => {
+    if (!token || busy) {
+      setMessage('로그인하면 저장된 BA SRPG 진행 상태를 불러올 수 있습니다.');
+      return;
+    }
+    setBusy('load');
+    try {
+      const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
+      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
+      if (!quickSave?.id) {
+        setMessage('저장된 BA SRPG 진행 상태가 없습니다.');
+        return;
+      }
+      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
+      const nextState = normalizeState(detail?.save?.payload?.state);
+      setState(nextState);
+      setMissionId(nextState.selectedMissionId);
+      setMessage('저장된 BA SRPG 진행 상태를 불러왔습니다.');
+      showToast({ tone: 'success', message: '저장된 BA SRPG 진행 상태를 불러왔습니다.' });
+    } catch (err) {
+      const nextMessage = err?.message || '불러오기에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const recordRun = async () => {
+    if (!token || busy) {
+      setMessage('로그인하면 BA SRPG 전투 스냅샷을 전적에 남길 수 있습니다.');
+      return;
+    }
+    setBusy('record');
+    try {
+      await apiPost(`/game-records/${GAME_SLUG}`, {
+        title: `BA SRPG - ${mission.name}`,
+        mode: 'tactical-grid',
+        result: cleared ? 'mission-clear' : failed ? 'mission-failed' : 'mission-snapshot',
+        score,
+        playTimeSec: getPlayTimeSec(state),
+        summary: summaryForState(state),
+        payload: { state },
+      }, { timeoutMs: 15000 });
+      clearApiGetCache('/game-records');
+      setMessage('BA SRPG 전투 스냅샷을 전적에 기록했습니다.');
+      showToast({ tone: 'success', message: 'BA SRPG 전투 스냅샷을 전적에 기록했습니다.' });
+    } catch (err) {
+      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const startNewRun = () => {
+    const nextState = createNewState();
+    setState(nextState);
+    setMissionId(nextState.selectedMissionId);
+    setRecipeId(RECIPES[0].id);
+    setMessage('');
+  };
+
+  const handleCellClick = (x, y) => {
+    const content = cellContent(state, x, y);
+    if (content.type === 'unit') setState((current) => selectUnitAction(current, content.actor.id));
+    if (content.type === 'enemy') setState((current) => selectEnemyAction(current, content.actor.id));
+  };
+
+  const actions = (
+    <>
+      <button type="button" onClick={startNewRun}>새 작전</button>
+      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
+      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
+      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
+      <Link href="/games/ba-srpg">상세</Link>
+    </>
+  );
+
+  const metrics = [
+    { label: '임무', value: mission.name },
+    { label: '턴', value: battle.turn },
+    { label: '전투력', value: power.toLocaleString('ko-KR') },
+    { label: '승리', value: state.battleWins },
+    { label: '크레딧', value: `${Number(state.credit || 0).toLocaleString('ko-KR')} Cr` },
+    { label: '점수', value: score.toLocaleString('ko-KR') },
+  ];
+
+  const messages = [
+    message ? { key: 'message', text: message } : null,
+    !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만 저장/불러오기/전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
+    cleared ? { key: 'clear', text: '임무를 클리어했습니다. 전적에 기록하거나 다른 임무를 시작하세요.' } : null,
+    failed ? { key: 'failed', tone: 'error', text: '임무에 실패했습니다. 여관 휴식 후 재도전하거나 새 임무를 시작하세요.' } : null,
+  ];
+
+  return (
+    <GamePlayShell
+      kicker="BA SRPG"
+      title="BA SRPG 전술 작전"
+      description="업로드된 BA SRPG 데이터를 기반으로 격자 이동, AP, 사거리, 엄폐, 적 턴, 임무 보상, 의뢰/제작/상점을 묶은 1차 전술 slice입니다."
+      summaryLabel="BA SRPG 요약"
+      actions={actions}
+      metrics={metrics}
+      messages={messages}
+    >
+      <section className="games-detail-grid">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>작전 선택</h2>
+            <span>{mission.region}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>임무</span>
+            <select value={missionId} onChange={(event) => setMissionId(event.target.value)}>
+              {MISSIONS.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{getMission(missionId).objective}</p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
+            <ActionButton onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>선택 유닛</h2>
+            <span>{selectedUnit?.name || '-'}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="HP" value={selectedUnit ? `${selectedUnit.hp}/${selectedUnit.maxHp}` : '-'} />
+            <SmallStat label="AP" value={selectedUnit?.ap ?? 0} />
+            <SmallStat label="공격" value={selectedUnit?.atk ?? 0} />
+            <SmallStat label="사거리" value={selectedUnit?.range ?? 0} />
+          </div>
+          <div className="srpg-pad">
+            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
+            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
+            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
+            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>전술 명령</h2>
+            <span>{battle.phase}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="대상" value={targetEnemy?.name || '없음'} />
+            <SmallStat label="적 생존" value={battle.enemies.filter((enemy) => enemy.hp > 0).length} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={!targetEnemy || battle.phase !== 'player'} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
+            <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => consumeBandageAction(current))}>붕대 사용</ActionButton>
+            <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
+            <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
+          </div>
+        </section>
+      </section>
+
+      <section className="games-panel">
+        <div className="games-panel-title">
+          <h2>전장</h2>
+          <span>{battle.lastResult || mission.caution}</span>
+        </div>
+        <div className="srpg-board" style={{ '--srpg-cols': GRID.width }}>
+          {Array.from({ length: GRID.height }).flatMap((_, y) => (
+            Array.from({ length: GRID.width }).map((__, x) => {
+              const content = cellContent(state, x, y);
+              const selected = content.actor?.id && content.actor.id === battle.selectedUnitId;
+              const target = content.actor?.id && content.actor.id === battle.targetEnemyId;
+              return (
+                <BoardCell
+                  key={`${x}-${y}`}
+                  content={content}
+                  selected={selected}
+                  target={target}
+                  onClick={() => handleCellClick(x, y)}
+                />
+              );
+            })
+          ))}
+        </div>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>학생</h2>
+            <span>{battle.units.filter((unit) => unit.hp > 0).length}/{battle.units.length}</span>
+          </div>
+          <div className="game-save-list">
+            {battle.units.map((unit) => (
+              <article className="game-save-row" key={unit.id}>
+                <div>
+                  <span>{unit.role} · AP {unit.ap}</span>
+                  <strong>{unit.name}</strong>
+                </div>
+                <strong>{unit.hp}/{unit.maxHp}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>적</h2>
+            <span>{battle.enemies.filter((enemy) => enemy.hp > 0).length}/{battle.enemies.length}</span>
+          </div>
+          <div className="game-save-list">
+            {battle.enemies.map((enemy) => (
+              <article className="game-save-row" key={enemy.id}>
+                <div>
+                  <span>사거리 {enemy.range} · 이동 {enemy.move}</span>
+                  <strong>{enemy.name}</strong>
+                </div>
+                <strong>{enemy.hp}/{enemy.maxHp}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>제작 / 상점</h2>
+            <span>{state.guildRep} Rep</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>제작</span>
+            <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+              {RECIPES.map((recipe) => <option value={recipe.id} key={recipe.id}>{recipe.name}</option>)}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
+            필요: {selectedRecipe.inputs.map((input) => `${itemName(input.itemId)} ${input.qty}`).join(', ')} · {selectedRecipe.costCredit} Cr
+          </p>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
+          </div>
+          <div className="games-chip-row" style={{ marginTop: 10 }}>
+            {SHOP_ITEMS.map((item) => (
+              <button type="button" className="srpg-shop-chip" key={item.itemId} onClick={() => setState((current) => buyItemAction(current, item.itemId))}>
+                {itemName(item.itemId)} {item.price}Cr
+              </button>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>인벤토리</h2>
+            <span>{rows.length}종</span>
+          </div>
+          <div className="game-save-list">
+            {rows.map((row) => (
+              <article className="game-save-row" key={row.itemId}>
+                <div>
+                  <span>{row.kind}</span>
+                  <strong>{row.name}</strong>
+                </div>
+                <strong>{Number(row.qty || 0).toLocaleString('ko-KR')}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>장비</h2>
+            <span>{equips.length}개</span>
+          </div>
+          <div className="game-save-list">
+            {equips.length ? equips.map((equip) => (
+              <article className="game-save-row" key={equip.uid}>
+                <div>
+                  <span>공격 {equip.stats.atk || 0} · 명중 {equip.stats.acc || 0}</span>
+                  <strong>{equip.name}</strong>
+                </div>
+                <button type="button" className="tcg-primary-action" onClick={() => setState((current) => equipWeaponAction(current, equip.uid))}>
+                  {equip.equipped ? '장착 중' : '장착'}
+                </button>
+              </article>
+            )) : <div className="games-empty">보유 장비가 없습니다.</div>}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>의뢰</h2>
+            <span>{state.completedQuestIds.length}/{quests.length}</span>
+          </div>
+          <div className="game-save-list">
+            {quests.map((quest) => (
+              <article className="game-save-row" key={quest.id}>
+                <div>
+                  <span>{quest.done ? '완료 가능' : '진행 중'}</span>
+                  <strong>{quest.title}</strong>
+                </div>
+                <button type="button" className="tcg-primary-action" disabled={!quest.done || quest.claimed} onClick={() => setState((current) => claimQuestAction(current, quest.id))}>
+                  {quest.claimed ? '수령' : '보고'}
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-panel">
+        <div className="games-panel-title">
+          <h2>최근 로그</h2>
+          <span>{state.runId}</span>
+        </div>
+        <div className="games-activity-list">
+          {state.log.slice(0, 12).map((line, index) => (
+            <div key={`${line}-${index}`}>
+              <strong>{line}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+    </GamePlayShell>
+  );
+}
