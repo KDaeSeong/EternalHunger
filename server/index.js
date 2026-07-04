@@ -35,6 +35,7 @@ app.use('/api/characters', verifyToken, require('./routes/characters')); // 캐�
 app.use('/api/settings', verifyToken, require('./routes/settings'));     // 게임 설정
 app.use('/api/game', verifyToken, require('./routes/game'));             // 게임 로그
 app.use('/api/records', verifyToken, require('./routes/records'));       // 기록소
+app.use('/api/analytics', verifyToken, require('./routes/analytics'));   // 분석실
 app.use('/api/user', verifyToken, require('./routes/user'));             // 유저 (보상/전적/크레딧 등)
 app.use('/api/credits', verifyToken, require('./routes/credits'));         // 크레딧
 app.use('/api/perks', verifyToken, require('./routes/perks'));             // 특전 구매/관리

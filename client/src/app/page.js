@@ -52,6 +52,12 @@ const MENU_ITEMS = [
     body: '캐릭터별, 팀별 전적과 승률을 확인합니다.',
   },
   {
+    href: '/balance',
+    tag: 'Balance',
+    title: '밸런스 분석',
+    body: '캐릭터, 팀, 행동 병목을 기록 기반으로 점검합니다.',
+  },
+  {
     href: '/leaderboard',
     tag: 'Rank',
     title: '리더보드',
