@@ -77,6 +77,7 @@ Checked: 2026-07-04
    - summary: day, party, HP/hunger, camp level, inventory weight
 4. Done: submit run/end summaries to `/game-records/primitive-archive`.
 5. Done: mark the static catalog integration as prototype-ready.
+6. Done: split the Primitive Archive loop into a reusable engine module under `client/src/app/games/primitive-archive/_lib`.
 
 ## Primitive Archive Slice Status
 
@@ -84,4 +85,4 @@ Checked: 2026-07-04
 - Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state.
 - Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
-- Next step: replace the simplified loop with selected original core modules once the route shape is accepted.
+- Next step: replace the simplified engine internals with selected original core modules while keeping the site save/record shell stable.
