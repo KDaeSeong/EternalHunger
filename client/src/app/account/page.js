@@ -128,6 +128,9 @@ export default function AccountPage() {
   const [draftBio, setDraftBio] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
   const [activity, setActivity] = useState(() => normalizeActivity(null));
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
@@ -228,6 +231,56 @@ export default function AccountPage() {
     }
   };
 
+  const savePassword = async (event) => {
+    event.preventDefault();
+    if (passwordSaving || !user) return;
+
+    const currentPassword = String(passwordForm.currentPassword || '');
+    const newPassword = String(passwordForm.newPassword || '');
+    const confirmPassword = String(passwordForm.confirmPassword || '');
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      const nextMessage = '현재 비밀번호와 새 비밀번호를 모두 입력해주세요.';
+      setPasswordMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      const nextMessage = '새 비밀번호는 6~72자로 입력해주세요.';
+      setPasswordMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      const nextMessage = '새 비밀번호 확인이 일치하지 않습니다.';
+      setPasswordMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+    if (currentPassword === newPassword) {
+      const nextMessage = '새 비밀번호는 현재 비밀번호와 달라야 합니다.';
+      setPasswordMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordMessage('');
+    try {
+      const res = await apiPut('/user/password', { currentPassword, newPassword });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      const nextMessage = res?.message || '비밀번호를 변경했습니다.';
+      setPasswordMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.message || '비밀번호 변경에 실패했습니다.';
+      setPasswordMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   return (
     <main className="account-page-shell">
       <SiteHeader />
@@ -318,6 +371,54 @@ export default function AccountPage() {
                 </div>
               </section>
             </div>
+
+            <form className="account-panel account-security-panel" onSubmit={savePassword}>
+              <div className="account-panel-title">
+                <h2>보안</h2>
+              </div>
+              <div className="account-security-grid">
+                <label className="account-field">
+                  <span>현재 비밀번호</span>
+                  <input
+                    type="password"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
+                    autoComplete="current-password"
+                    disabled={passwordSaving}
+                  />
+                </label>
+                <label className="account-field">
+                  <span>새 비밀번호</span>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
+                    autoComplete="new-password"
+                    minLength={6}
+                    maxLength={72}
+                    disabled={passwordSaving}
+                  />
+                </label>
+                <label className="account-field">
+                  <span>새 비밀번호 확인</span>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })}
+                    autoComplete="new-password"
+                    minLength={6}
+                    maxLength={72}
+                    disabled={passwordSaving}
+                  />
+                </label>
+              </div>
+              {passwordMessage ? <div className="account-message">{passwordMessage}</div> : null}
+              <div className="account-actions">
+                <button type="submit" disabled={passwordSaving}>
+                  {passwordSaving ? '변경 중...' : '비밀번호 변경'}
+                </button>
+              </div>
+            </form>
 
             <UserFollowPreview
               panelClassName="account-panel account-social-panel"

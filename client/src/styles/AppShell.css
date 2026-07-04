@@ -3085,6 +3085,16 @@
   width: 100%;
 }
 
+.account-security-panel {
+  width: 100%;
+}
+
+.account-security-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .account-dashboard,
 .account-activity-grid {
   display: grid;
@@ -4209,6 +4219,7 @@
   .account-dashboard,
   .account-activity-grid,
   .account-overview-stats,
+  .account-security-grid,
   .follow-preview-grid,
   .guides-stats,
   .guides-wiki-grid,

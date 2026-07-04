@@ -132,6 +132,37 @@ router.put('/profile', async (req, res) => {
   }
 });
 
+router.put('/password', async (req, res) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '');
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: '현재 비밀번호와 새 비밀번호를 입력해주세요.' });
+    }
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      return res.status(400).json({ error: '새 비밀번호는 6~72자로 입력해주세요.' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: '새 비밀번호는 현재 비밀번호와 달라야 합니다.' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: '비밀번호를 변경했습니다.', user: publicUser(user) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '비밀번호 변경에 실패했습니다.' });
+  }
+});
+
 router.get('/follows/:targetUserId', async (req, res) => {
   try {
     const targetUserId = String(req.params.targetUserId || '');
