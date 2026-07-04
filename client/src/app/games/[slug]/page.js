@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached } from '../../../utils/api';
-import { findGameBySlug, GAME_CATALOG, gameDetailHref, gameRoomCreateHref } from '../_lib/gameCatalog';
+import { findGameBySlug, GAME_CATALOG, gameBoardWriteHref, gameDetailHref, gameRoomCreateHref } from '../_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: {
@@ -277,6 +277,7 @@ export default function GameDetailPage() {
             <div className="games-link-grid">
               <Link href={game.primaryHref}>{game.primaryLabel}</Link>
               <Link href={game.boardHref}>{game.boardLabel}</Link>
+              <Link href={gameBoardWriteHref(game)}>글쓰기</Link>
               <Link href={game.recordHref}>{game.recordLabel}</Link>
               {integration.supportsSaves ? <Link href={`/games/saves?gameSlug=${game.slug}`}>저장 슬롯</Link> : null}
               <Link href={game.guideHref}>{game.guideLabel}</Link>

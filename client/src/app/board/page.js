@@ -219,18 +219,40 @@ export default function BoardPage() {
     const nextGameSlug = normalizeGameSlug(params.get('gameSlug'));
     const nextSort = safeText(params.get('sort'), '');
     const nextPage = Number(params.get('page') || 1);
+    const validCategory = BOARD_CATEGORIES.some((item) => item.value === nextCategory);
     if (nextQuery) setQuery(nextQuery);
-    if (BOARD_CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
+    if (validCategory) setCategoryFilter(nextCategory);
     if (nextGameSlug) setGameFilter(nextGameSlug);
     if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
     if (Number.isFinite(nextPage) && nextPage > 1) setPage(Math.floor(nextPage));
-    if (params.get('write') === '1') setWriterOpen(true);
+    if (params.get('write') === '1') {
+      setForm((current) => ({
+        ...current,
+        category: validCategory ? nextCategory : nextGameSlug ? 'game' : current.category || 'free',
+        gameSlug: nextGameSlug || current.gameSlug,
+      }));
+      setWriterOpen(true);
+    }
   }, [gameOptions]);
 
   useEffect(() => {
     if (!mounted || token) return;
     setWriterOpen(false);
   }, [mounted, token]);
+
+  const toggleWriter = () => {
+    setWriterOpen((value) => {
+      const nextOpen = !value;
+      if (nextOpen) {
+        setForm((current) => ({
+          ...current,
+          category: categoryFilter || (gameFilter ? 'game' : current.category || 'free'),
+          gameSlug: gameFilter || current.gameSlug,
+        }));
+      }
+      return nextOpen;
+    });
+  };
 
   const create = async () => {
     const title = form.title.trim();
@@ -300,7 +322,7 @@ export default function BoardPage() {
               <button
                 type="button"
                 className="board-link-button"
-                onClick={() => setWriterOpen((value) => !value)}
+                onClick={toggleWriter}
                 aria-expanded={writerOpen}
                 aria-controls="board-write-panel"
               >

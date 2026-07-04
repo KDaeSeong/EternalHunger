@@ -299,6 +299,11 @@ export function gameRoomCreateHref(gameOrSlug) {
   return `/games/rooms?gameSlug=${encodeURIComponent(String(slug || ''))}&create=1`;
 }
 
+export function gameBoardWriteHref(gameOrSlug) {
+  const slug = typeof gameOrSlug === 'object' ? gameOrSlug?.slug : gameOrSlug;
+  return `/board?category=game&gameSlug=${encodeURIComponent(String(slug || ''))}&write=1`;
+}
+
 export function findGameBySlug(slug) {
   const key = String(slug || '').trim();
   const liveGame = GAME_CATALOG.find((game) => game.slug === key);
