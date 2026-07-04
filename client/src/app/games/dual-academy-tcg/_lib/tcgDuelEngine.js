@@ -1,9 +1,12 @@
 import {
+  DEFAULT_TCG_CHARACTERS,
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
   buildDeckFromIds,
+  getTcgCharacter,
   hasKeyword,
   normalizeCards,
+  normalizeTcgCharacters,
 } from './tcgCatalog.js';
 
 export const QUICK_SAVE_SLOT = 'quick-match';
@@ -153,6 +156,7 @@ export function createDuelState({
   deckCardIds = FALLBACK_DECK_CARD_IDS,
   enemyDeckCardIds = ENEMY_DECK_CARD_IDS,
   cardCatalog = FALLBACK_TCG_CARDS,
+  characters = DEFAULT_TCG_CHARACTERS,
 } = {}) {
   const cards = normalizeCards(cardCatalog);
   let state = {
@@ -169,6 +173,7 @@ export function createDuelState({
     },
     chain: [],
     prompt: { kind: 'NONE' },
+    characters: normalizeTcgCharacters(characters),
     log: [],
     events: [],
   };
@@ -212,6 +217,7 @@ export function normalizeDuelState(value, fallback = {}) {
     },
     chain: Array.isArray(value.chain) ? value.chain.slice(0, 8) : [],
     prompt: value.prompt && typeof value.prompt === 'object' ? value.prompt : { kind: 'NONE' },
+    characters: normalizeTcgCharacters(value.characters || base.characters),
     log: Array.isArray(value.log) ? value.log.slice(0, MAX_LOG) : [],
     events: Array.isArray(value.events) ? value.events.slice(0, MAX_EVENTS) : [],
   };
@@ -229,6 +235,7 @@ export function serializeDuelState(state) {
     players: state.players,
     chain: state.chain,
     prompt: state.prompt,
+    characters: normalizeTcgCharacters(state.characters),
     log: state.log,
     events: state.events,
   };
@@ -247,6 +254,8 @@ export function summarizeDuel(state) {
     playerHand: state.players.player.hand.length,
     enemyHand: state.players.enemy.hand.length,
     chain: state.chain.length,
+    playerCharacter: normalizeTcgCharacters(state.characters).player,
+    enemyCharacter: normalizeTcgCharacters(state.characters).enemy,
   };
 }
 
@@ -294,10 +303,11 @@ function updatePlayer(state, player, updater) {
 
 function finishGame(state, winner) {
   if (!PLAYERS.includes(winner) || state.winner) return state;
-  return emit({
+  const won = emit({
     ...state,
     winner,
   }, 'WIN', winner, `${PLAYER_LABELS[winner]} 승리`);
+  return emit(won, 'LOSE', opponent(winner), `${PLAYER_LABELS[opponent(winner)]} 패배`);
 }
 
 function firstEmpty(zone) {
@@ -862,11 +872,32 @@ function playableHandCards(ps, type = null) {
     .filter((row) => !type || row.type === type);
 }
 
+function boundedChance(value) {
+  return Math.max(0.05, Math.min(0.95, Number(value || 0)));
+}
+
+function aiProfileFor(state, player = 'enemy') {
+  const id = normalizeTcgCharacters(state.characters)[player];
+  return getTcgCharacter(id, player === 'enemy' ? 'HINA' : 'YUUKA');
+}
+
+function aiUnitScore(card, ai) {
+  return monsterAtk(card) * (1 + Number(ai.aggressive || 0))
+    + monsterHealth(card) * (0.8 + Number(ai.control || 0) * 0.45)
+    + Number(card?.cost || 0) * 0.25
+    + (hasKeyword(card, 'quick') ? Number(ai.risk || 0) * 2 : 0)
+    + (hasKeyword(card, 'guard') ? Number(ai.control || 0) * 2 : 0)
+    + (hasKeyword(card, 'pierce') ? Number(ai.aggressive || 0) * 1.5 : 0);
+}
+
 export function autoPlayEnemy(state) {
   if (state.winner) return state;
+  const enemyProfile = aiProfileFor(state, 'enemy');
+  const enemyAi = enemyProfile.ai || {};
   if (state.prompt.kind === 'RESPOND' && state.prompt.player === 'enemy') {
     const counterSlot = state.players.enemy.spellTrap.findIndex((card) => card && cardType(card) === 'Trap' && spellSubType(card) === 'Counter');
-    if (counterSlot >= 0 && Math.random() < 0.35) return activateCounterTrap(state, 'enemy', counterSlot);
+    const counterChance = boundedChance(0.18 + Number(enemyAi.control || 0) * 0.45 - Number(enemyAi.risk || 0) * 0.12);
+    if (counterSlot >= 0 && Math.random() < counterChance) return activateCounterTrap(state, 'enemy', counterSlot);
     return passResponse(state);
   }
   if (state.prompt.kind !== 'NONE' || state.chain.length) return state;
@@ -880,19 +911,21 @@ export function autoPlayEnemy(state) {
     if (next.phase === 'MAIN1') {
       const enemy = next.players.enemy;
       const monsterSlot = firstEmpty(enemy.monster);
-      const unit = playableHandCards(enemy, 'Monster').sort((a, b) => monsterAtk(b.card) - monsterAtk(a.card))[0]?.card;
+      const unit = playableHandCards(enemy, 'Monster').sort((a, b) => aiUnitScore(b.card, enemyAi) - aiUnitScore(a.card, enemyAi))[0]?.card;
       if (monsterSlot >= 0 && unit && !enemy.flags.normalSummoned) {
         next = normalSummon(next, unit.instanceId, monsterSlot);
         continue;
       }
       const field = enemy.hand.find((card) => cardType(card) === 'Spell' && spellSubType(card) === 'Field');
-      if (field && !enemy.field) {
+      const fieldChance = boundedChance(0.28 + Number(enemyAi.combo || 0) * 0.36 + Number(enemyAi.control || 0) * 0.18);
+      if (field && !enemy.field && Math.random() < fieldChance) {
         next = activateFromHand(next, field.instanceId);
         if (next.prompt.kind === 'RESPOND') next = resolveChain(passResponse(next));
         continue;
       }
       const removal = enemy.hand.find((card) => cardType(card) === 'Spell' && ['destroy-enemy-unit', 'banish-enemy-card', 'damage', 'draw', 'draw-heal'].includes(effectKey(card)));
-      if (removal && (effectKey(removal) !== 'destroy-enemy-unit' || next.players.player.monster.some(Boolean))) {
+      const spellChance = boundedChance(0.3 + Number(enemyAi.aggressive || 0) * 0.22 + Number(enemyAi.combo || 0) * 0.2 + Number(enemyAi.control || 0) * 0.12);
+      if (removal && Math.random() < spellChance && (effectKey(removal) !== 'destroy-enemy-unit' || next.players.player.monster.some(Boolean))) {
         next = activateFromHand(next, removal.instanceId);
         if (next.prompt.kind === 'RESPOND') next = resolveChain(passResponse(next));
         if (next.prompt.kind === 'SELECT_TARGET') {
@@ -903,7 +936,8 @@ export function autoPlayEnemy(state) {
       }
       const settable = enemy.hand.find((card) => cardType(card) === 'Trap');
       const stSlot = firstEmpty(enemy.spellTrap);
-      if (settable && stSlot >= 0) {
+      const setChance = boundedChance(0.22 + Number(enemyAi.control || 0) * 0.45 - Number(enemyAi.aggressive || 0) * 0.14);
+      if (settable && stSlot >= 0 && Math.random() < setChance) {
         next = setSpellTrap(next, settable.instanceId, stSlot);
         continue;
       }

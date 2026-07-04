@@ -13,42 +13,162 @@ export const TCG_KEYWORD_LABELS = {
   shield: '보호막',
 };
 
-export const TCG_CHARACTERS = {
-  player: {
+export const TCG_CHARACTER_PROFILES = {
+  YUUKA: {
     id: 'YUUKA',
     name: '하야세 유우카',
     academy: '밀레니엄',
     tone: 'blue',
+    ai: { aggressive: 0.4, control: 0.8, combo: 0.6, risk: 0.2 },
     quotes: {
-      GREET: '하야세 유우카입니다. 효율적으로 진행하죠.',
-      TURN_START: '계산 완료. 실행하죠.',
-      DRAW: '데이터가 충분해요.',
-      SUMMON: '리소스를 투입합니다.',
-      EFFECT_ACTIVATE: '효과 적용. 처리합니다.',
-      ATTACK_DECLARE: '계산된 공격입니다.',
-      DAMAGE_TAKEN: '손실 기록. 회수 계획으로 전환.',
-      WIN: '결과: 승리. 비용 대비 효율 양호.',
-      LOSE: '재검증이 필요하네요.',
+      GREET: ['하야세 유우카입니다. 효율적으로 진행하죠.', '밀레니엄, 세미나. 일정대로 시작합니다.'],
+      TURN_START: ['내 차례네요. 최적해로 가겠습니다.', '계산 완료. 실행하죠.'],
+      DRAW: ['데이터가 충분해요.', '좋아요. 변수는 통제 가능합니다.'],
+      SUMMON: ['리소스를 투입합니다.', '배치 완료.'],
+      SET: ['리스크 관리 차원에서요.', '백업 플랜도 필요하죠.'],
+      EFFECT_ACTIVATE: ['효과 적용. 처리합니다.', '로그 남겼습니다.'],
+      ATTACK_DECLARE: ['필요한 피해만 넣겠습니다.', '계산된 공격입니다.'],
+      DAMAGE_TAKEN: ['손실 기록. 회수 계획으로 전환.', '예상 오차 범위 내입니다.'],
+      WIN: ['예상대로네요. 수고하셨습니다.', '결과: 승리. 비용 대비 효율 양호.'],
+      LOSE: ['재검증이 필요하네요.', '오차가 컸습니다. 다음엔 수정하죠.'],
     },
   },
-  enemy: {
+  HINA: {
     id: 'HINA',
     name: '소라사키 히나',
     academy: '게헨나',
     tone: 'red',
+    ai: { aggressive: 0.75, control: 0.45, combo: 0.35, risk: 0.55 },
     quotes: {
-      GREET: '게헨나 선도부, 출석했습니다.',
-      TURN_START: '내 차례군요. 정리하겠습니다.',
-      DRAW: '상황은 충분히 읽었어요.',
-      SUMMON: '전선에 투입.',
-      EFFECT_ACTIVATE: '효과를 사용하죠.',
-      ATTACK_DECLARE: '끝내겠습니다.',
-      DAMAGE_TAKEN: '피해는 감수합니다.',
-      WIN: '정리 완료. 다음 업무로 넘어가죠.',
-      LOSE: '판단이 늦었네요. 다음엔 고치겠습니다.',
+      GREET: ['히나입니다. 규율은 제가 지켜드리죠.', '게헨나 선도부, 출석했습니다.'],
+      TURN_START: ['내 차례군요. 정리하겠습니다.', '지금부터 제가 처리합니다.'],
+      DRAW: ['상황은 충분히 읽었어요.', '패가 괜찮군요.'],
+      SUMMON: ['전선에 투입.', '질서가 필요해.'],
+      SET: ['예비 수단도 준비하죠.', '대응책을 깔아두겠습니다.'],
+      EFFECT_ACTIVATE: ['효과를 사용하죠.', '이건 필요합니다.'],
+      ATTACK_DECLARE: ['끝내겠습니다.', '저지합니다.'],
+      DAMAGE_TAKEN: ['피해는 감수합니다.', '괜찮습니다. 계속하죠.'],
+      WIN: ['정리 완료. 다음 업무로 넘어가죠.', '규율은 지켜졌습니다.'],
+      LOSE: ['판단이 늦었네요. 다음엔 고치겠습니다.', '이번엔 제가 미흡했습니다.'],
+    },
+  },
+  MIKA: {
+    id: 'MIKA',
+    name: '미카',
+    academy: '트리니티',
+    tone: 'gold',
+    ai: { aggressive: 0.65, control: 0.55, combo: 0.4, risk: 0.35 },
+    quotes: {
+      GREET: ['에헤헤, 잘 부탁해요!', '트리니티의 미카! 즐겁게 가자~'],
+      TURN_START: ['내 차례! 시작해볼까?', '자, 분위기 올라가자~'],
+      DRAW: ['오~ 이거 쓸 만한데?', '패가 예쁘게 들어왔어.'],
+      SUMMON: ['짜잔! 등장!', '나가자~!'],
+      SET: ['혹시 몰라서 준비!', '비밀 장치 설치~'],
+      EFFECT_ACTIVATE: ['지금이 찬스!', '효과 발동~!'],
+      ATTACK_DECLARE: ['가자! 한 방이야!', '돌격~!'],
+      DAMAGE_TAKEN: ['앗! 좀 아픈데...', '괜찮아, 아직 할 수 있어!'],
+      WIN: ['봐봐~ 내가 이겼지!', '오늘은 내가 주인공~'],
+      LOSE: ['힝... 다음엔 더 잘할래.', '졌지만... 재미있었어!'],
+    },
+  },
+  GENERIC_GEHE: {
+    id: 'GENERIC_GEHE',
+    name: '게헨나 대표',
+    academy: '게헨나',
+    tone: 'red',
+    ai: { aggressive: 0.7, control: 0.35, combo: 0.25, risk: 0.65 },
+    quotes: {
+      GREET: ['게헨나의 방식으로 간다.', '끝까지 밀어붙이자.'],
+      TURN_START: ['내 턴이야. 달린다.', '가속한다.'],
+      DRAW: ['좋아, 더 밀어붙인다.'],
+      SUMMON: ['나와라!', '전개한다.'],
+      SET: ['일단 깔아둔다.'],
+      EFFECT_ACTIVATE: ['효과 발동!', '여기서 몰아친다.'],
+      ATTACK_DECLARE: ['공격!', '뚫는다!'],
+      DAMAGE_TAKEN: ['아직 안 끝났어.'],
+      WIN: ['이게 게헨나지.', '좋아, 끝났다.'],
+      LOSE: ['쳇... 다음엔 더 세게 간다.', '운이 좋았네.'],
+    },
+  },
+  GENERIC_TRIN: {
+    id: 'GENERIC_TRIN',
+    name: '트리니티 대표',
+    academy: '트리니티',
+    tone: 'gold',
+    ai: { aggressive: 0.55, control: 0.6, combo: 0.35, risk: 0.3 },
+    quotes: {
+      GREET: ['트리니티의 이름으로.', '정돈된 듀얼을 하죠.'],
+      TURN_START: ['차분히 진행하겠습니다.', '내 차례군요.'],
+      DRAW: ['좋은 흐름입니다.'],
+      SUMMON: ['필드에 세우겠습니다.'],
+      SET: ['대응책을 준비하죠.'],
+      EFFECT_ACTIVATE: ['효과를 처리합니다.'],
+      ATTACK_DECLARE: ['공격하겠습니다.'],
+      DAMAGE_TAKEN: ['피해는 계산 안입니다.'],
+      WIN: ['질서는 유지되었습니다.', '좋은 승부였어요.'],
+      LOSE: ['이번엔 판단이 부족했네요.', '다음엔 더 정교하게.'],
+    },
+  },
+  GENERIC_MILL: {
+    id: 'GENERIC_MILL',
+    name: '밀레니엄 대표',
+    academy: '밀레니엄',
+    tone: 'blue',
+    ai: { aggressive: 0.4, control: 0.7, combo: 0.55, risk: 0.25 },
+    quotes: {
+      GREET: ['시스템 부팅. 듀얼 개시.', '데이터 수집 시작.'],
+      TURN_START: ['프로세스 진행.', '내 차례: 최적화 실행.'],
+      DRAW: ['입력 데이터 확보.'],
+      SUMMON: ['필드 리소스 배치.'],
+      SET: ['예비 루틴 저장.'],
+      EFFECT_ACTIVATE: ['효과 프로세스 실행.'],
+      ATTACK_DECLARE: ['공격 루틴 실행.'],
+      DAMAGE_TAKEN: ['손실 감지.'],
+      WIN: ['결과 확인: 승리.', '계산이 맞았네요.'],
+      LOSE: ['로그 분석 필요.', '다음 패치로 보완하죠.'],
     },
   },
 };
+
+export const DEFAULT_TCG_CHARACTERS = {
+  player: 'YUUKA',
+  enemy: 'HINA',
+};
+
+export const TCG_CHARACTERS = {
+  player: TCG_CHARACTER_PROFILES[DEFAULT_TCG_CHARACTERS.player],
+  enemy: TCG_CHARACTER_PROFILES[DEFAULT_TCG_CHARACTERS.enemy],
+};
+
+export const TCG_CHARACTER_LIST = Object.values(TCG_CHARACTER_PROFILES);
+
+export function getTcgCharacter(id, fallbackId = 'YUUKA') {
+  return TCG_CHARACTER_PROFILES[id] || TCG_CHARACTER_PROFILES[fallbackId] || TCG_CHARACTER_PROFILES.YUUKA;
+}
+
+export function normalizeTcgCharacters(value) {
+  return {
+    player: getTcgCharacter(value?.player, DEFAULT_TCG_CHARACTERS.player).id,
+    enemy: getTcgCharacter(value?.enemy, DEFAULT_TCG_CHARACTERS.enemy).id,
+  };
+}
+
+function pickQuote(quotes, salt = '') {
+  if (Array.isArray(quotes) && quotes.length) {
+    const seed = String(salt || '').split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return quotes[seed % quotes.length];
+  }
+  if (typeof quotes === 'string' && quotes) return quotes;
+  return '';
+}
+
+export function renderTcgQuote(profile, event) {
+  if (!profile || !event) return '';
+  const base = pickQuote(profile.quotes?.[event.type], event.id) || pickQuote(profile.quotes?.TURN_START, event.id) || event.text || '...';
+  return base
+    .replaceAll('{card}', event.payload?.cardName || event.payload?.cardId || '')
+    .replaceAll('{amount}', event.payload?.amount != null ? String(event.payload.amount) : '');
+}
 
 export const FALLBACK_TCG_CARDS = [
   { id: 'GEH-HINA-01', name: '소라사키 히나', role: 'Unit', cost: 7, attack: 5, health: 5, text: 'v13 원본: 자기 피해를 전제로 전장을 정리하는 게헨나 에이스입니다. 간소화 룰에서는 관통 유닛으로 동작합니다.', tone: 'red', rarity: 'legendary', keywords: ['pierce'], tags: ['v13', 'gehenna', 'monster', 'ace'], sourceId: 'GEH-HINA-01', academy: '게헨나' },

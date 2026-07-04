@@ -10,11 +10,14 @@ import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
-  TCG_CHARACTERS,
+  TCG_CHARACTER_LIST,
   TCG_GAME_SLUG,
+  getTcgCharacter,
   hasKeyword,
   keywordLabels,
   normalizeCards,
+  normalizeTcgCharacters,
+  renderTcgQuote,
 } from '../_lib/tcgCatalog';
 import {
   ENGINE_VERSION,
@@ -290,6 +293,35 @@ function PromptPanel({ state, setState }) {
   );
 }
 
+function CharacterPanel({ label, profile, value, onChange, active, quote }) {
+  const initials = String(profile.name || '?').slice(0, 2);
+  return (
+    <article className={`tcg-character-card is-${profile.tone} ${active ? 'is-speaking' : ''}`}>
+      <div className="tcg-character-avatar" aria-hidden="true">{initials}</div>
+      <div className="tcg-character-body">
+        <div className="tcg-character-head">
+          <div>
+            <span>{label} · {profile.academy}</span>
+            <strong>{profile.name}</strong>
+          </div>
+          <select value={value} onChange={(event) => onChange(event.target.value)}>
+            {TCG_CHARACTER_LIST.map((character) => (
+              <option value={character.id} key={character.id}>{character.name} · {character.academy}</option>
+            ))}
+          </select>
+        </div>
+        <p>{quote || '대기 중'}</p>
+        <div className="tcg-character-ai">
+          <span>공격 {Math.round(Number(profile.ai?.aggressive || 0) * 100)}</span>
+          <span>제어 {Math.round(Number(profile.ai?.control || 0) * 100)}</span>
+          <span>연계 {Math.round(Number(profile.ai?.combo || 0) * 100)}</span>
+          <span>위험 {Math.round(Number(profile.ai?.risk || 0) * 100)}</span>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function DualAcademyTcgPlayPage() {
   return (
     <Suspense fallback={(
@@ -328,11 +360,11 @@ function DualAcademyTcgPlayContent() {
   const [selectedAttacker, setSelectedAttacker] = useState(null);
   const [state, setState] = useState(() => createDuelState());
 
-  const resetWithDeck = useCallback((cardIds, cards) => {
+  const resetWithDeck = useCallback((cardIds, cards, characters = null) => {
     setRecordMessage('');
     setSelectedHandId('');
     setSelectedAttacker(null);
-    setState(createDuelState({ deckCardIds: cardIds, cardCatalog: cards }));
+    setState(createDuelState({ deckCardIds: cardIds, cardCatalog: cards, characters: normalizeTcgCharacters(characters) }));
   }, []);
 
   const loadDeck = useCallback(async () => {
@@ -555,10 +587,13 @@ function DualAcademyTcgPlayContent() {
     return () => window.clearTimeout(timer);
   }, [state.turnPlayer, state.phase, state.prompt.kind, state.prompt.player, state.chain.length]);
 
+  const duelCharacters = normalizeTcgCharacters(state.characters);
+  const playerCharacter = getTcgCharacter(duelCharacters.player, 'YUUKA');
+  const enemyCharacter = getTcgCharacter(duelCharacters.enemy, 'HINA');
   const latestEvent = Array.isArray(state.events) ? state.events[0] : null;
-  const latestCharacter = latestEvent?.actor && TCG_CHARACTERS[latestEvent.actor]
-    ? TCG_CHARACTERS[latestEvent.actor]
-    : TCG_CHARACTERS.player;
+  const latestActor = latestEvent?.actor === 'enemy' ? 'enemy' : 'player';
+  const latestCharacter = latestActor === 'enemy' ? enemyCharacter : playerCharacter;
+  const latestQuote = latestEvent ? renderTcgQuote(latestCharacter, latestEvent) : '이벤트 대기 중입니다.';
   const selectedCard = state.players.player.hand.find((card) => card.instanceId === selectedHandId) || null;
   const summary = summarizeDuel(state);
   const canAct = !state.winner && state.turnPlayer === 'player' && state.prompt.kind === 'NONE' && state.chain.length === 0;
@@ -737,7 +772,18 @@ function DualAcademyTcgPlayContent() {
 
   const resetMatch = () => {
     markDirty();
-    resetWithDeck(deckCardIds, cardCatalog);
+    resetWithDeck(deckCardIds, cardCatalog, state.characters);
+  };
+
+  const updateCharacter = (player, characterId) => {
+    markDirty();
+    setState((current) => ({
+      ...current,
+      characters: normalizeTcgCharacters({
+        ...current.characters,
+        [player]: characterId,
+      }),
+    }));
   };
 
   return (
@@ -798,6 +844,25 @@ function DualAcademyTcgPlayContent() {
             <span>체인</span>
             <strong>{state.chain.length}</strong>
           </div>
+        </section>
+
+        <section className="tcg-character-strip" aria-label="duel characters">
+          <CharacterPanel
+            label="P1"
+            profile={playerCharacter}
+            value={duelCharacters.player}
+            active={latestActor === 'player'}
+            quote={latestActor === 'player' ? latestQuote : ''}
+            onChange={(characterId) => updateCharacter('player', characterId)}
+          />
+          <CharacterPanel
+            label="AI"
+            profile={enemyCharacter}
+            value={duelCharacters.enemy}
+            active={latestActor === 'enemy'}
+            quote={latestActor === 'enemy' ? latestQuote : ''}
+            onChange={(characterId) => updateCharacter('enemy', characterId)}
+          />
         </section>
 
         {state.winner ? (
@@ -898,7 +963,7 @@ function DualAcademyTcgPlayContent() {
             <section className={`tcg-event-callout is-${latestCharacter.tone}`}>
               <span>{latestCharacter.academy}</span>
               <strong>{latestCharacter.name}</strong>
-              <p>{latestEvent?.text || '이벤트 대기 중입니다.'}</p>
+              <p>{latestQuote}</p>
             </section>
             <ol>
               {(state.events || []).slice(0, 12).map((event) => (
