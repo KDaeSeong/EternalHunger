@@ -1,11 +1,15 @@
-// server/models/GameLog.js
 const mongoose = require('mongoose');
 
 const GameLogSchema = new mongoose.Schema({
-  title: String,       // 게임 제목 (예: 제 123회 아레나)
-  playedAt: { type: Date, default: Date.now }, // 게임 날짜
-  winnerName: String,  // 우승자 이름
-  participants: [{     // 참가자 요약 정보
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+  title: String,
+  playedAt: { type: Date, default: Date.now },
+  winnerName: String,
+  winnerTeamId: String,
+  winnerTeamName: String,
+  matchMode: String,
+  teamSize: Number,
+  participants: [{
     charId: String,
     name: String,
     killCount: Number,
@@ -15,9 +19,35 @@ const GameLogSchema = new mongoose.Schema({
     teamId: String,
     teamName: String,
     rosterIds: [String],
-    rosterNames: [String]
+    rosterNames: [String],
   }],
-  fullLog: [String]    // 전체 로그 내용 (텍스트 배열)
+  fullLog: [String],
+  summary: {
+    participantCount: Number,
+    teamCount: Number,
+    aliveCount: Number,
+    totalKills: Number,
+    totalAssists: Number,
+    totalDeaths: Number,
+    logCount: Number,
+    runEventCount: Number,
+    droneCalls: Number,
+    kioskGains: Number,
+    craftCount: Number,
+    totalRevives: Number,
+    totalFlees: Number,
+    legendCount: Number,
+    transCount: Number,
+    firstLegendText: String,
+    firstTransText: String,
+    actionLine: String,
+    chaseLine: String,
+    topBlocked: String,
+    topDeferred: String,
+    topObjectiveMoves: String,
+  },
 });
+
+GameLogSchema.index({ userId: 1, playedAt: -1 });
 
 module.exports = mongoose.model('GameLog', GameLogSchema);

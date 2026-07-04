@@ -25,6 +25,147 @@ function uniqueStrings(list) {
   return [...new Set(cleanStringList(list))];
 }
 
+function toNonNegativeInt(value) {
+  const n = Number(value || 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+function topEntries(acc, limit = 3) {
+  return Object.entries(acc || {})
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0) || String(a[0]).localeCompare(String(b[0]), 'ko'))
+    .slice(0, Math.max(1, Number(limit || 3)));
+}
+
+function stampText(at) {
+  if (!at || typeof at !== 'object') return '';
+  const day = Number(at.day || 0);
+  const phase = String(at.phase || '').toLowerCase();
+  if (day <= 0) return '';
+  const phaseLabel = phase.includes('night') ? '밤' : '낮';
+  return `${day}일차 ${phaseLabel}`;
+}
+
+function buildRunSummary({ fullLogs, matchMode, participants, runEvents }) {
+  const safeParticipants = Array.isArray(participants) ? participants : [];
+  const events = Array.isArray(runEvents) ? runEvents : [];
+  const teamIds = new Set(safeParticipants
+    .map((p) => cleanText(p.teamId, cleanText(p.charId, '')))
+    .filter(Boolean));
+  const blockedAcc = {};
+  const deferredAcc = {};
+  const objectiveAcc = {};
+  const legendWho = new Set();
+  const transWho = new Set();
+  let firstLegendAt = null;
+  let firstTransAt = null;
+  let droneCalls = 0;
+  let kioskGains = 0;
+  let craftCount = 0;
+  let totalRevives = 0;
+  let totalFlees = 0;
+  let queued = 0;
+  let blocked = 0;
+  let fleeChosen = 0;
+  let moveChosen = 0;
+  let routeFarmChosen = 0;
+  let craftChosen = 0;
+  let droneChosen = 0;
+  let kioskChosen = 0;
+  let escapeFail = 0;
+  let escapeNoChase = 0;
+  let escaped = 0;
+  let caught = 0;
+
+  for (const event of events) {
+    if (!event || typeof event !== 'object') continue;
+    const kind = String(event.kind || '');
+    const who = cleanText(event.who, '');
+    const source = cleanText(event.source, cleanText(event.src, ''));
+    if (kind === 'gain') {
+      if (source === 'drone') droneCalls += 1;
+      if (source === 'kiosk') kioskGains += 1;
+    }
+    if (kind === 'craft') {
+      craftCount += 1;
+      const tier = Number(event.tier || 0);
+      if (tier >= 5) {
+        if (!firstLegendAt) firstLegendAt = event.at || null;
+        if (who) legendWho.add(who);
+      }
+      if (tier >= 6) {
+        if (!firstTransAt) firstTransAt = event.at || null;
+        if (who) transWho.add(who);
+      }
+    }
+    if (kind === 'revive') totalRevives += 1;
+    if (kind === 'move') {
+      const reason = String(event.reason || '');
+      if (reason.includes('escape') || reason.includes('flee')) totalFlees += 1;
+    }
+    if (kind === 'queue') {
+      queued += 1;
+      const chosen = String(event.chosen || '');
+      if (chosen === 'flee') fleeChosen += 1;
+      else if (chosen === 'moveTo') moveChosen += 1;
+      else if (chosen === 'routeFarm') routeFarmChosen += 1;
+      else if (chosen === 'craft') craftChosen += 1;
+      else if (chosen === 'droneOrder') droneChosen += 1;
+      else if (chosen.startsWith('kiosk')) kioskChosen += 1;
+      const objectiveKey = cleanText(event.objectiveSubkind, cleanText(event.objectiveType, ''));
+      if (objectiveKey) objectiveAcc[objectiveKey] = (objectiveAcc[objectiveKey] || 0) + 1;
+      for (const reason of Array.isArray(event.blockedReasons) ? event.blockedReasons : []) {
+        const key = cleanText(reason, '');
+        if (!key) continue;
+        blocked += 1;
+        blockedAcc[key] = (blockedAcc[key] || 0) + 1;
+        if (key.startsWith('deferred:')) {
+          const deferred = key.replace('deferred:', '');
+          deferredAcc[deferred] = (deferredAcc[deferred] || 0) + 1;
+        }
+      }
+    }
+    if (kind === 'chase') {
+      const outcome = String(event.outcome || '');
+      if (outcome === 'escape_fail') escapeFail += 1;
+      else if (outcome === 'escape_no_chase') escapeNoChase += 1;
+      else if (outcome === 'escaped_after_chase' || outcome === 'blink_escape') escaped += 1;
+      else if (outcome === 'caught') caught += 1;
+    }
+  }
+
+  const topBlocked = topEntries(blockedAcc, 4).map(([reason, count]) => `${reason}x${count}`).join(', ');
+  const topDeferred = topEntries(deferredAcc, 3).map(([reason, count]) => `${reason}x${count}`).join(', ');
+  const topObjectiveMoves = topEntries(objectiveAcc, 3).map(([key, count]) => `${key}x${count}`).join(', ');
+  const totalKills = safeParticipants.reduce((sum, p) => sum + toNonNegativeInt(p.killCount), 0);
+  const totalAssists = safeParticipants.reduce((sum, p) => sum + toNonNegativeInt(p.assistCount), 0);
+  const totalDeaths = safeParticipants.reduce((sum, p) => sum + (p.alive === false ? 1 : 0), 0);
+
+  return {
+    participantCount: safeParticipants.length,
+    teamCount: String(matchMode || '').toLowerCase() === 'solo' ? safeParticipants.length : teamIds.size,
+    aliveCount: safeParticipants.filter((p) => p.alive !== false).length,
+    totalKills,
+    totalAssists,
+    totalDeaths,
+    logCount: Array.isArray(fullLogs) ? fullLogs.length : 0,
+    runEventCount: events.length,
+    droneCalls,
+    kioskGains,
+    craftCount,
+    totalRevives,
+    totalFlees,
+    legendCount: legendWho.size,
+    transCount: transWho.size,
+    firstLegendText: stampText(firstLegendAt),
+    firstTransText: stampText(firstTransAt),
+    actionLine: `queue ${queued} · blocked ${blocked} · flee ${fleeChosen} · move ${moveChosen} · route ${routeFarmChosen} · craft ${craftChosen} · drone ${droneChosen} · kiosk ${kioskChosen}`,
+    chaseLine: `escapeFail ${escapeFail} · noChase ${escapeNoChase} · escaped ${escaped} · caught ${caught}`,
+    topBlocked,
+    topDeferred,
+    topObjectiveMoves,
+  };
+}
+
 function readAliveFlag(participant) {
   if (participant?.alive !== undefined) return Boolean(participant.alive);
   if (participant?.isAlive !== undefined) return Boolean(participant.isAlive);
@@ -105,7 +246,7 @@ function buildTeamRecordOps(summary, existingIds, userId, matchMode = '') {
  */
 router.post('/end', async (req, res) => {
   try {
-    const { winnerId, winnerTeamId, killCounts, assistCounts, fullLogs, participants, matchMode } = req.body || {};
+    const { winnerId, winnerTeamId, killCounts, assistCounts, fullLogs, participants, matchMode, runEvents, teamSize } = req.body || {};
     if (!winnerId) return res.status(400).json({ error: "winnerId가 필요합니다." });
 
     const winner = await Character.findOne({ _id: winnerId, userId: req.user.id }, '_id name')
@@ -141,11 +282,26 @@ router.post('/end', async (req, res) => {
     });
 
     const winnerFromPayload = summary.find(s => String(s.charId) === String(winnerId));
+    const fullLog = Array.isArray(fullLogs) ? fullLogs.map(String) : [];
+    const summaryDoc = buildRunSummary({
+      fullLogs: fullLog,
+      matchMode,
+      participants: summary,
+      runEvents,
+    });
+
+    const winnerTeamPayload = summary.find((s) => s.isWinner && s.teamId === resolvedWinnerTeamId) || summary.find((s) => s.isWinner);
     const logDoc = await new GameLog({
+      userId: req.user.id,
       title,
       winnerName: winner?.name || winnerFromPayload?.name || 'Unknown',
+      winnerTeamId: resolvedWinnerTeamId,
+      winnerTeamName: cleanText(winnerTeamPayload?.teamName, ''),
+      matchMode: cleanText(matchMode, ''),
+      teamSize: Number(teamSize || 0),
       participants: summary,
-      fullLog: Array.isArray(fullLogs) ? fullLogs.map(String) : []
+      fullLog,
+      summary: summaryDoc,
     }).save();
 
     // ✅ 캐릭터 누적 기록 반영 (내 계정 캐릭터에만)

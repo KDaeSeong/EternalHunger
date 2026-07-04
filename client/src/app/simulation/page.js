@@ -458,6 +458,7 @@ export default function SimulationPage() {
       pendingTranscendPick,
       phase,
       publicItems,
+      runEvents,
       runSeed,
       selectedCharId,
       settings,

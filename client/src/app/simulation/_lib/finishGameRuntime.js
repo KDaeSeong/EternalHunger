@@ -32,6 +32,7 @@ export async function finishSimulationGame(opts = {}) {
     dead,
     devRunTainted,
     killCounts,
+    runEvents,
     settings,
     winnerPredictionId,
   } = state;
@@ -230,6 +231,35 @@ export async function finishSimulationGame(opts = {}) {
       const compactFullLogs = (Array.isArray(fullLogsRef?.current) ? fullLogsRef.current : [])
         .slice(-350)
         .map((line) => String(line || '').slice(0, 600));
+      const compactRunEvents = (Array.isArray(runEvents) ? runEvents : [])
+        .slice(-1500)
+        .map((event) => {
+          if (!event || typeof event !== 'object') return null;
+          const out = {};
+          [
+            'kind',
+            'who',
+            'source',
+            'src',
+            'itemId',
+            'tier',
+            'chosen',
+            'reason',
+            'outcome',
+            'objectiveType',
+            'objectiveSubkind',
+            'pEscape',
+            'pChase',
+            'pCatch',
+            'preDamage',
+          ].forEach((key) => {
+            if (event[key] !== undefined) out[key] = event[key];
+          });
+          if (event.at && typeof event.at === 'object') out.at = { day: event.at.day, phase: event.at.phase };
+          if (Array.isArray(event.blockedReasons)) out.blockedReasons = event.blockedReasons.slice(0, 6).map(String);
+          return out;
+        })
+        .filter(Boolean);
       await apiPost('/game/end', {
         winnerId,
         winnerTeamId: winningTeam?.teamId || getActorTeamId(winner),
@@ -238,6 +268,7 @@ export async function finishSimulationGame(opts = {}) {
         killCounts: finalKills,
         assistCounts: finalAssists,
         fullLogs: compactFullLogs,
+        runEvents: compactRunEvents,
         participants: compactParticipants,
       });
       addLog?.('✅ 명예의 전당 저장 완료', 'system');

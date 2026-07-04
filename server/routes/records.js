@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const Character = require('../models/Characters');
+const GameLog = require('../models/GameLog');
 const TeamRecord = require('../models/TeamRecord');
 
 const router = express.Router();
@@ -78,14 +79,96 @@ function buildTotals(rows = []) {
   }), { gamesPlayed: 0, totalWins: 0, totalKills: 0, totalAssists: 0, deathCount: 0 });
 }
 
+function mapGameRun(row) {
+  const summary = row?.summary || {};
+  const participants = Array.isArray(row?.participants) ? row.participants : [];
+  const sortedParticipants = [...participants].sort((a, b) => (
+    Number(b?.killCount || 0) - Number(a?.killCount || 0) ||
+    Number(b?.assistCount || 0) - Number(a?.assistCount || 0) ||
+    String(a?.name || '').localeCompare(String(b?.name || ''), 'ko')
+  ));
+  const winnerTeamMembers = participants
+    .filter((p) => p?.isWinner)
+    .map((p) => p?.name)
+    .filter(Boolean);
+  return {
+    id: String(row?._id || ''),
+    title: row?.title || '',
+    playedAt: row?.playedAt || null,
+    winnerName: row?.winnerName || '',
+    winnerTeamId: row?.winnerTeamId || '',
+    winnerTeamName: row?.winnerTeamName || '',
+    winnerTeamMembers,
+    matchMode: row?.matchMode || '',
+    teamSize: toNonNegativeInt(row?.teamSize),
+    participantCount: toNonNegativeInt(summary.participantCount || participants.length),
+    teamCount: toNonNegativeInt(summary.teamCount),
+    aliveCount: toNonNegativeInt(summary.aliveCount),
+    totalKills: toNonNegativeInt(summary.totalKills),
+    totalAssists: toNonNegativeInt(summary.totalAssists),
+    totalDeaths: toNonNegativeInt(summary.totalDeaths),
+    logCount: toNonNegativeInt(summary.logCount || row?.fullLog?.length),
+    runEventCount: toNonNegativeInt(summary.runEventCount),
+    droneCalls: toNonNegativeInt(summary.droneCalls),
+    kioskGains: toNonNegativeInt(summary.kioskGains),
+    craftCount: toNonNegativeInt(summary.craftCount),
+    totalRevives: toNonNegativeInt(summary.totalRevives),
+    totalFlees: toNonNegativeInt(summary.totalFlees),
+    legendCount: toNonNegativeInt(summary.legendCount),
+    transCount: toNonNegativeInt(summary.transCount),
+    firstLegendText: summary.firstLegendText || '',
+    firstTransText: summary.firstTransText || '',
+    actionLine: summary.actionLine || '',
+    chaseLine: summary.chaseLine || '',
+    topBlocked: summary.topBlocked || '',
+    topDeferred: summary.topDeferred || '',
+    topObjectiveMoves: summary.topObjectiveMoves || '',
+    topParticipants: sortedParticipants.slice(0, 5).map((p) => ({
+      id: String(p?.charId || ''),
+      name: p?.name || '',
+      kills: toNonNegativeInt(p?.killCount),
+      assists: toNonNegativeInt(p?.assistCount),
+      alive: p?.alive !== false,
+      teamName: p?.teamName || '',
+    })),
+  };
+}
+
+function buildRunTotals(rows = []) {
+  return rows.reduce((acc, row) => ({
+    gamesPlayed: acc.gamesPlayed + 1,
+    totalKills: acc.totalKills + toNonNegativeInt(row.totalKills),
+    totalAssists: acc.totalAssists + toNonNegativeInt(row.totalAssists),
+    totalDeaths: acc.totalDeaths + toNonNegativeInt(row.totalDeaths),
+    totalRevives: acc.totalRevives + toNonNegativeInt(row.totalRevives),
+    droneCalls: acc.droneCalls + toNonNegativeInt(row.droneCalls),
+    kioskGains: acc.kioskGains + toNonNegativeInt(row.kioskGains),
+    craftCount: acc.craftCount + toNonNegativeInt(row.craftCount),
+  }), {
+    gamesPlayed: 0,
+    totalKills: 0,
+    totalAssists: 0,
+    totalDeaths: 0,
+    totalRevives: 0,
+    droneCalls: 0,
+    kioskGains: 0,
+    craftCount: 0,
+  });
+}
+
 router.get('/', async (req, res) => {
   try {
     const userId = getUserIdOrRespond(req, res);
     if (!userId) return;
 
-    const [charactersRaw, teamsRaw] = await Promise.all([
+    const [charactersRaw, teamsRaw, runsRaw] = await Promise.all([
       Character.find({ userId }, 'name previewImage weaponType records createdAt').lean(),
       TeamRecord.find({ userId }).sort({ totalWins: -1, gamesPlayed: -1, totalKills: -1, updatedAt: -1 }).lean(),
+      GameLog.find({ userId })
+        .select('title playedAt winnerName winnerTeamId winnerTeamName matchMode teamSize participants fullLog summary')
+        .sort({ playedAt: -1, _id: -1 })
+        .limit(30)
+        .lean(),
     ]);
 
     const characters = charactersRaw
@@ -97,13 +180,16 @@ router.get('/', async (req, res) => {
         String(a.name).localeCompare(String(b.name), 'ko')
       ));
     const teams = teamsRaw.map(mapTeamRecord);
+    const runs = runsRaw.map(mapGameRun);
 
     res.json({
       characters,
       teams,
+      runs,
       totals: {
         characters: buildTotals(characters),
         teams: buildTotals(teams),
+        runs: buildRunTotals(runs),
       },
     });
   } catch (err) {

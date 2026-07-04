@@ -48,7 +48,7 @@
 
 .records-tabs {
     display: inline-grid;
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
     gap: 6px;
     margin-bottom: 16px;
     padding: 4px;
@@ -206,6 +206,112 @@
     font-size: 12px;
 }
 
+.records-run-list {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+}
+
+.records-run-card {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid #d8e1ec;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.records-run-card header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+}
+
+.records-run-card h2 {
+    margin: 0 0 4px;
+    color: #111827;
+    font-size: 18px;
+    letter-spacing: 0;
+}
+
+.records-run-card p {
+    margin: 0;
+    color: #526174;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.records-run-card header strong {
+    color: #075985;
+}
+
+.records-run-card header span {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #075985;
+    font-size: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.records-run-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.records-run-metrics div {
+    display: grid;
+    gap: 3px;
+    min-height: 68px;
+    padding: 10px;
+    border: 1px solid #e5edf5;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.records-run-metrics span,
+.records-run-metrics small,
+.records-run-participants span {
+    color: #667085;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.records-run-metrics strong {
+    color: #111827;
+    font-size: 18px;
+    letter-spacing: 0;
+}
+
+.records-run-lines {
+    display: grid;
+    gap: 6px;
+}
+
+.records-run-lines p {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.records-run-participants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.records-run-participants span {
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+}
+
 .records-empty {
     display: grid;
     gap: 8px;
@@ -252,6 +358,15 @@
     .records-toolbar {
         width: 100%;
         grid-template-columns: 1fr;
+    }
+
+    .records-run-card header,
+    .records-run-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .records-run-card header span {
+        justify-self: start;
     }
 
     .records-table {
