@@ -933,6 +933,27 @@ function monsterHealth(card) {
   return Number(card?.currentHealth ?? card?.health ?? 0);
 }
 
+function monsterDefense(card) {
+  return Math.max(0, monsterHealth(card));
+}
+
+function monsterHasPierce(card) {
+  return Boolean(card?.pierce || card?.status?.pierce || hasKeyword(card, 'pierce'));
+}
+
+export function changeMonsterPosition(state, slot) {
+  const player = state.turnPlayer;
+  if (isLocked(state) || !canMainPhase(state)) return emit(state, 'PROMPT', player, 'MAIN 페이즈에서만 표시를 변경할 수 있습니다.');
+  const ps = state.players[player];
+  const card = ps.monster[slot];
+  if (!card) return emit(state, 'PROMPT', player, '해당 몬스터 존에 카드가 없습니다.');
+  if (card.face === 'down') return emit(state, 'PROMPT', player, '앞면 몬스터만 표시를 변경할 수 있습니다.');
+  const monster = ps.monster.slice();
+  const nextPosition = card.position === 'DEF' ? 'ATK' : 'DEF';
+  monster[slot] = { ...card, position: nextPosition };
+  return emit(updatePlayer(state, player, (current) => ({ ...current, monster })), 'POSITION_CHANGE', player, `${card.name} 표시 변경: ${nextPosition}`);
+}
+
 export function declareAttack(state, attackerSlot, targetSlot = null) {
   const player = state.turnPlayer;
   if (state.winner || state.prompt.kind !== 'NONE' || state.chain.length) return state;
@@ -941,6 +962,7 @@ export function declareAttack(state, attackerSlot, targetSlot = null) {
   const op = state.players[opponent(player)];
   const attacker = ps.monster[attackerSlot];
   if (!attacker || attacker.hasAttacked) return state;
+  if (attacker.position === 'DEF') return emit(state, 'PROMPT', player, 'DEF 표시 몬스터는 공격할 수 없습니다.');
 
   const guarded = op.monster.some((card) => card && hasKeyword(card, 'guard'));
   if (targetSlot !== null && guarded && !hasKeyword(op.monster[targetSlot], 'guard')) {
@@ -961,6 +983,39 @@ export function declareAttack(state, attackerSlot, targetSlot = null) {
   }
 
   const defender = op.monster[targetSlot];
+  if (defender?.position === 'DEF') {
+    const attack = monsterAtk(attacker);
+    const defense = monsterDefense(defender);
+    const nextMyMonster = monster.slice();
+    const nextOppMonster = op.monster.slice();
+    if (attack > defense) {
+      const excess = attack - defense;
+      nextOppMonster[targetSlot] = null;
+      next = updatePlayer(next, opponent(player), (current) => ({
+        ...current,
+        monster: nextOppMonster,
+        grave: [...current.grave, { ...defender, face: 'up' }],
+      }));
+      next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster }));
+      if (monsterHasPierce(attacker) && excess > 0) {
+        const nextLp = Math.max(0, next.players[opponent(player)].lp - excess);
+        next = updatePlayer(next, opponent(player), (current) => ({ ...current, lp: nextLp }));
+        next = emit(next, 'DAMAGE_TAKEN', opponent(player), `${attacker.name} 관통: ${excess} LP 피해`);
+        return nextLp <= 0 ? finishGame(next, player) : next;
+      }
+      return emit(next, 'ATTACK_DECLARE', player, `${attacker.name} ATK ${attack} > DEF ${defense}: ${defender.name} 파괴`);
+    }
+    if (attack < defense) {
+      const damage = defense - attack;
+      const nextLp = Math.max(0, next.players[player].lp - damage);
+      next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster, lp: nextLp }));
+      next = emit(next, 'DAMAGE_TAKEN', player, `${attacker.name} ATK ${attack} < DEF ${defense}: ${damage} LP 피해`);
+      return nextLp <= 0 ? finishGame(next, opponent(player)) : next;
+    }
+    next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster }));
+    return emit(next, 'ATTACK_DECLARE', player, `${attacker.name} ATK ${attack} = DEF ${defense}: 전투 피해 없음`);
+  }
+
   const damageToDefender = monsterAtk(attacker);
   const damageToAttacker = monsterAtk(defender);
   const nextAttacker = applyMonsterDamage(monster[attackerSlot], damageToAttacker);

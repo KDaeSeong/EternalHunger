@@ -33,6 +33,7 @@ import {
   autoPlayEnemy,
   chooseFromDeck,
   chooseTarget,
+  changeMonsterPosition,
   confirmTrigger,
   createDuelState,
   declareAttack,
@@ -96,7 +97,7 @@ function CardFace({ card, small = false }) {
       <KeywordBadges card={card} />
       {dataCounters > 0 ? <span>DATA {dataCounters}</span> : null}
       {cardKind(card) === 'Monster' ? (
-        <span>ATK {cardAtk(card)} / HP {cardHealth(card)}{card.hasAttacked ? ' / 공격 완료' : ''}</span>
+        <span>{card.position || 'ATK'} · ATK {cardAtk(card)} / HP {cardHealth(card)}{card.hasAttacked ? ' / 공격 완료' : ''}</span>
       ) : (
         <span>{cardKind(card)} {subType(card)}</span>
       )}
@@ -204,6 +205,7 @@ function PlayerField({
   onSet,
   onActivateSet,
   onAttack,
+  onChangePosition,
   promptTargets,
   onPickPromptTarget,
 }) {
@@ -237,6 +239,7 @@ function PlayerField({
                   return;
                 }
                 if (selectedAttacker && selectedAttacker.player === state.turnPlayer && playerKey !== state.turnPlayer) onAttack(selectedAttacker.slot, slot);
+                if (playerKey === state.turnPlayer && canMain && card && !selectedHandId) onChangePosition(slot);
               }}
             >
               <CardFace card={card} small />
@@ -1063,6 +1066,7 @@ function DualAcademyTcgPlayContent() {
                 act((current) => declareAttack(current, attackerSlot, targetSlot));
                 setSelectedAttacker(null);
               }}
+              onChangePosition={() => {}}
               promptTargets={promptTargets}
               onPickPromptTarget={(player, zone, slot) => act((current) => chooseTarget(current, { player, zone, slot }))}
             />
@@ -1086,6 +1090,7 @@ function DualAcademyTcgPlayContent() {
               }}
               onActivateSet={(slot) => act((current) => activateSetCard(current, slot))}
               onAttack={() => {}}
+              onChangePosition={(slot) => act((current) => changeMonsterPosition(current, slot))}
               promptTargets={promptTargets}
               onPickPromptTarget={(player, zone, slot) => act((current) => chooseTarget(current, { player, zone, slot }))}
             />
