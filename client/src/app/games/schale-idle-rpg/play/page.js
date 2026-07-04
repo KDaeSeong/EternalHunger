@@ -88,6 +88,8 @@ export default function SchaleIdlePlayPage() {
   const [state, setState] = useState(() => createNewState());
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
   const [enhanceSlot, setEnhanceSlot] = useState('');
+  const [towerBatchCount, setTowerBatchCount] = useState(10);
+  const [towerStopOnFail, setTowerStopOnFail] = useState(true);
   const [selectedSalvageUids, setSelectedSalvageUids] = useState([]);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
@@ -214,6 +216,8 @@ export default function SchaleIdlePlayPage() {
     setState(createNewState());
     setRecipeId(RECIPES[0].id);
     setEnhanceSlot('');
+    setTowerBatchCount(10);
+    setTowerStopOnFail(true);
     setSelectedSalvageUids([]);
     setMessage('');
   };
@@ -332,12 +336,34 @@ export default function SchaleIdlePlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>강화 / 탑</h2>
-            <span>열쇠 {Number(state.inventory.itm_tower_key || 0)}</span>
+            <span>열쇠 {Number(state.inventory.itm_tower_key || 0)} · 연패 {Number(state.towerLossStreak || 0)}</span>
           </div>
           <label className="game-save-json-field">
             <span>강화 슬롯</span>
             <select value={selectedSlot} onChange={(event) => setEnhanceSlot(event.target.value)} disabled={!enhanceSlots.length}>
               {enhanceSlots.length ? enhanceSlots.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>) : <option value="">장비 없음</option>}
+            </select>
+          </label>
+          <div className="games-rank-split">
+            <SmallStat label="도전 층" value={`${state.towerFloor}층`} />
+            <SmallStat label="최고 층" value={`${state.towerMaxCleared}층`} />
+            <SmallStat label="연패보정" value={`x${(1 + Math.min(0.24, Math.max(0, Number(state.towerLossStreak || 0)) * 0.06)).toFixed(2)}`} />
+            <SmallStat label="토큰" value={Number(state.inventory.itm_tower_token || 0)} />
+          </div>
+          <label className="game-save-json-field">
+            <span>탑 배치 횟수</span>
+            <select value={towerBatchCount} onChange={(event) => setTowerBatchCount(Number(event.target.value))}>
+              <option value={1}>x1</option>
+              <option value={5}>x5</option>
+              <option value={10}>x10</option>
+              <option value={100}>x100</option>
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>탑 배치 규칙</span>
+            <select value={towerStopOnFail ? 'stop' : 'continue'} onChange={(event) => setTowerStopOnFail(event.target.value === 'stop')}>
+              <option value="stop">실패 시 중단</option>
+              <option value="continue">실패해도 계속</option>
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -346,8 +372,10 @@ export default function SchaleIdlePlayPage() {
             <ActionButton disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
               자동 분해 실행{salvageInfo.candidateOnly ? ' · 후보만' : ''}
             </ActionButton>
-            <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 1))}>탑 1회 도전</ActionButton>
-            <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 5))}>탑 5회 도전</ActionButton>
+            <ActionButton disabled={Number(state.inventory.itm_tower_key || 0) <= 0} onClick={() => setState((current) => attemptTowerAction(current, towerBatchCount, towerStopOnFail))}>
+              탑 배치 도전 x{towerBatchCount}
+            </ActionButton>
+            <ActionButton disabled={Number(state.inventory.itm_tower_key || 0) <= 0} onClick={() => setState((current) => attemptTowerAction(current, 100, false))}>탑 x100 계속 도전</ActionButton>
           </div>
         </section>
 
@@ -661,7 +689,11 @@ export default function SchaleIdlePlayPage() {
           {state.towerLastBatchReport ? (
             <div className="games-activity-list">
               <div>
-                <strong>획득 {Number(state.towerLastBatchReport.creditsGained || 0).toLocaleString('ko-KR')} Cr · 토큰 {Number(state.towerLastBatchReport.tokensGained || 0)}</strong>
+                <strong>
+                  요청 {Number(state.towerLastBatchReport.requested || 0)}회 · {state.towerLastBatchReport.stopOnFail === false ? '실패해도 계속' : '실패 시 중단'}
+                  {' · '}
+                  획득 {Number(state.towerLastBatchReport.creditsGained || 0).toLocaleString('ko-KR')} Cr · 토큰 {Number(state.towerLastBatchReport.tokensGained || 0)}
+                </strong>
               </div>
               {(state.towerLastBatchReport.logs || []).map((line, index) => (
                 <div key={`${line}-${index}`}>

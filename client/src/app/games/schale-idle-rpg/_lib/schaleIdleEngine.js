@@ -1637,20 +1637,26 @@ export function resetTowerShopRotationAction(state, scope = 'DAILY') {
   return addLog(next, `${label} 상점을 리셋했습니다. ${itemName('itm_tower_token')} -${cost}`);
 }
 
-export function attemptTowerAction(state, count = 1) {
+export function attemptTowerAction(state, count = 1, stopOnFail = true) {
   let next = normalizeState(state);
-  const rng = createRng(`${next.runId}|tower|${next.towerFloor}|${next.counters.ATTEMPT_TOWER}|${count}`);
   const requested = Math.max(1, Number(count || 1));
+  const rng = createRng(`${next.runId}|tower|${next.towerFloor}|${next.counters.ATTEMPT_TOWER}|${requested}|${stopOnFail ? 'stop' : 'run'}`);
   const rewardMul = rewardCreditMul(next);
   let successCount = 0;
   let failCount = 0;
   let credits = 0;
+  let tokens = 0;
   const logs = [];
 
   for (let index = 0; index < requested; index += 1) {
-    if (Number(next.inventory.itm_tower_key || 0) <= 0) break;
+    if (Number(next.inventory.itm_tower_key || 0) <= 0) {
+      logs.push('열쇠가 부족해 배치 도전을 중단했습니다.');
+      break;
+    }
     const floor = Number(next.towerFloor || 1);
-    const probability = winProb(teamPower(next), towerDifficulty(floor), 1.7);
+    const lossStreak = Math.max(0, Math.floor(Number(next.towerLossStreak || 0)));
+    const catchup = 1 + clamp(0.06 * lossStreak, 0, 0.24);
+    const probability = winProb(teamPower(next) * catchup, towerDifficulty(floor), 1.7);
     next = {
       ...next,
       inventory: addItem(next.inventory, 'itm_tower_key', -1),
@@ -1661,7 +1667,8 @@ export function attemptTowerAction(state, count = 1) {
       const tokenGain = 1 + Math.floor((floor - 1) / 10) + (floor % 5 === 0 ? 1 : 0);
       successCount += 1;
       credits += reward;
-      logs.push(`F${floor} 성공: +${reward} Cr, 토큰 +${tokenGain}`);
+      tokens += tokenGain;
+      logs.push(`F${floor} 성공: +${reward} Cr, 토큰 +${tokenGain}, 연패보정 x${catchup.toFixed(2)}`);
       let inventory = addItem(next.inventory, 'itm_tower_token', tokenGain);
       if (floor % TOWER.milestoneEvery === 0) inventory = addItem(inventory, 'itm_tower_key', 1);
       next = {
@@ -1675,12 +1682,12 @@ export function attemptTowerAction(state, count = 1) {
       };
     } else {
       failCount += 1;
-      logs.push(`F${floor} 실패: 성공률 ${Math.round(probability * 100)}%`);
+      logs.push(`F${floor} 실패: 성공률 ${Math.round(probability * 100)}%, 연패보정 x${catchup.toFixed(2)}`);
       next = {
         ...next,
         towerLossStreak: Number(next.towerLossStreak || 0) + 1,
       };
-      break;
+      if (stopOnFail) break;
     }
   }
 
@@ -1689,13 +1696,11 @@ export function attemptTowerAction(state, count = 1) {
     towerLastBatchReport: {
       at: Date.now(),
       requested,
+      stopOnFail: stopOnFail !== false,
       successes: successCount,
       failures: failCount,
       creditsGained: credits,
-      tokensGained: logs.reduce((sum, line) => {
-        const match = line.match(/토큰 \+(\d+)/);
-        return sum + Number(match?.[1] || 0);
-      }, 0),
+      tokensGained: tokens,
       logs: logs.slice(-30),
     },
   }, {
