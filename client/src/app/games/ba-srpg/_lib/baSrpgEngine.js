@@ -104,6 +104,79 @@ export const STUDENTS = [
   { id: 's_noa', name: '노아', role: '지원', x: 1, y: 2, hp: 34, atk: 7, def: 2, range: 3, move: 2 },
 ];
 
+export const STATUS_DEFS = {
+  st_bleed: { id: 'st_bleed', name: '출혈', kind: 'DoT', tickDamage: 4, maxStacks: 1 },
+  st_burn: { id: 'st_burn', name: '화상', kind: 'DoT', tickDamage: 5, maxStacks: 2 },
+  st_stun: { id: 'st_stun', name: '기절', kind: 'Control', tickDamage: 0, maxStacks: 1 },
+};
+
+export const TACTICAL_SKILLS = [
+  {
+    id: 'sk_guard',
+    name: '방어 태세',
+    apCost: 2,
+    target: 'self',
+    rangeMin: 0,
+    rangeMax: 0,
+    shield: 8,
+    duration: 2,
+    desc: '자신에게 보호막 8을 부여합니다. 원본 Shield 정책처럼 수치는 합산하고 지속시간은 긴 쪽을 유지합니다.',
+  },
+  {
+    id: 'sk_first_aid',
+    name: '응급 처치',
+    apCost: 2,
+    target: 'self',
+    rangeMin: 0,
+    rangeMax: 0,
+    heal: 10,
+    desc: '선택 학생의 HP를 10 회복합니다.',
+  },
+  {
+    id: 'sk_bleed_round',
+    name: '출혈탄',
+    apCost: 2,
+    target: 'enemy',
+    rangeMin: 1,
+    rangeMax: 4,
+    damageMul: 1,
+    statusId: 'st_bleed',
+    statusChance: 0.85,
+    duration: 2,
+    accuracyAdd: 0,
+    desc: '무기 피해를 주고 85% 확률로 출혈을 부여합니다.',
+  },
+  {
+    id: 'sk_burn_round',
+    name: '소이탄',
+    apCost: 2,
+    target: 'enemy',
+    rangeMin: 1,
+    rangeMax: 4,
+    damageMul: 0.85,
+    techDamage: true,
+    statusId: 'st_burn',
+    statusChance: 0.75,
+    duration: 2,
+    accuracyAdd: -0.04,
+    desc: '기술 피해를 주고 75% 확률로 화상을 부여합니다. 화상은 최대 2중첩입니다.',
+  },
+  {
+    id: 'sk_grenade_flash',
+    name: '섬광 투척',
+    apCost: 2,
+    target: 'enemy',
+    rangeMin: 1,
+    rangeMax: 5,
+    damageMul: 0,
+    statusId: 'st_stun',
+    statusChance: 0.6,
+    duration: 1,
+    accuracyAdd: 0.08,
+    desc: '대상에게 60% 확률로 기절을 부여합니다. 기절한 적은 다음 적 턴 행동을 건너뜁니다.',
+  },
+];
+
 export const RECIPES = [
   { id: 'r_bandage', name: '붕대 만들기', inputs: [{ itemId: 'mat_wood', qty: 2 }], outputs: [{ itemId: 'con_bandage', qty: 1 }], costCredit: 5, requiredFacility: 'workbench' },
   { id: 'r_knife', name: '나이프 제작', inputs: [{ itemId: 'mat_stone', qty: 2 }, { itemId: 'mat_wood', qty: 1 }], outputs: [{ itemId: 'eq_knife', qty: 1 }], costCredit: 10, requiredFacility: 'workbench' },
@@ -332,8 +405,8 @@ function normalizeBattle(battle) {
   return {
     ...createBattle(mission.id),
     ...battle,
-    units: Array.isArray(battle.units) ? battle.units : createUnits(),
-    enemies: Array.isArray(battle.enemies) ? battle.enemies : createEnemies(mission),
+    units: Array.isArray(battle.units) ? battle.units.map(normalizeCombatActor) : createUnits(),
+    enemies: Array.isArray(battle.enemies) ? battle.enemies.map(normalizeCombatActor) : createEnemies(mission),
     selectedUnitId: battle.selectedUnitId || 's_hoshino',
     targetEnemyId: battle.targetEnemyId || '',
   };
@@ -345,6 +418,8 @@ function createUnits() {
     maxHp: student.hp,
     ap: 2,
     acted: false,
+    shield: null,
+    statuses: [],
   }));
 }
 
@@ -353,6 +428,8 @@ function createEnemies(mission) {
     ...enemy,
     maxHp: enemy.hp,
     ap: 2,
+    shield: null,
+    statuses: [],
   }));
 }
 
@@ -367,6 +444,29 @@ function createBattle(missionId) {
     units: createUnits(),
     enemies: createEnemies(mission),
     lastResult: '',
+  };
+}
+
+function normalizeCombatActor(actor = {}) {
+  const maxHp = Math.max(1, safeWholeNumber(actor.maxHp ?? actor.hp, 1));
+  const statuses = Array.isArray(actor.statuses)
+    ? actor.statuses
+      .filter((status) => STATUS_DEFS[status?.id])
+      .map((status) => ({
+        id: status.id,
+        duration: Math.max(1, safeWholeNumber(status.duration, 1)),
+        stacks: Math.max(1, Math.min(STATUS_DEFS[status.id].maxStacks || 1, safeWholeNumber(status.stacks, 1))),
+      }))
+    : [];
+  const shieldAmount = safeWholeNumber(actor.shield?.amount, 0);
+  const shieldDuration = safeWholeNumber(actor.shield?.duration, 0);
+  return {
+    ...actor,
+    maxHp,
+    hp: clamp(safeWholeNumber(actor.hp, maxHp), 0, maxHp),
+    ap: safeWholeNumber(actor.ap, 0),
+    shield: shieldAmount > 0 && shieldDuration > 0 ? { amount: shieldAmount, duration: shieldDuration } : null,
+    statuses,
   };
 }
 
@@ -685,6 +785,132 @@ function weaponBonus(state) {
   };
 }
 
+function hasStatus(actor, statusId) {
+  return Array.isArray(actor?.statuses) && actor.statuses.some((status) => status.id === statusId && Number(status.duration || 0) > 0);
+}
+
+function statusLabel(status) {
+  const def = STATUS_DEFS[status?.id];
+  if (!def) return '';
+  const stacks = Number(status.stacks || 1) > 1 ? `x${status.stacks}` : '';
+  return `${def.name}${stacks}/${status.duration}`;
+}
+
+export function actorStatusText(actor) {
+  const parts = [];
+  if (Number(actor?.shield?.amount || 0) > 0) parts.push(`보호막 ${actor.shield.amount}/${actor.shield.duration}`);
+  (actor?.statuses || []).forEach((status) => {
+    const label = statusLabel(status);
+    if (label) parts.push(label);
+  });
+  return parts.join(' · ');
+}
+
+function absorbDamage(actor, amount) {
+  const damage = Math.max(0, Math.floor(Number(amount || 0)));
+  if (!damage) return { actor, absorbed: 0, hpDamage: 0 };
+  const shieldAmount = Number(actor.shield?.amount || 0);
+  const absorbed = Math.min(shieldAmount, damage);
+  const hpDamage = Math.max(0, damage - absorbed);
+  const nextShieldAmount = Math.max(0, shieldAmount - absorbed);
+  return {
+    actor: {
+      ...actor,
+      shield: nextShieldAmount > 0 ? { ...actor.shield, amount: nextShieldAmount } : null,
+      hp: Math.max(0, Number(actor.hp || 0) - hpDamage),
+    },
+    absorbed,
+    hpDamage,
+  };
+}
+
+function applyStatus(actor, statusId, duration = 2) {
+  const def = STATUS_DEFS[statusId];
+  if (!def) return actor;
+  const statuses = Array.isArray(actor.statuses) ? actor.statuses : [];
+  const existing = statuses.find((status) => status.id === statusId);
+  if (!existing) {
+    return {
+      ...actor,
+      statuses: [...statuses, { id: statusId, duration: Math.max(1, safeWholeNumber(duration, 1)), stacks: 1 }],
+    };
+  }
+  return {
+    ...actor,
+    statuses: statuses.map((status) => {
+      if (status.id !== statusId) return status;
+      const maxStacks = def.maxStacks || 1;
+      return {
+        ...status,
+        duration: Math.max(Number(status.duration || 1), Math.max(1, safeWholeNumber(duration, 1))),
+        stacks: Math.min(maxStacks, Math.max(1, Number(status.stacks || 1) + (statusId === 'st_burn' ? 1 : 0))),
+      };
+    }),
+  };
+}
+
+function applyShield(actor, amount, duration) {
+  const nextAmount = Math.max(0, safeWholeNumber(amount, 0));
+  const nextDuration = Math.max(1, safeWholeNumber(duration, 1));
+  const currentAmount = Number(actor.shield?.amount || 0);
+  const currentDuration = Number(actor.shield?.duration || 0);
+  return {
+    ...actor,
+    shield: {
+      amount: currentAmount + nextAmount,
+      duration: Math.max(currentDuration, nextDuration),
+    },
+  };
+}
+
+function tickActorStatuses(actor) {
+  let next = normalizeCombatActor(actor);
+  const messages = [];
+  const nextStatuses = [];
+  next.statuses.forEach((status) => {
+    const def = STATUS_DEFS[status.id];
+    if (!def) return;
+    const stacks = Math.max(1, Number(status.stacks || 1));
+    if (def.kind === 'DoT' && next.hp > 0) {
+      const damage = Number(def.tickDamage || 0) * stacks;
+      const result = absorbDamage(next, damage);
+      next = result.actor;
+      messages.push(`${next.name} ${def.name} ${damage} 피해${result.absorbed ? ` (보호막 ${result.absorbed})` : ''}`);
+    }
+    const duration = Number(status.duration || 1) - 1;
+    if (duration > 0 && next.hp > 0) nextStatuses.push({ ...status, duration });
+  });
+  const shield = next.shield
+    ? { ...next.shield, duration: Number(next.shield.duration || 1) - 1 }
+    : null;
+  return {
+    actor: {
+      ...next,
+      shield: shield && shield.amount > 0 && shield.duration > 0 ? shield : null,
+      statuses: nextStatuses,
+    },
+    messages,
+  };
+}
+
+function processRoundEndTicks(battle) {
+  const messages = [];
+  const units = battle.units.map((unit) => {
+    const result = tickActorStatuses(unit);
+    messages.push(...result.messages);
+    return result.actor;
+  });
+  const enemies = battle.enemies.map((enemy) => {
+    const result = tickActorStatuses(enemy);
+    messages.push(...result.messages);
+    return result.actor;
+  });
+  return {
+    battle: { ...battle, units, enemies },
+    messages,
+  };
+}
+
 function aliveUnits(battle) {
   return battle.units.filter((unit) => unit.hp > 0);
 }
@@ -808,10 +1034,12 @@ export function attackSelectedAction(state, enemyId) {
   const hit = rng() < clamp(0.78 + bonus.acc / 100 - tileDefense(enemy.x, enemy.y) * 0.04, 0.35, 0.97);
   const rawDamage = Math.max(1, Number(unit.atk || 0) + bonus.atk - Number(enemy.def || 0) - tileDefense(enemy.x, enemy.y));
   const damage = hit ? rawDamage : 0;
+  const damageResult = absorbDamage(enemy, damage);
   const nextEnemies = battle.enemies.map((row) => (
-    row.id === enemy.id ? { ...row, hp: Math.max(0, Number(row.hp || 0) - damage) } : row
+    row.id === enemy.id ? damageResult.actor : row
   ));
   const defeated = nextEnemies.find((row) => row.id === enemy.id)?.hp <= 0;
+  const shieldText = damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : '';
   const nextBattle = {
     ...battle,
     enemies: nextEnemies,
@@ -819,9 +1047,84 @@ export function attackSelectedAction(state, enemyId) {
       row.id === unit.id ? { ...row, ap: Number(row.ap || 0) - 1, acted: true } : row
     )),
     targetEnemyId: defeated ? '' : enemy.id,
-    lastResult: hit ? `${unit.name} -> ${enemy.name} ${damage} 피해${defeated ? ' 격파' : ''}` : `${unit.name} 공격 빗나감`,
+    lastResult: hit ? `${unit.name} -> ${enemy.name} ${damage} 피해${shieldText}${defeated ? ' 격파' : ''}` : `${unit.name} 공격 빗나감`,
   };
   return applyBattleOutcome(addLog(current, nextBattle.lastResult), nextBattle);
+}
+
+export function executeSkillAction(state, skillId) {
+  const current = normalizeState(state);
+  const battle = current.battle;
+  if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
+  const skill = TACTICAL_SKILLS.find((row) => row.id === skillId) || TACTICAL_SKILLS[0];
+  const unit = selectedUnit(battle);
+  if (!unit || unit.hp <= 0) return addLog(current, '스킬을 사용할 학생이 없습니다.');
+  if (Number(unit.ap || 0) < Number(skill.apCost || 0)) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
+
+  if (skill.target === 'self') {
+    const nextUnits = battle.units.map((row) => {
+      if (row.id !== unit.id) return row;
+      let next = { ...row, ap: Number(row.ap || 0) - Number(skill.apCost || 0), acted: true };
+      if (skill.heal) next = { ...next, hp: Math.min(next.maxHp, Number(next.hp || 0) + Number(skill.heal || 0)) };
+      if (skill.shield) next = applyShield(next, skill.shield, skill.duration);
+      return next;
+    });
+    const resultText = skill.heal
+      ? `${unit.name} ${skill.name}. HP +${skill.heal}`
+      : `${unit.name} ${skill.name}. 보호막 +${skill.shield}`;
+    return addLog({
+      ...current,
+      battle: {
+        ...battle,
+        units: nextUnits,
+        lastResult: resultText,
+      },
+    }, resultText);
+  }
+
+  const enemy = battle.enemies.find((row) => row.id === battle.targetEnemyId && row.hp > 0) || selectedEnemy(battle);
+  if (!enemy || enemy.hp <= 0) return addLog(current, '스킬 대상이 없습니다.');
+  const dist = distance(unit, enemy);
+  if (dist < Number(skill.rangeMin || 0) || dist > Number(skill.rangeMax || 1)) {
+    return addLog(current, `${enemy.name}이(가) ${skill.name} 사거리 밖입니다. (${skill.rangeMin}-${skill.rangeMax})`);
+  }
+
+  const bonus = weaponBonus(current);
+  const rng = createRng(`${current.runId}|skill|${battle.turn}|${unit.id}|${enemy.id}|${skill.id}|${unit.ap}|${enemy.hp}`);
+  const hitChance = clamp(0.78 + Number(skill.accuracyAdd || 0) + bonus.acc / 100 - tileDefense(enemy.x, enemy.y) * 0.04, 0.3, 0.97);
+  const hit = rng() < hitChance;
+  const rawDamage = Math.max(0, Math.floor(
+    (Number(unit.atk || 0) + bonus.atk + (skill.techDamage ? 2 : 0))
+      * Number(skill.damageMul ?? 1)
+      - (skill.techDamage ? Math.floor(Number(enemy.def || 0) / 2) : Number(enemy.def || 0))
+      - tileDefense(enemy.x, enemy.y)
+  ));
+  const damageResult = absorbDamage(enemy, hit ? rawDamage : 0);
+  const statusRolled = Boolean(hit && skill.statusId);
+  const statusApplied = statusRolled && rng() < Number(skill.statusChance || 0);
+  const nextEnemy = statusApplied ? applyStatus(damageResult.actor, skill.statusId, skill.duration) : damageResult.actor;
+  const nextEnemies = battle.enemies.map((row) => (row.id === enemy.id ? nextEnemy : row));
+  const defeated = nextEnemies.find((row) => row.id === enemy.id)?.hp <= 0;
+  const statusName = STATUS_DEFS[skill.statusId]?.name || '';
+  const damageText = rawDamage > 0
+    ? `${hit ? rawDamage : 0} 피해${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`
+    : '피해 없음';
+  const statusText = statusRolled
+    ? statusApplied ? `, ${statusName} 부여` : `, ${statusName} 저항`
+    : '';
+  const resultText = hit
+    ? `${unit.name} ${skill.name} -> ${enemy.name} ${damageText}${statusText}${defeated ? ' 격파' : ''}`
+    : `${unit.name} ${skill.name} 빗나감`;
+  const nextBattle = {
+    ...battle,
+    enemies: nextEnemies,
+    units: battle.units.map((row) => (
+      row.id === unit.id ? { ...row, ap: Number(row.ap || 0) - Number(skill.apCost || 0), acted: true } : row
+    )),
+    targetEnemyId: defeated ? '' : enemy.id,
+    lastResult: resultText,
+  };
+  return applyBattleOutcome(addLog(current, resultText), nextBattle);
 }
 
 export function consumeBandageAction(state) {
@@ -867,6 +1170,10 @@ function enemyPhase(state) {
   aliveEnemies(battle).forEach((enemy) => {
     const alive = units.filter((unit) => unit.hp > 0);
     if (!alive.length || enemy.hp <= 0) return;
+    if (hasStatus(enemy, 'st_stun')) {
+      messages.push(`${enemy.name} 기절로 행동 불가`);
+      return;
+    }
     const target = [...alive].sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
     if (distance(enemy, target) > Number(enemy.range || 1)) {
       const pos = stepToward(enemy, target, { ...battle, units, enemies });
@@ -875,11 +1182,17 @@ function enemyPhase(state) {
       return;
     }
     const damage = Math.max(1, Number(enemy.atk || 0) - Number(target.def || 0) - tileDefense(target.x, target.y));
+    const damageResult = absorbDamage(target, damage);
     units = units.map((unit) => (
-      unit.id === target.id ? { ...unit, hp: Math.max(0, Number(unit.hp || 0) - damage) } : unit
+      unit.id === target.id ? damageResult.actor : unit
     ));
-    messages.push(`${enemy.name} -> ${target.name} ${damage} 피해`);
+    messages.push(`${enemy.name} -> ${target.name} ${damage} 피해${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`);
   });
+
+  const ticked = processRoundEndTicks({ ...battle, units, enemies });
+  units = ticked.battle.units;
+  enemies = ticked.battle.enemies;
+  messages = [...messages, ...ticked.messages];
 
   battle = {
     ...battle,
@@ -935,7 +1248,8 @@ export function restAction(state) {
     day: nextDay,
     battle: {
       ...current.battle,
-      units: current.battle.units.map((unit) => ({ ...unit, hp: unit.maxHp, ap: 2, acted: false })),
+      units: current.battle.units.map((unit) => ({ ...unit, hp: unit.maxHp, ap: 2, acted: false, shield: null, statuses: [] })),
+      enemies: current.battle.enemies.map((enemy) => ({ ...enemy, shield: null, statuses: [] })),
       phase: current.battle.phase === 'failed' ? 'player' : current.battle.phase,
     },
     credit: settled.credit,
@@ -1265,6 +1579,32 @@ export function edictRows(state) {
     active: active?.id === edict.id,
     available: !current.edictState?.monthly || current.edictState.monthly.periodKey !== periodKeyFor('monthly', current.day),
   }));
+}
+
+export function tacticalSkillRows(state) {
+  const current = normalizeState(state);
+  const battle = current.battle;
+  const unit = selectedUnit(battle);
+  const enemy = battle.enemies.find((row) => row.id === battle.targetEnemyId && row.hp > 0) || selectedEnemy(battle);
+  return TACTICAL_SKILLS.map((skill) => {
+    const hasAp = unit && Number(unit.ap || 0) >= Number(skill.apCost || 0);
+    const inPhase = battle.phase === 'player';
+    const targetDistance = skill.target === 'enemy' && unit && enemy ? distance(unit, enemy) : 0;
+    const inRange = skill.target !== 'enemy' || (targetDistance >= Number(skill.rangeMin || 0) && targetDistance <= Number(skill.rangeMax || 1));
+    const canUse = Boolean(inPhase && unit?.hp > 0 && hasAp && inRange);
+    let note = skill.desc;
+    if (!inPhase) note = '플레이어 턴 아님';
+    else if (!unit || unit.hp <= 0) note = '사용할 학생 없음';
+    else if (!hasAp) note = `AP ${skill.apCost} 필요`;
+    else if (!inRange) note = `거리 ${targetDistance} / 사거리 ${skill.rangeMin}-${skill.rangeMax}`;
+    return {
+      ...skill,
+      canUse,
+      targetName: skill.target === 'enemy' ? enemy?.name || '대상 없음' : unit?.name || '학생 없음',
+      rangeText: skill.target === 'enemy' ? `${skill.rangeMin}-${skill.rangeMax}` : '자신',
+      note,
+    };
+  });
 }
 
 export function guildRankInfo(state) {

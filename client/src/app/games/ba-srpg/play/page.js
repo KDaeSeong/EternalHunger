@@ -15,6 +15,8 @@ import {
   SAVE_VERSION,
   EDICTS,
   PROPERTIES,
+  TACTICAL_SKILLS,
+  actorStatusText,
   attackSelectedAction,
   autoPlayerTurnAction,
   battlePower,
@@ -31,6 +33,7 @@ import {
   endTurnAction,
   equipWeaponAction,
   equipmentRows,
+  executeSkillAction,
   getMission,
   getPlayTimeSec,
   guildRankInfo,
@@ -50,6 +53,7 @@ import {
   shopRows,
   startMissionAction,
   summaryForState,
+  tacticalSkillRows,
   toggleLeasePropertyAction,
   townSummary,
 } from '../_lib/baSrpgEngine';
@@ -81,7 +85,10 @@ function missionRewardSummary(mission) {
 }
 
 function BoardCell({ content, selected, target, onClick }) {
-  const label = content.actor?.name || (content.type === 'cover' ? '엄폐' : content.type === 'obstacle' ? '장애물' : '');
+  const statusText = content.actor ? actorStatusText(content.actor) : '';
+  const label = content.actor
+    ? `${content.actor.name}${statusText ? ` · ${statusText}` : ''}`
+    : content.type === 'cover' ? '엄폐' : content.type === 'obstacle' ? '장애물' : '';
   return (
     <button
       type="button"
@@ -93,7 +100,7 @@ function BoardCell({ content, selected, target, onClick }) {
       {content.actor ? (
         <>
           <strong>{content.actor.name.slice(0, 2)}</strong>
-          <span>{content.actor.hp}/{content.actor.maxHp}</span>
+          <span>{content.actor.hp}/{content.actor.maxHp}{content.actor.shield?.amount ? `+${content.actor.shield.amount}` : ''}</span>
         </>
       ) : (
         <span>{content.type === 'cover' ? '▣' : content.type === 'obstacle' ? '×' : ''}</span>
@@ -111,6 +118,7 @@ export default function BaSrpgPlayPage() {
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
   const [propertyId, setPropertyId] = useState(PROPERTIES[0].id);
   const [edictId, setEdictId] = useState(EDICTS[0].id);
+  const [skillId, setSkillId] = useState(TACTICAL_SKILLS[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -125,6 +133,7 @@ export default function BaSrpgPlayPage() {
   const recipes = useMemo(() => recipeRows(state), [state]);
   const properties = useMemo(() => propertyRows(state), [state]);
   const edicts = useMemo(() => edictRows(state), [state]);
+  const skills = useMemo(() => tacticalSkillRows(state), [state]);
   const town = useMemo(() => townSummary(state), [state]);
   const guildRank = useMemo(() => guildRankInfo(state), [state]);
   const score = scoreState(state);
@@ -132,6 +141,7 @@ export default function BaSrpgPlayPage() {
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
   const selectedProperty = properties.find((property) => property.id === propertyId) || properties[0];
   const selectedEdict = edicts.find((edict) => edict.id === edictId) || edicts[0];
+  const selectedSkill = skills.find((skill) => skill.id === skillId) || skills[0];
   const selectedMission = getMission(missionId);
   const selectedMissionRewards = missionRewardSummary(selectedMission);
   const cleared = battle.phase === 'cleared';
@@ -226,6 +236,7 @@ export default function BaSrpgPlayPage() {
     setRecipeId(RECIPES[0].id);
     setPropertyId(PROPERTIES[0].id);
     setEdictId(EDICTS[0].id);
+    setSkillId(TACTICAL_SKILLS[0].id);
     setMessage('');
   };
 
@@ -327,9 +338,23 @@ export default function BaSrpgPlayPage() {
           <div className="games-rank-split">
             <SmallStat label="대상" value={targetEnemy?.name || '없음'} />
             <SmallStat label="적 생존" value={battle.enemies.filter((enemy) => enemy.hp > 0).length} />
+            <SmallStat label="스킬" value={selectedSkill?.name || '-'} />
+            <SmallStat label="소모 AP" value={selectedSkill?.apCost ?? 0} />
           </div>
+          <label className="game-save-json-field">
+            <span>전술 스킬</span>
+            <select value={skillId} onChange={(event) => setSkillId(event.target.value)}>
+              {skills.map((skill) => (
+                <option value={skill.id} key={skill.id}>{skill.name} · AP {skill.apCost}</option>
+              ))}
+            </select>
+          </label>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
+            대상 {selectedSkill?.targetName || '-'} · 사거리 {selectedSkill?.rangeText || '-'} · {selectedSkill?.note || ''}
+          </p>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!targetEnemy || battle.phase !== 'player'} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
+            <ActionButton disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, skillId))}>선택 스킬 사용</ActionButton>
             <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => consumeBandageAction(current))}>붕대 사용</ActionButton>
             <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
             <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
@@ -441,7 +466,7 @@ export default function BaSrpgPlayPage() {
             {battle.units.map((unit) => (
               <article className="game-save-row" key={unit.id}>
                 <div>
-                  <span>{unit.role} · AP {unit.ap}</span>
+                  <span>{unit.role} · AP {unit.ap}{actorStatusText(unit) ? ` · ${actorStatusText(unit)}` : ''}</span>
                   <strong>{unit.name}</strong>
                 </div>
                 <strong>{unit.hp}/{unit.maxHp}</strong>
@@ -459,7 +484,7 @@ export default function BaSrpgPlayPage() {
             {battle.enemies.map((enemy) => (
               <article className="game-save-row" key={enemy.id}>
                 <div>
-                  <span>사거리 {enemy.range} · 이동 {enemy.move}</span>
+                  <span>사거리 {enemy.range} · 이동 {enemy.move}{actorStatusText(enemy) ? ` · ${actorStatusText(enemy)}` : ''}</span>
                   <strong>{enemy.name}</strong>
                 </div>
                 <strong>{enemy.hp}/{enemy.maxHp}</strong>
