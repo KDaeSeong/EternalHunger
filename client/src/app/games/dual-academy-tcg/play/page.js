@@ -3,14 +3,22 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../../components/SiteHeader';
-import { apiGet, apiGetCached } from '../../../../utils/api';
+import { useToast } from '../../../../components/ToastProvider';
+import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
+  TCG_GAME_SLUG,
   buildDeckFromIds,
   normalizeCards,
 } from '../_lib/tcgCatalog';
+
+const QUICK_SAVE_SLOT = 'quick-match';
+
+function createMatchId() {
+  return `match-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function drawCards(state, count) {
   const deck = [...state.deck];
@@ -30,6 +38,8 @@ function drawCards(state, count) {
 
 function createInitialState(deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)) {
   const base = {
+    matchId: createMatchId(),
+    startedAt: new Date().toISOString(),
     turn: 1,
     playerHealth: 20,
     enemyHealth: 20,
@@ -46,6 +56,51 @@ function createInitialState(deckCards = buildDeckFromIds(FALLBACK_DECK_CARD_IDS,
     winner: '',
   };
   return drawCards(base, 4);
+}
+
+function normalizeSavedState(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return {
+    matchId: value.matchId || createMatchId(),
+    startedAt: value.startedAt || new Date().toISOString(),
+    turn: Math.max(1, Number(value.turn || 1)),
+    playerHealth: clampHealth(value.playerHealth ?? 20),
+    enemyHealth: clampHealth(value.enemyHealth ?? 20),
+    maxEnergy: Math.max(1, Math.min(10, Number(value.maxEnergy || 1))),
+    energy: Math.max(0, Math.min(10, Number(value.energy || 0))),
+    deck: Array.isArray(value.deck) ? value.deck : [],
+    hand: Array.isArray(value.hand) ? value.hand : [],
+    board: Array.isArray(value.board) ? value.board : [],
+    enemyBoard: Array.isArray(value.enemyBoard) ? value.enemyBoard : [],
+    discard: Array.isArray(value.discard) ? value.discard : [],
+    log: Array.isArray(value.log) ? value.log.slice(0, 12) : [],
+    winner: ['player', 'enemy'].includes(value.winner) ? value.winner : '',
+  };
+}
+
+function matchPayload(state) {
+  return {
+    matchId: state.matchId,
+    startedAt: state.startedAt,
+    turn: state.turn,
+    playerHealth: state.playerHealth,
+    enemyHealth: state.enemyHealth,
+    maxEnergy: state.maxEnergy,
+    energy: state.energy,
+    deck: state.deck,
+    hand: state.hand,
+    board: state.board,
+    enemyBoard: state.enemyBoard,
+    discard: state.discard,
+    log: state.log,
+    winner: state.winner,
+  };
+}
+
+function getPlayTimeSec(startedAt) {
+  const start = new Date(startedAt || '').getTime();
+  if (!Number.isFinite(start)) return 0;
+  return Math.max(0, Math.floor((Date.now() - start) / 1000));
 }
 
 function clampHealth(value) {
@@ -92,14 +147,19 @@ function cardPower(card) {
 export default function DualAcademyTcgPlayPage() {
   const mounted = useHydrated();
   const token = useAuthToken();
+  const { showToast } = useToast();
   const [cardCatalog, setCardCatalog] = useState(FALLBACK_TCG_CARDS);
   const [deckCardIds, setDeckCardIds] = useState(FALLBACK_DECK_CARD_IDS);
   const [deckName, setDeckName] = useState('스타터 덱');
   const [loadingDeck, setLoadingDeck] = useState(true);
   const [deckMessage, setDeckMessage] = useState('');
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [recordedMatchIds, setRecordedMatchIds] = useState([]);
+  const [recordMessage, setRecordMessage] = useState('');
   const [state, setState] = useState(() => createInitialState(buildDeckFromIds(FALLBACK_DECK_CARD_IDS, FALLBACK_TCG_CARDS)));
 
   const resetWithDeck = useCallback((cardIds, cards) => {
+    setRecordMessage('');
     setState(createInitialState(buildDeckFromIds(cardIds, cards)));
   }, []);
 
@@ -151,6 +211,50 @@ export default function DualAcademyTcgPlayPage() {
   useEffect(() => {
     void loadDeck();
   }, [loadDeck]);
+
+  useEffect(() => {
+    if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
+    let cancelled = false;
+    const saveRecord = async () => {
+      try {
+        setRecordedMatchIds((current) => current.includes(state.matchId) ? current : [...current, state.matchId]);
+        const result = state.winner === 'player' ? 'win' : 'loss';
+        const score = Math.max(0, Number(state.enemyHealth <= 0 ? state.playerHealth : state.enemyHealth));
+        const payload = {
+          title: 'Dual Academy TCG 훈련 매치',
+          mode: 'prototype',
+          result,
+          score: state.winner === 'player' ? 100 + state.playerHealth + Math.max(0, 12 - state.turn) : score,
+          playTimeSec: getPlayTimeSec(state.startedAt),
+          summary: {
+            deckName,
+            turn: state.turn,
+            playerHealth: state.playerHealth,
+            enemyHealth: state.enemyHealth,
+            remainingDeck: state.deck.length,
+            result,
+          },
+          payload: {
+            deckName,
+            deckCardIds,
+            state: matchPayload(state),
+          },
+        };
+        await apiPost(`/game-records/${TCG_GAME_SLUG}`, payload, { timeoutMs: 12000 });
+        clearApiGetCache('/game-records');
+        if (!cancelled) setRecordMessage('전적을 자동 저장했습니다.');
+      } catch (err) {
+        if (!cancelled) {
+          setRecordedMatchIds((current) => current.filter((id) => id !== state.matchId));
+          setRecordMessage(err?.message || '전적 자동 저장에 실패했습니다.');
+        }
+      }
+    };
+    void saveRecord();
+    return () => {
+      cancelled = true;
+    };
+  }, [deckCardIds, deckName, mounted, recordedMatchIds, state, token]);
 
   const handCost = useMemo(
     () => state.hand.reduce((sum, card) => sum + Number(card.cost || 0), 0),
@@ -228,6 +332,86 @@ export default function DualAcademyTcgPlayPage() {
     });
   };
 
+  const saveMatch = async () => {
+    if (!token || saveBusy) {
+      setDeckMessage('로그인하면 현재 매치를 저장할 수 있습니다.');
+      return;
+    }
+    setSaveBusy(true);
+    try {
+      await apiPut(`/game-saves/${TCG_GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
+        saveName: `${deckName} ${state.turn}턴`,
+        version: 'tcg-prototype-v1',
+        summary: {
+          deckName,
+          turn: state.turn,
+          playerHealth: state.playerHealth,
+          enemyHealth: state.enemyHealth,
+          winner: state.winner || 'playing',
+        },
+        payload: {
+          deckName,
+          deckCardIds,
+          cardCatalog,
+          state: matchPayload(state),
+        },
+        lastPlayedAt: new Date().toISOString(),
+      }, { timeoutMs: 15000 });
+      clearApiGetCache('/game-saves');
+      setDeckMessage('현재 매치를 저장했습니다.');
+      showToast({ tone: 'success', message: '현재 매치를 저장했습니다.' });
+    } catch (err) {
+      const message = err?.message || '매치 저장에 실패했습니다.';
+      setDeckMessage(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const loadMatch = async () => {
+    if (!token || saveBusy) {
+      setDeckMessage('로그인하면 저장된 매치를 불러올 수 있습니다.');
+      return;
+    }
+    setSaveBusy(true);
+    try {
+      const list = await apiGet(`/game-saves?gameSlug=${TCG_GAME_SLUG}`, { timeoutMs: 12000 });
+      const quickSave = Array.isArray(list?.saves)
+        ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT)
+        : null;
+      if (!quickSave?.id) {
+        setDeckMessage('저장된 매치가 없습니다.');
+        return;
+      }
+
+      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
+      const payload = detail?.save?.payload || {};
+      const restored = normalizeSavedState(payload.state);
+      if (!restored) {
+        setDeckMessage('저장된 매치 데이터가 올바르지 않습니다.');
+        return;
+      }
+      const nextCards = normalizeCards(payload.cardCatalog);
+      const nextCardIds = Array.isArray(payload.deckCardIds) && payload.deckCardIds.length
+        ? payload.deckCardIds
+        : deckCardIds;
+      setCardCatalog(nextCards);
+      setDeckCardIds(nextCardIds);
+      setDeckName(payload.deckName || detail?.save?.summary?.deckName || deckName);
+      setRecordMessage('');
+      setState(restored);
+      setDeckMessage('저장된 매치를 불러왔습니다.');
+      showToast({ tone: 'success', message: '저장된 매치를 불러왔습니다.' });
+    } catch (err) {
+      const message = err?.message || '매치 불러오기에 실패했습니다.';
+      setDeckMessage(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
   const resetMatch = () => resetWithDeck(deckCardIds, cardCatalog);
 
   return (
@@ -243,6 +427,8 @@ export default function DualAcademyTcgPlayPage() {
             <Link href="/games/dual-academy-tcg">상세</Link>
             <Link href="/games/dual-academy-tcg/deck">덱 편집</Link>
             <Link href="/board?category=game&gameSlug=dual-academy-tcg">게시판</Link>
+            <button type="button" onClick={saveMatch} disabled={saveBusy}>저장</button>
+            <button type="button" onClick={loadMatch} disabled={saveBusy}>불러오기</button>
             <button type="button" onClick={resetMatch}>새 매치</button>
           </nav>
         </header>
@@ -269,6 +455,7 @@ export default function DualAcademyTcgPlayPage() {
         {state.winner ? (
           <section className={`tcg-result is-${state.winner}`}>
             {state.winner === 'player' ? '승리했습니다.' : '패배했습니다.'}
+            {recordMessage ? <span>{recordMessage}</span> : null}
           </section>
         ) : null}
 
