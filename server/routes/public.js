@@ -273,6 +273,80 @@ function mapHubTeamRank(row) {
   };
 }
 
+function mapActivityPost(post) {
+  return {
+    _id: `post-${normalizeId(post)}`,
+    kind: 'post',
+    title: post?.title || '',
+    label: post?.isNotice ? '공지' : '게시글',
+    category: post?.category || 'free',
+    href: `/board/${normalizeId(post)}`,
+    actor: mapCompactUser(post?.authorId),
+    actorName: displayName(post?.authorId),
+    contentPreview: cleanText(post?.content, 120),
+    createdAt: post?.createdAt || null,
+    updatedAt: post?.updatedAt || null,
+    stats: {
+      comments: toNonNegativeInt(post?.commentCount),
+      reactions: toNonNegativeInt(post?.reactionCount),
+      views: toNonNegativeInt(post?.viewCount),
+    },
+  };
+}
+
+function mapActivityComment(row) {
+  const comment = row?.comments || row?.comment || {};
+  return {
+    _id: `comment-${normalizeId(row)}-${normalizeId(comment)}`,
+    kind: 'comment',
+    title: row?.title || '',
+    label: '댓글',
+    category: row?.category || 'free',
+    href: `/board/${normalizeId(row)}`,
+    actor: mapCompactUser(comment?.authorId),
+    actorName: displayName(comment?.authorId),
+    contentPreview: cleanText(comment?.content, 140),
+    createdAt: comment?.createdAt || null,
+    updatedAt: comment?.updatedAt || null,
+    stats: {
+      comments: toNonNegativeInt(row?.commentCount),
+      reactions: toNonNegativeInt(row?.reactionCount),
+      views: toNonNegativeInt(row?.viewCount),
+    },
+  };
+}
+
+function mapActivityRoom(room) {
+  const mapped = mapHubRoom(room);
+  const solvedActor = mapped.status === 'solved' ? mapped.solvedBy : null;
+  const actor = solvedActor || mapped.host;
+  const statusLabel = mapped.status === 'solved' ? '정답' : mapped.status === 'closed' ? '종료' : '스무고개';
+  return {
+    _id: `room-${mapped._id}`,
+    kind: 'room',
+    title: mapped.title,
+    label: statusLabel,
+    category: mapped.category,
+    href: `/twenty-questions/${mapped._id}`,
+    actor,
+    actorName: actor?.displayName || mapped.hostName || '?듬챸',
+    contentPreview: cleanText(mapped.hint, 140),
+    createdAt: mapped.createdAt,
+    updatedAt: mapped.solvedAt || mapped.updatedAt,
+    stats: {
+      questions: mapped.questionCount,
+      guesses: mapped.guessCount,
+      attempts: mapped.attemptCount,
+      remaining: mapped.remainingCount,
+    },
+  };
+}
+
+function activitySortTime(row) {
+  const ms = new Date(row?.updatedAt || row?.createdAt || 0).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 /**
  * ✅ 공개 데이터 API
  * - 시뮬레이션/에디터/메인에서 필요한 '기본 데이터'를 비로그인으로도 조회 가능
@@ -464,6 +538,79 @@ router.get('/home-hub', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '홈 허브 정보를 불러오지 못했습니다.' });
+  }
+});
+
+router.get('/activity', async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(80, Number(req.query?.limit || 40)));
+    const [
+      recentPosts,
+      recentComments,
+      recentRooms,
+    ] = await Promise.all([
+      Post.find({})
+        .select('_id title category content isNotice commentCount reactionCount viewCount authorId createdAt updatedAt')
+        .populate('authorId', 'username nickname')
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Post.aggregate([
+        { $match: { 'comments.0': { $exists: true } } },
+        { $unwind: '$comments' },
+        { $sort: { 'comments.createdAt': -1, _id: -1 } },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'comments.authorId',
+            foreignField: '_id',
+            as: 'commentAuthor',
+          },
+        },
+        { $unwind: { path: '$commentAuthor', preserveNullAndEmptyArrays: true } },
+        { $addFields: { 'comments.authorId': '$commentAuthor' } },
+        {
+          $project: {
+            title: 1,
+            category: 1,
+            commentCount: 1,
+            reactionCount: 1,
+            viewCount: 1,
+            comments: 1,
+          },
+        },
+      ]),
+      TwentyQuestionsRoom.find({})
+        .select('_id title category hint status maxQuestions questions guesses hostId solvedBy solvedAt createdAt updatedAt')
+        .populate('hostId', 'username nickname')
+        .populate('solvedBy', 'username nickname')
+        .sort({ updatedAt: -1 })
+        .limit(limit)
+        .lean(),
+    ]);
+
+    const activity = [
+      ...recentPosts.map(mapActivityPost),
+      ...recentComments.map(mapActivityComment),
+      ...recentRooms.map(mapActivityRoom),
+    ]
+      .sort((a, b) => activitySortTime(b) - activitySortTime(a))
+      .slice(0, limit);
+
+    res.json({
+      counts: {
+        total: activity.length,
+        posts: activity.filter((row) => row.kind === 'post').length,
+        comments: activity.filter((row) => row.kind === 'comment').length,
+        rooms: activity.filter((row) => row.kind === 'room').length,
+        solvedRooms: activity.filter((row) => row.kind === 'room' && row.label === '정답').length,
+      },
+      activity,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '활동 피드를 불러오지 못했습니다.' });
   }
 });
 

@@ -191,6 +191,7 @@ export default function BoardPage() {
     if (BOARD_CATEGORIES.some((item) => item.value === nextCategory)) setCategoryFilter(nextCategory);
     if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
     if (Number.isFinite(nextPage) && nextPage > 1) setPage(Math.floor(nextPage));
+    if (params.get('write') === '1') setWriterOpen(true);
   }, []);
 
   useEffect(() => {

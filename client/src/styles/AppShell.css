@@ -25,6 +25,7 @@
 .reports-page-shell,
 .bookmarks-page-shell,
 .games-page-shell,
+.activity-page-shell,
 .guides-page-shell,
 .search-page-shell,
 .leaderboard-page-shell,
@@ -52,6 +53,7 @@
 .reports-page-shell > .site-header,
 .bookmarks-page-shell > .site-header,
 .games-page-shell > .site-header,
+.activity-page-shell > .site-header,
 .guides-page-shell > .site-header,
 .search-page-shell > .site-header,
 .leaderboard-page-shell > .site-header,
@@ -125,6 +127,7 @@
 .profile-page-shell,
 .bookmarks-page-shell,
 .games-page-shell,
+.activity-page-shell,
 .perk-shop-page,
 .help-page-shell {
   background: var(--eh-shell-bg);
@@ -155,6 +158,10 @@
 }
 
 .games-page-shell {
+  padding-bottom: 56px;
+}
+
+.activity-page-shell {
   padding-bottom: 56px;
 }
 
@@ -1233,6 +1240,254 @@
 }
 
 .bookmarks-error {
+  color: #9a3c3f;
+}
+
+.activity-page {
+  width: min(100%, var(--eh-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.activity-hero,
+.activity-summary > div,
+.activity-toolbar,
+.activity-card,
+.activity-empty {
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.activity-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px;
+}
+
+.activity-kicker {
+  margin: 0 0 6px;
+  color: var(--eh-blue);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.activity-hero h1 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.1;
+}
+
+.activity-hero p:not(.activity-kicker) {
+  max-width: 720px;
+  margin: 10px 0 0;
+  color: #4f5d69;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.activity-actions,
+.activity-tabs,
+.activity-meta,
+.activity-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity-actions {
+  justify-content: flex-end;
+}
+
+.activity-actions a,
+.activity-actions button,
+.activity-tabs button,
+.activity-empty button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 120, 189, 0.24);
+  border-radius: 8px;
+  background: #fff;
+  color: #155779;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
+.activity-actions a:first-of-type,
+.activity-actions button,
+.activity-tabs button.is-active,
+.activity-empty button {
+  background: #0878bd;
+  color: #fff;
+}
+
+.activity-actions button:disabled {
+  border-color: #c7cdd3;
+  background: #d8dde2;
+  color: #6f7983;
+  cursor: not-allowed;
+}
+
+.activity-actions a:hover,
+.activity-actions button:hover,
+.activity-tabs button:hover,
+.activity-empty button:hover,
+.activity-card:hover {
+  border-color: rgba(44, 111, 158, 0.36);
+  box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.activity-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.activity-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.activity-summary span,
+.activity-card__head span,
+.activity-meta {
+  color: #66727e;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.activity-summary strong {
+  color: #17202a;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.activity-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
+  gap: 12px;
+  padding: 14px;
+}
+
+.activity-toolbar input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(22, 33, 44, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  color: #17202a;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.activity-toolbar input:focus {
+  border-color: rgba(8, 120, 189, 0.52);
+  box-shadow: 0 0 0 3px rgba(8, 120, 189, 0.10);
+  outline: none;
+}
+
+.activity-list {
+  display: grid;
+  gap: 10px;
+}
+
+.activity-card {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  padding: 16px;
+  border-left-width: 4px;
+}
+
+.activity-card.is-post {
+  border-left-color: #2c6f9e;
+}
+
+.activity-card.is-comment {
+  border-left-color: #3b8a65;
+}
+
+.activity-card.is-room {
+  border-left-color: #c9862d;
+}
+
+.activity-card h2 {
+  margin: 0;
+  color: #17202a;
+  font-size: 1.08rem;
+  line-height: 1.3;
+}
+
+.activity-card h2 a,
+.activity-meta a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.activity-card h2 a:hover,
+.activity-meta a:hover {
+  color: #0878bd;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.activity-card p {
+  margin: 0;
+  color: #334252;
+  font-weight: 800;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.activity-kind {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #eef8ff;
+  color: #155779;
+  padding: 0 9px;
+}
+
+.activity-meta {
+  gap: 10px;
+}
+
+.activity-meta strong,
+.activity-meta a,
+.activity-card h2,
+.activity-card__head span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px;
+  color: #5f6c78;
+  font-weight: 900;
+}
+
+.activity-error {
+  border-color: #ffc6c6;
+  background: #fff8f8;
   color: #9a3c3f;
 }
 
@@ -3119,6 +3374,7 @@
   .reports-page-shell,
   .bookmarks-page-shell,
   .games-page-shell,
+  .activity-page-shell,
   .guides-page-shell,
   .search-page-shell,
   .leaderboard-page-shell,
@@ -3143,6 +3399,7 @@
   .reports-page-shell > .site-header,
   .bookmarks-page-shell > .site-header,
   .games-page-shell > .site-header,
+  .activity-page-shell > .site-header,
   .guides-page-shell > .site-header,
   .search-page-shell > .site-header,
   .leaderboard-page-shell > .site-header,
@@ -3289,6 +3546,8 @@
   .games-card-metrics,
   .games-rank-split,
   .games-link-grid,
+  .activity-summary,
+  .activity-toolbar,
   .account-dashboard,
   .account-activity-grid,
   .account-overview-stats,
@@ -3310,6 +3569,8 @@
   .bookmarks-hero,
   .games-panel-title,
   .games-detail-copy,
+  .activity-hero,
+  .activity-empty,
   .account-head,
   .guides-hero,
   .guides-panel-title,
@@ -3338,6 +3599,10 @@
   .games-hero-actions button,
   .games-card-actions a,
   .games-empty button,
+  .activity-actions,
+  .activity-actions a,
+  .activity-actions button,
+  .activity-empty button,
   .account-head > a,
   .guides-hero > a,
   .guides-panel-title a,

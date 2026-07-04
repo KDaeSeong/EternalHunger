@@ -28,6 +28,12 @@ const MENU_ITEMS = [
     body: '플레이, 커뮤니티 게임, 게시판 활동, 기록 흐름을 한 화면에서 확인합니다.',
   },
   {
+    href: '/activity',
+    tag: 'Feed',
+    title: '활동 피드',
+    body: '새 글, 댓글, 스무고개 진행 상황을 한 흐름으로 확인합니다.',
+  },
+  {
     href: '/characters',
     tag: 'Roster',
     title: '캐릭터 설정',
