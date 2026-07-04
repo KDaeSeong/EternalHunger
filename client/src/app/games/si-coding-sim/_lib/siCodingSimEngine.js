@@ -1,4 +1,5 @@
 import taskPack from '../_data/task-pack-stepAQ_AR.json';
+import judgeRules from '../_data/judge-rules.json';
 
 export const GAME_SLUG = 'si-coding-sim';
 export const QUICK_SAVE_SLOT = 'si-coding-sim-main';
@@ -19,6 +20,20 @@ const DIFFICULTY_WEIGHT = {
   Hard: 1.6,
 };
 
+const SUPPORT_ACTIONS = judgeRules.companySupport?.actions || {};
+const SUPPORT_STARTING_RESERVE = Math.max(24, Math.round(Number(taskPack.meta?.contractRewardScore || 80) * 0.4));
+
+const SUPPORT_ACTION_LABELS = {
+  hint: {
+    title: '사내 지식베이스 매칭',
+    detail: '힌트 비용 1회를 예비비로 보전합니다.',
+  },
+  risk: {
+    title: 'QA 지원 인력 투입',
+    detail: '제출 후 열린 리스크 1단계를 줄이고 자원 정산을 되돌립니다.',
+  },
+};
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const firstTask = TASKS[0];
@@ -31,6 +46,7 @@ export function createNewState(options = {}) {
     workspaceFiles: firstTask ? { [firstTask.id]: createTaskWorkspace(firstTask) } : {},
     reports: {},
     hintUsage: {},
+    companySupport: createCompanySupportState(),
     documentReviewByTask: {},
     taskOutcomes: {},
     projectEvaluations: [],
@@ -48,6 +64,7 @@ export function normalizeState(value) {
     workspaceFiles: value.workspaceFiles && typeof value.workspaceFiles === 'object' ? value.workspaceFiles : base.workspaceFiles,
     reports: value.reports && typeof value.reports === 'object' ? value.reports : {},
     hintUsage: value.hintUsage && typeof value.hintUsage === 'object' ? value.hintUsage : {},
+    companySupport: normalizeCompanySupport(value.companySupport),
     documentReviewByTask: value.documentReviewByTask && typeof value.documentReviewByTask === 'object' ? normalizeDocumentReviewByTask(value.documentReviewByTask) : {},
     taskOutcomes: value.taskOutcomes && typeof value.taskOutcomes === 'object' ? value.taskOutcomes : {},
     projectEvaluations: Array.isArray(value.projectEvaluations) ? value.projectEvaluations : [],
@@ -201,7 +218,9 @@ export function revealHintAction(state, taskId) {
   const hints = Array.isArray(task.hints) ? task.hints : [];
   const revealed = Number(current.hintUsage[task.id] || 0);
   if (revealed >= hints.length) return addLog(current, '이미 모든 힌트를 열었습니다.');
-  const resources = applyResourceDelta(current.resources, hintCost(task));
+  const support = getTaskSupportUsage(current, task.id);
+  const covered = Number(support.hintCredits || 0) > revealed;
+  const resources = covered ? current.resources : applyResourceDelta(current.resources, hintCost(task));
   return addLog({
     ...current,
     resources,
@@ -209,7 +228,26 @@ export function revealHintAction(state, taskId) {
       ...current.hintUsage,
       [task.id]: revealed + 1,
     },
-  }, `${task.id} 힌트 ${revealed + 1}/${hints.length}을 확인했습니다.`);
+  }, `${task.id} 힌트 ${revealed + 1}/${hints.length}을 확인했습니다.${covered ? ' 회사 지원으로 비용을 보전했습니다.' : ''}`);
+}
+
+export function applyCompanySupportAction(state, taskId, action) {
+  const current = normalizeState(state);
+  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const actionKey = String(action || '').trim();
+  if (!task || !SUPPORT_ACTION_LABELS[actionKey]) return current;
+  const cost = supportCost(task, actionKey);
+  if (current.companySupport.cashReserve < cost) {
+    return addLog(current, `회사 지원 예비비가 부족합니다. 필요 ${cost}pt, 보유 ${current.companySupport.cashReserve}pt.`);
+  }
+
+  if (actionKey === 'hint') {
+    return applyHintSupport(current, task, cost);
+  }
+  if (actionKey === 'risk') {
+    return applyRiskSupport(current, task, cost);
+  }
+  return current;
 }
 
 export function toggleDocumentReviewAction(state, taskId, itemId) {
@@ -329,6 +367,49 @@ export function getDocumentReviewProgress(state, taskId) {
   return buildDocumentReviewProgress(task, current);
 }
 
+export function companySupportSummary(state, taskId) {
+  const current = normalizeState(state);
+  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  if (!task) {
+    return {
+      cashReserve: current.companySupport.cashReserve,
+      totalSpent: current.companySupport.totalSpent,
+      entries: current.companySupport.entries,
+      actions: [],
+    };
+  }
+  const usage = getTaskSupportUsage(current, task.id);
+  const outcome = current.taskOutcomes[task.id] || null;
+  const revealedHints = Number(current.hintUsage[task.id] || 0);
+  const hintCostValue = supportCost(task, 'hint');
+  const riskCostValue = supportCost(task, 'risk');
+  const openRiskCount = Number(outcome?.riskOpenCount || 0);
+  return {
+    cashReserve: current.companySupport.cashReserve,
+    totalSpent: current.companySupport.totalSpent,
+    entries: current.companySupport.entries,
+    usage,
+    revealedHints,
+    openRiskCount,
+    actions: [
+      {
+        key: 'hint',
+        title: SUPPORT_ACTION_LABELS.hint.title,
+        detail: `${SUPPORT_ACTION_LABELS.hint.detail} 현재 힌트 ${revealedHints}/${task.hints?.length || 0}회, 보전 ${usage.hintCredits || 0}회.`,
+        cost: hintCostValue,
+        disabled: current.companySupport.cashReserve < hintCostValue || Number(usage.hintCredits || 0) >= Math.max(1, task.hints?.length || 0),
+      },
+      {
+        key: 'risk',
+        title: SUPPORT_ACTION_LABELS.risk.title,
+        detail: outcome ? `${SUPPORT_ACTION_LABELS.risk.detail} 현재 열린 리스크 ${openRiskCount}건.` : '제출 후 열린 리스크가 생기면 QA 지원을 투입할 수 있습니다.',
+        cost: riskCostValue,
+        disabled: current.companySupport.cashReserve < riskCostValue || !outcome || openRiskCount <= 0,
+      },
+    ],
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const outcomes = Object.values(current.taskOutcomes || {});
@@ -363,6 +444,8 @@ export function summaryForState(state) {
     totalTasks: TASKS.length,
     averageScore,
     documentMissing: buildProjectDocumentMetrics(current).missingRequiredCount,
+    supportReserve: current.companySupport.cashReserve,
+    supportSpent: current.companySupport.totalSpent,
     stamina: current.resources.stamina,
     mentality: current.resources.mentality,
     clientTrust: current.resources.clientTrust,
@@ -509,6 +592,64 @@ function hintCost(task) {
   };
 }
 
+function supportCost(task, action) {
+  const byDifficulty = SUPPORT_ACTIONS[action]?.costPtByDifficulty || {};
+  return Number(byDifficulty[task?.difficulty] || byDifficulty.Normal || 10);
+}
+
+function applyHintSupport(state, task, cost) {
+  const support = getTaskSupportUsage(state, task.id);
+  const maxCredits = Math.max(1, task.hints?.length || 0);
+  if (Number(support.hintCredits || 0) >= maxCredits) {
+    return addLog(state, `${task.id}에서는 더 이상 힌트 비용을 보전할 수 없습니다.`);
+  }
+  const previousCredits = Number(support.hintCredits || 0);
+  const revealedHints = Number(state.hintUsage[task.id] || 0);
+  const shouldRefundAppliedHint = revealedHints > previousCredits;
+  const nextSupport = spendCompanySupport(state.companySupport, task.id, 'hint', cost);
+  const nextUsage = {
+    ...getTaskSupportUsage({ companySupport: nextSupport }, task.id),
+    hintCredits: previousCredits + 1,
+  };
+  return addLog({
+    ...state,
+    resources: shouldRefundAppliedHint ? applyResourceDelta(state.resources, invertResourceDelta(hintCost(task))) : state.resources,
+    companySupport: setTaskSupportUsage(nextSupport, task.id, nextUsage),
+  }, `${task.id} 힌트 비용 1회를 회사 지원으로 보전했습니다.${shouldRefundAppliedHint ? ' 이미 사용한 힌트 비용도 정산했습니다.' : ''}`);
+}
+
+function applyRiskSupport(state, task, cost) {
+  const outcome = state.taskOutcomes[task.id] || null;
+  const oldRisk = Number(outcome?.riskOpenCount || 0);
+  if (!outcome || oldRisk <= 0) {
+    return addLog(state, `${task.id}에는 완충할 열린 리스크가 없습니다.`);
+  }
+  const oldDelta = outcome.resourceDelta || calculateResourceDelta(task, outcome.score, oldRisk);
+  const nextRisk = Math.max(0, oldRisk - 1);
+  const nextDelta = calculateResourceDelta(task, outcome.score, nextRisk);
+  const adjustment = diffResourceDelta(nextDelta, oldDelta);
+  const nextSupport = spendCompanySupport(state.companySupport, task.id, 'risk', cost);
+  const support = getTaskSupportUsage({ companySupport: nextSupport }, task.id);
+  const nextUsage = {
+    ...support,
+    riskReliefCredits: Number(support.riskReliefCredits || 0) + 1,
+  };
+  return addLog({
+    ...state,
+    resources: applyResourceDelta(state.resources, adjustment),
+    companySupport: setTaskSupportUsage(nextSupport, task.id, nextUsage),
+    taskOutcomes: {
+      ...state.taskOutcomes,
+      [task.id]: {
+        ...outcome,
+        riskOpenCount: nextRisk,
+        resourceDelta: nextDelta,
+        supportReliefCount: Number(outcome.supportReliefCount || 0) + 1,
+      },
+    },
+  }, `${task.id} QA 지원으로 열린 리스크를 ${oldRisk}건에서 ${nextRisk}건으로 줄였습니다.`);
+}
+
 function calculateResourceDelta(task, score, riskOpenCount) {
   const weight = DIFFICULTY_WEIGHT[task.difficulty] || 1;
   if (score === 100) {
@@ -535,6 +676,15 @@ function calculateResourceDelta(task, score, riskOpenCount) {
   };
 }
 
+function invertResourceDelta(delta) {
+  return Object.fromEntries(Object.entries(delta || {}).map(([key, value]) => [key, -Number(value || 0)]));
+}
+
+function diffResourceDelta(nextDelta, previousDelta) {
+  const keys = new Set([...Object.keys(nextDelta || {}), ...Object.keys(previousDelta || {})]);
+  return Object.fromEntries(Array.from(keys).map((key) => [key, Number(nextDelta?.[key] || 0) - Number(previousDelta?.[key] || 0)]));
+}
+
 function applyResourceDelta(resources, delta) {
   return {
     stamina: clamp(Number(resources.stamina || 0) + Number(delta.stamina || 0), 0, 100),
@@ -542,6 +692,75 @@ function applyResourceDelta(resources, delta) {
     clientTrust: clamp(Number(resources.clientTrust || 0) + Number(delta.clientTrust || 0), 0, 100),
     techDebt: clamp(Number(resources.techDebt || 0) + Number(delta.techDebt || 0), 0, 999),
   };
+}
+
+function createCompanySupportState() {
+  return {
+    cashReserve: SUPPORT_STARTING_RESERVE,
+    totalSpent: 0,
+    usageByTask: {},
+    entries: [],
+  };
+}
+
+function normalizeCompanySupport(value) {
+  const base = createCompanySupportState();
+  if (!value || typeof value !== 'object') return base;
+  const usageByTask = value.usageByTask && typeof value.usageByTask === 'object' ? value.usageByTask : {};
+  return {
+    cashReserve: clamp(Number(value.cashReserve ?? base.cashReserve), 0, 999),
+    totalSpent: Math.max(0, Math.round(Number(value.totalSpent || 0))),
+    usageByTask: Object.fromEntries(Object.entries(usageByTask).map(([taskId, usage]) => [taskId, normalizeTaskSupportUsage(usage)])),
+    entries: Array.isArray(value.entries) ? value.entries.slice(0, 12) : [],
+  };
+}
+
+function normalizeTaskSupportUsage(value) {
+  const src = value && typeof value === 'object' ? value : {};
+  return {
+    hintCredits: Math.max(0, Math.round(Number(src.hintCredits || 0))),
+    riskReliefCredits: Math.max(0, Math.round(Number(src.riskReliefCredits || 0))),
+    spent: Math.max(0, Math.round(Number(src.spent || 0))),
+    purchases: Array.isArray(src.purchases) ? src.purchases.slice(0, 8) : [],
+  };
+}
+
+function getTaskSupportUsage(state, taskId) {
+  return normalizeTaskSupportUsage(state?.companySupport?.usageByTask?.[taskId]);
+}
+
+function setTaskSupportUsage(companySupport, taskId, usage) {
+  return {
+    ...companySupport,
+    usageByTask: {
+      ...(companySupport.usageByTask || {}),
+      [taskId]: normalizeTaskSupportUsage(usage),
+    },
+  };
+}
+
+function spendCompanySupport(companySupport, taskId, action, amount) {
+  const meta = SUPPORT_ACTION_LABELS[action] || { title: action, detail: '' };
+  const usage = getTaskSupportUsage({ companySupport }, taskId);
+  const purchase = {
+    id: `SUP-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    action,
+    title: meta.title,
+    amount,
+    detail: meta.detail,
+    createdAt: new Date().toISOString(),
+  };
+  const nextUsage = {
+    ...usage,
+    spent: Number(usage.spent || 0) + amount,
+    purchases: [purchase, ...(usage.purchases || [])].slice(0, 8),
+  };
+  return setTaskSupportUsage({
+    ...companySupport,
+    cashReserve: clamp(Number(companySupport.cashReserve || 0) - amount, 0, 999),
+    totalSpent: Math.max(0, Math.round(Number(companySupport.totalSpent || 0) + amount)),
+    entries: [purchase, ...(companySupport.entries || [])].slice(0, 12),
+  }, taskId, nextUsage);
 }
 
 function outcomeStatus(score) {

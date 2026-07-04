@@ -11,6 +11,8 @@ import {
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
   TASKS,
+  applyCompanySupportAction,
+  companySupportSummary,
   createNewState,
   evaluateProjectAction,
   getCurrentTask,
@@ -124,6 +126,7 @@ export default function SiCodingSimPlayPage() {
   const execution = task?.execution || null;
   const insightRows = Object.entries(task?.passiveInsights || {});
   const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
+  const support = useMemo(() => companySupportSummary(state, task?.id), [state, task?.id]);
 
   const updateTaskFilter = (key, value) => {
     setTaskFilters((current) => ({ ...current, [key]: value }));
@@ -256,6 +259,7 @@ export default function SiCodingSimPlayPage() {
     { label: '멘탈', value: state.resources.mentality },
     { label: '고객신뢰', value: state.resources.clientTrust },
     { label: '기술부채', value: state.resources.techDebt },
+    { label: '예비비', value: `${support.cashReserve}pt` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -436,6 +440,46 @@ export default function SiCodingSimPlayPage() {
             <ActionButton onClick={() => setState((current) => revealHintAction(current, task.id))} disabled={revealedHints.length >= (task.hints?.length || 0)}>힌트 열기</ActionButton>
             <ActionButton onClick={() => setState((current) => resetTaskAction(current, task.id))}>현재 과제 초기화</ActionButton>
             <ActionButton onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>회사 지원</h2>
+            <span>예비비 {support.cashReserve}pt</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="누적 지원비" value={`${support.totalSpent}pt`} />
+            <SmallStat label="힌트 보전" value={`${support.usage?.hintCredits || 0}회`} />
+            <SmallStat label="QA 완충" value={`${support.usage?.riskReliefCredits || 0}회`} />
+            <SmallStat label="열린 리스크" value={`${support.openRiskCount || 0}건`} />
+          </div>
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            {(support.actions || []).map((item) => (
+              <article className="game-save-row" key={item.key}>
+                <div>
+                  <span>{item.detail}</span>
+                  <strong>{item.title}</strong>
+                </div>
+                <button
+                  type="button"
+                  className="tcg-primary-action"
+                  disabled={item.disabled}
+                  onClick={() => setState((current) => applyCompanySupportAction(current, task.id, item.key))}
+                >
+                  {item.cost}pt
+                </button>
+              </article>
+            ))}
+            {(support.entries || []).slice(0, 3).map((entry) => (
+              <article className="game-save-row" key={entry.id}>
+                <div>
+                  <span>{entry.detail}</span>
+                  <strong>{entry.title}</strong>
+                </div>
+                <strong>-{entry.amount}pt</strong>
+              </article>
+            ))}
           </div>
         </section>
       </section>
