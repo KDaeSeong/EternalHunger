@@ -121,6 +121,72 @@ function ZoneButton({ card, label, active, highlight, onClick, children }) {
   );
 }
 
+const ARCHIVE_ZONE_LABELS = {
+  deck: '덱',
+  grave: '묘지',
+  banished: '제외',
+};
+
+function archiveCards(player, zone) {
+  const cards = player?.[zone];
+  return Array.isArray(cards) ? cards : [];
+}
+
+function ArchiveCard({ card, index, reveal }) {
+  if (!reveal) {
+    return (
+      <article className="tcg-card">
+        <div className="tcg-card-head">
+          <span>#{index + 1}</span>
+          <strong>비공개</strong>
+        </div>
+        <div className="tcg-card-art" />
+        <h3>덱 카드</h3>
+        <p>상대 덱 순서는 공개하지 않습니다.</p>
+      </article>
+    );
+  }
+
+  return (
+    <article className={`tcg-card is-${card?.tone || 'blue'}`}>
+      <div className="tcg-card-head">
+        <span>#{index + 1}</span>
+        <strong>{cardKind(card)} {subType(card)}</strong>
+      </div>
+      <div className="tcg-card-art" />
+      <CardFace card={card} />
+    </article>
+  );
+}
+
+function ZoneArchivePanel({ state, zoneView, onClose }) {
+  if (!zoneView) return null;
+  const player = state.players[zoneView.player];
+  const cards = archiveCards(player, zoneView.zone);
+  const shownCards = zoneView.zone === 'deck' ? cards : [...cards].reverse();
+  const zoneLabel = ARCHIVE_ZONE_LABELS[zoneView.zone] || zoneView.zone;
+
+  return (
+    <section className="tcg-panel">
+      <div className="tcg-lane-title">
+        <h2>{PLAYER_LABELS[zoneView.player]} {zoneLabel}</h2>
+        <span>{shownCards.length}장</span>
+        <button type="button" onClick={onClose}>닫기</button>
+      </div>
+      <div className="tcg-hand-row">
+        {shownCards.length ? shownCards.map((card, index) => (
+          <ArchiveCard
+            card={card}
+            index={index}
+            key={`${zoneView.player}-${zoneView.zone}-${card?.instanceId || index}`}
+            reveal={zoneView.reveal}
+          />
+        )) : <div className="tcg-empty-zone">표시할 카드가 없습니다.</div>}
+      </div>
+    </section>
+  );
+}
+
 function PlayerField({
   title,
   playerKey,
@@ -358,12 +424,14 @@ function DualAcademyTcgPlayContent() {
   const [recordMessage, setRecordMessage] = useState('');
   const [selectedHandId, setSelectedHandId] = useState('');
   const [selectedAttacker, setSelectedAttacker] = useState(null);
+  const [zoneView, setZoneView] = useState(null);
   const [state, setState] = useState(() => createDuelState());
 
   const resetWithDeck = useCallback((cardIds, cards, characters = null) => {
     setRecordMessage('');
     setSelectedHandId('');
     setSelectedAttacker(null);
+    setZoneView(null);
     setState(createDuelState({ deckCardIds: cardIds, cardCatalog: cards, characters: normalizeTcgCharacters(characters) }));
   }, []);
 
@@ -443,6 +511,7 @@ function DualAcademyTcgPlayContent() {
     setRecordMessage('');
     setSelectedHandId('');
     setSelectedAttacker(null);
+    setZoneView(null);
     setState(restored);
     setLocalRoomDirty(false);
     setRoomSyncMessage('');
@@ -705,6 +774,7 @@ function DualAcademyTcgPlayContent() {
       setRecordMessage('');
       setSelectedHandId('');
       setSelectedAttacker(null);
+      setZoneView(null);
       setState(restored);
       if (roomId) {
         setLocalRoomDirty(true);
@@ -784,6 +854,10 @@ function DualAcademyTcgPlayContent() {
         [player]: characterId,
       }),
     }));
+  };
+
+  const openZoneView = (player, zone, reveal = true) => {
+    setZoneView({ player, zone, reveal });
   };
 
   return (
@@ -900,6 +974,14 @@ function DualAcademyTcgPlayContent() {
                 <dd>{state.events.length}</dd>
               </div>
             </dl>
+            <div className="tcg-card-controls" style={{ marginTop: 12 }}>
+              <button type="button" onClick={() => openZoneView('player', 'deck', true)}>내 덱</button>
+              <button type="button" onClick={() => openZoneView('player', 'grave', true)}>내 묘지</button>
+              <button type="button" onClick={() => openZoneView('player', 'banished', true)}>내 제외</button>
+              <button type="button" onClick={() => openZoneView('enemy', 'deck', false)}>AI 덱</button>
+              <button type="button" onClick={() => openZoneView('enemy', 'grave', true)}>AI 묘지</button>
+              <button type="button" onClick={() => openZoneView('enemy', 'banished', true)}>AI 제외</button>
+            </div>
             <button type="button" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
               필드 효과
             </button>
@@ -981,6 +1063,12 @@ function DualAcademyTcgPlayContent() {
             </ol>
           </aside>
         </section>
+
+        <ZoneArchivePanel
+          state={state}
+          zoneView={zoneView}
+          onClose={() => setZoneView(null)}
+        />
 
         <section className="tcg-hand">
           <div className="tcg-lane-title">
