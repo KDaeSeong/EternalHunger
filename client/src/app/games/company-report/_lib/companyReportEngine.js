@@ -46,6 +46,50 @@ const FIXED_EXPENSES = [
   { type: 'RENT', label: '운영 고정비', amount: 25000000 },
 ];
 
+export const LEDGER_RESTORE_MODES = [
+  { id: 'CORE_STATE', label: '핵심 상태 복원' },
+  { id: 'FULL_LEDGER', label: '전체 원장 복원' },
+  { id: 'SELECTED_TABLES', label: '선택 테이블 복원' },
+];
+
+export const LEDGER_RESTORE_TABLES = [
+  { tableName: 'company_info', label: '회사 상태', key: 'company', kind: 'object' },
+  { tableName: 'inventory_balance', label: '재고 장부', key: 'inventory', kind: 'objectMap' },
+  { tableName: 'sales_order', label: '주문', key: 'orders', kind: 'array' },
+  { tableName: 'account_receivable', label: '매출채권', key: 'receivables', kind: 'array' },
+  { tableName: 'monthly_settlement', label: '월말 결산', key: 'settlements', kind: 'array' },
+  { tableName: 'global_export_plan', label: '수출 계획', key: 'global.exportPlans', kind: 'array' },
+  { tableName: 'global_import_plan', label: '수입 계획', key: 'global.importPlans', kind: 'array' },
+  { tableName: 'global_export_result', label: '수출 실적', key: 'global.exportResults', kind: 'array' },
+  { tableName: 'global_import_result', label: '수입 실적', key: 'global.importResults', kind: 'array' },
+  { tableName: 'foreign_receivable', label: '외화채권', key: 'global.foreignReceivables', kind: 'array' },
+  { tableName: 'hedge_contract', label: '환헤지', key: 'global.hedgeContracts', kind: 'array' },
+  { tableName: 'capital_disclosure', label: '공시', key: 'capitalMarket.disclosures', kind: 'array' },
+  { tableName: 'dividend_decision', label: '배당', key: 'capitalMarket.dividends', kind: 'array' },
+  { tableName: 'financing_plan', label: '자금조달', key: 'capitalMarket.financingPlans', kind: 'array' },
+  { tableName: 'stock_price_history', label: '주가 이력', key: 'capitalMarket.stockHistory', kind: 'array' },
+];
+
+const LEDGER_DELETE_ORDER = [
+  'account_receivable',
+  'sales_order',
+  'global_export_result',
+  'global_import_result',
+  'foreign_receivable',
+  'hedge_contract',
+  'global_export_plan',
+  'global_import_plan',
+  'dividend_decision',
+  'financing_plan',
+  'capital_disclosure',
+  'stock_price_history',
+  'monthly_settlement',
+  'inventory_balance',
+  'company_info',
+];
+
+const LEDGER_INSERT_ORDER = [...LEDGER_DELETE_ORDER].reverse();
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   return {
@@ -96,6 +140,7 @@ export function createNewState(options = {}) {
       },
     ],
     ledgerSnapshots: [],
+    restoreHistory: [],
     reportBookmarks: [],
     exportHistory: [],
     global: {
@@ -154,6 +199,7 @@ export function normalizeState(value) {
     receivables: Array.isArray(value.receivables) ? value.receivables : base.receivables,
     settlements: Array.isArray(value.settlements) ? value.settlements : base.settlements,
     ledgerSnapshots: Array.isArray(value.ledgerSnapshots) ? value.ledgerSnapshots : [],
+    restoreHistory: Array.isArray(value.restoreHistory) ? value.restoreHistory.slice(0, 12) : [],
     reportBookmarks: Array.isArray(value.reportBookmarks) ? value.reportBookmarks.slice(0, 12) : [],
     exportHistory: Array.isArray(value.exportHistory) ? value.exportHistory.slice(0, 12) : [],
     global: normalizeGlobalState(value.global, base.global),
@@ -626,6 +672,7 @@ export function createLedgerSnapshotAction(state) {
     createdAt: new Date().toISOString(),
     label: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 원장 스냅샷`,
     checksum,
+    manifestChecksum: ledgerManifestChecksum(payload, LEDGER_RESTORE_TABLES),
     rowCount: ledgerRowCount(current),
     payload,
   };
@@ -643,8 +690,82 @@ export function restoreLatestSnapshotAction(state) {
     ...current,
     ...snapshot.payload,
     ledgerSnapshots: current.ledgerSnapshots,
+    restoreHistory: current.restoreHistory,
   });
   return addLog(restored, `${snapshot.label} 기준으로 원장 상태를 복원했습니다.`);
+}
+
+export function dryRunLedgerRestoreAction(state, restoreMode = 'FULL_LEDGER', tablesText = '') {
+  const current = normalizeState(state);
+  const plan = ledgerRestorePlan(current, restoreMode, tablesText);
+  const historyItem = {
+    id: `DRY-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    type: 'DRY_RUN',
+    restoreMode: plan.restoreMode,
+    status: plan.dryRunStatus,
+    targetTableCount: plan.targetTables.length,
+    message: plan.message,
+    checksum: plan.snapshotChecksum,
+  };
+  return addLog({
+    ...current,
+    restoreHistory: [historyItem, ...current.restoreHistory].slice(0, 12),
+  }, `원장 복원 dry-run: ${plan.dryRunStatus} / ${plan.message}`);
+}
+
+export function restoreLedgerSnapshotAction(state, restoreMode = 'FULL_LEDGER', tablesText = '') {
+  const current = normalizeState(state);
+  const snapshot = current.ledgerSnapshots[0];
+  if (!snapshot?.payload) return addLog(current, '복원할 원장 스냅샷이 없습니다.');
+  const plan = ledgerRestorePlan(current, restoreMode, tablesText);
+  if (!plan.restorable) return addLog(current, `물리 복원 차단: ${plan.message}`);
+
+  const payload = snapshot.payload;
+  const targetTableNames = new Set(plan.targetTables.map((row) => row.tableName));
+  const restoredPayload = restoreMode !== 'SELECTED_TABLES'
+    ? payload
+    : LEDGER_RESTORE_TABLES.reduce((next, table) => {
+      if (!targetTableNames.has(table.tableName)) return next;
+      return setPathValue(next, table.key, cloneValue(getPathValue(payload, table.key)));
+    }, {});
+
+  const restored = normalizeState({
+    ...current,
+    ...restoredPayload,
+    global: {
+      ...current.global,
+      ...(restoredPayload.global || {}),
+    },
+    capitalMarket: {
+      ...current.capitalMarket,
+      ...(restoredPayload.capitalMarket || {}),
+    },
+    ledgerSnapshots: current.ledgerSnapshots,
+    restoreHistory: current.restoreHistory,
+    reportBookmarks: current.reportBookmarks,
+    exportHistory: current.exportHistory,
+  });
+  const afterPlan = ledgerRestorePlan(restored, restoreMode, tablesText);
+  const historyItem = {
+    id: `RST-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    type: 'RESTORE',
+    restoreMode: plan.restoreMode,
+    status: afterPlan.afterDiffStatus === 'MATCH' ? 'SUCCESS' : 'CHECK',
+    physicalRestore: restoreMode !== 'CORE_STATE',
+    dryRunPassed: plan.dryRunStatus === 'READY',
+    beforeDiffStatus: plan.beforeDiffStatus,
+    afterDiffStatus: afterPlan.afterDiffStatus,
+    targetTableCount: plan.targetTables.length,
+    deletedRowCount: plan.deletedRowCount,
+    insertedRowCount: plan.insertedRowCount,
+    checksum: plan.snapshotChecksum,
+  };
+  return addLog({
+    ...restored,
+    restoreHistory: [historyItem, ...current.restoreHistory].slice(0, 12),
+  }, `${plan.restoreModeLabel} 완료. 대상 ${plan.targetTables.length}개 테이블, ${plan.insertedRowCount} rows 복원.`);
 }
 
 export function bookmarkCurrentReportAction(state) {
@@ -701,6 +822,81 @@ export function ledgerDiffRows(state) {
     numberDiffRow('투자자 신뢰', before.investorTrust, after.investorTrust),
     numberDiffRow('공시위험', before.disclosureRisk, after.disclosureRisk),
   ];
+}
+
+export function ledgerRestorePlan(state, restoreMode = 'FULL_LEDGER', tablesText = '') {
+  const current = normalizeState(state);
+  const snapshot = current.ledgerSnapshots[0];
+  const mode = LEDGER_RESTORE_MODES.some((item) => item.id === restoreMode) ? restoreMode : 'FULL_LEDGER';
+  const modeLabel = LEDGER_RESTORE_MODES.find((item) => item.id === mode)?.label || mode;
+  if (!snapshot?.payload) {
+    return {
+      restoreMode: mode,
+      restoreModeLabel: modeLabel,
+      dryRunStatus: 'BLOCKED',
+      restorable: false,
+      physicalRestore: mode !== 'CORE_STATE',
+      beforeDiffStatus: 'NO_SNAPSHOT',
+      afterDiffStatus: 'NO_SNAPSHOT',
+      message: '복원할 스냅샷이 없습니다.',
+      warnings: ['먼저 원장 스냅샷을 생성하세요.'],
+      targetTables: [],
+      deleteOrder: [],
+      insertOrder: [],
+      tableDiffs: [],
+      deletedRowCount: 0,
+      insertedRowCount: 0,
+      snapshotChecksum: '',
+      recalculatedSnapshotChecksum: '',
+      currentChecksum: '',
+    };
+  }
+
+  const selection = resolveRestoreTables(mode, tablesText);
+  const snapshotChecksum = snapshot.manifestChecksum || snapshot.checksum || simpleChecksum(JSON.stringify(snapshot.payload || {}));
+  const fullManifestChecksum = ledgerManifestChecksum(snapshot.payload, LEDGER_RESTORE_TABLES);
+  const snapshotChecksumValid = snapshot.manifestChecksum ? snapshot.manifestChecksum === fullManifestChecksum : true;
+  const recalculatedSnapshotChecksum = ledgerManifestChecksum(snapshot.payload, selection.tables);
+  const currentChecksum = ledgerManifestChecksum(snapshotPayload(current), selection.tables);
+  const tableDiffs = selection.tables.map((table) => tableDiffFor(snapshot.payload, snapshotPayload(current), table));
+  const changedCount = tableDiffs.filter((row) => row.diffStatus !== 'MATCH').length;
+  const warnings = [
+    ...selection.warnings,
+    ...(!snapshotChecksumValid ? ['스냅샷 manifest checksum이 전체 row JSON 재계산값과 다릅니다.'] : []),
+    ...(changedCount ? [`현재 원장과 스냅샷 사이에 ${changedCount}개 테이블 차이가 있습니다.`] : ['현재 원장과 선택 스냅샷이 이미 일치합니다.']),
+  ];
+  const blocked = Boolean(selection.blocked || !snapshotChecksumValid);
+  const deleteOrder = orderedTables(selection.tables, LEDGER_DELETE_ORDER);
+  const insertOrder = orderedTables(selection.tables, LEDGER_INSERT_ORDER);
+  const deletedRowCount = tableDiffs.reduce((sum, row) => sum + row.currentRowCount, 0);
+  const insertedRowCount = tableDiffs.reduce((sum, row) => sum + row.snapshotRowCount, 0);
+  return {
+    restoreMode: mode,
+    restoreModeLabel: modeLabel,
+    dryRunStatus: blocked ? 'BLOCKED' : 'READY',
+    restorable: !blocked,
+    physicalRestore: mode !== 'CORE_STATE',
+    beforeDiffStatus: changedCount ? 'DIFF' : 'MATCH',
+    afterDiffStatus: changedCount ? 'PENDING_RESTORE' : 'MATCH',
+    message: blocked
+      ? selection.message || '복원 검증에 실패했습니다.'
+      : `${modeLabel} dry-run 준비 완료. 삭제 ${deletedRowCount} rows / 삽입 ${insertedRowCount} rows 예정.`,
+    warnings,
+    targetTables: selection.tables.map((table) => ({
+      tableName: table.tableName,
+      label: table.label,
+      snapshotRowCount: tableRows(snapshot.payload, table).length,
+      currentRowCount: tableRows(snapshotPayload(current), table).length,
+    })),
+    deleteOrder,
+    insertOrder,
+    tableDiffs,
+    deletedRowCount,
+    insertedRowCount,
+    snapshotChecksum,
+    recalculatedSnapshotChecksum,
+    currentChecksum,
+  };
 }
 
 export function createProgressExportAction(state) {
@@ -1108,6 +1304,122 @@ function ledgerComparableSummary(payload) {
     fanBase: Number(company.fanBase || 0),
     investorTrust: Number(capitalMarket.investorTrust || 0),
     disclosureRisk: Number(capitalMarket.disclosureRisk || 0),
+  };
+}
+
+function resolveRestoreTables(restoreMode, tablesText = '') {
+  if (restoreMode !== 'SELECTED_TABLES') return { tables: LEDGER_RESTORE_TABLES, warnings: [], blocked: false, message: '' };
+  const requested = String(tablesText || '')
+    .split(/[,\n]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!requested.length) {
+    return {
+      tables: [],
+      warnings: ['선택 테이블 복원은 최소 1개 이상의 테이블명을 입력해야 합니다.'],
+      blocked: true,
+      message: '선택된 복원 테이블이 없습니다.',
+    };
+  }
+  const tableByName = new Map(LEDGER_RESTORE_TABLES.map((table) => [table.tableName, table]));
+  const missing = requested.filter((name) => !tableByName.has(name));
+  const tables = requested.map((name) => tableByName.get(name)).filter(Boolean);
+  return {
+    tables,
+    warnings: missing.length ? [`스냅샷 복원 대상이 아닌 테이블: ${missing.join(', ')}`] : [],
+    blocked: Boolean(missing.length),
+    message: missing.length ? '지원하지 않는 테이블이 포함되어 있습니다.' : '',
+  };
+}
+
+function orderedTables(tables, order) {
+  const selected = new Set(tables.map((table) => table.tableName));
+  return order.filter((tableName) => selected.has(tableName));
+}
+
+function getPathValue(source, path) {
+  return String(path || '').split('.').reduce((current, key) => (current == null ? undefined : current[key]), source);
+}
+
+function setPathValue(source, path, value) {
+  const keys = String(path || '').split('.').filter(Boolean);
+  if (!keys.length) return source;
+  const next = { ...source };
+  let cursor = next;
+  keys.forEach((key, index) => {
+    if (index === keys.length - 1) {
+      cursor[key] = value;
+      return;
+    }
+    cursor[key] = { ...(cursor[key] || {}) };
+    cursor = cursor[key];
+  });
+  return next;
+}
+
+function cloneValue(value) {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function tableRows(payload, table) {
+  const value = getPathValue(payload, table.key);
+  if (table.kind === 'object') return value && typeof value === 'object' ? [{ _pk: table.tableName, ...value }] : [];
+  if (table.kind === 'objectMap') {
+    return Object.entries(value || {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, row]) => ({ _pk: key, ...(row || {}) }));
+  }
+  if (Array.isArray(value)) return value.map((row, index) => ({ _pk: row?.id || row?.no || row?.yearMonth || String(index), ...(row || {}) }));
+  return [];
+}
+
+function rowKey(row) {
+  return String(row?._pk || row?.id || row?.no || JSON.stringify(row));
+}
+
+function rowChecksum(row) {
+  return simpleChecksum(JSON.stringify(row));
+}
+
+function tableChecksum(payload, table) {
+  const rows = tableRows(payload, table);
+  return simpleChecksum(rows.map((row) => `${rowKey(row)}:${rowChecksum(row)}`).join('\n'));
+}
+
+function ledgerManifestChecksum(payload, tables = LEDGER_RESTORE_TABLES) {
+  return simpleChecksum(tables.map((table) => `${table.tableName}:${tableRows(payload, table).length}:${tableChecksum(payload, table)}`).join('\n'));
+}
+
+function tableDiffFor(snapshotPayloadValue, currentPayloadValue, table) {
+  const snapshotRows = tableRows(snapshotPayloadValue, table);
+  const currentRows = tableRows(currentPayloadValue, table);
+  const currentByKey = new Map(currentRows.map((row) => [rowKey(row), rowChecksum(row)]));
+  const snapshotByKey = new Map(snapshotRows.map((row) => [rowKey(row), rowChecksum(row)]));
+  let missingInCurrentCount = 0;
+  let changedRowCount = 0;
+  snapshotByKey.forEach((checksum, key) => {
+    if (!currentByKey.has(key)) {
+      missingInCurrentCount += 1;
+      return;
+    }
+    if (currentByKey.get(key) !== checksum) changedRowCount += 1;
+  });
+  let extraInCurrentCount = 0;
+  currentByKey.forEach((_, key) => {
+    if (!snapshotByKey.has(key)) extraInCurrentCount += 1;
+  });
+  const diffStatus = missingInCurrentCount || extraInCurrentCount || changedRowCount ? 'DIFF' : 'MATCH';
+  return {
+    tableName: table.tableName,
+    label: table.label,
+    snapshotRowCount: snapshotRows.length,
+    currentRowCount: currentRows.length,
+    missingInCurrentCount,
+    extraInCurrentCount,
+    changedRowCount,
+    snapshotChecksum: tableChecksum(snapshotPayloadValue, table),
+    currentChecksum: tableChecksum(currentPayloadValue, table),
+    diffStatus,
   };
 }
 

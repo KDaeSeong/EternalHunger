@@ -11,6 +11,8 @@ import {
   CAPITAL_FINANCING_TYPES,
   GAME_SLUG,
   GLOBAL_MARKETS,
+  LEDGER_RESTORE_MODES,
+  LEDGER_RESTORE_TABLES,
   PARTNERS,
   PRODUCTS,
   QUICK_SAVE_SLOT,
@@ -29,6 +31,7 @@ import {
   createOrderAction,
   createProgressExportAction,
   decideDividendAction,
+  dryRunLedgerRestoreAction,
   formatMoney,
   globalMarketRows,
   globalReceivableRows,
@@ -37,6 +40,7 @@ import {
   inboundInventoryAction,
   inventoryRows,
   ledgerDiffRows,
+  ledgerRestorePlan,
   marketingCampaignAction,
   managementReport,
   monthEndCloseAction,
@@ -44,6 +48,7 @@ import {
   orderRows,
   receivableRows,
   reportSummary,
+  restoreLedgerSnapshotAction,
   restoreLatestSnapshotAction,
   raiseCapitalAction,
   scoreState,
@@ -98,6 +103,8 @@ export default function CompanyReportPlayPage() {
   const [selectedForeignArId, setSelectedForeignArId] = useState('');
   const [disclosureTypeId, setDisclosureTypeId] = useState(CAPITAL_DISCLOSURE_TYPES[0].id);
   const [financingTypeId, setFinancingTypeId] = useState(CAPITAL_FINANCING_TYPES[0].id);
+  const [restoreMode, setRestoreMode] = useState('FULL_LEDGER');
+  const [selectedRestoreTables, setSelectedRestoreTables] = useState('sales_order, account_receivable, inventory_balance');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -112,6 +119,7 @@ export default function CompanyReportPlayPage() {
   const receivables = useMemo(() => receivableRows(state), [state]);
   const foreignReceivables = useMemo(() => globalReceivableRows(state), [state]);
   const ledgerDiff = useMemo(() => ledgerDiffRows(state), [state]);
+  const restorePlan = useMemo(() => ledgerRestorePlan(state, restoreMode, selectedRestoreTables), [state, restoreMode, selectedRestoreTables]);
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders.find((order) => order.status === 'CONFIRMED') || orders[0];
   const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId) || receivables.find((ar) => ar.remaining > 0) || receivables[0];
   const selectedForeignAr = foreignReceivables.find((ar) => ar.id === selectedForeignArId) || foreignReceivables.find((ar) => ar.remainingKrw > 0) || foreignReceivables[0];
@@ -119,6 +127,7 @@ export default function CompanyReportPlayPage() {
   const latestSnapshot = state.ledgerSnapshots[0];
   const latestBookmark = state.reportBookmarks[0];
   const latestExport = state.exportHistory[0];
+  const latestRestore = state.restoreHistory[0];
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -134,6 +143,8 @@ export default function CompanyReportPlayPage() {
     setSelectedForeignArId('');
     setDisclosureTypeId(CAPITAL_DISCLOSURE_TYPES[0].id);
     setFinancingTypeId(CAPITAL_FINANCING_TYPES[0].id);
+    setRestoreMode('FULL_LEDGER');
+    setSelectedRestoreTables('sales_order, account_receivable, inventory_balance');
     setMessage('');
   };
 
@@ -322,10 +333,27 @@ export default function CompanyReportPlayPage() {
             <SmallStat label="자산" value={formatMoney(report.assets)} />
             <SmallStat label="자본" value={formatMoney(report.equity)} />
           </div>
+          <label className="game-save-json-field">
+            <span>복원 모드</span>
+            <select value={restoreMode} onChange={(event) => setRestoreMode(event.target.value)}>
+              {LEDGER_RESTORE_MODES.map((mode) => <option value={mode.id} key={mode.id}>{mode.label}</option>)}
+            </select>
+          </label>
+          <label className="game-save-json-field">
+            <span>선택 테이블</span>
+            <input
+              value={selectedRestoreTables}
+              onChange={(event) => setSelectedRestoreTables(event.target.value)}
+              disabled={restoreMode !== 'SELECTED_TABLES'}
+              placeholder="sales_order, account_receivable"
+            />
+          </label>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
             <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
             <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
+            <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+            <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => setState((current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
             <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
             <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
           </div>
@@ -482,6 +510,51 @@ export default function CompanyReportPlayPage() {
             )) : <div className="games-empty">스냅샷을 생성하면 현재 원장과의 차이를 볼 수 있습니다.</div>}
           </div>
         </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>복원 dry-run</h2>
+            <span>{restorePlan.dryRunStatus}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="모드" value={restorePlan.restoreModeLabel} />
+            <SmallStat label="대상 테이블" value={restorePlan.targetTables.length} />
+            <SmallStat label="삭제 예정" value={`${restorePlan.deletedRowCount} rows`} />
+            <SmallStat label="삽입 예정" value={`${restorePlan.insertedRowCount} rows`} />
+          </div>
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            <article className="game-save-row">
+              <div>
+                <span>checksum {restorePlan.snapshotChecksum || '-'}</span>
+                <strong>{restorePlan.message}</strong>
+              </div>
+              <strong>{restorePlan.beforeDiffStatus}</strong>
+            </article>
+            <article className="game-save-row">
+              <div>
+                <span>delete</span>
+                <strong>{restorePlan.deleteOrder.slice(0, 5).join(' → ') || '-'}</strong>
+              </div>
+              <strong>{restorePlan.deleteOrder.length}</strong>
+            </article>
+            <article className="game-save-row">
+              <div>
+                <span>insert</span>
+                <strong>{restorePlan.insertOrder.slice(0, 5).join(' → ') || '-'}</strong>
+              </div>
+              <strong>{restorePlan.insertOrder.length}</strong>
+            </article>
+            {restorePlan.warnings.slice(0, 3).map((warning) => (
+              <article className="game-save-row" key={warning}>
+                <div>
+                  <span>warning</span>
+                  <strong>{warning}</strong>
+                </div>
+                <strong>검토</strong>
+              </article>
+            ))}
+          </div>
+        </section>
       </section>
 
       <section className="games-dashboard">
@@ -618,6 +691,25 @@ export default function CompanyReportPlayPage() {
                 <strong>{new Date(snapshot.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</strong>
               </article>
             )) : <div className="games-empty">아직 원장 스냅샷이 없습니다.</div>}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>복원 이력</h2>
+            <span>{latestRestore?.status || '기록 없음'}</span>
+          </div>
+          <div className="game-save-list">
+            {state.restoreHistory.length ? state.restoreHistory.slice(0, 5).map((item) => (
+              <article className="game-save-row" key={item.id}>
+                <div>
+                  <span>{item.type} / {item.restoreMode} / {item.targetTableCount} tables</span>
+                  <strong>{item.message || `${item.beforeDiffStatus || '-'} → ${item.afterDiffStatus || '-'}`}</strong>
+                  <span>{item.checksum || '-'}</span>
+                </div>
+                <strong>{item.status}</strong>
+              </article>
+            )) : <div className="games-empty">dry-run 또는 복원을 실행하면 감사 이력이 남습니다.</div>}
           </div>
         </section>
 
