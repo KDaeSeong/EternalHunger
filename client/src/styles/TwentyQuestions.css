@@ -12,9 +12,11 @@
 }
 
 .twenty-page > .site-header {
+  position: relative;
+  z-index: 20;
   margin: 0 0 34px;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .twenty-shell {
