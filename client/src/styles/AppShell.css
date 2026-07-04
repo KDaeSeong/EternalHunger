@@ -238,13 +238,14 @@
 }
 
 .site-header__logo {
-  width: clamp(148px, 12vw, 188px);
+  width: clamp(122px, 10vw, 158px);
   min-width: 0;
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  column-gap: 9px;
-  align-items: center;
-  padding: 2px 8px 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 2px 8px 3px 0;
   color: #236a9e;
   line-height: 1;
   text-decoration: none;
@@ -252,26 +253,14 @@
 }
 
 .site-header__logo::before {
-  content: 'K';
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(35, 106, 158, 0.2);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, #ffffff 0%, #edf7ff 48%, #dceeff 100%);
-  color: #236a9e;
-  box-shadow: 0 8px 18px rgba(35, 106, 158, 0.13);
-  font-size: 1.05rem;
-  font-style: italic;
-  font-weight: 1000;
+  content: none;
+  display: none;
 }
 
 .site-header__logo span {
-  color: #7d858d;
-  font-size: 0.62rem;
-  font-weight: 950;
+  color: #6b7b88;
+  font-size: 0.66rem;
+  font-weight: 850;
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -283,24 +272,18 @@
   max-width: 100%;
   padding-right: 0.12em;
   color: #236a9e;
-  font-size: 1.12rem;
-  font-style: italic;
+  font-size: 1.14rem;
+  font-style: normal;
   font-weight: 1000;
-  line-height: 1.08;
+  line-height: 1;
   letter-spacing: 0;
   white-space: nowrap;
-  text-shadow: 0 1px 0 #ffffff, 0 8px 18px rgba(35, 106, 158, 0.16);
+  text-shadow: 0 1px 0 #ffffff;
 }
 
 .site-header__logo strong::after {
-  content: '';
-  position: absolute;
-  left: 2px;
-  right: 0;
-  bottom: -3px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(35, 106, 158, 0.22), rgba(35, 106, 158, 0));
+  content: none;
+  display: none;
 }
 
 .site-header__nav {
