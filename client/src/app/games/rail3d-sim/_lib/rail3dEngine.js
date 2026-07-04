@@ -341,6 +341,45 @@ export function scheduleReport(state) {
   return { trains, totals, recommendations };
 }
 
+export function stationBoardRows(state) {
+  const current = normalizeState(state);
+  const report = scheduleReport(current);
+  return TRACK.stations.map((station) => {
+    const calls = report.trains
+      .flatMap((train) => train.stops
+        .filter((stop) => stop.stationId === station.id)
+        .map((stop) => {
+          const liveDelayS = stop.actualArriveS === null && current.nowS > stop.scheduledArriveS
+            ? current.nowS - stop.scheduledArriveS
+            : 0;
+          return {
+            trainId: train.id,
+            serviceName: train.serviceName,
+            status: stop.status,
+            scheduledArriveS: stop.scheduledArriveS,
+            scheduledDepartS: stop.scheduledDepartS,
+            actualArriveS: stop.actualArriveS,
+            actualDepartS: stop.actualDepartS,
+            delayS: Math.max(0, Number(stop.arriveDelayS || 0), liveDelayS),
+          };
+        }))
+      .sort((a, b) => a.scheduledArriveS - b.scheduledArriveS || a.trainId.localeCompare(b.trainId));
+    const openCalls = calls.filter((call) => call.actualDepartS === null);
+    const nextCall = openCalls.find((call) => call.scheduledDepartS >= current.nowS) || openCalls[0] || null;
+    return {
+      stationId: station.id,
+      stationName: station.name,
+      totalCalls: calls.length,
+      arrived: calls.filter((call) => call.actualArriveS !== null).length,
+      departed: calls.filter((call) => call.actualDepartS !== null).length,
+      open: openCalls.length,
+      maxDelayS: calls.reduce((max, call) => Math.max(max, call.delayS), 0),
+      nextCall,
+      calls,
+    };
+  });
+}
+
 export function formatTime(totalSeconds) {
   const safe = Math.max(0, Math.round(Number(totalSeconds || 0)));
   const minutes = Math.floor(safe / 60);

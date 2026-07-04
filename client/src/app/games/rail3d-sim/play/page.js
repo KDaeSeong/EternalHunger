@@ -25,6 +25,7 @@ import {
   segmentSummary,
   setLookaheadBlocksAction,
   setStepSecondsAction,
+  stationBoardRows,
   stepAction,
   summaryForState,
   trainDebugDetail,
@@ -112,6 +113,7 @@ export default function Rail3dSimPlayPage() {
   const blocks = useMemo(() => blockSummary(state), [state]);
   const segments = useMemo(() => segmentSummary(state), [state]);
   const report = useMemo(() => scheduleReport(state), [state]);
+  const stationBoard = useMemo(() => stationBoardRows(state), [state]);
   const selectedTrain = useMemo(() => trainDebugDetail(state, selectedTrainId), [state, selectedTrainId]);
   const score = scoreState(state);
   const completed = rows.filter((row) => row.phase === 'DONE').length;
@@ -418,6 +420,32 @@ export default function Rail3dSimPlayPage() {
                   </small>
                 </div>
                 <strong>{train.remaining ? `${train.remaining} 남음` : '완료'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>역별 운행판</h2>
+            <span>{stationBoard.length}역</span>
+          </div>
+          <div className="game-save-list">
+            {stationBoard.map((station) => (
+              <article className="game-save-row" key={station.stationId}>
+                <div>
+                  <span>
+                    도착 {station.arrived}/{station.totalCalls} · 출발 {station.departed}/{station.totalCalls}
+                    {station.maxDelayS ? ` · 최대 지연 ${station.maxDelayS}s` : ''}
+                  </span>
+                  <strong>{station.stationName}</strong>
+                  <small>
+                    {station.nextCall
+                      ? `다음 ${station.nextCall.trainId} ${station.nextCall.serviceName} · ${formatTime(station.nextCall.scheduledArriveS)} · ${station.nextCall.status}${station.nextCall.delayS ? ` · +${station.nextCall.delayS}s` : ''}`
+                      : '남은 호출 없음'}
+                  </small>
+                </div>
+                <strong>{station.open ? `${station.open} 대기` : '완료'}</strong>
               </article>
             ))}
           </div>
