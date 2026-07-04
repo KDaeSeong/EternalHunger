@@ -3997,6 +3997,32 @@
   padding-top: 8px;
 }
 
+.games-porting-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.games-porting-strip span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(44, 111, 158, 0.16);
+  border-radius: 999px;
+  background: #f7fafc;
+  color: #52606b;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  padding: 0 8px;
+}
+
+.games-porting-strip span.is-done {
+  border-color: rgba(45, 136, 94, 0.26);
+  background: #edf8f2;
+  color: #226241;
+}
+
 .games-roadmap-card dt {
   color: #64717d;
   font-size: 0.75rem;
@@ -5025,6 +5051,66 @@
   color: #17202a;
   font-size: 0.92rem;
   overflow-wrap: anywhere;
+}
+
+.games-porting-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(44, 111, 158, 0.14);
+  border-radius: 8px;
+  background: #edf5fb;
+  color: #1b4f73;
+  padding: 12px;
+  font-weight: 950;
+}
+
+.games-porting-progress span {
+  color: #52606b;
+  font-size: 0.82rem;
+}
+
+.games-porting-progress strong {
+  font-size: 1.12rem;
+}
+
+.games-porting-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.games-porting-list div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 11px 12px;
+}
+
+.games-porting-list div.is-done {
+  border-color: rgba(45, 136, 94, 0.25);
+  background: #f3fbf6;
+}
+
+.games-porting-list span,
+.games-porting-list small {
+  color: #64717d;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.games-porting-list strong {
+  color: #17202a;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.games-porting-list div.is-done strong {
+  color: #226241;
 }
 
 .games-related-list span,

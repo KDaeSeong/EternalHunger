@@ -286,6 +286,70 @@ export function withGameIntegration(game) {
   };
 }
 
+export function getGamePortingChecklist(gameOrSlug) {
+  const game = typeof gameOrSlug === 'object' ? gameOrSlug : findGameBySlug(gameOrSlug);
+  const integration = getGameIntegration(game?.slug);
+  const primaryHref = String(game?.primaryHref || '');
+  const hasPlayableRoute = Boolean(primaryHref && !primaryHref.startsWith('/board'));
+
+  return [
+    {
+      key: 'catalog',
+      label: '카탈로그',
+      done: Boolean(game?.slug && game?.title),
+      note: game?.slug ? game.slug : '게임 키 필요',
+    },
+    {
+      key: 'board',
+      label: '게시판',
+      done: Boolean(game?.boardHref),
+      note: game?.boardHref ? '게임별 글 연결' : '게시판 연결 필요',
+    },
+    {
+      key: 'room',
+      label: '게임방',
+      done: Boolean(integration.supportsRooms),
+      note: integration.roomSystem === 'game-room' ? '공용 게임방' : integration.roomSystem === 'twenty-questions' ? '전용 방' : '방 없음',
+    },
+    {
+      key: 'sync',
+      label: '상태 동기화',
+      done: Boolean(integration.supportsStateSync),
+      note: integration.supportsStateSync ? '방 상태와 플레이 동기화' : '수동/단독 진행',
+    },
+    {
+      key: 'records',
+      label: '전적',
+      done: Boolean(integration.supportsRecords),
+      note: integration.resultMode || 'manual',
+    },
+    {
+      key: 'saves',
+      label: '저장 슬롯',
+      done: Boolean(integration.supportsSaves),
+      note: integration.supportsSaves ? '계정 저장 지원' : '저장 미연결',
+    },
+    {
+      key: 'play',
+      label: '플레이 화면',
+      done: hasPlayableRoute,
+      note: hasPlayableRoute ? game.primaryLabel || primaryHref : '이식 논의 단계',
+    },
+  ];
+}
+
+export function getGamePortingProgress(gameOrSlug) {
+  const items = getGamePortingChecklist(gameOrSlug);
+  const total = items.length || 1;
+  const done = items.filter((item) => item.done).length;
+  return {
+    done,
+    total,
+    ratio: done / total,
+    label: `${done}/${total}`,
+  };
+}
+
 export function getAllGames() {
   return [...GAME_CATALOG, ...GAME_ROADMAP].map((game) => withGameIntegration(game));
 }

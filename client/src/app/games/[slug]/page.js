@@ -6,7 +6,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached } from '../../../utils/api';
-import { findGameBySlug, GAME_CATALOG, gameBoardWriteHref, gameDetailHref, gameRoomCreateHref } from '../_lib/gameCatalog';
+import {
+  findGameBySlug,
+  GAME_CATALOG,
+  gameBoardWriteHref,
+  gameDetailHref,
+  gameRoomCreateHref,
+  getGamePortingChecklist,
+  getGamePortingProgress,
+} from '../_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: {
@@ -217,6 +225,8 @@ export default function GameDetailPage() {
     ['저장 슬롯', integration.supportsSaves ? '지원' : '미지원'],
     ['결과 처리', integration.resultMode || 'manual'],
   ] : [];
+  const portingChecklist = game ? getGamePortingChecklist(game) : [];
+  const portingProgress = game ? getGamePortingProgress(game) : { done: 0, total: 0, label: '0/0' };
   const integrationHref = integration.roomSystem === 'game-room' ? gameRoomCreateHref(game) : game?.primaryHref || '/games';
 
   if (!game) {
@@ -311,6 +321,19 @@ export default function GameDetailPage() {
                 <div key={label}>
                   <span>{label}</span>
                   <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="games-porting-progress">
+              <span>이식 준비도</span>
+              <strong>{portingProgress.label}</strong>
+            </div>
+            <div className="games-porting-list" aria-label={`${game.title} 이식 체크리스트`}>
+              {portingChecklist.map((entry) => (
+                <div className={entry.done ? 'is-done' : 'is-pending'} key={entry.key}>
+                  <span>{entry.label}</span>
+                  <strong>{entry.done ? '연결됨' : '대기'}</strong>
+                  <small>{entry.note}</small>
                 </div>
               ))}
             </div>

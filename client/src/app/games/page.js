@@ -5,7 +5,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
-import { GAME_CATALOG, GAME_ROADMAP, findGameBySlug, gameDetailHref, getGameIntegration } from './_lib/gameCatalog';
+import {
+  GAME_CATALOG,
+  GAME_ROADMAP,
+  findGameBySlug,
+  gameDetailHref,
+  getGameIntegration,
+  getGamePortingChecklist,
+  getGamePortingProgress,
+} from './_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
@@ -124,7 +132,10 @@ function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
 }
 
 function RoadmapCard({ item, index }) {
-  const integration = getGameIntegration(item.slug);
+  const game = findGameBySlug(item.slug) || item;
+  const integration = getGameIntegration(game.slug);
+  const checklist = getGamePortingChecklist(game);
+  const progress = getGamePortingProgress(game);
   return (
     <article className="games-roadmap-card">
       <div className="games-roadmap-card__head">
@@ -147,9 +158,14 @@ function RoadmapCard({ item, index }) {
         </div>
         <div>
           <dt>이식 상태</dt>
-          <dd>{integration.stageLabel} · {integration.adapter}</dd>
+          <dd>{integration.stageLabel} · {integration.adapter} · {progress.label}</dd>
         </div>
       </dl>
+      <div className="games-porting-strip" aria-label={`${item.title} 이식 체크리스트`}>
+        {checklist.map((entry) => (
+          <span className={entry.done ? 'is-done' : 'is-pending'} key={entry.key}>{entry.label}</span>
+        ))}
+      </div>
       <Link href={gameDetailHref(item)} className="games-roadmap-card__link">상세 보기</Link>
     </article>
   );
