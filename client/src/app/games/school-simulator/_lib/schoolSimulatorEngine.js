@@ -883,6 +883,103 @@ export function careerTrackRows(state) {
   }));
 }
 
+export function semesterReport(state) {
+  const current = normalizeState(state);
+  const avg = getAverages(current);
+  const subjects = subjectPolicyRows(current).map((subject) => {
+    const scores = current.students.map((student) => Number(student.subjectScores?.[subject.id] ?? student.understanding ?? 50));
+    return {
+      ...subject,
+      averageScore: Math.round(average(scores)),
+      weakCount: current.students.filter((student) => Number(student.subjectScores?.[subject.id] ?? 50) < 55).length,
+      highCount: current.students.filter((student) => Number(student.subjectScores?.[subject.id] ?? 0) >= 75).length,
+    };
+  });
+  const careerRows = CAREER_TRACKS.map((track) => {
+    const members = current.students.filter((student) => student.careerTrack === track.id);
+    return {
+      ...track,
+      count: members.length,
+      averageReadiness: Math.round(average(members.map((student) => student.careerReadiness))),
+      averageStress: Math.round(average(members.map((student) => student.stress))),
+      averageSatisfaction: Math.round(average(members.map((student) => student.satisfaction))),
+    };
+  }).sort((a, b) => b.count - a.count || b.averageReadiness - a.averageReadiness);
+  const subjectAverage = Math.round(average(subjects.map((subject) => subject.averageScore)));
+  const recentExamAverage = Math.round(average(current.recentExamResults.map((row) => row.score)));
+  const careerAverage = Math.round(average(current.students.map((student) => student.careerReadiness)));
+  const clubInfluence = Math.round(average(clubRows(current).map((club) => club.influence)));
+  const maintenanceEstimate = 520 + current.students.length * 18 + current.teachers.length * 42 + Math.round((100 - avg.facilityCondition) * 7);
+  const budgetRunwayWeeks = Math.max(0, Math.floor(Number(current.school.budget || 0) / Math.max(1, maintenanceEstimate)));
+  const atRiskCount = getAtRiskStudents(current).length;
+  const risks = [];
+
+  const addRisk = (level, title, detail, action) => {
+    risks.push({ level, title, detail, action });
+  };
+
+  if (Number(current.school.budget || 0) < 2500) {
+    addRisk('critical', '예산 압박', `현재 예산으로 약 ${budgetRunwayWeeks}주 버틸 수 있습니다.`, '모집 캠페인이나 재정 평판 회복을 우선하세요.');
+  } else if (budgetRunwayWeeks <= 4) {
+    addRisk('warn', '예산 여유 부족', `유지비 추정치 기준 ${budgetRunwayWeeks}주 여유입니다.`, '고비용 행사는 한 주 미루고 수입 기반을 올리세요.');
+  }
+  if (avg.stress >= 68 || atRiskCount >= 4) {
+    addRisk('critical', '학생 피로 누적', `위험 학생 ${atRiskCount}명, 평균 스트레스 ${avg.stress}입니다.`, '상담 강화와 돌봄 정책으로 회복 주간을 만드세요.');
+  } else if (avg.stress >= 58 || avg.health <= 55) {
+    addRisk('warn', '컨디션 경고', `평균 스트레스 ${avg.stress}, 평균 건강 ${avg.health}입니다.`, '시험 전에는 강의 집중보다 보충 코칭을 섞으세요.');
+  }
+  if (avg.teacherFatigue >= 68 || avg.teacherMorale <= 50) {
+    addRisk('warn', '교사 운영 부담', `교사 피로 ${avg.teacherFatigue}, 사기 ${avg.teacherMorale}입니다.`, '교사 워크숍이나 휴식 운영을 배치하세요.');
+  }
+  if (avg.facilityCondition <= 58 || Number(current.school.riskLevel || 0) >= 55) {
+    addRisk('warn', '시설/안전 리스크', `시설 ${avg.facilityCondition}, 운영 위험 ${current.school.riskLevel}입니다.`, '시설 보수 액션으로 안전 평판 하락을 막으세요.');
+  }
+  if (subjectAverage < 60) {
+    addRisk('warn', '교과 성취 저하', `교과 평균이 ${subjectAverage}점입니다.`, '평균이 낮은 과목부터 발표 수업이나 보충 코칭을 넣으세요.');
+  }
+  if (careerAverage < 55) {
+    addRisk('warn', '진로 준비 부족', `진로 준비 평균이 ${careerAverage}점입니다.`, '하위권 학생 대상 진로 상담을 먼저 실행하세요.');
+  }
+  if (Number(current.school.admissions.competitionRate || 0) < 2 || Number(current.school.admissions.applications || 0) < current.students.length * 2) {
+    addRisk('warn', '모집 기반 약화', `지원자 ${current.school.admissions.applications}명, 경쟁률 ${current.school.admissions.competitionRate}:1입니다.`, '브랜드나 복지 강점을 앞세운 모집 전략이 필요합니다.');
+  }
+  if (!risks.length) {
+    addRisk('good', '안정 운영', '즉시 처리해야 할 구조적 위험은 없습니다.', '다음 시험/행사 타이밍에 맞춰 성장 분야를 골라 투자하세요.');
+  }
+
+  return {
+    headline: `${current.school.year}년 ${current.school.semester}학기 ${current.school.week}주차`,
+    score: scoreState(current),
+    status: risks.some((risk) => risk.level === 'critical') ? '긴급 점검' : risks.some((risk) => risk.level === 'warn') ? '주의 필요' : '안정',
+    academic: {
+      understanding: avg.understanding,
+      diligence: avg.diligence,
+      subjectAverage,
+      recentExamAverage,
+    },
+    wellbeing: {
+      stress: avg.stress,
+      satisfaction: avg.satisfaction,
+      health: avg.health,
+      atRiskCount,
+    },
+    operations: {
+      budget: Number(current.school.budget || 0),
+      budgetRunwayWeeks,
+      teacherFatigue: avg.teacherFatigue,
+      teacherMorale: avg.teacherMorale,
+      facilityCondition: avg.facilityCondition,
+      competitionRate: Number(current.school.admissions.competitionRate || 0),
+      careerAverage,
+      clubInfluence,
+    },
+    subjectRows: subjects.sort((a, b) => a.averageScore - b.averageScore),
+    careerRows,
+    risks,
+    recommendations: risks.slice(0, 4).map((risk) => risk.action),
+  };
+}
+
 export function festivalStatus(state) {
   const current = normalizeState(state);
   return {
