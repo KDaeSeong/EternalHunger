@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="japan logo">
+  <rect x="24" y="24" width="208" height="208" rx="28" fill="#111827"/>
+  <circle cx="128" cy="124" r="44" fill="#ef4444"/>
+  <path d="M72 188h112" stroke="#e5e7eb" stroke-width="10" stroke-linecap="round" opacity="0.75"/>
+  <text x="128" y="206" text-anchor="middle" font-size="22" font-family="system-ui, -apple-system, Segoe UI, Roboto" fill="#e5e7eb" opacity="0.9">
+    JAPAN
+  </text>
+</svg>

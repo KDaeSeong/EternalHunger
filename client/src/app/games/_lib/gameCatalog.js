@@ -134,6 +134,16 @@ export const GAME_ADAPTER_PRESETS = [
     description: '노선, 시간표, 수송 성과를 기록하는 구조입니다.',
   },
   {
+    adapter: 'asset-lab',
+    label: '에셋 검증',
+    roomSystem: 'none',
+    resultMode: 'asset-audit',
+    supportsStateSync: false,
+    supportsRecords: true,
+    supportsSaves: true,
+    description: '로고, 표시명, 공개 fallback 같은 게임 에셋 연결 상태를 검수합니다.',
+  },
+  {
     adapter: 'business-ledger',
     label: '사업 장부',
     roomSystem: 'none',
@@ -267,6 +277,14 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'ledger-score',
+  },
+  'racing-logos-demo': {
+    stage: 'prototype',
+    stageLabel: '프로토타입',
+    adapter: 'asset-lab',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'asset-audit',
   },
 };
 
@@ -417,6 +435,15 @@ export const GAME_ROADMAP = [
     scope: '거래, 재무, 원장, 보고서',
     summary: '거래처 주문, 재고, 매출채권, 월말 결산, 원장 스냅샷 복원 흐름을 사이트용 경영 루프로 이식했습니다.',
     nextStep: '원본 Spring API의 보고서 북마크, 내보내기, 원장 diff와 물리 복원 상세 절차를 단계적으로 붙입니다.',
+  },
+  {
+    slug: 'racing-logos-demo',
+    title: 'Racing Logos Demo',
+    subtitle: 'Asset Lab',
+    priority: '이식 진행',
+    scope: '트랙, 이벤트, 로고팩, 로컬팩, fallback',
+    summary: '공개 가능한 core 트랙/이벤트 데이터와 개인용 local pack 우선 로고 규칙을 사이트용 에셋 검수 루프로 이식했습니다.',
+    nextStep: '실제 레이스 캘린더, 실존 로고팩 배포 방식, 레이스 결과 모델을 별도 데이터 팩으로 분리합니다.',
   },
 ];
 
@@ -578,7 +605,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim', 'company-report']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim', 'company-report', 'racing-logos-demo']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({

@@ -67,8 +67,9 @@ Checked: 2026-07-04
     - Why later: small, but plain JS structure needs cleanup before sharing site state.
 
 11. `racing-logos-demo`
-    - Adapter: `discussion`
+    - Adapter: `asset-lab`
     - Why later: looks more like an asset/demo pack than a full game loop.
+    - First slice: track/event logo audit, local pack JSON overlay, placeholder fallback preview, event card generation, save/load, audit record.
 
 ## Immediate Implementation Plan
 
@@ -161,3 +162,12 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/company-report/company-report-main`; ledger-score snapshot through `/game-records/company-report`.
 - Source basis: `C:\2저장고\마이애니메\company-report-stepg6-ledger-physical-restore` Spring Boot ledger/report project, especially company, trade order, inventory, receivable, settlement, report, and ledger snapshot/restore flows.
 - Next step: port the original report sample bookmarks, exports, API-backed ledger diff, dry-run restore, and physical restore detail into the simplified site shell.
+
+## Racing Logos Demo Slice Status
+
+- Route: `/games/racing-logos-demo/play`
+- Included loop: core track/event data, local pack JSON overlay, local logo candidate priority, public placeholder fallback, region/surface filtering, logo pack audit, and simple race card generation.
+- Site API integration: quick save through `/game-saves/racing-logos-demo/racing-logos-main`; asset-audit snapshot through `/game-records/racing-logos-demo`.
+- Asset integration: public placeholder SVGs are copied to `client/public/games/racing-logos-demo/logos/_placeholder`; private real logos remain outside git under `/local_pack/logos`.
+- Source basis: `C:\2저장고\마이애니메\racing-logos-demo`.
+- Next step: add optional private logo-pack deployment instructions and split real racing calendars/results into a separate data pack.

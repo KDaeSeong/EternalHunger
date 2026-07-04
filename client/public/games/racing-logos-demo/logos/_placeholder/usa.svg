@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="usa logo">
+  <rect x="24" y="24" width="208" height="208" rx="28" fill="#111827"/>
+  <rect x="64" y="72" width="128" height="96" rx="14" fill="#0f172a"/>
+  <rect x="64" y="72" width="52" height="48" rx="14" fill="#1d4ed8" opacity="0.95"/>
+  <path d="M70 86h40" stroke="#e5e7eb" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+  <path d="M70 102h40" stroke="#e5e7eb" stroke-width="8" stroke-linecap="round" opacity="0.9"/>
+  <path d="M64 132h128" stroke="#ef4444" stroke-width="10" stroke-linecap="round" opacity="0.9"/>
+  <path d="M64 152h128" stroke="#e5e7eb" stroke-width="10" stroke-linecap="round" opacity="0.7"/>
+  <text x="128" y="206" text-anchor="middle" font-size="22" font-family="system-ui, -apple-system, Segoe UI, Roboto" fill="#e5e7eb" opacity="0.9">
+    USA
+  </text>
+</svg>
