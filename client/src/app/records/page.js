@@ -342,7 +342,7 @@ export default function RecordsPage() {
             <p>기록소</p>
             <h1>캐릭터, 팀, 실행 기록</h1>
           </div>
-          <Link href="/simulation" className="records-start-link">경기 시작</Link>
+          <Link href="/eternalhunger" className="records-start-link">경기 시작</Link>
         </div>
 
         <div className="records-tabs" role="tablist" aria-label="기록 종류">

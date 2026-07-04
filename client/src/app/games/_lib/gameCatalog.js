@@ -12,6 +12,12 @@ export const GAME_INTEGRATION_DEFAULTS = {
   resultMode: 'manual',
 };
 
+export const GAME_ENTRY_ROUTES = {
+  'eternal-hunger': '/eternalhunger',
+  myanimecraft: '/myanime',
+  'ba-srpg': '/srpg',
+};
+
 export const GAME_ADAPTER_PRESETS = [
   {
     adapter: 'discussion',
@@ -296,7 +302,7 @@ export const GAME_CATALOG = [
     tone: 'battle',
     summary: '캐릭터, 장비, 전술 스킬, 금지구역 흐름을 한 경기 안에서 굴리는 메인 게임입니다.',
     detail: '시뮬레이션 플레이, 캐릭터 설정, 전적 저장, 랭킹 흐름이 직접 연결된 현재 사이트의 중심 게임입니다.',
-    primaryHref: '/eternalhunger',
+    primaryHref: GAME_ENTRY_ROUTES['eternal-hunger'],
     primaryLabel: '게임 시작',
     boardHref: '/board?gameSlug=eternal-hunger',
     boardLabel: '시뮬레이션 글',
@@ -606,10 +612,7 @@ export function findGameBySlug(slug) {
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
   const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim', 'company-report', 'racing-logos-demo']);
-  const playableAliases = {
-    myanimecraft: '/myanime',
-    'ba-srpg': '/srpg',
-  };
+  const playableAliases = GAME_ENTRY_ROUTES;
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({

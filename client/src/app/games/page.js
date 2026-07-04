@@ -289,7 +289,7 @@ export default function GamesPage() {
             <Link href="/games/rooms">게임방</Link>
             <Link href="/games/saves">저장 슬롯</Link>
             <Link href="/games/records">게임 기록</Link>
-            <Link href="/simulation">바로 시작</Link>
+            <Link href="/eternalhunger">바로 시작</Link>
           </div>
         </section>
 

@@ -178,7 +178,7 @@ export default function RunReplayPage() {
           <div className="records-detail-actions">
             <Link href="/records">기록소</Link>
             <Link href="/balance">분석실</Link>
-            <Link href="/simulation">새 경기</Link>
+            <Link href="/eternalhunger">새 경기</Link>
           </div>
         </div>
 

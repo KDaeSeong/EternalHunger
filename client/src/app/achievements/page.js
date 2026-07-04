@@ -223,7 +223,7 @@ export default function AchievementsPage() {
             <button type="button" onClick={() => void loadAchievements()} disabled={!token || loading}>
               {loading ? '갱신 중...' : '새로고침'}
             </button>
-            <Link href="/simulation">게임 시작</Link>
+            <Link href="/eternalhunger">게임 시작</Link>
           </div>
         </section>
 

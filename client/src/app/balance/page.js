@@ -281,7 +281,7 @@ export default function BalancePage() {
               {loading ? '갱신 중' : '새로고침'}
             </button>
             <Link href="/records">기록소</Link>
-            <Link href="/simulation">시뮬레이션</Link>
+            <Link href="/eternalhunger">시뮬레이션</Link>
           </div>
         </section>
 

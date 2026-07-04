@@ -448,7 +448,7 @@ export default function Home() {
             </p>
           </div>
           <div className="home-command-actions">
-            <Link href={mounted && user ? '/simulation' : '/login'} className="home-primary-action">
+            <Link href={mounted && user ? '/eternalhunger' : '/login'} className="home-primary-action">
               {mounted && user ? '게임 시작' : '로그인하고 시작'}
             </Link>
             <Link href="/board" className="home-secondary-action">게시판</Link>
@@ -489,7 +489,7 @@ export default function Home() {
             <div className="home-personal-actions">
               <Link href="/achievements">업적 전체 보기</Link>
               <Link href="/records">기록소</Link>
-              <Link href="/simulation">게임 시작</Link>
+              <Link href="/eternalhunger">게임 시작</Link>
             </div>
           </section>
         ) : null}

@@ -329,7 +329,7 @@ export default function BoardPage() {
                 {writerOpen ? '닫기' : '글쓰기'}
               </button>
             ) : null}
-            <Link href="/simulation" className="board-link-button">
+            <Link href="/eternalhunger" className="board-link-button">
               게임 시작
             </Link>
           </div>

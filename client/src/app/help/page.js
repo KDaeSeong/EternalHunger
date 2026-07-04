@@ -174,7 +174,7 @@ export default function HelpPage() {
           </ol>
           <div className="help-actions">
             <Link href="/characters">캐릭터 설정</Link>
-            <Link href="/simulation">시뮬레이션 보기</Link>
+            <Link href="/eternalhunger">시뮬레이션 보기</Link>
           </div>
         </section>
       </section>

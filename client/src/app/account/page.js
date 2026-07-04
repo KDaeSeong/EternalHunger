@@ -445,7 +445,7 @@ export default function AccountPage() {
                   </div>
                 ) : null}
                 <div className="account-quick-actions">
-                  <Link href="/simulation">게임 시작</Link>
+                  <Link href="/eternalhunger">게임 시작</Link>
                   <Link href="/characters">캐릭터 설정</Link>
                   <Link href="/board">게시판</Link>
                   <Link href="/bookmarks">저장글</Link>
