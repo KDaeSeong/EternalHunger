@@ -104,6 +104,15 @@ export const STUDENTS = [
   { id: 's_noa', name: '노아', role: '지원', x: 1, y: 2, hp: 34, atk: 7, def: 2, range: 3, move: 2 },
 ];
 
+export const MAX_FORMATION_SIZE = 4;
+const DEFAULT_FORMATION_IDS = STUDENTS.slice(0, MAX_FORMATION_SIZE).map((student) => student.id);
+const FORMATION_SPAWNS = [
+  { x: 0, y: 2 },
+  { x: 1, y: 3 },
+  { x: 0, y: 1 },
+  { x: 1, y: 2 },
+];
+
 export const STATUS_DEFS = {
   st_bleed: { id: 'st_bleed', name: '출혈', kind: 'DoT', tickDamage: 4, maxStacks: 1, merge: 'refresh' },
   st_burn: { id: 'st_burn', name: '화상', kind: 'DoT', tickDamage: 5, maxStacks: 2, merge: 'stackLimited' },
@@ -360,6 +369,7 @@ export function createNewState(options = {}) {
     credit: ECONOMY.startingCredit,
     guildRep: 0,
     selectedMissionId: 'm001',
+    selectedStudentIds: DEFAULT_FORMATION_IDS,
     inventory: { mat_wood: 3, con_bandage: 1 },
     equipment: [],
     weaponUid: '',
@@ -395,9 +405,26 @@ export function normalizeState(value) {
     properties: normalizeProperties(value.properties),
     edictState: normalizeEdictState(value.edictState),
     shopState: normalizeShopState(value.shopState, runId, day),
-    battle: value.battle && typeof value.battle === 'object' ? normalizeBattle(value.battle) : createBattle(value.selectedMissionId || 'm001'),
+    selectedStudentIds: normalizeFormationIds(value.selectedStudentIds),
+    battle: value.battle && typeof value.battle === 'object'
+      ? normalizeBattle(value.battle, normalizeFormationIds(value.selectedStudentIds))
+      : createBattle(value.selectedMissionId || 'm001', normalizeFormationIds(value.selectedStudentIds)),
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
+}
+
+function normalizeFormationIds(value) {
+  const seen = new Set();
+  const ids = Array.isArray(value) ? value : DEFAULT_FORMATION_IDS;
+  const cleaned = ids
+    .filter((id) => STUDENTS.some((student) => student.id === id))
+    .filter((id) => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .slice(0, MAX_FORMATION_SIZE);
+  return cleaned.length ? cleaned : DEFAULT_FORMATION_IDS;
 }
 
 function questClaimsFromCompleted(completedQuestIds = []) {
@@ -423,27 +450,40 @@ function normalizeEdictState(value = {}) {
   return { monthly };
 }
 
-function normalizeBattle(battle) {
+function normalizeBattle(battle, formationIds = DEFAULT_FORMATION_IDS) {
   const mission = getMission(battle.missionId || 'm001');
+  const unitIds = normalizeFormationIds(formationIds);
+  const fallbackUnits = createUnits(unitIds);
+  const restoredUnits = Array.isArray(battle.units)
+    ? battle.units.map(normalizeCombatActor).filter((unit) => unitIds.includes(unit.id))
+    : fallbackUnits;
+  const units = restoredUnits.length ? restoredUnits : fallbackUnits;
   return {
     ...createBattle(mission.id),
     ...battle,
-    units: Array.isArray(battle.units) ? battle.units.map(normalizeCombatActor) : createUnits(),
+    units,
     enemies: Array.isArray(battle.enemies) ? battle.enemies.map(normalizeCombatActor) : createEnemies(mission),
-    selectedUnitId: battle.selectedUnitId || 's_hoshino',
+    selectedUnitId: units.some((unit) => unit.id === battle.selectedUnitId) ? battle.selectedUnitId : units[0]?.id || '',
     targetEnemyId: battle.targetEnemyId || '',
   };
 }
 
-function createUnits() {
-  return STUDENTS.map((student) => ({
+function createUnits(formationIds = DEFAULT_FORMATION_IDS) {
+  const selectedIds = normalizeFormationIds(formationIds);
+  return selectedIds.map((studentId, index) => {
+    const student = STUDENTS.find((row) => row.id === studentId) || STUDENTS[0];
+    const spawn = FORMATION_SPAWNS[index] || FORMATION_SPAWNS[0];
+    return {
     ...student,
+    x: spawn.x,
+    y: spawn.y,
     maxHp: student.hp,
     ap: 2,
     acted: false,
     shield: null,
     statuses: [],
-  }));
+  };
+  });
 }
 
 function createEnemies(mission) {
@@ -456,15 +496,16 @@ function createEnemies(mission) {
   }));
 }
 
-function createBattle(missionId) {
+function createBattle(missionId, formationIds = DEFAULT_FORMATION_IDS) {
   const mission = getMission(missionId);
+  const units = createUnits(formationIds);
   return {
     missionId: mission.id,
     turn: 1,
     phase: 'player',
-    selectedUnitId: 's_hoshino',
+    selectedUnitId: units[0]?.id || '',
     targetEnemyId: '',
-    units: createUnits(),
+    units,
     enemies: createEnemies(mission),
     lastResult: '',
   };
@@ -1011,11 +1052,31 @@ function grantMissionReward(state, battle) {
 export function startMissionAction(state, missionId) {
   const current = normalizeState(state);
   const mission = getMission(missionId);
+  const formationIds = normalizeFormationIds(current.selectedStudentIds);
+  if (!formationIds.length) return addLog(current, '출전 편성에 학생이 없습니다.');
   return addLog({
     ...current,
     selectedMissionId: mission.id,
-    battle: createBattle(mission.id),
+    selectedStudentIds: formationIds,
+    battle: createBattle(mission.id, formationIds),
   }, `${mission.name} 출정을 시작했습니다.`);
+}
+
+export function setFormationAction(state, studentId, selected) {
+  const current = normalizeState(state);
+  if (!STUDENTS.some((student) => student.id === studentId)) return current;
+  const currentIds = normalizeFormationIds(current.selectedStudentIds);
+  const shouldSelect = selected !== false;
+  if (shouldSelect && currentIds.includes(studentId)) return current;
+  if (shouldSelect && currentIds.length >= MAX_FORMATION_SIZE) return addLog(current, `출전 편성은 최대 ${MAX_FORMATION_SIZE}명입니다.`);
+  const nextIds = shouldSelect
+    ? [...currentIds, studentId]
+    : currentIds.filter((id) => id !== studentId);
+  if (!nextIds.length) return addLog(current, '최소 1명은 편성해야 합니다.');
+  return addLog({
+    ...current,
+    selectedStudentIds: nextIds,
+  }, `편성 변경: ${nextIds.map((id) => STUDENTS.find((student) => student.id === id)?.name || id).join(', ')}`);
 }
 
 export function selectUnitAction(state, unitId) {
@@ -1642,6 +1703,17 @@ export function recipeRows(state) {
   }));
 }
 
+export function formationRows(state) {
+  const current = normalizeState(state);
+  const selectedIds = normalizeFormationIds(current.selectedStudentIds);
+  return STUDENTS.map((student) => ({
+    ...student,
+    selected: selectedIds.includes(student.id),
+    order: selectedIds.indexOf(student.id) + 1,
+    power: Number(student.hp || 0) + Number(student.atk || 0) * 4 + Number(student.def || 0) * 3 + Number(student.range || 0) * 5 + Number(student.move || 0) * 4,
+  }));
+}
+
 export function propertyRows(state) {
   const current = normalizeState(state);
   const properties = normalizeProperties(current.properties);
@@ -1772,6 +1844,7 @@ export function summaryForState(state) {
   return {
     day: current.day,
     mission: getMission(current.selectedMissionId).name,
+    formation: normalizeFormationIds(current.selectedStudentIds).length,
     battleWins: current.battleWins,
     credit: current.credit,
     guildRep: current.guildRep,

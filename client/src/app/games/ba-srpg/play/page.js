@@ -14,6 +14,7 @@ import {
   RECIPES,
   SAVE_VERSION,
   EDICTS,
+  MAX_FORMATION_SIZE,
   PROPERTIES,
   TACTICAL_SKILLS,
   actorStatusText,
@@ -34,6 +35,7 @@ import {
   equipWeaponAction,
   equipmentRows,
   executeSkillAction,
+  formationRows,
   getMission,
   getPlayTimeSec,
   guildRankInfo,
@@ -48,6 +50,7 @@ import {
   rentPropertyAction,
   restAction,
   scoreState,
+  setFormationAction,
   selectEnemyAction,
   selectUnitAction,
   shopRows,
@@ -126,6 +129,7 @@ export default function BaSrpgPlayPage() {
   const mission = getMission(battle.missionId);
   const selectedUnit = battle.units.find((unit) => unit.id === battle.selectedUnitId) || battle.units[0];
   const targetEnemy = battle.enemies.find((enemy) => enemy.id === battle.targetEnemyId && enemy.hp > 0);
+  const formation = useMemo(() => formationRows(state), [state]);
   const rows = useMemo(() => inventoryRows(state), [state]);
   const equips = useMemo(() => equipmentRows(state), [state]);
   const quests = useMemo(() => questRows(state), [state]);
@@ -144,6 +148,7 @@ export default function BaSrpgPlayPage() {
   const selectedSkill = skills.find((skill) => skill.id === skillId) || skills[0];
   const selectedMission = getMission(missionId);
   const selectedMissionRewards = missionRewardSummary(selectedMission);
+  const formationCount = formation.filter((student) => student.selected).length;
   const cleared = battle.phase === 'cleared';
   const failed = battle.phase === 'failed';
 
@@ -258,6 +263,7 @@ export default function BaSrpgPlayPage() {
 
   const metrics = [
     { label: '임무', value: mission.name },
+    { label: '편성', value: `${formationCount}/${MAX_FORMATION_SIZE}` },
     { label: '일차', value: state.day },
     { label: '턴', value: battle.turn },
     { label: '전투력', value: power.toLocaleString('ko-KR') },
@@ -306,8 +312,33 @@ export default function BaSrpgPlayPage() {
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMissionRewards}</p>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.caution}</p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
+            <ActionButton disabled={!formationCount} onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
             <ActionButton onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>출전 편성</h2>
+            <span>{formationCount}/{MAX_FORMATION_SIZE}</span>
+          </div>
+          <div className="game-save-list">
+            {formation.map((student) => (
+              <article className="game-save-row" key={student.id}>
+                <div>
+                  <span>{student.role} · 전투력 {student.power}{student.selected ? ` · ${student.order}번` : ''}</span>
+                  <strong>{student.name}</strong>
+                  <small>HP {student.hp} · 공격 {student.atk} · 방어 {student.def} · 사거리 {student.range} · 이동 {student.move}</small>
+                </div>
+                <button
+                  type="button"
+                  className="tcg-primary-action"
+                  onClick={() => setState((current) => setFormationAction(current, student.id, !student.selected))}
+                >
+                  {student.selected ? '제외' : '편성'}
+                </button>
+              </article>
+            ))}
           </div>
         </section>
 
