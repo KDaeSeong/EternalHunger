@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
+import { GAME_CATALOG, gameDetailHref } from './_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
@@ -50,6 +51,26 @@ function formatDate(value) {
 function userHref(user) {
   const id = user?._id || user?.id;
   return id ? `/users/${id}` : '';
+}
+
+function metricValueForKey(key, hub, derived) {
+  if (key === 'characters') return hub.counts.characters;
+  if (key === 'posts') return hub.counts.posts;
+  if (key === 'topLp') return derived.topUser?.lp || 0;
+  if (key === 'rooms') return hub.counts.rooms;
+  if (key === 'activeRooms') return hub.counts.activeRooms;
+  if (key === 'visibleRooms') return hub.activeRooms.length;
+  return 0;
+}
+
+function metricLabelForKey(key) {
+  if (key === 'characters') return '캐릭터';
+  if (key === 'posts') return '게시글';
+  if (key === 'topLp') return '최고 LP';
+  if (key === 'rooms') return '전체 방';
+  if (key === 'activeRooms') return '진행 중';
+  if (key === 'visibleRooms') return '표시 방';
+  return '지표';
 }
 
 function GameMetric({ label, value }) {
@@ -142,58 +163,23 @@ export default function GamesPage() {
 
   const topCharacter = hub.rankings.characters[0] || null;
   const topUser = hub.rankings.points[0] || null;
-
-  const games = [
-    {
-      tone: 'battle',
-      title: 'Eternal Hunger',
-      subtitle: 'Battle Simulation',
-      body: '캐릭터, 장비, 전술 스킬, 금지구역 흐름을 한 경기 안에서 굴리는 메인 게임입니다.',
-      visual: true,
-      metrics: [
-        { label: '캐릭터', value: hub.counts.characters },
-        { label: '게시글', value: hub.counts.posts },
-        { label: '최고 LP', value: topUser?.lp || 0 },
-      ],
-      links: [
-        { href: '/simulation', label: '게임 시작' },
-        { href: '/records', label: '기록소' },
-        { href: '/leaderboard', label: '랭킹' },
-      ],
-    },
-    {
-      tone: 'twenty',
-      title: '스무고개',
-      subtitle: 'Community Game',
-      body: '방장이 정답과 힌트를 잡고, 참가자가 질문과 정답 도전으로 맞히는 커뮤니티 게임입니다.',
-      metrics: [
-        { label: '전체 방', value: hub.counts.rooms },
-        { label: '진행 중', value: hub.counts.activeRooms },
-        { label: '표시 방', value: hub.activeRooms.length },
-      ],
-      links: [
-        { href: '/twenty-questions', label: '방 목록' },
-        { href: '/twenty-questions?status=active', label: '진행 중' },
-        { href: '/twenty-questions?create=1', label: '방 만들기' },
-      ],
-    },
-    {
-      tone: 'community',
-      title: '게임 게시판',
-      subtitle: 'Community Board',
-      body: '게임 이야기, 공략, 버그 제보, 피드백을 모아 다음 플레이 흐름으로 이어가는 공간입니다.',
-      metrics: [
-        { label: '게시글', value: hub.counts.posts },
-        { label: '회원', value: hub.counts.users },
-        { label: '최근 글', value: gamePosts.length },
-      ],
-      links: [
-        { href: '/board?category=game', label: '게임 글' },
-        { href: '/guides', label: '가이드' },
-        { href: '/search', label: '검색' },
-      ],
-    },
-  ];
+  const derived = useMemo(() => ({ topUser, topCharacter }), [topCharacter, topUser]);
+  const games = useMemo(() => GAME_CATALOG.map((game) => ({
+    tone: game.tone,
+    title: game.title,
+    subtitle: game.subtitle,
+    body: game.summary,
+    visual: game.visual === 'map',
+    metrics: game.metrics.map((key) => ({
+      label: metricLabelForKey(key),
+      value: metricValueForKey(key, hub, derived),
+    })),
+    links: [
+      { href: gameDetailHref(game), label: '상세 허브' },
+      { href: game.primaryHref, label: game.primaryLabel },
+      { href: game.recordHref, label: game.recordLabel },
+    ],
+  })), [derived, hub]);
 
   return (
     <main className="games-page-shell">

@@ -2922,6 +2922,157 @@
   color: #b91c1c;
 }
 
+.games-empty a {
+  color: #1b6fa2;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.games-detail-hero {
+  min-height: 300px;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--eh-border-soft);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--eh-card-shadow);
+}
+
+.games-detail-hero.is-twenty,
+.games-detail-hero.is-community {
+  grid-template-columns: 1fr;
+}
+
+.games-detail-hero.is-twenty {
+  border-top: 4px solid #c9862d;
+}
+
+.games-detail-hero.is-battle {
+  border-top: 4px solid #2c6f9e;
+}
+
+.games-detail-visual {
+  min-height: 300px;
+  background:
+    linear-gradient(180deg, rgba(10, 22, 34, 0.02), rgba(10, 22, 34, 0.48)),
+    url('/Images/ERMap.webp') center / cover no-repeat;
+}
+
+.games-detail-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  padding: 30px;
+}
+
+.games-detail-copy h1 {
+  margin: 0;
+  color: #17202a;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.04;
+}
+
+.games-detail-copy > p:not(.games-kicker) {
+  max-width: 760px;
+  margin: 0;
+  color: #5f6c78;
+  font-weight: 800;
+  line-height: 1.65;
+}
+
+.games-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 14px;
+}
+
+.games-step-list,
+.games-link-grid,
+.games-related-list {
+  display: grid;
+  gap: 8px;
+}
+
+.games-step-list div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 8px;
+  background: #f9fbfd;
+  padding: 10px 12px;
+}
+
+.games-step-list span {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #2c6f9e;
+  color: #ffffff;
+  font-weight: 950;
+}
+
+.games-step-list strong {
+  min-width: 0;
+  color: #17202a;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.games-link-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.games-link-grid a,
+.games-related-list a {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(44, 111, 158, 0.16);
+  border-radius: 8px;
+  background: #f8fbfe;
+  color: #1b4f73;
+  padding: 12px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.games-link-grid a:hover,
+.games-related-list a:hover,
+.games-empty a:hover {
+  border-color: rgba(8, 120, 189, 0.36);
+  box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.games-related-list span,
+.games-related-list small {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.games-related-list strong,
+.games-related-list small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.games-related-list strong {
+  color: #17202a;
+  font-size: 1rem;
+}
+
+.games-related-list small {
+  line-height: 1.45;
+}
+
 @media (max-width: 920px) {
   .site-header__inner {
     grid-template-columns: auto minmax(0, 1fr);
@@ -2945,6 +3096,11 @@
   }
 
   .games-card.has-visual {
+    grid-template-columns: 1fr;
+  }
+
+  .games-detail-hero,
+  .games-detail-grid {
     grid-template-columns: 1fr;
   }
 
@@ -3128,9 +3284,11 @@
   .bookmarks-summary,
   .bookmarks-card,
   .games-hero,
+  .games-detail-hero,
   .games-summary,
   .games-card-metrics,
   .games-rank-split,
+  .games-link-grid,
   .account-dashboard,
   .account-activity-grid,
   .account-overview-stats,
@@ -3151,6 +3309,7 @@
   .reports-card header,
   .bookmarks-hero,
   .games-panel-title,
+  .games-detail-copy,
   .account-head,
   .guides-hero,
   .guides-panel-title,
