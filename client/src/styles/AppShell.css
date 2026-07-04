@@ -5308,6 +5308,26 @@
   accent-color: #0878bd;
 }
 
+.tonkatsu-judge-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid rgba(44, 111, 158, 0.20);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b6fa2;
+  padding: 0 12px;
+  font-size: 0.86rem;
+  font-weight: 950;
+}
+
+.tonkatsu-judge-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: #0878bd;
+}
+
 .games-empty {
   justify-content: space-between;
   min-height: 58px;

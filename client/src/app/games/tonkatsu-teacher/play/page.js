@@ -10,6 +10,7 @@ import {
   GAME_SLUG,
   INGREDIENTS,
   JUDGE_BATCH_MODE_LABELS,
+  JUDGE_HISTORY_MODE_LABELS,
   QUICK_SAVE_SLOT,
   RECIPES,
   SAVE_VERSION,
@@ -30,6 +31,7 @@ import {
   getStudent,
   ingredientName,
   inventoryCount,
+  judgeRecentSummary,
   judgeSummary,
   mealTokenCount,
   nextDayAction,
@@ -80,6 +82,8 @@ export default function TonkatsuTeacherPlayPage() {
   const [judgeText, setJudgeText] = useState('');
   const [judgeBatchCount, setJudgeBatchCount] = useState(10);
   const [judgeBatchMode, setJudgeBatchMode] = useState('random');
+  const [recentAutoOnly, setRecentAutoOnly] = useState(false);
+  const [judgeHistoryMode, setJudgeHistoryMode] = useState('all');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -93,6 +97,11 @@ export default function TonkatsuTeacherPlayPage() {
   const facilityContext = buildFacilityContext(state);
   const tournament = tournamentPreview(state, recipeId, tournamentTierId);
   const judge = judgeSummary(state);
+  const judgeRecent = judgeRecentSummary(state, {
+    limit: judgeBatchCount,
+    autoOnly: recentAutoOnly,
+    mode: judgeHistoryMode,
+  });
   const judgeMatch = judge.match;
   const score = scoreState(state);
   const ended = Boolean(state.ended);
@@ -445,6 +454,31 @@ export default function TonkatsuTeacherPlayPage() {
           ) : (
             <p style={{ color: '#94a3b8', fontWeight: 800, lineHeight: 1.5 }}>셰프들의 제출작을 보고 승자를 맞히는 대회 전용 심사 모드입니다.</p>
           )}
+          <div className="games-chip-row" style={{ margin: '8px 0 10px' }}>
+            <label className="tonkatsu-judge-toggle">
+              <input type="checkbox" checked={recentAutoOnly} onChange={(event) => setRecentAutoOnly(event.target.checked)} />
+              <span>최근 자동심사만</span>
+            </label>
+            <label className="game-save-json-field" style={{ margin: 0, minWidth: 150 }}>
+              <span>기록 필터</span>
+              <select value={judgeHistoryMode} onChange={(event) => setJudgeHistoryMode(event.target.value)}>
+                {Object.entries(JUDGE_HISTORY_MODE_LABELS).map(([mode, label]) => <option value={mode} key={mode}>{label}</option>)}
+              </select>
+            </label>
+          </div>
+          {judgeRecent.total ? (
+            <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+              <strong>최근 {recentAutoOnly ? '자동 ' : ''}{judgeRecent.total}판</strong>
+              {' · '}
+              정확도 {judgeRecent.accuracy}% ({judgeRecent.correct}/{judgeRecent.total})
+              {' · '}
+              수익 +{judgeRecent.rewardGold}G / +{judgeRecent.rewardShards}조각
+              {' · '}
+              최근 랭크 {judgeRecent.rank}
+              {' · '}
+              랜덤 {judgeRecent.modeCounts.random} · 강한쪽 {judgeRecent.modeCounts.strong} · 약한쪽 {judgeRecent.modeCounts.weak} · 수동 {judgeRecent.modeCounts.manual}
+            </div>
+          ) : null}
           <label className="game-save-json-field">
             <span>심사 티어</span>
             <select value={judgeTierId} onChange={(event) => setJudgeTierId(event.target.value)}>
@@ -515,12 +549,12 @@ export default function TonkatsuTeacherPlayPage() {
             <div className="games-empty" style={{ marginTop: 14 }}>새 심사 매치를 준비하면 A/B 셰프의 제출작이 표시됩니다.</div>
           )}
 
-          {judge.history.length ? (
+          {judgeRecent.rows.length ? (
             <div className="game-save-list" style={{ marginTop: 14 }}>
-              {judge.history.map((entry, index) => (
+              {judgeRecent.rows.map((entry, index) => (
                 <article className="game-save-row" key={`${entry.id || entry.judgedAt}-${index}`}>
                   <div>
-                    <span>{entry.themeName || entry.themeId} · {entry.judgePick} 선택</span>
+                    <span>{entry.themeName || entry.themeId} · {JUDGE_HISTORY_MODE_LABELS[entry.judgeMode] || '기록'} · {entry.judgePick} 선택</span>
                     <strong>{entry.correct ? '정답' : '오답'} · {entry.aiAName} vs {entry.aiBName}</strong>
                     <small>{entry.judgeText || '메모 없음'}</small>
                   </div>
@@ -528,6 +562,8 @@ export default function TonkatsuTeacherPlayPage() {
                 </article>
               ))}
             </div>
+          ) : judge.judged ? (
+            <div className="games-empty" style={{ marginTop: 14 }}>현재 필터에 맞는 심사 기록이 없습니다.</div>
           ) : null}
         </section>
 

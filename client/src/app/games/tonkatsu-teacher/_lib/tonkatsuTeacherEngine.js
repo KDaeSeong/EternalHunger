@@ -198,6 +198,14 @@ export const JUDGE_BATCH_MODE_LABELS = {
   weak: '약한 쪽 선택',
 };
 
+export const JUDGE_HISTORY_MODE_LABELS = {
+  all: '전체',
+  manual: '수동',
+  random: '랜덤',
+  strong: '강한 쪽',
+  weak: '약한 쪽',
+};
+
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -922,6 +930,36 @@ export function clearJudgeHistoryAction(state) {
   }, '심사 기록과 현재 매치를 초기화했습니다.');
 }
 
+function judgeHistoryMode(entry) {
+  const text = entry?.judgeText || '';
+  if (text.includes(JUDGE_BATCH_MODE_LABELS.strong) || text.includes('[강]')) return 'strong';
+  if (text.includes(JUDGE_BATCH_MODE_LABELS.weak) || text.includes('[약]')) return 'weak';
+  if (text.includes(JUDGE_BATCH_MODE_LABELS.random) || text.includes('[랜]') || text.includes('자동심사')) return 'random';
+  return 'manual';
+}
+
+function summarizeJudgeRows(rows = []) {
+  const total = rows.length;
+  const correct = rows.filter((entry) => entry.correct).length;
+  const accuracy = total ? Math.round((correct / total) * 100) : 0;
+  const rewardGold = rows.reduce((sum, entry) => sum + (entry.correct ? 50 : 20), 0);
+  const rewardShards = rows.reduce((sum, entry) => sum + (entry.correct ? 3 : 1), 0);
+  const rank = total < 5 ? '견습' : accuracy >= 90 ? 'S' : accuracy >= 80 ? 'A' : accuracy >= 70 ? 'B' : accuracy >= 60 ? 'C' : 'D';
+  const modeCounts = rows.reduce((next, entry) => {
+    const mode = judgeHistoryMode(entry);
+    return { ...next, [mode]: Number(next[mode] || 0) + 1 };
+  }, { manual: 0, random: 0, strong: 0, weak: 0 });
+  return {
+    total,
+    correct,
+    accuracy,
+    rewardGold,
+    rewardShards,
+    rank,
+    modeCounts,
+  };
+}
+
 export function judgeSummary(state) {
   const current = normalizeState(state);
   const judged = current.judgeHistory.length;
@@ -929,8 +967,7 @@ export function judgeSummary(state) {
   const accuracy = judged ? Math.round((correct / judged) * 100) : 0;
   const rank = judged < 5 ? '견습 심사원' : accuracy >= 75 ? '정밀 심사원' : accuracy >= 55 ? '실전 심사원' : '수련 심사원';
   const modeCounts = current.judgeHistory.reduce((next, entry) => {
-    const text = entry.judgeText || '';
-    const mode = text.includes(JUDGE_BATCH_MODE_LABELS.strong) ? 'strong' : text.includes(JUDGE_BATCH_MODE_LABELS.weak) ? 'weak' : text.includes('자동심사') ? 'random' : 'manual';
+    const mode = judgeHistoryMode(entry);
     return { ...next, [mode]: Number(next[mode] || 0) + 1 };
   }, { manual: 0, random: 0, strong: 0, weak: 0 });
   return {
@@ -942,6 +979,33 @@ export function judgeSummary(state) {
     rank,
     modeCounts,
     lastBatch: current.lastJudgeBatch,
+  };
+}
+
+export function judgeRecentSummary(state, options = {}) {
+  const current = normalizeState(state);
+  const limit = clamp(Math.round(Number(options.limit || 10)), 1, 50);
+  const mode = Object.prototype.hasOwnProperty.call(JUDGE_HISTORY_MODE_LABELS, options.mode) ? options.mode : 'all';
+  const autoOnly = Boolean(options.autoOnly);
+  const sourceRows = current.judgeHistory.filter((entry) => {
+    const entryMode = judgeHistoryMode(entry);
+    if (autoOnly && entryMode === 'manual') return false;
+    if (mode !== 'all' && entryMode !== mode) return false;
+    return true;
+  });
+  const rows = sourceRows.slice(0, limit).map((entry) => ({
+    ...entry,
+    judgeMode: judgeHistoryMode(entry),
+  }));
+  const summary = summarizeJudgeRows(rows);
+  return {
+    ...summary,
+    rows,
+    limit,
+    mode,
+    autoOnly,
+    sourceCount: sourceRows.length,
+    totalHistoryCount: current.judgeHistory.length,
   };
 }
 
