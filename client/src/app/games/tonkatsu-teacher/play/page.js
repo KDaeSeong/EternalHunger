@@ -12,13 +12,18 @@ import {
   QUICK_SAVE_SLOT,
   RECIPES,
   SAVE_VERSION,
+  TOURNAMENT_TIERS,
   averageStudents,
   battleAction,
+  buildFacilityContext,
   buyIngredientAction,
   craftRecipeAction,
   createNewState,
+  enterTournamentAction,
+  facilityRows,
   feedStudentAction,
   formatNeeds,
+  fulfillDailyOrdersAction,
   getPlayTimeSec,
   getStudent,
   ingredientName,
@@ -27,9 +32,15 @@ import {
   nextDayAction,
   normalizeState,
   recipeName,
+  recipeRows,
+  researchRecipeAction,
+  researchRows,
   scoreState,
   sellRecipeAction,
+  setBusinessModeAction,
   summaryForState,
+  tournamentPreview,
+  upgradeFacilityAction,
 } from '../_lib/tonkatsuTeacherEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -57,12 +68,19 @@ export default function TonkatsuTeacherPlayPage() {
   const [recipeId, setRecipeId] = useState('basic_tonkatsu');
   const [ingredientId, setIngredientId] = useState('pork');
   const [studentId, setStudentId] = useState('yuuka');
+  const [tournamentTierId, setTournamentTierId] = useState('rookie');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
+  const recipes = recipeRows(state);
   const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
+  const recipeStatus = recipes.find((item) => item.id === recipe.id) || { unlocked: true, reason: '' };
   const ingredient = INGREDIENTS.find((item) => item.id === ingredientId) || INGREDIENTS[0];
   const student = getStudent(state, studentId);
+  const facilities = facilityRows(state);
+  const researches = researchRows(state);
+  const facilityContext = buildFacilityContext(state);
+  const tournament = tournamentPreview(state, recipeId, tournamentTierId);
   const score = scoreState(state);
   const ended = Boolean(state.ended);
   const canAct = !ended;
@@ -161,6 +179,7 @@ export default function TonkatsuTeacherPlayPage() {
     setRecipeId('basic_tonkatsu');
     setIngredientId('pork');
     setStudentId('yuuka');
+    setTournamentTierId('rookie');
     setMessage('');
   };
 
@@ -179,6 +198,8 @@ export default function TonkatsuTeacherPlayPage() {
     { label: 'Gold', value: `${Number(state.gold || 0).toLocaleString('ko-KR')}G` },
     { label: '평판', value: state.reputation },
     { label: '전투층', value: state.floor },
+    { label: '시설', value: Object.values(state.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0) },
+    { label: '대회승', value: Number(state.counters.tournamentWins || 0) },
     { label: '메뉴', value: mealTokenCount(state) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -208,20 +229,25 @@ export default function TonkatsuTeacherPlayPage() {
           <label className="game-save-json-field">
             <span>레시피</span>
             <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
-              {RECIPES.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+              {recipes.map((item) => (
+                <option value={item.id} key={item.id} disabled={!item.unlocked}>
+                  {item.unlocked ? item.name : `${item.name} · ${item.reason}`}
+                </option>
+              ))}
             </select>
           </label>
           <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
             필요: {formatNeeds(recipe.needs)}
           </p>
           <p style={{ color: '#94a3b8', fontWeight: 800, lineHeight: 1.5 }}>{recipe.note}</p>
+          {!recipeStatus.unlocked ? <p style={{ color: '#fbbf24', fontWeight: 900, lineHeight: 1.5 }}>{recipeStatus.reason}</p> : null}
           <div className="games-rank-split">
             <MiniRow label="보유" value={tokenCount} />
             <MiniRow label="판매가" value={`${recipe.sellPrice}G`} />
             <MiniRow label="전투 보정" value={recipe.power} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={!canAct} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
+            <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
             <ActionButton disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>영업 판매</ActionButton>
             <ActionButton disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 학생에게 배식</ActionButton>
           </div>
@@ -244,6 +270,16 @@ export default function TonkatsuTeacherPlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
             <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
+            <ActionButton disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
+          </div>
+          <div className="games-rank-split" style={{ marginTop: 12 }}>
+            <MiniRow label="보관 한도" value={`${inventoryCount(state)}/${facilityContext.storageCap}`} />
+            <MiniRow label="주문량" value={facilityContext.dailyOrders} />
+            <MiniRow label="영업 배율" value={`x${facilityContext.goldMultFromOrders.toFixed(2)}`} />
+          </div>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            <ActionButton disabled={!canAct || state.businessMode === 'hall'} onClick={() => setState((current) => setBusinessModeAction(current, 'hall'))}>홀 영업</ActionButton>
+            <ActionButton disabled={!canAct || state.businessMode === 'delivery'} onClick={() => setState((current) => setBusinessModeAction(current, 'delivery'))}>배달 영업</ActionButton>
           </div>
         </section>
 
@@ -312,6 +348,66 @@ export default function TonkatsuTeacherPlayPage() {
               ))}
             </div>
           ) : <div className="games-empty">준비된 메뉴가 없습니다.</div>}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시설</h2>
+            <span>{facilities.length}종</span>
+          </div>
+          <div className="game-save-list">
+            {facilities.map((facility) => (
+              <article className="game-save-row" key={facility.id}>
+                <div>
+                  <span>{facility.effect} · Lv.{facility.level}/{facility.maxLevel}</span>
+                  <strong>{facility.name}</strong>
+                  <small>{facility.maxed ? '최대 레벨' : `다음 비용 ${facility.nextCost}G`}</small>
+                </div>
+                <button type="button" disabled={!canAct || facility.maxed || !facility.canUpgrade} onClick={() => setState((current) => upgradeFacilityAction(current, facility.id))}>업그레이드</button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>연구</h2>
+            <span>조각 {Number(state.recipeShards || 0)}</span>
+          </div>
+          <div className="game-save-list">
+            {researches.map((project) => (
+              <article className="game-save-row" key={project.recipeId}>
+                <div>
+                  <span>{project.gold}G · 조각 {project.recipeShards}</span>
+                  <strong>{project.name}</strong>
+                  <small>{project.done ? '완료' : project.recipeName}</small>
+                </div>
+                <button type="button" disabled={!canAct || project.done || !project.canResearch} onClick={() => setState((current) => researchRecipeAction(current, project.recipeId))}>연구</button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>대회</h2>
+            <span>{tournament.theme.name}</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>티어</span>
+            <select value={tournamentTierId} onChange={(event) => setTournamentTierId(event.target.value)}>
+              {TOURNAMENT_TIERS.map((tier) => <option value={tier.id} key={tier.id}>{tier.name} · {tier.entryGold}G</option>)}
+            </select>
+          </label>
+          <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>{tournament.theme.desc}</p>
+          <div className="games-rank-split">
+            <MiniRow label="예상 점수" value={tournament.total} />
+            <MiniRow label="목표" value={tournament.tier.targetScore} />
+            <MiniRow label="판정" value={tournament.win ? '우승권' : '부족'} />
+          </div>
+          <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+            <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
+          </div>
         </section>
 
         <section className="games-panel">
