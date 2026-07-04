@@ -337,6 +337,87 @@ export function reportSummary(state) {
   };
 }
 
+function topRowsFromMap(map, formatter = (value) => value) {
+  return [...map.entries()]
+    .map(([label, value]) => ({ label, value, formatted: formatter(value) }))
+    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
+}
+
+export function managementReport(state) {
+  const current = normalizeState(state);
+  const summary = reportSummary(current);
+  const orders = orderRows(current);
+  const receivables = receivableRows(current);
+  const shipped = orders.filter((order) => order.status === 'SHIPPED' || order.status === 'COMPLETED');
+  const categorySales = new Map();
+  const characterSales = new Map();
+  const productSales = new Map();
+  const cogs = shipped.reduce((sum, order) => {
+    const product = getProduct(order.productId);
+    const shippedQty = Number(order.shippedQty || order.quantity || 0);
+    const salesAmount = Number(order.unitPrice || 0) * shippedQty;
+    categorySales.set(product?.category || 'UNKNOWN', (categorySales.get(product?.category || 'UNKNOWN') || 0) + salesAmount);
+    characterSales.set(product?.character || 'UNKNOWN', (characterSales.get(product?.character || 'UNKNOWN') || 0) + salesAmount);
+    productSales.set(product?.name || order.productName || order.productId, (productSales.get(product?.name || order.productName || order.productId) || 0) + salesAmount);
+    return sum + Number(order.unitCost || 0) * shippedQty;
+  }, 0);
+  const fixedExpenses = FIXED_EXPENSES.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const grossProfit = summary.sales - cogs;
+  const operatingProfit = summary.latestSettlement?.operatingProfit ?? grossProfit - fixedExpenses;
+  const collectedCash = receivables.reduce((sum, row) => sum + Number(row.collected || 0), 0);
+  const overdueAmount = receivables.filter((row) => row.status === 'OVERDUE').reduce((sum, row) => sum + Number(row.remaining || 0), 0);
+  const inventoryTurnoverBase = Math.max(1, cogs);
+  const inventoryMonths = Number(((summary.inventoryAmount / inventoryTurnoverBase) || 0).toFixed(2));
+  const cashRunwayMonths = Number((Number(current.company.cashKrw || 0) / Math.max(1, fixedExpenses)).toFixed(2));
+  const receivableRatio = summary.assets ? Number(((summary.receivableAmount / summary.assets) * 100).toFixed(1)) : 0;
+  const recommendations = [];
+
+  if (operatingProfit < 0) recommendations.push('영업손실 상태입니다. 고정비 또는 저마진 상품 비중을 먼저 점검하세요.');
+  if (receivableRatio >= 25) recommendations.push('매출채권 비중이 높습니다. 월말 결산 전에 회수 액션을 우선 처리하는 편이 좋습니다.');
+  if (overdueAmount > 0) recommendations.push('연체 채권이 있습니다. 신용한도와 신규 주문 승인 기준을 보수적으로 두세요.');
+  if (inventoryMonths >= 2) recommendations.push('재고 회전이 느립니다. 캠페인이나 출고 주문으로 재고를 줄일 필요가 있습니다.');
+  if (cashRunwayMonths < 6) recommendations.push('현금 런웨이가 짧습니다. 생산 입고보다 채권 회수와 흑자 주문을 우선하세요.');
+  if (!current.ledgerSnapshots.length) recommendations.push('장부 스냅샷이 없습니다. 주요 액션 전후로 스냅샷을 남기면 복원 실험이 가능합니다.');
+  if (!recommendations.length) recommendations.push('재무 구조가 안정권입니다. 주문 확대나 캠페인 테스트를 진행해도 됩니다.');
+
+  return {
+    income: {
+      sales: summary.sales,
+      cogs,
+      grossProfit,
+      grossMarginPct: summary.sales ? Number(((grossProfit / summary.sales) * 100).toFixed(1)) : 0,
+      fixedExpenses,
+      operatingProfit,
+    },
+    cashFlow: {
+      cash: Number(current.company.cashKrw || 0),
+      collectedCash,
+      receivableAmount: summary.receivableAmount,
+      overdueAmount,
+      cashRunwayMonths,
+    },
+    balance: {
+      assets: summary.assets,
+      liabilities: summary.liabilities,
+      equity: summary.equity,
+      inventoryAmount: summary.inventoryAmount,
+      inventoryMonths,
+      receivableRatio,
+    },
+    productRows: topRowsFromMap(productSales, formatMoney).slice(0, 5),
+    categoryRows: topRowsFromMap(categorySales, formatMoney),
+    characterRows: topRowsFromMap(characterSales, formatMoney).slice(0, 5),
+    riskRows: [
+      { label: '현금 런웨이', value: `${cashRunwayMonths}개월` },
+      { label: '매출채권 비중', value: `${receivableRatio}%` },
+      { label: '연체 채권', value: formatMoney(overdueAmount) },
+      { label: '재고 회전 월수', value: `${inventoryMonths}개월` },
+      { label: '장부 스냅샷', value: `${current.ledgerSnapshots.length}개` },
+    ],
+    recommendations,
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const report = reportSummary(current);

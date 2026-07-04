@@ -21,6 +21,7 @@ import {
   inboundInventoryAction,
   inventoryRows,
   marketingCampaignAction,
+  managementReport,
   monthEndCloseAction,
   normalizeState,
   orderRows,
@@ -69,6 +70,7 @@ export default function CompanyReportPlayPage() {
 
   const score = scoreState(state);
   const report = useMemo(() => reportSummary(state), [state]);
+  const management = useMemo(() => managementReport(state), [state]);
   const stocks = useMemo(() => inventoryRows(state), [state]);
   const orders = useMemo(() => orderRows(state), [state]);
   const receivables = useMemo(() => receivableRows(state), [state]);
@@ -272,6 +274,73 @@ export default function CompanyReportPlayPage() {
             <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
             <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
             <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>경영 리포트</h2>
+            <span>손익 / 현금흐름</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="매출" value={formatMoney(management.income.sales)} />
+            <SmallStat label="매출총이익" value={formatMoney(management.income.grossProfit)} />
+            <SmallStat label="매출총이익률" value={`${management.income.grossMarginPct}%`} />
+            <SmallStat label="영업손익" value={formatMoney(management.income.operatingProfit)} />
+          </div>
+          <div className="games-rank-split" style={{ marginTop: 12 }}>
+            <SmallStat label="현금" value={formatMoney(management.cashFlow.cash)} />
+            <SmallStat label="회수액" value={formatMoney(management.cashFlow.collectedCash)} />
+            <SmallStat label="채권잔액" value={formatMoney(management.cashFlow.receivableAmount)} />
+            <SmallStat label="런웨이" value={`${management.cashFlow.cashRunwayMonths}개월`} />
+          </div>
+          <div className="games-activity-list" style={{ marginTop: 12 }}>
+            {management.recommendations.map((line) => (
+              <div key={line}><strong>{line}</strong></div>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>매출 분석</h2>
+            <span>상품 / 캐릭터</span>
+          </div>
+          <div className="game-save-list">
+            {management.productRows.length ? management.productRows.map((row) => (
+              <article className="game-save-row" key={row.label}>
+                <div>
+                  <span>상품 매출</span>
+                  <strong>{row.label}</strong>
+                </div>
+                <strong>{row.formatted}</strong>
+              </article>
+            )) : <div className="games-empty">출고된 상품 매출이 없습니다.</div>}
+          </div>
+          <div className="games-rank-split" style={{ marginTop: 12 }}>
+            {management.characterRows.slice(0, 4).map((row) => (
+              <SmallStat label={row.label} value={row.formatted} key={row.label} />
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>리스크 체크</h2>
+            <span>{management.riskRows.length}개 지표</span>
+          </div>
+          <div className="game-save-list">
+            {management.riskRows.map((row) => (
+              <article className="game-save-row" key={row.label}>
+                <div>
+                  <span>관리 지표</span>
+                  <strong>{row.label}</strong>
+                </div>
+                <strong>{row.value}</strong>
+              </article>
+            ))}
           </div>
         </section>
       </section>
