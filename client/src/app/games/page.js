@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached } from '../../utils/api';
-import { GAME_CATALOG, GAME_ROADMAP, findGameBySlug, gameDetailHref } from './_lib/gameCatalog';
+import { GAME_CATALOG, GAME_ROADMAP, findGameBySlug, gameDetailHref, getGameIntegration } from './_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
@@ -124,6 +124,7 @@ function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
 }
 
 function RoadmapCard({ item, index }) {
+  const integration = getGameIntegration(item.slug);
   return (
     <article className="games-roadmap-card">
       <div className="games-roadmap-card__head">
@@ -143,6 +144,10 @@ function RoadmapCard({ item, index }) {
         <div>
           <dt>다음 작업</dt>
           <dd>{item.nextStep}</dd>
+        </div>
+        <div>
+          <dt>이식 상태</dt>
+          <dd>{integration.stageLabel} · {integration.adapter}</dd>
         </div>
       </dl>
       <Link href={gameDetailHref(item)} className="games-roadmap-card__link">상세 보기</Link>

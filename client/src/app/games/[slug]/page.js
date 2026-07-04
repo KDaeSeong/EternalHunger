@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached } from '../../../utils/api';
-import { findGameBySlug, GAME_CATALOG, gameDetailHref } from '../_lib/gameCatalog';
+import { findGameBySlug, GAME_CATALOG, gameDetailHref, gameRoomCreateHref } from '../_lib/gameCatalog';
 
 const EMPTY_HUB = {
   counts: {
@@ -187,6 +187,22 @@ export default function GameDetailPage() {
   }, [game, hub.recentPosts]);
 
   const relatedGames = useMemo(() => GAME_CATALOG.filter((row) => row.slug !== slug), [slug]);
+  const integration = game?.integration || {};
+  const roomSystemLabel = integration.roomSystem === 'game-room'
+    ? '공용 게임방'
+    : integration.roomSystem === 'twenty-questions'
+      ? '전용 방'
+      : '없음';
+  const integrationRows = game ? [
+    ['이식 단계', integration.stageLabel || integration.stage || '기획'],
+    ['어댑터', integration.adapter || 'discussion'],
+    ['방 시스템', roomSystemLabel],
+    ['상태 동기화', integration.supportsStateSync ? '지원' : '미지원'],
+    ['전적 기록', integration.supportsRecords ? '지원' : '미지원'],
+    ['저장 슬롯', integration.supportsSaves ? '지원' : '미지원'],
+    ['결과 처리', integration.resultMode || 'manual'],
+  ] : [];
+  const integrationHref = integration.roomSystem === 'game-room' ? gameRoomCreateHref(game) : game?.primaryHref || '/games';
 
   if (!game) {
     return (
@@ -262,6 +278,23 @@ export default function GameDetailPage() {
               <Link href={game.boardHref}>{game.boardLabel}</Link>
               <Link href={game.recordHref}>{game.recordLabel}</Link>
               <Link href={game.guideHref}>{game.guideLabel}</Link>
+            </div>
+          </section>
+        </section>
+
+        <section className="games-detail-grid">
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>이식 상태</h2>
+              <Link href={integrationHref}>연결</Link>
+            </div>
+            <div className="games-adapter-grid">
+              {integrationRows.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
             </div>
           </section>
         </section>

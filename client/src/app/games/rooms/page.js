@@ -7,7 +7,7 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGetCached, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
-import { GAME_CATALOG, GAME_ROADMAP, findGameBySlug, gameDetailHref } from '../_lib/gameCatalog';
+import { findGameBySlug, gameDetailHref, getAllGames, getGameIntegration, getGameRoomOptions } from '../_lib/gameCatalog';
 
 const STATUS_OPTIONS = [
   { value: '', label: '진행 가능' },
@@ -16,6 +16,15 @@ const STATUS_OPTIONS = [
   { value: 'finished', label: '완료' },
   { value: 'closed', label: '종료' },
 ];
+
+const ROOM_GAME_OPTIONS = getGameRoomOptions();
+const DEFAULT_ROOM_GAME_SLUG = ROOM_GAME_OPTIONS[0]?.slug || 'dual-academy-tcg';
+const DEFAULT_ROOM_INTEGRATION = getGameIntegration(DEFAULT_ROOM_GAME_SLUG);
+const DEFAULT_ROOM_MAX_PLAYERS = DEFAULT_ROOM_INTEGRATION.maxPlayers || 4;
+
+function isRoomEnabledGameSlug(slug) {
+  return ROOM_GAME_OPTIONS.some((game) => game.slug === slug);
+}
 
 function normalizeList(value) {
   return Array.isArray(value) ? value : [];
@@ -60,14 +69,17 @@ function GameRoomsContent() {
   const [showCreate, setShowCreate] = useState(searchParams.get('create') === '1');
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
-    gameSlug: initialGameSlug || 'dual-academy-tcg',
+    gameSlug: isRoomEnabledGameSlug(initialGameSlug) ? initialGameSlug : DEFAULT_ROOM_GAME_SLUG,
     title: '',
     mode: '',
-    maxPlayers: 4,
+    maxPlayers: DEFAULT_ROOM_MAX_PLAYERS,
   });
 
-  const gameOptions = useMemo(() => [...GAME_CATALOG, ...GAME_ROADMAP], []);
+  const gameOptions = useMemo(getAllGames, []);
+  const roomGameOptions = useMemo(() => ROOM_GAME_OPTIONS, []);
   const selectedGame = findGameBySlug(gameSlug);
+  const selectedRoomGame = findGameBySlug(form.gameSlug);
+  const selectedRoomIntegration = getGameIntegration(form.gameSlug);
 
   const loadRooms = useCallback(async (options = {}) => {
     setLoading(true);
@@ -98,20 +110,40 @@ function GameRoomsContent() {
   }, [loadRooms]);
 
   const updateForm = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      if (key !== 'gameSlug') return { ...current, [key]: value };
+      const integration = getGameIntegration(value);
+      const minPlayers = Number(integration.minPlayers || 1);
+      const maxPlayers = Number(integration.maxPlayers || 64);
+      const nextMaxPlayers = Math.max(minPlayers, Math.min(maxPlayers, Number(current.maxPlayers || maxPlayers)));
+      return { ...current, gameSlug: value, maxPlayers: nextMaxPlayers };
+    });
   };
 
   const createRoom = async () => {
     if (!token || creating) return;
     const title = safeText(form.title, `${gameTitle(form.gameSlug)} 방`);
+    const minPlayers = Number(selectedRoomIntegration.minPlayers || 1);
+    const maxPlayers = Number(selectedRoomIntegration.maxPlayers || 64);
+    const nextMaxPlayers = Math.max(minPlayers, Math.min(maxPlayers, Number(form.maxPlayers || maxPlayers)));
     setCreating(true);
     try {
       const payload = await apiPost('/game-rooms', {
         gameSlug: form.gameSlug,
         title,
         mode: form.mode,
-        maxPlayers: Number(form.maxPlayers || 4),
-        summary: { gameTitle: gameTitle(form.gameSlug) },
+        maxPlayers: nextMaxPlayers,
+        summary: {
+          gameTitle: gameTitle(form.gameSlug),
+          adapter: selectedRoomIntegration.adapter,
+          stage: selectedRoomIntegration.stage,
+          resultMode: selectedRoomIntegration.resultMode,
+        },
+        settings: {
+          adapter: selectedRoomIntegration.adapter,
+          supportsStateSync: Boolean(selectedRoomIntegration.supportsStateSync),
+          supportsRecords: Boolean(selectedRoomIntegration.supportsRecords),
+        },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-rooms');
       showToast({ tone: 'success', message: '게임방을 만들었습니다.' });
@@ -176,7 +208,7 @@ function GameRoomsContent() {
               <label>
                 <span>게임</span>
                 <select value={form.gameSlug} onChange={(event) => updateForm('gameSlug', event.target.value)}>
-                  {gameOptions.map((game) => (
+                  {roomGameOptions.map((game) => (
                     <option value={game.slug} key={game.slug}>{game.title}</option>
                   ))}
                 </select>
@@ -191,9 +223,14 @@ function GameRoomsContent() {
               </label>
               <label>
                 <span>정원</span>
-                <input type="number" min="1" max="64" value={form.maxPlayers} onChange={(event) => updateForm('maxPlayers', event.target.value)} />
+                <input type="number" min={selectedRoomIntegration.minPlayers || 1} max={selectedRoomIntegration.maxPlayers || 64} value={form.maxPlayers} onChange={(event) => updateForm('maxPlayers', event.target.value)} />
               </label>
             </div>
+            <p className="game-room-adapter-note">
+              {selectedRoomGame?.title || form.gameSlug} · {selectedRoomIntegration.stageLabel} · {selectedRoomIntegration.adapter}
+              {selectedRoomIntegration.supportsStateSync ? ' · 상태 동기화' : ''}
+              {selectedRoomIntegration.supportsRecords ? ' · 전적 기록' : ''}
+            </p>
             <button type="button" className="tcg-primary-action" onClick={createRoom} disabled={creating || !hydrated}>
               {creating ? '생성 중...' : '방 생성'}
             </button>

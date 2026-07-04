@@ -4932,6 +4932,10 @@
   gap: 14px;
 }
 
+.games-detail-grid > .games-panel:only-child {
+  grid-column: 1 / -1;
+}
+
 .games-step-list,
 .games-link-grid,
 .games-related-list {
@@ -4992,6 +4996,35 @@
 .games-empty a:hover {
   border-color: rgba(8, 120, 189, 0.36);
   box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.games-adapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.games-adapter-grid div {
+  min-width: 0;
+  border: 1px solid rgba(44, 111, 158, 0.14);
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 11px 12px;
+}
+
+.games-adapter-grid span {
+  display: block;
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.games-adapter-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: #17202a;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
 }
 
 .games-related-list span,
@@ -5077,6 +5110,14 @@
   color: #64717d;
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.game-room-adapter-note {
+  margin: 12px 0 0;
+  color: #5f6c78;
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1.45;
 }
 
 .game-room-grid {

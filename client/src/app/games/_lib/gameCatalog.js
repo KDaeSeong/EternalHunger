@@ -1,3 +1,124 @@
+export const GAME_INTEGRATION_DEFAULTS = {
+  stage: 'planned',
+  stageLabel: '기획',
+  adapter: 'discussion',
+  roomSystem: 'none',
+  supportsRooms: false,
+  supportsStateSync: false,
+  supportsRecords: false,
+  supportsSaves: false,
+  minPlayers: 1,
+  maxPlayers: 1,
+  resultMode: 'manual',
+};
+
+const GAME_INTEGRATIONS = {
+  'eternal-hunger': {
+    stage: 'live',
+    stageLabel: '운영',
+    adapter: 'simulation',
+    supportsRecords: true,
+    resultMode: 'run-summary',
+    maxPlayers: 15,
+  },
+  'twenty-questions': {
+    stage: 'live',
+    stageLabel: '운영',
+    adapter: 'twenty-questions',
+    roomSystem: 'twenty-questions',
+    supportsRooms: true,
+    resultMode: 'host-judged',
+    minPlayers: 2,
+    maxPlayers: 20,
+  },
+  'dual-academy-tcg': {
+    stage: 'prototype',
+    stageLabel: '프로토타입',
+    adapter: 'shared-game-room',
+    roomSystem: 'game-room',
+    supportsRooms: true,
+    supportsStateSync: true,
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'room-record',
+    minPlayers: 1,
+    maxPlayers: 2,
+  },
+  'primitive-archive': {
+    stage: 'planned',
+    stageLabel: '이식 대기',
+    adapter: 'survival-loop',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'survival-score',
+    maxPlayers: 4,
+  },
+  'tonkatsu-teacher': {
+    stage: 'planned',
+    stageLabel: '이식 대기',
+    adapter: 'management-loop',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'ledger-score',
+  },
+  'schale-idle-rpg': {
+    stage: 'planned',
+    stageLabel: '장기 설계',
+    adapter: 'idle-rpg',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'account-progress',
+  },
+  'ba-srpg': {
+    stage: 'planned',
+    stageLabel: '장기 설계',
+    adapter: 'tactical-grid',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'mission-clear',
+  },
+  myanimecraft: {
+    stage: 'planned',
+    stageLabel: '분리 후보',
+    adapter: 'league-sim',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'league-standing',
+  },
+  'school-simulator': {
+    stage: 'planned',
+    stageLabel: '분리 후보',
+    adapter: 'school-sim',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'term-report',
+  },
+  'si-coding-sim': {
+    stage: 'planned',
+    stageLabel: '실험 후보',
+    adapter: 'challenge-sim',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'challenge-score',
+  },
+  'rail3d-sim': {
+    stage: 'planned',
+    stageLabel: '실험 후보',
+    adapter: 'transport-sim',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'route-score',
+  },
+  'company-report': {
+    stage: 'planned',
+    stageLabel: '후순위',
+    adapter: 'business-ledger',
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'ledger-score',
+  },
+};
+
 export const GAME_CATALOG = [
   {
     slug: 'eternal-hunger',
@@ -148,16 +269,46 @@ export const GAME_ROADMAP = [
   },
 ];
 
+export function getGameIntegration(slugOrGame) {
+  const slug = typeof slugOrGame === 'object' ? slugOrGame?.slug : slugOrGame;
+  const key = String(slug || '').trim();
+  return {
+    ...GAME_INTEGRATION_DEFAULTS,
+    ...(GAME_INTEGRATIONS[key] || {}),
+  };
+}
+
+export function withGameIntegration(game) {
+  if (!game) return null;
+  return {
+    ...game,
+    integration: getGameIntegration(game.slug),
+  };
+}
+
+export function getAllGames() {
+  return [...GAME_CATALOG, ...GAME_ROADMAP].map((game) => withGameIntegration(game));
+}
+
+export function getGameRoomOptions() {
+  return getAllGames().filter((game) => game.integration.roomSystem === 'game-room');
+}
+
+export function gameRoomCreateHref(gameOrSlug) {
+  const slug = typeof gameOrSlug === 'object' ? gameOrSlug?.slug : gameOrSlug;
+  return `/games/rooms?gameSlug=${encodeURIComponent(String(slug || ''))}&create=1`;
+}
+
 export function findGameBySlug(slug) {
   const key = String(slug || '').trim();
   const liveGame = GAME_CATALOG.find((game) => game.slug === key);
-  if (liveGame) return liveGame;
+  if (liveGame) return withGameIntegration(liveGame);
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
   const hasPrototype = key === 'dual-academy-tcg';
 
-  return {
+  return withGameIntegration({
     ...roadmapGame,
     tone: 'roadmap',
     detail: roadmapGame.summary || '',
@@ -176,7 +327,7 @@ export function findGameBySlug(slug) {
       roadmapGame.nextStep || '',
     ].filter(Boolean),
     isRoadmap: true,
-  };
+  });
 }
 
 export function gameDetailHref(game) {
