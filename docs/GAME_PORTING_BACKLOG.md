@@ -10,6 +10,7 @@ Checked: 2026-07-04
 - Candidates using `roomSystem: game-room` can be selected in `/games/rooms`.
 - Dynamic candidate names are recognized in room detail, save slots, and records.
 - Adapter presets now provide default room/result/save/record capability flags.
+- Playable routes can share `GamePlayShell` for header, actions, summary metrics, and status messages.
 
 ## Recommended First Port
 

@@ -3,10 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
-import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GamePlayShell from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   ITEMS,
@@ -38,15 +38,6 @@ function ActionButton({ children, disabled, onClick }) {
     <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
       {children}
     </button>
-  );
-}
-
-function Metric({ label, value }) {
-  return (
-    <div className="games-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
@@ -197,38 +188,41 @@ export default function PrimitiveArchivePlayPage() {
     setMessage('');
   };
 
+  const playActions = (
+    <>
+      <button type="button" onClick={startNewRun}>새 런</button>
+      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
+      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
+      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
+      <Link href="/games/primitive-archive">상세</Link>
+    </>
+  );
+
+  const playMetrics = [
+    { label: 'Day', value: state.day },
+    { label: 'AP', value: `${state.ap}/${state.apMax}` },
+    { label: 'HP', value: hp },
+    { label: '허기', value: hunger },
+    { label: '스태미나', value: stamina },
+    { label: '점수', value: score.toLocaleString('ko-KR') },
+  ];
+
+  const playMessages = [
+    message ? { key: 'message', text: message } : null,
+    !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만, 저장/불러오기/전적 기록은 로그인해야 사용할 수 있습니다.' } : null,
+    dead ? { key: 'dead', tone: 'error', text: '런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
+  ];
+
   return (
-    <main className="games-page-shell">
-      <SiteHeader />
-      <section className="games-page">
-        <section className="games-hero">
-          <div>
-            <p className="games-kicker">Primitive Archive</p>
-            <h1>원시 아카이브</h1>
-            <p>학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프를 반복하며 며칠이나 버티는지 보는 첫 이식 slice입니다.</p>
-          </div>
-          <div className="games-hero-actions">
-            <button type="button" onClick={startNewRun}>새 런</button>
-            <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-            <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-            <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
-            <Link href="/games/primitive-archive">상세</Link>
-          </div>
-        </section>
-
-        <section className="games-summary" aria-label="Primitive Archive 요약">
-          <Metric label="Day" value={state.day} />
-          <Metric label="AP" value={`${state.ap}/${state.apMax}`} />
-          <Metric label="HP" value={hp} />
-          <Metric label="허기" value={hunger} />
-          <Metric label="스태미나" value={stamina} />
-          <Metric label="점수" value={score.toLocaleString('ko-KR')} />
-        </section>
-
-        {message ? <div className="games-empty">{message}</div> : null}
-        {!token && hydrated ? <div className="games-empty">로그인하지 않아도 플레이는 가능하지만, 저장/불러오기/전적 기록은 로그인해야 사용할 수 있습니다.</div> : null}
-        {dead ? <div className="games-empty games-error">런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.</div> : null}
-
+    <GamePlayShell
+      kicker="Primitive Archive"
+      title="원시 아카이브"
+      description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프를 반복하며 며칠이나 버티는지 보는 첫 이식 slice입니다."
+      summaryLabel="Primitive Archive 요약"
+      actions={playActions}
+      metrics={playMetrics}
+      messages={playMessages}
+    >
         <section className="games-detail-grid">
           <section className="games-panel">
             <div className="games-panel-title">
@@ -357,7 +351,6 @@ export default function PrimitiveArchivePlayPage() {
             </div>
           </section>
         </section>
-      </section>
-    </main>
+    </GamePlayShell>
   );
 }
