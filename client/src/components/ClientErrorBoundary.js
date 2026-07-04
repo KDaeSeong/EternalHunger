@@ -23,7 +23,7 @@ export default class ClientErrorBoundary extends React.Component {
     return (
       <main className="app-error-boundary">
         <section className="app-error-card">
-          <p className="app-error-eyebrow">케이(Kei)의 게임개발소</p>
+          <p className="app-error-eyebrow">케이의 게임개발소</p>
           <h1>화면을 불러오지 못했습니다.</h1>
           <p>
             클라이언트 렌더링 중 문제가 발생했습니다. 잠시 후 다시 시도하거나 메인 화면으로

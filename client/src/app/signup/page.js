@@ -67,8 +67,8 @@ export default function SignupPage() {
       <div className="auth-page">
         <div className="auth-card">
           <div className="auth-logo">
-            <span className="logo-sub">ETERNAL</span>
-            <span className="logo-main">HUNGER</span>
+            <span className="logo-sub">케이의</span>
+            <span className="logo-main">게임개발소</span>
           </div>
 
           <h2>회원가입</h2>

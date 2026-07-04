@@ -2,7 +2,7 @@ import Link from 'next/link';
 import AdminDataHealthPanel from './_components/AdminDataHealthPanel';
 
 export const metadata = {
-  title: 'Admin | 케이(Kei)의 게임개발소',
+  title: 'Admin | 케이의 게임개발소',
 };
 
 const sections = [
