@@ -4140,7 +4140,8 @@
 }
 
 .tcg-room-banner strong,
-.tcg-room-banner span {
+.tcg-room-banner span,
+.tcg-room-banner small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4156,6 +4157,12 @@
   color: #64717d;
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.tcg-room-banner small {
+  color: #8a520c;
+  font-size: 0.76rem;
+  font-weight: 900;
 }
 
 .tcg-room-banner a {

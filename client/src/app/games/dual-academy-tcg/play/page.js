@@ -473,6 +473,8 @@ function DualAcademyTcgPlayContent() {
   const [roomBusy, setRoomBusy] = useState(false);
   const [room, setRoom] = useState(null);
   const [roomLoaded, setRoomLoaded] = useState(false);
+  const [localRoomDirty, setLocalRoomDirty] = useState(false);
+  const [roomSyncMessage, setRoomSyncMessage] = useState('');
   const [recordedMatchIds, setRecordedMatchIds] = useState([]);
   const [recordMessage, setRecordMessage] = useState('');
   const [selectedAttackerId, setSelectedAttackerId] = useState('');
@@ -533,9 +535,46 @@ function DualAcademyTcgPlayContent() {
     void loadDeck();
   }, [loadDeck]);
 
+  const applyRoomMatch = useCallback((nextRoom, options = {}) => {
+    if (!nextRoom) {
+      setDeckMessage('게임방을 찾을 수 없습니다.');
+      return false;
+    }
+    setRoom(nextRoom);
+    if (nextRoom.gameSlug !== TCG_GAME_SLUG) {
+      setDeckMessage('이 게임방은 Dual Academy TCG 방이 아닙니다.');
+      return false;
+    }
+
+    const roomState = nextRoom.state && typeof nextRoom.state === 'object' ? nextRoom.state : {};
+    const restored = normalizeSavedState(roomState.state);
+    if (!restored) {
+      setDeckMessage(options.emptyMessage || '게임방에 저장된 매치가 없어 현재 덱으로 시작합니다.');
+      setRoomSyncMessage('');
+      return false;
+    }
+
+    const nextCards = normalizeCards(roomState.cardCatalog);
+    const nextCardIds = Array.isArray(roomState.deckCardIds) && roomState.deckCardIds.length
+      ? roomState.deckCardIds
+      : deckCardIds;
+    setCardCatalog(nextCards);
+    setDeckCardIds(nextCardIds);
+    setDeckName(roomState.deckName || nextRoom.title || deckName);
+    setRecordMessage('');
+    setSelectedAttackerId('');
+    setState(restored);
+    setLocalRoomDirty(false);
+    setRoomSyncMessage('');
+    setDeckMessage(options.message || '게임방 매치를 불러왔습니다.');
+    return true;
+  }, [deckCardIds, deckName]);
+
   useEffect(() => {
     setRoom(null);
     setRoomLoaded(false);
+    setLocalRoomDirty(false);
+    setRoomSyncMessage('');
   }, [roomId]);
 
   useEffect(() => {
@@ -546,37 +585,11 @@ function DualAcademyTcgPlayContent() {
       try {
         const payload = await apiGet(`/game-rooms/${roomId}`, { timeoutMs: 12000 });
         const nextRoom = payload?.room || null;
-        if (!nextRoom) {
-          setDeckMessage('게임방을 찾을 수 없습니다.');
-          return;
-        }
-        if (nextRoom.gameSlug !== TCG_GAME_SLUG) {
-          setDeckMessage('이 게임방은 Dual Academy TCG 방이 아닙니다.');
-          setRoom(nextRoom);
-          return;
-        }
-
-        const roomState = nextRoom.state && typeof nextRoom.state === 'object' ? nextRoom.state : {};
-        const restored = normalizeSavedState(roomState.state);
-        if (restored) {
-          const nextCards = normalizeCards(roomState.cardCatalog);
-          const nextCardIds = Array.isArray(roomState.deckCardIds) && roomState.deckCardIds.length
-            ? roomState.deckCardIds
-            : deckCardIds;
-          if (!cancelled) {
-            setCardCatalog(nextCards);
-            setDeckCardIds(nextCardIds);
-            setDeckName(roomState.deckName || nextRoom.title || deckName);
-            setRecordMessage('');
-            setSelectedAttackerId('');
-            setState(restored);
-            setDeckMessage('게임방 매치를 불러왔습니다.');
-          }
-        } else if (!cancelled) {
-          setDeckMessage('게임방에 저장된 매치가 없어 현재 덱으로 시작합니다.');
-        }
         if (!cancelled) {
-          setRoom(nextRoom);
+          applyRoomMatch(nextRoom, {
+            message: '게임방 매치를 불러왔습니다.',
+            emptyMessage: '게임방에 저장된 매치가 없어 현재 덱으로 시작합니다.',
+          });
           setRoomLoaded(true);
         }
       } catch (err) {
@@ -594,7 +607,37 @@ function DualAcademyTcgPlayContent() {
     return () => {
       cancelled = true;
     };
-  }, [deckCardIds, deckName, loadingDeck, mounted, roomId, roomLoaded, showToast, token]);
+  }, [applyRoomMatch, loadingDeck, mounted, roomId, roomLoaded, showToast, token]);
+
+  useEffect(() => {
+    if (!mounted || loadingDeck || !roomId || !token || !roomLoaded) return;
+    let cancelled = false;
+    const pollRoom = async () => {
+      if (roomBusy) return;
+      try {
+        const payload = await apiGet(`/game-rooms/${roomId}`, { timeoutMs: 10000 });
+        if (cancelled) return;
+        const nextRoom = payload?.room || null;
+        if (!nextRoom || nextRoom.gameSlug !== TCG_GAME_SLUG) return;
+        const currentRevision = Number(room?.revision ?? -1);
+        const nextRevision = Number(nextRoom.revision ?? 0);
+        if (nextRevision <= currentRevision) return;
+        setRoom(nextRoom);
+        if (localRoomDirty) {
+          setRoomSyncMessage('게임방에 새 매치 상태가 있습니다. 방 불러오기를 누르면 반영됩니다.');
+          return;
+        }
+        applyRoomMatch(nextRoom, { message: '게임방 매치가 자동 갱신되었습니다.' });
+      } catch {
+        // Polling is best-effort; direct save/load buttons still surface errors.
+      }
+    };
+    const intervalId = window.setInterval(pollRoom, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [applyRoomMatch, loadingDeck, localRoomDirty, mounted, room?.revision, roomBusy, roomId, roomLoaded, token]);
 
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
@@ -665,6 +708,10 @@ function DualAcademyTcgPlayContent() {
 
   const playCard = (instanceId) => {
     if (!canAct) return;
+    if (roomId) {
+      setLocalRoomDirty(true);
+      setRoomSyncMessage('');
+    }
     setState((current) => {
       const card = current.hand.find((row) => row.instanceId === instanceId);
       if (!card) return current;
@@ -691,6 +738,10 @@ function DualAcademyTcgPlayContent() {
 
   const attackTarget = (instanceId, targetInstanceId = '') => {
     if (!canAct) return;
+    if (roomId) {
+      setLocalRoomDirty(true);
+      setRoomSyncMessage('');
+    }
     setSelectedAttackerId('');
     setState((current) => {
       const unit = current.board.find((row) => row.instanceId === instanceId);
@@ -756,6 +807,10 @@ function DualAcademyTcgPlayContent() {
 
   const endTurn = () => {
     if (!canAct) return;
+    if (roomId) {
+      setLocalRoomDirty(true);
+      setRoomSyncMessage('');
+    }
     setSelectedAttackerId('');
     setState((current) => runEnemyTurn(current));
   };
@@ -830,6 +885,10 @@ function DualAcademyTcgPlayContent() {
       setRecordMessage('');
       setSelectedAttackerId('');
       setState(restored);
+      if (roomId) {
+        setLocalRoomDirty(true);
+        setRoomSyncMessage('');
+      }
       setDeckMessage('저장된 매치를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 매치를 불러왔습니다.' });
     } catch (err) {
@@ -870,6 +929,8 @@ function DualAcademyTcgPlayContent() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-rooms');
       setRoom(payload?.room || room);
+      setLocalRoomDirty(false);
+      setRoomSyncMessage('');
       setDeckMessage('게임방에 현재 매치를 저장했습니다.');
       showToast({ tone: 'success', message: '게임방에 현재 매치를 저장했습니다.' });
     } catch (err) {
@@ -885,10 +946,18 @@ function DualAcademyTcgPlayContent() {
 
   const reloadRoomMatch = () => {
     if (!roomId || roomBusy) return;
+    setLocalRoomDirty(false);
+    setRoomSyncMessage('');
     setRoomLoaded(false);
   };
 
-  const resetMatch = () => resetWithDeck(deckCardIds, cardCatalog);
+  const resetMatch = () => {
+    if (roomId) {
+      setLocalRoomDirty(true);
+      setRoomSyncMessage('');
+    }
+    resetWithDeck(deckCardIds, cardCatalog);
+  };
 
   return (
     <main className="tcg-page-shell">
@@ -916,7 +985,8 @@ function DualAcademyTcgPlayContent() {
           <section className="tcg-room-banner">
             <div>
               <strong>{room?.title || '게임방 매치'}</strong>
-              <span>{room?.status || 'loading'} · rev {Number(room?.revision || 0)}</span>
+              <span>{room?.status || 'loading'} · rev {Number(room?.revision || 0)}{localRoomDirty ? ' · 로컬 변경 있음' : ''}</span>
+              {roomSyncMessage ? <small>{roomSyncMessage}</small> : null}
             </div>
             <Link href={`/games/rooms/${roomId}`}>로비로 이동</Link>
           </section>
