@@ -612,6 +612,67 @@
   cursor: not-allowed;
 }
 
+.profile-report-button {
+  border-color: rgba(190, 74, 74, 0.24) !important;
+  background: #fff4f4 !important;
+  color: #9a3c3f !important;
+}
+
+.profile-report-panel {
+  width: 100%;
+  border-color: rgba(190, 74, 74, 0.18);
+  background: #fffafa;
+}
+
+.profile-report-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-report-grid select,
+.profile-report-grid textarea {
+  width: 100%;
+  border: 1px solid rgba(22, 33, 44, 0.16);
+  border-radius: 8px;
+  background: #fff;
+  color: #17202a;
+  padding: 11px 12px;
+}
+
+.profile-report-grid textarea {
+  min-height: 104px;
+  resize: vertical;
+}
+
+.profile-report-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-report-actions button {
+  min-height: 36px;
+  border: 1px solid rgba(190, 74, 74, 0.24);
+  border-radius: 8px;
+  background: #c34b4e;
+  color: #fff;
+  padding: 0 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.profile-report-actions .profile-report-secondary {
+  border-color: rgba(22, 33, 44, 0.14);
+  background: #fff;
+  color: #4c5965;
+}
+
+.profile-report-actions button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 .profile-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

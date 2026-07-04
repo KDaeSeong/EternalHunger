@@ -48,6 +48,11 @@ function unwrapReports(payload) {
   return list.map(normalizeReport).filter(Boolean);
 }
 
+function targetTypeLabel(type) {
+  if (type === 'user') return '유저';
+  return type === 'comment' ? '댓글' : '게시글';
+}
+
 export default function AdminReportsPage() {
   const [reports, setReports] = useState([]);
   const [summary, setSummary] = useState({ open: 0, reviewing: 0, resolved: 0, dismissed: 0 });
@@ -109,7 +114,7 @@ export default function AdminReportsPage() {
       <div className="admin-topbar">
         <div>
           <h1>신고 관리</h1>
-          <p>게시글과 댓글 신고를 확인하고 처리 상태를 남깁니다.</p>
+          <p>게시글, 댓글, 유저 신고를 확인하고 처리 상태를 남깁니다.</p>
         </div>
         <Link href="/board" className="admin-btn">게시판</Link>
       </div>
@@ -148,7 +153,7 @@ export default function AdminReportsPage() {
               <div>
                 <span className={`admin-report-status is-${report.status}`}>{report.statusLabel}</span>
                 <strong>{report.reasonLabel}</strong>
-                <small>{report.targetType === 'comment' ? '댓글' : '게시글'}</small>
+                <small>{targetTypeLabel(report.targetType)}</small>
               </div>
               <time>{formatDate(report.createdAt)}</time>
             </header>

@@ -26,6 +26,13 @@ const ROOM_STATUS_LABELS = {
   closed: '종료',
 };
 
+const REPORT_REASONS = [
+  { value: 'abuse', label: '욕설/비방' },
+  { value: 'spam', label: '스팸' },
+  { value: 'offtopic', label: '주제 이탈' },
+  { value: 'other', label: '기타' },
+];
+
 function normalizeRouteId(value) {
   const raw = Array.isArray(value) ? value[0] : value;
   return raw == null ? '' : String(raw);
@@ -144,6 +151,9 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [followSaving, setFollowSaving] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportForm, setReportForm] = useState({ reason: 'other', detail: '' });
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!id) {
@@ -186,6 +196,7 @@ export default function UserProfilePage() {
   const displayName = safeText(user?.displayName || user?.nickname || user?.username, '사용자');
   const profileBio = safeText(user?.profileBio, '');
   const badges = useMemo(() => normalizeList(user?.badges).filter((badge) => safeText(badge?.name)), [user?.badges]);
+  const canReport = Boolean(hydrated && token && !viewerFollow.isSelf && user);
 
   const toggleFollow = async () => {
     if (!id || !token || viewerFollow.isSelf) return;
@@ -212,6 +223,26 @@ export default function UserProfilePage() {
       showToast({ tone: 'danger', message: err?.message || '팔로우 상태 변경에 실패했습니다.' });
     } finally {
       setFollowSaving(false);
+    }
+  };
+
+  const submitReport = async () => {
+    if (!id || !canReport || reportSubmitting) return;
+    setReportSubmitting(true);
+    try {
+      const res = await apiPost('/reports', {
+        targetType: 'user',
+        targetUserId: id,
+        reason: reportForm.reason,
+        detail: reportForm.detail.trim(),
+      });
+      setReportOpen(false);
+      setReportForm({ reason: 'other', detail: '' });
+      showToast({ tone: 'success', message: res?.message || '신고를 접수했습니다.' });
+    } catch (err) {
+      showToast({ tone: 'danger', message: err?.message || '신고 접수에 실패했습니다.' });
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -245,6 +276,16 @@ export default function UserProfilePage() {
                   ) : (
                     <Link href="/login">팔로우</Link>
                   )}
+                  {canReport ? (
+                    <button
+                      type="button"
+                      className="profile-report-button"
+                      onClick={() => setReportOpen((current) => !current)}
+                      disabled={reportSubmitting}
+                    >
+                      신고
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -255,6 +296,47 @@ export default function UserProfilePage() {
               <div><span>게시글</span><strong>{formatNumber(summary.postCount)}</strong><small>댓글 {formatNumber(summary.commentCount)}</small></div>
               <div><span>스무고개</span><strong>{formatNumber(summary.hostedRoomCount)}방</strong><small>해결 {formatNumber(summary.solvedHostedRoomCount)}</small></div>
             </section>
+
+            {reportOpen ? (
+              <section className="profile-panel profile-report-panel">
+                <div className="profile-panel-title">
+                  <h2>{displayName} 신고</h2>
+                </div>
+                <div className="profile-report-grid">
+                  <select
+                    value={reportForm.reason}
+                    onChange={(event) => setReportForm({ ...reportForm, reason: event.target.value })}
+                    aria-label="신고 사유"
+                    disabled={reportSubmitting}
+                  >
+                    {REPORT_REASONS.map((reason) => (
+                      <option key={reason.value} value={reason.value}>{reason.label}</option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={reportForm.detail}
+                    onChange={(event) => setReportForm({ ...reportForm, detail: event.target.value })}
+                    placeholder="관리자가 확인할 수 있도록 상황을 적어주세요."
+                    maxLength={1000}
+                    rows={4}
+                    disabled={reportSubmitting}
+                  />
+                  <div className="profile-report-actions">
+                    <button type="button" onClick={submitReport} disabled={reportSubmitting}>
+                      {reportSubmitting ? '접수 중...' : '신고 접수'}
+                    </button>
+                    <button
+                      type="button"
+                      className="profile-report-secondary"
+                      onClick={() => setReportOpen(false)}
+                      disabled={reportSubmitting}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              </section>
+            ) : null}
 
             {badges.length ? (
               <section className="profile-panel profile-badges">

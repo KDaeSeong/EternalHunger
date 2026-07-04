@@ -4,6 +4,7 @@ const router = express.Router();
 
 const Post = require('../models/Post');
 const Report = require('../models/Report');
+const User = require('../models/User');
 const { verifyAdmin } = require('../middleware/authMiddleware');
 const { createNotification } = require('../utils/notifications');
 
@@ -60,8 +61,10 @@ function normalizeStatus(value) {
   return Object.prototype.hasOwnProperty.call(STATUS_LABELS, status) ? status : '';
 }
 
-function buildTargetUrl(postId) {
-  return `/board/${normalizeId(postId)}`;
+function buildTargetUrl(targetType, targetId) {
+  return targetType === 'user'
+    ? `/users/${normalizeId(targetId)}`
+    : `/board/${normalizeId(targetId)}`;
 }
 
 function isValidObjectId(value) {
@@ -71,13 +74,18 @@ function isValidObjectId(value) {
 function serializeReport(report) {
   const snapshot = report?.targetSnapshot || {};
   const post = report?.postId && typeof report.postId === 'object' ? report.postId : null;
+  const targetUser = report?.targetUserId && typeof report.targetUserId === 'object' ? report.targetUserId : null;
+  const targetType = report?.targetType || 'post';
+  const targetId = targetType === 'user' ? report?.targetUserId : report?.postId;
+  const targetExists = targetType === 'user' ? Boolean(targetUser) : Boolean(post);
   return {
     _id: normalizeId(report),
     reporter: userSummary(report?.reporterId),
     reporterName: displayName(report?.reporterId),
-    targetType: report?.targetType || 'post',
+    targetType,
     postId: normalizeId(report?.postId),
     commentId: normalizeId(report?.commentId),
+    targetUserId: normalizeId(report?.targetUserId),
     reason: report?.reason || 'other',
     reasonLabel: REASON_LABELS[report?.reason] || REASON_LABELS.other,
     detail: report?.detail || '',
@@ -88,12 +96,13 @@ function serializeReport(report) {
     handledByName: report?.handledBy ? displayName(report.handledBy) : '',
     handledAt: report?.handledAt || null,
     target: {
-      title: snapshot.title || post?.title || '',
+      title: snapshot.title || post?.title || (targetUser ? displayName(targetUser) : ''),
       excerpt: snapshot.excerpt || '',
       authorName: snapshot.authorName || '',
       authorId: normalizeId(snapshot.authorId),
-      url: snapshot.url || buildTargetUrl(report?.postId),
-      postExists: Boolean(post),
+      url: snapshot.url || buildTargetUrl(targetType, targetId),
+      exists: targetExists,
+      postExists: targetExists,
     },
     createdAt: report?.createdAt || null,
     updatedAt: report?.updatedAt || null,
@@ -109,8 +118,52 @@ async function findPostWithComment(postId) {
 router.post('/', async (req, res) => {
   try {
     const targetType = cleanText(req.body?.targetType, 20);
-    if (!['post', 'comment'].includes(targetType)) {
+    if (!['post', 'comment', 'user'].includes(targetType)) {
       return res.status(400).json({ error: '신고 대상이 올바르지 않습니다.' });
+    }
+
+    if (targetType === 'user') {
+      const targetUserId = cleanText(req.body?.targetUserId || req.body?.userId, 80);
+      if (!isValidObjectId(targetUserId)) {
+        return res.status(400).json({ error: '신고 대상 ID가 올바르지 않습니다.' });
+      }
+      if (normalizeId(targetUserId) === normalizeId(req.user.id)) {
+        return res.status(400).json({ error: '자기 자신은 신고할 수 없습니다.' });
+      }
+
+      const targetUser = await User.findById(targetUserId)
+        .select('username nickname profileBio lp createdAt')
+        .lean();
+      if (!targetUser) return res.status(404).json({ error: '신고할 사용자를 찾을 수 없습니다.' });
+
+      const openDuplicate = await Report.findOne({
+        reporterId: req.user.id,
+        targetType,
+        targetUserId: targetUser._id,
+        status: { $in: ['open', 'reviewing'] },
+      }).lean();
+      if (openDuplicate) {
+        return res.status(409).json({ error: '이미 접수된 신고가 있습니다.' });
+      }
+
+      const reason = normalizeReason(req.body?.reason);
+      const detail = cleanText(req.body?.detail, 1000);
+      const report = await Report.create({
+        reporterId: req.user.id,
+        targetType,
+        targetUserId: targetUser._id,
+        reason,
+        detail,
+        targetSnapshot: {
+          title: displayName(targetUser),
+          excerpt: cleanText(targetUser.profileBio || `@${targetUser.username || ''}`, 260),
+          authorId: targetUser._id,
+          authorName: displayName(targetUser),
+          url: buildTargetUrl('user', targetUser._id),
+        },
+      });
+
+      return res.json({ message: '신고를 접수했습니다.', report: serializeReport(report.toObject()) });
     }
 
     const postId = cleanText(req.body?.postId, 80);
@@ -159,7 +212,7 @@ router.post('/', async (req, res) => {
         excerpt: cleanText(excerpt, 260),
         authorId: normalizeId(author) || null,
         authorName: displayName(author),
-        url: buildTargetUrl(post._id),
+        url: buildTargetUrl('post', post._id),
       },
     });
 
@@ -177,6 +230,7 @@ router.get('/mine', async (req, res) => {
       .populate('reporterId', 'username nickname')
       .populate('handledBy', 'username nickname')
       .populate('postId', 'title createdAt')
+      .populate('targetUserId', 'username nickname profileBio createdAt')
       .sort({ createdAt: -1 })
       .limit(80)
       .lean();
@@ -212,6 +266,7 @@ router.get('/', verifyAdmin, async (req, res) => {
       .populate('reporterId', 'username nickname')
       .populate('handledBy', 'username nickname')
       .populate('postId', 'title createdAt')
+      .populate('targetUserId', 'username nickname profileBio createdAt')
       .sort({ status: 1, createdAt: -1 })
       .limit(120)
       .lean();
@@ -252,7 +307,7 @@ router.patch('/:id', verifyAdmin, async (req, res) => {
       type: 'report_status',
       title: '신고 처리 상태 변경',
       message: `신고 상태가 ${STATUS_LABELS[status] || status} 상태로 변경되었습니다.`,
-      link: buildTargetUrl(report.postId),
+      link: buildTargetUrl(report.targetType, report.targetType === 'user' ? report.targetUserId : report.postId),
       meta: { reportId: normalizeId(report), status },
     });
 
@@ -260,6 +315,7 @@ router.patch('/:id', verifyAdmin, async (req, res) => {
       .populate('reporterId', 'username nickname')
       .populate('handledBy', 'username nickname')
       .populate('postId', 'title createdAt')
+      .populate('targetUserId', 'username nickname profileBio createdAt')
       .lean();
 
     res.json({ message: '신고 상태를 저장했습니다.', report: serializeReport(populated) });

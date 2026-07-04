@@ -48,6 +48,7 @@ function formatDate(value) {
 }
 
 function targetTypeLabel(type) {
+  if (type === 'user') return '유저';
   return type === 'comment' ? '댓글' : '게시글';
 }
 
