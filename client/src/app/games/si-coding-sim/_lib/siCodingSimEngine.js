@@ -34,6 +34,189 @@ const SUPPORT_ACTION_LABELS = {
   },
 };
 
+const PROJECT_SEED_GROUPS = [
+  {
+    id: 'recovery',
+    label: '복구/핫픽스',
+    templates: [
+      {
+        id: 'SEED-REC-001',
+        title: '운영장애 야간 핫픽스',
+        client: 'Haneul Steel',
+        projectName: 'Legacy Login Recovery Sprint',
+        module: '로그인/권한',
+        modeLabel: '백엔드+프론트 패치',
+        difficulty: 'Hard',
+        durationWeeks: 1,
+        summary: '배포 직후 장애가 난 로그인/세션 구간을 긴급 수습하는 단기 재투입입니다.',
+        primaryDocs: ['장애 원인보고서', '긴급 배포 계획서', '운영 체크리스트'],
+        seedDelta: { stamina: -8, mentality: -6, clientTrust: -2, techDebt: 5 },
+        riskBias: 'high',
+        tags: ['핫픽스', '야간배포', '운영장애'],
+      },
+      {
+        id: 'SEED-REC-002',
+        title: '배치 실패 재처리 투입',
+        client: 'Cheongram Retail',
+        projectName: 'Settlement Batch Rescue',
+        module: '정산 배치/모니터링',
+        modeLabel: 'SQL+배치 패치',
+        difficulty: 'Hard',
+        durationWeeks: 2,
+        summary: '배치 누락과 재처리를 동시에 잡아야 하는 안정화 중심 재투입입니다.',
+        primaryDocs: ['배치 장애보고서', '재처리 절차서', '검증 결과서'],
+        seedDelta: { stamina: -7, mentality: -5, clientTrust: -1, techDebt: 4 },
+        riskBias: 'high',
+        tags: ['배치', '재처리', '장애수습'],
+      },
+    ],
+  },
+  {
+    id: 'warranty',
+    label: '하자보수/안정화',
+    templates: [
+      {
+        id: 'SEED-WAR-001',
+        title: 'QA 반려 잔건 정리',
+        client: 'Kivotos Academy Office',
+        projectName: 'Notice QA Stabilization',
+        module: '공지/첨부 팝업',
+        modeLabel: '프론트+문서 대응',
+        difficulty: 'Normal',
+        durationWeeks: 2,
+        summary: '남은 QA 반려와 증적 미비를 정리해 납품 후폭풍을 줄이는 안정화 현장입니다.',
+        primaryDocs: ['QA 재검수표', '테스트 증적서', '주간보고'],
+        seedDelta: { stamina: -5, mentality: -3, clientTrust: 1, techDebt: 2 },
+        riskBias: 'mid',
+        tags: ['QA', '증적', '안정화'],
+      },
+      {
+        id: 'SEED-WAR-002',
+        title: '운영 문의 집중 대응',
+        client: 'Haneul Steel',
+        projectName: 'Helpdesk Warranty Extension',
+        module: '문의 대응/수정 패치',
+        modeLabel: '운영지원',
+        difficulty: 'Normal',
+        durationWeeks: 3,
+        summary: '크리티컬 이슈는 줄었지만 잔여 문의가 많아 매뉴얼과 소규모 패치를 병행합니다.',
+        primaryDocs: ['문의 대응 로그', '수정 이력서', '운영 매뉴얼'],
+        seedDelta: { stamina: -4, mentality: -2, clientTrust: 2, techDebt: 1 },
+        riskBias: 'mid',
+        tags: ['운영지원', '문의대응', '매뉴얼'],
+      },
+    ],
+  },
+  {
+    id: 'maintenance',
+    label: '유지보수/운영지원',
+    templates: [
+      {
+        id: 'SEED-MNT-001',
+        title: '월간 유지보수 전환',
+        client: 'Cheongram Retail',
+        projectName: 'Partner Admin Maintenance Window',
+        module: '거래처 관리/권한',
+        modeLabel: 'SQL+관리화면 개선',
+        difficulty: 'Normal',
+        durationWeeks: 4,
+        summary: '질문 대응과 소규모 개선이 혼합된 전형적인 유지보수 현장입니다.',
+        primaryDocs: ['월간 점검 보고서', '개선 요청 목록', '릴리즈 노트'],
+        seedDelta: { stamina: -3, mentality: -1, clientTrust: 3, techDebt: 1 },
+        riskBias: 'low',
+        tags: ['유지보수', '월간점검', '소규모개선'],
+      },
+      {
+        id: 'SEED-MNT-002',
+        title: '정기점검+소규모 개선',
+        client: 'Kivotos Academy Office',
+        projectName: 'Notice Operations Support',
+        module: '공지/배너/통계',
+        modeLabel: '백엔드+리포트',
+        difficulty: 'Normal',
+        durationWeeks: 4,
+        summary: '치명 장애는 적지만 운영 편의성 개선 요청이 꾸준히 들어오는 관리형 현장입니다.',
+        primaryDocs: ['정기점검표', '고객 요청서', '릴리즈 확인서'],
+        seedDelta: { stamina: -2, mentality: -1, clientTrust: 4, techDebt: 0 },
+        riskBias: 'low',
+        tags: ['운영지원', '정기점검', '리포트'],
+      },
+    ],
+  },
+  {
+    id: 'upgrade',
+    label: '고도화/추가개발',
+    templates: [
+      {
+        id: 'SEED-UPG-001',
+        title: '추가 화면 고도화',
+        client: 'Cheongram Retail',
+        projectName: 'Partner Workflow Upgrade',
+        module: '거래처 승인/검색 고도화',
+        modeLabel: '프론트+백엔드 기능추가',
+        difficulty: 'Hard',
+        durationWeeks: 6,
+        summary: '기존 현장을 기반으로 신규 화면과 조회 조건이 늘어나는 전형적 고도화 프로젝트입니다.',
+        primaryDocs: ['요구사항 정의서', '상세설계서', '통합 테스트 시나리오'],
+        seedDelta: { stamina: -5, mentality: -2, clientTrust: 6, techDebt: 1 },
+        riskBias: 'mid',
+        tags: ['고도화', '신규화면', '요구사항확장'],
+      },
+      {
+        id: 'SEED-UPG-002',
+        title: '배치/성능 개선 2차',
+        client: 'Haneul Steel',
+        projectName: 'Groupware Performance Upgrade',
+        module: '배치/검색 성능',
+        modeLabel: 'SQL 튜닝+백엔드 개선',
+        difficulty: 'Hard',
+        durationWeeks: 5,
+        summary: '기존 안정화가 끝난 뒤 성능과 편의성을 함께 끌어올리는 2차 개선 현장입니다.',
+        primaryDocs: ['성능 분석서', '튜닝 결과서', '배포 계획서'],
+        seedDelta: { stamina: -4, mentality: -2, clientTrust: 5, techDebt: -1 },
+        riskBias: 'mid',
+        tags: ['성능개선', 'SQL튜닝', '2차개선'],
+      },
+    ],
+  },
+  {
+    id: 'strategic',
+    label: '확장수주/리드투입',
+    templates: [
+      {
+        id: 'SEED-STR-001',
+        title: '계열사 표준안 확산',
+        client: 'Kivotos Group',
+        projectName: 'Shared Portal Standard Rollout',
+        module: '표준 공지/첨부/권한',
+        modeLabel: '리드+표준화 설계',
+        difficulty: 'Hard',
+        durationWeeks: 8,
+        summary: '기존 성공 사례를 들고 다른 조직에 표준안을 이식하는 확장 수주형 프로젝트입니다.',
+        primaryDocs: ['차기 제안서', '표준 설계서', '온보딩 가이드'],
+        seedDelta: { stamina: -4, mentality: -1, clientTrust: 8, techDebt: -2 },
+        riskBias: 'mid',
+        tags: ['확장수주', '표준화', '리드투입'],
+      },
+      {
+        id: 'SEED-STR-002',
+        title: '신규 고객사 PoC 제안',
+        client: 'Blue Archive Media',
+        projectName: 'Content Admin Pilot',
+        module: '콘텐츠 관리/다운로드',
+        modeLabel: '제안+PoC 개발',
+        difficulty: 'Hard',
+        durationWeeks: 7,
+        summary: '이번 현장 성과를 레퍼런스로 삼아 신규 고객사를 따내는 파일럿 프로젝트입니다.',
+        primaryDocs: ['PoC 제안서', '데모 시나리오', '견적 초안'],
+        seedDelta: { stamina: -3, mentality: 0, clientTrust: 10, techDebt: -1 },
+        riskBias: 'mid',
+        tags: ['신규수주', 'PoC', '제안'],
+      },
+    ],
+  },
+];
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const firstTask = TASKS[0];
@@ -50,6 +233,9 @@ export function createNewState(options = {}) {
     documentReviewByTask: {},
     taskOutcomes: {},
     projectEvaluations: [],
+    followUpPlan: null,
+    generatedSeeds: [],
+    selectedSeedId: '',
     log: ['SI 코딩 시뮬레이터 현장이 시작됐습니다. 문서와 코드를 보고 패치한 뒤 검수를 실행하세요.'],
   };
 }
@@ -68,6 +254,9 @@ export function normalizeState(value) {
     documentReviewByTask: value.documentReviewByTask && typeof value.documentReviewByTask === 'object' ? normalizeDocumentReviewByTask(value.documentReviewByTask) : {},
     taskOutcomes: value.taskOutcomes && typeof value.taskOutcomes === 'object' ? value.taskOutcomes : {},
     projectEvaluations: Array.isArray(value.projectEvaluations) ? value.projectEvaluations : [],
+    followUpPlan: value.followUpPlan && typeof value.followUpPlan === 'object' ? value.followUpPlan : null,
+    generatedSeeds: Array.isArray(value.generatedSeeds) ? value.generatedSeeds : [],
+    selectedSeedId: String(value.selectedSeedId || ''),
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   };
 }
@@ -332,10 +521,26 @@ export function evaluateProjectAction(state) {
     score: scoreState(current),
     resources: { ...resources },
   };
+  const followUpPlan = buildFollowUpPlan(evaluation);
+  const generatedSeeds = buildNextProjectSeeds(followUpPlan, evaluation);
   return addLog({
     ...current,
     projectEvaluations: [evaluation, ...current.projectEvaluations].slice(0, 10),
-  }, `프로젝트 종료 판정: ${grade}. 제출 ${submittedTasks}/${totalTasks}, 열린 리스크 ${openRiskCount}건.`);
+    followUpPlan,
+    generatedSeeds,
+    selectedSeedId: generatedSeeds[0]?.id || '',
+  }, `프로젝트 종료 판정: ${grade}. 제출 ${submittedTasks}/${totalTasks}, 열린 리스크 ${openRiskCount}건.${generatedSeeds.length ? ` 차기 후보 ${generatedSeeds.length}종을 생성했습니다.` : ''}`);
+}
+
+export function selectProjectSeedAction(state, seedId) {
+  const current = normalizeState(state);
+  const key = String(seedId || '').trim();
+  const seed = current.generatedSeeds.find((item) => item.id === key);
+  if (!seed) return current;
+  return addLog({
+    ...current,
+    selectedSeedId: seed.id,
+  }, `차기 현장 후보 [${seed.projectName}]을 선택했습니다.`);
 }
 
 export function getFileContent(state, taskId, fileId) {
@@ -410,6 +615,23 @@ export function companySupportSummary(state, taskId) {
   };
 }
 
+export function projectSeedRoadmap(state) {
+  const current = normalizeState(state);
+  const evaluation = current.projectEvaluations[0] || null;
+  const selectedSeed = current.generatedSeeds.find((seed) => seed.id === current.selectedSeedId) || current.generatedSeeds[0] || null;
+  return {
+    evaluation,
+    followUpPlan: current.followUpPlan,
+    generatedSeeds: current.generatedSeeds,
+    selectedSeed,
+    seedGroups: PROJECT_SEED_GROUPS.map((group) => ({
+      id: group.id,
+      label: group.label,
+      templateCount: group.templates.length,
+    })),
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const outcomes = Object.values(current.taskOutcomes || {});
@@ -446,6 +668,8 @@ export function summaryForState(state) {
     documentMissing: buildProjectDocumentMetrics(current).missingRequiredCount,
     supportReserve: current.companySupport.cashReserve,
     supportSpent: current.companySupport.totalSpent,
+    nextSeedCount: current.generatedSeeds.length,
+    selectedSeed: current.generatedSeeds.find((seed) => seed.id === current.selectedSeedId)?.projectName || '',
     stamina: current.resources.stamina,
     mentality: current.resources.mentality,
     clientTrust: current.resources.clientTrust,
@@ -595,6 +819,221 @@ function hintCost(task) {
 function supportCost(task, action) {
   const byDifficulty = SUPPORT_ACTIONS[action]?.costPtByDifficulty || {};
   return Number(byDifficulty[task?.difficulty] || byDifficulty.Normal || 10);
+}
+
+function buildFollowUpPlan(evaluation) {
+  if (!evaluation || evaluation.grade === '보류') return null;
+  const resources = evaluation.resources || BASE_RESOURCES;
+  const trustHigh = resources.clientTrust >= 70;
+  const debtLow = resources.techDebt <= 35;
+  const debtHigh = resources.techDebt >= 55;
+  const strained = resources.stamina <= 30 || resources.mentality <= 30;
+  let plan;
+
+  if (evaluation.grade === 'FAIL') {
+    plan = {
+      code: 'RED-DEPLOY',
+      badge: '재투입',
+      title: '긴급 하자보수 재투입',
+      summary: '프로젝트가 종료되지 못해 같은 고객사로 즉시 재투입됩니다.',
+      contract: '무상 안정화 압박',
+      nextAssignment: '운영장애 핫픽스 + 원인보고서 제출',
+      priority: '운영 복구',
+      duration: '5일',
+      carryOverDelta: { stamina: -10, mentality: -8, clientTrust: -5, techDebt: 6 },
+      actionItems: ['야간 배포 동행', '장애 원인보고서 작성', '미통과 항목 우선 핫픽스'],
+      nextFocus: '당장 서비스부터 살리는 단계',
+    };
+  } else if (evaluation.grade === 'C') {
+    plan = {
+      code: 'WARRANTY-EXT',
+      badge: '연장',
+      title: '하자보수 연장 투입',
+      summary: '납품은 되었지만 누적 리스크 때문에 안정화 기간이 늘어납니다.',
+      contract: '하자보수 연장 2주',
+      nextAssignment: 'QA 잔건 정리 + 재작업 회차 소진',
+      priority: debtHigh ? '기술부채 감축' : '리스크 정리',
+      duration: '2주',
+      carryOverDelta: { stamina: -6, mentality: -4, clientTrust: -2, techDebt: 4 },
+      actionItems: ['재작업 1순위 항목 재검증', '운영/QA 공용 체크리스트 작성', '고객사 주간보고 재정비'],
+      nextFocus: '수습과 신뢰 회복이 먼저인 단계',
+    };
+  } else if (evaluation.grade === 'B') {
+    plan = {
+      code: trustHigh ? 'MAINT-PLUS' : 'STABILIZE-B',
+      badge: trustHigh ? '유지보수' : '조건부 연장',
+      title: trustHigh ? '조건부 유지보수 전환' : '안정화 우선 후속 투입',
+      summary: trustHigh ? '잔여 리스크를 조건으로 유지보수 계약 전환을 제안합니다.' : '추가 고도화보다 남은 리스크를 먼저 정리합니다.',
+      contract: trustHigh ? '월간 유지보수 전환' : '안정화 1주 + 조건부 추가계약',
+      nextAssignment: trustHigh ? '소규모 기능개선 1건 + 문의대응' : '재검수 대응 + 잔여 결함 제거',
+      priority: debtHigh ? '리팩토링 병행' : '고객 체감 이슈 정리',
+      duration: trustHigh ? '1개월' : '1주',
+      carryOverDelta: trustHigh
+        ? { stamina: -4, mentality: -2, clientTrust: 4, techDebt: 2 }
+        : { stamina: -5, mentality: -3, clientTrust: 1, techDebt: 3 },
+      actionItems: trustHigh
+        ? ['문의 대응 SLA 정리', '소규모 고도화 범위 합의', '정기점검 리포트 초안 작성']
+        : ['QA 반려 포인트 우선 수정', '고객 실무자 재시연 준비', '야간 재배포 체크리스트 점검'],
+      nextFocus: trustHigh ? '관계를 계약으로 굳히는 단계' : '납품 후폭풍을 줄이는 단계',
+    };
+  } else if (evaluation.grade === 'A') {
+    const advanced = trustHigh && debtLow && !strained;
+    plan = {
+      code: advanced ? 'ADVANCE-A' : 'MAINT-A',
+      badge: advanced ? '고도화' : '안정 운영',
+      title: advanced ? '차기 고도화 우선 제안' : '안정 운영 + 소규모 개선',
+      summary: advanced ? '납품 품질이 좋아 다음 고도화 범위를 먼저 논의합니다.' : '안정적인 마무리를 바탕으로 운영 안정화와 소규모 개선이 이어집니다.',
+      contract: advanced ? '후속 고도화 우선협상' : '운영지원 1개월',
+      nextAssignment: advanced ? '추가 화면 2종 / 배치 개선 / 성능 보완' : '운영 이슈 대응 + 개선요청 소화',
+      priority: advanced ? '범위 확장' : '안정 운영',
+      duration: advanced ? '6주' : '1개월',
+      carryOverDelta: advanced
+        ? { stamina: -3, mentality: -1, clientTrust: 8, techDebt: 0 }
+        : { stamina: -2, mentality: -1, clientTrust: 5, techDebt: 1 },
+      actionItems: advanced
+        ? ['추가 요구사항 워크숍 참석', '고도화 견적 초안 검토', '핵심 모듈 선행 분석']
+        : ['운영 문의 대응', '소규모 개선 일정 조율', '정기점검 보고'],
+      nextFocus: advanced ? '다음 계약을 먹는 단계' : '관리를 잘 이어가는 단계',
+    };
+  } else {
+    plan = {
+      code: 'STRATEGIC-S',
+      badge: '확장 수주',
+      title: '차기 고도화 + 계열사 추천 투입',
+      summary: '프로젝트 평판이 좋아 같은 고객사뿐 아니라 다른 조직으로도 제안이 이어집니다.',
+      contract: '고도화 + 신규 프로젝트 추천',
+      nextAssignment: '핵심 기능 확장 / 신규 계열사 표준화 / 리드 투입',
+      priority: '확장 수주',
+      duration: '8주',
+      carryOverDelta: { stamina: -2, mentality: 0, clientTrust: 12, techDebt: -2 },
+      actionItems: ['차기 제안서 작성', '핵심 모듈 표준안 공유', '후임/추가 인력 온보딩'],
+      nextFocus: '현장을 넘어서 계정을 키우는 단계',
+    };
+  }
+
+  const nextStartResources = addResourceDelta(resources, plan.carryOverDelta);
+  return {
+    ...plan,
+    baseGrade: evaluation.grade,
+    nextStartResources,
+    carryOverSummary: formatResourceDelta(plan.carryOverDelta),
+  };
+}
+
+function buildNextProjectSeeds(plan, evaluation) {
+  if (!plan || !evaluation || evaluation.grade === '보류') return [];
+  const groupOrder = resolveSeedGroups(plan.code);
+  const groupPriority = Object.fromEntries(groupOrder.map((groupId, index) => [groupId, index]));
+  const candidates = groupOrder
+    .map((groupId) => PROJECT_SEED_GROUPS.find((group) => group.id === groupId))
+    .filter(Boolean)
+    .flatMap((group) => group.templates.map((template) => ({
+      ...template,
+      seedGroupId: group.id,
+      seedGroupLabel: group.label,
+    })));
+
+  return candidates
+    .map((template) => createProjectSeed(template, plan, evaluation, groupPriority))
+    .sort((a, b) => b.fitScore - a.fitScore || a.groupPriority - b.groupPriority || a.projectName.localeCompare(b.projectName, 'ko-KR'))
+    .slice(0, 3)
+    .map((seed, index) => ({
+      ...seed,
+      recommendation: index === 0 ? '추천' : index === 1 ? '대안' : '예비',
+      recommendationReason: index === 0
+        ? '현재 종료 판정과 자원 상태 기준 최우선 후보'
+        : index === 1
+          ? '조건이 맞으면 바로 전환 가능한 차순위 후보'
+          : '압박이 커질 때를 대비한 안전 대안',
+    }));
+}
+
+function resolveSeedGroups(planCode) {
+  if (planCode === 'RED-DEPLOY') return ['recovery', 'warranty', 'maintenance'];
+  if (planCode === 'WARRANTY-EXT') return ['warranty', 'recovery', 'maintenance'];
+  if (planCode === 'STABILIZE-B') return ['warranty', 'maintenance', 'upgrade'];
+  if (planCode === 'MAINT-PLUS' || planCode === 'MAINT-A') return ['maintenance', 'upgrade', 'warranty'];
+  if (planCode === 'ADVANCE-A') return ['upgrade', 'maintenance', 'strategic'];
+  if (planCode === 'STRATEGIC-S') return ['strategic', 'upgrade', 'maintenance'];
+  return ['maintenance', 'warranty', 'upgrade'];
+}
+
+function createProjectSeed(template, plan, evaluation, groupPriorityMap) {
+  const startResources = addResourceDelta(plan.nextStartResources, template.seedDelta);
+  const pressure = computeSeedPressure(startResources, template.riskBias);
+  const groupPriority = groupPriorityMap[template.seedGroupId] ?? 9;
+  const gradeScore = { FAIL: -12, C: -4, B: 4, A: 10, S: 16 }[evaluation.grade] ?? 0;
+  const trustScore = Math.floor((Number(startResources.clientTrust || 0) - 50) / 5);
+  const debtScore = Math.floor((55 - Number(startResources.techDebt || 0)) / 8);
+  const groupScore = {
+    recovery: evaluation.grade === 'FAIL' || startResources.clientTrust < 35 ? 16 : -2,
+    warranty: evaluation.failedCount || evaluation.openRiskCount > 3 ? 12 : 2,
+    maintenance: evaluation.grade === 'B' || evaluation.grade === 'A' ? 10 : 4,
+    upgrade: evaluation.grade === 'A' || evaluation.grade === 'S' ? 14 : -4,
+    strategic: evaluation.grade === 'S' ? 18 : evaluation.resources?.clientTrust >= 75 ? 8 : -10,
+  }[template.seedGroupId] ?? 0;
+  const strainPenalty = pressure === '높음' ? -6 : pressure === '보통' ? -2 : 4;
+  const fitScore = clamp(50 - groupPriority * 5 + gradeScore + trustScore + debtScore + groupScore + strainPenalty, 0, 100);
+  const rewardScore = computeSeedReward(template, evaluation, fitScore);
+  return {
+    ...template,
+    groupPriority,
+    fitScore,
+    fitBand: fitScore >= 75 ? '높음' : fitScore >= 55 ? '보통' : '낮음',
+    pressure,
+    startResources,
+    rewardScore,
+    kickoffFocus: seedKickoffFocus(template, evaluation, pressure),
+    startingSummary: `시작 자원 · 체력 ${startResources.stamina} · 멘탈 ${startResources.mentality} · 고객신뢰 ${startResources.clientTrust} · 기술부채 ${startResources.techDebt}`,
+    contractSummary: `${template.durationWeeks}주 예상 · ${plan.contract} 이후 연결 · 예상 보상 ${rewardScore}pt`,
+    fitReason: `${evaluation.grade} 등급, 고객신뢰 ${evaluation.resources.clientTrust}, 기술부채 ${evaluation.resources.techDebt} 기준 적합도 ${fitScore}점`,
+    reason: `${plan.title} 이후 ${template.seedGroupLabel} 성격의 후속 현장이 자연스럽게 이어집니다.`,
+  };
+}
+
+function computeSeedPressure(resources, riskBias) {
+  const strain = (resources.stamina <= 30 ? 1 : 0) + (resources.mentality <= 30 ? 1 : 0) + (resources.clientTrust < 45 ? 1 : 0);
+  if (riskBias === 'high' || strain >= 2) return '높음';
+  if (riskBias === 'mid' || strain === 1 || resources.techDebt >= 55) return '보통';
+  return '낮음';
+}
+
+function computeSeedReward(template, evaluation, fitScore) {
+  const difficultyBase = { Easy: 48, Normal: 64, Hard: 84 }[template.difficulty] || 60;
+  const groupBonus = { recovery: -6, warranty: 0, maintenance: 8, upgrade: 18, strategic: 30 }[template.seedGroupId] || 0;
+  const gradeBonus = { FAIL: -12, C: -4, B: 4, A: 10, S: 18 }[evaluation.grade] || 0;
+  return Math.max(32, Math.round(difficultyBase + groupBonus + gradeBonus + fitScore * 0.2));
+}
+
+function seedKickoffFocus(template, evaluation, pressure) {
+  if (template.seedGroupId === 'recovery') return '장애 복구와 원인보고서를 먼저 고정해야 합니다.';
+  if (template.seedGroupId === 'warranty') return '재검수 포인트와 증적 정리를 먼저 잡아야 합니다.';
+  if (template.seedGroupId === 'maintenance') return pressure === '낮음' ? '문의 대응과 소규모 개선을 병행해 고객 관계를 굳힙니다.' : '운영 안정화부터 잡고 개선 요청은 순차 처리합니다.';
+  if (template.seedGroupId === 'upgrade') return evaluation.resources.techDebt <= 45 ? '고도화 범위를 먼저 잠그고 선행 분석 문서를 확보합니다.' : '기술부채를 안고 들어가므로 리팩토링 범위를 함께 협의합니다.';
+  return '성과를 레퍼런스로 묶어 제안서와 표준 문서를 먼저 꺼내야 합니다.';
+}
+
+function addResourceDelta(resources, delta) {
+  return {
+    stamina: clamp(Number(resources.stamina || 0) + Number(delta?.stamina || 0), 0, 100),
+    mentality: clamp(Number(resources.mentality || 0) + Number(delta?.mentality || 0), 0, 100),
+    clientTrust: clamp(Number(resources.clientTrust || 0) + Number(delta?.clientTrust || 0), 0, 100),
+    techDebt: clamp(Number(resources.techDebt || 0) + Number(delta?.techDebt || 0), 0, 999),
+  };
+}
+
+function formatResourceDelta(delta) {
+  return ['stamina', 'mentality', 'clientTrust', 'techDebt']
+    .map((key) => `${resourceLabel(key)} ${Number(delta?.[key] || 0) >= 0 ? '+' : ''}${Number(delta?.[key] || 0)}`)
+    .join(' · ');
+}
+
+function resourceLabel(key) {
+  if (key === 'stamina') return '체력';
+  if (key === 'mentality') return '멘탈';
+  if (key === 'clientTrust') return '고객신뢰';
+  if (key === 'techDebt') return '기술부채';
+  return key;
 }
 
 function applyHintSupport(state, task, cost) {

@@ -23,9 +23,11 @@ import {
   getRevealedHints,
   normalizeState,
   projectProgressRows,
+  projectSeedRoadmap,
   resetTaskAction,
   revealHintAction,
   scoreState,
+  selectProjectSeedAction,
   selectTaskAction,
   submitTaskAction,
   summaryForState,
@@ -127,6 +129,7 @@ export default function SiCodingSimPlayPage() {
   const insightRows = Object.entries(task?.passiveInsights || {});
   const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
   const support = useMemo(() => companySupportSummary(state, task?.id), [state, task?.id]);
+  const seedRoadmap = useMemo(() => projectSeedRoadmap(state), [state]);
 
   const updateTaskFilter = (key, value) => {
     setTaskFilters((current) => ({ ...current, [key]: value }));
@@ -691,6 +694,52 @@ export default function SiCodingSimPlayPage() {
               <SmallStat label="문서 재확인" value={latestEvaluation.documentMetrics?.wrongSelectedCount || 0} />
             </div>
           ) : <div className="games-empty">프로젝트 종료 판정을 실행하면 전체 제출 상태와 리스크 기준으로 등급이 계산됩니다.</div>}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>후속 현장 후보</h2>
+            <span>{seedRoadmap.generatedSeeds.length}종</span>
+          </div>
+          {seedRoadmap.followUpPlan ? (
+            <>
+              <div className="game-save-list" style={{ marginBottom: 12 }}>
+                <article className="game-save-row">
+                  <div>
+                    <span>{seedRoadmap.followUpPlan.badge} · {seedRoadmap.followUpPlan.contract} · {seedRoadmap.followUpPlan.duration}</span>
+                    <strong>{seedRoadmap.followUpPlan.title}</strong>
+                    <span>{seedRoadmap.followUpPlan.summary}</span>
+                    <span>다음 포커스: {seedRoadmap.followUpPlan.nextFocus}</span>
+                    <span>이월 정산: {seedRoadmap.followUpPlan.carryOverSummary}</span>
+                  </div>
+                  <strong>{seedRoadmap.followUpPlan.code}</strong>
+                </article>
+              </div>
+              <div className="game-save-list">
+                {seedRoadmap.generatedSeeds.map((seed) => (
+                  <article className="game-save-row" key={seed.id} style={seed.id === seedRoadmap.selectedSeed?.id ? { borderColor: '#2673a6' } : null}>
+                    <div>
+                      <span>{seed.recommendation} · 적합도 {seed.fitBand} {seed.fitScore}점 · 압박 {seed.pressure}</span>
+                      <strong>{seed.projectName}</strong>
+                      <span>{seed.client} · {seed.module} · {seed.seedGroupLabel}</span>
+                      <span>{seed.title} · {seed.summary}</span>
+                      <span>{seed.contractSummary}</span>
+                      <span>{seed.startingSummary}</span>
+                      <span>{seed.kickoffFocus}</span>
+                      <div className="games-chip-row">
+                        {(seed.tags || []).map((tag) => <span className="game-save-chip" key={`${seed.id}-${tag}`}>{tag}</span>)}
+                      </div>
+                    </div>
+                    <button type="button" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
+                      {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `${seed.rewardScore}pt`}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="games-empty">프로젝트 종료 판정을 실행하면 등급과 자원 상태를 바탕으로 차기 현장 후보가 생성됩니다.</div>
+          )}
         </section>
 
         <section className="games-panel">
