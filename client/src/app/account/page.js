@@ -133,6 +133,10 @@ export default function AccountPage() {
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordMessage, setPasswordMessage] = useState('');
+  const [recoveryForm, setRecoveryForm] = useState({ currentPassword: '' });
+  const [recoverySaving, setRecoverySaving] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
   const [deactivateForm, setDeactivateForm] = useState({ currentPassword: '', confirmText: '' });
   const [deactivateSaving, setDeactivateSaving] = useState(false);
   const [deactivateMessage, setDeactivateMessage] = useState('');
@@ -283,6 +287,39 @@ export default function AccountPage() {
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setPasswordSaving(false);
+    }
+  };
+
+  const issueRecoveryCode = async (event) => {
+    event.preventDefault();
+    if (recoverySaving || !user) return;
+
+    const currentPassword = String(recoveryForm.currentPassword || '');
+    if (!currentPassword) {
+      const nextMessage = '현재 비밀번호를 입력해주세요.';
+      setRecoveryMessage(nextMessage);
+      showToast({ tone: 'warning', message: nextMessage });
+      return;
+    }
+
+    setRecoverySaving(true);
+    setRecoveryMessage('');
+    setRecoveryCode('');
+    try {
+      const res = await apiPost('/user/recovery-code', { currentPassword }, { timeoutMs: 20000 });
+      const nextUser = res?.user || {};
+      setRecoveryForm({ currentPassword: '' });
+      setRecoveryCode(res?.recoveryCode || '');
+      updateStoredUser((current) => ({ ...(current || {}), ...nextUser }));
+      const nextMessage = res?.message || '복구 코드를 발급했습니다.';
+      setRecoveryMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.message || '복구 코드 발급에 실패했습니다.';
+      setRecoveryMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setRecoverySaving(false);
     }
   };
 
@@ -462,6 +499,48 @@ export default function AccountPage() {
               <div className="account-actions">
                 <button type="submit" disabled={passwordSaving}>
                   {passwordSaving ? '변경 중...' : '비밀번호 변경'}
+                </button>
+              </div>
+            </form>
+
+            <form className="account-panel account-recovery-panel" onSubmit={issueRecoveryCode}>
+              <div className="account-panel-title">
+                <h2>비밀번호 복구 코드</h2>
+                <Link href="/reset-password">재설정 화면</Link>
+              </div>
+              <p>
+                이메일 없이 비밀번호를 재설정할 때 쓰는 1회용 코드입니다. 새 코드를 발급하면 이전 코드는 무효화됩니다.
+              </p>
+              {user?.recoveryCodeCreatedAt ? (
+                <div className="account-recovery-status">
+                  활성 복구 코드 발급일: {formatDate(user.recoveryCodeCreatedAt) || '날짜 없음'}
+                </div>
+              ) : (
+                <div className="account-recovery-status">아직 활성 복구 코드가 없습니다.</div>
+              )}
+              <div className="account-security-grid compact">
+                <label className="account-field">
+                  <span>현재 비밀번호</span>
+                  <input
+                    type="password"
+                    value={recoveryForm.currentPassword}
+                    onChange={(event) => setRecoveryForm({ currentPassword: event.target.value })}
+                    autoComplete="current-password"
+                    disabled={recoverySaving}
+                  />
+                </label>
+              </div>
+              {recoveryCode ? (
+                <div className="account-recovery-code" aria-live="polite">
+                  <span>새 복구 코드</span>
+                  <strong>{recoveryCode}</strong>
+                  <small>이 코드는 다시 표시되지 않습니다. 지금 안전한 곳에 보관해주세요.</small>
+                </div>
+              ) : null}
+              {recoveryMessage ? <div className="account-message">{recoveryMessage}</div> : null}
+              <div className="account-actions">
+                <button type="submit" disabled={recoverySaving}>
+                  {recoverySaving ? '발급 중...' : '복구 코드 발급'}
                 </button>
               </div>
             </form>

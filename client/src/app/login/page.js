@@ -91,6 +91,12 @@ export default function LoginPage() {
               회원가입하기
             </Link>
           </div>
+          <div className="auth-footer">
+            비밀번호를 잊으셨나요?
+            <Link href="/reset-password" className="auth-link">
+              복구 코드로 재설정
+            </Link>
+          </div>
         </div>
       </div>
     </main>

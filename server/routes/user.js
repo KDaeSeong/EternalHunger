@@ -1,13 +1,15 @@
 // server/routes/user.js
 const express = require('express');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const router = express.Router();
 
 const User = require('../models/User');
 const UserFollow = require('../models/UserFollow');
 const { createNotification } = require('../utils/notifications');
+const { generateRecoveryCode, normalizeRecoveryCode } = require('../utils/recoveryCode');
 
-const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks statistics isAdmin badges createdAt';
+const PUBLIC_USER_SELECT = 'username nickname profileBio lp credits perks statistics isAdmin badges createdAt passwordRecovery.codeHash passwordRecovery.codeCreatedAt';
 
 function normalizeNickname(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ');
@@ -67,6 +69,7 @@ function publicUser(user) {
     isAdmin: Boolean(user.isAdmin),
     badges: Array.isArray(user.badges) ? user.badges : [],
     createdAt: user.createdAt,
+    recoveryCodeCreatedAt: user.passwordRecovery?.codeHash ? user.passwordRecovery?.codeCreatedAt || null : null,
   };
 }
 
@@ -160,6 +163,41 @@ router.put('/password', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '비밀번호 변경에 실패했습니다.' });
+  }
+});
+
+router.post('/recovery-code', async (req, res) => {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '');
+
+    if (!currentPassword) {
+      return res.status(400).json({ error: '현재 비밀번호를 입력해주세요.' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
+
+    const recoveryCode = generateRecoveryCode();
+    const normalizedCode = normalizeRecoveryCode(recoveryCode);
+    const now = new Date();
+
+    user.passwordRecovery.codeHash = await bcrypt.hash(normalizedCode, 10);
+    user.passwordRecovery.codeCreatedAt = now;
+    user.passwordRecovery.codeUsedAt = null;
+    await user.save();
+
+    res.json({
+      message: '복구 코드를 발급했습니다. 이 코드는 다시 표시되지 않으니 안전한 곳에 보관해주세요.',
+      recoveryCode,
+      recoveryCodeCreatedAt: now,
+      user: publicUser(user),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '복구 코드 발급에 실패했습니다.' });
   }
 });
 

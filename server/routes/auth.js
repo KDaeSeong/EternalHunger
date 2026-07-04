@@ -4,6 +4,16 @@ const router = express.Router();
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { normalizeRecoveryCode } = require('../utils/recoveryCode');
+
+const resetPasswordBuckets = new Map();
+const RESET_PASSWORD_WINDOW_MS = toPositiveInt(process.env.RESET_PASSWORD_WINDOW_MS, 10 * 60 * 1000);
+const RESET_PASSWORD_MAX_ATTEMPTS = toPositiveInt(process.env.RESET_PASSWORD_MAX_ATTEMPTS, 8);
+
+function toPositiveInt(value, fallback) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
 
 function normalizeNickname(raw) {
   return String(raw || '').trim().replace(/\s+/g, ' ');
@@ -17,6 +27,32 @@ function isSuspensionActive(user) {
 
 function isAccountDeactivated(user) {
   return user?.moderationStatus === 'deactivated';
+}
+
+function pruneResetPasswordBuckets(now) {
+  if (resetPasswordBuckets.size < 500) return;
+  for (const [key, bucket] of resetPasswordBuckets.entries()) {
+    if (!bucket || bucket.resetAt <= now) resetPasswordBuckets.delete(key);
+  }
+}
+
+function checkResetPasswordRate(req, username) {
+  const now = Date.now();
+  const key = `${String(username || '').toLowerCase()}:${req.ip || 'unknown'}`;
+  let bucket = resetPasswordBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    bucket = { count: 0, resetAt: now + RESET_PASSWORD_WINDOW_MS };
+    resetPasswordBuckets.set(key, bucket);
+  }
+  pruneResetPasswordBuckets(now);
+  if (bucket.count >= RESET_PASSWORD_MAX_ATTEMPTS) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+    };
+  }
+  bucket.count += 1;
+  return { allowed: true, retryAfterSec: 0 };
 }
 
 function publicUser(user) {
@@ -33,6 +69,7 @@ function publicUser(user) {
     moderationStatus: user.moderationStatus || 'active',
     moderationReason: user.moderationReason || '',
     suspendedUntil: user.suspendedUntil || null,
+    recoveryCodeCreatedAt: user.passwordRecovery?.codeHash ? user.passwordRecovery?.codeCreatedAt || null : null,
   };
 }
 
@@ -102,6 +139,62 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '로그인 실패' });
+  }
+});
+
+router.post('/reset-password', async (req, res) => {
+  const invalidRecoveryMessage = '아이디 또는 복구 코드가 올바르지 않습니다.';
+
+  try {
+    const username = String(req.body?.username || '').trim();
+    const recoveryCode = normalizeRecoveryCode(req.body?.recoveryCode);
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!username || !recoveryCode || !newPassword) {
+      return res.status(400).json({ error: '아이디, 복구 코드, 새 비밀번호를 모두 입력해주세요.' });
+    }
+    if (recoveryCode.length < 16) {
+      return res.status(401).json({ error: invalidRecoveryMessage });
+    }
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      return res.status(400).json({ error: '새 비밀번호는 6~72자로 입력해주세요.' });
+    }
+
+    const rate = checkResetPasswordRate(req, username);
+    if (!rate.allowed) {
+      res.set('Retry-After', String(rate.retryAfterSec));
+      return res.status(429).json({
+        error: `비밀번호 재설정 시도가 너무 잦습니다. ${rate.retryAfterSec}초 후 다시 시도해주세요.`,
+        retryAfterSec: rate.retryAfterSec,
+      });
+    }
+
+    const user = await User.findOne({ username });
+    const codeHash = user?.passwordRecovery?.codeHash || '';
+    if (!user || isAccountDeactivated(user) || !codeHash) {
+      return res.status(401).json({ error: invalidRecoveryMessage });
+    }
+
+    const isCodeMatch = await bcrypt.compare(recoveryCode, codeHash);
+    if (!isCodeMatch) {
+      return res.status(401).json({ error: invalidRecoveryMessage });
+    }
+
+    const isSamePassword = await user.comparePassword(newPassword);
+    if (isSamePassword) {
+      return res.status(400).json({ error: '새 비밀번호는 기존 비밀번호와 달라야 합니다.' });
+    }
+
+    user.password = newPassword;
+    user.passwordRecovery.codeHash = '';
+    user.passwordRecovery.codeCreatedAt = null;
+    user.passwordRecovery.codeUsedAt = new Date();
+    await user.save();
+
+    res.json({ message: '비밀번호를 재설정했습니다. 새 비밀번호로 로그인해주세요.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '비밀번호 재설정에 실패했습니다.' });
   }
 });
 

@@ -31,6 +31,11 @@ const UserSchema = new mongoose.Schema({
     termsVersion: { type: String, default: '2026-07-04' },
     privacyVersion: { type: String, default: '2026-07-04' },
   },
+  passwordRecovery: {
+    codeHash: { type: String, default: '' },
+    codeCreatedAt: { type: Date, default: null },
+    codeUsedAt: { type: Date, default: null },
+  },
   badges: [{
     name: String,
     unlockedAt: { type: Date, default: Date.now }

@@ -92,6 +92,12 @@
     font-weight: 700;
 }
 
+.auth-message.success {
+    background: #edf9f1;
+    color: #24693a;
+    border-color: #cdebd5;
+}
+
 .auth-consent-box {
     display: grid;
     gap: 8px;
