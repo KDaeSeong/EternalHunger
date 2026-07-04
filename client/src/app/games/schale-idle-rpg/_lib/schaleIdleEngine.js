@@ -1510,6 +1510,35 @@ export function rerollEquipmentAction(state, slot) {
   }, `${equip.name} 옵션 재련 완료(${costText}): ${affixes.map((affix) => `${affix.label} x${affix.value}`).join(', ')}`);
 }
 
+export function toggleEquipmentAffixLockAction(state, slot, affixId) {
+  const current = normalizeState(state);
+  const equip = current.equipment[slot];
+  if (!equip) return addLog(current, `${slotLabel(slot)} 슬롯에 장비가 없습니다.`);
+
+  const affixes = Array.isArray(equip.affixes) ? equip.affixes : [];
+  if (!affixes.length) return addLog(current, `${equip.name}에는 잠글 옵션이 없습니다.`);
+
+  let changed = false;
+  const nextAffixes = affixes.map((affix) => {
+    if (affix.id !== affixId) return affix;
+    changed = true;
+    return { ...affix, locked: !affix.locked };
+  });
+  if (!changed) return addLog(current, '옵션 라인을 찾을 수 없습니다.');
+
+  const nextEquip = {
+    ...equip,
+    affixes: nextAffixes,
+    rolls: computeRollsFromAffixes(nextAffixes),
+  };
+  const target = nextAffixes.find((affix) => affix.id === affixId);
+
+  return addLog({
+    ...current,
+    equipment: { ...current.equipment, [slot]: nextEquip },
+  }, `${equip.name} 옵션 ${target?.label || affixId} ${target?.locked ? '잠금' : '해제'}`);
+}
+
 export function autoSalvageAction(state) {
   const current = normalizeState(state);
   const queue = Array.isArray(current.salvageQueue) ? current.salvageQueue : [];

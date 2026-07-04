@@ -49,6 +49,7 @@ import {
   slotLabel,
   summaryForState,
   teamPower,
+  toggleEquipmentAffixLockAction,
   towerShopRotationSummary,
   titleRows,
   towerShopRows,
@@ -426,6 +427,20 @@ export default function SchaleIdlePlayPage() {
                     <strong>{equip.name}</strong>
                     <small>{formatRolls(equip)}</small>
                     <small>{formatAffixes(equip) || '옵션 없음'}</small>
+                    {(equip.affixes || []).length ? (
+                      <div className="games-chip-row" style={{ marginTop: 8 }}>
+                        {equip.affixes.map((affix) => (
+                          <button
+                            type="button"
+                            className={`schale-salvage-toggle${affix.locked ? ' is-on' : ''}`}
+                            key={`${equip.uid}-${affix.id}`}
+                            onClick={() => setState((current) => toggleEquipmentAffixLockAction(current, equip.slot, affix.id))}
+                          >
+                            {affix.locked ? '잠금' : '잠금 해제'} · {affix.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                   <strong>+{equip.enhance || 0}</strong>
                 </article>
