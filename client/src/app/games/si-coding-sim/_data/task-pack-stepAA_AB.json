@@ -1,0 +1,1356 @@
+{
+  "meta": {
+    "title": "SI Coding Sim Prototype Step Z",
+    "version": "2.2.0",
+    "mode": "real_patch_mode_multifile_light_stats_traits_docs_storage_slots_execution_v1",
+    "projectEndMode": "manual_project_closure_evaluation",
+    "followUpMode": "post_project_branch_preview",
+    "seedMode": "next_project_seed_generation",
+    "seedTaskPackMode": "seed_to_playable_task_pack_promotion",
+    "contractNegotiationMode": "career_aware_contract_negotiation",
+    "contractFinanceMode": "advance_and_close_settlement",
+    "contractRewardScore": 96,
+    "contractNegotiationId": "BALANCED",
+    "contractNegotiationTitle": "기본 유지보수 착수 조건",
+    "contractNegotiationBadge": "기본",
+    "supportMode": "company_support_budget_relief",
+    "traitMode": "auto_unlock_traits_v1",
+    "skillMode": "core_stats_and_domain_skills_v1",
+    "documentPlayMode": "requirements_checkpoint_v1",
+    "storageMode": "local_storage_slots_and_autosave_v2",
+    "codingTestMode": "separate_task_pack_switch_v1_execution_judge"
+  },
+  "tasks": [
+    {
+      "id": "TASK-LOGIN-001",
+      "projectName": "Haneul Steel Groupware Enhancement",
+      "client": "Haneul Steel",
+      "difficulty": "Normal",
+      "deadline": "오늘 18:00 전 1차 검수",
+      "modeLabel": "프론트 패치",
+      "summary": "로그인 실패 시 오류 메시지가 화면에 보이지 않고, Enter 키로 로그인도 되지 않습니다. 요구사항 문서와 회의 메모를 참고해 화면 스크립트를 수정하고 작업 보고를 남기세요.",
+      "reportPlaceholder": "예: errorBox 출력 및 Enter 로그인 처리 반영",
+      "reportMinLength": 20,
+      "goals": [
+        "오류 메시지를 #errorBox에 출력한다.",
+        "Enter 키 입력 시 login()이 호출된다.",
+        "작업 보고를 20자 이상 작성한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-001",
+          "title": "요구사항 변경 메모",
+          "content": "[고객 요청]\n1. 로그인 실패 시 alert 말고 화면 상단 빨간 박스(#errorBox)에 메시지를 보여줄 것.\n2. 사용자가 id/pw 입력 후 Enter를 누르면 로그인 함수가 호출될 것.\n3. 이번 건은 긴급 대응이므로 화면 스크립트 우선 수정, 서버 API는 변경하지 않음."
+        },
+        {
+          "id": "MEET-002",
+          "title": "오전 10시 회의록",
+          "content": "[메모]\n- 운영 담당자가 alert 팝업은 차단해서 못 본다고 함.\n- errorBox는 기존 login.jsp 안에 이미 존재함. textContent로 메시지를 넣고 hidden 클래스를 제거하면 됨.\n- Enter 처리 대상은 idInput, pwInput 둘 다."
+        },
+        {
+          "id": "TEST-003",
+          "title": "테스트 기준",
+          "content": "[통과 조건]\n- setError(message) 호출 시 #errorBox가 표시되고 메시지가 반영됨\n- idInput, pwInput에서 keydown Enter 시 login() 호출\n- 작업 보고 20자 이상"
+        }
+      ],
+      "files": [
+        {
+          "id": "login-js",
+          "name": "login.js",
+          "language": "javascript",
+          "editable": true,
+          "role": "이벤트 및 오류 메시지 처리",
+          "content": "const state = {\n  submitting: false,\n  lastError: ''\n};\n\nfunction login() {\n  state.submitting = true;\n  const idValue = document.getElementById('idInput').value.trim();\n  const pwValue = document.getElementById('pwInput').value.trim();\n\n  if (!idValue || !pwValue) {\n    showAlert('아이디와 비밀번호를 입력하세요.');\n    state.submitting = false;\n    return false;\n  }\n\n  return true;\n}\n\nfunction showAlert(message) {\n  state.lastError = message;\n  window.alert(message);\n}\n\nfunction bindEvents() {\n  document.getElementById('loginBtn').addEventListener('click', function() {\n    login();\n  });\n}\n\nbindEvents();\n"
+        },
+        {
+          "id": "login-jsp",
+          "name": "login.jsp",
+          "language": "jsp",
+          "editable": false,
+          "role": "화면 구조 참고용",
+          "content": "<div class=\"login-form\">\n  <input id=\"idInput\" type=\"text\" />\n  <input id=\"pwInput\" type=\"password\" />\n  <div id=\"errorBox\" class=\"hidden\"></div>\n  <button id=\"loginBtn\" type=\"button\">로그인</button>\n</div>\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-ERROR-BOX",
+            "description": "오류 메시지가 #errorBox에 출력되는가",
+            "failReason": "errorBox 표시 처리 또는 메시지 반영이 부족합니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "errorBox"
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "textContent",
+                  "innerText",
+                  "innerHTML"
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "classList.remove('hidden')",
+                  "classList.remove(\"hidden\")"
+                ]
+              }
+            ],
+            "fileId": "login-js"
+          },
+          {
+            "id": "CHECK-ENTER-KEY",
+            "description": "Enter 키 입력 처리가 있는가",
+            "failReason": "Enter 키 입력 이벤트 연결이 부족합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "keydown",
+                  "keyup",
+                  "keypress"
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "event.key === 'Enter'",
+                  "e.key === 'Enter'",
+                  "key === 'Enter'"
+                ]
+              },
+              {
+                "type": "includes",
+                "value": "login()"
+              }
+            ],
+            "fileId": "login-js"
+          },
+          {
+            "id": "CHECK-NO-ALERT",
+            "description": "alert 의존을 제거했는가",
+            "failReason": "기존 alert 의존이 아직 남아 있습니다.",
+            "rules": [
+              {
+                "type": "notIncludes",
+                "value": "window.alert("
+              },
+              {
+                "type": "notIncludes",
+                "value": "showAlert("
+              }
+            ],
+            "fileId": "login-js"
+          }
+        ]
+      },
+      "hints": [
+        "기존 alert 의존을 없애고, 숨겨진 에러 박스를 보여주는 방식으로 바꾸면 됩니다.",
+        "Enter 키 처리는 keydown 또는 keyup 이벤트 안에서 login() 호출 흔적이 있으면 통과합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 300,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "5분",
+      "tags": [
+        "requirements",
+        "hotfix",
+        "frontend",
+        "backend"
+      ],
+      "passiveInsights": {
+        "requirements": "Enter 처리는 idInput / pwInput 둘 다를 묶어서 보는 게 안전합니다.",
+        "testing": "빈 입력값 처리와 실패 메시지 노출 흐름을 같이 점검해 보세요.",
+        "syntax": "alert 제거 후 errorBox 표시 클래스까지 확인하면 실수가 줄어듭니다."
+      },
+      "documentPlay": {
+        "title": "문서 핵심 요구 확인",
+        "summary": "요구사항과 회의록을 읽고 이번 핫픽스에서 반드시 반영해야 할 항목을 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-error-box",
+            "title": "오류 메시지는 alert 대신 #errorBox에 표시",
+            "detail": "기존 팝업 대신 화면 상단 빨간 박스 노출 요구",
+            "sourceDocId": "REQ-001",
+            "required": true
+          },
+          {
+            "id": "doc-enter-both",
+            "title": "Enter 처리는 idInput / pwInput 둘 다 대상",
+            "detail": "두 입력창 모두 Enter 로그인 동작이 필요",
+            "sourceDocId": "MEET-002",
+            "required": true
+          },
+          {
+            "id": "doc-no-api-change",
+            "title": "이번 건은 서버 API를 바꾸지 않는다",
+            "detail": "긴급 대응이므로 화면 스크립트 우선 수정",
+            "sourceDocId": "REQ-001",
+            "required": true
+          },
+          {
+            "id": "doc-change-status",
+            "title": "컨트롤러 status 값을 error로 변경",
+            "detail": "이 과제 문서에는 없는 요구사항",
+            "sourceDocId": "TEST-003",
+            "required": false
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "script",
+        "mockType": "login_dom_v1",
+        "entryFileId": "login-js",
+        "exportName": "login",
+        "tests": [
+          {
+            "description": "빈 입력에서 errorBox 노출",
+            "setup": {
+              "elements": {
+                "idInput": {
+                  "value": ""
+                },
+                "pwInput": {
+                  "value": ""
+                },
+                "errorBox": {
+                  "className": "hidden",
+                  "textContent": ""
+                }
+              },
+              "clearAlerts": true
+            },
+            "invoke": {
+              "type": "function",
+              "args": []
+            },
+            "assertions": [
+              {
+                "type": "returnEquals",
+                "value": false
+              },
+              {
+                "type": "elementTextIncludes",
+                "elementId": "errorBox",
+                "value": "아이디와 비밀번호"
+              },
+              {
+                "type": "elementClassNotContains",
+                "elementId": "errorBox",
+                "value": "hidden"
+              },
+              {
+                "type": "alertCountEquals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "description": "Enter 키 핸들러 등록",
+            "invoke": {
+              "type": "none"
+            },
+            "assertions": [
+              {
+                "type": "listenerExists",
+                "elementId": "idInput",
+                "eventType": "keydown"
+              },
+              {
+                "type": "listenerExists",
+                "elementId": "pwInput",
+                "eventType": "keydown"
+              },
+              {
+                "type": "listenerExists",
+                "elementId": "loginBtn",
+                "eventType": "click"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "Enter 입력 시 login 흐름 호출",
+            "setup": {
+              "elements": {
+                "idInput": {
+                  "value": ""
+                },
+                "pwInput": {
+                  "value": ""
+                },
+                "errorBox": {
+                  "className": "hidden",
+                  "textContent": ""
+                }
+              },
+              "clearAlerts": true
+            },
+            "invoke": {
+              "type": "listener",
+              "elementId": "idInput",
+              "eventType": "keydown",
+              "event": {
+                "key": "Enter"
+              }
+            },
+            "assertions": [
+              {
+                "type": "elementTextIncludes",
+                "elementId": "errorBox",
+                "value": "아이디와 비밀번호"
+              },
+              {
+                "type": "elementClassNotContains",
+                "elementId": "errorBox",
+                "value": "hidden"
+              },
+              {
+                "type": "alertCountEquals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "description": "정상 입력 시 true 반환",
+            "setup": {
+              "elements": {
+                "idInput": {
+                  "value": "user01"
+                },
+                "pwInput": {
+                  "value": "pw01"
+                },
+                "errorBox": {
+                  "className": "hidden",
+                  "textContent": ""
+                }
+              },
+              "clearAlerts": true
+            },
+            "invoke": {
+              "type": "function",
+              "args": []
+            },
+            "assertions": [
+              {
+                "type": "returnEquals",
+                "value": true
+              },
+              {
+                "type": "alertCountEquals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "judgeMode": "execution_v1_script"
+    },
+    {
+      "id": "TASK-SQL-002",
+      "projectName": "Chungram Partner Admin Upgrade",
+      "client": "Cheongram Retail",
+      "difficulty": "Normal",
+      "deadline": "내일 11:00 QA 전달",
+      "modeLabel": "SQL 패치",
+      "summary": "거래처 목록 조회가 퇴사 사용자까지 노출하고 정렬 기준도 맞지 않습니다. 쿼리 조건과 정렬을 수정해 QA 전달용 스크립트 초안을 맞추세요.",
+      "reportPlaceholder": "예: active='Y' 조건과 reg_dt DESC 정렬 반영",
+      "reportMinLength": 20,
+      "goals": [
+        "ACTIVE_YN = 'Y' 조건을 추가한다.",
+        "삭제 사용자 제외 조건을 유지한다.",
+        "최신 등록일(reg_dt DESC) 기준으로 정렬한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-101",
+          "title": "고객 메일",
+          "content": "[요청]\n- 거래처 담당자 목록에서 비활성 사용자가 보이면 안 됩니다.\n- 그리드는 최근 등록 건이 위로 보이게 바꿔 주세요.\n- 삭제 여부 필터는 기존과 동일하게 유지 바랍니다."
+        },
+        {
+          "id": "QA-102",
+          "title": "QA 코멘트",
+          "content": "[확인 기준]\n1. use_yn 또는 active_yn 중 실제 컬럼은 ACTIVE_YN 사용\n2. 삭제 제외는 DEL_YN = 'N' 유지\n3. ORDER BY REG_DT DESC 적용"
+        },
+        {
+          "id": "NOTE-103",
+          "title": "개발 메모",
+          "content": "[주의]\n- 기존 ORDER BY NAME ASC는 제거해야 함\n- WHERE 절은 1=1 구조 유지 가능\n- 대소문자 상관 없이 문자열 포함 판정"
+        }
+      ],
+      "files": [
+        {
+          "id": "partner-list-sql",
+          "name": "partner_list.sql",
+          "language": "sql",
+          "editable": true,
+          "role": "목록 조회 쿼리",
+          "content": "SELECT\n    USER_ID,\n    USER_NM,\n    ACTIVE_YN,\n    REG_DT\nFROM CTC_PARTNER_USER\nWHERE 1 = 1\n  AND DEL_YN = 'N'\nORDER BY USER_NM ASC;\n"
+        },
+        {
+          "id": "partner-grid-html",
+          "name": "partner-grid.html",
+          "language": "html",
+          "editable": false,
+          "role": "그리드 정렬 표시 참고용",
+          "content": "<sc-grid id=\"partnerGrid\" default-sort=\"user_nm asc\">\n  <sc-grid-column data-field=\"user_nm\"></sc-grid-column>\n  <sc-grid-column data-field=\"reg_dt\"></sc-grid-column>\n</sc-grid>\n"
+        },
+        {
+          "id": "partner-service-java",
+          "name": "PartnerUserService.java",
+          "language": "java",
+          "editable": false,
+          "role": "서비스 호출 참고용",
+          "content": "public List<Map<String, Object>> findPartners(Map<String, Object> param) {\n    return dao.selectPartnerList(param);\n}\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-ACTIVE-FILTER",
+            "description": "활성 사용자 필터가 있는가",
+            "failReason": "ACTIVE_YN = 'Y' 조건이 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "ACTIVE_YN = 'Y'",
+                  "active_yn = 'Y'",
+                  "ACTIVE_YN='Y'",
+                  "active_yn='Y'"
+                ]
+              }
+            ],
+            "fileId": "partner-list-sql"
+          },
+          {
+            "id": "CHECK-DEL-FILTER",
+            "description": "삭제 제외 조건을 유지하는가",
+            "failReason": "DEL_YN = 'N' 조건이 빠졌습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "DEL_YN = 'N'",
+                  "del_yn = 'N'",
+                  "DEL_YN='N'",
+                  "del_yn='N'"
+                ]
+              }
+            ],
+            "fileId": "partner-list-sql"
+          },
+          {
+            "id": "CHECK-ORDER-DESC",
+            "description": "등록일 내림차순 정렬인가",
+            "failReason": "REG_DT DESC 정렬이 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "ORDER BY REG_DT DESC",
+                  "order by reg_dt desc"
+                ]
+              },
+              {
+                "type": "notIncludes",
+                "value": "ORDER BY USER_NM ASC"
+              }
+            ],
+            "fileId": "partner-list-sql"
+          }
+        ]
+      },
+      "hints": [
+        "활성 사용자 필터는 ACTIVE_YN = 'Y' 문자열이 그대로 들어가야 합니다.",
+        "정렬 체크는 ORDER BY REG_DT DESC를 찾고, 기존 USER_NM ASC가 남아 있으면 실패합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 360,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "6분",
+      "tags": [
+        "database",
+        "legacy",
+        "requirements"
+      ],
+      "passiveInsights": {
+        "requirements": "운영팀 메모에 active=Y 조건과 최신 수정일 정렬이 같이 요구됩니다.",
+        "legacy": "기존 주석과 구식 alias가 많아도 WHERE 절과 ORDER BY를 먼저 보는 편이 빠릅니다.",
+        "testing": "비활성 데이터 누락과 정렬 기준 누락을 따로 확인하는 게 좋습니다."
+      },
+      "documentPlay": {
+        "title": "QA 전달 전 문서 체크",
+        "summary": "고객 메일과 QA 코멘트를 읽고 쿼리에서 유지해야 할 필수 조건을 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-active-only",
+            "title": "ACTIVE_YN = 'Y' 조건 추가",
+            "detail": "비활성 거래처를 목록에서 제외",
+            "sourceDocId": "REQ-101",
+            "required": true
+          },
+          {
+            "id": "doc-not-deleted",
+            "title": "삭제 사용자 제외 조건 유지",
+            "detail": "기존 삭제 사용자 제외 조건을 지우면 안 됩니다.",
+            "sourceDocId": "QA-102",
+            "required": true
+          },
+          {
+            "id": "doc-order-regdt",
+            "title": "최신 등록일 reg_dt DESC 정렬",
+            "detail": "QA 전달용 기준 정렬을 최신 등록일로 맞춰야 합니다.",
+            "sourceDocId": "NOTE-103",
+            "required": true
+          },
+          {
+            "id": "doc-grid-order",
+            "title": "partner-grid 컬럼 순서도 함께 수정",
+            "detail": "이번 문서 범위에는 없는 변경입니다.",
+            "sourceDocId": "REQ-101",
+            "required": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "TASK-API-003",
+      "projectName": "Kivotos Notice API Hotfix",
+      "client": "Kivotos Academy Office",
+      "difficulty": "Hard",
+      "deadline": "오늘 17:30 운영 반영 전 확인",
+      "modeLabel": "백엔드 패치",
+      "summary": "공지 상세 API가 null 데이터에서 바로 터지고, 컨트롤러 응답 형식도 확인이 필요합니다. 서비스 null 방어와 기본 메시지 처리, 컨트롤러 status=ok 유지 여부를 함께 점검하세요.",
+      "reportPlaceholder": "예: dto null 방어 및 기본 메시지 반환 처리",
+      "reportMinLength": 20,
+      "goals": [
+        "서비스에서 dto가 null일 때 기본 title/body를 넣는다.",
+        "컨트롤러 응답의 status를 ok로 유지한다.",
+        "작업 보고를 20자 이상 작성한다."
+      ],
+      "documents": [
+        {
+          "id": "INC-201",
+          "title": "장애 티켓",
+          "content": "[운영 장애]\n- 특정 noticeId에서 select 결과가 null이면 NPE 발생\n- 모바일 앱은 status='ok' 형식을 기대하고 있어 에러 구조 변경은 불가"
+        },
+        {
+          "id": "REQ-202",
+          "title": "핫픽스 가이드",
+          "content": "[핫픽스 방향]\n1. dto null 시 HashMap 생성 후 title/body 기본 메시지 세팅\n2. status 키는 항상 ok\n3. 오늘은 구조 개선보다 운영안정 우선"
+        },
+        {
+          "id": "TEST-203",
+          "title": "검수 조건",
+          "content": "[통과 조건]\n- dto == null 분기 존재\n- title/body 기본값 문자열 존재\n- result.put(\"status\", \"ok\") 유지"
+        }
+      ],
+      "files": [
+        {
+          "id": "notice-service-java",
+          "name": "NoticeService.java",
+          "language": "java",
+          "editable": true,
+          "role": "공지 상세 조회 서비스",
+          "content": "public Map<String, Object> getNoticeDetail(Long noticeId) {\n    Map<String, Object> result = new HashMap<>();\n    NoticeDto dto = noticeDao.selectDetail(noticeId);\n\n    result.put(\"title\", dto.getTitle());\n    result.put(\"body\", dto.getBody());\n    return result;\n}\n"
+        },
+        {
+          "id": "notice-controller-java",
+          "name": "NoticeController.java",
+          "language": "java",
+          "editable": true,
+          "role": "모바일 응답 래퍼",
+          "content": "public Map<String, Object> detail(Long noticeId) {\n    Map<String, Object> response = new HashMap<>();\n    response.put(\"status\", \"ok\");\n    response.put(\"data\", noticeService.getNoticeDetail(noticeId));\n    return response;\n}\n"
+        },
+        {
+          "id": "notice-dto-java",
+          "name": "NoticeDto.java",
+          "language": "java",
+          "editable": false,
+          "role": "필드 구조 참고용",
+          "content": "public class NoticeDto {\n    private String title;\n    private String body;\n}\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-NULL-GUARD",
+            "fileId": "notice-service-java",
+            "description": "서비스에 dto null 방어가 있는가",
+            "failReason": "NoticeService.java에 dto == null 분기가 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "dto == null",
+                  "null == dto"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-DEFAULT-TITLE-BODY",
+            "fileId": "notice-service-java",
+            "description": "서비스에서 기본 title/body를 세팅하는가",
+            "failReason": "NoticeService.java에 기본 title/body 메시지가 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "put(\"title\"",
+                  "put(\"body\"",
+                  "result.put(\"title\"",
+                  "result.put(\"body\""
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "데이터가 없습니다",
+                  "조회된 공지가 없습니다",
+                  "내용이 없습니다"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-STATUS-OK",
+            "fileId": "notice-controller-java",
+            "description": "컨트롤러에서 status=ok를 유지하는가",
+            "failReason": "NoticeController.java에서 status ok 응답이 유지되어야 합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "response.put(\"status\", \"ok\")",
+                  "put(\"status\", \"ok\")"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "hints": [
+        "핫픽스 방향은 dto == null 분기를 추가하고 title/body 기본 문자열을 넣는 것입니다.",
+        "status는 항상 result.put(\"status\", \"ok\") 형태가 남아 있어야 합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 420,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "7분",
+      "tags": [
+        "backend",
+        "hotfix",
+        "null-safety"
+      ],
+      "passiveInsights": {
+        "requirements": "응답 스키마는 유지하고 null 방어와 상태코드만 보강해야 합니다.",
+        "testing": "빈 목록, null payload, 예외 메시지 누락 여부를 같이 점검하세요.",
+        "syntax": "핫픽스에서는 최소 수정으로 500 응답만 막아도 점수가 크게 올라갑니다."
+      },
+      "documentPlay": {
+        "title": "장애 티켓 핵심 조건",
+        "summary": "장애 티켓과 핫픽스 가이드를 보고 반드시 지켜야 할 처리 방향을 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-null-default",
+            "title": "dto가 null이면 기본 title/body를 채운다",
+            "detail": "서비스 계층에서 null 방어와 기본 메시지 처리 필요",
+            "sourceDocId": "INC-201",
+            "required": true
+          },
+          {
+            "id": "doc-status-ok",
+            "title": "컨트롤러 응답 status는 ok 유지",
+            "detail": "검수 조건상 status 값을 바꾸면 안 됩니다.",
+            "sourceDocId": "TEST-203",
+            "required": true
+          },
+          {
+            "id": "doc-service-first",
+            "title": "이번 건은 서비스 로직 우선 핫픽스",
+            "detail": "DTO 구조 확장보다 기존 서비스 보완이 우선입니다.",
+            "sourceDocId": "REQ-202",
+            "required": true
+          },
+          {
+            "id": "doc-add-field",
+            "title": "NoticeDto에 신규 필드를 추가한다",
+            "detail": "이번 문서 범위에 없는 변경입니다.",
+            "sourceDocId": "REQ-202",
+            "required": false
+          }
+        ]
+      }
+    }
+  ],
+  "codingTestPack": {
+    "meta": {
+      "title": "Coding Test Mode Pack",
+      "version": "2.1.0",
+      "mode": "coding_test_mode_v1_execution_judge",
+      "modeLabel": "코딩테스트 모드",
+      "contractNegotiationTitle": "사내 기술 평가 세션",
+      "contractNegotiationBadge": "평가",
+      "contractRewardScore": 72
+    },
+    "tasks": [
+      {
+        "id": "CT-ARRAY-001",
+        "projectName": "사내 승급 코딩테스트 1회차",
+        "client": "내부 기술위원회",
+        "difficulty": "Normal",
+        "deadline": "시험 제한 35분",
+        "modeLabel": "코딩테스트 · 배열",
+        "summary": "사번 배열에서 중복을 제거하고 오름차순으로 정렬한 새 배열을 반환하는 유틸 함수를 마무리합니다.",
+        "reportPlaceholder": "예: Set으로 중복 제거 후 숫자 비교 정렬을 적용했습니다.",
+        "reportMinLength": 18,
+        "goals": [
+          "중복을 제거한 뒤 오름차순으로 정렬된 결과를 반환한다.",
+          "원본 배열을 직접 변경하지 않는다.",
+          "디버그용 console.log를 제거한다."
+        ],
+        "documents": [
+          {
+            "title": "문제 설명",
+            "content": "입력: 숫자형 사번 배열\n요구: 중복 제거 후 오름차순 정렬\n주의: 원본 배열을 mutate 하지 말 것"
+          },
+          {
+            "title": "채점 기준",
+            "content": "정답성 우선, 그 다음 예외 처리와 보고 정리 여부를 확인합니다."
+          }
+        ],
+        "files": [
+          {
+            "id": "array-solution-js",
+            "name": "solution.js",
+            "language": "javascript",
+            "editable": true,
+            "role": "정답 함수 구현",
+            "content": "function normalizeIds(ids) {\n  const unique = [...ids];\n  return unique;\n}\n\nmodule.exports = { normalizeIds };\n"
+          },
+          {
+            "id": "array-spec-md",
+            "name": "spec.md",
+            "language": "markdown",
+            "editable": false,
+            "role": "제약 조건 참고",
+            "content": "- ids는 숫자 배열\n- 반환 배열은 중복 제거 후 오름차순\n- 원본 배열은 변형하면 안 됨\n"
+          }
+        ],
+        "judge": {
+          "checks": [
+            {
+              "id": "CHECK-CT1-FUNC",
+              "fileId": "array-solution-js",
+              "description": "normalizeIds 함수 유지",
+              "failReason": "함수 시그니처를 잃었습니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "function normalizeIds"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-SET",
+              "fileId": "array-solution-js",
+              "description": "중복 제거 로직 적용",
+              "failReason": "중복 제거 의도가 보이지 않습니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "new Set",
+                    "Set("
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-SORT",
+              "fileId": "array-solution-js",
+              "description": "오름차순 정렬 적용",
+              "failReason": "정렬 로직이 부족합니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "sort("
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-NOLOG",
+              "fileId": "array-solution-js",
+              "description": "디버그 출력 제거",
+              "failReason": "console.log가 남아 있습니다.",
+              "rules": [
+                {
+                  "type": "notIncludes",
+                  "value": "console.log"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-REPORT",
+              "description": "접근 방식 보고",
+              "failReason": "중복 제거/정렬 접근을 보고에 남겨 주세요.",
+              "rules": [
+                {
+                  "type": "reportMinLength",
+                  "value": 18
+                },
+                {
+                  "type": "reportAnyIncludes",
+                  "values": [
+                    "중복",
+                    "정렬",
+                    "Set"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "hints": [
+          "Set을 사용하면 중복 제거 의도를 가장 짧게 드러낼 수 있습니다.",
+          "sort 비교 함수를 넣지 않으면 문자열 정렬로 오해받을 수 있습니다."
+        ],
+        "hintCostLabel": "집중력 -4 / 멘탈 -2",
+        "timeLimitSeconds": 2100,
+        "overtimeUnitSeconds": 45,
+        "timeLimitLabel": "35분",
+        "tags": [
+          "algorithm",
+          "array",
+          "codingtest"
+        ],
+        "passiveInsights": [
+          "제약 조건을 다시 확인해 원본 배열 mutate를 피하세요."
+        ],
+        "documentPlay": {
+          "title": "문제 핵심 조건 확인",
+          "summary": "제약 조건을 체크하고 나서 제출하세요.",
+          "reviewItems": [
+            {
+              "id": "arr-constraint-1",
+              "text": "중복 제거 후 오름차순 정렬이 핵심이다.",
+              "required": true
+            },
+            {
+              "id": "arr-constraint-2",
+              "text": "원본 배열은 직접 변경하면 안 된다.",
+              "required": true
+            },
+            {
+              "id": "arr-constraint-3",
+              "text": "console.log는 남겨도 된다.",
+              "required": false,
+              "isTrap": true
+            }
+          ],
+          "allowWrongSelections": 1
+        },
+        "judgeMode": "execution_v1",
+        "execution": {
+          "enabled": true,
+          "entryFileId": "array-solution-js",
+          "exportName": "normalizeIds",
+          "tests": [
+            {
+              "description": "기본 중복 제거 + 정렬",
+              "args": [
+                [
+                  3,
+                  1,
+                  2,
+                  3,
+                  2
+                ]
+              ],
+              "expected": [
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "description": "음수와 0 포함",
+              "args": [
+                [
+                  0,
+                  -1,
+                  0,
+                  2,
+                  -1
+                ]
+              ],
+              "expected": [
+                -1,
+                0,
+                2
+              ]
+            }
+          ],
+          "hiddenTests": [
+            {
+              "description": "이미 정렬된 배열",
+              "args": [
+                [
+                  1,
+                  1,
+                  2,
+                  3
+                ]
+              ],
+              "expected": [
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "description": "빈 배열",
+              "args": [
+                []
+              ],
+              "expected": []
+            }
+          ],
+          "immutableArgIndices": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "CT-STRING-002",
+        "projectName": "사내 승급 코딩테스트 1회차",
+        "client": "내부 기술위원회",
+        "difficulty": "Normal",
+        "deadline": "시험 제한 40분",
+        "modeLabel": "코딩테스트 · 문자열",
+        "summary": "괄호 문자열이 유효한지 검사하는 함수를 마무리합니다. stack을 사용한 균형 검사가 의도입니다.",
+        "reportPlaceholder": "예: 스택으로 여는 괄호를 push하고 닫는 괄호에서 pop으로 짝을 확인했습니다.",
+        "reportMinLength": 20,
+        "goals": [
+          "소괄호/중괄호/대괄호의 짝을 검사한다.",
+          "닫는 괄호가 먼저 나오면 false를 반환한다.",
+          "모든 검사가 끝난 뒤 스택이 비어 있어야 true다."
+        ],
+        "documents": [
+          {
+            "title": "문제 설명",
+            "content": "입력 문자열은 () {} [] 만 포함한다고 가정한다.\n유효한 괄호열이면 true, 아니면 false를 반환한다."
+          }
+        ],
+        "files": [
+          {
+            "id": "paren-solution-js",
+            "name": "solution.js",
+            "language": "javascript",
+            "editable": true,
+            "role": "유효성 검사 함수",
+            "content": "function isValidParentheses(input) {\n  const stack = [];\n  const pair = { \")\": \"(\", \"]\": \"[\", \"}\": \"{\" };\n  for (const ch of input) {\n    if (ch === \"(\" || ch === \"[\" || ch === \"{\") {\n      stack.push(ch);\n      continue;\n    }\n    return true;\n  }\n  return true;\n}\n\nmodule.exports = { isValidParentheses };\n"
+          },
+          {
+            "id": "paren-cases-txt",
+            "name": "cases.txt",
+            "language": "text",
+            "editable": false,
+            "role": "예시 입력",
+            "content": "()[]{} => true\n([)] => false\n(((()))) => true\n"
+          }
+        ],
+        "judge": {
+          "checks": [
+            {
+              "id": "CHECK-CT2-STACK",
+              "fileId": "paren-solution-js",
+              "description": "스택 사용",
+              "failReason": "스택 기반 의도가 약합니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "stack"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-POP",
+              "fileId": "paren-solution-js",
+              "description": "닫는 괄호에서 pop 비교",
+              "failReason": "닫는 괄호 검증이 부족합니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "stack.pop()",
+                    "pop("
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-FALSE",
+              "fileId": "paren-solution-js",
+              "description": "잘못된 경우 false 반환",
+              "failReason": "실패 분기에서 false 반환이 부족합니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "return false"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-EMPTY",
+              "fileId": "paren-solution-js",
+              "description": "종료 시 스택 비움 확인",
+              "failReason": "종료 후 stack 길이 확인이 부족합니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "stack.length === 0",
+                    "!stack.length"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-REPORT",
+              "description": "접근 방식 보고",
+              "failReason": "stack 기반 접근을 보고에 남겨 주세요.",
+              "rules": [
+                {
+                  "type": "reportMinLength",
+                  "value": 20
+                },
+                {
+                  "type": "reportAnyIncludes",
+                  "values": [
+                    "스택",
+                    "stack",
+                    "짝"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "hints": [
+          "닫는 괄호를 만났을 때 바로 true를 반환하면 대부분의 반례를 놓칩니다.",
+          "마지막에 stack이 비었는지 반드시 확인하세요."
+        ],
+        "hintCostLabel": "집중력 -5 / 멘탈 -2",
+        "timeLimitSeconds": 2400,
+        "overtimeUnitSeconds": 45,
+        "timeLimitLabel": "40분",
+        "tags": [
+          "algorithm",
+          "string",
+          "codingtest"
+        ],
+        "passiveInsights": [
+          "경계 조건: 닫는 괄호가 먼저 오는 경우를 떠올리세요."
+        ],
+        "documentPlay": {
+          "title": "문제 핵심 조건 확인",
+          "summary": "문제 설명과 예시를 보고 핵심 조건을 체크하세요.",
+          "reviewItems": [
+            {
+              "id": "paren-constraint-1",
+              "text": "닫는 괄호가 먼저 나오면 false여야 한다.",
+              "required": true
+            },
+            {
+              "id": "paren-constraint-2",
+              "text": "모든 문자 처리 후 stack이 비어 있어야 true다.",
+              "required": true
+            },
+            {
+              "id": "paren-constraint-3",
+              "text": "짝만 맞으면 중첩 순서는 중요하지 않다.",
+              "required": false,
+              "isTrap": true
+            }
+          ],
+          "allowWrongSelections": 1
+        },
+        "judgeMode": "execution_v1",
+        "execution": {
+          "enabled": true,
+          "entryFileId": "paren-solution-js",
+          "exportName": "isValidParentheses",
+          "tests": [
+            {
+              "description": "정상 괄호열",
+              "args": [
+                "()[]{}"
+              ],
+              "expected": true
+            },
+            {
+              "description": "닫는 괄호 우선",
+              "args": [
+                ")("
+              ],
+              "expected": false
+            },
+            {
+              "description": "중첩 오류",
+              "args": [
+                "([)]"
+              ],
+              "expected": false
+            }
+          ],
+          "hiddenTests": [
+            {
+              "description": "깊은 중첩",
+              "args": [
+                "(((())))"
+              ],
+              "expected": true
+            },
+            {
+              "description": "미종료 스택",
+              "args": [
+                "((("
+              ],
+              "expected": false
+            }
+          ]
+        }
+      },
+      {
+        "id": "CT-HASH-003",
+        "projectName": "사내 승급 코딩테스트 1회차",
+        "client": "내부 기술위원회",
+        "difficulty": "Hard",
+        "deadline": "시험 제한 45분",
+        "modeLabel": "코딩테스트 · 해시",
+        "summary": "태그 배열에서 빈도를 집계해 상위 2개 태그를 빈도 내림차순으로 반환하는 함수를 마무리합니다.",
+        "reportPlaceholder": "예: Map으로 빈도를 세고 엔트리를 정렬해 상위 2개를 반환했습니다.",
+        "reportMinLength": 22,
+        "goals": [
+          "빈도 집계를 수행한다.",
+          "빈도 내림차순으로 정렬한다.",
+          "상위 2개 태그 문자열만 배열로 반환한다."
+        ],
+        "documents": [
+          {
+            "title": "문제 설명",
+            "content": "입력: 문자열 태그 배열\n출력: 빈도 상위 2개 태그를 담은 배열\n동률이면 먼저 등장한 순서를 유지해도 무방하다."
+          }
+        ],
+        "files": [
+          {
+            "id": "hash-solution-js",
+            "name": "solution.js",
+            "language": "javascript",
+            "editable": true,
+            "role": "집계 함수 구현",
+            "content": "function topTwoTags(tags) {\n  const counts = {};\n  return Object.keys(counts).slice(0, 2);\n}\n\nmodule.exports = { topTwoTags };\n"
+          },
+          {
+            "id": "hash-readme-md",
+            "name": "readme.md",
+            "language": "markdown",
+            "editable": false,
+            "role": "풀이 메모 참고",
+            "content": "- 빈도 집계 후 정렬\n- 상위 2개만 반환\n- 동률 처리 자유\n"
+          }
+        ],
+        "judge": {
+          "checks": [
+            {
+              "id": "CHECK-CT3-COUNT",
+              "fileId": "hash-solution-js",
+              "description": "빈도 집계 구조 사용",
+              "failReason": "빈도 집계 로직이 부족합니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "Map(",
+                    "counts[",
+                    "counts = {}"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT3-SORT",
+              "fileId": "hash-solution-js",
+              "description": "정렬 로직 적용",
+              "failReason": "정렬 로직이 보이지 않습니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "sort("
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT3-TOP2",
+              "fileId": "hash-solution-js",
+              "description": "상위 2개 추출",
+              "failReason": "상위 2개 반환이 분명하지 않습니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "slice(0, 2)",
+                    "slice(0,2)"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT3-REPORT",
+              "description": "접근 방식 보고",
+              "failReason": "집계와 정렬 접근을 보고에 남겨 주세요.",
+              "rules": [
+                {
+                  "type": "reportMinLength",
+                  "value": 22
+                },
+                {
+                  "type": "reportAnyIncludes",
+                  "values": [
+                    "집계",
+                    "정렬",
+                    "Map",
+                    "빈도"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "hints": [
+          "집계 구조는 Map이든 객체든 상관없지만, 빈도 계산 의도가 드러나야 합니다.",
+          "정렬 후 top 2만 잘라내는 구조가 가장 명확합니다."
+        ],
+        "hintCostLabel": "집중력 -6 / 멘탈 -3",
+        "timeLimitSeconds": 2700,
+        "overtimeUnitSeconds": 60,
+        "timeLimitLabel": "45분",
+        "tags": [
+          "algorithm",
+          "hash",
+          "codingtest"
+        ],
+        "passiveInsights": [
+          "빈도 집계 → 정렬 → 상위 2개 추출 순서로 정리해 보세요."
+        ],
+        "documentPlay": {
+          "title": "문제 핵심 조건 확인",
+          "summary": "집계와 반환 형식을 체크하세요.",
+          "reviewItems": [
+            {
+              "id": "hash-constraint-1",
+              "text": "반환값은 태그 문자열 2개를 담은 배열이다.",
+              "required": true
+            },
+            {
+              "id": "hash-constraint-2",
+              "text": "빈도 집계 후 내림차순 정렬이 핵심이다.",
+              "required": true
+            },
+            {
+              "id": "hash-constraint-3",
+              "text": "동률이면 알파벳 순 강제 정렬이 필요하다.",
+              "required": false,
+              "isTrap": true
+            }
+          ],
+          "allowWrongSelections": 1
+        },
+        "judgeMode": "execution_v1",
+        "execution": {
+          "enabled": true,
+          "entryFileId": "hash-solution-js",
+          "exportName": "topTwoTags",
+          "tests": [
+            {
+              "description": "기본 빈도 집계",
+              "args": [
+                [
+                  "a",
+                  "b",
+                  "a",
+                  "c",
+                  "b",
+                  "a"
+                ]
+              ],
+              "expected": [
+                "a",
+                "b"
+              ]
+            },
+            {
+              "description": "2종류만 존재",
+              "args": [
+                [
+                  "x",
+                  "y",
+                  "x",
+                  "y",
+                  "x"
+                ]
+              ],
+              "expected": [
+                "x",
+                "y"
+              ]
+            }
+          ],
+          "hiddenTests": [
+            {
+              "description": "1개만 존재",
+              "args": [
+                [
+                  "solo",
+                  "solo"
+                ]
+              ],
+              "expected": [
+                "solo"
+              ]
+            },
+            {
+              "description": "다양한 빈도",
+              "args": [
+                [
+                  "red",
+                  "blue",
+                  "red",
+                  "green",
+                  "blue",
+                  "red",
+                  "blue"
+                ]
+              ],
+              "expected": [
+                "red",
+                "blue"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

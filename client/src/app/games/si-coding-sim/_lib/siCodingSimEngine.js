@@ -1,3 +1,17 @@
+import taskPackStepU from '../_data/task-pack-stepU.json';
+import taskPackStepV from '../_data/task-pack-stepV.json';
+import taskPackStepW from '../_data/task-pack-stepW.json';
+import taskPackStepX from '../_data/task-pack-stepX.json';
+import taskPackStepY from '../_data/task-pack-stepY.json';
+import taskPackStepZ from '../_data/task-pack-stepZ.json';
+import taskPackStepAAAB from '../_data/task-pack-stepAA_AB.json';
+import taskPackStepACAD from '../_data/task-pack-stepAC_AD.json';
+import taskPackStepAEAF from '../_data/task-pack-stepAE_AF.json';
+import taskPackStepAGAH from '../_data/task-pack-stepAG_AH.json';
+import taskPackStepAIAJ from '../_data/task-pack-stepAI_AJ.json';
+import taskPackStepAKAL from '../_data/task-pack-stepAK_AL.json';
+import taskPackStepAMAN from '../_data/task-pack-stepAM_AN.json';
+import taskPackStepAOAP from '../_data/task-pack-stepAO_AP.json';
 import taskPack from '../_data/task-pack-stepAQ_AR.json';
 import judgeRules from '../_data/judge-rules.json';
 
@@ -5,7 +19,41 @@ export const GAME_SLUG = 'si-coding-sim';
 export const QUICK_SAVE_SLOT = 'si-coding-sim-main';
 export const SAVE_VERSION = 'si-coding-sim-v1';
 
-export const TASKS = Array.isArray(taskPack.tasks) ? taskPack.tasks : [];
+const DEFAULT_TASK_PACK_ID = 'stepAQ_AR';
+
+export const TASK_PACKS = [
+  { id: 'stepU', label: 'Step U', pack: taskPackStepU },
+  { id: 'stepV', label: 'Step V', pack: taskPackStepV },
+  { id: 'stepW', label: 'Step W', pack: taskPackStepW },
+  { id: 'stepX', label: 'Step X', pack: taskPackStepX },
+  { id: 'stepY', label: 'Step Y', pack: taskPackStepY },
+  { id: 'stepZ', label: 'Step Z', pack: taskPackStepZ },
+  { id: 'stepAA_AB', label: 'Step AA/AB', pack: taskPackStepAAAB },
+  { id: 'stepAC_AD', label: 'Step AC/AD', pack: taskPackStepACAD },
+  { id: 'stepAE_AF', label: 'Step AE/AF', pack: taskPackStepAEAF },
+  { id: 'stepAG_AH', label: 'Step AG/AH', pack: taskPackStepAGAH },
+  { id: 'stepAI_AJ', label: 'Step AI/AJ', pack: taskPackStepAIAJ },
+  { id: 'stepAK_AL', label: 'Step AK/AL', pack: taskPackStepAKAL },
+  { id: 'stepAM_AN', label: 'Step AM/AN', pack: taskPackStepAMAN },
+  { id: 'stepAO_AP', label: 'Step AO/AP', pack: taskPackStepAOAP },
+  { id: DEFAULT_TASK_PACK_ID, label: 'Step AQ/AR', pack: taskPack },
+].map((entry) => ({
+  ...entry,
+  title: entry.pack?.meta?.title || `SI Coding Sim Prototype ${entry.label}`,
+  summary: `${entry.label} task pack`,
+  version: entry.pack?.meta?.version || '',
+  tasks: Array.isArray(entry.pack?.tasks) ? entry.pack.tasks : [],
+  rewardScore: Number(entry.pack?.meta?.contractRewardScore || 0),
+}));
+
+const DEFAULT_TASK_PACK = TASK_PACKS.find((entry) => entry.id === DEFAULT_TASK_PACK_ID) || TASK_PACKS[TASK_PACKS.length - 1];
+
+export const TASKS = DEFAULT_TASK_PACK.tasks;
+
+function taskPackById(packId) {
+  const key = String(packId || '').trim();
+  return TASK_PACKS.find((entry) => entry.id === key) || DEFAULT_TASK_PACK;
+}
 
 const BASE_RESOURCES = {
   stamina: 100,
@@ -262,7 +310,8 @@ const PROJECT_SEED_GROUPS = [
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
-  const firstTask = TASKS[0];
+  const pack = taskPackById(options.taskPackId || DEFAULT_TASK_PACK_ID);
+  const firstTask = pack.tasks[0];
   return {
     runId: options.runId || `si-${Date.now().toString(36)}`,
     startedAt: now,
@@ -271,15 +320,17 @@ export function createNewState(options = {}) {
     activeTasks: [],
     taskSet: {
       id: 'initial',
-      title: taskPack.meta?.title || 'SI Coding Sim Prototype Step AQ/AR',
-      summary: '업로드된 Step AQ/AR 기본 현장 과제팩입니다.',
+      packId: pack.id,
+      title: pack.title,
+      summary: `${pack.label} 원본 task-pack에서 가져온 과제 세트입니다.`,
       sourceSeedId: '',
+      rewardScore: pack.rewardScore,
     },
     resources: { ...BASE_RESOURCES },
     workspaceFiles: firstTask ? { [firstTask.id]: createTaskWorkspace(firstTask) } : {},
     reports: {},
     hintUsage: {},
-    companySupport: createCompanySupportState(),
+    companySupport: createCompanySupportState(pack.rewardScore),
     documentReviewByTask: {},
     taskOutcomes: {},
     playerProfile: createPlayerProfile(),
@@ -323,6 +374,51 @@ export function getCurrentTask(state) {
 
 export function getActiveTasks(state) {
   return activeTaskList(normalizeState(state));
+}
+
+export function taskPackRows(state) {
+  const current = normalizeState(state);
+  const activePackId = current.activeTasks.length ? '' : current.taskSet?.packId || DEFAULT_TASK_PACK_ID;
+  return TASK_PACKS.map((pack) => ({
+    id: pack.id,
+    label: pack.label,
+    title: pack.title,
+    version: pack.version,
+    taskCount: pack.tasks.length,
+    rewardScore: pack.rewardScore,
+    selected: pack.id === activePackId,
+  }));
+}
+
+export function selectTaskPackAction(state, packId) {
+  const current = normalizeState(state);
+  const pack = taskPackById(packId);
+  const firstTask = pack.tasks[0] || null;
+  if (!firstTask) return addLog(current, `${pack.label} 과제팩에 표시할 과제가 없습니다.`);
+  return addLog({
+    ...current,
+    activeTasks: [],
+    taskSet: {
+      id: 'initial',
+      packId: pack.id,
+      title: pack.title,
+      summary: `${pack.label} 원본 task-pack에서 가져온 과제 세트입니다.`,
+      sourceSeedId: '',
+      rewardScore: pack.rewardScore,
+    },
+    currentTaskId: firstTask.id,
+    resources: { ...BASE_RESOURCES },
+    workspaceFiles: { [firstTask.id]: createTaskWorkspace(firstTask) },
+    reports: {},
+    hintUsage: {},
+    companySupport: createCompanySupportState(pack.rewardScore),
+    documentReviewByTask: {},
+    taskOutcomes: {},
+    projectEvaluations: [],
+    followUpPlan: null,
+    generatedSeeds: [],
+    selectedSeedId: '',
+  }, `${pack.label} 과제팩으로 전환했습니다. 과제 ${pack.tasks.length}개를 불러왔습니다.`);
 }
 
 export function taskRows(state) {
@@ -624,6 +720,7 @@ export function startSelectedProjectSeedAction(state) {
     activeTasks: tasks,
     taskSet: {
       id: `seed-${seed.id}`,
+      packId: '',
       title: `${seed.projectName} 차기 현장 세트`,
       summary: `${seed.title} 기반으로 분석, 패치, 문서 과제를 생성했습니다.`,
       sourceSeedId: seed.id,
@@ -823,8 +920,11 @@ export function summaryForState(state) {
     : 0;
   const profile = normalizePlayerProfile(current.playerProfile);
   const career = resolvePlayerCareer(profile, current.projectEvaluations);
+  const taskPack = taskPackById(current.taskSet?.packId || DEFAULT_TASK_PACK_ID);
   return {
     currentTaskId: current.currentTaskId,
+    taskPackId: current.activeTasks.length ? current.taskSet?.id || '' : taskPack.id,
+    taskPackLabel: current.activeTasks.length ? current.taskSet?.title || '생성 현장' : taskPack.label,
     taskSetTitle: current.taskSet?.title || '',
     submittedTasks: outcomes.length,
     totalTasks: tasks.length,
@@ -847,7 +947,8 @@ export function summaryForState(state) {
 }
 
 function activeTaskList(state) {
-  return Array.isArray(state?.activeTasks) && state.activeTasks.length ? state.activeTasks : TASKS;
+  if (Array.isArray(state?.activeTasks) && state.activeTasks.length) return state.activeTasks;
+  return taskPackById(state?.taskSet?.packId || DEFAULT_TASK_PACK_ID).tasks;
 }
 
 function createPlayerProfile() {
@@ -1082,13 +1183,15 @@ function taskMatches(task, keywords) {
 
 function normalizeTaskSet(value) {
   const src = value && typeof value === 'object' ? value : {};
+  const pack = taskPackById(src.packId || DEFAULT_TASK_PACK_ID);
   return {
     id: String(src.id || 'initial'),
-    title: String(src.title || taskPack.meta?.title || 'SI Coding Sim Prototype Step AQ/AR'),
-    summary: String(src.summary || '업로드된 Step AQ/AR 기본 현장 과제팩입니다.'),
+    packId: String(src.packId || pack.id),
+    title: String(src.title || pack.title),
+    summary: String(src.summary || `${pack.label} 원본 task-pack에서 가져온 과제 세트입니다.`),
     sourceSeedId: String(src.sourceSeedId || ''),
     seedGroupLabel: String(src.seedGroupLabel || ''),
-    rewardScore: Number(src.rewardScore || taskPack.meta?.contractRewardScore || 0),
+    rewardScore: Number(src.rewardScore || pack.rewardScore || 0),
     careerRankTitle: String(src.careerRankTitle || ''),
     careerReputationLabel: String(src.careerReputationLabel || ''),
   };
@@ -1739,9 +1842,9 @@ function applyResourceDelta(resources, delta) {
   };
 }
 
-function createCompanySupportState(rewardScore = taskPack.meta?.contractRewardScore) {
+function createCompanySupportState(rewardScore = DEFAULT_TASK_PACK.rewardScore) {
   return {
-    cashReserve: Math.max(24, Math.round(Number(rewardScore || taskPack.meta?.contractRewardScore || 80) * 0.4)),
+    cashReserve: Math.max(24, Math.round(Number(rewardScore || DEFAULT_TASK_PACK.rewardScore || 80) * 0.4)),
     totalSpent: 0,
     usageByTask: {},
     entries: [],

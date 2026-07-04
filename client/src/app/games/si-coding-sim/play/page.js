@@ -29,12 +29,14 @@ import {
   resetTaskAction,
   revealHintAction,
   scoreState,
+  selectTaskPackAction,
   selectProjectSeedAction,
   selectTaskAction,
   startSelectedProjectSeedAction,
   submitTaskAction,
   summaryForState,
   taskRows,
+  taskPackRows,
   toggleDocumentReviewAction,
   updateFileAction,
   updateReportAction,
@@ -93,6 +95,7 @@ export default function SiCodingSimPlayPage() {
 
   const rows = useMemo(() => taskRows(state), [state]);
   const activeTasks = useMemo(() => getActiveTasks(state), [state]);
+  const packRows = useMemo(() => taskPackRows(state), [state]);
   const projectRows = useMemo(() => projectProgressRows(state), [state]);
   const taskTagOptions = useMemo(() => Array.from(new Set(rows.flatMap((row) => row.tags || []))).sort((a, b) => a.localeCompare(b, 'ko-KR')), [rows]);
   const filteredRows = useMemo(() => {
@@ -251,6 +254,12 @@ export default function SiCodingSimPlayPage() {
     scrollToPanel(panel);
   };
 
+  const selectTaskPack = (packId) => {
+    setSelectedFileId('');
+    setState((current) => selectTaskPackAction(current, packId));
+    scrollToPanel('code');
+  };
+
   const startSelectedSeed = () => {
     setSelectedFileId('');
     setState((current) => startSelectedProjectSeedAction(current));
@@ -406,6 +415,20 @@ export default function SiCodingSimPlayPage() {
             <h2>현재 과제</h2>
             <span>{task.difficulty}</span>
           </div>
+          <label className="game-save-json-field">
+            <span>원본 챕터</span>
+            <select
+              value={state.activeTasks?.length ? '' : state.taskSet?.packId || 'stepAQ_AR'}
+              onChange={(event) => selectTaskPack(event.target.value)}
+            >
+              {state.activeTasks?.length ? <option value="">생성 현장</option> : null}
+              {packRows.map((pack) => (
+                <option value={pack.id} key={pack.id}>
+                  {pack.label} / {pack.taskCount}개 / {pack.version || 'v?'}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="game-save-json-field">
             <span>과제 선택</span>
             <select value={task.id} onChange={(event) => selectTask(event.target.value)}>

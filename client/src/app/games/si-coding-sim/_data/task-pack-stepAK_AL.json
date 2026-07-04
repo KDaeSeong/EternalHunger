@@ -1,0 +1,2746 @@
+{
+  "meta": {
+    "title": "SI Coding Sim Prototype Step AI/AJ",
+    "version": "2.8.0",
+    "mode": "real_patch_mode_multifile_light_stats_traits_docs_storage_slots_execution_feedback_v2_project_doc_gate_extended_tasks_v2",
+    "projectEndMode": "manual_project_closure_evaluation",
+    "followUpMode": "post_project_branch_preview",
+    "seedMode": "next_project_seed_generation",
+    "seedTaskPackMode": "seed_to_playable_task_pack_promotion",
+    "contractNegotiationMode": "career_aware_contract_negotiation",
+    "contractFinanceMode": "advance_and_close_settlement",
+    "contractRewardScore": 96,
+    "contractNegotiationId": "BALANCED",
+    "contractNegotiationTitle": "기본 유지보수 착수 조건",
+    "contractNegotiationBadge": "기본",
+    "supportMode": "company_support_budget_relief",
+    "traitMode": "auto_unlock_traits_v1",
+    "skillMode": "core_stats_and_domain_skills_v1",
+    "documentPlayMode": "requirements_checkpoint_v1",
+    "storageMode": "local_storage_slots_and_autoload_clickable_v3",
+    "codingTestMode": "separate_task_pack_switch_v1_execution_judge",
+    "executionExpansionMode": "si_task_execution_expansion_v1",
+    "executionFeedbackMode": "execution_feedback_ui_v2",
+    "taskExpansionMode": "si_multifile_task_expansion_v2",
+    "step": "stepAK_AL",
+    "projectDocGateMode": "project_closure_document_gate_v1"
+  },
+  "tasks": [
+    {
+      "id": "TASK-LOGIN-001",
+      "projectName": "Haneul Steel Groupware Enhancement",
+      "client": "Haneul Steel",
+      "difficulty": "Normal",
+      "deadline": "오늘 18:00 전 1차 검수",
+      "modeLabel": "프론트 패치",
+      "summary": "로그인 실패 시 오류 메시지가 화면에 보이지 않고, Enter 키로 로그인도 되지 않습니다. 요구사항 문서와 회의 메모를 참고해 화면 스크립트를 수정하고 작업 보고를 남기세요.",
+      "reportPlaceholder": "예: errorBox 출력 및 Enter 로그인 처리 반영",
+      "reportMinLength": 20,
+      "goals": [
+        "오류 메시지를 #errorBox에 출력한다.",
+        "Enter 키 입력 시 login()이 호출된다.",
+        "작업 보고를 20자 이상 작성한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-001",
+          "title": "요구사항 변경 메모",
+          "content": "[고객 요청]\n1. 로그인 실패 시 alert 말고 화면 상단 빨간 박스(#errorBox)에 메시지를 보여줄 것.\n2. 사용자가 id/pw 입력 후 Enter를 누르면 로그인 함수가 호출될 것.\n3. 이번 건은 긴급 대응이므로 화면 스크립트 우선 수정, 서버 API는 변경하지 않음."
+        },
+        {
+          "id": "MEET-002",
+          "title": "오전 10시 회의록",
+          "content": "[메모]\n- 운영 담당자가 alert 팝업은 차단해서 못 본다고 함.\n- errorBox는 기존 login.jsp 안에 이미 존재함. textContent로 메시지를 넣고 hidden 클래스를 제거하면 됨.\n- Enter 처리 대상은 idInput, pwInput 둘 다."
+        },
+        {
+          "id": "TEST-003",
+          "title": "테스트 기준",
+          "content": "[통과 조건]\n- setError(message) 호출 시 #errorBox가 표시되고 메시지가 반영됨\n- idInput, pwInput에서 keydown Enter 시 login() 호출\n- 작업 보고 20자 이상"
+        }
+      ],
+      "files": [
+        {
+          "id": "login-js",
+          "name": "login.js",
+          "language": "javascript",
+          "editable": true,
+          "role": "이벤트 및 오류 메시지 처리",
+          "content": "const state = {\n  submitting: false,\n  lastError: ''\n};\n\nfunction login() {\n  state.submitting = true;\n  const idValue = document.getElementById('idInput').value.trim();\n  const pwValue = document.getElementById('pwInput').value.trim();\n\n  if (!idValue || !pwValue) {\n    showAlert('아이디와 비밀번호를 입력하세요.');\n    state.submitting = false;\n    return false;\n  }\n\n  return true;\n}\n\nfunction showAlert(message) {\n  state.lastError = message;\n  window.alert(message);\n}\n\nfunction bindEvents() {\n  document.getElementById('loginBtn').addEventListener('click', function() {\n    login();\n  });\n}\n\nbindEvents();\n"
+        },
+        {
+          "id": "login-jsp",
+          "name": "login.jsp",
+          "language": "jsp",
+          "editable": false,
+          "role": "화면 구조 참고용",
+          "content": "<div class=\"login-form\">\n  <input id=\"idInput\" type=\"text\" />\n  <input id=\"pwInput\" type=\"password\" />\n  <div id=\"errorBox\" class=\"hidden\"></div>\n  <button id=\"loginBtn\" type=\"button\">로그인</button>\n</div>\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-ERROR-BOX",
+            "description": "오류 메시지가 #errorBox에 출력되는가",
+            "failReason": "errorBox 표시 처리 또는 메시지 반영이 부족합니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "errorBox"
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "textContent",
+                  "innerText",
+                  "innerHTML"
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "classList.remove('hidden')",
+                  "classList.remove(\"hidden\")"
+                ]
+              }
+            ],
+            "fileId": "login-js"
+          },
+          {
+            "id": "CHECK-ENTER-KEY",
+            "description": "Enter 키 입력 처리가 있는가",
+            "failReason": "Enter 키 입력 이벤트 연결이 부족합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "keydown",
+                  "keyup",
+                  "keypress"
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "event.key === 'Enter'",
+                  "e.key === 'Enter'",
+                  "key === 'Enter'"
+                ]
+              },
+              {
+                "type": "includes",
+                "value": "login()"
+              }
+            ],
+            "fileId": "login-js"
+          },
+          {
+            "id": "CHECK-NO-ALERT",
+            "description": "alert 의존을 제거했는가",
+            "failReason": "기존 alert 의존이 아직 남아 있습니다.",
+            "rules": [
+              {
+                "type": "notIncludes",
+                "value": "window.alert("
+              },
+              {
+                "type": "notIncludes",
+                "value": "showAlert("
+              }
+            ],
+            "fileId": "login-js"
+          }
+        ]
+      },
+      "hints": [
+        "기존 alert 의존을 없애고, 숨겨진 에러 박스를 보여주는 방식으로 바꾸면 됩니다.",
+        "Enter 키 처리는 keydown 또는 keyup 이벤트 안에서 login() 호출 흔적이 있으면 통과합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 300,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "5분",
+      "tags": [
+        "requirements",
+        "hotfix",
+        "frontend",
+        "backend"
+      ],
+      "passiveInsights": {
+        "requirements": "Enter 처리는 idInput / pwInput 둘 다를 묶어서 보는 게 안전합니다.",
+        "testing": "빈 입력값 처리와 실패 메시지 노출 흐름을 같이 점검해 보세요.",
+        "syntax": "alert 제거 후 errorBox 표시 클래스까지 확인하면 실수가 줄어듭니다."
+      },
+      "documentPlay": {
+        "title": "문서 핵심 요구 확인",
+        "summary": "요구사항과 회의록을 읽고 이번 핫픽스에서 반드시 반영해야 할 항목을 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-error-box",
+            "title": "오류 메시지는 alert 대신 #errorBox에 표시",
+            "detail": "기존 팝업 대신 화면 상단 빨간 박스 노출 요구",
+            "sourceDocId": "REQ-001",
+            "required": true
+          },
+          {
+            "id": "doc-enter-both",
+            "title": "Enter 처리는 idInput / pwInput 둘 다 대상",
+            "detail": "두 입력창 모두 Enter 로그인 동작이 필요",
+            "sourceDocId": "MEET-002",
+            "required": true
+          },
+          {
+            "id": "doc-no-api-change",
+            "title": "이번 건은 서버 API를 바꾸지 않는다",
+            "detail": "긴급 대응이므로 화면 스크립트 우선 수정",
+            "sourceDocId": "REQ-001",
+            "required": true
+          },
+          {
+            "id": "doc-change-status",
+            "title": "컨트롤러 status 값을 error로 변경",
+            "detail": "이 과제 문서에는 없는 요구사항",
+            "sourceDocId": "TEST-003",
+            "required": false
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "script",
+        "mockType": "login_dom_v1",
+        "entryFileId": "login-js",
+        "exportName": "login",
+        "tests": [
+          {
+            "description": "빈 입력에서 errorBox 노출",
+            "setup": {
+              "elements": {
+                "idInput": {
+                  "value": ""
+                },
+                "pwInput": {
+                  "value": ""
+                },
+                "errorBox": {
+                  "className": "hidden",
+                  "textContent": ""
+                }
+              },
+              "clearAlerts": true
+            },
+            "invoke": {
+              "type": "function",
+              "args": []
+            },
+            "assertions": [
+              {
+                "type": "returnEquals",
+                "value": false
+              },
+              {
+                "type": "elementTextIncludes",
+                "elementId": "errorBox",
+                "value": "아이디와 비밀번호"
+              },
+              {
+                "type": "elementClassNotContains",
+                "elementId": "errorBox",
+                "value": "hidden"
+              },
+              {
+                "type": "alertCountEquals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "description": "Enter 키 핸들러 등록",
+            "invoke": {
+              "type": "none"
+            },
+            "assertions": [
+              {
+                "type": "listenerExists",
+                "elementId": "idInput",
+                "eventType": "keydown"
+              },
+              {
+                "type": "listenerExists",
+                "elementId": "pwInput",
+                "eventType": "keydown"
+              },
+              {
+                "type": "listenerExists",
+                "elementId": "loginBtn",
+                "eventType": "click"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "Enter 입력 시 login 흐름 호출",
+            "setup": {
+              "elements": {
+                "idInput": {
+                  "value": ""
+                },
+                "pwInput": {
+                  "value": ""
+                },
+                "errorBox": {
+                  "className": "hidden",
+                  "textContent": ""
+                }
+              },
+              "clearAlerts": true
+            },
+            "invoke": {
+              "type": "listener",
+              "elementId": "idInput",
+              "eventType": "keydown",
+              "event": {
+                "key": "Enter"
+              }
+            },
+            "assertions": [
+              {
+                "type": "elementTextIncludes",
+                "elementId": "errorBox",
+                "value": "아이디와 비밀번호"
+              },
+              {
+                "type": "elementClassNotContains",
+                "elementId": "errorBox",
+                "value": "hidden"
+              },
+              {
+                "type": "alertCountEquals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "description": "정상 입력 시 true 반환",
+            "setup": {
+              "elements": {
+                "idInput": {
+                  "value": "user01"
+                },
+                "pwInput": {
+                  "value": "pw01"
+                },
+                "errorBox": {
+                  "className": "hidden",
+                  "textContent": ""
+                }
+              },
+              "clearAlerts": true
+            },
+            "invoke": {
+              "type": "function",
+              "args": []
+            },
+            "assertions": [
+              {
+                "type": "returnEquals",
+                "value": true
+              },
+              {
+                "type": "alertCountEquals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "judgeMode": "execution_v1_script"
+    },
+    {
+      "id": "TASK-SQL-002",
+      "projectName": "Chungram Partner Admin Upgrade",
+      "client": "Cheongram Retail",
+      "difficulty": "Normal",
+      "deadline": "내일 11:00 QA 전달",
+      "modeLabel": "SQL 패치",
+      "summary": "거래처 목록 조회가 퇴사 사용자까지 노출하고 정렬 기준도 맞지 않습니다. 쿼리 조건과 정렬을 수정해 QA 전달용 스크립트 초안을 맞추세요.",
+      "reportPlaceholder": "예: active='Y' 조건과 reg_dt DESC 정렬 반영",
+      "reportMinLength": 20,
+      "goals": [
+        "ACTIVE_YN = 'Y' 조건을 추가한다.",
+        "삭제 사용자 제외 조건을 유지한다.",
+        "최신 등록일(reg_dt DESC) 기준으로 정렬한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-101",
+          "title": "고객 메일",
+          "content": "[요청]\n- 거래처 담당자 목록에서 비활성 사용자가 보이면 안 됩니다.\n- 그리드는 최근 등록 건이 위로 보이게 바꿔 주세요.\n- 삭제 여부 필터는 기존과 동일하게 유지 바랍니다."
+        },
+        {
+          "id": "QA-102",
+          "title": "QA 코멘트",
+          "content": "[확인 기준]\n1. use_yn 또는 active_yn 중 실제 컬럼은 ACTIVE_YN 사용\n2. 삭제 제외는 DEL_YN = 'N' 유지\n3. ORDER BY REG_DT DESC 적용"
+        },
+        {
+          "id": "NOTE-103",
+          "title": "개발 메모",
+          "content": "[주의]\n- 기존 ORDER BY NAME ASC는 제거해야 함\n- WHERE 절은 1=1 구조 유지 가능\n- 대소문자 상관 없이 문자열 포함 판정"
+        }
+      ],
+      "files": [
+        {
+          "id": "partner-list-sql",
+          "name": "partner_list.sql",
+          "language": "sql",
+          "editable": true,
+          "role": "목록 조회 쿼리",
+          "content": "SELECT\n    USER_ID,\n    USER_NM,\n    ACTIVE_YN,\n    REG_DT\nFROM CTC_PARTNER_USER\nWHERE 1 = 1\n  AND DEL_YN = 'N'\nORDER BY USER_NM ASC;\n"
+        },
+        {
+          "id": "partner-grid-html",
+          "name": "partner-grid.html",
+          "language": "html",
+          "editable": false,
+          "role": "그리드 정렬 표시 참고용",
+          "content": "<sc-grid id=\"partnerGrid\" default-sort=\"user_nm asc\">\n  <sc-grid-column data-field=\"user_nm\"></sc-grid-column>\n  <sc-grid-column data-field=\"reg_dt\"></sc-grid-column>\n</sc-grid>\n"
+        },
+        {
+          "id": "partner-service-java",
+          "name": "PartnerUserService.java",
+          "language": "java",
+          "editable": false,
+          "role": "서비스 호출 참고용",
+          "content": "public List<Map<String, Object>> findPartners(Map<String, Object> param) {\n    return dao.selectPartnerList(param);\n}\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-ACTIVE-FILTER",
+            "description": "활성 사용자 필터가 있는가",
+            "failReason": "ACTIVE_YN = 'Y' 조건이 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "ACTIVE_YN = 'Y'",
+                  "active_yn = 'Y'",
+                  "ACTIVE_YN='Y'",
+                  "active_yn='Y'"
+                ]
+              }
+            ],
+            "fileId": "partner-list-sql"
+          },
+          {
+            "id": "CHECK-DEL-FILTER",
+            "description": "삭제 제외 조건을 유지하는가",
+            "failReason": "DEL_YN = 'N' 조건이 빠졌습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "DEL_YN = 'N'",
+                  "del_yn = 'N'",
+                  "DEL_YN='N'",
+                  "del_yn='N'"
+                ]
+              }
+            ],
+            "fileId": "partner-list-sql"
+          },
+          {
+            "id": "CHECK-ORDER-DESC",
+            "description": "등록일 내림차순 정렬인가",
+            "failReason": "REG_DT DESC 정렬이 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "ORDER BY REG_DT DESC",
+                  "order by reg_dt desc"
+                ]
+              },
+              {
+                "type": "notIncludes",
+                "value": "ORDER BY USER_NM ASC"
+              }
+            ],
+            "fileId": "partner-list-sql"
+          }
+        ]
+      },
+      "hints": [
+        "활성 사용자 필터는 ACTIVE_YN = 'Y' 문자열이 그대로 들어가야 합니다.",
+        "정렬 체크는 ORDER BY REG_DT DESC를 찾고, 기존 USER_NM ASC가 남아 있으면 실패합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 360,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "6분",
+      "tags": [
+        "database",
+        "legacy",
+        "requirements"
+      ],
+      "passiveInsights": {
+        "requirements": "운영팀 메모에 active=Y 조건과 최신 수정일 정렬이 같이 요구됩니다.",
+        "legacy": "기존 주석과 구식 alias가 많아도 WHERE 절과 ORDER BY를 먼저 보는 편이 빠릅니다.",
+        "testing": "비활성 데이터 누락과 정렬 기준 누락을 따로 확인하는 게 좋습니다."
+      },
+      "documentPlay": {
+        "title": "QA 전달 전 문서 체크",
+        "summary": "고객 메일과 QA 코멘트를 읽고 쿼리에서 유지해야 할 필수 조건을 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-active-only",
+            "title": "ACTIVE_YN = 'Y' 조건 추가",
+            "detail": "비활성 거래처를 목록에서 제외",
+            "sourceDocId": "REQ-101",
+            "required": true
+          },
+          {
+            "id": "doc-not-deleted",
+            "title": "삭제 사용자 제외 조건 유지",
+            "detail": "기존 삭제 사용자 제외 조건을 지우면 안 됩니다.",
+            "sourceDocId": "QA-102",
+            "required": true
+          },
+          {
+            "id": "doc-order-regdt",
+            "title": "최신 등록일 reg_dt DESC 정렬",
+            "detail": "QA 전달용 기준 정렬을 최신 등록일로 맞춰야 합니다.",
+            "sourceDocId": "NOTE-103",
+            "required": true
+          },
+          {
+            "id": "doc-grid-order",
+            "title": "partner-grid 컬럼 순서도 함께 수정",
+            "detail": "이번 문서 범위에는 없는 변경입니다.",
+            "sourceDocId": "REQ-101",
+            "required": false
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "inspection",
+        "label": "SQL 정적 실행형 점검",
+        "entryFileId": "partner-list-sql",
+        "entryFiles": [
+          "partner-list-sql",
+          "partner-grid-html"
+        ],
+        "tests": [
+          {
+            "fileId": "partner-list-sql",
+            "description": "WHERE 절에 활성/삭제 조건 공존",
+            "assertions": [
+              {
+                "type": "fileIncludesNormalized",
+                "value": "where 1 = 1"
+              },
+              {
+                "type": "fileIncludesNormalized",
+                "value": "and active_yn = 'y'"
+              },
+              {
+                "type": "fileIncludesNormalized",
+                "value": "and del_yn = 'n'"
+              }
+            ]
+          },
+          {
+            "fileId": "partner-list-sql",
+            "description": "최신 등록일 내림차순 정렬",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "order\\\\s+by\\\\s+reg_dt\\\\s+desc",
+                "flags": "i"
+              },
+              {
+                "type": "fileNotRegex",
+                "pattern": "order\\\\s+by\\\\s+user_nm\\\\s+asc",
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "partner-grid-html",
+            "description": "그리드 기본 정렬 참고를 건드리지 않음",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "default-sort=\"user_nm asc\"",
+                "flags": "i"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "fileId": "partner-list-sql",
+            "description": "정규화 후 WHERE ~ ORDER 흐름 유지",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "where[\\\\s\\\\S]*active_yn\\\\s*=\\\\s*\\'y\\'[\\\\s\\\\S]*del_yn\\\\s*=\\\\s*\\'n\\'[\\\\s\\\\S]*order\\\\s+by\\\\s+reg_dt\\\\s+desc",
+                "flags": "i"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "TASK-API-003",
+      "projectName": "Kivotos Notice API Hotfix",
+      "client": "Kivotos Academy Office",
+      "difficulty": "Hard",
+      "deadline": "오늘 17:30 운영 반영 전 확인",
+      "modeLabel": "백엔드 패치",
+      "summary": "공지 상세 API가 null 데이터에서 바로 터지고, 컨트롤러 응답 형식도 확인이 필요합니다. 서비스 null 방어와 기본 메시지 처리, 컨트롤러 status=ok 유지 여부를 함께 점검하세요.",
+      "reportPlaceholder": "예: dto null 방어 및 기본 메시지 반환 처리",
+      "reportMinLength": 20,
+      "goals": [
+        "서비스에서 dto가 null일 때 기본 title/body를 넣는다.",
+        "컨트롤러 응답의 status를 ok로 유지한다.",
+        "작업 보고를 20자 이상 작성한다."
+      ],
+      "documents": [
+        {
+          "id": "INC-201",
+          "title": "장애 티켓",
+          "content": "[운영 장애]\n- 특정 noticeId에서 select 결과가 null이면 NPE 발생\n- 모바일 앱은 status='ok' 형식을 기대하고 있어 에러 구조 변경은 불가"
+        },
+        {
+          "id": "REQ-202",
+          "title": "핫픽스 가이드",
+          "content": "[핫픽스 방향]\n1. dto null 시 HashMap 생성 후 title/body 기본 메시지 세팅\n2. status 키는 항상 ok\n3. 오늘은 구조 개선보다 운영안정 우선"
+        },
+        {
+          "id": "TEST-203",
+          "title": "검수 조건",
+          "content": "[통과 조건]\n- dto == null 분기 존재\n- title/body 기본값 문자열 존재\n- result.put(\"status\", \"ok\") 유지"
+        }
+      ],
+      "files": [
+        {
+          "id": "notice-service-java",
+          "name": "NoticeService.java",
+          "language": "java",
+          "editable": true,
+          "role": "공지 상세 조회 서비스",
+          "content": "public Map<String, Object> getNoticeDetail(Long noticeId) {\n    Map<String, Object> result = new HashMap<>();\n    NoticeDto dto = noticeDao.selectDetail(noticeId);\n\n    result.put(\"title\", dto.getTitle());\n    result.put(\"body\", dto.getBody());\n    return result;\n}\n"
+        },
+        {
+          "id": "notice-controller-java",
+          "name": "NoticeController.java",
+          "language": "java",
+          "editable": true,
+          "role": "모바일 응답 래퍼",
+          "content": "public Map<String, Object> detail(Long noticeId) {\n    Map<String, Object> response = new HashMap<>();\n    response.put(\"status\", \"ok\");\n    response.put(\"data\", noticeService.getNoticeDetail(noticeId));\n    return response;\n}\n"
+        },
+        {
+          "id": "notice-dto-java",
+          "name": "NoticeDto.java",
+          "language": "java",
+          "editable": false,
+          "role": "필드 구조 참고용",
+          "content": "public class NoticeDto {\n    private String title;\n    private String body;\n}\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-NULL-GUARD",
+            "fileId": "notice-service-java",
+            "description": "서비스에 dto null 방어가 있는가",
+            "failReason": "NoticeService.java에 dto == null 분기가 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "dto == null",
+                  "null == dto"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-DEFAULT-TITLE-BODY",
+            "fileId": "notice-service-java",
+            "description": "서비스에서 기본 title/body를 세팅하는가",
+            "failReason": "NoticeService.java에 기본 title/body 메시지가 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "put(\"title\"",
+                  "put(\"body\"",
+                  "result.put(\"title\"",
+                  "result.put(\"body\""
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "데이터가 없습니다",
+                  "조회된 공지가 없습니다",
+                  "내용이 없습니다"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-STATUS-OK",
+            "fileId": "notice-controller-java",
+            "description": "컨트롤러에서 status=ok를 유지하는가",
+            "failReason": "NoticeController.java에서 status ok 응답이 유지되어야 합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "response.put(\"status\", \"ok\")",
+                  "put(\"status\", \"ok\")"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "hints": [
+        "핫픽스 방향은 dto == null 분기를 추가하고 title/body 기본 문자열을 넣는 것입니다.",
+        "status는 항상 result.put(\"status\", \"ok\") 형태가 남아 있어야 합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 420,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "7분",
+      "tags": [
+        "backend",
+        "hotfix",
+        "null-safety"
+      ],
+      "passiveInsights": {
+        "requirements": "응답 스키마는 유지하고 null 방어와 상태코드만 보강해야 합니다.",
+        "testing": "빈 목록, null payload, 예외 메시지 누락 여부를 같이 점검하세요.",
+        "syntax": "핫픽스에서는 최소 수정으로 500 응답만 막아도 점수가 크게 올라갑니다."
+      },
+      "documentPlay": {
+        "title": "장애 티켓 핵심 조건",
+        "summary": "장애 티켓과 핫픽스 가이드를 보고 반드시 지켜야 할 처리 방향을 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-null-default",
+            "title": "dto가 null이면 기본 title/body를 채운다",
+            "detail": "서비스 계층에서 null 방어와 기본 메시지 처리 필요",
+            "sourceDocId": "INC-201",
+            "required": true
+          },
+          {
+            "id": "doc-status-ok",
+            "title": "컨트롤러 응답 status는 ok 유지",
+            "detail": "검수 조건상 status 값을 바꾸면 안 됩니다.",
+            "sourceDocId": "TEST-203",
+            "required": true
+          },
+          {
+            "id": "doc-service-first",
+            "title": "이번 건은 서비스 로직 우선 핫픽스",
+            "detail": "DTO 구조 확장보다 기존 서비스 보완이 우선입니다.",
+            "sourceDocId": "REQ-202",
+            "required": true
+          },
+          {
+            "id": "doc-add-field",
+            "title": "NoticeDto에 신규 필드를 추가한다",
+            "detail": "이번 문서 범위에 없는 변경입니다.",
+            "sourceDocId": "REQ-202",
+            "required": false
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "inspection",
+        "label": "백엔드 핫픽스 정적 실행형 점검",
+        "entryFileId": "notice-service-java",
+        "entryFiles": [
+          "notice-service-java",
+          "notice-controller-java"
+        ],
+        "tests": [
+          {
+            "fileId": "notice-service-java",
+            "description": "dto null 가드 존재",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "dto\\\\s*==\\\\s*null|null\\\\s*==\\\\s*dto",
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "notice-service-java",
+            "description": "기본 title/body 메시지 세팅",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "result\\\\.put\\\\(\\\\s*\"title\"\\\\s*,",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "result\\\\.put\\\\(\\\\s*\"body\"\\\\s*,",
+                "flags": "i"
+              },
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "조회된 공지가 없습니다",
+                  "데이터가 없습니다",
+                  "내용이 없습니다"
+                ],
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "notice-controller-java",
+            "description": "컨트롤러 status ok 유지",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "status\"\\\\s*,\\\\s*\"ok\"",
+                "flags": "i"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "서비스/컨트롤러 교차 조건 유지",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "notice-service-java",
+                    "pattern": "return\\\\s+result\\\\s*;",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "notice-controller-java",
+                    "pattern": "response\\\\.put\\\\(\\\\s*\"data\"\\\\s*,",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "TASK-TECH-004",
+      "projectName": "Kivotos Catalog Tech Popup Repair",
+      "client": "Kivotos Product Catalog",
+      "difficulty": "Hard",
+      "deadline": "오늘 16:30 검수 데모 전 확인",
+      "modeLabel": "프론트/연동 패치",
+      "summary": "Tech 탭의 T 버튼이 단건 grp_cd만 바로 넘겨 다건 첨부가 누락됩니다. tech_id로 파일 목록을 조회한 뒤 grp_cd_list 기반으로 팝업 onSearchAll 흐름을 태우도록 화면 스크립트를 수정하세요.",
+      "reportPlaceholder": "예: selectTechFileList.do 호출 후 grp_cd_list 기반 팝업 오픈 처리",
+      "reportMinLength": 24,
+      "goals": [
+        "tech_id로 /contents/tech/selectTechFileList.do 를 먼저 호출한다.",
+        "응답 목록에서 grp_cd_list를 만들어 팝업에 넘긴다.",
+        "단건 grp_cd 직결 오픈 로직을 제거하거나 우회한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-301",
+          "title": "개발팀 전달 메일",
+          "content": "[요청]\n- Tech T 클릭 시 단건 grp_cd가 아니라 /contents/tech/selectTechFileList.do 로 다건 grp_cd 목록을 먼저 조회해야 합니다.\n- 조회 파라미터는 tech_id 사용, model_id 직접 호출은 이번 범위가 아닙니다.\n- 팝업은 grp_cd_list 로 onSearchAll 흐름을 타야 합니다.\n- grp_cd_list 는 팝업 onSearchAll 로 넘기는 병합 조회용 배열입니다."
+        },
+        {
+          "id": "MEET-302",
+          "title": "오후 회의 메모",
+          "content": "[메모]\n- row.grp_cd 가 없는 경우도 tech_id 기준 조회로 커버 가능\n- 기존 popup.open({ grp_cd: row.grp_cd }) 직결 방식은 다건 파일 누락 원인\n- ep-catalog-file-popup 쪽은 grp_cd_list 를 받으면 onSearchAll 로 병합 조회"
+        },
+        {
+          "id": "TEST-303",
+          "title": "검수 기준",
+          "content": "[통과 조건]\n- selectTechFileList.do 호출 흔적 존재\n- 요청 파라미터에 tech_id 존재\n- 팝업 오픈 시 grp_cd_list 전달\n- 작업 보고 24자 이상\n- 단건 grp_cd 직접 전달 흔적이 남아 있으면 실패"
+        }
+      ],
+      "files": [
+        {
+          "id": "tech-tab-js",
+          "name": "es-catalog-tab-p05.js",
+          "language": "javascript",
+          "editable": true,
+          "role": "Tech T 클릭 처리",
+          "content": "function openTechFiles(row) {\n  if (!row || row.has_tech_file !== 'Y') {\n    return;\n  }\n\n  popup.open({ grp_cd: row.grp_cd });\n}\n\nfunction bindTechColumn(grid) {\n  grid.on('tech-click', function(row) {\n    openTechFiles(row);\n  });\n}\n"
+        },
+        {
+          "id": "tech-controller-java",
+          "name": "TechController.java",
+          "language": "java",
+          "editable": false,
+          "role": "목록 조회 엔드포인트 참고",
+          "content": "@RequestMapping(\"/contents/tech/selectTechFileList.do\")\npublic ResultMap selectTechFileList(@RequestBody Map<String, Object> param) {\n    return techService.selectTechFileList(param);\n}\n"
+        },
+        {
+          "id": "file-popup-js",
+          "name": "ep-catalog-file-popup.js",
+          "language": "javascript",
+          "editable": false,
+          "role": "팝업 다건 조회 참고",
+          "content": "function open(params) {\n  this.params = params;\n  if (params.grp_cd_list && params.grp_cd_list.length) {\n    this.onSearchAll(params.grp_cd_list);\n    return;\n  }\n  if (params.grp_cd) {\n    this.onSearch(params.grp_cd);\n  }\n}\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-TECH-ENDPOINT",
+            "fileId": "tech-tab-js",
+            "description": "파일 목록 조회 엔드포인트를 호출하는가",
+            "failReason": "selectTechFileList.do 호출 흔적이 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "/contents/tech/selectTechFileList.do",
+                  "selectTechFileList.do"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-TECH-ID",
+            "fileId": "tech-tab-js",
+            "description": "tech_id 파라미터를 사용하는가",
+            "failReason": "tech_id 기준 조회가 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "tech_id",
+                  "techId"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-GRP-CD-LIST",
+            "fileId": "tech-tab-js",
+            "description": "grp_cd_list 를 만들어 팝업에 전달하는가",
+            "failReason": "grp_cd_list 전달이 없습니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "grp_cd_list"
+              }
+            ]
+          },
+          {
+            "id": "CHECK-NO-DIRECT-GRP",
+            "fileId": "tech-tab-js",
+            "description": "단건 grp_cd 직결 오픈을 남기지 않았는가",
+            "failReason": "기존 단건 grp_cd 직결 오픈이 남아 있습니다.",
+            "rules": [
+              {
+                "type": "notIncludes",
+                "value": "popup.open({ grp_cd: row.grp_cd })"
+              }
+            ]
+          }
+        ]
+      },
+      "hints": [
+        "핵심은 tech_id로 목록을 조회하고, 응답을 grp_cd_list 로 변환한 뒤 팝업을 여는 것입니다.",
+        "팝업 쪽은 이미 grp_cd_list 가 오면 onSearchAll 로 병합 조회하도록 준비돼 있습니다. 화면 스크립트만 이어주면 됩니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 420,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "7분",
+      "tags": [
+        "requirements",
+        "legacy",
+        "frontend",
+        "backend"
+      ],
+      "passiveInsights": {
+        "requirements": "grp_cd 단건 직결 대신 tech_id → grp_cd_list 흐름을 문서대로 복원해야 합니다.",
+        "testing": "row.grp_cd 가 비어 있어도 tech_id 만 있으면 파일 목록 조회가 가능해야 합니다.",
+        "syntax": "url, tech_id, grp_cd_list 세 단어가 모두 살아 있는지 먼저 확인해 보세요."
+      },
+      "documentPlay": {
+        "title": "Tech 팝업 요구사항 확인",
+        "summary": "메모·검수 조건을 함께 읽고 호출 순서, 파라미터, 팝업 전달 규칙을 모두 체크하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-tech-endpoint",
+            "title": "/contents/tech/selectTechFileList.do 를 먼저 호출",
+            "detail": "다건 grp_cd 목록을 조회하는 1차 호출",
+            "sourceDocId": "REQ-301",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "Tech 목록에서는 /contents/tech/selectTechFileList.do 를 먼저 호출해야 합니다."
+          },
+          {
+            "id": "doc-tech-id",
+            "title": "요청 파라미터는 tech_id 사용",
+            "detail": "row.tech_id 기준 조회",
+            "sourceDocId": "REQ-301",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "row.tech_id 기준 조회로 다건 grp_cd 목록을 받아와야 합니다."
+          },
+          {
+            "id": "doc-tech-popup-list",
+            "title": "팝업은 grp_cd_list 로 onSearchAll 흐름 사용",
+            "detail": "단건 grp_cd 직접 오픈 금지",
+            "sourceDocId": "MEET-302",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "ep-catalog-file-popup 은 grp_cd_list 를 받으면 onSearchAll 로 병합 조회합니다."
+          },
+          {
+            "id": "doc-tech-download",
+            "title": "/upload/download.do 를 바로 호출한다",
+            "detail": "이번 범위에 없는 처리",
+            "sourceDocId": "TEST-303",
+            "required": false,
+            "priority": "trap",
+            "sourceQuote": "/upload/download.do 직접 호출은 목록 표시 이후 단계이며 이번 수정 범위가 아닙니다."
+          },
+          {
+            "id": "doc-tech-no-single",
+            "title": "단건 grp_cd direct open 흔적 제거",
+            "detail": "popup.open({ grp_cd: row.grp_cd }) 직결 흐름은 실패 원인",
+            "sourceDocId": "MEET-302",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "기존 popup.open({ grp_cd: row.grp_cd }) 직결 방식은 다건 파일 누락 원인"
+          },
+          {
+            "id": "doc-tech-order",
+            "title": "목록 표시가 다운로드/뷰보다 먼저",
+            "detail": "우선 전체 파일 목록이 뜨고 그 다음 VIEW/DOWN 으로 가야 함",
+            "sourceDocId": "TEST-303",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "download/view 개별 처리보다 먼저 전체 목록 표시가 되어야 합니다."
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "inspection",
+        "label": "Tech 팝업 정적 실행형 점검",
+        "entryFileId": "tech-tab-js",
+        "entryFiles": [
+          "tech-tab-js",
+          "file-popup-js"
+        ],
+        "tests": [
+          {
+            "fileId": "tech-tab-js",
+            "description": "목록 조회 url / tech_id 사용",
+            "assertions": [
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "selectTechFileList\\.do",
+                  "/contents/tech/selectTechFileList\\.do"
+                ],
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "tech[_]?id",
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "tech-tab-js",
+            "description": "grp_cd_list 전달",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "grp_cd_list",
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "file-popup-js",
+            "description": "팝업 onSearchAll 지원 참고 유지",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "onSearchAll\\(",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "grp_cd_list",
+                "flags": "i"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "화면-팝업 교차 조건 유지",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "tech-tab-js",
+                    "pattern": "popup\\.open\\([\\s\\S]*grp_cd_list",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "file-popup-js",
+                    "pattern": "onSearchAll\\([\\s\\S]*grp_cd_list",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "judgeMode": "execution_v2_inspection"
+    },
+    {
+      "id": "TASK-AGENCY-005",
+      "projectName": "WIA Mobile Agency Stamp Download",
+      "client": "WIA Mobile Quotation",
+      "difficulty": "Hard",
+      "deadline": "오늘 18:10 운영 반영 전 확인",
+      "modeLabel": "백엔드/다운로드 패치",
+      "summary": "대리점 도장 다운로드가 잘못된 기준 경로를 바라보고 있습니다. agency_cd 앞자리 0 제거 후 ESAATTH 기준 메타를 조회하고, upload.root.dir 기반 실파일 다운로드로 연결하세요.",
+      "reportPlaceholder": "예: agencyCd 정규화 후 upload.root.dir 기반 다운로드 처리",
+      "reportMinLength": 24,
+      "goals": [
+        "agency_cd 앞자리 0 제거 후 조회 키로 사용한다.",
+        "upload.root.dir 기반으로 실파일 경로를 계산한다.",
+        "원본 파일명 기준 Content-Disposition 헤더를 세팅한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-401",
+          "title": "모바일 연동 정리",
+          "content": "[정리]\n- CMS_MOBILE 대리점 도장 다운로드는 CTC_CONTENTS_FILES 가 아니라 ESAATTH 기준 처리\n- agency_cd 앞자리 0 제거 후 KIND_ID 와 맞춰 조회\n- upload root 는 upload.root.dir 사용\n- KIND_ID 조회 전 agency_cd 정규화는 컨트롤러 쪽에서 먼저 처리합니다."
+        },
+        {
+          "id": "MEET-402",
+          "title": "개발 메모",
+          "content": "[메모]\n- grp_cd 가 아니라 ATT_FILE_PATH / ATT_FILE_NM / ORGN_FILE_NM 으로 직접 스트리밍\n- 모바일 화면은 /upload/download.do 공통 경로를 재사용하지 않음\n- 헤더에는 원본 파일명을 넣어야 함\n- response header 는 attachment; filename 기준으로 내려갑니다."
+        },
+        {
+          "id": "TEST-403",
+          "title": "검수 기준",
+          "content": "[통과 조건]\n1. agencyCd 정규화(replaceFirst(\"^0+\", \"\"))\n2. upload.root.dir 사용\n3. Content-Disposition 설정\n4. 작업 보고 24자 이상\n5. webroot.dir 사용 시 실패"
+        }
+      ],
+      "files": [
+        {
+          "id": "agency-controller-java",
+          "name": "AgencyController.java",
+          "language": "java",
+          "editable": true,
+          "role": "대리점 도장 다운로드 컨트롤러",
+          "content": "public void downloadAgencyStamp(String agencyCd, HttpServletResponse response) throws Exception {\n    Map<String, Object> fileInfo = agencyService.selectAgencyStampFileInfo(agencyCd);\n    if (fileInfo == null) {\n        return;\n    }\n\n    String root = propertiesService.getString(\"webroot.dir\");\n    File target = new File(root + \"/\" + fileInfo.get(\"ATT_FILE_PATH\") + \"/\" + fileInfo.get(\"ATT_FILE_NM\"));\n    FileCopyUtils.copy(new FileInputStream(target), response.getOutputStream());\n}\n"
+        },
+        {
+          "id": "agency-service-java",
+          "name": "AgencyService.java",
+          "language": "java",
+          "editable": false,
+          "role": "ESAATTH 메타 조회 참고",
+          "content": "public Map<String, Object> selectAgencyStampFileInfo(String agencyCd) throws Exception {\n    return agencyDao.selectAgencyStampFileInfo(agencyCd);\n}\n"
+        },
+        {
+          "id": "agency-dao-sql",
+          "name": "agency_mapper.xml",
+          "language": "xml",
+          "editable": false,
+          "role": "메타 컬럼 참고",
+          "content": "<select id=\"selectAgencyStampFileInfo\">\n  SELECT ATT_FILE_PATH, ATT_FILE_NM, ORGN_FILE_NM\n  FROM ESAATTH\n</select>\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-NORMALIZE-AGENCY",
+            "fileId": "agency-controller-java",
+            "description": "agencyCd 앞자리 0 제거를 하는가",
+            "failReason": "agencyCd 정규화가 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "replaceFirst(\"^0+\", \"\")",
+                  "replaceFirst(\"^0+\",\"\")"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-UPLOAD-ROOT",
+            "fileId": "agency-controller-java",
+            "description": "upload.root.dir 를 사용하는가",
+            "failReason": "upload.root.dir 기준 경로가 필요합니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "upload.root.dir"
+              },
+              {
+                "type": "notIncludes",
+                "value": "webroot.dir"
+              }
+            ]
+          },
+          {
+            "id": "CHECK-CONTENT-DISPOSITION",
+            "fileId": "agency-controller-java",
+            "description": "Content-Disposition 헤더를 세팅하는가",
+            "failReason": "원본 파일명 기준 Content-Disposition 이 필요합니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "Content-Disposition",
+                  "response.setHeader(\"Content-Disposition\"",
+                  "addHeader(\"Content-Disposition\""
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-ESAATTH-META",
+            "fileId": "agency-controller-java",
+            "description": "메타 조회 결과를 ATT_FILE_PATH/ATT_FILE_NM 으로 사용하는가",
+            "failReason": "ESAATTH 메타 컬럼을 이용한 실파일 경로 계산이 필요합니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "ATT_FILE_PATH"
+              },
+              {
+                "type": "includes",
+                "value": "ATT_FILE_NM"
+              }
+            ]
+          }
+        ]
+      },
+      "hints": [
+        "핵심은 agencyCd 정규화, upload.root.dir, Content-Disposition 세 가지입니다.",
+        "공통 download.do 재사용이 아니라 컨트롤러에서 직접 스트리밍하는 흐름으로 보시면 됩니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 480,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "8분",
+      "tags": [
+        "requirements",
+        "legacy",
+        "backend",
+        "file-download"
+      ],
+      "passiveInsights": {
+        "requirements": "문서의 핵심은 ESAATTH 기준 조회와 upload.root.dir 사용입니다.",
+        "testing": "파일 메타 조회와 헤더 세팅이 둘 다 있어야 모바일 다운로드 체감이 맞습니다.",
+        "syntax": "replaceFirst, upload.root.dir, Content-Disposition 세 키워드를 먼저 맞추세요."
+      },
+      "documentPlay": {
+        "title": "도장 다운로드 핵심 요구 확인",
+        "summary": "연동 정리와 검수 기준을 같이 읽고 조회 기준, 파일 경로, 스트리밍 헤더까지 확인하세요.",
+        "allowWrongSelections": 0,
+        "reviewItems": [
+          {
+            "id": "doc-agency-normalize",
+            "title": "agency_cd 앞자리 0 제거 후 조회",
+            "detail": "KIND_ID 대응을 위해 정규화 필요",
+            "sourceDocId": "REQ-401",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "agency_cd 앞자리 0 제거 후 KIND_ID 기준으로 조회해야 합니다."
+          },
+          {
+            "id": "doc-agency-upload-root",
+            "title": "upload.root.dir 기준 실파일 경로 계산",
+            "detail": "webroot.dir 사용 금지",
+            "sourceDocId": "REQ-401",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "upload root 는 webroot.dir 가 아니라 upload.root.dir 입니다."
+          },
+          {
+            "id": "doc-agency-direct-stream",
+            "title": "컨트롤러에서 직접 스트리밍 처리",
+            "detail": "/upload/download.do 공통 경로 재사용 아님",
+            "sourceDocId": "MEET-402",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "모바일은 /upload/download.do 재사용이 아니라 직접 스트리밍입니다."
+          },
+          {
+            "id": "doc-agency-ctc-files",
+            "title": "CTC_CONTENTS_FILES 기준으로 조회",
+            "detail": "이번 요구와 반대되는 항목",
+            "sourceDocId": "TEST-403",
+            "required": false,
+            "priority": "trap",
+            "sourceQuote": "CTC_CONTENTS_FILES 기준은 이번 요구와 반대되는 과거 방식입니다."
+          },
+          {
+            "id": "doc-agency-disposition",
+            "title": "Content-Disposition 에 원본 파일명 반영",
+            "detail": "헤더에서 ORGN_FILE_NM 기준 attachment filename 설정",
+            "sourceDocId": "MEET-402",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "response header 는 attachment; filename 기준으로 내려갑니다."
+          },
+          {
+            "id": "doc-agency-no-webroot",
+            "title": "webroot.dir 사용 금지",
+            "detail": "모바일 다운로드 기준 루트는 upload.root.dir",
+            "sourceDocId": "TEST-403",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "webroot.dir 사용 시 검수 실패"
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "inspection",
+        "label": "도장 다운로드 정적 실행형 점검",
+        "entryFileId": "agency-controller-java",
+        "entryFiles": [
+          "agency-controller-java",
+          "agency-dao-sql"
+        ],
+        "tests": [
+          {
+            "fileId": "agency-controller-java",
+            "description": "정규화 및 upload root 사용",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "replaceFirst\\(\\s*\"\\^0\\+\"\\s*,\\s*\"\"\\s*\\)",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "upload\\.root\\.dir",
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "agency-controller-java",
+            "description": "Content-Disposition 헤더 설정",
+            "assertions": [
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "Content-Disposition",
+                  "setHeader\\(\\s*\"Content-Disposition\"",
+                  "addHeader\\(\\s*\"Content-Disposition\""
+                ],
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "agency-dao-sql",
+            "description": "ESAATTH 메타 컬럼 참고 유지",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "ATT_FILE_PATH",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "ATT_FILE_NM",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "ORGN_FILE_NM",
+                "flags": "i"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "컨트롤러/DAO 교차 조건 유지",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "agency-controller-java",
+                    "pattern": "ATT_FILE_PATH[\\s\\S]*ATT_FILE_NM",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "agency-controller-java",
+                    "pattern": "ORGN_FILE_NM",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "agency-dao-sql",
+                    "pattern": "FROM\\s+ESAATTH",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "judgeMode": "execution_v2_inspection"
+    },
+    {
+      "id": "TASK-HOME-006",
+      "projectName": "Wia Home Screen Stabilization",
+      "client": "Wia Mobile CMS",
+      "difficulty": "Normal",
+      "deadline": "오늘 15:00 운영 확인 전",
+      "modeLabel": "프론트/안정화 패치",
+      "summary": "Home 메뉴를 여러 번 열면 프로그레스바만 돌고 로딩이 끝나지 않습니다. 초기화 중복 호출을 막고 파라미터 기본값을 보완해 homeMain.load 흐름을 안정화하세요.",
+      "reportPlaceholder": "예: initialized 진입 가드 추가, 빈 params 기본값 적용, load 완료 후 가드 해제",
+      "reportMinLength": 28,
+      "goals": [
+        "initialized 재진입 시 중복 load를 막는다.",
+        "params가 비어 있어도 안전하게 {} 기본값으로 처리한다.",
+        "load 완료 또는 실패 후 loading guard를 해제한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-501",
+          "title": "운영 문의 메일",
+          "content": "[현상]\n- Home 메뉴를 연속 클릭하면 progress 만 돌고 화면이 멈춥니다.\n- 파라미터가 없는 진입도 있어 load(undefined) 흐름은 피해야 합니다.\n- 같은 화면 재진입 시 이전 load 가 끝나기 전 중복 호출이 보입니다."
+        },
+        {
+          "id": "MEET-502",
+          "title": "원인 추정 메모",
+          "content": "[메모]\n- em-home-main 의 initialized 가 중복 호출될 수 있습니다.\n- homeMain.load(param) 진입 전에 가드가 없어서 같은 요청이 겹치면 progress 가 닫히지 않습니다.\n- 완료/실패 후 플래그를 해제해야 다음 진입이 정상 동작합니다."
+        },
+        {
+          "id": "TEST-503",
+          "title": "검수 기준",
+          "content": "[통과 조건]\n- _homeLoading 또는 유사 guard 존재\n- 빈 params 는 {} 로 보정\n- 성공/실패 후 guard 해제\n- 작업 보고 28자 이상"
+        }
+      ],
+      "files": [
+        {
+          "id": "home-main-html",
+          "name": "em-home-main.html",
+          "language": "html",
+          "editable": true,
+          "role": "Home 초기화 및 load 호출",
+          "content": "<dom-module id=\"em-home-main\">\n  <template>\n    <sc-pages id=\"pages\" creation-policy=\"all\" selected=\"0\" class=\"fit\">\n      <es-home-main id=\"homeMain\" class=\"fit\"></es-home-main>\n    </sc-pages>\n  </template>\n  <script>\n    Polymer({\n      is : 'em-home-main',\n      initialized: function(e) {\n        var me = this;\n        var param = this.params;\n        this.$.homeMain.load(param);\n      }\n    });\n  </script>\n</dom-module>\n"
+        },
+        {
+          "id": "home-child-html",
+          "name": "es-home-main.html",
+          "language": "html",
+          "editable": false,
+          "role": "Home 본문 load 참고",
+          "content": "<dom-module id=\"es-home-main\">\n  <script>\n    Polymer({\n      is : 'es-home-main',\n      load: function(param) {\n        return this.$.findHomeSummary.body = JSON.stringify(param || {});\n      }\n    });\n  </script>\n</dom-module>\n"
+        },
+        {
+          "id": "home-controller-java",
+          "name": "HomeController.java",
+          "language": "java",
+          "editable": false,
+          "role": "백엔드 참고용",
+          "content": "@RequestMapping('/home/summary')\npublic ResultMap summary(@RequestBody Map<String,Object> param){ return homeService.summary(param); }\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-HOME-GUARD",
+            "fileId": "home-main-html",
+            "description": "중복 load guard 를 두는가",
+            "failReason": "initialized 재진입을 막는 guard 가 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "_homeLoading",
+                  "homeLoading",
+                  "loadingHome"
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "if (me._homeLoading)",
+                  "if (this._homeLoading)",
+                  "if (me.homeLoading)"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-HOME-PARAM-DEFAULT",
+            "fileId": "home-main-html",
+            "description": "빈 params 기본값을 보정하는가",
+            "failReason": "params 기본값 보정이 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "this.params || {}",
+                  "me.params || {}",
+                  "param || {}"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "CHECK-HOME-RESET",
+            "fileId": "home-main-html",
+            "description": "load 완료 후 guard 를 해제하는가",
+            "failReason": "load 완료/실패 후 guard 해제가 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "finally(",
+                  ".then(",
+                  ".catch("
+                ]
+              },
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "_homeLoading = false",
+                  "homeLoading = false",
+                  "me._homeLoading = false"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "hints": [
+        "핵심은 initialized 재진입 가드와 param 기본값입니다.",
+        "성공/실패 어느 쪽이든 마지막에는 _homeLoading 을 false 로 되돌려야 다음 진입이 열립니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 390,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "6분 30초",
+      "tags": [
+        "requirements",
+        "legacy",
+        "frontend"
+      ],
+      "passiveInsights": {
+        "requirements": "중복 load 차단 + 빈 params 보정 + 종료 후 guard 해제, 이 세 가지가 핵심입니다.",
+        "testing": "메뉴를 두 번 눌러도 두 번째 호출이 그대로 겹치지 않아야 합니다.",
+        "syntax": "_homeLoading, params || {}, finally 또는 then/catch 조합을 먼저 확인해 보세요."
+      },
+      "documentPlay": {
+        "title": "Home 로딩 안정화 요구 확인",
+        "summary": "운영 문의와 메모를 함께 읽고, 중복 load / 기본값 / guard 해제 조건을 모두 체크하세요.",
+        "allowWrongSelections": 1,
+        "reviewItems": [
+          {
+            "id": "doc-home-guard",
+            "title": "initialized 중복 진입 guard 추가",
+            "detail": "같은 화면 재진입 시 중복 load 차단",
+            "sourceDocId": "REQ-501",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "같은 화면 재진입 시 이전 load 가 끝나기 전 중복 호출이 보입니다."
+          },
+          {
+            "id": "doc-home-default-param",
+            "title": "params 가 비어 있어도 {} 로 보정",
+            "detail": "load(undefined) 회피",
+            "sourceDocId": "REQ-501",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "파라미터가 없는 진입도 있어 load(undefined) 흐름은 피해야 합니다."
+          },
+          {
+            "id": "doc-home-release",
+            "title": "성공/실패 후 guard 해제",
+            "detail": "다음 재진입이 가능하도록 마무리",
+            "sourceDocId": "MEET-502",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "완료/실패 후 플래그를 해제해야 다음 진입이 정상 동작합니다."
+          },
+          {
+            "id": "doc-home-pages",
+            "title": "creation-policy 를 visible 로 바꾼다",
+            "detail": "이번 범위와 무관한 우회",
+            "sourceDocId": "TEST-503",
+            "required": false,
+            "priority": "trap",
+            "sourceQuote": "creation-policy 변경은 이번 수정의 필수 조건이 아닙니다."
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "inspection",
+        "label": "Home 로딩 정적 실행형 점검",
+        "entryFileId": "home-main-html",
+        "entryFiles": [
+          "home-main-html"
+        ],
+        "tests": [
+          {
+            "fileId": "home-main-html",
+            "description": "guard 와 기본값 처리",
+            "assertions": [
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "_homeLoading",
+                  "homeLoading",
+                  "loadingHome"
+                ],
+                "flags": "i"
+              },
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "params\\s*\\|\\|\\s*\\{\\}",
+                  "this\\.params\\s*\\|\\|\\s*\\{\\}"
+                ],
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "home-main-html",
+            "description": "종료 시 guard 해제",
+            "assertions": [
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "finally\\(",
+                  "then\\(",
+                  "catch\\("
+                ],
+                "flags": "i"
+              },
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "_homeLoading\\s*=\\s*false",
+                  "homeLoading\\s*=\\s*false"
+                ],
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "home-main-html",
+            "description": "load 호출 유지 + params 전달",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "homeMain\\.load\\(",
+                "flags": "i"
+              },
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "load\\(\\s*param\\s*\\)",
+                  "load\\(\\s*params\\s*\\)",
+                  "homeMain\\.load\\(\\s*param",
+                  "homeMain\\.load\\(\\s*params"
+                ],
+                "flags": "i"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "homeMain.load 흐름 유지",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "home-main-html",
+                    "pattern": "homeMain\\.load\\(",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "home-main-html",
+                    "pattern": "params?\\s*\\|\\|\\s*\\{\\}",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "guard 해제와 예외/종료 흐름 공존",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "home-main-html",
+                    "pattern": "_homeLoading\\s*=\\s*true|homeLoading\\s*=\\s*true",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "home-main-html",
+                    "pattern": "_homeLoading\\s*=\\s*false|homeLoading\\s*=\\s*false",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "home-main-html",
+                    "pattern": "catch\\s*\\(|finally\\s*\\(",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "adviceByPhase": {
+          "inspection": "initialized 재진입 guard, params 기본값, load 종료 후 guard 해제 순서를 같이 확인하세요.",
+          "hidden": "반복 접근과 예외 흐름까지 버티는지 보려면 guard 해제 타이밍과 load 호출 유지 여부를 같이 보세요."
+        },
+        "focusByFile": {
+          "home-main-html": "우선 home-main-html에서 initialized 진입 guard와 params 기본값, load 완료 후 guard 해제까지 한 흐름으로 묶였는지 확인하세요."
+        },
+        "successAdvice": "Home 반복 접근 안정화 기준은 통과했습니다. 이제 무한 로딩 재현 로그와 보고 문구만 정리하면 됩니다."
+      },
+      "judgeMode": "execution_v2_inspection"
+    },
+    {
+      "id": "TASK-SALES-007",
+      "projectName": "Contents Sales Roll Toggle Patch",
+      "client": "Kivotos CMS",
+      "difficulty": "Hard",
+      "deadline": "오늘 18:00 운영 반영 전",
+      "modeLabel": "상세/권한 패치",
+      "summary": "컨텐츠 상세의 단종 여부와 지역별 판매 여부가 즉시 저장되지 않습니다. 새 경로를 만들지 말고 기존 updateForSalesRoll 로직을 재사용해 roll_id / model_id 기반 실시간 저장 흐름을 붙이세요.",
+      "reportPlaceholder": "예: updateForSalesRoll 재사용, roll_id/model_id 전달, Y/N 토글 기준 유지",
+      "reportMinLength": 30,
+      "goals": [
+        "새 updateModelFlag 경로 대신 기존 updateForSalesRoll 호출을 재사용한다.",
+        "요청 파라미터에 roll_id 와 model_id 를 함께 전달한다.",
+        "단종/판매 여부는 Y/N 토글 규칙을 유지한다."
+      ],
+      "documents": [
+        {
+          "id": "REQ-601",
+          "title": "개발 방향 메모",
+          "content": "[방향]\n- 새 updateModelFlag 경로보다 기존 updateForSalesRoll 로직 재사용이 우선입니다.\n- contents_model 판매/단종 플래그는 Y/N 토글 규칙으로 갑니다.\n- roll_id 와 model_id 를 기존 mapper/dao/service 패턴에 맞춰 넘겨야 합니다."
+        },
+        {
+          "id": "MEET-602",
+          "title": "상세 화면 메모",
+          "content": "[메모]\n- detail 에서는 편집 버튼 전까지 수정 비활성도 고려해야 합니다.\n- 권한(auth-r/auth-s) 구조는 유지해야 합니다.\n- 클릭 즉시 저장되더라도 권한/편집 가능 상태는 깨지면 안 됩니다."
+        },
+        {
+          "id": "TEST-603",
+          "title": "검수 기준",
+          "content": "[통과 조건]\n- updateForSalesRoll 호출 흔적 존재\n- roll_id/model_id 둘 다 전달\n- Y/N 토글 유지\n- 권한 구조 유지\n- 작업 보고 30자 이상"
+        }
+      ],
+      "files": [
+        {
+          "id": "contents-detail-js",
+          "name": "es-contents-detail.js",
+          "language": "javascript",
+          "editable": true,
+          "role": "상세 체크박스 즉시 저장 처리",
+          "content": "function onChangeSalesFlag(model) {\n  var checked = model.salesYnChecked;\n  model.sales_yn = checked ? 'Y' : 'N';\n}\n\nfunction onChangeEndFlag(model) {\n  var checked = model.endYnChecked;\n  model.end_yn = checked ? 'Y' : 'N';\n}\n\nfunction saveFlags(model) {\n  return http.post('/contents/updateModelFlag.do', {\n    model_id: model.model_id,\n    sales_yn: model.sales_yn,\n    end_yn: model.end_yn\n  });\n}\n"
+        },
+        {
+          "id": "contents-controller-java",
+          "name": "ContentsController.java",
+          "language": "java",
+          "editable": false,
+          "role": "기존 updateForSalesRoll 참고",
+          "content": "@RequestMapping('/contents/updateForSalesRoll.do')\npublic ResultMap updateForSalesRoll(@RequestBody Map<String,Object> param){\n    return contentsModelService.updateForSalesRoll(param);\n}\n"
+        },
+        {
+          "id": "contents-model-xml",
+          "name": "contents_model.xml",
+          "language": "xml",
+          "editable": false,
+          "role": "기존 mapper 패턴 참고",
+          "content": "<update id=\"updateForSalesRoll\">\n  UPDATE contents_model\n     SET sales_yn = #sales_yn#,\n         end_yn = #end_yn#\n   WHERE roll_id = #roll_id#\n     AND model_id = #model_id#\n</update>\n"
+        }
+      ],
+      "judge": {
+        "checks": [
+          {
+            "id": "CHECK-SALES-REUSE",
+            "fileId": "contents-detail-js",
+            "description": "updateForSalesRoll 을 재사용하는가",
+            "failReason": "기존 updateForSalesRoll 재사용 흔적이 없습니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "updateForSalesRoll"
+              },
+              {
+                "type": "notIncludes",
+                "value": "updateModelFlag.do"
+              }
+            ]
+          },
+          {
+            "id": "CHECK-SALES-IDS",
+            "fileId": "contents-detail-js",
+            "description": "roll_id 와 model_id 를 함께 전달하는가",
+            "failReason": "roll_id/model_id 둘 다 필요합니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "roll_id"
+              },
+              {
+                "type": "includes",
+                "value": "model_id"
+              }
+            ]
+          },
+          {
+            "id": "CHECK-SALES-YN",
+            "fileId": "contents-detail-js",
+            "description": "Y/N 토글 규칙을 유지하는가",
+            "failReason": "Y/N 토글 규칙이 보이지 않습니다.",
+            "rules": [
+              {
+                "type": "includes",
+                "value": "'Y'"
+              },
+              {
+                "type": "includes",
+                "value": "'N'"
+              }
+            ]
+          },
+          {
+            "id": "CHECK-SALES-AUTH",
+            "fileId": "contents-detail-js",
+            "description": "권한/편집 상태 확인 흔적이 있는가",
+            "failReason": "권한 또는 편집 가능 상태 확인이 없습니다.",
+            "rules": [
+              {
+                "type": "anyIncludes",
+                "values": [
+                  "isEditable",
+                  "editable",
+                  "auth",
+                  "check-list"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "hints": [
+        "새 API를 만들기보다 updateForSalesRoll 로직을 그대로 타는 쪽이 핵심입니다.",
+        "Y/N 토글과 roll_id/model_id 동시 전달, 그리고 권한 구조 유지까지 같이 봐야 합니다."
+      ],
+      "hintCostLabel": "현장 힌트 사용 시 체력과 기술부채가 추가 소모됩니다.",
+      "timeLimitSeconds": 450,
+      "overtimeUnitSeconds": 30,
+      "timeLimitLabel": "7분 30초",
+      "tags": [
+        "requirements",
+        "legacy",
+        "frontend",
+        "backend"
+      ],
+      "passiveInsights": {
+        "requirements": "재사용, roll_id/model_id, Y/N 토글, 권한 유지의 네 가지를 동시에 맞춰야 합니다.",
+        "testing": "체크박스 클릭 직후 payload 안에 roll_id 와 model_id 가 함께 있는지 먼저 확인하세요.",
+        "syntax": "updateForSalesRoll, roll_id, model_id, 'Y'/'N' 문자열이 모두 남아 있는지 보세요."
+      },
+      "documentPlay": {
+        "title": "판매/단종 실시간 저장 요구 확인",
+        "summary": "개발 방향과 상세 화면 메모를 읽고, 재사용 규칙과 권한 유지 조건까지 모두 체크하세요.",
+        "allowWrongSelections": 1,
+        "reviewItems": [
+          {
+            "id": "doc-sales-reuse",
+            "title": "새 경로 대신 updateForSalesRoll 재사용",
+            "detail": "기존 mapper/dao/service 패턴 유지",
+            "sourceDocId": "REQ-601",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "새 updateModelFlag 경로보다 기존 updateForSalesRoll 로직 재사용이 우선입니다."
+          },
+          {
+            "id": "doc-sales-ids",
+            "title": "roll_id 와 model_id 를 함께 전달",
+            "detail": "기존 WHERE 조건에 맞춰 둘 다 필요",
+            "sourceDocId": "REQ-601",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "roll_id 와 model_id 를 기존 mapper/dao/service 패턴에 맞춰 넘겨야 합니다."
+          },
+          {
+            "id": "doc-sales-yn",
+            "title": "판매/단종 값은 Y/N 토글 유지",
+            "detail": "boolean 직접 저장 금지",
+            "sourceDocId": "REQ-601",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "contents_model 판매/단종 플래그는 Y/N 토글 규칙으로 갑니다."
+          },
+          {
+            "id": "doc-sales-auth",
+            "title": "권한/편집 가능 상태 유지",
+            "detail": "편집 버튼 전 비활성, auth-r/auth-s 구조를 깨지 않음",
+            "sourceDocId": "MEET-602",
+            "required": true,
+            "priority": "critical",
+            "sourceQuote": "클릭 즉시 저장되더라도 권한/편집 가능 상태는 깨지면 안 됩니다."
+          },
+          {
+            "id": "doc-sales-new-endpoint",
+            "title": "updateModelFlag.do 새 경로를 그대로 둔다",
+            "detail": "이번 방향과 반대",
+            "sourceDocId": "TEST-603",
+            "required": false,
+            "priority": "trap",
+            "sourceQuote": "새 경로를 추가로 만들지 않고 기존 updateForSalesRoll 재사용이 통과 기준입니다."
+          }
+        ]
+      },
+      "execution": {
+        "enabled": true,
+        "mode": "inspection",
+        "label": "판매/단종 실시간 저장 정적 실행형 점검",
+        "entryFileId": "contents-detail-js",
+        "entryFiles": [
+          "contents-detail-js",
+          "contents-controller-java"
+        ],
+        "tests": [
+          {
+            "fileId": "contents-detail-js",
+            "description": "기존 경로 재사용 / roll_id / model_id",
+            "assertions": [
+              {
+                "type": "fileRegex",
+                "pattern": "updateForSalesRoll",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "roll_id",
+                "flags": "i"
+              },
+              {
+                "type": "fileRegex",
+                "pattern": "model_id",
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "contents-detail-js",
+            "description": "Y/N 토글 유지",
+            "assertions": [
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "'Y'",
+                  "\"Y\""
+                ],
+                "flags": "i"
+              },
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "'N'",
+                  "\"N\""
+                ],
+                "flags": "i"
+              }
+            ]
+          },
+          {
+            "fileId": "contents-detail-js",
+            "description": "권한/편집 상태 가드와 저장 호출 연결",
+            "assertions": [
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "auth",
+                  "editable",
+                  "isEditable"
+                ],
+                "flags": "i"
+              },
+              {
+                "type": "fileAnyRegex",
+                "patterns": [
+                  "ajax",
+                  "request",
+                  "post",
+                  "save"
+                ],
+                "flags": "i"
+              }
+            ]
+          }
+        ],
+        "hiddenTests": [
+          {
+            "description": "기존 신규 경로 제거 + 권한 힌트 유지",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "contents-detail-js",
+                    "pattern": "updateForSalesRoll",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "contents-detail-js",
+                    "pattern": "auth|editable|isEditable",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "컨트롤러/프론트 파라미터 명 일치 유지",
+            "assertions": [
+              {
+                "type": "crossFileAll",
+                "requirements": [
+                  {
+                    "fileId": "contents-detail-js",
+                    "pattern": "roll_id",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "contents-detail-js",
+                    "pattern": "model_id",
+                    "flags": "i"
+                  },
+                  {
+                    "fileId": "contents-controller-java",
+                    "pattern": "roll_id|rollId",
+                    "flags": "i"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "adviceByPhase": {
+          "inspection": "updateForSalesRoll 재사용, roll_id/model_id 전달, Y/N 토글을 한 경로로 묶었는지부터 확인하세요.",
+          "hidden": "권한/편집 상태를 무시하면 숨은 점검에서 빠집니다. editable/auth 가드와 저장 호출 위치를 같이 보세요."
+        },
+        "focusByFile": {
+          "contents-detail-js": "contents-detail-js에서 updateForSalesRoll 호출 경로, Y/N 계산, 권한/편집 가능 상태 체크를 함께 확인하세요.",
+          "contents-controller-java": "컨트롤러/백엔드 쪽 파라미터 이름이 roll_id, model_id와 맞물리는지도 다시 보세요."
+        },
+        "successAdvice": "즉시 저장 흐름과 권한 조건이 모두 정리되었습니다. 다음은 검수용 변경이력 문구를 정리하면 됩니다."
+      },
+      "judgeMode": "execution_v2_inspection"
+    }
+  ],
+  "codingTestPack": {
+    "meta": {
+      "title": "Coding Test Mode Pack",
+      "version": "2.1.0",
+      "mode": "coding_test_mode_v1_execution_judge",
+      "modeLabel": "코딩테스트 모드",
+      "contractNegotiationTitle": "사내 기술 평가 세션",
+      "contractNegotiationBadge": "평가",
+      "contractRewardScore": 72
+    },
+    "tasks": [
+      {
+        "id": "CT-ARRAY-001",
+        "projectName": "사내 승급 코딩테스트 1회차",
+        "client": "내부 기술위원회",
+        "difficulty": "Normal",
+        "deadline": "시험 제한 35분",
+        "modeLabel": "코딩테스트 · 배열",
+        "summary": "사번 배열에서 중복을 제거하고 오름차순으로 정렬한 새 배열을 반환하는 유틸 함수를 마무리합니다.",
+        "reportPlaceholder": "예: Set으로 중복 제거 후 숫자 비교 정렬을 적용했습니다.",
+        "reportMinLength": 18,
+        "goals": [
+          "중복을 제거한 뒤 오름차순으로 정렬된 결과를 반환한다.",
+          "원본 배열을 직접 변경하지 않는다.",
+          "디버그용 console.log를 제거한다."
+        ],
+        "documents": [
+          {
+            "title": "문제 설명",
+            "content": "입력: 숫자형 사번 배열\n요구: 중복 제거 후 오름차순 정렬\n주의: 원본 배열을 mutate 하지 말 것"
+          },
+          {
+            "title": "채점 기준",
+            "content": "정답성 우선, 그 다음 예외 처리와 보고 정리 여부를 확인합니다."
+          }
+        ],
+        "files": [
+          {
+            "id": "array-solution-js",
+            "name": "solution.js",
+            "language": "javascript",
+            "editable": true,
+            "role": "정답 함수 구현",
+            "content": "function normalizeIds(ids) {\n  const unique = [...ids];\n  return unique;\n}\n\nmodule.exports = { normalizeIds };\n"
+          },
+          {
+            "id": "array-spec-md",
+            "name": "spec.md",
+            "language": "markdown",
+            "editable": false,
+            "role": "제약 조건 참고",
+            "content": "- ids는 숫자 배열\n- 반환 배열은 중복 제거 후 오름차순\n- 원본 배열은 변형하면 안 됨\n"
+          }
+        ],
+        "judge": {
+          "checks": [
+            {
+              "id": "CHECK-CT1-FUNC",
+              "fileId": "array-solution-js",
+              "description": "normalizeIds 함수 유지",
+              "failReason": "함수 시그니처를 잃었습니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "function normalizeIds"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-SET",
+              "fileId": "array-solution-js",
+              "description": "중복 제거 로직 적용",
+              "failReason": "중복 제거 의도가 보이지 않습니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "new Set",
+                    "Set("
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-SORT",
+              "fileId": "array-solution-js",
+              "description": "오름차순 정렬 적용",
+              "failReason": "정렬 로직이 부족합니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "sort("
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-NOLOG",
+              "fileId": "array-solution-js",
+              "description": "디버그 출력 제거",
+              "failReason": "console.log가 남아 있습니다.",
+              "rules": [
+                {
+                  "type": "notIncludes",
+                  "value": "console.log"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT1-REPORT",
+              "description": "접근 방식 보고",
+              "failReason": "중복 제거/정렬 접근을 보고에 남겨 주세요.",
+              "rules": [
+                {
+                  "type": "reportMinLength",
+                  "value": 18
+                },
+                {
+                  "type": "reportAnyIncludes",
+                  "values": [
+                    "중복",
+                    "정렬",
+                    "Set"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "hints": [
+          "Set을 사용하면 중복 제거 의도를 가장 짧게 드러낼 수 있습니다.",
+          "sort 비교 함수를 넣지 않으면 문자열 정렬로 오해받을 수 있습니다."
+        ],
+        "hintCostLabel": "집중력 -4 / 멘탈 -2",
+        "timeLimitSeconds": 2100,
+        "overtimeUnitSeconds": 45,
+        "timeLimitLabel": "35분",
+        "tags": [
+          "algorithm",
+          "array",
+          "codingtest"
+        ],
+        "passiveInsights": [
+          "제약 조건을 다시 확인해 원본 배열 mutate를 피하세요."
+        ],
+        "documentPlay": {
+          "title": "문제 핵심 조건 확인",
+          "summary": "제약 조건을 체크하고 나서 제출하세요.",
+          "reviewItems": [
+            {
+              "id": "arr-constraint-1",
+              "text": "중복 제거 후 오름차순 정렬이 핵심이다.",
+              "required": true
+            },
+            {
+              "id": "arr-constraint-2",
+              "text": "원본 배열은 직접 변경하면 안 된다.",
+              "required": true
+            },
+            {
+              "id": "arr-constraint-3",
+              "text": "console.log는 남겨도 된다.",
+              "required": false,
+              "isTrap": true
+            }
+          ],
+          "allowWrongSelections": 1
+        },
+        "judgeMode": "execution_v1",
+        "execution": {
+          "enabled": true,
+          "entryFileId": "array-solution-js",
+          "exportName": "normalizeIds",
+          "tests": [
+            {
+              "description": "기본 중복 제거 + 정렬",
+              "args": [
+                [
+                  3,
+                  1,
+                  2,
+                  3,
+                  2
+                ]
+              ],
+              "expected": [
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "description": "음수와 0 포함",
+              "args": [
+                [
+                  0,
+                  -1,
+                  0,
+                  2,
+                  -1
+                ]
+              ],
+              "expected": [
+                -1,
+                0,
+                2
+              ]
+            }
+          ],
+          "hiddenTests": [
+            {
+              "description": "이미 정렬된 배열",
+              "args": [
+                [
+                  1,
+                  1,
+                  2,
+                  3
+                ]
+              ],
+              "expected": [
+                1,
+                2,
+                3
+              ]
+            },
+            {
+              "description": "빈 배열",
+              "args": [
+                []
+              ],
+              "expected": []
+            }
+          ],
+          "immutableArgIndices": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "CT-STRING-002",
+        "projectName": "사내 승급 코딩테스트 1회차",
+        "client": "내부 기술위원회",
+        "difficulty": "Normal",
+        "deadline": "시험 제한 40분",
+        "modeLabel": "코딩테스트 · 문자열",
+        "summary": "괄호 문자열이 유효한지 검사하는 함수를 마무리합니다. stack을 사용한 균형 검사가 의도입니다.",
+        "reportPlaceholder": "예: 스택으로 여는 괄호를 push하고 닫는 괄호에서 pop으로 짝을 확인했습니다.",
+        "reportMinLength": 20,
+        "goals": [
+          "소괄호/중괄호/대괄호의 짝을 검사한다.",
+          "닫는 괄호가 먼저 나오면 false를 반환한다.",
+          "모든 검사가 끝난 뒤 스택이 비어 있어야 true다."
+        ],
+        "documents": [
+          {
+            "title": "문제 설명",
+            "content": "입력 문자열은 () {} [] 만 포함한다고 가정한다.\n유효한 괄호열이면 true, 아니면 false를 반환한다."
+          }
+        ],
+        "files": [
+          {
+            "id": "paren-solution-js",
+            "name": "solution.js",
+            "language": "javascript",
+            "editable": true,
+            "role": "유효성 검사 함수",
+            "content": "function isValidParentheses(input) {\n  const stack = [];\n  const pair = { \")\": \"(\", \"]\": \"[\", \"}\": \"{\" };\n  for (const ch of input) {\n    if (ch === \"(\" || ch === \"[\" || ch === \"{\") {\n      stack.push(ch);\n      continue;\n    }\n    return true;\n  }\n  return true;\n}\n\nmodule.exports = { isValidParentheses };\n"
+          },
+          {
+            "id": "paren-cases-txt",
+            "name": "cases.txt",
+            "language": "text",
+            "editable": false,
+            "role": "예시 입력",
+            "content": "()[]{} => true\n([)] => false\n(((()))) => true\n"
+          }
+        ],
+        "judge": {
+          "checks": [
+            {
+              "id": "CHECK-CT2-STACK",
+              "fileId": "paren-solution-js",
+              "description": "스택 사용",
+              "failReason": "스택 기반 의도가 약합니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "stack"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-POP",
+              "fileId": "paren-solution-js",
+              "description": "닫는 괄호에서 pop 비교",
+              "failReason": "닫는 괄호 검증이 부족합니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "stack.pop()",
+                    "pop("
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-FALSE",
+              "fileId": "paren-solution-js",
+              "description": "잘못된 경우 false 반환",
+              "failReason": "실패 분기에서 false 반환이 부족합니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "return false"
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-EMPTY",
+              "fileId": "paren-solution-js",
+              "description": "종료 시 스택 비움 확인",
+              "failReason": "종료 후 stack 길이 확인이 부족합니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "stack.length === 0",
+                    "!stack.length"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT2-REPORT",
+              "description": "접근 방식 보고",
+              "failReason": "stack 기반 접근을 보고에 남겨 주세요.",
+              "rules": [
+                {
+                  "type": "reportMinLength",
+                  "value": 20
+                },
+                {
+                  "type": "reportAnyIncludes",
+                  "values": [
+                    "스택",
+                    "stack",
+                    "짝"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "hints": [
+          "닫는 괄호를 만났을 때 바로 true를 반환하면 대부분의 반례를 놓칩니다.",
+          "마지막에 stack이 비었는지 반드시 확인하세요."
+        ],
+        "hintCostLabel": "집중력 -5 / 멘탈 -2",
+        "timeLimitSeconds": 2400,
+        "overtimeUnitSeconds": 45,
+        "timeLimitLabel": "40분",
+        "tags": [
+          "algorithm",
+          "string",
+          "codingtest"
+        ],
+        "passiveInsights": [
+          "경계 조건: 닫는 괄호가 먼저 오는 경우를 떠올리세요."
+        ],
+        "documentPlay": {
+          "title": "문제 핵심 조건 확인",
+          "summary": "문제 설명과 예시를 보고 핵심 조건을 체크하세요.",
+          "reviewItems": [
+            {
+              "id": "paren-constraint-1",
+              "text": "닫는 괄호가 먼저 나오면 false여야 한다.",
+              "required": true
+            },
+            {
+              "id": "paren-constraint-2",
+              "text": "모든 문자 처리 후 stack이 비어 있어야 true다.",
+              "required": true
+            },
+            {
+              "id": "paren-constraint-3",
+              "text": "짝만 맞으면 중첩 순서는 중요하지 않다.",
+              "required": false,
+              "isTrap": true
+            }
+          ],
+          "allowWrongSelections": 1
+        },
+        "judgeMode": "execution_v1",
+        "execution": {
+          "enabled": true,
+          "entryFileId": "paren-solution-js",
+          "exportName": "isValidParentheses",
+          "tests": [
+            {
+              "description": "정상 괄호열",
+              "args": [
+                "()[]{}"
+              ],
+              "expected": true
+            },
+            {
+              "description": "닫는 괄호 우선",
+              "args": [
+                ")("
+              ],
+              "expected": false
+            },
+            {
+              "description": "중첩 오류",
+              "args": [
+                "([)]"
+              ],
+              "expected": false
+            }
+          ],
+          "hiddenTests": [
+            {
+              "description": "깊은 중첩",
+              "args": [
+                "(((())))"
+              ],
+              "expected": true
+            },
+            {
+              "description": "미종료 스택",
+              "args": [
+                "((("
+              ],
+              "expected": false
+            }
+          ]
+        }
+      },
+      {
+        "id": "CT-HASH-003",
+        "projectName": "사내 승급 코딩테스트 1회차",
+        "client": "내부 기술위원회",
+        "difficulty": "Hard",
+        "deadline": "시험 제한 45분",
+        "modeLabel": "코딩테스트 · 해시",
+        "summary": "태그 배열에서 빈도를 집계해 상위 2개 태그를 빈도 내림차순으로 반환하는 함수를 마무리합니다.",
+        "reportPlaceholder": "예: Map으로 빈도를 세고 엔트리를 정렬해 상위 2개를 반환했습니다.",
+        "reportMinLength": 22,
+        "goals": [
+          "빈도 집계를 수행한다.",
+          "빈도 내림차순으로 정렬한다.",
+          "상위 2개 태그 문자열만 배열로 반환한다."
+        ],
+        "documents": [
+          {
+            "title": "문제 설명",
+            "content": "입력: 문자열 태그 배열\n출력: 빈도 상위 2개 태그를 담은 배열\n동률이면 먼저 등장한 순서를 유지해도 무방하다."
+          }
+        ],
+        "files": [
+          {
+            "id": "hash-solution-js",
+            "name": "solution.js",
+            "language": "javascript",
+            "editable": true,
+            "role": "집계 함수 구현",
+            "content": "function topTwoTags(tags) {\n  const counts = {};\n  return Object.keys(counts).slice(0, 2);\n}\n\nmodule.exports = { topTwoTags };\n"
+          },
+          {
+            "id": "hash-readme-md",
+            "name": "readme.md",
+            "language": "markdown",
+            "editable": false,
+            "role": "풀이 메모 참고",
+            "content": "- 빈도 집계 후 정렬\n- 상위 2개만 반환\n- 동률 처리 자유\n"
+          }
+        ],
+        "judge": {
+          "checks": [
+            {
+              "id": "CHECK-CT3-COUNT",
+              "fileId": "hash-solution-js",
+              "description": "빈도 집계 구조 사용",
+              "failReason": "빈도 집계 로직이 부족합니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "Map(",
+                    "counts[",
+                    "counts = {}"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT3-SORT",
+              "fileId": "hash-solution-js",
+              "description": "정렬 로직 적용",
+              "failReason": "정렬 로직이 보이지 않습니다.",
+              "rules": [
+                {
+                  "type": "includes",
+                  "value": "sort("
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT3-TOP2",
+              "fileId": "hash-solution-js",
+              "description": "상위 2개 추출",
+              "failReason": "상위 2개 반환이 분명하지 않습니다.",
+              "rules": [
+                {
+                  "type": "anyIncludes",
+                  "values": [
+                    "slice(0, 2)",
+                    "slice(0,2)"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "CHECK-CT3-REPORT",
+              "description": "접근 방식 보고",
+              "failReason": "집계와 정렬 접근을 보고에 남겨 주세요.",
+              "rules": [
+                {
+                  "type": "reportMinLength",
+                  "value": 22
+                },
+                {
+                  "type": "reportAnyIncludes",
+                  "values": [
+                    "집계",
+                    "정렬",
+                    "Map",
+                    "빈도"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "hints": [
+          "집계 구조는 Map이든 객체든 상관없지만, 빈도 계산 의도가 드러나야 합니다.",
+          "정렬 후 top 2만 잘라내는 구조가 가장 명확합니다."
+        ],
+        "hintCostLabel": "집중력 -6 / 멘탈 -3",
+        "timeLimitSeconds": 2700,
+        "overtimeUnitSeconds": 60,
+        "timeLimitLabel": "45분",
+        "tags": [
+          "algorithm",
+          "hash",
+          "codingtest"
+        ],
+        "passiveInsights": [
+          "빈도 집계 → 정렬 → 상위 2개 추출 순서로 정리해 보세요."
+        ],
+        "documentPlay": {
+          "title": "문제 핵심 조건 확인",
+          "summary": "집계와 반환 형식을 체크하세요.",
+          "reviewItems": [
+            {
+              "id": "hash-constraint-1",
+              "text": "반환값은 태그 문자열 2개를 담은 배열이다.",
+              "required": true
+            },
+            {
+              "id": "hash-constraint-2",
+              "text": "빈도 집계 후 내림차순 정렬이 핵심이다.",
+              "required": true
+            },
+            {
+              "id": "hash-constraint-3",
+              "text": "동률이면 알파벳 순 강제 정렬이 필요하다.",
+              "required": false,
+              "isTrap": true
+            }
+          ],
+          "allowWrongSelections": 1
+        },
+        "judgeMode": "execution_v1",
+        "execution": {
+          "enabled": true,
+          "entryFileId": "hash-solution-js",
+          "exportName": "topTwoTags",
+          "tests": [
+            {
+              "description": "기본 빈도 집계",
+              "args": [
+                [
+                  "a",
+                  "b",
+                  "a",
+                  "c",
+                  "b",
+                  "a"
+                ]
+              ],
+              "expected": [
+                "a",
+                "b"
+              ]
+            },
+            {
+              "description": "2종류만 존재",
+              "args": [
+                [
+                  "x",
+                  "y",
+                  "x",
+                  "y",
+                  "x"
+                ]
+              ],
+              "expected": [
+                "x",
+                "y"
+              ]
+            }
+          ],
+          "hiddenTests": [
+            {
+              "description": "1개만 존재",
+              "args": [
+                [
+                  "solo",
+                  "solo"
+                ]
+              ],
+              "expected": [
+                "solo"
+              ]
+            },
+            {
+              "description": "다양한 빈도",
+              "args": [
+                [
+                  "red",
+                  "blue",
+                  "red",
+                  "green",
+                  "blue",
+                  "red",
+                  "blue"
+                ]
+              ],
+              "expected": [
+                "red",
+                "blue"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
