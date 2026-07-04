@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
@@ -275,6 +276,21 @@ function KeywordBadges({ card }) {
   );
 }
 
+export default function DualAcademyTcgPlayPage() {
+  return (
+    <Suspense fallback={(
+      <main className="tcg-page-shell">
+        <SiteHeader />
+        <section className="tcg-arena">
+          <div className="tcg-deck-message">매치를 불러오는 중입니다.</div>
+        </section>
+      </main>
+    )}>
+      <DualAcademyTcgPlayContent />
+    </Suspense>
+  );
+}
+
 function resolveCombat(attacker, defender) {
   const defenderStartHealth = unitHealth(defender);
   const nextAttacker = {
@@ -442,9 +458,11 @@ function runEnemyTurn(state) {
   }, 1);
 }
 
-export default function DualAcademyTcgPlayPage() {
+function DualAcademyTcgPlayContent() {
   const mounted = useHydrated();
   const token = useAuthToken();
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get('roomId') || '';
   const { showToast } = useToast();
   const [cardCatalog, setCardCatalog] = useState(FALLBACK_TCG_CARDS);
   const [deckCardIds, setDeckCardIds] = useState(FALLBACK_DECK_CARD_IDS);
@@ -452,6 +470,9 @@ export default function DualAcademyTcgPlayPage() {
   const [loadingDeck, setLoadingDeck] = useState(true);
   const [deckMessage, setDeckMessage] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
+  const [roomBusy, setRoomBusy] = useState(false);
+  const [room, setRoom] = useState(null);
+  const [roomLoaded, setRoomLoaded] = useState(false);
   const [recordedMatchIds, setRecordedMatchIds] = useState([]);
   const [recordMessage, setRecordMessage] = useState('');
   const [selectedAttackerId, setSelectedAttackerId] = useState('');
@@ -511,6 +532,69 @@ export default function DualAcademyTcgPlayPage() {
   useEffect(() => {
     void loadDeck();
   }, [loadDeck]);
+
+  useEffect(() => {
+    setRoom(null);
+    setRoomLoaded(false);
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!mounted || loadingDeck || !roomId || !token || roomLoaded) return;
+    let cancelled = false;
+    const loadRoomMatch = async () => {
+      setRoomBusy(true);
+      try {
+        const payload = await apiGet(`/game-rooms/${roomId}`, { timeoutMs: 12000 });
+        const nextRoom = payload?.room || null;
+        if (!nextRoom) {
+          setDeckMessage('게임방을 찾을 수 없습니다.');
+          return;
+        }
+        if (nextRoom.gameSlug !== TCG_GAME_SLUG) {
+          setDeckMessage('이 게임방은 Dual Academy TCG 방이 아닙니다.');
+          setRoom(nextRoom);
+          return;
+        }
+
+        const roomState = nextRoom.state && typeof nextRoom.state === 'object' ? nextRoom.state : {};
+        const restored = normalizeSavedState(roomState.state);
+        if (restored) {
+          const nextCards = normalizeCards(roomState.cardCatalog);
+          const nextCardIds = Array.isArray(roomState.deckCardIds) && roomState.deckCardIds.length
+            ? roomState.deckCardIds
+            : deckCardIds;
+          if (!cancelled) {
+            setCardCatalog(nextCards);
+            setDeckCardIds(nextCardIds);
+            setDeckName(roomState.deckName || nextRoom.title || deckName);
+            setRecordMessage('');
+            setSelectedAttackerId('');
+            setState(restored);
+            setDeckMessage('게임방 매치를 불러왔습니다.');
+          }
+        } else if (!cancelled) {
+          setDeckMessage('게임방에 저장된 매치가 없어 현재 덱으로 시작합니다.');
+        }
+        if (!cancelled) {
+          setRoom(nextRoom);
+          setRoomLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err?.message || '게임방 매치를 불러오지 못했습니다.';
+          setDeckMessage(message);
+          showToast({ tone: 'danger', message });
+          setRoomLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setRoomBusy(false);
+      }
+    };
+    void loadRoomMatch();
+    return () => {
+      cancelled = true;
+    };
+  }, [deckCardIds, deckName, loadingDeck, mounted, roomId, roomLoaded, showToast, token]);
 
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
@@ -757,6 +841,53 @@ export default function DualAcademyTcgPlayPage() {
     }
   };
 
+  const saveRoomMatch = async () => {
+    if (!roomId) {
+      setDeckMessage('연결된 게임방이 없습니다.');
+      return;
+    }
+    if (!token || roomBusy) {
+      setDeckMessage('로그인하면 게임방에 매치를 저장할 수 있습니다.');
+      return;
+    }
+    setRoomBusy(true);
+    try {
+      const payload = await apiPost(`/game-rooms/${roomId}/state`, {
+        revision: room?.revision,
+        summary: {
+          deckName,
+          turn: state.turn,
+          playerHealth: state.playerHealth,
+          enemyHealth: state.enemyHealth,
+          winner: state.winner || 'playing',
+        },
+        state: {
+          deckName,
+          deckCardIds,
+          cardCatalog,
+          state: matchPayload(state),
+        },
+      }, { timeoutMs: 15000 });
+      clearApiGetCache('/game-rooms');
+      setRoom(payload?.room || room);
+      setDeckMessage('게임방에 현재 매치를 저장했습니다.');
+      showToast({ tone: 'success', message: '게임방에 현재 매치를 저장했습니다.' });
+    } catch (err) {
+      const conflictRoom = err?.response?.data?.room;
+      if (conflictRoom) setRoom(conflictRoom);
+      const message = err?.message || '게임방 저장에 실패했습니다.';
+      setDeckMessage(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setRoomBusy(false);
+    }
+  };
+
+  const reloadRoomMatch = () => {
+    if (!roomId || roomBusy) return;
+    setRoomLoaded(false);
+  };
+
   const resetMatch = () => resetWithDeck(deckCardIds, cardCatalog);
 
   return (
@@ -774,9 +905,22 @@ export default function DualAcademyTcgPlayPage() {
             <Link href="/board?category=game&gameSlug=dual-academy-tcg">게시판</Link>
             <button type="button" onClick={saveMatch} disabled={saveBusy}>저장</button>
             <button type="button" onClick={loadMatch} disabled={saveBusy}>불러오기</button>
+            {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${TCG_GAME_SLUG}&create=1`}>방 만들기</Link>}
+            {roomId ? <button type="button" onClick={saveRoomMatch} disabled={roomBusy}>방 저장</button> : null}
+            {roomId ? <button type="button" onClick={reloadRoomMatch} disabled={roomBusy}>방 불러오기</button> : null}
             <button type="button" onClick={resetMatch}>새 매치</button>
           </nav>
         </header>
+
+        {roomId ? (
+          <section className="tcg-room-banner">
+            <div>
+              <strong>{room?.title || '게임방 매치'}</strong>
+              <span>{room?.status || 'loading'} · rev {Number(room?.revision || 0)}</span>
+            </div>
+            <Link href={`/games/rooms/${roomId}`}>로비로 이동</Link>
+          </section>
+        ) : null}
 
         <section className="tcg-scoreboard" aria-label="match status">
           <div>

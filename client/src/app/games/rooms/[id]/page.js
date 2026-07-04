@@ -66,6 +66,9 @@ export default function GameRoomDetailPage() {
   ), [currentUserId, room?.players]);
   const currentReady = currentPlayer?.status === 'ready';
   const active = room && !['finished', 'closed'].includes(room.status);
+  const playHref = room?.gameSlug === 'dual-academy-tcg'
+    ? `/games/dual-academy-tcg/play?roomId=${id}`
+    : game?.primaryHref || '';
 
   const loadRoom = useCallback(async () => {
     if (!id || !hydrated) return;
@@ -127,7 +130,7 @@ export default function GameRoomDetailPage() {
             </button>
             <Link href={`/games/rooms${room?.gameSlug ? `?gameSlug=${room.gameSlug}` : ''}`}>방 목록</Link>
             {game ? <Link href={gameDetailHref(game)}>게임 상세</Link> : <Link href="/games">게임 허브</Link>}
-            {game?.primaryHref ? <Link href={game.primaryHref}>게임으로 이동</Link> : null}
+            {playHref ? <Link href={playHref}>게임으로 이동</Link> : null}
           </div>
         </section>
 

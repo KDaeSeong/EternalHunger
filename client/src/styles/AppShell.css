@@ -4122,6 +4122,49 @@
   opacity: 0.55;
 }
 
+.tcg-room-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(44, 111, 158, 0.14);
+  border-radius: 8px;
+  background: #f4f9fd;
+  padding: 12px 14px;
+}
+
+.tcg-room-banner div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.tcg-room-banner strong,
+.tcg-room-banner span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcg-room-banner strong {
+  color: #17202a;
+  font-size: 0.94rem;
+}
+
+.tcg-room-banner span {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.tcg-room-banner a {
+  flex: 0 0 auto;
+  color: #1b6fa2;
+  font-weight: 900;
+  text-decoration: none;
+}
+
 .tcg-scoreboard {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
