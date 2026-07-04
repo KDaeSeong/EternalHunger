@@ -8,6 +8,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
+  EQUIPMENT_SLOT_LABELS,
   GAME_SLUG,
   ITEMS,
   QUICK_SAVE_SLOT,
@@ -18,12 +19,15 @@ import {
   averageParty,
   buyPerkAction,
   createNewState,
+  equipmentChoicesForSlot,
+  equipmentInventoryRows,
+  equipmentRows,
   formatRequires,
   getActor,
   getPlayTimeSec,
-  inventoryWeight,
   itemName,
   normalizeState,
+  partyInsulation,
   perkRows,
   researchSummary,
   runCampAction,
@@ -35,10 +39,12 @@ import {
   runRestAction,
   scoreState,
   selectTechAction,
+  setEquipmentSlotAction,
   settleRunAction,
   startNewRunFromMeta,
   summaryForState,
   techRows,
+  totalCarryWeight,
 } from '../_lib/primitiveArchiveEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -75,6 +81,9 @@ export default function PrimitiveArchivePlayPage() {
   const research = useMemo(() => researchSummary(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
+  const currentEquipmentRows = useMemo(() => equipmentRows(state, actorId), [state, actorId]);
+  const equipmentInventory = useMemo(() => equipmentInventoryRows(state), [state]);
+  const insulation = partyInsulation(state);
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
@@ -221,8 +230,10 @@ export default function PrimitiveArchivePlayPage() {
     { label: 'HP', value: hp },
     { label: '허기', value: hunger },
     { label: '스태미나', value: stamina },
+    { label: '보온', value: insulation },
     { label: '연구', value: `${research.completed}/${research.total}` },
     { label: '특전', value: state.meta.perkPoints },
+    { label: '무게', value: totalCarryWeight(state) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -333,6 +344,47 @@ export default function PrimitiveArchivePlayPage() {
               <ActionButton disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
             </div>
           </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>장비</h2>
+              <span>{actor?.name || '대상'} · 보온 {actor ? currentEquipmentRows.reduce((sum, row) => sum + Number(row.insulation || 0), 0) : 0}</span>
+            </div>
+            <div className="game-save-list">
+              {currentEquipmentRows.map((row) => {
+                const choices = equipmentChoicesForSlot(state, actorId, row.slot);
+                return (
+                  <article className="game-save-row" key={row.slot}>
+                    <div>
+                      <span>{row.label}{row.successText ? ` · ${row.successText}` : ''}</span>
+                      <strong>{row.itemName}</strong>
+                    </div>
+                    <select
+                      value={row.itemId}
+                      onChange={(event) => setState((current) => setEquipmentSlotAction(current, actorId, row.slot, event.target.value))}
+                    >
+                      {choices.map((choice) => (
+                        <option value={choice.itemId} key={`${row.slot}-${choice.itemId || 'none'}`}>
+                          {choice.name}{choice.qty ? ` x${choice.qty}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="games-panel-title" style={{ marginTop: 16 }}>
+              <h2>장비 보유</h2>
+              <span>{equipmentInventory.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개</span>
+            </div>
+            <div className="games-chip-row">
+              {equipmentInventory.length ? equipmentInventory.map((item) => (
+                <span className="games-tag" key={item.itemId}>
+                  {EQUIPMENT_SLOT_LABELS[item.slot] || item.slot} · {item.name} x{item.qty}
+                </span>
+              )) : <span className="games-tag">보유 장비 없음</span>}
+            </div>
+          </section>
         </section>
 
         <section className="games-dashboard">
@@ -399,7 +451,7 @@ export default function PrimitiveArchivePlayPage() {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>인벤토리</h2>
-              <span>{inventoryWeight(state.inventory).toLocaleString('ko-KR')} 무게</span>
+              <span>{totalCarryWeight(state).toLocaleString('ko-KR')} 무게</span>
             </div>
             {inventoryRows.length ? (
               <div className="game-save-list">

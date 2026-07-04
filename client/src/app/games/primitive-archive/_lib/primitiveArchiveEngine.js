@@ -2,6 +2,15 @@ export const GAME_SLUG = 'primitive-archive';
 export const QUICK_SAVE_SLOT = 'primitive-archive-main';
 export const SAVE_VERSION = 'primitive-archive-v1';
 
+export const EQUIPMENT_SLOT_LABELS = {
+  tool: '도구',
+  weapon: '무기',
+  top: '상의',
+  accessory: '장신구',
+};
+
+const EQUIPMENT_SLOTS = Object.keys(EQUIPMENT_SLOT_LABELS);
+
 export const STUDENTS = [
   {
     id: 'shiroko',
@@ -49,14 +58,20 @@ export const ITEMS = {
   meat: { name: '고기', icon: 'food', weight: 1 },
   cooked_meat: { name: '구운 고기', icon: 'food', weight: 1 },
   twine: { name: '끈', icon: 'fiber', weight: 1 },
-  stone_axe: { name: '돌도끼', icon: 'tool', weight: 3 },
-  bow: { name: '활', icon: 'weapon', weight: 2 },
+  leather_strip: { name: '가죽끈', icon: 'hide', weight: 1 },
+  stone_axe: { name: '돌도끼', icon: 'tool', weight: 3, type: 'equip', slot: 'tool', successAdd: { gather: 0.08, craft: 0.03 }, staminaAdd: { gather: -2 } },
+  bow: { name: '활', icon: 'weapon', weight: 2, type: 'equip', slot: 'weapon', successAdd: { hunt: 0.1 }, staminaAdd: { hunt: -1 } },
+  hide_coat: { name: '가죽 상의', icon: 'armor', weight: 2, type: 'equip', slot: 'top', insulation: 3, staminaAdd: { rest: -1 } },
+  charm: { name: '부싯돌 장신구', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { craft: 0.04, gather: 0.02 } },
 };
 
 export const RECIPES = [
   { id: 'twine', name: '끈', requires: { fiber: 2 }, baseChance: 0.9, reward: { twine: 1 }, note: '초기 제작 재료입니다.' },
   { id: 'stone_axe', name: '돌도끼', requires: { wood: 2, stone: 3 }, baseChance: 0.7, reward: { stone_axe: 1 }, note: '채집 성공률을 올립니다.' },
   { id: 'bow', name: '활', requires: { wood: 2, fiber: 3, twine: 1 }, baseChance: 0.62, reward: { bow: 1 }, note: '사냥 성공률을 올립니다.' },
+  { id: 'leather_strip', name: '가죽끈', requires: { hide: 2 }, baseChance: 0.78, reward: { leather_strip: 1 }, note: '장비 제작에 쓰이는 중간 재료입니다.' },
+  { id: 'hide_coat', name: '가죽 상의', requires: { hide: 3, fiber: 2, leather_strip: 1 }, baseChance: 0.58, reward: { hide_coat: 1 }, note: '추위 피해를 줄이는 방한 장비입니다.' },
+  { id: 'charm', name: '부싯돌 장신구', requires: { flint: 1, bone: 1, twine: 1 }, baseChance: 0.66, reward: { charm: 1 }, note: '제작과 채집 감각을 보조합니다.' },
 ];
 
 export const TECH_TREE = [
@@ -109,6 +124,26 @@ export function makeParty() {
     hp: 100,
     hunger: 12,
     stamina: 100,
+  }));
+}
+
+function emptyEquipmentSlots() {
+  return Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => [slot, null]));
+}
+
+function initEquipmentForParty(party) {
+  return Object.fromEntries(party.map((member) => [member.id, emptyEquipmentSlots()]));
+}
+
+function normalizeEquipment(value, party) {
+  const source = value && typeof value === 'object' ? value : {};
+  return Object.fromEntries(party.map((member) => {
+    const slots = source[member.id] && typeof source[member.id] === 'object' ? source[member.id] : {};
+    return [member.id, Object.fromEntries(EQUIPMENT_SLOTS.map((slot) => {
+      const itemId = slots[slot];
+      const item = ITEMS[itemId];
+      return [slot, item?.type === 'equip' && item.slot === slot ? itemId : null];
+    }))];
   }));
 }
 
@@ -199,6 +234,7 @@ export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const rng = options.rng || Math.random;
   const meta = initMetaState(options.meta);
+  const party = makeParty();
   const base = {
     runId: options.runId || `pa-${Date.now().toString(36)}`,
     startedAt: now,
@@ -207,8 +243,9 @@ export function createNewState(options = {}) {
     ap: 4,
     apMax: 4,
     weather: rollWeather(1, rng),
-    party: makeParty(),
+    party,
     inventory: { wood: 2, stone: 2, fiber: 2, berry: 2 },
+    equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, fuel: 0 },
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0 },
     research: initResearchState(),
@@ -224,12 +261,14 @@ export function normalizeState(value) {
   if (!value || typeof value !== 'object') return base;
   const research = normalizeResearch(value.research);
   const meta = initMetaState(value.meta);
+  const party = Array.isArray(value.party) && value.party.length ? value.party : base.party;
   return {
     ...base,
     ...value,
     weather: value.weather && typeof value.weather === 'object' ? value.weather : base.weather,
-    party: Array.isArray(value.party) && value.party.length ? value.party : base.party,
+    party,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
+    equipment: normalizeEquipment(value.equipment, party),
     camp: value.camp && typeof value.camp === 'object' ? { ...base.camp, ...value.camp } : base.camp,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     research,
@@ -380,6 +419,124 @@ export function inventoryWeight(inventory) {
   return Object.entries(inventory).reduce((sum, [id, qty]) => sum + Number(qty || 0) * Number(ITEMS[id]?.weight || 1), 0);
 }
 
+function equipmentWeight(equipment = {}) {
+  return Object.values(equipment).reduce((sum, slots) => (
+    sum + Object.values(slots || {}).reduce((slotSum, itemId) => (
+      slotSum + (itemId ? Number(ITEMS[itemId]?.weight || 0) : 0)
+    ), 0)
+  ), 0);
+}
+
+export function totalCarryWeight(state) {
+  const current = normalizeState(state);
+  return inventoryWeight(current.inventory) + equipmentWeight(current.equipment);
+}
+
+function equipmentBonus(state, actorId, bucket, key) {
+  const slots = normalizeEquipment(state.equipment, state.party)[actorId] || {};
+  return Object.values(slots).reduce((sum, itemId) => (
+    sum + Number(ITEMS[itemId]?.[bucket]?.[key] || 0)
+  ), 0);
+}
+
+function actorInsulation(state, actorId) {
+  const slots = normalizeEquipment(state.equipment, state.party)[actorId] || {};
+  return Object.values(slots).reduce((sum, itemId) => sum + Number(ITEMS[itemId]?.insulation || 0), 0);
+}
+
+export function partyInsulation(state) {
+  const current = normalizeState(state);
+  if (!current.party.length) return 0;
+  const total = current.party.reduce((sum, member) => sum + actorInsulation(current, member.id), 0);
+  return Math.round((total / current.party.length) * 10) / 10;
+}
+
+function isEquipped(state, actorId, itemId) {
+  return Object.values(normalizeEquipment(state.equipment, state.party)[actorId] || {}).includes(itemId);
+}
+
+export function equipmentRows(state, actorId) {
+  const current = normalizeState(state);
+  const equipment = normalizeEquipment(current.equipment, current.party);
+  const slots = equipment[actorId] || emptyEquipmentSlots();
+  return EQUIPMENT_SLOTS.map((slot) => {
+    const itemId = slots[slot];
+    const item = ITEMS[itemId];
+    return {
+      slot,
+      label: EQUIPMENT_SLOT_LABELS[slot],
+      itemId: itemId || '',
+      itemName: item?.name || '없음',
+      insulation: Number(item?.insulation || 0),
+      successText: item?.successAdd ? Object.entries(item.successAdd).map(([key, value]) => `${key}+${Math.round(Number(value) * 100)}%`).join(', ') : '',
+    };
+  });
+}
+
+export function equipmentChoicesForSlot(state, actorId, slot) {
+  const current = normalizeState(state);
+  const equipped = normalizeEquipment(current.equipment, current.party)[actorId]?.[slot] || '';
+  const inventoryChoices = Object.entries(current.inventory)
+    .filter(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip' && ITEMS[itemId]?.slot === slot)
+    .map(([itemId, qty]) => ({
+      itemId,
+      name: ITEMS[itemId].name,
+      qty: Number(qty || 0),
+    }));
+  const equippedChoice = equipped && !inventoryChoices.some((item) => item.itemId === equipped)
+    ? [{ itemId: equipped, name: ITEMS[equipped]?.name || equipped, qty: 0 }]
+    : [];
+  return [{ itemId: '', name: '없음', qty: 0 }, ...equippedChoice, ...inventoryChoices];
+}
+
+export function equipmentInventoryRows(state) {
+  const current = normalizeState(state);
+  return Object.entries(current.inventory)
+    .filter(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip')
+    .map(([itemId, qty]) => ({
+      itemId,
+      name: ITEMS[itemId].name,
+      slot: ITEMS[itemId].slot,
+      slotLabel: EQUIPMENT_SLOT_LABELS[ITEMS[itemId].slot] || ITEMS[itemId].slot,
+      qty: Number(qty || 0),
+    }))
+    .sort((a, b) => a.slotLabel.localeCompare(b.slotLabel, 'ko-KR') || a.name.localeCompare(b.name, 'ko-KR'));
+}
+
+export function setEquipmentSlotAction(state, actorId, slot, nextItemId) {
+  const current = normalizeState(state);
+  const actor = getActor(current, actorId);
+  if (!actor) return current;
+  if (!EQUIPMENT_SLOTS.includes(slot)) return addLog(current, '장비 슬롯을 찾을 수 없습니다.');
+  const nextItem = nextItemId ? ITEMS[nextItemId] : null;
+  if (nextItemId && (!nextItem || nextItem.type !== 'equip' || nextItem.slot !== slot)) {
+    return addLog(current, '해당 슬롯에 장착할 수 없는 장비입니다.');
+  }
+
+  const equipment = normalizeEquipment(current.equipment, current.party);
+  const previousItemId = equipment[actorId]?.[slot] || '';
+  if (previousItemId === nextItemId) return current;
+  if (nextItemId && Number(current.inventory[nextItemId] || 0) <= 0) {
+    return addLog(current, `${nextItem.name} 보유 수량이 없습니다.`);
+  }
+  const inventory = { ...current.inventory };
+  if (previousItemId) inventory[previousItemId] = Number(inventory[previousItemId] || 0) + 1;
+  if (nextItemId) inventory[nextItemId] = Math.max(0, Number(inventory[nextItemId] || 0) - 1);
+
+  const next = {
+    ...current,
+    inventory,
+    equipment: {
+      ...equipment,
+      [actorId]: {
+        ...(equipment[actorId] || emptyEquipmentSlots()),
+        [slot]: nextItemId || null,
+      },
+    },
+  };
+  return addLog(next, `${actor.name} 장비 변경: ${EQUIPMENT_SLOT_LABELS[slot]} = ${nextItemId ? ITEMS[nextItemId].name : '없음'}`);
+}
+
 export function averageParty(state, key) {
   if (!state.party.length) return 0;
   return Math.round(state.party.reduce((sum, member) => sum + Number(member[key] || 0), 0) / state.party.length);
@@ -401,14 +558,17 @@ export function actionChance(state, actorId, action, base = 0.55) {
   const stat = Number(actor?.stats?.[action] || 5);
   const weather = Number(state.weather?.actionMod || 0);
   const camp = action === 'craft' ? Number(state.camp.workbenchLevel || 0) * 0.04 : 0;
-  const axe = action === 'gather' && Number(state.inventory.stone_axe || 0) > 0 ? 0.08 : 0;
-  const bow = action === 'hunt' && Number(state.inventory.bow || 0) > 0 ? 0.1 : 0;
+  const equipment = equipmentBonus(state, actorId, 'successAdd', action);
   const researchBonus =
     (action === 'gather' && hasTechPassive(state, 'GATHER_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP') ? 0.06 : 0)
-    + (action === 'hunt' && Number(state.inventory.bow || 0) > 0 && hasTechPassive(state, 'BOW_HUNT_UP') ? 0.06 : 0)
+    + (action === 'hunt' && isEquipped(state, actorId, 'bow') && hasTechPassive(state, 'BOW_HUNT_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'CRAFT_SUCCESS_UP') ? 0.06 : 0);
-  return clamp(base + stat * 0.025 + weather + camp + axe + bow + researchBonus, 0.08, 0.95);
+  return clamp(base + stat * 0.025 + weather + camp + equipment + researchBonus, 0.08, 0.95);
+}
+
+function staminaCostWithEquipment(state, actorId, action, baseCost) {
+  return Math.max(1, Math.round(Number(baseCost || 0) + equipmentBonus(state, actorId, 'staminaAdd', action)));
 }
 
 export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options = {}) {
@@ -424,7 +584,7 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
 
 export function advanceDay(state, options = {}) {
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
-  const warmth = Number(state.camp.fireLevel || 0) * 4 + Number(state.camp.shelterLevel || 0) * 3;
+  const warmth = Number(state.camp.fireLevel || 0) * 4 + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
   const coldDamage = Math.max(0, Number(state.weather?.cold || 0) - warmth);
   const fuelUsed = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 1 : 0;
   const party = state.party.map((member) => {
@@ -569,6 +729,9 @@ export function scoreState(state) {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
   const research = researchSummary(state);
+  const equipmentCount = Object.values(normalizeEquipment(state.equipment, state.party)).reduce((sum, slots) => (
+    sum + Object.values(slots || {}).filter(Boolean).length
+  ), 0);
   return Math.max(0, Math.round(
     state.day * 120
     + Number(state.counters.gather || 0) * 18
@@ -578,6 +741,8 @@ export function scoreState(state) {
     + Number(state.camp.shelterLevel || 0) * 90
     + Number(state.camp.workbenchLevel || 0) * 70
     + research.completed * 120
+    + equipmentCount * 45
+    + partyInsulation(state) * 35
     + hp * 2
     + (100 - hunger)
   ));
@@ -598,7 +763,8 @@ export function summaryForState(state) {
     camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel}`,
     research: `${researchSummary(state).completed}/${TECH_TREE.length}`,
     perkPoints: Number(state.meta?.perkPoints || 0),
-    weight: inventoryWeight(state.inventory),
+    weight: totalCarryWeight(state),
+    insulation: partyInsulation(state),
     score: scoreState(state),
   };
 }
@@ -628,7 +794,7 @@ export function runGatherAction(state, actorId, zoneId, options = {}) {
   } else {
     next = addLog(next, `${actor.name}의 채집 실패. ${zone.name}의 날씨와 지형이 좋지 않았습니다.`);
   }
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, 15, 3, options);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(state, actorId, 'gather', 15), 3, options);
 }
 
 export function runHuntAction(state, actorId, zoneId, options = {}) {
@@ -651,7 +817,7 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
     next = updateActor(next, actorId, { hp: clamp(Number(target.hp || 0) - damage, 0, 100) });
     next = addLog(next, `${actor.name}의 사냥 실패. 반격으로 HP -${damage}.`);
   }
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, 24, 5, options);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(state, actorId, 'hunt', 24), 5, options);
 }
 
 export function runCraftAction(state, actorId, recipeId, options = {}) {
@@ -674,7 +840,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
   } else {
     next = addLog(next, `${actor.name}의 제작 실패. 일부 재료를 잃었습니다.`);
   }
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'craft', ok }), actorId, 20, 4, options);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'craft', ok }), actorId, staminaCostWithEquipment(state, actorId, 'craft', 20), 4, options);
 }
 
 export function runEatAction(state, actorId, options = {}) {
@@ -694,7 +860,7 @@ export function runEatAction(state, actorId, options = {}) {
     hp: clamp(Number(target.hp || 0) + heal, 0, 100),
   });
   next = addLog(next, `${actor.name}이(가) ${itemName(foodId)}을(를) 먹었습니다. 허기 -${nutrition}, HP +${heal}.`);
-  return afterAction(next, actorId, 6, 0, options);
+  return afterAction(next, actorId, staminaCostWithEquipment(state, actorId, 'eat', 6), 0, options);
 }
 
 export function runRestAction(state, actorId, options = {}) {
@@ -745,5 +911,5 @@ export function runCampAction(state, actorId, kind, options = {}) {
     next = addLog(next, `${actor.name}이(가) 고기를 구웠습니다. 구운 고기 +1.`);
   }
   next.counters = { ...next.counters, camp: Number(next.counters.camp || 0) + 1 };
-  return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, 14, 2, options);
+  return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, staminaCostWithEquipment(state, actorId, 'camp', 14), 2, options);
 }
