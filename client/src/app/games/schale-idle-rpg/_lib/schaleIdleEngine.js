@@ -1253,6 +1253,41 @@ export function salvageRows(state) {
   });
 }
 
+export function salvageSummary(state) {
+  const current = normalizeState(state);
+  const rows = salvageRows(current);
+  const totals = rows.reduce((sum, entry) => {
+    const value = salvageValue(entry);
+    return {
+      scrap: sum.scrap + value.scrap,
+      stone: sum.stone + value.stone,
+      ticket: sum.ticket + value.ticket,
+    };
+  }, { scrap: 0, stone: 0, ticket: 0 });
+  const byRarity = rows.reduce((next, entry) => ({
+    ...next,
+    [entry.rarity]: Number(next[entry.rarity] || 0) + 1,
+  }), {});
+  const bySlot = rows.reduce((next, entry) => ({
+    ...next,
+    [entry.slot]: Number(next[entry.slot] || 0) + 1,
+  }), {});
+  const riskyRows = rows
+    .filter((entry) => rarityRank(entry.rarity) >= RARITY_RANK.RARE || Number(entry.enhance || 0) >= 3 || Number(entry.score || 0) >= 120)
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+  return {
+    queued: rows.length,
+    candidateOnly: true,
+    protectedEquipped: getEquippedList(current).length,
+    totals,
+    totalRewardText: `고철 ${totals.scrap}${totals.stone ? `, 강화석 ${totals.stone}` : ''}${totals.ticket ? `, 리롤권 ${totals.ticket}` : ''}`,
+    highRiskCount: riskyRows.length,
+    topRiskRows: riskyRows.slice(0, 3),
+    byRarityText: Object.entries(byRarity).map(([rarity, count]) => `${rarity} ${count}`).join(' · ') || '없음',
+    bySlotText: Object.entries(bySlot).map(([slot, count]) => `${slotLabel(slot)} ${count}`).join(' · ') || '없음',
+  };
+}
+
 export function towerShopRows(state) {
   const current = normalizeState(state);
   const towerShop = ensureTowerShopPeriod(current.towerShop);

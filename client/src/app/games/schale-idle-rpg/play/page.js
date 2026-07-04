@@ -34,6 +34,7 @@ import {
   resolveDutyAction,
   restAction,
   salvageRows,
+  salvageSummary,
   scoreState,
   slotLabel,
   summaryForState,
@@ -89,6 +90,7 @@ export default function SchaleIdlePlayPage() {
   const achievements = useMemo(() => achievementRows(state), [state]);
   const titles = useMemo(() => titleRows(state), [state]);
   const salvage = useMemo(() => salvageRows(state), [state]);
+  const salvageInfo = useMemo(() => salvageSummary(state), [state]);
   const shopOffers = useMemo(() => towerShopRows(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
@@ -347,21 +349,50 @@ export default function SchaleIdlePlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>분해 대기열</h2>
-            <button type="button" className="tcg-primary-action" disabled={!salvage.length} onClick={() => setState((current) => autoSalvageAction(current))}>자동 분해</button>
+            <button type="button" className="tcg-primary-action" disabled={!salvage.length} onClick={() => setState((current) => autoSalvageAction(current))}>
+              자동 분해{salvageInfo.candidateOnly ? ' · 후보만' : ''}
+            </button>
           </div>
           {salvage.length ? (
-            <div className="game-save-list">
-              {salvage.slice(0, 8).map((entry) => (
-                <article className="game-save-row" key={`${entry.uid}-${entry.createdAt}`}>
+            <>
+              <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+                후보만 분해 ON · 장착 장비 {salvageInfo.protectedEquipped}개는 보호 중입니다. 실행 전 예상 보상과 위험 후보를 확인하세요.
+              </div>
+              <div className="games-rank-split" style={{ marginBottom: 12 }}>
+                <SmallStat label="후보" value={`${salvageInfo.queued}개`} />
+                <SmallStat label="고철" value={salvageInfo.totals.scrap} />
+                <SmallStat label="강화석" value={salvageInfo.totals.stone} />
+                <SmallStat label="리롤권" value={salvageInfo.totals.ticket} />
+                <SmallStat label="위험 후보" value={`${salvageInfo.highRiskCount}개`} />
+              </div>
+              <div className="game-save-list">
+                <article className="game-save-row">
                   <div>
-                    <span>{slotLabel(entry.slot)} · {entry.rarity} · {entry.reason}</span>
-                    <strong>{entry.name}</strong>
-                    <small>{entry.rewardText}</small>
+                    <span>희귀도: {salvageInfo.byRarityText}</span>
+                    <strong>슬롯 분포: {salvageInfo.bySlotText}</strong>
                   </div>
-                  <strong>{entry.score}</strong>
                 </article>
-              ))}
-            </div>
+                {salvageInfo.highRiskCount ? (
+                  <article className="game-save-row">
+                    <div>
+                      <span>RARE 이상 / 강화 +3 이상 / 점수 120 이상</span>
+                      <strong>위험 후보 상위: {salvageInfo.topRiskRows.map((entry) => `${entry.name}(${entry.score})`).join(', ')}</strong>
+                    </div>
+                    <strong>주의</strong>
+                  </article>
+                ) : null}
+                {salvage.slice(0, 8).map((entry) => (
+                  <article className="game-save-row" key={`${entry.uid}-${entry.createdAt}`}>
+                    <div>
+                      <span>{slotLabel(entry.slot)} · {entry.rarity} · {entry.reason}</span>
+                      <strong>{entry.name}</strong>
+                      <small>{entry.rewardText}</small>
+                    </div>
+                    <strong>{entry.score}</strong>
+                  </article>
+                ))}
+              </div>
+            </>
           ) : <div className="games-empty">분해 대기 중인 장비가 없습니다.</div>}
         </section>
 
