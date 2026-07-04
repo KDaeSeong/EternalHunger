@@ -15,6 +15,7 @@ import {
   evaluateProjectAction,
   getCurrentTask,
   getFileContent,
+  getDocumentReviewProgress,
   getPlayTimeSec,
   getReportText,
   getRevealedHints,
@@ -27,6 +28,7 @@ import {
   submitTaskAction,
   summaryForState,
   taskRows,
+  toggleDocumentReviewAction,
   updateFileAction,
   updateReportAction,
 } from '../_lib/siCodingSimEngine';
@@ -49,11 +51,13 @@ function SmallStat({ label, value }) {
 }
 
 function ResultRow({ result }) {
+  const detail = (result.rules || []).map((rule) => rule.value).filter(Boolean).join(' · ');
   return (
     <article className="game-save-row">
       <div>
-        <span>{result.passed ? 'PASS' : 'FAIL'}</span>
+        <span>{result.resultType === 'document' ? 'DOC' : result.passed ? 'PASS' : 'FAIL'}</span>
         <strong>{result.label}</strong>
+        {detail ? <span>{detail}</span> : null}
       </div>
       <strong>{result.passed ? '통과' : '미통과'}</strong>
     </article>
@@ -116,6 +120,7 @@ export default function SiCodingSimPlayPage() {
   const latestEvaluation = state.projectEvaluations[0] || null;
   const score = scoreState(state);
   const documentPlay = task?.documentPlay || null;
+  const documentProgress = task ? getDocumentReviewProgress(state, task.id) : null;
   const execution = task?.execution || null;
   const insightRows = Object.entries(task?.passiveInsights || {});
   const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
@@ -298,7 +303,7 @@ export default function SiCodingSimPlayPage() {
                   <span>{documentPlay.summary}</span>
                   <strong>{documentPlay.title}</strong>
                 </div>
-                <strong>오답 허용 {documentPlay.allowWrongSelections ?? 0}</strong>
+                <strong>{documentProgress?.checkedRequiredCount || 0}/{documentProgress?.requiredCount || 0}</strong>
               </article>
               {(documentPlay.reviewItems || []).map((item) => (
                 <article className="game-save-row" key={item.id}>
@@ -306,9 +311,22 @@ export default function SiCodingSimPlayPage() {
                     <span>{item.detail} · 출처 {item.sourceDocId}</span>
                     <strong>{item.title}</strong>
                   </div>
-                  <strong>{item.required ? '필수' : '함정'}</strong>
+                  <label className="game-save-chip" style={{ cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(documentProgress?.selectedIds?.includes(item.id))}
+                      onChange={() => setState((current) => toggleDocumentReviewAction(current, task.id, item.id))}
+                      style={{ marginRight: 6 }}
+                    />
+                    {item.required ? '필수' : '함정'}
+                  </label>
                 </article>
               ))}
+              {documentProgress && !documentProgress.passed ? (
+                <div className="games-empty">
+                  문서 체크 미완료: 필수 누락 {documentProgress.missingRequiredCount}개 · 재확인 {documentProgress.wrongSelectedCount}개
+                </div>
+              ) : null}
             </div>
           ) : null}
           <div className="game-save-list">
@@ -381,6 +399,7 @@ export default function SiCodingSimPlayPage() {
             <SmallStat label="마감" value={task.deadline} />
             <SmallStat label="파일" value={`${files.length}개`} />
             <SmallStat label="문서/체크" value={`${currentTaskRow?.documentCount || 0}/${currentTaskRow?.checkpointCount || 0}`} />
+            <SmallStat label="문서확인" value={documentProgress ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}` : '-'} />
             <SmallStat label="실행/정적" value={`${(currentTaskRow?.executionCount || 0) + (currentTaskRow?.hiddenExecutionCount || 0)}/${currentTaskRow?.checkCount || 0}`} />
             <SmallStat label="상태" value={currentTaskRow?.status || '미제출'} />
           </div>
@@ -624,6 +643,8 @@ export default function SiCodingSimPlayPage() {
               <SmallStat label="제출" value={`${latestEvaluation.submittedTasks}/${latestEvaluation.totalTasks}`} />
               <SmallStat label="완전 통과" value={latestEvaluation.fullPassCount} />
               <SmallStat label="리스크" value={latestEvaluation.openRiskCount} />
+              <SmallStat label="문서 누락" value={latestEvaluation.documentMetrics?.missingRequiredCount || 0} />
+              <SmallStat label="문서 재확인" value={latestEvaluation.documentMetrics?.wrongSelectedCount || 0} />
             </div>
           ) : <div className="games-empty">프로젝트 종료 판정을 실행하면 전체 제출 상태와 리스크 기준으로 등급이 계산됩니다.</div>}
         </section>
