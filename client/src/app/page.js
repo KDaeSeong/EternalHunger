@@ -15,17 +15,29 @@ import {
 
 const MENU_ITEMS = [
   {
-    href: '/eternalhunger',
-    tag: 'Play',
-    title: '게임 시작',
-    body: '현재 데이터로 시뮬레이션을 실행하고 결과를 기록합니다.',
+    href: '/games',
+    tag: 'Hub',
+    title: '게임 고르기',
+    body: '이터널 헝거, MyAnime, SRPG를 게임별 주소에서 선택합니다.',
     emphasis: true,
   },
   {
-    href: '/games',
-    tag: 'Hub',
-    title: '게임 허브',
-    body: '플레이, 커뮤니티 게임, 게시판 활동, 기록 흐름을 한 화면에서 확인합니다.',
+    href: '/eternalhunger',
+    tag: 'Battle',
+    title: '이터널 헝거',
+    body: '배틀 시뮬레이션, 캐릭터 설정, 기록소 흐름을 전용 게임으로 분리합니다.',
+  },
+  {
+    href: '/myanime',
+    tag: 'MyAnime',
+    title: 'MyAnime 허브',
+    body: '업로드된 MyAnime 계열 프로토타입을 한곳에서 골라 플레이합니다.',
+  },
+  {
+    href: '/srpg',
+    tag: 'SRPG',
+    title: 'SRPG 허브',
+    body: '그리드 전투와 미션형 게임을 별도 장르 허브에서 관리합니다.',
   },
   {
     href: '/achievements',
@@ -448,10 +460,11 @@ export default function Home() {
             </p>
           </div>
           <div className="home-command-actions">
-            <Link href={mounted && user ? '/eternalhunger' : '/login'} className="home-primary-action">
-              {mounted && user ? '게임 시작' : '로그인하고 시작'}
+            <Link href={mounted && user ? '/games' : '/login'} className="home-primary-action">
+              {mounted && user ? '게임 고르기' : '로그인하고 시작'}
             </Link>
-            <Link href="/board" className="home-secondary-action">게시판</Link>
+            <Link href="/eternalhunger" className="home-secondary-action">이터널 헝거</Link>
+            <Link href="/myanime" className="home-secondary-action">MyAnime</Link>
           </div>
         </section>
 
