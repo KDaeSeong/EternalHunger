@@ -18,6 +18,7 @@ import {
   actionChance,
   averageParty,
   buyPerkAction,
+  campFacilityRows,
   createNewState,
   equipmentChoicesForSlot,
   equipmentInventoryRows,
@@ -26,9 +27,11 @@ import {
   getActor,
   getPlayTimeSec,
   itemName,
+  logCapacity,
   normalizeState,
   partyInsulation,
   perkRows,
+  researchInspirationRows,
   researchSummary,
   runCampAction,
   runCraftAction,
@@ -118,10 +121,13 @@ export default function PrimitiveArchivePlayPage() {
   const craftChance = recipe ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
+  const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
+  const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
   const currentEquipmentRows = useMemo(() => equipmentRows(state, actorId), [state, actorId]);
   const equipmentInventory = useMemo(() => equipmentInventoryRows(state), [state]);
   const insulation = partyInsulation(state);
+  const currentLogCapacity = logCapacity(state);
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
       const chances = {
@@ -416,6 +422,7 @@ export default function PrimitiveArchivePlayPage() {
               <div><span>모닥불</span><strong>Lv.{state.camp.fireLevel}</strong></div>
               <div><span>대피소</span><strong>Lv.{state.camp.shelterLevel}</strong></div>
               <div><span>작업대</span><strong>Lv.{state.camp.workbenchLevel}</strong></div>
+              <div><span>기록실</span><strong>Lv.{state.camp.archiveRoomLevel || 0}</strong></div>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               <ActionButton disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>
@@ -423,7 +430,21 @@ export default function PrimitiveArchivePlayPage() {
               <ActionButton disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
               <ActionButton disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
               <ActionButton disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
+              {campFacilities.map((facility) => (
+                <ActionButton
+                  key={facility.id}
+                  disabled={!canAct || !facility.unlocked || facility.maxed}
+                  onClick={() => runCamp(facility.action)}
+                >
+                  {facility.buttonLabel}
+                </ActionButton>
+              ))}
             </div>
+            {campFacilities.map((facility) => (
+              <p key={`${facility.id}-desc`} style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
+                {facility.name}: {facility.desc}
+              </p>
+            ))}
           </section>
 
           <section className="games-panel">
@@ -496,6 +517,23 @@ export default function PrimitiveArchivePlayPage() {
             <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
               유레카: {research.selected?.eureka?.desc || '없음'} {research.selected?.eurekaDone ? '· 달성' : ''}
             </p>
+            <div className="game-save-list">
+              {inspirationRows.slice(0, 4).map((row) => (
+                <article className="game-save-row" key={row.techId}>
+                  <div>
+                    <span>
+                      {row.completed ? '완료' : row.eurekaDone ? '달성' : row.available ? '진행 가능' : '잠김'}
+                      {' · '}
+                      {row.current}/{row.target}
+                    </span>
+                    <strong>{row.techName}</strong>
+                    <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
+                      {row.desc} · {row.progressPct}%
+                    </small>
+                  </div>
+                </article>
+              ))}
+            </div>
             <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>
               연구 실행
             </ActionButton>
@@ -552,7 +590,7 @@ export default function PrimitiveArchivePlayPage() {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>로그</h2>
-              <span>{state.runId}</span>
+              <span>{state.log.length}/{currentLogCapacity}</span>
             </div>
             <div className="games-activity-list">
               {state.log.slice(0, 12).map((line, index) => (

@@ -1,6 +1,8 @@
 export const GAME_SLUG = 'primitive-archive';
 export const QUICK_SAVE_SLOT = 'primitive-archive-main';
 export const SAVE_VERSION = 'primitive-archive-v1';
+const BASE_LOG_LIMIT = 240;
+const ARCHIVE_LOG_LIMIT_BONUS = 120;
 
 export const EQUIPMENT_SLOT_LABELS = {
   tool: '도구',
@@ -151,9 +153,11 @@ export const TECH_TREE = [
   { id: 'CORDAGE', name: '끈과 밧줄', era: 'PRIMITIVE', cost: 12, prereqs: ['GATHERING'], unlocks: { recipes: ['twine'] }, eureka: { type: 'haveItem', itemId: 'fiber', count: 5, bonusPct: 0.25, desc: '섬유 5개 보유' } },
   { id: 'HERBALISM', name: '약초 지식', era: 'PRIMITIVE', cost: 12, prereqs: ['GATHERING'], unlocks: { passives: ['REST_HEAL_UP'] }, eureka: { type: 'haveItem', itemId: 'herb', count: 3, bonusPct: 0.3, desc: '약초 3개 보유' } },
   { id: 'SHELTER', name: '대피소 짓기', era: 'PRIMITIVE', cost: 14, prereqs: ['FIREMAKING'], unlocks: { camp: ['shelter'] }, eureka: { type: 'surviveDays', count: 3, bonusPct: 0.3, desc: '3일 생존' } },
+  { id: 'ORAL_RECORDS', name: '구전 기록', era: 'NEOLITHIC', cost: 18, prereqs: ['HERBALISM', 'SHELTER'], unlocks: { passives: ['RESEARCH_NOTE_UP'] }, eureka: { type: 'weatherTypes', count: 2, bonusPct: 0.25, desc: '서로 다른 날씨 2종 관찰' } },
   { id: 'TRAPPING', name: '덫 사냥', era: 'NEOLITHIC', cost: 16, prereqs: ['HUNTING', 'CORDAGE'], unlocks: { passives: ['HUNT_RISK_DOWN'] }, eureka: { type: 'actionFail', action: 'hunt', count: 1, bonusPct: 0.15, desc: '사냥 실패 1회' } },
   { id: 'ARCHERY', name: '궁술', era: 'NEOLITHIC', cost: 18, prereqs: ['HUNTING', 'CORDAGE'], unlocks: { recipes: ['bow'], passives: ['BOW_HUNT_UP'] }, eureka: { type: 'recipeCraft', recipeId: 'bow', count: 1, bonusPct: 0.3, desc: '활 제작 1회' } },
   { id: 'SETTLEMENT', name: '정착', era: 'NEOLITHIC', cost: 20, prereqs: ['SHELTER'], unlocks: { passives: ['CAMP_SCORE_UP'] }, eureka: { type: 'campLevel', key: 'shelterLevel', count: 2, bonusPct: 0.25, desc: '대피소 Lv.2 달성' } },
+  { id: 'ARCHIVE', name: '기록 보관', era: 'NEOLITHIC', cost: 24, prereqs: ['SETTLEMENT', 'ORAL_RECORDS'], unlocks: { camp: ['archive_room'], passives: ['RESEARCH_POINT_BONUS', 'ARCHIVE_LOG_UP'] }, eureka: { type: 'campFireDays', count: 2, bonusPct: 0.25, desc: '모닥불을 유지한 밤 2회' } },
 ];
 
 export const PERK_DEFS = [
@@ -228,6 +232,7 @@ export function initResearchState() {
       recipeCraft: {},
       campAction: {},
       weatherSeen: {},
+      campFireDays: 0,
     },
   };
 }
@@ -295,6 +300,7 @@ function normalizeResearch(value = {}) {
       recipeCraft: { ...(value.counters?.recipeCraft || {}) },
       campAction: { ...(value.counters?.campAction || {}) },
       weatherSeen: { ...(value.counters?.weatherSeen || {}) },
+      campFireDays: Math.max(0, Number(value.counters?.campFireDays || 0)),
     },
   };
 }
@@ -315,7 +321,7 @@ export function createNewState(options = {}) {
     party,
     inventory: { wood: 2, stone: 2, fiber: 2, berry: 2 },
     equipment: initEquipmentForParty(party),
-    camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, fuel: 0 },
+    camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, fuel: 0 },
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0 },
     research: initResearchState(),
     meta,
@@ -331,6 +337,13 @@ export function normalizeState(value) {
   const research = normalizeResearch(value.research);
   const meta = initMetaState(value.meta);
   const party = Array.isArray(value.party) && value.party.length ? value.party : base.party;
+  const camp = value.camp && typeof value.camp === 'object'
+    ? {
+      ...base.camp,
+      ...value.camp,
+      archiveRoomLevel: clamp(Number(value.camp.archiveRoomLevel || 0), 0, 1),
+    }
+    : base.camp;
   return {
     ...base,
     ...value,
@@ -338,11 +351,11 @@ export function normalizeState(value) {
     party,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     equipment: normalizeEquipment(value.equipment, party),
-    camp: value.camp && typeof value.camp === 'object' ? { ...base.camp, ...value.camp } : base.camp,
+    camp,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     research,
     meta,
-    log: Array.isArray(value.log) ? value.log.slice(0, 80) : base.log,
+    log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
   };
 }
 
@@ -350,10 +363,14 @@ export function itemName(id) {
   return ITEMS[id]?.name || id;
 }
 
+export function logCapacity(state) {
+  return BASE_LOG_LIMIT + (Number(state?.camp?.archiveRoomLevel || 0) > 0 ? ARCHIVE_LOG_LIMIT_BONUS : 0);
+}
+
 export function addLog(state, message) {
   return {
     ...state,
-    log: [`Day ${state.day}: ${message}`, ...state.log].slice(0, 80),
+    log: [`Day ${state.day}: ${message}`, ...state.log].slice(0, logCapacity(state)),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -396,6 +413,11 @@ function hasTechPassive(state, passiveId) {
   return TECH_TREE.some((tech) => research.completed?.[tech.id] && (tech.unlocks?.passives || []).includes(passiveId));
 }
 
+function hasTechCampUnlock(state, campId) {
+  const research = normalizeResearch(state.research);
+  return TECH_TREE.some((tech) => research.completed?.[tech.id] && (tech.unlocks?.camp || []).includes(campId));
+}
+
 function completeTechIfReady(state, techId) {
   const research = normalizeResearch(state.research);
   const tech = getTech(techId);
@@ -431,20 +453,36 @@ function addResearchProgress(state, techId, points, source = '연구') {
   return completeTechIfReady(withLog, tech.id);
 }
 
+function researchTriggerProgress(state, trigger) {
+  const research = normalizeResearch(state.research);
+  const counters = research.counters || {};
+  const target = Math.max(1, Number(trigger?.count || 1));
+  let current = 0;
+  if (trigger.type === 'actionSuccess') current = Number(counters.actionSuccess?.[trigger.action] || 0);
+  if (trigger.type === 'actionFail') current = Number(counters.actionFail?.[trigger.action] || 0);
+  if (trigger.type === 'recipeCraft') current = Number(counters.recipeCraft?.[trigger.recipeId] || 0);
+  if (trigger.type === 'campAction') current = Number(counters.campAction?.[trigger.kind] || 0);
+  if (trigger.type === 'haveItem') current = Number(state.inventory?.[trigger.itemId] || 0);
+  if (trigger.type === 'surviveDays') current = Number(state.day || 1);
+  if (trigger.type === 'campLevel') current = Number(state.camp?.[trigger.key] || 0);
+  if (trigger.type === 'weatherSeen') current = Number(counters.weatherSeen?.[trigger.weatherId] || 0);
+  if (trigger.type === 'weatherTypes') {
+    current = Object.values(counters.weatherSeen || {}).filter((value) => Number(value || 0) > 0).length;
+  }
+  if (trigger.type === 'campFireDays') current = Number(counters.campFireDays || 0);
+  return {
+    current,
+    target,
+    done: current >= target,
+  };
+}
+
 function applyEureka(state) {
   let next = { ...state, research: normalizeResearch(state.research) };
   for (const tech of TECH_TREE) {
     const trigger = tech.eureka;
     if (!trigger || next.research.eureka[tech.id] || next.research.completed[tech.id]) continue;
-    let achieved = false;
-    if (trigger.type === 'actionSuccess') achieved = Number(next.research.counters.actionSuccess?.[trigger.action] || 0) >= trigger.count;
-    if (trigger.type === 'actionFail') achieved = Number(next.research.counters.actionFail?.[trigger.action] || 0) >= trigger.count;
-    if (trigger.type === 'recipeCraft') achieved = Number(next.research.counters.recipeCraft?.[trigger.recipeId] || 0) >= trigger.count;
-    if (trigger.type === 'campAction') achieved = Number(next.research.counters.campAction?.[trigger.kind] || 0) >= trigger.count;
-    if (trigger.type === 'haveItem') achieved = Number(next.inventory?.[trigger.itemId] || 0) >= trigger.count;
-    if (trigger.type === 'surviveDays') achieved = Number(next.day || 1) >= trigger.count;
-    if (trigger.type === 'campLevel') achieved = Number(next.camp?.[trigger.key] || 0) >= trigger.count;
-    if (!achieved) continue;
+    if (!researchTriggerProgress(next, trigger).done) continue;
     const bonus = Math.ceil(tech.cost * Number(trigger.bonusPct || 0));
     next = {
       ...next,
@@ -465,6 +503,7 @@ function recordResearchEvent(state, event) {
     recipeCraft: { ...research.counters.recipeCraft },
     campAction: { ...research.counters.campAction },
     weatherSeen: { ...research.counters.weatherSeen },
+    campFireDays: Math.max(0, Number(research.counters.campFireDays || 0)),
   };
   if (event.kind === 'action') {
     const bucket = event.ok ? counters.actionSuccess : counters.actionFail;
@@ -472,7 +511,10 @@ function recordResearchEvent(state, event) {
   }
   if (event.kind === 'recipe' && event.ok) counters.recipeCraft[event.recipeId] = Number(counters.recipeCraft[event.recipeId] || 0) + 1;
   if (event.kind === 'camp') counters.campAction[event.campKind] = Number(counters.campAction[event.campKind] || 0) + 1;
-  if (event.kind === 'day') counters.weatherSeen[event.weatherId] = Number(counters.weatherSeen[event.weatherId] || 0) + 1;
+  if (event.kind === 'day') {
+    counters.weatherSeen[event.weatherId] = Number(counters.weatherSeen[event.weatherId] || 0) + 1;
+    if (event.fireKept) counters.campFireDays = Number(counters.campFireDays || 0) + 1;
+  }
   return applyEureka({ ...state, research: { ...research, counters } });
 }
 
@@ -480,7 +522,14 @@ function autoResearchForDay(state) {
   const research = normalizeResearch(state.research);
   const techId = research.selectedTechId || nextAvailableTech(research)?.id;
   if (!techId) return state;
-  const points = clamp(2 + Number(state.camp.workbenchLevel || 0), 2, 8);
+  const points = clamp(
+    2
+    + Number(state.camp.workbenchLevel || 0)
+    + Number(state.camp.archiveRoomLevel || 0)
+    + (hasTechPassive(state, 'RESEARCH_POINT_BONUS') ? 1 : 0),
+    2,
+    10
+  );
   return addResearchProgress({ ...state, research }, techId, points, '일일 연구');
 }
 
@@ -680,7 +729,7 @@ export function advanceDay(state, options = {}) {
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도.`;
   const logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
-  return recordResearchEvent(autoResearchForDay(logged), { kind: 'day', weatherId: weather.id });
+  return recordResearchEvent(autoResearchForDay(logged), { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 });
 }
 
 export function selectTechAction(state, techId) {
@@ -769,6 +818,33 @@ export function techRows(state) {
   });
 }
 
+export function researchInspirationRows(state) {
+  const current = normalizeState(state);
+  return TECH_TREE
+    .filter((tech) => tech.eureka)
+    .map((tech) => {
+      const status = researchTriggerProgress(current, tech.eureka);
+      return {
+        techId: tech.id,
+        techName: tech.name,
+        desc: tech.eureka.desc || '',
+        completed: Boolean(current.research.completed?.[tech.id]),
+        eurekaDone: Boolean(current.research.eureka?.[tech.id]),
+        available: prereqsMet(current.research, tech),
+        current: status.current,
+        target: status.target,
+        progressPct: Math.round((Math.min(status.current, status.target) / status.target) * 100),
+      };
+    })
+    .sort((a, b) => (
+      Number(a.completed) - Number(b.completed)
+      || Number(b.available) - Number(a.available)
+      || Number(a.eurekaDone) - Number(b.eurekaDone)
+      || b.progressPct - a.progressPct
+      || a.techName.localeCompare(b.techName, 'ko-KR')
+    ));
+}
+
 export function perkRows(state) {
   const current = normalizeState(state);
   return PERK_DEFS.map((perk) => {
@@ -809,6 +885,7 @@ export function scoreState(state) {
     + Number(state.camp.fireLevel || 0) * 80
     + Number(state.camp.shelterLevel || 0) * 90
     + Number(state.camp.workbenchLevel || 0) * 70
+    + Number(state.camp.archiveRoomLevel || 0) * 95
     + research.completed * 120
     + equipmentCount * 45
     + partyInsulation(state) * 35
@@ -829,7 +906,7 @@ export function summaryForState(state) {
     hp: averageParty(state, 'hp'),
     hunger: averageParty(state, 'hunger'),
     ap: state.ap,
-    camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel}`,
+    camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel} / 기록실 ${state.camp.archiveRoomLevel || 0}`,
     research: `${researchSummary(state).completed}/${TECH_TREE.length}`,
     perkPoints: Number(state.meta?.perkPoints || 0),
     weight: totalCarryWeight(state),
@@ -840,6 +917,32 @@ export function summaryForState(state) {
 
 export function formatRequires(requires) {
   return Object.entries(requires).map(([id, qty]) => `${itemName(id)} ${qty}`).join(', ');
+}
+
+export function campFacilityRows(state) {
+  const current = normalizeState(state);
+  const archiveCost = { wood: 5, stone: 3, fiber: 3, hide: 1 };
+  const archiveLevel = Number(current.camp.archiveRoomLevel || 0);
+  const unlocked = hasTechCampUnlock(current, 'archive_room');
+  return [
+    {
+      id: 'archive_room',
+      action: 'archive',
+      name: '기록실',
+      desc: `로그 저장량 ${BASE_LOG_LIMIT} -> ${BASE_LOG_LIMIT + ARCHIVE_LOG_LIMIT_BONUS}, 일일 연구 +1`,
+      level: archiveLevel,
+      maxLevel: 1,
+      unlocked,
+      maxed: archiveLevel >= 1,
+      cost: archiveCost,
+      costText: formatRequires(archiveCost),
+      buttonLabel: archiveLevel >= 1
+        ? '기록실 완성'
+        : unlocked
+          ? `기록실 짓기 · ${formatRequires(archiveCost)}`
+          : '기록실 잠김 · 기록 보관 연구 필요',
+    },
+  ];
 }
 
 export function formatGains(entries) {
@@ -979,6 +1082,17 @@ export function runCampAction(state, actorId, kind, options = {}) {
     if (!hasResources(next.inventory, { wood: 4, stone: 2 })) return addLog(next, '작업대 재료가 부족합니다.');
     next = { ...next, inventory: spendResources(next.inventory, { wood: 4, stone: 2 }), camp: { ...next.camp, workbenchLevel: clamp(Number(next.camp.workbenchLevel || 0) + 1, 0, 2) } };
     next = addLog(next, `${actor.name}이(가) 작업대를 만들었습니다. Lv.${next.camp.workbenchLevel}.`);
+  }
+  if (kind === 'archive') {
+    if (!hasTechCampUnlock(next, 'archive_room')) return addLog(next, '기록실은 기록 보관 연구를 완료한 뒤 지을 수 있습니다.');
+    if (Number(next.camp.archiveRoomLevel || 0) >= 1) return addLog(next, '기록실은 이미 완성되어 있습니다.');
+    if (!hasResources(next.inventory, { wood: 5, stone: 3, fiber: 3, hide: 1 })) return addLog(next, '기록실 재료가 부족합니다.');
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, { wood: 5, stone: 3, fiber: 3, hide: 1 }),
+      camp: { ...next.camp, archiveRoomLevel: 1 },
+    };
+    next = addLog(next, `${actor.name}이(가) 기록실을 세웠습니다. 로그 저장량과 일일 연구가 증가합니다.`);
   }
   if (kind === 'cook') {
     if (Number(next.camp.fireLevel || 0) <= 0 || Number(next.camp.fuel || 0) <= 0) return addLog(next, '고기를 구우려면 모닥불과 연료가 필요합니다.');
