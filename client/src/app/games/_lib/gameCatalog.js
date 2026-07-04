@@ -192,8 +192,8 @@ const GAME_INTEGRATIONS = {
     maxPlayers: 4,
   },
   'tonkatsu-teacher': {
-    stage: 'planned',
-    stageLabel: '이식 대기',
+    stage: 'prototype',
+    stageLabel: '프로토타입',
     adapter: 'management-loop',
     supportsRecords: true,
     supportsSaves: true,
@@ -565,7 +565,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'primitive-archive']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'primitive-archive', 'tonkatsu-teacher']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({

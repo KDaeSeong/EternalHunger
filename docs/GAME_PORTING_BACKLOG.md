@@ -27,6 +27,7 @@ Checked: 2026-07-04
    - Adapter: `management-loop`
    - Why next: simple React/Vite app with JSON data and a compact kitchen/business/battle/contest loop.
    - Site integration target: save restaurant state to `/game-saves`, record contest or battle result to `/game-records`.
+   - First slice: ingredient shop, recipe crafting, shop sales, student meal support, battle reward loop, save/load, end-run record.
 
 3. `ba-vanguard`
    - Adapter: `shared-game-room`
@@ -87,3 +88,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
 - Next step: replace the simplified engine internals with selected original core modules while keeping the site save/record shell stable.
+
+## Tonkatsu Teacher Slice Status
+
+- Route: `/games/tonkatsu-teacher/play`
+- Included loop: ingredient buying, recipe crafting, menu sales, student meal support, battle reward progression, day rollover.
+- Site API integration: quick save through `/game-saves/tonkatsu-teacher/tonkatsu-teacher-main`; run record through `/game-records/tonkatsu-teacher`.
+- Source basis: `C:\2저장고\마이애니메\tonkatsu_teacher_mvp_v0.4.5_judge_batch_banner`.
+- Next step: import the original facility, research, and tournament rules into the simplified engine.
