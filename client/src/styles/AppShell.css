@@ -4903,6 +4903,26 @@
   white-space: nowrap;
 }
 
+.games-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.games-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 30px;
+  border: 1px solid rgba(8, 120, 189, 0.16);
+  border-radius: 8px;
+  background: #f4f9fd;
+  padding: 6px 10px;
+  color: #1f5f86;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .games-empty {
   justify-content: space-between;
   min-height: 58px;

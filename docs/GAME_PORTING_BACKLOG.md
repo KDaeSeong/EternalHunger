@@ -105,3 +105,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/ba-vanguard/ba-vanguard-main`; deck-test record through `/game-records/ba-vanguard`.
 - Source basis: `C:\2저장고\마이애니메\ba-vanguard`.
 - Next step: import the original battle playtest engine and room state sync.
+
+## MyAnimeCraft Slice Status
+
+- Route: `/games/myanimecraft/play`
+- Included loop: Starleague-style 10-team round-robin season, weekly fixtures, best-of-five team matches, standings, map pool, team roster inspection, season rollover.
+- Site API integration: quick save through `/game-saves/myanimecraft/myanimecraft-main`; league snapshot record through `/game-records/myanimecraft`.
+- Source basis: `C:\2저장고\마이애니메\starleague-masterdata.json` and `C:\2저장고\마이애니메\myanimecraft`.
+- Next step: replace the simplified match model with selected original `simulateSet`, career economy, personal league, and postseason modules.

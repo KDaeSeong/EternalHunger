@@ -229,8 +229,8 @@ const GAME_INTEGRATIONS = {
     resultMode: 'mission-clear',
   },
   myanimecraft: {
-    stage: 'planned',
-    stageLabel: '분리 후보',
+    stage: 'prototype',
+    stageLabel: '프로토타입',
     adapter: 'league-sim',
     supportsRecords: true,
     supportsSaves: true,
@@ -578,7 +578,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({
