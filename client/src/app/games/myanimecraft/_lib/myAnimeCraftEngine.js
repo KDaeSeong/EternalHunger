@@ -9,14 +9,52 @@ export const RACE_LABELS = {
 };
 
 export const MAPS = [
-  { id: 'map-1', name: '폴리포이드', matchupBalance: {} },
-  { id: 'map-2', name: '파이썬', matchupBalance: {} },
-  { id: 'map-3', name: '서킷브레이커', matchupBalance: {} },
-  { id: 'map-4', name: '네오 실피드', matchupBalance: {} },
-  { id: 'map-5', name: '블루스톰', matchupBalance: {} },
-  { id: 'map-6', name: '라만차', matchupBalance: {} },
-  { id: 'map-7', name: '태양의 제국', matchupBalance: {} },
-  { id: 'map-8', name: '그라운드 제로', matchupBalance: {} },
+  { id: 'map-1', name: '폴리포이드', tags: ['macro', 'large'], matchupBalance: { TvZ: 0.015, TvP: -0.005, ZvP: 0.01 } },
+  { id: 'map-2', name: '파이썬', tags: ['balanced'], matchupBalance: { TvZ: 0.005, TvP: 0.005, ZvP: 0 } },
+  { id: 'map-3', name: '서킷브레이커', tags: ['macro', 'large'], matchupBalance: { TvZ: 0.02, TvP: -0.01, ZvP: 0.015 } },
+  { id: 'map-4', name: '네오 실피드', tags: ['rush', 'small'], matchupBalance: { TvZ: -0.015, TvP: 0.02, ZvP: -0.005 } },
+  { id: 'map-5', name: '블루스톰', tags: ['rush', 'small'], matchupBalance: { TvZ: -0.01, TvP: 0.015, ZvP: -0.015 } },
+  { id: 'map-6', name: '라만차', tags: ['harass', 'balanced'], matchupBalance: { TvZ: 0, TvP: -0.015, ZvP: 0.02 } },
+  { id: 'map-7', name: '태양의 제국', tags: ['macro', 'large'], matchupBalance: { TvZ: 0.015, TvP: 0, ZvP: 0.005 } },
+  { id: 'map-8', name: '그라운드 제로', tags: ['tech', 'balanced'], matchupBalance: { TvZ: -0.005, TvP: 0.01, ZvP: -0.005 } },
+];
+
+export const BUILD_STYLE_LABELS = {
+  rush: '러시',
+  macro: '운영',
+  tech: '테크',
+  harass: '견제',
+  balanced: '밸런스',
+};
+
+const BUILD_DEFS = [
+  buildDef('T', 'TvZ', '2배럭 압박', 'rush', ['rush']),
+  buildDef('T', 'TvZ', '바이오닉 견제', 'harass', ['small', 'harass']),
+  buildDef('T', 'TvZ', '메카닉 운영', 'tech', ['large', 'macro']),
+  buildDef('T', 'TvP', '2배럭 찌르기', 'rush', ['rush', 'small']),
+  buildDef('T', 'TvP', '바이오닉-탱크 운영', 'balanced', ['macro', 'balanced']),
+  buildDef('T', 'TvP', '메카닉 전환', 'tech', ['large', 'tech']),
+  buildDef('T', 'TvT', '1팩 더블', 'macro', ['macro', 'large']),
+  buildDef('T', 'TvT', '2팩 압박', 'rush', ['rush']),
+  buildDef('T', 'TvT', '메카닉 운영', 'tech', ['large', 'tech']),
+  buildDef('Z', 'TvZ', '3해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'TvZ', '저글링 러시', 'rush', ['rush', 'small']),
+  buildDef('Z', 'TvZ', '하이브 운영', 'macro', ['macro', 'large']),
+  buildDef('Z', 'ZvP', '3해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'ZvP', '저글링 올인', 'rush', ['rush']),
+  buildDef('Z', 'ZvP', '히드라 운영', 'macro', ['macro']),
+  buildDef('Z', 'ZvZ', '9드론 저글링', 'rush', ['rush', 'small']),
+  buildDef('Z', 'ZvZ', '2해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'ZvZ', '3해처리 운영', 'macro', ['macro']),
+  buildDef('P', 'TvP', '더블넥서스', 'macro', ['macro', 'large']),
+  buildDef('P', 'TvP', '질럿 러시', 'rush', ['rush', 'small']),
+  buildDef('P', 'TvP', '리버 셔틀', 'harass', ['small', 'harass']),
+  buildDef('P', 'ZvP', '질럿-드라군 압박', 'rush', ['rush']),
+  buildDef('P', 'ZvP', '캐리어 운영', 'macro', ['macro', 'large']),
+  buildDef('P', 'ZvP', '셔틀 테크', 'tech', ['large', 'tech']),
+  buildDef('P', 'PvP', '2게이트 압박', 'rush', ['rush', 'small']),
+  buildDef('P', 'PvP', '아비터 테크', 'tech', ['large', 'tech']),
+  buildDef('P', 'PvP', '더블 운영', 'macro', ['macro']),
 ];
 
 const CAREER_STAT_KEYS = ['attack', 'defense', 'strategy', 'sense', 'macro', 'scout', 'control', 'harass'];
@@ -257,6 +295,205 @@ function createRng(seed) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function buildDef(race, matchup, name, style, tags = []) {
+  return {
+    id: `${race}-${matchup}-${name}`.replace(/\s+/g, '_'),
+    race,
+    matchup,
+    name,
+    style,
+    tags,
+  };
+}
+
+function matchupOf(a, b) {
+  if (a === 'T' && b === 'Z') return 'TvZ';
+  if (a === 'Z' && b === 'T') return 'TvZ';
+  if (a === 'T' && b === 'P') return 'TvP';
+  if (a === 'P' && b === 'T') return 'TvP';
+  if (a === 'Z' && b === 'P') return 'ZvP';
+  if (a === 'P' && b === 'Z') return 'ZvP';
+  if (a === 'T' && b === 'T') return 'TvT';
+  if (a === 'Z' && b === 'Z') return 'ZvZ';
+  return 'PvP';
+}
+
+function signedMapBias(a, b, matchup, raw) {
+  if (matchup === 'TvZ') {
+    if (a === 'T' && b === 'Z') return raw;
+    if (a === 'Z' && b === 'T') return -raw;
+  }
+  if (matchup === 'TvP') {
+    if (a === 'T' && b === 'P') return raw;
+    if (a === 'P' && b === 'T') return -raw;
+  }
+  if (matchup === 'ZvP') {
+    if (a === 'Z' && b === 'P') return raw;
+    if (a === 'P' && b === 'Z') return -raw;
+  }
+  return 0;
+}
+
+function mapMultiplier(aRace, bRace, map) {
+  const matchup = matchupOf(aRace, bRace);
+  const raw = Number(map?.matchupBalance?.[matchup] || 0);
+  return 1 + signedMapBias(aRace, bRace, matchup, raw) * 0.6;
+}
+
+function conditionMultiplier(member) {
+  return clamp(0.88 + (Number(member?.condition || 75) - 75) / 650, 0.84, 1.08);
+}
+
+function levelMultiplier(member) {
+  return 1 + clamp(Number(member?.level || 0), 0, 12) * 0.018;
+}
+
+function phasePower(member) {
+  const stats = member?.stats || {};
+  const early = Number(stats.scout || 0) * 0.2
+    + Number(stats.harass || 0) * 0.2
+    + Number(stats.sense || 0) * 0.25
+    + Number(stats.control || 0) * 0.35;
+  const mid = Number(stats.strategy || 0) * 0.35
+    + Number(stats.control || 0) * 0.35
+    + Number(stats.defense || 0) * 0.3;
+  const late = Number(stats.macro || 0) * 0.35
+    + Number(stats.attack || 0) * 0.25
+    + Number(stats.strategy || 0) * 0.25
+    + Number(stats.control || 0) * 0.15;
+  const overall = Number(stats.attack || 0) * 0.12
+    + Number(stats.defense || 0) * 0.12
+    + Number(stats.strategy || 0) * 0.15
+    + Number(stats.sense || 0) * 0.12
+    + Number(stats.macro || 0) * 0.13
+    + Number(stats.scout || 0) * 0.12
+    + Number(stats.control || 0) * 0.14
+    + Number(stats.harass || 0) * 0.1;
+  return { early, mid, late, overall };
+}
+
+function playerBuildPreference(member) {
+  const stats = member?.stats || {};
+  return {
+    rush: (Number(stats.harass || 0) * 0.55 + Number(stats.sense || 0) * 0.45) / 1000,
+    macro: (Number(stats.macro || 0) * 0.75 + Number(stats.defense || 0) * 0.25) / 1000,
+    tech: (Number(stats.strategy || 0) * 0.65 + Number(stats.scout || 0) * 0.35) / 1000,
+    harass: (Number(stats.harass || 0) * 0.65 + Number(stats.control || 0) * 0.35) / 1000,
+    balanced: (Number(stats.control || 0) * 0.45 + Number(stats.strategy || 0) * 0.35 + Number(stats.sense || 0) * 0.2) / 1000,
+  };
+}
+
+function coachBuildBias(style, buildStyle) {
+  if (style === 'aggressive') return buildStyle === 'rush' || buildStyle === 'harass' ? 0.1 : -0.02;
+  if (style === 'macro') return buildStyle === 'macro' || buildStyle === 'tech' ? 0.1 : -0.02;
+  if (style === 'mindgame') return buildStyle === 'balanced' ? 0.03 : 0.01;
+  return buildStyle === 'balanced' ? 0.06 : 0.01;
+}
+
+function pickBuild(seed, teamData, member, opponent, map) {
+  const rng = createRng(seed);
+  const matchup = matchupOf(member?.race, opponent?.race);
+  const options = BUILD_DEFS.filter((item) => item.race === member?.race && item.matchup === matchup);
+  if (!options.length) return buildDef(member?.race || 'T', matchup, '기본 운영', 'balanced');
+
+  const preference = playerBuildPreference(member);
+  const weighted = options.map((item) => {
+    const mapTags = Array.isArray(map?.tags) ? map.tags : [];
+    const tagBonus = item.tags.reduce((sum, tag) => sum + (mapTags.includes(tag) ? 0.04 : 0), 0);
+    const score = clamp(
+      Number(preference[item.style] || 0.5)
+        + coachBuildBias(teamData?.coachStyle, item.style)
+        + tagBonus
+        + (rng() - 0.5) * 0.06,
+      0.01,
+      0.99,
+    );
+    return { item, score: Math.exp(score / 0.9) };
+  });
+  const total = weighted.reduce((sum, row) => sum + row.score, 0);
+  let roll = rng() * total;
+  for (const row of weighted) {
+    roll -= row.score;
+    if (roll <= 0) return row.item;
+  }
+  return weighted[weighted.length - 1].item;
+}
+
+function counterBonus(myStyle, opponentStyle) {
+  if (myStyle === opponentStyle) return 0;
+  if (myStyle === 'rush' && opponentStyle === 'macro') return 0.045;
+  if (myStyle === 'rush' && opponentStyle === 'tech') return 0.02;
+  if (myStyle === 'rush' && opponentStyle === 'harass') return 0.01;
+  if (myStyle === 'harass' && opponentStyle === 'macro') return 0.03;
+  if (myStyle === 'harass' && opponentStyle === 'tech') return 0.015;
+  if (myStyle === 'tech' && opponentStyle === 'rush') return 0.04;
+  if (myStyle === 'macro' && opponentStyle === 'tech') return 0.03;
+  if (myStyle === 'balanced') return 0.01;
+  return -0.005;
+}
+
+function stylePhaseBonus(style) {
+  if (style === 'rush') return { early: 0.055, mid: 0.02, late: -0.02 };
+  if (style === 'harass') return { early: 0.02, mid: 0.04, late: 0 };
+  if (style === 'tech') return { early: -0.01, mid: 0.045, late: 0.015 };
+  if (style === 'macro') return { early: -0.02, mid: 0.015, late: 0.06 };
+  return { early: 0.01, mid: 0.01, late: 0.01 };
+}
+
+function pressureOf(member, opponent, teamData) {
+  const mean = (Number(member?.fame || 0) + Number(opponent?.fame || 0)) / 2;
+  const z = (Number(member?.fame || 0) - mean) / 600;
+  const pressure = clamp(0.5 + (1 / (1 + Math.exp(-z)) - 0.5), 0, 1);
+  const coachStability = teamData?.coachStyle === 'aggressive'
+    ? 0.5
+    : teamData?.coachStyle === 'macro'
+    ? 0.62
+    : teamData?.coachStyle === 'mindgame'
+    ? 0.58
+    : 0.65;
+  return { pressure, coachStability };
+}
+
+function noiseMultiplierFromPressure(info, importance) {
+  const base = 1 + Number(info?.pressure || 0) * 0.18 * importance;
+  const stability = 1 - (Number(info?.coachStability || 0.55) - 0.55) * 0.12;
+  return clamp(base * stability, 0.85, 1.25);
+}
+
+function importanceForSet(scoreHome, scoreAway) {
+  const homeNeed = 3 - Number(scoreHome || 0);
+  const awayNeed = 3 - Number(scoreAway || 0);
+  if (homeNeed <= 1 || awayNeed <= 1) return 1.2;
+  if (Number(scoreHome || 0) + Number(scoreAway || 0) >= 3) return 1.05;
+  return 0.9;
+}
+
+function gaussian(rng, mean = 0, sigma = 1) {
+  const u1 = Math.max(1e-9, rng());
+  const u2 = Math.max(1e-9, rng());
+  return mean + Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) * sigma;
+}
+
+function baseNoiseAmp(homePlayer, awayPlayer) {
+  const mirror = homePlayer?.race === awayPlayer?.race;
+  const controlAverage = (
+    Number(homePlayer?.stats?.strategy || 0)
+    + Number(homePlayer?.stats?.scout || 0)
+    + Number(homePlayer?.stats?.control || 0)
+    + Number(awayPlayer?.stats?.strategy || 0)
+    + Number(awayPlayer?.stats?.scout || 0)
+    + Number(awayPlayer?.stats?.control || 0)
+  ) / 6;
+  const base = mirror ? 55 : 95;
+  return clamp(base * (1 - clamp((controlAverage - 520) / 2400, 0, 0.25)), 35, 120);
+}
+
+function durationFromDiff(rng, diff, mirror) {
+  const swing = clamp(260 - Math.abs(diff) * 0.6, 0, 320);
+  const base = mirror ? 1120 : 980;
+  return Math.round(clamp(base + swing + gaussian(rng, 0, 65), 540, 1650));
 }
 
 function statAverageFromStats(stats = {}) {
@@ -533,22 +770,6 @@ function averageStats(member) {
   ) / 7.65;
 }
 
-function coachBonus(teamData, setNo) {
-  if (teamData.coachStyle === 'aggressive') return setNo <= 2 ? 12 : 4;
-  if (teamData.coachStyle === 'macro') return setNo >= 3 ? 10 : 2;
-  if (teamData.coachStyle === 'mindgame') return setNo === 5 ? 16 : 5;
-  return 7;
-}
-
-function playerPower(member, teamData, setNo, rng) {
-  return averageStats(member)
-    + Number(member.level || 0) * 14
-    + Number(member.fame || 0) / 18
-    + (Number(member.condition || 100) - 75) * 0.9
-    + coachBonus(teamData, setNo)
-    + (rng() - 0.5) * 96;
-}
-
 function lineupFor(teamData, fixtureId) {
   const offset = fixtureId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
   const sorted = [...teamData.roster].sort((a, b) => (
@@ -562,11 +783,44 @@ function lineupFor(teamData, fixtureId) {
 function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlayer, setNo, scoreHome, scoreAway }) {
   const mapIds = state.mapPool.length ? state.mapPool : MAPS.map((item) => item.id);
   const map = mapById(mapIds[(fixture.round + setNo - 2) % mapIds.length]);
-  const rng = createRng(`${state.runId}|${fixture.id}|${setNo}|${scoreHome}-${scoreAway}`);
-  const homePower = playerPower(homePlayer, homeTeam, setNo, rng);
-  const awayPower = playerPower(awayPlayer, awayTeam, setNo, rng);
-  const diff = homePower - awayPower;
-  const pHome = clamp(0.5 + diff / 520, 0.14, 0.86);
+  const seed = `${state.runId}|${fixture.id}|${setNo}|${scoreHome}-${scoreAway}`;
+  const rng = createRng(seed);
+  const homeBuild = pickBuild(`${seed}|build|home`, homeTeam, homePlayer, awayPlayer, map);
+  const awayBuild = pickBuild(`${seed}|build|away`, awayTeam, awayPlayer, homePlayer, map);
+  const homePhase = phasePower(homePlayer);
+  const awayPhase = phasePower(awayPlayer);
+  const homeBuildPhase = stylePhaseBonus(homeBuild.style);
+  const awayBuildPhase = stylePhaseBonus(awayBuild.style);
+  const homeCounter = counterBonus(homeBuild.style, awayBuild.style);
+  const awayCounter = counterBonus(awayBuild.style, homeBuild.style);
+  const homeBaseMul = conditionMultiplier(homePlayer) * levelMultiplier(homePlayer) * mapMultiplier(homePlayer.race, awayPlayer.race, map);
+  const awayBaseMul = conditionMultiplier(awayPlayer) * levelMultiplier(awayPlayer) * mapMultiplier(awayPlayer.race, homePlayer.race, map);
+  const coachMul = (style) => (
+    style === 'balanced' ? 1.01
+    : style === 'macro' ? 1.008
+    : style === 'aggressive' ? 1.006
+    : style === 'mindgame' ? 1.004
+    : 1
+  );
+  const homeCoachMul = coachMul(homeTeam.coachStyle);
+  const awayCoachMul = coachMul(awayTeam.coachStyle);
+  const homeEarly = homePhase.early * homeBaseMul * (1 + homeBuildPhase.early + homeCounter * 0.7) * homeCoachMul;
+  const homeMid = homePhase.mid * homeBaseMul * (1 + homeBuildPhase.mid + homeCounter * 0.55) * homeCoachMul;
+  const homeLate = homePhase.late * homeBaseMul * (1 + homeBuildPhase.late + homeCounter * 0.3) * homeCoachMul;
+  const awayEarly = awayPhase.early * awayBaseMul * (1 + awayBuildPhase.early + awayCounter * 0.7) * awayCoachMul;
+  const awayMid = awayPhase.mid * awayBaseMul * (1 + awayBuildPhase.mid + awayCounter * 0.55) * awayCoachMul;
+  const awayLate = awayPhase.late * awayBaseMul * (1 + awayBuildPhase.late + awayCounter * 0.3) * awayCoachMul;
+  const diff = 0.34 * (homeEarly - awayEarly) + 0.36 * (homeMid - awayMid) + 0.3 * (homeLate - awayLate);
+  const importance = importanceForSet(scoreHome, scoreAway);
+  const homePressure = pressureOf(homePlayer, awayPlayer, homeTeam);
+  const awayPressure = pressureOf(awayPlayer, homePlayer, awayTeam);
+  let noiseAmp = baseNoiseAmp(homePlayer, awayPlayer);
+  noiseAmp *= noiseMultiplierFromPressure(homePressure, importance);
+  noiseAmp *= noiseMultiplierFromPressure(awayPressure, importance);
+  if (homeTeam.coachStyle === 'mindgame' || awayTeam.coachStyle === 'mindgame') noiseAmp *= 1.05;
+  noiseAmp *= 1 - clamp((Math.abs(diff) - 240) / 1800, 0, 0.18);
+  const noisyDiff = diff + gaussian(rng, 0, noiseAmp);
+  const pHome = clamp(1 / (1 + Math.exp(-noisyDiff / 220)), 0.08, 0.92);
   const homeWin = rng() < pHome;
   return {
     setNo,
@@ -579,7 +833,18 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     winnerTeamId: homeWin ? homeTeam.id : awayTeam.id,
     winnerPlayerId: homeWin ? homePlayer.id : awayPlayer.id,
     probabilityHome: Math.round(pHome * 100),
-    durationSec: Math.round(clamp(640 + Math.abs(diff) * -0.45 + rng() * 460, 540, 1480)),
+    durationSec: durationFromDiff(rng, noisyDiff, homePlayer.race === awayPlayer.race),
+    matchup: matchupOf(homePlayer.race, awayPlayer.race),
+    homeBuildName: homeBuild.name,
+    awayBuildName: awayBuild.name,
+    homeBuildStyle: homeBuild.style,
+    awayBuildStyle: awayBuild.style,
+    mapBiasHome: Math.round((mapMultiplier(homePlayer.race, awayPlayer.race, map) - 1) * 1000) / 10,
+    phaseDiff: Math.round(diff),
+    noisyDiff: Math.round(noisyDiff),
+    noiseAmp: Math.round(noiseAmp),
+    counterHome: Math.round(homeCounter * 1000) / 10,
+    counterAway: Math.round(awayCounter * 1000) / 10,
   };
 }
 

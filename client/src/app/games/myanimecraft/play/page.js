@@ -7,6 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
+  BUILD_STYLE_LABELS,
   GAME_SLUG,
   MAPS,
   QUICK_SAVE_SLOT,
@@ -65,6 +66,10 @@ export default function MyAnimeCraftPlayPage() {
 
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
+  const lastMatch = useMemo(() => state.fixtures
+    .map((fixture) => fixture.result)
+    .filter(Boolean)
+    .sort((a, b) => Number(b.playedAt || 0) - Number(a.playedAt || 0))[0], [state.fixtures]);
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
   const selectedCareer = careerSummary(state, selectedTeam.id);
@@ -218,6 +223,26 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => setState((current) => simulateWeekAction(current))}>이번 주 전체 진행</ActionButton>
             <ActionButton disabled={!ended} onClick={() => setState((current) => startNextSeasonAction(current))}>다음 시즌 시작</ActionButton>
           </div>
+          {lastMatch ? (
+            <div className="games-activity-list" style={{ marginTop: 16 }}>
+              <div>
+                <strong>최근 경기 분석</strong>
+                <span>{lastMatch.homeTeamName} {lastMatch.scoreHome}:{lastMatch.scoreAway} {lastMatch.awayTeamName}</span>
+              </div>
+              {lastMatch.sets.map((setResult) => (
+                <div key={`${lastMatch.matchId}-${setResult.setNo}`}>
+                  <strong>
+                    {setResult.setNo}세트 · {setResult.mapName} · {setResult.homePlayerName} {BUILD_STYLE_LABELS[setResult.homeBuildStyle] || setResult.homeBuildStyle}
+                    {' vs '}
+                    {setResult.awayPlayerName} {BUILD_STYLE_LABELS[setResult.awayBuildStyle] || setResult.awayBuildStyle}
+                  </strong>
+                  <span>
+                    {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="games-panel">
