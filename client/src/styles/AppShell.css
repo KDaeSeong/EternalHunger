@@ -4449,6 +4449,35 @@
   line-height: 1.45;
 }
 
+.tcg-keywords {
+  min-height: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.tcg-keywords span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid rgba(44, 111, 158, 0.18);
+  border-radius: 999px;
+  background: #eef6fb;
+  color: #1d5276;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tcg-keywords .tcg-shield-badge {
+  border-color: rgba(47, 143, 97, 0.22);
+  background: #eef9f3;
+  color: #1d6a47;
+}
+
 .tcg-card > span {
   color: #17202a;
   font-size: 0.82rem;

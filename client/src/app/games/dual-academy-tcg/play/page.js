@@ -11,6 +11,8 @@ import {
   FALLBACK_TCG_CARDS,
   TCG_GAME_SLUG,
   buildDeckFromIds,
+  hasKeyword,
+  keywordLabels,
   normalizeCards,
 } from '../_lib/tcgCatalog';
 
@@ -175,6 +177,18 @@ function resolveTactic(card, state) {
     };
   }
   if (card.id === 'barrier') {
+    const targetIndex = shieldTargetIndex(state.board);
+    if (targetIndex >= 0) {
+      const board = state.board.slice();
+      const target = board[targetIndex];
+      board[targetIndex] = { ...target, shield: true };
+      return {
+        ...state,
+        board,
+        discard: [...state.discard, card],
+        log: [`${card.name}: ${target.name} 보호막`, ...state.log].slice(0, 12),
+      };
+    }
     return {
       ...state,
       playerHealth: clampHealth(state.playerHealth + 2),
@@ -196,6 +210,29 @@ function unitHealth(unit) {
   return Number(unit?.currentHealth ?? unit?.health ?? 0);
 }
 
+function withUnitState(card, ready = false) {
+  return {
+    ...card,
+    ready: Boolean(ready),
+    currentHealth: unitHealth(card) || Number(card.health || 0),
+    shield: Boolean(card.shield),
+  };
+}
+
+function applyDamage(unit, damage) {
+  const amount = Math.max(0, Number(damage || 0));
+  if (amount > 0 && unit?.shield) {
+    return {
+      ...unit,
+      shield: false,
+    };
+  }
+  return {
+    ...unit,
+    currentHealth: unitHealth(unit) - amount,
+  };
+}
+
 function weakestUnitIndex(units) {
   if (!Array.isArray(units) || !units.length) return -1;
   return units.reduce((bestIndex, unit, index) => (
@@ -203,29 +240,85 @@ function weakestUnitIndex(units) {
   ), 0);
 }
 
+function preferredTargetIndex(units) {
+  if (!Array.isArray(units) || !units.length) return -1;
+  const guarded = units
+    .map((unit, index) => ({ unit, index }))
+    .filter(({ unit }) => hasKeyword(unit, 'guard') && unitHealth(unit) > 0);
+  if (guarded.length) {
+    return guarded.reduce((best, current) => (
+      unitHealth(current.unit) < unitHealth(best.unit) ? current : best
+    ), guarded[0]).index;
+  }
+  return weakestUnitIndex(units);
+}
+
+function hasGuardUnit(units) {
+  return Array.isArray(units) && units.some((unit) => hasKeyword(unit, 'guard') && unitHealth(unit) > 0);
+}
+
+function shieldTargetIndex(units) {
+  if (!Array.isArray(units) || !units.length) return -1;
+  const openTarget = units.findIndex((unit) => !unit.shield);
+  return openTarget >= 0 ? openTarget : weakestUnitIndex(units);
+}
+
+function KeywordBadges({ card }) {
+  const labels = keywordLabels(card);
+  const shielded = Boolean(card?.shield);
+  if (!labels.length && !shielded) return null;
+  return (
+    <div className="tcg-keywords">
+      {labels.map((label) => <span key={label}>{label}</span>)}
+      {shielded ? <span className="tcg-shield-badge">보호막</span> : null}
+    </div>
+  );
+}
+
 function resolveCombat(attacker, defender) {
+  const defenderStartHealth = unitHealth(defender);
   const nextAttacker = {
-    ...attacker,
-    currentHealth: unitHealth(attacker) - Number(defender.attack || 0),
+    ...applyDamage(attacker, Number(defender.attack || 0)),
     ready: false,
   };
-  const nextDefender = {
-    ...defender,
-    currentHealth: unitHealth(defender) - Number(attacker.attack || 0),
-  };
+  const nextDefender = applyDamage(defender, Number(attacker.attack || 0));
+  const defenderDead = nextDefender.currentHealth <= 0;
   return {
     attacker: nextAttacker,
     defender: nextDefender,
     attackerDead: nextAttacker.currentHealth <= 0,
-    defenderDead: nextDefender.currentHealth <= 0,
+    defenderDead,
+    pierceDamage: defenderDead && hasKeyword(attacker, 'pierce')
+      ? Math.max(0, Number(attacker.attack || 0) - defenderStartHealth)
+      : 0,
   };
 }
 
 function resolveEnemyTactic(card, state) {
-  if (card.id === 'repair' || card.id === 'barrier') {
+  if (card.id === 'barrier') {
+    const targetIndex = shieldTargetIndex(state.enemyBoard);
+    if (targetIndex >= 0) {
+      const enemyBoard = state.enemyBoard.slice();
+      const target = enemyBoard[targetIndex];
+      enemyBoard[targetIndex] = { ...target, shield: true };
+      return {
+        ...state,
+        enemyBoard,
+        discard: [...state.discard, card],
+        log: [`적 ${card.name}: ${target.name} 보호막`, ...state.log].slice(0, 12),
+      };
+    }
     return {
       ...state,
-      enemyHealth: clampHealth(state.enemyHealth + (card.id === 'repair' ? 3 : 2)),
+      enemyHealth: clampHealth(state.enemyHealth + 2),
+      discard: [...state.discard, card],
+      log: [`적 ${card.name}: 적 본부 회복`, ...state.log].slice(0, 12),
+    };
+  }
+  if (card.id === 'repair') {
+    return {
+      ...state,
+      enemyHealth: clampHealth(state.enemyHealth + 3),
       discard: [...state.discard, card],
       log: [`상대 ${card.name}: 상대 본부 회복`, ...state.log].slice(0, 12),
     };
@@ -272,7 +365,7 @@ function playEnemyCards(state) {
     } else {
       next = {
         ...next,
-        enemyBoard: [...next.enemyBoard, { ...card, ready: false, currentHealth: card.health }],
+        enemyBoard: [...next.enemyBoard, withUnitState(card, hasKeyword(card, 'quick'))],
         log: [`상대가 ${card.name} 배치`, ...next.log].slice(0, 12),
       };
     }
@@ -288,7 +381,7 @@ function resolveEnemyAttacks(state) {
     const liveIndex = next.enemyBoard.findIndex((unit) => unit.instanceId === attacker.instanceId);
     if (liveIndex < 0 || !next.enemyBoard[liveIndex]?.ready) continue;
 
-    const targetIndex = weakestUnitIndex(next.board);
+    const targetIndex = preferredTargetIndex(next.board);
     if (targetIndex >= 0) {
       const target = next.board[targetIndex];
       const combat = resolveCombat(next.enemyBoard[liveIndex], target);
@@ -298,10 +391,15 @@ function resolveEnemyAttacks(state) {
       else enemyBoard[liveIndex] = combat.attacker;
       if (combat.defenderDead) board.splice(targetIndex, 1);
       else board[targetIndex] = combat.defender;
+      const playerHealth = combat.pierceDamage > 0
+        ? Math.max(0, next.playerHealth - combat.pierceDamage)
+        : next.playerHealth;
       next = {
         ...next,
         enemyBoard,
         board,
+        playerHealth,
+        winner: playerHealth <= 0 ? 'enemy' : next.winner,
         log: [`상대 ${attacker.name}이(가) ${target.name}와 교전`, ...next.log].slice(0, 12),
       };
     } else {
@@ -501,7 +599,7 @@ export default function DualAcademyTcgPlayPage() {
       if (card.role === 'Tactic') return resolveTactic(card, nextBase);
       return {
         ...nextBase,
-        board: [...current.board, { ...card, ready: false, currentHealth: card.health }],
+        board: [...current.board, withUnitState(card, hasKeyword(card, 'quick'))],
         log: [`${card.name} 배치`, ...current.log].slice(0, 12),
       };
     });
@@ -519,6 +617,12 @@ export default function DualAcademyTcgPlayPage() {
         : -1;
       if (targetIndex >= 0) {
         const target = current.enemyBoard[targetIndex];
+        if (hasGuardUnit(current.enemyBoard) && !hasKeyword(target, 'guard')) {
+          return {
+            ...current,
+            log: ['도발 유닛을 먼저 공격해야 합니다.', ...current.log].slice(0, 12),
+          };
+        }
         const combat = resolveCombat(unit, target);
         const board = current.board.slice();
         const enemyBoard = current.enemyBoard.slice();
@@ -526,10 +630,15 @@ export default function DualAcademyTcgPlayPage() {
         else board[unitIndex] = combat.attacker;
         if (combat.defenderDead) enemyBoard.splice(targetIndex, 1);
         else enemyBoard[targetIndex] = combat.defender;
+        const enemyHealth = combat.pierceDamage > 0
+          ? Math.max(0, current.enemyHealth - combat.pierceDamage)
+          : current.enemyHealth;
         return {
           ...current,
           board,
           enemyBoard,
+          enemyHealth,
+          winner: enemyHealth <= 0 ? 'player' : current.winner,
           log: [`${unit.name}이(가) ${target.name}와 교전`, ...current.log].slice(0, 12),
         };
       }
@@ -735,6 +844,7 @@ export default function DualAcademyTcgPlayPage() {
                   <article className={`tcg-card is-enemy-card ${selectedAttacker ? 'is-targetable' : ''}`} key={card.instanceId || card.id}>
                     <div className="tcg-card-art" />
                     <strong>{card.name}</strong>
+                    <KeywordBadges card={card} />
                     <span>ATK {card.attack} / HP {unitHealth(card)}</span>
                     <button
                       type="button"
@@ -771,6 +881,7 @@ export default function DualAcademyTcgPlayPage() {
                   <article className={`tcg-card is-${card.tone} ${selectedAttackerId === card.instanceId ? 'is-selected' : ''}`} key={card.instanceId}>
                     <div className="tcg-card-art" />
                     <strong>{card.name}</strong>
+                    <KeywordBadges card={card} />
                     <span>ATK {card.attack} / HP {card.currentHealth}</span>
                     <button type="button" onClick={() => selectAttacker(card.instanceId)} disabled={!card.ready || !canAct}>
                       {selectedAttackerId === card.instanceId ? '선택됨' : card.ready ? '공격 선택' : '대기'}
@@ -805,6 +916,7 @@ export default function DualAcademyTcgPlayPage() {
                 </div>
                 <div className="tcg-card-art" />
                 <h3>{card.name}</h3>
+                <KeywordBadges card={card} />
                 <p>{card.text}</p>
                 {card.role === 'Unit' ? <span>ATK {card.attack} / HP {card.health}</span> : null}
                 <button type="button" onClick={() => playCard(card.instanceId)} disabled={!canAct || card.cost > state.energy}>

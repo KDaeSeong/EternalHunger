@@ -10,8 +10,19 @@ import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
   TCG_DECK_RULES,
+  keywordLabels,
   summarizeDeck,
 } from '../_lib/tcgCatalog';
+
+function KeywordBadges({ card }) {
+  const labels = keywordLabels(card);
+  if (!labels.length) return null;
+  return (
+    <div className="tcg-keywords">
+      {labels.map((label) => <span key={label}>{label}</span>)}
+    </div>
+  );
+}
 
 function countCards(cardIds) {
   return cardIds.reduce((map, id) => {
@@ -236,6 +247,7 @@ export default function DualAcademyTcgDeckPage() {
                     </div>
                     <div className="tcg-card-art" />
                     <h3>{card.name}</h3>
+                    <KeywordBadges card={card} />
                     <p>{card.text}</p>
                     {card.role === 'Unit' ? <span>ATK {card.attack} / HP {card.health}</span> : null}
                     <div className="tcg-card-controls">
