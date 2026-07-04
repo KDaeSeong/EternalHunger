@@ -14,8 +14,8 @@ export const GAME_INTEGRATION_DEFAULTS = {
 
 export const GAME_ENTRY_ROUTES = {
   'eternal-hunger': '/eternalhunger',
-  myanimecraft: '/myanime',
-  'ba-srpg': '/srpg',
+  myanimecraft: '/games/myanimecraft/play',
+  'ba-srpg': '/games/ba-srpg/play',
 };
 
 export const GAME_ADAPTER_PRESETS = [
