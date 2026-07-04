@@ -71,6 +71,15 @@ function SmallStat({ label, value }) {
   );
 }
 
+function missionRewardSummary(mission) {
+  if (!mission?.rewards?.length) return '보상 없음';
+  return mission.rewards.map((reward) => {
+    const qty = reward.qtyMin === reward.qtyMax ? reward.qtyMin : `${reward.qtyMin}-${reward.qtyMax}`;
+    const chance = Math.round((reward.chance ?? 1) * 100);
+    return `${itemName(reward.itemId)} x${qty} (${chance}%)`;
+  }).join(' · ');
+}
+
 function BoardCell({ content, selected, target, onClick }) {
   const label = content.actor?.name || (content.type === 'cover' ? '엄폐' : content.type === 'obstacle' ? '장애물' : '');
   return (
@@ -123,6 +132,8 @@ export default function BaSrpgPlayPage() {
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
   const selectedProperty = properties.find((property) => property.id === propertyId) || properties[0];
   const selectedEdict = edicts.find((edict) => edict.id === edictId) || edicts[0];
+  const selectedMission = getMission(missionId);
+  const selectedMissionRewards = missionRewardSummary(selectedMission);
   const cleared = battle.phase === 'cleared';
   const failed = battle.phase === 'failed';
 
@@ -275,7 +286,14 @@ export default function BaSrpgPlayPage() {
               {MISSIONS.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
             </select>
           </label>
-          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{getMission(missionId).objective}</p>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.objective}</p>
+          <div className="games-rank-split">
+            <SmallStat label="난이도" value={selectedMission.difficulty} />
+            <SmallStat label="권장 전투력" value={selectedMission.recommendedPower} />
+            <SmallStat label="크레딧" value={`${selectedMission.creditMin}-${selectedMission.creditMax}`} />
+          </div>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMissionRewards}</p>
+          <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.caution}</p>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
             <ActionButton onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>

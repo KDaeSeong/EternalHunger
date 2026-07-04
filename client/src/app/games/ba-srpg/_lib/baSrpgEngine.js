@@ -72,6 +72,29 @@ export const MISSIONS = [
       { id: 'e_drone', name: '감시 드론', x: 7, y: 4, hp: 22, atk: 6, def: 1, range: 3, move: 2 },
     ],
   },
+  {
+    id: 'm004',
+    name: '네번째 임무: 야전 진지',
+    region: '폐허 지구 외곽',
+    objective: '폐허 지구 외곽의 야전 진지를 정리하고 남은 물자를 확보하십시오.',
+    caution: '교전 강도가 상승합니다. 공격 각과 사거리(명중)를 먼저 확보하세요.',
+    difficulty: 'normal',
+    recommendedPower: 170,
+    creditMin: 22,
+    creditMax: 36,
+    rewards: [
+      { itemId: 'mat_stone', qtyMin: 2, qtyMax: 5, chance: 1 },
+      { itemId: 'mat_wood', qtyMin: 1, qtyMax: 3, chance: 0.7 },
+      { itemId: 'con_bandage', qtyMin: 1, qtyMax: 2, chance: 0.45 },
+      { itemId: 'eq_knife', qtyMin: 1, qtyMax: 1, chance: 0.12 },
+    ],
+    enemies: [
+      { id: 'e_vanguard', name: '야전 선봉병', x: 5, y: 1, hp: 38, atk: 10, def: 3, range: 1, move: 2 },
+      { id: 'e_marksman', name: '야전 저격수', x: 7, y: 2, hp: 28, atk: 12, def: 1, range: 4, move: 1 },
+      { id: 'e_guard', name: '보급 경비병', x: 6, y: 4, hp: 42, atk: 9, def: 4, range: 1, move: 1 },
+      { id: 'e_drone_b', name: '감시 드론 B', x: 7, y: 0, hp: 24, atk: 7, def: 1, range: 3, move: 2 },
+    ],
+  },
 ];
 
 export const STUDENTS = [
