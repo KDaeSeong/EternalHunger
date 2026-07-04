@@ -21,7 +21,6 @@ const DIFFICULTY_WEIGHT = {
 };
 
 const SUPPORT_ACTIONS = judgeRules.companySupport?.actions || {};
-const SUPPORT_STARTING_RESERVE = Math.max(24, Math.round(Number(taskPack.meta?.contractRewardScore || 80) * 0.4));
 
 const SUPPORT_ACTION_LABELS = {
   hint: {
@@ -225,6 +224,13 @@ export function createNewState(options = {}) {
     startedAt: now,
     updatedAt: now,
     currentTaskId: firstTask?.id || '',
+    activeTasks: [],
+    taskSet: {
+      id: 'initial',
+      title: taskPack.meta?.title || 'SI Coding Sim Prototype Step AQ/AR',
+      summary: '업로드된 Step AQ/AR 기본 현장 과제팩입니다.',
+      sourceSeedId: '',
+    },
     resources: { ...BASE_RESOURCES },
     workspaceFiles: firstTask ? { [firstTask.id]: createTaskWorkspace(firstTask) } : {},
     reports: {},
@@ -246,6 +252,8 @@ export function normalizeState(value) {
   return {
     ...base,
     ...value,
+    activeTasks: Array.isArray(value.activeTasks) && value.activeTasks.length ? value.activeTasks : [],
+    taskSet: normalizeTaskSet(value.taskSet),
     resources: { ...base.resources, ...(value.resources || {}) },
     workspaceFiles: value.workspaceFiles && typeof value.workspaceFiles === 'object' ? value.workspaceFiles : base.workspaceFiles,
     reports: value.reports && typeof value.reports === 'object' ? value.reports : {},
@@ -263,12 +271,17 @@ export function normalizeState(value) {
 
 export function getCurrentTask(state) {
   const current = normalizeState(state);
-  return TASKS.find((task) => task.id === current.currentTaskId) || TASKS[0] || null;
+  const tasks = activeTaskList(current);
+  return tasks.find((task) => task.id === current.currentTaskId) || tasks[0] || null;
+}
+
+export function getActiveTasks(state) {
+  return activeTaskList(normalizeState(state));
 }
 
 export function taskRows(state) {
   const current = normalizeState(state);
-  return TASKS.map((task) => {
+  return activeTaskList(current).map((task) => {
     const outcome = current.taskOutcomes[task.id] || null;
     const hints = Number(current.hintUsage[task.id] || 0);
     return {
@@ -294,7 +307,7 @@ export function taskRows(state) {
 export function projectProgressRows(state) {
   const current = normalizeState(state);
   const groups = new Map();
-  TASKS.forEach((task) => {
+  activeTaskList(current).forEach((task) => {
     const projectName = task.projectName || task.client || '미분류 프로젝트';
     if (!groups.has(projectName)) {
       groups.set(projectName, {
@@ -335,7 +348,8 @@ export function projectProgressRows(state) {
 
 export function selectTaskAction(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || TASKS[0];
+  const tasks = activeTaskList(current);
+  const task = tasks.find((item) => item.id === taskId) || tasks[0];
   if (!task) return current;
   const workspaceFiles = {
     ...current.workspaceFiles,
@@ -350,7 +364,8 @@ export function selectTaskAction(state, taskId) {
 
 export function resetTaskAction(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || TASKS[0];
+  const tasks = activeTaskList(current);
+  const task = tasks.find((item) => item.id === (taskId || current.currentTaskId)) || tasks[0];
   if (!task) return current;
   return addLog({
     ...current,
@@ -371,7 +386,7 @@ export function resetTaskAction(state, taskId) {
 
 export function updateFileAction(state, taskId, fileId, content) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === taskId) || getCurrentTask(current);
   if (!task || !fileId) return current;
   return {
     ...current,
@@ -388,7 +403,7 @@ export function updateFileAction(state, taskId, fileId, content) {
 
 export function updateReportAction(state, taskId, report) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === taskId) || getCurrentTask(current);
   if (!task) return current;
   return {
     ...current,
@@ -402,7 +417,7 @@ export function updateReportAction(state, taskId, report) {
 
 export function revealHintAction(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
   if (!task) return current;
   const hints = Array.isArray(task.hints) ? task.hints : [];
   const revealed = Number(current.hintUsage[task.id] || 0);
@@ -422,7 +437,7 @@ export function revealHintAction(state, taskId) {
 
 export function applyCompanySupportAction(state, taskId, action) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
   const actionKey = String(action || '').trim();
   if (!task || !SUPPORT_ACTION_LABELS[actionKey]) return current;
   const cost = supportCost(task, actionKey);
@@ -441,7 +456,7 @@ export function applyCompanySupportAction(state, taskId, action) {
 
 export function toggleDocumentReviewAction(state, taskId, itemId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
   if (!task || !itemId) return current;
   const validIds = new Set((task.documentPlay?.reviewItems || []).map((item) => item.id));
   if (!validIds.has(itemId)) return current;
@@ -460,7 +475,7 @@ export function toggleDocumentReviewAction(state, taskId, itemId) {
 
 export function submitTaskAction(state, taskId) {
   let current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
   if (!task) return current;
   const outcome = evaluateTask(task, current);
   const previous = current.taskOutcomes[task.id];
@@ -482,9 +497,10 @@ export function submitTaskAction(state, taskId) {
 
 export function evaluateProjectAction(state) {
   const current = normalizeState(state);
+  const tasks = activeTaskList(current);
   const outcomes = Object.values(current.taskOutcomes || {});
   const submittedTasks = outcomes.length;
-  const totalTasks = TASKS.length;
+  const totalTasks = tasks.length;
   const fullPassCount = outcomes.filter((outcome) => Number(outcome.score || 0) === 100).length;
   const partialCount = outcomes.filter((outcome) => Number(outcome.score || 0) >= 75 && Number(outcome.score || 0) < 100).length;
   const failedCount = outcomes.filter((outcome) => Number(outcome.score || 0) < 75).length;
@@ -543,9 +559,42 @@ export function selectProjectSeedAction(state, seedId) {
   }, `차기 현장 후보 [${seed.projectName}]을 선택했습니다.`);
 }
 
+export function startSelectedProjectSeedAction(state) {
+  const current = normalizeState(state);
+  const seed = current.generatedSeeds.find((item) => item.id === current.selectedSeedId) || current.generatedSeeds[0];
+  if (!seed) return addLog(current, '시작할 차기 현장 후보가 없습니다.');
+  const tasks = buildGeneratedTaskPack(seed);
+  const firstTask = tasks[0] || null;
+  if (!firstTask) return addLog(current, `${seed.projectName}에서 생성할 과제가 없습니다.`);
+  return addLog({
+    ...current,
+    activeTasks: tasks,
+    taskSet: {
+      id: `seed-${seed.id}`,
+      title: `${seed.projectName} 차기 현장 세트`,
+      summary: `${seed.title} 기반으로 분석, 패치, 문서 과제를 생성했습니다.`,
+      sourceSeedId: seed.id,
+      seedGroupLabel: seed.seedGroupLabel,
+      rewardScore: seed.rewardScore,
+    },
+    currentTaskId: firstTask.id,
+    resources: { ...seed.startResources },
+    workspaceFiles: { [firstTask.id]: createTaskWorkspace(firstTask) },
+    reports: {},
+    hintUsage: {},
+    companySupport: createCompanySupportState(seed.rewardScore),
+    documentReviewByTask: {},
+    taskOutcomes: {},
+    projectEvaluations: [],
+    followUpPlan: null,
+    generatedSeeds: [],
+    selectedSeedId: '',
+  }, `${seed.projectName} 차기 현장을 시작했습니다. 생성 과제 ${tasks.length}개.`);
+}
+
 export function getFileContent(state, taskId, fileId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === taskId) || getCurrentTask(current);
   if (!task || !fileId) return '';
   const workspace = current.workspaceFiles[task.id] || createTaskWorkspace(task);
   return workspace[fileId] ?? '';
@@ -553,7 +602,7 @@ export function getFileContent(state, taskId, fileId) {
 
 export function getRevealedHints(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === taskId) || getCurrentTask(current);
   if (!task) return [];
   const revealed = Number(current.hintUsage[task.id] || 0);
   return (task.hints || []).slice(0, revealed);
@@ -561,20 +610,20 @@ export function getRevealedHints(state, taskId) {
 
 export function getReportText(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === taskId) || getCurrentTask(current);
   if (!task) return '';
   return current.reports[task.id] || '';
 }
 
 export function getDocumentReviewProgress(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === taskId) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === taskId) || getCurrentTask(current);
   return buildDocumentReviewProgress(task, current);
 }
 
 export function companySupportSummary(state, taskId) {
   const current = normalizeState(state);
-  const task = TASKS.find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
   if (!task) {
     return {
       cashReserve: current.companySupport.cashReserve,
@@ -656,14 +705,16 @@ export function getPlayTimeSec(state) {
 
 export function summaryForState(state) {
   const current = normalizeState(state);
+  const tasks = activeTaskList(current);
   const outcomes = Object.values(current.taskOutcomes || {});
   const averageScore = outcomes.length
     ? Math.round(outcomes.reduce((sum, outcome) => sum + Number(outcome.score || 0), 0) / outcomes.length)
     : 0;
   return {
     currentTaskId: current.currentTaskId,
+    taskSetTitle: current.taskSet?.title || '',
     submittedTasks: outcomes.length,
-    totalTasks: TASKS.length,
+    totalTasks: tasks.length,
     averageScore,
     documentMissing: buildProjectDocumentMetrics(current).missingRequiredCount,
     supportReserve: current.companySupport.cashReserve,
@@ -675,6 +726,209 @@ export function summaryForState(state) {
     clientTrust: current.resources.clientTrust,
     techDebt: current.resources.techDebt,
     score: scoreState(current),
+  };
+}
+
+function activeTaskList(state) {
+  return Array.isArray(state?.activeTasks) && state.activeTasks.length ? state.activeTasks : TASKS;
+}
+
+function normalizeTaskSet(value) {
+  const src = value && typeof value === 'object' ? value : {};
+  return {
+    id: String(src.id || 'initial'),
+    title: String(src.title || taskPack.meta?.title || 'SI Coding Sim Prototype Step AQ/AR'),
+    summary: String(src.summary || '업로드된 Step AQ/AR 기본 현장 과제팩입니다.'),
+    sourceSeedId: String(src.sourceSeedId || ''),
+    seedGroupLabel: String(src.seedGroupLabel || ''),
+    rewardScore: Number(src.rewardScore || taskPack.meta?.contractRewardScore || 0),
+  };
+}
+
+function buildGeneratedTaskPack(seed) {
+  const docs = [
+    {
+      id: 'REQ',
+      title: '후속 요구 메모',
+      content: `[요청] ${seed.module} 구간에서 다음 단계 작업이 필요합니다. 고객사 ${seed.client} 기준으로 범위와 우선순위를 먼저 잠가 주세요.`,
+    },
+    {
+      id: 'PM',
+      title: 'PM 전달사항',
+      content: `[내부] ${seed.title} 이후 연결 건입니다. 일정 여유가 크지 않으니 우선순위와 증적을 분명히 남겨 주세요.`,
+    },
+    {
+      id: 'QA',
+      title: '검수 기준',
+      content: '[검수] 요구 문구가 빠지지 않았는지, 보고가 짧지 않은지, 핵심 문자열이 남아 있는지 확인합니다.',
+    },
+  ];
+  const blueprints = generatedTaskBlueprints(seed, docs);
+  return blueprints.map((blueprint, index) => instantiateGeneratedTask(blueprint, seed, index));
+}
+
+function generatedTaskBlueprints(seed, docs) {
+  if (seed.seedGroupId === 'recovery') {
+    return [
+      {
+        key: 'REC-ANALYSIS',
+        modeLabel: '장애 분석 문서',
+        difficulty: 'Normal',
+        deadline: '오늘 21:00 장애 원인보고',
+        summary: `${seed.module} 운영장애를 정리하는 원인보고서 초안을 작성하세요.`,
+        goals: ['원인 섹션을 넣는다.', '영향 범위를 적는다.', '즉시 조치와 재발 방지를 구분한다.'],
+        documents: docs,
+        file: { name: 'incident_report.md', language: 'markdown', content: '# 장애 원인보고서\n\n## 원인\nTODO\n\n## 영향 범위\n- \n\n## 즉시 조치\n- \n\n## 재발 방지\n- \n' },
+        checks: [
+          generatedCheck('원인 섹션 반영', [{ type: 'includes', value: '## 원인' }, { type: 'notIncludes', value: 'TODO' }]),
+          generatedCheck('영향 범위 작성', [{ type: 'includes', value: '## 영향 범위' }, { type: 'anyIncludes', values: ['회원', '사용자', '세션', '로그인'] }]),
+          generatedCheck('즉시조치/재발방지 분리', [{ type: 'includes', value: '## 즉시 조치' }, { type: 'includes', value: '## 재발 방지' }]),
+        ],
+        hints: ['장애 문서는 원인/영향/즉시조치/재발방지를 분리해 두는 게 좋습니다.', '영향 범위에는 실제 사용자나 기능 범위를 적어 두면 판정 문자열을 만족하기 쉽습니다.'],
+      },
+      {
+        key: 'REC-PATCH',
+        modeLabel: '핫픽스 패치',
+        difficulty: 'Hard',
+        deadline: '오늘 22:00 긴급 반영',
+        summary: `${seed.module} 구간 null/장애 방어 패치를 넣으세요.`,
+        goals: ['fallback 응답을 만든다.', 'status를 ok로 유지한다.', 'legacyAlert 호출을 남기지 않는다.'],
+        documents: docs,
+        file: { name: 'hotfix_service.js', language: 'javascript', content: "function buildResponse(sessionInfo) {\n  if (!sessionInfo) {\n    legacyAlert('session missing');\n    return {};\n  }\n\n  return {\n    status: 'fail',\n    userId: sessionInfo.userId\n  };\n}\n" },
+        checks: [
+          generatedCheck('fallback 응답 추가', [{ type: 'anyIncludes', values: ['return buildFallbackResponse()', 'const fallback =', 'let fallback ='] }, { type: 'anyIncludes', values: ['message', 'title', 'body'] }]),
+          generatedCheck('status ok 유지', [{ type: 'anyIncludes', values: ["status: 'ok'", 'status: "ok"'] }]),
+          generatedCheck('legacyAlert 제거', [{ type: 'notIncludes', value: 'legacyAlert(' }]),
+        ],
+        hints: ['운영 핫픽스는 구조 개선보다 fallback과 status 유지가 먼저입니다.', 'legacyAlert 문자열이 남아 있으면 실패합니다.'],
+      },
+      generatedDocumentTask(seed, docs, 'REC-DEPLOY', '배포 체크리스트', '긴급 배포 체크리스트', ['rollback', '스모크', '모니터링']),
+    ];
+  }
+
+  if (seed.seedGroupId === 'upgrade' || seed.seedGroupId === 'strategic') {
+    return [
+      generatedDocumentTask(seed, docs, 'SCOPE', seed.seedGroupId === 'strategic' ? '확장 제안서' : '요구사항 범위서', `${seed.module} 범위 문서`, ['표준 API', '공통 컴포넌트', '적용 대상']),
+      {
+        key: 'SERVICE',
+        modeLabel: seed.seedGroupId === 'strategic' ? '표준 API 패치' : '기능 추가 패치',
+        difficulty: 'Hard',
+        deadline: '금주 개발 완료',
+        summary: `${seed.module} 서비스 코드를 보강하세요.`,
+        goals: ['null guard', 'READY 또는 ok status', '이력 로그'],
+        documents: docs,
+        file: { name: seed.seedGroupId === 'strategic' ? 'standard_api.js' : 'WorkflowService.java', language: seed.seedGroupId === 'strategic' ? 'javascript' : 'java', content: "function buildStandardResponse(data) {\n  return {\n    status: 'pending',\n    data: data\n  };\n}\n" },
+        checks: [
+          generatedCheck('null guard', [{ type: 'anyIncludes', values: ['if (!data)', 'if (data == null)', 'if (dto == null)', 'if(null == dto)'] }]),
+          generatedCheck('상태값 정상화', [{ type: 'anyIncludes', values: ["status: 'ok'", 'status: "ok"', 'status", "READY"', 'status", "READY"'] }]),
+          generatedCheck('audit log', [{ type: 'anyIncludes', values: ['audit', 'Audit', 'log.info', 'insertHistory'] }]),
+        ],
+        hints: ['고도화/확장 코드는 null guard와 상태값, 이력 로그가 핵심입니다.', 'audit 또는 log.info 같은 문자열이 있으면 판정이 열립니다.'],
+      },
+      generatedDocumentTask(seed, docs, 'TEST', seed.seedGroupId === 'strategic' ? '롤아웃 계획서' : '통합 테스트 문서', '검수/확산 계획', ['CASE-', '기대 결과', '롤백']),
+    ];
+  }
+
+  return [
+    generatedDocumentTask(seed, docs, 'TRIAGE', seed.seedGroupId === 'warranty' ? 'QA 증적 정리' : '문의 분류 문서', `${seed.module} 운영 문서`, seed.seedGroupId === 'warranty' ? ['재현 절차', '수정 결과', '증적 링크'] : ['P1', 'P2', '처리 순서']),
+    {
+      key: 'PATCH',
+      modeLabel: seed.seedGroupId === 'warranty' ? '하자보수 SQL 패치' : '관리화면 패치',
+      difficulty: seed.difficulty === 'Hard' ? 'Hard' : 'Normal',
+      deadline: '내일 14:00 운영 개선 반영',
+      summary: `${seed.module} 운영 패치를 보강하세요.`,
+      goals: ['필터 조건', '빈 상태 처리', '최신순 정렬'],
+      documents: docs,
+      file: { name: seed.seedGroupId === 'warranty' ? 'warranty_fix.sql' : 'admin_search.js', language: seed.seedGroupId === 'warranty' ? 'sql' : 'javascript', content: seed.seedGroupId === 'warranty' ? 'SELECT TICKET_ID, STATUS, REG_DT\nFROM QA_TICKET\nWHERE 1=1\nORDER BY TICKET_ID ASC;\n' : "function searchList(keyword) {\n  if (!keyword) {\n    alert('keyword empty');\n    return;\n  }\n\n  return loadItems(keyword);\n}\n" },
+      checks: [
+        generatedCheck('필수 필터', [{ type: 'anyIncludes', values: ["STATUS = 'DONE'", "DEL_YN = 'N'", 'keyword.trim()', 'safeKeyword'] }]),
+        generatedCheck('빈 상태 또는 최신순', [{ type: 'anyIncludes', values: ['renderEmptyState()', 'emptyState', 'ORDER BY REG_DT DESC', 'order by reg_dt desc'] }]),
+        generatedCheck('기존 위험 제거', [{ type: 'notIncludes', value: 'ORDER BY TICKET_ID ASC' }]),
+      ],
+      hints: ['운영 패치는 필터 조건과 빈 상태/정렬을 같이 봐야 합니다.', '기존 위험 문자열이 남아 있으면 실패할 수 있습니다.'],
+    },
+    generatedDocumentTask(seed, docs, 'REPORT', seed.seedGroupId === 'warranty' ? '릴리즈 노트' : '월간 점검 보고', '운영 보고서', ['변경 사항', '영향 모듈', '확인 완료']),
+  ];
+}
+
+function generatedDocumentTask(seed, docs, key, modeLabel, title, keywords) {
+  return {
+    key,
+    modeLabel,
+    difficulty: 'Normal',
+    deadline: '이번 주 완료',
+    summary: `${seed.module} 관련 ${title}를 정리하세요.`,
+    goals: keywords.map((keyword) => `${keyword} 항목을 남긴다.`),
+    documents: docs,
+    file: { name: `${key.toLowerCase()}_${seed.id.toLowerCase()}.md`, language: 'markdown', content: `# ${title}\n\n- 작성 예정\n` },
+    checks: keywords.map((keyword) => generatedCheck(`${keyword} 확인`, [{ type: 'anyIncludes', values: [keyword, keyword.toLowerCase()] }])),
+    hints: [`${title}는 ${keywords.join(', ')} 항목을 빠뜨리지 않는 것이 핵심입니다.`],
+  };
+}
+
+function instantiateGeneratedTask(blueprint, seed, index) {
+  const fileId = `${blueprint.key.toLowerCase()}-file`;
+  return {
+    id: `${seed.id}-${String(index + 1).padStart(2, '0')}`,
+    projectName: seed.projectName,
+    client: seed.client,
+    difficulty: blueprint.difficulty || seed.difficulty || 'Normal',
+    deadline: blueprint.deadline || '이번 주 완료',
+    modeLabel: blueprint.modeLabel,
+    tags: [...(seed.tags || []), seed.seedGroupLabel, blueprint.modeLabel].filter(Boolean),
+    summary: blueprint.summary,
+    goals: blueprint.goals || [],
+    documents: blueprint.documents || [],
+    files: [{
+      id: fileId,
+      path: blueprint.file?.name || 'task.md',
+      role: '수정 대상',
+      editable: true,
+      language: blueprint.file?.language || 'markdown',
+      content: blueprint.file?.content || '',
+    }],
+    hints: blueprint.hints || [],
+    reportMinLength: 24,
+    reportPlaceholder: blueprint.reportPlaceholder || '수정한 내용과 확인 결과를 적으세요.',
+    judge: {
+      checks: (blueprint.checks || []).map((check) => ({
+        ...check,
+        rules: (check.rules || []).map((rule) => ({ ...rule, fileId })),
+      })),
+    },
+    documentPlay: {
+      title: `${blueprint.modeLabel} 문서 확인`,
+      summary: '후속 현장 문서에서 핵심 요구를 골라 체크하세요.',
+      allowWrongSelections: 1,
+      reviewItems: (blueprint.goals || []).map((goal, goalIndex) => ({
+        id: `${blueprint.key}-REQ-${goalIndex + 1}`,
+        title: goal,
+        detail: '후속 현장 핵심 요구',
+        required: true,
+        sourceDocId: 'REQ',
+      })),
+    },
+    execution: {
+      enabled: false,
+      tests: [],
+      hiddenTests: [],
+      entryFileId: fileId,
+    },
+    passiveInsights: {
+      source: seed.projectName,
+      kickoff: seed.kickoffFocus,
+      pressure: `압박 ${seed.pressure}`,
+    },
+  };
+}
+
+function generatedCheck(label, rules) {
+  return {
+    id: label.toLowerCase().replace(/\s+/g, '-'),
+    label,
+    description: label,
+    failReason: `${label} 조건이 부족합니다.`,
+    rules,
   };
 }
 
@@ -763,7 +1017,7 @@ function buildDocumentReviewResult(task, state) {
 
 function buildProjectDocumentMetrics(state) {
   const current = normalizeState(state);
-  return TASKS.reduce((summary, task) => {
+  return activeTaskList(current).reduce((summary, task) => {
     if (!task.documentPlay) return summary;
     const progress = buildDocumentReviewProgress(task, current);
     summary.taskCount += 1;
@@ -1133,9 +1387,9 @@ function applyResourceDelta(resources, delta) {
   };
 }
 
-function createCompanySupportState() {
+function createCompanySupportState(rewardScore = taskPack.meta?.contractRewardScore) {
   return {
-    cashReserve: SUPPORT_STARTING_RESERVE,
+    cashReserve: Math.max(24, Math.round(Number(rewardScore || taskPack.meta?.contractRewardScore || 80) * 0.4)),
     totalSpent: 0,
     usageByTask: {},
     entries: [],

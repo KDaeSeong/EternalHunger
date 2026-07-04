@@ -10,11 +10,11 @@ import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
-  TASKS,
   applyCompanySupportAction,
   companySupportSummary,
   createNewState,
   evaluateProjectAction,
+  getActiveTasks,
   getCurrentTask,
   getFileContent,
   getDocumentReviewProgress,
@@ -29,6 +29,7 @@ import {
   scoreState,
   selectProjectSeedAction,
   selectTaskAction,
+  startSelectedProjectSeedAction,
   submitTaskAction,
   summaryForState,
   taskRows,
@@ -89,6 +90,7 @@ export default function SiCodingSimPlayPage() {
   const executionPanelRef = useRef(null);
 
   const rows = useMemo(() => taskRows(state), [state]);
+  const activeTasks = useMemo(() => getActiveTasks(state), [state]);
   const projectRows = useMemo(() => projectProgressRows(state), [state]);
   const taskTagOptions = useMemo(() => Array.from(new Set(rows.flatMap((row) => row.tags || []))).sort((a, b) => a.localeCompare(b, 'ko-KR')), [rows]);
   const filteredRows = useMemo(() => {
@@ -138,7 +140,7 @@ export default function SiCodingSimPlayPage() {
   const startNewRun = () => {
     const nextState = createNewState();
     setState(nextState);
-    setSelectedFileId(TASKS[0]?.files?.[0]?.id || '');
+    setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || '');
     setMessage('');
   };
 
@@ -150,7 +152,7 @@ export default function SiCodingSimPlayPage() {
     setBusy('save');
     try {
       await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `SI Coding ${summaryForState(state).submittedTasks}/${TASKS.length}`,
+        saveName: `SI Coding ${summaryForState(state).submittedTasks}/${summaryForState(state).totalTasks}`,
         version: SAVE_VERSION,
         summary: summaryForState(state),
         payload: { state },
@@ -240,10 +242,17 @@ export default function SiCodingSimPlayPage() {
   };
 
   const selectTask = (taskId, panel) => {
-    const nextTask = TASKS.find((item) => item.id === taskId) || TASKS[0];
+    const nextTask = activeTasks.find((item) => item.id === taskId) || activeTasks[0];
     setSelectedFileId(nextTask?.files?.[0]?.id || '');
     setState((current) => selectTaskAction(current, taskId));
     scrollToPanel(panel);
+  };
+
+  const startSelectedSeed = () => {
+    setSelectedFileId('');
+    setState((current) => startSelectedProjectSeedAction(current));
+    setMessage('선택한 후보로 차기 현장을 시작했습니다.');
+    scrollToPanel('code');
   };
 
   const actions = (
@@ -257,7 +266,8 @@ export default function SiCodingSimPlayPage() {
   );
 
   const metrics = [
-    { label: '과제', value: `${Object.keys(state.taskOutcomes).length}/${TASKS.length}` },
+    { label: '현장', value: state.taskSet?.title || '기본 현장' },
+    { label: '과제', value: `${Object.keys(state.taskOutcomes).length}/${activeTasks.length}` },
     { label: '체력', value: state.resources.stamina },
     { label: '멘탈', value: state.resources.mentality },
     { label: '고객신뢰', value: state.resources.clientTrust },
@@ -394,7 +404,7 @@ export default function SiCodingSimPlayPage() {
           <label className="game-save-json-field">
             <span>과제 선택</span>
             <select value={task.id} onChange={(event) => selectTask(event.target.value)}>
-              {TASKS.map((item) => (
+              {activeTasks.map((item) => (
                 <option value={item.id} key={item.id}>{item.id} / {item.modeLabel}</option>
               ))}
             </select>
@@ -714,6 +724,11 @@ export default function SiCodingSimPlayPage() {
                   </div>
                   <strong>{seedRoadmap.followUpPlan.code}</strong>
                 </article>
+              </div>
+              <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                <ActionButton onClick={startSelectedSeed} disabled={!seedRoadmap.selectedSeed}>
+                  선택한 후보로 차기 현장 시작
+                </ActionButton>
               </div>
               <div className="game-save-list">
                 {seedRoadmap.generatedSeeds.map((seed) => (
