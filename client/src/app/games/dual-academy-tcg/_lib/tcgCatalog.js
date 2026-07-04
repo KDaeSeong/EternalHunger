@@ -78,6 +78,22 @@ export function cardKeywords(card) {
   return Array.isArray(card?.keywords) ? card.keywords : [];
 }
 
+export function cardRole(card) {
+  if (!card) return 'Tactic';
+  if (card.role) return card.role;
+  if (card.kind === 'Monster') return 'Unit';
+  return 'Tactic';
+}
+
+export function cardCost(card) {
+  const raw = card?.cost ?? card?.level ?? 0;
+  return Math.max(0, Number(raw || 0));
+}
+
+export function cardAcademy(card) {
+  return String(card?.academy || '공용');
+}
+
 export function hasKeyword(card, keyword) {
   return cardKeywords(card).includes(keyword);
 }
@@ -125,11 +141,98 @@ export function summarizeDeck(cardIds, cards) {
   const valid = (Array.isArray(cardIds) ? cardIds : [])
     .map((id) => cardMap.get(String(id || '').trim()))
     .filter(Boolean);
-  const totalCost = valid.reduce((sum, card) => sum + Number(card.cost || 0), 0);
+  const totalCost = valid.reduce((sum, card) => sum + cardCost(card), 0);
   return {
     totalCards: valid.length,
-    unitCount: valid.filter((card) => card.role === 'Unit').length,
-    tacticCount: valid.filter((card) => card.role === 'Tactic').length,
+    unitCount: valid.filter((card) => cardRole(card) === 'Unit').length,
+    tacticCount: valid.filter((card) => cardRole(card) !== 'Unit').length,
     averageCost: valid.length ? Number((totalCost / valid.length).toFixed(2)) : 0,
+  };
+}
+
+function addToMap(map, key, amount = 1) {
+  map.set(key, (map.get(key) || 0) + amount);
+}
+
+function sortedRows(map) {
+  return [...map.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko-KR'));
+}
+
+export function analyzeDeck(cardIds, cards, rules = TCG_DECK_RULES) {
+  const ids = Array.isArray(cardIds) ? cardIds : [];
+  const cardMap = buildCardMap(cards);
+  const copyMap = new Map();
+  const academyMap = new Map();
+  const keywordMap = new Map();
+  const costMap = new Map([
+    ['0-1', 0],
+    ['2-3', 0],
+    ['4-5', 0],
+    ['6+', 0],
+  ]);
+  const missingIds = [];
+
+  ids.forEach((rawId) => {
+    const id = String(rawId || '').trim();
+    if (!id) return;
+    addToMap(copyMap, id);
+    const card = cardMap.get(id);
+    if (!card) {
+      missingIds.push(id);
+      return;
+    }
+    addToMap(academyMap, cardAcademy(card));
+    cardKeywords(card).forEach((keyword) => addToMap(keywordMap, TCG_KEYWORD_LABELS[keyword] || keyword));
+    const cost = cardCost(card);
+    if (cost <= 1) addToMap(costMap, '0-1');
+    else if (cost <= 3) addToMap(costMap, '2-3');
+    else if (cost <= 5) addToMap(costMap, '4-5');
+    else addToMap(costMap, '6+');
+  });
+
+  const summary = summarizeDeck(ids, cards);
+  const errors = [];
+  const warnings = [];
+  const recommendations = [];
+  const maxCopies = Math.max(1, Number(rules?.maxCopies || TCG_DECK_RULES.maxCopies));
+  const minCards = Math.max(0, Number(rules?.minCards || TCG_DECK_RULES.minCards));
+  const maxCards = Math.max(minCards || 1, Number(rules?.maxCards || TCG_DECK_RULES.maxCards));
+  const duplicateRows = [...copyMap.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([id, count]) => ({ id, count, card: cardMap.get(id) }))
+    .sort((a, b) => b.count - a.count || String(a.card?.name || a.id).localeCompare(String(b.card?.name || b.id), 'ko-KR'));
+
+  if (ids.length < minCards) errors.push(`최소 ${minCards}장이 필요합니다.`);
+  if (ids.length > maxCards) errors.push(`최대 ${maxCards}장까지만 사용할 수 있습니다.`);
+  duplicateRows.forEach((row) => {
+    if (row.count > maxCopies) errors.push(`${row.card?.name || row.id}은(는) ${maxCopies}장까지만 넣을 수 있습니다.`);
+  });
+  if (missingIds.length) errors.push(`목록에 없는 카드가 포함되어 있습니다: ${missingIds.join(', ')}`);
+
+  const unitRatio = summary.totalCards ? summary.unitCount / summary.totalCards : 0;
+  if (summary.totalCards >= minCards && unitRatio < 0.45) warnings.push('유닛 비중이 낮아 필드 전개가 끊길 수 있습니다.');
+  if (summary.totalCards >= minCards && unitRatio > 0.78) warnings.push('전술 카드 비중이 낮아 상황 대응력이 떨어질 수 있습니다.');
+  if (summary.averageCost >= 4.6) warnings.push('평균 비용이 높아 초반 손패가 무거울 수 있습니다.');
+  if ((costMap.get('0-1') || 0) + (costMap.get('2-3') || 0) < Math.ceil(summary.totalCards * 0.4)) {
+    warnings.push('저비용 카드가 부족합니다. 1-3 비용 카드를 조금 더 넣는 편이 안정적입니다.');
+  }
+  if (!keywordMap.size) warnings.push('키워드 카드가 없어 덱 개성이 약합니다.');
+
+  if (!errors.length && !warnings.length) recommendations.push('현재 덱은 저장하고 바로 테스트해도 무난한 구성입니다.');
+  if (!errors.length && warnings.length) recommendations.push('저장은 가능하지만, 경고 항목을 조정하면 대전 안정성이 올라갑니다.');
+  if (errors.length) recommendations.push('저장 전에 필수 오류를 먼저 해결해 주세요.');
+
+  return {
+    summary,
+    errors,
+    warnings,
+    recommendations,
+    costRows: sortedRows(costMap),
+    academyRows: sortedRows(academyMap),
+    keywordRows: sortedRows(keywordMap),
+    duplicateRows,
+    missingIds,
   };
 }

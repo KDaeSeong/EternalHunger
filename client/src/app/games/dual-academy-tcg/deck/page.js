@@ -10,6 +10,7 @@ import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
   TCG_DECK_RULES,
+  analyzeDeck,
   keywordLabels,
   summarizeDeck,
 } from '../_lib/tcgCatalog';
@@ -57,21 +58,12 @@ export default function DualAcademyTcgDeckPage() {
 
   const counts = useMemo(() => countCards(cardIds), [cardIds]);
   const summary = useMemo(() => summarizeDeck(cardIds, cards), [cardIds, cards]);
+  const deckReport = useMemo(() => analyzeDeck(cardIds, cards, rules), [cardIds, cards, rules]);
   const sortedCards = useMemo(() => [...cards].sort((a, b) => (
     Number(a.cost || 0) - Number(b.cost || 0) || String(a.name).localeCompare(String(b.name), 'ko')
   )), [cards]);
 
-  const deckError = useMemo(() => {
-    if (cardIds.length < rules.minCards) return `최소 ${rules.minCards}장이 필요합니다.`;
-    if (cardIds.length > rules.maxCards) return `최대 ${rules.maxCards}장까지만 가능합니다.`;
-    for (const [id, count] of counts.entries()) {
-      if (count > rules.maxCopies) {
-        const card = cards.find((row) => row.id === id);
-        return `${card?.name || id}은(는) ${rules.maxCopies}장까지만 넣을 수 있습니다.`;
-      }
-    }
-    return '';
-  }, [cardIds.length, cards, counts, rules.maxCards, rules.maxCopies, rules.minCards]);
+  const deckError = deckReport.errors[0] || '';
 
   const loadDeck = useCallback(async () => {
     if (!mounted) return;
@@ -220,6 +212,33 @@ export default function DualAcademyTcgDeckPage() {
                 <dd>{summary.averageCost}</dd>
               </div>
             </dl>
+            <dl className="tcg-small-stats" style={{ marginTop: 12 }}>
+              {deckReport.costRows.map((row) => (
+                <div key={row.label}>
+                  <dt>비용 {row.label}</dt>
+                  <dd>{row.count}</dd>
+                </div>
+              ))}
+            </dl>
+            <dl className="tcg-small-stats" style={{ marginTop: 12 }}>
+              {deckReport.academyRows.slice(0, 4).map((row) => (
+                <div key={row.label}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.count}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="tcg-deck-message">
+              {deckReport.recommendations.map((row) => (
+                <span key={row}>{row}</span>
+              ))}
+              {deckReport.warnings.slice(0, 3).map((row) => (
+                <span key={row}>주의: {row}</span>
+              ))}
+              {deckReport.keywordRows.length ? (
+                <span>키워드: {deckReport.keywordRows.map((row) => `${row.label} ${row.count}`).join(' · ')}</span>
+              ) : null}
+            </div>
             {deckError ? <p className="tcg-deck-message is-danger">{deckError}</p> : null}
             <button
               type="button"
