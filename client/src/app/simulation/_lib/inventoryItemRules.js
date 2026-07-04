@@ -127,6 +127,59 @@ export function isBandageLikeItem(it) {
   return lower.includes('bandage') || name.includes('붕대');
 }
 
+const SPECIAL_NAME_TOKENS = [
+  'meteor',
+  'mithril',
+  'forcecore',
+  'bloodsample',
+  'lifetree',
+  'treeoflife',
+  'tacticalmodule',
+  'aglaia',
+  'aegis',
+  'vf',
+  'transcend',
+  'legendary',
+  '운석',
+  '미스릴',
+  '포스코어',
+  '생명의나무',
+  '생나',
+  '혈액샘플',
+  '전술강화모듈',
+  '아이기스',
+  '아이기스의정수',
+  '아이가이',
+  '아이가이의정수',
+];
+
+function compactSpecialName(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-・·.()[\]{}'"`]+/g, '');
+}
+
+function hasSpecialNameToken(it) {
+  const fields = [
+    itemDisplayName(it),
+    it?.name,
+    it?.nameKr,
+    it?.nameKo,
+    it?.displayName,
+    it?.itemName,
+    it?.id,
+    it?.itemId,
+    it?.key,
+  ];
+  const names = fields.map(compactSpecialName).filter(Boolean);
+  if (!names.length) return false;
+  return SPECIAL_NAME_TOKENS.some((token) => {
+    const compactToken = compactSpecialName(token);
+    return compactToken && names.some((name) => name.includes(compactToken));
+  });
+}
+
 export function hasSpecialInventoryTag(it) {
   const tags = safeTags(it).map((t) => String(t || '').toLowerCase());
   const rawName = String(itemDisplayName(it) || '');
@@ -160,7 +213,8 @@ export function hasSpecialInventoryTag(it) {
     t.includes('vf') ||
     t.includes('transcend') ||
     t.includes('tac_skill_module')
-  )) || specialNameTokens.some((token) => compactName.includes(String(token).replace(/\s+/g, '').toLowerCase()))
+  )) || hasSpecialNameToken(it)
+    || specialNameTokens.some((token) => compactName.includes(String(token).replace(/\s+/g, '').toLowerCase()))
     || name.includes('meteor') || name.includes('mithril') || name.includes('force core') || name.includes('blood sample');
 }
 
@@ -181,9 +235,9 @@ export function inventoryItemPriority(it) {
   const category = inferItemCategory(it);
   const tier = clampInventoryTier(it?.tier || 1, category);
 
+  if (hasSpecialInventoryTag(it)) return 180 + tier * 10;
+  if (hasGoalInventoryTag(it)) return 150 + tier * 8;
   if (category === 'equipment') return 80 + tier * 5;
-  if (hasSpecialInventoryTag(it)) return 70 + tier * 5;
-  if (hasGoalInventoryTag(it)) return 54 + tier * 5;
   if (category === 'consumable') {
     return 20 + tier * 3;
   }

@@ -69,7 +69,8 @@ export function prepareActorPhaseActionQueue({
   const updated = actor || {};
   const goalMissingSet = normalizeGoalMissingIds(goalMissingIds);
   const routeDroneNeedIds = buildRouteDroneNeedIds(updated, routePlanMissingIdsNow);
-  const deferProcureForRoute = currentRouteNeedsSearch && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
+  const hasRouteDroneNeed = routeDroneNeedIds.size > 0;
+  const deferProcureForRoute = currentRouteNeedsSearch && !hasRouteDroneNeed && !upgradeNeed?.wantLegend && !upgradeNeed?.wantTrans;
 
   let queuedKioskAction = (didMove || fleeInterruptReason || deferProcureForRoute)
     ? null
@@ -106,6 +107,7 @@ export function prepareActorPhaseActionQueue({
     const transBias = upgradeNeed?.wantTrans ? 8 : 0;
     const wildlifeTempoBias = afterOpeningRouteWindow ? (dayNumber === 1 ? 14 : 10) : 0;
     const objectiveActionBias = moveObjectiveType ? Math.min(18, 8 + Math.round(Math.max(0, Number(moveContestPressure || 0)) * 36)) : 0;
+    const earlyRouteFarmPriority = currentRouteNeedsSearch && earlyRouteActionActive;
     const scoreRows = [];
 
     if (queuedKioskAction?.itemId && queuedKioskAction?.item) {
@@ -136,7 +138,7 @@ export function prepareActorPhaseActionQueue({
       const itemId = String(queuedDroneOrder?.itemId || '');
       const matchesGoal = goalMissingSet.has(itemId) || (goalTargetId && goalTargetId === itemId);
       const matchesRouteDrone = routeDroneNeedIds.has(itemId);
-      const score = 32 + spendSurplusBias + (matchesGoal ? 22 : 0) + (matchesRouteDrone ? 24 : 0) + legendBias + transBias - (simCredits < 40 ? 14 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
+      const score = 32 + spendSurplusBias + (matchesGoal ? 22 : 0) + (matchesRouteDrone ? 72 : 0) + legendBias + transBias - (simCredits < 40 ? 14 : 0) - (lowHpRatio <= 0.28 ? 4 : 0);
       scoreRows.push({
         type: 'droneOrder',
         zoneId: String(updated?.zoneId || ''),
@@ -166,17 +168,21 @@ export function prepareActorPhaseActionQueue({
       });
     }
 
-    if (suppressEarlyRouteHunt) {
+    if (earlyRouteFarmPriority || suppressEarlyRouteHunt) {
+      const day1MorningRouteBias = dayNumber === 1 && phaseKey === 'morning' ? 34 : 18;
+      const routeFarmBase = earlyRouteFarmPriority ? 64 + day1MorningRouteBias : 42;
       scoreRows.push({
         type: 'routeFarm',
         zoneId: String(updated?.zoneId || ''),
         etaSec: 1,
         phaseIdx: Number(phaseIdxNow || 0),
-        score: 42 + (fallbackRouteItemIds.length ? 8 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
+        score: routeFarmBase + (fallbackRouteItemIds.length ? 8 : 0) + (currentRouteItemIds.length ? 8 : 0) + (lowHpRatio <= 0.35 ? 2 : 0),
         label: 'routeFarm',
         priorityNote: currentRouteItemIds.length ? 'early_route+materials' : 'early_route+fallback',
       });
-    } else {
+    }
+
+    if (!earlyRouteFarmPriority && !suppressEarlyRouteHunt) {
       scoreRows.push({
         type: 'hunt',
         zoneId: String(updated?.zoneId || ''),

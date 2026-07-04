@@ -38,9 +38,9 @@ const ZONE_POS_ALIASES = {
   sandy_beach: 'beach',
 };
 
-const RECENT_PING_TTL_MS = 4500;
-const RECENT_PING_LIMIT = 5;
-const RECENT_PING_TAIL = 220;
+const RECENT_PING_TTL_MS = 2800;
+const RECENT_PING_LIMIT = 3;
+const RECENT_PING_TAIL = 160;
 const IMPORTANT_GAIN_SOURCES = new Set(['legend', 'natural', 'boss', 'mutant', 'transcend', 'rift']);
 
 function compactZoneKey(value) {
@@ -192,8 +192,7 @@ function pingPriority(event) {
 export function buildRecentPings({ runEvents, pingNow, zonePos }) {
   const now = Number(pingNow || Date.now());
   const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-RECENT_PING_TAIL);
-  const candidates = [];
-  const uniq = new Set();
+  const bestByZone = new Map();
 
   for (let i = tail.length - 1; i >= 0; i -= 1) {
     const event = tail[i];
@@ -203,21 +202,21 @@ export function buildRecentPings({ runEvents, pingNow, zonePos }) {
     const zoneId = pingZoneId(event);
     if (!zoneId || !zonePos?.[zoneId]) continue;
 
-    const key = `${String(event.kind || '')}::${zoneId}`;
-    if (uniq.has(key)) continue;
-    uniq.add(key);
-
-    candidates.push({
+    const row = {
       id: String(event._id || event.ts || `${i}`),
       zoneId,
       kind: String(event.kind || ''),
       icon: pingIcon(event),
       priority: pingPriority(event),
       ts,
-    });
+    };
+    const prev = bestByZone.get(zoneId);
+    if (!prev || row.priority > prev.priority || (row.priority === prev.priority && row.ts > prev.ts)) {
+      bestByZone.set(zoneId, row);
+    }
   }
 
-  return candidates
+  return Array.from(bestByZone.values())
     .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)) || (Number(b.ts || 0) - Number(a.ts || 0)))
     .slice(0, RECENT_PING_LIMIT);
 }
