@@ -22,6 +22,8 @@ import {
   getReportText,
   getRevealedHints,
   normalizeState,
+  passiveInsightRows,
+  playerProfileSummary,
   projectProgressRows,
   projectSeedRoadmap,
   resetTaskAction,
@@ -128,7 +130,8 @@ export default function SiCodingSimPlayPage() {
   const documentPlay = task?.documentPlay || null;
   const documentProgress = task ? getDocumentReviewProgress(state, task.id) : null;
   const execution = task?.execution || null;
-  const insightRows = Object.entries(task?.passiveInsights || {});
+  const profileSummary = useMemo(() => playerProfileSummary(state, task?.id), [state, task?.id]);
+  const insightRows = useMemo(() => passiveInsightRows(state, task?.id), [state, task?.id]);
   const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
   const support = useMemo(() => companySupportSummary(state, task?.id), [state, task?.id]);
   const seedRoadmap = useMemo(() => projectSeedRoadmap(state), [state]);
@@ -266,6 +269,8 @@ export default function SiCodingSimPlayPage() {
   );
 
   const metrics = [
+    { label: '직급', value: profileSummary.career.rankTitle },
+    { label: '성장', value: `${profileSummary.totalImprovedRuns}회` },
     { label: '현장', value: state.taskSet?.title || '기본 현장' },
     { label: '과제', value: `${Object.keys(state.taskOutcomes).length}/${activeTasks.length}` },
     { label: '체력', value: state.resources.stamina },
@@ -500,6 +505,60 @@ export default function SiCodingSimPlayPage() {
       <section className="games-dashboard">
         <section className="games-panel">
           <div className="games-panel-title">
+            <h2>플레이어 성장</h2>
+            <span>{profileSummary.career.rankTitle}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="평판" value={profileSummary.career.reputationLabel} />
+            <SmallStat label="성장 제출" value={`${profileSummary.totalImprovedRuns}회`} />
+            <SmallStat label="완전 통과" value={`${profileSummary.perfectRuns}회`} />
+            <SmallStat label="시작 보정" value={`체력 ${profileSummary.career.nextStartBonus.stamina >= 0 ? '+' : ''}${profileSummary.career.nextStartBonus.stamina}`} />
+          </div>
+          {profileSummary.lastProgressLog.length ? (
+            <div className="games-empty" style={{ textAlign: 'left', marginTop: 12 }}>
+              최근 성장: {profileSummary.lastProgressLog.join(' · ')}
+            </div>
+          ) : null}
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            {profileSummary.statRows.map((item) => (
+              <article className="game-save-row" key={item.key}>
+                <div>
+                  <span>{item.summary}</span>
+                  <strong>{item.label}</strong>
+                </div>
+                <strong>Lv.{item.level}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>숙련도와 특성</h2>
+            <span>{profileSummary.traitRows.filter((item) => item.unlocked).length}/{profileSummary.traitRows.length}</span>
+          </div>
+          <div className="games-chip-row">
+            {profileSummary.domainRows.map((item) => (
+              <span className="game-save-chip" key={item.key}>{item.label} Lv.{item.level}</span>
+            ))}
+          </div>
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            {profileSummary.traitRows.map((item) => (
+              <article className="game-save-row" key={item.key} style={!item.unlocked ? { opacity: 0.5 } : null}>
+                <div>
+                  <span>{item.unlocked ? '해금됨' : '잠김'}</span>
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
             <h2>프로젝트 진행도</h2>
             <span>{projectRows.length}개 프로젝트</span>
           </div>
@@ -525,11 +584,11 @@ export default function SiCodingSimPlayPage() {
             <span>{task.cardSummary?.execution || 'static-check'}</span>
           </div>
           <div className="game-save-list">
-            {insightRows.length ? insightRows.map(([key, value]) => (
-              <article className="game-save-row" key={key}>
+            {insightRows.length ? insightRows.map((item) => (
+              <article className="game-save-row" key={item.id}>
                 <div>
-                  <span>{key}</span>
-                  <strong>{value}</strong>
+                  <span>{item.label}</span>
+                  <strong>{item.detail}</strong>
                 </div>
               </article>
             )) : <div className="games-empty">이 과제에는 별도 인사이트가 없습니다.</div>}

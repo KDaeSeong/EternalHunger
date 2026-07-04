@@ -33,6 +33,50 @@ const SUPPORT_ACTION_LABELS = {
   },
 };
 
+const CORE_STAT_DEFS = [
+  { key: 'analysis', label: '분석력', summary: '요구사항과 관련 파일의 우선순위를 더 빨리 좁힙니다.' },
+  { key: 'implementation', label: '구현력', summary: '과제 해결 안정성과 제출 보상을 높입니다.' },
+  { key: 'debugging', label: '디버깅', summary: '실패 원인과 위험 지점을 더 잘 짚습니다.' },
+  { key: 'refactoring', label: '정리력', summary: '기술부채 증가를 줄이고 재작업 위험을 낮춥니다.' },
+  { key: 'testing', label: '테스트 감각', summary: '테스트 관점과 완전 통과 보상을 강화합니다.' },
+  { key: 'communication', label: '문서화', summary: '보고 부담을 줄이고 고객 신뢰 손실을 완화합니다.' },
+  { key: 'focus', label: '집중력', summary: '긴급 과제와 힌트 사용 부담을 줄입니다.' },
+];
+
+const DOMAIN_SKILL_DEFS = [
+  { key: 'backend', label: '백엔드' },
+  { key: 'database', label: 'DB' },
+  { key: 'legacy', label: '레거시' },
+  { key: 'algorithm', label: '알고리즘' },
+];
+
+const TRAIT_DEFS = {
+  requirementDetective: {
+    label: '요구사항 탐정',
+    description: '문서 체크와 추천 파일 힌트가 더 선명해집니다.',
+  },
+  hawkEye: {
+    label: '매의 눈',
+    description: '실패한 파일과 조건을 더 쉽게 추적합니다.',
+  },
+  testMind: {
+    label: '테스트 마인드',
+    description: '완전 통과 과제에서 성장과 신뢰 보상이 좋아집니다.',
+  },
+  legacyArchaeologist: {
+    label: '레거시 고고학자',
+    description: '레거시/참고 파일이 있는 과제에서 시작 판단이 좋아집니다.',
+  },
+  hotfixConstitution: {
+    label: '핫픽스 체질',
+    description: '긴급 수정 과제의 피로와 리스크 부담을 줄입니다.',
+  },
+  codeSmellHunter: {
+    label: '코드 스멜 추적자',
+    description: '좋은 제출 이후 기술부채 증가를 조금 더 억제합니다.',
+  },
+};
+
 const PROJECT_SEED_GROUPS = [
   {
     id: 'recovery',
@@ -238,6 +282,7 @@ export function createNewState(options = {}) {
     companySupport: createCompanySupportState(),
     documentReviewByTask: {},
     taskOutcomes: {},
+    playerProfile: createPlayerProfile(),
     projectEvaluations: [],
     followUpPlan: null,
     generatedSeeds: [],
@@ -261,6 +306,7 @@ export function normalizeState(value) {
     companySupport: normalizeCompanySupport(value.companySupport),
     documentReviewByTask: value.documentReviewByTask && typeof value.documentReviewByTask === 'object' ? normalizeDocumentReviewByTask(value.documentReviewByTask) : {},
     taskOutcomes: value.taskOutcomes && typeof value.taskOutcomes === 'object' ? value.taskOutcomes : {},
+    playerProfile: normalizePlayerProfile(value.playerProfile),
     projectEvaluations: Array.isArray(value.projectEvaluations) ? value.projectEvaluations : [],
     followUpPlan: value.followUpPlan && typeof value.followUpPlan === 'object' ? value.followUpPlan : null,
     generatedSeeds: Array.isArray(value.generatedSeeds) ? value.generatedSeeds : [],
@@ -480,9 +526,11 @@ export function submitTaskAction(state, taskId) {
   const outcome = evaluateTask(task, current);
   const previous = current.taskOutcomes[task.id];
   const resources = applyResourceDelta(current.resources, outcome.resourceDelta);
+  const progress = applyTaskProgress(current.playerProfile, task, previous, outcome);
   current = {
     ...current,
     resources,
+    playerProfile: progress.profile,
     taskOutcomes: {
       ...current.taskOutcomes,
       [task.id]: {
@@ -491,6 +539,9 @@ export function submitTaskAction(state, taskId) {
       },
     },
   };
+  if (progress.log.length) {
+    current = addLog(current, `성장 적용: ${progress.log.join(', ')}`);
+  }
   const improved = previous ? Math.max(0, outcome.score - Number(previous.score || 0)) : outcome.score;
   return addLog(current, `${task.id} 검수 ${outcome.score}점. ${outcomeStatus(outcome.score)}${improved ? `, 개선 +${improved}` : ''}.`);
 }
@@ -565,6 +616,8 @@ export function startSelectedProjectSeedAction(state) {
   if (!seed) return addLog(current, '시작할 차기 현장 후보가 없습니다.');
   const tasks = buildGeneratedTaskPack(seed);
   const firstTask = tasks[0] || null;
+  const career = resolvePlayerCareer(current.playerProfile, current.projectEvaluations);
+  const startResources = applyResourceDelta(seed.startResources || BASE_RESOURCES, career.nextStartBonus);
   if (!firstTask) return addLog(current, `${seed.projectName}에서 생성할 과제가 없습니다.`);
   return addLog({
     ...current,
@@ -576,9 +629,11 @@ export function startSelectedProjectSeedAction(state) {
       sourceSeedId: seed.id,
       seedGroupLabel: seed.seedGroupLabel,
       rewardScore: seed.rewardScore,
+      careerRankTitle: career.rankTitle,
+      careerReputationLabel: career.reputationLabel,
     },
     currentTaskId: firstTask.id,
-    resources: { ...seed.startResources },
+    resources: startResources,
     workspaceFiles: { [firstTask.id]: createTaskWorkspace(firstTask) },
     reports: {},
     hintUsage: {},
@@ -681,6 +736,62 @@ export function projectSeedRoadmap(state) {
   };
 }
 
+export function playerProfileSummary(state, taskId) {
+  const current = normalizeState(state);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  const profile = normalizePlayerProfile(current.playerProfile);
+  const career = resolvePlayerCareer(profile, current.projectEvaluations);
+  const passiveRows = passiveInsightRows(current, task?.id);
+  return {
+    totalImprovedRuns: profile.totalImprovedRuns,
+    perfectRuns: profile.perfectRuns,
+    lastProgressLog: profile.lastProgressLog,
+    career,
+    statRows: CORE_STAT_DEFS.map((item) => ({
+      ...item,
+      level: profile.coreStats[item.key] || 0,
+      xp: profile.coreXp[item.key] || 0,
+    })),
+    domainRows: DOMAIN_SKILL_DEFS.map((item) => ({
+      ...item,
+      level: profile.domainSkills[item.key] || 0,
+      xp: profile.domainXp[item.key] || 0,
+    })),
+    traitRows: Object.entries(TRAIT_DEFS).map(([key, item]) => ({
+      key,
+      ...item,
+      unlocked: profile.unlockedTraits.includes(key),
+    })),
+    passiveRows,
+  };
+}
+
+export function passiveInsightRows(state, taskId) {
+  const current = normalizeState(state);
+  const task = activeTaskList(current).find((item) => item.id === (taskId || current.currentTaskId)) || getCurrentTask(current);
+  if (!task) return [];
+  const profile = normalizePlayerProfile(current.playerProfile);
+  const rows = [];
+  const recommendedFile = getRecommendedFile(task, profile);
+  if (recommendedFile) {
+    rows.push({ id: 'recommended-file', label: '추천 시작 파일', detail: recommendedFile.path || recommendedFile.name || recommendedFile.id });
+  }
+  const effectiveReportMinLength = getEffectiveReportMinLength(task, current);
+  if (effectiveReportMinLength !== Number(task.reportMinLength || 0)) {
+    rows.push({ id: 'report-relief', label: '문서화 보정', detail: `보고 최소 길이 ${Number(task.reportMinLength || 0)}자 -> ${effectiveReportMinLength}자` });
+  }
+  if (profile.unlockedTraits.includes('hotfixConstitution') && isHotfixTask(task)) {
+    rows.push({ id: 'hotfix-trait', label: '핫픽스 체질', detail: '긴급 수정 과제의 피로와 기술부채 부담을 줄입니다.' });
+  }
+  if (profile.unlockedTraits.includes('codeSmellHunter')) {
+    rows.push({ id: 'code-smell', label: '코드 스멜 추적자', detail: '부분 성공 이상 제출에서 기술부채 증가를 억제합니다.' });
+  }
+  Object.entries(task.passiveInsights || {}).forEach(([key, value]) => {
+    rows.push({ id: `task-${key}`, label: key, detail: value });
+  });
+  return rows.slice(0, 8);
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const outcomes = Object.values(current.taskOutcomes || {});
@@ -710,6 +821,8 @@ export function summaryForState(state) {
   const averageScore = outcomes.length
     ? Math.round(outcomes.reduce((sum, outcome) => sum + Number(outcome.score || 0), 0) / outcomes.length)
     : 0;
+  const profile = normalizePlayerProfile(current.playerProfile);
+  const career = resolvePlayerCareer(profile, current.projectEvaluations);
   return {
     currentTaskId: current.currentTaskId,
     taskSetTitle: current.taskSet?.title || '',
@@ -725,12 +838,246 @@ export function summaryForState(state) {
     mentality: current.resources.mentality,
     clientTrust: current.resources.clientTrust,
     techDebt: current.resources.techDebt,
+    careerRank: career.rankTitle,
+    reputation: career.reputationLabel,
+    improvedRuns: profile.totalImprovedRuns,
+    perfectRuns: profile.perfectRuns,
     score: scoreState(current),
   };
 }
 
 function activeTaskList(state) {
   return Array.isArray(state?.activeTasks) && state.activeTasks.length ? state.activeTasks : TASKS;
+}
+
+function createPlayerProfile() {
+  return {
+    coreStats: {
+      analysis: 4,
+      implementation: 4,
+      debugging: 4,
+      refactoring: 3,
+      testing: 3,
+      communication: 3,
+      focus: 4,
+    },
+    coreXp: Object.fromEntries(CORE_STAT_DEFS.map((item) => [item.key, 0])),
+    domainSkills: {
+      backend: 1,
+      database: 1,
+      legacy: 0,
+      algorithm: 0,
+    },
+    domainXp: Object.fromEntries(DOMAIN_SKILL_DEFS.map((item) => [item.key, 0])),
+    unlockedTraits: [],
+    totalImprovedRuns: 0,
+    perfectRuns: 0,
+    lastProgressLog: [],
+  };
+}
+
+function normalizePlayerProfile(value) {
+  const base = createPlayerProfile();
+  const src = value && typeof value === 'object' ? value : {};
+  return {
+    coreStats: normalizeNumberMap(base.coreStats, src.coreStats, 0, 9),
+    coreXp: normalizeNumberMap(base.coreXp, src.coreXp, 0, 999),
+    domainSkills: normalizeNumberMap(base.domainSkills, src.domainSkills, 0, 5),
+    domainXp: normalizeNumberMap(base.domainXp, src.domainXp, 0, 999),
+    unlockedTraits: Array.isArray(src.unlockedTraits)
+      ? src.unlockedTraits.map((item) => String(item || '')).filter((item) => TRAIT_DEFS[item])
+      : [],
+    totalImprovedRuns: Math.max(0, Math.round(Number(src.totalImprovedRuns || 0))),
+    perfectRuns: Math.max(0, Math.round(Number(src.perfectRuns || 0))),
+    lastProgressLog: Array.isArray(src.lastProgressLog) ? src.lastProgressLog.map((item) => String(item || '')).filter(Boolean).slice(0, 8) : [],
+  };
+}
+
+function normalizeNumberMap(base, value, min, max) {
+  const src = value && typeof value === 'object' ? value : {};
+  return Object.fromEntries(Object.entries(base).map(([key, fallback]) => [key, clamp(Number(src[key] ?? fallback), min, max)]));
+}
+
+function applyTaskProgress(profileValue, task, previousOutcome, nextOutcome) {
+  const profile = normalizePlayerProfile(profileValue);
+  const previousScore = Number(previousOutcome?.score || 0);
+  const improvedScore = Math.max(0, Number(nextOutcome.score || 0) - previousScore);
+  const firstSubmit = !previousOutcome;
+  if (!firstSubmit && improvedScore <= 0) {
+    return { profile: { ...profile, lastProgressLog: [] }, log: [] };
+  }
+
+  const gain = Math.max(1, Math.ceil((firstSubmit ? Math.max(Number(nextOutcome.score || 0), 40) : improvedScore) / 25));
+  profile.totalImprovedRuns += 1;
+  if (Number(nextOutcome.score || 0) === 100 && previousScore < 100) {
+    profile.perfectRuns += 1;
+  }
+
+  const log = [];
+  const raiseCore = (key, amount) => {
+    const count = gainLevel(profile.coreStats, profile.coreXp, key, amount, 9);
+    if (count > 0) log.push(`${CORE_STAT_DEFS.find((item) => item.key === key)?.label || key} +${count}`);
+  };
+  const raiseDomain = (key, amount) => {
+    const count = gainLevel(profile.domainSkills, profile.domainXp, key, amount, 5);
+    if (count > 0) log.push(`${DOMAIN_SKILL_DEFS.find((item) => item.key === key)?.label || key} +${count}`);
+  };
+
+  raiseCore('analysis', gain);
+  raiseCore('implementation', gain);
+  raiseCore('focus', 1);
+  if (taskMatches(task, ['requirements', 'document', 'report', 'notice', 'scope'])) raiseCore('communication', gain);
+  if (taskMatches(task, ['hotfix', 'bug', 'fix', 'legacy']) || Number(nextOutcome.score || 0) < 100) raiseCore('debugging', gain);
+  if (Number(nextOutcome.score || 0) === 100) {
+    raiseCore('testing', gain);
+    raiseCore('refactoring', 1);
+  }
+
+  if (taskMatches(task, ['backend', 'api', 'service', 'login', 'auth'])) raiseDomain('backend', gain);
+  if (taskMatches(task, ['database', 'sql', 'batch', 'db', 'query'])) raiseDomain('database', gain);
+  if (taskMatches(task, ['legacy', 'jsp', 'old', 'groupware'])) raiseDomain('legacy', gain);
+  if (taskMatches(task, ['algorithm', 'codingtest', 'array', 'sort'])) raiseDomain('algorithm', gain);
+
+  unlockTraitsIfNeeded(profile).forEach((traitKey) => {
+    log.push(`특성 해금: ${TRAIT_DEFS[traitKey]?.label || traitKey}`);
+  });
+  profile.lastProgressLog = log.slice(0, 8);
+  return { profile, log: profile.lastProgressLog };
+}
+
+function gainLevel(profileSection, xpSection, key, amount, maxLevel) {
+  if (!Object.prototype.hasOwnProperty.call(profileSection, key) || !amount) return 0;
+  let levelUps = 0;
+  xpSection[key] = Math.max(0, Number(xpSection[key] || 0)) + Math.max(0, Number(amount || 0));
+  while (profileSection[key] < maxLevel) {
+    const threshold = Math.max(2, Number(profileSection[key] || 0) + 2);
+    if (xpSection[key] < threshold) break;
+    xpSection[key] -= threshold;
+    profileSection[key] += 1;
+    levelUps += 1;
+  }
+  return levelUps;
+}
+
+function unlockTraitsIfNeeded(profile) {
+  const unlocked = [];
+  const maybeUnlock = (traitKey, condition) => {
+    if (condition && !profile.unlockedTraits.includes(traitKey)) {
+      profile.unlockedTraits.push(traitKey);
+      unlocked.push(traitKey);
+    }
+  };
+  maybeUnlock('requirementDetective', profile.totalImprovedRuns >= 1 || profile.coreStats.analysis >= 5);
+  maybeUnlock('hawkEye', profile.perfectRuns >= 1 || profile.coreStats.debugging >= 5);
+  maybeUnlock('testMind', profile.coreStats.testing >= 5);
+  maybeUnlock('legacyArchaeologist', profile.domainSkills.legacy >= 1 && profile.totalImprovedRuns >= 2);
+  maybeUnlock('hotfixConstitution', profile.coreStats.focus >= 5 && profile.totalImprovedRuns >= 2);
+  maybeUnlock('codeSmellHunter', profile.coreStats.refactoring >= 4 && profile.perfectRuns >= 2);
+  return unlocked;
+}
+
+function resolvePlayerCareer(profileValue, evaluations = []) {
+  const profile = normalizePlayerProfile(profileValue);
+  const completedProjects = Array.isArray(evaluations) ? evaluations.filter((item) => item.grade && item.grade !== '蹂대쪟').length : 0;
+  const successProjects = Array.isArray(evaluations) ? evaluations.filter((item) => ['A', 'S'].includes(item.grade)).length : 0;
+  const failProjects = Array.isArray(evaluations) ? evaluations.filter((item) => item.grade === 'FAIL').length : 0;
+  const reputationScore = Math.max(-50, profile.totalImprovedRuns * 8 + profile.perfectRuns * 10 + successProjects * 18 - failProjects * 12);
+  let rank = { code: 'ENTRY', title: '초급 투입', summary: '첫 현장 결과가 커리어 보정의 기준이 됩니다.' };
+  if (reputationScore >= 120 || profile.perfectRuns >= 4) rank = { code: 'PRINCIPAL', title: '수석 / PM 후보', summary: '차기 현장의 시작 자원 보정이 가장 큽니다.' };
+  else if (reputationScore >= 80 || profile.perfectRuns >= 3) rank = { code: 'SENIOR', title: '고급 개발자', summary: '어려운 현장에서도 안정적인 시작 보정을 받습니다.' };
+  else if (reputationScore >= 50 || successProjects >= 2) rank = { code: 'TROUBLESHOOTER', title: '현장 해결사', summary: '장애 수습과 고도화 연결에서 신뢰를 얻었습니다.' };
+  else if (reputationScore >= 25 || completedProjects >= 2) rank = { code: 'MID', title: '중급 개발자', summary: '단순 투입을 넘어 맞는 구간을 스스로 잡기 시작했습니다.' };
+  else if (reputationScore >= 8 || completedProjects >= 1 || profile.totalImprovedRuns >= 2) rank = { code: 'JUNIOR', title: '주니어 개발자', summary: '기본 신뢰 보정이 열렸습니다.' };
+
+  return {
+    reputationScore,
+    reputationLabel: reputationScore >= 90 ? '전략 파트너' : reputationScore >= 45 ? '핵심 협력사' : reputationScore >= 15 ? '안정 운영 벤더' : reputationScore >= 0 ? '일반 협력사' : '위기 거래처',
+    completedProjects,
+    successProjects,
+    failProjects,
+    rankCode: rank.code,
+    rankTitle: rank.title,
+    rankSummary: rank.summary,
+    nextStartBonus: resolveCareerBonus(rank.code),
+  };
+}
+
+function resolveCareerBonus(rankCode) {
+  switch (rankCode) {
+    case 'PRINCIPAL':
+      return { stamina: 5, mentality: 3, clientTrust: 5, techDebt: -2 };
+    case 'SENIOR':
+      return { stamina: 4, mentality: 2, clientTrust: 4, techDebt: -2 };
+    case 'TROUBLESHOOTER':
+      return { stamina: 3, mentality: 2, clientTrust: 3, techDebt: -1 };
+    case 'MID':
+      return { stamina: 2, mentality: 1, clientTrust: 2, techDebt: -1 };
+    case 'JUNIOR':
+      return { stamina: 1, mentality: 0, clientTrust: 1, techDebt: 0 };
+    default:
+      return { stamina: 0, mentality: 0, clientTrust: 0, techDebt: 0 };
+  }
+}
+
+function getEffectiveReportMinLength(task, state) {
+  const base = Number(task?.reportMinLength || 0);
+  if (!base) return 0;
+  const profile = normalizePlayerProfile(state?.playerProfile);
+  const relief = Math.min(6, Math.max(0, Number(profile.coreStats.communication || 0) - 3));
+  return Math.min(base, Math.max(12, base - relief));
+}
+
+function adjustResourceDeltaForProfile(delta, task, score, profileValue) {
+  const profile = normalizePlayerProfile(profileValue);
+  const next = { ...delta };
+  if (profile.coreStats.implementation >= 6 && score >= 75) next.clientTrust += 1;
+  if (profile.coreStats.communication >= 5 && next.clientTrust < 0) next.clientTrust += 1;
+  if (profile.coreStats.refactoring >= 5 || profile.unlockedTraits.includes('codeSmellHunter')) {
+    next.techDebt = Math.max(next.techDebt - 1, score === 100 ? -999 : 0);
+  }
+  if (profile.unlockedTraits.includes('hotfixConstitution') && isHotfixTask(task)) {
+    next.stamina += 1;
+    next.mentality += 1;
+  }
+  if (profile.unlockedTraits.includes('testMind') && score === 100) {
+    next.clientTrust += 1;
+    next.techDebt -= 1;
+  }
+  return next;
+}
+
+function getRecommendedFile(task, profileValue) {
+  const profile = normalizePlayerProfile(profileValue);
+  if (profile.coreStats.analysis < 5 && !profile.unlockedTraits.includes('requirementDetective')) return null;
+  const editableFiles = (task?.files || []).filter((file) => file.editable !== false);
+  if (!editableFiles.length) return null;
+  const counts = Object.create(null);
+  (task?.judge?.checks || []).forEach((check) => {
+    (check.rules || []).forEach((rule) => {
+      if (rule.fileId) counts[rule.fileId] = (counts[rule.fileId] || 0) + 1;
+    });
+  });
+  return editableFiles
+    .map((file) => ({ file, count: counts[file.id] || 0 }))
+    .sort((a, b) => b.count - a.count)[0]?.file || editableFiles[0];
+}
+
+function isHotfixTask(task) {
+  return taskMatches(task, ['hotfix', 'urgent', 'bug', 'fix', 'patch']);
+}
+
+function taskMatches(task, keywords) {
+  const source = [
+    task?.id,
+    task?.projectName,
+    task?.client,
+    task?.difficulty,
+    task?.modeLabel,
+    task?.summary,
+    ...(task?.tags || []),
+    ...(task?.files || []).map((file) => `${file.name || ''} ${file.path || ''} ${file.language || ''}`),
+  ].join(' ').toLowerCase();
+  return keywords.some((keyword) => source.includes(String(keyword).toLowerCase()));
 }
 
 function normalizeTaskSet(value) {
@@ -742,6 +1089,8 @@ function normalizeTaskSet(value) {
     sourceSeedId: String(src.sourceSeedId || ''),
     seedGroupLabel: String(src.seedGroupLabel || ''),
     rewardScore: Number(src.rewardScore || taskPack.meta?.contractRewardScore || 0),
+    careerRankTitle: String(src.careerRankTitle || ''),
+    careerReputationLabel: String(src.careerReputationLabel || ''),
   };
 }
 
@@ -948,11 +1297,12 @@ function evaluateTask(task, state) {
       rules: check.rules || [],
     };
   });
-  if (Number(task.reportMinLength || 0) > 0) {
+  const effectiveReportMinLength = getEffectiveReportMinLength(task, state);
+  if (effectiveReportMinLength > 0) {
     results.push({
       label: `작업 보고 ${task.reportMinLength}자 이상`,
-      passed: report.trim().length >= Number(task.reportMinLength || 0),
-      rules: [{ type: 'reportMinLength', value: task.reportMinLength }],
+      passed: report.trim().length >= effectiveReportMinLength,
+      rules: [{ type: 'reportMinLength', value: effectiveReportMinLength }],
     });
   }
   const documentResult = buildDocumentReviewResult(task, state);
@@ -960,7 +1310,7 @@ function evaluateTask(task, state) {
   const passCount = results.filter((result) => result.passed).length;
   const score = results.length ? Math.round((passCount / results.length) * 100) : 0;
   const riskOpenCount = results.length - passCount;
-  const resourceDelta = calculateResourceDelta(task, score, riskOpenCount);
+  const resourceDelta = calculateResourceDelta(task, score, riskOpenCount, state);
   return {
     taskId: task.id,
     score,
@@ -1317,9 +1667,9 @@ function applyRiskSupport(state, task, cost) {
   if (!outcome || oldRisk <= 0) {
     return addLog(state, `${task.id}에는 완충할 열린 리스크가 없습니다.`);
   }
-  const oldDelta = outcome.resourceDelta || calculateResourceDelta(task, outcome.score, oldRisk);
+  const oldDelta = outcome.resourceDelta || calculateResourceDelta(task, outcome.score, oldRisk, state);
   const nextRisk = Math.max(0, oldRisk - 1);
-  const nextDelta = calculateResourceDelta(task, outcome.score, nextRisk);
+  const nextDelta = calculateResourceDelta(task, outcome.score, nextRisk, state);
   const adjustment = diffResourceDelta(nextDelta, oldDelta);
   const nextSupport = spendCompanySupport(state.companySupport, task.id, 'risk', cost);
   const support = getTaskSupportUsage({ companySupport: nextSupport }, task.id);
@@ -1343,30 +1693,32 @@ function applyRiskSupport(state, task, cost) {
   }, `${task.id} QA 지원으로 열린 리스크를 ${oldRisk}건에서 ${nextRisk}건으로 줄였습니다.`);
 }
 
-function calculateResourceDelta(task, score, riskOpenCount) {
+function calculateResourceDelta(task, score, riskOpenCount, state = null) {
   const weight = DIFFICULTY_WEIGHT[task.difficulty] || 1;
+  let delta;
   if (score === 100) {
-    return {
+    delta = {
       stamina: -Math.ceil(5 * weight),
       mentality: -Math.ceil(2 * weight),
       clientTrust: Math.ceil(6 * weight),
       techDebt: -Math.ceil(2 * weight),
     };
-  }
-  if (score >= 75) {
-    return {
+  } else if (score >= 75) {
+    delta = {
       stamina: -Math.ceil(9 * weight),
       mentality: -Math.ceil(5 * weight),
       clientTrust: Math.max(-1, 2 - riskOpenCount),
       techDebt: Math.ceil(4 * weight + riskOpenCount),
     };
+  } else {
+    delta = {
+      stamina: -Math.ceil(13 * weight),
+      mentality: -Math.ceil(8 * weight),
+      clientTrust: -Math.ceil(5 * weight + riskOpenCount),
+      techDebt: Math.ceil(8 * weight + riskOpenCount * 2),
+    };
   }
-  return {
-    stamina: -Math.ceil(13 * weight),
-    mentality: -Math.ceil(8 * weight),
-    clientTrust: -Math.ceil(5 * weight + riskOpenCount),
-    techDebt: Math.ceil(8 * weight + riskOpenCount * 2),
-  };
+  return adjustResourceDeltaForProfile(delta, task, score, state?.playerProfile);
 }
 
 function invertResourceDelta(delta) {
