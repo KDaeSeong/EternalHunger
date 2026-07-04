@@ -441,7 +441,7 @@ export default function Home() {
       <section className="home-container">
         <section className="home-command">
           <div>
-            <p className="home-kicker">Kei's Game Lab</p>
+            <p className="home-kicker">Kei&apos;s Game Lab</p>
             <h1>케이의 게임개발소</h1>
             <p>
               Eternal Hunger를 비롯한 여러 게임, 기록소, 저장 슬롯, 게시판, 스무고개를 한곳에 모은 종합 게임 사이트입니다.

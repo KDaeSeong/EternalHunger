@@ -261,8 +261,8 @@ const GAME_INTEGRATIONS = {
     resultMode: 'route-score',
   },
   'company-report': {
-    stage: 'planned',
-    stageLabel: '후순위',
+    stage: 'prototype',
+    stageLabel: '프로토타입',
     adapter: 'business-ledger',
     supportsRecords: true,
     supportsSaves: true,
@@ -413,10 +413,10 @@ export const GAME_ROADMAP = [
     slug: 'company-report',
     title: '회사 리포트 시뮬레이터',
     subtitle: 'Business Ledger',
-    priority: '후순위',
+    priority: '이식 진행',
     scope: '거래, 재무, 원장, 보고서',
-    summary: '규모가 큰 별도 경영 시스템이라 현재 게임 허브와는 느슨하게 연결하는 편이 낫습니다.',
-    nextStep: '독립 관리형 게임으로 남길지, 운영자 도구형 시뮬레이션으로 쓸지 먼저 결정합니다.',
+    summary: '거래처 주문, 재고, 매출채권, 월말 결산, 원장 스냅샷 복원 흐름을 사이트용 경영 루프로 이식했습니다.',
+    nextStep: '원본 Spring API의 보고서 북마크, 내보내기, 원장 diff와 물리 복원 상세 절차를 단계적으로 붙입니다.',
   },
 ];
 
@@ -578,7 +578,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher', 'myanimecraft', 'schale-idle-rpg', 'ba-srpg', 'school-simulator', 'si-coding-sim', 'rail3d-sim', 'company-report']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({
