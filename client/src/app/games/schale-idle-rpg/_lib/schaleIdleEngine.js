@@ -35,6 +35,7 @@ export const ITEMS = [
   { id: 'itm_tower_key', name: '시련의 탑 열쇠', rarity: 'RARE', sellValue: 30, stackable: true },
   { id: 'itm_tower_token', name: '시련 토큰', rarity: 'RARE', sellValue: 12, stackable: true },
   { id: 'itm_reroll_ticket', name: '옵션 리롤권', rarity: 'EPIC', sellValue: 45, stackable: true },
+  { id: 'itm_protect_charm', name: '강화 보호 부적', rarity: 'EPIC', sellValue: 55, stackable: true },
   { id: 'eq_rusty_rifle', name: '녹슨 소총', rarity: 'UNCOMMON', stackable: false, equip: { slot: 'WEAPON', powerAdd: 55, powerMul: 1.05 } },
   { id: 'eq_field_armor', name: '현장 방호복', rarity: 'UNCOMMON', stackable: false, equip: { slot: 'ARMOR', powerAdd: 30, staminaMul: 1.08 } },
   { id: 'eq_lucky_charm', name: '행운 부적', rarity: 'RARE', stackable: false, equip: { slot: 'ACCESSORY_1', powerMul: 1.06 } },
@@ -68,41 +69,87 @@ export const TOWER = {
 
 export const TOWER_SHOP_OFFERS = [
   {
-    id: 'tower_key_bundle',
-    name: '시련 열쇠 묶음',
-    cost: { itemId: 'itm_tower_token', qty: 10 },
-    reward: { type: 'STACK', itemId: 'itm_tower_key', qty: 2 },
-    limit: { period: 'DAILY', max: 2 },
+    id: 'offer_key_bundle',
+    name: '열쇠 묶음(5개)',
+    cost: { itemId: 'itm_tower_token', qty: 3 },
+    reward: { type: 'STACK', itemId: 'itm_tower_key', qty: 5 },
+    limit: { period: 'DAILY', max: 5 },
   },
   {
-    id: 'tower_enhance_stone',
-    name: '강화석 보급',
-    cost: { itemId: 'itm_tower_token', qty: 18 },
-    reward: { type: 'STACK', itemId: 'itm_enhance_stone', qty: 1 },
+    id: 'offer_enhance_stone_pack',
+    name: '강화석 팩(3개)',
+    cost: { itemId: 'itm_tower_token', qty: 4 },
+    reward: { type: 'STACK', itemId: 'itm_enhance_stone', qty: 3 },
     limit: { period: 'DAILY', max: 3 },
   },
   {
-    id: 'tower_reroll_ticket',
-    name: '옵션 리롤권',
-    cost: { itemId: 'itm_tower_token', qty: 30 },
-    reward: { type: 'STACK', itemId: 'itm_reroll_ticket', qty: 1 },
-    limit: { period: 'WEEKLY', max: 2 },
-  },
-  {
-    id: 'tower_relic_alpha',
-    name: '탑 유물 알파',
-    cost: { itemId: 'itm_tower_token', qty: 55 },
-    reward: { type: 'EQUIP', itemId: 'eq_tower_relic_alpha', qty: 1 },
-    limit: { period: 'WEEKLY', max: 1 },
-  },
-  {
-    id: 'tower_random_relic',
-    name: '무작위 탑 유물',
-    cost: { itemId: 'itm_tower_token', qty: 85 },
+    id: 'offer_relic_roll',
+    name: '탑 유물 뽑기(1개)',
+    cost: { itemId: 'itm_tower_token', qty: 18 },
     reward: { type: 'RANDOM_EQUIP', pool: ['eq_tower_relic_alpha', 'eq_tower_relic_beta', 'eq_tower_relic_omega'], qty: 1 },
-    limit: { period: 'WEEKLY', max: 1 },
+    limit: { period: 'WEEKLY', max: 10 },
+  },
+  {
+    id: 'offer_reroll_ticket',
+    name: '옵션 리롤권(1개)',
+    cost: { itemId: 'itm_tower_token', qty: 12 },
+    reward: { type: 'STACK', itemId: 'itm_reroll_ticket', qty: 1 },
+    limit: { period: 'DAILY', max: 2 },
+  },
+  {
+    id: 'offer_protect_charm',
+    name: '강화 보호 부적(1개)',
+    cost: { itemId: 'itm_tower_token', qty: 15 },
+    reward: { type: 'STACK', itemId: 'itm_protect_charm', qty: 1 },
+    limit: { period: 'WEEKLY', max: 5 },
+  },
+  {
+    id: 'offer_scrap_pack',
+    name: '부품 팩(200)',
+    cost: { itemId: 'itm_tower_token', qty: 2 },
+    reward: { type: 'STACK', itemId: 'itm_scrap', qty: 200 },
+    limit: { period: 'DAILY', max: 10 },
+  },
+  {
+    id: 'offer_battery_pack',
+    name: '배터리 팩(3)',
+    cost: { itemId: 'itm_tower_token', qty: 3 },
+    reward: { type: 'STACK', itemId: 'itm_battery', qty: 3 },
+    limit: { period: 'DAILY', max: 5 },
+  },
+  {
+    id: 'offer_key_bundle_10',
+    name: '열쇠 묶음(10개)',
+    cost: { itemId: 'itm_tower_token', qty: 5 },
+    reward: { type: 'STACK', itemId: 'itm_tower_key', qty: 10 },
+    limit: { period: 'WEEKLY', max: 10 },
   },
 ];
+
+const TOWER_SHOP_ROTATION = {
+  dailyPick: 4,
+  weeklyPick: 3,
+  dailyResetCost: 8,
+  dailyResetMax: 3,
+  weeklyResetCost: 20,
+  weeklyResetMax: 1,
+  dailyPool: ['offer_key_bundle', 'offer_enhance_stone_pack', 'offer_reroll_ticket', 'offer_scrap_pack', 'offer_battery_pack', 'offer_protect_charm'],
+  weeklyPool: ['offer_relic_roll', 'offer_protect_charm', 'offer_key_bundle_10', 'offer_reroll_ticket'],
+  weeklyFixedOfferIds: ['offer_relic_roll'],
+  avoidCrossOverlap: true,
+  crossOverlapPriority: 'WEEKLY',
+  dailyBuckets: [
+    { id: 'keys', pick: 1, pool: ['offer_key_bundle', 'offer_key_bundle_10'] },
+    { id: 'supply', pick: 1, pool: ['offer_scrap_pack', 'offer_battery_pack', 'offer_enhance_stone_pack'] },
+    { id: 'utility', pick: 1, pool: ['offer_reroll_ticket', 'offer_protect_charm'] },
+  ],
+  weeklyBuckets: [
+    { id: 'keys', pick: 1, pool: ['offer_key_bundle_10', 'offer_key_bundle'] },
+    { id: 'utility', pick: 1, pool: ['offer_protect_charm', 'offer_reroll_ticket', 'offer_enhance_stone_pack'] },
+  ],
+  dailyPity: { trigger: 3, guaranteedOfferIds: ['offer_protect_charm', 'offer_reroll_ticket'] },
+  weeklyPity: { trigger: 2, guaranteedOfferIds: ['offer_enhance_stone_pack', 'offer_protect_charm'] },
+};
 
 export const MISSIONS = [
   { id: 'd_clear_30', type: 'daily', name: '일일 당직: 웨이브 30층 정산', action: 'CLEAR_FLOOR', target: 30, rewardCredits: 300, rewardItems: [{ itemId: 'itm_scrap', qty: 60 }] },
@@ -298,6 +345,8 @@ export function createNewState(options = {}) {
       dailyBought: {},
       weeklyKey: '',
       weeklyBought: {},
+      seed: 0,
+      rotation: null,
     },
     counters: {
       CLEAR_FLOOR: 0,
@@ -384,6 +433,15 @@ function createRng(seed) {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+function hash32(value) {
+  let hash = 2166136261;
+  String(value || '').split('').forEach((char) => {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  });
+  return hash >>> 0;
 }
 
 function clamp(value, min, max) {
@@ -534,6 +592,19 @@ function normalizeTowerShop(value, fallback) {
     dailyBought: source.dailyBought && typeof source.dailyBought === 'object' ? source.dailyBought : {},
     weeklyKey: source.weeklyKey || '',
     weeklyBought: source.weeklyBought && typeof source.weeklyBought === 'object' ? source.weeklyBought : {},
+    seed: Number(source.seed || 0),
+    rotation: source.rotation && typeof source.rotation === 'object' ? {
+      dailyKey: source.rotation.dailyKey || '',
+      dailyOfferIds: Array.isArray(source.rotation.dailyOfferIds) ? source.rotation.dailyOfferIds.filter((id) => offerExists(id)) : [],
+      dailyResetsUsed: Math.max(0, Math.floor(Number(source.rotation.dailyResetsUsed || 0))),
+      dailyNonce: Math.max(0, Math.floor(Number(source.rotation.dailyNonce || 0))),
+      dailyPityCounter: Math.max(0, Math.floor(Number(source.rotation.dailyPityCounter || 0))),
+      weeklyKey: source.rotation.weeklyKey || '',
+      weeklyOfferIds: Array.isArray(source.rotation.weeklyOfferIds) ? source.rotation.weeklyOfferIds.filter((id) => offerExists(id)) : [],
+      weeklyResetsUsed: Math.max(0, Math.floor(Number(source.rotation.weeklyResetsUsed || 0))),
+      weeklyNonce: Math.max(0, Math.floor(Number(source.rotation.weeklyNonce || 0))),
+      weeklyPityCounter: Math.max(0, Math.floor(Number(source.rotation.weeklyPityCounter || 0))),
+    } : null,
   };
 }
 
@@ -562,7 +633,185 @@ function ensureTowerShopPeriod(towerShop, now = Date.now()) {
     dailyBought: towerShop.dailyKey === keys.dayKey ? towerShop.dailyBought : {},
     weeklyKey: towerShop.weeklyKey === keys.weekKey ? towerShop.weeklyKey : keys.weekKey,
     weeklyBought: towerShop.weeklyKey === keys.weekKey ? towerShop.weeklyBought : {},
+    seed: Number(towerShop.seed || 0),
+    rotation: towerShop.rotation && typeof towerShop.rotation === 'object' ? { ...towerShop.rotation } : null,
   };
+}
+
+function offerExists(offerId) {
+  return TOWER_SHOP_OFFERS.some((offer) => offer.id === offerId);
+}
+
+function uniqueOfferIds(ids = []) {
+  const seen = new Set();
+  return ids.filter((id) => {
+    if (!offerExists(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function pickUnique(pool, count, rng) {
+  const rows = uniqueOfferIds(pool);
+  for (let index = rows.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(rng() * (index + 1));
+    const temp = rows[index];
+    rows[index] = rows[swapIndex];
+    rows[swapIndex] = temp;
+  }
+  return rows.slice(0, Math.max(0, Math.min(count, rows.length)));
+}
+
+function makeTowerShopPick(pool, count, seed, key, nonce, fixed = [], exclude = new Set()) {
+  const fixedIds = uniqueOfferIds(fixed).filter((id) => !exclude.has(id));
+  const fixedSet = new Set(fixedIds);
+  const filtered = uniqueOfferIds(pool).filter((id) => !fixedSet.has(id) && !exclude.has(id));
+  const rng = createRng(`${seed}|${key}|${nonce}|tower-shop-pick`);
+  const picked = pickUnique(filtered, Math.max(0, count - fixedIds.length), rng);
+  return uniqueOfferIds([...fixedIds, ...picked]).slice(0, count);
+}
+
+function makeTowerShopPickWithBuckets(pool, count, seed, key, nonce, fixed = [], exclude = new Set(), buckets = []) {
+  const picked = uniqueOfferIds(fixed).filter((id) => !exclude.has(id));
+
+  buckets.forEach((bucket) => {
+    const bucketFixed = uniqueOfferIds(bucket.fixedOfferIds || []).filter((id) => !exclude.has(id) && !picked.includes(id));
+    bucketFixed.forEach((id) => picked.push(id));
+    const need = Math.max(0, Number(bucket.pick || 0) - bucketFixed.length);
+    if (!need) return;
+    const ids = makeTowerShopPick(
+      bucket.pool || [],
+      need,
+      seed,
+      `${key}-${bucket.id}`,
+      nonce + hash32(bucket.id),
+      [],
+      new Set([...exclude, ...picked]),
+    );
+    ids.forEach((id) => {
+      if (!picked.includes(id)) picked.push(id);
+    });
+  });
+
+  const need = Math.max(0, count - picked.length);
+  if (need > 0) {
+    const tail = makeTowerShopPick(pool, need, seed, `${key}-tail`, nonce, [], new Set([...exclude, ...picked]));
+    tail.forEach((id) => {
+      if (!picked.includes(id)) picked.push(id);
+    });
+  }
+
+  if (picked.length < count) {
+    return makeTowerShopPick(pool, count, seed, key, nonce, fixed, new Set());
+  }
+
+  return picked.slice(0, count);
+}
+
+function applyTowerShopPity(ids, pity, counter, exclude = new Set(), fixed = []) {
+  if (!pity || Number(pity.trigger || 0) <= 0) return { ids, counter };
+  const fixedSet = new Set(uniqueOfferIds(fixed));
+  if ((pity.guaranteedOfferIds || []).some((id) => ids.includes(id))) return { ids, counter: 0 };
+
+  const nextCounter = Number(counter || 0) + 1;
+  if (nextCounter < Number(pity.trigger || 0)) return { ids, counter: nextCounter };
+
+  const candidate = uniqueOfferIds(pity.guaranteedOfferIds || []).find((id) => !exclude.has(id));
+  if (!candidate || ids.includes(candidate)) return { ids, counter: 0 };
+
+  const next = ids.slice();
+  let replaceIndex = -1;
+  for (let index = next.length - 1; index >= 0; index -= 1) {
+    if (!fixedSet.has(next[index])) {
+      replaceIndex = index;
+      break;
+    }
+  }
+  next[replaceIndex >= 0 ? replaceIndex : Math.max(0, next.length - 1)] = candidate;
+  return { ids: uniqueOfferIds(next).slice(0, ids.length), counter: 0 };
+}
+
+function normalizeTowerShopRotationForKeys(rotation, keys) {
+  const source = rotation && typeof rotation === 'object' ? rotation : {};
+  return {
+    dailyKey: source.dailyKey === keys.dayKey ? source.dailyKey : keys.dayKey,
+    dailyOfferIds: source.dailyKey === keys.dayKey ? uniqueOfferIds(source.dailyOfferIds || []) : [],
+    dailyResetsUsed: source.dailyKey === keys.dayKey ? Math.max(0, Math.floor(Number(source.dailyResetsUsed || 0))) : 0,
+    dailyNonce: source.dailyKey === keys.dayKey ? Math.max(0, Math.floor(Number(source.dailyNonce || 0))) : 0,
+    dailyPityCounter: source.dailyKey === keys.dayKey ? Math.max(0, Math.floor(Number(source.dailyPityCounter || 0))) : 0,
+    weeklyKey: source.weeklyKey === keys.weekKey ? source.weeklyKey : keys.weekKey,
+    weeklyOfferIds: source.weeklyKey === keys.weekKey ? uniqueOfferIds(source.weeklyOfferIds || []) : [],
+    weeklyResetsUsed: source.weeklyKey === keys.weekKey ? Math.max(0, Math.floor(Number(source.weeklyResetsUsed || 0))) : 0,
+    weeklyNonce: source.weeklyKey === keys.weekKey ? Math.max(0, Math.floor(Number(source.weeklyNonce || 0))) : 0,
+    weeklyPityCounter: source.weeklyKey === keys.weekKey ? Math.max(0, Math.floor(Number(source.weeklyPityCounter || 0))) : 0,
+  };
+}
+
+function generateTowerShopPick(rotation, scope, seed, exclude = new Set()) {
+  const isWeekly = scope === 'WEEKLY';
+  const key = isWeekly ? rotation.weeklyKey : rotation.dailyKey;
+  const nonce = isWeekly ? rotation.weeklyNonce : rotation.dailyNonce;
+  const fixed = isWeekly ? TOWER_SHOP_ROTATION.weeklyFixedOfferIds : TOWER_SHOP_ROTATION.dailyFixedOfferIds;
+  const pool = isWeekly ? TOWER_SHOP_ROTATION.weeklyPool : TOWER_SHOP_ROTATION.dailyPool;
+  const pick = isWeekly ? TOWER_SHOP_ROTATION.weeklyPick : TOWER_SHOP_ROTATION.dailyPick;
+  const buckets = isWeekly ? TOWER_SHOP_ROTATION.weeklyBuckets : TOWER_SHOP_ROTATION.dailyBuckets;
+  const pity = isWeekly ? TOWER_SHOP_ROTATION.weeklyPity : TOWER_SHOP_ROTATION.dailyPity;
+  const counter = isWeekly ? rotation.weeklyPityCounter : rotation.dailyPityCounter;
+  const picked = makeTowerShopPickWithBuckets(pool, pick, seed, key, nonce, fixed, exclude, buckets);
+  return applyTowerShopPity(picked, pity, counter, exclude, fixed);
+}
+
+function ensureTowerShopState(state, now = Date.now()) {
+  const keys = getKstDateParts(now);
+  const periodShop = ensureTowerShopPeriod(state.towerShop || {}, now);
+  const seed = Number(periodShop.seed || 0) || hash32(`${state.runId || 'schale'}|tower-shop`);
+  let rotation = normalizeTowerShopRotationForKeys(periodShop.rotation, keys);
+  const avoidOverlap = Boolean(TOWER_SHOP_ROTATION.avoidCrossOverlap);
+  const priority = TOWER_SHOP_ROTATION.crossOverlapPriority || 'WEEKLY';
+
+  if (avoidOverlap && priority === 'DAILY') {
+    if (!rotation.dailyOfferIds.length) {
+      const daily = generateTowerShopPick(rotation, 'DAILY', seed);
+      rotation = { ...rotation, dailyOfferIds: daily.ids, dailyPityCounter: daily.counter };
+    }
+    if (!rotation.weeklyOfferIds.length) {
+      const weekly = generateTowerShopPick(rotation, 'WEEKLY', seed, new Set(rotation.dailyOfferIds));
+      rotation = { ...rotation, weeklyOfferIds: weekly.ids, weeklyPityCounter: weekly.counter };
+    }
+  } else {
+    if (!rotation.weeklyOfferIds.length) {
+      const weekly = generateTowerShopPick(rotation, 'WEEKLY', seed);
+      rotation = { ...rotation, weeklyOfferIds: weekly.ids, weeklyPityCounter: weekly.counter };
+    }
+    if (!rotation.dailyOfferIds.length) {
+      const daily = generateTowerShopPick(rotation, 'DAILY', seed, avoidOverlap ? new Set(rotation.weeklyOfferIds) : new Set());
+      rotation = { ...rotation, dailyOfferIds: daily.ids, dailyPityCounter: daily.counter };
+    }
+  }
+
+  return {
+    ...state,
+    towerShop: {
+      ...periodShop,
+      seed,
+      rotation,
+    },
+  };
+}
+
+function activeTowerShopOfferIdSet(towerShop) {
+  const rotation = towerShop?.rotation || {};
+  return new Set([...(rotation.dailyOfferIds || []), ...(rotation.weeklyOfferIds || [])]);
+}
+
+function towerShopPickupLabel(towerShop, offerId) {
+  const rotation = towerShop?.rotation || {};
+  const daily = (rotation.dailyOfferIds || []).includes(offerId);
+  const weekly = (rotation.weeklyOfferIds || []).includes(offerId);
+  if (daily && weekly) return '오늘+이번주 픽업';
+  if (weekly) return '이번주 픽업';
+  if (daily) return '오늘 픽업';
+  return '비활성';
 }
 
 function getTowerShopBought(towerShop, offer) {
@@ -1166,10 +1415,12 @@ function grantTowerShopReward(current, offer, rng) {
 }
 
 export function buyTowerShopOfferAction(state, offerId) {
-  const current = normalizeState(state);
+  const current = ensureTowerShopState(normalizeState(state));
   const offer = TOWER_SHOP_OFFERS.find((item) => item.id === offerId);
   if (!offer) return addLog(current, '타워 상점 상품을 찾을 수 없습니다.');
-  const towerShop = ensureTowerShopPeriod(current.towerShop);
+  const towerShop = current.towerShop;
+  const activeIds = activeTowerShopOfferIdSet(towerShop);
+  if (!activeIds.has(offer.id)) return addLog(current, `${offer.name}은 현재 픽업 상품이 아닙니다.`);
   const bought = getTowerShopBought(towerShop, offer);
   const max = Number(offer.limit?.max || 999);
   if (bought >= max) return addLog(current, `${offer.name} 구매 제한에 도달했습니다.`);
@@ -1186,6 +1437,40 @@ export function buyTowerShopOfferAction(state, offerId) {
     towerShop: setTowerShopBought(towerShop, offer, bought + 1),
     counters: bumpCounter(current.counters, 'SHOP_BUY', 1),
   }, `${offer.name} 구매 완료. ${granted.label}`);
+}
+
+export function resetTowerShopRotationAction(state, scope = 'DAILY') {
+  const current = ensureTowerShopState(normalizeState(state));
+  const isWeekly = scope === 'WEEKLY';
+  const rotation = current.towerShop.rotation;
+  const cost = isWeekly ? TOWER_SHOP_ROTATION.weeklyResetCost : TOWER_SHOP_ROTATION.dailyResetCost;
+  const max = isWeekly ? TOWER_SHOP_ROTATION.weeklyResetMax : TOWER_SHOP_ROTATION.dailyResetMax;
+  const used = isWeekly ? rotation.weeklyResetsUsed : rotation.dailyResetsUsed;
+  const label = isWeekly ? '이번주 픽업' : '오늘 픽업';
+
+  if (used >= max) return addLog(current, `${label} 리셋 한도에 도달했습니다.`);
+  if (Number(current.inventory.itm_tower_token || 0) < cost) return addLog(current, `${label} 리셋 실패. ${itemName('itm_tower_token')} ${cost}개가 필요합니다.`);
+
+  const towerShop = {
+    ...current.towerShop,
+    rotation: isWeekly ? {
+      ...rotation,
+      weeklyOfferIds: [],
+      weeklyNonce: Number(rotation.weeklyNonce || 0) + 1,
+      weeklyResetsUsed: used + 1,
+    } : {
+      ...rotation,
+      dailyOfferIds: [],
+      dailyNonce: Number(rotation.dailyNonce || 0) + 1,
+      dailyResetsUsed: used + 1,
+    },
+  };
+  const next = ensureTowerShopState({
+    ...current,
+    inventory: addItem(current.inventory, 'itm_tower_token', -cost),
+    towerShop,
+  });
+  return addLog(next, `${label} 상점을 리셋했습니다. ${itemName('itm_tower_token')} -${cost}`);
 }
 
 export function attemptTowerAction(state, count = 1) {
@@ -1402,9 +1687,10 @@ export function selectedSalvageSummary(state, selectedUids = []) {
 }
 
 export function towerShopRows(state) {
-  const current = normalizeState(state);
-  const towerShop = ensureTowerShopPeriod(current.towerShop);
-  return TOWER_SHOP_OFFERS.map((offer) => {
+  const current = ensureTowerShopState(normalizeState(state));
+  const towerShop = current.towerShop;
+  const activeIds = activeTowerShopOfferIdSet(towerShop);
+  return TOWER_SHOP_OFFERS.filter((offer) => activeIds.has(offer.id)).map((offer) => {
     const bought = getTowerShopBought(towerShop, offer);
     const max = Number(offer.limit?.max || 999);
     const remaining = Math.max(0, max - bought);
@@ -1415,8 +1701,34 @@ export function towerShopRows(state) {
       canBuy: remaining > 0 && Number(current.inventory[offer.cost.itemId] || 0) >= offer.cost.qty,
       costText: `${itemName(offer.cost.itemId)} ${offer.cost.qty}`,
       limitText: offer.limit ? `${offer.limit.period === 'WEEKLY' ? '주간' : '일일'} ${bought}/${max}` : '상시',
+      pickupLabel: towerShopPickupLabel(towerShop, offer.id),
     };
   });
+}
+
+export function towerShopRotationSummary(state) {
+  const current = ensureTowerShopState(normalizeState(state));
+  const rotation = current.towerShop.rotation;
+  const tokenCount = Number(current.inventory.itm_tower_token || 0);
+  return {
+    dailyKey: rotation.dailyKey,
+    weeklyKey: rotation.weeklyKey,
+    dailyCount: rotation.dailyOfferIds.length,
+    weeklyCount: rotation.weeklyOfferIds.length,
+    dailyResetsUsed: rotation.dailyResetsUsed,
+    dailyResetMax: TOWER_SHOP_ROTATION.dailyResetMax,
+    dailyResetCost: TOWER_SHOP_ROTATION.dailyResetCost,
+    weeklyResetsUsed: rotation.weeklyResetsUsed,
+    weeklyResetMax: TOWER_SHOP_ROTATION.weeklyResetMax,
+    weeklyResetCost: TOWER_SHOP_ROTATION.weeklyResetCost,
+    dailyPityCounter: rotation.dailyPityCounter,
+    dailyPityTrigger: TOWER_SHOP_ROTATION.dailyPity?.trigger || 0,
+    weeklyPityCounter: rotation.weeklyPityCounter,
+    weeklyPityTrigger: TOWER_SHOP_ROTATION.weeklyPity?.trigger || 0,
+    tokenCount,
+    canResetDaily: rotation.dailyResetsUsed < TOWER_SHOP_ROTATION.dailyResetMax && tokenCount >= TOWER_SHOP_ROTATION.dailyResetCost,
+    canResetWeekly: rotation.weeklyResetsUsed < TOWER_SHOP_ROTATION.weeklyResetMax && tokenCount >= TOWER_SHOP_ROTATION.weeklyResetCost,
+  };
 }
 
 export function availableEnhanceSlots(state) {

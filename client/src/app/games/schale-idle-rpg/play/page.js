@@ -31,6 +31,7 @@ import {
   missionRows,
   normalizeState,
   rerollEquipmentAction,
+  resetTowerShopRotationAction,
   resolveDutyAction,
   restAction,
   salvageRows,
@@ -42,6 +43,7 @@ import {
   slotLabel,
   summaryForState,
   teamPower,
+  towerShopRotationSummary,
   titleRows,
   towerShopRows,
 } from '../_lib/schaleIdleEngine';
@@ -104,6 +106,7 @@ export default function SchaleIdlePlayPage() {
     [state, validSelectedSalvageUids],
   );
   const shopOffers = useMemo(() => towerShopRows(state), [state]);
+  const shopRotation = useMemo(() => towerShopRotationSummary(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
@@ -363,13 +366,39 @@ export default function SchaleIdlePlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>타워 상점</h2>
-            <span>토큰 {Number(state.inventory.itm_tower_token || 0)}</span>
+            <span>토큰 {shopRotation.tokenCount}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="오늘 픽업" value={`${shopRotation.dailyCount}개`} />
+            <SmallStat label="오늘 리셋" value={`${shopRotation.dailyResetsUsed}/${shopRotation.dailyResetMax}`} />
+            <SmallStat label="오늘 피티" value={`${shopRotation.dailyPityCounter}/${shopRotation.dailyPityTrigger}`} />
+            <SmallStat label="이번주 픽업" value={`${shopRotation.weeklyCount}개`} />
+            <SmallStat label="주간 리셋" value={`${shopRotation.weeklyResetsUsed}/${shopRotation.weeklyResetMax}`} />
+            <SmallStat label="주간 피티" value={`${shopRotation.weeklyPityCounter}/${shopRotation.weeklyPityTrigger}`} />
+          </div>
+          <div className="games-chip-row" style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              className="tcg-primary-action"
+              disabled={!shopRotation.canResetDaily}
+              onClick={() => setState((current) => resetTowerShopRotationAction(current, 'DAILY'))}
+            >
+              오늘 픽업 리셋 · {shopRotation.dailyResetCost}토큰
+            </button>
+            <button
+              type="button"
+              className="tcg-primary-action"
+              disabled={!shopRotation.canResetWeekly}
+              onClick={() => setState((current) => resetTowerShopRotationAction(current, 'WEEKLY'))}
+            >
+              이번주 픽업 리셋 · {shopRotation.weeklyResetCost}토큰
+            </button>
           </div>
           <div className="game-save-list">
             {shopOffers.map((offer) => (
               <article className="game-save-row" key={offer.id}>
                 <div>
-                  <span>{offer.costText} · {offer.limitText}</span>
+                  <span>{offer.pickupLabel} · {offer.costText} · {offer.limitText}</span>
                   <strong>{offer.name}</strong>
                   <small>남은 구매 {offer.remaining}</small>
                 </div>
