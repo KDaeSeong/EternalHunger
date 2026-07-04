@@ -15,6 +15,7 @@ import {
   achievementRows,
   applyOfflineProgressAction,
   applyUpgradeAction,
+  applyEquipmentPresetAction,
   attemptTowerAction,
   availableEnhanceSlots,
   autoSalvageAction,
@@ -23,7 +24,9 @@ import {
   claimMissionRewardsAction,
   craftRecipeAction,
   createNewState,
+  deleteEquipmentPresetAction,
   enhanceEquipmentAction,
+  equipmentPresetRows,
   equipTitleAction,
   getEquippedList,
   getLeader,
@@ -39,6 +42,7 @@ import {
   salvageRows,
   salvageSummary,
   salvageSelectedAction,
+  saveEquipmentPresetAction,
   scoreState,
   selectedSalvageSummary,
   setSalvageCandidateOnlyAction,
@@ -91,6 +95,8 @@ export default function SchaleIdlePlayPage() {
   const [towerBatchCount, setTowerBatchCount] = useState(10);
   const [towerStopOnFail, setTowerStopOnFail] = useState(true);
   const [selectedSalvageUids, setSelectedSalvageUids] = useState([]);
+  const [presetName, setPresetName] = useState('탑 등반 세트');
+  const [selectedPresetId, setSelectedPresetId] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -113,6 +119,7 @@ export default function SchaleIdlePlayPage() {
   );
   const shopOffers = useMemo(() => towerShopRows(state), [state]);
   const shopRotation = useMemo(() => towerShopRotationSummary(state), [state]);
+  const presets = useMemo(() => equipmentPresetRows(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
@@ -122,6 +129,8 @@ export default function SchaleIdlePlayPage() {
   const claimableAchievements = achievements.filter((achievement) => achievement.canClaim).length;
   const equippedTitle = titles.find((title) => title.equipped);
   const totalUpgradeLevel = upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0);
+  const activePresetId = selectedPresetId || state.activePresetId || presets[0]?.id || '';
+  const selectedPreset = presets.find((preset) => preset.id === activePresetId);
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -219,6 +228,8 @@ export default function SchaleIdlePlayPage() {
     setTowerBatchCount(10);
     setTowerStopOnFail(true);
     setSelectedSalvageUids([]);
+    setPresetName('탑 등반 세트');
+    setSelectedPresetId('');
     setMessage('');
   };
 
@@ -421,6 +432,64 @@ export default function SchaleIdlePlayPage() {
               ))}
             </div>
           ) : <div className="games-empty">장착 중인 장비가 없습니다. 제작으로 장비를 확보하세요.</div>}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>장비 프리셋</h2>
+            <span>{presets.length}/12</span>
+          </div>
+          <label className="game-save-json-field">
+            <span>프리셋 이름</span>
+            <input value={presetName} onChange={(event) => setPresetName(event.target.value)} placeholder="프리셋 이름" />
+          </label>
+          <label className="game-save-json-field">
+            <span>적용 대상</span>
+            <select value={activePresetId} onChange={(event) => setSelectedPresetId(event.target.value)} disabled={!presets.length}>
+              {presets.length ? presets.map((preset) => (
+                <option value={preset.id} key={preset.id}>
+                  {preset.active ? '★ ' : ''}{preset.name} · {preset.availableCount}/{preset.equippedCount}
+                </option>
+              )) : <option value="">저장된 프리셋 없음</option>}
+            </select>
+          </label>
+          <div className="games-chip-row" style={{ marginBottom: 12 }}>
+            <button type="button" className="tcg-primary-action" disabled={!equipped.length} onClick={() => {
+              setSelectedPresetId('');
+              setState((current) => saveEquipmentPresetAction(current, presetName));
+            }}>
+              현재 장비 저장
+            </button>
+            <button type="button" className="tcg-primary-action" disabled={!selectedPreset} onClick={() => setState((current) => applyEquipmentPresetAction(current, activePresetId))}>
+              프리셋 적용
+            </button>
+            <button type="button" className="tcg-secondary-action" disabled={!selectedPreset} onClick={() => {
+              setSelectedPresetId('');
+              setState((current) => deleteEquipmentPresetAction(current, activePresetId));
+            }}>
+              삭제
+            </button>
+          </div>
+          <div className="game-save-list">
+            {presets.length ? presets.slice(0, 5).map((preset) => (
+              <article className="game-save-row" key={preset.id}>
+                <div>
+                  <span>{preset.active ? '활성' : '저장'} · 사용 가능 {preset.availableCount}/{preset.equippedCount}</span>
+                  <strong>{preset.name}</strong>
+                  <small>{preset.missingCount ? `누락 슬롯 ${preset.missingCount}개` : '모든 장비 사용 가능'}</small>
+                </div>
+                <strong>{preset.equippedCount}슬롯</strong>
+              </article>
+            )) : (
+              <article className="game-save-row">
+                <div>
+                  <span>현재 장비 저장으로 생성</span>
+                  <strong>저장된 프리셋이 없습니다.</strong>
+                </div>
+                <strong>대기</strong>
+              </article>
+            )}
+          </div>
         </section>
 
         <section className="games-panel">

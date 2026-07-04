@@ -364,6 +364,8 @@ export function createNewState(options = {}) {
     basePower: 180,
     upgrades: defaultUpgrades(),
     equipment: {},
+    equipmentPresets: [],
+    activePresetId: '',
     inventory: {
       itm_scrap: 80,
       itm_bandage: 12,
@@ -422,6 +424,8 @@ export function normalizeState(value) {
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     upgrades: normalizeUpgrades(value.upgrades),
     equipment,
+    equipmentPresets: normalizeEquipmentPresets(value.equipmentPresets),
+    activePresetId: typeof value.activePresetId === 'string' ? value.activePresetId : '',
     salvageQueue: Array.isArray(value.salvageQueue) ? value.salvageQueue.slice(0, 40) : base.salvageQueue,
     salvageSettings: normalizeSalvageSettings(value.salvageSettings, base.salvageSettings),
     towerShop,
@@ -662,6 +666,42 @@ function normalizeEquipmentMap(equipment = {}) {
     if (!normalized) return next;
     return { ...next, [normalized.slot]: normalized };
   }, {});
+}
+
+function cloneEquipmentInstance(equip) {
+  const normalized = normalizeEquipmentInstance(equip);
+  if (!normalized) return null;
+  return {
+    ...normalized,
+    rolls: { ...normalizeRolls(normalized.rolls) },
+    affixes: (normalized.affixes || []).map((affix) => ({ ...affix })),
+  };
+}
+
+function cloneEquipmentMap(equipment = {}) {
+  return Object.entries(equipment || {}).reduce((next, [slot, equip]) => {
+    const normalized = cloneEquipmentInstance(equip);
+    if (!normalized) return next;
+    return { ...next, [slot]: normalized };
+  }, {});
+}
+
+function normalizeEquipmentPresets(value = []) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((preset, index) => {
+      if (!preset || typeof preset !== 'object') return null;
+      const id = String(preset.id || `preset-${index + 1}`);
+      const name = String(preset.name || `프리셋 ${index + 1}`);
+      return {
+        id,
+        name,
+        equipment: cloneEquipmentMap(preset.equipment || {}),
+        createdAt: Number(preset.createdAt || Date.now()),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 function normalizeTowerShop(value, fallback) {
@@ -954,6 +994,7 @@ function makeSalvageEntry(equip, reason) {
     slot: equip.slot,
     enhance: Number(equip.enhance || 0),
     score: equipmentScore(equip),
+    equip: cloneEquipmentInstance(equip),
     reason,
     createdAt: Date.now(),
   };
@@ -1772,6 +1813,106 @@ export function equipTitleAction(state, titleId) {
   if (!title) return addLog(current, '칭호를 찾을 수 없습니다.');
   if (!current.unlockedTitleIds.includes(title.id)) return addLog(current, `${title.name} 칭호는 아직 해금되지 않았습니다.`);
   return addLog({ ...current, equippedTitleId: title.id }, `${title.name} 칭호를 장착했습니다. ${title.desc}`);
+}
+
+function makeEquipmentPresetId(state) {
+  return `preset-${Date.now().toString(36)}-${Math.max(0, normalizeEquipmentPresets(state.equipmentPresets).length + 1)}`;
+}
+
+function presetAvailability(state, preset) {
+  const currentUids = new Set([
+    ...Object.values(state.equipment || {}).map((equip) => equip?.uid).filter(Boolean),
+    ...(state.salvageQueue || []).map((entry) => entry?.uid).filter(Boolean),
+  ]);
+  const items = Object.values(preset.equipment || {}).filter(Boolean);
+  const available = items.filter((equip) => currentUids.has(equip.uid)).length;
+  return {
+    equippedCount: items.length,
+    availableCount: available,
+    missingCount: Math.max(0, items.length - available),
+  };
+}
+
+export function equipmentPresetRows(state) {
+  const current = normalizeState(state);
+  return normalizeEquipmentPresets(current.equipmentPresets).map((preset) => ({
+    ...preset,
+    ...presetAvailability(current, preset),
+    active: preset.id === current.activePresetId,
+  }));
+}
+
+export function saveEquipmentPresetAction(state, name = '') {
+  const current = normalizeState(state);
+  const equipment = cloneEquipmentMap(current.equipment);
+  const equippedCount = Object.keys(equipment).length;
+  if (!equippedCount) return addLog(current, '저장할 장착 장비가 없습니다.');
+  const presetName = String(name || '').trim() || `프리셋 ${normalizeEquipmentPresets(current.equipmentPresets).length + 1}`;
+  const preset = {
+    id: makeEquipmentPresetId(current),
+    name: presetName,
+    equipment,
+    createdAt: Date.now(),
+  };
+  const presets = [preset, ...normalizeEquipmentPresets(current.equipmentPresets)].slice(0, 12);
+  return addLog({
+    ...current,
+    equipmentPresets: presets,
+    activePresetId: preset.id,
+  }, `장비 프리셋 저장: ${preset.name} (${equippedCount}개 슬롯)`);
+}
+
+export function applyEquipmentPresetAction(state, presetId) {
+  const current = normalizeState(state);
+  const preset = normalizeEquipmentPresets(current.equipmentPresets).find((row) => row.id === presetId);
+  if (!preset) return addLog(current, '장비 프리셋을 찾을 수 없습니다.');
+
+  const currentByUid = new Map(Object.values(current.equipment || {}).filter(Boolean).map((equip) => [equip.uid, equip]));
+  const queueByUid = new Map((current.salvageQueue || []).filter((entry) => entry?.uid).map((entry) => [entry.uid, entry]));
+  const usedUids = new Set();
+  let missing = 0;
+  let salvageQueue = current.salvageQueue || [];
+  const equipment = {};
+
+  Object.keys(SLOT_LABELS).forEach((slot) => {
+    const savedEquip = cloneEquipmentInstance(preset.equipment?.[slot]);
+    if (!savedEquip) return;
+    const currentEquip = currentByUid.get(savedEquip.uid);
+    const queuedEntry = queueByUid.get(savedEquip.uid);
+    if (!currentEquip && !queuedEntry) {
+      missing += 1;
+      return;
+    }
+    usedUids.add(savedEquip.uid);
+    equipment[slot] = cloneEquipmentInstance(currentEquip || queuedEntry.equip || savedEquip);
+    salvageQueue = salvageQueue.filter((entry) => entry.uid !== savedEquip.uid);
+  });
+
+  Object.values(current.equipment || {}).forEach((equip) => {
+    if (!equip?.uid || usedUids.has(equip.uid)) return;
+    salvageQueue = queueSalvage(salvageQueue, equip, '프리셋 교체 장비');
+  });
+
+  const equippedCount = Object.keys(equipment).length;
+  return addLog({
+    ...current,
+    equipment,
+    salvageQueue: salvageQueue.slice(0, 40),
+    activePresetId: preset.id,
+  }, `장비 프리셋 적용: ${preset.name} (${equippedCount}개 장착${missing ? `, ${missing}개 누락` : ''})`);
+}
+
+export function deleteEquipmentPresetAction(state, presetId) {
+  const current = normalizeState(state);
+  const presets = normalizeEquipmentPresets(current.equipmentPresets);
+  const target = presets.find((row) => row.id === presetId);
+  if (!target) return addLog(current, '삭제할 장비 프리셋을 찾을 수 없습니다.');
+  const nextPresets = presets.filter((row) => row.id !== presetId);
+  return addLog({
+    ...current,
+    equipmentPresets: nextPresets,
+    activePresetId: current.activePresetId === presetId ? '' : current.activePresetId,
+  }, `장비 프리셋 삭제: ${target.name}`);
 }
 
 export function inventoryRows(state) {
