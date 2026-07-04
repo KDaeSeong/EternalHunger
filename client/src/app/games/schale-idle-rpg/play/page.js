@@ -14,6 +14,8 @@ import {
   STUDENTS,
   attemptTowerAction,
   availableEnhanceSlots,
+  autoSalvageAction,
+  buyTowerShopOfferAction,
   claimMissionRewardsAction,
   craftRecipeAction,
   createNewState,
@@ -25,12 +27,15 @@ import {
   itemName,
   missionRows,
   normalizeState,
+  rerollEquipmentAction,
   resolveDutyAction,
   restAction,
+  salvageRows,
   scoreState,
   slotLabel,
   summaryForState,
   teamPower,
+  towerShopRows,
 } from '../_lib/schaleIdleEngine';
 
 function ActionButton({ children, disabled, onClick }) {
@@ -50,6 +55,19 @@ function SmallStat({ label, value }) {
   );
 }
 
+function formatRolls(equip) {
+  const rolls = equip?.rolls || {};
+  return [
+    `화력 ${Math.round(Number(rolls.powerAddMul || 1) * 100)}%`,
+    `계수 ${Math.round(Number(rolls.powerMulMul || 1) * 100)}%`,
+    `스태미나 ${Math.round(Number(rolls.staminaMulMul || 1) * 100)}%`,
+  ].join(' · ');
+}
+
+function formatAffixes(equip) {
+  return (equip?.affixes || []).map((affix) => `${affix.locked ? '잠금 ' : ''}${affix.label} x${affix.value}`).join(', ');
+}
+
 export default function SchaleIdlePlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -64,9 +82,12 @@ export default function SchaleIdlePlayPage() {
   const enhanceSlots = useMemo(() => availableEnhanceSlots(state), [state]);
   const rows = useMemo(() => inventoryRows(state), [state]);
   const missions = useMemo(() => missionRows(state), [state]);
+  const salvage = useMemo(() => salvageRows(state), [state]);
+  const shopOffers = useMemo(() => towerShopRows(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
+  const selectedEquip = selectedSlot ? state.equipment?.[selectedSlot] : null;
   const power = teamPower(state);
   const score = scoreState(state);
 
@@ -246,6 +267,8 @@ export default function SchaleIdlePlayPage() {
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!selectedSlot} onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}>선택 장비 강화</ActionButton>
+            <ActionButton disabled={!selectedEquip} onClick={() => setState((current) => rerollEquipmentAction(current, selectedSlot))}>선택 장비 옵션 재련</ActionButton>
+            <ActionButton disabled={!salvage.length} onClick={() => setState((current) => autoSalvageAction(current))}>자동 분해 실행</ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 1))}>탑 1회 도전</ActionButton>
             <ActionButton onClick={() => setState((current) => attemptTowerAction(current, 5))}>탑 5회 도전</ActionButton>
           </div>
@@ -265,6 +288,8 @@ export default function SchaleIdlePlayPage() {
                   <div>
                     <span>{slotLabel(equip.slot)} · {equip.rarity}</span>
                     <strong>{equip.name}</strong>
+                    <small>{formatRolls(equip)}</small>
+                    <small>{formatAffixes(equip) || '옵션 없음'}</small>
                   </div>
                   <strong>+{equip.enhance || 0}</strong>
                 </article>
@@ -289,6 +314,46 @@ export default function SchaleIdlePlayPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>타워 상점</h2>
+            <span>토큰 {Number(state.inventory.itm_tower_token || 0)}</span>
+          </div>
+          <div className="game-save-list">
+            {shopOffers.map((offer) => (
+              <article className="game-save-row" key={offer.id}>
+                <div>
+                  <span>{offer.costText} · {offer.limitText}</span>
+                  <strong>{offer.name}</strong>
+                  <small>남은 구매 {offer.remaining}</small>
+                </div>
+                <button type="button" disabled={!offer.canBuy} onClick={() => setState((current) => buyTowerShopOfferAction(current, offer.id))}>구매</button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>분해 대기열</h2>
+            <button type="button" className="tcg-primary-action" disabled={!salvage.length} onClick={() => setState((current) => autoSalvageAction(current))}>자동 분해</button>
+          </div>
+          {salvage.length ? (
+            <div className="game-save-list">
+              {salvage.slice(0, 8).map((entry) => (
+                <article className="game-save-row" key={`${entry.uid}-${entry.createdAt}`}>
+                  <div>
+                    <span>{slotLabel(entry.slot)} · {entry.rarity} · {entry.reason}</span>
+                    <strong>{entry.name}</strong>
+                    <small>{entry.rewardText}</small>
+                  </div>
+                  <strong>{entry.score}</strong>
+                </article>
+              ))}
+            </div>
+          ) : <div className="games-empty">분해 대기 중인 장비가 없습니다.</div>}
         </section>
 
         <section className="games-panel">

@@ -34,6 +34,7 @@ export const ITEMS = [
   { id: 'itm_enhance_stone', name: '강화석', rarity: 'RARE', sellValue: 35, stackable: true },
   { id: 'itm_tower_key', name: '시련의 탑 열쇠', rarity: 'RARE', sellValue: 30, stackable: true },
   { id: 'itm_tower_token', name: '시련 토큰', rarity: 'RARE', sellValue: 12, stackable: true },
+  { id: 'itm_reroll_ticket', name: '옵션 리롤권', rarity: 'EPIC', sellValue: 45, stackable: true },
   { id: 'eq_rusty_rifle', name: '녹슨 소총', rarity: 'UNCOMMON', stackable: false, equip: { slot: 'WEAPON', powerAdd: 55, powerMul: 1.05 } },
   { id: 'eq_field_armor', name: '현장 방호복', rarity: 'UNCOMMON', stackable: false, equip: { slot: 'ARMOR', powerAdd: 30, staminaMul: 1.08 } },
   { id: 'eq_lucky_charm', name: '행운 부적', rarity: 'RARE', stackable: false, equip: { slot: 'ACCESSORY_1', powerMul: 1.06 } },
@@ -65,6 +66,44 @@ export const TOWER = {
   milestoneEvery: 10,
 };
 
+export const TOWER_SHOP_OFFERS = [
+  {
+    id: 'tower_key_bundle',
+    name: '시련 열쇠 묶음',
+    cost: { itemId: 'itm_tower_token', qty: 10 },
+    reward: { type: 'STACK', itemId: 'itm_tower_key', qty: 2 },
+    limit: { period: 'DAILY', max: 2 },
+  },
+  {
+    id: 'tower_enhance_stone',
+    name: '강화석 보급',
+    cost: { itemId: 'itm_tower_token', qty: 18 },
+    reward: { type: 'STACK', itemId: 'itm_enhance_stone', qty: 1 },
+    limit: { period: 'DAILY', max: 3 },
+  },
+  {
+    id: 'tower_reroll_ticket',
+    name: '옵션 리롤권',
+    cost: { itemId: 'itm_tower_token', qty: 30 },
+    reward: { type: 'STACK', itemId: 'itm_reroll_ticket', qty: 1 },
+    limit: { period: 'WEEKLY', max: 2 },
+  },
+  {
+    id: 'tower_relic_alpha',
+    name: '탑 유물 알파',
+    cost: { itemId: 'itm_tower_token', qty: 55 },
+    reward: { type: 'EQUIP', itemId: 'eq_tower_relic_alpha', qty: 1 },
+    limit: { period: 'WEEKLY', max: 1 },
+  },
+  {
+    id: 'tower_random_relic',
+    name: '무작위 탑 유물',
+    cost: { itemId: 'itm_tower_token', qty: 85 },
+    reward: { type: 'RANDOM_EQUIP', pool: ['eq_tower_relic_alpha', 'eq_tower_relic_beta', 'eq_tower_relic_omega'], qty: 1 },
+    limit: { period: 'WEEKLY', max: 1 },
+  },
+];
+
 export const MISSIONS = [
   { id: 'd_clear_30', type: 'daily', name: '일일 당직: 웨이브 30층 정산', action: 'CLEAR_FLOOR', target: 30, rewardCredits: 300, rewardItems: [{ itemId: 'itm_scrap', qty: 60 }] },
   { id: 'd_tower_5', type: 'daily', name: '일일 도전: 시련의 탑 5회', action: 'ATTEMPT_TOWER', target: 5, rewardCredits: 260, rewardItems: [{ itemId: 'itm_tower_key', qty: 1 }] },
@@ -83,6 +122,67 @@ const SLOT_LABELS = {
   ACCESSORY_2: '장신구 2',
   RELIC: '유물',
 };
+
+const RARITY_RANK = {
+  COMMON: 1,
+  UNCOMMON: 2,
+  RARE: 3,
+  EPIC: 4,
+};
+
+const AFFIX_COUNT_BY_RARITY = {
+  COMMON: 1,
+  UNCOMMON: 2,
+  RARE: 3,
+  EPIC: 4,
+};
+
+const AFFIX_TEMPLATES = [
+  {
+    id: 'AFF_FIREPOWER',
+    label: '화력 보정',
+    stat: 'POWER_ADD_MUL',
+    range: {
+      COMMON: [0.95, 1.05],
+      UNCOMMON: [0.97, 1.1],
+      RARE: [1, 1.15],
+      EPIC: [1.05, 1.25],
+    },
+  },
+  {
+    id: 'AFF_TACTICS',
+    label: '전술 증폭',
+    stat: 'POWER_MUL_MUL',
+    range: {
+      COMMON: [1, 1.01],
+      UNCOMMON: [1, 1.02],
+      RARE: [1, 1.03],
+      EPIC: [1.01, 1.05],
+    },
+  },
+  {
+    id: 'AFF_ENDURANCE',
+    label: '스태미나 관리',
+    stat: 'STAMINA_MUL_MUL',
+    range: {
+      COMMON: [1, 1.02],
+      UNCOMMON: [1, 1.03],
+      RARE: [1, 1.04],
+      EPIC: [1.01, 1.06],
+    },
+  },
+  {
+    id: 'AFF_CALIBRATION',
+    label: '교정 튜닝',
+    stat: 'GLOBAL_MUL',
+    range: {
+      COMMON: [1, 1.005],
+      UNCOMMON: [1.003, 1.01],
+      RARE: [1.006, 1.018],
+      EPIC: [1.01, 1.03],
+    },
+  },
+];
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -107,6 +207,14 @@ export function createNewState(options = {}) {
       itm_memory_chip: 3,
       itm_enhance_stone: 3,
       itm_tower_key: 5,
+      itm_reroll_ticket: 1,
+    },
+    salvageQueue: [],
+    towerShop: {
+      dailyKey: '',
+      dailyBought: {},
+      weeklyKey: '',
+      weeklyBought: {},
     },
     counters: {
       CLEAR_FLOOR: 0,
@@ -116,6 +224,9 @@ export function createNewState(options = {}) {
       CRAFT: 0,
       ENHANCE_TRY: 0,
       ENHANCE_SUCCESS: 0,
+      REROLL: 0,
+      SALVAGE: 0,
+      SHOP_BUY: 0,
     },
     claimedMissions: [],
     log: ['샬레 당직이 시작됐습니다. 방치 정산으로 층을 밀고, 재료를 모아 장비를 제작하세요.'],
@@ -125,11 +236,15 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
+  const equipment = normalizeEquipmentMap(value.equipment && typeof value.equipment === 'object' ? value.equipment : base.equipment);
+  const towerShop = normalizeTowerShop(value.towerShop, base.towerShop);
   return {
     ...base,
     ...value,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
-    equipment: value.equipment && typeof value.equipment === 'object' ? value.equipment : base.equipment,
+    equipment,
+    salvageQueue: Array.isArray(value.salvageQueue) ? value.salvageQueue.slice(0, 40) : base.salvageQueue,
+    towerShop,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     claimedMissions: Array.isArray(value.claimedMissions) ? value.claimedMissions : base.claimedMissions,
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
@@ -205,27 +320,216 @@ function bumpCounter(counters, action, amount = 1) {
   };
 }
 
-function equipmentScore(equip) {
-  if (!equip) return 0;
+function rarityRank(rarity) {
+  return RARITY_RANK[rarity] || RARITY_RANK.COMMON;
+}
+
+function defaultRolls() {
+  return {
+    powerAddMul: 1,
+    powerMulMul: 1,
+    staminaMulMul: 1,
+  };
+}
+
+function normalizeRolls(rolls) {
+  return {
+    powerAddMul: Number(rolls?.powerAddMul || 1),
+    powerMulMul: Number(rolls?.powerMulMul || 1),
+    staminaMulMul: Number(rolls?.staminaMulMul || 1),
+  };
+}
+
+function computeRollsFromAffixes(affixes = []) {
+  return affixes.reduce((next, affix) => {
+    const value = Number(affix.value || 1);
+    if (affix.stat === 'POWER_ADD_MUL') return { ...next, powerAddMul: next.powerAddMul * value };
+    if (affix.stat === 'POWER_MUL_MUL') return { ...next, powerMulMul: next.powerMulMul * value };
+    if (affix.stat === 'STAMINA_MUL_MUL') return { ...next, staminaMulMul: next.staminaMulMul * value };
+    if (affix.stat === 'GLOBAL_MUL') {
+      return {
+        powerAddMul: next.powerAddMul * value,
+        powerMulMul: next.powerMulMul * value,
+        staminaMulMul: next.staminaMulMul * value,
+      };
+    }
+    return next;
+  }, defaultRolls());
+}
+
+function rollAffixes(rng, rarity = 'UNCOMMON', slot = 'WEAPON', lockedAffixes = []) {
+  const count = Math.max(1, AFFIX_COUNT_BY_RARITY[rarity] || 2);
+  const locked = lockedAffixes.slice(0, count).map((affix) => ({ ...affix, locked: true }));
+  const used = new Set(locked.map((affix) => affix.id));
+  const pool = AFFIX_TEMPLATES.filter((template) => !used.has(template.id));
+  const picked = [...locked];
+  while (picked.length < count && pool.length) {
+    const index = Math.floor(rng() * pool.length);
+    const template = pool.splice(index, 1)[0];
+    const range = template.range[rarity] || template.range.UNCOMMON;
+    const value = Number((range[0] + rng() * (range[1] - range[0])).toFixed(3));
+    picked.push({
+      id: template.id,
+      label: slot === 'ARMOR' && template.id === 'AFF_FIREPOWER' ? '방호 보정' : template.label,
+      stat: template.stat,
+      value,
+      locked: false,
+    });
+  }
+  return picked;
+}
+
+function normalizeEquipmentInstance(equip, fallbackSlot = '') {
+  if (!equip || typeof equip !== 'object') return null;
   const def = getItem(equip.itemId);
+  const slot = equip.slot || fallbackSlot || def?.equip?.slot || 'WEAPON';
+  const rarity = equip.rarity || def?.rarity || 'COMMON';
+  const uid = equip.uid || `${equip.itemId || 'legacy'}-${slot}-legacy`;
+  const seededRng = createRng(`${uid}|${equip.itemId}|${slot}`);
+  const affixes = Array.isArray(equip.affixes) && equip.affixes.length
+    ? equip.affixes
+    : rollAffixes(seededRng, rarity, slot);
+  return {
+    ...equip,
+    uid,
+    itemId: equip.itemId,
+    name: equip.name || def?.name || equip.itemId,
+    rarity,
+    slot,
+    enhance: Number(equip.enhance ?? equip.enhanceLevel ?? 0),
+    rolls: equip.rolls ? normalizeRolls(equip.rolls) : computeRollsFromAffixes(affixes),
+    affixes,
+    rerollCount: Number(equip.rerollCount || 0),
+  };
+}
+
+function normalizeEquipmentMap(equipment = {}) {
+  return Object.entries(equipment).reduce((next, [slot, equip]) => {
+    const normalized = normalizeEquipmentInstance(equip, slot);
+    if (!normalized) return next;
+    return { ...next, [normalized.slot]: normalized };
+  }, {});
+}
+
+function normalizeTowerShop(value, fallback) {
+  const source = value && typeof value === 'object' ? value : fallback;
+  return {
+    dailyKey: source.dailyKey || '',
+    dailyBought: source.dailyBought && typeof source.dailyBought === 'object' ? source.dailyBought : {},
+    weeklyKey: source.weeklyKey || '',
+    weeklyBought: source.weeklyBought && typeof source.weeklyBought === 'object' ? source.weeklyBought : {},
+  };
+}
+
+function getKstDateParts(now = Date.now()) {
+  const date = new Date(now + 9 * 60 * 60 * 1000);
+  const dayKey = date.toISOString().slice(0, 10);
+  const start = Date.UTC(date.getUTCFullYear(), 0, 1);
+  const week = Math.floor((Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) - start) / 86400000 / 7) + 1;
+  return {
+    dayKey,
+    weekKey: `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`,
+  };
+}
+
+function ensureTowerShopPeriod(towerShop, now = Date.now()) {
+  const keys = getKstDateParts(now);
+  return {
+    dailyKey: towerShop.dailyKey === keys.dayKey ? towerShop.dailyKey : keys.dayKey,
+    dailyBought: towerShop.dailyKey === keys.dayKey ? towerShop.dailyBought : {},
+    weeklyKey: towerShop.weeklyKey === keys.weekKey ? towerShop.weeklyKey : keys.weekKey,
+    weeklyBought: towerShop.weeklyKey === keys.weekKey ? towerShop.weeklyBought : {},
+  };
+}
+
+function getTowerShopBought(towerShop, offer) {
+  const bucket = offer.limit?.period === 'WEEKLY' ? towerShop.weeklyBought : towerShop.dailyBought;
+  return Number(bucket?.[offer.id] || 0);
+}
+
+function setTowerShopBought(towerShop, offer, value) {
+  if (offer.limit?.period === 'WEEKLY') {
+    return { ...towerShop, weeklyBought: { ...towerShop.weeklyBought, [offer.id]: value } };
+  }
+  return { ...towerShop, dailyBought: { ...towerShop.dailyBought, [offer.id]: value } };
+}
+
+function salvageValue(equip) {
+  const rank = rarityRank(equip.rarity);
+  const enhance = Number(equip.enhance || 0);
+  return {
+    scrap: 8 + rank * 8 + enhance * 4,
+    stone: rank >= RARITY_RANK.RARE ? 1 + Math.floor(enhance / 3) : Math.floor(enhance / 4),
+    ticket: rank >= RARITY_RANK.EPIC && enhance >= 6 ? 1 : 0,
+  };
+}
+
+function makeSalvageEntry(equip, reason) {
+  return {
+    uid: equip.uid,
+    itemId: equip.itemId,
+    name: equip.name,
+    rarity: equip.rarity,
+    slot: equip.slot,
+    enhance: Number(equip.enhance || 0),
+    score: equipmentScore(equip),
+    reason,
+    createdAt: Date.now(),
+  };
+}
+
+function queueSalvage(salvageQueue, equip, reason) {
+  if (!equip) return salvageQueue;
+  return [makeSalvageEntry(equip, reason), ...salvageQueue].slice(0, 40);
+}
+
+function putEquipmentOrQueue(equipment, salvageQueue, equip, reason = '입수') {
+  const old = equipment[equip.slot];
+  if (!old || equipmentScore(equip) >= equipmentScore(old)) {
+    return {
+      equipment: { ...equipment, [equip.slot]: equip },
+      salvageQueue: old ? queueSalvage(salvageQueue, old, '교체 장비') : salvageQueue,
+      equipped: true,
+    };
+  }
+  return {
+    equipment,
+    salvageQueue: queueSalvage(salvageQueue, equip, reason),
+    equipped: false,
+  };
+}
+
+function equipmentScore(equip) {
+  const normalized = normalizeEquipmentInstance(equip);
+  if (!normalized) return 0;
+  const def = getItem(normalized.itemId);
   const stats = def?.equip || {};
+  const enhance = Number(normalized.enhance || 0);
+  const rolls = normalizeRolls(normalized.rolls);
   return Math.round(
-    Number(stats.powerAdd || 0)
-    + (Number(stats.powerMul || 1) - 1) * 900
-    + (Number(stats.staminaMul || 1) - 1) * 450
-    + Number(equip.enhance || 0) * 22
+    Number(stats.powerAdd || 0) * rolls.powerAddMul * (1 + enhance * 0.12)
+    + ((Number(stats.powerMul || 1) * rolls.powerMulMul * (1 + enhance * 0.01)) - 1) * 900
+    + ((Number(stats.staminaMul || 1) * rolls.staminaMulMul * (1 + enhance * 0.02)) - 1) * 450
+    + enhance * 18
   );
 }
 
-function makeEquipment(itemId, enhance = 0) {
+function makeEquipment(itemId, enhance = 0, rng = createRng(`${itemId}|${Date.now()}`)) {
   const def = getItem(itemId);
+  const slot = def?.equip?.slot || 'WEAPON';
+  const rarity = def?.rarity || 'COMMON';
+  const uidSeed = Math.floor(rng() * 1000000000).toString(36);
+  const affixes = rollAffixes(rng, rarity, slot);
   return {
-    uid: `${itemId}-${Date.now().toString(36)}`,
+    uid: `${itemId}-${Date.now().toString(36)}-${uidSeed}`,
     itemId,
     name: def?.name || itemId,
-    rarity: def?.rarity || 'COMMON',
-    slot: def?.equip?.slot || 'WEAPON',
+    rarity,
+    slot,
     enhance,
+    rolls: computeRollsFromAffixes(affixes),
+    affixes,
+    rerollCount: 0,
   };
 }
 
@@ -240,13 +544,15 @@ export function teamPower(state) {
   let mul = 1;
   let staminaMul = 1;
   getEquippedList(current).forEach((equip) => {
-    const stats = getItem(equip.itemId)?.equip || {};
-    const enhance = Number(equip.enhance || 0);
-    add += Number(stats.powerAdd || 0) + enhance * 8;
-    mul *= Number(stats.powerMul || 1) + enhance * 0.006;
-    staminaMul *= Number(stats.staminaMul || 1);
+    const normalized = normalizeEquipmentInstance(equip);
+    const stats = getItem(normalized.itemId)?.equip || {};
+    const enhance = Number(normalized.enhance || 0);
+    const rolls = normalizeRolls(normalized.rolls);
+    add += Number(stats.powerAdd || 0) * rolls.powerAddMul * (1 + enhance * 0.12);
+    mul *= Number(stats.powerMul || 1) * rolls.powerMulMul * (1 + enhance * 0.01);
+    staminaMul *= Number(stats.staminaMul || 1) * rolls.staminaMulMul * (1 + enhance * 0.02);
   });
-  const staminaFactor = clamp(0.45, 1.12, 0.62 + (Number(current.stamina || 0) / 100) * 0.5);
+  const staminaFactor = clamp(0.62 + (Number(current.stamina || 0) / 100) * 0.5, 0.45, 1.12);
   return Math.round((Number(current.basePower || 0) + add) * mul * staminaFactor * staminaMul);
 }
 
@@ -361,14 +667,16 @@ export function craftRecipeAction(state, recipeId) {
 
   const produced = getItem(recipe.produces.itemId);
   let equipment = current.equipment;
+  let salvageQueue = current.salvageQueue;
   let inventory = spendItems(current.inventory, recipe.requires);
   let message = `${recipe.name} 완료.`;
   if (produced?.equip) {
-    const equip = makeEquipment(produced.id);
+    const rng = createRng(`${current.runId}|craft|${recipe.id}|${current.counters.CRAFT}`);
+    const equip = makeEquipment(produced.id, 0, rng);
     const old = equipment[equip.slot];
-    equipment = !old || equipmentScore(equip) >= equipmentScore(old)
-      ? { ...equipment, [equip.slot]: equip }
-      : equipment;
+    const result = putEquipmentOrQueue(equipment, salvageQueue, equip, '제작 초과분');
+    equipment = result.equipment;
+    salvageQueue = result.salvageQueue;
     message = `${recipe.name} 완료. ${produced.name}${old && equipment[equip.slot] === old ? '은 기존 장비보다 약해 보관 처리했습니다.' : '을(를) 장착했습니다.'}`;
   } else {
     inventory = addItem(inventory, recipe.produces.itemId, recipe.produces.qty);
@@ -379,6 +687,7 @@ export function craftRecipeAction(state, recipeId) {
     credits: Number(current.credits || 0) - recipe.credits,
     inventory,
     equipment,
+    salvageQueue,
     counters: bumpCounter(current.counters, 'CRAFT', 1),
   }, message);
 }
@@ -407,6 +716,130 @@ export function enhanceEquipmentAction(state, slot) {
       ENHANCE_SUCCESS: Number(current.counters.ENHANCE_SUCCESS || 0) + (success ? 1 : 0),
     },
   }, `${equip.name} +${level} 강화 ${success ? `성공. +${level + 1}` : '실패.'} 성공률 ${Math.round(chance * 100)}%`);
+}
+
+export function rerollEquipmentAction(state, slot) {
+  const current = normalizeState(state);
+  const equip = current.equipment[slot];
+  if (!equip) return addLog(current, `${slotLabel(slot)} 슬롯에 재련할 장비가 없습니다.`);
+
+  const lockedAffixes = Array.isArray(equip.affixes) ? equip.affixes.filter((affix) => affix.locked) : [];
+  const ticketCost = 1 + lockedAffixes.length;
+  const tokenCost = 12 + lockedAffixes.length * 8 + Number(equip.rerollCount || 0) * 2;
+  let inventory = current.inventory;
+  let costText = '';
+  if (Number(inventory.itm_reroll_ticket || 0) >= ticketCost) {
+    inventory = addItem(inventory, 'itm_reroll_ticket', -ticketCost);
+    costText = `리롤권 ${ticketCost}장`;
+  } else if (Number(inventory.itm_tower_token || 0) >= tokenCost) {
+    inventory = addItem(inventory, 'itm_tower_token', -tokenCost);
+    costText = `시련 토큰 ${tokenCost}개`;
+  } else {
+    return addLog(current, `옵션 재련 실패. 리롤권 ${ticketCost}장 또는 시련 토큰 ${tokenCost}개가 필요합니다.`);
+  }
+
+  const rng = createRng(`${current.runId}|reroll|${slot}|${equip.rerollCount}|${current.counters.REROLL}`);
+  const affixes = rollAffixes(rng, equip.rarity, equip.slot, lockedAffixes);
+  const nextEquip = {
+    ...equip,
+    affixes,
+    rolls: computeRollsFromAffixes(affixes),
+    rerollCount: Number(equip.rerollCount || 0) + 1,
+    lastRerolledAt: new Date().toISOString(),
+  };
+  return addLog({
+    ...current,
+    inventory,
+    equipment: { ...current.equipment, [slot]: nextEquip },
+    counters: bumpCounter(current.counters, 'REROLL', 1),
+  }, `${equip.name} 옵션 재련 완료(${costText}): ${affixes.map((affix) => `${affix.label} x${affix.value}`).join(', ')}`);
+}
+
+export function autoSalvageAction(state) {
+  const current = normalizeState(state);
+  const queue = Array.isArray(current.salvageQueue) ? current.salvageQueue : [];
+  if (!queue.length) return addLog(current, '자동 분해할 장비가 없습니다.');
+
+  let inventory = current.inventory;
+  const totals = queue.reduce((sum, entry) => {
+    const value = salvageValue(entry);
+    return {
+      scrap: sum.scrap + value.scrap,
+      stone: sum.stone + value.stone,
+      ticket: sum.ticket + value.ticket,
+    };
+  }, { scrap: 0, stone: 0, ticket: 0 });
+
+  inventory = addItem(inventory, 'itm_scrap', totals.scrap);
+  if (totals.stone > 0) inventory = addItem(inventory, 'itm_enhance_stone', totals.stone);
+  if (totals.ticket > 0) inventory = addItem(inventory, 'itm_reroll_ticket', totals.ticket);
+
+  return addLog({
+    ...current,
+    inventory,
+    salvageQueue: [],
+    counters: bumpCounter(current.counters, 'SALVAGE', queue.length),
+  }, `자동 분해 ${queue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}`);
+}
+
+function grantTowerShopReward(current, offer, rng) {
+  let equipment = current.equipment;
+  let salvageQueue = current.salvageQueue;
+  let inventory = current.inventory;
+  const reward = offer.reward;
+  let label = '';
+
+  if (reward.type === 'STACK') {
+    inventory = addItem(inventory, reward.itemId, reward.qty);
+    label = `${itemName(reward.itemId)} ${reward.qty}개`;
+  }
+
+  if (reward.type === 'EQUIP') {
+    for (let index = 0; index < Math.max(1, Number(reward.qty || 1)); index += 1) {
+      const equip = makeEquipment(reward.itemId, 0, rng);
+      const result = putEquipmentOrQueue(equipment, salvageQueue, equip, '상점 초과분');
+      equipment = result.equipment;
+      salvageQueue = result.salvageQueue;
+      label = `${equip.name}${result.equipped ? ' 장착' : ' 분해 대기'}`;
+    }
+  }
+
+  if (reward.type === 'RANDOM_EQUIP') {
+    const pool = Array.isArray(reward.pool) && reward.pool.length ? reward.pool : ['eq_tower_relic_alpha'];
+    for (let index = 0; index < Math.max(1, Number(reward.qty || 1)); index += 1) {
+      const itemId = pool[Math.floor(rng() * pool.length)];
+      const equip = makeEquipment(itemId, 0, rng);
+      const result = putEquipmentOrQueue(equipment, salvageQueue, equip, '상점 초과분');
+      equipment = result.equipment;
+      salvageQueue = result.salvageQueue;
+      label = `${equip.name}${result.equipped ? ' 장착' : ' 분해 대기'}`;
+    }
+  }
+
+  return { equipment, salvageQueue, inventory, label };
+}
+
+export function buyTowerShopOfferAction(state, offerId) {
+  const current = normalizeState(state);
+  const offer = TOWER_SHOP_OFFERS.find((item) => item.id === offerId);
+  if (!offer) return addLog(current, '타워 상점 상품을 찾을 수 없습니다.');
+  const towerShop = ensureTowerShopPeriod(current.towerShop);
+  const bought = getTowerShopBought(towerShop, offer);
+  const max = Number(offer.limit?.max || 999);
+  if (bought >= max) return addLog(current, `${offer.name} 구매 제한에 도달했습니다.`);
+  if (Number(current.inventory[offer.cost.itemId] || 0) < offer.cost.qty) return addLog(current, `${offer.name} 구매 실패. ${itemName(offer.cost.itemId)}이 부족합니다.`);
+
+  const rng = createRng(`${current.runId}|tower-shop|${offer.id}|${bought}|${current.counters.SHOP_BUY}`);
+  const paid = addItem(current.inventory, offer.cost.itemId, -offer.cost.qty);
+  const granted = grantTowerShopReward({ ...current, inventory: paid }, offer, rng);
+  return addLog({
+    ...current,
+    inventory: granted.inventory,
+    equipment: granted.equipment,
+    salvageQueue: granted.salvageQueue,
+    towerShop: setTowerShopBought(towerShop, offer, bought + 1),
+    counters: bumpCounter(current.counters, 'SHOP_BUY', 1),
+  }, `${offer.name} 구매 완료. ${granted.label}`);
 }
 
 export function attemptTowerAction(state, count = 1) {
@@ -489,6 +922,35 @@ export function inventoryRows(state) {
     .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
 }
 
+export function salvageRows(state) {
+  const current = normalizeState(state);
+  return current.salvageQueue.map((entry) => {
+    const value = salvageValue(entry);
+    return {
+      ...entry,
+      rewardText: `고철 ${value.scrap}${value.stone ? `, 강화석 ${value.stone}` : ''}${value.ticket ? `, 리롤권 ${value.ticket}` : ''}`,
+    };
+  });
+}
+
+export function towerShopRows(state) {
+  const current = normalizeState(state);
+  const towerShop = ensureTowerShopPeriod(current.towerShop);
+  return TOWER_SHOP_OFFERS.map((offer) => {
+    const bought = getTowerShopBought(towerShop, offer);
+    const max = Number(offer.limit?.max || 999);
+    const remaining = Math.max(0, max - bought);
+    return {
+      ...offer,
+      bought,
+      remaining,
+      canBuy: remaining > 0 && Number(current.inventory[offer.cost.itemId] || 0) >= offer.cost.qty,
+      costText: `${itemName(offer.cost.itemId)} ${offer.cost.qty}`,
+      limitText: offer.limit ? `${offer.limit.period === 'WEEKLY' ? '주간' : '일일'} ${bought}/${max}` : '상시',
+    };
+  });
+}
+
 export function availableEnhanceSlots(state) {
   return getEquippedList(state).map((equip) => equip.slot);
 }
@@ -515,6 +977,9 @@ export function scoreState(state) {
     + Number(current.credits || 0)
     + teamPower(current) * 4
     + getEquippedList(current).reduce((sum, equip) => sum + equipmentScore(equip), 0) * 6
+    + Number(current.counters.REROLL || 0) * 40
+    + Number(current.counters.SALVAGE || 0) * 12
+    + Number(current.counters.SHOP_BUY || 0) * 35
   ));
 }
 
@@ -535,5 +1000,9 @@ export function summaryForState(state) {
     stamina: current.stamina,
     power: teamPower(current),
     score: scoreState(current),
+    rerolls: Number(current.counters.REROLL || 0),
+    salvaged: Number(current.counters.SALVAGE || 0),
+    towerShopBuys: Number(current.counters.SHOP_BUY || 0),
+    salvageQueued: current.salvageQueue.length,
   };
 }
