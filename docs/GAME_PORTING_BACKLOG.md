@@ -33,6 +33,7 @@ Checked: 2026-07-04
    - Adapter: `shared-game-room`
    - Why next: already close to the existing TCG prototype. Deck builder and card data can be folded into the current `dual-academy-tcg` area.
    - Site integration target: import card catalog/deck validation first, then connect room state sync later.
+   - First slice: P-G card catalog, sample deck presets, main/G-zone validation, opening-hand test, save/load, deck-test record.
 
 4. `myanimecraft`
    - Adapter: `league-sim`
@@ -96,3 +97,11 @@ Checked: 2026-07-04
 - Site API integration: quick save through `/game-saves/tonkatsu-teacher/tonkatsu-teacher-main`; run record through `/game-records/tonkatsu-teacher`.
 - Source basis: `C:\2저장고\마이애니메\tonkatsu_teacher_mvp_v0.4.5_judge_batch_banner`.
 - Next step: import the original facility, research, and tournament rules into the simplified engine.
+
+## BA Vanguard Slice Status
+
+- Route: `/games/ba-vanguard/play`
+- Included loop: P-G card library, Gehenna/Trinity/Millennium sample deck presets, deck rule validation, opening-hand shuffle test.
+- Site API integration: quick save through `/game-saves/ba-vanguard/ba-vanguard-main`; deck-test record through `/game-records/ba-vanguard`.
+- Source basis: `C:\2저장고\마이애니메\ba-vanguard`.
+- Next step: import the original battle playtest engine and room state sync.

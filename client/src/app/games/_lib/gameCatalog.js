@@ -182,6 +182,19 @@ const GAME_INTEGRATIONS = {
     minPlayers: 1,
     maxPlayers: 2,
   },
+  'ba-vanguard': {
+    stage: 'prototype',
+    stageLabel: '프로토타입',
+    adapter: 'shared-game-room',
+    roomSystem: 'game-room',
+    supportsRooms: true,
+    supportsStateSync: true,
+    supportsRecords: true,
+    supportsSaves: true,
+    resultMode: 'deck-validation',
+    minPlayers: 1,
+    maxPlayers: 2,
+  },
   'primitive-archive': {
     stage: 'prototype',
     stageLabel: '프로토타입',
@@ -565,7 +578,7 @@ export function findGameBySlug(slug) {
 
   const roadmapGame = GAME_ROADMAP.find((game) => game.slug === key);
   if (!roadmapGame) return null;
-  const prototypeRoutes = new Set(['dual-academy-tcg', 'primitive-archive', 'tonkatsu-teacher']);
+  const prototypeRoutes = new Set(['dual-academy-tcg', 'ba-vanguard', 'primitive-archive', 'tonkatsu-teacher']);
   const hasPrototype = prototypeRoutes.has(key);
 
   return withGameIntegration({
