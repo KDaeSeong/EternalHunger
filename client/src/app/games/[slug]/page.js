@@ -9,10 +9,11 @@ import { apiGetCached } from '../../../utils/api';
 import {
   dynamicGameCandidateToGame,
   findGameBySlug,
-  GAME_CATALOG,
   gameBoardWriteHref,
   gameDetailHref,
   gameRoomCreateHref,
+  getAllGames,
+  getGameRouteFamily,
   getGamePortingChecklist,
   getGamePortingProgress,
 } from '../_lib/gameCatalog';
@@ -255,7 +256,14 @@ export default function GameDetailPage() {
     return hub.recentPosts.slice(0, 6);
   }, [game, hub.recentPosts]);
 
-  const relatedGames = useMemo(() => GAME_CATALOG.filter((row) => row.slug !== slug), [slug]);
+  const routeFamily = game ? getGameRouteFamily(game) : null;
+  const relatedGames = useMemo(() => {
+    if (!game) return [];
+    const familyKey = getGameRouteFamily(game).key;
+    return getAllGames()
+      .filter((row) => row.slug !== slug && getGameRouteFamily(row).key === familyKey)
+      .slice(0, 6);
+  }, [game, slug]);
   const integration = game?.integration || {};
   const roomSystemLabel = integration.roomSystem === 'game-room'
     ? '공용 게임방'
@@ -313,6 +321,7 @@ export default function GameDetailPage() {
             <h1>{game.title}</h1>
             <p>{game.detail}</p>
             <div className="games-hero-actions">
+              {routeFamily ? <Link href={routeFamily.baseHref}>{routeFamily.label} 허브</Link> : null}
               <Link href={game.primaryHref}>{game.primaryLabel}</Link>
               <Link href={`/games/rooms?gameSlug=${game.slug}`}>게임방</Link>
               <Link href={game.boardHref}>{game.boardLabel}</Link>
@@ -356,9 +365,11 @@ export default function GameDetailPage() {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>바로가기</h2>
-              <Link href="/games">게임 허브</Link>
+              <Link href={routeFamily?.baseHref || '/games'}>{routeFamily?.label || '게임'} 허브</Link>
             </div>
             <div className="games-link-grid">
+              {routeFamily ? <Link href={routeFamily.baseHref}>{routeFamily.label} 허브</Link> : null}
+              <Link href="/games">전체 게임 허브</Link>
               <Link href={game.primaryHref}>{game.primaryLabel}</Link>
               <Link href={game.boardHref}>{game.boardLabel}</Link>
               <Link href={gameBoardWriteHref(game)}>글쓰기</Link>
@@ -544,17 +555,21 @@ export default function GameDetailPage() {
 
           <section className="games-panel">
             <div className="games-panel-title">
-              <h2>다른 게임</h2>
-              <Link href="/games">목록</Link>
+              <h2>같은 허브의 게임</h2>
+              <Link href={routeFamily?.baseHref || '/games'}>{routeFamily?.label || '게임'} 허브</Link>
             </div>
             <div className="games-related-list">
-              {relatedGames.map((row) => (
-                <Link href={gameDetailHref(row)} key={row.slug}>
-                  <span>{row.subtitle}</span>
-                  <strong>{row.title}</strong>
-                  <small>{row.summary}</small>
-                </Link>
-              ))}
+              {relatedGames.length ? (
+                relatedGames.map((row) => (
+                  <Link href={gameDetailHref(row)} key={row.slug}>
+                    <span>{row.subtitle}</span>
+                    <strong>{row.title}</strong>
+                    <small>{row.summary}</small>
+                  </Link>
+                ))
+              ) : (
+                <div className="games-empty">같은 허브에 표시할 다른 게임이 아직 없습니다.</div>
+              )}
             </div>
           </section>
         </section>

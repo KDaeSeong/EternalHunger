@@ -34,6 +34,59 @@ export const GAME_ENTRY_ROUTES = {
   ...Object.fromEntries(SRPG_GAME_SLUGS.map((slug) => [slug, `/srpg/${slug}/play`])),
 };
 
+export const GAME_ROUTE_FAMILIES = {
+  eternalhunger: {
+    key: 'eternalhunger',
+    label: '이터널 헝거',
+    baseHref: '/eternalhunger',
+    detailBaseHref: '/games',
+    playBaseHref: '/eternalhunger',
+    description: '메인 배틀 시뮬레이션과 전적 흐름',
+  },
+  myanime: {
+    key: 'myanime',
+    label: 'MyAnime',
+    baseHref: '/myanime',
+    detailBaseHref: '/myanime',
+    playBaseHref: '/myanime',
+    description: '업로드된 MyAnime 기반 프로토타입 모음',
+  },
+  srpg: {
+    key: 'srpg',
+    label: 'SRPG',
+    baseHref: '/srpg',
+    detailBaseHref: '/srpg',
+    playBaseHref: '/srpg',
+    description: '그리드 전투와 미션형 전술 게임',
+  },
+  community: {
+    key: 'community',
+    label: '커뮤니티 게임',
+    baseHref: '/twenty-questions',
+    detailBaseHref: '/games',
+    playBaseHref: '/twenty-questions',
+    description: '게시판과 방 기반 커뮤니티 게임',
+  },
+  games: {
+    key: 'games',
+    label: '게임 허브',
+    baseHref: '/games',
+    detailBaseHref: '/games',
+    playBaseHref: '/games',
+    description: '전체 게임 도감과 공용 기록',
+  },
+};
+
+export function getGameRouteFamily(slugOrGame) {
+  const slug = typeof slugOrGame === 'object' ? slugOrGame?.slug : slugOrGame;
+  const key = String(slug || '').trim();
+  if (key === 'eternal-hunger') return GAME_ROUTE_FAMILIES.eternalhunger;
+  if (MYANIME_GAME_SLUGS.includes(key)) return GAME_ROUTE_FAMILIES.myanime;
+  if (SRPG_GAME_SLUGS.includes(key)) return GAME_ROUTE_FAMILIES.srpg;
+  if (key === 'twenty-questions') return GAME_ROUTE_FAMILIES.community;
+  return GAME_ROUTE_FAMILIES.games;
+}
+
 export const GAME_ADAPTER_PRESETS = [
   {
     adapter: 'discussion',
