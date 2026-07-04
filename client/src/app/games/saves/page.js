@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
-import { apiDelete, apiGetCached, apiPut, clearApiGetCache } from '../../../utils/api';
+import { apiDelete, apiGet, apiGetCached, apiPut, clearApiGetCache } from '../../../utils/api';
 import { useAuthUser, useHydrated } from '../../../utils/client-auth';
 import { GAME_CATALOG, GAME_ROADMAP } from '../_lib/gameCatalog';
 
@@ -66,6 +66,12 @@ function summarizeSave(save) {
     .filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
     .slice(0, 4);
   return rows.length ? rows.map(([key, value]) => `${key}: ${String(value)}`).join(' · ') : '요약 없음';
+}
+
+function saveRoomHref(save) {
+  const summary = save?.summary && typeof save.summary === 'object' ? save.summary : {};
+  const roomId = String(summary.roomId || '').trim();
+  return summary.source === 'game-room' && roomId ? `/games/rooms/${roomId}` : '';
 }
 
 function SaveMetric({ label, value }) {
@@ -204,6 +210,33 @@ function GameSavesContent() {
     }
   };
 
+  const loadSlotIntoForm = async (save) => {
+    if (!save?.id || saving) return;
+    setSaving(true);
+    setMessage('');
+    try {
+      const data = await apiGet(`/game-saves/${save.id}`, { timeoutMs: 15000 });
+      const detail = data?.save || save;
+      setForm({
+        gameSlug: cleanKey(detail.gameSlug),
+        slotKey: cleanKey(detail.slotKey, 'slot-1'),
+        saveName: detail.saveName || '저장 슬롯',
+        version: detail.version || '',
+        summaryText: JSON.stringify(detail.summary || {}, null, 2),
+        payloadText: JSON.stringify(detail.payload || {}, null, 2),
+      });
+      const nextMessage = '저장 슬롯을 편집 폼으로 불러왔습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'success', message: nextMessage });
+    } catch (err) {
+      const nextMessage = err?.message || '저장 슬롯을 불러오지 못했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const gameTitleBySlug = useMemo(() => {
     const map = new Map();
     gameOptions.forEach((game) => map.set(game.slug, game.title));
@@ -260,6 +293,7 @@ function GameSavesContent() {
                 {gameOptions.map((game) => <option value={game.slug} key={game.slug}>{game.title}</option>)}
               </select>
               {gameSlug ? <Link href={`/games/${gameSlug}`}>게임 상세</Link> : <Link href="/games">게임 허브</Link>}
+              <Link href={`/games/rooms${gameSlug ? `?gameSlug=${gameSlug}` : ''}`}>게임방</Link>
               <Link href={`/games/records${gameSlug ? `?gameSlug=${gameSlug}` : ''}`}>전적</Link>
             </section>
 
@@ -353,7 +387,11 @@ function GameSavesContent() {
                           <small>{save.slotKey} · {formatBytes(save.payloadBytes)} · {formatDateTime(save.updatedAt)}</small>
                           <p>{summarizeSave(save)}</p>
                         </div>
-                        <button type="button" onClick={() => void deleteSlot(save)}>삭제</button>
+                        <div className="game-save-row-actions">
+                          <button type="button" onClick={() => void loadSlotIntoForm(save)} disabled={saving}>불러오기</button>
+                          {saveRoomHref(save) ? <Link href={saveRoomHref(save)}>방 열기</Link> : null}
+                          <button type="button" className="is-danger" onClick={() => void deleteSlot(save)}>삭제</button>
+                        </div>
                       </article>
                     ))}
                   </div>

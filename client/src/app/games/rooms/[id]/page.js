@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, clearApiGetCache } from '../../../../utils/api';
+import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import { findGameBySlug, gameDetailHref } from '../../_lib/gameCatalog';
 
@@ -17,6 +17,8 @@ const RECORD_RESULT_OPTIONS = [
   ['clear', '클리어'],
   ['fail', '실패'],
 ];
+
+const ROOM_SAVE_VERSION = 'room-state-v1';
 
 function normalizeRouteId(value) {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -53,6 +55,15 @@ function userIdOf(value) {
   return String(value?._id || value?.id || value?.userId || value || '');
 }
 
+function cleanSlotKey(value, fallback = 'room-save') {
+  return String(value || fallback)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || fallback;
+}
+
 function getPlayTimeSec(startedAt) {
   const start = new Date(startedAt || '').getTime();
   if (!Number.isFinite(start)) return 0;
@@ -81,6 +92,51 @@ function buildDefaultRecordForm(room) {
     score: winner === 'player' ? '100' : '0',
     playTimeSec: String(playTimeSec),
     note: '',
+  };
+}
+
+function buildDefaultSaveForm(room) {
+  const roomId = userIdOf(room?._id || room?.id);
+  return {
+    roomId,
+    slotKey: cleanSlotKey(roomId ? `room-${roomId}` : 'room-save'),
+    saveName: `${safeText(room?.title, '게임방')} 저장`,
+    note: '',
+  };
+}
+
+function buildRoomSavePayload(room, form = {}) {
+  const roomState = room?.state && typeof room.state === 'object' ? room.state : {};
+  const settings = room?.settings && typeof room.settings === 'object' ? room.settings : {};
+  const summary = room?.summary && typeof room.summary === 'object' ? room.summary : {};
+  const roomId = userIdOf(room?._id || room?.id);
+  return {
+    saveName: safeText(form.saveName, `${safeText(room?.title, '게임방')} 저장`),
+    version: ROOM_SAVE_VERSION,
+    summary: {
+      source: 'game-room',
+      roomId,
+      roomTitle: safeText(room?.title, '게임방'),
+      roomStatus: safeText(room?.status, 'open'),
+      mode: safeText(room?.mode, ''),
+      revision: Number(room?.revision || 0),
+      playerCount: Number(room?.playerCount || 0),
+      stateBytes: Number(room?.stateBytes || 0),
+      note: safeText(form.note, ''),
+    },
+    payload: {
+      source: 'game-room',
+      roomId,
+      gameSlug: safeText(room?.gameSlug, ''),
+      roomTitle: safeText(room?.title, '게임방'),
+      roomMode: safeText(room?.mode, ''),
+      roomStatus: safeText(room?.status, 'open'),
+      revision: Number(room?.revision || 0),
+      summary,
+      settings,
+      state: roomState,
+      savedAt: new Date().toISOString(),
+    },
   };
 }
 
@@ -150,6 +206,7 @@ export default function GameRoomDetailPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [saveForm, setSaveForm] = useState(() => buildDefaultSaveForm(null));
   const [recordForm, setRecordForm] = useState(() => buildDefaultRecordForm(null));
 
   const game = findGameBySlug(room?.gameSlug);
@@ -162,6 +219,7 @@ export default function GameRoomDetailPage() {
   ), [currentUserId, room?.players]);
   const currentReady = currentPlayer?.status === 'ready';
   const active = room && !['finished', 'closed'].includes(room.status);
+  const canSaveRoom = Boolean(room && (room.isParticipant || room.isHost));
   const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && roomPlayers.length);
   const playHref = room?.gameSlug === 'dual-academy-tcg'
     ? `/games/dual-academy-tcg/play?roomId=${id}`
@@ -195,6 +253,9 @@ export default function GameRoomDetailPage() {
 
   useEffect(() => {
     if (!room?._id) return;
+    setSaveForm((current) => (
+      current.roomId === room._id ? current : buildDefaultSaveForm(room)
+    ));
     setRecordForm((current) => (
       current.roomId === room._id ? current : buildDefaultRecordForm(room)
     ));
@@ -211,6 +272,35 @@ export default function GameRoomDetailPage() {
       showToast({ tone: 'success', message: payload?.message || '처리했습니다.' });
     } catch (err) {
       const message = err?.message || '요청에 실패했습니다.';
+      setError(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const saveRoomSnapshot = async (event) => {
+    event?.preventDefault();
+    if (!token || busy || !room) return;
+    const gameSlug = safeText(room.gameSlug, '');
+    const slotKey = cleanSlotKey(saveForm.slotKey, 'room-save');
+    if (!gameSlug || !slotKey) {
+      const message = '게임과 슬롯 키가 필요합니다.';
+      setError(message);
+      showToast({ tone: 'warning', message });
+      return;
+    }
+
+    setBusy('save-slot');
+    setError('');
+    try {
+      const payload = buildRoomSavePayload(room, { ...saveForm, slotKey });
+      const res = await apiPut(`/game-saves/${gameSlug}/${slotKey}`, payload, { timeoutMs: 20000 });
+      clearApiGetCache('/game-saves');
+      setSaveForm((current) => ({ ...current, slotKey }));
+      showToast({ tone: 'success', message: res?.message || '방 상태를 저장 슬롯에 저장했습니다.' });
+    } catch (err) {
+      const message = err?.message || '방 상태 저장에 실패했습니다.';
       setError(message);
       showToast({ tone: 'danger', message });
     } finally {
@@ -328,6 +418,9 @@ export default function GameRoomDetailPage() {
                   {room.recordedAt ? (
                     <Link href={`/games/records?gameSlug=${room.gameSlug}`}>기록 보기</Link>
                   ) : null}
+                  {canSaveRoom ? (
+                    <Link href={`/games/saves?gameSlug=${room.gameSlug}`}>저장 슬롯</Link>
+                  ) : null}
                   {room.isHost && active ? (
                     <button type="button" className="is-danger" onClick={() => runAction('close', 'status', { status: 'closed' })} disabled={Boolean(busy)}>
                       종료
@@ -350,6 +443,51 @@ export default function GameRoomDetailPage() {
                 </dl>
               </section>
             </section>
+
+            {canSaveRoom ? (
+              <form className="games-panel game-room-record-panel" onSubmit={saveRoomSnapshot}>
+                <div className="games-panel-title">
+                  <h2>진행 저장</h2>
+                  <span>리비전 {Number(room.revision || 0)}</span>
+                </div>
+                <div className="game-room-record-grid is-save">
+                  <label>
+                    <span>슬롯 키</span>
+                    <input
+                      value={saveForm.slotKey}
+                      maxLength={80}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => setSaveForm({ ...saveForm, slotKey: cleanSlotKey(event.target.value, '') })}
+                    />
+                  </label>
+                  <label>
+                    <span>저장 이름</span>
+                    <input
+                      value={saveForm.saveName}
+                      maxLength={80}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => setSaveForm({ ...saveForm, saveName: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <label className="game-room-record-note">
+                  <span>메모</span>
+                  <textarea
+                    rows={3}
+                    value={saveForm.note}
+                    disabled={Boolean(busy)}
+                    onChange={(event) => setSaveForm({ ...saveForm, note: event.target.value })}
+                  />
+                </label>
+                <div className="game-room-record-help">
+                  현재 방의 상태 데이터, 설정, 요약, 리비전을 계정 저장 슬롯에 저장합니다.
+                </div>
+                <div className="account-actions">
+                  <button type="submit" disabled={Boolean(busy)}>{busy === 'save-slot' ? '저장 중...' : '슬롯 저장'}</button>
+                  <Link href={`/games/saves?gameSlug=${room.gameSlug}`}>저장 슬롯 보기</Link>
+                </div>
+              </form>
+            ) : null}
 
             {canRecordResult ? (
               <form className="games-panel game-room-record-panel" onSubmit={recordRoomResult}>

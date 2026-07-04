@@ -4747,15 +4747,38 @@
   overflow-wrap: anywhere;
 }
 
-.game-save-row button {
+.game-save-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.game-save-row button,
+.game-save-row a {
   min-height: 36px;
-  border: 1px solid rgba(214, 48, 49, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.20);
   border-radius: 8px;
-  background: #fff7f7;
-  color: #c0392b;
+  background: #ffffff;
+  color: #1b6fa2;
   cursor: pointer;
   font-weight: 950;
   padding: 0 12px;
+  text-decoration: none;
+}
+
+.game-save-row button.is-danger {
+  border-color: rgba(214, 48, 49, 0.28);
+  background: #fff7f7;
+  color: #c0392b;
+}
+
+.game-save-row button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .games-dashboard {
@@ -5211,6 +5234,10 @@
   gap: 10px;
 }
 
+.game-room-record-grid.is-save {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .game-room-record-grid label,
 .game-room-record-note {
   min-width: 0;
@@ -5218,7 +5245,7 @@
   gap: 6px;
 }
 
-.game-room-record-grid label:first-child {
+.game-room-record-grid:not(.is-save) label:first-child {
   grid-column: span 2;
 }
 
@@ -5245,6 +5272,25 @@
   font-size: 0.84rem;
   font-weight: 850;
   line-height: 1.45;
+}
+
+.game-room-record-panel .account-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.game-room-record-panel .account-actions a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.20);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b6fa2;
+  padding: 0 14px;
+  font-weight: 900;
+  text-decoration: none;
 }
 
 .game-room-adapter-note {
@@ -5484,7 +5530,8 @@
     grid-column: auto;
   }
 
-  .game-save-row button {
+  .game-save-row button,
+  .game-save-row a {
     width: fit-content;
   }
 
