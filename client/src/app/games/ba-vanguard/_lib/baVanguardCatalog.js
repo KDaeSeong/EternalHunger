@@ -1105,6 +1105,61 @@ function lowestShieldCard(hand, excludeCardId) {
     .sort((a, b) => (a.shield === b.shield ? Number(a.trigger) - Number(b.trigger) : a.shield - b.shield))[0]?.cardId || null;
 }
 
+function cardSuffix(cardId) {
+  return String(cardId || '').replace(/^[A-Z]{3}_/, '');
+}
+
+function estimateGGuardianShield(player, guardianId) {
+  const card = getCard(guardianId);
+  if (!card || card.type !== 'g-guardian') return 0;
+  const suffix = cardSuffix(guardianId);
+  const base = Number(card.shield || 0);
+  if (suffix === 'GG_001') return base + 5000;
+  if (guardianId.startsWith('GEH_') && suffix === 'GG_002') return base + 5000;
+  if (guardianId.startsWith('TRI_') && suffix === 'GG_002') return base + (player.drop.length > 0 || player.hand.length > 0 ? 10000 : 0);
+  if (guardianId.startsWith('MIL_') && suffix === 'GG_002') return base + (player.hand.length >= 2 ? 10000 : 0);
+  return base;
+}
+
+function bestGGuardian(player) {
+  return player.gzone
+    .map((cardId, index) => ({ cardId, index, shield: estimateGGuardianShield(player, cardId) }))
+    .filter((row) => getCard(row.cardId)?.type === 'g-guardian')
+    .sort((a, b) => b.shield - a.shield)[0] || null;
+}
+
+function applyGGuardianShield(player, guardianId, battle) {
+  const card = getCard(guardianId);
+  const suffix = cardSuffix(guardianId);
+  let shield = Number(card?.shield || 0);
+  const notes = [];
+
+  if (suffix === 'GG_001') {
+    shield += 5000;
+    notes.push('bonus +5000');
+  } else if (guardianId.startsWith('GEH_') && suffix === 'GG_002') {
+    shield += 5000;
+    notes.push('bonus +5000');
+  } else if (guardianId.startsWith('TRI_') && suffix === 'GG_002') {
+    const moved = player.drop.pop();
+    if (moved) {
+      player.soul.push(moved);
+      shield += 10000;
+      notes.push(`${cardName(moved)} soul +10000`);
+    }
+  } else if (guardianId.startsWith('MIL_') && suffix === 'GG_002') {
+    const extraCost = lowestShieldCard(player.hand);
+    if (extraCost && removeFromHand(player, extraCost)) {
+      player.drop.push(extraCost);
+      shield += 10000;
+      notes.push(`${cardName(extraCost)} extra cost +10000`);
+    }
+  }
+
+  battle.guardShield += shield;
+  return { shield, notes };
+}
+
 export function guardAddFromHand(duel, defenderSide, cardId) {
   const battle = duel.battle;
   if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== defenderSide || battle.defenderCircle !== 'VC') return false;
@@ -1136,10 +1191,7 @@ export function guardGGuardian(duel, defenderSide, costCardId) {
   const battle = duel.battle;
   if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== defenderSide || battle.defenderCircle !== 'VC') return false;
   const player = duel.players[defenderSide];
-  const guardian = player.gzone
-    .map((cardId, index) => ({ cardId, index, shield: Number(getCard(cardId)?.shield || 0) }))
-    .filter((row) => getCard(row.cardId)?.type === 'g-guardian')
-    .sort((a, b) => b.shield - a.shield)[0];
+  const guardian = bestGGuardian(player);
   if (!guardian) return false;
 
   const cost = costCardId && player.hand.includes(costCardId) ? costCardId : lowestShieldCard(player.hand);
@@ -1147,10 +1199,9 @@ export function guardGGuardian(duel, defenderSide, costCardId) {
   player.drop.push(cost);
 
   const guardianId = player.gzone.splice(guardian.index, 1)[0];
-  const shield = Number(getCard(guardianId)?.shield || 0);
-  battle.guardShield += shield;
+  const { shield, notes } = applyGGuardianShield(player, guardianId, battle);
   battle.guardCards.push(guardianId);
-  battle.note.push(`${cardName(guardianId)}: G 가디언 실드 +${shield} / 비용 ${cardName(cost)}`);
+  battle.note.push(`${cardName(guardianId)}: G 가디언 실드 +${shield} / 비용 ${cardName(cost)}${notes.length ? ` / ${notes.join(', ')}` : ''}`);
   pushLog(duel, defenderSide, `${cardName(guardianId)}를 G 가디언으로 사용했습니다.`);
   return true;
 }
@@ -1263,6 +1314,11 @@ function aiMainPhase(duel) {
   activateVCAct(duel, side);
 }
 
+function canGGuardianBlock(player, defenseTotal, attackPower) {
+  const guardian = bestGGuardian(player);
+  return Boolean(guardian && player.hand.length > 0 && defenseTotal + guardian.shield > attackPower);
+}
+
 function aiGuard(duel) {
   const battle = duel.battle;
   if (!battle || battle.step !== 'GUARD' || battle.defenderSide !== 'opp' || battle.defenderCircle !== 'VC') return false;
@@ -1273,8 +1329,10 @@ function aiGuard(duel) {
 
   if (baseDefense + battle.guardShield > attackPower) return true;
   const sentinel = player.hand.find((cardId) => getCard(cardId)?.type === 'sentinel');
-  if (player.damage.length >= 4 && sentinel && player.hand.length >= 2) return guardAddFromHand(duel, 'opp', sentinel);
-  if (player.damage.length >= 3 && guardGGuardian(duel, 'opp')) return true;
+  const highDamage = player.damage.length >= 4;
+  if (highDamage && canGGuardianBlock(player, baseDefense + battle.guardShield, attackPower) && guardGGuardian(duel, 'opp')) return true;
+  if (sentinel && player.hand.length >= 2) return guardAddFromHand(duel, 'opp', sentinel);
+  if (canGGuardianBlock(player, baseDefense + battle.guardShield, attackPower) && guardGGuardian(duel, 'opp')) return true;
 
   const guards = [...player.hand]
     .map((cardId) => ({ cardId, shield: Number(getCard(cardId)?.shield || 0), sentinel: getCard(cardId)?.type === 'sentinel' }))
@@ -1313,11 +1371,20 @@ export function autoGuardPlayer(duel, side) {
   const baseDefense = powerOfUnit(defender);
   if (baseDefense + battle.guardShield > attackPower) return true;
 
-  const best = [...player.hand]
+  const sentinel = player.hand.find((cardId) => getCard(cardId)?.type === 'sentinel');
+  const highDamage = player.damage.length >= 4;
+  if (highDamage && canGGuardianBlock(player, baseDefense + battle.guardShield, attackPower) && guardGGuardian(duel, side)) return true;
+  if (sentinel && player.hand.length >= 2 && guardAddFromHand(duel, side, sentinel)) return true;
+  if (canGGuardianBlock(player, baseDefense + battle.guardShield, attackPower) && guardGGuardian(duel, side)) return true;
+
+  const guards = [...player.hand]
     .map((cardId) => ({ cardId, shield: Number(getCard(cardId)?.shield || 0), sentinel: getCard(cardId)?.type === 'sentinel' }))
     .filter((row) => row.shield > 0 && !row.sentinel)
-    .sort((a, b) => b.shield - a.shield)[0]?.cardId;
-  if (best) guardAddFromHand(duel, side, best);
+    .sort((a, b) => b.shield - a.shield);
+  for (const guard of guards) {
+    if (baseDefense + battle.guardShield > attackPower) break;
+    guardAddFromHand(duel, side, guard.cardId);
+  }
   return true;
 }
 
