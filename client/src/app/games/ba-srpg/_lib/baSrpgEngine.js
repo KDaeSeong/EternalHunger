@@ -325,6 +325,14 @@ export const QUESTS = [
 
 const OBSTACLES = new Set(['3,1', '3,2', '4,4']);
 const COVER = new Set(['2,0', '2,4', '5,3']);
+const AI_RULES = {
+  takeCover: 'AI_TAKE_COVER',
+  attackIfInRange: 'AI_ATTACK_IF_IN_RANGE',
+  moveToAttack: 'AI_MOVE_TO_ATTACK',
+  moveToward: 'AI_MOVE_TOWARD',
+  wait: 'AI_WAIT',
+};
+const AI_COVER_HP_RATIO = 0.42;
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -763,6 +771,11 @@ function tileDefense(x, y) {
   return COVER.has(keyOf(x, y)) ? 2 : 0;
 }
 
+function coverDamageNote(actor) {
+  const reduction = tileDefense(actor.x, actor.y);
+  return reduction > 0 ? ` (엄폐 피해감소 -${reduction})` : '';
+}
+
 function selectedUnit(battle) {
   return battle.units.find((unit) => unit.id === battle.selectedUnitId && unit.hp > 0)
     || battle.units.find((unit) => unit.hp > 0)
@@ -1149,7 +1162,13 @@ export function consumeBandageAction(state) {
 }
 
 function stepToward(actor, target, battle) {
-  const candidates = [
+  const candidates = openAdjacentTiles(actor, battle);
+  candidates.sort((a, b) => distance(a, target) - distance(b, target));
+  return candidates[0] || { x: actor.x, y: actor.y };
+}
+
+function openAdjacentTiles(actor, battle) {
+  return [
     { x: actor.x + 1, y: actor.y },
     { x: actor.x - 1, y: actor.y },
     { x: actor.x, y: actor.y + 1 },
@@ -1157,8 +1176,21 @@ function stepToward(actor, target, battle) {
   ].filter((pos) => inside(pos.x, pos.y)
     && !OBSTACLES.has(keyOf(pos.x, pos.y))
     && !occupiedBy(battle.units, battle.enemies, pos.x, pos.y, actor.id));
-  candidates.sort((a, b) => distance(a, target) - distance(b, target));
-  return candidates[0] || { x: actor.x, y: actor.y };
+}
+
+function coverStep(actor, target, battle) {
+  if (tileDefense(actor.x, actor.y) > 0) return null;
+  const candidates = openAdjacentTiles(actor, battle).filter((pos) => tileDefense(pos.x, pos.y) > 0);
+  candidates.sort((a, b) => {
+    const distanceDelta = distance(a, target) - distance(b, target);
+    if (distanceDelta !== 0) return distanceDelta;
+    return keyOf(a.x, a.y).localeCompare(keyOf(b.x, b.y));
+  });
+  return candidates[0] || null;
+}
+
+function aiRuleLog(rule, message) {
+  return `[${rule}] ${message}`;
 }
 
 function enemyPhase(state) {
@@ -1171,22 +1203,46 @@ function enemyPhase(state) {
     const alive = units.filter((unit) => unit.hp > 0);
     if (!alive.length || enemy.hp <= 0) return;
     if (hasStatus(enemy, 'st_stun')) {
-      messages.push(`${enemy.name} 기절로 행동 불가`);
+      messages.push(aiRuleLog(AI_RULES.wait, `${enemy.name} 기절로 행동 불가`));
       return;
     }
-    const target = [...alive].sort((a, b) => distance(enemy, a) - distance(enemy, b))[0];
-    if (distance(enemy, target) > Number(enemy.range || 1)) {
-      const pos = stepToward(enemy, target, { ...battle, units, enemies });
-      enemies = enemies.map((row) => row.id === enemy.id ? { ...row, x: pos.x, y: pos.y } : row);
-      messages.push(`${enemy.name} 접근`);
-      return;
+    let actor = enemies.find((row) => row.id === enemy.id) || enemy;
+    let target = [...alive].sort((a, b) => distance(actor, a) - distance(actor, b))[0];
+    const lowHp = Number(actor.hp || 0) / Math.max(1, Number(actor.maxHp || actor.hp || 1)) <= AI_COVER_HP_RATIO;
+    const cover = lowHp ? coverStep(actor, target, { ...battle, units, enemies }) : null;
+    let usedCoverMove = false;
+    if (cover) {
+      actor = { ...actor, x: cover.x, y: cover.y };
+      enemies = enemies.map((row) => row.id === actor.id ? actor : row);
+      usedCoverMove = true;
+      messages.push(aiRuleLog(AI_RULES.takeCover, `${actor.name} 엄폐 이동 (${actor.x + 1},${actor.y + 1})`));
     }
-    const damage = Math.max(1, Number(enemy.atk || 0) - Number(target.def || 0) - tileDefense(target.x, target.y));
+
+    target = units.filter((unit) => unit.hp > 0).sort((a, b) => distance(actor, a) - distance(actor, b))[0];
+    if (!target) return;
+    const range = Number(actor.range || 1);
+    if (distance(actor, target) > range) {
+      if (usedCoverMove) return;
+      const pos = stepToward(actor, target, { ...battle, units, enemies });
+      const moved = pos.x !== actor.x || pos.y !== actor.y;
+      if (!moved) {
+        messages.push(aiRuleLog(AI_RULES.wait, `${actor.name} 이동 불가`));
+        return;
+      }
+      const nextDistance = distance(pos, target);
+      const moveRule = nextDistance <= range ? AI_RULES.moveToAttack : AI_RULES.moveToward;
+      actor = { ...actor, x: pos.x, y: pos.y };
+      enemies = enemies.map((row) => row.id === actor.id ? actor : row);
+      messages.push(aiRuleLog(moveRule, `${actor.name} 이동 (${actor.x + 1},${actor.y + 1})`));
+      if (nextDistance > range) return;
+    }
+
+    const damage = Math.max(1, Number(actor.atk || 0) - Number(target.def || 0) - tileDefense(target.x, target.y));
     const damageResult = absorbDamage(target, damage);
     units = units.map((unit) => (
       unit.id === target.id ? damageResult.actor : unit
     ));
-    messages.push(`${enemy.name} -> ${target.name} ${damage} 피해${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`);
+    messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} -> ${target.name} ${damage} 피해${coverDamageNote(target)}${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`));
   });
 
   const ticked = processRoundEndTicks({ ...battle, units, enemies });
