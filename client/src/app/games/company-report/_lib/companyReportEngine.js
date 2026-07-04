@@ -77,6 +77,8 @@ export function createNewState(options = {}) {
       },
     ],
     ledgerSnapshots: [],
+    reportBookmarks: [],
+    exportHistory: [],
     nextOrderNo: 5,
     nextReceivableNo: 4,
     log: ['청람 경영 원장을 불러왔습니다. 주문, 출고, 회수, 월말 결산을 진행해 보고서를 갱신하세요.'],
@@ -95,6 +97,8 @@ export function normalizeState(value) {
     receivables: Array.isArray(value.receivables) ? value.receivables : base.receivables,
     settlements: Array.isArray(value.settlements) ? value.settlements : base.settlements,
     ledgerSnapshots: Array.isArray(value.ledgerSnapshots) ? value.ledgerSnapshots : [],
+    reportBookmarks: Array.isArray(value.reportBookmarks) ? value.reportBookmarks.slice(0, 12) : [],
+    exportHistory: Array.isArray(value.exportHistory) ? value.exportHistory.slice(0, 12) : [],
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
   };
 }
@@ -277,6 +281,89 @@ export function restoreLatestSnapshotAction(state) {
   }, `${snapshot.label} 기준으로 원장 상태를 복원했습니다.`);
 }
 
+export function bookmarkCurrentReportAction(state) {
+  const current = normalizeState(state);
+  const summary = reportSummary(current);
+  const management = managementReport(current);
+  const latest = summary.latestSettlement;
+  const label = latest
+    ? `${latest.year}-${String(latest.month).padStart(2, '0')} 결산 리포트`
+    : `${current.company.year}-${String(current.company.month).padStart(2, '0')} 진행 리포트`;
+  const bookmark = {
+    id: `BM-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    label,
+    favorite: true,
+    year: latest?.year || current.company.year,
+    month: latest?.month || current.company.month,
+    sales: management.income.sales,
+    operatingProfit: management.income.operatingProfit,
+    netProfit: latest?.netProfit ?? management.income.operatingProfit,
+    cashKrw: current.company.cashKrw,
+    assets: summary.assets,
+    receivableAmount: summary.receivableAmount,
+    score: scoreState(current),
+    note: management.recommendations[0] || '특이사항 없음',
+  };
+  return addLog({
+    ...current,
+    reportBookmarks: [bookmark, ...current.reportBookmarks.filter((item) => item.label !== label)].slice(0, 12),
+  }, `${label}를 북마크했습니다.`);
+}
+
+export function ledgerDiffRows(state) {
+  const current = normalizeState(state);
+  const snapshot = current.ledgerSnapshots[0];
+  if (!snapshot?.payload) return [];
+  const before = ledgerComparableSummary(snapshot.payload);
+  const after = ledgerComparableSummary(snapshotPayload(current));
+  return [
+    textDiffRow('월', before.period, after.period),
+    moneyDiffRow('현금', before.cashKrw, after.cashKrw),
+    moneyDiffRow('재고 장부', before.inventoryAmount, after.inventoryAmount),
+    moneyDiffRow('채권 잔액', before.receivableAmount, after.receivableAmount),
+    numberDiffRow('주문', before.orderCount, after.orderCount, '건'),
+    numberDiffRow('출고 주문', before.shippedOrders, after.shippedOrders, '건'),
+    numberDiffRow('미수 채권', before.openReceivables, after.openReceivables, '건'),
+    numberDiffRow('결산', before.settlementCount, after.settlementCount, '건'),
+    numberDiffRow('평판', before.reputation, after.reputation),
+    numberDiffRow('팬덤', before.fanBase, after.fanBase, '명'),
+  ];
+}
+
+export function createProgressExportAction(state) {
+  const current = normalizeState(state);
+  const summary = reportSummary(current);
+  const management = managementReport(current);
+  const diffRows = ledgerDiffRows(current);
+  const content = [
+    `Company Report Export / ${current.company.name}`,
+    `Period: ${current.company.year}-${String(current.company.month).padStart(2, '0')}`,
+    `Score: ${scoreState(current)}`,
+    `Cash: ${formatMoney(current.company.cashKrw)}`,
+    `Assets: ${formatMoney(summary.assets)}`,
+    `Receivables: ${formatMoney(summary.receivableAmount)}`,
+    `Sales: ${formatMoney(management.income.sales)}`,
+    `Operating Profit: ${formatMoney(management.income.operatingProfit)}`,
+    `Snapshots: ${current.ledgerSnapshots.length}`,
+    diffRows.length ? 'Ledger Diff:' : 'Ledger Diff: no snapshot',
+    ...diffRows.map((row) => `- ${row.label}: ${row.before} -> ${row.after} (${row.deltaText})`),
+  ].join('\n');
+  const exportItem = {
+    id: `EXP-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    exportType: 'MANAGEMENT_REPORT',
+    itemCount: 8 + diffRows.length,
+    exportNote: `${current.company.year}-${String(current.company.month).padStart(2, '0')} 진행 보고서`,
+    checksum: simpleChecksum(content),
+    content,
+  };
+  return addLog({
+    ...current,
+    exportHistory: [exportItem, ...current.exportHistory].slice(0, 12),
+  }, `진행 보고서를 내보냈습니다. checksum ${exportItem.checksum}.`);
+}
+
 export function inventoryRows(state) {
   const current = normalizeState(state);
   return PRODUCTS.map((product) => {
@@ -449,6 +536,8 @@ export function summaryForState(state) {
     receivables: report.receivableAmount,
     inventory: report.inventoryAmount,
     snapshots: current.ledgerSnapshots.length,
+    bookmarks: current.reportBookmarks.length,
+    exports: current.exportHistory.length,
     score: scoreState(current),
   };
 }
@@ -515,6 +604,58 @@ function snapshotPayload(state) {
     settlements: JSON.parse(JSON.stringify(state.settlements)),
     nextOrderNo: state.nextOrderNo,
     nextReceivableNo: state.nextReceivableNo,
+  };
+}
+
+function ledgerComparableSummary(payload) {
+  const inventoryEntries = Object.values(payload.inventory || {});
+  const receivableEntries = Object.values(payload.receivables || {});
+  const orderEntries = Object.values(payload.orders || {});
+  const company = payload.company || {};
+  return {
+    period: `${company.year || '-'}-${String(company.month || 0).padStart(2, '0')}`,
+    cashKrw: Number(company.cashKrw || 0),
+    inventoryAmount: inventoryEntries.reduce((sum, row) => sum + Number(row.onHand || 0) * Number(row.avgCost || 0), 0),
+    receivableAmount: receivableEntries.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0) - Number(row.collected || 0)), 0),
+    orderCount: orderEntries.length,
+    shippedOrders: orderEntries.filter((row) => row.status === 'SHIPPED' || row.status === 'COMPLETED').length,
+    openReceivables: receivableEntries.filter((row) => Math.max(0, Number(row.amount || 0) - Number(row.collected || 0)) > 0).length,
+    settlementCount: Array.isArray(payload.settlements) ? payload.settlements.length : 0,
+    reputation: Number(company.reputation || 0),
+    fanBase: Number(company.fanBase || 0),
+  };
+}
+
+function moneyDiffRow(label, before, after) {
+  const delta = Number(after || 0) - Number(before || 0);
+  return {
+    label,
+    before: formatMoney(before),
+    after: formatMoney(after),
+    deltaValue: delta,
+    deltaText: `${delta >= 0 ? '+' : ''}${formatMoney(delta)}`,
+  };
+}
+
+function numberDiffRow(label, before, after, suffix = '') {
+  const delta = Number(after || 0) - Number(before || 0);
+  const format = (value) => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}${suffix}`;
+  return {
+    label,
+    before: format(before),
+    after: format(after),
+    deltaValue: delta,
+    deltaText: `${delta >= 0 ? '+' : ''}${format(delta)}`,
+  };
+}
+
+function textDiffRow(label, before, after) {
+  return {
+    label,
+    before,
+    after,
+    deltaValue: before === after ? 0 : 1,
+    deltaText: before === after ? '변동 없음' : '변경',
   };
 }
 

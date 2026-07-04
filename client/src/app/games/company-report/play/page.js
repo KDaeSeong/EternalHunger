@@ -13,13 +13,16 @@ import {
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
   collectReceivableAction,
+  bookmarkCurrentReportAction,
   createLedgerSnapshotAction,
   createNewState,
   createOrderAction,
+  createProgressExportAction,
   formatMoney,
   getPlayTimeSec,
   inboundInventoryAction,
   inventoryRows,
+  ledgerDiffRows,
   marketingCampaignAction,
   managementReport,
   monthEndCloseAction,
@@ -74,10 +77,13 @@ export default function CompanyReportPlayPage() {
   const stocks = useMemo(() => inventoryRows(state), [state]);
   const orders = useMemo(() => orderRows(state), [state]);
   const receivables = useMemo(() => receivableRows(state), [state]);
+  const ledgerDiff = useMemo(() => ledgerDiffRows(state), [state]);
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders.find((order) => order.status === 'CONFIRMED') || orders[0];
   const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId) || receivables.find((ar) => ar.remaining > 0) || receivables[0];
   const latestSettlement = report.latestSettlement;
   const latestSnapshot = state.ledgerSnapshots[0];
+  const latestBookmark = state.reportBookmarks[0];
+  const latestExport = state.exportHistory[0];
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -188,6 +194,8 @@ export default function CompanyReportPlayPage() {
     { label: '현금', value: formatMoney(state.company.cashKrw) },
     { label: '채권', value: formatMoney(report.receivableAmount) },
     { label: '스냅샷', value: state.ledgerSnapshots.length },
+    { label: '북마크', value: state.reportBookmarks.length },
+    { label: '내보내기', value: state.exportHistory.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -274,6 +282,8 @@ export default function CompanyReportPlayPage() {
             <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
             <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
             <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
+            <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+            <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
           </div>
         </section>
       </section>
@@ -343,6 +353,24 @@ export default function CompanyReportPlayPage() {
             ))}
           </div>
         </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>스냅샷 diff</h2>
+            <span>{latestSnapshot?.checksum || '스냅샷 없음'}</span>
+          </div>
+          <div className="game-save-list">
+            {ledgerDiff.length ? ledgerDiff.map((row) => (
+              <article className="game-save-row" key={row.label}>
+                <div>
+                  <span>{row.before} → {row.after}</span>
+                  <strong>{row.label}</strong>
+                </div>
+                <strong>{row.deltaText}</strong>
+              </article>
+            )) : <div className="games-empty">스냅샷을 생성하면 현재 원장과의 차이를 볼 수 있습니다.</div>}
+          </div>
+        </section>
       </section>
 
       <section className="games-dashboard">
@@ -385,6 +413,44 @@ export default function CompanyReportPlayPage() {
                 <strong>{new Date(snapshot.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</strong>
               </article>
             )) : <div className="games-empty">아직 원장 스냅샷이 없습니다.</div>}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>리포트 아카이브</h2>
+            <span>{latestBookmark?.label || '북마크 없음'}</span>
+          </div>
+          <div className="game-save-list">
+            {state.reportBookmarks.length ? state.reportBookmarks.slice(0, 5).map((bookmark) => (
+              <article className="game-save-row" key={bookmark.id}>
+                <div>
+                  <span>{bookmark.favorite ? '즐겨찾기' : '일반'} / {bookmark.note}</span>
+                  <strong>{bookmark.label}</strong>
+                  <span>자산 {formatMoney(bookmark.assets)} / 채권 {formatMoney(bookmark.receivableAmount)}</span>
+                </div>
+                <strong>{Number(bookmark.score || 0).toLocaleString('ko-KR')}</strong>
+              </article>
+            )) : <div className="games-empty">중요한 결산이나 진행 리포트를 북마크할 수 있습니다.</div>}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>내보내기 기록</h2>
+            <span>{latestExport?.checksum || '기록 없음'}</span>
+          </div>
+          <div className="game-save-list">
+            {state.exportHistory.length ? state.exportHistory.slice(0, 5).map((item) => (
+              <article className="game-save-row" key={item.id}>
+                <div>
+                  <span>{item.exportType} / {item.itemCount} items</span>
+                  <strong>{item.exportNote}</strong>
+                  <span>{String(item.content || '').split('\n').slice(0, 2).join(' / ')}</span>
+                </div>
+                <strong>{item.checksum}</strong>
+              </article>
+            )) : <div className="games-empty">진행 내보내기를 실행하면 감사용 기록이 남습니다.</div>}
           </div>
         </section>
       </section>
