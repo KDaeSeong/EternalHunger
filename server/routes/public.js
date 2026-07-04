@@ -362,7 +362,7 @@ function mapHubRoomResult(room) {
     kind: 'room-result',
     gameSlug: base.gameSlug,
     href: base.href,
-    title: result.roomTitle || base.title || '게임 결과',
+    title: result.recordTitle || result.roomTitle || base.title || '게임 결과',
     playedAt: room?.recordedAt || room?.endedAt || room?.updatedAt || null,
     matchMode: base.mode,
     status: base.status,

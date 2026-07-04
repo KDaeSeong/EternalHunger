@@ -451,10 +451,14 @@ router.post('/:id/records', verifyToken, async (req, res) => {
     const playedAt = req.body?.playedAt ? new Date(req.body.playedAt) : now;
     const safePlayedAt = playedAt && !Number.isNaN(playedAt.getTime()) ? playedAt : now;
     const winnerUserId = normalizeId(req.body?.winnerUserId);
+    const title = cleanText(req.body?.title, room.title || '게임방 기록', 120);
+    const mode = cleanText(req.body?.mode, room.mode || '', 80);
+    const playTimeSec = toNonNegativeInt(req.body?.playTimeSec);
     const baseSummary = {
       ...normalizeObject(req.body?.summary),
       roomId,
       roomTitle: room.title || '',
+      recordTitle: title,
       roomStatus: room.status || 'open',
       winnerUserId,
       playerCount: players.length,
@@ -469,9 +473,6 @@ router.post('/:id/records', verifyToken, async (req, res) => {
       return res.status(413).json({ error: `방 결과 데이터는 ${MAX_ROOM_RECORD_PAYLOAD_BYTES.toLocaleString('ko-KR')}바이트 이내로 입력해주세요.` });
     }
 
-    const title = cleanText(req.body?.title, room.title || '게임방 기록', 120);
-    const mode = cleanText(req.body?.mode, room.mode || '', 80);
-    const playTimeSec = toNonNegativeInt(req.body?.playTimeSec);
     const records = players.map((player) => {
       const playerId = normalizeId(player.userId);
       return {

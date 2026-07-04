@@ -5150,7 +5150,10 @@
 
 .game-room-toolbar select,
 .game-room-create-grid input,
-.game-room-create-grid select {
+.game-room-create-grid select,
+.game-room-record-grid input,
+.game-room-record-grid select,
+.game-room-record-note textarea {
   min-width: 0;
   min-height: 42px;
   border: 1px solid rgba(22, 33, 44, 0.16);
@@ -5196,6 +5199,52 @@
   color: #64717d;
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.game-room-record-panel {
+  align-content: start;
+}
+
+.game-room-record-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.game-room-record-grid label,
+.game-room-record-note {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.game-room-record-grid label:first-child {
+  grid-column: span 2;
+}
+
+.game-room-record-grid span,
+.game-room-record-note span {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.game-room-record-note textarea {
+  min-height: 92px;
+  resize: vertical;
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+
+.game-room-record-help {
+  border: 1px solid rgba(44, 111, 158, 0.14);
+  border-radius: 8px;
+  background: #f8fbfd;
+  color: #52606b;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  font-weight: 850;
+  line-height: 1.45;
 }
 
 .game-room-adapter-note {
@@ -5426,8 +5475,13 @@
   .game-save-row,
   .game-room-toolbar,
   .game-room-create-grid,
+  .game-room-record-grid,
   .game-room-info-list div {
     grid-template-columns: 1fr;
+  }
+
+  .game-room-record-grid label:first-child {
+    grid-column: auto;
   }
 
   .game-save-row button {

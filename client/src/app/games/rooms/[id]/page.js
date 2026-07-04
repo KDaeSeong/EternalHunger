@@ -9,6 +9,15 @@ import { apiGet, apiPost, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../../utils/client-auth';
 import { findGameBySlug, gameDetailHref } from '../../_lib/gameCatalog';
 
+const RECORD_RESULT_OPTIONS = [
+  ['none', '기록'],
+  ['win', '승리'],
+  ['loss', '패배'],
+  ['draw', '무승부'],
+  ['clear', '클리어'],
+  ['fail', '실패'],
+];
+
 function normalizeRouteId(value) {
   const raw = Array.isArray(value) ? value[0] : value;
   return raw == null ? '' : String(raw);
@@ -54,13 +63,38 @@ function activeRoomPlayers(room) {
   return Array.isArray(room?.players) ? room.players.filter((player) => player?.status !== 'left') : [];
 }
 
-function buildRoomRecordPayload(room) {
+function playerDisplayName(player) {
+  return safeText(player?.displayName || player?.user?.displayName || player?.user?.nickname || player?.user?.username, '사용자');
+}
+
+function buildDefaultRecordForm(room) {
+  const roomState = room?.state && typeof room.state === 'object' ? room.state : {};
+  const matchState = roomState.state && typeof roomState.state === 'object' ? roomState.state : {};
+  const hostId = userIdOf(room?.hostId);
+  const winner = String(matchState.winner || '');
+  const playTimeSec = getPlayTimeSec(matchState.startedAt || room?.startedAt || room?.createdAt);
+  return {
+    roomId: userIdOf(room?._id || room?.id),
+    title: `${safeText(room?.title, '게임방')} 결과`,
+    winnerUserId: winner === 'player' ? hostId : '',
+    result: winner === 'enemy' ? 'loss' : 'none',
+    score: winner === 'player' ? '100' : '0',
+    playTimeSec: String(playTimeSec),
+    note: '',
+  };
+}
+
+function buildRoomRecordPayload(room, form = {}) {
   const roomState = room?.state && typeof room.state === 'object' ? room.state : {};
   const matchState = roomState.state && typeof roomState.state === 'object' ? roomState.state : {};
   const players = activeRoomPlayers(room);
   const hostId = userIdOf(room?.hostId);
   const winner = String(matchState.winner || '');
-  const winnerUserId = winner === 'player' ? hostId : '';
+  const manualWinnerUserId = userIdOf(form.winnerUserId);
+  const winnerUserId = manualWinnerUserId || (winner === 'player' ? hostId : '');
+  const commonResult = String(form.result || (winner === 'enemy' ? 'loss' : 'none')).trim() || 'none';
+  const manualScore = Number(form.score);
+  const hasManualScore = Number.isFinite(manualScore);
   const resultByUserId = {};
   const scoreByUserId = {};
   const turn = Number(matchState.turn || 0);
@@ -70,27 +104,33 @@ function buildRoomRecordPayload(room) {
   players.forEach((player) => {
     const playerId = userIdOf(player?.userId);
     if (!playerId) return;
-    if (winner === 'player') resultByUserId[playerId] = playerId === hostId ? 'win' : 'loss';
-    else if (winner === 'enemy') resultByUserId[playerId] = 'loss';
-    else resultByUserId[playerId] = 'none';
-    scoreByUserId[playerId] = resultByUserId[playerId] === 'win'
+    if (winnerUserId) resultByUserId[playerId] = playerId === winnerUserId ? 'win' : 'loss';
+    else resultByUserId[playerId] = commonResult;
+    scoreByUserId[playerId] = hasManualScore
+      ? manualScore
+      : resultByUserId[playerId] === 'win'
       ? 100 + Math.max(0, playerHealth) + Math.max(0, 12 - turn)
       : Math.max(0, enemyHealth);
   });
 
+  const playTimeSec = Number(form.playTimeSec);
   return {
-    title: `${safeText(room?.title, '게임방')} 결과`,
+    title: safeText(form.title, `${safeText(room?.title, '게임방')} 결과`),
     mode: safeText(room?.mode, room?.gameSlug || ''),
     winnerUserId,
     resultByUserId,
     scoreByUserId,
-    playTimeSec: getPlayTimeSec(matchState.startedAt || room?.startedAt || room?.createdAt),
+    result: winnerUserId ? 'none' : commonResult,
+    playTimeSec: Number.isFinite(playTimeSec) ? Math.max(0, Math.floor(playTimeSec)) : getPlayTimeSec(matchState.startedAt || room?.startedAt || room?.createdAt),
     summary: {
       deckName: roomState.deckName || '',
       turn,
       playerHealth,
       enemyHealth,
       winner: winner || 'none',
+      manualWinnerUserId,
+      commonResult,
+      note: safeText(form.note, ''),
     },
     payload: {
       roomState,
@@ -110,9 +150,11 @@ export default function GameRoomDetailPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [recordForm, setRecordForm] = useState(() => buildDefaultRecordForm(null));
 
   const game = findGameBySlug(room?.gameSlug);
   const currentUserId = userIdOf(user);
+  const roomPlayers = useMemo(() => activeRoomPlayers(room), [room]);
   const currentPlayer = useMemo(() => (
     Array.isArray(room?.players)
       ? room.players.find((player) => String(player.userId || player.user?._id || '') === currentUserId)
@@ -120,7 +162,7 @@ export default function GameRoomDetailPage() {
   ), [currentUserId, room?.players]);
   const currentReady = currentPlayer?.status === 'ready';
   const active = room && !['finished', 'closed'].includes(room.status);
-  const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && activeRoomPlayers(room).length);
+  const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && roomPlayers.length);
   const playHref = room?.gameSlug === 'dual-academy-tcg'
     ? `/games/dual-academy-tcg/play?roomId=${id}`
     : game?.primaryHref || '';
@@ -151,6 +193,13 @@ export default function GameRoomDetailPage() {
     void loadRoom();
   }, [loadRoom]);
 
+  useEffect(() => {
+    if (!room?._id) return;
+    setRecordForm((current) => (
+      current.roomId === room._id ? current : buildDefaultRecordForm(room)
+    ));
+  }, [room]);
+
   const runAction = async (key, path, body = {}) => {
     if (!token || busy) return;
     setBusy(key);
@@ -169,14 +218,16 @@ export default function GameRoomDetailPage() {
     }
   };
 
-  const recordRoomResult = async () => {
+  const recordRoomResult = async (event) => {
+    event?.preventDefault();
     if (!token || busy || !room) return;
     setBusy('record');
     setError('');
     try {
-      const payload = await apiPost(`/game-rooms/${id}/records`, buildRoomRecordPayload(room), { timeoutMs: 15000 });
+      const payload = await apiPost(`/game-rooms/${id}/records`, buildRoomRecordPayload(room, recordForm), { timeoutMs: 15000 });
       clearApiGetCache('/game-rooms');
       clearApiGetCache('/game-records');
+      clearApiGetCache(`/public/games/${room.gameSlug}/hub`);
       setRoom(payload?.room || room);
       showToast({ tone: 'success', message: payload?.message || '방 결과를 기록했습니다.' });
     } catch (err) {
@@ -274,11 +325,6 @@ export default function GameRoomDetailPage() {
                       완료
                     </button>
                   ) : null}
-                  {canRecordResult ? (
-                    <button type="button" onClick={recordRoomResult} disabled={Boolean(busy)}>
-                      {busy === 'record' ? '기록 중...' : '결과 기록'}
-                    </button>
-                  ) : null}
                   {room.recordedAt ? (
                     <Link href={`/games/records?gameSlug=${room.gameSlug}`}>기록 보기</Link>
                   ) : null}
@@ -304,6 +350,85 @@ export default function GameRoomDetailPage() {
                 </dl>
               </section>
             </section>
+
+            {canRecordResult ? (
+              <form className="games-panel game-room-record-panel" onSubmit={recordRoomResult}>
+                <div className="games-panel-title">
+                  <h2>결과 확정</h2>
+                  <span>전적 {roomPlayers.length}건 생성</span>
+                </div>
+                <div className="game-room-record-grid">
+                  <label>
+                    <span>기록 제목</span>
+                    <input
+                      value={recordForm.title}
+                      maxLength={120}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => setRecordForm({ ...recordForm, title: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>승자</span>
+                    <select
+                      value={recordForm.winnerUserId}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => setRecordForm({ ...recordForm, winnerUserId: event.target.value })}
+                    >
+                      <option value="">승자 없음</option>
+                      {roomPlayers.map((player) => (
+                        <option value={userIdOf(player.userId)} key={`winner-${player.userId}`}>{playerDisplayName(player)}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>공통 결과</span>
+                    <select
+                      value={recordForm.result}
+                      disabled={Boolean(busy) || Boolean(recordForm.winnerUserId)}
+                      onChange={(event) => setRecordForm({ ...recordForm, result: event.target.value })}
+                    >
+                      {RECORD_RESULT_OPTIONS.map(([value, label]) => (
+                        <option value={value} key={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>점수</span>
+                    <input
+                      type="number"
+                      value={recordForm.score}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => setRecordForm({ ...recordForm, score: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    <span>플레이 시간(초)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={recordForm.playTimeSec}
+                      disabled={Boolean(busy)}
+                      onChange={(event) => setRecordForm({ ...recordForm, playTimeSec: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <label className="game-room-record-note">
+                  <span>메모</span>
+                  <textarea
+                    rows={3}
+                    value={recordForm.note}
+                    disabled={Boolean(busy)}
+                    onChange={(event) => setRecordForm({ ...recordForm, note: event.target.value })}
+                  />
+                </label>
+                <div className="game-room-record-help">
+                  {recordForm.winnerUserId ? '선택한 승자는 승리, 나머지 참가자는 패배로 저장됩니다.' : '승자 없음이면 공통 결과가 모든 참가자 기록에 적용됩니다.'}
+                </div>
+                <div className="account-actions">
+                  <button type="submit" disabled={Boolean(busy)}>{busy === 'record' ? '기록 중...' : '전적 생성'}</button>
+                </div>
+              </form>
+            ) : null}
 
             <section className="games-panel">
               <div className="games-panel-title">
