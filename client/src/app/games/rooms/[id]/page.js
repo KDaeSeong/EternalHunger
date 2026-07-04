@@ -44,6 +44,60 @@ function userIdOf(value) {
   return String(value?._id || value?.id || value?.userId || value || '');
 }
 
+function getPlayTimeSec(startedAt) {
+  const start = new Date(startedAt || '').getTime();
+  if (!Number.isFinite(start)) return 0;
+  return Math.max(0, Math.floor((Date.now() - start) / 1000));
+}
+
+function activeRoomPlayers(room) {
+  return Array.isArray(room?.players) ? room.players.filter((player) => player?.status !== 'left') : [];
+}
+
+function buildRoomRecordPayload(room) {
+  const roomState = room?.state && typeof room.state === 'object' ? room.state : {};
+  const matchState = roomState.state && typeof roomState.state === 'object' ? roomState.state : {};
+  const players = activeRoomPlayers(room);
+  const hostId = userIdOf(room?.hostId);
+  const winner = String(matchState.winner || '');
+  const winnerUserId = winner === 'player' ? hostId : '';
+  const resultByUserId = {};
+  const scoreByUserId = {};
+  const turn = Number(matchState.turn || 0);
+  const playerHealth = Number(matchState.playerHealth || 0);
+  const enemyHealth = Number(matchState.enemyHealth || 0);
+
+  players.forEach((player) => {
+    const playerId = userIdOf(player?.userId);
+    if (!playerId) return;
+    if (winner === 'player') resultByUserId[playerId] = playerId === hostId ? 'win' : 'loss';
+    else if (winner === 'enemy') resultByUserId[playerId] = 'loss';
+    else resultByUserId[playerId] = 'none';
+    scoreByUserId[playerId] = resultByUserId[playerId] === 'win'
+      ? 100 + Math.max(0, playerHealth) + Math.max(0, 12 - turn)
+      : Math.max(0, enemyHealth);
+  });
+
+  return {
+    title: `${safeText(room?.title, '게임방')} 결과`,
+    mode: safeText(room?.mode, room?.gameSlug || ''),
+    winnerUserId,
+    resultByUserId,
+    scoreByUserId,
+    playTimeSec: getPlayTimeSec(matchState.startedAt || room?.startedAt || room?.createdAt),
+    summary: {
+      deckName: roomState.deckName || '',
+      turn,
+      playerHealth,
+      enemyHealth,
+      winner: winner || 'none',
+    },
+    payload: {
+      roomState,
+    },
+  };
+}
+
 export default function GameRoomDetailPage() {
   const params = useParams();
   const id = normalizeRouteId(params?.id);
@@ -66,6 +120,7 @@ export default function GameRoomDetailPage() {
   ), [currentUserId, room?.players]);
   const currentReady = currentPlayer?.status === 'ready';
   const active = room && !['finished', 'closed'].includes(room.status);
+  const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && activeRoomPlayers(room).length);
   const playHref = room?.gameSlug === 'dual-academy-tcg'
     ? `/games/dual-academy-tcg/play?roomId=${id}`
     : game?.primaryHref || '';
@@ -107,6 +162,27 @@ export default function GameRoomDetailPage() {
       showToast({ tone: 'success', message: payload?.message || '처리했습니다.' });
     } catch (err) {
       const message = err?.message || '요청에 실패했습니다.';
+      setError(message);
+      showToast({ tone: 'danger', message });
+    } finally {
+      setBusy('');
+    }
+  };
+
+  const recordRoomResult = async () => {
+    if (!token || busy || !room) return;
+    setBusy('record');
+    setError('');
+    try {
+      const payload = await apiPost(`/game-rooms/${id}/records`, buildRoomRecordPayload(room), { timeoutMs: 15000 });
+      clearApiGetCache('/game-rooms');
+      clearApiGetCache('/game-records');
+      setRoom(payload?.room || room);
+      showToast({ tone: 'success', message: payload?.message || '방 결과를 기록했습니다.' });
+    } catch (err) {
+      const nextRoom = err?.response?.data?.room;
+      if (nextRoom) setRoom(nextRoom);
+      const message = err?.message || '방 결과 기록에 실패했습니다.';
       setError(message);
       showToast({ tone: 'danger', message });
     } finally {
@@ -198,6 +274,14 @@ export default function GameRoomDetailPage() {
                       완료
                     </button>
                   ) : null}
+                  {canRecordResult ? (
+                    <button type="button" onClick={recordRoomResult} disabled={Boolean(busy)}>
+                      {busy === 'record' ? '기록 중...' : '결과 기록'}
+                    </button>
+                  ) : null}
+                  {room.recordedAt ? (
+                    <Link href={`/games/records?gameSlug=${room.gameSlug}`}>기록 보기</Link>
+                  ) : null}
                   {room.isHost && active ? (
                     <button type="button" className="is-danger" onClick={() => runAction('close', 'status', { status: 'closed' })} disabled={Boolean(busy)}>
                       종료
@@ -216,6 +300,7 @@ export default function GameRoomDetailPage() {
                   <div><dt>방장</dt><dd>{room.hostName || '방장'}</dd></div>
                   <div><dt>상태 데이터</dt><dd>{Number(room.stateBytes || 0).toLocaleString('ko-KR')} B</dd></div>
                   <div><dt>생성</dt><dd>{formatDate(room.createdAt)}</dd></div>
+                  <div><dt>기록</dt><dd>{room.recordedAt ? `${formatDate(room.recordedAt)} · ${Number(room.recordCount || 0)}건` : '아직 없음'}</dd></div>
                 </dl>
               </section>
             </section>

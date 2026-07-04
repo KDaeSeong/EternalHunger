@@ -667,11 +667,29 @@ function DualAcademyTcgPlayContent() {
             state: matchPayload(state),
           },
         };
-        await apiPost(`/game-records/${TCG_GAME_SLUG}`, payload, { timeoutMs: 12000 });
+        if (roomId) {
+          const hostUserId = String(room?.hostId || '');
+          const roomRecord = await apiPost(`/game-rooms/${roomId}/records`, {
+            ...payload,
+            winnerUserId: state.winner === 'player' ? hostUserId : '',
+            resultByUserId: hostUserId ? { [hostUserId]: result } : {},
+            scoreByUserId: hostUserId ? { [hostUserId]: payload.score } : {},
+          }, { timeoutMs: 12000 });
+          clearApiGetCache('/game-rooms');
+          if (!cancelled && roomRecord?.room) setRoom(roomRecord.room);
+        } else {
+          await apiPost(`/game-records/${TCG_GAME_SLUG}`, payload, { timeoutMs: 12000 });
+        }
         clearApiGetCache('/game-records');
         if (!cancelled) setRecordMessage('전적을 자동 저장했습니다.');
       } catch (err) {
         if (!cancelled) {
+          const recordedRoom = err?.response?.data?.room;
+          if (roomId && recordedRoom?.recordedAt) {
+            setRoom(recordedRoom);
+            setRecordMessage('방 결과가 이미 기록되어 있습니다.');
+            return;
+          }
           setRecordedMatchIds((current) => current.filter((id) => id !== state.matchId));
           setRecordMessage(err?.message || '전적 자동 저장에 실패했습니다.');
         }
@@ -681,7 +699,7 @@ function DualAcademyTcgPlayContent() {
     return () => {
       cancelled = true;
     };
-  }, [deckCardIds, deckName, mounted, recordedMatchIds, state, token]);
+  }, [deckCardIds, deckName, mounted, recordedMatchIds, room?.hostId, roomId, state, token]);
 
   const handCost = useMemo(
     () => state.hand.reduce((sum, card) => sum + Number(card.cost || 0), 0),

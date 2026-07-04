@@ -24,6 +24,10 @@ const GameRoomSchema = new mongoose.Schema({
   state: { type: mongoose.Schema.Types.Mixed, default: {} },
   stateBytes: { type: Number, default: 0 },
   revision: { type: Number, default: 0 },
+  result: { type: mongoose.Schema.Types.Mixed, default: {} },
+  recordedAt: { type: Date, default: null, index: true },
+  recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  recordCount: { type: Number, default: 0 },
   startedAt: { type: Date, default: null },
   endedAt: { type: Date, default: null },
   lastActivityAt: { type: Date, default: Date.now, index: true },
@@ -35,5 +39,6 @@ GameRoomSchema.index({ gameSlug: 1, status: 1, lastActivityAt: -1 });
 GameRoomSchema.index({ visibility: 1, status: 1, lastActivityAt: -1 });
 GameRoomSchema.index({ hostId: 1, updatedAt: -1 });
 GameRoomSchema.index({ 'players.userId': 1, updatedAt: -1 });
+GameRoomSchema.index({ gameSlug: 1, recordedAt: -1 });
 
 module.exports = mongoose.model('GameRoom', GameRoomSchema);

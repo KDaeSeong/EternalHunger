@@ -5162,9 +5162,13 @@
   gap: 8px;
 }
 
+.game-room-action-grid a,
 .game-room-action-grid button,
 .game-room-detail-page .games-empty button {
   min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(44, 111, 158, 0.20);
   border-radius: 8px;
   background: #ffffff;
@@ -5172,6 +5176,7 @@
   padding: 0 14px;
   font-weight: 900;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .game-room-action-grid button.is-danger {

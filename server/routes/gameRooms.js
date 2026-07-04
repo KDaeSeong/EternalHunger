@@ -2,13 +2,16 @@ const express = require('express');
 const mongoose = require('mongoose');
 
 const { verifyToken } = require('../middleware/authMiddleware');
+const GamePlayRecord = require('../models/GamePlayRecord');
 const GameRoom = require('../models/GameRoom');
 
 const router = express.Router();
 
 const MAX_ROOM_STATE_BYTES = toPositiveInt(process.env.GAME_ROOM_STATE_MAX_BYTES, 256 * 1024);
+const MAX_ROOM_RECORD_PAYLOAD_BYTES = toPositiveInt(process.env.GAME_ROOM_RECORD_MAX_BYTES || process.env.GAME_RECORD_MAX_BYTES, 512 * 1024);
 const VALID_STATUSES = new Set(['open', 'playing', 'finished', 'closed']);
 const VALID_PLAYER_STATUSES = new Set(['joined', 'ready']);
+const VALID_RECORD_RESULTS = new Set(['win', 'loss', 'draw', 'clear', 'fail', 'none']);
 
 function toPositiveInt(value, fallback) {
   const n = Number(value);
@@ -35,6 +38,16 @@ function normalizeObject(value) {
 
 function getJsonBytes(value) {
   return Buffer.byteLength(JSON.stringify(value ?? null), 'utf8');
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toNonNegativeInt(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 
 function getUserObjectId(req, res) {
@@ -85,6 +98,27 @@ function isParticipant(room, userId) {
   return index >= 0 && room.players[index]?.status !== 'left';
 }
 
+function normalizeRecordResult(value, fallback = 'none') {
+  const result = String(value || '').trim();
+  return VALID_RECORD_RESULTS.has(result) ? result : fallback;
+}
+
+function resultForPlayer(body, playerId) {
+  const resultByUserId = normalizeObject(body?.resultByUserId);
+  const direct = normalizeRecordResult(resultByUserId[playerId], '');
+  if (direct) return direct;
+
+  const winnerUserId = normalizeId(body?.winnerUserId);
+  if (winnerUserId) return winnerUserId === playerId ? 'win' : 'loss';
+
+  return normalizeRecordResult(body?.result, 'none');
+}
+
+function scoreForPlayer(body, playerId) {
+  const scoreByUserId = normalizeObject(body?.scoreByUserId);
+  return toFiniteNumber(scoreByUserId[playerId] ?? body?.score);
+}
+
 function mapPlayer(player) {
   const user = player?.userId && typeof player.userId === 'object' ? compactUser(player.userId) : null;
   return {
@@ -120,6 +154,10 @@ function mapRoom(row, options = {}) {
     summary: normalizeObject(row.summary),
     settings: normalizeObject(row.settings),
     revision: Number(row.revision || 0),
+    result: normalizeObject(row.result),
+    recordedAt: row.recordedAt || null,
+    recordedBy: normalizeId(row.recordedBy),
+    recordCount: Number(row.recordCount || 0),
     isHost: isHost(row, userId),
     isParticipant: isParticipant(row, userId),
     startedAt: row.startedAt || null,
@@ -389,6 +427,94 @@ router.post('/:id/state', verifyToken, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '방 상태 저장에 실패했습니다.' });
+  }
+});
+
+router.post('/:id/records', verifyToken, async (req, res) => {
+  try {
+    const userId = getUserObjectId(req, res);
+    if (!userId) return;
+
+    const room = await GameRoom.findById(req.params.id);
+    if (!room) return res.status(404).json({ error: '게임방을 찾을 수 없습니다.' });
+    if (!isHost(room, userId)) return res.status(403).json({ error: '방장만 방 결과를 기록할 수 있습니다.' });
+    if (room.recordedAt) {
+      const mapped = await serializeFreshRoom(room._id, req, { includeState: true });
+      return res.status(409).json({ error: '이미 결과가 기록된 방입니다.', room: mapped });
+    }
+
+    const players = activePlayers(room.players);
+    if (!players.length) return res.status(400).json({ error: '기록할 참가자가 없습니다.' });
+
+    const roomId = normalizeId(room);
+    const now = new Date();
+    const playedAt = req.body?.playedAt ? new Date(req.body.playedAt) : now;
+    const safePlayedAt = playedAt && !Number.isNaN(playedAt.getTime()) ? playedAt : now;
+    const winnerUserId = normalizeId(req.body?.winnerUserId);
+    const baseSummary = {
+      ...normalizeObject(req.body?.summary),
+      roomId,
+      roomTitle: room.title || '',
+      roomStatus: room.status || 'open',
+      winnerUserId,
+      playerCount: players.length,
+    };
+    const basePayload = {
+      roomId,
+      roomRevision: Number(room.revision || 0),
+      payload: req.body?.payload ?? {},
+    };
+    const payloadBytes = getJsonBytes(basePayload);
+    if (payloadBytes > MAX_ROOM_RECORD_PAYLOAD_BYTES) {
+      return res.status(413).json({ error: `방 결과 데이터는 ${MAX_ROOM_RECORD_PAYLOAD_BYTES.toLocaleString('ko-KR')}바이트 이내로 입력해주세요.` });
+    }
+
+    const title = cleanText(req.body?.title, room.title || '게임방 기록', 120);
+    const mode = cleanText(req.body?.mode, room.mode || '', 80);
+    const playTimeSec = toNonNegativeInt(req.body?.playTimeSec);
+    const records = players.map((player) => {
+      const playerId = normalizeId(player.userId);
+      return {
+        userId: player.userId,
+        gameSlug: room.gameSlug,
+        title,
+        mode,
+        result: resultForPlayer(req.body, playerId),
+        score: scoreForPlayer(req.body, playerId),
+        playTimeSec,
+        summary: {
+          ...baseSummary,
+          playerId,
+          playerRole: player.role || 'player',
+        },
+        payload: {
+          ...basePayload,
+          playerId,
+        },
+        payloadBytes,
+        playedAt: safePlayedAt,
+      };
+    });
+
+    const created = await GamePlayRecord.insertMany(records);
+    room.status = room.status === 'closed' ? room.status : 'finished';
+    if (!room.endedAt) room.endedAt = now;
+    room.result = {
+      ...baseSummary,
+      recordIds: created.map((row) => normalizeId(row)),
+      recordedAt: now.toISOString(),
+    };
+    room.recordedAt = now;
+    room.recordedBy = userId;
+    room.recordCount = created.length;
+    room.lastActivityAt = now;
+    await room.save();
+
+    const mapped = await serializeFreshRoom(room._id, req, { includeState: true });
+    res.status(201).json({ message: '방 결과를 기록했습니다.', recordsCreated: created.length, room: mapped });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '방 결과 기록에 실패했습니다.' });
   }
 });
 
