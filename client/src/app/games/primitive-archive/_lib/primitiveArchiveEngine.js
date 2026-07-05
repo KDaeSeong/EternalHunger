@@ -487,7 +487,7 @@ export function createNewState(options = {}) {
     inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, fuel: 0 },
-    counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0 },
+    counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0, events: 0 },
     research: initResearchState(),
     meta,
     log: ['Day 1: 낯선 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.'],
@@ -1017,6 +1017,87 @@ export function updateActor(state, actorId, patch) {
   };
 }
 
+function withEventCounter(state) {
+  return {
+    ...state,
+    counters: {
+      ...state.counters,
+      events: Number(state.counters?.events || 0) + 1,
+    },
+  };
+}
+
+function addEventLog(state, message) {
+  return addLog(withEventCounter(state), `탐험 사건: ${message}`);
+}
+
+function zoneEventReward(zoneId, action) {
+  if (action === 'gather') {
+    if (zoneId === 'river') return [['herb', 1], ['clay', 1]];
+    if (zoneId === 'cave') return [['flint', 1], ['obsidian_shard', 1]];
+    if (zoneId === 'plains') return [['berry', 1], ['fiber', 1]];
+    return [['resin', 1], ['berry', 1]];
+  }
+  if (zoneId === 'plains' || zoneId === 'cave') return [['dino_hide', 1], ['dino_bone', 1]];
+  return [['tooth', 1], ['sinew', 1]];
+}
+
+function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true, recipe = null, rng = Math.random } = {}) {
+  const chance = ok ? 0.12 : 0.08;
+  if (rng() > chance) return state;
+  const actor = getActor(state, actorId);
+  let next = state;
+
+  if (action === 'gather') {
+    if (ok) {
+      const rewards = zoneEventReward(zoneId, 'gather').filter(([, qty]) => qty > 0);
+      next = { ...next, inventory: addItems(next.inventory, rewards) };
+      return addEventLog(next, `${actor.name} 학생이 숨겨진 흔적을 발견했습니다. ${formatGains(rewards)}.`);
+    }
+    next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - 3, 0, 100) });
+    return addEventLog(next, `${actor.name} 학생이 가시덤불에 긁혔습니다. HP -3.`);
+  }
+
+  if (action === 'hunt') {
+    if (ok) {
+      const rewards = zoneEventReward(zoneId, 'hunt');
+      next = {
+        ...next,
+        inventory: addItems(next.inventory, rewards),
+      };
+      next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - 4, 0, 100) });
+      return addEventLog(next, `${actor.name} 학생이 큰 사냥감의 흔적을 확보했습니다. ${formatGains(rewards)}, HP -4.`);
+    }
+    next = updateActor(next, actorId, {
+      hp: clamp(Number(actor.hp || 0) - 5, 0, 100),
+      stamina: clamp(Number(actor.stamina || 0) - 6, 0, 100),
+    });
+    return addEventLog(next, `${actor.name} 학생이 포식자를 피해 달아났습니다. HP -5, 스태미나 -6.`);
+  }
+
+  if (action === 'craft') {
+    if (!ok) return addEventLog(next, `${actor.name} 학생이 실패 원인을 기록했습니다. 다음 제작 판단에 도움이 됩니다.`);
+    const [rewardId] = Object.keys(recipe?.reward || {});
+    if (!rewardId) return state;
+    next = { ...next, inventory: addItems(next.inventory, [[rewardId, 1]]) };
+    return addEventLog(next, `${actor.name}의 정교한 마감으로 ${itemName(rewardId)}을(를) 추가로 얻었습니다.`);
+  }
+
+  if (action === 'camp') {
+    next = {
+      ...next,
+      camp: { ...next.camp, fuel: Number(next.camp.fuel || 0) + 1 },
+      party: next.party.map((member) => ({
+        ...member,
+        stamina: clamp(Number(member.stamina || 0) + 3, 0, 100),
+      })),
+    };
+    return addEventLog(next, '캠프 동선이 안정됐습니다. 연료 +1, 전원 스태미나 +3.');
+  }
+
+  return state;
+}
+
 export function actionChance(state, actorId, action, base = 0.55) {
   const actor = getActor(state, actorId);
   const stat = Number(actor?.stats?.[action] || 5);
@@ -1353,6 +1434,7 @@ export function runGatherAction(state, actorId, zoneId, options = {}) {
     next = addLog(next, `${actor.name}의 채집 실패. ${zone.name}의 날씨와 지형이 좋지 않았습니다.`);
   }
   next = addDialogueLog(next, actorId, 'gather', ok ? 'success' : 'fail', options.rng || Math.random);
+  next = applyExplorationEvent(next, { actorId, action: 'gather', zoneId: zone.id, ok, rng: options.rng || Math.random });
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(state, actorId, 'gather', 15), 3, options);
 }
 
@@ -1377,6 +1459,7 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
     next = addLog(next, `${actor.name}의 사냥 실패. 반격으로 HP -${damage}.`);
   }
   next = addDialogueLog(next, actorId, 'hunt', ok ? 'success' : 'fail', options.rng || Math.random);
+  next = applyExplorationEvent(next, { actorId, action: 'hunt', zoneId: zone.id, ok, rng: options.rng || Math.random });
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(state, actorId, 'hunt', 24), 5, options);
 }
 
@@ -1401,6 +1484,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
     next = addLog(next, `${actor.name}의 제작 실패. 일부 재료를 잃었습니다.`);
   }
   next = addDialogueLog(next, actorId, 'craft', ok ? 'success' : 'fail', options.rng || Math.random);
+  next = applyExplorationEvent(next, { actorId, action: 'craft', ok, recipe, rng: options.rng || Math.random });
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'craft', ok }), actorId, staminaCostWithEquipment(state, actorId, 'craft', 20), 4, options);
 }
 
@@ -1491,6 +1575,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
     next = addLog(next, `${actor.name}이(가) 고기를 구웠습니다. 구운 고기 +1.`);
   }
   next = addDialogueLog(next, actorId, 'camp', 'success', options.rng || Math.random);
+  next = applyExplorationEvent(next, { actorId, action: 'camp', ok: true, rng: options.rng || Math.random });
   next.counters = { ...next.counters, camp: Number(next.counters.camp || 0) + 1 };
   return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, staminaCostWithEquipment(state, actorId, 'camp', 14), 2, options);
 }
