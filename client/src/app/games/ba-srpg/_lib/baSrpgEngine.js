@@ -75,6 +75,7 @@ export const MISSIONS = [
   {
     id: 'm004',
     name: '네번째 임무: 야전 진지',
+    chapter: 1,
     region: '폐허 지구 외곽',
     objective: '폐허 지구 외곽의 야전 진지를 정리하고 남은 물자를 확보하십시오.',
     caution: '교전 강도가 상승합니다. 공격 각과 사거리(명중)를 먼저 확보하세요.',
@@ -95,6 +96,54 @@ export const MISSIONS = [
       { id: 'e_drone_b', name: '감시 드론 B', x: 7, y: 0, hp: 24, atk: 7, def: 1, range: 3, move: 2 },
     ],
   },
+  {
+    id: 'm005',
+    name: 'Hard 임무: 연구동 진입로',
+    chapter: 2,
+    region: '연구동 진입로',
+    objective: '연구동 진입로의 경비망을 돌파하고 내부 침입로를 확보하십시오.',
+    caution: 'Hard 임무입니다. 적 체력과 공격력이 상승하며, 엄폐를 빼앗기면 빠르게 무너집니다.',
+    difficulty: 'hard',
+    recommendedPower: 230,
+    creditMin: 38,
+    creditMax: 56,
+    rewards: [
+      { itemId: 'mat_stone', qtyMin: 3, qtyMax: 6, chance: 1 },
+      { itemId: 'mat_wood', qtyMin: 2, qtyMax: 4, chance: 0.85 },
+      { itemId: 'con_bandage', qtyMin: 1, qtyMax: 2, chance: 0.55 },
+      { itemId: 'eq_knife', qtyMin: 1, qtyMax: 1, chance: 0.18 },
+    ],
+    enemies: [
+      { id: 'e_hard_vanguard', name: '진입로 선봉대', x: 5, y: 1, hp: 48, atk: 12, def: 4, range: 1, move: 2 },
+      { id: 'e_hard_shield', name: '방패 경비병', x: 6, y: 3, hp: 58, atk: 10, def: 6, range: 1, move: 1 },
+      { id: 'e_hard_marksman', name: '고지 저격수', x: 7, y: 0, hp: 32, atk: 14, def: 2, range: 4, move: 1 },
+      { id: 'e_hard_drone', name: '전술 드론', x: 7, y: 5, hp: 30, atk: 9, def: 2, range: 3, move: 3 },
+    ],
+  },
+  {
+    id: 'm006',
+    name: 'VeryHard 임무: 연구동 심부',
+    chapter: 2,
+    region: '연구동 심부',
+    objective: '심부 제어실을 장악한 경비장을 쓰러뜨리고 연구동 자료를 회수하십시오.',
+    caution: 'VeryHard 임무입니다. 보스 화력이 높고 빠른 클리어 턴 조건이 빡빡합니다.',
+    difficulty: 'veryhard',
+    recommendedPower: 320,
+    creditMin: 62,
+    creditMax: 88,
+    rewards: [
+      { itemId: 'mat_stone', qtyMin: 4, qtyMax: 8, chance: 1 },
+      { itemId: 'mat_wood', qtyMin: 3, qtyMax: 6, chance: 0.9 },
+      { itemId: 'con_bandage', qtyMin: 2, qtyMax: 3, chance: 0.65 },
+      { itemId: 'eq_knife', qtyMin: 1, qtyMax: 1, chance: 0.28 },
+    ],
+    enemies: [
+      { id: 'e_vh_guard_a', name: '심부 경비병 A', x: 5, y: 1, hp: 54, atk: 13, def: 5, range: 1, move: 2 },
+      { id: 'e_vh_guard_b', name: '심부 경비병 B', x: 5, y: 4, hp: 54, atk: 13, def: 5, range: 1, move: 2 },
+      { id: 'e_vh_sniper', name: '심부 저격수', x: 7, y: 0, hp: 38, atk: 16, def: 2, range: 4, move: 1 },
+      { id: 'e_vh_boss', name: '연구동 경비장', x: 7, y: 3, hp: 92, atk: 15, def: 7, range: 3, move: 2 },
+    ],
+  },
 ];
 
 export const STUDENTS = [
@@ -112,6 +161,13 @@ const FORMATION_SPAWNS = [
   { x: 0, y: 1 },
   { x: 1, y: 2 },
 ];
+
+const DIFFICULTY_RULES = {
+  easy: { id: 'easy', label: 'Easy', hpMul: 1, atkMul: 1, rewardMul: 1, extraDropRolls: 0, targetTurn: 10 },
+  normal: { id: 'normal', label: 'Normal', hpMul: 1, atkMul: 1, rewardMul: 1, extraDropRolls: 0, targetTurn: 11 },
+  hard: { id: 'hard', label: 'Hard', hpMul: 1.15, atkMul: 1.1, rewardMul: 1.15, extraDropRolls: 1, targetTurn: 9 },
+  veryhard: { id: 'veryhard', label: 'VeryHard', hpMul: 1.25, atkMul: 1.15, rewardMul: 1.3, extraDropRolls: 2, targetTurn: 8 },
+};
 
 export const STATUS_DEFS = {
   st_bleed: { id: 'st_bleed', name: '출혈', kind: 'DoT', tickDamage: 4, maxStacks: 1, merge: 'refresh' },
@@ -488,13 +544,72 @@ function createUnits(formationIds = DEFAULT_FORMATION_IDS) {
   });
 }
 
+function difficultyRule(difficulty) {
+  return DIFFICULTY_RULES[String(difficulty || '').toLowerCase()] || DIFFICULTY_RULES.normal;
+}
+
+export function difficultyLabel(difficulty) {
+  return difficultyRule(difficulty).label;
+}
+
+function missionChapter(mission, index = MISSIONS.findIndex((item) => item.id === mission?.id)) {
+  if (Number(mission?.chapter || 0) > 0) return Number(mission.chapter);
+  return index < 4 ? 1 : 2;
+}
+
+function difficultyUnlockState(state) {
+  const current = normalizeState(state);
+  const completedSet = new Set(current.completedMissionIds || []);
+  const chapterOneStars = MISSIONS.reduce((sum, mission, index) => {
+    if (missionChapter(mission, index) !== 1) return sum;
+    if (difficultyRule(mission.difficulty).id !== 'easy' && difficultyRule(mission.difficulty).id !== 'normal') return sum;
+    return sum + Math.max(0, Math.min(3, Number(current.missionResults?.[mission.id]?.bestStars || 0)));
+  }, 0);
+  const hardUnlocked = chapterOneStars >= 9;
+  const hardCleared = MISSIONS.some((mission) => difficultyRule(mission.difficulty).id === 'hard' && completedSet.has(mission.id));
+  const veryHardUnlocked = hardCleared;
+  return {
+    easy: true,
+    normal: true,
+    hard: hardUnlocked,
+    veryhard: veryHardUnlocked,
+    chapterOneStars,
+    hardUnlocked,
+    veryHardUnlocked,
+    hardCleared,
+    hardStarsNeeded: Math.max(0, 9 - chapterOneStars),
+    veryHardRequirementText: hardCleared ? '해금 완료' : 'Hard 임무 클리어 필요',
+  };
+}
+
+function missionLockInfo(state, mission, index) {
+  const current = normalizeState(state);
+  const completedSet = new Set(current.completedMissionIds || []);
+  const previousMission = MISSIONS[index - 1];
+  if (previousMission && !completedSet.has(previousMission.id)) {
+    return { locked: true, reason: `${previousMission.name} 클리어 필요` };
+  }
+  const unlocks = difficultyUnlockState(current);
+  const difficultyId = difficultyRule(mission.difficulty).id;
+  if (!unlocks[difficultyId]) {
+    if (difficultyId === 'hard') return { locked: true, reason: `Hard 해금까지 챕터1 별 ${unlocks.hardStarsNeeded}개 필요` };
+    if (difficultyId === 'veryhard') return { locked: true, reason: unlocks.veryHardRequirementText };
+    return { locked: true, reason: `${difficultyLabel(mission.difficulty)} 난이도 잠김` };
+  }
+  return { locked: false, reason: '' };
+}
+
 function createEnemies(mission) {
+  const rule = difficultyRule(mission.difficulty);
   return mission.enemies.map((enemy) => ({
     ...enemy,
-    maxHp: enemy.hp,
+    hp: Math.max(1, Math.round(Number(enemy.hp || 1) * Number(rule.hpMul || 1))),
+    atk: Math.max(1, Math.round(Number(enemy.atk || 1) * Number(rule.atkMul || 1))),
+    maxHp: Math.max(1, Math.round(Number(enemy.hp || 1) * Number(rule.hpMul || 1))),
     ap: 2,
     shield: null,
     statuses: [],
+    difficulty: rule.id,
   }));
 }
 
@@ -1027,21 +1142,24 @@ function applyBattleOutcome(state, battle) {
 function rollMissionRewards(state, mission, rng) {
   let inventory = state.inventory;
   const gained = [];
-  mission.rewards.forEach((reward) => {
-    if (rng() > Number(reward.chance || 0)) return;
-    const min = Number(reward.qtyMin || 0);
-    const max = Math.max(min, Number(reward.qtyMax || min));
-    const qty = min + Math.floor(rng() * (max - min + 1));
-    inventory = addItem(inventory, reward.itemId, qty);
-    gained.push(`${itemName(reward.itemId)} ${qty}`);
-  });
+  const rule = difficultyRule(mission.difficulty);
+  const passes = 1 + Math.max(0, Number(rule.extraDropRolls || 0));
+  for (let pass = 0; pass < passes; pass += 1) {
+    mission.rewards.forEach((reward) => {
+      const chanceMul = pass === 0 ? 1 : 0.45;
+      if (rng() > Number(reward.chance || 0) * chanceMul) return;
+      const min = Number(reward.qtyMin || 0);
+      const max = Math.max(min, Number(reward.qtyMax || min));
+      const qty = min + Math.floor(rng() * (max - min + 1));
+      inventory = addItem(inventory, reward.itemId, qty);
+      gained.push(`${itemName(reward.itemId)} ${qty}${pass > 0 ? ' 추가' : ''}`);
+    });
+  }
   return { inventory, gained };
 }
 
 function missionStarTargetTurn(mission) {
-  if (mission.difficulty === 'hard') return 9;
-  if (mission.difficulty === 'normal') return 11;
-  return 10;
+  return difficultyRule(mission.difficulty).targetTurn;
 }
 
 function missionStarResult(mission, battle) {
@@ -1062,7 +1180,9 @@ function missionStarResult(mission, battle) {
 function grantMissionReward(state, battle) {
   const mission = getMission(battle.missionId);
   const rng = createRng(`${state.runId}|reward|${mission.id}|${state.battleWins}`);
-  const credit = mission.creditMin + Math.floor(rng() * (mission.creditMax - mission.creditMin + 1));
+  const rule = difficultyRule(mission.difficulty);
+  const baseCredit = mission.creditMin + Math.floor(rng() * (mission.creditMax - mission.creditMin + 1));
+  const credit = Math.round(baseCredit * Number(rule.rewardMul || 1));
   const rewards = rollMissionRewards(state, mission, rng);
   const completedSet = new Set(state.completedMissionIds);
   completedSet.add(mission.id);
@@ -1103,10 +1223,8 @@ export function startMissionAction(state, missionId) {
   const current = normalizeState(state);
   const mission = getMission(missionId);
   const index = MISSIONS.findIndex((item) => item.id === mission.id);
-  const previousMission = MISSIONS[index - 1];
-  if (previousMission && !current.completedMissionIds.includes(previousMission.id)) {
-    return addLog(current, `${mission.name} 출정 전 ${previousMission.name} 클리어가 필요합니다.`);
-  }
+  const lockInfo = missionLockInfo(current, mission, index);
+  if (lockInfo.locked) return addLog(current, `${mission.name} 출정 불가. ${lockInfo.reason}.`);
   const formationIds = normalizeFormationIds(current.selectedStudentIds);
   if (!formationIds.length) return addLog(current, '출전 편성에 학생이 없습니다.');
   return addLog({
@@ -1935,6 +2053,8 @@ export function summaryForState(state) {
     guildRep: current.guildRep,
     guildRank: rank.rank,
     campaignStars: `${campaign.starTotal}/${campaign.starMax}`,
+    hardUnlocked: campaign.hardUnlocked,
+    veryHardUnlocked: campaign.veryHardUnlocked,
     quests: Object.keys(current.questClaims || {}).length,
     properties: town.activeProperties,
     edict: town.activeEdictName,
@@ -1946,33 +2066,37 @@ export function getCampaignReport(state) {
   const current = normalizeState(state);
   const power = battlePower(current);
   const completedSet = new Set(current.completedMissionIds || []);
+  const difficultyState = difficultyUnlockState(current);
   const missionRows = MISSIONS.map((mission, index) => {
     const result = current.missionResults?.[mission.id] || {};
     const cleared = completedSet.has(mission.id) || Number(result.clears || 0) > 0;
     const bestStars = Math.max(0, Math.min(3, Number(result.bestStars || 0)));
-    const previousCleared = index === 0 || completedSet.has(MISSIONS[index - 1]?.id);
+    const lockInfo = missionLockInfo(current, mission, index);
     const powerGap = power - Number(mission.recommendedPower || 0);
     return {
       ...mission,
-      chapter: index < 5 ? 1 : 2,
+      chapter: missionChapter(mission, index),
       order: index + 1,
       cleared,
-      locked: !previousCleared,
-      recommended: !cleared && previousCleared,
+      locked: lockInfo.locked,
+      lockReason: lockInfo.reason,
+      recommended: !cleared && !lockInfo.locked,
       bestStars,
       bestTurn: Number(result.bestTurn || 0),
       targetTurn: Number(result.targetTurn || missionStarTargetTurn(mission)),
       allSurvived: Boolean(result.allSurvived),
       fastClear: Boolean(result.fastClear),
       powerGap,
-      statusLabel: cleared ? `★${bestStars}/3` : !previousCleared ? '잠김' : powerGap >= 0 ? '추천' : '전력 부족',
+      difficultyLabel: difficultyLabel(mission.difficulty),
+      statusLabel: cleared ? `★${bestStars}/3` : lockInfo.locked ? '잠김' : powerGap >= 0 ? '추천' : '전력 부족',
     };
   });
   const clearedCount = missionRows.filter((row) => row.cleared).length;
   const starTotal = missionRows.reduce((sum, row) => sum + row.bestStars, 0);
   const starMax = missionRows.length * 3;
   const nextMission = missionRows.find((row) => row.recommended) || missionRows.find((row) => !row.cleared && !row.locked) || missionRows[0];
-  const hardUnlocked = starTotal >= Math.min(9, starMax);
+  const hardUnlocked = difficultyState.hardUnlocked;
+  const veryHardUnlocked = difficultyState.veryHardUnlocked;
   const recommendations = [];
   if (nextMission && !nextMission.cleared) {
     recommendations.push(`${nextMission.name} 진행`);
@@ -1980,7 +2104,8 @@ export function getCampaignReport(state) {
   }
   if (Number(current.inventory.con_bandage || 0) <= 0) recommendations.push('상점/의뢰로 붕대 확보');
   if (missionRows.some((row) => row.cleared && row.bestStars < 3)) recommendations.push('클리어 임무 3성 재도전');
-  if (!hardUnlocked) recommendations.push(`Hard 해금까지 별 ${Math.max(0, Math.min(9, starMax) - starTotal)}개`);
+  if (!hardUnlocked) recommendations.push(`Hard 해금까지 챕터1 별 ${difficultyState.hardStarsNeeded}개`);
+  else if (!veryHardUnlocked) recommendations.push('VeryHard 해금까지 Hard 임무 클리어');
   if (!recommendations.length) recommendations.push('다음 챕터 데이터 확장 대기');
 
   return {
@@ -1990,9 +2115,13 @@ export function getCampaignReport(state) {
     starMax,
     progressPct: missionRows.length ? Math.round((clearedCount / missionRows.length) * 100) : 0,
     hardUnlocked,
+    veryHardUnlocked,
+    chapterOneStars: difficultyState.chapterOneStars,
+    hardStarsNeeded: difficultyState.hardStarsNeeded,
+    veryHardRequirementText: difficultyState.veryHardRequirementText,
     nextMissionId: nextMission?.id || '',
     nextMissionName: nextMission?.name || '-',
-    headline: `${clearedCount}/${missionRows.length}개 임무 클리어, 별 ${starTotal}/${starMax}. ${hardUnlocked ? 'Hard 해금 조건을 충족했습니다.' : '별을 모아 Hard 해금을 노리세요.'}`,
+    headline: `${clearedCount}/${missionRows.length}개 임무 클리어, 별 ${starTotal}/${starMax}. ${hardUnlocked ? (veryHardUnlocked ? 'VeryHard 해금 조건을 충족했습니다.' : 'Hard 해금 조건을 충족했습니다.') : '별을 모아 Hard 해금을 노리세요.'}`,
     recommendations: [...new Set(recommendations)].slice(0, 4),
     missionRows,
   };

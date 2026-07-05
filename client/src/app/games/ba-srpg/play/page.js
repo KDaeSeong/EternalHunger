@@ -9,7 +9,6 @@ import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell'
 import {
   GAME_SLUG,
   GRID,
-  MISSIONS,
   QUICK_SAVE_SLOT,
   RECIPES,
   SAVE_VERSION,
@@ -326,15 +325,25 @@ export default function BaSrpgPlayPage() {
           <label className="game-save-json-field">
             <span>임무</span>
             <select value={missionId} onChange={(event) => setMissionId(event.target.value)}>
-              {MISSIONS.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+              {campaignReport.missionRows.map((item) => (
+                <option value={item.id} key={item.id}>
+                  [{item.difficultyLabel}] {item.name}{item.locked ? ' (잠김)' : ''}
+                </option>
+              ))}
             </select>
           </label>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.objective}</p>
           <div className="games-rank-split">
-            <SmallStat label="난이도" value={selectedMission.difficulty} />
+            <SmallStat label="난이도" value={selectedMissionProgress?.difficultyLabel || selectedMission.difficulty} />
             <SmallStat label="권장 전투력" value={selectedMission.recommendedPower} />
+            <SmallStat label="상태" value={selectedMissionProgress?.locked ? '잠김' : selectedMissionProgress?.powerGap >= 0 ? '출정 가능' : '전력 부족'} />
             <SmallStat label="크레딧" value={`${selectedMission.creditMin}-${selectedMission.creditMax}`} />
           </div>
+          {selectedMissionProgress?.locked ? (
+            <p style={{ color: '#9f5f00', fontWeight: 900, lineHeight: 1.55 }}>
+              잠금 사유: {selectedMissionProgress.lockReason}
+            </p>
+          ) : null}
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMissionRewards}</p>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.caution}</p>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -354,19 +363,21 @@ export default function BaSrpgPlayPage() {
           <div className="games-rank-split">
             <SmallStat label="클리어" value={`${campaignReport.clearedCount}/${campaignReport.totalMissions}`} />
             <SmallStat label="다음 임무" value={campaignReport.nextMissionName} />
+            <SmallStat label="CH1 별" value={`${campaignReport.chapterOneStars}/9`} />
             <SmallStat label="Hard" value={campaignReport.hardUnlocked ? '해금' : '잠김'} />
+            <SmallStat label="VeryHard" value={campaignReport.veryHardUnlocked ? '해금' : campaignReport.veryHardRequirementText} />
           </div>
           <div className="game-save-list">
             {campaignReport.missionRows.map((row) => (
               <article className="game-save-row" key={row.id}>
                 <div>
-                  <span>CH.{row.chapter} · {row.statusLabel} · 권장 {row.recommendedPower}</span>
+                  <span>CH.{row.chapter} · {row.difficultyLabel} · {row.statusLabel} · 권장 {row.recommendedPower}</span>
                   <strong>{row.name}</strong>
                   <small>
                     {row.cleared
                       ? `최고 ★${row.bestStars}/3 · 최단 ${row.bestTurn || '-'}턴 · 전원 생존 ${row.allSurvived ? '성공' : '미달'}`
                       : row.locked
-                        ? '이전 임무 클리어 후 해금됩니다.'
+                        ? row.lockReason
                         : campaignReport.recommendations.join(' / ')}
                   </small>
                 </div>
