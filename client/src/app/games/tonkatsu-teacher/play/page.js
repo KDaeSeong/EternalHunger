@@ -37,6 +37,7 @@ import {
   nextDayAction,
   normalizeState,
   operationsReportForState,
+  productionReportForState,
   recipeName,
   recipeRows,
   researchRecipeAction,
@@ -108,6 +109,7 @@ export default function TonkatsuTeacherPlayPage() {
   const ended = Boolean(state.ended);
   const canAct = !ended;
   const operationsReport = operationsReportForState(state);
+  const productionReport = productionReportForState(state);
   const tokenCount = Number(state.mealTokens[recipe.id] || 0);
   const winRatePreview = Math.round(Math.max(12, Math.min(92, 35 + (((student.atk * 8 + student.def * 5 + student.morale + (recipe.power || 0)) - (116 + state.floor * 18)) / 160) * 100)));
   const inventoryRows = Object.entries(state.inventory)
@@ -228,6 +230,7 @@ export default function TonkatsuTeacherPlayPage() {
     { label: '평판', value: state.reputation },
     { label: '전투층', value: state.floor },
     { label: '운영', value: `${operationsReport.readinessPct}%` },
+    { label: '연출', value: `${productionReport.productionScore}%` },
     { label: '시설', value: Object.values(state.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0) },
     { label: '대회승', value: Number(state.counters.tournamentWins || 0) },
     { label: '메뉴', value: mealTokenCount(state) },
@@ -335,6 +338,85 @@ export default function TonkatsuTeacherPlayPage() {
                         </div>
                         <strong>{row.tone === 'good' ? 'OK' : row.tone === 'watch' ? '조정' : '우선'}</strong>
                       </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'production',
+            label: '연출/이벤트',
+            badge: `${productionReport.productionScore}%`,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>현재 장면</h2>
+                    <span>{productionReport.phase}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <MiniRow label="연출 점수" value={`${productionReport.productionScore}%`} />
+                    <MiniRow label="장면 수" value={productionReport.sceneCues.length} />
+                    <MiniRow label="이벤트" value={productionReport.eventRows.length} />
+                    <MiniRow label="사운드 큐" value={productionReport.soundCues.length} />
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {productionReport.sceneCues.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.trigger} · {row.pct}%</span>
+                          <strong>{row.title}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.tone === 'ready' ? '준비' : '세팅'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>장기 이벤트 변형</h2>
+                    <span>영업 · 전투 · 심사</span>
+                  </div>
+                  <div className="game-save-list">
+                    {productionReport.eventRows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.trigger} · {row.pct}%</span>
+                          <strong>{row.title}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.tone === 'ready' ? '발동권' : '준비중'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>사운드 큐</h2>
+                    <span>{productionReport.soundCues.length}개</span>
+                  </div>
+                  <div className="game-save-list">
+                    {productionReport.soundCues.map((cue) => (
+                      <article className="game-save-row" key={cue.id}>
+                        <div>
+                          <span>{cue.target}</span>
+                          <strong>{cue.cue}</strong>
+                          <small>{cue.detail}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>다음 연출 포인트</h2>
+                    <span>추천</span>
+                  </div>
+                  <div className="games-activity-list">
+                    {productionReport.recommendations.map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
                     ))}
                   </div>
                 </section>

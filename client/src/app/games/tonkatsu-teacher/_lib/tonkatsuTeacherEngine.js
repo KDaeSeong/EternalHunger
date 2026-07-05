@@ -1268,6 +1268,17 @@ function buildBalanceRow(id, label, value, pct, tone, detail) {
   };
 }
 
+function buildProductionRow(id, title, trigger, detail, pct, tone = 'ready') {
+  return {
+    id,
+    title,
+    trigger,
+    detail,
+    pct: Math.round(clamp(pct, 0, 100)),
+    tone,
+  };
+}
+
 export function operationsReportForState(state) {
   const current = normalizeState(state);
   const ctx = buildFacilityContext(current);
@@ -1417,8 +1428,119 @@ export function operationsReportForState(state) {
   };
 }
 
+export function productionReportForState(state) {
+  const current = normalizeState(state);
+  const ctx = buildFacilityContext(current);
+  const tokenTotal = mealTokenCount(current);
+  const ingredientTotal = inventoryCount(current);
+  const avgMorale = averageStudents(current, 'morale');
+  const avgHpPct = Math.round(current.students.reduce((sum, student) => (
+    sum + (Number(student.currentHp || 0) / Math.max(1, Number(student.hp || 1))) * 100
+  ), 0) / Math.max(1, current.students.length));
+  const counters = current.counters || {};
+  const soldCount = Number(counters.sold || 0);
+  const craftedCount = Number(counters.crafted || 0);
+  const battleCount = Number(counters.battles || 0);
+  const victoryCount = Number(counters.victories || 0);
+  const tournamentWins = Number(counters.tournamentWins || 0);
+  const judgeMatches = Number(counters.judgeMatches || 0);
+  const facilityTotal = Object.values(current.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0);
+  const unlockedRecipes = recipeRows(current).filter((recipe) => recipe.unlocked).length;
+  const bestStudent = current.students.slice().sort((a, b) => (
+    Number(b.morale || 0) + Number(b.currentHp || 0) - Number(a.morale || 0) - Number(a.currentHp || 0)
+  ))[0] || current.students[0];
+  const phase = Number(current.day || 1) <= 3
+    ? '오픈 초반'
+    : Number(current.day || 1) <= 9
+      ? '확장 운영'
+      : '최종 정산';
+  const salesScene = tokenTotal > 0
+    ? `준비 메뉴 ${tokenTotal}개를 주문 처리 장면으로 바로 연결할 수 있습니다.`
+    : ingredientTotal >= 4
+      ? '재료는 있으니 주방 제작 장면을 먼저 잡는 흐름이 좋습니다.'
+      : '재료 매입 장면부터 시작하면 다음 액션이 선명해집니다.';
+  const battleScene = battleCount > victoryCount
+    ? '최근 전투 실패가 있어 회복/배식 컷을 먼저 배치하는 편이 자연스럽습니다.'
+    : avgHpPct >= 65 && avgMorale >= 55
+      ? `${bestStudent?.name || '학생'} 중심의 다음 전투 컷을 바로 보여줄 수 있습니다.`
+      : '학생 컨디션이 낮아 배식과 휴식 장면을 강조하는 편이 좋습니다.';
+  const productionScore = Math.round(clamp(
+    25
+      + Math.min(16, soldCount * 3)
+      + Math.min(14, craftedCount * 2)
+      + Math.min(14, victoryCount * 4)
+      + Math.min(10, tournamentWins * 6)
+      + Math.min(10, judgeMatches)
+      + Math.min(8, facilityTotal)
+      + Math.min(8, unlockedRecipes)
+      + (tokenTotal > 0 ? 5 : 0),
+    0,
+    100,
+  ));
+  const eventRows = [
+    buildProductionRow(
+      'lunch-rush',
+      '점심 러시',
+      current.businessMode === 'delivery' ? '배달 주문 폭주' : '홀 좌석 만석',
+      '준비 메뉴가 많을수록 주문 처리와 평판 회수 장면을 강하게 보여줍니다.',
+      30 + tokenTotal * 12 + soldCount * 2 + ctx.dailyOrders * 5,
+      tokenTotal > 0 ? 'ready' : 'setup',
+    ),
+    buildProductionRow(
+      'student-support',
+      '학생 응원전',
+      `${bestStudent?.name || '학생'} 배식/전투 연결`,
+      '선호 태그 배식 후 전투에 들어가면 전투 연출과 보상 회수가 한 화면에서 이어집니다.',
+      25 + avgHpPct * 0.35 + avgMorale * 0.35 + battleCount * 5,
+      avgHpPct >= 55 ? 'ready' : 'setup',
+    ),
+    buildProductionRow(
+      'judge-week',
+      '미식 심사 주간',
+      `${judgeMatches}회 심사 표본`,
+      '심사 기록이 쌓이면 대회 전 판정 감각을 확인하는 이벤트 주간으로 전환됩니다.',
+      20 + judgeMatches * 8,
+      judgeMatches >= 5 ? 'ready' : 'setup',
+    ),
+    buildProductionRow(
+      'festival-booth',
+      '축제 부스 운영',
+      `${unlockedRecipes}개 메뉴 / 시설 합 ${facilityTotal}`,
+      '레시피와 시설이 충분하면 판매, 대회, 평판 보너스를 묶은 장기 이벤트로 씁니다.',
+      20 + unlockedRecipes * 7 + facilityTotal * 4 + tournamentWins * 10,
+      unlockedRecipes >= 6 && facilityTotal >= 8 ? 'ready' : 'setup',
+    ),
+  ];
+  const sceneCues = [
+    buildProductionRow('sales', '영업 컷', current.businessMode === 'delivery' ? '배달' : '홀', salesScene, tokenTotal > 0 ? 82 : ingredientTotal >= 4 ? 58 : 34, tokenTotal > 0 ? 'ready' : 'setup'),
+    buildProductionRow('battle', '전투 컷', bestStudent?.name || '학생', battleScene, avgHpPct >= 65 ? 76 : 44, avgHpPct >= 65 ? 'ready' : 'setup'),
+    buildProductionRow('growth', '성장 컷', `시설 합 ${facilityTotal}`, '시설/연구가 올라갈수록 주방이 넓어지는 장면으로 운영 성장을 보여줍니다.', 35 + facilityTotal * 6, facilityTotal >= 7 ? 'ready' : 'setup'),
+  ];
+  const soundCues = [
+    { id: 'kitchen', cue: '주방 지글', target: craftedCount > 0 ? '제작 성공' : '첫 메뉴 제작', detail: '메뉴 제작 버튼 결과와 연결합니다.' },
+    { id: 'bell', cue: '주문 벨', target: tokenTotal > 0 ? '주문 처리' : '메뉴 준비', detail: '영업 루프의 다음 행동을 짧게 알려줍니다.' },
+    { id: 'battle', cue: victoryCount > 0 ? '승리 팡파르' : '전투 긴장음', target: '학생 전투', detail: '배식 후 전투 흐름을 분리해서 인지시키는 큐입니다.' },
+    { id: 'judge', cue: judgeMatches >= 5 ? '심사 하이라이트' : '심사 대기음', target: '심사위원 모드', detail: '대회와 심사 데이터를 이어주는 소리 표식입니다.' },
+  ];
+  const recommendations = [];
+  if (tokenTotal > 0) recommendations.push('준비 메뉴가 있으니 점심 러시 이벤트를 먼저 소화하세요.');
+  if (avgHpPct < 55) recommendations.push('전투 컷 전에 학생 배식 장면을 먼저 넣는 편이 안정적입니다.');
+  if (judgeMatches < 5) recommendations.push('심사 표본을 5회 이상 쌓으면 미식 심사 주간 이벤트가 열립니다.');
+  if (unlockedRecipes < 6) recommendations.push('축제 부스 운영을 위해 레시피 연구를 더 진행하세요.');
+  if (!recommendations.length) recommendations.push('장기 이벤트 조건이 충분합니다. 판매, 전투, 심사를 묶어 한 사이클로 진행하세요.');
+  return {
+    phase,
+    productionScore,
+    sceneCues,
+    eventRows,
+    soundCues,
+    recommendations,
+  };
+}
+
 export function summaryForState(state) {
   const operationsReport = operationsReportForState(state);
+  const productionReport = productionReportForState(state);
   return {
     day: state.day,
     gold: state.gold,
@@ -1437,6 +1559,8 @@ export function summaryForState(state) {
     readinessPct: operationsReport.readinessPct,
     tutorialPct: operationsReport.tutorialPct,
     balanceScore: operationsReport.balanceScore,
+    productionScore: productionReport.productionScore,
+    productionPhase: productionReport.phase,
     operationStatus: operationsReport.headline,
     score: scoreState(state),
   };
