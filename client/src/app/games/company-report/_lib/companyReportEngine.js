@@ -1384,6 +1384,110 @@ export function managementReport(state) {
   };
 }
 
+export function reportHistoryTrend(state) {
+  const current = normalizeState(state);
+  const management = managementReport(current);
+  const liveSummary = reportSummary(current);
+  const settlementRows = [...current.settlements]
+    .sort((a, b) => Number(a.year || 0) - Number(b.year || 0) || Number(a.month || 0) - Number(b.month || 0))
+    .map((settlement) => ({
+      id: `${settlement.year}-${String(settlement.month).padStart(2, '0')}`,
+      year: Number(settlement.year || 0),
+      month: Number(settlement.month || 0),
+      period: `${settlement.year}-${String(settlement.month).padStart(2, '0')}`,
+      sales: Number(settlement.totalSales || 0),
+      cost: Number(settlement.totalCost || 0),
+      operatingProfit: Number(settlement.operatingProfit || 0),
+      netProfit: Number(settlement.netProfit || 0),
+      netCashflow: Number(settlement.netCashflow || 0),
+      source: 'settlement',
+    }));
+  const latestSettlement = settlementRows[settlementRows.length - 1] || null;
+  const livePeriod = `${current.company.year}-${String(current.company.month).padStart(2, '0')}`;
+  const liveRow = {
+    id: `live-${livePeriod}`,
+    year: Number(current.company.year || 0),
+    month: Number(current.company.month || 0),
+    period: livePeriod,
+    sales: Number(management.income.sales || 0),
+    cost: Number(management.income.cogs || 0),
+    operatingProfit: Number(management.income.operatingProfit || 0),
+    netProfit: Number(liveSummary.latestSettlement?.netProfit ?? management.income.operatingProfit ?? 0),
+    netCashflow: Number(current.company.cashKrw || 0),
+    source: 'live',
+  };
+  const hasLiveSettlement = latestSettlement
+    && latestSettlement.year === liveRow.year
+    && latestSettlement.month === liveRow.month;
+  const baseRows = hasLiveSettlement ? settlementRows : [...settlementRows, liveRow];
+  const rows = baseRows.map((row, index) => {
+    const previous = baseRows[index - 1] || null;
+    const salesDelta = previous ? row.sales - previous.sales : 0;
+    const profitDelta = previous ? row.operatingProfit - previous.operatingProfit : 0;
+    const cashflowDelta = previous ? row.netCashflow - previous.netCashflow : 0;
+    return {
+      ...row,
+      salesDelta,
+      profitDelta,
+      cashflowDelta,
+      marginPct: row.sales ? Number(((row.operatingProfit / row.sales) * 100).toFixed(1)) : 0,
+      trend: profitDelta > 0 ? '개선' : profitDelta < 0 ? '악화' : '유지',
+    };
+  });
+  const latest = rows[rows.length - 1] || liveRow;
+  const previous = rows[rows.length - 2] || null;
+  const snapshotRows = current.ledgerSnapshots.slice(0, 6).map((snapshot) => ({
+    id: snapshot.id,
+    label: snapshot.label,
+    createdAt: snapshot.createdAt,
+    rowCount: snapshot.rowCount,
+    checksum: snapshot.checksum,
+  }));
+  const bookmarkRows = current.reportBookmarks.slice(0, 6).map((bookmark) => ({
+    id: bookmark.id,
+    label: bookmark.label,
+    note: bookmark.note,
+    score: Number(bookmark.score || 0),
+    assets: Number(bookmark.assets || 0),
+    receivableAmount: Number(bookmark.receivableAmount || 0),
+    favorite: Boolean(bookmark.favorite),
+  }));
+  const exportRows = current.exportHistory.slice(0, 6).map((item) => ({
+    id: item.id,
+    exportType: item.exportType,
+    exportNote: item.exportNote,
+    checksum: item.checksum,
+    itemCount: item.itemCount,
+  }));
+  const positiveProfitMonths = rows.filter((row) => row.operatingProfit >= 0).length;
+  const archiveScore = Math.max(0, Math.min(100, Math.round(
+    rows.length * 12
+    + current.reportBookmarks.length * 6
+    + current.exportHistory.length * 5
+    + current.ledgerSnapshots.length * 5
+    + positiveProfitMonths * 4
+    + (latest?.operatingProfit > 0 ? 8 : 0)
+  )));
+  const recommendations = [];
+  if (rows.length < 3) recommendations.push('월말 결산을 3개월 이상 쌓으면 매출/이익 추세 판단이 훨씬 안정됩니다.');
+  if (!current.reportBookmarks.length) recommendations.push('중요한 결산 시점은 리포트 북마크로 남겨 두면 장기 비교가 쉬워집니다.');
+  if (!current.exportHistory.length) recommendations.push('진행 보고서 내보내기를 실행하면 저장형 리포트 이력이 누적됩니다.');
+  if (!current.ledgerSnapshots.length) recommendations.push('스냅샷이 없으면 복원 비교 기준이 약합니다. 큰 액션 전후로 스냅샷을 남기세요.');
+  if (previous && latest.operatingProfit < previous.operatingProfit) recommendations.push('최근 영업이익이 전월보다 악화되었습니다. 고정비와 미수 채권 회수를 먼저 점검하세요.');
+  if (!recommendations.length) recommendations.push('리포트 이력은 안정적으로 쌓이고 있습니다. 다음 결산 전 글로벌/자본시장 이벤트를 추가해 장기 변동성을 확인하세요.');
+  return {
+    rows: rows.slice(-8).reverse(),
+    latest,
+    previous,
+    archiveScore,
+    positiveProfitMonths,
+    snapshotRows,
+    bookmarkRows,
+    exportRows,
+    recommendations,
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const report = reportSummary(current);
@@ -1413,6 +1517,7 @@ export function getPlayTimeSec(state) {
 export function summaryForState(state) {
   const current = normalizeState(state);
   const report = reportSummary(current);
+  const trend = reportHistoryTrend(current);
   return {
     year: current.company.year,
     month: current.company.month,
@@ -1428,6 +1533,8 @@ export function summaryForState(state) {
     snapshots: current.ledgerSnapshots.length,
     bookmarks: current.reportBookmarks.length,
     exports: current.exportHistory.length,
+    reportArchiveScore: trend.archiveScore,
+    reportPeriods: trend.rows.length,
     globalExports: current.global.exportResults.length,
     globalImports: current.global.importResults.length,
     investorTrust: current.capitalMarket.investorTrust,

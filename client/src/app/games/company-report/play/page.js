@@ -52,6 +52,7 @@ import {
   payVatAction,
   receivableRows,
   reportSummary,
+  reportHistoryTrend,
   restoreLedgerSnapshotAction,
   restoreLatestSnapshotAction,
   raiseCapitalAction,
@@ -145,6 +146,7 @@ export default function CompanyReportPlayPage() {
   const score = scoreState(state);
   const report = useMemo(() => reportSummary(state), [state]);
   const management = useMemo(() => managementReport(state), [state]);
+  const reportTrend = useMemo(() => reportHistoryTrend(state), [state]);
   const globalSummary = useMemo(() => globalTradeSummary(state), [state]);
   const capitalSummary = useMemo(() => capitalMarketSummary(state), [state]);
   const markets = useMemo(() => globalMarketRows(), []);
@@ -401,6 +403,7 @@ export default function CompanyReportPlayPage() {
     { label: '스냅샷', value: state.ledgerSnapshots.length },
     { label: '북마크', value: state.reportBookmarks.length },
     { label: '내보내기', value: state.exportHistory.length },
+    { label: '이력', value: `${reportTrend.archiveScore}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -615,6 +618,104 @@ export default function CompanyReportPlayPage() {
                     <ActionButton onClick={() => setState((current) => decideDividendAction(current))}>배당 결정</ActionButton>
                     <ActionButton onClick={() => setState((current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
                     <ActionButton onClick={() => setState((current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'history',
+            label: '리포트 이력',
+            badge: `${reportTrend.archiveScore}%`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>장기 리포트 추세</h2>
+                    <span>{reportTrend.latest?.period || '현재'} · {reportTrend.latest?.trend || '유지'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="이력 점수" value={`${reportTrend.archiveScore}%`} />
+                    <SmallStat label="월 수" value={reportTrend.rows.length} />
+                    <SmallStat label="흑자월" value={reportTrend.positiveProfitMonths} />
+                    <SmallStat label="스냅샷" value={reportTrend.snapshotRows.length} />
+                    <SmallStat label="북마크" value={reportTrend.bookmarkRows.length} />
+                    <SmallStat label="내보내기" value={reportTrend.exportRows.length} />
+                  </div>
+                  <div className="games-activity-list" style={{ marginTop: 12 }}>
+                    {reportTrend.recommendations.map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+                    <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 리포트 이력 추가</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>월별 추세</h2>
+                    <span>{reportTrend.rows.length}개 기간</span>
+                  </div>
+                  <div className="game-save-list">
+                    {reportTrend.rows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.source === 'live' ? '현재 진행월' : '월말 결산'} · 매출 {formatMoney(row.sales)}</span>
+                          <strong>{row.period} / 영업이익 {formatMoney(row.operatingProfit)}</strong>
+                          <small>전기 대비 이익 {formatMoney(row.profitDelta)} · 마진 {row.marginPct}%</small>
+                        </div>
+                        <strong>{row.trend}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>저장형 리포트</h2>
+                    <span>{reportTrend.bookmarkRows.length + reportTrend.exportRows.length}건</span>
+                  </div>
+                  <div className="game-save-list">
+                    {reportTrend.bookmarkRows.map((bookmark) => (
+                      <article className="game-save-row" key={bookmark.id}>
+                        <div>
+                          <span>{bookmark.favorite ? '즐겨찾기' : '북마크'} · {bookmark.note}</span>
+                          <strong>{bookmark.label}</strong>
+                          <small>자산 {formatMoney(bookmark.assets)} · 채권 {formatMoney(bookmark.receivableAmount)}</small>
+                        </div>
+                        <strong>{bookmark.score.toLocaleString('ko-KR')}</strong>
+                      </article>
+                    ))}
+                    {reportTrend.exportRows.map((item) => (
+                      <article className="game-save-row" key={item.id}>
+                        <div>
+                          <span>{item.exportType} · {item.itemCount} items</span>
+                          <strong>{item.exportNote}</strong>
+                          <small>checksum {item.checksum}</small>
+                        </div>
+                        <strong>export</strong>
+                      </article>
+                    ))}
+                    {!reportTrend.bookmarkRows.length && !reportTrend.exportRows.length ? <div className="games-empty">리포트 북마크나 진행 리포트 이력을 추가하면 여기에 누적됩니다.</div> : null}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>스냅샷 기준</h2>
+                    <span>{reportTrend.snapshotRows.length}건</span>
+                  </div>
+                  <div className="game-save-list">
+                    {reportTrend.snapshotRows.map((snapshot) => (
+                      <article className="game-save-row" key={snapshot.id}>
+                        <div>
+                          <span>{snapshot.rowCount} rows</span>
+                          <strong>{snapshot.label}</strong>
+                          <small>checksum {snapshot.checksum}</small>
+                        </div>
+                        <strong>{new Date(snapshot.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</strong>
+                      </article>
+                    ))}
+                    {!reportTrend.snapshotRows.length ? <div className="games-empty">스냅샷을 생성하면 장기 리포트의 비교 기준으로 사용됩니다.</div> : null}
                   </div>
                 </section>
               </section>
