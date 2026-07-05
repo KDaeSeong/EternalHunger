@@ -42,6 +42,7 @@ import {
   normalizeDuelState,
   normalSummon,
   passResponse,
+  replayTimelineForState,
   resolveChain,
   serializeDuelState,
   setSpellTrap,
@@ -622,6 +623,7 @@ function DualAcademyTcgPlayContent() {
         : 'violet';
   const summary = summarizeDuel(state);
   const matchReport = useMemo(() => matchReportForState(state), [state]);
+  const replayTimeline = useMemo(() => replayTimelineForState(state), [state]);
   const matchReportSummary = useMemo(() => ({
     headline: matchReport.headline,
     eventCount: matchReport.eventCount,
@@ -637,7 +639,13 @@ function DualAcademyTcgPlayContent() {
       readinessPct: turnAdvisor.readinessPct,
       boardDelta: turnAdvisor.boardDelta,
     },
-  }), [matchReport, turnAdvisor]);
+    replayTimeline: {
+      headline: replayTimeline.headline,
+      totalSwing: replayTimeline.totalSwing,
+      chainStatus: replayTimeline.chainStatus,
+      turnCount: replayTimeline.turnCount,
+    },
+  }), [matchReport, replayTimeline, turnAdvisor]);
 
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
@@ -1289,6 +1297,64 @@ function DualAcademyTcgPlayContent() {
                   </article>
                 ))}
               </div>
+              <section className="tcg-event-callout is-violet">
+                <span>{replayTimeline.chainStatus}</span>
+                <strong>{replayTimeline.headline}</strong>
+                <p>
+                  턴 {replayTimeline.turnCount}개 · 내 피해 {replayTimeline.playerDamage}
+                  {' / '}
+                  AI 피해 {replayTimeline.enemyDamage}
+                  {' · '}
+                  효과 발동 {replayTimeline.chainActivations}회
+                </p>
+              </section>
+              <div className="game-save-list">
+                {replayTimeline.recommendations.map((line, index) => (
+                  <article className="game-save-row" key={`tcg-replay-rec-${index}`}>
+                    <div>
+                      <span>리플레이 점검</span>
+                      <strong>{line}</strong>
+                    </div>
+                    <strong>{index + 1}</strong>
+                  </article>
+                ))}
+              </div>
+              {replayTimeline.chainAuditRows.length ? (
+                <div className="game-save-list">
+                  {replayTimeline.chainAuditRows.map((row) => (
+                    <article className="game-save-row" key={`tcg-chain-${row.order}-${row.cardName}`}>
+                      <div>
+                        <span>체인 {row.order} · {row.ownerLabel} · {row.source}</span>
+                        <strong>{row.cardName}</strong>
+                        <small>{row.effect}{row.negated ? ' · 무효화됨' : ''}</small>
+                      </div>
+                      <strong>{row.negated ? '무효' : '대기'}</strong>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+              <div className="game-save-list">
+                {replayTimeline.turnRows.slice(0, 5).map((row) => (
+                  <article className="game-save-row" key={`tcg-replay-turn-${row.turn}`}>
+                    <div>
+                      <span>T{row.turn} · {row.phases} · {row.swingLabel}</span>
+                      <strong>이벤트 {row.eventCount}건 · 템포 {row.tempoDelta >= 0 ? '+' : ''}{row.tempoDelta}</strong>
+                      <small>
+                        {row.highlights.length
+                          ? row.highlights.map((item) => item.label).join(' / ')
+                          : '하이라이트 없음'}
+                      </small>
+                    </div>
+                    <strong>{row.swing >= 0 ? `+${row.swing}` : row.swing}</strong>
+                  </article>
+                ))}
+              </div>
+              {replayTimeline.exportText ? (
+                <label className="game-save-json-field">
+                  <span>리플레이 요약</span>
+                  <textarea readOnly value={replayTimeline.exportText} rows={5} />
+                </label>
+              ) : null}
               {matchReport.highlights.length ? (
                 <div className="game-save-list">
                   {matchReport.highlights.slice(0, 4).map((line, index) => (

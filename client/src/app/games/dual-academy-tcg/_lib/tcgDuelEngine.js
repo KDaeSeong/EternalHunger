@@ -565,6 +565,161 @@ export function matchReportForState(state) {
   };
 }
 
+function replayPriorityForEvent(event) {
+  const type = String(event?.type || '');
+  if (type === 'WIN' || type === 'LOSE') return 'decisive';
+  if (type === 'DAMAGE_TAKEN' || type === 'ATTACK_DECLARE') {
+    return parseLpDamage(event?.text) >= 1500 ? 'swing' : 'normal';
+  }
+  if (type === 'EFFECT_ACTIVATE') return 'chain';
+  if (type === 'SUMMON' || type === 'SET') return 'tempo';
+  return 'normal';
+}
+
+function replayEventLabel(event) {
+  const actor = PLAYER_LABELS[event?.actor] || event?.actor || '시스템';
+  return `T${event?.turn || 1} ${event?.phase || 'MAIN1'} · ${actor} · ${event?.text || event?.type || '이벤트'}`;
+}
+
+export function replayTimelineForState(state) {
+  const safe = state && typeof state === 'object' ? state : {};
+  const events = Array.isArray(safe.events) ? safe.events : [];
+  const chronological = events.slice().reverse();
+  const rowsByTurn = new Map();
+  let playerDamage = 0;
+  let enemyDamage = 0;
+  let chainActivations = 0;
+
+  chronological.forEach((event) => {
+    const turn = Math.max(1, Number(event?.turn || 1));
+    const actor = PLAYERS.includes(event?.actor) ? event.actor : '';
+    const phase = event?.phase || 'MAIN1';
+    const type = String(event?.type || 'UNKNOWN');
+    if (!rowsByTurn.has(turn)) {
+      rowsByTurn.set(turn, {
+        turn,
+        phases: new Set(),
+        eventCount: 0,
+        playerActions: 0,
+        enemyActions: 0,
+        playerDamage: 0,
+        enemyDamage: 0,
+        chainCount: 0,
+        tempoEvents: 0,
+        decisiveEvents: 0,
+        highlights: [],
+      });
+    }
+    const row = rowsByTurn.get(turn);
+    row.phases.add(phase);
+    row.eventCount += 1;
+    if (actor === 'player') row.playerActions += 1;
+    if (actor === 'enemy') row.enemyActions += 1;
+    if (type === 'EFFECT_ACTIVATE') {
+      row.chainCount += 1;
+      chainActivations += 1;
+    }
+    if (type === 'SUMMON' || type === 'SET' || type === 'EFFECT_ACTIVATE') row.tempoEvents += 1;
+    if (type === 'WIN' || type === 'LOSE') row.decisiveEvents += 1;
+
+    const damage = parseLpDamage(event?.text);
+    if (damage > 0) {
+      if (type === 'DAMAGE_TAKEN' && actor) {
+        const dealer = opponent(actor);
+        if (dealer === 'player') {
+          row.playerDamage += damage;
+          playerDamage += damage;
+        } else {
+          row.enemyDamage += damage;
+          enemyDamage += damage;
+        }
+      } else if (type === 'ATTACK_DECLARE' && actor) {
+        if (actor === 'player') {
+          row.playerDamage += damage;
+          playerDamage += damage;
+        } else {
+          row.enemyDamage += damage;
+          enemyDamage += damage;
+        }
+      }
+    }
+
+    const priority = replayPriorityForEvent(event);
+    if (priority !== 'normal' || row.highlights.length < 2) {
+      row.highlights.push({
+        id: event?.id || `${turn}-${row.eventCount}`,
+        type,
+        actor,
+        priority,
+        label: replayEventLabel(event),
+      });
+    }
+  });
+
+  const turnRows = [...rowsByTurn.values()].map((row) => {
+    const swing = row.playerDamage - row.enemyDamage;
+    const phaseText = [...row.phases].join(' / ') || '-';
+    const tempoDelta = row.playerActions - row.enemyActions + row.tempoEvents;
+    return {
+      ...row,
+      phases: phaseText,
+      swing,
+      tempoDelta,
+      swingLabel: swing === 0 ? '균형' : swing > 0 ? `내가 ${swing} 우세` : `AI가 ${Math.abs(swing)} 우세`,
+      highlights: row.highlights.slice(-4).reverse(),
+    };
+  }).sort((a, b) => b.turn - a.turn);
+
+  const currentChain = Array.isArray(safe.chain) ? safe.chain : [];
+  const chainAuditRows = currentChain.map((link, index) => ({
+    order: currentChain.length - index,
+    owner: link.owner,
+    ownerLabel: PLAYER_LABELS[link.owner] || link.owner || '알 수 없음',
+    cardName: link.cardName || link.cardId || '효과',
+    effect: link.meta?.effect || 'effect',
+    negated: Boolean(link.negated),
+    source: link.source?.zone ? `${link.source.zone}${Number.isFinite(link.source.slot) ? ` ${link.source.slot + 1}` : ''}` : 'unknown',
+  }));
+  const prompt = safe.prompt && typeof safe.prompt === 'object' ? safe.prompt : { kind: 'NONE' };
+  const chainStatus = currentChain.length
+    ? `${currentChain.length}개 체인 대기 · ${prompt.kind === 'RESPOND' ? `${PLAYER_LABELS[prompt.player] || prompt.player} 응답 대기` : '해결 대기'}`
+    : prompt.kind !== 'NONE'
+      ? `${prompt.kind} 프롬프트 처리 필요`
+      : '체인 없음';
+  const latestTurn = turnRows[0] || null;
+  const totalSwing = playerDamage - enemyDamage;
+  const headline = latestTurn
+    ? `T${latestTurn.turn}까지 ${events.length}건 · ${totalSwing >= 0 ? '내 우세' : 'AI 우세'} ${Math.abs(totalSwing)} LP`
+    : '아직 리플레이 이벤트가 없습니다.';
+  const exportText = turnRows
+    .slice()
+    .reverse()
+    .map((row) => `T${row.turn} ${row.phases} | ${row.swingLabel} | 이벤트 ${row.eventCount} | ${row.highlights.map((item) => item.label).join(' / ')}`)
+    .join('\n');
+  const recommendations = [
+    currentChain.length ? '체인 해결 전에는 새 행동보다 응답/해결 순서를 먼저 확인하세요.' : '',
+    totalSwing < -2000 ? '누적 피해가 크게 밀립니다. 다음 MAIN 페이즈에서 수비 카드와 제거 효과를 우선하세요.' : '',
+    totalSwing > 2000 && !safe.winner ? 'LP 우세가 큽니다. 배틀 페이즈에서 마무리 공격 가능 여부를 확인하세요.' : '',
+    chainActivations >= 3 ? '효과 발동이 많았습니다. 리플레이에서 어느 효과가 템포를 만든 건지 확인해 덱 비율을 조정하세요.' : '',
+  ].filter(Boolean);
+  if (!recommendations.length) recommendations.push('타임라인은 안정적입니다. 최근 턴의 공격/효과 순서만 점검하면 됩니다.');
+
+  return {
+    headline,
+    eventCount: events.length,
+    turnCount: turnRows.length,
+    totalSwing,
+    playerDamage,
+    enemyDamage,
+    chainActivations,
+    chainStatus,
+    chainAuditRows,
+    turnRows,
+    exportText,
+    recommendations,
+  };
+}
+
 export function drawCards(state, player, count = 1) {
   let next = state;
   for (let index = 0; index < count; index += 1) {
