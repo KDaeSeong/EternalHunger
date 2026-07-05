@@ -26,6 +26,7 @@ import {
   fixtureLabel,
   getCurrentFixtures,
   getFreeAgentPreview,
+  getMatchArchiveRows,
   getPersonalLeagueRows,
   getPersonalLeagueSummary,
   getSeasonShopRows,
@@ -114,6 +115,7 @@ export default function MyAnimeCraftPlayPage() {
   const [tradeTargetTeamId, setTradeTargetTeamId] = useState(() => createNewState().teams[1]?.id || '');
   const [tradeTargetPlayerId, setTradeTargetPlayerId] = useState('');
   const [tradeCash, setTradeCash] = useState(0);
+  const [selectedArchiveMatchId, setSelectedArchiveMatchId] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -127,10 +129,8 @@ export default function MyAnimeCraftPlayPage() {
   const seasonStage = useMemo(() => getSeasonStageSummary(state), [state]);
   const postseasonRows = useMemo(() => getPostseasonRows(state), [state]);
   const seasonReports = useMemo(() => getSeasonReportRows(state, 8), [state]);
-  const lastMatch = useMemo(() => [...state.fixtures, ...(state.postseasonFixtures || [])]
-    .map((fixture) => fixture.result)
-    .filter(Boolean)
-    .sort((a, b) => Number(b.playedAt || 0) - Number(a.playedAt || 0))[0], [state.fixtures, state.postseasonFixtures]);
+  const matchArchiveRows = useMemo(() => getMatchArchiveRows(state, 18), [state]);
+  const selectedArchiveMatch = matchArchiveRows.find((row) => row.id === selectedArchiveMatchId) || matchArchiveRows[0];
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
   const tradeTeams = useMemo(() => tradeCandidateRows(state, selectedTeam.id), [state, selectedTeam.id]);
@@ -250,6 +250,7 @@ export default function MyAnimeCraftPlayPage() {
     setTradeTargetTeamId(nextState.teams[1]?.id || '');
     setTradeTargetPlayerId('');
     setTradeCash(0);
+    setSelectedArchiveMatchId('');
     setMessage('');
   };
 
@@ -308,14 +309,37 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => setState((current) => simulateWeekAction(current))}>이번 주 전체 진행</ActionButton>
             <ActionButton disabled={!ended} onClick={() => setState((current) => startNextSeasonAction(current))}>다음 시즌 시작</ActionButton>
           </div>
-          {lastMatch ? (
+          {matchArchiveRows.length ? (
+            <div className="game-save-list" style={{ marginTop: 16 }}>
+              {matchArchiveRows.slice(0, 6).map((match) => (
+                <button
+                  type="button"
+                  className="game-save-row"
+                  key={match.id}
+                  onClick={() => setSelectedArchiveMatchId(match.id)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    borderColor: selectedArchiveMatch?.id === match.id ? 'rgba(56, 189, 248, 0.7)' : undefined,
+                  }}
+                >
+                  <div>
+                    <span>{match.stageLabel} · {match.setCount}세트{match.aceSetLabel ? ' · 에이스전' : ''}</span>
+                    <strong>{match.homeTeamName} {match.scoreHome}:{match.scoreAway} {match.awayTeamName}</strong>
+                  </div>
+                  <strong>{match.winnerTeamName}</strong>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {selectedArchiveMatch ? (
             <div className="games-activity-list" style={{ marginTop: 16 }}>
               <div>
-                <strong>최근 경기 분석</strong>
-                <span>{lastMatch.homeTeamName} {lastMatch.scoreHome}:{lastMatch.scoreAway} {lastMatch.awayTeamName}</span>
+                <strong>경기 다시보기 · {selectedArchiveMatch.stageLabel}</strong>
+                <span>{selectedArchiveMatch.homeTeamName} {selectedArchiveMatch.scoreHome}:{selectedArchiveMatch.scoreAway} {selectedArchiveMatch.awayTeamName}</span>
               </div>
-              {lastMatch.sets.map((setResult) => (
-                <div key={`${lastMatch.matchId}-${setResult.setNo}`}>
+              {selectedArchiveMatch.sets.map((setResult) => (
+                <div key={`${selectedArchiveMatch.matchId}-${setResult.setNo}`}>
                   <strong>
                     {setResult.setNo}세트{setResult.isAceSet ? ' · 에이스전' : ''} · {setResult.mapName} · {setResult.homePlayerName} {BUILD_STYLE_LABELS[setResult.homeBuildStyle] || setResult.homeBuildStyle}
                     {' vs '}

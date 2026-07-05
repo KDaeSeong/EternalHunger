@@ -3744,6 +3744,49 @@ export function getPostseasonRows(state) {
   }));
 }
 
+export function getMatchArchiveRows(state, limit = 18) {
+  const current = normalizeState(state);
+  const regularRows = current.fixtures.map((fixture) => ({
+    stage: 'REGULAR',
+    stageLabel: `${fixture.round}주차`,
+    fixtureId: fixture.id,
+    fixture,
+  }));
+  const postseasonRows = normalizePostseasonFixtures(current.postseasonFixtures).map((fixture) => ({
+    stage: 'POSTSEASON',
+    stageLabel: fixture.label || POSTSEASON_LABELS[fixture.round] || `포스트시즌 ${fixture.round}`,
+    fixtureId: fixture.id,
+    fixture,
+  }));
+  return [...regularRows, ...postseasonRows]
+    .filter((row) => row.fixture.played && row.fixture.result)
+    .map((row) => {
+      const result = row.fixture.result;
+      const winnerName = result.winnerTeamId === result.homeTeamId ? result.homeTeamName : result.awayTeamName;
+      const aceSet = Array.isArray(result.sets) ? result.sets.find((setResult) => setResult.isAceSet) : null;
+      return {
+        id: `${row.stage}-${row.fixtureId}`,
+        stage: row.stage,
+        stageLabel: row.stageLabel,
+        fixtureId: row.fixtureId,
+        matchId: result.matchId || row.fixtureId,
+        round: result.round || row.fixture.round,
+        homeTeamName: result.homeTeamName,
+        awayTeamName: result.awayTeamName,
+        scoreHome: Number(result.scoreHome || 0),
+        scoreAway: Number(result.scoreAway || 0),
+        winnerTeamId: result.winnerTeamId || '',
+        winnerTeamName: winnerName,
+        playedAt: Number(result.playedAt || 0),
+        setCount: Array.isArray(result.sets) ? result.sets.length : 0,
+        aceSetLabel: aceSet ? `${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}` : '',
+        sets: Array.isArray(result.sets) ? result.sets : [],
+      };
+    })
+    .sort((a, b) => b.playedAt - a.playedAt || b.round - a.round)
+    .slice(0, limit);
+}
+
 export function getSeasonStageSummary(state) {
   const current = normalizeState(state);
   const regularDone = isRegularSeasonComplete(current);
