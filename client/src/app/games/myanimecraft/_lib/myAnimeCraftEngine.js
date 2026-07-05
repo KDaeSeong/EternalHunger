@@ -29,32 +29,58 @@ export const BUILD_STYLE_LABELS = {
 
 const BUILD_DEFS = [
   buildDef('T', 'TvZ', '2배럭 압박', 'rush', ['rush']),
+  buildDef('T', 'TvZ', '1배럭 더블', 'macro', ['macro', 'large']),
+  buildDef('T', 'TvZ', '5배럭 타이밍', 'rush', ['rush', 'balanced']),
   buildDef('T', 'TvZ', '바이오닉 견제', 'harass', ['small', 'harass']),
+  buildDef('T', 'TvZ', '드랍십 흔들기', 'harass', ['harass', 'large']),
   buildDef('T', 'TvZ', '메카닉 운영', 'tech', ['large', 'macro']),
+  buildDef('T', 'TvZ', '발키리 전환', 'tech', ['tech', 'balanced']),
   buildDef('T', 'TvP', '2배럭 찌르기', 'rush', ['rush', 'small']),
+  buildDef('T', 'TvP', '팩토리 조이기', 'rush', ['rush', 'balanced']),
   buildDef('T', 'TvP', '바이오닉-탱크 운영', 'balanced', ['macro', 'balanced']),
+  buildDef('T', 'TvP', '업테란 운영', 'macro', ['macro', 'large']),
   buildDef('T', 'TvP', '메카닉 전환', 'tech', ['large', 'tech']),
+  buildDef('T', 'TvP', '드랍십 벌처 견제', 'harass', ['harass', 'small']),
   buildDef('T', 'TvT', '1팩 더블', 'macro', ['macro', 'large']),
+  buildDef('T', 'TvT', '벌처 레이스', 'tech', ['tech', 'small']),
   buildDef('T', 'TvT', '2팩 압박', 'rush', ['rush']),
+  buildDef('T', 'TvT', '드랍십 탱크 흔들기', 'harass', ['harass', 'large']),
   buildDef('T', 'TvT', '메카닉 운영', 'tech', ['large', 'tech']),
   buildDef('Z', 'TvZ', '3해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'TvZ', '2해처리 러커', 'tech', ['tech', 'balanced']),
   buildDef('Z', 'TvZ', '저글링 러시', 'rush', ['rush', 'small']),
+  buildDef('Z', 'TvZ', '뮤탈 견제', 'harass', ['harass', 'small']),
   buildDef('Z', 'TvZ', '하이브 운영', 'macro', ['macro', 'large']),
+  buildDef('Z', 'TvZ', '울트라 전환', 'macro', ['macro', 'large']),
   buildDef('Z', 'ZvP', '3해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'ZvP', '히드라 타이밍', 'rush', ['rush', 'balanced']),
   buildDef('Z', 'ZvP', '저글링 올인', 'rush', ['rush']),
+  buildDef('Z', 'ZvP', '뮤탈 흔들기', 'harass', ['harass', 'small']),
   buildDef('Z', 'ZvP', '히드라 운영', 'macro', ['macro']),
+  buildDef('Z', 'ZvP', '디파일러 장기전', 'tech', ['tech', 'large']),
   buildDef('Z', 'ZvZ', '9드론 저글링', 'rush', ['rush', 'small']),
+  buildDef('Z', 'ZvZ', '12앞마당 운영', 'macro', ['macro']),
   buildDef('Z', 'ZvZ', '2해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'ZvZ', '저글링 난전', 'harass', ['harass', 'small']),
   buildDef('Z', 'ZvZ', '3해처리 운영', 'macro', ['macro']),
   buildDef('P', 'TvP', '더블넥서스', 'macro', ['macro', 'large']),
+  buildDef('P', 'TvP', '옵드라 압박', 'balanced', ['balanced', 'macro']),
   buildDef('P', 'TvP', '질럿 러시', 'rush', ['rush', 'small']),
+  buildDef('P', 'TvP', '다크템플러 찌르기', 'tech', ['tech', 'small']),
   buildDef('P', 'TvP', '리버 셔틀', 'harass', ['small', 'harass']),
+  buildDef('P', 'TvP', '캐리어 전환', 'tech', ['tech', 'large']),
   buildDef('P', 'ZvP', '질럿-드라군 압박', 'rush', ['rush']),
+  buildDef('P', 'ZvP', '커세어 리버', 'harass', ['harass', 'small']),
   buildDef('P', 'ZvP', '캐리어 운영', 'macro', ['macro', 'large']),
   buildDef('P', 'ZvP', '셔틀 테크', 'tech', ['large', 'tech']),
+  buildDef('P', 'ZvP', '템플러 한방', 'tech', ['tech', 'balanced']),
+  buildDef('P', 'ZvP', '더블넥 운영', 'macro', ['macro', 'large']),
   buildDef('P', 'PvP', '2게이트 압박', 'rush', ['rush', 'small']),
+  buildDef('P', 'PvP', '리버 견제', 'harass', ['harass', 'small']),
   buildDef('P', 'PvP', '아비터 테크', 'tech', ['large', 'tech']),
+  buildDef('P', 'PvP', '다크템플러 테크', 'tech', ['tech', 'small']),
   buildDef('P', 'PvP', '더블 운영', 'macro', ['macro']),
+  buildDef('P', 'PvP', '질럿 드라군 압박', 'balanced', ['balanced']),
 ];
 
 const CAREER_STAT_KEYS = ['attack', 'defense', 'strategy', 'sense', 'macro', 'scout', 'control', 'harass'];
@@ -1134,6 +1160,23 @@ function pickLine(rng, lines) {
   return lines[Math.floor(rng() * lines.length) % lines.length];
 }
 
+function hasKoreanFinalConsonant(text) {
+  const char = String(text || '').trim().slice(-1);
+  if ('013678'.includes(char)) return true;
+  if ('2459'.includes(char)) return false;
+  const code = char.charCodeAt(0);
+  if (code < 0xAC00 || code > 0xD7A3) return false;
+  return (code - 0xAC00) % 28 !== 0;
+}
+
+function topic(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '은' : '는'}`;
+}
+
+function subject(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '이' : '가'}`;
+}
+
 function formatGameClock(seconds) {
   const safe = Math.max(0, Math.floor(Number(seconds || 0)));
   const minutes = Math.floor(safe / 60);
@@ -1149,33 +1192,159 @@ function buildTimelineLine(t, caster, text) {
   };
 }
 
+function mapFlavorLine(rng, map) {
+  const tags = Array.isArray(map?.tags) ? map.tags : [];
+  if (tags.includes('rush') || tags.includes('small')) {
+    return pickLine(rng, [
+      `${topic(map.name)} 초반 동선이 짧습니다. 정찰 한 번 늦으면 바로 앞마당이 흔들릴 수 있어요.`,
+      `${map.name}에서는 첫 병력 움직임이 굉장히 중요합니다. 초반 실수가 곧바로 세트 흐름이 됩니다.`,
+    ]);
+  }
+  if (tags.includes('large') || tags.includes('macro')) {
+    return pickLine(rng, [
+      `${topic(map.name)} 넓게 쓰는 운영이 나오는 맵입니다. 멀티를 얼마나 안정적으로 지키느냐가 핵심이에요.`,
+      `${map.name}에서는 한 번에 끝내기보다 자원줄과 병력 회전이 길게 이어질 가능성이 큽니다.`,
+    ]);
+  }
+  if (tags.includes('harass')) {
+    return pickLine(rng, [
+      `${topic(map.name)} 흔들 포인트가 많습니다. 주 병력보다 견제 한 번이 더 크게 굴러갈 수 있어요.`,
+      `${map.name}에서는 시야가 비는 순간 바로 찔립니다. 수비 동선이 오늘의 숙제입니다.`,
+    ]);
+  }
+  if (tags.includes('tech')) {
+    return pickLine(rng, [
+      `${topic(map.name)} 테크 전환을 숨기기 좋은 편입니다. 확인이 늦으면 한 타이밍에 크게 맞습니다.`,
+      `${map.name}에서는 준비한 카드가 언제 공개되느냐가 중요합니다. 한 번 숨기면 보상이 큽니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${topic(map.name)} 균형이 좋은 맵입니다. 정찰, 자리, 타이밍이 모두 고르게 중요합니다.`,
+    `${map.name}에서는 어느 한쪽으로 쉽게 기울지 않습니다. 작은 판단이 누적되는 경기예요.`,
+  ]);
+}
+
+function matchupFlavorLine(rng, aRace, bRace) {
+  const matchup = matchupOf(aRace, bRace);
+  if (matchup === 'TvP') {
+    return pickLine(rng, [
+      '테란은 자리 잡고 조이는 그림, 프로토스는 한 번에 뚫는 타이밍을 봅니다.',
+      '이 매치업은 진출 타이밍과 수비선이 핵심입니다. 한 번만 삐끗하면 판이 확 바뀝니다.',
+    ]);
+  }
+  if (matchup === 'TvZ') {
+    return pickLine(rng, [
+      '테란은 계속 두드리고, 저그는 버티면서 판을 키우는 구도입니다.',
+      '리듬 싸움입니다. 견제가 이어지면 테란이 편하고, 저그가 한 번 숨 쉬면 후반이 무서워집니다.',
+    ]);
+  }
+  if (matchup === 'ZvP') {
+    return pickLine(rng, [
+      '프로토스는 타이밍으로 끊어가려 하고, 저그는 난전으로 흐름을 흩뜨리려 합니다.',
+      '중반 한 번 크게 부딪치는 타이밍이 옵니다. 그 교전에서 승부가 갈릴 수 있어요.',
+    ]);
+  }
+  if (matchup === 'TvT') {
+    return pickLine(rng, [
+      '테테전은 시야와 자리 싸움입니다. 좋은 자리 먼저 잡는 쪽이 계속 편해집니다.',
+      '한 번 탱크 라인이 밀리면 복구가 어렵습니다. 정찰과 포지션이 전부예요.',
+    ]);
+  }
+  if (matchup === 'ZvZ') {
+    return pickLine(rng, [
+      '저저전은 속도전입니다. 작은 교전 하나가 바로 세트 전체로 번집니다.',
+      '서로 숨 돌릴 시간이 많지 않습니다. 템포를 놓치면 따라잡기가 정말 어렵습니다.',
+    ]);
+  }
+  return pickLine(rng, [
+    '프프전은 정보 싸움입니다. 먼저 들키는 순간 대응이 빡빡해집니다.',
+    '초반 선택이 끝까지 따라옵니다. 빌드가 엇갈리면 세트가 순식간에 터질 수 있습니다.',
+  ]);
+}
+
+function buildClashLine(rng, homeBuild, awayBuild) {
+  const homeStyle = BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style;
+  const awayStyle = BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style;
+  if (homeBuild.style === awayBuild.style) {
+    return pickLine(rng, [
+      `양쪽 모두 ${homeStyle} 성향입니다. 같은 방향을 봤기 때문에 디테일과 실행력이 승부를 가릅니다.`,
+      `${homeStyle} 대 ${awayStyle} 정면 구도입니다. 누가 더 깔끔하게 준비했는지가 중요해요.`,
+    ]);
+  }
+  if (homeBuild.style === 'rush' || awayBuild.style === 'rush') {
+    const attacker = homeBuild.style === 'rush' ? '홈' : '원정';
+    return pickLine(rng, [
+      `${attacker} 쪽이 빠르게 걸어오는 구도입니다. 막는 쪽은 첫 수비만 넘기면 기회가 옵니다.`,
+      `러시 카드가 섞였습니다. 초반 정찰과 첫 교전이 세트 전체를 좌우합니다.`,
+    ]);
+  }
+  if (homeBuild.style === 'harass' || awayBuild.style === 'harass') {
+    return pickLine(rng, [
+      `견제 카드가 보입니다. 피해가 작아 보여도 누적되면 중반 교전이 완전히 달라집니다.`,
+      `한쪽은 흔들고 한쪽은 버티는 그림입니다. 수비 동선이 조금만 꼬여도 크게 굴러갑니다.`,
+    ]);
+  }
+  if (homeBuild.style === 'tech' || awayBuild.style === 'tech') {
+    return pickLine(rng, [
+      `테크 카드가 숨어 있습니다. 확인이 늦으면 갑자기 전장이 뒤집힐 수 있습니다.`,
+      `운영 속에 테크 전환이 섞였습니다. 공개되는 순간이 이 세트의 분기점입니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${homeStyle} 대 ${awayStyle} 구도입니다. 무리하지 않는 쪽이 후반 선택지를 더 많이 가져갑니다.`,
+    `빌드가 정면으로 겹치지는 않습니다. 어느 쪽 계획이 먼저 완성되느냐가 관건입니다.`,
+  ]);
+}
+
+function swingLine(rng, winnerName, leaderName, closeGame, homeWin, pHome) {
+  const favoriteHome = Number(pHome || 0.5) >= 0.56;
+  const favoriteName = favoriteHome ? '홈' : Number(pHome || 0.5) <= 0.44 ? '원정' : '';
+  const upset = favoriteName && ((favoriteHome && !homeWin) || (!favoriteHome && homeWin));
+  if (upset) {
+    return pickLine(rng, [
+      `${subject(winnerName)} 예상을 비트는 흐름을 만듭니다. 이건 단순 승리가 아니라 분위기까지 가져가는 세트예요.`,
+      `${winnerName} 쪽에서 판을 뒤집었습니다. 준비한 카드가 제대로 통했습니다.`,
+    ]);
+  }
+  if (closeGame) {
+    return pickLine(rng, [
+      '아직 끝난 게 아닙니다. 병력 한 번 잘못 돌리면 바로 반대편으로 흐름이 넘어갑니다.',
+      '세트가 정말 촘촘합니다. 지금은 한 번의 정찰, 한 번의 위치 선정이 승부입니다.',
+    ]);
+  }
+  return pickLine(rng, [
+    `${leaderName} 쪽으로 흐름이 기웁니다. 여기서 실수 없이 굳히는지가 중요합니다.`,
+    `${subject(leaderName)} 주도권을 잡았습니다. 상대는 수비와 역습 타이밍을 동시에 봐야 합니다.`,
+  ]);
+}
+
 function styleFlowLine(rng, style, playerName) {
   if (style === 'rush') {
     return pickLine(rng, [
-      `${playerName}이(가) 초반 승부수를 던집니다. 막히면 역으로 운영이 흔들릴 수 있습니다.`,
+      `${subject(playerName)} 초반 승부수를 던집니다. 막히면 역으로 운영이 흔들릴 수 있습니다.`,
       `${playerName} 쪽이 빠르게 압박합니다. 첫 교전이 세트 흐름을 크게 바꿀 수 있습니다.`,
     ]);
   }
   if (style === 'macro') {
     return pickLine(rng, [
-      `${playerName}이(가) 멀티와 병력 회전을 준비합니다. 장기전으로 끌고 가려는 그림입니다.`,
-      `${playerName}은(는) 운영을 길게 봅니다. 중후반 자원전에서 힘을 받는 선택입니다.`,
+      `${subject(playerName)} 멀티와 병력 회전을 준비합니다. 장기전으로 끌고 가려는 그림입니다.`,
+      `${topic(playerName)} 운영을 길게 봅니다. 중후반 자원전에서 힘을 받는 선택입니다.`,
     ]);
   }
   if (style === 'tech') {
     return pickLine(rng, [
-      `${playerName}이(가) 테크 타이밍을 노립니다. 완성 순간 한 번에 판이 뒤집힐 수 있습니다.`,
+      `${subject(playerName)} 테크 타이밍을 노립니다. 완성 순간 한 번에 판이 뒤집힐 수 있습니다.`,
       `${playerName}의 핵심은 전환 타이밍입니다. 들키지 않으면 큰 보상이 있습니다.`,
     ]);
   }
   if (style === 'harass') {
     return pickLine(rng, [
-      `${playerName}이(가) 계속 흔드는 운영을 준비합니다. 일꾼 피해 하나가 크게 쌓일 수 있습니다.`,
-      `${playerName}은(는) 견제로 리듬을 뺏으려 합니다. 상대의 손을 묶는 선택입니다.`,
+      `${subject(playerName)} 계속 흔드는 운영을 준비합니다. 일꾼 피해 하나가 크게 쌓일 수 있습니다.`,
+      `${topic(playerName)} 견제로 리듬을 뺏으려 합니다. 상대의 손을 묶는 선택입니다.`,
     ]);
   }
   return pickLine(rng, [
-    `${playerName}은(는) 밸런스형 운영입니다. 상대 빌드에 맞춰 유연하게 대응하려 합니다.`,
+    `${topic(playerName)} 밸런스형 운영입니다. 상대 빌드에 맞춰 유연하게 대응하려 합니다.`,
     `${playerName} 쪽은 무리하지 않는 출발입니다. 정보가 쌓이면 선택지도 넓어집니다.`,
   ]);
 }
@@ -1191,27 +1360,31 @@ function buildSetTimeline({
   homeWin,
   durationSec,
   noisyDiff,
+  pHome = 0.5,
+  scoreHome = 0,
+  scoreAway = 0,
   isAceSet = false,
 }) {
   const winnerName = homeWin ? homePlayer.name : awayPlayer.name;
   const leaderName = noisyDiff >= 0 ? homePlayer.name : awayPlayer.name;
   const absDiff = Math.abs(Number(noisyDiff || 0));
   const closeGame = absDiff < 95;
-  const leadText = closeGame
-    ? pickLine(rng, [
-      '중반까지 팽팽합니다. 한 번의 위치 선정, 한 번의 정찰 성공이 승부를 가를 수 있습니다.',
-      '양쪽 모두 큰 손해 없이 버팁니다. 후반 한타까지 가면 누구도 장담하기 어렵습니다.',
-    ])
-    : pickLine(rng, [
-      `${leaderName}이(가) 주도권을 잡습니다. 상대는 수비와 역습 타이밍을 동시에 봐야 합니다.`,
-      `${leaderName} 쪽으로 흐름이 기웁니다. 여기서 실수 없이 굳히는지가 중요합니다.`,
-    ]);
+  const scoreText = scoreHome || scoreAway ? ` 현재 매치 스코어는 ${scoreHome}:${scoreAway}.` : '';
   return [
-    buildTimelineLine(0, '캐스터', `${setNo}세트${isAceSet ? ' 에이스전' : ''} 시작합니다. 맵은 ${map.name}, ${homePlayer.name}(${RACE_LABELS[homePlayer.race] || homePlayer.race}) vs ${awayPlayer.name}(${RACE_LABELS[awayPlayer.race] || awayPlayer.race})입니다.`),
-    buildTimelineLine(16, '해설', `${homePlayer.name}은(는) ${homeBuild.name}(${BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style}), ${awayPlayer.name}은(는) ${awayBuild.name}(${BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style}) 구도입니다.`),
-    buildTimelineLine(Math.round(durationSec * 0.28), '해설', styleFlowLine(rng, homeBuild.style, homePlayer.name)),
-    buildTimelineLine(Math.round(durationSec * 0.48), '캐스터', leadText),
-    buildTimelineLine(Math.round(durationSec * 0.72), '해설', styleFlowLine(rng, awayBuild.style, awayPlayer.name)),
+    buildTimelineLine(0, '캐스터', `${setNo}세트${isAceSet ? ' 에이스전' : ''} 시작합니다. 맵은 ${map.name}, ${homePlayer.name}(${RACE_LABELS[homePlayer.race] || homePlayer.race}) vs ${awayPlayer.name}(${RACE_LABELS[awayPlayer.race] || awayPlayer.race})입니다.${scoreText}`),
+    buildTimelineLine(10, '해설', mapFlavorLine(rng, map)),
+    buildTimelineLine(16, '해설', `${topic(homePlayer.name)} ${homeBuild.name}(${BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style}), ${topic(awayPlayer.name)} ${awayBuild.name}(${BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style}) 구도입니다.`),
+    buildTimelineLine(Math.round(durationSec * 0.2), '해설 B', matchupFlavorLine(rng, homePlayer.race, awayPlayer.race)),
+    buildTimelineLine(Math.round(durationSec * 0.32), '해설', buildClashLine(rng, homeBuild, awayBuild)),
+    buildTimelineLine(Math.round(durationSec * 0.44), '해설', styleFlowLine(rng, homeBuild.style, homePlayer.name)),
+    buildTimelineLine(Math.round(durationSec * 0.58), '캐스터', swingLine(rng, winnerName, leaderName, closeGame, homeWin, pHome)),
+    buildTimelineLine(Math.round(durationSec * 0.74), '해설', styleFlowLine(rng, awayBuild.style, awayPlayer.name)),
+    buildTimelineLine(Math.round(durationSec * 0.9), '해설 B', isAceSet
+      ? `${subject(winnerName)} 에이스전 압박을 버텨냈습니다. 이런 세트는 다음 경기 분위기까지 흔들 수 있어요.`
+      : pickLine(rng, [
+        `${winnerName} 쪽 판단이 마지막까지 흔들리지 않았습니다. 준비한 플랜을 끝까지 밀어붙였어요.`,
+        `${subject(winnerName)} 결정적인 타이밍을 잡았습니다. 이 세트는 빌드 선택부터 마무리까지 연결이 좋았습니다.`,
+      ])),
     buildTimelineLine(durationSec, '캐스터', `${winnerName} 승리. ${formatGameClock(durationSec)}에 ${setNo}세트가 종료됩니다.`),
   ].sort((a, b) => a.t - b.t);
 }
@@ -1977,6 +2150,9 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     homeWin,
     durationSec,
     noisyDiff,
+    pHome,
+    scoreHome,
+    scoreAway,
     isAceSet,
   });
   return {
