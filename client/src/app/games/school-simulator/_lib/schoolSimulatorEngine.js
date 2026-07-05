@@ -2263,6 +2263,129 @@ export function semesterReport(state) {
   };
 }
 
+function buildScenarioRow(id, title, focus, detail, pct, tone = 'ready') {
+  return {
+    id,
+    title,
+    focus,
+    detail,
+    pct: Math.round(clamp(pct, 0, 100)),
+    tone,
+  };
+}
+
+export function scenarioProductionReportForState(state) {
+  const current = normalizeState(state);
+  const avg = getAverages(current);
+  const report = semesterReport(current);
+  const longTerm = longTermReport(current);
+  const events = weeklyEventReport(current);
+  const festival = festivalStatus(current);
+  const clubs = clubRows(current);
+  const gradeRows = [1, 2, 3].map((grade) => {
+    const students = current.students.filter((student) => Number(student.grade || 1) === grade);
+    const stress = Math.round(average(students.map((student) => student.stress)));
+    const career = Math.round(average(students.map((student) => student.careerReadiness)));
+    const understanding = Math.round(average(students.map((student) => student.understanding)));
+    return {
+      grade,
+      count: students.length,
+      stress,
+      career,
+      understanding,
+      focus: grade === 1 ? '적응' : grade === 2 ? '탐색' : '진로',
+      tone: stress >= 65 ? 'risk' : career >= 65 || understanding >= 68 ? 'ready' : 'setup',
+    };
+  });
+  const activeShowcases = subjectShowcaseSummary(current).activeCount;
+  const activeClubShowcases = clubs.filter((club) => Number(club.showcaseWeeksRemaining || 0) > 0).length;
+  const sceneScore = Math.round(clamp(
+    24
+      + report.tutorialPct * 0.18
+      + report.balanceScore * 0.16
+      + Math.min(16, (events.history.length + (events.pending ? 1 : 0)) * 4)
+      + Math.min(12, activeShowcases * 5)
+      + Math.min(10, activeClubShowcases * 5 + (festival.active ? 7 : 0))
+      + Math.min(12, current.semesterHistory.length * 6)
+      + Math.min(10, Number(longTerm.evaluation?.score || 0) * 0.12),
+    0,
+    100,
+  ));
+  const scenarioRows = [
+    buildScenarioRow(
+      'academic-school',
+      '학업 중심 학교',
+      longTerm.currentVision?.label || '장기 비전',
+      `교과 평균 ${report.academic.subjectAverage}점, 최근 시험 ${report.academic.recentExamAverage || '기록 없음'} 기준으로 공개 수업과 보충 코칭을 엮습니다.`,
+      report.academic.subjectAverage + activeShowcases * 8,
+      report.academic.subjectAverage >= 70 ? 'ready' : 'setup',
+    ),
+    buildScenarioRow(
+      'wellbeing-school',
+      '돌봄 중심 학교',
+      `${report.wellbeing.atRiskCount}명 위험`,
+      `스트레스 ${avg.stress}, 건강 ${avg.health}입니다. 상담, 회복 주간, 관계 안정 이벤트를 우선 배치합니다.`,
+      Math.round((100 - avg.stress) * 0.45 + avg.health * 0.35 + avg.satisfaction * 0.2),
+      avg.stress >= 65 ? 'risk' : 'ready',
+    ),
+    buildScenarioRow(
+      'community-school',
+      '지역 연계 학교',
+      festival.active ? festival.active.label : '행사 대기',
+      `동아리 영향력 ${report.operations.clubInfluence}, 행사 기록 ${festival.history.length}건입니다. 축제와 발표회를 학교 홍보 장면으로 묶습니다.`,
+      report.operations.clubInfluence + festival.history.length * 12 + (festival.active ? 10 : 0),
+      report.operations.clubInfluence >= 60 || festival.active ? 'ready' : 'setup',
+    ),
+    buildScenarioRow(
+      'admissions-school',
+      '입학 경쟁 학교',
+      `${current.school.admissions.competitionRate}:1`,
+      `지원자 ${current.school.admissions.applications}명, 브랜드 ${current.school.admissions.brandAwareness}입니다. 모집 캠페인과 공개 행사를 연결합니다.`,
+      Math.round(Number(current.school.admissions.competitionRate || 0) * 22 + Number(current.school.admissions.brandAwareness || 0) * 0.45),
+      Number(current.school.admissions.competitionRate || 0) >= 2.5 ? 'ready' : 'setup',
+    ),
+  ];
+  const gradeEventRows = gradeRows.map((row) => buildScenarioRow(
+    `grade-${row.grade}`,
+    `${row.grade}학년 ${row.focus} 이벤트`,
+    `${row.count}명`,
+    row.grade === 1
+      ? `적응 지원 장면입니다. 스트레스 ${row.stress}, 이해도 ${row.understanding}를 기준으로 상담/동아리 연결을 추천합니다.`
+      : row.grade === 2
+        ? `탐색 확장 장면입니다. 교과 공개 활동과 진로 체험을 섞으면 만족도와 자율성이 같이 오릅니다.`
+        : `진로 마무리 장면입니다. 진로 준비 ${row.career}, 스트레스 ${row.stress} 기준으로 상담과 시험 대비를 조절합니다.`,
+    row.grade === 3 ? row.career : Math.round((row.understanding + (100 - row.stress)) / 2),
+    row.tone,
+  ));
+  const productionRows = [
+    buildScenarioRow('morning-bell', '등교 벨', report.status, report.risks[0]?.title || '안정 운영', report.balanceScore, report.status === '안정' ? 'ready' : 'risk'),
+    buildScenarioRow('class-cut', '수업 컷', `${activeShowcases}개 공개 활동`, activeShowcases ? '공개 수업/성과 발표가 진행 중입니다.' : '약한 과목 공개 활동을 시작하면 수업 장면이 선명해집니다.', activeShowcases * 35 + report.academic.subjectAverage * 0.45, activeShowcases ? 'ready' : 'setup'),
+    buildScenarioRow('festival-cut', '행사 컷', festival.active ? festival.active.label : '행사 없음', festival.active ? `${festival.active.weeksRemaining}주 뒤 결과가 정산됩니다.` : '축제나 동아리 발표회를 예약하면 학교 분위기 연출이 살아납니다.', festival.active ? 85 : report.operations.clubInfluence, festival.active ? 'ready' : 'setup'),
+    buildScenarioRow('exam-cut', '시험/보고 컷', WEEK_SCHEDULE[current.school.week]?.examType ? '시험 주간' : '일반 주간', `학기 ${current.school.week}/12주 진행 중입니다.`, current.school.week / 12 * 100, WEEK_SCHEDULE[current.school.week]?.examType ? 'ready' : 'setup'),
+  ];
+  const soundCues = [
+    { id: 'bell', cue: '등교 벨', target: `${current.school.week}주차 시작`, detail: '주간 운영 보드 진입 시 학교 하루가 시작되는 신호입니다.' },
+    { id: 'classroom', cue: '교실 웅성임', target: `${report.academic.subjectAverage}점 수업`, detail: '수업/입학 탭의 교과 평균과 공개 활동 상태를 알려줍니다.' },
+    { id: 'event', cue: events.pending ? '사건 알림음' : '공지 방송', target: events.pending ? events.pending.title : '사건 대기', detail: '미해결 사건이 있으면 가장 먼저 인지하게 합니다.' },
+    { id: 'festival', cue: festival.active ? '축제 BGM' : '방과후 종', target: festival.active ? festival.active.label : '동아리/행사', detail: '행사와 동아리 발표회가 시작됐을 때 분위기를 구분합니다.' },
+  ];
+  const recommendations = [];
+  if (events.pending) recommendations.push('미해결 사건이 있으니 사건 대응 탭을 먼저 처리하세요.');
+  if (report.wellbeing.atRiskCount) recommendations.push(`${report.wellbeing.atRiskCount}명의 위험 학생이 있어 돌봄 중심 장면을 먼저 잡는 편이 좋습니다.`);
+  if (!activeShowcases) recommendations.push('약한 과목 공개 활동을 시작하면 학교별 시나리오가 더 분명해집니다.');
+  if (!festival.active && !activeClubShowcases) recommendations.push('동아리 발표회나 축제를 예약하면 행사 연출과 지역 연계 시나리오가 강화됩니다.');
+  if (!recommendations.length) recommendations.push('학년별 이벤트와 학교 시나리오가 안정적으로 돌아가고 있습니다. 다음 학기 보고까지 진행하세요.');
+  return {
+    sceneScore,
+    schoolScenario: scenarioRows.sort((a, b) => b.pct - a.pct)[0]?.title || '학교 시나리오',
+    gradeRows: gradeEventRows,
+    scenarioRows,
+    productionRows,
+    soundCues,
+    recommendations,
+  };
+}
+
 export function festivalStatus(state) {
   const current = normalizeState(state);
   return {
@@ -2315,6 +2438,7 @@ export function summaryForState(state) {
   const current = normalizeState(state);
   const avg = getAverages(current);
   const report = semesterReport(current);
+  const scenario = scenarioProductionReportForState(current);
   return {
     year: current.school.year,
     semester: current.school.semester,
@@ -2333,6 +2457,8 @@ export function summaryForState(state) {
     pendingEvent: current.events?.pending?.title || '',
     tutorialPct: report.tutorialPct,
     balanceScore: report.balanceScore,
+    scenarioScore: scenario.sceneScore,
+    schoolScenario: scenario.schoolScenario,
     longTerm: `${current.longTerm?.evaluation?.grade || '-'} / ${current.longTerm?.evaluation?.score || 0}`,
     vision: current.longTerm?.evaluation?.visionLabel || visionById(current.school.vision).label,
     score: scoreState(current),

@@ -45,6 +45,7 @@ import {
   runClubRecruitmentAction,
   scoreState,
   semesterReport,
+  scenarioProductionReportForState,
   startClubShowcaseAction,
   subjectPolicyRows,
   subjectShowcaseRows,
@@ -134,6 +135,7 @@ export default function SchoolSimulatorPlayPage() {
   const events = useMemo(() => weeklyEventReport(state), [state]);
   const report = useMemo(() => semesterReport(state), [state]);
   const longTerm = useMemo(() => longTermReport(state), [state]);
+  const scenarioReport = useMemo(() => scenarioProductionReportForState(state), [state]);
   const score = scoreState(state);
   const selectedAction = WORK_ACTIONS.find((action) => action.id === actionId) || WORK_ACTIONS[0];
   const selectedPolicy = POLICY_PRESETS.find((policy) => policy.id === policyId) || POLICY_PRESETS[0];
@@ -294,6 +296,7 @@ export default function SchoolSimulatorPlayPage() {
     { label: '과목', value: Math.round(subjectRows.reduce((sum, row) => sum + Number(row.averageScore || 0), 0) / Math.max(1, subjectRows.length)) },
     { label: '진로', value: Math.round(state.students.reduce((sum, student) => sum + Number(student.careerReadiness || 0), 0) / Math.max(1, state.students.length)) },
     { label: '사건', value: events.pending ? '대응' : events.history.length },
+    { label: '시나리오', value: `${scenarioReport.sceneScore}%` },
     { label: '튜토리얼', value: `${report.tutorialPct}%` },
     { label: '밸런스', value: `${report.balanceScore}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
@@ -411,6 +414,103 @@ export default function SchoolSimulatorPlayPage() {
                         </div>
                         <strong>{row.tone === 'good' ? 'OK' : row.tone === 'watch' ? '조정' : '우선'}</strong>
                       </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'scenario',
+            label: '시나리오/연출',
+            badge: `${scenarioReport.sceneScore}%`,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>학교별 시나리오</h2>
+                    <span>{scenarioReport.schoolScenario}</span>
+                  </div>
+                  <div className="games-rank-split" style={{ marginBottom: 12 }}>
+                    <SmallStat label="장면 점수" value={`${scenarioReport.sceneScore}%`} />
+                    <SmallStat label="시나리오" value={scenarioReport.scenarioRows.length} />
+                    <SmallStat label="학년 이벤트" value={scenarioReport.gradeRows.length} />
+                    <SmallStat label="사운드 큐" value={scenarioReport.soundCues.length} />
+                  </div>
+                  <div className="game-save-list">
+                    {scenarioReport.scenarioRows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.focus} · {row.pct}%</span>
+                          <strong>{row.title}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.tone === 'risk' ? '주의' : row.tone === 'ready' ? '준비' : '세팅'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>학년별 이벤트 변형</h2>
+                    <span>1·2·3학년</span>
+                  </div>
+                  <div className="game-save-list">
+                    {scenarioReport.gradeRows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.focus} · {row.pct}%</span>
+                          <strong>{row.title}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.tone === 'risk' ? '회복' : row.tone === 'ready' ? '진행' : '준비'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>연출 컷</h2>
+                    <span>수업 · 행사 · 시험</span>
+                  </div>
+                  <div className="game-save-list">
+                    {scenarioReport.productionRows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.focus} · {row.pct}%</span>
+                          <strong>{row.title}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.tone === 'risk' ? '점검' : row.tone === 'ready' ? '연출' : '대기'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>사운드 큐</h2>
+                    <span>{scenarioReport.soundCues.length}개</span>
+                  </div>
+                  <div className="game-save-list">
+                    {scenarioReport.soundCues.map((cue) => (
+                      <article className="game-save-row" key={cue.id}>
+                        <div>
+                          <span>{cue.target}</span>
+                          <strong>{cue.cue}</strong>
+                          <small>{cue.detail}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>다음 장면 추천</h2>
+                    <span>추천</span>
+                  </div>
+                  <div className="games-activity-list">
+                    {scenarioReport.recommendations.map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
                     ))}
                   </div>
                 </section>
