@@ -31,6 +31,7 @@ import {
   activateYuukaQuick,
   advancePhase,
   autoPlayEnemy,
+  autoPlayPlayer,
   chooseFromDeck,
   chooseTarget,
   changeMonsterPosition,
@@ -688,6 +689,9 @@ function DualAcademyTcgPlayContent() {
   const summary = summarizeDuel(state);
   const canAct = !state.winner && state.turnPlayer === 'player' && state.prompt.kind === 'NONE' && state.chain.length === 0;
   const canMain = canAct && (state.phase === 'MAIN1' || state.phase === 'MAIN2');
+  const canAutoPlayPlayer = !state.winner
+    && (state.turnPlayer === 'player' || state.prompt.player === 'player')
+    && !(state.prompt.kind === 'NONE' && state.chain.length > 0);
   const promptTargets = useMemo(() => {
     const out = new Set();
     if (state.prompt.kind === 'SELECT_TARGET') {
@@ -1026,6 +1030,18 @@ function DualAcademyTcgPlayContent() {
             </div>
             <button type="button" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
               필드 효과
+            </button>
+            <button
+              type="button"
+              className="tcg-primary-action"
+              onClick={() => {
+                setSelectedHandId('');
+                setSelectedAttacker(null);
+                act((current) => autoPlayPlayer(current));
+              }}
+              disabled={!canAutoPlayPlayer}
+            >
+              내 턴 자동
             </button>
             <div className="tcg-card-controls" style={{ marginTop: 12 }}>
               {monsterEffectRows.map((row) => (

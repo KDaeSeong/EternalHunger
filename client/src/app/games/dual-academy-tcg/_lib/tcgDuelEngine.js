@@ -1097,42 +1097,80 @@ function aiUnitScore(card, ai) {
     + (hasKeyword(card, 'pierce') ? Number(ai.aggressive || 0) * 1.5 : 0);
 }
 
-export function autoPlayEnemy(state) {
-  if (state.winner) return state;
-  const enemyProfile = aiProfileFor(state, 'enemy');
-  const enemyAi = enemyProfile.ai || {};
-  if (state.prompt.kind === 'RESPOND' && state.prompt.player === 'enemy') {
-    const counterSlot = state.players.enemy.spellTrap.findIndex((card) => card && cardType(card) === 'Trap' && spellSubType(card) === 'Counter');
-    const counterChance = boundedChance(0.18 + Number(enemyAi.control || 0) * 0.45 - Number(enemyAi.risk || 0) * 0.12);
-    if (counterSlot >= 0 && Math.random() < counterChance) return activateCounterTrap(state, 'enemy', counterSlot);
+function resolveAutoPrompt(state, player, ai) {
+  if (state.prompt.kind === 'RESPOND' && state.prompt.player === player) {
+    const counterSlot = state.players[player].spellTrap.findIndex((card) => card && cardType(card) === 'Trap' && spellSubType(card) === 'Counter');
+    const counterChance = boundedChance(0.18 + Number(ai.control || 0) * 0.45 - Number(ai.risk || 0) * 0.12);
+    if (counterSlot >= 0 && Math.random() < counterChance) return activateCounterTrap(state, player, counterSlot);
     return passResponse(state);
   }
-  if (state.prompt.kind !== 'NONE' || state.chain.length) return state;
-  if (state.turnPlayer !== 'enemy') return state;
+  if (state.prompt.kind === 'TRIGGER_CONFIRM' && state.prompt.player === player) {
+    const acceptChance = boundedChance(0.44 + Number(ai.combo || 0) * 0.32 + Number(ai.control || 0) * 0.18);
+    return confirmTrigger(state, Math.random() < acceptChance);
+  }
+  if (state.prompt.kind === 'SELECT_FROM_DECK' && state.prompt.player === player) {
+    const option = state.prompt.options[0];
+    return option ? chooseFromDeck(state, option.deckIndex) : { ...state, prompt: { kind: 'NONE' } };
+  }
+  if (state.prompt.kind === 'SELECT_TARGET' && state.prompt.player === player) {
+    const option = state.prompt.options[0];
+    return option ? chooseTarget(state, option) : { ...state, prompt: { kind: 'NONE' } };
+  }
+  return state;
+}
+
+export function autoPlayEnemy(state) {
+  return autoPlayFor(state, 'enemy');
+}
+
+export function autoPlayPlayer(state) {
+  return autoPlayFor(state, 'player');
+}
+
+export function autoPlayFor(state, actor = state.turnPlayer) {
+  if (state.winner) return state;
+  const player = PLAYERS.includes(actor) ? actor : state.turnPlayer;
+  const rival = opponent(player);
+  const profile = aiProfileFor(state, player);
+  const ai = profile.ai || {};
+  const prompted = resolveAutoPrompt(state, player, ai);
+  if (prompted !== state) return prompted;
+  if (state.prompt.kind !== 'NONE') return state;
+  if (state.chain.length) return resolveChain(state);
+  if (state.turnPlayer !== player) return state;
 
   let next = state;
   let guard = 0;
-  while (!next.winner && next.turnPlayer === 'enemy' && guard < 40) {
+  while (!next.winner && next.turnPlayer === player && guard < 40) {
     guard += 1;
-    if (next.prompt.kind !== 'NONE' || next.chain.length) break;
+    const promptedNext = resolveAutoPrompt(next, player, ai);
+    if (promptedNext !== next) {
+      next = promptedNext;
+      continue;
+    }
+    if (next.prompt.kind !== 'NONE') break;
+    if (next.chain.length) {
+      next = resolveChain(next);
+      continue;
+    }
     if (next.phase === 'MAIN1') {
-      const enemy = next.players.enemy;
-      const monsterSlot = firstEmpty(enemy.monster);
-      const unit = playableHandCards(enemy, 'Monster').sort((a, b) => aiUnitScore(b.card, enemyAi) - aiUnitScore(a.card, enemyAi))[0]?.card;
-      if (monsterSlot >= 0 && unit && !enemy.flags.normalSummoned) {
+      const side = next.players[player];
+      const monsterSlot = firstEmpty(side.monster);
+      const unit = playableHandCards(side, 'Monster').sort((a, b) => aiUnitScore(b.card, ai) - aiUnitScore(a.card, ai))[0]?.card;
+      if (monsterSlot >= 0 && unit && !side.flags.normalSummoned) {
         next = normalSummon(next, unit.instanceId, monsterSlot);
         continue;
       }
-      const field = enemy.hand.find((card) => cardType(card) === 'Spell' && spellSubType(card) === 'Field');
-      const fieldChance = boundedChance(0.28 + Number(enemyAi.combo || 0) * 0.36 + Number(enemyAi.control || 0) * 0.18);
-      if (field && !enemy.field && Math.random() < fieldChance) {
+      const field = side.hand.find((card) => cardType(card) === 'Spell' && spellSubType(card) === 'Field');
+      const fieldChance = boundedChance(0.28 + Number(ai.combo || 0) * 0.36 + Number(ai.control || 0) * 0.18);
+      if (field && !side.field && Math.random() < fieldChance) {
         next = activateFromHand(next, field.instanceId);
         if (next.prompt.kind === 'RESPOND') next = resolveChain(passResponse(next));
         continue;
       }
-      const removal = enemy.hand.find((card) => cardType(card) === 'Spell' && ['destroy-enemy-unit', 'banish-enemy-card', 'damage', 'draw', 'draw-heal'].includes(effectKey(card)));
-      const spellChance = boundedChance(0.3 + Number(enemyAi.aggressive || 0) * 0.22 + Number(enemyAi.combo || 0) * 0.2 + Number(enemyAi.control || 0) * 0.12);
-      if (removal && Math.random() < spellChance && (effectKey(removal) !== 'destroy-enemy-unit' || next.players.player.monster.some(Boolean))) {
+      const removal = side.hand.find((card) => cardType(card) === 'Spell' && ['destroy-enemy-unit', 'banish-enemy-card', 'damage', 'draw', 'draw-heal'].includes(effectKey(card)));
+      const spellChance = boundedChance(0.3 + Number(ai.aggressive || 0) * 0.22 + Number(ai.combo || 0) * 0.2 + Number(ai.control || 0) * 0.12);
+      if (removal && Math.random() < spellChance && (effectKey(removal) !== 'destroy-enemy-unit' || next.players[rival].monster.some(Boolean))) {
         next = activateFromHand(next, removal.instanceId);
         if (next.prompt.kind === 'RESPOND') next = resolveChain(passResponse(next));
         if (next.prompt.kind === 'SELECT_TARGET') {
@@ -1141,9 +1179,9 @@ export function autoPlayEnemy(state) {
         }
         continue;
       }
-      const settable = enemy.hand.find((card) => cardType(card) === 'Trap');
-      const stSlot = firstEmpty(enemy.spellTrap);
-      const setChance = boundedChance(0.22 + Number(enemyAi.control || 0) * 0.45 - Number(enemyAi.aggressive || 0) * 0.14);
+      const settable = side.hand.find((card) => cardType(card) === 'Trap');
+      const stSlot = firstEmpty(side.spellTrap);
+      const setChance = boundedChance(0.22 + Number(ai.control || 0) * 0.45 - Number(ai.aggressive || 0) * 0.14);
       if (settable && stSlot >= 0 && Math.random() < setChance) {
         next = setSpellTrap(next, settable.instanceId, stSlot);
         continue;
@@ -1152,9 +1190,9 @@ export function autoPlayEnemy(state) {
       continue;
     }
     if (next.phase === 'BATTLE') {
-      const attackerSlot = next.players.enemy.monster.findIndex((card) => card && !card.hasAttacked);
+      const attackerSlot = next.players[player].monster.findIndex((card) => card && !card.hasAttacked);
       if (attackerSlot >= 0) {
-        const targetSlot = weakestMonsterSlot(next.players.player.monster);
+        const targetSlot = weakestMonsterSlot(next.players[rival].monster);
         next = declareAttack(next, attackerSlot, targetSlot >= 0 ? targetSlot : null);
         continue;
       }
