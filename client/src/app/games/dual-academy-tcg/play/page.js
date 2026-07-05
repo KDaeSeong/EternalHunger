@@ -46,6 +46,7 @@ import {
   serializeDuelState,
   setSpellTrap,
   summarizeDuel,
+  turnAdvisorForState,
 } from '../_lib/tcgDuelEngine';
 
 function cardKind(card) {
@@ -611,6 +612,14 @@ function DualAcademyTcgPlayContent() {
     };
   }, [applyRoomMatch, loadingDeck, localRoomDirty, mounted, room?.revision, roomBusy, roomId, roomLoaded, token]);
 
+  const turnAdvisor = useMemo(() => turnAdvisorForState(state, 'player'), [state]);
+  const advisorTone = turnAdvisor.riskLabel === '위험'
+    ? 'red'
+    : turnAdvisor.riskLabel === '주의'
+      ? 'gold'
+      : turnAdvisor.riskLabel === '종료'
+        ? 'green'
+        : 'violet';
   const summary = summarizeDuel(state);
   const matchReport = useMemo(() => matchReportForState(state), [state]);
   const matchReportSummary = useMemo(() => ({
@@ -622,7 +631,13 @@ function DualAcademyTcgPlayContent() {
     enemyTempo: matchReport.players.enemy.tempoScore,
     playerDamageDealt: matchReport.players.player.damageDealt,
     enemyDamageDealt: matchReport.players.enemy.damageDealt,
-  }), [matchReport]);
+    turnAdvisor: {
+      riskLabel: turnAdvisor.riskLabel,
+      recommendedAction: turnAdvisor.recommendedAction,
+      readinessPct: turnAdvisor.readinessPct,
+      boardDelta: turnAdvisor.boardDelta,
+    },
+  }), [matchReport, turnAdvisor]);
 
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
@@ -1018,6 +1033,7 @@ function DualAcademyTcgPlayContent() {
         <section className="tcg-feature-tabs" role="tablist" aria-label="TCG 기능">
           {[
             { id: 'board', label: '보드', badge: state.phase },
+            { id: 'advisor', label: '턴 판단', badge: turnAdvisor.riskLabel },
             { id: 'hand', label: '패/액션', badge: `${state.players.player.hand.length}장` },
             { id: 'logs', label: '로그/아카이브', badge: `${state.events.length}건` },
           ].map((tab) => (
@@ -1156,6 +1172,81 @@ function DualAcademyTcgPlayContent() {
               </button>
             </div>
           </section>
+          </section>
+        ) : null}
+
+        {activeTcgTab === 'advisor' ? (
+          <section className="tcg-layout is-single">
+            <aside className="tcg-panel">
+              <h2>턴 어드바이저</h2>
+              <section className={`tcg-event-callout is-${advisorTone}`}>
+                <span>{turnAdvisor.phase} · {turnAdvisor.riskLabel}</span>
+                <strong>{turnAdvisor.headline}</strong>
+                <p>준비도 {turnAdvisor.readinessPct}% · 보드 {turnAdvisor.boardDelta >= 0 ? '+' : ''}{turnAdvisor.boardDelta} · LP {turnAdvisor.lpDelta >= 0 ? '+' : ''}{turnAdvisor.lpDelta}</p>
+              </section>
+              <dl className="tcg-small-stats">
+                <div>
+                  <dt>패 몬스터</dt>
+                  <dd>{turnAdvisor.hand.monsters}</dd>
+                </div>
+                <div>
+                  <dt>패 주문</dt>
+                  <dd>{turnAdvisor.hand.spells}</dd>
+                </div>
+                <div>
+                  <dt>패 함정</dt>
+                  <dd>{turnAdvisor.hand.traps}</dd>
+                </div>
+                <div>
+                  <dt>빈 몬스터 존</dt>
+                  <dd>{turnAdvisor.openMonster}</dd>
+                </div>
+                <div>
+                  <dt>빈 마함 존</dt>
+                  <dd>{turnAdvisor.openSpellTrap}</dd>
+                </div>
+                <div>
+                  <dt>킬각 피해</dt>
+                  <dd>{turnAdvisor.lethal.damage}</dd>
+                </div>
+              </dl>
+            </aside>
+            <aside className="tcg-panel">
+              <h2>추천 행동</h2>
+              <div className="game-save-list">
+                {turnAdvisor.recommendations.map((item, index) => (
+                  <article className="game-save-row" key={item.id}>
+                    <div>
+                      <span>{item.priority === 'high' ? '우선' : item.priority === 'low' ? '후순위' : '검토'} · {index + 1}</span>
+                      <strong>{item.title}</strong>
+                      <small>{item.detail}</small>
+                    </div>
+                    <strong>{item.priority}</strong>
+                  </article>
+                ))}
+              </div>
+            </aside>
+            <aside className="tcg-panel">
+              <h2>전투선</h2>
+              <div className="games-activity-list">
+                <div>
+                  <strong>{turnAdvisor.lethal.canAttack ? turnAdvisor.lethal.attackerName : '공격 가능 몬스터 없음'}</strong>
+                  <span>
+                    {turnAdvisor.lethal.lethal
+                      ? `직접 공격으로 ${turnAdvisor.lethal.damage} 피해 마무리 가능`
+                      : turnAdvisor.lethal.targetName
+                        ? `${turnAdvisor.lethal.targetName} 우선 정리`
+                        : turnAdvisor.lethal.canAttack
+                          ? `${turnAdvisor.lethal.damage} 직접 피해 가능`
+                          : 'MAIN 페이즈 전개 또는 다음 페이즈 진행이 필요합니다.'}
+                  </span>
+                </div>
+                <div>
+                  <strong>현재 권장</strong>
+                  <span>{turnAdvisor.recommendedAction}</span>
+                </div>
+              </div>
+            </aside>
           </section>
         ) : null}
 

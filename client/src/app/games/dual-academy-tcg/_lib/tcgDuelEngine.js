@@ -243,6 +243,7 @@ export function serializeDuelState(state) {
 }
 
 export function summarizeDuel(state) {
+  const advisor = turnAdvisorForState(state, 'player');
   return {
     turn: state.turn,
     phase: state.phase,
@@ -257,6 +258,184 @@ export function summarizeDuel(state) {
     chain: state.chain.length,
     playerCharacter: normalizeTcgCharacters(state.characters).player,
     enemyCharacter: normalizeTcgCharacters(state.characters).enemy,
+    turnAdvisor: {
+      riskLabel: advisor.riskLabel,
+      recommendedAction: advisor.recommendedAction,
+      readinessPct: advisor.readinessPct,
+      boardDelta: advisor.boardDelta,
+      lethalDamage: advisor.lethal?.damage || 0,
+    },
+  };
+}
+
+function zoneCards(zone) {
+  return Array.isArray(zone) ? zone.filter(Boolean) : [];
+}
+
+function openSlots(zone) {
+  return Array.isArray(zone) ? zone.filter((card) => !card).length : 0;
+}
+
+function boardPowerFor(playerState) {
+  return zoneCards(playerState?.monster).reduce((sum, card) => (
+    sum + monsterAtk(card) + Math.max(0, monsterHealth(card)) * 0.7 + Number(card?.shield ? 120 : 0)
+  ), 0);
+}
+
+function handProfileFor(playerState) {
+  const cards = Array.isArray(playerState?.hand) ? playerState.hand : [];
+  return cards.reduce((profile, card) => {
+    const type = cardType(card);
+    if (type === 'Monster') profile.monsters += 1;
+    else if (type === 'Trap') profile.traps += 1;
+    else profile.spells += 1;
+    if (spellSubType(card) === 'Field') profile.fields += 1;
+    if (['destroy-enemy-unit', 'banish-enemy-card', 'damage'].includes(effectKey(card))) profile.pressure += 1;
+    return profile;
+  }, { monsters: 0, spells: 0, traps: 0, fields: 0, pressure: 0 });
+}
+
+function bestHandMonster(playerState) {
+  return (Array.isArray(playerState?.hand) ? playerState.hand : [])
+    .filter((card) => cardType(card) === 'Monster')
+    .sort((a, b) => (
+      monsterAtk(b) + monsterHealth(b) * 0.8 + Number(b?.cost || 0) * 10
+    ) - (
+      monsterAtk(a) + monsterHealth(a) * 0.8 + Number(a?.cost || 0) * 10
+    ))[0] || null;
+}
+
+function attackLineFor(state, actor) {
+  const player = PLAYERS.includes(actor) ? actor : 'player';
+  const rival = opponent(player);
+  const side = state.players?.[player] || {};
+  const rivalSide = state.players?.[rival] || {};
+  const attackers = zoneCards(side.monster)
+    .filter((card) => !card.hasAttacked && card.position !== 'DEF')
+    .sort((a, b) => monsterAtk(b) - monsterAtk(a));
+  const bestAttacker = attackers[0] || null;
+  const defenders = zoneCards(rivalSide.monster);
+  const weakestDefender = defenders
+    .slice()
+    .sort((a, b) => monsterHealth(a) - monsterHealth(b) || monsterAtk(a) - monsterAtk(b))[0] || null;
+  const directDamage = defenders.length ? 0 : monsterAtk(bestAttacker);
+
+  return {
+    canAttack: Boolean(bestAttacker),
+    attackerName: bestAttacker?.name || '',
+    targetName: weakestDefender?.name || '',
+    damage: directDamage,
+    lethal: directDamage > 0 && directDamage >= Number(rivalSide.lp || 0),
+    defenderCount: defenders.length,
+  };
+}
+
+function advisorAction(id, title, detail, priority = 'normal') {
+  return { id, title, detail, priority };
+}
+
+export function turnAdvisorForState(state, actor = 'player') {
+  const current = normalizeDuelState(state);
+  const player = PLAYERS.includes(actor) ? actor : 'player';
+  const rival = opponent(player);
+  const side = current.players[player];
+  const rivalSide = current.players[rival];
+  const hand = handProfileFor(side);
+  const summonCandidate = bestHandMonster(side);
+  const attackLine = attackLineFor(current, player);
+  const playerPower = boardPowerFor(side);
+  const rivalPower = boardPowerFor(rivalSide);
+  const boardDelta = Math.round(playerPower - rivalPower);
+  const lpDelta = Number(side.lp || 0) - Number(rivalSide.lp || 0);
+  const openMonster = openSlots(side.monster);
+  const openSpellTrap = openSlots(side.spellTrap);
+  const recommendations = [];
+
+  if (current.winner) {
+    recommendations.push(advisorAction('record', '전적 저장', '승패가 확정됐습니다. 매치 리포트와 로그를 비교한 뒤 저장/전적을 남기세요.', 'high'));
+  } else if (current.prompt.kind !== 'NONE') {
+    const promptLabel = current.prompt.kind === 'RESPOND'
+      ? '체인 응답'
+      : current.prompt.kind === 'SELECT_TARGET'
+        ? '대상 선택'
+        : current.prompt.kind === 'SELECT_FROM_DECK'
+          ? '덱 선택'
+          : '효과 확인';
+    recommendations.push(advisorAction('prompt', promptLabel, '현재 선택/응답 프롬프트가 진행을 막고 있습니다. 먼저 프롬프트를 처리하세요.', 'high'));
+  } else if (current.chain.length > 0) {
+    recommendations.push(advisorAction('chain', '체인 해결', `${current.chain.length}개 효과가 대기 중입니다. 응답이 없다면 체인을 해결하세요.`, 'high'));
+  } else if (current.turnPlayer !== player) {
+    recommendations.push(advisorAction('wait', '상대 턴 대기', `${PLAYER_LABELS[rival]} 턴입니다. 자동 진행 후 내 턴 보드 상태를 다시 확인하세요.`, 'normal'));
+  } else if (current.phase === 'MAIN1' || current.phase === 'MAIN2') {
+    if (!side.flags.normalSummoned && summonCandidate && openMonster > 0) {
+      recommendations.push(advisorAction('summon', `${summonCandidate.name} 일반 소환`, `빈 몬스터 존 ${openMonster}칸이 있습니다. 현재 패에서 가장 안정적인 전개 카드입니다.`, 'high'));
+    }
+    if (!side.field && hand.fields > 0) {
+      recommendations.push(advisorAction('field', '필드 마법 발동', '필드가 비어 있습니다. 필드 마법을 먼저 깔면 후속 전투와 효과 가치가 올라갑니다.', 'normal'));
+    }
+    if (hand.pressure > 0 && zoneCards(rivalSide.monster).length > 0) {
+      recommendations.push(advisorAction('removal', '제거/피해 주문 확인', '상대 몬스터가 있으므로 제거, 제외, 피해 주문으로 전투 전에 길을 열 수 있습니다.', 'normal'));
+    }
+    if (hand.traps > 0 && openSpellTrap > 0) {
+      recommendations.push(advisorAction('set-trap', '함정 세트', `마법/함정 존 ${openSpellTrap}칸이 비어 있습니다. 다음 상대 턴 방어선을 준비하세요.`, 'normal'));
+    }
+    recommendations.push(advisorAction('battle-ready', '배틀 진입 검토', '소환/마법/세트를 마쳤다면 배틀 페이즈로 넘어가 공격 기회를 확인하세요.', 'low'));
+  } else if (current.phase === 'BATTLE') {
+    if (attackLine.lethal) {
+      recommendations.push(advisorAction('lethal', '직접 공격으로 마무리', `${attackLine.attackerName} 공격으로 ${attackLine.damage} 피해를 줄 수 있습니다.`, 'high'));
+    } else if (attackLine.canAttack && attackLine.defenderCount > 0) {
+      recommendations.push(advisorAction('attack', '가장 약한 몬스터 공격', `${attackLine.attackerName}로 ${attackLine.targetName || '상대 몬스터'}를 먼저 정리하세요.`, 'high'));
+    } else if (attackLine.canAttack) {
+      recommendations.push(advisorAction('direct', '직접 공격', `${attackLine.attackerName}로 직접 공격할 수 있습니다.`, 'high'));
+    } else {
+      recommendations.push(advisorAction('end-battle', '페이즈 넘기기', '공격 가능한 몬스터가 없습니다. MAIN2/END로 진행하세요.', 'normal'));
+    }
+  } else {
+    recommendations.push(advisorAction('next-phase', '다음 페이즈', '현재 페이즈에서 처리할 핵심 행동이 적습니다. 다음 페이즈로 넘기세요.', 'normal'));
+  }
+
+  if (!current.winner && Number(side.lp || 0) <= 2000) {
+    recommendations.push(advisorAction('low-lp', 'LP 위험', 'LP가 낮습니다. 수비 표시, 가드, 보호막, 함정 세트를 우선하세요.', 'high'));
+  }
+
+  const riskScore = (lpDelta < -2000 ? 2 : lpDelta < 0 ? 1 : 0)
+    + (boardDelta < -1200 ? 2 : boardDelta < 0 ? 1 : 0)
+    + (Number(side.deck?.length || 0) <= 5 ? 1 : 0)
+    + (Number(side.lp || 0) <= 2000 ? 2 : 0);
+  const riskLabel = current.winner
+    ? '종료'
+    : riskScore >= 4
+      ? '위험'
+      : riskScore >= 2
+        ? '주의'
+        : '안정';
+  const readinessPct = Math.max(0, Math.min(100, Math.round(
+    58
+    + Math.max(-18, Math.min(18, boardDelta / 180))
+    + Math.max(-14, Math.min(14, lpDelta / 220))
+    + (hand.monsters ? 5 : -6)
+    + (hand.traps ? 4 : 0)
+    + (attackLine.lethal ? 14 : 0)
+    - (current.prompt.kind !== 'NONE' ? 12 : 0)
+    - (current.chain.length ? 8 : 0)
+  )));
+  const first = recommendations[0] || advisorAction('watch', '상태 확인', '현재 보드와 패를 확인하세요.', 'normal');
+
+  return {
+    player,
+    rival,
+    phase: current.phase,
+    riskLabel,
+    readinessPct,
+    boardDelta,
+    lpDelta,
+    openMonster,
+    openSpellTrap,
+    hand,
+    lethal: attackLine,
+    recommendedAction: first.title,
+    headline: `${riskLabel} · ${first.title}`,
+    recommendations: recommendations.slice(0, 6),
   };
 }
 
