@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   CARDS,
   CIRCLES,
@@ -612,6 +612,14 @@ export default function BaVanguardPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'duel',
+            label: '듀얼 진행',
+            badge: duel.phase,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -715,6 +723,15 @@ export default function BaVanguardPlayPage() {
         onFilterChange={setGzoneFilter}
         onClose={() => setZoneView(null)}
       />
+              </>
+            ),
+          },
+          {
+            id: 'hand',
+            label: '패/로그',
+            badge: `${me.hand.length}장`,
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -766,6 +783,15 @@ export default function BaVanguardPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+          {
+            id: 'deck',
+            label: '덱 분석',
+            badge: valid ? '검증 통과' : '오류',
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -881,6 +907,11 @@ export default function BaVanguardPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }

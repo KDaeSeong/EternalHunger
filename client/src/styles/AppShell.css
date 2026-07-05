@@ -3779,14 +3779,16 @@
 
 .games-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
 }
 
 .games-metric {
   display: grid;
-  gap: 5px;
-  padding: 14px;
+  align-content: center;
+  gap: 4px;
+  min-height: 66px;
+  padding: 10px 12px;
 }
 
 .games-metric span {
@@ -3797,7 +3799,7 @@
 
 .games-metric strong {
   color: #17202a;
-  font-size: 1.45rem;
+  font-size: 1.18rem;
   line-height: 1.1;
 }
 
