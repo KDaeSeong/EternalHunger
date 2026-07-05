@@ -713,7 +713,7 @@ function completeTechIfReady(state, techId) {
   if (nextResearch.selectedTechId === tech.id) {
     nextResearch.selectedTechId = nextAvailableTech(nextResearch)?.id || tech.id;
   }
-  return addLog({ ...state, research: nextResearch }, `연구 완료: ${tech.name}`);
+  return applyEureka(addLog({ ...state, research: nextResearch }, `연구 완료: ${tech.name}`));
 }
 
 function addResearchProgress(state, techId, points, source = '연구') {
@@ -764,6 +764,7 @@ function applyEureka(state) {
     const trigger = tech.eureka;
     if (!trigger || next.research.eureka[tech.id] || next.research.completed[tech.id]) continue;
     if (!researchTriggerProgress(next, trigger).done) continue;
+    if (!prereqsMet(next.research, tech)) continue;
     const bonus = Math.ceil(tech.cost * Number(trigger.bonusPct || 0));
     next = {
       ...next,
