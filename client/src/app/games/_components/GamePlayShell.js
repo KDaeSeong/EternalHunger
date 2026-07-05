@@ -69,7 +69,9 @@ export default function GamePlayShell({
 }) {
   const visibleMetrics = metrics.filter(Boolean);
   const visibleMessages = messages.filter(Boolean);
-  const summaryClassName = summaryDensity === 'dense'
+  const summaryClassName = summaryDensity === 'micro'
+    ? 'games-summary games-summary--micro'
+    : summaryDensity === 'dense'
     ? 'games-summary games-summary--dense'
     : summaryDensity === 'compact'
       ? 'games-summary games-summary--compact'
