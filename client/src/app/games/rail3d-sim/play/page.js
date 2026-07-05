@@ -20,6 +20,7 @@ import {
   mapViewState,
   normalizeState,
   pointOnEdge,
+  portingCompletionReport,
   runForAction,
   scheduleReport,
   scoreState,
@@ -115,6 +116,7 @@ export default function Rail3dSimPlayPage() {
   const segments = useMemo(() => segmentSummary(state), [state]);
   const report = useMemo(() => scheduleReport(state), [state]);
   const bottleneck = useMemo(() => bottleneckAnalysisReport(state), [state]);
+  const portingCompletion = useMemo(() => portingCompletionReport(state), [state]);
   const stationBoard = useMemo(() => stationBoardRows(state), [state]);
   const selectedTrain = useMemo(() => trainDebugDetail(state, selectedTrainId), [state, selectedTrainId]);
   const score = scoreState(state);
@@ -229,6 +231,7 @@ export default function Rail3dSimPlayPage() {
     { label: 'TOKEN', value: tokenWaits },
     { label: '병목', value: `${bottleneck.healthScore}점` },
     { label: '다이아', value: bottleneck.proposedDepartureShiftS ? `+${bottleneck.proposedDepartureShiftS}s` : '유지' },
+    { label: '이식', value: `${portingCompletion.completionPct}%` },
     { label: 'SEG', value: SEGMENTS.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -372,6 +375,31 @@ export default function Rail3dSimPlayPage() {
             badge: `${bottleneck.healthScore}점`,
             children: (
               <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>이식 완성 감사</h2>
+                    <span>{portingCompletion.headline}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="완성도" value={`${portingCompletion.completionPct}%`} />
+                    <SmallStat label="카메라 포커스" value={portingCompletion.cameraTarget} />
+                    <SmallStat label="노선 길이" value={`${portingCompletion.routeLengthM}m`} />
+                    <SmallStat label="통과" value={`${portingCompletion.rows.filter((row) => row.ready).length}/${portingCompletion.rows.length}`} />
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {portingCompletion.rows.map((row) => (
+                      <article className="game-save-row" key={`porting-${row.id}`} style={row.ready ? { borderColor: '#2b8a5f' } : null}>
+                        <div>
+                          <span>{row.ready ? '완료' : '점검'} · {row.value}</span>
+                          <strong>{row.label}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.ready ? 'OK' : '확인'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
                 <section className="games-panel">
                   <div className="games-panel-title">
                     <h2>병목 자동 분석</h2>

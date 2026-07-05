@@ -262,6 +262,7 @@ export function summaryForState(state) {
   const current = normalizeState(state);
   const rows = trainRows(current);
   const bottleneck = bottleneckAnalysisReport(current);
+  const porting = portingCompletionReport(current);
   return {
     nowS: current.nowS,
     time: formatTime(current.nowS),
@@ -274,6 +275,8 @@ export function summaryForState(state) {
     bottleneckScore: bottleneck.healthScore,
     bottleneckGrade: bottleneck.grade,
     topBottleneck: bottleneck.topBottleneck,
+    portingCompletionPct: porting.completionPct,
+    portingReady: porting.ready,
   };
 }
 
@@ -446,6 +449,70 @@ export function bottleneckAnalysisReport(state) {
     stationHotspots,
     headwayRows,
     recommendations,
+  };
+}
+
+export function portingCompletionReport(state) {
+  const current = normalizeState(state);
+  const report = scheduleReport(current);
+  const bottleneck = bottleneckAnalysisReport(current);
+  const view = mapViewState(current);
+  const stationRows = stationBoardRows(current);
+  const routeLengthM = TRACK.edges.reduce((sum, edge) => sum + Number(edge.lengthM || 0), 0);
+  const coordsReady = TRACK.nodes.length > 1 && TRACK.nodes.every((node) => (
+    Number.isFinite(Number(node.x)) && Number.isFinite(Number(node.z))
+  ));
+  const cameraTarget = bottleneck.waitingTrains[0]?.id
+    || current.trains.find((train) => train.phase !== 'DONE')?.id
+    || current.trains[0]?.id
+    || '-';
+  const completedRatio = `${report.totals.completed}/${report.totals.trains}`;
+  const rows = [
+    {
+      id: 'camera-data',
+      label: '3D 카메라 데이터',
+      value: `${view.nodes.length}노드 · ${view.trains.length}열차`,
+      detail: `좌표계, 열차 위치, 선택 열차 포커스(${cameraTarget})가 운행 뷰와 연결되어 있습니다.`,
+      ready: coordsReady && view.edges.length > 0 && view.trains.length > 0,
+    },
+    {
+      id: 'long-route-schema',
+      label: '장거리 노선 스키마',
+      value: `${routeLengthM}m · ${TRACK.stations.length}역`,
+      detail: `엣지 길이, 역 정차점, 속도 제한, 블록 길이 기반으로 장거리 노선팩을 그대로 확장할 수 있습니다.`,
+      ready: routeLengthM >= 400 && TRACK.stations.length >= 3 && SEGMENTS.length > 0,
+    },
+    {
+      id: 'diagram-editor',
+      label: '다이아 편집 준비',
+      value: `${bottleneck.headwayRows.length}간격 · 보정 ${bottleneck.proposedDepartureShiftS || 0}s`,
+      detail: `최소 간격, 권장 간격, 출발 보정, Lookahead 권장값을 같은 리포트에서 계산합니다.`,
+      ready: bottleneck.headwayRows.length > 0 && Number.isFinite(Number(bottleneck.idealHeadwayS)),
+    },
+    {
+      id: 'ops-record',
+      label: '운행판/전적 요약',
+      value: `${stationRows.length}역 · 종착 ${completedRatio}`,
+      detail: '역별 운행판, 시간표 리포트, 병목 점수, 저장/전적 요약이 같은 상태 스냅샷을 사용합니다.',
+      ready: stationRows.length > 0 && report.trains.length > 0,
+    },
+  ];
+  const readyRows = rows.filter((row) => row.ready).length;
+  const completionPct = Math.round((readyRows / Math.max(1, rows.length)) * 100);
+  const recommendations = [
+    bottleneck.proposedDepartureShiftS ? `후속 열차 출발을 +${bottleneck.proposedDepartureShiftS}s 보정하는 다이아안을 검토하세요.` : '',
+    bottleneck.recommendedLookahead !== current.lookaheadBlocks ? `Lookahead를 ${bottleneck.recommendedLookahead}로 맞추면 블록 예약 충돌을 줄일 수 있습니다.` : '',
+    completionPct >= 100 ? '운행 뷰, 장거리 확장 스키마, 다이아 감사가 모두 연결되어 있습니다.' : '',
+  ].filter(Boolean);
+
+  return {
+    completionPct,
+    ready: completionPct >= 100,
+    headline: `이식 감사 ${completionPct}% · 노선 ${routeLengthM}m · 병목 ${bottleneck.healthScore}점`,
+    routeLengthM,
+    cameraTarget,
+    rows,
+    recommendations: [...new Set(recommendations)].slice(0, 4),
   };
 }
 
