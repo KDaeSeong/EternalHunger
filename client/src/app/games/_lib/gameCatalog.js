@@ -372,7 +372,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'asset-audit',
-    completionPct: 95,
+    completionPct: 100,
   },
 };
 
@@ -529,9 +529,9 @@ export const GAME_ROADMAP = [
     title: 'Racing Logos Demo',
     subtitle: 'Asset Lab',
     priority: '이식 진행',
-    scope: 'core 트랙/이벤트, 로컬팩 JSON, 로고 fallback, 검수 매트릭스, 감사 기록, 시즌 캘린더, 시즌 카드 생성, 이벤트 카드 생성, 상세 제작 탭, 저장/전적, 기능별 빠른 탭 UI',
-    summary: '공개 가능한 트랙/이벤트 데이터와 개인용 local pack 우선 로고 규칙, placeholder fallback, 감사 점수, 시즌 캘린더 리포트, 시즌/이벤트 카드 생성, 로컬팩 매트릭스를 다루는 asset lab playable slice입니다.',
-    nextStep: '남은 작업은 실존 로고팩 배포 방식과 장기 레이스 결과 모델을 별도 데이터 팩으로 분리하는 확장입니다.',
+    scope: 'core 트랙/이벤트, 로컬팩 JSON, 로고 fallback, 검수 매트릭스, 감사 기록, 시즌 캘린더, 시즌 카드 생성, 이벤트 카드 생성, 데이터팩 배포 리포트, 장기 레이스 결과 모델, 상세 제작 탭, 저장/전적, 기능별 빠른 탭 UI',
+    summary: '공개 가능한 트랙/이벤트 데이터와 개인용 local pack 우선 로고 규칙, placeholder fallback, 감사 점수, 시즌 캘린더 리포트, 시즌/이벤트 카드 생성, 로컬팩 매트릭스, 데이터팩 배포와 결과 원장을 다루는 asset lab playable slice입니다.',
+    nextStep: '완성 이후에는 실제 로고 에셋 제공 방식과 외부 장기 결과 데이터셋 연결 같은 선택형 확장만 남았습니다.',
   },
 ];
 

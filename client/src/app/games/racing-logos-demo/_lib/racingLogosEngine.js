@@ -358,6 +358,127 @@ export function seasonCalendarReport(state) {
   };
 }
 
+function buildDataPackRow(id, label, value, detail, pct, status = 'ready') {
+  return {
+    id,
+    label,
+    value,
+    detail,
+    pct: Math.round(Math.max(0, Math.min(100, Number(pct || 0)))),
+    status,
+  };
+}
+
+export function dataPackReleaseReportForState(state) {
+  const current = normalizeState(state);
+  const matrix = localPackMatrix(current);
+  const calendar = seasonCalendarReport(current);
+  const audit = latestAudit(current);
+  const seasonCards = current.raceCards.filter((card) => card.season);
+  const eventCards = current.raceCards.filter((card) => !card.season);
+  const resultRows = current.raceCards.slice(0, 8).flatMap((card) => (
+    (card.results || []).map((result, index) => ({
+      id: `${card.id}-${result.eventId}-${index}`,
+      cardId: card.id,
+      season: Boolean(card.season),
+      raceName: result.raceName,
+      trackName: result.trackName,
+      winner: result.winner,
+      runnerUp: result.runnerUp,
+      rating: Number(result.rating || 0),
+      week: result.week || '',
+      surface: result.surface,
+      distanceM: Number(result.distanceM || 0),
+    }))
+  ));
+  const avgRating = resultRows.length
+    ? Math.round(resultRows.reduce((sum, row) => sum + row.rating, 0) / resultRows.length)
+    : 0;
+  const releaseScore = Math.round(Math.max(0, Math.min(100,
+    audit.completeness * 0.34
+      + calendar.averageReadiness * 0.24
+      + Math.min(100, seasonCards.length * 34 + eventCards.length * 16) * 0.16
+      + Math.min(100, resultRows.length * 7) * 0.14
+      + Math.min(100, matrix.totals.localCandidateCount * 4) * 0.12,
+  )));
+  const packRows = [
+    buildDataPackRow(
+      'core-pack',
+      'core 데이터팩',
+      `${CORE_TRACKS.length}T / ${CORE_EVENTS.length}E`,
+      '공개 가능한 트랙/이벤트 id, 지역, 주로, 방향, 거리 정보입니다.',
+      100,
+      'complete',
+    ),
+    buildDataPackRow(
+      'public-placeholder',
+      'public placeholder',
+      `${audit.placeholderOnly}개 placeholder`,
+      '저작권 이슈 없이 배포 가능한 fallback 로고 경로입니다.',
+      Math.max(20, 100 - audit.placeholderOnly * 22),
+      audit.placeholderOnly ? 'ready' : 'complete',
+    ),
+    buildDataPackRow(
+      'local-pack',
+      'private local_pack',
+      `${matrix.totals.completed}/${matrix.totals.rows}`,
+      '실명, 로고키, 후보 경로를 개인 로컬 데이터팩으로 분리해 검수합니다.',
+      matrix.totals.rows ? matrix.totals.completed / matrix.totals.rows * 100 : 0,
+      matrix.totals.completed === matrix.totals.rows ? 'complete' : 'ready',
+    ),
+    buildDataPackRow(
+      'season-pack',
+      'season calendar',
+      `${calendar.readyRows}/${calendar.totalRows}`,
+      '시즌 라운드 편성과 예상 관심도, 보강 필요 항목을 분리 관리합니다.',
+      calendar.averageReadiness,
+      calendar.readyRows === calendar.totalRows ? 'complete' : 'ready',
+    ),
+  ];
+  const modelRows = [
+    buildDataPackRow(
+      'event-card',
+      '이벤트 결과 모델',
+      `${eventCards.length}장`,
+      '필터된 이벤트를 카드 단위 결과로 생성해 단기 검수에 사용합니다.',
+      Math.min(100, eventCards.length * 45),
+      eventCards.length ? 'complete' : 'ready',
+    ),
+    buildDataPackRow(
+      'season-card',
+      '시즌 결과 모델',
+      `${seasonCards.length}장`,
+      '시즌 캘린더 전체를 장기 결과 카드로 저장해 장기 레이스 흐름을 분리합니다.',
+      Math.min(100, seasonCards.length * 55),
+      seasonCards.length ? 'complete' : 'ready',
+    ),
+    buildDataPackRow(
+      'rating-ledger',
+      '레이팅 원장',
+      resultRows.length ? `${resultRows.length}개 결과` : '결과 없음',
+      resultRows.length ? `평균 레이팅 ${avgRating}, winner/runner-up/track/surface/distance가 누적됩니다.` : '이벤트 카드나 시즌 카드를 생성하면 결과 원장이 채워집니다.',
+      Math.min(100, resultRows.length * 7),
+      resultRows.length ? 'complete' : 'ready',
+    ),
+  ];
+  const recommendations = [];
+  if (matrix.totals.completed < matrix.totals.rows) recommendations.push('private local_pack 매트릭스의 누락 이름과 로고키를 먼저 채우세요.');
+  if (calendar.readyRows < calendar.totalRows) recommendations.push('시즌 캘린더 보강 필요 라운드를 정리하면 장기 결과 모델 품질이 올라갑니다.');
+  if (!seasonCards.length) recommendations.push('시즌 카드 생성을 한 번 실행해 장기 레이스 결과 모델을 검증하세요.');
+  if (!eventCards.length) recommendations.push('필터별 이벤트 카드를 만들어 단기 결과 모델도 비교하세요.');
+  if (!recommendations.length) recommendations.push('배포용 core/placeholder와 개인용 local_pack, 결과 모델이 분리되어 있습니다. 전적 기록으로 감사 스냅샷을 남기세요.');
+  return {
+    releaseScore,
+    packRows,
+    modelRows,
+    resultRows,
+    seasonCards: seasonCards.length,
+    eventCards: eventCards.length,
+    avgRating,
+    recommendations,
+  };
+}
+
 export function visibleTracks(state) {
   const current = normalizeState(state);
   return buildTracks(current).filter((track) => matchFilters(track, current.filters));
@@ -391,11 +512,15 @@ export function summaryForState(state) {
   const audit = latestAudit(current);
   const matrix = localPackMatrix(current);
   const calendar = seasonCalendarReport(current);
+  const dataPack = dataPackReleaseReportForState(current);
   return {
     tracks: CORE_TRACKS.length,
     events: CORE_EVENTS.length,
     completeness: audit.completeness,
     calendarReadiness: calendar.averageReadiness,
+    dataPackReleaseScore: dataPack.releaseScore,
+    seasonResultCards: dataPack.seasonCards,
+    eventResultCards: dataPack.eventCards,
     placeholderOnly: audit.placeholderOnly,
     missingNames: matrix.totals.missingNames,
     missingLogoOverrides: matrix.totals.missingLogoOverrides,
