@@ -86,6 +86,14 @@ const PARTY_SORT_OPTIONS = [
   { value: 'success', label: '성공률' },
 ];
 
+const BASE_CAMP_ACTIONS = [
+  { id: 'fuel', label: '연료 넣기 · 나무 1' },
+  { id: 'fire', label: '모닥불 강화' },
+  { id: 'shelter', label: '대피소 강화' },
+  { id: 'workbench', label: '작업대 제작' },
+  { id: 'cook', label: '고기 굽기' },
+];
+
 function clampRatio(value) {
   return Math.max(0, Math.min(1, Number(value || 0)));
 }
@@ -201,7 +209,6 @@ export default function PrimitiveArchivePlayPage() {
     const latest = nextState.log?.[0] || `${label} 행동을 실행했습니다.`;
     setState(nextState);
     setActionResult(latest);
-    setMessage(latest);
   };
 
   const runGather = () => {
@@ -395,6 +402,57 @@ export default function PrimitiveArchivePlayPage() {
             badge: `AP ${state.ap}`,
             children: (
               <>
+        <section className="games-panel games-action-dock">
+          <div className="games-panel-title">
+            <h2>빠른 행동</h2>
+            <span>{actor?.name || '대상'} · AP {state.ap}/{state.apMax}</span>
+          </div>
+          <div className="games-action-dock__controls">
+            <label className="game-save-json-field">
+              <span>지역</span>
+              <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
+                {ZONES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
+              </select>
+            </label>
+            <label className="game-save-json-field">
+              <span>제작</span>
+              <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+                {RECIPES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="games-action-dock__notes">
+            <span>{zone.note}</span>
+            <span>제작: {formatRequires(recipe.requires)} · {recipe.note}</span>
+          </div>
+          <div className="games-action-dock__buttons">
+            <ActionButton disabled={!canAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
+            <ActionButton disabled={!canAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
+            <ActionButton disabled={!canAct || !recipe} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
+            <ActionButton disabled={!canAct} onClick={runEat}>식사</ActionButton>
+            <ActionButton disabled={!canAct} onClick={runRest}>휴식</ActionButton>
+            <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>연구</ActionButton>
+          </div>
+          <div className="games-action-dock__buttons games-action-dock__buttons--camp">
+            {BASE_CAMP_ACTIONS.map((row) => (
+              <ActionButton disabled={!canAct} onClick={() => runCamp(row.id)} key={row.id}>{row.label}</ActionButton>
+            ))}
+            {campFacilities.map((facility) => (
+              <ActionButton
+                key={facility.id}
+                disabled={!canAct || !facility.unlocked || facility.maxed}
+                onClick={() => runCamp(facility.action)}
+              >
+                {facility.buttonLabel}
+              </ActionButton>
+            ))}
+          </div>
+          <div className="games-action-result games-action-result--pinned">
+            <span>최근 결과</span>
+            <strong>{recentActionText}</strong>
+          </div>
+        </section>
+
         <section className="games-detail-grid">
           <section className="games-panel">
             <div className="games-panel-title">
@@ -525,45 +583,6 @@ export default function PrimitiveArchivePlayPage() {
                 <strong>추천</strong>
               </article>
             </div>
-          </section>
-
-          <section className="games-panel">
-            <div className="games-panel-title">
-              <h2>행동</h2>
-              <span>{actor?.name || '대상'} 선택 중</span>
-            </div>
-
-            <label className="game-save-json-field">
-              <span>지역</span>
-              <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
-                {ZONES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
-              </select>
-            </label>
-            <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>{zone.note}</p>
-
-            <div style={{ display: 'grid', gap: 8 }}>
-              <ActionButton disabled={!canAct} onClick={runGather}>채집 · 성공 {Math.round(gatherChance * 100)}%</ActionButton>
-              <ActionButton disabled={!canAct} onClick={runHunt}>사냥 · 성공 {Math.round(huntChance * 100)}%</ActionButton>
-              <ActionButton disabled={!canAct} onClick={runEat}>식사</ActionButton>
-              <ActionButton disabled={!canAct} onClick={runRest}>휴식</ActionButton>
-            </div>
-            <div className="games-action-result">
-              <span>최근 결과</span>
-              <strong>{recentActionText}</strong>
-            </div>
-
-            <hr style={{ width: '100%', border: 0, borderTop: '1px solid rgba(148, 163, 184, 0.18)' }} />
-
-            <label className="game-save-json-field">
-              <span>제작</span>
-              <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
-                {RECIPES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
-              </select>
-            </label>
-            <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
-              필요: {formatRequires(recipe.requires)} · {recipe.note}
-            </p>
-            <ActionButton disabled={!canAct} onClick={runCraft}>제작 · 성공 {Math.round(craftChance * 100)}%</ActionButton>
           </section>
 
           <section className="games-panel">

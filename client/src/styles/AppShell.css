@@ -5500,6 +5500,45 @@
   line-height: 1.4;
 }
 
+.games-action-dock {
+  position: sticky;
+  top: 82px;
+  z-index: 9;
+  gap: 9px;
+  border-color: rgba(44, 111, 158, 0.2);
+  box-shadow: 0 14px 28px rgba(22, 33, 44, 0.12);
+}
+
+.games-action-dock__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.games-action-dock__notes {
+  display: grid;
+  gap: 4px;
+  color: #5f6c78;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.games-action-dock__buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 7px;
+}
+
+.games-action-dock__buttons--camp {
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+}
+
+.games-action-result--pinned {
+  border-color: rgba(8, 120, 189, 0.28);
+  background: #f1f8fd;
+}
+
 .games-rank-split span,
 .games-rank-split small {
   color: #64717d;
@@ -6632,6 +6671,15 @@
 
   .games-rank-split.games-rank-split--compact {
     grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  }
+
+  .games-action-dock {
+    position: static;
+    box-shadow: none;
+  }
+
+  .games-action-dock__controls {
+    grid-template-columns: 1fr;
   }
 
   .notifications-head,
