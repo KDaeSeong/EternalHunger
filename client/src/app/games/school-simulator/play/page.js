@@ -72,6 +72,56 @@ function SmallStat({ label, value }) {
   );
 }
 
+function RecentActionResult({ label = '최근 운영 결과', text, pinned = false }) {
+  return (
+    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
+      <span>{label}</span>
+      <strong>{text}</strong>
+    </div>
+  );
+}
+
+function schoolActionSnapshot(value) {
+  const averages = getAverages(value);
+  return {
+    year: value.school?.year,
+    semester: value.school?.semester,
+    week: value.school?.week,
+    budget: Number(value.school?.budget || 0),
+    ap: Number(value.player?.weeklyActionPoint || 0),
+    energy: Number(value.player?.energy || 0),
+    mental: Number(value.player?.mental || 0),
+    score: scoreState(value),
+    understanding: Math.round(Number(averages.understanding || 0)),
+    satisfaction: Math.round(Number(averages.satisfaction || 0)),
+    stress: Math.round(Number(averages.stress || 0)),
+    riskCount: getAtRiskStudents(value).length,
+  };
+}
+
+function actionFeedbackText(previous, next, label, fallback = '') {
+  const latestLog = next.log?.[0];
+  if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
+
+  const before = schoolActionSnapshot(previous);
+  const after = schoolActionSnapshot(next);
+  const parts = [];
+  if (after.year !== before.year || after.semester !== before.semester || after.week !== before.week) {
+    parts.push(`${after.year}년 ${after.semester}학기 ${after.week}주차`);
+  }
+  if (after.budget !== before.budget) parts.push(`예산 ${after.budget - before.budget >= 0 ? '+' : ''}${(after.budget - before.budget).toLocaleString('ko-KR')}`);
+  if (after.ap !== before.ap) parts.push(`AP ${after.ap - before.ap >= 0 ? '+' : ''}${after.ap - before.ap}`);
+  if (after.energy !== before.energy) parts.push(`체력 ${after.energy - before.energy >= 0 ? '+' : ''}${after.energy - before.energy}`);
+  if (after.mental !== before.mental) parts.push(`멘탈 ${after.mental - before.mental >= 0 ? '+' : ''}${after.mental - before.mental}`);
+  if (after.score !== before.score) parts.push(`점수 ${after.score.toLocaleString('ko-KR')}`);
+  if (after.riskCount !== before.riskCount) parts.push(`위험 학생 ${after.riskCount}명`);
+  if (after.understanding !== before.understanding) parts.push(`이해도 ${after.understanding}`);
+  if (after.satisfaction !== before.satisfaction) parts.push(`만족도 ${after.satisfaction}`);
+  if (after.stress !== before.stress) parts.push(`스트레스 ${after.stress}`);
+  if (parts.length) return `${label}: ${parts.join(' · ')}`;
+  return fallback || `${label}: ${after.year}년 ${after.semester}학기 ${after.week}주차 · AP ${after.ap} · 예산 ${after.budget.toLocaleString('ko-KR')}`;
+}
+
 function ScoreBar({ label, value }) {
   const safeValue = Math.max(0, Math.min(100, Number(value || 0)));
   return (
@@ -121,6 +171,7 @@ export default function SchoolSimulatorPlayPage() {
   const [teacherActionId, setTeacherActionId] = useState(TEACHER_ACTIONS[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [actionResult, setActionResult] = useState('');
 
   const averages = useMemo(() => getAverages(state), [state]);
   const topStudents = useMemo(() => getTopStudents(state, 'understanding', 5), [state]);
@@ -171,6 +222,13 @@ export default function SchoolSimulatorPlayPage() {
               ? 'studentCouncilMeeting'
               : selectedAction.id;
   const recommendedAction = WORK_ACTIONS.find((action) => action.id === recommendedActionId) || selectedAction;
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운영 액션이 없습니다.';
+
+  const applySchoolAction = (label, updater, fallback = '') => {
+    const nextState = updater(state);
+    setState(nextState);
+    setActionResult(actionFeedbackText(state, nextState, label, fallback));
+  };
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -185,11 +243,13 @@ export default function SchoolSimulatorPlayPage() {
     setClubId('club_research');
     setFestivalId(FESTIVAL_TYPES[0].id);
     setMessage('');
+    setActionResult('새 학교 운영을 시작했습니다.');
   };
 
   const saveRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 School Simulator 진행 상태를 저장할 수 있습니다.');
+      setActionResult('로그인하면 School Simulator 진행 상태를 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -203,10 +263,12 @@ export default function SchoolSimulatorPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
       setMessage('School Simulator 진행 상태를 저장했습니다.');
+      setActionResult(`School Simulator 진행 상태를 저장했습니다. ${state.school.year}년 ${state.school.semester}학기 ${state.school.week}주차.`);
       showToast({ tone: 'success', message: 'School Simulator 진행 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
       setMessage(nextMessage);
+      setActionResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -216,6 +278,7 @@ export default function SchoolSimulatorPlayPage() {
   const loadRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 저장된 School Simulator 진행 상태를 불러올 수 있습니다.');
+      setActionResult('로그인하면 저장된 School Simulator 진행 상태를 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -224,6 +287,7 @@ export default function SchoolSimulatorPlayPage() {
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
         setMessage('저장된 School Simulator 진행 상태가 없습니다.');
+        setActionResult('저장된 School Simulator 진행 상태가 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
@@ -231,10 +295,12 @@ export default function SchoolSimulatorPlayPage() {
       setState(nextState);
       setPolicyId(nextState.school.policyPreset);
       setMessage('저장된 School Simulator 진행 상태를 불러왔습니다.');
+      setActionResult(actionFeedbackText(state, nextState, '불러오기', '저장된 School Simulator 진행 상태를 불러왔습니다.'));
       showToast({ tone: 'success', message: '저장된 School Simulator 진행 상태를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
       setMessage(nextMessage);
+      setActionResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -244,6 +310,7 @@ export default function SchoolSimulatorPlayPage() {
   const recordRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 School Simulator 운영 기록을 전적에 남길 수 있습니다.');
+      setActionResult('로그인하면 School Simulator 운영 기록을 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -259,10 +326,12 @@ export default function SchoolSimulatorPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
       setMessage('School Simulator 운영 기록을 전적에 남겼습니다.');
+      setActionResult(`School Simulator 운영 기록을 전적에 남겼습니다. 점수 ${score.toLocaleString('ko-KR')}.`);
       showToast({ tone: 'success', message: 'School Simulator 운영 기록을 전적에 남겼습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
       setMessage(nextMessage);
+      setActionResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -270,11 +339,11 @@ export default function SchoolSimulatorPlayPage() {
   };
 
   const applySelectedAction = () => {
-    setState((current) => applyWorkAction(current, actionId));
+    applySchoolAction(selectedAction.label, (current) => applyWorkAction(current, actionId));
   };
 
   const applySelectedPolicy = () => {
-    setState((current) => applyPolicyPreset(current, policyId));
+    applySchoolAction('정책 적용', (current) => applyPolicyPreset(current, policyId));
   };
 
   const actions = (
@@ -365,11 +434,12 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="멘탈" value={state.player.mental} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => applyWorkAction(current, recommendedAction.id))} disabled={state.player.weeklyActionPoint < recommendedAction.apCost}>
+                    <ActionButton onClick={() => applySchoolAction('추천 행동', (current) => applyWorkAction(current, recommendedAction.id))} disabled={state.player.weeklyActionPoint < recommendedAction.apCost}>
                       추천 행동 실행
                     </ActionButton>
-                    <ActionButton onClick={() => setState((current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
+                    <ActionButton onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
                   </div>
+                  <RecentActionResult text={recentActionText} pinned />
                 </section>
               </section>
             ),
@@ -541,13 +611,14 @@ export default function SchoolSimulatorPlayPage() {
                         {events.pending.choices.map((choice) => (
                           <ActionButton
                             key={choice.id}
-                            onClick={() => setState((current) => applyWeeklyEventChoice(current, choice.id))}
+                            onClick={() => applySchoolAction('사건 대응', (current) => applyWeeklyEventChoice(current, choice.id))}
                             disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}
                           >
                             {choice.label} · AP {choice.apCost}
                           </ActionButton>
                         ))}
                       </div>
+                      <RecentActionResult label="최근 사건 대응 결과" text={recentActionText} />
                     </>
                   ) : <div className="games-empty">미해결 사건이 없습니다.</div>}
                 </section>
@@ -588,14 +659,15 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="약점" value={`${report.subjectRows[0]?.weakCount || 0}명`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={() => setState((current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
+                    <ActionButton onClick={() => applySchoolAction('수업 방식 변경', (current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
                     <ActionButton
-                      onClick={() => setState((current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
+                      onClick={() => applySchoolAction('공개 활동 시작', (current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
                       disabled={state.player.weeklyActionPoint < selectedSubjectShowcaseAction.apCost || state.school.budget < selectedSubjectShowcaseAction.budgetCost || selectedSubjectShowcaseActive}
                     >
                       공개 활동 시작
                     </ActionButton>
                   </div>
+                  <RecentActionResult label="최근 수업 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -607,9 +679,10 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="경쟁률" value={`${state.school.admissions.competitionRate}:1`} />
                     <SmallStat label="브랜드" value={state.school.admissions.brandAwareness} />
                   </div>
-                  <ActionButton onClick={() => setState((current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
+                  <ActionButton onClick={() => applySchoolAction('모집 캠페인', (current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
                     모집 캠페인
                   </ActionButton>
+                  <RecentActionResult label="최근 입학 결과" text={recentActionText} />
                 </section>
               </section>
             ),
@@ -642,9 +715,10 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="진로 기록" value={state.careerReports.length} />
                     <SmallStat label="대상" value="하위 6명" />
                   </div>
-                  <ActionButton onClick={() => setState((current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
+                  <ActionButton onClick={() => applySchoolAction('진로 상담', (current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
                     진로 상담 실행
                   </ActionButton>
+                  <RecentActionResult label="최근 진로 결과" text={recentActionText} />
                 </section>
               </section>
             ),
@@ -666,11 +740,12 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="사기" value={selectedTeacher?.morale || 0} />
                   </div>
                   <ActionButton
-                    onClick={() => setState((current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
+                    onClick={() => applySchoolAction('교사 액션', (current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
                     disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
                   >
                     {selectedTeacherAction.label} 실행
                   </ActionButton>
+                  <RecentActionResult label="최근 교사 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -709,9 +784,10 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="영향력" value={selectedClub.influence} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
-                    <ActionButton onClick={() => setState((current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+                    <ActionButton onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+                    <ActionButton onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 동아리 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -723,9 +799,10 @@ export default function SchoolSimulatorPlayPage() {
                     <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
                     <SmallStat label="기록" value={festival.history.length} />
                   </div>
-                  <ActionButton onClick={() => setState((current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+                  <ActionButton onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
                     행사 시작
                   </ActionButton>
+                  <RecentActionResult label="최근 행사 결과" text={recentActionText} />
                 </section>
               </section>
             ),
@@ -744,10 +821,11 @@ export default function SchoolSimulatorPlayPage() {
           </div>
           <label className="game-save-json-field">
             <span>비전</span>
-            <select value={state.school.vision} onChange={(event) => setState((current) => applySchoolVisionAction(current, event.target.value))}>
+            <select value={state.school.vision} onChange={(event) => applySchoolAction('장기 학교 비전', (current) => applySchoolVisionAction(current, event.target.value))}>
               {longTerm.visions.map((vision) => <option value={vision.id} key={vision.id}>{vision.label}</option>)}
             </select>
           </label>
+          <RecentActionResult label="최근 비전 조정 결과" text={recentActionText} />
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{longTerm.evaluation.goal}</p>
           <div className="games-rank-split">
             <SmallStat label="평가" value={`${longTerm.evaluation.grade}등급`} />
@@ -819,13 +897,14 @@ export default function SchoolSimulatorPlayPage() {
                 {events.pending.choices.map((choice) => (
                   <ActionButton
                     key={choice.id}
-                    onClick={() => setState((current) => applyWeeklyEventChoice(current, choice.id))}
+                    onClick={() => applySchoolAction('사건 대응', (current) => applyWeeklyEventChoice(current, choice.id))}
                     disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}
                   >
                     {choice.label} · AP {choice.apCost} · {choice.budgetCost.toLocaleString('ko-KR')}
                   </ActionButton>
                 ))}
               </div>
+              <RecentActionResult label="최근 사건 대응 결과" text={recentActionText} />
             </>
           ) : (
             <div className="games-empty">미해결 사건이 없습니다. 주차를 정산하면 학생, 교사, 시설, 모집 관련 사건이 발생할 수 있습니다.</div>
@@ -891,6 +970,7 @@ export default function SchoolSimulatorPlayPage() {
           <ActionButton onClick={applySelectedAction} disabled={state.player.weeklyActionPoint < selectedAction.apCost}>
             선택 행동 실행
           </ActionButton>
+          <RecentActionResult label="최근 주간 운영 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -917,6 +997,7 @@ export default function SchoolSimulatorPlayPage() {
           <ActionButton onClick={applySelectedPolicy} disabled={state.player.weeklyActionPoint < 1 || state.school.policyPreset === policyId}>
             정책 적용
           </ActionButton>
+          <RecentActionResult label="최근 정책 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -931,9 +1012,10 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="시설" value={averages.facilityCondition} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
-            <ActionButton onClick={() => setState((current) => restAction(current))} disabled={state.player.weeklyActionPoint < 2}>지친 운영진 휴식</ActionButton>
+            <ActionButton onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
+            <ActionButton onClick={() => applySchoolAction('운영진 휴식', (current) => restAction(current))} disabled={state.player.weeklyActionPoint < 2}>지친 운영진 휴식</ActionButton>
           </div>
+          <RecentActionResult label="최근 정산 결과" text={recentActionText} />
         </section>
       </section>
 
@@ -982,9 +1064,9 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="진행 활동" value={subjectShowcaseSummaryData.activeCount} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
+            <ActionButton onClick={() => applySchoolAction('수업 방식 변경', (current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
             <ActionButton
-              onClick={() => setState((current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
+              onClick={() => applySchoolAction('공개 활동 시작', (current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
               disabled={
                 state.player.weeklyActionPoint < selectedSubjectShowcaseAction.apCost
                 || state.school.budget < selectedSubjectShowcaseAction.budgetCost
@@ -994,6 +1076,7 @@ export default function SchoolSimulatorPlayPage() {
               공개 활동 시작
             </ActionButton>
           </div>
+          <RecentActionResult label="최근 과목 운영 결과" text={recentActionText} />
           <p style={{ color: '#6c7884', fontWeight: 800, lineHeight: 1.55 }}>
             {selectedSubjectShowcase?.lastLog || subjectShowcaseSummaryData.note}
           </p>
@@ -1016,9 +1099,10 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="신입 질" value={state.school.admissions.nextIntakeQuality} />
             <SmallStat label="홍보 탄력" value={state.school.admissions.marketingMomentum || 0} />
           </div>
-          <ActionButton onClick={() => setState((current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
+          <ActionButton onClick={() => applySchoolAction('모집 캠페인', (current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
             모집 캠페인
           </ActionButton>
+          <RecentActionResult label="최근 모집 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -1037,9 +1121,10 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="기록" value={state.careerReports.length} />
             <SmallStat label="대상" value="하위 6명" />
           </div>
-          <ActionButton onClick={() => setState((current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
+          <ActionButton onClick={() => applySchoolAction('진로 상담', (current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
             진로 상담 실행
           </ActionButton>
+          <RecentActionResult label="최근 진로 지도 결과" text={recentActionText} />
         </section>
       </section>
 
@@ -1252,13 +1337,14 @@ export default function SchoolSimulatorPlayPage() {
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
             <ActionButton
-              onClick={() => setState((current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
+              onClick={() => applySchoolAction('교사 액션', (current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
               disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
             >
               {selectedTeacherAction.label} 실행
             </ActionButton>
             <p style={{ color: '#52677a', fontWeight: 700, margin: 0 }}>{selectedTeacherAction.description}</p>
           </div>
+          <RecentActionResult label="최근 교사 운영 결과" text={recentActionText} />
           <div className="game-save-list">
             {teachers.slice(0, 6).map((teacher) => (
               <article className="game-save-row" key={teacher.id}>
@@ -1302,9 +1388,10 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="발표회" value={selectedClub.showcaseWeeksRemaining ? `${selectedClub.showcaseWeeksRemaining}주` : '대기'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
-            <ActionButton onClick={() => setState((current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+            <ActionButton onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+            <ActionButton onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
           </div>
+          <RecentActionResult label="최근 동아리 운영 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -1323,9 +1410,10 @@ export default function SchoolSimulatorPlayPage() {
             <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
             <SmallStat label="기록" value={festival.history.length} />
           </div>
-          <ActionButton onClick={() => setState((current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+          <ActionButton onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
             행사 시작
           </ActionButton>
+          <RecentActionResult label="최근 행사 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
