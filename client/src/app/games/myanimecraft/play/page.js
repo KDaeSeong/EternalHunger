@@ -35,6 +35,7 @@ import {
   getPlayTimeSec,
   getSeasonReportRows,
   getSeasonStageSummary,
+  getSeasonFinaleReport,
   getSourceSummary,
   getPostseasonRows,
   getTopPlayers,
@@ -131,6 +132,7 @@ export default function MyAnimeCraftPlayPage() {
   const seasonStage = useMemo(() => getSeasonStageSummary(state), [state]);
   const postseasonRows = useMemo(() => getPostseasonRows(state), [state]);
   const seasonReports = useMemo(() => getSeasonReportRows(state, 8), [state]);
+  const seasonFinaleReport = useMemo(() => getSeasonFinaleReport(state), [state]);
   const matchArchiveRows = useMemo(() => getMatchArchiveRows(state, 18), [state]);
   const buildMetaReport = useMemo(() => getBuildMetaReport(state), [state]);
   const selectedArchiveMatch = matchArchiveRows.find((row) => row.id === selectedArchiveMatchId) || matchArchiveRows[0];
@@ -774,6 +776,49 @@ export default function MyAnimeCraftPlayPage() {
             badge: `${standings.length}팀`,
             children: (
               <>
+
+      <section className="games-panel" style={{ marginBottom: 14 }}>
+        <div className="games-panel-title">
+          <h2>시즌 결산 보드</h2>
+          <span>{seasonFinaleReport.stageLabel}</span>
+        </div>
+        <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
+          {seasonFinaleReport.headline}
+        </p>
+        <div className="games-rank-split">
+          <SmallStat label="진행률" value={`${seasonFinaleReport.progressPct}%`} />
+          <SmallStat label="선두/우승" value={seasonFinaleReport.championTeamName || seasonFinaleReport.leaderTeamName || '-'} />
+          <SmallStat label="에이스" value={seasonFinaleReport.topPlayerName || '-'} />
+          <SmallStat label="시즌 수지" value={`${seasonFinaleReport.net >= 0 ? '+' : ''}${seasonFinaleReport.net.toLocaleString('ko-KR')} Cr`} />
+          <SmallStat
+            label="대표 빌드"
+            value={seasonFinaleReport.meta.favoriteStyleLabel
+              ? `${seasonFinaleReport.meta.favoriteStyleLabel} ${seasonFinaleReport.meta.favoriteStyleWinRate}%`
+              : '-'}
+          />
+          <SmallStat label="메타 표본" value={seasonFinaleReport.meta.sampleLabel} />
+        </div>
+        <div className="game-save-list">
+          {seasonFinaleReport.highlights.slice(0, 5).map((line, index) => (
+            <article className="game-save-row" key={`season-finale-highlight-${index}`}>
+              <div>
+                <span>결산 하이라이트</span>
+                <strong>{line}</strong>
+              </div>
+              <strong>{index + 1}</strong>
+            </article>
+          ))}
+        </div>
+        {seasonFinaleReport.recommendations.length ? (
+          <div className="games-activity-list">
+            {seasonFinaleReport.recommendations.map((line, index) => (
+              <div key={`season-finale-recommendation-${index}`}>
+                <strong>{line}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       <section className="games-dashboard">
         <section className="games-panel">

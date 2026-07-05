@@ -326,7 +326,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'league-standing',
-    completionPct: 99,
+    completionPct: 100,
   },
   'school-simulator': {
     stage: 'prototype',
@@ -478,9 +478,9 @@ export const GAME_ROADMAP = [
     title: 'Starleague Sim',
     subtitle: 'League Sim',
     priority: '1차 완료권',
-    scope: '팀리그, 포스트시즌, 개인리그, 위너스리그, 경기 아카이브, 내부 메타 기반 빌드/해설, 시즌 메타 리포트',
-    summary: '팀 리그와 포스트시즌을 한 시즌 단위로 진행하고, 누적 경기 데이터가 빌드 선택·해설·시즌 메타 리포트에 반영되는 리그 시뮬레이터입니다.',
-    nextStep: '외부 경기 메타 데이터 연동과 장기 시즌 밸런스 리포트를 추가로 강화합니다.',
+    scope: '팀리그, 포스트시즌, 개인리그, 위너스리그, 경기 아카이브, 내부 메타 기반 빌드/해설, 시즌 메타 리포트, 시즌 결산 보드',
+    summary: '팀 리그와 포스트시즌을 한 시즌 단위로 진행하고, 누적 경기 데이터가 빌드 선택·해설·시즌 메타 리포트와 시즌 결산 보드에 반영되는 리그 시뮬레이터입니다.',
+    nextStep: '외부 경기 메타 데이터 연동, 장기 시즌 밸런스 튜닝, 리플레이 내보내기 같은 확장 작업만 남았습니다.',
   },
   {
     slug: 'school-simulator',

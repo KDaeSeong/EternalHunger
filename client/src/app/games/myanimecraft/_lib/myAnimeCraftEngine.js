@@ -4305,6 +4305,97 @@ export function getBuildMetaReport(state) {
   };
 }
 
+export function getSeasonFinaleReport(state) {
+  const current = normalizeState(state);
+  const stageSummary = getSeasonStageSummary(current);
+  const standings = getTopTeams(current, 5);
+  const players = getTopPlayers(current, 5);
+  const buildMeta = getBuildMetaReport(current);
+  const personal = getPersonalLeagueSummary(current);
+  const winners = getWinnersLeagueSummary(current);
+  const archiveRows = getMatchArchiveRows(current, 5);
+  const leader = standings[0];
+  const topPlayer = players[0];
+  const latestMatch = archiveRows[0];
+  const seasonLogs = normalizeEconLogs(current.econLogs).filter((entry) => entry.seasonNo === Number(current.seasonNo || 1));
+  const income = Math.round(seasonLogs.filter((entry) => entry.amount > 0).reduce((sum, entry) => sum + entry.amount, 0));
+  const expense = Math.round(seasonLogs.filter((entry) => entry.amount < 0).reduce((sum, entry) => sum + Math.abs(entry.amount), 0));
+  const net = income - expense;
+  const champion = stageSummary.postseasonChampionTeamName || (current.championTeamId ? teamName(current, current.championTeamId) : '');
+  const favoriteStyle = buildMeta.styleRows.find((row) => row.count > 0);
+  const hotPlayer = buildMeta.playerRows[0];
+  const mapTrend = buildMeta.mapRows[0];
+  const played = getPlayedCount(current);
+  const total = getTotalFixtureCount(current);
+  const progressPct = total ? Math.round((played / total) * 100) : 0;
+  const headline = current.ended
+    ? `${champion || leader?.teamName || '우승팀'}이 시즌 ${current.seasonNo} 우승을 확정했습니다.`
+    : stageSummary.stage === 'POSTSEASON'
+      ? `포스트시즌이 ${stageSummary.postseasonPlayed}/${stageSummary.postseasonTotal}까지 진행됐습니다.`
+      : `${current.week}주차 정규리그 진행 중입니다. 선두는 ${leader?.teamName || '미정'}입니다.`;
+  const highlights = [
+    leader ? `정규 선두 ${leader.teamName}: ${leader.wins}승 ${leader.losses}패, 득실 ${leader.diff >= 0 ? '+' : ''}${leader.diff}` : '',
+    topPlayer ? `선수 랭킹 1위 ${topPlayer.playerName}: 승률 ${topPlayer.winRate}%, 명성 ${topPlayer.fame.toLocaleString('ko-KR')}` : '',
+    favoriteStyle ? `시즌 대표 빌드 성향은 ${favoriteStyle.label}: ${favoriteStyle.count}회 선택, 승률 ${favoriteStyle.winRate}%` : '',
+    personal.championName ? `개인리그 챔피언 ${personal.championName}${personal.championTeamName ? `(${personal.championTeamName})` : ''}` : '',
+    winners.championTeamName ? `위너스리그 챔피언 ${winners.championTeamName}` : '',
+    latestMatch ? `최근 경기 ${latestMatch.homeTeamName} ${latestMatch.scoreHome}:${latestMatch.scoreAway} ${latestMatch.awayTeamName}` : '',
+  ].filter(Boolean);
+  const recommendations = current.ended
+    ? ['전적 기록으로 시즌 스냅샷을 남기고 다음 시즌으로 넘어가세요.', '시즌 리포트에서 메타/경제 흐름을 확인해 장기 밸런스를 조정하세요.']
+    : [
+      stageSummary.stage === 'POSTSEASON_READY' ? '정규리그가 끝났습니다. 다음 경기 진행으로 포스트시즌을 시작하세요.' : '',
+      stageSummary.stage === 'POSTSEASON' ? '포스트시즌 진행 중입니다. 최근 경기 아카이브로 에이스전과 빌드 선택을 확인하세요.' : '',
+      stageSummary.stage === 'REGULAR' ? '이번 주 전체 진행으로 표본을 늘리면 빌드 메타와 해설 데이터가 더 선명해집니다.' : '',
+      net < 0 ? '시즌 수지가 적자입니다. 스폰서 협상과 훈련 투자 타이밍을 재조정하세요.' : '',
+    ].filter(Boolean);
+
+  return {
+    seasonNo: Number(current.seasonNo || 1),
+    headline,
+    stage: stageSummary.stage,
+    stageLabel: stageSummary.label,
+    played,
+    total,
+    progressPct,
+    championTeamName: champion,
+    leaderTeamName: leader?.teamName || '',
+    topPlayerName: topPlayer?.playerName || '',
+    topPlayerWinRate: Number(topPlayer?.winRate || 0),
+    income,
+    expense,
+    net,
+    score: scoreState(current),
+    meta: {
+      sampleLabel: buildMeta.sampleLabel,
+      favoriteStyleLabel: favoriteStyle?.label || '',
+      favoriteStyleCount: Number(favoriteStyle?.count || 0),
+      favoriteStyleWinRate: Number(favoriteStyle?.winRate || 0),
+      hotPlayerName: hotPlayer?.playerName || '',
+      hotPlayerStyleLabel: hotPlayer?.styleLabel || '',
+      mapTrendName: mapTrend?.mapName || '',
+      mapTrendStyleLabel: mapTrend?.styleLabel || '',
+    },
+    personal: {
+      stage: personal.stage,
+      championName: personal.championName || '',
+      championTeamName: personal.championTeamName || '',
+      played: personal.played,
+      total: personal.total,
+    },
+    winners: {
+      stage: winners.stage,
+      championTeamName: winners.championTeamName || '',
+      scoreHome: winners.scoreHome,
+      scoreAway: winners.scoreAway,
+      played: winners.played,
+      total: winners.total,
+    },
+    highlights,
+    recommendations,
+  };
+}
+
 export function getSeasonStageSummary(state) {
   const current = normalizeState(state);
   const regularDone = isRegularSeasonComplete(current);
@@ -4378,6 +4469,7 @@ export function summaryForState(state) {
   const personalSummary = getPersonalLeagueSummary(current);
   const winnersSummary = getWinnersLeagueSummary(current);
   const stageSummary = getSeasonStageSummary(current);
+  const finaleReport = getSeasonFinaleReport(current);
   return {
     seasonNo: current.seasonNo,
     week: current.week,
@@ -4400,6 +4492,15 @@ export function summaryForState(state) {
     }, 0)),
     econLogs: normalizeEconLogs(current.econLogs).length,
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.length : 0,
+    seasonFinale: {
+      headline: finaleReport.headline,
+      progressPct: finaleReport.progressPct,
+      leaderTeamName: finaleReport.leaderTeamName,
+      championTeamName: finaleReport.championTeamName,
+      topPlayerName: finaleReport.topPlayerName,
+      favoriteStyleLabel: finaleReport.meta.favoriteStyleLabel,
+      net: finaleReport.net,
+    },
     personalLeague: {
       stage: personalSummary.stage,
       phase: personalSummary.phase,
