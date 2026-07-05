@@ -10,6 +10,7 @@ export const GAME_INTEGRATION_DEFAULTS = {
   minPlayers: 1,
   maxPlayers: 1,
   resultMode: 'manual',
+  completionPct: null,
 };
 
 export const MYANIME_GAME_SLUGS = [
@@ -281,12 +282,13 @@ const GAME_INTEGRATIONS = {
     maxPlayers: 2,
   },
   'primitive-archive': {
-    stage: 'prototype',
-    stageLabel: '프로토타입',
+    stage: 'playable',
+    stageLabel: '플레이 가능',
     adapter: 'survival-loop',
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'survival-score',
+    completionPct: 96,
     maxPlayers: 4,
   },
   'tonkatsu-teacher': {
@@ -314,12 +316,13 @@ const GAME_INTEGRATIONS = {
     resultMode: 'mission-clear',
   },
   myanimecraft: {
-    stage: 'prototype',
-    stageLabel: '프로토타입',
+    stage: 'playable',
+    stageLabel: '플레이 가능',
     adapter: 'league-sim',
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'league-standing',
+    completionPct: 96,
   },
   'school-simulator': {
     stage: 'prototype',
@@ -434,10 +437,10 @@ export const GAME_ROADMAP = [
     slug: 'primitive-archive',
     title: 'Primitive Archive',
     subtitle: 'Survival Sim',
-    priority: '2차 이식',
-    scope: '채집, 제작, 캠프, 파티 생존',
-    summary: '원시 생존과 학생 파티 시뮬레이션이라 Eternal Hunger의 제작, 장비, 생존 루프와 궁합이 좋습니다.',
-    nextStep: '로컬 저장 루프를 계정 저장 슬롯으로 바꾸고, 런 정산을 기록소와 연결합니다.',
+    priority: '1차 완료권',
+    scope: '채집, 사냥, 제작, 캠프, 연구, 장비, 자동 운영, 런 정산',
+    summary: '원시 생존과 학생 파티 시뮬레이션을 사이트 플레이 화면으로 이식했고, 저장/전적/아카이브 목표/하루 자동 운영까지 연결했습니다.',
+    nextStep: '장기 자동 승리 루트와 캐릭터 초상/사운드 같은 전용 연출을 다듬습니다.',
   },
   {
     slug: 'tonkatsu-teacher',
@@ -470,10 +473,10 @@ export const GAME_ROADMAP = [
     slug: 'myanimecraft',
     title: 'Starleague Sim',
     subtitle: 'League Sim',
-    priority: '분리 후보',
-    scope: '개인리그, 프로리그, 위너스리그',
-    summary: '스포츠 리그 운영과 랭킹 흐름이 뚜렷해서 별도 시뮬레이션 카테고리로 좋습니다.',
-    nextStep: '팀과 선수 데이터를 공용 기록소 모델과 맞출 수 있는지 먼저 확인합니다.',
+    priority: '1차 완료권',
+    scope: '팀리그, 포스트시즌, 개인리그, 위너스리그, 경기 아카이브, 해설 타임라인',
+    summary: '팀 리그와 포스트시즌을 한 시즌 단위로 진행하고, 빌드/맵/종족전 기반 해설과 경기 다시보기를 제공하는 리그 시뮬레이터입니다.',
+    nextStep: '외부 경기 메타 데이터 반영과 개인리그/위너스리그 연출을 추가로 강화합니다.',
   },
   {
     slug: 'school-simulator',
@@ -599,11 +602,18 @@ export function getGamePortingProgress(gameOrSlug) {
   const items = getGamePortingChecklist(gameOrSlug);
   const total = items.length || 1;
   const done = items.filter((item) => item.done).length;
+  const integration = getGameIntegration(gameOrSlug);
+  const configuredPct = Number(integration.completionPct);
+  const percent = Number.isFinite(configuredPct)
+    ? Math.max(0, Math.min(100, Math.round(configuredPct)))
+    : Math.round((done / total) * 100);
   return {
     done,
     total,
     ratio: done / total,
     label: `${done}/${total}`,
+    percent,
+    percentLabel: `${percent}%`,
   };
 }
 

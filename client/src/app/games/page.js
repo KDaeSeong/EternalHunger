@@ -192,7 +192,7 @@ function RoadmapCard({ item, index }) {
         </div>
         <div>
           <dt>이식 상태</dt>
-          <dd>{integration.stageLabel} · {integration.adapter} · {progress.label}</dd>
+          <dd>{integration.stageLabel} · {integration.adapter} · {progress.percentLabel}</dd>
         </div>
       </dl>
       <div className="games-porting-strip" aria-label={`${item.title} 이식 체크리스트`}>

@@ -30,7 +30,7 @@ function PrototypeCard({ game }) {
           <p>{game.summary || game.detail}</p>
         </div>
         <div className="games-card-metrics">
-          <GameMetric label="이식" value={progress.label} />
+          <GameMetric label="완성도" value={progress.percentLabel} />
           <GameMetric label="단계" value={integration.stageLabel || '후보'} />
         </div>
         <div className="games-card-actions">
