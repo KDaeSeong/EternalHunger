@@ -18,6 +18,7 @@ import {
   clearLocalPackAction,
   createNewState,
   generateRaceCardAction,
+  generateSeasonCardAction,
   getPlayTimeSec,
   latestAudit,
   localPackMatrix,
@@ -25,6 +26,7 @@ import {
   parseLocalPackText,
   sampleLocalPackText,
   scoreState,
+  seasonCalendarReport,
   setFilterAction,
   summaryForState,
   visibleEvents,
@@ -142,6 +144,7 @@ export default function RacingLogosDemoPlayPage() {
   const allEvents = useMemo(() => buildEvents(state), [state]);
   const audit = latestAudit(state);
   const packMatrix = useMemo(() => localPackMatrix(state), [state]);
+  const calendar = useMemo(() => seasonCalendarReport(state), [state]);
   const score = scoreState(state);
   const latestRaceCard = state.raceCards[0];
 
@@ -278,6 +281,7 @@ export default function RacingLogosDemoPlayPage() {
     { label: '트랙', value: `${tracks.length}/${allTracks.length}` },
     { label: '이벤트', value: `${events.length}/${allEvents.length}` },
     { label: '완성도', value: `${audit.completeness}%` },
+    { label: '캘린더', value: `${calendar.averageReadiness}%` },
     { label: 'placeholder', value: audit.placeholderOnly },
     { label: '카드', value: state.raceCards.length },
     { label: '점수', value: score.toLocaleString('ko-KR') },
@@ -324,6 +328,7 @@ export default function RacingLogosDemoPlayPage() {
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
                     <ActionButton onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+                    <ActionButton onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -430,6 +435,82 @@ export default function RacingLogosDemoPlayPage() {
             ),
           },
           {
+            id: 'calendar',
+            label: '캘린더',
+            badge: `${calendar.averageReadiness}%`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>시즌 캘린더 리포트</h2>
+                    <span>{calendar.readyRows}/{calendar.totalRows} 편성 가능</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="준비도" value={`${calendar.averageReadiness}%`} />
+                    <SmallStat label="예상 관심도" value={`${calendar.projectedInterest}%`} />
+                    <SmallStat label="지역" value={calendar.regions.length} />
+                    <SmallStat label="주로" value={calendar.surfaces.length} />
+                    <SmallStat label="보강 필요" value={calendar.missingRows.length} />
+                    <SmallStat label="카드" value={state.raceCards.length} />
+                  </div>
+                  <div className="games-activity-list" style={{ marginTop: 12 }}>
+                    {calendar.recommendations.map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>라운드 편성</h2>
+                    <span>{calendar.rows.length}라운드</span>
+                  </div>
+                  <div className="game-save-list">
+                    {calendar.rows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <LogoPreview
+                          key={`${row.logoKey}:${row.fallbackLogo}:${state.filters.preferLocalLogos ? 'local' : 'placeholder'}:${row.id}`}
+                          alt={row.trackName}
+                          fallbackLogo={row.fallbackLogo}
+                          localCandidates={row.localCandidates}
+                          preferLocalLogos={state.filters.preferLocalLogos}
+                          showDebug={state.filters.showDebug}
+                        />
+                        <div>
+                          <span>{row.week} · {row.tier} · {row.theme}</span>
+                          <strong>{row.raceName}</strong>
+                          <small>{row.trackName} / {row.surfaceName} / {row.distanceM.toLocaleString('ko-KR')}m</small>
+                          <small>{row.status}</small>
+                        </div>
+                        <span className="game-save-chip">{row.readiness}%</span>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>예상 결과</h2>
+                    <span>시즌 카드 미리보기</span>
+                  </div>
+                  <div className="game-save-list">
+                    {calendar.rows.map((row) => (
+                      <article className="game-save-row" key={`${row.id}-preview`}>
+                        <div>
+                          <span>{row.week} · 상금 {row.purse.toLocaleString('ko-KR')}</span>
+                          <strong>{row.preview.winner}</strong>
+                          <small>2위 {row.preview.runnerUp} · 관심도 {row.projectedInterest}%</small>
+                        </div>
+                        <strong>{row.preview.rating}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
             id: 'events',
             label: '이벤트/카드',
             badge: `${events.length}`,
@@ -450,8 +531,8 @@ export default function RacingLogosDemoPlayPage() {
                     <span>{latestRaceCard ? latestRaceCard.results.length : 0} races</span>
                   </div>
                   <div className="game-save-list">
-                    {latestRaceCard ? latestRaceCard.results.map((result) => (
-                      <article className="game-save-row" key={result.eventId}>
+                    {latestRaceCard ? latestRaceCard.results.map((result, index) => (
+                      <article className="game-save-row" key={`${result.eventId}-${result.week || index}`}>
                         <div>
                           <span>{result.trackName} / {result.surface.toUpperCase()} / {result.distanceM.toLocaleString('ko-KR')}m</span>
                           <strong>{result.raceName}</strong>
@@ -660,8 +741,8 @@ export default function RacingLogosDemoPlayPage() {
             <span>{latestRaceCard ? latestRaceCard.results.length : 0} races</span>
           </div>
           <div className="game-save-list">
-            {latestRaceCard ? latestRaceCard.results.map((result) => (
-              <article className="game-save-row" key={result.eventId}>
+            {latestRaceCard ? latestRaceCard.results.map((result, index) => (
+              <article className="game-save-row" key={`${result.eventId}-${result.week || index}`}>
                 <div>
                   <span>{result.trackName} / {result.surface.toUpperCase()} / {result.distanceM.toLocaleString('ko-KR')}m</span>
                   <strong>{result.raceName}</strong>

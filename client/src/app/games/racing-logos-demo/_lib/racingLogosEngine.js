@@ -16,6 +16,13 @@ export const CORE_EVENTS = [
   { id: 'evt_derby_trial', trackId: 'trk_churchill', region: 'usa', surface: 'dirt', direction: 'left', distanceM: 2000 },
 ];
 
+export const SEASON_CALENDAR_TEMPLATE = [
+  { id: 'spring-derby-trial', week: '3월 2주', tier: 'G3', eventId: 'evt_derby_trial', theme: '더트 개막 예선', purse: 720 },
+  { id: 'early-summer-tokyo-cup', week: '5월 4주', tier: 'G2', eventId: 'evt_tokyo_cup', theme: '중거리 클래식', purse: 960 },
+  { id: 'summer-ascot-mile', week: '7월 3주', tier: 'G1', eventId: 'evt_ascot_mile', theme: '유럽 마일 챔피언십', purse: 1180 },
+  { id: 'autumn-tokyo-repeat', week: '10월 1주', tier: 'G1', eventId: 'evt_tokyo_cup', theme: '가을 왕좌전', purse: 1320 },
+];
+
 export const EMPTY_LOCAL_PACK = {
   trackNames: {},
   eventNames: {},
@@ -158,6 +165,33 @@ export function generateRaceCardAction(state) {
   }, `레이스 카드 ${card.results.length}개 이벤트를 생성했습니다.`);
 }
 
+export function generateSeasonCardAction(state) {
+  const current = normalizeState(state);
+  const rows = seasonCalendarRows(current);
+  if (!rows.length) return addLog(current, '시즌 캘린더에 편성된 이벤트가 없습니다.');
+  const card = {
+    id: `SEASON-${Date.now().toString(36)}`,
+    createdAt: new Date().toISOString(),
+    season: true,
+    results: rows.map((row) => ({
+      ...row.preview,
+      eventId: row.eventId,
+      raceName: row.raceName,
+      trackName: row.trackName,
+      region: row.region,
+      surface: row.surface,
+      distanceM: row.distanceM,
+      week: row.week,
+      tier: row.tier,
+      readiness: row.readiness,
+    })),
+  };
+  return addLog({
+    ...current,
+    raceCards: [card, ...current.raceCards].slice(0, 12),
+  }, `시즌 캘린더 카드 ${card.results.length}개 라운드를 생성했습니다.`);
+}
+
 export function buildTracks(state) {
   const current = normalizeState(state);
   return CORE_TRACKS.map((track) => {
@@ -254,6 +288,76 @@ export function localPackMatrix(state) {
   };
 }
 
+export function seasonCalendarRows(state) {
+  const current = normalizeState(state);
+  const eventsById = new Map(buildEvents(current).map((event) => [event.id, event]));
+  const tracksById = new Map(buildTracks(current).map((track) => [track.id, track]));
+  return SEASON_CALENDAR_TEMPLATE.map((slot, index) => {
+    const event = eventsById.get(slot.eventId) || null;
+    const track = event ? tracksById.get(event.trackId) : null;
+    const missing = [
+      event?.hasLocalName ? '' : '이벤트명',
+      track?.hasLocalName ? '' : '트랙명',
+      track?.hasLogoOverride ? '' : '로고키',
+    ].filter(Boolean);
+    const preview = event ? simulateEvent(event, index + 100) : null;
+    const readiness = Math.max(0, Math.round((3 - missing.length) / 3 * 100));
+    return {
+      ...slot,
+      eventId: event?.id || slot.eventId,
+      raceName: event?.raceName || slot.eventId,
+      trackId: event?.trackId || '',
+      trackName: event?.trackName || '-',
+      region: event?.region || '',
+      regionName: event?.regionName || '',
+      surface: event?.surface || '',
+      surfaceName: event?.surfaceName || '',
+      directionName: event?.directionName || '',
+      distanceM: Number(event?.distanceM || 0),
+      logoKey: track?.logoKey || event?.trackLogoKey || '',
+      fallbackLogo: event?.fallbackLogo || '',
+      localCandidates: event?.localCandidates || [],
+      missing,
+      readiness,
+      status: missing.length ? `${missing.join(', ')} 보강 필요` : '편성 가능',
+      preview: preview || { winner: '-', runnerUp: '-', rating: 0 },
+      projectedInterest: Math.max(40, Math.min(100, Math.round((slot.purse / 18) + readiness * 0.35 + Number(preview?.rating || 0) * 0.12))),
+    };
+  });
+}
+
+export function seasonCalendarReport(state) {
+  const rows = seasonCalendarRows(state);
+  const readyRows = rows.filter((row) => row.missing.length === 0);
+  const regions = Array.from(new Set(rows.map((row) => row.region).filter(Boolean)));
+  const surfaces = Array.from(new Set(rows.map((row) => row.surface).filter(Boolean)));
+  const averageReadiness = rows.length
+    ? Math.round(rows.reduce((sum, row) => sum + row.readiness, 0) / rows.length)
+    : 0;
+  const projectedInterest = rows.length
+    ? Math.round(rows.reduce((sum, row) => sum + row.projectedInterest, 0) / rows.length)
+    : 0;
+  const missingRows = rows.filter((row) => row.missing.length > 0);
+  const recommendations = [
+    missingRows.length ? `${missingRows[0].raceName}부터 ${missingRows[0].missing.join(', ')}을 보강하면 캘린더 노출 품질이 가장 빨리 올라갑니다.` : '',
+    regions.length < 3 ? '지역 분포가 좁습니다. 공개 후보팩을 확장할 때 지역별 이벤트를 하나씩 더 배치하세요.' : '',
+    surfaces.length < 2 ? '주로가 한쪽으로 치우쳤습니다. turf/dirt 이벤트를 모두 포함하면 시즌 카드가 더 다양해집니다.' : '',
+    projectedInterest < 70 ? '예상 관심도가 낮습니다. 상금과 대표 이벤트명을 보강해서 시즌 카드의 첫인상을 올리세요.' : '',
+  ].filter(Boolean);
+  if (!recommendations.length) recommendations.push('시즌 캘린더는 현재 공개용 검수 기준을 충족합니다. 다음 단계는 실제 장기 결과 데이터팩 분리입니다.');
+  return {
+    rows,
+    readyRows: readyRows.length,
+    totalRows: rows.length,
+    averageReadiness,
+    projectedInterest,
+    regions,
+    surfaces,
+    missingRows,
+    recommendations,
+  };
+}
+
 export function visibleTracks(state) {
   const current = normalizeState(state);
   return buildTracks(current).filter((track) => matchFilters(track, current.filters));
@@ -286,10 +390,12 @@ export function summaryForState(state) {
   const current = normalizeState(state);
   const audit = latestAudit(current);
   const matrix = localPackMatrix(current);
+  const calendar = seasonCalendarReport(current);
   return {
     tracks: CORE_TRACKS.length,
     events: CORE_EVENTS.length,
     completeness: audit.completeness,
+    calendarReadiness: calendar.averageReadiness,
     placeholderOnly: audit.placeholderOnly,
     missingNames: matrix.totals.missingNames,
     missingLogoOverrides: matrix.totals.missingLogoOverrides,

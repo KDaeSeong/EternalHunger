@@ -659,6 +659,13 @@ function prereqsMet(research, tech) {
   return (tech?.prereqs || []).every((techId) => research.completed?.[techId]);
 }
 
+function missingPrereqMessage(research, tech) {
+  const missing = (tech?.prereqs || [])
+    .filter((techId) => !research.completed?.[techId])
+    .map((techId) => getTech(techId)?.name || techId);
+  return `${tech.name} 연구를 하려면 먼저 ${missing.join(', ')} 연구를 완료해야 합니다.`;
+}
+
 function nextAvailableTech(research) {
   return TECH_TREE.find((tech) => !research.completed?.[tech.id] && prereqsMet(research, tech)) || null;
 }
@@ -714,7 +721,7 @@ function addResearchProgress(state, techId, points, source = '연구') {
   const tech = getTech(techId);
   if (!tech) return state;
   if (research.completed[tech.id]) return state;
-  if (!prereqsMet(research, tech)) return addLog({ ...state, research }, `${tech.name} 선행 연구가 부족합니다.`);
+  if (!prereqsMet(research, tech)) return addLog({ ...state, research }, missingPrereqMessage(research, tech));
   const progress = Math.min(tech.cost, Number(research.progress[tech.id] || 0) + Math.max(0, Math.floor(points)));
   const next = {
     ...state,
@@ -1225,7 +1232,7 @@ export function selectTechAction(state, techId) {
   const tech = getTech(techId);
   if (!tech) return current;
   if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
-  if (!prereqsMet(current.research, tech)) return addLog(current, `${tech.name} 선행 연구가 부족합니다.`);
+  if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
   return addLog({
     ...current,
     research: { ...current.research, selectedTechId: tech.id },
@@ -1240,7 +1247,7 @@ export function runResearchAction(state, actorId, options = {}) {
   const tech = getTech(techId);
   if (!tech) return addLog(current, '연구 가능한 기술이 없습니다.');
   if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
-  if (!prereqsMet(current.research, tech)) return addLog(current, `${tech.name} 선행 연구가 부족합니다.`);
+  if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
   const archiveStudy = Number(current.camp.scribeDeskLevel || 0) + Number(current.camp.libraryShelfLevel || 0) + bookResearchBonus(current);
   const points = 3 + Math.floor(Number(actor?.stats?.craft || 5) / 3) + Number(current.camp.workbenchLevel || 0) + archiveStudy;
   const staminaCost = Math.max(5, 14 - Number(current.camp.workbenchLevel || 0) * 2 - Number(current.camp.scribeDeskLevel || 0));
