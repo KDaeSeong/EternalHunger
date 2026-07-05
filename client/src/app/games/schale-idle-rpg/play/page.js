@@ -290,6 +290,7 @@ export default function SchaleIdlePlayPage() {
       title="샬레 당직 RPG"
       description="업로드된 Schale Idle RPG v1.34의 방치 정산, 장비 제작, 강화, 시련의 탑, 미션 보상 루프를 사이트용 playable slice로 이식했습니다."
       summaryLabel="Schale Idle RPG 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
