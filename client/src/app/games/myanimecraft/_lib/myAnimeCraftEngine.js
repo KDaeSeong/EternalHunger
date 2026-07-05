@@ -40,6 +40,10 @@ const BUILD_DEFS = [
   buildDef('T', 'TvZ', '발키리 전환', 'tech', ['tech', 'balanced']),
   buildDef('T', 'TvZ', 'SK테란 전환', 'balanced', ['balanced', 'macro']),
   buildDef('T', 'TvZ', '레이트 메카닉', 'tech', ['tech', 'large']),
+  buildDef('T', 'TvZ', '3배럭 아카데미', 'rush', ['rush', 'balanced']),
+  buildDef('T', 'TvZ', '선엔베 업바이오닉', 'macro', ['macro', 'large']),
+  buildDef('T', 'TvZ', '투스타 레이스 견제', 'harass', ['harass', 'tech']),
+  buildDef('T', 'TvZ', '빠른 사이언스 베슬', 'tech', ['tech', 'large']),
   buildDef('T', 'TvP', '2배럭 찌르기', 'rush', ['rush', 'small']),
   buildDef('T', 'TvP', '원팩 원스타', 'tech', ['tech', 'small']),
   buildDef('T', 'TvP', '팩토리 조이기', 'rush', ['rush', 'balanced']),
@@ -48,12 +52,20 @@ const BUILD_DEFS = [
   buildDef('T', 'TvP', '트리플 커맨드', 'macro', ['macro', 'large']),
   buildDef('T', 'TvP', '메카닉 전환', 'tech', ['large', 'tech']),
   buildDef('T', 'TvP', '드랍십 벌처 견제', 'harass', ['harass', 'small']),
+  buildDef('T', 'TvP', 'FD 테란', 'balanced', ['balanced', 'small']),
+  buildDef('T', 'TvP', '벌처 마인 압박', 'harass', ['harass', 'balanced']),
+  buildDef('T', 'TvP', '투팩 타이밍', 'rush', ['rush', 'balanced']),
+  buildDef('T', 'TvP', '빠른 아머리 업그레이드', 'macro', ['macro', 'large']),
   buildDef('T', 'TvT', '1팩 더블', 'macro', ['macro', 'large']),
   buildDef('T', 'TvT', '벌처 레이스', 'tech', ['tech', 'small']),
   buildDef('T', 'TvT', '2팩 압박', 'rush', ['rush']),
   buildDef('T', 'TvT', '드랍십 탱크 흔들기', 'harass', ['harass', 'large']),
   buildDef('T', 'TvT', '메카닉 운영', 'tech', ['large', 'tech']),
   buildDef('T', 'TvT', '빠른 스타포트', 'harass', ['harass', 'small']),
+  buildDef('T', 'TvT', '원팩 원스타', 'tech', ['tech', 'small']),
+  buildDef('T', 'TvT', '투스타 레이스', 'tech', ['tech', 'balanced']),
+  buildDef('T', 'TvT', '빠른 더블 후 탱크라인', 'macro', ['macro', 'large']),
+  buildDef('T', 'TvT', '레이스 견제 후 벌처 전환', 'harass', ['harass', 'tech']),
   buildDef('Z', 'TvZ', '3해처리 뮤탈', 'tech', ['large', 'tech']),
   buildDef('Z', 'TvZ', '빠른 3가스 뮤탈', 'tech', ['tech', 'large']),
   buildDef('Z', 'TvZ', '2해처리 러커', 'tech', ['tech', 'balanced']),
@@ -62,6 +74,10 @@ const BUILD_DEFS = [
   buildDef('Z', 'TvZ', '러커 조이기', 'rush', ['rush', 'balanced']),
   buildDef('Z', 'TvZ', '하이브 운영', 'macro', ['macro', 'large']),
   buildDef('Z', 'TvZ', '울트라 전환', 'macro', ['macro', 'large']),
+  buildDef('Z', 'TvZ', '12앞 3해처리', 'macro', ['macro', 'large']),
+  buildDef('Z', 'TvZ', '9드론 발업', 'rush', ['rush', 'small']),
+  buildDef('Z', 'TvZ', '5해처리 히드라', 'macro', ['macro', 'balanced']),
+  buildDef('Z', 'TvZ', '빠른 디파일러', 'tech', ['tech', 'large']),
   buildDef('Z', 'ZvP', '3해처리 뮤탈', 'tech', ['large', 'tech']),
   buildDef('Z', 'ZvP', '히드라 타이밍', 'rush', ['rush', 'balanced']),
   buildDef('Z', 'ZvP', '저글링 올인', 'rush', ['rush']),
@@ -69,12 +85,20 @@ const BUILD_DEFS = [
   buildDef('Z', 'ZvP', '히드라 운영', 'macro', ['macro']),
   buildDef('Z', 'ZvP', '디파일러 장기전', 'tech', ['tech', 'large']),
   buildDef('Z', 'ZvP', '스파이어 페이크', 'harass', ['harass', 'small']),
+  buildDef('Z', 'ZvP', '선가스 러커 드랍', 'harass', ['harass', 'tech']),
+  buildDef('Z', 'ZvP', '973 히드라 타이밍', 'rush', ['rush', 'balanced']),
+  buildDef('Z', 'ZvP', '5해처리 히드라', 'macro', ['macro', 'large']),
+  buildDef('Z', 'ZvP', '빠른 하이브 전환', 'tech', ['tech', 'large']),
   buildDef('Z', 'ZvZ', '9드론 저글링', 'rush', ['rush', 'small']),
   buildDef('Z', 'ZvZ', '12앞마당 운영', 'macro', ['macro']),
   buildDef('Z', 'ZvZ', '2해처리 뮤탈', 'tech', ['large', 'tech']),
   buildDef('Z', 'ZvZ', '저글링 난전', 'harass', ['harass', 'small']),
   buildDef('Z', 'ZvZ', '3해처리 운영', 'macro', ['macro']),
   buildDef('Z', 'ZvZ', '원해처리 뮤탈', 'tech', ['tech', 'small']),
+  buildDef('Z', 'ZvZ', '9발업 운영', 'rush', ['rush', 'small']),
+  buildDef('Z', 'ZvZ', '선스파이어', 'tech', ['tech', 'balanced']),
+  buildDef('Z', 'ZvZ', '2해처리 스커지 운영', 'harass', ['harass', 'tech']),
+  buildDef('Z', 'ZvZ', '앞마당 페이크 저글링', 'harass', ['harass', 'small']),
   buildDef('P', 'TvP', '더블넥서스', 'macro', ['macro', 'large']),
   buildDef('P', 'TvP', '원게이트 더블', 'macro', ['macro', 'balanced']),
   buildDef('P', 'TvP', '옵드라 압박', 'balanced', ['balanced', 'macro']),
@@ -83,6 +107,10 @@ const BUILD_DEFS = [
   buildDef('P', 'TvP', '리버 셔틀', 'harass', ['small', 'harass']),
   buildDef('P', 'TvP', '아비터 리콜', 'tech', ['tech', 'large']),
   buildDef('P', 'TvP', '캐리어 전환', 'tech', ['tech', 'large']),
+  buildDef('P', 'TvP', '2게이트 옵저버', 'balanced', ['balanced', 'small']),
+  buildDef('P', 'TvP', '빠른 트리플 넥서스', 'macro', ['macro', 'large']),
+  buildDef('P', 'TvP', '리버 캐리어 전환', 'tech', ['tech', 'large']),
+  buildDef('P', 'TvP', '다크 더블', 'tech', ['tech', 'balanced']),
   buildDef('P', 'ZvP', '질럿-드라군 압박', 'rush', ['rush']),
   buildDef('P', 'ZvP', '커세어 리버', 'harass', ['harass', 'small']),
   buildDef('P', 'ZvP', '커세어 다크', 'tech', ['tech', 'small']),
@@ -90,6 +118,10 @@ const BUILD_DEFS = [
   buildDef('P', 'ZvP', '셔틀 테크', 'tech', ['large', 'tech']),
   buildDef('P', 'ZvP', '템플러 한방', 'tech', ['tech', 'balanced']),
   buildDef('P', 'ZvP', '더블넥 운영', 'macro', ['macro', 'large']),
+  buildDef('P', 'ZvP', '선포지 더블', 'macro', ['macro', 'large']),
+  buildDef('P', 'ZvP', '커세어 질럿 압박', 'rush', ['rush', 'harass']),
+  buildDef('P', 'ZvP', '2스타 커세어', 'harass', ['harass', 'tech']),
+  buildDef('P', 'ZvP', '빠른 아칸 전환', 'tech', ['tech', 'balanced']),
   buildDef('P', 'PvP', '2게이트 압박', 'rush', ['rush', 'small']),
   buildDef('P', 'PvP', '리버 견제', 'harass', ['harass', 'small']),
   buildDef('P', 'PvP', '아비터 테크', 'tech', ['large', 'tech']),
@@ -97,6 +129,10 @@ const BUILD_DEFS = [
   buildDef('P', 'PvP', '더블 운영', 'macro', ['macro']),
   buildDef('P', 'PvP', '질럿 드라군 압박', 'balanced', ['balanced']),
   buildDef('P', 'PvP', '앞마당 리버 운영', 'macro', ['macro', 'large']),
+  buildDef('P', 'PvP', '1게이트 코어', 'balanced', ['balanced', 'small']),
+  buildDef('P', 'PvP', '3게이트 드라군', 'rush', ['rush', 'balanced']),
+  buildDef('P', 'PvP', '리버 맞불', 'harass', ['harass', 'small']),
+  buildDef('P', 'PvP', '다크 이후 앞마당', 'tech', ['tech', 'macro']),
 ];
 
 const CAREER_STAT_KEYS = ['attack', 'defense', 'strategy', 'sense', 'macro', 'scout', 'control', 'harass'];
@@ -1544,6 +1580,38 @@ function styleFlowLine(rng, style, playerName) {
   ]);
 }
 
+function buildPlanLine(rng, playerName, build, map) {
+  const mapName = map?.name || '이번 맵';
+  if (build.style === 'rush') {
+    return pickLine(rng, [
+      `${playerName}의 ${build.name}은 초반 시간을 돈으로 사는 카드입니다. ${mapName}에서 첫 교전이 열리면 바로 손익 계산이 납니다.`,
+      `${build.name} 선택은 상대에게 질문을 던지는 빌드입니다. 수비 배치가 늦으면 그대로 경기 흐름이 굳습니다.`,
+    ]);
+  }
+  if (build.style === 'macro') {
+    return pickLine(rng, [
+      `${playerName}은 ${build.name}으로 자원줄을 먼저 넓힙니다. 지금 당장보다 세 번째 교전 이후를 보는 선택입니다.`,
+      `${build.name}은 욕심처럼 보여도 성공하면 회전력이 달라집니다. ${mapName}의 넓은 동선을 활용하려는 그림입니다.`,
+    ]);
+  }
+  if (build.style === 'tech') {
+    return pickLine(rng, [
+      `${playerName}의 ${build.name}은 숨기는 시간이 길수록 강합니다. 들키는 순간보다 공개되는 순간이 중요합니다.`,
+      `${build.name}은 한 번 타이밍이 맞으면 전장 구도가 뒤집힙니다. 정찰이 늦으면 대응이 급해집니다.`,
+    ]);
+  }
+  if (build.style === 'harass') {
+    return pickLine(rng, [
+      `${playerName}은 ${build.name}으로 손을 바쁘게 만들려 합니다. 피해가 작아도 시선이 갈리면 본대 싸움이 쉬워집니다.`,
+      `${build.name}은 점수판보다 리듬을 빼앗는 카드입니다. ${mapName}의 빈틈을 계속 찌를 수 있습니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${playerName}의 ${build.name}은 상대 선택을 보고 갈라지는 빌드입니다. 초반 정보량이 많을수록 강해집니다.`,
+    `${build.name}은 무리하지 않지만 단단합니다. 상대가 급하게 들어오면 받아칠 준비가 되어 있습니다.`,
+  ]);
+}
+
 function buildSetTimeline({
   rng,
   setNo,
@@ -1573,8 +1641,10 @@ function buildSetTimeline({
     buildTimelineLine(16, '해설', `${topic(homePlayer.name)} ${homeBuild.name}(${BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style}), ${topic(awayPlayer.name)} ${awayBuild.name}(${BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style}) 구도입니다.`),
     buildTimelineLine(22, '데이터', buildMetaInsightLine(rng, homeMeta, awayMeta)),
     buildTimelineLine(Math.round(durationSec * 0.2), '해설 B', matchupFlavorLine(rng, homePlayer.race, awayPlayer.race)),
+    buildTimelineLine(Math.round(durationSec * 0.27), '빌드 분석', buildPlanLine(rng, homePlayer.name, homeBuild, map)),
     buildTimelineLine(Math.round(durationSec * 0.32), '해설', buildClashLine(rng, homeBuild, awayBuild)),
     buildTimelineLine(Math.round(durationSec * 0.44), '해설', styleFlowLine(rng, homeBuild.style, homePlayer.name)),
+    buildTimelineLine(Math.round(durationSec * 0.51), '빌드 분석', buildPlanLine(rng, awayPlayer.name, awayBuild, map)),
     buildTimelineLine(Math.round(durationSec * 0.58), '캐스터', swingLine(rng, winnerName, leaderName, closeGame, homeWin, pHome)),
     buildTimelineLine(Math.round(durationSec * 0.74), '해설', styleFlowLine(rng, awayBuild.style, awayPlayer.name)),
     buildTimelineLine(Math.round(durationSec * 0.9), '해설 B', isAceSet

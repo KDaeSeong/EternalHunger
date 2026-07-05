@@ -84,6 +84,15 @@ function SmallStat({ label, value }) {
   );
 }
 
+function RecentActionResult({ label = '최근 진행 결과', text, pinned = false }) {
+  return (
+    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
+      <span>{label}</span>
+      <strong>{text}</strong>
+    </div>
+  );
+}
+
 function formatTimelineTime(seconds) {
   const safe = Math.max(0, Math.floor(Number(seconds || 0)));
   const minutes = Math.floor(safe / 60);
@@ -108,6 +117,23 @@ function BroadcastTimeline({ lines, title = '중계 타임라인' }) {
   );
 }
 
+function actionFeedbackText(previous, next, label, fallback = '') {
+  const beforePlayed = getPlayedCount(previous);
+  const afterPlayed = getPlayedCount(next);
+  const playedDelta = Math.max(0, afterPlayed - beforePlayed);
+  const latestMatch = getMatchArchiveRows(next, 1)[0];
+  if (playedDelta > 0 && latestMatch) {
+    return `${label}: ${playedDelta}경기 진행 · 최근 ${latestMatch.homeTeamName} ${latestMatch.scoreHome}:${latestMatch.scoreAway} ${latestMatch.awayTeamName} · ${latestMatch.winnerTeamName} 승`;
+  }
+  if (next.ended && !previous.ended) {
+    const champion = next.championTeamId ? getTeam(next, next.championTeamId)?.name : '';
+    return `시즌 종료: ${champion || '우승팀'} 우승이 확정됐습니다.`;
+  }
+  const latestLog = next.log?.[0];
+  if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
+  return fallback || `${label} 처리했습니다.`;
+}
+
 export default function MyAnimeCraftPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -121,6 +147,7 @@ export default function MyAnimeCraftPlayPage() {
   const [selectedArchiveMatchId, setSelectedArchiveMatchId] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [actionResult, setActionResult] = useState('');
 
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
@@ -163,6 +190,7 @@ export default function MyAnimeCraftPlayPage() {
   const score = scoreState(state);
   const leader = standings[0];
   const ended = Boolean(state.ended);
+  const recentActionText = actionResult || state.log?.[0] || '아직 진행한 행동이 없습니다.';
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -180,6 +208,7 @@ export default function MyAnimeCraftPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
       setMessage('Starleague Sim 시즌 상태를 저장했습니다.');
+      setActionResult('Starleague Sim 시즌 상태를 저장 슬롯에 저장했습니다.');
       showToast({ tone: 'success', message: 'Starleague Sim 시즌 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
@@ -210,6 +239,7 @@ export default function MyAnimeCraftPlayPage() {
       setTradeTargetTeamId(nextState.teams[1]?.id || '');
       setTradeTargetPlayerId('');
       setMessage('저장된 Starleague Sim 시즌을 불러왔습니다.');
+      setActionResult(nextState.log?.[0] || '저장된 Starleague Sim 시즌을 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Starleague Sim 시즌을 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
@@ -238,6 +268,7 @@ export default function MyAnimeCraftPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
       setMessage('Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.');
+      setActionResult('Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.');
       showToast({ tone: 'success', message: 'Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
@@ -256,7 +287,19 @@ export default function MyAnimeCraftPlayPage() {
     setTradeTargetPlayerId('');
     setTradeCash(0);
     setSelectedArchiveMatchId('');
+    setActionResult('새 Starleague Sim 시즌을 시작했습니다.');
     setMessage('');
+  };
+
+  const applyStateAction = (label, updater, options = {}) => {
+    const nextState = updater(state);
+    setState(nextState);
+    setActionResult(actionFeedbackText(state, nextState, label, options.fallback));
+    if (options.selectLatestMatch) {
+      const latestMatch = getMatchArchiveRows(nextState, 1)[0];
+      if (latestMatch?.id) setSelectedArchiveMatchId(latestMatch.id);
+    }
+    if (options.clearArchiveSelection) setSelectedArchiveMatchId('');
   };
 
   const actions = (
@@ -319,11 +362,12 @@ export default function MyAnimeCraftPlayPage() {
             <SmallStat label="포스트시즌" value={seasonStage.postseasonTotal ? `${seasonStage.postseasonPlayed}/${seasonStage.postseasonTotal}` : '대기'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={ended} onClick={() => setState((current) => simulateNextMatchAction(current))}>다음 경기 진행</ActionButton>
-            <ActionButton disabled={ended} onClick={() => setState((current) => simulateWeekAction(current))}>이번 주 전체 진행</ActionButton>
-            <ActionButton disabled={ended} onClick={() => setState((current) => simulateSeasonAction(current))}>시즌 끝까지 진행</ActionButton>
-            <ActionButton disabled={!ended} onClick={() => setState((current) => startNextSeasonAction(current))}>다음 시즌 시작</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('다음 경기 진행', (current) => simulateNextMatchAction(current), { selectLatestMatch: true })}>다음 경기 진행</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('이번 주 전체 진행', (current) => simulateWeekAction(current), { selectLatestMatch: true })}>이번 주 전체 진행</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
+            <ActionButton disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
           </div>
+          <RecentActionResult text={recentActionText} pinned />
           {matchArchiveRows.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {matchArchiveRows.slice(0, 6).map((match) => (
@@ -500,12 +544,13 @@ export default function MyAnimeCraftPlayPage() {
                 : `${personalSummary.phaseLabel || personalSummary.phase} 진행 대기`)}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={personalSummary.stage === 'DONE'} onClick={() => setState((current) => (
+            <ActionButton disabled={personalSummary.stage === 'DONE'} onClick={() => applyStateAction('개인리그 진행', (current) => (
               personalSummary.stage === 'NOT_STARTED' ? startPersonalLeagueAction(current) : advancePersonalLeagueAction(current)
             ))}>
               {personalSummary.stage === 'NOT_STARTED' ? '개인리그 시작' : `${personalSummary.phaseLabel || '개인전'} 진행`}
             </ActionButton>
           </div>
+          <RecentActionResult label="최근 컵/특별전 결과" text={recentActionText} />
           {personalSummary.stageReports?.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {personalSummary.stageReports.map((report) => (
@@ -565,7 +610,7 @@ export default function MyAnimeCraftPlayPage() {
               : '선택한 팀과 상위 팀이 7판 4선 승자연전으로 맞붙습니다.')}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={winnersSummary.stage === 'DONE'} onClick={() => setState((current) => (
+            <ActionButton disabled={winnersSummary.stage === 'DONE'} onClick={() => applyStateAction('위너스리그 진행', (current) => (
               winnersSummary.stage === 'NOT_STARTED'
                 ? startWinnersLeagueAction(current, selectedTeam.id)
                 : advanceWinnersLeagueAction(current)
@@ -632,10 +677,11 @@ export default function MyAnimeCraftPlayPage() {
             <SmallStat label="만료 임박" value={`${selectedEconomy.expiringCount}명`} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={ended} onClick={() => setState((current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
-            <ActionButton disabled={ended} onClick={() => setState((current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
-            <ActionButton disabled={ended} onClick={() => setState((current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('스폰서 협상', (current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
           </div>
+          <RecentActionResult label="최근 팀 운영 결과" text={recentActionText} />
           <div className="games-panel-title" style={{ marginTop: 16 }}>
             <h2>주간 운영</h2>
             <span>{selectedPlayer?.name || '선수 없음'}</span>
@@ -645,7 +691,7 @@ export default function MyAnimeCraftPlayPage() {
               <ActionButton
                 key={action.id}
                 disabled={!action.canRun}
-                onClick={() => setState((current) => runTeamActionAction(current, selectedTeam.id, selectedPlayer.id, action.id))}
+                onClick={() => applyStateAction('주간 운영', (current) => runTeamActionAction(current, selectedTeam.id, selectedPlayer.id, action.id))}
               >
                 {action.label} · {action.effectText}{action.disabledReason ? ` · ${action.disabledReason}` : ''}
               </ActionButton>
@@ -684,12 +730,13 @@ export default function MyAnimeCraftPlayPage() {
                     {offer.effects?.fameDelta ? ` · 명성 +${offer.effects.fameDelta}` : ''}
                   </small>
                 </div>
-                <button type="button" disabled={ended || offer.stock <= 0} onClick={() => setState((current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
+                <button type="button" disabled={ended || offer.stock <= 0} onClick={() => applyStateAction('상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
                   {offer.stock <= 0 ? '품절' : `${offer.price} Cr`}
                 </button>
               </article>
             ))}
           </div>
+          <RecentActionResult label="최근 시장/장비 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -738,7 +785,7 @@ export default function MyAnimeCraftPlayPage() {
           </p>
           <ActionButton
             disabled={!tradeInfo?.canTrade}
-            onClick={() => setState((current) => applyTradeAction(
+            onClick={() => applyStateAction('트레이드 제안', (current) => applyTradeAction(
               current,
               selectedTeam.id,
               selectedPlayer.id,
@@ -771,7 +818,7 @@ export default function MyAnimeCraftPlayPage() {
                   <span>{row.label}</span>
                   <strong>{row.itemName || '미장착'}</strong>
                 </div>
-                <button type="button" disabled={!row.itemId} onClick={() => setState((current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</button>
+                <button type="button" disabled={!row.itemId} onClick={() => applyStateAction('장비 해제', (current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</button>
               </article>
             ))}
           </div>
@@ -790,9 +837,9 @@ export default function MyAnimeCraftPlayPage() {
                   <strong>{item.name}</strong>
                 </div>
                 {item.slot ? (
-                  <button type="button" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => setState((current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</button>
+                  <button type="button" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => applyStateAction('장비 장착', (current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</button>
                 ) : (
-                  <button type="button" disabled={!selectedPlayer || item.qty <= 0} onClick={() => setState((current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</button>
+                  <button type="button" disabled={!selectedPlayer || item.qty <= 0} onClick={() => applyStateAction('아이템 사용', (current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</button>
                 )}
               </article>
             )) : (
