@@ -3779,14 +3779,14 @@
 
 .games-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(86px, 120px));
-  gap: 5px;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 108px));
+  gap: 4px;
   justify-content: start;
 }
 
 .games-summary--compact {
-  grid-template-columns: repeat(auto-fill, minmax(70px, 96px));
-  gap: 5px;
+  grid-template-columns: repeat(auto-fill, minmax(66px, 90px));
+  gap: 4px;
   justify-content: start;
 }
 
@@ -3810,12 +3810,12 @@
   display: grid;
   align-content: center;
   gap: 2px;
-  min-height: 42px;
-  padding: 6px 8px;
+  min-height: 34px;
+  padding: 5px 7px;
 }
 
 .games-summary--compact .games-metric {
-  min-height: 30px;
+  min-height: 28px;
   gap: 1px;
   padding: 4px 6px;
 }
@@ -3826,12 +3826,13 @@
   width: auto;
   min-width: 0;
   max-width: none;
-  min-height: 22px;
+  min-height: 20px;
   gap: 4px;
+  border-radius: 999px;
   border-color: rgba(44, 111, 158, 0.13);
   background: #f8fafc;
   box-shadow: none;
-  padding: 2px 6px;
+  padding: 2px 7px;
 }
 
 .games-metric.games-metric--micro {
@@ -3842,9 +3843,13 @@
   width: auto;
   min-width: 0;
   max-width: none;
-  min-height: 22px;
+  min-height: 20px;
   gap: 4px;
-  padding: 2px 6px;
+  border-radius: 999px;
+  border-color: rgba(44, 111, 158, 0.13);
+  background: #f8fafc;
+  box-shadow: none;
+  padding: 2px 7px;
 }
 
 .games-summary--dense .games-metric {
@@ -3857,7 +3862,7 @@
 
 .games-metric span {
   color: #64717d;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 900;
 }
 
@@ -3866,11 +3871,11 @@
 }
 
 .games-summary--micro .games-metric span {
-  font-size: 0.55rem;
+  font-size: 0.52rem;
 }
 
 .games-metric.games-metric--micro span {
-  font-size: 0.55rem;
+  font-size: 0.52rem;
 }
 
 .games-summary--dense .games-metric span {
@@ -3879,7 +3884,7 @@
 
 .games-metric strong {
   color: #17202a;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   line-height: 1.1;
 }
 
@@ -3888,12 +3893,12 @@
 }
 
 .games-summary--micro .games-metric strong {
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   white-space: nowrap;
 }
 
 .games-metric.games-metric--micro strong {
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   white-space: nowrap;
 }
 

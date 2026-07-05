@@ -346,13 +346,11 @@ export default function PrimitiveArchivePlayPage() {
   );
 
   const playMetrics = [
-    { label: 'Day', value: state.day },
-    { label: 'AP', value: `${state.ap}/${state.apMax}` },
+    { label: 'Day/AP', value: `${state.day} · ${state.ap}/${state.apMax}` },
     { label: '난이도', value: currentDifficulty.label },
     { label: '파티', value: `${state.party.length}/${partyCap}` },
     { label: '상태', value: `${hp}HP · 허기 ${hunger} · ST ${stamina}` },
-    { label: '체온', value: `${bodyTemp.toFixed(1)}도` },
-    { label: '보온', value: insulation },
+    { label: '체온/보온', value: `${bodyTemp.toFixed(1)}도 · ${insulation}` },
     { label: '연구', value: `${research.completed}/${research.total}` },
     { label: '기록서', value: `${archiveReport.grade} · ${archiveReport.archiveScore}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
