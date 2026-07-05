@@ -2536,6 +2536,217 @@ export function growthRoadmapForState(state) {
   };
 }
 
+function buildDailyPlanAction({ id, title, detail, priority = 'normal', command = null, buttonLabel = '' }) {
+  return { id, title, detail, priority, command, buttonLabel };
+}
+
+function buildDailyCheck({ id, label, value, detail, status = 'active' }) {
+  return { id, label, value, detail, status };
+}
+
+export function dailyOperationsPlanForState(state) {
+  const current = normalizeState(state);
+  const report = growthReportForState(current);
+  const roadmap = growthRoadmapForState(current);
+  const missions = missionRows(current);
+  const achievements = achievementRows(current);
+  const upgrades = upgradeRows(current);
+  const shopRotation = towerShopRotationSummary(current);
+  const shopOffers = towerShopRows(current);
+  const salvageInfo = salvageSummary(current);
+  const equipped = getEquippedList(current);
+  const slotCount = Object.keys(SLOT_LABELS).length;
+  const missingSlots = Object.keys(SLOT_LABELS).filter((slot) => !current.equipment?.[slot]);
+  const firstMissingSlot = missingSlots[0] || '';
+  const missingRecipe = firstMissingSlot ? missingRecipeForSlot(firstMissingSlot) : null;
+  const readyUpgrade = upgrades.find((upgrade) => upgrade.canUpgrade) || null;
+  const claimableMissions = missions.filter((mission) => mission.done && !mission.claimed);
+  const claimableAchievements = achievements.filter((achievement) => achievement.canClaim);
+  const dailyMissions = missions.filter((mission) => mission.type === 'daily');
+  const weeklyMissions = missions.filter((mission) => mission.type === 'weekly');
+  const dailyDone = dailyMissions.filter((mission) => mission.claimed).length;
+  const dailyReady = dailyMissions.filter((mission) => mission.done && !mission.claimed).length;
+  const weeklyProgressPct = Math.round(
+    weeklyMissions.reduce((sum, mission) => sum + progressRatio(mission.progress, mission.target), 0)
+      / Math.max(1, weeklyMissions.length)
+      * 100,
+  );
+  const buyableOffer = shopOffers.find((offer) => offer.canBuy) || null;
+  const towerKeys = Number(current.inventory.itm_tower_key || 0);
+  const stamina = Number(current.stamina || 0);
+  const claimableCount = claimableMissions.length + claimableAchievements.length;
+
+  const priorityActions = [];
+  if (claimableCount) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'claim-rewards',
+      title: '보상 수령',
+      detail: `미션 ${claimableMissions.length}개, 업적 ${claimableAchievements.length}개 보상이 대기 중입니다.`,
+      priority: 'high',
+      command: { type: 'claim-rewards' },
+      buttonLabel: '수령',
+    }));
+  }
+  if (stamina < 35) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'rest',
+      title: '재정비',
+      detail: `스태미나 ${stamina}/100입니다. 정산 효율을 회복한 뒤 메인 웨이브를 미는 편이 낫습니다.`,
+      priority: 'high',
+      command: { type: 'rest' },
+      buttonLabel: '재정비',
+    }));
+  }
+  if (missingRecipe) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'craft-missing-slot',
+      title: `${slotLabel(firstMissingSlot)} 슬롯 제작`,
+      detail: `${missingRecipe.name}으로 빈 장비 슬롯을 채우면 기본 전투력 손실을 줄일 수 있습니다.`,
+      priority: 'high',
+      command: { type: 'craft', recipeId: missingRecipe.id },
+      buttonLabel: '제작',
+    }));
+  }
+  if (readyUpgrade) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'upgrade',
+      title: '상시 연구',
+      detail: `${readyUpgrade.name} Lv.${readyUpgrade.level} -> Lv.${readyUpgrade.nextLevel} 연구가 가능합니다.`,
+      priority: 'normal',
+      command: { type: 'upgrade', upgradeId: readyUpgrade.id },
+      buttonLabel: '연구',
+    }));
+  }
+  if (report.combat.mainProbabilityPct >= 42 && stamina >= 35) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'duty',
+      title: '2시간 당직 정산',
+      detail: `메인 승률 ${report.combat.mainProbabilityPct}%입니다. 현재 층을 반복 정산하기 좋은 상태입니다.`,
+      priority: 'normal',
+      command: { type: 'duty', minutes: 120 },
+      buttonLabel: '정산',
+    }));
+  }
+  if (towerKeys > 0 && report.combat.towerProbabilityPct >= 55) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'tower',
+      title: '시련의 탑 배치',
+      detail: `탑 ${report.combat.towerFloor}층 예상 승률 ${report.combat.towerProbabilityPct}%입니다. 열쇠 ${towerKeys}개를 사용할 타이밍입니다.`,
+      priority: 'normal',
+      command: { type: 'tower' },
+      buttonLabel: '도전',
+    }));
+  }
+  if (buyableOffer) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'tower-shop',
+      title: '타워 상점 구매',
+      detail: `${buyableOffer.name} 구매가 가능합니다. ${buyableOffer.pickupLabel} · ${buyableOffer.costText}`,
+      priority: 'normal',
+      command: { type: 'buy-offer', offerId: buyableOffer.id },
+      buttonLabel: '구매',
+    }));
+  }
+  if (salvageInfo.executableCount > 0) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'salvage',
+      title: '분해 대기열 정리',
+      detail: `실행 대상 ${salvageInfo.executableCount}개, 보호 대상 ${salvageInfo.protectedByCandidateOnly}개입니다.`,
+      priority: salvageInfo.highRiskCount ? 'low' : 'normal',
+      command: { type: 'salvage' },
+      buttonLabel: '분해',
+    }));
+  }
+  if (!priorityActions.length) {
+    priorityActions.push(buildDailyPlanAction({
+      id: 'steady-duty',
+      title: '메인 정산 유지',
+      detail: '수령/제작/연구 병목이 없어 메인 정산과 탑 도전을 반복하면 됩니다.',
+      priority: 'normal',
+      command: { type: 'duty', minutes: 120 },
+      buttonLabel: '정산',
+    }));
+  }
+
+  const readinessPct = Math.round(clamp(
+    report.overallPct * 0.42
+      + roadmap.completionPct * 0.34
+      + progressRatio(stamina, 100) * 10
+      + Math.min(1, equipped.length / Math.max(1, slotCount)) * 8
+      + (claimableCount ? 0 : 6),
+    0,
+    100,
+  ));
+  const highPriorityCount = priorityActions.filter((action) => action.priority === 'high').length;
+  const riskLabel = report.statusTone === 'danger'
+    ? '위험'
+    : report.statusTone === 'warn' || highPriorityCount
+      ? '점검'
+      : '안정';
+  const actionHeadline = priorityActions[0]?.title || roadmap.headline;
+
+  const checkCards = [
+    buildDailyCheck({
+      id: 'daily',
+      label: '일일 미션',
+      value: `${dailyDone}/${Math.max(1, dailyMissions.length)}`,
+      detail: dailyReady
+        ? `완료 후 수령 대기 ${dailyReady}개가 있습니다.`
+        : '일일 미션은 당직/탑/강화 루프와 함께 진행됩니다.',
+      status: dailyReady ? 'ready' : dailyDone >= dailyMissions.length ? 'complete' : 'active',
+    }),
+    buildDailyCheck({
+      id: 'weekly',
+      label: '주간 미션',
+      value: `${weeklyProgressPct}%`,
+      detail: weeklyMissions.length ? '주간 목표는 메인, 탑, 제작을 병행하면 자연스럽게 누적됩니다.' : '등록된 주간 미션이 없습니다.',
+      status: weeklyProgressPct >= 100 ? 'complete' : weeklyProgressPct >= 70 ? 'ready' : 'active',
+    }),
+    buildDailyCheck({
+      id: 'equipment',
+      label: '장비 슬롯',
+      value: `${equipped.length}/${slotCount}`,
+      detail: missingSlots.length ? `빈 슬롯: ${missingSlots.map((slot) => slotLabel(slot)).join(', ')}` : '기본 슬롯이 모두 채워졌습니다.',
+      status: missingSlots.length ? 'ready' : 'complete',
+    }),
+    buildDailyCheck({
+      id: 'shop',
+      label: '타워 상점',
+      value: `${shopRotation.tokenCount}토큰`,
+      detail: buyableOffer
+        ? `${buyableOffer.name} 구매 가능. 오늘 리셋 ${shopRotation.dailyResetsUsed}/${shopRotation.dailyResetMax}, 주간 리셋 ${shopRotation.weeklyResetsUsed}/${shopRotation.weeklyResetMax}`
+        : `구매 가능 상품이 없습니다. 오늘 픽업 ${shopRotation.dailyCount}개, 이번주 픽업 ${shopRotation.weeklyCount}개입니다.`,
+      status: buyableOffer ? 'ready' : 'active',
+    }),
+    buildDailyCheck({
+      id: 'offline',
+      label: '방치 효율',
+      value: `${report.offlineProjection.hourlyCredits.toLocaleString('ko-KR')} Cr/h`,
+      detail: `시간당 토큰 +${report.offlineProjection.hourlyTokens}, 보상 상한 ${report.offlineProjection.capHours}시간 기준입니다.`,
+      status: 'active',
+    }),
+  ];
+
+  return {
+    headline: `${actionHeadline} · 준비도 ${readinessPct}%`,
+    riskLabel,
+    readinessPct,
+    highPriorityCount,
+    priorityActions: priorityActions.slice(0, 7),
+    checkCards,
+    roadmapHeadline: roadmap.headline,
+    nextAction: roadmap.nextAction,
+    blockers: report.blockers,
+    projections: {
+      mainProbabilityPct: report.combat.mainProbabilityPct,
+      towerProbabilityPct: report.combat.towerProbabilityPct,
+      hourlyCredits: report.offlineProjection.hourlyCredits,
+      hourlyTokens: report.offlineProjection.hourlyTokens,
+      capHours: report.offlineProjection.capHours,
+    },
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   return Math.max(0, Math.round(
@@ -2601,6 +2812,16 @@ export function summaryForState(state) {
           done: section.done,
           total: section.total,
         })),
+      };
+    })(),
+    dailyOperations: (() => {
+      const plan = dailyOperationsPlanForState(current);
+      return {
+        headline: plan.headline,
+        readinessPct: plan.readinessPct,
+        riskLabel: plan.riskLabel,
+        highPriorityCount: plan.highPriorityCount,
+        nextActions: plan.priorityActions.map((item) => item.title),
       };
     })(),
     lastDutyReport: current.lastDutyReport ? {
