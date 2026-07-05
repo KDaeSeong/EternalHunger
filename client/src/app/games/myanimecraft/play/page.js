@@ -48,6 +48,7 @@ import {
   scoreState,
   signFreeAgentAction,
   simulateNextMatchAction,
+  simulateSeasonAction,
   simulateWeekAction,
   startPersonalLeagueAction,
   startWinnersLeagueAction,
@@ -307,6 +308,7 @@ export default function MyAnimeCraftPlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={ended} onClick={() => setState((current) => simulateNextMatchAction(current))}>다음 경기 진행</ActionButton>
             <ActionButton disabled={ended} onClick={() => setState((current) => simulateWeekAction(current))}>이번 주 전체 진행</ActionButton>
+            <ActionButton disabled={ended} onClick={() => setState((current) => simulateSeasonAction(current))}>시즌 끝까지 진행</ActionButton>
             <ActionButton disabled={!ended} onClick={() => setState((current) => startNextSeasonAction(current))}>다음 시즌 시작</ActionButton>
           </div>
           {matchArchiveRows.length ? (

@@ -2488,6 +2488,42 @@ export function simulateWeekAction(state) {
   return next;
 }
 
+function seasonAutoProgressSignature(state) {
+  const current = normalizeState(state);
+  const postseasonFixtures = normalizePostseasonFixtures(current.postseasonFixtures);
+  return [
+    current.week,
+    current.ended ? 1 : 0,
+    current.championTeamId || '',
+    current.fixtures.filter((fixture) => fixture.played).length,
+    postseasonFixtures.length,
+    postseasonFixtures.filter((fixture) => fixture.played).length,
+  ].join(':');
+}
+
+export function simulateSeasonAction(state, maxTurns = 64) {
+  let next = normalizeState(state);
+  const limit = clamp(Math.floor(Number(maxTurns || 64)), 1, 512);
+  let turns = 0;
+
+  while (!next.ended && turns < limit) {
+    const before = seasonAutoProgressSignature(next);
+    next = simulateWeekAction(next);
+    turns += 1;
+
+    if (seasonAutoProgressSignature(next) === before) {
+      next = simulateNextMatchAction(next);
+      turns += 1;
+      if (seasonAutoProgressSignature(next) === before) break;
+    }
+  }
+
+  if (next.ended) {
+    return addStateLog(next, `자동 진행 완료: 시즌 ${next.seasonNo} 우승 ${teamName(next, next.championTeamId)}`);
+  }
+  return addStateLog(next, `자동 진행이 ${turns}회 처리 후 중단되었습니다. 남은 일정을 수동으로 확인하세요.`);
+}
+
 function personalRoundLabel(round) {
   return PERSONAL_ROUND_LABELS[Number(round || 0)] || `${round}라운드`;
 }
