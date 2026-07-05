@@ -89,6 +89,63 @@ export const STUDENTS = [
   },
 ];
 
+const DIALOGUES = {
+  shiroko: {
+    gather: {
+      success: ['쓸 만한 흔적을 찾았어. 다음 루트도 이어갈 수 있어.', '이 정도면 오늘 캠프는 버틸 수 있겠네.'],
+      fail: ['발자국이 끊겼어. 조금 돌아가자.', '수풀은 많은데 쓸 만한 건 없네.'],
+    },
+    hunt: {
+      success: ['표적 확인. 사냥감 확보.', '숨을 죽이면 기회는 와.'],
+      fail: ['놓쳤어. 다음엔 바람 방향부터 볼게.', '흔적은 맞았는데 거리가 벌어졌어.'],
+    },
+    craft: {
+      success: ['단단하게 묶었어. 바로 써도 될 것 같아.', '도구는 가볍고 튼튼해야 해.'],
+      fail: ['매듭이 풀렸어. 재료를 다시 다듬자.', '균형이 안 맞아. 조금 더 손봐야 해.'],
+    },
+    rest: ['잠깐 호흡을 고를게.', '다음 이동을 위해 힘을 아껴두자.'],
+    eat: ['먹을 수 있을 때 먹어두자.', '보급은 생존의 기본이야.'],
+    research: ['기록해두면 다음 판단이 빨라져.', '패턴을 알면 위험도 줄어.'],
+    camp: ['캠프 동선은 짧을수록 좋아.', '불빛이 너무 멀리 새지 않게 하자.'],
+  },
+  hina: {
+    gather: {
+      success: ['필요한 것만 챙기고 이동한다.', '좋아. 낭비 없이 모았다.'],
+      fail: ['쓸데없는 소모가 많군. 정리하고 다시 움직여.', '지형이 나쁘다. 다른 방향을 보자.'],
+    },
+    hunt: {
+      success: ['제압 완료. 식량으로 쓸 수 있겠어.', '위험 요소 제거. 계속 간다.'],
+      fail: ['반격을 허용했다. 방심하지 마.', '놓쳤다. 다음 교전은 짧게 끝낸다.'],
+    },
+    craft: {
+      success: ['충분히 실전용이다.', '마감은 거칠지만 쓸 수 있어.'],
+      fail: ['내구성이 부족해. 다시 만들어라.', '이 상태로는 위험하다.'],
+    },
+    rest: ['휴식도 작전의 일부다.', '무리해서 쓰러지는 것보다 낫다.'],
+    eat: ['체력을 유지해라. 다음 사냥이 남았다.', '배를 채웠다면 바로 정비한다.'],
+    research: ['정보를 모아라. 감으로 버틸 수는 없다.', '다음 위협을 예측할 근거가 필요하다.'],
+    camp: ['방어선을 먼저 정한다.', '불과 대피소가 안정되면 밤을 넘길 수 있다.'],
+  },
+  noa: {
+    gather: {
+      success: ['채집량과 위치를 기록해둘게요.', '이 자원은 제작 동선에 도움이 되겠네요.'],
+      fail: ['오늘 이 구역 수율은 낮다고 적어둘게요.', '조건이 좋지 않네요. 표본은 충분해요.'],
+    },
+    hunt: {
+      success: ['사냥 결과를 식량 계획에 반영할게요.', '성공이에요. 위험도도 같이 기록했습니다.'],
+      fail: ['부상 가능성이 있었어요. 다음엔 준비를 늘려요.', '실패 원인을 남겨둘게요.'],
+    },
+    craft: {
+      success: ['설계대로 완성됐어요.', '좋아요. 다음 제작 성공률도 조금 기대할 수 있겠어요.'],
+      fail: ['재료 손실을 기록했습니다. 다음 배합을 바꿔볼게요.', '실패도 데이터예요. 다시 해봐요.'],
+    },
+    rest: ['회복량도 기록해둘게요.', '휴식 후 상태 변화를 확인하겠습니다.'],
+    eat: ['허기 수치가 안정됐어요.', '섭취 후 상태를 갱신할게요.'],
+    research: ['연구 노트에 진척을 남겼어요.', '기록이 쌓이면 생존 확률도 올라가요.'],
+    camp: ['캠프 개선 내역을 정리해둘게요.', '시설 상태가 좋아지면 행동 효율도 오를 거예요.'],
+  },
+};
+
 export const ZONES = [
   { id: 'forest', name: '숲', gather: [['wood', 2], ['fiber', 1], ['berry', 1], ['resin', 1, 0.35]], hunt: [['hide', 1], ['meat', 1], ['sinew', 1, 0.22]], note: '나무와 섬유가 안정적으로 나오고, 수지를 찾을 수 있습니다.' },
   { id: 'river', name: '강가', gather: [['stone', 2], ['clay', 1], ['herb', 1], ['resin', 1, 0.18]], hunt: [['meat', 1], ['bone', 1], ['tooth', 1, 0.16]], note: '돌과 약초를 모으기 좋고, 작은 사냥감의 이빨을 얻을 수 있습니다.' },
@@ -544,6 +601,21 @@ export function addLog(state, message) {
     log: [`Day ${state.day}: ${message}`, ...state.log].slice(0, logCapacity(state)),
     updatedAt: new Date().toISOString(),
   };
+}
+
+function pickDialogue(actorId, action, result = 'success', rng = Math.random) {
+  const pack = DIALOGUES[actorId] || DIALOGUES.shiroko;
+  const entry = pack?.[action];
+  const lines = Array.isArray(entry) ? entry : entry?.[result];
+  if (!Array.isArray(lines) || !lines.length) return '';
+  return lines[Math.floor(rng() * lines.length) % lines.length];
+}
+
+function addDialogueLog(state, actorId, action, result = 'success', rng = Math.random) {
+  const actor = getActor(state, actorId);
+  const line = pickDialogue(actorId, action, result, rng);
+  if (!line) return state;
+  return addLog(state, `${actor?.name || '학생'}: "${line}"`);
 }
 
 export function spendResources(inventory, requires) {
@@ -1055,7 +1127,8 @@ export function runResearchAction(state, actorId, options = {}) {
   const points = 3 + Math.floor(Number(actor?.stats?.craft || 5) / 3) + Number(current.camp.workbenchLevel || 0);
   const staminaCost = Math.max(6, 14 - Number(current.camp.workbenchLevel || 0) * 2);
   const researched = addResearchProgress(current, tech.id, points, `${actor.name} 연구`);
-  return afterAction(researched, actorId, staminaCost, 2, options);
+  const withDialogue = addDialogueLog(researched, actorId, 'research', 'success', options.rng || Math.random);
+  return afterAction(withDialogue, actorId, staminaCost, 2, options);
 }
 
 export function buyPerkAction(state, perkId) {
@@ -1279,6 +1352,7 @@ export function runGatherAction(state, actorId, zoneId, options = {}) {
   } else {
     next = addLog(next, `${actor.name}의 채집 실패. ${zone.name}의 날씨와 지형이 좋지 않았습니다.`);
   }
+  next = addDialogueLog(next, actorId, 'gather', ok ? 'success' : 'fail', options.rng || Math.random);
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(state, actorId, 'gather', 15), 3, options);
 }
 
@@ -1302,6 +1376,7 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
     next = updateActor(next, actorId, { hp: clamp(Number(target.hp || 0) - damage, 0, 100) });
     next = addLog(next, `${actor.name}의 사냥 실패. 반격으로 HP -${damage}.`);
   }
+  next = addDialogueLog(next, actorId, 'hunt', ok ? 'success' : 'fail', options.rng || Math.random);
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(state, actorId, 'hunt', 24), 5, options);
 }
 
@@ -1325,6 +1400,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
   } else {
     next = addLog(next, `${actor.name}의 제작 실패. 일부 재료를 잃었습니다.`);
   }
+  next = addDialogueLog(next, actorId, 'craft', ok ? 'success' : 'fail', options.rng || Math.random);
   return afterAction(recordResearchEvent(next, { kind: 'action', action: 'craft', ok }), actorId, staminaCostWithEquipment(state, actorId, 'craft', 20), 4, options);
 }
 
@@ -1349,6 +1425,7 @@ export function runEatAction(state, actorId, options = {}) {
     bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
   });
   next = addLog(next, `${actor.name}이(가) ${itemName(foodId)}을(를) 먹었습니다. 허기 -${nutrition}, HP +${heal}${warmth ? `, 체온 +${warmth.toFixed(1)}` : ''}.`);
+  next = addDialogueLog(next, actorId, 'eat', 'success', options.rng || Math.random);
   return afterAction(next, actorId, staminaCostWithEquipment(state, actorId, 'eat', 6), 0, options);
 }
 
@@ -1363,6 +1440,7 @@ export function runRestAction(state, actorId, options = {}) {
     bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
   });
   next = addLog(next, `${actor.name}이(가) 휴식했습니다. 스태미나와 HP를 회복하고 체온을 안정시켰습니다.`);
+  next = addDialogueLog(next, actorId, 'rest', 'success', options.rng || Math.random);
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
   return next;
@@ -1412,6 +1490,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
     };
     next = addLog(next, `${actor.name}이(가) 고기를 구웠습니다. 구운 고기 +1.`);
   }
+  next = addDialogueLog(next, actorId, 'camp', 'success', options.rng || Math.random);
   next.counters = { ...next.counters, camp: Number(next.counters.camp || 0) + 1 };
   return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, staminaCostWithEquipment(state, actorId, 'camp', 14), 2, options);
 }
