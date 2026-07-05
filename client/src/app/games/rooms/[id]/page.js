@@ -253,6 +253,8 @@ export default function GameRoomDetailPage() {
   const canRecordResult = Boolean(room?.isHost && !room?.recordedAt && roomPlayers.length);
   const playHref = room?.gameSlug === 'dual-academy-tcg'
     ? `/myanime/dual-academy-tcg/play?roomId=${id}`
+    : room?.gameSlug === 'ba-vanguard'
+      ? `/myanime/ba-vanguard/play?roomId=${id}`
     : game?.primaryHref || '';
 
   const loadRoom = useCallback(async () => {

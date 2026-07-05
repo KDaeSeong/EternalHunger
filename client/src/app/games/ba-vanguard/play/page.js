@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
@@ -296,8 +297,24 @@ function BattlePanel({ battle, selectedHandId, onGuardAdd, onGGuard, onGuardEnd 
 }
 
 export default function BaVanguardPlayPage() {
+  return (
+    <Suspense fallback={(
+      <main className="games-page-shell">
+        <section className="games-page">
+          <div className="games-empty">BA Vanguard 플레이테스트를 불러오는 중입니다.</div>
+        </section>
+      </main>
+    )}>
+      <BaVanguardPlayContent />
+    </Suspense>
+  );
+}
+
+function BaVanguardPlayContent() {
   const token = useAuthToken();
   const hydrated = useHydrated();
+  const searchParams = useSearchParams();
+  const roomId = searchParams.get('roomId') || '';
   const { showToast } = useToast();
   const [presetId, setPresetId] = useState(PRESET_DECKS[0]?.id || '');
   const [opponentPresetId, setOpponentPresetId] = useState(PRESET_DECKS[1]?.id || PRESET_DECKS[0]?.id || '');
@@ -313,6 +330,11 @@ export default function BaVanguardPlayPage() {
   const [selectedHandIndex, setSelectedHandIndex] = useState(null);
   const [selectedAttacker, setSelectedAttacker] = useState(null);
   const [busy, setBusy] = useState('');
+  const [roomBusy, setRoomBusy] = useState(false);
+  const [room, setRoom] = useState(null);
+  const [roomLoaded, setRoomLoaded] = useState(false);
+  const [localRoomDirty, setLocalRoomDirty] = useState(false);
+  const [roomSyncMessage, setRoomSyncMessage] = useState('');
   const [message, setMessage] = useState('');
   const [zoneView, setZoneView] = useState(null);
   const [gzoneFilter, setGzoneFilter] = useState('all');
@@ -329,6 +351,17 @@ export default function BaVanguardPlayPage() {
   const compositionRows = deckReport.composition;
   const score = scoreDeck(deck, rules);
   const duelSummary = summarizeDuel(duel);
+  const playtestSummary = useMemo(() => ({
+    presetId,
+    opponentPresetId,
+    deckName: deck.name,
+    opponentDeckName: opponentDeck.name,
+    clan: deck.clan,
+    rules,
+    autoGuardMe,
+    score,
+    duel: duelSummary,
+  }), [autoGuardMe, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, presetId, rules, score]);
   const visibleCards = CARDS.filter((card) => card.clan === deck.clan);
   const valid = validation.errors.length === 0 && opponentValidation.errors.length === 0;
   const me = duel.players.me;
@@ -337,7 +370,14 @@ export default function BaVanguardPlayPage() {
   const canControl = duel.active === 'me' && !duel.winner;
   const canMulligan = canControl && duel.turn === 1 && duel.phase === 'STAND' && !duel.battle && !duel.mulliganDone?.me;
 
+  const markRoomDirty = useCallback(() => {
+    if (!roomId) return;
+    setLocalRoomDirty(true);
+    setRoomSyncMessage('');
+  }, [roomId]);
+
   const mutateDuel = (mutator) => {
+    markRoomDirty();
     setDuel((prev) => {
       const next = clone(prev);
       mutator(next);
@@ -351,6 +391,7 @@ export default function BaVanguardPlayPage() {
   };
 
   const startNewDuel = (nextSeed = seed) => {
+    markRoomDirty();
     setDuel(initDuelState({
       meDeck: deck,
       oppDeck: opponentDeck,
@@ -460,8 +501,84 @@ export default function BaVanguardPlayPage() {
   };
 
   const setRuleOption = (key, value) => {
+    markRoomDirty();
     setRules((current) => normalizeRules({ ...current, [key]: value }));
   };
+
+  const applyRoomState = useCallback((nextRoom, options = {}) => {
+    if (!nextRoom) {
+      setMessage('게임방을 찾을 수 없습니다.');
+      return false;
+    }
+    setRoom(nextRoom);
+    if (nextRoom.gameSlug !== GAME_SLUG) {
+      setMessage('이 게임방은 BA Vanguard 방이 아닙니다.');
+      return false;
+    }
+
+    const roomState = nextRoom.state && typeof nextRoom.state === 'object' ? nextRoom.state : {};
+    if (!roomState.duel) {
+      setRoomSyncMessage('');
+      setMessage(options.emptyMessage || '게임방에 저장된 플레이테스트 상태가 없어 현재 설정을 유지합니다.');
+      return false;
+    }
+
+    const nextPreset = getPreset(roomState.presetId)?.id || PRESET_DECKS[0].id;
+    const nextOpp = getPreset(roomState.opponentPresetId)?.id || PRESET_DECKS[1]?.id || PRESET_DECKS[0].id;
+    const nextRules = normalizeRules(roomState.rules);
+    const nextSeed = Number(roomState.seed || 2401);
+    setPresetId(nextPreset);
+    setOpponentPresetId(nextOpp);
+    setSeed(nextSeed);
+    setRules(nextRules);
+    setAutoGuardMe(Boolean(roomState.autoGuardMe));
+    setDuel(roomState.duel);
+    setSelectedHandIndex(null);
+    setSelectedAttacker(null);
+    setZoneView(null);
+    setLocalRoomDirty(false);
+    setRoomSyncMessage('');
+    setMessage(options.message || '게임방 플레이테스트 상태를 불러왔습니다.');
+    return true;
+  }, []);
+
+  useEffect(() => {
+    setRoom(null);
+    setRoomLoaded(false);
+    setLocalRoomDirty(false);
+    setRoomSyncMessage('');
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!hydrated || !roomId || !token || roomLoaded) return;
+    let cancelled = false;
+    const loadRoomState = async () => {
+      setRoomBusy(true);
+      try {
+        const payload = await apiGet(`/game-rooms/${roomId}`, { timeoutMs: 12000 });
+        if (!cancelled) {
+          applyRoomState(payload?.room || null, {
+            message: '게임방 플레이테스트 상태를 불러왔습니다.',
+            emptyMessage: '게임방에 저장된 플레이테스트 상태가 없어 현재 설정을 유지합니다.',
+          });
+          setRoomLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const nextMessage = err?.message || '게임방 상태를 불러오지 못했습니다.';
+          setMessage(nextMessage);
+          showToast({ tone: 'danger', message: nextMessage });
+          setRoomLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setRoomBusy(false);
+      }
+    };
+    void loadRoomState();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRoomState, hydrated, roomId, roomLoaded, showToast, token]);
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -473,16 +590,7 @@ export default function BaVanguardPlayPage() {
       await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
         saveName: `BA Vanguard ${deck.name}`,
         version: SAVE_VERSION,
-        summary: {
-          presetId,
-          opponentPresetId,
-          deckName: deck.name,
-          opponentDeckName: opponentDeck.name,
-          clan: deck.clan,
-          rules,
-          score,
-          duel: duelSummary,
-        },
+        summary: playtestSummary,
         payload: { presetId, opponentPresetId, seed, rules, autoGuardMe, duel },
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
@@ -531,6 +639,10 @@ export default function BaVanguardPlayPage() {
       setSelectedHandIndex(null);
       setSelectedAttacker(null);
       setZoneView(null);
+      if (roomId) {
+        setLocalRoomDirty(true);
+        setRoomSyncMessage('');
+      }
       setMessage('저장된 BA Vanguard 플레이테스트 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 BA Vanguard 플레이테스트 상태를 불러왔습니다.' });
     } catch (err) {
@@ -556,12 +668,8 @@ export default function BaVanguardPlayPage() {
         score: score + (duel.winner === 'me' ? 300 : 0),
         playTimeSec: 0,
         summary: {
-          deckName: deck.name,
-          opponentDeckName: opponentDeck.name,
-          clan: deck.clan,
-          rules,
+          ...playtestSummary,
           openingHand: openingHand.map(cardName),
-          duel: duelSummary,
         },
         payload: { presetId, opponentPresetId, seed, rules, deck, opponentDeck, validation, duel },
       }, { timeoutMs: 15000 });
@@ -577,13 +685,67 @@ export default function BaVanguardPlayPage() {
     }
   };
 
+  const saveRoomState = async () => {
+    if (!roomId) {
+      setMessage('연결된 게임방이 없습니다.');
+      return;
+    }
+    if (!token || roomBusy) {
+      setMessage('로그인하면 게임방에 플레이테스트 상태를 저장할 수 있습니다.');
+      return;
+    }
+    setRoomBusy(true);
+    try {
+      const payload = await apiPost(`/game-rooms/${roomId}/state`, {
+        revision: room?.revision,
+        summary: playtestSummary,
+        state: {
+          presetId,
+          opponentPresetId,
+          seed,
+          rules,
+          autoGuardMe,
+          saveVersion: SAVE_VERSION,
+          duel,
+        },
+      }, { timeoutMs: 15000 });
+      clearApiGetCache('/game-rooms');
+      setRoom(payload?.room || room);
+      setLocalRoomDirty(false);
+      setRoomSyncMessage('');
+      setMessage('게임방에 BA Vanguard 상태를 저장했습니다.');
+      showToast({ tone: 'success', message: '게임방에 BA Vanguard 상태를 저장했습니다.' });
+    } catch (err) {
+      const conflictRoom = err?.response?.data?.room;
+      if (conflictRoom) setRoom(conflictRoom);
+      const nextMessage = err?.message || '게임방 저장에 실패했습니다.';
+      setMessage(nextMessage);
+      showToast({ tone: 'danger', message: nextMessage });
+    } finally {
+      setRoomBusy(false);
+    }
+  };
+
+  const reloadRoomState = () => {
+    if (!roomId || roomBusy) return;
+    setLocalRoomDirty(false);
+    setRoomSyncMessage('');
+    setRoomLoaded(false);
+  };
+
   const actions = (
     <>
       <button type="button" onClick={() => startNewDuel(seed)}>새 듀얼</button>
-      <button type="button" onClick={() => setSeed((current) => current + 1)}>시드 +1</button>
+      <button type="button" onClick={() => {
+        markRoomDirty();
+        setSeed((current) => current + 1);
+      }}>시드 +1</button>
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
+      {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${GAME_SLUG}&create=1`}>방 만들기</Link>}
+      {roomId ? <button type="button" onClick={() => void saveRoomState()} disabled={roomBusy}>{roomBusy ? '방 처리 중...' : '방 저장'}</button> : null}
+      {roomId ? <button type="button" onClick={reloadRoomState} disabled={roomBusy}>방 불러오기</button> : null}
       <Link href="/myanime/ba-vanguard">상세</Link>
     </>
   );
@@ -600,6 +762,9 @@ export default function BaVanguardPlayPage() {
 
   const messages = [
     message ? { key: 'message', text: message } : null,
+    roomId && localRoomDirty ? { key: 'room-dirty', text: '게임방에 반영되지 않은 로컬 변경이 있습니다. 방 저장을 누르면 공유됩니다.' } : null,
+    roomSyncMessage ? { key: 'room-sync', text: roomSyncMessage } : null,
+    roomId && room?.title ? { key: 'room-title', text: `연결된 게임방: ${room.title}` } : null,
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이테스트는 가능하지만 저장/불러오기/전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
     !valid ? { key: 'invalid', tone: 'error', text: '현재 덱 또는 상대 덱에 규칙 오류가 있습니다. 검증 목록을 확인하세요.' } : null,
     duel.battle?.defenderSide === 'me' ? { key: 'guard', text: '방어 창이 열렸습니다. 패에서 카드를 선택해 가드하거나 바로 가드 종료를 누르세요.' } : null,
@@ -631,22 +796,34 @@ export default function BaVanguardPlayPage() {
           </div>
           <label className="game-save-json-field">
             <span>내 프리셋</span>
-            <select value={presetId} onChange={(event) => setPresetId(event.target.value)}>
+            <select value={presetId} onChange={(event) => {
+              markRoomDirty();
+              setPresetId(event.target.value);
+            }}>
               {PRESET_DECKS.map((preset) => <option value={preset.id} key={preset.id}>{preset.name}</option>)}
             </select>
           </label>
           <label className="game-save-json-field">
             <span>AI 프리셋</span>
-            <select value={opponentPresetId} onChange={(event) => setOpponentPresetId(event.target.value)}>
+            <select value={opponentPresetId} onChange={(event) => {
+              markRoomDirty();
+              setOpponentPresetId(event.target.value);
+            }}>
               {PRESET_DECKS.map((preset) => <option value={preset.id} key={preset.id}>{preset.name}</option>)}
             </select>
           </label>
           <label className="game-save-json-field">
             <span>시드</span>
-            <input value={seed} onChange={(event) => setSeed(Number(event.target.value) || 0)} />
+            <input value={seed} onChange={(event) => {
+              markRoomDirty();
+              setSeed(Number(event.target.value) || 0);
+            }} />
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 900 }}>
-            <input type="checkbox" checked={autoGuardMe} onChange={(event) => setAutoGuardMe(event.target.checked)} />
+            <input type="checkbox" checked={autoGuardMe} onChange={(event) => {
+              markRoomDirty();
+              setAutoGuardMe(event.target.checked);
+            }} />
             내 방어 자동 처리
           </label>
           <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
