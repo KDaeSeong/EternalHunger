@@ -51,6 +51,49 @@ function SmallStat({ label, value }) {
   );
 }
 
+function RecentActionResult({ label = '최근 운행 결과', text, pinned = false }) {
+  return (
+    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
+      <span>{label}</span>
+      <strong>{text}</strong>
+    </div>
+  );
+}
+
+function railActionSnapshot(value) {
+  const rows = trainRows(value);
+  const blocks = blockSummary(value);
+  return {
+    nowS: Number(value.nowS || 0),
+    total: rows.length,
+    completed: rows.filter((row) => row.phase === 'DONE').length,
+    stopped: rows.filter((row) => row.signalState === 'STOP').length,
+    tokenWaits: rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length,
+    waitS: rows.reduce((sum, row) => sum + Number(row.waitSeconds || 0), 0),
+    occupied: Number(blocks.OCCUPIED || 0),
+    reserved: Number(blocks.RESERVED || 0),
+  };
+}
+
+function actionFeedbackText(previous, next, label, fallback = '') {
+  const latestLog = next.log?.[0];
+  if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
+  if (Number(previous.stepSeconds) !== Number(next.stepSeconds)) return `스텝 간격을 ${next.stepSeconds}s로 변경했습니다.`;
+  if (Number(previous.lookaheadBlocks) !== Number(next.lookaheadBlocks)) return `신호 예약 lookahead를 ${next.lookaheadBlocks}블록으로 조정했습니다.`;
+
+  const before = railActionSnapshot(previous);
+  const after = railActionSnapshot(next);
+  const parts = [];
+  if (after.nowS !== before.nowS) parts.push(`${formatTime(after.nowS)}까지 진행`);
+  if (after.completed !== before.completed) parts.push(`종착 ${after.completed}/${after.total}편`);
+  if (after.stopped !== before.stopped) parts.push(`STOP ${after.stopped}편`);
+  if (after.tokenWaits !== before.tokenWaits) parts.push(`토큰 대기 ${after.tokenWaits}편`);
+  if (after.waitS !== before.waitS) parts.push(`총 대기 ${after.waitS}s`);
+  if (after.occupied !== before.occupied || after.reserved !== before.reserved) parts.push(`블록 점유 ${after.occupied} · 예약 ${after.reserved}`);
+  if (parts.length) return `${label}: ${parts.join(' · ')}`;
+  return fallback || `${label}: 현재 ${formatTime(after.nowS)} · STOP ${after.stopped}편 · 종착 ${after.completed}/${after.total}편`;
+}
+
 function RailMap({ state, selectedTrainId }) {
   const view = mapViewState(state);
   const xs = view.nodes.map((node) => node.x);
@@ -110,6 +153,7 @@ export default function Rail3dSimPlayPage() {
   const [selectedTrainId, setSelectedTrainId] = useState('T1');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [actionResult, setActionResult] = useState('');
 
   const rows = useMemo(() => trainRows(state), [state]);
   const blocks = useMemo(() => blockSummary(state), [state]);
@@ -123,17 +167,26 @@ export default function Rail3dSimPlayPage() {
   const completed = rows.filter((row) => row.phase === 'DONE').length;
   const stopped = rows.filter((row) => row.signalState === 'STOP').length;
   const tokenWaits = rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length;
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운행 액션이 없습니다.';
+
+  const applyRailAction = (label, updater, fallback = '') => {
+    const nextState = updater(state);
+    setState(nextState);
+    setActionResult(actionFeedbackText(state, nextState, label, fallback));
+  };
 
   const startNewRun = () => {
     const nextState = createNewState();
     setState(nextState);
     setSelectedTrainId(nextState.trains[0]?.id || 'T1');
     setMessage('');
+    setActionResult('새 Rail3D Sim 운행을 시작했습니다.');
   };
 
   const saveRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 Rail3D Sim 진행 상태를 저장할 수 있습니다.');
+      setActionResult('로그인하면 Rail3D Sim 진행 상태를 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -147,10 +200,12 @@ export default function Rail3dSimPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
       setMessage('Rail3D Sim 진행 상태를 저장했습니다.');
+      setActionResult(`Rail3D Sim 진행 상태를 저장했습니다. 현재 시각 ${formatTime(state.nowS)}.`);
       showToast({ tone: 'success', message: 'Rail3D Sim 진행 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
       setMessage(nextMessage);
+      setActionResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -160,6 +215,7 @@ export default function Rail3dSimPlayPage() {
   const loadRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 저장된 Rail3D Sim 진행 상태를 불러올 수 있습니다.');
+      setActionResult('로그인하면 저장된 Rail3D Sim 진행 상태를 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -168,6 +224,7 @@ export default function Rail3dSimPlayPage() {
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
         setMessage('저장된 Rail3D Sim 진행 상태가 없습니다.');
+        setActionResult('저장된 Rail3D Sim 진행 상태가 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
@@ -175,10 +232,12 @@ export default function Rail3dSimPlayPage() {
       setState(nextState);
       setSelectedTrainId(nextState.trains[0]?.id || 'T1');
       setMessage('저장된 Rail3D Sim 진행 상태를 불러왔습니다.');
+      setActionResult(actionFeedbackText(state, nextState, '불러오기', '저장된 Rail3D Sim 진행 상태를 불러왔습니다.'));
       showToast({ tone: 'success', message: '저장된 Rail3D Sim 진행 상태를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
       setMessage(nextMessage);
+      setActionResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -188,6 +247,7 @@ export default function Rail3dSimPlayPage() {
   const recordRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 Rail3D Sim 운행 기록을 전적에 남길 수 있습니다.');
+      setActionResult('로그인하면 Rail3D Sim 운행 기록을 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -203,10 +263,12 @@ export default function Rail3dSimPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
       setMessage('Rail3D Sim 운행 기록을 전적에 남겼습니다.');
+      setActionResult(`Rail3D Sim 운행 기록을 전적에 남겼습니다. 점수 ${score.toLocaleString('ko-KR')}.`);
       showToast({ tone: 'success', message: 'Rail3D Sim 운행 기록을 전적에 남겼습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
       setMessage(nextMessage);
+      setActionResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -286,10 +348,11 @@ export default function Rail3dSimPlayPage() {
                     <span>Step {state.stepSeconds}s · Lookahead {state.lookaheadBlocks}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => stepAction(current))}>1 Step</ActionButton>
-                    <ActionButton onClick={() => setState((current) => runForAction(current, 300))}>5분 진행</ActionButton>
-                    <ActionButton onClick={() => setState((current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+                    <ActionButton onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
+                    <ActionButton onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
+                    <ActionButton onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
                   </div>
+                  <RecentActionResult text={recentActionText} pinned />
                 </section>
               </section>
             ),
@@ -421,11 +484,12 @@ export default function Rail3dSimPlayPage() {
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton
                       disabled={Number(state.lookaheadBlocks) === Number(bottleneck.recommendedLookahead)}
-                      onClick={() => setState((current) => setLookaheadBlocksAction(current, bottleneck.recommendedLookahead))}
+                      onClick={() => applyRailAction('권장 Lookahead 적용', (current) => setLookaheadBlocksAction(current, bottleneck.recommendedLookahead))}
                     >
                       권장 Lookahead 적용
                     </ActionButton>
                   </div>
+                  <RecentActionResult label="최근 병목 조정 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -626,21 +690,22 @@ export default function Rail3dSimPlayPage() {
           </label>
           <label className="game-save-json-field">
             <span>스텝 초</span>
-            <select value={state.stepSeconds} onChange={(event) => setState((current) => setStepSecondsAction(current, event.target.value))}>
+            <select value={state.stepSeconds} onChange={(event) => applyRailAction('스텝 초 변경', (current) => setStepSecondsAction(current, event.target.value))}>
               {[10, 30, 60, 120, 300].map((seconds) => <option value={seconds} key={seconds}>{seconds}s</option>)}
             </select>
           </label>
           <label className="game-save-json-field">
             <span>Lookahead 블록</span>
-            <select value={state.lookaheadBlocks} onChange={(event) => setState((current) => setLookaheadBlocksAction(current, event.target.value))}>
+            <select value={state.lookaheadBlocks} onChange={(event) => applyRailAction('Lookahead 변경', (current) => setLookaheadBlocksAction(current, event.target.value))}>
               {[0, 1, 2, 3].map((count) => <option value={count} key={count}>{count}</option>)}
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => stepAction(current))}>1 Step</ActionButton>
-            <ActionButton onClick={() => setState((current) => runForAction(current, 300))}>5분 진행</ActionButton>
-            <ActionButton onClick={() => setState((current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+            <ActionButton onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
+            <ActionButton onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
+            <ActionButton onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
           </div>
+          <RecentActionResult label="최근 상세 운행 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
