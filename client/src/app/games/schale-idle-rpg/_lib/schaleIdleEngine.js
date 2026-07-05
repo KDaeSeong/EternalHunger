@@ -197,6 +197,49 @@ export const MISSIONS = [
   { id: 'w_tower_clear_20', type: 'weekly', name: '주간 등반: 탑 20층 클리어', action: 'CLEAR_TOWER', target: 20, rewardCredits: 2000, rewardItems: [{ itemId: 'itm_tower_key', qty: 3 }] },
 ];
 
+export const SEASON_REWARD_TABLE = [
+  {
+    id: 'season_supply_20',
+    seasonPct: 20,
+    name: '시즌 보급 I',
+    desc: '초반 정산 루프를 밀어주는 기본 재료 보급입니다.',
+    rewardCredits: 800,
+    rewardItems: [{ itemId: 'itm_scrap', qty: 160 }, { itemId: 'itm_bandage', qty: 20 }],
+  },
+  {
+    id: 'season_tower_40',
+    seasonPct: 40,
+    name: '시즌 탑 도전권',
+    desc: '중반 탑 등반을 위한 열쇠와 강화 재료 묶음입니다.',
+    rewardCredits: 1200,
+    rewardItems: [{ itemId: 'itm_tower_key', qty: 4 }, { itemId: 'itm_enhance_stone', qty: 3 }],
+  },
+  {
+    id: 'season_upgrade_60',
+    seasonPct: 60,
+    name: '시즌 정비 키트',
+    desc: '장비 옵션과 강화 안전성을 보강하는 정비 패키지입니다.',
+    rewardCredits: 1800,
+    rewardItems: [{ itemId: 'itm_reroll_ticket', qty: 2 }, { itemId: 'itm_protect_ticket', qty: 2 }, { itemId: 'itm_memory_chip', qty: 40 }],
+  },
+  {
+    id: 'season_relic_80',
+    seasonPct: 80,
+    name: '시즌 유물 정비권',
+    desc: '후반 유물 파밍과 옵션 정비를 위한 토큰 보상입니다.',
+    rewardCredits: 2600,
+    rewardItems: [{ itemId: 'itm_tower_token', qty: 20 }, { itemId: 'itm_reroll_ticket', qty: 3 }, { itemId: 'itm_protect_charm', qty: 1 }],
+  },
+  {
+    id: 'season_archive_100',
+    seasonPct: 100,
+    name: '시즌 완주 기록',
+    desc: '장기 당직 시즌을 완주한 계정 성장 보상입니다.',
+    rewardCredits: 4200,
+    rewardItems: [{ itemId: 'itm_tower_token', qty: 35 }, { itemId: 'itm_protect_charm', qty: 2 }, { itemId: 'itm_enhance_stone', qty: 8 }],
+  },
+];
+
 const ITEM_LOOKUP = Object.fromEntries(ITEMS.map((item) => [item.id, item]));
 const SLOT_LABELS = {
   WEAPON: '무기',
@@ -401,6 +444,7 @@ export function createNewState(options = {}) {
       UPGRADE: 0,
     },
     claimedMissions: [],
+    seasonRewardClaims: [],
     lifetimeCounters: {},
     achievementClaims: {},
     unlockedTitleIds: [],
@@ -431,6 +475,9 @@ export function normalizeState(value) {
     towerShop,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     claimedMissions: Array.isArray(value.claimedMissions) ? value.claimedMissions : base.claimedMissions,
+    seasonRewardClaims: Array.isArray(value.seasonRewardClaims)
+      ? Array.from(new Set(value.seasonRewardClaims.filter((item) => typeof item === 'string')))
+      : base.seasonRewardClaims,
     lifetimeCounters: value.lifetimeCounters && typeof value.lifetimeCounters === 'object' ? normalizeCounters(value.lifetimeCounters) : base.lifetimeCounters,
     achievementClaims: value.achievementClaims && typeof value.achievementClaims === 'object' ? { ...value.achievementClaims } : base.achievementClaims,
     unlockedTitleIds: Array.isArray(value.unlockedTitleIds) ? Array.from(new Set(value.unlockedTitleIds.filter((item) => typeof item === 'string'))) : base.unlockedTitleIds,
@@ -2923,6 +2970,86 @@ export function seasonOperationsReportForState(state) {
   };
 }
 
+function rewardTextForRows(rewardItems = []) {
+  return rewardItems
+    .map((reward) => `${itemName(reward.itemId)} ${Number(reward.qty || 0).toLocaleString('ko-KR')}개`)
+    .join(', ');
+}
+
+function seasonRewardClaimKey(seasonId, rewardId) {
+  return `${seasonId}:${rewardId}`;
+}
+
+export function seasonRewardRows(state) {
+  const current = normalizeState(state);
+  const season = seasonOperationsReportForState(current);
+  const claimed = new Set(current.seasonRewardClaims || []);
+  const rows = SEASON_REWARD_TABLE.map((reward) => {
+    const claimKey = seasonRewardClaimKey(season.seasonId, reward.id);
+    const progress = Math.min(Number(season.seasonPct || 0), Number(reward.seasonPct || 0));
+    const pct = Math.round(progress / Math.max(1, Number(reward.seasonPct || 1)) * 100);
+    const done = Number(season.seasonPct || 0) >= Number(reward.seasonPct || 0);
+    const claimedThisSeason = claimed.has(claimKey);
+    return {
+      ...reward,
+      seasonId: season.seasonId,
+      claimKey,
+      pct,
+      progress: Number(season.seasonPct || 0),
+      target: Number(reward.seasonPct || 0),
+      done,
+      claimed: claimedThisSeason,
+      canClaim: done && !claimedThisSeason,
+      status: claimedThisSeason ? 'claimed' : done ? 'ready' : 'locked',
+      rewardText: [
+        reward.rewardCredits ? `${Number(reward.rewardCredits || 0).toLocaleString('ko-KR')} Cr` : '',
+        rewardTextForRows(reward.rewardItems),
+      ].filter(Boolean).join(' / '),
+    };
+  });
+  const claimable = rows.filter((row) => row.canClaim);
+  const claimedCount = rows.filter((row) => row.claimed).length;
+  return {
+    seasonId: season.seasonId,
+    seasonName: season.seasonName,
+    seasonPct: season.seasonPct,
+    rows,
+    claimableCount: claimable.length,
+    claimedCount,
+    totalCount: rows.length,
+    nextReward: rows.find((row) => !row.claimed) || rows[rows.length - 1],
+    headline: claimable.length
+      ? `${claimable.length}개 시즌 보상 수령 가능`
+      : rows.every((row) => row.claimed)
+        ? '이번 시즌 보상을 모두 수령했습니다.'
+        : `${rows.find((row) => !row.claimed)?.name || '시즌 보상'}까지 진행 중`,
+  };
+}
+
+export function claimSeasonRewardsAction(state) {
+  const current = normalizeState(state);
+  const rewardReport = seasonRewardRows(current);
+  const claimable = rewardReport.rows.filter((row) => row.canClaim);
+  if (!claimable.length) return addLog(current, '수령 가능한 시즌 보상이 없습니다.');
+
+  let credits = 0;
+  let inventory = { ...current.inventory };
+  const claimKeys = new Set(current.seasonRewardClaims || []);
+  claimable.forEach((row) => {
+    claimKeys.add(row.claimKey);
+    credits += Number(row.rewardCredits || 0);
+    inventory = addItems(inventory, row.rewardItems);
+  });
+
+  return addLog({
+    ...current,
+    credits: Number(current.credits || 0) + credits,
+    inventory,
+    seasonRewardClaims: [...claimKeys],
+    updatedAt: new Date().toISOString(),
+  }, `시즌 보상 ${claimable.length}개 수령. +${credits.toLocaleString('ko-KR')} Cr.`);
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   return Math.max(0, Math.round(
@@ -2936,6 +3063,7 @@ export function scoreState(state) {
     + Number(current.counters.SHOP_BUY || 0) * 35
     + Number(current.counters.UPGRADE || 0) * 120
     + achievementRows(current).filter((achievement) => achievement.claimed).length * 250
+    + Number(current.seasonRewardClaims?.length || 0) * 180
   ));
 }
 
@@ -3002,6 +3130,7 @@ export function summaryForState(state) {
     })(),
     seasonOperations: (() => {
       const season = seasonOperationsReportForState(current);
+      const rewards = seasonRewardRows(current);
       return {
         seasonId: season.seasonId,
         headline: season.headline,
@@ -3009,6 +3138,13 @@ export function summaryForState(state) {
         riskLabel: season.riskLabel,
         tracks: season.milestones,
         balanceWarnCount: season.balanceRows.filter((row) => row.tone === 'warn').length,
+        rewards: {
+          headline: rewards.headline,
+          claimed: rewards.claimedCount,
+          claimable: rewards.claimableCount,
+          total: rewards.totalCount,
+          nextReward: rewards.nextReward?.name || '',
+        },
       };
     })(),
     lastDutyReport: current.lastDutyReport ? {

@@ -23,6 +23,7 @@ import {
   buyTowerShopOfferMaxAction,
   buyTowerShopOfferAction,
   claimMissionRewardsAction,
+  claimSeasonRewardsAction,
   craftRecipeAction,
   createNewState,
   dailyOperationsPlanForState,
@@ -49,6 +50,7 @@ import {
   saveEquipmentPresetAction,
   scoreState,
   seasonOperationsReportForState,
+  seasonRewardRows,
   selectedSalvageSummary,
   setSalvageCandidateOnlyAction,
   slotLabel,
@@ -130,6 +132,7 @@ export default function SchaleIdlePlayPage() {
   const growthRoadmap = useMemo(() => growthRoadmapForState(state), [state]);
   const dailyPlan = useMemo(() => dailyOperationsPlanForState(state), [state]);
   const seasonReport = useMemo(() => seasonOperationsReportForState(state), [state]);
+  const seasonRewards = useMemo(() => seasonRewardRows(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
@@ -318,6 +321,7 @@ export default function SchaleIdlePlayPage() {
     { label: '성장', value: `${growthReport.overallPct}%` },
     { label: '로드맵', value: `${growthRoadmap.completionPct}%` },
     { label: '시즌', value: `${seasonReport.seasonPct}%` },
+    { label: '시즌 보상', value: `${seasonRewards.claimedCount}/${seasonRewards.totalCount}` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -457,6 +461,36 @@ export default function SchaleIdlePlayPage() {
                   <small>{track.detail}</small>
                 </div>
                 <strong>{track.status === 'complete' ? '완료' : track.status === 'close' ? '근접' : track.action}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시즌 보상</h2>
+            <span>{seasonRewards.headline}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="수령" value={`${seasonRewards.claimedCount}/${seasonRewards.totalCount}`} />
+            <SmallStat label="대기" value={`${seasonRewards.claimableCount}개`} />
+            <SmallStat label="시즌 진행" value={`${seasonRewards.seasonPct}%`} />
+          </div>
+          <ActionButton
+            disabled={!seasonRewards.claimableCount}
+            onClick={() => setState((current) => claimSeasonRewardsAction(current))}
+          >
+            {seasonRewards.claimableCount ? `${seasonRewards.claimableCount}개 수령` : '수령 없음'}
+          </ActionButton>
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            {seasonRewards.rows.map((reward) => (
+              <article className="game-save-row" key={reward.id}>
+                <div>
+                  <span>{reward.target}% 보상 · {reward.pct}% · {reward.status === 'claimed' ? '수령 완료' : reward.status === 'ready' ? '수령 가능' : '잠김'}</span>
+                  <strong>{reward.name}</strong>
+                  <small>{reward.desc} · {reward.rewardText}</small>
+                </div>
+                <strong>{reward.status === 'claimed' ? '완료' : reward.status === 'ready' ? '수령' : `${reward.target}%`}</strong>
               </article>
             ))}
           </div>
