@@ -213,6 +213,14 @@ const PERSONAL_ROUND_LABELS = {
   4: '결승',
 };
 
+const PERSONAL_PHASE_LABELS = {
+  PC_BANG: 'PC방 예선',
+  DUAL_TOURNAMENT: '듀얼 토너먼트',
+  RO32: '32강 듀얼',
+  RO16: '16강',
+  DONE: '완료',
+};
+
 const TEAM_BLUEPRINTS = [
   {
     id: 'team-home',
@@ -435,11 +443,13 @@ export function getSourceSummary() {
 function createEmptyPersonalLeague(seasonNo = 1) {
   return {
     seasonNo: Number(seasonNo || 1),
+    format: 'V2',
     stage: 'NOT_STARTED',
     phase: '대기',
     currentRound: 0,
     participants: [],
     matches: [],
+    stageReports: [],
     championPlayerId: '',
     runnerUpPlayerId: '',
     updatedAt: 0,
@@ -512,6 +522,21 @@ function normalizePersonalSetDetail(value) {
   };
 }
 
+function normalizePersonalStageReport(value) {
+  if (!value || typeof value !== 'object') return null;
+  const phase = String(value.phase || '').trim();
+  if (!phase) return null;
+  return {
+    phase,
+    label: String(value.label || PERSONAL_PHASE_LABELS[phase] || phase),
+    summary: String(value.summary || ''),
+    entrantCount: Math.max(0, Math.floor(Number(value.entrantCount || 0))),
+    qualifierPlayerIds: Array.isArray(value.qualifierPlayerIds) ? value.qualifierPlayerIds.map(String).slice(0, 64) : [],
+    qualifierNames: Array.isArray(value.qualifierNames) ? value.qualifierNames.map(String).slice(0, 64) : [],
+    playedAt: Number(value.playedAt || Date.now()),
+  };
+}
+
 function normalizePersonalMatch(value) {
   if (!value || typeof value !== 'object') return null;
   const playerAId = String(value.playerAId || '').trim();
@@ -546,15 +571,18 @@ function normalizePersonalLeague(value, seasonNo = 1) {
   const matches = Array.isArray(value.matches)
     ? value.matches.map(normalizePersonalMatch).filter(Boolean).slice(0, 80)
     : [];
+  const format = ['LEGACY16', 'V2'].includes(value.format) ? value.format : 'V2';
   return {
     ...createEmptyPersonalLeague(targetSeason),
     ...value,
     seasonNo: targetSeason,
+    format,
     stage,
     phase: String(value.phase || (stage === 'NOT_STARTED' ? '대기' : '16강')),
     currentRound: Math.max(0, Math.floor(Number(value.currentRound || 0))),
     participants,
     matches,
+    stageReports: Array.isArray(value.stageReports) ? value.stageReports.map(normalizePersonalStageReport).filter(Boolean).slice(0, 20) : [],
     championPlayerId: String(value.championPlayerId || ''),
     runnerUpPlayerId: String(value.runnerUpPlayerId || ''),
     updatedAt: Number(value.updatedAt || 0),
@@ -2026,6 +2054,10 @@ function personalRoundLabel(round) {
   return PERSONAL_ROUND_LABELS[Number(round || 0)] || `${round}라운드`;
 }
 
+function personalPhaseLabel(phase) {
+  return PERSONAL_PHASE_LABELS[phase] || phase || '대기';
+}
+
 function personalPlayerRows(state) {
   return state.teams.flatMap((teamData) => {
     const equippedTeam = teamWithEquipment(state, teamData);
@@ -2049,13 +2081,63 @@ function personalPlayerRows(state) {
   }).sort((a, b) => b.rating - a.rating || a.playerName.localeCompare(b.playerName, 'ko-KR'));
 }
 
-function buildPersonalParticipants(state, size = 16) {
+function buildPersonalParticipants(state, size = 32) {
   return personalPlayerRows(state)
     .slice(0, size)
     .map((row, index) => ({
       ...row,
       seed: index + 1,
     }));
+}
+
+function participantIds(participants) {
+  return participants.map((participant) => participant.playerId).filter(Boolean);
+}
+
+function participantNameById(personal, playerId) {
+  return personalParticipantById(personal, playerId)?.playerName || playerId;
+}
+
+function uniqueIds(ids) {
+  const seen = new Set();
+  return ids.filter((id) => {
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function pickV2Qualifiers(personal, ids, count, seed) {
+  const rng = createRng(seed);
+  const byId = new Map(personal.participants.map((participant) => [participant.playerId, participant]));
+  return uniqueIds(ids)
+    .map((id) => {
+      const participant = byId.get(id);
+      return {
+        id,
+        score: Number(participant?.rating || 0) + Number(participant?.seed ? 80 - participant.seed : 0) + rng() * 120,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(2, count))
+    .map((row) => row.id);
+}
+
+function appendPersonalStageReport(personal, phase, entrantIds, qualifierIds, summary) {
+  const report = {
+    phase,
+    label: personalPhaseLabel(phase),
+    summary,
+    entrantCount: entrantIds.length,
+    qualifierPlayerIds: qualifierIds,
+    qualifierNames: qualifierIds.map((id) => participantNameById(personal, id)),
+    playedAt: Date.now(),
+  };
+  return {
+    ...personal,
+    stageReports: [report, ...(personal.stageReports || [])].slice(0, 20),
+    updatedAt: Date.now(),
+  };
 }
 
 function makePersonalRoundMatches(playerIds, round, seasonNo) {
@@ -2311,30 +2393,90 @@ function advancePersonalRoundIfNeeded(state) {
   }, `개인리그 ${personalRoundLabel(nextRound)} 대진이 확정됐습니다.`);
 }
 
+function latestPersonalStageReport(personal, phase) {
+  return (personal.stageReports || []).find((report) => report.phase === phase) || null;
+}
+
+function advancePersonalV2Preliminary(state) {
+  const current = normalizeState(state);
+  let personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
+  const allIds = participantIds(personal.participants);
+  if (personal.phase === 'PC_BANG') {
+    const entrants = allIds.slice(16);
+    const qualifierIds = pickV2Qualifiers(personal, entrants.length ? entrants : allIds, Math.min(8, Math.max(2, Math.floor((entrants.length || allIds.length) / 2))), `${current.runId}|pl|pcbang|s${current.seasonNo}`);
+    personal = appendPersonalStageReport(personal, 'PC_BANG', entrants.length ? entrants : allIds, qualifierIds, `${qualifierIds.length}명이 듀얼 토너먼트로 진출했습니다.`);
+    return addStateLog({
+      ...current,
+      personalLeague: {
+        ...personal,
+        phase: 'DUAL_TOURNAMENT',
+      },
+      updatedAt: new Date().toISOString(),
+    }, `개인리그 ${personalPhaseLabel('PC_BANG')} 완료. ${qualifierIds.map((id) => participantNameById(personal, id)).join(', ')} 진출.`);
+  }
+
+  if (personal.phase === 'DUAL_TOURNAMENT') {
+    const pcReport = latestPersonalStageReport(personal, 'PC_BANG');
+    const seeded = allIds.slice(8, 16);
+    const entrants = uniqueIds([...seeded, ...(pcReport?.qualifierPlayerIds || [])]);
+    const qualifierIds = pickV2Qualifiers(personal, entrants.length ? entrants : allIds, Math.min(8, Math.max(2, Math.floor((entrants.length || allIds.length) / 2))), `${current.runId}|pl|dual|s${current.seasonNo}`);
+    personal = appendPersonalStageReport(personal, 'DUAL_TOURNAMENT', entrants.length ? entrants : allIds, qualifierIds, `${qualifierIds.length}명이 32강 시드권을 확보했습니다.`);
+    return addStateLog({
+      ...current,
+      personalLeague: {
+        ...personal,
+        phase: 'RO32',
+      },
+      updatedAt: new Date().toISOString(),
+    }, `개인리그 ${personalPhaseLabel('DUAL_TOURNAMENT')} 완료. ${qualifierIds.map((id) => participantNameById(personal, id)).join(', ')} 통과.`);
+  }
+
+  if (personal.phase === 'RO32') {
+    const dualReport = latestPersonalStageReport(personal, 'DUAL_TOURNAMENT');
+    const entrants = uniqueIds([...allIds.slice(0, 24), ...(dualReport?.qualifierPlayerIds || [])]);
+    const qualifierIds = pickV2Qualifiers(personal, entrants.length ? entrants : allIds, 16, `${current.runId}|pl|ro32|s${current.seasonNo}`);
+    const matches = makePersonalRoundMatches(qualifierIds, 1, current.seasonNo);
+    personal = appendPersonalStageReport(personal, 'RO32', entrants.length ? entrants : allIds, qualifierIds, '8개 조 듀얼을 마치고 16강 대진이 확정됐습니다.');
+    return addStateLog({
+      ...current,
+      personalLeague: {
+        ...personal,
+        phase: personalRoundLabel(1),
+        currentRound: 1,
+        matches,
+      },
+      updatedAt: new Date().toISOString(),
+    }, `개인리그 ${personalPhaseLabel('RO32')} 완료. 16강 대진이 확정됐습니다.`);
+  }
+
+  return current;
+}
+
 export function startPersonalLeagueAction(state) {
   const current = normalizeState(state);
   const existing = normalizePersonalLeague(current.personalLeague, current.seasonNo);
   if (existing.stage === 'IN_PROGRESS') return addStateLog(current, '이미 개인리그가 진행 중입니다.');
   if (existing.stage === 'DONE') return addStateLog(current, '이번 시즌 개인리그는 이미 종료됐습니다.');
 
-  const participants = buildPersonalParticipants(current, 16);
+  const participants = buildPersonalParticipants(current, 32);
   if (participants.length < 2) return addStateLog(current, '개인리그를 시작할 선수가 부족합니다.');
-  const matches = makePersonalRoundMatches(participants.map((item) => item.playerId), 1, current.seasonNo);
   return addStateLog({
     ...current,
     personalLeague: {
       seasonNo: current.seasonNo,
+      format: 'V2',
       stage: 'IN_PROGRESS',
-      phase: personalRoundLabel(1),
-      currentRound: 1,
+      phase: 'PC_BANG',
+      currentRound: 0,
       participants,
-      matches,
+      matches: [],
+      stageReports: [],
       championPlayerId: '',
       runnerUpPlayerId: '',
       updatedAt: Date.now(),
     },
     updatedAt: new Date().toISOString(),
-  }, `시즌 ${current.seasonNo} 개인리그가 개막했습니다. 상위 ${participants.length}명이 16강 토너먼트를 진행합니다.`);
+  }, `시즌 ${current.seasonNo} 개인리그 V2가 개막했습니다. PC방 예선부터 32강 듀얼을 거쳐 16강 토너먼트로 진행합니다.`);
 }
 
 export function advancePersonalLeagueAction(state) {
@@ -2342,6 +2484,9 @@ export function advancePersonalLeagueAction(state) {
   const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
   if (personal.stage === 'NOT_STARTED') return startPersonalLeagueAction(current);
   if (personal.stage === 'DONE') return addStateLog(current, '개인리그가 이미 종료됐습니다.');
+  if (personal.format === 'V2' && ['PC_BANG', 'DUAL_TOURNAMENT', 'RO32'].includes(personal.phase)) {
+    return advancePersonalV2Preliminary(current);
+  }
 
   current = advancePersonalRoundIfNeeded(current);
   let nextPersonal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
@@ -2386,8 +2531,10 @@ export function getPersonalLeagueSummary(state) {
   const b = nextMatch ? personalParticipantById(personal, nextMatch.playerBId) : null;
   return {
     seasonNo: personal.seasonNo,
+    format: personal.format || 'V2',
     stage: personal.stage,
     phase: personal.phase,
+    phaseLabel: personalPhaseLabel(personal.phase),
     currentRound: personal.currentRound,
     participants: personal.participants.length,
     played: personal.matches.filter((match) => match.played).length,
@@ -2396,6 +2543,13 @@ export function getPersonalLeagueSummary(state) {
     championTeamName: champion?.teamName || '',
     runnerUpName: runnerUp?.playerName || '',
     nextMatchLabel: nextMatch ? `${personalRoundLabel(nextMatch.round)} · ${a?.playerName || nextMatch.playerAId} vs ${b?.playerName || nextMatch.playerBId}` : '',
+    stageReports: (personal.stageReports || []).map((report) => ({
+      ...report,
+      label: personalPhaseLabel(report.phase),
+      qualifierNames: Array.isArray(report.qualifierNames) && report.qualifierNames.length
+        ? report.qualifierNames
+        : (report.qualifierPlayerIds || []).map((id) => participantNameById(personal, id)),
+    })),
     historyCount: normalizePersonalHistory(current.personalHistory).length,
   };
 }

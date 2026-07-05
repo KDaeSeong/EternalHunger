@@ -264,7 +264,7 @@ export default function MyAnimeCraftPlayPage() {
     { label: '주차', value: `${state.week}/9` },
     { label: '경기', value: `${played}/${total}` },
     { label: '선두', value: leader?.teamName || '-' },
-    { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : `${personalSummary.played}/${personalSummary.total || '-'}` },
+    { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : personalSummary.phaseLabel || `${personalSummary.played}/${personalSummary.total || '-'}` },
     { label: '위너스', value: winnersSummary.stage === 'DONE' ? winnersSummary.championTeamName || '완료' : `${winnersSummary.scoreHome}:${winnersSummary.scoreAway}` },
     { label: '리포트', value: seasonReports.length },
     { label: '팀', value: state.teams.length },
@@ -353,7 +353,7 @@ export default function MyAnimeCraftPlayPage() {
                 ? '대기'
                 : personalSummary.stage === 'DONE'
                   ? '완료'
-                  : personalSummary.phase}
+                  : personalSummary.phaseLabel || personalSummary.phase}
             </span>
           </div>
           <div className="games-rank-split">
@@ -364,15 +364,31 @@ export default function MyAnimeCraftPlayPage() {
           <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
             {personalSummary.nextMatchLabel || (personalSummary.championName
               ? `${personalSummary.championName} · ${personalSummary.championTeamName}`
-              : '상위 선수 16명으로 개인 토너먼트를 시작합니다.')}
+              : personalSummary.stage === 'NOT_STARTED'
+                ? 'PC방 예선, 듀얼 토너먼트, 32강 듀얼을 거쳐 개인리그 본선으로 이어집니다.'
+                : `${personalSummary.phaseLabel || personalSummary.phase} 진행 대기`)}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={personalSummary.stage === 'DONE'} onClick={() => setState((current) => (
               personalSummary.stage === 'NOT_STARTED' ? startPersonalLeagueAction(current) : advancePersonalLeagueAction(current)
             ))}>
-              {personalSummary.stage === 'NOT_STARTED' ? '개인리그 시작' : '다음 개인전 진행'}
+              {personalSummary.stage === 'NOT_STARTED' ? '개인리그 시작' : `${personalSummary.phaseLabel || '개인전'} 진행`}
             </ActionButton>
           </div>
+          {personalSummary.stageReports?.length ? (
+            <div className="game-save-list" style={{ marginTop: 16 }}>
+              {personalSummary.stageReports.map((report) => (
+                <article className="game-save-row" key={`${report.phase}-${report.playedAt}`}>
+                  <div>
+                    <span>{report.label} · 참가 {report.entrantCount}명</span>
+                    <strong>{report.summary}</strong>
+                    <small>진출 {report.qualifierNames.slice(0, 8).join(' / ')}</small>
+                  </div>
+                  <strong>완료</strong>
+                </article>
+              ))}
+            </div>
+          ) : null}
           <div className="game-save-list" style={{ marginTop: 16 }}>
             {personalRows.length ? personalRows.map((match) => (
               <article className="game-save-row" key={match.id}>
