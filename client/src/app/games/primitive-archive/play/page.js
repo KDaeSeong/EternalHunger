@@ -79,6 +79,15 @@ function SmallStat({ label, value }) {
   );
 }
 
+function RecentActionResult({ label = '최근 결과', text, pinned = false }) {
+  return (
+    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
+      <span>{label}</span>
+      <strong>{text}</strong>
+    </div>
+  );
+}
+
 const PARTY_SORT_OPTIONS = [
   { value: 'default', label: '기본' },
   { value: 'recommend', label: '추천' },
@@ -204,9 +213,11 @@ export default function PrimitiveArchivePlayPage() {
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
 
-  const applyAction = (label, updater) => {
+  const applyAction = (label, updater, fallbackText = '') => {
     const nextState = updater(state);
-    const latest = nextState.log?.[0] || `${label} 행동을 실행했습니다.`;
+    const latest = nextState.log?.[0] !== state.log?.[0] && nextState.log?.[0]
+      ? nextState.log[0]
+      : fallbackText || `${label} 행동을 실행했습니다.`;
     setState(nextState);
     setActionResult(latest);
   };
@@ -262,6 +273,7 @@ export default function PrimitiveArchivePlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
       setMessage('런을 저장했습니다.');
+      setActionResult('런을 서버 저장 슬롯에 저장했습니다.');
       showToast({ tone: 'success', message: 'Primitive Archive 런을 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '런 저장에 실패했습니다.';
@@ -322,6 +334,7 @@ export default function PrimitiveArchivePlayPage() {
       setMessage('런 결과를 전적에 기록했습니다.');
       showToast({ tone: 'success', message: '런 결과를 전적에 기록했습니다.' });
       setState((current) => settleRunAction(current));
+      setActionResult('런 결과를 전적에 기록하고 런을 정산했습니다.');
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
       setMessage(nextMessage);
@@ -337,13 +350,44 @@ export default function PrimitiveArchivePlayPage() {
     setZoneId('forest');
     setRecipeId('twine');
     setSelectedRecruitId('');
-    setActionResult('');
+    setActionResult('새 원시 아카이브 런을 시작했습니다.');
     setMessage('');
   };
 
   const recruitMember = () => {
     if (!selectedRecruit) return;
-    setState((current) => recruitPartyMemberAction(current, selectedRecruit.id));
+    applyAction('합류', (current) => recruitPartyMemberAction(current, selectedRecruit.id), `${selectedRecruit.name}이(가) 파티에 합류했습니다.`);
+  };
+
+  const selectResearchTarget = (techId) => {
+    const nextTech = techs.find((tech) => tech.id === techId);
+    applyAction('연구 목표 변경', (current) => selectTechAction(current, techId), `연구 목표를 ${nextTech?.name || '새 기술'}(으)로 변경했습니다.`);
+  };
+
+  const buyPerk = (perk) => {
+    applyAction('특전 구매', (current) => buyPerkAction(current, perk.id), `${perk.name} 특전을 구매했습니다.`);
+  };
+
+  const autoEquip = (mode) => {
+    applyAction(
+      '자동 장착',
+      (current) => autoEquipAction(current, mode),
+      mode === 'weather' ? '날씨 대응 장비를 자동 장착했습니다.' : '역할 추천 장비를 자동 장착했습니다.',
+    );
+  };
+
+  const clearEquipment = () => {
+    applyAction('장비 해제', (current) => clearAllEquipmentAction(current), '현재 파티의 장비를 모두 해제했습니다.');
+  };
+
+  const changeEquipmentSlot = (slot, itemId) => {
+    const slotLabel = EQUIPMENT_SLOT_LABELS[slot] || slot;
+    const choice = equipmentChoicesForSlot(state, actorId, slot).find((row) => row.itemId === itemId);
+    applyAction(
+      '장비 변경',
+      (current) => setEquipmentSlotAction(current, actorId, slot, itemId),
+      `${actor?.name || '대상'}의 ${slotLabel} 장비를 ${choice?.name || '없음'}(으)로 변경했습니다.`,
+    );
   };
 
   const playActions = (
@@ -447,10 +491,7 @@ export default function PrimitiveArchivePlayPage() {
               </ActionButton>
             ))}
           </div>
-          <div className="games-action-result games-action-result--pinned">
-            <span>최근 결과</span>
-            <strong>{recentActionText}</strong>
-          </div>
+          <RecentActionResult text={recentActionText} pinned />
         </section>
 
         <section className="games-detail-grid">
@@ -546,7 +587,7 @@ export default function PrimitiveArchivePlayPage() {
                 </article>
               ))}
             </div>
-            <ActionButton disabled={!archiveVictory.canComplete} onClick={() => setState((current) => completeArchiveAction(current))}>
+            <ActionButton disabled={!archiveVictory.canComplete} onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))}>
               아카이브 완성
             </ActionButton>
           </section>
@@ -614,10 +655,7 @@ export default function PrimitiveArchivePlayPage() {
                 </ActionButton>
               ))}
             </div>
-            <div className="games-action-result">
-              <span>최근 캠프/행동 결과</span>
-              <strong>{recentActionText}</strong>
-            </div>
+            <RecentActionResult label="최근 캠프/행동 결과" text={recentActionText} />
             {campFacilities.map((facility) => (
               <p key={`${facility.id}-desc`} style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
                 {facility.name}: {facility.desc}
@@ -631,13 +669,13 @@ export default function PrimitiveArchivePlayPage() {
               <span>{actor?.name || '대상'} · 보온 {actor ? currentEquipmentRows.reduce((sum, row) => sum + Number(row.insulation || 0), 0) : 0}</span>
             </div>
             <div className="games-chip-row" style={{ marginBottom: 12 }}>
-              <button type="button" className="tcg-secondary-action" onClick={() => setState((current) => autoEquipAction(current, 'role'))}>
+              <button type="button" className="tcg-secondary-action" onClick={() => autoEquip('role')}>
                 역할 추천 장착
               </button>
-              <button type="button" className="tcg-secondary-action" onClick={() => setState((current) => autoEquipAction(current, 'weather'))}>
+              <button type="button" className="tcg-secondary-action" onClick={() => autoEquip('weather')}>
                 날씨 대응 장착
               </button>
-              <button type="button" className="tcg-secondary-action" onClick={() => setState((current) => clearAllEquipmentAction(current))}>
+              <button type="button" className="tcg-secondary-action" onClick={clearEquipment}>
                 전체 해제
               </button>
             </div>
@@ -652,7 +690,7 @@ export default function PrimitiveArchivePlayPage() {
                     </div>
                     <select
                       value={row.itemId}
-                      onChange={(event) => setState((current) => setEquipmentSlotAction(current, actorId, row.slot, event.target.value))}
+                      onChange={(event) => changeEquipmentSlot(row.slot, event.target.value)}
                     >
                       {choices.map((choice) => (
                         <option value={choice.itemId} key={`${row.slot}-${choice.itemId || 'none'}`}>
@@ -755,6 +793,7 @@ export default function PrimitiveArchivePlayPage() {
             badge: `${research.completed}/${research.total}`,
             children: (
               <>
+        <RecentActionResult label="최근 연구/성장 결과" text={recentActionText} pinned />
 
         <section className="games-dashboard">
           <section className="games-panel">
@@ -766,7 +805,7 @@ export default function PrimitiveArchivePlayPage() {
               <span>목표 기술</span>
               <select
                 value={state.research.selectedTechId}
-                onChange={(event) => setState((current) => selectTechAction(current, event.target.value))}
+                onChange={(event) => selectResearchTarget(event.target.value)}
               >
                 {techs.map((tech) => (
                   <option value={tech.id} key={tech.id} disabled={!tech.available && !tech.completed && !tech.selected}>
@@ -828,7 +867,7 @@ export default function PrimitiveArchivePlayPage() {
                     type="button"
                     className="tcg-primary-action"
                     disabled={!perk.canBuy}
-                    onClick={() => setState((current) => buyPerkAction(current, perk.id))}
+                    onClick={() => buyPerk(perk)}
                   >
                     {perk.maxed ? '완료' : '구매'}
                   </button>
