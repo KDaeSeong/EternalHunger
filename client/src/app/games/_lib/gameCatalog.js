@@ -300,7 +300,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'ledger-score',
-    completionPct: 85,
+    completionPct: 90,
   },
   'schale-idle-rpg': {
     stage: 'playable',
@@ -457,9 +457,9 @@ export const GAME_ROADMAP = [
     title: '돈까스 사장 선생님',
     subtitle: 'Management Loop',
     priority: '2차 후보',
-    scope: '주방, 영업, 배식, 전투, 시설, 연구, 대회, 심사위원, 운영 리포트, 저장/전적, 기능별 빠른 탭 UI',
-    summary: '재료 매입, 메뉴 제작, 영업 판매, 학생 배식/전투, 시설/연구 성장, 대회와 심사위원 모드까지 연결된 경영형 playable slice입니다.',
-    nextStep: '남은 작업은 긴 상세 패널을 탭 내부로 완전히 재배치하고, 밸런스/튜토리얼/연출을 다듬는 폴리싱입니다.',
+    scope: '주방, 영업, 배식, 전투, 시설, 연구, 대회, 심사위원, 운영 리포트, 저장/전적, 기능별 빠른 탭 UI, 상세 관리 탭',
+    summary: '재료 매입, 메뉴 제작, 영업 판매, 학생 배식/전투, 시설/연구 성장, 대회와 심사위원 모드를 기능별 탭과 상세 관리 탭 안에서 다루는 경영형 playable slice입니다.',
+    nextStep: '남은 작업은 밸런스 튜닝, 초반 튜토리얼, 영업/전투 연출을 다듬는 폴리싱입니다.',
   },
   {
     slug: 'schale-idle-rpg',

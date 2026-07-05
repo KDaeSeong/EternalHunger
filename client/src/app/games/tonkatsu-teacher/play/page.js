@@ -418,9 +418,12 @@ export default function TonkatsuTeacherPlayPage() {
               </section>
             ),
           },
-        ]}
-      />
-
+          {
+            id: 'advanced',
+            label: '상세 관리',
+            badge: `${inventoryRows.length + tokenRows.length}종`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -755,6 +758,11 @@ export default function TonkatsuTeacherPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }
