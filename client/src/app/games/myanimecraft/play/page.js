@@ -25,6 +25,7 @@ import {
   equipmentRowsForPlayer,
   fixtureLabel,
   getCurrentFixtures,
+  getBuildMetaReport,
   getFreeAgentPreview,
   getMatchArchiveRows,
   getPersonalLeagueRows,
@@ -131,6 +132,7 @@ export default function MyAnimeCraftPlayPage() {
   const postseasonRows = useMemo(() => getPostseasonRows(state), [state]);
   const seasonReports = useMemo(() => getSeasonReportRows(state, 8), [state]);
   const matchArchiveRows = useMemo(() => getMatchArchiveRows(state, 18), [state]);
+  const buildMetaReport = useMemo(() => getBuildMetaReport(state), [state]);
   const selectedArchiveMatch = matchArchiveRows.find((row) => row.id === selectedArchiveMatchId) || matchArchiveRows[0];
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
@@ -364,6 +366,53 @@ export default function MyAnimeCraftPlayPage() {
               ))}
             </div>
           ) : null}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시즌 메타</h2>
+            <span>{buildMetaReport.sampleLabel}</span>
+          </div>
+          <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
+            {buildMetaReport.insight}
+          </p>
+          <div className="games-rank-split">
+            {buildMetaReport.styleRows.slice(0, 5).map((row) => (
+              <SmallStat
+                key={row.style}
+                label={row.label}
+                value={row.count ? `${row.count}회 · ${row.winRate}%` : '0회'}
+              />
+            ))}
+          </div>
+          <div className="game-save-list">
+            {buildMetaReport.playerRows.length ? buildMetaReport.playerRows.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.playerId}>
+                <div>
+                  <span>{row.teamName || '소속 없음'} · {row.styleLabel}</span>
+                  <strong>{row.playerName}</strong>
+                  <small>{row.styleLabel} {row.count}회 · 승률 {row.winRate}% · 전체 표본 {row.total}세트</small>
+                </div>
+                <strong>{row.winRate}%</strong>
+              </article>
+            )) : (
+              <div className="games-empty">경기를 진행하면 선수별 강세 빌드가 표시됩니다.</div>
+            )}
+          </div>
+          <div className="game-save-list">
+            {buildMetaReport.mapRows.length ? buildMetaReport.mapRows.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.mapKey}>
+                <div>
+                  <span>맵 메타 · {row.total}표본</span>
+                  <strong>{row.mapName}</strong>
+                  <small>{row.styleLabel} {row.count}회 · 승률 {row.winRate}%</small>
+                </div>
+                <strong>{row.styleLabel}</strong>
+              </article>
+            )) : (
+              <div className="games-empty">맵별 빌드 메타가 아직 없습니다.</div>
+            )}
+          </div>
         </section>
 
         <section className="games-panel">

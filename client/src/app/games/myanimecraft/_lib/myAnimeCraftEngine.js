@@ -1176,8 +1176,9 @@ function bestStyleFromLedger(ledger, minCount = 2) {
     .map((style) => {
       const row = ledger?.[style] || { count: 0, wins: 0 };
       const count = Number(row.count || 0);
+      const wins = Number(row.wins || 0);
       const rate = styleWinRate(row);
-      return { style, count, rate, score: rate + Math.min(count, 12) * 0.006 };
+      return { style, count, wins, rate, score: rate + Math.min(count, 12) * 0.006 };
     })
     .filter((row) => row.count >= minCount && row.rate >= 0.5)
     .sort((a, b) => b.score - a.score)[0] || null;
@@ -4207,6 +4208,101 @@ export function getMatchArchiveRows(state, limit = 18) {
     })
     .sort((a, b) => b.playedAt - a.playedAt || b.round - a.round)
     .slice(0, limit);
+}
+
+export function getBuildMetaReport(state) {
+  const current = normalizeState(state);
+  const meta = collectBuildMeta(current);
+  const styleRows = BUILD_STYLE_KEYS
+    .map((style) => {
+      const row = meta.global[style] || { count: 0, wins: 0 };
+      const count = Number(row.count || 0);
+      const wins = Number(row.wins || 0);
+      return {
+        style,
+        label: BUILD_STYLE_LABELS[style] || style,
+        count,
+        wins,
+        losses: Math.max(0, count - wins),
+        winRate: count ? Math.round((wins / count) * 100) : 0,
+        usagePct: meta.totalSides ? Math.round((count / meta.totalSides) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.count - a.count || b.winRate - a.winRate || a.label.localeCompare(b.label, 'ko-KR'));
+
+  const playerRows = Object.entries(meta.players)
+    .map(([playerId, bucket]) => {
+      const context = findPlayerContext(current, playerId);
+      const bestStyle = bestStyleFromLedger(bucket.styles, 2)
+        || BUILD_STYLE_KEYS
+          .map((style) => ({ style, ...bucket.styles[style] }))
+          .filter((row) => Number(row.count || 0) > 0)
+          .sort((a, b) => Number(b.count || 0) - Number(a.count || 0))[0];
+      if (!bestStyle) return null;
+      const count = Number(bestStyle.count || 0);
+      const wins = Number(bestStyle.wins || 0);
+      return {
+        playerId,
+        playerName: context?.player?.name || playerId,
+        teamName: context?.team?.name || '',
+        style: bestStyle.style,
+        styleLabel: BUILD_STYLE_LABELS[bestStyle.style] || bestStyle.style,
+        count,
+        wins,
+        winRate: count ? Math.round((wins / count) * 100) : 0,
+        total: Number(bucket.total || 0),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.winRate - a.winRate || b.count - a.count || b.total - a.total)
+    .slice(0, 5);
+
+  const mapRows = Object.entries(meta.maps)
+    .map(([mapKey, bucket]) => {
+      const map = MAPS.find((item) => item.id === mapKey || item.name === mapKey);
+      const bestStyle = bestStyleFromLedger(bucket.styles, 3)
+        || BUILD_STYLE_KEYS
+          .map((style) => ({ style, ...bucket.styles[style] }))
+          .filter((row) => Number(row.count || 0) > 0)
+          .sort((a, b) => Number(b.count || 0) - Number(a.count || 0))[0];
+      if (!bestStyle) return null;
+      const count = Number(bestStyle.count || 0);
+      const wins = Number(bestStyle.wins || 0);
+      return {
+        mapKey,
+        mapName: map?.name || mapKey,
+        style: bestStyle.style,
+        styleLabel: BUILD_STYLE_LABELS[bestStyle.style] || bestStyle.style,
+        count,
+        wins,
+        winRate: count ? Math.round((wins / count) * 100) : 0,
+        total: Number(bucket.total || 0),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.total - a.total || b.winRate - a.winRate || a.mapName.localeCompare(b.mapName, 'ko-KR'))
+    .slice(0, 5);
+
+  const topStyle = styleRows.find((row) => row.count > 0);
+  const hotPlayer = playerRows[0];
+  const mapTrend = mapRows[0];
+  const insight = meta.totalSets
+    ? [
+      topStyle ? `최다 선택은 ${topStyle.label} ${topStyle.count}회(${topStyle.usagePct}%)입니다.` : '',
+      hotPlayer ? `${hotPlayer.playerName}의 ${hotPlayer.styleLabel} 승률이 ${hotPlayer.winRate}%로 가장 뜨겁습니다.` : '',
+      mapTrend ? `${mapTrend.mapName}에서는 ${mapTrend.styleLabel} 카드가 ${mapTrend.count}회 포착됐습니다.` : '',
+    ].filter(Boolean).join(' ')
+    : '아직 진행된 세트가 없습니다. 경기를 진행하면 빌드 스타일, 선수 성향, 맵별 메타가 누적됩니다.';
+
+  return {
+    totalSets: meta.totalSets,
+    totalSides: meta.totalSides,
+    sampleLabel: meta.totalSets ? `${meta.totalSets}세트 · 빌드 선택 ${meta.totalSides}회` : '표본 없음',
+    insight,
+    styleRows,
+    playerRows,
+    mapRows,
+  };
 }
 
 export function getSeasonStageSummary(state) {
