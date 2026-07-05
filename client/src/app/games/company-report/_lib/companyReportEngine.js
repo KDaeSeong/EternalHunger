@@ -10,9 +10,9 @@ export const PARTNERS = [
 ];
 
 export const PRODUCTS = [
-  { id: 'book-akashi', name: '각시온 설정집 1권', category: 'BOOK', character: '각시온', unitPrice: 28000, unitCost: 9000, hype: 26 },
+  { id: 'book-akashi', name: '각시탈 설정집 1권', category: 'BOOK', character: '각시탈', unitPrice: 28000, unitCost: 9000, hype: 26 },
   { id: 'event-hwahwa', name: '화회원 전통문화 체험권', category: 'EVENT', character: '화회원', unitPrice: 45000, unitCost: 18000, hype: 34 },
-  { id: 'goods-aero', name: '마스커드 에어로 아크릴 굿즈', category: 'GOODS', character: '에어로', unitPrice: 22000, unitCost: 7000, hype: 78 },
+  { id: 'goods-aero', name: '마스크드 피에로 아크릴 굿즈', category: 'GOODS', character: '피에로', unitPrice: 22000, unitCost: 7000, hype: 78 },
   { id: 'figure-hae', name: '사해린 프리미엄 피규어', category: 'FIGURE', character: '사해린', unitPrice: 98000, unitCost: 35000, hype: 65 },
   { id: 'video-borama', name: '보라매 프로모션 영상 패키지', category: 'VIDEO', character: '보라매', unitPrice: 38000, unitCost: 12000, hype: 44 },
   { id: 'goods-shiroko', name: '시로코 게스트 굿즈 세트', category: 'GOODS', character: '시로코', unitPrice: 26000, unitCost: 8500, hype: 42 },
