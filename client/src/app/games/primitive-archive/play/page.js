@@ -27,12 +27,15 @@ import {
   equipmentRows,
   formatRequires,
   getActor,
+  getPartyCap,
   getPlayTimeSec,
   itemName,
   logCapacity,
   normalizeState,
   partyInsulation,
   perkRows,
+  recruitPartyMemberAction,
+  recruitablePartyRows,
   researchInspirationRows,
   researchSummary,
   runCampAction,
@@ -106,6 +109,7 @@ export default function PrimitiveArchivePlayPage() {
   const [zoneId, setZoneId] = useState('forest');
   const [recipeId, setRecipeId] = useState('twine');
   const [partySort, setPartySort] = useState('default');
+  const [selectedRecruitId, setSelectedRecruitId] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -128,6 +132,9 @@ export default function PrimitiveArchivePlayPage() {
   const perks = useMemo(() => perkRows(state), [state]);
   const currentEquipmentRows = useMemo(() => equipmentRows(state, actorId), [state, actorId]);
   const equipmentInventory = useMemo(() => equipmentInventoryRows(state), [state]);
+  const partyCap = getPartyCap(state);
+  const recruitCandidates = useMemo(() => recruitablePartyRows(state), [state]);
+  const selectedRecruit = recruitCandidates.find((candidate) => candidate.id === selectedRecruitId) || recruitCandidates[0];
   const insulation = partyInsulation(state);
   const currentLogCapacity = logCapacity(state);
   const partyView = useMemo(() => {
@@ -286,7 +293,13 @@ export default function PrimitiveArchivePlayPage() {
     setActorId('shiroko');
     setZoneId('forest');
     setRecipeId('twine');
+    setSelectedRecruitId('');
     setMessage('');
+  };
+
+  const recruitMember = () => {
+    if (!selectedRecruit) return;
+    setState((current) => recruitPartyMemberAction(current, selectedRecruit.id));
   };
 
   const playActions = (
@@ -303,6 +316,7 @@ export default function PrimitiveArchivePlayPage() {
   const playMetrics = [
     { label: 'Day', value: state.day },
     { label: 'AP', value: `${state.ap}/${state.apMax}` },
+    { label: '파티', value: `${state.party.length}/${partyCap}` },
     { label: 'HP', value: hp },
     { label: '허기', value: hunger },
     { label: '스태미나', value: stamina },
@@ -333,7 +347,7 @@ export default function PrimitiveArchivePlayPage() {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>파티</h2>
-              <span>{state.weather.name} · {state.weather.temp}°C</span>
+              <span>파티 {state.party.length}/{partyCap} · {state.weather.name} · {state.weather.temp}°C</span>
             </div>
             <label className="game-save-json-field">
               <span>정렬</span>
@@ -343,6 +357,32 @@ export default function PrimitiveArchivePlayPage() {
                 ))}
               </select>
             </label>
+            {recruitCandidates.length ? (
+              <div className="games-chip-row" style={{ marginBottom: 12 }}>
+                <select
+                  value={selectedRecruit?.id || ''}
+                  onChange={(event) => setSelectedRecruitId(event.target.value)}
+                  style={{ minWidth: 180 }}
+                >
+                  {recruitCandidates.map((candidate) => (
+                    <option value={candidate.id} key={candidate.id}>
+                      {candidate.name} · {candidate.role}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="tcg-secondary-action"
+                  disabled={!selectedRecruit || state.party.length >= partyCap}
+                  onClick={recruitMember}
+                >
+                  합류
+                </button>
+                <span style={{ color: '#cbd5e1', fontWeight: 800 }}>
+                  {state.party.length >= partyCap ? '정착 연구로 정원을 늘릴 수 있습니다.' : selectedRecruit?.trait}
+                </span>
+              </div>
+            ) : null}
             <div style={{ display: 'grid', gap: 10 }}>
               {partyView.map(({ member, chances, basisAction, basisChance, badges }) => (
                 <button

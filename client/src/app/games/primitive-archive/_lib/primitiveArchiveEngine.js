@@ -47,6 +47,46 @@ export const STUDENTS = [
     stats: { gather: 6, hunt: 4, craft: 10, camp: 8 },
     trait: '제작 성공률 증가',
   },
+  {
+    id: 'hoshino',
+    name: '호시노',
+    role: '지원',
+    portrait: '/games/primitive-archive/portraits/placeholder.svg',
+    stats: { gather: 7, hunt: 6, craft: 5, camp: 9 },
+    trait: '휴식 효율 증가',
+  },
+  {
+    id: 'nonomi',
+    name: '노노미',
+    role: '지원',
+    portrait: '/games/primitive-archive/portraits/placeholder.svg',
+    stats: { gather: 8, hunt: 5, craft: 6, camp: 7 },
+    trait: '파티 보정 소폭 증가',
+  },
+  {
+    id: 'ako',
+    name: '아코',
+    role: '제작',
+    portrait: '/games/primitive-archive/portraits/placeholder.svg',
+    stats: { gather: 5, hunt: 4, craft: 9, camp: 8 },
+    trait: '도구 제작 보너스',
+  },
+  {
+    id: 'fuuka',
+    name: '후우카',
+    role: '지원',
+    portrait: '/games/primitive-archive/portraits/placeholder.svg',
+    stats: { gather: 6, hunt: 4, craft: 7, camp: 10 },
+    trait: '식사와 캠프 관리에 강함',
+  },
+  {
+    id: 'yuuka',
+    name: '유우카',
+    role: '제작',
+    portrait: '/games/primitive-archive/portraits/placeholder.svg',
+    stats: { gather: 5, hunt: 5, craft: 8, camp: 8 },
+    trait: '장비 정비 보정',
+  },
 ];
 
 export const ZONES = [
@@ -156,7 +196,7 @@ export const TECH_TREE = [
   { id: 'ORAL_RECORDS', name: '구전 기록', era: 'NEOLITHIC', cost: 18, prereqs: ['HERBALISM', 'SHELTER'], unlocks: { passives: ['RESEARCH_NOTE_UP'] }, eureka: { type: 'weatherTypes', count: 2, bonusPct: 0.25, desc: '서로 다른 날씨 2종 관찰' } },
   { id: 'TRAPPING', name: '덫 사냥', era: 'NEOLITHIC', cost: 16, prereqs: ['HUNTING', 'CORDAGE'], unlocks: { passives: ['HUNT_RISK_DOWN'] }, eureka: { type: 'actionFail', action: 'hunt', count: 1, bonusPct: 0.15, desc: '사냥 실패 1회' } },
   { id: 'ARCHERY', name: '궁술', era: 'NEOLITHIC', cost: 18, prereqs: ['HUNTING', 'CORDAGE'], unlocks: { recipes: ['bow'], passives: ['BOW_HUNT_UP'] }, eureka: { type: 'recipeCraft', recipeId: 'bow', count: 1, bonusPct: 0.3, desc: '활 제작 1회' } },
-  { id: 'SETTLEMENT', name: '정착', era: 'NEOLITHIC', cost: 20, prereqs: ['SHELTER'], unlocks: { passives: ['CAMP_SCORE_UP'] }, eureka: { type: 'campLevel', key: 'shelterLevel', count: 2, bonusPct: 0.25, desc: '대피소 Lv.2 달성' } },
+  { id: 'SETTLEMENT', name: '정착', era: 'NEOLITHIC', cost: 20, prereqs: ['SHELTER'], unlocks: { passives: ['CAMP_SCORE_UP', 'PARTY_CAP_UP'] }, eureka: { type: 'campLevel', key: 'shelterLevel', count: 2, bonusPct: 0.25, desc: '대피소 Lv.2 달성' } },
   { id: 'ARCHIVE', name: '기록 보관', era: 'NEOLITHIC', cost: 24, prereqs: ['SETTLEMENT', 'ORAL_RECORDS'], unlocks: { camp: ['archive_room'], passives: ['RESEARCH_POINT_BONUS', 'ARCHIVE_LOG_UP'] }, eureka: { type: 'campFireDays', count: 2, bonusPct: 0.25, desc: '모닥불을 유지한 밤 2회' } },
 ];
 
@@ -192,7 +232,7 @@ export function rollWeather(day = 1, rng = Math.random) {
 }
 
 export function makeParty() {
-  return STUDENTS.map((student) => ({
+  return STUDENTS.slice(0, 3).map((student) => ({
     ...student,
     hp: 100,
     hunger: 12,
@@ -357,6 +397,57 @@ export function normalizeState(value) {
     meta,
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
   };
+}
+
+export function getPartyCap(state) {
+  const current = normalizeState(state);
+  return 3 + (hasTechPassive(current, 'PARTY_CAP_UP') ? 1 : 0);
+}
+
+function makePartyMember(student) {
+  return {
+    ...student,
+    hp: 100,
+    hunger: 12,
+    stamina: 100,
+  };
+}
+
+export function recruitablePartyRows(state) {
+  const current = normalizeState(state);
+  const joinedIds = new Set(current.party.map((member) => member.id));
+  const partyCap = getPartyCap(current);
+  return STUDENTS
+    .filter((student) => !joinedIds.has(student.id))
+    .map((student) => ({
+      ...student,
+      canRecruit: current.party.length < partyCap,
+      partyCap,
+      currentPartySize: current.party.length,
+    }));
+}
+
+export function recruitPartyMemberAction(state, studentId = '') {
+  const current = normalizeState(state);
+  const partyCap = getPartyCap(current);
+  if (current.party.length >= partyCap) {
+    return addLog(current, `파티 인원이 이미 최대입니다. (${current.party.length}/${partyCap})`);
+  }
+
+  const joinedIds = new Set(current.party.map((member) => member.id));
+  const student = studentId
+    ? STUDENTS.find((entry) => entry.id === studentId)
+    : STUDENTS.find((entry) => !joinedIds.has(entry.id));
+  if (!student) return addLog(current, '합류시킬 학생 후보가 없습니다.');
+  if (joinedIds.has(student.id)) return addLog(current, `${student.name}은(는) 이미 파티에 있습니다.`);
+
+  const member = makePartyMember(student);
+  const party = [...current.party, member];
+  return addLog({
+    ...current,
+    party,
+    equipment: normalizeEquipment(current.equipment, party),
+  }, `${member.name} 파티 합류. (파티 ${party.length}/${partyCap})`);
 }
 
 export function itemName(id) {
