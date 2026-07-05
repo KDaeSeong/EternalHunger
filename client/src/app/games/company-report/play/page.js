@@ -93,6 +93,32 @@ function getProductName(id) {
   return PRODUCTS.find((product) => product.id === id)?.name || id;
 }
 
+function safeFilePart(value) {
+  return String(value || 'export').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'export';
+}
+
+function downloadTextFile(fileName, text, type) {
+  if (typeof window === 'undefined') return;
+  const blob = new Blob([text], { type });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = window.document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  window.document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function csvRows(rows) {
+  return rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+}
+
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -142,6 +168,101 @@ export default function CompanyReportPlayPage() {
   const latestBookmark = state.reportBookmarks[0];
   const latestExport = state.exportHistory[0];
   const latestRestore = state.restoreHistory[0];
+  const exportBaseName = `company-report-${state.company.year}-${String(state.company.month).padStart(2, '0')}`;
+
+  const buildExportPayload = (exportedState = state) => {
+    const exportedReport = reportSummary(exportedState);
+    const exportedManagement = managementReport(exportedState);
+    const exportedGlobal = globalTradeSummary(exportedState);
+    const exportedCapital = capitalMarketSummary(exportedState);
+    const exportedRestorePlan = ledgerRestorePlan(exportedState, restoreMode, selectedRestoreTables);
+    return {
+      gameSlug: GAME_SLUG,
+      version: SAVE_VERSION,
+      exportedAt: new Date().toISOString(),
+      period: `${exportedState.company.year}-${String(exportedState.company.month).padStart(2, '0')}`,
+      score: scoreState(exportedState),
+      summary: summaryForState(exportedState),
+      report: exportedReport,
+      management: exportedManagement,
+      global: exportedGlobal,
+      capitalMarket: exportedCapital,
+      ledgerDiff: ledgerDiffRows(exportedState),
+      restorePlan: exportedRestorePlan,
+      latestProgressExport: exportedState.exportHistory[0] || null,
+    };
+  };
+
+  const buildExportCsv = (payload) => {
+    const rows = [
+      ['section', 'metric', 'value', 'before', 'after', 'delta'],
+      ['company', 'period', payload.period, '', '', ''],
+      ['company', 'score', payload.score, '', '', ''],
+      ['finance', 'cash', payload.management.cashFlow.cash, '', '', ''],
+      ['finance', 'assets', payload.report.assets, '', '', ''],
+      ['finance', 'receivables', payload.report.receivableAmount, '', '', ''],
+      ['finance', 'inventory', payload.report.inventoryAmount, '', '', ''],
+      ['income', 'sales', payload.management.income.sales, '', '', ''],
+      ['income', 'operatingProfit', payload.management.income.operatingProfit, '', '', ''],
+      ['global', 'exportSalesKrw', payload.global.exportSalesKrw, '', '', ''],
+      ['global', 'exportProfitKrw', payload.global.exportProfitKrw, '', '', ''],
+      ['capital', 'marketCapKrw', payload.capitalMarket.marketCapKrw, '', '', ''],
+      ['capital', 'investorTrust', payload.capitalMarket.investorTrust, '', '', ''],
+      ['restore', 'mode', payload.restorePlan.restoreModeLabel, '', '', ''],
+      ['restore', 'dryRunStatus', payload.restorePlan.dryRunStatus, '', '', ''],
+    ];
+    payload.ledgerDiff.forEach((row) => rows.push(['ledgerDiff', row.label, row.deltaText, row.before, row.after, row.deltaText]));
+    payload.restorePlan.tableDiffs.forEach((row) => rows.push([
+      'restoreTable',
+      row.tableName,
+      row.diffStatus,
+      row.snapshotRowCount,
+      row.currentRowCount,
+      `missing ${row.missingInCurrentCount} / extra ${row.extraInCurrentCount} / changed ${row.changedRowCount}`,
+    ]));
+    return csvRows(rows);
+  };
+
+  const downloadProgressJson = () => {
+    const exportedState = createProgressExportAction(state);
+    const payload = buildExportPayload(exportedState);
+    setState(exportedState);
+    downloadTextFile(
+      `${safeFilePart(exportBaseName)}-progress.json`,
+      JSON.stringify(payload, null, 2),
+      'application/json;charset=utf-8',
+    );
+    showToast({ tone: 'success', message: '진행 보고서 JSON 다운로드를 준비했습니다.' });
+  };
+
+  const downloadProgressCsv = () => {
+    const exportedState = createProgressExportAction(state);
+    const payload = buildExportPayload(exportedState);
+    setState(exportedState);
+    downloadTextFile(
+      `${safeFilePart(exportBaseName)}-progress.csv`,
+      buildExportCsv(payload),
+      'text/csv;charset=utf-8',
+    );
+    showToast({ tone: 'success', message: '진행 보고서 CSV 다운로드를 준비했습니다.' });
+  };
+
+  const downloadRestorePlanJson = () => {
+    const payload = buildExportPayload(state);
+    downloadTextFile(
+      `${safeFilePart(exportBaseName)}-restore-plan.json`,
+      JSON.stringify({
+        gameSlug: GAME_SLUG,
+        version: SAVE_VERSION,
+        exportedAt: payload.exportedAt,
+        period: payload.period,
+        restorePlan: payload.restorePlan,
+        ledgerDiff: payload.ledgerDiff,
+      }, null, 2),
+      'application/json;charset=utf-8',
+    );
+    showToast({ tone: 'success', message: '복원 계획 JSON 다운로드를 준비했습니다.' });
+  };
 
   const handleVatSelect = (key) => {
     const row = vatSchedule.find((item) => item.id === key);
@@ -519,6 +640,8 @@ export default function CompanyReportPlayPage() {
                     <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
                     <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
                     <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+                    <ActionButton onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
+                    <ActionButton onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -534,6 +657,7 @@ export default function CompanyReportPlayPage() {
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
                     <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => setState((current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
+                    <ActionButton disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
                   </div>
                 </section>
               </section>
@@ -631,6 +755,9 @@ export default function CompanyReportPlayPage() {
             <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => setState((current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
             <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
             <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+            <ActionButton onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
+            <ActionButton onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
+            <ActionButton disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
           </div>
         </section>
 
@@ -932,6 +1059,17 @@ export default function CompanyReportPlayPage() {
                   <strong>{warning}</strong>
                 </div>
                 <strong>검토</strong>
+              </article>
+            ))}
+            {restorePlan.tableDiffs.slice(0, 8).map((row) => (
+              <article className="game-save-row" key={row.tableName}>
+                <div>
+                  <span>{row.snapshotRowCount} rows snapshot / {row.currentRowCount} rows current</span>
+                  <strong>{row.label}</strong>
+                  <span>missing {row.missingInCurrentCount} / extra {row.extraInCurrentCount} / changed {row.changedRowCount}</span>
+                  <span>{row.snapshotChecksum} → {row.currentChecksum}</span>
+                </div>
+                <strong>{row.diffStatus}</strong>
               </article>
             ))}
           </div>
