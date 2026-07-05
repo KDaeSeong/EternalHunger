@@ -32,6 +32,7 @@ import {
   advancePhase,
   autoPlayEnemy,
   autoPlayPlayer,
+  cardEffectCoverageReport,
   chooseFromDeck,
   chooseTarget,
   changeMonsterPosition,
@@ -78,6 +79,60 @@ function getPlayTimeSec(startedAt) {
   const start = new Date(startedAt || '').getTime();
   if (!Number.isFinite(start)) return 0;
   return Math.max(0, Math.floor((Date.now() - start) / 1000));
+}
+
+function roomConcurrencyAudit({ roomId, room, localRoomDirty, roomSyncMessage, roomBusy }) {
+  const connected = Boolean(roomId);
+  const revision = Number(room?.revision);
+  const hasRevision = !connected || Number.isFinite(revision);
+  const message = String(roomSyncMessage || '');
+  const conflictDetected = /새 매치|충돌|conflict|revision|409/i.test(message);
+  const rows = [
+    {
+      id: 'room',
+      label: '방 연결',
+      status: connected ? '공유방' : '단독',
+      detail: connected ? `roomId ${roomId}로 공유 매치를 사용합니다.` : '단독 플레이입니다. 방 저장 충돌 대상이 없습니다.',
+      ok: true,
+    },
+    {
+      id: 'revision',
+      label: 'Revision 저장',
+      status: hasRevision ? 'OK' : '대기',
+      detail: connected ? `저장 요청에 현재 revision ${Number.isFinite(revision) ? revision : '미수신'}을 함께 보냅니다.` : '단독 플레이에서는 revision 저장이 필요하지 않습니다.',
+      ok: hasRevision,
+    },
+    {
+      id: 'local',
+      label: '로컬 변경',
+      status: localRoomDirty ? '저장 필요' : 'OK',
+      detail: localRoomDirty ? '로컬 매치가 방 상태보다 앞서 있습니다. 방 저장 또는 방 불러오기로 정리하세요.' : '로컬 상태와 방 상태가 정리되어 있습니다.',
+      ok: !localRoomDirty,
+    },
+    {
+      id: 'conflict',
+      label: '충돌 감지',
+      status: conflictDetected ? '확인 필요' : 'OK',
+      detail: conflictDetected ? message : '새 방 상태가 들어오면 자동 폴링 메시지로 알려줍니다.',
+      ok: !conflictDetected,
+    },
+    {
+      id: 'busy',
+      label: '저장 처리',
+      status: roomBusy ? '처리 중' : 'OK',
+      detail: roomBusy ? '방 상태 저장/불러오기 요청을 처리 중입니다.' : '현재 방 요청 대기열이 비어 있습니다.',
+      ok: !roomBusy,
+    },
+  ];
+  const okRows = rows.filter((row) => row.ok);
+  return {
+    rows,
+    ready: okRows.length === rows.length,
+    completionPct: Math.round((okRows.length / rows.length) * 100),
+    headline: connected
+      ? `revision ${Number.isFinite(revision) ? revision : '대기'} · ${localRoomDirty ? '로컬 변경 있음' : '동기화됨'}`
+      : '단독 매치 · 충돌 없음',
+  };
 }
 
 function KeywordBadges({ card }) {
@@ -626,6 +681,14 @@ function DualAcademyTcgPlayContent() {
   const matchReport = useMemo(() => matchReportForState(state), [state]);
   const replayTimeline = useMemo(() => replayTimelineForState(state), [state]);
   const replayExport = useMemo(() => replayExportForState(state), [state]);
+  const effectCoverage = useMemo(() => cardEffectCoverageReport(cardCatalog), [cardCatalog]);
+  const concurrencyAudit = useMemo(() => roomConcurrencyAudit({
+    roomId,
+    room,
+    localRoomDirty,
+    roomSyncMessage,
+    roomBusy,
+  }), [localRoomDirty, room, roomBusy, roomId, roomSyncMessage]);
   const matchReportSummary = useMemo(() => ({
     headline: matchReport.headline,
     eventCount: matchReport.eventCount,
@@ -658,7 +721,14 @@ function DualAcademyTcgPlayContent() {
         status: row.status,
       })),
     },
-  }), [matchReport, replayExport, replayTimeline, turnAdvisor]);
+    portingAudit: {
+      effectCoveragePct: effectCoverage.completionPct,
+      roomSyncPct: concurrencyAudit.completionPct,
+      ready: effectCoverage.ready && concurrencyAudit.ready,
+      effectHeadline: effectCoverage.headline,
+      roomHeadline: concurrencyAudit.headline,
+    },
+  }), [concurrencyAudit, effectCoverage, matchReport, replayExport, replayTimeline, turnAdvisor]);
 
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
@@ -1345,6 +1415,34 @@ function DualAcademyTcgPlayContent() {
               <div className="game-save-list">
                 {replayExport.auditRows.map((row) => (
                   <article className="game-save-row" key={`tcg-replay-audit-${row.id}`}>
+                    <div>
+                      <span>{row.label}</span>
+                      <strong>{row.detail}</strong>
+                    </div>
+                    <strong>{row.status}</strong>
+                  </article>
+                ))}
+              </div>
+              <section className={`tcg-event-callout is-${effectCoverage.ready && concurrencyAudit.ready ? 'green' : 'gold'}`}>
+                <span>이식 감사 · 효과 {effectCoverage.completionPct}% · 방 {concurrencyAudit.completionPct}%</span>
+                <strong>{effectCoverage.headline}</strong>
+                <p>{concurrencyAudit.headline}</p>
+              </section>
+              <div className="game-save-list">
+                {effectCoverage.rows.slice(0, 8).map((row) => (
+                  <article className="game-save-row" key={`tcg-effect-audit-${row.id}`}>
+                    <div>
+                      <span>{row.type} · {row.effect}</span>
+                      <strong>{row.name}</strong>
+                      <small>{row.detail}</small>
+                    </div>
+                    <strong>{row.status}</strong>
+                  </article>
+                ))}
+              </div>
+              <div className="game-save-list">
+                {concurrencyAudit.rows.map((row) => (
+                  <article className="game-save-row" key={`tcg-room-audit-${row.id}`}>
                     <div>
                       <span>{row.label}</span>
                       <strong>{row.detail}</strong>

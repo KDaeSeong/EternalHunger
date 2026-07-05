@@ -99,8 +99,110 @@ function effectKey(card) {
   return 'none';
 }
 
+const HANDLED_EFFECTS = {
+  damage: '상대 LP 피해',
+  heal: '아군 LP 회복',
+  draw: '드로우',
+  'draw-heal': '드로우 + 회복',
+  shield: '보호막 부여',
+  'destroy-enemy-unit': '상대 유닛 파괴',
+  'banish-enemy-card': '상대 카드 제외',
+  'hina-destroy-any': '필드 카드 파괴',
+  'yuuka-search': '덱 서치',
+  'yuuka-data-shield': 'DATA + 보호막',
+  'counter-negate': '체인 무효',
+};
+
+const HANDLED_KEYWORDS = {
+  guard: '가드 우선 공격 강제',
+  pierce: 'DEF 초과 피해 관통',
+  quick: 'AI 전개 우선도 보정',
+  shield: '피해 1회 무효',
+};
+
+const SPECIAL_CARD_EFFECTS = {
+  'GEH-HINA-01': ['히나 ②: LP 지불 후 필드 카드 파괴'],
+  'MIL-YUUKA-01': ['유우카 ①: 밀레니엄 마법 서치', '유우카 ②: DATA + 보호막'],
+};
+
 function effectAmount(card, fallback = 1) {
   return Math.max(1, Number(card?.effectAmount || fallback));
+}
+
+export function cardEffectCoverageReport(cards = FALLBACK_TCG_CARDS) {
+  const catalog = normalizeCards(cards).length ? normalizeCards(cards) : FALLBACK_TCG_CARDS;
+  const rows = catalog.map((card) => {
+    const type = cardType(card);
+    const key = effectKey(card);
+    const keywords = (Array.isArray(card.keywords) ? card.keywords : []).filter(Boolean);
+    const handledKeywords = keywords.filter((keyword) => HANDLED_KEYWORDS[keyword]);
+    const unhandledKeywords = keywords.filter((keyword) => !HANDLED_KEYWORDS[keyword]);
+    const specialEffects = SPECIAL_CARD_EFFECTS[card.id] || [];
+    const isTactic = type !== 'Monster';
+    const hasHandledEffect = isTactic ? Boolean(HANDLED_EFFECTS[key]) : true;
+    const covered = hasHandledEffect && unhandledKeywords.length === 0;
+    const status = !covered
+      ? '확인 필요'
+      : isTactic
+        ? '효과 처리'
+        : specialEffects.length
+          ? '전용 효과'
+          : handledKeywords.length
+            ? '키워드 처리'
+            : '스탯 모델';
+    const detailParts = [];
+    if (isTactic) detailParts.push(HANDLED_EFFECTS[key] || `미처리 효과: ${key}`);
+    if (specialEffects.length) detailParts.push(...specialEffects);
+    if (handledKeywords.length) {
+      detailParts.push(`키워드: ${handledKeywords.map((keyword) => HANDLED_KEYWORDS[keyword]).join(', ')}`);
+    }
+    if (!detailParts.length) detailParts.push('공격력/체력/비용 기반 기본 유닛으로 처리합니다.');
+    if (unhandledKeywords.length) detailParts.push(`미처리 키워드: ${unhandledKeywords.join(', ')}`);
+    return {
+      id: card.id,
+      name: card.name || card.id,
+      type,
+      effect: key,
+      status,
+      covered,
+      sourceId: card.sourceId || '',
+      v13: Boolean(card.sourceId || card.tags?.includes('v13')),
+      detail: detailParts.join(' · '),
+      tone: covered ? 'green' : 'gold',
+    };
+  });
+  const total = rows.length;
+  const coveredRows = rows.filter((row) => row.covered);
+  const unsupportedRows = rows.filter((row) => !row.covered);
+  const tacticRows = rows.filter((row) => row.type !== 'Monster');
+  const v13Rows = rows.filter((row) => row.v13);
+  const keywordRows = Object.entries(HANDLED_KEYWORDS).map(([keyword, detail]) => {
+    const count = catalog.filter((card) => Array.isArray(card.keywords) && card.keywords.includes(keyword)).length;
+    return {
+      keyword,
+      detail,
+      count,
+      status: count ? '활성' : '대기',
+    };
+  });
+  const completionPct = total ? Math.round((coveredRows.length / total) * 100) : 0;
+  return {
+    completionPct,
+    ready: unsupportedRows.length === 0,
+    totalCards: total,
+    coveredCards: coveredRows.length,
+    tacticCards: tacticRows.length,
+    tacticCovered: tacticRows.filter((row) => row.covered).length,
+    v13Cards: v13Rows.length,
+    v13Covered: v13Rows.filter((row) => row.covered).length,
+    unsupportedRows,
+    keywordRows,
+    rows,
+    headline: `카드 ${coveredRows.length}/${total}장 처리 · 전술 ${tacticRows.filter((row) => row.covered).length}/${tacticRows.length}장 · v13 ${v13Rows.filter((row) => row.covered).length}/${v13Rows.length}장`,
+    recommendations: unsupportedRows.length
+      ? unsupportedRows.map((row) => `${row.name}: ${row.detail}`).slice(0, 4)
+      : ['현재 카드 풀의 효과/키워드가 모두 간소화 룰 처리 경로에 연결되어 있습니다.'],
+  };
 }
 
 function cloneZone() {
