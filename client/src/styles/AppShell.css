@@ -3784,8 +3784,9 @@
 }
 
 .games-summary--compact {
-  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(84px, 112px));
   gap: 6px;
+  justify-content: start;
 }
 
 .games-metric {
@@ -3797,9 +3798,9 @@
 }
 
 .games-summary--compact .games-metric {
-  min-height: 46px;
-  gap: 2px;
-  padding: 7px 9px;
+  min-height: 40px;
+  gap: 1px;
+  padding: 6px 8px;
 }
 
 .games-metric span {
@@ -3809,7 +3810,7 @@
 }
 
 .games-summary--compact .games-metric span {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
 }
 
 .games-metric strong {
@@ -3819,7 +3820,7 @@
 }
 
 .games-summary--compact .games-metric strong {
-  font-size: 0.98rem;
+  font-size: 0.88rem;
 }
 
 .games-grid {
