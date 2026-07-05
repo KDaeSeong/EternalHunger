@@ -42,6 +42,7 @@ import {
   normalizeDuelState,
   normalSummon,
   passResponse,
+  replayExportForState,
   replayTimelineForState,
   resolveChain,
   serializeDuelState,
@@ -624,6 +625,7 @@ function DualAcademyTcgPlayContent() {
   const summary = summarizeDuel(state);
   const matchReport = useMemo(() => matchReportForState(state), [state]);
   const replayTimeline = useMemo(() => replayTimelineForState(state), [state]);
+  const replayExport = useMemo(() => replayExportForState(state), [state]);
   const matchReportSummary = useMemo(() => ({
     headline: matchReport.headline,
     eventCount: matchReport.eventCount,
@@ -645,7 +647,18 @@ function DualAcademyTcgPlayContent() {
       chainStatus: replayTimeline.chainStatus,
       turnCount: replayTimeline.turnCount,
     },
-  }), [matchReport, replayTimeline, turnAdvisor]);
+    replayExport: {
+      fileName: replayExport.fileName,
+      sizeLabel: replayExport.sizeLabel,
+      statusLabel: replayExport.statusLabel,
+      ready: replayExport.ready,
+      auditRows: replayExport.auditRows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        status: row.status,
+      })),
+    },
+  }), [matchReport, replayExport, replayTimeline, turnAdvisor]);
 
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
@@ -775,6 +788,20 @@ function DualAcademyTcgPlayContent() {
     markDirty();
     setState((current) => mutator(current));
   };
+
+  const downloadReplayExport = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const blob = new Blob([replayExport.jsonText], { type: 'application/json;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = window.document.createElement('a');
+    anchor.href = url;
+    anchor.download = replayExport.fileName;
+    window.document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+    showToast({ tone: 'success', message: `리플레이 파일을 준비했습니다. (${replayExport.sizeLabel})` });
+  }, [replayExport, showToast]);
 
   const playSelected = () => {
     if (!selectedCard || !canMain) return;
@@ -965,6 +992,7 @@ function DualAcademyTcgPlayContent() {
             {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${TCG_GAME_SLUG}&create=1`}>방 만들기</Link>}
             {roomId ? <button type="button" onClick={saveRoomMatch} disabled={roomBusy}>방 저장</button> : null}
             {roomId ? <button type="button" onClick={reloadRoomMatch} disabled={roomBusy}>방 불러오기</button> : null}
+            <button type="button" onClick={downloadReplayExport}>리플레이 저장</button>
             <button type="button" onClick={resetMatch}>새 매치</button>
           </nav>
         </header>
@@ -1043,7 +1071,7 @@ function DualAcademyTcgPlayContent() {
             { id: 'board', label: '보드', badge: state.phase },
             { id: 'advisor', label: '턴 판단', badge: turnAdvisor.riskLabel },
             { id: 'hand', label: '패/액션', badge: `${state.players.player.hand.length}장` },
-            { id: 'logs', label: '로그/아카이브', badge: `${state.events.length}건` },
+            { id: 'logs', label: '로그/아카이브', badge: replayExport.statusLabel },
           ].map((tab) => (
             <button
               type="button"
@@ -1308,6 +1336,23 @@ function DualAcademyTcgPlayContent() {
                   효과 발동 {replayTimeline.chainActivations}회
                 </p>
               </section>
+              <section className={`tcg-event-callout is-${replayExport.ready ? 'green' : 'gold'}`}>
+                <span>{replayExport.format} · {replayExport.sizeLabel}</span>
+                <strong>{replayExport.fileName}</strong>
+                <p>이벤트 {replayExport.eventCount}건 · 턴 {replayExport.turnCount}개 · {replayExport.statusLabel}</p>
+                <button type="button" onClick={downloadReplayExport}>JSON 리플레이 다운로드</button>
+              </section>
+              <div className="game-save-list">
+                {replayExport.auditRows.map((row) => (
+                  <article className="game-save-row" key={`tcg-replay-audit-${row.id}`}>
+                    <div>
+                      <span>{row.label}</span>
+                      <strong>{row.detail}</strong>
+                    </div>
+                    <strong>{row.status}</strong>
+                  </article>
+                ))}
+              </div>
               <div className="game-save-list">
                 {replayTimeline.recommendations.map((line, index) => (
                   <article className="game-save-row" key={`tcg-replay-rec-${index}`}>
@@ -1349,6 +1394,10 @@ function DualAcademyTcgPlayContent() {
                   </article>
                 ))}
               </div>
+              <label className="game-save-json-field">
+                <span>리플레이 JSON 미리보기</span>
+                <textarea readOnly value={replayExport.previewText} rows={8} />
+              </label>
               {replayTimeline.exportText ? (
                 <label className="game-save-json-field">
                   <span>리플레이 요약</span>

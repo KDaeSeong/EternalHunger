@@ -720,6 +720,202 @@ export function replayTimelineForState(state) {
   };
 }
 
+function replayCardSnapshot(card) {
+  if (!card) return null;
+  return {
+    id: card.id || '',
+    instanceId: card.instanceId || '',
+    name: card.name || card.id || '카드',
+    role: card.role || '',
+    tags: Array.isArray(card.tags) ? card.tags.slice(0, 8) : [],
+    owner: card.owner || '',
+    face: card.face || 'up',
+    position: card.position || '',
+    attack: Number(card.attack || card.atk || 0),
+    health: Number(card.health || 0),
+    currentHealth: Number(card.currentHealth ?? card.health ?? 0),
+    dataCounters: Number(card.dataCounters || 0),
+    shield: Boolean(card.shield),
+    hasAttacked: Boolean(card.hasAttacked),
+  };
+}
+
+function replayPlayerSnapshot(playerState = {}) {
+  return {
+    lp: Number(playerState.lp || 0),
+    deckCount: Array.isArray(playerState.deck) ? playerState.deck.length : 0,
+    hand: (Array.isArray(playerState.hand) ? playerState.hand : []).map(replayCardSnapshot),
+    graveCount: Array.isArray(playerState.grave) ? playerState.grave.length : 0,
+    banishedCount: Array.isArray(playerState.banished) ? playerState.banished.length : 0,
+    monster: (Array.isArray(playerState.monster) ? playerState.monster : cloneZone()).map(replayCardSnapshot),
+    spellTrap: (Array.isArray(playerState.spellTrap) ? playerState.spellTrap : cloneZone()).map(replayCardSnapshot),
+    field: replayCardSnapshot(playerState.field),
+  };
+}
+
+function replayEventSnapshot(event, index) {
+  return {
+    id: event?.id || `event-${index + 1}`,
+    at: event?.at || '',
+    turn: Math.max(1, Number(event?.turn || 1)),
+    phase: event?.phase || 'MAIN1',
+    type: event?.type || 'UNKNOWN',
+    actor: PLAYERS.includes(event?.actor) ? event.actor : '',
+    text: event?.text || '',
+    priority: replayPriorityForEvent(event),
+    payload: event?.payload && typeof event.payload === 'object' ? event.payload : {},
+  };
+}
+
+function replayAuditRows({ current, payload, report, timeline, jsonText }) {
+  const events = Array.isArray(current.events) ? current.events : [];
+  const chain = Array.isArray(current.chain) ? current.chain : [];
+  const prompt = current.prompt && typeof current.prompt === 'object' ? current.prompt : { kind: 'NONE' };
+  const versionOk = String(current.version || '') === ENGINE_VERSION;
+  const missingEventFields = events.filter((event) => !event?.id || !event?.type || !event?.text).length;
+  const payloadReady = Boolean(payload?.match?.matchId && Array.isArray(payload?.events));
+  const sizeKb = Math.max(1, Math.ceil(String(jsonText || '').length / 1024));
+
+  return [
+    {
+      id: 'payload',
+      label: '패키지',
+      status: payloadReady ? 'OK' : '확인 필요',
+      detail: payloadReady ? `matchId ${payload.match.matchId} 기준으로 리플레이 패키지를 구성했습니다.` : 'matchId 또는 이벤트 배열이 비어 있습니다.',
+      tone: payloadReady ? 'green' : 'gold',
+    },
+    {
+      id: 'events',
+      label: '이벤트',
+      status: missingEventFields ? '확인 필요' : 'OK',
+      detail: `${events.length}건 중 필수 필드 누락 ${missingEventFields}건입니다.`,
+      tone: missingEventFields ? 'gold' : 'green',
+    },
+    {
+      id: 'timeline',
+      label: '타임라인',
+      status: timeline.turnRows.length ? 'OK' : '대기',
+      detail: `턴 ${timeline.turnCount}개, 효과 발동 ${timeline.chainActivations}회, LP 스윙 ${timeline.totalSwing}입니다.`,
+      tone: timeline.turnRows.length ? 'green' : 'gold',
+    },
+    {
+      id: 'chain',
+      label: '체인',
+      status: chain.length ? '대기 중' : 'OK',
+      detail: chain.length ? `${chain.length}개 체인이 아직 해결되지 않았습니다. ${timeline.chainStatus}` : '대기 중인 체인이 없습니다.',
+      tone: chain.length ? 'gold' : 'green',
+    },
+    {
+      id: 'prompt',
+      label: '프롬프트',
+      status: prompt.kind === 'NONE' ? 'OK' : '대기 중',
+      detail: prompt.kind === 'NONE' ? '선택/응답 프롬프트가 없습니다.' : `${prompt.kind} 프롬프트가 남아 있습니다.`,
+      tone: prompt.kind === 'NONE' ? 'green' : 'gold',
+    },
+    {
+      id: 'report',
+      label: '리포트',
+      status: report.eventCount === events.length ? 'OK' : '확인 필요',
+      detail: `리포트 이벤트 ${report.eventCount}건 / 원본 이벤트 ${events.length}건입니다.`,
+      tone: report.eventCount === events.length ? 'green' : 'gold',
+    },
+    {
+      id: 'version',
+      label: '엔진',
+      status: versionOk ? 'OK' : '버전 차이',
+      detail: `${current.version || 'unknown'} / 현재 ${ENGINE_VERSION}`,
+      tone: versionOk ? 'green' : 'gold',
+    },
+    {
+      id: 'size',
+      label: '크기',
+      status: sizeKb <= 512 ? 'OK' : '큼',
+      detail: `약 ${sizeKb.toLocaleString('ko-KR')}KB JSON입니다.`,
+      tone: sizeKb <= 512 ? 'green' : 'gold',
+    },
+  ];
+}
+
+export function replayExportForState(state) {
+  const current = normalizeDuelState(state) || createDuelState();
+  const report = matchReportForState(current);
+  const timeline = replayTimelineForState(current);
+  const chronologicalEvents = (Array.isArray(current.events) ? current.events : [])
+    .slice()
+    .reverse()
+    .map(replayEventSnapshot);
+  const matchId = current.matchId || nowId('match');
+  const safeMatchId = String(matchId).replace(/[^a-zA-Z0-9_-]/g, '-');
+  const payload = {
+    format: 'dual-academy-replay-v1',
+    gameSlug: 'dual-academy-tcg',
+    engineVersion: current.version || ENGINE_VERSION,
+    exportedAt: new Date().toISOString(),
+    match: {
+      matchId,
+      startedAt: current.startedAt || '',
+      turn: Number(current.turn || 1),
+      phase: current.phase || 'MAIN1',
+      turnPlayer: current.turnPlayer || 'player',
+      winner: current.winner || '',
+      winnerLabel: report.winnerLabel,
+      headline: report.headline,
+    },
+    players: {
+      player: replayPlayerSnapshot(current.players?.player),
+      enemy: replayPlayerSnapshot(current.players?.enemy),
+    },
+    characters: normalizeTcgCharacters(current.characters),
+    report: {
+      headline: report.headline,
+      eventCount: report.eventCount,
+      lpDiff: report.lpDiff,
+      typeRows: report.typeRows,
+      highlights: report.highlights,
+      recommendations: report.recommendations,
+      players: report.players,
+    },
+    timeline: {
+      headline: timeline.headline,
+      eventCount: timeline.eventCount,
+      turnCount: timeline.turnCount,
+      totalSwing: timeline.totalSwing,
+      playerDamage: timeline.playerDamage,
+      enemyDamage: timeline.enemyDamage,
+      chainActivations: timeline.chainActivations,
+      chainStatus: timeline.chainStatus,
+      chainAuditRows: timeline.chainAuditRows,
+      turnRows: timeline.turnRows,
+      recommendations: timeline.recommendations,
+    },
+    prompt: current.prompt,
+    chain: Array.isArray(current.chain) ? current.chain : [],
+    events: chronologicalEvents,
+    serializedState: serializeDuelState(current),
+  };
+  const jsonText = JSON.stringify(payload, null, 2);
+  const auditRows = replayAuditRows({ current, payload, report, timeline, jsonText });
+  const blockingRows = auditRows.filter((row) => row.status !== 'OK' && row.id !== 'chain' && row.id !== 'prompt');
+  const pendingRows = auditRows.filter((row) => row.status !== 'OK');
+  const byteSize = jsonText.length;
+  const sizeKb = Math.max(1, Math.ceil(byteSize / 1024));
+
+  return {
+    format: payload.format,
+    fileName: `dual-academy-replay-${safeMatchId}.json`,
+    payload,
+    jsonText,
+    previewText: jsonText.length > 4200 ? `${jsonText.slice(0, 4200)}\n...` : jsonText,
+    byteSize,
+    sizeLabel: `${sizeKb.toLocaleString('ko-KR')}KB`,
+    eventCount: chronologicalEvents.length,
+    turnCount: timeline.turnCount,
+    auditRows,
+    statusLabel: pendingRows.length ? `${pendingRows.length}건 확인` : '내보내기 가능',
+    ready: blockingRows.length === 0,
+  };
+}
+
 export function drawCards(state, player, count = 1) {
   let next = state;
   for (let index = 0; index < count; index += 1) {
