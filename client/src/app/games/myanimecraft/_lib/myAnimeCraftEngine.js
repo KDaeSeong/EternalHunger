@@ -161,6 +161,49 @@ export const ITEM_DEFS = [
     price: 40,
     effects: { conditionDelta: 12, fameDelta: 5 },
   },
+  {
+    id: 'it-cheer-1',
+    name: '치어풀',
+    kind: 'consumable',
+    price: 0,
+    effects: { conditionDelta: 6, fameDelta: 4 },
+  },
+];
+
+export const TEAM_ACTION_DEFS = [
+  {
+    id: 'SPECIAL_TRAINING',
+    label: '특훈',
+    desc: '선수 스탯이 소폭 상승하지만 컨디션을 소모합니다.',
+    cost: 100,
+    conditionDelta: -8,
+    fameDelta: 0,
+    moneyDelta: 0,
+    statDelta: 2,
+    rewardItemId: '',
+  },
+  {
+    id: 'REST',
+    label: '휴식',
+    desc: '컨디션을 회복합니다.',
+    cost: 50,
+    conditionDelta: 12,
+    fameDelta: 0,
+    moneyDelta: 0,
+    statDelta: 0,
+    rewardItemId: '',
+  },
+  {
+    id: 'FANMEETING',
+    label: '팬미팅',
+    desc: '명성과 팬 기반을 올리고 치어풀을 1개 받습니다.',
+    cost: 200,
+    conditionDelta: -4,
+    fameDelta: 8,
+    moneyDelta: 120,
+    statDelta: 0,
+    rewardItemId: 'it-cheer-1',
+  },
 ];
 
 const PERSONAL_ROUND_LABELS = {
@@ -592,6 +635,7 @@ export function createNewState(options = {}) {
     inventories: createInventories(teams),
     shop: null,
     econLogs: [],
+    teamActionsUsed: {},
     seasonReports: [],
     personalLeague: createEmptyPersonalLeague(1),
     personalHistory: [],
@@ -622,6 +666,7 @@ export function normalizeState(value) {
     contracts: ensureContractsForTeams(teams, value.contracts, seasonNo),
     inventories: createInventories(teams, value.inventories),
     econLogs: normalizeEconLogs(value.econLogs),
+    teamActionsUsed: value.teamActionsUsed && typeof value.teamActionsUsed === 'object' ? value.teamActionsUsed : base.teamActionsUsed,
     seasonReports: Array.isArray(value.seasonReports) ? value.seasonReports.slice(0, 60) : base.seasonReports,
     personalLeague: normalizePersonalLeague(value.personalLeague, seasonNo),
     personalHistory: normalizePersonalHistory(value.personalHistory),
@@ -2527,6 +2572,139 @@ export function getWinnersLeagueRows(state, limit = 10) {
     }))
     .sort((a, b) => b.setNo - a.setNo)
     .slice(0, limit);
+}
+
+function teamActionDef(actionId) {
+  return TEAM_ACTION_DEFS.find((action) => action.id === actionId) || null;
+}
+
+function teamActionUsageKey(state, teamId, playerId) {
+  return `${Number(state.seasonNo || 1)}:${Number(state.week || 1)}:${teamId}:${playerId}`;
+}
+
+function teamActionEffectText(action) {
+  const parts = [`운영비 ${action.cost.toLocaleString('ko-KR')} Cr`];
+  if (action.conditionDelta) parts.push(`컨디션 ${action.conditionDelta > 0 ? '+' : ''}${action.conditionDelta}`);
+  if (action.statDelta) parts.push(`전 스탯 +${action.statDelta}`);
+  if (action.fameDelta) parts.push(`명성 +${action.fameDelta}`);
+  if (action.moneyDelta) parts.push(`수입 +${action.moneyDelta.toLocaleString('ko-KR')} Cr`);
+  if (action.rewardItemId) parts.push(`${itemById(action.rewardItemId)?.name || '보상'} +1`);
+  return parts.join(' · ');
+}
+
+export function teamActionRows(state, teamId, playerId) {
+  const current = normalizeState(state);
+  const teamData = getTeam(current, teamId);
+  const player = findPlayerOnTeam(teamData, playerId);
+  const standing = getStanding(current, teamId);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  const used = current.teamActionsUsed && player
+    ? current.teamActionsUsed[teamActionUsageKey(current, teamId, player.id)]
+    : null;
+  return TEAM_ACTION_DEFS.map((action) => {
+    const netCost = Math.max(0, Number(action.cost || 0) - Math.max(0, Number(action.moneyDelta || 0)));
+    const conditionAfter = Number(player?.condition || 0) + Number(action.conditionDelta || 0);
+    const canRun = Boolean(player)
+      && !current.ended
+      && !used
+      && money >= Number(action.cost || 0)
+      && conditionAfter >= 0;
+    return {
+      ...action,
+      playerId: player?.id || '',
+      playerName: player?.name || '',
+      used: Boolean(used),
+      canRun,
+      money,
+      netCost,
+      conditionAfter,
+      effectText: teamActionEffectText(action),
+      disabledReason: used
+        ? '이번 주에 이미 운영 액션을 사용했습니다.'
+        : money < Number(action.cost || 0)
+          ? `${Number(action.cost || 0).toLocaleString('ko-KR')} Cr 필요`
+          : conditionAfter < 0
+            ? '컨디션 부족'
+            : '',
+    };
+  });
+}
+
+export function runTeamActionAction(state, teamId, playerId, actionId) {
+  const current = normalizeState(state);
+  if (current.ended) return addStateLog(current, '시즌 종료 후에는 팀 운영 액션을 진행할 수 없습니다.');
+  const action = teamActionDef(actionId);
+  if (!action) return addStateLog(current, '알 수 없는 팀 운영 액션입니다.');
+  const teamData = getTeam(current, teamId);
+  const player = findPlayerOnTeam(teamData, playerId);
+  if (!teamData || !player) return addStateLog(current, '팀과 선수를 다시 선택하세요.');
+  const usageKey = teamActionUsageKey(current, teamId, player.id);
+  if (current.teamActionsUsed?.[usageKey]) return addStateLog(current, `${player.name}은(는) 이번 주 팀 운영 액션을 이미 사용했습니다.`);
+  const standing = getStanding(current, teamId);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  if (money < Number(action.cost || 0)) {
+    return addStateLog(current, `${teamData.name} ${action.label} 실패: ${Number(action.cost || 0).toLocaleString('ko-KR')} Cr 필요`);
+  }
+  if (Number(player.condition || 0) + Number(action.conditionDelta || 0) < 0) {
+    return addStateLog(current, `${player.name}의 컨디션이 부족합니다.`);
+  }
+
+  let next = syncTeamEconomy(current, teamId, (team) => {
+    const career = normalizeTeamCareer(team);
+    return {
+      ...team,
+      money: Number(team.money || 0) - Number(action.cost || 0) + Number(action.moneyDelta || 0),
+      career: {
+        ...career,
+        fanBase: career.fanBase + (action.id === 'FANMEETING' ? 120 + Number(player.fame || 0) : 0),
+      },
+      roster: team.roster.map((member) => {
+        if (member.id !== player.id) return member;
+        return {
+          ...member,
+          condition: clamp(Number(member.condition || 0) + Number(action.conditionDelta || 0), 0, 100),
+          fame: Math.max(0, Number(member.fame || 0) + Number(action.fameDelta || 0)),
+          stats: CAREER_STAT_KEYS.reduce((acc, key) => {
+            acc[key] = clamp(Number(member.stats?.[key] || 0) + Number(action.statDelta || 0), 0, 1000);
+            return acc;
+          }, {}),
+        };
+      }),
+    };
+  });
+
+  if (action.rewardItemId) next = addInventoryItem(next, teamId, action.rewardItemId, 1);
+  next = {
+    ...next,
+    teamActionsUsed: {
+      ...(current.teamActionsUsed || {}),
+      [usageKey]: {
+        actionId: action.id,
+        teamId,
+        playerId: player.id,
+        week: current.week,
+        seasonNo: current.seasonNo,
+        at: Date.now(),
+      },
+    },
+  };
+  const amount = -Number(action.cost || 0) + Number(action.moneyDelta || 0);
+  const withEcon = addEconLog(next, {
+    tag: action.id === 'FANMEETING' ? 'BONUS' : 'TRAINING',
+    teamId,
+    amount,
+    note: `${action.label}: ${player.name}`,
+    meta: {
+      actionId: action.id,
+      playerId: player.id,
+      playerName: player.name,
+      conditionDelta: action.conditionDelta,
+      fameDelta: action.fameDelta,
+      statDelta: action.statDelta,
+      rewardItemId: action.rewardItemId,
+    },
+  });
+  return addStateLog(withEcon, `${teamData.name} ${action.label}: ${player.name} · ${teamActionEffectText(action)}`);
 }
 
 export function negotiateSponsorAction(state, teamId) {

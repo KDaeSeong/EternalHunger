@@ -50,9 +50,11 @@ import {
   startWinnersLeagueAction,
   startNextSeasonAction,
   summaryForState,
+  runTeamActionAction,
   teamPower,
   tradeCandidateRows,
   tradePreview,
+  teamActionRows,
   unequipSlotAction,
   consumeInventoryItemAction,
   getWinnersLeagueRows,
@@ -118,6 +120,9 @@ export default function MyAnimeCraftPlayPage() {
   const inventoryRows = useMemo(() => inventoryRowsForTeam(state, selectedTeam.id), [state, selectedTeam.id]);
   const equipmentRows = useMemo(() => (
     selectedPlayer ? equipmentRowsForPlayer(state, selectedTeam.id, selectedPlayer.id) : []
+  ), [state, selectedTeam.id, selectedPlayer]);
+  const teamActions = useMemo(() => (
+    selectedPlayer ? teamActionRows(state, selectedTeam.id, selectedPlayer.id) : []
   ), [state, selectedTeam.id, selectedPlayer]);
   const sourceSummary = getSourceSummary();
   const played = getPlayedCount(state);
@@ -440,6 +445,21 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => setState((current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
             <ActionButton disabled={ended} onClick={() => setState((current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
             <ActionButton disabled={ended} onClick={() => setState((current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
+          </div>
+          <div className="games-panel-title" style={{ marginTop: 16 }}>
+            <h2>주간 운영</h2>
+            <span>{selectedPlayer?.name || '선수 없음'}</span>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {teamActions.map((action) => (
+              <ActionButton
+                key={action.id}
+                disabled={!action.canRun}
+                onClick={() => setState((current) => runTeamActionAction(current, selectedTeam.id, selectedPlayer.id, action.id))}
+              >
+                {action.label} · {action.effectText}{action.disabledReason ? ` · ${action.disabledReason}` : ''}
+              </ActionButton>
+            ))}
           </div>
         </section>
 
