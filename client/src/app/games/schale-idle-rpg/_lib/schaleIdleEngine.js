@@ -3050,6 +3050,115 @@ export function claimSeasonRewardsAction(state) {
   }, `시즌 보상 ${claimable.length}개 수령. +${credits.toLocaleString('ko-KR')} Cr.`);
 }
 
+function minutesBetween(from, to) {
+  const fromMs = new Date(from || '').getTime();
+  const toMs = new Date(to || '').getTime();
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) return 0;
+  return Math.max(0, Math.floor((toMs - fromMs) / 60000));
+}
+
+function buildSyncRow(id, label, value, detail, status = 'ready') {
+  return { id, label, value, detail, status };
+}
+
+export function accountSyncReportForState(state) {
+  const current = normalizeState(state);
+  const summary = {
+    floor: current.maxClearedFloor,
+    tower: current.towerMaxCleared,
+    power: teamPower(current),
+    score: scoreState(current),
+    credits: Number(current.credits || 0),
+  };
+  const dirtyMinutes = minutesBetween(current.lastSavedAt, current.updatedAt);
+  const saveFreshnessPct = dirtyMinutes <= 0 ? 100 : dirtyMinutes <= 10 ? 82 : dirtyMinutes <= 60 ? 58 : 32;
+  const presetCount = Number(current.equipmentPresets?.length || 0);
+  const equippedCount = getEquippedList(current).length;
+  const missionReady = missionRows(current).filter((mission) => mission.done && !mission.claimed).length;
+  const achievementReady = achievementRows(current).filter((achievement) => achievement.canClaim).length;
+  const seasonRewards = seasonRewardRows(current);
+  const syncScore = Math.round(clamp(
+    saveFreshnessPct * 0.34
+      + Math.min(100, equippedCount * 18) * 0.16
+      + Math.min(100, presetCount * 34) * 0.12
+      + Math.min(100, Number(current.seasonRewardClaims?.length || 0) * 22 + seasonRewards.claimedCount * 12) * 0.14
+      + Math.min(100, (missionReady + achievementReady + seasonRewards.claimableCount) ? 60 : 100) * 0.10
+      + Math.min(100, Object.values(current.counters || {}).reduce((sum, value) => sum + Number(value || 0), 0) / 5) * 0.14,
+    0,
+    100,
+  ));
+  const statusLabel = dirtyMinutes <= 0
+    ? '동기화됨'
+    : dirtyMinutes <= 10
+      ? '저장 권장'
+      : '저장 필요';
+  const syncRows = [
+    buildSyncRow(
+      'save-slot',
+      '빠른 저장 슬롯',
+      statusLabel,
+      dirtyMinutes <= 0
+        ? '현재 진행 상태가 저장 기준 시각과 일치합니다.'
+        : `마지막 저장 이후 약 ${dirtyMinutes}분 분량의 진행이 로컬에만 있습니다.`,
+      dirtyMinutes <= 0 ? 'complete' : 'ready',
+    ),
+    buildSyncRow(
+      'record-snapshot',
+      '전적 스냅샷',
+      summary.score.toLocaleString('ko-KR'),
+      `최고 F${summary.floor}, 탑 ${summary.tower}층, 전투력 ${summary.power.toLocaleString('ko-KR')} 기준으로 기록됩니다.`,
+      'ready',
+    ),
+    buildSyncRow(
+      'offline',
+      '오프라인 보상',
+      current.offlineLastSummary?.waves ? `${current.offlineLastSummary.waves}웨이브` : '대기 없음',
+      current.offlineLastSummary?.waves
+        ? `최근 오프라인 정산 크레딧 ${Number(current.offlineLastSummary.creditsGained || 0).toLocaleString('ko-KR')} Cr이 요약에 포함됩니다.`
+        : '저장 데이터를 불러오면 지난 접속 시간 보상이 자동 반영됩니다.',
+      current.offlineLastSummary?.waves ? 'complete' : 'idle',
+    ),
+    buildSyncRow(
+      'season',
+      '시즌 보상 상태',
+      `${seasonRewards.claimedCount}/${seasonRewards.totalCount}`,
+      seasonRewards.claimableCount
+        ? `수령 가능한 시즌 보상 ${seasonRewards.claimableCount}개가 남아 있습니다.`
+        : `시즌 진행률 ${seasonRewards.seasonPct}% 기준 보상 상태가 요약됩니다.`,
+      seasonRewards.claimableCount ? 'ready' : 'complete',
+    ),
+    buildSyncRow(
+      'presets',
+      '장비 프리셋',
+      `${presetCount}개`,
+      presetCount
+        ? '저장 슬롯 payload에 장비 프리셋과 활성 프리셋이 함께 보존됩니다.'
+        : '탑/방치용 프리셋을 저장해두면 장기 계정 성장 동기화 품질이 올라갑니다.',
+      presetCount ? 'complete' : 'idle',
+    ),
+  ];
+  const payloadRows = [
+    { label: '저장 payload', value: 'state 전체', detail: '장비, 프리셋, 상점 로테이션, 미션, 시즌 보상, 로그를 포함합니다.' },
+    { label: '전적 summary', value: 'account-progress', detail: '층/탑/전투력/점수/성장 리포트/시즌 리포트를 요약 저장합니다.' },
+    { label: '복귀 보정', value: `${Math.round(OFFLINE_CAP_MS / (60 * 60 * 1000))}시간 상한`, detail: '불러오기 시 오프라인 정산을 적용한 뒤 화면 상태를 갱신합니다.' },
+  ];
+  const recommendations = [];
+  if (dirtyMinutes > 0) recommendations.push('현재 로컬 진행이 저장 슬롯보다 앞서 있습니다. 저장을 눌러 서버 상태를 맞추세요.');
+  if (missionReady || achievementReady) recommendations.push('미션/업적 보상 수령 후 저장하면 계정 성장 요약이 더 정확합니다.');
+  if (seasonRewards.claimableCount) recommendations.push('시즌 보상을 수령한 뒤 전적 스냅샷을 남기면 시즌 진행 기록이 깔끔합니다.');
+  if (!presetCount) recommendations.push('장비 프리셋을 하나 저장하면 탑/방치 세팅 복원성이 좋아집니다.');
+  if (!recommendations.length) recommendations.push('저장 슬롯과 전적 스냅샷을 번갈아 남기면 장기 계정 성장 흐름을 안정적으로 추적할 수 있습니다.');
+  return {
+    syncScore,
+    statusLabel,
+    dirtyMinutes,
+    summary,
+    syncRows,
+    payloadRows,
+    recommendations,
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   return Math.max(0, Math.round(
@@ -3145,6 +3254,20 @@ export function summaryForState(state) {
           total: rewards.totalCount,
           nextReward: rewards.nextReward?.name || '',
         },
+      };
+    })(),
+    accountSync: (() => {
+      const sync = accountSyncReportForState(current);
+      return {
+        syncScore: sync.syncScore,
+        statusLabel: sync.statusLabel,
+        dirtyMinutes: sync.dirtyMinutes,
+        rows: sync.syncRows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          value: row.value,
+          status: row.status,
+        })),
       };
     })(),
     lastDutyReport: current.lastDutyReport ? {

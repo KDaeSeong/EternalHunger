@@ -309,7 +309,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'account-progress',
-    completionPct: 95,
+    completionPct: 100,
   },
   'ba-srpg': {
     stage: 'playable',
@@ -466,9 +466,9 @@ export const GAME_ROADMAP = [
     title: 'Schale Idle RPG',
     subtitle: 'Idle RPG',
     priority: '장기 성장형',
-    scope: '방치 정산, 장비, 타워, 미션, 강화, 분해, 상점, 일일 운영 플랜, 성장 리포트, 성장 로드맵, 시즌/장기 밸런스 리포트, 시즌 보상 테이블/수령, 저장/전적, 기능별 탭 UI',
-    summary: '방치 정산과 반복 성장, 장비 프리셋, 자동 분해, 탑 상점, 일일 운영 플랜, 오늘/주간/장기 로드맵, 시즌 트랙/장기 밸런스 점검, 시즌 진행률 기반 보상 테이블과 수령 상태까지 연결된 장기 성장형 playable slice입니다.',
-    nextStep: '서버 계정 성장 데이터 동기화와 원본 콘텐츠팩 기반 이벤트 시즌 변형을 강화합니다.',
+    scope: '방치 정산, 장비, 타워, 미션, 강화, 분해, 상점, 일일 운영 플랜, 성장 리포트, 성장 로드맵, 시즌/장기 밸런스 리포트, 시즌 보상 테이블/수령, 계정 동기화 리포트, 저장/전적, 기능별 탭 UI',
+    summary: '방치 정산과 반복 성장, 장비 프리셋, 자동 분해, 탑 상점, 일일 운영 플랜, 오늘/주간/장기 로드맵, 시즌 트랙/장기 밸런스 점검, 시즌 보상, 계정 동기화 payload 리포트까지 연결된 장기 성장형 playable slice입니다.',
+    nextStep: '완성 이후에는 실제 서버 계정 병합 정책과 추가 콘텐츠팩 시즌 같은 선택형 확장만 남았습니다.',
   },
   {
     slug: 'ba-srpg',
