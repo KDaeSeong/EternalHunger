@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -241,10 +241,225 @@ export default function Rail3dSimPlayPage() {
       title="Rail3D 운행 디버그"
       description="업로드된 rail3d-sim MVP의 샘플 노선, 서비스 시간표, 블록 점유와 STOP/GO 디버그 흐름을 사이트용 transport slice로 이식했습니다."
       summaryLabel="Rail3D Sim 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'operations',
+            label: '운행 보드',
+            badge: formatTime(state.nowS),
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>운행 판단</h2>
+                    <span>{completed === rows.length ? '운행 완료' : stopped ? '정지 발생' : '운행 중'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="종착" value={`${completed}/${rows.length}`} />
+                    <SmallStat label="STOP" value={stopped} />
+                    <SmallStat label="토큰 대기" value={tokenWaits} />
+                    <SmallStat label="누적 지연" value={`${report.totals.totalDelayS}s`} />
+                    <SmallStat label="총 대기" value={`${report.totals.totalWaitS}s`} />
+                    <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
+                  </div>
+                  <div className="games-activity-list" style={{ marginTop: 12 }}>
+                    {report.recommendations.map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>빠른 제어</h2>
+                    <span>Step {state.stepSeconds}s · Lookahead {state.lookaheadBlocks}</span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => stepAction(current))}>1 Step</ActionButton>
+                    <ActionButton onClick={() => setState((current) => runForAction(current, 300))}>5분 진행</ActionButton>
+                    <ActionButton onClick={() => setState((current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'map',
+            label: '미니맵',
+            badge: `${blocks.OCCUPIED}/${blocks.total}`,
+            children: (
+              <section className="games-panel">
+                <div className="games-panel-title">
+                  <h2>노선 미니맵</h2>
+                  <span>점유 {blocks.OCCUPIED} · 예약 {blocks.RESERVED}</span>
+                </div>
+                <RailMap state={state} selectedTrainId={selectedTrain?.id || selectedTrainId} />
+              </section>
+            ),
+          },
+          {
+            id: 'trains',
+            label: '열차',
+            badge: selectedTrain?.id || selectedTrainId,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>선택 열차</h2>
+                    <span>{selectedTrain?.signalState || '-'}</span>
+                  </div>
+                  <label className="game-save-json-field">
+                    <span>열차</span>
+                    <select value={selectedTrain?.id || selectedTrainId} onChange={(event) => setSelectedTrainId(event.target.value)}>
+                      {rows.map((row) => <option value={row.id} key={row.id}>{row.id} / {row.serviceName}</option>)}
+                    </select>
+                  </label>
+                  {selectedTrain ? (
+                    <>
+                      <div className="games-rank-split">
+                        <SmallStat label="상태" value={selectedTrain.phase} />
+                        <SmallStat label="현재 역" value={selectedTrain.currentStation} />
+                        <SmallStat label="다음 역" value={selectedTrain.nextStation} />
+                        <SmallStat label="속도" value={`${selectedTrain.speedKmh || 0}km/h`} />
+                        <SmallStat label="대기" value={`${selectedTrain.waitSeconds || 0}s`} />
+                        <SmallStat label="세그먼트" value={selectedTrain.segmentId || '-'} />
+                      </div>
+                      <div className="game-save-list" style={{ marginTop: 12 }}>
+                        <article className="game-save-row">
+                          <div>
+                            <span>{selectedTrain.pose.edgeId} / {Math.round(selectedTrain.pose.headS)}m</span>
+                            <strong>{selectedTrain.blockedBy ? `${selectedTrain.blockedBy} 때문에 대기` : '진행 가능'}</strong>
+                            <small>{selectedTrain.stopReason ? selectedTrain.stopReason.kind : '신호 대기 없음'}</small>
+                          </div>
+                          <strong>{selectedTrain.signalState}</strong>
+                        </article>
+                      </div>
+                    </>
+                  ) : <div className="games-empty">선택할 열차가 없습니다.</div>}
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>열차 목록</h2>
+                    <span>{rows.length}편성</span>
+                  </div>
+                  <div className="game-save-list">
+                    {rows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.serviceName} · 다음 {row.nextStation}</span>
+                          <strong>{row.id} {row.signalState} · {row.phase}</strong>
+                          <small>{row.stopReason ? `${row.stopReason.kind}${row.blockedBy ? ` by ${row.blockedBy}` : ''}` : '진행 가능'}</small>
+                        </div>
+                        <strong>{row.waitSeconds}s</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'schedule',
+            label: '시간표',
+            badge: `${report.totals.arrivedStops}/${report.totals.totalStops}`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>시간표 리포트</h2>
+                    <span>{report.totals.arrivedStops}/{report.totals.totalStops} stops</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="종착" value={`${report.totals.completed}/${report.totals.trains}`} />
+                    <SmallStat label="누적 지연" value={`${report.totals.totalDelayS}s`} />
+                    <SmallStat label="최대 지연" value={`${report.totals.maxDelayS}s`} />
+                    <SmallStat label="총 대기" value={`${report.totals.totalWaitS}s`} />
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>역별 운행판</h2>
+                    <span>{stationBoard.length}역</span>
+                  </div>
+                  <div className="game-save-list">
+                    {stationBoard.map((station) => (
+                      <article className="game-save-row" key={station.stationId}>
+                        <div>
+                          <span>도착 {station.arrived}/{station.totalCalls} · 출발 {station.departed}/{station.totalCalls}</span>
+                          <strong>{station.stationName}</strong>
+                          <small>{station.nextCall ? `다음 ${station.nextCall.trainId} · ${formatTime(station.nextCall.scheduledArriveS)}` : '남은 호출 없음'}</small>
+                        </div>
+                        <strong>{station.open ? `${station.open} 대기` : '완료'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'blocks',
+            label: '블록/토큰',
+            badge: `${tokenWaits}대기`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>블록 상태</h2>
+                    <span>{blocks.OCCUPIED}/{blocks.total}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="FREE" value={blocks.FREE} />
+                    <SmallStat label="OCCUPIED" value={blocks.OCCUPIED} />
+                    <SmallStat label="RESERVED" value={blocks.RESERVED} />
+                    <SmallStat label="대기초" value={rows.reduce((sum, row) => sum + row.waitSeconds, 0)} />
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>세그먼트 토큰</h2>
+                    <span>{segments.length}개</span>
+                  </div>
+                  <div className="game-save-list">
+                    {segments.map((segment) => (
+                      <article className="game-save-row" key={segment.id}>
+                        <div>
+                          <span>{segment.edgeIds.join(', ')} · entry {segment.entryStations.join(', ') || '-'}</span>
+                          <strong>{segment.id}</strong>
+                        </div>
+                        <strong>{segment.owner ? `${segment.owner} 점유` : 'FREE'}{segment.waiting.length ? ` · 대기 ${segment.waiting.join(', ')}` : ''}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'log',
+            label: '로그',
+            badge: `${state.log.length}`,
+            children: (
+              <section className="games-panel">
+                <div className="games-panel-title">
+                  <h2>운행 로그</h2>
+                  <span>{state.runId}</span>
+                </div>
+                <div className="games-activity-list">
+                  {state.log.slice(0, 12).map((line, index) => (
+                    <div key={`${line}-${index}`}><strong>{line}</strong></div>
+                  ))}
+                </div>
+              </section>
+            ),
+          },
+        ]}
+      />
+
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
