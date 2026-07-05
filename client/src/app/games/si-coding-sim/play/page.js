@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -317,10 +317,384 @@ export default function SiCodingSimPlayPage() {
       title="SI 코딩 시뮬레이터"
       description="업로드된 Step AQ/AR 과제팩의 문서, 코드 파일, 문자열 기반 검수 규칙, 힌트 비용, 프로젝트 종료 판정을 사이트용 challenge slice로 이식했습니다."
       summaryLabel="SI Coding Sim 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'field',
+            label: '현장 보드',
+            badge: `${Object.keys(state.taskOutcomes).length}/${activeTasks.length}`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>현재 현장</h2>
+                    <span>{state.taskSet?.title || '기본 현장'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="직급" value={profileSummary.career.rankTitle} />
+                    <SmallStat label="과제" value={`${Object.keys(state.taskOutcomes).length}/${activeTasks.length}`} />
+                    <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
+                    <SmallStat label="판정" value={latestEvaluation?.grade || '대기'} />
+                    <SmallStat label="예비비" value={`${support.cashReserve}pt`} />
+                    <SmallStat label="기술부채" value={state.resources.techDebt} />
+                  </div>
+                  <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
+                    {task.projectName} / {task.summary}
+                  </p>
+                  <div className="games-chip-row">
+                    {(task.tags || []).slice(0, 8).map((tag) => <span className="game-save-chip" key={`field-${tag}`}>{tag}</span>)}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>프로젝트 진행</h2>
+                    <span>{projectRows.length}개</span>
+                  </div>
+                  <div className="game-save-list">
+                    {projectRows.slice(0, 5).map((project) => (
+                      <article className="game-save-row" key={`tab-${project.projectName}`} style={project.active ? { borderColor: '#2673a6' } : null}>
+                        <div>
+                          <span>완료 {project.submittedTasks}/{project.totalTasks} · 평균 {project.averageScore}점</span>
+                          <strong>{project.projectName}</strong>
+                          <span>문서 {project.documentTasks} · 실행 {project.executionTasks} · 위험 {project.riskyTasks}</span>
+                        </div>
+                        <button type="button" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId)}>
+                          {project.progressPct}%
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>자원과 인사이트</h2>
+                    <span>{profileSummary.career.reputationLabel}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="체력" value={state.resources.stamina} />
+                    <SmallStat label="멘탈" value={state.resources.mentality} />
+                    <SmallStat label="고객신뢰" value={state.resources.clientTrust} />
+                    <SmallStat label="성장 제출" value={`${profileSummary.totalImprovedRuns}회`} />
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {insightRows.length ? insightRows.slice(0, 5).map((item) => (
+                      <article className="game-save-row" key={`field-${item.id}`}>
+                        <div>
+                          <span>{item.label}</span>
+                          <strong>{item.detail}</strong>
+                        </div>
+                      </article>
+                    )) : <div className="games-empty">현재 과제 인사이트가 없습니다.</div>}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'tasks',
+            label: '과제/팩',
+            badge: `${filteredRows.length}개`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>과제팩</h2>
+                    <span>{state.activeTasks?.length ? '생성 현장' : state.taskSet?.packId || 'stepAQ_AR'}</span>
+                  </div>
+                  <label className="game-save-json-field">
+                    <span>원본 챕터</span>
+                    <select
+                      value={state.activeTasks?.length ? '' : state.taskSet?.packId || 'stepAQ_AR'}
+                      onChange={(event) => selectTaskPack(event.target.value)}
+                    >
+                      {state.activeTasks?.length ? <option value="">생성 현장</option> : null}
+                      {packRows.map((pack) => (
+                        <option value={pack.id} key={`tab-${pack.id}`}>
+                          {pack.label} / {pack.taskCount}개 / {pack.version || 'v?'}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="game-save-list">
+                    {packRows.slice(0, 6).map((pack) => (
+                      <article className="game-save-row" key={`pack-${pack.id}`} style={pack.selected ? { borderColor: '#2673a6' } : null}>
+                        <div>
+                          <span>{pack.version || 'version unknown'} · 보상 {pack.rewardScore}pt</span>
+                          <strong>{pack.label}</strong>
+                          <span>{pack.title}</span>
+                        </div>
+                        <button type="button" className="tcg-primary-action" onClick={() => selectTaskPack(pack.id)}>
+                          {pack.taskCount}개
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>빠른 과제 선택</h2>
+                    <span>{filteredRows.length}/{rows.length}</span>
+                  </div>
+                  <div className="games-rank-split" style={{ marginBottom: 12 }}>
+                    <label className="game-save-json-field" style={{ margin: 0 }}>
+                      <span>검색</span>
+                      <input
+                        value={taskFilters.query}
+                        onChange={(event) => updateTaskFilter('query', event.target.value)}
+                        placeholder="과제, 프로젝트, 태그"
+                      />
+                    </label>
+                    <label className="game-save-json-field" style={{ margin: 0 }}>
+                      <span>특성</span>
+                      <select value={taskFilters.capability} onChange={(event) => updateTaskFilter('capability', event.target.value)}>
+                        <option value="all">전체</option>
+                        <option value="execution">실행/정적 채점</option>
+                        <option value="document">문서 체크</option>
+                        <option value="hint">힌트 있음</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="game-save-list">
+                    {filteredRows.slice(0, 8).map((row) => (
+                      <article className="game-save-row" key={`task-tab-${row.id}`}>
+                        <div>
+                          <span>{row.difficulty} / {row.modeLabel} · 문서 {row.documentCount} · 실행 {row.executionCount + row.hiddenExecutionCount} · 정적 {row.checkCount}</span>
+                          <strong>{row.id}</strong>
+                          <span>{row.projectName}</span>
+                        </div>
+                        <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id)}>
+                          {row.score === null ? row.status : `${row.score}점`}
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'docs',
+            label: '문서/힌트',
+            badge: documentProgress ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}` : `${revealedHints.length}`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>문서 체크</h2>
+                    <span>{documentPlay?.title || '문서 없음'}</span>
+                  </div>
+                  {documentPlay ? (
+                    <div className="game-save-list">
+                      {(documentPlay.reviewItems || []).map((item) => (
+                        <article className="game-save-row" key={`tab-doc-${item.id}`}>
+                          <div>
+                            <span>{item.detail} · 출처 {item.sourceDocId}</span>
+                            <strong>{item.title}</strong>
+                          </div>
+                          <label className="game-save-chip" style={{ cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(documentProgress?.selectedIds?.includes(item.id))}
+                              onChange={() => setState((current) => toggleDocumentReviewAction(current, task.id, item.id))}
+                              style={{ marginRight: 6 }}
+                            />
+                            {item.required ? '필수' : '함정'}
+                          </label>
+                        </article>
+                      ))}
+                    </div>
+                  ) : <div className="games-empty">문서 체크 과제가 아닙니다.</div>}
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>힌트</h2>
+                    <span>{revealedHints.length}/{task.hints?.length || 0}</span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                    <ActionButton onClick={() => setState((current) => revealHintAction(current, task.id))} disabled={revealedHints.length >= (task.hints?.length || 0)}>
+                      힌트 열기
+                    </ActionButton>
+                  </div>
+                  <div className="game-save-list">
+                    {revealedHints.length ? revealedHints.map((hint, index) => (
+                      <article className="game-save-row" key={`tab-hint-${hint}-${index}`}>
+                        <div>
+                          <span>힌트 {index + 1}</span>
+                          <strong>{hint}</strong>
+                        </div>
+                      </article>
+                    )) : <div className="games-empty">아직 열람한 힌트가 없습니다.</div>}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>원문 문서</h2>
+                    <span>{task.documents?.length || 0}개</span>
+                  </div>
+                  <div className="game-save-list">
+                    {(task.documents || []).slice(0, 4).map((doc) => (
+                      <article className="game-save-row" key={`tab-source-${doc.id}`}>
+                        <div>
+                          <span>{doc.id}</span>
+                          <strong>{doc.title}</strong>
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{doc.content}</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'code',
+            label: '코드/검수',
+            badge: outcome ? `${outcome.score}점` : '미제출',
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>코드 파일</h2>
+                    <span>{activeFile?.path || activeFileId}</span>
+                  </div>
+                  <label className="game-save-json-field">
+                    <span>파일</span>
+                    <select value={activeFileId} onChange={(event) => setSelectedFileId(event.target.value)}>
+                      {files.map((file) => (
+                        <option value={file.id} key={`tab-file-${file.id}`}>{file.path || file.id}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>패치 내용</span>
+                    <textarea
+                      value={activeContent}
+                      onChange={(event) => setState((current) => updateFileAction(current, task.id, activeFileId, event.target.value))}
+                      spellCheck={false}
+                      style={{ minHeight: 280, fontFamily: 'var(--font-mono, Consolas, monospace)' }}
+                    />
+                  </label>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>제출과 결과</h2>
+                    <span>{outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'}</span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                    <ActionButton onClick={() => setState((current) => submitTaskAction(current, task.id))}>현재 과제 검수</ActionButton>
+                    <ActionButton onClick={() => setState((current) => resetTaskAction(current, task.id))}>현재 과제 초기화</ActionButton>
+                    <ActionButton onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
+                  </div>
+                  <div className="game-save-list">
+                    {outcome ? outcome.results.map((result, index) => (
+                      <ResultRow result={result} key={`tab-result-${result.label}-${index}`} />
+                    )) : <div className="games-empty">현재 과제를 검수하면 규칙별 통과 여부가 표시됩니다.</div>}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>실행 규칙</h2>
+                    <span>{execution?.mockType || task.judgeMode || 'static'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="공개 테스트" value={execution?.tests?.length || 0} />
+                    <SmallStat label="숨김 테스트" value={execution?.hiddenTests?.length || 0} />
+                    <SmallStat label="정적 체크" value={task.judge?.checks?.length || 0} />
+                    <SmallStat label="엔트리" value={execution?.entryFileId || '-'} />
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'career',
+            label: '성장/지원',
+            badge: profileSummary.career.rankTitle,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>플레이어 성장</h2>
+                    <span>{profileSummary.career.reputationLabel}</span>
+                  </div>
+                  <div className="game-save-list">
+                    {profileSummary.statRows.map((item) => (
+                      <article className="game-save-row" key={`tab-stat-${item.key}`}>
+                        <div>
+                          <span>{item.summary}</span>
+                          <strong>{item.label}</strong>
+                        </div>
+                        <strong>Lv.{item.level}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>회사 지원</h2>
+                    <span>예비비 {support.cashReserve}pt</span>
+                  </div>
+                  <div className="game-save-list">
+                    {(support.actions || []).map((item) => (
+                      <article className="game-save-row" key={`tab-support-${item.key}`}>
+                        <div>
+                          <span>{item.detail}</span>
+                          <strong>{item.title}</strong>
+                        </div>
+                        <button
+                          type="button"
+                          className="tcg-primary-action"
+                          disabled={item.disabled}
+                          onClick={() => setState((current) => applyCompanySupportAction(current, task.id, item.key))}
+                        >
+                          {item.cost}pt
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>후속 현장</h2>
+                    <span>{seedRoadmap.generatedSeeds.length}종</span>
+                  </div>
+                  {seedRoadmap.followUpPlan ? (
+                    <div className="game-save-list">
+                      {seedRoadmap.generatedSeeds.slice(0, 4).map((seed) => (
+                        <article className="game-save-row" key={`tab-seed-${seed.id}`} style={seed.id === seedRoadmap.selectedSeed?.id ? { borderColor: '#2673a6' } : null}>
+                          <div>
+                            <span>{seed.recommendation} · 적합도 {seed.fitScore}점</span>
+                            <strong>{seed.projectName}</strong>
+                            <span>{seed.client} · {seed.module}</span>
+                          </div>
+                          <button type="button" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
+                            {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `${seed.rewardScore}pt`}
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  ) : <div className="games-empty">프로젝트 종료 판정 후 차기 현장 후보가 생성됩니다.</div>}
+                </section>
+              </section>
+            ),
+          },
+        ]}
+      />
+
       <section className="games-detail-grid">
         <section className="games-panel" ref={documentPanelRef}>
           <div className="games-panel-title">
