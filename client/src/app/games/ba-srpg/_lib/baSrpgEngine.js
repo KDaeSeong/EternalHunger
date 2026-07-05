@@ -998,6 +998,16 @@ function aliveEnemies(battle) {
   return battle.enemies.filter((enemy) => enemy.hp > 0);
 }
 
+function allAliveUnitsDone(battle) {
+  return aliveUnits(battle).every((row) => row.acted || Number(row.ap || 0) <= 0);
+}
+
+function finishPlayerAction(state, battle, message) {
+  const resolved = applyBattleOutcome(addLog(state, message), battle);
+  if (resolved.battle?.phase !== 'player') return resolved;
+  return allAliveUnitsDone(resolved.battle) ? endTurnAction(resolved) : resolved;
+}
+
 function applyBattleOutcome(state, battle) {
   if (!aliveEnemies(battle).length) return grantMissionReward(state, { ...battle, phase: 'cleared', lastResult: '승리' });
   if (!aliveUnits(battle).length) {
@@ -1101,6 +1111,7 @@ export function moveSelectedAction(state, dx, dy) {
   if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '이동할 학생이 없습니다.');
+  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const x = Number(unit.x || 0) + Number(dx || 0);
   const y = Number(unit.y || 0) + Number(dy || 0);
@@ -1126,6 +1137,7 @@ export function attackSelectedAction(state, enemyId) {
   const unit = selectedUnit(battle);
   const enemy = battle.enemies.find((row) => row.id === enemyId && row.hp > 0) || selectedEnemy(battle);
   if (!unit || !enemy) return addLog(current, '공격 대상이 없습니다.');
+  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   if (distance(unit, enemy) > Number(unit.range || 1)) return addLog(current, `${enemy.name}이(가) 사거리 밖입니다.`);
   const bonus = weaponBonus(current);
@@ -1148,7 +1160,7 @@ export function attackSelectedAction(state, enemyId) {
     targetEnemyId: defeated ? '' : enemy.id,
     lastResult: hit ? `${unit.name} -> ${enemy.name} ${damage} 피해${shieldText}${defeated ? ' 격파' : ''}` : `${unit.name} 공격 빗나감`,
   };
-  return applyBattleOutcome(addLog(current, nextBattle.lastResult), nextBattle);
+  return finishPlayerAction(current, nextBattle, nextBattle.lastResult);
 }
 
 export function executeSkillAction(state, skillId) {
@@ -1158,6 +1170,7 @@ export function executeSkillAction(state, skillId) {
   const skill = TACTICAL_SKILLS.find((row) => row.id === skillId) || TACTICAL_SKILLS[0];
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '스킬을 사용할 학생이 없습니다.');
+  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) < Number(skill.apCost || 0)) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
 
   if (skill.target === 'self') {
@@ -1171,13 +1184,10 @@ export function executeSkillAction(state, skillId) {
     const resultText = skill.heal
       ? `${unit.name} ${skill.name}. HP +${skill.heal}`
       : `${unit.name} ${skill.name}. 보호막 +${skill.shield}`;
-    return addLog({
-      ...current,
-      battle: {
-        ...battle,
-        units: nextUnits,
-        lastResult: resultText,
-      },
+    return finishPlayerAction(current, {
+      ...battle,
+      units: nextUnits,
+      lastResult: resultText,
     }, resultText);
   }
 
@@ -1223,7 +1233,7 @@ export function executeSkillAction(state, skillId) {
     targetEnemyId: defeated ? '' : enemy.id,
     lastResult: resultText,
   };
-  return applyBattleOutcome(addLog(current, resultText), nextBattle);
+  return finishPlayerAction(current, nextBattle, resultText);
 }
 
 export function consumeBandageAction(state) {
@@ -1232,6 +1242,7 @@ export function consumeBandageAction(state) {
   const unit = selectedUnit(battle);
   if (!unit) return current;
   if (Number(current.inventory.con_bandage || 0) <= 0) return addLog(current, '붕대가 없습니다.');
+  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const heal = 16;
   const nextBattle = {
@@ -1249,8 +1260,7 @@ export function consumeBandageAction(state) {
     battle: nextBattle,
   }, `${unit.name} HP +${heal}`);
 
-  const allDone = aliveUnits(nextBattle).every((row) => row.acted || Number(row.ap || 0) <= 0);
-  return allDone ? endTurnAction(next) : next;
+  return allAliveUnitsDone(nextBattle) ? endTurnAction(next) : next;
 }
 
 export function waitSelectedUnitAction(state) {
@@ -1273,8 +1283,7 @@ export function waitSelectedUnitAction(state) {
     battle: nextBattle,
   }, nextBattle.lastResult);
 
-  const allDone = aliveUnits(nextBattle).every((row) => row.acted || Number(row.ap || 0) <= 0);
-  return allDone ? endTurnAction(next) : next;
+  return allAliveUnitsDone(nextBattle) ? endTurnAction(next) : next;
 }
 
 function stepToward(actor, target, battle) {

@@ -129,6 +129,7 @@ export default function BaSrpgPlayPage() {
   const battle = state.battle;
   const mission = getMission(battle.missionId);
   const selectedUnit = battle.units.find((unit) => unit.id === battle.selectedUnitId) || battle.units[0];
+  const selectedCanAct = battle.phase === 'player' && selectedUnit && !selectedUnit.acted && Number(selectedUnit.ap || 0) > 0;
   const targetEnemy = battle.enemies.find((enemy) => enemy.id === battle.targetEnemyId && enemy.hp > 0);
   const formation = useMemo(() => formationRows(state), [state]);
   const rows = useMemo(() => inventoryRows(state), [state]);
@@ -355,10 +356,10 @@ export default function BaSrpgPlayPage() {
             <SmallStat label="사거리" value={selectedUnit?.range ?? 0} />
           </div>
           <div className="srpg-pad">
-            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
-            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
-            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
-            <button type="button" onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
+            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
+            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
+            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
+            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
           </div>
         </section>
 
@@ -385,16 +386,16 @@ export default function BaSrpgPlayPage() {
             대상 {selectedSkill?.targetName || '-'} · 사거리 {selectedSkill?.rangeText || '-'} · {selectedSkill?.note || ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={!targetEnemy || battle.phase !== 'player'} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
+            <ActionButton disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
             <ActionButton disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, skillId))}>선택 스킬 사용</ActionButton>
             <ActionButton
-              disabled={battle.phase !== 'player' || !selectedUnit || selectedUnit.acted || Number(selectedUnit.ap || 0) <= 0 || Number(state.inventory.con_bandage || 0) <= 0}
+              disabled={!selectedCanAct || Number(state.inventory.con_bandage || 0) <= 0}
               onClick={() => setState((current) => consumeBandageAction(current))}
             >
               붕대 사용 (x{Number(state.inventory.con_bandage || 0)})
             </ActionButton>
             <ActionButton
-              disabled={battle.phase !== 'player' || !selectedUnit || selectedUnit.acted || Number(selectedUnit.ap || 0) <= 0}
+              disabled={!selectedCanAct}
               onClick={() => setState((current) => waitSelectedUnitAction(current))}
             >
               대기
