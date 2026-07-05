@@ -44,6 +44,7 @@ import {
   researchSummary,
   runCampAction,
   runCraftAction,
+  runAutoDayAction,
   runEatAction,
   runGatherAction,
   runHuntAction,
@@ -324,6 +325,7 @@ export default function PrimitiveArchivePlayPage() {
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
+      <button type="button" onClick={() => setState((current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</button>
       <button type="button" onClick={() => setState((current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</button>
       <button type="button" onClick={() => setState((current) => settleRunAction(current))}>런 정산</button>
       <Link href="/myanime/primitive-archive">상세</Link>

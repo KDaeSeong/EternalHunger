@@ -1766,3 +1766,202 @@ export function runCampAction(state, actorId, kind, options = {}) {
   const campStaminaCost = Math.max(5, staminaCostWithEquipment(state, actorId, 'camp', 14) - bookCampStaminaReduction(next));
   return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, campStaminaCost, 2, options);
 }
+
+function livingParty(state) {
+  return state.party.filter((member) => Number(member.hp || 0) > 0);
+}
+
+function foodAvailable(state) {
+  return ['cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+    .some((id) => Number(state.inventory[id] || 0) > 0);
+}
+
+function pickActorForAuto(state, action = 'gather') {
+  const candidates = livingParty(state);
+  if (!candidates.length) return state.party[0]?.id || '';
+  return candidates
+    .map((member) => {
+      const stamina = Number(member.stamina || 0);
+      const hp = Number(member.hp || 0);
+      const hungerSafety = 100 - Number(member.hunger || 0);
+      return {
+        id: member.id,
+        score: actionChance(state, member.id, action, action === 'hunt' ? 0.42 : action === 'craft' ? 0.5 : 0.5) * 120
+          + stamina * 0.28
+          + hp * 0.16
+          + hungerSafety * 0.1,
+      };
+    })
+    .sort((a, b) => b.score - a.score)[0].id;
+}
+
+function pickAutoCareActor(state) {
+  const candidates = livingParty(state);
+  if (!candidates.length) return state.party[0]?.id || '';
+  return candidates
+    .map((member) => ({
+      id: member.id,
+      score: Number(member.hunger || 0) * 1.6
+        + Math.max(0, 55 - Number(member.hp || 0)) * 1.25
+        + Math.max(0, 45 - Number(member.stamina || 0))
+        + Math.max(0, 35.2 - Number(member.bodyTemp ?? 37)) * 20,
+    }))
+    .sort((a, b) => b.score - a.score)[0].id;
+}
+
+function autoRecipeAllowed(state, recipe) {
+  if (!recipe || !hasResources(state.inventory, recipe.requires)) return false;
+  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_SYSTEM_UNLOCK')) return false;
+  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_BONUS_UP')) return false;
+  return true;
+}
+
+function pickAutoRecipe(state) {
+  const priority = [
+    'jerky',
+    'herb_tonic',
+    'twine',
+    'stone_axe',
+    'bow',
+    'flint_knife',
+    'bone_pick',
+    'spear',
+    'sling',
+    'atlatl',
+    'leather_strip',
+    'hide_coat',
+    'hide_pants',
+    'shoes_leather',
+    'hat_fur',
+    'gloves',
+    'earmuffs',
+    'socks',
+    'arm_warmers',
+    'leggings',
+    'pauldron',
+    'fur_coat',
+    'fur_pants',
+    'fur_hat',
+    'fur_boots',
+    'fur_earmuffs',
+    'fur_socks',
+    'fur_gloves',
+    'charm',
+    'hunter_talisman',
+    'crafter_amulet',
+    'gatherer_charm',
+    'book_craft_guide',
+    'book_camp_manual',
+  ];
+  return priority
+    .map((id) => RECIPES.find((recipe) => recipe.id === id))
+    .find((recipe) => autoRecipeAllowed(state, recipe)) || null;
+}
+
+function pickAutoCampKind(state) {
+  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 && hasResources(state.inventory, { meat: 1 })) return 'cook';
+  if (Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) < 2 && hasResources(state.inventory, { wood: 1 })) return 'fuel';
+  if (Number(state.camp.fireLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2 })) return 'fire';
+  if (Number(state.camp.shelterLevel || 0) < 1 && hasResources(state.inventory, { wood: 3, fiber: 2, hide: 1 })) return 'shelter';
+  if (Number(state.camp.workbenchLevel || 0) < 1 && hasResources(state.inventory, { wood: 4, stone: 2 })) return 'workbench';
+  if (hasTechCampUnlock(state, 'archive_room') && Number(state.camp.archiveRoomLevel || 0) < 1 && hasResources(state.inventory, { wood: 5, stone: 3, fiber: 3, hide: 1 })) return 'archive';
+  if (hasTechCampUnlock(state, 'scribe_desk') && Number(state.camp.scribeDeskLevel || 0) < 1 && hasResources(state.inventory, { wood: 2, stone: 2, clay: 2, fiber: 2 })) return 'scribe';
+  if (hasTechCampUnlock(state, 'library_shelf') && Number(state.camp.libraryShelfLevel || 0) < 1 && hasResources(state.inventory, { wood: 4, fiber: 4, resin: 2, clay: 2 })) return 'library';
+  if (Number(state.camp.fireLevel || 0) < 3 && hasResources(state.inventory, { wood: 2, stone: 2 })) return 'fire';
+  if (Number(state.camp.shelterLevel || 0) < 3 && hasResources(state.inventory, { wood: 3, fiber: 2, hide: 1 })) return 'shelter';
+  if (Number(state.camp.workbenchLevel || 0) < 2 && hasResources(state.inventory, { wood: 4, stone: 2 })) return 'workbench';
+  return '';
+}
+
+function pickAutoZone(state, action) {
+  if (action === 'hunt') {
+    if (Number(state.inventory.meat || 0) < 2) return 'plains';
+    if (Number(state.inventory.tooth || 0) < 1 || Number(state.inventory.sinew || 0) < 1) return 'forest';
+    return 'cave';
+  }
+  if (Number(state.inventory.wood || 0) < 5 || Number(state.inventory.fiber || 0) < 5) return 'forest';
+  if (Number(state.inventory.stone || 0) < 5 || Number(state.inventory.clay || 0) < 2 || Number(state.inventory.herb || 0) < 2) return 'river';
+  if (Number(state.inventory.flint || 0) < 2 || Number(state.inventory.obsidian_shard || 0) < 1) return 'cave';
+  return 'plains';
+}
+
+function autoActionSignature(state) {
+  return [
+    state.day,
+    state.ap,
+    state.log.length,
+    averageParty(state, 'hp'),
+    averageParty(state, 'hunger'),
+    averageParty(state, 'stamina'),
+    Object.entries(state.inventory).reduce((sum, [, qty]) => sum + Number(qty || 0), 0),
+  ].join(':');
+}
+
+function runNextAutoArchiveAction(state, options = {}) {
+  const careActorId = pickAutoCareActor(state);
+  const careActor = getActor(state, careActorId);
+  const averageHunger = averageParty(state, 'hunger');
+  const foodStock = Number(state.inventory.meat || 0)
+    + Number(state.inventory.berry || 0)
+    + Number(state.inventory.jerky || 0)
+    + Number(state.inventory.cooked_meat || 0);
+  if (foodAvailable(state) && (Number(careActor?.hunger || 0) >= 52 || averageHunger >= 50)) {
+    return runEatAction(state, careActorId, options);
+  }
+  if (!foodAvailable(state) && averageHunger >= 70 && Number(careActor?.hp || 0) > 20) {
+    return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+  }
+  if (Number(careActor?.hp || 0) <= 45 || Number(careActor?.stamina || 0) <= 28 || Number(careActor?.bodyTemp ?? 37) <= 34.4) {
+    return runRestAction(state, careActorId, options);
+  }
+
+  if (averageHunger >= 55 && foodStock < state.party.length + 2) {
+    if (averageParty(state, 'hp') < 55) {
+      return runGatherAction(state, pickActorForAuto(state, 'gather'), 'forest', options);
+    }
+    return runHuntAction(state, pickActorForAuto(state, 'hunt'), pickAutoZone(state, 'hunt'), options);
+  }
+
+  const campKind = pickAutoCampKind(state);
+  if (campKind) return runCampAction(state, pickActorForAuto(state, 'craft'), campKind, options);
+
+  const recipe = pickAutoRecipe(state);
+  if (recipe && (Number(state.counters?.craft || 0) < Number(state.counters?.gather || 0) + 2 || recipe.id.startsWith('book_'))) {
+    return runCraftAction(state, pickActorForAuto(state, 'craft'), recipe.id, options);
+  }
+
+  const research = researchSummary(state);
+  if (research.selected && !research.selected.completed && Number(state.day || 1) >= 2) {
+    return runResearchAction(state, pickActorForAuto(state, 'craft'), options);
+  }
+
+  if (foodStock < state.party.length + 1) {
+    return runHuntAction(state, pickActorForAuto(state, 'hunt'), pickAutoZone(state, 'hunt'), options);
+  }
+  return runGatherAction(state, pickActorForAuto(state, 'gather'), pickAutoZone(state, 'gather'), options);
+}
+
+export function runAutoDayAction(state, options = {}) {
+  let next = normalizeState(state);
+  const hasEquipmentPool = Object.entries(buildEquipmentPool(next))
+    .some(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip');
+  if (hasEquipmentPool) {
+    next = autoEquipAction(next, Number(next.weather?.cold || 0) >= 5 ? 'weather' : 'role');
+  }
+  if (next.ended || Number(next.ap || 0) <= 0) return next;
+
+  const startDay = next.day;
+  let steps = 0;
+  while (!next.ended && Number(next.ap || 0) > 0 && next.day === startDay && steps < 16) {
+    const before = autoActionSignature(next);
+    next = runNextAutoArchiveAction(next, options);
+    steps += 1;
+    if (autoActionSignature(next) === before) {
+      next = runGatherAction(next, pickActorForAuto(next, 'gather'), pickAutoZone(next, 'gather'), options);
+      steps += 1;
+      if (autoActionSignature(next) === before) break;
+    }
+  }
+
+  return addLog(next, `하루 자동 운영 완료: ${steps}회 행동 처리, Day ${next.day}, AP ${next.ap}/${next.apMax}.`);
+}
