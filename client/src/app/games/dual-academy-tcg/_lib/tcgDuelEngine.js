@@ -260,6 +260,132 @@ export function summarizeDuel(state) {
   };
 }
 
+function emptyReportStats(player) {
+  return {
+    player,
+    label: PLAYER_LABELS[player] || player,
+    draws: 0,
+    summons: 0,
+    sets: 0,
+    effects: 0,
+    attacks: 0,
+    damageDealt: 0,
+    damageTaken: 0,
+    wins: 0,
+    losses: 0,
+  };
+}
+
+function parseLpDamage(text) {
+  const match = String(text || '').match(/(\d+)\s*LP\s*피해/);
+  return match ? Math.max(0, Number(match[1] || 0)) : 0;
+}
+
+function fieldCount(playerState) {
+  return (Array.isArray(playerState?.monster) ? playerState.monster.filter(Boolean).length : 0)
+    + (Array.isArray(playerState?.spellTrap) ? playerState.spellTrap.filter(Boolean).length : 0)
+    + (playerState?.field ? 1 : 0);
+}
+
+function reportSummaryForPlayer(playerState, stats) {
+  return {
+    ...stats,
+    lp: Number(playerState?.lp || 0),
+    deck: Array.isArray(playerState?.deck) ? playerState.deck.length : 0,
+    hand: Array.isArray(playerState?.hand) ? playerState.hand.length : 0,
+    fieldCards: fieldCount(playerState),
+    grave: Array.isArray(playerState?.grave) ? playerState.grave.length : 0,
+    banished: Array.isArray(playerState?.banished) ? playerState.banished.length : 0,
+    tempoScore: Math.round(stats.summons * 3 + stats.effects * 2 + stats.attacks * 2 + fieldCount(playerState) * 2 - stats.damageTaken / 800),
+  };
+}
+
+export function matchReportForState(state) {
+  const safe = state && typeof state === 'object' ? state : {};
+  const events = Array.isArray(safe.events) ? safe.events : [];
+  const chronological = events.slice().reverse();
+  const stats = {
+    player: emptyReportStats('player'),
+    enemy: emptyReportStats('enemy'),
+  };
+  const typeCounts = {};
+
+  chronological.forEach((event) => {
+    const type = String(event?.type || 'UNKNOWN');
+    const actor = PLAYERS.includes(event?.actor) ? event.actor : '';
+    typeCounts[type] = Number(typeCounts[type] || 0) + 1;
+    if (!actor) return;
+
+    const row = stats[actor];
+    if (type === 'DRAW') row.draws += 1;
+    if (type === 'SUMMON') row.summons += 1;
+    if (type === 'SET') row.sets += 1;
+    if (type === 'EFFECT_ACTIVATE') row.effects += 1;
+    if (type === 'WIN') row.wins += 1;
+    if (type === 'LOSE') row.losses += 1;
+
+    if (type === 'ATTACK_DECLARE') {
+      row.attacks += 1;
+      const directDamage = parseLpDamage(event.text);
+      if (directDamage > 0) {
+        row.damageDealt += directDamage;
+        stats[opponent(actor)].damageTaken += directDamage;
+      }
+    }
+
+    if (type === 'DAMAGE_TAKEN') {
+      const damage = parseLpDamage(event.text);
+      row.damageTaken += damage;
+      stats[opponent(actor)].damageDealt += damage;
+    }
+  });
+
+  const playerState = safe.players?.player || {};
+  const enemyState = safe.players?.enemy || {};
+  const player = reportSummaryForPlayer(playerState, stats.player);
+  const enemy = reportSummaryForPlayer(enemyState, stats.enemy);
+  const lpDiff = player.lp - enemy.lp;
+  const winner = safe.winner || '';
+  const headline = winner
+    ? `${PLAYER_LABELS[winner] || winner} 승리: ${player.label} ${player.lp} LP / ${enemy.label} ${enemy.lp} LP`
+    : lpDiff === 0
+      ? `${safe.turn || 1}턴 ${safe.phase || 'MAIN1'} 진행 중: LP 균형`
+      : `${safe.turn || 1}턴 ${safe.phase || 'MAIN1'} 진행 중: ${lpDiff > 0 ? player.label : enemy.label} ${Math.abs(lpDiff)} LP 우세`;
+  const highlights = chronological
+    .slice(-6)
+    .reverse()
+    .map((event) => `T${event.turn} ${event.phase} · ${PLAYER_LABELS[event.actor] || event.actor} · ${event.text}`);
+  const recommendations = [
+    !winner && player.hand >= 6 ? '패가 많습니다. 소환/세트/마법 발동으로 손패를 줄이는 쪽이 좋습니다.' : '',
+    !winner && player.deck <= 5 ? '덱이 얼마 남지 않았습니다. 장기전보다 빠른 마무리를 노리세요.' : '',
+    !winner && enemy.fieldCards > player.fieldCards ? '필드 수에서 밀립니다. 제거 효과나 가드 몬스터를 우선 확인하세요.' : '',
+    !winner && player.damageTaken > enemy.damageTaken ? '누적 피해가 더 큽니다. BATTLE 진입 전 수비 표시와 보호막을 점검하세요.' : '',
+    !winner && Array.isArray(safe.chain) && safe.chain.length ? '체인이 쌓여 있습니다. 응답/해결 순서를 먼저 처리해야 합니다.' : '',
+    winner ? '전적 저장 후 덱/로그를 비교하면 다음 밸런스 조정 포인트를 잡기 쉽습니다.' : '',
+  ].filter(Boolean);
+
+  if (!recommendations.length) {
+    recommendations.push('현재 보드 균형이 좋습니다. 다음 페이즈 전 공격 가능한 몬스터와 세트 카드를 확인하세요.');
+  }
+
+  return {
+    headline,
+    eventCount: events.length,
+    turn: Number(safe.turn || 1),
+    phase: safe.phase || 'MAIN1',
+    winner,
+    winnerLabel: winner ? PLAYER_LABELS[winner] || winner : '진행 중',
+    lpDiff,
+    players: { player, enemy },
+    typeRows: Object.entries(typeCounts)
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type))
+      .slice(0, 6),
+    highlights,
+    recommendations,
+  };
+}
+
 export function drawCards(state, player, count = 1) {
   let next = state;
   for (let index = 0; index < count; index += 1) {

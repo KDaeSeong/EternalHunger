@@ -38,6 +38,7 @@ import {
   confirmTrigger,
   createDuelState,
   declareAttack,
+  matchReportForState,
   normalizeDuelState,
   normalSummon,
   passResponse,
@@ -610,6 +611,19 @@ function DualAcademyTcgPlayContent() {
     };
   }, [applyRoomMatch, loadingDeck, localRoomDirty, mounted, room?.revision, roomBusy, roomId, roomLoaded, token]);
 
+  const summary = summarizeDuel(state);
+  const matchReport = useMemo(() => matchReportForState(state), [state]);
+  const matchReportSummary = useMemo(() => ({
+    headline: matchReport.headline,
+    eventCount: matchReport.eventCount,
+    lpDiff: matchReport.lpDiff,
+    winnerLabel: matchReport.winnerLabel,
+    playerTempo: matchReport.players.player.tempoScore,
+    enemyTempo: matchReport.players.enemy.tempoScore,
+    playerDamageDealt: matchReport.players.player.damageDealt,
+    enemyDamageDealt: matchReport.players.enemy.damageDealt,
+  }), [matchReport]);
+
   useEffect(() => {
     if (!mounted || !token || !state.winner || recordedMatchIds.includes(state.matchId)) return;
     let cancelled = false;
@@ -628,6 +642,7 @@ function DualAcademyTcgPlayContent() {
             deckName,
             ...summarizeDuel(state),
             result,
+            matchReport: matchReportSummary,
           },
           payload: {
             deckName,
@@ -668,7 +683,7 @@ function DualAcademyTcgPlayContent() {
     return () => {
       cancelled = true;
     };
-  }, [deckCardIds, deckName, mounted, recordedMatchIds, room?.hostId, roomId, state, token]);
+  }, [deckCardIds, deckName, matchReportSummary, mounted, recordedMatchIds, room?.hostId, roomId, state, token]);
 
   useEffect(() => {
     if (state.turnPlayer !== 'enemy') return;
@@ -687,7 +702,6 @@ function DualAcademyTcgPlayContent() {
   const latestCharacter = latestActor === 'enemy' ? enemyCharacter : playerCharacter;
   const latestQuote = latestEvent ? renderTcgQuote(latestCharacter, latestEvent) : '이벤트 대기 중입니다.';
   const selectedCard = state.players.player.hand.find((card) => card.instanceId === selectedHandId) || null;
-  const summary = summarizeDuel(state);
   const canAct = !state.winner && state.turnPlayer === 'player' && state.prompt.kind === 'NONE' && state.chain.length === 0;
   const canMain = canAct && (state.phase === 'MAIN1' || state.phase === 'MAIN2');
   const canAutoPlayPlayer = !state.winner
@@ -770,6 +784,7 @@ function DualAcademyTcgPlayContent() {
         summary: {
           deckName,
           ...summary,
+          matchReport: matchReportSummary,
         },
         payload: {
           deckName,
@@ -854,6 +869,7 @@ function DualAcademyTcgPlayContent() {
         summary: {
           deckName,
           ...summary,
+          matchReport: matchReportSummary,
         },
         state: {
           deckName,
@@ -1146,6 +1162,55 @@ function DualAcademyTcgPlayContent() {
         {activeTcgTab === 'logs' ? (
           <>
           <section className="tcg-layout is-single">
+            <aside className="tcg-panel">
+              <h2>매치 리포트</h2>
+              <section className={`tcg-event-callout is-${state.winner === 'enemy' ? 'red' : state.winner === 'player' ? 'green' : 'gold'}`}>
+                <span>{matchReport.winnerLabel}</span>
+                <strong>{matchReport.headline}</strong>
+                <p>이벤트 {matchReport.eventCount}건 · LP 차이 {matchReport.lpDiff >= 0 ? '+' : ''}{matchReport.lpDiff}</p>
+              </section>
+              <dl className="tcg-small-stats">
+                <div>
+                  <dt>내 템포</dt>
+                  <dd>{matchReport.players.player.tempoScore}</dd>
+                </div>
+                <div>
+                  <dt>AI 템포</dt>
+                  <dd>{matchReport.players.enemy.tempoScore}</dd>
+                </div>
+                <div>
+                  <dt>내 누적 피해</dt>
+                  <dd>{matchReport.players.player.damageDealt}</dd>
+                </div>
+                <div>
+                  <dt>AI 누적 피해</dt>
+                  <dd>{matchReport.players.enemy.damageDealt}</dd>
+                </div>
+              </dl>
+              <div className="game-save-list">
+                {matchReport.recommendations.map((line, index) => (
+                  <article className="game-save-row" key={`tcg-report-rec-${index}`}>
+                    <div>
+                      <span>권장 플레이</span>
+                      <strong>{line}</strong>
+                    </div>
+                    <strong>{index + 1}</strong>
+                  </article>
+                ))}
+              </div>
+              {matchReport.highlights.length ? (
+                <div className="game-save-list">
+                  {matchReport.highlights.slice(0, 4).map((line, index) => (
+                    <article className="game-save-row" key={`tcg-report-hi-${index}`}>
+                      <div>
+                        <span>하이라이트</span>
+                        <strong>{line}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </aside>
             <aside className="tcg-panel tcg-log">
             <h2>v13 이벤트</h2>
             <section className={`tcg-event-callout is-${latestCharacter.tone}`}>
