@@ -34,6 +34,7 @@ import {
   initDuelState,
   mulliganAll,
   normalizeRules,
+  playtestMatchupReport,
   retireCircle,
   rideFromHand,
   scoreDeck,
@@ -323,6 +324,7 @@ export default function BaVanguardPlayPage() {
   const summary = useMemo(() => summarizeDeck(deck), [deck]);
   const openingHand = useMemo(() => drawOpeningHand(deck, seed, 5), [deck, seed]);
   const deckReport = useMemo(() => deckConsistencyReport(deck, seed, rules), [deck, seed, rules]);
+  const matchupReport = useMemo(() => playtestMatchupReport(deck, opponentDeck, seed, rules, 20), [deck, opponentDeck, seed, rules]);
   const openingStats = deckReport.opening;
   const compositionRows = deckReport.composition;
   const score = scoreDeck(deck, rules);
@@ -592,6 +594,7 @@ export default function BaVanguardPlayPage() {
     { label: '진행', value: duel.winner ? `${SIDE_LABELS[duel.winner]} 승리` : `${SIDE_LABELS[duel.active]} 차례` },
     { label: '내 데미지', value: `${me.damage.length}/6` },
     { label: 'AI 데미지', value: `${opp.damage.length}/6` },
+    { label: '실험 승률', value: `${matchupReport.winRate}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -832,6 +835,40 @@ export default function BaVanguardPlayPage() {
       </section>
 
       <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>매치업 실험실</h2>
+            <span>{matchupReport.samples ? `${matchupReport.samples}판 자동 실험` : '대기'}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="승률" value={`${matchupReport.winRate}%`} />
+            <SmallStat label="전적" value={`${matchupReport.wins}승 ${matchupReport.losses}패`} />
+            <SmallStat label="평균 턴" value={matchupReport.averageTurn} />
+            <SmallStat label="선공 승률" value={`${matchupReport.firstWinRate}%`} />
+            <SmallStat label="후공 승률" value={`${matchupReport.secondWinRate}%`} />
+            <SmallStat label="평균 피해" value={`${matchupReport.averageMeDamage}/${matchupReport.averageOppDamage}`} />
+          </div>
+          <div className="games-activity-list" style={{ marginTop: 12 }}>
+            {matchupReport.recommendations.map((row) => (
+              <div key={row}><strong>{row}</strong></div>
+            ))}
+          </div>
+          {matchupReport.rows.length ? (
+            <div className="game-save-list" style={{ marginTop: 12 }}>
+              {matchupReport.rows.slice(0, 4).map((row) => (
+                <article className="game-save-row" key={row.index}>
+                  <div>
+                    <span>{row.first === 'me' ? '내 선공' : 'AI 선공'} · {row.turn}턴</span>
+                    <strong>{row.winner === 'me' ? '승리' : row.winner === 'opp' ? '패배' : '미결'}</strong>
+                    <small>피해 {row.meDamage}/{row.oppDamage} · 덱 {row.meDeck}/{row.oppDeck}</small>
+                  </div>
+                  <strong>#{row.index}</strong>
+                </article>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>덱 분석</h2>

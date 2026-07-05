@@ -1314,6 +1314,19 @@ function aiMainPhase(duel) {
   activateVCAct(duel, side);
 }
 
+function autoMainPhaseForSide(duel, side) {
+  const player = duel.players[side];
+  autoRide(duel, side);
+  strideWithAutoCost(duel, side);
+  for (let index = 0; index < 2; index += 1) {
+    const circle = emptyRearCircle(player);
+    const cardId = bestCallFromHand(player);
+    if (!circle || !cardId) break;
+    callFromHand(duel, side, cardId, circle);
+  }
+  activateVCAct(duel, side);
+}
+
 function canGGuardianBlock(player, defenseTotal, attackPower) {
   const guardian = bestGGuardian(player);
   return Boolean(guardian && player.hand.length > 0 && defenseTotal + guardian.shield > attackPower);
@@ -1357,6 +1370,18 @@ function aiBattlePhase(duel, autoGuardMe = false) {
       autoGuardPlayer(duel, 'me');
       guardEnd(duel);
     }
+    return true;
+  }
+  return false;
+}
+
+function autoBattlePhaseForSide(duel, side) {
+  if (duel.active !== side || duel.phase !== 'BATTLE' || duel.battle) return false;
+  const attackers = ['RC_FL', 'RC_FR', 'VC', 'RC_BL', 'RC_BR', 'RC_BC'];
+  for (const circle of attackers) {
+    if (!canAttack(duel, side, circle)) continue;
+    if (!duel.players[opponent(side)].circles.VC) return false;
+    if (!declareAttack(duel, circle, 'VC')) continue;
     return true;
   }
   return false;
@@ -1433,5 +1458,109 @@ export function summarizeDuel(duel) {
     meDeck: duel.players.me.deck.length,
     oppDeck: duel.players.opp.deck.length,
     logHead: duel.log?.[0] || '',
+  };
+}
+
+function runAutoPlaytestDuel(meDeck, oppDeck, seed, rules = DEFAULT_RULES, first = 'me') {
+  const duel = initDuelState({
+    meDeck,
+    oppDeck,
+    seed,
+    first,
+    firstTurnNoDraw: rules.firstTurnNoDraw,
+  });
+  for (let step = 0; step < 260 && !duel.winner; step += 1) {
+    if (duel.battle?.step === 'GUARD') {
+      autoGuardPlayer(duel, duel.battle.defenderSide);
+      guardEnd(duel);
+      continue;
+    }
+    if (duel.phase === 'STAND' || duel.phase === 'DRAW') {
+      advancePhase(duel, rules.firstTurnNoDraw);
+      continue;
+    }
+    if (duel.phase === 'MAIN') {
+      autoMainPhaseForSide(duel, duel.active);
+      advancePhase(duel, rules.firstTurnNoDraw);
+      continue;
+    }
+    if (duel.phase === 'BATTLE') {
+      if (!autoBattlePhaseForSide(duel, duel.active)) advancePhase(duel, rules.firstTurnNoDraw);
+      continue;
+    }
+    if (duel.phase === 'END') {
+      endTurn(duel);
+      continue;
+    }
+    break;
+  }
+  return duel;
+}
+
+export function playtestMatchupReport(meDeck, oppDeck, seed = Date.now(), rules = DEFAULT_RULES, samples = 20) {
+  const meValidation = validateDeck(meDeck, rules);
+  const oppValidation = validateDeck(oppDeck, rules);
+  const safeSamples = Math.max(4, Math.min(40, Math.floor(Number(samples || 20))));
+  if (meValidation.errors.length || oppValidation.errors.length) {
+    return {
+      samples: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      winRate: 0,
+      averageTurn: 0,
+      averageMeDamage: 0,
+      averageOppDamage: 0,
+      firstWinRate: 0,
+      secondWinRate: 0,
+      rows: [],
+      recommendations: ['규칙 오류가 있는 덱은 매치업 실험을 진행할 수 없습니다. 먼저 덱 검증을 통과해 주세요.'],
+    };
+  }
+
+  const rows = [];
+  for (let index = 0; index < safeSamples; index += 1) {
+    const first = index % 2 === 0 ? 'me' : 'opp';
+    const duel = runAutoPlaytestDuel(meDeck, oppDeck, Number(seed || 1) + index * 97, rules, first);
+    rows.push({
+      index: index + 1,
+      first,
+      winner: duel.winner || '',
+      turn: Number(duel.turn || 0),
+      meDamage: duel.players.me.damage.length,
+      oppDamage: duel.players.opp.damage.length,
+      meDeck: duel.players.me.deck.length,
+      oppDeck: duel.players.opp.deck.length,
+    });
+  }
+
+  const wins = rows.filter((row) => row.winner === 'me').length;
+  const losses = rows.filter((row) => row.winner === 'opp').length;
+  const draws = rows.length - wins - losses;
+  const firstRows = rows.filter((row) => row.first === 'me');
+  const secondRows = rows.filter((row) => row.first === 'opp');
+  const average = (values) => (values.length ? values.reduce((sum, value) => sum + Number(value || 0), 0) / values.length : 0);
+  const recommendations = [];
+  const winRate = Math.round((wins / Math.max(1, rows.length)) * 100);
+  if (winRate < 45) recommendations.push('매치업 승률이 낮습니다. G3 접근률, 센티넬 수, G가디언 구성을 다시 점검하세요.');
+  else if (winRate >= 60) recommendations.push('현재 상대 프리셋 기준 승률이 우세합니다. 실전에서는 선후공과 방어 기준을 더 빡빡하게 테스트하세요.');
+  else recommendations.push('매치업 승률은 접전권입니다. 오프닝 안정성과 후반 방어력을 함께 조정해 보세요.');
+  if (average(rows.map((row) => row.meDamage)) >= 4.2) recommendations.push('내 평균 데미지가 높습니다. 실드 총량과 자동 가드 기준을 강화하는 편이 좋습니다.');
+  if (average(rows.map((row) => row.oppDamage)) <= 3.2) recommendations.push('상대 데미지 압박이 낮습니다. 리어가드 전개와 스트라이드 피니셔 비중을 늘려 보세요.');
+  if (draws > 0) recommendations.push('일부 샘플이 제한 턴 안에 끝나지 않았습니다. 자동 실험의 턴 제한을 감안해 해석하세요.');
+
+  return {
+    samples: rows.length,
+    wins,
+    losses,
+    draws,
+    winRate,
+    averageTurn: Math.round(average(rows.map((row) => row.turn)) * 10) / 10,
+    averageMeDamage: Math.round(average(rows.map((row) => row.meDamage)) * 10) / 10,
+    averageOppDamage: Math.round(average(rows.map((row) => row.oppDamage)) * 10) / 10,
+    firstWinRate: Math.round((firstRows.filter((row) => row.winner === 'me').length / Math.max(1, firstRows.length)) * 100),
+    secondWinRate: Math.round((secondRows.filter((row) => row.winner === 'me').length / Math.max(1, secondRows.length)) * 100),
+    rows: rows.slice(0, 8),
+    recommendations: [...new Set(recommendations)].slice(0, 5),
   };
 }
