@@ -81,6 +81,15 @@ function SmallStat({ label, value }) {
   );
 }
 
+function RecentActionResult({ label = '최근 원장 결과', text, pinned = false }) {
+  return (
+    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
+      <span>{label}</span>
+      <strong>{text}</strong>
+    </div>
+  );
+}
+
 function StatusBadge({ value }) {
   const tone = value === 'COLLECTED' || value === 'COMPLETED' || value === 'PAID' || value === 'NO_TAX' ? '통과' : value === 'OVERDUE' ? '위험' : '진행';
   return <span className="game-save-chip">{tone} {value}</span>;
@@ -120,6 +129,23 @@ function csvRows(rows) {
   return rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
 }
 
+function actionFeedbackText(previous, next, label, fallback = '') {
+  const latestLog = next.log?.[0];
+  if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
+
+  const before = reportSummary(previous);
+  const after = reportSummary(next);
+  const cashDelta = Number(next.company?.cashKrw || 0) - Number(previous.company?.cashKrw || 0);
+  const receivableDelta = Number(after.receivableAmount || 0) - Number(before.receivableAmount || 0);
+  const inventoryDelta = Number(after.inventoryAmount || 0) - Number(before.inventoryAmount || 0);
+  const parts = [];
+  if (cashDelta) parts.push(`현금 ${cashDelta >= 0 ? '+' : ''}${formatMoney(cashDelta)}`);
+  if (receivableDelta) parts.push(`채권 ${receivableDelta >= 0 ? '+' : ''}${formatMoney(receivableDelta)}`);
+  if (inventoryDelta) parts.push(`재고 ${inventoryDelta >= 0 ? '+' : ''}${formatMoney(inventoryDelta)}`);
+  if (parts.length) return `${label}: ${parts.join(' · ')}`;
+  return fallback || `${label} 처리했습니다.`;
+}
+
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -142,6 +168,7 @@ export default function CompanyReportPlayPage() {
   const [vatPaymentAmount, setVatPaymentAmount] = useState('');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [actionResult, setActionResult] = useState('');
 
   const score = scoreState(state);
   const report = useMemo(() => reportSummary(state), [state]);
@@ -171,6 +198,13 @@ export default function CompanyReportPlayPage() {
   const latestExport = state.exportHistory[0];
   const latestRestore = state.restoreHistory[0];
   const exportBaseName = `company-report-${state.company.year}-${String(state.company.month).padStart(2, '0')}`;
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 원장 액션이 없습니다.';
+
+  const applyLedgerAction = (label, updater, fallback = '') => {
+    const nextState = updater(state);
+    setState(nextState);
+    setActionResult(actionFeedbackText(state, nextState, label, fallback));
+  };
 
   const buildExportPayload = (exportedState = state) => {
     const exportedReport = reportSummary(exportedState);
@@ -229,6 +263,7 @@ export default function CompanyReportPlayPage() {
     const exportedState = createProgressExportAction(state);
     const payload = buildExportPayload(exportedState);
     setState(exportedState);
+    setActionResult(actionFeedbackText(state, exportedState, 'JSON 다운로드', '진행 보고서 JSON 다운로드 이력을 추가했습니다.'));
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.json`,
       JSON.stringify(payload, null, 2),
@@ -241,6 +276,7 @@ export default function CompanyReportPlayPage() {
     const exportedState = createProgressExportAction(state);
     const payload = buildExportPayload(exportedState);
     setState(exportedState);
+    setActionResult(actionFeedbackText(state, exportedState, 'CSV 다운로드', '진행 보고서 CSV 다운로드 이력을 추가했습니다.'));
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.csv`,
       buildExportCsv(payload),
@@ -251,6 +287,7 @@ export default function CompanyReportPlayPage() {
 
   const downloadRestorePlanJson = () => {
     const payload = buildExportPayload(state);
+    setActionResult('복원 계획 JSON 다운로드를 준비했습니다.');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-restore-plan.json`,
       JSON.stringify({
@@ -274,7 +311,7 @@ export default function CompanyReportPlayPage() {
 
   const runVatPayment = () => {
     if (!selectedVatRow) return;
-    setState((current) => payVatAction(current, selectedVatRow.targetYear, selectedVatRow.targetMonth, vatPayAmount));
+    applyLedgerAction('VAT 납부', (current) => payVatAction(current, selectedVatRow.targetYear, selectedVatRow.targetMonth, vatPayAmount));
     setVatPaymentAmount('');
   };
 
@@ -296,6 +333,7 @@ export default function CompanyReportPlayPage() {
     setSelectedRestoreTables('sales_order, account_receivable, inventory_balance, vat_payment, inventory_valuation, inventory_write_down');
     setSelectedVatKey('');
     setVatPaymentAmount('');
+    setActionResult('새 Company Report 원장을 시작했습니다.');
     setMessage('');
   };
 
@@ -315,6 +353,7 @@ export default function CompanyReportPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
       setMessage('Company Report 원장 상태를 저장했습니다.');
+      setActionResult('Company Report 원장 상태를 저장 슬롯에 저장했습니다.');
       showToast({ tone: 'success', message: 'Company Report 원장 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
@@ -339,12 +378,14 @@ export default function CompanyReportPlayPage() {
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      setState(normalizeState(detail?.save?.payload?.state));
+      const nextState = normalizeState(detail?.save?.payload?.state);
+      setState(nextState);
       setSelectedOrderId('');
       setSelectedReceivableId('');
       setSelectedVatKey('');
       setVatPaymentAmount('');
       setMessage('저장된 Company Report 원장 상태를 불러왔습니다.');
+      setActionResult(nextState.log?.[0] || '저장된 Company Report 원장 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Company Report 원장 상태를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
@@ -373,6 +414,7 @@ export default function CompanyReportPlayPage() {
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
       setMessage('Company Report 결산 기록을 전적에 남겼습니다.');
+      setActionResult('Company Report 결산 기록을 전적에 남겼습니다.');
       showToast({ tone: 'success', message: 'Company Report 결산 기록을 전적에 남겼습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
@@ -487,10 +529,11 @@ export default function CompanyReportPlayPage() {
                     <SmallStat label="거래처" value={PARTNERS.find((partner) => partner.id === partnerId)?.name || partnerId} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
-                    <ActionButton onClick={() => setState((current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
-                    <ActionButton onClick={() => setState((current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 거래 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -503,8 +546,8 @@ export default function CompanyReportPlayPage() {
                     <SmallStat label="선택 주문" value={selectedOrder?.status || '-'} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton disabled={!selectedOrder} onClick={() => setState((current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
-                    <ActionButton disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => setState((current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
+                    <ActionButton disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
+                    <ActionButton disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
                   </div>
                 </section>
               </section>
@@ -527,9 +570,10 @@ export default function CompanyReportPlayPage() {
                     <SmallStat label="자본" value={formatMoney(report.equity)} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
-                    <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('월말 재고평가', (current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 결산 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -568,10 +612,11 @@ export default function CompanyReportPlayPage() {
                     <SmallStat label="헤지" value={globalSummary.hedgeCount} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
-                    <ActionButton onClick={() => setState((current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
-                    <ActionButton onClick={() => setState((current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('수출 계획 등록', (current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('수입 계획 등록', (current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('글로벌 정산', (current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 글로벌 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -579,8 +624,8 @@ export default function CompanyReportPlayPage() {
                     <span>{foreignReceivables.length}건</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
-                    <ActionButton disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => setState((current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+                    <ActionButton disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
                   </div>
                 </section>
               </section>
@@ -614,11 +659,12 @@ export default function CompanyReportPlayPage() {
                     <span>{CAPITAL_DISCLOSURE_TYPES.find((type) => type.id === disclosureTypeId)?.label || disclosureTypeId}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
-                    <ActionButton onClick={() => setState((current) => decideDividendAction(current))}>배당 결정</ActionButton>
-                    <ActionButton onClick={() => setState((current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
-                    <ActionButton onClick={() => setState((current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('배당 결정', (current) => decideDividendAction(current))}>배당 결정</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('자금 조달', (current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 자본시장 결과" text={recentActionText} />
                 </section>
               </section>
             ),
@@ -648,9 +694,10 @@ export default function CompanyReportPlayPage() {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
-                    <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 리포트 이력 추가</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('진행 리포트 이력', (current) => createProgressExportAction(current))}>진행 리포트 이력 추가</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 리포트 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -738,12 +785,13 @@ export default function CompanyReportPlayPage() {
                     <SmallStat label="내보내기" value={state.exportHistory.length} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
-                    <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
-                    <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+                    <ActionButton onClick={() => applyLedgerAction('진행 내보내기', (current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
                     <ActionButton onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
                     <ActionButton onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
                   </div>
+                  <RecentActionResult label="최근 원장/내보내기 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -756,8 +804,8 @@ export default function CompanyReportPlayPage() {
                     <SmallStat label="삭제 예정" value={`${restorePlan.deletedRowCount} rows`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
-                    <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => setState((current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
+                    <ActionButton disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+                    <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
                     <ActionButton disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
                   </div>
                 </section>
@@ -790,10 +838,11 @@ export default function CompanyReportPlayPage() {
             <input type="number" min="1" max="999" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
-            <ActionButton onClick={() => setState((current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
-            <ActionButton onClick={() => setState((current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
           </div>
+          <RecentActionResult label="최근 주문 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -814,8 +863,8 @@ export default function CompanyReportPlayPage() {
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={!selectedOrder} onClick={() => setState((current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
-            <ActionButton disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => setState((current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 전액 회수</ActionButton>
+            <ActionButton disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
+            <ActionButton disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 전액 회수</ActionButton>
           </div>
         </section>
 
@@ -848,18 +897,19 @@ export default function CompanyReportPlayPage() {
             />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
-            <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
-            <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
-            <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
-            <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
-            <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => setState((current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
-            <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
-            <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('월말 재고평가', (current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
+            <ActionButton disabled={!latestSnapshot} onClick={() => applyLedgerAction('최근 스냅샷 복원', (current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
+            <ActionButton disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+            <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('진행 내보내기', (current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
             <ActionButton onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
             <ActionButton onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
             <ActionButton disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
           </div>
+          <RecentActionResult label="최근 결산/복원 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -890,12 +940,13 @@ export default function CompanyReportPlayPage() {
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
-            <ActionButton onClick={() => setState((current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
-            <ActionButton onClick={() => setState((current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
-            <ActionButton onClick={() => setState((current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
-            <ActionButton disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => setState((current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('수출 계획 등록', (current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('수입 계획 등록', (current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('글로벌 정산', (current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
+            <ActionButton disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
           </div>
+          <RecentActionResult label="최근 글로벌 상세 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">
@@ -922,11 +973,12 @@ export default function CompanyReportPlayPage() {
             <SmallStat label="주식수" value={capitalSummary.sharesOutstanding.toLocaleString('ko-KR')} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
-            <ActionButton onClick={() => setState((current) => decideDividendAction(current))}>배당 결정</ActionButton>
-            <ActionButton onClick={() => setState((current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
-            <ActionButton onClick={() => setState((current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('배당 결정', (current) => decideDividendAction(current))}>배당 결정</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('자금 조달', (current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
+            <ActionButton onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
           </div>
+          <RecentActionResult label="최근 투자자 액션 결과" text={recentActionText} />
         </section>
       </section>
 
@@ -1010,7 +1062,8 @@ export default function CompanyReportPlayPage() {
             <SmallStat label="손상잔액" value={formatMoney(report.inventoryWriteDownBalance)} />
             <SmallStat label="재고장부" value={formatMoney(report.inventoryAmount)} />
           </div>
-          <ActionButton onClick={() => setState((current) => closeInventoryValuationAction(current))}>현재 월 재고평가 실행</ActionButton>
+          <ActionButton onClick={() => applyLedgerAction('현재 월 재고평가', (current) => closeInventoryValuationAction(current))}>현재 월 재고평가 실행</ActionButton>
+          <RecentActionResult label="최근 재고평가 결과" text={recentActionText} />
           <div className="game-save-list">
             {inventoryWriteDowns.length ? inventoryWriteDowns.slice(0, 6).map((row) => (
               <article className="game-save-row" key={row.id}>
