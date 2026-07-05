@@ -770,7 +770,7 @@ export default function PrimitiveArchivePlayPage() {
               >
                 {techs.map((tech) => (
                   <option value={tech.id} key={tech.id} disabled={!tech.available && !tech.completed && !tech.selected}>
-                    {tech.completed ? '완료 · ' : tech.selected ? '선택 · ' : tech.available ? '가능 · ' : '잠김 · '}
+                    {tech.completed ? '완료 · ' : tech.selected ? '선택 · ' : tech.available ? '가능 · ' : tech.eurekaStatus?.blocked ? '단서 확보 · 잠김 · ' : '잠김 · '}
                     {tech.name} ({tech.progress}/{tech.cost})
                   </option>
                 ))}
@@ -782,20 +782,25 @@ export default function PrimitiveArchivePlayPage() {
               <div><span>가능</span><strong>{research.available}</strong></div>
             </div>
             <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
-              유레카: {research.selected?.eureka?.desc || '없음'} {research.selected?.eurekaDone ? '· 달성' : ''}
+              유레카: {research.selected?.eureka?.desc || '없음'} {research.selected?.eurekaDone ? '· 적용됨' : research.selected?.eurekaStatus?.blocked ? '· 단서 확보, 선행 연구 필요' : ''}
             </p>
+            {research.selected?.eurekaStatus?.note ? (
+              <p style={{ color: research.selected.eurekaStatus.blocked ? '#facc15' : '#94a3b8', fontWeight: 800, lineHeight: 1.5, marginTop: -6 }}>
+                {research.selected.eurekaStatus.note}
+              </p>
+            ) : null}
             <div className="game-save-list">
               {inspirationRows.slice(0, 4).map((row) => (
                 <article className="game-save-row" key={row.techId}>
                   <div>
                     <span>
-                      {row.completed ? '완료' : row.eurekaDone ? '달성' : row.available ? '진행 가능' : '잠김'}
+                      {row.statusLabel || (row.completed ? '완료' : row.eurekaDone ? '달성' : row.available ? '진행 가능' : '잠김')}
                       {' · '}
                       {row.current}/{row.target}
                     </span>
                     <strong>{row.techName}</strong>
                     <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
-                      {row.desc} · {row.progressPct}%
+                      {row.note || row.desc} · {row.progressPct}%
                     </small>
                   </div>
                 </article>

@@ -659,11 +659,51 @@ function prereqsMet(research, tech) {
   return (tech?.prereqs || []).every((techId) => research.completed?.[techId]);
 }
 
-function missingPrereqMessage(research, tech) {
-  const missing = (tech?.prereqs || [])
+function missingPrereqNames(research, tech) {
+  return (tech?.prereqs || [])
     .filter((techId) => !research.completed?.[techId])
     .map((techId) => getTech(techId)?.name || techId);
-  return `${tech.name} 연구를 하려면 먼저 ${missing.join(', ')} 연구를 완료해야 합니다.`;
+}
+
+function missingPrereqMessage(research, tech) {
+  const missing = missingPrereqNames(research, tech);
+  const eurekaNote = tech?.eureka ? ' 유레카 조건은 단서일 뿐이며, 선행 연구가 끝나야 보너스가 적용됩니다.' : '';
+  return `${tech.name} 연구를 하려면 먼저 ${missing.join(', ')} 연구를 완료해야 합니다.${eurekaNote}`;
+}
+
+function eurekaStatusForTech(state, tech) {
+  if (!tech?.eureka) {
+    return {
+      current: 0,
+      target: 0,
+      done: false,
+      blocked: false,
+      statusLabel: '유레카 없음',
+      note: '이 기술은 별도 유레카 조건이 없습니다.',
+      missingPrereqs: [],
+    };
+  }
+  const research = normalizeResearch(state.research);
+  const progress = researchTriggerProgress({ ...state, research }, tech.eureka);
+  const missingPrereqs = missingPrereqNames(research, tech);
+  const completed = Boolean(research.completed?.[tech.id]);
+  const eurekaDone = Boolean(research.eureka?.[tech.id]);
+  const blocked = progress.done && !completed && missingPrereqs.length > 0;
+  let statusLabel = '진행 중';
+  if (completed) statusLabel = '연구 완료';
+  else if (eurekaDone) statusLabel = '유레카 적용';
+  else if (blocked) statusLabel = '단서 확보 · 선행 연구 필요';
+  else if (progress.done) statusLabel = '적용 대기';
+  const note = blocked
+    ? `조건은 충족했지만 ${missingPrereqs.join(', ')} 연구 완료 후 유레카 보너스가 적용됩니다.`
+    : tech.eureka.desc || '';
+  return {
+    ...progress,
+    blocked,
+    statusLabel,
+    note,
+    missingPrereqs,
+  };
 }
 
 function nextAvailableTech(research) {
@@ -1329,6 +1369,7 @@ export function techRows(state) {
     const progress = Math.min(tech.cost, Number(current.research.progress?.[tech.id] || 0));
     const completed = Boolean(current.research.completed?.[tech.id]);
     const available = !completed && prereqsMet(current.research, tech);
+    const eurekaStatus = eurekaStatusForTech(current, tech);
     return {
       ...tech,
       progress,
@@ -1336,6 +1377,8 @@ export function techRows(state) {
       available,
       selected: current.research.selectedTechId === tech.id,
       eurekaDone: Boolean(current.research.eureka?.[tech.id]),
+      eurekaStatus,
+      missingPrereqs: missingPrereqNames(current.research, tech),
       progressPct: Math.round((progress / tech.cost) * 100),
     };
   });
@@ -1346,7 +1389,7 @@ export function researchInspirationRows(state) {
   return TECH_TREE
     .filter((tech) => tech.eureka)
     .map((tech) => {
-      const status = researchTriggerProgress(current, tech.eureka);
+      const status = eurekaStatusForTech(current, tech);
       return {
         techId: tech.id,
         techName: tech.name,
@@ -1354,6 +1397,10 @@ export function researchInspirationRows(state) {
         completed: Boolean(current.research.completed?.[tech.id]),
         eurekaDone: Boolean(current.research.eureka?.[tech.id]),
         available: prereqsMet(current.research, tech),
+        blocked: status.blocked,
+        statusLabel: status.statusLabel,
+        note: status.note,
+        missingPrereqs: status.missingPrereqs,
         current: status.current,
         target: status.target,
         progressPct: Math.round((Math.min(status.current, status.target) / status.target) * 100),
