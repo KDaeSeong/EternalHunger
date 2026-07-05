@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   CAREER_TRACKS,
@@ -154,6 +154,21 @@ export default function SchoolSimulatorPlayPage() {
   const selectedTeacher = teachers.find((teacher) => teacher.id === teacherId) || teachers[0];
   const selectedTeacherAction = TEACHER_ACTIONS.find((item) => item.id === teacherActionId) || TEACHER_ACTIONS[0];
   const weekInfo = WEEK_SCHEDULE[state.school.week] || { label: '학기 종료', examType: null };
+  const primaryRisk = report.risks.find((risk) => risk.level !== 'good') || report.risks[0] || null;
+  const recommendedActionId = primaryRisk?.title?.includes('학생') || primaryRisk?.title?.includes('컨디션')
+    ? 'boostCounseling'
+    : primaryRisk?.title?.includes('교사')
+      ? 'teacherWorkshop'
+      : primaryRisk?.title?.includes('시설') || primaryRisk?.title?.includes('안전')
+        ? 'facilityMaintenance'
+        : primaryRisk?.title?.includes('교과')
+          ? 'libraryProgram'
+          : primaryRisk?.title?.includes('모집')
+            ? 'openClass'
+            : primaryRisk?.title?.includes('예산')
+              ? 'studentCouncilMeeting'
+              : selectedAction.id;
+  const recommendedAction = WORK_ACTIONS.find((action) => action.id === recommendedActionId) || selectedAction;
 
   const startNewRun = () => {
     const nextState = createNewState();
@@ -294,10 +309,282 @@ export default function SchoolSimulatorPlayPage() {
       title="학교 운영 시뮬레이터"
       description="업로드된 School Simulator Step 23의 주간 운영, 장기 학교 비전, 정책 프리셋, 학생/교사/시설 지표, 시험과 학기 보고 흐름을 사이트용 플레이로 이식했습니다."
       summaryLabel="School Simulator 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'operations',
+            label: '운영 보드',
+            badge: report.status,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>이번 주 운영 판단</h2>
+                    <span>{report.headline}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="운영 점수" value={report.score.toLocaleString('ko-KR')} />
+                    <SmallStat label="예산 여유" value={`${report.operations.budgetRunwayWeeks}주`} />
+                    <SmallStat label="위험 학생" value={`${report.wellbeing.atRiskCount}명`} />
+                    <SmallStat label="AP" value={state.player.weeklyActionPoint} />
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {report.risks.slice(0, 3).map((risk) => (
+                      <article className="game-save-row" key={`${risk.level}-${risk.title}`}>
+                        <div>
+                          <span>{risk.level === 'critical' ? '긴급' : risk.level === 'warn' ? '주의' : '안정'}</span>
+                          <strong>{risk.title}</strong>
+                          <small>{risk.action}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>추천 행동</h2>
+                    <span>{recommendedAction.label}</span>
+                  </div>
+                  <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
+                    {primaryRisk?.detail || recommendedAction.description}
+                  </p>
+                  <div className="games-rank-split">
+                    <SmallStat label="필요 AP" value={recommendedAction.apCost} />
+                    <SmallStat label="비용" value={recommendedAction.budgetCost.toLocaleString('ko-KR')} />
+                    <SmallStat label="체력" value={state.player.energy} />
+                    <SmallStat label="멘탈" value={state.player.mental} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => applyWorkAction(current, recommendedAction.id))} disabled={state.player.weeklyActionPoint < recommendedAction.apCost}>
+                      추천 행동 실행
+                    </ActionButton>
+                    <ActionButton onClick={() => setState((current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'events',
+            label: '사건 대응',
+            badge: events.pending ? '대응' : `${events.history.length}건`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>미해결 사건</h2>
+                    <span>{events.status}</span>
+                  </div>
+                  {events.pending ? (
+                    <>
+                      <div className="game-save-row">
+                        <div>
+                          <span>{events.pending.category} · {events.pending.weekLabel}</span>
+                          <strong>{events.pending.title}</strong>
+                          <small>{events.pending.summary}</small>
+                        </div>
+                      </div>
+                      <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                        {events.pending.choices.map((choice) => (
+                          <ActionButton
+                            key={choice.id}
+                            onClick={() => setState((current) => applyWeeklyEventChoice(current, choice.id))}
+                            disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}
+                          >
+                            {choice.label} · AP {choice.apCost}
+                          </ActionButton>
+                        ))}
+                      </div>
+                    </>
+                  ) : <div className="games-empty">미해결 사건이 없습니다.</div>}
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>최근 처리</h2>
+                    <span>{events.history.length}건</span>
+                  </div>
+                  <div className="game-save-list">
+                    {events.history.length ? events.history.slice(0, 4).map((event) => (
+                      <article className="game-save-row" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
+                        <div>
+                          <span>{event.category} · {event.choiceLabel || '대응 완료'}</span>
+                          <strong>{event.title}</strong>
+                        </div>
+                        <strong>{event.weekLabel}</strong>
+                      </article>
+                    )) : <div className="games-empty">아직 처리한 사건이 없습니다.</div>}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'class',
+            label: '수업/입학',
+            badge: `${report.academic.subjectAverage}점`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>수업 운영</h2>
+                    <span>{selectedSubject.label}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="현재 방식" value={selectedSubject.modeLabel} />
+                    <SmallStat label="평균" value={selectedSubject.averageScore} />
+                    <SmallStat label="약점" value={`${report.subjectRows[0]?.weakCount || 0}명`} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton onClick={() => setState((current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
+                    <ActionButton
+                      onClick={() => setState((current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
+                      disabled={state.player.weeklyActionPoint < selectedSubjectShowcaseAction.apCost || state.school.budget < selectedSubjectShowcaseAction.budgetCost || selectedSubjectShowcaseActive}
+                    >
+                      공개 활동 시작
+                    </ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>입학 모집</h2>
+                    <span>{selectedRecruitment.label}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="지원자" value={state.school.admissions.applications} />
+                    <SmallStat label="경쟁률" value={`${state.school.admissions.competitionRate}:1`} />
+                    <SmallStat label="브랜드" value={state.school.admissions.brandAwareness} />
+                  </div>
+                  <ActionButton onClick={() => setState((current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
+                    모집 캠페인
+                  </ActionButton>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'students',
+            label: '학생/진로',
+            badge: `${riskStudents.length}위험`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>학생 상태</h2>
+                    <span>{state.students.length}명</span>
+                  </div>
+                  <div className="game-save-list">
+                    <ScoreBar label="이해도" value={averages.understanding} />
+                    <ScoreBar label="만족도" value={averages.satisfaction} />
+                    <ScoreBar label="건강" value={averages.health} />
+                    <ScoreBar label="스트레스 억제" value={100 - averages.stress} />
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>진로 지도</h2>
+                    <span>{selectedCareer.label}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="평균 준비" value={careerRows.find((track) => track.id === careerTrackId)?.averageReadiness || 0} />
+                    <SmallStat label="진로 기록" value={state.careerReports.length} />
+                    <SmallStat label="대상" value="하위 6명" />
+                  </div>
+                  <ActionButton onClick={() => setState((current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
+                    진로 상담 실행
+                  </ActionButton>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'staff',
+            label: '교사/시설',
+            badge: `${teachers.length}명`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>교사 액션</h2>
+                    <span>{selectedTeacher?.name || '교사'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="평가" value={`${selectedTeacher?.evaluationGrade || '-'} / ${selectedTeacher?.evaluationScore || 0}`} />
+                    <SmallStat label="피로" value={selectedTeacher?.fatigue || 0} />
+                    <SmallStat label="사기" value={selectedTeacher?.morale || 0} />
+                  </div>
+                  <ActionButton
+                    onClick={() => setState((current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
+                    disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
+                  >
+                    {selectedTeacherAction.label} 실행
+                  </ActionButton>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>시설 상태</h2>
+                    <span>{state.facilities.length}곳</span>
+                  </div>
+                  <div className="game-save-list">
+                    {state.facilities.slice(0, 4).map((facility) => (
+                      <article className="game-save-row" key={facility.id}>
+                        <div>
+                          <span>{facility.type} · 수용 {facility.capacity}</span>
+                          <strong>{facility.name}</strong>
+                        </div>
+                        <strong>{facility.condition}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'clubs',
+            label: '동아리/행사',
+            badge: festival.active ? '행사중' : `${clubs.length}개`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>동아리 운영</h2>
+                    <span>{selectedClub.label}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="회원" value={`${selectedClub.memberCount}/${selectedClub.capacity}`} />
+                    <SmallStat label="분위기" value={selectedClub.clubMood} />
+                    <SmallStat label="영향력" value={selectedClub.influence} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+                    <ActionButton onClick={() => setState((current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>축제</h2>
+                    <span>{festival.active ? `${festival.active.weeksRemaining}주 남음` : '대기'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="선택" value={selectedFestival.label} />
+                    <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
+                    <SmallStat label="기록" value={festival.history.length} />
+                  </div>
+                  <ActionButton onClick={() => setState((current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+                    행사 시작
+                  </ActionButton>
+                </section>
+              </section>
+            ),
+          },
+        ]}
+      />
+
       <section className="games-dashboard">
         <section className="games-panel">
           <div className="games-panel-title">
