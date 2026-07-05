@@ -144,6 +144,54 @@ export const MISSIONS = [
       { id: 'e_vh_boss', name: '연구동 경비장', x: 7, y: 3, hp: 92, atk: 15, def: 7, range: 3, move: 2 },
     ],
   },
+  {
+    id: 'm007',
+    name: 'Chapter 3: 해안 보급기지',
+    chapter: 3,
+    region: '해안 보급기지',
+    objective: '해안 보급기지의 장거리 포대를 제압하고 보급 차단선을 확보하십시오.',
+    caution: '장거리 포대와 기동 정찰조가 함께 등장합니다. 엄폐와 돌격 각을 동시에 관리해야 합니다.',
+    difficulty: 'hard',
+    recommendedPower: 390,
+    creditMin: 76,
+    creditMax: 104,
+    rewards: [
+      { itemId: 'mat_stone', qtyMin: 5, qtyMax: 9, chance: 1 },
+      { itemId: 'mat_wood', qtyMin: 4, qtyMax: 7, chance: 0.9 },
+      { itemId: 'con_bandage', qtyMin: 2, qtyMax: 3, chance: 0.72 },
+      { itemId: 'eq_knife', qtyMin: 1, qtyMax: 1, chance: 0.34 },
+    ],
+    enemies: [
+      { id: 'e_c3_artillery', name: '해안 포대', x: 7, y: 1, hp: 64, atk: 17, def: 3, range: 5, move: 1 },
+      { id: 'e_c3_runner_a', name: '기동 정찰조 A', x: 5, y: 0, hp: 42, atk: 12, def: 2, range: 2, move: 4 },
+      { id: 'e_c3_runner_b', name: '기동 정찰조 B', x: 5, y: 5, hp: 42, atk: 12, def: 2, range: 2, move: 4 },
+      { id: 'e_c3_guard', name: '보급기지 장갑병', x: 6, y: 3, hp: 70, atk: 12, def: 7, range: 1, move: 1 },
+    ],
+  },
+  {
+    id: 'm008',
+    name: 'Chapter 3: 지휘 노드 탈환',
+    chapter: 3,
+    region: '지휘 노드',
+    objective: '적 지휘 노드를 탈환하고 고화력 지휘 개체를 격파하십시오.',
+    caution: '복합 패턴 보스전입니다. 저격수, 방패병, 보스 사격이 동시에 들어오므로 집중 화력이 필요합니다.',
+    difficulty: 'veryhard',
+    recommendedPower: 470,
+    creditMin: 98,
+    creditMax: 132,
+    rewards: [
+      { itemId: 'mat_stone', qtyMin: 6, qtyMax: 10, chance: 1 },
+      { itemId: 'mat_wood', qtyMin: 5, qtyMax: 8, chance: 0.92 },
+      { itemId: 'con_bandage', qtyMin: 2, qtyMax: 4, chance: 0.78 },
+      { itemId: 'eq_knife', qtyMin: 1, qtyMax: 1, chance: 0.42 },
+    ],
+    enemies: [
+      { id: 'e_c3_node_guard', name: '노드 방패병', x: 5, y: 2, hp: 78, atk: 13, def: 8, range: 1, move: 1 },
+      { id: 'e_c3_node_sniper', name: '노드 저격수', x: 7, y: 0, hp: 46, atk: 18, def: 2, range: 5, move: 1 },
+      { id: 'e_c3_node_drone', name: '교란 드론', x: 6, y: 5, hp: 48, atk: 11, def: 3, range: 3, move: 4 },
+      { id: 'e_c3_commander', name: '지휘 노드 관리자', x: 7, y: 3, hp: 118, atk: 18, def: 7, range: 4, move: 2 },
+    ],
+  },
 ];
 
 export const STUDENTS = [
@@ -2311,6 +2359,7 @@ export function summaryForState(state) {
   const town = townSummary(current);
   const rank = guildRankInfo(current);
   const campaign = getCampaignReport(current);
+  const expansion = getCampaignExpansionReport(current);
   const operation = getOperationBriefing(current);
   const forecast = getBattleForecast(current);
   return {
@@ -2324,6 +2373,13 @@ export function summaryForState(state) {
     campaignStars: `${campaign.starTotal}/${campaign.starMax}`,
     hardUnlocked: campaign.hardUnlocked,
     veryHardUnlocked: campaign.veryHardUnlocked,
+    campaignExpansion: {
+      headline: expansion.headline,
+      readinessPct: expansion.readinessPct,
+      chapterCount: expansion.chapterRows.length,
+      enemyPatternCount: expansion.enemyPatterns.length,
+      riskCount: expansion.balanceRows.filter((row) => row.tone === 'warn').length,
+    },
     quests: Object.keys(current.questClaims || {}).length,
     properties: town.activeProperties,
     edict: town.activeEdictName,
@@ -2406,6 +2462,156 @@ export function getCampaignReport(state) {
     headline: `${clearedCount}/${missionRows.length}개 임무 클리어, 별 ${starTotal}/${starMax}. ${hardUnlocked ? (veryHardUnlocked ? 'VeryHard 해금 조건을 충족했습니다.' : 'Hard 해금 조건을 충족했습니다.') : '별을 모아 Hard 해금을 노리세요.'}`,
     recommendations: [...new Set(recommendations)].slice(0, 4),
     missionRows,
+  };
+}
+
+function enemyPatternLabel(enemy) {
+  if (Number(enemy.hp || 0) >= 90) return '보스';
+  if (Number(enemy.range || 0) >= 5) return '초장거리';
+  if (Number(enemy.range || 0) >= 4) return '저격';
+  if (Number(enemy.def || 0) >= 7) return '장갑';
+  if (Number(enemy.move || 0) >= 4) return '기동';
+  if (Number(enemy.range || 0) >= 3) return '사격';
+  return '강습';
+}
+
+export function getCampaignExpansionReport(state) {
+  const current = normalizeState(state);
+  const campaign = getCampaignReport(current);
+  const power = battlePower(current);
+  const chapterMap = new Map();
+  campaign.missionRows.forEach((mission) => {
+    const key = Number(mission.chapter || 1);
+    const row = chapterMap.get(key) || {
+      chapter: key,
+      missions: [],
+      cleared: 0,
+      stars: 0,
+      starMax: 0,
+      locked: 0,
+      recommendedPowerMax: 0,
+    };
+    row.missions.push(mission);
+    row.cleared += mission.cleared ? 1 : 0;
+    row.stars += Number(mission.bestStars || 0);
+    row.starMax += 3;
+    row.locked += mission.locked ? 1 : 0;
+    row.recommendedPowerMax = Math.max(row.recommendedPowerMax, Number(mission.recommendedPower || 0));
+    chapterMap.set(key, row);
+  });
+
+  const chapterRows = [...chapterMap.values()].sort((a, b) => a.chapter - b.chapter).map((row) => {
+    const progressPct = row.missions.length ? Math.round((row.cleared / row.missions.length) * 100) : 0;
+    const starPct = row.starMax ? Math.round((row.stars / row.starMax) * 100) : 0;
+    const nextMission = row.missions.find((mission) => !mission.cleared && !mission.locked)
+      || row.missions.find((mission) => !mission.cleared)
+      || row.missions[row.missions.length - 1];
+    return {
+      ...row,
+      progressPct,
+      starPct,
+      nextMissionName: nextMission?.name || '-',
+      status: progressPct >= 100 ? '완료' : row.locked >= row.missions.length ? '잠김' : progressPct > 0 ? '진행' : '대기',
+      powerGap: power - row.recommendedPowerMax,
+      difficultyText: [...new Set(row.missions.map((mission) => mission.difficultyLabel))].join(' / '),
+    };
+  });
+
+  const patternMap = new Map();
+  MISSIONS.forEach((mission, index) => {
+    const chapter = missionChapter(mission, index);
+    (mission.enemies || []).forEach((enemy) => {
+      const label = enemyPatternLabel(enemy);
+      const row = patternMap.get(label) || {
+        label,
+        count: 0,
+        chapters: new Set(),
+        examples: [],
+        maxRange: 0,
+        maxMove: 0,
+        maxDef: 0,
+      };
+      row.count += 1;
+      row.chapters.add(chapter);
+      row.maxRange = Math.max(row.maxRange, Number(enemy.range || 0));
+      row.maxMove = Math.max(row.maxMove, Number(enemy.move || 0));
+      row.maxDef = Math.max(row.maxDef, Number(enemy.def || 0));
+      if (row.examples.length < 3) row.examples.push(enemy.name);
+      patternMap.set(label, row);
+    });
+  });
+  const enemyPatterns = [...patternMap.values()]
+    .map((row) => ({
+      ...row,
+      chapters: [...row.chapters].sort((a, b) => a - b),
+      chapterText: [...row.chapters].sort((a, b) => a - b).map((chapter) => `CH.${chapter}`).join(', '),
+      examplesText: row.examples.join(', '),
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko-KR'));
+
+  const difficultyCounts = campaign.missionRows.reduce((acc, mission) => {
+    const key = mission.difficultyLabel;
+    acc[key] = Number(acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const chapterThree = chapterRows.find((row) => row.chapter === 3);
+  const nextChapter = chapterRows.find((row) => row.progressPct < 100) || chapterRows[chapterRows.length - 1];
+  const patternCoveragePct = Math.min(100, Math.round((enemyPatterns.length / 6) * 100));
+  const chapterCoveragePct = Math.min(100, Math.round((chapterRows.length / 3) * 100));
+  const readinessPct = Math.round(clamp(
+    campaign.progressPct * 0.26
+      + (campaign.starMax ? (campaign.starTotal / campaign.starMax) * 100 : 0) * 0.22
+      + chapterCoveragePct * 0.18
+      + patternCoveragePct * 0.18
+      + Math.min(100, power / Math.max(1, Number(nextChapter?.recommendedPowerMax || 1)) * 100) * 0.16,
+    0,
+    100,
+  ));
+
+  const balanceRows = [
+    {
+      id: 'chapter-coverage',
+      label: '챕터 커버리지',
+      value: `${chapterRows.length}개 챕터`,
+      detail: `현재 최고 챕터는 CH.${Math.max(...chapterRows.map((row) => row.chapter))}이며 CH.3 임무 ${chapterThree?.missions.length || 0}개가 포함됩니다.`,
+      tone: chapterRows.length >= 3 ? 'good' : 'warn',
+    },
+    {
+      id: 'difficulty-ladder',
+      label: '난이도 사다리',
+      value: Object.entries(difficultyCounts).map(([key, count]) => `${key} ${count}`).join(' / '),
+      detail: `Easy/Normal에서 Hard/VeryHard까지 순차 해금됩니다.`,
+      tone: campaign.hardUnlocked || campaign.veryHardUnlocked ? 'good' : 'normal',
+    },
+    {
+      id: 'enemy-patterns',
+      label: '적 패턴 다양성',
+      value: `${enemyPatterns.length}종`,
+      detail: enemyPatterns.slice(0, 4).map((row) => `${row.label} ${row.count}`).join(' / '),
+      tone: enemyPatterns.length >= 6 ? 'good' : 'warn',
+    },
+    {
+      id: 'power-curve',
+      label: '전투력 곡선',
+      value: `${power.toLocaleString('ko-KR')} / ${nextChapter?.recommendedPowerMax || 0}`,
+      detail: nextChapter?.powerGap >= 0 ? `${nextChapter.status} 구간 권장 전투력을 충족합니다.` : `CH.${nextChapter?.chapter || 1} 최고 권장 전투력까지 ${Math.abs(nextChapter?.powerGap || 0)} 보강이 필요합니다.`,
+      tone: (nextChapter?.powerGap || 0) >= 0 ? 'good' : 'warn',
+    },
+  ];
+  const recommendations = [];
+  if (chapterThree && chapterThree.progressPct < 100) recommendations.push(`CH.3 ${chapterThree.nextMissionName} 진행`);
+  if (balanceRows.some((row) => row.id === 'power-curve' && row.tone === 'warn')) recommendations.push('장비 제작/상점/의뢰로 전투력 보강');
+  if (campaign.missionRows.some((row) => row.cleared && row.bestStars < 3)) recommendations.push('기존 임무 3성 보강으로 별 총량 확보');
+  if (!campaign.veryHardUnlocked) recommendations.push('VeryHard 해금 조건 확보');
+  if (!recommendations.length) recommendations.push('CH.3 파밍과 전투 예측 기반 최적 턴 단축');
+
+  return {
+    headline: `${chapterRows.length}개 챕터 · 적 패턴 ${enemyPatterns.length}종 · 확장 준비도 ${readinessPct}%`,
+    readinessPct,
+    chapterRows,
+    enemyPatterns,
+    balanceRows,
+    recommendations: [...new Set(recommendations)].slice(0, 4),
   };
 }
 
