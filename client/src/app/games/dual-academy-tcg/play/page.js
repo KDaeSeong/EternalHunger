@@ -447,6 +447,7 @@ function DualAcademyTcgPlayContent() {
   const [selectedHandId, setSelectedHandId] = useState('');
   const [selectedAttacker, setSelectedAttacker] = useState(null);
   const [zoneView, setZoneView] = useState(null);
+  const [activeTcgTab, setActiveTcgTab] = useState('board');
   const [state, setState] = useState(() => createDuelState());
 
   const resetWithDeck = useCallback((cardIds, cards, characters = null) => {
@@ -904,6 +905,7 @@ function DualAcademyTcgPlayContent() {
 
   const openZoneView = (player, zone, reveal = true) => {
     setZoneView({ player, zone, reveal });
+    setActiveTcgTab('logs');
   };
 
   return (
@@ -997,7 +999,28 @@ function DualAcademyTcgPlayContent() {
           setState(updater);
         }} />
 
-        <section className="tcg-layout">
+        <section className="tcg-feature-tabs" role="tablist" aria-label="TCG 기능">
+          {[
+            { id: 'board', label: '보드', badge: state.phase },
+            { id: 'hand', label: '패/액션', badge: `${state.players.player.hand.length}장` },
+            { id: 'logs', label: '로그/아카이브', badge: `${state.events.length}건` },
+          ].map((tab) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTcgTab === tab.id}
+              className={activeTcgTab === tab.id ? 'is-active' : ''}
+              key={tab.id}
+              onClick={() => setActiveTcgTab(tab.id)}
+            >
+              <span>{tab.label}</span>
+              <strong>{tab.badge}</strong>
+            </button>
+          ))}
+        </section>
+
+        {activeTcgTab === 'board' ? (
+          <section className="tcg-layout">
           <aside className="tcg-panel">
             <h2>덱</h2>
             <p className="tcg-deck-name">{loadingDeck ? '덱 불러오는 중' : deckName}</p>
@@ -1117,8 +1140,13 @@ function DualAcademyTcgPlayContent() {
               </button>
             </div>
           </section>
+          </section>
+        ) : null}
 
-          <aside className="tcg-panel tcg-log">
+        {activeTcgTab === 'logs' ? (
+          <>
+          <section className="tcg-layout is-single">
+            <aside className="tcg-panel tcg-log">
             <h2>v13 이벤트</h2>
             <section className={`tcg-event-callout is-${latestCharacter.tone}`}>
               <span>{latestCharacter.academy}</span>
@@ -1140,14 +1168,17 @@ function DualAcademyTcgPlayContent() {
               ))}
             </ol>
           </aside>
-        </section>
+          </section>
 
         <ZoneArchivePanel
           state={state}
           zoneView={zoneView}
           onClose={() => setZoneView(null)}
         />
+          </>
+        ) : null}
 
+        {activeTcgTab === 'hand' ? (
         <section className="tcg-hand">
           <div className="tcg-lane-title">
             <h2>내 패</h2>
@@ -1181,6 +1212,7 @@ function DualAcademyTcgPlayContent() {
             {!state.players.player.hand.length ? <div className="tcg-empty-zone">패가 없습니다.</div> : null}
           </div>
         </section>
+        ) : null}
       </section>
     </main>
   );
