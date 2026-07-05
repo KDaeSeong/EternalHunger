@@ -38,6 +38,7 @@ import {
   formationRows,
   getCampaignReport,
   getBattleForecast,
+  getBattlePresentationReport,
   getMission,
   getOperationBriefing,
   getPlayTimeSec,
@@ -149,6 +150,7 @@ export default function BaSrpgPlayPage() {
   const campaignExpansion = useMemo(() => getCampaignExpansionReport(state), [state]);
   const operationBriefing = useMemo(() => getOperationBriefing(state), [state]);
   const battleForecast = useMemo(() => getBattleForecast(state), [state]);
+  const battlePresentation = useMemo(() => getBattlePresentationReport(state), [state]);
   const score = scoreState(state);
   const power = battlePower(state);
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
@@ -294,6 +296,7 @@ export default function BaSrpgPlayPage() {
     { label: '별', value: `${campaignReport.starTotal}/${campaignReport.starMax}` },
     { label: '확장', value: `${campaignExpansion.readinessPct}%` },
     { label: '작전', value: `${operationBriefing.readinessPct}%` },
+    { label: '연출', value: `${battlePresentation.completionPct}%` },
     { label: '위협', value: battleForecast.threatLevel },
     { label: '길드', value: `${guildRank.rank} (${guildRank.rep})` },
     { label: '부동산', value: town.activeProperties },
@@ -735,6 +738,34 @@ export default function BaSrpgPlayPage() {
       </section>
 
       <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>전투 연출</h2>
+            <span>{battlePresentation.headline}</span>
+          </div>
+          <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+            <strong>{battlePresentation.latestCue.title}</strong> · {battlePresentation.latestCue.detail}
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="완성도" value={`${battlePresentation.completionPct}%`} />
+            <SmallStat label="컷인 톤" value={battlePresentation.cutInTone} />
+            <SmallStat label="감사 항목" value={`${battlePresentation.presentationRows.length}개`} />
+            <SmallStat label="통과" value={`${battlePresentation.presentationRows.filter((row) => row.ready).length}개`} />
+          </div>
+          <div className="game-save-list">
+            {battlePresentation.presentationRows.map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.ready ? '연결됨' : '점검 필요'} · {row.value}</span>
+                  <strong>{row.label}</strong>
+                  <small>{row.detail}</small>
+                </div>
+                <strong>{row.ready ? 'OK' : '확인'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>전투 예측</h2>

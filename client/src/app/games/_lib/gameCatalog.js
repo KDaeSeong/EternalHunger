@@ -318,7 +318,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'mission-clear',
-    completionPct: 95,
+    completionPct: 100,
   },
   myanimecraft: {
     stage: 'playable',
@@ -475,9 +475,9 @@ export const GAME_ROADMAP = [
     title: 'BA SRPG',
     subtitle: 'Tactical SRPG',
     priority: '장기 주력',
-    scope: '그리드 전투, 캠페인 별 진행, CH.3 확장 임무, Hard/VeryHard 미션, 작전 브리핑, 전투 예측, AI 위협 리포트, 캠페인 확장/밸런스 리포트, 타운 경제, 제작/상점, 의뢰, 저장/전적, 기능별 탭 UI',
-    summary: '격자 이동, AP, 사거리, 엄폐, 적 턴, 자동 전투, Hard/VeryHard 및 CH.3 확장 임무, 작전 브리핑, 전투 중 예측, 캠페인 확장/적 패턴/밸런스 리포트까지 연결한 전술 SRPG playable slice입니다.',
-    nextStep: '전투 연출, 스킬 컷인, 장기 챕터 밸런스 튜닝 같은 폴리싱을 강화합니다.',
+    scope: '그리드 전투, 캠페인 별 진행, CH.3 확장 임무, Hard/VeryHard 미션, 작전 브리핑, 전투 예측, AI 위협 리포트, 전투 연출 감사, 스킬 컷인 상태, 캠페인 확장/밸런스 리포트, 타운 경제, 제작/상점, 의뢰, 저장/전적, 기능별 탭 UI',
+    summary: '격자 이동, AP, 사거리, 엄폐, 적 턴, 자동 전투, Hard/VeryHard 및 CH.3 확장 임무, 작전 브리핑, 전투 중 예측, 행동 결과 고정형 전투 연출 감사, 스킬 컷인 상태, 캠페인 확장/적 패턴/밸런스 리포트까지 연결한 전술 SRPG playable slice입니다.',
+    nextStep: '완성 이후에는 실제 캐릭터 컷신 자산, 사운드, 장기 챕터 추가 같은 선택형 확장만 남았습니다.',
   },
   {
     slug: 'myanimecraft',

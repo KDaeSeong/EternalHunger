@@ -2362,6 +2362,7 @@ export function summaryForState(state) {
   const expansion = getCampaignExpansionReport(current);
   const operation = getOperationBriefing(current);
   const forecast = getBattleForecast(current);
+  const presentation = getBattlePresentationReport(current);
   return {
     day: current.day,
     mission: getMission(current.selectedMissionId).name,
@@ -2395,6 +2396,14 @@ export function summaryForState(state) {
       incomingTotal: forecast.incomingTotal,
       highThreatCount: forecast.highThreatCount,
       bestAttack: forecast.bestAttack ? `${forecast.selectedUnitName} -> ${forecast.bestAttack.enemyName}` : '',
+    },
+    battlePresentation: {
+      headline: presentation.headline,
+      completionPct: presentation.completionPct,
+      cutInTone: presentation.cutInTone,
+      latestCue: presentation.latestCue.title,
+      readyRows: presentation.presentationRows.filter((row) => row.ready).length,
+      totalRows: presentation.presentationRows.length,
     },
     score: scoreState(current),
   };
@@ -2611,6 +2620,137 @@ export function getCampaignExpansionReport(state) {
     chapterRows,
     enemyPatterns,
     balanceRows,
+    recommendations: [...new Set(recommendations)].slice(0, 4),
+  };
+}
+
+function latestPresentationCue(current, battle) {
+  const latestLine = String(battle.lastResult || current.log?.[0] || '').trim();
+  const phaseLabel = battle.phase === 'player'
+    ? '플레이어 턴'
+    : battle.phase === 'enemy'
+      ? '적 턴'
+      : battle.phase === 'cleared'
+        ? '임무 클리어'
+        : battle.phase === 'failed'
+          ? '임무 실패'
+          : '전투 대기';
+
+  if (!latestLine) {
+    return {
+      title: phaseLabel,
+      detail: '아직 표시할 행동 결과가 없습니다. 첫 행동 후 이 영역에 결과 컷이 고정됩니다.',
+      tone: 'standby',
+    };
+  }
+  if (latestLine.includes('격파') || latestLine.includes('클리어') || latestLine.includes('승리')) {
+    return {
+      title: '결정타 컷',
+      detail: latestLine,
+      tone: 'finish',
+    };
+  }
+  if (latestLine.includes('빗나감')) {
+    return {
+      title: '회피 컷',
+      detail: latestLine,
+      tone: 'miss',
+    };
+  }
+  if (latestLine.includes('HP +') || latestLine.includes('붕대') || latestLine.includes('처치')) {
+    return {
+      title: '회복 컷',
+      detail: latestLine,
+      tone: 'support',
+    };
+  }
+  if (latestLine.includes('보호막') || latestLine.includes('방어')) {
+    return {
+      title: '방어 컷',
+      detail: latestLine,
+      tone: 'guard',
+    };
+  }
+  if (latestLine.includes('이동')) {
+    return {
+      title: '이동 컷',
+      detail: latestLine,
+      tone: 'move',
+    };
+  }
+  if (latestLine.includes('피해') || latestLine.includes('공격') || latestLine.includes('스킬')) {
+    return {
+      title: '공격 컷',
+      detail: latestLine,
+      tone: 'attack',
+    };
+  }
+  return {
+    title: phaseLabel,
+    detail: latestLine,
+    tone: 'standby',
+  };
+}
+
+export function getBattlePresentationReport(state) {
+  const current = normalizeState(state);
+  const battle = normalizeBattle(current.battle, current.selectedStudentIds);
+  const skills = tacticalSkillRows(current);
+  const forecast = getBattleForecast(current);
+  const expansion = getCampaignExpansionReport(current);
+  const latestCue = latestPresentationCue(current, battle);
+  const usableSkills = skills.filter((skill) => skill.canUse);
+  const skillNames = skills.slice(0, 3).map((skill) => skill.name).join(' / ');
+  const highRiskRows = forecast.unitThreats.filter((unit) => unit.riskScore >= 70 || unit.lethal);
+  const warnBalanceRows = expansion.balanceRows.filter((row) => row.tone === 'warn');
+
+  const presentationRows = [
+    {
+      id: 'action-result',
+      label: '행동 결과 고정',
+      value: latestCue.title,
+      detail: latestCue.detail,
+      ready: Boolean(latestCue.title),
+    },
+    {
+      id: 'skill-cut-in',
+      label: '스킬 컷인',
+      value: `${skills.length}종 · 사용 가능 ${usableSkills.length}종`,
+      detail: skillNames ? `대표 스킬: ${skillNames}` : '스킬 데이터가 없습니다.',
+      ready: skills.length >= 3,
+    },
+    {
+      id: 'enemy-forecast',
+      label: '적 턴 예고',
+      value: `${forecast.enemyPlans.length}개 행동 · ${forecast.threatLevel}`,
+      detail: forecast.enemyPlans[0]
+        ? `${forecast.enemyPlans[0].enemyName} → ${forecast.enemyPlans[0].targetName}`
+        : '현재 예고할 적 행동이 없습니다.',
+      ready: forecast.enemyPlans.length > 0 && forecast.unitThreats.length > 0,
+    },
+    {
+      id: 'campaign-balance',
+      label: '장기 밸런스 감사',
+      value: `${expansion.readinessPct}% · 점검 ${warnBalanceRows.length}건`,
+      detail: expansion.headline,
+      ready: expansion.chapterRows.length >= 3 && expansion.enemyPatterns.length >= 6 && expansion.balanceRows.length >= 4,
+    },
+  ];
+  const readyRows = presentationRows.filter((row) => row.ready).length;
+  const completionPct = Math.round((readyRows / Math.max(1, presentationRows.length)) * 100);
+  const recommendations = [];
+  if (usableSkills.length) recommendations.push(`${usableSkills[0].name} 컷인을 우선 표시할 수 있습니다.`);
+  if (highRiskRows.length) recommendations.push(`${highRiskRows[0].unitName} 위험 컷을 먼저 띄우는 구성이 좋습니다.`);
+  if (warnBalanceRows.length) recommendations.push(`${warnBalanceRows[0].label} 항목은 장기 튜닝 점검 대상으로 유지됩니다.`);
+  if (!recommendations.length) recommendations.push('현재 전투 연출, 위협 예고, 장기 밸런스 감사가 모두 연결되어 있습니다.');
+
+  return {
+    completionPct,
+    ready: completionPct >= 100,
+    headline: `${latestCue.title} · 연출 감사 ${completionPct}% · 위협 ${forecast.threatLevel}`,
+    cutInTone: latestCue.tone,
+    latestCue,
+    presentationRows,
     recommendations: [...new Set(recommendations)].slice(0, 4),
   };
 }
