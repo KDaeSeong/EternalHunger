@@ -457,9 +457,12 @@ export default function Rail3dSimPlayPage() {
               </section>
             ),
           },
-        ]}
-      />
-
+          {
+            id: 'advanced',
+            label: '상세 운행',
+            badge: `${stationBoard.length}역`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -708,6 +711,11 @@ export default function Rail3dSimPlayPage() {
           ))}
         </div>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }

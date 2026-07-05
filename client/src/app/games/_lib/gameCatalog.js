@@ -354,7 +354,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'route-score',
-    completionPct: 85,
+    completionPct: 90,
   },
   'company-report': {
     stage: 'playable',
@@ -511,9 +511,9 @@ export const GAME_ROADMAP = [
     title: 'Rail 3D Sim',
     subtitle: 'Transport Sim',
     priority: '실험 후보',
-    scope: '샘플 노선, 서비스 시간표, 운행 스텝, 블록 점유, 세그먼트 토큰, STOP/GO 신호, 역별 운행판, 디버그 미니맵, 저장/전적, 기능별 빠른 탭 UI',
-    summary: '샘플 노선과 시간표를 실제 스텝으로 진행하고, 블록/토큰 대기와 열차별 지연을 미니맵과 운행판에서 확인하는 transport sim playable slice입니다.',
-    nextStep: '남은 작업은 3D 카메라 뷰, 장거리 노선 데이터, 다이아 편집기와 병목 자동 분석을 붙이는 것입니다.',
+    scope: '샘플 노선, 서비스 시간표, 운행 스텝, 블록 점유, 세그먼트 토큰, STOP/GO 신호, 역별 운행판, 디버그 미니맵, 상세 운행 탭, 저장/전적, 기능별 빠른 탭 UI',
+    summary: '샘플 노선과 시간표를 실제 스텝으로 진행하고, 블록/토큰 대기와 열차별 지연을 미니맵, 역별 운행판, 상세 운행 탭에서 확인하는 transport sim playable slice입니다.',
+    nextStep: '남은 작업은 3D 카메라 뷰, 장거리 노선 데이터, 다이아 편집기, 병목 자동 분석을 붙이는 확장입니다.',
   },
   {
     slug: 'company-report',
