@@ -1247,6 +1247,30 @@ export function consumeBandageAction(state) {
   }, `${unit.name} HP +${heal}`);
 }
 
+export function waitSelectedUnitAction(state) {
+  const current = normalizeState(state);
+  const battle = current.battle;
+  if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
+  const unit = selectedUnit(battle);
+  if (!unit || unit.hp <= 0) return addLog(current, '대기할 학생이 없습니다.');
+  if (unit.acted || Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
+
+  const nextBattle = {
+    ...battle,
+    units: battle.units.map((row) => (
+      row.id === unit.id ? { ...row, ap: 0, acted: true } : row
+    )),
+    lastResult: `${unit.name} 대기`,
+  };
+  const next = addLog({
+    ...current,
+    battle: nextBattle,
+  }, nextBattle.lastResult);
+
+  const allDone = aliveUnits(nextBattle).every((row) => row.acted || Number(row.ap || 0) <= 0);
+  return allDone ? endTurnAction(next) : next;
+}
+
 function stepToward(actor, target, battle) {
   const candidates = openAdjacentTiles(actor, battle);
   candidates.sort((a, b) => distance(a, target) - distance(b, target));
