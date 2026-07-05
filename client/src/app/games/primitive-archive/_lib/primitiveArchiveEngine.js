@@ -3,6 +3,7 @@ export const QUICK_SAVE_SLOT = 'primitive-archive-main';
 export const SAVE_VERSION = 'primitive-archive-v1';
 const BASE_LOG_LIMIT = 240;
 const ARCHIVE_LOG_LIMIT_BONUS = 120;
+const ARCHIVE_VICTORY_DAY = 12;
 
 export const EQUIPMENT_SLOT_LABELS = {
   tool: '도구',
@@ -499,6 +500,7 @@ export function createNewState(options = {}) {
     meta,
     log: ['Day 1: 낯선 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.'],
     ended: false,
+    victory: false,
   };
   return applyOwnedPerks(base, meta);
 }
@@ -541,6 +543,7 @@ export function normalizeState(value) {
     research,
     meta,
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
+    victory: Boolean(value.victory),
   };
 }
 
@@ -1282,6 +1285,31 @@ export function settleRunAction(state) {
   }, `런 정산 완료. 점수 ${score.toLocaleString('ko-KR')} / 특전 +${award}`);
 }
 
+export function completeArchiveAction(state) {
+  const current = normalizeState(state);
+  if (current.victory) return addLog(current, '이미 아카이브를 완성한 런입니다.');
+  const victory = archiveVictorySummary(current);
+  if (!victory.canComplete) {
+    const pending = victory.rows.filter((row) => !row.done).map((row) => row.label).join(', ');
+    return addLog(current, `아카이브 완성 조건이 부족합니다. 남은 목표: ${pending || '없음'}.`);
+  }
+  const nextForScore = { ...current, victory: true };
+  const score = scoreState(nextForScore);
+  const award = Math.max(3, Math.floor(score / 700));
+  return addLog({
+    ...nextForScore,
+    ended: true,
+    meta: {
+      ...current.meta,
+      perkPoints: Number(current.meta.perkPoints || 0) + award,
+      lifetimeScore: Number(current.meta.lifetimeScore || 0) + score,
+      runsCompleted: Number(current.meta.runsCompleted || 0) + 1,
+      lastAward: award,
+      lastSettledRunId: current.runId,
+    },
+  }, `아카이브 완성. 점수 ${score.toLocaleString('ko-KR')} / 특전 +${award}`);
+}
+
 export function startNewRunFromMeta(state, options = {}) {
   const current = normalizeState(state);
   return createNewState({ ...options, meta: current.meta });
@@ -1357,6 +1385,67 @@ export function researchSummary(state) {
   };
 }
 
+export function archiveObjectiveRows(state) {
+  const current = normalizeState(state);
+  const research = researchSummary(current);
+  const alive = current.party.filter((member) => Number(member.hp || 0) > 0).length;
+  const books = Number(current.inventory.book_craft_guide || 0) + Number(current.inventory.book_camp_manual || 0);
+  const facilities = Number(current.camp.archiveRoomLevel || 0)
+    + Number(current.camp.scribeDeskLevel || 0)
+    + Number(current.camp.libraryShelfLevel || 0);
+  return [
+    {
+      id: 'survive',
+      label: '생존일',
+      current: current.day,
+      target: ARCHIVE_VICTORY_DAY,
+      done: current.day >= ARCHIVE_VICTORY_DAY,
+    },
+    {
+      id: 'research',
+      label: '연구',
+      current: research.completed,
+      target: research.total,
+      done: research.completed >= research.total,
+    },
+    {
+      id: 'facilities',
+      label: '기록 시설',
+      current: facilities,
+      target: 3,
+      done: facilities >= 3,
+    },
+    {
+      id: 'books',
+      label: '책',
+      current: books,
+      target: 2,
+      done: Number(current.inventory.book_craft_guide || 0) > 0 && Number(current.inventory.book_camp_manual || 0) > 0,
+    },
+    {
+      id: 'survivors',
+      label: '생존 파티',
+      current: alive,
+      target: 3,
+      done: alive >= 3,
+    },
+  ];
+}
+
+export function archiveVictorySummary(state) {
+  const current = normalizeState(state);
+  const rows = archiveObjectiveRows(current);
+  const completed = rows.filter((row) => row.done).length;
+  return {
+    rows,
+    completed,
+    total: rows.length,
+    canComplete: completed === rows.length && !current.ended,
+    victory: Boolean(current.victory),
+    label: current.victory ? '아카이브 완성' : `${completed}/${rows.length}`,
+  };
+}
+
 export function scoreState(state) {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
@@ -1379,6 +1468,7 @@ export function scoreState(state) {
     + research.completed * 120
     + equipmentCount * 45
     + partyInsulation(state) * 35
+    + (state.victory ? 700 : 0)
     + hp * 2
     + (100 - hunger))
     * preset.scoreMultiplier
@@ -1393,6 +1483,7 @@ export function getPlayTimeSec(state) {
 
 export function summaryForState(state) {
   const preset = difficultyPreset(state);
+  const victory = archiveVictorySummary(state);
   return {
     day: state.day,
     difficulty: preset.label,
@@ -1402,6 +1493,8 @@ export function summaryForState(state) {
     ap: state.ap,
     camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel} / 기록실 ${state.camp.archiveRoomLevel || 0} / 필사대 ${state.camp.scribeDeskLevel || 0} / 서가 ${state.camp.libraryShelfLevel || 0}`,
     research: `${researchSummary(state).completed}/${TECH_TREE.length}`,
+    objectives: `${victory.completed}/${victory.total}`,
+    victory: victory.victory,
     perkPoints: Number(state.meta?.perkPoints || 0),
     weight: totalCarryWeight(state),
     insulation: partyInsulation(state),

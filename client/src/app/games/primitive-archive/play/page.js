@@ -18,9 +18,11 @@ import {
   actionChance,
   averageBodyTemp,
   averageParty,
+  archiveVictorySummary,
   autoEquipAction,
   buyPerkAction,
   campFacilityRows,
+  completeArchiveAction,
   clearAllEquipmentAction,
   createNewState,
   difficultyRows,
@@ -132,6 +134,7 @@ export default function PrimitiveArchivePlayPage() {
   const huntChance = actionChance(state, actorId, 'hunt', 0.42);
   const craftChance = recipe ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
+  const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
@@ -321,6 +324,7 @@ export default function PrimitiveArchivePlayPage() {
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
+      <button type="button" onClick={() => setState((current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</button>
       <button type="button" onClick={() => setState((current) => settleRunAction(current))}>런 정산</button>
       <Link href="/myanime/primitive-archive">상세</Link>
     </>
@@ -337,6 +341,7 @@ export default function PrimitiveArchivePlayPage() {
     { label: '체온', value: `${bodyTemp.toFixed(1)}도` },
     { label: '보온', value: insulation },
     { label: '연구', value: `${research.completed}/${research.total}` },
+    { label: '목표', value: archiveVictory.label },
     { label: '특전', value: state.meta.perkPoints },
     { label: '무게', value: totalCarryWeight(state) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
@@ -345,7 +350,9 @@ export default function PrimitiveArchivePlayPage() {
   const playMessages = [
     message ? { key: 'message', text: message } : null,
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만, 저장/불러오기/전적 기록은 로그인해야 사용할 수 있습니다.' } : null,
-    dead ? { key: 'dead', tone: 'error', text: '런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
+    archiveVictory.victory ? { key: 'victory', text: '아카이브를 완성했습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
+    archiveVictory.canComplete ? { key: 'complete-ready', text: '모든 목표를 달성했습니다. 아카이브 완성으로 런을 마무리할 수 있습니다.' } : null,
+    dead && !archiveVictory.victory ? { key: 'dead', tone: 'error', text: '런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
   ];
 
   return (
@@ -433,6 +440,27 @@ export default function PrimitiveArchivePlayPage() {
                 </button>
               ))}
             </div>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>아카이브 목표</h2>
+              <span>{archiveVictory.label}</span>
+            </div>
+            <div className="game-save-list">
+              {archiveVictory.rows.map((row) => (
+                <article className="game-save-row" key={row.id}>
+                  <div>
+                    <span>{row.done ? '완료' : '진행 중'}</span>
+                    <strong>{row.label}</strong>
+                  </div>
+                  <strong>{row.current}/{row.target}</strong>
+                </article>
+              ))}
+            </div>
+            <ActionButton disabled={!archiveVictory.canComplete} onClick={() => setState((current) => completeArchiveAction(current))}>
+              아카이브 완성
+            </ActionButton>
           </section>
 
           <section className="games-panel">
