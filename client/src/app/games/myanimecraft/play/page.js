@@ -293,6 +293,7 @@ export default function MyAnimeCraftPlayPage() {
       title="MyAnimeCraft Starleague"
       description="업로드된 Starleague Sim 데이터를 기반으로 팀 리그, 개인리그, 위너스리그를 함께 진행합니다. 경기 결과, 순위표, 저장 슬롯, 전적 기록까지 사이트 규격에 맞춰 연결했습니다."
       summaryLabel="Starleague Sim 요약"
+      summaryDensity="micro"
       actions={actions}
       metrics={metrics}
       messages={messages}
@@ -301,7 +302,7 @@ export default function MyAnimeCraftPlayPage() {
         tabs={[
           {
             id: 'league',
-            label: '리그 진행/운영',
+            label: '정규리그',
             badge: `${played}/${total}`,
             children: (
               <>
@@ -463,6 +464,17 @@ export default function MyAnimeCraftPlayPage() {
             </div>
           </section>
         ) : null}
+      </section>
+              </>
+            ),
+          },
+          {
+            id: 'cups',
+            label: '컵/특별전',
+            badge: `${personalSummary.played + winnersSummary.played}`,
+            children: (
+              <>
+      <section className="games-detail-grid">
 
         <section className="games-panel">
           <div className="games-panel-title">
@@ -577,6 +589,17 @@ export default function MyAnimeCraftPlayPage() {
             )}
           </div>
         </section>
+      </section>
+              </>
+            ),
+          },
+          {
+            id: 'team',
+            label: '팀 운영',
+            badge: selectedTeam.name,
+            children: (
+              <>
+      <section className="games-detail-grid">
 
         <section className="games-panel">
           <div className="games-panel-title">
@@ -629,6 +652,17 @@ export default function MyAnimeCraftPlayPage() {
             ))}
           </div>
         </section>
+      </section>
+              </>
+            ),
+          },
+          {
+            id: 'market',
+            label: '시장/장비',
+            badge: `${inventoryRows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개`,
+            children: (
+              <>
+      <section className="games-detail-grid">
 
         <section className="games-panel">
           <div className="games-panel-title">
