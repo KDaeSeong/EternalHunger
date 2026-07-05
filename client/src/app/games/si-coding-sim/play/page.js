@@ -692,9 +692,12 @@ export default function SiCodingSimPlayPage() {
               </section>
             ),
           },
-        ]}
-      />
-
+          {
+            id: 'advanced',
+            label: '상세 현장',
+            badge: `${rows.length}과제`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel" ref={documentPanelRef}>
           <div className="games-panel-title">
@@ -1227,6 +1230,11 @@ export default function SiCodingSimPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }
