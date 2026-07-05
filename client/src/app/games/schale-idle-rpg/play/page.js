@@ -20,6 +20,7 @@ import {
   availableEnhanceSlots,
   autoSalvageAction,
   claimAchievementRewardsAction,
+  buyTowerShopOfferMaxAction,
   buyTowerShopOfferAction,
   claimMissionRewardsAction,
   craftRecipeAction,
@@ -564,7 +565,12 @@ export default function SchaleIdlePlayPage() {
                   <strong>{offer.name}</strong>
                   <small>남은 구매 {offer.remaining}</small>
                 </div>
-                <button type="button" disabled={!offer.canBuy} onClick={() => setState((current) => buyTowerShopOfferAction(current, offer.id))}>구매</button>
+                <div className="game-save-row-actions">
+                  <button type="button" disabled={!offer.canBuy} onClick={() => setState((current) => buyTowerShopOfferAction(current, offer.id))}>구매</button>
+                  <button type="button" disabled={!offer.canBuyMax} onClick={() => setState((current) => buyTowerShopOfferMaxAction(current, offer.id))}>
+                    최대 {offer.maxBuyCount || 0}
+                  </button>
+                </div>
               </article>
             ))}
           </div>

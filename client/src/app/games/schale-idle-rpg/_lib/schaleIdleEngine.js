@@ -1673,6 +1673,49 @@ export function buyTowerShopOfferAction(state, offerId) {
   }, `${offer.name} 구매 완료. ${granted.label}`);
 }
 
+export function buyTowerShopOfferMaxAction(state, offerId) {
+  const current = ensureTowerShopState(normalizeState(state));
+  const offer = TOWER_SHOP_OFFERS.find((item) => item.id === offerId);
+  if (!offer) return addLog(current, '대상 상점 상품을 찾을 수 없습니다.');
+
+  const towerShop = current.towerShop;
+  const activeIds = activeTowerShopOfferIdSet(towerShop);
+  if (!activeIds.has(offer.id)) return addLog(current, `${offer.name}는 현재 픽업 상품이 아닙니다.`);
+
+  const bought = getTowerShopBought(towerShop, offer);
+  const limitMax = offer.limit ? Number(offer.limit.max || 0) : Number.POSITIVE_INFINITY;
+  const remainingByLimit = Number.isFinite(limitMax) ? Math.max(0, limitMax - bought) : Number.POSITIVE_INFINITY;
+  if (remainingByLimit <= 0) return addLog(current, `${offer.name} 구매 제한에 도달했습니다.`);
+
+  const tokenCount = Number(current.inventory[offer.cost.itemId] || 0);
+  const maxByCurrency = Math.floor(tokenCount / Math.max(1, Number(offer.cost.qty || 1)));
+  const buyCount = Math.max(0, Math.floor(Math.min(maxByCurrency, remainingByLimit)));
+  if (buyCount <= 0) return addLog(current, `${offer.name} 최대 구매 실패. ${itemName(offer.cost.itemId)}이 부족합니다.`);
+
+  let next = {
+    ...current,
+    inventory: addItem(current.inventory, offer.cost.itemId, -offer.cost.qty * buyCount),
+  };
+  const sampleLabels = [];
+  for (let index = 0; index < buyCount; index += 1) {
+    const rng = createRng(`${current.runId}|tower-shop|max|${offer.id}|${bought + index}|${current.counters.SHOP_BUY}`);
+    const granted = grantTowerShopReward(next, offer, rng);
+    next = {
+      ...next,
+      inventory: granted.inventory,
+      equipment: granted.equipment,
+      salvageQueue: granted.salvageQueue,
+    };
+    if (sampleLabels.length < 3 && granted.label) sampleLabels.push(granted.label);
+  }
+
+  return addLog({
+    ...next,
+    towerShop: setTowerShopBought(towerShop, offer, bought + buyCount),
+    counters: bumpCounter(current.counters, 'SHOP_BUY', buyCount),
+  }, `${offer.name} 최대 구매 ${buyCount}회 완료. ${sampleLabels.join(', ')}${buyCount > sampleLabels.length ? ` 외 ${buyCount - sampleLabels.length}회` : ''}`);
+}
+
 export function resetTowerShopRotationAction(state, scope = 'DAILY') {
   const current = ensureTowerShopState(normalizeState(state));
   const isWeekly = scope === 'WEEKLY';
@@ -2033,11 +2076,17 @@ export function towerShopRows(state) {
     const bought = getTowerShopBought(towerShop, offer);
     const max = Number(offer.limit?.max || 999);
     const remaining = Math.max(0, max - bought);
+    const maxBuyCount = Math.max(0, Math.floor(Math.min(
+      remaining,
+      Math.floor(Number(current.inventory[offer.cost.itemId] || 0) / Math.max(1, Number(offer.cost.qty || 1))),
+    )));
     return {
       ...offer,
       bought,
       remaining,
+      maxBuyCount,
       canBuy: remaining > 0 && Number(current.inventory[offer.cost.itemId] || 0) >= offer.cost.qty,
+      canBuyMax: maxBuyCount > 1,
       costText: `${itemName(offer.cost.itemId)} ${offer.cost.qty}`,
       limitText: offer.limit ? `${offer.limit.period === 'WEEKLY' ? '주간' : '일일'} ${bought}/${max}` : '상시',
       pickupLabel: towerShopPickupLabel(towerShop, offer.id),
