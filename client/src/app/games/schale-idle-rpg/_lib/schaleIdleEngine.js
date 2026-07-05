@@ -2160,6 +2160,190 @@ export function missionRows(state) {
   });
 }
 
+function progressRatio(progress, target) {
+  const denominator = Math.max(1, Number(target || 1));
+  return clamp(Number(progress || 0) / denominator, 0, 1);
+}
+
+function progressPct(progress, target) {
+  return Math.round(progressRatio(progress, target) * 100);
+}
+
+function nextTargetFromList(value, targets, fallbackStep) {
+  const current = Math.max(0, Number(value || 0));
+  return targets.find((target) => current < target) || (Math.floor(current / fallbackStep) + 1) * fallbackStep;
+}
+
+function buildGrowthAction(id, title, detail, priority = 'normal') {
+  return { id, title, detail, priority };
+}
+
+function missingRecipeForSlot(slot) {
+  return RECIPES.find((recipe) => {
+    const produced = getItem(recipe.produces?.itemId);
+    return produced?.equip?.slot === slot;
+  }) || null;
+}
+
+export function growthReportForState(state) {
+  const current = normalizeState(state);
+  const power = teamPower(current);
+  const floor = Math.max(1, Math.floor(Number(current.floor || 1)));
+  const maxFloor = Math.max(0, Math.floor(Number(current.maxClearedFloor || 0)));
+  const towerFloor = Math.max(1, Math.floor(Number(current.towerFloor || 1)));
+  const towerMaxFloor = Math.max(0, Math.floor(Number(current.towerMaxCleared || 0)));
+  const towerLossStreak = Math.max(0, Math.floor(Number(current.towerLossStreak || 0)));
+  const towerCatchup = 1 + Math.min(0.24, towerLossStreak * 0.06);
+  const mainProb = winProb(power, dutyDifficulty(floor));
+  const towerProb = winProb(power * towerCatchup, towerDifficulty(towerFloor), 1.7);
+  const mainTarget = nextTargetFromList(maxFloor, [20, 50, 100, 200, 300, 500], 100);
+  const towerTarget = nextTargetFromList(towerMaxFloor, [10, 20, 50, 100, 150, 200], 50);
+  const equipped = getEquippedList(current);
+  const missingSlots = Object.keys(SLOT_LABELS).filter((slot) => !current.equipment?.[slot]);
+  const upgrades = upgradeRows(current);
+  const readyUpgrades = upgrades.filter((upgrade) => upgrade.canUpgrade);
+  const missions = missionRows(current);
+  const claimableMissions = missions.filter((mission) => mission.done && !mission.claimed);
+  const activeMission = missions
+    .filter((mission) => !mission.claimed)
+    .sort((a, b) => progressRatio(b.progress, b.target) - progressRatio(a.progress, a.target))[0] || null;
+  const achievements = achievementRows(current);
+  const claimableAchievements = achievements.filter((achievement) => achievement.canClaim);
+  const activeAchievement = achievements
+    .filter((achievement) => !achievement.claimed)
+    .sort((a, b) => progressRatio(b.progress, b.target) - progressRatio(a.progress, a.target))[0] || null;
+  const salvageInfo = salvageSummary(current);
+  const towerKeys = Number(current.inventory.itm_tower_key || 0);
+  const towerTokens = Number(current.inventory.itm_tower_token || 0);
+  const floorBase = Math.max(1, Math.floor(Number(current.towerMaxCleared || current.maxClearedFloor || current.floor || 1)));
+  const creditsPerWave = Math.round((15 + floorBase * 2) * rewardCreditMul(current));
+  const offlineHourlyCredits = creditsPerWave * Math.floor(60 * 60 * 1000 / OFFLINE_WAVE_MS);
+  const offlineHourlyTokens = Math.floor(Math.floor(60 * 60 * 1000 / OFFLINE_WAVE_MS) / 10);
+
+  const blockers = [];
+  const recommendations = [];
+
+  if (claimableMissions.length || claimableAchievements.length) {
+    recommendations.push(buildGrowthAction(
+      'claim-rewards',
+      '보상 먼저 수령',
+      `미션 ${claimableMissions.length}개, 업적 ${claimableAchievements.length}개 보상이 대기 중입니다.`,
+      'high',
+    ));
+  }
+  if (Number(current.stamina || 0) < 35) {
+    blockers.push('스태미나 부족');
+    recommendations.push(buildGrowthAction('rest', '재정비', '스태미나가 낮아 정산 효율과 승률이 같이 떨어집니다.', 'high'));
+  }
+  if (missingSlots.length) {
+    const firstSlot = missingSlots[0];
+    const recipe = missingRecipeForSlot(firstSlot);
+    blockers.push(`${slotLabel(firstSlot)} 미장착`);
+    recommendations.push(buildGrowthAction(
+      'craft-missing-slot',
+      `${slotLabel(firstSlot)} 확보`,
+      recipe
+        ? `${recipe.name}으로 빈 슬롯을 먼저 채우세요.`
+        : `${slotLabel(firstSlot)} 슬롯 장비가 비어 있습니다.`,
+      'high',
+    ));
+  }
+  if (readyUpgrades.length) {
+    recommendations.push(buildGrowthAction(
+      'upgrade',
+      '상시 연구 진행',
+      `${readyUpgrades[0].name} Lv.${readyUpgrades[0].level} -> Lv.${readyUpgrades[0].nextLevel} 연구가 가능합니다.`,
+      'normal',
+    ));
+  }
+  if (salvageInfo.executableCount > 0) {
+    recommendations.push(buildGrowthAction(
+      'salvage',
+      '분해 대기열 정리',
+      `실행 가능한 후보 ${salvageInfo.executableCount}개가 있어 재료 회수가 가능합니다.`,
+      'normal',
+    ));
+  }
+  if (mainProb < 0.42) {
+    blockers.push('메인 정산 승률 낮음');
+    recommendations.push(buildGrowthAction('main-power', '전투력 보강', `현재 층 승률이 ${Math.round(mainProb * 100)}%라 연구/강화가 먼저입니다.`, 'high'));
+  } else if (Number(current.stamina || 0) >= 35) {
+    recommendations.push(buildGrowthAction('duty', '2시간 정산', `현재 층 승률 ${Math.round(mainProb * 100)}%로 메인 웨이브를 밀기 좋습니다.`, 'normal'));
+  }
+  if (towerKeys <= 0) {
+    blockers.push('탑 열쇠 부족');
+    recommendations.push(buildGrowthAction('tower-key', '탑 열쇠 확보', '탑 상점 구매나 열쇠 제작 후 등반을 재개하세요.', 'normal'));
+  } else if (towerProb >= 0.55) {
+    recommendations.push(buildGrowthAction('tower', '탑 배치 도전', `탑 ${towerFloor}층 예상 승률이 ${Math.round(towerProb * 100)}%입니다.`, 'normal'));
+  } else {
+    recommendations.push(buildGrowthAction('tower-delay', '탑은 보류', `탑 ${towerFloor}층 승률이 ${Math.round(towerProb * 100)}%라 메인 성장 후 재도전이 낫습니다.`, 'low'));
+  }
+
+  const statusTone = blockers.length >= 3 || mainProb < 0.35 ? 'danger' : blockers.length ? 'warn' : 'good';
+  const headline = recommendations[0]?.title || '메인 정산 유지';
+  const overallPct = Math.round(clamp(
+    18
+      + progressRatio(maxFloor, mainTarget) * 18
+      + progressRatio(towerMaxFloor, towerTarget) * 14
+      + Math.min(1, equipped.length / Object.keys(SLOT_LABELS).length) * 16
+      + Math.min(1, upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0) / 15) * 12
+      + Math.min(1, achievements.filter((achievement) => achievement.claimed).length / Math.max(1, achievements.length)) * 12
+      + Math.min(1, towerTokens / 60) * 10,
+    0,
+    100,
+  ));
+
+  return {
+    statusTone,
+    headline,
+    overallPct,
+    summary: `${headline} · 성장도 ${overallPct}%`,
+    combat: {
+      power,
+      floor,
+      mainProbabilityPct: Math.round(mainProb * 100),
+      mainTarget,
+      mainTargetPct: progressPct(maxFloor, mainTarget),
+      towerFloor,
+      towerProbabilityPct: Math.round(towerProb * 100),
+      towerTarget,
+      towerTargetPct: progressPct(towerMaxFloor, towerTarget),
+      towerCatchupPct: Math.round((towerCatchup - 1) * 100),
+    },
+    resources: {
+      credits: Number(current.credits || 0),
+      stamina: Number(current.stamina || 0),
+      towerKeys,
+      towerTokens,
+      equippedCount: equipped.length,
+      missingSlots: missingSlots.map((slot) => slotLabel(slot)),
+      salvageCandidates: salvageInfo.executableCount,
+      readyUpgrades: readyUpgrades.length,
+      claimableRewards: claimableMissions.length + claimableAchievements.length,
+    },
+    nextMission: activeMission ? {
+      name: activeMission.name,
+      progress: activeMission.progress,
+      target: activeMission.target,
+      pct: progressPct(activeMission.progress, activeMission.target),
+    } : null,
+    nextAchievement: activeAchievement ? {
+      name: activeAchievement.name,
+      progress: activeAchievement.progress,
+      target: activeAchievement.target,
+      pct: progressPct(activeAchievement.progress, activeAchievement.target),
+    } : null,
+    offlineProjection: {
+      creditsPerWave,
+      hourlyCredits: offlineHourlyCredits,
+      hourlyTokens: offlineHourlyTokens,
+      capHours: Math.round(OFFLINE_CAP_MS / (60 * 60 * 1000)),
+    },
+    blockers,
+    recommendations: recommendations.slice(0, 6),
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   return Math.max(0, Math.round(
@@ -2200,6 +2384,18 @@ export function summaryForState(state) {
     salvageQueued: current.salvageQueue.length,
     achievements: achievementRows(current).filter((achievement) => achievement.claimed).length,
     equippedTitle: titleById(current.equippedTitleId)?.name || '',
+    growthReport: (() => {
+      const report = growthReportForState(current);
+      return {
+        statusTone: report.statusTone,
+        headline: report.headline,
+        overallPct: report.overallPct,
+        mainProbabilityPct: report.combat.mainProbabilityPct,
+        towerProbabilityPct: report.combat.towerProbabilityPct,
+        blockers: report.blockers,
+        recommendations: report.recommendations.map((item) => item.title),
+      };
+    })(),
     lastDutyReport: current.lastDutyReport ? {
       fromFloor: current.lastDutyReport.fromFloor,
       toFloor: current.lastDutyReport.toFloor,

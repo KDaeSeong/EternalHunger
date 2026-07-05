@@ -30,6 +30,7 @@ import {
   equipmentPresetRows,
   equipTitleAction,
   getEquippedList,
+  growthReportForState,
   getLeader,
   getPlayTimeSec,
   inventoryRows,
@@ -122,6 +123,7 @@ export default function SchaleIdlePlayPage() {
   const shopOffers = useMemo(() => towerShopRows(state), [state]);
   const shopRotation = useMemo(() => towerShopRotationSummary(state), [state]);
   const presets = useMemo(() => equipmentPresetRows(state), [state]);
+  const growthReport = useMemo(() => growthReportForState(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
@@ -270,6 +272,7 @@ export default function SchaleIdlePlayPage() {
     { label: '크레딧', value: `${Number(state.credits || 0).toLocaleString('ko-KR')} Cr` },
     { label: '업적', value: `${achievements.filter((achievement) => achievement.claimed).length}/${achievements.length}` },
     { label: '연구', value: `Lv.${totalUpgradeLevel}` },
+    { label: '성장', value: `${growthReport.overallPct}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -297,6 +300,32 @@ export default function SchaleIdlePlayPage() {
             children: (
               <>
       <section className="games-detail-grid">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>성장 리포트</h2>
+            <span>{growthReport.summary}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="메인 승률" value={`${growthReport.combat.mainProbabilityPct}%`} />
+            <SmallStat label="탑 승률" value={`${growthReport.combat.towerProbabilityPct}%`} />
+            <SmallStat label="다음 메인" value={`${growthReport.combat.mainTargetPct}% / F${growthReport.combat.mainTarget}`} />
+            <SmallStat label="다음 탑" value={`${growthReport.combat.towerTargetPct}% / ${growthReport.combat.towerTarget}층`} />
+            <SmallStat label="보상 대기" value={`${growthReport.resources.claimableRewards}개`} />
+            <SmallStat label="분해 후보" value={`${growthReport.resources.salvageCandidates}개`} />
+          </div>
+          <div className="game-save-list" style={{ marginTop: 12 }}>
+            {growthReport.recommendations.slice(0, 4).map((item) => (
+              <article className="game-save-row" key={item.id}>
+                <div>
+                  <span>{item.priority === 'high' ? '우선' : item.priority === 'low' ? '보류' : '권장'}</span>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>방치 정산</h2>
@@ -778,6 +807,56 @@ export default function SchaleIdlePlayPage() {
               <>
 
       <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>성장 판단</h2>
+            <span>{growthReport.statusTone === 'good' ? '안정' : growthReport.statusTone === 'warn' ? '점검 필요' : '위험'}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="전투력" value={growthReport.combat.power.toLocaleString('ko-KR')} />
+            <SmallStat label="연패 보정" value={`+${growthReport.combat.towerCatchupPct}%`} />
+            <SmallStat label="빈 슬롯" value={growthReport.resources.missingSlots.length ? growthReport.resources.missingSlots.join(', ') : '없음'} />
+            <SmallStat label="연구 가능" value={`${growthReport.resources.readyUpgrades}개`} />
+            <SmallStat label="1시간 방치" value={`${growthReport.offlineProjection.hourlyCredits.toLocaleString('ko-KR')} Cr`} />
+            <SmallStat label="방치 상한" value={`${growthReport.offlineProjection.capHours}시간`} />
+          </div>
+          <div className="game-save-list">
+            {growthReport.nextMission ? (
+              <article className="game-save-row">
+                <div>
+                  <span>미션 {growthReport.nextMission.progress}/{growthReport.nextMission.target} · {growthReport.nextMission.pct}%</span>
+                  <strong>{growthReport.nextMission.name}</strong>
+                </div>
+              </article>
+            ) : null}
+            {growthReport.nextAchievement ? (
+              <article className="game-save-row">
+                <div>
+                  <span>업적 {growthReport.nextAchievement.progress}/{growthReport.nextAchievement.target} · {growthReport.nextAchievement.pct}%</span>
+                  <strong>{growthReport.nextAchievement.name}</strong>
+                </div>
+              </article>
+            ) : null}
+            {growthReport.blockers.length ? (
+              <article className="game-save-row">
+                <div>
+                  <span>병목</span>
+                  <strong>{growthReport.blockers.join(' / ')}</strong>
+                </div>
+                <strong>점검</strong>
+              </article>
+            ) : (
+              <article className="game-save-row">
+                <div>
+                  <span>병목 없음</span>
+                  <strong>현재 루프는 안정적으로 이어갈 수 있습니다.</strong>
+                </div>
+                <strong>안정</strong>
+              </article>
+            )}
+          </div>
+        </section>
+
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>근무 보고서</h2>
