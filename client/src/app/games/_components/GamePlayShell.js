@@ -69,7 +69,11 @@ export default function GamePlayShell({
 }) {
   const visibleMetrics = metrics.filter(Boolean);
   const visibleMessages = messages.filter(Boolean);
-  const summaryClassName = summaryDensity === 'compact' ? 'games-summary games-summary--compact' : 'games-summary';
+  const summaryClassName = summaryDensity === 'dense'
+    ? 'games-summary games-summary--dense'
+    : summaryDensity === 'compact'
+      ? 'games-summary games-summary--compact'
+      : 'games-summary';
 
   return (
     <main className="games-page-shell">
