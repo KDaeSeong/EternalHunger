@@ -290,7 +290,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'survival-score',
-    completionPct: 96,
+    completionPct: 98,
     maxPlayers: 4,
   },
   'tonkatsu-teacher': {
@@ -326,7 +326,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'league-standing',
-    completionPct: 96,
+    completionPct: 98,
   },
   'school-simulator': {
     stage: 'prototype',
@@ -478,9 +478,9 @@ export const GAME_ROADMAP = [
     title: 'Starleague Sim',
     subtitle: 'League Sim',
     priority: '1차 완료권',
-    scope: '팀리그, 포스트시즌, 개인리그, 위너스리그, 경기 아카이브, 해설 타임라인',
-    summary: '팀 리그와 포스트시즌을 한 시즌 단위로 진행하고, 빌드/맵/종족전 기반 해설과 경기 다시보기를 제공하는 리그 시뮬레이터입니다.',
-    nextStep: '외부 경기 메타 데이터 반영과 개인리그/위너스리그 연출을 추가로 강화합니다.',
+    scope: '팀리그, 포스트시즌, 개인리그, 위너스리그, 경기 아카이브, 내부 메타 기반 빌드/해설',
+    summary: '팀 리그와 포스트시즌을 한 시즌 단위로 진행하고, 누적 경기 데이터가 빌드 선택과 해설 타임라인에 반영되는 리그 시뮬레이터입니다.',
+    nextStep: '외부 경기 메타 데이터 연동, 장기 시즌 밸런스 리포트, 개인리그/위너스리그 연출을 추가로 강화합니다.',
   },
   {
     slug: 'school-simulator',

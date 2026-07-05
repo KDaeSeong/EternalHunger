@@ -27,18 +27,25 @@ export const BUILD_STYLE_LABELS = {
   balanced: '밸런스',
 };
 
+const BUILD_STYLE_KEYS = Object.keys(BUILD_STYLE_LABELS);
+
 const BUILD_DEFS = [
   buildDef('T', 'TvZ', '2배럭 압박', 'rush', ['rush']),
+  buildDef('T', 'TvZ', '8배럭 벙커링', 'rush', ['rush', 'small']),
   buildDef('T', 'TvZ', '1배럭 더블', 'macro', ['macro', 'large']),
   buildDef('T', 'TvZ', '5배럭 타이밍', 'rush', ['rush', 'balanced']),
   buildDef('T', 'TvZ', '바이오닉 견제', 'harass', ['small', 'harass']),
   buildDef('T', 'TvZ', '드랍십 흔들기', 'harass', ['harass', 'large']),
   buildDef('T', 'TvZ', '메카닉 운영', 'tech', ['large', 'macro']),
   buildDef('T', 'TvZ', '발키리 전환', 'tech', ['tech', 'balanced']),
+  buildDef('T', 'TvZ', 'SK테란 전환', 'balanced', ['balanced', 'macro']),
+  buildDef('T', 'TvZ', '레이트 메카닉', 'tech', ['tech', 'large']),
   buildDef('T', 'TvP', '2배럭 찌르기', 'rush', ['rush', 'small']),
+  buildDef('T', 'TvP', '원팩 원스타', 'tech', ['tech', 'small']),
   buildDef('T', 'TvP', '팩토리 조이기', 'rush', ['rush', 'balanced']),
   buildDef('T', 'TvP', '바이오닉-탱크 운영', 'balanced', ['macro', 'balanced']),
   buildDef('T', 'TvP', '업테란 운영', 'macro', ['macro', 'large']),
+  buildDef('T', 'TvP', '트리플 커맨드', 'macro', ['macro', 'large']),
   buildDef('T', 'TvP', '메카닉 전환', 'tech', ['large', 'tech']),
   buildDef('T', 'TvP', '드랍십 벌처 견제', 'harass', ['harass', 'small']),
   buildDef('T', 'TvT', '1팩 더블', 'macro', ['macro', 'large']),
@@ -46,10 +53,13 @@ const BUILD_DEFS = [
   buildDef('T', 'TvT', '2팩 압박', 'rush', ['rush']),
   buildDef('T', 'TvT', '드랍십 탱크 흔들기', 'harass', ['harass', 'large']),
   buildDef('T', 'TvT', '메카닉 운영', 'tech', ['large', 'tech']),
+  buildDef('T', 'TvT', '빠른 스타포트', 'harass', ['harass', 'small']),
   buildDef('Z', 'TvZ', '3해처리 뮤탈', 'tech', ['large', 'tech']),
+  buildDef('Z', 'TvZ', '빠른 3가스 뮤탈', 'tech', ['tech', 'large']),
   buildDef('Z', 'TvZ', '2해처리 러커', 'tech', ['tech', 'balanced']),
   buildDef('Z', 'TvZ', '저글링 러시', 'rush', ['rush', 'small']),
   buildDef('Z', 'TvZ', '뮤탈 견제', 'harass', ['harass', 'small']),
+  buildDef('Z', 'TvZ', '러커 조이기', 'rush', ['rush', 'balanced']),
   buildDef('Z', 'TvZ', '하이브 운영', 'macro', ['macro', 'large']),
   buildDef('Z', 'TvZ', '울트라 전환', 'macro', ['macro', 'large']),
   buildDef('Z', 'ZvP', '3해처리 뮤탈', 'tech', ['large', 'tech']),
@@ -58,19 +68,24 @@ const BUILD_DEFS = [
   buildDef('Z', 'ZvP', '뮤탈 흔들기', 'harass', ['harass', 'small']),
   buildDef('Z', 'ZvP', '히드라 운영', 'macro', ['macro']),
   buildDef('Z', 'ZvP', '디파일러 장기전', 'tech', ['tech', 'large']),
+  buildDef('Z', 'ZvP', '스파이어 페이크', 'harass', ['harass', 'small']),
   buildDef('Z', 'ZvZ', '9드론 저글링', 'rush', ['rush', 'small']),
   buildDef('Z', 'ZvZ', '12앞마당 운영', 'macro', ['macro']),
   buildDef('Z', 'ZvZ', '2해처리 뮤탈', 'tech', ['large', 'tech']),
   buildDef('Z', 'ZvZ', '저글링 난전', 'harass', ['harass', 'small']),
   buildDef('Z', 'ZvZ', '3해처리 운영', 'macro', ['macro']),
+  buildDef('Z', 'ZvZ', '원해처리 뮤탈', 'tech', ['tech', 'small']),
   buildDef('P', 'TvP', '더블넥서스', 'macro', ['macro', 'large']),
+  buildDef('P', 'TvP', '원게이트 더블', 'macro', ['macro', 'balanced']),
   buildDef('P', 'TvP', '옵드라 압박', 'balanced', ['balanced', 'macro']),
   buildDef('P', 'TvP', '질럿 러시', 'rush', ['rush', 'small']),
   buildDef('P', 'TvP', '다크템플러 찌르기', 'tech', ['tech', 'small']),
   buildDef('P', 'TvP', '리버 셔틀', 'harass', ['small', 'harass']),
+  buildDef('P', 'TvP', '아비터 리콜', 'tech', ['tech', 'large']),
   buildDef('P', 'TvP', '캐리어 전환', 'tech', ['tech', 'large']),
   buildDef('P', 'ZvP', '질럿-드라군 압박', 'rush', ['rush']),
   buildDef('P', 'ZvP', '커세어 리버', 'harass', ['harass', 'small']),
+  buildDef('P', 'ZvP', '커세어 다크', 'tech', ['tech', 'small']),
   buildDef('P', 'ZvP', '캐리어 운영', 'macro', ['macro', 'large']),
   buildDef('P', 'ZvP', '셔틀 테크', 'tech', ['large', 'tech']),
   buildDef('P', 'ZvP', '템플러 한방', 'tech', ['tech', 'balanced']),
@@ -81,6 +96,7 @@ const BUILD_DEFS = [
   buildDef('P', 'PvP', '다크템플러 테크', 'tech', ['tech', 'small']),
   buildDef('P', 'PvP', '더블 운영', 'macro', ['macro']),
   buildDef('P', 'PvP', '질럿 드라군 압박', 'balanced', ['balanced']),
+  buildDef('P', 'PvP', '앞마당 리버 운영', 'macro', ['macro', 'large']),
 ];
 
 const CAREER_STAT_KEYS = ['attack', 'defense', 'strategy', 'sense', 'macro', 'scout', 'control', 'harass'];
@@ -546,11 +562,18 @@ function normalizePersonalSetDetail(value) {
   if (!value || typeof value !== 'object') return null;
   return {
     setNo: Math.max(1, Math.floor(Number(value.setNo || 1))),
+    mapId: String(value.mapId || ''),
     mapName: String(value.mapName || ''),
+    homePlayerId: String(value.homePlayerId || ''),
+    homePlayerName: String(value.homePlayerName || ''),
+    awayPlayerId: String(value.awayPlayerId || ''),
+    awayPlayerName: String(value.awayPlayerName || ''),
     winnerId: String(value.winnerId || ''),
     winnerName: String(value.winnerName || ''),
     homeBuildName: String(value.homeBuildName || ''),
     awayBuildName: String(value.awayBuildName || ''),
+    homeBuildStyle: String(value.homeBuildStyle || ''),
+    awayBuildStyle: String(value.awayBuildStyle || ''),
     durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
     timeline: normalizeSetTimeline(value.timeline),
   };
@@ -639,6 +662,7 @@ function normalizeWinnersSet(value) {
     winnerPlayerName: String(value.winnerPlayerName || ''),
     probabilityHome: Math.round(Number(value.probabilityHome || 0)),
     durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
+    mapId: String(value.mapId || ''),
     homeBuildName: String(value.homeBuildName || ''),
     awayBuildName: String(value.awayBuildName || ''),
     homeBuildStyle: String(value.homeBuildStyle || ''),
@@ -1052,7 +1076,173 @@ function coachBuildBias(style, buildStyle) {
   return buildStyle === 'balanced' ? 0.06 : 0.01;
 }
 
-function pickBuild(seed, teamData, member, opponent, map) {
+function createStyleLedger() {
+  return BUILD_STYLE_KEYS.reduce((ledger, style) => {
+    ledger[style] = { count: 0, wins: 0 };
+    return ledger;
+  }, {});
+}
+
+function createBuildMetaBucket() {
+  return { styles: createStyleLedger(), total: 0, lastStyle: '' };
+}
+
+function createBuildMetaLedger() {
+  return {
+    players: {},
+    maps: {},
+    global: createStyleLedger(),
+    totalSets: 0,
+    totalSides: 0,
+  };
+}
+
+function validBuildStyle(style) {
+  return BUILD_STYLE_LABELS[style] ? style : '';
+}
+
+function addStyleResult(ledger, style, won) {
+  const key = validBuildStyle(style);
+  if (!key) return;
+  const current = ledger[key] || { count: 0, wins: 0 };
+  ledger[key] = {
+    count: current.count + 1,
+    wins: current.wins + (won ? 1 : 0),
+  };
+}
+
+function recordBuildMetaSide(meta, playerId, style, won, mapKey) {
+  const key = validBuildStyle(style);
+  if (!key || !playerId) return;
+  const id = String(playerId);
+  if (!meta.players[id]) meta.players[id] = createBuildMetaBucket();
+  meta.players[id].total += 1;
+  meta.players[id].lastStyle = key;
+  addStyleResult(meta.players[id].styles, key, won);
+  addStyleResult(meta.global, key, won);
+  meta.totalSides += 1;
+
+  if (mapKey) {
+    const safeMapKey = String(mapKey);
+    if (!meta.maps[safeMapKey]) meta.maps[safeMapKey] = createBuildMetaBucket();
+    meta.maps[safeMapKey].total += 1;
+    meta.maps[safeMapKey].lastStyle = key;
+    addStyleResult(meta.maps[safeMapKey].styles, key, won);
+  }
+}
+
+function recordBuildMetaSet(meta, setResult) {
+  if (!setResult || typeof setResult !== 'object') return;
+  const homeStyle = validBuildStyle(setResult.homeBuildStyle);
+  const awayStyle = validBuildStyle(setResult.awayBuildStyle);
+  if (!homeStyle && !awayStyle) return;
+  const mapKey = setResult.mapId || setResult.mapName || '';
+  const winnerPlayerId = String(setResult.winnerPlayerId || setResult.winnerId || '');
+  const homePlayerId = String(setResult.homePlayerId || '');
+  const awayPlayerId = String(setResult.awayPlayerId || '');
+  recordBuildMetaSide(meta, homePlayerId, homeStyle, winnerPlayerId && winnerPlayerId === homePlayerId, mapKey);
+  recordBuildMetaSide(meta, awayPlayerId, awayStyle, winnerPlayerId && winnerPlayerId === awayPlayerId, mapKey);
+  meta.totalSets += 1;
+}
+
+function collectBuildMeta(state) {
+  const meta = createBuildMetaLedger();
+  const current = state && typeof state === 'object' ? state : {};
+  const recordResult = (result) => {
+    if (!result || typeof result !== 'object' || !Array.isArray(result.sets)) return;
+    result.sets.forEach((setResult) => recordBuildMetaSet(meta, setResult));
+  };
+
+  (Array.isArray(current.fixtures) ? current.fixtures : []).forEach((fixture) => {
+    if (fixture?.played && fixture?.result) recordResult(fixture.result);
+  });
+  normalizePostseasonFixtures(current.postseasonFixtures).forEach((fixture) => {
+    if (fixture.played && fixture.result) recordResult(fixture.result);
+  });
+  normalizeWinnersLeague(current.winnersLeague, current.seasonNo).sets.forEach((setResult) => recordBuildMetaSet(meta, setResult));
+  normalizePersonalLeague(current.personalLeague, current.seasonNo).matches.forEach((match) => {
+    (Array.isArray(match.setDetails) ? match.setDetails : []).forEach((setResult) => recordBuildMetaSet(meta, setResult));
+  });
+
+  return meta;
+}
+
+function styleWinRate(row) {
+  return row && row.count ? row.wins / row.count : 0;
+}
+
+function bestStyleFromLedger(ledger, minCount = 2) {
+  return BUILD_STYLE_KEYS
+    .map((style) => {
+      const row = ledger?.[style] || { count: 0, wins: 0 };
+      const count = Number(row.count || 0);
+      const rate = styleWinRate(row);
+      return { style, count, rate, score: rate + Math.min(count, 12) * 0.006 };
+    })
+    .filter((row) => row.count >= minCount && row.rate >= 0.5)
+    .sort((a, b) => b.score - a.score)[0] || null;
+}
+
+function createBuildMetaContext(meta, player, map) {
+  const styleBias = BUILD_STYLE_KEYS.reduce((result, style) => {
+    result[style] = 0;
+    return result;
+  }, {});
+  const playerBucket = meta.players[String(player?.id || '')];
+  const mapBucket = meta.maps[String(map?.id || '')] || meta.maps[String(map?.name || '')];
+
+  BUILD_STYLE_KEYS.forEach((style) => {
+    const playerRow = playerBucket?.styles?.[style];
+    const mapRow = mapBucket?.styles?.[style];
+    const globalRow = meta.global?.[style];
+    if (playerRow && playerRow.count >= 2) {
+      styleBias[style] += clamp((styleWinRate(playerRow) - 0.5) * 0.13, -0.045, 0.055);
+    }
+    if (mapRow && mapRow.count >= 3) {
+      styleBias[style] += clamp((styleWinRate(mapRow) - 0.5) * 0.07, -0.03, 0.035);
+    }
+    if (meta.totalSides >= 16 && globalRow?.count) {
+      const popularity = globalRow.count / meta.totalSides;
+      styleBias[style] -= clamp((popularity - 0.34) * 0.06, 0, 0.025);
+    }
+    if (playerBucket?.lastStyle === style && playerBucket.total >= 2) {
+      styleBias[style] -= 0.018;
+    }
+  });
+
+  const bestPlayerStyle = bestStyleFromLedger(playerBucket?.styles, 2);
+  const bestMapStyle = bestStyleFromLedger(mapBucket?.styles, 3);
+  const notes = [];
+  if (bestPlayerStyle) {
+    notes.push(`${player.name} 최근 내부 기록은 ${BUILD_STYLE_LABELS[bestPlayerStyle.style]} 카드 성공률 ${Math.round(bestPlayerStyle.rate * 100)}%`);
+  }
+  if (bestMapStyle) {
+    notes.push(`${map.name} 누적 메타는 ${BUILD_STYLE_LABELS[bestMapStyle.style]} 쪽 승률 ${Math.round(bestMapStyle.rate * 100)}%`);
+  }
+
+  return {
+    styleBias,
+    recentStyle: playerBucket?.lastStyle || '',
+    sampleSize: Number(playerBucket?.total || 0),
+    mapSampleSize: Number(mapBucket?.total || 0),
+    notes,
+  };
+}
+
+function buildMetaInsightLine(rng, homeMeta, awayMeta) {
+  const notes = [...new Set([...(homeMeta?.notes || []), ...(awayMeta?.notes || [])])];
+  if (notes.length >= 2) {
+    const first = notes[Math.floor(rng() * notes.length)];
+    const second = notes.find((note) => note !== first) || notes[0];
+    return `내부 경기 데이터 체크입니다. ${first}, 그리고 ${second}라서 빌드 선택에도 메타 보정이 들어갑니다.`;
+  }
+  if (notes.length === 1) {
+    return `내부 경기 데이터 체크입니다. ${notes[0]}가 눈에 띕니다. 오늘 준비한 빌드도 그 흐름을 의식한 선택입니다.`;
+  }
+  return '아직 누적 표본은 많지 않습니다. 이번 세트는 선수 성향, 감독 색깔, 맵 태그가 빌드 선택을 더 크게 흔듭니다.';
+}
+
+function pickBuild(seed, teamData, member, opponent, map, metaContext = null) {
   const rng = createRng(seed);
   const matchup = matchupOf(member?.race, opponent?.race);
   const options = BUILD_DEFS.filter((item) => item.race === member?.race && item.matchup === matchup);
@@ -1062,10 +1252,14 @@ function pickBuild(seed, teamData, member, opponent, map) {
   const weighted = options.map((item) => {
     const mapTags = Array.isArray(map?.tags) ? map.tags : [];
     const tagBonus = item.tags.reduce((sum, tag) => sum + (mapTags.includes(tag) ? 0.04 : 0), 0);
+    const metaBonus = clamp(Number(metaContext?.styleBias?.[item.style] || 0), -0.08, 0.08);
+    const repeatPenalty = metaContext?.recentStyle === item.style ? -0.012 : 0;
     const score = clamp(
       Number(preference[item.style] || 0.5)
         + coachBuildBias(teamData?.coachStyle, item.style)
         + tagBonus
+        + metaBonus
+        + repeatPenalty
         + (rng() - 0.5) * 0.06,
       0.01,
       0.99,
@@ -1364,6 +1558,8 @@ function buildSetTimeline({
   scoreHome = 0,
   scoreAway = 0,
   isAceSet = false,
+  homeMeta = null,
+  awayMeta = null,
 }) {
   const winnerName = homeWin ? homePlayer.name : awayPlayer.name;
   const leaderName = noisyDiff >= 0 ? homePlayer.name : awayPlayer.name;
@@ -1374,6 +1570,7 @@ function buildSetTimeline({
     buildTimelineLine(0, '캐스터', `${setNo}세트${isAceSet ? ' 에이스전' : ''} 시작합니다. 맵은 ${map.name}, ${homePlayer.name}(${RACE_LABELS[homePlayer.race] || homePlayer.race}) vs ${awayPlayer.name}(${RACE_LABELS[awayPlayer.race] || awayPlayer.race})입니다.${scoreText}`),
     buildTimelineLine(10, '해설', mapFlavorLine(rng, map)),
     buildTimelineLine(16, '해설', `${topic(homePlayer.name)} ${homeBuild.name}(${BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style}), ${topic(awayPlayer.name)} ${awayBuild.name}(${BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style}) 구도입니다.`),
+    buildTimelineLine(22, '데이터', buildMetaInsightLine(rng, homeMeta, awayMeta)),
     buildTimelineLine(Math.round(durationSec * 0.2), '해설 B', matchupFlavorLine(rng, homePlayer.race, awayPlayer.race)),
     buildTimelineLine(Math.round(durationSec * 0.32), '해설', buildClashLine(rng, homeBuild, awayBuild)),
     buildTimelineLine(Math.round(durationSec * 0.44), '해설', styleFlowLine(rng, homeBuild.style, homePlayer.name)),
@@ -2101,8 +2298,11 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const map = mapById(mapIds[(fixture.round + setNo - 2) % mapIds.length]);
   const seed = `${state.runId}|${fixture.id}|${setNo}|${scoreHome}-${scoreAway}`;
   const rng = createRng(seed);
-  const homeBuild = pickBuild(`${seed}|build|home`, homeTeam, homePlayer, awayPlayer, map);
-  const awayBuild = pickBuild(`${seed}|build|away`, awayTeam, awayPlayer, homePlayer, map);
+  const buildMeta = collectBuildMeta(state);
+  const homeMeta = createBuildMetaContext(buildMeta, homePlayer, map);
+  const awayMeta = createBuildMetaContext(buildMeta, awayPlayer, map);
+  const homeBuild = pickBuild(`${seed}|build|home`, homeTeam, homePlayer, awayPlayer, map, homeMeta);
+  const awayBuild = pickBuild(`${seed}|build|away`, awayTeam, awayPlayer, homePlayer, map, awayMeta);
   const homePhase = phasePower(homePlayer);
   const awayPhase = phasePower(awayPlayer);
   const homeBuildPhase = stylePhaseBonus(homeBuild.style);
@@ -2154,6 +2354,8 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     scoreHome,
     scoreAway,
     isAceSet,
+    homeMeta,
+    awayMeta,
   });
   return {
     setNo,
@@ -2693,11 +2895,18 @@ function simulatePersonalMatch(state, match) {
     mapNames.push(setResult.mapName);
     setDetails.push({
       setNo,
+      mapId: setResult.mapId,
       mapName: setResult.mapName,
+      homePlayerId: home.player.id,
+      homePlayerName: home.player.name,
+      awayPlayerId: away.player.id,
+      awayPlayerName: away.player.name,
       winnerId: setResult.winnerPlayerId,
       winnerName: setResult.winnerPlayerId === home.player.id ? home.player.name : away.player.name,
       homeBuildName: setResult.homeBuildName,
       awayBuildName: setResult.awayBuildName,
+      homeBuildStyle: setResult.homeBuildStyle,
+      awayBuildStyle: setResult.awayBuildStyle,
       durationSec: setResult.durationSec,
       timeline: setResult.timeline,
     });
@@ -3264,6 +3473,7 @@ export function advanceWinnersLeagueAction(state) {
     winnerPlayerName,
     probabilityHome: setResult.probabilityHome,
     durationSec: setResult.durationSec,
+    mapId: setResult.mapId,
     homeBuildName: setResult.homeBuildName,
     awayBuildName: setResult.awayBuildName,
     homeBuildStyle: setResult.homeBuildStyle,
