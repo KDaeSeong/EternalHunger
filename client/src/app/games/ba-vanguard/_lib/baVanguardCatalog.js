@@ -1461,6 +1461,186 @@ export function summarizeDuel(duel) {
   };
 }
 
+function zoneUnits(player) {
+  return Object.entries(player?.circles || {})
+    .filter(([, unit]) => Boolean(unit))
+    .map(([circle, unit]) => ({ circle, unit, card: getCard(unit.cardId) }))
+    .filter((row) => row.card);
+}
+
+function handShieldProfile(player) {
+  const cards = Array.isArray(player?.hand) ? player.hand.map(getCard).filter(Boolean) : [];
+  return cards.reduce((profile, card) => {
+    profile.totalShield += Number(card.shield || 0);
+    if (card.type === 'sentinel') profile.sentinels += 1;
+    if (card.type === 'trigger') profile.triggers += 1;
+    if (card.type === 'normal') profile.normalUnits += 1;
+    return profile;
+  }, { totalShield: 0, sentinels: 0, triggers: 0, normalUnits: 0 });
+}
+
+function bestRideCandidate(player) {
+  const vcGrade = getCard(player?.circles?.VC?.cardId)?.grade ?? -1;
+  const wantGrade = Math.min(vcGrade + 1, 3);
+  return (player?.hand || [])
+    .map((cardId) => getCard(cardId))
+    .find((card) => card && card.type === 'normal' && card.grade === wantGrade) || null;
+}
+
+function bestCallCandidate(player) {
+  const vcGrade = getCard(player?.circles?.VC?.cardId)?.grade ?? 0;
+  return (player?.hand || [])
+    .map((cardId) => getCard(cardId))
+    .filter((card) => card && card.type !== 'sentinel' && card.type !== 'trigger' && Number(card.grade || 0) <= vcGrade)
+    .sort((a, b) => Number(b.power || 0) - Number(a.power || 0))[0] || null;
+}
+
+function attackCandidatesFor(duel, side) {
+  return CIRCLES
+    .filter((circle) => canAttack(duel, side, circle))
+    .map((circle) => {
+      const unit = duel.players[side].circles[circle];
+      const booster = boosterFor(circle);
+      const boostPower = booster && duel.players[side].circles[booster] && !duel.players[side].circles[booster].isRest
+        ? powerOfUnit(duel.players[side].circles[booster])
+        : 0;
+      return {
+        circle,
+        cardName: cardName(unit.cardId),
+        power: powerOfUnit(unit) + boostPower,
+        boostPower,
+      };
+    })
+    .sort((a, b) => b.power - a.power);
+}
+
+function reportAction(id, title, detail, priority = 'normal') {
+  return { id, title, detail, priority };
+}
+
+export function duelTacticalReport(duel, perspective = 'me') {
+  const side = perspective === 'opp' ? 'opp' : 'me';
+  const rival = opponent(side);
+  const player = duel?.players?.[side] || initPlayerState([], [], 1);
+  const enemy = duel?.players?.[rival] || initPlayerState([], [], 2);
+  const playerUnits = zoneUnits(player);
+  const enemyUnits = zoneUnits(enemy);
+  const playerPower = playerUnits.reduce((sum, row) => sum + powerOfUnit(row.unit), 0);
+  const enemyPower = enemyUnits.reduce((sum, row) => sum + powerOfUnit(row.unit), 0);
+  const fieldDelta = playerUnits.length - enemyUnits.length;
+  const powerDelta = playerPower - enemyPower;
+  const damageDelta = enemy.damage.length - player.damage.length;
+  const shield = handShieldProfile(player);
+  const rideCandidate = bestRideCandidate(player);
+  const callCandidate = bestCallCandidate(player);
+  const attackCandidates = attackCandidatesFor(duel, side);
+  const recommendations = [];
+
+  let guard = null;
+  if (duel?.battle && duel.battle.defenderSide === side) {
+    const attackPower = battleAttackPower(duel, duel.battle);
+    const baseDefense = powerOfUnit(player.circles[duel.battle.defenderCircle]);
+    const guardNeeded = Math.max(0, attackPower - baseDefense + 1 - Number(duel.battle.guardShield || 0));
+    guard = {
+      attackPower,
+      baseDefense,
+      currentShield: Number(duel.battle.guardShield || 0),
+      guardNeeded,
+      availableShield: shield.totalShield,
+      perfectGuard: Boolean(duel.battle.perfectGuard),
+    };
+    recommendations.push(reportAction(
+      'guard',
+      guardNeeded > 0 ? '가드 보강' : '가드 종료',
+      guardNeeded > 0
+        ? `추가 실드가 약 ${guardNeeded.toLocaleString('ko-KR')} 필요합니다. 센티넬 ${shield.sentinels}장, 총 실드 ${shield.totalShield.toLocaleString('ko-KR')}을 확인하세요.`
+        : '현재 가드 수치로 공격을 막을 수 있습니다. 가드 종료를 진행하세요.',
+      'high',
+    ));
+  } else if (duel?.winner) {
+    recommendations.push(reportAction('record', '결과 기록', `${SIDE_LABELS[duel.winner]} 승리입니다. 전적 저장과 로그 확인을 진행하세요.`, 'high'));
+  } else if (duel?.active !== side) {
+    recommendations.push(reportAction('wait', '상대 진행', `${SIDE_LABELS[rival]} 차례입니다. AI 진행으로 다음 판단 지점까지 넘기세요.`, 'normal'));
+  } else if (duel.phase === 'STAND' || duel.phase === 'DRAW') {
+    recommendations.push(reportAction('phase', '다음 페이즈', '스탠드/드로우 처리를 마치고 메인 페이즈로 넘어가세요.', 'normal'));
+  } else if (duel.phase === 'MAIN') {
+    if (rideCandidate) {
+      recommendations.push(reportAction('ride', `${rideCandidate.name} 라이드`, `현재 라이드 라인을 이어갈 Grade ${rideCandidate.grade} 후보입니다.`, 'high'));
+    }
+    const vcCard = getCard(player.circles.VC?.cardId);
+    const canStride = vcCard?.grade >= 3 && !player.isStrided && (player.gzone || []).some((cardId) => getCard(cardId)?.type === 'g-unit');
+    if (canStride) {
+      recommendations.push(reportAction('stride', '스트라이드', 'G3 이상 VC와 G존 후보가 있습니다. 스트라이드로 공격 압박을 높이세요.', 'high'));
+    }
+    const emptyRear = REAR_CIRCLES.filter((circle) => !player.circles[circle]).length;
+    if (callCandidate && emptyRear > 0) {
+      recommendations.push(reportAction('call', `${callCandidate.name} 콜`, `빈 리어가드 서클 ${emptyRear}칸이 있습니다. 전열/후열 전개를 보강하세요.`, 'normal'));
+    }
+    recommendations.push(reportAction('battle', '배틀 준비', '라이드/콜/스킬 처리가 끝났다면 배틀 페이즈로 넘어가 공격 순서를 잡으세요.', 'low'));
+  } else if (duel.phase === 'BATTLE') {
+    if (attackCandidates.length) {
+      const first = attackCandidates[0];
+      recommendations.push(reportAction('attack', `${first.circle} 공격`, `${first.cardName} 라인이 ${first.power.toLocaleString('ko-KR')} 파워로 가장 강합니다.`, 'high'));
+    } else {
+      recommendations.push(reportAction('end-battle', '페이즈 종료', '공격 가능한 유닛이 없습니다. 엔드 페이즈로 진행하세요.', 'normal'));
+    }
+  } else {
+    recommendations.push(reportAction('end', '턴 종료', '처리할 행동이 적습니다. 다음 턴으로 넘기세요.', 'normal'));
+  }
+
+  if (!duel?.winner && player.damage.length >= 5) {
+    recommendations.push(reportAction('danger-damage', '5데미지 위험', '다음 히트가 패배로 이어질 수 있습니다. 센티넬과 G가디언을 아끼지 마세요.', 'high'));
+  }
+  if (!duel?.winner && player.deck.length <= 8) {
+    recommendations.push(reportAction('deckout', '덱 부족', '덱이 얼마 남지 않았습니다. 장기전보다 빠른 마무리를 노리세요.', 'high'));
+  }
+
+  const riskScore = (player.damage.length >= 5 ? 3 : player.damage.length >= 4 ? 2 : 0)
+    + (damageDelta < -1 ? 2 : damageDelta < 0 ? 1 : 0)
+    + (fieldDelta < -1 ? 1 : 0)
+    + (shield.totalShield < 15000 && player.damage.length >= 3 ? 1 : 0)
+    + (player.deck.length <= 8 ? 1 : 0);
+  const riskLabel = duel?.winner
+    ? '종료'
+    : riskScore >= 4
+      ? '위험'
+      : riskScore >= 2
+        ? '주의'
+        : '안정';
+  const readinessPct = Math.max(0, Math.min(100, Math.round(
+    58
+    + Math.max(-16, Math.min(16, damageDelta * 7))
+    + Math.max(-12, Math.min(12, fieldDelta * 5))
+    + Math.max(-12, Math.min(12, powerDelta / 3000))
+    + Math.min(8, shield.sentinels * 4)
+    + (attackCandidates.length ? 6 : 0)
+    - (guard?.guardNeeded > 0 ? 10 : 0)
+  )));
+  const firstAction = recommendations[0] || reportAction('check', '상태 확인', '전장과 패를 확인하세요.', 'normal');
+
+  return {
+    side,
+    rival,
+    phase: duel?.phase || 'STAND',
+    active: duel?.active || side,
+    riskLabel,
+    readinessPct,
+    recommendedAction: firstAction.title,
+    headline: `${riskLabel} · ${firstAction.title}`,
+    fieldDelta,
+    powerDelta,
+    damageDelta,
+    playerDamage: player.damage.length,
+    enemyDamage: enemy.damage.length,
+    playerDeck: player.deck.length,
+    enemyDeck: enemy.deck.length,
+    shield,
+    guard,
+    attackCandidates: attackCandidates.slice(0, 4),
+    recommendations: recommendations.slice(0, 6),
+  };
+}
+
 function runAutoPlaytestDuel(meDeck, oppDeck, seed, rules = DEFAULT_RULES, first = 'me') {
   const duel = initDuelState({
     meDeck,
