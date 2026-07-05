@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -288,6 +288,14 @@ export default function SchaleIdlePlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'duty',
+            label: '당직/제작',
+            badge: `${state.stamina}/100`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -412,6 +420,15 @@ export default function SchaleIdlePlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+          {
+            id: 'gear',
+            label: '장비/보상',
+            badge: `${equipped.length}개`,
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -750,6 +767,15 @@ export default function SchaleIdlePlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+          {
+            id: 'records',
+            label: '보고서/로그',
+            badge: `${state.log.length}개`,
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -808,6 +834,11 @@ export default function SchaleIdlePlayPage() {
           ))}
         </div>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }

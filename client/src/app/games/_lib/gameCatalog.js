@@ -302,12 +302,13 @@ const GAME_INTEGRATIONS = {
     resultMode: 'ledger-score',
   },
   'schale-idle-rpg': {
-    stage: 'prototype',
-    stageLabel: '프로토타입',
+    stage: 'playable',
+    stageLabel: '플레이 가능',
     adapter: 'idle-rpg',
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'account-progress',
+    completionPct: 76,
   },
   'ba-srpg': {
     stage: 'prototype',
@@ -458,9 +459,9 @@ export const GAME_ROADMAP = [
     title: 'Schale Idle RPG',
     subtitle: 'Idle RPG',
     priority: '장기 성장형',
-    scope: '장비, 타워, 미션, 강화, 분해',
-    summary: '장비 관리와 반복 성장 UI가 많이 쌓여 있어 장기 접속형 게임으로 키우기 좋습니다.',
-    nextStep: '저장 구조와 자동 분해 룰을 서버 계정 데이터에 맞게 재설계합니다.',
+    scope: '방치 정산, 장비, 타워, 미션, 강화, 분해, 상점, 저장/전적, 기능별 탭 UI',
+    summary: '방치 정산과 반복 성장, 장비 프리셋, 자동 분해, 탑 상점까지 연결된 장기 성장형 playable slice입니다.',
+    nextStep: '서버 계정 성장 데이터와 장기 밸런스, 오프라인 정산 검증을 강화합니다.',
   },
   {
     slug: 'ba-srpg',
