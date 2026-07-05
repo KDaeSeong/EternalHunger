@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   BUILD_STYLE_LABELS,
   EQUIPMENT_SLOT_LABELS,
@@ -293,6 +293,14 @@ export default function MyAnimeCraftPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'league',
+            label: '리그 진행/운영',
+            badge: `${played}/${total}`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -706,8 +714,17 @@ export default function MyAnimeCraftPlayPage() {
               <div className="games-empty">보유 아이템이 없습니다.</div>
             )}
           </div>
+          </section>
         </section>
-      </section>
+              </>
+            ),
+          },
+          {
+            id: 'records',
+            label: '기록/랭킹',
+            badge: `${standings.length}팀`,
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -849,6 +866,11 @@ export default function MyAnimeCraftPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }

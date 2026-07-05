@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 
 export function GameMetric({ label, value }) {
@@ -8,6 +9,50 @@ export function GameMetric({ label, value }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+export function GameFeatureTabs({ tabs = [], initialTabId = '' }) {
+  const visibleTabs = tabs.filter(Boolean);
+  const fallbackId = visibleTabs[0]?.id || '';
+  const [activeTabId, setActiveTabId] = useState(initialTabId || fallbackId);
+  const activeTab = visibleTabs.find((tab) => tab.id === activeTabId) || visibleTabs[0];
+
+  if (!visibleTabs.length) return null;
+
+  return (
+    <section className="game-feature-tabs">
+      <div className="game-feature-tabs__list" role="tablist" aria-label="게임 기능">
+        {visibleTabs.map((tab) => {
+          const selected = activeTab?.id === tab.id;
+          return (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`game-feature-panel-${tab.id}`}
+              id={`game-feature-tab-${tab.id}`}
+              className={selected ? 'is-active' : ''}
+              key={tab.id}
+              onClick={() => setActiveTabId(tab.id)}
+            >
+              <span>{tab.label}</span>
+              {tab.badge ? <strong>{tab.badge}</strong> : null}
+            </button>
+          );
+        })}
+      </div>
+      {activeTab ? (
+        <div
+          className="game-feature-tabs__panel"
+          id={`game-feature-panel-${activeTab.id}`}
+          role="tabpanel"
+          aria-labelledby={`game-feature-tab-${activeTab.id}`}
+        >
+          {activeTab.children}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

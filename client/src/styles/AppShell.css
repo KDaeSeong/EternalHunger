@@ -5157,6 +5157,62 @@
   gap: 14px;
 }
 
+.game-feature-tabs {
+  display: grid;
+  gap: 14px;
+}
+
+.game-feature-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid rgba(22, 33, 44, 0.1);
+  padding-bottom: 10px;
+}
+
+.game-feature-tabs__list button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  cursor: pointer;
+  font-weight: 950;
+  padding: 0 14px;
+}
+
+.game-feature-tabs__list button:hover {
+  border-color: rgba(8, 120, 189, 0.42);
+  box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.game-feature-tabs__list button.is-active {
+  border-color: rgba(44, 111, 158, 0.68);
+  background: #2c6f9e;
+  color: #ffffff;
+}
+
+.game-feature-tabs__list button strong {
+  min-width: 0;
+  border-radius: 999px;
+  background: rgba(22, 33, 44, 0.08);
+  color: inherit;
+  font-size: 0.76rem;
+  line-height: 1;
+  padding: 5px 7px;
+}
+
+.game-feature-tabs__list button.is-active strong {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.game-feature-tabs__panel {
+  min-width: 0;
+}
+
 .games-panel {
   min-width: 0;
   display: grid;

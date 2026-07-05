@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   EQUIPMENT_SLOT_LABELS,
   GAME_SLUG,
@@ -367,6 +367,14 @@ export default function PrimitiveArchivePlayPage() {
       metrics={playMetrics}
       messages={playMessages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'survival',
+            label: '생존 운영',
+            badge: `AP ${state.ap}`,
+            children: (
+              <>
         <section className="games-detail-grid">
           <section className="games-panel">
             <div className="games-panel-title">
@@ -588,6 +596,15 @@ export default function PrimitiveArchivePlayPage() {
             </div>
           </section>
         </section>
+              </>
+            ),
+          },
+          {
+            id: 'growth',
+            label: '연구/성장',
+            badge: `${research.completed}/${research.total}`,
+            children: (
+              <>
 
         <section className="games-dashboard">
           <section className="games-panel">
@@ -665,6 +682,15 @@ export default function PrimitiveArchivePlayPage() {
             </div>
           </section>
         </section>
+              </>
+            ),
+          },
+          {
+            id: 'inventory',
+            label: '인벤토리/로그',
+            badge: `${inventoryRows.length}종`,
+            children: (
+              <>
 
         <section className="games-dashboard">
           <section className="games-panel">
@@ -701,6 +727,11 @@ export default function PrimitiveArchivePlayPage() {
             </div>
           </section>
         </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }
