@@ -1246,6 +1246,28 @@ function buildOperationAction(id, title, detail, priority = 'medium') {
   return { id, title, detail, priority };
 }
 
+function buildTutorialStep(id, title, detail, done, progressPct, actionHint) {
+  return {
+    id,
+    title,
+    detail,
+    done: Boolean(done),
+    progressPct: Math.round(clamp(progressPct, 0, 100)),
+    actionHint,
+  };
+}
+
+function buildBalanceRow(id, label, value, pct, tone, detail) {
+  return {
+    id,
+    label,
+    value,
+    pct: Math.round(clamp(pct, 0, 100)),
+    tone,
+    detail,
+  };
+}
+
 export function operationsReportForState(state) {
   const current = normalizeState(state);
   const ctx = buildFacilityContext(current);
@@ -1281,6 +1303,16 @@ export function operationsReportForState(state) {
   const tournamentRecipe = bestCraftable || unlockedRecipes.slice().sort((a, b) => Number(b.power || 0) - Number(a.power || 0))[0] || RECIPES[0];
   const tournament = tournamentPreview(current, tournamentRecipe.id, 'rookie');
   const facilityTotal = facilities.reduce((sum, facility) => sum + Number(facility.level || 0), 0);
+  const craftedCount = Number(current.counters?.crafted || 0);
+  const soldCount = Number(current.counters?.sold || 0);
+  const suppliedCount = Number(current.counters?.supplied || 0);
+  const battleCount = Number(current.counters?.battles || 0);
+  const growthCount = Number(current.counters?.facilityUpgrades || 0) + Number(current.counters?.researches || 0);
+  const ingredientCostMap = INGREDIENTS.reduce((map, item) => ({ ...map, [item.id]: Number(item.price || 0) }), {});
+  const loopRecipe = bestCraftable || unlockedRecipes[0] || RECIPES[0];
+  const loopInputCost = Object.entries(loopRecipe.needs || {}).reduce((sum, [id, qty]) => sum + Number(ingredientCostMap[id] || 0) * Number(qty || 0), 0) + Number(loopRecipe.craftCost || 0);
+  const loopOutputGold = Math.round(Number(loopRecipe.sellPrice || 0) * Math.max(1, Number(loopRecipe.yieldTokens || 1)) * Number(ctx.goldMultFromOrders || 1));
+  const loopMargin = loopOutputGold - loopInputCost;
   const avgMorale = averageStudents(current, 'morale');
   const avgHpPct = Math.round(current.students.reduce((sum, student) => (
     sum + (Number(student.currentHp || 0) / Math.max(1, Number(student.hp || 1))) * 100
@@ -1324,6 +1356,25 @@ export function operationsReportForState(state) {
     recommendations.push(buildOperationAction('tournament', '루키 대회 출전', `${tournamentRecipe.name} 예상 점수 ${tournament.total}점으로 우승권입니다.`, 'low'));
   }
 
+  const tutorialRows = [
+    buildTutorialStep('buy', '재료 매입', '돈카츠 제작 재료를 최소 5칸 확보합니다.', ingredientTotal >= 5 || craftedCount > 0, ingredientTotal / 5 * 100, '재료 상점에서 돼지고기와 빵가루를 먼저 채우세요.'),
+    buildTutorialStep('craft', '첫 메뉴 제작', '기본 돈카츠나 샐러드를 만들어 판매 가능한 메뉴를 확보합니다.', craftedCount > 0 || tokenTotal > 0 || soldCount > 0, Math.max(craftedCount, tokenTotal) * 100, '주방/영업 탭에서 메뉴 제작을 누르세요.'),
+    buildTutorialStep('sell', '영업 매출 회수', '준비된 메뉴를 팔거나 일일 주문으로 골드를 회수합니다.', soldCount > 0, soldCount / 3 * 100, '준비 메뉴가 생기면 일일 주문 처리를 우선 실행하세요.'),
+    buildTutorialStep('feed', '학생 배식', '전투 전에 선호 태그가 맞는 메뉴를 배식해 HP와 사기를 올립니다.', suppliedCount > 0 || battleCount > 0, suppliedCount * 100, '학생/전투 탭에서 선택 메뉴 배식을 실행하세요.'),
+    buildTutorialStep('battle', '첫 전투', '배식 후 예상 승률이 안정권이면 전투 보상을 회수합니다.', battleCount > 0, battleCount * 100, '예상 승률 55% 이상일 때 전투 진행이 효율적입니다.'),
+    buildTutorialStep('growth', '시설 또는 연구', '골드와 조각을 써서 시설/레시피 중 하나를 확장합니다.', growthCount > 0, growthCount * 100, '성장/대회 탭에서 강화 가능 항목을 먼저 확인하세요.'),
+  ];
+  const tutorialPct = Math.round(tutorialRows.reduce((sum, row) => sum + Number(row.progressPct || 0), 0) / Math.max(1, tutorialRows.length));
+  const balanceRows = [
+    buildBalanceRow('economy', '제작 마진', `${loopRecipe.name} ${loopMargin >= 0 ? '+' : ''}${loopMargin}G`, 50 + loopMargin / 4, loopMargin >= 80 ? 'good' : loopMargin >= 20 ? 'watch' : 'risk', `투입 ${loopInputCost}G / 주문 매출 ${loopOutputGold}G 기준입니다.`),
+    buildBalanceRow('storage', '보관 압박', `${ingredientTotal}/${ctx.storageCap}`, 100 - (ingredientTotal / Math.max(1, ctx.storageCap)) * 65, ingredientTotal >= ctx.storageCap ? 'risk' : ingredientTotal >= ctx.storageCap * 0.8 ? 'watch' : 'good', '보관 한도에 가까우면 제작 또는 시설 강화가 우선입니다.'),
+    buildBalanceRow('student', '학생 컨디션', `${avgHpPct}% HP / 사기 ${avgMorale}`, (avgHpPct + avgMorale) / 2, avgHpPct < 45 ? 'risk' : avgMorale < 45 ? 'watch' : 'good', 'HP와 사기가 낮으면 배식 후 다음 전투를 진행하세요.'),
+    buildBalanceRow('battle', '전투 난이도', `${battleChancePct}%`, battleChancePct, battleChancePct >= 65 ? 'good' : battleChancePct >= 45 ? 'watch' : 'risk', `추천 학생 ${bestStudent?.name || '없음'} 기준 ${current.floor}층 예상입니다.`),
+    buildBalanceRow('tournament', '대회 격차', `${tournament.total}/${tournament.tier.targetScore}`, 50 + (tournament.total - tournament.tier.targetScore) * 1.2, tournament.win ? 'good' : tournament.total >= tournament.tier.targetScore - 18 ? 'watch' : 'risk', `${tournamentRecipe.name} 루키 대회 미리보기입니다.`),
+    buildBalanceRow('judge', '심사 표본', `${judge.judged}판 / ${judge.accuracy}%`, Math.min(100, judge.judged * 7 + judge.accuracy * 0.4), judge.judged >= 10 && judge.accuracy >= 55 ? 'good' : judge.judged >= 5 ? 'watch' : 'risk', '심사 표본이 쌓이면 대회 판정 감각을 검증할 수 있습니다.'),
+  ];
+  const balanceScore = Math.round(balanceRows.reduce((sum, row) => sum + Number(row.pct || 0), 0) / Math.max(1, balanceRows.length));
+
   return {
     headline: current.ended
       ? '운영 종료'
@@ -1333,7 +1384,11 @@ export function operationsReportForState(state) {
           ? '운영 안정'
           : '재료 회전 필요',
     readinessPct,
+    tutorialPct,
+    balanceScore,
     riskLabel: avgHpPct < 45 ? '학생 회복 필요' : ingredientTotal >= ctx.storageCap ? '보관 한도 초과' : tokenTotal > 0 ? '판매 대기' : '정상',
+    tutorialRows,
+    balanceRows,
     businessRows: [
       { label: '영업 방식', value: current.businessMode === 'delivery' ? '배달' : '홀' },
       { label: '주문 처리량', value: ctx.dailyOrders },
@@ -1380,6 +1435,8 @@ export function summaryForState(state) {
       ? Math.round((Number(state.counters?.judgeCorrect || 0) / Number(state.counters?.judgeMatches || 0)) * 100)
       : 0,
     readinessPct: operationsReport.readinessPct,
+    tutorialPct: operationsReport.tutorialPct,
+    balanceScore: operationsReport.balanceScore,
     operationStatus: operationsReport.headline,
     score: scoreState(state),
   };
