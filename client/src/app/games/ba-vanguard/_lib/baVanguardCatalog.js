@@ -1641,6 +1641,180 @@ export function duelTacticalReport(duel, perspective = 'me') {
   };
 }
 
+function replaySideFromLog(line) {
+  const match = String(line || '').match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (!match) return { side: '', text: String(line || '') };
+  const label = match[1];
+  const side = Object.entries(SIDE_LABELS).find(([, value]) => value === label)?.[0] || '';
+  return { side, text: match[2] || '' };
+}
+
+function replayTurnRow(turn) {
+  return {
+    turn,
+    lines: 0,
+    meActions: 0,
+    oppActions: 0,
+    rides: 0,
+    calls: 0,
+    strides: 0,
+    attacks: 0,
+    hits: 0,
+    guards: 0,
+    checks: 0,
+    decisive: 0,
+    highlights: [],
+  };
+}
+
+function replayPriority(text) {
+  if (/승리|패배|6데미지|덱이 비었습니다/.test(text)) return 'decisive';
+  if (/히트|막혔|G 가디언|완전 가드/.test(text)) return 'swing';
+  if (/공격|스트라이드|VC 스킬/.test(text)) return 'tempo';
+  if (/라이드|콜|가드/.test(text)) return 'normal';
+  return 'low';
+}
+
+function replayLabel(line, turn) {
+  const parsed = replaySideFromLog(line);
+  const sideLabel = parsed.side ? SIDE_LABELS[parsed.side] : '시스템';
+  return `T${turn} · ${sideLabel} · ${parsed.text}`;
+}
+
+export function vanguardReplayReport(duel) {
+  const safe = duel && typeof duel === 'object' ? duel : {};
+  const chronological = (Array.isArray(safe.log) ? safe.log : []).slice().reverse();
+  const rowMap = new Map();
+  let currentTurn = 1;
+  let meGuardCount = 0;
+  let oppGuardCount = 0;
+  let meAttackCount = 0;
+  let oppAttackCount = 0;
+  let decisiveLine = '';
+
+  const ensureRow = (turn) => {
+    const safeTurn = Math.max(1, Math.floor(Number(turn || 1)));
+    if (!rowMap.has(safeTurn)) rowMap.set(safeTurn, replayTurnRow(safeTurn));
+    return rowMap.get(safeTurn);
+  };
+
+  chronological.forEach((line) => {
+    const parsed = replaySideFromLog(line);
+    const turnMatch = parsed.text.match(/턴\s*(\d+)/);
+    if (turnMatch) currentTurn = Math.max(1, Number(turnMatch[1] || currentTurn));
+    const row = ensureRow(currentTurn);
+    row.lines += 1;
+    if (parsed.side === 'me') row.meActions += 1;
+    if (parsed.side === 'opp') row.oppActions += 1;
+
+    if (/라이드/.test(parsed.text)) row.rides += 1;
+    if (/콜/.test(parsed.text)) row.calls += 1;
+    if (/스트라이드/.test(parsed.text)) row.strides += 1;
+    if (/공격/.test(parsed.text)) {
+      row.attacks += 1;
+      if (parsed.side === 'me') meAttackCount += 1;
+      if (parsed.side === 'opp') oppAttackCount += 1;
+    }
+    if (/히트/.test(parsed.text)) row.hits += 1;
+    if (/가드/.test(parsed.text)) {
+      row.guards += 1;
+      if (parsed.side === 'me') meGuardCount += 1;
+      if (parsed.side === 'opp') oppGuardCount += 1;
+    }
+    if (/체크/.test(parsed.text)) row.checks += 1;
+    if (/승리|패배|6데미지|덱이 비었습니다/.test(parsed.text)) {
+      row.decisive += 1;
+      decisiveLine = replayLabel(line, currentTurn);
+    }
+
+    const priority = replayPriority(parsed.text);
+    if (priority !== 'low' || row.highlights.length < 2) {
+      row.highlights.push({
+        label: replayLabel(line, currentTurn),
+        priority,
+      });
+    }
+  });
+
+  const turnRows = [...rowMap.values()].map((row) => {
+    const tempoDelta = row.meActions - row.oppActions + row.strides + row.hits;
+    const guardPressure = row.attacks - row.guards;
+    return {
+      ...row,
+      tempoDelta,
+      guardPressure,
+      summary: `공격 ${row.attacks} · 히트 ${row.hits} · 가드 ${row.guards} · 전개 ${row.rides + row.calls + row.strides}`,
+      highlights: row.highlights.slice(-4).reverse(),
+    };
+  }).sort((a, b) => b.turn - a.turn);
+
+  const battle = safe.battle || null;
+  let guardAudit = null;
+  if (battle?.step === 'GUARD') {
+    const defender = safe.players?.[battle.defenderSide]?.circles?.[battle.defenderCircle] || null;
+    const attackPower = battleAttackPower(safe, battle);
+    const baseDefense = powerOfUnit(defender);
+    const guardShield = Number(battle.guardShield || 0);
+    const guardNeeded = Math.max(0, attackPower - baseDefense - guardShield + 1);
+    const defenderHand = safe.players?.[battle.defenderSide]?.hand || [];
+    const shield = handShieldProfile(safe.players?.[battle.defenderSide] || {});
+    guardAudit = {
+      defenderSide: battle.defenderSide,
+      defenderLabel: SIDE_LABELS[battle.defenderSide] || battle.defenderSide,
+      attackerCircle: battle.attackerCircle,
+      attackPower,
+      baseDefense,
+      guardShield,
+      guardNeeded,
+      perfectGuard: Boolean(battle.perfectGuard),
+      handCount: defenderHand.length,
+      availableShield: shield.totalShield,
+      sentinels: shield.sentinels,
+      canGuard: Boolean(battle.perfectGuard || guardNeeded <= 0 || shield.totalShield >= guardNeeded || shield.sentinels > 0),
+    };
+  }
+
+  const meDamage = safe.players?.me?.damage?.length || 0;
+  const oppDamage = safe.players?.opp?.damage?.length || 0;
+  const damageSwing = oppDamage - meDamage;
+  const latest = turnRows[0] || null;
+  const headline = latest
+    ? `T${latest.turn}까지 ${chronological.length}개 로그 · 데미지 차이 ${damageSwing >= 0 ? '+' : ''}${damageSwing}`
+    : '아직 리플레이 로그가 없습니다.';
+  const recommendations = [
+    guardAudit?.guardNeeded > 0 ? `현재 가드 필요량 ${guardAudit.guardNeeded.toLocaleString('ko-KR')}입니다. 센티넬/G가디언/패 실드를 먼저 계산하세요.` : '',
+    damageSwing < 0 ? '데미지 레이스가 밀립니다. 다음 턴에는 가드 기준을 높이고 킬각보다 생존을 우선하세요.' : '',
+    damageSwing > 1 ? '데미지 레이스가 앞섭니다. 스트라이드나 전열 라인으로 마무리 압박을 유지하세요.' : '',
+    meAttackCount < oppAttackCount ? '내 공격 횟수가 적습니다. 리어가드 전개와 부스트 라인을 보강하세요.' : '',
+    decisiveLine ? `결정 로그: ${decisiveLine}` : '',
+  ].filter(Boolean);
+  if (!recommendations.length) recommendations.push('흐름은 안정적입니다. 최근 턴의 공격 순서와 가드 사용량만 점검하면 됩니다.');
+
+  const exportText = turnRows
+    .slice()
+    .reverse()
+    .map((row) => `T${row.turn} | ${row.summary} | 템포 ${row.tempoDelta >= 0 ? '+' : ''}${row.tempoDelta} | ${row.highlights.map((item) => item.label).join(' / ')}`)
+    .join('\n');
+
+  return {
+    headline,
+    logCount: chronological.length,
+    turnCount: turnRows.length,
+    damageSwing,
+    meDamage,
+    oppDamage,
+    meGuardCount,
+    oppGuardCount,
+    meAttackCount,
+    oppAttackCount,
+    decisiveLine,
+    guardAudit,
+    turnRows,
+    exportText,
+    recommendations,
+  };
+}
+
 function runAutoPlaytestDuel(meDeck, oppDeck, seed, rules = DEFAULT_RULES, first = 'me') {
   const duel = initDuelState({
     meDeck,

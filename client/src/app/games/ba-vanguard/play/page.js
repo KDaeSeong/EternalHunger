@@ -44,6 +44,7 @@ import {
   summarizeDeck,
   summarizeDuel,
   validateDeck,
+  vanguardReplayReport,
 } from '../_lib/baVanguardCatalog';
 
 function clone(value) {
@@ -353,6 +354,7 @@ function BaVanguardPlayContent() {
   const score = scoreDeck(deck, rules);
   const duelSummary = summarizeDuel(duel);
   const tacticalReport = useMemo(() => duelTacticalReport(duel, 'me'), [duel]);
+  const replayReport = useMemo(() => vanguardReplayReport(duel), [duel]);
   const tacticalTone = tacticalReport.riskLabel === '위험'
     ? 'red'
     : tacticalReport.riskLabel === '주의'
@@ -376,7 +378,19 @@ function BaVanguardPlayContent() {
       readinessPct: tacticalReport.readinessPct,
       damageDelta: tacticalReport.damageDelta,
     },
-  }), [autoGuardMe, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, presetId, rules, score, tacticalReport]);
+    replayReport: {
+      headline: replayReport.headline,
+      damageSwing: replayReport.damageSwing,
+      logCount: replayReport.logCount,
+      turnCount: replayReport.turnCount,
+      guardAudit: replayReport.guardAudit
+        ? {
+          guardNeeded: replayReport.guardAudit.guardNeeded,
+          canGuard: replayReport.guardAudit.canGuard,
+        }
+        : null,
+    },
+  }), [autoGuardMe, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, presetId, replayReport, rules, score, tacticalReport]);
   const visibleCards = CARDS.filter((card) => card.clan === deck.clan);
   const valid = validation.errors.length === 0 && opponentValidation.errors.length === 0;
   const me = duel.players.me;
@@ -772,6 +786,7 @@ function BaVanguardPlayContent() {
     { label: '내 데미지', value: `${me.damage.length}/6` },
     { label: 'AI 데미지', value: `${opp.damage.length}/6` },
     { label: '판단', value: `${tacticalReport.riskLabel} ${tacticalReport.readinessPct}%` },
+    { label: '흐름', value: replayReport.damageSwing >= 0 ? `+${replayReport.damageSwing}` : replayReport.damageSwing },
     { label: '실험 승률', value: `${matchupReport.winRate}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -1092,6 +1107,74 @@ function BaVanguardPlayContent() {
               <button type="button" key={circle} onClick={() => onRetire(circle)} disabled={!canControl || duel.phase !== 'MAIN'}>{circle} 퇴각</button>
             ))}
           </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>리플레이 흐름</h2>
+            <span>{replayReport.headline}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="로그" value={replayReport.logCount} />
+            <SmallStat label="턴" value={replayReport.turnCount} />
+            <SmallStat label="데미지 차이" value={replayReport.damageSwing >= 0 ? `+${replayReport.damageSwing}` : replayReport.damageSwing} />
+            <SmallStat label="내 공격" value={replayReport.meAttackCount} />
+            <SmallStat label="AI 공격" value={replayReport.oppAttackCount} />
+            <SmallStat label="가드" value={`${replayReport.meGuardCount}/${replayReport.oppGuardCount}`} />
+          </div>
+          <div className="games-activity-list" style={{ marginBottom: 12 }}>
+            {replayReport.recommendations.map((row) => (
+              <div key={row}><strong>{row}</strong></div>
+            ))}
+          </div>
+          {replayReport.guardAudit ? (
+            <div className="game-save-list" style={{ marginBottom: 12 }}>
+              <article className="game-save-row">
+                <div>
+                  <span>{replayReport.guardAudit.defenderLabel} 방어 · {replayReport.guardAudit.attackerCircle} 공격</span>
+                  <strong>
+                    필요 실드 {replayReport.guardAudit.guardNeeded.toLocaleString('ko-KR')}
+                    {' · '}
+                    {replayReport.guardAudit.canGuard ? '방어 가능권' : '방어 부족'}
+                  </strong>
+                  <small>
+                    공격 {replayReport.guardAudit.attackPower.toLocaleString('ko-KR')}
+                    {' / '}
+                    기본 {replayReport.guardAudit.baseDefense.toLocaleString('ko-KR')}
+                    {' / '}
+                    현재 실드 {replayReport.guardAudit.guardShield.toLocaleString('ko-KR')}
+                    {' / '}
+                    가용 {replayReport.guardAudit.availableShield.toLocaleString('ko-KR')}
+                    {' / '}
+                    센티넬 {replayReport.guardAudit.sentinels}
+                  </small>
+                </div>
+                <strong>{replayReport.guardAudit.perfectGuard ? 'PG' : 'GUARD'}</strong>
+              </article>
+            </div>
+          ) : null}
+          <div className="game-save-list">
+            {replayReport.turnRows.slice(0, 5).map((row) => (
+              <article className="game-save-row" key={`vg-replay-${row.turn}`}>
+                <div>
+                  <span>T{row.turn} · {row.summary}</span>
+                  <strong>템포 {row.tempoDelta >= 0 ? '+' : ''}{row.tempoDelta} · 압박 {row.guardPressure >= 0 ? '+' : ''}{row.guardPressure}</strong>
+                  <small>
+                    {row.highlights.length
+                      ? row.highlights.map((item) => item.label).join(' / ')
+                      : '하이라이트 없음'}
+                  </small>
+                </div>
+                <strong>{row.decisive ? '결정' : row.hits ? '히트' : '진행'}</strong>
+              </article>
+            ))}
+          </div>
+          {replayReport.exportText ? (
+            <label className="game-save-json-field" style={{ marginTop: 12 }}>
+              <span>리플레이 요약</span>
+              <textarea readOnly value={replayReport.exportText} rows={5} />
+            </label>
+          ) : null}
         </section>
 
         <section className="games-panel">
