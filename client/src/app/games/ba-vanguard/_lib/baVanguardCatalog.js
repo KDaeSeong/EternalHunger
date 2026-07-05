@@ -351,6 +351,106 @@ function clanCards(clan) {
 export const CARDS = CLANS.flatMap(clanCards);
 export const CARD_MAP = new Map(CARDS.map((card) => [card.id, card]));
 
+const HANDLED_CARD_TYPES = {
+  starter: '선발 배치와 첫 라이드 이후 소울 이동',
+  trigger: '드라이브/데미지 체크 트리거 처리',
+  sentinel: '패 비용 기반 퍼펙트 가드',
+  normal: '라이드, 콜, 부스트, 공격, 가드 실드',
+  'g-unit': '스트라이드, 드라이브 체크, G존 복귀',
+  'g-guardian': 'G 가디언 호출과 클랜별 추가 실드',
+};
+
+const HANDLED_TAGS = {
+  starter: '초기 뱅가드 배치',
+  pressure: '공격 성향 AI/덱 프로필',
+  guard: '센티넬/G가디언 방어 판단',
+  combo: '드로우/스트라이드 성향 평가',
+  trigger: '트리거 체크',
+  critical: '크리티컬 +1',
+  draw: '드로우 처리',
+  stand: '리어가드 스탠드',
+  heal: '데미지 회복',
+  sentinel: '퍼펙트 가드',
+  grade1: 'G1 라이드/부스트',
+  grade2: 'G2 라이드/인터셉트 실드',
+  grade3: 'G3 라이드/스트라이드 조건',
+  boost: '후열 부스트',
+  attack: 'VC 공격 보너스',
+  intercept: '실드 자원 평가',
+  vanguard: 'VC 스킬/스트라이드 기준',
+  backup: '라이드 안정화',
+  gzone: 'G존 검증',
+  stride: '리어가드 수 기반 스트라이드 보너스',
+  finisher: '피니셔 공격 보너스',
+};
+
+export function vanguardPortingCoverageReport(cards = CARDS) {
+  const sourceCards = Array.isArray(cards) && cards.length ? cards : CARDS;
+  const rows = sourceCards.map((card) => {
+    const typeDetail = HANDLED_CARD_TYPES[card.type] || '';
+    const tags = Array.isArray(card.tags) ? card.tags.filter(Boolean) : [];
+    const handledTags = tags.filter((tag) => HANDLED_TAGS[tag]);
+    const missingTags = tags.filter((tag) => !HANDLED_TAGS[tag]);
+    const covered = Boolean(typeDetail) && missingTags.length === 0;
+    const detailParts = [];
+    if (typeDetail) detailParts.push(typeDetail);
+    if (handledTags.length) {
+      detailParts.push(`태그: ${handledTags.map((tag) => HANDLED_TAGS[tag]).join(', ')}`);
+    }
+    if (card.trigger) detailParts.push(`트리거: ${TRIGGER_LABELS[card.trigger] || card.trigger}`);
+    if (missingTags.length) detailParts.push(`미처리 태그: ${missingTags.join(', ')}`);
+    return {
+      id: card.id,
+      name: card.name || card.id,
+      clan: card.clan || '',
+      type: card.type || 'unknown',
+      grade: Number(card.grade || 0),
+      status: covered ? '처리됨' : '확인 필요',
+      covered,
+      detail: detailParts.join(' · ') || '처리 경로를 확인해야 합니다.',
+      tone: covered ? 'green' : 'gold',
+    };
+  });
+  const total = rows.length;
+  const coveredRows = rows.filter((row) => row.covered);
+  const unsupportedRows = rows.filter((row) => !row.covered);
+  const typeRows = Object.entries(HANDLED_CARD_TYPES).map(([type, detail]) => {
+    const cardsOfType = rows.filter((row) => row.type === type);
+    const coveredOfType = cardsOfType.filter((row) => row.covered);
+    return {
+      type,
+      label: TYPE_LABELS[type] || type,
+      detail,
+      total: cardsOfType.length,
+      covered: coveredOfType.length,
+      status: cardsOfType.length && cardsOfType.length === coveredOfType.length ? 'OK' : cardsOfType.length ? '확인 필요' : '대기',
+    };
+  });
+  const tagRows = Object.entries(HANDLED_TAGS).map(([tag, detail]) => {
+    const count = sourceCards.filter((card) => Array.isArray(card.tags) && card.tags.includes(tag)).length;
+    return {
+      tag,
+      detail,
+      count,
+      status: count ? '활성' : '대기',
+    };
+  });
+  return {
+    completionPct: total ? Math.round((coveredRows.length / total) * 100) : 0,
+    ready: unsupportedRows.length === 0,
+    totalCards: total,
+    coveredCards: coveredRows.length,
+    unsupportedRows,
+    typeRows,
+    tagRows,
+    rows,
+    headline: `카드 ${coveredRows.length}/${total}장 처리 · 타입 ${typeRows.filter((row) => row.status === 'OK').length}/${typeRows.length}개 OK`,
+    recommendations: unsupportedRows.length
+      ? unsupportedRows.map((row) => `${row.name}: ${row.detail}`).slice(0, 4)
+      : ['현재 카드 풀의 타입/태그가 플레이테스트 처리 경로에 모두 연결되어 있습니다.'],
+  };
+}
+
 function idFor(clanKey, suffix) {
   return `${clanKey.slice(0, 3).toUpperCase()}_${suffix}`;
 }

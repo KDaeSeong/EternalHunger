@@ -44,6 +44,7 @@ import {
   summarizeDeck,
   summarizeDuel,
   validateDeck,
+  vanguardPortingCoverageReport,
   vanguardReplayExportForState,
   vanguardReplayReport,
 } from '../_lib/baVanguardCatalog';
@@ -76,6 +77,60 @@ function SmallStat({ label, value }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function roomConcurrencyAudit({ roomId, room, localRoomDirty, roomSyncMessage, roomBusy }) {
+  const connected = Boolean(roomId);
+  const revision = Number(room?.revision);
+  const hasRevision = !connected || Number.isFinite(revision);
+  const message = String(roomSyncMessage || '');
+  const conflictDetected = /새 상태|새 매치|충돌|conflict|revision|409/i.test(message);
+  const rows = [
+    {
+      id: 'room',
+      label: '방 연결',
+      status: connected ? '공유방' : '단독',
+      detail: connected ? `roomId ${roomId}로 Vanguard 플레이테스트 상태를 공유합니다.` : '단독 플레이입니다. 방 저장 충돌 대상이 없습니다.',
+      ok: true,
+    },
+    {
+      id: 'revision',
+      label: 'Revision 저장',
+      status: hasRevision ? 'OK' : '대기',
+      detail: connected ? `방 저장 요청에 revision ${Number.isFinite(revision) ? revision : '미수신'}을 함께 보냅니다.` : '단독 플레이에서는 revision 저장이 필요하지 않습니다.',
+      ok: hasRevision,
+    },
+    {
+      id: 'local',
+      label: '로컬 변경',
+      status: localRoomDirty ? '저장 필요' : 'OK',
+      detail: localRoomDirty ? '로컬 변경이 방 상태에 아직 반영되지 않았습니다.' : '로컬 상태와 방 상태가 정리되어 있습니다.',
+      ok: !localRoomDirty,
+    },
+    {
+      id: 'conflict',
+      label: '충돌 감지',
+      status: conflictDetected ? '확인 필요' : 'OK',
+      detail: conflictDetected ? message : '새 방 상태가 있으면 자동/수동 불러오기 메시지로 알려줍니다.',
+      ok: !conflictDetected,
+    },
+    {
+      id: 'busy',
+      label: '저장 처리',
+      status: roomBusy ? '처리 중' : 'OK',
+      detail: roomBusy ? '방 저장/불러오기 요청을 처리 중입니다.' : '현재 방 요청 대기열이 비어 있습니다.',
+      ok: !roomBusy,
+    },
+  ];
+  const okRows = rows.filter((row) => row.ok);
+  return {
+    rows,
+    ready: okRows.length === rows.length,
+    completionPct: Math.round((okRows.length / rows.length) * 100),
+    headline: connected
+      ? `revision ${Number.isFinite(revision) ? revision : '대기'} · ${localRoomDirty ? '로컬 변경 있음' : '동기화됨'}`
+      : '단독 플레이 · 충돌 없음',
+  };
 }
 
 function CardSummary({ cardId, right, active, onClick }) {
@@ -364,6 +419,14 @@ function BaVanguardPlayContent() {
     seed,
     matchupReport,
   }), [deck, duel, matchupReport, opponentDeck, rules, seed]);
+  const portingCoverage = useMemo(() => vanguardPortingCoverageReport(CARDS), []);
+  const concurrencyAudit = useMemo(() => roomConcurrencyAudit({
+    roomId,
+    room,
+    localRoomDirty,
+    roomSyncMessage,
+    roomBusy,
+  }), [localRoomDirty, room, roomBusy, roomId, roomSyncMessage]);
   const tacticalTone = tacticalReport.riskLabel === '위험'
     ? 'red'
     : tacticalReport.riskLabel === '주의'
@@ -410,7 +473,14 @@ function BaVanguardPlayContent() {
         status: row.status,
       })),
     },
-  }), [autoGuardMe, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, presetId, replayExport, replayReport, rules, score, tacticalReport]);
+    portingAudit: {
+      cardCoveragePct: portingCoverage.completionPct,
+      roomSyncPct: concurrencyAudit.completionPct,
+      ready: portingCoverage.ready && concurrencyAudit.ready,
+      coverageHeadline: portingCoverage.headline,
+      roomHeadline: concurrencyAudit.headline,
+    },
+  }), [autoGuardMe, concurrencyAudit, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, portingCoverage, presetId, replayExport, replayReport, rules, score, tacticalReport]);
   const visibleCards = CARDS.filter((card) => card.clan === deck.clan);
   const valid = validation.errors.length === 0 && opponentValidation.errors.length === 0;
   const me = duel.players.me;
@@ -824,6 +894,7 @@ function BaVanguardPlayContent() {
     { label: '흐름', value: replayReport.damageSwing >= 0 ? `+${replayReport.damageSwing}` : replayReport.damageSwing },
     { label: '실험 승률', value: `${matchupReport.winRate}%` },
     { label: '리플레이', value: replayExport.statusLabel },
+    { label: '이식 감사', value: `${portingCoverage.completionPct}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -1168,6 +1239,33 @@ function BaVanguardPlayContent() {
           <div className="game-save-list" style={{ marginBottom: 12 }}>
             {replayExport.auditRows.map((row) => (
               <article className="game-save-row" key={`vg-replay-export-${row.id}`}>
+                <div>
+                  <span>{row.label}</span>
+                  <strong>{row.detail}</strong>
+                </div>
+                <strong>{row.status}</strong>
+              </article>
+            ))}
+          </div>
+          <section className={`tcg-event-callout is-${portingCoverage.ready && concurrencyAudit.ready ? 'green' : 'gold'}`} style={{ marginBottom: 12 }}>
+            <span>이식 감사 · 카드 {portingCoverage.completionPct}% · 방 {concurrencyAudit.completionPct}%</span>
+            <strong>{portingCoverage.headline}</strong>
+            <p>{concurrencyAudit.headline}</p>
+          </section>
+          <div className="game-save-list" style={{ marginBottom: 12 }}>
+            {portingCoverage.typeRows.map((row) => (
+              <article className="game-save-row" key={`vg-port-type-${row.type}`}>
+                <div>
+                  <span>{row.label} · {row.covered}/{row.total}</span>
+                  <strong>{row.detail}</strong>
+                </div>
+                <strong>{row.status}</strong>
+              </article>
+            ))}
+          </div>
+          <div className="game-save-list" style={{ marginBottom: 12 }}>
+            {concurrencyAudit.rows.map((row) => (
+              <article className="game-save-row" key={`vg-room-audit-${row.id}`}>
                 <div>
                   <span>{row.label}</span>
                   <strong>{row.detail}</strong>
