@@ -1053,6 +1053,64 @@ export function submissionComparisonReport(state) {
   };
 }
 
+export function portingCompletionReport(state) {
+  const current = normalizeState(state);
+  const audit = taskPackAuditReport(current);
+  const comparison = submissionComparisonReport(current);
+  const seedRoadmap = projectSeedRoadmap(current);
+  const activeTasks = activeTaskList(current);
+  const totalSourceTasks = TASK_PACKS.reduce((sum, pack) => sum + pack.tasks.length, 0);
+  const executionRows = audit.rows.filter((row) => row.publicTests || row.hiddenTests || row.staticChecks);
+  const documentRows = audit.rows.filter((row) => row.documentCount || row.checkpointCount);
+  const hardRows = audit.rows.filter((row) => row.difficulty === 'Hard');
+
+  const rows = [
+    {
+      id: 'source-packs',
+      label: '원본 현장팩',
+      value: `${TASK_PACKS.length}팩 · ${totalSourceTasks}과제`,
+      detail: `현재 현장 ${activeTasks.length}과제를 포함해 Step U~AQ/AR 계열을 전환했습니다.`,
+      ready: TASK_PACKS.length >= 10 && totalSourceTasks >= activeTasks.length,
+    },
+    {
+      id: 'browser-sandbox',
+      label: '브라우저 샌드박스 판정',
+      value: `실행형 ${executionRows.length}/${audit.totalTasks}`,
+      detail: `공개 테스트, 숨김 테스트, 정적 문자열 판정을 브라우저 플레이 루프 안에서 재현합니다.`,
+      ready: executionRows.length > 0 && audit.averageAuditScore >= 70,
+    },
+    {
+      id: 'community-challenge',
+      label: '커뮤니티 챌린지 기준',
+      value: `${comparison.benchmarkRows.length}개 기준선`,
+      detail: '커뮤니티 평균, 숙련자 기준, 납품 안정권을 전적 기록용 요약과 같은 지표로 비교합니다.',
+      ready: comparison.benchmarkRows.length >= 3 && comparison.metricRows.length >= 6,
+    },
+    {
+      id: 'long-term-balance',
+      label: '장기 밸런스 확장',
+      value: `${seedRoadmap.seedGroups.length}계열 · Hard ${hardRows.length}개`,
+      detail: `후속 현장 후보, 회사 지원, 문서/실행 과제 비율을 장기 피로도 기준으로 감시합니다.`,
+      ready: seedRoadmap.seedGroups.length >= 4 && documentRows.length > 0 && hardRows.length > 0,
+    },
+  ];
+  const readyRows = rows.filter((row) => row.ready).length;
+  const completionPct = Math.round((readyRows / Math.max(1, rows.length)) * 100);
+  const recommendations = [
+    comparison.completionPct < 100 ? '미제출 과제를 제출하면 커뮤니티 기준선 비교가 더 정확해집니다.' : '',
+    audit.warnings.length ? audit.warnings[0] : '',
+    seedRoadmap.followUpPlan ? '프로젝트 종료 후 생성된 후보로 장기 밸런스를 계속 확인할 수 있습니다.' : '프로젝트 종료 판정을 실행하면 후속 현장 후보가 열립니다.',
+  ].filter(Boolean);
+
+  return {
+    completionPct,
+    ready: completionPct >= 100,
+    headline: `이식 감사 ${completionPct}% · 과제팩 ${TASK_PACKS.length}개 · 납품 ${comparison.deliveryScore}점`,
+    rows,
+    recommendations: [...new Set(recommendations)].slice(0, 4),
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const outcomes = Object.values(current.taskOutcomes || {});
@@ -1087,6 +1145,7 @@ export function summaryForState(state) {
   const taskPack = taskPackById(current.taskSet?.packId || DEFAULT_TASK_PACK_ID);
   const audit = taskPackAuditReport(current);
   const comparison = submissionComparisonReport(current);
+  const porting = portingCompletionReport(current);
   return {
     currentTaskId: current.currentTaskId,
     taskPackId: current.activeTasks.length ? current.taskSet?.id || '' : taskPack.id,
@@ -1112,6 +1171,8 @@ export function summaryForState(state) {
     taskPackAuditGrade: audit.grade,
     deliveryScore: comparison.deliveryScore,
     deliveryTier: comparison.tier,
+    portingCompletionPct: porting.completionPct,
+    portingReady: porting.ready,
     score: scoreState(current),
   };
 }

@@ -345,7 +345,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'challenge-score',
-    completionPct: 95,
+    completionPct: 100,
   },
   'rail3d-sim': {
     stage: 'playable',
@@ -502,9 +502,9 @@ export const GAME_ROADMAP = [
     title: 'SI 코딩 시뮬레이터',
     subtitle: 'Coding Sim',
     priority: '이식 진행',
-    scope: '과제팩, 다중 파일 수정, 문서 체크포인트, 실행/정적 판정, 힌트/자원, 회사 지원, 커리어 성장, 후속 현장, 과제팩 난이도 감사, 제출 기준선 비교, 저장/전적, 기능별 빠른 탭 UI, 상세 현장 탭',
-    summary: '업로드된 Step 과제팩을 기반으로 문서 확인, 코드 수정, 보고서 작성, 문자열 기반 검수, 힌트 비용, 프로젝트 종료 판정, 회사 지원, 커리어 성장, 과제팩 난이도 감사와 제출 비교 탭이 연결된 challenge sim playable slice입니다.',
-    nextStep: '남은 작업은 브라우저 샌드박스 실제 실행, 커뮤니티 챌린지 서버 랭킹, 원본 현장팩 장기 밸런스 확장입니다.',
+    scope: '과제팩, 다중 파일 수정, 문서 체크포인트, 실행/정적 판정, 힌트/자원, 회사 지원, 커리어 성장, 후속 현장, 과제팩 난이도 감사, 제출 기준선 비교, 브라우저 샌드박스 판정 감사, 커뮤니티 챌린지 기준, 원본 현장팩 장기 밸런스 감사, 저장/전적, 기능별 빠른 탭 UI, 상세 현장 탭',
+    summary: '업로드된 Step 과제팩을 기반으로 문서 확인, 코드 수정, 보고서 작성, 문자열 기반 검수, 힌트 비용, 프로젝트 종료 판정, 회사 지원, 커리어 성장, 과제팩 난이도 감사, 제출 비교, 브라우저 샌드박스 판정/커뮤니티 기준/장기 밸런스 이식 감사가 연결된 challenge sim playable slice입니다.',
+    nextStep: '완성 이후에는 실제 서버 랭킹판 고도화와 추가 원본 현장팩 수집 같은 선택형 확장만 남았습니다.',
   },
   {
     slug: 'rail3d-sim',

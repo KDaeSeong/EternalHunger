@@ -24,6 +24,7 @@ import {
   normalizeState,
   passiveInsightRows,
   playerProfileSummary,
+  portingCompletionReport,
   projectProgressRows,
   projectSeedRoadmap,
   resetTaskAction,
@@ -142,6 +143,7 @@ export default function SiCodingSimPlayPage() {
   const seedRoadmap = useMemo(() => projectSeedRoadmap(state), [state]);
   const packAudit = useMemo(() => taskPackAuditReport(state), [state]);
   const submissionComparison = useMemo(() => submissionComparisonReport(state), [state]);
+  const portingCompletion = useMemo(() => portingCompletionReport(state), [state]);
 
   const updateTaskFilter = (key, value) => {
     setTaskFilters((current) => ({ ...current, [key]: value }));
@@ -293,6 +295,7 @@ export default function SiCodingSimPlayPage() {
     { label: '예비비', value: `${support.cashReserve}pt` },
     { label: '감사', value: `${packAudit.averageAuditScore}점` },
     { label: '납품', value: `${submissionComparison.deliveryScore}점` },
+    { label: '이식', value: `${portingCompletion.completionPct}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -704,6 +707,31 @@ export default function SiCodingSimPlayPage() {
             badge: `${submissionComparison.deliveryScore}점`,
             children: (
               <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>이식 완성 감사</h2>
+                    <span>{portingCompletion.headline}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="완성도" value={`${portingCompletion.completionPct}%`} />
+                    <SmallStat label="통과" value={`${portingCompletion.rows.filter((row) => row.ready).length}/${portingCompletion.rows.length}`} />
+                    <SmallStat label="과제팩" value={`${packRows.length}팩`} />
+                    <SmallStat label="기준선" value={`${submissionComparison.benchmarkRows.length}개`} />
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {portingCompletion.rows.map((row) => (
+                      <article className="game-save-row" key={`porting-${row.id}`} style={row.ready ? { borderColor: '#2b8a5f' } : null}>
+                        <div>
+                          <span>{row.ready ? '완료' : '점검'} · {row.value}</span>
+                          <strong>{row.label}</strong>
+                          <span>{row.detail}</span>
+                        </div>
+                        <strong>{row.ready ? 'OK' : '확인'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
                 <section className="games-panel">
                   <div className="games-panel-title">
                     <h2>과제팩 난이도 감사</h2>
