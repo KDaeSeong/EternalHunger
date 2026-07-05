@@ -48,6 +48,7 @@ import {
   salvageSelectedAction,
   saveEquipmentPresetAction,
   scoreState,
+  seasonOperationsReportForState,
   selectedSalvageSummary,
   setSalvageCandidateOnlyAction,
   slotLabel,
@@ -128,6 +129,7 @@ export default function SchaleIdlePlayPage() {
   const growthReport = useMemo(() => growthReportForState(state), [state]);
   const growthRoadmap = useMemo(() => growthRoadmapForState(state), [state]);
   const dailyPlan = useMemo(() => dailyOperationsPlanForState(state), [state]);
+  const seasonReport = useMemo(() => seasonOperationsReportForState(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
@@ -315,6 +317,7 @@ export default function SchaleIdlePlayPage() {
     { label: '운영', value: `${dailyPlan.readinessPct}%` },
     { label: '성장', value: `${growthReport.overallPct}%` },
     { label: '로드맵', value: `${growthRoadmap.completionPct}%` },
+    { label: '시즌', value: `${seasonReport.seasonPct}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -421,6 +424,78 @@ export default function SchaleIdlePlayPage() {
               </article>
             </div>
           ) : null}
+        </section>
+      </section>
+              </>
+            ),
+          },
+          {
+            id: 'season',
+            label: '시즌/밸런스',
+            badge: seasonReport.riskLabel,
+            children: (
+              <>
+      <section className="games-detail-grid">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시즌 운영</h2>
+            <span>{seasonReport.headline}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="시즌" value={seasonReport.seasonId} />
+            <SmallStat label="진행도" value={`${seasonReport.seasonPct}%`} />
+            <SmallStat label="일차" value={`${seasonReport.seasonDay}/${seasonReport.seasonLengthDays}`} />
+            <SmallStat label="남은 기간" value={`${seasonReport.daysLeft}일`} />
+            <SmallStat label="상태" value={seasonReport.riskLabel} />
+          </div>
+          <div className="game-save-list">
+            {seasonReport.tracks.map((track) => (
+              <article className="game-save-row" key={track.id}>
+                <div>
+                  <span>{track.phase} · {track.pct}% · {track.priority === 'high' ? '우선' : track.priority === 'low' ? '보류' : '권장'}</span>
+                  <strong>{track.title}</strong>
+                  <small>{track.detail}</small>
+                </div>
+                <strong>{track.status === 'complete' ? '완료' : track.status === 'close' ? '근접' : track.action}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>장기 밸런스</h2>
+            <span>{seasonReport.balanceRows.filter((row) => row.tone === 'warn').length ? '점검 필요' : '안정'}</span>
+          </div>
+          <div className="game-save-list">
+            {seasonReport.balanceRows.map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>{row.tone === 'warn' ? '경고' : row.tone === 'good' ? '양호' : '관찰'}</span>
+                  <strong>{row.label} · {row.value}</strong>
+                  <small>{row.detail}</small>
+                </div>
+                <strong>{row.tone === 'warn' ? '점검' : 'OK'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시즌 추천</h2>
+            <span>{seasonReport.seasonName}</span>
+          </div>
+          <div className="game-save-list">
+            {seasonReport.recommendations.map((line, index) => (
+              <article className="game-save-row" key={`${line}-${index}`}>
+                <div>
+                  <span>{index + 1}순위</span>
+                  <strong>{line}</strong>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       </section>
               </>

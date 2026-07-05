@@ -2747,6 +2747,182 @@ export function dailyOperationsPlanForState(state) {
   };
 }
 
+function buildSeasonBalanceRow({ id, label, value, detail, tone = 'normal' }) {
+  return { id, label, value, detail, tone };
+}
+
+export function seasonOperationsReportForState(state) {
+  const current = normalizeState(state);
+  const report = growthReportForState(current);
+  const roadmap = growthRoadmapForState(current);
+  const dailyPlan = dailyOperationsPlanForState(current);
+  const missions = missionRows(current);
+  const achievements = achievementRows(current);
+  const upgrades = upgradeRows(current);
+  const salvageInfo = salvageSummary(current);
+  const shopRotation = towerShopRotationSummary(current);
+  const equipped = getEquippedList(current);
+  const slotCount = Object.keys(SLOT_LABELS).length;
+  const totalUpgradeLevel = upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0);
+  const claimedAchievements = achievements.filter((achievement) => achievement.claimed).length;
+  const weeklyMissions = missions.filter((mission) => mission.type === 'weekly');
+  const weeklyProgressPct = Math.round(
+    weeklyMissions.reduce((sum, mission) => sum + progressRatio(mission.progress, mission.target), 0)
+      / Math.max(1, weeklyMissions.length)
+      * 100,
+  );
+  const seasonLengthDays = 14;
+  const startMs = new Date(current.startedAt || '').getTime();
+  const elapsedDays = Number.isFinite(startMs)
+    ? Math.max(1, Math.floor((Date.now() - startMs) / (24 * 60 * 60 * 1000)) + 1)
+    : 1;
+  const seasonDay = ((elapsedDays - 1) % seasonLengthDays) + 1;
+  const daysLeft = Math.max(0, seasonLengthDays - seasonDay);
+  const seasonNumber = Math.floor((elapsedDays - 1) / seasonLengthDays) + 1;
+  const seasonMainTarget = nextTargetFromList(Number(current.maxClearedFloor || 0), [50, 100, 200, 350, 500, 750], 100);
+  const seasonTowerTarget = nextTargetFromList(Number(current.towerMaxCleared || 0), [20, 50, 100, 150, 200, 300], 50);
+  const enhancedGearScore = equipped.reduce((sum, equip) => {
+    const rarityBonus = Math.max(0, (RARITY_RANK[equip.rarity] || 1) - 1);
+    return sum + 12 + rarityBonus * 4 + Math.min(8, Number(equip.enhance || 0));
+  }, 0);
+  const gearTarget = Math.max(80, slotCount * 22);
+  const economyScore = Math.min(100, Math.round(
+    progressRatio(Number(current.credits || 0), 15000) * 34
+      + progressRatio(Number(current.inventory.itm_tower_token || 0), 80) * 26
+      + progressRatio(Number(current.inventory.itm_tower_key || 0), 12) * 18
+      + (shopRotation.canResetDaily || shopRotation.canResetWeekly ? 8 : 14)
+      + (salvageInfo.executableCount ? 4 : 8),
+  ));
+
+  const tracks = [
+    buildRoadmapStep({
+      id: 'season-main',
+      phase: '시즌',
+      title: `메인 F${seasonMainTarget} 도달`,
+      detail: `현재 최고 F${current.maxClearedFloor}, 다음 층 승률 ${report.combat.mainProbabilityPct}%입니다.`,
+      progress: Number(current.maxClearedFloor || 0),
+      target: seasonMainTarget,
+      priority: report.combat.mainProbabilityPct < 42 ? 'high' : 'normal',
+      action: report.combat.mainProbabilityPct < 42 ? '장비/연구 보강' : '2시간 당직 반복',
+    }),
+    buildRoadmapStep({
+      id: 'season-tower',
+      phase: '시즌',
+      title: `시련의 탑 ${seasonTowerTarget}층`,
+      detail: `현재 최고 ${current.towerMaxCleared}층, 열쇠 ${Number(current.inventory.itm_tower_key || 0)}개, 예상 승률 ${report.combat.towerProbabilityPct}%입니다.`,
+      progress: Number(current.towerMaxCleared || 0),
+      target: seasonTowerTarget,
+      priority: Number(current.inventory.itm_tower_key || 0) <= 0 ? 'high' : 'normal',
+      action: Number(current.inventory.itm_tower_key || 0) <= 0 ? '열쇠 확보' : '탑 배치 도전',
+    }),
+    buildRoadmapStep({
+      id: 'season-gear',
+      phase: '시즌',
+      title: '시즌 장비 세트 정비',
+      detail: `장착 ${equipped.length}/${slotCount}, 분해 실행 후보 ${salvageInfo.executableCount}개입니다.`,
+      progress: enhancedGearScore,
+      target: gearTarget,
+      priority: equipped.length < slotCount || salvageInfo.highRiskCount ? 'high' : 'normal',
+      action: equipped.length < slotCount ? '빈 슬롯 제작' : salvageInfo.executableCount ? '분해 후보 정리' : '강화/옵션 재련',
+    }),
+    buildRoadmapStep({
+      id: 'season-economy',
+      phase: '시즌',
+      title: '시즌 재화 순환',
+      detail: `주간 진행 ${weeklyProgressPct}%, 타워 토큰 ${Number(current.inventory.itm_tower_token || 0)}개, 시간당 ${report.offlineProjection.hourlyCredits.toLocaleString('ko-KR')} Cr입니다.`,
+      progress: economyScore,
+      target: 100,
+      priority: dailyPlan.highPriorityCount ? 'high' : 'normal',
+      action: dailyPlan.priorityActions[0]?.title || '정산 루프 유지',
+    }),
+    buildRoadmapStep({
+      id: 'season-archive',
+      phase: '시즌',
+      title: '업적/칭호 아카이브',
+      detail: `업적 ${claimedAchievements}/${achievements.length}개, 장기 로드맵 ${roadmap.completionPct}%입니다.`,
+      progress: claimedAchievements,
+      target: Math.max(1, achievements.length),
+      priority: achievements.some((achievement) => achievement.canClaim) ? 'high' : 'normal',
+      action: achievements.some((achievement) => achievement.canClaim) ? '업적 보상 수령' : '장기 목표 진행',
+    }),
+  ];
+
+  const seasonPct = Math.round(tracks.reduce((sum, track) => sum + track.pct, 0) / Math.max(1, tracks.length));
+  const urgentTracks = tracks.filter((track) => track.priority === 'high' && track.status !== 'complete');
+  const balanceRows = [
+    buildSeasonBalanceRow({
+      id: 'power-curve',
+      label: '전투 곡선',
+      value: `${report.combat.mainProbabilityPct}% / ${report.combat.towerProbabilityPct}%`,
+      detail: `메인과 탑 승률 차이를 보고 정산, 강화, 탑 도전 순서를 조절합니다.`,
+      tone: report.combat.mainProbabilityPct < 42 || report.combat.towerProbabilityPct < 45 ? 'warn' : 'good',
+    }),
+    buildSeasonBalanceRow({
+      id: 'economy-curve',
+      label: '재화 곡선',
+      value: `${report.offlineProjection.hourlyCredits.toLocaleString('ko-KR')} Cr/h`,
+      detail: `상시 연구 총 Lv.${totalUpgradeLevel}, 크레딧 ${Number(current.credits || 0).toLocaleString('ko-KR')} Cr입니다.`,
+      tone: Number(current.credits || 0) < 3000 && totalUpgradeLevel < 10 ? 'warn' : 'normal',
+    }),
+    buildSeasonBalanceRow({
+      id: 'tower-supply',
+      label: '탑 보급',
+      value: `열쇠 ${Number(current.inventory.itm_tower_key || 0)} / 토큰 ${Number(current.inventory.itm_tower_token || 0)}`,
+      detail: `픽업 ${shopRotation.dailyCount + shopRotation.weeklyCount}개, 리셋 가능 ${shopRotation.canResetDaily || shopRotation.canResetWeekly ? '있음' : '없음'}입니다.`,
+      tone: Number(current.inventory.itm_tower_key || 0) <= 0 ? 'warn' : 'good',
+    }),
+    buildSeasonBalanceRow({
+      id: 'salvage-risk',
+      label: '분해 리스크',
+      value: `${salvageInfo.executableCount}개 / 위험 ${salvageInfo.highRiskCount}개`,
+      detail: salvageInfo.candidateOnly ? '후보만 분해가 켜져 있어 고위험 장비를 보호합니다.' : '후보만 분해가 꺼져 있어 실행 전 목록 확인이 필요합니다.',
+      tone: salvageInfo.highRiskCount && !salvageInfo.candidateOnly ? 'warn' : 'normal',
+    }),
+    buildSeasonBalanceRow({
+      id: 'idle-cap',
+      label: '방치 상한',
+      value: `${report.offlineProjection.capHours}시간`,
+      detail: `상한 기준 예상 ${Math.round(report.offlineProjection.hourlyCredits * report.offlineProjection.capHours).toLocaleString('ko-KR')} Cr, 토큰 +${report.offlineProjection.hourlyTokens * report.offlineProjection.capHours}입니다.`,
+      tone: 'normal',
+    }),
+  ];
+  const balanceWarnCount = balanceRows.filter((row) => row.tone === 'warn').length;
+  const riskLabel = urgentTracks.length >= 2 || balanceWarnCount >= 2
+    ? '위험'
+    : urgentTracks.length || balanceWarnCount
+      ? '점검'
+      : '안정';
+  const nextTrack = tracks
+    .filter((track) => track.status !== 'complete')
+    .sort((a, b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1) || a.pct - b.pct)[0] || tracks[0];
+
+  return {
+    seasonId: `S${seasonNumber}`,
+    seasonName: `샬레 장기 당직 S${seasonNumber}`,
+    seasonDay,
+    seasonLengthDays,
+    daysLeft,
+    seasonPct,
+    riskLabel,
+    headline: `${nextTrack.title} · 시즌 ${seasonPct}%`,
+    tracks,
+    balanceRows,
+    milestones: tracks.map((track) => ({
+      id: track.id,
+      title: track.title,
+      pct: track.pct,
+      status: track.status,
+      priority: track.priority,
+    })),
+    recommendations: [
+      nextTrack ? `${nextTrack.title}: ${nextTrack.action}` : '',
+      dailyPlan.priorityActions[0] ? `오늘 우선: ${dailyPlan.priorityActions[0].title}` : '',
+      report.recommendations[0] ? `성장 판단: ${report.recommendations[0].title}` : '',
+      balanceWarnCount ? `밸런스 점검 ${balanceWarnCount}건을 먼저 해소하세요.` : '현재 시즌 밸런스는 안정권입니다.',
+    ].filter(Boolean).slice(0, 4),
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   return Math.max(0, Math.round(
@@ -2822,6 +2998,17 @@ export function summaryForState(state) {
         riskLabel: plan.riskLabel,
         highPriorityCount: plan.highPriorityCount,
         nextActions: plan.priorityActions.map((item) => item.title),
+      };
+    })(),
+    seasonOperations: (() => {
+      const season = seasonOperationsReportForState(current);
+      return {
+        seasonId: season.seasonId,
+        headline: season.headline,
+        seasonPct: season.seasonPct,
+        riskLabel: season.riskLabel,
+        tracks: season.milestones,
+        balanceWarnCount: season.balanceRows.filter((row) => row.tone === 'warn').length,
       };
     })(),
     lastDutyReport: current.lastDutyReport ? {
