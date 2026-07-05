@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 
-export function GameMetric({ label, value }) {
+export function GameMetric({ label, value, density = '' }) {
+  const densityClass = density ? ` games-metric--${density}` : '';
   return (
-    <div className="games-metric">
+    <div className={`games-metric${densityClass}`}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -93,7 +94,12 @@ export default function GamePlayShell({
         {visibleMetrics.length ? (
           <section className={summaryClassName} aria-label={summaryLabel || `${title} 요약`}>
             {visibleMetrics.map((metric) => (
-              <GameMetric key={metric.key || metric.label} label={metric.label} value={metric.value} />
+              <GameMetric
+                key={metric.key || metric.label}
+                label={metric.label}
+                value={metric.value}
+                density={summaryDensity}
+              />
             ))}
           </section>
         ) : null}
