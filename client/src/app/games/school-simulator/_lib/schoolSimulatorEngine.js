@@ -840,6 +840,28 @@ function average(values) {
   return list.reduce((sum, value) => sum + Number(value || 0), 0) / list.length;
 }
 
+function buildTutorialStep(id, title, detail, done, progressPct, actionHint) {
+  return {
+    id,
+    title,
+    detail,
+    done: Boolean(done),
+    progressPct: clamp(progressPct, 0, 100),
+    actionHint,
+  };
+}
+
+function buildBalanceRow(id, label, value, pct, tone, detail) {
+  return {
+    id,
+    label,
+    value,
+    pct: clamp(pct, 0, 100),
+    tone,
+    detail,
+  };
+}
+
 function visionById(visionId) {
   return SCHOOL_VISIONS.find((vision) => vision.id === visionId) || SCHOOL_VISIONS[0];
 }
@@ -2173,10 +2195,43 @@ export function semesterReport(state) {
     addRisk('good', '안정 운영', '즉시 처리해야 할 구조적 위험은 없습니다.', '다음 시험/행사 타이밍에 맞춰 성장 분야를 골라 투자하세요.');
   }
 
+  const usedWeeklyAp = Math.max(0, 7 - Number(current.player.weeklyActionPoint || 0));
+  const resolvedEvents = current.events?.history?.length || 0;
+  const pendingEvent = current.events?.pending;
+  const showcaseSummary = subjectShowcaseSummary(current);
+  const festivalHistoryCount = current.school.festival?.history?.length || 0;
+  const festivalActive = current.school.festival?.active;
+  const clubInfluenceReady = clubInfluence >= 55 || clubRows(current).some((club) => Number(club.showcaseWeeksRemaining || 0) > 0);
+  const tutorialRows = [
+    buildTutorialStep('weekly-action', '첫 주 운영 액션', 'AP를 써서 정책, 상담, 시설, 모집 중 하나를 실행합니다.', usedWeeklyAp > 0 || current.school.week > 1, usedWeeklyAp / 2 * 100, '운영 보드의 추천 행동을 먼저 누르면 흐름이 잡힙니다.'),
+    buildTutorialStep('event-response', '주간 사건 대응', '발생한 사건을 방치하지 않고 선택지로 처리합니다.', resolvedEvents > 0 || (current.school.week > 1 && !pendingEvent), resolvedEvents ? 100 : pendingEvent ? 35 : 60, '사건 대응 탭에서 AP와 예산이 맞는 선택지를 고르세요.'),
+    buildTutorialStep('class-policy', '수업 정책 조정', '과목별 수업 방식이나 공개 활동을 최소 1회 조정합니다.', showcaseSummary.activeCount > 0 || subjects.some((row) => row.mode !== 'balanced'), showcaseSummary.activeCount * 60, '수업/입학 탭에서 약한 과목의 수업 방식 또는 공개 활동을 조정하세요.'),
+    buildTutorialStep('career', '진로 상담', '진로 트랙 상담으로 학생들의 다음 목표를 잡습니다.', current.careerReports.length > 0, current.careerReports.length * 100, '학생/진로 탭에서 준비도가 낮은 트랙 상담을 실행하세요.'),
+    buildTutorialStep('club-event', '동아리 또는 행사', '동아리 모집/발표회나 학교 행사를 시작합니다.', clubInfluenceReady || festivalHistoryCount > 0 || Boolean(festivalActive), Math.max(clubInfluence, festivalHistoryCount * 100, festivalActive ? 60 : 0), '동아리/행사 탭에서 발표회나 축제를 예약하세요.'),
+    buildTutorialStep('semester-report', '학기 보고서', '12주차를 넘겨 학기 보고서를 생성합니다.', current.semesterHistory.length > 0, current.school.week / 12 * 100, '운영이 안정되면 다음 주 진행으로 학기 리포트를 완성하세요.'),
+  ];
+  const tutorialPct = Math.round(average(tutorialRows.map((row) => row.progressPct)));
+  const budgetScore = Math.min(100, budgetRunwayWeeks * 14);
+  const teacherScore = Math.round((avg.teacherMorale + (100 - avg.teacherFatigue)) / 2);
+  const admissionsScore = Math.round(Math.min(100, Number(current.school.admissions.competitionRate || 0) * 22 + Number(current.school.admissions.brandAwareness || 0) * 0.35));
+  const longTermScore = Number(current.longTerm?.evaluation?.score || 0);
+  const balanceRows = [
+    buildBalanceRow('academic', '학업 축', `${subjectAverage}점`, subjectAverage, subjectAverage >= 70 ? 'good' : subjectAverage >= 58 ? 'watch' : 'risk', `최근 시험 평균 ${recentExamAverage || '없음'} / 약점 과목 ${subjects.filter((subject) => subject.weakCount > 0).length}개입니다.`),
+    buildBalanceRow('wellbeing', '복지 축', `스트레스 ${avg.stress} / 건강 ${avg.health}`, Math.round((avg.satisfaction + avg.health + (100 - avg.stress)) / 3), avg.stress >= 68 || avg.health <= 45 ? 'risk' : avg.stress >= 58 ? 'watch' : 'good', `위험 학생 ${atRiskCount}명입니다.`),
+    buildBalanceRow('budget', '예산 축', `${budgetRunwayWeeks}주`, budgetScore, budgetRunwayWeeks <= 3 ? 'risk' : budgetRunwayWeeks <= 6 ? 'watch' : 'good', `유지비 추정 ${maintenanceEstimate.toLocaleString('ko-KR')} 기준입니다.`),
+    buildBalanceRow('teacher', '교사 축', `사기 ${avg.teacherMorale} / 피로 ${avg.teacherFatigue}`, teacherScore, avg.teacherFatigue >= 68 || avg.teacherMorale <= 45 ? 'risk' : avg.teacherFatigue >= 58 ? 'watch' : 'good', '교사 피로가 높으면 워크숍 또는 휴식 운영이 필요합니다.'),
+    buildBalanceRow('facility', '시설 축', `${avg.facilityCondition}`, avg.facilityCondition, avg.facilityCondition <= 50 ? 'risk' : avg.facilityCondition <= 65 ? 'watch' : 'good', `운영 위험 ${current.school.riskLevel}와 함께 관리됩니다.`),
+    buildBalanceRow('admissions', '입학 축', `${current.school.admissions.competitionRate}:1`, admissionsScore, admissionsScore < 45 ? 'risk' : admissionsScore < 65 ? 'watch' : 'good', `지원자 ${current.school.admissions.applications}명 / 브랜드 ${current.school.admissions.brandAwareness}입니다.`),
+    buildBalanceRow('vision', '비전 축', `${current.longTerm?.evaluation?.grade || '-'} / ${longTermScore}`, longTermScore, longTermScore >= 76 ? 'good' : longTermScore >= 58 ? 'watch' : 'risk', current.longTerm?.evaluation?.note || '장기 비전 평가를 기반으로 합니다.'),
+  ];
+  const balanceScore = Math.round(average(balanceRows.map((row) => row.pct)));
+
   return {
     headline: `${current.school.year}년 ${current.school.semester}학기 ${current.school.week}주차`,
     score: scoreState(current),
     status: risks.some((risk) => risk.level === 'critical') ? '긴급 점검' : risks.some((risk) => risk.level === 'warn') ? '주의 필요' : '안정',
+    tutorialPct,
+    balanceScore,
     academic: {
       understanding: avg.understanding,
       diligence: avg.diligence,
@@ -2201,6 +2256,8 @@ export function semesterReport(state) {
     },
     subjectRows: subjects.sort((a, b) => a.averageScore - b.averageScore),
     careerRows,
+    tutorialRows,
+    balanceRows,
     risks,
     recommendations: risks.slice(0, 4).map((risk) => risk.action),
   };
@@ -2257,6 +2314,7 @@ export function getPlayTimeSec(state) {
 export function summaryForState(state) {
   const current = normalizeState(state);
   const avg = getAverages(current);
+  const report = semesterReport(current);
   return {
     year: current.school.year,
     semester: current.school.semester,
@@ -2273,6 +2331,8 @@ export function summaryForState(state) {
     festivalHistory: current.school.festival?.history?.length || 0,
     weeklyEvents: current.events?.history?.length || 0,
     pendingEvent: current.events?.pending?.title || '',
+    tutorialPct: report.tutorialPct,
+    balanceScore: report.balanceScore,
     longTerm: `${current.longTerm?.evaluation?.grade || '-'} / ${current.longTerm?.evaluation?.score || 0}`,
     vision: current.longTerm?.evaluation?.visionLabel || visionById(current.school.vision).label,
     score: scoreState(current),

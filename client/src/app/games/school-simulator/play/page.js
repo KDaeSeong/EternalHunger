@@ -294,6 +294,8 @@ export default function SchoolSimulatorPlayPage() {
     { label: '과목', value: Math.round(subjectRows.reduce((sum, row) => sum + Number(row.averageScore || 0), 0) / Math.max(1, subjectRows.length)) },
     { label: '진로', value: Math.round(state.students.reduce((sum, student) => sum + Number(student.careerReadiness || 0), 0) / Math.max(1, state.students.length)) },
     { label: '사건', value: events.pending ? '대응' : events.history.length },
+    { label: '튜토리얼', value: `${report.tutorialPct}%` },
+    { label: '밸런스', value: `${report.balanceScore}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -364,6 +366,52 @@ export default function SchoolSimulatorPlayPage() {
                       추천 행동 실행
                     </ActionButton>
                     <ActionButton onClick={() => setState((current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'tutorial',
+            label: '튜토리얼/밸런스',
+            badge: `${report.tutorialPct}%`,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>초반 운영 체크</h2>
+                    <span>{report.tutorialPct}%</span>
+                  </div>
+                  <div className="game-save-list">
+                    {report.tutorialRows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.done ? '완료' : `${row.progressPct}%`}</span>
+                          <strong>{row.title}</strong>
+                          <small>{row.detail}</small>
+                          <small>{row.actionHint}</small>
+                        </div>
+                        <strong>{row.done ? 'OK' : '진행'}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>학기 밸런스</h2>
+                    <span>{report.balanceScore}%</span>
+                  </div>
+                  <div className="game-save-list">
+                    {report.balanceRows.map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.tone === 'good' ? '안정' : row.tone === 'watch' ? '주의' : '위험'} · {row.pct}%</span>
+                          <strong>{row.label}: {row.value}</strong>
+                          <small>{row.detail}</small>
+                        </div>
+                        <strong>{row.tone === 'good' ? 'OK' : row.tone === 'watch' ? '조정' : '우선'}</strong>
+                      </article>
+                    ))}
                   </div>
                 </section>
               </section>

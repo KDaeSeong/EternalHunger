@@ -336,7 +336,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'term-report',
-    completionPct: 90,
+    completionPct: 95,
   },
   'si-coding-sim': {
     stage: 'playable',
@@ -492,10 +492,10 @@ export const GAME_ROADMAP = [
     slug: 'school-simulator',
     title: '학교 운영 시뮬레이터',
     subtitle: 'School Sim',
-    priority: '분리 후보',
-    scope: '주간 운영, 장기 비전, 정책, 사건 대응, 학생/진로, 교사/시설, 동아리/행사, 학기 리포트, 저장/전적, 기능별 빠른 탭 UI, 상세 운영 탭',
-    summary: '주간 AP 운영과 사건 대응, 학생/교사/시설 관리, 진로 상담, 동아리/축제, 학기 리포트와 장기 비전 평가를 기능별 탭과 상세 운영 탭 안에서 다루는 학교 경영 playable slice입니다.',
-    nextStep: '남은 작업은 학년별 이벤트 다양화, 초반 튜토리얼, 학기별 밸런스 튜닝을 보강하는 것입니다.',
+    priority: '이식 진행',
+    scope: '주간 운영, 장기 비전, 정책, 사건 대응, 학생/진로, 교사/시설, 동아리/행사, 학기 리포트, 초반 튜토리얼, 학기 밸런스 점검, 저장/전적, 기능별 빠른 탭 UI, 상세 운영 탭',
+    summary: '주간 AP 운영과 사건 대응, 학생/교사/시설 관리, 진로 상담, 동아리/축제, 학기 리포트, 장기 비전 평가, 초반 운영 체크리스트와 학기 밸런스 점검을 기능별 탭과 상세 운영 탭 안에서 다루는 학교 경영 playable slice입니다.',
+    nextStep: '남은 작업은 학년별 이벤트 변형, 학교별 시나리오, 연출/사운드 같은 폴리싱입니다.',
   },
   {
     slug: 'si-coding-sim',
