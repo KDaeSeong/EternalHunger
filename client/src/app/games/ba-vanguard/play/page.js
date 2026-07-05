@@ -44,6 +44,7 @@ import {
   summarizeDeck,
   summarizeDuel,
   validateDeck,
+  vanguardReplayExportForState,
   vanguardReplayReport,
 } from '../_lib/baVanguardCatalog';
 
@@ -355,6 +356,14 @@ function BaVanguardPlayContent() {
   const duelSummary = summarizeDuel(duel);
   const tacticalReport = useMemo(() => duelTacticalReport(duel, 'me'), [duel]);
   const replayReport = useMemo(() => vanguardReplayReport(duel), [duel]);
+  const replayExport = useMemo(() => vanguardReplayExportForState({
+    duel,
+    deck,
+    opponentDeck,
+    rules,
+    seed,
+    matchupReport,
+  }), [deck, duel, matchupReport, opponentDeck, rules, seed]);
   const tacticalTone = tacticalReport.riskLabel === '위험'
     ? 'red'
     : tacticalReport.riskLabel === '주의'
@@ -390,7 +399,18 @@ function BaVanguardPlayContent() {
         }
         : null,
     },
-  }), [autoGuardMe, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, presetId, replayReport, rules, score, tacticalReport]);
+    replayExport: {
+      fileName: replayExport.fileName,
+      sizeLabel: replayExport.sizeLabel,
+      statusLabel: replayExport.statusLabel,
+      ready: replayExport.ready,
+      auditRows: replayExport.auditRows.map((row) => ({
+        id: row.id,
+        label: row.label,
+        status: row.status,
+      })),
+    },
+  }), [autoGuardMe, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, presetId, replayExport, replayReport, rules, score, tacticalReport]);
   const visibleCards = CARDS.filter((card) => card.clan === deck.clan);
   const valid = validation.errors.length === 0 && opponentValidation.errors.length === 0;
   const me = duel.players.me;
@@ -413,6 +433,20 @@ function BaVanguardPlayContent() {
       return next;
     });
   };
+
+  const downloadReplayExport = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const blob = new Blob([replayExport.jsonText], { type: 'application/json;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = window.document.createElement('a');
+    anchor.href = url;
+    anchor.download = replayExport.fileName;
+    window.document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+    showToast({ tone: 'success', message: `BA Vanguard 리플레이를 준비했습니다. (${replayExport.sizeLabel})` });
+  }, [replayExport, showToast]);
 
   const openZone = (side, zone) => {
     setZoneView({ side, zone });
@@ -772,6 +806,7 @@ function BaVanguardPlayContent() {
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
+      <button type="button" onClick={downloadReplayExport}>리플레이 저장</button>
       {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${GAME_SLUG}&create=1`}>방 만들기</Link>}
       {roomId ? <button type="button" onClick={() => void saveRoomState()} disabled={roomBusy}>{roomBusy ? '방 처리 중...' : '방 저장'}</button> : null}
       {roomId ? <button type="button" onClick={reloadRoomState} disabled={roomBusy}>방 불러오기</button> : null}
@@ -788,6 +823,7 @@ function BaVanguardPlayContent() {
     { label: '판단', value: `${tacticalReport.riskLabel} ${tacticalReport.readinessPct}%` },
     { label: '흐름', value: replayReport.damageSwing >= 0 ? `+${replayReport.damageSwing}` : replayReport.damageSwing },
     { label: '실험 승률', value: `${matchupReport.winRate}%` },
+    { label: '리플레이', value: replayExport.statusLabel },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -1123,6 +1159,24 @@ function BaVanguardPlayContent() {
             <SmallStat label="가드" value={`${replayReport.meGuardCount}/${replayReport.oppGuardCount}`} />
           </div>
           <div className="games-activity-list" style={{ marginBottom: 12 }}>
+            <div>
+              <strong>{replayExport.fileName}</strong>
+              <span>{replayExport.format} · {replayExport.sizeLabel} · {replayExport.statusLabel}</span>
+            </div>
+            <button type="button" onClick={downloadReplayExport}>JSON 리플레이 다운로드</button>
+          </div>
+          <div className="game-save-list" style={{ marginBottom: 12 }}>
+            {replayExport.auditRows.map((row) => (
+              <article className="game-save-row" key={`vg-replay-export-${row.id}`}>
+                <div>
+                  <span>{row.label}</span>
+                  <strong>{row.detail}</strong>
+                </div>
+                <strong>{row.status}</strong>
+              </article>
+            ))}
+          </div>
+          <div className="games-activity-list" style={{ marginBottom: 12 }}>
             {replayReport.recommendations.map((row) => (
               <div key={row}><strong>{row}</strong></div>
             ))}
@@ -1169,6 +1223,10 @@ function BaVanguardPlayContent() {
               </article>
             ))}
           </div>
+          <label className="game-save-json-field" style={{ marginTop: 12 }}>
+            <span>리플레이 JSON 미리보기</span>
+            <textarea readOnly value={replayExport.previewText} rows={8} />
+          </label>
           {replayReport.exportText ? (
             <label className="game-save-json-field" style={{ marginTop: 12 }}>
               <span>리플레이 요약</span>

@@ -1815,6 +1815,225 @@ export function vanguardReplayReport(duel) {
   };
 }
 
+function cardExportSnapshot(cardId) {
+  const card = getCard(cardId);
+  if (!card) return { id: cardId || '', name: cardId || 'Unknown' };
+  return {
+    id: card.id,
+    name: card.name,
+    clan: card.clan,
+    type: card.type,
+    grade: Number(card.grade || 0),
+    power: Number(card.power || 0),
+    shield: Number(card.shield || 0),
+    trigger: card.trigger || '',
+    tags: Array.isArray(card.tags) ? card.tags.slice(0, 8) : [],
+  };
+}
+
+function unitExportSnapshot(unit) {
+  if (!unit) return null;
+  return {
+    cardId: unit.cardId || '',
+    card: cardExportSnapshot(unit.cardId),
+    isRest: Boolean(unit.isRest),
+    powerMod: Number(unit.powerMod || 0),
+    critMod: Number(unit.critMod || 0),
+  };
+}
+
+function playerExportSnapshot(player = {}) {
+  return {
+    damage: Array.isArray(player.damage) ? player.damage.map(cardExportSnapshot) : [],
+    damageCount: Array.isArray(player.damage) ? player.damage.length : 0,
+    deckCount: Array.isArray(player.deck) ? player.deck.length : 0,
+    hand: Array.isArray(player.hand) ? player.hand.map(cardExportSnapshot) : [],
+    handCount: Array.isArray(player.hand) ? player.hand.length : 0,
+    dropCount: Array.isArray(player.drop) ? player.drop.length : 0,
+    removedCount: Array.isArray(player.removed) ? player.removed.length : 0,
+    soulCount: Array.isArray(player.soul) ? player.soul.length : 0,
+    gzoneCount: Array.isArray(player.gzone) ? player.gzone.length : 0,
+    circles: Object.fromEntries(
+      CIRCLES.map((circle) => [circle, unitExportSnapshot(player.circles?.[circle])]),
+    ),
+    isStrided: Boolean(player.isStrided),
+    heart: unitExportSnapshot(player.heart),
+    cbUsedTotal: Number(player.cbUsedTotal || 0),
+  };
+}
+
+function deckExportSnapshot(deck, rules = DEFAULT_RULES) {
+  const safeDeck = deck && typeof deck === 'object' ? deck : {};
+  return {
+    id: safeDeck.id || '',
+    name: safeDeck.name || 'Deck',
+    clan: safeDeck.clan || '',
+    score: scoreDeck(safeDeck, rules),
+    summary: summarizeDeck(safeDeck),
+    validation: validateDeck(safeDeck, rules),
+    main: Array.isArray(safeDeck.main) ? safeDeck.main : [],
+    gzone: Array.isArray(safeDeck.gzone) ? safeDeck.gzone : [],
+  };
+}
+
+function battleExportSnapshot(duel) {
+  const battle = duel?.battle;
+  if (!battle) return null;
+  return {
+    attackerSide: battle.attackerSide,
+    attackerCircle: battle.attackerCircle,
+    defenderSide: battle.defenderSide,
+    defenderCircle: battle.defenderCircle,
+    step: battle.step,
+    attackPower: battleAttackPower(duel, battle),
+    boostPower: Number(battle.boostPower || 0),
+    attackBonus: Number(battle.attackBonus || 0),
+    guardShield: Number(battle.guardShield || 0),
+    perfectGuard: Boolean(battle.perfectGuard),
+    guardCards: Array.isArray(battle.guardCards) ? battle.guardCards.map(cardExportSnapshot) : [],
+    driveChecks: Array.isArray(battle.driveChecks) ? battle.driveChecks.map(cardExportSnapshot) : [],
+    damageChecks: Array.isArray(battle.damageChecks) ? battle.damageChecks.map(cardExportSnapshot) : [],
+    note: Array.isArray(battle.note) ? battle.note : [],
+  };
+}
+
+function replayExportAuditRows({ duel, replayReport, matchupReport, validation, opponentValidation, jsonText }) {
+  const logCount = Array.isArray(duel?.log) ? duel.log.length : 0;
+  const hasDeckErrors = validation.errors.length > 0 || opponentValidation.errors.length > 0;
+  const sizeKb = Math.max(1, Math.ceil(String(jsonText || '').length / 1024));
+  const matchupSamples = Number(matchupReport?.samples || 0);
+  return [
+    {
+      id: 'payload',
+      label: '패키지',
+      status: duel?.players?.me && duel?.players?.opp ? 'OK' : '확인 필요',
+      detail: duel?.players?.me && duel?.players?.opp ? '양쪽 플레이어 상태를 포함했습니다.' : '듀얼 상태가 비어 있습니다.',
+      tone: duel?.players?.me && duel?.players?.opp ? 'green' : 'gold',
+    },
+    {
+      id: 'deck',
+      label: '덱 검증',
+      status: hasDeckErrors ? '오류' : 'OK',
+      detail: `내 덱 오류 ${validation.errors.length}건 / AI 덱 오류 ${opponentValidation.errors.length}건입니다.`,
+      tone: hasDeckErrors ? 'red' : 'green',
+    },
+    {
+      id: 'replay',
+      label: '리플레이',
+      status: replayReport.turnCount ? 'OK' : '대기',
+      detail: `턴 ${replayReport.turnCount}개, 로그 ${replayReport.logCount}개, 데미지 차이 ${replayReport.damageSwing >= 0 ? '+' : ''}${replayReport.damageSwing}입니다.`,
+      tone: replayReport.turnCount ? 'green' : 'gold',
+    },
+    {
+      id: 'guard',
+      label: '가드 감사',
+      status: replayReport.guardAudit ? (replayReport.guardAudit.canGuard ? '방어 가능' : '방어 부족') : 'OK',
+      detail: replayReport.guardAudit
+        ? `필요 실드 ${replayReport.guardAudit.guardNeeded.toLocaleString('ko-KR')} / 가용 ${replayReport.guardAudit.availableShield.toLocaleString('ko-KR')}입니다.`
+        : '현재 열린 가드 창이 없습니다.',
+      tone: replayReport.guardAudit ? (replayReport.guardAudit.canGuard ? 'green' : 'gold') : 'green',
+    },
+    {
+      id: 'matchup',
+      label: '매치업 실험',
+      status: matchupSamples ? 'OK' : '대기',
+      detail: `${matchupSamples}판 실험, 승률 ${Number(matchupReport?.winRate || 0)}%입니다.`,
+      tone: matchupSamples ? 'green' : 'gold',
+    },
+    {
+      id: 'log',
+      label: '로그',
+      status: logCount ? 'OK' : '대기',
+      detail: `${logCount}개 로그를 최신 상태 스냅샷과 함께 보관합니다.`,
+      tone: logCount ? 'green' : 'gold',
+    },
+    {
+      id: 'size',
+      label: '크기',
+      status: sizeKb <= 512 ? 'OK' : '큼',
+      detail: `약 ${sizeKb.toLocaleString('ko-KR')}KB JSON입니다.`,
+      tone: sizeKb <= 512 ? 'green' : 'gold',
+    },
+  ];
+}
+
+export function vanguardReplayExportForState({
+  duel,
+  deck,
+  opponentDeck,
+  rules = DEFAULT_RULES,
+  seed = Date.now(),
+  matchupReport = null,
+} = {}) {
+  const safeDuel = duel && typeof duel === 'object'
+    ? duel
+    : initDuelState({ meDeck: deck, oppDeck: opponentDeck, seed, firstTurnNoDraw: normalizeRules(rules).firstTurnNoDraw });
+  const normalizedRules = normalizeRules(rules);
+  const replayReport = vanguardReplayReport(safeDuel);
+  const tacticalReport = duelTacticalReport(safeDuel, 'me');
+  const validation = validateDeck(deck, normalizedRules);
+  const opponentValidation = validateDeck(opponentDeck, normalizedRules);
+  const safeMatchupReport = matchupReport || playtestMatchupReport(deck, opponentDeck, seed, normalizedRules, 20);
+  const exportId = `ba-vanguard-${Number(seed || 0)}-t${Number(safeDuel.turn || 1)}-${safeDuel.phase || 'STAND'}`;
+  const safeExportId = String(exportId).replace(/[^a-zA-Z0-9_-]/g, '-');
+  const payload = {
+    format: 'ba-vanguard-replay-v1',
+    gameSlug: GAME_SLUG,
+    saveVersion: SAVE_VERSION,
+    exportedAt: new Date().toISOString(),
+    seed: Number(seed || 0),
+    rules: normalizedRules,
+    duel: {
+      turn: Number(safeDuel.turn || 1),
+      phase: safeDuel.phase || 'STAND',
+      active: safeDuel.active || 'me',
+      first: safeDuel.first || 'me',
+      winner: safeDuel.winner || '',
+      battle: battleExportSnapshot(safeDuel),
+      players: {
+        me: playerExportSnapshot(safeDuel.players?.me),
+        opp: playerExportSnapshot(safeDuel.players?.opp),
+      },
+    },
+    decks: {
+      me: deckExportSnapshot(deck, normalizedRules),
+      opp: deckExportSnapshot(opponentDeck, normalizedRules),
+    },
+    tacticalReport,
+    replayReport,
+    matchupReport: safeMatchupReport,
+    log: Array.isArray(safeDuel.log) ? safeDuel.log.slice().reverse() : [],
+    serializedDuel: safeDuel,
+  };
+  const jsonText = JSON.stringify(payload, null, 2);
+  const auditRows = replayExportAuditRows({
+    duel: safeDuel,
+    replayReport,
+    matchupReport: safeMatchupReport,
+    validation,
+    opponentValidation,
+    jsonText,
+  });
+  const blockingRows = auditRows.filter((row) => row.status === '오류' || row.status === '확인 필요');
+  const pendingRows = auditRows.filter((row) => row.status !== 'OK');
+  const sizeKb = Math.max(1, Math.ceil(jsonText.length / 1024));
+
+  return {
+    format: payload.format,
+    fileName: `${safeExportId}.json`,
+    payload,
+    jsonText,
+    previewText: jsonText.length > 4200 ? `${jsonText.slice(0, 4200)}\n...` : jsonText,
+    sizeLabel: `${sizeKb.toLocaleString('ko-KR')}KB`,
+    byteSize: jsonText.length,
+    auditRows,
+    ready: blockingRows.length === 0,
+    statusLabel: pendingRows.length ? `${pendingRows.length}건 확인` : '내보내기 가능',
+    replayReport,
+    matchupReport: safeMatchupReport,
+  };
+}
+
 function runAutoPlaytestDuel(meDeck, oppDeck, seed, rules = DEFAULT_RULES, first = 'me') {
   const duel = initDuelState({
     meDeck,
