@@ -311,12 +311,13 @@ const GAME_INTEGRATIONS = {
     completionPct: 76,
   },
   'ba-srpg': {
-    stage: 'prototype',
-    stageLabel: '프로토타입',
+    stage: 'playable',
+    stageLabel: '플레이 가능',
     adapter: 'tactical-grid',
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'mission-clear',
+    completionPct: 70,
   },
   myanimecraft: {
     stage: 'playable',
@@ -468,9 +469,9 @@ export const GAME_ROADMAP = [
     title: 'BA SRPG',
     subtitle: 'Tactical SRPG',
     priority: '장기 주력',
-    scope: '그리드 전투, 미션, 상점, 성장',
-    summary: '기획과 데이터가 가장 큰 후보입니다. 바로 전부 옮기기보다 1개 미션 playable slice가 현실적입니다.',
-    nextStep: '전투 코어, 미션 데이터, 전투 HUD를 작은 독립 라우트로 검증합니다.',
+    scope: '그리드 전투, 미션, 타운 경제, 제작/상점, 의뢰, 저장/전적, 기능별 탭 UI',
+    summary: '격자 이동, AP, 사거리, 엄폐, 적 턴, 자동 전투, 타운 경제까지 연결한 전술 SRPG playable slice입니다.',
+    nextStep: '미션 수와 스킬/상태 이상 데이터를 늘리고, 전투 HUD 연출과 밸런스를 강화합니다.',
   },
   {
     slug: 'myanimecraft',

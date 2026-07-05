@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   GRID,
@@ -253,6 +253,18 @@ export default function BaSrpgPlayPage() {
     if (content.type === 'enemy') setState((current) => selectEnemyAction(current, content.actor.id));
   };
 
+  const runAutoBattle = () => {
+    setState((current) => {
+      let next = current;
+      for (let i = 0; i < 8; i += 1) {
+        if (next.battle.phase !== 'player') break;
+        next = autoPlayerTurnAction(next);
+        if (next.battle.phase === 'cleared' || next.battle.phase === 'failed') break;
+      }
+      return next;
+    });
+  };
+
   const actions = (
     <>
       <button type="button" onClick={startNewRun}>새 작전</button>
@@ -293,6 +305,14 @@ export default function BaSrpgPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'mission',
+            label: '작전 준비',
+            badge: `${formationCount}/${MAX_FORMATION_SIZE}`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -402,9 +422,19 @@ export default function BaSrpgPlayPage() {
             </ActionButton>
             <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
             <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
+            <ActionButton disabled={battle.phase !== 'player'} onClick={runAutoBattle}>자동 전투 x8</ActionButton>
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+          {
+            id: 'town',
+            label: '타운/경제',
+            badge: guildRank.rank,
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -474,6 +504,15 @@ export default function BaSrpgPlayPage() {
           </ActionButton>
         </section>
       </section>
+              </>
+            ),
+          },
+          {
+            id: 'battle',
+            label: '전장/제작',
+            badge: battle.phase,
+            children: (
+              <>
 
       <section className="games-panel">
         <div className="games-panel-title">
@@ -586,6 +625,15 @@ export default function BaSrpgPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+          {
+            id: 'inventory',
+            label: '보유/의뢰',
+            badge: `${rows.length}종`,
+            children: (
+              <>
 
       <section className="games-dashboard">
         <section className="games-panel">
@@ -660,6 +708,11 @@ export default function BaSrpgPlayPage() {
           ))}
         </div>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }
