@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -295,10 +295,223 @@ export default function RacingLogosDemoPlayPage() {
       title="레이싱 로고팩 검수"
       description="업로드된 Racing Logos Demo의 core 트랙/이벤트 데이터, local pack 우선 로고 규칙, 공개 placeholder fallback을 사이트용 에셋 검수 루프로 이식했습니다."
       summaryLabel="로고팩 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'audit',
+            label: '검수 보드',
+            badge: `${audit.completeness}%`,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>완성도</h2>
+                    <span>{audit.id}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="트랙 실명" value={`${audit.namedTracks}/${audit.tracks}`} />
+                    <SmallStat label="이벤트 실명" value={`${audit.namedEvents}/${audit.events}`} />
+                    <SmallStat label="로고키" value={`${audit.overriddenLogos}/${audit.tracks}`} />
+                    <SmallStat label="placeholder" value={audit.placeholderOnly} />
+                    <SmallStat label="후보 경로" value={audit.localCandidateCount} />
+                    <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
+                    <ActionButton onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>보강 우선순위</h2>
+                    <span>{packMatrix.totals.completed}/{packMatrix.totals.rows}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="누락 이름" value={packMatrix.totals.missingNames} />
+                    <SmallStat label="누락 로고키" value={packMatrix.totals.missingLogoOverrides} />
+                    <SmallStat label="트랙명" value={packMatrix.totals.trackNameCount} />
+                    <SmallStat label="이벤트명" value={packMatrix.totals.eventNameCount} />
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {packMatrix.rows.filter((row) => !row.complete).slice(0, 4).map((row) => (
+                      <article className="game-save-row" key={row.id}>
+                        <div>
+                          <span>{row.kindLabel} · {row.requiredKey}</span>
+                          <strong>{row.name}</strong>
+                          <small>{row.status}</small>
+                        </div>
+                        <span className="game-save-chip">보강</span>
+                      </article>
+                    ))}
+                    {!packMatrix.rows.some((row) => !row.complete) ? <div className="games-empty">로컬팩 매트릭스가 모두 채워졌습니다.</div> : null}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'local-pack',
+            label: '로컬팩',
+            badge: `${Object.keys(state.localPack.trackNames).length}T`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>real_names.json</h2>
+                    <span>{Object.keys(state.localPack.eventNames).length} events</span>
+                  </div>
+                  <label className="game-save-json-field">
+                    <span>JSON</span>
+                    <textarea
+                      rows={12}
+                      value={packText}
+                      onChange={(event) => setPackText(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </label>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={applyTextPack}>수동 JSON 적용</ActionButton>
+                    <ActionButton onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
+                    <ActionButton onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>필터</h2>
+                    <span>{state.filters.preferLocalLogos ? 'local first' : 'fallback only'}</span>
+                  </div>
+                  <label className="game-save-json-field">
+                    <span>지역</span>
+                    <select value={state.filters.region} onChange={(event) => setState((current) => setFilterAction(current, { region: event.target.value }))}>
+                      <option value="all">전체</option>
+                      <option value="japan">일본</option>
+                      <option value="europe">유럽</option>
+                      <option value="usa">미국</option>
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>주로</span>
+                    <select value={state.filters.surface} onChange={(event) => setState((current) => setFilterAction(current, { surface: event.target.value }))}>
+                      <option value="all">전체</option>
+                      <option value="turf">잔디</option>
+                      <option value="dirt">더트</option>
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>로고 모드</span>
+                    <select value={state.filters.preferLocalLogos ? 'local' : 'placeholder'} onChange={(event) => setState((current) => setFilterAction(current, { preferLocalLogos: event.target.value === 'local' }))}>
+                      <option value="local">로컬팩 우선</option>
+                      <option value="placeholder">placeholder만</option>
+                    </select>
+                  </label>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'tracks',
+            label: '트랙',
+            badge: `${tracks.length}/${allTracks.length}`,
+            children: (
+              <section className="games-panel">
+                <div className="games-panel-title">
+                  <h2>트랙 로고</h2>
+                  <span>{tracks.length}개</span>
+                </div>
+                <div className="game-save-list">
+                  {tracks.map((track) => <TrackCard key={track.id} track={track} filters={state.filters} />)}
+                </div>
+              </section>
+            ),
+          },
+          {
+            id: 'events',
+            label: '이벤트/카드',
+            badge: `${events.length}`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>이벤트</h2>
+                    <span>{events.length}개</span>
+                  </div>
+                  <div className="game-save-list">
+                    {events.map((event) => <EventRow key={event.id} event={event} filters={state.filters} />)}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>이벤트 카드</h2>
+                    <span>{latestRaceCard ? latestRaceCard.results.length : 0} races</span>
+                  </div>
+                  <div className="game-save-list">
+                    {latestRaceCard ? latestRaceCard.results.map((result) => (
+                      <article className="game-save-row" key={result.eventId}>
+                        <div>
+                          <span>{result.trackName} / {result.surface.toUpperCase()} / {result.distanceM.toLocaleString('ko-KR')}m</span>
+                          <strong>{result.raceName}</strong>
+                          <small>2위 {result.runnerUp}</small>
+                        </div>
+                        <strong>{result.winner}</strong>
+                      </article>
+                    )) : <div className="games-empty">이벤트 카드를 생성하면 간단한 레이스 결과가 표시됩니다.</div>}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'matrix',
+            label: '매트릭스',
+            badge: `${packMatrix.totals.completed}/${packMatrix.totals.rows}`,
+            children: (
+              <section className="games-panel">
+                <div className="games-panel-title">
+                  <h2>로컬팩 매트릭스</h2>
+                  <span>{packMatrix.totals.completed}/{packMatrix.totals.rows}</span>
+                </div>
+                <div className="game-save-list">
+                  {packMatrix.rows.map((row) => (
+                    <article className="game-save-row" key={row.id}>
+                      <div>
+                        <span>{row.kindLabel} / {row.requiredKey}</span>
+                        <strong>{row.name}</strong>
+                        <small>{row.logoKeyPath} · logoKey: {row.logoKey}</small>
+                        <small>{row.candidateText}</small>
+                      </div>
+                      <span className="game-save-chip">{row.status}</span>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ),
+          },
+          {
+            id: 'log',
+            label: '로그',
+            badge: `${state.log.length}`,
+            children: (
+              <section className="games-panel">
+                <div className="games-panel-title">
+                  <h2>운영 로그</h2>
+                  <span>{state.runId}</span>
+                </div>
+                <div className="games-activity-list">
+                  {state.log.slice(0, 12).map((line, index) => (
+                    <div key={`${line}-${index}`}><strong>{line}</strong></div>
+                  ))}
+                </div>
+              </section>
+            ),
+          },
+        ]}
+      />
+
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
