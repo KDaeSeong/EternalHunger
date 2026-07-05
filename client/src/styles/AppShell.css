@@ -3779,14 +3779,14 @@
 
 .games-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 148px));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 120px));
+  gap: 5px;
   justify-content: start;
 }
 
 .games-summary--compact {
-  grid-template-columns: repeat(auto-fill, minmax(78px, 108px));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 96px));
+  gap: 5px;
   justify-content: start;
 }
 
@@ -3810,14 +3810,14 @@
   display: grid;
   align-content: center;
   gap: 2px;
-  min-height: 52px;
-  padding: 8px 10px;
+  min-height: 42px;
+  padding: 6px 8px;
 }
 
 .games-summary--compact .games-metric {
-  min-height: 34px;
+  min-height: 30px;
   gap: 1px;
-  padding: 5px 7px;
+  padding: 4px 6px;
 }
 
 .games-summary--micro .games-metric {
@@ -3857,12 +3857,12 @@
 
 .games-metric span {
   color: #64717d;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 900;
 }
 
 .games-summary--compact .games-metric span {
-  font-size: 0.66rem;
+  font-size: 0.6rem;
 }
 
 .games-summary--micro .games-metric span {
@@ -3879,12 +3879,12 @@
 
 .games-metric strong {
   color: #17202a;
-  font-size: 1.02rem;
+  font-size: 0.9rem;
   line-height: 1.1;
 }
 
 .games-summary--compact .games-metric strong {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
 }
 
 .games-summary--micro .games-metric strong {
