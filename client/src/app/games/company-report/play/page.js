@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   CAPITAL_DISCLOSURE_TYPES,
   CAPITAL_FINANCING_TYPES,
@@ -296,10 +296,252 @@ export default function CompanyReportPlayPage() {
       title="회사 리포트 원장 시뮬레이터"
       description="업로드된 Company Report StepG-6의 거래, 재고, 매출채권, 월말 손익, 원장 스냅샷 흐름을 사이트용 business ledger slice로 이식했습니다."
       summaryLabel="Company Report 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'board',
+            label: '경영 보드',
+            badge: `${management.income.grossMarginPct}%`,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>경영 요약</h2>
+                    <span>{state.company.year}-{String(state.company.month).padStart(2, '0')}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="매출" value={formatMoney(management.income.sales)} />
+                    <SmallStat label="영업손익" value={formatMoney(management.income.operatingProfit)} />
+                    <SmallStat label="현금" value={formatMoney(management.cashFlow.cash)} />
+                    <SmallStat label="런웨이" value={`${management.cashFlow.cashRunwayMonths}개월`} />
+                  </div>
+                  <div className="games-activity-list" style={{ marginTop: 12 }}>
+                    {management.recommendations.slice(0, 4).map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>리스크</h2>
+                    <span>{management.riskRows.length}개 지표</span>
+                  </div>
+                  <div className="game-save-list">
+                    {management.riskRows.map((row) => (
+                      <article className="game-save-row" key={row.label}>
+                        <div>
+                          <span>관리 지표</span>
+                          <strong>{row.label}</strong>
+                        </div>
+                        <strong>{row.value}</strong>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'trade',
+            label: '거래/채권',
+            badge: `${orders.length}건`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>빠른 주문</h2>
+                    <span>{getProductName(productId)}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="수량" value={quantity} />
+                    <SmallStat label="재고" value={stocks.find((row) => row.id === productId)?.onHand || 0} />
+                    <SmallStat label="거래처" value={PARTNERS.find((partner) => partner.id === partnerId)?.name || partnerId} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
+                    <ActionButton onClick={() => setState((current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
+                    <ActionButton onClick={() => setState((current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>출고/회수</h2>
+                    <span>{formatMoney(report.receivableAmount)}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="미수 채권" value={report.openReceivables} />
+                    <SmallStat label="출고 주문" value={report.shippedOrders} />
+                    <SmallStat label="선택 주문" value={selectedOrder?.status || '-'} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton disabled={!selectedOrder} onClick={() => setState((current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
+                    <ActionButton disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => setState((current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'close',
+            label: '결산/VAT',
+            badge: formatMoney(report.vatPayableAmount),
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>월말 결산</h2>
+                    <span>{latestSettlement ? '정산 있음' : '대기'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="자산" value={formatMoney(report.assets)} />
+                    <SmallStat label="부채" value={formatMoney(report.liabilities)} />
+                    <SmallStat label="자본" value={formatMoney(report.equity)} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
+                    <ActionButton onClick={() => setState((current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>VAT 납부</h2>
+                    <span>{selectedVatRow?.status || 'NO_TAX'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="과세월" value={selectedVatRow ? `${selectedVatRow.targetYear}-${String(selectedVatRow.targetMonth).padStart(2, '0')}` : '-'} />
+                    <SmallStat label="잔액" value={formatMoney(selectedVatRow?.remainingAmount || 0)} />
+                    <SmallStat label="납부액" value={formatMoney(vatPayAmount)} />
+                  </div>
+                  <ActionButton
+                    disabled={!selectedVatRow || selectedVatRow.remainingAmount <= 0 || vatPayAmount <= 0 || vatPayAmount > selectedVatRow.remainingAmount || Number(state.company.cashKrw || 0) < vatPayAmount}
+                    onClick={runVatPayment}
+                  >
+                    선택 VAT 납부
+                  </ActionButton>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'global',
+            label: '글로벌',
+            badge: `${globalSummary.activeExports + globalSummary.activeImports} active`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>수출입</h2>
+                    <span>{getMarketName(globalMarketId)}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="수출손익" value={formatMoney(globalSummary.exportProfitKrw)} />
+                    <SmallStat label="외화채권" value={formatMoney(globalSummary.openForeignReceivableKrw)} />
+                    <SmallStat label="헤지" value={globalSummary.hedgeCount} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
+                    <ActionButton onClick={() => setState((current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
+                    <ActionButton onClick={() => setState((current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>외화채권/헤지</h2>
+                    <span>{foreignReceivables.length}건</span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+                    <ActionButton disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => setState((current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'capital',
+            label: '자본시장',
+            badge: `신뢰 ${capitalSummary.investorTrust}`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>상장 상태</h2>
+                    <span>{formatMoney(capitalSummary.marketCapKrw)}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="주가" value={formatMoney(capitalSummary.sharePrice)} />
+                    <SmallStat label="공시위험" value={`${capitalSummary.disclosureRisk}/100`} />
+                    <SmallStat label="상장부채" value={formatMoney(capitalSummary.debtKrw)} />
+                  </div>
+                  <div className="games-activity-list" style={{ marginTop: 12 }}>
+                    {capitalSummary.alerts.slice(0, 3).map((line) => (
+                      <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>투자자 액션</h2>
+                    <span>{CAPITAL_DISCLOSURE_TYPES.find((type) => type.id === disclosureTypeId)?.label || disclosureTypeId}</span>
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
+                    <ActionButton onClick={() => setState((current) => decideDividendAction(current))}>배당 결정</ActionButton>
+                    <ActionButton onClick={() => setState((current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
+                    <ActionButton onClick={() => setState((current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'ledger',
+            label: '원장/복원',
+            badge: `${state.ledgerSnapshots.length}개`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>스냅샷</h2>
+                    <span>{latestSnapshot?.checksum || '대기'}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="diff" value={ledgerDiff.length} />
+                    <SmallStat label="북마크" value={state.reportBookmarks.length} />
+                    <SmallStat label="내보내기" value={state.exportHistory.length} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton onClick={() => setState((current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
+                    <ActionButton onClick={() => setState((current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+                    <ActionButton onClick={() => setState((current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>복원 계획</h2>
+                    <span>{restorePlan.dryRunStatus}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <SmallStat label="모드" value={restorePlan.restoreModeLabel} />
+                    <SmallStat label="테이블" value={restorePlan.targetTables.length} />
+                    <SmallStat label="삭제 예정" value={`${restorePlan.deletedRowCount} rows`} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton disabled={!latestSnapshot} onClick={() => setState((current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+                    <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => setState((current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+        ]}
+      />
+
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">

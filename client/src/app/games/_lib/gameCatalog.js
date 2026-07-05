@@ -355,12 +355,13 @@ const GAME_INTEGRATIONS = {
     resultMode: 'route-score',
   },
   'company-report': {
-    stage: 'prototype',
-    stageLabel: '프로토타입',
+    stage: 'playable',
+    stageLabel: '플레이 가능',
     adapter: 'business-ledger',
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'ledger-score',
+    completionPct: 90,
   },
   'racing-logos-demo': {
     stage: 'prototype',
@@ -516,9 +517,9 @@ export const GAME_ROADMAP = [
     title: '회사 리포트 시뮬레이터',
     subtitle: 'Business Ledger',
     priority: '이식 진행',
-    scope: '거래, 재무, 원장, 보고서',
-    summary: '거래처 주문, 재고, 매출채권, 월말 결산, 원장 스냅샷 복원 흐름을 사이트용 경영 루프로 이식했습니다.',
-    nextStep: '원본 Spring API의 보고서 북마크, 내보내기, 원장 diff와 물리 복원 상세 절차를 단계적으로 붙입니다.',
+    scope: '거래, 재고, 매출채권, VAT, 월말 결산, 글로벌 수출입, 자본시장, 원장 스냅샷/복원, 리포트 북마크/내보내기, 저장/전적, 기능별 빠른 탭 UI',
+    summary: '주문 생성, 생산 입고, 출고와 채권 회수, VAT 납부, 월말 결산, 수출입/환헤지, 상장 공시와 자금조달, 원장 스냅샷 diff/복원까지 연결된 business ledger playable slice입니다.',
+    nextStep: '남은 작업은 원본 Spring API 스타일의 상세 보고서 뷰, CSV/JSON 다운로드, 복원 로그 비교 UI를 더 촘촘하게 다듬는 것입니다.',
   },
   {
     slug: 'racing-logos-demo',
