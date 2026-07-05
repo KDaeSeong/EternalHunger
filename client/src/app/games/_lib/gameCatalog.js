@@ -317,7 +317,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'mission-clear',
-    completionPct: 70,
+    completionPct: 78,
   },
   myanimecraft: {
     stage: 'playable',
@@ -469,9 +469,9 @@ export const GAME_ROADMAP = [
     title: 'BA SRPG',
     subtitle: 'Tactical SRPG',
     priority: '장기 주력',
-    scope: '그리드 전투, 미션, 타운 경제, 제작/상점, 의뢰, 저장/전적, 기능별 탭 UI',
-    summary: '격자 이동, AP, 사거리, 엄폐, 적 턴, 자동 전투, 타운 경제까지 연결한 전술 SRPG playable slice입니다.',
-    nextStep: '미션 수와 스킬/상태 이상 데이터를 늘리고, 전투 HUD 연출과 밸런스를 강화합니다.',
+    scope: '그리드 전투, 캠페인 별 진행, 미션, 타운 경제, 제작/상점, 의뢰, 저장/전적, 기능별 탭 UI',
+    summary: '격자 이동, AP, 사거리, 엄폐, 적 턴, 자동 전투, 캠페인 별 진행, 타운 경제까지 연결한 전술 SRPG playable slice입니다.',
+    nextStep: 'Hard/VeryHard 난이도, 추가 챕터 미션, 전투 HUD 연출과 밸런스를 강화합니다.',
   },
   {
     slug: 'myanimecraft',

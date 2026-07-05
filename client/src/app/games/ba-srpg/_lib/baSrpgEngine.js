@@ -376,6 +376,7 @@ export function createNewState(options = {}) {
     battleWins: 0,
     battleWinLog: [],
     completedMissionIds: [],
+    missionResults: {},
     completedQuestIds: [],
     questClaims: {},
     properties: { ownedIds: [], leasedOutIds: [], rented: {} },
@@ -400,6 +401,7 @@ export function normalizeState(value) {
     equipment: Array.isArray(value.equipment) ? value.equipment : base.equipment,
     battleWinLog: Array.isArray(value.battleWinLog) ? value.battleWinLog : base.battleWinLog,
     completedMissionIds: Array.isArray(value.completedMissionIds) ? value.completedMissionIds : base.completedMissionIds,
+    missionResults: value.missionResults && typeof value.missionResults === 'object' ? value.missionResults : {},
     completedQuestIds: Array.isArray(value.completedQuestIds) ? value.completedQuestIds : base.completedQuestIds,
     questClaims: value.questClaims && typeof value.questClaims === 'object' ? value.questClaims : questClaimsFromCompleted(value.completedQuestIds),
     properties: normalizeProperties(value.properties),
@@ -1036,6 +1038,27 @@ function rollMissionRewards(state, mission, rng) {
   return { inventory, gained };
 }
 
+function missionStarTargetTurn(mission) {
+  if (mission.difficulty === 'hard') return 9;
+  if (mission.difficulty === 'normal') return 11;
+  return 10;
+}
+
+function missionStarResult(mission, battle) {
+  if (!battle || battle.phase !== 'cleared') return { stars: 0, allSurvived: false, fastClear: false, targetTurn: missionStarTargetTurn(mission) };
+  const units = Array.isArray(battle.units) ? battle.units : [];
+  const living = units.filter((unit) => Number(unit.hp || 0) > 0);
+  const allSurvived = Boolean(units.length) && living.length === units.length;
+  const targetTurn = missionStarTargetTurn(mission);
+  const fastClear = Number(battle.turn || 0) <= targetTurn;
+  return {
+    stars: 1 + (allSurvived ? 1 : 0) + (fastClear ? 1 : 0),
+    allSurvived,
+    fastClear,
+    targetTurn,
+  };
+}
+
 function grantMissionReward(state, battle) {
   const mission = getMission(battle.missionId);
   const rng = createRng(`${state.runId}|reward|${mission.id}|${state.battleWins}`);
@@ -1043,6 +1066,22 @@ function grantMissionReward(state, battle) {
   const rewards = rollMissionRewards(state, mission, rng);
   const completedSet = new Set(state.completedMissionIds);
   completedSet.add(mission.id);
+  const starResult = missionStarResult(mission, battle);
+  const previousResult = state.missionResults?.[mission.id] || {};
+  const bestTurn = Number(previousResult.bestTurn || 0);
+  const nextMissionResults = {
+    ...(state.missionResults || {}),
+    [mission.id]: {
+      missionId: mission.id,
+      clears: Number(previousResult.clears || 0) + 1,
+      bestStars: Math.max(Number(previousResult.bestStars || 0), starResult.stars),
+      bestTurn: bestTurn ? Math.min(bestTurn, Number(battle.turn || bestTurn)) : Number(battle.turn || 0),
+      allSurvived: Boolean(previousResult.allSurvived) || starResult.allSurvived,
+      fastClear: Boolean(previousResult.fastClear) || starResult.fastClear,
+      targetTurn: starResult.targetTurn,
+      lastClearedAtDay: Number(state.day || 1),
+    },
+  };
   const next = {
     ...state,
     credit: Number(state.credit || 0) + credit,
@@ -1053,15 +1092,21 @@ function grantMissionReward(state, battle) {
       ...(Array.isArray(state.battleWinLog) ? state.battleWinLog : []),
     ].slice(0, 120),
     completedMissionIds: [...completedSet],
+    missionResults: nextMissionResults,
     battle,
   };
   const rewardText = rewards.gained.length ? `, ${rewards.gained.join(', ')}` : '';
-  return addLog(next, `${mission.name} 클리어. +${credit} Cr${rewardText}`);
+  return addLog(next, `${mission.name} 클리어. ★${starResult.stars}/3, +${credit} Cr${rewardText}`);
 }
 
 export function startMissionAction(state, missionId) {
   const current = normalizeState(state);
   const mission = getMission(missionId);
+  const index = MISSIONS.findIndex((item) => item.id === mission.id);
+  const previousMission = MISSIONS[index - 1];
+  if (previousMission && !current.completedMissionIds.includes(previousMission.id)) {
+    return addLog(current, `${mission.name} 출정 전 ${previousMission.name} 클리어가 필요합니다.`);
+  }
   const formationIds = normalizeFormationIds(current.selectedStudentIds);
   if (!formationIds.length) return addLog(current, '출전 편성에 학생이 없습니다.');
   return addLog({
@@ -1880,6 +1925,7 @@ export function summaryForState(state) {
   const current = normalizeState(state);
   const town = townSummary(current);
   const rank = guildRankInfo(current);
+  const campaign = getCampaignReport(current);
   return {
     day: current.day,
     mission: getMission(current.selectedMissionId).name,
@@ -1888,10 +1934,67 @@ export function summaryForState(state) {
     credit: current.credit,
     guildRep: current.guildRep,
     guildRank: rank.rank,
+    campaignStars: `${campaign.starTotal}/${campaign.starMax}`,
     quests: Object.keys(current.questClaims || {}).length,
     properties: town.activeProperties,
     edict: town.activeEdictName,
     score: scoreState(current),
+  };
+}
+
+export function getCampaignReport(state) {
+  const current = normalizeState(state);
+  const power = battlePower(current);
+  const completedSet = new Set(current.completedMissionIds || []);
+  const missionRows = MISSIONS.map((mission, index) => {
+    const result = current.missionResults?.[mission.id] || {};
+    const cleared = completedSet.has(mission.id) || Number(result.clears || 0) > 0;
+    const bestStars = Math.max(0, Math.min(3, Number(result.bestStars || 0)));
+    const previousCleared = index === 0 || completedSet.has(MISSIONS[index - 1]?.id);
+    const powerGap = power - Number(mission.recommendedPower || 0);
+    return {
+      ...mission,
+      chapter: index < 5 ? 1 : 2,
+      order: index + 1,
+      cleared,
+      locked: !previousCleared,
+      recommended: !cleared && previousCleared,
+      bestStars,
+      bestTurn: Number(result.bestTurn || 0),
+      targetTurn: Number(result.targetTurn || missionStarTargetTurn(mission)),
+      allSurvived: Boolean(result.allSurvived),
+      fastClear: Boolean(result.fastClear),
+      powerGap,
+      statusLabel: cleared ? `★${bestStars}/3` : !previousCleared ? '잠김' : powerGap >= 0 ? '추천' : '전력 부족',
+    };
+  });
+  const clearedCount = missionRows.filter((row) => row.cleared).length;
+  const starTotal = missionRows.reduce((sum, row) => sum + row.bestStars, 0);
+  const starMax = missionRows.length * 3;
+  const nextMission = missionRows.find((row) => row.recommended) || missionRows.find((row) => !row.cleared && !row.locked) || missionRows[0];
+  const hardUnlocked = starTotal >= Math.min(9, starMax);
+  const recommendations = [];
+  if (nextMission && !nextMission.cleared) {
+    recommendations.push(`${nextMission.name} 진행`);
+    if (nextMission.powerGap < 0) recommendations.push(`권장 전투력까지 ${Math.abs(nextMission.powerGap)} 보강`);
+  }
+  if (Number(current.inventory.con_bandage || 0) <= 0) recommendations.push('상점/의뢰로 붕대 확보');
+  if (missionRows.some((row) => row.cleared && row.bestStars < 3)) recommendations.push('클리어 임무 3성 재도전');
+  if (!hardUnlocked) recommendations.push(`Hard 해금까지 별 ${Math.max(0, Math.min(9, starMax) - starTotal)}개`);
+  if (!recommendations.length) recommendations.push('다음 챕터 데이터 확장 대기');
+
+  return {
+    clearedCount,
+    totalMissions: missionRows.length,
+    starTotal,
+    starMax,
+    progressPct: missionRows.length ? Math.round((clearedCount / missionRows.length) * 100) : 0,
+    hardUnlocked,
+    nextMissionId: nextMission?.id || '',
+    nextMissionName: nextMission?.name || '-',
+    headline: `${clearedCount}/${missionRows.length}개 임무 클리어, 별 ${starTotal}/${starMax}. ${hardUnlocked ? 'Hard 해금 조건을 충족했습니다.' : '별을 모아 Hard 해금을 노리세요.'}`,
+    recommendations: [...new Set(recommendations)].slice(0, 4),
+    missionRows,
   };
 }
 
