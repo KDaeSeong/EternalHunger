@@ -480,6 +480,8 @@ export default function PrimitiveArchivePlayPage() {
               <div><span>대피소</span><strong>Lv.{state.camp.shelterLevel}</strong></div>
               <div><span>작업대</span><strong>Lv.{state.camp.workbenchLevel}</strong></div>
               <div><span>기록실</span><strong>Lv.{state.camp.archiveRoomLevel || 0}</strong></div>
+              <div><span>필사대</span><strong>Lv.{state.camp.scribeDeskLevel || 0}</strong></div>
+              <div><span>서가</span><strong>Lv.{state.camp.libraryShelfLevel || 0}</strong></div>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               <ActionButton disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>

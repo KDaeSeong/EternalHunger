@@ -205,6 +205,8 @@ export const ITEMS = {
   hunter_talisman: { name: '사냥 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { hunt: 0.06 } },
   crafter_amulet: { name: '제작 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { craft: 0.06 } },
   gatherer_charm: { name: '채집 부적', icon: 'artifact', weight: 1, type: 'equip', slot: 'accessory', successAdd: { gather: 0.06 } },
+  book_craft_guide: { name: '제작 안내서', icon: 'artifact', weight: 1, type: 'book' },
+  book_camp_manual: { name: '캠프 운영서', icon: 'artifact', weight: 1, type: 'book' },
 };
 
 export const RECIPES = [
@@ -238,6 +240,8 @@ export const RECIPES = [
   { id: 'hunter_talisman', name: '사냥 부적', requires: { tooth: 1, bone: 1, fiber: 1 }, baseChance: 0.66, reward: { hunter_talisman: 1 }, note: '사냥 담당자에게 좋은 장신구입니다.' },
   { id: 'crafter_amulet', name: '제작 부적', requires: { flint: 1, bone: 1, fiber: 1 }, baseChance: 0.66, reward: { crafter_amulet: 1 }, note: '제작 담당자에게 좋은 장신구입니다.' },
   { id: 'gatherer_charm', name: '채집 부적', requires: { resin: 1, bone: 1, fiber: 1 }, baseChance: 0.66, reward: { gatherer_charm: 1 }, note: '채집 담당자에게 좋은 장신구입니다.' },
+  { id: 'book_craft_guide', name: '제작 안내서', requires: { fiber: 4, resin: 1, clay: 1, twine: 1 }, baseChance: 0.58, reward: { book_craft_guide: 1 }, note: '책 시스템 해금 후 제작 성공률을 올리는 기록물입니다.' },
+  { id: 'book_camp_manual', name: '캠프 운영서', requires: { fiber: 4, resin: 1, clay: 1, herb: 1 }, baseChance: 0.58, reward: { book_camp_manual: 1 }, note: '책 시스템 해금 후 캠프 행동 피로를 줄이는 기록물입니다.' },
   { id: 'jerky', name: '육포', requires: { meat: 2, resin: 1 }, baseChance: 0.8, reward: { jerky: 1 }, note: '가벼운 회복과 허기 관리용 보존식입니다.' },
   { id: 'herb_tonic', name: '약초 달임', requires: { herb: 2, berry: 1 }, baseChance: 0.72, reward: { herb_tonic: 1 }, note: '허기는 줄지 않지만 HP 회복량이 큽니다.' },
 ];
@@ -255,6 +259,9 @@ export const TECH_TREE = [
   { id: 'ARCHERY', name: '궁술', era: 'NEOLITHIC', cost: 18, prereqs: ['HUNTING', 'CORDAGE'], unlocks: { recipes: ['bow'], passives: ['BOW_HUNT_UP'] }, eureka: { type: 'recipeCraft', recipeId: 'bow', count: 1, bonusPct: 0.3, desc: '활 제작 1회' } },
   { id: 'SETTLEMENT', name: '정착', era: 'NEOLITHIC', cost: 20, prereqs: ['SHELTER'], unlocks: { passives: ['CAMP_SCORE_UP', 'PARTY_CAP_UP'] }, eureka: { type: 'campLevel', key: 'shelterLevel', count: 2, bonusPct: 0.25, desc: '대피소 Lv.2 달성' } },
   { id: 'ARCHIVE', name: '기록 보관', era: 'NEOLITHIC', cost: 24, prereqs: ['SETTLEMENT', 'ORAL_RECORDS'], unlocks: { camp: ['archive_room'], passives: ['RESEARCH_POINT_BONUS', 'ARCHIVE_LOG_UP'] }, eureka: { type: 'campFireDays', count: 2, bonusPct: 0.25, desc: '모닥불을 유지한 밤 2회' } },
+  { id: 'WRITING', name: '문자', era: 'ANCIENT', cost: 28, prereqs: ['ARCHIVE'], unlocks: { camp: ['scribe_desk'], passives: ['BOOK_SYSTEM_UNLOCK'] }, eureka: { type: 'surviveDays', count: 7, bonusPct: 0.25, desc: '7일 생존' } },
+  { id: 'BOOKCRAFT', name: '책 제작', era: 'ANCIENT', cost: 28, prereqs: ['WRITING', 'CORDAGE'], unlocks: { recipes: ['book_craft_guide', 'book_camp_manual'], passives: ['BOOK_BONUS_UP'] }, eureka: { type: 'haveItem', itemId: 'clay', count: 4, bonusPct: 0.25, desc: '점토 4개 보유' } },
+  { id: 'LIBRARY', name: '서가 정리', era: 'ANCIENT', cost: 32, prereqs: ['BOOKCRAFT'], unlocks: { camp: ['library_shelf'], passives: ['RESEARCH_POINT_BONUS_2'] }, eureka: { type: 'recipeCraft', recipeId: 'book_camp_manual', count: 1, bonusPct: 0.3, desc: '캠프 운영서 제작 1회' } },
 ];
 
 export const PERK_DEFS = [
@@ -486,7 +493,7 @@ export function createNewState(options = {}) {
     party,
     inventory,
     equipment: initEquipmentForParty(party),
-    camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, fuel: 0 },
+    camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0, events: 0 },
     research: initResearchState(),
     meta,
@@ -515,6 +522,8 @@ export function normalizeState(value) {
       ...base.camp,
       ...value.camp,
       archiveRoomLevel: clamp(Number(value.camp.archiveRoomLevel || 0), 0, 1),
+      scribeDeskLevel: clamp(Number(value.camp.scribeDeskLevel || 0), 0, 1),
+      libraryShelfLevel: clamp(Number(value.camp.libraryShelfLevel || 0), 0, 1),
     }
     : base.camp;
   return {
@@ -661,6 +670,25 @@ function hasTechCampUnlock(state, campId) {
   return TECH_TREE.some((tech) => research.completed?.[tech.id] && (tech.unlocks?.camp || []).includes(campId));
 }
 
+function bookSystemActive(state) {
+  return hasTechPassive(state, 'BOOK_SYSTEM_UNLOCK');
+}
+
+function bookCraftChanceBonus(state) {
+  if (!bookSystemActive(state) || Number(state.inventory?.book_craft_guide || 0) <= 0) return 0;
+  return 0.04 + Number(state.camp?.libraryShelfLevel || 0) * 0.02 + (hasTechPassive(state, 'BOOK_BONUS_UP') ? 0.01 : 0);
+}
+
+function bookCampStaminaReduction(state) {
+  if (!bookSystemActive(state) || Number(state.inventory?.book_camp_manual || 0) <= 0) return 0;
+  return 2 + Number(state.camp?.libraryShelfLevel || 0) + (hasTechPassive(state, 'BOOK_BONUS_UP') ? 1 : 0);
+}
+
+function bookResearchBonus(state) {
+  if (!bookSystemActive(state)) return 0;
+  return Math.min(2, Number(state.inventory?.book_craft_guide || 0) + Number(state.inventory?.book_camp_manual || 0));
+}
+
 function completeTechIfReady(state, techId) {
   const research = normalizeResearch(state.research);
   const tech = getTech(techId);
@@ -769,9 +797,13 @@ function autoResearchForDay(state) {
     2
     + Number(state.camp.workbenchLevel || 0)
     + Number(state.camp.archiveRoomLevel || 0)
-    + (hasTechPassive(state, 'RESEARCH_POINT_BONUS') ? 1 : 0),
+    + Number(state.camp.scribeDeskLevel || 0)
+    + Number(state.camp.libraryShelfLevel || 0)
+    + (hasTechPassive(state, 'RESEARCH_POINT_BONUS') ? 1 : 0)
+    + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_2') ? 1 : 0)
+    + bookResearchBonus(state),
     2,
-    10
+    12
   );
   return addResearchProgress({ ...state, research }, techId, points, '일일 연구');
 }
@@ -1103,13 +1135,14 @@ export function actionChance(state, actorId, action, base = 0.55) {
   const stat = Number(actor?.stats?.[action] || 5);
   const weather = Number(state.weather?.actionMod || 0);
   const camp = action === 'craft' ? Number(state.camp.workbenchLevel || 0) * 0.04 : 0;
+  const book = action === 'craft' ? bookCraftChanceBonus(state) : 0;
   const equipment = equipmentBonus(state, actorId, 'successAdd', action);
   const researchBonus =
     (action === 'gather' && hasTechPassive(state, 'GATHER_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && isEquipped(state, actorId, 'bow') && hasTechPassive(state, 'BOW_HUNT_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'CRAFT_SUCCESS_UP') ? 0.06 : 0);
-  return clamp(base + stat * 0.025 + weather + camp + equipment + researchBonus, 0.08, 0.95);
+  return clamp(base + stat * 0.025 + weather + camp + book + equipment + researchBonus, 0.08, 0.95);
 }
 
 function staminaCostWithEquipment(state, actorId, action, baseCost) {
@@ -1205,8 +1238,9 @@ export function runResearchAction(state, actorId, options = {}) {
   if (!tech) return addLog(current, '연구 가능한 기술이 없습니다.');
   if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
   if (!prereqsMet(current.research, tech)) return addLog(current, `${tech.name} 선행 연구가 부족합니다.`);
-  const points = 3 + Math.floor(Number(actor?.stats?.craft || 5) / 3) + Number(current.camp.workbenchLevel || 0);
-  const staminaCost = Math.max(6, 14 - Number(current.camp.workbenchLevel || 0) * 2);
+  const archiveStudy = Number(current.camp.scribeDeskLevel || 0) + Number(current.camp.libraryShelfLevel || 0) + bookResearchBonus(current);
+  const points = 3 + Math.floor(Number(actor?.stats?.craft || 5) / 3) + Number(current.camp.workbenchLevel || 0) + archiveStudy;
+  const staminaCost = Math.max(5, 14 - Number(current.camp.workbenchLevel || 0) * 2 - Number(current.camp.scribeDeskLevel || 0));
   const researched = addResearchProgress(current, tech.id, points, `${actor.name} 연구`);
   const withDialogue = addDialogueLog(researched, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
@@ -1340,6 +1374,8 @@ export function scoreState(state) {
     + Number(state.camp.shelterLevel || 0) * 90
     + Number(state.camp.workbenchLevel || 0) * 70
     + Number(state.camp.archiveRoomLevel || 0) * 95
+    + Number(state.camp.scribeDeskLevel || 0) * 90
+    + Number(state.camp.libraryShelfLevel || 0) * 105
     + research.completed * 120
     + equipmentCount * 45
     + partyInsulation(state) * 35
@@ -1364,7 +1400,7 @@ export function summaryForState(state) {
     hunger: averageParty(state, 'hunger'),
     bodyTemp: averageBodyTemp(state),
     ap: state.ap,
-    camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel} / 기록실 ${state.camp.archiveRoomLevel || 0}`,
+    camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel} / 기록실 ${state.camp.archiveRoomLevel || 0} / 필사대 ${state.camp.scribeDeskLevel || 0} / 서가 ${state.camp.libraryShelfLevel || 0}`,
     research: `${researchSummary(state).completed}/${TECH_TREE.length}`,
     perkPoints: Number(state.meta?.perkPoints || 0),
     weight: totalCarryWeight(state),
@@ -1379,28 +1415,57 @@ export function formatRequires(requires) {
 
 export function campFacilityRows(state) {
   const current = normalizeState(state);
-  const archiveCost = { wood: 5, stone: 3, fiber: 3, hide: 1 };
-  const archiveLevel = Number(current.camp.archiveRoomLevel || 0);
-  const unlocked = hasTechCampUnlock(current, 'archive_room');
-  return [
+  const facilities = [
     {
       id: 'archive_room',
       action: 'archive',
       name: '기록실',
       desc: `로그 저장량 ${BASE_LOG_LIMIT} -> ${BASE_LOG_LIMIT + ARCHIVE_LOG_LIMIT_BONUS}, 일일 연구 +1`,
-      level: archiveLevel,
+      level: Number(current.camp.archiveRoomLevel || 0),
       maxLevel: 1,
-      unlocked,
-      maxed: archiveLevel >= 1,
-      cost: archiveCost,
-      costText: formatRequires(archiveCost),
-      buttonLabel: archiveLevel >= 1
-        ? '기록실 완성'
-        : unlocked
-          ? `기록실 짓기 · ${formatRequires(archiveCost)}`
-          : '기록실 잠김 · 기록 보관 연구 필요',
+      cost: { wood: 5, stone: 3, fiber: 3, hide: 1 },
+      unlocked: hasTechCampUnlock(current, 'archive_room'),
+      buildLabel: '기록실 짓기',
+      maxedLabel: '기록실 완성',
+      lockedLabel: '기록실 잠김 · 기록 보관 연구 필요',
+    },
+    {
+      id: 'scribe_desk',
+      action: 'scribe',
+      name: '필사대',
+      desc: '일일 연구 +1, 연구 행동 피로 -1',
+      level: Number(current.camp.scribeDeskLevel || 0),
+      maxLevel: 1,
+      cost: { wood: 2, stone: 2, clay: 2, fiber: 2 },
+      unlocked: hasTechCampUnlock(current, 'scribe_desk'),
+      buildLabel: '필사대 만들기',
+      maxedLabel: '필사대 완성',
+      lockedLabel: '필사대 잠김 · 문자 연구 필요',
+    },
+    {
+      id: 'library_shelf',
+      action: 'library',
+      name: '서가',
+      desc: '일일 연구 +1, 책 보너스 강화, 기록 점수 증가',
+      level: Number(current.camp.libraryShelfLevel || 0),
+      maxLevel: 1,
+      cost: { wood: 4, fiber: 4, resin: 2, clay: 2 },
+      unlocked: hasTechCampUnlock(current, 'library_shelf'),
+      buildLabel: '서가 세우기',
+      maxedLabel: '서가 완성',
+      lockedLabel: '서가 잠김 · 서가 정리 연구 필요',
     },
   ];
+  return facilities.map((facility) => ({
+    ...facility,
+    maxed: facility.level >= facility.maxLevel,
+    costText: formatRequires(facility.cost),
+    buttonLabel: facility.level >= facility.maxLevel
+      ? facility.maxedLabel
+      : facility.unlocked
+        ? `${facility.buildLabel} · ${formatRequires(facility.cost)}`
+        : facility.lockedLabel,
+  }));
 }
 
 export function formatGains(entries) {
@@ -1466,6 +1531,12 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
 export function runCraftAction(state, actorId, recipeId, options = {}) {
   const recipe = RECIPES.find((row) => row.id === recipeId) || RECIPES[0];
   const actor = getActor(state, actorId);
+  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_SYSTEM_UNLOCK')) {
+    return addLog(state, `${recipe.name}은(는) 문자 연구 후 제작할 수 있습니다.`);
+  }
+  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_BONUS_UP')) {
+    return addLog(state, `${recipe.name}은(는) 책 제작 연구 후 제작할 수 있습니다.`);
+  }
   if (!hasResources(state.inventory, recipe.requires)) {
     return addLog(state, `${recipe.name} 제작 재료가 부족합니다. 필요: ${formatRequires(recipe.requires)}.`);
   }
@@ -1564,6 +1635,28 @@ export function runCampAction(state, actorId, kind, options = {}) {
     };
     next = addLog(next, `${actor.name}이(가) 기록실을 세웠습니다. 로그 저장량과 일일 연구가 증가합니다.`);
   }
+  if (kind === 'scribe') {
+    if (!hasTechCampUnlock(next, 'scribe_desk')) return addLog(next, '필사대는 문자 연구를 완료한 뒤 만들 수 있습니다.');
+    if (Number(next.camp.scribeDeskLevel || 0) >= 1) return addLog(next, '필사대는 이미 완성되어 있습니다.');
+    if (!hasResources(next.inventory, { wood: 2, stone: 2, clay: 2, fiber: 2 })) return addLog(next, '필사대 재료가 부족합니다.');
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, { wood: 2, stone: 2, clay: 2, fiber: 2 }),
+      camp: { ...next.camp, scribeDeskLevel: 1 },
+    };
+    next = addLog(next, `${actor.name}이(가) 필사대를 만들었습니다. 연구 행동과 일일 연구가 강화됩니다.`);
+  }
+  if (kind === 'library') {
+    if (!hasTechCampUnlock(next, 'library_shelf')) return addLog(next, '서가는 서가 정리 연구를 완료한 뒤 세울 수 있습니다.');
+    if (Number(next.camp.libraryShelfLevel || 0) >= 1) return addLog(next, '서가는 이미 완성되어 있습니다.');
+    if (!hasResources(next.inventory, { wood: 4, fiber: 4, resin: 2, clay: 2 })) return addLog(next, '서가 재료가 부족합니다.');
+    next = {
+      ...next,
+      inventory: spendResources(next.inventory, { wood: 4, fiber: 4, resin: 2, clay: 2 }),
+      camp: { ...next.camp, libraryShelfLevel: 1 },
+    };
+    next = addLog(next, `${actor.name}이(가) 서가를 세웠습니다. 책 보너스와 일일 연구가 강화됩니다.`);
+  }
   if (kind === 'cook') {
     if (Number(next.camp.fireLevel || 0) <= 0 || Number(next.camp.fuel || 0) <= 0) return addLog(next, '고기를 구우려면 모닥불과 연료가 필요합니다.');
     if (!hasResources(next.inventory, { meat: 1 })) return addLog(next, '구울 고기가 없습니다.');
@@ -1577,5 +1670,6 @@ export function runCampAction(state, actorId, kind, options = {}) {
   next = addDialogueLog(next, actorId, 'camp', 'success', options.rng || Math.random);
   next = applyExplorationEvent(next, { actorId, action: 'camp', ok: true, rng: options.rng || Math.random });
   next.counters = { ...next.counters, camp: Number(next.counters.camp || 0) + 1 };
-  return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, staminaCostWithEquipment(state, actorId, 'camp', 14), 2, options);
+  const campStaminaCost = Math.max(5, staminaCostWithEquipment(state, actorId, 'camp', 14) - bookCampStaminaReduction(next));
+  return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, campStaminaCost, 2, options);
 }
