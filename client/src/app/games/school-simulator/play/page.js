@@ -582,9 +582,12 @@ export default function SchoolSimulatorPlayPage() {
               </section>
             ),
           },
-        ]}
-      />
-
+          {
+            id: 'advanced',
+            label: '상세 운영',
+            badge: `${state.semesterHistory.length}학기`,
+            children: (
+              <>
       <section className="games-dashboard">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -1257,6 +1260,11 @@ export default function SchoolSimulatorPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }
