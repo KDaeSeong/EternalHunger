@@ -261,6 +261,7 @@ export function getPlayTimeSec(state) {
 export function summaryForState(state) {
   const current = normalizeState(state);
   const rows = trainRows(current);
+  const bottleneck = bottleneckAnalysisReport(current);
   return {
     nowS: current.nowS,
     time: formatTime(current.nowS),
@@ -270,6 +271,9 @@ export function summaryForState(state) {
     tokenWaits: rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length,
     waitSeconds: rows.reduce((sum, row) => sum + row.waitSeconds, 0),
     score: scoreState(current),
+    bottleneckScore: bottleneck.healthScore,
+    bottleneckGrade: bottleneck.grade,
+    topBottleneck: bottleneck.topBottleneck,
   };
 }
 
@@ -341,6 +345,108 @@ export function scheduleReport(state) {
   if (totals.totalDelayS > 120) recommendations.push('누적 지연이 큽니다. 정차 시간이 짧은 역과 병목 구간을 우선 확인하세요.');
   if (!recommendations.length) recommendations.push('현재 운행은 시간표 기준으로 안정권입니다.');
   return { trains, totals, recommendations };
+}
+
+export function bottleneckAnalysisReport(state) {
+  const current = normalizeState(state);
+  const report = scheduleReport(current);
+  const stationRows = stationBoardRows(current);
+  const segments = segmentSummary(current);
+  const currentLookahead = Math.max(0, Math.min(3, Math.round(Number(current.lookaheadBlocks || 0))));
+  const waitingTrains = report.trains
+    .filter((train) => train.waitSeconds > 0 || train.signalState === 'STOP' || train.stopReason)
+    .map((train) => ({
+      id: train.id,
+      serviceName: train.serviceName,
+      waitSeconds: train.waitSeconds,
+      signalState: train.signalState,
+      reason: train.stopReason?.kind || 'WAIT',
+      blockedBy: train.blockedBy || '',
+      tokenWait: train.tokenWait || '',
+      delayS: train.positiveDelayS,
+      severity: Math.round(train.waitSeconds + train.positiveDelayS * 0.7 + (train.signalState === 'STOP' ? 90 : 0)),
+    }))
+    .sort((a, b) => b.severity - a.severity || a.id.localeCompare(b.id, 'ko-KR'));
+  const segmentRows = segments
+    .map((segment) => {
+      const waitSeconds = waitingTrains
+        .filter((train) => train.tokenWait === segment.id || segment.waiting.includes(train.id))
+        .reduce((sum, train) => sum + train.waitSeconds, 0);
+      const severity = waitSeconds + (segment.owner ? 25 : 0) + segment.waiting.length * 80;
+      return {
+        id: segment.id,
+        owner: segment.owner || '',
+        waiting: segment.waiting,
+        edgeIds: segment.edgeIds,
+        entryStations: segment.entryStations,
+        waitSeconds,
+        severity,
+        status: segment.waiting.length ? '대기 발생' : segment.owner ? '점유 중' : '원활',
+      };
+    })
+    .sort((a, b) => b.severity - a.severity || a.id.localeCompare(b.id, 'ko-KR'));
+  const stationHotspots = stationRows
+    .filter((station) => station.maxDelayS > 0 || station.open > 0)
+    .map((station) => ({
+      id: station.stationId,
+      name: station.stationName,
+      maxDelayS: station.maxDelayS,
+      open: station.open,
+      nextTrainId: station.nextCall?.trainId || '',
+      severity: station.maxDelayS + station.open * 35,
+    }))
+    .sort((a, b) => b.severity - a.severity || a.name.localeCompare(b.name, 'ko-KR'));
+  const headwayRows = firstStationHeadwayRows();
+  const minHeadwayS = headwayRows.reduce((min, row) => Math.min(min, row.headwayS), Number.POSITIVE_INFINITY);
+  const idealHeadwayS = report.totals.tokenWaits ? 150 : report.totals.stopped ? 120 : 90;
+  const headwayIssue = Number.isFinite(minHeadwayS) && minHeadwayS < idealHeadwayS;
+  const recommendedLookahead = report.totals.stopped && !report.totals.tokenWaits
+    ? Math.max(0, currentLookahead - 1)
+    : currentLookahead;
+  const proposedDepartureShiftS = headwayIssue ? Math.max(30, Math.ceil((idealHeadwayS - minHeadwayS) / 30) * 30) : 0;
+  const totalSeverity = Math.round(
+    report.totals.totalWaitS
+    + report.totals.totalDelayS * 0.6
+    + report.totals.stopped * 90
+    + report.totals.tokenWaits * 140
+    + (headwayIssue ? 60 : 0),
+  );
+  const healthScore = Math.max(0, Math.min(100, Math.round(100 - totalSeverity / 12)));
+  const topWaiting = waitingTrains[0] || null;
+  const topBottleneck = topWaiting?.id || stationHotspots[0]?.name || segmentRows[0]?.id || '없음';
+  const recommendations = [
+    topWaiting
+      ? `${topWaiting.id}이(가) ${topWaiting.reason} 상태입니다. ${topWaiting.blockedBy ? `${topWaiting.blockedBy}와의 간격` : '선행 점유 구간'}을 먼저 확인하세요.`
+      : '',
+    report.totals.tokenWaits
+      ? '단선 토큰 대기가 보입니다. 같은 구간에 연속 진입하는 열차의 출발 간격을 넓히는 조정이 우선입니다.'
+      : '',
+    report.totals.stopped && !report.totals.tokenWaits
+      ? `블록 예약 충돌 가능성이 있습니다. Lookahead를 ${recommendedLookahead}로 낮춰 짧은 간격의 예약을 줄이는 안을 적용해 보세요.`
+      : '',
+    headwayIssue
+      ? `첫 출발 간격이 ${formatTime(minHeadwayS)}로 좁습니다. 후속 열차 출발을 약 ${proposedDepartureShiftS}초 늦추는 다이아 조정안을 권장합니다.`
+      : '',
+    report.totals.totalDelayS > 120
+      ? '누적 지연이 큽니다. 지연이 큰 역부터 정차 시간을 줄이거나 선행 열차 우선순위를 조정하세요.'
+      : '',
+  ].filter(Boolean);
+  if (!recommendations.length) recommendations.push('현재 병목 점수는 안정권입니다. 시간표 조정 없이 관찰을 이어가도 됩니다.');
+  return {
+    healthScore,
+    grade: healthScore >= 88 ? 'A' : healthScore >= 72 ? 'B' : healthScore >= 55 ? 'C' : 'D',
+    totalSeverity,
+    recommendedLookahead,
+    proposedDepartureShiftS,
+    idealHeadwayS,
+    minHeadwayS: Number.isFinite(minHeadwayS) ? minHeadwayS : null,
+    topBottleneck,
+    waitingTrains,
+    segmentRows,
+    stationHotspots,
+    headwayRows,
+    recommendations,
+  };
 }
 
 export function stationBoardRows(state) {
@@ -604,6 +710,40 @@ function getStopPoint(stationId) {
 
 function stationName(stationId) {
   return TRACK.stations.find((station) => station.id === stationId)?.name || stationId;
+}
+
+function firstStationHeadwayRows() {
+  const servicesById = servicesMap();
+  const departures = (SERVICE.trains || [])
+    .map((train) => {
+      const service = servicesById[train.serviceId];
+      const firstStop = service?.stops?.[0] || null;
+      if (!firstStop) return null;
+      return {
+        trainId: train.id,
+        serviceId: service.id,
+        serviceName: service.name || service.id,
+        stationId: firstStop.stationId,
+        stationName: stationName(firstStop.stationId),
+        departS: Number(firstStop.departS || firstStop.arriveS || 0),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.departS - b.departS || a.trainId.localeCompare(b.trainId, 'ko-KR'));
+  return departures.slice(1).map((row, index) => {
+    const previous = departures[index];
+    const headwayS = Math.max(0, row.departS - previous.departS);
+    return {
+      id: `${previous.trainId}-${row.trainId}`,
+      fromTrainId: previous.trainId,
+      toTrainId: row.trainId,
+      stationName: row.stationName,
+      fromDepartS: previous.departS,
+      toDepartS: row.departS,
+      headwayS,
+      status: headwayS < 90 ? '좁음' : headwayS < 150 ? '보통' : '여유',
+    };
+  });
 }
 
 function interpolateStopPoints(fromPoint, toPoint, progress) {
