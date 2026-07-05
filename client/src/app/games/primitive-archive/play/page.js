@@ -16,12 +16,14 @@ import {
   SAVE_VERSION,
   ZONES,
   actionChance,
+  averageBodyTemp,
   averageParty,
   autoEquipAction,
   buyPerkAction,
   campFacilityRows,
   clearAllEquipmentAction,
   createNewState,
+  difficultyRows,
   equipmentChoicesForSlot,
   equipmentInventoryRows,
   equipmentRows,
@@ -95,6 +97,7 @@ function vitalBadges(member) {
   if (Number(member.hp || 0) <= 0) badges.push('탈진');
   else if (Number(member.hp || 0) <= 35) badges.push('부상');
   if (Number(member.hunger || 0) >= 80) badges.push('허기');
+  if (Number(member.bodyTemp ?? 37) <= 34.5) badges.push('저체온');
   if (Number(member.stamina || 0) <= 25) badges.push('피로');
   if (!badges.length) badges.push('양호');
   return badges;
@@ -110,6 +113,7 @@ export default function PrimitiveArchivePlayPage() {
   const [recipeId, setRecipeId] = useState('twine');
   const [partySort, setPartySort] = useState('default');
   const [selectedRecruitId, setSelectedRecruitId] = useState('');
+  const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -119,6 +123,8 @@ export default function PrimitiveArchivePlayPage() {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
   const stamina = averageParty(state, 'stamina');
+  const bodyTemp = averageBodyTemp(state);
+  const currentDifficulty = difficultyRows().find((row) => row.key === state.difficulty) || difficultyRows()[1];
   const score = scoreState(state);
   const dead = state.ended || hp <= 0;
   const canAct = !dead && state.ap > 0;
@@ -246,7 +252,9 @@ export default function PrimitiveArchivePlayPage() {
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      setState(normalizeState(detail?.save?.payload?.state));
+      const nextState = normalizeState(detail?.save?.payload?.state);
+      setState(nextState);
+      setNewRunDifficulty(nextState.difficulty || 'normal');
       setMessage('저장된 런을 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 런을 불러왔습니다.' });
     } catch (err) {
@@ -289,7 +297,7 @@ export default function PrimitiveArchivePlayPage() {
   };
 
   const startNewRun = () => {
-    setState((current) => startNewRunFromMeta(current));
+    setState((current) => startNewRunFromMeta(current, { difficulty: newRunDifficulty }));
     setActorId('shiroko');
     setZoneId('forest');
     setRecipeId('twine');
@@ -304,6 +312,11 @@ export default function PrimitiveArchivePlayPage() {
 
   const playActions = (
     <>
+      <select value={newRunDifficulty} onChange={(event) => setNewRunDifficulty(event.target.value)} title="새 런 난이도">
+        {difficultyRows().map((row) => (
+          <option value={row.key} key={row.key}>{row.label}</option>
+        ))}
+      </select>
       <button type="button" onClick={startNewRun}>새 런</button>
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
@@ -316,10 +329,12 @@ export default function PrimitiveArchivePlayPage() {
   const playMetrics = [
     { label: 'Day', value: state.day },
     { label: 'AP', value: `${state.ap}/${state.apMax}` },
+    { label: '난이도', value: currentDifficulty.label },
     { label: '파티', value: `${state.party.length}/${partyCap}` },
     { label: 'HP', value: hp },
     { label: '허기', value: hunger },
     { label: '스태미나', value: stamina },
+    { label: '체온', value: `${bodyTemp.toFixed(1)}도` },
     { label: '보온', value: insulation },
     { label: '연구', value: `${research.completed}/${research.total}` },
     { label: '특전', value: state.meta.perkPoints },
@@ -408,7 +423,7 @@ export default function PrimitiveArchivePlayPage() {
                   <span>
                     <strong style={{ display: 'block' }}>{member.name} · {member.role}</strong>
                     <small style={{ display: 'block', color: '#cbd5e1', marginTop: 3 }}>
-                      HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · {badges.join(' / ')}
+                      HP {member.hp} · 허기 {member.hunger} · ST {member.stamina} · 체온 {Number(member.bodyTemp ?? 37).toFixed(1)}도 · {badges.join(' / ')}
                     </small>
                     <small style={{ display: 'block', color: '#bae6fd', marginTop: 3 }}>
                       추천 {actionLabel(basisAction)} {chanceText(basisChance)} · 채집 {chanceText(chances.gather)} · 사냥 {chanceText(chances.hunt)} · 제작 {chanceText(chances.craft)}

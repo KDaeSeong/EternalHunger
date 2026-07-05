@@ -217,6 +217,66 @@ export const WEATHER = [
   { id: 'heat', name: '더위', temp: 28, actionMod: -0.04, cold: 0 },
 ];
 
+export const DIFFICULTY_PRESETS = {
+  easy: {
+    key: 'easy',
+    label: '쉬움',
+    desc: 'AP가 많고 추위와 허기 부담이 낮습니다.',
+    apMax: 5,
+    hungerMultiplier: 0.75,
+    coldMultiplier: 0.65,
+    staminaRecoveryMultiplier: 1.15,
+    scoreMultiplier: 0.85,
+    startInventory: { berry: 2, wood: 1 },
+  },
+  normal: {
+    key: 'normal',
+    label: '보통',
+    desc: '기본 생존 밸런스입니다.',
+    apMax: 4,
+    hungerMultiplier: 1,
+    coldMultiplier: 1,
+    staminaRecoveryMultiplier: 1,
+    scoreMultiplier: 1,
+    startInventory: {},
+  },
+  hard: {
+    key: 'hard',
+    label: '어려움',
+    desc: '허기와 추위가 빠르게 누적됩니다.',
+    apMax: 4,
+    hungerMultiplier: 1.2,
+    coldMultiplier: 1.25,
+    staminaRecoveryMultiplier: 0.9,
+    scoreMultiplier: 1.2,
+    startInventory: { berry: -1 },
+  },
+  nightmare: {
+    key: 'nightmare',
+    label: '악몽',
+    desc: '원본의 생존 압박을 더 강하게 재현합니다.',
+    apMax: 3,
+    hungerMultiplier: 1.45,
+    coldMultiplier: 1.6,
+    staminaRecoveryMultiplier: 0.78,
+    scoreMultiplier: 1.45,
+    startInventory: { berry: -1, fiber: -1 },
+  },
+};
+
+export function difficultyRows() {
+  return Object.values(DIFFICULTY_PRESETS);
+}
+
+function difficultyKey(value = 'normal') {
+  return DIFFICULTY_PRESETS[value] ? value : 'normal';
+}
+
+function difficultyPreset(stateOrKey) {
+  const key = typeof stateOrKey === 'string' ? stateOrKey : stateOrKey?.difficulty;
+  return DIFFICULTY_PRESETS[difficultyKey(key)];
+}
+
 export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -237,6 +297,7 @@ export function makeParty() {
     hp: 100,
     hunger: 12,
     stamina: 100,
+    bodyTemp: 37,
   }));
 }
 
@@ -349,17 +410,24 @@ export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   const rng = options.rng || Math.random;
   const meta = initMetaState(options.meta);
+  const difficulty = difficultyKey(options.difficulty);
+  const preset = difficultyPreset(difficulty);
   const party = makeParty();
+  const inventory = Object.entries(preset.startInventory || {}).reduce((acc, [itemId, qty]) => ({
+    ...acc,
+    [itemId]: Math.max(0, Number(acc[itemId] || 0) + Number(qty || 0)),
+  }), { wood: 2, stone: 2, fiber: 2, berry: 2 });
   const base = {
     runId: options.runId || `pa-${Date.now().toString(36)}`,
     startedAt: now,
     updatedAt: now,
+    difficulty,
     day: 1,
-    ap: 4,
-    apMax: 4,
+    ap: preset.apMax,
+    apMax: preset.apMax,
     weather: rollWeather(1, rng),
     party,
-    inventory: { wood: 2, stone: 2, fiber: 2, berry: 2 },
+    inventory,
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, fuel: 0 },
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0 },
@@ -376,7 +444,15 @@ export function normalizeState(value) {
   if (!value || typeof value !== 'object') return base;
   const research = normalizeResearch(value.research);
   const meta = initMetaState(value.meta);
-  const party = Array.isArray(value.party) && value.party.length ? value.party : base.party;
+  const difficulty = difficultyKey(value.difficulty || base.difficulty);
+  const preset = difficultyPreset(difficulty);
+  const party = (Array.isArray(value.party) && value.party.length ? value.party : base.party).map((member) => ({
+    ...member,
+    hp: clamp(Number(member.hp ?? 100), 0, 100),
+    hunger: clamp(Number(member.hunger ?? 12), 0, 100),
+    stamina: clamp(Number(member.stamina ?? 100), 0, 100),
+    bodyTemp: clamp(Number(member.bodyTemp ?? 37), 25, 39),
+  }));
   const camp = value.camp && typeof value.camp === 'object'
     ? {
       ...base.camp,
@@ -387,6 +463,9 @@ export function normalizeState(value) {
   return {
     ...base,
     ...value,
+    difficulty,
+    ap: clamp(Number(value.ap ?? preset.apMax), 0, Math.max(1, Number(value.apMax || preset.apMax))),
+    apMax: Math.max(1, Number(value.apMax || preset.apMax)),
     weather: value.weather && typeof value.weather === 'object' ? value.weather : base.weather,
     party,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
@@ -410,6 +489,7 @@ function makePartyMember(student) {
     hp: 100,
     hunger: 12,
     stamina: 100,
+    bodyTemp: 37,
   };
 }
 
@@ -848,6 +928,12 @@ export function averageParty(state, key) {
   return Math.round(state.party.reduce((sum, member) => sum + Number(member[key] || 0), 0) / state.party.length);
 }
 
+export function averageBodyTemp(state) {
+  if (!state.party.length) return 0;
+  const avg = state.party.reduce((sum, member) => sum + Number(member.bodyTemp ?? 37), 0) / state.party.length;
+  return Math.round(avg * 10) / 10;
+}
+
 export function getActor(state, actorId) {
   return state.party.find((member) => member.id === actorId) || state.party[0];
 }
@@ -877,11 +963,25 @@ function staminaCostWithEquipment(state, actorId, action, baseCost) {
   return Math.max(1, Math.round(Number(baseCost || 0) + equipmentBonus(state, actorId, 'staminaAdd', action)));
 }
 
+function actionBodyTempDelta(state, actorId, warmthAdd = 0) {
+  const weatherCold = Number(state.weather?.cold || 0);
+  const personalWarmth = actorInsulation(state, actorId) * 1.25 + Number(state.camp.fireLevel || 0) * 0.65;
+  const coldPressure = Math.max(0, weatherCold - personalWarmth);
+  const heatPressure = state.weather?.id === 'heat' ? 0.16 : 0;
+  return warmthAdd - coldPressure * 0.035 + heatPressure;
+}
+
 export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options = {}) {
   const actor = getActor(state, actorId);
+  const bodyTemp = clamp(
+    Number(actor.bodyTemp ?? 37) + actionBodyTempDelta(state, actorId, Number(options.warmthAdd || 0)),
+    25,
+    39,
+  );
   let next = updateActor(state, actorId, {
     stamina: clamp(Number(actor.stamina || 0) - staminaCost, 0, 100),
     hunger: clamp(Number(actor.hunger || 0) + hungerAdd, 0, 100),
+    bodyTemp,
   });
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
@@ -889,18 +989,28 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
 }
 
 export function advanceDay(state, options = {}) {
+  const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const warmth = Number(state.camp.fireLevel || 0) * 4 + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
-  const coldDamage = Math.max(0, Number(state.weather?.cold || 0) - warmth);
+  const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier);
   const fuelUsed = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 1 : 0;
   const party = state.party.map((member) => {
-    const hunger = clamp(Number(member.hunger || 0) + 8 + Math.floor(coldDamage / 3), 0, 100);
+    const hunger = clamp(Number(member.hunger || 0) + Math.round(8 * preset.hungerMultiplier) + Math.floor(coldDamage / 3), 0, 100);
     const hungerDamage = hunger >= 90 ? 10 : hunger >= 75 ? 4 : 0;
+    const shelterRecovery = (34 + Number(state.camp.shelterLevel || 0) * 8) * preset.staminaRecoveryMultiplier;
+    const tempRecovery = warmth >= Number(state.weather?.cold || 0) ? 0.65 : 0;
+    const bodyTemp = clamp(
+      Number(member.bodyTemp ?? 37) - coldDamage * 0.24 - (state.weather?.id === 'snow' ? 0.35 : 0) + tempRecovery,
+      25,
+      39,
+    );
+    const hypothermiaDamage = bodyTemp < 31 ? 18 : bodyTemp < 34.5 ? 7 : 0;
     return {
       ...member,
-      stamina: clamp(Number(member.stamina || 0) + 34 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
+      stamina: clamp(Number(member.stamina || 0) + shelterRecovery, 0, 100),
       hunger,
-      hp: clamp(Number(member.hp || 0) - coldDamage - hungerDamage, 0, 100),
+      bodyTemp,
+      hp: clamp(Number(member.hp || 0) - coldDamage - hungerDamage - hypothermiaDamage, 0, 100),
     };
   });
   const ended = party.every((member) => Number(member.hp || 0) <= 0);
@@ -913,9 +1023,10 @@ export function advanceDay(state, options = {}) {
     camp: { ...state.camp, fuel: Math.max(0, Number(state.camp.fuel || 0) - fuelUsed) },
     ended,
   };
+  const tempNote = `평균 체온 ${averageBodyTemp(next).toFixed(1)}도`;
   const note = ended
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
-    : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도.`;
+    : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
   const logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
   return recordResearchEvent(autoResearchForDay(logged), { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 });
 }
@@ -1062,11 +1173,12 @@ export function scoreState(state) {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
   const research = researchSummary(state);
+  const preset = difficultyPreset(state);
   const equipmentCount = Object.values(normalizeEquipment(state.equipment, state.party)).reduce((sum, slots) => (
     sum + Object.values(slots || {}).filter(Boolean).length
   ), 0);
   return Math.max(0, Math.round(
-    state.day * 120
+    (state.day * 120
     + Number(state.counters.gather || 0) * 18
     + Number(state.counters.hunt || 0) * 48
     + Number(state.counters.craft || 0) * 34
@@ -1078,7 +1190,8 @@ export function scoreState(state) {
     + equipmentCount * 45
     + partyInsulation(state) * 35
     + hp * 2
-    + (100 - hunger)
+    + (100 - hunger))
+    * preset.scoreMultiplier
   ));
 }
 
@@ -1089,10 +1202,13 @@ export function getPlayTimeSec(state) {
 }
 
 export function summaryForState(state) {
+  const preset = difficultyPreset(state);
   return {
     day: state.day,
+    difficulty: preset.label,
     hp: averageParty(state, 'hp'),
     hunger: averageParty(state, 'hunger'),
+    bodyTemp: averageBodyTemp(state),
     ap: state.ap,
     camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel} / 기록실 ${state.camp.archiveRoomLevel || 0}`,
     research: `${researchSummary(state).completed}/${TECH_TREE.length}`,
@@ -1220,6 +1336,7 @@ export function runEatAction(state, actorId, options = {}) {
   const food = ITEMS[foodId];
   const nutrition = Number(food.nutrition || 0);
   const heal = Number(food.heal || 0);
+  const warmth = foodId === 'cooked_meat' ? 1.1 : foodId === 'herb_tonic' ? 0.8 : 0;
   const target = getActor(state, actorId);
   let next = {
     ...state,
@@ -1229,8 +1346,9 @@ export function runEatAction(state, actorId, options = {}) {
   next = updateActor(next, actorId, {
     hunger: clamp(Number(target.hunger || 0) - nutrition, 0, 100),
     hp: clamp(Number(target.hp || 0) + heal, 0, 100),
+    bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
   });
-  next = addLog(next, `${actor.name}이(가) ${itemName(foodId)}을(를) 먹었습니다. 허기 -${nutrition}, HP +${heal}.`);
+  next = addLog(next, `${actor.name}이(가) ${itemName(foodId)}을(를) 먹었습니다. 허기 -${nutrition}, HP +${heal}${warmth ? `, 체온 +${warmth.toFixed(1)}` : ''}.`);
   return afterAction(next, actorId, staminaCostWithEquipment(state, actorId, 'eat', 6), 0, options);
 }
 
@@ -1238,11 +1356,13 @@ export function runRestAction(state, actorId, options = {}) {
   const actor = getActor(state, actorId);
   const target = getActor(state, actorId);
   const heal = hasTechPassive(state, 'REST_HEAL_UP') ? 8 : 4;
+  const warmth = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 0.75 : 0.25;
   let next = updateActor(state, actorId, {
     stamina: clamp(Number(target.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
     hp: clamp(Number(target.hp || 0) + heal, 0, 100),
+    bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
   });
-  next = addLog(next, `${actor.name}이(가) 휴식했습니다. 스태미나와 HP를 회복했습니다.`);
+  next = addLog(next, `${actor.name}이(가) 휴식했습니다. 스태미나와 HP를 회복하고 체온을 안정시켰습니다.`);
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
   return next;
