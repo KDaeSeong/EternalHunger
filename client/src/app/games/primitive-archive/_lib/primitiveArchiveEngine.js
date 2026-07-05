@@ -1502,6 +1502,76 @@ export function summaryForState(state) {
   };
 }
 
+export function getRunProgressReport(state) {
+  const current = normalizeState(state);
+  const victory = archiveVictorySummary(current);
+  const research = researchSummary(current);
+  const hp = averageParty(current, 'hp');
+  const hunger = averageParty(current, 'hunger');
+  const stamina = averageParty(current, 'stamina');
+  const bodyTemp = averageBodyTemp(current);
+  const foodUnits = ['berry', 'meat', 'cooked_meat', 'jerky', 'herb_tonic']
+    .reduce((sum, id) => sum + Number(current.inventory[id] || 0), 0);
+  const fuel = Number(current.camp.fuel || 0);
+  const weight = totalCarryWeight(current);
+  const insulation = partyInsulation(current);
+  const pendingObjectives = victory.rows.filter((row) => !row.done);
+  const objectivePct = victory.total ? Math.round((victory.completed / victory.total) * 100) : 0;
+  const daysLeft = Math.max(0, ARCHIVE_VICTORY_DAY - Number(current.day || 1));
+  let riskScore = 0;
+  if (hp < 55) riskScore += 3;
+  else if (hp < 75) riskScore += 1;
+  if (hunger > 70) riskScore += 3;
+  else if (hunger > 45) riskScore += 1;
+  if (stamina < 35) riskScore += 2;
+  else if (stamina < 55) riskScore += 1;
+  if (bodyTemp < 35.6 || bodyTemp > 38.5) riskScore += 2;
+  if (foodUnits <= current.party.length) riskScore += 2;
+  if (fuel <= 1 && current.weather.temp <= 8) riskScore += 2;
+  if (current.ap <= 1 && pendingObjectives.length >= 3) riskScore += 1;
+
+  const riskLevel = riskScore >= 7 ? '위험' : riskScore >= 4 ? '주의' : '안정';
+  const riskTone = riskScore >= 7 ? 'danger' : riskScore >= 4 ? 'warning' : 'stable';
+  const blockers = [];
+  if (foodUnits <= current.party.length) blockers.push(`식량 ${foodUnits}개`);
+  if (fuel <= 1) blockers.push(`연료 ${fuel}`);
+  if (research.selected && !research.selected.completed) {
+    blockers.push(`연구 ${research.selected.name} ${research.selected.progress}/${research.selected.cost}`);
+  }
+  if (weight >= 24) blockers.push(`무게 ${weight}`);
+  if (insulation < Math.max(2, Math.ceil((12 - current.weather.temp) / 3))) blockers.push(`보온 ${insulation}`);
+
+  const recommendations = [];
+  if (hp < 65 || stamina < 45) recommendations.push('파티 회복을 위해 휴식 우선');
+  if (foodUnits <= current.party.length + 1) recommendations.push('식량 확보를 위해 채집/사냥 우선');
+  if (fuel <= 1 || bodyTemp < 36) recommendations.push('연료 확보 후 모닥불 유지');
+  if (research.available && research.selected && !research.selected.completed) recommendations.push(`${research.selected.name} 연구 진행`);
+  if (pendingObjectives.some((row) => row.id === 'facilities')) recommendations.push('기록 시설 제작 재료 확보');
+  if (pendingObjectives.some((row) => row.id === 'books')) recommendations.push('책 제작 루트 점검');
+  if (!recommendations.length) recommendations.push(victory.canComplete ? '아카이브 완성 가능' : '현재 운영 유지');
+
+  return {
+    objectivePct,
+    objectiveLabel: `${victory.completed}/${victory.total}`,
+    daysLeft,
+    riskLevel,
+    riskTone,
+    riskScore,
+    foodUnits,
+    fuel,
+    insulation,
+    weight,
+    pendingObjectives: pendingObjectives.map((row) => row.label),
+    blockers: blockers.slice(0, 5),
+    recommendations: [...new Set(recommendations)].slice(0, 4),
+    headline: victory.victory
+      ? '아카이브가 완성된 런입니다.'
+      : victory.canComplete
+        ? '목표 조건이 모두 충족됐습니다. 아카이브 완성을 누르세요.'
+        : `${daysLeft}일 생존 목표까지 남았고, 현재 위험도는 ${riskLevel}입니다.`,
+  };
+}
+
 export function formatRequires(requires) {
   return Object.entries(requires).map(([id, qty]) => `${itemName(id)} ${qty}`).join(', ');
 }

@@ -33,6 +33,7 @@ import {
   getActor,
   getPartyCap,
   getPlayTimeSec,
+  getRunProgressReport,
   itemName,
   logCapacity,
   normalizeState,
@@ -65,6 +66,15 @@ function ActionButton({ children, disabled, onClick }) {
     <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
       {children}
     </button>
+  );
+}
+
+function SmallStat({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -136,6 +146,7 @@ export default function PrimitiveArchivePlayPage() {
   const craftChance = recipe ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
+  const runProgressReport = useMemo(() => getRunProgressReport(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
@@ -472,6 +483,40 @@ export default function PrimitiveArchivePlayPage() {
             <ActionButton disabled={!archiveVictory.canComplete} onClick={() => setState((current) => completeArchiveAction(current))}>
               아카이브 완성
             </ActionButton>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>런 리포트</h2>
+              <span>{runProgressReport.riskLevel} · 목표 {runProgressReport.objectivePct}%</span>
+            </div>
+            <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
+              {runProgressReport.headline}
+            </p>
+            <div className="games-rank-split">
+              <SmallStat label="목표" value={runProgressReport.objectiveLabel} />
+              <SmallStat label="남은 생존" value={`${runProgressReport.daysLeft}일`} />
+              <SmallStat label="식량" value={runProgressReport.foodUnits} />
+              <SmallStat label="연료" value={runProgressReport.fuel} />
+              <SmallStat label="보온" value={runProgressReport.insulation} />
+              <SmallStat label="무게" value={runProgressReport.weight} />
+            </div>
+            <div className="game-save-list">
+              <article className="game-save-row">
+                <div>
+                  <span>병목</span>
+                  <strong>{runProgressReport.blockers.length ? runProgressReport.blockers.join(' / ') : '뚜렷한 병목 없음'}</strong>
+                </div>
+                <strong>{runProgressReport.riskTone === 'danger' ? '위험' : runProgressReport.riskTone === 'warning' ? '주의' : '안정'}</strong>
+              </article>
+              <article className="game-save-row">
+                <div>
+                  <span>다음 추천</span>
+                  <strong>{runProgressReport.recommendations.join(' / ')}</strong>
+                </div>
+                <strong>추천</strong>
+              </article>
+            </div>
           </section>
 
           <section className="games-panel">
