@@ -5456,6 +5456,12 @@
   gap: 10px;
 }
 
+.games-rank-split--compact {
+  grid-template-columns: repeat(auto-fill, minmax(88px, 122px));
+  gap: 6px;
+  justify-content: start;
+}
+
 .games-rank-split > div {
   min-width: 0;
   display: grid;
@@ -5464,6 +5470,34 @@
   border-radius: 8px;
   background: #f8fafc;
   padding: 14px;
+}
+
+.games-rank-split--compact > div {
+  min-height: 50px;
+  gap: 3px;
+  align-content: center;
+  padding: 8px 10px;
+}
+
+.games-action-result {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(44, 111, 158, 0.16);
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 10px 12px;
+}
+
+.games-action-result span {
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.games-action-result strong {
+  color: #17202a;
+  font-size: 0.86rem;
+  line-height: 1.4;
 }
 
 .games-rank-split span,
@@ -6594,6 +6628,10 @@
 
   .games-summary.games-summary--dense {
     display: flex;
+  }
+
+  .games-rank-split.games-rank-split--compact {
+    grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
   }
 
   .notifications-head,

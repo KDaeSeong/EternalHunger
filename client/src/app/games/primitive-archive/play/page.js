@@ -130,6 +130,7 @@ export default function PrimitiveArchivePlayPage() {
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [actionResult, setActionResult] = useState('');
 
   const actor = getActor(state, actorId);
   const zone = ZONES.find((row) => row.id === zoneId) || ZONES[0];
@@ -193,40 +194,49 @@ export default function PrimitiveArchivePlayPage() {
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
+
+  const applyAction = (label, updater) => {
+    const nextState = updater(state);
+    const latest = nextState.log?.[0] || `${label} 행동을 실행했습니다.`;
+    setState(nextState);
+    setActionResult(latest);
+    setMessage(latest);
+  };
 
   const runGather = () => {
     if (!canAct) return;
-    setState((current) => runGatherAction(current, actorId, zoneId));
+    applyAction('채집', (current) => runGatherAction(current, actorId, zoneId));
   };
 
   const runHunt = () => {
     if (!canAct) return;
-    setState((current) => runHuntAction(current, actorId, zoneId));
+    applyAction('사냥', (current) => runHuntAction(current, actorId, zoneId));
   };
 
   const runCraft = () => {
     if (!canAct || !recipe) return;
-    setState((current) => runCraftAction(current, actorId, recipeId));
+    applyAction('제작', (current) => runCraftAction(current, actorId, recipeId));
   };
 
   const runEat = () => {
     if (!canAct) return;
-    setState((current) => runEatAction(current, actorId));
+    applyAction('식사', (current) => runEatAction(current, actorId));
   };
 
   const runRest = () => {
     if (!canAct) return;
-    setState((current) => runRestAction(current, actorId));
+    applyAction('휴식', (current) => runRestAction(current, actorId));
   };
 
   const runResearch = () => {
     if (!canAct) return;
-    setState((current) => runResearchAction(current, actorId));
+    applyAction('연구', (current) => runResearchAction(current, actorId));
   };
 
   const runCamp = (kind) => {
     if (!canAct) return;
-    setState((current) => runCampAction(current, actorId, kind));
+    applyAction('캠프', (current) => runCampAction(current, actorId, kind));
   };
 
   const saveRun = async () => {
@@ -272,6 +282,7 @@ export default function PrimitiveArchivePlayPage() {
       const nextState = normalizeState(detail?.save?.payload?.state);
       setState(nextState);
       setNewRunDifficulty(nextState.difficulty || 'normal');
+      setActionResult(nextState.log?.[0] || '');
       setMessage('저장된 런을 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 런을 불러왔습니다.' });
     } catch (err) {
@@ -319,6 +330,7 @@ export default function PrimitiveArchivePlayPage() {
     setZoneId('forest');
     setRecipeId('twine');
     setSelectedRecruitId('');
+    setActionResult('');
     setMessage('');
   };
 
@@ -338,9 +350,9 @@ export default function PrimitiveArchivePlayPage() {
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
       <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
-      <button type="button" onClick={() => setState((current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</button>
-      <button type="button" onClick={() => setState((current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</button>
-      <button type="button" onClick={() => setState((current) => settleRunAction(current))}>런 정산</button>
+      <button type="button" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</button>
+      <button type="button" onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</button>
+      <button type="button" onClick={() => applyAction('런 정산', (current) => settleRunAction(current))}>런 정산</button>
       <Link href="/myanime/primitive-archive">상세</Link>
     </>
   );
@@ -489,7 +501,7 @@ export default function PrimitiveArchivePlayPage() {
             <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
               {runProgressReport.headline}
             </p>
-            <div className="games-rank-split">
+            <div className="games-rank-split games-rank-split--compact">
               <SmallStat label="목표" value={runProgressReport.objectiveLabel} />
               <SmallStat label="남은 생존" value={`${runProgressReport.daysLeft}일`} />
               <SmallStat label="식량" value={runProgressReport.foodUnits} />
@@ -535,6 +547,10 @@ export default function PrimitiveArchivePlayPage() {
               <ActionButton disabled={!canAct} onClick={runEat}>식사</ActionButton>
               <ActionButton disabled={!canAct} onClick={runRest}>휴식</ActionButton>
             </div>
+            <div className="games-action-result">
+              <span>최근 결과</span>
+              <strong>{recentActionText}</strong>
+            </div>
 
             <hr style={{ width: '100%', border: 0, borderTop: '1px solid rgba(148, 163, 184, 0.18)' }} />
 
@@ -555,7 +571,7 @@ export default function PrimitiveArchivePlayPage() {
               <h2>캠프</h2>
               <span>연료 {state.camp.fuel}</span>
             </div>
-            <div className="games-rank-split">
+            <div className="games-rank-split games-rank-split--compact">
               <div><span>모닥불</span><strong>Lv.{state.camp.fireLevel}</strong></div>
               <div><span>대피소</span><strong>Lv.{state.camp.shelterLevel}</strong></div>
               <div><span>작업대</span><strong>Lv.{state.camp.workbenchLevel}</strong></div>
@@ -578,6 +594,10 @@ export default function PrimitiveArchivePlayPage() {
                   {facility.buttonLabel}
                 </ActionButton>
               ))}
+            </div>
+            <div className="games-action-result">
+              <span>최근 캠프/행동 결과</span>
+              <strong>{recentActionText}</strong>
             </div>
             {campFacilities.map((facility) => (
               <p key={`${facility.id}-desc`} style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
