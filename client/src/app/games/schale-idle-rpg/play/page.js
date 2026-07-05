@@ -31,6 +31,7 @@ import {
   equipTitleAction,
   getEquippedList,
   growthReportForState,
+  growthRoadmapForState,
   getLeader,
   getPlayTimeSec,
   inventoryRows,
@@ -124,6 +125,7 @@ export default function SchaleIdlePlayPage() {
   const shopRotation = useMemo(() => towerShopRotationSummary(state), [state]);
   const presets = useMemo(() => equipmentPresetRows(state), [state]);
   const growthReport = useMemo(() => growthReportForState(state), [state]);
+  const growthRoadmap = useMemo(() => growthRoadmapForState(state), [state]);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
@@ -273,6 +275,7 @@ export default function SchaleIdlePlayPage() {
     { label: '업적', value: `${achievements.filter((achievement) => achievement.claimed).length}/${achievements.length}` },
     { label: '연구', value: `Lv.${totalUpgradeLevel}` },
     { label: '성장', value: `${growthReport.overallPct}%` },
+    { label: '로드맵', value: `${growthRoadmap.completionPct}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
@@ -321,6 +324,44 @@ export default function SchaleIdlePlayPage() {
                   <strong>{item.title}</strong>
                   <small>{item.detail}</small>
                 </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>성장 로드맵</h2>
+            <span>{growthRoadmap.headline}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="전체" value={`${growthRoadmap.completionPct}%`} />
+            {growthRoadmap.sections.map((section) => (
+              <SmallStat
+                key={section.id}
+                label={section.label}
+                value={`${section.pct}% · ${section.done}/${section.total}`}
+              />
+            ))}
+          </div>
+          {growthRoadmap.nextAction ? (
+            <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+              <strong>{growthRoadmap.nextAction.title}</strong>
+              {' · '}
+              {growthRoadmap.nextAction.action}
+              <br />
+              {growthRoadmap.nextAction.detail}
+            </div>
+          ) : null}
+          <div className="game-save-list">
+            {growthRoadmap.sections.map((section) => (
+              <article className="game-save-row" key={section.id}>
+                <div>
+                  <span>{section.label} · 완료 {section.done}/{section.total} · {section.pct}%</span>
+                  <strong>{section.steps.map((step) => step.title).join(' / ')}</strong>
+                  <small>{section.steps.find((step) => step.status !== 'complete')?.detail || '해당 구간 목표를 모두 완료했습니다.'}</small>
+                </div>
+                <strong>{section.steps.find((step) => step.priority === 'high' && step.status !== 'complete') ? '우선' : section.pct >= 100 ? '완료' : '진행'}</strong>
               </article>
             ))}
           </div>

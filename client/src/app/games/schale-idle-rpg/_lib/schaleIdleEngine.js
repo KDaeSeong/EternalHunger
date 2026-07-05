@@ -2178,6 +2178,28 @@ function buildGrowthAction(id, title, detail, priority = 'normal') {
   return { id, title, detail, priority };
 }
 
+function roadmapStatus(pct) {
+  if (pct >= 100) return 'complete';
+  if (pct >= 70) return 'close';
+  return 'active';
+}
+
+function buildRoadmapStep({ id, phase, title, detail, progress, target, priority = 'normal', action = '' }) {
+  const pct = progressPct(progress, target);
+  return {
+    id,
+    phase,
+    title,
+    detail,
+    progress: Math.max(0, Math.round(Number(progress || 0))),
+    target: Math.max(1, Math.round(Number(target || 1))),
+    pct,
+    priority,
+    status: roadmapStatus(pct),
+    action,
+  };
+}
+
 function missingRecipeForSlot(slot) {
   return RECIPES.find((recipe) => {
     const produced = getItem(recipe.produces?.itemId);
@@ -2344,6 +2366,176 @@ export function growthReportForState(state) {
   };
 }
 
+export function growthRoadmapForState(state) {
+  const current = normalizeState(state);
+  const report = growthReportForState(current);
+  const missions = missionRows(current);
+  const achievements = achievementRows(current);
+  const upgrades = upgradeRows(current);
+  const equippedCount = getEquippedList(current).length;
+  const slotCount = Object.keys(SLOT_LABELS).length;
+  const dailyMissions = missions.filter((mission) => mission.type === 'daily');
+  const weeklyMissions = missions.filter((mission) => mission.type === 'weekly');
+  const dailyClaimed = dailyMissions.filter((mission) => mission.claimed).length;
+  const dailyReady = dailyMissions.filter((mission) => mission.done && !mission.claimed).length;
+  const weeklyProgress = weeklyMissions.reduce((sum, mission) => sum + progressRatio(mission.progress, mission.target), 0);
+  const totalUpgradeLevel = upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0);
+  const readyUpgrade = upgrades.find((upgrade) => upgrade.canUpgrade);
+  const claimableRewards = Number(report.resources.claimableRewards || 0);
+  const salvageInfo = salvageSummary(current);
+  const nextRecommendation = report.recommendations.find((item) => item.priority !== 'low') || report.recommendations[0] || null;
+
+  const sections = [
+    {
+      id: 'today',
+      label: '오늘',
+      steps: [
+        buildRoadmapStep({
+          id: 'daily-reward',
+          phase: '오늘',
+          title: '일일 미션 보상 회수',
+          detail: claimableRewards
+            ? `수령 대기 보상 ${claimableRewards}개가 있습니다.`
+            : `완료 ${dailyClaimed}/${Math.max(1, dailyMissions.length)}개, 대기 ${dailyReady}개입니다.`,
+          progress: dailyClaimed + dailyReady * 0.7,
+          target: Math.max(1, dailyMissions.length),
+          priority: claimableRewards ? 'high' : 'normal',
+          action: claimableRewards ? '보상 수령' : '당직/탑/강화 루프 진행',
+        }),
+        buildRoadmapStep({
+          id: 'slot-fill',
+          phase: '오늘',
+          title: '장비 슬롯 완성',
+          detail: report.resources.missingSlots.length
+            ? `빈 슬롯: ${report.resources.missingSlots.join(', ')}`
+            : '모든 기본 장비 슬롯을 채웠습니다.',
+          progress: equippedCount,
+          target: slotCount,
+          priority: report.resources.missingSlots.length ? 'high' : 'normal',
+          action: report.resources.missingSlots.length ? '제작/상점으로 빈 슬롯 보강' : '강화와 옵션 재련',
+        }),
+        buildRoadmapStep({
+          id: 'stamina-loop',
+          phase: '오늘',
+          title: '스태미나 운영',
+          detail: Number(current.stamina || 0) < 35
+            ? '스태미나가 낮아 재정비 후 정산하는 편이 좋습니다.'
+            : '현재 스태미나는 정산 루프를 이어갈 수 있는 수준입니다.',
+          progress: Number(current.stamina || 0),
+          target: 100,
+          priority: Number(current.stamina || 0) < 35 ? 'high' : 'normal',
+          action: Number(current.stamina || 0) < 35 ? '재정비' : '2시간 정산',
+        }),
+      ],
+    },
+    {
+      id: 'weekly',
+      label: '이번 주',
+      steps: [
+        buildRoadmapStep({
+          id: 'weekly-missions',
+          phase: '이번 주',
+          title: '주간 미션 진행',
+          detail: weeklyMissions.length
+            ? `주간 미션 평균 진행률 ${Math.round((weeklyProgress / Math.max(1, weeklyMissions.length)) * 100)}%입니다.`
+            : '등록된 주간 미션이 없습니다.',
+          progress: weeklyProgress,
+          target: Math.max(1, weeklyMissions.length),
+          priority: 'normal',
+          action: '메인/보스/탑 목표 병행',
+        }),
+        buildRoadmapStep({
+          id: 'research-15',
+          phase: '이번 주',
+          title: '상시 연구 Lv.15',
+          detail: readyUpgrade
+            ? `${readyUpgrade.name} Lv.${readyUpgrade.level} -> Lv.${readyUpgrade.nextLevel} 연구가 가능합니다.`
+            : `현재 총 연구 레벨은 ${totalUpgradeLevel}입니다.`,
+          progress: totalUpgradeLevel,
+          target: 15,
+          priority: readyUpgrade ? 'high' : 'normal',
+          action: readyUpgrade ? '상시 연구 진행' : '재료/크레딧 확보',
+        }),
+        buildRoadmapStep({
+          id: 'tower-target',
+          phase: '이번 주',
+          title: `탑 ${report.combat.towerTarget}층 돌파`,
+          detail: `현재 최고 ${current.towerMaxCleared}층, 다음 도전 승률 ${report.combat.towerProbabilityPct}%입니다.`,
+          progress: current.towerMaxCleared,
+          target: report.combat.towerTarget,
+          priority: report.combat.towerProbabilityPct >= 55 && Number(current.inventory.itm_tower_key || 0) > 0 ? 'normal' : 'low',
+          action: report.combat.towerProbabilityPct >= 55 ? '탑 배치 도전' : '전투력 보강 후 도전',
+        }),
+      ],
+    },
+    {
+      id: 'long',
+      label: '장기',
+      steps: [
+        buildRoadmapStep({
+          id: 'main-target',
+          phase: '장기',
+          title: `메인 F${report.combat.mainTarget} 도달`,
+          detail: `현재 최고 F${current.maxClearedFloor}, 다음 층 승률 ${report.combat.mainProbabilityPct}%입니다.`,
+          progress: current.maxClearedFloor,
+          target: report.combat.mainTarget,
+          priority: report.combat.mainProbabilityPct < 42 ? 'high' : 'normal',
+          action: report.combat.mainProbabilityPct < 42 ? '강화/연구 먼저' : '2시간 정산 반복',
+        }),
+        buildRoadmapStep({
+          id: 'achievements',
+          phase: '장기',
+          title: '업적/칭호 수집',
+          detail: `업적 ${achievements.filter((achievement) => achievement.claimed).length}/${achievements.length}개를 수령했습니다.`,
+          progress: achievements.filter((achievement) => achievement.claimed).length,
+          target: Math.max(1, achievements.length),
+          priority: achievements.some((achievement) => achievement.canClaim) ? 'high' : 'normal',
+          action: achievements.some((achievement) => achievement.canClaim) ? '업적 보상 수령' : '목표 미션 진행',
+        }),
+        buildRoadmapStep({
+          id: 'salvage-economy',
+          phase: '장기',
+          title: '분해 경제 안정화',
+          detail: salvageInfo.executableCount
+            ? `분해 실행 후보 ${salvageInfo.executableCount}개, 위험 후보 ${salvageInfo.highRiskCount}개입니다.`
+            : '현재 분해 대기열은 안정적입니다.',
+          progress: Math.min(10, Number(current.counters.SALVAGE || 0) + Math.max(0, 10 - salvageInfo.executableCount)),
+          target: 10,
+          priority: salvageInfo.executableCount ? 'normal' : 'low',
+          action: salvageInfo.executableCount ? '후보만 분해 실행' : '장비 파밍 유지',
+        }),
+      ],
+    },
+  ].map((section) => {
+    const sectionPct = Math.round(section.steps.reduce((sum, step) => sum + step.pct, 0) / Math.max(1, section.steps.length));
+    return {
+      ...section,
+      pct: sectionPct,
+      done: section.steps.filter((step) => step.status === 'complete').length,
+      total: section.steps.length,
+    };
+  });
+
+  const allSteps = sections.flatMap((section) => section.steps);
+  const priorityRank = { high: 0, normal: 1, low: 2 };
+  const nextStep = allSteps
+    .filter((step) => step.status !== 'complete')
+    .sort((a, b) => (priorityRank[a.priority] ?? 1) - (priorityRank[b.priority] ?? 1) || a.pct - b.pct)[0] || allSteps[0] || null;
+  const completionPct = Math.round(sections.reduce((sum, section) => sum + section.pct, 0) / Math.max(1, sections.length));
+
+  return {
+    headline: nextStep ? `${nextStep.phase}: ${nextStep.title}` : '로드맵 완료',
+    completionPct,
+    nextAction: nextStep ? {
+      title: nextStep.title,
+      detail: nextRecommendation?.detail || nextStep.detail,
+      action: nextStep.action,
+      priority: nextStep.priority,
+    } : null,
+    sections,
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   return Math.max(0, Math.round(
@@ -2394,6 +2586,21 @@ export function summaryForState(state) {
         towerProbabilityPct: report.combat.towerProbabilityPct,
         blockers: report.blockers,
         recommendations: report.recommendations.map((item) => item.title),
+      };
+    })(),
+    growthRoadmap: (() => {
+      const roadmap = growthRoadmapForState(current);
+      return {
+        headline: roadmap.headline,
+        completionPct: roadmap.completionPct,
+        nextAction: roadmap.nextAction?.title || '',
+        sections: roadmap.sections.map((section) => ({
+          id: section.id,
+          label: section.label,
+          pct: section.pct,
+          done: section.done,
+          total: section.total,
+        })),
       };
     })(),
     lastDutyReport: current.lastDutyReport ? {

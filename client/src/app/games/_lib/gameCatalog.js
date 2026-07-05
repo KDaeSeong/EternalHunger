@@ -308,7 +308,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'account-progress',
-    completionPct: 82,
+    completionPct: 86,
   },
   'ba-srpg': {
     stage: 'playable',
@@ -460,9 +460,9 @@ export const GAME_ROADMAP = [
     title: 'Schale Idle RPG',
     subtitle: 'Idle RPG',
     priority: '장기 성장형',
-    scope: '방치 정산, 장비, 타워, 미션, 강화, 분해, 상점, 성장 리포트, 저장/전적, 기능별 탭 UI',
-    summary: '방치 정산과 반복 성장, 장비 프리셋, 자동 분해, 탑 상점, 성장 리포트까지 연결된 장기 성장형 playable slice입니다.',
-    nextStep: '서버 계정 성장 데이터, 장기 밸런스, 원본 콘텐츠팩 기반 이벤트 확장을 강화합니다.',
+    scope: '방치 정산, 장비, 타워, 미션, 강화, 분해, 상점, 성장 리포트, 성장 로드맵, 저장/전적, 기능별 탭 UI',
+    summary: '방치 정산과 반복 성장, 장비 프리셋, 자동 분해, 탑 상점, 성장 리포트, 오늘/주간/장기 로드맵까지 연결된 장기 성장형 playable slice입니다.',
+    nextStep: '서버 계정 성장 데이터, 장기 밸런스, 원본 콘텐츠팩 기반 이벤트/시즌 확장을 강화합니다.',
   },
   {
     slug: 'ba-srpg',
