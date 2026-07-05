@@ -18,6 +18,7 @@ import {
   actionChance,
   averageBodyTemp,
   averageParty,
+  archiveCompletionReportForState,
   archiveVictorySummary,
   autoEquipAction,
   buyPerkAction,
@@ -147,6 +148,7 @@ export default function PrimitiveArchivePlayPage() {
   const research = useMemo(() => researchSummary(state), [state]);
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
   const runProgressReport = useMemo(() => getRunProgressReport(state), [state]);
+  const archiveReport = useMemo(() => archiveCompletionReportForState(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
@@ -355,6 +357,7 @@ export default function PrimitiveArchivePlayPage() {
     { label: '보온', value: insulation },
     { label: '연구', value: `${research.completed}/${research.total}` },
     { label: '목표', value: archiveVictory.label },
+    { label: '기록서', value: `${archiveReport.grade} · ${archiveReport.archiveScore}%` },
     { label: '특전', value: state.meta.perkPoints },
     { label: '무게', value: totalCarryWeight(state) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
@@ -639,6 +642,75 @@ export default function PrimitiveArchivePlayPage() {
                   {EQUIPMENT_SLOT_LABELS[item.slot] || item.slot} · {item.name} x{item.qty}
                 </span>
               )) : <span className="games-tag">보유 장비 없음</span>}
+            </div>
+          </section>
+        </section>
+              </>
+            ),
+          },
+          {
+            id: 'archive-report',
+            label: '기록서',
+            badge: archiveReport.grade,
+            children: (
+              <>
+
+        <section className="games-detail-grid">
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>{archiveReport.title}</h2>
+              <span>{archiveReport.grade}등급 · {archiveReport.archiveScore}%</span>
+            </div>
+            <div className="games-rank-split">
+              <SmallStat label="목표" value={`${archiveReport.objectivePct}%`} />
+              <SmallStat label="점수" value={archiveReport.score.toLocaleString('ko-KR')} />
+              <SmallStat label="상태" value={archiveReport.status === 'complete' ? '완성' : archiveReport.status === 'ready' ? '완성 가능' : archiveReport.status === 'settled' ? '정산' : '진행'} />
+              <SmallStat label="생존일" value={`Day ${state.day}`} />
+            </div>
+            <div className="game-save-list" style={{ marginTop: 12 }}>
+              {archiveReport.handoff.map((line, index) => (
+                <article className="game-save-row" key={`${line}-${index}`}>
+                  <div>
+                    <span>인계 {index + 1}</span>
+                    <strong>{line}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>아카이브 챕터</h2>
+              <span>{archiveReport.chapters.filter((chapter) => chapter.status === '완성').length}/{archiveReport.chapters.length}</span>
+            </div>
+            <div className="game-save-list">
+              {archiveReport.chapters.map((chapter) => (
+                <article className="game-save-row" key={chapter.id}>
+                  <div>
+                    <span>{chapter.status} · {chapter.pct}%</span>
+                    <strong>{chapter.title}</strong>
+                    <small>{chapter.detail}</small>
+                  </div>
+                  <strong>{chapter.pct >= 100 ? 'OK' : '진행'}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>전적 요약</h2>
+              <span>저장/전적 payload</span>
+            </div>
+            <div className="games-rank-split">
+              <SmallStat label="연구" value={`${archiveReport.recordSummary.researchPct}%`} />
+              <SmallStat label="생존" value={`${archiveReport.recordSummary.survivalPct}%`} />
+              <SmallStat label="안정도" value={`${archiveReport.recordSummary.stabilityPct}%`} />
+              <SmallStat label="완성" value={archiveReport.recordSummary.victory ? '예' : '아니오'} />
+            </div>
+            <div className="games-empty" style={{ textAlign: 'left', marginTop: 12 }}>
+              기록서 핵심값은 런 저장과 전적 기록의 summary에 함께 들어갑니다.
             </div>
           </section>
         </section>

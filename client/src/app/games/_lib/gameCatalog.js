@@ -290,7 +290,7 @@ const GAME_INTEGRATIONS = {
     supportsRecords: true,
     supportsSaves: true,
     resultMode: 'survival-score',
-    completionPct: 99,
+    completionPct: 100,
     maxPlayers: 4,
   },
   'tonkatsu-teacher': {
@@ -442,9 +442,9 @@ export const GAME_ROADMAP = [
     title: 'Primitive Archive',
     subtitle: 'Survival Sim',
     priority: '1차 완료권',
-    scope: '채집, 사냥, 제작, 캠프, 연구, 장비, 자동 운영, 런 정산, 런 리포트',
-    summary: '원시 생존과 학생 파티 시뮬레이션을 사이트 플레이 화면으로 이식했고, 저장/전적/아카이브 목표/하루 자동 운영/위험 리포트까지 연결했습니다.',
-    nextStep: '캐릭터 초상, 사운드, 장기 자동 승리 루트 같은 전용 연출과 밸런스만 더 다듬습니다.',
+    scope: '채집, 사냥, 제작, 캠프, 연구, 장비, 자동 운영, 런 정산, 런 리포트, 최종 아카이브 기록서',
+    summary: '원시 생존과 학생 파티 시뮬레이션을 사이트 플레이 화면으로 이식했고, 저장/전적/아카이브 목표/하루 자동 운영/위험 리포트/최종 기록서까지 연결했습니다.',
+    nextStep: '완성 이후에는 캐릭터 초상, 사운드, 연출 같은 선택형 폴리싱만 남았습니다.',
   },
   {
     slug: 'tonkatsu-teacher',

@@ -1484,6 +1484,7 @@ export function getPlayTimeSec(state) {
 export function summaryForState(state) {
   const preset = difficultyPreset(state);
   const victory = archiveVictorySummary(state);
+  const archiveReport = archiveCompletionReportForState(state);
   return {
     day: state.day,
     difficulty: preset.label,
@@ -1499,6 +1500,7 @@ export function summaryForState(state) {
     weight: totalCarryWeight(state),
     insulation: partyInsulation(state),
     score: scoreState(state),
+    archiveReport: archiveReport.recordSummary,
   };
 }
 
@@ -1569,6 +1571,115 @@ export function getRunProgressReport(state) {
       : victory.canComplete
         ? '목표 조건이 모두 충족됐습니다. 아카이브 완성을 누르세요.'
         : `${daysLeft}일 생존 목표까지 남았고, 현재 위험도는 ${riskLevel}입니다.`,
+  };
+}
+
+function archiveReportStatus(done, victory, ended) {
+  if (victory) return '완성';
+  if (ended) return done ? '정산 완료' : '미완성';
+  return done ? '완성 가능' : '진행 중';
+}
+
+export function archiveCompletionReportForState(state) {
+  const current = normalizeState(state);
+  const victory = archiveVictorySummary(current);
+  const research = researchSummary(current);
+  const objectives = archiveObjectiveRows(current);
+  const hp = averageParty(current, 'hp');
+  const hunger = averageParty(current, 'hunger');
+  const stamina = averageParty(current, 'stamina');
+  const score = scoreState(current);
+  const facilities = Number(current.camp.archiveRoomLevel || 0)
+    + Number(current.camp.scribeDeskLevel || 0)
+    + Number(current.camp.libraryShelfLevel || 0);
+  const books = Number(current.inventory.book_craft_guide || 0) + Number(current.inventory.book_camp_manual || 0);
+  const equipmentCount = equipmentInventoryRows(current).reduce((sum, row) => sum + Number(row.qty || 0), 0);
+  const objectivePct = victory.total ? Math.round((victory.completed / victory.total) * 100) : 0;
+  const researchPct = research.total ? Math.round((research.completed / research.total) * 100) : 0;
+  const survivalPct = Math.min(100, Math.round((Number(current.day || 1) / ARCHIVE_VICTORY_DAY) * 100));
+  const stabilityPct = Math.round(clamp((hp * 0.45) + ((100 - hunger) * 0.25) + (stamina * 0.2) + Math.min(10, partyInsulation(current) * 2), 0, 100));
+  const archiveScore = Math.round(clamp(
+    objectivePct * 0.34
+      + researchPct * 0.22
+      + survivalPct * 0.18
+      + stabilityPct * 0.14
+      + Math.min(100, facilities * 30 + books * 5) * 0.08
+      + Math.min(100, score / 28) * 0.04,
+    0,
+    100,
+  ));
+  const grade = archiveScore >= 95 ? 'S'
+    : archiveScore >= 85 ? 'A'
+      : archiveScore >= 70 ? 'B'
+        : archiveScore >= 50 ? 'C'
+          : 'D';
+  const chapters = [
+    {
+      id: 'survival',
+      title: '생존 기록',
+      pct: survivalPct,
+      status: archiveReportStatus(current.day >= ARCHIVE_VICTORY_DAY, victory.victory, current.ended),
+      detail: `Day ${current.day}, 생존 파티 ${current.party.filter((member) => Number(member.hp || 0) > 0).length}/${current.party.length}, 평균 체온 ${averageBodyTemp(current).toFixed(1)}도입니다.`,
+    },
+    {
+      id: 'research',
+      title: '연구 기록',
+      pct: researchPct,
+      status: archiveReportStatus(research.completed >= research.total, victory.victory, current.ended),
+      detail: `연구 ${research.completed}/${research.total}, 선택 기술 ${research.selected?.name || '없음'}입니다.`,
+    },
+    {
+      id: 'facilities',
+      title: '기록 시설',
+      pct: Math.min(100, Math.round((facilities / 3) * 100)),
+      status: archiveReportStatus(facilities >= 3, victory.victory, current.ended),
+      detail: `기록실 Lv.${Number(current.camp.archiveRoomLevel || 0)}, 필사대 Lv.${Number(current.camp.scribeDeskLevel || 0)}, 서가 Lv.${Number(current.camp.libraryShelfLevel || 0)}입니다.`,
+    },
+    {
+      id: 'books',
+      title: '문자/책 보존',
+      pct: Math.min(100, Math.round((books / 2) * 100)),
+      status: archiveReportStatus(books >= 2, victory.victory, current.ended),
+      detail: `제작 안내서 ${Number(current.inventory.book_craft_guide || 0)}권, 야영 매뉴얼 ${Number(current.inventory.book_camp_manual || 0)}권입니다.`,
+    },
+    {
+      id: 'party',
+      title: '파티와 장비',
+      pct: stabilityPct,
+      status: archiveReportStatus(stabilityPct >= 70, victory.victory, current.ended),
+      detail: `평균 HP ${hp}, 허기 ${hunger}, 스태미나 ${stamina}, 보온 ${partyInsulation(current)}, 장비 ${equipmentCount}개입니다.`,
+    },
+  ];
+  const handoff = [];
+  if (!victory.victory && victory.canComplete) handoff.push('아카이브 완성을 눌러 완성 기록서를 확정하세요.');
+  if (!victory.canComplete && !current.ended) {
+    const pending = objectives.filter((row) => !row.done).map((row) => row.label);
+    handoff.push(`남은 목표: ${pending.join(', ') || '없음'}`);
+  }
+  if (current.ended && !victory.victory) handoff.push('정산된 미완성 런입니다. 특전으로 다음 런을 강화하세요.');
+  if (victory.victory) handoff.push('완성 런입니다. 전적 기록 후 새 런에서 특전을 이어받으세요.');
+  if (Number(current.meta?.perkPoints || 0) > 0) handoff.push(`사용 가능 특전 ${Number(current.meta.perkPoints || 0)}pt가 있습니다.`);
+
+  return {
+    status: victory.victory ? 'complete' : current.ended ? 'settled' : victory.canComplete ? 'ready' : 'active',
+    title: victory.victory ? '원시 아카이브 완성본' : victory.canComplete ? '완성 대기 기록서' : current.ended ? '탐험 정산 기록서' : '탐험 진행 기록서',
+    grade,
+    archiveScore,
+    objectivePct,
+    score,
+    chapters,
+    handoff: handoff.slice(0, 4),
+    recordSummary: {
+      day: current.day,
+      grade,
+      archiveScore,
+      objectivePct,
+      researchPct,
+      survivalPct,
+      stabilityPct,
+      victory: victory.victory,
+      score,
+    },
   };
 }
 
