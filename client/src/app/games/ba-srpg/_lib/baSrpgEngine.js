@@ -1970,6 +1970,273 @@ export function tacticalSkillRows(state) {
   });
 }
 
+function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
+  if (!attacker || !defender) {
+    return {
+      hitChancePct: 0,
+      rawDamage: 0,
+      hpDamage: 0,
+      shieldAbsorb: 0,
+      lethal: false,
+      inCover: false,
+    };
+  }
+  const hitChance = clamp(
+    0.78
+      + Number(accuracyBonus || 0)
+      + statusAccuracyMod(attacker)
+      - tileDefense(defender.x, defender.y) * 0.04,
+    0.25,
+    0.97,
+  );
+  const rawDamage = Math.max(
+    1,
+    Number(attacker.atk || 0)
+      + Number(attackBonus || 0)
+      - Number(defender.def || 0)
+      - tileDefense(defender.x, defender.y),
+  );
+  const shieldAbsorb = Math.min(Number(defender.shield?.amount || 0), rawDamage);
+  const hpDamage = Math.max(0, rawDamage - shieldAbsorb);
+  return {
+    hitChancePct: Math.round(hitChance * 100),
+    rawDamage,
+    hpDamage,
+    expectedHpDamage: Math.round(hpDamage * hitChance),
+    shieldAbsorb,
+    lethal: hpDamage >= Number(defender.hp || 0),
+    inCover: tileDefense(defender.x, defender.y) > 0,
+  };
+}
+
+function forecastEnemyAction(enemy, battle) {
+  const alive = aliveUnits(battle);
+  if (!alive.length || Number(enemy?.hp || 0) <= 0) return null;
+  if (hasStatus(enemy, 'st_stun')) {
+    return {
+      enemyId: enemy.id,
+      enemyName: enemy.name,
+      rule: AI_RULES.wait,
+      targetId: '',
+      targetName: '없음',
+      detail: '기절 상태라 다음 적 턴 행동하지 못합니다.',
+      moveText: '대기',
+      hitChancePct: 0,
+      hpDamage: 0,
+      expectedHpDamage: 0,
+      lethal: false,
+      priority: 'low',
+    };
+  }
+
+  let actor = { ...enemy };
+  const enemies = battle.enemies.map((row) => ({ ...row }));
+  const units = battle.units.map((row) => ({ ...row }));
+  let target = [...alive].sort((a, b) => distance(actor, a) - distance(actor, b))[0];
+  const lowHp = Number(actor.hp || 0) / Math.max(1, Number(actor.maxHp || actor.hp || 1)) <= AI_COVER_HP_RATIO;
+  const cover = lowHp ? coverStep(actor, target, { ...battle, units, enemies }) : null;
+  let usedCoverMove = false;
+  let rule = AI_RULES.attackIfInRange;
+  let moveText = '제자리';
+  if (cover) {
+    actor = { ...actor, x: cover.x, y: cover.y };
+    usedCoverMove = true;
+    rule = AI_RULES.takeCover;
+    moveText = `엄폐 (${actor.x + 1},${actor.y + 1})`;
+  }
+
+  target = units.filter((unit) => unit.hp > 0).sort((a, b) => distance(actor, a) - distance(actor, b))[0];
+  if (!target) return null;
+  const range = Number(actor.range || 1);
+  let targetDistance = distance(actor, target);
+  if (targetDistance > range) {
+    if (usedCoverMove) {
+      return {
+        enemyId: enemy.id,
+        enemyName: enemy.name,
+        rule,
+        targetId: target.id,
+        targetName: target.name,
+        detail: `${target.name}까지 거리 ${targetDistance}. 엄폐 이동 후 공격하지 못합니다.`,
+        moveText,
+        hitChancePct: 0,
+        hpDamage: 0,
+        expectedHpDamage: 0,
+        lethal: false,
+        priority: 'low',
+      };
+    }
+    const pos = stepToward(actor, target, { ...battle, units, enemies });
+    const moved = pos.x !== actor.x || pos.y !== actor.y;
+    if (!moved) {
+      return {
+        enemyId: enemy.id,
+        enemyName: enemy.name,
+        rule: AI_RULES.wait,
+        targetId: target.id,
+        targetName: target.name,
+        detail: '접근 경로가 막혀 이동하지 못합니다.',
+        moveText: '이동 불가',
+        hitChancePct: 0,
+        hpDamage: 0,
+        expectedHpDamage: 0,
+        lethal: false,
+        priority: 'low',
+      };
+    }
+    actor = { ...actor, x: pos.x, y: pos.y };
+    targetDistance = distance(actor, target);
+    rule = targetDistance <= range ? AI_RULES.moveToAttack : AI_RULES.moveToward;
+    moveText = `이동 (${actor.x + 1},${actor.y + 1})`;
+    if (targetDistance > range) {
+      return {
+        enemyId: enemy.id,
+        enemyName: enemy.name,
+        rule,
+        targetId: target.id,
+        targetName: target.name,
+        detail: `${target.name}에게 접근하지만 아직 사거리 밖입니다. 거리 ${targetDistance}/${range}`,
+        moveText,
+        hitChancePct: 0,
+        hpDamage: 0,
+        expectedHpDamage: 0,
+        lethal: false,
+        priority: 'low',
+      };
+    }
+  }
+
+  const preview = attackPreview(actor, target, 0, 0);
+  const priority = preview.lethal || preview.expectedHpDamage >= Math.ceil(Number(target.hp || 1) * 0.45)
+    ? 'high'
+    : preview.expectedHpDamage > 0
+      ? 'normal'
+      : 'low';
+  return {
+    enemyId: enemy.id,
+    enemyName: enemy.name,
+    rule,
+    targetId: target.id,
+    targetName: target.name,
+    targetHp: Number(target.hp || 0),
+    distance: targetDistance,
+    range,
+    detail: `${target.name}에게 ${preview.rawDamage} 피해 시도 · 명중 ${preview.hitChancePct}%${preview.inCover ? ' · 대상 엄폐' : ''}`,
+    moveText,
+    hitChancePct: preview.hitChancePct,
+    hpDamage: preview.hpDamage,
+    expectedHpDamage: preview.expectedHpDamage,
+    shieldAbsorb: preview.shieldAbsorb,
+    lethal: preview.lethal,
+    priority,
+  };
+}
+
+export function getBattleForecast(state) {
+  const current = normalizeState(state);
+  const battle = normalizeBattle(current.battle, current.selectedStudentIds);
+  const units = aliveUnits(battle);
+  const enemies = aliveEnemies(battle);
+  const enemyPlans = enemies
+    .map((enemy) => forecastEnemyAction(enemy, battle))
+    .filter(Boolean);
+  const threatByUnit = new Map(units.map((unit) => [unit.id, {
+    unitId: unit.id,
+    unitName: unit.name,
+    hp: Number(unit.hp || 0),
+    maxHp: Number(unit.maxHp || unit.hp || 0),
+    incomingExpected: 0,
+    maxHit: 0,
+    attackers: [],
+    lethal: false,
+    inCover: tileDefense(unit.x, unit.y) > 0,
+  }]));
+
+  enemyPlans.forEach((plan) => {
+    const target = threatByUnit.get(plan.targetId);
+    if (!target) return;
+    target.incomingExpected += Number(plan.expectedHpDamage || 0);
+    target.maxHit = Math.max(target.maxHit, Number(plan.hpDamage || 0));
+    if (plan.hpDamage > 0) target.attackers.push(plan.enemyName);
+    if (plan.lethal) target.lethal = true;
+  });
+
+  const unitThreats = [...threatByUnit.values()].map((row) => {
+    const hpRatioAfter = row.hp <= 0 ? 0 : Math.max(0, Math.round(((row.hp - row.incomingExpected) / Math.max(1, row.maxHp)) * 100));
+    const riskScore = Math.round(clamp(
+      (row.incomingExpected / Math.max(1, row.hp)) * 100
+        + (row.lethal ? 45 : 0)
+        + (row.inCover ? -10 : 0),
+      0,
+      160,
+    ));
+    return {
+      ...row,
+      incomingExpected: Math.round(row.incomingExpected),
+      hpRatioAfter,
+      riskScore,
+      riskLabel: row.lethal ? '격파 위험' : riskScore >= 70 ? '고위험' : riskScore >= 35 ? '주의' : '안정',
+      attackersText: row.attackers.length ? row.attackers.join(', ') : '없음',
+    };
+  }).sort((a, b) => b.riskScore - a.riskScore);
+
+  const selected = selectedUnit(battle);
+  const bonus = weaponBonus(current);
+  const selectedAttacks = enemies.map((enemy) => {
+    const targetDistance = selected && enemy ? distance(selected, enemy) : 0;
+    const inRange = selected && enemy && targetDistance <= Number(selected.range || 1);
+    const preview = inRange ? attackPreview(selected, enemy, bonus.acc / 100, bonus.atk) : attackPreview(null, null);
+    return {
+      enemyId: enemy.id,
+      enemyName: enemy.name,
+      distance: targetDistance,
+      inRange,
+      hitChancePct: preview.hitChancePct,
+      hpDamage: preview.hpDamage,
+      expectedHpDamage: preview.expectedHpDamage,
+      lethal: preview.lethal,
+      coverText: tileDefense(enemy.x, enemy.y) ? '엄폐 중' : '노출',
+    };
+  }).sort((a, b) => {
+    if (a.lethal !== b.lethal) return a.lethal ? -1 : 1;
+    if (a.inRange !== b.inRange) return a.inRange ? -1 : 1;
+    return b.expectedHpDamage - a.expectedHpDamage;
+  });
+
+  const topThreat = unitThreats[0] || null;
+  const highThreatCount = unitThreats.filter((row) => row.riskScore >= 70).length;
+  const incomingTotal = unitThreats.reduce((sum, row) => sum + row.incomingExpected, 0);
+  const exposedUnits = unitThreats.filter((row) => !row.inCover && row.attackers.length).length;
+  const recommendations = [];
+  if (topThreat?.riskScore >= 70) recommendations.push(`${topThreat.unitName} 보호: 엄폐 이동, 방어 태세, 붕대 사용을 우선하세요.`);
+  if (selectedAttacks[0]?.lethal) recommendations.push(`${selected?.name || '선택 유닛'}으로 ${selectedAttacks[0].enemyName} 마무리가 가능합니다.`);
+  if (enemyPlans.some((plan) => plan.rule === AI_RULES.takeCover)) recommendations.push('저체력 적이 엄폐를 잡으려 합니다. 추격보다 사거리 확보가 먼저입니다.');
+  if (!recommendations.length && incomingTotal > 0) recommendations.push('즉시 격파 위험은 낮습니다. 사거리 안의 적부터 줄이면 됩니다.');
+  if (!recommendations.length) recommendations.push('다음 적 턴 피해가 거의 없습니다. 자동 1턴을 사용해도 무난합니다.');
+
+  const threatLevel = highThreatCount
+    ? '위험'
+    : incomingTotal >= 20 || exposedUnits >= 2
+      ? '주의'
+      : '안정';
+  return {
+    threatLevel,
+    headline: `${threatLevel} · 예상 피해 ${incomingTotal} · 고위험 ${highThreatCount}명`,
+    incomingTotal,
+    highThreatCount,
+    exposedUnits,
+    selectedUnitName: selected?.name || '',
+    bestAttack: selectedAttacks[0] || null,
+    enemyPlans: enemyPlans.sort((a, b) => {
+      const rank = { high: 0, normal: 1, low: 2 };
+      return (rank[a.priority] ?? 1) - (rank[b.priority] ?? 1) || b.expectedHpDamage - a.expectedHpDamage;
+    }),
+    unitThreats,
+    selectedAttacks,
+    recommendations: recommendations.slice(0, 4),
+  };
+}
+
 export function guildRankInfo(state) {
   const current = normalizeState(state);
   const rep = Math.max(0, Math.floor(Number(current.guildRep || 0)));
@@ -2045,6 +2312,7 @@ export function summaryForState(state) {
   const rank = guildRankInfo(current);
   const campaign = getCampaignReport(current);
   const operation = getOperationBriefing(current);
+  const forecast = getBattleForecast(current);
   return {
     day: current.day,
     mission: getMission(current.selectedMissionId).name,
@@ -2064,6 +2332,13 @@ export function summaryForState(state) {
       readinessPct: operation.readinessPct,
       nextAction: operation.nextAction,
       bestMissionId: operation.bestMissionId,
+    },
+    battleForecast: {
+      headline: forecast.headline,
+      threatLevel: forecast.threatLevel,
+      incomingTotal: forecast.incomingTotal,
+      highThreatCount: forecast.highThreatCount,
+      bestAttack: forecast.bestAttack ? `${forecast.selectedUnitName} -> ${forecast.bestAttack.enemyName}` : '',
     },
     score: scoreState(current),
   };

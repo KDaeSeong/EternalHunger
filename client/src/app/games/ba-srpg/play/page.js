@@ -36,6 +36,7 @@ import {
   executeSkillAction,
   formationRows,
   getCampaignReport,
+  getBattleForecast,
   getMission,
   getOperationBriefing,
   getPlayTimeSec,
@@ -145,6 +146,7 @@ export default function BaSrpgPlayPage() {
   const guildRank = useMemo(() => guildRankInfo(state), [state]);
   const campaignReport = useMemo(() => getCampaignReport(state), [state]);
   const operationBriefing = useMemo(() => getOperationBriefing(state), [state]);
+  const battleForecast = useMemo(() => getBattleForecast(state), [state]);
   const score = scoreState(state);
   const power = battlePower(state);
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
@@ -289,6 +291,7 @@ export default function BaSrpgPlayPage() {
     { label: '승리', value: state.battleWins },
     { label: '별', value: `${campaignReport.starTotal}/${campaignReport.starMax}` },
     { label: '작전', value: `${operationBriefing.readinessPct}%` },
+    { label: '위협', value: battleForecast.threatLevel },
     { label: '길드', value: `${guildRank.rank} (${guildRank.rep})` },
     { label: '부동산', value: town.activeProperties },
     { label: '크레딧', value: `${Number(state.credit || 0).toLocaleString('ko-KR')} Cr` },
@@ -637,6 +640,96 @@ export default function BaSrpgPlayPage() {
       </section>
 
       <section className="games-dashboard">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>전투 예측</h2>
+            <span>{battleForecast.headline}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="위협" value={battleForecast.threatLevel} />
+            <SmallStat label="예상 피해" value={battleForecast.incomingTotal} />
+            <SmallStat label="고위험" value={`${battleForecast.highThreatCount}명`} />
+            <SmallStat label="노출" value={`${battleForecast.exposedUnits}명`} />
+            <SmallStat label="선택 유닛" value={battleForecast.selectedUnitName || '-'} />
+            <SmallStat
+              label="최선 공격"
+              value={battleForecast.bestAttack
+                ? `${battleForecast.bestAttack.enemyName} ${battleForecast.bestAttack.expectedHpDamage}`
+                : '-'}
+            />
+          </div>
+          <div className="game-save-list">
+            {battleForecast.recommendations.map((line, index) => (
+              <article className="game-save-row" key={`${line}-${index}`}>
+                <div>
+                  <span>권장 {index + 1}</span>
+                  <strong>{line}</strong>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>적 턴 예상</h2>
+            <span>{battleForecast.enemyPlans.length}개 행동</span>
+          </div>
+          <div className="game-save-list">
+            {battleForecast.enemyPlans.slice(0, 6).map((plan) => (
+              <article className="game-save-row" key={plan.enemyId}>
+                <div>
+                  <span>{plan.rule} · {plan.moveText} · {plan.priority === 'high' ? '위험' : plan.priority === 'low' ? '낮음' : '주의'}</span>
+                  <strong>{plan.enemyName} → {plan.targetName}</strong>
+                  <small>{plan.detail}</small>
+                  {plan.hpDamage ? (
+                    <small>피해 {plan.hpDamage} · 기대 {plan.expectedHpDamage} · 명중 {plan.hitChancePct}%{plan.lethal ? ' · 격파 위험' : ''}</small>
+                  ) : null}
+                </div>
+                <strong>{plan.lethal ? '위험' : plan.expectedHpDamage || '-'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>아군 위험도</h2>
+            <span>{battleForecast.unitThreats[0]?.riskLabel || '안정'}</span>
+          </div>
+          <div className="game-save-list">
+            {battleForecast.unitThreats.map((unit) => (
+              <article className="game-save-row" key={unit.unitId}>
+                <div>
+                  <span>{unit.riskLabel} · 예상 피해 {unit.incomingExpected} · 피격 후 {unit.hpRatioAfter}%</span>
+                  <strong>{unit.unitName}</strong>
+                  <small>공격 예정: {unit.attackersText}{unit.inCover ? ' · 엄폐 중' : ' · 노출'}</small>
+                </div>
+                <strong>{unit.lethal ? '격파' : unit.riskScore}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>공격 후보</h2>
+            <span>{battleForecast.selectedUnitName || '선택 없음'}</span>
+          </div>
+          <div className="game-save-list">
+            {battleForecast.selectedAttacks.slice(0, 5).map((attack) => (
+              <article className="game-save-row" key={attack.enemyId}>
+                <div>
+                  <span>{attack.inRange ? '사거리 안' : '사거리 밖'} · 거리 {attack.distance} · {attack.coverText}</span>
+                  <strong>{attack.enemyName}</strong>
+                  <small>피해 {attack.hpDamage} · 기대 {attack.expectedHpDamage} · 명중 {attack.hitChancePct}%{attack.lethal ? ' · 마무리 가능' : ''}</small>
+                </div>
+                <strong>{attack.lethal ? '킬각' : attack.inRange ? attack.expectedHpDamage : '-'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>학생</h2>
