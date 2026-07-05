@@ -889,6 +889,170 @@ export function passiveInsightRows(state, taskId) {
   return rows.slice(0, 8);
 }
 
+export function taskPackAuditReport(state) {
+  const current = normalizeState(state);
+  const tasks = activeTaskList(current);
+  const rows = tasks.map((task) => {
+    const documentCount = Array.isArray(task.documents) ? task.documents.length : 0;
+    const checkpointCount = Array.isArray(task.documentPlay?.reviewItems) ? task.documentPlay.reviewItems.length : 0;
+    const publicTests = Array.isArray(task.execution?.tests) ? task.execution.tests.length : 0;
+    const hiddenTests = Array.isArray(task.execution?.hiddenTests) ? task.execution.hiddenTests.length : 0;
+    const staticChecks = Array.isArray(task.judge?.checks) ? task.judge.checks.length : 0;
+    const editableFiles = (task.files || []).filter((file) => file.editable !== false).length;
+    const hintCount = Array.isArray(task.hints) ? task.hints.length : 0;
+    const difficultyWeight = DIFFICULTY_WEIGHT[task.difficulty] || 1.25;
+    const coverageScore = Math.min(44, staticChecks * 8 + publicTests * 7 + hiddenTests * 5 + checkpointCount * 4);
+    const supportScore = Math.min(24, documentCount * 5 + hintCount * 4 + editableFiles * 3);
+    const complexityScore = Math.min(32, Math.round(difficultyWeight * 10 + editableFiles * 4 + checkpointCount * 2 + staticChecks * 2));
+    const auditScore = clamp(Math.round(coverageScore + supportScore + complexityScore), 0, 100);
+    const blockers = [
+      staticChecks + publicTests + hiddenTests === 0 ? '검수 규칙 없음' : '',
+      checkpointCount === 0 ? '문서 체크 없음' : '',
+      hintCount === 0 ? '힌트 없음' : '',
+      editableFiles === 0 ? '수정 파일 없음' : '',
+    ].filter(Boolean);
+    return {
+      id: task.id,
+      projectName: task.projectName || task.client || '미분류',
+      difficulty: task.difficulty || 'Normal',
+      modeLabel: task.modeLabel || 'patch',
+      documentCount,
+      checkpointCount,
+      publicTests,
+      hiddenTests,
+      staticChecks,
+      editableFiles,
+      hintCount,
+      auditScore,
+      blockers,
+      status: blockers.length ? '보강 필요' : auditScore >= 80 ? '양호' : auditScore >= 62 ? '점검' : '부족',
+    };
+  });
+  const totalTasks = rows.length;
+  const difficultyCounts = rows.reduce((acc, row) => {
+    acc[row.difficulty] = Number(acc[row.difficulty] || 0) + 1;
+    return acc;
+  }, {});
+  const averageAuditScore = totalTasks
+    ? Math.round(rows.reduce((sum, row) => sum + row.auditScore, 0) / totalTasks)
+    : 0;
+  const docTaskCount = rows.filter((row) => row.documentCount || row.checkpointCount).length;
+  const executionTaskCount = rows.filter((row) => row.publicTests || row.hiddenTests || row.staticChecks).length;
+  const hintTaskCount = rows.filter((row) => row.hintCount).length;
+  const hardRatio = totalTasks ? Math.round((Number(difficultyCounts.Hard || 0) / totalTasks) * 100) : 0;
+  const issueRows = rows
+    .filter((row) => row.blockers.length || row.auditScore < 70)
+    .sort((a, b) => a.auditScore - b.auditScore || a.id.localeCompare(b.id, 'ko-KR'));
+  const warnings = [
+    hardRatio >= 55 ? `Hard 비중 ${hardRatio}%로 피로도가 높습니다.` : '',
+    docTaskCount < Math.ceil(totalTasks * 0.45) ? '문서 체크 과제가 부족합니다.' : '',
+    executionTaskCount < totalTasks ? '실행/정적 검수 없는 과제가 있습니다.' : '',
+    hintTaskCount < totalTasks ? '힌트가 없는 과제가 있습니다.' : '',
+    issueRows.length ? `보강 후보 ${issueRows.length}개가 있습니다.` : '',
+  ].filter(Boolean);
+  const selectedPack = current.activeTasks.length ? null : taskPackById(current.taskSet?.packId || DEFAULT_TASK_PACK_ID);
+  return {
+    title: current.taskSet?.title || selectedPack?.title || 'SI Coding Sim 과제팩',
+    packLabel: current.activeTasks.length ? '생성 현장' : selectedPack?.label || '',
+    totalTasks,
+    averageAuditScore,
+    docTaskCount,
+    executionTaskCount,
+    hintTaskCount,
+    hardRatio,
+    difficultyCounts,
+    issueRows,
+    rows,
+    warnings,
+    grade: averageAuditScore >= 85 && !warnings.length ? 'A' : averageAuditScore >= 75 ? 'B' : averageAuditScore >= 62 ? 'C' : 'D',
+  };
+}
+
+export function submissionComparisonReport(state) {
+  const current = normalizeState(state);
+  const tasks = activeTaskList(current);
+  const outcomes = Object.values(current.taskOutcomes || {});
+  const submittedTasks = outcomes.length;
+  const totalTasks = tasks.length;
+  const averageScore = submittedTasks
+    ? Math.round(outcomes.reduce((sum, outcome) => sum + Number(outcome.score || 0), 0) / submittedTasks)
+    : 0;
+  const fullPassCount = outcomes.filter((outcome) => Number(outcome.score || 0) === 100).length;
+  const riskOpenCount = outcomes.reduce((sum, outcome) => sum + Number(outcome.riskOpenCount || 0), 0);
+  const documentMetrics = buildProjectDocumentMetrics(current);
+  const documentPenalty = documentMetrics.missingRequiredCount + Math.max(0, documentMetrics.wrongSelectedCount - documentMetrics.allowedWrongCount);
+  const completionPct = Math.round((submittedTasks / Math.max(1, totalTasks)) * 100);
+  const score = scoreState(current);
+  const resourceScore = Math.round(
+    Number(current.resources.stamina || 0) * 0.18
+    + Number(current.resources.mentality || 0) * 0.18
+    + Number(current.resources.clientTrust || 0) * 0.42
+    - Number(current.resources.techDebt || 0) * 0.22
+  );
+  const deliveryScore = clamp(Math.round(
+    completionPct * 0.32
+    + averageScore * 0.34
+    + (fullPassCount / Math.max(1, totalTasks)) * 100 * 0.18
+    + resourceScore * 0.16
+    - riskOpenCount * 2
+    - documentPenalty * 4
+  ), 0, 100);
+  const benchmarkRows = [
+    {
+      id: 'community',
+      label: '커뮤니티 평균',
+      target: 62,
+      detail: '절반 이상 제출, 평균 70점대, 리스크 일부 허용',
+    },
+    {
+      id: 'experienced',
+      label: '숙련자 기준',
+      target: 78,
+      detail: '대부분 제출, 문서 누락 0~1개, 열린 리스크 3개 이하',
+    },
+    {
+      id: 'delivery',
+      label: '납품 안정권',
+      target: 88,
+      detail: '전 과제 제출, 평균 90점 이상, 신뢰와 기술부채 안정',
+    },
+  ].map((row) => ({
+    ...row,
+    delta: deliveryScore - row.target,
+    status: deliveryScore >= row.target ? '도달' : '미달',
+  }));
+  const metricRows = [
+    { id: 'completion', label: '제출률', value: `${submittedTasks}/${totalTasks}`, target: '100%', ok: submittedTasks === totalTasks },
+    { id: 'average', label: '평균 점수', value: `${averageScore}점`, target: '90점+', ok: averageScore >= 90 },
+    { id: 'perfect', label: '완전 통과', value: `${fullPassCount}/${totalTasks}`, target: '전 과제', ok: fullPassCount === totalTasks },
+    { id: 'risk', label: '열린 리스크', value: `${riskOpenCount}건`, target: '3건 이하', ok: riskOpenCount <= 3 },
+    { id: 'docs', label: '문서 누락', value: `${documentPenalty}건`, target: '0건', ok: documentPenalty === 0 },
+    { id: 'resources', label: '자원 상태', value: `체력 ${current.resources.stamina} / 신뢰 ${current.resources.clientTrust} / 부채 ${current.resources.techDebt}`, target: '신뢰 60+ / 부채 45-', ok: current.resources.clientTrust >= 60 && current.resources.techDebt <= 45 },
+  ];
+  const recommendations = [
+    submittedTasks < totalTasks ? '미제출 과제를 먼저 제출해 비교 표본을 채우세요.' : '',
+    averageScore < 90 ? '부분 통과 과제는 실패 규칙부터 다시 확인하는 편이 좋습니다.' : '',
+    documentPenalty > 0 ? '문서 체크포인트의 필수 요구와 함정 선택을 재검토하세요.' : '',
+    riskOpenCount > 3 ? '회사 지원의 QA 완충을 리스크 큰 과제에 먼저 쓰세요.' : '',
+    current.resources.techDebt > 45 ? '기술부채가 높아 다음 현장 시작 자원이 나빠질 수 있습니다.' : '',
+  ].filter(Boolean);
+  return {
+    deliveryScore,
+    score,
+    submittedTasks,
+    totalTasks,
+    averageScore,
+    fullPassCount,
+    riskOpenCount,
+    documentPenalty,
+    completionPct,
+    benchmarkRows,
+    metricRows,
+    recommendations,
+    tier: deliveryScore >= 88 ? '납품 안정권' : deliveryScore >= 78 ? '숙련자권' : deliveryScore >= 62 ? '평균권' : '연습권',
+  };
+}
+
 export function scoreState(state) {
   const current = normalizeState(state);
   const outcomes = Object.values(current.taskOutcomes || {});
@@ -921,6 +1085,8 @@ export function summaryForState(state) {
   const profile = normalizePlayerProfile(current.playerProfile);
   const career = resolvePlayerCareer(profile, current.projectEvaluations);
   const taskPack = taskPackById(current.taskSet?.packId || DEFAULT_TASK_PACK_ID);
+  const audit = taskPackAuditReport(current);
+  const comparison = submissionComparisonReport(current);
   return {
     currentTaskId: current.currentTaskId,
     taskPackId: current.activeTasks.length ? current.taskSet?.id || '' : taskPack.id,
@@ -942,6 +1108,10 @@ export function summaryForState(state) {
     reputation: career.reputationLabel,
     improvedRuns: profile.totalImprovedRuns,
     perfectRuns: profile.perfectRuns,
+    taskPackAuditScore: audit.averageAuditScore,
+    taskPackAuditGrade: audit.grade,
+    deliveryScore: comparison.deliveryScore,
+    deliveryTier: comparison.tier,
     score: scoreState(current),
   };
 }
