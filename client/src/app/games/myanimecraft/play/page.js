@@ -32,7 +32,9 @@ import {
   getPlayedCount,
   getPlayTimeSec,
   getSeasonReportRows,
+  getSeasonStageSummary,
   getSourceSummary,
+  getPostseasonRows,
   getTopPlayers,
   getTeam,
   getTeamContractRows,
@@ -122,11 +124,13 @@ export default function MyAnimeCraftPlayPage() {
   const personalRows = useMemo(() => getPersonalLeagueRows(state, 12), [state]);
   const winnersSummary = useMemo(() => getWinnersLeagueSummary(state), [state]);
   const winnersRows = useMemo(() => getWinnersLeagueRows(state, 10), [state]);
+  const seasonStage = useMemo(() => getSeasonStageSummary(state), [state]);
+  const postseasonRows = useMemo(() => getPostseasonRows(state), [state]);
   const seasonReports = useMemo(() => getSeasonReportRows(state, 8), [state]);
-  const lastMatch = useMemo(() => state.fixtures
+  const lastMatch = useMemo(() => [...state.fixtures, ...(state.postseasonFixtures || [])]
     .map((fixture) => fixture.result)
     .filter(Boolean)
-    .sort((a, b) => Number(b.playedAt || 0) - Number(a.playedAt || 0))[0], [state.fixtures]);
+    .sort((a, b) => Number(b.playedAt || 0) - Number(a.playedAt || 0))[0], [state.fixtures, state.postseasonFixtures]);
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
   const tradeTeams = useMemo(() => tradeCandidateRows(state, selectedTeam.id), [state, selectedTeam.id]);
@@ -261,7 +265,7 @@ export default function MyAnimeCraftPlayPage() {
 
   const metrics = [
     { label: '시즌', value: state.seasonNo },
-    { label: '주차', value: `${state.week}/9` },
+    { label: '단계', value: seasonStage.label },
     { label: '경기', value: `${played}/${total}` },
     { label: '선두', value: leader?.teamName || '-' },
     { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : personalSummary.phaseLabel || `${personalSummary.played}/${personalSummary.total || '-'}` },
@@ -274,7 +278,7 @@ export default function MyAnimeCraftPlayPage() {
   const messages = [
     message ? { key: 'message', text: message } : null,
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 진행은 가능하지만 저장/불러오기/전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
-    ended ? { key: 'ended', tone: 'error', text: `${leader?.teamName || '선두 팀'}이 시즌 우승을 확정했습니다. 전적에 기록하거나 다음 시즌을 시작하세요.` } : null,
+    ended ? { key: 'ended', tone: 'error', text: `${seasonStage.postseasonChampionTeamName || leader?.teamName || '선두 팀'}이 시즌 우승을 확정했습니다. 전적에 기록하거나 다음 시즌을 시작하세요.` } : null,
   ];
 
   return (
@@ -291,12 +295,13 @@ export default function MyAnimeCraftPlayPage() {
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>진행</h2>
-            <span>{ended ? '시즌 종료' : `${state.week}주차`}</span>
+            <span>{seasonStage.label}</span>
           </div>
           <div className="games-rank-split">
             <SmallStat label="원본 팀" value={sourceSummary.teams} />
             <SmallStat label="원본 맵" value={sourceSummary.maps} />
             <SmallStat label="사용 맵" value={sourceSummary.importedMaps} />
+            <SmallStat label="포스트시즌" value={seasonStage.postseasonTotal ? `${seasonStage.postseasonPlayed}/${seasonStage.postseasonTotal}` : '대기'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={ended} onClick={() => setState((current) => simulateNextMatchAction(current))}>다음 경기 진행</ActionButton>
@@ -329,7 +334,7 @@ export default function MyAnimeCraftPlayPage() {
 
         <section className="games-panel">
           <div className="games-panel-title">
-            <h2>이번 주 일정</h2>
+            <h2>{seasonStage.stage === 'POSTSEASON' ? '포스트시즌 일정' : '이번 주 일정'}</h2>
             <span>{currentFixtures.filter((fixture) => fixture.played).length}/{currentFixtures.length}</span>
           </div>
           <div className="game-save-list">
@@ -344,6 +349,35 @@ export default function MyAnimeCraftPlayPage() {
             ))}
           </div>
         </section>
+
+        {postseasonRows.length ? (
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>포스트시즌</h2>
+              <span>{seasonStage.postseasonPlayed}/{seasonStage.postseasonTotal}</span>
+            </div>
+            <div className="game-save-list">
+              {postseasonRows.map((fixture) => (
+                <article className="game-save-row" key={fixture.id}>
+                  <div>
+                    <span>{fixture.label}</span>
+                    <strong>
+                      {fixture.played
+                        ? `${fixture.homeTeamName} ${fixture.scoreHome}:${fixture.scoreAway} ${fixture.awayTeamName}`
+                        : `${fixture.homeTeamName} vs ${fixture.awayTeamName}`}
+                    </strong>
+                    {fixture.winnerTeamName ? (
+                      <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
+                        승자 {fixture.winnerTeamName}
+                      </small>
+                    ) : null}
+                  </div>
+                  <strong>{fixture.played ? '완료' : fixture.awayTeamId === '__TBD__' ? '대기' : '예정'}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="games-panel">
           <div className="games-panel-title">
@@ -682,6 +716,10 @@ export default function MyAnimeCraftPlayPage() {
                   </span>
                   <strong>{report.championTeamName || '우승팀 없음'}</strong>
                   <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
+                    정규 1위 {report.regularChampionTeamName || '-'}
+                    {' · '}
+                    포스트 {report.postseasonChampionTeamName || '-'}
+                    {' · '}
                     개인리그 {report.personalChampionPlayerName || '-'}{report.personalChampionTeamName ? ` · ${report.personalChampionTeamName}` : ''}
                     {' · '}
                     위너스 {report.winnersChampionTeamName || '-'}

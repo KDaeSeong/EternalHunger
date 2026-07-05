@@ -221,6 +221,14 @@ const PERSONAL_PHASE_LABELS = {
   DONE: '완료',
 };
 
+const POSTSEASON_LABELS = {
+  1: '준플레이오프',
+  2: '플레이오프',
+  3: '결승',
+};
+
+const POSTSEASON_PRIZES = [900, 550, 320, 180];
+
 const TEAM_BLUEPRINTS = [
   {
     id: 'team-home',
@@ -700,6 +708,8 @@ export function createNewState(options = {}) {
     econLogs: [],
     teamActionsUsed: {},
     seasonReports: [],
+    postseasonFixtures: [],
+    postseasonPrizesAwarded: false,
     personalLeague: createEmptyPersonalLeague(1),
     personalHistory: [],
     winnersLeague: createEmptyWinnersLeague(1),
@@ -731,6 +741,8 @@ export function normalizeState(value) {
     econLogs: normalizeEconLogs(value.econLogs),
     teamActionsUsed: value.teamActionsUsed && typeof value.teamActionsUsed === 'object' ? value.teamActionsUsed : base.teamActionsUsed,
     seasonReports: Array.isArray(value.seasonReports) ? value.seasonReports.slice(0, 60) : base.seasonReports,
+    postseasonFixtures: normalizePostseasonFixtures(value.postseasonFixtures),
+    postseasonPrizesAwarded: Boolean(value.postseasonPrizesAwarded),
     personalLeague: normalizePersonalLeague(value.personalLeague, seasonNo),
     personalHistory: normalizePersonalHistory(value.personalHistory),
     winnersLeague: normalizeWinnersLeague(value.winnersLeague, seasonNo),
@@ -781,6 +793,116 @@ function generateSchedule(teams) {
     rotating.splice(1, 0, rotating.pop());
   }
   return fixtures;
+}
+
+function normalizePostseasonFixtures(fixtures) {
+  if (!Array.isArray(fixtures)) return [];
+  return fixtures
+    .filter((fixture) => fixture && typeof fixture === 'object')
+    .map((fixture, index) => ({
+      id: String(fixture.id || `PO-${index + 1}`),
+      round: Math.max(1, Math.floor(Number(fixture.round || index + 1))),
+      label: String(fixture.label || POSTSEASON_LABELS[Number(fixture.round || index + 1)] || `포스트시즌 ${index + 1}`),
+      homeTeamId: String(fixture.homeTeamId || ''),
+      awayTeamId: String(fixture.awayTeamId || ''),
+      played: Boolean(fixture.played),
+      result: fixture.result || null,
+    }))
+    .sort((a, b) => a.round - b.round);
+}
+
+function createPostseasonFixtures(state) {
+  const top = getTopTeams(state, 4);
+  if (top.length < 2) return [];
+  if (top.length === 2) {
+    return [{
+      id: `PO-S${state.seasonNo}-R1`,
+      round: 1,
+      label: POSTSEASON_LABELS[3],
+      homeTeamId: top[0].teamId,
+      awayTeamId: top[1].teamId,
+      played: false,
+      result: null,
+    }];
+  }
+  if (top.length === 3) {
+    return [
+      {
+        id: `PO-S${state.seasonNo}-R1`,
+        round: 1,
+        label: POSTSEASON_LABELS[2],
+        homeTeamId: top[1].teamId,
+        awayTeamId: top[2].teamId,
+        played: false,
+        result: null,
+      },
+      {
+        id: `PO-S${state.seasonNo}-R2`,
+        round: 2,
+        label: POSTSEASON_LABELS[3],
+        homeTeamId: top[0].teamId,
+        awayTeamId: '__TBD__',
+        played: false,
+        result: null,
+      },
+    ];
+  }
+  return [
+    {
+      id: `PO-S${state.seasonNo}-R1`,
+      round: 1,
+      label: POSTSEASON_LABELS[1],
+      homeTeamId: top[2].teamId,
+      awayTeamId: top[3].teamId,
+      played: false,
+      result: null,
+    },
+    {
+      id: `PO-S${state.seasonNo}-R2`,
+      round: 2,
+      label: POSTSEASON_LABELS[2],
+      homeTeamId: top[1].teamId,
+      awayTeamId: '__TBD__',
+      played: false,
+      result: null,
+    },
+    {
+      id: `PO-S${state.seasonNo}-R3`,
+      round: 3,
+      label: POSTSEASON_LABELS[3],
+      homeTeamId: top[0].teamId,
+      awayTeamId: '__TBD__',
+      played: false,
+      result: null,
+    },
+  ];
+}
+
+function isRegularSeasonComplete(state) {
+  return state.fixtures.length > 0 && state.fixtures.every((fixture) => fixture.played);
+}
+
+function nextPostseasonFixture(state) {
+  return normalizePostseasonFixtures(state.postseasonFixtures)
+    .find((fixture) => !fixture.played && fixture.homeTeamId && fixture.awayTeamId && fixture.homeTeamId !== '__TBD__' && fixture.awayTeamId !== '__TBD__');
+}
+
+function advancePostseasonBracket(fixtures, result) {
+  const currentRound = Number(fixtures.find((fixture) => fixture.id === result.matchId)?.round || result.round || 1);
+  return normalizePostseasonFixtures(fixtures).map((fixture) => {
+    if (fixture.id === result.matchId) return { ...fixture, played: true, result };
+    if (!fixture.played && Number(fixture.round) === currentRound + 1 && fixture.awayTeamId === '__TBD__') {
+      return { ...fixture, awayTeamId: result.winnerTeamId };
+    }
+    return fixture;
+  });
+}
+
+function postseasonChampionId(state) {
+  const fixtures = normalizePostseasonFixtures(state.postseasonFixtures);
+  if (!fixtures.length || fixtures.some((fixture) => !fixture.played || !fixture.result)) return '';
+  const final = fixtures.slice().sort((a, b) => b.round - a.round)[0];
+  return final?.result?.winnerTeamId || '';
 }
 
 function rebuildStandings(teams, fixtures) {
@@ -1607,6 +1729,8 @@ export function consumeInventoryItemAction(state, teamId, playerId, itemId) {
 
 function buildSeasonReport(state) {
   const leader = getTopTeams(state, 1)[0];
+  const postseasonChampionTeamId = postseasonChampionId(state);
+  const postseasonChampion = postseasonChampionTeamId ? getTeam(state, postseasonChampionTeamId) : null;
   const personal = normalizePersonalLeague(state.personalLeague, state.seasonNo);
   const personalChampion = personalParticipantById(personal, personal.championPlayerId);
   const winners = normalizeWinnersLeague(state.winnersLeague, state.seasonNo);
@@ -1617,8 +1741,12 @@ function buildSeasonReport(state) {
   return {
     seasonNo: Number(state.seasonNo || 1),
     createdAt: Date.now(),
-    championTeamId: leader?.teamId || '',
-    championTeamName: leader?.teamName || '',
+    championTeamId: postseasonChampionTeamId || leader?.teamId || '',
+    championTeamName: postseasonChampion?.name || leader?.teamName || '',
+    regularChampionTeamId: leader?.teamId || '',
+    regularChampionTeamName: leader?.teamName || '',
+    postseasonChampionTeamId,
+    postseasonChampionTeamName: postseasonChampion?.name || '',
     personalChampionPlayerId: personal.championPlayerId || '',
     personalChampionPlayerName: personalChampion?.playerName || '',
     personalChampionTeamName: personalChampion?.teamName || '',
@@ -1649,6 +1777,10 @@ export function getSeasonReportRows(state, limit = 8) {
       seasonNo: Number(report.seasonNo || 0),
       championTeamId: String(report.championTeamId || ''),
       championTeamName: String(report.championTeamName || ''),
+      regularChampionTeamId: String(report.regularChampionTeamId || ''),
+      regularChampionTeamName: String(report.regularChampionTeamName || ''),
+      postseasonChampionTeamId: String(report.postseasonChampionTeamId || ''),
+      postseasonChampionTeamName: String(report.postseasonChampionTeamName || ''),
       personalChampionPlayerId: String(report.personalChampionPlayerId || ''),
       personalChampionPlayerName: String(report.personalChampionPlayerName || ''),
       personalChampionTeamName: String(report.personalChampionTeamName || ''),
@@ -1942,6 +2074,54 @@ function applyResultToStandings(standings, result) {
   });
 }
 
+function addStandingMoney(standings, teamId, amount) {
+  return standings.map((row) => (
+    row.teamId === teamId ? { ...row, money: Number(row.money || 0) + amount } : row
+  ));
+}
+
+function loserTeamId(result) {
+  if (!result) return '';
+  return result.winnerTeamId === result.homeTeamId ? result.awayTeamId : result.homeTeamId;
+}
+
+function postseasonRankTeamIds(state) {
+  const fixtures = normalizePostseasonFixtures(state.postseasonFixtures).filter((fixture) => fixture.played && fixture.result);
+  if (!fixtures.length) return [];
+  const ordered = fixtures.slice().sort((a, b) => b.round - a.round);
+  const ranks = [];
+  const final = ordered[0];
+  if (final?.result?.winnerTeamId) ranks.push(final.result.winnerTeamId);
+  const runnerUp = loserTeamId(final?.result);
+  if (runnerUp) ranks.push(runnerUp);
+  ordered.slice(1).forEach((fixture) => {
+    const loser = loserTeamId(fixture.result);
+    if (loser && !ranks.includes(loser)) ranks.push(loser);
+  });
+  return ranks;
+}
+
+function awardPostseasonPrizes(state) {
+  if (state.postseasonPrizesAwarded) return state;
+  let next = { ...state, postseasonPrizesAwarded: true };
+  postseasonRankTeamIds(state).slice(0, POSTSEASON_PRIZES.length).forEach((teamId, index) => {
+    const amount = POSTSEASON_PRIZES[index] || 0;
+    if (!amount) return;
+    next = {
+      ...next,
+      standings: addStandingMoney(next.standings, teamId, amount),
+    };
+    next = addEconLog(next, {
+      tag: 'BONUS',
+      teamId,
+      amount,
+      note: `포스트시즌 ${index + 1}위 상금`,
+      meta: { postseason: true, rank: index + 1 },
+    });
+  });
+  return next;
+}
+
 function tuneRosterAfterMatch(teams, result) {
   const playedWinners = new Set(result.sets.filter((setResult) => setResult.winnerTeamId === result.winnerTeamId).map((setResult) => setResult.winnerPlayerId));
   const playedPlayers = new Set(result.sets.flatMap((setResult) => [setResult.homePlayerId, setResult.awayPlayerId]));
@@ -1967,13 +2147,34 @@ function advanceWeekIfNeeded(state) {
   const allDone = state.fixtures.every((fixture) => fixture.played);
 
   if (allDone) {
-    const leader = getTopTeams(state, 1)[0];
-    return appendSeasonReport({
+    const postseasonFixtures = normalizePostseasonFixtures(state.postseasonFixtures);
+    if (!postseasonFixtures.length) {
+      const bracket = createPostseasonFixtures(state);
+      if (bracket.length) {
+        return {
+          ...state,
+          week: totalRounds + 1,
+          postseasonFixtures: bracket,
+          log: [`정규 시즌이 종료됐습니다. 상위 ${Math.min(4, bracket.length + 1)}팀 포스트시즌이 시작됩니다.`, ...state.log].slice(0, 90),
+        };
+      }
+    }
+
+    const postseasonChampion = postseasonChampionId({ ...state, postseasonFixtures });
+    if (postseasonChampion) {
+      const withPrizes = awardPostseasonPrizes({ ...state, postseasonFixtures });
+      return appendSeasonReport({
+        ...withPrizes,
+        ended: true,
+        championTeamId: postseasonChampion,
+        log: [`${teamName(withPrizes, postseasonChampion)}이 시즌 ${state.seasonNo} 포스트시즌 우승을 차지했습니다.`, ...withPrizes.log].slice(0, 90),
+      });
+    }
+
+    return {
       ...state,
-      ended: true,
-      championTeamId: leader?.teamId || '',
-      log: [`${leader?.teamName || '선두 팀'}이 시즌 ${state.seasonNo} 우승을 확정했습니다.`, ...state.log].slice(0, 90),
-    });
+      week: totalRounds + 1,
+    };
   }
 
   if (currentRoundDone && state.week < totalRounds) {
@@ -1998,8 +2199,57 @@ function addResultLog(state, result) {
   };
 }
 
+function addPostseasonResultLog(state, result, label) {
+  const winner = result.winnerTeamId === result.homeTeamId ? result.homeTeamName : result.awayTeamName;
+  const aceSet = result.sets.find((setResult) => setResult.isAceSet);
+  return {
+    ...state,
+    log: [
+      `${label} ${result.homeTeamName} ${result.scoreHome}:${result.scoreAway} ${result.awayTeamName} - ${winner} 승${aceSet ? ` · 에이스전 ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}` : ''}`,
+      ...state.log,
+    ].slice(0, 90),
+  };
+}
+
+function simulatePostseasonFixtureAction(state, fixture) {
+  const result = simulateFixture(state, fixture);
+  const winnerReward = 260 + Number(fixture.round || 1) * 80;
+  const loserReward = 130 + Number(fixture.round || 1) * 45;
+  let next = {
+    ...state,
+    postseasonFixtures: advancePostseasonBracket(state.postseasonFixtures, result),
+    standings: addStandingMoney(
+      addStandingMoney(state.standings, result.winnerTeamId, winnerReward),
+      result.loserTeamId,
+      loserReward,
+    ),
+    teams: tuneRosterAfterMatch(state.teams, result),
+    updatedAt: new Date().toISOString(),
+  };
+  [
+    { teamId: result.winnerTeamId, amount: winnerReward, result: '승' },
+    { teamId: result.loserTeamId, amount: loserReward, result: '패' },
+  ].forEach((reward) => {
+    next = addEconLog(next, {
+      tag: 'BONUS',
+      teamId: reward.teamId,
+      amount: reward.amount,
+      note: `${fixture.label} ${reward.result} 수당`,
+      meta: {
+        postseason: true,
+        matchId: result.matchId,
+        winnerTeamId: result.winnerTeamId,
+        scoreHome: result.scoreHome,
+        scoreAway: result.scoreAway,
+      },
+    });
+  });
+  next = addPostseasonResultLog(next, result, fixture.label);
+  return advanceWeekIfNeeded(next);
+}
+
 export function simulateNextMatchAction(state) {
-  const current = normalizeState(state);
+  let current = normalizeState(state);
   if (current.ended) {
     return {
       ...current,
@@ -2008,6 +2258,11 @@ export function simulateNextMatchAction(state) {
   }
   const fixture = current.fixtures.find((item) => item.round === current.week && !item.played)
     || current.fixtures.find((item) => !item.played);
+  if (!fixture && isRegularSeasonComplete(current) && !normalizePostseasonFixtures(current.postseasonFixtures).length) {
+    current = advanceWeekIfNeeded(current);
+  }
+  const postseasonFixture = !fixture ? nextPostseasonFixture(current) : null;
+  if (!fixture && postseasonFixture) return simulatePostseasonFixtureAction(current, postseasonFixture);
   if (!fixture) return advanceWeekIfNeeded(current);
 
   const result = simulateFixture(current, fixture);
@@ -2044,7 +2299,14 @@ export function simulateNextMatchAction(state) {
 export function simulateWeekAction(state) {
   let next = normalizeState(state);
   const targetWeek = next.week;
+  const targetHadRegularFixtures = next.fixtures.some((fixture) => fixture.round === targetWeek && !fixture.played);
   while (!next.ended && next.fixtures.some((fixture) => fixture.round === targetWeek && !fixture.played)) {
+    next = simulateNextMatchAction(next);
+  }
+  if (!targetHadRegularFixtures && isRegularSeasonComplete(next) && !normalizePostseasonFixtures(next.postseasonFixtures).length) {
+    next = advanceWeekIfNeeded(next);
+  }
+  while (!targetHadRegularFixtures && !next.ended && isRegularSeasonComplete(next) && nextPostseasonFixture(next)) {
     next = simulateNextMatchAction(next);
   }
   return next;
@@ -3271,6 +3533,8 @@ export function startNextSeasonAction(state) {
     inventories: createInventories(carriedTeams, current.inventories),
     econLogs: normalizeEconLogs(current.econLogs),
     seasonReports: Array.isArray(current.seasonReports) ? current.seasonReports.slice(0, 60) : [],
+    postseasonFixtures: [],
+    postseasonPrizesAwarded: false,
     personalLeague: createEmptyPersonalLeague(nextSeasonNo),
     personalHistory: normalizePersonalHistory(current.personalHistory),
     winnersLeague: createEmptyWinnersLeague(nextSeasonNo),
@@ -3346,7 +3610,7 @@ export function getTopPlayers(state, limit = 12) {
     });
   });
 
-  current.fixtures.forEach((fixture) => {
+  [...current.fixtures, ...normalizePostseasonFixtures(current.postseasonFixtures)].forEach((fixture) => {
     const result = fixture.result;
     if (!fixture.played || !result) return;
     const homePlayers = new Set();
@@ -3436,21 +3700,78 @@ export function getTopPlayers(state, limit = 12) {
 
 export function getCurrentFixtures(state) {
   const current = normalizeState(state);
+  if (isRegularSeasonComplete(current)) {
+    const postseasonRows = normalizePostseasonFixtures(current.postseasonFixtures).filter((fixture) => !fixture.played);
+    if (postseasonRows.length) return postseasonRows.slice(0, 1);
+  }
   return current.fixtures.filter((fixture) => fixture.round === current.week);
 }
 
 export function fixtureLabel(state, fixture) {
   const result = fixture.result;
-  if (!result) return `${teamName(state, fixture.homeTeamId)} vs ${teamName(state, fixture.awayTeamId)}`;
+  const homeName = fixture.homeTeamId === '__TBD__' ? '대기' : teamName(state, fixture.homeTeamId);
+  const awayName = fixture.awayTeamId === '__TBD__' ? '대기' : teamName(state, fixture.awayTeamId);
+  if (!result) return `${fixture.label ? `${fixture.label} · ` : ''}${homeName} vs ${awayName}`;
   return `${result.homeTeamName} ${result.scoreHome}:${result.scoreAway} ${result.awayTeamName}`;
 }
 
 export function getPlayedCount(state) {
-  return normalizeState(state).fixtures.filter((fixture) => fixture.played).length;
+  const current = normalizeState(state);
+  return current.fixtures.filter((fixture) => fixture.played).length
+    + normalizePostseasonFixtures(current.postseasonFixtures).filter((fixture) => fixture.played).length;
 }
 
 export function getTotalFixtureCount(state) {
-  return normalizeState(state).fixtures.length;
+  const current = normalizeState(state);
+  return current.fixtures.length + normalizePostseasonFixtures(current.postseasonFixtures).length;
+}
+
+export function getPostseasonRows(state) {
+  const current = normalizeState(state);
+  return normalizePostseasonFixtures(current.postseasonFixtures).map((fixture) => ({
+    id: fixture.id,
+    round: fixture.round,
+    label: fixture.label || POSTSEASON_LABELS[fixture.round] || `포스트시즌 ${fixture.round}`,
+    homeTeamId: fixture.homeTeamId,
+    awayTeamId: fixture.awayTeamId,
+    homeTeamName: fixture.homeTeamId === '__TBD__' ? '대기' : teamName(current, fixture.homeTeamId),
+    awayTeamName: fixture.awayTeamId === '__TBD__' ? '대기' : teamName(current, fixture.awayTeamId),
+    played: fixture.played,
+    scoreHome: fixture.result?.scoreHome ?? null,
+    scoreAway: fixture.result?.scoreAway ?? null,
+    winnerTeamId: fixture.result?.winnerTeamId || '',
+    winnerTeamName: fixture.result?.winnerTeamId ? teamName(current, fixture.result.winnerTeamId) : '',
+  }));
+}
+
+export function getSeasonStageSummary(state) {
+  const current = normalizeState(state);
+  const regularDone = isRegularSeasonComplete(current);
+  const postseasonRows = getPostseasonRows(current);
+  const postseasonPlayed = postseasonRows.filter((fixture) => fixture.played).length;
+  const postseasonTotal = postseasonRows.length;
+  const championId = postseasonChampionId(current);
+  return {
+    regularDone,
+    postseasonStarted: postseasonTotal > 0,
+    postseasonPlayed,
+    postseasonTotal,
+    postseasonChampionTeamName: championId ? teamName(current, championId) : '',
+    stage: current.ended
+      ? 'DONE'
+      : postseasonTotal > 0
+        ? 'POSTSEASON'
+        : regularDone
+          ? 'POSTSEASON_READY'
+          : 'REGULAR',
+    label: current.ended
+      ? '시즌 종료'
+      : postseasonTotal > 0
+        ? `포스트시즌 ${postseasonPlayed}/${postseasonTotal}`
+        : regularDone
+          ? '포스트시즌 준비'
+          : `${current.week}주차 정규리그`,
+  };
 }
 
 export function scoreState(state) {
@@ -3458,6 +3779,7 @@ export function scoreState(state) {
   const leader = getTopTeams(current, 1)[0];
   const personal = normalizePersonalLeague(current.personalLeague, current.seasonNo);
   const winners = normalizeWinnersLeague(current.winnersLeague, current.seasonNo);
+  const postseasonRows = getPostseasonRows(current);
   const careerScore = current.teams.reduce((sum, teamData) => {
     const career = normalizeTeamCareer(teamData);
     return sum + career.sponsorTier * 80 + career.trainingLevel * 55 + career.scoutingLevel * 45 + career.fanBase / 90;
@@ -3478,6 +3800,8 @@ export function scoreState(state) {
     + (personal.stage === 'DONE' ? 450 : 0)
     + winners.sets.length * 34
     + (winners.stage === 'DONE' ? 380 : 0)
+    + postseasonRows.filter((fixture) => fixture.played).length * 55
+    + (postseasonChampionId(current) ? 520 : 0)
   ));
 }
 
@@ -3492,6 +3816,7 @@ export function summaryForState(state) {
   const leader = getTopTeams(current, 1)[0];
   const personalSummary = getPersonalLeagueSummary(current);
   const winnersSummary = getWinnersLeagueSummary(current);
+  const stageSummary = getSeasonStageSummary(current);
   return {
     seasonNo: current.seasonNo,
     week: current.week,
@@ -3502,6 +3827,11 @@ export function summaryForState(state) {
     ), 0),
     leader: leader?.teamName || '',
     champion: current.championTeamId ? teamName(current, current.championTeamId) : '',
+    seasonStage: stageSummary.stage,
+    seasonStageLabel: stageSummary.label,
+    postseasonPlayed: stageSummary.postseasonPlayed,
+    postseasonTotal: stageSummary.postseasonTotal,
+    postseasonChampionTeamName: stageSummary.postseasonChampionTeamName,
     teams: current.teams.length,
     careerValue: Math.round(current.teams.reduce((sum, teamData) => {
       const career = normalizeTeamCareer(teamData);
