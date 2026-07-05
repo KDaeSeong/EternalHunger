@@ -37,6 +37,7 @@ import {
   formationRows,
   getCampaignReport,
   getMission,
+  getOperationBriefing,
   getPlayTimeSec,
   guildRankInfo,
   inventoryRows,
@@ -143,6 +144,7 @@ export default function BaSrpgPlayPage() {
   const town = useMemo(() => townSummary(state), [state]);
   const guildRank = useMemo(() => guildRankInfo(state), [state]);
   const campaignReport = useMemo(() => getCampaignReport(state), [state]);
+  const operationBriefing = useMemo(() => getOperationBriefing(state), [state]);
   const score = scoreState(state);
   const power = battlePower(state);
   const selectedRecipe = recipes.find((recipe) => recipe.id === recipeId) || recipes[0];
@@ -151,6 +153,7 @@ export default function BaSrpgPlayPage() {
   const selectedSkill = skills.find((skill) => skill.id === skillId) || skills[0];
   const selectedMission = getMission(missionId);
   const selectedMissionProgress = campaignReport.missionRows.find((row) => row.id === selectedMission.id) || campaignReport.missionRows[0];
+  const selectedMissionBrief = operationBriefing.missionRows.find((row) => row.id === selectedMission.id) || operationBriefing.missionRows[0];
   const selectedMissionRewards = missionRewardSummary(selectedMission);
   const formationCount = formation.filter((student) => student.selected).length;
   const cleared = battle.phase === 'cleared';
@@ -285,6 +288,7 @@ export default function BaSrpgPlayPage() {
     { label: '전투력', value: power.toLocaleString('ko-KR') },
     { label: '승리', value: state.battleWins },
     { label: '별', value: `${campaignReport.starTotal}/${campaignReport.starMax}` },
+    { label: '작전', value: `${operationBriefing.readinessPct}%` },
     { label: '길드', value: `${guildRank.rank} (${guildRank.rep})` },
     { label: '부동산', value: town.activeProperties },
     { label: '크레딧', value: `${Number(state.credit || 0).toLocaleString('ko-KR')} Cr` },
@@ -337,6 +341,7 @@ export default function BaSrpgPlayPage() {
             <SmallStat label="난이도" value={selectedMissionProgress?.difficultyLabel || selectedMission.difficulty} />
             <SmallStat label="권장 전투력" value={selectedMission.recommendedPower} />
             <SmallStat label="상태" value={selectedMissionProgress?.locked ? '잠김' : selectedMissionProgress?.powerGap >= 0 ? '출정 가능' : '전력 부족'} />
+            <SmallStat label="예상 승산" value={`${selectedMissionBrief?.successPct ?? 0}%`} />
             <SmallStat label="크레딧" value={`${selectedMission.creditMin}-${selectedMission.creditMax}`} />
           </div>
           {selectedMissionProgress?.locked ? (
@@ -349,6 +354,43 @@ export default function BaSrpgPlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!formationCount || selectedMissionProgress?.locked} onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
             <ActionButton onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>작전 브리핑</h2>
+            <span>{operationBriefing.headline}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="준비도" value={`${operationBriefing.readinessPct}%`} />
+            <SmallStat label="전투력" value={operationBriefing.power.toLocaleString('ko-KR')} />
+            <SmallStat label="붕대" value={`${operationBriefing.bandages}개`} />
+            <SmallStat label="무기" value={operationBriefing.weaponEquipped ? '장착' : '미장착'} />
+            <SmallStat label="보고 가능" value={`${operationBriefing.readyQuests}건`} />
+          </div>
+          <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+            <strong>다음 액션</strong> · {operationBriefing.nextAction}
+          </div>
+          <div className="game-save-list">
+            {operationBriefing.missionRows.slice(0, 4).map((row) => (
+              <article className="game-save-row" key={row.id}>
+                <div>
+                  <span>CH.{row.chapter} · {row.difficultyLabel} · {row.riskLabel} · 평균 {row.avgCredit}Cr</span>
+                  <strong>{row.name}</strong>
+                  <small>승산 {row.successPct}% · {row.repeatValue} · {row.prepText}</small>
+                  <small>{row.rewardText}</small>
+                </div>
+                <button
+                  type="button"
+                  className="tcg-primary-action"
+                  onClick={() => setMissionId(row.id)}
+                  disabled={row.locked}
+                >
+                  선택
+                </button>
+              </article>
+            ))}
           </div>
         </section>
 

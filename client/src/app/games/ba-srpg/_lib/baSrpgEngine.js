@@ -2044,6 +2044,7 @@ export function summaryForState(state) {
   const town = townSummary(current);
   const rank = guildRankInfo(current);
   const campaign = getCampaignReport(current);
+  const operation = getOperationBriefing(current);
   return {
     day: current.day,
     mission: getMission(current.selectedMissionId).name,
@@ -2058,6 +2059,12 @@ export function summaryForState(state) {
     quests: Object.keys(current.questClaims || {}).length,
     properties: town.activeProperties,
     edict: town.activeEdictName,
+    operationBriefing: {
+      headline: operation.headline,
+      readinessPct: operation.readinessPct,
+      nextAction: operation.nextAction,
+      bestMissionId: operation.bestMissionId,
+    },
     score: scoreState(current),
   };
 }
@@ -2124,6 +2131,126 @@ export function getCampaignReport(state) {
     headline: `${clearedCount}/${missionRows.length}개 임무 클리어, 별 ${starTotal}/${starMax}. ${hardUnlocked ? (veryHardUnlocked ? 'VeryHard 해금 조건을 충족했습니다.' : 'Hard 해금 조건을 충족했습니다.') : '별을 모아 Hard 해금을 노리세요.'}`,
     recommendations: [...new Set(recommendations)].slice(0, 4),
     missionRows,
+  };
+}
+
+function expectedMissionRewardText(mission) {
+  const rule = difficultyRule(mission.difficulty);
+  const dropPassMul = 1 + Math.max(0, Number(rule.extraDropRolls || 0)) * 0.45;
+  return (mission.rewards || []).map((reward) => {
+    const min = Number(reward.qtyMin || 0);
+    const max = Math.max(min, Number(reward.qtyMax || min));
+    const expectedQty = ((min + max) / 2) * Number(reward.chance || 0) * dropPassMul;
+    const qtyText = expectedQty >= 1 ? expectedQty.toFixed(1).replace(/\.0$/, '') : '<1';
+    return `${itemName(reward.itemId)} ${qtyText}`;
+  }).join(' · ') || '보상 없음';
+}
+
+function operationRiskLabel(successPct, locked) {
+  if (locked) return '잠김';
+  if (successPct >= 82) return '안정';
+  if (successPct >= 64) return '권장';
+  if (successPct >= 45) return '주의';
+  return '위험';
+}
+
+function operationSuccessPct(state, mission, locked) {
+  if (locked) return 0;
+  const current = normalizeState(state);
+  const powerRatio = battlePower(current) / Math.max(1, Number(mission.recommendedPower || 1));
+  const formationBonus = normalizeFormationIds(current.selectedStudentIds).length >= MAX_FORMATION_SIZE ? 5 : -8;
+  const bandageBonus = Number(current.inventory.con_bandage || 0) > 0 ? 4 : -7;
+  const weaponBonusValue = current.weaponUid ? 5 : 0;
+  const difficultyPenalty = {
+    easy: 0,
+    normal: 4,
+    hard: 10,
+    veryhard: 16,
+  }[difficultyRule(mission.difficulty).id] || 4;
+  return Math.round(clamp(55 + (powerRatio - 1) * 58 + formationBonus + bandageBonus + weaponBonusValue - difficultyPenalty, 5, 96));
+}
+
+function operationPrepList(state, missionRow, successPct) {
+  const current = normalizeState(state);
+  const items = [];
+  if (missionRow.locked) items.push(missionRow.lockReason);
+  if (!missionRow.locked && missionRow.powerGap < 0) items.push(`전투력 ${Math.abs(missionRow.powerGap)} 보강`);
+  if (normalizeFormationIds(current.selectedStudentIds).length < MAX_FORMATION_SIZE) items.push(`편성 ${MAX_FORMATION_SIZE}명 채우기`);
+  if (Number(current.inventory.con_bandage || 0) <= 0) items.push('붕대 확보');
+  if (!current.weaponUid && itemCount(current, 'eq_knife') > 0) items.push('나이프 장착');
+  else if (!current.weaponUid) items.push('무기 제작/구매');
+  if (!missionRow.locked && successPct < 45) items.push('하위 임무 재도전으로 별/재화 확보');
+  return [...new Set(items)].slice(0, 4);
+}
+
+export function getOperationBriefing(state) {
+  const current = normalizeState(state);
+  const campaign = getCampaignReport(current);
+  const power = battlePower(current);
+  const readyQuests = questRows(current).filter((quest) => quest.done && !quest.claimed);
+  const missionRows = campaign.missionRows.map((mission) => {
+    const successPct = operationSuccessPct(current, mission, mission.locked);
+    const prep = operationPrepList(current, mission, successPct);
+    const avgCredit = Math.round(((Number(mission.creditMin || 0) + Number(mission.creditMax || 0)) / 2) * Number(difficultyRule(mission.difficulty).rewardMul || 1));
+    const repeatValue = mission.cleared && mission.bestStars >= 3 ? '파밍' : mission.cleared ? '3성 보강' : '진행';
+    return {
+      id: mission.id,
+      name: mission.name,
+      chapter: mission.chapter,
+      difficultyLabel: mission.difficultyLabel,
+      locked: mission.locked,
+      lockReason: mission.lockReason,
+      cleared: mission.cleared,
+      bestStars: mission.bestStars,
+      recommendedPower: mission.recommendedPower,
+      powerGap: mission.powerGap,
+      successPct,
+      riskLabel: operationRiskLabel(successPct, mission.locked),
+      targetTurn: mission.targetTurn,
+      avgCredit,
+      rewardText: expectedMissionRewardText(mission),
+      prep,
+      prepText: prep.length ? prep.join(' / ') : '즉시 출정 가능',
+      repeatValue,
+      sortScore: (mission.locked ? -1000 : 0)
+        + (mission.cleared ? 0 : 140)
+        + successPct
+        + avgCredit / 4
+        + (mission.bestStars < 3 ? 30 : 0)
+        - Math.max(0, -mission.powerGap) / 2,
+    };
+  });
+  const nextMission = missionRows
+    .filter((mission) => !mission.locked && !mission.cleared)
+    .sort((a, b) => b.sortScore - a.sortScore)[0]
+    || missionRows.filter((mission) => !mission.locked && mission.bestStars < 3).sort((a, b) => b.sortScore - a.sortScore)[0]
+    || missionRows.filter((mission) => !mission.locked).sort((a, b) => b.sortScore - a.sortScore)[0]
+    || missionRows[0];
+  const readinessPct = Math.round(clamp(
+    30
+      + Math.min(1, power / Math.max(1, Number(nextMission?.recommendedPower || 1))) * 35
+      + Math.min(1, Number(current.inventory.con_bandage || 0) / 2) * 10
+      + (current.weaponUid ? 10 : 0)
+      + Math.min(1, normalizeFormationIds(current.selectedStudentIds).length / MAX_FORMATION_SIZE) * 15,
+    0,
+    100,
+  ));
+  const nextAction = nextMission?.prep?.[0]
+    || (readyQuests.length ? `${readyQuests[0].title} 보고` : `${nextMission?.name || campaign.nextMissionName} 출정`);
+
+  return {
+    headline: nextMission
+      ? `${nextMission.name} · 승산 ${nextMission.successPct}% · ${nextMission.riskLabel}`
+      : '출정 후보 없음',
+    readinessPct,
+    nextAction,
+    power,
+    readyQuests: readyQuests.length,
+    bandages: Number(current.inventory.con_bandage || 0),
+    weaponEquipped: Boolean(current.weaponUid),
+    formationCount: normalizeFormationIds(current.selectedStudentIds).length,
+    bestMissionId: nextMission?.id || '',
+    missionRows: missionRows.sort((a, b) => b.sortScore - a.sortScore),
   };
 }
 
