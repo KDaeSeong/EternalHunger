@@ -509,9 +509,12 @@ export default function RacingLogosDemoPlayPage() {
               </section>
             ),
           },
-        ]}
-      />
-
+          {
+            id: 'advanced',
+            label: '상세 제작',
+            badge: `${packMatrix.totals.rows}행`,
+            children: (
+              <>
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">
@@ -684,6 +687,11 @@ export default function RacingLogosDemoPlayPage() {
           </div>
         </section>
       </section>
+              </>
+            ),
+          },
+        ]}
+      />
     </GamePlayShell>
   );
 }
