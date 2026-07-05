@@ -481,6 +481,37 @@ function normalizePersonalParticipant(value) {
   };
 }
 
+function normalizeTimelineLine(value) {
+  if (!value || typeof value !== 'object') return null;
+  const text = String(value.text || '').trim();
+  if (!text) return null;
+  return {
+    t: Math.max(0, Math.floor(Number(value.t || 0))),
+    caster: String(value.caster || '중계'),
+    text,
+  };
+}
+
+function normalizeSetTimeline(value) {
+  return Array.isArray(value)
+    ? value.map(normalizeTimelineLine).filter(Boolean).slice(0, 12)
+    : [];
+}
+
+function normalizePersonalSetDetail(value) {
+  if (!value || typeof value !== 'object') return null;
+  return {
+    setNo: Math.max(1, Math.floor(Number(value.setNo || 1))),
+    mapName: String(value.mapName || ''),
+    winnerId: String(value.winnerId || ''),
+    winnerName: String(value.winnerName || ''),
+    homeBuildName: String(value.homeBuildName || ''),
+    awayBuildName: String(value.awayBuildName || ''),
+    durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
+    timeline: normalizeSetTimeline(value.timeline),
+  };
+}
+
 function normalizePersonalMatch(value) {
   if (!value || typeof value !== 'object') return null;
   const playerAId = String(value.playerAId || '').trim();
@@ -497,6 +528,7 @@ function normalizePersonalMatch(value) {
     winnerId: String(value.winnerId || ''),
     setWinners: Array.isArray(value.setWinners) ? value.setWinners.map(String).slice(0, 5) : [],
     mapNames: Array.isArray(value.mapNames) ? value.mapNames.map(String).slice(0, 5) : [],
+    setDetails: Array.isArray(value.setDetails) ? value.setDetails.map(normalizePersonalSetDetail).filter(Boolean).slice(0, 5) : [],
     played: Boolean(value.played),
     playedAt: Number(value.playedAt || 0),
   };
@@ -547,6 +579,9 @@ function normalizeWinnersSet(value) {
     durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
     homeBuildName: String(value.homeBuildName || ''),
     awayBuildName: String(value.awayBuildName || ''),
+    homeBuildStyle: String(value.homeBuildStyle || ''),
+    awayBuildStyle: String(value.awayBuildStyle || ''),
+    timeline: normalizeSetTimeline(value.timeline),
     playedAt: Number(value.playedAt || Date.now()),
   };
 }
@@ -943,6 +978,92 @@ function durationFromDiff(rng, diff, mirror) {
   const swing = clamp(260 - Math.abs(diff) * 0.6, 0, 320);
   const base = mirror ? 1120 : 980;
   return Math.round(clamp(base + swing + gaussian(rng, 0, 65), 540, 1650));
+}
+
+function pickLine(rng, lines) {
+  return lines[Math.floor(rng() * lines.length) % lines.length];
+}
+
+function formatGameClock(seconds) {
+  const safe = Math.max(0, Math.floor(Number(seconds || 0)));
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
+}
+
+function buildTimelineLine(t, caster, text) {
+  return {
+    t: Math.max(0, Math.floor(Number(t || 0))),
+    caster,
+    text,
+  };
+}
+
+function styleFlowLine(rng, style, playerName) {
+  if (style === 'rush') {
+    return pickLine(rng, [
+      `${playerName}이(가) 초반 승부수를 던집니다. 막히면 역으로 운영이 흔들릴 수 있습니다.`,
+      `${playerName} 쪽이 빠르게 압박합니다. 첫 교전이 세트 흐름을 크게 바꿀 수 있습니다.`,
+    ]);
+  }
+  if (style === 'macro') {
+    return pickLine(rng, [
+      `${playerName}이(가) 멀티와 병력 회전을 준비합니다. 장기전으로 끌고 가려는 그림입니다.`,
+      `${playerName}은(는) 운영을 길게 봅니다. 중후반 자원전에서 힘을 받는 선택입니다.`,
+    ]);
+  }
+  if (style === 'tech') {
+    return pickLine(rng, [
+      `${playerName}이(가) 테크 타이밍을 노립니다. 완성 순간 한 번에 판이 뒤집힐 수 있습니다.`,
+      `${playerName}의 핵심은 전환 타이밍입니다. 들키지 않으면 큰 보상이 있습니다.`,
+    ]);
+  }
+  if (style === 'harass') {
+    return pickLine(rng, [
+      `${playerName}이(가) 계속 흔드는 운영을 준비합니다. 일꾼 피해 하나가 크게 쌓일 수 있습니다.`,
+      `${playerName}은(는) 견제로 리듬을 뺏으려 합니다. 상대의 손을 묶는 선택입니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${playerName}은(는) 밸런스형 운영입니다. 상대 빌드에 맞춰 유연하게 대응하려 합니다.`,
+    `${playerName} 쪽은 무리하지 않는 출발입니다. 정보가 쌓이면 선택지도 넓어집니다.`,
+  ]);
+}
+
+function buildSetTimeline({
+  rng,
+  setNo,
+  map,
+  homePlayer,
+  awayPlayer,
+  homeBuild,
+  awayBuild,
+  homeWin,
+  durationSec,
+  noisyDiff,
+  isAceSet = false,
+}) {
+  const winnerName = homeWin ? homePlayer.name : awayPlayer.name;
+  const leaderName = noisyDiff >= 0 ? homePlayer.name : awayPlayer.name;
+  const absDiff = Math.abs(Number(noisyDiff || 0));
+  const closeGame = absDiff < 95;
+  const leadText = closeGame
+    ? pickLine(rng, [
+      '중반까지 팽팽합니다. 한 번의 위치 선정, 한 번의 정찰 성공이 승부를 가를 수 있습니다.',
+      '양쪽 모두 큰 손해 없이 버팁니다. 후반 한타까지 가면 누구도 장담하기 어렵습니다.',
+    ])
+    : pickLine(rng, [
+      `${leaderName}이(가) 주도권을 잡습니다. 상대는 수비와 역습 타이밍을 동시에 봐야 합니다.`,
+      `${leaderName} 쪽으로 흐름이 기웁니다. 여기서 실수 없이 굳히는지가 중요합니다.`,
+    ]);
+  return [
+    buildTimelineLine(0, '캐스터', `${setNo}세트${isAceSet ? ' 에이스전' : ''} 시작합니다. 맵은 ${map.name}, ${homePlayer.name}(${RACE_LABELS[homePlayer.race] || homePlayer.race}) vs ${awayPlayer.name}(${RACE_LABELS[awayPlayer.race] || awayPlayer.race})입니다.`),
+    buildTimelineLine(16, '해설', `${homePlayer.name}은(는) ${homeBuild.name}(${BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style}), ${awayPlayer.name}은(는) ${awayBuild.name}(${BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style}) 구도입니다.`),
+    buildTimelineLine(Math.round(durationSec * 0.28), '해설', styleFlowLine(rng, homeBuild.style, homePlayer.name)),
+    buildTimelineLine(Math.round(durationSec * 0.48), '캐스터', leadText),
+    buildTimelineLine(Math.round(durationSec * 0.72), '해설', styleFlowLine(rng, awayBuild.style, awayPlayer.name)),
+    buildTimelineLine(durationSec, '캐스터', `${winnerName} 승리. ${formatGameClock(durationSec)}에 ${setNo}세트가 종료됩니다.`),
+  ].sort((a, b) => a.t - b.t);
 }
 
 function statAverageFromStats(stats = {}) {
@@ -1684,6 +1805,20 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const noisyDiff = diff + gaussian(rng, 0, noiseAmp);
   const pHome = clamp(1 / (1 + Math.exp(-noisyDiff / 220)), 0.08, 0.92);
   const homeWin = rng() < pHome;
+  const durationSec = durationFromDiff(rng, noisyDiff, homePlayer.race === awayPlayer.race);
+  const timeline = buildSetTimeline({
+    rng,
+    setNo,
+    map,
+    homePlayer,
+    awayPlayer,
+    homeBuild,
+    awayBuild,
+    homeWin,
+    durationSec,
+    noisyDiff,
+    isAceSet,
+  });
   return {
     setNo,
     isAceSet: Boolean(isAceSet),
@@ -1696,12 +1831,13 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     winnerTeamId: homeWin ? homeTeam.id : awayTeam.id,
     winnerPlayerId: homeWin ? homePlayer.id : awayPlayer.id,
     probabilityHome: Math.round(pHome * 100),
-    durationSec: durationFromDiff(rng, noisyDiff, homePlayer.race === awayPlayer.race),
+    durationSec,
     matchup: matchupOf(homePlayer.race, awayPlayer.race),
     homeBuildName: homeBuild.name,
     awayBuildName: awayBuild.name,
     homeBuildStyle: homeBuild.style,
     awayBuildStyle: awayBuild.style,
+    timeline,
     mapBiasHome: Math.round((mapMultiplier(homePlayer.race, awayPlayer.race, map) - 1) * 1000) / 10,
     phaseDiff: Math.round(diff),
     noisyDiff: Math.round(noisyDiff),
@@ -1981,6 +2117,7 @@ function simulatePersonalMatch(state, match) {
   let scoreB = 0;
   const setWinners = [];
   const mapNames = [];
+  const setDetails = [];
   for (let setNo = 1; setNo <= winNeed * 2 - 1 && scoreA < winNeed && scoreB < winNeed; setNo += 1) {
     const setResult = simulateSet({
       state,
@@ -1998,6 +2135,16 @@ function simulatePersonalMatch(state, match) {
     });
     setWinners.push(setResult.winnerPlayerId);
     mapNames.push(setResult.mapName);
+    setDetails.push({
+      setNo,
+      mapName: setResult.mapName,
+      winnerId: setResult.winnerPlayerId,
+      winnerName: setResult.winnerPlayerId === home.player.id ? home.player.name : away.player.name,
+      homeBuildName: setResult.homeBuildName,
+      awayBuildName: setResult.awayBuildName,
+      durationSec: setResult.durationSec,
+      timeline: setResult.timeline,
+    });
     if (setResult.winnerPlayerId === home.player.id) scoreA += 1;
     else scoreB += 1;
   }
@@ -2009,6 +2156,7 @@ function simulatePersonalMatch(state, match) {
     winnerId: scoreA > scoreB ? home.player.id : away.player.id,
     setWinners,
     mapNames,
+    setDetails,
     played: true,
     playedAt: Date.now(),
   };
@@ -2490,6 +2638,9 @@ export function advanceWinnersLeagueAction(state) {
     durationSec: setResult.durationSec,
     homeBuildName: setResult.homeBuildName,
     awayBuildName: setResult.awayBuildName,
+    homeBuildStyle: setResult.homeBuildStyle,
+    awayBuildStyle: setResult.awayBuildStyle,
+    timeline: setResult.timeline,
     playedAt: Date.now(),
   };
 

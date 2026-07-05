@@ -78,6 +78,30 @@ function SmallStat({ label, value }) {
   );
 }
 
+function formatTimelineTime(seconds) {
+  const safe = Math.max(0, Math.floor(Number(seconds || 0)));
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
+}
+
+function BroadcastTimeline({ lines, title = '중계 타임라인' }) {
+  if (!Array.isArray(lines) || !lines.length) return null;
+  return (
+    <details className="games-broadcast-details">
+      <summary>{title}</summary>
+      <ol className="games-broadcast-timeline">
+        {lines.map((line, index) => (
+          <li key={`${line.t}-${index}`}>
+            <span>{formatTimelineTime(line.t)} · {line.caster || '중계'}</span>
+            <p>{line.text}</p>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
 export default function MyAnimeCraftPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -296,6 +320,7 @@ export default function MyAnimeCraftPlayPage() {
                     {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
                     {setResult.isAceSet ? ` · 에이스 보정 ${setResult.aceBoostHome >= 0 ? '+' : ''}${setResult.aceBoostHome}%/${setResult.aceBoostAway >= 0 ? '+' : ''}${setResult.aceBoostAway}%` : ''}
                   </span>
+                  <BroadcastTimeline lines={setResult.timeline} />
                 </div>
               ))}
             </div>
@@ -355,6 +380,12 @@ export default function MyAnimeCraftPlayPage() {
                   <span>{match.roundLabel} · {match.played ? '완료' : '대기'}</span>
                   <strong>{match.playerAName} {match.played ? match.scoreA : '-'}:{match.played ? match.scoreB : '-'} {match.playerBName}</strong>
                   <small>{match.played ? `승자 ${match.winnerName} · ${match.mapNames.join(' / ')}` : `${match.playerATeamName} vs ${match.playerBTeamName}`}</small>
+                  {match.played && match.setDetails?.length ? (
+                    <BroadcastTimeline
+                      title={`마지막 세트 중계 · ${match.setDetails[match.setDetails.length - 1].mapName}`}
+                      lines={match.setDetails[match.setDetails.length - 1].timeline}
+                    />
+                  ) : null}
                 </div>
                 <strong>{match.played ? '결과' : '예정'}</strong>
               </article>
@@ -402,6 +433,7 @@ export default function MyAnimeCraftPlayPage() {
                   <span>{setResult.label} · {setResult.mapName} · 홈 승률 {setResult.probabilityHome}%</span>
                   <strong>{setResult.homePlayerName} vs {setResult.awayPlayerName}</strong>
                   <small>승자 {setResult.winnerPlayerName} · {setResult.homeBuildName} / {setResult.awayBuildName}</small>
+                  <BroadcastTimeline lines={setResult.timeline} />
                 </div>
                 <strong>{setResult.winnerTeamName}</strong>
               </article>

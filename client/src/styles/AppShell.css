@@ -5075,6 +5075,48 @@
   overflow-wrap: anywhere;
 }
 
+.games-broadcast-details {
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.games-broadcast-details summary {
+  width: fit-content;
+  border: 1px solid rgba(44, 111, 158, 0.18);
+  border-radius: 8px;
+  background: #eef6fb;
+  color: #1b6fa2;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 950;
+  padding: 5px 8px;
+}
+
+.games-broadcast-timeline {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  border-left: 2px solid rgba(44, 111, 158, 0.22);
+  padding: 0 0 0 12px;
+}
+
+.games-broadcast-timeline li {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.games-broadcast-timeline span {
+  color: #1b6fa2;
+  font-size: 0.72rem;
+}
+
+.games-broadcast-timeline p {
+  color: #334e63;
+  font-size: 0.8rem;
+}
+
 .game-save-row-actions {
   display: flex;
   flex-wrap: wrap;
