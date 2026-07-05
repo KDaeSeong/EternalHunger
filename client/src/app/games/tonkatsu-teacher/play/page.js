@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
-import GamePlayShell from '../../_components/GamePlayShell';
+import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   INGREDIENTS,
@@ -36,6 +36,7 @@ import {
   mealTokenCount,
   nextDayAction,
   normalizeState,
+  operationsReportForState,
   recipeName,
   recipeRows,
   researchRecipeAction,
@@ -106,6 +107,7 @@ export default function TonkatsuTeacherPlayPage() {
   const score = scoreState(state);
   const ended = Boolean(state.ended);
   const canAct = !ended;
+  const operationsReport = operationsReportForState(state);
   const tokenCount = Number(state.mealTokens[recipe.id] || 0);
   const winRatePreview = Math.round(Math.max(12, Math.min(92, 35 + (((student.atk * 8 + student.def * 5 + student.morale + (recipe.power || 0)) - (116 + state.floor * 18)) / 160) * 100)));
   const inventoryRows = Object.entries(state.inventory)
@@ -225,6 +227,7 @@ export default function TonkatsuTeacherPlayPage() {
     { label: 'Gold', value: `${Number(state.gold || 0).toLocaleString('ko-KR')}G` },
     { label: '평판', value: state.reputation },
     { label: '전투층', value: state.floor },
+    { label: '운영', value: `${operationsReport.readinessPct}%` },
     { label: '시설', value: Object.values(state.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0) },
     { label: '대회승', value: Number(state.counters.tournamentWins || 0) },
     { label: '메뉴', value: mealTokenCount(state) },
@@ -243,10 +246,181 @@ export default function TonkatsuTeacherPlayPage() {
       title="돈카츠 선생"
       description="재료를 사고 메뉴를 만들어 판매하거나 학생에게 배식한 뒤 전투 보상으로 다시 가게를 키우는 경영 루프 slice입니다."
       summaryLabel="돈카츠 선생 요약"
+      summaryDensity="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'operations',
+            label: '운영 리포트',
+            badge: `${operationsReport.readinessPct}%`,
+            children: (
+              <section className="games-dashboard">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>운영 상태</h2>
+                    <span>{operationsReport.headline} · {operationsReport.riskLabel}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    {operationsReport.businessRows.map((row) => (
+                      <MiniRow label={row.label} value={row.value} key={row.label} />
+                    ))}
+                  </div>
+                  <div className="game-save-list" style={{ marginTop: 12 }}>
+                    {operationsReport.recommendations.map((item) => (
+                      <article className="game-save-row" key={item.id}>
+                        <div>
+                          <span>{item.priority === 'high' ? '우선' : item.priority === 'medium' ? '추천' : '보조'}</span>
+                          <strong>{item.title}</strong>
+                          <small>{item.detail}</small>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>주요 지표</h2>
+                    <span>제작 · 성장 · 전투</span>
+                  </div>
+                  <div className="games-rank-split">
+                    {[...operationsReport.kitchenRows, ...operationsReport.growthRows, ...operationsReport.battleRows].map((row) => (
+                      <MiniRow label={row.label} value={row.value} key={`${row.label}-${row.value}`} />
+                    ))}
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'kitchen',
+            label: '주방/영업',
+            badge: `${mealTokenCount(state)}개`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>빠른 제작</h2>
+                    <span>{recipe.name}</span>
+                  </div>
+                  <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
+                    필요: {formatNeeds(recipe.needs)}
+                  </p>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>선택 메뉴 판매</ActionButton>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>빠른 매입</h2>
+                    <span>{ingredient.name}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <MiniRow label="가격" value={`${ingredient.price}G`} />
+                    <MiniRow label="보유 재료" value={inventoryCount(state)} />
+                    <MiniRow label="보관 한도" value={facilityContext.storageCap} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'students',
+            label: '학생/전투',
+            badge: `${winRatePreview}%`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>학생 지원</h2>
+                    <span>{student.name}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <MiniRow label="HP" value={`${student.currentHp}/${student.hp}`} />
+                    <MiniRow label="사기" value={student.morale} />
+                    <MiniRow label="승률" value={`${winRatePreview}%`} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 메뉴 배식</ActionButton>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => battleAction(current, studentId))}>전투 진행</ActionButton>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => nextDayAction(current))}>다음 영업일</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'growth',
+            label: '성장/대회',
+            badge: `${state.recipeShards}조각`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>성장 후보</h2>
+                    <span>시설 · 연구</span>
+                  </div>
+                  <div className="games-rank-split">
+                    {operationsReport.growthRows.map((row) => (
+                      <MiniRow label={row.label} value={row.value} key={row.label} />
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>대회 미리보기</h2>
+                    <span>{tournament.theme.name}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <MiniRow label="예상 점수" value={tournament.total} />
+                    <MiniRow label="목표" value={tournament.tier.targetScore} />
+                    <MiniRow label="판정" value={tournament.win ? '우승권' : '부족'} />
+                  </div>
+                  <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
+                </section>
+              </section>
+            ),
+          },
+          {
+            id: 'judge',
+            label: '심사',
+            badge: `${judge.accuracy}%`,
+            children: (
+              <section className="games-detail-grid">
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>심사 빠른 실행</h2>
+                    <span>{judge.rank}</span>
+                  </div>
+                  <div className="games-rank-split">
+                    <MiniRow label="심사" value={judge.judged} />
+                    <MiniRow label="정답" value={judge.correct} />
+                    <MiniRow label="정확도" value={`${judge.accuracy}%`} />
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton disabled={!canAct} onClick={() => {
+                      setJudgePick('A');
+                      setJudgeText('');
+                      setState((current) => startJudgeMatchAction(current, judgeTierId));
+                    }}>새 심사 매치</ActionButton>
+                    <ActionButton disabled={!canAct} onClick={() => setState((current) => runJudgeBatchAction(current, judgeTierId, judgeBatchCount, judgeBatchMode))}>자동 심사 실행</ActionButton>
+                  </div>
+                </section>
+              </section>
+            ),
+          },
+        ]}
+      />
+
       <section className="games-detail-grid">
         <section className="games-panel">
           <div className="games-panel-title">

@@ -1242,7 +1242,128 @@ export function mealTokenCount(state) {
   return Object.values(state.mealTokens).reduce((sum, qty) => sum + Number(qty || 0), 0);
 }
 
+function buildOperationAction(id, title, detail, priority = 'medium') {
+  return { id, title, detail, priority };
+}
+
+export function operationsReportForState(state) {
+  const current = normalizeState(state);
+  const ctx = buildFacilityContext(current);
+  const recipes = recipeRows(current);
+  const facilities = facilityRows(current);
+  const researches = researchRows(current);
+  const judge = judgeSummary(current);
+  const tokenTotal = mealTokenCount(current);
+  const ingredientTotal = inventoryCount(current);
+  const unlockedRecipes = recipes.filter((recipe) => recipe.unlocked);
+  const lockedRecipes = recipes.length - unlockedRecipes.length;
+  const craftableRecipes = unlockedRecipes
+    .filter((recipe) => Number(current.gold || 0) >= Number(recipe.craftCost || 0) && hasIngredients(current.inventory, recipe.needs))
+    .sort((a, b) => Number(b.sellPrice || 0) - Number(a.sellPrice || 0));
+  const bestCraftable = craftableRecipes[0] || null;
+  const readyResearch = researches.find((project) => !project.done && project.canResearch) || null;
+  const readyFacility = facilities.find((facility) => !facility.maxed && facility.canUpgrade) || null;
+  const bestStudent = current.students.slice().sort((a, b) => (
+    (Number(b.currentHp || 0) / Math.max(1, Number(b.hp || 1))) * 40 + Number(b.morale || 0)
+    - ((Number(a.currentHp || 0) / Math.max(1, Number(a.hp || 1))) * 40 + Number(a.morale || 0))
+  ))[0] || current.students[0];
+  const battleMeal = bestStudent?.meal ? RECIPES.find((recipe) => recipe.id === bestStudent.meal) : null;
+  const battlePower = bestStudent
+    ? Number(bestStudent.atk || 0) * 8
+      + Number(bestStudent.def || 0) * 5
+      + Number(bestStudent.morale || 0)
+      + Number(battleMeal?.power || 0)
+      + (battleMeal?.tags?.includes(bestStudent.pref) ? 10 : 0)
+      - (battleMeal?.tags?.includes(bestStudent.weak) ? 8 : 0)
+    : 0;
+  const battleTarget = 116 + Number(current.floor || 1) * 18;
+  const battleChancePct = Math.round(clamp(0.35 + (battlePower - battleTarget) / 160, 0.12, 0.92) * 100);
+  const tournamentRecipe = bestCraftable || unlockedRecipes.slice().sort((a, b) => Number(b.power || 0) - Number(a.power || 0))[0] || RECIPES[0];
+  const tournament = tournamentPreview(current, tournamentRecipe.id, 'rookie');
+  const facilityTotal = facilities.reduce((sum, facility) => sum + Number(facility.level || 0), 0);
+  const avgMorale = averageStudents(current, 'morale');
+  const avgHpPct = Math.round(current.students.reduce((sum, student) => (
+    sum + (Number(student.currentHp || 0) / Math.max(1, Number(student.hp || 1))) * 100
+  ), 0) / Math.max(1, current.students.length));
+  const readinessPct = Math.round(clamp(
+    20
+      + (unlockedRecipes.length / Math.max(1, recipes.length)) * 22
+      + Math.min(18, tokenTotal * 4)
+      + Math.min(14, facilityTotal * 1.4)
+      + Math.min(12, Number(current.floor || 1) * 1.8)
+      + avgMorale * 0.08
+      + (judge.accuracy || 0) * 0.04,
+    0,
+    100,
+  ));
+  const recommendations = [];
+
+  if (current.ended) {
+    recommendations.push(buildOperationAction('record', '운영 기록', '2주 운영이 끝났습니다. 전적에 기록하고 새 운영을 시작할 차례입니다.', 'high'));
+  } else if (tokenTotal > 0) {
+    recommendations.push(buildOperationAction('orders', '일일 주문 처리', `준비된 메뉴 ${tokenTotal}개를 먼저 판매해 골드와 평판을 회수하세요.`, 'high'));
+  } else if (bestCraftable) {
+    recommendations.push(buildOperationAction('craft', '메뉴 제작', `${bestCraftable.name} 제작이 가능합니다. 판매가 ${bestCraftable.sellPrice}G라 회전율이 좋습니다.`, 'high'));
+  } else {
+    const missingRecipe = unlockedRecipes.find((recipe) => !hasIngredients(current.inventory, recipe.needs)) || RECIPES[0];
+    recommendations.push(buildOperationAction('buy', '재료 매입', `${missingRecipe.name} 재료를 채우면 제작 루프를 다시 돌릴 수 있습니다.`, 'high'));
+  }
+
+  if (readyResearch) {
+    recommendations.push(buildOperationAction('research', '레시피 연구', `${readyResearch.name}을 바로 연구할 수 있습니다. 메뉴 풀이 넓어집니다.`, 'medium'));
+  }
+  if (readyFacility) {
+    recommendations.push(buildOperationAction('facility', '시설 강화', `${readyFacility.name} Lv.${Number(readyFacility.level || 1) + 1} 업그레이드가 가능합니다.`, 'medium'));
+  }
+  if (bestStudent && battleChancePct >= 55) {
+    recommendations.push(buildOperationAction('battle', '전투 진행', `${bestStudent.name} 기준 ${current.floor}층 예상 승률이 ${battleChancePct}%입니다.`, 'medium'));
+  } else if (bestStudent) {
+    recommendations.push(buildOperationAction('feed', '학생 회복', `${bestStudent.name} 기준 승률이 ${battleChancePct}%라 배식 후 전투가 낫습니다.`, 'medium'));
+  }
+  if (tournament.win) {
+    recommendations.push(buildOperationAction('tournament', '루키 대회 출전', `${tournamentRecipe.name} 예상 점수 ${tournament.total}점으로 우승권입니다.`, 'low'));
+  }
+
+  return {
+    headline: current.ended
+      ? '운영 종료'
+      : readinessPct >= 75
+        ? '확장 가능'
+        : readinessPct >= 50
+          ? '운영 안정'
+          : '재료 회전 필요',
+    readinessPct,
+    riskLabel: avgHpPct < 45 ? '학생 회복 필요' : ingredientTotal >= ctx.storageCap ? '보관 한도 초과' : tokenTotal > 0 ? '판매 대기' : '정상',
+    businessRows: [
+      { label: '영업 방식', value: current.businessMode === 'delivery' ? '배달' : '홀' },
+      { label: '주문 처리량', value: ctx.dailyOrders },
+      { label: '보관 한도', value: `${ingredientTotal}/${ctx.storageCap}` },
+      { label: '준비 메뉴', value: tokenTotal },
+    ],
+    kitchenRows: [
+      { label: '제작 가능', value: `${craftableRecipes.length}/${unlockedRecipes.length}` },
+      { label: '해금 메뉴', value: `${unlockedRecipes.length}/${recipes.length}` },
+      { label: '잠김 메뉴', value: lockedRecipes },
+      { label: '최고 제작 후보', value: bestCraftable?.name || '재료 부족' },
+    ],
+    growthRows: [
+      { label: '시설 레벨 합', value: facilityTotal },
+      { label: '연구 가능', value: readyResearch ? readyResearch.name : '없음' },
+      { label: '강화 가능', value: readyFacility ? readyFacility.name : '없음' },
+      { label: '심사 정확도', value: `${judge.accuracy}%` },
+    ],
+    battleRows: [
+      { label: '추천 학생', value: bestStudent?.name || '없음' },
+      { label: '평균 HP', value: `${avgHpPct}%` },
+      { label: '평균 사기', value: avgMorale },
+      { label: '전투 승률', value: `${battleChancePct}%` },
+    ],
+    recommendations: recommendations.slice(0, 5),
+  };
+}
+
 export function summaryForState(state) {
+  const operationsReport = operationsReportForState(state);
   return {
     day: state.day,
     gold: state.gold,
@@ -1258,6 +1379,8 @@ export function summaryForState(state) {
     judgeAccuracy: Number(state.counters?.judgeMatches || 0)
       ? Math.round((Number(state.counters?.judgeCorrect || 0) / Number(state.counters?.judgeMatches || 0)) * 100)
       : 0,
+    readinessPct: operationsReport.readinessPct,
+    operationStatus: operationsReport.headline,
     score: scoreState(state),
   };
 }
