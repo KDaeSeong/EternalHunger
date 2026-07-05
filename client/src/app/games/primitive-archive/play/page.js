@@ -350,16 +350,11 @@ export default function PrimitiveArchivePlayPage() {
     { label: 'AP', value: `${state.ap}/${state.apMax}` },
     { label: '난이도', value: currentDifficulty.label },
     { label: '파티', value: `${state.party.length}/${partyCap}` },
-    { label: 'HP', value: hp },
-    { label: '허기', value: hunger },
-    { label: '스태미나', value: stamina },
+    { label: '상태', value: `${hp}HP · 허기 ${hunger} · ST ${stamina}` },
     { label: '체온', value: `${bodyTemp.toFixed(1)}도` },
     { label: '보온', value: insulation },
     { label: '연구', value: `${research.completed}/${research.total}` },
-    { label: '목표', value: archiveVictory.label },
     { label: '기록서', value: `${archiveReport.grade} · ${archiveReport.archiveScore}%` },
-    { label: '특전', value: state.meta.perkPoints },
-    { label: '무게', value: totalCarryWeight(state) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
 
