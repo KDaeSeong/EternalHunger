@@ -363,6 +363,7 @@ export default function PrimitiveArchivePlayPage() {
       title="원시 아카이브"
       description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프, 연구, 장비 빌드를 반복하며 며칠이나 버티는지 보는 생존 시뮬레이션입니다."
       summaryLabel="Primitive Archive 요약"
+      summaryDensity="compact"
       actions={playActions}
       metrics={playMetrics}
       messages={playMessages}

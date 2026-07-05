@@ -64,10 +64,12 @@ export default function GamePlayShell({
   metrics = [],
   messages = [],
   summaryLabel,
+  summaryDensity = 'normal',
   children,
 }) {
   const visibleMetrics = metrics.filter(Boolean);
   const visibleMessages = messages.filter(Boolean);
+  const summaryClassName = summaryDensity === 'compact' ? 'games-summary games-summary--compact' : 'games-summary';
 
   return (
     <main className="games-page-shell">
@@ -83,7 +85,7 @@ export default function GamePlayShell({
         </section>
 
         {visibleMetrics.length ? (
-          <section className="games-summary" aria-label={summaryLabel || `${title} 요약`}>
+          <section className={summaryClassName} aria-label={summaryLabel || `${title} 요약`}>
             {visibleMetrics.map((metric) => (
               <GameMetric key={metric.key || metric.label} label={metric.label} value={metric.value} />
             ))}
