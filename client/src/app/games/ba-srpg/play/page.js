@@ -387,7 +387,12 @@ export default function BaSrpgPlayPage() {
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!targetEnemy || battle.phase !== 'player'} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
             <ActionButton disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, skillId))}>선택 스킬 사용</ActionButton>
-            <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => consumeBandageAction(current))}>붕대 사용</ActionButton>
+            <ActionButton
+              disabled={battle.phase !== 'player' || !selectedUnit || selectedUnit.acted || Number(selectedUnit.ap || 0) <= 0 || Number(state.inventory.con_bandage || 0) <= 0}
+              onClick={() => setState((current) => consumeBandageAction(current))}
+            >
+              붕대 사용 (x{Number(state.inventory.con_bandage || 0)})
+            </ActionButton>
             <ActionButton
               disabled={battle.phase !== 'player' || !selectedUnit || selectedUnit.acted || Number(selectedUnit.ap || 0) <= 0}
               onClick={() => setState((current) => waitSelectedUnitAction(current))}

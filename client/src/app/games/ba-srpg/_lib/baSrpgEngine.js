@@ -1234,17 +1234,23 @@ export function consumeBandageAction(state) {
   if (Number(current.inventory.con_bandage || 0) <= 0) return addLog(current, '붕대가 없습니다.');
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const heal = 16;
-  return addLog({
+  const nextBattle = {
+    ...battle,
+    units: battle.units.map((row) => (
+      row.id === unit.id
+        ? { ...row, hp: Math.min(row.maxHp, Number(row.hp || 0) + heal), ap: 0, acted: true }
+        : row
+    )),
+    lastResult: `${unit.name} 붕대 사용`,
+  };
+  const next = addLog({
     ...current,
     inventory: addItem(current.inventory, 'con_bandage', -1),
-    battle: {
-      ...battle,
-      units: battle.units.map((row) => (
-        row.id === unit.id ? { ...row, hp: Math.min(row.maxHp, Number(row.hp || 0) + heal), ap: Number(row.ap || 0) - 1 } : row
-      )),
-      lastResult: `${unit.name} 붕대 사용`,
-    },
+    battle: nextBattle,
   }, `${unit.name} HP +${heal}`);
+
+  const allDone = aliveUnits(nextBattle).every((row) => row.acted || Number(row.ap || 0) <= 0);
+  return allDone ? endTurnAction(next) : next;
 }
 
 export function waitSelectedUnitAction(state) {
