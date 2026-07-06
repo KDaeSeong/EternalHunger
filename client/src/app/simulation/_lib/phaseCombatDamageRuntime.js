@@ -48,6 +48,7 @@ export function resolveCombatWinnerOutcome({
     atNow = () => null,
     emitRunEvent = () => {},
     grantPvpDamageMastery = () => {},
+    reserveActionSecond = () => {},
   } = actions;
   const {
     applyCombatTacAttack = (_attacker, _defender, damage) => Math.max(0, Number(damage || 0)),
@@ -126,6 +127,14 @@ export function resolveCombatWinnerOutcome({
     splashTargets: getCharacterSkillSplashTargets(loser, battleWinner),
     showLog: battleSettings?.skills?.showSkillLogs !== false,
   });
+  const skillActionLockSec = Math.max(
+    0,
+    Number(charSkillToLoser?.actionLockSec || 0),
+    Number(charSkillToWinner?.actionLockSec || 0)
+  );
+  if (skillActionLockSec > 0) {
+    reserveActionSecond(Math.max(1, Math.ceil(skillActionLockSec)));
+  }
   const finalDmgToLoser = shieldBlock(loser, charSkillToLoser.damage);
   const finalDmgToWinner = shieldBlock(battleWinner, charSkillToWinner.damage);
 

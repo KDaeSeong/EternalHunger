@@ -56,6 +56,7 @@ export function runPhaseCombatEncounter({
     getZoneName = (zoneId) => String(zoneId || ''),
     grantPvpDamageMastery = () => {},
     grantPvpKillMastery = () => {},
+    reserveActionSecond = () => {},
     setDeathMetadata = () => {},
     tryUseConsumable = () => {},
   } = actions;
@@ -265,6 +266,7 @@ export function runPhaseCombatEncounter({
         atNow,
         emitRunEvent,
         grantPvpDamageMastery,
+        reserveActionSecond,
       },
       combatElimination: {
         applyCombatElimination,

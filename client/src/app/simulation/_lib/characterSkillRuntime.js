@@ -316,6 +316,9 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
   const splashHits = results.flatMap((result) => Array.isArray(result.splashHits) ? result.splashHits : []);
   const maxHpDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.maxHpDamage || 0)), 0);
   const currentHpDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.currentHpDamage || 0)), 0);
+  const actionLockSec = results.reduce((max, result) => Math.max(max, Number(result.timing?.actionLockSec || 0)), 0);
+  const castDelaySec = results.reduce((max, result) => Math.max(max, Number(result.timing?.castDelaySec || 0)), 0);
+  const recoveryDelaySec = results.reduce((max, result) => Math.max(max, Number(result.timing?.recoveryDelaySec || 0)), 0);
   const first = results[0];
 
   return {
@@ -327,6 +330,9 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
     slot: first.slot,
     maxHpDamage,
     currentHpDamage,
+    actionLockSec,
+    castDelaySec,
+    recoveryDelaySec,
     splashHits,
     applied: true,
     results,

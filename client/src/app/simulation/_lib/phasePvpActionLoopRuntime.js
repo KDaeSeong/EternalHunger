@@ -74,6 +74,7 @@ export async function runPvpActionLoop({
     getZoneName = (zoneId) => String(zoneId || ''),
     grantPvpDamageMastery = () => {},
     grantPvpKillMastery = () => {},
+    reserveActionSecond = () => {},
     reserveVisibleSecond = () => Promise.resolve(),
     setDeathMetadata = () => {},
   } = actions;
@@ -357,6 +358,7 @@ export async function runPvpActionLoop({
           getZoneName,
           grantPvpDamageMastery,
           grantPvpKillMastery,
+          reserveActionSecond,
           setDeathMetadata,
           tryUseConsumable,
         },

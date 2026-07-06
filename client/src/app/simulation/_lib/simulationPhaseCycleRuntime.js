@@ -295,6 +295,7 @@ export async function runSimulationPhaseCycle({
       getZoneName,
       grantPvpDamageMastery,
       grantPvpKillMastery,
+      reserveActionSecond,
       reserveVisibleSecond,
       setDeathMetadata,
     },

@@ -126,6 +126,7 @@ Resume the skill AI work after UI splitting is stable:
    - skill-enabled and skill-disabled simulation modes through one shared battle engine layer
    - Done: basic attack enhancement skills still require a real base hit, while attack/heal/shield active skills can pass AI/cooldown checks even when base counter damage is 0.
    - Done: character skill combat log fragments in `characterSkillRuntime.js` are readable Korean.
+   - Done: character skill cast/recovery delay now reserves phase action time during PvP combat.
 
 4. Sample target:
    - Bihyeong Q should support first cast single-target bonus damage and second cast within 5 seconds as area damage with current-health percent scaling.
