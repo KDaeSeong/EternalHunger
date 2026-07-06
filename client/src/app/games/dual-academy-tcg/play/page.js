@@ -8,6 +8,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import { RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
@@ -414,6 +415,9 @@ function DualAcademyTcgPlayContent() {
   const latestActor = latestEvent?.actor === 'enemy' ? 'enemy' : 'player';
   const latestCharacter = latestActor === 'enemy' ? enemyCharacter : playerCharacter;
   const latestQuote = latestEvent ? renderTcgQuote(latestCharacter, latestEvent) : '이벤트 대기 중입니다.';
+  const recentActionText = latestEvent
+    ? `T${latestEvent.turn} · ${latestEvent.phase} · ${PLAYER_LABELS[latestEvent.actor] || latestEvent.actor}: ${latestEvent.text}`
+    : state.log?.[0] || deckMessage || '아직 실행한 듀얼 액션이 없습니다.';
   const selectedCard = state.players.player.hand.find((card) => card.instanceId === selectedHandId) || null;
   const canAct = !state.winner && state.turnPlayer === 'player' && state.prompt.kind === 'NONE' && state.chain.length === 0;
   const canMain = canAct && (state.phase === 'MAIN1' || state.phase === 'MAIN2');
@@ -735,6 +739,7 @@ function DualAcademyTcgPlayContent() {
         </section>
 
         <GameAdvisorPanel {...tcgGuide} />
+        <RecentActionResult label="최근 듀얼 이벤트" text={recentActionText} pinned />
 
         <section className="tcg-character-strip" aria-label="duel characters">
           <CharacterPanel
