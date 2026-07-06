@@ -143,6 +143,71 @@ function equipmentChoiceScore(itemId, actor, mode, weather) {
   return score;
 }
 
+const RESEARCH_ERA_LABELS = {
+  PRIMITIVE: '원시',
+  NEOLITHIC: '신석기',
+  ANCIENT: '고대',
+};
+
+const CAMP_UNLOCK_LABELS = {
+  fire: '모닥불',
+  shelter: '대피소',
+  workbench: '작업대',
+  archive_room: '기록실',
+  scribe_desk: '필사대',
+  library_shelf: '서가',
+};
+
+function researchStatusLabel(tech) {
+  if (tech.completed) return '완료';
+  if (tech.selected) return '선택';
+  if (tech.available) return '가능';
+  if (tech.eurekaStatus?.blocked) return '단서 확보';
+  return '잠김';
+}
+
+function researchUnlockText(tech) {
+  const recipes = (tech.unlocks?.recipes || [])
+    .map((recipeId) => RECIPES.find((recipe) => recipe.id === recipeId)?.name || recipeId);
+  const camps = (tech.unlocks?.camp || []).map((campId) => CAMP_UNLOCK_LABELS[campId] || campId);
+  const passives = (tech.unlocks?.passives || []).map((passiveId) => passiveId.replaceAll('_', ' '));
+  return [
+    recipes.length ? `제작 ${recipes.join(', ')}` : '',
+    camps.length ? `시설 ${camps.join(', ')}` : '',
+    passives.length ? `효과 ${passives.length}개` : '',
+  ].filter(Boolean).join(' · ') || '기본 연구 보너스';
+}
+
+function researchNextStepText(tech) {
+  if (tech.completed) return '이미 완료된 연구입니다.';
+  if (!tech.available) {
+    return `선행 연구: ${(tech.missingPrereqs || []).join(', ') || '없음'} · 유레카: ${tech.eureka?.desc || '없음'}`;
+  }
+  if (tech.eurekaStatus?.note) return tech.eurekaStatus.note;
+  return `진행 ${tech.progress}/${tech.cost} · 유레카: ${tech.eureka?.desc || '없음'}`;
+}
+
+function buildResearchMap(techs) {
+  const byEra = techs.reduce((result, tech) => {
+    const era = tech.era || 'PRIMITIVE';
+    if (!result[era]) result[era] = [];
+    result[era].push({
+      ...tech,
+      statusLabel: researchStatusLabel(tech),
+      unlockText: researchUnlockText(tech),
+      nextStepText: researchNextStepText(tech),
+    });
+    return result;
+  }, {});
+  return Object.entries(byEra).map(([era, rows]) => ({
+    era,
+    label: RESEARCH_ERA_LABELS[era] || era,
+    completed: rows.filter((tech) => tech.completed).length,
+    total: rows.length,
+    rows,
+  }));
+}
+
 export default function PrimitiveArchivePlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -178,6 +243,7 @@ export default function PrimitiveArchivePlayPage() {
   const archiveReport = useMemo(() => archiveCompletionReportForState(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
+  const researchMap = useMemo(() => buildResearchMap(techs), [techs]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
   const currentEquipmentRows = useMemo(() => equipmentRows(state, actorId), [state, actorId]);
@@ -946,6 +1012,50 @@ export default function PrimitiveArchivePlayPage() {
             <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>
               연구 실행
             </ActionButton>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>연구 지도</h2>
+              <span>{researchMap.map((era) => `${era.label} ${era.completed}/${era.total}`).join(' · ')}</span>
+            </div>
+            <div className="game-save-list">
+              {researchMap.map((era) => (
+                <div key={era.era} style={{ display: 'grid', gap: 8 }}>
+                  <strong style={{ color: '#f8fafc' }}>{era.label} · {era.completed}/{era.total}</strong>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {era.rows.map((tech) => (
+                      <button
+                        type="button"
+                        className="game-save-row"
+                        key={tech.id}
+                        disabled={tech.completed || !tech.available}
+                        onClick={() => selectResearchTarget(tech.id)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          borderColor: tech.selected
+                            ? 'rgba(56, 189, 248, 0.78)'
+                            : tech.completed
+                              ? 'rgba(34, 197, 94, 0.42)'
+                              : tech.available
+                                ? 'rgba(250, 204, 21, 0.5)'
+                                : undefined,
+                        }}
+                      >
+                        <div>
+                          <span>{tech.statusLabel} · {tech.progress}/{tech.cost} · {tech.progressPct}%</span>
+                          <strong>{tech.name}</strong>
+                          <small>{tech.unlockText}</small>
+                          <small>{tech.nextStepText}</small>
+                        </div>
+                        <strong>{tech.completed ? 'OK' : tech.available ? '목표' : '대기'}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
 
           <section className="games-panel">
