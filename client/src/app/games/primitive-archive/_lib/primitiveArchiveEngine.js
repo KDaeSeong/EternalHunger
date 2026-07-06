@@ -250,10 +250,22 @@ function missingPrereqNames(research, tech) {
     .map((techId) => getTech(techId)?.name || techId);
 }
 
+function availableTechNames(research, excludeTechId = '') {
+  return TECH_TREE
+    .filter((row) => row.id !== excludeTechId && !research.completed?.[row.id] && prereqsMet(research, row))
+    .map((row) => row.name);
+}
+
 function missingPrereqMessage(research, tech) {
   const missing = missingPrereqNames(research, tech);
-  const eurekaNote = tech?.eureka ? ' 유레카 조건은 단서일 뿐이며, 선행 연구가 끝나야 보너스가 적용됩니다.' : '';
-  return `${tech.name} 연구를 하려면 먼저 ${missing.join(', ')} 연구를 완료해야 합니다.${eurekaNote}`;
+  const available = availableTechNames(research, tech?.id);
+  const nextStep = available.length
+    ? ` 지금 진행 가능한 연구는 ${available.slice(0, 3).join(', ')}입니다.`
+    : ' 현재 바로 진행 가능한 다른 연구가 없습니다. 완료한 연구와 목표 선택을 다시 확인하세요.';
+  const eurekaNote = tech?.eureka
+    ? ` 유레카(${tech.eureka.desc})는 연구 비용을 줄이는 단서이며, 선행 연구가 끝나야 적용됩니다.`
+    : '';
+  return `${tech.name} 연구는 아직 잠겨 있습니다. 먼저 필요한 선행 연구: ${missing.join(', ')}.${eurekaNote}${nextStep}`;
 }
 
 function eurekaStatusForTech(state, tech) {

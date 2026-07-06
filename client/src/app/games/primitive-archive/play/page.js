@@ -188,6 +188,14 @@ export default function PrimitiveArchivePlayPage() {
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
+  const availableResearchNames = techs
+    .filter((tech) => tech.available && !tech.completed)
+    .map((tech) => tech.name);
+  const selectedResearchHelp = research.selected && !research.selected.completed && !research.selected.available
+    ? `${research.selected.name}은(는) 아직 잠긴 연구입니다. 선행 연구: ${(research.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 연구: ${availableResearchNames.slice(0, 3).join(', ') || '없음'}.`
+    : research.selected && !research.selected.completed
+      ? `${research.selected.name} 연구를 진행할 수 있습니다. 연구 실행 시 제작 능력, 작업대, 기록실 보너스가 반영됩니다.`
+      : '다음 연구 목표를 선택하면 조건과 유레카 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
     const nextState = updater(state);
@@ -438,6 +446,7 @@ export default function PrimitiveArchivePlayPage() {
       messages={playMessages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="이번 행동 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
         tabs={[
@@ -820,6 +829,9 @@ export default function PrimitiveArchivePlayPage() {
               <div><span>선택</span><strong>{research.selected?.name || '-'}</strong></div>
               <div><span>진행</span><strong>{research.selected?.progressPct || 0}%</strong></div>
               <div><span>가능</span><strong>{research.available}</strong></div>
+            </div>
+            <div className={research.selected && !research.selected.completed && !research.selected.available ? 'games-empty games-error' : 'games-empty'} style={{ textAlign: 'left', marginTop: 12 }}>
+              {selectedResearchHelp}
             </div>
             <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
               유레카: {research.selected?.eureka?.desc || '없음'} {research.selected?.eurekaDone ? '· 적용됨' : research.selected?.eurekaStatus?.blocked ? '· 단서 확보, 선행 연구 필요' : ''}
