@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
+import { RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   SAVE_VERSION,
@@ -276,6 +277,7 @@ export default function CompanyReportPlayPage() {
         level={guidanceLevel}
         onLevelChange={setGuidanceLevel}
       />
+      <RecentActionResult label="최근 원장 결과" text={recentActionText} pinned />
 
       <CompanyReportFeatureTabs
         applyLedgerAction={applyLedgerAction}
