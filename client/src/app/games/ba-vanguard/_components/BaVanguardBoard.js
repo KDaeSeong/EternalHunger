@@ -162,6 +162,20 @@ function zoneCardStats(cards = []) {
   const rows = cards.map(getCard).filter(Boolean);
   const totalPower = rows.reduce((sum, card) => sum + Number(card.power || 0), 0);
   const totalShield = rows.reduce((sum, card) => sum + Number(card.shield || 0), 0);
+  const triggerBreakdown = rows.reduce((acc, card) => {
+    if (card.trigger) acc[card.trigger] = (acc[card.trigger] || 0) + 1;
+    return acc;
+  }, {});
+  const typeBreakdown = rows.reduce((acc, card) => {
+    const key = card.type || 'unknown';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const gradeBreakdown = rows.reduce((acc, card) => {
+    const key = `G${Number(card.grade || 0)}`;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
   return {
     rows,
     triggers: rows.filter((card) => card.type === 'trigger').length,
@@ -169,9 +183,49 @@ function zoneCardStats(cards = []) {
     grade3Plus: rows.filter((card) => Number(card.grade || 0) >= 3).length,
     gUnits: rows.filter((card) => card.type === 'g-unit').length,
     gGuardians: rows.filter((card) => card.type === 'g-guardian').length,
+    triggerBreakdown,
+    typeBreakdown,
+    gradeBreakdown,
     totalPower,
     totalShield,
   };
+}
+
+function formatBreakdown(entries, labeler = (key) => key) {
+  const rows = Object.entries(entries || {})
+    .filter(([, count]) => Number(count || 0) > 0)
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  if (!rows.length) return '-';
+  return rows.map(([key, count]) => `${labeler(key)} ${count}`).join(' · ');
+}
+
+function triggerLabel(trigger) {
+  return {
+    critical: '크리',
+    draw: '드로우',
+    stand: '스탠드',
+    heal: '힐',
+  }[trigger] || trigger;
+}
+
+function typeBreakdownLabel(type) {
+  return typeLabel(type);
+}
+
+function zoneBreakdownRows(zone, cards, filteredCards) {
+  const stats = zoneCardStats(cards);
+  const filtered = zoneCardStats(filteredCards);
+  const rows = [
+    { label: '그레이드', value: formatBreakdown(filtered.gradeBreakdown) },
+    { label: '타입', value: formatBreakdown(filtered.typeBreakdown, typeBreakdownLabel) },
+  ];
+  if (stats.triggers || filtered.triggers) {
+    rows.push({ label: '트리거', value: formatBreakdown(filtered.triggerBreakdown, triggerLabel) });
+  }
+  if (zone === 'gzone') {
+    rows.push({ label: '전체 G존', value: `G유닛 ${stats.gUnits} · G가디언 ${stats.gGuardians}` });
+  }
+  return rows;
 }
 
 function zoneInsightRows(zone, cards, filteredCards, cbUsed) {
@@ -245,6 +299,49 @@ function zoneInsightText(zone, cards, cbUsed) {
   return `${ZONE_LABELS[zone] || zone}에 있는 카드와 자원 상태를 확인하세요.`;
 }
 
+function zoneAdviceRows(zone, cards, filteredCards, cbUsed) {
+  const stats = zoneCardStats(cards);
+  const filtered = zoneCardStats(filteredCards);
+  const rows = [];
+  if (zone === 'damage') {
+    const cbAvailable = Math.max(0, cards.length - cbUsed);
+    rows.push({
+      title: cbAvailable > 0 ? '카운터블라스트 여유' : 'CB 고갈',
+      detail: cbAvailable > 0
+        ? `${cbAvailable}장 사용 가능합니다. VC 스킬 또는 G가디언 비용을 쓸 수 있습니다.`
+        : '현재 데미지존에서 바로 쓸 수 있는 CB가 없습니다. 비용 스킬은 보수적으로 봐야 합니다.',
+    });
+    if (stats.triggers > 0) rows.push({ title: '공개 트리거', detail: `데미지에 트리거가 ${stats.triggers}장 빠졌습니다. 남은 덱 트리거 기대값을 낮춰 보세요.` });
+    if (cards.length >= 5) rows.push({ title: '패배권', detail: '5데미지 이상입니다. 다음 공격은 숫자보다 완전가드/G가디언 우선입니다.' });
+  } else if (zone === 'gzone') {
+    rows.push({
+      title: filtered.gUnits ? '공격 전환 가능' : '공격 G 유닛 부족',
+      detail: filtered.gUnits ? `필터 내 스트라이드 후보 ${filtered.gUnits}장입니다.` : '현재 필터에는 스트라이드 후보가 없습니다.',
+    });
+    rows.push({
+      title: filtered.gGuardians ? '방어 전환 가능' : 'G가디언 부족',
+      detail: filtered.gGuardians ? `필터 내 G가디언 ${filtered.gGuardians}장, 실드 ${filtered.totalShield.toLocaleString('ko-KR')}입니다.` : 'G가디언 후보가 없으면 패 실드로 버텨야 합니다.',
+    });
+  } else if (zone === 'deck') {
+    const triggerRate = cards.length ? Math.round((stats.triggers / cards.length) * 100) : 0;
+    rows.push({ title: '트리거 기대값', detail: `남은 덱 트리거 ${stats.triggers}장, 비율 ${triggerRate}%입니다.` });
+    if (cards.length <= 8) rows.push({ title: '덱 아웃 위험', detail: '드라이브 체크와 장기전을 줄이고 이번 턴 마무리 각을 우선하세요.' });
+    if (stats.sentinels <= 1) rows.push({ title: '센티넬 부족', detail: `덱에 보이는 센티넬 후보가 ${stats.sentinels}장입니다. 방어 플랜을 과신하기 어렵습니다.` });
+  } else if (zone === 'drop') {
+    rows.push({ title: '재활용 후보', detail: `드롭의 G3+ ${stats.grade3Plus}장, 실드 총합 ${stats.totalShield.toLocaleString('ko-KR')}입니다.` });
+    if (stats.sentinels > 0) rows.push({ title: '센티넬 회수 가치', detail: `센티넬 ${stats.sentinels}장이 드롭에 있습니다. 회수/재활용 효과의 우선 후보입니다.` });
+  } else if (zone === 'soul') {
+    rows.push({
+      title: cards.length ? '스킬 비용 준비' : '소울 부족',
+      detail: cards.length ? `${cards.length}장 보유 중입니다. VC 액트와 일부 방어 효과 비용을 확인하세요.` : '소울 비용 스킬은 아직 안정적으로 쓰기 어렵습니다.',
+    });
+    if (stats.grade3Plus > 0) rows.push({ title: '고등급 소울', detail: `G3+ ${stats.grade3Plus}장이 소울에 있습니다. 특정 조건형 스킬의 재료로 좋습니다.` });
+  } else {
+    rows.push({ title: '존 요약', detail: `${filtered.rows.length}장 표시 중, 실드 총합 ${filtered.totalShield.toLocaleString('ko-KR')}입니다.` });
+  }
+  return rows.slice(0, 4);
+}
+
 export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onClose }) {
   if (!zoneView) return null;
   const player = duel.players[zoneView.side];
@@ -262,6 +359,8 @@ export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onCl
   const zoneLabel = ZONE_LABELS[zoneView.zone] || zoneView.zone;
   const insightRows = zoneInsightRows(zoneView.zone, cards, filteredCards, cbUsed);
   const insightText = zoneInsightText(zoneView.zone, cards, cbUsed);
+  const breakdownRows = zoneBreakdownRows(zoneView.zone, cards, filteredCards);
+  const adviceRows = zoneAdviceRows(zoneView.zone, cards, filteredCards, cbUsed);
 
   return (
     <section className="games-panel">
@@ -274,6 +373,27 @@ export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onCl
       </div>
       <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
         {insightText}
+      </div>
+      <div className="game-save-list" style={{ marginBottom: 12 }}>
+        {breakdownRows.map((row) => (
+          <article className="game-save-row" key={`${zoneView.zone}-${row.label}`}>
+            <div>
+              <span>{row.label}</span>
+              <strong>{row.value}</strong>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="game-save-list" style={{ marginBottom: 12 }}>
+        {adviceRows.map((row) => (
+          <article className="game-save-row" key={`${zoneView.zone}-${row.title}`}>
+            <div>
+              <span>판단 포인트</span>
+              <strong>{row.title}</strong>
+              <small>{row.detail}</small>
+            </div>
+          </article>
+        ))}
       </div>
       <div className="game-save-actions" style={{ marginBottom: 12 }}>
         {zoneView.zone === 'gzone' ? (

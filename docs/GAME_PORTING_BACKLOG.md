@@ -113,9 +113,10 @@ Checked: 2026-07-04
 
 - Route: `/games/ba-vanguard/play`
 - Included loop: P-G card library, Gehenna/Trinity/Millennium sample deck presets, deck rule validation, opening-hand shuffle test, duel state, ride/call/retire, stride, VC act, battle declaration, boost, guard, G guardian, drive/damage checks, trigger effects, 6-damage win, and simple AI progression.
+- UI/UX: deck/drop/soul/damage/G zone inspection now shows zone metrics, grade/type/trigger breakdowns, G-zone filters, and tactical advice rows.
 - Site API integration: quick save through `/game-saves/ba-vanguard/ba-vanguard-main`; playtest record through `/game-records/ba-vanguard`.
 - Source basis: `C:\2저장고\마이애니메\ba-vanguard`.
-- Next step: add room state sync/multiplayer sharing, richer original card-specific skill coverage, and modal zone inspection for deck/drop/soul/damage/G zone.
+- Next step: add room state sync/multiplayer sharing and richer original card-specific skill coverage.
 
 ## MyAnimeCraft Slice Status
 
