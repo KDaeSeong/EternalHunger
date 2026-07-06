@@ -7,7 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   INGREDIENTS,
@@ -103,6 +103,7 @@ export default function TonkatsuTeacherPlayPage() {
   const tokenRows = Object.entries(state.mealTokens)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => recipeName(a).localeCompare(recipeName(b), 'ko-KR'));
+  const recentActionText = state.log?.[0] || '아직 실행한 운영 액션이 없습니다.';
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -260,6 +261,7 @@ export default function TonkatsuTeacherPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="이번 운영 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
         tabs={[

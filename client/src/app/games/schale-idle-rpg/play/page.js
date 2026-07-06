@@ -7,7 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -131,6 +131,7 @@ export default function SchaleIdlePlayPage() {
   const totalUpgradeLevel = upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0);
   const activePresetId = selectedPresetId || state.activePresetId || presets[0]?.id || '';
   const selectedPreset = presets.find((preset) => preset.id === activePresetId);
+  const recentActionText = state.log?.[0] || '아직 실행한 성장 액션이 없습니다.';
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -348,6 +349,7 @@ export default function SchaleIdlePlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="이번 성장 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
         tabs={[
