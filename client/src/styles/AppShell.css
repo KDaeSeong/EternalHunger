@@ -5765,6 +5765,101 @@
   background: #f1f8fd;
 }
 
+.primitive-difficulty-panel {
+  gap: 14px;
+}
+
+.primitive-difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.primitive-difficulty-card {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #17202a;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.primitive-difficulty-card:hover {
+  border-color: rgba(8, 120, 189, 0.32);
+  box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.primitive-difficulty-card.is-active {
+  border-color: rgba(8, 120, 189, 0.62);
+  background: #eef8ff;
+  box-shadow: inset 0 0 0 1px rgba(8, 120, 189, 0.12);
+}
+
+.primitive-difficulty-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.primitive-difficulty-card strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.98rem;
+  font-weight: 950;
+}
+
+.primitive-difficulty-card em {
+  border-radius: 999px;
+  background: rgba(8, 120, 189, 0.11);
+  color: #1b6fa2;
+  padding: 3px 7px;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.primitive-difficulty-card small,
+.primitive-difficulty-card__stats,
+.primitive-difficulty-card__loadout,
+.primitive-difficulty-summary span {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.42;
+}
+
+.primitive-difficulty-card__stats {
+  color: #17202a;
+  font-weight: 900;
+}
+
+.primitive-difficulty-card__loadout {
+  border-top: 1px solid rgba(22, 33, 44, 0.08);
+  padding-top: 8px;
+}
+
+.primitive-difficulty-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(44, 111, 158, 0.14);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 10px 12px;
+}
+
+.primitive-difficulty-summary .tcg-primary-action {
+  flex: 0 0 auto;
+}
+
 .games-rank-split span,
 .games-rank-split small {
   color: #64717d;
@@ -6916,6 +7011,15 @@
 
   .games-action-dock__controls {
     grid-template-columns: 1fr;
+  }
+
+  .primitive-difficulty-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .primitive-difficulty-summary .tcg-primary-action {
+    width: 100%;
   }
 
   .notifications-head,

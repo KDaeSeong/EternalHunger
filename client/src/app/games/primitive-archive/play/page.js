@@ -208,6 +208,31 @@ function buildResearchMap(techs) {
   }));
 }
 
+const BASE_START_INVENTORY = { wood: 2, stone: 2, fiber: 2, berry: 2 };
+const DIFFICULTY_TAGS = {
+  easy: '입문',
+  normal: '표준',
+  hard: '압박',
+  nightmare: '극한',
+};
+
+function multiplierText(value) {
+  return `${Math.round(Number(value || 1) * 100)}%`;
+}
+
+function startInventoryText(preset) {
+  const inventory = { ...BASE_START_INVENTORY };
+  Object.entries(preset?.startInventory || {}).forEach(([itemId, qty]) => {
+    const nextQty = Math.max(0, Number(inventory[itemId] || 0) + Number(qty || 0));
+    if (nextQty > 0) inventory[itemId] = nextQty;
+    else delete inventory[itemId];
+  });
+  return Object.entries(inventory)
+    .filter(([, qty]) => Number(qty || 0) > 0)
+    .map(([itemId, qty]) => `${itemName(itemId)} ${qty}`)
+    .join(' · ');
+}
+
 export default function PrimitiveArchivePlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -231,6 +256,7 @@ export default function PrimitiveArchivePlayPage() {
   const stamina = averageParty(state, 'stamina');
   const bodyTemp = averageBodyTemp(state);
   const currentDifficulty = difficultyRows().find((row) => row.key === state.difficulty) || difficultyRows()[1];
+  const selectedDifficulty = difficultyRows().find((row) => row.key === newRunDifficulty) || difficultyRows()[1];
   const score = scoreState(state);
   const dead = state.ended || hp <= 0;
   const canAct = !dead && state.ap > 0;
@@ -462,7 +488,7 @@ export default function PrimitiveArchivePlayPage() {
     setZoneId('forest');
     setRecipeId('twine');
     setSelectedRecruitId('');
-    setActionResult('새 원시 아카이브 런을 시작했습니다.');
+    setActionResult(`${selectedDifficulty.label} 난이도로 새 원시 아카이브 런을 시작했습니다.`);
     setMessage('');
   };
 
@@ -504,11 +530,6 @@ export default function PrimitiveArchivePlayPage() {
 
   const playActions = (
     <>
-      <select value={newRunDifficulty} onChange={(event) => setNewRunDifficulty(event.target.value)} title="새 런 난이도">
-        {difficultyRows().map((row) => (
-          <option value={row.key} key={row.key}>{row.label}</option>
-        ))}
-      </select>
       <button type="button" onClick={startNewRun}>새 런</button>
       <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
       <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
@@ -573,6 +594,42 @@ export default function PrimitiveArchivePlayPage() {
       metrics={playMetrics}
       messages={playMessages}
     >
+      <section className="games-panel primitive-difficulty-panel">
+        <div className="games-panel-title">
+          <h2>시작 난이도</h2>
+          <span>현재 런 {currentDifficulty.label} · 다음 새 런 {selectedDifficulty.label}</span>
+        </div>
+        <div className="primitive-difficulty-grid">
+          {difficultyRows().map((row) => (
+            <button
+              type="button"
+              key={row.key}
+              className={`primitive-difficulty-card${newRunDifficulty === row.key ? ' is-active' : ''}`}
+              onClick={() => setNewRunDifficulty(row.key)}
+              aria-pressed={newRunDifficulty === row.key}
+            >
+              <span className="primitive-difficulty-card__head">
+                <strong>{row.label}</strong>
+                <em>{DIFFICULTY_TAGS[row.key] || '시작'}</em>
+              </span>
+              <small>{row.desc}</small>
+              <span className="primitive-difficulty-card__stats">
+                AP {row.apMax} · 허기 {multiplierText(row.hungerMultiplier)} · 추위 {multiplierText(row.coldMultiplier)} · 점수 {multiplierText(row.scoreMultiplier)}
+              </span>
+              <span className="primitive-difficulty-card__loadout">
+                {startInventoryText(row)}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div className="primitive-difficulty-summary">
+          <span>선택한 난이도는 새 런을 시작할 때 적용됩니다. 보유 특전 보급은 시작 보급에 추가됩니다.</span>
+          <button type="button" className="tcg-primary-action" onClick={startNewRun}>
+            {selectedDifficulty.label}으로 새 런
+          </button>
+        </div>
+      </section>
+
       <GameAdvisorPanel {...guide} />
       <RecentActionResult label="이번 행동 결과" text={recentActionText} pinned />
 

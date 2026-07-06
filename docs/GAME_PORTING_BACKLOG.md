@@ -87,7 +87,7 @@ Checked: 2026-07-04
 
 - Route: `/games/primitive-archive/play`
 - Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state, early tech tree research, eureka triggers, research passives, run settlement, perk points, perk shop, and perk-applied new runs.
-- UI/UX: research growth tab now includes an era-grouped research map with unlock rewards, prerequisites, eureka notes, and one-click available research targeting.
+- UI/UX: research growth tab now includes an era-grouped research map with unlock rewards, prerequisites, eureka notes, and one-click available research targeting; the play shell separates current run difficulty from the next-run start difficulty presets.
 - Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
 - Next step: import the remaining original tech tree, recipe/item gates, and expand the research map into a modal-scale detailed planner behind the site save/record shell.

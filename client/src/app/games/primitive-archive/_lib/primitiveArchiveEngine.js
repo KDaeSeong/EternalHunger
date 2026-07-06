@@ -62,6 +62,7 @@ export function createNewState(options = {}) {
   const meta = initMetaState(options.meta);
   const difficulty = difficultyKey(options.difficulty);
   const preset = difficultyPreset(difficulty);
+  const difficultyBrief = `난이도 ${preset.label} · AP ${preset.apMax} · 허기 ${Math.round(Number(preset.hungerMultiplier || 1) * 100)}% · 추위 ${Math.round(Number(preset.coldMultiplier || 1) * 100)}%`;
   const party = makeParty();
   const inventory = Object.entries(preset.startInventory || {}).reduce((acc, [itemId, qty]) => ({
     ...acc,
@@ -83,7 +84,7 @@ export function createNewState(options = {}) {
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0, events: 0 },
     research: initResearchState(),
     meta,
-    log: ['Day 1: 낯선 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.'],
+    log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
     ended: false,
     victory: false,
   };
