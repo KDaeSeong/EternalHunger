@@ -106,11 +106,11 @@ Checked: 2026-07-04
 ## Tonkatsu Teacher Slice Status
 
 - Route: `/games/tonkatsu-teacher/play`
-- Included loop: ingredient buying, recipe crafting with facility production modifiers, menu sales, hall/delivery business mode, daily order settlement, student meal support, battle reward progression, facility upgrades, recipe research unlocks, tournament scoring/unlocks, day rollover.
-- UI/UX: selected recipe planning now summarizes craft readiness, expected yield, sales margin, student fit, tournament gap, and the next recommended action from the current kitchen state.
+- Included loop: ingredient buying, recipe crafting with facility/cosmetic production modifiers, menu sales, hall/delivery business mode, daily order settlement, student meal support, battle reward progression, facility upgrades, recipe research unlocks, cosmetic buying/equipment effects, tournament scoring/unlocks, day rollover.
+- UI/UX: selected recipe planning now summarizes craft readiness, expected yield, sales margin, student fit, tournament gap, and the next recommended action from the current kitchen state; the detailed management tab includes a cosmetic shop with slot equipment status.
 - Site API integration: quick save through `/game-saves/tonkatsu-teacher/tonkatsu-teacher-main`; run record through `/game-records/tonkatsu-teacher`.
 - Source basis: `C:\2저장고\마이애니메\tonkatsu_teacher_mvp_v0.4.5_judge_batch_banner`.
-- Next step: import the original full data-pack recipe/method catalog, cosmetic shop/equipment effects, and tournament-only profile into the simplified engine.
+- Next step: import the original full data-pack recipe/method catalog and tournament-only profile into the simplified engine.
 
 ## BA Vanguard Slice Status
 

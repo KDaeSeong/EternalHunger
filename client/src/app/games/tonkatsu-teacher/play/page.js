@@ -10,6 +10,7 @@ import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell'
 import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
+  COSMETIC_SLOT_LABELS,
   INGREDIENTS,
   JUDGE_BATCH_MODE_LABELS,
   JUDGE_HISTORY_MODE_LABELS,
@@ -21,10 +22,13 @@ import {
   battleAction,
   buildFacilityContext,
   buyIngredientAction,
+  buyCosmeticAction,
   clearJudgeHistoryAction,
+  cosmeticRows,
   craftRecipeAction,
   createNewState,
   enterTournamentAction,
+  equipCosmeticAction,
   facilityRows,
   feedStudentAction,
   formatNeeds,
@@ -198,6 +202,13 @@ export default function TonkatsuTeacherPlayPage() {
   const facilities = facilityRows(state);
   const researches = researchRows(state);
   const facilityContext = buildFacilityContext(state);
+  const cosmetics = cosmeticRows(state);
+  const ownedCosmetics = cosmetics.filter((item) => item.owned);
+  const equippedCosmetics = Object.entries(COSMETIC_SLOT_LABELS).map(([slot, label]) => ({
+    slot,
+    label,
+    item: cosmetics.find((cosmetic) => cosmetic.slot === slot && cosmetic.equipped),
+  }));
   const tournament = tournamentPreview(state, recipeId, tournamentTierId);
   const judge = judgeSummary(state);
   const judgeRecent = judgeRecentSummary(state, {
@@ -343,6 +354,7 @@ export default function TonkatsuTeacherPlayPage() {
     { label: '운영', value: `${operationsReport.readinessPct}%` },
     { label: '연출', value: `${productionReport.productionScore}%` },
     { label: '시설', value: Object.values(state.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0) },
+    { label: '장식', value: `${ownedCosmetics.length}/${cosmetics.length}` },
     { label: '대회승', value: Number(state.counters.tournamentWins || 0) },
     { label: '메뉴', value: mealTokenCount(state) },
     { label: '점수', value: score.toLocaleString('ko-KR') },
@@ -845,6 +857,43 @@ export default function TonkatsuTeacherPlayPage() {
               ))}
             </div>
           ) : <div className="games-empty">준비된 메뉴가 없습니다.</div>}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>코스메틱</h2>
+            <span>보유 {ownedCosmetics.length}/{cosmetics.length}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            {equippedCosmetics.map((row) => (
+              <SmallStat key={row.slot} label={row.label} value={row.item?.name || '없음'} />
+            ))}
+          </div>
+          <div className="game-save-list">
+            {cosmetics.map((cosmetic) => {
+              const priceText = cosmetic.price.recipeShards
+                ? `${cosmetic.price.gold}G · 조각 ${cosmetic.price.recipeShards}`
+                : `${cosmetic.price.gold}G`;
+              return (
+                <article className="game-save-row" key={cosmetic.id}>
+                  <div>
+                    <span>{cosmetic.slotLabel} · 희귀도 {cosmetic.rarity} · {cosmetic.owned ? '보유' : priceText}</span>
+                    <strong>{cosmetic.name}</strong>
+                    <small>{cosmetic.effectText}</small>
+                  </div>
+                  {cosmetic.owned ? (
+                    <button type="button" disabled={!canAct || cosmetic.equipped || !cosmetic.canEquip} onClick={() => setState((current) => equipCosmeticAction(current, cosmetic.id))}>
+                      {cosmetic.equipped ? '장착 중' : '장착'}
+                    </button>
+                  ) : (
+                    <button type="button" disabled={!canAct || !cosmetic.canBuy} onClick={() => setState((current) => buyCosmeticAction(current, cosmetic.id))}>
+                      구매
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
         </section>
 
         <section className="games-panel">

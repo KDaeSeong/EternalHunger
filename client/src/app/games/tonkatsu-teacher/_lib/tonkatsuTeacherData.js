@@ -316,6 +316,133 @@ export const TOURNAMENT_THEMES = [
   { id: 'sweet', name: '달콤한 마무리', targetTags: ['sweet', 'dessert'], avoidTags: ['spicy'], desc: '디저트와 단맛 구성이 유리합니다.' },
 ];
 
+export const COSMETIC_SLOT_LABELS = {
+  signboard: '간판',
+  apron: '앞치마',
+  interior: '인테리어',
+};
+
+export const DEFAULT_UNLOCKED_COSMETICS = ['cos_signboard_basic', 'cos_apron_basic', 'cos_interior_wood'];
+
+export const DEFAULT_EQUIPPED_COSMETICS = {
+  signboard: 'cos_signboard_basic',
+  apron: 'cos_apron_basic',
+  interior: 'cos_interior_wood',
+};
+
+export const COSMETICS = [
+  {
+    id: 'cos_signboard_basic',
+    name: '기본 간판',
+    slot: 'signboard',
+    desc: '초기 기본 간판입니다. 특별한 효과는 없지만, 이걸로도 충분히 장사는 됩니다.',
+    rarity: 1,
+    effects: [{ type: 'goldMultFromOrders', value: 1.01 }],
+    tags: ['basic'],
+  },
+  {
+    id: 'cos_signboard_neon',
+    name: '네온 간판',
+    slot: 'signboard',
+    desc: '밤에도 눈에 띄는 네온 간판입니다. 배달 주문이 조금 더 늘어납니다.',
+    rarity: 2,
+    effects: [
+      { type: 'goldMultFromOrders', value: 1.02 },
+      { type: 'deliveryGoldMult', value: 1.01 },
+    ],
+    tags: ['shop', 'neon'],
+  },
+  {
+    id: 'cos_signboard_gold',
+    name: '황금 간판',
+    slot: 'signboard',
+    desc: '요리대회 우승 기념으로 만든 황금 간판입니다. 눈에 확 띄는 건 덤입니다.',
+    rarity: 3,
+    effects: [
+      { type: 'goldMultFromOrders', value: 1.03 },
+      { type: 'contestScoreMult', category: 'theme', value: 1.01 },
+    ],
+    tags: ['premium', 'tournament'],
+  },
+  {
+    id: 'cos_apron_basic',
+    name: '기본 앞치마',
+    slot: 'apron',
+    desc: '기본 앞치마입니다. 선생님은 항상 일할 준비가 되어 있습니다.',
+    rarity: 1,
+    effects: [
+      { type: 'failPctAdd', methodId: 'm_fry', value: -0.005 },
+      { type: 'production_mult', tag: 'fried', value: 1.01 },
+    ],
+    tags: ['basic'],
+  },
+  {
+    id: 'cos_apron_blue',
+    name: '파란 앞치마',
+    slot: 'apron',
+    desc: '깔끔한 인상을 주는 파란 앞치마입니다. 손님들이 믿음을 느낍니다.',
+    rarity: 2,
+    effects: [
+      { type: 'failPctAdd', methodId: 'm_fry', value: -0.01 },
+      { type: 'tokenBonusChance', tag: 'fried', chance: 0.03 },
+    ],
+    tags: ['shop', 'clean', 'cool'],
+  },
+  {
+    id: 'cos_apron_stripe',
+    name: '스트라이프 앞치마',
+    slot: 'apron',
+    desc: '줄무늬가 들어간 작업용 앞치마입니다. 주방 동선이 좋아진 느낌이 듭니다.',
+    rarity: 2,
+    effects: [
+      { type: 'failPctAdd', methodId: 'm_fry', value: -0.008 },
+      { type: 'production_mult', tag: 'fried', value: 1.02 },
+      { type: 'tokenBonusChance', tag: 'fried', chance: 0.01 },
+    ],
+    tags: ['shop', 'work'],
+  },
+  {
+    id: 'cos_interior_wood',
+    name: '우드 감성 인테리어',
+    slot: 'interior',
+    desc: '나무 결이 살아있는 인테리어입니다. 손님들이 감성 있다고 말합니다.',
+    rarity: 1,
+    effects: [{ type: 'recipeShardBonus', value: 1 }],
+    tags: ['shop', 'interior', 'wood'],
+  },
+  {
+    id: 'cos_interior_lantern',
+    name: '등불 장식',
+    slot: 'interior',
+    desc: '가게 분위기를 따뜻하게 만드는 등불 장식입니다.',
+    rarity: 2,
+    effects: [{ type: 'contestScoreMult', category: 'creativity', value: 1.02 }],
+    tags: ['shop', 'interior', 'warm'],
+  },
+  {
+    id: 'cos_interior_poster',
+    name: '프로모션 포스터',
+    slot: 'interior',
+    desc: '오늘의 추천 메뉴를 강조하는 포스터입니다.',
+    rarity: 2,
+    effects: [{ type: 'contestScoreMult', category: 'theme', value: 1.02 }],
+    tags: ['shop', 'interior', 'promo'],
+  },
+  {
+    id: 'cos_interior_musicbox',
+    name: '뮤직박스',
+    slot: 'interior',
+    desc: '잔잔한 음악이 흐르는 뮤직박스입니다. 심사위원의 기분을 아주 조금 더 좋게 만듭니다.',
+    rarity: 3,
+    effects: [
+      { type: 'contestScoreMult', category: 'creativity', value: 1.03 },
+      { type: 'contestScoreMult', category: 'theme', value: 1.01 },
+      { type: 'rareDropPct', value: 0.01 },
+    ],
+    tags: ['shop', 'interior', 'premium'],
+  },
+];
+
 export const TOURNAMENT_TIERS = [
   { id: 'rookie', name: '루키', entryGold: 90, targetScore: 58, rewardGold: 180, rewardRep: 14, rewardShards: 4, unlockRecipes: ['curry_tonkatsu'] },
   { id: 'intermediate', name: '중급', entryGold: 180, targetScore: 72, rewardGold: 360, rewardRep: 30, rewardShards: 8, unlockRecipes: ['milk_ice', 'yogurt_parfait'] },

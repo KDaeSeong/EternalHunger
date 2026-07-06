@@ -5,6 +5,10 @@ import {
   DEFAULT_UNLOCKED_RECIPES,
   RESEARCH_PROJECTS,
   FACILITIES,
+  COSMETICS,
+  COSMETIC_SLOT_LABELS,
+  DEFAULT_EQUIPPED_COSMETICS,
+  DEFAULT_UNLOCKED_COSMETICS,
   TOURNAMENT_THEMES,
   TOURNAMENT_TIERS,
   JUDGE_AI_CHEFS,
@@ -24,6 +28,10 @@ export {
   DEFAULT_UNLOCKED_RECIPES,
   RESEARCH_PROJECTS,
   FACILITIES,
+  COSMETICS,
+  COSMETIC_SLOT_LABELS,
+  DEFAULT_EQUIPPED_COSMETICS,
+  DEFAULT_UNLOCKED_COSMETICS,
   TOURNAMENT_THEMES,
   TOURNAMENT_TIERS,
   JUDGE_AI_CHEFS,
@@ -47,6 +55,8 @@ export function createNewState(options = {}) {
     businessMode: 'hall',
     facilityLevels: Object.fromEntries(FACILITIES.map((facility) => [facility.id, 1])),
     unlockedRecipeIds: DEFAULT_UNLOCKED_RECIPES,
+    cosmeticsUnlocked: DEFAULT_UNLOCKED_COSMETICS,
+    equippedCosmetics: { ...DEFAULT_EQUIPPED_COSMETICS },
     clearedTournamentTiers: [],
     tournamentHistory: [],
     inventory: {
@@ -67,10 +77,26 @@ export function createNewState(options = {}) {
     judgeMatch: null,
     judgeHistory: [],
     lastJudgeBatch: null,
-    counters: { crafted: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0 },
+    counters: { crafted: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0, cosmeticsBought: 0 },
     log: ['Day 1: 돈카츠 가게를 열었습니다. 재료를 관리하고 메뉴를 만들어 학생들을 지원하세요.'],
     ended: false,
   };
+}
+
+function normalizeUnlockedCosmetics(value) {
+  const raw = Array.isArray(value) ? value : [];
+  const valid = new Set(COSMETICS.map((item) => item.id));
+  return Array.from(new Set([...DEFAULT_UNLOCKED_COSMETICS, ...raw].filter((id) => valid.has(id))));
+}
+
+function normalizeEquippedCosmetics(value, unlockedIds = DEFAULT_UNLOCKED_COSMETICS) {
+  const source = value && typeof value === 'object' ? value : {};
+  const unlocked = new Set(unlockedIds);
+  return Object.fromEntries(Object.keys(COSMETIC_SLOT_LABELS).map((slot) => {
+    const requested = source[slot] || DEFAULT_EQUIPPED_COSMETICS[slot] || '';
+    const item = COSMETICS.find((cosmetic) => cosmetic.id === requested && cosmetic.slot === slot);
+    return [slot, item && unlocked.has(item.id) ? item.id : DEFAULT_EQUIPPED_COSMETICS[slot] || ''];
+  }));
 }
 
 export function normalizeState(value) {
@@ -83,12 +109,16 @@ export function normalizeState(value) {
   const unlockedRecipeIds = Array.isArray(value.unlockedRecipeIds) && value.unlockedRecipeIds.length
     ? Array.from(new Set([...DEFAULT_UNLOCKED_RECIPES, ...value.unlockedRecipeIds]))
     : base.unlockedRecipeIds;
+  const cosmeticsUnlocked = normalizeUnlockedCosmetics(value.cosmeticsUnlocked);
+  const equippedCosmetics = normalizeEquippedCosmetics(value.equippedCosmetics, cosmeticsUnlocked);
   return {
     ...base,
     ...value,
     businessMode: value.businessMode === 'delivery' ? 'delivery' : 'hall',
     facilityLevels,
     unlockedRecipeIds,
+    cosmeticsUnlocked,
+    equippedCosmetics,
     clearedTournamentTiers: Array.isArray(value.clearedTournamentTiers) ? value.clearedTournamentTiers : base.clearedTournamentTiers,
     tournamentHistory: Array.isArray(value.tournamentHistory) ? value.tournamentHistory.slice(0, 30) : base.tournamentHistory,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
@@ -130,6 +160,34 @@ function isTierCleared(clearedTiers = [], tierId = '') {
   return clearedTiers.some((cleared) => Number(TIER_ORDER[cleared] || 0) >= required);
 }
 
+function applyCosmeticEffect(ctx, effect = {}) {
+  if (effect.type === 'goldMultFromOrders') {
+    ctx.goldMultFromOrders *= Number(effect.value || 1);
+  } else if (effect.type === 'deliveryGoldMult') {
+    ctx.deliveryGoldMult *= Number(effect.value || 1);
+  } else if (effect.type === 'deliveryMaterialChance') {
+    ctx.deliveryMaterialChance = Math.max(ctx.deliveryMaterialChance, Number(effect.value || 0));
+  } else if (effect.type === 'rareDropPct') {
+    ctx.rareDropPct = Math.max(ctx.rareDropPct, Number(effect.value || 0));
+  } else if (effect.type === 'recipeShardBonus') {
+    ctx.recipeShardBonus = Math.max(ctx.recipeShardBonus, Number(effect.value || 0));
+  } else if (effect.type === 'production_mult') {
+    const tag = String(effect.tag || '');
+    if (tag) ctx.productionMultByTag[tag] = Number(ctx.productionMultByTag[tag] || 1) * Number(effect.value || 1);
+  } else if (effect.type === 'failPctAdd') {
+    ctx.failReduce += Math.max(0, -Number(effect.value || 0));
+  } else if (effect.type === 'tokenBonusChance') {
+    const tag = String(effect.tag || '');
+    const chance = clamp(Number(effect.chance || 0), 0, 1);
+    if (tag && chance > 0) {
+      const previous = Number(ctx.tokenBonusChanceByTag[tag] || 0);
+      ctx.tokenBonusChanceByTag[tag] = 1 - (1 - previous) * (1 - chance);
+    }
+  } else if (effect.type === 'contestScoreMult') {
+    ctx.contestScoreMult *= Number(effect.value || 1);
+  }
+}
+
 export function buildFacilityContext(state) {
   const current = normalizeState(state);
   const ctx = {
@@ -168,6 +226,12 @@ export function buildFacilityContext(state) {
       if (item.deliveryMaterialChance) ctx.deliveryMaterialChance = Math.max(ctx.deliveryMaterialChance, item.deliveryMaterialChance);
       if (item.contestMult) ctx.contestScoreMult *= item.contestMult;
     });
+  });
+
+  Object.values(current.equippedCosmetics || {}).forEach((cosmeticId) => {
+    const cosmetic = COSMETICS.find((item) => item.id === cosmeticId);
+    if (!cosmetic) return;
+    (cosmetic.effects || []).forEach((effect) => applyCosmeticEffect(ctx, effect));
   });
 
   return ctx;
@@ -399,19 +463,25 @@ export function battleAction(state, studentId) {
 }
 
 export function nextDayAction(state) {
-  const students = state.students.map((student) => ({
+  const current = normalizeState(state);
+  const ctx = buildFacilityContext(current);
+  const shardBonus = Math.max(0, Math.round(Number(ctx.recipeShardBonus || 0)));
+  const students = current.students.map((student) => ({
     ...student,
     currentHp: clamp(Number(student.currentHp || 0) + 18, 0, student.hp),
     morale: clamp(Number(student.morale || 0) - 4, 0, 100),
     meal: '',
   }));
-  const ended = state.day >= 14;
+  const ended = current.day >= 14;
   return addLog({
-    ...state,
-    day: state.day + 1,
+    ...current,
+    day: current.day + 1,
+    recipeShards: Number(current.recipeShards || 0) + shardBonus,
     students,
     ended,
-  }, ended ? '2주 운영 리포트가 완성됐습니다. 결과를 전적에 기록하세요.' : '새 영업일이 시작됐습니다. 학생들이 회복하고 사기가 조금 가라앉았습니다.');
+  }, ended
+    ? '2주 운영 리포트가 완성됐습니다. 결과를 전적에 기록하세요.'
+    : `새 영업일이 시작됐습니다. 학생들이 회복하고 사기가 조금 가라앉았습니다.${shardBonus ? ` 코스메틱 보너스로 레시피 조각 +${shardBonus}.` : ''}`);
 }
 
 export function setBusinessModeAction(state, mode) {
@@ -884,6 +954,90 @@ export function researchRows(state) {
   });
 }
 
+export function cosmeticPrice(cosmetic) {
+  const rarity = Math.max(1, Number(cosmetic?.rarity || 1));
+  if (rarity <= 1) return { gold: 220, recipeShards: 0 };
+  if (rarity === 2) return { gold: 520, recipeShards: 2 };
+  return { gold: 1200, recipeShards: 6 };
+}
+
+function effectPercent(value) {
+  return `${Math.round(Number(value || 0) * 1000) / 10}%`;
+}
+
+export function cosmeticEffectText(cosmetic) {
+  const lines = (cosmetic?.effects || []).map((effect) => {
+    if (effect.type === 'goldMultFromOrders') return `주문 골드 x${Number(effect.value || 1).toFixed(2)}`;
+    if (effect.type === 'deliveryGoldMult') return `배달 골드 x${Number(effect.value || 1).toFixed(2)}`;
+    if (effect.type === 'deliveryMaterialChance') return `배달 재료 확률 +${effectPercent(effect.value)}`;
+    if (effect.type === 'rareDropPct') return `희귀 보상 +${effectPercent(effect.value)}`;
+    if (effect.type === 'tokenBonusChance') return `보너스 메뉴 +${effectPercent(effect.chance)}`;
+    if (effect.type === 'production_mult') return `${effect.tag || '해당'} 생산 x${Number(effect.value || 1).toFixed(2)}`;
+    if (effect.type === 'failPctAdd') return `제작 실패율 ${Number(effect.value || 0) >= 0 ? '+' : ''}${effectPercent(effect.value)}`;
+    if (effect.type === 'contestScoreMult') return `대회 점수 x${Number(effect.value || 1).toFixed(2)}`;
+    if (effect.type === 'recipeShardBonus') return `일일 조각 +${Math.round(Number(effect.value || 0))}`;
+    return '특수 효과';
+  });
+  return lines.length ? lines.join(' · ') : '효과 없음';
+}
+
+export function cosmeticRows(state) {
+  const current = normalizeState(state);
+  const unlocked = new Set(current.cosmeticsUnlocked || []);
+  return COSMETICS.map((cosmetic) => {
+    const price = cosmeticPrice(cosmetic);
+    const owned = unlocked.has(cosmetic.id);
+    const equipped = current.equippedCosmetics?.[cosmetic.slot] === cosmetic.id;
+    return {
+      ...cosmetic,
+      slotLabel: COSMETIC_SLOT_LABELS[cosmetic.slot] || cosmetic.slot,
+      price,
+      owned,
+      equipped,
+      canBuy: !owned && Number(current.gold || 0) >= price.gold && Number(current.recipeShards || 0) >= price.recipeShards,
+      canEquip: owned && !equipped,
+      effectText: cosmeticEffectText(cosmetic),
+    };
+  }).sort((a, b) => (
+    a.slot.localeCompare(b.slot)
+      || Number(a.rarity || 1) - Number(b.rarity || 1)
+      || a.name.localeCompare(b.name, 'ko-KR')
+  ));
+}
+
+export function buyCosmeticAction(state, cosmeticId) {
+  const current = normalizeState(state);
+  const cosmetic = COSMETICS.find((item) => item.id === cosmeticId);
+  if (!cosmetic) return addLog(current, '코스메틱 구매 실패. 존재하지 않는 항목입니다.');
+  if (current.cosmeticsUnlocked.includes(cosmetic.id)) return addLog(current, `${cosmetic.name}은 이미 보유 중입니다.`);
+  const price = cosmeticPrice(cosmetic);
+  if (Number(current.gold || 0) < price.gold) return addLog(current, `${cosmetic.name} 구매 실패. ${price.gold}G가 필요합니다.`);
+  if (Number(current.recipeShards || 0) < price.recipeShards) return addLog(current, `${cosmetic.name} 구매 실패. 레시피 조각 ${price.recipeShards}개가 필요합니다.`);
+  return addLog({
+    ...current,
+    gold: Number(current.gold || 0) - price.gold,
+    recipeShards: Number(current.recipeShards || 0) - price.recipeShards,
+    cosmeticsUnlocked: [...current.cosmeticsUnlocked, cosmetic.id],
+    counters: { ...current.counters, cosmeticsBought: Number(current.counters.cosmeticsBought || 0) + 1 },
+  }, `${cosmetic.name}을 구매했습니다. ${COSMETIC_SLOT_LABELS[cosmetic.slot] || cosmetic.slot} 슬롯에서 장착할 수 있습니다.`);
+}
+
+export function equipCosmeticAction(state, cosmeticId) {
+  const current = normalizeState(state);
+  const cosmetic = COSMETICS.find((item) => item.id === cosmeticId);
+  if (!cosmetic) return addLog(current, '코스메틱 장착 실패. 존재하지 않는 항목입니다.');
+  if (!current.cosmeticsUnlocked.includes(cosmetic.id)) return addLog(current, `${cosmetic.name}을 먼저 구매해야 합니다.`);
+  if (current.equippedCosmetics?.[cosmetic.slot] === cosmetic.id) return addLog(current, `${cosmetic.name}은 이미 장착 중입니다.`);
+  const previous = COSMETICS.find((item) => item.id === current.equippedCosmetics?.[cosmetic.slot]);
+  return addLog({
+    ...current,
+    equippedCosmetics: {
+      ...current.equippedCosmetics,
+      [cosmetic.slot]: cosmetic.id,
+    },
+  }, `${cosmetic.name}을 장착했습니다.${previous ? ` 기존 ${previous.name}을 교체했습니다.` : ''} 효과: ${cosmeticEffectText(cosmetic)}`);
+}
+
 export function scoreState(state) {
   return Math.max(0, Math.round(
     Number(state.gold || 0)
@@ -898,6 +1052,7 @@ export function scoreState(state) {
     + Number(state.counters.tournamentWins || 0) * 220
     + Number(state.counters.judgeMatches || 0) * 8
     + Number(state.counters.judgeCorrect || 0) * 35
+    + Number(state.counters.cosmeticsBought || 0) * 35
     + averageStudents(state, 'morale') * 4
   ));
 }
@@ -970,6 +1125,7 @@ export function operationsReportForState(state) {
   const bestCraftable = craftableRecipes[0] || null;
   const readyResearch = researches.find((project) => !project.done && project.canResearch) || null;
   const readyFacility = facilities.find((facility) => !facility.maxed && facility.canUpgrade) || null;
+  const readyCosmetic = cosmeticRows(current).find((cosmetic) => !cosmetic.owned && cosmetic.canBuy) || null;
   const bestStudent = current.students.slice().sort((a, b) => (
     (Number(b.currentHp || 0) / Math.max(1, Number(b.hp || 1))) * 40 + Number(b.morale || 0)
     - ((Number(a.currentHp || 0) / Math.max(1, Number(a.hp || 1))) * 40 + Number(a.morale || 0))
@@ -1031,6 +1187,9 @@ export function operationsReportForState(state) {
   }
   if (readyFacility) {
     recommendations.push(buildOperationAction('facility', '시설 강화', `${readyFacility.name} Lv.${Number(readyFacility.level || 1) + 1} 업그레이드가 가능합니다.`, 'medium'));
+  }
+  if (readyCosmetic) {
+    recommendations.push(buildOperationAction('cosmetic', '코스메틱 구매', `${readyCosmetic.name} 구매가 가능합니다. ${readyCosmetic.effectText}`, 'medium'));
   }
   if (bestStudent && battleChancePct >= 55) {
     recommendations.push(buildOperationAction('battle', '전투 진행', `${bestStudent.name} 기준 ${current.floor}층 예상 승률이 ${battleChancePct}%입니다.`, 'medium'));
@@ -1224,6 +1383,7 @@ export function summaryForState(state) {
     ingredients: inventoryCount(state),
     morale: averageStudents(state, 'morale'),
     facilities: Object.values(state.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0),
+    cosmetics: Array.isArray(state.cosmeticsUnlocked) ? state.cosmeticsUnlocked.length : DEFAULT_UNLOCKED_COSMETICS.length,
     researches: Number(state.counters?.researches || 0),
     tournamentWins: Number(state.counters?.tournamentWins || 0),
     judgeMatches: Number(state.counters?.judgeMatches || 0),
