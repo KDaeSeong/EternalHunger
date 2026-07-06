@@ -193,6 +193,72 @@ function buildFocusRows({ depth, report, management, globalSummary, capitalSumma
   return rows;
 }
 
+function buildVisibilityRows(depth) {
+  const rows = [
+    {
+      label: '기본 재무',
+      minDepth: 0,
+      detail: '현금, 채권, 영업이익처럼 즉시 판단해야 하는 항목입니다.',
+    },
+    {
+      label: 'VAT',
+      minDepth: 1,
+      detail: '경영 초보부터 세금 미납과 납부 가능액을 함께 확인합니다.',
+    },
+    {
+      label: '글로벌',
+      minDepth: 2,
+      detail: '경영 중급부터 외화채권과 환율 노출을 의사결정에 반영합니다.',
+    },
+    {
+      label: '자본시장',
+      minDepth: 3,
+      detail: '경영 고급부터 공시 리스크와 투자자 신뢰를 함께 봅니다.',
+    },
+    {
+      label: '저장/감사 원자료',
+      minDepth: 4,
+      detail: '경영 달인에서는 checksum, diff, dry-run까지 직접 검토합니다.',
+    },
+  ];
+
+  return rows.map((row) => ({
+    ...row,
+    value: depth >= row.minDepth ? '노출' : '숨김',
+  }));
+}
+
+function buildDecisionRows(depth) {
+  if (depth <= 0) {
+    return [
+      { title: '돈이 들어올 곳', detail: '미수 채권과 현재 현금을 먼저 비교합니다.' },
+      { title: '이번 달 행동', detail: '채권 회수, VAT 납부, 재고 정리 중 하나를 고릅니다.' },
+    ];
+  }
+  if (depth === 1) {
+    return [
+      { title: '현금 흐름', detail: '현금, 채권, VAT가 동시에 부족해지는 구간을 찾습니다.' },
+      { title: '손익 감각', detail: '매출보다 비용이 빠르게 커지는지 확인합니다.' },
+    ];
+  }
+  if (depth === 2) {
+    return [
+      { title: 'KPI 추세', detail: '마진, 런웨이, 외화채권을 같은 기간 기준으로 비교합니다.' },
+      { title: '위험 신호', detail: '환율 노출과 미수 회수 지연이 겹치는지 봅니다.' },
+    ];
+  }
+  if (depth === 3) {
+    return [
+      { title: '외부 신뢰', detail: '공시 리스크와 투자자 신뢰가 재무 행동에 주는 영향을 확인합니다.' },
+      { title: '복원 검증', detail: 'dry-run 결과로 저장 데이터의 차이를 먼저 확인합니다.' },
+    ];
+  }
+  return [
+    { title: '원자료 대조', detail: 'checksum, table diff, dry-run 상태를 기준으로 직접 감사합니다.' },
+    { title: '추천 검증', detail: '자동 추천을 따르기 전에 근거 지표가 같은 방향인지 확인합니다.' },
+  ];
+}
+
 export function buildCompanyReportGuidance({
   level,
   state,
@@ -211,6 +277,8 @@ export function buildCompanyReportGuidance({
   const focusRows = buildFocusRows({ depth, report, management, globalSummary, capitalSummary, reportTrend, restorePlan });
   const coachLines = buildCoachLines({ depth, report, management, globalSummary, capitalSummary, reportTrend, restorePlan });
   const glossaryRows = buildGlossary(depth);
+  const visibilityRows = buildVisibilityRows(depth);
+  const decisionRows = buildDecisionRows(depth);
 
   return {
     levelId,
@@ -222,6 +290,8 @@ export function buildCompanyReportGuidance({
     focusRows,
     coachLines,
     glossaryRows,
+    visibilityRows,
+    decisionRows,
     showGlobal: depth >= 2,
     showCapital: depth >= 3,
     showHistory: depth >= 2,
@@ -270,6 +340,41 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
             <strong>{value}</strong>
           </div>
         ))}
+      </div>
+
+      <div className="company-guidance-policy">
+        <section>
+          <div className="games-panel-title">
+            <h3>숙련도별 표시 정책</h3>
+            <span>{guidance.levelShortLabel}</span>
+          </div>
+          <div className="game-advisor-policy-grid">
+            {guidance.visibilityRows.map((row) => (
+              <div key={row.label} className={row.value === '노출' ? 'is-visible' : 'is-hidden'}>
+                <span>{row.label}</span>
+                <b>{row.value}</b>
+                <small>{row.detail}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+        <section>
+          <div className="games-panel-title">
+            <h3>판단 체크</h3>
+            <span>현재 모드</span>
+          </div>
+          <div className="game-save-list">
+            {guidance.decisionRows.map((row) => (
+              <article className="game-save-row" key={row.title}>
+                <div>
+                  <span>체크</span>
+                  <strong>{row.title}</strong>
+                  <small>{row.detail}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
 
       <div className="games-detail-grid" style={{ marginTop: 14 }}>

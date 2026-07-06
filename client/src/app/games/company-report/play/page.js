@@ -65,11 +65,15 @@ import {
   vatScheduleRows,
 } from '../_lib/companyReportEngine';
 import {
+  buildCompanyReportExportCsv,
+  buildCompanyReportExportPayload,
+} from '../_lib/companyReportExportRuntime';
+import {
   CompanyReportGuidancePanel,
   buildCompanyReportGuidance,
   normalizeCompanyReportGuidanceLevel,
 } from '../_components/CompanyReportGuidancePanel';
-import { StatusBadge, actionFeedbackText, csvRows, downloadTextFile, getMarketName, getProductName, safeFilePart } from '../_lib/companyReportPlayHelpers';
+import { StatusBadge, actionFeedbackText, downloadTextFile, getMarketName, getProductName, safeFilePart } from '../_lib/companyReportPlayHelpers';
 
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
@@ -144,56 +148,11 @@ export default function CompanyReportPlayPage() {
   };
 
   const buildExportPayload = (exportedState = state) => {
-    const exportedReport = reportSummary(exportedState);
-    const exportedManagement = managementReport(exportedState);
-    const exportedGlobal = globalTradeSummary(exportedState);
-    const exportedCapital = capitalMarketSummary(exportedState);
-    const exportedRestorePlan = ledgerRestorePlan(exportedState, restoreMode, selectedRestoreTables);
-    return {
-      gameSlug: GAME_SLUG,
-      version: SAVE_VERSION,
-      exportedAt: new Date().toISOString(),
-      period: `${exportedState.company.year}-${String(exportedState.company.month).padStart(2, '0')}`,
-      score: scoreState(exportedState),
-      summary: summaryForState(exportedState),
-      report: exportedReport,
-      management: exportedManagement,
-      global: exportedGlobal,
-      capitalMarket: exportedCapital,
-      ledgerDiff: ledgerDiffRows(exportedState),
-      restorePlan: exportedRestorePlan,
-      latestProgressExport: exportedState.exportHistory[0] || null,
-    };
-  };
-
-  const buildExportCsv = (payload) => {
-    const rows = [
-      ['section', 'metric', 'value', 'before', 'after', 'delta'],
-      ['company', 'period', payload.period, '', '', ''],
-      ['company', 'score', payload.score, '', '', ''],
-      ['finance', 'cash', payload.management.cashFlow.cash, '', '', ''],
-      ['finance', 'assets', payload.report.assets, '', '', ''],
-      ['finance', 'receivables', payload.report.receivableAmount, '', '', ''],
-      ['finance', 'inventory', payload.report.inventoryAmount, '', '', ''],
-      ['income', 'sales', payload.management.income.sales, '', '', ''],
-      ['income', 'operatingProfit', payload.management.income.operatingProfit, '', '', ''],
-      ['global', 'exportSalesKrw', payload.global.exportSalesKrw, '', '', ''],
-      ['global', 'exportProfitKrw', payload.global.exportProfitKrw, '', '', ''],
-      ['capital', 'marketCapKrw', payload.capitalMarket.marketCapKrw, '', '', ''],
-      ['capital', 'investorTrust', payload.capitalMarket.investorTrust, '', '', ''],
-      ['restore', 'mode', payload.restorePlan.restoreModeLabel, '', '', ''],
-      ['restore', 'dryRunStatus', payload.restorePlan.dryRunStatus, '', '', ''],
-    ];
-    payload.ledgerDiff.forEach((row) => rows.push(['ledgerDiff', row.label, row.deltaText, row.before, row.after, row.deltaText]));
-    payload.restorePlan.tableDiffs.forEach((row) => rows.push([
-      'restoreTable',
-      row.tableName,
-      row.diffStatus,
-      row.snapshotRowCount,
-      row.currentRowCount,
-      `missing ${row.missingInCurrentCount} / extra ${row.extraInCurrentCount} / changed ${row.changedRowCount}`,
-    ]));
-    return csvRows(rows);
+    return buildCompanyReportExportPayload({
+      restoreMode,
+      selectedRestoreTables,
+      state: exportedState,
+    });
   };
 
   const downloadProgressJson = () => {
@@ -216,7 +175,7 @@ export default function CompanyReportPlayPage() {
     setActionResult(actionFeedbackText(state, exportedState, 'CSV 다운로드', '진행 보고서 CSV 다운로드 이력을 추가했습니다.'));
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.csv`,
-      buildExportCsv(payload),
+      buildCompanyReportExportCsv(payload),
       'text/csv;charset=utf-8',
     );
     showToast({ tone: 'success', message: '진행 보고서 CSV 다운로드를 준비했습니다.' });

@@ -24,6 +24,7 @@ function CharacterSkillConfigModal({
   activeSkillSlot,
   editTacticalSkill,
   manualSkillInputEnabled = false,
+  skillCompileNotice = null,
   onBackdropPointerDown,
   onBackdropPointerUp,
   onClose,
@@ -122,6 +123,14 @@ function CharacterSkillConfigModal({
                   <span>수동 편집</span>
                 </label>
               </div>
+              {skillCompileNotice ? (
+                <div className={`character-skill-compile-notice ${skillCompileNotice.tone === 'warning' ? 'is-warning' : 'is-success'}`}>
+                  <strong>{skillCompileNotice.title}</strong>
+                  {(Array.isArray(skillCompileNotice.lines) ? skillCompileNotice.lines : []).map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </div>
+              ) : null}
               {manualSkillInputEnabled ? (
                 <pre>{buildSkillCodePreview(skill)}</pre>
               ) : null}

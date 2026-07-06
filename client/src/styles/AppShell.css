@@ -5481,6 +5481,150 @@
   text-decoration: none;
 }
 
+.game-advisor-panel {
+  border-color: rgba(44, 111, 158, 0.16);
+}
+
+.game-advisor-panel--warning {
+  border-color: rgba(191, 119, 20, 0.24);
+}
+
+.game-advisor-panel--danger {
+  border-color: rgba(190, 58, 58, 0.24);
+}
+
+.game-advisor-title-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.game-advisor-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid rgba(8, 120, 189, 0.18);
+  border-radius: 8px;
+  background: #f4f9fd;
+  padding: 0 10px;
+  color: #1f5f86;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.game-advisor-toggle:hover {
+  border-color: rgba(8, 120, 189, 0.36);
+  box-shadow: 0 8px 18px rgba(22, 33, 44, 0.08);
+}
+
+.game-advisor-focus-grid,
+.game-advisor-list,
+.game-advisor-empty {
+  margin-top: 2px;
+}
+
+.game-advisor-details {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.08);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 12px;
+}
+
+.game-advisor-detail-group {
+  display: grid;
+  gap: 8px;
+}
+
+.game-advisor-detail-group > strong {
+  color: #17202a;
+  font-size: 0.86rem;
+  font-weight: 950;
+}
+
+.game-advisor-detail-group ol {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.game-advisor-detail-group li,
+.game-advisor-policy-grid > div {
+  min-width: 0;
+  color: #17202a;
+  font-size: 0.82rem;
+  font-weight: 850;
+  line-height: 1.42;
+}
+
+.game-advisor-detail-group li span,
+.game-advisor-policy-grid span {
+  display: block;
+  color: #17202a;
+  font-weight: 950;
+}
+
+.game-advisor-detail-group small,
+.game-advisor-policy-grid small {
+  display: block;
+  color: #64717d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.game-advisor-policy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.game-advisor-policy-grid > div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(22, 33, 44, 0.08);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.game-advisor-policy-grid b {
+  color: #1f5f86;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.game-advisor-policy-grid > div.is-hidden {
+  background: #f3f5f7;
+}
+
+.game-advisor-policy-grid > div.is-hidden b {
+  color: #8a96a3;
+}
+
+.company-guidance-policy {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.company-guidance-policy > section {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -6520,7 +6664,17 @@
   }
 
   .games-detail-hero,
-  .games-detail-grid {
+  .games-detail-grid,
+  .company-guidance-policy {
+    grid-template-columns: 1fr;
+  }
+
+  .game-advisor-title-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .game-advisor-policy-grid {
     grid-template-columns: 1fr;
   }
 

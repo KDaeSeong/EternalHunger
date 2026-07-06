@@ -52,6 +52,7 @@ export default function CharactersPage() {
     setEditCharacterSkillLevels,
     setEditTacticalSkill,
     setManualSkillInputEnabled,
+    skillCompileNotice,
     updateEditSkill,
     updateEditSkillLevelValue,
   } = useCharacterSkillConfigEditor({ characters, setCharacters });
@@ -265,6 +266,7 @@ export default function CharactersPage() {
         activeSkillSlot={activeSkillSlot}
         editTacticalSkill={editTacticalSkill}
         manualSkillInputEnabled={manualSkillInputEnabled}
+        skillCompileNotice={skillCompileNotice}
         onBackdropPointerDown={handleBackdropPointerDown}
         onBackdropPointerUp={handleBackdropPointerUp}
         onClose={closeConfigModal}

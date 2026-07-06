@@ -25,23 +25,15 @@ export default function SimulationMinimapHyperloopControl({
   if (day <= 0 || !destinationIds.length) return null;
 
   return (
-    <div
-      style={{
-        marginTop: 8,
-        padding: '8px 10px',
-        borderRadius: 10,
-        background: 'rgba(0,0,0,0.22)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        fontSize: 12,
-      }}
-    >
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ opacity: 0.9 }} title="하이퍼루프는 맵 내 장치(패드)에서만 사용 가능">
-          🌀 하이퍼루프
+    <div className="minimap-hyperloop-control">
+      <div className="minimap-hyperloop-row">
+        <span title="하이퍼루프는 출발 패드에서 작동하며 이동 ETA는 3초입니다.">
+          하이퍼루프
         </span>
-        <span style={{ opacity: 0.9 }}>
+        <span>
           패드: <b>{hyperloopPadName || hyperloopPadZoneId || '자동'}</b>
         </span>
+        <small>AI 이동은 하이퍼루프 출발 구역에서 같은 맵의 원하는 구역까지 3초 이동으로 계산됩니다.</small>
 
         {isSelectedCharOnHyperloopPad ? (
           <>
@@ -49,20 +41,12 @@ export default function SimulationMinimapHyperloopControl({
               value={hyperloopDestId}
               onChange={(e) => setHyperloopDestId(e.target.value)}
               disabled={disabled}
-              title="어드민(맵)에서 설정한 하이퍼루프 목적지(로컬 저장)"
-              style={{
-                padding: '6px 8px',
-                fontSize: 12,
-                borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.18)',
-                background: 'rgba(0,0,0,0.20)',
-                color: '#fff',
-              }}
+              title="연결된 목적지를 선택합니다."
             >
               {destinationIds.map((id) => {
                 const map = safeArray(maps).find((entry) => String(entry?._id) === String(id)) || null;
                 return (
-                  <option key={`hl-mm-${id}`} value={id} style={{ color: '#000' }}>
+                  <option key={`hl-mm-${id}`} value={id}>
                     {map?.name || id}
                   </option>
                 );
@@ -72,14 +56,13 @@ export default function SimulationMinimapHyperloopControl({
               className="btn-secondary"
               onClick={() => doHyperloopJump(hyperloopDestId, selectedCharId)}
               disabled={disabled || !hyperloopDestId || !selectedCharId}
-              style={{ padding: '6px 10px', fontSize: 12 }}
-              title="하이퍼루프: 선택 캐릭터만 목적지 맵으로 즉시 이동"
+              title="선택한 캐릭터를 목적지로 이동시킵니다."
             >
-              🌀 이동
+              이동
             </button>
           </>
         ) : (
-          <span style={{ opacity: 0.75 }} title="선택 캐릭터가 패드 구역에 있어야 사용할 수 있습니다.">
+          <span className="minimap-hyperloop-muted" title="선택 캐릭터가 패드 구역에 있어야 수동 이동할 수 있습니다.">
             선택 캐릭터가 패드 구역에 있어야 사용 가능
           </span>
         )}

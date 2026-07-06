@@ -1094,6 +1094,33 @@ main {
     word-break: break-word;
 }
 
+.character-skill-compile-notice {
+    display: grid;
+    gap: 4px;
+    border: 1px solid #b7d8c5;
+    border-radius: 10px;
+    background: #f0fdf4;
+    padding: 10px 12px;
+    color: #14532d;
+}
+
+.character-skill-compile-notice.is-warning {
+    border-color: #f1c27d;
+    background: #fffbeb;
+    color: #7c4a03;
+}
+
+.character-skill-compile-notice strong {
+    font-size: 0.88rem;
+    font-weight: 950;
+}
+
+.character-skill-compile-notice span {
+    font-size: 0.76rem;
+    font-weight: 800;
+    line-height: 1.45;
+}
+
 .character-skill-level-editor {
     display: grid;
     gap: 6px;
