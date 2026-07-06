@@ -8,7 +8,7 @@ import {
   effectMetaByName,
   normalizeStatusEffect,
   safeTags,
-} from './statusEffectDefinitions';
+} from './statusEffectDefinitions.js';
 
 export function getEffectValueTotal(character, effectName, valueKey) {
   const key = canonicalizeEffectName(effectName);

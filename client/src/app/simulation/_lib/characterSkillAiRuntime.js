@@ -1,4 +1,4 @@
-import { getEffectiveStats } from '../../../utils/statusLogic';
+import { getEffectiveStats } from '../../../utils/statusLogic.js';
 
 function actorId(actor) {
   return String(actor?._id || actor?.id || '');

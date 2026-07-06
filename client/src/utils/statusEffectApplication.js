@@ -4,8 +4,8 @@ import {
   effectMetaByName,
   normalizeStatusEffect,
   safeTags,
-} from './statusEffectDefinitions';
-import { applyHealingModifier } from './statusEffectSelectors';
+} from './statusEffectDefinitions.js';
+import { applyHealingModifier } from './statusEffectSelectors.js';
 
 function collectImmunities(character) {
   const out = new Set();

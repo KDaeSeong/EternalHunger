@@ -28,7 +28,7 @@ export {
   makeStatusValueEffect,
   normalizeStatusEffect,
   normalizeStatusEffectList,
-} from './statusEffectDefinitions';
+} from './statusEffectDefinitions.js';
 
 export {
   applyHealingModifier,
@@ -42,7 +42,7 @@ export {
   getRegenValue,
   getShieldValue,
   hasActionBlockStatus,
-} from './statusEffectSelectors';
+} from './statusEffectSelectors.js';
 
 export {
   absorbShieldDamage,
@@ -50,6 +50,6 @@ export {
   hasEffectImmunity,
   purgeNegativeEffects,
   updateEffects,
-} from './statusEffectApplication';
+} from './statusEffectApplication.js';
 
-export { getEffectiveStats } from './statusEffectiveStats';
+export { getEffectiveStats } from './statusEffectiveStats.js';

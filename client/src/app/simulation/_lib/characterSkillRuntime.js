@@ -11,13 +11,13 @@ import {
   levelValue,
   normalizeSkillState,
   resolveCharacterSkillCode,
-} from './characterSkillDefinitionRuntime';
-import { selectCharacterSkillAiDecision } from './characterSkillAiRuntime';
+} from './characterSkillDefinitionRuntime.js';
+import { selectCharacterSkillAiDecision } from './characterSkillAiRuntime.js';
 import {
   addOrRefreshEffect,
   getEffectiveStats,
   makeShieldEffect,
-} from '../../../utils/statusLogic';
+} from '../../../utils/statusLogic.js';
 
 function readPct(value) {
   const n = Number(value);
@@ -148,6 +148,7 @@ function canTriggerWithBaseDamage(def, rawBaseDamage) {
 function buildSplashHits(attacker, defender, def, idx, stage, settings, splashTargets) {
   const radius = Number(def.radius || 0);
   if (radius <= 0 || !Array.isArray(splashTargets)) return [];
+  if (stage < 2 && String(def?.type || '') === BASIC_ATTACK_RECAST_TYPE && hasSecondStagePayload(def)) return [];
   return splashTargets
     .filter((target) => target && actorId(target) !== actorId(defender) && Number(target?.hp || 0) > 0)
     .map((target) => {
@@ -316,6 +317,8 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
   const splashHits = results.flatMap((result) => Array.isArray(result.splashHits) ? result.splashHits : []);
   const maxHpDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.maxHpDamage || 0)), 0);
   const currentHpDamage = results.reduce((sum, result) => sum + Math.max(0, Number(result.currentHpDamage || 0)), 0);
+  const heal = results.reduce((sum, result) => sum + Math.max(0, Number(result.heal || 0)), 0);
+  const shield = results.reduce((sum, result) => sum + Math.max(0, Number(result.shield || 0)), 0);
   const actionLockSec = results.reduce((max, result) => Math.max(max, Number(result.timing?.actionLockSec || 0)), 0);
   const castDelaySec = results.reduce((max, result) => Math.max(max, Number(result.timing?.castDelaySec || 0)), 0);
   const recoveryDelaySec = results.reduce((max, result) => Math.max(max, Number(result.timing?.recoveryDelaySec || 0)), 0);
@@ -330,6 +333,8 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
     slot: first.slot,
     maxHpDamage,
     currentHpDamage,
+    heal,
+    shield,
     actionLockSec,
     castDelaySec,
     recoveryDelaySec,

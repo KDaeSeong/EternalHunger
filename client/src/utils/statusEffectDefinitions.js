@@ -1,4 +1,4 @@
-import { normalizeErStatDeltaMap } from './erStats';
+import { normalizeErStatDeltaMap } from './erStats.js';
 
 export const EFFECT_POISON = '중독';
 export const EFFECT_BURN = '화상';

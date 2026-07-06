@@ -1,6 +1,6 @@
-import { normalizeErStats, normalizeErStatDeltaMap, ER_STAT_KEYS, getEffectiveErStats } from './erStats';
-import { applyMasteryStatBonuses } from './masteryLogic';
-import { effectMetaByName, normalizeStatusEffect } from './statusEffectDefinitions';
+import { normalizeErStats, normalizeErStatDeltaMap, ER_STAT_KEYS, getEffectiveErStats } from './erStats.js';
+import { applyMasteryStatBonuses } from './masteryLogic.js';
+import { effectMetaByName, normalizeStatusEffect } from './statusEffectDefinitions.js';
 
 function getPassiveSkillStatModifiers(character) {
   const passive = character?.characterSkills?.passive;
