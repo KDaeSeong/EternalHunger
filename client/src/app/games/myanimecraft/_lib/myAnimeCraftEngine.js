@@ -1585,6 +1585,77 @@ function broadcastFinishReadLine(winnerName, winnerBuild, closeGame, isAceSet) {
   return `${winnerName}이 ${buildName(winnerBuild)}로 만든 우위를 끝까지 놓치지 않습니다. 마무리 각이 보입니다.`;
 }
 
+function broadcastReplayCenterLine(rng, { winnerName, loserName, winnerBuild, loserBuild, closeGame, map, homeWin, pHome, noisyDiff }) {
+  const favoriteHome = Number(pHome || 0.5) >= 0.56;
+  const favoriteAway = Number(pHome || 0.5) <= 0.44;
+  const upset = (favoriteHome && !homeWin) || (favoriteAway && homeWin);
+  if (upset) {
+    return pickLine(rng, [
+      `리플레이로 보면 ${winnerName}의 첫 대응이 제일 컸습니다. 불리한 예측값을 빌드가 아니라 위치 선정으로 뒤집었습니다.`,
+      `${winnerName}이 예상 흐름을 깨뜨린 장면입니다. ${loserName}은 준비한 방향은 맞았는데, 첫 교전 장소를 강요당했습니다.`,
+    ]);
+  }
+  if (closeGame) {
+    return pickLine(rng, [
+      `리플레이센터에서 잡은 장면은 마지막 교전 전 병력 방향입니다. ${winnerName}이 반 박자 먼저 중앙을 잡은 게 차이였습니다.`,
+      `승부처를 다시 보면 ${map.name} 중앙 시야가 갈렸습니다. ${loserName}이 한 화면 늦게 반응하면서 마지막 화력이 모자랐습니다.`,
+    ]);
+  }
+  if (winnerBuild.style === 'rush') {
+    return pickLine(rng, [
+      `${winnerName}의 ${buildName(winnerBuild)}는 정찰 타이밍을 찌른 빌드입니다. ${loserName}이 본 순간에는 이미 방어선이 얇았습니다.`,
+      `초반 리플레이를 보면 ${winnerName}이 병력 도착 시간을 거의 낭비하지 않았습니다. 러시 거리가 그대로 주도권이 됐습니다.`,
+    ]);
+  }
+  if (winnerBuild.style === 'harass') {
+    return pickLine(rng, [
+      `${winnerName}은 큰 한 방보다 누적 피해로 이겼습니다. 일꾼, 시야, 생산 동선이 조금씩 밀리면서 ${loserName}이 먼저 흔들렸습니다.`,
+      `견제 장면을 다시 보면 피해량보다 중요한 건 수비 병력 위치였습니다. ${loserName}의 본대 합류가 계속 늦어졌습니다.`,
+    ]);
+  }
+  if (winnerBuild.style === 'tech') {
+    return pickLine(rng, [
+      `${winnerName}의 ${buildName(winnerBuild)}가 공개된 타이밍에 ${loserName}의 정찰이 끊겼습니다. 대응 병력이 엉뚱한 쪽에 섰습니다.`,
+      `숨긴 테크가 먹힌 이유는 속도보다 정보 차이였습니다. ${loserName}이 준비할 수 있는 시간이 거의 없었습니다.`,
+    ]);
+  }
+  if (loserBuild.style === 'rush') {
+    return pickLine(rng, [
+      `${loserName}의 초반 압박은 나쁘지 않았습니다. 다만 ${winnerName}이 첫 수비를 넘기자마자 생산과 멀티 차이가 벌어졌습니다.`,
+      `초반 러시를 막은 뒤 흐름이 완전히 바뀌었습니다. ${winnerName}이 역공보다 복구와 확장을 먼저 고른 판단이 좋았습니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${winnerName}은 무리하지 않았습니다. ${buildName(winnerBuild)} 흐름에서 센터와 멀티를 같이 잡으면서 체감 주도권을 확실히 만들었습니다.`,
+    `리플레이 핵심은 운영 순서입니다. ${winnerName}이 병력 회전, 멀티, 시야를 한 번에 맞추면서 ${loserName}이 역습 각을 못 잡았습니다.`,
+  ]);
+}
+
+function broadcastBenchReactionLine(rng, { winnerName, loserName, isAceSet, scoreHome, scoreAway, closeGame }) {
+  if (isAceSet) {
+    return pickLine(rng, [
+      `${winnerName} 벤치가 크게 일어납니다. 에이스전 한 세트는 승점보다 다음 엔트리 신뢰까지 가져갑니다.`,
+      `${loserName} 쪽은 표정이 굳었습니다. 에이스전 패배는 단순한 1패가 아니라 시리즈 플랜 전체가 흔들리는 장면입니다.`,
+    ]);
+  }
+  if (scoreHome === 2 || scoreAway === 2) {
+    return pickLine(rng, [
+      `${winnerName} 쪽 벤치는 이제 끝낼 수 있다는 표정입니다. 반대로 ${loserName} 쪽은 다음 세트 카드가 굉장히 무거워졌습니다.`,
+      `매치 포인트 구간에서 나온 승리라 체감이 큽니다. ${winnerName} 쪽은 엔트리 선택 폭이 확 넓어졌습니다.`,
+    ]);
+  }
+  if (closeGame) {
+    return pickLine(rng, [
+      `양쪽 벤치 모두 손에 땀이 나는 세트였습니다. ${winnerName}이 가져갔지만 ${loserName}도 다음 세트에 바로 반격할 근거는 남겼습니다.`,
+      `이런 접전은 패한 쪽도 무너지지 않습니다. ${loserName}은 빌드보다 마지막 교전 판단만 복기하면 됩니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${winnerName} 쪽 벤치 분위기가 가벼워집니다. 준비한 방향이 통했다는 확신이 생기는 승리입니다.`,
+    `${loserName} 쪽은 바로 피드백이 필요합니다. 빌드가 틀렸다기보다 첫 대응 순서가 늦었습니다.`,
+  ]);
+}
+
 function buildSetTimeline({
   rng,
   setNo,
@@ -1624,6 +1695,25 @@ function buildSetTimeline({
       : `${leaderName}이 ${buildStyleName(leaderBuild)} 주도권을 잡았습니다. 다음 장면은 센터 장악이냐 역습이냐입니다.`),
     buildTimelineLine(Math.round(durationSec * 0.63), '캐스터', broadcastSwingReadLine(winnerName, leaderName, closeGame, homeWin, pHome)),
     buildTimelineLine(Math.round(durationSec * 0.78), '해설', broadcastFinishReadLine(winnerName, winnerBuild, closeGame, isAceSet)),
+    buildTimelineLine(Math.max(0, durationSec - 42), '리플레이센터', broadcastReplayCenterLine(rng, {
+      winnerName,
+      loserName,
+      winnerBuild,
+      loserBuild: homeWin ? awayBuild : homeBuild,
+      closeGame,
+      map,
+      homeWin,
+      pHome,
+      noisyDiff,
+    })),
+    buildTimelineLine(Math.max(0, durationSec - 18), '벤치', broadcastBenchReactionLine(rng, {
+      winnerName,
+      loserName,
+      isAceSet,
+      scoreHome,
+      scoreAway,
+      closeGame,
+    })),
     buildTimelineLine(durationSec, '캐스터', `${winnerName} 승리! ${formatGameClock(durationSec)}, ${setNo}세트 여기서 끝납니다!`),
   ].sort((a, b) => a.t - b.t);
 }
