@@ -264,7 +264,7 @@ export default function Rail3dSimPlayPage() {
                     <ActionButton onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
                     <ActionButton onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
                   </div>
-                  <RecentActionResult label="?? ?? ??" text={recentActionText} pinned />
+                  <RecentActionResult label="최근 운행 결과" text={recentActionText} pinned />
                 </section>
               </section>
             ),

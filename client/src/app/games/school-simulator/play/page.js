@@ -364,7 +364,7 @@ export default function SchoolSimulatorPlayPage() {
                     </ActionButton>
                     <ActionButton onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
                   </div>
-                  <RecentActionResult label="?? ?? ??" text={recentActionText} pinned />
+                  <RecentActionResult label="최근 학교 운영 결과" text={recentActionText} pinned />
                 </section>
               </section>
             ),

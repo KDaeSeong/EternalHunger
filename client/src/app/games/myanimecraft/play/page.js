@@ -321,7 +321,7 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
             <ActionButton disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
           </div>
-          <RecentActionResult label="?? ?? ??" text={recentActionText} pinned />
+          <RecentActionResult label="최근 경기 결과" text={recentActionText} pinned />
           {matchArchiveRows.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {matchArchiveRows.slice(0, 6).map((match) => (
