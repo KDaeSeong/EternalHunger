@@ -28,7 +28,7 @@ npm run build
 
 ## Current State
 
-- `client/src/app/games/company-report/play/page.js` was reduced to roughly 375 lines.
+- `client/src/app/games/company-report/play/page.js` is roughly 380 lines and delegates panels, persistence, selections, and derived view data.
 - Company Report tab UI now lives in `client/src/app/games/company-report/_components/CompanyReportFeatureTabs.js`.
 - Company Report lower detail panel layout now lives in `client/src/app/games/company-report/_components/CompanyReportDetailPanels.js`.
 - Company Report lower detail feature groups now live in:
@@ -37,6 +37,7 @@ npm run build
   - `client/src/app/games/company-report/_components/CompanyReportManagementPanels.js`
   - `client/src/app/games/company-report/_components/CompanyReportVatInventoryPanels.js`
 - Company Report shell metrics and message builders now live in `client/src/app/games/company-report/_lib/companyReportPageRuntime.js`.
+- Company Report read-only play view model now lives in `client/src/app/games/company-report/_lib/companyReportPlayViewModel.js`.
 - Company Report save/load/record actions now live in `client/src/app/games/company-report/_hooks/useCompanyReportPersistence.js`.
 - Company Report controlled selections now live in `client/src/app/games/company-report/_hooks/useCompanyReportSelections.js`.
 - Last verified checks before commit:
@@ -80,9 +81,9 @@ npm run build
 
 Goal completed: `CompanyReportDetailPanels.js` is no longer a 700+ line component.
 
-## Priority 1: Continue Company Report Page Runtime Coupling Reduction
+## Completed: Company Report Page Runtime Coupling Reduction
 
-After the panel and hook split, continue moving page-local runtime logic out of `play/page.js` only where it makes the page easier to reason about:
+After the panel and hook split, page-local runtime logic was moved out of `play/page.js` where it made the page easier to reason about:
 
 1. Done: create a hook for save/load/record actions.
    - Candidate name: `useCompanyReportPersistence`.
@@ -92,11 +93,12 @@ After the panel and hook split, continue moving page-local runtime logic out of 
    - Candidate name: `useCompanyReportSelections`.
    - Moved partner/product/order/receivable/VAT/global/capital selection state and reset helpers.
 
-3. Next: review whether derived row/selected entity assembly should be grouped into a read-only view-model helper.
+3. Done: group derived row/selected entity assembly into a read-only view-model helper.
+   - File: `client/src/app/games/company-report/_lib/companyReportPlayViewModel.js`.
 
-4. Keep actual ledger mutations in one visible place unless the action list becomes clearly reusable.
+4. Current decision: keep actual ledger mutations in one visible place unless the action list becomes clearly reusable.
 
-## Priority 2: Simulation Skill Layer
+## Priority 1: Simulation Skill Layer
 
 Resume the skill AI work after UI splitting is stable:
 
@@ -123,7 +125,7 @@ Resume the skill AI work after UI splitting is stable:
 4. Sample target:
    - Bihyeong Q should support first cast single-target bonus damage and second cast within 5 seconds as area damage with current-health percent scaling.
 
-## Priority 3: Simulation Map And Movement UX
+## Priority 2: Simulation Map And Movement UX
 
 The simulation is still mostly text-driven. Next visual target:
 
@@ -133,7 +135,7 @@ The simulation is still mostly text-driven. Next visual target:
 4. Make hyperloop usage visible and strategic.
 5. Keep the existing log as a secondary panel, not the primary experience.
 
-## Priority 4: Simulation Economy And Survival Rules
+## Priority 3: Simulation Economy And Survival Rules
 
 Re-check and finish the remaining simulation behavior requests:
 
@@ -156,7 +158,7 @@ Re-check and finish the remaining simulation behavior requests:
    - Runs manipulated by developer tools should not grant rewards.
    - Show warning before enabling developer tools.
 
-## Priority 5: Game UI/UX Follow-up
+## Priority 4: Game UI/UX Follow-up
 
 Continue the game-by-game polish pass:
 
@@ -172,7 +174,7 @@ Run targeted checks while editing:
 
 ```powershell
 cd client
-npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
+npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run build
 ```
 

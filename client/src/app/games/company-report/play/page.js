@@ -8,26 +8,9 @@ import GamePlayShell from '../../_components/GamePlayShell';
 import {
   GAME_SLUG,
   SAVE_VERSION,
-  capitalMarketSummary,
   createNewState,
   createProgressExportAction,
-  globalMarketRows,
-  globalReceivableRows,
-  globalTradeSummary,
-  inventoryRows,
-  inventoryValuationRows,
-  inventoryWriteDownRows,
-  ledgerDiffRows,
-  ledgerRestorePlan,
-  managementReport,
-  orderRows,
   payVatAction,
-  receivableRows,
-  reportSummary,
-  reportHistoryTrend,
-  scoreState,
-  vatPaymentRows,
-  vatScheduleRows,
 } from '../_lib/companyReportEngine';
 import {
   buildCompanyReportExportCsv,
@@ -38,6 +21,7 @@ import {
   buildCompanyReportMessages,
   buildCompanyReportMetrics,
 } from '../_lib/companyReportPageRuntime';
+import { buildCompanyReportPlayViewModel } from '../_lib/companyReportPlayViewModel';
 import CompanyReportDetailPanels from '../_components/CompanyReportDetailPanels';
 import CompanyReportFeatureTabs from '../_components/CompanyReportFeatureTabs';
 import {
@@ -90,7 +74,54 @@ export default function CompanyReportPlayPage() {
     vatPaymentAmount,
   } = useCompanyReportSelections();
 
-  const score = scoreState(state);
+  const viewModel = useMemo(() => buildCompanyReportPlayViewModel({
+    restoreMode,
+    selectedForeignArId,
+    selectedOrderId,
+    selectedReceivableId,
+    selectedRestoreTables,
+    selectedVatKey,
+    state,
+    vatPaymentAmount,
+  }), [
+    restoreMode,
+    selectedForeignArId,
+    selectedOrderId,
+    selectedReceivableId,
+    selectedRestoreTables,
+    selectedVatKey,
+    state,
+    vatPaymentAmount,
+  ]);
+  const {
+    capitalSummary,
+    foreignReceivables,
+    globalSummary,
+    inventoryValuations,
+    inventoryWriteDowns,
+    latestBookmark,
+    latestExport,
+    latestRestore,
+    latestSettlement,
+    latestSnapshot,
+    ledgerDiff,
+    management,
+    markets,
+    orders,
+    receivables,
+    report,
+    reportTrend,
+    restorePlan,
+    score,
+    selectedForeignAr,
+    selectedOrder,
+    selectedReceivable,
+    selectedVatRow,
+    stocks,
+    vatPayAmount,
+    vatPayments,
+    vatSchedule,
+  } = viewModel;
   const {
     busy,
     loadRun,
@@ -109,25 +140,6 @@ export default function CompanyReportPlayPage() {
     state,
     token,
   });
-  const report = useMemo(() => reportSummary(state), [state]);
-  const management = useMemo(() => managementReport(state), [state]);
-  const reportTrend = useMemo(() => reportHistoryTrend(state), [state]);
-  const globalSummary = useMemo(() => globalTradeSummary(state), [state]);
-  const capitalSummary = useMemo(() => capitalMarketSummary(state), [state]);
-  const markets = useMemo(() => globalMarketRows(), []);
-  const stocks = useMemo(() => inventoryRows(state), [state]);
-  const inventoryValuations = useMemo(() => inventoryValuationRows(state), [state]);
-  const inventoryWriteDowns = useMemo(() => inventoryWriteDownRows(state), [state]);
-  const orders = useMemo(() => orderRows(state), [state]);
-  const receivables = useMemo(() => receivableRows(state), [state]);
-  const vatSchedule = useMemo(() => vatScheduleRows(state), [state]);
-  const vatPayments = useMemo(() => vatPaymentRows(state), [state]);
-  const foreignReceivables = useMemo(() => globalReceivableRows(state), [state]);
-  const ledgerDiff = useMemo(() => ledgerDiffRows(state), [state]);
-  const restorePlan = useMemo(() => ledgerRestorePlan(state, restoreMode, selectedRestoreTables), [state, restoreMode, selectedRestoreTables]);
-  const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders.find((order) => order.status === 'CONFIRMED') || orders[0];
-  const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId) || receivables.find((ar) => ar.remaining > 0) || receivables[0];
-  const selectedVatRow = vatSchedule.find((row) => row.id === selectedVatKey) || vatSchedule.find((row) => row.remainingAmount > 0) || vatSchedule[0];
   const guidance = buildCompanyReportGuidance({
     level: guidanceLevel,
     state,
@@ -139,13 +151,6 @@ export default function CompanyReportPlayPage() {
     restorePlan,
     selectedVatRow,
   });
-  const selectedForeignAr = foreignReceivables.find((ar) => ar.id === selectedForeignArId) || foreignReceivables.find((ar) => ar.remainingKrw > 0) || foreignReceivables[0];
-  const vatPayAmount = Math.max(0, Math.round(Number(vatPaymentAmount || selectedVatRow?.remainingAmount || 0)));
-  const latestSettlement = report.latestSettlement;
-  const latestSnapshot = state.ledgerSnapshots[0];
-  const latestBookmark = state.reportBookmarks[0];
-  const latestExport = state.exportHistory[0];
-  const latestRestore = state.restoreHistory[0];
   const exportBaseName = buildCompanyReportExportBaseName(state);
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 원장 액션이 없습니다.';
 
