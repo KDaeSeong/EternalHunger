@@ -3,17 +3,10 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
-  CAPITAL_DISCLOSURE_TYPES,
-  CAPITAL_FINANCING_TYPES,
   GAME_SLUG,
-  GLOBAL_MARKETS,
-  PARTNERS,
-  PRODUCTS,
-  QUICK_SAVE_SLOT,
   SAVE_VERSION,
   capitalMarketSummary,
   createNewState,
@@ -21,21 +14,18 @@ import {
   globalMarketRows,
   globalReceivableRows,
   globalTradeSummary,
-  getPlayTimeSec,
   inventoryRows,
   inventoryValuationRows,
   inventoryWriteDownRows,
   ledgerDiffRows,
   ledgerRestorePlan,
   managementReport,
-  normalizeState,
   orderRows,
   payVatAction,
   receivableRows,
   reportSummary,
   reportHistoryTrend,
   scoreState,
-  summaryForState,
   vatPaymentRows,
   vatScheduleRows,
 } from '../_lib/companyReportEngine';
@@ -53,8 +43,9 @@ import CompanyReportFeatureTabs from '../_components/CompanyReportFeatureTabs';
 import {
   CompanyReportGuidancePanel,
   buildCompanyReportGuidance,
-  normalizeCompanyReportGuidanceLevel,
 } from '../_components/CompanyReportGuidancePanel';
+import useCompanyReportPersistence from '../_hooks/useCompanyReportPersistence';
+import useCompanyReportSelections from '../_hooks/useCompanyReportSelections';
 import { actionFeedbackText, downloadTextFile, safeFilePart } from '../_lib/companyReportPlayHelpers';
 
 export default function CompanyReportPlayPage() {
@@ -63,26 +54,61 @@ export default function CompanyReportPlayPage() {
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
   const [guidanceLevel, setGuidanceLevel] = useState('outsider');
-  const [partnerId, setPartnerId] = useState(PARTNERS[0].id);
-  const [productId, setProductId] = useState(PRODUCTS[0].id);
-  const [quantity, setQuantity] = useState(40);
-  const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [selectedReceivableId, setSelectedReceivableId] = useState('');
-  const [globalMarketId, setGlobalMarketId] = useState(GLOBAL_MARKETS[0].id);
-  const [globalProductId, setGlobalProductId] = useState(PRODUCTS[0].id);
-  const [globalUnits, setGlobalUnits] = useState(120);
-  const [selectedForeignArId, setSelectedForeignArId] = useState('');
-  const [disclosureTypeId, setDisclosureTypeId] = useState(CAPITAL_DISCLOSURE_TYPES[0].id);
-  const [financingTypeId, setFinancingTypeId] = useState(CAPITAL_FINANCING_TYPES[0].id);
-  const [restoreMode, setRestoreMode] = useState('FULL_LEDGER');
-  const [selectedRestoreTables, setSelectedRestoreTables] = useState('sales_order, account_receivable, inventory_balance, vat_payment, inventory_valuation, inventory_write_down');
-  const [selectedVatKey, setSelectedVatKey] = useState('');
-  const [vatPaymentAmount, setVatPaymentAmount] = useState('');
-  const [busy, setBusy] = useState('');
-  const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
+  const {
+    disclosureTypeId,
+    financingTypeId,
+    globalMarketId,
+    globalProductId,
+    globalUnits,
+    partnerId,
+    productId,
+    quantity,
+    resetForLoadedRun,
+    resetForNewRun,
+    restoreMode,
+    selectedForeignArId,
+    selectedOrderId,
+    selectedReceivableId,
+    selectedRestoreTables,
+    selectedVatKey,
+    setDisclosureTypeId,
+    setFinancingTypeId,
+    setGlobalMarketId,
+    setGlobalProductId,
+    setGlobalUnits,
+    setPartnerId,
+    setProductId,
+    setQuantity,
+    setRestoreMode,
+    setSelectedForeignArId,
+    setSelectedOrderId,
+    setSelectedReceivableId,
+    setSelectedRestoreTables,
+    setSelectedVatKey,
+    setVatPaymentAmount,
+    vatPaymentAmount,
+  } = useCompanyReportSelections();
 
   const score = scoreState(state);
+  const {
+    busy,
+    loadRun,
+    message,
+    recordRun,
+    saveRun,
+    setMessage,
+  } = useCompanyReportPersistence({
+    guidanceLevel,
+    onLoaded: resetForLoadedRun,
+    score,
+    setActionResult,
+    setGuidanceLevel,
+    setState,
+    showToast,
+    state,
+    token,
+  });
   const report = useMemo(() => reportSummary(state), [state]);
   const management = useMemo(() => managementReport(state), [state]);
   const reportTrend = useMemo(() => reportHistoryTrend(state), [state]);
@@ -196,113 +222,9 @@ export default function CompanyReportPlayPage() {
   const startNewRun = () => {
     const nextState = createNewState();
     setState(nextState);
-    setPartnerId(PARTNERS[0].id);
-    setProductId(PRODUCTS[0].id);
-    setQuantity(40);
-    setSelectedOrderId('');
-    setSelectedReceivableId('');
-    setGlobalMarketId(GLOBAL_MARKETS[0].id);
-    setGlobalProductId(PRODUCTS[0].id);
-    setGlobalUnits(120);
-    setSelectedForeignArId('');
-    setDisclosureTypeId(CAPITAL_DISCLOSURE_TYPES[0].id);
-    setFinancingTypeId(CAPITAL_FINANCING_TYPES[0].id);
-    setRestoreMode('FULL_LEDGER');
-    setSelectedRestoreTables('sales_order, account_receivable, inventory_balance, vat_payment, inventory_valuation, inventory_write_down');
-    setSelectedVatKey('');
-    setVatPaymentAmount('');
+    resetForNewRun();
     setActionResult('새 Company Report 원장을 시작했습니다.');
     setMessage('');
-  };
-
-  const saveRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 Company Report 원장 상태를 저장할 수 있습니다.');
-      return;
-    }
-    setBusy('save');
-    try {
-      await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `Company Report ${state.company.year}-${String(state.company.month).padStart(2, '0')}`,
-        version: SAVE_VERSION,
-        summary: summaryForState(state),
-        payload: { state, guidanceLevel },
-        lastPlayedAt: new Date().toISOString(),
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-saves');
-      setMessage('Company Report 원장 상태를 저장했습니다.');
-      setActionResult('Company Report 원장 상태를 저장 슬롯에 저장했습니다.');
-      showToast({ tone: 'success', message: 'Company Report 원장 상태를 저장했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const loadRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 저장된 Company Report 원장 상태를 불러올 수 있습니다.');
-      return;
-    }
-    setBusy('load');
-    try {
-      const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
-      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
-      if (!quickSave?.id) {
-        setMessage('저장된 Company Report 원장 상태가 없습니다.');
-        return;
-      }
-      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      const payload = detail?.save?.payload || {};
-      const nextState = normalizeState(payload.state);
-      setState(nextState);
-      setGuidanceLevel(normalizeCompanyReportGuidanceLevel(payload.guidanceLevel));
-      setSelectedOrderId('');
-      setSelectedReceivableId('');
-      setSelectedVatKey('');
-      setVatPaymentAmount('');
-      setMessage('저장된 Company Report 원장 상태를 불러왔습니다.');
-      setActionResult(nextState.log?.[0] || '저장된 Company Report 원장 상태를 불러왔습니다.');
-      showToast({ tone: 'success', message: '저장된 Company Report 원장 상태를 불러왔습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const recordRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 Company Report 결산 기록을 전적에 남길 수 있습니다.');
-      return;
-    }
-    setBusy('record');
-    try {
-      await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `Company Report - ${state.company.year}-${String(state.company.month).padStart(2, '0')}`,
-        mode: 'business-ledger',
-        result: 'ledger-score',
-        score,
-        playTimeSec: getPlayTimeSec(state),
-        summary: summaryForState(state),
-        payload: { state, guidanceLevel },
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-records');
-      setMessage('Company Report 결산 기록을 전적에 남겼습니다.');
-      setActionResult('Company Report 결산 기록을 전적에 남겼습니다.');
-      showToast({ tone: 'success', message: 'Company Report 결산 기록을 전적에 남겼습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
   };
 
   const actions = (

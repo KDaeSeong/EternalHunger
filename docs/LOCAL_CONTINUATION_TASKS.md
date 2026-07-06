@@ -1,7 +1,7 @@
 # Local Continuation Tasks
 
 Updated: 2026-07-06 KST
-Latest pushed commit: `c353970 Split company report play page`
+Latest pushed commit: check `git log -1 --oneline origin/main` after pulling.
 
 This document is the handoff list for continuing work on another machine.
 
@@ -28,19 +28,26 @@ npm run build
 
 ## Current State
 
-- `client/src/app/games/company-report/play/page.js` was reduced to 453 lines.
+- `client/src/app/games/company-report/play/page.js` was reduced to roughly 375 lines.
 - Company Report tab UI now lives in `client/src/app/games/company-report/_components/CompanyReportFeatureTabs.js`.
-- Company Report lower detail panels now live in `client/src/app/games/company-report/_components/CompanyReportDetailPanels.js`.
+- Company Report lower detail panel layout now lives in `client/src/app/games/company-report/_components/CompanyReportDetailPanels.js`.
+- Company Report lower detail feature groups now live in:
+  - `client/src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js`
+  - `client/src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js`
+  - `client/src/app/games/company-report/_components/CompanyReportManagementPanels.js`
+  - `client/src/app/games/company-report/_components/CompanyReportVatInventoryPanels.js`
 - Company Report shell metrics and message builders now live in `client/src/app/games/company-report/_lib/companyReportPageRuntime.js`.
+- Company Report save/load/record actions now live in `client/src/app/games/company-report/_hooks/useCompanyReportPersistence.js`.
+- Company Report controlled selections now live in `client/src/app/games/company-report/_hooks/useCompanyReportSelections.js`.
 - Last verified checks before commit:
-  - targeted Espree parse
+  - targeted `node --check`
   - targeted ESLint
   - `git diff --check`
   - `npm run build`
 
-## Priority 1: Continue Company Report Splitting
+## Completed: Company Report Splitting
 
-`CompanyReportDetailPanels.js` is still large at roughly 785 lines. Split it by feature group:
+`CompanyReportDetailPanels.js` is now a thin layout coordinator. Its feature groups were split into:
 
 1. `CompanyReportVatInventoryPanels.js`
    - VAT schedule
@@ -71,23 +78,25 @@ npm run build
    - inventory ledger
    - operation log
 
-Goal: make `CompanyReportDetailPanels.js` a thin layout coordinator, not a 700+ line component.
+Goal completed: `CompanyReportDetailPanels.js` is no longer a 700+ line component.
 
-## Priority 2: Reduce Company Report Page Runtime Coupling
+## Priority 1: Continue Company Report Page Runtime Coupling Reduction
 
-After the panel split, consider moving page-local runtime logic out of `play/page.js`:
+After the panel and hook split, continue moving page-local runtime logic out of `play/page.js` only where it makes the page easier to reason about:
 
-1. Create a hook for save/load/record actions.
+1. Done: create a hook for save/load/record actions.
    - Candidate name: `useCompanyReportPersistence`.
-   - Move `saveRun`, `loadRun`, `recordRun`, `busy`, and `message` handling if the hook stays readable.
+   - Moved `saveRun`, `loadRun`, `recordRun`, `busy`, and `message` handling.
 
-2. Create a hook for controlled selections.
+2. Done: create a hook for controlled selections.
    - Candidate name: `useCompanyReportSelections`.
-   - Move partner/product/order/receivable/VAT/global/capital selection state only if prop lists become easier to reason about.
+   - Moved partner/product/order/receivable/VAT/global/capital selection state and reset helpers.
 
-3. Keep actual ledger mutations in one visible place unless the action list becomes clearly reusable.
+3. Next: review whether derived row/selected entity assembly should be grouped into a read-only view-model helper.
 
-## Priority 3: Simulation Skill Layer
+4. Keep actual ledger mutations in one visible place unless the action list becomes clearly reusable.
+
+## Priority 2: Simulation Skill Layer
 
 Resume the skill AI work after UI splitting is stable:
 
@@ -114,7 +123,7 @@ Resume the skill AI work after UI splitting is stable:
 4. Sample target:
    - Bihyeong Q should support first cast single-target bonus damage and second cast within 5 seconds as area damage with current-health percent scaling.
 
-## Priority 4: Simulation Map And Movement UX
+## Priority 3: Simulation Map And Movement UX
 
 The simulation is still mostly text-driven. Next visual target:
 
@@ -124,7 +133,7 @@ The simulation is still mostly text-driven. Next visual target:
 4. Make hyperloop usage visible and strategic.
 5. Keep the existing log as a secondary panel, not the primary experience.
 
-## Priority 5: Simulation Economy And Survival Rules
+## Priority 4: Simulation Economy And Survival Rules
 
 Re-check and finish the remaining simulation behavior requests:
 
@@ -147,7 +156,7 @@ Re-check and finish the remaining simulation behavior requests:
    - Runs manipulated by developer tools should not grant rewards.
    - Show warning before enabling developer tools.
 
-## Priority 6: Game UI/UX Follow-up
+## Priority 5: Game UI/UX Follow-up
 
 Continue the game-by-game polish pass:
 
@@ -163,7 +172,7 @@ Run targeted checks while editing:
 
 ```powershell
 cd client
-npm run lint -- -c eslint.runtime.config.mjs src/app/games/company-report/play/page.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
+npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run build
 ```
 
