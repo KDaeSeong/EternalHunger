@@ -4263,6 +4263,8 @@ export function getMatchArchiveRows(state, limit = 18) {
         fixtureId: row.fixtureId,
         matchId: result.matchId || row.fixtureId,
         round: result.round || row.fixture.round,
+        homeTeamId: result.homeTeamId || row.fixture.homeTeamId || '',
+        awayTeamId: result.awayTeamId || row.fixture.awayTeamId || '',
         homeTeamName: result.homeTeamName,
         awayTeamName: result.awayTeamName,
         scoreHome: Number(result.scoreHome || 0),
@@ -4277,6 +4279,104 @@ export function getMatchArchiveRows(state, limit = 18) {
     })
     .sort((a, b) => b.playedAt - a.playedAt || b.round - a.round)
     .slice(0, limit);
+}
+
+function setWinnerSide(match, setResult) {
+  if (!setResult?.winnerTeamId) return '';
+  if (setResult.winnerTeamId === match.homeTeamId) return 'home';
+  if (setResult.winnerTeamId === match.awayTeamId) return 'away';
+  return '';
+}
+
+function setWinnerName(match, setResult) {
+  const side = setWinnerSide(match, setResult);
+  if (side === 'home') return setResult.homePlayerName || match.homeTeamName;
+  if (side === 'away') return setResult.awayPlayerName || match.awayTeamName;
+  return setResult.winnerPlayerName || '승자';
+}
+
+function setWinProbabilityForWinner(match, setResult) {
+  const side = setWinnerSide(match, setResult);
+  const pHome = Number(setResult?.probabilityHome || 50);
+  if (side === 'home') return pHome;
+  if (side === 'away') return 100 - pHome;
+  return 50;
+}
+
+function setLoserName(match, setResult) {
+  const side = setWinnerSide(match, setResult);
+  if (side === 'home') return setResult.awayPlayerName || match.awayTeamName;
+  if (side === 'away') return setResult.homePlayerName || match.homeTeamName;
+  return '상대';
+}
+
+function styleCountRows(sets) {
+  const counts = {};
+  sets.forEach((setResult) => {
+    [setResult.homeBuildStyle, setResult.awayBuildStyle].forEach((style) => {
+      const key = normalizeBuildStyle(style);
+      if (!key) return;
+      counts[key] = Number(counts[key] || 0) + 1;
+    });
+  });
+  return Object.entries(counts)
+    .map(([style, count]) => ({
+      style,
+      label: BUILD_STYLE_LABELS[style] || style,
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko-KR'));
+}
+
+export function getSeriesReplayReport(match) {
+  if (!match || !Array.isArray(match.sets) || !match.sets.length) {
+    return {
+      headline: '경기 기록을 선택하면 시리즈 총평이 표시됩니다.',
+      keySetLabel: '-',
+      styleLabel: '-',
+      mapLabel: '-',
+      tempoLabel: '-',
+      highlights: [],
+    };
+  }
+  const sets = match.sets;
+  const winner = match.winnerTeamName || (match.scoreHome >= match.scoreAway ? match.homeTeamName : match.awayTeamName);
+  const loser = winner === match.homeTeamName ? match.awayTeamName : match.homeTeamName;
+  const aceSet = sets.find((setResult) => setResult.isAceSet);
+  const closeSet = [...sets].sort((a, b) => Math.abs(Number(a.noisyDiff || 0)) - Math.abs(Number(b.noisyDiff || 0)))[0];
+  const upsetSet = [...sets]
+    .map((setResult) => ({ setResult, upsetGap: Math.max(0, 50 - setWinProbabilityForWinner(match, setResult)) }))
+    .sort((a, b) => b.upsetGap - a.upsetGap)[0];
+  const longestSet = [...sets].sort((a, b) => Number(b.durationSec || 0) - Number(a.durationSec || 0))[0];
+  const styleRows = styleCountRows(sets);
+  const mapCount = new Set(sets.map((setResult) => setResult.mapName || setResult.mapId).filter(Boolean)).size;
+  const avgDuration = Math.round(sets.reduce((sum, setResult) => sum + Number(setResult.durationSec || 0), 0) / sets.length);
+  const tempoLabel = avgDuration >= 1180 ? '장기전 중심' : avgDuration <= 780 ? '초반 교전 중심' : '중반 운영 중심';
+  const leadText = match.scoreHome === match.scoreAway
+    ? '마지막 세트까지 균형이 무너지지 않았습니다.'
+    : Math.abs(Number(match.scoreHome || 0) - Number(match.scoreAway || 0)) >= 2
+      ? `${winner}이 세트 흐름을 강하게 틀어쥐었습니다.`
+      : `${winner}이 접전 흐름에서 한 세트를 더 가져갔습니다.`;
+  const headline = `${winner} ${match.scoreHome}:${match.scoreAway} ${loser}. ${leadText}`;
+  const highlights = [
+    aceSet ? `에이스전: ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}, ${setWinnerName(match, aceSet)}이 압박을 버텼습니다.` : '',
+    closeSet ? `${closeSet.setNo}세트는 체감상 가장 팽팽했습니다. ${setWinnerName(match, closeSet)}이 ${setLoserName(match, closeSet)}을(를) 상대로 마지막 교전을 남겼습니다.` : '',
+    upsetSet?.upsetGap >= 5 ? `${upsetSet.setResult.setNo}세트는 예측을 비튼 승부였습니다. ${setWinnerName(match, upsetSet.setResult)}의 사전 승률은 ${setWinProbabilityForWinner(match, upsetSet.setResult)}%였습니다.` : '',
+    longestSet ? `가장 긴 세트는 ${longestSet.setNo}세트 ${longestSet.mapName}, ${Math.round(Number(longestSet.durationSec || 0) / 60)}분대 운영전이었습니다.` : '',
+    styleRows[0] ? `시리즈 대표 빌드 성향은 ${styleRows[0].label}입니다. 양 팀 합산 ${styleRows[0].count}회 선택됐습니다.` : '',
+  ].filter(Boolean).slice(0, 5);
+  return {
+    headline,
+    keySetLabel: aceSet
+      ? `에이스전 · ${setWinnerName(match, aceSet)}`
+      : closeSet
+        ? `${closeSet.setNo}세트 · 접전`
+        : '-',
+    styleLabel: styleRows[0] ? `${styleRows[0].label} ${styleRows[0].count}회` : '-',
+    mapLabel: `${mapCount}개 맵`,
+    tempoLabel,
+    highlights,
+  };
 }
 
 export function getBuildMetaReport(state) {

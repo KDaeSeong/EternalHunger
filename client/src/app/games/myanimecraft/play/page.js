@@ -38,6 +38,7 @@ import {
   getSeasonReportRows,
   getSeasonStageSummary,
   getSeasonFinaleReport,
+  getSeriesReplayReport,
   getSourceSummary,
   getPostseasonRows,
   getTopPlayers,
@@ -99,6 +100,7 @@ export default function MyAnimeCraftPlayPage() {
   const matchArchiveRows = useMemo(() => getMatchArchiveRows(state, 18), [state]);
   const buildMetaReport = useMemo(() => getBuildMetaReport(state), [state]);
   const selectedArchiveMatch = matchArchiveRows.find((row) => row.id === selectedArchiveMatchId) || matchArchiveRows[0];
+  const seriesReplayReport = useMemo(() => getSeriesReplayReport(selectedArchiveMatch), [selectedArchiveMatch]);
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
   const tradeTeams = tradeCandidateRows(state, selectedTeam.id);
@@ -350,6 +352,30 @@ export default function MyAnimeCraftPlayPage() {
               <div>
                 <strong>경기 다시보기 · {selectedArchiveMatch.stageLabel}</strong>
                 <span>{selectedArchiveMatch.homeTeamName} {selectedArchiveMatch.scoreHome}:{selectedArchiveMatch.scoreAway} {selectedArchiveMatch.awayTeamName}</span>
+              </div>
+              <div style={{ display: 'grid', gap: 10, padding: '4px 0' }}>
+                <div className="games-panel-title">
+                  <h2>시리즈 총평</h2>
+                  <span>{seriesReplayReport.tempoLabel}</span>
+                </div>
+                <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
+                  {seriesReplayReport.headline}
+                </p>
+                <div className="games-rank-split games-rank-split--compact">
+                  <SmallStat label="승부처" value={seriesReplayReport.keySetLabel} />
+                  <SmallStat label="대표 빌드" value={seriesReplayReport.styleLabel} />
+                  <SmallStat label="맵 폭" value={seriesReplayReport.mapLabel} />
+                </div>
+                <div className="game-save-list">
+                  {seriesReplayReport.highlights.map((line, index) => (
+                    <article className="game-save-row" key={`series-replay-${selectedArchiveMatch.id}-${index}`}>
+                      <div>
+                        <span>리플레이 포인트 {index + 1}</span>
+                        <strong>{line}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
               {selectedArchiveMatch.sets.map((setResult) => (
                 <div key={`${selectedArchiveMatch.matchId}-${setResult.setNo}`}>
