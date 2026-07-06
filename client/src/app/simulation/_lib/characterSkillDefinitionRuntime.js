@@ -2,7 +2,7 @@ import {
   ACTIVE_CHARACTER_SKILL_SLOTS,
   CHARACTER_SKILL_SLOT_LABELS,
   normalizeCharacterSkillType,
-} from '../../../utils/characterSkillCompiler';
+} from '../../../utils/characterSkillCompiler.js';
 
 const CHARACTER_SKILL_MODE = 'character_skill';
 const BASIC_ATTACK_RECAST_TYPE = 'basic_attack_enhance';
@@ -16,7 +16,7 @@ const BIHYUNG_Q = {
   slot: 'q',
   type: BASIC_ATTACK_RECAST_TYPE,
   trigger: 'basic_attack',
-  name: '鍮꾪삎 Q',
+  name: '비형 Q',
   cooldownSec: 7,
   recastWindowSec: 5,
   range: 0,
@@ -98,7 +98,7 @@ function resolveCharacterSkillCode(actor) {
   if (explicit === 'bihyung' || explicit === 'bihyeong') return 'bihyung';
 
   const name = normalizeText(actor?.name || actor?.nickname || actor?.characterName);
-  if (name.includes('鍮꾪삎') || name.includes('bihyung') || name.includes('bihyeong')) return 'bihyung';
+  if (name.includes('비형') || name.includes('bihyung') || name.includes('bihyeong')) return 'bihyung';
   return explicit || '';
 }
 

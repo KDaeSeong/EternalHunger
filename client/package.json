@@ -14,6 +14,7 @@
     "check:revive": "node ./scripts/check-revival-rules.mjs",
     "check:runtime:sweep": "eslint -c eslint.runtime.config.mjs src/app/simulation/page.js src/app/simulation/tacticalSkillTable.js src/app/simulation/_lib/**/*.js src/app/simulation/_components/**/*.js src/utils/battleLogic.js src/utils/equipmentCatalog.js src/utils/erMeta.js src/utils/itemLogic.js src/utils/tacticalSkillCatalog.js",
     "check:runtime:full": "npm run check:runtime:sweep && npm run build",
+    "check:skills": "node ./scripts/check-character-skill-compiler.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
   },
   "dependencies": {

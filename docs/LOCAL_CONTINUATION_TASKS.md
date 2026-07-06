@@ -109,10 +109,13 @@ Resume the skill AI work after UI splitting is stable:
    - E
    - R
 
-2. Text-to-skill compiler:
+2. In progress: Text-to-skill compiler:
    - Parse effect text into damage, cooldown, range, area, repeat-cast, and scaling keywords.
    - Keep a preview panel that shows generated behavior before applying it.
    - Store both original text and compiled behavior.
+   - Done: `client/src/utils/characterSkillCompiler.js` was normalized back to readable Korean/English patterns.
+   - Done: second-stage fields are only generated when the text explicitly contains a recast/second-hit marker.
+   - Done: `npm run check:skills` validates attack, recast, passive, heal, shield, and built-in Bihyung Q parsing.
 
 3. Runtime skill AI:
    - usage conditions
@@ -174,6 +177,8 @@ Run targeted checks while editing:
 
 ```powershell
 cd client
+npm run check:skills
+npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run build
 ```
