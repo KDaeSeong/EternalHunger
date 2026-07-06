@@ -290,6 +290,7 @@ export function runPhaseCombatEncounter({
         nextDay,
         phaseIdxNow,
         pvpCfg,
+        supportRoster: todaysSurvivors,
         target,
       },
       tactical: {

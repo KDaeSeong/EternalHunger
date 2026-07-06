@@ -5,6 +5,7 @@ import {
 } from '../../../utils/statusLogic';
 import { applyCharacterSkillOnBasicAttack } from './characterSkillRuntime';
 import { softenNonLethalBattleLog } from './simulationFormattingRuntime';
+import { areSameTeam } from './teamRuntime';
 
 function applyCombatLifesteal(who, dealt, { addLog = () => {} } = {}) {
   if (!who || Number(who.hp || 0) <= 0) return 0;
@@ -17,6 +18,17 @@ function applyCombatLifesteal(who, dealt, { addLog = () => {} } = {}) {
   who.hp = Math.min(maxHp, Number(who.hp || 0) + heal);
   addLog(`🩸 [${who.name}] 흡혈: HP +${heal}`, 'combat-detail');
   return heal;
+}
+
+function getSameZoneSupportTargets(actor, roster) {
+  const actorId = String(actor?._id || actor?.id || '');
+  const zoneId = String(actor?.zoneId || '');
+  if (!actorId || !zoneId) return [];
+  return (Array.isArray(roster) ? roster : [])
+    .filter((row) => row && String(row?._id || row?.id || '') !== actorId)
+    .filter((row) => Number(row?.hp || 0) > 0)
+    .filter((row) => String(row?.zoneId || '') === zoneId)
+    .filter((row) => areSameTeam(actor, row));
 }
 
 export function resolveCombatWinnerOutcome({
@@ -39,6 +51,7 @@ export function resolveCombatWinnerOutcome({
     nextDay = 1,
     phaseIdxNow = 0,
     pvpCfg = {},
+    supportRoster = [],
     target,
   } = state;
   const {
@@ -116,6 +129,7 @@ export function resolveCombatWinnerOutcome({
     addLog,
     emitRunEvent,
     splashTargets: getCharacterSkillSplashTargets(battleWinner, loser),
+    supportTargets: getSameZoneSupportTargets(battleWinner, supportRoster),
     showLog: battleSettings?.skills?.showSkillLogs !== false,
   });
   const charSkillToWinner = applyCharacterSkillOnBasicAttack(loser, battleWinner, atkDmgToWinner, {
@@ -125,6 +139,7 @@ export function resolveCombatWinnerOutcome({
     addLog,
     emitRunEvent,
     splashTargets: getCharacterSkillSplashTargets(loser, battleWinner),
+    supportTargets: getSameZoneSupportTargets(loser, supportRoster),
     showLog: battleSettings?.skills?.showSkillLogs !== false,
   });
   const skillActionLockSec = Math.max(

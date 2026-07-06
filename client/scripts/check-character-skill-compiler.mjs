@@ -105,6 +105,35 @@ assert(healCaster.hp === 85, 'heal skill should restore caster HP');
 assert(Math.abs(Number(healResult.actionLockSec || 0) - 0.5) < 0.001, 'heal skill action lock should aggregate cast/recovery delay');
 assert(Number(healCaster.skillState?.q?.cooldownUntil || 0) === 110, 'heal skill cooldown should be tracked');
 
+const allyHealCaster = makeActor({
+  _id: 'ally-heal-caster',
+  hp: 100,
+  teamId: 'team-a',
+  characterSkills: {
+    w: {
+      enabled: true,
+      slot: 'w',
+      type: 'heal_skill',
+      name: '아군 회복',
+      cooldownSec: 10,
+      heal: [25, 25, 25, 25, 25],
+    },
+  },
+});
+const woundedAlly = makeActor({ _id: 'wounded-ally', hp: 20, maxHp: 100, teamId: 'team-a' });
+const lessWoundedAlly = makeActor({ _id: 'less-wounded-ally', hp: 70, maxHp: 100, teamId: 'team-a' });
+const allyHealEnemy = makeActor({ _id: 'ally-heal-enemy', teamId: 'team-b' });
+const allyHealResult = applyCharacterSkillOnBasicAttack(allyHealCaster, allyHealEnemy, 0, {
+  settings: { skills: { characterSkills: true } },
+  nowSec: 150,
+  supportTargets: [lessWoundedAlly, woundedAlly],
+});
+assert(allyHealResult.applied === true, 'heal skill should apply to support targets');
+assert(allyHealCaster.hp === 100, 'support heal should not heal the caster when an injured ally is better');
+assert(woundedAlly.hp === 45, 'support heal should pick the lowest HP ally');
+assert(lessWoundedAlly.hp === 70, 'support heal should not heal the less urgent ally');
+assert(allyHealResult.results?.[0]?.targetId === 'wounded-ally', 'support heal should report the ally target');
+
 const shieldCaster = makeActor({
   _id: 'shield-caster',
   characterSkills: {

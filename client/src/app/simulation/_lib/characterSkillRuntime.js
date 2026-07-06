@@ -75,28 +75,29 @@ function calculateSkillDamage(attacker, defender, def, idx, stage, settings) {
   };
 }
 
-function applySelfUtility(attacker, def, idx) {
+function applySupportUtility(attacker, supportTarget, def, idx) {
+  const target = supportTarget || attacker;
   let healAmount = Math.max(0, Math.round(levelValue(def.heal, idx, 0)));
   const shieldValue = Math.max(0, Math.round(levelValue(def.shield, idx, 0)));
-  const maxHp = Math.max(1, Number(attacker?.maxHp || getEffectiveStats(attacker)?.maxHp || 100));
+  const maxHp = Math.max(1, Number(target?.maxHp || getEffectiveStats(target)?.maxHp || 100));
 
   if (healAmount > 0) {
-    const before = Math.max(0, Number(attacker.hp || 0));
-    attacker.hp = Math.max(0, Math.min(maxHp, before + healAmount));
-    healAmount = Math.max(0, Math.round(Number(attacker.hp || 0) - before));
+    const before = Math.max(0, Number(target.hp || 0));
+    target.hp = Math.max(0, Math.min(maxHp, before + healAmount));
+    healAmount = Math.max(0, Math.round(Number(target.hp || 0) - before));
   }
 
   if (shieldValue > 0) {
-    const result = addOrRefreshEffect(attacker, makeShieldEffect(
+    const result = addOrRefreshEffect(target, makeShieldEffect(
       shieldValue,
       Math.max(2, Number(def.durationSec || 2)),
       def.id || def.name,
       { tags: ['positive', 'shield', 'character_skill'] }
     ));
-    attacker.activeEffects = result.character.activeEffects;
+    target.activeEffects = result.character.activeEffects;
   }
 
-  return { healAmount, shieldValue };
+  return { healAmount, shieldValue, target };
 }
 
 function setSkillCooldown(stateSlot, def, nowSec, settings) {
@@ -186,6 +187,7 @@ function applySingleSkillOnBasicAttack(attacker, defender, def, opts = {}) {
     stage,
     settings,
     splashTargets: opts?.splashTargets,
+    supportTargets: opts?.supportTargets,
     estimateDamage,
     opts,
   });
@@ -194,7 +196,7 @@ function applySingleSkillOnBasicAttack(attacker, defender, def, opts = {}) {
   const skillTarget = aiDecision.target || defender;
   const targetIsDefender = actorId(skillTarget) === actorId(defender);
   const damageInfo = estimateDamage(skillTarget);
-  const utility = applySelfUtility(attacker, def, idx);
+  const utility = applySupportUtility(attacker, aiDecision.supportTarget ? skillTarget : attacker, def, idx);
 
   if (isRecastSkill && !hasRecast && Number(def.recastWindowSec || 0) > 0) {
     slotState.stage = 'recast';
@@ -234,6 +236,7 @@ function applySingleSkillOnBasicAttack(attacker, defender, def, opts = {}) {
       whoName: attacker?.name,
       target: actorId(skillTarget),
       targetName: skillTarget?.name,
+      supportTarget: !!aiDecision.supportTarget,
       skill: def.name,
       slot: def.slot,
       mode: CHARACTER_SKILL_MODE,
