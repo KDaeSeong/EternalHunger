@@ -808,6 +808,50 @@ export default function BaSrpgPlayPage() {
 
         <section className="games-panel">
           <div className="games-panel-title">
+            <h2>전술 HUD</h2>
+            <span>{battleForecast.bestAction?.badge || '대기'}</span>
+          </div>
+          <div className="games-rank-split" style={{ marginBottom: 12 }}>
+            <SmallStat label="최우선" value={battleForecast.bestAction?.label || '-'} />
+            <SmallStat label="점수" value={battleForecast.bestAction?.score ?? 0} />
+            <SmallStat label="스킬 후보" value={`${battleForecast.skillPreviews?.length || 0}개`} />
+            <SmallStat label="실행 가능" value={`${(battleForecast.actionRows || []).filter((action) => action.enabled).length}개`} />
+          </div>
+          <div className="game-save-list">
+            {(battleForecast.actionRows || []).map((action) => (
+              <article className="game-save-row" key={action.id}>
+                <div>
+                  <span>{action.badge} · 점수 {action.score}</span>
+                  <strong>{action.title}</strong>
+                  <small>{action.detail}</small>
+                </div>
+                <button
+                  type="button"
+                  disabled={!action.enabled}
+                  onClick={() => {
+                    if (action.type === 'attack') {
+                      setState((current) => attackSelectedAction(selectEnemyAction(current, action.targetId), action.targetId));
+                      return;
+                    }
+                    if (action.type === 'skill') {
+                      setSkillId(action.skillId);
+                      setState((current) => (
+                        action.targetType === 'enemy'
+                          ? executeSkillAction(selectEnemyAction(current, action.targetId), action.skillId)
+                          : executeSkillAction(current, action.skillId)
+                      ));
+                    }
+                  }}
+                >
+                  실행
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
             <h2>적 턴 예상</h2>
             <span>{battleForecast.enemyPlans.length}개 행동</span>
           </div>

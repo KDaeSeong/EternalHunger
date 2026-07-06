@@ -1607,6 +1607,7 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
   if (!attacker || !defender) {
     return {
       hitChancePct: 0,
+      hitChance: 0,
       rawDamage: 0,
       hpDamage: 0,
       shieldAbsorb: 0,
@@ -1633,6 +1634,7 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
   const hpDamage = Math.max(0, rawDamage - shieldAbsorb);
   return {
     hitChancePct: Math.round(hitChance * 100),
+    hitChance,
     rawDamage,
     hpDamage,
     expectedHpDamage: Math.round(hpDamage * hitChance),
@@ -1640,6 +1642,159 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
     lethal: hpDamage >= Number(defender.hp || 0),
     inCover: tileDefense(defender.x, defender.y) > 0,
   };
+}
+
+function statusExpectedScore(skill, hitChance) {
+  const def = STATUS_DEFS[skill?.statusId];
+  if (!def) return 0;
+  const chance = Number(hitChance || 0) * Number(skill.statusChance || 0);
+  const duration = Math.max(1, Number(skill.duration || 1));
+  const dotScore = Number(def.tickDamage || 0) * duration * chance;
+  const controlScore = def.id === 'st_stun'
+    ? 28
+    : def.id === 'st_confuse'
+      ? 16
+      : def.kind === 'DoT'
+        ? 8
+        : 6;
+  return Math.round(dotScore + controlScore * chance);
+}
+
+function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
+  const phaseReady = battle.phase === 'player';
+  const unitReady = Boolean(unit?.hp > 0 && !unit.acted);
+  const hasAp = Boolean(unit && Number(unit.ap || 0) >= Number(skill.apCost || 0));
+  if (skill.target === 'self') {
+    const missingHp = Math.max(0, Number(unit?.maxHp || 0) - Number(unit?.hp || 0));
+    const healValue = Math.min(missingHp, Number(skill.heal || 0));
+    const shieldValue = Number(skill.shield || 0);
+    const valueScore = Math.round(healValue + shieldValue * 0.75);
+    const canUse = Boolean(phaseReady && unitReady && hasAp && valueScore > 0);
+    return {
+      skillId: skill.id,
+      skillName: skill.name,
+      targetId: unit?.id || '',
+      targetName: unit?.name || '선택 학생 없음',
+      targetType: 'self',
+      canUse,
+      apCost: Number(skill.apCost || 0),
+      distance: 0,
+      rangeText: '자신',
+      hitChancePct: 100,
+      hpDamage: 0,
+      expectedHpDamage: 0,
+      statusExpectedPct: 0,
+      supportValue: valueScore,
+      lethal: false,
+      valueScore,
+      detail: healValue
+        ? `HP ${healValue} 회복 기대${shieldValue ? ` · 보호막 ${shieldValue}` : ''}`
+        : shieldValue ? `보호막 ${shieldValue} 부여` : '현재 회복/보호막 효율이 낮습니다.',
+      reason: !phaseReady
+        ? '플레이어 턴 아님'
+        : !unitReady
+          ? '행동 가능한 학생 없음'
+          : !hasAp
+            ? `AP ${skill.apCost} 필요`
+            : valueScore <= 0
+              ? '회복 대상 없음'
+              : '사용 가능',
+    };
+  }
+
+  if (!unit || !enemy) {
+    return {
+      skillId: skill.id,
+      skillName: skill.name,
+      targetId: '',
+      targetName: '대상 없음',
+      targetType: 'enemy',
+      canUse: false,
+      apCost: Number(skill.apCost || 0),
+      distance: 0,
+      rangeText: `${skill.rangeMin}-${skill.rangeMax}`,
+      hitChancePct: 0,
+      hpDamage: 0,
+      expectedHpDamage: 0,
+      statusExpectedPct: 0,
+      supportValue: 0,
+      lethal: false,
+      valueScore: 0,
+      detail: '공격할 적이 없습니다.',
+      reason: '대상 없음',
+    };
+  }
+
+  const targetDistance = distance(unit, enemy);
+  const inRange = targetDistance >= Number(skill.rangeMin || 0) && targetDistance <= Number(skill.rangeMax || 1);
+  const hitChance = clamp(
+    0.78
+      + Number(skill.accuracyAdd || 0)
+      + Number(bonus.acc || 0) / 100
+      + statusAccuracyMod(unit)
+      - tileDefense(enemy.x, enemy.y) * 0.04,
+    0.3,
+    0.97,
+  );
+  const rawDamage = Math.max(0, Math.floor(
+    (Number(unit.atk || 0) + Number(bonus.atk || 0) + (skill.techDamage ? 2 : 0))
+      * Number(skill.damageMul ?? 1)
+      - (skill.techDamage ? Math.floor(Number(enemy.def || 0) / 2) : Number(enemy.def || 0))
+      - tileDefense(enemy.x, enemy.y)
+  ));
+  const shieldAbsorb = Math.min(Number(enemy.shield?.amount || 0), rawDamage);
+  const hpDamage = Math.max(0, rawDamage - shieldAbsorb);
+  const expectedHpDamage = Math.round(hpDamage * hitChance);
+  const statusDef = STATUS_DEFS[skill.statusId];
+  const statusExpectedPct = statusDef ? Math.round(hitChance * Number(skill.statusChance || 0) * 100) : 0;
+  const statusScore = statusExpectedScore(skill, hitChance);
+  const lethal = hpDamage >= Number(enemy.hp || 0);
+  const valueScore = expectedHpDamage + statusScore + (lethal ? 24 : 0);
+  const canUse = Boolean(phaseReady && unitReady && hasAp && inRange);
+  return {
+    skillId: skill.id,
+    skillName: skill.name,
+    targetId: enemy.id,
+    targetName: enemy.name,
+    targetType: 'enemy',
+    canUse,
+    apCost: Number(skill.apCost || 0),
+    distance: targetDistance,
+    rangeText: `${skill.rangeMin}-${skill.rangeMax}`,
+    hitChancePct: Math.round(hitChance * 100),
+    hpDamage,
+    expectedHpDamage,
+    statusExpectedPct,
+    statusName: statusDef?.name || '',
+    supportValue: 0,
+    lethal,
+    valueScore,
+    detail: `${expectedHpDamage} 기대 피해 · 명중 ${Math.round(hitChance * 100)}%${statusDef ? ` · ${statusDef.name} 기대 ${statusExpectedPct}%` : ''}${lethal ? ' · 마무리 가능' : ''}`,
+    reason: !phaseReady
+      ? '플레이어 턴 아님'
+      : !unitReady
+        ? '행동 가능한 학생 없음'
+        : !hasAp
+          ? `AP ${skill.apCost} 필요`
+          : !inRange
+            ? `거리 ${targetDistance} / 사거리 ${skill.rangeMin}-${skill.rangeMax}`
+            : '사용 가능',
+  };
+}
+
+function skillPreviewRows(unit, enemies, battle, bonus) {
+  return TACTICAL_SKILLS.map((skill) => {
+    if (skill.target === 'self') return skillPreviewForTarget(unit, null, skill, battle, bonus);
+    const previews = enemies.map((enemy) => skillPreviewForTarget(unit, enemy, skill, battle, bonus));
+    return previews.sort((a, b) => {
+      if (a.canUse !== b.canUse) return a.canUse ? -1 : 1;
+      if (a.lethal !== b.lethal) return a.lethal ? -1 : 1;
+      return b.valueScore - a.valueScore || a.distance - b.distance;
+    })[0] || skillPreviewForTarget(unit, null, skill, battle, bonus);
+  }).sort((a, b) => {
+    if (a.canUse !== b.canUse) return a.canUse ? -1 : 1;
+    return b.valueScore - a.valueScore;
+  });
 }
 
 function forecastEnemyAction(enemy, battle) {
@@ -1835,6 +1990,42 @@ export function getBattleForecast(state) {
     if (a.inRange !== b.inRange) return a.inRange ? -1 : 1;
     return b.expectedHpDamage - a.expectedHpDamage;
   });
+  const selectedCanAct = Boolean(battle.phase === 'player' && selected?.hp > 0 && !selected.acted && Number(selected.ap || 0) > 0);
+  const skillPreviews = skillPreviewRows(selected, enemies, battle, bonus);
+  const actionRows = [
+    selectedAttacks[0] ? {
+      id: `attack-${selectedAttacks[0].enemyId}`,
+      type: 'attack',
+      label: '일반 공격',
+      title: `${selected?.name || '선택 유닛'} → ${selectedAttacks[0].enemyName}`,
+      targetId: selectedAttacks[0].enemyId,
+      targetName: selectedAttacks[0].enemyName,
+      enabled: Boolean(selectedCanAct && selectedAttacks[0].inRange),
+      score: selectedAttacks[0].expectedHpDamage + (selectedAttacks[0].lethal ? 20 : 0),
+      detail: selectedAttacks[0].inRange
+        ? `피해 ${selectedAttacks[0].hpDamage} · 기대 ${selectedAttacks[0].expectedHpDamage} · 명중 ${selectedAttacks[0].hitChancePct}%${selectedAttacks[0].lethal ? ' · 마무리 가능' : ''}`
+        : `거리 ${selectedAttacks[0].distance}. 기본 사거리 밖입니다.`,
+      badge: selectedAttacks[0].lethal ? '킬각' : selectedAttacks[0].inRange ? '공격' : '대기',
+    } : null,
+    ...skillPreviews.map((skill) => ({
+      id: `skill-${skill.skillId}-${skill.targetId || 'none'}`,
+      type: 'skill',
+      label: skill.skillName,
+      title: skill.targetType === 'self'
+        ? `${selected?.name || '선택 유닛'} 지원`
+        : `${selected?.name || '선택 유닛'} → ${skill.targetName}`,
+      skillId: skill.skillId,
+      targetId: skill.targetId,
+      targetType: skill.targetType,
+      enabled: skill.canUse,
+      score: skill.valueScore,
+      detail: `${skill.detail} · AP ${skill.apCost} · ${skill.reason}`,
+      badge: skill.lethal ? '스킬 킬각' : skill.canUse ? '스킬' : '불가',
+    })),
+  ].filter(Boolean).sort((a, b) => {
+    if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+    return b.score - a.score;
+  });
 
   const topThreat = unitThreats[0] || null;
   const highThreatCount = unitThreats.filter((row) => row.riskScore >= 70).length;
@@ -1842,7 +2033,9 @@ export function getBattleForecast(state) {
   const exposedUnits = unitThreats.filter((row) => !row.inCover && row.attackers.length).length;
   const recommendations = [];
   if (topThreat?.riskScore >= 70) recommendations.push(`${topThreat.unitName} 보호: 엄폐 이동, 방어 태세, 붕대 사용을 우선하세요.`);
+  if (actionRows[0]?.enabled) recommendations.push(`최우선 행동: ${actionRows[0].label} - ${actionRows[0].title}.`);
   if (selectedAttacks[0]?.lethal) recommendations.push(`${selected?.name || '선택 유닛'}으로 ${selectedAttacks[0].enemyName} 마무리가 가능합니다.`);
+  if (skillPreviews[0]?.canUse && skillPreviews[0].statusName) recommendations.push(`${skillPreviews[0].skillName}으로 ${skillPreviews[0].statusName} 기대값을 확보할 수 있습니다.`);
   if (enemyPlans.some((plan) => plan.rule === AI_RULES.takeCover)) recommendations.push('저체력 적이 엄폐를 잡으려 합니다. 추격보다 사거리 확보가 먼저입니다.');
   if (!recommendations.length && incomingTotal > 0) recommendations.push('즉시 격파 위험은 낮습니다. 사거리 안의 적부터 줄이면 됩니다.');
   if (!recommendations.length) recommendations.push('다음 적 턴 피해가 거의 없습니다. 자동 1턴을 사용해도 무난합니다.');
@@ -1866,6 +2059,9 @@ export function getBattleForecast(state) {
     }),
     unitThreats,
     selectedAttacks,
+    skillPreviews,
+    actionRows: actionRows.slice(0, 6),
+    bestAction: actionRows[0] || null,
     recommendations: recommendations.slice(0, 4),
   };
 }
