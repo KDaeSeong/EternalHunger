@@ -896,10 +896,10 @@ function createBuildMetaContext(meta, player, map) {
   const bestMapStyle = bestStyleFromLedger(mapBucket?.styles, 3);
   const notes = [];
   if (bestPlayerStyle) {
-    notes.push(`${player.name} 최근 내부 기록은 ${BUILD_STYLE_LABELS[bestPlayerStyle.style]} 카드 성공률 ${Math.round(bestPlayerStyle.rate * 100)}%`);
+    notes.push(`${player.name}은 최근 ${BUILD_STYLE_LABELS[bestPlayerStyle.style]} 카드가 손에 잘 맞는 흐름`);
   }
   if (bestMapStyle) {
-    notes.push(`${map.name} 누적 메타는 ${BUILD_STYLE_LABELS[bestMapStyle.style]} 쪽 승률 ${Math.round(bestMapStyle.rate * 100)}%`);
+    notes.push(`${map.name}에서는 ${BUILD_STYLE_LABELS[bestMapStyle.style]} 준비가 자주 살아나는 편`);
   }
 
   return {
@@ -916,12 +916,12 @@ function buildMetaInsightLine(rng, homeMeta, awayMeta) {
   if (notes.length >= 2) {
     const first = notes[Math.floor(rng() * notes.length)];
     const second = notes.find((note) => note !== first) || notes[0];
-    return `내부 경기 데이터 체크입니다. ${first}, 그리고 ${second}라서 빌드 선택에도 메타 보정이 들어갑니다.`;
+    return `최근 흐름을 보면 ${first}, 그리고 ${second}입니다. 그래서 초반 정찰이 더 중요해요.`;
   }
   if (notes.length === 1) {
-    return `내부 경기 데이터 체크입니다. ${notes[0]}가 눈에 띕니다. 오늘 준비한 빌드도 그 흐름을 의식한 선택입니다.`;
+    return `최근 흐름은 ${notes[0]}입니다. 이걸 상대가 얼마나 빨리 눈치채느냐가 관건입니다.`;
   }
-  return '아직 누적 표본은 많지 않습니다. 이번 세트는 선수 성향, 감독 색깔, 맵 태그가 빌드 선택을 더 크게 흔듭니다.';
+  return '아직은 서로 손패를 숨기는 시간입니다. 정찰 한 번, 첫 병력 위치 하나가 초반 흐름을 갈라요.';
 }
 
 function pickBuild(seed, teamData, member, opponent, map, metaContext = null) {
@@ -1078,8 +1078,8 @@ function mapFlavorLine(rng, map) {
   }
   if (tags.includes('large') || tags.includes('macro')) {
     return pickLine(rng, [
-      `${topic(map.name)} 넓게 쓰는 운영이 나오는 맵입니다. 멀티를 얼마나 안정적으로 지키느냐가 핵심이에요.`,
-      `${map.name}에서는 한 번에 끝내기보다 자원줄과 병력 회전이 길게 이어질 가능성이 큽니다.`,
+      `${topic(map.name)} 앞마당 이후 동선이 길어집니다. 넓다는 건 편하다는 뜻이 아니라, 빈틈도 같이 커진다는 뜻이에요.`,
+      `${map.name}에서는 한 번에 끝내기보다 시야와 자원줄 싸움이 길게 이어집니다. 정찰이 늦으면 주도권이 바로 넘어갑니다.`,
     ]);
   }
   if (tags.includes('harass')) {
@@ -1229,31 +1229,77 @@ function buildPlanLine(rng, playerName, build, map) {
   const mapName = map?.name || '이번 맵';
   if (build.style === 'rush') {
     return pickLine(rng, [
-      `${playerName}의 ${build.name}은 초반 시간을 돈으로 사는 카드입니다. ${mapName}에서 첫 교전이 열리면 바로 손익 계산이 납니다.`,
-      `${build.name} 선택은 상대에게 질문을 던지는 빌드입니다. 수비 배치가 늦으면 그대로 경기 흐름이 굳습니다.`,
+      `${playerName}, 초반부터 질문을 던집니다. ${mapName}에서 수비 배치가 늦으면 바로 경기 흐름이 굳습니다.`,
+      `${playerName} 쪽 타이밍이 빠릅니다. 첫 교전에서 피해를 만들면 그 다음 운영까지 편해져요.`,
     ]);
   }
   if (build.style === 'macro') {
     return pickLine(rng, [
-      `${playerName}은 ${build.name}으로 자원줄을 먼저 넓힙니다. 지금 당장보다 세 번째 교전 이후를 보는 선택입니다.`,
-      `${build.name}은 욕심처럼 보여도 성공하면 회전력이 달라집니다. ${mapName}의 넓은 동선을 활용하려는 그림입니다.`,
+      `${playerName}은 길게 봅니다. 지금 한 번보다 두 번째, 세 번째 교전의 회전력을 준비하는 선택이에요.`,
+      `${playerName} 쪽은 자원줄을 넓히는 그림입니다. 성공하면 ${mapName}의 넓은 동선을 자기 편으로 만들 수 있습니다.`,
     ]);
   }
   if (build.style === 'tech') {
     return pickLine(rng, [
-      `${playerName}의 ${build.name}은 숨기는 시간이 길수록 강합니다. 들키는 순간보다 공개되는 순간이 중요합니다.`,
-      `${build.name}은 한 번 타이밍이 맞으면 전장 구도가 뒤집힙니다. 정찰이 늦으면 대응이 급해집니다.`,
+      `${playerName}은 테크를 숨깁니다. 이건 들키는 순간보다 공개되는 순간이 더 무서운 카드입니다.`,
+      `${playerName}의 핵심은 전환 타이밍입니다. 정찰이 늦으면 대응이 급해집니다.`,
     ]);
   }
   if (build.style === 'harass') {
     return pickLine(rng, [
-      `${playerName}은 ${build.name}으로 손을 바쁘게 만들려 합니다. 피해가 작아도 시선이 갈리면 본대 싸움이 쉬워집니다.`,
-      `${build.name}은 점수판보다 리듬을 빼앗는 카드입니다. ${mapName}의 빈틈을 계속 찌를 수 있습니다.`,
+      `${playerName}은 상대 손을 바쁘게 만들려 합니다. 피해가 작아 보여도 시선이 갈리면 본대 싸움이 달라집니다.`,
+      `${playerName} 쪽은 리듬을 빼앗는 선택입니다. ${mapName}의 빈틈을 계속 찌를 수 있어요.`,
     ]);
   }
   return pickLine(rng, [
-    `${playerName}의 ${build.name}은 상대 선택을 보고 갈라지는 빌드입니다. 초반 정보량이 많을수록 강해집니다.`,
-    `${build.name}은 무리하지 않지만 단단합니다. 상대가 급하게 들어오면 받아칠 준비가 되어 있습니다.`,
+    `${playerName}은 무리하지 않습니다. 상대 선택을 보고 갈라지는 단단한 출발이에요.`,
+    `${playerName} 쪽은 기본기 싸움입니다. 상대가 급하게 들어오면 받아칠 준비가 되어 있습니다.`,
+  ]);
+}
+
+function earlyBroadcastLine(rng, homePlayer, awayPlayer, homeBuild, awayBuild) {
+  if (homeBuild.style === 'rush' || awayBuild.style === 'rush') {
+    const attacker = homeBuild.style === 'rush' ? homePlayer.name : awayPlayer.name;
+    return pickLine(rng, [
+      `${attacker} 쪽이 먼저 움직입니다! 이거 정찰이 늦으면 앞마당이 아니라 경기 전체가 흔들려요.`,
+      `${attacker} 초반 타이밍 잡습니다. 막는 쪽은 침착하게 첫 방어만 넘기면 됩니다.`,
+    ]);
+  }
+  if (homeBuild.style === 'harass' || awayBuild.style === 'harass') {
+    return pickLine(rng, [
+      '초반부터 시야를 흔들 준비가 보입니다. 견제 한 번에 손이 꼬이면 중반 교전이 달라집니다.',
+      '서로 정찰이 중요합니다. 빈틈 보이는 순간 바로 흔들러 들어갈 수 있어요.',
+    ]);
+  }
+  return pickLine(rng, [
+    '초반은 탐색전입니다. 아직 본심을 다 보여주지 않았고, 정찰로 힌트를 먼저 잡아야 합니다.',
+    '서로 숨겨놓고 출발합니다. 지금은 작은 정보 하나가 큰 선택지로 이어지는 시간이에요.',
+  ]);
+}
+
+function midBroadcastLine(rng, leaderName, closeGame) {
+  if (closeGame) {
+    return pickLine(rng, [
+      '중반 팽팽합니다! 여기서 한 번만 잘못 싸우면 그대로 흐름이 넘어갑니다.',
+      '아직 모릅니다. 자리 한 번, 병력 방향 한 번에 판이 확 바뀔 수 있어요.',
+    ]);
+  }
+  return pickLine(rng, [
+    `${leaderName} 쪽이 템포를 잡았습니다. 이제 상대에게 숨 돌릴 시간을 안 주는 게 중요합니다.`,
+    `${subject(leaderName)} 주도권을 쥐었습니다. 여기서 무리하지 않고 계속 압박하면 됩니다.`,
+  ]);
+}
+
+function lateBroadcastLine(rng, winnerName, closeGame) {
+  if (closeGame) {
+    return pickLine(rng, [
+      '후반 갑니다! 마지막 한 번, 어디서 싸우느냐가 전부입니다!',
+      '끝까지 모릅니다! 한타 한 번에 오늘 세트 흐름이 전부 뒤집힐 수 있어요!',
+    ]);
+  }
+  return pickLine(rng, [
+    `${winnerName} 쪽이 마무리 각을 봅니다. 병력 교환만 깔끔하면 끝까지 밀 수 있어요.`,
+    `${subject(winnerName)} 마지막 문 앞까지 왔습니다. 상대는 역습 타이밍 하나를 만들어야 합니다.`,
   ]);
 }
 
@@ -1281,24 +1327,24 @@ function buildSetTimeline({
   const closeGame = absDiff < 95;
   const scoreText = scoreHome || scoreAway ? ` 현재 매치 스코어는 ${scoreHome}:${scoreAway}.` : '';
   return [
-    buildTimelineLine(0, '캐스터', `${setNo}세트${isAceSet ? ' 에이스전' : ''} 시작합니다. 맵은 ${map.name}, ${homePlayer.name}(${RACE_LABELS[homePlayer.race] || homePlayer.race}) vs ${awayPlayer.name}(${RACE_LABELS[awayPlayer.race] || awayPlayer.race})입니다.${scoreText}`),
-    buildTimelineLine(10, '해설', mapFlavorLine(rng, map)),
-    buildTimelineLine(16, '해설', `${topic(homePlayer.name)} ${homeBuild.name}(${BUILD_STYLE_LABELS[homeBuild.style] || homeBuild.style}), ${topic(awayPlayer.name)} ${awayBuild.name}(${BUILD_STYLE_LABELS[awayBuild.style] || awayBuild.style}) 구도입니다.`),
-    buildTimelineLine(22, '데이터', buildMetaInsightLine(rng, homeMeta, awayMeta)),
-    buildTimelineLine(Math.round(durationSec * 0.2), '해설 B', matchupFlavorLine(rng, homePlayer.race, awayPlayer.race)),
-    buildTimelineLine(Math.round(durationSec * 0.27), '빌드 분석', buildPlanLine(rng, homePlayer.name, homeBuild, map)),
-    buildTimelineLine(Math.round(durationSec * 0.32), '해설', buildClashLine(rng, homeBuild, awayBuild)),
-    buildTimelineLine(Math.round(durationSec * 0.44), '해설', styleFlowLine(rng, homeBuild.style, homePlayer.name)),
-    buildTimelineLine(Math.round(durationSec * 0.51), '빌드 분석', buildPlanLine(rng, awayPlayer.name, awayBuild, map)),
+    buildTimelineLine(0, '캐스터', `${setNo}세트${isAceSet ? ' 에이스전' : ''} 갑니다! 전장은 ${map.name}. ${homePlayer.name}(${RACE_LABELS[homePlayer.race] || homePlayer.race}) 대 ${awayPlayer.name}(${RACE_LABELS[awayPlayer.race] || awayPlayer.race})!${scoreText}`),
+    buildTimelineLine(9, '해설', mapFlavorLine(rng, map)),
+    buildTimelineLine(18, '해설', buildMetaInsightLine(rng, homeMeta, awayMeta)),
+    buildTimelineLine(34, '캐스터', earlyBroadcastLine(rng, homePlayer, awayPlayer, homeBuild, awayBuild)),
+    buildTimelineLine(Math.round(durationSec * 0.2), '해설', matchupFlavorLine(rng, homePlayer.race, awayPlayer.race)),
+    buildTimelineLine(Math.round(durationSec * 0.28), '해설', buildClashLine(rng, homeBuild, awayBuild)),
+    buildTimelineLine(Math.round(durationSec * 0.38), '캐스터', buildPlanLine(rng, homePlayer.name, homeBuild, map)),
+    buildTimelineLine(Math.round(durationSec * 0.48), '해설', midBroadcastLine(rng, leaderName, closeGame)),
     buildTimelineLine(Math.round(durationSec * 0.58), '캐스터', swingLine(rng, winnerName, leaderName, closeGame, homeWin, pHome)),
-    buildTimelineLine(Math.round(durationSec * 0.74), '해설', styleFlowLine(rng, awayBuild.style, awayPlayer.name)),
-    buildTimelineLine(Math.round(durationSec * 0.9), '해설 B', isAceSet
+    buildTimelineLine(Math.round(durationSec * 0.68), '해설', buildPlanLine(rng, awayPlayer.name, awayBuild, map)),
+    buildTimelineLine(Math.round(durationSec * 0.78), '캐스터', lateBroadcastLine(rng, winnerName, closeGame)),
+    buildTimelineLine(Math.round(durationSec * 0.9), '해설', isAceSet
       ? `${subject(winnerName)} 에이스전 압박을 버텨냈습니다. 이런 세트는 다음 경기 분위기까지 흔들 수 있어요.`
       : pickLine(rng, [
-        `${winnerName} 쪽 판단이 마지막까지 흔들리지 않았습니다. 준비한 플랜을 끝까지 밀어붙였어요.`,
-        `${subject(winnerName)} 결정적인 타이밍을 잡았습니다. 이 세트는 빌드 선택부터 마무리까지 연결이 좋았습니다.`,
+        `${winnerName} 쪽 판단이 마지막까지 흔들리지 않았습니다. 준비한 그림을 끝까지 밀어붙였어요.`,
+        `${subject(winnerName)} 결정적인 타이밍을 잡았습니다. 초반 선택부터 마무리까지 연결이 좋았습니다.`,
       ])),
-    buildTimelineLine(durationSec, '캐스터', `${winnerName} 승리. ${formatGameClock(durationSec)}에 ${setNo}세트가 종료됩니다.`),
+    buildTimelineLine(durationSec, '캐스터', `${winnerName} 승리! ${formatGameClock(durationSec)}, ${setNo}세트 마무리됩니다!`),
   ].sort((a, b) => a.t - b.t);
 }
 
@@ -4061,7 +4107,7 @@ export function getSeasonFinaleReport(state) {
     : [
       stageSummary.stage === 'POSTSEASON_READY' ? '정규리그가 끝났습니다. 다음 경기 진행으로 포스트시즌을 시작하세요.' : '',
       stageSummary.stage === 'POSTSEASON' ? '포스트시즌 진행 중입니다. 최근 경기 아카이브로 에이스전과 빌드 선택을 확인하세요.' : '',
-      stageSummary.stage === 'REGULAR' ? '이번 주 전체 진행으로 표본을 늘리면 빌드 메타와 해설 데이터가 더 선명해집니다.' : '',
+      stageSummary.stage === 'REGULAR' ? '이번 주 전체 진행으로 표본을 늘리면 빌드 메타와 중계 흐름이 더 선명해집니다.' : '',
       net < 0 ? '시즌 수지가 적자입니다. 스폰서 협상과 훈련 투자 타이밍을 재조정하세요.' : '',
     ].filter(Boolean);
 
