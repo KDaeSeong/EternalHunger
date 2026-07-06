@@ -40,6 +40,9 @@ npm run build
 - Company Report read-only play view model now lives in `client/src/app/games/company-report/_lib/companyReportPlayViewModel.js`.
 - Company Report save/load/record actions now live in `client/src/app/games/company-report/_hooks/useCompanyReportPersistence.js`.
 - Company Report controlled selections now live in `client/src/app/games/company-report/_hooks/useCompanyReportSelections.js`.
+- School Simulator feature tabs now live in `client/src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js`.
+- School Simulator student/staff care report logic now lives in `client/src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js`.
+- Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
   - targeted ESLint
@@ -177,6 +180,24 @@ Continue the game-by-game polish pass:
 4. Keep game screens focused on the playable surface first.
 5. Run the app visually after each major game page change.
 
+## Priority 5: Continue Game Page Splitting
+
+Company Report is the reference pattern. School Simulator has started following that pattern:
+
+1. Done: move School Simulator feature tabs into `SchoolSimulatorFeatureTabs.js`.
+2. Done: move School Simulator care report calculation into `schoolSimulatorCareReport.js`.
+3. Next for School Simulator:
+   - move save/load/record actions into `useSchoolSimulatorPersistence`.
+   - move selected controls into `useSchoolSimulatorSelections`.
+   - move derived rows and selected entities into `schoolSimulatorPlayViewModel`.
+   - split `SchoolSimulatorFeatureTabs.js` again by tab group if it stays above 1000 lines.
+
+After School Simulator, apply the same page split to:
+
+1. `client/src/app/games/si-coding-sim/play/page.js`
+2. `client/src/app/games/schale-idle-rpg/play/page.js`
+3. `client/src/app/games/dual-academy-tcg/play/page.js`
+
 ## Suggested Validation Commands
 
 Run targeted checks while editing:
@@ -184,8 +205,11 @@ Run targeted checks while editing:
 ```powershell
 cd client
 npm run check:skills
+npm run check:runtime:simulation
+npm run check:runtime:utils
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
+npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
 npm run build
 ```
 
