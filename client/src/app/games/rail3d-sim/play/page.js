@@ -35,12 +35,85 @@ import {
 } from '../_lib/rail3dEngine';
 import { RailMap, actionFeedbackText } from '../_components/Rail3dPlayPanels';
 
+function buildDispatchPlan({ rows, completed, stopped, tokenWaits, bottleneck, report, state }) {
+  const topWaiting = bottleneck.waitingTrains[0] || null;
+  const nextTrain = rows.find((row) => row.phase !== 'DONE') || rows[0] || null;
+  const items = [];
+
+  if (topWaiting) {
+    items.push({
+      id: 'top-waiting',
+      kind: '우선',
+      title: `${topWaiting.id} 대기 원인 포커스`,
+      detail: `${topWaiting.reason}${topWaiting.blockedBy ? ` by ${topWaiting.blockedBy}` : ''} · 대기 ${topWaiting.waitSeconds}s · 지연 ${topWaiting.delayS}s`,
+      action: 'focus-train',
+      trainId: topWaiting.id,
+      actionLabel: '열차 보기',
+    });
+  }
+
+  if (Number(state.lookaheadBlocks) !== Number(bottleneck.recommendedLookahead)) {
+    items.push({
+      id: 'lookahead',
+      kind: '신호',
+      title: `Lookahead ${bottleneck.recommendedLookahead} 적용`,
+      detail: `현재 ${state.lookaheadBlocks}블록 · STOP ${stopped}편 · 토큰 대기 ${tokenWaits}편`,
+      action: 'apply-lookahead',
+      actionLabel: '적용',
+    });
+  }
+
+  if (bottleneck.proposedDepartureShiftS) {
+    items.push({
+      id: 'departure-shift',
+      kind: '다이아',
+      title: `후속 출발 +${bottleneck.proposedDepartureShiftS}s 검토`,
+      detail: `최소 간격 ${bottleneck.minHeadwayS === null ? '-' : formatTime(bottleneck.minHeadwayS)} · 권장 ${formatTime(bottleneck.idealHeadwayS)}`,
+      action: 'show-analysis',
+      actionLabel: '다이아 보기',
+    });
+  }
+
+  if (completed < rows.length) {
+    items.push({
+      id: 'advance',
+      kind: stopped ? '확인' : '진행',
+      title: stopped ? '1 Step으로 정지 원인 재확인' : '5분 진행으로 흐름 확인',
+      detail: report.recommendations[0] || `${nextTrain?.id || '열차'} 운행을 계속 관찰하세요.`,
+      action: stopped ? 'step' : 'run-5',
+      trainId: nextTrain?.id || '',
+      actionLabel: stopped ? '1 Step' : '5분 진행',
+    });
+  } else {
+    items.push({
+      id: 'record',
+      kind: '완료',
+      title: '운행 완료 기록',
+      detail: '모든 열차가 종착했습니다. 현재 스냅샷을 전적에 남길 수 있습니다.',
+      action: 'record',
+      actionLabel: '전적 기록',
+    });
+  }
+
+  return {
+    headline: topWaiting
+      ? `${topWaiting.id} 대기 해소가 최우선입니다.`
+      : completed >= rows.length
+        ? '운행이 완료됐습니다.'
+        : bottleneck.healthScore >= 88
+          ? '현재 흐름은 안정권입니다.'
+          : '병목 점검 후 진행하세요.',
+    items: items.slice(0, 4),
+  };
+}
+
 export default function Rail3dSimPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
   const [selectedTrainId, setSelectedTrainId] = useState('T1');
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('operations');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
@@ -57,6 +130,10 @@ export default function Rail3dSimPlayPage() {
   const completed = rows.filter((row) => row.phase === 'DONE').length;
   const stopped = rows.filter((row) => row.signalState === 'STOP').length;
   const tokenWaits = rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length;
+  const dispatchPlan = useMemo(
+    () => buildDispatchPlan({ rows, completed, stopped, tokenWaits, bottleneck, report, state }),
+    [rows, completed, stopped, tokenWaits, bottleneck, report, state],
+  );
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운행 액션이 없습니다.';
 
   const applyRailAction = (label, updater, fallback = '') => {
@@ -69,8 +146,47 @@ export default function Rail3dSimPlayPage() {
     const nextState = createNewState();
     setState(nextState);
     setSelectedTrainId(nextState.trains[0]?.id || 'T1');
+    setActiveFeatureTabId('operations');
     setMessage('');
     setActionResult('새 Rail3D Sim 운행을 시작했습니다.');
+  };
+
+  const focusTrain = (trainId, tabId = 'trains') => {
+    if (trainId) setSelectedTrainId(trainId);
+    setActiveFeatureTabId(tabId);
+  };
+
+  const runDispatchAction = (item) => {
+    if (item.action === 'focus-train') {
+      focusTrain(item.trainId, 'trains');
+      setActionResult(`${item.trainId} 열차를 선택했습니다. ${item.detail}`);
+      return;
+    }
+    if (item.action === 'apply-lookahead') {
+      applyRailAction('권장 Lookahead 적용', (current) => setLookaheadBlocksAction(current, bottleneck.recommendedLookahead));
+      setActiveFeatureTabId('analysis');
+      return;
+    }
+    if (item.action === 'show-analysis') {
+      setActiveFeatureTabId('analysis');
+      setActionResult(item.detail);
+      return;
+    }
+    if (item.action === 'step') {
+      applyRailAction('1 Step', (current) => stepAction(current));
+      if (item.trainId) setSelectedTrainId(item.trainId);
+      return;
+    }
+    if (item.action === 'run-5') {
+      applyRailAction('5분 진행', (current) => runForAction(current, 300));
+      if (item.trainId) setSelectedTrainId(item.trainId);
+      return;
+    }
+    if (item.action === 'record') void recordRun();
+  };
+
+  const openAnalysisTab = () => {
+    setActiveFeatureTabId('analysis');
   };
 
   const saveRun = async () => {
@@ -200,17 +316,17 @@ export default function Rail3dSimPlayPage() {
     primaryTitle: stopped ? '정차 원인 확인' : completed === rows.length ? '운행 완료' : '다음 운행 Step',
     primaryText: stopped
       ? '같은 블록에 열차가 겹치거나 토큰 대기가 길어졌습니다. 병목 탭에서 제안 시프트를 확인하세요.'
-      : report.recommendations[0] || '1 Step 또는 5분 진행으로 운행 흐름을 확인하세요.',
+      : dispatchPlan.headline || report.recommendations[0] || '1 Step 또는 5분 진행으로 운행 흐름을 확인하세요.',
     focusRows: [
       { label: '종착', value: `${completed}/${rows.length}` },
       { label: 'STOP', value: stopped },
       { label: 'TOKEN', value: tokenWaits },
       { label: '병목', value: `${bottleneck.healthScore}점` },
     ],
-    adviceLines: report.recommendations.slice(0, 4).map((line, index) => ({
+    adviceLines: dispatchPlan.items.slice(0, 4).map((item, index) => ({
       kind: index === 0 ? '우선' : `${index + 1}순위`,
-      title: line,
-      detail: bottleneck.proposedDepartureShiftS ? `제안 시프트 +${bottleneck.proposedDepartureShiftS}s` : '현재 스케줄 기준으로 확인하세요.',
+      title: item.title,
+      detail: item.detail,
     })),
   };
 
@@ -228,6 +344,8 @@ export default function Rail3dSimPlayPage() {
       <GameAdvisorPanel {...guide} />
 
       <GameFeatureTabs
+        activeTabId={activeFeatureTabId}
+        onTabChange={setActiveFeatureTabId}
         tabs={[
           {
             id: 'operations',
@@ -251,6 +369,32 @@ export default function Rail3dSimPlayPage() {
                   <div className="games-activity-list" style={{ marginTop: 12 }}>
                     {report.recommendations.map((line) => (
                       <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton onClick={openAnalysisTab}>병목/다이아 보기</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>관제 플랜</h2>
+                    <span>{bottleneck.grade}등급 · {dispatchPlan.items.length}개</span>
+                  </div>
+                  <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+                    <strong>{dispatchPlan.headline}</strong>
+                  </div>
+                  <div className="game-save-list">
+                    {dispatchPlan.items.map((item) => (
+                      <article className="game-save-row" key={item.id}>
+                        <div>
+                          <span>{item.kind}</span>
+                          <strong>{item.title}</strong>
+                          <small>{item.detail}</small>
+                        </div>
+                        <button type="button" className="tcg-primary-action" onClick={() => runDispatchAction(item)}>
+                          {item.actionLabel}
+                        </button>
+                      </article>
                     ))}
                   </div>
                 </section>
@@ -336,7 +480,9 @@ export default function Rail3dSimPlayPage() {
                           <strong>{row.id} {row.signalState} · {row.phase}</strong>
                           <small>{row.stopReason ? `${row.stopReason.kind}${row.blockedBy ? ` by ${row.blockedBy}` : ''}` : '진행 가능'}</small>
                         </div>
-                        <strong>{row.waitSeconds}s</strong>
+                        <button type="button" className="tcg-primary-action" onClick={() => focusTrain(row.id, 'trains')}>
+                          {row.waitSeconds}s
+                        </button>
                       </article>
                     ))}
                   </div>
@@ -417,7 +563,9 @@ export default function Rail3dSimPlayPage() {
                             <strong>{train.id} / {train.signalState}</strong>
                             <small>{train.tokenWait ? `토큰 ${train.tokenWait}` : '블록/시간표 대기'} · 지연 {train.delayS}s</small>
                           </div>
-                          <strong>{train.waitSeconds}s</strong>
+                          <button type="button" className="tcg-primary-action" onClick={() => focusTrain(train.id, 'trains')}>
+                            {train.waitSeconds}s
+                          </button>
                         </article>
                       ))}
                     </div>
