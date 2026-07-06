@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
@@ -27,6 +28,154 @@ import {
   shipOrderAction,
 } from '../_lib/companyReportEngine';
 import { getMarketName, getProductName } from '../_lib/companyReportPlayHelpers';
+
+function buildOperationQueue({
+  capitalSummary,
+  globalSummary,
+  guidance,
+  latestSnapshot,
+  ledgerDiff,
+  management,
+  report,
+  reportTrend,
+  restorePlan,
+  selectedForeignAr,
+  selectedOrder,
+  selectedReceivable,
+  selectedVatRow,
+  state,
+}) {
+  const rows = [];
+  const selectedOrderOpen = selectedOrder && selectedOrder.status !== 'SHIPPED' && selectedOrder.status !== 'COMPLETED';
+  const selectedReceivableOpen = selectedReceivable && Number(selectedReceivable.remaining || 0) > 0;
+  const selectedVatOpen = selectedVatRow && Number(selectedVatRow.remainingAmount || 0) > 0;
+  const selectedForeignOpen = selectedForeignAr && Number(selectedForeignAr.remainingKrw || 0) > 0;
+
+  if (selectedReceivableOpen) {
+    rows.push({
+      id: 'collect-receivable',
+      tab: 'trade',
+      kind: '현금',
+      title: `${selectedReceivable.partnerName || '거래처'} 채권 회수`,
+      detail: `잔액 ${formatMoney(selectedReceivable.remaining)} · 미수 ${report.openReceivables}건`,
+      action: 'collect-receivable',
+      actionLabel: '회수',
+    });
+  }
+
+  if (selectedOrderOpen) {
+    rows.push({
+      id: 'ship-order',
+      tab: 'trade',
+      kind: '매출',
+      title: `${selectedOrder.partnerName || '선택 주문'} 출고`,
+      detail: `${selectedOrder.productName || selectedOrder.productId} · ${selectedOrder.quantity}개 · 상태 ${selectedOrder.status}`,
+      action: 'ship-order',
+      actionLabel: '출고',
+    });
+  }
+
+  if (selectedVatOpen) {
+    rows.push({
+      id: 'pay-vat',
+      tab: 'close',
+      kind: '세금',
+      title: `${selectedVatRow.targetYear}-${String(selectedVatRow.targetMonth).padStart(2, '0')} VAT 납부`,
+      detail: `잔액 ${formatMoney(selectedVatRow.remainingAmount)} · 현재 현금 ${formatMoney(state.company.cashKrw)}`,
+      action: 'pay-vat',
+      actionLabel: '납부',
+    });
+  }
+
+  if (guidance.showGlobal && selectedForeignOpen) {
+    rows.push({
+      id: 'collect-foreign',
+      tab: 'global',
+      kind: '환율',
+      title: '외화채권 회수',
+      detail: `잔액 ${formatMoney(selectedForeignAr.remainingKrw)} · 전체 외화채권 ${formatMoney(globalSummary.openForeignReceivableKrw)}`,
+      action: 'collect-foreign',
+      actionLabel: '회수',
+    });
+  }
+
+  if (guidance.showGlobal && (globalSummary.activeExports || globalSummary.activeImports)) {
+    rows.push({
+      id: 'settle-global',
+      tab: 'global',
+      kind: '글로벌',
+      title: '수출입 정산',
+      detail: `활성 수출 ${globalSummary.activeExports}건 · 활성 수입 ${globalSummary.activeImports}건`,
+      action: 'settle-global',
+      actionLabel: '정산',
+    });
+  }
+
+  if (guidance.showCapital && Number(capitalSummary.disclosureRisk || 0) >= 25) {
+    rows.push({
+      id: 'disclosure',
+      tab: 'capital',
+      kind: '공시',
+      title: '공시 리스크 대응',
+      detail: `위험 ${capitalSummary.disclosureRisk}/100 · 신뢰 ${capitalSummary.investorTrust}/100`,
+      action: 'disclosure',
+      actionLabel: '대응',
+    });
+  }
+
+  if (!latestSnapshot || ledgerDiff.length > 0) {
+    rows.push({
+      id: 'snapshot',
+      tab: guidance.showLedger ? 'ledger' : 'history',
+      kind: '감사',
+      title: latestSnapshot ? '원장 스냅샷 갱신' : '첫 원장 스냅샷 생성',
+      detail: latestSnapshot ? `diff ${ledgerDiff.length}개 · checksum ${latestSnapshot.checksum}` : '복원과 감사 비교 기준을 먼저 만드세요.',
+      action: 'snapshot',
+      actionLabel: '스냅샷',
+    });
+  }
+
+  if (guidance.showLedger && latestSnapshot && restorePlan.dryRunStatus !== 'READY') {
+    rows.push({
+      id: 'restore-dry-run',
+      tab: 'ledger',
+      kind: '복원',
+      title: '복원 dry-run 확인',
+      detail: `${restorePlan.restoreModeLabel} · 대상 테이블 ${restorePlan.targetTables.length}개`,
+      action: 'restore-dry-run',
+      actionLabel: 'dry-run',
+    });
+  }
+
+  if (guidance.showHistory && reportTrend.archiveScore < 80) {
+    rows.push({
+      id: 'bookmark',
+      tab: 'history',
+      kind: '이력',
+      title: '리포트 북마크/이력 보강',
+      detail: `이력 점수 ${reportTrend.archiveScore}% · 스냅샷 ${reportTrend.snapshotRows.length}건`,
+      action: 'bookmark',
+      actionLabel: '북마크',
+    });
+  }
+
+  if (!rows.length) {
+    rows.push({
+      id: 'close',
+      tab: 'close',
+      kind: '결산',
+      title: '월말 결산 진행',
+      detail: `현금 ${formatMoney(management.cashFlow.cash)} · 영업손익 ${formatMoney(management.income.operatingProfit)}`,
+      action: 'close',
+      actionLabel: '결산',
+    });
+  }
+
+  return {
+    headline: rows[0]?.title || '월말 결산 준비',
+    rows: rows.slice(0, 6),
+  };
+}
 
 export default function CompanyReportFeatureTabs({
   applyLedgerAction,
@@ -65,8 +214,86 @@ export default function CompanyReportFeatureTabs({
   stocks,
   vatPayAmount,
 }) {
+  const [activeTabId, setActiveTabId] = useState('board');
+  const operationQueue = useMemo(() => buildOperationQueue({
+    capitalSummary,
+    globalSummary,
+    guidance,
+    latestSnapshot,
+    ledgerDiff,
+    management,
+    report,
+    reportTrend,
+    restorePlan,
+    selectedForeignAr,
+    selectedOrder,
+    selectedReceivable,
+    selectedVatRow,
+    state,
+  }), [
+    capitalSummary,
+    globalSummary,
+    guidance,
+    latestSnapshot,
+    ledgerDiff,
+    management,
+    report,
+    reportTrend,
+    restorePlan,
+    selectedForeignAr,
+    selectedOrder,
+    selectedReceivable,
+    selectedVatRow,
+    state,
+  ]);
+
+  const runOperationQueueAction = (item) => {
+    if (item.tab) setActiveTabId(item.tab);
+    if (item.action === 'collect-receivable') {
+      applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id));
+      return;
+    }
+    if (item.action === 'ship-order') {
+      applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id));
+      return;
+    }
+    if (item.action === 'pay-vat') {
+      runVatPayment();
+      return;
+    }
+    if (item.action === 'collect-foreign') {
+      applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id));
+      return;
+    }
+    if (item.action === 'settle-global') {
+      applyLedgerAction('글로벌 정산', (current) => settleGlobalTradeAction(current));
+      return;
+    }
+    if (item.action === 'disclosure') {
+      applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId));
+      return;
+    }
+    if (item.action === 'snapshot') {
+      applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current));
+      return;
+    }
+    if (item.action === 'restore-dry-run') {
+      applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables));
+      return;
+    }
+    if (item.action === 'bookmark') {
+      applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current));
+      return;
+    }
+    if (item.action === 'close') {
+      applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current));
+    }
+  };
+
   return (
       <GameFeatureTabs
+        activeTabId={activeTabId}
+        onTabChange={setActiveTabId}
         tabs={[
           {
             id: 'board',
@@ -88,6 +315,29 @@ export default function CompanyReportFeatureTabs({
                   <div className="games-activity-list" style={{ marginTop: 12 }}>
                     {management.recommendations.slice(0, 4).map((line) => (
                       <div key={line}><strong>{line}</strong></div>
+                    ))}
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>운영 큐</h2>
+                    <span>{operationQueue.rows.length}개</span>
+                  </div>
+                  <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+                    <strong>{operationQueue.headline}</strong>
+                  </div>
+                  <div className="game-save-list">
+                    {operationQueue.rows.map((item) => (
+                      <article className="game-save-row" key={item.id}>
+                        <div>
+                          <span>{item.kind}</span>
+                          <strong>{item.title}</strong>
+                          <small>{item.detail}</small>
+                        </div>
+                        <button type="button" className="tcg-primary-action" onClick={() => runOperationQueueAction(item)}>
+                          {item.actionLabel}
+                        </button>
+                      </article>
                     ))}
                   </div>
                 </section>

@@ -178,6 +178,7 @@ Checked: 2026-07-04
 
 - Route: `/games/company-report/play`
 - Included loop: company status, partner credit, order creation, shipment, inventory inbound, receivable collection, marketing campaign, month-end settlement, ledger snapshot, and latest snapshot restore.
+- UI/UX: management board now includes an operations queue that prioritizes receivable collection, shipping, VAT, global receivables, disclosure risk, snapshots, and ledger follow-up actions with direct execution.
 - Site API integration: quick save through `/game-saves/company-report/company-report-main`; ledger-score snapshot through `/game-records/company-report`.
 - Source basis: `C:\2저장고\마이애니메\company-report-stepg6-ledger-physical-restore` Spring Boot ledger/report project, especially company, trade order, inventory, receivable, settlement, report, and ledger snapshot/restore flows.
 - Next step: port the original report sample bookmarks, exports, API-backed ledger diff, dry-run restore, and physical restore detail into the simplified site shell.
