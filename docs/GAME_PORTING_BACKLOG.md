@@ -186,6 +186,7 @@ Checked: 2026-07-04
 
 - Route: `/games/racing-logos-demo/play`
 - Included loop: core track/event data, local pack JSON overlay, local logo candidate priority, public placeholder fallback, region/surface filtering, logo pack audit, and simple race card generation.
+- UI/UX: audit board now includes an asset production queue, draft local-pack JSON preview, one-click sample pack application, and direct jumps into calendar or result-card follow-up work.
 - Site API integration: quick save through `/game-saves/racing-logos-demo/racing-logos-main`; asset-audit snapshot through `/game-records/racing-logos-demo`.
 - Asset integration: public placeholder SVGs are copied to `client/public/games/racing-logos-demo/logos/_placeholder`; private real logos remain outside git under `/local_pack/logos`.
 - Source basis: `C:\2저장고\마이애니메\racing-logos-demo`.

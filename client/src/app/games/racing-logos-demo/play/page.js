@@ -115,12 +115,80 @@ function EventRow({ event, filters }) {
   );
 }
 
+function buildLogoDraftText(currentPack) {
+  const sample = parseLocalPackText(sampleLocalPackText());
+  const fallback = sample.ok ? sample.value : { trackNames: {}, eventNames: {}, trackLogoKeyOverrides: {} };
+  return JSON.stringify({
+    trackNames: { ...fallback.trackNames, ...(currentPack.trackNames || {}) },
+    eventNames: { ...fallback.eventNames, ...(currentPack.eventNames || {}) },
+    trackLogoKeyOverrides: { ...fallback.trackLogoKeyOverrides, ...(currentPack.trackLogoKeyOverrides || {}) },
+  }, null, 2);
+}
+
+function buildAssetProductionQueue({ packMatrix, calendar, dataPack }) {
+  const incompleteRows = packMatrix.rows.filter((row) => !row.complete);
+  const queueRows = [
+    ...incompleteRows.slice(0, 5).map((row, index) => ({
+      id: `matrix-${row.id}`,
+      kind: index === 0 ? '우선' : row.kindLabel,
+      title: row.name,
+      detail: `${row.status} · ${row.requiredKey}${row.hasLogo ? '' : ` · ${row.logoKeyPath}`}`,
+      action: 'draft',
+      actionLabel: '초안 보기',
+      tone: row.kind,
+    })),
+    ...calendar.missingRows.slice(0, 2).map((row) => ({
+      id: `calendar-${row.id}`,
+      kind: '캘린더',
+      title: row.raceName,
+      detail: `${row.week} · ${row.missing.join(', ')} 보강 필요 · 준비도 ${row.readiness}%`,
+      action: 'calendar',
+      actionLabel: '캘린더',
+      tone: 'calendar',
+    })),
+  ];
+
+  if (!dataPack.eventCards) {
+    queueRows.push({
+      id: 'event-card',
+      kind: '결과',
+      title: '이벤트 카드 생성',
+      detail: '필터 기준 단기 결과 카드를 만들어 결과 원장과 평균 레이팅을 확인하세요.',
+      action: 'event-card',
+      actionLabel: '생성',
+      tone: 'result',
+    });
+  }
+
+  if (!dataPack.seasonCards) {
+    queueRows.push({
+      id: 'season-card',
+      kind: '시즌',
+      title: '시즌 카드 생성',
+      detail: '시즌 캘린더 전체 결과를 만들어 장기 데이터팩 출시 점수를 확인하세요.',
+      action: 'season-card',
+      actionLabel: '생성',
+      tone: 'result',
+    });
+  }
+
+  return {
+    headline: incompleteRows.length
+      ? `${incompleteRows[0].name}부터 ${incompleteRows[0].status} 항목을 보강하세요.`
+      : dataPack.releaseScore < 90
+        ? '이름/로고는 준비됐고 결과 카드 생성이 다음 단계입니다.'
+        : '에셋과 결과 데이터팩이 배포 준비권입니다.',
+    rows: queueRows.slice(0, 6),
+  };
+}
+
 export default function RacingLogosDemoPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
   const [packText, setPackText] = useState(() => sampleLocalPackText());
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('audit');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
 
@@ -132,6 +200,11 @@ export default function RacingLogosDemoPlayPage() {
   const packMatrix = useMemo(() => localPackMatrix(state), [state]);
   const calendar = useMemo(() => seasonCalendarReport(state), [state]);
   const dataPack = useMemo(() => dataPackReleaseReportForState(state), [state]);
+  const logoDraftText = useMemo(() => buildLogoDraftText(state.localPack), [state.localPack]);
+  const productionQueue = useMemo(
+    () => buildAssetProductionQueue({ packMatrix, calendar, dataPack }),
+    [packMatrix, calendar, dataPack],
+  );
   const score = scoreState(state);
   const latestRaceCard = state.raceCards[0];
   const recentActionText = state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
@@ -139,6 +212,7 @@ export default function RacingLogosDemoPlayPage() {
   const startNewRun = () => {
     setState(createNewState());
     setPackText(sampleLocalPackText());
+    setActiveFeatureTabId('audit');
     setMessage('');
   };
 
@@ -151,6 +225,45 @@ export default function RacingLogosDemoPlayPage() {
     }
     setState((current) => applyLocalPackAction(current, parsed.value));
     setMessage('로컬팩 JSON을 적용했습니다.');
+  };
+
+  const applyDraftPack = () => {
+    const parsed = parseLocalPackText(logoDraftText);
+    if (!parsed.ok) {
+      setMessage(parsed.error);
+      showToast({ tone: 'danger', message: parsed.error });
+      return;
+    }
+    setPackText(logoDraftText);
+    setState((current) => auditLogoPackAction(applyLocalPackAction(current, parsed.value, 'draft')));
+    setActiveFeatureTabId('audit');
+    setMessage('보강 JSON 초안을 적용하고 로고팩 감사를 실행했습니다.');
+  };
+
+  const showDraftPack = () => {
+    setPackText(logoDraftText);
+    setActiveFeatureTabId('local-pack');
+    setMessage('보강 JSON 초안을 로컬팩 편집기에 불러왔습니다.');
+  };
+
+  const runQueueAction = (item) => {
+    if (item.action === 'draft') {
+      showDraftPack();
+      return;
+    }
+    if (item.action === 'calendar') {
+      setActiveFeatureTabId('calendar');
+      return;
+    }
+    if (item.action === 'event-card') {
+      setState((current) => generateRaceCardAction(current));
+      setActiveFeatureTabId('data-pack');
+      return;
+    }
+    if (item.action === 'season-card') {
+      setState((current) => generateSeasonCardAction(current));
+      setActiveFeatureTabId('data-pack');
+    }
   };
 
   const loadPublicLocalPack = async () => {
@@ -287,7 +400,7 @@ export default function RacingLogosDemoPlayPage() {
     badge: `${audit.completeness}%`,
     primaryTitle: audit.placeholderOnly > 0 ? 'placeholder 로고 보강 필요' : '로컬팩 감사 안정',
     primaryText: audit.placeholderOnly > 0
-      ? `${audit.placeholderOnly}개 항목이 아직 공개 placeholder에 의존합니다. 보강 우선순위를 먼저 확인하세요.`
+      ? productionQueue.headline
       : '트랙/이벤트 로고가 대부분 연결되어 있습니다. 캘린더와 데이터팩 출시 점수를 확인하세요.',
     focusRows: [
       { label: '완성도', value: `${audit.completeness}%` },
@@ -295,11 +408,11 @@ export default function RacingLogosDemoPlayPage() {
       { label: '캘린더', value: `${calendar.averageReadiness}%` },
       { label: '데이터팩', value: `${dataPack.releaseScore}%` },
     ],
-    adviceLines: [
-      audit.placeholderOnly > 0 ? { kind: '우선', title: 'placeholder 교체', detail: '공개 placeholder만 쓰는 트랙부터 실제 로고 후보를 연결하세요.' } : null,
-      packMatrix.totals.completed < packMatrix.totals.rows ? { kind: '추천', title: '보강 매트릭스 완료', detail: `${packMatrix.totals.completed}/${packMatrix.totals.rows}개 보강 항목이 완료되었습니다.` } : null,
-      { kind: '운영', title: '레이스 카드 생성', detail: '에셋 보강 후 이벤트/시즌 카드를 생성해 실제 노출 흐름을 확인하세요.' },
-    ],
+    adviceLines: productionQueue.rows.slice(0, 4).map((item, index) => ({
+      kind: index === 0 ? '우선' : item.kind,
+      title: item.title,
+      detail: item.detail,
+    })),
   };
 
   return (
@@ -317,6 +430,8 @@ export default function RacingLogosDemoPlayPage() {
       <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
+        activeTabId={activeFeatureTabId}
+        onTabChange={setActiveFeatureTabId}
         tabs={[
           {
             id: 'audit',
@@ -341,6 +456,33 @@ export default function RacingLogosDemoPlayPage() {
                     <ActionButton onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
                     <ActionButton onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
                     <ActionButton onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                  </div>
+                </section>
+                <section className="games-panel">
+                  <div className="games-panel-title">
+                    <h2>에셋 제작 큐</h2>
+                    <span>{productionQueue.rows.length}개</span>
+                  </div>
+                  <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+                    <strong>{productionQueue.headline}</strong>
+                  </div>
+                  <div className="game-save-list">
+                    {productionQueue.rows.map((item) => (
+                      <article className="game-save-row" key={item.id}>
+                        <div>
+                          <span>{item.kind}</span>
+                          <strong>{item.title}</strong>
+                          <small>{item.detail}</small>
+                        </div>
+                        <button type="button" className="tcg-primary-action" onClick={() => runQueueAction(item)}>
+                          {item.actionLabel}
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                  <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                    <ActionButton onClick={showDraftPack}>보강 JSON 초안 보기</ActionButton>
+                    <ActionButton onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -393,6 +535,8 @@ export default function RacingLogosDemoPlayPage() {
                   </label>
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton onClick={applyTextPack}>수동 JSON 적용</ActionButton>
+                    <ActionButton onClick={showDraftPack}>보강 JSON 초안 불러오기</ActionButton>
+                    <ActionButton onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
                     <ActionButton onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
                     <ActionButton onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
                   </div>
