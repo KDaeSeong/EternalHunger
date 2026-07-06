@@ -1785,8 +1785,12 @@ function teamPayrollFromContracts(contracts, teamData) {
 
 function contractRowsForTeam(state, teamId) {
   const teamData = getTeam(state, teamId);
+  const standing = getStanding(state, teamId);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
   return teamData.roster.map((member) => {
     const contract = state.contracts?.[member.id] || createPlayerContract(member, teamData.id, state.seasonNo);
+    const quote = contractRenewalQuote(member, contract);
+    const releaseFee = contractReleaseFee(contract);
     return {
       playerId: member.id,
       playerName: member.name,
@@ -1794,8 +1798,43 @@ function contractRowsForTeam(state, teamId) {
       yearsLeft: Number(contract.yearsLeft || 0),
       signingBonus: Number(contract.signingBonus || 0),
       marketValue: calcPlayerMarketValue(member),
+      renewalSalary: quote.salary,
+      renewalYears: quote.yearsLeft,
+      renewalBonus: quote.signingBonus,
+      releaseFee,
+      canRenew: money >= quote.signingBonus,
+      canRelease: teamData.roster.length > 5 && money >= releaseFee,
+      riskLabel: Number(contract.yearsLeft || 0) <= 1 ? '만료 임박' : Number(contract.salary || 0) >= quote.salary ? '안정' : '재평가',
     };
   }).sort((a, b) => b.salary - a.salary || a.playerName.localeCompare(b.playerName, 'ko-KR'));
+}
+
+function contractRenewalQuote(member, contract = {}) {
+  const marketValue = calcPlayerMarketValue(member);
+  const salary = Math.max(
+    Number(contract.salary || 0) + (Number(contract.yearsLeft || 0) <= 1 ? 6 : 3),
+    Math.floor(marketValue * 0.24),
+  );
+  const pressureMult = Number(contract.yearsLeft || 0) <= 1 ? 0.36 : 0.28;
+  return {
+    salary,
+    yearsLeft: Number(contract.yearsLeft || 0) <= 1 ? 3 : Math.min(4, Number(contract.yearsLeft || 0) + 1),
+    signingBonus: Math.max(24, Math.floor(marketValue * pressureMult)),
+  };
+}
+
+function contractReleaseFee(contract = {}) {
+  const salary = Number(contract.salary || 0);
+  const yearsLeft = Math.max(1, Number(contract.yearsLeft || 1));
+  return Math.max(10, Math.floor(salary * (yearsLeft <= 1 ? 0.5 : 0.8 + (yearsLeft - 1) * 0.35)));
+}
+
+function activeSideEventBlocksRosterMove(state) {
+  const personal = normalizePersonalLeague(state.personalLeague, state.seasonNo);
+  const winners = normalizeWinnersLeague(state.winnersLeague, state.seasonNo);
+  if (personal.stage === 'IN_PROGRESS') return '개인리그 진행 중에는 선수 방출을 할 수 없습니다.';
+  if (winners.stage === 'IN_PROGRESS') return '위너스리그 진행 중에는 선수 방출을 할 수 없습니다.';
+  return '';
 }
 
 function normalizeEconLogs(logs) {
@@ -1840,6 +1879,95 @@ function addEconLog(state, params) {
 export function getTeamContractRows(state, teamId) {
   const current = normalizeState(state);
   return contractRowsForTeam(current, teamId);
+}
+
+export function renewContractAction(state, teamId, playerId) {
+  const current = normalizeState(state);
+  const teamData = getTeam(current, teamId);
+  const member = teamData.roster.find((item) => item.id === playerId);
+  if (!member) return addStateLog(current, '재계약할 선수를 찾을 수 없습니다.');
+  const standing = getStanding(current, teamData.id);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  const previous = current.contracts?.[member.id] || createPlayerContract(member, teamData.id, current.seasonNo);
+  const quote = contractRenewalQuote(member, previous);
+  if (money < quote.signingBonus) {
+    return addStateLog(current, `${teamData.name} 재계약 실패: ${member.name} 계약금 ${quote.signingBonus} Cr 필요, 보유 ${money} Cr`);
+  }
+
+  let next = syncTeamEconomy(current, teamData.id, (team) => ({
+    ...team,
+    money: Number(team.money || 0) - quote.signingBonus,
+  }));
+  next = {
+    ...next,
+    contracts: {
+      ...next.contracts,
+      [member.id]: {
+        ...previous,
+        teamId: teamData.id,
+        salary: quote.salary,
+        signingBonus: quote.signingBonus,
+        yearsLeft: quote.yearsLeft,
+        startedSeasonNo: Number(current.seasonNo || 1),
+      },
+    },
+  };
+  next = addEconLog(next, {
+    tag: 'PAYROLL',
+    teamId: teamData.id,
+    amount: -quote.signingBonus,
+    note: `${member.name} 재계약 계약금`,
+    meta: { playerId: member.id, salary: quote.salary, yearsLeft: quote.yearsLeft },
+  });
+  return addStateLog(next, `${teamData.name}이 ${member.name}과 ${quote.yearsLeft}년 재계약했습니다. 연봉 ${quote.salary} Cr, 계약금 ${quote.signingBonus} Cr`);
+}
+
+export function releasePlayerAction(state, teamId, playerId) {
+  const current = normalizeState(state);
+  const blockReason = activeSideEventBlocksRosterMove(current);
+  if (blockReason) return addStateLog(current, blockReason);
+  const teamData = getTeam(current, teamId);
+  const member = teamData.roster.find((item) => item.id === playerId);
+  if (!member) return addStateLog(current, '방출할 선수를 찾을 수 없습니다.');
+  if (teamData.roster.length <= 5) return addStateLog(current, `${teamData.name}은 최소 5인 로스터를 유지해야 합니다.`);
+  const contract = current.contracts?.[member.id] || createPlayerContract(member, teamData.id, current.seasonNo);
+  const releaseFee = contractReleaseFee(contract);
+  const standing = getStanding(current, teamData.id);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  if (money < releaseFee) return addStateLog(current, `${member.name} 방출 실패: 위약금 ${releaseFee} Cr 필요, 보유 ${money} Cr`);
+
+  const nextContracts = { ...current.contracts };
+  delete nextContracts[member.id];
+  const nextTeams = current.teams.map((team) => {
+    if (team.id !== teamData.id) return team;
+    return cloneTeam({
+      ...team,
+      money: money - releaseFee,
+      roster: team.roster.filter((item) => item.id !== member.id),
+    });
+  });
+  const nextInventories = createInventories(nextTeams, current.inventories).map((inventory) => {
+    if (inventory.teamId !== teamData.id) return inventory;
+    const equipped = { ...inventory.equipped };
+    delete equipped[member.id];
+    return { ...inventory, equipped };
+  });
+  let next = {
+    ...current,
+    teams: nextTeams,
+    standings: current.standings.map((row) => (row.teamId === teamData.id ? { ...row, money: money - releaseFee } : row)),
+    contracts: nextContracts,
+    inventories: nextInventories,
+    updatedAt: new Date().toISOString(),
+  };
+  next = addEconLog(next, {
+    tag: 'PAYROLL',
+    teamId: teamData.id,
+    amount: -releaseFee,
+    note: `${member.name} 방출 위약금`,
+    meta: { playerId: member.id, release: true },
+  });
+  return addStateLog(next, `${teamData.name}이 ${member.name}을 방출했습니다. 위약금 ${releaseFee} Cr, 남은 로스터 ${teamData.roster.length - 1}명`);
 }
 
 export function tradeCandidateRows(state, ourTeamId) {

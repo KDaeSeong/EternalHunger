@@ -50,6 +50,8 @@ import {
   investTrainingAction,
   inventoryRowsForTeam,
   negotiateSponsorAction,
+  releasePlayerAction,
+  renewContractAction,
   scoreState,
   signFreeAgentAction,
   simulateNextMatchAction,
@@ -664,6 +666,33 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => applyStateAction('스폰서 협상', (current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
             <ActionButton disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
             <ActionButton disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
+          </div>
+          <div className="games-panel-title" style={{ marginTop: 16 }}>
+            <h2>계약 관리</h2>
+            <span>만료 임박 {selectedEconomy.expiringCount}명</span>
+          </div>
+          <div className="game-save-list">
+            {selectedContracts.slice(0, 6).map((contract) => (
+              <article className="game-save-row" key={contract.playerId}>
+                <div>
+                  <span>
+                    {contract.riskLabel} · 연봉 {contract.salary}Cr · {contract.yearsLeft}년
+                    {' · '}
+                    재계약 {contract.renewalBonus}Cr / {contract.renewalSalary}Cr
+                  </span>
+                  <strong>{contract.playerName}</strong>
+                  <small>시장가 {contract.marketValue} · 방출 위약금 {contract.releaseFee}Cr</small>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <button type="button" disabled={ended || !contract.canRenew} onClick={() => applyStateAction('재계약', (current) => renewContractAction(current, selectedTeam.id, contract.playerId))}>
+                    재계약
+                  </button>
+                  <button type="button" disabled={ended || !contract.canRelease} onClick={() => applyStateAction('방출', (current) => releasePlayerAction(current, selectedTeam.id, contract.playerId))}>
+                    방출
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
           <RecentActionResult label="최근 팀 운영 결과" text={recentActionText} />
           <div className="games-panel-title" style={{ marginTop: 16 }}>
