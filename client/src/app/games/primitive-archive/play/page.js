@@ -96,6 +96,10 @@ function roleActionForMember(member) {
 function actionLabel(action) {
   if (action === 'hunt') return '사냥';
   if (action === 'craft') return '제작';
+  if (action === 'rest') return '휴식';
+  if (action === 'camp') return '캠프';
+  if (action === 'eat') return '식사';
+  if (action === 'research') return '연구';
   return '채집';
 }
 
@@ -108,6 +112,35 @@ function vitalBadges(member) {
   if (Number(member.stamina || 0) <= 25) badges.push('피로');
   if (!badges.length) badges.push('양호');
   return badges;
+}
+
+function equipmentSuccessText(item) {
+  const parts = Object.entries(item?.successAdd || {})
+    .map(([action, value]) => `${actionLabel(action)} +${Math.round(Number(value || 0) * 100)}%`);
+  const stamina = Object.entries(item?.staminaAdd || {})
+    .map(([action, value]) => `${actionLabel(action)} 피로 ${Number(value || 0)}`);
+  if (Number(item?.insulation || 0) > 0) parts.push(`보온 +${Number(item.insulation || 0)}`);
+  if (stamina.length) parts.push(...stamina);
+  return parts.join(' · ') || '기본 장비';
+}
+
+function equipmentChoiceScore(itemId, actor, mode, weather) {
+  const item = ITEMS[itemId];
+  if (!item || item.type !== 'equip') return -Infinity;
+  const preferredAction = roleActionForMember(actor);
+  const weatherCold = Math.max(0, Number(weather?.cold || 0));
+  let score = Number(item.insulation || 0) * (mode === 'weather' ? 9 + weatherCold * 0.35 : 3 + weatherCold * 0.12);
+  Object.entries(item.successAdd || {}).forEach(([action, value]) => {
+    const actionWeight = action === preferredAction
+      ? mode === 'weather' ? 80 : 150
+      : mode === 'weather' ? 55 : 65;
+    score += Number(value || 0) * actionWeight;
+  });
+  Object.entries(item.staminaAdd || {}).forEach(([action, value]) => {
+    score += -Number(value || 0) * (action === preferredAction ? 8 : action === 'rest' ? 5 : 6);
+  });
+  score -= Number(item.weight || 0) * (mode === 'weather' ? 0.3 : 0.2);
+  return score;
 }
 
 export default function PrimitiveArchivePlayPage() {
@@ -188,6 +221,35 @@ export default function PrimitiveArchivePlayPage() {
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
+  const equipmentAdviceMode = Number(state.weather?.cold || 0) >= 5 || Number(actor?.bodyTemp ?? 37) <= 35.5 ? 'weather' : 'role';
+  const equipmentAdviceRows = useMemo(() => {
+    if (!actor) return [];
+    return currentEquipmentRows
+      .map((row) => {
+        const choices = equipmentChoicesForSlot(state, actorId, row.slot).filter((choice) => choice.itemId);
+        const best = choices
+          .map((choice) => ({
+            ...choice,
+            item: ITEMS[choice.itemId],
+            score: equipmentChoiceScore(choice.itemId, actor, equipmentAdviceMode, state.weather),
+          }))
+          .sort((a, b) => b.score - a.score)[0];
+        if (!best?.item) return null;
+        return {
+          slot: row.slot,
+          slotLabel: row.label,
+          currentName: row.itemName,
+          itemId: best.itemId,
+          name: best.name,
+          score: Math.round(best.score),
+          equipped: best.itemId === row.itemId,
+          detail: equipmentSuccessText(best.item),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => Number(a.equipped) - Number(b.equipped) || b.score - a.score)
+      .slice(0, 5);
+  }, [actor, actorId, currentEquipmentRows, equipmentAdviceMode, state]);
   const availableResearchNames = techs
     .filter((tech) => tech.available && !tech.completed)
     .map((tech) => tech.name);
@@ -690,6 +752,16 @@ export default function PrimitiveArchivePlayPage() {
               </button>
             </div>
             <div className="game-save-list">
+              {equipmentAdviceRows.length ? (
+                <article className="game-save-row">
+                  <div>
+                    <span>{equipmentAdviceMode === 'weather' ? '날씨 대응 추천' : '역할 추천'} · {state.weather.name} {state.weather.temp}도</span>
+                    <strong>{equipmentAdviceRows[0].slotLabel}: {equipmentAdviceRows[0].name}</strong>
+                    <small>{equipmentAdviceRows[0].detail}</small>
+                  </div>
+                  <strong>{equipmentAdviceRows[0].equipped ? '착용 중' : '추천'}</strong>
+                </article>
+              ) : null}
               {currentEquipmentRows.map((row) => {
                 const choices = equipmentChoicesForSlot(state, actorId, row.slot);
                 return (
@@ -711,6 +783,19 @@ export default function PrimitiveArchivePlayPage() {
                   </article>
                 );
               })}
+            </div>
+            <div className="game-save-list" style={{ marginTop: 12 }}>
+              {equipmentAdviceRows.slice(1).map((row) => (
+                <article className="game-save-row" key={`advice-${row.slot}`}>
+                  <div>
+                    <span>{row.slotLabel} · 현재 {row.currentName}</span>
+                    <strong>{row.name}</strong>
+                    <small>{row.detail}</small>
+                  </div>
+                  <strong>{row.equipped ? '착용 중' : '교체'}</strong>
+                </article>
+              ))}
+              {!equipmentAdviceRows.length ? <div className="games-empty">추천할 보유 장비가 없습니다. 제작 탭에서 장비를 먼저 만들어 주세요.</div> : null}
             </div>
             <div className="games-panel-title" style={{ marginTop: 16 }}>
               <h2>장비 보유</h2>
