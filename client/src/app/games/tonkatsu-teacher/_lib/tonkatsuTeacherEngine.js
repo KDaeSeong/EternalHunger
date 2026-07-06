@@ -10,6 +10,8 @@ import {
   JUDGE_AI_CHEFS,
   JUDGE_BATCH_MODE_LABELS,
   JUDGE_HISTORY_MODE_LABELS,
+  clamp,
+  makeStudents,
 } from './tonkatsuTeacherData';
 
 export {
@@ -27,6 +29,8 @@ export {
   JUDGE_AI_CHEFS,
   JUDGE_BATCH_MODE_LABELS,
   JUDGE_HISTORY_MODE_LABELS,
+  clamp,
+  makeStudents,
 } from './tonkatsuTeacherData';
 
 export function createNewState(options = {}) {

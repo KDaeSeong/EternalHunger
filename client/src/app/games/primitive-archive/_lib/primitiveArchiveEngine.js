@@ -14,14 +14,18 @@ import {
   WEATHER,
   DIFFICULTY_PRESETS,
   applyOwnedPerks,
+  clamp,
   difficultyKey,
   difficultyPreset,
   emptyEquipmentSlots,
   initEquipmentForParty,
   initMetaState,
+  initResearchState,
   makeParty,
   normalizeEquipment,
   normalizeResearch,
+  difficultyRows,
+  rollWeather,
 } from './primitiveArchiveData';
 
 export {
@@ -42,7 +46,15 @@ export {
   PERK_DEFS,
   WEATHER,
   DIFFICULTY_PRESETS,
+  clamp,
+  difficultyRows,
+  initResearchState,
+  rollWeather,
 } from './primitiveArchiveData';
+
+function perkLevel(meta, perkId) {
+  return Math.max(0, Number(meta?.ownedPerks?.[perkId] || 0));
+}
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();

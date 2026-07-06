@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
@@ -281,6 +282,24 @@ export default function SchoolSimulatorPlayPage() {
     state.school.budget < 0 ? { key: 'budget', tone: 'error', text: '예산이 적자입니다. 다음 주 운영 전에 지출을 줄이거나 입학/브랜드 정책을 조정해야 합니다.' } : null,
   ];
 
+  const guide = {
+    title: '학교 운영 코치',
+    badge: weekInfo.label,
+    primaryTitle: primaryRisk?.title || '이번 주 운영 안정',
+    primaryText: primaryRisk?.detail || '학생, 교사, 시설 지표를 확인하고 주차를 진행하세요.',
+    focusRows: [
+      { label: '평균 이해', value: averages.understanding },
+      { label: '위험 학생', value: `${riskStudents.length}명` },
+      { label: '주간 사건', value: `${events.count}건` },
+      { label: '추천 행동', value: selectedAction?.label || recommendedActionId },
+    ],
+    adviceLines: report.risks.slice(0, 4).map((risk) => ({
+      kind: risk.level === 'good' ? '안정' : risk.level === 'warn' ? '주의' : '개입',
+      title: risk.title,
+      detail: risk.detail,
+    })),
+  };
+
   return (
     <GamePlayShell
       kicker="School Simulator"
@@ -292,6 +311,8 @@ export default function SchoolSimulatorPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { SmallStat } from '../../_components/GamePlayPrimitives';
 import { BattlePanel, CardSummary, DeckEntryLine, Field, ZoneExplorer, roomConcurrencyAudit } from '../_components/BaVanguardBoard';
@@ -617,6 +618,26 @@ function BaVanguardPlayContent() {
     duel.battle?.defenderSide === 'me' ? { key: 'guard', text: '방어 창이 열렸습니다. 패에서 카드를 선택해 가드하거나 바로 가드 종료를 누르세요.' } : null,
   ];
 
+  const guide = {
+    title: '듀얼 코치',
+    badge: `${tacticalReport.riskLabel} ${tacticalReport.readinessPct}%`,
+    primaryTitle: duel.winner ? `${SIDE_LABELS[duel.winner]} 승리` : tacticalReport.recommendedAction,
+    primaryText: duel.winner
+      ? '결과를 기록하거나 리플레이를 내보내 다음 밸런스 조정에 사용하세요.'
+      : tacticalReport.headline,
+    focusRows: [
+      { label: '차례', value: duel.winner ? '종료' : `${SIDE_LABELS[duel.active]} ${duel.phase}` },
+      { label: '내 피해', value: `${me.damage.length}/6` },
+      { label: 'AI 피해', value: `${opp.damage.length}/6` },
+      { label: '흐름', value: replayReport.damageSwing >= 0 ? `+${replayReport.damageSwing}` : replayReport.damageSwing },
+    ],
+    adviceLines: tacticalReport.recommendations.slice(0, 4).map((item, index) => ({
+      kind: item.priority === 'high' ? '우선' : `${index + 1}순위`,
+      title: item.title,
+      detail: item.detail,
+    })),
+  };
+
   return (
     <GamePlayShell
       kicker="BA Vanguard"
@@ -627,6 +648,8 @@ function BaVanguardPlayContent() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

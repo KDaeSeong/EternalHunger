@@ -64,6 +64,11 @@ import {
   vatPaymentRows,
   vatScheduleRows,
 } from '../_lib/companyReportEngine';
+import {
+  CompanyReportGuidancePanel,
+  buildCompanyReportGuidance,
+  normalizeCompanyReportGuidanceLevel,
+} from '../_components/CompanyReportGuidancePanel';
 import { StatusBadge, actionFeedbackText, csvRows, downloadTextFile, getMarketName, getProductName, safeFilePart } from '../_lib/companyReportPlayHelpers';
 
 export default function CompanyReportPlayPage() {
@@ -71,6 +76,7 @@ export default function CompanyReportPlayPage() {
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
+  const [guidanceLevel, setGuidanceLevel] = useState('outsider');
   const [partnerId, setPartnerId] = useState(PARTNERS[0].id);
   const [productId, setProductId] = useState(PRODUCTS[0].id);
   const [quantity, setQuantity] = useState(40);
@@ -110,6 +116,17 @@ export default function CompanyReportPlayPage() {
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders.find((order) => order.status === 'CONFIRMED') || orders[0];
   const selectedReceivable = receivables.find((ar) => ar.id === selectedReceivableId) || receivables.find((ar) => ar.remaining > 0) || receivables[0];
   const selectedVatRow = vatSchedule.find((row) => row.id === selectedVatKey) || vatSchedule.find((row) => row.remainingAmount > 0) || vatSchedule[0];
+  const guidance = buildCompanyReportGuidance({
+    level: guidanceLevel,
+    state,
+    report,
+    management,
+    globalSummary,
+    capitalSummary,
+    reportTrend,
+    restorePlan,
+    selectedVatRow,
+  });
   const selectedForeignAr = foreignReceivables.find((ar) => ar.id === selectedForeignArId) || foreignReceivables.find((ar) => ar.remainingKrw > 0) || foreignReceivables[0];
   const vatPayAmount = Math.max(0, Math.round(Number(vatPaymentAmount || selectedVatRow?.remainingAmount || 0)));
   const latestSettlement = report.latestSettlement;
@@ -268,7 +285,7 @@ export default function CompanyReportPlayPage() {
         saveName: `Company Report ${state.company.year}-${String(state.company.month).padStart(2, '0')}`,
         version: SAVE_VERSION,
         summary: summaryForState(state),
-        payload: { state },
+        payload: { state, guidanceLevel },
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
@@ -298,8 +315,10 @@ export default function CompanyReportPlayPage() {
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      const nextState = normalizeState(detail?.save?.payload?.state);
+      const payload = detail?.save?.payload || {};
+      const nextState = normalizeState(payload.state);
       setState(nextState);
+      setGuidanceLevel(normalizeCompanyReportGuidanceLevel(payload.guidanceLevel));
       setSelectedOrderId('');
       setSelectedReceivableId('');
       setSelectedVatKey('');
@@ -330,7 +349,7 @@ export default function CompanyReportPlayPage() {
         score,
         playTimeSec: getPlayTimeSec(state),
         summary: summaryForState(state),
-        payload: { state },
+        payload: { state, guidanceLevel },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
       setMessage('Company Report 결산 기록을 전적에 남겼습니다.');
@@ -356,6 +375,7 @@ export default function CompanyReportPlayPage() {
   );
 
   const metrics = [
+    { label: '도움말', value: guidance.levelShortLabel },
     { label: '회사', value: state.company.name },
     { label: '월', value: `${state.company.year}-${String(state.company.month).padStart(2, '0')}` },
     { label: '현금', value: formatMoney(state.company.cashKrw) },
@@ -387,6 +407,12 @@ export default function CompanyReportPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <CompanyReportGuidancePanel
+        guidance={guidance}
+        level={guidanceLevel}
+        onLevelChange={setGuidanceLevel}
+      />
+
       <GameFeatureTabs
         tabs={[
           {
@@ -515,7 +541,7 @@ export default function CompanyReportPlayPage() {
               </section>
             ),
           },
-          {
+          guidance.showGlobal ? {
             id: 'global',
             label: '글로벌',
             badge: `${globalSummary.activeExports + globalSummary.activeImports} active`,
@@ -550,8 +576,8 @@ export default function CompanyReportPlayPage() {
                 </section>
               </section>
             ),
-          },
-          {
+          } : null,
+          guidance.showCapital ? {
             id: 'capital',
             label: '자본시장',
             badge: `신뢰 ${capitalSummary.investorTrust}`,
@@ -588,8 +614,8 @@ export default function CompanyReportPlayPage() {
                 </section>
               </section>
             ),
-          },
-          {
+          } : null,
+          guidance.showHistory ? {
             id: 'history',
             label: '리포트 이력',
             badge: `${reportTrend.archiveScore}%`,
@@ -687,8 +713,8 @@ export default function CompanyReportPlayPage() {
                 </section>
               </section>
             ),
-          },
-          {
+          } : null,
+          guidance.showLedger ? {
             id: 'ledger',
             label: '원장/복원',
             badge: `${state.ledgerSnapshots.length}개`,
@@ -731,7 +757,7 @@ export default function CompanyReportPlayPage() {
                 </section>
               </section>
             ),
-          },
+          } : null,
         ]}
       />
 

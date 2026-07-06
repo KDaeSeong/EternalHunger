@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
@@ -317,6 +318,24 @@ export default function SchaleIdlePlayPage() {
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 진행은 가능하지만 저장/불러오기/전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
   ];
 
+  const guide = {
+    title: '성장 코치',
+    badge: dailyPlan.riskLabel,
+    primaryTitle: dailyPlan.nextAction?.title || growthRoadmap.nextAction?.title || '안정 루프',
+    primaryText: dailyPlan.nextAction?.detail || growthRoadmap.nextAction?.detail || dailyPlan.headline,
+    focusRows: [
+      { label: '전투력', value: power.toLocaleString('ko-KR') },
+      { label: '운영', value: `${dailyPlan.readinessPct}%` },
+      { label: '성장', value: `${growthReport.overallPct}%` },
+      { label: '시즌 보상', value: `${seasonRewards.claimableCount}개` },
+    ],
+    adviceLines: dailyPlan.priorityActions.slice(0, 4).map((action, index) => ({
+      kind: action.priority === 'high' ? '우선' : `${index + 1}순위`,
+      title: action.title,
+      detail: action.detail,
+    })),
+  };
+
   return (
     <GamePlayShell
       kicker="Schale Idle RPG"
@@ -328,6 +347,8 @@ export default function SchaleIdlePlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

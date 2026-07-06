@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
@@ -12,6 +13,7 @@ import {
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
   SEGMENTS,
+  TRACK,
   bottleneckAnalysisReport,
   blockSummary,
   createNewState,
@@ -192,6 +194,26 @@ export default function Rail3dSimPlayPage() {
     stopped ? { key: 'stop', tone: 'error', text: 'STOP 신호가 발생했습니다. 같은 블록을 먼저 점유한 열차가 있어 뒤 열차가 대기 중입니다.' } : null,
   ];
 
+  const guide = {
+    title: '운행 코치',
+    badge: stopped ? 'STOP' : `${completed}/${rows.length}`,
+    primaryTitle: stopped ? '정차 원인 확인' : completed === rows.length ? '운행 완료' : '다음 운행 Step',
+    primaryText: stopped
+      ? '같은 블록에 열차가 겹치거나 토큰 대기가 길어졌습니다. 병목 탭에서 제안 시프트를 확인하세요.'
+      : report.recommendations[0] || '1 Step 또는 5분 진행으로 운행 흐름을 확인하세요.',
+    focusRows: [
+      { label: '종착', value: `${completed}/${rows.length}` },
+      { label: 'STOP', value: stopped },
+      { label: 'TOKEN', value: tokenWaits },
+      { label: '병목', value: `${bottleneck.healthScore}점` },
+    ],
+    adviceLines: report.recommendations.slice(0, 4).map((line, index) => ({
+      kind: index === 0 ? '우선' : `${index + 1}순위`,
+      title: line,
+      detail: bottleneck.proposedDepartureShiftS ? `제안 시프트 +${bottleneck.proposedDepartureShiftS}s` : '현재 스케줄 기준으로 확인하세요.',
+    })),
+  };
+
   return (
     <GamePlayShell
       kicker="Rail3D Sim"
@@ -203,6 +225,8 @@ export default function Rail3dSimPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

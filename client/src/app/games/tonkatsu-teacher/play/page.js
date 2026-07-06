@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
@@ -227,6 +228,26 @@ export default function TonkatsuTeacherPlayPage() {
     ended ? { key: 'ended', tone: 'error', text: '운영 리포트가 종료 상태입니다. 결과를 기록하거나 새 운영을 시작하세요.' } : null,
   ];
 
+  const guide = {
+    title: '운영 코치',
+    badge: `${operationsReport.readinessPct}%`,
+    primaryTitle: ended ? '운영 종료' : operationsReport.headline,
+    primaryText: ended
+      ? '결과를 기록하거나 새 운영을 시작하세요.'
+      : `${operationsReport.riskLabel} 상태입니다. 재료, 메뉴, 학생 배식, 토너먼트 루프 중 병목을 먼저 처리하세요.`,
+    focusRows: [
+      { label: 'Gold', value: `${Number(state.gold || 0).toLocaleString('ko-KR')}G` },
+      { label: '메뉴 토큰', value: mealTokenCount(state) },
+      { label: '운영', value: `${operationsReport.readinessPct}%` },
+      { label: '연출', value: `${productionReport.productionScore}%` },
+    ],
+    adviceLines: operationsReport.recommendations.slice(0, 4).map((item) => ({
+      kind: item.priority === 'high' ? '우선' : item.priority === 'medium' ? '추천' : '보조',
+      title: item.title,
+      detail: item.detail,
+    })),
+  };
+
   return (
     <GamePlayShell
       kicker="Tonkatsu Teacher"
@@ -238,6 +259,8 @@ export default function TonkatsuTeacherPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

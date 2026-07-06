@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
@@ -295,6 +296,27 @@ export default function BaSrpgPlayPage() {
     failed ? { key: 'failed', tone: 'error', text: '임무에 실패했습니다. 여관 휴식 후 재도전하거나 새 임무를 시작하세요.' } : null,
   ];
 
+  const guide = {
+    title: '전술 코치',
+    badge: battleForecast.threatLevel,
+    primaryTitle: cleared ? '임무 클리어' : failed ? '재정비 필요' : selectedCanAct ? `${selectedUnit?.name || '선택 유닛'} 행동 차례` : '턴 정리',
+    primaryText: targetEnemy
+      ? `${targetEnemy.name} HP ${targetEnemy.hp}/${targetEnemy.maxHp}. 예상 피해와 AP를 보고 공격, 스킬, 이동 중 하나를 선택하세요.`
+      : selectedCanAct
+        ? '공격 대상을 먼저 지정하면 명중/피해 예측을 보고 행동할 수 있습니다.'
+        : '행동 가능한 유닛이 없으면 턴 종료나 자동 진행으로 전투 흐름을 넘기세요.',
+    focusRows: [
+      { label: '선택 유닛', value: selectedUnit?.name || '-' },
+      { label: '목표', value: targetEnemy?.name || '-' },
+      { label: '예상 피해', value: battleForecast.incomingTotal },
+      { label: '고위험', value: `${battleForecast.highThreatCount}명` },
+    ],
+    adviceLines: battleForecast.recommendations.map((line, index) => ({
+      kind: `${index + 1}순위`,
+      title: line,
+    })),
+  };
+
   return (
     <GamePlayShell
       kicker="BA SRPG"
@@ -305,6 +327,8 @@ export default function BaSrpgPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

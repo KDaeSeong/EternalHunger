@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
@@ -402,6 +403,29 @@ export default function PrimitiveArchivePlayPage() {
     dead && !archiveVictory.victory ? { key: 'dead', tone: 'error', text: '런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
   ];
 
+  const guide = {
+    title: '생존 코치',
+    badge: archiveVictory.victory ? '완성' : dead ? '위험' : `Day ${state.day}`,
+    primaryTitle: archiveVictory.victory ? '아카이브 완성 가능' : dead ? '런 종료' : canAct ? `${actor?.name || '대원'} 행동 가능` : '정산 필요',
+    primaryText: archiveVictory.victory
+      ? '아카이브 완성을 눌러 이번 런을 마무리할 수 있습니다.'
+      : dead
+        ? '결과를 기록하거나 새 런을 시작하세요.'
+        : `${zone.note} 제작 목표는 ${recipe.name}입니다.`,
+    focusRows: [
+      { label: 'HP', value: hp },
+      { label: '허기', value: hunger },
+      { label: 'ST', value: stamina },
+      { label: '체온', value: bodyTemp.toFixed(1) },
+    ],
+    adviceLines: [
+      hp <= 35 ? { kind: '우선', title: '회복/휴식', detail: 'HP가 낮습니다. 전투보다 캠프와 회복을 먼저 검토하세요.' } : null,
+      hunger <= 35 ? { kind: '우선', title: '식량 확보', detail: '허기가 낮으면 다음 행동 안정성이 떨어집니다.' } : null,
+      archiveVictory.canComplete ? { kind: '완료', title: '아카이브 완성', detail: '목표를 달성했습니다. 기록 전 마무리를 준비하세요.' } : null,
+      { kind: '진행', title: '연구/제작 병행', detail: `${research.completed}/${research.total} 연구 완료, 기록 점수 ${archiveReport.archiveScore}%입니다.` },
+    ],
+  };
+
   return (
     <GamePlayShell
       kicker="Primitive Archive"
@@ -413,6 +437,8 @@ export default function PrimitiveArchivePlayPage() {
       metrics={playMetrics}
       messages={playMessages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

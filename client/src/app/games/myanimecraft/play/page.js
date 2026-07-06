@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
@@ -261,6 +262,26 @@ export default function MyAnimeCraftPlayPage() {
     ended ? { key: 'ended', tone: 'error', text: `${seasonStage.postseasonChampionTeamName || leader?.teamName || '선두 팀'}이 시즌 우승을 확정했습니다. 전적에 기록하거나 다음 시즌을 시작하세요.` } : null,
   ];
 
+  const guide = {
+    title: '시즌 운영 코치',
+    badge: seasonStage.label,
+    primaryTitle: ended ? '시즌 종료' : '다음 경기 진행',
+    primaryText: ended
+      ? '전적을 기록하거나 다음 시즌을 시작해 장기 리그 이력을 이어가세요.'
+      : `${played}/${total}경기 진행 중입니다. 정규리그와 개인리그, 위너스리그 상태를 같이 확인하세요.`,
+    focusRows: [
+      { label: '경기', value: `${played}/${total}` },
+      { label: '선두', value: leader?.teamName || '-' },
+      { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : personalSummary.phaseLabel || '-' },
+      { label: '리포트', value: seasonReports.length },
+    ],
+    adviceLines: [
+      ended ? { kind: '우선', title: '시즌 결과 기록', detail: '명예/전적 기록 후 다음 시즌으로 넘어가세요.' } : { kind: '우선', title: '다음 경기 진행', detail: '최근 경기 아카이브가 갱신되도록 1경기 또는 1주 단위로 진행하세요.' },
+      personalSummary.stage !== 'DONE' ? { kind: '병행', title: '개인리그 추적', detail: personalSummary.phaseLabel || '개인리그 진행 상황을 확인하세요.' } : null,
+      winnersSummary.stage !== 'DONE' ? { kind: '병행', title: '위너스리그 추적', detail: `${winnersSummary.scoreHome}:${winnersSummary.scoreAway} 스코어를 확인하세요.` } : null,
+    ],
+  };
+
   return (
     <GamePlayShell
       kicker="Starleague Sim"
@@ -272,6 +293,8 @@ export default function MyAnimeCraftPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

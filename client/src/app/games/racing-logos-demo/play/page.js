@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
@@ -280,6 +281,26 @@ export default function RacingLogosDemoPlayPage() {
     audit.placeholderOnly > 0 ? { key: 'placeholder', text: '일부 트랙은 아직 공개 placeholder 로고만 사용합니다.' } : null,
   ];
 
+  const guide = {
+    title: '에셋 감사 코치',
+    badge: `${audit.completeness}%`,
+    primaryTitle: audit.placeholderOnly > 0 ? 'placeholder 로고 보강 필요' : '로컬팩 감사 안정',
+    primaryText: audit.placeholderOnly > 0
+      ? `${audit.placeholderOnly}개 항목이 아직 공개 placeholder에 의존합니다. 보강 우선순위를 먼저 확인하세요.`
+      : '트랙/이벤트 로고가 대부분 연결되어 있습니다. 캘린더와 데이터팩 출시 점수를 확인하세요.',
+    focusRows: [
+      { label: '완성도', value: `${audit.completeness}%` },
+      { label: 'placeholder', value: audit.placeholderOnly },
+      { label: '캘린더', value: `${calendar.averageReadiness}%` },
+      { label: '데이터팩', value: `${dataPack.releaseScore}%` },
+    ],
+    adviceLines: [
+      audit.placeholderOnly > 0 ? { kind: '우선', title: 'placeholder 교체', detail: '공개 placeholder만 쓰는 트랙부터 실제 로고 후보를 연결하세요.' } : null,
+      packMatrix.totals.completed < packMatrix.totals.rows ? { kind: '추천', title: '보강 매트릭스 완료', detail: `${packMatrix.totals.completed}/${packMatrix.totals.rows}개 보강 항목이 완료되었습니다.` } : null,
+      { kind: '운영', title: '레이스 카드 생성', detail: '에셋 보강 후 이벤트/시즌 카드를 생성해 실제 노출 흐름을 확인하세요.' },
+    ],
+  };
+
   return (
     <GamePlayShell
       kicker="Racing Logos Demo"
@@ -291,6 +312,8 @@ export default function RacingLogosDemoPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

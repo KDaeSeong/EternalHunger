@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
@@ -292,6 +293,29 @@ export default function SiCodingSimPlayPage() {
       : null,
   ];
 
+  const guide = {
+    title: '현장 코치',
+    badge: task?.difficulty || latestEvaluation?.grade || '대기',
+    primaryTitle: task ? task.projectName : '과제 없음',
+    primaryText: task
+      ? task.summary
+      : '불러온 과제 데이터가 없습니다. 새 현장을 시작하거나 저장 데이터를 다시 확인하세요.',
+    focusRows: [
+      { label: '체력', value: state.resources.stamina },
+      { label: '멘탈', value: state.resources.mentality },
+      { label: '기술부채', value: state.resources.techDebt },
+      { label: '예비비', value: `${support.cashReserve}pt` },
+    ],
+    adviceLines: [
+      state.resources.stamina <= 15 || state.resources.mentality <= 15
+        ? { kind: '우선', title: '리소스 회복', detail: '체력이나 멘탈이 낮습니다. 힌트/지원/휴식성 행동을 먼저 고려하세요.' }
+        : null,
+      task ? { kind: '과제', title: '현재 과제 검수', detail: `${task.client} · ${task.deadline} · ${task.goals?.length || 0}개 목표` } : null,
+      { kind: '품질', title: '납품 점수 확인', detail: `납품 ${submissionComparison.deliveryScore}점, 이식 ${portingCompletion.completionPct}%입니다.` },
+      packAudit.warnings?.[0] ? { kind: '감사', title: packAudit.warnings[0], detail: `${packAudit.averageAuditScore}점 감사 결과를 확인하세요.` } : null,
+    ],
+  };
+
   if (!task) {
     return (
       <GamePlayShell
@@ -301,7 +325,9 @@ export default function SiCodingSimPlayPage() {
         actions={actions}
         metrics={metrics}
         messages={messages}
-      />
+      >
+        <GameAdvisorPanel {...guide} />
+      </GamePlayShell>
     );
   }
 
@@ -316,6 +342,8 @@ export default function SiCodingSimPlayPage() {
       metrics={metrics}
       messages={messages}
     >
+      <GameAdvisorPanel {...guide} />
+
       <GameFeatureTabs
         tabs={[
           {

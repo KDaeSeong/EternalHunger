@@ -7,6 +7,7 @@ import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
@@ -652,6 +653,26 @@ function DualAcademyTcgPlayContent() {
     setActiveTcgTab('logs');
   };
 
+  const tcgGuide = {
+    title: '턴 코치',
+    badge: `${turnAdvisor.riskLabel} ${turnAdvisor.readinessPct}%`,
+    primaryTitle: state.winner ? `${PLAYER_LABELS[state.winner]} 승리` : turnAdvisor.recommendedAction,
+    primaryText: state.winner
+      ? '매치 리포트와 리플레이를 확인한 뒤 저장하거나 새 매치를 시작하세요.'
+      : turnAdvisor.headline,
+    focusRows: [
+      { label: '차례', value: state.winner ? '종료' : `${PLAYER_LABELS[state.turnPlayer]} ${state.phase}` },
+      { label: '내 LP', value: state.players.player.lp },
+      { label: 'AI LP', value: state.players.enemy.lp },
+      { label: '보드', value: turnAdvisor.boardDelta >= 0 ? `+${turnAdvisor.boardDelta}` : turnAdvisor.boardDelta },
+    ],
+    adviceLines: turnAdvisor.recommendations.slice(0, 4).map((item, index) => ({
+      kind: item.priority === 'high' ? '우선' : `${index + 1}순위`,
+      title: item.title,
+      detail: item.detail,
+    })),
+  };
+
   return (
     <main className="tcg-page-shell">
       <SiteHeader />
@@ -712,6 +733,8 @@ function DualAcademyTcgPlayContent() {
             <strong>{state.chain.length}</strong>
           </div>
         </section>
+
+        <GameAdvisorPanel {...tcgGuide} />
 
         <section className="tcg-character-strip" aria-label="duel characters">
           <CharacterPanel
