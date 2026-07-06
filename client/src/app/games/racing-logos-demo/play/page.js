@@ -8,7 +8,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -134,6 +134,7 @@ export default function RacingLogosDemoPlayPage() {
   const dataPack = useMemo(() => dataPackReleaseReportForState(state), [state]);
   const score = scoreState(state);
   const latestRaceCard = state.raceCards[0];
+  const recentActionText = state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
 
   const startNewRun = () => {
     setState(createNewState());
@@ -313,6 +314,7 @@ export default function RacingLogosDemoPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
         tabs={[

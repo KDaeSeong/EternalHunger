@@ -7,7 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -292,6 +292,7 @@ export default function SiCodingSimPlayPage() {
       ? { key: 'low-resource', tone: 'error', text: '체력 또는 멘탈이 위험 수치입니다. 힌트 사용과 재검수 비용을 조심해야 합니다.' }
       : null,
   ];
+  const recentActionText = state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
 
   const guide = {
     title: '현장 코치',
@@ -327,6 +328,7 @@ export default function SiCodingSimPlayPage() {
         messages={messages}
       >
         <GameAdvisorPanel {...guide} />
+        <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
       </GamePlayShell>
     );
   }
@@ -343,6 +345,7 @@ export default function SiCodingSimPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
         tabs={[

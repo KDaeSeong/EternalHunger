@@ -7,7 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   GRID,
@@ -149,6 +149,7 @@ export default function BaSrpgPlayPage() {
   const formationCount = formation.filter((student) => student.selected).length;
   const cleared = battle.phase === 'cleared';
   const failed = battle.phase === 'failed';
+  const recentActionText = state.log?.[0] || '아직 실행한 작전 결과가 없습니다.';
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -328,6 +329,7 @@ export default function BaSrpgPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="이번 작전 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
         tabs={[
