@@ -98,6 +98,7 @@ Checked: 2026-07-04
 - Included loop: deck loading, 8000 LP duel state, MAIN1/BATTLE/MAIN2/END phases, 5 monster zones, 5 spell/trap zones, field card zone, normal summon, set, spell activation, field activation, target selection, chain prompt, counter-trap negate, battle, guard/pierce/shield keywords, enemy auto-play, room state sync, save/load, and match record.
 - v13 event layer: draw, summon, set, effect, chain response, attack, phase, turn-start, prompt, win, and greet actions now emit a bounded duel event stream with Yuuka/Hina character callouts.
 - v13 card layer: the uploaded Gehenna/Trinity/Millennium monster, spell, field, and counter-trap cards are mapped into the site card pool with simplified Monster/Spell/Trap zone behavior and playable effects for draw, damage, shield, destroy, banish, field ignition, and counter negation.
+- UI/UX: duel tabs now include a zone inspection board that compares field power, open slots, deck/hand/grave resources, priority risks, and direct deck/grave/banished archive jumps.
 - Site API integration: quick save through `/game-saves/dual-academy-tcg/quick-match`; room state sync through `/game-rooms/:id/state`; match result through `/game-records/dual-academy-tcg`.
 - Source basis: `C:\2저장고\마이애니메\dual-academy-tcg-v13-fix-emitEvent`, especially the `emitEvent`/character quote flow from `src\duel\engine.ts` and `src\data\characters.ts`.
 - Next step: deepen original card-specific effects such as Hina/Mika/Yuuka quick effects, cost selection prompts, extra deck/summon variants, and richer zone inspection modals.
