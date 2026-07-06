@@ -117,13 +117,15 @@ Resume the skill AI work after UI splitting is stable:
    - Done: second-stage fields are only generated when the text explicitly contains a recast/second-hit marker.
    - Done: `npm run check:skills` validates attack, recast, passive, heal, shield, and built-in Bihyung Q parsing.
 
-3. Runtime skill AI:
+3. In progress: Runtime skill AI:
    - usage conditions
    - target selection
    - cast range
    - pre-delay and post-delay
    - cooldown tracking
    - skill-enabled and skill-disabled simulation modes through one shared battle engine layer
+   - Done: basic attack enhancement skills still require a real base hit, while attack/heal/shield active skills can pass AI/cooldown checks even when base counter damage is 0.
+   - Done: character skill combat log fragments in `characterSkillRuntime.js` are readable Korean.
 
 4. Sample target:
    - Bihyeong Q should support first cast single-target bonus damage and second cast within 5 seconds as area damage with current-health percent scaling.

@@ -139,6 +139,12 @@ function hasSecondStagePayload(def) {
   ].some((n) => Number(n || 0) > 0);
 }
 
+function canTriggerWithBaseDamage(def, rawBaseDamage) {
+  if (rawBaseDamage > 0) return true;
+  const type = String(def?.type || '');
+  return type === 'attack_skill' || type === 'heal_skill' || type === 'shield_skill';
+}
+
 function buildSplashHits(attacker, defender, def, idx, stage, settings, splashTargets) {
   const radius = Number(def.radius || 0);
   if (radius <= 0 || !Array.isArray(splashTargets)) return [];
@@ -275,7 +281,7 @@ function applySingleSkillOnBasicAttack(attacker, defender, def, opts = {}) {
 
 function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts = {}) {
   const rawBaseDamage = Math.max(0, Number(baseDamage || 0));
-  if (!attacker || !defender || rawBaseDamage <= 0) {
+  if (!attacker || !defender) {
     return { damage: rawBaseDamage, extraDamage: 0, stage: 0, splashHits: [], applied: false };
   }
 
@@ -287,7 +293,8 @@ function applyCharacterSkillOnBasicAttack(attacker, defender, baseDamage, opts =
   const state = normalizeSkillState(attacker);
   const defs = ACTIVE_CHARACTER_SKILL_SLOTS
     .map((slot) => getCharacterSkillDef(attacker, slot))
-    .filter((def) => def && String(def.type || '') !== PASSIVE_STAT_TYPE);
+    .filter((def) => def && String(def.type || '') !== PASSIVE_STAT_TYPE)
+    .filter((def) => canTriggerWithBaseDamage(def, rawBaseDamage));
 
   if (!defs.length) {
     attacker.skillState = state;
