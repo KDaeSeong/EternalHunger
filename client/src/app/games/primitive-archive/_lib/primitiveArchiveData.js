@@ -286,7 +286,10 @@ export const DIFFICULTY_PRESETS = {
   easy: {
     key: 'easy',
     label: '쉬움',
+    startLabel: '입문',
+    recommendation: '첫 플레이와 시스템 확인용',
     desc: 'AP가 많고 추위와 허기 부담이 낮습니다.',
+    ruleSummary: '행동 여유가 있고 시작 보급이 넉넉합니다.',
     apMax: 5,
     hungerMultiplier: 0.75,
     coldMultiplier: 0.65,
@@ -297,7 +300,10 @@ export const DIFFICULTY_PRESETS = {
   normal: {
     key: 'normal',
     label: '보통',
+    startLabel: '표준',
+    recommendation: '기본 밸런스 확인용',
     desc: '기본 생존 밸런스입니다.',
+    ruleSummary: '보정 없이 원시 아카이브 기본 흐름으로 시작합니다.',
     apMax: 4,
     hungerMultiplier: 1,
     coldMultiplier: 1,
@@ -308,7 +314,10 @@ export const DIFFICULTY_PRESETS = {
   hard: {
     key: 'hard',
     label: '어려움',
+    startLabel: '압박',
+    recommendation: '루트 최적화 연습용',
     desc: '허기와 추위가 빠르게 누적됩니다.',
+    ruleSummary: '초반 식량이 줄고 생존 압박이 강해집니다.',
     apMax: 4,
     hungerMultiplier: 1.2,
     coldMultiplier: 1.25,
@@ -319,7 +328,10 @@ export const DIFFICULTY_PRESETS = {
   nightmare: {
     key: 'nightmare',
     label: '악몽',
+    startLabel: '극한',
+    recommendation: '숙련자 도전용',
     desc: '원본의 생존 압박을 더 강하게 재현합니다.',
+    ruleSummary: 'AP와 보급이 줄고 허기/추위 페널티가 크게 올라갑니다.',
     apMax: 3,
     hungerMultiplier: 1.45,
     coldMultiplier: 1.6,

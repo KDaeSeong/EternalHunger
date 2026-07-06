@@ -5769,9 +5769,38 @@
   gap: 14px;
 }
 
+.primitive-difficulty-lockbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(44, 111, 158, 0.14);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 8px;
+}
+
+.primitive-difficulty-lockbar span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  background: #f2f6fa;
+  color: #526170;
+  padding: 5px 8px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.primitive-difficulty-lockbar strong {
+  color: #17202a;
+  font-weight: 950;
+}
+
 .primitive-difficulty-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(188px, 1fr));
   gap: 10px;
 }
 
@@ -5827,6 +5856,7 @@
 
 .primitive-difficulty-card small,
 .primitive-difficulty-card__stats,
+.primitive-difficulty-card__rule,
 .primitive-difficulty-card__loadout,
 .primitive-difficulty-summary span {
   color: #64717d;
@@ -5838,6 +5868,10 @@
 .primitive-difficulty-card__stats {
   color: #17202a;
   font-weight: 900;
+}
+
+.primitive-difficulty-card__rule {
+  min-height: 34px;
 }
 
 .primitive-difficulty-card__loadout {

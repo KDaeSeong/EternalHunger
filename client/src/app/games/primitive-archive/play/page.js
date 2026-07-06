@@ -45,6 +45,7 @@ import {
   recruitPartyMemberAction,
   recruitablePartyRows,
   researchInspirationRows,
+  researchPlannerRows,
   researchSummary,
   runCampAction,
   runCraftAction,
@@ -209,7 +210,7 @@ function buildResearchMap(techs) {
 }
 
 const BASE_START_INVENTORY = { wood: 2, stone: 2, fiber: 2, berry: 2 };
-const DIFFICULTY_TAGS = {
+const FALLBACK_DIFFICULTY_TAGS = {
   easy: '입문',
   normal: '표준',
   hard: '압박',
@@ -269,6 +270,9 @@ export default function PrimitiveArchivePlayPage() {
   const archiveReport = useMemo(() => archiveCompletionReportForState(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
   const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
+  const plannerRows = useMemo(() => researchPlannerRows(state), [state]);
+  const selectedPlanner = plannerRows.find((tech) => tech.id === state.research.selectedTechId) || plannerRows[0];
+  const priorityPlannerRows = plannerRows.filter((tech) => !tech.completed).slice(0, 6);
   const researchMap = useMemo(() => buildResearchMap(techs), [techs]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
@@ -599,6 +603,11 @@ export default function PrimitiveArchivePlayPage() {
           <h2>시작 난이도</h2>
           <span>현재 런 {currentDifficulty.label} · 다음 새 런 {selectedDifficulty.label}</span>
         </div>
+        <div className="primitive-difficulty-lockbar">
+          <span><strong>현재 런</strong>{currentDifficulty.label}</span>
+          <span><strong>다음 시작</strong>{selectedDifficulty.label}</span>
+          <span>난이도는 새 런 시작 시점에만 적용됩니다.</span>
+        </div>
         <div className="primitive-difficulty-grid">
           {difficultyRows().map((row) => (
             <button
@@ -610,14 +619,17 @@ export default function PrimitiveArchivePlayPage() {
             >
               <span className="primitive-difficulty-card__head">
                 <strong>{row.label}</strong>
-                <em>{DIFFICULTY_TAGS[row.key] || '시작'}</em>
+                <em>{row.startLabel || FALLBACK_DIFFICULTY_TAGS[row.key] || '시작'}</em>
               </span>
-              <small>{row.desc}</small>
+              <small>{row.recommendation || row.desc}</small>
               <span className="primitive-difficulty-card__stats">
                 AP {row.apMax} · 허기 {multiplierText(row.hungerMultiplier)} · 추위 {multiplierText(row.coldMultiplier)} · 점수 {multiplierText(row.scoreMultiplier)}
               </span>
+              <span className="primitive-difficulty-card__rule">
+                {row.ruleSummary || row.desc}
+              </span>
               <span className="primitive-difficulty-card__loadout">
-                {startInventoryText(row)}
+                시작 보급: {startInventoryText(row)}
               </span>
             </button>
           ))}
@@ -1069,6 +1081,56 @@ export default function PrimitiveArchivePlayPage() {
             <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>
               연구 실행
             </ActionButton>
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>상세 연구 플래너</h2>
+              <span>{selectedPlanner?.priorityLabel || '대기'}</span>
+            </div>
+            {selectedPlanner ? (
+              <>
+                <div className="games-rank-split">
+                  <SmallStat label="목표" value={selectedPlanner.name} />
+                  <SmallStat label="진행" value={`${selectedPlanner.progress}/${selectedPlanner.cost}`} />
+                  <SmallStat label="유레카" value={selectedPlanner.eurekaTarget ? `${selectedPlanner.eurekaCurrent}/${selectedPlanner.eurekaTarget}` : '없음'} />
+                </div>
+                <div className={selectedPlanner.available || selectedPlanner.completed ? 'games-empty' : 'games-empty games-error'} style={{ textAlign: 'left', marginTop: 12 }}>
+                  <strong>{selectedPlanner.blockerText}</strong>
+                  <br />
+                  {selectedPlanner.nextAction}
+                </div>
+                <div className="games-activity-list" style={{ marginTop: 12 }}>
+                  <div>
+                    <strong>해금</strong>
+                    <span>{selectedPlanner.unlockText}</span>
+                  </div>
+                  <div>
+                    <strong>유레카</strong>
+                    <span>{selectedPlanner.eurekaText} · {selectedPlanner.eurekaPct}%</span>
+                  </div>
+                </div>
+              </>
+            ) : <div className="games-empty">연구 플래너 정보가 없습니다.</div>}
+
+            <div className="games-panel-title" style={{ marginTop: 16 }}>
+              <h2>다음 후보</h2>
+              <span>{priorityPlannerRows.length}개</span>
+            </div>
+            <div className="game-save-list">
+              {priorityPlannerRows.map((tech) => (
+                <article className="game-save-row" key={tech.id}>
+                  <div>
+                    <span>{tech.priorityLabel} · 우선도 {tech.priorityScore} · {tech.progressPct}%</span>
+                    <strong>{tech.name}</strong>
+                    <small>{tech.nextAction}</small>
+                  </div>
+                  <button type="button" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
+                    {tech.selected ? '선택 중' : tech.available ? '목표' : '대기'}
+                  </button>
+                </article>
+              ))}
+            </div>
           </section>
 
           <section className="games-panel">

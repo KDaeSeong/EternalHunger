@@ -251,6 +251,70 @@ function missingPrereqNames(research, tech) {
     .map((techId) => getTech(techId)?.name || techId);
 }
 
+const RESEARCH_CAMP_LABELS = {
+  fire: '모닥불',
+  shelter: '대피소',
+  workbench: '작업대',
+  archive_room: '기록실',
+  scribe_desk: '필사대',
+  library_shelf: '서가',
+};
+
+const RESEARCH_ACTION_LABELS = {
+  gather: '채집',
+  hunt: '사냥',
+  craft: '제작',
+  camp: '캠프',
+  rest: '휴식',
+  eat: '식사',
+  research: '연구',
+};
+
+function recipeName(recipeId) {
+  return RECIPES.find((recipe) => recipe.id === recipeId)?.name || recipeId;
+}
+
+function passiveLabel(passiveId) {
+  const labels = {
+    GATHER_SUCCESS_UP: '채집 성공률',
+    HUNT_SUCCESS_UP: '사냥 성공률',
+    CRAFT_SUCCESS_UP: '제작 성공률',
+    COOKING_RECOVERY_UP: '요리 회복',
+    REST_HEAL_UP: '휴식 회복',
+    RESEARCH_NOTE_UP: '일일 연구',
+    HUNT_RISK_DOWN: '사냥 위험 감소',
+    BOW_HUNT_UP: '활 사냥 보정',
+    CAMP_SCORE_UP: '캠프 점수',
+    PARTY_CAP_UP: '파티 정원',
+    RESEARCH_POINT_BONUS: '연구 보너스',
+    ARCHIVE_LOG_UP: '로그 저장량',
+    BOOK_SYSTEM_UNLOCK: '책 시스템',
+    BOOK_BONUS_UP: '책 보너스',
+    RESEARCH_POINT_BONUS_2: '상위 연구 보너스',
+  };
+  return labels[passiveId] || passiveId.replaceAll('_', ' ');
+}
+
+function researchUnlockGroups(tech) {
+  const unlocks = tech?.unlocks || {};
+  const recipes = (unlocks.recipes || []).map(recipeName);
+  const items = (unlocks.items || []).map(itemName);
+  const camps = (unlocks.camp || []).map((campId) => RESEARCH_CAMP_LABELS[campId] || campId);
+  const passives = (unlocks.passives || []).map(passiveLabel);
+  return {
+    recipes,
+    items,
+    camps,
+    passives,
+    unlockText: [
+      recipes.length ? `제작 ${recipes.join(', ')}` : '',
+      items.length ? `아이템 ${items.join(', ')}` : '',
+      camps.length ? `시설 ${camps.join(', ')}` : '',
+      passives.length ? `효과 ${passives.join(', ')}` : '',
+    ].filter(Boolean).join(' · ') || '기본 연구 보너스',
+  };
+}
+
 function availableTechNames(research, excludeTechId = '') {
   return TECH_TREE
     .filter((row) => row.id !== excludeTechId && !research.completed?.[row.id] && prereqsMet(research, row))
@@ -1011,6 +1075,81 @@ export function researchInspirationRows(state) {
       || b.progressPct - a.progressPct
       || a.techName.localeCompare(b.techName, 'ko-KR')
     ));
+}
+
+function researchEurekaActionText(tech, status) {
+  const trigger = tech.eureka;
+  if (!trigger) return '유레카 조건 없음. 연구 행동으로 바로 진행하세요.';
+  if (status.done) return status.blocked ? '단서는 확보했습니다. 선행 연구를 먼저 완료하세요.' : '유레카 단서 확보 완료.';
+  const remain = Math.max(0, Number(status.target || 0) - Number(status.current || 0));
+  if (trigger.type === 'actionSuccess') return `${RESEARCH_ACTION_LABELS[trigger.action] || trigger.action} 성공 ${remain}회 필요`;
+  if (trigger.type === 'actionFail') return `${RESEARCH_ACTION_LABELS[trigger.action] || trigger.action} 실패 ${remain}회 필요`;
+  if (trigger.type === 'recipeCraft') return `${recipeName(trigger.recipeId)} 제작 ${remain}회 필요`;
+  if (trigger.type === 'haveItem') return `${itemName(trigger.itemId)} ${remain}개 더 확보`;
+  if (trigger.type === 'campAction') return `캠프 ${RESEARCH_ACTION_LABELS[trigger.kind] || trigger.kind} 행동 ${remain}회 필요`;
+  if (trigger.type === 'weatherTypes') return `새 날씨 관찰 ${remain}종 필요`;
+  if (trigger.type === 'surviveDays') return `${remain}일 더 생존`;
+  if (trigger.type === 'campLevel') return `${RESEARCH_CAMP_LABELS[trigger.key?.replace('Level', '')] || trigger.key || '캠프'} Lv.${trigger.count} 달성 필요`;
+  if (trigger.type === 'campFireDays') return `모닥불 유지 밤 ${remain}회 필요`;
+  return trigger.desc || '유레카 조건을 진행하세요.';
+}
+
+export function researchPlannerRows(state) {
+  const rows = techRows(state);
+  return rows.map((tech) => {
+    const unlockGroups = researchUnlockGroups(tech);
+    const eurekaTarget = Math.max(0, Number(tech.eurekaStatus?.target || 0));
+    const eurekaCurrent = Math.min(eurekaTarget, Math.max(0, Number(tech.eurekaStatus?.current || 0)));
+    const eurekaPct = eurekaTarget ? Math.round((eurekaCurrent / eurekaTarget) * 100) : 0;
+    const missing = tech.missingPrereqs || [];
+    const priorityScore = tech.completed
+      ? -1000
+      : Math.round(
+        (tech.selected ? 70 : 0)
+        + (tech.available ? 55 : 0)
+        + (tech.eurekaDone ? 24 : eurekaPct * 0.22)
+        + Number(tech.progressPct || 0) * 0.35
+        + unlockGroups.recipes.length * 8
+        + unlockGroups.camps.length * 10
+        + unlockGroups.passives.length * 4
+        - missing.length * 18,
+      );
+    const nextAction = tech.completed
+      ? '완료된 연구입니다. 후속 연구를 선택하세요.'
+      : !tech.available
+        ? missing.length
+          ? `${missing.join(', ')} 연구를 먼저 완료하세요. ${researchEurekaActionText(tech, tech.eurekaStatus)}`
+          : researchEurekaActionText(tech, tech.eurekaStatus)
+        : tech.eurekaDone
+          ? '유레카가 적용됐습니다. 연구 실행으로 마무리하세요.'
+          : researchEurekaActionText(tech, tech.eurekaStatus);
+    return {
+      ...tech,
+      ...unlockGroups,
+      eurekaCurrent,
+      eurekaTarget,
+      eurekaPct,
+      eurekaText: tech.eureka?.desc || '유레카 없음',
+      nextAction,
+      blockerText: missing.length ? `선행: ${missing.join(', ')}` : '선행 조건 충족',
+      priorityScore,
+      priorityLabel: tech.completed
+        ? '완료'
+        : tech.selected
+          ? '선택 목표'
+          : tech.available
+            ? '진행 가능'
+            : tech.eurekaStatus?.blocked
+              ? '단서 확보'
+              : '잠김',
+    };
+  }).sort((a, b) => (
+    b.priorityScore - a.priorityScore
+      || Number(b.available) - Number(a.available)
+      || Number(a.completed) - Number(b.completed)
+      || a.cost - b.cost
+      || a.name.localeCompare(b.name, 'ko-KR')
+  ));
 }
 
 export function perkRows(state) {

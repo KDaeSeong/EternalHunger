@@ -87,10 +87,10 @@ Checked: 2026-07-04
 
 - Route: `/games/primitive-archive/play`
 - Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state, early tech tree research, eureka triggers, research passives, run settlement, perk points, perk shop, and perk-applied new runs.
-- UI/UX: research growth tab now includes an era-grouped research map with unlock rewards, prerequisites, eureka notes, and one-click available research targeting; the play shell separates current run difficulty from the next-run start difficulty presets.
+- UI/UX: research growth tab now includes an era-grouped research map plus a detailed research planner with priority scoring, unlock rewards, blockers, eureka progress, next recommended actions, and one-click available research targeting; the play shell separates current run difficulty from the next-run start difficulty presets and labels each start difficulty by recommended use, pressure profile, scoring, and starting supplies.
 - Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
-- Next step: import the remaining original tech tree, recipe/item gates, and expand the research map into a modal-scale detailed planner behind the site save/record shell.
+- Next step: import the remaining original tech tree and recipe/item gates, then split the detailed research planner into a dedicated modal if the planner grows beyond the current tab layout.
 
 ## Dual Academy TCG v13 Slice Status
 
