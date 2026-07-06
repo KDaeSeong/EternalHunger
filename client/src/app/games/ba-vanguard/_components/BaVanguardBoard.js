@@ -158,6 +158,93 @@ function zoneCardIds(player, zoneKey) {
   return Array.isArray(cards) ? cards : [];
 }
 
+function zoneCardStats(cards = []) {
+  const rows = cards.map(getCard).filter(Boolean);
+  const totalPower = rows.reduce((sum, card) => sum + Number(card.power || 0), 0);
+  const totalShield = rows.reduce((sum, card) => sum + Number(card.shield || 0), 0);
+  return {
+    rows,
+    triggers: rows.filter((card) => card.type === 'trigger').length,
+    sentinels: rows.filter((card) => card.type === 'sentinel').length,
+    grade3Plus: rows.filter((card) => Number(card.grade || 0) >= 3).length,
+    gUnits: rows.filter((card) => card.type === 'g-unit').length,
+    gGuardians: rows.filter((card) => card.type === 'g-guardian').length,
+    totalPower,
+    totalShield,
+  };
+}
+
+function zoneInsightRows(zone, cards, filteredCards, cbUsed) {
+  const stats = zoneCardStats(cards);
+  const filtered = zoneCardStats(filteredCards);
+  if (zone === 'damage') {
+    const cbAvailable = Math.max(0, cards.length - cbUsed);
+    return [
+      { label: '피해', value: `${cards.length}/6` },
+      { label: 'CB 가능', value: cbAvailable },
+      { label: 'CB 사용', value: cbUsed },
+      { label: '트리거', value: stats.triggers },
+    ];
+  }
+  if (zone === 'gzone') {
+    return [
+      { label: 'G 유닛', value: stats.gUnits },
+      { label: 'G 가디언', value: stats.gGuardians },
+      { label: '필터', value: filtered.rows.length },
+      { label: '총 실드', value: filtered.totalShield.toLocaleString('ko-KR') },
+    ];
+  }
+  if (zone === 'deck') {
+    return [
+      { label: '남은 덱', value: cards.length },
+      { label: '트리거', value: stats.triggers },
+      { label: '센티넬', value: stats.sentinels },
+      { label: 'G3+', value: stats.grade3Plus },
+    ];
+  }
+  if (zone === 'drop') {
+    return [
+      { label: '드롭', value: cards.length },
+      { label: '실드 총합', value: stats.totalShield.toLocaleString('ko-KR') },
+      { label: '트리거', value: stats.triggers },
+      { label: 'G3+', value: stats.grade3Plus },
+    ];
+  }
+  if (zone === 'soul') {
+    return [
+      { label: '소울', value: cards.length },
+      { label: 'G3+', value: stats.grade3Plus },
+      { label: '파워 합', value: stats.totalPower.toLocaleString('ko-KR') },
+      { label: 'VC 비용', value: cards.length ? '가능' : '부족' },
+    ];
+  }
+  return [
+    { label: ZONE_LABELS[zone] || zone, value: cards.length },
+    { label: '트리거', value: stats.triggers },
+    { label: '실드 총합', value: stats.totalShield.toLocaleString('ko-KR') },
+    { label: 'G3+', value: stats.grade3Plus },
+  ];
+}
+
+function zoneInsightText(zone, cards, cbUsed) {
+  if (zone === 'damage') {
+    if (cards.length >= 5) return '다음 히트가 패배로 이어질 수 있습니다. 가드와 G가디언 우선순위를 높게 잡아야 합니다.';
+    return `카운터블라스트 가능 수는 ${Math.max(0, cards.length - cbUsed)}장입니다. VC/G가디언 비용을 쓰기 전에 남은 피해를 확인하세요.`;
+  }
+  if (zone === 'gzone') {
+    const stats = zoneCardStats(cards);
+    if (!stats.gUnits) return '사용 가능한 G 유닛이 없습니다. 스트라이드 압박보다 일반 라이드/리어가드 전개를 봐야 합니다.';
+    return `스트라이드 후보 ${stats.gUnits}장, G가디언 ${stats.gGuardians}장입니다. 공격 전환과 생존 자원을 같이 확인하세요.`;
+  }
+  if (zone === 'deck') {
+    if (cards.length <= 8) return '덱이 얼마 남지 않았습니다. 장기전보다 빠른 마무리와 드라이브 체크 리스크 관리가 필요합니다.';
+    return '남은 덱의 트리거와 센티넬 비율을 보고 공격 지속 여부를 판단하세요.';
+  }
+  if (zone === 'drop') return '드롭은 가디언 회수, 소울 이동, 후속 비용의 근거가 됩니다. G가디언/코스트 후보를 함께 확인하세요.';
+  if (zone === 'soul') return '소울은 VC 스킬과 일부 G가디언 비용의 핵심 자원입니다. 비어 있으면 스킬 타이밍이 크게 줄어듭니다.';
+  return `${ZONE_LABELS[zone] || zone}에 있는 카드와 자원 상태를 확인하세요.`;
+}
+
 export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onClose }) {
   if (!zoneView) return null;
   const player = duel.players[zoneView.side];
@@ -173,12 +260,20 @@ export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onCl
   const cbUsed = zoneView.zone === 'damage' ? Math.max(0, Math.min(damageCards.length, Number(player.cbUsedTotal || 0))) : 0;
   const sideLabel = SIDE_LABELS[zoneView.side];
   const zoneLabel = ZONE_LABELS[zoneView.zone] || zoneView.zone;
+  const insightRows = zoneInsightRows(zoneView.zone, cards, filteredCards, cbUsed);
+  const insightText = zoneInsightText(zoneView.zone, cards, cbUsed);
 
   return (
     <section className="games-panel">
       <div className="games-panel-title">
         <h2>{sideLabel} {zoneLabel}</h2>
         <span>{shownCards.length}/{cards.length}장</span>
+      </div>
+      <div className="games-rank-split games-rank-split--compact" style={{ marginBottom: 12 }}>
+        {insightRows.map((row) => <SmallStat label={row.label} value={row.value} key={row.label} />)}
+      </div>
+      <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+        {insightText}
       </div>
       <div className="game-save-actions" style={{ marginBottom: 12 }}>
         {zoneView.zone === 'gzone' ? (
