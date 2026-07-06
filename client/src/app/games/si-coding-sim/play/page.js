@@ -61,6 +61,158 @@ function ResultRow({ result }) {
   );
 }
 
+function includesReadinessText(source, token) {
+  const text = String(token || '');
+  if (!text) return true;
+  const input = String(source || '');
+  return input.includes(text) || input.toLowerCase().includes(text.toLowerCase());
+}
+
+function evaluateReadinessRule(rule, source) {
+  if (!rule) return false;
+  if (rule.type === 'includes') return includesReadinessText(source, rule.value);
+  if (rule.type === 'notIncludes') return !includesReadinessText(source, rule.value);
+  if (rule.type === 'anyIncludes') return (rule.values || []).some((value) => includesReadinessText(source, value));
+  return false;
+}
+
+function describeReadinessRule(rule) {
+  if (!rule) return '알 수 없는 규칙';
+  if (rule.type === 'includes') return `필요: ${rule.value || '-'}`;
+  if (rule.type === 'notIncludes') return `제거: ${rule.value || '-'}`;
+  if (rule.type === 'anyIncludes') return `후보 중 1개: ${(rule.values || []).slice(0, 3).join(' / ') || '-'}`;
+  return rule.value ? String(rule.value) : rule.type || '규칙 확인';
+}
+
+function buildSubmissionReadiness(task, state, reportText, documentProgress, revealedHints, outcome) {
+  if (!task) {
+    return {
+      percent: 0,
+      passCount: 0,
+      totalCount: 0,
+      headline: '과제 없음',
+      nextAction: '과제를 먼저 선택하세요.',
+      rows: [],
+      hintSummary: '0/0',
+      reportSummary: '0/0자',
+      documentSummary: '-',
+    };
+  }
+
+  const source = [
+    ...((task.files || []).map((file) => getFileContent(state, task.id, file.id))),
+    reportText,
+  ].join('\n\n');
+  const rows = (task.judge?.checks || []).map((check, index) => {
+    const rules = check.rules || [];
+    const failedRules = rules.filter((rule) => !evaluateReadinessRule(rule, source));
+    return {
+      id: check.id || `check-${index}`,
+      label: check.label || check.title || check.description || `정적 체크 ${index + 1}`,
+      detail: failedRules.length
+        ? failedRules.slice(0, 2).map(describeReadinessRule).join(' · ')
+        : `${rules.length || 0}개 규칙 예상 통과`,
+      passed: failedRules.length === 0,
+      panel: 'code',
+      actionLabel: '코드 보기',
+    };
+  });
+
+  const reportMinLength = Number(task.reportMinLength || 0);
+  if (reportMinLength > 0) {
+    const reportLength = reportText.trim().length;
+    rows.push({
+      id: 'report',
+      label: '작업 보고',
+      detail: `${reportLength}/${reportMinLength}자${reportLength < reportMinLength ? ' · 수정 내용과 확인 결과를 더 적으세요.' : ''}`,
+      passed: reportLength >= reportMinLength,
+      panel: 'code',
+      actionLabel: '보고 작성',
+    });
+  }
+
+  if (task.documentPlay && documentProgress) {
+    const documentIssues = [
+      documentProgress.missingRequiredCount ? `필수 누락 ${documentProgress.missingRequiredCount}개` : '',
+      documentProgress.wrongSelectedCount ? `재확인 ${documentProgress.wrongSelectedCount}개` : '',
+    ].filter(Boolean);
+    rows.push({
+      id: 'document',
+      label: task.documentPlay.title || '문서 체크',
+      detail: documentIssues.length ? documentIssues.join(' · ') : `핵심 요구 ${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}`,
+      passed: documentProgress.passed,
+      panel: 'document',
+      actionLabel: '문서 보기',
+    });
+  }
+
+  const passCount = rows.filter((row) => row.passed).length;
+  const totalCount = rows.length;
+  const percent = totalCount ? Math.round((passCount / totalCount) * 100) : 100;
+  const firstBlocker = rows.find((row) => !row.passed);
+  const hintCount = task.hints?.length || 0;
+  const outcomeSummary = outcome ? `최근 검수 ${outcome.score}점` : '아직 검수 전';
+  const headline = percent >= 100 ? '제출 예상 통과권' : firstBlocker?.label || '보강 필요';
+  const nextAction = firstBlocker
+    ? `${firstBlocker.label}: ${firstBlocker.detail}`
+    : `${outcomeSummary} · 현재 상태로 검수를 실행해도 됩니다.`;
+
+  return {
+    percent,
+    passCount,
+    totalCount,
+    headline,
+    nextAction,
+    rows,
+    hintSummary: `${revealedHints.length}/${hintCount}`,
+    reportSummary: `${reportText.trim().length}/${reportMinLength || 0}자`,
+    documentSummary: task.documentPlay && documentProgress
+      ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}`
+      : '-',
+  };
+}
+
+function SubmissionReadinessPanel({ readiness, canRevealHint, onSubmit, onRevealHint, onReset, onJump }) {
+  return (
+    <section className="games-panel">
+      <div className="games-panel-title">
+        <h2>제출 준비도</h2>
+        <span>{readiness.percent}%</span>
+      </div>
+      <div className="games-rank-split">
+        <SmallStat label="예상 통과" value={`${readiness.passCount}/${readiness.totalCount}`} />
+        <SmallStat label="보고" value={readiness.reportSummary} />
+        <SmallStat label="문서" value={readiness.documentSummary} />
+        <SmallStat label="힌트" value={readiness.hintSummary} />
+      </div>
+      <div className="games-empty" style={{ textAlign: 'left', marginTop: 12 }}>
+        <strong>{readiness.headline}</strong>
+        {' · '}
+        {readiness.nextAction}
+      </div>
+      <div className="game-save-list" style={{ marginTop: 12 }}>
+        {readiness.rows.slice(0, 5).map((row) => (
+          <article className="game-save-row" key={`readiness-${row.id}`} style={row.passed ? { borderColor: '#2b8a5f' } : null}>
+            <div>
+              <span>{row.passed ? '예상 통과' : '보강 필요'}</span>
+              <strong>{row.label}</strong>
+              <span>{row.detail}</span>
+            </div>
+            <button type="button" className="tcg-primary-action" onClick={() => onJump(row.panel)}>
+              {row.actionLabel}
+            </button>
+          </article>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: 12 }}>
+        <ActionButton onClick={onSubmit}>현재 과제 검수</ActionButton>
+        <ActionButton onClick={onRevealHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
+        <ActionButton onClick={onReset}>현재 과제 초기화</ActionButton>
+      </div>
+    </section>
+  );
+}
+
 export default function SiCodingSimPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -74,6 +226,7 @@ export default function SiCodingSimPlayPage() {
     tag: 'all',
     capability: 'all',
   });
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('field');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const codePanelRef = useRef(null);
@@ -109,19 +262,19 @@ export default function SiCodingSimPlayPage() {
     });
   }, [rows, taskFilters]);
   const task = getCurrentTask(state);
+  const taskId = task?.id;
   const files = task?.files || [];
   const activeFile = files.find((file) => file.id === selectedFileId) || files[0] || null;
   const activeFileId = activeFile?.id || '';
-  const activeContent = activeFileId ? getFileContent(state, task.id, activeFileId) : '';
-  const reportText = task ? getReportText(state, task.id) : '';
-  const revealedHints = task ? getRevealedHints(state, task.id) : [];
-  const outcome = task ? state.taskOutcomes[task.id] : null;
+  const activeContent = activeFileId && taskId ? getFileContent(state, taskId, activeFileId) : '';
+  const reportText = taskId ? getReportText(state, taskId) : '';
+  const revealedHints = useMemo(() => (taskId ? getRevealedHints(state, taskId) : []), [state, taskId]);
+  const outcome = taskId ? state.taskOutcomes[taskId] : null;
   const latestEvaluation = state.projectEvaluations[0] || null;
   const score = scoreState(state);
   const documentPlay = task?.documentPlay || null;
-  const documentProgress = task ? getDocumentReviewProgress(state, task.id) : null;
+  const documentProgress = taskId ? getDocumentReviewProgress(state, taskId) : null;
   const execution = task?.execution || null;
-  const taskId = task?.id;
   const profileSummary = playerProfileSummary(state, taskId);
   const insightRows = passiveInsightRows(state, taskId);
   const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
@@ -130,6 +283,11 @@ export default function SiCodingSimPlayPage() {
   const packAudit = useMemo(() => taskPackAuditReport(state), [state]);
   const submissionComparison = useMemo(() => submissionComparisonReport(state), [state]);
   const portingCompletion = useMemo(() => portingCompletionReport(state), [state]);
+  const submissionReadiness = useMemo(
+    () => buildSubmissionReadiness(task, state, reportText, documentProgress, revealedHints, outcome),
+    [task, state, reportText, documentProgress, revealedHints, outcome],
+  );
+  const canRevealHint = revealedHints.length < (task?.hints?.length || 0);
 
   const updateTaskFilter = (key, value) => {
     setTaskFilters((current) => ({ ...current, [key]: value }));
@@ -226,6 +384,13 @@ export default function SiCodingSimPlayPage() {
   };
 
   const scrollToPanel = (panel) => {
+    const tabByPanel = {
+      code: 'code',
+      hint: 'docs',
+      document: 'docs',
+      execution: 'code',
+    };
+    if (tabByPanel[panel]) setActiveFeatureTabId(tabByPanel[panel]);
     const refByPanel = {
       code: codePanelRef,
       hint: hintPanelRef,
@@ -233,10 +398,9 @@ export default function SiCodingSimPlayPage() {
       execution: executionPanelRef,
     };
     const ref = refByPanel[panel];
-    if (!ref?.current) return;
     window.setTimeout(() => {
       ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 40);
+    }, 80);
   };
 
   const selectTask = (taskId, panel) => {
@@ -257,6 +421,22 @@ export default function SiCodingSimPlayPage() {
     setState((current) => startSelectedProjectSeedAction(current));
     setMessage('선택한 후보로 차기 현장을 시작했습니다.');
     scrollToPanel('code');
+  };
+
+  const submitCurrentTask = () => {
+    if (!task) return;
+    setState((current) => submitTaskAction(current, task.id));
+  };
+
+  const revealCurrentHint = () => {
+    if (!task || !canRevealHint) return;
+    setState((current) => revealHintAction(current, task.id));
+    scrollToPanel('hint');
+  };
+
+  const resetCurrentTask = () => {
+    if (!task) return;
+    setState((current) => resetTaskAction(current, task.id));
   };
 
   const actions = (
@@ -348,6 +528,8 @@ export default function SiCodingSimPlayPage() {
       <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
 
       <GameFeatureTabs
+        activeTabId={activeFeatureTabId}
+        onTabChange={setActiveFeatureTabId}
         tabs={[
           {
             id: 'field',
@@ -375,6 +557,15 @@ export default function SiCodingSimPlayPage() {
                     {(task.tags || []).slice(0, 8).map((tag) => <span className="game-save-chip" key={`field-${tag}`}>{tag}</span>)}
                   </div>
                 </section>
+
+                <SubmissionReadinessPanel
+                  readiness={submissionReadiness}
+                  canRevealHint={canRevealHint}
+                  onSubmit={submitCurrentTask}
+                  onRevealHint={revealCurrentHint}
+                  onReset={resetCurrentTask}
+                  onJump={scrollToPanel}
+                />
 
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -511,7 +702,7 @@ export default function SiCodingSimPlayPage() {
             badge: documentProgress ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}` : `${revealedHints.length}`,
             children: (
               <section className="games-detail-grid">
-                <section className="games-panel">
+                <section className="games-panel" ref={documentPanelRef}>
                   <div className="games-panel-title">
                     <h2>문서 체크</h2>
                     <span>{documentPlay?.title || '문서 없음'}</span>
@@ -539,13 +730,13 @@ export default function SiCodingSimPlayPage() {
                   ) : <div className="games-empty">문서 체크 과제가 아닙니다.</div>}
                 </section>
 
-                <section className="games-panel">
+                <section className="games-panel" ref={hintPanelRef}>
                   <div className="games-panel-title">
                     <h2>힌트</h2>
                     <span>{revealedHints.length}/{task.hints?.length || 0}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                    <ActionButton onClick={() => setState((current) => revealHintAction(current, task.id))} disabled={revealedHints.length >= (task.hints?.length || 0)}>
+                    <ActionButton onClick={revealCurrentHint} disabled={!canRevealHint}>
                       힌트 열기
                     </ActionButton>
                   </div>
@@ -587,7 +778,7 @@ export default function SiCodingSimPlayPage() {
             badge: outcome ? `${outcome.score}점` : '미제출',
             children: (
               <section className="games-detail-grid">
-                <section className="games-panel">
+                <section className="games-panel" ref={codePanelRef}>
                   <div className="games-panel-title">
                     <h2>코드 파일</h2>
                     <span>{activeFile?.path || activeFileId}</span>
@@ -613,12 +804,37 @@ export default function SiCodingSimPlayPage() {
 
                 <section className="games-panel">
                   <div className="games-panel-title">
+                    <h2>작업 보고</h2>
+                    <span>{reportText.trim().length}/{task.reportMinLength || 0}자</span>
+                  </div>
+                  <label className="game-save-json-field">
+                    <span>검수 보고</span>
+                    <textarea
+                      value={reportText}
+                      onChange={(event) => setState((current) => updateReportAction(current, task.id, event.target.value))}
+                      placeholder={task.reportPlaceholder || '수정한 내용과 확인 결과를 적으세요.'}
+                      style={{ minHeight: 160 }}
+                    />
+                  </label>
+                </section>
+
+                <SubmissionReadinessPanel
+                  readiness={submissionReadiness}
+                  canRevealHint={canRevealHint}
+                  onSubmit={submitCurrentTask}
+                  onRevealHint={revealCurrentHint}
+                  onReset={resetCurrentTask}
+                  onJump={scrollToPanel}
+                />
+
+                <section className="games-panel">
+                  <div className="games-panel-title">
                     <h2>제출과 결과</h2>
                     <span>{outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                    <ActionButton onClick={() => setState((current) => submitTaskAction(current, task.id))}>현재 과제 검수</ActionButton>
-                    <ActionButton onClick={() => setState((current) => resetTaskAction(current, task.id))}>현재 과제 초기화</ActionButton>
+                    <ActionButton onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
+                    <ActionButton onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
                     <ActionButton onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
                   </div>
                   <div className="game-save-list">
@@ -628,7 +844,7 @@ export default function SiCodingSimPlayPage() {
                   </div>
                 </section>
 
-                <section className="games-panel">
+                <section className="games-panel" ref={executionPanelRef}>
                   <div className="games-panel-title">
                     <h2>실행 규칙</h2>
                     <span>{execution?.mockType || task.judgeMode || 'static'}</span>
@@ -1015,9 +1231,9 @@ export default function SiCodingSimPlayPage() {
             <span>{latestEvaluation?.grade || '진행 중'}</span>
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => submitTaskAction(current, task.id))}>현재 과제 검수</ActionButton>
-            <ActionButton onClick={() => setState((current) => revealHintAction(current, task.id))} disabled={revealedHints.length >= (task.hints?.length || 0)}>힌트 열기</ActionButton>
-            <ActionButton onClick={() => setState((current) => resetTaskAction(current, task.id))}>현재 과제 초기화</ActionButton>
+            <ActionButton onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
+            <ActionButton onClick={revealCurrentHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
+            <ActionButton onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
             <ActionButton onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
           </div>
         </section>

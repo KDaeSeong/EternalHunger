@@ -160,9 +160,10 @@ Checked: 2026-07-04
 
 - Route: `/games/si-coding-sim/play`
 - Included loop: Step AQ/AR task pack loading, task selection, code file editing, report writing, hint reveal cost, includes/notIncludes/anyIncludes judge rules, resource settlement, project grade evaluation, and run log.
+- UI/UX: current task now has a submission readiness panel that previews static check, report, document, and hint status, then jumps directly to the needed work tab.
 - Site API integration: quick save through `/game-saves/si-coding-sim/si-coding-sim-main`; challenge-score snapshot through `/game-records/si-coding-sim`.
 - Source basis: `C:\2저장고\마이애니메\si-coding-sim_stepAQ_AR\prototype\data\task-pack-stepAQ_AR.json` and `data\judge-rules.json`.
-- Next step: import the original execution harness, company support budget, contract negotiation, follow-up branch, seed generation, and career progression UI.
+- Next step: import the original execution harness, contract negotiation, follow-up branch depth, seed generation depth, and career progression UI.
 
 ## Rail3D Sim Slice Status
 

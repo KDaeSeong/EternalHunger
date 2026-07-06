@@ -21,14 +21,19 @@ export function GameMetric({ label, value, density = '', variant = '' }) {
   );
 }
 
-export function GameFeatureTabs({ tabs = [], initialTabId = '' }) {
+export function GameFeatureTabs({ tabs = [], initialTabId = '', activeTabId: controlledActiveTabId, onTabChange }) {
   const visibleTabs = tabs.filter(Boolean);
   const fallbackId = visibleTabs[0]?.id || '';
-  const [activeTabId, setActiveTabId] = useState(initialTabId || fallbackId);
+  const [internalActiveTabId, setInternalActiveTabId] = useState(initialTabId || fallbackId);
+  const activeTabId = controlledActiveTabId || internalActiveTabId;
   const activeTab = visibleTabs.find((tab) => tab.id === activeTabId) || visibleTabs[0];
   const tabListClassName = visibleTabs.length > 6
     ? 'game-feature-tabs__list game-feature-tabs__list--dense'
     : 'game-feature-tabs__list';
+  const selectTab = (tabId) => {
+    if (!controlledActiveTabId) setInternalActiveTabId(tabId);
+    if (onTabChange) onTabChange(tabId);
+  };
 
   if (!visibleTabs.length) return null;
 
@@ -51,7 +56,7 @@ export function GameFeatureTabs({ tabs = [], initialTabId = '' }) {
               className={selected ? 'is-active' : ''}
               key={tab.id}
               title={tabTitle}
-              onClick={() => setActiveTabId(tab.id)}
+              onClick={() => selectTab(tab.id)}
             >
               <span>{tab.label}</span>
               {tab.badge ? <strong>{tab.badge}</strong> : null}
