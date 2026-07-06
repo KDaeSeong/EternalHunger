@@ -1,11 +1,13 @@
 import {
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
+  SUPPORT_TARGET_SCOPE_OPTIONS,
   cleanNumber,
   createDefaultCompiledSkill,
   normalizeCharacterSkillType,
   normalizePctInput,
   normalizeSkillText,
+  normalizeSupportTargetScope,
   normalizeSlot,
   toLevelArray,
 } from './characterSkillCompilerCore.js';
@@ -15,8 +17,10 @@ export {
   CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_SKILL_SLOTS,
+  SUPPORT_TARGET_SCOPE_OPTIONS,
   createDefaultCompiledSkill,
   normalizeCharacterSkillType,
+  normalizeSupportTargetScope,
 } from './characterSkillCompilerCore.js';
 
 const NUMBER_SEQUENCE = String.raw`([+-]?\d+(?:\.\d+)?(?:\s*(?:\/|,|，)\s*[+-]?\d+(?:\.\d+)?){0,4})`;
@@ -123,6 +127,15 @@ function inferUseCondition(text) {
   if (/처치|마무리|결정타|kill|finish|execute/i.test(text)) return 'finish';
   if (/방어|보호|위급|체력.*(?:이하|낮|defensive|low\s*hp)/i.test(text)) return 'defensive';
   if (/견제|poke|harass/i.test(text)) return 'harass';
+  return 'auto';
+}
+
+function inferSupportTargetScope(text) {
+  const hasSelf = /자신|시전자|사용자|본인|스스로|self|caster/i.test(text);
+  const hasAlly = /아군|팀원|파티원|분대원|동료|ally|teammate|party|squad/i.test(text);
+  if (hasSelf && hasAlly) return 'team';
+  if (hasSelf) return 'self';
+  if (hasAlly) return 'ally';
   return 'auto';
 }
 
@@ -276,6 +289,7 @@ function normalizePreviewSkill(skill = {}) {
     recoveryDelaySec: s.recoveryDelaySec,
     useCondition: s.useCondition,
     targetPriority: s.targetPriority,
+    supportTargetScope: s.supportTargetScope,
     minExpectedDamage: s.minExpectedDamage,
     minSplashTargets: s.minSplashTargets,
     minCasterHpPct: s.minCasterHpPct,
@@ -389,6 +403,7 @@ export function compileNaturalSkillDescription(sourceText, base = {}, slot = 'q'
   skill.tags = buildTags(text, skill);
   skill.targetPriority = inferTargetPriority(text, skill);
   skill.useCondition = inferUseCondition(text);
+  skill.supportTargetScope = inferSupportTargetScope(text);
   skill.minCasterHpPct = extractHpConditionPct(text, 'caster', 'min');
   skill.maxCasterHpPct = extractHpConditionPct(text, 'caster', 'max');
   skill.minTargetHpPct = extractHpConditionPct(text, 'target', 'min');

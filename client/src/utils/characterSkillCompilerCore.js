@@ -15,6 +15,12 @@ export const CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS = [
   { value: 'shield_skill', label: '보호막 스킬' },
   { value: 'basic_attack_enhance', label: '기본 공격 강화' },
 ];
+export const SUPPORT_TARGET_SCOPE_OPTIONS = [
+  { value: 'auto', label: '자동' },
+  { value: 'self', label: '자신' },
+  { value: 'ally', label: '팀원' },
+  { value: 'team', label: '자신+팀원' },
+];
 
 export function normalizeCharacterSkillType(value, slot = 'q') {
   if (slot === 'passive') return 'passive_stat';
@@ -26,6 +32,14 @@ export function normalizeCharacterSkillType(value, slot = 'q') {
   if (key === 'shield' || key === 'barrier' || key === 'shield_skill') return 'shield_skill';
   if (key === 'combat_effect' || key === 'damage' || key === 'attack' || key === 'attack_skill') return 'attack_skill';
   return 'attack_skill';
+}
+
+export function normalizeSupportTargetScope(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (key === 'self' || key === 'caster' || key === 'own') return 'self';
+  if (key === 'ally' || key === 'teammate' || key === 'member') return 'ally';
+  if (key === 'team' || key === 'party' || key === 'squad' || key === 'allies') return 'team';
+  return 'auto';
 }
 
 export function cleanNumber(value, fallback = 0) {
@@ -105,6 +119,7 @@ export function createDefaultCompiledSkill(base = {}, slot = 'q') {
     recoveryDelaySec: Math.max(0, cleanNumber(base.recoveryDelaySec, 0)),
     useCondition: String(base.useCondition || 'auto'),
     targetPriority: String(base.targetPriority || 'auto'),
+    supportTargetScope: normalizeSupportTargetScope(base.supportTargetScope),
     minExpectedDamage: Math.max(0, cleanNumber(base.minExpectedDamage, 1)),
     minSplashTargets: Math.max(0, Math.floor(cleanNumber(base.minSplashTargets, 0))),
     minCasterHpPct: normalizePctInput(base.minCasterHpPct, 0),

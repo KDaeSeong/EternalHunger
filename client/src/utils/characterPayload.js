@@ -1,6 +1,6 @@
 import { normalizeSupportedTacSkill } from './tacticalSkillCatalog.js';
 import { ER_STAT_KEYS, normalizeErStats } from './erStats.js';
-import { normalizeCharacterSkillType } from './characterSkillCompilerCore.js';
+import { normalizeCharacterSkillType, normalizeSupportTargetScope } from './characterSkillCompilerCore.js';
 
 const MAX_PREVIEW_IMAGE_CHARS = 60000;
 const MAX_TEXT_CHARS = 4000;
@@ -158,6 +158,7 @@ function cleanCharacterSkill(raw, slot) {
     recoveryDelaySec: Math.max(0, cleanNumber(src.recoveryDelaySec, 0)),
     useCondition: cleanString(src.useCondition, 64) || 'auto',
     targetPriority: cleanString(src.targetPriority, 64) || 'auto',
+    supportTargetScope: normalizeSupportTargetScope(src.supportTargetScope),
     minExpectedDamage: Math.max(0, cleanNumber(src.minExpectedDamage, 1)),
     minSplashTargets: Math.max(0, Math.floor(cleanNumber(src.minSplashTargets, 0))),
     minCasterHpPct: cleanPctInput(src.minCasterHpPct, 0),

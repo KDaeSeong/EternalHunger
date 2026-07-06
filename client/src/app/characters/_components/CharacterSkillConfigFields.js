@@ -2,7 +2,9 @@ import {
   CHARACTER_ACTIVE_SKILL_TYPE_OPTIONS,
   CHARACTER_SKILL_SLOT_LABELS,
   CHARACTER_SKILL_SLOTS,
+  SUPPORT_TARGET_SCOPE_OPTIONS,
   normalizeCharacterSkillType,
+  normalizeSupportTargetScope,
 } from '../../../utils/characterSkillCompiler';
 import {
   SKILL_LEVEL_COUNT,
@@ -170,6 +172,19 @@ export function CharacterActiveSkillFields({
       </div>
 
       <div className="character-skill-inline-grid">
+        <label>
+          지원 대상
+          <select
+            value={normalizeSupportTargetScope(skill.supportTargetScope)}
+            onChange={(event) => onUpdateSkill(slot, 'supportTargetScope', event.target.value)}
+            disabled={disabled}
+          >
+            {SUPPORT_TARGET_SCOPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+
         <label>
           사용 조건
           <select

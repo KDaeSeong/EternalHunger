@@ -2,6 +2,7 @@ import {
   ACTIVE_CHARACTER_SKILL_SLOTS,
   CHARACTER_SKILL_SLOT_LABELS,
   normalizeCharacterSkillType,
+  normalizeSupportTargetScope,
 } from '../../../utils/characterSkillCompiler.js';
 
 const CHARACTER_SKILL_MODE = 'character_skill';
@@ -24,6 +25,7 @@ const BIHYUNG_Q = {
   recoveryDelaySec: 0.25,
   useCondition: 'auto',
   targetPriority: 'cluster',
+  supportTargetScope: 'auto',
   minExpectedDamage: 1,
   minSplashTargets: 0,
   minCasterHpPct: 0,
@@ -170,6 +172,7 @@ function normalizeCustomSkill(actor, slot) {
     recoveryDelaySec: clamp(raw.recoveryDelaySec ?? 0, 0, 10),
     useCondition: cleanSkillText(raw.useCondition, 'auto'),
     targetPriority: cleanSkillText(raw.targetPriority, 'auto'),
+    supportTargetScope: normalizeSupportTargetScope(raw.supportTargetScope),
     minExpectedDamage: Math.max(0, Number(raw.minExpectedDamage ?? 1) || 0),
     minSplashTargets: Math.max(0, Math.floor(Number(raw.minSplashTargets || 0))),
     minCasterHpPct: cleanPctInput(raw.minCasterHpPct, 0),

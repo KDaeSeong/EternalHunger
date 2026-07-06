@@ -48,10 +48,12 @@ assert(Number(passive.statModifiers.sightRange || 0) === 1, 'passive sightRange 
 const heal = compileNaturalSkillDescription('회복 스킬: 아군을 10/20/30/40/50 회복, 쿨타임 12초', {}, 'w').skill;
 assert(heal.type === 'heal_skill', 'heal text should compile as heal_skill');
 assert(sameList(heal.heal, [10, 20, 30, 40, 50]), 'heal amount parse failed');
+assert(heal.supportTargetScope === 'ally', 'ally heal text should compile with ally support scope');
 
 const shield = compileNaturalSkillDescription('보호막 스킬: 자신에게 보호막 20/30/40/50/60, 3초 지속', {}, 'e').skill;
 assert(shield.type === 'shield_skill', 'shield text should compile as shield_skill');
 assert(sameList(shield.shield, [20, 30, 40, 50, 60]), 'shield amount parse failed');
+assert(shield.supportTargetScope === 'self', 'self shield text should compile with self support scope');
 
 const bihyungQ = getCharacterSkillDef({ name: '비형' }, 'q');
 assert(bihyungQ?.name === '비형 Q', 'builtin Bihyung Q should resolve with Korean name');
@@ -133,6 +135,33 @@ assert(allyHealCaster.hp === 100, 'support heal should not heal the caster when 
 assert(woundedAlly.hp === 45, 'support heal should pick the lowest HP ally');
 assert(lessWoundedAlly.hp === 70, 'support heal should not heal the less urgent ally');
 assert(allyHealResult.results?.[0]?.targetId === 'wounded-ally', 'support heal should report the ally target');
+
+const selfShieldCaster = makeActor({
+  _id: 'self-shield-caster',
+  hp: 100,
+  teamId: 'team-a',
+  characterSkills: {
+    e: {
+      enabled: true,
+      slot: 'e',
+      type: 'shield_skill',
+      name: '자기 보호막',
+      cooldownSec: 10,
+      supportTargetScope: 'self',
+      shield: [20, 20, 20, 20, 20],
+    },
+  },
+});
+const shieldableAlly = makeActor({ _id: 'shieldable-ally', hp: 10, maxHp: 100, teamId: 'team-a' });
+const selfShieldResult = applyCharacterSkillOnBasicAttack(selfShieldCaster, allyHealEnemy, 0, {
+  settings: { skills: { characterSkills: true } },
+  nowSec: 180,
+  supportTargets: [shieldableAlly],
+});
+assert(selfShieldResult.applied === true, 'self support shield should still apply');
+assert(selfShieldResult.results?.[0]?.targetId === 'self-shield-caster', 'self support shield should target caster only');
+assert(Array.isArray(selfShieldCaster.activeEffects) && selfShieldCaster.activeEffects.some((eff) => Number(eff?.shieldValue || 0) === 20), 'self support shield should shield caster');
+assert(!Array.isArray(shieldableAlly.activeEffects) || !shieldableAlly.activeEffects.some((eff) => Number(eff?.shieldValue || 0) === 20), 'self support shield must not shield ally');
 
 const shieldCaster = makeActor({
   _id: 'shield-caster',

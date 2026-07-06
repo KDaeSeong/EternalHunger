@@ -129,6 +129,7 @@ Resume the skill AI work after UI splitting is stable:
    - Done: character skill cast/recovery delay now reserves phase action time during PvP combat.
    - Done: runtime check covers skill-enabled/disabled mode, heal/shield active skills, Bihyung Q 1st single-target hit, and Bihyung Q 2nd splash hit.
    - Done: heal/shield support skills can now pick same-zone allies from the combat roster instead of always applying to the caster.
+   - Done: support skill target scope is now compiled, editable, saved, and respected at runtime (`self`, `ally`, `team`, `auto`).
 
 4. Sample target:
    - Bihyeong Q should support first cast single-target bonus damage and second cast within 5 seconds as area damage with current-health percent scaling.

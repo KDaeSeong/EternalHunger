@@ -5,6 +5,7 @@ import {
   CHARACTER_SKILL_SLOTS,
   createDefaultCompiledSkill,
   normalizeCharacterSkillType,
+  normalizeSupportTargetScope,
 } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 
@@ -86,6 +87,7 @@ function normalizeCharacterSkillForEditor(skills, slot = 'q') {
     recoveryDelaySec: Math.max(0, cleanNumber(raw.recoveryDelaySec, 0)),
     useCondition: String(raw.useCondition || 'auto'),
     targetPriority: String(raw.targetPriority || 'auto'),
+    supportTargetScope: normalizeSupportTargetScope(raw.supportTargetScope),
     minExpectedDamage: Math.max(0, cleanNumber(raw.minExpectedDamage, 1)),
     minSplashTargets: Math.max(0, Math.floor(cleanNumber(raw.minSplashTargets, 0))),
     minCasterHpPct: cleanPctInput(raw.minCasterHpPct, 0),

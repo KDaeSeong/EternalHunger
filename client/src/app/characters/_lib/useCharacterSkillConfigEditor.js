@@ -37,7 +37,7 @@ function summarizeCompiledSkill(slot, skill, warnings = []) {
     tone: warnings.length ? 'warning' : 'success',
     title: warnings.length ? `${label} 자동 작성 확인 필요` : `${label} 자동 작성 완료`,
     lines: [
-      `타입 ${skill.type} / 조건 ${skill.useCondition || 'auto'} / 대상 ${skill.targetPriority || 'auto'}`,
+      `타입 ${skill.type} / 조건 ${skill.useCondition || 'auto'} / 대상 ${skill.targetPriority || 'auto'} / 지원 ${skill.supportTargetScope || 'auto'}`,
       `쿨다운 ${skill.cooldownSec || 0}초 / 재발동 ${skill.recastWindowSec || 0}초 / 사거리 ${skill.range || 0} / 범위 ${skill.radius || 0}`,
       `선딜 ${skill.castDelaySec || 0}초 / 후딜 ${skill.recoveryDelaySec || 0}초`,
       damageBits.length ? `피해: ${damageBits.join(', ')}` : '피해/회복/보호막 수치가 없으면 수동 입력에서 보완하세요.',

@@ -182,6 +182,13 @@ function scoreSupportTarget({ target, def, idx }) {
   };
 }
 
+function supportCandidatePool(attacker, supportTargets, def) {
+  const scope = String(def?.supportTargetScope || 'auto');
+  if (scope === 'self') return [attacker];
+  if (scope === 'ally') return Array.isArray(supportTargets) ? supportTargets : [];
+  return [attacker, ...(Array.isArray(supportTargets) ? supportTargets : [])];
+}
+
 function selectSupportTarget({
   attacker,
   def,
@@ -190,7 +197,7 @@ function selectSupportTarget({
   supportTargets,
   opts,
 }) {
-  const supportCandidates = uniqueAliveTargets([attacker, ...supportTargets])
+  const supportCandidates = uniqueAliveTargets(supportCandidatePool(attacker, supportTargets, def))
     .filter((target) => actorId(target) === actorId(attacker) || isTargetInSkillRange(attacker, target, def, settings, opts))
     .filter((target) => targetPassesHpCondition(target, def))
     .map((target) => scoreSupportTarget({ target, def, idx }))
