@@ -362,6 +362,8 @@ export default function MyAnimeCraftPlayPage() {
                     {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
                     {setResult.isAceSet ? ` · 에이스 보정 ${setResult.aceBoostHome >= 0 ? '+' : ''}${setResult.aceBoostHome}%/${setResult.aceBoostAway >= 0 ? '+' : ''}${setResult.aceBoostAway}%` : ''}
                   </span>
+                  {setResult.broadcastHeadline ? <span>{setResult.broadcastHeadline}</span> : null}
+                  {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
                   <BroadcastTimeline lines={setResult.timeline} />
                 </div>
               ))}
@@ -528,7 +530,7 @@ export default function MyAnimeCraftPlayPage() {
                   <small>{match.played ? `승자 ${match.winnerName} · ${match.mapNames.join(' / ')}` : `${match.playerATeamName} vs ${match.playerBTeamName}`}</small>
                   {match.played && match.setDetails?.length ? (
                     <BroadcastTimeline
-                      title={`마지막 세트 중계 · ${match.setDetails[match.setDetails.length - 1].mapName}`}
+                      title={match.setDetails[match.setDetails.length - 1].broadcastHeadline || `마지막 세트 중계 · ${match.setDetails[match.setDetails.length - 1].mapName}`}
                       lines={match.setDetails[match.setDetails.length - 1].timeline}
                     />
                   ) : null}
@@ -579,6 +581,8 @@ export default function MyAnimeCraftPlayPage() {
                   <span>{setResult.label} · {setResult.mapName} · 홈 승률 {setResult.probabilityHome}%</span>
                   <strong>{setResult.homePlayerName} vs {setResult.awayPlayerName}</strong>
                   <small>승자 {setResult.winnerPlayerName} · {setResult.homeBuildName} / {setResult.awayBuildName}</small>
+                  {setResult.broadcastHeadline ? <small>{setResult.broadcastHeadline}</small> : null}
+                  {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
                   <BroadcastTimeline lines={setResult.timeline} />
                 </div>
                 <strong>{setResult.winnerTeamName}</strong>

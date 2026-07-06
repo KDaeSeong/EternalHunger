@@ -235,7 +235,7 @@ function normalizeTimelineLine(value) {
 
 function normalizeSetTimeline(value) {
   return Array.isArray(value)
-    ? value.map(normalizeTimelineLine).filter(Boolean).slice(0, 12)
+    ? value.map(normalizeTimelineLine).filter(Boolean).slice(0, 18)
     : [];
 }
 
@@ -255,6 +255,8 @@ function normalizePersonalSetDetail(value) {
     awayBuildName: String(value.awayBuildName || ''),
     homeBuildStyle: String(value.homeBuildStyle || ''),
     awayBuildStyle: String(value.awayBuildStyle || ''),
+    broadcastHeadline: String(value.broadcastHeadline || ''),
+    turningPoint: String(value.turningPoint || ''),
     durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
     timeline: normalizeSetTimeline(value.timeline),
   };
@@ -348,6 +350,8 @@ function normalizeWinnersSet(value) {
     awayBuildName: String(value.awayBuildName || ''),
     homeBuildStyle: String(value.homeBuildStyle || ''),
     awayBuildStyle: String(value.awayBuildStyle || ''),
+    broadcastHeadline: String(value.broadcastHeadline || ''),
+    turningPoint: String(value.turningPoint || ''),
     timeline: normalizeSetTimeline(value.timeline),
     playedAt: Number(value.playedAt || Date.now()),
   };
@@ -1186,6 +1190,66 @@ function buildClashLine(rng, homeBuild, awayBuild) {
   ]);
 }
 
+function scoutingReadLine(rng, homePlayer, awayPlayer, homeBuild, awayBuild) {
+  const homePlan = `${homePlayer.name}의 ${buildName(homeBuild)}`;
+  const awayPlan = `${awayPlayer.name}의 ${buildName(awayBuild)}`;
+  if (homeBuild.style === 'rush' && awayBuild.style === 'macro') {
+    return pickLine(rng, [
+      `${homePlan}가 앞마당 욕심을 바로 찌릅니다. ${awayPlayer.name}은 드론, 프로브, SCV를 몇 기까지 동원할지가 첫 번째 판단입니다.`,
+      `${awayPlayer.name}이 자원 쪽을 먼저 봤는데, ${homePlayer.name}의 러시 타이밍이 빠릅니다. 정찰이 한 박자만 늦어도 입구가 무너질 수 있습니다.`,
+    ]);
+  }
+  if (awayBuild.style === 'rush' && homeBuild.style === 'macro') {
+    return pickLine(rng, [
+      `${awayPlan}가 먼저 칼을 뽑았습니다. ${homePlayer.name}의 확장 선택이 욕심으로 끝날지, 배짱으로 끝날지 여기서 갈립니다.`,
+      `${homePlayer.name}이 넓게 출발했는데 ${awayPlayer.name}은 바로 압박입니다. 초반 방어 위치가 화면 중앙보다 더 중요합니다.`,
+    ]);
+  }
+  if (homeBuild.style === 'tech' || awayBuild.style === 'tech') {
+    const techPlayer = homeBuild.style === 'tech' ? homePlayer.name : awayPlayer.name;
+    const techBuild = homeBuild.style === 'tech' ? homeBuild : awayBuild;
+    return pickLine(rng, [
+      `${techPlayer}의 ${buildName(techBuild)} 냄새가 납니다. 지금 정찰이 끊기면 다크, 리버, 레이스 같은 첫 카드에 바로 맞습니다.`,
+      `${techPlayer} 쪽 테크 건물이 숨었습니다. 상대가 지금 봐야 하는 건 병력 숫자가 아니라 생산 건물의 방향입니다.`,
+    ]);
+  }
+  if (homeBuild.style === 'harass' || awayBuild.style === 'harass') {
+    return pickLine(rng, [
+      `${homePlan}, ${awayPlan}. 양쪽 모두 미니맵을 넓게 써야 합니다. 본진 화면만 보면 셔틀, 뮤탈, 드랍십을 놓칩니다.`,
+      `정찰이 서로 엇갈립니다. 이럴 때는 큰 한방보다 작은 견제 피해가 누적돼서 세트 분위기를 바꿉니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    `${homePlan}와 ${awayPlan}입니다. 빌드는 크게 터지지 않았고, 첫 번째 진출 타이밍을 누가 더 정확히 잡느냐가 중요합니다.`,
+    `양쪽 출발은 안정적입니다. 그래서 더 디테일을 봐야 합니다. 정찰 생존, 첫 병력 위치, 앞마당 타이밍이 전부 점수입니다.`,
+  ]);
+}
+
+function pressureLine(rng, scoreHome, scoreAway, isAceSet) {
+  if (isAceSet) {
+    return pickLine(rng, [
+      '에이스전입니다. 이 한 세트는 빌드보다 손 떨림을 먼저 봐야 합니다. 한 번의 정찰 실패가 그대로 매치 종료입니다.',
+      '스코어 2:2에서 나오는 에이스전, 여기서는 준비한 카드도 중요하지만 평소보다 안전하게 시작하는 배짱이 필요합니다.',
+    ]);
+  }
+  if (scoreHome === 2 || scoreAway === 2) {
+    return pickLine(rng, [
+      '매치 포인트가 걸려 있습니다. 쫓기는 쪽은 무리하면 끝나고, 앞선 쪽은 굳히려다 역전의 빌미를 줄 수 있습니다.',
+      '한쪽은 끝낼 수 있고 한쪽은 버텨야 합니다. 이럴 때 초반 빌드 선택이 평소보다 훨씬 무겁게 들어옵니다.',
+    ]);
+  }
+  if (scoreHome || scoreAway) {
+    return pickLine(rng, [
+      `현재 스코어 ${scoreHome}:${scoreAway}. 여기서 균형이 맞춰지느냐, 한쪽으로 확 기울어지느냐가 오늘 매치의 톤을 정합니다.`,
+      `스코어가 이미 움직였습니다. 다음 세트는 단순한 1승이 아니라 엔트리 싸움의 주도권입니다.`,
+    ]);
+  }
+  return pickLine(rng, [
+    '첫 세트는 벤치 분위기를 정합니다. 여기서 이기면 다음 엔트리까지 훨씬 편하게 나올 수 있습니다.',
+    '시작 세트입니다. 준비한 빌드의 완성도도 중요하지만, 상대 첫 정찰을 어떻게 처리하느냐부터 봐야 합니다.',
+  ]);
+}
+
 function swingLine(rng, winnerName, leaderName, closeGame, homeWin, pHome) {
   const favoriteHome = Number(pHome || 0.5) >= 0.56;
   const favoriteName = favoriteHome ? '홈' : Number(pHome || 0.5) <= 0.44 ? '원정' : '';
@@ -1206,6 +1270,51 @@ function swingLine(rng, winnerName, leaderName, closeGame, homeWin, pHome) {
     `${leaderName} 쪽으로 흐름이 기웁니다. 이제는 멋진 장면보다 실수 없이 굳히는 운영이 중요합니다.`,
     `${subject(leaderName)} 주도권을 잡았습니다. 상대는 수비하면서 동시에 역습 타이밍을 만들어야 하는 어려운 국면입니다.`,
   ]);
+}
+
+function broadcastHeadlineForSet({ setNo, map, homePlayer, awayPlayer, homeBuild, awayBuild, homeWin, noisyDiff, isAceSet }) {
+  const winner = homeWin ? homePlayer : awayPlayer;
+  const loser = homeWin ? awayPlayer : homePlayer;
+  const winnerBuild = homeWin ? homeBuild : awayBuild;
+  const loserBuild = homeWin ? awayBuild : homeBuild;
+  const closeGame = Math.abs(Number(noisyDiff || 0)) < 95;
+  const prefix = `${setNo}세트${isAceSet ? ' 에이스전' : ''} · ${map.name}`;
+  if (closeGame) {
+    return `${prefix}: ${winner.name}, 마지막 교전 한 끗으로 ${loser.name}을 잡았습니다.`;
+  }
+  if (winnerBuild.style === 'rush') {
+    return `${prefix}: ${winner.name}, ${buildName(winnerBuild)} 타이밍으로 초반부터 경기를 접었습니다.`;
+  }
+  if (winnerBuild.style === 'harass') {
+    return `${prefix}: ${winner.name}, 견제 누적으로 ${loser.name}의 운영 박자를 끊었습니다.`;
+  }
+  if (winnerBuild.style === 'tech') {
+    return `${prefix}: ${winner.name}, 숨긴 ${buildName(winnerBuild)} 카드가 승부를 갈랐습니다.`;
+  }
+  if (loserBuild.style === 'rush') {
+    return `${prefix}: ${winner.name}, 초반 압박을 넘긴 뒤 운영으로 뒤집었습니다.`;
+  }
+  return `${prefix}: ${winner.name}, ${buildName(winnerBuild)} 흐름을 끝까지 굳혔습니다.`;
+}
+
+function turningPointForSet({ durationSec, winnerName, loserName, winnerBuild, loserBuild, closeGame }) {
+  const clock = formatGameClock(Math.round(durationSec * (closeGame ? 0.62 : 0.48)));
+  if (closeGame) {
+    return `${clock} 중앙 교전에서 ${winnerName}이 병력을 간발의 차로 남긴 장면이 승부처였습니다.`;
+  }
+  if (winnerBuild.style === 'rush') {
+    return `${clock} 첫 압박 때 ${loserName}의 방어 병력이 늦게 모이면서 경기가 크게 기울었습니다.`;
+  }
+  if (winnerBuild.style === 'harass') {
+    return `${clock} 견제가 일꾼과 시야를 동시에 흔들며 ${winnerName} 쪽으로 주도권이 넘어갔습니다.`;
+  }
+  if (winnerBuild.style === 'tech') {
+    return `${clock} ${buildName(winnerBuild)}가 공개된 순간 ${loserName}의 대응 병력이 엇갈렸습니다.`;
+  }
+  if (loserBuild.style === 'rush') {
+    return `${clock} 초반 러시를 막아낸 뒤 ${winnerName}의 멀티와 생산력이 한 번에 살아났습니다.`;
+  }
+  return `${clock} 센터를 먼저 잡은 뒤 ${winnerName}이 멀티와 병력 회전을 동시에 굴린 장면이 핵심이었습니다.`;
 }
 
 function openingTellLine(rng, playerName, build) {
@@ -1388,9 +1497,11 @@ function buildSetTimeline({
   return [
     buildTimelineLine(0, '캐스터', `자, ${setNo}세트${isAceSet ? ' 에이스전' : ''} 출발합니다. 맵은 ${map.name}, ${homePlayer.name} ${RACE_LABELS[homePlayer.race] || homePlayer.race} 대 ${awayPlayer.name} ${RACE_LABELS[awayPlayer.race] || awayPlayer.race}.${scoreText}`),
     buildTimelineLine(8, '해설 A', mapFlavorLine(rng, map)),
+    buildTimelineLine(12, '해설 B', pressureLine(rng, scoreHome, scoreAway, isAceSet)),
     buildTimelineLine(16, '캐스터', openingTellLine(rng, homePlayer.name, homeBuild)),
     buildTimelineLine(24, '해설 B', openingTellLine(rng, awayPlayer.name, awayBuild)),
-    buildTimelineLine(36, '캐스터', earlyBroadcastLine(rng, homePlayer, awayPlayer, homeBuild, awayBuild)),
+    buildTimelineLine(32, '해설 A', scoutingReadLine(rng, homePlayer, awayPlayer, homeBuild, awayBuild)),
+    buildTimelineLine(42, '캐스터', earlyBroadcastLine(rng, homePlayer, awayPlayer, homeBuild, awayBuild)),
     buildTimelineLine(Math.round(durationSec * 0.18), '해설 A', buildMetaInsightLine(rng, homeMeta, awayMeta)),
     buildTimelineLine(Math.round(durationSec * 0.26), '해설 B', matchupFlavorLine(rng, homePlayer.race, awayPlayer.race)),
     buildTimelineLine(Math.round(durationSec * 0.34), '캐스터', buildClashLine(rng, homeBuild, awayBuild)),
@@ -2162,6 +2273,11 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const pHome = clamp(1 / (1 + Math.exp(-noisyDiff / 220)), 0.08, 0.92);
   const homeWin = rng() < pHome;
   const durationSec = durationFromDiff(rng, noisyDiff, homePlayer.race === awayPlayer.race);
+  const winnerName = homeWin ? homePlayer.name : awayPlayer.name;
+  const loserName = homeWin ? awayPlayer.name : homePlayer.name;
+  const winnerBuild = homeWin ? homeBuild : awayBuild;
+  const loserBuild = homeWin ? awayBuild : homeBuild;
+  const closeGame = Math.abs(Number(noisyDiff || 0)) < 95;
   const timeline = buildSetTimeline({
     rng,
     setNo,
@@ -2198,6 +2314,25 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     awayBuildName: awayBuild.name,
     homeBuildStyle: homeBuild.style,
     awayBuildStyle: awayBuild.style,
+    broadcastHeadline: broadcastHeadlineForSet({
+      setNo,
+      map,
+      homePlayer,
+      awayPlayer,
+      homeBuild,
+      awayBuild,
+      homeWin,
+      noisyDiff,
+      isAceSet,
+    }),
+    turningPoint: turningPointForSet({
+      durationSec,
+      winnerName,
+      loserName,
+      winnerBuild,
+      loserBuild,
+      closeGame,
+    }),
     timeline,
     mapBiasHome: Math.round((mapMultiplier(homePlayer.race, awayPlayer.race, map) - 1) * 1000) / 10,
     phaseDiff: Math.round(diff),
@@ -2730,6 +2865,8 @@ function simulatePersonalMatch(state, match) {
       awayBuildName: setResult.awayBuildName,
       homeBuildStyle: setResult.homeBuildStyle,
       awayBuildStyle: setResult.awayBuildStyle,
+      broadcastHeadline: setResult.broadcastHeadline,
+      turningPoint: setResult.turningPoint,
       durationSec: setResult.durationSec,
       timeline: setResult.timeline,
     });
@@ -3301,6 +3438,8 @@ export function advanceWinnersLeagueAction(state) {
     awayBuildName: setResult.awayBuildName,
     homeBuildStyle: setResult.homeBuildStyle,
     awayBuildStyle: setResult.awayBuildStyle,
+    broadcastHeadline: setResult.broadcastHeadline,
+    turningPoint: setResult.turningPoint,
     timeline: setResult.timeline,
     playedAt: Date.now(),
   };
