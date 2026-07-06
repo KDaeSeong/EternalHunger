@@ -55,6 +55,122 @@ import {
   upgradeFacilityAction,
 } from '../_lib/tonkatsuTeacherEngine';
 
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, Number(value || 0)));
+}
+
+function formatSigned(value, unit = '') {
+  const number = Number(value || 0);
+  return `${number >= 0 ? '+' : ''}${number.toLocaleString('ko-KR')}${unit}`;
+}
+
+function buildSelectedRecipePlan({ state, recipe, recipeStatus, student, tournament, facilityContext, tokenCount }) {
+  const ingredientPrices = INGREDIENTS.reduce((map, item) => ({ ...map, [item.id]: Number(item.price || 0) }), {});
+  const needRows = Object.entries(recipe.needs || {}).map(([id, qty]) => {
+    const required = Number(qty || 0);
+    const owned = Number(state.inventory?.[id] || 0);
+    const missing = Math.max(0, required - owned);
+    return {
+      id,
+      name: ingredientName(id),
+      required,
+      owned,
+      missing,
+      buyCost: missing * Number(ingredientPrices[id] || 0),
+    };
+  });
+  const missingRows = needRows.filter((row) => row.missing > 0);
+  const missingTotal = missingRows.reduce((sum, row) => sum + row.missing, 0);
+  const missingBuyCost = missingRows.reduce((sum, row) => sum + row.buyCost, 0);
+  const ingredientInputCost = needRows.reduce((sum, row) => sum + row.required * Number(ingredientPrices[row.id] || 0), 0);
+  const productionMult = (recipe.tags || []).reduce((mult, tag) => mult * Number(facilityContext.productionMultByTag?.[tag] || 1), 1);
+  const expectedYield = Math.max(1, Math.floor(Number(recipe.yieldTokens || 1) * productionMult));
+  const demand = 1 + Math.min(0.3, Number(state.reputation || 0) / 1000);
+  const deliveryActive = state.businessMode === 'delivery' && facilityContext.deliveryUnlocked;
+  const directRevenue = Math.round(Number(recipe.sellPrice || 0) * expectedYield * demand * (deliveryActive ? Number(facilityContext.deliveryGoldMult || 1) : 1));
+  const orderRevenue = Math.round(Number(recipe.sellPrice || 0) * expectedYield * Number(facilityContext.goldMultFromOrders || 1));
+  const bestRevenue = Math.max(directRevenue, orderRevenue);
+  const investment = Number(recipe.craftCost || 0) + ingredientInputCost;
+  const margin = bestRevenue - investment;
+  const canCraft = Boolean(recipeStatus.unlocked) && Number(state.gold || 0) >= Number(recipe.craftCost || 0) && missingTotal === 0;
+  const likes = (recipe.tags || []).includes(student.pref);
+  const weak = (recipe.tags || []).includes(student.weak);
+  const moraleGain = Math.round(12 * (likes ? 1.35 : 1) * (weak ? 0.7 : 1));
+  const heal = Math.round(Number(recipe.power || 0) * (likes ? 1.2 : 1));
+  const nextMorale = clampNumber(Number(student.morale || 0) + moraleGain, 0, 100);
+  const battleTarget = 116 + Number(state.floor || 1) * 18;
+  const feedBattlePower = Number(student.atk || 0) * 8
+    + Number(student.def || 0) * 5
+    + nextMorale
+    + Number(recipe.power || 0)
+    + (likes ? 10 : 0)
+    - (weak ? 8 : 0);
+  const feedWinPct = Math.round(clampNumber(0.35 + (feedBattlePower - battleTarget) / 160, 0.12, 0.92) * 100);
+  const tournamentGap = Number(tournament.total || 0) - Number(tournament.tier?.targetScore || 0);
+  const planScore = Math.round(clampNumber(
+    (recipeStatus.unlocked ? 18 : 0)
+      + (canCraft || tokenCount > 0 ? 22 : 0)
+      + clampNumber(12 + margin / 8, 0, 22)
+      + (weak ? 0 : likes ? 16 : 9)
+      + clampNumber(12 + tournamentGap / 3, 0, 22),
+    0,
+    100,
+  ));
+
+  let nextAction = '선택 메뉴를 기준으로 제작, 판매, 배식, 대회 중 하나를 고르세요.';
+  if (!recipeStatus.unlocked) {
+    nextAction = recipeStatus.reason || '레시피 해금 조건을 먼저 달성하세요.';
+  } else if (Number(state.gold || 0) < Number(recipe.craftCost || 0)) {
+    nextAction = `제작비 ${Number(recipe.craftCost || 0).toLocaleString('ko-KR')}G가 필요합니다. 주문 처리나 전투 보상으로 골드를 회수하세요.`;
+  } else if (missingTotal > 0) {
+    nextAction = `${missingRows.map((row) => `${row.name} ${row.missing}`).join(', ')} 매입 후 제작하세요. 예상 매입비 ${missingBuyCost.toLocaleString('ko-KR')}G입니다.`;
+  } else if (tokenCount <= 0) {
+    nextAction = `바로 제작 가능합니다. 예상 생산 ${expectedYield}개, 선택 영업 기준 마진 ${formatSigned(margin, 'G')}입니다.`;
+  } else if (weak) {
+    nextAction = `${student.name}에게는 약점 태그가 걸립니다. 판매나 다른 학생 배식이 더 안정적입니다.`;
+  } else if (Number(student.currentHp || 0) < Number(student.hp || 1) * 0.75 || Number(student.morale || 0) < 58) {
+    nextAction = `${student.name}에게 배식하면 HP +${heal}, 사기 +${moraleGain}, 전투 예상 ${feedWinPct}%입니다.`;
+  } else if (tournament.win && Number(state.gold || 0) >= Number(tournament.tier?.entryGold || 0)) {
+    nextAction = `${tournament.tier.name} 대회가 우승권입니다. 예상 ${tournament.total}점으로 출전 가치가 있습니다.`;
+  } else {
+    nextAction = `준비 메뉴 ${tokenCount}개를 ${orderRevenue >= directRevenue ? '일일 주문' : '선택 판매'}로 회수하는 편이 좋습니다.`;
+  }
+
+  return {
+    planScore,
+    canCraft,
+    expectedYield,
+    prepText: canCraft ? '가능' : missingRows.length ? `${missingTotal}개 부족` : '비용 부족',
+    margin,
+    salesMode: orderRevenue >= directRevenue ? '주문' : deliveryActive ? '배달' : '홀',
+    studentFit: weak ? '주의' : likes ? '적합' : '보통',
+    tournamentText: `${tournament.total}/${tournament.tier.targetScore} (${formatSigned(tournamentGap)})`,
+    nextAction,
+    rows: [
+      {
+        label: '제작 준비',
+        value: canCraft ? '가능' : missingRows.length ? `${missingTotal}개 부족` : '비용 확인',
+        detail: missingRows.length ? `부족: ${missingRows.map((row) => `${row.name} ${row.missing}`).join(', ')}` : `예상 생산 ${expectedYield}개`,
+      },
+      {
+        label: '판매 마진',
+        value: `${formatSigned(margin, 'G')}`,
+        detail: `주문 ${orderRevenue.toLocaleString('ko-KR')}G / 직접 ${directRevenue.toLocaleString('ko-KR')}G 기준`,
+      },
+      {
+        label: '학생 적합',
+        value: weak ? '약점' : likes ? '선호' : '보통',
+        detail: `${student.name}: ${likes ? '선호 태그 일치' : weak ? '약점 태그 충돌' : '태그 보정 없음'} · ${feedWinPct}%`,
+      },
+      {
+        label: '대회 격차',
+        value: tournament.win ? '우승권' : formatSigned(tournamentGap),
+        detail: `${tournament.theme.name} · 목표 ${tournament.tier.targetScore}점`,
+      },
+    ],
+  };
+}
+
 export default function TonkatsuTeacherPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
@@ -104,6 +220,15 @@ export default function TonkatsuTeacherPlayPage() {
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => recipeName(a).localeCompare(recipeName(b), 'ko-KR'));
   const recentActionText = state.log?.[0] || '아직 실행한 운영 액션이 없습니다.';
+  const selectedRecipePlan = buildSelectedRecipePlan({
+    state,
+    recipe,
+    recipeStatus,
+    student,
+    tournament,
+    facilityContext,
+    tokenCount,
+  });
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -239,6 +364,7 @@ export default function TonkatsuTeacherPlayPage() {
     focusRows: [
       { label: 'Gold', value: `${Number(state.gold || 0).toLocaleString('ko-KR')}G` },
       { label: '메뉴 토큰', value: mealTokenCount(state) },
+      { label: '선택 메뉴', value: `${selectedRecipePlan.planScore}%` },
       { label: '운영', value: `${operationsReport.readinessPct}%` },
       { label: '연출', value: `${productionReport.productionScore}%` },
     ],
@@ -437,6 +563,35 @@ export default function TonkatsuTeacherPlayPage() {
             label: '주방/영업',
             badge: `${mealTokenCount(state)}개`,
             children: (
+              <>
+              <section className="games-panel">
+                <div className="games-panel-title">
+                  <h2>선택 메뉴 운영 판단</h2>
+                  <span>{selectedRecipePlan.planScore}% · {selectedRecipePlan.salesMode}</span>
+                </div>
+                <div className="games-rank-split">
+                  <SmallStat label="제작 준비" value={selectedRecipePlan.prepText} />
+                  <SmallStat label="예상 생산" value={`${selectedRecipePlan.expectedYield}개`} />
+                  <SmallStat label="마진" value={formatSigned(selectedRecipePlan.margin, 'G')} />
+                  <SmallStat label="학생 적합" value={selectedRecipePlan.studentFit} />
+                  <SmallStat label="대회" value={selectedRecipePlan.tournamentText} />
+                </div>
+                <p style={{ color: '#cbd5e1', fontWeight: 900, lineHeight: 1.6, marginTop: 12 }}>
+                  {selectedRecipePlan.nextAction}
+                </p>
+                <div className="game-save-list" style={{ marginTop: 12 }}>
+                  {selectedRecipePlan.rows.map((row) => (
+                    <article className="game-save-row" key={row.label}>
+                      <div>
+                        <span>{row.label}</span>
+                        <strong>{row.value}</strong>
+                        <small>{row.detail}</small>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
               <section className="games-detail-grid">
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -468,6 +623,7 @@ export default function TonkatsuTeacherPlayPage() {
                   </div>
                 </section>
               </section>
+              </>
             ),
           },
           {
