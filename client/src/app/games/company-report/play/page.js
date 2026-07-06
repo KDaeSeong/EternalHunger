@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
+import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   CAPITAL_DISCLOSURE_TYPES,
   CAPITAL_FINANCING_TYPES,
@@ -63,88 +64,7 @@ import {
   vatPaymentRows,
   vatScheduleRows,
 } from '../_lib/companyReportEngine';
-
-function ActionButton({ children, disabled, onClick }) {
-  return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function RecentActionResult({ label = '최근 원장 결과', text, pinned = false }) {
-  return (
-    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
-      <span>{label}</span>
-      <strong>{text}</strong>
-    </div>
-  );
-}
-
-function StatusBadge({ value }) {
-  const tone = value === 'COLLECTED' || value === 'COMPLETED' || value === 'PAID' || value === 'NO_TAX' ? '통과' : value === 'OVERDUE' ? '위험' : '진행';
-  return <span className="game-save-chip">{tone} {value}</span>;
-}
-
-function getMarketName(id) {
-  return GLOBAL_MARKETS.find((market) => market.id === id)?.name || id;
-}
-
-function getProductName(id) {
-  return PRODUCTS.find((product) => product.id === id)?.name || id;
-}
-
-function safeFilePart(value) {
-  return String(value || 'export').replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'export';
-}
-
-function downloadTextFile(fileName, text, type) {
-  if (typeof window === 'undefined') return;
-  const blob = new Blob([text], { type });
-  const url = window.URL.createObjectURL(blob);
-  const anchor = window.document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  window.document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
-}
-
-function csvCell(value) {
-  const text = String(value ?? '');
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
-function csvRows(rows) {
-  return rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
-}
-
-function actionFeedbackText(previous, next, label, fallback = '') {
-  const latestLog = next.log?.[0];
-  if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
-
-  const before = reportSummary(previous);
-  const after = reportSummary(next);
-  const cashDelta = Number(next.company?.cashKrw || 0) - Number(previous.company?.cashKrw || 0);
-  const receivableDelta = Number(after.receivableAmount || 0) - Number(before.receivableAmount || 0);
-  const inventoryDelta = Number(after.inventoryAmount || 0) - Number(before.inventoryAmount || 0);
-  const parts = [];
-  if (cashDelta) parts.push(`현금 ${cashDelta >= 0 ? '+' : ''}${formatMoney(cashDelta)}`);
-  if (receivableDelta) parts.push(`채권 ${receivableDelta >= 0 ? '+' : ''}${formatMoney(receivableDelta)}`);
-  if (inventoryDelta) parts.push(`재고 ${inventoryDelta >= 0 ? '+' : ''}${formatMoney(inventoryDelta)}`);
-  if (parts.length) return `${label}: ${parts.join(' · ')}`;
-  return fallback || `${label} 처리했습니다.`;
-}
+import { StatusBadge, actionFeedbackText, csvRows, downloadTextFile, getMarketName, getProductName, safeFilePart } from '../_lib/companyReportPlayHelpers';
 
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();

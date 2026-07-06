@@ -7,6 +7,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
+import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
   GAME_SLUG,
@@ -61,32 +62,6 @@ import {
   techRows,
   totalCarryWeight,
 } from '../_lib/primitiveArchiveEngine';
-
-function ActionButton({ children, disabled, onClick }) {
-  return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function RecentActionResult({ label = '최근 결과', text, pinned = false }) {
-  return (
-    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
-      <span>{label}</span>
-      <strong>{text}</strong>
-    </div>
-  );
-}
 
 const PARTY_SORT_OPTIONS = [
   { value: 'default', label: '기본' },

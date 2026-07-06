@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
+import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   GRID,
@@ -65,23 +66,6 @@ import {
   townSummary,
   waitSelectedUnitAction,
 } from '../_lib/baSrpgEngine';
-
-function ActionButton({ children, disabled, onClick }) {
-  return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 function missionRewardSummary(mission) {
   if (!mission?.rewards?.length) return '보상 없음';

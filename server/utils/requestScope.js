@@ -76,7 +76,7 @@ function withOwner(reqOrUserId, payload = {}) {
 }
 
 async function findScoped(Model, reqOrUserId, query = {}, sort = null) {
-  const q = Model.find(scopedFilter(reqOrUserId, query || {}));
+  let q = Model.find(scopedFilter(reqOrUserId, query || {}));
   if (sort) q = q.sort(sort);
   return q;
 }

@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
+import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -44,23 +45,6 @@ import {
   updateFileAction,
   updateReportAction,
 } from '../_lib/siCodingSimEngine';
-
-function ActionButton({ children, disabled, onClick }) {
-  return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 function ResultRow({ result }) {
   const detail = (result.rules || []).map((rule) => rule.value).filter(Boolean).join(' · ');
@@ -136,10 +120,11 @@ export default function SiCodingSimPlayPage() {
   const documentPlay = task?.documentPlay || null;
   const documentProgress = task ? getDocumentReviewProgress(state, task.id) : null;
   const execution = task?.execution || null;
-  const profileSummary = useMemo(() => playerProfileSummary(state, task?.id), [state, task?.id]);
-  const insightRows = useMemo(() => passiveInsightRows(state, task?.id), [state, task?.id]);
+  const taskId = task?.id;
+  const profileSummary = playerProfileSummary(state, taskId);
+  const insightRows = passiveInsightRows(state, taskId);
   const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
-  const support = useMemo(() => companySupportSummary(state, task?.id), [state, task?.id]);
+  const support = companySupportSummary(state, taskId);
   const seedRoadmap = useMemo(() => projectSeedRoadmap(state), [state]);
   const packAudit = useMemo(() => taskPackAuditReport(state), [state]);
   const submissionComparison = useMemo(() => submissionComparisonReport(state), [state]);

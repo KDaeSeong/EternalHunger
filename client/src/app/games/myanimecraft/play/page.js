@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
+import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   BUILD_STYLE_LABELS,
   EQUIPMENT_SLOT_LABELS,
@@ -66,73 +67,7 @@ import {
   getWinnersLeagueRows,
   getWinnersLeagueSummary,
 } from '../_lib/myAnimeCraftEngine';
-
-function ActionButton({ children, disabled, onClick }) {
-  return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function SmallStat({ label, value }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function RecentActionResult({ label = '최근 진행 결과', text, pinned = false }) {
-  return (
-    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
-      <span>{label}</span>
-      <strong>{text}</strong>
-    </div>
-  );
-}
-
-function formatTimelineTime(seconds) {
-  const safe = Math.max(0, Math.floor(Number(seconds || 0)));
-  const minutes = Math.floor(safe / 60);
-  const rest = safe % 60;
-  return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
-}
-
-function BroadcastTimeline({ lines, title = '중계 타임라인' }) {
-  if (!Array.isArray(lines) || !lines.length) return null;
-  return (
-    <details className="games-broadcast-details">
-      <summary>{title}</summary>
-      <ol className="games-broadcast-timeline">
-        {lines.map((line, index) => (
-          <li key={`${line.t}-${index}`}>
-            <span>{formatTimelineTime(line.t)} · {line.caster || '중계'}</span>
-            <p>{line.text}</p>
-          </li>
-        ))}
-      </ol>
-    </details>
-  );
-}
-
-function actionFeedbackText(previous, next, label, fallback = '') {
-  const beforePlayed = getPlayedCount(previous);
-  const afterPlayed = getPlayedCount(next);
-  const playedDelta = Math.max(0, afterPlayed - beforePlayed);
-  const latestMatch = getMatchArchiveRows(next, 1)[0];
-  if (playedDelta > 0 && latestMatch) {
-    return `${label}: ${playedDelta}경기 진행 · 최근 ${latestMatch.homeTeamName} ${latestMatch.scoreHome}:${latestMatch.scoreAway} ${latestMatch.awayTeamName} · ${latestMatch.winnerTeamName} 승`;
-  }
-  if (next.ended && !previous.ended) {
-    const champion = next.championTeamId ? getTeam(next, next.championTeamId)?.name : '';
-    return `시즌 종료: ${champion || '우승팀'} 우승이 확정됐습니다.`;
-  }
-  const latestLog = next.log?.[0];
-  if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
-  return fallback || `${label} 처리했습니다.`;
-}
+import { BroadcastTimeline, actionFeedbackText } from '../_components/MyAnimeCraftPlayPanels';
 
 export default function MyAnimeCraftPlayPage() {
   const token = useAuthToken();
@@ -165,7 +100,7 @@ export default function MyAnimeCraftPlayPage() {
   const selectedArchiveMatch = matchArchiveRows.find((row) => row.id === selectedArchiveMatchId) || matchArchiveRows[0];
   const selectedTeam = getTeam(state, selectedTeamId);
   const selectedPlayer = selectedTeam.roster.find((member) => member.id === selectedPlayerId) || selectedTeam.roster[0];
-  const tradeTeams = useMemo(() => tradeCandidateRows(state, selectedTeam.id), [state, selectedTeam.id]);
+  const tradeTeams = tradeCandidateRows(state, selectedTeam.id);
   const tradeTargetTeam = tradeTeams.find((team) => team.teamId === tradeTargetTeamId) || tradeTeams[0];
   const tradeTargetPlayer = tradeTargetTeam?.roster.find((member) => member.playerId === tradeTargetPlayerId) || tradeTargetTeam?.roster[0];
   const tradeInfo = tradeTargetTeam && selectedPlayer && tradeTargetPlayer
@@ -177,13 +112,9 @@ export default function MyAnimeCraftPlayPage() {
   const selectedEconomy = econSummary(state, selectedTeam.id);
   const selectedContracts = getTeamContractRows(state, selectedTeam.id);
   const shopRows = useMemo(() => getSeasonShopRows(state), [state]);
-  const inventoryRows = useMemo(() => inventoryRowsForTeam(state, selectedTeam.id), [state, selectedTeam.id]);
-  const equipmentRows = useMemo(() => (
-    selectedPlayer ? equipmentRowsForPlayer(state, selectedTeam.id, selectedPlayer.id) : []
-  ), [state, selectedTeam.id, selectedPlayer]);
-  const teamActions = useMemo(() => (
-    selectedPlayer ? teamActionRows(state, selectedTeam.id, selectedPlayer.id) : []
-  ), [state, selectedTeam.id, selectedPlayer]);
+  const inventoryRows = inventoryRowsForTeam(state, selectedTeam.id);
+  const equipmentRows = selectedPlayer ? equipmentRowsForPlayer(state, selectedTeam.id, selectedPlayer.id) : [];
+  const teamActions = selectedPlayer ? teamActionRows(state, selectedTeam.id, selectedPlayer.id) : [];
   const sourceSummary = getSourceSummary();
   const played = getPlayedCount(state);
   const total = getTotalFixtureCount(state);
@@ -367,7 +298,7 @@ export default function MyAnimeCraftPlayPage() {
             <ActionButton disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
             <ActionButton disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
           </div>
-          <RecentActionResult text={recentActionText} pinned />
+          <RecentActionResult label="?? ?? ??" text={recentActionText} pinned />
           {matchArchiveRows.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {matchArchiveRows.slice(0, 6).map((match) => (

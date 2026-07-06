@@ -6,6 +6,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
+import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GAME_SLUG,
   INGREDIENTS,
@@ -52,23 +53,6 @@ import {
   tournamentPreview,
   upgradeFacilityAction,
 } from '../_lib/tonkatsuTeacherEngine';
-
-function ActionButton({ children, disabled, onClick }) {
-  return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
-
-function MiniRow({ label, value }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 export default function TonkatsuTeacherPlayPage() {
   const token = useAuthToken();
@@ -269,7 +253,7 @@ export default function TonkatsuTeacherPlayPage() {
                   </div>
                   <div className="games-rank-split">
                     {operationsReport.businessRows.map((row) => (
-                      <MiniRow label={row.label} value={row.value} key={row.label} />
+                      <SmallStat label={row.label} value={row.value} key={row.label} />
                     ))}
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
@@ -291,7 +275,7 @@ export default function TonkatsuTeacherPlayPage() {
                   </div>
                   <div className="games-rank-split">
                     {[...operationsReport.kitchenRows, ...operationsReport.growthRows, ...operationsReport.battleRows].map((row) => (
-                      <MiniRow label={row.label} value={row.value} key={`${row.label}-${row.value}`} />
+                      <SmallStat label={row.label} value={row.value} key={`${row.label}-${row.value}`} />
                     ))}
                   </div>
                 </section>
@@ -356,10 +340,10 @@ export default function TonkatsuTeacherPlayPage() {
                     <span>{productionReport.phase}</span>
                   </div>
                   <div className="games-rank-split">
-                    <MiniRow label="연출 점수" value={`${productionReport.productionScore}%`} />
-                    <MiniRow label="장면 수" value={productionReport.sceneCues.length} />
-                    <MiniRow label="이벤트" value={productionReport.eventRows.length} />
-                    <MiniRow label="사운드 큐" value={productionReport.soundCues.length} />
+                    <SmallStat label="연출 점수" value={`${productionReport.productionScore}%`} />
+                    <SmallStat label="장면 수" value={productionReport.sceneCues.length} />
+                    <SmallStat label="이벤트" value={productionReport.eventRows.length} />
+                    <SmallStat label="사운드 큐" value={productionReport.soundCues.length} />
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {productionReport.sceneCues.map((row) => (
@@ -449,9 +433,9 @@ export default function TonkatsuTeacherPlayPage() {
                     <span>{ingredient.name}</span>
                   </div>
                   <div className="games-rank-split">
-                    <MiniRow label="가격" value={`${ingredient.price}G`} />
-                    <MiniRow label="보유 재료" value={inventoryCount(state)} />
-                    <MiniRow label="보관 한도" value={facilityContext.storageCap} />
+                    <SmallStat label="가격" value={`${ingredient.price}G`} />
+                    <SmallStat label="보유 재료" value={inventoryCount(state)} />
+                    <SmallStat label="보관 한도" value={facilityContext.storageCap} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
@@ -473,9 +457,9 @@ export default function TonkatsuTeacherPlayPage() {
                     <span>{student.name}</span>
                   </div>
                   <div className="games-rank-split">
-                    <MiniRow label="HP" value={`${student.currentHp}/${student.hp}`} />
-                    <MiniRow label="사기" value={student.morale} />
-                    <MiniRow label="승률" value={`${winRatePreview}%`} />
+                    <SmallStat label="HP" value={`${student.currentHp}/${student.hp}`} />
+                    <SmallStat label="사기" value={student.morale} />
+                    <SmallStat label="승률" value={`${winRatePreview}%`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 메뉴 배식</ActionButton>
@@ -499,7 +483,7 @@ export default function TonkatsuTeacherPlayPage() {
                   </div>
                   <div className="games-rank-split">
                     {operationsReport.growthRows.map((row) => (
-                      <MiniRow label={row.label} value={row.value} key={row.label} />
+                      <SmallStat label={row.label} value={row.value} key={row.label} />
                     ))}
                   </div>
                 </section>
@@ -509,9 +493,9 @@ export default function TonkatsuTeacherPlayPage() {
                     <span>{tournament.theme.name}</span>
                   </div>
                   <div className="games-rank-split">
-                    <MiniRow label="예상 점수" value={tournament.total} />
-                    <MiniRow label="목표" value={tournament.tier.targetScore} />
-                    <MiniRow label="판정" value={tournament.win ? '우승권' : '부족'} />
+                    <SmallStat label="예상 점수" value={tournament.total} />
+                    <SmallStat label="목표" value={tournament.tier.targetScore} />
+                    <SmallStat label="판정" value={tournament.win ? '우승권' : '부족'} />
                   </div>
                   <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
                 </section>
@@ -530,9 +514,9 @@ export default function TonkatsuTeacherPlayPage() {
                     <span>{judge.rank}</span>
                   </div>
                   <div className="games-rank-split">
-                    <MiniRow label="심사" value={judge.judged} />
-                    <MiniRow label="정답" value={judge.correct} />
-                    <MiniRow label="정확도" value={`${judge.accuracy}%`} />
+                    <SmallStat label="심사" value={judge.judged} />
+                    <SmallStat label="정답" value={judge.correct} />
+                    <SmallStat label="정확도" value={`${judge.accuracy}%`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton disabled={!canAct} onClick={() => {
@@ -574,9 +558,9 @@ export default function TonkatsuTeacherPlayPage() {
           <p style={{ color: '#94a3b8', fontWeight: 800, lineHeight: 1.5 }}>{recipe.note}</p>
           {!recipeStatus.unlocked ? <p style={{ color: '#fbbf24', fontWeight: 900, lineHeight: 1.5 }}>{recipeStatus.reason}</p> : null}
           <div className="games-rank-split">
-            <MiniRow label="보유" value={tokenCount} />
-            <MiniRow label="판매가" value={`${recipe.sellPrice}G`} />
-            <MiniRow label="전투 보정" value={recipe.power} />
+            <SmallStat label="보유" value={tokenCount} />
+            <SmallStat label="판매가" value={`${recipe.sellPrice}G`} />
+            <SmallStat label="전투 보정" value={recipe.power} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
@@ -605,9 +589,9 @@ export default function TonkatsuTeacherPlayPage() {
             <ActionButton disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
           </div>
           <div className="games-rank-split" style={{ marginTop: 12 }}>
-            <MiniRow label="보관 한도" value={`${inventoryCount(state)}/${facilityContext.storageCap}`} />
-            <MiniRow label="주문량" value={facilityContext.dailyOrders} />
-            <MiniRow label="영업 배율" value={`x${facilityContext.goldMultFromOrders.toFixed(2)}`} />
+            <SmallStat label="보관 한도" value={`${inventoryCount(state)}/${facilityContext.storageCap}`} />
+            <SmallStat label="주문량" value={facilityContext.dailyOrders} />
+            <SmallStat label="영업 배율" value={`x${facilityContext.goldMultFromOrders.toFixed(2)}`} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             <ActionButton disabled={!canAct || state.businessMode === 'hall'} onClick={() => setState((current) => setBusinessModeAction(current, 'hall'))}>홀 영업</ActionButton>
@@ -627,9 +611,9 @@ export default function TonkatsuTeacherPlayPage() {
             </select>
           </label>
           <div className="games-rank-split">
-            <MiniRow label="역할" value={student.role} />
-            <MiniRow label="HP" value={`${student.currentHp}/${student.hp}`} />
-            <MiniRow label="사기" value={student.morale} />
+            <SmallStat label="역할" value={student.role} />
+            <SmallStat label="HP" value={`${student.currentHp}/${student.hp}`} />
+            <SmallStat label="사기" value={student.morale} />
           </div>
           <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
             선호 태그 #{student.pref} · 약점 태그 #{student.weak} · 현재 식사 {student.meal ? recipeName(student.meal) : '없음'}
@@ -733,9 +717,9 @@ export default function TonkatsuTeacherPlayPage() {
           </label>
           <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>{tournament.theme.desc}</p>
           <div className="games-rank-split">
-            <MiniRow label="예상 점수" value={tournament.total} />
-            <MiniRow label="목표" value={tournament.tier.targetScore} />
-            <MiniRow label="판정" value={tournament.win ? '우승권' : '부족'} />
+            <SmallStat label="예상 점수" value={tournament.total} />
+            <SmallStat label="목표" value={tournament.tier.targetScore} />
+            <SmallStat label="판정" value={tournament.win ? '우승권' : '부족'} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
             <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
@@ -748,9 +732,9 @@ export default function TonkatsuTeacherPlayPage() {
             <span>{judge.rank}</span>
           </div>
           <div className="games-rank-split">
-            <MiniRow label="심사" value={judge.judged} />
-            <MiniRow label="정답" value={judge.correct} />
-            <MiniRow label="정확도" value={`${judge.accuracy}%`} />
+            <SmallStat label="심사" value={judge.judged} />
+            <SmallStat label="정답" value={judge.correct} />
+            <SmallStat label="정확도" value={`${judge.accuracy}%`} />
           </div>
           {judge.lastBatch ? (
             <p style={{ color: '#fbbf24', fontWeight: 900, lineHeight: 1.5 }}>
@@ -817,9 +801,9 @@ export default function TonkatsuTeacherPlayPage() {
           {judgeMatch ? (
             <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
               <div className="games-rank-split">
-                <MiniRow label="테마" value={judgeMatch.themeName || judgeMatch.themeId} />
-                <MiniRow label="티어" value={judgeMatch.tierName || judgeMatch.tierId} />
-                <MiniRow label="결과" value={judgeMatch.resolved ? (judgeMatch.correct ? '정답' : '오답') : '판정 대기'} />
+                <SmallStat label="테마" value={judgeMatch.themeName || judgeMatch.themeId} />
+                <SmallStat label="티어" value={judgeMatch.tierName || judgeMatch.tierId} />
+                <SmallStat label="결과" value={judgeMatch.resolved ? (judgeMatch.correct ? '정답' : '오답') : '판정 대기'} />
               </div>
               <article className="game-save-row">
                 <div>

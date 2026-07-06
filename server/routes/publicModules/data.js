@@ -1,0 +1,181 @@
+const express = require('express');
+const router = express.Router();
+const {
+  mongoose,
+  User,
+  Post,
+  TwentyQuestionsRoom,
+  GameRoom,
+  UserFollow,
+  Character,
+  TeamRecord,
+  GameLog,
+  Item,
+  MapModel,
+  Kiosk,
+  DroneOffer,
+  Perk,
+  GameCatalogEntry,
+  ErMeta,
+  dedupeScopedPerks,
+  ensureDefaultPublicPerks,
+  DEFAULT_ZONES,
+  normalizeZoneList,
+  buildDefaultZoneConnections,
+  getOptionalUserId,
+  scopedFilter,
+  PUBLIC_FOLLOW_USER_SELECT,
+  VISIBLE_USER_FILTER,
+  PUBLIC_ITEM_SELECT,
+  normalizeId,
+  cleanText,
+  normalizeGameSlug,
+  escapeRegExp,
+  toNonNegativeInt,
+  displayName,
+  mapPublicUser,
+  mapPublicPost,
+  mapPublicCommentActivity,
+  mapCompactUser,
+  mapHubPost,
+  mapPublicGameCandidate,
+  mapGuidePost,
+  mapSearchPost,
+  mapPublicRoom,
+  mapHubRoom,
+  activeGameRoomPlayers,
+  mapSharedGameRoom,
+  roomActivityTime,
+  sortRoomsByActivity,
+  mapCharacterRecord,
+  mapHubUserRank,
+  mapHubCharacterRank,
+  mapTeamRecord,
+  mapHubTeamRank,
+  mapHubRun,
+  mapHubRoomResult,
+  mapActivityPost,
+  mapActivityComment,
+  mapActivityRoom,
+  activitySortTime,
+  clampListLimit,
+  mapFollowEntries,
+  loadFollowPreview,
+} = require('./shared');
+
+
+router.get('/items', async (req, res) => {
+  try {
+    const items = await Item.find(scopedFilter(req))
+      .select(PUBLIC_ITEM_SELECT)
+      .sort({ createdAt: 1 })
+      .lean();
+    res.json(items);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '아이템 로드 실패' });
+  }
+});
+
+router.get('/maps', async (req, res) => {
+  try {
+    const maps = await MapModel.find(scopedFilter(req))
+      .populate('connectedMaps', 'name')
+      .lean();
+
+    // ✅ 맵 zones가 비어있으면, '기본 맵 구역' 세트를 응답에 주입합니다.
+    // - DB를 강제로 수정하진 않습니다(응답 레벨에서만 보정).
+    const normalized = (Array.isArray(maps) ? maps : []).map((m) => {
+      const o = (typeof m?.toObject === 'function') ? m.toObject() : m;
+
+      // ✅ mongoose Map(crateAllowDeny)가 JSON에서 {}로 날아가지 않도록 평탄화
+      // - { [zoneId]: string[] } 형태로 항상 내려줍니다.
+      let crateAllowDeny = o?.crateAllowDeny;
+      if (crateAllowDeny && typeof crateAllowDeny.toObject === 'function') {
+        crateAllowDeny = crateAllowDeny.toObject();
+      }
+      if (crateAllowDeny instanceof Map) {
+        crateAllowDeny = Object.fromEntries(crateAllowDeny.entries());
+      }
+      if (!crateAllowDeny || typeof crateAllowDeny !== 'object' || Array.isArray(crateAllowDeny)) {
+        crateAllowDeny = {};
+      }
+
+      // zones 보정
+      const zones = normalizeZoneList((!Array.isArray(o?.zones) || o.zones.length === 0) ? DEFAULT_ZONES : o.zones);
+
+      // zoneConnections 보정(비어있으면 기본 프리셋 주입)
+      const hasConns = Array.isArray(o?.zoneConnections) && o.zoneConnections.length > 0;
+      const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || '').trim()).filter(Boolean);
+      const zoneConnections = hasConns ? o.zoneConnections : buildDefaultZoneConnections(zoneIds);
+
+      return { ...o, crateAllowDeny, zones, zoneConnections };
+    });
+
+    res.json(normalized);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '맵 로드 실패' });
+  }
+});
+
+router.get('/kiosks', async (req, res) => {
+  try {
+    const kiosks = await Kiosk.find(scopedFilter(req))
+      .select('_id kioskId name mapId zoneId x y catalog')
+      .populate('mapId', 'name')
+      .populate('catalog.itemId', 'name tier rarity baseCreditValue tags')
+      .populate('catalog.exchange.giveItemId', 'name tier rarity baseCreditValue tags')
+      .lean();
+    res.json(kiosks);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '키오스크 로드 실패' });
+  }
+});
+
+router.get('/drone-offers', async (req, res) => {
+  try {
+    const offers = await DroneOffer.find(scopedFilter(req, { isActive: true }))
+      .select('_id itemId priceCredits maxTier')
+      .populate('itemId', 'name tier rarity baseCreditValue')
+      .lean();
+    res.json(offers);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '드론 판매 목록 로드 실패' });
+  }
+});
+
+router.get('/perks', async (req, res) => {
+  try {
+    await ensureDefaultPublicPerks(Perk);
+    const perks = await Perk.find(scopedFilter(req, { isActive: true })).sort({ category: 1, lpCost: 1 }).lean();
+    res.json(dedupeScopedPerks(perks, getOptionalUserId(req)));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '특전 로드 실패' });
+  }
+});
+
+router.get('/er-meta', async (req, res) => {
+  try {
+    const namespace = String(req.query?.namespace || '').trim();
+    const q = namespace ? { namespace } : {};
+    const limit = Math.max(1, Math.min(5000, Number(req.query?.limit || 500)));
+    const items = await ErMeta.find(q)
+      .sort({ namespace: 1, localizedName: 1, name: 1, code: 1 })
+      .limit(limit)
+      .lean();
+    const summary = await ErMeta.aggregate([
+      { $group: { _id: '$namespace', count: { $sum: 1 }, latest: { $max: '$importedAt' } } },
+      { $sort: { _id: 1 } },
+    ]);
+    res.json({ items, summary });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'ER 메타 로드 실패' });
+  }
+});
+
+module.exports = router;
