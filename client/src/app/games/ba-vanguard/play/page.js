@@ -8,7 +8,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
-import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { BattlePanel, CardSummary, DeckEntryLine, Field, ZoneExplorer, roomConcurrencyAudit } from '../_components/BaVanguardBoard';
 import {
   CARDS,
@@ -617,6 +617,7 @@ function BaVanguardPlayContent() {
     !valid ? { key: 'invalid', tone: 'error', text: '현재 덱 또는 상대 덱에 규칙 오류가 있습니다. 검증 목록을 확인하세요.' } : null,
     duel.battle?.defenderSide === 'me' ? { key: 'guard', text: '방어 창이 열렸습니다. 패에서 카드를 선택해 가드하거나 바로 가드 종료를 누르세요.' } : null,
   ];
+  const recentDuelText = duel.log?.[0] || message || '아직 실행한 듀얼 액션이 없습니다.';
 
   const guide = {
     title: '듀얼 코치',
@@ -649,6 +650,7 @@ function BaVanguardPlayContent() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
+      <RecentActionResult label="최근 듀얼 결과" text={recentDuelText} pinned />
 
       <GameFeatureTabs
         tabs={[
