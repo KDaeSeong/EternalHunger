@@ -146,6 +146,12 @@ npm run build
   - `client/src/app/games/rail3d-sim/_components/Rail3dBlocksTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dLogTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dAdvancedTab.js`
+- Board detail normalization helpers now live in `client/src/app/board/_lib/boardUtils.js`.
+- Board detail rendering is split into:
+  - `client/src/app/board/_components/BoardDetailPostView.js`
+  - `client/src/app/board/_components/BoardReportPanel.js`
+  - `client/src/app/board/_components/BoardCommentsSection.js`
+- Board detail `useMemo` and async status loader effects now satisfy the runtime React Hooks/Compiler lint rules.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`

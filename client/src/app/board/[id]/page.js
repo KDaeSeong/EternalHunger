@@ -4,134 +4,28 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import SiteHeader from '../../../components/SiteHeader';
+import BoardCommentsSection from '../_components/BoardCommentsSection';
+import BoardDetailPostView from '../_components/BoardDetailPostView';
+import BoardReportPanel from '../_components/BoardReportPanel';
 import { useToast } from '../../../components/ToastProvider';
 import { apiDelete, apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../../utils/client-auth';
-import { GAME_CATALOG, GAME_ROADMAP } from '../../games/_lib/gameCatalog';
-
-const BOARD_CATEGORIES = [
-  { value: 'free', label: '자유' },
-  { value: 'guide', label: '공략' },
-  { value: 'feedback', label: '피드백' },
-  { value: 'bug', label: '버그' },
-  { value: 'simulation', label: '시뮬레이션' },
-  { value: 'game', label: '게임' },
-];
-
-function normalizeGameSlug(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-}
-
-function getGameOptions() {
-  const seen = new Set();
-  return [...GAME_CATALOG, ...GAME_ROADMAP].reduce((list, game) => {
-    const value = normalizeGameSlug(game?.slug);
-    if (!value || seen.has(value)) return list;
-    seen.add(value);
-    list.push({ value, label: safeText(game?.title, value) });
-    return list;
-  }, []);
-}
-
-function gameLabelForSlug(options, slug) {
-  const value = normalizeGameSlug(slug);
-  if (!value) return '';
-  return options.find((option) => option.value === value)?.label || value;
-}
-
-function formatDate(value) {
-  if (!value) return '날짜 없음';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '날짜 없음';
-  return date.toLocaleString('ko-KR');
-}
-
-function getUserId(user) {
-  return user?._id || user?.id || user?.userId || '';
-}
-
-function normalizeIdValue(value) {
-  if (!value) return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (value?.$oid) return String(value.$oid);
-  if (value?._id && value._id !== value) return normalizeIdValue(value._id);
-  if (value?.id && value.id !== value) return normalizeIdValue(value.id);
-  if (typeof value?.toString === 'function') return value.toString();
-  return '';
-}
-
-function userProfileHref(value) {
-  const id = normalizeIdValue(value);
-  return id ? `/users/${id}` : '';
-}
-
-function normalizeRouteId(value) {
-  const raw = Array.isArray(value) ? value[0] : value;
-  return raw == null ? '' : String(raw);
-}
-
-function safeText(value, fallback = '') {
-  if (value == null) return fallback;
-  if (typeof value === 'string' || typeof value === 'number') {
-    const text = String(value).trim();
-    return text || fallback;
-  }
-  return fallback;
-}
-
-function normalizeComment(row) {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
-  const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
-  return {
-    ...row,
-    _normalizedId: normalizeIdValue(row._id || row.id),
-    authorId,
-    authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
-    content: safeText(row.content, ''),
-    createdAt: row.createdAt || row.created_at || row.date || '',
-    updatedAt: row.updatedAt || row.updated_at || '',
-  };
-}
-
-function normalizePost(row) {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
-  const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
-  const comments = Array.isArray(row.comments) ? row.comments.map(normalizeComment).filter(Boolean) : [];
-  return {
-    ...row,
-    title: safeText(row.title, '제목 없음'),
-    content: safeText(row.content, ''),
-    category: safeText(row.category, 'free'),
-    categoryLabel: safeText(row.categoryLabel, '자유'),
-    commentCount: Number(row.commentCount ?? comments.length ?? 0),
-    reactionCount: Number(row.reactionCount || 0),
-    viewCount: Number(row.viewCount || 0),
-    isNotice: Boolean(row.isNotice),
-    noticePinnedAt: row.noticePinnedAt || '',
-    gameSlug: normalizeGameSlug(row.gameSlug),
-    comments,
-    createdAt: row.createdAt || row.created_at || row.date || '',
-    updatedAt: row.updatedAt || row.updated_at || '',
-    authorId,
-    authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
-  };
-}
-
-function unwrapPost(data) {
-  const post = data?.post || data?.data || data;
-  return normalizePost(post);
-}
+import {
+  gameLabelForSlug,
+  getGameOptions,
+  getUserId,
+  normalizeGameSlug,
+  normalizeIdValue,
+  normalizeRouteId,
+  safeText,
+  unwrapPost,
+} from '../_lib/boardUtils';
 
 export default function BoardDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = normalizeRouteId(params?.id);
-  const gameOptions = useMemo(getGameOptions, []);
+  const gameOptions = useMemo(() => getGameOptions(), []);
 
   const [post, setPost] = useState(null);
   const [message, setMessage] = useState('');
@@ -186,7 +80,7 @@ export default function BoardDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, showToast]);
+  }, [id, setForm, setLoading, setMessage, setPost, showToast]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
@@ -207,11 +101,11 @@ export default function BoardDetailPage() {
     } finally {
       setBookmarkLoading(false);
     }
-  }, [id, token]);
+  }, [id, setBookmarked, setBookmarkLoading, token]);
 
   useEffect(() => {
     if (!mounted) return;
-    void loadBookmarkStatus();
+    void Promise.resolve().then(loadBookmarkStatus);
   }, [loadBookmarkStatus, mounted]);
 
   const loadReactionStatus = useCallback(async () => {
@@ -232,11 +126,11 @@ export default function BoardDetailPage() {
     } finally {
       setReactionLoading(false);
     }
-  }, [id, token]);
+  }, [id, setPost, setReacted, setReactionLoading, token]);
 
   useEffect(() => {
     if (!mounted) return;
-    void loadReactionStatus();
+    void Promise.resolve().then(loadReactionStatus);
   }, [loadReactionStatus, mounted]);
 
   const canEdit = mounted && token && userId && post && normalizeIdValue(post.authorId) === String(userId);
@@ -495,273 +389,66 @@ export default function BoardDetailPage() {
           <div className="board-empty">게시글을 찾을 수 없습니다.</div>
         ) : (
           <article className="board-post-view">
-            {editing ? (
-              <div className="board-editor board-editor-inline board-post-editor">
-                <select
-                  value={form.category}
-                  onChange={(event) => setForm({ ...form, category: event.target.value })}
-                  aria-label="게시글 분류"
-                >
-                  {BOARD_CATEGORIES.map((category) => (
-                    <option key={category.value} value={category.value}>{category.label}</option>
-                  ))}
-                </select>
-                <select
-                  value={form.gameSlug}
-                  onChange={(event) => setForm({ ...form, gameSlug: normalizeGameSlug(event.target.value) })}
-                  aria-label="게임 선택"
-                >
-                  <option value="">게임 선택 안 함</option>
-                  {form.gameSlug && !gameOptions.some((game) => game.value === form.gameSlug) ? (
-                    <option value={form.gameSlug}>{form.gameSlug}</option>
-                  ) : null}
-                  {gameOptions.map((game) => (
-                    <option key={game.value} value={game.value}>{game.label}</option>
-                  ))}
-                </select>
-                <input
-                  value={form.title}
-                  onChange={(event) => setForm({ ...form, title: event.target.value })}
-                  placeholder="제목"
-                  maxLength={120}
-                />
-                <textarea
-                  value={form.content}
-                  onChange={(event) => setForm({ ...form, content: event.target.value })}
-                  placeholder="내용"
-                  rows={10}
-                />
-                <div className="board-actions">
-                  <button type="button" onClick={save} disabled={saving}>
-                    {saving ? '저장 중...' : '저장'}
-                  </button>
-                  <button type="button" className="board-secondary" onClick={() => setEditing(false)}>
-                    취소
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="board-post-head">
-                  <div className={`board-post-kicker ${post.isNotice ? 'is-notice' : ''}`}>
-                    {post.isNotice ? `공지 · ${post.categoryLabel}` : post.categoryLabel}
-                  </div>
-                  <h2>{safeText(post.title, '제목 없음')}</h2>
-                </div>
-                {postGameLabel ? <div className="board-post-game">{postGameLabel}</div> : null}
-                <dl className="board-post-meta">
-                  <div>
-                    <dt>작성자</dt>
-                    <dd>
-                      {userProfileHref(post.authorId) ? (
-                        <Link href={userProfileHref(post.authorId)} className="profile-inline-link">
-                          {safeText(post.authorName, '익명')}
-                        </Link>
-                      ) : safeText(post.authorName, '익명')}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>댓글</dt>
-                    <dd>{Number(post.commentCount || comments.length)}</dd>
-                  </div>
-                  <div>
-                    <dt>추천</dt>
-                    <dd>{Number(post.reactionCount || 0)}</dd>
-                  </div>
-                  <div>
-                    <dt>조회</dt>
-                    <dd>{Number(post.viewCount || 0)}</dd>
-                  </div>
-                  <div>
-                    <dt>등록일</dt>
-                    <dd>{formatDate(post.createdAt)}</dd>
-                  </div>
-                  {post.updatedAt && post.updatedAt !== post.createdAt ? (
-                    <div>
-                      <dt>수정일</dt>
-                      <dd>{formatDate(post.updatedAt)}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-                <p className="board-detail-content">{safeText(post.content, '')}</p>
-              </>
-            )}
+            <BoardDetailPostView
+              bookmarked={bookmarked}
+              bookmarkLoading={bookmarkLoading}
+              bookmarkSaving={bookmarkSaving}
+              canEdit={canEdit}
+              canManageNotice={canManageNotice}
+              comments={comments}
+              editing={editing}
+              form={form}
+              gameOptions={gameOptions}
+              mounted={mounted}
+              noticeSaving={noticeSaving}
+              openReport={openReport}
+              post={post}
+              postGameLabel={postGameLabel}
+              reacted={reacted}
+              reactionLoading={reactionLoading}
+              reactionSaving={reactionSaving}
+              remove={remove}
+              save={save}
+              saving={saving}
+              setEditing={setEditing}
+              setForm={setForm}
+              token={token}
+              toggleBookmark={toggleBookmark}
+              toggleNotice={toggleNotice}
+              toggleReaction={toggleReaction}
+            />
 
-            {canEdit ? (
-              <div className="board-actions">
-                {!editing ? (
-                  <button type="button" className="board-secondary" onClick={() => setEditing(true)}>
-                    수정
-                  </button>
-                ) : null}
-                <button type="button" className="board-danger" onClick={remove}>
-                  삭제
-                </button>
-              </div>
-            ) : null}
+            <BoardReportPanel
+              comments={comments}
+              reportForm={reportForm}
+              reportSubmitting={reportSubmitting}
+              reportTarget={reportTarget}
+              setReportForm={setReportForm}
+              setReportTarget={setReportTarget}
+              submitReport={submitReport}
+            />
 
-            {mounted && token && !editing ? (
-              <div className="board-actions board-report-actions">
-                <button
-                  type="button"
-                  className="board-secondary"
-                  onClick={toggleReaction}
-                  disabled={reactionSaving || reactionLoading}
-                >
-                  {reacted ? '추천됨' : '추천'}
-                </button>
-                <button
-                  type="button"
-                  className="board-secondary"
-                  onClick={toggleBookmark}
-                  disabled={bookmarkSaving || bookmarkLoading}
-                >
-                  {bookmarked ? '저장됨' : '저장'}
-                </button>
-                <button type="button" className="board-secondary" onClick={() => openReport({ targetType: 'post', label: '게시글' })}>
-                  신고
-                </button>
-              </div>
-            ) : null}
-
-            {canManageNotice ? (
-              <div className="board-actions board-admin-actions">
-                <button
-                  type="button"
-                  className="board-secondary"
-                  onClick={toggleNotice}
-                  disabled={noticeSaving}
-                >
-                  {noticeSaving ? '저장 중...' : post.isNotice ? '공지 해제' : '공지 고정'}
-                </button>
-              </div>
-            ) : null}
-
-            {reportTarget ? (
-              <section className="board-report-panel">
-                <div className="board-comments-head">
-                  <h3>{reportTarget.label} 신고</h3>
-                </div>
-                <div className="board-report-grid">
-                  <select
-                    value={reportForm.reason}
-                    onChange={(event) => setReportForm({ ...reportForm, reason: event.target.value })}
-                    aria-label="신고 사유"
-                  >
-                    <option value="spam">스팸</option>
-                    <option value="abuse">욕설/비방</option>
-                    <option value="spoiler">스포일러</option>
-                    <option value="offtopic">주제 이탈</option>
-                    <option value="other">기타</option>
-                  </select>
-                  <textarea
-                    value={reportForm.detail}
-                    onChange={(event) => setReportForm({ ...reportForm, detail: event.target.value })}
-                    placeholder="상세 내용을 입력하세요"
-                    rows={3}
-                    maxLength={1000}
-                  />
-                  <div className="board-actions board-report-submit">
-                    <button type="button" onClick={submitReport} disabled={reportSubmitting}>
-                      {reportSubmitting ? '접수 중...' : '신고 접수'}
-                    </button>
-                    <button type="button" className="board-secondary" onClick={() => setReportTarget(null)} disabled={reportSubmitting}>
-                      취소
-                    </button>
-                  </div>
-                </div>
-              </section>
-            ) : null}
-
-            <section className="board-comments">
-              <div className="board-comments-head">
-                <h3>댓글 {comments.length}</h3>
-              </div>
-
-              {mounted && token ? (
-                <div className="board-comment-form">
-                  <textarea
-                    value={commentText}
-                    onChange={(event) => setCommentText(event.target.value)}
-                    placeholder="댓글을 입력하세요"
-                    rows={3}
-                    maxLength={1200}
-                  />
-                  <button type="button" onClick={createComment} disabled={commentSubmitting}>
-                    {commentSubmitting ? '작성 중...' : '댓글 작성'}
-                  </button>
-                </div>
-              ) : (
-                <div className="board-login-note board-comment-login">로그인하면 댓글을 작성할 수 있습니다.</div>
-              )}
-
-              <div className="board-comment-list">
-                {comments.length === 0 ? <div className="board-empty board-comment-empty">아직 댓글이 없습니다.</div> : null}
-                {comments.map((comment) => {
-                  const commentId = comment?._normalizedId || normalizeIdValue(comment?._id || comment?.id);
-                  const canRemoveComment = mounted && token && userId && (
-                    normalizeIdValue(comment?.authorId) === String(userId) ||
-                    normalizeIdValue(post?.authorId) === String(userId)
-                  );
-                  const canEditComment = mounted && token && userId && normalizeIdValue(comment?.authorId) === String(userId);
-                  const isEditingComment = editingComment.id === commentId;
-                  return (
-                    <article className="board-comment-item" key={commentId || `${comment.authorName}-${comment.createdAt}`}>
-                      <div>
-                        {userProfileHref(comment.authorId) ? (
-                          <Link href={userProfileHref(comment.authorId)} className="profile-inline-link">
-                            <strong>{safeText(comment.authorName, '익명')}</strong>
-                          </Link>
-                        ) : <strong>{safeText(comment.authorName, '익명')}</strong>}
-                        <span>{formatDate(comment.createdAt)}</span>
-                      </div>
-                      {isEditingComment ? (
-                        <div className="board-comment-edit">
-                          <textarea
-                            value={editingComment.content}
-                            onChange={(event) => setEditingComment({ id: commentId, content: event.target.value })}
-                            rows={3}
-                            maxLength={1200}
-                          />
-                          <div className="board-comment-actions">
-                            <button type="button" onClick={updateComment} disabled={editingCommentSaving}>
-                              {editingCommentSaving ? '저장 중...' : '저장'}
-                            </button>
-                            <button type="button" className="board-secondary" onClick={cancelEditComment} disabled={editingCommentSaving}>
-                              취소
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p>{safeText(comment.content, '')}</p>
-                      )}
-                      <div className="board-comment-actions">
-                        {mounted && token ? (
-                          <button type="button" className="board-secondary board-danger-compact" onClick={() => openReport({ targetType: 'comment', commentId, label: '댓글' })}>
-                            신고
-                          </button>
-                        ) : null}
-                        {canEditComment && !isEditingComment ? (
-                          <button type="button" className="board-secondary" onClick={() => startEditComment(comment)}>
-                            수정
-                          </button>
-                        ) : null}
-                        {canRemoveComment ? (
-                          <button
-                            type="button"
-                            className="board-danger board-danger-compact"
-                            onClick={() => removeComment(commentId)}
-                            disabled={deletingCommentId === commentId}
-                          >
-                            {deletingCommentId === commentId ? '삭제 중...' : '삭제'}
-                          </button>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
+            <BoardCommentsSection
+              cancelEditComment={cancelEditComment}
+              commentSubmitting={commentSubmitting}
+              commentText={commentText}
+              comments={comments}
+              createComment={createComment}
+              deletingCommentId={deletingCommentId}
+              editingComment={editingComment}
+              editingCommentSaving={editingCommentSaving}
+              form={form}
+              mounted={mounted}
+              openReport={openReport}
+              post={post}
+              removeComment={removeComment}
+              setEditingComment={setEditingComment}
+              setCommentText={setCommentText}
+              startEditComment={startEditComment}
+              token={token}
+              updateComment={updateComment}
+              userId={userId}
+            />
           </article>
         )}
       </section>
