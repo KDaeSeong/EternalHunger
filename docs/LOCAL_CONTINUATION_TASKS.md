@@ -75,6 +75,8 @@ npm run build
   - `client/src/app/games/schale-idle-rpg/_components/SchaleIdleDutyTab.js`
   - `client/src/app/games/schale-idle-rpg/_components/SchaleIdleGearTab.js`
   - `client/src/app/games/schale-idle-rpg/_components/SchaleIdleRecordsTab.js`
+- Dual Academy TCG zone-inspection/page helper logic now lives in `client/src/app/games/dual-academy-tcg/_lib/tcgPlayPageRuntime.js`.
+- Dual Academy TCG large feature tab JSX now lives in `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgFeatureTabs.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -243,7 +245,10 @@ After School Simulator, continue applying the same page split to:
    - Done: extract the large `GameFeatureTabs` JSX into `SchaleIdleFeatureTabs.js`.
    - Done: split `SchaleIdleFeatureTabs.js` into tab-group components (`plan`, `season`, `sync`, `duty`, `gear`, `records`).
    - Next: split `SchaleIdleGearTab.js` further if gear/preset/shop/salvage panels grow again.
-3. `client/src/app/games/dual-academy-tcg/play/page.js`
+3. In progress: `client/src/app/games/dual-academy-tcg/play/page.js`
+   - Done: zone-inspection/page helper split
+   - Done: extract the large feature tab JSX into `DualAcademyTcgFeatureTabs.js`
+   - Next: split `DualAcademyTcgFeatureTabs.js` into tab-group components (`board`, `advisor`, `inspect`, `logs`, `hand`).
 
 ## Suggested Validation Commands
 
@@ -259,6 +264,7 @@ npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-
 npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
 npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding-sim/_components/SiCodingSimFeatureTabs.js src/app/games/si-coding-sim/_components/SiCodingFieldTab.js src/app/games/si-coding-sim/_components/SiCodingTasksTab.js src/app/games/si-coding-sim/_components/SiCodingDocsTab.js src/app/games/si-coding-sim/_components/SiCodingCodeTab.js src/app/games/si-coding-sim/_components/SiCodingCareerTab.js src/app/games/si-coding-sim/_components/SiCodingAuditTab.js src/app/games/si-coding-sim/_components/SiCodingAdvancedTab.js src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js
 npm run lint -- src/app/games/schale-idle-rpg/play/page.js src/app/games/schale-idle-rpg/_components/SchaleIdleFeatureTabs.js src/app/games/schale-idle-rpg/_components/SchaleIdlePlanTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleSeasonTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleSyncTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleDutyTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleGearTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleRecordsTab.js src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js
+npm run lint -- src/app/games/dual-academy-tcg/play/page.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgFeatureTabs.js src/app/games/dual-academy-tcg/_lib/tcgPlayPageRuntime.js
 npm run build
 ```
 
