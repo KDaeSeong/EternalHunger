@@ -100,6 +100,16 @@ npm run build
   - `client/src/app/games/ba-vanguard/_components/BaVanguardDeckTab.js`
 - BA Vanguard save/load/record and room synchronization actions now live in `client/src/app/games/ba-vanguard/_hooks/useBaVanguardPersistence.js`.
 - BA Vanguard playtest summary builder now lives in `client/src/app/games/ba-vanguard/_lib/baVanguardPageRuntime.js`.
+- Tonkatsu Teacher large feature tab JSX now lives in `client/src/app/games/tonkatsu-teacher/_components/TonkatsuTeacherFeatureTabs.js`.
+- Tonkatsu Teacher feature tabs are split into:
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuOperationsTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuTutorialTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuProductionTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuKitchenTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuStudentsTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuGrowthTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuJudgeTab.js`
+  - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuAdvancedTab.js`
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -286,6 +296,10 @@ After School Simulator, continue applying the same page split to:
    - Done: move save/load/room synchronization into `useBaVanguardPersistence`.
    - Done: move playtest summary assembly into `baVanguardPageRuntime`.
    - Next: leave the remaining duel action handlers in page unless future changes make them reusable.
+6. In progress: `client/src/app/games/tonkatsu-teacher/play/page.js`
+   - Done: extract the large `GameFeatureTabs` JSX into `TonkatsuTeacherFeatureTabs.js`.
+   - Done: split `TonkatsuTeacherFeatureTabs.js` into tab-group components.
+   - Next: split `TonkatsuAdvancedTab.js` further only if the detailed kitchen/inventory/judge panel grows again.
 
 ## Suggested Validation Commands
 
@@ -304,6 +318,7 @@ npm run lint -- src/app/games/schale-idle-rpg/play/page.js src/app/games/schale-
 npm run lint -- src/app/games/dual-academy-tcg/play/page.js src/app/games/dual-academy-tcg/_hooks/useDualAcademyTcgPersistence.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgFeatureTabs.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgBoardTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgAdvisorTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js src/app/games/dual-academy-tcg/_lib/tcgPlayPageRuntime.js
 npm run lint -- src/app/games/primitive-archive/play/page.js src/app/games/primitive-archive/_components/PrimitiveArchiveFeatureTabs.js src/app/games/primitive-archive/_components/PrimitiveArchiveSurvivalTab.js src/app/games/primitive-archive/_components/PrimitiveArchiveReportTab.js src/app/games/primitive-archive/_components/PrimitiveArchiveGrowthTab.js src/app/games/primitive-archive/_components/PrimitiveArchiveInventoryTab.js src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js
 npm run lint -- src/app/games/ba-vanguard/play/page.js src/app/games/ba-vanguard/_hooks/useBaVanguardPersistence.js src/app/games/ba-vanguard/_lib/baVanguardPageRuntime.js src/app/games/ba-vanguard/_components/BaVanguardFeatureTabs.js src/app/games/ba-vanguard/_components/BaVanguardDuelTab.js src/app/games/ba-vanguard/_components/BaVanguardTacticsTab.js src/app/games/ba-vanguard/_components/BaVanguardHandLogTab.js src/app/games/ba-vanguard/_components/BaVanguardDeckTab.js src/app/games/ba-vanguard/_components/BaVanguardBoard.js src/app/games/ba-vanguard/_lib/baVanguardCatalog.js
+npm run lint -- src/app/games/tonkatsu-teacher/play/page.js src/app/games/tonkatsu-teacher/_components/TonkatsuTeacherFeatureTabs.js src/app/games/tonkatsu-teacher/_components/TonkatsuOperationsTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuTutorialTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuProductionTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuKitchenTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuStudentsTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuGrowthTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuJudgeTab.js src/app/games/tonkatsu-teacher/_components/TonkatsuAdvancedTab.js src/app/games/tonkatsu-teacher/_lib/tonkatsuTeacherEngine.js src/app/games/tonkatsu-teacher/_lib/tonkatsuTeacherData.js
 npm run build
 ```
 
