@@ -10,218 +10,23 @@ import {
   GAME_ROADMAP,
   MYANIME_GAME_SLUGS,
   SRPG_GAME_SLUGS,
-  dynamicGameCandidateToGame,
   findGameBySlug,
   gameDetailHref,
-  getGameIntegration,
-  getGamePortingChecklist,
-  getGamePortingProgress,
 } from './_lib/gameCatalog';
-
-const EMPTY_HUB = {
-  counts: { users: 0, posts: 0, characters: 0, rooms: 0, activeRooms: 0 },
-  recentPosts: [],
-  activeRooms: [],
-  rankings: { points: [], characters: [] },
-};
-
-function normalizeList(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-function normalizeHub(payload) {
-  const src = payload && typeof payload === 'object' ? payload : {};
-  const rankings = src.rankings && typeof src.rankings === 'object' ? src.rankings : {};
-  return {
-    counts: { ...EMPTY_HUB.counts, ...(src.counts || {}) },
-    recentPosts: normalizeList(src.recentPosts),
-    activeRooms: normalizeList(src.activeRooms),
-    rankings: {
-      points: normalizeList(rankings.points),
-      characters: normalizeList(rankings.characters),
-    },
-  };
-}
-
-function normalizeDynamicGames(payload) {
-  return normalizeList(payload?.candidates).map(dynamicGameCandidateToGame).filter(Boolean);
-}
-
-function safeText(value, fallback = '') {
-  const text = String(value || '').trim();
-  return text || fallback;
-}
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
-}
-
-function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
-}
-
-function userHref(user) {
-  const id = user?._id || user?.id;
-  return id ? `/users/${id}` : '';
-}
-
-function roomHref(room) {
-  return room?.href || (room?.roomType === 'game-room' ? `/games/rooms/${room._id}` : `/twenty-questions/${room._id}`);
-}
-
-function roomGameTitle(room, gameTitleBySlug = new Map()) {
-  const slug = String(room?.gameSlug || '').trim();
-  return gameTitleBySlug.get(slug) || findGameBySlug(slug)?.title || slug || '게임';
-}
-
-function roomMeta(room, gameTitleBySlug) {
-  if (room?.roomType === 'game-room') {
-    return `${roomGameTitle(room, gameTitleBySlug)} · ${safeText(room.hostName, '익명')} · ${formatNumber(room.playerCount)}/${formatNumber(room.maxPlayers || 1)}명 · ${safeText(room.status, 'open')}`;
-  }
-  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : Number(room?.questionCount || 0) + Number(room?.guessCount || 0));
-  return `스무고개 · ${safeText(room.hostName, '익명')} · ${formatNumber(attemptCount)}/${formatNumber(room.maxQuestions || 20)} · ${safeText(room.categoryLabel, room.category || '자유')}`;
-}
-
-function metricValueForKey(key, hub, derived) {
-  if (key === 'characters') return hub.counts.characters;
-  if (key === 'posts') return hub.counts.posts;
-  if (key === 'topLp') return derived.topUser?.lp || 0;
-  if (key === 'rooms') return hub.counts.rooms;
-  if (key === 'activeRooms') return hub.counts.activeRooms;
-  if (key === 'visibleRooms') return hub.activeRooms.length;
-  return 0;
-}
-
-function metricLabelForKey(key) {
-  if (key === 'characters') return '캐릭터';
-  if (key === 'posts') return '게시글';
-  if (key === 'topLp') return '최고 LP';
-  if (key === 'rooms') return '전체 방';
-  if (key === 'activeRooms') return '진행 중';
-  if (key === 'visibleRooms') return '표시 방';
-  return '지표';
-}
-
-function GameMetric({ label, value }) {
-  return (
-    <div className="games-metric">
-      <span>{label}</span>
-      <strong>{formatNumber(value)}</strong>
-    </div>
-  );
-}
-
-function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
-  return (
-    <article className={`games-card is-${tone} ${visual ? 'has-visual' : ''}`}>
-      {visual ? <div className="games-card-visual" aria-hidden="true" /> : null}
-      <div className="games-card-main">
-        <div>
-          <span>{subtitle}</span>
-          <h2>{title}</h2>
-          <p>{body}</p>
-        </div>
-        <div className="games-card-metrics">
-          {metrics.map((metric) => (
-            <GameMetric key={metric.label} label={metric.label} value={metric.value} />
-          ))}
-        </div>
-        <div className="games-card-actions">
-          {links.map((link) => (
-            <Link href={link.href} key={`${link.href}-${link.label}`}>{link.label}</Link>
-          ))}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function GameFamilyCard({ tone, kicker, title, body, href, stats, links }) {
-  return (
-    <article className={`games-family-card is-${tone}`}>
-      <div>
-        <span>{kicker}</span>
-        <h3>{title}</h3>
-        <p>{body}</p>
-      </div>
-      <div className="games-family-stats">
-        {stats.map((stat) => (
-          <div key={`${title}-${stat.label}`}>
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </div>
-        ))}
-      </div>
-      <div className="games-family-actions">
-        <Link href={href}>허브 열기</Link>
-        {links.map((link) => (
-          <Link href={link.href} key={`${title}-${link.href}`}>{link.label}</Link>
-        ))}
-      </div>
-    </article>
-  );
-}
-
-function RoadmapCard({ item, index }) {
-  const game = findGameBySlug(item.slug) || item;
-  const integration = getGameIntegration(game);
-  const checklist = getGamePortingChecklist(game);
-  const progress = getGamePortingProgress(game);
-  return (
-    <article className="games-roadmap-card">
-      <div className="games-roadmap-card__head">
-        <span>{String(index + 1).padStart(2, '0')}</span>
-        <div>
-          <p>{item.subtitle}</p>
-          <h3>{item.title}</h3>
-        </div>
-        <strong>{item.priority}</strong>
-      </div>
-      <p>{item.summary}</p>
-      <dl>
-        <div>
-          <dt>범위</dt>
-          <dd>{item.scope}</dd>
-        </div>
-        <div>
-          <dt>다음 작업</dt>
-          <dd>{item.nextStep}</dd>
-        </div>
-        <div>
-          <dt>이식 상태</dt>
-          <dd>{integration.stageLabel} · {integration.adapter} · {progress.percentLabel}</dd>
-        </div>
-      </dl>
-      <div className="games-porting-strip" aria-label={`${item.title} 이식 체크리스트`}>
-        {checklist.map((entry) => (
-          <span className={entry.done ? 'is-done' : 'is-pending'} key={entry.key}>{entry.label}</span>
-        ))}
-      </div>
-      <Link href={gameDetailHref(item)} className="games-roadmap-card__link">상세 보기</Link>
-    </article>
-  );
-}
-
-function ActivityList({ title, href, items, empty, renderItem }) {
-  return (
-    <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>{title}</h2>
-        <Link href={href}>전체 보기</Link>
-      </div>
-      {items.length ? (
-        <div className="games-activity-list">
-          {items.map(renderItem)}
-        </div>
-      ) : (
-        <div className="games-empty">{empty}</div>
-      )}
-    </section>
-  );
-}
+import { ActivityList, GameCard, GameFamilyCard, GameMetric, RoadmapCard } from './_components/GamesHubCards';
+import {
+  EMPTY_HUB,
+  formatDate,
+  formatNumber,
+  metricLabelForKey,
+  metricValueForKey,
+  normalizeDynamicGames,
+  normalizeHub,
+  roomHref,
+  roomMeta,
+  safeText,
+  userHref,
+} from './_lib/gamesHubUtils';
 
 export default function GamesPage() {
   const { showToast } = useToast();
@@ -264,7 +69,7 @@ export default function GamesPage() {
   }, [showToast]);
 
   useEffect(() => {
-    void loadHub();
+    void Promise.resolve().then(loadHub);
   }, [loadHub]);
 
   const gamePosts = useMemo(() => {
