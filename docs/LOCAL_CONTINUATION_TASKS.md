@@ -160,6 +160,12 @@ npm run build
   - `client/src/app/games/rooms/_components/GameRoomPlayersPanel.js`
 - Game room detail room-player memoization and room-state effects now satisfy the runtime React Hooks/Compiler lint rules.
 - Simulation page orchestration now lives in `client/src/app/simulation/_lib/useSimulationPageController.js`; `client/src/app/simulation/page.js` is now a thin hydration/view shell.
+- Account page utility helpers now live in `client/src/app/account/_lib/accountUtils.js`.
+- Account page rendering is split into:
+  - `client/src/app/account/_components/AccountProfileDashboard.js`
+  - `client/src/app/account/_components/AccountSecurityPanels.js`
+  - `client/src/app/account/_components/AccountActivityPanels.js`
+- Account activity reset effect now satisfies the runtime React Hooks/Compiler lint rules.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`

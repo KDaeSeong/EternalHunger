@@ -4,122 +4,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import SiteHeader from '../../components/SiteHeader';
+import AccountActivityPanels from './_components/AccountActivityPanels';
+import AccountProfileDashboard from './_components/AccountProfileDashboard';
+import AccountSecurityPanels from './_components/AccountSecurityPanels';
 import { useToast } from '../../components/ToastProvider';
-import UserFollowPreview from '../../components/UserFollowPreview';
 import { apiGetCached, apiPost, apiPut, clearApiGetCache, clearAuth, updateStoredUser } from '../../utils/api';
 import { useAuthUser, useHydrated } from '../../utils/client-auth';
-
-const EMPTY_ACTIVITY = {
-  user: null,
-  summary: {},
-  recentPosts: [],
-  recentComments: [],
-  recentRooms: [],
-  topCharacters: [],
-  topTeams: [],
-  social: { followers: [], following: [] },
-};
-
-const CATEGORY_LABELS = {
-  free: '자유',
-  guide: '공략',
-  feedback: '피드백',
-  bug: '버그',
-  simulation: '시뮬레이션',
-  game: '게임',
-};
-
-const ROOM_STATUS_LABELS = {
-  active: '진행 중',
-  solved: '정답 공개',
-  closed: '종료',
-};
-
-function cleanNickname(value) {
-  return String(value || '').trim().replace(/\s+/g, ' ');
-}
-
-function safeText(value, fallback = '') {
-  const text = String(value || '').trim();
-  return text || fallback;
-}
-
-function getDisplayName(user) {
-  return cleanNickname(user?.displayName) || cleanNickname(user?.nickname) || cleanNickname(user?.username) || '사용자';
-}
-
-function getUserId(user) {
-  return user?._id || user?.id || user?.userId || '';
-}
-
-function normalizeList(value) {
-  return Array.isArray(value) ? value : [];
-}
-
-function normalizeActivity(payload) {
-  const src = payload && typeof payload === 'object' ? payload : {};
-  return {
-    user: src.user && typeof src.user === 'object' ? src.user : null,
-    summary: src.summary && typeof src.summary === 'object' ? src.summary : {},
-    recentPosts: normalizeList(src.recentPosts),
-    recentComments: normalizeList(src.recentComments),
-    recentRooms: normalizeList(src.recentRooms),
-    topCharacters: normalizeList(src.topCharacters),
-    topTeams: normalizeList(src.topTeams),
-    social: {
-      followers: normalizeList(src.social?.followers),
-      following: normalizeList(src.social?.following),
-    },
-  };
-}
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString('ko-KR');
-}
-
-function formatRoomAttemptMeta(room) {
-  const questionCount = Number(room?.questionCount || 0);
-  const guessCount = Number(room?.guessCount || 0);
-  const attemptCount = Number(room?.attemptCount != null ? room.attemptCount : questionCount + guessCount);
-  return `사용 ${formatNumber(attemptCount)}/${formatNumber(room?.maxQuestions || 20)} · 질문 ${formatNumber(questionCount)} · 시도 ${formatNumber(guessCount)}`;
-}
-
-function formatRate(value) {
-  return `${Math.round(Number(value || 0) * 1000) / 10}%`;
-}
-
-function formatDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
-}
-
-function AccountRecordRows({ rows, type }) {
-  if (!rows.length) return <div className="account-empty compact">표시할 전적이 없습니다.</div>;
-
-  return (
-    <div className="account-record-list">
-      {rows.slice(0, 4).map((row) => {
-        const name = type === 'team'
-          ? safeText(row.teamName || normalizeList(row.rosterNames).join(' / '), '이름 없는 팀')
-          : safeText(row.name, '이름 없는 캐릭터');
-        const subtitle = type === 'team'
-          ? normalizeList(row.rosterNames).join(' · ')
-          : safeText(row.weaponType, '무기 미설정');
-        return (
-          <article className="account-record-row" key={row._id || row.teamKey || name}>
-            <div>
-              <strong>{name}</strong>
-              <small>{subtitle || '정보 없음'}</small>
-            </div>
-            <span>{formatNumber(row.totalWins)}승 · {formatNumber(row.totalKills)}킬</span>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
+import {
+  cleanNickname,
+  getUserId,
+  normalizeActivity,
+  normalizeList,
+  safeText,
+} from './_lib/accountUtils';
 
 export default function AccountPage() {
   const router = useRouter();
@@ -182,12 +79,22 @@ export default function AccountPage() {
   }, [showToast, userId]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!hydrated || !userId) {
-      setActivity(normalizeActivity(null));
-      return;
+      void Promise.resolve().then(() => {
+        if (!cancelled) setActivity(normalizeActivity(null));
+      });
+      return () => {
+        cancelled = true;
+      };
     }
-    void loadActivity();
-  }, [hydrated, loadActivity, userId]);
+    void Promise.resolve().then(() => {
+      if (!cancelled) void loadActivity();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, loadActivity, setActivity, userId]);
 
   const publicProfileHref = userId ? `/users/${userId}` : '';
   const activityUser = activity.user || user;
@@ -385,280 +292,51 @@ export default function AccountPage() {
           </div>
         ) : (
           <>
-            <div className="account-dashboard">
-              <form className="account-panel account-form" onSubmit={saveProfile}>
-                <div className="account-summary">
-                  <span>현재 표시명</span>
-                  <strong>{getDisplayName(user)}</strong>
-                  <small>아이디: {user.username || '-'}</small>
-                </div>
-
-                <label className="account-field">
-                  <span>닉네임</span>
-                  <input
-                    value={nicknameValue}
-                    onChange={(event) => setDraftNickname(event.target.value)}
-                    placeholder="2~20자"
-                    maxLength={20}
-                    disabled={saving}
-                  />
-                </label>
-
-                <label className="account-field">
-                  <span>소개</span>
-                  <textarea
-                    value={bioValue}
-                    onChange={(event) => setDraftBio(event.target.value)}
-                    placeholder="공개 프로필에 표시할 짧은 소개"
-                    maxLength={240}
-                    rows={4}
-                    disabled={saving}
-                  />
-                  <small>{nextBio.length}/240</small>
-                </label>
-
-                {message ? <div className="account-message">{message}</div> : null}
-
-                <div className="account-actions">
-                  <button type="submit" disabled={saving || !isDirty}>
-                    {saving ? '저장 중...' : '저장'}
-                  </button>
-                </div>
-              </form>
-
-              <section className="account-panel account-overview">
-                <div className="account-panel-title">
-                  <h2>내 요약</h2>
-                  {publicProfileHref ? <Link href={publicProfileHref}>공개 프로필</Link> : null}
-                </div>
-                {activityLoading ? <div className="account-empty compact">내 활동 정보를 불러오는 중입니다.</div> : null}
-                {activityError ? <div className="account-message">{activityError}</div> : null}
-                <div className="account-overview-stats">
-                  <div><span>LP</span><strong>{formatNumber(activityUser?.lp)}</strong></div>
-                  <div><span>크레딧</span><strong>{formatNumber(user?.credits)}</strong></div>
-                  <div><span>전적</span><strong>{formatNumber(totalGames)}전</strong><small>승률 {formatRate(winRate)}</small></div>
-                  <div><span>게시글</span><strong>{formatNumber(summary.postCount)}</strong><small>댓글 {formatNumber(summary.commentCount)}</small></div>
-                </div>
-                {badges.length ? (
-                  <div className="account-badge-list">
-                    {badges.slice(0, 8).map((badge) => <span key={`${badge.name}-${badge.unlockedAt || ''}`}>{badge.name}</span>)}
-                  </div>
-                ) : null}
-                <div className="account-quick-actions">
-                  <Link href="/eternalhunger">게임 시작</Link>
-                  <Link href="/characters">캐릭터 설정</Link>
-                  <Link href="/board">게시판</Link>
-                  <Link href="/bookmarks">저장글</Link>
-                  <Link href="/twenty-questions">스무고개</Link>
-                  <Link href="/reports">신고 내역</Link>
-                </div>
-              </section>
-            </div>
-
-            <form className="account-panel account-security-panel" onSubmit={savePassword}>
-              <div className="account-panel-title">
-                <h2>보안</h2>
-              </div>
-              <div className="account-security-grid">
-                <label className="account-field">
-                  <span>현재 비밀번호</span>
-                  <input
-                    type="password"
-                    value={passwordForm.currentPassword}
-                    onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
-                    autoComplete="current-password"
-                    disabled={passwordSaving}
-                  />
-                </label>
-                <label className="account-field">
-                  <span>새 비밀번호</span>
-                  <input
-                    type="password"
-                    value={passwordForm.newPassword}
-                    onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
-                    autoComplete="new-password"
-                    minLength={6}
-                    maxLength={72}
-                    disabled={passwordSaving}
-                  />
-                </label>
-                <label className="account-field">
-                  <span>새 비밀번호 확인</span>
-                  <input
-                    type="password"
-                    value={passwordForm.confirmPassword}
-                    onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })}
-                    autoComplete="new-password"
-                    minLength={6}
-                    maxLength={72}
-                    disabled={passwordSaving}
-                  />
-                </label>
-              </div>
-              {passwordMessage ? <div className="account-message">{passwordMessage}</div> : null}
-              <div className="account-actions">
-                <button type="submit" disabled={passwordSaving}>
-                  {passwordSaving ? '변경 중...' : '비밀번호 변경'}
-                </button>
-              </div>
-            </form>
-
-            <form className="account-panel account-recovery-panel" onSubmit={issueRecoveryCode}>
-              <div className="account-panel-title">
-                <h2>비밀번호 복구 코드</h2>
-                <Link href="/reset-password">재설정 화면</Link>
-              </div>
-              <p>
-                이메일 없이 비밀번호를 재설정할 때 쓰는 1회용 코드입니다. 새 코드를 발급하면 이전 코드는 무효화됩니다.
-              </p>
-              {user?.recoveryCodeCreatedAt ? (
-                <div className="account-recovery-status">
-                  활성 복구 코드 발급일: {formatDate(user.recoveryCodeCreatedAt) || '날짜 없음'}
-                </div>
-              ) : (
-                <div className="account-recovery-status">아직 활성 복구 코드가 없습니다.</div>
-              )}
-              <div className="account-security-grid compact">
-                <label className="account-field">
-                  <span>현재 비밀번호</span>
-                  <input
-                    type="password"
-                    value={recoveryForm.currentPassword}
-                    onChange={(event) => setRecoveryForm({ currentPassword: event.target.value })}
-                    autoComplete="current-password"
-                    disabled={recoverySaving}
-                  />
-                </label>
-              </div>
-              {recoveryCode ? (
-                <div className="account-recovery-code" aria-live="polite">
-                  <span>새 복구 코드</span>
-                  <strong>{recoveryCode}</strong>
-                  <small>이 코드는 다시 표시되지 않습니다. 지금 안전한 곳에 보관해주세요.</small>
-                </div>
-              ) : null}
-              {recoveryMessage ? <div className="account-message">{recoveryMessage}</div> : null}
-              <div className="account-actions">
-                <button type="submit" disabled={recoverySaving}>
-                  {recoverySaving ? '발급 중...' : '복구 코드 발급'}
-                </button>
-              </div>
-            </form>
-
-            <form className="account-panel account-danger-panel" onSubmit={deactivateAccount}>
-              <div className="account-panel-title">
-                <h2>계정 탈퇴</h2>
-              </div>
-              <p>
-                탈퇴하면 현재 계정으로 다시 로그인할 수 없습니다. 작성한 게시글과 기록은 서비스 흐름 보존을 위해
-                남지만, 계정명과 프로필 정보는 탈퇴 계정으로 정리됩니다.
-              </p>
-              <div className="account-security-grid">
-                <label className="account-field">
-                  <span>현재 비밀번호</span>
-                  <input
-                    type="password"
-                    value={deactivateForm.currentPassword}
-                    onChange={(event) => setDeactivateForm({ ...deactivateForm, currentPassword: event.target.value })}
-                    autoComplete="current-password"
-                    disabled={deactivateSaving}
-                  />
-                </label>
-                <label className="account-field">
-                  <span>확인 문구</span>
-                  <input
-                    value={deactivateForm.confirmText}
-                    onChange={(event) => setDeactivateForm({ ...deactivateForm, confirmText: event.target.value })}
-                    placeholder="탈퇴"
-                    disabled={deactivateSaving}
-                  />
-                </label>
-              </div>
-              {deactivateMessage ? <div className="account-message danger">{deactivateMessage}</div> : null}
-              <div className="account-actions">
-                <button type="submit" className="danger" disabled={deactivateSaving}>
-                  {deactivateSaving ? '처리 중...' : '계정 탈퇴'}
-                </button>
-              </div>
-            </form>
-
-            <UserFollowPreview
-              panelClassName="account-panel account-social-panel"
-              followers={activity.social.followers}
-              following={activity.social.following}
-              followerCount={summary.followerCount}
-              followingCount={summary.followingCount}
+            <AccountProfileDashboard
+              activityError={activityError}
+              activityLoading={activityLoading}
+              activityUser={activityUser}
+              badges={badges}
+              bioValue={bioValue}
+              isDirty={isDirty}
+              message={message}
+              nextBio={nextBio}
+              nicknameValue={nicknameValue}
+              publicProfileHref={publicProfileHref}
+              saveProfile={saveProfile}
+              saving={saving}
+              setDraftBio={setDraftBio}
+              setDraftNickname={setDraftNickname}
+              summary={summary}
+              totalGames={totalGames}
+              user={user}
+              winRate={winRate}
             />
 
-            <div className="account-activity-grid">
-              <section className="account-panel">
-                <div className="account-panel-title">
-                  <h2>최근 게시글</h2>
-                  <Link href="/board">게시판</Link>
-                </div>
-                {activity.recentPosts.length ? (
-                  <div className="account-link-list">
-                    {activity.recentPosts.map((post) => (
-                      <Link href={`/board/${post._id}`} key={post._id}>
-                        <strong>{safeText(post.title, '제목 없음')}</strong>
-                        <span>{CATEGORY_LABELS[post.category] || post.category || '자유'} · 조회 {formatNumber(post.viewCount)} · 추천 {formatNumber(post.reactionCount)} · 댓글 {formatNumber(post.commentCount)} · {formatDate(post.createdAt) || '날짜 없음'}</span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : <div className="account-empty compact">작성한 게시글이 없습니다.</div>}
-              </section>
+            <AccountSecurityPanels
+              deactivateAccount={deactivateAccount}
+              deactivateForm={deactivateForm}
+              deactivateMessage={deactivateMessage}
+              deactivateSaving={deactivateSaving}
+              message={message}
+              passwordForm={passwordForm}
+              passwordMessage={passwordMessage}
+              passwordSaving={passwordSaving}
+              recoveryCode={recoveryCode}
+              recoveryForm={recoveryForm}
+              recoveryMessage={recoveryMessage}
+              recoverySaving={recoverySaving}
+              savePassword={savePassword}
+              setDeactivateForm={setDeactivateForm}
+              setPasswordForm={setPasswordForm}
+              setRecoveryForm={setRecoveryForm}
+              user={user}
+            />
 
-              <section className="account-panel">
-                <div className="account-panel-title">
-                  <h2>최근 댓글</h2>
-                  <Link href="/board">게시판</Link>
-                </div>
-                {activity.recentComments.length ? (
-                  <div className="account-link-list">
-                    {activity.recentComments.map((comment) => (
-                      <Link href={`/board/${comment.postId}`} key={comment._id || `${comment.postId}-${comment.createdAt || ''}`}>
-                        <strong>{safeText(comment.postTitle, '제목 없음')}</strong>
-                        <span>{CATEGORY_LABELS[comment.postCategory] || comment.postCategory || '자유'} · {formatDate(comment.createdAt) || '날짜 없음'}</span>
-                        <small>{safeText(comment.contentPreview, '내용 없음')}</small>
-                      </Link>
-                    ))}
-                  </div>
-                ) : <div className="account-empty compact">작성한 댓글이 없습니다.</div>}
-              </section>
-
-              <section className="account-panel">
-                <div className="account-panel-title">
-                  <h2>스무고개 방</h2>
-                  <Link href="/twenty-questions">방 목록</Link>
-                </div>
-                {activity.recentRooms.length ? (
-                  <div className="account-link-list">
-                    {activity.recentRooms.map((room) => (
-                      <Link href={`/twenty-questions/${room._id}`} key={room._id}>
-                        <strong>{safeText(room.title, '제목 없음')}</strong>
-                        <span>{ROOM_STATUS_LABELS[room.status] || room.status || '진행 중'} · {formatRoomAttemptMeta(room)}</span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : <div className="account-empty compact">개설한 스무고개 방이 없습니다.</div>}
-              </section>
-
-              <section className="account-panel">
-                <div className="account-panel-title">
-                  <h2>상위 캐릭터</h2>
-                  <Link href="/records">기록소</Link>
-                </div>
-                <AccountRecordRows rows={activity.topCharacters} type="character" />
-              </section>
-
-              <section className="account-panel">
-                <div className="account-panel-title">
-                  <h2>상위 팀</h2>
-                  <Link href="/records">기록소</Link>
-                </div>
-                <AccountRecordRows rows={activity.topTeams} type="team" />
-              </section>
-            </div>
+            <AccountActivityPanels
+              activity={activity}
+              summary={summary}
+            />
           </>
         )}
       </section>
