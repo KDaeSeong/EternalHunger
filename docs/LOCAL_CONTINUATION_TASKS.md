@@ -159,6 +159,7 @@ npm run build
   - `client/src/app/games/rooms/_components/GameRoomRecordPanel.js`
   - `client/src/app/games/rooms/_components/GameRoomPlayersPanel.js`
 - Game room detail room-player memoization and room-state effects now satisfy the runtime React Hooks/Compiler lint rules.
+- Simulation page orchestration now lives in `client/src/app/simulation/_lib/useSimulationPageController.js`; `client/src/app/simulation/page.js` is now a thin hydration/view shell.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
