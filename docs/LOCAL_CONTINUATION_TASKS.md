@@ -84,6 +84,8 @@ npm run build
   - `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js`
   - `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js`
   - `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js`
+- Primitive Archive page helper logic now lives in `client/src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js`.
+- Primitive Archive save/load/record actions now live in `client/src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -258,6 +260,10 @@ After School Simulator, continue applying the same page split to:
    - Done: split `DualAcademyTcgFeatureTabs.js` into tab-group components (`board`, `advisor`, `inspect`, `logs`, `hand`).
    - Done: split save/load/room synchronization effects into `useDualAcademyTcgPersistence`.
    - Next: move remaining derived UI assembly into a small play view-model helper only if future edits make the page grow again.
+4. In progress: `client/src/app/games/primitive-archive/play/page.js`
+   - Done: page helper/runtime split
+   - Done: persistence hook
+   - Next: extract the large `GameFeatureTabs` JSX into a Primitive Archive feature tabs component.
 
 ## Suggested Validation Commands
 
@@ -274,6 +280,7 @@ npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school
 npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding-sim/_components/SiCodingSimFeatureTabs.js src/app/games/si-coding-sim/_components/SiCodingFieldTab.js src/app/games/si-coding-sim/_components/SiCodingTasksTab.js src/app/games/si-coding-sim/_components/SiCodingDocsTab.js src/app/games/si-coding-sim/_components/SiCodingCodeTab.js src/app/games/si-coding-sim/_components/SiCodingCareerTab.js src/app/games/si-coding-sim/_components/SiCodingAuditTab.js src/app/games/si-coding-sim/_components/SiCodingAdvancedTab.js src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js
 npm run lint -- src/app/games/schale-idle-rpg/play/page.js src/app/games/schale-idle-rpg/_components/SchaleIdleFeatureTabs.js src/app/games/schale-idle-rpg/_components/SchaleIdlePlanTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleSeasonTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleSyncTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleDutyTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleGearTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleRecordsTab.js src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js
 npm run lint -- src/app/games/dual-academy-tcg/play/page.js src/app/games/dual-academy-tcg/_hooks/useDualAcademyTcgPersistence.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgFeatureTabs.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgBoardTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgAdvisorTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js src/app/games/dual-academy-tcg/_lib/tcgPlayPageRuntime.js
+npm run lint -- src/app/games/primitive-archive/play/page.js src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js
 npm run build
 ```
 
