@@ -92,6 +92,7 @@ npm run build
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveReportTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveGrowthTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveInventoryTab.js`
+- BA Vanguard large feature tab JSX now lives in `client/src/app/games/ba-vanguard/_components/BaVanguardFeatureTabs.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -272,6 +273,9 @@ After School Simulator, continue applying the same page split to:
    - Done: extract the large `GameFeatureTabs` JSX into `PrimitiveArchiveFeatureTabs.js`.
    - Done: split `PrimitiveArchiveFeatureTabs.js` into tab-group components.
    - Next: split `PrimitiveArchiveSurvivalTab.js` further only if survival/camp/equipment panels grow again.
+5. In progress: `client/src/app/games/ba-vanguard/play/page.js`
+   - Done: extract the large `GameFeatureTabs` JSX into `BaVanguardFeatureTabs.js`.
+   - Next: split `BaVanguardFeatureTabs.js` into tab-group components (`duel`, `tactics`, `hand/log`, `deck`) if continuing the BA Vanguard cleanup.
 
 ## Suggested Validation Commands
 
@@ -289,6 +293,7 @@ npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding
 npm run lint -- src/app/games/schale-idle-rpg/play/page.js src/app/games/schale-idle-rpg/_components/SchaleIdleFeatureTabs.js src/app/games/schale-idle-rpg/_components/SchaleIdlePlanTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleSeasonTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleSyncTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleDutyTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleGearTab.js src/app/games/schale-idle-rpg/_components/SchaleIdleRecordsTab.js src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js
 npm run lint -- src/app/games/dual-academy-tcg/play/page.js src/app/games/dual-academy-tcg/_hooks/useDualAcademyTcgPersistence.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgFeatureTabs.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgBoardTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgAdvisorTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js src/app/games/dual-academy-tcg/_lib/tcgPlayPageRuntime.js
 npm run lint -- src/app/games/primitive-archive/play/page.js src/app/games/primitive-archive/_components/PrimitiveArchiveFeatureTabs.js src/app/games/primitive-archive/_components/PrimitiveArchiveSurvivalTab.js src/app/games/primitive-archive/_components/PrimitiveArchiveReportTab.js src/app/games/primitive-archive/_components/PrimitiveArchiveGrowthTab.js src/app/games/primitive-archive/_components/PrimitiveArchiveInventoryTab.js src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js
+npm run lint -- src/app/games/ba-vanguard/play/page.js src/app/games/ba-vanguard/_components/BaVanguardFeatureTabs.js src/app/games/ba-vanguard/_components/BaVanguardBoard.js src/app/games/ba-vanguard/_lib/baVanguardCatalog.js
 npm run build
 ```
 
