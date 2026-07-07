@@ -152,6 +152,13 @@ npm run build
   - `client/src/app/board/_components/BoardReportPanel.js`
   - `client/src/app/board/_components/BoardCommentsSection.js`
 - Board detail `useMemo` and async status loader effects now satisfy the runtime React Hooks/Compiler lint rules.
+- Game room detail normalization/save/record helpers now live in `client/src/app/games/rooms/_lib/gameRoomDetailUtils.js`.
+- Game room detail rendering is split into:
+  - `client/src/app/games/rooms/_components/GameRoomOverviewPanels.js`
+  - `client/src/app/games/rooms/_components/GameRoomSavePanels.js`
+  - `client/src/app/games/rooms/_components/GameRoomRecordPanel.js`
+  - `client/src/app/games/rooms/_components/GameRoomPlayersPanel.js`
+- Game room detail room-player memoization and room-state effects now satisfy the runtime React Hooks/Compiler lint rules.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
