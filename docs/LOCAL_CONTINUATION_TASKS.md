@@ -67,6 +67,7 @@ npm run build
 - Schale Idle RPG save/load/record actions now live in `client/src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js`.
 - Schale Idle RPG derived rows/reports/selected entity assembly now lives in `client/src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js`.
 - Schale Idle RPG equipment tuning helpers now live in `client/src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js`.
+- Schale Idle RPG large feature tab JSX now lives in `client/src/app/games/schale-idle-rpg/_components/SchaleIdleFeatureTabs.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -232,7 +233,8 @@ After School Simulator, continue applying the same page split to:
    - Done: persistence hook
    - Done: play view-model helper
    - Done: equipment tuning helper split
-   - Next: extract the large `GameFeatureTabs` JSX into a Schale feature tabs component.
+   - Done: extract the large `GameFeatureTabs` JSX into `SchaleIdleFeatureTabs.js`.
+   - Next: split `SchaleIdleFeatureTabs.js` into tab-group components (`plan`, `season`, `sync`, `duty`, `gear`, `records`).
 3. `client/src/app/games/dual-academy-tcg/play/page.js`
 
 ## Suggested Validation Commands
@@ -248,7 +250,7 @@ npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillComp
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
 npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding-sim/_components/SiCodingSimFeatureTabs.js src/app/games/si-coding-sim/_components/SiCodingFieldTab.js src/app/games/si-coding-sim/_components/SiCodingTasksTab.js src/app/games/si-coding-sim/_components/SiCodingDocsTab.js src/app/games/si-coding-sim/_components/SiCodingCodeTab.js src/app/games/si-coding-sim/_components/SiCodingCareerTab.js src/app/games/si-coding-sim/_components/SiCodingAuditTab.js src/app/games/si-coding-sim/_components/SiCodingAdvancedTab.js src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js
-npm run lint -- src/app/games/schale-idle-rpg/play/page.js src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js
+npm run lint -- src/app/games/schale-idle-rpg/play/page.js src/app/games/schale-idle-rpg/_components/SchaleIdleFeatureTabs.js src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js
 npm run build
 ```
 
