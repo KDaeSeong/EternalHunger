@@ -56,6 +56,14 @@ npm run build
 - SI Coding Sim submission readiness calculation now lives in `client/src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js`.
 - SI Coding Sim submission readiness panel and result row now live in `client/src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js`.
 - SI Coding Sim large feature tab JSX now lives in `client/src/app/games/si-coding-sim/_components/SiCodingSimFeatureTabs.js`.
+- SI Coding Sim feature tabs are split into:
+  - `client/src/app/games/si-coding-sim/_components/SiCodingFieldTab.js`
+  - `client/src/app/games/si-coding-sim/_components/SiCodingTasksTab.js`
+  - `client/src/app/games/si-coding-sim/_components/SiCodingDocsTab.js`
+  - `client/src/app/games/si-coding-sim/_components/SiCodingCodeTab.js`
+  - `client/src/app/games/si-coding-sim/_components/SiCodingCareerTab.js`
+  - `client/src/app/games/si-coding-sim/_components/SiCodingAuditTab.js`
+  - `client/src/app/games/si-coding-sim/_components/SiCodingAdvancedTab.js`
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -215,7 +223,8 @@ After School Simulator, continue applying the same page split to:
    - Done: play view-model helper
    - Done: submission readiness helper/panel split
    - Done: extract the large `GameFeatureTabs` JSX into `SiCodingSimFeatureTabs.js`.
-   - Next: split `SiCodingSimFeatureTabs.js` into smaller tab-group components if it grows again or if feature work touches those panels.
+   - Done: split `SiCodingSimFeatureTabs.js` into tab-group components.
+   - Next: split `SiCodingAdvancedTab.js` further only if feature work touches the advanced/detail panels.
 2. `client/src/app/games/schale-idle-rpg/play/page.js`
 3. `client/src/app/games/dual-academy-tcg/play/page.js`
 
@@ -231,7 +240,7 @@ npm run check:runtime:utils
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
-npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding-sim/_components/SiCodingSimFeatureTabs.js src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js
+npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding-sim/_components/SiCodingSimFeatureTabs.js src/app/games/si-coding-sim/_components/SiCodingFieldTab.js src/app/games/si-coding-sim/_components/SiCodingTasksTab.js src/app/games/si-coding-sim/_components/SiCodingDocsTab.js src/app/games/si-coding-sim/_components/SiCodingCodeTab.js src/app/games/si-coding-sim/_components/SiCodingCareerTab.js src/app/games/si-coding-sim/_components/SiCodingAuditTab.js src/app/games/si-coding-sim/_components/SiCodingAdvancedTab.js src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js
 npm run build
 ```
 
