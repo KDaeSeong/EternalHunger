@@ -166,6 +166,10 @@ npm run build
   - `client/src/app/account/_components/AccountSecurityPanels.js`
   - `client/src/app/account/_components/AccountActivityPanels.js`
 - Account activity reset effect now satisfies the runtime React Hooks/Compiler lint rules.
+- Home page utility helpers and dashboard constants now live in `client/src/app/_lib/homePageUtils.js`.
+- Home page progress rows now live in `client/src/app/_components/HomeProgressPanels.js`.
+- Home page hub/ranking rows now live in `client/src/app/_components/HomeHubPanels.js`.
+- Home progress reset effect now satisfies the runtime React Hooks/Compiler lint rules.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
