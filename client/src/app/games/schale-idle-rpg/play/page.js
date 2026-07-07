@@ -3,24 +3,16 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
-  GAME_SLUG,
-  QUICK_SAVE_SLOT,
   RECIPES,
-  SAVE_VERSION,
   STUDENTS,
-  achievementRows,
-  accountSyncReportForState,
-  applyOfflineProgressAction,
   applyUpgradeAction,
   applyEquipmentPresetAction,
   attemptTowerAction,
-  availableEnhanceSlots,
   autoSalvageAction,
   claimAchievementRewardsAction,
   buyTowerShopOfferMaxAction,
@@ -29,222 +21,24 @@ import {
   claimSeasonRewardsAction,
   craftRecipeAction,
   createNewState,
-  dailyOperationsPlanForState,
   deleteEquipmentPresetAction,
   enhanceEquipmentAction,
-  equipmentPresetRows,
   equipTitleAction,
-  getEquippedList,
-  growthReportForState,
-  growthRoadmapForState,
-  getLeader,
-  getPlayTimeSec,
-  inventoryRows,
   itemName,
-  missionRows,
-  normalizeState,
   rerollEquipmentAction,
   resetTowerShopRotationAction,
   resolveDutyAction,
   restAction,
-  salvageRows,
-  salvageSummary,
   salvageSelectedAction,
   saveEquipmentPresetAction,
-  scoreState,
-  seasonOperationsReportForState,
-  seasonRewardRows,
-  selectedSalvageSummary,
   setSalvageCandidateOnlyAction,
   slotLabel,
-  summaryForState,
-  teamPower,
   toggleEquipmentAffixLockAction,
-  towerShopRotationSummary,
-  titleRows,
-  towerShopRows,
-  upgradeRows,
 } from '../_lib/schaleIdleEngine';
+import { formatAffixes, formatRolls } from '../_lib/schaleEquipmentTuning';
+import { buildSchaleIdlePlayViewModel } from '../_lib/schaleIdlePlayViewModel';
+import useSchaleIdlePersistence from '../_hooks/useSchaleIdlePersistence';
 
-function formatRolls(equip) {
-  const rolls = equip?.rolls || {};
-  return [
-    `화력 ${Math.round(Number(rolls.powerAddMul || 1) * 100)}%`,
-    `계수 ${Math.round(Number(rolls.powerMulMul || 1) * 100)}%`,
-    `스태미나 ${Math.round(Number(rolls.staminaMulMul || 1) * 100)}%`,
-  ].join(' · ');
-}
-
-function formatAffixes(equip) {
-  return (equip?.affixes || []).map((affix) => `${affix.locked ? '잠금 ' : ''}${affix.label} x${affix.value}`).join(', ');
-}
-
-const RARITY_PRIORITY = {
-  COMMON: 1,
-  UNCOMMON: 2,
-  RARE: 3,
-  EPIC: 4,
-};
-
-const AFFIX_TUNING = {
-  POWER_ADD_MUL: { high: 1.12, low: 1.03, weight: 120 },
-  POWER_MUL_MUL: { high: 1.025, low: 1.008, weight: 900 },
-  STAMINA_MUL_MUL: { high: 1.035, low: 1.012, weight: 420 },
-  GLOBAL_MUL: { high: 1.016, low: 1.006, weight: 1200 },
-};
-
-function affixTuningScore(affix) {
-  const tuning = AFFIX_TUNING[affix?.stat] || { high: 1.03, low: 1.01, weight: 300 };
-  const value = Number(affix?.value || 1);
-  return Math.round((value - 1) * tuning.weight);
-}
-
-function affixTone(affix) {
-  const tuning = AFFIX_TUNING[affix?.stat] || { high: 1.03, low: 1.01 };
-  const value = Number(affix?.value || 1);
-  if (value >= tuning.high) return '고점';
-  if (value <= tuning.low) return '저점';
-  return '보통';
-}
-
-function buildEquipmentTuning(equipped = [], state = {}) {
-  const inventory = state.inventory || {};
-  const rows = equipped.map((equip) => {
-    const affixes = Array.isArray(equip.affixes) ? equip.affixes : [];
-    const scoredAffixes = affixes.map((affix) => ({
-      ...affix,
-      score: affixTuningScore(affix),
-      tone: affixTone(affix),
-    }));
-    const optionScore = scoredAffixes.reduce((sum, affix) => sum + affix.score, 0);
-    const lockedCount = scoredAffixes.filter((affix) => affix.locked).length;
-    const highUnlocked = scoredAffixes
-      .filter((affix) => !affix.locked && affix.tone === '고점')
-      .sort((a, b) => b.score - a.score);
-    const lowUnlockedCount = scoredAffixes.filter((affix) => !affix.locked && affix.tone === '저점').length;
-    const enhance = Number(equip.enhance || 0);
-    const enhanceCreditCost = 70 + enhance * 35;
-    const enhanceStoneCost = 1 + Math.floor(enhance / 3);
-    const rerollTicketCost = 1 + lockedCount;
-    const rerollTokenCost = 12 + lockedCount * 8 + Number(equip.rerollCount || 0) * 2;
-    const canEnhance = Number(state.credits || 0) >= enhanceCreditCost
-      && Number(inventory.itm_enhance_stone || 0) >= enhanceStoneCost;
-    const canRerollByTicket = Number(inventory.itm_reroll_ticket || 0) >= rerollTicketCost;
-    const canRerollByToken = Number(inventory.itm_tower_token || 0) >= rerollTokenCost;
-    return {
-      slot: equip.slot,
-      name: equip.name,
-      rarity: equip.rarity,
-      rarityPriority: RARITY_PRIORITY[equip.rarity] || 1,
-      enhance,
-      optionScore,
-      lockedCount,
-      lowUnlockedCount,
-      highUnlocked,
-      enhanceCreditCost,
-      enhanceStoneCost,
-      rerollTicketCost,
-      rerollTokenCost,
-      canEnhance,
-      canReroll: canRerollByTicket || canRerollByToken,
-      rerollCostText: canRerollByTicket ? `리롤권 ${rerollTicketCost}장` : `시련 토큰 ${rerollTokenCost}개`,
-    };
-  });
-
-  const highUnlockedCount = rows.reduce((sum, row) => sum + row.highUnlocked.length, 0);
-  const lockedCount = rows.reduce((sum, row) => sum + row.lockedCount, 0);
-  const lowOptionCount = rows.reduce((sum, row) => sum + row.lowUnlockedCount, 0);
-  const avgOptionScore = rows.length
-    ? Math.round(rows.reduce((sum, row) => sum + row.optionScore, 0) / rows.length)
-    : 0;
-
-  const lockTarget = rows
-    .flatMap((row) => row.highUnlocked.map((affix) => ({
-      slot: row.slot,
-      name: row.name,
-      affixId: affix.id,
-      label: affix.label,
-      value: affix.value,
-      score: affix.score,
-    })))
-    .sort((a, b) => b.score - a.score)[0] || null;
-
-  const rerollTarget = rows
-    .filter((row) => row.canReroll && (row.lowUnlockedCount > 0 || row.optionScore < 12))
-    .sort((a, b) => a.optionScore - b.optionScore || b.rarityPriority - a.rarityPriority)[0] || null;
-
-  const enhanceTarget = rows
-    .filter((row) => row.canEnhance)
-    .sort((a, b) => (
-      (b.rarityPriority * 100 + b.optionScore - b.enhance * 6)
-      - (a.rarityPriority * 100 + a.optionScore - a.enhance * 6)
-    ))[0] || null;
-
-  const actions = [
-    lockTarget ? {
-      id: 'lock',
-      type: 'lock',
-      label: '옵션 잠금',
-      slot: lockTarget.slot,
-      affixId: lockTarget.affixId,
-      title: `${slotLabel(lockTarget.slot)} · ${lockTarget.name}`,
-      detail: `${lockTarget.label} x${lockTarget.value}는 고점이라 재련 전에 잠그는 편이 좋습니다.`,
-      enabled: true,
-    } : {
-      id: 'lock',
-      type: 'idle',
-      label: '옵션 잠금',
-      title: '즉시 잠글 고점 옵션이 없습니다.',
-      detail: '현재 장비는 잠금보다 제작/탑 보상 확보가 우선입니다.',
-      enabled: false,
-    },
-    rerollTarget ? {
-      id: 'reroll',
-      type: 'reroll',
-      label: '옵션 재련',
-      slot: rerollTarget.slot,
-      title: `${slotLabel(rerollTarget.slot)} · ${rerollTarget.name}`,
-      detail: `옵션 점수 ${rerollTarget.optionScore}점, 저점 ${rerollTarget.lowUnlockedCount}개입니다. 비용은 ${rerollTarget.rerollCostText}입니다.`,
-      enabled: true,
-    } : {
-      id: 'reroll',
-      type: 'idle',
-      label: '옵션 재련',
-      title: '재련 우선 장비가 없습니다.',
-      detail: '저점 옵션이 적거나 재련 재화가 부족합니다. 탑 상점과 미션 보상을 먼저 확인하세요.',
-      enabled: false,
-    },
-    enhanceTarget ? {
-      id: 'enhance',
-      type: 'enhance',
-      label: '강화',
-      slot: enhanceTarget.slot,
-      title: `${slotLabel(enhanceTarget.slot)} · ${enhanceTarget.name}`,
-      detail: `+${enhanceTarget.enhance} 장비입니다. 강화 비용은 ${enhanceTarget.enhanceCreditCost} Cr, 강화석 ${enhanceTarget.enhanceStoneCost}개입니다.`,
-      enabled: true,
-    } : {
-      id: 'enhance',
-      type: 'idle',
-      label: '강화',
-      title: '즉시 강화할 수 있는 장비가 없습니다.',
-      detail: '크레딧 또는 강화석이 부족합니다. 제작이나 탑 보상으로 재료를 확보하세요.',
-      enabled: false,
-    },
-  ];
-
-  return {
-    rows,
-    actions,
-    avgOptionScore,
-    highUnlockedCount,
-    lockedCount,
-    lowOptionCount,
-    rerollTickets: Number(inventory.itm_reroll_ticket || 0),
-    towerTokens: Number(inventory.itm_tower_token || 0),
-    enhanceStones: Number(inventory.itm_enhance_stone || 0),
-    headline: rows.length ? `${actions.filter((action) => action.enabled).length}개 실행 가능` : '장비 없음',
-  };
-}
 
 export default function SchaleIdlePlayPage() {
   const token = useAuthToken();
@@ -258,137 +52,66 @@ export default function SchaleIdlePlayPage() {
   const [selectedSalvageUids, setSelectedSalvageUids] = useState([]);
   const [presetName, setPresetName] = useState('탑 등반 세트');
   const [selectedPresetId, setSelectedPresetId] = useState('');
-  const [busy, setBusy] = useState('');
-  const [message, setMessage] = useState('');
 
-  const equipped = useMemo(() => getEquippedList(state), [state]);
-  const enhanceSlots = useMemo(() => availableEnhanceSlots(state), [state]);
-  const rows = useMemo(() => inventoryRows(state), [state]);
-  const missions = useMemo(() => missionRows(state), [state]);
-  const achievements = useMemo(() => achievementRows(state), [state]);
-  const titles = useMemo(() => titleRows(state), [state]);
-  const upgrades = useMemo(() => upgradeRows(state), [state]);
-  const salvage = useMemo(() => salvageRows(state), [state]);
-  const salvageInfo = useMemo(() => salvageSummary(state), [state]);
-  const validSelectedSalvageUids = useMemo(() => {
-    const uidSet = new Set(salvage.map((entry) => entry.uid));
-    return selectedSalvageUids.filter((uid) => uidSet.has(uid));
-  }, [salvage, selectedSalvageUids]);
-  const selectedSalvageInfo = useMemo(
-    () => selectedSalvageSummary(state, validSelectedSalvageUids),
-    [state, validSelectedSalvageUids],
-  );
-  const shopOffers = useMemo(() => towerShopRows(state), [state]);
-  const shopRotation = useMemo(() => towerShopRotationSummary(state), [state]);
-  const presets = useMemo(() => equipmentPresetRows(state), [state]);
-  const equipmentTuning = useMemo(() => buildEquipmentTuning(equipped, state), [equipped, state]);
-  const growthReport = useMemo(() => growthReportForState(state), [state]);
-  const growthRoadmap = useMemo(() => growthRoadmapForState(state), [state]);
-  const dailyPlan = useMemo(() => dailyOperationsPlanForState(state), [state]);
-  const seasonReport = useMemo(() => seasonOperationsReportForState(state), [state]);
-  const seasonRewards = useMemo(() => seasonRewardRows(state), [state]);
-  const syncReport = useMemo(() => accountSyncReportForState(state), [state]);
-  const leader = getLeader(state);
-  const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
-  const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
-  const selectedEquip = selectedSlot ? state.equipment?.[selectedSlot] : null;
-  const power = teamPower(state);
-  const score = scoreState(state);
-  const claimableAchievements = achievements.filter((achievement) => achievement.canClaim).length;
-  const equippedTitle = titles.find((title) => title.equipped);
-  const totalUpgradeLevel = upgrades.reduce((sum, upgrade) => sum + Number(upgrade.level || 0), 0);
-  const activePresetId = selectedPresetId || state.activePresetId || presets[0]?.id || '';
-  const selectedPreset = presets.find((preset) => preset.id === activePresetId);
-  const recentActionText = state.log?.[0] || '아직 실행한 성장 액션이 없습니다.';
+  const viewModel = useMemo(() => buildSchaleIdlePlayViewModel({
+    enhanceSlot,
+    recipeId,
+    selectedPresetId,
+    selectedSalvageUids,
+    state,
+  }), [enhanceSlot, recipeId, selectedPresetId, selectedSalvageUids, state]);
 
-  const saveRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 Schale Idle RPG 진행 상태를 서버 저장 슬롯에 저장할 수 있습니다.');
-      return;
-    }
-    setBusy('save');
-    try {
-      const savedAt = new Date().toISOString();
-      const stateForSave = { ...state, lastSavedAt: savedAt, updatedAt: savedAt };
-      await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `Schale Idle F${stateForSave.maxClearedFloor} T${stateForSave.towerMaxCleared}`,
-        version: SAVE_VERSION,
-        summary: summaryForState(stateForSave),
-        payload: { state: stateForSave },
-        lastPlayedAt: savedAt,
-      }, { timeoutMs: 15000 });
-      setState(stateForSave);
-      clearApiGetCache('/game-saves');
-      setMessage('Schale Idle RPG 진행 상태를 저장했습니다.');
-      showToast({ tone: 'success', message: 'Schale Idle RPG 진행 상태를 저장했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
+  const {
+    achievements,
+    activePresetId,
+    claimableAchievements,
+    dailyPlan,
+    enhanceSlots,
+    equipped,
+    equippedTitle,
+    equipmentTuning,
+    growthReport,
+    growthRoadmap,
+    leader,
+    missions,
+    power,
+    presets,
+    recentActionText,
+    rows,
+    salvage,
+    salvageInfo,
+    score,
+    seasonReport,
+    seasonRewards,
+    selectedEquip,
+    selectedPreset,
+    selectedRecipe,
+    selectedSalvageInfo,
+    selectedSlot,
+    shopOffers,
+    shopRotation,
+    syncReport,
+    titles,
+    totalUpgradeLevel,
+    upgrades,
+    validSelectedSalvageUids,
+  } = viewModel;
 
-  const loadRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 저장된 Schale Idle RPG 진행 상태를 불러올 수 있습니다.');
-      return;
-    }
-    setBusy('load');
-    try {
-      const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
-      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
-      if (!quickSave?.id) {
-        setMessage('저장된 Schale Idle RPG 진행 상태가 없습니다.');
-        return;
-      }
-      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      const restored = applyOfflineProgressAction(normalizeState(detail?.save?.payload?.state));
-      setState(restored);
-      setSelectedSalvageUids([]);
-      const offline = restored.offlineLastSummary;
-      const loadedMessage = offline?.waves
-        ? `저장된 Schale Idle RPG 진행 상태를 불러왔습니다. 오프라인 ${offline.waves}웨이브 보상도 반영했습니다.`
-        : '저장된 Schale Idle RPG 진행 상태를 불러왔습니다.';
-      setMessage(loadedMessage);
-      showToast({ tone: 'success', message: loadedMessage });
-    } catch (err) {
-      const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const recordRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 Schale Idle RPG 진행 스냅샷을 전적에 남길 수 있습니다.');
-      return;
-    }
-    setBusy('record');
-    try {
-      await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `Schale Idle RPG Floor ${state.maxClearedFloor}`,
-        mode: 'idle-rpg',
-        result: 'account-progress',
-        score,
-        playTimeSec: getPlayTimeSec(state),
-        summary: summaryForState(state),
-        payload: { state },
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-records');
-      setMessage('Schale Idle RPG 진행 스냅샷을 전적에 기록했습니다.');
-      showToast({ tone: 'success', message: 'Schale Idle RPG 진행 스냅샷을 전적에 기록했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
+  const {
+    busy,
+    loadRun,
+    message,
+    recordRun,
+    saveRun,
+    setMessage,
+  } = useSchaleIdlePersistence({
+    onLoaded: () => setSelectedSalvageUids([]),
+    score,
+    setState,
+    showToast,
+    state,
+    token,
+  });
 
   const startNewRun = () => {
     setState(createNewState());
