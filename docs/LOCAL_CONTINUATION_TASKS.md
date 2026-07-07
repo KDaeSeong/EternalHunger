@@ -48,6 +48,9 @@ npm run build
   - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js`
   - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js`
 - School Simulator student/staff care report logic now lives in `client/src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js`.
+- School Simulator save/load/record actions now live in `client/src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js`.
+- School Simulator controlled selections now live in `client/src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js`.
+- School Simulator derived rows and selected entity assembly now live in `client/src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -193,10 +196,11 @@ Company Report is the reference pattern. School Simulator has started following 
 1. Done: move School Simulator feature tabs into `SchoolSimulatorFeatureTabs.js`.
 2. Done: move School Simulator care report calculation into `schoolSimulatorCareReport.js`.
 3. Done: split the detailed School Simulator operation tab into grouped advanced components.
-4. Next for School Simulator:
-   - move save/load/record actions into `useSchoolSimulatorPersistence`.
-   - move selected controls into `useSchoolSimulatorSelections`.
-   - move derived rows and selected entities into `schoolSimulatorPlayViewModel`.
+4. Done: move save/load/record actions into `useSchoolSimulatorPersistence`.
+5. Done: move selected controls into `useSchoolSimulatorSelections`.
+6. Done: move derived rows and selected entities into `schoolSimulatorPlayViewModel`.
+7. Next for School Simulator:
+   - optionally move page shell metrics/messages/advisor payloads into a small page runtime helper if the page grows again.
    - split remaining `SchoolSimulatorFeatureTabs.js` tab groups only if they start growing again.
 
 After School Simulator, apply the same page split to:
@@ -216,7 +220,7 @@ npm run check:runtime:simulation
 npm run check:runtime:utils
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
-npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
+npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
 npm run build
 ```
 

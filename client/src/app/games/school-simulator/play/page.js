@@ -3,122 +3,140 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
 import {
-  GAME_SLUG,
-  CAREER_TRACKS,
-  FESTIVAL_TYPES,
-  POLICY_PRESETS,
-  QUICK_SAVE_SLOT,
-  RECRUITMENT_STRATEGIES,
-  SAVE_VERSION,
-  SUBJECT_POLICY_MODES,
-  SUBJECT_SHOWCASE_ACTIONS,
-  SUBJECTS,
   TEACHER_ACTIONS,
-  WEEK_SCHEDULE,
   WORK_ACTIONS,
   applyPolicyPreset,
   applyTeacherAction,
   applyWorkAction,
-  careerTrackRows,
-  clubRows,
   createNewState,
-  festivalStatus,
-  getAtRiskStudents,
-  getAverages,
-  getPlayTimeSec,
-  getTopStudents,
-  longTermReport,
-  normalizeState,
   runCareerCounselingAction,
-  scoreState,
-  semesterReport,
-  scenarioProductionReportForState,
-  subjectPolicyRows,
-  subjectShowcaseRows,
-  subjectShowcaseSummary,
-  summaryForState,
-  teacherRows,
-  weeklyEventReport,
 } from '../_lib/schoolSimulatorEngine';
 import { actionFeedbackText } from '../_lib/schoolSimulatorPlayHelpers';
-import { buildSchoolCareReport } from '../_lib/schoolSimulatorCareReport';
+import { buildSchoolSimulatorPlayViewModel } from '../_lib/schoolSimulatorPlayViewModel';
+import useSchoolSimulatorPersistence from '../_hooks/useSchoolSimulatorPersistence';
+import useSchoolSimulatorSelections from '../_hooks/useSchoolSimulatorSelections';
 import SchoolSimulatorFeatureTabs from '../_components/SchoolSimulatorFeatureTabs';
 export default function SchoolSimulatorPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const [state, setState] = useState(() => createNewState());
-  const [actionId, setActionId] = useState(WORK_ACTIONS[0].id);
-  const [policyId, setPolicyId] = useState(POLICY_PRESETS[0].id);
-  const [subjectId, setSubjectId] = useState(SUBJECTS[0].id);
-  const [subjectModeId, setSubjectModeId] = useState(SUBJECT_POLICY_MODES[0].id);
-  const [subjectShowcaseActionId, setSubjectShowcaseActionId] = useState(SUBJECT_SHOWCASE_ACTIONS[0].id);
-  const [recruitmentStrategyId, setRecruitmentStrategyId] = useState(RECRUITMENT_STRATEGIES[0].id);
-  const [careerTrackId, setCareerTrackId] = useState(CAREER_TRACKS[0].id);
-  const [clubId, setClubId] = useState('club_research');
-  const [festivalId, setFestivalId] = useState(FESTIVAL_TYPES[0].id);
-  const [teacherId, setTeacherId] = useState('t_hina');
-  const [teacherActionId, setTeacherActionId] = useState(TEACHER_ACTIONS[0].id);
-  const [busy, setBusy] = useState('');
-  const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
+  const {
+    actionId,
+    careerTrackId,
+    clubId,
+    festivalId,
+    policyId,
+    recruitmentStrategyId,
+    resetForLoadedRun,
+    resetForNewRun,
+    setActionId,
+    setCareerTrackId,
+    setClubId,
+    setFestivalId,
+    setPolicyId,
+    setRecruitmentStrategyId,
+    setSubjectId,
+    setSubjectModeId,
+    setSubjectShowcaseActionId,
+    setTeacherActionId,
+    setTeacherId,
+    subjectId,
+    subjectModeId,
+    subjectShowcaseActionId,
+    teacherActionId,
+    teacherId,
+  } = useSchoolSimulatorSelections();
 
-  const averages = useMemo(() => getAverages(state), [state]);
-  const topStudents = useMemo(() => getTopStudents(state, 'understanding', 5), [state]);
-  const riskStudents = useMemo(() => getAtRiskStudents(state), [state]);
-  const subjectRows = useMemo(() => subjectPolicyRows(state), [state]);
-  const subjectShowcases = useMemo(() => subjectShowcaseRows(state), [state]);
-  const subjectShowcaseSummaryData = useMemo(() => subjectShowcaseSummary(state), [state]);
-  const clubs = useMemo(() => clubRows(state), [state]);
-  const teachers = useMemo(() => teacherRows(state), [state]);
-  const careerRows = useMemo(() => careerTrackRows(state), [state]);
-  const festival = useMemo(() => festivalStatus(state), [state]);
-  const events = useMemo(() => weeklyEventReport(state), [state]);
-  const report = useMemo(() => semesterReport(state), [state]);
-  const longTerm = useMemo(() => longTermReport(state), [state]);
-  const scenarioReport = useMemo(() => scenarioProductionReportForState(state), [state]);
-  const careReport = useMemo(() => buildSchoolCareReport(state, teachers), [state, teachers]);
-  const score = scoreState(state);
-  const selectedAction = WORK_ACTIONS.find((action) => action.id === actionId) || WORK_ACTIONS[0];
-  const selectedPolicy = POLICY_PRESETS.find((policy) => policy.id === policyId) || POLICY_PRESETS[0];
-  const selectedSubject = subjectRows.find((subject) => subject.id === subjectId) || subjectRows[0];
-  const selectedSubjectMode = SUBJECT_POLICY_MODES.find((mode) => mode.id === subjectModeId) || SUBJECT_POLICY_MODES[0];
-  const selectedSubjectShowcase = subjectShowcases.find((subject) => subject.id === subjectId) || subjectShowcases[0];
-  const selectedSubjectShowcaseAction = SUBJECT_SHOWCASE_ACTIONS.find((action) => action.id === subjectShowcaseActionId) || SUBJECT_SHOWCASE_ACTIONS[0];
-  const selectedSubjectShowcaseActive = Number(selectedSubjectShowcase?.[selectedSubjectShowcaseAction.field] || 0) > 0;
-  const selectedSubjectShowcaseTargets = selectedSubjectShowcaseAction.id === 'publicLesson'
-    ? selectedSubjectShowcase?.publicTargets || 0
-    : selectedSubjectShowcaseAction.id === 'achievementPresentation'
-      ? selectedSubjectShowcase?.presentationTargets || 0
-      : selectedSubjectShowcase?.weekTargets || 0;
-  const selectedRecruitment = RECRUITMENT_STRATEGIES.find((strategy) => strategy.id === recruitmentStrategyId) || RECRUITMENT_STRATEGIES[0];
-  const selectedCareer = CAREER_TRACKS.find((track) => track.id === careerTrackId) || CAREER_TRACKS[0];
-  const selectedClub = clubs.find((club) => club.id === clubId) || clubs[0];
-  const selectedFestival = FESTIVAL_TYPES.find((item) => item.id === festivalId) || FESTIVAL_TYPES[0];
-  const selectedTeacher = teachers.find((teacher) => teacher.id === teacherId) || teachers[0];
-  const selectedTeacherAction = TEACHER_ACTIONS.find((item) => item.id === teacherActionId) || TEACHER_ACTIONS[0];
-  const weekInfo = WEEK_SCHEDULE[state.school.week] || { label: '학기 종료', examType: null };
-  const primaryRisk = report.risks.find((risk) => risk.level !== 'good') || report.risks[0] || null;
-  const recommendedActionId = primaryRisk?.title?.includes('학생') || primaryRisk?.title?.includes('컨디션')
-    ? 'boostCounseling'
-    : primaryRisk?.title?.includes('교사')
-      ? 'teacherWorkshop'
-      : primaryRisk?.title?.includes('시설') || primaryRisk?.title?.includes('안전')
-        ? 'facilityMaintenance'
-        : primaryRisk?.title?.includes('교과')
-          ? 'libraryProgram'
-          : primaryRisk?.title?.includes('모집')
-            ? 'openClass'
-            : primaryRisk?.title?.includes('예산')
-              ? 'studentCouncilMeeting'
-              : selectedAction.id;
-  const recommendedAction = WORK_ACTIONS.find((action) => action.id === recommendedActionId) || selectedAction;
-  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운영 액션이 없습니다.';
+  const viewModel = useMemo(() => buildSchoolSimulatorPlayViewModel({
+    actionId,
+    actionResult,
+    careerTrackId,
+    clubId,
+    festivalId,
+    policyId,
+    recruitmentStrategyId,
+    state,
+    subjectId,
+    subjectModeId,
+    subjectShowcaseActionId,
+    teacherActionId,
+    teacherId,
+  }), [
+    actionId,
+    actionResult,
+    careerTrackId,
+    clubId,
+    festivalId,
+    policyId,
+    recruitmentStrategyId,
+    state,
+    subjectId,
+    subjectModeId,
+    subjectShowcaseActionId,
+    teacherActionId,
+    teacherId,
+  ]);
+
+  const {
+    averages,
+    careReport,
+    careerRows,
+    clubs,
+    events,
+    festival,
+    longTerm,
+    primaryRisk,
+    recentActionText,
+    recommendedAction,
+    recommendedActionId,
+    report,
+    riskStudents,
+    scenarioReport,
+    score,
+    selectedAction,
+    selectedCareer,
+    selectedClub,
+    selectedFestival,
+    selectedPolicy,
+    selectedRecruitment,
+    selectedSubject,
+    selectedSubjectMode,
+    selectedSubjectShowcase,
+    selectedSubjectShowcaseAction,
+    selectedSubjectShowcaseActive,
+    selectedSubjectShowcaseTargets,
+    selectedTeacher,
+    selectedTeacherAction,
+    subjectRows,
+    subjectShowcaseSummaryData,
+    subjectShowcases,
+    teachers,
+    topStudents,
+    weekInfo,
+  } = viewModel;
+
+  const {
+    busy,
+    loadRun,
+    message,
+    recordRun,
+    saveRun,
+    setMessage,
+  } = useSchoolSimulatorPersistence({
+    onLoaded: resetForLoadedRun,
+    score,
+    setActionResult,
+    setState,
+    showToast,
+    state,
+    token,
+  });
 
   const applySchoolAction = (label, updater, fallback = '') => {
     const nextState = updater(state);
@@ -129,109 +147,9 @@ export default function SchoolSimulatorPlayPage() {
   const startNewRun = () => {
     const nextState = createNewState();
     setState(nextState);
-    setActionId(WORK_ACTIONS[0].id);
-    setPolicyId(nextState.school.policyPreset);
-    setSubjectId(SUBJECTS[0].id);
-    setSubjectModeId(SUBJECT_POLICY_MODES[0].id);
-    setSubjectShowcaseActionId(SUBJECT_SHOWCASE_ACTIONS[0].id);
-    setRecruitmentStrategyId(RECRUITMENT_STRATEGIES[0].id);
-    setCareerTrackId(CAREER_TRACKS[0].id);
-    setClubId('club_research');
-    setFestivalId(FESTIVAL_TYPES[0].id);
+    resetForNewRun(nextState);
     setMessage('');
     setActionResult('새 학교 운영을 시작했습니다.');
-  };
-
-  const saveRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 School Simulator 진행 상태를 저장할 수 있습니다.');
-      setActionResult('로그인하면 School Simulator 진행 상태를 저장할 수 있습니다.');
-      return;
-    }
-    setBusy('save');
-    try {
-      await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `School Y${state.school.year}-${state.school.semester} W${state.school.week}`,
-        version: SAVE_VERSION,
-        summary: summaryForState(state),
-        payload: { state },
-        lastPlayedAt: new Date().toISOString(),
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-saves');
-      setMessage('School Simulator 진행 상태를 저장했습니다.');
-      setActionResult(`School Simulator 진행 상태를 저장했습니다. ${state.school.year}년 ${state.school.semester}학기 ${state.school.week}주차.`);
-      showToast({ tone: 'success', message: 'School Simulator 진행 상태를 저장했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
-      setActionResult(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const loadRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 저장된 School Simulator 진행 상태를 불러올 수 있습니다.');
-      setActionResult('로그인하면 저장된 School Simulator 진행 상태를 불러올 수 있습니다.');
-      return;
-    }
-    setBusy('load');
-    try {
-      const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
-      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
-      if (!quickSave?.id) {
-        setMessage('저장된 School Simulator 진행 상태가 없습니다.');
-        setActionResult('저장된 School Simulator 진행 상태가 없습니다.');
-        return;
-      }
-      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      const nextState = normalizeState(detail?.save?.payload?.state);
-      setState(nextState);
-      setPolicyId(nextState.school.policyPreset);
-      setMessage('저장된 School Simulator 진행 상태를 불러왔습니다.');
-      setActionResult(actionFeedbackText(state, nextState, '불러오기', '저장된 School Simulator 진행 상태를 불러왔습니다.'));
-      showToast({ tone: 'success', message: '저장된 School Simulator 진행 상태를 불러왔습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
-      setActionResult(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const recordRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 School Simulator 운영 기록을 전적에 남길 수 있습니다.');
-      setActionResult('로그인하면 School Simulator 운영 기록을 전적에 남길 수 있습니다.');
-      return;
-    }
-    setBusy('record');
-    try {
-      await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `School Simulator - ${state.school.year}년 ${state.school.semester}학기 ${state.school.week}주`,
-        mode: 'school-sim',
-        result: 'term-report',
-        score,
-        playTimeSec: getPlayTimeSec(state),
-        summary: summaryForState(state),
-        payload: { state },
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-records');
-      setMessage('School Simulator 운영 기록을 전적에 남겼습니다.');
-      setActionResult(`School Simulator 운영 기록을 전적에 남겼습니다. 점수 ${score.toLocaleString('ko-KR')}.`);
-      showToast({ tone: 'success', message: 'School Simulator 운영 기록을 전적에 남겼습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
-      setActionResult(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
   };
 
   const applySelectedAction = () => {
