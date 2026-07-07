@@ -136,6 +136,16 @@ npm run build
   - `client/src/app/games/racing-logos-demo/_components/RacingLogosMatrixTab.js`
   - `client/src/app/games/racing-logos-demo/_components/RacingLogosLogTab.js`
   - `client/src/app/games/racing-logos-demo/_components/RacingLogosAdvancedTab.js`
+- Rail3D Sim large feature tab JSX now lives in `client/src/app/games/rail3d-sim/_components/Rail3dFeatureTabs.js`.
+- Rail3D Sim feature tabs are split into:
+  - `client/src/app/games/rail3d-sim/_components/Rail3dOperationsTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dMapTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dTrainsTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dAnalysisTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dScheduleTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dBlocksTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dLogTab.js`
+  - `client/src/app/games/rail3d-sim/_components/Rail3dAdvancedTab.js`
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
