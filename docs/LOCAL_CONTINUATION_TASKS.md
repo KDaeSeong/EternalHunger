@@ -162,6 +162,7 @@ npm run build
 - Games hub utility helpers now live in `client/src/app/games/_lib/gamesHubUtils.js`.
 - Games hub cards and activity list rendering now live in `client/src/app/games/_components/GamesHubCards.js`.
 - Games hub initial loader effect now satisfies the runtime React Hooks/Compiler lint rules.
+- Game detail route content now lives in `client/src/app/games/_components/GameDetailPageContent.js`; `[slug]/page.js` is now a thin entrypoint.
 - Game room detail normalization/save/record helpers now live in `client/src/app/games/rooms/_lib/gameRoomDetailUtils.js`.
 - Game room detail rendering is split into:
   - `client/src/app/games/rooms/_components/GameRoomOverviewPanels.js`
