@@ -3,215 +3,30 @@
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell, { GameFeatureTabs } from '../../_components/GamePlayShell';
 import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
-  GAME_SLUG,
-  QUICK_SAVE_SLOT,
-  SAVE_VERSION,
   applyCompanySupportAction,
-  companySupportSummary,
   createNewState,
   evaluateProjectAction,
-  getActiveTasks,
   getCurrentTask,
-  getFileContent,
-  getDocumentReviewProgress,
-  getPlayTimeSec,
-  getReportText,
-  getRevealedHints,
-  normalizeState,
-  passiveInsightRows,
-  playerProfileSummary,
-  portingCompletionReport,
-  projectProgressRows,
-  projectSeedRoadmap,
   resetTaskAction,
   revealHintAction,
-  scoreState,
   selectTaskPackAction,
   selectProjectSeedAction,
   selectTaskAction,
   startSelectedProjectSeedAction,
-  submissionComparisonReport,
   submitTaskAction,
-  summaryForState,
-  taskPackAuditReport,
-  taskRows,
-  taskPackRows,
   toggleDocumentReviewAction,
   updateFileAction,
   updateReportAction,
 } from '../_lib/siCodingSimEngine';
+import { buildSiCodingSimPlayViewModel } from '../_lib/siCodingSimPlayViewModel';
+import SubmissionReadinessPanel, { ResultRow } from '../_components/SiCodingSubmissionReadinessPanel';
+import useSiCodingSimPersistence from '../_hooks/useSiCodingSimPersistence';
 
-function ResultRow({ result }) {
-  const detail = (result.rules || []).map((rule) => rule.value).filter(Boolean).join(' · ');
-  return (
-    <article className="game-save-row">
-      <div>
-        <span>{result.resultType === 'document' ? 'DOC' : result.passed ? 'PASS' : 'FAIL'}</span>
-        <strong>{result.label}</strong>
-        {detail ? <span>{detail}</span> : null}
-      </div>
-      <strong>{result.passed ? '통과' : '미통과'}</strong>
-    </article>
-  );
-}
-
-function includesReadinessText(source, token) {
-  const text = String(token || '');
-  if (!text) return true;
-  const input = String(source || '');
-  return input.includes(text) || input.toLowerCase().includes(text.toLowerCase());
-}
-
-function evaluateReadinessRule(rule, source) {
-  if (!rule) return false;
-  if (rule.type === 'includes') return includesReadinessText(source, rule.value);
-  if (rule.type === 'notIncludes') return !includesReadinessText(source, rule.value);
-  if (rule.type === 'anyIncludes') return (rule.values || []).some((value) => includesReadinessText(source, value));
-  return false;
-}
-
-function describeReadinessRule(rule) {
-  if (!rule) return '알 수 없는 규칙';
-  if (rule.type === 'includes') return `필요: ${rule.value || '-'}`;
-  if (rule.type === 'notIncludes') return `제거: ${rule.value || '-'}`;
-  if (rule.type === 'anyIncludes') return `후보 중 1개: ${(rule.values || []).slice(0, 3).join(' / ') || '-'}`;
-  return rule.value ? String(rule.value) : rule.type || '규칙 확인';
-}
-
-function buildSubmissionReadiness(task, state, reportText, documentProgress, revealedHints, outcome) {
-  if (!task) {
-    return {
-      percent: 0,
-      passCount: 0,
-      totalCount: 0,
-      headline: '과제 없음',
-      nextAction: '과제를 먼저 선택하세요.',
-      rows: [],
-      hintSummary: '0/0',
-      reportSummary: '0/0자',
-      documentSummary: '-',
-    };
-  }
-
-  const source = [
-    ...((task.files || []).map((file) => getFileContent(state, task.id, file.id))),
-    reportText,
-  ].join('\n\n');
-  const rows = (task.judge?.checks || []).map((check, index) => {
-    const rules = check.rules || [];
-    const failedRules = rules.filter((rule) => !evaluateReadinessRule(rule, source));
-    return {
-      id: check.id || `check-${index}`,
-      label: check.label || check.title || check.description || `정적 체크 ${index + 1}`,
-      detail: failedRules.length
-        ? failedRules.slice(0, 2).map(describeReadinessRule).join(' · ')
-        : `${rules.length || 0}개 규칙 예상 통과`,
-      passed: failedRules.length === 0,
-      panel: 'code',
-      actionLabel: '코드 보기',
-    };
-  });
-
-  const reportMinLength = Number(task.reportMinLength || 0);
-  if (reportMinLength > 0) {
-    const reportLength = reportText.trim().length;
-    rows.push({
-      id: 'report',
-      label: '작업 보고',
-      detail: `${reportLength}/${reportMinLength}자${reportLength < reportMinLength ? ' · 수정 내용과 확인 결과를 더 적으세요.' : ''}`,
-      passed: reportLength >= reportMinLength,
-      panel: 'code',
-      actionLabel: '보고 작성',
-    });
-  }
-
-  if (task.documentPlay && documentProgress) {
-    const documentIssues = [
-      documentProgress.missingRequiredCount ? `필수 누락 ${documentProgress.missingRequiredCount}개` : '',
-      documentProgress.wrongSelectedCount ? `재확인 ${documentProgress.wrongSelectedCount}개` : '',
-    ].filter(Boolean);
-    rows.push({
-      id: 'document',
-      label: task.documentPlay.title || '문서 체크',
-      detail: documentIssues.length ? documentIssues.join(' · ') : `핵심 요구 ${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}`,
-      passed: documentProgress.passed,
-      panel: 'document',
-      actionLabel: '문서 보기',
-    });
-  }
-
-  const passCount = rows.filter((row) => row.passed).length;
-  const totalCount = rows.length;
-  const percent = totalCount ? Math.round((passCount / totalCount) * 100) : 100;
-  const firstBlocker = rows.find((row) => !row.passed);
-  const hintCount = task.hints?.length || 0;
-  const outcomeSummary = outcome ? `최근 검수 ${outcome.score}점` : '아직 검수 전';
-  const headline = percent >= 100 ? '제출 예상 통과권' : firstBlocker?.label || '보강 필요';
-  const nextAction = firstBlocker
-    ? `${firstBlocker.label}: ${firstBlocker.detail}`
-    : `${outcomeSummary} · 현재 상태로 검수를 실행해도 됩니다.`;
-
-  return {
-    percent,
-    passCount,
-    totalCount,
-    headline,
-    nextAction,
-    rows,
-    hintSummary: `${revealedHints.length}/${hintCount}`,
-    reportSummary: `${reportText.trim().length}/${reportMinLength || 0}자`,
-    documentSummary: task.documentPlay && documentProgress
-      ? `${documentProgress.checkedRequiredCount}/${documentProgress.requiredCount}`
-      : '-',
-  };
-}
-
-function SubmissionReadinessPanel({ readiness, canRevealHint, onSubmit, onRevealHint, onReset, onJump }) {
-  return (
-    <section className="games-panel">
-      <div className="games-panel-title">
-        <h2>제출 준비도</h2>
-        <span>{readiness.percent}%</span>
-      </div>
-      <div className="games-rank-split">
-        <SmallStat label="예상 통과" value={`${readiness.passCount}/${readiness.totalCount}`} />
-        <SmallStat label="보고" value={readiness.reportSummary} />
-        <SmallStat label="문서" value={readiness.documentSummary} />
-        <SmallStat label="힌트" value={readiness.hintSummary} />
-      </div>
-      <div className="games-empty" style={{ textAlign: 'left', marginTop: 12 }}>
-        <strong>{readiness.headline}</strong>
-        {' · '}
-        {readiness.nextAction}
-      </div>
-      <div className="game-save-list" style={{ marginTop: 12 }}>
-        {readiness.rows.slice(0, 5).map((row) => (
-          <article className="game-save-row" key={`readiness-${row.id}`} style={row.passed ? { borderColor: '#2b8a5f' } : null}>
-            <div>
-              <span>{row.passed ? '예상 통과' : '보강 필요'}</span>
-              <strong>{row.label}</strong>
-              <span>{row.detail}</span>
-            </div>
-            <button type="button" className="tcg-primary-action" onClick={() => onJump(row.panel)}>
-              {row.actionLabel}
-            </button>
-          </article>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: 12 }}>
-        <ActionButton onClick={onSubmit}>현재 과제 검수</ActionButton>
-        <ActionButton onClick={onRevealHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
-        <ActionButton onClick={onReset}>현재 과제 초기화</ActionButton>
-      </div>
-    </section>
-  );
-}
 
 export default function SiCodingSimPlayPage() {
   const token = useAuthToken();
@@ -227,67 +42,49 @@ export default function SiCodingSimPlayPage() {
     capability: 'all',
   });
   const [activeFeatureTabId, setActiveFeatureTabId] = useState('field');
-  const [busy, setBusy] = useState('');
-  const [message, setMessage] = useState('');
   const codePanelRef = useRef(null);
   const hintPanelRef = useRef(null);
   const documentPanelRef = useRef(null);
   const executionPanelRef = useRef(null);
 
-  const rows = useMemo(() => taskRows(state), [state]);
-  const activeTasks = useMemo(() => getActiveTasks(state), [state]);
-  const packRows = useMemo(() => taskPackRows(state), [state]);
-  const projectRows = useMemo(() => projectProgressRows(state), [state]);
-  const taskTagOptions = useMemo(() => Array.from(new Set(rows.flatMap((row) => row.tags || []))).sort((a, b) => a.localeCompare(b, 'ko-KR')), [rows]);
-  const filteredRows = useMemo(() => {
-    const query = taskFilters.query.trim().toLowerCase();
-    return rows.filter((row) => {
-      const searchable = [
-        row.id,
-        row.projectName,
-        row.client,
-        row.modeLabel,
-        row.difficulty,
-        row.status,
-        ...(row.tags || []),
-      ].join(' ').toLowerCase();
-      if (query && !searchable.includes(query)) return false;
-      if (taskFilters.difficulty !== 'all' && row.difficulty !== taskFilters.difficulty) return false;
-      if (taskFilters.status !== 'all' && row.status !== taskFilters.status) return false;
-      if (taskFilters.tag !== 'all' && !(row.tags || []).includes(taskFilters.tag)) return false;
-      if (taskFilters.capability === 'execution' && !row.executionCount && !row.hiddenExecutionCount && !row.checkCount) return false;
-      if (taskFilters.capability === 'document' && !row.documentCount && !row.checkpointCount) return false;
-      if (taskFilters.capability === 'hint' && !row.hintCount) return false;
-      return true;
-    });
-  }, [rows, taskFilters]);
-  const task = getCurrentTask(state);
-  const taskId = task?.id;
-  const files = task?.files || [];
-  const activeFile = files.find((file) => file.id === selectedFileId) || files[0] || null;
-  const activeFileId = activeFile?.id || '';
-  const activeContent = activeFileId && taskId ? getFileContent(state, taskId, activeFileId) : '';
-  const reportText = taskId ? getReportText(state, taskId) : '';
-  const revealedHints = useMemo(() => (taskId ? getRevealedHints(state, taskId) : []), [state, taskId]);
-  const outcome = taskId ? state.taskOutcomes[taskId] : null;
-  const latestEvaluation = state.projectEvaluations[0] || null;
-  const score = scoreState(state);
-  const documentPlay = task?.documentPlay || null;
-  const documentProgress = taskId ? getDocumentReviewProgress(state, taskId) : null;
-  const execution = task?.execution || null;
-  const profileSummary = playerProfileSummary(state, taskId);
-  const insightRows = passiveInsightRows(state, taskId);
-  const currentTaskRow = rows.find((row) => row.id === task?.id) || null;
-  const support = companySupportSummary(state, taskId);
-  const seedRoadmap = useMemo(() => projectSeedRoadmap(state), [state]);
-  const packAudit = useMemo(() => taskPackAuditReport(state), [state]);
-  const submissionComparison = useMemo(() => submissionComparisonReport(state), [state]);
-  const portingCompletion = useMemo(() => portingCompletionReport(state), [state]);
-  const submissionReadiness = useMemo(
-    () => buildSubmissionReadiness(task, state, reportText, documentProgress, revealedHints, outcome),
-    [task, state, reportText, documentProgress, revealedHints, outcome],
-  );
-  const canRevealHint = revealedHints.length < (task?.hints?.length || 0);
+  const viewModel = useMemo(() => buildSiCodingSimPlayViewModel({
+    selectedFileId,
+    state,
+    taskFilters,
+  }), [selectedFileId, state, taskFilters]);
+
+  const {
+    activeContent,
+    activeFile,
+    activeFileId,
+    activeTasks,
+    canRevealHint,
+    currentTaskRow,
+    documentPlay,
+    documentProgress,
+    execution,
+    files,
+    filteredRows,
+    insightRows,
+    latestEvaluation,
+    outcome,
+    packAudit,
+    packRows,
+    portingCompletion,
+    profileSummary,
+    projectRows,
+    reportText,
+    revealedHints,
+    rows,
+    score,
+    seedRoadmap,
+    submissionComparison,
+    submissionReadiness,
+    support,
+    task,
+    taskId,
+    taskTagOptions,
+  } = viewModel;
 
   const updateTaskFilter = (key, value) => {
     setTaskFilters((current) => ({ ...current, [key]: value }));
@@ -300,89 +97,21 @@ export default function SiCodingSimPlayPage() {
     setMessage('');
   };
 
-  const saveRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 SI Coding Sim 진행 상태를 저장할 수 있습니다.');
-      return;
-    }
-    setBusy('save');
-    try {
-      await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `SI Coding ${summaryForState(state).submittedTasks}/${summaryForState(state).totalTasks}`,
-        version: SAVE_VERSION,
-        summary: summaryForState(state),
-        payload: { state },
-        lastPlayedAt: new Date().toISOString(),
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-saves');
-      setMessage('SI Coding Sim 진행 상태를 저장했습니다.');
-      showToast({ tone: 'success', message: 'SI Coding Sim 진행 상태를 저장했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const loadRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 저장된 SI Coding Sim 진행 상태를 불러올 수 있습니다.');
-      return;
-    }
-    setBusy('load');
-    try {
-      const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
-      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
-      if (!quickSave?.id) {
-        setMessage('저장된 SI Coding Sim 진행 상태가 없습니다.');
-        return;
-      }
-      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      const nextState = normalizeState(detail?.save?.payload?.state);
-      const nextTask = getCurrentTask(nextState);
-      setState(nextState);
-      setSelectedFileId(nextTask?.files?.[0]?.id || '');
-      setMessage('저장된 SI Coding Sim 진행 상태를 불러왔습니다.');
-      showToast({ tone: 'success', message: '저장된 SI Coding Sim 진행 상태를 불러왔습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const recordRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 SI Coding Sim 결과를 전적에 남길 수 있습니다.');
-      return;
-    }
-    setBusy('record');
-    try {
-      await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `SI Coding Sim - ${latestEvaluation?.grade || 'snapshot'}`,
-        mode: 'challenge-sim',
-        result: latestEvaluation?.grade || 'challenge-snapshot',
-        score,
-        playTimeSec: getPlayTimeSec(state),
-        summary: summaryForState(state),
-        payload: { state },
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-records');
-      setMessage('SI Coding Sim 결과를 전적에 남겼습니다.');
-      showToast({ tone: 'success', message: 'SI Coding Sim 결과를 전적에 남겼습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
+  const {
+    busy,
+    loadRun,
+    message,
+    recordRun,
+    saveRun,
+    setMessage,
+  } = useSiCodingSimPersistence({
+    onLoaded: (nextState) => setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || ''),
+    score,
+    setState,
+    showToast,
+    state,
+    token,
+  });
   const scrollToPanel = (panel) => {
     const tabByPanel = {
       code: 'code',

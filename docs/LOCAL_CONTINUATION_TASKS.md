@@ -51,6 +51,10 @@ npm run build
 - School Simulator save/load/record actions now live in `client/src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js`.
 - School Simulator controlled selections now live in `client/src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js`.
 - School Simulator derived rows and selected entity assembly now live in `client/src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js`.
+- SI Coding Sim save/load/record actions now live in `client/src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js`.
+- SI Coding Sim derived rows/current task/readiness assembly now lives in `client/src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js`.
+- SI Coding Sim submission readiness calculation now lives in `client/src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js`.
+- SI Coding Sim submission readiness panel and result row now live in `client/src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
@@ -203,9 +207,13 @@ Company Report is the reference pattern. School Simulator has started following 
    - optionally move page shell metrics/messages/advisor payloads into a small page runtime helper if the page grows again.
    - split remaining `SchoolSimulatorFeatureTabs.js` tab groups only if they start growing again.
 
-After School Simulator, apply the same page split to:
+After School Simulator, continue applying the same page split to:
 
-1. `client/src/app/games/si-coding-sim/play/page.js`
+1. In progress: `client/src/app/games/si-coding-sim/play/page.js`
+   - Done: persistence hook
+   - Done: play view-model helper
+   - Done: submission readiness helper/panel split
+   - Next: extract the large `GameFeatureTabs` JSX into one or more `_components` files.
 2. `client/src/app/games/schale-idle-rpg/play/page.js`
 3. `client/src/app/games/dual-academy-tcg/play/page.js`
 
@@ -221,6 +229,7 @@ npm run check:runtime:utils
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
+npm run lint -- src/app/games/si-coding-sim/play/page.js src/app/games/si-coding-sim/_hooks/useSiCodingSimPersistence.js src/app/games/si-coding-sim/_lib/siCodingSimPlayViewModel.js src/app/games/si-coding-sim/_lib/siCodingSubmissionReadiness.js src/app/games/si-coding-sim/_components/SiCodingSubmissionReadinessPanel.js
 npm run build
 ```
 
