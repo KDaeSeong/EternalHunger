@@ -1,6 +1,6 @@
 # Local Continuation Tasks
 
-Updated: 2026-07-06 KST
+Updated: 2026-07-07 KST
 Latest pushed commit: check `git log -1 --oneline origin/main` after pulling.
 
 This document is the handoff list for continuing work on another machine.
@@ -41,6 +41,12 @@ npm run build
 - Company Report save/load/record actions now live in `client/src/app/games/company-report/_hooks/useCompanyReportPersistence.js`.
 - Company Report controlled selections now live in `client/src/app/games/company-report/_hooks/useCompanyReportSelections.js`.
 - School Simulator feature tabs now live in `client/src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js`.
+- School Simulator advanced/detail operation tab is split into:
+  - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js`
+  - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js`
+  - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js`
+  - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js`
+  - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js`
 - School Simulator student/staff care report logic now lives in `client/src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js`.
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
@@ -186,11 +192,12 @@ Company Report is the reference pattern. School Simulator has started following 
 
 1. Done: move School Simulator feature tabs into `SchoolSimulatorFeatureTabs.js`.
 2. Done: move School Simulator care report calculation into `schoolSimulatorCareReport.js`.
-3. Next for School Simulator:
+3. Done: split the detailed School Simulator operation tab into grouped advanced components.
+4. Next for School Simulator:
    - move save/load/record actions into `useSchoolSimulatorPersistence`.
    - move selected controls into `useSchoolSimulatorSelections`.
    - move derived rows and selected entities into `schoolSimulatorPlayViewModel`.
-   - split `SchoolSimulatorFeatureTabs.js` again by tab group if it stays above 1000 lines.
+   - split remaining `SchoolSimulatorFeatureTabs.js` tab groups only if they start growing again.
 
 After School Simulator, apply the same page split to:
 
@@ -209,7 +216,7 @@ npm run check:runtime:simulation
 npm run check:runtime:utils
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_lib/companyReportPageRuntime.js
-npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
+npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js
 npm run build
 ```
 
