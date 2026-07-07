@@ -124,6 +124,18 @@ npm run build
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftTeamTab.js`
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftMarketTab.js`
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftRecordsTab.js`
+- Racing Logos Demo shared logo/event row panels now live in `client/src/app/games/racing-logos-demo/_components/RacingLogosPlayPanels.js`.
+- Racing Logos Demo large feature tab JSX now lives in `client/src/app/games/racing-logos-demo/_components/RacingLogosFeatureTabs.js`.
+- Racing Logos Demo feature tabs are split into:
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosAuditTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosLocalPackTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosTracksTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosCalendarTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosDataPackTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosEventsTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosMatrixTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosLogTab.js`
+  - `client/src/app/games/racing-logos-demo/_components/RacingLogosAdvancedTab.js`
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
