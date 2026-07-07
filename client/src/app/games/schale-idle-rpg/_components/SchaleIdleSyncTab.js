@@ -1,0 +1,81 @@
+import {
+  ActionButton,
+  SmallStat,
+} from '../../_components/GamePlayPrimitives';
+
+export default function SchaleIdleSyncTab(props) {
+  const {
+    busy,
+    hydrated,
+    saveRun,
+    recordRun,
+    syncReport,
+  } = props;
+
+  return (
+    <section className="games-dashboard">
+                  <section className="games-panel">
+                    <div className="games-panel-title">
+                      <h2>동기화 상태</h2>
+                      <span>{syncReport.statusLabel}</span>
+                    </div>
+                    <div className="games-rank-split" style={{ marginBottom: 12 }}>
+                      <SmallStat label="동기화 점수" value={`${syncReport.syncScore}%`} />
+                      <SmallStat label="미저장" value={syncReport.dirtyMinutes ? `${syncReport.dirtyMinutes}분` : '없음'} />
+                      <SmallStat label="최고 층" value={`F${syncReport.summary.floor}`} />
+                      <SmallStat label="탑" value={`${syncReport.summary.tower}층`} />
+                      <SmallStat label="전투력" value={syncReport.summary.power.toLocaleString('ko-KR')} />
+                      <SmallStat label="점수" value={syncReport.summary.score.toLocaleString('ko-KR')} />
+                    </div>
+                    <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+                      <ActionButton onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>
+                        {busy === 'save' ? '저장 중...' : '서버 저장'}
+                      </ActionButton>
+                      <ActionButton onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>
+                        {busy === 'record' ? '기록 중...' : '전적 스냅샷'}
+                      </ActionButton>
+                    </div>
+                    <div className="game-save-list">
+                      {syncReport.syncRows.map((row) => (
+                        <article className="game-save-row" key={row.id}>
+                          <div>
+                            <span>{row.status === 'complete' ? '완료' : row.status === 'ready' ? '대기' : '참고'}</span>
+                            <strong>{row.label} · {row.value}</strong>
+                            <small>{row.detail}</small>
+                          </div>
+                          <strong>{row.status === 'complete' ? 'OK' : row.status === 'ready' ? '처리' : '정보'}</strong>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="games-panel">
+                    <div className="games-panel-title">
+                      <h2>동기화 payload</h2>
+                      <span>저장 · 전적 · 복귀</span>
+                    </div>
+                    <div className="game-save-list">
+                      {syncReport.payloadRows.map((row) => (
+                        <article className="game-save-row" key={row.label}>
+                          <div>
+                            <span>{row.label}</span>
+                            <strong>{row.value}</strong>
+                            <small>{row.detail}</small>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                  <section className="games-panel">
+                    <div className="games-panel-title">
+                      <h2>동기화 추천</h2>
+                      <span>다음 순서</span>
+                    </div>
+                    <div className="games-activity-list">
+                      {syncReport.recommendations.map((line) => (
+                        <div key={line}><strong>{line}</strong></div>
+                      ))}
+                    </div>
+                  </section>
+                </section>
+  );
+}
