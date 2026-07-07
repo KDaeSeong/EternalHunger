@@ -152,6 +152,9 @@ npm run build
   - `client/src/app/board/_components/BoardReportPanel.js`
   - `client/src/app/board/_components/BoardCommentsSection.js`
 - Board detail `useMemo` and async status loader effects now satisfy the runtime React Hooks/Compiler lint rules.
+- Board list helpers now live in `client/src/app/board/_lib/boardListUtils.js`.
+- Board list toolbar/write/table rendering now lives in `client/src/app/board/_components/BoardListPanels.js`.
+- Board list URL sync and logged-out writer reset effects now satisfy the runtime React Hooks/Compiler lint rules.
 - Game room detail normalization/save/record helpers now live in `client/src/app/games/rooms/_lib/gameRoomDetailUtils.js`.
 - Game room detail rendering is split into:
   - `client/src/app/games/rooms/_components/GameRoomOverviewPanels.js`

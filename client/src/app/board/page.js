@@ -6,151 +6,22 @@ import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiDelete, apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
-import { GAME_CATALOG, GAME_ROADMAP } from '../games/_lib/gameCatalog';
-
-const BOARD_CATEGORIES = [
-  { value: 'free', label: '자유' },
-  { value: 'guide', label: '공략' },
-  { value: 'feedback', label: '피드백' },
-  { value: 'bug', label: '버그' },
-  { value: 'simulation', label: '시뮬레이션' },
-  { value: 'game', label: '게임' },
-];
-
-const BOARD_SORTS = [
-  { value: 'latest', label: '최신순' },
-  { value: 'popular', label: '인기순' },
-  { value: 'views', label: '조회순' },
-  { value: 'comments', label: '댓글순' },
-];
-
-const BOARD_PAGE_SIZE = 20;
-
-function normalizeGameSlug(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-}
-
-function getGameOptions() {
-  const seen = new Set();
-  return [...GAME_CATALOG, ...GAME_ROADMAP].reduce((list, game) => {
-    const value = normalizeGameSlug(game?.slug);
-    if (!value || seen.has(value)) return list;
-    seen.add(value);
-    list.push({ value, label: safeText(game?.title, value) });
-    return list;
-  }, []);
-}
-
-function gameLabelForSlug(options, slug) {
-  const value = normalizeGameSlug(slug);
-  if (!value) return '';
-  return options.find((option) => option.value === value)?.label || value;
-}
-
-function formatDate(value) {
-  if (!value) return '날짜 없음';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '날짜 없음';
-  return date.toLocaleString('ko-KR');
-}
-
-function getUserId(user) {
-  return user?._id || user?.id || user?.userId || '';
-}
-
-function normalizePostId(post) {
-  const id = post?._id || post?.id;
-  if (!id) return '';
-  if (typeof id === 'string' || typeof id === 'number') return String(id);
-  if (id?.$oid) return String(id.$oid);
-  if (typeof id?.toString === 'function') return id.toString();
-  return '';
-}
-
-function normalizeIdValue(value) {
-  if (!value) return '';
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
-  if (value?.$oid) return String(value.$oid);
-  if (value?._id && value._id !== value) return normalizeIdValue(value._id);
-  if (value?.id && value.id !== value) return normalizeIdValue(value.id);
-  if (typeof value?.toString === 'function') return value.toString();
-  return '';
-}
-
-function userProfileHref(value) {
-  const id = normalizeIdValue(value);
-  return id ? `/users/${id}` : '';
-}
-
-function safeText(value, fallback = '') {
-  if (value == null) return fallback;
-  if (typeof value === 'string' || typeof value === 'number') {
-    const text = String(value).trim();
-    return text || fallback;
-  }
-  return fallback;
-}
-
-function normalizePost(row) {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
-  const authorId = row.authorId || row.userId || row.author?._id || row.author?.id || row.user?._id || row.user?.id || '';
-  return {
-    ...row,
-    _normalizedId: normalizePostId(row),
-    title: safeText(row.title, '제목 없음'),
-    content: safeText(row.content ?? row.contentPreview, ''),
-    contentPreview: safeText(row.contentPreview ?? row.content, ''),
-    commentCount: Number(row.commentCount || 0),
-    reactionCount: Number(row.reactionCount || 0),
-    viewCount: Number(row.viewCount || 0),
-    isNotice: Boolean(row.isNotice),
-    noticePinnedAt: row.noticePinnedAt || '',
-    gameSlug: normalizeGameSlug(row.gameSlug),
-    category: safeText(row.category, 'free'),
-    categoryLabel: safeText(row.categoryLabel, '자유'),
-    createdAt: row.createdAt || row.created_at || row.date || '',
-    authorId,
-    authorName: safeText(row.author?.nickname || row.user?.nickname || authorId?.nickname || row.authorName || row.username || row.author?.username || row.user?.username || authorId?.username, '익명'),
-  };
-}
-
-function unwrapPostList(data) {
-  const list = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.posts)
-      ? data.posts
-      : Array.isArray(data?.data)
-        ? data.data
-        : [];
-  return list.map(normalizePost).filter(Boolean);
-}
-
-function normalizePagination(raw, fallbackCount = 0, fallbackPage = 1) {
-  const page = Math.max(1, Number(raw?.page || fallbackPage || 1));
-  const limit = Math.max(1, Number(raw?.limit || BOARD_PAGE_SIZE));
-  const total = Math.max(0, Number(raw?.total ?? fallbackCount ?? 0));
-  const totalPages = Math.max(1, Number(raw?.totalPages || Math.ceil(total / limit) || 1));
-  return {
-    page,
-    limit,
-    total,
-    totalPages,
-    hasPrev: Boolean(raw?.hasPrev ?? page > 1),
-    hasNext: Boolean(raw?.hasNext ?? page < totalPages),
-  };
-}
-
-function getUserDisplayName(user) {
-  return safeText(user?.nickname, '') || safeText(user?.username, '사용자');
-}
+import { BoardListToolbar, BoardPostTable, BoardWritePanel } from './_components/BoardListPanels';
+import {
+  BOARD_CATEGORIES,
+  BOARD_PAGE_SIZE,
+  BOARD_SORTS,
+  getGameOptions,
+  getUserId,
+  normalizeGameSlug,
+  normalizeIdValue,
+  normalizePagination,
+  safeText,
+  unwrapPostList,
+} from './_lib/boardListUtils';
 
 export default function BoardPage() {
-  const gameOptions = useMemo(getGameOptions, []);
+  const gameOptions = useMemo(() => getGameOptions(), []);
   const [posts, setPosts] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -213,31 +84,46 @@ export default function BoardPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    const nextQuery = safeText(params.get('q'), '');
-    const nextCategory = safeText(params.get('category'), '');
-    const nextGameSlug = normalizeGameSlug(params.get('gameSlug'));
-    const nextSort = safeText(params.get('sort'), '');
-    const nextPage = Number(params.get('page') || 1);
-    const validCategory = BOARD_CATEGORIES.some((item) => item.value === nextCategory);
-    if (nextQuery) setQuery(nextQuery);
-    if (validCategory) setCategoryFilter(nextCategory);
-    if (nextGameSlug) setGameFilter(nextGameSlug);
-    if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
-    if (Number.isFinite(nextPage) && nextPage > 1) setPage(Math.floor(nextPage));
-    if (params.get('write') === '1') {
-      setForm((current) => ({
-        ...current,
-        category: validCategory ? nextCategory : nextGameSlug ? 'game' : current.category || 'free',
-        gameSlug: nextGameSlug || current.gameSlug,
-      }));
-      setWriterOpen(true);
-    }
-  }, [gameOptions]);
+    let canceled = false;
+
+    Promise.resolve().then(() => {
+      if (canceled) return;
+      const params = new URLSearchParams(window.location.search);
+      const nextQuery = safeText(params.get('q'), '');
+      const nextCategory = safeText(params.get('category'), '');
+      const nextGameSlug = normalizeGameSlug(params.get('gameSlug'));
+      const nextSort = safeText(params.get('sort'), '');
+      const nextPage = Number(params.get('page') || 1);
+      const validCategory = BOARD_CATEGORIES.some((item) => item.value === nextCategory);
+      if (nextQuery) setQuery(nextQuery);
+      if (validCategory) setCategoryFilter(nextCategory);
+      if (nextGameSlug) setGameFilter(nextGameSlug);
+      if (BOARD_SORTS.some((item) => item.value === nextSort)) setSortOrder(nextSort);
+      if (Number.isFinite(nextPage) && nextPage > 1) setPage(Math.floor(nextPage));
+      if (params.get('write') === '1') {
+        setForm((current) => ({
+          ...current,
+          category: validCategory ? nextCategory : nextGameSlug ? 'game' : current.category || 'free',
+          gameSlug: nextGameSlug || current.gameSlug,
+        }));
+        setWriterOpen(true);
+      }
+    });
+
+    return () => {
+      canceled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!mounted || token) return;
-    setWriterOpen(false);
+    let canceled = false;
+    Promise.resolve().then(() => {
+      if (!canceled) setWriterOpen(false);
+    });
+    return () => {
+      canceled = true;
+    };
   }, [mounted, token]);
 
   const toggleWriter = () => {
@@ -337,204 +223,48 @@ export default function BoardPage() {
 
         {message ? <div className="board-message">{message}</div> : null}
 
-        <div className="board-toolbar">
-          <div className="board-counts">
-            <span>전체 {pagination.total}</span>
-            <span>현재 {filteredPosts.length}</span>
-            <span>{pagination.page}/{pagination.totalPages}페이지</span>
-            {mounted && token ? <span>내 글 {myPostCount}</span> : null}
-          </div>
-          <label className="board-search">
-            <span>검색</span>
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-              placeholder="제목, 내용, 작성자"
-            />
-          </label>
-          <label className="board-search board-category-filter">
-            <span>분류</span>
-            <select
-              value={categoryFilter}
-              onChange={(event) => {
-                setCategoryFilter(event.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">전체</option>
-              {BOARD_CATEGORIES.map((category) => (
-                <option key={category.value} value={category.value}>{category.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="board-search board-game-filter">
-            <span>게임</span>
-            <select
-              value={gameFilter}
-              onChange={(event) => {
-                setGameFilter(normalizeGameSlug(event.target.value));
-                setPage(1);
-              }}
-            >
-              <option value="">전체</option>
-              {gameFilter && !gameOptions.some((game) => game.value === gameFilter) ? (
-                <option value={gameFilter}>{gameFilter}</option>
-              ) : null}
-              {gameOptions.map((game) => (
-                <option key={game.value} value={game.value}>{game.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="board-search board-sort-filter">
-            <span>정렬</span>
-            <select
-              value={sortOrder}
-              onChange={(event) => {
-                setSortOrder(event.target.value);
-                setPage(1);
-              }}
-            >
-              {BOARD_SORTS.map((sort) => (
-                <option key={sort.value} value={sort.value}>{sort.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <BoardListToolbar
+          categoryFilter={categoryFilter}
+          filteredCount={filteredPosts.length}
+          gameFilter={gameFilter}
+          gameOptions={gameOptions}
+          mounted={mounted}
+          myPostCount={myPostCount}
+          pagination={pagination}
+          query={query}
+          setCategoryFilter={setCategoryFilter}
+          setGameFilter={setGameFilter}
+          setPage={setPage}
+          setQuery={setQuery}
+          setSortOrder={setSortOrder}
+          sortOrder={sortOrder}
+          token={token}
+        />
 
-        {mounted && token && writerOpen ? (
-          <div className="board-write-panel" id="board-write-panel">
-            <div className="board-editor-title">
-              글쓰기 {user ? <span>작성자: {getUserDisplayName(user)}</span> : null}
-            </div>
-            <div className="board-write-grid">
-              <select
-                value={form.category}
-                onChange={(event) => setForm({ ...form, category: event.target.value })}
-                aria-label="게시글 분류"
-              >
-                {BOARD_CATEGORIES.map((category) => (
-                  <option key={category.value} value={category.value}>{category.label}</option>
-                ))}
-              </select>
-              <select
-                value={form.gameSlug}
-                onChange={(event) => setForm({ ...form, gameSlug: normalizeGameSlug(event.target.value) })}
-                aria-label="게임 선택"
-              >
-                <option value="">게임 선택 안 함</option>
-                {form.gameSlug && !gameOptions.some((game) => game.value === form.gameSlug) ? (
-                  <option value={form.gameSlug}>{form.gameSlug}</option>
-                ) : null}
-                {gameOptions.map((game) => (
-                  <option key={game.value} value={game.value}>{game.label}</option>
-                ))}
-              </select>
-              <input
-                value={form.title}
-                onChange={(event) => setForm({ ...form, title: event.target.value })}
-                placeholder="제목"
-                maxLength={120}
-              />
-              <button type="button" onClick={create} disabled={submitting}>
-                {submitting ? '작성 중...' : '등록'}
-              </button>
-            </div>
-            <textarea
-              value={form.content}
-              onChange={(event) => setForm({ ...form, content: event.target.value })}
-              placeholder="내용"
-              rows={4}
-            />
-          </div>
-        ) : (
-          <div className="board-login-note">로그인하면 글을 작성할 수 있습니다.</div>
-        )}
+        <BoardWritePanel
+          create={create}
+          form={form}
+          gameOptions={gameOptions}
+          mounted={mounted}
+          setForm={setForm}
+          submitting={submitting}
+          token={token}
+          user={user}
+          writerOpen={writerOpen}
+        />
 
-        <div className="board-table-wrap">
-          {loading ? <div className="board-empty">게시글을 불러오는 중입니다.</div> : null}
-
-          {!loading && posts.length === 0 ? (
-            <div className="board-empty">아직 작성된 글이 없습니다.</div>
-          ) : null}
-
-          {!loading && posts.length > 0 && filteredPosts.length === 0 ? (
-            <div className="board-empty">검색 결과가 없습니다.</div>
-          ) : null}
-
-          {!loading && filteredPosts.length > 0 ? (
-            <table className="board-table">
-              <colgroup>
-                <col className="board-col-no" />
-                <col className="board-col-title" />
-                <col className="board-col-author" />
-                <col className="board-col-date" />
-                <col className="board-col-action" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>번호</th>
-                  <th>제목</th>
-                  <th>작성자</th>
-                  <th>등록일</th>
-                  <th>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPosts.map((post, index) => {
-                  const id = post?._normalizedId || normalizePostId(post);
-                  const title = safeText(post?.title, '제목 없음');
-                  const preview = safeText(post?.contentPreview || post?.content, '');
-                  const canRemove = mounted && token && userId && normalizeIdValue(post?.authorId) === String(userId);
-                  const rowNo = Math.max(1, Number(pagination.total || filteredPosts.length) - ((Number(pagination.page || 1) - 1) * Number(pagination.limit || BOARD_PAGE_SIZE)) - index);
-                  const authorHref = userProfileHref(post?.authorId);
-                  const gameLabel = gameLabelForSlug(gameOptions, post?.gameSlug);
-                  const authorName = safeText(post?.authorName, '익명');
-                  return (
-                    <tr key={id || `${post?.title}-${post?.createdAt}`}>
-                      <td className="board-cell-no" data-label="번호">{rowNo}</td>
-                      <td className="board-cell-title" data-label="제목">
-                        <Link href={id ? `/board/${id}` : '/board'} className={`board-row-title ${post?.isNotice ? 'is-notice' : ''}`}>
-                          <span>{title}</span>
-                          {gameLabel ? <small>{gameLabel}</small> : null}
-                          <small>{preview ? `${preview}${preview.length >= 160 ? '...' : ''}` : '미리보기 없음'}</small>
-                          <em>{post?.isNotice ? '공지 · ' : ''}조회 {Number(post?.viewCount || 0)} · 추천 {Number(post?.reactionCount || 0)} · 댓글 {Number(post?.commentCount || 0)}</em>
-                        </Link>
-                      </td>
-                      <td data-label="작성자">
-                        {authorHref ? <Link href={authorHref} className="profile-inline-link">{authorName}</Link> : authorName}
-                      </td>
-                      <td data-label="등록일">{formatDate(post?.createdAt)}</td>
-                      <td className="board-cell-action" data-label="관리">
-                        {canRemove ? (
-                          <button type="button" className="board-danger board-danger-compact" onClick={() => remove(id)}>
-                            삭제
-                          </button>
-                        ) : (
-                          <span className="board-action-dash">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : null}
-
-          {!loading && pagination.totalPages > 1 ? (
-            <div className="board-pagination" aria-label="게시판 페이지 이동">
-              <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={!pagination.hasPrev}>
-                이전
-              </button>
-              <span>{pagination.page} / {pagination.totalPages}</span>
-              <button type="button" onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))} disabled={!pagination.hasNext}>
-                다음
-              </button>
-            </div>
-          ) : null}
-        </div>
+        <BoardPostTable
+          filteredPosts={filteredPosts}
+          gameOptions={gameOptions}
+          loading={loading}
+          mounted={mounted}
+          pagination={pagination}
+          posts={posts}
+          remove={remove}
+          setPage={setPage}
+          token={token}
+          userId={userId}
+        />
       </section>
     </main>
   );
