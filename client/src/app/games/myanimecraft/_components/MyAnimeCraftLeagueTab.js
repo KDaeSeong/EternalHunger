@@ -1,0 +1,221 @@
+import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import {
+  BUILD_STYLE_LABELS,
+  fixtureLabel,
+  simulateNextMatchAction,
+  simulateSeasonAction,
+  simulateWeekAction,
+  startNextSeasonAction,
+} from '../_lib/myAnimeCraftEngine';
+import { BroadcastTimeline } from './MyAnimeCraftPlayPanels';
+
+export default function MyAnimeCraftLeagueTab(props) {
+  const {
+    applyStateAction,
+    buildMetaReport,
+    currentFixtures,
+    ended,
+    matchArchiveRows,
+    played,
+    postseasonRows,
+    recentActionText,
+    seasonStage,
+    selectedArchiveMatch,
+    seriesReplayReport,
+    setSelectedArchiveMatchId,
+    sourceSummary,
+    state,
+    total,
+  } = props;
+
+  return (
+              <>
+      <section className="games-detail-grid">
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>진행</h2>
+            <span>{seasonStage.label}</span>
+          </div>
+          <div className="games-rank-split">
+            <SmallStat label="원본 팀" value={sourceSummary.teams} />
+            <SmallStat label="원본 맵" value={sourceSummary.maps} />
+            <SmallStat label="사용 맵" value={sourceSummary.importedMaps} />
+            <SmallStat label="포스트시즌" value={seasonStage.postseasonTotal ? `${seasonStage.postseasonPlayed}/${seasonStage.postseasonTotal}` : '대기'} />
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('다음 경기 진행', (current) => simulateNextMatchAction(current), { selectLatestMatch: true })}>다음 경기 진행</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('이번 주 전체 진행', (current) => simulateWeekAction(current), { selectLatestMatch: true })}>이번 주 전체 진행</ActionButton>
+            <ActionButton disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
+            <ActionButton disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
+          </div>
+          <RecentActionResult label="최근 경기 결과" text={recentActionText} pinned />
+          {matchArchiveRows.length ? (
+            <div className="game-save-list" style={{ marginTop: 16 }}>
+              {matchArchiveRows.slice(0, 6).map((match) => (
+                <button
+                  type="button"
+                  className="game-save-row"
+                  key={match.id}
+                  onClick={() => setSelectedArchiveMatchId(match.id)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    borderColor: selectedArchiveMatch?.id === match.id ? 'rgba(56, 189, 248, 0.7)' : undefined,
+                  }}
+                >
+                  <div>
+                    <span>{match.stageLabel} · {match.setCount}세트{match.aceSetLabel ? ' · 에이스전' : ''}</span>
+                    <strong>{match.homeTeamName} {match.scoreHome}:{match.scoreAway} {match.awayTeamName}</strong>
+                  </div>
+                  <strong>{match.winnerTeamName}</strong>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {selectedArchiveMatch ? (
+            <div className="games-activity-list" style={{ marginTop: 16 }}>
+              <div>
+                <strong>경기 다시보기 · {selectedArchiveMatch.stageLabel}</strong>
+                <span>{selectedArchiveMatch.homeTeamName} {selectedArchiveMatch.scoreHome}:{selectedArchiveMatch.scoreAway} {selectedArchiveMatch.awayTeamName}</span>
+              </div>
+              <div style={{ display: 'grid', gap: 10, padding: '4px 0' }}>
+                <div className="games-panel-title">
+                  <h2>시리즈 총평</h2>
+                  <span>{seriesReplayReport.tempoLabel}</span>
+                </div>
+                <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
+                  {seriesReplayReport.headline}
+                </p>
+                <div className="games-rank-split games-rank-split--compact">
+                  <SmallStat label="승부처" value={seriesReplayReport.keySetLabel} />
+                  <SmallStat label="대표 빌드" value={seriesReplayReport.styleLabel} />
+                  <SmallStat label="맵 폭" value={seriesReplayReport.mapLabel} />
+                </div>
+                <div className="game-save-list">
+                  {seriesReplayReport.highlights.map((line, index) => (
+                    <article className="game-save-row" key={`series-replay-${selectedArchiveMatch.id}-${index}`}>
+                      <div>
+                        <span>리플레이 포인트 {index + 1}</span>
+                        <strong>{line}</strong>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+              {selectedArchiveMatch.sets.map((setResult) => (
+                <div key={`${selectedArchiveMatch.matchId}-${setResult.setNo}`}>
+                  <strong>
+                    {setResult.setNo}세트{setResult.isAceSet ? ' · 에이스전' : ''} · {setResult.mapName} · {setResult.homePlayerName} {BUILD_STYLE_LABELS[setResult.homeBuildStyle] || setResult.homeBuildStyle}
+                    {' vs '}
+                    {setResult.awayPlayerName} {BUILD_STYLE_LABELS[setResult.awayBuildStyle] || setResult.awayBuildStyle}
+                  </strong>
+                  <span>
+                    {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
+                    {setResult.isAceSet ? ` · 에이스 보정 ${setResult.aceBoostHome >= 0 ? '+' : ''}${setResult.aceBoostHome}%/${setResult.aceBoostAway >= 0 ? '+' : ''}${setResult.aceBoostAway}%` : ''}
+                  </span>
+                  {setResult.broadcastHeadline ? <span>{setResult.broadcastHeadline}</span> : null}
+                  {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
+                  <BroadcastTimeline lines={setResult.timeline} />
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>시즌 메타</h2>
+            <span>{buildMetaReport.sampleLabel}</span>
+          </div>
+          <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
+            {buildMetaReport.insight}
+          </p>
+          <div className="games-rank-split">
+            {buildMetaReport.styleRows.slice(0, 5).map((row) => (
+              <SmallStat
+                key={row.style}
+                label={row.label}
+                value={row.count ? `${row.count}회 · ${row.winRate}%` : '0회'}
+              />
+            ))}
+          </div>
+          <div className="game-save-list">
+            {buildMetaReport.playerRows.length ? buildMetaReport.playerRows.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.playerId}>
+                <div>
+                  <span>{row.teamName || '소속 없음'} · {row.styleLabel}</span>
+                  <strong>{row.playerName}</strong>
+                  <small>{row.styleLabel} {row.count}회 · 승률 {row.winRate}% · 전체 표본 {row.total}세트</small>
+                </div>
+                <strong>{row.winRate}%</strong>
+              </article>
+            )) : (
+              <div className="games-empty">경기를 진행하면 선수별 강세 빌드가 표시됩니다.</div>
+            )}
+          </div>
+          <div className="game-save-list">
+            {buildMetaReport.mapRows.length ? buildMetaReport.mapRows.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.mapKey}>
+                <div>
+                  <span>맵 메타 · {row.total}표본</span>
+                  <strong>{row.mapName}</strong>
+                  <small>{row.styleLabel} {row.count}회 · 승률 {row.winRate}%</small>
+                </div>
+                <strong>{row.styleLabel}</strong>
+              </article>
+            )) : (
+              <div className="games-empty">맵별 빌드 메타가 아직 없습니다.</div>
+            )}
+          </div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>{seasonStage.stage === 'POSTSEASON' ? '포스트시즌 일정' : '이번 주 일정'}</h2>
+            <span>{currentFixtures.filter((fixture) => fixture.played).length}/{currentFixtures.length}</span>
+          </div>
+          <div className="game-save-list">
+            {currentFixtures.map((fixture) => (
+              <article className="game-save-row" key={fixture.id}>
+                <div>
+                  <span>{fixture.id}</span>
+                  <strong>{fixtureLabel(state, fixture)}</strong>
+                </div>
+                <strong>{fixture.played ? '완료' : '대기'}</strong>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {postseasonRows.length ? (
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>포스트시즌</h2>
+              <span>{seasonStage.postseasonPlayed}/{seasonStage.postseasonTotal}</span>
+            </div>
+            <div className="game-save-list">
+              {postseasonRows.map((fixture) => (
+                <article className="game-save-row" key={fixture.id}>
+                  <div>
+                    <span>{fixture.label}</span>
+                    <strong>
+                      {fixture.played
+                        ? `${fixture.homeTeamName} ${fixture.scoreHome}:${fixture.scoreAway} ${fixture.awayTeamName}`
+                        : `${fixture.homeTeamName} vs ${fixture.awayTeamName}`}
+                    </strong>
+                    {fixture.winnerTeamName ? (
+                      <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
+                        승자 {fixture.winnerTeamName}
+                      </small>
+                    ) : null}
+                  </div>
+                  <strong>{fixture.played ? '완료' : fixture.awayTeamId === '__TBD__' ? '대기' : '예정'}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </section>
+              </>
+  );
+}

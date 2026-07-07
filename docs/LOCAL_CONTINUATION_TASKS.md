@@ -117,6 +117,13 @@ npm run build
   - `client/src/app/games/ba-srpg/_components/BaSrpgTownTab.js`
   - `client/src/app/games/ba-srpg/_components/BaSrpgBattleTab.js`
   - `client/src/app/games/ba-srpg/_components/BaSrpgInventoryTab.js`
+- MyAnimeCraft Starleague large feature tab JSX now lives in `client/src/app/games/myanimecraft/_components/MyAnimeCraftFeatureTabs.js`.
+- MyAnimeCraft Starleague feature tabs are split into:
+  - `client/src/app/games/myanimecraft/_components/MyAnimeCraftLeagueTab.js`
+  - `client/src/app/games/myanimecraft/_components/MyAnimeCraftCupsTab.js`
+  - `client/src/app/games/myanimecraft/_components/MyAnimeCraftTeamTab.js`
+  - `client/src/app/games/myanimecraft/_components/MyAnimeCraftMarketTab.js`
+  - `client/src/app/games/myanimecraft/_components/MyAnimeCraftRecordsTab.js`
 - Runtime ESLint sweep can be run in smaller parts with `npm run check:runtime:simulation` and `npm run check:runtime:utils`.
 - Last verified checks before commit:
   - targeted `node --check`
