@@ -157,6 +157,8 @@ npm run build
 - Board list helpers now live in `client/src/app/board/_lib/boardListUtils.js`.
 - Board list toolbar/write/table rendering now lives in `client/src/app/board/_components/BoardListPanels.js`.
 - Board list URL sync and logged-out writer reset effects now satisfy the runtime React Hooks/Compiler lint rules.
+- Twenty Questions room content now lives in `client/src/app/twenty-questions/_components/TwentyQuestionsRoomContent.js`; `[id]/page.js` is now a thin entrypoint.
+- Twenty Questions room loader effect now satisfies the runtime React Hooks/Compiler lint rules.
 - Games hub utility helpers now live in `client/src/app/games/_lib/gamesHubUtils.js`.
 - Games hub cards and activity list rendering now live in `client/src/app/games/_components/GamesHubCards.js`.
 - Games hub initial loader effect now satisfies the runtime React Hooks/Compiler lint rules.
