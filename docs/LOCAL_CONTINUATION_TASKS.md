@@ -100,6 +100,7 @@ npm run build
   - `client/src/app/games/ba-vanguard/_components/BaVanguardDeckTab.js`
 - BA Vanguard save/load/record and room synchronization actions now live in `client/src/app/games/ba-vanguard/_hooks/useBaVanguardPersistence.js`.
 - BA Vanguard playtest summary builder now lives in `client/src/app/games/ba-vanguard/_lib/baVanguardPageRuntime.js`.
+- BA Vanguard play route content now lives in `client/src/app/games/ba-vanguard/_components/BaVanguardPlayContent.js`; `play/page.js` is now a thin Suspense shell.
 - Tonkatsu Teacher large feature tab JSX now lives in `client/src/app/games/tonkatsu-teacher/_components/TonkatsuTeacherFeatureTabs.js`.
 - Tonkatsu Teacher feature tabs are split into:
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuOperationsTab.js`
