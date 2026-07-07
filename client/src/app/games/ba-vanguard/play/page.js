@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
-import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
 import BaVanguardFeatureTabs from '../_components/BaVanguardFeatureTabs';
+import { useBaVanguardPersistence } from '../_hooks/useBaVanguardPersistence';
+import { createBaVanguardPlaytestSummary } from '../_lib/baVanguardPageRuntime';
 import { RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { roomConcurrencyAudit } from '../_components/BaVanguardBoard';
 import {
@@ -16,8 +17,6 @@ import {
   DEFAULT_RULES,
   GAME_SLUG,
   PRESET_DECKS,
-  QUICK_SAVE_SLOT,
-  SAVE_VERSION,
   SIDE_LABELS,
   activateVCAct,
   advancePhase,
@@ -25,7 +24,6 @@ import {
   autoRide,
   callFromHand,
   canAttack,
-  cardName,
   deckConsistencyReport,
   declareAttack,
   drawOpeningHand,
@@ -53,12 +51,6 @@ import {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
-}
-
-function afterRender(task) {
-  if (typeof window === 'undefined') return undefined;
-  const raf = window.requestAnimationFrame(() => task());
-  return () => window.cancelAnimationFrame(raf);
 }
 
 export default function BaVanguardPlayPage() {
@@ -94,13 +86,6 @@ function BaVanguardPlayContent() {
   }));
   const [selectedHandIndex, setSelectedHandIndex] = useState(null);
   const [selectedAttacker, setSelectedAttacker] = useState(null);
-  const [busy, setBusy] = useState('');
-  const [roomBusy, setRoomBusy] = useState(false);
-  const [room, setRoom] = useState(null);
-  const [roomLoaded, setRoomLoaded] = useState(false);
-  const [localRoomDirty, setLocalRoomDirty] = useState(false);
-  const [roomSyncMessage, setRoomSyncMessage] = useState('');
-  const [message, setMessage] = useState('');
   const [zoneView, setZoneView] = useState(null);
   const [gzoneFilter, setGzoneFilter] = useState('all');
 
@@ -127,6 +112,52 @@ function BaVanguardPlayContent() {
     matchupReport,
   }), [deck, duel, matchupReport, opponentDeck, rules, seed]);
   const portingCoverage = useMemo(() => vanguardPortingCoverageReport(CARDS), []);
+  const {
+    busy,
+    loadRun,
+    localRoomDirty,
+    markRoomDirty,
+    message,
+    recordRun,
+    reloadRoomState,
+    room,
+    roomBusy,
+    roomSyncMessage,
+    saveRoomState,
+    saveRun,
+    setMessage,
+  } = useBaVanguardPersistence({
+    autoGuardMe,
+    deck,
+    duel,
+    duelSummary,
+    hydrated,
+    openingHand,
+    opponentDeck,
+    opponentPresetId,
+    portingCoverage,
+    presetId,
+    replayExport,
+    replayReport,
+    roomId,
+    rules,
+    score,
+    seed,
+    showToast,
+    tacticalReport,
+    token,
+    validation,
+    setAutoGuardMe,
+    setDuel,
+    setOpponentPresetId,
+    setPresetId,
+    setRules,
+    setSeed,
+    setSelectedAttacker,
+    setSelectedHandIndex,
+    setZoneView,
+  });
+
   const concurrencyAudit = useMemo(() => roomConcurrencyAudit({
     roomId,
     room,
@@ -141,53 +172,21 @@ function BaVanguardPlayContent() {
       : tacticalReport.riskLabel === '종료'
         ? 'green'
         : 'violet';
-  const playtestSummary = useMemo(() => ({
-    presetId,
-    opponentPresetId,
-    deckName: deck.name,
-    opponentDeckName: opponentDeck.name,
-    clan: deck.clan,
-    rules,
+  const playtestSummary = useMemo(() => createBaVanguardPlaytestSummary({
     autoGuardMe,
+    concurrencyAudit,
+    deck,
+    duelSummary,
+    opponentDeck,
+    opponentPresetId,
+    portingCoverage,
+    presetId,
+    replayExport,
+    replayReport,
+    rules,
     score,
-    duel: duelSummary,
-    tacticalReport: {
-      riskLabel: tacticalReport.riskLabel,
-      recommendedAction: tacticalReport.recommendedAction,
-      readinessPct: tacticalReport.readinessPct,
-      damageDelta: tacticalReport.damageDelta,
-    },
-    replayReport: {
-      headline: replayReport.headline,
-      damageSwing: replayReport.damageSwing,
-      logCount: replayReport.logCount,
-      turnCount: replayReport.turnCount,
-      guardAudit: replayReport.guardAudit
-        ? {
-          guardNeeded: replayReport.guardAudit.guardNeeded,
-          canGuard: replayReport.guardAudit.canGuard,
-        }
-        : null,
-    },
-    replayExport: {
-      fileName: replayExport.fileName,
-      sizeLabel: replayExport.sizeLabel,
-      statusLabel: replayExport.statusLabel,
-      ready: replayExport.ready,
-      auditRows: replayExport.auditRows.map((row) => ({
-        id: row.id,
-        label: row.label,
-        status: row.status,
-      })),
-    },
-    portingAudit: {
-      cardCoveragePct: portingCoverage.completionPct,
-      roomSyncPct: concurrencyAudit.completionPct,
-      ready: portingCoverage.ready && concurrencyAudit.ready,
-      coverageHeadline: portingCoverage.headline,
-      roomHeadline: concurrencyAudit.headline,
-    },
-  }), [autoGuardMe, concurrencyAudit, deck.clan, deck.name, duelSummary, opponentDeck.name, opponentPresetId, portingCoverage, presetId, replayExport, replayReport, rules, score, tacticalReport]);
+    tacticalReport,
+  }), [autoGuardMe, concurrencyAudit, deck, duelSummary, opponentDeck, opponentPresetId, portingCoverage, presetId, replayExport, replayReport, rules, score, tacticalReport]);
   const visibleCards = CARDS.filter((card) => card.clan === deck.clan);
   const valid = validation.errors.length === 0 && opponentValidation.errors.length === 0;
   const me = duel.players.me;
@@ -196,11 +195,7 @@ function BaVanguardPlayContent() {
   const canControl = duel.active === 'me' && !duel.winner;
   const canMulligan = canControl && duel.turn === 1 && duel.phase === 'STAND' && !duel.battle && !duel.mulliganDone?.me;
 
-  const markRoomDirty = useCallback(() => {
-    if (!roomId) return;
-    setLocalRoomDirty(true);
-    setRoomSyncMessage('');
-  }, [roomId]);
+
 
   const mutateDuel = (mutator) => {
     markRoomDirty();
@@ -343,236 +338,6 @@ function BaVanguardPlayContent() {
   const setRuleOption = (key, value) => {
     markRoomDirty();
     setRules((current) => normalizeRules({ ...current, [key]: value }));
-  };
-
-  const applyRoomState = useCallback((nextRoom, options = {}) => {
-    if (!nextRoom) {
-      setMessage('게임방을 찾을 수 없습니다.');
-      return false;
-    }
-    setRoom(nextRoom);
-    if (nextRoom.gameSlug !== GAME_SLUG) {
-      setMessage('이 게임방은 BA Vanguard 방이 아닙니다.');
-      return false;
-    }
-
-    const roomState = nextRoom.state && typeof nextRoom.state === 'object' ? nextRoom.state : {};
-    if (!roomState.duel) {
-      setRoomSyncMessage('');
-      setMessage(options.emptyMessage || '게임방에 저장된 플레이테스트 상태가 없어 현재 설정을 유지합니다.');
-      return false;
-    }
-
-    const nextPreset = getPreset(roomState.presetId)?.id || PRESET_DECKS[0].id;
-    const nextOpp = getPreset(roomState.opponentPresetId)?.id || PRESET_DECKS[1]?.id || PRESET_DECKS[0].id;
-    const nextRules = normalizeRules(roomState.rules);
-    const nextSeed = Number(roomState.seed || 2401);
-    setPresetId(nextPreset);
-    setOpponentPresetId(nextOpp);
-    setSeed(nextSeed);
-    setRules(nextRules);
-    setAutoGuardMe(Boolean(roomState.autoGuardMe));
-    setDuel(roomState.duel);
-    setSelectedHandIndex(null);
-    setSelectedAttacker(null);
-    setZoneView(null);
-    setLocalRoomDirty(false);
-    setRoomSyncMessage('');
-    setMessage(options.message || '게임방 플레이테스트 상태를 불러왔습니다.');
-    return true;
-  }, []);
-
-  useEffect(() => {
-    return afterRender(() => {
-      setRoom(null);
-      setRoomLoaded(false);
-      setLocalRoomDirty(false);
-      setRoomSyncMessage('');
-    });
-  }, [roomId]);
-
-  useEffect(() => {
-    if (!hydrated || !roomId || !token || roomLoaded) return;
-    let cancelled = false;
-    const loadRoomState = async () => {
-      setRoomBusy(true);
-      try {
-        const payload = await apiGet(`/game-rooms/${roomId}`, { timeoutMs: 12000 });
-        if (!cancelled) {
-          applyRoomState(payload?.room || null, {
-            message: '게임방 플레이테스트 상태를 불러왔습니다.',
-            emptyMessage: '게임방에 저장된 플레이테스트 상태가 없어 현재 설정을 유지합니다.',
-          });
-          setRoomLoaded(true);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const nextMessage = err?.message || '게임방 상태를 불러오지 못했습니다.';
-          setMessage(nextMessage);
-          showToast({ tone: 'danger', message: nextMessage });
-          setRoomLoaded(true);
-        }
-      } finally {
-        if (!cancelled) setRoomBusy(false);
-      }
-    };
-    void loadRoomState();
-    return () => {
-      cancelled = true;
-    };
-  }, [applyRoomState, hydrated, roomId, roomLoaded, showToast, token]);
-
-  const saveRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 BA Vanguard 플레이테스트 상태를 저장할 수 있습니다.');
-      return;
-    }
-    setBusy('save');
-    try {
-      await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `BA Vanguard ${deck.name}`,
-        version: SAVE_VERSION,
-        summary: playtestSummary,
-        payload: { presetId, opponentPresetId, seed, rules, autoGuardMe, duel },
-        lastPlayedAt: new Date().toISOString(),
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-saves');
-      setMessage('BA Vanguard 플레이테스트 상태를 저장했습니다.');
-      showToast({ tone: 'success', message: 'BA Vanguard 플레이테스트 상태를 저장했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const loadRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 저장된 BA Vanguard 플레이테스트 상태를 불러올 수 있습니다.');
-      return;
-    }
-    setBusy('load');
-    try {
-      const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
-      const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
-      if (!quickSave?.id) {
-        setMessage('저장된 BA Vanguard 플레이테스트 상태가 없습니다.');
-        return;
-      }
-      const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      const payload = detail?.save?.payload || {};
-      const nextPreset = getPreset(payload.presetId)?.id || PRESET_DECKS[0].id;
-      const nextOpp = getPreset(payload.opponentPresetId)?.id || PRESET_DECKS[1]?.id || PRESET_DECKS[0].id;
-      const nextSeed = Number(payload.seed || 2401);
-      const nextRules = normalizeRules(payload.rules);
-      setPresetId(nextPreset);
-      setOpponentPresetId(nextOpp);
-      setSeed(nextSeed);
-      setRules(nextRules);
-      setAutoGuardMe(Boolean(payload.autoGuardMe));
-      setDuel(payload.duel || initDuelState({
-        meDeck: getPreset(nextPreset),
-        oppDeck: getPreset(nextOpp),
-        seed: nextSeed,
-        firstTurnNoDraw: nextRules.firstTurnNoDraw,
-      }));
-      setSelectedHandIndex(null);
-      setSelectedAttacker(null);
-      setZoneView(null);
-      if (roomId) {
-        setLocalRoomDirty(true);
-        setRoomSyncMessage('');
-      }
-      setMessage('저장된 BA Vanguard 플레이테스트 상태를 불러왔습니다.');
-      showToast({ tone: 'success', message: '저장된 BA Vanguard 플레이테스트 상태를 불러왔습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const recordRun = async () => {
-    if (!token || busy) {
-      setMessage('로그인하면 BA Vanguard 플레이테스트 결과를 전적에 기록할 수 있습니다.');
-      return;
-    }
-    setBusy('record');
-    try {
-      await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `BA Vanguard - ${deck.name}`,
-        mode: 'playtest',
-        result: duel.winner ? (duel.winner === 'me' ? 'win' : 'loss') : 'in-progress',
-        score: score + (duel.winner === 'me' ? 300 : 0),
-        playTimeSec: 0,
-        summary: {
-          ...playtestSummary,
-          openingHand: openingHand.map(cardName),
-        },
-        payload: { presetId, opponentPresetId, seed, rules, deck, opponentDeck, validation, duel },
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-records');
-      setMessage('BA Vanguard 플레이테스트 결과를 전적에 기록했습니다.');
-      showToast({ tone: 'success', message: 'BA Vanguard 플레이테스트 결과를 전적에 기록했습니다.' });
-    } catch (err) {
-      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setBusy('');
-    }
-  };
-
-  const saveRoomState = async () => {
-    if (!roomId) {
-      setMessage('연결된 게임방이 없습니다.');
-      return;
-    }
-    if (!token || roomBusy) {
-      setMessage('로그인하면 게임방에 플레이테스트 상태를 저장할 수 있습니다.');
-      return;
-    }
-    setRoomBusy(true);
-    try {
-      const payload = await apiPost(`/game-rooms/${roomId}/state`, {
-        revision: room?.revision,
-        summary: playtestSummary,
-        state: {
-          presetId,
-          opponentPresetId,
-          seed,
-          rules,
-          autoGuardMe,
-          saveVersion: SAVE_VERSION,
-          duel,
-        },
-      }, { timeoutMs: 15000 });
-      clearApiGetCache('/game-rooms');
-      setRoom(payload?.room || room);
-      setLocalRoomDirty(false);
-      setRoomSyncMessage('');
-      setMessage('게임방에 BA Vanguard 상태를 저장했습니다.');
-      showToast({ tone: 'success', message: '게임방에 BA Vanguard 상태를 저장했습니다.' });
-    } catch (err) {
-      const conflictRoom = err?.response?.data?.room;
-      if (conflictRoom) setRoom(conflictRoom);
-      const nextMessage = err?.message || '게임방 저장에 실패했습니다.';
-      setMessage(nextMessage);
-      showToast({ tone: 'danger', message: nextMessage });
-    } finally {
-      setRoomBusy(false);
-    }
-  };
-
-  const reloadRoomState = () => {
-    if (!roomId || roomBusy) return;
-    setLocalRoomDirty(false);
-    setRoomSyncMessage('');
-    setRoomLoaded(false);
   };
 
   const actions = (
