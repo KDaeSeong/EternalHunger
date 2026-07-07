@@ -92,6 +92,7 @@ npm run build
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveReportTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveGrowthTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveInventoryTab.js`
+- Primitive Archive play route content now lives in `client/src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js`; `play/page.js` is now a thin entrypoint.
 - BA Vanguard large feature tab JSX now lives in `client/src/app/games/ba-vanguard/_components/BaVanguardFeatureTabs.js`.
 - BA Vanguard feature tabs are split into:
   - `client/src/app/games/ba-vanguard/_components/BaVanguardDuelTab.js`
