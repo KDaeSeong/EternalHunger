@@ -121,6 +121,7 @@ npm run build
   - `client/src/app/games/ba-srpg/_components/BaSrpgBattleTab.js`
   - `client/src/app/games/ba-srpg/_components/BaSrpgInventoryTab.js`
 - BA SRPG battle tab now has a mission overlay fed by `getBattleMissionOverlay`, showing active objective, star conditions, turn pressure, power gap, rewards, priority threats, and recommendations.
+- BA SRPG mission prep now has mission-specific formation presets fed by `formationPresetRows` and applied through `applyFormationPresetAction`, so lineup order can be tuned for balanced, assault, guard, or ranged openings before starting a mission.
 - MyAnimeCraft Starleague large feature tab JSX now lives in `client/src/app/games/myanimecraft/_components/MyAnimeCraftFeatureTabs.js`.
 - MyAnimeCraft Starleague feature tabs are split into:
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftLeagueTab.js`

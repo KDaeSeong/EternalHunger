@@ -964,6 +964,164 @@ export function setFormationAction(state, studentId, selected) {
   }, `편성 변경: ${nextIds.map((id) => STUDENTS.find((student) => student.id === id)?.name || id).join(', ')}`);
 }
 
+const FORMATION_PRESETS = [
+  {
+    id: 'balanced',
+    name: '균형 전개',
+    badge: '안정',
+    intent: '탱커와 방어 학생을 먼저 세워 기본 교전 손실을 줄입니다.',
+    order: ['s_hoshino', 's_yuuka', 's_mika', 's_noa'],
+  },
+  {
+    id: 'assault',
+    name: '돌격 압박',
+    badge: '속공',
+    intent: '미카를 선봉으로 올려 낮은 방어 적과 턴 압박 임무를 빠르게 끝냅니다.',
+    order: ['s_mika', 's_hoshino', 's_noa', 's_yuuka'],
+  },
+  {
+    id: 'guard',
+    name: '방어 선봉',
+    badge: '생존',
+    intent: '유우카와 호시노를 앞세워 Hard 이상 임무의 집중 피해를 받아냅니다.',
+    order: ['s_yuuka', 's_hoshino', 's_noa', 's_mika'],
+  },
+  {
+    id: 'ranged',
+    name: '지원 사격',
+    badge: '사거리',
+    intent: '노아를 먼저 조작해 저격수와 드론을 초반부터 견제합니다.',
+    order: ['s_noa', 's_mika', 's_hoshino', 's_yuuka'],
+  },
+];
+
+function studentById(studentId) {
+  return STUDENTS.find((student) => student.id === studentId) || null;
+}
+
+function studentPower(student) {
+  if (!student) return 0;
+  return Number(student.hp || 0)
+    + Number(student.atk || 0) * 4
+    + Number(student.def || 0) * 3
+    + Number(student.range || 0) * 5
+    + Number(student.move || 0) * 4;
+}
+
+function formationPowerForIds(state, studentIds) {
+  const current = normalizeState(state);
+  const bonus = weaponBonus(current);
+  const ids = normalizeFormationIds(studentIds);
+  return ids.reduce((sum, studentId) => {
+    const student = studentById(studentId);
+    return sum + Math.max(0, Number(student?.hp || 0)) + Number(student?.atk || 0) * 4 + Number(student?.def || 0) * 2;
+  }, 0) + bonus.atk * 12 + bonus.acc * 3;
+}
+
+function missionThreatProfile(mission) {
+  const enemies = Array.isArray(mission?.enemies) ? mission.enemies : [];
+  const count = enemies.length;
+  const totalAtk = enemies.reduce((sum, enemy) => sum + Number(enemy.atk || 0), 0);
+  const totalDef = enemies.reduce((sum, enemy) => sum + Number(enemy.def || 0), 0);
+  const maxHp = enemies.reduce((max, enemy) => Math.max(max, Number(enemy.hp || 0)), 0);
+  const maxRange = enemies.reduce((max, enemy) => Math.max(max, Number(enemy.range || 1)), 1);
+  const rangedCount = enemies.filter((enemy) => Number(enemy.range || 1) >= 3).length;
+  const fastCount = enemies.filter((enemy) => Number(enemy.move || 0) >= 3).length;
+  const armoredCount = enemies.filter((enemy) => Number(enemy.def || 0) >= 5).length;
+  const rule = difficultyRule(mission?.difficulty);
+  return {
+    count,
+    avgAtk: count ? totalAtk / count : 0,
+    avgDef: count ? totalDef / count : 0,
+    maxHp,
+    maxRange,
+    rangedCount,
+    fastCount,
+    armoredCount,
+    difficultyId: rule.id,
+    targetTurn: Number(rule.targetTurn || mission?.targetTurn || 10),
+  };
+}
+
+function formationPresetScore(preset, profile, powerGap) {
+  let score = 50 + Math.min(24, Math.max(-18, Number(powerGap || 0) / 6));
+  if (preset.id === 'balanced') score += 8 + Math.min(8, profile.fastCount * 3);
+  if (preset.id === 'assault') {
+    score += profile.targetTurn <= 8 ? 15 : 4;
+    score += profile.armoredCount > 0 || profile.maxHp >= 80 ? 10 : 0;
+    score += profile.count <= 3 ? 4 : 0;
+  }
+  if (preset.id === 'guard') {
+    score += ['hard', 'veryhard'].includes(profile.difficultyId) ? 18 : 4;
+    score += profile.avgAtk >= 12 ? 8 : 0;
+    score += profile.count >= 4 ? 6 : 0;
+  }
+  if (preset.id === 'ranged') {
+    score += profile.rangedCount >= 2 ? 14 : profile.maxRange >= 4 ? 10 : 2;
+    score += profile.fastCount >= 2 ? 5 : 0;
+  }
+  return Math.round(clamp(score, 1, 99));
+}
+
+function formationPresetReason(preset, profile) {
+  if (preset.id === 'assault' && (profile.armoredCount > 0 || profile.maxHp >= 80)) return '고체력/고방어 적을 빠르게 압박합니다.';
+  if (preset.id === 'assault') return '목표 턴 단축과 초반 화력 집중에 유리합니다.';
+  if (preset.id === 'guard' && ['hard', 'veryhard'].includes(profile.difficultyId)) return '고난도 임무의 생존 별 조건을 노립니다.';
+  if (preset.id === 'guard') return '평균 공격력이 높은 적을 안정적으로 받아냅니다.';
+  if (preset.id === 'ranged' && profile.rangedCount >= 2) return '저격수/드론 계열을 먼저 견제합니다.';
+  if (preset.id === 'ranged') return '사거리 우위를 확보해 안전한 첫 턴을 만듭니다.';
+  return '범용 배치로 탱킹, 공격, 지원의 균형을 맞춥니다.';
+}
+
+export function formationPresetRows(state, missionId) {
+  const current = normalizeState(state);
+  const mission = getMission(missionId || current.selectedMissionId);
+  const profile = missionThreatProfile(mission);
+  const rows = FORMATION_PRESETS.map((preset) => {
+    const presetOrder = [
+      ...preset.order,
+      ...STUDENTS.map((student) => student.id).filter((studentId) => !preset.order.includes(studentId)),
+    ];
+    const studentIds = normalizeFormationIds(presetOrder);
+    const students = studentIds.map(studentById).filter(Boolean);
+    const power = formationPowerForIds(current, studentIds);
+    const powerGap = power - Number(mission.recommendedPower || 0);
+    const fitScore = formationPresetScore(preset, profile, powerGap);
+    const successPct = Math.round(clamp(45 + fitScore * 0.45 + Math.max(-12, Math.min(10, powerGap / 12)), 5, 96));
+    return {
+      ...preset,
+      studentIds,
+      students,
+      names: students.map((student) => student.name),
+      orderText: students.map((student, index) => `${index + 1}.${student.name}`).join(' / '),
+      power,
+      powerGap,
+      fitScore,
+      successPct,
+      reason: formationPresetReason(preset, profile),
+      threatText: `적 ${profile.count} · 원거리 ${profile.rangedCount} · 최대 사거리 ${profile.maxRange}`,
+    };
+  }).sort((a, b) => (
+    Number(b.fitScore || 0) - Number(a.fitScore || 0)
+      || Number(b.power || 0) - Number(a.power || 0)
+      || String(a.id).localeCompare(String(b.id))
+  ));
+  return rows.map((row, index) => ({ ...row, recommended: index === 0 }));
+}
+
+export function applyFormationPresetAction(state, presetId, missionId) {
+  const current = normalizeState(state);
+  const mission = getMission(missionId || current.selectedMissionId);
+  const presets = formationPresetRows(current, mission.id);
+  const preset = presets.find((row) => row.id === presetId) || presets[0];
+  if (!preset) return current;
+  return addLog({
+    ...current,
+    selectedMissionId: mission.id,
+    selectedStudentIds: normalizeFormationIds(preset.studentIds),
+  }, `편성 프리셋 적용: ${preset.name} - ${preset.orderText}`);
+}
+
 export function selectUnitAction(state, unitId) {
   const current = normalizeState(state);
   return {
@@ -1629,7 +1787,7 @@ export function formationRows(state) {
     ...student,
     selected: selectedIds.includes(student.id),
     order: selectedIds.indexOf(student.id) + 1,
-    power: Number(student.hp || 0) + Number(student.atk || 0) * 4 + Number(student.def || 0) * 3 + Number(student.range || 0) * 5 + Number(student.move || 0) * 4,
+    power: studentPower(student),
   }));
 }
 

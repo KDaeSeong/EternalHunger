@@ -24,6 +24,7 @@ import {
   createNewState,
   edictRows,
   equipmentRows,
+  formationPresetRows,
   getCampaignExpansionReport,
   formationRows,
   getCampaignReport,
@@ -77,6 +78,7 @@ export default function BaSrpgPlayPage() {
   const selectedCanAct = battle.phase === 'player' && selectedUnit && !selectedUnit.acted && Number(selectedUnit.ap || 0) > 0;
   const targetEnemy = battle.enemies.find((enemy) => enemy.id === battle.targetEnemyId && enemy.hp > 0);
   const formation = useMemo(() => formationRows(state), [state]);
+  const formationPresets = useMemo(() => formationPresetRows(state, missionId), [state, missionId]);
   const rows = useMemo(() => inventoryRows(state), [state]);
   const equips = useMemo(() => equipmentRows(state), [state]);
   const quests = useMemo(() => questRows(state), [state]);
@@ -301,6 +303,7 @@ export default function BaSrpgPlayPage() {
         failed={failed}
         formation={formation}
         formationCount={formationCount}
+        formationPresets={formationPresets}
         guildRank={guildRank}
         handleCellClick={handleCellClick}
         mission={mission}

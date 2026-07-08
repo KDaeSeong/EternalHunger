@@ -1,6 +1,7 @@
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   MAX_FORMATION_SIZE,
+  applyFormationPresetAction,
   attackSelectedAction,
   autoPlayerTurnAction,
   consumeBandageAction,
@@ -19,6 +20,7 @@ export default function BaSrpgMissionTab(props) {
     campaignReport,
     formation,
     formationCount,
+    formationPresets,
     mission,
     missionId,
     operationBriefing,
@@ -163,6 +165,28 @@ export default function BaSrpgMissionTab(props) {
             <h2>출전 편성</h2>
             <span>{formationCount}/{MAX_FORMATION_SIZE}</span>
           </div>
+          {Array.isArray(formationPresets) && formationPresets.length ? (
+            <div className="game-save-list" style={{ marginBottom: 12 }}>
+              {formationPresets.slice(0, 4).map((preset) => (
+                <article className="game-save-row" key={preset.id}>
+                  <div>
+                    <span>{preset.recommended ? '추천' : preset.badge} · 적합도 {preset.fitScore} · 예상 {preset.successPct}%</span>
+                    <strong>{preset.name}</strong>
+                    <small>{preset.reason}</small>
+                    <small>{preset.orderText}</small>
+                    <small>{preset.threatText} · 전투력 {preset.power.toLocaleString('ko-KR')} ({preset.powerGap >= 0 ? '+' : ''}{preset.powerGap})</small>
+                  </div>
+                  <button
+                    type="button"
+                    className="tcg-primary-action"
+                    onClick={() => setState((current) => applyFormationPresetAction(current, preset.id, missionId))}
+                  >
+                    적용
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
           <div className="game-save-list">
             {formation.map((student) => (
               <article className="game-save-row" key={student.id}>
