@@ -192,6 +192,27 @@ export default function BaSrpgBattleTab(props) {
           </div>
         </section>
 
+        {battleForecast.statusRows?.length ? (
+          <section className="games-panel">
+            <div className="games-panel-title">
+              <h2>상태 효과 예고</h2>
+              <span>{battleForecast.statusSummary}</span>
+            </div>
+            <div className="game-save-list">
+              {battleForecast.statusRows.map((row) => (
+                <article className="game-save-row" key={row.id}>
+                  <div>
+                    <span>{row.sideLabel} · {row.actorName}</span>
+                    <strong>{row.label}</strong>
+                    <small>{row.detail}</small>
+                  </div>
+                  <strong>{row.value}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="games-panel">
           <div className="games-panel-title">
             <h2>전술 HUD</h2>

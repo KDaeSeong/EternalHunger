@@ -616,6 +616,18 @@ function hasStatus(actor, statusId) {
   return Array.isArray(actor?.statuses) && actor.statuses.some((status) => status.id === statusId && Number(status.duration || 0) > 0);
 }
 
+function isActionLockedByStatus(actor) {
+  return hasStatus(actor, 'st_stun');
+}
+
+function statusActionBlockText(actor) {
+  return isActionLockedByStatus(actor) ? `${actor?.name || '대상'}은(는) 기절 상태라 행동할 수 없습니다.` : '';
+}
+
+function canActorTakePlayerAction(actor) {
+  return Boolean(actor?.hp > 0 && !actor.acted && Number(actor.ap || 0) > 0 && !isActionLockedByStatus(actor));
+}
+
 function statusLabel(status) {
   const def = STATUS_DEFS[status?.id];
   if (!def) return '';
@@ -740,6 +752,73 @@ function processRoundEndTicks(battle) {
   };
 }
 
+function statusTickPreview(actor) {
+  const statuses = Array.isArray(actor?.statuses) ? actor.statuses : [];
+  const rawDamage = statuses.reduce((sum, status) => {
+    const def = STATUS_DEFS[status?.id];
+    if (!def || def.kind !== 'DoT' || Number(status.duration || 0) <= 0) return sum;
+    return sum + (Number(def.tickDamage || 0) * Math.max(1, Number(status.stacks || 1)));
+  }, 0);
+  const shieldAbsorb = Math.min(Number(actor?.shield?.amount || 0), rawDamage);
+  return {
+    rawDamage,
+    shieldAbsorb,
+    hpDamage: Math.max(0, rawDamage - shieldAbsorb),
+  };
+}
+
+function battleStatusRows(battle) {
+  const rows = [];
+  const collect = (actor, side) => {
+    const sideLabel = side === 'ally' ? '아군' : '적';
+    if (Number(actor?.shield?.amount || 0) > 0) {
+      rows.push({
+        id: `${side}-${actor.id}-shield`,
+        side,
+        sideLabel,
+        actorId: actor.id,
+        actorName: actor.name,
+        label: '보호막',
+        value: `${actor.shield.amount}`,
+        detail: `남은 ${actor.shield.duration}턴 동안 먼저 피해를 흡수합니다.`,
+        priority: side === 'ally' ? 58 : 42,
+      });
+    }
+    (Array.isArray(actor?.statuses) ? actor.statuses : []).forEach((status) => {
+      const def = STATUS_DEFS[status?.id];
+      if (!def || Number(status.duration || 0) <= 0) return;
+      const stacks = Math.max(1, Number(status.stacks || 1));
+      const tickDamage = def.kind === 'DoT' ? Number(def.tickDamage || 0) * stacks : 0;
+      const hpDamage = tickDamage ? Math.max(0, tickDamage - Number(actor?.shield?.amount || 0)) : 0;
+      const controlDetail = status.id === 'st_stun'
+        ? `${sideLabel} ${actor.name}은(는) 이번 행동 순서를 건너뜁니다.`
+        : status.id === 'st_confuse'
+          ? `명중률 ${Math.abs(Math.round(Number(def.accuracyMod || 0) * 100))}% 감소가 적용됩니다.`
+          : `${def.name} 상태가 유지됩니다.`;
+      rows.push({
+        id: `${side}-${actor.id}-${status.id}`,
+        side,
+        sideLabel,
+        actorId: actor.id,
+        actorName: actor.name,
+        statusId: status.id,
+        label: def.name,
+        value: def.kind === 'DoT' ? `${tickDamage} 피해` : `${status.duration}턴`,
+        detail: def.kind === 'DoT'
+          ? `라운드 종료 때 ${tickDamage} 피해${stacks > 1 ? ` (${stacks}중첩)` : ''}${hpDamage !== tickDamage ? `, 보호막 후 HP ${hpDamage}` : ''}.`
+          : controlDetail,
+        hpDamage,
+        priority: (side === 'ally' ? 60 : 40)
+          + (status.id === 'st_stun' ? 28 : 0)
+          + (def.kind === 'DoT' ? tickDamage : 0),
+      });
+    });
+  };
+  (Array.isArray(battle?.units) ? battle.units : []).filter((unit) => unit.hp > 0).forEach((unit) => collect(unit, 'ally'));
+  (Array.isArray(battle?.enemies) ? battle.enemies : []).filter((enemy) => enemy.hp > 0).forEach((enemy) => collect(enemy, 'enemy'));
+  return rows.sort((a, b) => b.priority - a.priority || a.actorName.localeCompare(b.actorName)).slice(0, 8);
+}
+
 function aliveUnits(battle) {
   return battle.units.filter((unit) => unit.hp > 0);
 }
@@ -749,7 +828,7 @@ function aliveEnemies(battle) {
 }
 
 function allAliveUnitsDone(battle) {
-  return aliveUnits(battle).every((row) => row.acted || Number(row.ap || 0) <= 0);
+  return aliveUnits(battle).every((row) => row.acted || Number(row.ap || 0) <= 0 || isActionLockedByStatus(row));
 }
 
 function finishPlayerAction(state, battle, message) {
@@ -907,6 +986,7 @@ export function moveSelectedAction(state, dx, dy) {
   if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '이동할 학생이 없습니다.');
+  if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
   if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const x = Number(unit.x || 0) + Number(dx || 0);
@@ -933,6 +1013,7 @@ export function attackSelectedAction(state, enemyId) {
   const unit = selectedUnit(battle);
   const enemy = battle.enemies.find((row) => row.id === enemyId && row.hp > 0) || selectedEnemy(battle);
   if (!unit || !enemy) return addLog(current, '공격 대상이 없습니다.');
+  if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
   if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   if (distance(unit, enemy) > Number(unit.range || 1)) return addLog(current, `${enemy.name}이(가) 사거리 밖입니다.`);
@@ -966,6 +1047,7 @@ export function executeSkillAction(state, skillId) {
   const skill = TACTICAL_SKILLS.find((row) => row.id === skillId) || TACTICAL_SKILLS[0];
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '스킬을 사용할 학생이 없습니다.');
+  if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
   if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) < Number(skill.apCost || 0)) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
 
@@ -1038,6 +1120,7 @@ export function consumeBandageAction(state) {
   const unit = selectedUnit(battle);
   if (!unit) return current;
   if (Number(current.inventory.con_bandage || 0) <= 0) return addLog(current, '붕대가 없습니다.');
+  if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
   if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const heal = 16;
@@ -1065,6 +1148,7 @@ export function waitSelectedUnitAction(state) {
   if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '대기할 학생이 없습니다.');
+  if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
   if (unit.acted || Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
 
   const nextBattle = {
@@ -1585,12 +1669,15 @@ export function tacticalSkillRows(state) {
   return TACTICAL_SKILLS.map((skill) => {
     const hasAp = unit && Number(unit.ap || 0) >= Number(skill.apCost || 0);
     const inPhase = battle.phase === 'player';
+    const lockedByStatus = Boolean(unit && isActionLockedByStatus(unit));
     const targetDistance = skill.target === 'enemy' && unit && enemy ? distance(unit, enemy) : 0;
     const inRange = skill.target !== 'enemy' || (targetDistance >= Number(skill.rangeMin || 0) && targetDistance <= Number(skill.rangeMax || 1));
-    const canUse = Boolean(inPhase && unit?.hp > 0 && hasAp && inRange);
+    const canUse = Boolean(inPhase && unit?.hp > 0 && !unit.acted && !lockedByStatus && hasAp && inRange);
     let note = skill.desc;
     if (!inPhase) note = '플레이어 턴 아님';
     else if (!unit || unit.hp <= 0) note = '사용할 학생 없음';
+    else if (lockedByStatus) note = statusActionBlockText(unit);
+    else if (unit.acted) note = '이미 행동 완료';
     else if (!hasAp) note = `AP ${skill.apCost} 필요`;
     else if (!inRange) note = `거리 ${targetDistance} / 사거리 ${skill.rangeMin}-${skill.rangeMax}`;
     return {
@@ -1662,7 +1749,8 @@ function statusExpectedScore(skill, hitChance) {
 
 function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
   const phaseReady = battle.phase === 'player';
-  const unitReady = Boolean(unit?.hp > 0 && !unit.acted);
+  const lockedByStatus = Boolean(unit && isActionLockedByStatus(unit));
+  const unitReady = Boolean(unit?.hp > 0 && !unit.acted && !lockedByStatus);
   const hasAp = Boolean(unit && Number(unit.ap || 0) >= Number(skill.apCost || 0));
   if (skill.target === 'self') {
     const missingHp = Math.max(0, Number(unit?.maxHp || 0) - Number(unit?.hp || 0));
@@ -1692,6 +1780,8 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
         : shieldValue ? `보호막 ${shieldValue} 부여` : '현재 회복/보호막 효율이 낮습니다.',
       reason: !phaseReady
         ? '플레이어 턴 아님'
+        : lockedByStatus
+          ? statusActionBlockText(unit)
         : !unitReady
           ? '행동 가능한 학생 없음'
           : !hasAp
@@ -1772,6 +1862,8 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
     detail: `${expectedHpDamage} 기대 피해 · 명중 ${Math.round(hitChance * 100)}%${statusDef ? ` · ${statusDef.name} 기대 ${statusExpectedPct}%` : ''}${lethal ? ' · 마무리 가능' : ''}`,
     reason: !phaseReady
       ? '플레이어 턴 아님'
+      : lockedByStatus
+        ? statusActionBlockText(unit)
       : !unitReady
         ? '행동 가능한 학생 없음'
         : !hasAp
@@ -1928,14 +2020,22 @@ export function getBattleForecast(state) {
   const enemyPlans = enemies
     .map((enemy) => forecastEnemyAction(enemy, battle))
     .filter(Boolean);
+  const statusRows = battleStatusRows(battle);
   const threatByUnit = new Map(units.map((unit) => [unit.id, {
+    ...(() => {
+      const statusDamage = statusTickPreview(unit);
+      return {
+        incomingExpected: statusDamage.hpDamage,
+        maxHit: statusDamage.hpDamage,
+        attackers: statusDamage.hpDamage > 0 ? ['상태 피해'] : [],
+        statusExpectedDamage: statusDamage.hpDamage,
+        statusRawDamage: statusDamage.rawDamage,
+      };
+    })(),
     unitId: unit.id,
     unitName: unit.name,
     hp: Number(unit.hp || 0),
     maxHp: Number(unit.maxHp || unit.hp || 0),
-    incomingExpected: 0,
-    maxHit: 0,
-    attackers: [],
     lethal: false,
     inCover: tileDefense(unit.x, unit.y) > 0,
   }]));
@@ -1951,19 +2051,22 @@ export function getBattleForecast(state) {
 
   const unitThreats = [...threatByUnit.values()].map((row) => {
     const hpRatioAfter = row.hp <= 0 ? 0 : Math.max(0, Math.round(((row.hp - row.incomingExpected) / Math.max(1, row.maxHp)) * 100));
+    const lethalByStatus = Number(row.statusExpectedDamage || 0) >= row.hp;
+    const lethal = row.lethal || lethalByStatus;
     const riskScore = Math.round(clamp(
       (row.incomingExpected / Math.max(1, row.hp)) * 100
-        + (row.lethal ? 45 : 0)
+        + (lethal ? 45 : 0)
         + (row.inCover ? -10 : 0),
       0,
       160,
     ));
     return {
       ...row,
+      lethal,
       incomingExpected: Math.round(row.incomingExpected),
       hpRatioAfter,
       riskScore,
-      riskLabel: row.lethal ? '격파 위험' : riskScore >= 70 ? '고위험' : riskScore >= 35 ? '주의' : '안정',
+      riskLabel: lethal ? '격파 위험' : riskScore >= 70 ? '고위험' : riskScore >= 35 ? '주의' : '안정',
       attackersText: row.attackers.length ? row.attackers.join(', ') : '없음',
     };
   }).sort((a, b) => b.riskScore - a.riskScore);
@@ -1990,7 +2093,7 @@ export function getBattleForecast(state) {
     if (a.inRange !== b.inRange) return a.inRange ? -1 : 1;
     return b.expectedHpDamage - a.expectedHpDamage;
   });
-  const selectedCanAct = Boolean(battle.phase === 'player' && selected?.hp > 0 && !selected.acted && Number(selected.ap || 0) > 0);
+  const selectedCanAct = Boolean(battle.phase === 'player' && canActorTakePlayerAction(selected));
   const skillPreviews = skillPreviewRows(selected, enemies, battle, bonus);
   const actionRows = [
     selectedAttacks[0] ? {
@@ -2030,9 +2133,17 @@ export function getBattleForecast(state) {
   const topThreat = unitThreats[0] || null;
   const highThreatCount = unitThreats.filter((row) => row.riskScore >= 70).length;
   const incomingTotal = unitThreats.reduce((sum, row) => sum + row.incomingExpected, 0);
-  const exposedUnits = unitThreats.filter((row) => !row.inCover && row.attackers.length).length;
+  const exposedUnits = unitThreats.filter((row) => !row.inCover && row.attackers.some((attacker) => attacker !== '상태 피해')).length;
+  const allyStatusDamage = statusRows
+    .filter((row) => row.side === 'ally' && Number(row.hpDamage || 0) > 0)
+    .sort((a, b) => Number(b.hpDamage || 0) - Number(a.hpDamage || 0))[0] || null;
+  const stunnedEnemyNames = statusRows
+    .filter((row) => row.side === 'enemy' && row.statusId === 'st_stun')
+    .map((row) => row.actorName);
   const recommendations = [];
   if (topThreat?.riskScore >= 70) recommendations.push(`${topThreat.unitName} 보호: 엄폐 이동, 방어 태세, 붕대 사용을 우선하세요.`);
+  if (allyStatusDamage) recommendations.push(`${allyStatusDamage.actorName}에게 상태 피해 ${allyStatusDamage.hpDamage}이(가) 예정되어 있습니다. 보호막이나 응급 처치를 고려하세요.`);
+  if (stunnedEnemyNames.length) recommendations.push(`${stunnedEnemyNames.slice(0, 2).join(', ')}은(는) 이번 적 턴 행동하지 못합니다. 남은 적을 정리하세요.`);
   if (actionRows[0]?.enabled) recommendations.push(`최우선 행동: ${actionRows[0].label} - ${actionRows[0].title}.`);
   if (selectedAttacks[0]?.lethal) recommendations.push(`${selected?.name || '선택 유닛'}으로 ${selectedAttacks[0].enemyName} 마무리가 가능합니다.`);
   if (skillPreviews[0]?.canUse && skillPreviews[0].statusName) recommendations.push(`${skillPreviews[0].skillName}으로 ${skillPreviews[0].statusName} 기대값을 확보할 수 있습니다.`);
@@ -2057,6 +2168,10 @@ export function getBattleForecast(state) {
       const rank = { high: 0, normal: 1, low: 2 };
       return (rank[a.priority] ?? 1) - (rank[b.priority] ?? 1) || b.expectedHpDamage - a.expectedHpDamage;
     }),
+    statusRows,
+    statusSummary: statusRows.length
+      ? `${statusRows.length}개 효과 · 상태 피해 ${statusRows.reduce((sum, row) => sum + Number(row.hpDamage || 0), 0)}`
+      : '상태 효과 없음',
     unitThreats,
     selectedAttacks,
     skillPreviews,
