@@ -42,7 +42,7 @@ export function getLumiaZoneArea(zoneId) {
 export function getLumiaZoneAreaWeight(zoneId) {
   const area = getLumiaZoneArea(zoneId);
   if (!area || !LUMIA_AVERAGE_ZONE_AREA) return 1;
-  return Math.max(0.7, Math.min(1.35, area / LUMIA_AVERAGE_ZONE_AREA));
+  return Math.max(0.55, Math.min(1.6, area / LUMIA_AVERAGE_ZONE_AREA));
 }
 
 export function getLumiaZoneDistance(fromZoneId, toZoneId) {
