@@ -71,7 +71,7 @@ export default function SimulationMinimapCanvas({
 
   return (
     <div className="minimap-canvas">
-      <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
+      <svg className="minimap-svg" viewBox="-2 0 104 106" role="img" aria-label="미니맵">
         <polygon
           className="minimap-island-outline"
           points={polygonPoints(LUMIA_ISLAND_OUTLINE)}

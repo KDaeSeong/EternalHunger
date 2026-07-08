@@ -22,6 +22,7 @@ import {
   resolveActorMoveTargetMemory,
   resolveActorNextMoveZone,
 } from './actorMovementDecisionHelpers';
+import { getLumiaWalkEtaSec } from './lumiaMapGeometryRuntime';
 
 export {
   applyActorKnockbackMovement,
@@ -217,10 +218,13 @@ export function runActorMovementDecisionPhase({
   });
   const nextZoneId = nextMove.nextZoneId;
   const usedHyperloopMove = isHyperloopTransit(currentZone, nextZoneId);
-  const moveEtaSec = usedHyperloopMove ? hyperloopDelaySec : 1;
-  if (usedHyperloopMove) reserveActionSecond(moveEtaSec);
+  const didChangeZone = String(nextZoneId) !== String(currentZone);
+  const moveEtaSec = usedHyperloopMove
+    ? hyperloopDelaySec
+    : (didChangeZone ? getLumiaWalkEtaSec(currentZone, nextZoneId) : 1);
+  if (didChangeZone && moveEtaSec > 1) reserveActionSecond(moveEtaSec);
 
-  if (String(nextZoneId) !== String(currentZone)) {
+  if (didChangeZone) {
     if (usedHyperloopMove) {
       addLog(`🌀 [${updated.name}] 하이퍼루프 이동(3초): ${getZoneName(currentZone)} → ${getZoneName(nextZoneId)}`, 'highlight');
     } else if (mustEscape) {
