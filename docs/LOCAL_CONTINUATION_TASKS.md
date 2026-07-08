@@ -123,6 +123,7 @@ npm run build
 - BA SRPG battle tab now has a mission overlay fed by `getBattleMissionOverlay`, showing active objective, star conditions, turn pressure, power gap, rewards, priority threats, and recommendations.
 - BA SRPG mission prep now has mission-specific formation presets fed by `formationPresetRows` and applied through `applyFormationPresetAction`, so lineup order can be tuned for balanced, assault, guard, or ranged openings before starting a mission.
 - BA SRPG roster now expands from the initial four-person sample to eight selectable students, and each student owns a limited tactical skill list. Formation cards show each student's usable skills/profile, while tactical skill rows, forecasts, HUD action recommendations, and execution now filter by the selected student's owned skills instead of exposing every global skill to everyone.
+- BA SRPG town/economy tab now has district-based facility tiles for guild/shop/craft/inn property state plus edict affordances. The tiles surface ownership, rental, leasing, active effects, costs, and direct action buttons while keeping the existing detailed property/edict forms.
 - MyAnimeCraft Starleague large feature tab JSX now lives in `client/src/app/games/myanimecraft/_components/MyAnimeCraftFeatureTabs.js`.
 - MyAnimeCraft Starleague feature tabs are split into:
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftLeagueTab.js`
