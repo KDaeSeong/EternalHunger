@@ -2066,6 +2066,104 @@ export function getBattleForecast(state) {
   };
 }
 
+export function getBattleMissionOverlay(state) {
+  const current = normalizeState(state);
+  const battle = normalizeBattle(current.battle, current.selectedStudentIds);
+  const mission = getMission(battle.missionId);
+  const campaignRow = getCampaignReport(current).missionRows.find((row) => row.id === mission.id) || {};
+  const operation = getOperationBriefing(current);
+  const operationRow = operation.missionRows.find((row) => row.id === mission.id) || {};
+  const forecast = getBattleForecast(current);
+  const targetTurn = missionStarTargetTurn(mission);
+  const turn = Math.max(1, Math.floor(Number(battle.turn || 1)));
+  const remainingTurns = Math.max(0, targetTurn - turn);
+  const units = Array.isArray(battle.units) ? battle.units : [];
+  const enemies = Array.isArray(battle.enemies) ? battle.enemies : [];
+  const aliveUnitCount = units.filter((unit) => Number(unit.hp || 0) > 0).length;
+  const aliveEnemyCount = enemies.filter((enemy) => Number(enemy.hp || 0) > 0).length;
+  const rangedThreats = enemies
+    .filter((enemy) => Number(enemy.hp || 0) > 0)
+    .map((enemy) => ({
+      id: enemy.id,
+      name: enemy.name,
+      range: Number(enemy.range || 1),
+      atk: Number(enemy.atk || 0),
+      hp: Number(enemy.hp || 0),
+      priority: Number(enemy.range || 1) * 12 + Number(enemy.atk || 0) + Number(enemy.hp || 0) * 0.15,
+    }))
+    .sort((a, b) => b.priority - a.priority || b.range - a.range)
+    .slice(0, 3);
+  const starResult = missionStarResult(mission, battle);
+  const fastClearDone = battle.phase === 'cleared' ? starResult.fastClear : turn <= targetTurn;
+  const allSurvivedDone = battle.phase === 'cleared' ? starResult.allSurvived : aliveUnitCount === units.length;
+  const headline = `${mission.name} · ${difficultyLabel(mission.difficulty)} · ${battle.phase === 'player' ? `${turn}턴 진행` : battle.phase}`;
+  const turnTone = battle.phase === 'cleared'
+    ? '완료'
+    : remainingTurns <= 0
+      ? '초과'
+      : remainingTurns <= 2
+        ? '압박'
+        : '여유';
+  const starRows = [
+    {
+      id: 'clear',
+      label: '클리어',
+      value: battle.phase === 'cleared' ? '완료' : `${aliveEnemyCount}/${enemies.length} 적 생존`,
+      done: battle.phase === 'cleared',
+    },
+    {
+      id: 'survive',
+      label: '전원 생존',
+      value: `${aliveUnitCount}/${units.length}`,
+      done: allSurvivedDone,
+    },
+    {
+      id: 'fast',
+      label: `${targetTurn}턴 이내`,
+      value: `${turn}턴 · ${turnTone}`,
+      done: fastClearDone,
+    },
+  ];
+  const recommendations = [];
+  if (battle.phase === 'cleared') {
+    recommendations.push(`별 ${starResult.stars}/3. ${starResult.fastClear ? '턴 조건까지 충족했습니다.' : `${targetTurn}턴 조건은 다음 재도전 목표입니다.`}`);
+  } else {
+    if (remainingTurns <= 2 && aliveEnemyCount > 0) recommendations.push(`턴 조건이 빡빡합니다. 남은 적 ${aliveEnemyCount}명을 먼저 줄이세요.`);
+    if (forecast.bestAction?.enabled) recommendations.push(`즉시 행동: ${forecast.bestAction.label} - ${forecast.bestAction.title}.`);
+    if (forecast.highThreatCount > 0) recommendations.push(`고위험 아군 ${forecast.highThreatCount}명 보호가 우선입니다.`);
+    if (operationRow.powerGap < 0) recommendations.push(`권장 전투력보다 ${Math.abs(operationRow.powerGap)} 낮습니다. 붕대/엄폐를 적극 활용하세요.`);
+    if (rangedThreats[0]?.range >= 4) recommendations.push(`${rangedThreats[0].name}의 사거리 ${rangedThreats[0].range}을 먼저 의식하세요.`);
+  }
+  if (!recommendations.length) recommendations.push(mission.caution || '현재 임무 주의사항을 확인하세요.');
+
+  return {
+    headline,
+    objective: mission.objective,
+    caution: mission.caution,
+    region: mission.region,
+    difficultyLabel: difficultyLabel(mission.difficulty),
+    targetTurn,
+    turn,
+    remainingTurns,
+    turnTone,
+    recommendedPower: Number(mission.recommendedPower || 0),
+    currentPower: battlePower(current),
+    powerGap: Number(campaignRow.powerGap ?? operationRow.powerGap ?? 0),
+    successPct: Number(operationRow.successPct || 0),
+    riskLabel: operationRow.riskLabel || operationRiskLabel(operationRow.successPct || 0, false),
+    rewardText: operationRow.rewardText || expectedMissionRewardText(mission),
+    enemyCount: enemies.length,
+    aliveEnemyCount,
+    aliveUnitCount,
+    unitCount: units.length,
+    coverCount: COVER.size,
+    obstacleCount: OBSTACLES.size,
+    starRows,
+    threatRows: rangedThreats,
+    recommendations: [...new Set(recommendations)].slice(0, 4),
+  };
+}
+
 export function guildRankInfo(state) {
   const current = normalizeState(state);
   const rep = Math.max(0, Math.floor(Number(current.guildRep || 0)));

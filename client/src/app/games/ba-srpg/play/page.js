@@ -28,6 +28,7 @@ import {
   formationRows,
   getCampaignReport,
   getBattleForecast,
+  getBattleMissionOverlay,
   getBattlePresentationReport,
   getMission,
   getOperationBriefing,
@@ -90,6 +91,7 @@ export default function BaSrpgPlayPage() {
   const campaignExpansion = useMemo(() => getCampaignExpansionReport(state), [state]);
   const operationBriefing = useMemo(() => getOperationBriefing(state), [state]);
   const battleForecast = useMemo(() => getBattleForecast(state), [state]);
+  const battleMissionOverlay = useMemo(() => getBattleMissionOverlay(state), [state]);
   const battlePresentation = useMemo(() => getBattlePresentationReport(state), [state]);
   const score = scoreState(state);
   const power = battlePower(state);
@@ -289,6 +291,7 @@ export default function BaSrpgPlayPage() {
       <BaSrpgFeatureTabs
         battle={battle}
         battleForecast={battleForecast}
+        battleMissionOverlay={battleMissionOverlay}
         battlePresentation={battlePresentation}
         campaignExpansion={campaignExpansion}
         campaignReport={campaignReport}

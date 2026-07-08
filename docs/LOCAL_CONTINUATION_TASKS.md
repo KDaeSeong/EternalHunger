@@ -119,6 +119,7 @@ npm run build
   - `client/src/app/games/ba-srpg/_components/BaSrpgTownTab.js`
   - `client/src/app/games/ba-srpg/_components/BaSrpgBattleTab.js`
   - `client/src/app/games/ba-srpg/_components/BaSrpgInventoryTab.js`
+- BA SRPG battle tab now has a mission overlay fed by `getBattleMissionOverlay`, showing active objective, star conditions, turn pressure, power gap, rewards, priority threats, and recommendations.
 - MyAnimeCraft Starleague large feature tab JSX now lives in `client/src/app/games/myanimecraft/_components/MyAnimeCraftFeatureTabs.js`.
 - MyAnimeCraft Starleague feature tabs are split into:
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftLeagueTab.js`
@@ -374,6 +375,7 @@ After School Simulator, continue applying the same page split to:
 7. In progress: `client/src/app/games/ba-srpg/play/page.js`
    - Done: extract the large `GameFeatureTabs` JSX into `BaSrpgFeatureTabs.js`.
    - Done: split `BaSrpgFeatureTabs.js` into tab-group components.
+   - Done: add the battle-tab mission overlay through `getBattleMissionOverlay`.
    - Next: split `BaSrpgBattleTab.js` or `BaSrpgMissionTab.js` further only if tactical HUD/mission setup grows again.
 
 ## Suggested Validation Commands

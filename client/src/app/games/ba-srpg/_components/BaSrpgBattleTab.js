@@ -3,8 +3,12 @@ import {
   GRID,
   actorStatusText,
   attackSelectedAction,
+  buyItemAction,
   cellContent,
+  craftRecipeAction,
   executeSkillAction,
+  itemName,
+  refreshShopAction,
   selectEnemyAction,
 } from '../_lib/baSrpgEngine';
 
@@ -37,18 +41,23 @@ export default function BaSrpgBattleTab(props) {
   const {
     battle,
     battleForecast,
+    battleMissionOverlay,
     battlePresentation,
     handleCellClick,
     mission,
+    recipeId,
+    recipes,
+    selectedRecipe,
     setSkillId,
+    setRecipeId,
     setState,
+    shop,
     state,
+    town,
   } = props;
 
   return (
     <>
-              <>
-
       <section className="games-panel">
         <div className="games-panel-title">
           <h2>전장</h2>
@@ -70,6 +79,56 @@ export default function BaSrpgBattleTab(props) {
                 />
               );
             })
+          ))}
+        </div>
+      </section>
+
+      <section className="games-panel">
+        <div className="games-panel-title">
+          <h2>미션 오버레이</h2>
+          <span>{battleMissionOverlay.headline}</span>
+        </div>
+        <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
+          <strong>{battleMissionOverlay.objective}</strong>
+          <br />
+          {battleMissionOverlay.caution}
+        </div>
+        <div className="games-rank-split" style={{ marginBottom: 12 }}>
+          <SmallStat label="전력차" value={`${battleMissionOverlay.powerGap >= 0 ? '+' : ''}${battleMissionOverlay.powerGap}`} />
+          <SmallStat label="승산" value={`${battleMissionOverlay.successPct}%`} />
+          <SmallStat label="턴 조건" value={`${battleMissionOverlay.turn}/${battleMissionOverlay.targetTurn}`} />
+          <SmallStat label="적 생존" value={`${battleMissionOverlay.aliveEnemyCount}/${battleMissionOverlay.enemyCount}`} />
+          <SmallStat label="엄폐/장애물" value={`${battleMissionOverlay.coverCount}/${battleMissionOverlay.obstacleCount}`} />
+          <SmallStat label="보상" value={battleMissionOverlay.rewardText} />
+        </div>
+        <div className="game-save-list">
+          {battleMissionOverlay.starRows.map((row) => (
+            <article className="game-save-row" key={row.id}>
+              <div>
+                <span>{row.done ? '달성' : '진행 중'}</span>
+                <strong>{row.label}</strong>
+                <small>{row.value}</small>
+              </div>
+              <strong>{row.done ? 'OK' : '-'}</strong>
+            </article>
+          ))}
+          {battleMissionOverlay.recommendations.map((line, index) => (
+            <article className="game-save-row" key={`${line}-${index}`}>
+              <div>
+                <span>작전 추천 {index + 1}</span>
+                <strong>{line}</strong>
+              </div>
+            </article>
+          ))}
+          {battleMissionOverlay.threatRows.map((row) => (
+            <article className="game-save-row" key={row.id}>
+              <div>
+                <span>우선 표적 · 사거리 {row.range} · 공격 {row.atk}</span>
+                <strong>{row.name}</strong>
+                <small>HP {row.hp}. 장거리/고화력 적은 전투판에서 먼저 위치를 확인하세요.</small>
+              </div>
+              <strong>{row.range >= 4 ? '원거리' : '접근'}</strong>
+            </article>
           ))}
         </div>
       </section>
@@ -322,7 +381,6 @@ export default function BaSrpgBattleTab(props) {
           </div>
         </section>
       </section>
-              </>
     </>
   );
 }
