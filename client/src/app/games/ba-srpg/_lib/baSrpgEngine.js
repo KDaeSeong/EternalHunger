@@ -977,26 +977,51 @@ const FORMATION_PRESETS = [
     name: '돌격 압박',
     badge: '속공',
     intent: '미카를 선봉으로 올려 낮은 방어 적과 턴 압박 임무를 빠르게 끝냅니다.',
-    order: ['s_mika', 's_hoshino', 's_noa', 's_yuuka'],
+    order: ['s_mika', 's_shiroko', 's_hina', 's_hoshino'],
   },
   {
     id: 'guard',
     name: '방어 선봉',
     badge: '생존',
     intent: '유우카와 호시노를 앞세워 Hard 이상 임무의 집중 피해를 받아냅니다.',
-    order: ['s_yuuka', 's_hoshino', 's_noa', 's_mika'],
+    order: ['s_yuuka', 's_hoshino', 's_serika', 's_noa'],
   },
   {
     id: 'ranged',
     name: '지원 사격',
     badge: '사거리',
     intent: '노아를 먼저 조작해 저격수와 드론을 초반부터 견제합니다.',
-    order: ['s_noa', 's_mika', 's_hoshino', 's_yuuka'],
+    order: ['s_iori', 's_hina', 's_shiroko', 's_noa'],
   },
 ];
 
 function studentById(studentId) {
   return STUDENTS.find((student) => student.id === studentId) || null;
+}
+
+function skillById(skillId) {
+  return TACTICAL_SKILLS.find((skill) => skill.id === skillId) || null;
+}
+
+function skillIdsForUnit(unit) {
+  const student = studentById(unit?.id);
+  const ids = Array.isArray(unit?.skillIds) && unit.skillIds.length
+    ? unit.skillIds
+    : Array.isArray(student?.skillIds) ? student.skillIds : [];
+  const cleaned = ids.filter((skillId) => skillById(skillId));
+  return cleaned.length ? cleaned : TACTICAL_SKILLS.slice(0, 2).map((skill) => skill.id);
+}
+
+function skillsForUnit(unit) {
+  return skillIdsForUnit(unit)
+    .map(skillById)
+    .filter(Boolean);
+}
+
+function skillNameListForStudent(student) {
+  return skillIdsForUnit(student)
+    .map((skillId) => skillById(skillId)?.name || skillId)
+    .join(' / ');
 }
 
 function studentPower(student) {
@@ -1202,9 +1227,10 @@ export function executeSkillAction(state, skillId) {
   const current = normalizeState(state);
   const battle = current.battle;
   if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
-  const skill = TACTICAL_SKILLS.find((row) => row.id === skillId) || TACTICAL_SKILLS[0];
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '스킬을 사용할 학생이 없습니다.');
+  const skill = skillsForUnit(unit).find((row) => row.id === skillId);
+  if (!skill) return addLog(current, `${unit.name}은(는) 해당 전술 스킬을 사용할 수 없습니다.`);
   if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
   if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) < Number(skill.apCost || 0)) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
@@ -1788,6 +1814,7 @@ export function formationRows(state) {
     selected: selectedIds.includes(student.id),
     order: selectedIds.indexOf(student.id) + 1,
     power: studentPower(student),
+    skillText: skillNameListForStudent(student),
   }));
 }
 
@@ -1824,7 +1851,7 @@ export function tacticalSkillRows(state) {
   const battle = current.battle;
   const unit = selectedUnit(battle);
   const enemy = battle.enemies.find((row) => row.id === battle.targetEnemyId && row.hp > 0) || selectedEnemy(battle);
-  return TACTICAL_SKILLS.map((skill) => {
+  return skillsForUnit(unit).map((skill) => {
     const hasAp = unit && Number(unit.ap || 0) >= Number(skill.apCost || 0);
     const inPhase = battle.phase === 'player';
     const lockedByStatus = Boolean(unit && isActionLockedByStatus(unit));
@@ -1841,6 +1868,7 @@ export function tacticalSkillRows(state) {
     return {
       ...skill,
       canUse,
+      ownerName: unit?.name || '',
       targetName: skill.target === 'enemy' ? enemy?.name || '대상 없음' : unit?.name || '학생 없음',
       rangeText: skill.target === 'enemy' ? `${skill.rangeMin}-${skill.rangeMax}` : '자신',
       note,
@@ -2033,7 +2061,7 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
 }
 
 function skillPreviewRows(unit, enemies, battle, bonus) {
-  return TACTICAL_SKILLS.map((skill) => {
+  return skillsForUnit(unit).map((skill) => {
     if (skill.target === 'self') return skillPreviewForTarget(unit, null, skill, battle, bonus);
     const previews = enemies.map((enemy) => skillPreviewForTarget(unit, enemy, skill, battle, bonus));
     return previews.sort((a, b) => {

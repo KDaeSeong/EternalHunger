@@ -40,6 +40,7 @@ export default function BaSrpgMissionTab(props) {
     state,
     targetEnemy,
   } = props;
+  const activeSkillId = selectedSkill?.id || skillId;
 
   return (
     <>
@@ -194,6 +195,8 @@ export default function BaSrpgMissionTab(props) {
                   <span>{student.role} · 전투력 {student.power}{student.selected ? ` · ${student.order}번` : ''}</span>
                   <strong>{student.name}</strong>
                   <small>HP {student.hp} · 공격 {student.atk} · 방어 {student.def} · 사거리 {student.range} · 이동 {student.move}</small>
+                  <small>전술 스킬: {student.skillText || '-'}</small>
+                  <small>{student.tacticalProfile}</small>
                 </div>
                 <button
                   type="button"
@@ -239,7 +242,7 @@ export default function BaSrpgMissionTab(props) {
           </div>
           <label className="game-save-json-field">
             <span>전술 스킬</span>
-            <select value={skillId} onChange={(event) => setSkillId(event.target.value)}>
+            <select value={activeSkillId} onChange={(event) => setSkillId(event.target.value)}>
               {skills.map((skill) => (
                 <option value={skill.id} key={skill.id}>{skill.name} · AP {skill.apCost}</option>
               ))}
@@ -250,7 +253,7 @@ export default function BaSrpgMissionTab(props) {
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
-            <ActionButton disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, skillId))}>선택 스킬 사용</ActionButton>
+            <ActionButton disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
             <ActionButton
               disabled={!selectedCanAct || Number(state.inventory.con_bandage || 0) <= 0}
               onClick={() => setState((current) => consumeBandageAction(current))}

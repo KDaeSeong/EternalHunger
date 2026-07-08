@@ -144,11 +144,11 @@ Checked: 2026-07-04
 ## BA SRPG Slice Status
 
 - Route: `/games/ba-srpg/play`
-- Included loop: mission selection, tactical grid movement, AP, range, cover/obstacle tiles, enemy phase, mission rewards, inn rest with daily property settlement, crafting, discounted shop purchases, equipment, guild rank table, daily/weekly/monthly/yearly quest cadence, property buy/rent/lease, monthly edicts, and guild quest reporting.
-- UI/UX: battle tab now includes a tactical HUD that compares normal attacks and skills by expected damage, status chance, AP cost, target, and direct execution readiness. A mission overlay now summarizes the active mission objective, star conditions, turn pressure, power gap, rewards, high-priority threats, and tactical recommendations. Status pressure is now surfaced in combat forecasts with DoT tick damage, shields, stun skips, and confusion accuracy penalties. The mission prep tab now recommends mission-specific formation presets that reorder the starting lineup for balanced, assault, guard, or ranged openings.
+- Included loop: mission selection, tactical grid movement, AP, range, cover/obstacle tiles, enemy phase, mission rewards, inn rest with daily property settlement, crafting, discounted shop purchases, equipment, guild rank table, daily/weekly/monthly/yearly quest cadence, property buy/rent/lease, monthly edicts, guild quest reporting, expanded formation roster, and student-specific tactical skill lists.
+- UI/UX: battle tab now includes a tactical HUD that compares normal attacks and student-owned skills by expected damage, status chance, AP cost, target, and direct execution readiness. A mission overlay now summarizes the active mission objective, star conditions, turn pressure, power gap, rewards, high-priority threats, and tactical recommendations. Status pressure is now surfaced in combat forecasts with DoT tick damage, shields, stun skips, and confusion accuracy penalties. The mission prep tab now recommends mission-specific formation presets that reorder the starting lineup for balanced, assault, guard, or ranged openings, and formation cards expose each student's tactical profile and usable skills.
 - Site API integration: quick save through `/game-saves/ba-srpg/ba-srpg-main`; tactical-grid snapshot through `/game-records/ba-srpg`.
 - Source basis: `C:\2저장고\마이애니메\ba-srpg\ba-srpg-frontend\public\srpg` and the monolithic `App.tsx` game flow.
-- Next step: import the original full formation roster and deeper character-specific skill branches, then connect property/town artwork affordances behind the site save/record shell.
+- Next step: connect property/town artwork affordances behind the site save/record shell, then deepen skill effects beyond the current damage/heal/shield/status action model.
 
 ## School Simulator Slice Status
 
