@@ -86,6 +86,7 @@ export default function PrimitiveArchivePlayContent() {
   const [partySort, setPartySort] = useState('default');
   const [selectedRecruitId, setSelectedRecruitId] = useState('');
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
+  const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
   const [actionResult, setActionResult] = useState('');
 
   const actor = getActor(state, actorId);
@@ -450,6 +451,7 @@ export default function PrimitiveArchivePlayContent() {
         recruitMember={recruitMember}
         research={research}
         researchMap={researchMap}
+        researchPlannerOpen={researchPlannerOpen}
         runCamp={runCamp}
         runCraft={runCraft}
         runEat={runEat}
@@ -465,6 +467,7 @@ export default function PrimitiveArchivePlayContent() {
         setActorId={setActorId}
         setPartySort={setPartySort}
         setRecipeId={setRecipeId}
+        setResearchPlannerOpen={setResearchPlannerOpen}
         setSelectedRecruitId={setSelectedRecruitId}
         setZoneId={setZoneId}
         state={state}

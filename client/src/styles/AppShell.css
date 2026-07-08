@@ -5905,6 +5905,74 @@
   margin-top: 0;
 }
 
+.primitive-research-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.46);
+  padding: 24px;
+}
+
+.primitive-research-modal {
+  width: min(920px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  border: 1px solid rgba(22, 33, 44, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.primitive-research-modal__close {
+  min-height: 34px;
+  border: 1px solid rgba(8, 120, 189, 0.22);
+  border-radius: 8px;
+  background: #f4f9fd;
+  padding: 0 12px;
+  color: #1f5f86;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.primitive-research-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.primitive-research-modal__grid article {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 12px;
+}
+
+.primitive-research-modal__grid span {
+  color: #64717d;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.primitive-research-modal__grid strong {
+  color: #17202a;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.primitive-research-modal__grid small {
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
 .games-rank-split span,
 .games-rank-split small {
   color: #64717d;
@@ -7277,6 +7345,19 @@
   .primitive-difficulty-summary .tcg-primary-action {
     width: 100%;
     max-width: none;
+  }
+
+  .primitive-research-modal-backdrop {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .primitive-research-modal {
+    max-height: calc(100vh - 24px);
+  }
+
+  .primitive-research-modal__grid {
+    grid-template-columns: 1fr;
   }
 
   .notifications-head,

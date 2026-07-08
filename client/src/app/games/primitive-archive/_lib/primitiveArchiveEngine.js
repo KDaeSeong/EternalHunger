@@ -1170,6 +1170,67 @@ function researchEurekaActionText(tech, status) {
   return trigger.desc || '유레카 조건을 진행하세요.';
 }
 
+function ancientResearchPressure(state, tech) {
+  const current = normalizeState(state);
+  if (tech?.era !== 'ANCIENT' || current.research.completed?.[tech.id]) {
+    return { bonus: 0, reasons: [] };
+  }
+
+  const reasons = [];
+  let bonus = 0;
+  const day = Number(current.day || 1);
+  const hp = averageParty(current, 'hp');
+  const hunger = averageParty(current, 'hunger');
+  const bodyTemp = averageBodyTemp(current);
+  const foodUnits = ['berry', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
+    .reduce((sum, id) => sum + Number(current.inventory?.[id] || 0), 0);
+  const alive = Math.max(1, current.party.filter((member) => Number(member.hp || 0) > 0).length);
+  const weatherSeen = Object.values(current.research?.counters?.weatherSeen || {})
+    .filter((value) => Number(value || 0) > 0).length;
+
+  if (tech.id === 'FOOD_STORAGE' && (hunger >= 48 || foodUnits <= alive * 2 || day >= 7)) {
+    bonus += 18;
+    reasons.push('식량 압박');
+  }
+  if (tech.id === 'WRITING' && (Number(current.camp.archiveRoomLevel || 0) > 0 || day >= 7)) {
+    bonus += 12;
+    reasons.push('기록 시설 연계');
+  }
+  if (tech.id === 'BOOKCRAFT' && Number(current.inventory?.clay || 0) >= 2) {
+    bonus += 10;
+    reasons.push('책 재료 확보');
+  }
+  if (tech.id === 'LIBRARY' && (Number(current.inventory?.book_camp_manual || 0) > 0 || Number(current.camp.scribeDeskLevel || 0) > 0)) {
+    bonus += 14;
+    reasons.push('상위 연구 가속');
+  }
+  if (tech.id === 'ADVANCED_CARVING' && Number(current.counters?.craft || 0) >= 4) {
+    bonus += 10;
+    reasons.push('제작 루프 강화');
+  }
+  if (tech.id === 'OBSIDIAN_KNAPPING' && Number(current.inventory?.obsidian_shard || 0) > 0) {
+    bonus += 16;
+    reasons.push('희귀 재료 활용');
+  }
+  if (tech.id === 'MEGAFAUNA_HIDE' && (Number(current.inventory?.dino_hide || 0) > 0 || hp < 62)) {
+    bonus += 16;
+    reasons.push(hp < 62 ? '대형 사냥 위험 완화' : '공룡 가죽 활용');
+  }
+  if (tech.id === 'CLAY_TABLETS' && Number(current.inventory?.clay || 0) >= 3) {
+    bonus += 12;
+    reasons.push('기록판 재료 확보');
+  }
+  if (tech.id === 'WEATHER_LORE' && (bodyTemp <= 35.8 || Number(current.weather?.cold || 0) >= 8 || weatherSeen >= 3)) {
+    bonus += 15;
+    reasons.push('날씨 대응');
+  }
+
+  return {
+    bonus,
+    reasons,
+  };
+}
+
 export function researchPlannerRows(state) {
   const rows = techRows(state);
   return rows.map((tech) => {
@@ -1178,6 +1239,7 @@ export function researchPlannerRows(state) {
     const eurekaCurrent = Math.min(eurekaTarget, Math.max(0, Number(tech.eurekaStatus?.current || 0)));
     const eurekaPct = eurekaTarget ? Math.round((eurekaCurrent / eurekaTarget) * 100) : 0;
     const missing = tech.missingPrereqs || [];
+    const pressure = ancientResearchPressure(state, tech);
     const priorityScore = tech.completed
       ? -1000
       : Math.round(
@@ -1188,6 +1250,7 @@ export function researchPlannerRows(state) {
         + unlockGroups.recipes.length * 8
         + unlockGroups.camps.length * 10
         + unlockGroups.passives.length * 4
+        + pressure.bonus
         - missing.length * 18,
       );
     const nextAction = tech.completed
@@ -1208,6 +1271,9 @@ export function researchPlannerRows(state) {
       eurekaText: tech.eureka?.desc || '유레카 없음',
       nextAction,
       blockerText: missing.length ? `선행: ${missing.join(', ')}` : '선행 조건 충족',
+      pressureBonus: pressure.bonus,
+      pressureReasons: pressure.reasons,
+      pressureLabel: pressure.reasons.length ? `후반 보정 +${pressure.bonus}: ${pressure.reasons.join(', ')}` : '후반 보정 없음',
       priorityScore,
       priorityLabel: tech.completed
         ? '완료'

@@ -14,13 +14,17 @@ export default function PrimitiveArchiveGrowthTab(props) {
     recentActionText,
     research,
     researchMap,
+    researchPlannerOpen,
     runResearch,
     selectResearchTarget,
     selectedPlanner,
     selectedResearchHelp,
+    setResearchPlannerOpen,
     state,
     techs,
   } = props;
+  const openPlanner = () => setResearchPlannerOpen?.(true);
+  const closePlanner = () => setResearchPlannerOpen?.(false);
 
   return (
     <>
@@ -110,6 +114,16 @@ export default function PrimitiveArchiveGrowthTab(props) {
                       <strong>유레카</strong>
                       <span>{selectedPlanner.eurekaText} · {selectedPlanner.eurekaPct}%</span>
                     </div>
+                    <div>
+                      <strong>후반 보정</strong>
+                      <span>{selectedPlanner.pressureLabel}</span>
+                    </div>
+                  </div>
+                  <div className="game-save-row-actions">
+                    <button type="button" onClick={openPlanner}>상세 보기</button>
+                    <button type="button" disabled={!selectedPlanner.available || selectedPlanner.completed || selectedPlanner.selected} onClick={() => selectResearchTarget(selectedPlanner.id)}>
+                      {selectedPlanner.selected ? '선택 중' : selectedPlanner.available ? '목표 지정' : '대기'}
+                    </button>
                   </div>
                 </>
               ) : <div className="games-empty">연구 플래너 정보가 없습니다.</div>}
@@ -124,7 +138,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <div>
                       <span>{tech.priorityLabel} · 우선도 {tech.priorityScore} · {tech.progressPct}%</span>
                       <strong>{tech.name}</strong>
-                      <small>{tech.nextAction}</small>
+                      <small>{tech.nextAction}{tech.pressureBonus ? ` · ${tech.pressureLabel}` : ''}</small>
                     </div>
                     <button type="button" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
                       {tech.selected ? '선택 중' : tech.available ? '목표' : '대기'}
@@ -204,6 +218,81 @@ export default function PrimitiveArchiveGrowthTab(props) {
               </div>
             </section>
           </section>
+          {researchPlannerOpen && selectedPlanner ? (
+            <div className="primitive-research-modal-backdrop" role="presentation" onClick={closePlanner}>
+              <section
+                className="primitive-research-modal games-panel"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="primitive-research-modal-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="games-panel-title">
+                  <div>
+                    <h2 id="primitive-research-modal-title">{selectedPlanner.name}</h2>
+                    <span>{selectedPlanner.priorityLabel} · 우선도 {selectedPlanner.priorityScore}</span>
+                  </div>
+                  <button type="button" className="primitive-research-modal__close" onClick={closePlanner}>닫기</button>
+                </div>
+
+                <div className="games-rank-split">
+                  <SmallStat label="시대" value={selectedPlanner.era || '-'} />
+                  <SmallStat label="진행" value={`${selectedPlanner.progress}/${selectedPlanner.cost}`} />
+                  <SmallStat label="유레카" value={selectedPlanner.eurekaTarget ? `${selectedPlanner.eurekaCurrent}/${selectedPlanner.eurekaTarget}` : '없음'} />
+                  <SmallStat label="후반 보정" value={selectedPlanner.pressureBonus ? `+${selectedPlanner.pressureBonus}` : '없음'} />
+                  <SmallStat label="상태" value={selectedPlanner.priorityLabel} />
+                </div>
+
+                <div className={selectedPlanner.available || selectedPlanner.completed ? 'games-empty' : 'games-empty games-error'} style={{ textAlign: 'left' }}>
+                  <strong>{selectedPlanner.blockerText}</strong>
+                  <br />
+                  {selectedPlanner.nextAction}
+                </div>
+
+                <section className="primitive-research-modal__grid">
+                  <article>
+                    <span>해금 보상</span>
+                    <strong>{selectedPlanner.unlockText}</strong>
+                    <small>제작/시설/패시브가 실제 생존 루프와 자동 제작 우선순위에 연결됩니다.</small>
+                  </article>
+                  <article>
+                    <span>유레카 조건</span>
+                    <strong>{selectedPlanner.eurekaText}</strong>
+                    <small>현재 {selectedPlanner.eurekaPct}% 진행 중입니다. 유레카는 연구 비용을 줄이는 단서로 처리됩니다.</small>
+                  </article>
+                  <article>
+                    <span>다음 행동</span>
+                    <strong>{selectedPlanner.nextAction}</strong>
+                    <small>잠긴 고대 연구는 선행 연구와 재료 조건을 먼저 맞춰야 안정적으로 이어집니다.</small>
+                  </article>
+                  <article>
+                    <span>후반 보정</span>
+                    <strong>{selectedPlanner.pressureLabel}</strong>
+                    <small>식량, 체온, 희귀 재료, 기록 시설 상태가 고대 연구 우선도에 반영됩니다.</small>
+                  </article>
+                </section>
+
+                <div className="games-panel-title">
+                  <h2>후보 비교</h2>
+                  <span>{priorityPlannerRows.length}개</span>
+                </div>
+                <div className="game-save-list">
+                  {priorityPlannerRows.map((tech) => (
+                    <article className="game-save-row" key={`modal-${tech.id}`}>
+                      <div>
+                        <span>{tech.priorityLabel} · 우선도 {tech.priorityScore} · {tech.progressPct}%</span>
+                        <strong>{tech.name}</strong>
+                        <small>{tech.unlockText}{tech.pressureBonus ? ` · ${tech.pressureLabel}` : ''}</small>
+                      </div>
+                      <button type="button" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
+                        {tech.selected ? '선택 중' : tech.available ? '목표' : '대기'}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          ) : null}
                 </>
   );
 }
