@@ -19,6 +19,7 @@ import {
   resolveLegendaryDropWeights,
 } from './legendaryRuntime';
 import { pickRegionLootDrop } from './lumiaRegionData';
+import { getLumiaZoneSearchDensityWeight } from './lumiaMapGeometryRuntime';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
 import { rollTranscendPickOptions } from './fieldTranscendLootRuntime';
 import { rollEarlyRouteLoot } from './fieldRouteLootRuntime';
@@ -97,7 +98,8 @@ function rollFieldLoot(mapObj, zoneId, publicItems, ruleset, opts = {}) {
   const chanceBase = useFallback
     ? (moved ? Number(field?.fallbackChanceMoved ?? 0.20) : Number(field?.fallbackChanceStay ?? 0.08))
     : (moved ? Number(field?.chanceMoved ?? 0.28) : Number(field?.chanceStay ?? 0.12));
-  const chance = Math.max(0.01, Math.min(0.98, chanceBase + Math.max(-0.05, Math.min(0.16, perkLootBias * 0.18))));
+  const zoneDensityWeight = getLumiaZoneSearchDensityWeight(zoneId);
+  const chance = Math.max(0.01, Math.min(0.98, (chanceBase * zoneDensityWeight) + Math.max(-0.05, Math.min(0.16, perkLootBias * 0.18))));
 
   const earlyRouteLoot = rollEarlyRouteLoot({
     curDay,

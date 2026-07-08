@@ -1,5 +1,9 @@
 import { normalizeMatchKey, pickWeighted } from './simulationCommon';
 import { isItemExcludedFromFieldFarming } from '../../../utils/erItemFilters';
+import {
+  getLumiaZoneArea,
+  getLumiaZoneAreaWeight,
+} from './lumiaMapGeometryRuntime';
 
 // Generated from the attached Lumia Island region reference.
 // Keep this file deterministic: runtime code consumes zone loot, resource, wildlife, and facility data from here.
@@ -997,14 +1001,19 @@ function getRegionFacilityZoneIds(facilityKey, zones) {
 
 function applyRegionDataToZones(zones) {
   return (Array.isArray(zones) ? zones : []).map((zone) => {
-    const region = getRegionData(zone?.zoneId || zone?.name);
+    const zoneId = canonicalZoneId(zone?.zoneId || zone?.name);
+    const region = getRegionData(zoneId);
     if (!region) return zone;
+    const area = getLumiaZoneArea(zoneId);
+    const areaWeight = getLumiaZoneAreaWeight(zoneId);
     return {
       ...zone,
       name: zone?.name || region.name,
       hasKiosk: Boolean(zone?.hasKiosk || region.kiosk),
       hasCampfire: Boolean(zone?.hasCampfire || region.campfire),
       hasHyperloop: Boolean(zone?.hasHyperloop || region.hyperloop),
+      area: Number(zone?.area || 0) > 0 ? Number(zone.area) : area,
+      areaWeight: Number(zone?.areaWeight || 0) > 0 ? Number(zone.areaWeight) : areaWeight,
     };
   });
 }

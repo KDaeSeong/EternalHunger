@@ -1,5 +1,9 @@
 import { LUMIA_ZONE_POLYGONS, LUMIA_ZONE_POS } from './simulationConstants';
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function safePoints(points) {
   return (Array.isArray(points) ? points : [])
     .map((point) => {
@@ -23,13 +27,13 @@ export function polygonArea(points) {
   return Math.abs(sum) / 2;
 }
 
-const LUMIA_ZONE_AREAS = Object.freeze(
+export const LUMIA_ZONE_AREAS = Object.freeze(
   Object.fromEntries(
     Object.entries(LUMIA_ZONE_POLYGONS).map(([zoneId, polygon]) => [zoneId, polygonArea(polygon)])
   )
 );
 
-const LUMIA_AVERAGE_ZONE_AREA = (() => {
+export const LUMIA_AVERAGE_ZONE_AREA = (() => {
   const values = Object.values(LUMIA_ZONE_AREAS).filter((area) => Number(area) > 0);
   if (!values.length) return 1;
   return values.reduce((sum, area) => sum + area, 0) / values.length;
@@ -42,7 +46,17 @@ export function getLumiaZoneArea(zoneId) {
 export function getLumiaZoneAreaWeight(zoneId) {
   const area = getLumiaZoneArea(zoneId);
   if (!area || !LUMIA_AVERAGE_ZONE_AREA) return 1;
-  return Math.max(0.55, Math.min(1.6, area / LUMIA_AVERAGE_ZONE_AREA));
+  return clamp(area / LUMIA_AVERAGE_ZONE_AREA, 0.55, 1.6);
+}
+
+export function getLumiaZoneTravelAreaWeight(zoneId) {
+  const weight = getLumiaZoneAreaWeight(zoneId);
+  return clamp(1 + ((weight - 1) * 0.45), 0.72, 1.35);
+}
+
+export function getLumiaZoneSearchDensityWeight(zoneId) {
+  const weight = getLumiaZoneAreaWeight(zoneId);
+  return clamp(1 + ((weight - 1) * 0.22), 0.88, 1.14);
 }
 
 export function getLumiaZoneDistance(fromZoneId, toZoneId) {
@@ -63,8 +77,8 @@ export function getLumiaWalkEtaSec(fromZoneId, toZoneId, opts = {}) {
   if (!distance) return 1;
 
   const baseDistance = Math.max(10, Number(opts.baseDistance ?? 18));
-  const distanceWeight = Math.max(0.8, Math.min(1.6, distance / baseDistance));
-  const areaWeight = (getLumiaZoneAreaWeight(from) + getLumiaZoneAreaWeight(to)) / 2;
+  const distanceWeight = clamp(distance / baseDistance, 0.8, 1.6);
+  const areaWeight = (getLumiaZoneTravelAreaWeight(from) + getLumiaZoneTravelAreaWeight(to)) / 2;
   const raw = 1 + ((distanceWeight * areaWeight) - 0.7);
   return Math.max(1, Math.min(3, Math.ceil(raw)));
 }
