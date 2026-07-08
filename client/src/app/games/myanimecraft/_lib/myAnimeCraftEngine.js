@@ -219,6 +219,8 @@ function normalizePersonalParticipant(value) {
     teamName: String(value.teamName || teamId),
     race: String(value.race || ''),
     rating: Math.round(Number(value.rating || 0)),
+    formScore: Math.round(Number(value.formScore || 0)),
+    seedTier: String(value.seedTier || ''),
   };
 }
 
@@ -281,6 +283,14 @@ function normalizePersonalStageReport(value) {
     entrantCount: Math.max(0, Math.floor(Number(value.entrantCount || 0))),
     qualifierPlayerIds: Array.isArray(value.qualifierPlayerIds) ? value.qualifierPlayerIds.map(String).slice(0, 64) : [],
     qualifierNames: Array.isArray(value.qualifierNames) ? value.qualifierNames.map(String).slice(0, 64) : [],
+    profileText: String(value.profileText || ''),
+    seedText: String(value.seedText || ''),
+    upsetText: String(value.upsetText || ''),
+    topSeedNames: Array.isArray(value.topSeedNames) ? value.topSeedNames.map(String).slice(0, 8) : [],
+    upsetNames: Array.isArray(value.upsetNames) ? value.upsetNames.map(String).slice(0, 8) : [],
+    averageEntrantRating: Math.round(Number(value.averageEntrantRating || 0)),
+    averageQualifierRating: Math.round(Number(value.averageQualifierRating || 0)),
+    averageQualifierForm: Math.round(Number(value.averageQualifierForm || 0)),
     playedAt: Number(value.playedAt || Date.now()),
   };
 }
@@ -3420,6 +3430,11 @@ function personalPlayerRows(state) {
         + Number(member.fame || 0) * 0.18
         + Number(member.condition || 0) * 0.45,
       );
+      const formScore = Math.round(
+        Number(member.condition || 0) * 0.7
+        + Number(member.level || 0) * 3.5
+        + Number(member.fame || 0) * 0.035,
+      );
       return {
         playerId: member.id,
         playerName: member.name,
@@ -3427,9 +3442,18 @@ function personalPlayerRows(state) {
         teamName: teamData.name,
         race: member.race,
         rating,
+        formScore,
       };
     });
   }).sort((a, b) => b.rating - a.rating || a.playerName.localeCompare(b.playerName, 'ko-KR'));
+}
+
+function personalSeedTier(seed) {
+  const value = Math.max(1, Math.floor(Number(seed || 1)));
+  if (value <= 8) return '본선 시드';
+  if (value <= 16) return '듀얼 시드';
+  if (value <= 24) return '32강 시드';
+  return 'PC방 예선';
 }
 
 function buildPersonalParticipants(state, size = 32) {
@@ -3438,6 +3462,7 @@ function buildPersonalParticipants(state, size = 32) {
     .map((row, index) => ({
       ...row,
       seed: index + 1,
+      seedTier: personalSeedTier(index + 1),
     }));
 }
 
@@ -3466,7 +3491,10 @@ function pickV2Qualifiers(personal, ids, count, seed) {
       const participant = byId.get(id);
       return {
         id,
-        score: Number(participant?.rating || 0) + Number(participant?.seed ? 80 - participant.seed : 0) + rng() * 120,
+        score: Number(participant?.rating || 0)
+          + Number(participant?.seed ? 80 - participant.seed : 0)
+          + Number(participant?.formScore || 0) * 0.45
+          + rng() * 120,
       };
     })
     .sort((a, b) => b.score - a.score)
@@ -3474,7 +3502,60 @@ function pickV2Qualifiers(personal, ids, count, seed) {
     .map((row) => row.id);
 }
 
+function averageNumber(rows, getter) {
+  const values = rows.map((row) => Number(getter(row) || 0)).filter((value) => Number.isFinite(value));
+  if (!values.length) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function compactCountText(rows, getter, labeler = (value) => value) {
+  const counts = new Map();
+  rows.forEach((row) => {
+    const key = String(getter(row) || '').trim();
+    if (!key) return;
+    counts.set(key, Number(counts.get(key) || 0) + 1);
+  });
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || String(labeler(a[0])).localeCompare(String(labeler(b[0])), 'ko-KR'))
+    .slice(0, 4)
+    .map(([key, count]) => `${labeler(key)} ${count}`)
+    .join(' · ');
+}
+
+function buildPersonalStageProfile(personal, entrantIds, qualifierIds) {
+  const entrantSet = uniqueIds(entrantIds).map((id) => personalParticipantById(personal, id)).filter(Boolean);
+  const qualifierSet = uniqueIds(qualifierIds).map((id) => personalParticipantById(personal, id)).filter(Boolean);
+  const topSeedNames = qualifierSet
+    .slice()
+    .sort((a, b) => Number(a.seed || 99) - Number(b.seed || 99))
+    .slice(0, 4)
+    .map((row) => `${row.seed}번 ${row.playerName}`);
+  const upsetNames = qualifierSet
+    .filter((row) => Number(row.seed || 0) >= 17)
+    .sort((a, b) => Number(b.formScore || 0) - Number(a.formScore || 0))
+    .slice(0, 4)
+    .map((row) => `${row.playerName}(${row.seed}번)`);
+  const averageEntrantRating = averageNumber(entrantSet, (row) => row.rating);
+  const averageQualifierRating = averageNumber(qualifierSet, (row) => row.rating);
+  const averageQualifierForm = averageNumber(qualifierSet, (row) => row.formScore);
+  return {
+    profileText: [
+      compactCountText(qualifierSet, (row) => row.race, (race) => RACE_LABELS[race] || race),
+      averageQualifierRating ? `통과 평균 ${averageQualifierRating}` : '',
+      averageQualifierForm ? `폼 ${averageQualifierForm}` : '',
+    ].filter(Boolean).join(' · '),
+    seedText: compactCountText(qualifierSet, (row) => row.seedTier || personalSeedTier(row.seed)),
+    upsetText: upsetNames.length ? `하위 시드 돌파: ${upsetNames.join(' / ')}` : '',
+    topSeedNames,
+    upsetNames,
+    averageEntrantRating,
+    averageQualifierRating,
+    averageQualifierForm,
+  };
+}
+
 function appendPersonalStageReport(personal, phase, entrantIds, qualifierIds, summary) {
+  const profile = buildPersonalStageProfile(personal, entrantIds, qualifierIds);
   const report = {
     phase,
     label: personalPhaseLabel(phase),
@@ -3482,6 +3563,7 @@ function appendPersonalStageReport(personal, phase, entrantIds, qualifierIds, su
     entrantCount: entrantIds.length,
     qualifierPlayerIds: qualifierIds,
     qualifierNames: qualifierIds.map((id) => participantNameById(personal, id)),
+    ...profile,
     playedAt: Date.now(),
   };
   return {

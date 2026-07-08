@@ -62,6 +62,9 @@ export default function MyAnimeCraftCupsTab(props) {
                   <div>
                     <span>{report.label} · 참가 {report.entrantCount}명</span>
                     <strong>{report.summary}</strong>
+                    {report.profileText ? <small>{report.profileText}</small> : null}
+                    {report.seedText ? <small>시드 분포: {report.seedText}</small> : null}
+                    {report.upsetText ? <small>{report.upsetText}</small> : null}
                     <small>진출 {report.qualifierNames.slice(0, 8).join(' / ')}</small>
                   </div>
                   <strong>완료</strong>
