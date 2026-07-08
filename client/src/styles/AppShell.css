@@ -5890,8 +5890,19 @@
   padding: 10px 12px;
 }
 
+.primitive-difficulty-summary > span {
+  flex: 1 1 320px;
+  min-width: 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
 .primitive-difficulty-summary .tcg-primary-action {
   flex: 0 0 auto;
+  width: auto;
+  min-width: 180px;
+  max-width: 280px;
+  margin-top: 0;
 }
 
 .games-rank-split span,
@@ -7052,8 +7063,13 @@
     flex-direction: column;
   }
 
+  .primitive-difficulty-summary > span {
+    flex: 0 1 auto;
+  }
+
   .primitive-difficulty-summary .tcg-primary-action {
     width: 100%;
+    max-width: none;
   }
 
   .notifications-head,
