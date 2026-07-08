@@ -41,6 +41,9 @@ const ZONE_POS_ALIASES = {
 const RECENT_PING_TTL_MS = 2800;
 const RECENT_PING_LIMIT = 3;
 const RECENT_PING_TAIL = 160;
+const RECENT_MOVE_TRAIL_TTL_MS = 2600;
+const RECENT_MOVE_TRAIL_LIMIT = 6;
+const RECENT_MOVE_TRAIL_TAIL = 90;
 const IMPORTANT_GAIN_SOURCES = new Set(['legend', 'natural', 'boss', 'mutant', 'transcend', 'rift']);
 
 function compactZoneKey(value) {
@@ -219,6 +222,39 @@ export function buildRecentPings({ runEvents, pingNow, zonePos }) {
   return Array.from(bestByZone.values())
     .sort((a, b) => (Number(b.priority || 0) - Number(a.priority || 0)) || (Number(b.ts || 0) - Number(a.ts || 0)))
     .slice(0, RECENT_PING_LIMIT);
+}
+
+export function buildRecentMoveTrails({ runEvents, pingNow, zonePos }) {
+  const now = Number(pingNow || Date.now());
+  const tail = (Array.isArray(runEvents) ? runEvents : []).slice(-RECENT_MOVE_TRAIL_TAIL);
+  const bestByActor = new Map();
+
+  for (let i = tail.length - 1; i >= 0; i -= 1) {
+    const event = tail[i];
+    if (String(event?.kind || '') !== 'move') continue;
+    const ts = Number(event?.ts || 0);
+    if (!ts || (now - ts) > RECENT_MOVE_TRAIL_TTL_MS) continue;
+
+    const from = String(event?.from || event?.fromZoneId || '').trim();
+    const to = String(event?.to || event?.toZoneId || '').trim();
+    if (!from || !to || from === to || !zonePos?.[from] || !zonePos?.[to]) continue;
+
+    const who = String(event?.who || event?.whoId || event?.name || `${i}`);
+    if (bestByActor.has(who)) continue;
+    bestByActor.set(who, {
+      id: String(event._id || event.ts || `${i}`),
+      from,
+      to,
+      name: String(event?.name || ''),
+      reason: String(event?.reason || ''),
+      transport: String(event?.transport || '') === 'hyperloop' ? 'hyperloop' : 'walk',
+      ts,
+    });
+  }
+
+  return Array.from(bestByActor.values())
+    .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
+    .slice(0, RECENT_MOVE_TRAIL_LIMIT);
 }
 
 export function getEmptyDetonationRiskSummary() {

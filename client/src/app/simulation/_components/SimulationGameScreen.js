@@ -71,6 +71,7 @@ export default function SimulationGameScreen({
   phase,
   prevPhaseLogs,
   proceedPhaseGuarded,
+  recentMoveTrails,
   recentPings,
   refreshMapSettingsFromServer,
   selectedCharId,
@@ -178,6 +179,7 @@ export default function SimulationGameScreen({
         phase={phase}
         prevPhaseLogs={prevPhaseLogs}
         proceedPhaseGuarded={proceedPhaseGuarded}
+        recentMoveTrails={recentMoveTrails}
         recentPings={recentPings}
         selectedCharId={selectedCharId}
         setAutoPlay={setAutoPlay}

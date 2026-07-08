@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { getRuleset } from '../../../utils/rulesets';
 import {
   buildDetonationRiskSummary,
+  buildRecentMoveTrails,
   buildRecentPings,
   buildZoneEdges,
   buildZonePositions,
@@ -104,6 +105,11 @@ export function useSimulationDerivedData({
     return safeCompute('recentPings', () => buildRecentPings({ runEvents, pingNow, zonePos }), []);
   }, [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
 
+  const recentMoveTrails = useMemo(() => {
+    if (!shouldComputeMapDerived) return [];
+    return safeCompute('recentMoveTrails', () => buildRecentMoveTrails({ runEvents, pingNow, zonePos }), []);
+  }, [runEvents, pingNow, zonePos, shouldComputeMapDerived]);
+
   const detonationRiskSummary = useMemo(() => safeCompute('detonationRiskSummary', () => buildDetonationRiskSummary({
     day,
     activeMap,
@@ -120,6 +126,7 @@ export function useSimulationDerivedData({
     detonationRiskSummary,
     heavyRunSummaries,
     recentPings,
+    recentMoveTrails,
     simulationDiagnostics,
     simulationDiagnosticsLine,
     zoneEdges,

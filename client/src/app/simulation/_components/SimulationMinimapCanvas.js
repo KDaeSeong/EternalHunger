@@ -64,6 +64,7 @@ export default function SimulationMinimapCanvas({
   getZoneName,
   hyperloopCharId,
   hyperloopZoneSet,
+  recentMoveTrails,
   recentPings,
   survivors,
   zones,
@@ -160,6 +161,25 @@ export default function SimulationMinimapCanvas({
               y2={pb.y}
               className="minimap-edge"
             />
+          );
+        })}
+
+        {safeArray(recentMoveTrails).map((trail) => {
+          const from = positions?.[String(trail?.from || '')];
+          const to = positions?.[String(trail?.to || '')];
+          if (!from || !to) return null;
+          const transport = String(trail?.transport || '') === 'hyperloop' ? 'hyperloop' : 'walk';
+          const title = [
+            String(trail?.name || '').trim(),
+            `${getZoneName?.(trail.from) || trail.from} -> ${getZoneName?.(trail.to) || trail.to}`,
+            transport,
+          ].filter(Boolean).join(' / ');
+          return (
+            <g key={`move-trail-${trail.id}`} className={`minimap-move-trail ${transport}`}>
+              <title>{title}</title>
+              <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} />
+              <circle className="minimap-move-arrival" cx={to.x} cy={to.y} r="1.45" />
+            </g>
           );
         })}
 

@@ -50,6 +50,7 @@ export default function SimulationMainStage({
   phase,
   prevPhaseLogs,
   proceedPhaseGuarded,
+  recentMoveTrails,
   recentPings,
   selectedCharId,
   setAutoPlay,
@@ -103,6 +104,7 @@ export default function SimulationMainStage({
             isSelectedCharOnHyperloopPad={isSelectedCharOnHyperloopPad}
             loading={loading}
             maps={maps}
+            recentMoveTrails={recentMoveTrails}
             recentPings={recentPings}
             selectedCharId={selectedCharId}
             setHyperloopDestId={setHyperloopDestId}

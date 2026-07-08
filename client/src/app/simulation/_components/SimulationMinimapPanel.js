@@ -39,6 +39,7 @@ export default function SimulationMinimapPanel({
   isSelectedCharOnHyperloopPad,
   loading,
   maps,
+  recentMoveTrails,
   recentPings,
   selectedCharId,
   setHyperloopDestId,
@@ -76,6 +77,7 @@ export default function SimulationMinimapPanel({
         getZoneName={getZoneName}
         hyperloopCharId={hyperloopCharId}
         hyperloopZoneSet={hyperloopZoneSet}
+        recentMoveTrails={recentMoveTrails}
         recentPings={recentPings}
         survivors={survivors}
         zones={zones}
