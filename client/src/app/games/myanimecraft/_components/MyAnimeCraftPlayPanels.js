@@ -36,7 +36,7 @@ export function actionFeedbackText(previous, next, label, fallback = '') {
   }
   if (next.ended && !previous.ended) {
     const champion = next.championTeamId ? getTeam(next, next.championTeamId)?.name : '';
-    return `시즌 종료: ${champion || '우승팀'} 우승이 확정됐습니다.`;
+    return `시즌 종료: ${champion || '우승팀'} 우승이 확정되었습니다.`;
   }
   const latestLog = next.log?.[0];
   if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
