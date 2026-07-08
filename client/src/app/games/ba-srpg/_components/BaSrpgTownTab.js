@@ -5,6 +5,7 @@ import {
   enactEdictAction,
   rentPropertyAction,
   toggleLeasePropertyAction,
+  upgradePropertyAction,
 } from '../_lib/baSrpgEngine';
 
 const DISTRICTS = [
@@ -39,6 +40,7 @@ function PropertyTile({
   const selected = propertyId === property.id;
   const canBuy = !property.owned && credit >= Number(property.buyPrice || 0);
   const canRent = !property.owned && !property.rented && credit >= Number(property.rentFee || 0);
+  const canUpgrade = property.upgradeAvailable && credit >= Number(property.nextUpgradeCost || 0);
 
   return (
     <article className={`srpg-town-tile srpg-town-tile--${property.facility} ${propertyTone(property)}${selected ? ' is-selected' : ''}`}>
@@ -46,17 +48,22 @@ function PropertyTile({
         <span className="srpg-town-tile__icon" aria-hidden="true">{property.icon || property.facilityLabel?.slice(0, 1) || '시'}</span>
         <span className="srpg-town-tile__body">
           <span>{property.facilityLabel || property.facility}</span>
-          <strong>{property.name}</strong>
-          <small>{property.effectLabel || property.desc}</small>
+          <strong>{property.name} Lv.{property.level || 0}</strong>
+          <small>{property.upgradeText || property.effectLabel || property.desc}</small>
         </span>
         <em>{propertyStatusLabel(property)}</em>
       </button>
       <div className="srpg-town-tile__stats">
         <span>구매 {property.buyPrice}Cr</span>
         <span>임차 {property.rentFee}Cr</span>
-        <span>일일 {property.rentCostPerDay}Cr</span>
+        <span>강화 {property.level || 0}/{property.maxLevel || 0}</span>
       </div>
       <div className="srpg-town-tile__actions">
+        {property.owned ? (
+          <button type="button" disabled={!canUpgrade} onClick={() => setState((current) => upgradePropertyAction(current, property.id))}>
+            {property.level >= property.maxLevel ? '최대 강화' : `강화 ${property.nextUpgradeCost}Cr`}
+          </button>
+        ) : null}
         {!property.owned && !property.rented ? (
           <>
             <button type="button" disabled={!canBuy} onClick={() => setState((current) => buyPropertyAction(current, property.id))}>구매</button>
@@ -110,6 +117,7 @@ export default function BaSrpgTownTab(props) {
             <SmallStat label="활성" value={town.activeProperties} />
             <SmallStat label="임차" value={town.rentedProperties} />
             <SmallStat label="임대" value={town.leasedProperties} />
+            <SmallStat label="강화" value={`${town.propertyUpgradeTotal}/${town.propertyUpgradeMax}`} />
           </div>
           <p className="srpg-town-note">
             거점 시설은 소유/임차 중일 때 효과가 적용됩니다. 소유 시설을 임대하면 일일 수익은 얻지만 해당 시설 효과는 꺼집니다.
@@ -185,8 +193,13 @@ export default function BaSrpgTownTab(props) {
             <SmallStat label="임차" value={`${selectedProperty.rentFee}Cr`} />
             <SmallStat label="유지" value={`${selectedProperty.rentCostPerDay}Cr`} />
             <SmallStat label="수익" value={`${selectedProperty.leaseIncomePerDay}Cr`} />
+            <SmallStat label="강화" value={`${selectedProperty.level}/${selectedProperty.maxLevel}`} />
+            <SmallStat label="다음" value={selectedProperty.nextUpgradeCost ? `${selectedProperty.nextUpgradeCost}Cr` : '최대'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
+            <ActionButton disabled={!selectedProperty.upgradeAvailable || credit < Number(selectedProperty.nextUpgradeCost || 0)} onClick={() => setState((current) => upgradePropertyAction(current, propertyId))}>
+              {selectedProperty.level >= selectedProperty.maxLevel ? '최대 강화' : `시설 강화: ${selectedProperty.nextUpgradeText}`}
+            </ActionButton>
             <ActionButton disabled={selectedProperty.owned} onClick={() => setState((current) => buyPropertyAction(current, propertyId))}>구매</ActionButton>
             <ActionButton disabled={selectedProperty.owned || Boolean(selectedProperty.rented)} onClick={() => setState((current) => rentPropertyAction(current, propertyId))}>3일 임차</ActionButton>
             <ActionButton disabled={!selectedProperty.rented} onClick={() => setState((current) => cancelRentPropertyAction(current, propertyId))}>임차 종료</ActionButton>

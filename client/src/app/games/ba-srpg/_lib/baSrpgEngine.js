@@ -125,12 +125,20 @@ function questClaimsFromCompleted(completedQuestIds = []) {
 }
 
 function normalizeProperties(value = {}) {
+  const upgrades = value?.upgrades && typeof value.upgrades === 'object' && !Array.isArray(value.upgrades)
+    ? Object.fromEntries(PROPERTIES.map((property) => {
+      const maxLevel = Math.max(0, safeWholeNumber(property.maxLevel, 0));
+      const level = Math.min(maxLevel, safeWholeNumber(value.upgrades[property.id], 0));
+      return [property.id, level];
+    }).filter(([, level]) => level > 0))
+    : {};
   return {
     ownedIds: Array.isArray(value?.ownedIds) ? value.ownedIds.filter((id) => PROPERTIES.some((property) => property.id === id)) : [],
     leasedOutIds: Array.isArray(value?.leasedOutIds) ? value.leasedOutIds.filter((id) => PROPERTIES.some((property) => property.id === id)) : [],
     rented: value?.rented && typeof value.rented === 'object'
       ? Object.fromEntries(Object.entries(value.rented).filter(([id]) => PROPERTIES.some((property) => property.id === id)))
       : {},
+    upgrades,
   };
 }
 
@@ -452,6 +460,40 @@ function hasOwnedActiveFacility(state, facility) {
   ));
 }
 
+function propertyUpgradeLevel(state, propertyId) {
+  const properties = normalizeProperties(state.properties);
+  const property = getProperty(propertyId);
+  return Math.min(
+    Math.max(0, safeWholeNumber(property?.maxLevel, 0)),
+    safeWholeNumber(properties.upgrades?.[propertyId], 0),
+  );
+}
+
+function activeFacilityLevel(state, facility) {
+  const properties = normalizeProperties(state.properties);
+  return PROPERTIES.reduce((max, property) => {
+    if (property.facility !== facility) return max;
+    const ownedActive = properties.ownedIds.includes(property.id) && !properties.leasedOutIds.includes(property.id);
+    if (!ownedActive) return max;
+    return Math.max(max, propertyUpgradeLevel({ ...state, properties }, property.id));
+  }, 0);
+}
+
+function propertyUpgradeCost(property, level = 0) {
+  const base = Math.max(0, safeWholeNumber(property?.upgradeBaseCost, 0));
+  if (!base) return 0;
+  return Math.max(1, Math.floor(base * (1 + Math.max(0, safeWholeNumber(level, 0)) * 0.55)));
+}
+
+function propertyEffectText(property, level = 0) {
+  const safeLevel = Math.max(0, safeWholeNumber(level, 0));
+  if (property?.facility === 'shop') return `상점 가격 보정 -${2 + safeLevel}%`;
+  if (property?.facility === 'inn') return `휴식 비용 -${10 + safeLevel * 2}%`;
+  if (property?.facility === 'craft') return `제작 비용 -${5 + safeLevel}%`;
+  if (property?.facility === 'guild') return `의뢰 평판 +${10 + safeLevel * 5}%`;
+  return property?.effectLabel || property?.desc || '';
+}
+
 function activeMonthlyEdict(state) {
   const current = normalizeState(state);
   const monthly = current.edictState?.monthly;
@@ -466,7 +508,7 @@ function edictEffectMultiplier(edict, effectType) {
 
 function shopPriceMultiplier(state) {
   const edictMul = edictEffectMultiplier(activeMonthlyEdict(state), 'shop_price_multiplier');
-  const shopFacilityMul = hasActiveFacility(state, 'shop') ? 0.98 : 1;
+  const shopFacilityMul = hasActiveFacility(state, 'shop') ? Math.max(0.94, 0.98 - activeFacilityLevel(state, 'shop') * 0.01) : 1;
   return edictMul * shopFacilityMul;
 }
 
@@ -476,19 +518,20 @@ function adjustedShopPrice(state, line) {
 
 function innRestCost(state) {
   const edictMul = edictEffectMultiplier(activeMonthlyEdict(state), 'inn_rest_cost_multiplier');
-  const innFacilityMul = hasActiveFacility(state, 'inn') ? 0.9 : 1;
+  const innFacilityMul = hasActiveFacility(state, 'inn') ? Math.max(0.82, 0.9 - activeFacilityLevel(state, 'inn') * 0.02) : 1;
   return Math.max(0, Math.floor(ECONOMY.innRestCost * edictMul * innFacilityMul));
 }
 
 function craftCost(state, recipe) {
-  const craftFacilityMul = hasActiveFacility(state, 'craft') ? 0.95 : 1;
+  const craftFacilityMul = hasActiveFacility(state, 'craft') ? Math.max(0.9, 0.95 - activeFacilityLevel(state, 'craft') * 0.01) : 1;
   return Math.max(0, Math.floor(Number(recipe.costCredit || 0) * craftFacilityMul));
 }
 
 function guildRepReward(state, baseRep) {
   const rep = Math.max(0, Math.floor(Number(baseRep || 0)));
   if (!rep) return { total: 0, bonus: 0 };
-  const bonus = hasActiveFacility(state, 'guild') ? Math.max(1, Math.floor(rep * 0.1)) : 0;
+  const bonusRate = hasActiveFacility(state, 'guild') ? 0.1 + activeFacilityLevel(state, 'guild') * 0.05 : 0;
+  const bonus = bonusRate > 0 ? Math.max(1, Math.floor(rep * bonusRate)) : 0;
   return { total: rep + bonus, bonus };
 }
 
@@ -524,7 +567,10 @@ function settlePropertyDay(state, nextDay) {
 
   properties.leasedOutIds.forEach((propertyId) => {
     const property = getProperty(propertyId);
-    if (property && properties.ownedIds.includes(propertyId)) leaseIncome += Number(property.leaseIncomePerDay || 0);
+    const level = propertyUpgradeLevel({ ...state, properties }, propertyId);
+    if (property && properties.ownedIds.includes(propertyId)) {
+      leaseIncome += Math.floor(Number(property.leaseIncomePerDay || 0) * (1 + level * 0.1));
+    }
   });
 
   Object.entries(rented).forEach(([propertyId, rentInfo]) => {
@@ -1723,6 +1769,8 @@ export function toggleLeasePropertyAction(state, propertyId) {
   const properties = normalizeProperties(current.properties);
   if (!properties.ownedIds.includes(property.id)) return addLog(current, '소유한 부동산만 임대할 수 있습니다.');
   const leased = properties.leasedOutIds.includes(property.id);
+  const level = propertyUpgradeLevel(current, property.id);
+  const leaseIncome = Math.floor(Number(property.leaseIncomePerDay || 0) * (1 + level * 0.1));
   return addLog({
     ...current,
     properties: {
@@ -1731,7 +1779,32 @@ export function toggleLeasePropertyAction(state, propertyId) {
         ? properties.leasedOutIds.filter((id) => id !== property.id)
         : [...properties.leasedOutIds, property.id],
     },
-  }, leased ? `${property.name} 임대를 종료했습니다.` : `${property.name} 임대를 시작했습니다. 하루 +${property.leaseIncomePerDay} Cr`);
+  }, leased ? `${property.name} 임대를 종료했습니다.` : `${property.name} 임대를 시작했습니다. 하루 +${leaseIncome} Cr`);
+}
+
+export function upgradePropertyAction(state, propertyId) {
+  const current = normalizeState(state);
+  const property = getProperty(propertyId) || PROPERTIES[0];
+  const properties = normalizeProperties(current.properties);
+  if (!properties.ownedIds.includes(property.id)) return addLog(current, '소유한 시설만 업그레이드할 수 있습니다.');
+  if (properties.leasedOutIds.includes(property.id)) return addLog(current, '임대 중인 시설은 업그레이드할 수 없습니다.');
+  const maxLevel = Math.max(0, safeWholeNumber(property.maxLevel, 0));
+  const level = propertyUpgradeLevel(current, property.id);
+  if (level >= maxLevel) return addLog(current, `${property.name}은(는) 이미 최대 레벨입니다.`);
+  const cost = propertyUpgradeCost(property, level);
+  if (Number(current.credit || 0) < cost) return addLog(current, '시설 업그레이드 크레딧이 부족합니다.');
+  const nextLevel = level + 1;
+  return addLog({
+    ...current,
+    credit: Number(current.credit || 0) - cost,
+    properties: {
+      ...properties,
+      upgrades: {
+        ...properties.upgrades,
+        [property.id]: nextLevel,
+      },
+    },
+  }, `${property.name} 업그레이드 Lv.${nextLevel}. ${propertyEffectText(property, nextLevel)} (-${cost} Cr)`);
 }
 
 export function enactEdictAction(state, edictId) {
@@ -1825,12 +1898,21 @@ export function propertyRows(state) {
     const rented = properties.rented[property.id] || null;
     const owned = properties.ownedIds.includes(property.id);
     const leased = properties.leasedOutIds.includes(property.id);
+    const level = propertyUpgradeLevel(current, property.id);
+    const maxLevel = Math.max(0, safeWholeNumber(property.maxLevel, 0));
+    const nextUpgradeCost = level < maxLevel ? propertyUpgradeCost(property, level) : 0;
     return {
       ...property,
       owned,
       leased,
       rented,
       active: (owned && !leased) || Boolean(rented),
+      level,
+      maxLevel,
+      nextUpgradeCost,
+      upgradeAvailable: owned && !leased && level < maxLevel,
+      upgradeText: propertyEffectText(property, level),
+      nextUpgradeText: level < maxLevel ? propertyEffectText(property, level + 1) : '최대 레벨',
       status: owned ? (leased ? '임대 중' : '소유/사용 중') : rented ? `임차 중(~${rented.untilDay}일)` : '미보유',
     };
   });
@@ -2498,6 +2580,8 @@ export function townSummary(state) {
     ownedProperties: properties.filter((property) => property.owned).length,
     rentedProperties: properties.filter((property) => property.rented).length,
     leasedProperties: properties.filter((property) => property.leased).length,
+    propertyUpgradeTotal: properties.reduce((sum, property) => sum + Number(property.level || 0), 0),
+    propertyUpgradeMax: properties.reduce((sum, property) => sum + Number(property.maxLevel || 0), 0),
     activeEdictName: edict?.name || '없음',
     guildRank: guildRankInfo(current).rank,
   };
@@ -2522,6 +2606,7 @@ export function scoreState(state) {
     + Object.keys(current.questClaims || {}).length * 90
     + properties.filter((property) => property.owned).length * 220
     + properties.filter((property) => property.active).length * 80
+    + properties.reduce((sum, property) => sum + Number(property.level || 0) * 90, 0)
     + (activeMonthlyEdict(current) ? 120 : 0)
     + rank.rep * 2
     + battlePower(current) * 3
