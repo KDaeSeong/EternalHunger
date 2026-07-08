@@ -1837,11 +1837,20 @@
   stroke: rgba(255, 130, 130, 0.34);
 }
 
-.minimap-edge {
+.minimap-passage {
   stroke: rgba(8, 14, 24, 0.58);
   stroke-width: 1.75;
+  fill: none;
   stroke-linecap: round;
+  stroke-linejoin: round;
   filter: drop-shadow(0 0 2px rgba(178, 226, 248, 0.18));
+}
+
+.minimap-edge {
+  stroke: rgba(218, 249, 255, 0.20);
+  stroke-width: 0.72;
+  stroke-linecap: round;
+  stroke-dasharray: 1.8 1.4;
 }
 
 .minimap-facility {

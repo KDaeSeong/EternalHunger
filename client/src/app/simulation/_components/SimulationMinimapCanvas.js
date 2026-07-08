@@ -5,6 +5,7 @@ import {
   LUMIA_ISLAND_OUTLINE,
   LUMIA_KIOSK_MARKERS,
   LUMIA_MINIMAP_VIEWBOX,
+  LUMIA_PASSAGE_SEGMENTS,
   LUMIA_ZONE_POLYGONS,
 } from '../_lib/simulationConstants';
 
@@ -49,6 +50,12 @@ function polygonPoints(points) {
     .join(' ');
 }
 
+function edgeKey(a, b) {
+  const aa = String(a || '');
+  const bb = String(b || '');
+  return aa < bb ? `${aa}::${bb}` : `${bb}::${aa}`;
+}
+
 export default function SimulationMinimapCanvas({
   activeMapId,
   dead,
@@ -80,6 +87,7 @@ export default function SimulationMinimapCanvas({
   const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
   const positions = zonePos && typeof zonePos === 'object' ? zonePos : {};
   const availableZoneIds = new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean));
+  const passageEdgeKeys = new Set();
 
   return (
     <div className="minimap-canvas">
@@ -125,10 +133,24 @@ export default function SimulationMinimapCanvas({
           );
         })}
 
+        {safeArray(LUMIA_PASSAGE_SEGMENTS).map((segment) => {
+          const [a, b] = safeArray(segment?.edge);
+          if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
+          passageEdgeKeys.add(edgeKey(a, b));
+          return (
+            <polyline
+              key={`passage-${a}-${b}`}
+              points={polygonPoints(segment.points)}
+              className="minimap-passage"
+            />
+          );
+        })}
+
         {safeArray(zoneEdges).map(([a, b]) => {
           const pa = positions?.[a];
           const pb = positions?.[b];
           if (!pa || !pb) return null;
+          if (passageEdgeKeys.has(edgeKey(a, b))) return null;
           return (
             <line
               key={`e-${a}-${b}`}
