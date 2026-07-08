@@ -1,5 +1,7 @@
 'use client';
 
+import { LUMIA_ISLAND_OUTLINE, LUMIA_ZONE_POLYGONS } from '../_lib/simulationConstants';
+
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -35,6 +37,12 @@ function groupActorsByZone(actors, activeMapId) {
   return byZone;
 }
 
+function polygonPoints(points) {
+  return safeArray(points)
+    .map(([x, y]) => `${Number(x || 0)},${Number(y || 0)}`)
+    .join(' ');
+}
+
 export default function SimulationMinimapCanvas({
   activeMapId,
   dead,
@@ -59,14 +67,35 @@ export default function SimulationMinimapCanvas({
   const hyperloopSelectedChar = safeArray(survivors).find((actor) => String(actor?._id) === String(hyperloopCharId)) || null;
   const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
   const positions = zonePos && typeof zonePos === 'object' ? zonePos : {};
+  const availableZoneIds = new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean));
 
   return (
     <div className="minimap-canvas">
       <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
+        <polygon
+          className="minimap-island-outline"
+          points={polygonPoints(LUMIA_ISLAND_OUTLINE)}
+        />
+
+        {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
+          if (!availableZoneIds.has(id)) return null;
+          const isForbidden = forbiddenSet.has(id);
+          const zoneName = String(getZoneName?.(id) || id);
+          return (
+            <polygon
+              key={`area-${id}`}
+              points={polygonPoints(polygon)}
+              className={`minimap-zone-area ${isForbidden ? 'forbidden' : ''}`}
+            >
+              <title>{zoneName}</title>
+            </polygon>
+          );
+        })}
+
         {zoneList.map((zone) => {
           const id = String(zone?.zoneId || '');
           const p = positions?.[id];
-          if (!id || !p) return null;
+          if (!id || !p || LUMIA_ZONE_POLYGONS[id]) return null;
           const isForbidden = forbiddenSet.has(id);
           return (
             <circle

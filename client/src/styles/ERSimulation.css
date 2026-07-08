@@ -1799,8 +1799,35 @@
   display: block;
 }
 
+.minimap-island-outline {
+  fill: rgba(51, 122, 160, 0.24);
+  stroke: rgba(169, 218, 245, 0.28);
+  stroke-width: 1.35;
+  filter: drop-shadow(0 0 9px rgba(98, 183, 220, 0.24));
+}
+
+.minimap-zone-area {
+  fill: rgba(69, 143, 176, 0.25);
+  stroke: rgba(218, 245, 255, 0.22);
+  stroke-width: 0.55;
+  stroke-linejoin: round;
+}
+
+.minimap-zone-area:nth-of-type(2n) {
+  fill: rgba(74, 158, 190, 0.30);
+}
+
+.minimap-zone-area:nth-of-type(3n) {
+  fill: rgba(55, 127, 170, 0.28);
+}
+
+.minimap-zone-area.forbidden {
+  fill: rgba(255, 82, 82, 0.28);
+  stroke: rgba(255, 145, 145, 0.38);
+}
+
 .minimap-zone-surface {
-  fill: rgba(255, 255, 255, 0.055);
+  fill: rgba(69, 143, 176, 0.22);
   stroke: rgba(255, 255, 255, 0.12);
   stroke-width: 0.55;
 }
@@ -1811,8 +1838,8 @@
 }
 
 .minimap-edge {
-  stroke: rgba(205, 246, 255, 0.34);
-  stroke-width: 1.0;
+  stroke: rgba(218, 249, 255, 0.24);
+  stroke-width: 0.76;
   stroke-linecap: round;
 }
 
@@ -1826,9 +1853,9 @@
 }
 
 .minimap-node {
-  fill: rgba(7, 18, 30, 0.78);
-  stroke: rgba(255, 255, 255, 0.48);
-  stroke-width: 1.2;
+  fill: rgba(7, 18, 30, 0.72);
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 1.0;
 }
 
 .minimap-node.forbidden {
