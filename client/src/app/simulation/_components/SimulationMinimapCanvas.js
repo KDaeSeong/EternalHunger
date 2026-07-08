@@ -1,6 +1,6 @@
 'use client';
 
-import { LUMIA_ISLAND_OUTLINE, LUMIA_ZONE_POLYGONS } from '../_lib/simulationConstants';
+import { LUMIA_ISLAND_OUTLINE, LUMIA_MINIMAP_VIEWBOX, LUMIA_ZONE_POLYGONS } from '../_lib/simulationConstants';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -71,7 +71,12 @@ export default function SimulationMinimapCanvas({
 
   return (
     <div className="minimap-canvas">
-      <svg className="minimap-svg" viewBox="0 0 100 100" role="img" aria-label="미니맵">
+      <svg
+        className="minimap-svg"
+        viewBox={`0 0 ${LUMIA_MINIMAP_VIEWBOX.width} ${LUMIA_MINIMAP_VIEWBOX.height}`}
+        role="img"
+        aria-label="미니맵"
+      >
         <polygon
           className="minimap-island-outline"
           points={polygonPoints(LUMIA_ISLAND_OUTLINE)}
