@@ -1733,7 +1733,7 @@
 .minimap-canvas {
   position: relative;
   width: min(100%, 520px);
-  aspect-ratio: 106 / 111;
+  aspect-ratio: 1 / 1;
   height: auto;
   margin: 0 auto;
   border-radius: 12px;
