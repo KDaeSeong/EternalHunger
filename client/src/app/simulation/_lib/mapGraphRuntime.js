@@ -8,6 +8,25 @@ function toGraphObject(graph) {
   return out;
 }
 
+function shouldUseDefaultLumiaEdges(zoneIds) {
+  const ids = new Set((Array.isArray(zoneIds) ? zoneIds : []).map((z) => String(z || '')).filter(Boolean));
+  if (!ids.size) return false;
+  const defaultHits = [...ids].filter((zoneId) => (
+    LUMIA_DEFAULT_EDGES.some(([a, b]) => zoneId === a || zoneId === b)
+  )).length;
+  return defaultHits >= Math.min(8, ids.size);
+}
+
+function mergeDefaultLumiaEdges(graph, zoneIds) {
+  if (!shouldUseDefaultLumiaEdges(zoneIds)) return;
+  for (const [a, b] of (Array.isArray(LUMIA_DEFAULT_EDGES) ? LUMIA_DEFAULT_EDGES : [])) {
+    if (!a || !b) continue;
+    if (!graph[a] || !graph[b]) continue;
+    graph[a].add(b);
+    graph[b].add(a);
+  }
+}
+
 export function buildBaseZoneGraph(activeMap, zones) {
   const graph = {};
   const zoneIds = (Array.isArray(zones) ? zones : []).map((z) => String(z?.zoneId || ''));
@@ -26,14 +45,11 @@ export function buildBaseZoneGraph(activeMap, zones) {
     if (c?.bidirectional !== false) graph[b].add(a);
   });
 
+  mergeDefaultLumiaEdges(graph, zoneIds);
+
   const hasEdges = Object.values(graph).some((s) => (s?.size || 0) > 0);
   if (!hasEdges && zoneIds.length > 1) {
-    for (const [a, b] of (Array.isArray(LUMIA_DEFAULT_EDGES) ? LUMIA_DEFAULT_EDGES : [])) {
-      if (!a || !b) continue;
-      if (!graph[a] || !graph[b]) continue;
-      graph[a].add(b);
-      graph[b].add(a);
-    }
+    mergeDefaultLumiaEdges(graph, zoneIds);
 
     const hasEdgesAfter = Object.values(graph).some((s) => (s?.size || 0) > 0);
     if (!hasEdgesAfter) {

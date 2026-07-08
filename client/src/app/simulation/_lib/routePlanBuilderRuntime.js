@@ -1,5 +1,5 @@
 import { compactIO, hash32 } from './simulationCommon';
-import { EQUIP_SLOTS } from './simulationConstants';
+import { EQUIP_SLOTS, LUMIA_DEFAULT_EDGES } from './simulationConstants';
 import { inferEquipSlot, inferItemCategory } from './inventoryRules';
 import { classifySpecialByName } from './craftRuntime';
 import { findCrateZoneWeightsForItem, uniqStrings } from './mapTargeting';
@@ -240,6 +240,24 @@ function buildRouteConnectionInfo(mapObj) {
     add(a, b);
     if (c?.bidirectional !== false) add(b, a);
   }
+
+  const zoneSet = new Set(
+    (Array.isArray(mapObj?.zones) ? mapObj.zones : [])
+      .map((z) => String(z?.zoneId || '').trim())
+      .filter(Boolean)
+  );
+  const defaultZoneHits = [...zoneSet].filter((zoneId) => (
+    LUMIA_DEFAULT_EDGES.some(([a, b]) => zoneId === a || zoneId === b)
+  )).length;
+  const shouldMergeLumiaDefaults = zoneSet.size > 0 && defaultZoneHits >= Math.min(8, zoneSet.size);
+  if (shouldMergeLumiaDefaults) {
+    for (const [a, b] of LUMIA_DEFAULT_EDGES) {
+      if (!zoneSet.has(a) || !zoneSet.has(b)) continue;
+      add(a, b);
+      add(b, a);
+    }
+  }
+
   const hyper = new Set((Array.isArray(mapObj?.zones) ? mapObj.zones : [])
     .filter((z) => z?.hasHyperloop === true || z?.hyperloop === true)
     .map((z) => String(z?.zoneId || '').trim())
