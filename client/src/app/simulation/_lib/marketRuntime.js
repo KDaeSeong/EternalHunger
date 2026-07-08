@@ -1,4 +1,7 @@
 import { isAtOrAfterWorldTime } from './worldTime';
+import { LUMIA_KIOSK_ZONE_IDS } from './simulationConstants';
+
+const LUMIA_KIOSK_ZONE_ID_SET = new Set(LUMIA_KIOSK_ZONE_IDS);
 
 function countInventoryUnits(inventory) {
   return (Array.isArray(inventory) ? inventory : []).reduce((sum, x) => sum + Math.max(0, Number(x?.qty ?? 1)), 0);
@@ -35,6 +38,7 @@ function zoneNameHasKiosk(name) {
 function hasKioskAtZone(kiosks, mapObj, zoneId) {
   const zId = String(zoneId || '');
   if (!zId) return false;
+  if (LUMIA_KIOSK_ZONE_ID_SET.has(zId)) return true;
 
   if (Array.isArray(kiosks) && kiosks.length) {
     const mapId = String(mapObj?._id || mapObj?.id || '');

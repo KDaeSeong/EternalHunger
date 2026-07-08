@@ -1,6 +1,12 @@
 'use client';
 
-import { LUMIA_ISLAND_OUTLINE, LUMIA_MINIMAP_VIEWBOX, LUMIA_ZONE_POLYGONS } from '../_lib/simulationConstants';
+import {
+  LUMIA_HYPERLOOP_MARKERS,
+  LUMIA_ISLAND_OUTLINE,
+  LUMIA_KIOSK_MARKERS,
+  LUMIA_MINIMAP_VIEWBOX,
+  LUMIA_ZONE_POLYGONS,
+} from '../_lib/simulationConstants';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -62,6 +68,12 @@ export default function SimulationMinimapCanvas({
 
   const forbiddenSet = asSet(forbiddenNow);
   const hyperloopSet = asSet(hyperloopZoneSet);
+  const kioskSet = new Set(
+    zoneList
+      .filter((zone) => zone?.hasKiosk === true || zone?.kiosk === true)
+      .map((zone) => String(zone?.zoneId || ''))
+      .filter(Boolean)
+  );
   const aliveByZone = groupActorsByZone(survivors, activeMapId);
   const deadByZone = groupActorsByZone(dead, activeMapId);
   const hyperloopSelectedChar = safeArray(survivors).find((actor) => String(actor?._id) === String(hyperloopCharId)) || null;
@@ -142,6 +154,9 @@ export default function SimulationMinimapCanvas({
           const nodeR = 4.8;
           const labelSize = zoneName.length >= 6 ? 2.05 : zoneName.length >= 5 ? 2.3 : 2.65;
           const hasHyperloop = hyperloopSet.has(id);
+          const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
+          const hyperloopMarker = LUMIA_HYPERLOOP_MARKERS[id] || { x: p.x + nodeR, y: p.y - 4.2 };
+          const kioskMarker = LUMIA_KIOSK_MARKERS[id] || { x: p.x - nodeR, y: p.y + 4.2 };
 
           return (
             <g key={`z-${id}`}>
@@ -163,7 +178,19 @@ export default function SimulationMinimapCanvas({
               <title>{zoneName}</title>
 
               {hasHyperloop ? (
-                <text x={p.x + nodeR} y={p.y - 4.2} textAnchor="middle" fontSize="5.0" fill="rgba(180,220,255,0.92)">🌀</text>
+                <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
+                  <title>{zoneName} hyperloop</title>
+                  <circle r="2.35" />
+                  <text x="0" y="0.85" textAnchor="middle">{'>>'}</text>
+                </g>
+              ) : null}
+
+              {hasKiosk ? (
+                <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
+                  <title>{zoneName} kiosk</title>
+                  <circle r="2.25" />
+                  <text x="0" y="0.9" textAnchor="middle">C</text>
+                </g>
               ) : null}
 
               {(aliveHere > 0 || deadHere > 0) ? (

@@ -4,6 +4,10 @@ import {
   getLumiaZoneArea,
   getLumiaZoneAreaWeight,
 } from './lumiaMapGeometryRuntime';
+import {
+  LUMIA_HYPERLOOP_ZONE_IDS,
+  LUMIA_KIOSK_ZONE_IDS,
+} from './simulationConstants';
 
 // Generated from the attached Lumia Island region reference.
 // Keep this file deterministic: runtime code consumes zone loot, resource, wildlife, and facility data from here.
@@ -880,6 +884,8 @@ const LUMIA_REGION_DATA = RAW_LUMIA_REGION_DATA.map((region) => ({
 
 const REGION_BY_ZONE_ID = new Map(LUMIA_REGION_DATA.map((region) => [String(region.zoneId), region]));
 const REGION_BY_NAME_KEY = new Map(LUMIA_REGION_DATA.map((region) => [normalizeMatchKey(region.name), region]));
+const LUMIA_KIOSK_ZONE_ID_SET = new Set(LUMIA_KIOSK_ZONE_IDS);
+const LUMIA_HYPERLOOP_ZONE_ID_SET = new Set(LUMIA_HYPERLOOP_ZONE_IDS);
 
 function getRegionData(zoneIdOrName) {
   const id = canonicalZoneId(zoneIdOrName);
@@ -996,7 +1002,11 @@ function getRegionFacilityZoneIds(facilityKey, zones) {
   const zoneIds = Array.isArray(zones) && zones.length
     ? zones.map((z) => canonicalZoneId(z?.zoneId || z?.name)).filter(Boolean)
     : LUMIA_REGION_DATA.map((z) => z.zoneId);
-  return [...new Set(zoneIds.filter((zoneId) => Boolean(getRegionData(zoneId)?.[key])))];
+  return [...new Set(zoneIds.filter((zoneId) => {
+    if (key === 'kiosk' && LUMIA_KIOSK_ZONE_ID_SET.has(zoneId)) return true;
+    if (key === 'hyperloop' && LUMIA_HYPERLOOP_ZONE_ID_SET.has(zoneId)) return true;
+    return Boolean(getRegionData(zoneId)?.[key]);
+  }))];
 }
 
 function applyRegionDataToZones(zones) {
@@ -1009,9 +1019,9 @@ function applyRegionDataToZones(zones) {
     return {
       ...zone,
       name: zone?.name || region.name,
-      hasKiosk: Boolean(zone?.hasKiosk || region.kiosk),
+      hasKiosk: Boolean(zone?.hasKiosk || region.kiosk || LUMIA_KIOSK_ZONE_ID_SET.has(zoneId)),
       hasCampfire: Boolean(zone?.hasCampfire || region.campfire),
-      hasHyperloop: Boolean(zone?.hasHyperloop || region.hyperloop),
+      hasHyperloop: Boolean(zone?.hasHyperloop || region.hyperloop || LUMIA_HYPERLOOP_ZONE_ID_SET.has(zoneId)),
       area: Number(zone?.area || 0) > 0 ? Number(zone.area) : area,
       areaWeight: Number(zone?.areaWeight || 0) > 0 ? Number(zone.areaWeight) : areaWeight,
     };

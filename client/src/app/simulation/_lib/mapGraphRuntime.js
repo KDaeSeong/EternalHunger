@@ -1,4 +1,4 @@
-import { LUMIA_DEFAULT_EDGES } from './simulationConstants';
+import { LUMIA_DEFAULT_EDGES, LUMIA_HYPERLOOP_ZONE_IDS } from './simulationConstants';
 
 function toGraphObject(graph) {
   const out = {};
@@ -81,6 +81,7 @@ export function getHyperloopZoneIds(activeMap, zones) {
   (Array.isArray(zones) ? zones : []).forEach((zone) => {
     if (zone?.hasHyperloop === true || zone?.hyperloop === true) add(zone?.zoneId);
   });
+  LUMIA_HYPERLOOP_ZONE_IDS.forEach(add);
   add(activeMap?.hyperloopDeviceZoneId);
   return out;
 }
