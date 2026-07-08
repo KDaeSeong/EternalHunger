@@ -274,6 +274,71 @@ function recipeName(recipeId) {
   return RECIPES.find((recipe) => recipe.id === recipeId)?.name || recipeId;
 }
 
+function recipeUnlockTech(recipeId) {
+  return TECH_TREE.find((tech) => (tech.unlocks?.recipes || []).includes(recipeId)) || null;
+}
+
+function canPrototypeRecipeForEureka(research, tech, recipeId) {
+  const eureka = tech?.eureka || {};
+  return eureka.type === 'recipeCraft'
+    && eureka.recipeId === recipeId
+    && prereqsMet(research, tech);
+}
+
+export function recipeUnlockInfo(state, recipeId) {
+  const research = normalizeResearch(state?.research);
+  const recipe = RECIPES.find((row) => row.id === recipeId) || null;
+  if (!recipe) {
+    return {
+      recipe: null,
+      unlocked: false,
+      prototype: false,
+      techId: '',
+      techName: '',
+      statusLabel: '알 수 없는 레시피',
+      lockedReason: '선택한 제작 레시피를 찾을 수 없습니다.',
+    };
+  }
+
+  const tech = recipeUnlockTech(recipe.id);
+  if (!tech) {
+    return {
+      recipe,
+      unlocked: true,
+      prototype: false,
+      techId: '',
+      techName: '',
+      statusLabel: '기본 제작',
+      lockedReason: '',
+    };
+  }
+
+  const completed = Boolean(research.completed?.[tech.id]);
+  const prototype = !completed && canPrototypeRecipeForEureka(research, tech, recipe.id);
+  const unlocked = completed || prototype;
+  const missing = missingPrereqNames(research, tech);
+  return {
+    recipe,
+    unlocked,
+    prototype,
+    techId: tech.id,
+    techName: tech.name,
+    statusLabel: completed ? `${tech.name} 완료` : prototype ? `${tech.name} 시제품` : `${tech.name} 필요`,
+    lockedReason: unlocked
+      ? ''
+      : missing.length
+        ? `${recipe.name}은(는) ${tech.name} 연구 계열 제작물입니다. 먼저 선행 연구 ${missing.join(', ')}을(를) 완료하세요.`
+        : `${recipe.name}은(는) ${tech.name} 연구 완료 후 제작할 수 있습니다.`,
+  };
+}
+
+export function recipeRows(state) {
+  return RECIPES.map((recipe) => ({
+    ...recipe,
+    ...recipeUnlockInfo(state, recipe.id),
+  }));
+}
+
 function passiveLabel(passiveId) {
   const labels = {
     GATHER_SUCCESS_UP: '채집 성공률',
@@ -1597,12 +1662,8 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
 export function runCraftAction(state, actorId, recipeId, options = {}) {
   const recipe = RECIPES.find((row) => row.id === recipeId) || RECIPES[0];
   const actor = getActor(state, actorId);
-  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_SYSTEM_UNLOCK')) {
-    return addLog(state, `${recipe.name}은(는) 문자 연구 후 제작할 수 있습니다.`);
-  }
-  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_BONUS_UP')) {
-    return addLog(state, `${recipe.name}은(는) 책 제작 연구 후 제작할 수 있습니다.`);
-  }
+  const unlock = recipeUnlockInfo(state, recipe.id);
+  if (!unlock.unlocked) return addLog(state, unlock.lockedReason);
   if (!hasResources(state.inventory, recipe.requires)) {
     return addLog(state, `${recipe.name} 제작 재료가 부족합니다. 필요: ${formatRequires(recipe.requires)}.`);
   }
@@ -1784,8 +1845,7 @@ function pickAutoCareActor(state) {
 
 function autoRecipeAllowed(state, recipe) {
   if (!recipe || !hasResources(state.inventory, recipe.requires)) return false;
-  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_SYSTEM_UNLOCK')) return false;
-  if (recipe.id.startsWith('book_') && !hasTechPassive(state, 'BOOK_BONUS_UP')) return false;
+  if (!recipeUnlockInfo(state, recipe.id).unlocked) return false;
   return true;
 }
 

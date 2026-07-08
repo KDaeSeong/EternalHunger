@@ -6,7 +6,6 @@ import {
 } from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
-  RECIPES,
   ZONES,
   completeArchiveAction,
   equipmentChoicesForSlot,
@@ -44,6 +43,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
     recentActionText,
     recipe,
     recipeId,
+    recipeRows,
     recruitCandidates,
     recruitMember,
     research,
@@ -83,18 +83,26 @@ export default function PrimitiveArchiveSurvivalTab(props) {
               <label className="game-save-json-field">
                 <span>제작</span>
                 <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
-                  {RECIPES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
+                  {(recipeRows || []).map((row) => (
+                    <option value={row.id} key={row.id}>
+                      {row.unlocked ? row.name : `${row.name} · 잠김`}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
             <div className="games-action-dock__notes">
               <span>{zone.note}</span>
-              <span>제작: {formatRequires(recipe.requires)} · {recipe.note}</span>
+              <span>
+                {recipe?.unlocked
+                  ? `제작: ${formatRequires(recipe.requires)} · ${recipe.note}${recipe.prototype ? ` · ${recipe.statusLabel}` : ''}`
+                  : `제작 잠김: ${recipe?.lockedReason || '연구 조건을 확인하세요.'}`}
+              </span>
             </div>
             <div className="games-action-dock__buttons">
               <ActionButton disabled={!canAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
               <ActionButton disabled={!canAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
-              <ActionButton disabled={!canAct || !recipe} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
+              <ActionButton disabled={!canAct || !recipe?.unlocked} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
               <ActionButton disabled={!canAct} onClick={runEat}>식사</ActionButton>
               <ActionButton disabled={!canAct} onClick={runRest}>휴식</ActionButton>
               <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>연구</ActionButton>

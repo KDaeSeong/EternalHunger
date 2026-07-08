@@ -10,7 +10,6 @@ import { RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
   ITEMS,
-  RECIPES,
   ZONES,
   actionChance,
   averageBodyTemp,
@@ -35,6 +34,7 @@ import {
   logCapacity,
   partyInsulation,
   perkRows,
+  recipeRows,
   recruitPartyMemberAction,
   recruitablePartyRows,
   researchInspirationRows,
@@ -90,7 +90,8 @@ export default function PrimitiveArchivePlayContent() {
 
   const actor = getActor(state, actorId);
   const zone = ZONES.find((row) => row.id === zoneId) || ZONES[0];
-  const recipe = RECIPES.find((row) => row.id === recipeId) || RECIPES[0];
+  const recipes = useMemo(() => recipeRows(state), [state]);
+  const recipe = recipes.find((row) => row.id === recipeId) || recipes.find((row) => row.unlocked) || recipes[0];
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
   const stamina = averageParty(state, 'stamina');
@@ -119,7 +120,7 @@ export default function PrimitiveArchivePlayContent() {
   const canAct = !dead && state.ap > 0;
   const gatherChance = actionChance(state, actorId, 'gather', 0.5);
   const huntChance = actionChance(state, actorId, 'hunt', 0.42);
-  const craftChance = recipe ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
+  const craftChance = recipe?.unlocked ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
   const runProgressReport = useMemo(() => getRunProgressReport(state), [state]);
@@ -144,7 +145,7 @@ export default function PrimitiveArchivePlayContent() {
       const chances = {
         gather: actionChance(state, member.id, 'gather', 0.5),
         hunt: actionChance(state, member.id, 'hunt', 0.42),
-        craft: actionChance(state, member.id, 'craft', recipe.baseChance - 0.18),
+        craft: recipe?.unlocked ? actionChance(state, member.id, 'craft', recipe.baseChance - 0.18) : 0,
       };
       const basisAction = roleActionForMember(member);
       const basisChance = chances[basisAction];
@@ -168,7 +169,7 @@ export default function PrimitiveArchivePlayContent() {
     if (partySort === 'success') return rows.sort((a, b) => b.basisChance - a.basisChance || a.index - b.index);
     if (partySort === 'recommend') return rows.sort((a, b) => b.recommendScore - a.recommendScore || a.index - b.index);
     return rows;
-  }, [partySort, recipe.baseChance, state]);
+  }, [partySort, recipe, state]);
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
@@ -231,7 +232,7 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const runCraft = () => {
-    if (!canAct || !recipe) return;
+    if (!canAct || !recipe?.unlocked) return;
     applyAction('제작', (current) => runCraftAction(current, actorId, recipeId));
   };
 
@@ -341,7 +342,7 @@ export default function PrimitiveArchivePlayContent() {
       ? '아카이브 완성을 눌러 이번 런을 마무리할 수 있습니다.'
       : dead
         ? '결과를 기록하거나 새 런을 시작하세요.'
-        : `${zone.note} 제작 목표는 ${recipe.name}입니다.`,
+        : `${zone.note} 제작 목표는 ${recipe.name}${recipe.unlocked ? '' : ' (잠김)'}입니다.`,
     focusRows: [
       { label: 'HP', value: hp },
       { label: '허기', value: hunger },
@@ -444,6 +445,7 @@ export default function PrimitiveArchivePlayContent() {
         recentActionText={recentActionText}
         recipe={recipe}
         recipeId={recipeId}
+        recipeRows={recipes}
         recruitCandidates={recruitCandidates}
         recruitMember={recruitMember}
         research={research}
