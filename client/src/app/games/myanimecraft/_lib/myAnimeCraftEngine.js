@@ -4897,6 +4897,254 @@ export function getTopPlayers(state, limit = 12) {
     .slice(0, limit);
 }
 
+function rivalryPairKey(playerAId, playerBId) {
+  const ids = [String(playerAId || ''), String(playerBId || '')].filter(Boolean).sort();
+  return ids.length === 2 && ids[0] !== ids[1] ? `${ids[0]}::${ids[1]}` : '';
+}
+
+function rivalryPlayerMeta(state, playerId, fallbackName = '') {
+  const context = findPlayerContext(state, playerId);
+  return {
+    playerId: String(playerId || ''),
+    playerName: context?.player?.name || fallbackName || String(playerId || ''),
+    teamId: context?.team?.id || '',
+    teamName: context?.team?.name || '',
+    race: context?.player?.race || '',
+    skill: context?.player ? Math.round(averageStats(context.player)) : 0,
+  };
+}
+
+function ensureRivalryLedgerRow(ledger, state, entry) {
+  const key = rivalryPairKey(entry.homePlayerId, entry.awayPlayerId);
+  if (!key) return null;
+  const [playerAId, playerBId] = key.split('::');
+  if (!ledger.has(key)) {
+    const metaA = rivalryPlayerMeta(
+      state,
+      playerAId,
+      String(entry.homePlayerId) === playerAId ? entry.homePlayerName : entry.awayPlayerName,
+    );
+    const metaB = rivalryPlayerMeta(
+      state,
+      playerBId,
+      String(entry.homePlayerId) === playerBId ? entry.homePlayerName : entry.awayPlayerName,
+    );
+    ledger.set(key, {
+      key,
+      playerAId,
+      playerBId,
+      playerAName: metaA.playerName,
+      playerBName: metaB.playerName,
+      playerATeamName: metaA.teamName,
+      playerBTeamName: metaB.teamName,
+      playerARace: metaA.race,
+      playerBRace: metaB.race,
+      playerASkill: metaA.skill,
+      playerBSkill: metaB.skill,
+      sets: 0,
+      aWins: 0,
+      bWins: 0,
+      aceSets: 0,
+      closeSets: 0,
+      totalDurationSec: 0,
+      sources: {},
+      maps: {},
+      latest: null,
+    });
+  }
+  return ledger.get(key);
+}
+
+function addRivalrySet(ledger, state, entry) {
+  const homePlayerId = String(entry?.homePlayerId || '');
+  const awayPlayerId = String(entry?.awayPlayerId || '');
+  const winnerPlayerId = String(entry?.winnerPlayerId || entry?.winnerId || '');
+  if (!homePlayerId || !awayPlayerId || homePlayerId === awayPlayerId || !winnerPlayerId) return;
+
+  const row = ensureRivalryLedgerRow(ledger, state, {
+    ...entry,
+    homePlayerId,
+    awayPlayerId,
+  });
+  if (!row) return;
+
+  row.sets += 1;
+  if (winnerPlayerId === row.playerAId) row.aWins += 1;
+  if (winnerPlayerId === row.playerBId) row.bWins += 1;
+  if (entry?.isAceSet) row.aceSets += 1;
+
+  const probabilityHome = Number(entry?.probabilityHome || 0);
+  const winnerProb = probabilityHome
+    ? (winnerPlayerId === homePlayerId ? probabilityHome : 100 - probabilityHome)
+    : 0;
+  if (winnerProb && winnerProb <= 56) row.closeSets += 1;
+
+  const durationSec = Math.max(0, Number(entry?.durationSec || 0));
+  row.totalDurationSec += durationSec;
+
+  const source = String(entry?.source || '리그');
+  row.sources[source] = Number(row.sources[source] || 0) + 1;
+  const mapName = String(entry?.mapName || entry?.mapId || '').trim();
+  if (mapName) row.maps[mapName] = Number(row.maps[mapName] || 0) + 1;
+
+  const playedAt = Number(entry?.playedAt || 0);
+  if (!row.latest || playedAt >= Number(row.latest.playedAt || 0)) {
+    row.latest = {
+      playedAt,
+      source,
+      stageLabel: String(entry?.stageLabel || source),
+      mapName,
+      setNo: Number(entry?.setNo || 0),
+      winnerPlayerId,
+      winnerName: winnerPlayerId === homePlayerId
+        ? String(entry?.homePlayerName || row.playerAName)
+        : String(entry?.awayPlayerName || row.playerBName),
+    };
+  }
+}
+
+function addFixtureRivalrySets(ledger, state, fixture, stageLabel) {
+  const result = fixture?.result;
+  if (!fixture?.played || !result || !Array.isArray(result.sets)) return;
+  result.sets.forEach((setResult) => {
+    addRivalrySet(ledger, state, {
+      source: stageLabel || '정규리그',
+      stageLabel: stageLabel || `${result.round || fixture.round || '-'}주차`,
+      playedAt: Number(result.playedAt || 0),
+      ...setResult,
+    });
+  });
+}
+
+function addPersonalRivalrySets(ledger, state, match) {
+  if (!match?.played) return;
+  if (Array.isArray(match.setDetails) && match.setDetails.length) {
+    match.setDetails.forEach((setResult) => {
+      addRivalrySet(ledger, state, {
+        source: '개인리그',
+        stageLabel: `개인리그 ${personalRoundLabel(match.round)}`,
+        playedAt: Number(match.playedAt || 0),
+        homePlayerId: setResult.homePlayerId,
+        homePlayerName: setResult.homePlayerName,
+        awayPlayerId: setResult.awayPlayerId,
+        awayPlayerName: setResult.awayPlayerName,
+        winnerPlayerId: setResult.winnerId,
+        setNo: setResult.setNo,
+        mapId: setResult.mapId,
+        mapName: setResult.mapName,
+        durationSec: setResult.durationSec,
+      });
+    });
+    return;
+  }
+
+  (Array.isArray(match.setWinners) ? match.setWinners : []).forEach((winnerId, index) => {
+    addRivalrySet(ledger, state, {
+      source: '개인리그',
+      stageLabel: `개인리그 ${personalRoundLabel(match.round)}`,
+      playedAt: Number(match.playedAt || 0),
+      homePlayerId: match.playerAId,
+      awayPlayerId: match.playerBId,
+      winnerPlayerId: winnerId,
+      setNo: index + 1,
+      mapName: Array.isArray(match.mapNames) ? match.mapNames[index] : '',
+    });
+  });
+}
+
+function sourceSummaryLabel(sources) {
+  return Object.entries(sources || {})
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0) || a[0].localeCompare(b[0], 'ko-KR'))
+    .slice(0, 3)
+    .map(([label, count]) => `${label} ${count}`)
+    .join(' · ');
+}
+
+function mapSummaryLabel(maps) {
+  return Object.entries(maps || {})
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0) || a[0].localeCompare(b[0], 'ko-KR'))
+    .slice(0, 2)
+    .map(([label, count]) => `${label} ${count}회`)
+    .join(' · ');
+}
+
+function rivalryRowLabel(row) {
+  const leaderName = row.aWins >= row.bWins ? row.playerAName : row.playerBName;
+  const leaderWins = Math.max(row.aWins, row.bWins);
+  const trailerWins = Math.min(row.aWins, row.bWins);
+  if (row.aWins === row.bWins) return `동률 ${row.aWins}:${row.bWins}`;
+  return `${leaderName} ${leaderWins}:${trailerWins} 우세`;
+}
+
+export function getRivalryReport(state, limit = 8) {
+  const current = normalizeState(state);
+  const ledger = new Map();
+
+  current.fixtures.forEach((fixture) => {
+    addFixtureRivalrySets(ledger, current, fixture, `${fixture.round || '-'}주차`);
+  });
+  normalizePostseasonFixtures(current.postseasonFixtures).forEach((fixture) => {
+    addFixtureRivalrySets(ledger, current, fixture, fixture.label || POSTSEASON_LABELS[fixture.round] || '포스트시즌');
+  });
+  normalizePersonalLeague(current.personalLeague, current.seasonNo).matches.forEach((match) => {
+    addPersonalRivalrySets(ledger, current, match);
+  });
+  normalizeWinnersLeague(current.winnersLeague, current.seasonNo).sets.forEach((setResult) => {
+    addRivalrySet(ledger, current, {
+      source: '위너스리그',
+      stageLabel: '위너스리그',
+      playedAt: Number(setResult.playedAt || 0),
+      ...setResult,
+    });
+  });
+
+  const rows = [...ledger.values()]
+    .map((row) => {
+      const winGap = Math.abs(row.aWins - row.bWins);
+      const balanceScore = Math.max(0, 6 - winGap);
+      const sourceLabel = sourceSummaryLabel(row.sources);
+      const mapLabel = mapSummaryLabel(row.maps);
+      const avgDurationMin = row.sets ? Math.round((row.totalDurationSec / row.sets) / 60) : 0;
+      const rivalryScore = row.sets * 12 + balanceScore * 8 + row.closeSets * 6 + row.aceSets * 8;
+      return {
+        ...row,
+        winGap,
+        winRateA: row.sets ? Math.round((row.aWins / row.sets) * 100) : 0,
+        winRateB: row.sets ? Math.round((row.bWins / row.sets) * 100) : 0,
+        recordLabel: rivalryRowLabel(row),
+        sourceLabel,
+        mapLabel,
+        avgDurationMin,
+        rivalryScore,
+        headline: `${row.playerAName} vs ${row.playerBName} · ${row.sets}세트 · ${rivalryRowLabel(row)}`,
+        detail: [
+          sourceLabel ? `무대 ${sourceLabel}` : '',
+          mapLabel ? `주요 맵 ${mapLabel}` : '',
+          row.closeSets ? `예측 접전 ${row.closeSets}세트` : '',
+          row.aceSets ? `에이스전 ${row.aceSets}회` : '',
+        ].filter(Boolean).join(' · '),
+      };
+    })
+    .sort((a, b) => (
+      b.rivalryScore - a.rivalryScore
+      || b.sets - a.sets
+      || a.winGap - b.winGap
+      || a.playerAName.localeCompare(b.playerAName, 'ko-KR')
+    ))
+    .slice(0, limit);
+
+  const top = rows[0];
+  return {
+    totalPairs: ledger.size,
+    totalSets: [...ledger.values()].reduce((sum, row) => sum + Number(row.sets || 0), 0),
+    sampleLabel: ledger.size ? `${ledger.size}쌍 · ${[...ledger.values()].reduce((sum, row) => sum + Number(row.sets || 0), 0)}세트` : '표본 없음',
+    headline: top
+      ? `${top.playerAName}와 ${top.playerBName}의 맞대결이 현재 최대 라이벌리입니다. ${top.recordLabel}, 누적 ${top.sets}세트입니다.`
+      : '경기를 진행하면 선수별 맞대결과 라이벌리 흐름이 누적됩니다.',
+    rows,
+  };
+}
+
 export function getCurrentFixtures(state) {
   const current = normalizeState(state);
   if (isRegularSeasonComplete(current)) {

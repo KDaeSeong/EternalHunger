@@ -30,6 +30,7 @@ import {
   getSeriesReplayReport,
   getSourceSummary,
   getPostseasonRows,
+  getRivalryReport,
   getTopPlayers,
   getTeam,
   getTeamContractRows,
@@ -76,6 +77,7 @@ export default function MyAnimeCraftPlayPage() {
   const seasonFinaleReport = useMemo(() => getSeasonFinaleReport(state), [state]);
   const matchArchiveRows = useMemo(() => getMatchArchiveRows(state, 18), [state]);
   const buildMetaReport = useMemo(() => getBuildMetaReport(state), [state]);
+  const rivalryReport = useMemo(() => getRivalryReport(state, 8), [state]);
   const selectedArchiveMatch = matchArchiveRows.find((row) => row.id === selectedArchiveMatchId) || matchArchiveRows[0];
   const seriesReplayReport = useMemo(() => getSeriesReplayReport(selectedArchiveMatch), [selectedArchiveMatch]);
   const selectedTeam = getTeam(state, selectedTeamId);
@@ -252,10 +254,12 @@ export default function MyAnimeCraftPlayPage() {
       { label: '경기', value: `${played}/${total}` },
       { label: '선두', value: leader?.teamName || '-' },
       { label: '개인리그', value: personalSummary.stage === 'DONE' ? personalSummary.championName || '완료' : personalSummary.phaseLabel || '-' },
+      { label: '라이벌리', value: rivalryReport.sampleLabel },
       { label: '리포트', value: seasonReports.length },
     ],
     adviceLines: [
       ended ? { kind: '우선', title: '시즌 결과 기록', detail: '명예/전적 기록 후 다음 시즌으로 넘어가세요.' } : { kind: '우선', title: '다음 경기 진행', detail: '최근 경기 아카이브가 갱신되도록 1경기 또는 1주 단위로 진행하세요.' },
+      rivalryReport.rows[0] ? { kind: '관전', title: '라이벌리 체크', detail: rivalryReport.rows[0].headline } : null,
       personalSummary.stage !== 'DONE' ? { kind: '병행', title: '개인리그 추적', detail: personalSummary.phaseLabel || '개인리그 진행 상황을 확인하세요.' } : null,
       winnersSummary.stage !== 'DONE' ? { kind: '병행', title: '위너스리그 추적', detail: `${winnersSummary.scoreHome}:${winnersSummary.scoreAway} 스코어를 확인하세요.` } : null,
     ],
@@ -289,6 +293,7 @@ export default function MyAnimeCraftPlayPage() {
         playerRankings={playerRankings}
         postseasonRows={postseasonRows}
         recentActionText={recentActionText}
+        rivalryReport={rivalryReport}
         seasonFinaleReport={seasonFinaleReport}
         seasonReports={seasonReports}
         seasonStage={seasonStage}

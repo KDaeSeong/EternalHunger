@@ -5,6 +5,7 @@ export default function MyAnimeCraftRecordsTab(props) {
   const {
     played,
     playerRankings,
+    rivalryReport,
     seasonFinaleReport,
     seasonReports,
     selectedContracts,
@@ -59,6 +60,43 @@ export default function MyAnimeCraftRecordsTab(props) {
             ))}
           </div>
         ) : null}
+      </section>
+
+      <section className="games-panel" style={{ marginBottom: 14 }}>
+        <div className="games-panel-title">
+          <h2>라이벌리 기록소</h2>
+          <span>{rivalryReport.sampleLabel}</span>
+        </div>
+        <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
+          {rivalryReport.headline}
+        </p>
+        <div className="game-save-list">
+          {rivalryReport.rows.length ? rivalryReport.rows.slice(0, 6).map((row, index) => (
+            <article className="game-save-row" key={row.key}>
+              <div>
+                <span>
+                  {index + 1}위 · {RACE_LABELS[row.playerARace] || row.playerARace || '-'} vs {RACE_LABELS[row.playerBRace] || row.playerBRace || '-'}
+                  {' · '}
+                  평균 {row.avgDurationMin || '-'}분
+                </span>
+                <strong>{row.playerAName} vs {row.playerBName}</strong>
+                <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>
+                  {row.playerATeamName || '무소속'} / {row.playerBTeamName || '무소속'}
+                  {row.detail ? ` · ${row.detail}` : ''}
+                </small>
+              </div>
+              <strong>{row.recordLabel}</strong>
+            </article>
+          )) : (
+            <article className="game-save-row">
+              <div>
+                <span>세트 결과 누적 후 자동 생성</span>
+                <strong>아직 라이벌리 표본이 없습니다.</strong>
+              </div>
+              <strong>대기</strong>
+            </article>
+          )}
+        </div>
       </section>
 
       <section className="games-dashboard">

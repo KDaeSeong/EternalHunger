@@ -19,6 +19,7 @@ export default function MyAnimeCraftLeagueTab(props) {
     played,
     postseasonRows,
     recentActionText,
+    rivalryReport,
     seasonStage,
     selectedArchiveMatch,
     seriesReplayReport,
@@ -125,6 +126,30 @@ export default function MyAnimeCraftLeagueTab(props) {
               ))}
             </div>
           ) : null}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>라이벌리 브리핑</h2>
+            <span>{rivalryReport.sampleLabel}</span>
+          </div>
+          <p style={{ color: '#5f6c78', fontWeight: 800, lineHeight: 1.5, margin: 0 }}>
+            {rivalryReport.headline}
+          </p>
+          <div className="game-save-list">
+            {rivalryReport.rows.length ? rivalryReport.rows.slice(0, 3).map((row) => (
+              <article className="game-save-row" key={row.key}>
+                <div>
+                  <span>{row.playerATeamName || '무소속'} · {row.playerBTeamName || '무소속'}</span>
+                  <strong>{row.playerAName} vs {row.playerBName}</strong>
+                  <small>{row.detail || '추가 표본 대기'}</small>
+                </div>
+                <strong>{row.recordLabel}</strong>
+              </article>
+            )) : (
+              <div className="games-empty">경기를 진행하면 맞대결 브리핑이 표시됩니다.</div>
+            )}
+          </div>
         </section>
 
         <section className="games-panel">

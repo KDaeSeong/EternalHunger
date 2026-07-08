@@ -133,6 +133,7 @@ npm run build
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftMarketTab.js`
   - `client/src/app/games/myanimecraft/_components/MyAnimeCraftRecordsTab.js`
 - MyAnimeCraft Personal League V2 preliminary reports now include seed-tier distribution, race distribution, form/rating averages, and lower-seed breakthrough notes.
+- MyAnimeCraft rivalry archive now derives head-to-head records from regular league, postseason, Personal League, and Winners League set history, then surfaces it in the league advisor, league tab, and records tab.
 - Racing Logos Demo shared logo/event row panels now live in `client/src/app/games/racing-logos-demo/_components/RacingLogosPlayPanels.js`.
 - Racing Logos Demo large feature tab JSX now lives in `client/src/app/games/racing-logos-demo/_components/RacingLogosFeatureTabs.js`.
 - Racing Logos Demo feature tabs are split into:
