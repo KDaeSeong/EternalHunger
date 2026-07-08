@@ -98,6 +98,30 @@ export const CAMP_UNLOCK_LABELS = {
   library_shelf: '서가',
 };
 
+export const PASSIVE_UNLOCK_LABELS = {
+  GATHER_SUCCESS_UP: '채집 성공률',
+  HUNT_SUCCESS_UP: '사냥 성공률',
+  CRAFT_SUCCESS_UP: '제작 성공률',
+  COOKING_RECOVERY_UP: '요리 회복',
+  REST_HEAL_UP: '휴식 회복',
+  RESEARCH_NOTE_UP: '일일 연구',
+  HUNT_RISK_DOWN: '사냥 위험 감소',
+  BOW_HUNT_UP: '활 사냥 보정',
+  CAMP_SCORE_UP: '캠프 점수',
+  PARTY_CAP_UP: '파티 정원',
+  RESEARCH_POINT_BONUS: '연구 보너스',
+  ARCHIVE_LOG_UP: '로그 저장량',
+  BOOK_SYSTEM_UNLOCK: '책 시스템',
+  BOOK_BONUS_UP: '책 보너스',
+  RESEARCH_POINT_BONUS_2: '상위 연구 보너스',
+  STORAGE_RATIONS_UP: '보존식 효율',
+  ADVANCED_CRAFT_UP: '정밀 제작',
+  OBSIDIAN_HUNT_UP: '흑요석 사냥',
+  MEGAFAUNA_RISK_DOWN: '대형 사냥 위험 감소',
+  TABLET_RESEARCH_UP: '기록판 연구',
+  WEATHER_LORE_UP: '날씨 해석',
+};
+
 export function researchStatusLabel(tech) {
   if (tech.completed) return '완료';
   if (tech.selected) return '선택';
@@ -110,11 +134,11 @@ export function researchUnlockText(tech) {
   const recipes = (tech.unlocks?.recipes || [])
     .map((recipeId) => RECIPES.find((recipe) => recipe.id === recipeId)?.name || recipeId);
   const camps = (tech.unlocks?.camp || []).map((campId) => CAMP_UNLOCK_LABELS[campId] || campId);
-  const passives = (tech.unlocks?.passives || []).map((passiveId) => passiveId.replaceAll('_', ' '));
+  const passives = (tech.unlocks?.passives || []).map((passiveId) => PASSIVE_UNLOCK_LABELS[passiveId] || passiveId.replaceAll('_', ' '));
   return [
     recipes.length ? `제작 ${recipes.join(', ')}` : '',
     camps.length ? `시설 ${camps.join(', ')}` : '',
-    passives.length ? `효과 ${passives.length}개` : '',
+    passives.length ? `효과 ${passives.join(', ')}` : '',
   ].filter(Boolean).join(' · ') || '기본 연구 보너스';
 }
 

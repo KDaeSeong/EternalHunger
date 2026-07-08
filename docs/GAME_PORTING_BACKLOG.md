@@ -86,12 +86,13 @@ Checked: 2026-07-04
 ## Primitive Archive Slice Status
 
 - Route: `/games/primitive-archive/play`
-- Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state, early tech tree research, eureka triggers, research passives, run settlement, perk points, perk shop, and perk-applied new runs.
-- UI/UX: research growth tab now includes an era-grouped research map plus a detailed research planner with priority scoring, unlock rewards, blockers, eureka progress, next recommended actions, and one-click available research targeting; the play shell separates current run difficulty from the next-run start difficulty presets and labels each start difficulty by recommended use, pressure profile, scoring, and starting supplies.
+- Included loop: party selection, zone selection, gather, hunt, craft, eat, rest, camp upgrades, day rollover, death/end state, primitive/neolithic/ancient tech tree research, eureka triggers, research passives, run settlement, perk points, perk shop, and perk-applied new runs.
+- Tech/content depth: ancient branches now add preserved rations, precision carving, obsidian hunting gear, megafauna hide armor, clay-tablet records, and weather-lore equipment with matching auto-craft priorities and survival effects.
+- UI/UX: research growth tab now includes an era-grouped research map plus a detailed research planner with priority scoring, readable unlock rewards, blockers, eureka progress, next recommended actions, and one-click available research targeting; the play shell separates current run difficulty from the next-run start difficulty presets and labels each start difficulty by recommended use, pressure profile, scoring, and starting supplies.
 - Recipe gates: manual crafting and auto crafting now use the research tree's recipe unlocks, with prototype crafting only allowed when the recipe itself is the current tech's eureka trigger.
 - Site API integration: quick save through `/game-saves/primitive-archive/primitive-archive-main`; run record through `/game-records/primitive-archive`.
 - Asset integration: source portraits are copied to `client/public/games/primitive-archive/portraits`.
-- Next step: import the remaining original tech tree item branches, then split the detailed research planner into a dedicated modal if the planner grows beyond the current tab layout.
+- Next step: tune late-run balance around ancient recipes and split the detailed research planner into a dedicated modal if the planner grows beyond the current tab layout.
 
 ## Dual Academy TCG v13 Slice Status
 

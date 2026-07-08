@@ -356,6 +356,12 @@ function passiveLabel(passiveId) {
     BOOK_SYSTEM_UNLOCK: '책 시스템',
     BOOK_BONUS_UP: '책 보너스',
     RESEARCH_POINT_BONUS_2: '상위 연구 보너스',
+    STORAGE_RATIONS_UP: '보존식 효율',
+    ADVANCED_CRAFT_UP: '정밀 제작',
+    OBSIDIAN_HUNT_UP: '흑요석 사냥',
+    MEGAFAUNA_RISK_DOWN: '대형 사냥 위험 감소',
+    TABLET_RESEARCH_UP: '기록판 연구',
+    WEATHER_LORE_UP: '날씨 해석',
   };
   return labels[passiveId] || passiveId.replaceAll('_', ' ');
 }
@@ -463,7 +469,9 @@ function bookCampStaminaReduction(state) {
 
 function bookResearchBonus(state) {
   if (!bookSystemActive(state)) return 0;
-  return Math.min(2, Number(state.inventory?.book_craft_guide || 0) + Number(state.inventory?.book_camp_manual || 0));
+  const books = Number(state.inventory?.book_craft_guide || 0) + Number(state.inventory?.book_camp_manual || 0);
+  const tablets = hasTechPassive(state, 'TABLET_RESEARCH_UP') ? Number(state.inventory?.clay_tablet || 0) : 0;
+  return Math.min(4, books + tablets);
 }
 
 function completeTechIfReady(state, techId) {
@@ -919,7 +927,9 @@ export function actionChance(state, actorId, action, base = 0.55) {
     (action === 'gather' && hasTechPassive(state, 'GATHER_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && isEquipped(state, actorId, 'bow') && hasTechPassive(state, 'BOW_HUNT_UP') ? 0.06 : 0)
-    + (action === 'craft' && hasTechPassive(state, 'CRAFT_SUCCESS_UP') ? 0.06 : 0);
+    + (action === 'hunt' && hasTechPassive(state, 'OBSIDIAN_HUNT_UP') ? 0.04 : 0)
+    + (action === 'craft' && hasTechPassive(state, 'CRAFT_SUCCESS_UP') ? 0.06 : 0)
+    + (action === 'craft' && hasTechPassive(state, 'ADVANCED_CRAFT_UP') ? 0.04 : 0);
   return clamp(base + stat * 0.025 + weather + camp + book + equipment + researchBonus, 0.08, 0.95);
 }
 
@@ -956,7 +966,8 @@ export function advanceDay(state, options = {}) {
   const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
   const warmth = Number(state.camp.fireLevel || 0) * 4 + Number(state.camp.shelterLevel || 0) * 3 + partyInsulation(state) * 2;
-  const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier);
+  const weatherLoreMul = hasTechPassive(state, 'WEATHER_LORE_UP') ? 0.9 : 1;
+  const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
   const fuelUsed = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 1 : 0;
   const party = state.party.map((member) => {
     const hunger = clamp(Number(member.hunger || 0) + Math.round(8 * preset.hungerMultiplier) + Math.floor(coldDamage / 3), 0, 100);
@@ -1369,7 +1380,7 @@ export function getRunProgressReport(state) {
   const hunger = averageParty(current, 'hunger');
   const stamina = averageParty(current, 'stamina');
   const bodyTemp = averageBodyTemp(current);
-  const foodUnits = ['berry', 'meat', 'cooked_meat', 'jerky', 'herb_tonic']
+  const foodUnits = ['berry', 'meat', 'cooked_meat', 'jerky', 'packed_ration', 'herb_tonic']
     .reduce((sum, id) => sum + Number(current.inventory[id] || 0), 0);
   const fuel = Number(current.camp.fuel || 0);
   const weight = totalCarryWeight(current);
@@ -1650,7 +1661,7 @@ export function runHuntAction(state, actorId, zoneId, options = {}) {
     next = addLog(next, `${actor.name}의 사냥 성공. ${formatGains(gains)}.`);
   } else {
     const target = getActor(next, actorId);
-    const damage = hasTechPassive(next, 'HUNT_RISK_DOWN') ? 7 : 11;
+    const damage = hasTechPassive(next, 'MEGAFAUNA_RISK_DOWN') ? 5 : hasTechPassive(next, 'HUNT_RISK_DOWN') ? 7 : 11;
     next = updateActor(next, actorId, { hp: clamp(Number(target.hp || 0) - damage, 0, 100) });
     next = addLog(next, `${actor.name}의 사냥 실패. 반격으로 HP -${damage}.`);
   }
@@ -1688,13 +1699,13 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
 
 export function runEatAction(state, actorId, options = {}) {
   const actor = getActor(state, actorId);
-  const foodId = ['cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+  const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(state.inventory[id] || 0) > 0) || '';
   if (!foodId) return addLog(state, '먹을 음식이 없습니다. 채집이나 사냥으로 식량을 확보하세요.');
   const food = ITEMS[foodId];
-  const nutrition = Number(food.nutrition || 0);
+  const nutrition = Number(food.nutrition || 0) + (hasTechPassive(state, 'STORAGE_RATIONS_UP') && foodId === 'packed_ration' ? 6 : 0);
   const heal = Number(food.heal || 0);
-  const warmth = foodId === 'cooked_meat' ? 1.1 : foodId === 'herb_tonic' ? 0.8 : 0;
+  const warmth = foodId === 'cooked_meat' ? 1.1 : foodId === 'packed_ration' ? 0.4 : foodId === 'herb_tonic' ? 0.8 : 0;
   const target = getActor(state, actorId);
   let next = {
     ...state,
@@ -1806,7 +1817,7 @@ function livingParty(state) {
 }
 
 function foodAvailable(state) {
-  return ['cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
+  return ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
     .some((id) => Number(state.inventory[id] || 0) > 0);
 }
 
@@ -1851,14 +1862,20 @@ function autoRecipeAllowed(state, recipe) {
 
 function pickAutoRecipe(state) {
   const priority = [
+    'packed_ration',
     'jerky',
     'herb_tonic',
     'twine',
+    'clay_tablet',
+    'weather_totem',
+    'bone_awl',
     'stone_axe',
     'bow',
+    'obsidian_blade',
     'flint_knife',
     'bone_pick',
     'spear',
+    'dino_scale_vest',
     'sling',
     'atlatl',
     'leather_strip',
@@ -1937,7 +1954,9 @@ function runNextAutoArchiveAction(state, options = {}) {
   const foodStock = Number(state.inventory.meat || 0)
     + Number(state.inventory.berry || 0)
     + Number(state.inventory.jerky || 0)
-    + Number(state.inventory.cooked_meat || 0);
+    + Number(state.inventory.packed_ration || 0)
+    + Number(state.inventory.cooked_meat || 0)
+    + Number(state.inventory.herb_tonic || 0);
   if (foodAvailable(state) && (Number(careActor?.hunger || 0) >= 52 || averageHunger >= 50)) {
     return runEatAction(state, careActorId, options);
   }
