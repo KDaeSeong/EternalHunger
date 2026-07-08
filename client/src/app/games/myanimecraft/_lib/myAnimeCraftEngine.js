@@ -255,6 +255,14 @@ function normalizePersonalSetDetail(value) {
     awayBuildName: String(value.awayBuildName || ''),
     homeBuildStyle: String(value.homeBuildStyle || ''),
     awayBuildStyle: String(value.awayBuildStyle || ''),
+    homeBuildReason: String(value.homeBuildReason || ''),
+    awayBuildReason: String(value.awayBuildReason || ''),
+    homeBuildPickShare: Math.max(0, Math.round(Number(value.homeBuildPickShare || 0))),
+    awayBuildPickShare: Math.max(0, Math.round(Number(value.awayBuildPickShare || 0))),
+    homeBuildMetaBias: Math.round(Number(value.homeBuildMetaBias || 0) * 10) / 10,
+    awayBuildMetaBias: Math.round(Number(value.awayBuildMetaBias || 0) * 10) / 10,
+    homeBuildMapFit: Math.round(Number(value.homeBuildMapFit || 0) * 10) / 10,
+    awayBuildMapFit: Math.round(Number(value.awayBuildMapFit || 0) * 10) / 10,
     broadcastHeadline: String(value.broadcastHeadline || ''),
     turningPoint: String(value.turningPoint || ''),
     durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
@@ -350,6 +358,14 @@ function normalizeWinnersSet(value) {
     awayBuildName: String(value.awayBuildName || ''),
     homeBuildStyle: String(value.homeBuildStyle || ''),
     awayBuildStyle: String(value.awayBuildStyle || ''),
+    homeBuildReason: String(value.homeBuildReason || ''),
+    awayBuildReason: String(value.awayBuildReason || ''),
+    homeBuildPickShare: Math.max(0, Math.round(Number(value.homeBuildPickShare || 0))),
+    awayBuildPickShare: Math.max(0, Math.round(Number(value.awayBuildPickShare || 0))),
+    homeBuildMetaBias: Math.round(Number(value.homeBuildMetaBias || 0) * 10) / 10,
+    awayBuildMetaBias: Math.round(Number(value.awayBuildMetaBias || 0) * 10) / 10,
+    homeBuildMapFit: Math.round(Number(value.homeBuildMapFit || 0) * 10) / 10,
+    awayBuildMapFit: Math.round(Number(value.awayBuildMapFit || 0) * 10) / 10,
     broadcastHeadline: String(value.broadcastHeadline || ''),
     turningPoint: String(value.turningPoint || ''),
     timeline: normalizeSetTimeline(value.timeline),
@@ -934,6 +950,83 @@ function buildMetaInsightLine(rng, homeMeta, awayMeta) {
   return '양쪽 기록이 많지 않으면 빌드 이름보다 첫 정찰, 첫 병력 위치, 앞마당 타이밍이 더 먼저 보입니다.';
 }
 
+function styleTagLabel(tag) {
+  const labels = {
+    rush: '러시',
+    macro: '운영',
+    tech: '테크',
+    harass: '견제',
+    balanced: '밸런스',
+    small: '소형맵',
+    large: '대형맵',
+  };
+  return labels[tag] || tag;
+}
+
+function coachStyleLabel(style) {
+  const labels = {
+    aggressive: '공격형',
+    macro: '운영형',
+    mindgame: '심리전형',
+    balanced: '밸런스형',
+  };
+  return labels[style] || '밸런스형';
+}
+
+function signedPct(value) {
+  const safe = Math.round(Number(value || 0) * 1000) / 10;
+  return `${safe >= 0 ? '+' : ''}${safe}%`;
+}
+
+function buildDraftReasons({
+  item,
+  member,
+  teamData,
+  matchedTags,
+  preferenceScore,
+  coachBias,
+  metaBonus,
+  repeatPenalty,
+}) {
+  const reasons = [];
+  if (matchedTags.length) reasons.push(`맵 태그 ${matchedTags.map(styleTagLabel).join('/')} 적합`);
+  if (preferenceScore >= 0.58) reasons.push(`${member?.name || '선수'}의 ${BUILD_STYLE_LABELS[item.style] || item.style} 성향`);
+  if (coachBias >= 0.06) reasons.push(`${coachStyleLabel(teamData?.coachStyle)} 코칭 보정`);
+  if (metaBonus >= 0.012) reasons.push(`최근 메타 보정 ${signedPct(metaBonus)}`);
+  if (metaBonus <= -0.012) reasons.push(`메타 견제 보정 ${signedPct(metaBonus)}`);
+  if (repeatPenalty < 0) reasons.push('직전 스타일 반복 억제');
+  if (!reasons.length) reasons.push(`${BUILD_STYLE_LABELS[item.style] || item.style} 기본 준비도`);
+  return reasons.slice(0, 3);
+}
+
+function materializeBuildPick(row, total, ranked) {
+  const rank = ranked.findIndex((candidate) => candidate.item.id === row.item.id) + 1;
+  return {
+    ...row.item,
+    draft: {
+      ...row.draft,
+      pickRank: rank || 1,
+      pickShare: Math.round((row.score / Math.max(1e-9, total)) * 100),
+    },
+  };
+}
+
+function buildPlanSummary(build) {
+  const draft = build?.draft || {};
+  const reasons = Array.isArray(draft.reasons) ? draft.reasons.filter(Boolean) : [];
+  const tags = Array.isArray(draft.matchedTags) ? draft.matchedTags.map(styleTagLabel).join('/') : '';
+  const detail = [
+    tags ? `맵 ${tags}` : '',
+    Number.isFinite(Number(draft.metaBiasPct)) && Math.abs(Number(draft.metaBiasPct)) >= 1 ? `메타 ${draft.metaBiasPct >= 0 ? '+' : ''}${draft.metaBiasPct}%` : '',
+    Number(draft.pickShare || 0) ? `선택권 ${draft.pickShare}%` : '',
+  ].filter(Boolean).join(' · ');
+  return `${buildName(build)}: ${reasons.join(', ') || '기본 선택'}${detail ? ` (${detail})` : ''}`;
+}
+
+function buildPlanMatchLineV2(homePlayer, awayPlayer, homeBuild, awayBuild) {
+  return `빌드 근거까지 보면 ${homePlayer.name} 쪽은 ${buildPlanSummary(homeBuild)}이고, ${awayPlayer.name} 쪽은 ${buildPlanSummary(awayBuild)}입니다. 이름만 보면 단순해 보여도 준비 방향은 꽤 다릅니다.`;
+}
+
 function pickBuild(seed, teamData, member, opponent, map, metaContext = null) {
   const rng = createRng(seed);
   const matchup = matchupOf(member?.race, opponent?.race);
@@ -943,28 +1036,54 @@ function pickBuild(seed, teamData, member, opponent, map, metaContext = null) {
   const preference = playerBuildPreference(member);
   const weighted = options.map((item) => {
     const mapTags = Array.isArray(map?.tags) ? map.tags : [];
+    const matchedTags = item.tags.filter((tag) => mapTags.includes(tag));
     const tagBonus = item.tags.reduce((sum, tag) => sum + (mapTags.includes(tag) ? 0.04 : 0), 0);
+    const preferenceScore = Number(preference[item.style] || 0.5);
+    const coachBias = coachBuildBias(teamData?.coachStyle, item.style);
     const metaBonus = clamp(Number(metaContext?.styleBias?.[item.style] || 0), -0.08, 0.08);
     const repeatPenalty = metaContext?.recentStyle === item.style ? -0.012 : 0;
+    const randomNudge = (rng() - 0.5) * 0.06;
     const score = clamp(
-      Number(preference[item.style] || 0.5)
-        + coachBuildBias(teamData?.coachStyle, item.style)
+      preferenceScore
+        + coachBias
         + tagBonus
         + metaBonus
         + repeatPenalty
-        + (rng() - 0.5) * 0.06,
+        + randomNudge,
       0.01,
       0.99,
     );
-    return { item, score: Math.exp(score / 0.9) };
+    return {
+      item,
+      score: Math.exp(score / 0.9),
+      draft: {
+        preferencePct: Math.round(preferenceScore * 100),
+        coachBiasPct: Math.round(coachBias * 1000) / 10,
+        mapFitPct: Math.round(tagBonus * 1000) / 10,
+        metaBiasPct: Math.round(metaBonus * 1000) / 10,
+        repeatPenaltyPct: Math.round(repeatPenalty * 1000) / 10,
+        matchedTags,
+        reasons: buildDraftReasons({
+          item,
+          member,
+          teamData,
+          matchedTags,
+          preferenceScore,
+          coachBias,
+          metaBonus,
+          repeatPenalty,
+        }),
+      },
+    };
   });
   const total = weighted.reduce((sum, row) => sum + row.score, 0);
+  const ranked = [...weighted].sort((a, b) => b.score - a.score);
   let roll = rng() * total;
   for (const row of weighted) {
     roll -= row.score;
-    if (roll <= 0) return row.item;
+    if (roll <= 0) return materializeBuildPick(row, total, ranked);
   }
-  return weighted[weighted.length - 1].item;
+  return materializeBuildPick(weighted[weighted.length - 1], total, ranked);
 }
 
 function counterBonus(myStyle, opponentStyle) {
@@ -1953,7 +2072,8 @@ function buildSetTimelineV2({
     buildTimelineLine(8, '해설 A', mapReadLineV2(map)),
     buildTimelineLine(18, '캐스터', `빌드 갈립니다. ${homePlayer.name}은 ${castBuildLabel(homeBuild)}, ${awayPlayer.name}은 ${castBuildLabel(awayBuild)}입니다.`),
     buildTimelineLine(31, '해설 B', openingReadLineV2(homePlayer, awayPlayer, homeBuild, awayBuild)),
-    buildTimelineLine(47, '해설 A', buildMetaReadLineV2(rng, homeMeta, awayMeta)),
+    buildTimelineLine(47, '해설 A', buildPlanMatchLineV2(homePlayer, awayPlayer, homeBuild, awayBuild)),
+    buildTimelineLine(63, '해설 B', buildMetaReadLineV2(rng, homeMeta, awayMeta)),
     buildTimelineLine(Math.round(durationSec * 0.21), '해설 B', matchupReadLineV2(homePlayer, awayPlayer, homeBuild, awayBuild)),
     buildTimelineLine(Math.round(durationSec * 0.34), '캐스터', firstFightLineV2(winnerName, loserName, winnerBuild, closeGame)),
     buildTimelineLine(Math.round(durationSec * 0.49), '해설 A', midgameLineV2(leaderName, leaderBuild, closeGame)),
@@ -2903,6 +3023,14 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     awayBuildName: awayBuild.name,
     homeBuildStyle: homeBuild.style,
     awayBuildStyle: awayBuild.style,
+    homeBuildReason: buildPlanSummary(homeBuild),
+    awayBuildReason: buildPlanSummary(awayBuild),
+    homeBuildPickShare: Number(homeBuild.draft?.pickShare || 0),
+    awayBuildPickShare: Number(awayBuild.draft?.pickShare || 0),
+    homeBuildMetaBias: Number(homeBuild.draft?.metaBiasPct || 0),
+    awayBuildMetaBias: Number(awayBuild.draft?.metaBiasPct || 0),
+    homeBuildMapFit: Number(homeBuild.draft?.mapFitPct || 0),
+    awayBuildMapFit: Number(awayBuild.draft?.mapFitPct || 0),
     broadcastHeadline: broadcastHeadlineForSetV2({
       setNo,
       map,
@@ -3454,6 +3582,14 @@ function simulatePersonalMatch(state, match) {
       awayBuildName: setResult.awayBuildName,
       homeBuildStyle: setResult.homeBuildStyle,
       awayBuildStyle: setResult.awayBuildStyle,
+      homeBuildReason: setResult.homeBuildReason,
+      awayBuildReason: setResult.awayBuildReason,
+      homeBuildPickShare: setResult.homeBuildPickShare,
+      awayBuildPickShare: setResult.awayBuildPickShare,
+      homeBuildMetaBias: setResult.homeBuildMetaBias,
+      awayBuildMetaBias: setResult.awayBuildMetaBias,
+      homeBuildMapFit: setResult.homeBuildMapFit,
+      awayBuildMapFit: setResult.awayBuildMapFit,
       broadcastHeadline: setResult.broadcastHeadline,
       turningPoint: setResult.turningPoint,
       durationSec: setResult.durationSec,
@@ -4027,6 +4163,14 @@ export function advanceWinnersLeagueAction(state) {
     awayBuildName: setResult.awayBuildName,
     homeBuildStyle: setResult.homeBuildStyle,
     awayBuildStyle: setResult.awayBuildStyle,
+    homeBuildReason: setResult.homeBuildReason,
+    awayBuildReason: setResult.awayBuildReason,
+    homeBuildPickShare: setResult.homeBuildPickShare,
+    awayBuildPickShare: setResult.awayBuildPickShare,
+    homeBuildMetaBias: setResult.homeBuildMetaBias,
+    awayBuildMetaBias: setResult.awayBuildMetaBias,
+    homeBuildMapFit: setResult.homeBuildMapFit,
+    awayBuildMapFit: setResult.awayBuildMapFit,
     broadcastHeadline: setResult.broadcastHeadline,
     turningPoint: setResult.turningPoint,
     timeline: setResult.timeline,

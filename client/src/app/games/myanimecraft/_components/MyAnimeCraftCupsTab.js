@@ -129,6 +129,9 @@ export default function MyAnimeCraftCupsTab(props) {
                   <span>{setResult.label} · {setResult.mapName} · 홈 승률 {setResult.probabilityHome}%</span>
                   <strong>{setResult.homePlayerName} vs {setResult.awayPlayerName}</strong>
                   <small>승자 {setResult.winnerPlayerName} · {setResult.homeBuildName} / {setResult.awayBuildName}</small>
+                  {setResult.homeBuildReason || setResult.awayBuildReason ? (
+                    <small>빌드 근거: {setResult.homeBuildReason || '-'} / {setResult.awayBuildReason || '-'}</small>
+                  ) : null}
                   {setResult.broadcastHeadline ? <small>{setResult.broadcastHeadline}</small> : null}
                   {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
                   <BroadcastTimeline lines={setResult.timeline} />

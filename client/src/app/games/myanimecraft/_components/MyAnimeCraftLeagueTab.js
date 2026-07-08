@@ -113,6 +113,11 @@ export default function MyAnimeCraftLeagueTab(props) {
                     {setResult.homeBuildName} / {setResult.awayBuildName} · 홈 승률 {setResult.probabilityHome}% · 맵 보정 {setResult.mapBiasHome >= 0 ? '+' : ''}{setResult.mapBiasHome}% · 노이즈 {setResult.noiseAmp}
                     {setResult.isAceSet ? ` · 에이스 보정 ${setResult.aceBoostHome >= 0 ? '+' : ''}${setResult.aceBoostHome}%/${setResult.aceBoostAway >= 0 ? '+' : ''}${setResult.aceBoostAway}%` : ''}
                   </span>
+                  {setResult.homeBuildReason || setResult.awayBuildReason ? (
+                    <small>
+                      빌드 근거: {setResult.homeBuildReason || '-'} / {setResult.awayBuildReason || '-'}
+                    </small>
+                  ) : null}
                   {setResult.broadcastHeadline ? <span>{setResult.broadcastHeadline}</span> : null}
                   {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
                   <BroadcastTimeline lines={setResult.timeline} />

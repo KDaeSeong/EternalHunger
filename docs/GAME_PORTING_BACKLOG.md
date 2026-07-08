@@ -126,7 +126,7 @@ Checked: 2026-07-04
 
 - Route: `/games/myanimecraft/play`
 - Included loop: Starleague-style 10-team round-robin season, weekly fixtures, best-of-five team matches, standings, map pool, team roster inspection, sponsor negotiation, training investment, FA signing, player contracts, contract renewal/release, economic logs, season reports, payroll carryover, season rollover.
-- UI/UX: match replay now stores broadcast headlines, turning points, V2 role-split caster/analyst timelines, replay-center breakdowns, bench reactions, and a series replay report that summarizes the scoreline, key set, build tendency, map spread, and replay highlights across regular league, personal league, and Winners League sets.
+- UI/UX: match replay now stores broadcast headlines, turning points, V2 role-split caster/analyst timelines, replay-center breakdowns, bench reactions, build-pick reasoning, and a series replay report that summarizes the scoreline, key set, build tendency, map spread, and replay highlights across regular league, personal league, and Winners League sets.
 - Site API integration: quick save through `/game-saves/myanimecraft/myanimecraft-main`; league snapshot record through `/game-records/myanimecraft`.
 - Source basis: `C:\2저장고\마이애니메\starleague-masterdata.json` and `C:\2저장고\마이애니메\myanimecraft`.
 - Next step: continue replacing the simplified match/economy model with more selected original `simulateSet` details, richer league shop/trade balancing, personal league seeding depth, and postseason modules.
