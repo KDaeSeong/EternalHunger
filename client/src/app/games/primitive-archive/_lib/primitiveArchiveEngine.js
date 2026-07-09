@@ -849,6 +849,80 @@ function addEventLog(state, message) {
   return addLog(withEventCounter(state), `탐험 사건: ${message}`);
 }
 
+const RARE_RESOURCE_IDS = ['obsidian_shard', 'dino_hide', 'dino_bone', 'mutant_gland', 'rune_shard'];
+
+function stripExplorationEventLine(line) {
+  return String(line || '')
+    .replace(/^Day\s+\d+:\s*/i, '')
+    .replace(/^탐험 사건:\s*/, '')
+    .trim();
+}
+
+function explorationEventRowsFromLog(state, limit = 3) {
+  return (Array.isArray(state?.log) ? state.log : [])
+    .filter((line) => String(line || '').includes('탐험 사건:'))
+    .slice(0, Math.max(0, Number(limit || 0)))
+    .map((line, index) => {
+      const day = String(line || '').match(/^Day\s+(\d+):/i)?.[1] || '';
+      const summary = stripExplorationEventLine(line);
+      const firstSentence = summary.split('.').map((part) => part.trim()).filter(Boolean)[0] || summary;
+      return {
+        id: `event-${day || 'n'}-${index}-${summary.slice(0, 12)}`,
+        day,
+        title: firstSentence,
+        summary,
+      };
+    });
+}
+
+function rareResourceRows(state) {
+  return RARE_RESOURCE_IDS.map((id) => ({
+    id,
+    name: itemName(id),
+    qty: Number(state?.inventory?.[id] || 0),
+  }));
+}
+
+function rareResourceLabel(rows) {
+  const owned = (Array.isArray(rows) ? rows : [])
+    .filter((row) => Number(row.qty || 0) > 0)
+    .map((row) => `${row.name} ${row.qty}`);
+  return owned.length ? owned.join(' / ') : '희귀 재료 없음';
+}
+
+function explorationEventPressure(state) {
+  const rows = rareResourceRows(state);
+  const rareTotal = rows.reduce((sum, row) => sum + Number(row.qty || 0), 0);
+  const eventCount = Number(state?.counters?.events || 0);
+  const recentEvents = explorationEventRowsFromLog(state, 3);
+  const eventPct = Math.min(100, Math.round(eventCount * 12 + rareTotal * 8));
+  const advice = [];
+
+  if (Number(state?.day || 1) >= 5 && eventCount < 2) {
+    advice.push('후반 장비 소재를 위해 동굴/초원 사건을 더 노리세요');
+  }
+  if (Number(state?.day || 1) >= 6 && rareTotal < 2) {
+    advice.push('흑요석·공룡 소재·룬 파편 확보가 늦습니다');
+  }
+  if (Number(state?.inventory?.dino_hide || 0) > 0 || Number(state?.inventory?.obsidian_shard || 0) > 0) {
+    advice.push('희귀 소재 장비 제작으로 사냥/추위 압박을 낮추세요');
+  }
+  if (averageParty(state, 'hp') < 70 && Number(state?.inventory?.herb_tonic || 0) > 0) {
+    advice.push('약초 달임으로 부상 회복 후 메가파우나를 노리세요');
+  }
+
+  return {
+    eventCount,
+    eventPct,
+    recentEvents,
+    rareResources: rows,
+    rareTotal,
+    rareLabel: rareResourceLabel(rows),
+    eventLabel: `${eventCount}회 · 희귀 ${rareTotal}개`,
+    advice,
+  };
+}
+
 function hasKoreanFinalConsonant(text) {
   const char = String(text || '').trim().slice(-1);
   if ('013678'.includes(char)) return true;
@@ -1546,6 +1620,10 @@ export function getPlayTimeSec(state) {
   return Math.max(0, Math.floor((Date.now() - start) / 1000));
 }
 
+export function recentExplorationEvents(state, limit = 4) {
+  return explorationEventRowsFromLog(normalizeState(state), limit);
+}
+
 export function summaryForState(state) {
   const preset = difficultyPreset(state);
   const victory = archiveVictorySummary(state);
@@ -1582,6 +1660,7 @@ export function getRunProgressReport(state) {
   const fuel = Number(current.camp.fuel || 0);
   const weight = totalCarryWeight(current);
   const insulation = partyInsulation(current);
+  const eventPressure = explorationEventPressure(current);
   const pendingObjectives = victory.rows.filter((row) => !row.done);
   const objectivePct = victory.total ? Math.round((victory.completed / victory.total) * 100) : 0;
   const daysLeft = Math.max(0, ARCHIVE_VICTORY_DAY - Number(current.day || 1));
@@ -1607,14 +1686,19 @@ export function getRunProgressReport(state) {
   }
   if (weight >= 24) blockers.push(`무게 ${weight}`);
   if (insulation < Math.max(2, Math.ceil((12 - current.weather.temp) / 3))) blockers.push(`보온 ${insulation}`);
+  if (Number(current.day || 1) >= 5 && eventPressure.eventCount < 2) blockers.push(`탐험 사건 ${eventPressure.eventCount}회`);
+  if (Number(current.day || 1) >= 6 && eventPressure.rareTotal < 2) blockers.push(`희귀 재료 ${eventPressure.rareTotal}개`);
 
   const recommendations = [];
+  if (hp < 70 && Number(current.inventory?.herb_tonic || 0) > 0) recommendations.push('약초 달임으로 부상 회복');
+  else if (hp < 70 && Number(current.inventory?.herb || 0) >= 2 && Number(current.inventory?.berry || 0) >= 1) recommendations.push('약초 달임 제작 후 회복');
   if (hp < 65 || stamina < 45) recommendations.push('파티 회복을 위해 휴식 우선');
   if (foodUnits <= current.party.length + 1) recommendations.push('식량 확보를 위해 채집/사냥 우선');
   if (fuel <= 1 || bodyTemp < 36) recommendations.push('연료 확보 후 모닥불 유지');
   if (research.available && research.selected && !research.selected.completed) recommendations.push(`${research.selected.name} 연구 진행`);
   if (pendingObjectives.some((row) => row.id === 'facilities')) recommendations.push('기록 시설 제작 재료 확보');
   if (pendingObjectives.some((row) => row.id === 'books')) recommendations.push('책 제작 루트 점검');
+  recommendations.push(...eventPressure.advice);
   if (!recommendations.length) recommendations.push(victory.canComplete ? '아카이브 완성 가능' : '현재 운영 유지');
 
   return {
@@ -1625,8 +1709,14 @@ export function getRunProgressReport(state) {
     riskTone,
     riskScore,
     foodUnits,
+    eventCount: eventPressure.eventCount,
+    eventLabel: eventPressure.eventLabel,
+    eventPct: eventPressure.eventPct,
     fuel,
     insulation,
+    rareResourceLabel: eventPressure.rareLabel,
+    rareResourceTotal: eventPressure.rareTotal,
+    recentEvents: eventPressure.recentEvents,
     weight,
     pendingObjectives: pendingObjectives.map((row) => row.label),
     blockers: blockers.slice(0, 5),
@@ -1659,16 +1749,18 @@ export function archiveCompletionReportForState(state) {
     + Number(current.camp.libraryShelfLevel || 0);
   const books = Number(current.inventory.book_craft_guide || 0) + Number(current.inventory.book_camp_manual || 0);
   const equipmentCount = equipmentInventoryRows(current).reduce((sum, row) => sum + Number(row.qty || 0), 0);
+  const eventPressure = explorationEventPressure(current);
   const objectivePct = victory.total ? Math.round((victory.completed / victory.total) * 100) : 0;
   const researchPct = research.total ? Math.round((research.completed / research.total) * 100) : 0;
   const survivalPct = Math.min(100, Math.round((Number(current.day || 1) / ARCHIVE_VICTORY_DAY) * 100));
   const stabilityPct = Math.round(clamp((hp * 0.45) + ((100 - hunger) * 0.25) + (stamina * 0.2) + Math.min(10, partyInsulation(current) * 2), 0, 100));
   const archiveScore = Math.round(clamp(
-    objectivePct * 0.34
-      + researchPct * 0.22
-      + survivalPct * 0.18
-      + stabilityPct * 0.14
+    objectivePct * 0.32
+      + researchPct * 0.21
+      + survivalPct * 0.17
+      + stabilityPct * 0.13
       + Math.min(100, facilities * 30 + books * 5) * 0.08
+      + eventPressure.eventPct * 0.05
       + Math.min(100, score / 28) * 0.04,
     0,
     100,
@@ -1708,6 +1800,13 @@ export function archiveCompletionReportForState(state) {
       detail: `제작 안내서 ${Number(current.inventory.book_craft_guide || 0)}권, 야영 매뉴얼 ${Number(current.inventory.book_camp_manual || 0)}권입니다.`,
     },
     {
+      id: 'exploration_events',
+      title: '탐험 사건과 희귀 소재',
+      pct: eventPressure.eventPct,
+      status: archiveReportStatus(eventPressure.eventPct >= 60, victory.victory, current.ended),
+      detail: `탐험 사건 ${eventPressure.eventCount}회, ${eventPressure.rareLabel}. 최근 기록은 ${eventPressure.recentEvents[0]?.title || '아직 없습니다'}.`,
+    },
+    {
       id: 'party',
       title: '파티와 장비',
       pct: stabilityPct,
@@ -1740,6 +1839,9 @@ export function archiveCompletionReportForState(state) {
       archiveScore,
       objectivePct,
       researchPct,
+      eventCount: eventPressure.eventCount,
+      eventPct: eventPressure.eventPct,
+      rareResourceTotal: eventPressure.rareTotal,
       survivalPct,
       stabilityPct,
       victory: victory.victory,

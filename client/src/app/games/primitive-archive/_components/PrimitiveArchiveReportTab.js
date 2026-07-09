@@ -22,6 +22,8 @@ export default function PrimitiveArchiveReportTab(props) {
                 <SmallStat label="점수" value={archiveReport.score.toLocaleString('ko-KR')} />
                 <SmallStat label="상태" value={archiveReport.status === 'complete' ? '완성' : archiveReport.status === 'ready' ? '완성 가능' : archiveReport.status === 'settled' ? '정산' : '진행'} />
                 <SmallStat label="생존일" value={`Day ${state.day}`} />
+                <SmallStat label="탐험 사건" value={`${archiveReport.recordSummary.eventCount || 0}회`} />
+                <SmallStat label="희귀 소재" value={`${archiveReport.recordSummary.rareResourceTotal || 0}개`} />
               </div>
               <div className="game-save-list" style={{ marginTop: 12 }}>
                 {archiveReport.handoff.map((line, index) => (
@@ -62,6 +64,7 @@ export default function PrimitiveArchiveReportTab(props) {
               <div className="games-rank-split">
                 <SmallStat label="연구" value={`${archiveReport.recordSummary.researchPct}%`} />
                 <SmallStat label="생존" value={`${archiveReport.recordSummary.survivalPct}%`} />
+                <SmallStat label="사건" value={`${archiveReport.recordSummary.eventPct || 0}%`} />
                 <SmallStat label="안정도" value={`${archiveReport.recordSummary.stabilityPct}%`} />
                 <SmallStat label="완성" value={archiveReport.recordSummary.victory ? '예' : '아니오'} />
               </div>

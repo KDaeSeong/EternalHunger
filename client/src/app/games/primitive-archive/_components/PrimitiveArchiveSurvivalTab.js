@@ -237,8 +237,18 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                 <SmallStat label="연료" value={runProgressReport.fuel} />
                 <SmallStat label="보온" value={runProgressReport.insulation} />
                 <SmallStat label="무게" value={runProgressReport.weight} />
+                <SmallStat label="사건" value={runProgressReport.eventLabel} />
+                <SmallStat label="희귀" value={`${runProgressReport.rareResourceTotal}개`} />
               </div>
               <div className="game-save-list">
+                <article className="game-save-row">
+                  <div>
+                    <span>탐험 사건</span>
+                    <strong>{runProgressReport.recentEvents?.[0]?.title || '아직 기록된 사건이 없습니다'}</strong>
+                    <small>{runProgressReport.rareResourceLabel}</small>
+                  </div>
+                  <strong>{runProgressReport.eventPct}%</strong>
+                </article>
                 <article className="game-save-row">
                   <div>
                     <span>병목</span>
