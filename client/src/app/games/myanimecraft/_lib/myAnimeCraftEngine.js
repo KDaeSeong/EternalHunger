@@ -2504,6 +2504,169 @@ export function tradePreview(state, ourTeamId, ourPlayerId, theirTeamId, theirPl
   return estimateTradeInternal(state, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs);
 }
 
+const MARKET_STAT_LABELS = {
+  attack: '공격',
+  defense: '수비',
+  strategy: '전략',
+  sense: '감각',
+  macro: '운영',
+  scout: '정찰',
+  control: '컨트롤',
+  harass: '견제',
+};
+
+function formatMarketStatDelta(statsDelta = {}) {
+  return Object.entries(statsDelta)
+    .filter(([, amount]) => Number(amount || 0) !== 0)
+    .map(([key, amount]) => `${MARKET_STAT_LABELS[key] || key} +${Number(amount || 0)}`)
+    .join(' · ');
+}
+
+function projectedSwapTeam(teamData, outgoingPlayerId, incomingPlayer) {
+  return cloneTeam({
+    ...teamData,
+    roster: teamData.roster
+      .filter((member) => member.id !== outgoingPlayerId)
+      .concat({ ...incomingPlayer }),
+  });
+}
+
+function recommendedTradeCash(preview, state) {
+  if (!preview?.ok) return { suggested: 0, needed: 0, targetRatio: 1 };
+  const current = normalizeState(state);
+  const teamData = getTeam(current, preview.ourTeamId);
+  const standing = getStanding(current, teamData.id);
+  const money = Math.max(0, Math.floor(Number(standing?.money ?? teamData.money ?? 0)));
+  const targetRatio = current.ended ? 1.0 : 1.1;
+  const needed = Math.max(0, Math.ceil((preview.theirValue * targetRatio) - preview.ourValue));
+  return {
+    suggested: Math.min(money, needed),
+    needed,
+    targetRatio,
+    money,
+  };
+}
+
+function buildTradeOfficeRows(current, preview) {
+  if (!preview?.ok) return [];
+  const ourTeam = getTeam(current, preview.ourTeamId);
+  const theirTeam = getTeam(current, preview.theirTeamId);
+  const ourPlayer = findPlayerOnTeam(ourTeam, preview.ourPlayerId);
+  const theirPlayer = findPlayerOnTeam(theirTeam, preview.theirPlayerId);
+  if (!ourTeam || !theirTeam || !ourPlayer || !theirPlayer) return [];
+
+  const projectedTeam = projectedSwapTeam(ourTeam, ourPlayer.id, theirPlayer);
+  const currentPower = teamPower(ourTeam, current);
+  const projectedPower = teamPower(projectedTeam, current);
+  const currentPayroll = teamPayrollFromContracts(current.contracts, ourTeam);
+  const projectedPayroll = teamPayrollFromContracts(current.contracts, projectedTeam);
+  const valueGap = preview.theirValue - preview.ourValue - preview.cashFromUs;
+  const powerDelta = projectedPower - currentPower;
+  const payrollDelta = projectedPayroll - currentPayroll;
+
+  return [
+    {
+      label: '수락률',
+      value: `${Math.round(preview.acceptChance * 100)}%`,
+      detail: preview.note,
+    },
+    {
+      label: '가치 차이',
+      value: valueGap > 0 ? `${valueGap} Cr 부족` : `${Math.abs(valueGap)} Cr 우위`,
+      detail: valueGap > 0 ? '상대 기준에서 아직 보정이 더 필요합니다.' : '가치 기준으로는 제안이 충분합니다.',
+    },
+    {
+      label: '전력 변화',
+      value: `${currentPower} → ${projectedPower}`,
+      detail: powerDelta > 0 ? `즉시 전력 +${powerDelta}` : powerDelta < 0 ? `즉시 전력 ${powerDelta}` : '즉시 전력은 거의 동일합니다.',
+    },
+    {
+      label: '연봉 변화',
+      value: payrollDelta > 0 ? `+${payrollDelta} Cr` : `${payrollDelta} Cr`,
+      detail: payrollDelta > 0 ? '장기 운영비가 증가합니다.' : payrollDelta < 0 ? '장기 운영비를 줄입니다.' : '연봉 부담은 유지됩니다.',
+    },
+  ];
+}
+
+function scoreShopOfferForPlayer(offer, teamData, selectedPlayer, current) {
+  const standing = getStanding(current, teamData.id);
+  const money = Number(standing?.money ?? teamData.money ?? 0);
+  const canBuy = money >= Number(offer.price || 0) && Number(offer.stock || 0) > 0 && !current.ended;
+  const effects = offer.effects || {};
+  const statsDelta = effects.statsDelta || {};
+  const statGain = Object.values(statsDelta).reduce((sum, amount) => sum + Math.max(0, Number(amount || 0)), 0);
+  const slot = offer.slot || equipmentSlotOfKind(offer.kind);
+  const inventory = getTeamInventory(current, teamData.id);
+  const equippedSlots = selectedPlayer ? inventory.equipped?.[selectedPlayer.id] || {} : {};
+  const fillsEmptySlot = Boolean(slot && selectedPlayer && !equippedSlots[slot]);
+  const conditionNeed = Math.max(0, 80 - Number(selectedPlayer?.condition ?? 80));
+  const conditionGain = Math.max(0, Number(effects.conditionDelta || 0));
+  const fameGain = Math.max(0, Number(effects.fameDelta || 0));
+
+  let score = 0;
+  score += statGain * 1.4;
+  score += fillsEmptySlot ? 38 : 0;
+  score += Number(offer.featured ? 18 : 0);
+  score += Number(offer.salePct || 0) * 0.75;
+  score += Math.min(28, conditionNeed * conditionGain * 0.18);
+  score += fameGain * 1.6;
+  score += canBuy ? 12 : -30;
+  if (Number(offer.stock || 0) <= 0) score -= 60;
+
+  const reasons = [];
+  if (fillsEmptySlot) reasons.push(`${EQUIPMENT_SLOT_LABELS[slot] || slot} 빈 슬롯 보강`);
+  if (statGain) reasons.push(formatMarketStatDelta(statsDelta));
+  if (conditionGain) reasons.push(`컨디션 +${conditionGain}`);
+  if (fameGain) reasons.push(`명성 +${fameGain}`);
+  if (offer.featured) reasons.push('이번 주 추천 상품');
+  if (offer.salePct) reasons.push(`${offer.salePct}% 할인`);
+  if (!canBuy) reasons.push(money < Number(offer.price || 0) ? '크레딧 부족' : '구매 불가');
+
+  return {
+    offerId: offer.offerId,
+    title: offer.name,
+    price: Number(offer.price || 0),
+    canBuy,
+    score: Math.round(score),
+    reason: reasons.filter(Boolean).slice(0, 3).join(' · ') || '효과 확인 필요',
+  };
+}
+
+export function getMarketOfficeReport(state, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs = 0) {
+  const current = normalizeState(state);
+  const selectedTeam = getTeam(current, ourTeamId);
+  const selectedPlayer = findPlayerOnTeam(selectedTeam, ourPlayerId);
+  const preview = estimateTradeInternal(current, ourTeamId, ourPlayerId, theirTeamId, theirPlayerId, cashFromUs);
+  const cashPlan = recommendedTradeCash(preview, current);
+  const shopPriorityRows = getSeasonShopRows(current)
+    .map((offer) => scoreShopOfferForPlayer(offer, selectedTeam, selectedPlayer, current))
+    .sort((a, b) => b.score - a.score || a.price - b.price)
+    .slice(0, 3);
+  const warnings = [
+    activeSideEventBlocksRosterMove(current),
+    preview?.ok && !preview.canTrade ? '현금 또는 최소 로스터 조건 때문에 바로 제안할 수 없습니다.' : '',
+    cashPlan.needed > cashPlan.money ? `안정권까지 ${cashPlan.needed} Cr가 필요하지만 보유 크레딧은 ${cashPlan.money} Cr입니다.` : '',
+    current.ended ? '시즌 종료 상태라 시장 액션은 제한됩니다.' : '',
+  ].filter(Boolean);
+  const topShop = shopPriorityRows[0];
+  const cashDelta = Math.max(0, Number(cashPlan.suggested || 0) - Math.max(0, Math.floor(Number(cashFromUs || 0))));
+
+  return {
+    title: '프런트 오피스 리포트',
+    tone: warnings.length ? 'watch' : preview?.acceptChance >= 0.6 ? 'good' : 'normal',
+    summary: preview?.ok
+      ? `${preview.theirPlayerName} 영입안은 현재 수락률 ${Math.round(preview.acceptChance * 100)}%입니다. ${cashDelta > 0 ? `현금 ${cashDelta} Cr를 더 얹으면 제안 안정성이 좋아집니다.` : '현금 보정은 현재 수준이면 충분합니다.'}`
+      : '상대 팀과 선수를 선택하면 시장 판단 리포트가 표시됩니다.',
+    cashSuggestion: Number(cashPlan.suggested || 0),
+    cashNeeded: Number(cashPlan.needed || 0),
+    cashDelta,
+    tradeRows: buildTradeOfficeRows(current, preview),
+    shopPriorityRows,
+    bestShopOfferId: topShop?.canBuy ? topShop.offerId : '',
+    warnings,
+  };
+}
+
 export function econSummary(state, teamId) {
   const current = normalizeState(state);
   const logs = normalizeEconLogs(current.econLogs).filter((entry) => !teamId || entry.teamId === teamId);

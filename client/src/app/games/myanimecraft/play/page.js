@@ -19,6 +19,7 @@ import {
   getBuildMetaReport,
   getFreeAgentPreview,
   getMatchArchiveRows,
+  getMarketOfficeReport,
   getPersonalLeagueRows,
   getPersonalLeagueSummary,
   getPostseasonBriefing,
@@ -90,6 +91,11 @@ export default function MyAnimeCraftPlayPage() {
   const tradeInfo = tradeTargetTeam && selectedPlayer && tradeTargetPlayer
     ? tradePreview(state, selectedTeam.id, selectedPlayer.id, tradeTargetTeam.teamId, tradeTargetPlayer.playerId, tradeCash)
     : null;
+  const marketOfficeReport = useMemo(() => (
+    tradeTargetTeam && selectedPlayer && tradeTargetPlayer
+      ? getMarketOfficeReport(state, selectedTeam.id, selectedPlayer.id, tradeTargetTeam.teamId, tradeTargetPlayer.playerId, tradeCash)
+      : getMarketOfficeReport(state, selectedTeam.id, selectedPlayer?.id || '', '', '', tradeCash)
+  ), [state, selectedTeam.id, selectedPlayer, tradeTargetTeam, tradeTargetPlayer, tradeCash]);
   const selectedStanding = standings.find((row) => row.teamId === selectedTeam.id);
   const selectedCareer = careerSummary(state, selectedTeam.id);
   const freeAgentPreview = getFreeAgentPreview(state, selectedTeam.id);
@@ -289,6 +295,7 @@ export default function MyAnimeCraftPlayPage() {
         freeAgentPreview={freeAgentPreview}
         inventoryRows={inventoryRows}
         matchArchiveRows={matchArchiveRows}
+        marketOfficeReport={marketOfficeReport}
         personalRows={personalRows}
         personalSummary={personalSummary}
         played={played}

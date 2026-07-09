@@ -15,6 +15,7 @@ export default function MyAnimeCraftMarketTab(props) {
     ended,
     equipmentRows,
     inventoryRows,
+    marketOfficeReport,
     recentActionText,
     selectedPlayer,
     selectedTeam,
@@ -30,10 +31,80 @@ export default function MyAnimeCraftMarketTab(props) {
     tradeTargetTeam,
     tradeTeams,
   } = props;
+  const officeTradeRows = marketOfficeReport?.tradeRows || [];
+  const officeShopRows = marketOfficeReport?.shopPriorityRows || [];
+  const suggestedCash = Number(marketOfficeReport?.cashSuggestion || 0);
+  const canApplySuggestedCash = !ended && Number.isFinite(suggestedCash) && suggestedCash !== Number(tradeCash || 0);
 
   return (
               <>
       <section className="games-detail-grid">
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>프런트 오피스</h2>
+            <span>{marketOfficeReport?.warnings?.length ? '주의' : '권장'}</span>
+          </div>
+          <RecentActionResult label="시장 판단" text={marketOfficeReport?.summary || '상대 팀과 선수를 선택하면 시장 판단 리포트가 표시됩니다.'} />
+          <div className="games-rank-split" style={{ marginTop: 12 }}>
+            {officeTradeRows.length ? officeTradeRows.map((row) => (
+              <SmallStat key={row.label} label={row.label} value={row.value} />
+            )) : (
+              <SmallStat label="상태" value="대기" />
+            )}
+          </div>
+          {officeTradeRows.length ? (
+            <div className="game-save-list" style={{ marginTop: 12 }}>
+              {officeTradeRows.map((row) => (
+                <article className="game-save-row" key={`${row.label}-detail`}>
+                  <div>
+                    <span>{row.label}</span>
+                    <strong>{row.detail}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          {marketOfficeReport?.warnings?.length ? (
+            <div className="game-save-list" style={{ marginTop: 12 }}>
+              {marketOfficeReport.warnings.map((warning) => (
+                <article className="game-save-row" key={warning}>
+                  <div>
+                    <span>리스크</span>
+                    <strong>{warning}</strong>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <button type="button" disabled={!canApplySuggestedCash} onClick={() => setTradeCash(suggestedCash)}>
+              추천 보정 {suggestedCash} Cr 적용
+            </button>
+          </div>
+          <div className="games-panel-title" style={{ marginTop: 16 }}>
+            <h2>추천 상점</h2>
+            <span>{officeShopRows.length}개</span>
+          </div>
+          <div className="game-save-list">
+            {officeShopRows.map((row) => (
+              <article className="game-save-row" key={`office-shop-${row.offerId}`}>
+                <div>
+                  <span>{row.price} Cr · 점수 {row.score}</span>
+                  <strong>{row.title}</strong>
+                  <small>{row.reason}</small>
+                </div>
+                <button
+                  type="button"
+                  disabled={ended || !row.canBuy}
+                  onClick={() => applyStateAction('추천 상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, row.offerId))}
+                >
+                  구매
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="games-panel">
           <div className="games-panel-title">
