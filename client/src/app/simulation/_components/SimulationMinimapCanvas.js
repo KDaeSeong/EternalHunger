@@ -57,6 +57,21 @@ function polygonPoints(points) {
     .join(' ');
 }
 
+function shrinkPolygon(points, center, ratio = 0.6) {
+  const cx = Number(center?.x);
+  const cy = Number(center?.y);
+  const r = Math.max(0.1, Math.min(1, Number(ratio || 0.6)));
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return points;
+  return safeArray(points).map(([x0, y0]) => {
+    const x = Number(x0 || 0);
+    const y = Number(y0 || 0);
+    return [
+      Number((cx + ((x - cx) * r)).toFixed(2)),
+      Number((cy + ((y - cy) * r)).toFixed(2)),
+    ];
+  });
+}
+
 function edgeKey(a, b) {
   const aa = String(a || '');
   const bb = String(b || '');
@@ -121,10 +136,11 @@ export default function SimulationMinimapCanvas({
           {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
             if (!availableZoneIds.has(id)) return null;
             const zoneName = String(getZoneName?.(id) || id);
+            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.54);
             return (
               <polygon
                 key={`area-base-${id}`}
-                points={polygonPoints(polygon)}
+                points={polygonPoints(visualPolygon)}
                 className="minimap-zone-area"
               >
                 <title>{zoneName}</title>
@@ -139,10 +155,11 @@ export default function SimulationMinimapCanvas({
             const isForbidden = forbiddenSet.has(id);
             if (!isForbidden) return null;
             const zoneName = String(getZoneName?.(id) || id);
+            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.66);
             return (
               <polygon
                 key={`area-${id}`}
-                points={polygonPoints(polygon)}
+                points={polygonPoints(visualPolygon)}
                 className="minimap-zone-area forbidden"
               >
                 <title>{zoneName}</title>
@@ -172,11 +189,16 @@ export default function SimulationMinimapCanvas({
           if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
           passageEdgeKeys.add(edgeKey(a, b));
           return (
-            <polyline
-              key={`passage-${a}-${b}`}
-              points={polygonPoints(segment.points)}
-              className="minimap-passage"
-            />
+            <g key={`passage-${a}-${b}`} className="minimap-passage-route">
+              <polyline
+                points={polygonPoints(segment.points)}
+                className="minimap-passage-halo"
+              />
+              <polyline
+                points={polygonPoints(segment.points)}
+                className="minimap-passage"
+              />
+            </g>
           );
         })}
 
@@ -226,8 +248,8 @@ export default function SimulationMinimapCanvas({
           const zoneName = String(getZoneName?.(id) || id);
           const aliveHere = aliveByZone[id]?.length || 0;
           const deadHere = deadByZone[id]?.length || 0;
-          const nodeR = 3.45;
-          const labelSize = zoneName.length >= 6 ? 1.95 : zoneName.length >= 5 ? 2.18 : 2.5;
+          const nodeR = 1.05;
+          const labelSize = zoneName.length >= 6 ? 2.3 : zoneName.length >= 5 ? 2.55 : 2.9;
           const hasHyperloop = hyperloopSet.has(id);
           const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
           const hyperloopMarker = LUMIA_HYPERLOOP_MARKERS[id] || { x: p.x + nodeR, y: p.y - 4.2 };
@@ -238,7 +260,7 @@ export default function SimulationMinimapCanvas({
               <text
                 className="minimap-zone-label"
                 x={p.x}
-                y={p.y - nodeR - 1.4}
+                y={p.y - 3.1}
                 textAnchor="middle"
                 fontSize={labelSize}
               >
@@ -255,16 +277,16 @@ export default function SimulationMinimapCanvas({
               {hasHyperloop ? (
                 <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
                   <title>{zoneName} hyperloop</title>
-                  <circle r="1.28" />
-                  <text x="0" y="0.54" textAnchor="middle">{'>>'}</text>
+                  <circle r="1.55" />
+                  <text x="0" y="0.58" textAnchor="middle">{'>>'}</text>
                 </g>
               ) : null}
 
               {hasKiosk ? (
                 <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
                   <title>{zoneName} kiosk</title>
-                  <circle r="1.24" />
-                  <text x="0" y="0.54" textAnchor="middle">C</text>
+                  <circle r="1.5" />
+                  <text x="0" y="0.58" textAnchor="middle">C</text>
                 </g>
               ) : null}
 
