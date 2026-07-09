@@ -1,5 +1,7 @@
 'use client';
 
+import { useId } from 'react';
+
 import {
   LUMIA_HYPERLOOP_MARKERS,
   LUMIA_ISLAND_OUTLINE,
@@ -93,6 +95,8 @@ export default function SimulationMinimapCanvas({
   zoneEdges,
   zonePos,
 }) {
+  const rawClipId = useId();
+  const islandClipId = `lumia-minimap-island-clip-${String(rawClipId).replace(/:/g, '')}`;
   const zoneList = safeArray(zones);
   if (!zoneList.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
 
@@ -122,7 +126,7 @@ export default function SimulationMinimapCanvas({
         aria-label="미니맵"
       >
         <defs>
-          <clipPath id="lumia-minimap-island-clip">
+          <clipPath id={islandClipId}>
             <polygon points={polygonPoints(LUMIA_ISLAND_OUTLINE)} />
           </clipPath>
         </defs>
@@ -132,7 +136,7 @@ export default function SimulationMinimapCanvas({
           points={polygonPoints(LUMIA_ISLAND_OUTLINE)}
         />
 
-        <g className="minimap-zone-area-layer" clipPath="url(#lumia-minimap-island-clip)">
+        <g className="minimap-zone-area-layer" clipPath={`url(#${islandClipId})`}>
           {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
             if (!availableZoneIds.has(id)) return null;
             const zoneName = String(getZoneName?.(id) || id);
@@ -149,7 +153,7 @@ export default function SimulationMinimapCanvas({
           })}
         </g>
 
-        <g className="minimap-zone-alert-layer" clipPath="url(#lumia-minimap-island-clip)">
+        <g className="minimap-zone-alert-layer" clipPath={`url(#${islandClipId})`}>
           {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
             if (!availableZoneIds.has(id)) return null;
             const isForbidden = forbiddenSet.has(id);
@@ -184,40 +188,42 @@ export default function SimulationMinimapCanvas({
           );
         })}
 
-        {safeArray(LUMIA_PASSAGE_SEGMENTS).map((segment) => {
-          const [a, b] = safeArray(segment?.edge);
-          if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
-          passageEdgeKeys.add(edgeKey(a, b));
-          return (
-            <g key={`passage-${a}-${b}`} className="minimap-passage-route">
-              <polyline
-                points={polygonPoints(segment.points)}
-                className="minimap-passage-halo"
-              />
-              <polyline
-                points={polygonPoints(segment.points)}
-                className="minimap-passage"
-              />
-            </g>
-          );
-        })}
+        <g clipPath={`url(#${islandClipId})`}>
+          {safeArray(LUMIA_PASSAGE_SEGMENTS).map((segment) => {
+            const [a, b] = safeArray(segment?.edge);
+            if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
+            passageEdgeKeys.add(edgeKey(a, b));
+            return (
+              <g key={`passage-${a}-${b}`} className="minimap-passage-route">
+                <polyline
+                  points={polygonPoints(segment.points)}
+                  className="minimap-passage-halo"
+                />
+                <polyline
+                  points={polygonPoints(segment.points)}
+                  className="minimap-passage"
+                />
+              </g>
+            );
+          })}
 
-        {safeArray(zoneEdges).map(([a, b]) => {
-          const pa = positions?.[a];
-          const pb = positions?.[b];
-          if (!pa || !pb) return null;
-          if (passageEdgeKeys.has(edgeKey(a, b))) return null;
-          return (
-            <line
-              key={`e-${a}-${b}`}
-              x1={pa.x}
-              y1={pa.y}
-              x2={pb.x}
-              y2={pb.y}
-              className="minimap-edge"
-            />
-          );
-        })}
+          {safeArray(zoneEdges).map(([a, b]) => {
+            const pa = positions?.[a];
+            const pb = positions?.[b];
+            if (!pa || !pb) return null;
+            if (passageEdgeKeys.has(edgeKey(a, b))) return null;
+            return (
+              <line
+                key={`e-${a}-${b}`}
+                x1={pa.x}
+                y1={pa.y}
+                x2={pb.x}
+                y2={pb.y}
+                className="minimap-edge"
+              />
+            );
+          })}
+        </g>
 
         {safeArray(recentMoveTrails).map((trail) => {
           const from = positions?.[String(trail?.from || '')];

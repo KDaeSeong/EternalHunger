@@ -6,6 +6,7 @@ import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
 import {
   FALLBACK_DECK_CARD_IDS,
   FALLBACK_TCG_CARDS,
@@ -55,6 +56,10 @@ export default function DualAcademyTcgDeckPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const {
+    handleGameSfxChangeCapture,
+    handleGameSfxPointerDownCapture,
+  } = useGameSfxEventHandlers();
 
   const counts = useMemo(() => countCards(cardIds), [cardIds]);
   const summary = useMemo(() => summarizeDeck(cardIds, cards), [cardIds, cards]);
@@ -166,7 +171,11 @@ export default function DualAcademyTcgDeckPage() {
   };
 
   return (
-    <main className="tcg-page-shell">
+    <main
+      className="tcg-page-shell"
+      onChangeCapture={handleGameSfxChangeCapture}
+      onPointerDownCapture={handleGameSfxPointerDownCapture}
+    >
       <SiteHeader />
       <section className="tcg-arena">
         <header className="tcg-topbar">

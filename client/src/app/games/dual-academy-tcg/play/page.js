@@ -8,6 +8,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
 import DualAcademyTcgFeatureTabs from '../_components/DualAcademyTcgFeatureTabs';
 import {
   TCG_GAME_SLUG,
@@ -65,6 +66,10 @@ function DualAcademyTcgPlayContent() {
   const [zoneView, setZoneView] = useState(null);
   const [activeTcgTab, setActiveTcgTab] = useState('board');
   const [state, setState] = useState(() => createDuelState());
+  const {
+    handleGameSfxChangeCapture,
+    handleGameSfxPointerDownCapture,
+  } = useGameSfxEventHandlers();
 
   const {
     cardCatalog,
@@ -250,7 +255,11 @@ function DualAcademyTcgPlayContent() {
   };
 
   return (
-    <main className="tcg-page-shell">
+    <main
+      className="tcg-page-shell"
+      onChangeCapture={handleGameSfxChangeCapture}
+      onPointerDownCapture={handleGameSfxPointerDownCapture}
+    >
       <SiteHeader />
       <section className="tcg-arena">
         <header className="tcg-topbar">

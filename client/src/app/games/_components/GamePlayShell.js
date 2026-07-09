@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
+import { useGameSfxEventHandlers } from '../_lib/useGameSfx';
 
 const DEFAULT_METRIC_LIMITS = {
   micro: 6,
@@ -92,6 +93,10 @@ export default function GamePlayShell({
 }) {
   const visibleMetrics = metrics.filter(Boolean);
   const visibleMessages = messages.filter(Boolean);
+  const {
+    handleGameSfxChangeCapture,
+    handleGameSfxPointerDownCapture,
+  } = useGameSfxEventHandlers();
   const metricLimit = primaryMetricLimit || DEFAULT_METRIC_LIMITS[summaryDensity] || DEFAULT_METRIC_LIMITS.normal;
   const primaryMetrics = visibleMetrics.slice(0, metricLimit);
   const secondaryMetrics = visibleMetrics.slice(metricLimit);
@@ -104,7 +109,11 @@ export default function GamePlayShell({
       : 'games-summary';
 
   return (
-    <main className="games-page-shell">
+    <main
+      className="games-page-shell"
+      onChangeCapture={handleGameSfxChangeCapture}
+      onPointerDownCapture={handleGameSfxPointerDownCapture}
+    >
       <SiteHeader />
       <section className="games-page">
         <section className="games-hero">

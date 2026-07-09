@@ -11,6 +11,7 @@ Checked: 2026-07-04
 - Dynamic candidate names are recognized in room detail, save slots, and records.
 - Adapter presets now provide default room/result/save/record capability flags.
 - Playable routes can share `GamePlayShell` for header, actions, summary metrics, and status messages.
+- Playable routes now share lightweight Web Audio SFX for buttons, tabs, selects, navigation, and warning actions.
 
 ## Recommended First Port
 
