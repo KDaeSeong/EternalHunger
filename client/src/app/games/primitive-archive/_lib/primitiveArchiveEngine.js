@@ -849,7 +849,105 @@ function addEventLog(state, message) {
   return addLog(withEventCounter(state), `탐험 사건: ${message}`);
 }
 
-function zoneEventReward(zoneId, action) {
+function hasKoreanFinalConsonant(text) {
+  const char = String(text || '').trim().slice(-1);
+  if ('013678'.includes(char)) return true;
+  if ('2459'.includes(char)) return false;
+  const code = char.charCodeAt(0);
+  if (code < 0xAC00 || code > 0xD7A3) return false;
+  return (code - 0xAC00) % 28 !== 0;
+}
+
+function objectParticle(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '을' : '를'}`;
+}
+
+function hasEventSupportGear(state, actorId, action) {
+  if (action === 'hunt') {
+    return ['bow', 'spear', 'atlatl', 'obsidian_blade', 'hunter_talisman']
+      .some((itemId) => isEquipped(state, actorId, itemId));
+  }
+  if (action === 'gather') {
+    return ['stone_axe', 'bone_pick', 'flint_knife', 'gatherer_charm']
+      .some((itemId) => isEquipped(state, actorId, itemId));
+  }
+  return false;
+}
+
+function eventRiskDamage(state, actorId, base, action = '') {
+  let damage = Number(base || 0);
+  if (action === 'hunt' && hasTechPassive(state, 'MEGAFAUNA_RISK_DOWN')) damage -= 3;
+  if (action === 'hunt' && hasTechPassive(state, 'HUNT_RISK_DOWN')) damage -= 2;
+  if (hasEventSupportGear(state, actorId, action)) damage -= 2;
+  return Math.max(1, Math.round(damage));
+}
+
+function chooseWeightedEvent(rng, events) {
+  const rows = events.filter(Boolean);
+  const total = rows.reduce((sum, event) => sum + Math.max(0.01, Number(event.weight || 1)), 0);
+  let roll = rng() * total;
+  for (const event of rows) {
+    roll -= Math.max(0.01, Number(event.weight || 1));
+    if (roll <= 0) return event;
+  }
+  return rows[0] || null;
+}
+
+function zoneGatherEvents(zoneId, state) {
+  const late = Number(state.day || 1) >= 6;
+  if (zoneId === 'river') {
+    return [
+      { weight: 3, title: '점토 퇴적층', rewards: [['clay', 2], ['herb', 1]], note: '진흙 아래에 보존 상태가 좋은 점토층을 찾았습니다.' },
+      { weight: 1.4, title: '강가 수지 표본', rewards: [['resin', 1], ['clay', 1]], note: '젖은 나무껍질 사이에서 굳은 수지를 떼어냈습니다.' },
+    ];
+  }
+  if (zoneId === 'cave') {
+    return [
+      { weight: 2.4, title: '검은 유리맥', rewards: [['obsidian_shard', late ? 2 : 1], ['flint', 1]], staminaLoss: 2, note: '동굴 벽 안쪽의 검은 유리맥을 조심스럽게 떼어냈습니다.' },
+      { weight: 1.2, title: '마른 뼈층', rewards: [['bone', 2], ['tooth', 1]], note: '오래된 짐승 뼈가 쌓인 층을 발견했습니다.' },
+    ];
+  }
+  if (zoneId === 'plains') {
+    return [
+      { weight: 2.2, title: '거대 발자국', rewards: [['dino_bone', 1], ['fiber', 1]], staminaLoss: 2, note: '초원에 깊게 남은 발자국 주변에서 공룡 뼈 조각을 찾았습니다.' },
+      { weight: 1.8, title: '숨은 베리 군락', rewards: [['berry', 2], ['herb', 1]], note: '풀숲 안쪽에서 먹을 수 있는 베리 군락을 발견했습니다.' },
+      late ? { weight: 0.7, title: '룬 파편 반짝임', rewards: [['rune_shard', 1]], note: '해질녘 풀밭 사이에서 이상한 빛을 내는 파편을 주웠습니다.' } : null,
+    ];
+  }
+  return [
+    { weight: 2.6, title: '수지 고목', rewards: [['resin', 1], ['wood', 1]], note: '오래된 나무에서 접착에 쓸 수 있는 수지를 얻었습니다.' },
+    { weight: 1.6, title: '버섯 그늘', rewards: [['berry', 1], ['herb', 1]], note: '그늘진 나무뿌리 아래에서 약초와 식량을 챙겼습니다.' },
+  ];
+}
+
+function zoneHuntEvents(zoneId, state) {
+  const late = Number(state.day || 1) >= 6;
+  if (zoneId === 'plains') {
+    return [
+      { weight: late ? 2.4 : 1.4, title: '메가파우나 몰이', rewards: [['meat', 3], ['dino_hide', 1], ['dino_bone', 1]], damage: 8, staminaLoss: 4, note: '큰 사냥감을 몰아붙여 귀한 부산물을 확보했습니다.' },
+      { weight: 1.8, title: '빠른 초식동물', rewards: [['meat', 2], ['hide', 1], ['sinew', 1]], damage: 3, note: '무리에서 떨어진 초식동물을 짧게 제압했습니다.' },
+      late ? { weight: 0.55, title: '룬이 박힌 뼈', rewards: [['rune_shard', 1], ['dino_bone', 1]], damage: 5, note: '이상한 문양이 남은 뼈 조각을 회수했습니다.' } : null,
+    ];
+  }
+  if (zoneId === 'cave') {
+    return [
+      { weight: 2.1, title: '동굴 포식자 둥지', rewards: [['bone', 2], ['tooth', 1], ['mutant_gland', 1]], damage: 9, staminaLoss: 3, note: '동굴 깊은 곳의 포식자 둥지를 정리했습니다.' },
+      { weight: 1.3, title: '낡은 사냥 흔적', rewards: [['hide', 1], ['sinew', 1], ['obsidian_shard', 1]], damage: 4, note: '이전 사냥 흔적에서 쓸 수 있는 재료를 회수했습니다.' },
+    ];
+  }
+  if (zoneId === 'river') {
+    return [
+      { weight: 2.4, title: '강변 사냥', rewards: [['meat', 2], ['bone', 1]], damage: 2, note: '물을 마시러 온 작은 짐승을 포착했습니다.' },
+      { weight: 1.1, title: '젖은 발자국 추적', rewards: [['tooth', 1], ['sinew', 1]], damage: 3, note: '젖은 발자국을 따라가 사냥 부산물을 챙겼습니다.' },
+    ];
+  }
+  return [
+    { weight: 2.6, title: '숲속 매복', rewards: [['meat', 1], ['hide', 1], ['sinew', 1]], damage: 3, note: '나무 사이에서 짧은 매복 사냥에 성공했습니다.' },
+    { weight: 1.2, title: '날카로운 이빨', rewards: [['tooth', 1], ['hide', 1]], damage: 5, note: '위험한 짐승을 가까스로 제압하고 이빨을 회수했습니다.' },
+  ];
+}
+
+function fallbackZoneEventReward(zoneId, action) {
   if (action === 'gather') {
     if (zoneId === 'river') return [['herb', 1], ['clay', 1]];
     if (zoneId === 'cave') return [['flint', 1], ['obsidian_shard', 1]];
@@ -868,29 +966,62 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
 
   if (action === 'gather') {
     if (ok) {
-      const rewards = zoneEventReward(zoneId, 'gather').filter(([, qty]) => qty > 0);
+      const event = chooseWeightedEvent(rng, zoneGatherEvents(zoneId, next)) || {};
+      const rewards = (event.rewards || fallbackZoneEventReward(zoneId, 'gather')).filter(([, qty]) => qty > 0);
       next = { ...next, inventory: addItems(next.inventory, rewards) };
-      return addEventLog(next, `${actor.name} 학생이 숨겨진 흔적을 발견했습니다. ${formatGains(rewards)}.`);
+      if (Number(event.staminaLoss || 0) > 0) {
+        const target = getActor(next, actorId);
+        next = updateActor(next, actorId, {
+          stamina: clamp(Number(target.stamina || 0) - Number(event.staminaLoss || 0), 0, 100),
+        });
+      }
+      const costText = Number(event.staminaLoss || 0) > 0 ? `, 스태미나 -${Number(event.staminaLoss || 0)}` : '';
+      const title = event.title || '숨겨진 흔적';
+      return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 발견했습니다. ${event.note || '쓸 만한 단서를 챙겼습니다.'} ${formatGains(rewards)}${costText}.`);
     }
-    next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - 3, 0, 100) });
-    return addEventLog(next, `${actor.name} 학생이 가시덤불에 긁혔습니다. HP -3.`);
+    const damage = zoneId === 'cave' ? 4 : zoneId === 'river' ? 2 : 3;
+    next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - damage, 0, 100) });
+    const failNote = zoneId === 'cave'
+      ? '낙석을 피해 물러났습니다'
+      : zoneId === 'river'
+        ? '진흙에 발이 빠져 몸을 부딪쳤습니다'
+        : '가시덤불에 긁혔습니다';
+    return addEventLog(next, `${actor.name} 학생이 ${failNote}. HP -${damage}.`);
   }
 
   if (action === 'hunt') {
     if (ok) {
-      const rewards = zoneEventReward(zoneId, 'hunt');
+      const event = chooseWeightedEvent(rng, zoneHuntEvents(zoneId, next)) || {};
+      const rewards = event.rewards || fallbackZoneEventReward(zoneId, 'hunt');
+      const damage = eventRiskDamage(next, actorId, Number(event.damage || 4), 'hunt');
+      const staminaLoss = Math.max(0, Number(event.staminaLoss || 0) - (hasEventSupportGear(next, actorId, 'hunt') ? 1 : 0));
       next = {
         ...next,
         inventory: addItems(next.inventory, rewards),
       };
-      next = updateActor(next, actorId, { hp: clamp(Number(actor.hp || 0) - 4, 0, 100) });
-      return addEventLog(next, `${actor.name} 학생이 큰 사냥감의 흔적을 확보했습니다. ${formatGains(rewards)}, HP -4.`);
+      next = updateActor(next, actorId, {
+        hp: clamp(Number(actor.hp || 0) - damage, 0, 100),
+        stamina: clamp(Number(actor.stamina || 0) - staminaLoss, 0, 100),
+      });
+      const costText = [
+        `HP -${damage}`,
+        staminaLoss > 0 ? `스태미나 -${staminaLoss}` : '',
+      ].filter(Boolean).join(', ');
+      const title = event.title || '큰 사냥감의 흔적';
+      return addEventLog(next, `${actor.name} 학생이 ${objectParticle(title)} 확보했습니다. ${event.note || '사냥 부산물을 챙겼습니다.'} ${formatGains(rewards)}, ${costText}.`);
     }
+    const damage = eventRiskDamage(next, actorId, zoneId === 'plains' || zoneId === 'cave' ? 7 : 5, 'hunt');
+    const staminaLoss = zoneId === 'plains' || zoneId === 'cave' ? 7 : 6;
     next = updateActor(next, actorId, {
-      hp: clamp(Number(actor.hp || 0) - 5, 0, 100),
-      stamina: clamp(Number(actor.stamina || 0) - 6, 0, 100),
+      hp: clamp(Number(actor.hp || 0) - damage, 0, 100),
+      stamina: clamp(Number(actor.stamina || 0) - staminaLoss, 0, 100),
     });
-    return addEventLog(next, `${actor.name} 학생이 포식자를 피해 달아났습니다. HP -5, 스태미나 -6.`);
+    const failName = zoneId === 'plains'
+      ? '대형 짐승의 돌진'
+      : zoneId === 'cave'
+        ? '동굴 포식자의 반격'
+        : '포식자의 추격';
+    return addEventLog(next, `${actor.name} 학생이 ${failName}을 피해 달아났습니다. HP -${damage}, 스태미나 -${staminaLoss}.`);
   }
 
   if (action === 'craft') {
