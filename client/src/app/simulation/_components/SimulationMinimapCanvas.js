@@ -106,12 +106,13 @@ export default function SimulationMinimapCanvas({
         {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
           if (!availableZoneIds.has(id)) return null;
           const isForbidden = forbiddenSet.has(id);
+          if (!isForbidden) return null;
           const zoneName = String(getZoneName?.(id) || id);
           return (
             <polygon
               key={`area-${id}`}
               points={polygonPoints(polygon)}
-              className={`minimap-zone-area ${isForbidden ? 'forbidden' : ''}`}
+              className="minimap-zone-area forbidden"
             >
               <title>{zoneName}</title>
             </polygon>
@@ -193,7 +194,7 @@ export default function SimulationMinimapCanvas({
           const zoneName = String(getZoneName?.(id) || id);
           const aliveHere = aliveByZone[id]?.length || 0;
           const deadHere = deadByZone[id]?.length || 0;
-          const nodeR = 4.8;
+          const nodeR = 4.35;
           const labelSize = zoneName.length >= 6 ? 2.05 : zoneName.length >= 5 ? 2.3 : 2.65;
           const hasHyperloop = hyperloopSet.has(id);
           const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
@@ -222,16 +223,16 @@ export default function SimulationMinimapCanvas({
               {hasHyperloop ? (
                 <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
                   <title>{zoneName} hyperloop</title>
-                  <circle r="2.35" />
-                  <text x="0" y="0.85" textAnchor="middle">{'>>'}</text>
+                  <circle r="1.95" />
+                  <text x="0" y="0.7" textAnchor="middle">{'>>'}</text>
                 </g>
               ) : null}
 
               {hasKiosk ? (
                 <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
                   <title>{zoneName} kiosk</title>
-                  <circle r="2.25" />
-                  <text x="0" y="0.9" textAnchor="middle">C</text>
+                  <circle r="1.9" />
+                  <text x="0" y="0.72" textAnchor="middle">C</text>
                 </g>
               ) : null}
 

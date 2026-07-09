@@ -1800,30 +1800,31 @@
 }
 
 .minimap-island-outline {
-  fill: rgba(51, 122, 160, 0.24);
-  stroke: rgba(169, 218, 245, 0.28);
-  stroke-width: 1.35;
-  filter: drop-shadow(0 0 9px rgba(98, 183, 220, 0.24));
+  fill: rgba(45, 104, 137, 0.13);
+  stroke: rgba(169, 218, 245, 0.24);
+  stroke-width: 1.05;
+  filter: drop-shadow(0 0 7px rgba(98, 183, 220, 0.14));
 }
 
 .minimap-zone-area {
-  fill: rgba(69, 143, 176, 0.25);
-  stroke: rgba(218, 245, 255, 0.22);
-  stroke-width: 0.55;
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 0;
   stroke-linejoin: round;
 }
 
 .minimap-zone-area:nth-of-type(2n) {
-  fill: rgba(74, 158, 190, 0.30);
+  fill: transparent;
 }
 
 .minimap-zone-area:nth-of-type(3n) {
-  fill: rgba(55, 127, 170, 0.28);
+  fill: transparent;
 }
 
 .minimap-zone-area.forbidden {
-  fill: rgba(255, 82, 82, 0.28);
-  stroke: rgba(255, 145, 145, 0.38);
+  fill: rgba(255, 82, 82, 0.20);
+  stroke: rgba(255, 145, 145, 0.34);
+  stroke-width: 0.55;
 }
 
 .minimap-zone-surface {
@@ -1838,12 +1839,12 @@
 }
 
 .minimap-passage {
-  stroke: rgba(8, 14, 24, 0.58);
-  stroke-width: 1.75;
+  stroke: rgba(5, 12, 20, 0.72);
+  stroke-width: 1.32;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 2px rgba(178, 226, 248, 0.18));
+  filter: drop-shadow(0 0 1px rgba(178, 226, 248, 0.10));
 }
 
 .minimap-edge {
@@ -1898,12 +1899,12 @@
 }
 
 .minimap-facility text {
-  font-size: 2.65px;
+  font-size: 2.15px;
   font-weight: 950;
   letter-spacing: 0;
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.52);
-  stroke-width: 0.18;
+  stroke-width: 0.14;
 }
 
 .minimap-facility-hyperloop circle {
