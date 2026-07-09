@@ -120,6 +120,11 @@ export default function MyAnimeCraftLeagueTab(props) {
                       빌드 근거: {setResult.homeBuildReason || '-'} / {setResult.awayBuildReason || '-'}
                     </small>
                   ) : null}
+                  {setResult.keyEventLabel || setResult.tempoLabel ? (
+                    <small>
+                      핵심 장면: {setResult.keyEventLabel || '-'}{setResult.tempoLabel ? ` · 템포 ${setResult.tempoLabel}` : ''}
+                    </small>
+                  ) : null}
                   {setResult.broadcastHeadline ? <span>{setResult.broadcastHeadline}</span> : null}
                   {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
                   <BroadcastTimeline lines={setResult.timeline} />

@@ -135,6 +135,9 @@ export default function MyAnimeCraftCupsTab(props) {
                   {setResult.homeBuildReason || setResult.awayBuildReason ? (
                     <small>빌드 근거: {setResult.homeBuildReason || '-'} / {setResult.awayBuildReason || '-'}</small>
                   ) : null}
+                  {setResult.keyEventLabel || setResult.tempoLabel ? (
+                    <small>핵심 장면: {setResult.keyEventLabel || '-'}{setResult.tempoLabel ? ` · 템포 ${setResult.tempoLabel}` : ''}</small>
+                  ) : null}
                   {setResult.broadcastHeadline ? <small>{setResult.broadcastHeadline}</small> : null}
                   {setResult.turningPoint ? <small>{setResult.turningPoint}</small> : null}
                   <BroadcastTimeline lines={setResult.timeline} />

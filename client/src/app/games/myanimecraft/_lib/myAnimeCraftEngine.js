@@ -267,6 +267,8 @@ function normalizePersonalSetDetail(value) {
     awayBuildMapFit: Math.round(Number(value.awayBuildMapFit || 0) * 10) / 10,
     broadcastHeadline: String(value.broadcastHeadline || ''),
     turningPoint: String(value.turningPoint || ''),
+    keyEventLabel: String(value.keyEventLabel || ''),
+    tempoLabel: String(value.tempoLabel || ''),
     durationSec: Math.max(0, Math.floor(Number(value.durationSec || 0))),
     timeline: normalizeSetTimeline(value.timeline),
   };
@@ -378,6 +380,8 @@ function normalizeWinnersSet(value) {
     awayBuildMapFit: Math.round(Number(value.awayBuildMapFit || 0) * 10) / 10,
     broadcastHeadline: String(value.broadcastHeadline || ''),
     turningPoint: String(value.turningPoint || ''),
+    keyEventLabel: String(value.keyEventLabel || ''),
+    tempoLabel: String(value.tempoLabel || ''),
     timeline: normalizeSetTimeline(value.timeline),
     playedAt: Number(value.playedAt || Date.now()),
   };
@@ -2050,7 +2054,104 @@ function benchReactionLineV2(rng, { winnerName, loserName, isAceSet, scoreHome, 
   return `${winnerName} 벤치 분위기가 가벼워졌습니다. ${loserName} 쪽은 빌드보다 첫 반응 순서를 다시 봐야 합니다.`;
 }
 
-function broadcastHeadlineForSetV2({ setNo, map, homePlayer, awayPlayer, homeBuild, awayBuild, homeWin, noisyDiff, isAceSet }) {
+function styleEventNoun(style) {
+  if (style === 'rush') return '초반 찌르기';
+  if (style === 'harass') return '견제 동선';
+  if (style === 'tech') return '테크 전환';
+  if (style === 'macro') return '확장 운영';
+  return '정면 운영';
+}
+
+function styleTempoScore(style) {
+  if (style === 'rush') return 5;
+  if (style === 'harass') return 4;
+  if (style === 'tech') return 3;
+  if (style === 'balanced') return 2;
+  if (style === 'macro') return 1;
+  return 2;
+}
+
+function setTempoLabelFromBuilds(homeBuild, awayBuild, durationSec) {
+  const maxTempo = Math.max(styleTempoScore(homeBuild?.style), styleTempoScore(awayBuild?.style));
+  if (maxTempo >= 5 || Number(durationSec || 0) <= 760) return '초반 승부';
+  if (maxTempo >= 4) return '견제 주도';
+  if (Number(durationSec || 0) >= 1180) return '장기 운영';
+  if (homeBuild?.style === 'tech' || awayBuild?.style === 'tech') return '테크 분기';
+  return '중반 운영';
+}
+
+function buildSetEventBeatsV2({
+  rng,
+  setNo,
+  map,
+  homePlayer,
+  awayPlayer,
+  homeBuild,
+  awayBuild,
+  homeWin,
+  durationSec,
+  noisyDiff,
+  pHome = 0.5,
+  scoreHome = 0,
+  scoreAway = 0,
+  isAceSet = false,
+}) {
+  const winner = homeWin ? homePlayer : awayPlayer;
+  const loser = homeWin ? awayPlayer : homePlayer;
+  const winnerBuild = homeWin ? homeBuild : awayBuild;
+  const loserBuild = homeWin ? awayBuild : homeBuild;
+  const leader = Number(noisyDiff || 0) >= 0 ? homePlayer : awayPlayer;
+  const leaderBuild = Number(noisyDiff || 0) >= 0 ? homeBuild : awayBuild;
+  const underdogWin = (Number(pHome || 0.5) >= 0.58 && !homeWin) || (Number(pHome || 0.5) <= 0.42 && homeWin);
+  const closeGame = Math.abs(Number(noisyDiff || 0)) < 95;
+  const homeTempo = styleTempoScore(homeBuild?.style) + (homeWin ? 0.25 : 0);
+  const awayTempo = styleTempoScore(awayBuild?.style) + (!homeWin ? 0.25 : 0);
+  const opener = homeTempo >= awayTempo ? homePlayer : awayPlayer;
+  const openerBuild = homeTempo >= awayTempo ? homeBuild : awayBuild;
+  const defender = opener === homePlayer ? awayPlayer : homePlayer;
+  const defenderBuild = opener === homePlayer ? awayBuild : homeBuild;
+  const tempoLabel = setTempoLabelFromBuilds(homeBuild, awayBuild, durationSec);
+  const scoutAt = 38 + Math.floor(rng() * 24);
+  const firstAt = clamp(Math.round(durationSec * (openerBuild?.style === 'rush' ? 0.18 : 0.25)), 76, Math.max(90, durationSec - 180));
+  const controlAt = clamp(Math.round(durationSec * (closeGame ? 0.47 : 0.42)), firstAt + 35, Math.max(firstAt + 45, durationSec - 130));
+  const turnAt = clamp(Math.round(durationSec * (closeGame ? 0.66 : 0.58)), controlAt + 38, Math.max(controlAt + 48, durationSec - 70));
+  const finishAt = Math.max(turnAt + 24, durationSec - 26);
+  const setLabel = `${setNo}세트${isAceSet ? ' 에이스 결정전' : ''}`;
+  const openingContext = scoreHome || scoreAway ? `현재 스코어 ${scoreHome}:${scoreAway},` : '첫 세트 흐름부터';
+  const keyEventLabel = `${formatGameClock(turnAt)} ${winner.name} ${styleEventNoun(winnerBuild?.style)} 성공`;
+  const turningPoint = closeGame
+    ? `${formatGameClock(turnAt)} 중앙 교전에서 ${winner.name}이 병력 합류를 한 박자 먼저 맞추며 균형을 깼습니다.`
+    : `${formatGameClock(turnAt)} ${winner.name}의 ${styleEventNoun(winnerBuild?.style)}가 ${loser.name}의 ${styleEventNoun(loserBuild?.style)} 대응보다 먼저 완성됐습니다.`;
+  const headline = `${setLabel} · ${map.name}: ${winner.name}, ${tempoLabel} 구도에서 ${loser.name}을 잡았습니다.`;
+
+  return {
+    headline,
+    turningPoint,
+    keyEventLabel,
+    tempoLabel,
+    lines: [
+      buildTimelineLine(0, '캐스터', `${setLabel} 시작합니다. ${homePlayer.name}(${homePlayer.race}) vs ${awayPlayer.name}(${awayPlayer.race}), 전장은 ${map.name}입니다.`),
+      buildTimelineLine(8, '해설', `${openingContext} 빌드 방향이 중요합니다. ${homePlayer.name}은 ${buildName(homeBuild)}, ${awayPlayer.name}은 ${buildName(awayBuild)} 준비입니다.`),
+      buildTimelineLine(20, '분석', `${map.name}에서는 첫 정찰 뒤 병력 회전이 빨라집니다. ${styleEventNoun(homeBuild?.style)}와 ${styleEventNoun(awayBuild?.style)}의 속도 차이를 봐야 합니다.`),
+      buildTimelineLine(scoutAt, '해설', `${opener.name}의 정찰이 ${defender.name} 쪽 ${buildName(defenderBuild)} 흐름을 먼저 확인합니다. 이 정보 하나로 첫 교전 위치가 좁혀집니다.`),
+      buildTimelineLine(firstAt, '캐스터', `${opener.name}이 ${styleEventNoun(openerBuild?.style)}로 선수를 칩니다. ${defender.name}은 입구와 앞마당 수비를 동시에 맞춰야 합니다.`),
+      buildTimelineLine(controlAt, '해설', `${leader.name}이 시야와 병력 회전에서 한 발 앞섭니다. ${buildName(leaderBuild)}의 목적이 이제 화면에 보이기 시작합니다.`),
+      buildTimelineLine(turnAt, '캐스터', closeGame
+        ? `${winner.name}, 중앙 교전에서 먼저 덮칩니다! ${loser.name}도 버티지만 합류 타이밍 차이가 났습니다.`
+        : `${winner.name}이 승부 지점을 잡았습니다. ${styleEventNoun(winnerBuild?.style)}가 완성되면서 ${loser.name}의 대응이 늦었습니다.`),
+      buildTimelineLine(Math.max(turnAt + 10, durationSec - 58), '리플레이', underdogWin
+        ? `리플레이로 보면 ${winner.name}의 첫 동선 선택이 핵심입니다. 예상 승률보다 낮았지만 정찰 정보와 교전 위치로 판을 뒤집었습니다.`
+        : `리플레이 포인트는 ${keyEventLabel}입니다. 빌드 이름보다 중요한 건 그 타이밍에 병력이 어디 있었느냐였습니다.`),
+      buildTimelineLine(Math.max(turnAt + 22, durationSec - 38), '벤치', isAceSet
+        ? `${winner.name} 벤치가 크게 반응합니다. 에이스 결정전은 준비한 카드보다 첫 판단의 무게가 더 컸습니다.`
+        : `${winner.name} 쪽은 다음 세트 밴픽까지 기세를 가져갑니다. ${loser.name} 쪽은 첫 정찰 대응 순서를 다시 봐야 합니다.`),
+      buildTimelineLine(finishAt, '캐스터', `${winner.name} 마무리합니다. 경기 시간 ${formatGameClock(durationSec)}, ${tempoLabel} 흐름의 결론은 ${winner.name} 승리입니다.`),
+    ],
+  };
+}
+
+function broadcastHeadlineForSetV2({ setNo, map, homePlayer, awayPlayer, homeBuild, awayBuild, homeWin, noisyDiff, isAceSet, eventBeats = null }) {
+  if (eventBeats?.headline) return eventBeats.headline;
   const winner = homeWin ? homePlayer : awayPlayer;
   const loser = homeWin ? awayPlayer : homePlayer;
   const winnerBuild = homeWin ? homeBuild : awayBuild;
@@ -2065,7 +2166,8 @@ function broadcastHeadlineForSetV2({ setNo, map, homePlayer, awayPlayer, homeBui
   return `${prefix}: ${winner.name}, ${castStyleLabel(winnerBuild)} 흐름을 끝까지 밀었습니다.`;
 }
 
-function turningPointForSetV2({ durationSec, winnerName, loserName, winnerBuild, loserBuild, closeGame }) {
+function turningPointForSetV2({ durationSec, winnerName, loserName, winnerBuild, loserBuild, closeGame, eventBeats = null }) {
+  if (eventBeats?.turningPoint) return eventBeats.turningPoint;
   const clock = formatGameClock(Math.round(durationSec * (closeGame ? 0.62 : 0.48)));
   if (closeGame) return `${clock} 중앙 교전에서 ${winnerName}이 병력 방향을 반 박자 먼저 틀며 결정타를 만들었습니다.`;
   if (winnerBuild.style === 'rush') return `${clock} 첫 압박 때 ${loserName}의 방어 병력이 나뉘면서 경기가 크게 기울었습니다.`;
@@ -2092,7 +2194,28 @@ function buildSetTimelineV2({
   isAceSet = false,
   homeMeta = null,
   awayMeta = null,
+  eventBeats = null,
 }) {
+  const scriptedBeats = eventBeats || buildSetEventBeatsV2({
+    rng,
+    setNo,
+    map,
+    homePlayer,
+    awayPlayer,
+    homeBuild,
+    awayBuild,
+    homeWin,
+    durationSec,
+    noisyDiff,
+    pHome,
+    scoreHome,
+    scoreAway,
+    isAceSet,
+  });
+  if (Array.isArray(scriptedBeats?.lines) && scriptedBeats.lines.length) {
+    return scriptedBeats.lines.sort((a, b) => a.t - b.t).slice(0, 18);
+  }
+
   const winnerName = homeWin ? homePlayer.name : awayPlayer.name;
   const loserName = homeWin ? awayPlayer.name : homePlayer.name;
   const winnerBuild = homeWin ? homeBuild : awayBuild;
@@ -3182,6 +3305,22 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
   const winnerBuild = homeWin ? homeBuild : awayBuild;
   const loserBuild = homeWin ? awayBuild : homeBuild;
   const closeGame = Math.abs(Number(noisyDiff || 0)) < 95;
+  const eventBeats = buildSetEventBeatsV2({
+    rng,
+    setNo,
+    map,
+    homePlayer,
+    awayPlayer,
+    homeBuild,
+    awayBuild,
+    homeWin,
+    durationSec,
+    noisyDiff,
+    pHome,
+    scoreHome,
+    scoreAway,
+    isAceSet,
+  });
   const timeline = buildSetTimelineV2({
     rng,
     setNo,
@@ -3199,6 +3338,7 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
     isAceSet,
     homeMeta,
     awayMeta,
+    eventBeats,
   });
   return {
     setNo,
@@ -3236,6 +3376,7 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
       homeWin,
       noisyDiff,
       isAceSet,
+      eventBeats,
     }),
     turningPoint: turningPointForSetV2({
       durationSec,
@@ -3244,7 +3385,10 @@ function simulateSet({ state, fixture, homeTeam, awayTeam, homePlayer, awayPlaye
       winnerBuild,
       loserBuild,
       closeGame,
+      eventBeats,
     }),
+    keyEventLabel: String(eventBeats?.keyEventLabel || ''),
+    tempoLabel: String(eventBeats?.tempoLabel || ''),
     timeline,
     mapBiasHome: Math.round((mapMultiplier(homePlayer.race, awayPlayer.race, map) - 1) * 1000) / 10,
     phaseDiff: Math.round(diff),
@@ -3859,6 +4003,8 @@ function simulatePersonalMatch(state, match) {
       awayBuildMapFit: setResult.awayBuildMapFit,
       broadcastHeadline: setResult.broadcastHeadline,
       turningPoint: setResult.turningPoint,
+      keyEventLabel: setResult.keyEventLabel,
+      tempoLabel: setResult.tempoLabel,
       durationSec: setResult.durationSec,
       timeline: setResult.timeline,
     });
@@ -4440,6 +4586,8 @@ export function advanceWinnersLeagueAction(state) {
     awayBuildMapFit: setResult.awayBuildMapFit,
     broadcastHeadline: setResult.broadcastHeadline,
     turningPoint: setResult.turningPoint,
+    keyEventLabel: setResult.keyEventLabel,
+    tempoLabel: setResult.tempoLabel,
     timeline: setResult.timeline,
     playedAt: Date.now(),
   };
@@ -5595,6 +5743,7 @@ export function getSeriesReplayReport(match) {
     .map((setResult) => ({ setResult, upsetGap: Math.max(0, 50 - setWinProbabilityForWinner(match, setResult)) }))
     .sort((a, b) => b.upsetGap - a.upsetGap)[0];
   const longestSet = [...sets].sort((a, b) => Number(b.durationSec || 0) - Number(a.durationSec || 0))[0];
+  const keyEventSet = sets.find((setResult) => String(setResult?.keyEventLabel || '').trim()) || closeSet;
   const styleRows = styleCountRows(sets);
   const mapCount = new Set(sets.map((setResult) => setResult.mapName || setResult.mapId).filter(Boolean)).size;
   const avgDuration = Math.round(sets.reduce((sum, setResult) => sum + Number(setResult.durationSec || 0), 0) / sets.length);
@@ -5606,6 +5755,7 @@ export function getSeriesReplayReport(match) {
       : `${winner}이 접전 흐름에서 한 세트를 더 가져갔습니다.`;
   const headline = `${winner} ${match.scoreHome}:${match.scoreAway} ${loser}. ${leadText}`;
   const highlights = [
+    keyEventSet?.keyEventLabel ? `${keyEventSet.setNo}세트 핵심 장면: ${keyEventSet.keyEventLabel}` : '',
     aceSet ? `에이스전: ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}, ${setWinnerName(match, aceSet)}이 압박을 버텼습니다.` : '',
     closeSet ? `${closeSet.setNo}세트는 체감상 가장 팽팽했습니다. ${setWinnerName(match, closeSet)}이 ${setLoserName(match, closeSet)}을(를) 상대로 마지막 교전을 남겼습니다.` : '',
     upsetSet?.upsetGap >= 5 ? `${upsetSet.setResult.setNo}세트는 예측을 비튼 승부였습니다. ${setWinnerName(match, upsetSet.setResult)}의 사전 승률은 ${setWinProbabilityForWinner(match, upsetSet.setResult)}%였습니다.` : '',
