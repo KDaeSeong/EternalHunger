@@ -21,6 +21,7 @@ import {
   getMatchArchiveRows,
   getPersonalLeagueRows,
   getPersonalLeagueSummary,
+  getPostseasonBriefing,
   getSeasonShopRows,
   getPlayedCount,
   getPlayTimeSec,
@@ -73,6 +74,7 @@ export default function MyAnimeCraftPlayPage() {
   const winnersRows = useMemo(() => getWinnersLeagueRows(state, 10), [state]);
   const seasonStage = useMemo(() => getSeasonStageSummary(state), [state]);
   const postseasonRows = useMemo(() => getPostseasonRows(state), [state]);
+  const postseasonBriefing = useMemo(() => getPostseasonBriefing(state), [state]);
   const seasonReports = useMemo(() => getSeasonReportRows(state, 8), [state]);
   const seasonFinaleReport = useMemo(() => getSeasonFinaleReport(state), [state]);
   const matchArchiveRows = useMemo(() => getMatchArchiveRows(state, 18), [state]);
@@ -291,6 +293,7 @@ export default function MyAnimeCraftPlayPage() {
         personalSummary={personalSummary}
         played={played}
         playerRankings={playerRankings}
+        postseasonBriefing={postseasonBriefing}
         postseasonRows={postseasonRows}
         recentActionText={recentActionText}
         rivalryReport={rivalryReport}

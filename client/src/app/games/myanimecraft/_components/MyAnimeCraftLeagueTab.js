@@ -17,6 +17,7 @@ export default function MyAnimeCraftLeagueTab(props) {
     ended,
     matchArchiveRows,
     played,
+    postseasonBriefing,
     postseasonRows,
     recentActionText,
     rivalryReport,
@@ -126,6 +127,33 @@ export default function MyAnimeCraftLeagueTab(props) {
               ))}
             </div>
           ) : null}
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>포스트시즌 브리핑</h2>
+            <span>{postseasonBriefing.sampleLabel}</span>
+          </div>
+          <p style={{ color: '#5f6c78', fontWeight: 850, lineHeight: 1.5, margin: 0 }}>
+            {postseasonBriefing.headline}
+          </p>
+          <div className="games-rank-split games-rank-split--compact">
+            {postseasonBriefing.focusRows.map((row) => (
+              <SmallStat key={`${row.label}-${row.value}`} label={row.label} value={row.value} />
+            ))}
+          </div>
+          <div className="game-save-list">
+            {postseasonBriefing.storyLines.length ? postseasonBriefing.storyLines.map((line, index) => (
+              <article className="game-save-row" key={`postseason-brief-${index}`}>
+                <div>
+                  <span>브리핑 {index + 1}</span>
+                  <strong>{line}</strong>
+                </div>
+              </article>
+            )) : (
+              <div className="games-empty">정규리그를 진행하면 포스트시즌 브리핑이 누적됩니다.</div>
+            )}
+          </div>
         </section>
 
         <section className="games-panel">
@@ -243,6 +271,20 @@ export default function MyAnimeCraftLeagueTab(props) {
                 </article>
               ))}
             </div>
+            {postseasonBriefing.rows.length ? (
+              <div className="game-save-list" style={{ marginTop: 12 }}>
+                {postseasonBriefing.rows.map((row) => (
+                  <article className="game-save-row" key={`postseason-route-${row.id}`}>
+                    <div>
+                      <span>{row.seedText}</span>
+                      <strong>{row.label} · {row.resultText}</strong>
+                      <small>{row.note}</small>
+                    </div>
+                    <strong>{row.winnerTeamName || (row.played ? '완료' : '대기')}</strong>
+                  </article>
+                ))}
+              </div>
+            ) : null}
           </section>
         ) : null}
       </section>

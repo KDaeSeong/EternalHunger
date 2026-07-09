@@ -5213,6 +5213,113 @@ export function getPostseasonRows(state) {
   }));
 }
 
+function seedLabel(seed) {
+  return seed > 0 ? `${seed}시드` : '대기';
+}
+
+function postseasonFixtureBrief(current, fixture, seedByTeamId) {
+  const homeSeed = seedByTeamId.get(fixture.homeTeamId) || 0;
+  const awaySeed = seedByTeamId.get(fixture.awayTeamId) || 0;
+  const homeName = fixture.homeTeamId === '__TBD__' ? '대기' : teamName(current, fixture.homeTeamId);
+  const awayName = fixture.awayTeamId === '__TBD__' ? '대기' : teamName(current, fixture.awayTeamId);
+  const result = fixture.result;
+  const winnerName = result?.winnerTeamId ? teamName(current, result.winnerTeamId) : '';
+  const aceSet = Array.isArray(result?.sets) ? result.sets.find((setResult) => setResult.isAceSet) : null;
+  const label = fixture.label || POSTSEASON_LABELS[fixture.round] || `포스트시즌 ${fixture.round}`;
+  return {
+    id: fixture.id,
+    label,
+    played: Boolean(fixture.played),
+    homeTeamName: homeName,
+    awayTeamName: awayName,
+    homeSeed,
+    awaySeed,
+    seedText: fixture.awayTeamId === '__TBD__'
+      ? `${seedLabel(homeSeed)} 대 진출팀`
+      : `${seedLabel(homeSeed)} vs ${seedLabel(awaySeed)}`,
+    resultText: result
+      ? `${result.homeTeamName} ${result.scoreHome}:${result.scoreAway} ${result.awayTeamName}`
+      : `${homeName} vs ${awayName}`,
+    winnerTeamName: winnerName,
+    aceSetLabel: aceSet ? `${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}` : '',
+    note: result
+      ? `${winnerName || '승자'}이(가) ${label}을 통과했습니다.${aceSet ? ` 에이스전은 ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}.` : ''}`
+      : fixture.awayTeamId === '__TBD__'
+        ? `${homeName}이 상위 시드로 기다립니다. 이전 라운드 승자가 올라옵니다.`
+        : `${homeName}와 ${awayName}의 ${label}입니다. 시드 격차와 최근 컨디션이 관전 포인트입니다.`,
+  };
+}
+
+export function getPostseasonBriefing(state) {
+  const current = normalizeState(state);
+  const topRows = getTopTeams(current, Math.max(4, current.teams.length));
+  const seedByTeamId = new Map(topRows.map((row, index) => [row.teamId, index + 1]));
+  const fixtures = normalizePostseasonFixtures(current.postseasonFixtures);
+  const rows = fixtures.map((fixture) => postseasonFixtureBrief(current, fixture, seedByTeamId));
+  const playedRows = rows.filter((row) => row.played);
+  const pendingRows = rows.filter((row) => !row.played);
+  const nextRow = pendingRows.find((row) => !row.resultText.includes('대기')) || pendingRows[0] || null;
+  const championId = postseasonChampionId(current);
+  const championName = championId ? teamName(current, championId) : '';
+  const finalistRows = fixtures.filter((fixture) => fixture.result?.winnerTeamId).slice(-2);
+  const seedUpsets = fixtures
+    .filter((fixture) => fixture.played && fixture.result?.winnerTeamId)
+    .map((fixture) => {
+      const winnerSeed = seedByTeamId.get(fixture.result.winnerTeamId) || 0;
+      const loserId = loserTeamId(fixture.result);
+      const loserSeed = seedByTeamId.get(loserId) || 0;
+      return {
+        fixture,
+        winnerSeed,
+        loserSeed,
+        gap: winnerSeed && loserSeed ? winnerSeed - loserSeed : 0,
+      };
+    })
+    .filter((row) => row.gap > 0)
+    .sort((a, b) => b.gap - a.gap);
+  const topSeed = topRows[0];
+
+  const headline = championName
+    ? `${championName}이 포스트시즌을 끝까지 통과했습니다. 결승까지 ${playedRows.length}경기 기록이 남았습니다.`
+    : rows.length
+      ? nextRow
+        ? `${nextRow.label}: ${nextRow.resultText}. ${nextRow.seedText} 구도입니다.`
+        : `포스트시즌 ${playedRows.length}/${rows.length}경기가 진행됐습니다. 다음 대진 확정을 기다립니다.`
+      : isRegularSeasonComplete(current)
+        ? '정규리그가 끝났습니다. 다음 경기 진행으로 포스트시즌 브래킷을 생성하세요.'
+        : `정규리그 상위 4팀이 포스트시즌으로 갑니다. 현재 1시드는 ${topSeed?.teamName || '미정'}입니다.`;
+
+  const focusRows = [
+    topSeed ? { label: '1시드', value: topSeed.teamName, detail: `${topSeed.wins}승 ${topSeed.losses}패 · 득실 ${topSeed.diff >= 0 ? '+' : ''}${topSeed.diff}` } : null,
+    nextRow ? { label: '다음 경기', value: nextRow.label, detail: nextRow.resultText } : null,
+    seedUpsets[0] ? {
+      label: '업셋',
+      value: `${seedUpsets[0].winnerSeed}시드 승`,
+      detail: `${teamName(current, seedUpsets[0].fixture.result.winnerTeamId)}이 ${seedUpsets[0].loserSeed}시드를 넘었습니다.`,
+    } : null,
+    championName ? { label: '우승', value: championName, detail: '시즌 최종 우승 확정' } : null,
+  ].filter(Boolean);
+
+  const storyLines = [
+    nextRow ? `${nextRow.label} 관전 포인트: ${nextRow.seedText}, ${nextRow.note}` : '',
+    seedUpsets[0] ? `이번 포스트시즌 최대 이변은 ${teamName(current, seedUpsets[0].fixture.result.winnerTeamId)}의 하위 시드 승리입니다.` : '',
+    finalistRows.length ? `최근 통과 팀: ${finalistRows.map((fixture) => teamName(current, fixture.result.winnerTeamId)).join(' / ')}` : '',
+    rows.length && !championName && !nextRow ? '대기 슬롯이 남아 있습니다. 이전 라운드를 진행하면 다음 대진이 자동으로 채워집니다.' : '',
+    !rows.length && !isRegularSeasonComplete(current) ? '정규리그 순위 싸움이 곧 포스트시즌 시드 싸움입니다.' : '',
+  ].filter(Boolean).slice(0, 4);
+
+  return {
+    headline,
+    sampleLabel: rows.length ? `${playedRows.length}/${rows.length}경기` : '브래킷 대기',
+    championTeamName: championName,
+    nextLabel: nextRow?.label || '',
+    nextMatchup: nextRow?.resultText || '',
+    rows,
+    focusRows,
+    storyLines,
+  };
+}
+
 export function getMatchArchiveRows(state, limit = 18) {
   const current = normalizeState(state);
   const regularRows = current.fixtures.map((fixture) => ({
