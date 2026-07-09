@@ -25,6 +25,13 @@ const TOKEN_OFF = [
   [6.2, 1.8], [-6.2, 1.8], [1.8, 6.2], [1.8, -6.2],
 ];
 
+const MINIMAP_VIEWBOX_PAD = {
+  x: -5,
+  y: -6,
+  width: LUMIA_MINIMAP_VIEWBOX.width + 10,
+  height: LUMIA_MINIMAP_VIEWBOX.height + 12,
+};
+
 function asSet(value) {
   if (value instanceof Set) return value;
   return new Set(safeArray(value).map(String));
@@ -94,7 +101,7 @@ export default function SimulationMinimapCanvas({
     <div className="minimap-canvas">
       <svg
         className="minimap-svg"
-        viewBox={`0 0 ${LUMIA_MINIMAP_VIEWBOX.width} ${LUMIA_MINIMAP_VIEWBOX.height}`}
+        viewBox={`${MINIMAP_VIEWBOX_PAD.x} ${MINIMAP_VIEWBOX_PAD.y} ${MINIMAP_VIEWBOX_PAD.width} ${MINIMAP_VIEWBOX_PAD.height}`}
         role="img"
         aria-label="미니맵"
       >
@@ -102,6 +109,22 @@ export default function SimulationMinimapCanvas({
           className="minimap-island-outline"
           points={polygonPoints(LUMIA_ISLAND_OUTLINE)}
         />
+
+        <g className="minimap-zone-area-layer">
+          {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
+            if (!availableZoneIds.has(id)) return null;
+            const zoneName = String(getZoneName?.(id) || id);
+            return (
+              <polygon
+                key={`area-base-${id}`}
+                points={polygonPoints(polygon)}
+                className="minimap-zone-area"
+              >
+                <title>{zoneName}</title>
+              </polygon>
+            );
+          })}
+        </g>
 
         {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
           if (!availableZoneIds.has(id)) return null;
@@ -194,7 +217,7 @@ export default function SimulationMinimapCanvas({
           const zoneName = String(getZoneName?.(id) || id);
           const aliveHere = aliveByZone[id]?.length || 0;
           const deadHere = deadByZone[id]?.length || 0;
-          const nodeR = 4.35;
+          const nodeR = 3.85;
           const labelSize = zoneName.length >= 6 ? 2.05 : zoneName.length >= 5 ? 2.3 : 2.65;
           const hasHyperloop = hyperloopSet.has(id);
           const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
@@ -223,7 +246,7 @@ export default function SimulationMinimapCanvas({
               {hasHyperloop ? (
                 <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
                   <title>{zoneName} hyperloop</title>
-                  <circle r="1.95" />
+                  <circle r="1.7" />
                   <text x="0" y="0.7" textAnchor="middle">{'>>'}</text>
                 </g>
               ) : null}
@@ -231,7 +254,7 @@ export default function SimulationMinimapCanvas({
               {hasKiosk ? (
                 <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
                   <title>{zoneName} kiosk</title>
-                  <circle r="1.9" />
+                  <circle r="1.65" />
                   <text x="0" y="0.72" textAnchor="middle">C</text>
                 </g>
               ) : null}

@@ -62,10 +62,10 @@ export default function SimulationMinimapPanel({
       ) : null}
 
       <div className="minimap-status-row" aria-label="미니맵 상태 요약">
-        <span><b>{aliveCount}</b> 생존</span>
-        <span><b>{deadCount}</b> 사망</span>
-        <span><b>{forbiddenCount}</b> 금지</span>
-        <span><b>{hyperloopCount}</b> 하이퍼루프</span>
+        <span><b>{aliveCount}</b><em>생존</em></span>
+        <span><b>{deadCount}</b><em>사망</em></span>
+        <span><b>{forbiddenCount}</b><em>금지</em></span>
+        <span><b>{hyperloopCount}</b><em>하이퍼루프</em></span>
         <span><b>{hotZoneText}</b></span>
       </div>
 

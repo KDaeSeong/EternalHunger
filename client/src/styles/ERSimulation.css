@@ -1774,6 +1774,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   min-height: 30px;
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 8px;
@@ -1791,6 +1792,11 @@
   font-weight: 950;
 }
 
+.minimap-status-row em {
+  font-style: normal;
+  color: rgba(238, 250, 255, 0.78);
+}
+
 .minimap-svg {
   position: absolute;
   inset: 0;
@@ -1800,25 +1806,29 @@
 }
 
 .minimap-island-outline {
-  fill: rgba(45, 104, 137, 0.13);
-  stroke: rgba(169, 218, 245, 0.24);
-  stroke-width: 1.05;
-  filter: drop-shadow(0 0 7px rgba(98, 183, 220, 0.14));
+  fill: rgba(42, 101, 132, 0.10);
+  stroke: rgba(169, 218, 245, 0.22);
+  stroke-width: 0.78;
+  filter: drop-shadow(0 0 6px rgba(98, 183, 220, 0.10));
+}
+
+.minimap-zone-area-layer {
+  opacity: 0.56;
 }
 
 .minimap-zone-area {
-  fill: transparent;
-  stroke: transparent;
-  stroke-width: 0;
+  fill: rgba(80, 167, 205, 0.045);
+  stroke: rgba(182, 230, 249, 0.105);
+  stroke-width: 0.24;
   stroke-linejoin: round;
 }
 
 .minimap-zone-area:nth-of-type(2n) {
-  fill: transparent;
+  fill: rgba(78, 158, 198, 0.035);
 }
 
 .minimap-zone-area:nth-of-type(3n) {
-  fill: transparent;
+  fill: rgba(70, 143, 184, 0.03);
 }
 
 .minimap-zone-area.forbidden {
@@ -1828,9 +1838,9 @@
 }
 
 .minimap-zone-surface {
-  fill: rgba(69, 143, 176, 0.22);
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 0.55;
+  fill: rgba(69, 143, 176, 0.14);
+  stroke: rgba(255, 255, 255, 0.10);
+  stroke-width: 0.4;
 }
 
 .minimap-zone-surface.forbidden {
@@ -1839,17 +1849,17 @@
 }
 
 .minimap-passage {
-  stroke: rgba(5, 12, 20, 0.72);
-  stroke-width: 1.32;
+  stroke: rgba(8, 18, 29, 0.82);
+  stroke-width: 1.02;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 1px rgba(178, 226, 248, 0.10));
+  filter: drop-shadow(0 0 1px rgba(178, 226, 248, 0.07));
 }
 
 .minimap-edge {
-  stroke: rgba(218, 249, 255, 0.20);
-  stroke-width: 0.72;
+  stroke: rgba(218, 249, 255, 0.10);
+  stroke-width: 0.44;
   stroke-linecap: round;
   stroke-dasharray: 1.8 1.4;
 }
@@ -1895,11 +1905,11 @@
 }
 
 .minimap-facility circle {
-  stroke-width: 0.55;
+  stroke-width: 0.42;
 }
 
 .minimap-facility text {
-  font-size: 2.15px;
+  font-size: 1.86px;
   font-weight: 950;
   letter-spacing: 0;
   paint-order: stroke;
@@ -1928,16 +1938,16 @@
 .minimap-zone-label {
   fill: rgba(236, 250, 255, 0.92);
   stroke: rgba(0, 0, 0, 0.72);
-  stroke-width: 0.42;
+  stroke-width: 0.36;
   paint-order: stroke;
-  font-weight: 800;
+  font-weight: 850;
   pointer-events: none;
 }
 
 .minimap-node {
-  fill: rgba(7, 18, 30, 0.72);
-  stroke: rgba(255, 255, 255, 0.42);
-  stroke-width: 1.0;
+  fill: rgba(7, 18, 30, 0.80);
+  stroke: rgba(230, 246, 255, 0.48);
+  stroke-width: 0.76;
 }
 
 .minimap-node.forbidden {
