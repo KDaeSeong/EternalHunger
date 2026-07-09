@@ -95,6 +95,7 @@ export default function SimulationMinimapCanvas({
   const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
   const positions = zonePos && typeof zonePos === 'object' ? zonePos : {};
   const availableZoneIds = new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean));
+  const visiblePings = safeArray(recentPings).slice(0, 2);
   const passageEdgeKeys = new Set();
 
   return (
@@ -225,8 +226,8 @@ export default function SimulationMinimapCanvas({
           const zoneName = String(getZoneName?.(id) || id);
           const aliveHere = aliveByZone[id]?.length || 0;
           const deadHere = deadByZone[id]?.length || 0;
-          const nodeR = 3.85;
-          const labelSize = zoneName.length >= 6 ? 2.05 : zoneName.length >= 5 ? 2.3 : 2.65;
+          const nodeR = 3.45;
+          const labelSize = zoneName.length >= 6 ? 1.95 : zoneName.length >= 5 ? 2.18 : 2.5;
           const hasHyperloop = hyperloopSet.has(id);
           const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
           const hyperloopMarker = LUMIA_HYPERLOOP_MARKERS[id] || { x: p.x + nodeR, y: p.y - 4.2 };
@@ -254,26 +255,26 @@ export default function SimulationMinimapCanvas({
               {hasHyperloop ? (
                 <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
                   <title>{zoneName} hyperloop</title>
-                  <circle r="1.7" />
-                  <text x="0" y="0.7" textAnchor="middle">{'>>'}</text>
+                  <circle r="1.28" />
+                  <text x="0" y="0.54" textAnchor="middle">{'>>'}</text>
                 </g>
               ) : null}
 
               {hasKiosk ? (
                 <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
                   <title>{zoneName} kiosk</title>
-                  <circle r="1.65" />
-                  <text x="0" y="0.72" textAnchor="middle">C</text>
+                  <circle r="1.24" />
+                  <text x="0" y="0.54" textAnchor="middle">C</text>
                 </g>
               ) : null}
 
               {(aliveHere > 0 || deadHere > 0) ? (
                 <text
                   x={p.x}
-                  y={p.y + 5.8}
+                  y={p.y + 5.35}
                   textAnchor="middle"
-                  fontSize="3.0"
-                  fill="rgba(255,255,255,0.72)"
+                  fontSize="2.45"
+                  fill="rgba(255,255,255,0.62)"
                 >
                   {aliveHere > 0 ? `+${aliveHere}` : ''}{deadHere > 0 ? ` / -${deadHere}` : ''}
                 </text>
@@ -355,7 +356,7 @@ export default function SimulationMinimapCanvas({
           );
         })}
 
-        {safeArray(recentPings).map((ping) => {
+        {visiblePings.map((ping) => {
           const p = positions?.[String(ping?.zoneId || '')];
           if (!p) return null;
           return (
@@ -364,10 +365,8 @@ export default function SimulationMinimapCanvas({
               className={`minimap-ping ${String(ping.kind || '')}`}
               transform={`translate(${p.x} ${p.y})`}
             >
-              <circle r="6.8" />
-              <text className="minimap-ping-icon" x="0" y="1.5" textAnchor="middle">
-                {ping.icon}
-              </text>
+              <circle r="5.6" />
+              <circle className="minimap-ping-core" r="1.05" />
             </g>
           );
         })}

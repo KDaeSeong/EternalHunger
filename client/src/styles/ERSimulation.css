@@ -1806,15 +1806,15 @@
 }
 
 .minimap-island-outline {
-  fill: rgba(35, 92, 122, 0.115);
-  stroke: rgba(173, 223, 244, 0.30);
-  stroke-width: 0.54;
+  fill: rgba(22, 68, 93, 0.16);
+  stroke: rgba(173, 223, 244, 0.22);
+  stroke-width: 0.42;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 4px rgba(98, 183, 220, 0.08));
+  filter: drop-shadow(0 0 3px rgba(98, 183, 220, 0.06));
 }
 
 .minimap-zone-area-layer {
-  opacity: 1;
+  opacity: 0.86;
 }
 
 .minimap-zone-alert-layer {
@@ -1822,24 +1822,24 @@
 }
 
 .minimap-zone-area {
-  fill: rgba(75, 169, 211, 0.016);
-  stroke: rgba(188, 232, 248, 0.060);
-  stroke-width: 0.12;
+  fill: rgba(75, 169, 211, 0.012);
+  stroke: rgba(188, 232, 248, 0.028);
+  stroke-width: 0.08;
   stroke-linejoin: round;
 }
 
 .minimap-zone-area:nth-of-type(2n) {
-  fill: rgba(76, 159, 199, 0.012);
+  fill: rgba(76, 159, 199, 0.010);
 }
 
 .minimap-zone-area:nth-of-type(3n) {
-  fill: rgba(70, 143, 184, 0.010);
+  fill: rgba(70, 143, 184, 0.008);
 }
 
 .minimap-zone-area.forbidden {
-  fill: rgba(255, 82, 82, 0.18);
-  stroke: rgba(255, 145, 145, 0.42);
-  stroke-width: 0.42;
+  fill: rgba(255, 82, 82, 0.16);
+  stroke: rgba(255, 145, 145, 0.34);
+  stroke-width: 0.34;
 }
 
 .minimap-zone-surface {
@@ -1854,17 +1854,17 @@
 }
 
 .minimap-passage {
-  stroke: rgba(5, 15, 25, 0.86);
-  stroke-width: 0.82;
+  stroke: rgba(6, 17, 27, 0.80);
+  stroke-width: 0.72;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 0.7px rgba(178, 226, 248, 0.06));
+  filter: drop-shadow(0 0 0.45px rgba(178, 226, 248, 0.05));
 }
 
 .minimap-edge {
-  stroke: rgba(218, 249, 255, 0.055);
-  stroke-width: 0.28;
+  stroke: rgba(218, 249, 255, 0.032);
+  stroke-width: 0.2;
   stroke-linecap: round;
   stroke-dasharray: 1.2 1.5;
 }
@@ -1906,25 +1906,25 @@
 
 .minimap-facility {
   pointer-events: none;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.72));
+  filter: drop-shadow(0 0.6px 1px rgba(0, 0, 0, 0.55));
 }
 
 .minimap-facility circle {
-  stroke-width: 0.42;
+  stroke-width: 0.3;
 }
 
 .minimap-facility text {
-  font-size: 1.86px;
+  font-size: 1.36px;
   font-weight: 950;
   letter-spacing: 0;
   paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.52);
-  stroke-width: 0.14;
+  stroke: rgba(0, 0, 0, 0.46);
+  stroke-width: 0.1;
 }
 
 .minimap-facility-hyperloop circle {
-  fill: rgba(39, 156, 200, 0.86);
-  stroke: rgba(190, 238, 255, 0.88);
+  fill: rgba(39, 156, 200, 0.72);
+  stroke: rgba(190, 238, 255, 0.70);
 }
 
 .minimap-facility-hyperloop text {
@@ -1932,8 +1932,8 @@
 }
 
 .minimap-facility-kiosk circle {
-  fill: rgba(119, 158, 72, 0.88);
-  stroke: rgba(231, 255, 188, 0.88);
+  fill: rgba(119, 158, 72, 0.74);
+  stroke: rgba(231, 255, 188, 0.70);
 }
 
 .minimap-facility-kiosk text {
@@ -1941,18 +1941,18 @@
 }
 
 .minimap-zone-label {
-  fill: rgba(236, 250, 255, 0.92);
-  stroke: rgba(0, 0, 0, 0.72);
-  stroke-width: 0.36;
+  fill: rgba(236, 250, 255, 0.86);
+  stroke: rgba(0, 0, 0, 0.70);
+  stroke-width: 0.3;
   paint-order: stroke;
   font-weight: 850;
   pointer-events: none;
 }
 
 .minimap-node {
-  fill: rgba(7, 18, 30, 0.80);
-  stroke: rgba(230, 246, 255, 0.48);
-  stroke-width: 0.76;
+  fill: rgba(7, 18, 30, 0.76);
+  stroke: rgba(230, 246, 255, 0.40);
+  stroke-width: 0.62;
 }
 
 .minimap-node.forbidden {
@@ -1961,7 +1961,7 @@
 
 .minimap-node.selected {
   stroke: rgba(255, 215, 0, 0.86);
-  stroke-width: 1.4;
+  stroke-width: 1.1;
 }
 
 @keyframes ehMinimapPing {
@@ -1977,23 +1977,23 @@
 
 .minimap-ping circle {
   fill: none;
-  stroke: rgba(180, 220, 255, 0.82);
-  stroke-width: 0.9;
+  stroke: rgba(180, 220, 255, 0.58);
+  stroke-width: 0.62;
   transform-origin: center;
   transform-box: fill-box;
-  animation: ehMinimapPing 1.15s ease-out 2 forwards;
+  animation: ehMinimapPing 1.15s ease-out 1 forwards;
 }
 
-.minimap-ping.move circle { stroke: rgba(180, 220, 255, 0.82); }
-.minimap-ping.gain circle { stroke: rgba(170, 255, 190, 0.82); }
-.minimap-ping.battle circle { stroke: rgba(255, 210, 140, 0.86); }
-.minimap-ping.death circle { stroke: rgba(255, 120, 120, 0.86); }
-.minimap-ping.objective circle { stroke: rgba(255, 221, 120, 0.86); }
+.minimap-ping.move circle { stroke: rgba(180, 220, 255, 0.58); }
+.minimap-ping.gain circle { stroke: rgba(170, 255, 190, 0.60); }
+.minimap-ping.battle circle { stroke: rgba(255, 210, 140, 0.64); }
+.minimap-ping.death circle { stroke: rgba(255, 120, 120, 0.68); }
+.minimap-ping.objective circle { stroke: rgba(255, 221, 120, 0.64); }
 
 .minimap-ping-core {
-  fill: rgba(255, 255, 255, 0.92) !important;
-  stroke: rgba(0, 0, 0, 0.35) !important;
-  stroke-width: 0.35 !important;
+  fill: rgba(255, 255, 255, 0.78) !important;
+  stroke: rgba(0, 0, 0, 0.32) !important;
+  stroke-width: 0.28 !important;
   animation: none !important;
 }
 
