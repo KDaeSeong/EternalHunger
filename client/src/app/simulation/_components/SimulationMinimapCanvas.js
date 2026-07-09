@@ -105,12 +105,18 @@ export default function SimulationMinimapCanvas({
         role="img"
         aria-label="미니맵"
       >
+        <defs>
+          <clipPath id="lumia-minimap-island-clip">
+            <polygon points={polygonPoints(LUMIA_ISLAND_OUTLINE)} />
+          </clipPath>
+        </defs>
+
         <polygon
           className="minimap-island-outline"
           points={polygonPoints(LUMIA_ISLAND_OUTLINE)}
         />
 
-        <g className="minimap-zone-area-layer">
+        <g className="minimap-zone-area-layer" clipPath="url(#lumia-minimap-island-clip)">
           {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
             if (!availableZoneIds.has(id)) return null;
             const zoneName = String(getZoneName?.(id) || id);
@@ -126,21 +132,23 @@ export default function SimulationMinimapCanvas({
           })}
         </g>
 
-        {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
-          if (!availableZoneIds.has(id)) return null;
-          const isForbidden = forbiddenSet.has(id);
-          if (!isForbidden) return null;
-          const zoneName = String(getZoneName?.(id) || id);
-          return (
-            <polygon
-              key={`area-${id}`}
-              points={polygonPoints(polygon)}
-              className="minimap-zone-area forbidden"
-            >
-              <title>{zoneName}</title>
-            </polygon>
-          );
-        })}
+        <g className="minimap-zone-alert-layer" clipPath="url(#lumia-minimap-island-clip)">
+          {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
+            if (!availableZoneIds.has(id)) return null;
+            const isForbidden = forbiddenSet.has(id);
+            if (!isForbidden) return null;
+            const zoneName = String(getZoneName?.(id) || id);
+            return (
+              <polygon
+                key={`area-${id}`}
+                points={polygonPoints(polygon)}
+                className="minimap-zone-area forbidden"
+              >
+                <title>{zoneName}</title>
+              </polygon>
+            );
+          })}
+        </g>
 
         {zoneList.map((zone) => {
           const id = String(zone?.zoneId || '');
