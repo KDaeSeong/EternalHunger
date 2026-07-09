@@ -50,6 +50,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
     runCamp,
     runCraft,
     runEat,
+    runEventChain,
     runGather,
     runHunt,
     runProgressReport,
@@ -264,6 +265,23 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                   </div>
                   <strong>추천</strong>
                 </article>
+                {(runProgressReport.activeEventChains || []).map((chain) => (
+                  <article className="game-save-row" key={chain.id}>
+                    <div>
+                      <span>{chain.stageLabel} · {chain.costText}</span>
+                      <strong>{chain.title}</strong>
+                      <small>{chain.detail}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="tcg-secondary-action"
+                      disabled={!canAct || !chain.enabled}
+                      onClick={() => runEventChain(chain.id)}
+                    >
+                      {chain.actionLabel}
+                    </button>
+                  </article>
+                ))}
                 {(runProgressReport.recoveryChoices || []).map((choice) => (
                   <article className="game-save-row" key={choice.id}>
                     <div>

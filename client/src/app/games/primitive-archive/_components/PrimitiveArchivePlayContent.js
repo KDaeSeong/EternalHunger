@@ -46,6 +46,7 @@ import {
   runEatAction,
   runGatherAction,
   runHuntAction,
+  runEventChainAction,
   runRecoveryChoiceAction,
   runResearchAction,
   runRestAction,
@@ -268,6 +269,16 @@ export default function PrimitiveArchivePlayContent() {
     );
   };
 
+  const runEventChain = (chainId) => {
+    if (!canAct) return;
+    const chain = runProgressReport.activeEventChains?.find((row) => row.id === chainId);
+    applyAction(
+      chain?.title || '탐험 단서 대응',
+      (current) => runEventChainAction(current, actorId, chainId),
+      `${chain?.title || '탐험 단서'} 대응을 실행했습니다.`,
+    );
+  };
+
   const startNewRun = () => {
     setState((current) => startNewRunFromMeta(current, { difficulty: newRunDifficulty }));
     setActorId('shiroko');
@@ -468,6 +479,7 @@ export default function PrimitiveArchivePlayContent() {
         runEat={runEat}
         runGather={runGather}
         runHunt={runHunt}
+        runEventChain={runEventChain}
         runProgressReport={runProgressReport}
         runRecoveryChoice={runRecoveryChoice}
         runResearch={runResearch}

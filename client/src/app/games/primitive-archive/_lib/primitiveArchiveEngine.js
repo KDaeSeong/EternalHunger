@@ -82,6 +82,7 @@ export function createNewState(options = {}) {
     equipment: initEquipmentForParty(party),
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0, events: 0 },
+    eventChains: [],
     research: initResearchState(),
     meta,
     log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
@@ -126,6 +127,7 @@ export function normalizeState(value) {
     equipment: normalizeEquipment(value.equipment, party),
     camp,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
+    eventChains: normalizeEventChains(value.eventChains || base.eventChains, Number(value.day || base.day || 1)),
     research,
     meta,
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
@@ -851,6 +853,187 @@ function addEventLog(state, message) {
 
 const RARE_RESOURCE_IDS = ['obsidian_shard', 'dino_hide', 'dino_bone', 'mutant_gland', 'rune_shard'];
 
+const EVENT_CHAIN_TTL_DAYS = 3;
+const EVENT_CHAIN_DEFS = {
+  obsidian_vein: {
+    title: '흑요석 광맥 추적',
+    detail: '동굴 벽면에서 이어지는 검은 광맥 흔적입니다. 바로 따라가면 흑요석을 안정적으로 회수할 수 있습니다.',
+    action: 'gather',
+    actionLabel: '광맥 회수',
+    costText: 'AP 1 · 채집',
+    rewardText: '흑요석/부싯돌',
+    rewards: [['obsidian_shard', 2], ['flint', 1]],
+    baseChance: 0.5,
+    staminaCost: 13,
+    hungerAdd: 3,
+    failDamage: 4,
+    failStamina: 8,
+  },
+  megafauna_tracks: {
+    title: '거대동물 이동로 추적',
+    detail: '초원에 남은 큰 발자국이 한 방향으로 이어집니다. 추적에 성공하면 가죽과 뼈를 크게 확보합니다.',
+    action: 'hunt',
+    actionLabel: '이동로 매복',
+    costText: 'AP 1 · 사냥',
+    rewardText: '공룡 가죽/뼈',
+    rewards: [['dino_hide', 1], ['dino_bone', 2], ['meat', 2]],
+    baseChance: 0.43,
+    staminaCost: 20,
+    hungerAdd: 5,
+    failDamage: 11,
+    failStamina: 11,
+  },
+  rune_cache: {
+    title: '룬 조각 은닉처',
+    detail: '빛나는 파편이 일정한 간격으로 묻혀 있습니다. 조심스럽게 회수하면 연구와 기록 점수가 크게 오릅니다.',
+    action: 'gather',
+    actionLabel: '은닉처 회수',
+    costText: 'AP 1 · 정밀 채집',
+    rewardText: '룬/점토/수지',
+    rewards: [['rune_shard', 1], ['clay', 1], ['resin', 1]],
+    baseChance: 0.46,
+    staminaCost: 14,
+    hungerAdd: 4,
+    failDamage: 5,
+    failStamina: 9,
+  },
+  mutant_nest: {
+    title: '돌연변이 둥지 소탕',
+    detail: '동굴 안쪽에서 이상한 체액과 뼛조각이 이어집니다. 위험하지만 점액과 이빨을 대량 확보할 수 있습니다.',
+    action: 'hunt',
+    actionLabel: '둥지 소탕',
+    costText: 'AP 1 · 위험 사냥',
+    rewardText: '점액/이빨/뼈',
+    rewards: [['mutant_gland', 1], ['tooth', 2], ['bone', 2]],
+    baseChance: 0.4,
+    staminaCost: 22,
+    hungerAdd: 5,
+    failDamage: 13,
+    failStamina: 12,
+  },
+};
+
+function normalizeEventChains(chains, currentDay = 1) {
+  const day = Math.max(1, Number(currentDay || 1));
+  return (Array.isArray(chains) ? chains : [])
+    .map((chain, index) => {
+      const kind = String(chain?.kind || '');
+      const def = EVENT_CHAIN_DEFS[kind];
+      if (!def) return null;
+      const startedDay = Math.max(1, Number(chain?.startedDay || day));
+      return {
+        id: String(chain?.id || `event-chain-${kind}-${startedDay}-${index}`),
+        kind,
+        zoneId: String(chain?.zoneId || ''),
+        source: String(chain?.source || ''),
+        startedDay,
+        expiresDay: Math.max(startedDay, Number(chain?.expiresDay || startedDay + EVENT_CHAIN_TTL_DAYS)),
+        resolved: Boolean(chain?.resolved),
+        resolvedDay: Number(chain?.resolvedDay || 0),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function activeEventChains(state) {
+  const currentDay = Math.max(1, Number(state?.day || 1));
+  return normalizeEventChains(state?.eventChains, currentDay)
+    .filter((chain) => !chain.resolved && Number(chain.expiresDay || 0) >= currentDay);
+}
+
+function eventChainKindFromRewards(rewards, action = '', zoneId = '') {
+  const ids = new Set((Array.isArray(rewards) ? rewards : []).map(([id]) => String(id || '')));
+  if (ids.has('rune_shard')) return 'rune_cache';
+  if (ids.has('mutant_gland')) return 'mutant_nest';
+  if (ids.has('dino_hide') || ids.has('dino_bone')) return 'megafauna_tracks';
+  if (ids.has('obsidian_shard')) return 'obsidian_vein';
+  if (String(zoneId) === 'plains' && action === 'hunt') return 'megafauna_tracks';
+  if (String(zoneId) === 'cave' && action === 'gather') return 'obsidian_vein';
+  return '';
+}
+
+function openEventChain(state, kind, params = {}) {
+  const def = EVENT_CHAIN_DEFS[kind];
+  if (!def) return { state, added: false, chain: null };
+  const day = Math.max(1, Number(state?.day || 1));
+  const chains = normalizeEventChains(state?.eventChains, day);
+  const zoneId = String(params.zoneId || '');
+  const existing = chains.find((chain) => (
+    !chain.resolved
+    && chain.kind === kind
+    && String(chain.zoneId || '') === zoneId
+    && Number(chain.expiresDay || 0) >= day
+  ));
+  if (existing) return { state: { ...state, eventChains: chains }, added: false, chain: existing };
+
+  const chain = {
+    id: `event-chain-${kind}-${zoneId || 'field'}-${day}-${chains.length}`,
+    kind,
+    zoneId,
+    source: String(params.source || ''),
+    startedDay: day,
+    expiresDay: day + EVENT_CHAIN_TTL_DAYS,
+    resolved: false,
+    resolvedDay: 0,
+  };
+  return {
+    state: { ...state, eventChains: [chain, ...chains].slice(0, 12) },
+    added: true,
+    chain,
+  };
+}
+
+function openEventChainFromRewards(state, rewards, context = {}) {
+  const kind = eventChainKindFromRewards(rewards, context.action, context.zoneId);
+  if (!kind) return { state, text: '' };
+  const opened = openEventChain(state, kind, { zoneId: context.zoneId, source: context.action });
+  const def = EVENT_CHAIN_DEFS[kind];
+  return {
+    state: opened.state,
+    text: opened.added && def ? ` 이어지는 단서: ${def.title}.` : '',
+  };
+}
+
+function resolveEventChain(state, chainId, ok) {
+  const day = Math.max(1, Number(state?.day || 1));
+  return {
+    ...state,
+    eventChains: normalizeEventChains(state?.eventChains, day).map((chain) => (
+      String(chain.id) === String(chainId)
+        ? { ...chain, resolved: true, resolvedDay: day, ok: Boolean(ok) }
+        : chain
+    )),
+  };
+}
+
+export function eventChainRows(state) {
+  const current = normalizeState(state);
+  return activeEventChains(current).map((chain) => {
+    const def = EVENT_CHAIN_DEFS[chain.kind] || {};
+    const actorId = bestLivingActorFor(current, def.action || 'gather');
+    const actor = getActor(current, actorId);
+    const hp = Number(actor?.hp || 0);
+    const stamina = Number(actor?.stamina || 0);
+    const chance = actionChance(current, actorId, def.action || 'gather', Number(def.baseChance || 0.45));
+    const daysLeft = Math.max(0, Number(chain.expiresDay || 0) - Number(current.day || 1));
+    return {
+      ...chain,
+      title: def.title || chain.kind,
+      detail: def.detail || '',
+      actionLabel: def.actionLabel || '대응',
+      costText: `${def.costText || 'AP 1'} · ${Math.round(chance * 100)}%`,
+      rewardText: def.rewardText || '',
+      actorId,
+      actorName: actor?.name || '',
+      chance,
+      daysLeft,
+      stageLabel: daysLeft > 0 ? `${daysLeft}일 남음` : '오늘 만료',
+      enabled: !current.ended && Number(current.ap || 0) > 0 && hp > 0 && stamina >= 12,
+    };
+  });
+}
+
 function stripExplorationEventLine(line) {
   return String(line || '')
     .replace(/^Day\s+\d+:\s*/i, '')
@@ -894,8 +1077,11 @@ function explorationEventPressure(state) {
   const rows = rareResourceRows(state);
   const rareTotal = rows.reduce((sum, row) => sum + Number(row.qty || 0), 0);
   const eventCount = Number(state?.counters?.events || 0);
+  const activeChains = activeEventChains(state);
+  const resolvedChains = normalizeEventChains(state?.eventChains, Number(state?.day || 1))
+    .filter((chain) => chain.resolved).length;
   const recentEvents = explorationEventRowsFromLog(state, 3);
-  const eventPct = Math.min(100, Math.round(eventCount * 12 + rareTotal * 8));
+  const eventPct = Math.min(100, Math.round(eventCount * 12 + rareTotal * 8 + activeChains.length * 6 + resolvedChains * 5));
   const advice = [];
 
   if (Number(state?.day || 1) >= 5 && eventCount < 2) {
@@ -907,6 +1093,9 @@ function explorationEventPressure(state) {
   if (Number(state?.inventory?.dino_hide || 0) > 0 || Number(state?.inventory?.obsidian_shard || 0) > 0) {
     advice.push('희귀 소재 장비 제작으로 사냥/추위 압박을 낮추세요');
   }
+  if (activeChains.length) {
+    advice.push(`활성 탐험 단서 ${activeChains.length}개 대응`);
+  }
   if (averageParty(state, 'hp') < 70 && Number(state?.inventory?.herb_tonic || 0) > 0) {
     advice.push('약초 달임으로 부상 회복 후 메가파우나를 노리세요');
   }
@@ -914,6 +1103,8 @@ function explorationEventPressure(state) {
   return {
     eventCount,
     eventPct,
+    activeChains,
+    resolvedChains,
     recentEvents,
     rareResources: rows,
     rareTotal,
@@ -1180,6 +1371,48 @@ export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) 
   return addLog(current, '대응 선택지를 찾을 수 없습니다.');
 }
 
+export function runEventChainAction(state, actorId, chainId, options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '대응을 실행할 AP가 부족합니다.');
+
+  const row = eventChainRows(current).find((entry) => String(entry.id) === String(chainId));
+  if (!row) return addLog(current, '대응 가능한 탐험 단서를 찾을 수 없습니다.');
+  if (!row.enabled) return addLog(current, `${row.title} 대응 조건이 부족합니다. AP, HP, 스태미나를 먼저 회복하세요.`);
+
+  const def = EVENT_CHAIN_DEFS[row.kind] || {};
+  const action = def.action || 'gather';
+  const actingActorId = recoveryActionActorId(current, actorId || row.actorId, action);
+  const actor = getActor(current, actingActorId);
+  const rng = options.rng || Math.random;
+  const ok = rng() < Number(row.chance || 0);
+  let next = resolveEventChain(current, row.id, ok);
+
+  if (ok) {
+    next = {
+      ...next,
+      inventory: addItems(next.inventory, def.rewards || []),
+    };
+    next = addEventLog(next, `${actor?.name || '파티'}가 ${row.title} 대응에 성공했습니다. ${formatGains(def.rewards || [])}.`);
+  } else {
+    const target = getActor(next, actingActorId);
+    const damage = eventRiskDamage(next, actingActorId, Number(def.failDamage || 6), action);
+    const staminaLoss = Math.max(4, Number(def.failStamina || 8) - (hasEventSupportGear(next, actingActorId, action) ? 2 : 0));
+    next = updateActor(next, actingActorId, {
+      hp: clamp(Number(target.hp || 0) - damage, 0, 100),
+      stamina: clamp(Number(target.stamina || 0) - staminaLoss, 0, 100),
+    });
+    next = addEventLog(next, `${actor?.name || '파티'}가 ${row.title} 대응에 실패했습니다. HP -${damage}, 스태미나 -${staminaLoss}.`);
+  }
+
+  return afterAction(
+    recordResearchEvent(next, { kind: 'action', action, ok }),
+    actingActorId,
+    Math.max(1, Number(def.staminaCost || 14)),
+    Math.max(1, Number(def.hungerAdd || 3)),
+    options,
+  );
+}
+
 function hasKoreanFinalConsonant(text) {
   const char = String(text || '').trim().slice(-1);
   if ('013678'.includes(char)) return true;
@@ -1300,6 +1533,8 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
       const event = chooseWeightedEvent(rng, zoneGatherEvents(zoneId, next)) || {};
       const rewards = (event.rewards || fallbackZoneEventReward(zoneId, 'gather')).filter(([, qty]) => qty > 0);
       next = { ...next, inventory: addItems(next.inventory, rewards) };
+      const chainResult = openEventChainFromRewards(next, rewards, { action: 'gather', zoneId });
+      next = chainResult.state;
       if (Number(event.staminaLoss || 0) > 0) {
         const target = getActor(next, actorId);
         next = updateActor(next, actorId, {
@@ -1330,6 +1565,8 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
         ...next,
         inventory: addItems(next.inventory, rewards),
       };
+      const chainResult = openEventChainFromRewards(next, rewards, { action: 'hunt', zoneId });
+      next = chainResult.state;
       next = updateActor(next, actorId, {
         hp: clamp(Number(actor.hp || 0) - damage, 0, 100),
         stamina: clamp(Number(actor.stamina || 0) - staminaLoss, 0, 100),
@@ -1973,6 +2210,7 @@ export function getRunProgressReport(state) {
     insulation,
     rareResourceLabel: eventPressure.rareLabel,
     rareResourceTotal: eventPressure.rareTotal,
+    activeEventChains: eventChainRows(current),
     recoveryChoices: recoveryChoiceRows(current),
     recentEvents: eventPressure.recentEvents,
     weight,
