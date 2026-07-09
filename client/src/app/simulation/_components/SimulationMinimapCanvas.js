@@ -136,7 +136,7 @@ export default function SimulationMinimapCanvas({
           {Object.entries(LUMIA_ZONE_POLYGONS).map(([id, polygon]) => {
             if (!availableZoneIds.has(id)) return null;
             const zoneName = String(getZoneName?.(id) || id);
-            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.54);
+            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.78);
             return (
               <polygon
                 key={`area-base-${id}`}
@@ -155,7 +155,7 @@ export default function SimulationMinimapCanvas({
             const isForbidden = forbiddenSet.has(id);
             if (!isForbidden) return null;
             const zoneName = String(getZoneName?.(id) || id);
-            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.66);
+            const visualPolygon = shrinkPolygon(polygon, positions?.[id], 0.82);
             return (
               <polygon
                 key={`area-${id}`}
@@ -248,7 +248,7 @@ export default function SimulationMinimapCanvas({
           const zoneName = String(getZoneName?.(id) || id);
           const aliveHere = aliveByZone[id]?.length || 0;
           const deadHere = deadByZone[id]?.length || 0;
-          const nodeR = 1.05;
+          const nodeR = 1.18;
           const labelSize = zoneName.length >= 6 ? 2.3 : zoneName.length >= 5 ? 2.55 : 2.9;
           const hasHyperloop = hyperloopSet.has(id);
           const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
@@ -277,7 +277,7 @@ export default function SimulationMinimapCanvas({
               {hasHyperloop ? (
                 <g className="minimap-facility minimap-facility-hyperloop" transform={`translate(${hyperloopMarker.x} ${hyperloopMarker.y})`}>
                   <title>{zoneName} hyperloop</title>
-                  <circle r="1.55" />
+                  <circle r="1.38" />
                   <text x="0" y="0.58" textAnchor="middle">{'>>'}</text>
                 </g>
               ) : null}
@@ -285,7 +285,7 @@ export default function SimulationMinimapCanvas({
               {hasKiosk ? (
                 <g className="minimap-facility minimap-facility-kiosk" transform={`translate(${kioskMarker.x} ${kioskMarker.y})`}>
                   <title>{zoneName} kiosk</title>
-                  <circle r="1.5" />
+                  <circle r="1.35" />
                   <text x="0" y="0.58" textAnchor="middle">C</text>
                 </g>
               ) : null}
@@ -304,8 +304,8 @@ export default function SimulationMinimapCanvas({
 
               {(aliveByZone[id] || []).slice(0, 12).map((actor, idx) => {
                 const offset = TOKEN_OFF[idx % TOKEN_OFF.length];
-                const cx = p.x + offset[0] * 0.55;
-                const cy = p.y + offset[1] * 0.55;
+                const cx = p.x + offset[0] * 0.5;
+                const cy = p.y + offset[1] * 0.5;
                 const isSelected = String(actor?._id || '') === String(hyperloopCharId || '');
                 const hpRatio = Math.max(0, Math.min(1, Number(actor?.hp || 0) / Math.max(1, Number(actor?.maxHp || 100))));
                 const tokenImg = String(actor?.previewImage || '/Images/default_image.png');
@@ -322,7 +322,7 @@ export default function SimulationMinimapCanvas({
                       <circle
                         cx={cx}
                         cy={cy}
-                        r={3.3}
+                        r={3.05}
                         fill="none"
                         stroke="rgba(255,215,0,0.92)"
                         strokeWidth="0.8"
@@ -331,26 +331,26 @@ export default function SimulationMinimapCanvas({
                     <circle
                       cx={cx}
                       cy={cy}
-                      r={2.65}
+                      r={2.42}
                       fill="rgba(8, 14, 24, 0.92)"
                       stroke={isSelected ? 'rgba(255,215,0,0.95)' : teamColor}
                       strokeWidth="0.55"
                     />
                     <image
                       href={tokenImg}
-                      x={cx - 1.75}
-                      y={cy - 1.75}
-                      width="3.5"
-                      height="3.5"
+                      x={cx - 1.58}
+                      y={cy - 1.58}
+                      width="3.16"
+                      height="3.16"
                       preserveAspectRatio="xMidYMid slice"
                     />
                     <path
-                      d={`M ${cx - 2.55} ${cy + 2.95} H ${cx - 2.55 + (5.1 * hpRatio)}`}
+                      d={`M ${cx - 2.32} ${cy + 2.68} H ${cx - 2.32 + (4.64 * hpRatio)}`}
                       className={hpRatio <= 0.32 ? 'minimap-token-hp critical' : 'minimap-token-hp'}
                     />
                     <text
                       x={cx}
-                      y={cy + 5.8}
+                      y={cy + 5.22}
                       textAnchor="middle"
                       className="minimap-token-label"
                     >

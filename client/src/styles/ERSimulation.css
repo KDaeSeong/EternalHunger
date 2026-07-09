@@ -1806,15 +1806,15 @@
 }
 
 .minimap-island-outline {
-  fill: rgba(22, 68, 93, 0.10);
-  stroke: rgba(173, 223, 244, 0.18);
-  stroke-width: 0.34;
+  fill: rgba(22, 68, 93, 0.09);
+  stroke: rgba(173, 223, 244, 0.22);
+  stroke-width: 0.26;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 3px rgba(98, 183, 220, 0.06));
+  filter: drop-shadow(0 0 3px rgba(98, 183, 220, 0.05));
 }
 
 .minimap-zone-area-layer {
-  opacity: 0.72;
+  opacity: 0.62;
 }
 
 .minimap-zone-alert-layer {
@@ -1822,18 +1822,18 @@
 }
 
 .minimap-zone-area {
-  fill: rgba(78, 170, 208, 0.075);
-  stroke: rgba(188, 232, 248, 0.105);
-  stroke-width: 0.1;
+  fill: rgba(78, 170, 208, 0.058);
+  stroke: rgba(188, 232, 248, 0.075);
+  stroke-width: 0.08;
   stroke-linejoin: round;
 }
 
 .minimap-zone-area:nth-of-type(2n) {
-  fill: rgba(76, 159, 199, 0.065);
+  fill: rgba(76, 159, 199, 0.052);
 }
 
 .minimap-zone-area:nth-of-type(3n) {
-  fill: rgba(70, 143, 184, 0.058);
+  fill: rgba(70, 143, 184, 0.046);
 }
 
 .minimap-zone-area.forbidden {
@@ -1858,20 +1858,20 @@
 }
 
 .minimap-passage-halo {
-  stroke: rgba(190, 231, 246, 0.18);
-  stroke-width: 1.55;
+  stroke: rgba(190, 231, 246, 0.13);
+  stroke-width: 1.34;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .minimap-passage {
-  stroke: rgba(4, 12, 21, 0.94);
-  stroke-width: 0.92;
+  stroke: rgba(4, 12, 21, 0.86);
+  stroke-width: 0.74;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 0.55px rgba(192, 238, 255, 0.18));
+  filter: drop-shadow(0 0 0.4px rgba(192, 238, 255, 0.13));
 }
 
 .minimap-edge {
@@ -1893,16 +1893,16 @@
 }
 
 .minimap-move-trail line {
-  stroke: rgba(235, 250, 255, 0.54);
-  stroke-width: 1.05;
+  stroke: rgba(235, 250, 255, 0.46);
+  stroke-width: 0.88;
   stroke-linecap: round;
   stroke-dasharray: 2.2 1.5;
-  filter: drop-shadow(0 0 3px rgba(90, 190, 230, 0.26));
+  filter: drop-shadow(0 0 2px rgba(90, 190, 230, 0.18));
 }
 
 .minimap-move-trail.hyperloop line {
   stroke: rgba(100, 218, 255, 0.76);
-  stroke-width: 1.42;
+  stroke-width: 1.16;
   stroke-dasharray: 4.2 1.2;
 }
 
@@ -1918,7 +1918,7 @@
 
 .minimap-facility {
   pointer-events: none;
-  filter: drop-shadow(0 0.6px 1px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 0.45px 0.75px rgba(0, 0, 0, 0.52));
 }
 
 .minimap-facility circle {
@@ -1926,7 +1926,7 @@
 }
 
 .minimap-facility text {
-  font-size: 1.36px;
+  font-size: 1.16px;
   font-weight: 950;
   letter-spacing: 0;
   paint-order: stroke;
@@ -1953,7 +1953,7 @@
 }
 
 .minimap-zone-label {
-  fill: rgba(236, 250, 255, 0.86);
+  fill: rgba(236, 250, 255, 0.90);
   stroke: rgba(0, 0, 0, 0.70);
   stroke-width: 0.3;
   paint-order: stroke;
@@ -1962,9 +1962,9 @@
 }
 
 .minimap-node {
-  fill: rgba(216, 244, 255, 0.20);
-  stroke: rgba(230, 246, 255, 0.20);
-  stroke-width: 0.28;
+  fill: rgba(216, 244, 255, 0.13);
+  stroke: rgba(230, 246, 255, 0.28);
+  stroke-width: 0.22;
 }
 
 .minimap-node.forbidden {
@@ -2020,7 +2020,7 @@
 
 .minimap-character-token {
   pointer-events: none;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.75));
+  filter: drop-shadow(0 0.75px 0.8px rgba(0, 0, 0, 0.70));
 }
 
 .minimap-character-token image {
@@ -2030,7 +2030,7 @@
 .minimap-token-hp {
   fill: none;
   stroke: rgba(96, 255, 150, 0.96);
-  stroke-width: 0.62;
+  stroke-width: 0.5;
   stroke-linecap: round;
 }
 
@@ -2041,9 +2041,9 @@
 .minimap-token-label {
   fill: rgba(255, 255, 255, 0.94);
   stroke: rgba(0, 0, 0, 0.76);
-  stroke-width: 0.36;
+  stroke-width: 0.3;
   paint-order: stroke;
-  font-size: 2.25px;
+  font-size: 2px;
   font-weight: 900;
   pointer-events: none;
 }
