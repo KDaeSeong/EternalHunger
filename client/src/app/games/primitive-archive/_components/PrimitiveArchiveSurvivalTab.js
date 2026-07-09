@@ -53,6 +53,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
     runGather,
     runHunt,
     runProgressReport,
+    runRecoveryChoice,
     runResearch,
     runRest,
     selectedRecruit,
@@ -263,6 +264,23 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                   </div>
                   <strong>추천</strong>
                 </article>
+                {(runProgressReport.recoveryChoices || []).map((choice) => (
+                  <article className="game-save-row" key={choice.id}>
+                    <div>
+                      <span>{choice.costText} · {choice.tone === 'danger' ? '긴급' : choice.tone === 'low' ? '정비' : '대응'}</span>
+                      <strong>{choice.title}</strong>
+                      <small>{choice.detail}</small>
+                    </div>
+                    <button
+                      type="button"
+                      className="tcg-secondary-action"
+                      disabled={!canAct || !choice.enabled}
+                      onClick={() => runRecoveryChoice(choice.id)}
+                    >
+                      실행
+                    </button>
+                  </article>
+                ))}
               </div>
             </section>
 

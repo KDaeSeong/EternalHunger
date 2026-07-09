@@ -923,6 +923,263 @@ function explorationEventPressure(state) {
   };
 }
 
+const FOOD_RECOVERY_IDS = ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry'];
+const RARE_GEAR_RECIPE_PRIORITY = [
+  'dino_scale_vest',
+  'obsidian_blade',
+  'weather_totem',
+  'fur_coat',
+  'fur_pants',
+  'fur_hat',
+  'fur_boots',
+  'hunter_talisman',
+];
+
+function foodUnitCount(state) {
+  return FOOD_RECOVERY_IDS
+    .reduce((sum, id) => sum + Number(state?.inventory?.[id] || 0), 0);
+}
+
+function pickBestRareGearRecipe(state) {
+  return RARE_GEAR_RECIPE_PRIORITY
+    .map((id) => RECIPES.find((recipe) => recipe.id === id))
+    .find((recipe) => recipe && recipeUnlockInfo(state, recipe.id).unlocked && hasResources(state.inventory, recipe.requires))
+    || null;
+}
+
+function hasAnyEquipInPool(state) {
+  return Object.entries(buildEquipmentPool(state))
+    .some(([itemId, qty]) => Number(qty || 0) > 0 && ITEMS[itemId]?.type === 'equip');
+}
+
+function bestLivingActorFor(state, action = 'gather') {
+  return pickActorForAuto(state, action);
+}
+
+export function recoveryChoiceRows(state) {
+  const current = normalizeState(state);
+  const eventPressure = explorationEventPressure(current);
+  const hp = averageParty(current, 'hp');
+  const hunger = averageParty(current, 'hunger');
+  const stamina = averageParty(current, 'stamina');
+  const bodyTemp = averageBodyTemp(current);
+  const foodUnits = foodUnitCount(current);
+  const partySize = Math.max(1, current.party.filter((member) => Number(member.hp || 0) > 0).length);
+  const bestRareRecipe = pickBestRareGearRecipe(current);
+  const hasTonic = Number(current.inventory.herb_tonic || 0) > 0;
+  const canBrewTonic = recipeUnlockInfo(current, 'herb_tonic').unlocked && hasResources(current.inventory, { herb: 2, berry: 1 });
+  const canFeed = FOOD_RECOVERY_IDS.some((id) => Number(current.inventory[id] || 0) > 0);
+  const canWarm = Number(current.inventory.wood || 0) > 0 || Number(current.camp.fuel || 0) > 0;
+  const canGear = Boolean(bestRareRecipe) || hasAnyEquipInPool(current);
+  const canTrack = Number(current.ap || 0) > 0 && hp >= 45 && stamina >= 30;
+  const rows = [
+    {
+      id: 'field_tonic',
+      tone: hp < 55 ? 'danger' : 'normal',
+      title: hasTonic ? '응급 처치' : '현장 약초 처치',
+      detail: hasTonic
+        ? '약초 달임 1개로 메가파우나/동굴 사냥 후 전원 HP를 회복합니다.'
+        : '약초 2개와 베리 1개로 즉석 처치를 진행해 사냥 후 부상 압박을 줄입니다.',
+      costText: hasTonic ? '약초 달임 1' : '약초 2 · 베리 1',
+      enabled: (hp < 78 || eventPressure.eventCount > 0) && (hasTonic || canBrewTonic),
+      priority: (80 - hp) + eventPressure.eventCount * 4 + (hasTonic ? 8 : 0),
+    },
+    {
+      id: 'ration_break',
+      tone: hunger > 65 ? 'danger' : 'normal',
+      title: '비상 배식',
+      detail: '보존식/구운 고기/육포를 우선 사용해 희귀 자원 파밍 중 허기 누적을 낮춥니다.',
+      costText: `식량 ${Math.min(foodUnits, partySize)}개`,
+      enabled: (hunger >= 42 || foodUnits <= partySize + 1) && canFeed,
+      priority: hunger + Math.max(0, partySize + 2 - foodUnits) * 10,
+    },
+    {
+      id: 'warm_watch',
+      tone: bodyTemp < 35.5 ? 'danger' : 'normal',
+      title: '온기 확보',
+      detail: '나무나 연료를 써서 체온과 스태미나를 보정하고 다음 사냥 피해를 버틸 여유를 만듭니다.',
+      costText: Number(current.inventory.wood || 0) > 0 ? '나무 1' : '연료 1',
+      enabled: (bodyTemp < 36.4 || Number(current.weather?.cold || 0) >= 8 || Number(current.camp.fuel || 0) <= 1) && canWarm,
+      priority: Math.max(0, 37 - bodyTemp) * 18 + Number(current.weather?.cold || 0),
+    },
+    {
+      id: 'rare_gear',
+      tone: bestRareRecipe ? 'normal' : 'low',
+      title: bestRareRecipe ? '희귀 장비 제작' : '위험 장비 정비',
+      detail: bestRareRecipe
+        ? `${bestRareRecipe.name} 제작 재료가 준비됐습니다. 제작 후 장비를 자동 정비합니다.`
+        : '보유 장비를 역할/날씨 기준으로 다시 배치해 희귀 자원 회수와 대형 사냥 리스크를 낮춥니다.',
+      costText: bestRareRecipe ? formatRequires(bestRareRecipe.requires) : '보유 장비 재배치',
+      enabled: canGear && (eventPressure.rareTotal > 0 || Number(current.day || 1) >= 5 || Number(current.weather?.cold || 0) >= 8),
+      priority: eventPressure.rareTotal * 16 + (bestRareRecipe ? 24 : 4) + Number(current.weather?.cold || 0),
+    },
+    {
+      id: 'risk_track',
+      tone: eventPressure.rareTotal < 2 && Number(current.day || 1) >= 6 ? 'danger' : 'normal',
+      title: eventPressure.rareTotal < 2 ? '희귀 흔적 추적' : '메가파우나 추적',
+      detail: eventPressure.rareTotal < 2
+        ? '동굴/초원의 희귀 자원 사건을 노리는 행동을 즉시 실행합니다.'
+        : '초원 사냥으로 대형 사냥감 부산물을 노립니다. HP와 스태미나가 낮으면 먼저 회복하세요.',
+      costText: 'AP 1',
+      enabled: canTrack && (Number(current.day || 1) >= 5 || eventPressure.eventCount < 2 || eventPressure.rareTotal < 2),
+      priority: (Number(current.day || 1) >= 6 ? 18 : 0) + Math.max(0, 2 - eventPressure.rareTotal) * 14 + Math.max(0, 2 - eventPressure.eventCount) * 8,
+    },
+  ];
+
+  return rows
+    .filter((row) => row.enabled || row.priority > 0)
+    .sort((a, b) => Number(b.enabled) - Number(a.enabled) || b.priority - a.priority)
+    .slice(0, 5);
+}
+
+function recoveryActionActorId(state, actorId = '', action = 'gather') {
+  const requested = String(actorId || '').trim();
+  const requestedActor = state.party.find((member) => member.id === requested);
+  if (requestedActor && Number(requestedActor.hp || 0) > 0) return requested;
+  return bestLivingActorFor(state, action);
+}
+
+function updateLivingParty(state, mapper) {
+  return {
+    ...state,
+    party: state.party.map((member) => (
+      Number(member.hp || 0) > 0 ? mapper(member) : member
+    )),
+  };
+}
+
+function finishRecoveryAction(state, actorId, options = {}, actionOptions = {}) {
+  return afterAction(
+    state,
+    recoveryActionActorId(state, actorId, options.action || 'gather'),
+    Math.max(0, Number(options.staminaCost || 0)),
+    Math.max(0, Number(options.hungerAdd || 0)),
+    { ...actionOptions, warmthAdd: Number(options.warmthAdd || 0) },
+  );
+}
+
+function consumeRecoveryFood(inventory, state) {
+  const next = { ...inventory };
+  const foodId = FOOD_RECOVERY_IDS.find((id) => Number(next[id] || 0) > 0);
+  if (!foodId) return null;
+  next[foodId] = Math.max(0, Number(next[foodId] || 0) - 1);
+  const food = ITEMS[foodId] || {};
+  const nutrition = Number(food.nutrition || 0)
+    + (foodId === 'packed_ration' && hasTechPassive(state, 'STORAGE_RATIONS_UP') ? 6 : 0);
+  const warmth = foodId === 'cooked_meat' ? 0.45 : foodId === 'packed_ration' ? 0.18 : 0;
+  return {
+    foodId,
+    inventory: next,
+    heal: Number(food.heal || 0),
+    nutrition,
+    warmth,
+  };
+}
+
+export function runRecoveryChoiceAction(state, actorId, choiceId, options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '대응 행동을 실행할 AP가 부족합니다.');
+  const id = String(choiceId || '');
+
+  if (id === 'field_tonic') {
+    const hasTonic = Number(current.inventory.herb_tonic || 0) > 0;
+    const canBrewTonic = recipeUnlockInfo(current, 'herb_tonic').unlocked && hasResources(current.inventory, { herb: 2, berry: 1 });
+    if (!hasTonic && !canBrewTonic) return addLog(current, '응급 처치에 필요한 약초 달임이나 약초/베리가 부족합니다.');
+    const inventory = hasTonic
+      ? spendResources(current.inventory, { herb_tonic: 1 })
+      : spendResources(current.inventory, { herb: 2, berry: 1 });
+    const heal = hasTonic ? 14 : 8;
+    const staminaGain = hasTonic ? 5 : 3;
+    let next = updateLivingParty({ ...current, inventory }, (member) => ({
+      ...member,
+      hp: clamp(Number(member.hp || 0) + heal, 0, 100),
+      stamina: clamp(Number(member.stamina || 0) + staminaGain, 0, 100),
+      bodyTemp: clamp(Number(member.bodyTemp ?? 37) + (hasTonic ? 0.3 : 0.18), 25, 39),
+    }));
+    next = addLog(next, `${hasTonic ? '약초 달임' : '현장 약초 처치'}로 전원 HP +${heal}, ST +${staminaGain}.`);
+    return finishRecoveryAction(next, actorId, { action: 'craft', staminaCost: 4, hungerAdd: 1 }, options);
+  }
+
+  if (id === 'ration_break') {
+    const targets = livingParty(current)
+      .sort((a, b) => Number(b.hunger || 0) - Number(a.hunger || 0));
+    let inventory = { ...current.inventory };
+    const updates = {};
+    const used = [];
+    targets.forEach((member) => {
+      const consumed = consumeRecoveryFood(inventory, current);
+      if (!consumed) return;
+      inventory = consumed.inventory;
+      used.push(consumed.foodId);
+      updates[member.id] = {
+        ...member,
+        hunger: clamp(Number(member.hunger || 0) - consumed.nutrition, 0, 100),
+        hp: clamp(Number(member.hp || 0) + consumed.heal, 0, 100),
+        bodyTemp: clamp(Number(member.bodyTemp ?? 37) + consumed.warmth, 25, 39),
+      };
+    });
+    if (!used.length) return addLog(current, '비상 배식에 사용할 식량이 없습니다.');
+    let next = {
+      ...current,
+      inventory,
+      counters: { ...current.counters, meals: Number(current.counters?.meals || 0) + used.length },
+      party: current.party.map((member) => updates[member.id] || member),
+    };
+    const names = used.map(itemName).join(', ');
+    next = addLog(next, `비상 배식 완료: ${names}. 허기가 높은 팀원부터 ${used.length}명에게 배분했습니다.`);
+    return finishRecoveryAction(next, actorId, { action: 'camp', staminaCost: 3, hungerAdd: 0 }, options);
+  }
+
+  if (id === 'warm_watch') {
+    const hasWood = Number(current.inventory.wood || 0) > 0;
+    const hasFuel = Number(current.camp.fuel || 0) > 0;
+    if (!hasWood && !hasFuel) return addLog(current, '온기를 확보할 나무나 연료가 부족합니다.');
+    let next = hasWood
+      ? {
+        ...current,
+        inventory: spendResources(current.inventory, { wood: 1 }),
+        camp: { ...current.camp, fuel: Number(current.camp.fuel || 0) + 1 },
+      }
+      : {
+        ...current,
+        camp: { ...current.camp, fuel: Math.max(0, Number(current.camp.fuel || 0) - 1) },
+      };
+    const tempGain = hasWood ? 0.45 : 0.75;
+    const staminaGain = hasWood ? 6 : 8;
+    next = updateLivingParty(next, (member) => ({
+      ...member,
+      stamina: clamp(Number(member.stamina || 0) + staminaGain, 0, 100),
+      bodyTemp: clamp(Number(member.bodyTemp ?? 37) + tempGain, 25, 39),
+    }));
+    next = addLog(next, `${hasWood ? '나무 1개를 쪼개 연료를 보강' : '비축 연료 1개를 사용'}했습니다. 전원 체온 +${tempGain.toFixed(1)}, ST +${staminaGain}.`);
+    return finishRecoveryAction(next, actorId, { action: 'camp', staminaCost: 2, hungerAdd: 1, warmthAdd: 0.15 }, options);
+  }
+
+  if (id === 'rare_gear') {
+    const recipe = pickBestRareGearRecipe(current);
+    if (recipe) {
+      const craftActorId = recoveryActionActorId(current, actorId, 'craft');
+      const crafted = runCraftAction(current, craftActorId, recipe.id, options);
+      if (crafted.ended) return crafted;
+      return autoEquipAction(crafted, Number(crafted.weather?.cold || 0) >= 5 ? 'weather' : 'role');
+    }
+    if (hasAnyEquipInPool(current)) {
+      return autoEquipAction(current, Number(current.weather?.cold || 0) >= 5 ? 'weather' : 'role');
+    }
+    return addLog(current, '정비할 희귀 장비나 보유 장비가 없습니다.');
+  }
+
+  if (id === 'risk_track') {
+    const pressure = explorationEventPressure(current);
+    if (pressure.rareTotal < 2 || Number(current.inventory.obsidian_shard || 0) < 1) {
+      return runGatherAction(current, recoveryActionActorId(current, actorId, 'gather'), 'cave', options);
+    }
+    return runHuntAction(current, recoveryActionActorId(current, actorId, 'hunt'), 'plains', options);
+  }
+
+  return addLog(current, '대응 선택지를 찾을 수 없습니다.');
+}
+
 function hasKoreanFinalConsonant(text) {
   const char = String(text || '').trim().slice(-1);
   if ('013678'.includes(char)) return true;
@@ -1716,6 +1973,7 @@ export function getRunProgressReport(state) {
     insulation,
     rareResourceLabel: eventPressure.rareLabel,
     rareResourceTotal: eventPressure.rareTotal,
+    recoveryChoices: recoveryChoiceRows(current),
     recentEvents: eventPressure.recentEvents,
     weight,
     pendingObjectives: pendingObjectives.map((row) => row.label),

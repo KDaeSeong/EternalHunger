@@ -46,6 +46,7 @@ import {
   runEatAction,
   runGatherAction,
   runHuntAction,
+  runRecoveryChoiceAction,
   runResearchAction,
   runRestAction,
   scoreState,
@@ -257,6 +258,16 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('캠프', (current) => runCampAction(current, actorId, kind));
   };
 
+  const runRecoveryChoice = (choiceId) => {
+    if (!canAct) return;
+    const choice = runProgressReport.recoveryChoices?.find((row) => row.id === choiceId);
+    applyAction(
+      choice?.title || '직접 대응',
+      (current) => runRecoveryChoiceAction(current, actorId, choiceId),
+      `${choice?.title || '직접 대응'}을 실행했습니다.`,
+    );
+  };
+
   const startNewRun = () => {
     setState((current) => startNewRunFromMeta(current, { difficulty: newRunDifficulty }));
     setActorId('shiroko');
@@ -458,6 +469,7 @@ export default function PrimitiveArchivePlayContent() {
         runGather={runGather}
         runHunt={runHunt}
         runProgressReport={runProgressReport}
+        runRecoveryChoice={runRecoveryChoice}
         runResearch={runResearch}
         runRest={runRest}
         selectResearchTarget={selectResearchTarget}
