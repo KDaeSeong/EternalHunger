@@ -136,10 +136,10 @@ Checked: 2026-07-04
 
 - Route: `/games/schale-idle-rpg/play`
 - Included loop: idle floor settlement, stamina recovery, equipment crafting, equipment enhancement, equipment option affixes/reroll, salvage queue/auto salvage, Trial Tower attempts, tower token shop, mission rewards, inventory/equipment summary.
-- UI/UX: equipment tuning panel now recommends high-value affix locks, low-option rerolls, and next enhancement targets with direct action buttons.
+- UI/UX: equipment tuning panel now recommends high-value affix locks, low-option rerolls, and next enhancement targets with direct action buttons. Affix lock planning also surfaces the post-lock reroll cost, lock surcharge, currency shortage, and reroll readiness before the player commits.
 - Site API integration: quick save through `/game-saves/schale-idle-rpg/schale-idle-rpg-main`; account-progress snapshot through `/game-records/schale-idle-rpg`.
 - Source basis: `C:\2저장고\마이애니메\Schale_idle_rpg_v1_34`.
-- Next step: import the original full UID equipment inventory, advanced affix-lock cost rules, tower shop rotation/reset migration rules, and legacy save migration behind the simplified site shell.
+- Next step: import the original full UID equipment inventory, tower shop rotation/reset migration rules, and legacy save migration behind the simplified site shell.
 
 ## BA SRPG Slice Status
 

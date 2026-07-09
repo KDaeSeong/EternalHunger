@@ -27,6 +27,8 @@ const AFFIX_TUNING = {
   GLOBAL_MUL: { high: 1.016, low: 1.006, weight: 1200 },
 };
 
+const LOCK_TOKEN_SURCHARGE = 8;
+
 function affixTuningScore(affix) {
   const tuning = AFFIX_TUNING[affix?.stat] || { high: 1.03, low: 1.01, weight: 300 };
   const value = Number(affix?.value || 1);
@@ -41,8 +43,94 @@ function affixTone(affix) {
   return '보통';
 }
 
+function rerollTicketCostFor(lockedCount) {
+  return 1 + Math.max(0, Number(lockedCount || 0));
+}
+
+function rerollTokenCostFor(lockedCount, rerollCount = 0) {
+  return 12
+    + Math.max(0, Number(lockedCount || 0)) * LOCK_TOKEN_SURCHARGE
+    + Math.max(0, Number(rerollCount || 0)) * 2;
+}
+
+function buildRerollCostPlan({
+  lockedCount,
+  rerollCount,
+  ticketStock,
+  tokenStock,
+}) {
+  const ticketCost = rerollTicketCostFor(lockedCount);
+  const tokenCost = rerollTokenCostFor(lockedCount, rerollCount);
+  const canPayByTicket = Number(ticketStock || 0) >= ticketCost;
+  const canPayByToken = Number(tokenStock || 0) >= tokenCost;
+  const preferredCurrency = canPayByTicket ? 'ticket' : canPayByToken ? 'token' : 'short';
+  const costText = canPayByTicket ? `리롤권 ${ticketCost}장` : `시련 토큰 ${tokenCost}개`;
+  const shortageText = canPayByTicket || canPayByToken
+    ? '즉시 재련 가능'
+    : `부족: 리롤권 ${Math.max(0, ticketCost - Number(ticketStock || 0))}장 또는 토큰 ${Math.max(0, tokenCost - Number(tokenStock || 0))}개`;
+
+  return {
+    ticketCost,
+    tokenCost,
+    canPayByTicket,
+    canPayByToken,
+    canReroll: canPayByTicket || canPayByToken,
+    preferredCurrency,
+    costText,
+    shortageText,
+  };
+}
+
+function buildLockCostPlan(row, affix, state) {
+  const ticketStock = Number(state.inventory?.itm_reroll_ticket || 0);
+  const tokenStock = Number(state.inventory?.itm_tower_token || 0);
+  const currentPlan = buildRerollCostPlan({
+    lockedCount: row.lockedCount,
+    rerollCount: row.rerollCount,
+    ticketStock,
+    tokenStock,
+  });
+  const afterLockPlan = buildRerollCostPlan({
+    lockedCount: row.lockedCount + 1,
+    rerollCount: row.rerollCount,
+    ticketStock,
+    tokenStock,
+  });
+  const pressure = row.lockedCount >= 2 ? '높음' : row.lockedCount === 1 ? '보통' : '낮음';
+  const priority = affix.score
+    + row.rarityPriority * 5
+    - row.lockedCount * 6
+    + (afterLockPlan.canReroll ? 8 : -7);
+  const advice = afterLockPlan.canReroll
+    ? `잠금 후에도 ${afterLockPlan.costText}으로 재련 가능합니다.`
+    : `잠금 후 바로 재련은 어렵습니다. ${afterLockPlan.shortageText}.`;
+
+  return {
+    id: `${row.slot}:${affix.id}`,
+    slot: row.slot,
+    name: row.name,
+    rarity: row.rarity,
+    affixId: affix.id,
+    label: affix.label,
+    value: affix.value,
+    score: affix.score,
+    lockedCount: row.lockedCount,
+    nextLockedCount: row.lockedCount + 1,
+    priority,
+    pressure,
+    canRerollAfterLock: afterLockPlan.canReroll,
+    currentCostText: currentPlan.costText,
+    afterLockCostText: afterLockPlan.costText,
+    costDeltaText: `리롤권 +1장 / 토큰 +${LOCK_TOKEN_SURCHARGE}개`,
+    shortageText: afterLockPlan.shortageText,
+    advice,
+  };
+}
+
 export function buildEquipmentTuning(equipped = [], state = {}) {
   const inventory = state.inventory || {};
+  const ticketStock = Number(inventory.itm_reroll_ticket || 0);
+  const tokenStock = Number(inventory.itm_tower_token || 0);
   const rows = equipped.map((equip) => {
     const affixes = Array.isArray(equip.affixes) ? equip.affixes : [];
     const scoredAffixes = affixes.map((affix) => ({
@@ -59,29 +147,34 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
     const enhance = Number(equip.enhance || 0);
     const enhanceCreditCost = 70 + enhance * 35;
     const enhanceStoneCost = 1 + Math.floor(enhance / 3);
-    const rerollTicketCost = 1 + lockedCount;
-    const rerollTokenCost = 12 + lockedCount * 8 + Number(equip.rerollCount || 0) * 2;
+    const rerollCount = Number(equip.rerollCount || 0);
+    const rerollPlan = buildRerollCostPlan({
+      lockedCount,
+      rerollCount,
+      ticketStock,
+      tokenStock,
+    });
     const canEnhance = Number(state.credits || 0) >= enhanceCreditCost
       && Number(inventory.itm_enhance_stone || 0) >= enhanceStoneCost;
-    const canRerollByTicket = Number(inventory.itm_reroll_ticket || 0) >= rerollTicketCost;
-    const canRerollByToken = Number(inventory.itm_tower_token || 0) >= rerollTokenCost;
     return {
       slot: equip.slot,
       name: equip.name,
       rarity: equip.rarity,
       rarityPriority: RARITY_PRIORITY[equip.rarity] || 1,
       enhance,
+      rerollCount,
       optionScore,
       lockedCount,
       lowUnlockedCount,
       highUnlocked,
       enhanceCreditCost,
       enhanceStoneCost,
-      rerollTicketCost,
-      rerollTokenCost,
+      rerollTicketCost: rerollPlan.ticketCost,
+      rerollTokenCost: rerollPlan.tokenCost,
       canEnhance,
-      canReroll: canRerollByTicket || canRerollByToken,
-      rerollCostText: canRerollByTicket ? `리롤권 ${rerollTicketCost}장` : `시련 토큰 ${rerollTokenCost}개`,
+      canReroll: rerollPlan.canReroll,
+      rerollCostText: rerollPlan.costText,
+      rerollShortageText: rerollPlan.shortageText,
     };
   });
 
@@ -92,19 +185,14 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
     ? Math.round(rows.reduce((sum, row) => sum + row.optionScore, 0) / rows.length)
     : 0;
 
-  const lockTarget = rows
-    .flatMap((row) => row.highUnlocked.map((affix) => ({
-      slot: row.slot,
-      name: row.name,
-      affixId: affix.id,
-      label: affix.label,
-      value: affix.value,
-      score: affix.score,
-    })))
-    .sort((a, b) => b.score - a.score)[0] || null;
+  const lockPlans = rows
+    .flatMap((row) => row.highUnlocked.map((affix) => buildLockCostPlan(row, affix, { inventory })))
+    .sort((a, b) => b.priority - a.priority || b.score - a.score);
+
+  const lockTarget = lockPlans[0] || null;
 
   const rerollTarget = rows
-    .filter((row) => row.canReroll && (row.lowUnlockedCount > 0 || row.optionScore < 12))
+    .filter((row) => row.canReroll && !row.highUnlocked.length && (row.lowUnlockedCount > 0 || row.optionScore < 12))
     .sort((a, b) => a.optionScore - b.optionScore || b.rarityPriority - a.rarityPriority)[0] || null;
 
   const enhanceTarget = rows
@@ -122,7 +210,7 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
       slot: lockTarget.slot,
       affixId: lockTarget.affixId,
       title: `${slotLabel(lockTarget.slot)} · ${lockTarget.name}`,
-      detail: `${lockTarget.label} x${lockTarget.value}는 고점이라 재련 전에 잠그는 편이 좋습니다.`,
+      detail: `${lockTarget.label} x${lockTarget.value}는 고점입니다. 잠금 후 비용 ${lockTarget.afterLockCostText}(${lockTarget.costDeltaText}). ${lockTarget.advice}`,
       enabled: true,
     } : {
       id: 'lock',
@@ -138,7 +226,7 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
       label: '옵션 재련',
       slot: rerollTarget.slot,
       title: `${slotLabel(rerollTarget.slot)} · ${rerollTarget.name}`,
-      detail: `옵션 점수 ${rerollTarget.optionScore}점, 저점 ${rerollTarget.lowUnlockedCount}개입니다. 비용은 ${rerollTarget.rerollCostText}입니다.`,
+      detail: `옵션 점수 ${rerollTarget.optionScore}점, 저점 ${rerollTarget.lowUnlockedCount}개입니다. 비용은 ${rerollTarget.rerollCostText}입니다. 고점 미잠금 옵션이 없어 바로 재련해도 됩니다.`,
       enabled: true,
     } : {
       id: 'reroll',
@@ -169,12 +257,18 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
   return {
     rows,
     actions,
+    lockPlans,
     avgOptionScore,
     highUnlockedCount,
     lockedCount,
     lowOptionCount,
-    rerollTickets: Number(inventory.itm_reroll_ticket || 0),
-    towerTokens: Number(inventory.itm_tower_token || 0),
+    nextLockCostText: lockPlans[0]?.afterLockCostText || '대상 없음',
+    lockBudgetText: lockPlans.length
+      ? `${lockPlans.filter((plan) => plan.canRerollAfterLock).length}/${lockPlans.length}개 잠금 후 즉시 재련 가능`
+      : '잠금 후보 없음',
+    rerollReadyCount: rows.filter((row) => row.canReroll).length,
+    rerollTickets: ticketStock,
+    towerTokens: tokenStock,
     enhanceStones: Number(inventory.itm_enhance_stone || 0),
     headline: rows.length ? `${actions.filter((action) => action.enabled).length}개 실행 가능` : '장비 없음',
   };

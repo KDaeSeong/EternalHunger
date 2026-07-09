@@ -66,6 +66,9 @@ export default function SchaleIdleGearTab(props) {
               <SmallStat label="고점 미잠금" value={`${equipmentTuning.highUnlockedCount}개`} />
               <SmallStat label="저점 옵션" value={`${equipmentTuning.lowOptionCount}개`} />
               <SmallStat label="잠금 옵션" value={`${equipmentTuning.lockedCount}개`} />
+              <SmallStat label="잠금 후 비용" value={equipmentTuning.nextLockCostText} />
+              <SmallStat label="재련 여력" value={equipmentTuning.lockBudgetText} />
+              <SmallStat label="즉시 재련" value={`${equipmentTuning.rerollReadyCount}슬롯`} />
               <SmallStat label="리롤권" value={equipmentTuning.rerollTickets} />
               <SmallStat label="탑 토큰" value={equipmentTuning.towerTokens} />
               <SmallStat label="강화석" value={equipmentTuning.enhanceStones} />
@@ -115,6 +118,32 @@ export default function SchaleIdleGearTab(props) {
                 </article>
               ))}
             </div>
+            {equipmentTuning.lockPlans.length ? (
+              <>
+                <div className="games-empty" style={{ textAlign: 'left', marginTop: 12 }}>
+                  <strong>잠금 비용 규칙</strong>
+                  {' · '}
+                  옵션을 잠그면 다음 재련 비용이 리롤권 +1장 또는 시련 토큰 +8개씩 증가합니다.
+                  고점 옵션은 보존하되, 잠금 후 바로 재련 가능한 후보를 우선 표시합니다.
+                </div>
+                <div className="game-save-list" style={{ marginTop: 12 }}>
+                  {equipmentTuning.lockPlans.slice(0, 4).map((plan) => (
+                    <article className="game-save-row" key={plan.id}>
+                      <div>
+                        <span>{slotLabel(plan.slot)} · {plan.rarity} · 비용 압박 {plan.pressure}</span>
+                        <strong>{plan.label} x{plan.value} · 점수 {plan.score}</strong>
+                        <small>
+                          현재 {plan.currentCostText} → 잠금 후 {plan.afterLockCostText}
+                          {' · '}
+                          {plan.canRerollAfterLock ? '즉시 재련 가능' : plan.shortageText}
+                        </small>
+                      </div>
+                      <strong>{plan.canRerollAfterLock ? '추천' : '재화 필요'}</strong>
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </section>
 
           <section className="games-panel">
