@@ -22,6 +22,7 @@
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
     "axios": "^1.13.2",
+    "lucide-react": "^1.24.0",
     "next": "16.1.4",
     "react": "19.2.3",
     "react-dom": "19.2.3"

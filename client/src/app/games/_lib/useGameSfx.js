@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { inferGameActionSemantic } from './gameActionSemantics';
 
 const GAME_SFX_PATH_THEMES = [
   ['eternalhunger', 'battle'],
@@ -44,10 +45,85 @@ const CUE_PROFILES = {
     { frequency: 610, duration: 0.04, type: 'triangle', gain: 0.08 },
     { frequency: 910, start: 0.036, duration: 0.09, type: 'sine', gain: 0.06 },
   ],
+  start: [
+    { frequency: 360, endFrequency: 520, duration: 0.06, type: 'triangle', gain: 0.075 },
+    { frequency: 760, start: 0.05, duration: 0.085, type: 'sine', gain: 0.055 },
+  ],
+  save: [
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.07 },
+    { frequency: 780, start: 0.04, duration: 0.075, type: 'sine', gain: 0.05 },
+  ],
+  load: [
+    { frequency: 760, endFrequency: 520, duration: 0.075, type: 'triangle', gain: 0.065 },
+  ],
+  archive: [
+    { frequency: 460, duration: 0.04, type: 'triangle', gain: 0.06 },
+    { frequency: 620, start: 0.038, duration: 0.055, type: 'triangle', gain: 0.05 },
+    { frequency: 820, start: 0.082, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  gather: [
+    { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.075 },
+    { frequency: 260, endFrequency: 210, duration: 0.075, type: 'triangle', gain: 0.065 },
+  ],
+  combat: [
+    { source: 'noise', filterType: 'lowpass', frequency: 900, duration: 0.07, gain: 0.085 },
+    { frequency: 210, endFrequency: 125, duration: 0.105, type: 'sawtooth', gain: 0.055 },
+  ],
+  craft: [
+    { frequency: 560, endFrequency: 430, duration: 0.045, type: 'square', gain: 0.04 },
+    { frequency: 1120, start: 0.035, duration: 0.065, type: 'triangle', gain: 0.045 },
+  ],
+  consume: [
+    { frequency: 420, endFrequency: 560, duration: 0.07, type: 'sine', gain: 0.06 },
+  ],
+  rest: [
+    { frequency: 520, endFrequency: 310, duration: 0.13, type: 'sine', gain: 0.055 },
+  ],
+  research: [
+    { frequency: 480, duration: 0.04, type: 'sine', gain: 0.055 },
+    { frequency: 720, start: 0.038, duration: 0.055, type: 'sine', gain: 0.05 },
+    { frequency: 960, start: 0.086, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  judge: [
+    { frequency: 190, endFrequency: 130, duration: 0.085, type: 'square', gain: 0.05 },
+    { source: 'noise', filterType: 'bandpass', frequency: 520, q: 2, start: 0.045, duration: 0.055, gain: 0.06 },
+  ],
+  upgrade: [
+    { frequency: 440, duration: 0.04, type: 'triangle', gain: 0.06 },
+    { frequency: 660, start: 0.035, duration: 0.052, type: 'triangle', gain: 0.05 },
+    { frequency: 990, start: 0.078, duration: 0.07, type: 'sine', gain: 0.04 },
+  ],
+  trade: [
+    { frequency: 980, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 1320, start: 0.032, duration: 0.055, type: 'triangle', gain: 0.04 },
+  ],
+  training: [
+    { frequency: 320, endFrequency: 390, duration: 0.055, type: 'triangle', gain: 0.06 },
+    { frequency: 480, start: 0.052, duration: 0.055, type: 'triangle', gain: 0.045 },
+  ],
+  advance: [
+    { frequency: 430, endFrequency: 620, duration: 0.075, type: 'triangle', gain: 0.06 },
+    { frequency: 860, start: 0.06, duration: 0.07, type: 'sine', gain: 0.045 },
+  ],
+  dispatch: [
+    { source: 'noise', filterType: 'highpass', frequency: 1600, duration: 0.04, gain: 0.055 },
+    { frequency: 310, duration: 0.055, type: 'triangle', gain: 0.06 },
+    { frequency: 390, start: 0.052, duration: 0.065, type: 'triangle', gain: 0.05 },
+  ],
+  code: [
+    { frequency: 520, duration: 0.028, type: 'square', gain: 0.035 },
+    { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
+    { frequency: 1040, start: 0.07, duration: 0.055, type: 'triangle', gain: 0.035 },
+  ],
+  event: [
+    { frequency: 680, endFrequency: 940, duration: 0.065, type: 'sawtooth', gain: 0.04 },
+    { frequency: 1240, start: 0.055, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
 };
 
 const THEME_CUE_PROFILES = {
   battle: {
+    accent: [{ frequency: 120, endFrequency: 95, duration: 0.09, type: 'sine', gain: 0.025 }],
     click: [{ frequency: 260, endFrequency: 210, duration: 0.055, type: 'sawtooth', gain: 0.065 }],
     confirm: [
       { frequency: 360, duration: 0.04, type: 'square', gain: 0.05 },
@@ -59,6 +135,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   twenty: {
+    accent: [{ frequency: 820, duration: 0.055, type: 'sine', gain: 0.025 }],
     click: [{ frequency: 620, endFrequency: 700, duration: 0.055, type: 'sine', gain: 0.08 }],
     tab: [
       { frequency: 660, duration: 0.045, type: 'sine', gain: 0.06 },
@@ -66,6 +143,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   card: {
+    accent: [{ frequency: 1380, duration: 0.035, type: 'triangle', gain: 0.022 }],
     click: [{ frequency: 720, endFrequency: 540, duration: 0.045, type: 'triangle', gain: 0.08 }],
     select: [
       { frequency: 520, duration: 0.036, type: 'triangle', gain: 0.06 },
@@ -77,6 +155,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   survival: {
+    accent: [{ frequency: 240, endFrequency: 210, duration: 0.07, type: 'triangle', gain: 0.025 }],
     click: [{ frequency: 330, endFrequency: 300, duration: 0.065, type: 'triangle', gain: 0.075 }],
     confirm: [
       { frequency: 280, duration: 0.05, type: 'triangle', gain: 0.06 },
@@ -84,6 +163,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   kitchen: {
+    accent: [{ frequency: 1080, duration: 0.04, type: 'sine', gain: 0.024 }],
     click: [{ frequency: 760, endFrequency: 920, duration: 0.045, type: 'sine', gain: 0.07 }],
     confirm: [
       { frequency: 840, duration: 0.04, type: 'triangle', gain: 0.06 },
@@ -91,6 +171,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   idle: {
+    accent: [{ frequency: 880, duration: 0.065, type: 'sine', gain: 0.022 }],
     click: [{ frequency: 590, endFrequency: 830, duration: 0.07, type: 'sine', gain: 0.06 }],
     confirm: [
       { frequency: 740, duration: 0.05, type: 'sine', gain: 0.055 },
@@ -98,11 +179,13 @@ const THEME_CUE_PROFILES = {
     ],
   },
   tactical: {
+    accent: [{ frequency: 300, duration: 0.04, type: 'square', gain: 0.02 }],
     click: [{ frequency: 480, endFrequency: 360, duration: 0.042, type: 'square', gain: 0.045 }],
     select: [{ frequency: 520, endFrequency: 620, duration: 0.05, type: 'triangle', gain: 0.065 }],
     warning: [{ frequency: 220, endFrequency: 165, duration: 0.1, type: 'square', gain: 0.05 }],
   },
   broadcast: {
+    accent: [{ frequency: 920, duration: 0.045, type: 'sine', gain: 0.022 }],
     click: [{ frequency: 500, endFrequency: 620, duration: 0.045, type: 'triangle', gain: 0.06 }],
     nav: [
       { frequency: 640, duration: 0.04, type: 'sine', gain: 0.05 },
@@ -110,6 +193,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   school: {
+    accent: [{ frequency: 740, duration: 0.055, type: 'triangle', gain: 0.022 }],
     click: [{ frequency: 640, endFrequency: 720, duration: 0.055, type: 'triangle', gain: 0.065 }],
     confirm: [
       { frequency: 720, duration: 0.045, type: 'sine', gain: 0.05 },
@@ -117,6 +201,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   coding: {
+    accent: [{ frequency: 1280, duration: 0.03, type: 'square', gain: 0.018 }],
     click: [{ frequency: 410, endFrequency: 520, duration: 0.038, type: 'square', gain: 0.04 }],
     confirm: [
       { frequency: 520, duration: 0.035, type: 'square', gain: 0.035 },
@@ -124,6 +209,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   rail: {
+    accent: [{ frequency: 180, endFrequency: 150, duration: 0.08, type: 'triangle', gain: 0.025 }],
     click: [{ frequency: 300, endFrequency: 360, duration: 0.06, type: 'triangle', gain: 0.06 }],
     nav: [
       { frequency: 360, duration: 0.055, type: 'sine', gain: 0.05 },
@@ -131,6 +217,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   ledger: {
+    accent: [{ frequency: 500, duration: 0.045, type: 'triangle', gain: 0.022 }],
     click: [{ frequency: 440, endFrequency: 390, duration: 0.045, type: 'triangle', gain: 0.055 }],
     confirm: [
       { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
@@ -138,6 +225,7 @@ const THEME_CUE_PROFILES = {
     ],
   },
   racing: {
+    accent: [{ frequency: 980, endFrequency: 720, duration: 0.05, type: 'sawtooth', gain: 0.018 }],
     click: [{ frequency: 690, endFrequency: 420, duration: 0.05, type: 'sawtooth', gain: 0.045 }],
     confirm: [
       { frequency: 520, endFrequency: 780, duration: 0.05, type: 'triangle', gain: 0.052 },
@@ -157,7 +245,11 @@ function resolveGameSfxTheme(theme, pathname) {
 function cueProfile(cue, theme) {
   const key = String(cue || 'click');
   const themeKey = String(theme || 'default');
-  return THEME_CUE_PROFILES[themeKey]?.[key] || CUE_PROFILES[key] || CUE_PROFILES.click;
+  const themedProfile = THEME_CUE_PROFILES[themeKey]?.[key];
+  if (themedProfile) return themedProfile;
+  const baseProfile = CUE_PROFILES[key] || CUE_PROFILES.click;
+  const accentProfile = key === 'click' ? [] : (THEME_CUE_PROFILES[themeKey]?.accent || []);
+  return [...baseProfile, ...accentProfile];
 }
 
 function getAudioContext() {
@@ -167,7 +259,40 @@ function getAudioContext() {
   return AudioContextCtor;
 }
 
+function playNoiseVoice(ctx, spec, volume) {
+  const start = ctx.currentTime + 0.004 + Number(spec.start || 0);
+  const duration = Math.max(0.025, Number(spec.duration || 0.06));
+  const end = start + duration;
+  const frameCount = Math.max(1, Math.ceil(ctx.sampleRate * duration));
+  const buffer = ctx.createBuffer(1, frameCount, ctx.sampleRate);
+  const samples = buffer.getChannelData(0);
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  const peakGain = Math.max(0.001, Number(volume || 0.12) * Number(spec.gain || 0.08));
+
+  for (let index = 0; index < frameCount; index += 1) {
+    samples[index] = (Math.random() * 2 - 1) * (1 - index / frameCount);
+  }
+  source.buffer = buffer;
+  filter.type = spec.filterType || 'bandpass';
+  filter.frequency.setValueAtTime(Number(spec.frequency || 900), start);
+  filter.Q.setValueAtTime(Number(spec.q || 1), start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  source.start(start);
+  source.stop(end + 0.01);
+}
+
 function playVoice(ctx, spec, volume) {
+  if (spec.source === 'noise') {
+    playNoiseVoice(ctx, spec, volume);
+    return;
+  }
   const start = ctx.currentTime + 0.004 + Number(spec.start || 0);
   const duration = Math.max(0.025, Number(spec.duration || 0.06));
   const end = start + duration;
@@ -236,8 +361,14 @@ export function getGameSfxCueFromControl(control) {
 
   if (role === 'tab') return 'tab';
   if (tagName === 'summary') return 'toggle';
-  if (tagName === 'a') return 'nav';
   if (className.includes('danger') || className.includes('delete') || className.includes('reset')) return 'warning';
+  const semantic = inferGameActionSemantic(
+    control?.textContent,
+    control?.getAttribute('aria-label'),
+    control?.getAttribute('title'),
+  );
+  if (semantic.kind !== 'action') return semantic.cue;
+  if (tagName === 'a') return 'nav';
   if (className.includes('primary') || className.includes('save')) return 'confirm';
   return 'click';
 }

@@ -11,8 +11,9 @@ Checked: 2026-07-04
 - Dynamic candidate names are recognized in room detail, save slots, and records.
 - Adapter presets now provide default room/result/save/record capability flags.
 - Playable routes can share `GamePlayShell` for header, actions, summary metrics, and status messages.
-- Playable routes now share lightweight Web Audio SFX for buttons, tabs, selects, navigation, and warning actions.
-- Game routes now resolve lightweight SFX themes by game slug, and hub/detail cards use object-only SVG icons with no people, faces, hands, portraits, avatars, or humanoid silhouettes.
+- Playable routes share lightweight Web Audio SFX for buttons, tabs, selects, navigation, and warning actions.
+- Game routes resolve a lightweight SFX theme by slug. Common action buttons also distinguish gathering, combat, crafting, research, trade, saving, and other gameplay semantics, then layer the current game's short audio signature over the action cue.
+- Hub/detail cards use object-only SVG icons. Feature tabs and common gameplay actions use object-only Lucide icons with no people, faces, hands, portraits, avatars, or humanoid silhouettes.
 
 ## Recommended First Port
 

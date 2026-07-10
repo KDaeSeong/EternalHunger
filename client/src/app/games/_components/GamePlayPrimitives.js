@@ -1,7 +1,19 @@
-export function ActionButton({ children, disabled, onClick }) {
+import GameActionIcon, { gameActionText, resolveGameAction } from './GameActionIcon';
+
+export function ActionButton({ action, children, className = '', cue, disabled, icon = true, onClick, ...buttonProps }) {
+  const label = gameActionText(children);
+  const semantic = resolveGameAction(action, label);
   return (
-    <button type="button" className="tcg-primary-action" disabled={disabled} onClick={onClick}>
-      {children}
+    <button
+      type="button"
+      className={`tcg-primary-action game-action-button${className ? ` ${className}` : ''}`}
+      data-game-sfx={cue || semantic.cue}
+      disabled={disabled}
+      onClick={onClick}
+      {...buttonProps}
+    >
+      {icon ? <GameActionIcon action={semantic.kind} label={label} /> : null}
+      <span className="game-action-button__label">{children}</span>
     </button>
   );
 }

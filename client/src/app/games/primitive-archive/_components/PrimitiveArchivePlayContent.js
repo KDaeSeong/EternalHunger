@@ -77,11 +77,15 @@ import {
   vitalBadges,
 } from '../_lib/primitiveArchivePageRuntime';
 
+function createHydrationSafeState() {
+  return createNewState({ rng: () => 0.5 });
+}
+
 export default function PrimitiveArchivePlayContent() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
-  const [state, setState] = useState(() => createNewState());
+  const [state, setState] = useState(createHydrationSafeState);
   const [actorId, setActorId] = useState('shiroko');
   const [zoneId, setZoneId] = useState('forest');
   const [recipeId, setRecipeId] = useState('twine');

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
+import GameActionIcon from './GameActionIcon';
 import { useGameSfxEventHandlers } from '../_lib/useGameSfx';
 
 const DEFAULT_METRIC_LIMITS = {
@@ -59,7 +60,8 @@ export function GameFeatureTabs({ tabs = [], initialTabId = '', activeTabId: con
               title={tabTitle}
               onClick={() => selectTab(tab.id)}
             >
-              <span>{tab.label}</span>
+              <GameActionIcon action={tab.icon || tab.id} label={tab.label} />
+              <span className="game-feature-tabs__label">{tab.label}</span>
               {tab.badge ? <strong>{tab.badge}</strong> : null}
             </button>
           );
