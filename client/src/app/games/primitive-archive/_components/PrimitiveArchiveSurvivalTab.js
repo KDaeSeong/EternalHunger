@@ -24,6 +24,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
   const {
     actor,
     actorId,
+    actionForecasts,
     applyAction,
     archiveVictory,
     autoEquip,
@@ -67,6 +68,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
     state,
     zone,
     zoneId,
+    zoneSelectionUnlocked,
   } = props;
 
   return (
@@ -79,9 +81,15 @@ export default function PrimitiveArchiveSurvivalTab(props) {
             <div className="games-action-dock__controls">
               <label className="game-save-json-field">
                 <span>지역</span>
-                <select value={zoneId} onChange={(event) => setZoneId(event.target.value)}>
+                <select
+                  value={zoneSelectionUnlocked ? zoneId : 'random'}
+                  disabled={!zoneSelectionUnlocked}
+                  onChange={(event) => setZoneId(event.target.value)}
+                >
+                  {!zoneSelectionUnlocked ? <option value="random">미지의 구역 · 행동 시 무작위</option> : null}
                   {ZONES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
                 </select>
+                <small>{zoneSelectionUnlocked ? '지도 제작 완료 · 구역 지정 가능' : '지도 제작 연구를 완료하면 구역을 지정할 수 있습니다.'}</small>
               </label>
               <label className="game-save-json-field">
                 <span>제작</span>
@@ -95,7 +103,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
               </label>
             </div>
             <div className="games-action-dock__notes">
-              <span>{zone.note}</span>
+              <span>{zoneSelectionUnlocked ? zone.note : '미지의 지형을 탐색합니다. 채집과 사냥을 실행할 때 숲·강가·동굴·초원 중 한 곳이 무작위로 결정됩니다.'}</span>
               <span>
                 {recipe?.unlocked
                   ? `제작: ${formatRequires(recipe.requires)} · ${recipe.note}${recipe.prototype ? ` · ${recipe.statusLabel}` : ''}`
@@ -108,7 +116,22 @@ export default function PrimitiveArchiveSurvivalTab(props) {
               <ActionButton action="craft" disabled={!canAct || !recipe?.unlocked} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
               <ActionButton action="consume" disabled={!canAct} onClick={runEat}>식사</ActionButton>
               <ActionButton action="rest" disabled={!canAct} onClick={runRest}>휴식</ActionButton>
-              <ActionButton action="research" disabled={!canAct || !research.selected?.available} onClick={runResearch}>연구</ActionButton>
+              <ActionButton action="research" disabled={!canAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
+                {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
+              </ActionButton>
+            </div>
+            <div className="primitive-action-forecast-grid" aria-label="행동별 기대수익">
+              {(actionForecasts || []).map((forecast) => (
+                <article className={`primitive-action-forecast${forecast.locked ? ' is-locked' : ''}`} key={forecast.id}>
+                  <div>
+                    <strong>{forecast.label}</strong>
+                    <span>{forecast.chancePct}%</span>
+                  </div>
+                  <small>{forecast.context}</small>
+                  <p>{forecast.outcome}</p>
+                  <em>{forecast.cost}</em>
+                </article>
+              ))}
             </div>
             <div className="games-action-dock__buttons games-action-dock__buttons--camp">
               {BASE_CAMP_ACTIONS.map((row) => (

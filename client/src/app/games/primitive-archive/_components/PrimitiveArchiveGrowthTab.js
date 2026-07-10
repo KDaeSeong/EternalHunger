@@ -1,9 +1,16 @@
+'use client';
+
+import { useMemo, useState } from 'react';
 import {
   ActionButton,
   GameControlButton,
   RecentActionResult,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+import {
+  RESEARCH_ERA_LABELS,
+  RESEARCH_TAG_LABELS,
+} from '../_lib/primitiveArchivePageRuntime';
 
 export default function PrimitiveArchiveGrowthTab(props) {
   const {
@@ -26,6 +33,74 @@ export default function PrimitiveArchiveGrowthTab(props) {
   } = props;
   const openPlanner = () => setResearchPlannerOpen?.(true);
   const closePlanner = () => setResearchPlannerOpen?.(false);
+  const [treeFocusId, setTreeFocusId] = useState(state.research.selectedTechId);
+  const [treeQuery, setTreeQuery] = useState('');
+  const [treeEra, setTreeEra] = useState('ALL');
+  const focusedTreeNode = useMemo(() => (
+    researchMap.nodes.find((node) => node.id === treeFocusId)
+    || researchMap.nodes.find((node) => node.selected)
+    || researchMap.nodes[0]
+  ), [researchMap.nodes, treeFocusId]);
+  const treeNodeById = useMemo(
+    () => Object.fromEntries(researchMap.nodes.map((node) => [node.id, node])),
+    [researchMap.nodes],
+  );
+  const normalizedTreeQuery = treeQuery.trim().toLowerCase();
+
+  const treeNodeMuted = (node) => {
+    if (treeEra !== 'ALL' && node.era !== treeEra) return true;
+    if (!normalizedTreeQuery) return false;
+    return !`${node.name} ${node.id} ${(node.tags || []).join(' ')}`.toLowerCase().includes(normalizedTreeQuery);
+  };
+
+  if (!research.unlocked) {
+    return (
+      <>
+        <RecentActionResult label="최근 연구/성장 결과" text={recentActionText} pinned />
+        <section className="games-panel primitive-research-gate">
+          <div className="games-panel-title">
+            <div>
+              <h2>부족 발전 필요</h2>
+              <span>{research.headline}</span>
+            </div>
+            <strong>{research.gateCompleted}/{research.gateTotal}</strong>
+          </div>
+          <p>{research.reason}</p>
+          <div className="primitive-research-gate__requirements">
+            {research.gateRows.map((row) => (
+              <article className={row.done ? 'is-done' : ''} key={row.id}>
+                <span>{row.done ? '완료' : '필요'}</span>
+                <strong>{row.label}</strong>
+                <small>현재 Lv.{row.current}</small>
+              </article>
+            ))}
+          </div>
+          <div className="games-empty">세 시설을 갖추면 기술 목표 지정, 매 행동 턴 RP, 일일 자동 연구가 동시에 해금됩니다.</div>
+        </section>
+
+        <section className="games-panel">
+          <div className="games-panel-title">
+            <h2>특전</h2>
+            <span>{state.meta.perkPoints} pt</span>
+          </div>
+          <div className="game-save-list">
+            {perks.map((perk) => (
+              <article className="game-save-row" key={perk.id}>
+                <div>
+                  <span>Lv.{perk.level}/{perk.maxLevel} · 비용 {perk.cost}</span>
+                  <strong>{perk.name}</strong>
+                  <small>{perk.desc}</small>
+                </div>
+                <GameControlButton action="upgrade" disabled={!perk.canBuy} onClick={() => buyPerk(perk)}>
+                  {perk.maxed ? '완료' : '구매'}
+                </GameControlButton>
+              </article>
+            ))}
+          </div>
+        </section>
+      </>
+    );
+  }
 
   return (
     <>
@@ -35,7 +110,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
             <section className="games-panel">
               <div className="games-panel-title">
                 <h2>연구</h2>
-                <span>{research.completed}/{research.total}</span>
+                <span>핵심 {research.archiveCompleted}/{research.archiveTotal} · 전체 {research.completed}/{research.total}</span>
               </div>
               <label className="game-save-json-field">
                 <span>목표 기술</span>
@@ -45,7 +120,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 >
                   {techs.map((tech) => (
                     <option value={tech.id} key={tech.id} disabled={!tech.available && !tech.completed && !tech.selected}>
-                      {tech.completed ? '완료 · ' : tech.selected ? '선택 · ' : tech.available ? '가능 · ' : tech.eurekaStatus?.blocked ? '단서 확보 · 잠김 · ' : '잠김 · '}
+                      {tech.completed ? '완료 · ' : tech.selected ? '선택 · ' : tech.available ? '가능 · ' : tech.eurekaStatus?.blocked || tech.inspirationStatus?.blocked ? '단서 확보 · 잠김 · ' : '잠김 · '}
                       {tech.name} ({tech.progress}/{tech.cost})
                     </option>
                   ))}
@@ -55,6 +130,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 <div><span>선택</span><strong>{research.selected?.name || '-'}</strong></div>
                 <div><span>진행</span><strong>{research.selected?.progressPct || 0}%</strong></div>
                 <div><span>가능</span><strong>{research.available}</strong></div>
+                <div><span>직접 연구</span><strong>{research.actionUnlocked ? '해금' : `${research.actionCompleted}/${research.actionTotal}`}</strong></div>
               </div>
               <div className={research.selected && !research.selected.completed && !research.selected.available ? 'games-empty games-error' : 'games-empty'} style={{ textAlign: 'left', marginTop: 12 }}>
                 {selectedResearchHelp}
@@ -67,12 +143,23 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   {research.selected.eurekaStatus.note}
                 </p>
               ) : null}
+              <p style={{ color: '#cbd5e1', fontWeight: 800, lineHeight: 1.5 }}>
+                영감: {research.selected?.inspiration?.desc || '없음'} {research.selected?.inspirationDone ? '· 적용됨' : research.selected?.inspirationStatus?.blocked ? '· 단서 확보, 선행 연구 필요' : ''}
+              </p>
+              {!research.actionUnlocked ? (
+                <div className="primitive-research-action-gate">
+                  <strong>{research.actionReason}</strong>
+                  <div className="games-chip-row">
+                    {research.actionGateRows.map((row) => <span className={row.done ? 'is-done' : ''} key={row.id}>{row.done ? '완료' : '대기'} · {row.label}</span>)}
+                  </div>
+                </div>
+              ) : null}
               <div className="game-save-list">
                 {inspirationRows.slice(0, 4).map((row) => (
-                  <article className="game-save-row" key={row.techId}>
+                  <article className="game-save-row" key={row.id}>
                     <div>
                       <span>
-                        {row.statusLabel || (row.completed ? '완료' : row.eurekaDone ? '달성' : row.available ? '진행 가능' : '잠김')}
+                        {row.kindLabel} · {row.statusLabel || (row.completed ? '완료' : row.breakthroughDone ? '달성' : row.available ? '진행 가능' : '잠김')}
                         {' · '}
                         {row.current}/{row.target}
                       </span>
@@ -84,8 +171,8 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   </article>
                 ))}
               </div>
-              <ActionButton action="research" disabled={!canAct || !research.selected?.available} onClick={runResearch}>
-                연구 실행
+              <ActionButton action="research" disabled={!canAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
+                {research.actionUnlocked ? '연구 실행' : '직접 연구 잠김'}
               </ActionButton>
             </section>
 
@@ -100,6 +187,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <SmallStat label="목표" value={selectedPlanner.name} />
                     <SmallStat label="진행" value={`${selectedPlanner.progress}/${selectedPlanner.cost}`} />
                     <SmallStat label="유레카" value={selectedPlanner.eurekaTarget ? `${selectedPlanner.eurekaCurrent}/${selectedPlanner.eurekaTarget}` : '없음'} />
+                    <SmallStat label="영감" value={selectedPlanner.inspirationTarget ? `${selectedPlanner.inspirationCurrent}/${selectedPlanner.inspirationTarget}` : '없음'} />
                   </div>
                   <div className={selectedPlanner.available || selectedPlanner.completed ? 'games-empty' : 'games-empty games-error'} style={{ textAlign: 'left', marginTop: 12 }}>
                     <strong>{selectedPlanner.blockerText}</strong>
@@ -114,6 +202,10 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <div>
                       <strong>유레카</strong>
                       <span>{selectedPlanner.eurekaText} · {selectedPlanner.eurekaPct}%</span>
+                    </div>
+                    <div>
+                      <strong>영감</strong>
+                      <span>{selectedPlanner.inspirationText} · {selectedPlanner.inspirationPct}%</span>
                     </div>
                     <div>
                       <strong>후반 보정</strong>
@@ -149,49 +241,176 @@ export default function PrimitiveArchiveGrowthTab(props) {
               </div>
             </section>
 
-            <section className="games-panel">
+            <section className="games-panel primitive-research-workspace">
               <div className="games-panel-title">
-                <h2>연구 지도</h2>
-                <span>{researchMap.map((era) => `${era.label} ${era.completed}/${era.total}`).join(' · ')}</span>
+                <h2>연구 트리 맵</h2>
+                <span>
+                  핵심 {research.archiveCompleted}/{research.archiveTotal} · 전체 {research.completed}/{research.total} · {researchMap.tierCount}단계
+                </span>
               </div>
-              <div className="game-save-list">
-                {researchMap.map((era) => (
-                  <div key={era.era} style={{ display: 'grid', gap: 8 }}>
-                    <strong style={{ color: '#f8fafc' }}>{era.label} · {era.completed}/{era.total}</strong>
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      {era.rows.map((tech) => (
+              <div className="primitive-research-toolbar">
+                <label className="game-save-json-field">
+                  <span>기술 검색</span>
+                  <input
+                    value={treeQuery}
+                    onChange={(event) => setTreeQuery(event.target.value)}
+                    placeholder="기술명, ID, 분야"
+                  />
+                </label>
+                <label className="game-save-json-field">
+                  <span>시대 필터</span>
+                  <select value={treeEra} onChange={(event) => setTreeEra(event.target.value)}>
+                    <option value="ALL">전체 시대</option>
+                    {researchMap.eras.map((era) => (
+                      <option value={era.era} key={era.era}>{era.label} · {era.completed}/{era.total}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="primitive-research-legend" aria-label="연구 상태 범례">
+                  <span className="is-complete">완료</span>
+                  <span className="is-ready">연구 가능</span>
+                  <span className="is-selected">선택 목표</span>
+                  <span className="is-locked">잠김</span>
+                </div>
+              </div>
+
+              <div className="primitive-research-layout">
+                <div className="primitive-research-canvas-scroll" tabIndex={0} aria-label="가로로 스크롤 가능한 연구 트리">
+                  <div
+                    className="primitive-research-canvas"
+                    style={{ width: researchMap.width, height: researchMap.height }}
+                  >
+                    <svg
+                      className="primitive-research-edges"
+                      width={researchMap.width}
+                      height={researchMap.height}
+                      viewBox={`0 0 ${researchMap.width} ${researchMap.height}`}
+                      aria-hidden="true"
+                    >
+                      {researchMap.edges.map((edge) => (
+                        <path
+                          className={`${edge.complete ? 'is-complete' : edge.available ? 'is-ready' : ''}${edge.from === treeFocusId || edge.to === treeFocusId ? ' is-focused' : ''}`}
+                          d={edge.path}
+                          key={edge.id}
+                        />
+                      ))}
+                    </svg>
+                    {researchMap.nodes.map((node) => {
+                      const muted = treeNodeMuted(node);
+                      const nodeClass = [
+                        'primitive-research-node',
+                        node.completed ? 'is-complete' : node.available ? 'is-ready' : 'is-locked',
+                        node.selected ? 'is-selected' : '',
+                        treeFocusId === node.id ? 'is-focused' : '',
+                        Number(state.research.completionSerial || 0) > 0 && state.research.lastCompletedTechId === node.id ? 'is-completion-pulse' : '',
+                        muted ? 'is-muted' : '',
+                      ].filter(Boolean).join(' ');
+                      return (
                         <button
                           type="button"
-                          className="game-save-row"
-                          key={tech.id}
+                          className={nodeClass}
                           data-game-sfx="select"
-                          disabled={tech.completed || !tech.available}
-                          onClick={() => selectResearchTarget(tech.id)}
-                          style={{
-                            width: '100%',
-                            textAlign: 'left',
-                            borderColor: tech.selected
-                              ? 'rgba(56, 189, 248, 0.78)'
-                              : tech.completed
-                                ? 'rgba(34, 197, 94, 0.42)'
-                                : tech.available
-                                  ? 'rgba(250, 204, 21, 0.5)'
-                                  : undefined,
+                          key={node.id}
+                          aria-pressed={treeFocusId === node.id}
+                          onClick={() => {
+                            setTreeFocusId(node.id);
+                            if (node.available && !node.completed && !node.selected) selectResearchTarget(node.id);
                           }}
+                          style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
                         >
-                          <div>
-                            <span>{tech.statusLabel} · {tech.progress}/{tech.cost} · {tech.progressPct}%</span>
-                            <strong>{tech.name}</strong>
-                            <small>{tech.unlockText}</small>
-                            <small>{tech.nextStepText}</small>
-                          </div>
-                          <strong>{tech.completed ? 'OK' : tech.available ? '목표' : '대기'}</strong>
+                          <span className="primitive-research-node__head">
+                            <strong>{node.name}</strong>
+                            <em>{node.statusLabel}</em>
+                          </span>
+                          <small>{RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}</small>
+                          <span className="primitive-research-node__tags">
+                            {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
+                            {node.eureka ? <i className={node.eurekaDone ? 'is-done' : ''}>유</i> : null}
+                            {node.inspiration ? <i className={node.inspirationDone ? 'is-done' : ''}>영</i> : null}
+                          </span>
+                          <span className="primitive-research-node__progress" aria-hidden="true">
+                            <i style={{ width: `${node.progressPct}%` }} />
+                          </span>
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                ))}
+                </div>
+
+                <aside className="primitive-research-inspector">
+                  {focusedTreeNode ? (
+                    <>
+                      <div className="primitive-research-inspector__head">
+                        <div>
+                          <span>{RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era} · Tier {focusedTreeNode.tier}</span>
+                          <h3>{focusedTreeNode.name}</h3>
+                        </div>
+                        <strong>{focusedTreeNode.progress}/{focusedTreeNode.cost}</strong>
+                      </div>
+                      <p>{focusedTreeNode.description || focusedTreeNode.nextStepText}</p>
+                      <div className="primitive-research-inspector__section">
+                        <span>선행 기술</span>
+                        <div className="games-chip-row">
+                          {(focusedTreeNode.prereqs || []).length ? focusedTreeNode.prereqs.map((techId) => (
+                            <button
+                              type="button"
+                              data-game-sfx="select"
+                              key={techId}
+                              onClick={() => setTreeFocusId(techId)}
+                            >
+                              {treeNodeById[techId]?.completed ? '완료 · ' : ''}{treeNodeById[techId]?.name || techId}
+                            </button>
+                          )) : <span className="games-tag">선행 기술 없음</span>}
+                        </div>
+                      </div>
+                      <div className="primitive-research-inspector__section">
+                        <span>후속 기술</span>
+                        <div className="games-chip-row">
+                          {(focusedTreeNode.nextTechIds || []).length ? focusedTreeNode.nextTechIds.map((techId) => (
+                            <button
+                              type="button"
+                              data-game-sfx="select"
+                              key={techId}
+                              onClick={() => setTreeFocusId(techId)}
+                            >
+                              {treeNodeById[techId]?.name || techId}
+                            </button>
+                          )) : <span className="games-tag">최종 기술</span>}
+                        </div>
+                      </div>
+                      <div className="primitive-research-inspector__section">
+                        <span>해금 효과</span>
+                        <strong>{focusedTreeNode.unlockText}</strong>
+                      </div>
+                      <div className="primitive-research-inspector__section">
+                        <span>유레카 · 영감</span>
+                        <strong>
+                          유레카 {focusedTreeNode.eureka?.desc || '없음'}{focusedTreeNode.eurekaDone ? ' · 적용' : ''}
+                          <br />
+                          영감 {focusedTreeNode.inspiration?.desc || '없음'}{focusedTreeNode.inspirationDone ? ' · 적용' : ''}
+                        </strong>
+                      </div>
+                      <div className="primitive-research-inspector__actions">
+                        <GameControlButton
+                          action="target"
+                          disabled={!focusedTreeNode.available || focusedTreeNode.completed || focusedTreeNode.selected}
+                          onClick={() => selectResearchTarget(focusedTreeNode.id)}
+                        >
+                          {focusedTreeNode.completed ? '완료됨' : focusedTreeNode.selected ? '선택 중' : focusedTreeNode.available ? '연구 목표 지정' : '선행 연구 필요'}
+                        </GameControlButton>
+                        <ActionButton
+                          action="research"
+                          disabled={!canAct || !research.actionUnlocked || !focusedTreeNode.selected || !focusedTreeNode.available}
+                          onClick={runResearch}
+                        >
+                          {research.actionUnlocked ? '선택 기술 연구' : '직접 연구 잠김'}
+                        </ActionButton>
+                      </div>
+                    </>
+                  ) : <div className="games-empty">표시할 연구 기술이 없습니다.</div>}
+                </aside>
               </div>
+              <p className="primitive-research-scroll-note">트리는 가로·세로로 스크롤할 수 있습니다. 노드를 선택하면 연구 목표와 상세 정보가 함께 갱신됩니다.</p>
             </section>
 
             <section className="games-panel">
@@ -241,6 +460,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   <SmallStat label="시대" value={selectedPlanner.era || '-'} />
                   <SmallStat label="진행" value={`${selectedPlanner.progress}/${selectedPlanner.cost}`} />
                   <SmallStat label="유레카" value={selectedPlanner.eurekaTarget ? `${selectedPlanner.eurekaCurrent}/${selectedPlanner.eurekaTarget}` : '없음'} />
+                  <SmallStat label="영감" value={selectedPlanner.inspirationTarget ? `${selectedPlanner.inspirationCurrent}/${selectedPlanner.inspirationTarget}` : '없음'} />
                   <SmallStat label="후반 보정" value={selectedPlanner.pressureBonus ? `+${selectedPlanner.pressureBonus}` : '없음'} />
                   <SmallStat label="상태" value={selectedPlanner.priorityLabel} />
                 </div>
@@ -261,6 +481,11 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <span>유레카 조건</span>
                     <strong>{selectedPlanner.eurekaText}</strong>
                     <small>현재 {selectedPlanner.eurekaPct}% 진행 중입니다. 유레카는 연구 비용을 줄이는 단서로 처리됩니다.</small>
+                  </article>
+                  <article>
+                    <span>영감 조건</span>
+                    <strong>{selectedPlanner.inspirationText}</strong>
+                    <small>현재 {selectedPlanner.inspirationPct}% 진행 중입니다. 생활·문화 경험이 별도 연구 보너스로 적용됩니다.</small>
                   </article>
                   <article>
                     <span>다음 행동</span>

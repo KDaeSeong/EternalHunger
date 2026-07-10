@@ -87,6 +87,18 @@ export const RESEARCH_ERA_LABELS = {
   PRIMITIVE: '원시',
   NEOLITHIC: '신석기',
   ANCIENT: '고대',
+  CLASSICAL: '고전',
+};
+
+export const RESEARCH_TAG_LABELS = {
+  SURVIVAL: '생존',
+  CRAFT: '제작',
+  CAMP: '캠프',
+  MILITARY: '군사',
+  SCIENCE: '과학',
+  CULTURE: '문화',
+  SPIRITUAL: '영성',
+  CIVICS: '행정',
 };
 
 export const CAMP_UNLOCK_LABELS = {
@@ -120,13 +132,53 @@ export const PASSIVE_UNLOCK_LABELS = {
   MEGAFAUNA_RISK_DOWN: '대형 사냥 위험 감소',
   TABLET_RESEARCH_UP: '기록판 연구',
   WEATHER_LORE_UP: '날씨 해석',
+  CAMP_FUEL_SAVER: '연료 절약',
+  COOKING_RECOVERY_UP_2: '화덕 조리 보너스',
+  ZONE_SELECTION: '행동 구역 선택',
+  WEATHER_FORECAST_UP: '날씨 예측',
+  ADVANCED_CRAFT_UP_2: '상위 정밀 제작',
+  MYSTIC_RECOVERY_UP: '의식 회복',
+  HUNT_RISK_DOWN_2: '사냥 위험 추가 감소',
+  STATE_RESEARCH_UP: '조직 연구',
+  PARTY_CAP_UP_2: '파티 정원 추가',
+  REST_HEAL_UP_2: '휴식 회복 추가',
+  RESOURCE_YIELD_UP: '행동 수익 증가',
+  ARCHIVE_LOG_UP_2: '역사 로그 확장',
+  RESEARCH_POINT_BONUS_3: '수학 연구 보너스',
+  EUREKA_BONUS_UP: '유레카 보너스 강화',
+  CAMP_ACTION_STAMINA_DOWN: '캠프 행동 피로 감소',
+  WEATHER_DAMAGE_DOWN: '날씨 피해 감소',
+  RARE_YIELD_UP: '희귀 자원 발견',
+  HUNT_RISK_DOWN_3: '사냥 위험 대폭 감소',
+  WEATHER_LORE_UP_2: '천문 기후 보정',
+  RARE_YIELD_UP_2: '희귀 자원 정밀 발견',
+  FORECAST_DETAIL_UP: '기대수익 정밀도',
+  HUNT_SUCCESS_UP_2: '사냥 성공률 추가',
+  WEATHER_DAMAGE_DOWN_2: '날씨 피해 추가 감소',
+  CAMP_SCORE_UP_2: '캠프 점수 추가',
+  RIVER_YIELD_UP: '강가 수익 증가',
+  RIVER_YIELD_UP_2: '강가 수익 추가 증가',
+  SHIPBUILDING_RIVER_UP: '조선 강가 수익 증가',
+  PLANT_YIELD_UP: '식물 자원 수익 증가',
+  PLANT_YIELD_UP_2: '식물 자원 수익 추가 증가',
+  ANIMAL_YIELD_UP: '동물 자원 수익 증가',
+  MINERAL_YIELD_UP: '광물 발견 증가',
+  ADVANCED_CRAFT_UP_3: '금속 정밀 제작',
+  RESEARCH_POINT_BONUS_4: '고전 연구 보너스',
+  INSPIRATION_BONUS_UP: '영감 보너스 강화',
+  DRAMA_SCORE_UP: '드라마 기록 점수',
+  ART_SCORE_UP: '미술 기록 점수',
+  REST_HEAL_UP_3: '음악 휴식 회복',
+  HUNT_SUCCESS_UP_3: '기마 사냥 성공률',
+  IRON_CRAFT_UP: '철제 제작 성공률',
+  RESOURCE_YIELD_UP_2: '화폐 자원 수익 증가',
 };
 
 export function researchStatusLabel(tech) {
   if (tech.completed) return '완료';
   if (tech.selected) return '선택';
   if (tech.available) return '가능';
-  if (tech.eurekaStatus?.blocked) return '단서 확보';
+  if (tech.eurekaStatus?.blocked || tech.inspirationStatus?.blocked) return '단서 확보';
   return '잠김';
 }
 
@@ -144,32 +196,105 @@ export function researchUnlockText(tech) {
 
 export function researchNextStepText(tech) {
   if (tech.completed) return '이미 완료된 연구입니다.';
+  const breakthroughText = [
+    tech.eureka?.desc ? `유레카 ${tech.eureka.desc}` : '',
+    tech.inspiration?.desc ? `영감 ${tech.inspiration.desc}` : '',
+  ].filter(Boolean).join(' · ');
   if (!tech.available) {
-    return `선행 연구: ${(tech.missingPrereqs || []).join(', ') || '없음'} · 유레카: ${tech.eureka?.desc || '없음'}`;
+    return `선행 연구: ${(tech.missingPrereqs || []).join(', ') || '없음'}${breakthroughText ? ` · ${breakthroughText}` : ''}`;
   }
   if (tech.eurekaStatus?.note) return tech.eurekaStatus.note;
-  return `진행 ${tech.progress}/${tech.cost} · 유레카: ${tech.eureka?.desc || '없음'}`;
+  return `진행 ${tech.progress}/${tech.cost}${breakthroughText ? ` · ${breakthroughText}` : ''}`;
 }
 
 export function buildResearchMap(techs) {
-  const byEra = techs.reduce((result, tech) => {
-    const era = tech.era || 'PRIMITIVE';
-    if (!result[era]) result[era] = [];
-    result[era].push({
-      ...tech,
-      statusLabel: researchStatusLabel(tech),
-      unlockText: researchUnlockText(tech),
-      nextStepText: researchNextStepText(tech),
-    });
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL'];
+  const nodeWidth = 188;
+  const nodeHeight = 94;
+  const columnGap = 54;
+  const rowGap = 14;
+  const padding = 24;
+  const byId = Object.fromEntries(techs.map((tech) => [tech.id, tech]));
+  const tierMemo = {};
+
+  const tierOf = (techId, trail = new Set()) => {
+    if (tierMemo[techId] !== undefined) return tierMemo[techId];
+    const tech = byId[techId];
+    if (!tech || !(tech.prereqs || []).length || trail.has(techId)) {
+      tierMemo[techId] = 0;
+      return 0;
+    }
+    const nextTrail = new Set(trail);
+    nextTrail.add(techId);
+    const tier = Math.max(...tech.prereqs.map((prereqId) => tierOf(prereqId, nextTrail))) + 1;
+    tierMemo[techId] = tier;
+    return tier;
+  };
+
+  const columns = techs.reduce((result, tech) => {
+    const tier = tierOf(tech.id);
+    if (!result[tier]) result[tier] = [];
+    result[tier].push(tech);
     return result;
   }, {});
-  return Object.entries(byEra).map(([era, rows]) => ({
-    era,
-    label: RESEARCH_ERA_LABELS[era] || era,
-    completed: rows.filter((tech) => tech.completed).length,
-    total: rows.length,
-    rows,
-  }));
+  const tierOrder = Object.keys(columns).map(Number).sort((a, b) => a - b);
+  tierOrder.forEach((tier) => {
+    columns[tier].sort((a, b) => (
+      eraOrder.indexOf(a.era) - eraOrder.indexOf(b.era)
+      || String(a.tags?.[0] || '').localeCompare(String(b.tags?.[0] || ''))
+      || a.name.localeCompare(b.name, 'ko-KR')
+    ));
+  });
+
+  const nodes = tierOrder.flatMap((tier) => columns[tier].map((tech, rowIndex) => ({
+    ...tech,
+    tier,
+    rowIndex,
+    x: padding + tier * (nodeWidth + columnGap),
+    y: padding + rowIndex * (nodeHeight + rowGap),
+    width: nodeWidth,
+    height: nodeHeight,
+    statusLabel: researchStatusLabel(tech),
+    unlockText: researchUnlockText(tech),
+    nextStepText: researchNextStepText(tech),
+  })));
+  const positionedById = Object.fromEntries(nodes.map((node) => [node.id, node]));
+  const edges = nodes.flatMap((node) => (node.prereqs || []).map((prereqId) => {
+    const source = positionedById[prereqId];
+    if (!source) return null;
+    const startX = source.x + source.width;
+    const startY = source.y + source.height / 2;
+    const endX = node.x;
+    const endY = node.y + node.height / 2;
+    const bend = Math.max(24, (endX - startX) * 0.45);
+    return {
+      id: `${prereqId}-${node.id}`,
+      from: prereqId,
+      to: node.id,
+      path: `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`,
+      complete: Boolean(source.completed && node.completed),
+      available: Boolean(source.completed && (node.available || node.selected)),
+    };
+  }).filter(Boolean));
+  const maxRows = Math.max(1, ...tierOrder.map((tier) => columns[tier].length));
+  const eras = eraOrder.map((era) => {
+    const rows = nodes.filter((node) => node.era === era);
+    return {
+      era,
+      label: RESEARCH_ERA_LABELS[era],
+      completed: rows.filter((node) => node.completed).length,
+      total: rows.length,
+    };
+  }).filter((era) => era.total > 0);
+
+  return {
+    edges,
+    eras,
+    height: padding * 2 + maxRows * nodeHeight + Math.max(0, maxRows - 1) * rowGap,
+    nodes,
+    tierCount: tierOrder.length,
+    width: padding * 2 + tierOrder.length * nodeWidth + Math.max(0, tierOrder.length - 1) * columnGap,
+  };
 }
 
 export const BASE_START_INVENTORY = { wood: 2, stone: 2, fiber: 2, berry: 2 };

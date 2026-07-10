@@ -30,7 +30,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
         {
           id: 'growth',
           label: '연구/성장',
-          badge: `${research.completed}/${research.total}`,
+          badge: research.unlocked ? `핵심 ${research.archiveCompleted}/${research.archiveTotal}` : '잠김',
           children: <PrimitiveArchiveGrowthTab {...props} />,
         },
         {

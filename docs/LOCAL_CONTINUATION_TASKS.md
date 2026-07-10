@@ -95,6 +95,8 @@ npm run build
 - Primitive Archive play route content now lives in `client/src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js`; `play/page.js` is now a thin entrypoint.
 - Primitive Archive ancient research branches now include preserved rations, precision carving, obsidian gear, megafauna hide armor, clay-tablet records, and weather lore; auto craft, research passives, food handling, hunt risk, and unlock labels are wired through the engine/UI helpers.
 - Primitive Archive research planner now has an expandable detail modal, and `researchPlannerRows` applies ancient-era pressure weighting for food scarcity, cold exposure, rare resources, megafauna risk, and archive progression.
+- Primitive Archive research now has 60 connected Primitive/Neolithic/Ancient/Classical nodes. Campfire + shelter + workbench Lv.1 unlock target selection and turn/day automatic RP; Basic Math + Basic Philosophy + Early Construction + Early Civil Engineering unlock the manual research action.
+- Primitive Archive stores eureka and inspiration separately, shows prerequisites/follow-up technologies in the SVG tree, briefly highlights completed nodes, randomizes gather/hunt zones before Cartography, enables zone selection afterward, and shows per-action expected returns in the survival tab.
 - BA Vanguard large feature tab JSX now lives in `client/src/app/games/ba-vanguard/_components/BaVanguardFeatureTabs.js`.
 - BA Vanguard feature tabs are split into:
   - `client/src/app/games/ba-vanguard/_components/BaVanguardDuelTab.js`

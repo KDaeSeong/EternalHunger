@@ -16,12 +16,14 @@ import {
   ITEMS,
   ZONES,
   actionChance,
+  actionForecastRows,
   averageBodyTemp,
   averageParty,
   archiveCompletionReportForState,
   archiveVictorySummary,
   autoEquipAction,
   buyPerkAction,
+  canSelectActionZone,
   campFacilityRows,
   completeArchiveAction,
   clearAllEquipmentAction,
@@ -151,6 +153,11 @@ export default function PrimitiveArchivePlayContent() {
   const selectedRecruit = recruitCandidates.find((candidate) => candidate.id === selectedRecruitId) || recruitCandidates[0];
   const insulation = partyInsulation(state);
   const currentLogCapacity = logCapacity(state);
+  const zoneSelectionUnlocked = canSelectActionZone(state);
+  const actionForecasts = useMemo(
+    () => actionForecastRows(state, actorId, zoneId, recipeId),
+    [actorId, recipeId, state, zoneId],
+  );
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
       const chances = {
@@ -217,11 +224,15 @@ export default function PrimitiveArchivePlayContent() {
   const availableResearchNames = techs
     .filter((tech) => tech.available && !tech.completed)
     .map((tech) => tech.name);
-  const selectedResearchHelp = research.selected && !research.selected.completed && !research.selected.available
-    ? `${research.selected.name}은(는) 아직 잠긴 연구입니다. 선행 연구: ${(research.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 연구: ${availableResearchNames.slice(0, 3).join(', ') || '없음'}.`
-    : research.selected && !research.selected.completed
-      ? `${research.selected.name} 연구를 진행할 수 있습니다. 연구 실행 시 제작 능력, 작업대, 기록실 보너스가 반영됩니다.`
-      : '다음 연구 목표를 선택하면 조건과 유레카 진행도를 여기에서 확인할 수 있습니다.';
+  const selectedResearchHelp = !research.unlocked
+    ? research.reason
+    : research.selected && !research.selected.completed && !research.selected.available
+      ? `${research.selected.name}은(는) 아직 잠긴 연구입니다. 선행 연구: ${(research.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 연구: ${availableResearchNames.slice(0, 3).join(', ') || '없음'}.`
+      : research.selected && !research.selected.completed
+        ? research.actionUnlocked
+          ? `${research.selected.name} 연구를 진행할 수 있습니다. 자동 RP와 수동 연구 행동을 함께 사용할 수 있습니다.`
+          : `${research.selected.name}에 매 행동 턴과 하루 시작 자동 RP가 누적됩니다. ${research.actionReason}`
+        : '다음 연구 목표를 선택하면 조건과 유레카·영감 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
     const nextState = updater(state);
@@ -352,7 +363,7 @@ export default function PrimitiveArchivePlayContent() {
     { label: '파티', value: `${state.party.length}/${partyCap}` },
     { label: '상태', value: `${hp}HP · 허기 ${hunger} · ST ${stamina}` },
     { label: '체온/보온', value: `${bodyTemp.toFixed(1)}도 · ${insulation}` },
-    { label: '연구', value: `${research.completed}/${research.total}` },
+    { label: '핵심 연구', value: `${research.archiveCompleted}/${research.archiveTotal}` },
     { label: '기록서', value: `${archiveReport.grade} · ${archiveReport.archiveScore}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -450,6 +461,7 @@ export default function PrimitiveArchivePlayContent() {
             <PrimitiveArchiveFeatureTabs
         actor={actor}
         actorId={actorId}
+        actionForecasts={actionForecasts}
         applyAction={applyAction}
         archiveReport={archiveReport}
         archiveVictory={archiveVictory}
@@ -507,6 +519,7 @@ export default function PrimitiveArchivePlayContent() {
         techs={techs}
         zone={zone}
         zoneId={zoneId}
+        zoneSelectionUnlocked={zoneSelectionUnlocked}
       />
     </GamePlayShell>
   );

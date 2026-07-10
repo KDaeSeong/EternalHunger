@@ -6090,6 +6090,448 @@
   margin-top: 0;
 }
 
+.games-action-dock__controls .game-save-json-field small {
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.primitive-action-forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 8px;
+}
+
+.primitive-action-forecast {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(22, 33, 44, 0.10);
+  border-radius: 8px;
+  background: #f8fbfd;
+  padding: 9px 10px;
+}
+
+.primitive-action-forecast > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.primitive-action-forecast strong {
+  color: #17202a;
+  font-size: 0.82rem;
+}
+
+.primitive-action-forecast > div span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #e8f4fb;
+  color: #1f5f86;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.primitive-action-forecast small,
+.primitive-action-forecast em {
+  color: #64717d;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.primitive-action-forecast p {
+  min-width: 0;
+  margin: 0;
+  color: #243442;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.primitive-action-forecast.is-locked {
+  background: #f5f5f5;
+  opacity: 0.72;
+}
+
+.primitive-research-gate {
+  display: grid;
+  gap: 14px;
+  border-top: 4px solid #a36a1e;
+}
+
+.primitive-research-gate > p {
+  margin: 0;
+  color: #52616d;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.primitive-research-gate__requirements {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.primitive-research-gate__requirements article {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  border: 1px solid #d9dee2;
+  border-radius: 8px;
+  background: #f7f8f9;
+  padding: 11px;
+}
+
+.primitive-research-gate__requirements article.is-done {
+  border-color: #6aac82;
+  background: #eff8f2;
+}
+
+.primitive-research-gate__requirements span,
+.primitive-research-gate__requirements small {
+  color: #64717d;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.primitive-research-gate__requirements strong {
+  color: #253340;
+  font-size: 0.84rem;
+}
+
+.primitive-research-action-gate {
+  display: grid;
+  gap: 8px;
+  border-left: 3px solid #c38a26;
+  background: #fff8e9;
+  padding: 10px 12px;
+}
+
+.primitive-research-action-gate > strong {
+  color: #6f5019;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.primitive-research-action-gate .games-chip-row span {
+  border: 1px solid #dfc991;
+  border-radius: 999px;
+  background: #fff;
+  color: #765b25;
+  padding: 3px 7px;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.primitive-research-action-gate .games-chip-row span.is-done {
+  border-color: #7cb58e;
+  color: #267044;
+}
+
+.primitive-research-workspace {
+  grid-column: 1 / -1;
+}
+
+.primitive-research-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.primitive-research-legend {
+  min-height: 42px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.primitive-research-legend span {
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 999px;
+  background: #f4f6f8;
+  color: #5f6c78;
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.primitive-research-legend .is-complete { border-color: rgba(22, 163, 74, 0.34); color: #16743b; }
+.primitive-research-legend .is-ready { border-color: rgba(202, 138, 4, 0.38); color: #956000; }
+.primitive-research-legend .is-selected { border-color: rgba(8, 120, 189, 0.38); color: #176895; }
+
+.primitive-research-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 12px;
+  align-items: start;
+}
+
+.primitive-research-canvas-scroll {
+  min-width: 0;
+  max-height: 650px;
+  overflow: auto;
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 8px;
+  background: #f8fbfd;
+  scrollbar-color: #9fb8c9 #eef3f6;
+}
+
+.primitive-research-canvas-scroll:focus-visible {
+  outline: 3px solid rgba(8, 120, 189, 0.22);
+  outline-offset: 2px;
+}
+
+.primitive-research-canvas {
+  position: relative;
+}
+
+.primitive-research-edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.primitive-research-edges path {
+  fill: none;
+  stroke: #c8d2d9;
+  stroke-width: 2;
+  transition: stroke 160ms ease, stroke-width 160ms ease, opacity 160ms ease;
+}
+
+.primitive-research-edges path.is-ready { stroke: #d3a424; }
+.primitive-research-edges path.is-complete { stroke: #3a9b62; }
+.primitive-research-edges path.is-focused { stroke: #1684bd; stroke-width: 3; }
+
+.primitive-research-node {
+  position: absolute;
+  z-index: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 5px;
+  overflow: hidden;
+  border: 1px solid #cbd4da;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 9px 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease, background-color 160ms ease;
+}
+
+.primitive-research-node:hover,
+.primitive-research-node.is-focused {
+  border-color: #1684bd;
+  box-shadow: 0 0 0 2px rgba(22, 132, 189, 0.14);
+}
+
+.primitive-research-node.is-complete { border-color: #54a875; background: #f0faf4; }
+.primitive-research-node.is-ready { border-color: #d4a72c; background: #fffaf0; }
+.primitive-research-node.is-selected { border-color: #1684bd; background: #edf8fd; }
+.primitive-research-node.is-locked { background: #f3f5f6; color: #6c7882; }
+.primitive-research-node.is-muted { opacity: 0.18; }
+
+.primitive-research-node__head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.primitive-research-node__head strong {
+  min-width: 0;
+  color: inherit;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-research-node__head em {
+  flex: 0 0 auto;
+  color: #64717d;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.primitive-research-node > small {
+  color: #64717d;
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.primitive-research-node__tags {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.primitive-research-node__tags i {
+  border-radius: 999px;
+  background: rgba(22, 33, 44, 0.07);
+  color: #52616d;
+  padding: 2px 6px;
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.primitive-research-node__tags i.is-done {
+  background: #d8f1e1;
+  color: #237344;
+}
+
+.primitive-research-node__progress {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dce4e9;
+}
+
+.primitive-research-node__progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #1684bd;
+}
+
+.primitive-research-node.is-complete .primitive-research-node__progress i { background: #31975d; }
+
+@keyframes primitive-research-complete-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.62); background: #e9fff0; }
+  45% { box-shadow: 0 0 0 7px rgba(34, 197, 94, 0.18); background: #dff9e7; }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); background: #f0faf4; }
+}
+
+.primitive-research-node.is-completion-pulse {
+  z-index: 3;
+  border-color: #22a954;
+  animation: primitive-research-complete-pulse 1.2s ease-out both;
+}
+
+.primitive-research-inspector {
+  min-width: 0;
+  max-height: 650px;
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  border-left: 3px solid #1684bd;
+  border-radius: 0 8px 8px 0;
+  background: #f8fbfd;
+  padding: 14px;
+}
+
+.primitive-research-inspector__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.primitive-research-inspector__head div { min-width: 0; }
+.primitive-research-inspector__head span,
+.primitive-research-inspector__section > span {
+  display: block;
+  color: #64717d;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.primitive-research-inspector__head h3 {
+  margin: 3px 0 0;
+  color: #17202a;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+
+.primitive-research-inspector__head > strong {
+  flex: 0 0 auto;
+  color: #176895;
+  font-size: 0.82rem;
+}
+
+.primitive-research-inspector > p {
+  margin: 0;
+  color: #52616d;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.primitive-research-inspector__section {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid rgba(22, 33, 44, 0.09);
+  padding-top: 10px;
+}
+
+.primitive-research-inspector__section > strong {
+  color: #243442;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.primitive-research-inspector__section .games-chip-row button {
+  min-height: 30px;
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 7px;
+  background: #fff;
+  color: #32546a;
+  padding: 5px 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.primitive-research-inspector__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.primitive-research-inspector__actions .game-control-button,
+.primitive-research-inspector__actions .tcg-primary-action {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 0;
+  border: 1px solid rgba(44, 111, 158, 0.26);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.primitive-research-scroll-note {
+  margin: 9px 0 0;
+  color: #64717d;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primitive-research-node.is-completion-pulse { animation: none; }
+}
+
 .primitive-research-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -7564,6 +8006,30 @@
   .primitive-difficulty-summary .tcg-primary-action {
     width: 100%;
     max-width: none;
+  }
+
+  .primitive-action-forecast-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-research-toolbar,
+  .primitive-research-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-research-legend {
+    justify-content: flex-start;
+  }
+
+  .primitive-research-canvas-scroll {
+    max-height: 520px;
+  }
+
+  .primitive-research-inspector {
+    max-height: none;
+    border-top: 3px solid #1684bd;
+    border-left: 0;
+    border-radius: 0 0 8px 8px;
   }
 
   .primitive-research-modal-backdrop {
