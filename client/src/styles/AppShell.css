@@ -4098,6 +4098,52 @@
   overflow: hidden;
 }
 
+.game-icon {
+  --game-icon-accent: #2c6f9e;
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--game-icon-accent) 28%, #ffffff);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 70% 18%, color-mix(in srgb, var(--game-icon-accent) 22%, transparent), transparent 42%),
+    #f7fafc;
+  color: var(--game-icon-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.game-icon svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.game-icon.is-battle { --game-icon-accent: #2c6f9e; }
+.game-icon.is-twenty { --game-icon-accent: #c9862d; }
+.game-icon.is-community { --game-icon-accent: #3b8a65; }
+.game-icon.is-srpg { --game-icon-accent: #6f63b8; }
+.game-icon.is-roadmap { --game-icon-accent: #687686; }
+.game-icon.is-eternal-hunger { --game-icon-accent: #2c6f9e; }
+.game-icon.is-twenty-questions { --game-icon-accent: #c9862d; }
+.game-icon.is-dual-academy-tcg { --game-icon-accent: #6a63c7; }
+.game-icon.is-ba-vanguard { --game-icon-accent: #7b4fb3; }
+.game-icon.is-primitive-archive { --game-icon-accent: #3d7f58; }
+.game-icon.is-tonkatsu-teacher { --game-icon-accent: #c9782d; }
+.game-icon.is-schale-idle-rpg { --game-icon-accent: #3d8ec9; }
+.game-icon.is-ba-srpg { --game-icon-accent: #6f63b8; }
+.game-icon.is-myanimecraft { --game-icon-accent: #d39a22; }
+.game-icon.is-school-simulator { --game-icon-accent: #4c8db8; }
+.game-icon.is-si-coding-sim { --game-icon-accent: #2e7d75; }
+.game-icon.is-rail3d-sim { --game-icon-accent: #317a92; }
+.game-icon.is-company-report { --game-icon-accent: #52657a; }
+.game-icon.is-racing-logos-demo { --game-icon-accent: #be3d3d; }
+
 .games-card.has-visual {
   display: grid;
   grid-template-columns: minmax(150px, 0.48fr) minmax(0, 1fr);
@@ -4117,7 +4163,20 @@
   padding: 18px;
 }
 
-.games-card-main > div:first-child span {
+.games-card-title-row,
+.games-detail-title-row {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.games-card-title-row > div,
+.games-detail-title-row > h1 {
+  min-width: 0;
+}
+
+.games-card-title-row > div > span {
   color: #2c6f9e;
   font-size: 0.72rem;
   font-weight: 900;
@@ -4230,21 +4289,19 @@
 .games-roadmap-card__head {
   min-width: 0;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
 }
 
-.games-roadmap-card__head > span {
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #edf5fb;
-  color: #1b6fa2;
-  font-size: 0.8rem;
-  font-weight: 950;
+.games-roadmap-card__head > .game-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.games-roadmap-card__head > .game-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
 .games-roadmap-card__head p,

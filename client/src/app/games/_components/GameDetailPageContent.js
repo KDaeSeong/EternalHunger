@@ -18,6 +18,7 @@ import {
 } from '../_lib/gameCatalog';
 
 import { ActivityPanel, GameMetric } from './GameDetailPanels';
+import GameIcon from './GameIcon';
 import {
   EMPTY_HUB,
   findDynamicGameCandidate,
@@ -196,7 +197,10 @@ export default function GameDetailPageContent() {
           {game.visual === 'map' ? <div className="games-detail-visual" aria-hidden="true" /> : null}
           <div className="games-detail-copy">
             <p className="games-kicker">{game.subtitle}</p>
-            <h1>{game.title}</h1>
+            <div className="games-detail-title-row">
+              <GameIcon slug={game.slug} label={`${game.title} icon`} tone={game.tone} />
+              <h1>{game.title}</h1>
+            </div>
             <p>{game.detail}</p>
             <div className="games-hero-actions">
               {routeFamily ? <Link href={routeFamily.baseHref}>{routeFamily.label} 허브</Link> : null}

@@ -1,6 +1,24 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
+import { usePathname } from 'next/navigation';
+
+const GAME_SFX_PATH_THEMES = [
+  ['eternalhunger', 'battle'],
+  ['twenty-questions', 'twenty'],
+  ['dual-academy-tcg', 'card'],
+  ['ba-vanguard', 'card'],
+  ['primitive-archive', 'survival'],
+  ['tonkatsu-teacher', 'kitchen'],
+  ['schale-idle-rpg', 'idle'],
+  ['ba-srpg', 'tactical'],
+  ['myanimecraft', 'broadcast'],
+  ['school-simulator', 'school'],
+  ['si-coding-sim', 'coding'],
+  ['rail3d-sim', 'rail'],
+  ['company-report', 'ledger'],
+  ['racing-logos-demo', 'racing'],
+];
 
 const CUE_PROFILES = {
   click: [
@@ -27,6 +45,120 @@ const CUE_PROFILES = {
     { frequency: 910, start: 0.036, duration: 0.09, type: 'sine', gain: 0.06 },
   ],
 };
+
+const THEME_CUE_PROFILES = {
+  battle: {
+    click: [{ frequency: 260, endFrequency: 210, duration: 0.055, type: 'sawtooth', gain: 0.065 }],
+    confirm: [
+      { frequency: 360, duration: 0.04, type: 'square', gain: 0.05 },
+      { frequency: 720, start: 0.035, duration: 0.065, type: 'triangle', gain: 0.06 },
+    ],
+    warning: [
+      { frequency: 180, endFrequency: 130, duration: 0.12, type: 'sawtooth', gain: 0.06 },
+      { frequency: 360, start: 0.04, duration: 0.07, type: 'square', gain: 0.035 },
+    ],
+  },
+  twenty: {
+    click: [{ frequency: 620, endFrequency: 700, duration: 0.055, type: 'sine', gain: 0.08 }],
+    tab: [
+      { frequency: 660, duration: 0.045, type: 'sine', gain: 0.06 },
+      { frequency: 880, start: 0.04, duration: 0.06, type: 'sine', gain: 0.055 },
+    ],
+  },
+  card: {
+    click: [{ frequency: 720, endFrequency: 540, duration: 0.045, type: 'triangle', gain: 0.08 }],
+    select: [
+      { frequency: 520, duration: 0.036, type: 'triangle', gain: 0.06 },
+      { frequency: 1040, start: 0.028, duration: 0.052, type: 'sine', gain: 0.045 },
+    ],
+    confirm: [
+      { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.06 },
+      { frequency: 1320, start: 0.036, duration: 0.08, type: 'sine', gain: 0.04 },
+    ],
+  },
+  survival: {
+    click: [{ frequency: 330, endFrequency: 300, duration: 0.065, type: 'triangle', gain: 0.075 }],
+    confirm: [
+      { frequency: 280, duration: 0.05, type: 'triangle', gain: 0.06 },
+      { frequency: 420, start: 0.045, duration: 0.075, type: 'sine', gain: 0.045 },
+    ],
+  },
+  kitchen: {
+    click: [{ frequency: 760, endFrequency: 920, duration: 0.045, type: 'sine', gain: 0.07 }],
+    confirm: [
+      { frequency: 840, duration: 0.04, type: 'triangle', gain: 0.06 },
+      { frequency: 1260, start: 0.035, duration: 0.06, type: 'sine', gain: 0.045 },
+    ],
+  },
+  idle: {
+    click: [{ frequency: 590, endFrequency: 830, duration: 0.07, type: 'sine', gain: 0.06 }],
+    confirm: [
+      { frequency: 740, duration: 0.05, type: 'sine', gain: 0.055 },
+      { frequency: 1180, start: 0.04, duration: 0.075, type: 'sine', gain: 0.04 },
+    ],
+  },
+  tactical: {
+    click: [{ frequency: 480, endFrequency: 360, duration: 0.042, type: 'square', gain: 0.045 }],
+    select: [{ frequency: 520, endFrequency: 620, duration: 0.05, type: 'triangle', gain: 0.065 }],
+    warning: [{ frequency: 220, endFrequency: 165, duration: 0.1, type: 'square', gain: 0.05 }],
+  },
+  broadcast: {
+    click: [{ frequency: 500, endFrequency: 620, duration: 0.045, type: 'triangle', gain: 0.06 }],
+    nav: [
+      { frequency: 640, duration: 0.04, type: 'sine', gain: 0.05 },
+      { frequency: 960, start: 0.035, duration: 0.07, type: 'sine', gain: 0.04 },
+    ],
+  },
+  school: {
+    click: [{ frequency: 640, endFrequency: 720, duration: 0.055, type: 'triangle', gain: 0.065 }],
+    confirm: [
+      { frequency: 720, duration: 0.045, type: 'sine', gain: 0.05 },
+      { frequency: 960, start: 0.04, duration: 0.06, type: 'sine', gain: 0.04 },
+    ],
+  },
+  coding: {
+    click: [{ frequency: 410, endFrequency: 520, duration: 0.038, type: 'square', gain: 0.04 }],
+    confirm: [
+      { frequency: 520, duration: 0.035, type: 'square', gain: 0.035 },
+      { frequency: 1040, start: 0.035, duration: 0.06, type: 'triangle', gain: 0.035 },
+    ],
+  },
+  rail: {
+    click: [{ frequency: 300, endFrequency: 360, duration: 0.06, type: 'triangle', gain: 0.06 }],
+    nav: [
+      { frequency: 360, duration: 0.055, type: 'sine', gain: 0.05 },
+      { frequency: 540, start: 0.052, duration: 0.072, type: 'sine', gain: 0.038 },
+    ],
+  },
+  ledger: {
+    click: [{ frequency: 440, endFrequency: 390, duration: 0.045, type: 'triangle', gain: 0.055 }],
+    confirm: [
+      { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
+      { frequency: 660, start: 0.04, duration: 0.07, type: 'sine', gain: 0.035 },
+    ],
+  },
+  racing: {
+    click: [{ frequency: 690, endFrequency: 420, duration: 0.05, type: 'sawtooth', gain: 0.045 }],
+    confirm: [
+      { frequency: 520, endFrequency: 780, duration: 0.05, type: 'triangle', gain: 0.052 },
+      { frequency: 1040, start: 0.045, duration: 0.06, type: 'sine', gain: 0.035 },
+    ],
+  },
+};
+
+function resolveGameSfxTheme(theme, pathname) {
+  const explicit = String(theme || '').trim();
+  if (explicit && explicit !== 'auto') return explicit;
+  const path = String(pathname || '').toLowerCase();
+  const found = GAME_SFX_PATH_THEMES.find(([needle]) => path.includes(needle));
+  return found?.[1] || 'default';
+}
+
+function cueProfile(cue, theme) {
+  const key = String(cue || 'click');
+  const themeKey = String(theme || 'default');
+  return THEME_CUE_PROFILES[themeKey]?.[key] || CUE_PROFILES[key] || CUE_PROFILES.click;
+}
 
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
@@ -59,9 +191,11 @@ function playVoice(ctx, spec, volume) {
   oscillator.stop(end + 0.025);
 }
 
-export default function useGameSfx({ enabled = true, volume = 0.16 } = {}) {
+export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.16 } = {}) {
+  const pathname = usePathname();
   const contextRef = useRef(null);
   const lastPlayedAtRef = useRef(0);
+  const resolvedTheme = useMemo(() => resolveGameSfxTheme(theme, pathname), [pathname, theme]);
 
   return useCallback((cue = 'click') => {
     if (!enabled) return;
@@ -76,12 +210,12 @@ export default function useGameSfx({ enabled = true, volume = 0.16 } = {}) {
       const ctx = contextRef.current;
       if (ctx.state === 'suspended') void ctx.resume();
 
-      const profile = CUE_PROFILES[cue] || CUE_PROFILES.click;
+      const profile = cueProfile(cue, resolvedTheme);
       profile.forEach((spec) => playVoice(ctx, spec, volume));
     } catch {
       // Audio failures should never block gameplay.
     }
-  }, [enabled, volume]);
+  }, [enabled, resolvedTheme, volume]);
 }
 
 export function isDisabledGameSfxControl(control) {

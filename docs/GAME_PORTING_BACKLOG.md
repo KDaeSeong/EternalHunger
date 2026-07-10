@@ -12,6 +12,7 @@ Checked: 2026-07-04
 - Adapter presets now provide default room/result/save/record capability flags.
 - Playable routes can share `GamePlayShell` for header, actions, summary metrics, and status messages.
 - Playable routes now share lightweight Web Audio SFX for buttons, tabs, selects, navigation, and warning actions.
+- Game routes now resolve lightweight SFX themes by game slug, and hub/detail cards use object-only SVG icons with no people, faces, hands, portraits, avatars, or humanoid silhouettes.
 
 ## Recommended First Port
 

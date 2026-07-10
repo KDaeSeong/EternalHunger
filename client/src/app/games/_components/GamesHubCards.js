@@ -8,6 +8,7 @@ import {
   getGamePortingProgress,
 } from '../_lib/gameCatalog';
 import { formatNumber } from '../_lib/gamesHubUtils';
+import GameIcon from './GameIcon';
 
 export function GameMetric({ label, value }) {
   return (
@@ -18,15 +19,18 @@ export function GameMetric({ label, value }) {
   );
 }
 
-export function GameCard({ tone, title, subtitle, body, metrics, links, visual }) {
+export function GameCard({ slug, tone, title, subtitle, body, metrics, links, visual }) {
   return (
     <article className={`games-card is-${tone} ${visual ? 'has-visual' : ''}`}>
       {visual ? <div className="games-card-visual" aria-hidden="true" /> : null}
       <div className="games-card-main">
-        <div>
-          <span>{subtitle}</span>
-          <h2>{title}</h2>
-          <p>{body}</p>
+        <div className="games-card-title-row">
+          <GameIcon slug={slug} label={`${title} icon`} tone={tone} />
+          <div>
+            <span>{subtitle}</span>
+            <h2>{title}</h2>
+            <p>{body}</p>
+          </div>
         </div>
         <div className="games-card-metrics">
           {metrics.map((metric) => (
@@ -77,9 +81,9 @@ export function RoadmapCard({ item, index }) {
   return (
     <article className="games-roadmap-card">
       <div className="games-roadmap-card__head">
-        <span>{String(index + 1).padStart(2, '0')}</span>
+        <GameIcon slug={item.slug} label={`${item.title} icon`} tone={game.tone || 'roadmap'} />
         <div>
-          <p>{item.subtitle}</p>
+          <p>{String(index + 1).padStart(2, '0')} · {item.subtitle}</p>
           <h3>{item.title}</h3>
         </div>
         <strong>{item.priority}</strong>

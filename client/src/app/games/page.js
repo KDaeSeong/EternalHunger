@@ -147,6 +147,7 @@ export default function GamesPage() {
     ];
   }, [dynamicCandidates]);
   const games = useMemo(() => GAME_CATALOG.map((game) => ({
+    slug: game.slug,
     tone: game.tone,
     title: game.title,
     subtitle: game.subtitle,
