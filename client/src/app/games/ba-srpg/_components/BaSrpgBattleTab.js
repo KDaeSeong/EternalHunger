@@ -1,4 +1,4 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   GRID,
   actorStatusText,
@@ -21,6 +21,7 @@ function BoardCell({ content, selected, target, onClick }) {
     <button
       type="button"
       className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}`}
+      data-game-sfx={content.actor ? 'select' : 'click'}
       disabled={content.type === 'obstacle'}
       onClick={onClick}
       title={label}
@@ -35,6 +36,11 @@ function BoardCell({ content, selected, target, onClick }) {
       )}
     </button>
   );
+}
+
+function expectedAttackDamage(attack) {
+  const value = Number(attack?.expectedHpDamage ?? attack?.hpDamage ?? 0);
+  return Number.isFinite(value) ? value : 0;
 }
 
 export default function BaSrpgBattleTab(props) {
@@ -176,7 +182,7 @@ export default function BaSrpgBattleTab(props) {
             <SmallStat
               label="최선 공격"
               value={battleForecast.bestAttack
-                ? `${battleForecast.bestAttack.enemyName} ${battleForecast.bestAttack.expectedHpDamage}`
+                ? `${battleForecast.bestAttack.enemyName} ${expectedAttackDamage(battleForecast.bestAttack)}`
                 : '-'}
             />
           </div>
@@ -232,8 +238,8 @@ export default function BaSrpgBattleTab(props) {
                   <strong>{action.title}</strong>
                   <small>{action.detail}</small>
                 </div>
-                <button
-                  type="button"
+                <ActionButton
+                  action={action.type === 'attack' ? 'combat' : 'skill'}
                   disabled={!action.enabled}
                   onClick={() => {
                     if (action.type === 'attack') {
@@ -251,7 +257,7 @@ export default function BaSrpgBattleTab(props) {
                   }}
                 >
                   실행
-                </button>
+                </ActionButton>
               </article>
             ))}
           </div>
@@ -369,7 +375,7 @@ export default function BaSrpgBattleTab(props) {
             {selectedRecipe.baseCostCredit !== selectedRecipe.costCredit ? ` (기본 ${selectedRecipe.baseCostCredit})` : ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
+            <ActionButton action="craft" onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
           </div>
           <div className="games-rank-split" style={{ marginTop: 10 }}>
             <SmallStat label="상점 갱신" value={`${town.shopRefreshCount}회`} />
@@ -378,26 +384,27 @@ export default function BaSrpgBattleTab(props) {
             <SmallStat label="갱신 비용" value={`${town.shopRefreshCost} Cr`} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-            <ActionButton disabled={!town.shopFreeRefreshAvailable} onClick={() => setState((current) => refreshShopAction(current, true))}>
+            <ActionButton action="shop" disabled={!town.shopFreeRefreshAvailable} onClick={() => setState((current) => refreshShopAction(current, true))}>
               무료 상점 갱신
             </ActionButton>
-            <ActionButton disabled={Number(state.credit || 0) < Number(town.shopRefreshCost || 0)} onClick={() => setState((current) => refreshShopAction(current, false))}>
+            <ActionButton action="shop" disabled={Number(state.credit || 0) < Number(town.shopRefreshCost || 0)} onClick={() => setState((current) => refreshShopAction(current, false))}>
               유료 상점 갱신
             </ActionButton>
           </div>
           <div className="games-chip-row" style={{ marginTop: 10 }}>
             {shop.map((item) => (
-              <button
-                type="button"
+              <GameControlButton
+                action="shop"
                 className="srpg-shop-chip"
                 key={item.itemId}
+                unwrapped
                 disabled={(item.stock != null && Number(item.stock || 0) <= 0) || Number(state.credit || 0) < Number(item.price || 0)}
                 title={item.stock == null ? '재고 무제한' : `재고 ${item.stock}`}
                 onClick={() => setState((current) => buyItemAction(current, item.itemId))}
               >
                 <span>{item.name} {item.price}Cr{item.basePrice !== item.price ? `/${item.basePrice}` : ''}</span>
                 <small>재고 {item.stock == null ? '∞' : item.stock}</small>
-              </button>
+              </GameControlButton>
             ))}
           </div>
         </section>

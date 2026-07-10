@@ -1,3 +1,4 @@
+import { ActionButton } from '../../_components/GamePlayPrimitives';
 import {
   claimQuestAction,
   equipWeaponAction,
@@ -47,9 +48,9 @@ export default function BaSrpgInventoryTab(props) {
                   <span>공격 {equip.stats.atk || 0} · 명중 {equip.stats.acc || 0}</span>
                   <strong>{equip.name}</strong>
                 </div>
-                <button type="button" className="tcg-primary-action" onClick={() => setState((current) => equipWeaponAction(current, equip.uid))}>
+                <ActionButton action="equip" onClick={() => setState((current) => equipWeaponAction(current, equip.uid))}>
                   {equip.equipped ? '장착 중' : '장착'}
-                </button>
+                </ActionButton>
               </article>
             )) : <div className="games-empty">보유 장비가 없습니다.</div>}
           </div>
@@ -67,9 +68,9 @@ export default function BaSrpgInventoryTab(props) {
                   <span>{quest.cadence} · {quest.progress}/{quest.required} · {quest.claimed ? '보고 완료' : quest.done ? '보고 가능' : '진행 중'}</span>
                   <strong>{quest.title}</strong>
                 </div>
-                <button type="button" className="tcg-primary-action" disabled={!quest.done || quest.claimed} onClick={() => setState((current) => claimQuestAction(current, quest.id))}>
+                <ActionButton action="claim" disabled={!quest.done || quest.claimed} onClick={() => setState((current) => claimQuestAction(current, quest.id))}>
                   {quest.claimed ? '완료' : '보고'}
-                </button>
+                </ActionButton>
               </article>
             ))}
           </div>

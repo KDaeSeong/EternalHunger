@@ -6296,6 +6296,27 @@
   padding: 8px 10px;
 }
 
+.srpg-shop-chip.game-control-button--unwrapped {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  justify-content: stretch;
+  column-gap: 8px;
+  row-gap: 2px;
+  text-align: left;
+}
+
+.srpg-shop-chip.game-control-button--unwrapped > .game-action-icon {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+.srpg-shop-chip.game-control-button--unwrapped > span:not(.game-action-icon),
+.srpg-shop-chip.game-control-button--unwrapped > small {
+  grid-column: 2;
+}
+
 .srpg-shop-chip span,
 .srpg-shop-chip small {
   max-width: 100%;
@@ -6502,6 +6523,12 @@
   font-size: 0.74rem;
   font-weight: 950;
   cursor: pointer;
+}
+
+.srpg-town-tile__actions .game-action-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-basis: 0.9rem;
 }
 
 .srpg-town-tile__actions button:disabled {

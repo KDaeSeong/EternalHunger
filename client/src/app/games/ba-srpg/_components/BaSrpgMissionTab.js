@@ -77,8 +77,8 @@ export default function BaSrpgMissionTab(props) {
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMissionRewards}</p>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.caution}</p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={!formationCount || selectedMissionProgress?.locked} onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
-            <ActionButton onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
+            <ActionButton action="deploy" disabled={!formationCount || selectedMissionProgress?.locked} onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
+            <ActionButton action="rest" onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
           </div>
         </section>
 
@@ -106,14 +106,13 @@ export default function BaSrpgMissionTab(props) {
                   <small>승산 {row.successPct}% · {row.repeatValue} · {row.prepText}</small>
                   <small>{row.rewardText}</small>
                 </div>
-                <button
-                  type="button"
-                  className="tcg-primary-action"
+                <ActionButton
+                  action="target"
                   onClick={() => setMissionId(row.id)}
                   disabled={row.locked}
                 >
                   선택
-                </button>
+                </ActionButton>
               </article>
             ))}
           </div>
@@ -148,14 +147,13 @@ export default function BaSrpgMissionTab(props) {
                         : campaignReport.recommendations.join(' / ')}
                   </small>
                 </div>
-                <button
-                  type="button"
-                  className="tcg-primary-action"
+                <ActionButton
+                  action="target"
                   onClick={() => setMissionId(row.id)}
                   disabled={row.locked}
                 >
                   선택
-                </button>
+                </ActionButton>
               </article>
             ))}
           </div>
@@ -177,13 +175,12 @@ export default function BaSrpgMissionTab(props) {
                     <small>{preset.orderText}</small>
                     <small>{preset.threatText} · 전투력 {preset.power.toLocaleString('ko-KR')} ({preset.powerGap >= 0 ? '+' : ''}{preset.powerGap})</small>
                   </div>
-                  <button
-                    type="button"
-                    className="tcg-primary-action"
+                  <ActionButton
+                    action="formation"
                     onClick={() => setState((current) => applyFormationPresetAction(current, preset.id, missionId))}
                   >
                     적용
-                  </button>
+                  </ActionButton>
                 </article>
               ))}
             </div>
@@ -198,13 +195,12 @@ export default function BaSrpgMissionTab(props) {
                   <small>전술 스킬: {student.skillText || '-'}</small>
                   <small>{student.tacticalProfile}</small>
                 </div>
-                <button
-                  type="button"
-                  className="tcg-primary-action"
+                <ActionButton
+                  action="formation"
                   onClick={() => setState((current) => setFormationAction(current, student.id, !student.selected))}
                 >
                   {student.selected ? '제외' : '편성'}
-                </button>
+                </ActionButton>
               </article>
             ))}
           </div>
@@ -222,10 +218,10 @@ export default function BaSrpgMissionTab(props) {
             <SmallStat label="사거리" value={selectedUnit?.range ?? 0} />
           </div>
           <div className="srpg-pad">
-            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
-            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
-            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
-            <button type="button" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
+            <button type="button" aria-label="위로 이동" title="위로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
+            <button type="button" aria-label="왼쪽으로 이동" title="왼쪽으로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
+            <button type="button" aria-label="오른쪽으로 이동" title="오른쪽으로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
+            <button type="button" aria-label="아래로 이동" title="아래로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
           </div>
         </section>
 
@@ -252,23 +248,25 @@ export default function BaSrpgMissionTab(props) {
             대상 {selectedSkill?.targetName || '-'} · 사거리 {selectedSkill?.rangeText || '-'} · {selectedSkill?.note || ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
-            <ActionButton disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
+            <ActionButton action="combat" disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
+            <ActionButton action="skill" disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
             <ActionButton
+              action="consume"
               disabled={!selectedCanAct || Number(state.inventory.con_bandage || 0) <= 0}
               onClick={() => setState((current) => consumeBandageAction(current))}
             >
               붕대 사용 (x{Number(state.inventory.con_bandage || 0)})
             </ActionButton>
             <ActionButton
+              action="wait"
               disabled={!selectedCanAct}
               onClick={() => setState((current) => waitSelectedUnitAction(current))}
             >
               대기
             </ActionButton>
-            <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
-            <ActionButton disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
-            <ActionButton disabled={battle.phase !== 'player'} onClick={runAutoBattle}>자동 전투 x8</ActionButton>
+            <ActionButton action="turn" disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
+            <ActionButton action="auto" disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
+            <ActionButton action="auto" disabled={battle.phase !== 'player'} onClick={runAutoBattle}>자동 전투 x8</ActionButton>
           </div>
         </section>
       </section>

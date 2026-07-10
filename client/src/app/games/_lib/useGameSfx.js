@@ -144,6 +144,52 @@ const CUE_PROFILES = {
     { frequency: 720, endFrequency: 1080, duration: 0.06, type: 'sawtooth', gain: 0.035 },
     { frequency: 1360, start: 0.05, duration: 0.075, type: 'sine', gain: 0.035 },
   ],
+  deploy: [
+    { frequency: 280, duration: 0.045, type: 'square', gain: 0.045 },
+    { frequency: 460, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.055 },
+    { frequency: 760, start: 0.088, duration: 0.085, type: 'sine', gain: 0.04 },
+  ],
+  formation: [
+    { frequency: 420, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 520, start: 0.035, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 680, start: 0.07, duration: 0.055, type: 'triangle', gain: 0.04 },
+  ],
+  move: [
+    { frequency: 330, endFrequency: 470, duration: 0.055, type: 'triangle', gain: 0.05 },
+  ],
+  wait: [
+    { frequency: 520, endFrequency: 330, duration: 0.095, type: 'sine', gain: 0.045 },
+  ],
+  turn: [
+    { frequency: 540, endFrequency: 360, duration: 0.06, type: 'triangle', gain: 0.045 },
+    { frequency: 720, start: 0.055, duration: 0.065, type: 'sine', gain: 0.04 },
+  ],
+  auto: [
+    { frequency: 430, duration: 0.032, type: 'square', gain: 0.035 },
+    { frequency: 560, start: 0.03, duration: 0.032, type: 'square', gain: 0.035 },
+    { frequency: 760, start: 0.06, duration: 0.055, type: 'triangle', gain: 0.04 },
+  ],
+  property: [
+    { frequency: 560, duration: 0.045, type: 'triangle', gain: 0.045 },
+    { frequency: 840, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04 },
+  ],
+  edict: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.045, gain: 0.055 },
+    { frequency: 260, endFrequency: 190, duration: 0.08, type: 'square', gain: 0.04 },
+  ],
+  equip: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 2.4, duration: 0.035, gain: 0.05 },
+    { frequency: 620, start: 0.025, duration: 0.06, type: 'triangle', gain: 0.045 },
+  ],
+  claim: [
+    { frequency: 620, duration: 0.035, type: 'triangle', gain: 0.045 },
+    { frequency: 900, start: 0.034, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 1240, start: 0.075, duration: 0.07, type: 'sine', gain: 0.035 },
+  ],
+  shop: [
+    { frequency: 880, duration: 0.032, type: 'square', gain: 0.035 },
+    { frequency: 1160, start: 0.03, duration: 0.052, type: 'triangle', gain: 0.04 },
+  ],
   event: [
     { frequency: 680, endFrequency: 940, duration: 0.065, type: 'sawtooth', gain: 0.04 },
     { frequency: 1240, start: 0.055, duration: 0.075, type: 'sine', gain: 0.035 },
