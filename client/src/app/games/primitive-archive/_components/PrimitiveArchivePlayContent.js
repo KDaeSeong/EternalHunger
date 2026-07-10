@@ -6,7 +6,11 @@ import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import {
+  ActionButton,
+  GameControlButton,
+  RecentActionResult,
+} from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
   ITEMS,
@@ -331,13 +335,13 @@ export default function PrimitiveArchivePlayContent() {
 
   const playActions = (
     <>
-      <button type="button" onClick={startNewRun}>새 런</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</button>
-      <button type="button" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</button>
-      <button type="button" onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</button>
-      <button type="button" onClick={() => applyAction('런 정산', (current) => settleRunAction(current))}>런 정산</button>
+      <GameControlButton action="new" onClick={startNewRun}>새 런</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</GameControlButton>
+      <GameControlButton action="auto" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
+      <GameControlButton action="complete" onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</GameControlButton>
+      <GameControlButton action="settle" onClick={() => applyAction('런 정산', (current) => settleRunAction(current))}>런 정산</GameControlButton>
       <Link href="/myanime/primitive-archive">상세</Link>
     </>
   );
@@ -411,6 +415,7 @@ export default function PrimitiveArchivePlayContent() {
               type="button"
               key={row.key}
               className={`primitive-difficulty-card${newRunDifficulty === row.key ? ' is-active' : ''}`}
+              data-game-sfx="select"
               onClick={() => setNewRunDifficulty(row.key)}
               aria-pressed={newRunDifficulty === row.key}
             >
@@ -433,9 +438,9 @@ export default function PrimitiveArchivePlayContent() {
         </div>
         <div className="primitive-difficulty-summary">
           <span>선택한 난이도는 새 런을 시작할 때 적용됩니다. 보유 특전 보급은 시작 보급에 추가됩니다.</span>
-          <button type="button" className="tcg-primary-action" onClick={startNewRun}>
+          <ActionButton action="new" onClick={startNewRun}>
             {selectedDifficulty.label}으로 새 런
-          </button>
+          </ActionButton>
         </div>
       </section>
 

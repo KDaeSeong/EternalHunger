@@ -1,5 +1,6 @@
 import {
   ActionButton,
+  GameControlButton,
   RecentActionResult,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
@@ -83,7 +84,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   </article>
                 ))}
               </div>
-              <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>
+              <ActionButton action="research" disabled={!canAct || !research.selected?.available} onClick={runResearch}>
                 연구 실행
               </ActionButton>
             </section>
@@ -120,10 +121,10 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     </div>
                   </div>
                   <div className="game-save-row-actions">
-                    <button type="button" onClick={openPlanner}>상세 보기</button>
-                    <button type="button" disabled={!selectedPlanner.available || selectedPlanner.completed || selectedPlanner.selected} onClick={() => selectResearchTarget(selectedPlanner.id)}>
+                    <GameControlButton action="analysis" onClick={openPlanner}>상세 보기</GameControlButton>
+                    <GameControlButton action="target" disabled={!selectedPlanner.available || selectedPlanner.completed || selectedPlanner.selected} onClick={() => selectResearchTarget(selectedPlanner.id)}>
                       {selectedPlanner.selected ? '선택 중' : selectedPlanner.available ? '목표 지정' : '대기'}
-                    </button>
+                    </GameControlButton>
                   </div>
                 </>
               ) : <div className="games-empty">연구 플래너 정보가 없습니다.</div>}
@@ -140,9 +141,9 @@ export default function PrimitiveArchiveGrowthTab(props) {
                       <strong>{tech.name}</strong>
                       <small>{tech.nextAction}{tech.pressureBonus ? ` · ${tech.pressureLabel}` : ''}</small>
                     </div>
-                    <button type="button" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
+                    <GameControlButton action="target" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
                       {tech.selected ? '선택 중' : tech.available ? '목표' : '대기'}
-                    </button>
+                    </GameControlButton>
                   </article>
                 ))}
               </div>
@@ -163,6 +164,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                           type="button"
                           className="game-save-row"
                           key={tech.id}
+                          data-game-sfx="select"
                           disabled={tech.completed || !tech.available}
                           onClick={() => selectResearchTarget(tech.id)}
                           style={{
@@ -205,14 +207,14 @@ export default function PrimitiveArchiveGrowthTab(props) {
                       <strong>{perk.name}</strong>
                       <small style={{ display: 'block', color: '#94a3b8', marginTop: 4 }}>{perk.desc}</small>
                     </div>
-                    <button
-                      type="button"
+                    <GameControlButton
+                      action="upgrade"
                       className="tcg-primary-action"
                       disabled={!perk.canBuy}
                       onClick={() => buyPerk(perk)}
                     >
                       {perk.maxed ? '완료' : '구매'}
-                    </button>
+                    </GameControlButton>
                   </article>
                 ))}
               </div>
@@ -232,7 +234,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <h2 id="primitive-research-modal-title">{selectedPlanner.name}</h2>
                     <span>{selectedPlanner.priorityLabel} · 우선도 {selectedPlanner.priorityScore}</span>
                   </div>
-                  <button type="button" className="primitive-research-modal__close" onClick={closePlanner}>닫기</button>
+                  <GameControlButton action="close" className="primitive-research-modal__close" onClick={closePlanner}>닫기</GameControlButton>
                 </div>
 
                 <div className="games-rank-split">
@@ -284,9 +286,9 @@ export default function PrimitiveArchiveGrowthTab(props) {
                         <strong>{tech.name}</strong>
                         <small>{tech.unlockText}{tech.pressureBonus ? ` · ${tech.pressureLabel}` : ''}</small>
                       </div>
-                      <button type="button" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
+                      <GameControlButton action="target" disabled={!tech.available || tech.completed || tech.selected} onClick={() => selectResearchTarget(tech.id)}>
                         {tech.selected ? '선택 중' : tech.available ? '목표' : '대기'}
-                      </button>
+                      </GameControlButton>
                     </article>
                   ))}
                 </div>

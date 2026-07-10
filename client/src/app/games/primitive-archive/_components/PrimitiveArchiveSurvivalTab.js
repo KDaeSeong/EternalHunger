@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import {
   ActionButton,
+  GameControlButton,
   RecentActionResult,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
@@ -102,19 +103,20 @@ export default function PrimitiveArchiveSurvivalTab(props) {
               </span>
             </div>
             <div className="games-action-dock__buttons">
-              <ActionButton disabled={!canAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
-              <ActionButton disabled={!canAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
-              <ActionButton disabled={!canAct || !recipe?.unlocked} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
-              <ActionButton disabled={!canAct} onClick={runEat}>식사</ActionButton>
-              <ActionButton disabled={!canAct} onClick={runRest}>휴식</ActionButton>
-              <ActionButton disabled={!canAct || !research.selected?.available} onClick={runResearch}>연구</ActionButton>
+              <ActionButton action="gather" disabled={!canAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
+              <ActionButton action="combat" disabled={!canAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
+              <ActionButton action="craft" disabled={!canAct || !recipe?.unlocked} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
+              <ActionButton action="consume" disabled={!canAct} onClick={runEat}>식사</ActionButton>
+              <ActionButton action="rest" disabled={!canAct} onClick={runRest}>휴식</ActionButton>
+              <ActionButton action="research" disabled={!canAct || !research.selected?.available} onClick={runResearch}>연구</ActionButton>
             </div>
             <div className="games-action-dock__buttons games-action-dock__buttons--camp">
               {BASE_CAMP_ACTIONS.map((row) => (
-                <ActionButton disabled={!canAct} onClick={() => runCamp(row.id)} key={row.id}>{row.label}</ActionButton>
+                <ActionButton action={row.id === 'fuel' ? 'fuel' : 'camp'} disabled={!canAct} onClick={() => runCamp(row.id)} key={row.id}>{row.label}</ActionButton>
               ))}
               {campFacilities.map((facility) => (
                 <ActionButton
+                  action="camp"
                   key={facility.id}
                   disabled={!canAct || !facility.unlocked || facility.maxed}
                   onClick={() => runCamp(facility.action)}
@@ -153,14 +155,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="button"
+                  <GameControlButton
+                    action="recruit"
                     className="tcg-secondary-action"
                     disabled={!selectedRecruit || state.party.length >= partyCap}
                     onClick={recruitMember}
                   >
                     합류
-                  </button>
+                  </GameControlButton>
                   <span style={{ color: '#cbd5e1', fontWeight: 800 }}>
                     {state.party.length >= partyCap ? '정착 연구로 정원을 늘릴 수 있습니다.' : selectedRecruit?.trait}
                   </span>
@@ -171,6 +173,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                   <button
                     type="button"
                     key={member.id}
+                    data-game-sfx="select"
                     onClick={() => setActorId(member.id)}
                     style={{
                       minWidth: 0,
@@ -219,7 +222,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                   </article>
                 ))}
               </div>
-              <ActionButton disabled={!archiveVictory.canComplete} onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))}>
+              <ActionButton action="complete" disabled={!archiveVictory.canComplete} onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))}>
                 아카이브 완성
               </ActionButton>
             </section>
@@ -272,14 +275,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                       <strong>{chain.title}</strong>
                       <small>{chain.detail}</small>
                     </div>
-                    <button
-                      type="button"
+                    <GameControlButton
+                      action="event"
                       className="tcg-secondary-action"
                       disabled={!canAct || !chain.enabled}
                       onClick={() => runEventChain(chain.id)}
                     >
                       {chain.actionLabel}
-                    </button>
+                    </GameControlButton>
                   </article>
                 ))}
                 {(runProgressReport.recoveryChoices || []).map((choice) => (
@@ -289,14 +292,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                       <strong>{choice.title}</strong>
                       <small>{choice.detail}</small>
                     </div>
-                    <button
-                      type="button"
+                    <GameControlButton
+                      action="execute"
                       className="tcg-secondary-action"
                       disabled={!canAct || !choice.enabled}
                       onClick={() => runRecoveryChoice(choice.id)}
                     >
                       실행
-                    </button>
+                    </GameControlButton>
                   </article>
                 ))}
               </div>
@@ -316,13 +319,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                 <div><span>서가</span><strong>Lv.{state.camp.libraryShelfLevel || 0}</strong></div>
               </div>
               <div style={{ display: 'grid', gap: 8 }}>
-                <ActionButton disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>
-                <ActionButton disabled={!canAct} onClick={() => runCamp('fire')}>모닥불 강화 · 나무 2, 돌 2</ActionButton>
-                <ActionButton disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
-                <ActionButton disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
-                <ActionButton disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
+                <ActionButton action="fuel" disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>
+                <ActionButton action="camp" disabled={!canAct} onClick={() => runCamp('fire')}>모닥불 강화 · 나무 2, 돌 2</ActionButton>
+                <ActionButton action="camp" disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
+                <ActionButton action="craft" disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
+                <ActionButton action="consume" disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
                 {campFacilities.map((facility) => (
                   <ActionButton
+                    action="camp"
                     key={facility.id}
                     disabled={!canAct || !facility.unlocked || facility.maxed}
                     onClick={() => runCamp(facility.action)}
@@ -345,15 +349,15 @@ export default function PrimitiveArchiveSurvivalTab(props) {
                 <span>{actor?.name || '대상'} · 보온 {actor ? currentEquipmentRows.reduce((sum, row) => sum + Number(row.insulation || 0), 0) : 0}</span>
               </div>
               <div className="games-chip-row" style={{ marginBottom: 12 }}>
-                <button type="button" className="tcg-secondary-action" onClick={() => autoEquip('role')}>
+                <GameControlButton action="equip" className="tcg-secondary-action" onClick={() => autoEquip('role')}>
                   역할 추천 장착
-                </button>
-                <button type="button" className="tcg-secondary-action" onClick={() => autoEquip('weather')}>
+                </GameControlButton>
+                <GameControlButton action="equip" className="tcg-secondary-action" onClick={() => autoEquip('weather')}>
                   날씨 대응 장착
-                </button>
-                <button type="button" className="tcg-secondary-action" onClick={clearEquipment}>
+                </GameControlButton>
+                <GameControlButton action="reset" className="tcg-secondary-action" onClick={clearEquipment}>
                   전체 해제
-                </button>
+                </GameControlButton>
               </div>
               <div className="game-save-list">
                 {equipmentAdviceRows.length ? (

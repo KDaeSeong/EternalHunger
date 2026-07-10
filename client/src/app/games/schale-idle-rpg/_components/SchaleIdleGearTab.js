@@ -1,4 +1,5 @@
 import {
+  GameControlButton,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import {
@@ -82,17 +83,17 @@ export default function SchaleIdleGearTab(props) {
                     <small>{action.detail}</small>
                   </div>
                   {action.type === 'lock' ? (
-                    <button
-                      type="button"
+                    <GameControlButton
+                      action="lock"
                       disabled={!action.enabled}
                       onClick={() => setState((current) => toggleEquipmentAffixLockAction(current, action.slot, action.affixId))}
                     >
                       잠금
-                    </button>
+                    </GameControlButton>
                   ) : null}
                   {action.type === 'reroll' ? (
-                    <button
-                      type="button"
+                    <GameControlButton
+                      action="reroll"
                       disabled={!action.enabled}
                       onClick={() => {
                         setEnhanceSlot(action.slot);
@@ -100,11 +101,11 @@ export default function SchaleIdleGearTab(props) {
                       }}
                     >
                       재련
-                    </button>
+                    </GameControlButton>
                   ) : null}
                   {action.type === 'enhance' ? (
-                    <button
-                      type="button"
+                    <GameControlButton
+                      action="upgrade"
                       disabled={!action.enabled}
                       onClick={() => {
                         setEnhanceSlot(action.slot);
@@ -112,7 +113,7 @@ export default function SchaleIdleGearTab(props) {
                       }}
                     >
                       강화
-                    </button>
+                    </GameControlButton>
                   ) : null}
                   {action.type === 'idle' ? <strong>대기</strong> : null}
                 </article>
@@ -163,14 +164,14 @@ export default function SchaleIdleGearTab(props) {
                       {(equip.affixes || []).length ? (
                         <div className="games-chip-row" style={{ marginTop: 8 }}>
                           {equip.affixes.map((affix) => (
-                            <button
-                              type="button"
+                            <GameControlButton
+                              action="lock"
                               className={`schale-salvage-toggle${affix.locked ? ' is-on' : ''}`}
                               key={`${equip.uid}-${affix.id}`}
                               onClick={() => setState((current) => toggleEquipmentAffixLockAction(current, equip.slot, affix.id))}
                             >
                               {affix.locked ? '잠금' : '잠금 해제'} · {affix.label}
-                            </button>
+                            </GameControlButton>
                           ))}
                         </div>
                       ) : null}
@@ -202,21 +203,21 @@ export default function SchaleIdleGearTab(props) {
               </select>
             </label>
             <div className="games-chip-row" style={{ marginBottom: 12 }}>
-              <button type="button" className="tcg-primary-action" disabled={!equipped.length} onClick={() => {
+              <GameControlButton action="preset" className="tcg-primary-action" disabled={!equipped.length} onClick={() => {
                 setSelectedPresetId('');
                 setState((current) => saveEquipmentPresetAction(current, presetName));
               }}>
                 현재 장비 저장
-              </button>
-              <button type="button" className="tcg-primary-action" disabled={!selectedPreset} onClick={() => setState((current) => applyEquipmentPresetAction(current, activePresetId))}>
+              </GameControlButton>
+              <GameControlButton action="preset" className="tcg-primary-action" disabled={!selectedPreset} onClick={() => setState((current) => applyEquipmentPresetAction(current, activePresetId))}>
                 프리셋 적용
-              </button>
-              <button type="button" className="tcg-secondary-action" disabled={!selectedPreset} onClick={() => {
+              </GameControlButton>
+              <GameControlButton action="reset" className="tcg-secondary-action" disabled={!selectedPreset} onClick={() => {
                 setSelectedPresetId('');
                 setState((current) => deleteEquipmentPresetAction(current, activePresetId));
               }}>
                 삭제
-              </button>
+              </GameControlButton>
             </div>
             <div className="game-save-list">
               {presets.length ? presets.slice(0, 5).map((preset) => (
@@ -272,22 +273,22 @@ export default function SchaleIdleGearTab(props) {
               <SmallStat label="주간 피티" value={`${shopRotation.weeklyPityCounter}/${shopRotation.weeklyPityTrigger}`} />
             </div>
             <div className="games-chip-row" style={{ marginBottom: 12 }}>
-              <button
-                type="button"
+              <GameControlButton
+                action="reroll"
                 className="tcg-primary-action"
                 disabled={!shopRotation.canResetDaily}
                 onClick={() => setState((current) => resetTowerShopRotationAction(current, 'DAILY'))}
               >
                 오늘 픽업 리셋 · {shopRotation.dailyResetCost}토큰
-              </button>
-              <button
-                type="button"
+              </GameControlButton>
+              <GameControlButton
+                action="reroll"
                 className="tcg-primary-action"
                 disabled={!shopRotation.canResetWeekly}
                 onClick={() => setState((current) => resetTowerShopRotationAction(current, 'WEEKLY'))}
               >
                 이번주 픽업 리셋 · {shopRotation.weeklyResetCost}토큰
-              </button>
+              </GameControlButton>
             </div>
             <div className="game-save-list">
               {shopOffers.map((offer) => (
@@ -298,10 +299,10 @@ export default function SchaleIdleGearTab(props) {
                     <small>남은 구매 {offer.remaining}</small>
                   </div>
                   <div className="game-save-row-actions">
-                    <button type="button" disabled={!offer.canBuy} onClick={() => setState((current) => buyTowerShopOfferAction(current, offer.id))}>구매</button>
-                    <button type="button" disabled={!offer.canBuyMax} onClick={() => setState((current) => buyTowerShopOfferMaxAction(current, offer.id))}>
+                    <GameControlButton action="shop" disabled={!offer.canBuy} onClick={() => setState((current) => buyTowerShopOfferAction(current, offer.id))}>구매</GameControlButton>
+                    <GameControlButton action="shop" disabled={!offer.canBuyMax} onClick={() => setState((current) => buyTowerShopOfferMaxAction(current, offer.id))}>
                       최대 {offer.maxBuyCount || 0}
-                    </button>
+                    </GameControlButton>
                   </div>
                 </article>
               ))}
@@ -311,45 +312,45 @@ export default function SchaleIdleGearTab(props) {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>분해 대기열</h2>
-              <button type="button" className="tcg-primary-action" disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
+              <GameControlButton action="salvage" className="tcg-primary-action" disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
                 자동 분해{salvageInfo.candidateOnly ? ' · 후보만' : ''}
-              </button>
+              </GameControlButton>
             </div>
             {salvage.length ? (
               <>
                 <div className="games-chip-row" style={{ marginBottom: 12 }}>
-                  <button
-                    type="button"
+                  <GameControlButton
+                    action="salvage"
                     className={`schale-salvage-toggle${salvageInfo.candidateOnly ? ' is-on' : ''}`}
                     onClick={() => setState((current) => setSalvageCandidateOnlyAction(current, !salvageInfo.candidateOnly))}
                   >
                     후보만 분해
                     {salvageInfo.candidateOnly ? <span>ON</span> : <span>OFF</span>}
-                  </button>
-                  <button
-                    type="button"
+                  </GameControlButton>
+                  <GameControlButton
+                    action="target"
                     className="schale-salvage-toggle"
                     disabled={!salvageInfo.executableCount}
                     onClick={() => setSelectedSalvageUids(salvage.filter((entry) => entry.executable).map((entry) => entry.uid))}
                   >
                     실행 대상 선택
-                  </button>
-                  <button
-                    type="button"
+                  </GameControlButton>
+                  <GameControlButton
+                    action="reset"
                     className="schale-salvage-toggle"
                     disabled={!validSelectedSalvageUids.length}
                     onClick={() => setSelectedSalvageUids([])}
                   >
                     선택 해제
-                  </button>
-                  <button
-                    type="button"
+                  </GameControlButton>
+                  <GameControlButton
+                    action="salvage"
                     className="tcg-primary-action"
                     disabled={!selectedSalvageInfo.executableCount}
                     onClick={runSelectedSalvage}
                   >
                     선택 분해
-                  </button>
+                  </GameControlButton>
                 </div>
                 <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
                   {salvageInfo.candidateOnly ? (
@@ -425,7 +426,7 @@ export default function SchaleIdleGearTab(props) {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>미션</h2>
-              <button type="button" className="tcg-primary-action" onClick={() => setState((current) => claimMissionRewardsAction(current))}>보상 수령</button>
+              <GameControlButton action="claim" className="tcg-primary-action" onClick={() => setState((current) => claimMissionRewardsAction(current))}>보상 수령</GameControlButton>
             </div>
             <div className="game-save-list">
               {missions.map((mission) => (
@@ -443,9 +444,9 @@ export default function SchaleIdleGearTab(props) {
           <section className="games-panel">
             <div className="games-panel-title">
               <h2>업적</h2>
-              <button type="button" className="tcg-primary-action" disabled={!claimableAchievements} onClick={() => setState((current) => claimAchievementRewardsAction(current))}>
+              <GameControlButton action="claim" className="tcg-primary-action" disabled={!claimableAchievements} onClick={() => setState((current) => claimAchievementRewardsAction(current))}>
                 {claimableAchievements ? `${claimableAchievements}개 수령` : '수령 없음'}
-              </button>
+              </GameControlButton>
             </div>
             <div className="game-save-list">
               {achievements.map((achievement) => (
@@ -474,9 +475,9 @@ export default function SchaleIdleGearTab(props) {
                     <strong>{title.name}</strong>
                     <small>{title.desc}</small>
                   </div>
-                  <button type="button" disabled={!title.unlocked} onClick={() => setState((current) => equipTitleAction(current, title.equipped ? null : title.id))}>
+                  <GameControlButton action="title" disabled={!title.unlocked} onClick={() => setState((current) => equipTitleAction(current, title.equipped ? null : title.id))}>
                     {title.equipped ? '해제' : title.unlocked ? '장착' : '잠김'}
-                  </button>
+                  </GameControlButton>
                 </article>
               ))}
             </div>

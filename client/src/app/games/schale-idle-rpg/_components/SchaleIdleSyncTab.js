@@ -28,10 +28,10 @@ export default function SchaleIdleSyncTab(props) {
                       <SmallStat label="점수" value={syncReport.summary.score.toLocaleString('ko-KR')} />
                     </div>
                     <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                      <ActionButton onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>
+                      <ActionButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>
                         {busy === 'save' ? '저장 중...' : '서버 저장'}
                       </ActionButton>
-                      <ActionButton onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>
+                      <ActionButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>
                         {busy === 'record' ? '기록 중...' : '전적 스냅샷'}
                       </ActionButton>
                     </div>

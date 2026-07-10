@@ -194,6 +194,42 @@ const CUE_PROFILES = {
     { frequency: 680, endFrequency: 940, duration: 0.065, type: 'sawtooth', gain: 0.04 },
     { frequency: 1240, start: 0.055, duration: 0.075, type: 'sine', gain: 0.035 },
   ],
+  camp: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.2, duration: 0.095, gain: 0.05 },
+    { frequency: 230, endFrequency: 190, duration: 0.12, type: 'triangle', gain: 0.05 },
+  ],
+  complete: [
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.055 },
+    { frequency: 780, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.05 },
+    { frequency: 1040, start: 0.092, duration: 0.105, type: 'sine', gain: 0.045 },
+  ],
+  settle: [
+    { frequency: 940, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 1260, start: 0.032, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 720, start: 0.075, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  reroll: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 1.7, duration: 0.09, gain: 0.055 },
+    { frequency: 460, endFrequency: 720, duration: 0.085, type: 'triangle', gain: 0.045 },
+  ],
+  salvage: [
+    { source: 'noise', filterType: 'lowpass', frequency: 760, duration: 0.075, gain: 0.07 },
+    { frequency: 280, endFrequency: 145, duration: 0.11, type: 'sawtooth', gain: 0.045 },
+  ],
+  tower: [
+    { frequency: 190, duration: 0.08, type: 'triangle', gain: 0.055 },
+    { frequency: 380, start: 0.065, duration: 0.09, type: 'triangle', gain: 0.045 },
+    { frequency: 760, start: 0.14, duration: 0.1, type: 'sine', gain: 0.035 },
+  ],
+  lock: [
+    { frequency: 310, endFrequency: 240, duration: 0.04, type: 'square', gain: 0.04 },
+    { frequency: 760, start: 0.032, duration: 0.055, type: 'triangle', gain: 0.04 },
+  ],
+  preset: [
+    { frequency: 440, duration: 0.035, type: 'triangle', gain: 0.045 },
+    { frequency: 660, start: 0.032, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 880, start: 0.072, duration: 0.065, type: 'sine', gain: 0.035 },
+  ],
 };
 
 const THEME_CUE_PROFILES = {

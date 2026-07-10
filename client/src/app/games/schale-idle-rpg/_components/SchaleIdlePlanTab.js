@@ -1,6 +1,18 @@
 import {
+  GameControlButton,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+
+const PLAN_ACTION_KINDS = {
+  'buy-offer': 'shop',
+  'claim-rewards': 'claim',
+  craft: 'craft',
+  duty: 'settle',
+  rest: 'rest',
+  salvage: 'salvage',
+  tower: 'tower',
+  upgrade: 'research',
+};
 
 export default function SchaleIdlePlanTab(props) {
   const {
@@ -32,9 +44,9 @@ export default function SchaleIdlePlanTab(props) {
                     <strong>{action.title}</strong>
                     <small>{action.detail}</small>
                   </div>
-                  <button type="button" disabled={!action.command} onClick={() => runPlanCommand(action.command)}>
+                  <GameControlButton action={PLAN_ACTION_KINDS[action.command?.type] || 'execute'} disabled={!action.command} onClick={() => runPlanCommand(action.command)}>
                     {action.buttonLabel || '실행'}
-                  </button>
+                  </GameControlButton>
                 </article>
               ))}
             </div>

@@ -54,6 +54,7 @@ export default function SchaleIdleSeasonTab(props) {
               <SmallStat label="시즌 진행" value={`${seasonRewards.seasonPct}%`} />
             </div>
             <ActionButton
+              action="claim"
               disabled={!seasonRewards.claimableCount}
               onClick={() => setState((current) => claimSeasonRewardsAction(current))}
             >

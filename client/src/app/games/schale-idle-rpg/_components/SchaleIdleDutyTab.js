@@ -1,5 +1,6 @@
 import {
   ActionButton,
+  GameControlButton,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import {
@@ -126,9 +127,9 @@ export default function SchaleIdleDutyTab(props) {
               </select>
             </label>
             <div style={{ display: 'grid', gap: 8 }}>
-              <ActionButton onClick={() => setState((current) => resolveDutyAction(current, 30))}>30분 정산</ActionButton>
-              <ActionButton onClick={() => setState((current) => resolveDutyAction(current, 120))}>2시간 정산</ActionButton>
-              <ActionButton onClick={() => setState((current) => restAction(current))}>재정비</ActionButton>
+              <ActionButton action="settle" onClick={() => setState((current) => resolveDutyAction(current, 30))}>30분 정산</ActionButton>
+              <ActionButton action="settle" onClick={() => setState((current) => resolveDutyAction(current, 120))}>2시간 정산</ActionButton>
+              <ActionButton action="rest" onClick={() => setState((current) => restAction(current))}>재정비</ActionButton>
             </div>
           </section>
 
@@ -161,7 +162,7 @@ export default function SchaleIdleDutyTab(props) {
             <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
               필요 재료: {Object.entries(selectedRecipe.requires).map(([itemId, qty]) => `${itemName(itemId)} ${qty}`).join(', ')}
             </p>
-            <ActionButton onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작 실행</ActionButton>
+            <ActionButton action="craft" onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작 실행</ActionButton>
           </section>
 
           <section className="games-panel">
@@ -198,15 +199,15 @@ export default function SchaleIdleDutyTab(props) {
               </select>
             </label>
             <div style={{ display: 'grid', gap: 8 }}>
-              <ActionButton disabled={!selectedSlot} onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}>선택 장비 강화</ActionButton>
-              <ActionButton disabled={!selectedEquip} onClick={() => setState((current) => rerollEquipmentAction(current, selectedSlot))}>선택 장비 옵션 재련</ActionButton>
-              <ActionButton disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
+              <ActionButton action="upgrade" disabled={!selectedSlot} onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}>선택 장비 강화</ActionButton>
+              <ActionButton action="reroll" disabled={!selectedEquip} onClick={() => setState((current) => rerollEquipmentAction(current, selectedSlot))}>선택 장비 옵션 재련</ActionButton>
+              <ActionButton action="salvage" disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
                 자동 분해 실행{salvageInfo.candidateOnly ? ' · 후보만' : ''}
               </ActionButton>
-              <ActionButton disabled={Number(state.inventory.itm_tower_key || 0) <= 0} onClick={() => setState((current) => attemptTowerAction(current, towerBatchCount, towerStopOnFail))}>
+              <ActionButton action="tower" disabled={Number(state.inventory.itm_tower_key || 0) <= 0} onClick={() => setState((current) => attemptTowerAction(current, towerBatchCount, towerStopOnFail))}>
                 탑 배치 도전 x{towerBatchCount}
               </ActionButton>
-              <ActionButton disabled={Number(state.inventory.itm_tower_key || 0) <= 0} onClick={() => setState((current) => attemptTowerAction(current, 100, false))}>탑 x100 계속 도전</ActionButton>
+              <ActionButton action="tower" disabled={Number(state.inventory.itm_tower_key || 0) <= 0} onClick={() => setState((current) => attemptTowerAction(current, 100, false))}>탑 x100 계속 도전</ActionButton>
             </div>
           </section>
 
@@ -224,7 +225,7 @@ export default function SchaleIdleDutyTab(props) {
                     <small>{upgrade.bonusText || '보정 없음'}</small>
                     <small>필요: {upgrade.costItemText || '없음'}</small>
                   </div>
-                  <button type="button" disabled={!upgrade.canUpgrade} onClick={() => setState((current) => applyUpgradeAction(current, upgrade.id))}>연구</button>
+                  <GameControlButton action="research" disabled={!upgrade.canUpgrade} onClick={() => setState((current) => applyUpgradeAction(current, upgrade.id))}>연구</GameControlButton>
                 </article>
               ))}
             </div>
