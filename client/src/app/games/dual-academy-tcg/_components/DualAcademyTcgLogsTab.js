@@ -1,6 +1,7 @@
 import {
   ZoneArchivePanel,
 } from './TcgPlayBoard';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function DualAcademyTcgLogsTab(props) {
   const {
@@ -71,7 +72,7 @@ export default function DualAcademyTcgLogsTab(props) {
                   <span>{replayExport.format} · {replayExport.sizeLabel}</span>
                   <strong>{replayExport.fileName}</strong>
                   <p>이벤트 {replayExport.eventCount}건 · 턴 {replayExport.turnCount}개 · {replayExport.statusLabel}</p>
-                  <button type="button" onClick={downloadReplayExport}>JSON 리플레이 다운로드</button>
+                  <GameControlButton action="replay" onClick={downloadReplayExport}>JSON 리플레이 다운로드</GameControlButton>
                 </section>
                 <div className="game-save-list">
                   {replayExport.auditRows.map((row) => (

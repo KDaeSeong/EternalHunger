@@ -3711,6 +3711,21 @@
   padding: 28px;
 }
 
+.games-hero--stacked {
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 16px;
+  padding-block: 22px;
+}
+
+.games-hero--stacked .games-hero-actions {
+  justify-content: flex-start;
+}
+
+.games-hero--stacked p:not(.games-kicker) {
+  max-width: 940px;
+}
+
 .games-kicker {
   margin: 0 0 8px;
   color: #2c6f9e;
@@ -4158,16 +4173,41 @@
 .game-icon.is-company-report { --game-icon-accent: #52657a; }
 .game-icon.is-racing-logos-demo { --game-icon-accent: #be3d3d; }
 
-.games-card.has-visual {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.48fr) minmax(0, 1fr);
+.game-key-art {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #18232d;
 }
 
-.games-card-visual {
-  min-height: 100%;
-  background:
-    linear-gradient(180deg, rgba(10, 22, 34, 0.05), rgba(10, 22, 34, 0.52)),
-    url('/Images/ERMap.webp') center / cover no-repeat;
+.game-key-art::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, transparent 58%, rgba(8, 16, 23, 0.32));
+  content: '';
+  pointer-events: none;
+}
+
+.game-key-art img {
+  object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.games-card.has-key-art {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.games-card-key-art {
+  height: clamp(148px, 14vw, 188px);
+  border-bottom: 1px solid rgba(22, 33, 44, 0.1);
+}
+
+.games-card:hover .games-card-key-art img,
+.games-roadmap-card:hover .games-roadmap-card__art img {
+  transform: scale(1.018);
 }
 
 .games-card-main {
@@ -4298,6 +4338,13 @@
   background: #ffffff;
   box-shadow: var(--eh-card-shadow);
   padding: 16px;
+}
+
+.games-roadmap-card__art {
+  height: 138px;
+  margin: -16px -16px 2px;
+  border-bottom: 1px solid rgba(22, 33, 44, 0.1);
+  border-radius: 7px 7px 0 0;
 }
 
 .games-roadmap-card__head {
@@ -5209,6 +5256,52 @@
 .game-action-button__label {
   min-width: 0;
   line-height: 1.25;
+}
+
+.game-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.game-control-button .game-action-button__label {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-control-button--unwrapped {
+  align-content: center;
+}
+
+.tcg-action-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tcg-action-controls .game-control-button {
+  min-height: 36px;
+  flex: 1 1 112px;
+  border: 1px solid rgba(44, 111, 158, 0.24);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1b4f73;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 7px 10px;
+}
+
+.tcg-action-controls .game-control-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.tcg-core-target.game-control-button--unwrapped {
+  display: grid;
+  justify-items: center;
 }
 
 .tcg-primary-action:disabled {
@@ -6528,6 +6621,11 @@
   grid-template-columns: 1fr;
 }
 
+.games-detail-hero.has-key-art.is-twenty,
+.games-detail-hero.has-key-art.is-community {
+  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+}
+
 .games-detail-hero.is-twenty {
   border-top: 4px solid #c9862d;
 }
@@ -6536,11 +6634,8 @@
   border-top: 4px solid #2c6f9e;
 }
 
-.games-detail-visual {
+.games-detail-key-art {
   min-height: 300px;
-  background:
-    linear-gradient(180deg, rgba(10, 22, 34, 0.02), rgba(10, 22, 34, 0.48)),
-    url('/Images/ERMap.webp') center / cover no-repeat;
 }
 
 .games-detail-copy {
@@ -7153,13 +7248,14 @@
     width: fit-content;
   }
 
-  .games-card.has-visual {
-    grid-template-columns: 1fr;
-  }
-
   .games-detail-hero,
   .games-detail-grid,
   .company-guidance-policy {
+    grid-template-columns: 1fr;
+  }
+
+  .games-detail-hero.has-key-art.is-twenty,
+  .games-detail-hero.has-key-art.is-community {
     grid-template-columns: 1fr;
   }
 
@@ -7172,8 +7268,12 @@
     grid-template-columns: 1fr;
   }
 
-  .games-card-visual {
-    min-height: 190px;
+  .games-card-key-art {
+    height: 190px;
+  }
+
+  .games-detail-key-art {
+    min-height: 220px;
   }
 
   .srpg-town-district-grid {

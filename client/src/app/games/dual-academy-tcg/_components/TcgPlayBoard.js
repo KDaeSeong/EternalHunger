@@ -1,5 +1,6 @@
 'use client';
 
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { TCG_CHARACTER_LIST, keywordLabels } from '../_lib/tcgCatalog';
 import {
   PLAYER_LABELS,
@@ -130,6 +131,7 @@ export function ZoneButton({ card, label, active, highlight, onClick, children }
     <button
       type="button"
       className={`tcg-card ${card?.tone ? `is-${card.tone}` : ''} ${active ? 'is-selected' : ''} ${highlight ? 'is-targetable' : ''}`}
+      data-game-sfx="select"
       onClick={onClick}
       style={{
         minHeight: 118,
@@ -196,7 +198,7 @@ export function ZoneArchivePanel({ state, zoneView, onClose }) {
       <div className="tcg-lane-title">
         <h2>{PLAYER_LABELS[zoneView.player]} {zoneLabel}</h2>
         <span>{shownCards.length}장</span>
-        <button type="button" onClick={onClose}>닫기</button>
+        <GameControlButton action="close" onClick={onClose}>닫기</GameControlButton>
       </div>
       <div className="tcg-hand-row">
         {shownCards.length ? shownCards.map((card, index) => (
@@ -309,16 +311,16 @@ export function PlayerField({
           );
         })()}
         {playerKey === state.turnPlayer && canMain && selectedHandId ? (
-          <button type="button" className="tcg-core-target" onClick={() => onSummon(firstEmptySlot(player.monster))} disabled={firstEmptySlot(player.monster) < 0}>
+          <GameControlButton action="summon" className="tcg-core-target" unwrapped onClick={() => onSummon(firstEmptySlot(player.monster))} disabled={firstEmptySlot(player.monster) < 0}>
             <strong>선택 카드 소환</strong>
             <span>빈 몬스터 존 자동 선택</span>
-          </button>
+          </GameControlButton>
         ) : null}
         {selectedAttacker && playerKey !== state.turnPlayer && !player.monster.some(Boolean) ? (
-          <button type="button" className="tcg-core-target" onClick={() => onAttack(selectedAttacker.slot, null)}>
+          <GameControlButton action="combat" className="tcg-core-target" unwrapped onClick={() => onAttack(selectedAttacker.slot, null)}>
             <strong>직접 공격</strong>
             <span>{PLAYER_LABELS[playerKey]} LP를 공격합니다.</span>
-          </button>
+          </GameControlButton>
         ) : null}
       </div>
     </section>
@@ -345,15 +347,15 @@ export function PromptPanel({ state, setState }) {
         <>
           <strong>{PLAYER_LABELS[player]} 응답 창</strong>
           <span>체인 {state.chain.length}개가 대기 중입니다.</span>
-          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+          <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {counterSlots.map(({ card, slot }) => (
-              <button type="button" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
+              <GameControlButton action="skill" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
                 {card.name} 발동
-              </button>
+              </GameControlButton>
             ))}
-            <button type="button" onClick={() => setState((current) => resolveChain(passResponse(current)))}>
+            <GameControlButton action="pass" onClick={() => setState((current) => resolveChain(passResponse(current)))}>
               응답 없음
-            </button>
+            </GameControlButton>
           </div>
         </>
       ) : null}
@@ -361,11 +363,11 @@ export function PromptPanel({ state, setState }) {
         <>
           <strong>{prompt.title}</strong>
           <span>필드에서 강조된 카드를 누르거나 아래 대상 버튼을 누르세요.</span>
-          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+          <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {prompt.options.map((option) => (
-              <button type="button" key={`${option.player}-${option.zone}-${option.slot}`} onClick={() => setState((current) => chooseTarget(current, option))}>
+              <GameControlButton action="target" key={`${option.player}-${option.zone}-${option.slot}`} onClick={() => setState((current) => chooseTarget(current, option))}>
                 {option.label}
-              </button>
+              </GameControlButton>
             ))}
           </div>
         </>
@@ -374,11 +376,11 @@ export function PromptPanel({ state, setState }) {
         <>
           <strong>{prompt.title}</strong>
           <span>덱에서 가져올 카드를 선택하세요.</span>
-          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+          <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {prompt.options.map((option) => (
-              <button type="button" key={`${option.deckIndex}-${option.cardId}`} onClick={() => setState((current) => chooseFromDeck(current, option.deckIndex))}>
+              <GameControlButton action="cards" key={`${option.deckIndex}-${option.cardId}`} onClick={() => setState((current) => chooseFromDeck(current, option.deckIndex))}>
                 {option.label}
-              </button>
+              </GameControlButton>
             ))}
           </div>
         </>
@@ -386,14 +388,14 @@ export function PromptPanel({ state, setState }) {
       {prompt.kind === 'TRIGGER_CONFIRM' ? (
         <>
           <strong>{prompt.title}</strong>
-          <div className="tcg-card-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
-            <button type="button" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</button>
-            <button type="button" onClick={() => setState((current) => confirmTrigger(current, false))}>넘기기</button>
+          <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+            <GameControlButton action="skill" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</GameControlButton>
+            <GameControlButton action="pass" onClick={() => setState((current) => confirmTrigger(current, false))}>넘기기</GameControlButton>
           </div>
         </>
       ) : null}
       {prompt.kind === 'NONE' && state.chain.length ? (
-        <button type="button" onClick={() => setState((current) => resolveChain(current))}>체인 해결</button>
+        <GameControlButton action="chain" onClick={() => setState((current) => resolveChain(current))}>체인 해결</GameControlButton>
       ) : null}
     </section>
   );

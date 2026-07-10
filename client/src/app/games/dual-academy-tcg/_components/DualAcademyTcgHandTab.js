@@ -4,6 +4,7 @@ import {
   cardKind,
   subType,
 } from './TcgPlayBoard';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function DualAcademyTcgHandTab(props) {
   const {
@@ -21,13 +22,13 @@ export default function DualAcademyTcgHandTab(props) {
               <h2>내 패</h2>
               <span>{state.players.player.hand.length}장 · 선택: {selectedCard?.name || '없음'}</span>
             </div>
-            <div className="tcg-card-controls" style={{ marginBottom: 12 }}>
-              <button type="button" onClick={playSelected} disabled={!selectedCard || !canMain}>
+            <div className="tcg-action-controls" style={{ marginBottom: 12 }}>
+              <GameControlButton action="skill" onClick={playSelected} disabled={!selectedCard || !canMain}>
                 선택 카드 실행
-              </button>
-              <button type="button" onClick={() => setSelectedHandId('')} disabled={!selectedHandId}>
+              </GameControlButton>
+              <GameControlButton action="close" onClick={() => setSelectedHandId('')} disabled={!selectedHandId}>
                 선택 해제
-              </button>
+              </GameControlButton>
             </div>
             <div className="tcg-hand-row">
               {state.players.player.hand.map((card) => (
@@ -41,9 +42,9 @@ export default function DualAcademyTcgHandTab(props) {
                   <KeywordBadges card={card} />
                   <p>{Array.isArray(card.text) ? card.text.join(' ') : card.text}</p>
                   {cardKind(card) === 'Monster' ? <span>ATK {cardAtk(card)} / HP {card.health}</span> : null}
-                  <button type="button" onClick={() => setSelectedHandId((current) => current === card.instanceId ? '' : card.instanceId)} disabled={!canMain}>
+                  <GameControlButton action="target" onClick={() => setSelectedHandId((current) => current === card.instanceId ? '' : card.instanceId)} disabled={!canMain}>
                     {selectedHandId === card.instanceId ? '선택됨' : '선택'}
-                  </button>
+                  </GameControlButton>
                 </article>
               ))}
               {!state.players.player.hand.length ? <div className="tcg-empty-zone">패가 없습니다.</div> : null}

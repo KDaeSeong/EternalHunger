@@ -1,6 +1,6 @@
 'use client';
 
-import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { SIDE_LABELS, cardName, getCard } from '../_lib/baVanguardCatalog';
 
 function unitPower(unit) {
@@ -93,6 +93,7 @@ export function CardSummary({ cardId, right, active, onClick }) {
       <button
         type="button"
         className="game-save-row"
+        data-game-sfx="select"
         onClick={onClick}
         style={{
           borderColor: active ? '#38bdf8' : undefined,
@@ -135,8 +136,8 @@ const ZONE_LABELS = {
 function ZonePill({ label, value, active, onClick }) {
   if (onClick) {
     return (
-      <button
-        type="button"
+      <GameControlButton
+        action="zone"
         className="games-filter-chip"
         onClick={onClick}
         aria-pressed={active}
@@ -147,7 +148,7 @@ function ZonePill({ label, value, active, onClick }) {
         }}
       >
         {label} {value}
-      </button>
+      </GameControlButton>
     );
   }
   return <span className="games-filter-chip">{label} {value}</span>;
@@ -398,12 +399,12 @@ export function ZoneExplorer({ duel, zoneView, gzoneFilter, onFilterChange, onCl
       <div className="game-save-actions" style={{ marginBottom: 12 }}>
         {zoneView.zone === 'gzone' ? (
           <>
-            <button type="button" onClick={() => onFilterChange('all')} disabled={gzoneFilter === 'all'}>전체</button>
-            <button type="button" onClick={() => onFilterChange('unit')} disabled={gzoneFilter === 'unit'}>G 유닛</button>
-            <button type="button" onClick={() => onFilterChange('guardian')} disabled={gzoneFilter === 'guardian'}>G 가디언</button>
+            <GameControlButton action="cards" onClick={() => onFilterChange('all')} disabled={gzoneFilter === 'all'}>전체</GameControlButton>
+            <GameControlButton action="cards" onClick={() => onFilterChange('unit')} disabled={gzoneFilter === 'unit'}>G 유닛</GameControlButton>
+            <GameControlButton action="guard" onClick={() => onFilterChange('guardian')} disabled={gzoneFilter === 'guardian'}>G 가디언</GameControlButton>
           </>
         ) : null}
-        <button type="button" onClick={onClose}>닫기</button>
+        <GameControlButton action="close" onClick={onClose}>닫기</GameControlButton>
       </div>
       <div className="game-save-list">
         {shownCards.length ? shownCards.map((cardId, index) => {
@@ -454,6 +455,7 @@ export function Field({ title, player, side, selectedAttacker, zoneView, onCircl
                 <button
                   key={circle}
                   type="button"
+                  data-game-sfx={side === 'me' ? 'select' : 'combat'}
                   onClick={() => actionable && onCircleClick(circle)}
                   className="game-save-row"
                   style={{
@@ -496,9 +498,9 @@ export function BattlePanel({ battle, selectedHandId, onGuardAdd, onGGuard, onGu
       </div>
       {battle.defenderSide === 'me' ? (
         <div className="game-save-actions" style={{ marginTop: 12 }}>
-          <button type="button" onClick={onGGuard}>G 가디언</button>
-          <button type="button" onClick={onGuardAdd} disabled={!selectedHandId}>선택 카드 가드</button>
-          <button type="button" onClick={onGuardEnd}>가드 종료</button>
+          <GameControlButton action="guard" onClick={onGGuard}>G 가디언</GameControlButton>
+          <GameControlButton action="guard" onClick={onGuardAdd} disabled={!selectedHandId}>선택 카드 가드</GameControlButton>
+          <GameControlButton action="pass" onClick={onGuardEnd}>가드 종료</GameControlButton>
         </div>
       ) : <p style={{ color: '#cbd5e1', fontWeight: 800 }}>AI가 자동으로 가드를 처리합니다.</p>}
       <div className="games-activity-list" style={{ marginTop: 12 }}>

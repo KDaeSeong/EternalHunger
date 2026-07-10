@@ -152,7 +152,6 @@ export default function GamesPage() {
     title: game.title,
     subtitle: game.subtitle,
     body: game.summary,
-    visual: game.visual === 'map',
     metrics: game.metrics.map((key) => ({
       label: metricLabelForKey(key),
       value: metricValueForKey(key, hub, derived),

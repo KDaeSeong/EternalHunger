@@ -14,6 +14,7 @@ Checked: 2026-07-04
 - Playable routes share lightweight Web Audio SFX for buttons, tabs, selects, navigation, and warning actions.
 - Game routes resolve a lightweight SFX theme by slug. Common action buttons also distinguish gathering, combat, crafting, research, trade, saving, and other gameplay semantics, then layer the current game's short audio signature over the action cue.
 - Hub/detail cards use object-only SVG icons. Feature tabs and common gameplay actions use object-only Lucide icons with no people, faces, hands, portraits, avatars, or humanoid silhouettes.
+- Dual Academy TCG and BA Vanguard also route their board-specific summon, chain, pass, shuffle, ride, guard, skill, zone, and replay controls through the shared icon/SFX layer while card surfaces keep their compact visual treatment.
 
 ## Recommended First Port
 

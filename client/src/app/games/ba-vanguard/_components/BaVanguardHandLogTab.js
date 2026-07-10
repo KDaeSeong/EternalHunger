@@ -1,4 +1,4 @@
-import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { CardSummary } from './BaVanguardBoard';
 import { CIRCLES, cardName } from '../_lib/baVanguardCatalog';
 
@@ -49,14 +49,14 @@ export default function BaVanguardHandLogTab(props) {
           </div>
           {selectedHandId ? <CardSummary cardId={selectedHandId} /> : <p style={{ color: '#cbd5e1', fontWeight: 800 }}>패에서 카드를 선택하세요.</p>}
           <div className="game-save-actions" style={{ marginTop: 12 }}>
-            <button type="button" onClick={onRideSelected} disabled={!selectedHandId || !canControl || duel.phase !== 'MAIN'}>라이드</button>
+            <GameControlButton action="ride" onClick={onRideSelected} disabled={!selectedHandId || !canControl || duel.phase !== 'MAIN'}>라이드</GameControlButton>
             {CIRCLES.filter((circle) => circle !== 'VC' && !me.circles[circle]).map((circle) => (
-              <button type="button" key={circle} onClick={() => onCallSelected(circle)} disabled={!selectedHandId || !canControl || duel.phase !== 'MAIN'}>{circle} 콜</button>
+              <GameControlButton action="summon" key={circle} onClick={() => onCallSelected(circle)} disabled={!selectedHandId || !canControl || duel.phase !== 'MAIN'}>{circle} 콜</GameControlButton>
             ))}
           </div>
           <div className="game-save-actions" style={{ marginTop: 8 }}>
             {CIRCLES.filter((circle) => circle !== 'VC' && me.circles[circle]).map((circle) => (
-              <button type="button" key={circle} onClick={() => onRetire(circle)} disabled={!canControl || duel.phase !== 'MAIN'}>{circle} 퇴각</button>
+              <GameControlButton action="reset" key={circle} onClick={() => onRetire(circle)} disabled={!canControl || duel.phase !== 'MAIN'}>{circle} 퇴각</GameControlButton>
             ))}
           </div>
         </section>
@@ -79,7 +79,7 @@ export default function BaVanguardHandLogTab(props) {
               <strong>{replayExport.fileName}</strong>
               <span>{replayExport.format} · {replayExport.sizeLabel} · {replayExport.statusLabel}</span>
             </div>
-            <button type="button" onClick={downloadReplayExport}>JSON 리플레이 다운로드</button>
+            <GameControlButton action="replay" onClick={downloadReplayExport}>JSON 리플레이 다운로드</GameControlButton>
           </div>
           <div className="game-save-list" style={{ marginBottom: 12 }}>
             {replayExport.auditRows.map((row) => (

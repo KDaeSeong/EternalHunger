@@ -19,6 +19,7 @@ import {
 
 import { ActivityPanel, GameMetric } from './GameDetailPanels';
 import GameIcon from './GameIcon';
+import GameKeyArt, { gameKeyArtSrc } from './GameKeyArt';
 import {
   EMPTY_HUB,
   findDynamicGameCandidate,
@@ -57,6 +58,7 @@ export default function GameDetailPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const game = staticGame || dynamicGame;
+  const keyArtSrc = gameKeyArtSrc(game?.slug);
   const resolvingGame = !staticGame && !dynamicLookupDone;
 
   const loadHub = useCallback(async (options = {}) => {
@@ -193,8 +195,16 @@ export default function GameDetailPageContent() {
     <main className="games-page-shell">
       <SiteHeader />
       <section className="games-page">
-        <section className={`games-detail-hero is-${game.tone}`}>
-          {game.visual === 'map' ? <div className="games-detail-visual" aria-hidden="true" /> : null}
+        <section className={`games-detail-hero is-${game.tone} ${keyArtSrc ? 'has-key-art' : ''}`.trim()}>
+          {keyArtSrc ? (
+            <GameKeyArt
+              slug={game.slug}
+              title={game.title}
+              className="games-detail-key-art"
+              sizes="(max-width: 920px) 100vw, 42vw"
+              preload
+            />
+          ) : null}
           <div className="games-detail-copy">
             <p className="games-kicker">{game.subtitle}</p>
             <div className="games-detail-title-row">

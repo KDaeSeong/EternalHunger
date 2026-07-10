@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import SiteHeader from '../../components/SiteHeader';
+import GameKeyArt from '../games/_components/GameKeyArt';
 import {
   MYANIME_GAME_SLUGS,
   findGameBySlug,
@@ -22,7 +23,8 @@ function PrototypeCard({ game }) {
   const progress = getGamePortingProgress(game);
   const integration = game.integration || {};
   return (
-    <article className="games-card">
+    <article className="games-card has-key-art">
+      <GameKeyArt slug={game.slug} title={game.title} className="games-card-key-art" />
       <div className="games-card-main">
         <div>
           <span>{game.subtitle}</span>

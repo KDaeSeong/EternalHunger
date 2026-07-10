@@ -7,7 +7,7 @@ import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
 import DualAcademyTcgFeatureTabs from '../_components/DualAcademyTcgFeatureTabs';
 import {
@@ -271,13 +271,13 @@ function DualAcademyTcgPlayContent() {
             <Link href="/myanime/dual-academy-tcg">상세</Link>
             <Link href="/myanime/dual-academy-tcg/deck">덱 편집</Link>
             <Link href="/board?category=game&gameSlug=dual-academy-tcg">게시판</Link>
-            <button type="button" onClick={saveMatch} disabled={saveBusy}>저장</button>
-            <button type="button" onClick={loadMatch} disabled={saveBusy}>불러오기</button>
+            <GameControlButton action="save" onClick={saveMatch} disabled={saveBusy}>저장</GameControlButton>
+            <GameControlButton action="load" onClick={loadMatch} disabled={saveBusy}>불러오기</GameControlButton>
             {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${TCG_GAME_SLUG}&create=1`}>방 만들기</Link>}
-            {roomId ? <button type="button" onClick={saveRoomMatch} disabled={roomBusy}>방 저장</button> : null}
-            {roomId ? <button type="button" onClick={reloadRoomMatch} disabled={roomBusy}>방 불러오기</button> : null}
-            <button type="button" onClick={downloadReplayExport}>리플레이 저장</button>
-            <button type="button" onClick={resetMatch}>새 매치</button>
+            {roomId ? <GameControlButton action="save" onClick={saveRoomMatch} disabled={roomBusy}>방 저장</GameControlButton> : null}
+            {roomId ? <GameControlButton action="load" onClick={reloadRoomMatch} disabled={roomBusy}>방 불러오기</GameControlButton> : null}
+            <GameControlButton action="replay" onClick={downloadReplayExport}>리플레이 저장</GameControlButton>
+            <GameControlButton action="new" onClick={resetMatch}>새 매치</GameControlButton>
           </nav>
         </header>
 

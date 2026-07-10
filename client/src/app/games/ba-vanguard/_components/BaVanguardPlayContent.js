@@ -7,7 +7,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import BaVanguardFeatureTabs from './BaVanguardFeatureTabs';
 import { roomConcurrencyAudit } from './BaVanguardBoard';
 import { useBaVanguardPersistence } from '../_hooks/useBaVanguardPersistence';
@@ -328,18 +328,18 @@ export default function BaVanguardPlayContent() {
 
   const actions = (
     <>
-      <button type="button" onClick={() => startNewDuel(seed)}>새 듀얼</button>
-      <button type="button" onClick={() => {
+      <GameControlButton action="new" onClick={() => startNewDuel(seed)}>새 듀얼</GameControlButton>
+      <GameControlButton action="shuffle" onClick={() => {
         markRoomDirty();
         setSeed((current) => current + 1);
-      }}>시드 +1</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <button type="button" onClick={downloadReplayExport}>리플레이 저장</button>
+      }}>시드 +1</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <GameControlButton action="replay" onClick={downloadReplayExport}>리플레이 저장</GameControlButton>
       {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${GAME_SLUG}&create=1`}>방 만들기</Link>}
-      {roomId ? <button type="button" onClick={() => void saveRoomState()} disabled={roomBusy}>{roomBusy ? '방 처리 중...' : '방 저장'}</button> : null}
-      {roomId ? <button type="button" onClick={reloadRoomState} disabled={roomBusy}>방 불러오기</button> : null}
+      {roomId ? <GameControlButton action="save" onClick={() => void saveRoomState()} disabled={roomBusy}>{roomBusy ? '방 처리 중...' : '방 저장'}</GameControlButton> : null}
+      {roomId ? <GameControlButton action="load" onClick={reloadRoomState} disabled={roomBusy}>방 불러오기</GameControlButton> : null}
       <Link href="/myanime/ba-vanguard">상세</Link>
     </>
   );
@@ -394,6 +394,7 @@ export default function BaVanguardPlayContent() {
       kicker="BA Vanguard"
       title="BA Vanguard"
       description="myanime 원본의 P-G 플레이테스트 흐름을 사이트용으로 이식했습니다. 라이드, 콜, 스트라이드, 배틀, 가드, 드라이브/데미지 체크, 간단 AI 진행을 한 화면에서 확인합니다."
+      heroLayout="stacked"
       summaryLabel="BA Vanguard 현황"
       actions={actions}
       metrics={metrics}

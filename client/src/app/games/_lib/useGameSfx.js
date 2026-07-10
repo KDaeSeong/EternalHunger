@@ -115,6 +115,35 @@ const CUE_PROFILES = {
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
     { frequency: 1040, start: 0.07, duration: 0.055, type: 'triangle', gain: 0.035 },
   ],
+  summon: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.045, gain: 0.045 },
+    { frequency: 420, endFrequency: 720, duration: 0.075, type: 'triangle', gain: 0.055 },
+    { frequency: 1080, start: 0.06, duration: 0.07, type: 'sine', gain: 0.04 },
+  ],
+  chain: [
+    { frequency: 520, endFrequency: 650, duration: 0.05, type: 'triangle', gain: 0.05 },
+    { frequency: 780, endFrequency: 980, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.045 },
+  ],
+  pass: [
+    { frequency: 620, endFrequency: 360, duration: 0.08, type: 'sine', gain: 0.05 },
+  ],
+  shuffle: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 0.8, duration: 0.1, gain: 0.065 },
+    { frequency: 720, endFrequency: 560, duration: 0.06, type: 'triangle', gain: 0.035 },
+  ],
+  ride: [
+    { frequency: 360, duration: 0.04, type: 'triangle', gain: 0.055 },
+    { frequency: 540, start: 0.035, duration: 0.05, type: 'triangle', gain: 0.05 },
+    { frequency: 900, start: 0.078, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  guard: [
+    { source: 'noise', filterType: 'bandpass', frequency: 620, q: 1.8, duration: 0.055, gain: 0.06 },
+    { frequency: 240, endFrequency: 190, duration: 0.1, type: 'triangle', gain: 0.055 },
+  ],
+  skill: [
+    { frequency: 720, endFrequency: 1080, duration: 0.06, type: 'sawtooth', gain: 0.035 },
+    { frequency: 1360, start: 0.05, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
   event: [
     { frequency: 680, endFrequency: 940, duration: 0.065, type: 'sawtooth', gain: 0.04 },
     { frequency: 1240, start: 0.055, duration: 0.075, type: 'sine', gain: 0.035 },

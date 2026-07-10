@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import SiteHeader from '../../components/SiteHeader';
+import GameKeyArt from '../games/_components/GameKeyArt';
 import {
   SRPG_GAME_SLUGS,
   findGameBySlug,
@@ -22,7 +23,8 @@ function SrpgCard({ game }) {
   const progress = getGamePortingProgress(game);
   const integration = game.integration || {};
   return (
-    <article className="games-card is-battle">
+    <article className="games-card is-battle has-key-art">
+      <GameKeyArt slug={game.slug} title={game.title} className="games-card-key-art" />
       <div className="games-card-main">
         <div>
           <span>{game.subtitle}</span>

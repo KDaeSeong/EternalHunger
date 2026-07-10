@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import DualAcademyTcgBoardTab from './DualAcademyTcgBoardTab';
 import DualAcademyTcgAdvisorTab from './DualAcademyTcgAdvisorTab';
 import DualAcademyTcgInspectTab from './DualAcademyTcgInspectTab';
@@ -42,6 +43,7 @@ export default function DualAcademyTcgFeatureTabs(props) {
             key={tab.id}
             onClick={() => setActiveTcgTab(tab.id)}
           >
+            <GameActionIcon action={tab.id} label={tab.label} />
             <span>{tab.label}</span>
             <strong>{badgeByTab[tab.id]}</strong>
           </button>

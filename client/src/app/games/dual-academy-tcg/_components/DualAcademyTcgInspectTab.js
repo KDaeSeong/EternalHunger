@@ -1,3 +1,5 @@
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
+
 export default function DualAcademyTcgInspectTab(props) {
   const {
     openZoneView,
@@ -53,9 +55,9 @@ export default function DualAcademyTcgInspectTab(props) {
                         <strong>{row.label}</strong>
                         <small>{row.preview}</small>
                       </div>
-                      <button type="button" onClick={() => openZoneView(row.player, row.zone, row.reveal)}>
+                      <GameControlButton action="zone" onClick={() => openZoneView(row.player, row.zone, row.reveal)}>
                         보기
-                      </button>
+                      </GameControlButton>
                     </article>
                   ))}
                 </div>

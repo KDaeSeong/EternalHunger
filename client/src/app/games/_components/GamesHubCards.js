@@ -9,6 +9,7 @@ import {
 } from '../_lib/gameCatalog';
 import { formatNumber } from '../_lib/gamesHubUtils';
 import GameIcon from './GameIcon';
+import GameKeyArt from './GameKeyArt';
 
 export function GameMetric({ label, value }) {
   return (
@@ -19,10 +20,10 @@ export function GameMetric({ label, value }) {
   );
 }
 
-export function GameCard({ slug, tone, title, subtitle, body, metrics, links, visual }) {
+export function GameCard({ slug, tone, title, subtitle, body, metrics, links }) {
   return (
-    <article className={`games-card is-${tone} ${visual ? 'has-visual' : ''}`}>
-      {visual ? <div className="games-card-visual" aria-hidden="true" /> : null}
+    <article className={`games-card is-${tone} has-key-art`}>
+      <GameKeyArt slug={slug} title={title} className="games-card-key-art" />
       <div className="games-card-main">
         <div className="games-card-title-row">
           <GameIcon slug={slug} label={`${title} icon`} tone={tone} />
@@ -80,6 +81,7 @@ export function RoadmapCard({ item, index }) {
   const progress = getGamePortingProgress(game);
   return (
     <article className="games-roadmap-card">
+      <GameKeyArt slug={item.slug} title={item.title} className="games-roadmap-card__art" />
       <div className="games-roadmap-card__head">
         <GameIcon slug={item.slug} label={`${item.title} icon`} tone={game.tone || 'roadmap'} />
         <div>

@@ -16,6 +16,7 @@ import {
 import {
   PlayerField,
 } from './TcgPlayBoard';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function DualAcademyTcgBoardTab(props) {
   const {
@@ -60,19 +61,19 @@ export default function DualAcademyTcgBoardTab(props) {
                   <dd>{state.events.length}</dd>
                 </div>
               </dl>
-              <div className="tcg-card-controls" style={{ marginTop: 12 }}>
-                <button type="button" onClick={() => openZoneView('player', 'deck', true)}>내 덱</button>
-                <button type="button" onClick={() => openZoneView('player', 'grave', true)}>내 묘지</button>
-                <button type="button" onClick={() => openZoneView('player', 'banished', true)}>내 제외</button>
-                <button type="button" onClick={() => openZoneView('enemy', 'deck', false)}>AI 덱</button>
-                <button type="button" onClick={() => openZoneView('enemy', 'grave', true)}>AI 묘지</button>
-                <button type="button" onClick={() => openZoneView('enemy', 'banished', true)}>AI 제외</button>
+              <div className="tcg-action-controls" style={{ marginTop: 12 }}>
+                <GameControlButton action="zone" onClick={() => openZoneView('player', 'deck', true)}>내 덱</GameControlButton>
+                <GameControlButton action="zone" onClick={() => openZoneView('player', 'grave', true)}>내 묘지</GameControlButton>
+                <GameControlButton action="zone" onClick={() => openZoneView('player', 'banished', true)}>내 제외</GameControlButton>
+                <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'deck', false)}>AI 덱</GameControlButton>
+                <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'grave', true)}>AI 묘지</GameControlButton>
+                <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'banished', true)}>AI 제외</GameControlButton>
               </div>
-              <button type="button" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
+              <GameControlButton action="skill" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
                 필드 효과
-              </button>
-              <button
-                type="button"
+              </GameControlButton>
+              <GameControlButton
+                action="advance"
                 className="tcg-primary-action"
                 onClick={() => {
                   setSelectedHandId('');
@@ -82,11 +83,11 @@ export default function DualAcademyTcgBoardTab(props) {
                 disabled={!canAutoPlayPlayer}
               >
                 내 턴 자동
-              </button>
-              <div className="tcg-card-controls" style={{ marginTop: 12 }}>
+              </GameControlButton>
+              <div className="tcg-action-controls" style={{ marginTop: 12 }}>
                 {monsterEffectRows.map((row) => (
-                  <button
-                    type="button"
+                  <GameControlButton
+                    action="skill"
                     key={row.id}
                     onClick={() => act((current) => (
                       row.action === 'hina'
@@ -97,13 +98,13 @@ export default function DualAcademyTcgBoardTab(props) {
                     title={row.detail}
                   >
                     {row.label} · {row.status}
-                  </button>
+                  </GameControlButton>
                 ))}
                 {!monsterEffectRows.length ? <span>발동 가능한 몬스터 효과 없음</span> : null}
               </div>
-              <button type="button" className="tcg-primary-action" onClick={() => act((current) => resolveChain(passResponse(current)))} disabled={state.prompt.kind !== 'RESPOND' || state.prompt.player !== 'player'}>
+              <GameControlButton action="pass" className="tcg-primary-action" onClick={() => act((current) => resolveChain(passResponse(current)))} disabled={state.prompt.kind !== 'RESPOND' || state.prompt.player !== 'player'}>
                 응답 없이 해결
-              </button>
+              </GameControlButton>
             </aside>
 
             <section className="tcg-board">
@@ -152,9 +153,9 @@ export default function DualAcademyTcgBoardTab(props) {
               />
               <div className="tcg-lane-title" style={{ marginTop: 12 }}>
                 <h2>페이즈 컨트롤</h2>
-                <button type="button" onClick={() => act((current) => advancePhase(current))} disabled={!canAct && state.prompt.kind === 'NONE'}>
+                <GameControlButton action="advance" onClick={() => act((current) => advancePhase(current))} disabled={!canAct && state.prompt.kind === 'NONE'}>
                   다음 페이즈
-                </button>
+                </GameControlButton>
               </div>
             </section>
             </section>

@@ -6,6 +6,7 @@ import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
 import {
   FALLBACK_DECK_CARD_IDS,
@@ -186,7 +187,7 @@ export default function DualAcademyTcgDeckPage() {
           <nav>
             <Link href="/myanime/dual-academy-tcg/play">플레이</Link>
             <Link href="/myanime/dual-academy-tcg">상세</Link>
-            <button type="button" onClick={resetDefault}>기본 덱</button>
+            <GameControlButton action="reset" onClick={resetDefault}>기본 덱</GameControlButton>
           </nav>
         </header>
 
@@ -249,14 +250,14 @@ export default function DualAcademyTcgDeckPage() {
               ) : null}
             </div>
             {deckError ? <p className="tcg-deck-message is-danger">{deckError}</p> : null}
-            <button
-              type="button"
+            <GameControlButton
+              action="save"
               className="tcg-primary-action"
               onClick={saveDeck}
               disabled={!token || Boolean(deckError) || saving || loading}
             >
               {saving ? '저장 중...' : '저장하고 활성화'}
-            </button>
+            </GameControlButton>
           </aside>
 
           <section className="tcg-panel">

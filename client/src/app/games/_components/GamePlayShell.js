@@ -91,6 +91,7 @@ export default function GamePlayShell({
   summaryLabel,
   summaryDensity = 'normal',
   primaryMetricLimit,
+  heroLayout = 'default',
   children,
 }) {
   const visibleMetrics = metrics.filter(Boolean);
@@ -118,7 +119,7 @@ export default function GamePlayShell({
     >
       <SiteHeader />
       <section className="games-page">
-        <section className="games-hero">
+        <section className={heroLayout === 'stacked' ? 'games-hero games-hero--stacked' : 'games-hero'}>
           <div>
             {kicker ? <p className="games-kicker">{kicker}</p> : null}
             <h1>{title}</h1>

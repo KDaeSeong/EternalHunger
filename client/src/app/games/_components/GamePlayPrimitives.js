@@ -1,5 +1,15 @@
 import GameActionIcon, { gameActionText, resolveGameAction } from './GameActionIcon';
 
+function ActionContent({ action, children, icon, unwrapped = false }) {
+  if (!icon) return children;
+  return (
+    <>
+      <GameActionIcon action={action} label={gameActionText(children)} />
+      {unwrapped ? children : <span className="game-action-button__label">{children}</span>}
+    </>
+  );
+}
+
 export function ActionButton({ action, children, className = '', cue, disabled, icon = true, onClick, ...buttonProps }) {
   const label = gameActionText(children);
   const semantic = resolveGameAction(action, label);
@@ -12,8 +22,24 @@ export function ActionButton({ action, children, className = '', cue, disabled, 
       onClick={onClick}
       {...buttonProps}
     >
-      {icon ? <GameActionIcon action={semantic.kind} label={label} /> : null}
-      <span className="game-action-button__label">{children}</span>
+      <ActionContent action={semantic.kind} icon={icon}>{children}</ActionContent>
+    </button>
+  );
+}
+
+export function GameControlButton({ action, children, className = '', cue, disabled, icon = true, onClick, unwrapped = false, ...buttonProps }) {
+  const label = gameActionText(children);
+  const semantic = resolveGameAction(action, label);
+  return (
+    <button
+      type="button"
+      className={`game-control-button${unwrapped ? ' game-control-button--unwrapped' : ''}${className ? ` ${className}` : ''}`}
+      data-game-sfx={cue || semantic.cue}
+      disabled={disabled}
+      onClick={onClick}
+      {...buttonProps}
+    >
+      <ActionContent action={semantic.kind} icon={icon} unwrapped={unwrapped}>{children}</ActionContent>
     </button>
   );
 }
