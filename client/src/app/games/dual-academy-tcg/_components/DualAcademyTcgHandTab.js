@@ -15,6 +15,13 @@ export default function DualAcademyTcgHandTab(props) {
     setSelectedHandId,
     state,
   } = props;
+  const selectedAction = selectedCard
+    ? cardKind(selectedCard) === 'Monster'
+      ? 'summon'
+      : cardKind(selectedCard) === 'Trap'
+        ? 'set'
+        : 'effect'
+    : 'cards';
 
   return (
     <section className="tcg-hand">
@@ -23,7 +30,7 @@ export default function DualAcademyTcgHandTab(props) {
               <span>{state.players.player.hand.length}장 · 선택: {selectedCard?.name || '없음'}</span>
             </div>
             <div className="tcg-action-controls" style={{ marginBottom: 12 }}>
-              <GameControlButton action="skill" onClick={playSelected} disabled={!selectedCard || !canMain}>
+              <GameControlButton action={selectedAction} onClick={playSelected} disabled={!selectedCard || !canMain}>
                 선택 카드 실행
               </GameControlButton>
               <GameControlButton action="close" onClick={() => setSelectedHandId('')} disabled={!selectedHandId}>

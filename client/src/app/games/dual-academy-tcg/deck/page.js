@@ -6,6 +6,7 @@ import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiGetCached, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
 import {
@@ -60,6 +61,7 @@ export default function DualAcademyTcgDeckPage() {
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
+    playGameSfx,
   } = useGameSfxEventHandlers();
 
   const counts = useMemo(() => countCards(cardIds), [cardIds]);
@@ -160,11 +162,13 @@ export default function DualAcademyTcgDeckPage() {
       clearApiGetCache('/tcg');
       const text = res?.message || '덱을 저장했습니다.';
       setMessage(text);
+      playGameSfx('tcgDeckSave');
       showToast({ tone: 'success', message: text });
       await loadDeck();
     } catch (err) {
       const text = err?.response?.data?.error || err.message || '덱 저장에 실패했습니다.';
       setMessage(text);
+      playGameSfx('tcgInvalid');
       showToast({ tone: 'danger', message: text });
     } finally {
       setSaving(false);
@@ -185,8 +189,14 @@ export default function DualAcademyTcgDeckPage() {
             <h1>덱 편집</h1>
           </div>
           <nav>
-            <Link href="/myanime/dual-academy-tcg/play">플레이</Link>
-            <Link href="/myanime/dual-academy-tcg">상세</Link>
+            <Link className="game-control-button" data-game-sfx="nav" href="/myanime/dual-academy-tcg/play">
+              <GameActionIcon action="duel" label="플레이" />
+              <span className="game-action-button__label">플레이</span>
+            </Link>
+            <Link className="game-control-button" data-game-sfx="nav" href="/myanime/dual-academy-tcg">
+              <GameActionIcon action="settings" label="상세" />
+              <span className="game-action-button__label">상세</span>
+            </Link>
             <GameControlButton action="reset" onClick={resetDefault}>기본 덱</GameControlButton>
           </nav>
         </header>
@@ -208,6 +218,13 @@ export default function DualAcademyTcgDeckPage() {
               <strong>{cardIds.length}</strong>
               <span>{rules.minCards}-{rules.maxCards}장</span>
             </div>
+            <section className={`tcg-deck-readiness ${deckError ? 'is-danger' : 'is-ready'}`}>
+              <GameActionIcon action={deckError ? 'warning' : 'deck'} label="덱 검증" />
+              <div>
+                <span>덱 검증</span>
+                <strong>{deckError || '저장 가능한 덱입니다.'}</strong>
+              </div>
+            </section>
             <dl className="tcg-small-stats">
               <div>
                 <dt>유닛</dt>
@@ -280,9 +297,23 @@ export default function DualAcademyTcgDeckPage() {
                     <p>{card.text}</p>
                     {card.role === 'Unit' ? <span>ATK {card.attack} / HP {card.health}</span> : null}
                     <div className="tcg-card-controls">
-                      <button type="button" onClick={() => removeCard(card.id)} disabled={count <= 0}>-</button>
+                      <button
+                        type="button"
+                        aria-label={`${card.name} 1장 빼기`}
+                        data-game-sfx="select"
+                        title="1장 빼기"
+                        onClick={() => removeCard(card.id)}
+                        disabled={count <= 0}
+                      >-</button>
                       <strong>{count}</strong>
-                      <button type="button" onClick={() => addCard(card.id)} disabled={count >= rules.maxCopies || cardIds.length >= rules.maxCards}>+</button>
+                      <button
+                        type="button"
+                        aria-label={`${card.name} 1장 넣기`}
+                        data-game-sfx="select"
+                        title="1장 넣기"
+                        onClick={() => addCard(card.id)}
+                        disabled={count >= rules.maxCopies || cardIds.length >= rules.maxCards}
+                      >+</button>
                     </div>
                   </article>
                 );

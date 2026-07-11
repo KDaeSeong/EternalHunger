@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SiteHeader from '../../../../components/SiteHeader';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
-import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import GameActionIcon from '../../_components/GameActionIcon';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
+import DualAcademyTcgDuelPulse from '../_components/DualAcademyTcgDuelPulse';
 import DualAcademyTcgFeatureTabs from '../_components/DualAcademyTcgFeatureTabs';
 import {
   TCG_GAME_SLUG,
@@ -30,6 +32,11 @@ import {
   turnAdvisorForState,
 } from '../_lib/tcgDuelEngine';
 import useDualAcademyTcgPersistence from '../_hooks/useDualAcademyTcgPersistence';
+import {
+  dualAcademyTcgFeedbackCue,
+  dualAcademyTcgFeedbackSnapshot,
+  dualAcademyTcgPulse,
+} from '../_lib/dualAcademyTcgFeedback';
 import { afterRender, buildZoneInspection } from '../_lib/tcgPlayPageRuntime';
 
 import {
@@ -42,16 +49,20 @@ import {
 
 export default function DualAcademyTcgPlayPage() {
   return (
-    <Suspense fallback={(
-      <main className="tcg-page-shell">
-        <SiteHeader />
-        <section className="tcg-arena">
-          <div className="tcg-deck-message">매치를 불러오는 중입니다.</div>
-        </section>
-      </main>
-    )}>
+    <Suspense fallback={<DualAcademyTcgLoadingShell />}>
       <DualAcademyTcgPlayContent />
     </Suspense>
+  );
+}
+
+function DualAcademyTcgLoadingShell() {
+  return (
+    <main className="tcg-page-shell">
+      <SiteHeader />
+      <section className="tcg-arena">
+        <div className="tcg-deck-message">매치를 불러오는 중입니다.</div>
+      </section>
+    </main>
   );
 }
 
@@ -66,9 +77,11 @@ function DualAcademyTcgPlayContent() {
   const [zoneView, setZoneView] = useState(null);
   const [activeTcgTab, setActiveTcgTab] = useState('board');
   const [state, setState] = useState(() => createDuelState());
+  const feedbackRef = useRef(dualAcademyTcgFeedbackSnapshot(state));
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
+    playGameSfx,
   } = useGameSfxEventHandlers();
 
   const {
@@ -111,6 +124,7 @@ function DualAcademyTcgPlayContent() {
   const matchReport = useMemo(() => matchReportForState(state), [state]);
   const replayTimeline = useMemo(() => replayTimelineForState(state), [state]);
   const replayExport = useMemo(() => replayExportForState(state), [state]);
+  const duelPulse = useMemo(() => dualAcademyTcgPulse(state), [state]);
   const effectCoverage = useMemo(() => cardEffectCoverageReport(cardCatalog), [cardCatalog]);
   const zoneInspection = useMemo(() => buildZoneInspection(state, turnAdvisor), [state, turnAdvisor]);
   const concurrencyAudit = useMemo(() => roomConcurrencyAudit({
@@ -129,6 +143,13 @@ function DualAcademyTcgPlayContent() {
     return () => window.clearTimeout(timer);
   }, [state.turnPlayer, state.phase, state.prompt.kind, state.prompt.player, state.chain.length]);
 
+  useEffect(() => {
+    const current = dualAcademyTcgFeedbackSnapshot(state);
+    const cue = dualAcademyTcgFeedbackCue(feedbackRef.current, current);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = current;
+  }, [playGameSfx, state]);
+
   const duelCharacters = normalizeTcgCharacters(state.characters);
   const playerCharacter = getTcgCharacter(duelCharacters.player, 'YUUKA');
   const enemyCharacter = getTcgCharacter(duelCharacters.enemy, 'HINA');
@@ -136,9 +157,6 @@ function DualAcademyTcgPlayContent() {
   const latestActor = latestEvent?.actor === 'enemy' ? 'enemy' : 'player';
   const latestCharacter = latestActor === 'enemy' ? enemyCharacter : playerCharacter;
   const latestQuote = latestEvent ? renderTcgQuote(latestCharacter, latestEvent) : '이벤트 대기 중입니다.';
-  const recentActionText = latestEvent
-    ? `T${latestEvent.turn} · ${latestEvent.phase} · ${PLAYER_LABELS[latestEvent.actor] || latestEvent.actor}: ${latestEvent.text}`
-    : state.log?.[0] || deckMessage || '아직 실행한 듀얼 액션이 없습니다.';
   const selectedCard = state.players.player.hand.find((card) => card.instanceId === selectedHandId) || null;
   const canAct = !state.winner && state.turnPlayer === 'player' && state.prompt.kind === 'NONE' && state.chain.length === 0;
   const canMain = canAct && (state.phase === 'MAIN1' || state.phase === 'MAIN2');
@@ -199,6 +217,8 @@ function DualAcademyTcgPlayContent() {
     window.URL.revokeObjectURL(url);
     showToast({ tone: 'success', message: `리플레이 파일을 준비했습니다. (${replayExport.sizeLabel})` });
   }, [replayExport, showToast]);
+
+  if (!mounted) return <DualAcademyTcgLoadingShell />;
 
   const playSelected = () => {
     if (!selectedCard || !canMain) return;
@@ -268,12 +288,31 @@ function DualAcademyTcgPlayContent() {
             <h1>v13 듀얼</h1>
           </div>
           <nav>
-            <Link href="/myanime/dual-academy-tcg">상세</Link>
-            <Link href="/myanime/dual-academy-tcg/deck">덱 편집</Link>
-            <Link href="/board?category=game&gameSlug=dual-academy-tcg">게시판</Link>
+            <Link className="game-control-button" data-game-sfx="nav" href="/myanime/dual-academy-tcg">
+              <GameActionIcon action="settings" label="상세" />
+              <span className="game-action-button__label">상세</span>
+            </Link>
+            <Link className="game-control-button" data-game-sfx="nav" href="/myanime/dual-academy-tcg/deck">
+              <GameActionIcon action="deck" label="덱 편집" />
+              <span className="game-action-button__label">덱 편집</span>
+            </Link>
+            <Link className="game-control-button" data-game-sfx="nav" href="/board?category=game&gameSlug=dual-academy-tcg">
+              <GameActionIcon action="archive" label="게시판" />
+              <span className="game-action-button__label">게시판</span>
+            </Link>
             <GameControlButton action="save" onClick={saveMatch} disabled={saveBusy}>저장</GameControlButton>
             <GameControlButton action="load" onClick={loadMatch} disabled={saveBusy}>불러오기</GameControlButton>
-            {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${TCG_GAME_SLUG}&create=1`}>방 만들기</Link>}
+            {roomId ? (
+              <Link className="game-control-button" data-game-sfx="nav" href={`/games/rooms/${roomId}`}>
+                <GameActionIcon action="room" label="게임방" />
+                <span className="game-action-button__label">게임방</span>
+              </Link>
+            ) : (
+              <Link className="game-control-button" data-game-sfx="nav" href={`/games/rooms?gameSlug=${TCG_GAME_SLUG}&create=1`}>
+                <GameActionIcon action="room" label="방 만들기" />
+                <span className="game-action-button__label">방 만들기</span>
+              </Link>
+            )}
             {roomId ? <GameControlButton action="save" onClick={saveRoomMatch} disabled={roomBusy}>방 저장</GameControlButton> : null}
             {roomId ? <GameControlButton action="load" onClick={reloadRoomMatch} disabled={roomBusy}>방 불러오기</GameControlButton> : null}
             <GameControlButton action="replay" onClick={downloadReplayExport}>리플레이 저장</GameControlButton>
@@ -288,7 +327,10 @@ function DualAcademyTcgPlayContent() {
               <span>{room?.status || 'loading'} · rev {Number(room?.revision || 0)}{localRoomDirty ? ' · 로컬 변경 있음' : ''}</span>
               {roomSyncMessage ? <small>{roomSyncMessage}</small> : null}
             </div>
-            <Link href={`/games/rooms/${roomId}`}>로비로 이동</Link>
+            <Link className="game-control-button" data-game-sfx="nav" href={`/games/rooms/${roomId}`}>
+              <GameActionIcon action="room" label="로비로 이동" />
+              <span className="game-action-button__label">로비로 이동</span>
+            </Link>
           </section>
         ) : null}
 
@@ -319,8 +361,8 @@ function DualAcademyTcgPlayContent() {
           </div>
         </section>
 
-        <GameAdvisorPanel {...tcgGuide} />
-        <RecentActionResult label="최근 듀얼 이벤트" text={recentActionText} pinned />
+        <GameAdvisorPanel {...tcgGuide} compact minimal storageKey="dual-academy-tcg-turn-coach" />
+        <DualAcademyTcgDuelPulse pulse={duelPulse} />
 
         <section className="tcg-character-strip" aria-label="duel characters">
           <CharacterPanel

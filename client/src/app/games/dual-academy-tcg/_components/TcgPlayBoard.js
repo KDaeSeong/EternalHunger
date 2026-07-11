@@ -126,12 +126,12 @@ export function CardFace({ card, small = false }) {
   );
 }
 
-export function ZoneButton({ card, label, active, highlight, onClick, children }) {
+export function ZoneButton({ card, label, active, highlight, cue = 'select', onClick, children }) {
   return (
     <button
       type="button"
       className={`tcg-card ${card?.tone ? `is-${card.tone}` : ''} ${active ? 'is-selected' : ''} ${highlight ? 'is-targetable' : ''}`}
-      data-game-sfx="select"
+      data-game-sfx={cue}
       onClick={onClick}
       style={{
         minHeight: 118,
@@ -253,6 +253,13 @@ export function PlayerField({
               label={`M${slot + 1}`}
               active={isSelected}
               highlight={isPromptTarget}
+              cue={isPromptTarget
+                ? 'select'
+                : selectedAttacker && playerKey !== state.turnPlayer
+                  ? 'combat'
+                  : playerKey === state.turnPlayer && canMain && card && !selectedHandId
+                    ? 'toggle'
+                    : 'select'}
               onClick={() => {
                 if (isPromptTarget) return onPickPromptTarget(playerKey, 'monster', slot);
                 if (playerKey === state.turnPlayer && canBattle && card && !card.hasAttacked) {
@@ -280,6 +287,7 @@ export function PlayerField({
               card={card}
               label={`S/T ${slot + 1}`}
               highlight={isPromptTarget}
+              cue={isPromptTarget ? 'select' : canMain && selectedHandId && !card ? 'toggle' : card?.face === 'down' ? 'skill' : 'select'}
               onClick={() => {
                 if (isPromptTarget) return onPickPromptTarget(playerKey, 'spellTrap', slot);
                 if (canMain && selectedHandId && !card) return onSet(slot);
@@ -317,7 +325,7 @@ export function PlayerField({
           </GameControlButton>
         ) : null}
         {selectedAttacker && playerKey !== state.turnPlayer && !player.monster.some(Boolean) ? (
-          <GameControlButton action="combat" className="tcg-core-target" unwrapped onClick={() => onAttack(selectedAttacker.slot, null)}>
+          <GameControlButton action="attack" className="tcg-core-target" unwrapped onClick={() => onAttack(selectedAttacker.slot, null)}>
             <strong>직접 공격</strong>
             <span>{PLAYER_LABELS[playerKey]} LP를 공격합니다.</span>
           </GameControlButton>
@@ -349,7 +357,7 @@ export function PromptPanel({ state, setState }) {
           <span>체인 {state.chain.length}개가 대기 중입니다.</span>
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {counterSlots.map(({ card, slot }) => (
-              <GameControlButton action="skill" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
+              <GameControlButton action="trap" key={card.instanceId} onClick={() => setState((current) => activateCounterTrap(current, player, slot))}>
                 {card.name} 발동
               </GameControlButton>
             ))}
@@ -389,7 +397,7 @@ export function PromptPanel({ state, setState }) {
         <>
           <strong>{prompt.title}</strong>
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
-            <GameControlButton action="skill" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</GameControlButton>
+            <GameControlButton action="effect" onClick={() => setState((current) => confirmTrigger(current, true))}>발동</GameControlButton>
             <GameControlButton action="pass" onClick={() => setState((current) => confirmTrigger(current, false))}>넘기기</GameControlButton>
           </div>
         </>

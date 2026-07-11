@@ -69,11 +69,11 @@ export default function DualAcademyTcgBoardTab(props) {
                 <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'grave', true)}>AI 묘지</GameControlButton>
                 <GameControlButton action="zone" onClick={() => openZoneView('enemy', 'banished', true)}>AI 제외</GameControlButton>
               </div>
-              <GameControlButton action="skill" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
+              <GameControlButton action="effect" className="tcg-primary-action" onClick={() => act((current) => activateFieldIgnition(current, 'player'))} disabled={!canMain || !state.players.player.field}>
                 필드 효과
               </GameControlButton>
               <GameControlButton
-                action="advance"
+                action="auto"
                 className="tcg-primary-action"
                 onClick={() => {
                   setSelectedHandId('');
@@ -87,7 +87,7 @@ export default function DualAcademyTcgBoardTab(props) {
               <div className="tcg-action-controls" style={{ marginTop: 12 }}>
                 {monsterEffectRows.map((row) => (
                   <GameControlButton
-                    action="skill"
+                    action="effect"
                     key={row.id}
                     onClick={() => act((current) => (
                       row.action === 'hina'
@@ -153,7 +153,7 @@ export default function DualAcademyTcgBoardTab(props) {
               />
               <div className="tcg-lane-title" style={{ marginTop: 12 }}>
                 <h2>페이즈 컨트롤</h2>
-                <GameControlButton action="advance" onClick={() => act((current) => advancePhase(current))} disabled={!canAct && state.prompt.kind === 'NONE'}>
+                <GameControlButton action="phase" onClick={() => act((current) => advancePhase(current))} disabled={!canAct && state.prompt.kind === 'NONE'}>
                   다음 페이즈
                 </GameControlButton>
               </div>

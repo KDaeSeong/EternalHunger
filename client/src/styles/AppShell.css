@@ -5078,6 +5078,108 @@
   font-size: 1.5rem;
 }
 
+.tcg-duel-pulse {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-left: 4px solid #2c6f9e;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--eh-card-shadow);
+  padding: 12px 14px;
+}
+
+.tcg-duel-pulse > .game-action-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef6fb;
+  color: #1b6fa2;
+}
+
+.tcg-duel-pulse > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 8px;
+}
+
+.tcg-duel-pulse > div span {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.tcg-duel-pulse > div small {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcg-duel-pulse > div strong {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.tcg-duel-pulse > div span,
+.tcg-duel-pulse > div small {
+  color: #64717d;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.tcg-duel-pulse > div strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #17202a;
+  font-size: 0.94rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcg-duel-pulse aside {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tcg-duel-pulse aside span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(44, 111, 158, 0.18);
+  border-radius: 999px;
+  background: #f4f9fd;
+  color: #1b4f73;
+  padding: 3px 8px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.tcg-duel-pulse.is-red {
+  border-left-color: #c44236;
+}
+
+.tcg-duel-pulse.is-green {
+  border-left-color: #2f8f61;
+}
+
+.tcg-duel-pulse.is-gold {
+  border-left-color: #b98024;
+}
+
+.tcg-duel-pulse.is-violet {
+  border-left-color: #6a55a3;
+}
+
 .tcg-character-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5087,15 +5189,15 @@
 .tcg-character-card {
   min-width: 0;
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 10px;
   align-items: start;
   border: 1px solid rgba(22, 33, 44, 0.10);
   border-left: 4px solid #2c6f9e;
   border-radius: 8px;
   background: #ffffff;
   box-shadow: var(--eh-card-shadow);
-  padding: 12px;
+  padding: 10px;
 }
 
 .tcg-character-card.is-speaking {
@@ -5119,8 +5221,8 @@
 }
 
 .tcg-character-avatar {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
   border: 1px solid rgba(44, 111, 158, 0.20);
@@ -5134,7 +5236,7 @@
 .tcg-character-body {
   min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tcg-character-head {
@@ -5181,14 +5283,14 @@
 }
 
 .tcg-character-body p {
-  min-height: 38px;
+  min-height: 32px;
   margin: 0;
   border: 1px solid rgba(22, 33, 44, 0.08);
   border-radius: 8px;
   background: #f8fbfd;
   color: #26323d;
-  padding: 8px 10px;
-  font-size: 0.86rem;
+  padding: 6px 9px;
+  font-size: 0.82rem;
   font-weight: 850;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -5201,7 +5303,7 @@
 }
 
 .tcg-character-ai span {
-  min-height: 24px;
+  min-height: 22px;
   display: inline-flex;
   align-items: center;
   border: 1px solid rgba(44, 111, 158, 0.14);
@@ -5331,6 +5433,44 @@
 .tcg-deck-count span {
   color: #64717d;
   font-weight: 900;
+}
+
+.tcg-deck-readiness {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  border-top: 1px solid rgba(22, 33, 44, 0.08);
+  border-bottom: 1px solid rgba(22, 33, 44, 0.08);
+  padding: 10px 0;
+}
+
+.tcg-deck-readiness > .game-action-icon {
+  color: #2f8f61;
+}
+
+.tcg-deck-readiness.is-danger > .game-action-icon {
+  color: #c44236;
+}
+
+.tcg-deck-readiness div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tcg-deck-readiness span {
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.tcg-deck-readiness strong {
+  color: #17202a;
+  font-size: 0.84rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .tcg-deck-name,
@@ -5775,7 +5915,20 @@
     justify-content: flex-start;
   }
 
-  .tcg-scoreboard,
+  .tcg-scoreboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tcg-scoreboard div {
+    min-height: 68px;
+    padding: 10px 12px;
+  }
+
+  .tcg-scoreboard strong {
+    font-size: 1.2rem;
+  }
+
   .tcg-character-strip,
   .tcg-layout,
   .tcg-deck-editor {
@@ -5784,6 +5937,15 @@
 
   .tcg-character-head {
     grid-template-columns: 1fr;
+  }
+
+  .tcg-duel-pulse {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .tcg-duel-pulse aside {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 }
 

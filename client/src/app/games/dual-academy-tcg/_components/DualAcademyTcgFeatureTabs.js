@@ -6,11 +6,11 @@ import DualAcademyTcgHandTab from './DualAcademyTcgHandTab';
 import DualAcademyTcgLogsTab from './DualAcademyTcgLogsTab';
 
 const TABS = [
-  { id: 'board', label: '보드' },
-  { id: 'advisor', label: 'AI 진단' },
-  { id: 'inspect', label: '존 검사' },
-  { id: 'hand', label: '핸드 액션' },
-  { id: 'logs', label: '로그/아카이브' },
+  { id: 'board', label: '보드', icon: 'board' },
+  { id: 'advisor', label: 'AI 진단', icon: 'advisor' },
+  { id: 'inspect', label: '존 검사', icon: 'inspect' },
+  { id: 'hand', label: '핸드 액션', icon: 'hand' },
+  { id: 'logs', label: '로그/아카이브', icon: 'logs' },
 ];
 
 export default function DualAcademyTcgFeatureTabs(props) {
@@ -40,10 +40,11 @@ export default function DualAcademyTcgFeatureTabs(props) {
             role="tab"
             aria-selected={activeTcgTab === tab.id}
             className={activeTcgTab === tab.id ? 'is-active' : ''}
+            data-game-sfx="tab"
             key={tab.id}
             onClick={() => setActiveTcgTab(tab.id)}
           >
-            <GameActionIcon action={tab.id} label={tab.label} />
+            <GameActionIcon action={tab.icon} label={tab.label} />
             <span>{tab.label}</span>
             <strong>{badgeByTab[tab.id]}</strong>
           </button>

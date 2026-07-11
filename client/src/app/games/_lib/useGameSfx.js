@@ -487,6 +487,88 @@ const CUE_PROFILES = {
     { frequency: 520, endFrequency: 650, duration: 0.05, type: 'triangle', gain: 0.05 },
     { frequency: 780, endFrequency: 980, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.045 },
   ],
+  tcgStart: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.045, gain: 0.026 },
+    { frequency: 330, duration: 0.05, type: 'triangle', gain: 0.045 },
+    { frequency: 495, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.043 },
+    { frequency: 990, start: 0.105, duration: 0.12, type: 'sine', gain: 0.036 },
+  ],
+  tcgDraw: [
+    { source: 'noise', filterType: 'highpass', frequency: 1350, duration: 0.055, gain: 0.032 },
+    { frequency: 560, endFrequency: 760, start: 0.025, duration: 0.065, type: 'triangle', gain: 0.038 },
+  ],
+  tcgSummon: [
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 1.6, duration: 0.055, gain: 0.036 },
+    { frequency: 280, endFrequency: 620, duration: 0.09, type: 'sawtooth', gain: 0.034 },
+    { frequency: 930, start: 0.085, duration: 0.085, type: 'sine', gain: 0.036 },
+  ],
+  tcgSet: [
+    { source: 'noise', filterType: 'lowpass', frequency: 760, duration: 0.04, gain: 0.035 },
+    { frequency: 420, endFrequency: 300, duration: 0.07, type: 'triangle', gain: 0.04 },
+  ],
+  tcgEffect: [
+    { frequency: 720, endFrequency: 1080, duration: 0.065, type: 'square', gain: 0.026 },
+    { frequency: 520, start: 0.055, duration: 0.1, type: 'triangle', gain: 0.04 },
+  ],
+  tcgChain: [
+    { frequency: 520, endFrequency: 650, duration: 0.045, type: 'triangle', gain: 0.043 },
+    { frequency: 780, endFrequency: 980, start: 0.042, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 1170, start: 0.09, duration: 0.07, type: 'sine', gain: 0.034 },
+  ],
+  tcgAttack: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.2, duration: 0.055, gain: 0.055 },
+    { frequency: 260, endFrequency: 150, duration: 0.1, type: 'sawtooth', gain: 0.042 },
+  ],
+  tcgHit: [
+    { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.075, gain: 0.065 },
+    { frequency: 190, endFrequency: 110, duration: 0.115, type: 'square', gain: 0.042 },
+  ],
+  tcgDamage: [
+    { frequency: 360, endFrequency: 220, duration: 0.09, type: 'square', gain: 0.043 },
+    { frequency: 150, start: 0.07, duration: 0.13, type: 'sine', gain: 0.04 },
+  ],
+  tcgDestroy: [
+    { source: 'noise', filterType: 'lowpass', frequency: 920, duration: 0.095, gain: 0.07 },
+    { frequency: 240, endFrequency: 95, duration: 0.14, type: 'sawtooth', gain: 0.042 },
+  ],
+  tcgNegate: [
+    { frequency: 980, endFrequency: 380, duration: 0.07, type: 'square', gain: 0.035 },
+    { source: 'noise', filterType: 'bandpass', frequency: 640, q: 2.4, start: 0.05, duration: 0.07, gain: 0.045 },
+  ],
+  tcgPosition: [
+    { frequency: 420, endFrequency: 620, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 620, endFrequency: 420, start: 0.05, duration: 0.055, type: 'triangle', gain: 0.038 },
+  ],
+  tcgPhase: [
+    { frequency: 520, endFrequency: 680, duration: 0.05, type: 'triangle', gain: 0.04 },
+  ],
+  tcgTurn: [
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.042 },
+    { frequency: 585, start: 0.04, duration: 0.075, type: 'sine', gain: 0.038 },
+  ],
+  tcgPrompt: [
+    { frequency: 740, duration: 0.04, type: 'sine', gain: 0.038 },
+    { frequency: 1110, start: 0.038, duration: 0.075, type: 'sine', gain: 0.036 },
+  ],
+  tcgInvalid: [
+    { frequency: 310, endFrequency: 220, duration: 0.075, type: 'square', gain: 0.04 },
+    { frequency: 180, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  tcgDeckSave: [
+    { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.035, gain: 0.025 },
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.043 },
+    { frequency: 780, start: 0.038, duration: 0.075, type: 'sine', gain: 0.038 },
+  ],
+  tcgVictory: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.07, gain: 0.035 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 780, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.048 },
+    { frequency: 1040, start: 0.1, duration: 0.13, type: 'sine', gain: 0.042 },
+  ],
+  tcgDefeat: [
+    { frequency: 430, endFrequency: 320, duration: 0.1, type: 'triangle', gain: 0.05 },
+    { frequency: 250, endFrequency: 170, start: 0.08, duration: 0.14, type: 'sine', gain: 0.044 },
+  ],
   pass: [
     { frequency: 620, endFrequency: 360, duration: 0.08, type: 'sine', gain: 0.05 },
   ],
