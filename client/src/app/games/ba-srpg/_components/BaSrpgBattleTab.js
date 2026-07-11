@@ -1,4 +1,6 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { baSrpgFeedbackPresentation } from '../_lib/baSrpgFeedback';
 import {
   GRID,
   actorStatusText,
@@ -61,6 +63,7 @@ export default function BaSrpgBattleTab(props) {
     state,
     town,
   } = props;
+  const battleSignal = baSrpgFeedbackPresentation(state);
 
   return (
     <>
@@ -68,6 +71,14 @@ export default function BaSrpgBattleTab(props) {
         <div className="games-panel-title">
           <h2>전장</h2>
           <span>{battle.lastResult || mission.caution}</span>
+        </div>
+        <div className={`srpg-battle-signal is-${battleSignal.tone}`} role="status" aria-live="polite">
+          <GameActionIcon action={battleSignal.action} label={battleSignal.label} />
+          <span>
+            <strong>{battleSignal.label}</strong>
+            <small>{battleSignal.detail}</small>
+          </span>
+          <em>{battle.phase === 'player' ? `턴 ${battle.turn}` : battle.phase === 'cleared' ? '완료' : '실패'}</em>
         </div>
         <div className="srpg-board" style={{ '--srpg-cols': GRID.width }}>
           {Array.from({ length: GRID.height }).flatMap((_, y) => (

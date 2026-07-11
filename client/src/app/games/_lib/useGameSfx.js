@@ -82,6 +82,14 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'lowpass', frequency: 720, duration: 0.08, gain: 0.07 },
     { frequency: 190, endFrequency: 90, duration: 0.15, type: 'sawtooth', gain: 0.06 },
   ],
+  attackMiss: [
+    { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.045, gain: 0.035 },
+    { frequency: 520, endFrequency: 260, start: 0.025, duration: 0.1, type: 'triangle', gain: 0.045 },
+  ],
+  unitDown: [
+    { frequency: 260, endFrequency: 150, duration: 0.11, type: 'square', gain: 0.045 },
+    { frequency: 130, start: 0.09, duration: 0.16, type: 'sine', gain: 0.05 },
+  ],
   revive: [
     { frequency: 280, endFrequency: 460, duration: 0.09, type: 'triangle', gain: 0.05 },
     { frequency: 690, start: 0.075, duration: 0.12, type: 'sine', gain: 0.045 },

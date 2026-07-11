@@ -8979,6 +8979,98 @@
   font-weight: 900;
 }
 
+.srpg-battle-signal {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(34, 103, 143, 0.2);
+  border-left: 4px solid #2f74a0;
+  border-radius: 8px;
+  background: #f3f8fb;
+}
+
+.srpg-battle-signal > .game-action-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: #dcecf6;
+  color: #1f5f86;
+}
+
+.srpg-battle-signal > span,
+.srpg-battle-signal strong,
+.srpg-battle-signal small {
+  min-width: 0;
+}
+
+.srpg-battle-signal strong,
+.srpg-battle-signal small {
+  display: block;
+}
+
+.srpg-battle-signal small {
+  margin-top: 2px;
+  color: #64717d;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.srpg-battle-signal em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #e6edf2;
+  color: #465866;
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.srpg-battle-signal.is-success {
+  border-left-color: #198754;
+  background: #f0faf5;
+}
+
+.srpg-battle-signal.is-success > .game-action-icon {
+  background: #d9f2e6;
+  color: #12683f;
+}
+
+.srpg-battle-signal.is-danger {
+  border-left-color: #c53939;
+  background: #fff3f3;
+}
+
+.srpg-battle-signal.is-danger > .game-action-icon {
+  background: #f8dddd;
+  color: #9d2929;
+}
+
+.srpg-battle-signal.is-warning {
+  border-left-color: #b47712;
+  background: #fff9ed;
+}
+
+.srpg-battle-signal.is-warning > .game-action-icon {
+  background: #f7e8c6;
+  color: #80530b;
+}
+
+.srpg-battle-signal.is-support {
+  border-left-color: #7554a8;
+  background: #f8f4fd;
+}
+
+.srpg-battle-signal.is-support > .game-action-icon {
+  background: #eadff7;
+  color: #5d3a8d;
+}
+
 .srpg-board {
   display: grid;
   grid-template-columns: repeat(var(--srpg-cols), minmax(42px, 1fr));

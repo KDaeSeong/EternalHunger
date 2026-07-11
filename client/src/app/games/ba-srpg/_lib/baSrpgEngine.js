@@ -19,7 +19,7 @@ import {
   COVER,
   AI_RULES,
   AI_COVER_HP_RATIO,
-} from './baSrpgData';
+} from './baSrpgData.js';
 
 export {
   GAME_SLUG,
@@ -45,7 +45,7 @@ export {
   COVER,
   AI_RULES,
   AI_COVER_HP_RATIO,
-} from './baSrpgData';
+} from './baSrpgData.js';
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -1965,6 +1965,7 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
       hitChance: 0,
       rawDamage: 0,
       hpDamage: 0,
+      expectedHpDamage: 0,
       shieldAbsorb: 0,
       lethal: false,
       inCover: false,

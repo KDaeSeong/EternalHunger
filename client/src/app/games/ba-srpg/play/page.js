@@ -1,14 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import BaSrpgFeatureTabs from '../_components/BaSrpgFeatureTabs';
+import {
+  baSrpgFeedbackCue,
+  createBaSrpgFeedbackSnapshot,
+} from '../_lib/baSrpgFeedback';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -71,6 +76,15 @@ export default function BaSrpgPlayPage() {
   const [skillId, setSkillId] = useState(TACTICAL_SKILLS[0].id);
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const playGameSfx = useGameSfx({ theme: 'tactical', volume: 0.18 });
+  const feedbackRef = useRef(null);
+  const feedbackSnapshot = useMemo(() => createBaSrpgFeedbackSnapshot(state), [state]);
+
+  useEffect(() => {
+    const cue = baSrpgFeedbackCue(feedbackRef.current, feedbackSnapshot);
+    feedbackRef.current = feedbackSnapshot;
+    if (cue) playGameSfx(cue);
+  }, [feedbackSnapshot, playGameSfx]);
 
   const battle = state.battle;
   const mission = getMission(battle.missionId);
@@ -151,6 +165,7 @@ export default function BaSrpgPlayPage() {
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
+      feedbackRef.current = createBaSrpgFeedbackSnapshot(nextState);
       setState(nextState);
       setMissionId(nextState.selectedMissionId);
       setMessage('저장된 BA SRPG 진행 상태를 불러왔습니다.');
