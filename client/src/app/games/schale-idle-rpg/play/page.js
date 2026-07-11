@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   GameControlButton,
   RecentActionResult,
@@ -17,12 +18,14 @@ import {
 import SchaleIdleFeatureTabs from '../_components/SchaleIdleFeatureTabs';
 import { buildSchaleIdlePlayViewModel } from '../_lib/schaleIdlePlayViewModel';
 import useSchaleIdlePersistence from '../_hooks/useSchaleIdlePersistence';
+import { schaleIdleResultCue } from '../_lib/schaleIdleFeedback';
 
 
 export default function SchaleIdlePlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'idle' });
   const [state, setState] = useState(() => createNewState());
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
   const [enhanceSlot, setEnhanceSlot] = useState('');
@@ -31,6 +34,13 @@ export default function SchaleIdlePlayPage() {
   const [selectedSalvageUids, setSelectedSalvageUids] = useState([]);
   const [presetName, setPresetName] = useState('탑 등반 세트');
   const [selectedPresetId, setSelectedPresetId] = useState('');
+  const feedbackRef = useRef(state);
+
+  useEffect(() => {
+    const cue = schaleIdleResultCue(feedbackRef.current, state);
+    feedbackRef.current = state;
+    if (cue) playGameSfx(cue);
+  }, [playGameSfx, state]);
 
   const viewModel = useMemo(() => buildSchaleIdlePlayViewModel({
     enhanceSlot,
@@ -133,7 +143,6 @@ export default function SchaleIdlePlayPage() {
 
   const messages = [
     message ? { key: 'message', text: message } : null,
-    !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 진행은 가능하지만 저장/불러오기/전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
   ];
 
   const guide = {
@@ -156,16 +165,19 @@ export default function SchaleIdlePlayPage() {
 
   return (
     <GamePlayShell
+      className="schale-idle-page-shell"
       kicker="Schale Idle RPG"
       title="샬레 당직 RPG"
       description="업로드된 Schale Idle RPG v1.34의 방치 정산, 장비 제작, 강화, 시련의 탑, 미션 보상 루프를 사이트용 playable slice로 이식했습니다."
       summaryLabel="Schale Idle RPG 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={10}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="schale-idle-growth-coach" />
       <RecentActionResult label="이번 성장 결과" text={recentActionText} pinned />
 
       <SchaleIdleFeatureTabs
@@ -214,6 +226,7 @@ export default function SchaleIdlePlayPage() {
         totalUpgradeLevel={totalUpgradeLevel}
         towerBatchCount={towerBatchCount}
         towerStopOnFail={towerStopOnFail}
+        token={token}
         upgrades={upgrades}
         validSelectedSalvageUids={validSelectedSalvageUids}
       />

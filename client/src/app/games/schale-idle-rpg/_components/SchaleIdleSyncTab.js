@@ -10,6 +10,7 @@ export default function SchaleIdleSyncTab(props) {
     saveRun,
     recordRun,
     syncReport,
+    token,
   } = props;
 
   return (
@@ -35,6 +36,9 @@ export default function SchaleIdleSyncTab(props) {
                         {busy === 'record' ? '기록 중...' : '전적 스냅샷'}
                       </ActionButton>
                     </div>
+                    {!token && hydrated ? (
+                      <div className="games-empty schale-sync-note">저장·불러오기·전적 스냅샷은 로그인 후 사용할 수 있습니다.</div>
+                    ) : null}
                     <div className="game-save-list">
                       {syncReport.syncRows.map((row) => (
                         <article className="game-save-row" key={row.id}>

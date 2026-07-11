@@ -12,6 +12,7 @@ import {
   RESEARCH_TAG_LABELS,
 } from '../_lib/primitiveArchivePageRuntime';
 import PrimitiveArchiveProjectsPanel from './PrimitiveArchiveProjectsPanel';
+import PrimitiveArchiveResearchTreePreview from './PrimitiveArchiveResearchTreePreview';
 
 export default function PrimitiveArchiveGrowthTab(props) {
   const {
@@ -39,6 +40,9 @@ export default function PrimitiveArchiveGrowthTab(props) {
   } = props;
   const openPlanner = () => setResearchPlannerOpen?.(true);
   const closePlanner = () => setResearchPlannerOpen?.(false);
+  const scrollToPreview = () => {
+    document.getElementById('primitive-research-tree-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const [treeFocusId, setTreeFocusId] = useState(state.research.selectedTechId);
   const [treeQuery, setTreeQuery] = useState('');
   const [treeEra, setTreeEra] = useState('ALL');
@@ -82,7 +86,12 @@ export default function PrimitiveArchiveGrowthTab(props) {
             ))}
           </div>
           <div className="games-empty">세 시설을 갖추면 기술 목표 지정, 매 행동 턴 RP, 일일 자동 연구가 동시에 해금됩니다.</div>
+          <GameControlButton action="research" className="primitive-research-preview-link" onClick={scrollToPreview}>
+            전체 기술 트리 미리보기
+          </GameControlButton>
         </section>
+
+        <PrimitiveArchiveResearchTreePreview researchMap={researchMap} />
 
         <PrimitiveArchiveProjectsPanel
           canAct={canAct}

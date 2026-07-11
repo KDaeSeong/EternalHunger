@@ -351,6 +351,40 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.032, duration: 0.045, type: 'triangle', gain: 0.04 },
     { frequency: 880, start: 0.072, duration: 0.065, type: 'sine', gain: 0.035 },
   ],
+  dutyComplete: [
+    { frequency: 420, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 630, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.043 },
+    { frequency: 840, start: 0.08, duration: 0.09, type: 'sine', gain: 0.038 },
+  ],
+  towerClear: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.055, gain: 0.03 },
+    { frequency: 330, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 550, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },
+    { frequency: 880, start: 0.095, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  towerFail: [
+    { frequency: 410, endFrequency: 290, duration: 0.09, type: 'triangle', gain: 0.05 },
+    { frequency: 210, endFrequency: 145, start: 0.07, duration: 0.12, type: 'sine', gain: 0.043 },
+  ],
+  enhanceSuccess: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1850, q: 2.4, duration: 0.035, gain: 0.042 },
+    { frequency: 620, duration: 0.035, type: 'triangle', gain: 0.048 },
+    { frequency: 1040, start: 0.032, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  enhanceFail: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.065, gain: 0.06 },
+    { frequency: 230, endFrequency: 155, duration: 0.1, type: 'square', gain: 0.036 },
+  ],
+  craftComplete: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1350, q: 2, duration: 0.04, gain: 0.04 },
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 920, start: 0.04, duration: 0.07, type: 'sine', gain: 0.038 },
+  ],
+  reward: [
+    { frequency: 980, duration: 0.03, type: 'square', gain: 0.035 },
+    { frequency: 1320, start: 0.028, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 1760, start: 0.07, duration: 0.075, type: 'sine', gain: 0.032 },
+  ],
 };
 
 const THEME_CUE_PROFILES = {

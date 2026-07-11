@@ -95,45 +95,53 @@ export default function SchaleIdleFeatureTabs(props) {
   };
 
   return (
-    <GameFeatureTabs
-      tabs={[
+    <section className="schale-idle-workspace">
+      <GameFeatureTabs
+        tabs={[
         {
           id: 'plan',
           label: '운영 플랜',
+          icon: 'settings',
           badge: dailyPlan.riskLabel,
           children: <SchaleIdlePlanTab {...tabProps} />,
         },
         {
           id: 'season',
           label: '시즌/밸런스',
+          icon: 'season',
           badge: seasonReport.riskLabel,
           children: <SchaleIdleSeasonTab {...tabProps} />,
         },
         {
           id: 'sync',
           label: '계정 동기화',
+          icon: 'sync',
           badge: `${syncReport.syncScore}%`,
           children: <SchaleIdleSyncTab {...tabProps} />,
         },
         {
           id: 'duty',
           label: '당직/제작',
+          icon: 'training',
           badge: `${state.stamina}/100`,
           children: <SchaleIdleDutyTab {...tabProps} />,
         },
         {
           id: 'gear',
           label: '장비/보상',
+          icon: 'equip',
           badge: `${equipped.length}개`,
           children: <SchaleIdleGearTab {...tabProps} />,
         },
         {
           id: 'records',
           label: '보고서/로그',
+          icon: 'archive',
           badge: `${state.log.length}개`,
           children: <SchaleIdleRecordsTab {...tabProps} />,
         },
-      ]}
-    />
+        ]}
+      />
+    </section>
   );
 }
