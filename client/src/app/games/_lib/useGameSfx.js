@@ -182,6 +182,13 @@ const CUE_PROFILES = {
     { frequency: 720, start: 0.038, duration: 0.055, type: 'sine', gain: 0.05 },
     { frequency: 960, start: 0.086, duration: 0.075, type: 'sine', gain: 0.04 },
   ],
+  eraAdvance: [
+    { source: 'noise', filterType: 'bandpass', frequency: 760, q: 1.4, duration: 0.07, gain: 0.028 },
+    { frequency: 196, endFrequency: 220, duration: 0.16, type: 'triangle', gain: 0.052 },
+    { frequency: 392, start: 0.08, duration: 0.13, type: 'triangle', gain: 0.05 },
+    { frequency: 587, start: 0.19, duration: 0.15, type: 'sine', gain: 0.045 },
+    { frequency: 784, start: 0.31, duration: 0.2, type: 'sine', gain: 0.038 },
+  ],
   inspiration: [
     { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.04, gain: 0.025 },
     { frequency: 440, endFrequency: 660, duration: 0.08, type: 'sine', gain: 0.048 },

@@ -207,11 +207,11 @@ export default function PrimitiveArchivePlayContent() {
 
   useEffect(() => {
     const previous = feedbackRef.current;
-    const current = primitiveMilestoneSnapshot(state, milestones.season.id);
+    const current = primitiveMilestoneSnapshot(state, milestones.season.id, milestones.eraId);
     const cue = primitiveMilestoneCue(previous, current);
     if (cue) playGameSfx(cue);
     feedbackRef.current = current;
-  }, [milestones.season.id, playGameSfx, state]);
+  }, [milestones.eraId, milestones.season.id, playGameSfx, state]);
 
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {

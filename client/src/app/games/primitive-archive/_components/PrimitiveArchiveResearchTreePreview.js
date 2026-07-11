@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import GameActionIcon from '../../_components/GameActionIcon';
 import {
+  RESEARCH_BRANCH_LABELS,
   RESEARCH_ERA_LABELS,
   RESEARCH_TAG_LABELS,
   advancementAction,
@@ -26,7 +27,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
   const isMuted = (node) => {
     if (era !== 'ALL' && node.era !== era) return true;
     if (!normalizedQuery) return false;
-    return !`${node.name} ${node.id} ${(node.tags || []).join(' ')}`.toLowerCase().includes(normalizedQuery);
+    return !`${node.name} ${node.id} ${RESEARCH_BRANCH_LABELS[node.branch] || ''} ${(node.tags || []).join(' ')}`.toLowerCase().includes(normalizedQuery);
   };
 
   return (
@@ -129,14 +130,16 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
                 >
                   <span className="primitive-research-node__head">
                     <span className="primitive-research-node__identity">
-                      <GameActionIcon action={advancementAction(node.tags, track)} label={node.name} />
+                      <GameActionIcon action={advancementAction(node.tags, track, node.branch)} label={node.name} />
                       <strong>{node.name}</strong>
                     </span>
                     <em>{node.available ? `발전 후 ${isCivics ? '추진' : '연구'}` : '선행 필요'}</em>
                   </span>
                   <small>{node.tierLabel} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.cost}{pointLabel}</small>
                   <span className="primitive-research-node__tags">
-                    {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
+                    {node.branch
+                      ? <i>{RESEARCH_BRANCH_LABELS[node.branch] || node.branch}</i>
+                      : (node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
                     {node.eureka ? <i>유</i> : null}
                     {node.inspiration ? <i>영</i> : null}
                   </span>
@@ -153,7 +156,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
                 <div>
                   <span>{focusedNode.tierLabel} · {RESEARCH_ERA_LABELS[focusedNode.era] || focusedNode.era}</span>
                   <h3>
-                    <GameActionIcon action={advancementAction(focusedNode.tags, track)} label={focusedNode.name} />
+                    <GameActionIcon action={advancementAction(focusedNode.tags, track, focusedNode.branch)} label={focusedNode.name} />
                     {focusedNode.name}
                   </h3>
                 </div>

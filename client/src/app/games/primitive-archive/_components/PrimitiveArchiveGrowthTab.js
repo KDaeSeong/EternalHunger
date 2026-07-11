@@ -9,6 +9,7 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 import {
+  RESEARCH_BRANCH_LABELS,
   RESEARCH_ERA_LABELS,
   RESEARCH_TAG_LABELS,
   advancementAction,
@@ -165,7 +166,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
   const treeNodeMuted = (node) => {
     if (treeEra !== 'ALL' && node.era !== treeEra) return true;
     if (!normalizedTreeQuery) return false;
-    return !`${node.name} ${node.id} ${(node.tags || []).join(' ')}`.toLowerCase().includes(normalizedTreeQuery);
+    return !`${node.name} ${node.id} ${RESEARCH_BRANCH_LABELS[node.branch] || ''} ${(node.tags || []).join(' ')}`.toLowerCase().includes(normalizedTreeQuery);
   };
   const openPlanner = () => setResearchPlannerOpen?.(true);
   const closePlanner = () => setResearchPlannerOpen?.(false);
@@ -441,14 +442,16 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     >
                       <span className="primitive-research-node__head">
                         <span className="primitive-research-node__identity">
-                          <GameActionIcon action={advancementAction(node.tags, activeTrack)} label={node.name} />
+                          <GameActionIcon action={advancementAction(node.tags, activeTrack, node.branch)} label={node.name} />
                           <strong>{node.name}</strong>
                         </span>
                         <em>{node.statusLabel}</em>
                       </span>
                       <small>{node.tierLabel} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}{pointLabel}</small>
                       <span className="primitive-research-node__tags">
-                        {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
+                        {node.branch
+                          ? <i>{RESEARCH_BRANCH_LABELS[node.branch] || node.branch}</i>
+                          : (node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
                         {node.eureka ? <i className={node.eurekaDone ? 'is-done' : ''}>유</i> : null}
                         {node.inspiration ? <i className={node.inspirationDone ? 'is-done' : ''}>영</i> : null}
                       </span>
@@ -466,7 +469,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <div>
                       <span>{focusedTreeNode.tierLabel} · {advancementMap.tierHeaders.find((tier) => tier.tier === focusedTreeNode.tier)?.name || '발전 단계'} · {RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era}</span>
                       <h3>
-                        <GameActionIcon action={advancementAction(focusedTreeNode.tags, activeTrack)} label={focusedTreeNode.name} />
+                        <GameActionIcon action={advancementAction(focusedTreeNode.tags, activeTrack, focusedTreeNode.branch)} label={focusedTreeNode.name} />
                         {focusedTreeNode.name}
                       </h3>
                     </div>

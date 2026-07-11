@@ -90,6 +90,25 @@ export const RESEARCH_ERA_LABELS = {
   NEOLITHIC: '신석기',
   ANCIENT: '고대',
   CLASSICAL: '고전',
+  MEDIEVAL: '중세',
+};
+
+export const RESEARCH_BRANCH_LABELS = {
+  FAITH: '신앙',
+  NATURAL_PHILOSOPHY: '이학',
+  LITERATURE: '문학',
+  MILITARY: '군사',
+  SURVIVAL: '생존',
+  ENGINEERING: '기술',
+};
+
+const RESEARCH_BRANCH_ACTIONS = {
+  FAITH: 'counsel',
+  NATURAL_PHILOSOPHY: 'research',
+  LITERATURE: 'archive',
+  MILITARY: 'training',
+  SURVIVAL: 'survival',
+  ENGINEERING: 'project',
 };
 
 export const RESEARCH_TAG_LABELS = {
@@ -114,7 +133,8 @@ const RESEARCH_TAG_ACTIONS = {
   CIVICS: 'policy',
 };
 
-export function advancementAction(tags, track = 'technology') {
+export function advancementAction(tags, track = 'technology', branch = '') {
+  if (RESEARCH_BRANCH_ACTIONS[branch]) return RESEARCH_BRANCH_ACTIONS[branch];
   const matchedTag = (Array.isArray(tags) ? tags : []).find((tag) => RESEARCH_TAG_ACTIONS[tag]);
   return RESEARCH_TAG_ACTIONS[matchedTag] || (track === 'civics' ? 'policy' : 'research');
 }
@@ -190,6 +210,48 @@ export const PASSIVE_UNLOCK_LABELS = {
   HUNT_SUCCESS_UP_3: '기마 사냥 성공률',
   IRON_CRAFT_UP: '철제 제작 성공률',
   RESOURCE_YIELD_UP_2: '화폐 자원 수익 증가',
+  THREE_FIELD_YIELD_UP: '삼포농법 수익 증가',
+  BLOOMERY_CRAFT_UP: '괴철로 제작 보정',
+  LATEEN_RIVER_UP: '삼각돛 수변 수익 증가',
+  HERBAL_MEDICINE_UP: '약초 의학 회복',
+  MONASTIC_RECOVERY_UP: '수도 규율 회복',
+  FEUDAL_PARTY_CAP_UP: '봉건 파티 정원',
+  EPIC_CULTURE_UP: '서사 문화 증가',
+  HEAVY_PLOUGH_YIELD_UP: '중경 식물 수익 증가',
+  STEEL_CRAFT_UP: '강철 도구 제작 보정',
+  WATERMILL_RESEARCH_UP: '수차 연구 보너스',
+  NAVIGATION_RIVER_UP: '항해 수변 수익 증가',
+  SCHOLASTIC_RESEARCH_UP: '스콜라 연구 보너스',
+  CHIVALRY_HUNT_UP: '기사도 사냥 보정',
+  COURT_CULTURE_UP: '궁정 문화 증가',
+  CROP_ROTATION_YIELD_UP: '윤작 식물 수익 증가',
+  MECHANICAL_CLOCK_RESEARCH_UP: '시계 연구 보너스',
+  MASONRY_WEATHER_DOWN: '석조 기후 피해 감소',
+  CHAINMAIL_RISK_DOWN: '사슬 갑옷 부상 감소',
+  CATHEDRAL_RESEARCH_UP: '성당 학교 연구 보너스',
+  GUILD_YIELD_UP: '길드 자원 수익 증가',
+  CHRONICLE_LOG_UP: '연대기 로그 확장',
+  PAPER_RESEARCH_UP: '제지 연구 보너스',
+  OPTICAL_SCIENCE_RARE_UP: '광학 희귀 발견 증가',
+  WINDMILL_RESOURCE_UP: '풍차 자원 수익 증가',
+  CASTLE_DEFENSE_UP: '성곽 방어 보정',
+  NATURAL_PHILOSOPHY_EUREKA_UP: '자연 철학 유레카 강화',
+  MILITARY_ORDER_RISK_DOWN: '기사단 부상 감소',
+  SACRED_MUSIC_RECOVERY_UP: '성가 회복과 문화',
+  PRINTING_RESEARCH_UP: '목판 인쇄 연구 보너스',
+  MEDIEVAL_MEDICINE_UP: '중세 의학 회복',
+  ADVANCED_METALLURGY_CRAFT_UP: '고급 제철 제작 보정',
+  OCEAN_NAVIGATION_YIELD_UP: '원양 항해 수변 수익',
+  UNIVERSITY_RESEARCH_UP: '대학 연구 보너스',
+  URBAN_CAMP_SCORE_UP: '도시 캠프 점수',
+  ROMANCE_INSPIRATION_UP: '기사 문학 영감 강화',
+  MECHANICAL_ENGINEERING_UP: '기계 공학 제작·작업 보정',
+  PLATE_ARMOR_RISK_DOWN: '판금 갑옷 부상 감소',
+  DEEP_WATER_SHIPBUILDING_UP: '원양 조선 수변 수익',
+  IMPROVED_AGRICULTURE_YIELD_UP: '개량 농업 수익 증가',
+  HUMANISM_BREAKTHROUGH_UP: '인문주의 발견 보너스',
+  ESTATES_PARTY_CAP_UP: '의회 파티 정원',
+  CODIFIED_THEOLOGY_RECOVERY_UP: '교리 회복과 문화',
 };
 
 export function researchStatusLabel(tech) {

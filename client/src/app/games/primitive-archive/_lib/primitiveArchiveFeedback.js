@@ -7,7 +7,7 @@ function partyHpTotal(state) {
     .reduce((sum, member) => sum + Math.max(0, Number(member?.hp || 0)), 0);
 }
 
-export function primitiveMilestoneSnapshot(state, seasonId = '') {
+export function primitiveMilestoneSnapshot(state, seasonId = '', eraId = '') {
   return {
     runId: String(state?.runId || ''),
     ended: Boolean(state?.ended),
@@ -21,6 +21,7 @@ export function primitiveMilestoneSnapshot(state, seasonId = '') {
     tribeGrowthSerial: Number(state?.tribe?.growthSerial || 0),
     contactSerial: Number(state?.diplomacy?.contactSerial || 0),
     seasonId: String(seasonId || ''),
+    eraId: String(eraId || ''),
   };
 }
 
@@ -28,6 +29,7 @@ export function primitiveMilestoneCue(previous, current) {
   if (!previous || !current || previous.runId !== current.runId) return '';
   if (!previous.victory && current.victory) return 'champion';
   if (!previous.ended && current.ended) return 'defeat';
+  if (previous.eraId && current.eraId && previous.eraId !== current.eraId) return 'eraAdvance';
   if (current.projectSerial > previous.projectSerial) return 'projectComplete';
   if (current.civicsSerial > previous.civicsSerial) return 'civicComplete';
   if (current.researchSerial > previous.researchSerial) return 'complete';
@@ -83,6 +85,7 @@ export function primitiveActionResultText(previous, current, label, fallback = '
 function milestoneAction(cue) {
   if (cue === 'champion') return 'champion';
   if (cue === 'defeat') return 'defeat';
+  if (cue === 'eraAdvance') return 'tower';
   if (cue === 'projectComplete') return 'project';
   if (cue === 'civicComplete' || cue === 'inspiration') return 'policy';
   if (cue === 'complete' || cue === 'research') return 'research';

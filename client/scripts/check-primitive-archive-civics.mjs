@@ -82,13 +82,26 @@ assertStageCostsDoNotRegress(engine.TECHNOLOGY_TREE, '기술');
 assertStageCostsDoNotRegress(engine.CIVIC_TREE, '사회 제도');
 assert.deepEqual(
   engine.TECH_TIER_DEFS.map((definition) => definition.tier),
-  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-  '기술 단계는 T1부터 T10까지 연속이어야 합니다.',
+  Array.from({ length: 16 }, (_, index) => index + 1),
+  '기술 단계는 T1부터 T16까지 연속이어야 합니다.',
 );
 assert.deepEqual(
   engine.CIVIC_TIER_DEFS.map((definition) => definition.tier),
-  [1, 2, 3, 4, 5, 6, 7, 8],
-  '사회 제도 단계는 C1부터 C8까지 연속이어야 합니다.',
+  Array.from({ length: 14 }, (_, index) => index + 1),
+  '사회 제도 단계는 C1부터 C14까지 연속이어야 합니다.',
+);
+
+const medievalTechnologies = engine.TECHNOLOGY_TREE.filter((technology) => technology.era === 'MEDIEVAL');
+const medievalCivics = engine.CIVIC_TREE.filter((civic) => civic.era === 'MEDIEVAL');
+const expansionBranches = ['ENGINEERING', 'FAITH', 'LITERATURE', 'MILITARY', 'NATURAL_PHILOSOPHY', 'SURVIVAL'];
+assert.equal(medievalTechnologies.length, 24, '중세 확장에는 기술 24개가 있어야 합니다.');
+assert.equal(medievalCivics.length, 18, '중세 확장에는 사회 제도 18개가 있어야 합니다.');
+assert.ok(medievalTechnologies.every((technology) => technology.eureka), '모든 중세 기술에는 유레카가 있어야 합니다.');
+assert.ok(medievalCivics.every((civic) => civic.inspiration), '모든 중세 사회 제도에는 영감이 있어야 합니다.');
+assert.deepEqual(
+  [...new Set([...medievalTechnologies, ...medievalCivics].map((advancement) => advancement.branch))].sort(),
+  expansionBranches,
+  '중세 확장은 신앙·이학·문학·군사·생존·기술 여섯 계통을 모두 포함해야 합니다.',
 );
 
 const ready = engine.normalizeState({
@@ -183,22 +196,30 @@ function assertNoUnrelatedNodeCrossings(map, label) {
 }
 
 assert.equal(technologyMap.minTier, 1, '기술 트리는 T1부터 시작해야 합니다.');
-assert.equal(technologyMap.maxTier, 10, '기술 트리는 T10에서 끝나야 합니다.');
-assert.equal(technologyMap.rangeLabel, 'T1-T10', '기술 트리는 T 접두사를 사용해야 합니다.');
-assert.equal(technologyMap.tierCount, 10, '기술 트리는 열 단계가 모두 표시되어야 합니다.');
+assert.equal(technologyMap.maxTier, 16, '기술 트리는 T16에서 끝나야 합니다.');
+assert.equal(technologyMap.rangeLabel, 'T1-T16', '기술 트리는 T 접두사를 사용해야 합니다.');
+assert.equal(technologyMap.tierCount, 16, '기술 트리는 열여섯 단계가 모두 표시되어야 합니다.');
 assert.deepEqual(
   technologyMap.tierHeaders.slice(0, 4).map((tier) => tier.count),
   [2, 4, 4, 3],
   '초반 기술 단계는 생존 기초에서 전문 생존으로 자연스럽게 분산되어야 합니다.',
 );
 assert.equal(civicMap.minTier, 1, '사회 제도 트리는 C1부터 시작해야 합니다.');
-assert.equal(civicMap.maxTier, 8, '사회 제도 트리는 C8에서 끝나야 합니다.');
-assert.equal(civicMap.rangeLabel, 'C1-C8', '사회 제도 트리는 C 접두사를 사용해야 합니다.');
-assert.equal(civicMap.tierCount, 8, '사회 제도 트리는 여덟 단계가 모두 표시되어야 합니다.');
+assert.equal(civicMap.maxTier, 14, '사회 제도 트리는 C14에서 끝나야 합니다.');
+assert.equal(civicMap.rangeLabel, 'C1-C14', '사회 제도 트리는 C 접두사를 사용해야 합니다.');
+assert.equal(civicMap.tierCount, 14, '사회 제도 트리는 열네 단계가 모두 표시되어야 합니다.');
 assert.ok(civicMap.nodes.every((node) => node.tierLabel.startsWith('C')), '사회 제도 노드는 C 단계 라벨을 사용해야 합니다.');
 assert.ok(technologyMap.nodes.every((node) => node.tierLabel.startsWith('T')), '기술 노드는 T 단계 라벨을 사용해야 합니다.');
-assert.equal(technologyMap.edges.length, 52, '기술 트리는 정리된 52개 내부 선행선만 그려야 합니다.');
-assert.equal(civicMap.edges.length, 14, '사회 제도 트리는 14개 내부 선행선을 그려야 합니다.');
+const technologyEdgeCount = engine.TECHNOLOGY_TREE.reduce((sum, technology) => (
+  sum + (technology.prereqs || []).filter((prereqId) => technologyIds.has(prereqId)).length
+), 0);
+const civicEdgeCount = engine.CIVIC_TREE.reduce((sum, civic) => (
+  sum + (civic.prereqs || []).filter((prereqId) => civicIds.has(prereqId)).length
+), 0);
+const totalPrerequisiteCount = engine.TECH_TREE.reduce((sum, advancement) => sum + (advancement.prereqs || []).length, 0);
+const crossTrackGateCount = totalPrerequisiteCount - technologyEdgeCount - civicEdgeCount;
+assert.equal(technologyMap.edges.length, technologyEdgeCount, '기술 트리는 같은 트리 내부 선행선만 그려야 합니다.');
+assert.equal(civicMap.edges.length, civicEdgeCount, '사회 제도 트리는 같은 트리 내부 선행선만 그려야 합니다.');
 assertNoUnrelatedNodeCrossings(technologyMap, '기술 트리');
 assertNoUnrelatedNodeCrossings(civicMap, '사회 제도 트리');
 const huntingRow = engine.techRows(ready).find((technology) => technology.id === 'HUNTING');
@@ -219,6 +240,33 @@ assert.ok(
 assert.equal(runtime.advancementAction(['MILITARY'], 'technology'), 'combat', '군사 기술은 전투 계통 아이콘을 사용해야 합니다.');
 assert.equal(runtime.advancementAction(['CULTURE'], 'civics'), 'archive', '문화 제도는 기록 계통 아이콘을 사용해야 합니다.');
 assert.equal(runtime.advancementAction([], 'civics'), 'policy', '태그가 없는 사회 제도는 제도 아이콘으로 대체해야 합니다.');
+assert.equal(runtime.advancementAction(['SPIRITUAL'], 'civics', 'FAITH'), 'counsel', '중세 신앙 계통은 전용 아이콘을 사용해야 합니다.');
+assert.equal(runtime.RESEARCH_ERA_LABELS.MEDIEVAL, '중세', '중세 시대 라벨이 표시되어야 합니다.');
+
+const medievalEffectState = engine.normalizeState({
+  ...base,
+  research: {
+    ...base.research,
+    completed: {
+      THREE_FIELD_SYSTEM: true,
+      BLOOMERY_FURNACE: true,
+      CHIVALRIC_CODE: true,
+      CHAINMAIL: true,
+      FEUDAL_CONTRACT: true,
+      ESTATES_ASSEMBLY: true,
+    },
+  },
+});
+assert.ok(
+  engine.actionChance(medievalEffectState, 'shiroko', 'gather', 0.5) > engine.actionChance(base, 'shiroko', 'gather', 0.5),
+  '삼포농법은 실제 채집 성공률을 높여야 합니다.',
+);
+assert.ok(
+  engine.actionChance(medievalEffectState, 'noa', 'craft', 0.5) > engine.actionChance(base, 'noa', 'craft', 0.5),
+  '괴철로는 실제 제작 성공률을 높여야 합니다.',
+);
+assert.equal(engine.getPartyCap(medievalEffectState), engine.getPartyCap(base) + 2, '중세 사회 제도는 파티 정원을 실제로 늘려야 합니다.');
+assert.ok(engine.huntFailureDamage(medievalEffectState) < engine.huntFailureDamage(base), '중세 방어 기술은 사냥 실패 피해를 줄여야 합니다.');
 
 const feedbackBase = {
   runId: 'feedback-a',
@@ -308,6 +356,14 @@ assert.equal(
   '',
   '다른 런을 불러올 때 이전 런의 완료음을 재생하면 안 됩니다.',
 );
+assert.equal(
+  feedback.primitiveMilestoneCue(
+    feedback.primitiveMilestoneSnapshot(feedbackBase, 'spring', 'CLASSICAL'),
+    feedback.primitiveMilestoneSnapshot(feedbackBase, 'spring', 'MEDIEVAL'),
+  ),
+  'eraAdvance',
+  '중세 진입은 전용 시대 전환 효과음을 선택해야 합니다.',
+);
 
 const legacy = engine.normalizeState({
   ...base,
@@ -328,6 +384,12 @@ console.log(JSON.stringify({
   civics: engine.CIVIC_TREE.length,
   technologyRange: technologyMap.rangeLabel,
   civicRange: civicMap.rangeLabel,
+  medievalTechnologies: medievalTechnologies.length,
+  medievalCivics: medievalCivics.length,
+  technologyEdges: technologyMap.edges.length,
+  civicEdges: civicMap.edges.length,
+  crossTrackGates: crossTrackGateCount,
+  totalPrerequisites: totalPrerequisiteCount,
   earlyTechnologyDensity: technologyMap.tierHeaders.slice(0, 4).map((tier) => tier.count),
   civicGain,
   inspirationApplied: inspired.civics.inspiration.SETTLEMENT,

@@ -211,7 +211,9 @@ export function getPartyCap(state) {
   const current = normalizeState(state);
   return 3
     + (hasTechPassive(current, 'PARTY_CAP_UP') ? 1 : 0)
-    + (hasTechPassive(current, 'PARTY_CAP_UP_2') ? 1 : 0);
+    + (hasTechPassive(current, 'PARTY_CAP_UP_2') ? 1 : 0)
+    + (hasTechPassive(current, 'FEUDAL_PARTY_CAP_UP') ? 1 : 0)
+    + (hasTechPassive(current, 'ESTATES_PARTY_CAP_UP') ? 1 : 0);
 }
 
 function makePartyMember(student) {
@@ -269,7 +271,8 @@ export function logCapacity(state) {
   return BASE_LOG_LIMIT
     + (Number(state?.camp?.archiveRoomLevel || 0) > 0 ? ARCHIVE_LOG_LIMIT_BONUS : 0)
     + (hasTechPassive(state, 'ARCHIVE_LOG_UP') ? 40 : 0)
-    + (hasTechPassive(state, 'ARCHIVE_LOG_UP_2') ? 80 : 0);
+    + (hasTechPassive(state, 'ARCHIVE_LOG_UP_2') ? 80 : 0)
+    + (hasTechPassive(state, 'CHRONICLE_LOG_UP') ? 80 : 0);
 }
 
 export function addLog(state, message) {
@@ -489,6 +492,48 @@ function passiveLabel(passiveId) {
     HUNT_SUCCESS_UP_3: '기마 사냥 성공률',
     IRON_CRAFT_UP: '철제 제작 성공률',
     RESOURCE_YIELD_UP_2: '화폐 자원 수익 증가',
+    THREE_FIELD_YIELD_UP: '삼포농법 수익 증가',
+    BLOOMERY_CRAFT_UP: '괴철로 제작 보정',
+    LATEEN_RIVER_UP: '삼각돛 수변 수익 증가',
+    HERBAL_MEDICINE_UP: '약초 의학 회복',
+    MONASTIC_RECOVERY_UP: '수도 규율 회복',
+    FEUDAL_PARTY_CAP_UP: '봉건 파티 정원',
+    EPIC_CULTURE_UP: '서사 문화 증가',
+    HEAVY_PLOUGH_YIELD_UP: '중경 식물 수익 증가',
+    STEEL_CRAFT_UP: '강철 도구 제작 보정',
+    WATERMILL_RESEARCH_UP: '수차 연구 보너스',
+    NAVIGATION_RIVER_UP: '항해 수변 수익 증가',
+    SCHOLASTIC_RESEARCH_UP: '스콜라 연구 보너스',
+    CHIVALRY_HUNT_UP: '기사도 사냥 보정',
+    COURT_CULTURE_UP: '궁정 문화 증가',
+    CROP_ROTATION_YIELD_UP: '윤작 식물 수익 증가',
+    MECHANICAL_CLOCK_RESEARCH_UP: '시계 연구 보너스',
+    MASONRY_WEATHER_DOWN: '석조 기후 피해 감소',
+    CHAINMAIL_RISK_DOWN: '사슬 갑옷 부상 감소',
+    CATHEDRAL_RESEARCH_UP: '성당 학교 연구 보너스',
+    GUILD_YIELD_UP: '길드 자원 수익 증가',
+    CHRONICLE_LOG_UP: '연대기 로그 확장',
+    PAPER_RESEARCH_UP: '제지 연구 보너스',
+    OPTICAL_SCIENCE_RARE_UP: '광학 희귀 발견 증가',
+    WINDMILL_RESOURCE_UP: '풍차 자원 수익 증가',
+    CASTLE_DEFENSE_UP: '성곽 방어 보정',
+    NATURAL_PHILOSOPHY_EUREKA_UP: '자연 철학 유레카 강화',
+    MILITARY_ORDER_RISK_DOWN: '기사단 부상 감소',
+    SACRED_MUSIC_RECOVERY_UP: '성가 회복과 문화',
+    PRINTING_RESEARCH_UP: '목판 인쇄 연구 보너스',
+    MEDIEVAL_MEDICINE_UP: '중세 의학 회복',
+    ADVANCED_METALLURGY_CRAFT_UP: '고급 제철 제작 보정',
+    OCEAN_NAVIGATION_YIELD_UP: '원양 항해 수변 수익',
+    UNIVERSITY_RESEARCH_UP: '대학 연구 보너스',
+    URBAN_CAMP_SCORE_UP: '도시 캠프 점수',
+    ROMANCE_INSPIRATION_UP: '기사 문학 영감 강화',
+    MECHANICAL_ENGINEERING_UP: '기계 공학 제작·작업 보정',
+    PLATE_ARMOR_RISK_DOWN: '판금 갑옷 부상 감소',
+    DEEP_WATER_SHIPBUILDING_UP: '원양 조선 수변 수익',
+    IMPROVED_AGRICULTURE_YIELD_UP: '개량 농업 수익 증가',
+    HUMANISM_BREAKTHROUGH_UP: '인문주의 발견 보너스',
+    ESTATES_PARTY_CAP_UP: '의회 파티 정원',
+    CODIFIED_THEOLOGY_RECOVERY_UP: '교리 회복과 문화',
   };
   return labels[passiveId] || passiveId.replaceAll('_', ' ');
 }
@@ -1204,8 +1249,8 @@ export function selectRegionAction(state, regionId) {
 export function civilizationMilestoneRows(state) {
   const current = normalizeState(state);
   const season = seasonForDay(current.day);
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL'];
-  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전' };
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL'];
+  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전', MEDIEVAL: '중세' };
   const completedEras = TECH_TREE
     .filter((tech) => current.research.completed?.[tech.id])
     .map((tech) => tech.era);
@@ -1408,8 +1453,16 @@ function applyResearchBreakthrough(state, kind) {
     if (!trigger || next.research[kind]?.[tech.id] || next.research.completed[tech.id]) continue;
     if (!researchTriggerProgress(next, trigger).done) continue;
     if (!prereqsMet(next.research, tech)) continue;
-    const eurekaMultiplier = kind === 'eureka' && hasTechPassive(next, 'EUREKA_BONUS_UP') ? 1.2 : 1;
-    const inspirationMultiplier = kind === 'inspiration' && hasTechPassive(next, 'INSPIRATION_BONUS_UP') ? 1.25 : 1;
+    const eurekaMultiplier = kind === 'eureka'
+      ? (hasTechPassive(next, 'EUREKA_BONUS_UP') ? 1.2 : 1)
+        * (hasTechPassive(next, 'NATURAL_PHILOSOPHY_EUREKA_UP') ? 1.15 : 1)
+        * (hasTechPassive(next, 'HUMANISM_BREAKTHROUGH_UP') ? 1.1 : 1)
+      : 1;
+    const inspirationMultiplier = kind === 'inspiration'
+      ? (hasTechPassive(next, 'INSPIRATION_BONUS_UP') ? 1.25 : 1)
+        * (hasTechPassive(next, 'ROMANCE_INSPIRATION_UP') ? 1.15 : 1)
+        * (hasTechPassive(next, 'HUMANISM_BREAKTHROUGH_UP') ? 1.1 : 1)
+      : 1;
     const bonus = Math.ceil(tech.cost * Number(trigger.bonusPct || 0) * eurekaMultiplier * inspirationMultiplier);
     next = {
       ...next,
@@ -1437,7 +1490,9 @@ function applyCivicInspirations(state) {
     if (!trigger || next.civics.inspiration?.[civic.id] || next.civics.completed?.[civic.id]) continue;
     if (!researchTriggerProgress(next, trigger).done) continue;
     if (!prereqsMet(next.research, civic)) continue;
-    const multiplier = hasTechPassive(next, 'INSPIRATION_BONUS_UP') ? 1.25 : 1;
+    const multiplier = (hasTechPassive(next, 'INSPIRATION_BONUS_UP') ? 1.25 : 1)
+      * (hasTechPassive(next, 'ROMANCE_INSPIRATION_UP') ? 1.15 : 1)
+      * (hasTechPassive(next, 'HUMANISM_BREAKTHROUGH_UP') ? 1.1 : 1);
     const bonus = Math.ceil(civic.cost * Number(trigger.bonusPct || 0) * multiplier);
     next = {
       ...next,
@@ -1497,10 +1552,17 @@ function autoResearchForDay(state) {
     + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_3') ? 2 : 0)
     + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_4') ? 2 : 0)
     + (hasTechPassive(state, 'STATE_RESEARCH_UP') ? 1 : 0)
+    + (hasTechPassive(state, 'WATERMILL_RESEARCH_UP') ? 1 : 0)
+    + (hasTechPassive(state, 'MECHANICAL_CLOCK_RESEARCH_UP') ? 2 : 0)
+    + (hasTechPassive(state, 'PAPER_RESEARCH_UP') ? 2 : 0)
+    + (hasTechPassive(state, 'PRINTING_RESEARCH_UP') ? 2 : 0)
+    + (hasTechPassive(state, 'SCHOLASTIC_RESEARCH_UP') ? 2 : 0)
+    + (hasTechPassive(state, 'CATHEDRAL_RESEARCH_UP') ? 1 : 0)
+    + (hasTechPassive(state, 'UNIVERSITY_RESEARCH_UP') ? 3 : 0)
     + (hasCompletedProject(state, 'council-fire') ? 1 : 0)
     + bookResearchBonus(state),
     2,
-    14
+    24
   );
   return addResearchProgress({ ...state, research }, techId, points, '일일 연구');
 }
@@ -1512,6 +1574,8 @@ function autoResearchForTurn(state) {
   if (!techId) return state;
   const points = 1
     + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_4') ? 1 : 0)
+    + (hasTechPassive(state, 'PRINTING_RESEARCH_UP') ? 1 : 0)
+    + (hasTechPassive(state, 'UNIVERSITY_RESEARCH_UP') ? 1 : 0)
     + (hasCompletedProject(state, 'council-fire') ? 1 : 0);
   return addResearchProgress({ ...state, research }, techId, points, '턴 연구', { silent: true });
 }
@@ -1536,9 +1600,13 @@ function autoCivicsForDay(state) {
       + Number(state.camp.libraryShelfLevel || 0)
       + (morale >= 60 ? 1 : 0)
       + (hasCompletedProject(state, 'council-fire') ? 1 : 0)
-      + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 1 : 0),
+      + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 1 : 0)
+      + (hasTechPassive(state, 'EPIC_CULTURE_UP') ? 1 : 0)
+      + (hasTechPassive(state, 'COURT_CULTURE_UP') ? 1 : 0)
+      + (hasTechPassive(state, 'SACRED_MUSIC_RECOVERY_UP') ? 1 : 0)
+      + (hasTechPassive(state, 'CODIFIED_THEOLOGY_RECOVERY_UP') ? 1 : 0),
     1,
-    8,
+    12,
   );
   return addCivicProgress(state, civic.id, points, '일일 문화');
 }
@@ -2083,7 +2151,9 @@ function foodNutritionValue(state, foodId) {
 
 function foodHealValue(state, foodId) {
   return Number(ITEMS[foodId]?.heal || 0)
-    + (foodId === 'herb_tonic' && hasTechPassive(state, 'MYSTIC_RECOVERY_UP') ? 4 : 0);
+    + (foodId === 'herb_tonic' && hasTechPassive(state, 'MYSTIC_RECOVERY_UP') ? 4 : 0)
+    + (foodId === 'herb_tonic' && hasTechPassive(state, 'HERBAL_MEDICINE_UP') ? 4 : 0)
+    + (foodId === 'herb_tonic' && hasTechPassive(state, 'MEDIEVAL_MEDICINE_UP') ? 6 : 0);
 }
 const RARE_GEAR_RECIPE_PRIORITY = [
   'dino_scale_vest',
@@ -2428,6 +2498,10 @@ function eventRiskDamage(state, actorId, base, action = '') {
   if (action === 'hunt' && hasTechPassive(state, 'HUNT_RISK_DOWN')) damage -= 2;
   if (action === 'hunt' && hasTechPassive(state, 'HUNT_RISK_DOWN_2')) damage -= 2;
   if (action === 'hunt' && hasTechPassive(state, 'HUNT_RISK_DOWN_3')) damage -= 3;
+  if (action === 'hunt' && hasTechPassive(state, 'CHAINMAIL_RISK_DOWN')) damage -= 2;
+  if (action === 'hunt' && hasTechPassive(state, 'MILITARY_ORDER_RISK_DOWN')) damage -= 2;
+  if (action === 'hunt' && hasTechPassive(state, 'CASTLE_DEFENSE_UP')) damage -= 2;
+  if (action === 'hunt' && hasTechPassive(state, 'PLATE_ARMOR_RISK_DOWN')) damage -= 4;
   if (hasEventSupportGear(state, actorId, action)) damage -= 2;
   return Math.max(1, Math.round(damage));
 }
@@ -2438,6 +2512,10 @@ export function huntFailureDamage(state) {
   if (hasTechPassive(state, 'HUNT_RISK_DOWN')) damage -= 2;
   if (hasTechPassive(state, 'HUNT_RISK_DOWN_2')) damage -= 2;
   if (hasTechPassive(state, 'HUNT_RISK_DOWN_3')) damage -= 3;
+  if (hasTechPassive(state, 'CHAINMAIL_RISK_DOWN')) damage -= 2;
+  if (hasTechPassive(state, 'MILITARY_ORDER_RISK_DOWN')) damage -= 2;
+  if (hasTechPassive(state, 'CASTLE_DEFENSE_UP')) damage -= 2;
+  if (hasTechPassive(state, 'PLATE_ARMOR_RISK_DOWN')) damage -= 4;
   if (hasCompletedProject(state, 'palisade')) damage -= 2;
   return Math.max(2, damage);
 }
@@ -2633,13 +2711,22 @@ export function actionChance(state, actorId, action, base = 0.55) {
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP_2') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'ANIMAL_YIELD_UP') ? 0.04 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP_3') ? 0.08 : 0)
+    + (action === 'hunt' && hasTechPassive(state, 'CHIVALRY_HUNT_UP') ? 0.05 : 0)
     + (action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP') ? 0.04 : 0)
     + (action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP_2') ? 0.04 : 0)
+    + (action === 'gather' && hasTechPassive(state, 'THREE_FIELD_YIELD_UP') ? 0.04 : 0)
+    + (action === 'gather' && hasTechPassive(state, 'HEAVY_PLOUGH_YIELD_UP') ? 0.04 : 0)
+    + (action === 'gather' && hasTechPassive(state, 'CROP_ROTATION_YIELD_UP') ? 0.05 : 0)
+    + (action === 'gather' && hasTechPassive(state, 'IMPROVED_AGRICULTURE_YIELD_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'CRAFT_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_CRAFT_UP') ? 0.04 : 0)
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_CRAFT_UP_2') ? 0.04 : 0)
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_CRAFT_UP_3') ? 0.05 : 0)
-    + (action === 'craft' && hasTechPassive(state, 'IRON_CRAFT_UP') ? 0.06 : 0);
+    + (action === 'craft' && hasTechPassive(state, 'IRON_CRAFT_UP') ? 0.06 : 0)
+    + (action === 'craft' && hasTechPassive(state, 'BLOOMERY_CRAFT_UP') ? 0.04 : 0)
+    + (action === 'craft' && hasTechPassive(state, 'STEEL_CRAFT_UP') ? 0.05 : 0)
+    + (action === 'craft' && hasTechPassive(state, 'ADVANCED_METALLURGY_CRAFT_UP') ? 0.06 : 0)
+    + (action === 'craft' && hasTechPassive(state, 'MECHANICAL_ENGINEERING_UP') ? 0.06 : 0);
   return clamp(base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus, 0.08, 0.95);
 }
 
@@ -2797,6 +2884,8 @@ export function advanceDay(state, options = {}) {
     * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN') ? 0.9 : 1)
     * (hasTechPassive(state, 'WEATHER_LORE_UP_2') ? 0.88 : 1)
     * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN_2') ? 0.82 : 1)
+    * (hasTechPassive(state, 'MASONRY_WEATHER_DOWN') ? 0.92 : 1)
+    * (hasTechPassive(state, 'CASTLE_DEFENSE_UP') ? 0.9 : 1)
     * (hasCompletedProject(state, 'palisade') ? 0.85 : 1);
   const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
   const fireActive = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0;
@@ -3559,6 +3648,11 @@ export function scoreState(state) {
     + (hasTechPassive(state, 'CAMP_SCORE_UP_2') ? 300 : 0)
     + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 180 : 0)
     + (hasTechPassive(state, 'ART_SCORE_UP') ? 180 : 0)
+    + (hasTechPassive(state, 'EPIC_CULTURE_UP') ? 220 : 0)
+    + (hasTechPassive(state, 'COURT_CULTURE_UP') ? 220 : 0)
+    + (hasTechPassive(state, 'CHRONICLE_LOG_UP') ? 260 : 0)
+    + (hasTechPassive(state, 'URBAN_CAMP_SCORE_UP') ? 350 : 0)
+    + (hasTechPassive(state, 'HUMANISM_BREAKTHROUGH_UP') ? 280 : 0)
     + (hasCompletedProject(state, 'stone-monument') ? 400 : 0)
     + Math.max(0, Number(tribe.population || 4) - 4) * 90
     + knownContacts * 120
@@ -3891,11 +3985,17 @@ function zoneEntryChance(state, chance = 1, context = {}) {
     baseChance
       + (hasTechPassive(state, 'RARE_YIELD_UP') ? 0.06 : 0)
       + (hasTechPassive(state, 'RARE_YIELD_UP_2') ? 0.08 : 0)
+      + (hasTechPassive(state, 'OPTICAL_SCIENCE_RARE_UP') ? 0.08 : 0)
+      + (hasTechPassive(state, 'ADVANCED_METALLURGY_CRAFT_UP') ? 0.03 : 0)
       + Number(region?.rareBonus || 0)
       + (context.zoneId === 'cave' && hasTechPassive(state, 'MINERAL_YIELD_UP') ? 0.08 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP') ? 0.05 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP_2') ? 0.06 : 0)
-      + (context.zoneId === 'river' && hasTechPassive(state, 'SHIPBUILDING_RIVER_UP') ? 0.07 : 0),
+      + (context.zoneId === 'river' && hasTechPassive(state, 'SHIPBUILDING_RIVER_UP') ? 0.07 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'LATEEN_RIVER_UP') ? 0.04 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'NAVIGATION_RIVER_UP') ? 0.06 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'OCEAN_NAVIGATION_YIELD_UP') ? 0.08 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'DEEP_WATER_SHIPBUILDING_UP') ? 0.1 : 0),
     0,
     1,
   );
@@ -3908,13 +4008,23 @@ function zoneBonusQuantityChance(state, context = {}) {
       + Number(region?.yieldBonus || 0)
       + (hasTechPassive(state, 'RESOURCE_YIELD_UP') ? 0.12 : 0)
       + (hasTechPassive(state, 'RESOURCE_YIELD_UP_2') ? 0.14 : 0)
+      + (hasTechPassive(state, 'GUILD_YIELD_UP') ? 0.1 : 0)
+      + (hasTechPassive(state, 'WINDMILL_RESOURCE_UP') ? 0.1 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP') ? 0.08 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP_2') ? 0.1 : 0)
+      + (context.action === 'gather' && hasTechPassive(state, 'THREE_FIELD_YIELD_UP') ? 0.08 : 0)
+      + (context.action === 'gather' && hasTechPassive(state, 'HEAVY_PLOUGH_YIELD_UP') ? 0.08 : 0)
+      + (context.action === 'gather' && hasTechPassive(state, 'CROP_ROTATION_YIELD_UP') ? 0.1 : 0)
+      + (context.action === 'gather' && hasTechPassive(state, 'IMPROVED_AGRICULTURE_YIELD_UP') ? 0.14 : 0)
       + (context.action === 'gather' && hasCompletedProject(state, 'irrigation-ditch') ? 0.12 : 0)
       + (context.action === 'hunt' && hasTechPassive(state, 'ANIMAL_YIELD_UP') ? 0.1 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP') ? 0.08 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP_2') ? 0.1 : 0)
-      + (context.zoneId === 'river' && hasTechPassive(state, 'SHIPBUILDING_RIVER_UP') ? 0.12 : 0),
+      + (context.zoneId === 'river' && hasTechPassive(state, 'SHIPBUILDING_RIVER_UP') ? 0.12 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'LATEEN_RIVER_UP') ? 0.06 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'NAVIGATION_RIVER_UP') ? 0.08 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'OCEAN_NAVIGATION_YIELD_UP') ? 0.1 : 0)
+      + (context.zoneId === 'river' && hasTechPassive(state, 'DEEP_WATER_SHIPBUILDING_UP') ? 0.14 : 0),
     0,
     0.9,
   );
@@ -4061,7 +4171,12 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
   const restHeal = 4
     + (hasTechPassive(current, 'REST_HEAL_UP') ? 4 : 0)
     + (hasTechPassive(current, 'REST_HEAL_UP_2') ? 4 : 0)
-    + (hasTechPassive(current, 'REST_HEAL_UP_3') ? 5 : 0);
+    + (hasTechPassive(current, 'REST_HEAL_UP_3') ? 5 : 0)
+    + (hasTechPassive(current, 'HERBAL_MEDICINE_UP') ? 4 : 0)
+    + (hasTechPassive(current, 'MONASTIC_RECOVERY_UP') ? 4 : 0)
+    + (hasTechPassive(current, 'SACRED_MUSIC_RECOVERY_UP') ? 5 : 0)
+    + (hasTechPassive(current, 'MEDIEVAL_MEDICINE_UP') ? 7 : 0)
+    + (hasTechPassive(current, 'CODIFIED_THEOLOGY_RECOVERY_UP') ? 6 : 0);
   const restStamina = Math.min(
     Math.max(0, 100 - Number(actor?.stamina || 0)),
     42 + Number(current.camp.shelterLevel || 0) * 8,
@@ -4249,7 +4364,12 @@ export function runRestAction(state, actorId, options = {}) {
   const heal = 4
     + (hasTechPassive(state, 'REST_HEAL_UP') ? 4 : 0)
     + (hasTechPassive(state, 'REST_HEAL_UP_2') ? 4 : 0)
-    + (hasTechPassive(state, 'REST_HEAL_UP_3') ? 5 : 0);
+    + (hasTechPassive(state, 'REST_HEAL_UP_3') ? 5 : 0)
+    + (hasTechPassive(state, 'HERBAL_MEDICINE_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'MONASTIC_RECOVERY_UP') ? 4 : 0)
+    + (hasTechPassive(state, 'SACRED_MUSIC_RECOVERY_UP') ? 5 : 0)
+    + (hasTechPassive(state, 'MEDIEVAL_MEDICINE_UP') ? 7 : 0)
+    + (hasTechPassive(state, 'CODIFIED_THEOLOGY_RECOVERY_UP') ? 6 : 0);
   const warmth = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 0.75 : 0.25;
   let next = updateActor(state, actorId, {
     stamina: clamp(Number(target.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
@@ -4343,7 +4463,8 @@ export function runCampAction(state, actorId, kind, options = {}) {
     4,
     staminaCostWithEquipment(state, actorId, 'camp', 14)
       - bookCampStaminaReduction(next)
-      - (hasTechPassive(next, 'CAMP_ACTION_STAMINA_DOWN') ? 3 : 0),
+      - (hasTechPassive(next, 'CAMP_ACTION_STAMINA_DOWN') ? 3 : 0)
+      - (hasTechPassive(next, 'MECHANICAL_ENGINEERING_UP') ? 2 : 0),
   );
   return afterAction(recordResearchEvent(next, { kind: 'camp', campKind: kind }), actorId, campStaminaCost, 2, options);
 }
