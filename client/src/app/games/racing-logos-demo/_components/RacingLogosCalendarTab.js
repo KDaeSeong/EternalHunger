@@ -30,7 +30,7 @@ export default function RacingLogosCalendarTab(props) {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                    <ActionButton action="season" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">

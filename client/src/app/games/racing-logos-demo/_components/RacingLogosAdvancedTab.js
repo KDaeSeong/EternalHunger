@@ -42,9 +42,9 @@ export default function RacingLogosAdvancedTab(props) {
             />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={applyTextPack}>수동 JSON 적용</ActionButton>
-            <ActionButton onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
-            <ActionButton onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
+            <ActionButton action="deploy" onClick={applyTextPack}>수동 JSON 적용</ActionButton>
+            <ActionButton action="load" onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
+            <ActionButton action="reset" onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
           </div>
         </section>
 
@@ -85,8 +85,8 @@ export default function RacingLogosAdvancedTab(props) {
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
-            <ActionButton onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+            <ActionButton action="analysis" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
+            <ActionButton action="event" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
           </div>
         </section>
 

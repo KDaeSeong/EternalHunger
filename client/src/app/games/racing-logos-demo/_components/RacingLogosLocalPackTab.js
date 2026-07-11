@@ -32,11 +32,11 @@ export default function RacingLogosLocalPackTab(props) {
                     />
                   </label>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={applyTextPack}>수동 JSON 적용</ActionButton>
-                    <ActionButton onClick={showDraftPack}>보강 JSON 초안 불러오기</ActionButton>
-                    <ActionButton onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
-                    <ActionButton onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
-                    <ActionButton onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
+                    <ActionButton action="deploy" onClick={applyTextPack}>수동 JSON 적용</ActionButton>
+                    <ActionButton action="code" onClick={showDraftPack}>보강 JSON 초안 불러오기</ActionButton>
+                    <ActionButton action="deploy" onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
+                    <ActionButton action="load" onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
+                    <ActionButton action="reset" onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">

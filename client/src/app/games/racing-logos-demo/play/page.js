@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import GameActionIcon from '../../_components/GameActionIcon';
 import RacingLogosFeatureTabs from '../_components/RacingLogosFeatureTabs';
 import GamePlayShell from '../../_components/GamePlayShell';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -33,6 +35,10 @@ import {
   visibleEvents,
   visibleTracks,
 } from '../_lib/racingLogosEngine';
+import {
+  racingLogosFeedbackCue,
+  racingLogosFeedbackSnapshot,
+} from '../_lib/racingLogosFeedback';
 
 function buildLogoDraftText(currentPack) {
   const sample = parseLocalPackText(sampleLocalPackText());
@@ -105,11 +111,13 @@ export default function RacingLogosDemoPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'racing' });
   const [state, setState] = useState(() => createNewState());
   const [packText, setPackText] = useState(() => sampleLocalPackText());
   const [activeFeatureTabId, setActiveFeatureTabId] = useState('audit');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const feedbackRef = useRef(racingLogosFeedbackSnapshot(state));
 
   const tracks = useMemo(() => visibleTracks(state), [state]);
   const events = useMemo(() => visibleEvents(state), [state]);
@@ -128,6 +136,13 @@ export default function RacingLogosDemoPlayPage() {
   const latestRaceCard = state.raceCards[0];
   const recentActionText = state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
 
+  useEffect(() => {
+    const current = racingLogosFeedbackSnapshot(state);
+    const cue = racingLogosFeedbackCue(feedbackRef.current, current);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = current;
+  }, [playGameSfx, state]);
+
   const startNewRun = () => {
     setState(createNewState());
     setPackText(sampleLocalPackText());
@@ -138,6 +153,7 @@ export default function RacingLogosDemoPlayPage() {
   const applyTextPack = () => {
     const parsed = parseLocalPackText(packText);
     if (!parsed.ok) {
+      playGameSfx('packInvalid');
       setMessage(parsed.error);
       showToast({ tone: 'danger', message: parsed.error });
       return;
@@ -149,6 +165,7 @@ export default function RacingLogosDemoPlayPage() {
   const applyDraftPack = () => {
     const parsed = parseLocalPackText(logoDraftText);
     if (!parsed.ok) {
+      playGameSfx('packInvalid');
       setMessage(parsed.error);
       showToast({ tone: 'danger', message: parsed.error });
       return;
@@ -191,6 +208,7 @@ export default function RacingLogosDemoPlayPage() {
     try {
       const res = await fetch('/local_pack/real_names.json', { cache: 'no-store' });
       if (!res.ok) {
+        playGameSfx('packInvalid');
         setMessage('public/local_pack/real_names.json을 찾지 못했습니다. 수동 JSON을 사용할 수 있습니다.');
         return;
       }
@@ -199,6 +217,7 @@ export default function RacingLogosDemoPlayPage() {
       setState((current) => applyLocalPackAction(current, json, 'fetch'));
       setMessage('public/local_pack/real_names.json을 불러왔습니다.');
     } catch (err) {
+      playGameSfx('packInvalid');
       setMessage(err?.message || '로컬팩을 불러오지 못했습니다.');
     } finally {
       setBusy('');
@@ -289,11 +308,14 @@ export default function RacingLogosDemoPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>새 검수</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/myanime/racing-logos-demo">상세</Link>
+      <GameControlButton action="new" onClick={startNewRun}>새 검수</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <Link className="game-control-button" data-game-sfx="nav" href="/myanime/racing-logos-demo">
+        <GameActionIcon action="settings" label="상세" />
+        <span className="game-action-button__label">상세</span>
+      </Link>
     </>
   );
 
@@ -336,16 +358,19 @@ export default function RacingLogosDemoPlayPage() {
 
   return (
     <GamePlayShell
+      className="racing-logos-page-shell"
       kicker="Racing Logos Demo"
       title="레이싱 로고팩 검수"
       description="업로드된 Racing Logos Demo의 core 트랙/이벤트 데이터, local pack 우선 로고 규칙, 공개 placeholder fallback을 사이트용 에셋 검수 루프로 이식했습니다."
       summaryLabel="로고팩 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={8}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="racing-logos-asset-coach" />
       <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
 
       <RacingLogosFeatureTabs

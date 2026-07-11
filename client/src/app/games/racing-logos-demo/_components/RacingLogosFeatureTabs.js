@@ -24,65 +24,76 @@ export default function RacingLogosFeatureTabs(props) {
   } = props;
 
   return (
-    <GameFeatureTabs
-      activeTabId={activeFeatureTabId}
-      onTabChange={setActiveFeatureTabId}
-      tabs={[
-        {
-          id: 'audit',
-          label: '검수 보드',
-          badge: `${audit.completeness}%`,
-          children: <RacingLogosAuditTab {...props} />,
-        },
-        {
-          id: 'local-pack',
-          label: '로컬팩',
-          badge: `${Object.keys(state.localPack.trackNames).length}T`,
-          children: <RacingLogosLocalPackTab {...props} />,
-        },
-        {
-          id: 'tracks',
-          label: '트랙',
-          badge: `${tracks.length}/${allTracks.length}`,
-          children: <RacingLogosTracksTab {...props} />,
-        },
-        {
-          id: 'calendar',
-          label: '캘린더',
-          badge: `${calendar.averageReadiness}%`,
-          children: <RacingLogosCalendarTab {...props} />,
-        },
-        {
-          id: 'data-pack',
-          label: '데이터팩/결과',
-          badge: `${dataPack.releaseScore}%`,
-          children: <RacingLogosDataPackTab {...props} />,
-        },
-        {
-          id: 'events',
-          label: '이벤트/카드',
-          badge: `${events.length}`,
-          children: <RacingLogosEventsTab {...props} />,
-        },
-        {
-          id: 'matrix',
-          label: '매트릭스',
-          badge: `${packMatrix.totals.completed}/${packMatrix.totals.rows}`,
-          children: <RacingLogosMatrixTab {...props} />,
-        },
-        {
-          id: 'log',
-          label: '로그',
-          badge: `${state.log.length}`,
-          children: <RacingLogosLogTab {...props} />,
-        },
-        {
-          id: 'advanced',
-          label: '상세 제작',
-          badge: `${packMatrix.totals.rows}행`,
-          children: <RacingLogosAdvancedTab {...props} />,
-        },
-      ]}
-    />
+    <section className="racing-logos-workspace">
+      <GameFeatureTabs
+        activeTabId={activeFeatureTabId}
+        onTabChange={setActiveFeatureTabId}
+        tabs={[
+          {
+            id: 'audit',
+            label: '검수 보드',
+            icon: 'analysis',
+            badge: `${audit.completeness}%`,
+            children: <RacingLogosAuditTab {...props} />,
+          },
+          {
+            id: 'local-pack',
+            label: '로컬팩',
+            icon: 'code',
+            badge: `${Object.keys(state.localPack.trackNames).length}T`,
+            children: <RacingLogosLocalPackTab {...props} />,
+          },
+          {
+            id: 'tracks',
+            label: '트랙',
+            icon: 'map',
+            badge: `${tracks.length}/${allTracks.length}`,
+            children: <RacingLogosTracksTab {...props} />,
+          },
+          {
+            id: 'calendar',
+            label: '캘린더',
+            icon: 'calendar',
+            badge: `${calendar.averageReadiness}%`,
+            children: <RacingLogosCalendarTab {...props} />,
+          },
+          {
+            id: 'data-pack',
+            label: '데이터팩/결과',
+            icon: 'archive',
+            badge: `${dataPack.releaseScore}%`,
+            children: <RacingLogosDataPackTab {...props} />,
+          },
+          {
+            id: 'events',
+            label: '이벤트/카드',
+            icon: 'event',
+            badge: `${events.length}`,
+            children: <RacingLogosEventsTab {...props} />,
+          },
+          {
+            id: 'matrix',
+            label: '매트릭스',
+            icon: 'tactics',
+            badge: `${packMatrix.totals.completed}/${packMatrix.totals.rows}`,
+            children: <RacingLogosMatrixTab {...props} />,
+          },
+          {
+            id: 'log',
+            label: '로그',
+            icon: 'archive',
+            badge: `${state.log.length}`,
+            children: <RacingLogosLogTab {...props} />,
+          },
+          {
+            id: 'advanced',
+            label: '상세 제작',
+            icon: 'settings',
+            badge: `${packMatrix.totals.rows}행`,
+            children: <RacingLogosAdvancedTab {...props} />,
+          },
+        ]}
+      />
+    </section>
   );
 }

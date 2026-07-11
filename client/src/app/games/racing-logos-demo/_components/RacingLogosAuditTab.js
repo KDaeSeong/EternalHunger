@@ -1,5 +1,12 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { auditLogoPackAction, generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
+
+const QUEUE_ACTION_ICONS = {
+  draft: 'code',
+  calendar: 'calendar',
+  'event-card': 'event',
+  'season-card': 'season',
+};
 
 export default function RacingLogosAuditTab(props) {
   const {
@@ -31,9 +38,9 @@ export default function RacingLogosAuditTab(props) {
                     <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
-                    <ActionButton onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
-                    <ActionButton onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                    <ActionButton action="analysis" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
+                    <ActionButton action="event" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+                    <ActionButton action="season" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -52,15 +59,19 @@ export default function RacingLogosAuditTab(props) {
                           <strong>{item.title}</strong>
                           <small>{item.detail}</small>
                         </div>
-                        <button type="button" className="tcg-primary-action" onClick={() => runQueueAction(item)}>
+                        <GameControlButton
+                          action={QUEUE_ACTION_ICONS[item.action] || 'action'}
+                          className="tcg-primary-action"
+                          onClick={() => runQueueAction(item)}
+                        >
                           {item.actionLabel}
-                        </button>
+                        </GameControlButton>
                       </article>
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={showDraftPack}>보강 JSON 초안 보기</ActionButton>
-                    <ActionButton onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
+                    <ActionButton action="code" onClick={showDraftPack}>보강 JSON 초안 보기</ActionButton>
+                    <ActionButton action="deploy" onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">

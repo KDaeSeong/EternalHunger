@@ -206,7 +206,8 @@ Checked: 2026-07-04
 
 - Route: `/games/racing-logos-demo/play`
 - Included loop: core track/event data, local pack JSON overlay, local logo candidate priority, public placeholder fallback, region/surface filtering, logo pack audit, and simple race card generation.
-- UI/UX: audit board now includes an asset production queue, draft local-pack JSON preview, one-click sample pack application, and direct jumps into calendar or result-card follow-up work.
+- UI/UX: the compact asset-lab shell keeps eight headline metrics, the latest audit result, and nine horizontally scrollable icon tabs in the first viewport. The audit board includes an asset production queue, draft local-pack JSON preview, one-click sample pack application, and direct jumps into calendar or result-card follow-up work. Save/load/record/detail, audit, card generation, pack editing, and queue commands now use explicit object icons; the desktop page has no document-level horizontal overflow.
+- Feedback: logo audits, perfect 100% audits, local-pack apply/clear/invalid outcomes, event cards, and season cards emit distinct synthesized racing/asset-lab cues. Browser state checks verified `logoAudit`, `logoAuditPerfect`, `packApply`, `packClear`, `packInvalid`, `raceCard`, and `seasonCard` transitions.
 - Site API integration: quick save through `/game-saves/racing-logos-demo/racing-logos-main`; asset-audit snapshot through `/game-records/racing-logos-demo`.
 - Asset integration: public placeholder SVGs are copied to `client/public/games/racing-logos-demo/logos/_placeholder`; private real logos remain outside git under `/local_pack/logos`.
 - Source basis: `C:\2저장고\마이애니메\racing-logos-demo`.

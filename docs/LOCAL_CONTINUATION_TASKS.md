@@ -166,6 +166,7 @@ npm run build
   - `client/src/app/games/racing-logos-demo/_components/RacingLogosMatrixTab.js`
   - `client/src/app/games/racing-logos-demo/_components/RacingLogosLogTab.js`
   - `client/src/app/games/racing-logos-demo/_components/RacingLogosAdvancedTab.js`
+- Racing Logos Demo now uses a compact hero, eight micro metrics, a minimal asset coach, pinned latest result, and nine icon-led feature tabs. `racingLogosFeedback.js` compares audit, card, and local-pack state snapshots to select dedicated audit/perfect-audit, pack apply/clear/invalid, event-card, and season-card cues; browser checks verified all seven transitions and 25 of 26 visible buttons carry icons, with only the shared textual advisor expander intentionally icon-free.
 - Rail3D Sim large feature tab JSX now lives in `client/src/app/games/rail3d-sim/_components/Rail3dFeatureTabs.js`.
 - Rail3D Sim feature tabs are split into:
   - `client/src/app/games/rail3d-sim/_components/Rail3dOperationsTab.js`

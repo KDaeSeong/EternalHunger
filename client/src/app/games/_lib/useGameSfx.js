@@ -307,6 +307,43 @@ const CUE_PROFILES = {
     { frequency: 780, start: 0.095, duration: 0.08, type: 'triangle', gain: 0.043 },
     { frequency: 1170, start: 0.17, duration: 0.14, type: 'sine', gain: 0.038 },
   ],
+  logoAudit: [
+    { frequency: 860, endFrequency: 430, duration: 0.065, type: 'sawtooth', gain: 0.03 },
+    { frequency: 520, start: 0.065, duration: 0.045, type: 'triangle', gain: 0.042 },
+    { frequency: 690, start: 0.105, duration: 0.065, type: 'sine', gain: 0.036 },
+  ],
+  logoAuditPerfect: [
+    { source: 'noise', filterType: 'highpass', frequency: 1850, duration: 0.04, gain: 0.026 },
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 780, start: 0.038, duration: 0.06, type: 'triangle', gain: 0.044 },
+    { frequency: 1040, start: 0.09, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  packApply: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1280, q: 2.2, duration: 0.035, gain: 0.03 },
+    { frequency: 420, duration: 0.04, type: 'square', gain: 0.035 },
+    { frequency: 630, start: 0.038, duration: 0.055, type: 'triangle', gain: 0.042 },
+    { frequency: 840, start: 0.086, duration: 0.075, type: 'sine', gain: 0.034 },
+  ],
+  packClear: [
+    { source: 'noise', filterType: 'lowpass', frequency: 720, duration: 0.06, gain: 0.04 },
+    { frequency: 420, endFrequency: 220, duration: 0.11, type: 'triangle', gain: 0.042 },
+  ],
+  packInvalid: [
+    { frequency: 360, endFrequency: 250, duration: 0.075, type: 'square', gain: 0.04 },
+    { frequency: 170, start: 0.06, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
+  raceCard: [
+    { source: 'noise', filterType: 'highpass', frequency: 1550, duration: 0.04, gain: 0.03 },
+    { frequency: 330, endFrequency: 520, duration: 0.055, type: 'sawtooth', gain: 0.034 },
+    { frequency: 780, start: 0.052, duration: 0.075, type: 'triangle', gain: 0.042 },
+  ],
+  seasonCard: [
+    { source: 'noise', filterType: 'highpass', frequency: 1750, duration: 0.05, gain: 0.028 },
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.045 },
+    { frequency: 585, start: 0.042, duration: 0.06, type: 'triangle', gain: 0.044 },
+    { frequency: 780, start: 0.095, duration: 0.08, type: 'triangle', gain: 0.042 },
+    { frequency: 1040, start: 0.165, duration: 0.12, type: 'sine', gain: 0.036 },
+  ],
   code: [
     { frequency: 520, duration: 0.028, type: 'square', gain: 0.035 },
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
