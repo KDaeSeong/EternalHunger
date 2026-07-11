@@ -10535,33 +10535,54 @@
 }
 
 .rail3d-page-shell .games-page,
-.racing-logos-page-shell .games-page {
+.racing-logos-page-shell .games-page,
+.ba-vanguard-page-shell .games-page {
   gap: 10px;
 }
 
 .rail3d-page-shell .games-hero--compact,
-.racing-logos-page-shell .games-hero--compact {
+.racing-logos-page-shell .games-hero--compact,
+.ba-vanguard-page-shell .games-hero--compact {
   grid-template-columns: minmax(440px, 1fr) auto;
   padding: 14px 18px;
 }
 
 .rail3d-page-shell .games-hero--compact h1,
-.racing-logos-page-shell .games-hero--compact h1 {
+.racing-logos-page-shell .games-hero--compact h1,
+.ba-vanguard-page-shell .games-hero--compact h1 {
   font-size: 1.9rem;
 }
 
 .rail3d-page-shell .games-hero--compact .games-hero-actions,
-.racing-logos-page-shell .games-hero--compact .games-hero-actions {
+.racing-logos-page-shell .games-hero--compact .games-hero-actions,
+.ba-vanguard-page-shell .games-hero--compact .games-hero-actions {
   flex-wrap: nowrap;
 }
 
+.ba-vanguard-page-shell .games-hero--compact {
+  grid-template-columns: minmax(360px, 1fr) minmax(480px, auto);
+}
+
+.ba-vanguard-page-shell .games-hero--compact .games-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(112px, 1fr));
+  width: min(100%, 560px);
+}
+
+.ba-vanguard-page-shell .games-hero-actions > * {
+  min-width: 0;
+  white-space: nowrap;
+}
+
 .rail3d-workspace .game-feature-tabs,
-.racing-logos-workspace .game-feature-tabs {
+.racing-logos-workspace .game-feature-tabs,
+.ba-vanguard-workspace .game-feature-tabs {
   gap: 8px;
 }
 
 .rail3d-workspace .game-feature-tabs__list,
-.racing-logos-workspace .game-feature-tabs__list {
+.racing-logos-workspace .game-feature-tabs__list,
+.ba-vanguard-workspace .game-feature-tabs__list {
   flex-wrap: nowrap;
   gap: 6px;
   overflow-x: auto;
@@ -10572,7 +10593,9 @@
 .rail3d-workspace .game-feature-tabs__list button,
 .rail3d-workspace .game-feature-tabs__list--dense button,
 .racing-logos-workspace .game-feature-tabs__list button,
-.racing-logos-workspace .game-feature-tabs__list--dense button {
+.racing-logos-workspace .game-feature-tabs__list--dense button,
+.ba-vanguard-workspace .game-feature-tabs__list button,
+.ba-vanguard-workspace .game-feature-tabs__list--dense button {
   flex: 0 0 auto;
   min-height: 38px;
   max-width: none;
@@ -10584,23 +10607,28 @@
 .rail3d-workspace .games-dashboard,
 .rail3d-workspace .games-detail-grid,
 .racing-logos-workspace .games-dashboard,
-.racing-logos-workspace .games-detail-grid {
+.racing-logos-workspace .games-detail-grid,
+.ba-vanguard-workspace .games-dashboard,
+.ba-vanguard-workspace .games-detail-grid {
   gap: 10px;
 }
 
 .rail3d-workspace .games-panel,
-.racing-logos-workspace .games-panel {
+.racing-logos-workspace .games-panel,
+.ba-vanguard-workspace .games-panel {
   padding: 14px;
 }
 
 .rail3d-workspace .games-rank-split,
-.racing-logos-workspace .games-rank-split {
+.racing-logos-workspace .games-rank-split,
+.ba-vanguard-workspace .games-rank-split {
   grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 7px;
 }
 
 .rail3d-workspace .games-rank-split > div,
-.racing-logos-workspace .games-rank-split > div {
+.racing-logos-workspace .games-rank-split > div,
+.ba-vanguard-workspace .games-rank-split > div {
   min-height: 52px;
   gap: 3px;
   align-content: center;
@@ -10608,18 +10636,21 @@
 }
 
 .rail3d-workspace .games-rank-split strong,
-.racing-logos-workspace .games-rank-split strong {
+.racing-logos-workspace .games-rank-split strong,
+.ba-vanguard-workspace .games-rank-split strong {
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
 }
 
 .rail3d-workspace .game-save-row,
-.racing-logos-workspace .game-save-row {
+.racing-logos-workspace .game-save-row,
+.ba-vanguard-workspace .game-save-row {
   gap: 10px;
 }
 
 .rail3d-workspace .game-save-row .tcg-primary-action,
-.racing-logos-workspace .game-save-row .tcg-primary-action {
+.racing-logos-workspace .game-save-row .tcg-primary-action,
+.ba-vanguard-workspace .game-save-row .tcg-primary-action {
   width: auto;
   min-width: 104px;
   margin-top: 0;
@@ -10627,25 +10658,29 @@
 
 @media (max-width: 760px) {
   .rail3d-page-shell .games-hero--compact,
-  .racing-logos-page-shell .games-hero--compact {
+  .racing-logos-page-shell .games-hero--compact,
+  .ba-vanguard-page-shell .games-hero--compact {
     grid-template-columns: 1fr;
     padding: 12px;
   }
 
   .rail3d-page-shell .games-hero--compact h1,
-  .racing-logos-page-shell .games-hero--compact h1 {
+  .racing-logos-page-shell .games-hero--compact h1,
+  .ba-vanguard-page-shell .games-hero--compact h1 {
     font-size: 1.55rem;
   }
 
   .rail3d-page-shell .games-hero--compact .games-hero-actions,
-  .racing-logos-page-shell .games-hero--compact .games-hero-actions {
+  .racing-logos-page-shell .games-hero--compact .games-hero-actions,
+  .ba-vanguard-page-shell .games-hero--compact .games-hero-actions {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     width: 100%;
   }
 
   .rail3d-page-shell .games-hero-actions > *,
-  .racing-logos-page-shell .games-hero-actions > * {
+  .racing-logos-page-shell .games-hero-actions > *,
+  .ba-vanguard-page-shell .games-hero-actions > * {
     min-width: 0;
     padding-inline: 7px;
     font-size: 0.74rem;
@@ -10654,24 +10689,29 @@
   .rail3d-workspace .game-feature-tabs__list button,
   .rail3d-workspace .game-feature-tabs__list--dense button,
   .racing-logos-workspace .game-feature-tabs__list button,
-  .racing-logos-workspace .game-feature-tabs__list--dense button {
+  .racing-logos-workspace .game-feature-tabs__list--dense button,
+  .ba-vanguard-workspace .game-feature-tabs__list button,
+  .ba-vanguard-workspace .game-feature-tabs__list--dense button {
     min-height: 36px;
     padding-inline: 8px;
     font-size: 0.75rem;
   }
 
   .rail3d-workspace .game-feature-tabs__list button strong,
-  .racing-logos-workspace .game-feature-tabs__list button strong {
+  .racing-logos-workspace .game-feature-tabs__list button strong,
+  .ba-vanguard-workspace .game-feature-tabs__list button strong {
     display: none;
   }
 
   .rail3d-workspace .games-rank-split,
-  .racing-logos-workspace .games-rank-split {
+  .racing-logos-workspace .games-rank-split,
+  .ba-vanguard-workspace .games-rank-split {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .rail3d-workspace .game-save-row .tcg-primary-action,
-  .racing-logos-workspace .game-save-row .tcg-primary-action {
+  .racing-logos-workspace .game-save-row .tcg-primary-action,
+  .ba-vanguard-workspace .game-save-row .tcg-primary-action {
     min-width: 88px;
   }
 

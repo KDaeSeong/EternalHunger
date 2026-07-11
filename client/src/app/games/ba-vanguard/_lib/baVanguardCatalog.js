@@ -1097,6 +1097,11 @@ function applyTrigger(duel, side, trigger, source) {
   const player = duel.players[side];
   const vc = player.circles.VC;
   if (vc) vc.powerMod += 10000;
+  pushLog(
+    duel,
+    side,
+    `${TRIGGER_LABELS[trigger] || trigger} 트리거가 발동했습니다. (${source === 'drive' ? '드라이브' : '데미지'} 체크)`,
+  );
   pushBattleNote(duel, `[${source}] ${trigger} trigger: VC +10000`);
 
   if (trigger === 'critical' && vc) {

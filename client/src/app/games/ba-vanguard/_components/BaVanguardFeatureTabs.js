@@ -13,33 +13,39 @@ export default function BaVanguardFeatureTabs(props) {
   } = props;
 
   return (
-    <GameFeatureTabs
-      tabs={[
-        {
-          id: 'duel',
-          label: '듀얼 진행',
-          badge: duel.phase,
-          children: <BaVanguardDuelTab {...props} />,
-        },
-        {
-          id: 'tactics',
-          label: '전술 리포트',
-          badge: tacticalReport.riskLabel,
-          children: <BaVanguardTacticsTab {...props} />,
-        },
-        {
-          id: 'hand',
-          label: '패/로그',
-          badge: `${me.hand.length}장`,
-          children: <BaVanguardHandLogTab {...props} />,
-        },
-        {
-          id: 'deck',
-          label: '덱 분석',
-          badge: valid ? '검증 통과' : '오류',
-          children: <BaVanguardDeckTab {...props} />,
-        },
-      ]}
-    />
+    <section className="ba-vanguard-workspace">
+      <GameFeatureTabs
+        tabs={[
+          {
+            id: 'duel',
+            label: '듀얼 진행',
+            icon: 'combat',
+            badge: duel.phase,
+            children: <BaVanguardDuelTab {...props} />,
+          },
+          {
+            id: 'tactics',
+            label: '전술 리포트',
+            icon: 'tactics',
+            badge: tacticalReport.riskLabel,
+            children: <BaVanguardTacticsTab {...props} />,
+          },
+          {
+            id: 'hand',
+            label: '패/로그',
+            icon: 'cards',
+            badge: `${me.hand.length}장`,
+            children: <BaVanguardHandLogTab {...props} />,
+          },
+          {
+            id: 'deck',
+            label: '덱 분석',
+            icon: 'analysis',
+            badge: valid ? '검증 통과' : '오류',
+            children: <BaVanguardDeckTab {...props} />,
+          },
+        ]}
+      />
+    </section>
   );
 }

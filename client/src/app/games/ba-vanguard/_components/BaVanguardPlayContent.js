@@ -2,15 +2,21 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import GameActionIcon from '../../_components/GameActionIcon';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import BaVanguardFeatureTabs from './BaVanguardFeatureTabs';
 import { roomConcurrencyAudit } from './BaVanguardBoard';
 import { useBaVanguardPersistence } from '../_hooks/useBaVanguardPersistence';
+import {
+  baVanguardFeedbackCue,
+  baVanguardFeedbackSnapshot,
+} from '../_lib/baVanguardFeedback';
 import { createBaVanguardPlaytestSummary } from '../_lib/baVanguardPageRuntime';
 import {
   CARDS,
@@ -53,12 +59,15 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+const AI_FEEDBACK_DELAY_MS = 180;
+
 export default function BaVanguardPlayContent() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId') || '';
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'card' });
   const [presetId, setPresetId] = useState(PRESET_DECKS[0]?.id || '');
   const [opponentPresetId, setOpponentPresetId] = useState(PRESET_DECKS[1]?.id || PRESET_DECKS[0]?.id || '');
   const [seed, setSeed] = useState(2401);
@@ -74,6 +83,7 @@ export default function BaVanguardPlayContent() {
   const [selectedAttacker, setSelectedAttacker] = useState(null);
   const [zoneView, setZoneView] = useState(null);
   const [gzoneFilter, setGzoneFilter] = useState('all');
+  const feedbackRef = useRef(baVanguardFeedbackSnapshot(duel));
 
   const deck = getPreset(presetId);
   const opponentDeck = getPreset(opponentPresetId);
@@ -181,6 +191,12 @@ export default function BaVanguardPlayContent() {
   const canControl = duel.active === 'me' && !duel.winner;
   const canMulligan = canControl && duel.turn === 1 && duel.phase === 'STAND' && !duel.battle && !duel.mulliganDone?.me;
 
+  useEffect(() => {
+    const current = baVanguardFeedbackSnapshot(duel);
+    const cue = baVanguardFeedbackCue(feedbackRef.current, current);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = current;
+  }, [duel, playGameSfx]);
 
 
   const mutateDuel = (mutator) => {
@@ -213,6 +229,7 @@ export default function BaVanguardPlayContent() {
 
   const startNewDuel = (nextSeed = seed) => {
     markRoomDirty();
+    playGameSfx('vanguardStart');
     setDuel(initDuelState({
       meDeck: deck,
       oppDeck: opponentDeck,
@@ -247,7 +264,7 @@ export default function BaVanguardPlayContent() {
       if (next.phase === 'END') endTurn(next);
       else advancePhase(next, rules.firstTurnNoDraw);
     });
-    setTimeout(runAiUntilStop, 0);
+    setTimeout(runAiUntilStop, AI_FEEDBACK_DELAY_MS);
   };
 
   const onMulligan = () => {
@@ -318,7 +335,7 @@ export default function BaVanguardPlayContent() {
   const onGuardEnd = () => {
     mutateDuel((next) => guardEnd(next));
     setSelectedHandIndex(null);
-    setTimeout(runAiUntilStop, 0);
+    setTimeout(runAiUntilStop, AI_FEEDBACK_DELAY_MS);
   };
 
   const setRuleOption = (key, value) => {
@@ -337,10 +354,23 @@ export default function BaVanguardPlayContent() {
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
       <GameControlButton action="replay" onClick={downloadReplayExport}>리플레이 저장</GameControlButton>
-      {roomId ? <Link href={`/games/rooms/${roomId}`}>게임방</Link> : <Link href={`/games/rooms?gameSlug=${GAME_SLUG}&create=1`}>방 만들기</Link>}
+      {roomId ? (
+        <Link className="game-control-button" data-game-sfx="nav" href={`/games/rooms/${roomId}`}>
+          <GameActionIcon action="diplomacy" label="게임방" />
+          <span className="game-action-button__label">게임방</span>
+        </Link>
+      ) : (
+        <Link className="game-control-button" data-game-sfx="nav" href={`/games/rooms?gameSlug=${GAME_SLUG}&create=1`}>
+          <GameActionIcon action="diplomacy" label="방 만들기" />
+          <span className="game-action-button__label">방 만들기</span>
+        </Link>
+      )}
       {roomId ? <GameControlButton action="save" onClick={() => void saveRoomState()} disabled={roomBusy}>{roomBusy ? '방 처리 중...' : '방 저장'}</GameControlButton> : null}
       {roomId ? <GameControlButton action="load" onClick={reloadRoomState} disabled={roomBusy}>방 불러오기</GameControlButton> : null}
-      <Link href="/myanime/ba-vanguard">상세</Link>
+      <Link className="game-control-button" data-game-sfx="nav" href="/myanime/ba-vanguard">
+        <GameActionIcon action="settings" label="상세" />
+        <span className="game-action-button__label">상세</span>
+      </Link>
     </>
   );
 
@@ -391,16 +421,19 @@ export default function BaVanguardPlayContent() {
 
   return (
     <GamePlayShell
+      className="ba-vanguard-page-shell"
       kicker="BA Vanguard"
       title="BA Vanguard"
       description="myanime 원본의 P-G 플레이테스트 흐름을 사이트용으로 이식했습니다. 라이드, 콜, 스트라이드, 배틀, 가드, 드라이브/데미지 체크, 간단 AI 진행을 한 화면에서 확인합니다."
-      heroLayout="stacked"
+      heroLayout="compact"
       summaryLabel="BA Vanguard 현황"
+      summaryDensity="micro"
+      primaryMetricLimit={9}
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="ba-vanguard-duel-coach" />
       <RecentActionResult label="최근 듀얼 결과" text={recentDuelText} pinned />
 
       <BaVanguardFeatureTabs

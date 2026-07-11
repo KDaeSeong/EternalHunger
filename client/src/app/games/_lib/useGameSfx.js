@@ -344,6 +344,91 @@ const CUE_PROFILES = {
     { frequency: 780, start: 0.095, duration: 0.08, type: 'triangle', gain: 0.042 },
     { frequency: 1040, start: 0.165, duration: 0.12, type: 'sine', gain: 0.036 },
   ],
+  vanguardStart: [
+    { source: 'noise', filterType: 'highpass', frequency: 1600, duration: 0.045, gain: 0.024 },
+    { frequency: 330, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 495, start: 0.05, duration: 0.07, type: 'triangle', gain: 0.04 },
+    { frequency: 660, start: 0.115, duration: 0.11, type: 'sine', gain: 0.036 },
+  ],
+  vanguardPhase: [
+    { frequency: 520, endFrequency: 620, duration: 0.045, type: 'triangle', gain: 0.04 },
+  ],
+  vanguardInvalid: [
+    { frequency: 310, endFrequency: 220, duration: 0.075, type: 'square', gain: 0.038 },
+    { frequency: 180, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  vanguardTurn: [
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.042 },
+    { frequency: 585, start: 0.04, duration: 0.075, type: 'sine', gain: 0.038 },
+  ],
+  vanguardDraw: [
+    { source: 'noise', filterType: 'highpass', frequency: 1250, duration: 0.055, gain: 0.032 },
+    { frequency: 620, endFrequency: 760, start: 0.025, duration: 0.065, type: 'triangle', gain: 0.035 },
+  ],
+  vanguardRide: [
+    { frequency: 330, endFrequency: 660, duration: 0.09, type: 'sawtooth', gain: 0.035 },
+    { frequency: 990, start: 0.085, duration: 0.08, type: 'sine', gain: 0.035 },
+  ],
+  vanguardStride: [
+    { source: 'noise', filterType: 'bandpass', frequency: 720, q: 1.8, duration: 0.075, gain: 0.035 },
+    { frequency: 220, endFrequency: 660, duration: 0.13, type: 'sawtooth', gain: 0.038 },
+    { frequency: 880, start: 0.12, duration: 0.12, type: 'triangle', gain: 0.035 },
+  ],
+  vanguardCall: [
+    { frequency: 440, duration: 0.04, type: 'triangle', gain: 0.04 },
+    { frequency: 660, start: 0.036, duration: 0.06, type: 'sine', gain: 0.035 },
+  ],
+  vanguardSkill: [
+    { frequency: 760, endFrequency: 1040, duration: 0.065, type: 'square', gain: 0.028 },
+    { frequency: 520, start: 0.055, duration: 0.095, type: 'triangle', gain: 0.038 },
+  ],
+  vanguardAttack: [
+    { source: 'noise', filterType: 'highpass', frequency: 1100, duration: 0.055, gain: 0.038 },
+    { frequency: 300, endFrequency: 620, duration: 0.075, type: 'sawtooth', gain: 0.035 },
+  ],
+  vanguardGuardWindow: [
+    { frequency: 260, duration: 0.06, type: 'square', gain: 0.035 },
+    { frequency: 390, start: 0.065, duration: 0.08, type: 'triangle', gain: 0.038 },
+  ],
+  vanguardGuard: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.035, gain: 0.028 },
+    { frequency: 720, endFrequency: 480, duration: 0.08, type: 'triangle', gain: 0.042 },
+  ],
+  vanguardPerfectGuard: [
+    { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.04, gain: 0.03 },
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.042 },
+    { frequency: 780, start: 0.038, duration: 0.06, type: 'triangle', gain: 0.042 },
+    { frequency: 1040, start: 0.09, duration: 0.11, type: 'sine', gain: 0.036 },
+  ],
+  vanguardBlocked: [
+    { source: 'noise', filterType: 'lowpass', frequency: 600, duration: 0.07, gain: 0.035 },
+    { frequency: 430, endFrequency: 240, duration: 0.11, type: 'triangle', gain: 0.04 },
+  ],
+  vanguardTrigger: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.035, gain: 0.026 },
+    { frequency: 880, duration: 0.045, type: 'sine', gain: 0.038 },
+    { frequency: 1320, start: 0.04, duration: 0.075, type: 'sine', gain: 0.032 },
+  ],
+  vanguardHit: [
+    { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.042 },
+    { frequency: 260, endFrequency: 520, duration: 0.08, type: 'sawtooth', gain: 0.04 },
+  ],
+  vanguardDamage: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.075, gain: 0.045 },
+    { frequency: 280, endFrequency: 150, duration: 0.13, type: 'sawtooth', gain: 0.04 },
+  ],
+  vanguardVictory: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.05, gain: 0.027 },
+    { frequency: 440, duration: 0.05, type: 'triangle', gain: 0.043 },
+    { frequency: 660, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.043 },
+    { frequency: 880, start: 0.105, duration: 0.08, type: 'triangle', gain: 0.041 },
+    { frequency: 1320, start: 0.18, duration: 0.16, type: 'sine', gain: 0.035 },
+  ],
+  vanguardDefeat: [
+    { source: 'noise', filterType: 'lowpass', frequency: 420, duration: 0.08, gain: 0.04 },
+    { frequency: 440, endFrequency: 330, duration: 0.1, type: 'triangle', gain: 0.04 },
+    { frequency: 260, endFrequency: 150, start: 0.09, duration: 0.16, type: 'sine', gain: 0.04 },
+  ],
   code: [
     { frequency: 520, duration: 0.028, type: 'square', gain: 0.035 },
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
