@@ -208,8 +208,47 @@ export function researchNextStepText(tech) {
   return `진행 ${tech.progress}/${tech.cost}${breakthroughText ? ` · ${breakthroughText}` : ''}`;
 }
 
+const RESEARCH_LAYOUT_TAG_ORDER = [
+  'SURVIVAL',
+  'CAMP',
+  'CRAFT',
+  'SCIENCE',
+  'CULTURE',
+  'SPIRITUAL',
+  'MILITARY',
+  'CIVICS',
+];
+
+function researchLayoutGroup(tech) {
+  return (tech.tags || []).find((tag) => RESEARCH_LAYOUT_TAG_ORDER.includes(tag)) || 'OTHER';
+}
+
+function researchLayoutAnchor(tech, laneCount) {
+  const group = researchLayoutGroup(tech);
+  const groupIndex = RESEARCH_LAYOUT_TAG_ORDER.indexOf(group);
+  const normalizedIndex = groupIndex < 0 ? RESEARCH_LAYOUT_TAG_ORDER.length / 2 : groupIndex;
+  return RESEARCH_LAYOUT_TAG_ORDER.length > 1
+    ? normalizedIndex / (RESEARCH_LAYOUT_TAG_ORDER.length - 1) * Math.max(0, laneCount - 1)
+    : 0;
+}
+
+function assignResearchColumnSlots(column, scoreById) {
+  const sorted = [...column].sort((left, right) => (
+    Number(scoreById[left.id] || 0) - Number(scoreById[right.id] || 0)
+    || RESEARCH_LAYOUT_TAG_ORDER.indexOf(researchLayoutGroup(left)) - RESEARCH_LAYOUT_TAG_ORDER.indexOf(researchLayoutGroup(right))
+    || left.name.localeCompare(right.name, 'ko-KR')
+  ));
+  return sorted.map((tech, slot) => ({ tech, slot }));
+}
+
+function researchEdgeLane(edgeId) {
+  let hash = 0;
+  for (let index = 0; index < edgeId.length; index += 1) hash = ((hash << 5) - hash + edgeId.charCodeAt(index)) | 0;
+  return Math.abs(hash) % 5;
+}
+
 export function buildResearchMap(techs) {
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL'];
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL'];
   const nodeWidth = 188;
   const nodeHeight = 94;
   const columnGap = 54;
@@ -225,26 +264,42 @@ export function buildResearchMap(techs) {
     return result;
   }, {});
   const tierOrder = Object.keys(columns).map(Number).sort((a, b) => a - b);
-  tierOrder.forEach((tier) => {
-    columns[tier].sort((a, b) => (
-      eraOrder.indexOf(a.era) - eraOrder.indexOf(b.era)
-      || String(a.tags?.[0] || '').localeCompare(String(b.tags?.[0] || ''))
-      || a.name.localeCompare(b.name, 'ko-KR')
-    ));
+  const laneCount = Math.max(1, ...tierOrder.map((tier) => columns[tier].length));
+  const dependentIds = Object.fromEntries(techs.map((tech) => [tech.id, []]));
+  techs.forEach((tech) => {
+    (tech.prereqs || []).forEach((prereqId) => {
+      if (dependentIds[prereqId]) dependentIds[prereqId].push(tech.id);
+    });
   });
+  let scoreById = Object.fromEntries(techs.map((tech) => [tech.id, researchLayoutAnchor(tech, laneCount)]));
+  for (let pass = 0; pass < 10; pass += 1) {
+    scoreById = Object.fromEntries(techs.map((tech) => {
+      if (!(tech.prereqs || []).length) return [tech.id, researchLayoutAnchor(tech, laneCount)];
+      const neighborScores = [
+        ...(tech.prereqs || []),
+        ...(dependentIds[tech.id] || []),
+      ].map((techId) => scoreById[techId]).filter(Number.isFinite);
+      if (!neighborScores.length) return [tech.id, researchLayoutAnchor(tech, laneCount)];
+      const neighborAverage = neighborScores.reduce((sum, score) => sum + score, 0) / neighborScores.length;
+      return [tech.id, researchLayoutAnchor(tech, laneCount) * 0.62 + neighborAverage * 0.38];
+    }));
+  }
 
-  const nodes = tierOrder.flatMap((tier) => columns[tier].map((tech, rowIndex) => ({
-    ...tech,
-    tier,
-    rowIndex,
-    x: padding + (tier - 1) * (nodeWidth + columnGap),
-    y: padding + headerHeight + rowIndex * (nodeHeight + rowGap),
-    width: nodeWidth,
-    height: nodeHeight,
-    statusLabel: researchStatusLabel(tech),
-    unlockText: researchUnlockText(tech),
-    nextStepText: researchNextStepText(tech),
-  })));
+  const nodes = tierOrder.flatMap((tier) => (
+    assignResearchColumnSlots(columns[tier], scoreById).map(({ tech, slot }) => ({
+      ...tech,
+      tier,
+      rowIndex: slot,
+      layoutGroup: researchLayoutGroup(tech),
+      x: padding + (tier - 1) * (nodeWidth + columnGap),
+      y: padding + headerHeight + slot * (nodeHeight + rowGap),
+      width: nodeWidth,
+      height: nodeHeight,
+      statusLabel: researchStatusLabel(tech),
+      unlockText: researchUnlockText(tech),
+      nextStepText: researchNextStepText(tech),
+    }))
+  ));
   const positionedById = Object.fromEntries(nodes.map((node) => [node.id, node]));
   const edges = nodes.flatMap((node) => (node.prereqs || []).map((prereqId) => {
     const source = positionedById[prereqId];
@@ -253,17 +308,27 @@ export function buildResearchMap(techs) {
     const startY = source.y + source.height / 2;
     const endX = node.x;
     const endY = node.y + node.height / 2;
-    const bend = Math.max(24, (endX - startX) * 0.45);
+    const edgeId = `${prereqId}-${node.id}`;
+    const tierSpan = Math.max(1, node.tier - source.tier);
+    const sourceGutterX = startX + columnGap / 2;
+    const targetGutterX = endX - columnGap / 2;
+    const busY = headerHeight + 6 + researchEdgeLane(edgeId) * 3;
+    const path = tierSpan > 1
+      ? `M ${startX} ${startY} H ${sourceGutterX} V ${busY} H ${targetGutterX} V ${endY} H ${endX}`
+      : `M ${startX} ${startY} H ${sourceGutterX} V ${endY} H ${endX}`;
     return {
-      id: `${prereqId}-${node.id}`,
+      id: edgeId,
       from: prereqId,
       to: node.id,
-      path: `M ${startX} ${startY} C ${startX + bend} ${startY}, ${endX - bend} ${endY}, ${endX} ${endY}`,
+      path,
+      pathClass: [
+        tierSpan > 1 ? 'is-long' : '',
+        source.layoutGroup !== node.layoutGroup ? 'is-cross-branch' : '',
+      ].filter(Boolean).join(' '),
       complete: Boolean(source.completed && node.completed),
       available: Boolean(source.completed && (node.available || node.selected)),
     };
   }).filter(Boolean));
-  const maxRows = Math.max(1, ...tierOrder.map((tier) => columns[tier].length));
   const tierHeaders = tierDefs.map((definition) => ({
     ...definition,
     count: columns[definition.tier]?.length || 0,
@@ -283,7 +348,7 @@ export function buildResearchMap(techs) {
   return {
     edges,
     eras,
-    height: padding * 2 + headerHeight + maxRows * nodeHeight + Math.max(0, maxRows - 1) * rowGap,
+    height: padding * 2 + headerHeight + laneCount * nodeHeight + Math.max(0, laneCount - 1) * rowGap,
     nodes,
     tierCount: tierDefs.length,
     tierHeaders,

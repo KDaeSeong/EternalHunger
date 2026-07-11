@@ -8307,13 +8307,27 @@
 .primitive-research-edges path {
   fill: none;
   stroke: #c8d2d9;
-  stroke-width: 2;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.26;
+  vector-effect: non-scaling-stroke;
   transition: stroke 160ms ease, stroke-width 160ms ease, opacity 160ms ease;
 }
 
-.primitive-research-edges path.is-ready { stroke: #d3a424; }
-.primitive-research-edges path.is-complete { stroke: #3a9b62; }
-.primitive-research-edges path.is-focused { stroke: #1684bd; stroke-width: 3; }
+.primitive-research-edges path.is-cross-branch { opacity: 0.16; }
+.primitive-research-edges path.is-long {
+  opacity: 0.12;
+  stroke-dasharray: 4 5;
+}
+.primitive-research-edges path.is-ready { stroke: #d3a424; opacity: 0.58; }
+.primitive-research-edges path.is-complete { stroke: #3a9b62; opacity: 0.62; }
+.primitive-research-edges path.is-focused {
+  stroke: #1684bd;
+  stroke-width: 3;
+  stroke-dasharray: none;
+  opacity: 1;
+}
 
 .primitive-research-node {
   position: absolute;

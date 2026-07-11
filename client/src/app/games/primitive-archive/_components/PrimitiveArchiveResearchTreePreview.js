@@ -78,7 +78,13 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
             >
               {researchMap.edges.map((edge) => (
                 <path
-                  className={`${edge.available ? 'is-ready' : ''}${edge.from === focusId || edge.to === focusId ? ' is-focused' : ''}`}
+                  className={[
+                    edge.pathClass,
+                    edge.available ? 'is-ready' : '',
+                    edge.from === focusId || edge.to === focusId ? 'is-focused' : '',
+                  ].filter(Boolean).join(' ')}
+                  data-from={edge.from}
+                  data-to={edge.to}
                   d={edge.path}
                   key={edge.id}
                 />
@@ -106,6 +112,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
                   type="button"
                   className={nodeClass}
                   data-game-sfx="select"
+                  data-tech-id={node.id}
                   key={node.id}
                   aria-pressed={focusId === node.id}
                   onClick={() => setFocusId(node.id)}

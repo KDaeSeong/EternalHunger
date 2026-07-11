@@ -322,7 +322,13 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     >
                       {researchMap.edges.map((edge) => (
                         <path
-                          className={`${edge.complete ? 'is-complete' : edge.available ? 'is-ready' : ''}${edge.from === treeFocusId || edge.to === treeFocusId ? ' is-focused' : ''}`}
+                          className={[
+                            edge.pathClass,
+                            edge.complete ? 'is-complete' : edge.available ? 'is-ready' : '',
+                            edge.from === treeFocusId || edge.to === treeFocusId ? 'is-focused' : '',
+                          ].filter(Boolean).join(' ')}
+                          data-from={edge.from}
+                          data-to={edge.to}
                           d={edge.path}
                           key={edge.id}
                         />
@@ -356,6 +362,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                           type="button"
                           className={nodeClass}
                           data-game-sfx="select"
+                          data-tech-id={node.id}
                           key={node.id}
                           aria-pressed={treeFocusId === node.id}
                           onClick={() => {
