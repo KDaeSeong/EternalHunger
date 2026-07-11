@@ -4,6 +4,7 @@ import PrimitiveArchiveTurnHorizon from './PrimitiveArchiveTurnHorizon';
 
 export default function PrimitiveArchiveActionWorkspace(props) {
   const {
+    actionFeedback,
     actionForecasts,
     canAct,
     craftChance,
@@ -76,16 +77,22 @@ export default function PrimitiveArchiveActionWorkspace(props) {
           </span>
         </div>
         <div className="games-action-dock__buttons">
-          <ActionButton action="gather" disabled={!canAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
-          <ActionButton action="combat" disabled={!canAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
-          <ActionButton action="craft" disabled={!canAct || !recipe?.unlocked} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
-          <ActionButton action="consume" disabled={!canAct} onClick={runEat}>식사</ActionButton>
-          <ActionButton action="rest" disabled={!canAct} onClick={runRest}>휴식</ActionButton>
+          <ActionButton action="gather" cue="off" disabled={!canAct} onClick={runGather}>채집 · {Math.round(gatherChance * 100)}%</ActionButton>
+          <ActionButton action="combat" cue="off" disabled={!canAct} onClick={runHunt}>사냥 · {Math.round(huntChance * 100)}%</ActionButton>
+          <ActionButton action="craft" cue="off" disabled={!canAct || !recipe?.unlocked} onClick={runCraft}>제작 · {Math.round(craftChance * 100)}%</ActionButton>
+          <ActionButton action="consume" cue="off" disabled={!canAct} onClick={runEat}>식사</ActionButton>
+          <ActionButton action="rest" cue="off" disabled={!canAct} onClick={runRest}>휴식</ActionButton>
           <ActionButton action="research" disabled={!canAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
             {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
           </ActionButton>
         </div>
-        <RecentActionResult label="이번 행동 결과" text={recentActionText} pinned />
+        <RecentActionResult
+          action={actionFeedback?.action || 'survival'}
+          label="이번 행동 결과"
+          text={recentActionText}
+          tone={actionFeedback?.tone || 'ready'}
+          pinned
+        />
         <details className="primitive-action-forecast-details">
           <summary>행동별 기대수익 {actionForecasts?.length || 0}개 보기</summary>
           <div className="primitive-action-forecast-grid" aria-label="행동별 기대수익">

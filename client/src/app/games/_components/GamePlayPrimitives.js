@@ -53,11 +53,18 @@ export function SmallStat({ label, value }) {
   );
 }
 
-export function RecentActionResult({ label = '최근 결과', text, pinned = false }) {
+export function RecentActionResult({ action = '', label = '최근 결과', text, pinned = false, tone = '' }) {
+  const className = [
+    'games-action-result',
+    pinned ? 'games-action-result--pinned' : '',
+    action ? 'games-action-result--with-icon' : '',
+    tone ? 'is-' + tone : '',
+  ].filter(Boolean).join(' ');
   return (
-    <div className={pinned ? 'games-action-result games-action-result--pinned' : 'games-action-result'}>
-      <span>{label}</span>
-      <strong>{text}</strong>
+    <div className={className} role="status" aria-live="polite">
+      {action ? <GameActionIcon action={action} className="games-action-result__icon" label={label} /> : null}
+      <span className="games-action-result__label">{label}</span>
+      <strong className="games-action-result__text">{text}</strong>
     </div>
   );
 }

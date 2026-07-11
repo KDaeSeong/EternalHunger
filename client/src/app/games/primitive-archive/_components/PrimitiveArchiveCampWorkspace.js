@@ -1,13 +1,16 @@
 import {
   ActionButton,
   GameControlButton,
+  RecentActionResult,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 
 export default function PrimitiveArchiveCampWorkspace(props) {
   const {
+    actionFeedback,
     campFacilities,
     canAct,
+    recentActionText,
     runCamp,
     runEventChain,
     runProgressReport,
@@ -79,17 +82,24 @@ export default function PrimitiveArchiveCampWorkspace(props) {
           <div><span>서가</span><strong>Lv.{state.camp.libraryShelfLevel || 0}</strong></div>
         </div>
         <div className="primitive-camp-action-grid">
-          <ActionButton action="fuel" disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>
-          <ActionButton action="camp" disabled={!canAct} onClick={() => runCamp('fire')}>모닥불 강화 · 나무 2, 돌 2</ActionButton>
-          <ActionButton action="camp" disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
-          <ActionButton action="craft" disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
-          <ActionButton action="consume" disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
+          <ActionButton action="fuel" cue="off" disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>
+          <ActionButton action="camp" cue="off" disabled={!canAct} onClick={() => runCamp('fire')}>모닥불 강화 · 나무 2, 돌 2</ActionButton>
+          <ActionButton action="camp" cue="off" disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
+          <ActionButton action="craft" cue="off" disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
+          <ActionButton action="consume" cue="off" disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
           {campFacilities.map((facility) => (
-            <ActionButton action="camp" key={facility.id} disabled={!canAct || !facility.unlocked || facility.maxed} onClick={() => runCamp(facility.action)}>
+            <ActionButton action="camp" cue="off" key={facility.id} disabled={!canAct || !facility.unlocked || facility.maxed} onClick={() => runCamp(facility.action)}>
               {facility.buttonLabel}
             </ActionButton>
           ))}
         </div>
+        <RecentActionResult
+          action={actionFeedback?.action || 'camp'}
+          label="이번 캠프 결과"
+          text={recentActionText}
+          tone={actionFeedback?.tone || 'ready'}
+          pinned
+        />
         <details className="primitive-facility-details">
           <summary>기록 시설 효과 보기</summary>
           <div>

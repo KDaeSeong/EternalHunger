@@ -5,6 +5,7 @@ import GameActionIcon from '../../_components/GameActionIcon';
 import {
   RESEARCH_ERA_LABELS,
   RESEARCH_TAG_LABELS,
+  advancementAction,
 } from '../_lib/primitiveArchivePageRuntime';
 
 export default function PrimitiveArchiveResearchTreePreview({ researchMap, track = 'technology' }) {
@@ -127,7 +128,10 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
                   style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
                 >
                   <span className="primitive-research-node__head">
-                    <strong>{node.name}</strong>
+                    <span className="primitive-research-node__identity">
+                      <GameActionIcon action={advancementAction(node.tags, track)} label={node.name} />
+                      <strong>{node.name}</strong>
+                    </span>
                     <em>{node.available ? `발전 후 ${isCivics ? '추진' : '연구'}` : '선행 필요'}</em>
                   </span>
                   <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.cost}{pointLabel}</small>
@@ -148,7 +152,10 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
               <div className="primitive-research-inspector__head">
                 <div>
                   <span>T{focusedNode.tier} · {RESEARCH_ERA_LABELS[focusedNode.era] || focusedNode.era}</span>
-                  <h3>{focusedNode.name}</h3>
+                  <h3>
+                    <GameActionIcon action={advancementAction(focusedNode.tags, track)} label={focusedNode.name} />
+                    {focusedNode.name}
+                  </h3>
                 </div>
                 <strong>비용 {focusedNode.cost}{pointLabel}</strong>
               </div>

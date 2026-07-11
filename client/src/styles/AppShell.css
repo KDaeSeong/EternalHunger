@@ -6846,6 +6846,40 @@
   line-height: 1.4;
 }
 
+.games-action-result--with-icon {
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 9px;
+}
+
+.games-action-result__icon {
+  grid-row: 1 / 3;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  align-self: center;
+  border-radius: 7px;
+  background: #dcebf4;
+  color: #176895;
+}
+
+.games-action-result__label,
+.games-action-result__text {
+  grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.games-action-result.is-success { border-left: 4px solid #238454; background: #f1faf5; }
+.games-action-result.is-success .games-action-result__icon { background: #d9f1e4; color: #176b43; }
+.games-action-result.is-warning { border-left: 4px solid #b47712; background: #fff9ed; }
+.games-action-result.is-warning .games-action-result__icon { background: #f7e7bf; color: #80530b; }
+.games-action-result.is-danger { border-left: 4px solid #c53939; background: #fff3f3; }
+.games-action-result.is-danger .games-action-result__icon { background: #f8dddd; color: #9d2929; }
+.games-action-result.is-highlight { border-left: 4px solid #2576a5; background: #f0f8fc; }
+.games-action-result.is-champion { border-left: 4px solid #8a3152; background: #fff4f8; }
+.games-action-result.is-champion .games-action-result__icon { background: #f5dfe8; color: #762342; }
+
 .games-action-dock {
   position: sticky;
   top: 82px;
@@ -8800,6 +8834,23 @@
   gap: 6px;
 }
 
+.primitive-research-node__identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.primitive-research-node__identity .game-action-icon {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  color: #28739d;
+}
+
+.primitive-research-node.is-complete .primitive-research-node__identity .game-action-icon { color: #237344; }
+.primitive-research-node.is-locked .primitive-research-node__identity .game-action-icon { color: #7a8790; }
+
 .primitive-research-node__head strong {
   min-width: 0;
   color: inherit;
@@ -8905,10 +8956,19 @@
 }
 
 .primitive-research-inspector__head h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 3px 0 0;
   color: #17202a;
   font-size: 1.05rem;
   letter-spacing: 0;
+}
+
+.primitive-research-inspector__head h3 .game-action-icon {
+  width: 19px;
+  height: 19px;
+  color: #176895;
 }
 
 .primitive-research-inspector__head > strong {

@@ -248,7 +248,7 @@ export function recruitPartyMemberAction(state, studentId = '') {
     ? STUDENTS.find((entry) => entry.id === studentId)
     : STUDENTS.find((entry) => !joinedIds.has(entry.id));
   if (!student) return addLog(current, '합류시킬 학생 후보가 없습니다.');
-  if (joinedIds.has(student.id)) return addLog(current, `${student.name}은(는) 이미 파티에 있습니다.`);
+  if (joinedIds.has(student.id)) return addLog(current, `${topicParticle(student.name)} 이미 파티에 있습니다.`);
 
   const member = makePartyMember(student);
   const party = [...current.party, member];
@@ -412,8 +412,8 @@ export function recipeUnlockInfo(state, recipeId) {
     lockedReason: unlocked
       ? ''
       : missing.length
-        ? `${recipe.name}은(는) ${tech.name} 연구 계열 제작물입니다. 먼저 선행 연구 ${missing.join(', ')}을(를) 완료하세요.`
-        : `${recipe.name}은(는) ${tech.name} 연구 완료 후 제작할 수 있습니다.`,
+        ? `${topicParticle(recipe.name)} ${tech.name} 연구 계열 제작물입니다. 먼저 선행 연구 ${objectParticle(missing.join(', '))} 완료하세요.`
+        : `${topicParticle(recipe.name)} ${tech.name} 연구 완료 후 제작할 수 있습니다.`,
   };
 }
 
@@ -1015,7 +1015,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
     relationDelta = 12;
     trustDelta = 4;
     staminaCost = 5;
-    outcome = `${rival.name}에 ${formatRequires(rival.giftCost)}을(를) 선물했습니다. 관계 +${relationDelta}.`;
+    outcome = `${rival.name}에 ${objectParticle(formatRequires(rival.giftCost))} 선물했습니다. 관계 +${relationDelta}.`;
   }
 
   if (actionId === 'exchange') {
@@ -1079,12 +1079,12 @@ export function selectProjectAction(state, projectId) {
   const current = normalizeState(state);
   const row = projectRows(current).find((project) => project.id === projectId);
   if (!row) return current;
-  if (row.completed) return addLog(current, `${row.name}은(는) 이미 완성된 프로젝트입니다.`);
+  if (row.completed) return addLog(current, `${topicParticle(row.name)} 이미 완성된 프로젝트입니다.`);
   if (!row.available) return addLog(current, `${row.name} 착수에 필요한 기술: ${row.missingPrereqs.join(', ') || '없음'}.`);
   return addLog({
     ...current,
     projects: { ...current.projects, selectedProjectId: row.id },
-  }, `부족 프로젝트 목표를 ${row.name}(으)로 지정했습니다.`);
+  }, `부족 프로젝트 목표를 ${directionParticle(row.name)} 지정했습니다.`);
 }
 
 export function projectActionEstimate(state, actorId, projectId = '') {
@@ -1107,7 +1107,7 @@ export function runProjectAction(state, actorId, projectId = '', options = {}) {
   const targetId = projectId || current.projects.selectedProjectId || nextAvailableProjectId(current);
   const row = projectRows(current).find((project) => project.id === targetId);
   if (!row) return addLog(current, '진행할 부족 프로젝트가 없습니다.');
-  if (row.completed) return addLog(current, `${row.name}은(는) 이미 완성됐습니다.`);
+  if (row.completed) return addLog(current, `${topicParticle(row.name)} 이미 완성됐습니다.`);
   if (!row.available) return addLog(current, `${row.name} 착수에 필요한 기술: ${row.missingPrereqs.join(', ') || '없음'}.`);
   if (!row.committed && !hasResources(current.inventory, row.cost || {})) {
     return addLog(current, `${row.name} 착수 재료가 부족합니다. 필요: ${row.costText}.`);
@@ -1131,7 +1131,7 @@ export function runProjectAction(state, actorId, projectId = '', options = {}) {
     counters: { ...current.counters, camp: Number(current.counters?.camp || 0) + 1 },
   };
   const progress = Number(next.projects.progress?.[row.id] || 0);
-  if (!row.committed) next = addLog(next, `${row.name} 착수. ${row.costText}을(를) 공동 자재로 투입했습니다.`);
+  if (!row.committed) next = addLog(next, `${row.name} 착수. ${objectParticle(row.costText)} 공동 자재로 투입했습니다.`);
   next = addLog(next, `${actor.name}의 프로젝트 작업: ${row.name} +${estimate.work} (${progress}/${row.work}).`);
 
   if (progress >= row.work) next = completeProjectIfReady(next, row);
@@ -1196,7 +1196,7 @@ export function selectRegionAction(state, regionId) {
   return addLog({
     ...current,
     exploration: { ...current.exploration, selectedRegionId: region.id },
-  }, `행동 지역을 ${region.name}(으)로 지정했습니다.`);
+  }, `행동 지역을 ${directionParticle(region.name)} 지정했습니다.`);
 }
 
 export function civilizationMilestoneRows(state) {
@@ -2388,8 +2388,24 @@ function hasKoreanFinalConsonant(text) {
   return (code - 0xAC00) % 28 !== 0;
 }
 
-function objectParticle(text) {
+export function objectParticle(text) {
   return `${text}${hasKoreanFinalConsonant(text) ? '을' : '를'}`;
+}
+
+export function subjectParticle(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '이' : '가'}`;
+}
+
+export function topicParticle(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '은' : '는'}`;
+}
+
+export function directionParticle(text) {
+  const value = String(text || '');
+  const char = value.trim().slice(-1);
+  const code = char.charCodeAt(0);
+  const finalIndex = code >= 0xAC00 && code <= 0xD7A3 ? (code - 0xAC00) % 28 : 0;
+  return `${value}${!finalIndex || finalIndex === 8 ? '로' : '으로'}`;
 }
 
 function hasEventSupportGear(state, actorId, action) {
@@ -2575,7 +2591,7 @@ function applyExplorationEvent(state, { actorId, action, zoneId = '', ok = true,
     const [rewardId] = Object.keys(recipe?.reward || {});
     if (!rewardId) return state;
     next = { ...next, inventory: addItems(next.inventory, [[rewardId, 1]]) };
-    return addEventLog(next, `${actor.name}의 정교한 마감으로 ${itemName(rewardId)}을(를) 추가로 얻었습니다.`);
+    return addEventLog(next, `${actor.name}의 정교한 마감으로 ${objectParticle(itemName(rewardId))} 추가로 얻었습니다.`);
   }
 
   if (action === 'camp') {
@@ -2836,12 +2852,12 @@ export function selectTechAction(state, techId) {
   if (!researchStatus.unlocked) return addLog(current, researchStatus.reason);
   const tech = getTechnology(techId);
   if (!tech) return current;
-  if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
+  if (current.research.completed[tech.id]) return addLog(current, `${topicParticle(tech.name)} 이미 완료된 연구입니다.`);
   if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
   return addLog({
     ...current,
     research: { ...current.research, selectedTechId: tech.id },
-  }, `연구 목표를 ${tech.name}(으)로 변경했습니다.`);
+  }, `연구 목표를 ${directionParticle(tech.name)} 변경했습니다.`);
 }
 
 export function researchActionEstimate(state, actorId) {
@@ -2873,7 +2889,7 @@ export function runResearchAction(state, actorId, options = {}) {
   const techId = current.research.selectedTechId || nextAvailableTech(current.research)?.id;
   const tech = getTechnology(techId);
   if (!tech) return addLog(current, '연구 가능한 기술이 없습니다.');
-  if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
+  if (current.research.completed[tech.id]) return addLog(current, `${topicParticle(tech.name)} 이미 완료된 연구입니다.`);
   if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
   const { points, staminaCost } = researchActionEstimate(current, actorId);
   const researched = addResearchProgress(current, tech.id, points, `${actor.name} 연구`);
@@ -2887,7 +2903,7 @@ export function selectCivicAction(state, civicId) {
   if (!systemStatus.unlocked) return addLog(current, systemStatus.reason);
   const civic = getCivic(civicId);
   if (!civic) return current;
-  if (current.civics.completed?.[civic.id]) return addLog(current, `${civic.name}은(는) 이미 확립된 사회 제도입니다.`);
+  if (current.civics.completed?.[civic.id]) return addLog(current, `${topicParticle(civic.name)} 이미 확립된 사회 제도입니다.`);
   if (!prereqsMet(current.research, civic)) {
     const missing = missingPrereqNames(current.research, civic);
     return addLog(current, `${civic.name} 제도는 아직 잠겨 있습니다. 필요한 선행 발전: ${missing.join(', ') || '없음'}.`);
@@ -2895,7 +2911,7 @@ export function selectCivicAction(state, civicId) {
   return addLog({
     ...current,
     civics: { ...current.civics, selectedCivicId: civic.id },
-  }, `사회 제도 목표를 ${civic.name}(으)로 변경했습니다.`);
+  }, `사회 제도 목표를 ${directionParticle(civic.name)} 변경했습니다.`);
 }
 
 export function civicActionEstimate(state, actorId) {
@@ -3321,7 +3337,7 @@ export function civicsPlannerRows(state) {
     const nextAction = civic.completed
       ? '확립된 사회 제도입니다. 다음 제도를 선택하세요.'
       : !civic.available
-        ? `${missing.join(', ') || '부족 발전'}을(를) 먼저 완료하세요. 영감: ${civic.inspiration?.desc || '없음'}.`
+        ? `${objectParticle(missing.join(', ') || '부족 발전')} 먼저 완료하세요. 영감: ${civic.inspiration?.desc || '없음'}.`
         : !systemStatus.actionUnlocked
           ? `영감 조건을 진행하면서 자동 CP를 축적하세요. ${systemStatus.actionReason}`
           : civic.inspirationDone
@@ -4173,7 +4189,7 @@ export function runCraftAction(state, actorId, recipeId, options = {}) {
       inventory: addItems(next.inventory, Object.entries(recipe.reward)),
       counters: { ...next.counters, craft: Number(next.counters.craft || 0) + 1 },
     };
-    next = addLog(next, `${actor.name}의 제작 성공. ${recipe.name}을(를) 만들었습니다.`);
+    next = addLog(next, `${actor.name}의 제작 성공. ${objectParticle(recipe.name)} 만들었습니다.`);
     next = recordResearchEvent(next, { kind: 'recipe', recipeId: recipe.id, ok: true });
   } else {
     next = addLog(next, `${actor.name}의 제작 실패. 일부 재료를 잃었습니다.`);
@@ -4202,7 +4218,7 @@ export function runEatAction(state, actorId, options = {}) {
     hp: clamp(Number(target.hp || 0) + heal, 0, 100),
     bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
   });
-  next = addLog(next, `${actor.name}이(가) ${itemName(foodId)}을(를) 먹었습니다. 허기 -${nutrition}, HP +${heal}${warmth ? `, 체온 +${warmth.toFixed(1)}` : ''}.`);
+  next = addLog(next, `${subjectParticle(actor.name)} ${objectParticle(itemName(foodId))} 먹었습니다. 허기 -${nutrition}, HP +${heal}${warmth ? `, 체온 +${warmth.toFixed(1)}` : ''}.`);
   next = addDialogueLog(next, actorId, 'eat', 'success', options.rng || Math.random);
   return afterAction(next, actorId, staminaCostWithEquipment(state, actorId, 'eat', 6), 0, options);
 }
@@ -4220,7 +4236,7 @@ export function runRestAction(state, actorId, options = {}) {
     hp: clamp(Number(target.hp || 0) + heal, 0, 100),
     bodyTemp: clamp(Number(target.bodyTemp ?? 37) + warmth, 25, 39),
   });
-  next = addLog(next, `${actor.name}이(가) 휴식했습니다. 스태미나와 HP를 회복하고 체온을 안정시켰습니다.`);
+  next = addLog(next, `${subjectParticle(actor.name)} 휴식했습니다. 스태미나와 HP를 회복하고 체온을 안정시켰습니다.`);
   next = addDialogueLog(next, actorId, 'rest', 'success', options.rng || Math.random);
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
   next = autoResearchForTurn(next);
@@ -4236,22 +4252,22 @@ export function runCampAction(state, actorId, kind, options = {}) {
   if (kind === 'fuel') {
     if (!hasResources(next.inventory, { wood: 1 })) return addLog(next, '연료로 넣을 나무가 부족합니다.');
     next = { ...next, inventory: spendResources(next.inventory, { wood: 1 }), camp: { ...next.camp, fuel: Number(next.camp.fuel || 0) + 2 } };
-    next = addLog(next, `${actor.name}이(가) 모닥불 연료를 보충했습니다. 연료 +2.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 모닥불 연료를 보충했습니다. 연료 +2.`);
   }
   if (kind === 'fire') {
     if (!hasResources(next.inventory, { wood: 2, stone: 2 })) return addLog(next, '모닥불 업그레이드 재료가 부족합니다.');
     next = { ...next, inventory: spendResources(next.inventory, { wood: 2, stone: 2 }), camp: { ...next.camp, fireLevel: clamp(Number(next.camp.fireLevel || 0) + 1, 0, 3) } };
-    next = addLog(next, `${actor.name}이(가) 모닥불을 업그레이드했습니다. Lv.${next.camp.fireLevel}.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 모닥불을 업그레이드했습니다. Lv.${next.camp.fireLevel}.`);
   }
   if (kind === 'shelter') {
     if (!hasResources(next.inventory, { wood: 3, fiber: 2, hide: 1 })) return addLog(next, '대피소 재료가 부족합니다.');
     next = { ...next, inventory: spendResources(next.inventory, { wood: 3, fiber: 2, hide: 1 }), camp: { ...next.camp, shelterLevel: clamp(Number(next.camp.shelterLevel || 0) + 1, 0, 3) } };
-    next = addLog(next, `${actor.name}이(가) 대피소를 보강했습니다. Lv.${next.camp.shelterLevel}.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 대피소를 보강했습니다. Lv.${next.camp.shelterLevel}.`);
   }
   if (kind === 'workbench') {
     if (!hasResources(next.inventory, { wood: 4, stone: 2 })) return addLog(next, '작업대 재료가 부족합니다.');
     next = { ...next, inventory: spendResources(next.inventory, { wood: 4, stone: 2 }), camp: { ...next.camp, workbenchLevel: clamp(Number(next.camp.workbenchLevel || 0) + 1, 0, 2) } };
-    next = addLog(next, `${actor.name}이(가) 작업대를 만들었습니다. Lv.${next.camp.workbenchLevel}.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 작업대를 만들었습니다. Lv.${next.camp.workbenchLevel}.`);
   }
   if (kind === 'archive') {
     if (!hasTechCampUnlock(next, 'archive_room')) return addLog(next, '기록실은 기록 보관 연구를 완료한 뒤 지을 수 있습니다.');
@@ -4262,7 +4278,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
       inventory: spendResources(next.inventory, { wood: 5, stone: 3, fiber: 3, hide: 1 }),
       camp: { ...next.camp, archiveRoomLevel: 1 },
     };
-    next = addLog(next, `${actor.name}이(가) 기록실을 세웠습니다. 로그 저장량과 일일 연구가 증가합니다.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 기록실을 세웠습니다. 로그 저장량과 일일 연구가 증가합니다.`);
   }
   if (kind === 'scribe') {
     if (!hasTechCampUnlock(next, 'scribe_desk')) return addLog(next, '필사대는 문자 연구를 완료한 뒤 만들 수 있습니다.');
@@ -4273,7 +4289,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
       inventory: spendResources(next.inventory, { wood: 2, stone: 2, clay: 2, fiber: 2 }),
       camp: { ...next.camp, scribeDeskLevel: 1 },
     };
-    next = addLog(next, `${actor.name}이(가) 필사대를 만들었습니다. 연구 행동과 일일 연구가 강화됩니다.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 필사대를 만들었습니다. 연구 행동과 일일 연구가 강화됩니다.`);
   }
   if (kind === 'library') {
     if (!hasTechCampUnlock(next, 'library_shelf')) return addLog(next, '서가는 서가 정리 연구를 완료한 뒤 세울 수 있습니다.');
@@ -4284,7 +4300,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
       inventory: spendResources(next.inventory, { wood: 4, fiber: 4, resin: 2, clay: 2 }),
       camp: { ...next.camp, libraryShelfLevel: 1 },
     };
-    next = addLog(next, `${actor.name}이(가) 서가를 세웠습니다. 책 보너스와 일일 연구가 강화됩니다.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 서가를 세웠습니다. 책 보너스와 일일 연구가 강화됩니다.`);
   }
   if (kind === 'cook') {
     if (Number(next.camp.fireLevel || 0) <= 0 || Number(next.camp.fuel || 0) <= 0) return addLog(next, '고기를 구우려면 모닥불과 연료가 필요합니다.');
@@ -4294,7 +4310,7 @@ export function runCampAction(state, actorId, kind, options = {}) {
       inventory: addItems(spendResources(next.inventory, { meat: 1 }), [['cooked_meat', 1]]),
       camp: { ...next.camp, fuel: Math.max(0, Number(next.camp.fuel || 0) - 1) },
     };
-    next = addLog(next, `${actor.name}이(가) 고기를 구웠습니다. 구운 고기 +1.`);
+    next = addLog(next, `${subjectParticle(actor.name)} 고기를 구웠습니다. 구운 고기 +1.`);
   }
   if (!researchWasUnlocked && researchSystemStatus(next).unlocked) {
     next = addLog(next, '부족 발전 단계 달성: 모닥불, 대피소, 작업대가 갖춰져 연구 체계가 해금되었습니다.');

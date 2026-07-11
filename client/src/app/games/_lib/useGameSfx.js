@@ -66,6 +66,11 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 820, q: 1.4, duration: 0.055, gain: 0.075 },
     { frequency: 260, endFrequency: 210, duration: 0.075, type: 'triangle', gain: 0.065 },
   ],
+  survivalFail: [
+    { source: 'noise', filterType: 'lowpass', frequency: 760, duration: 0.065, gain: 0.035 },
+    { frequency: 220, endFrequency: 145, start: 0.025, duration: 0.13, type: 'triangle', gain: 0.05 },
+    { frequency: 108, start: 0.11, duration: 0.09, type: 'sine', gain: 0.025 },
+  ],
   combat: [
     { source: 'noise', filterType: 'lowpass', frequency: 900, duration: 0.07, gain: 0.085 },
     { frequency: 210, endFrequency: 125, duration: 0.105, type: 'sawtooth', gain: 0.055 },

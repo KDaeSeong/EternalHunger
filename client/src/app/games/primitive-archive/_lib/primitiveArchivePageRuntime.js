@@ -102,6 +102,22 @@ export const RESEARCH_TAG_LABELS = {
   CIVICS: '사회',
 };
 
+const RESEARCH_TAG_ACTIONS = {
+  SURVIVAL: 'survival',
+  CRAFT: 'craft',
+  CAMP: 'camp',
+  MILITARY: 'combat',
+  SCIENCE: 'research',
+  CULTURE: 'archive',
+  SPIRITUAL: 'event',
+  CIVICS: 'policy',
+};
+
+export function advancementAction(tags, track = 'technology') {
+  const matchedTag = (Array.isArray(tags) ? tags : []).find((tag) => RESEARCH_TAG_ACTIONS[tag]);
+  return RESEARCH_TAG_ACTIONS[matchedTag] || (track === 'civics' ? 'policy' : 'research');
+}
+
 export const CAMP_UNLOCK_LABELS = {
   fire: '모닥불',
   shelter: '대피소',

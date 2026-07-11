@@ -11,6 +11,7 @@ import {
 import {
   RESEARCH_ERA_LABELS,
   RESEARCH_TAG_LABELS,
+  advancementAction,
 } from '../_lib/primitiveArchivePageRuntime';
 import PrimitiveArchiveProjectsPanel from './PrimitiveArchiveProjectsPanel';
 import PrimitiveArchiveResearchTreePreview from './PrimitiveArchiveResearchTreePreview';
@@ -174,7 +175,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
   if (!research.unlocked) {
     return (
       <>
-        <RecentActionResult label="최근 연구/성장 결과" text={recentActionText} pinned />
+        <RecentActionResult action={isCivics ? 'policy' : 'research'} label="최근 연구/성장 결과" text={recentActionText} tone="ready" pinned />
         <AdvancementTrackSwitch activeTrack={activeTrack} civics={civics} onChange={setTrack} research={research} />
         <section className="games-panel primitive-research-gate">
           <div className="games-panel-title">
@@ -218,7 +219,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
 
   return (
     <>
-      <RecentActionResult label="최근 연구/성장 결과" text={recentActionText} pinned />
+      <RecentActionResult action={isCivics ? 'policy' : 'research'} label="최근 연구/성장 결과" text={recentActionText} tone="ready" pinned />
       <AdvancementTrackSwitch activeTrack={activeTrack} civics={civics} onChange={setTrack} research={research} />
 
       <section className={`games-dashboard primitive-advancement-dashboard ${isCivics ? 'is-civics' : ''}`}>
@@ -438,7 +439,10 @@ export default function PrimitiveArchiveGrowthTab(props) {
                       style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
                     >
                       <span className="primitive-research-node__head">
-                        <strong>{node.name}</strong>
+                        <span className="primitive-research-node__identity">
+                          <GameActionIcon action={advancementAction(node.tags, activeTrack)} label={node.name} />
+                          <strong>{node.name}</strong>
+                        </span>
                         <em>{node.statusLabel}</em>
                       </span>
                       <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}{pointLabel}</small>
@@ -460,7 +464,10 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   <div className="primitive-research-inspector__head">
                     <div>
                       <span>T{focusedTreeNode.tier} · {advancementMap.tierHeaders.find((tier) => tier.tier === focusedTreeNode.tier)?.name || '발전 단계'} · {RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era}</span>
-                      <h3>{focusedTreeNode.name}</h3>
+                      <h3>
+                        <GameActionIcon action={advancementAction(focusedTreeNode.tags, activeTrack)} label={focusedTreeNode.name} />
+                        {focusedTreeNode.name}
+                      </h3>
                     </div>
                     <strong>{focusedTreeNode.progress}/{focusedTreeNode.cost}{pointLabel}</strong>
                   </div>

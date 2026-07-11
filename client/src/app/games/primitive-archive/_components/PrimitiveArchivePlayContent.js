@@ -32,6 +32,7 @@ import {
   clearAllEquipmentAction,
   createNewState,
   difficultyRows,
+  directionParticle,
   equipmentChoicesForSlot,
   equipmentInventoryRows,
   equipmentRows,
@@ -41,6 +42,7 @@ import {
   getRunProgressReport,
   itemName,
   logCapacity,
+  objectParticle,
   partyInsulation,
   perkRows,
   projectActionEstimate,
@@ -73,13 +75,21 @@ import {
   selectTechAction,
   setEquipmentSlotAction,
   startNewRunFromMeta,
+  subjectParticle,
   techRows,
   totalCarryWeight,
+  topicParticle,
   explorationSummary,
   tribeSummary,
 } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
+import {
+  primitiveActionFeedback,
+  primitiveActionResultText,
+  primitiveMilestoneCue,
+  primitiveMilestoneSnapshot,
+} from '../_lib/primitiveArchiveFeedback';
 
 import {
   BASE_CAMP_ACTIONS,
@@ -112,18 +122,8 @@ export default function PrimitiveArchivePlayContent() {
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
   const [actionResult, setActionResult] = useState('');
-  const feedbackRef = useRef({
-    runId: state.runId,
-    discoverySerial: Number(state.exploration?.discoverySerial || 0),
-    projectSerial: Number(state.projects?.completionSerial || 0),
-    researchSerial: Number(state.research?.completionSerial || 0),
-    civicsSerial: Number(state.civics?.completionSerial || 0),
-    eurekaCount: Object.keys(state.research?.eureka || {}).length,
-    inspirationCount: Object.keys(state.civics?.inspiration || {}).length,
-    tribeGrowthSerial: Number(state.tribe?.growthSerial || 0),
-    contactSerial: Number(state.diplomacy?.contactSerial || 0),
-    seasonId: '',
-  });
+  const [actionFeedback, setActionFeedback] = useState({ action: 'survival', outcome: 'ready', runId: state.runId, tone: 'ready' });
+  const feedbackRef = useRef(primitiveMilestoneSnapshot(state));
 
   const actor = getActor(state, actorId);
   const recipes = useMemo(() => recipeRows(state), [state]);
@@ -207,31 +207,12 @@ export default function PrimitiveArchivePlayContent() {
 
   useEffect(() => {
     const previous = feedbackRef.current;
-    const current = {
-      runId: state.runId,
-      discoverySerial: Number(state.exploration?.discoverySerial || 0),
-      projectSerial: Number(state.projects?.completionSerial || 0),
-      researchSerial: Number(state.research?.completionSerial || 0),
-      civicsSerial: Number(state.civics?.completionSerial || 0),
-      eurekaCount: Object.keys(state.research?.eureka || {}).length,
-      inspirationCount: Object.keys(state.civics?.inspiration || {}).length,
-      tribeGrowthSerial: Number(state.tribe?.growthSerial || 0),
-      contactSerial: Number(state.diplomacy?.contactSerial || 0),
-      seasonId: milestones.season.id,
-    };
-    if (previous.runId === current.runId) {
-      if (current.discoverySerial > previous.discoverySerial) playGameSfx('discover');
-      if (current.projectSerial > previous.projectSerial) playGameSfx('projectComplete');
-      if (current.researchSerial > previous.researchSerial) playGameSfx('complete');
-      else if (current.eurekaCount > previous.eurekaCount) playGameSfx('research');
-      if (current.civicsSerial > previous.civicsSerial) playGameSfx('civicComplete');
-      else if (current.inspirationCount > previous.inspirationCount) playGameSfx('inspiration');
-      if (current.tribeGrowthSerial > previous.tribeGrowthSerial) playGameSfx('growth');
-      if (current.contactSerial > previous.contactSerial) playGameSfx('diplomacy');
-      if (previous.seasonId && current.seasonId !== previous.seasonId) playGameSfx('season');
-    }
+    const current = primitiveMilestoneSnapshot(state, milestones.season.id);
+    const cue = primitiveMilestoneCue(previous, current);
+    if (cue) playGameSfx(cue);
     feedbackRef.current = current;
-  }, [milestones.season.id, playGameSfx, state.civics?.completionSerial, state.civics?.inspiration, state.diplomacy?.contactSerial, state.exploration?.discoverySerial, state.projects?.completionSerial, state.research?.completionSerial, state.research?.eureka, state.runId, state.tribe?.growthSerial]);
+  }, [milestones.season.id, playGameSfx, state]);
+
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
       const chances = {
@@ -301,7 +282,7 @@ export default function PrimitiveArchivePlayContent() {
   const selectedResearchHelp = !research.unlocked
     ? research.reason
     : research.selected && !research.selected.completed && !research.selected.available
-      ? `${research.selected.name}은(는) 아직 잠긴 연구입니다. 선행 연구: ${(research.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 연구: ${availableResearchNames.slice(0, 3).join(', ') || '없음'}.`
+      ? `${topicParticle(research.selected.name)} 아직 잠긴 연구입니다. 선행 연구: ${(research.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 연구: ${availableResearchNames.slice(0, 3).join(', ') || '없음'}.`
       : research.selected && !research.selected.completed
         ? research.actionUnlocked
           ? `${research.selected.name} 연구를 진행할 수 있습니다. 자동 RP와 수동 연구 행동을 함께 사용할 수 있습니다.`
@@ -313,7 +294,7 @@ export default function PrimitiveArchivePlayContent() {
   const selectedCivicHelp = !civics.unlocked
     ? civics.reason
     : civics.selected && !civics.selected.completed && !civics.selected.available
-      ? `${civics.selected.name}은(는) 아직 잠긴 사회 제도입니다. 선행 발전: ${(civics.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 제도: ${availableCivicNames.slice(0, 3).join(', ') || '없음'}.`
+      ? `${topicParticle(civics.selected.name)} 아직 잠긴 사회 제도입니다. 선행 발전: ${(civics.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 제도: ${availableCivicNames.slice(0, 3).join(', ') || '없음'}.`
       : civics.selected && !civics.selected.completed
         ? civics.actionUnlocked
           ? `${civics.selected.name} 제도를 추진할 수 있습니다. 자동 CP와 부족 회의를 함께 사용할 수 있습니다.`
@@ -322,11 +303,12 @@ export default function PrimitiveArchivePlayContent() {
 
   const applyAction = (label, updater, fallbackText = '') => {
     const nextState = updater(state);
-    const latest = nextState.log?.[0] !== state.log?.[0] && nextState.log?.[0]
-      ? nextState.log[0]
-      : fallbackText || `${label} 행동을 실행했습니다.`;
+    const latest = primitiveActionResultText(state, nextState, label, fallbackText);
+    const feedback = primitiveActionFeedback(state, nextState, label);
+    if (feedback.cue) playGameSfx(feedback.cue);
     setState(nextState);
     setActionResult(latest);
+    setActionFeedback({ ...feedback, runId: nextState.runId });
   };
 
   const runGather = () => {
@@ -372,12 +354,12 @@ export default function PrimitiveArchivePlayContent() {
   const selectRegion = (regionId) => {
     const region = regions.find((row) => row.id === regionId);
     setZoneId(regionId);
-    applyAction('행동 지역 변경', (current) => selectRegionAction(current, regionId), `행동 지역을 ${region?.name || '새 지역'}(으)로 지정했습니다.`);
+    applyAction('행동 지역 변경', (current) => selectRegionAction(current, regionId), `행동 지역을 ${directionParticle(region?.name || '새 지역')} 지정했습니다.`);
   };
 
   const selectProject = (projectId) => {
     const project = projects.find((row) => row.id === projectId);
-    applyAction('부족 프로젝트 지정', (current) => selectProjectAction(current, projectId), `${project?.name || '새 프로젝트'}을(를) 공동 목표로 지정했습니다.`);
+    applyAction('부족 프로젝트 지정', (current) => selectProjectAction(current, projectId), `${objectParticle(project?.name || '새 프로젝트')} 공동 목표로 지정했습니다.`);
   };
 
   const runProject = () => {
@@ -418,28 +400,30 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const startNewRun = () => {
-    setState((current) => startNewRunFromMeta(current, { difficulty: newRunDifficulty }));
+    const nextState = startNewRunFromMeta(state, { difficulty: newRunDifficulty });
+    setState(nextState);
     setActorId('shiroko');
     setZoneId('whisper-woods');
     setRecipeId('twine');
     setSelectedRecruitId('');
     setActionResult(`${selectedDifficulty.label} 난이도로 새 원시 아카이브 런을 시작했습니다.`);
+    setActionFeedback({ action: 'start', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
     setMessage('');
   };
 
   const recruitMember = () => {
     if (!selectedRecruit) return;
-    applyAction('합류', (current) => recruitPartyMemberAction(current, selectedRecruit.id), `${selectedRecruit.name}이(가) 파티에 합류했습니다.`);
+    applyAction('합류', (current) => recruitPartyMemberAction(current, selectedRecruit.id), `${subjectParticle(selectedRecruit.name)} 파티에 합류했습니다.`);
   };
 
   const selectResearchTarget = (techId) => {
     const nextTech = techs.find((tech) => tech.id === techId);
-    applyAction('연구 목표 변경', (current) => selectTechAction(current, techId), `연구 목표를 ${nextTech?.name || '새 기술'}(으)로 변경했습니다.`);
+    applyAction('연구 목표 변경', (current) => selectTechAction(current, techId), `연구 목표를 ${directionParticle(nextTech?.name || '새 기술')} 변경했습니다.`);
   };
 
   const selectCivicTarget = (civicId) => {
     const nextCivic = civicAdvancements.find((civic) => civic.id === civicId);
-    applyAction('사회 제도 목표 변경', (current) => selectCivicAction(current, civicId), `사회 제도 목표를 ${nextCivic?.name || '새 제도'}(으)로 변경했습니다.`);
+    applyAction('사회 제도 목표 변경', (current) => selectCivicAction(current, civicId), `사회 제도 목표를 ${directionParticle(nextCivic?.name || '새 제도')} 변경했습니다.`);
   };
 
   const buyPerk = (perk) => {
@@ -464,7 +448,7 @@ export default function PrimitiveArchivePlayContent() {
     applyAction(
       '장비 변경',
       (current) => setEquipmentSlotAction(current, actorId, slot, itemId),
-      `${actor?.name || '대상'}의 ${slotLabel} 장비를 ${choice?.name || '없음'}(으)로 변경했습니다.`,
+      `${actor?.name || '대상'}의 ${slotLabel} 장비를 ${directionParticle(choice?.name || '없음')} 변경했습니다.`,
     );
   };
 
@@ -538,6 +522,9 @@ export default function PrimitiveArchivePlayContent() {
       <PrimitiveArchiveFeatureTabs
         actor={actor}
         actorId={actorId}
+        actionFeedback={actionFeedback.runId === state.runId
+          ? actionFeedback
+          : { action: 'survival', outcome: 'ready', runId: state.runId, tone: 'ready' }}
         actionForecasts={actionForecasts}
         adjustTribeJob={adjustTribeJob}
         applyAction={applyAction}
