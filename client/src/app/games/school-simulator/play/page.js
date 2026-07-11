@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameActionIcon from '../../_components/GameActionIcon';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   TEACHER_ACTIONS,
   WORK_ACTIONS,
@@ -15,7 +18,7 @@ import {
   createNewState,
   runCareerCounselingAction,
 } from '../_lib/schoolSimulatorEngine';
-import { actionFeedbackText } from '../_lib/schoolSimulatorPlayHelpers';
+import { actionFeedbackText, schoolActionCue } from '../_lib/schoolSimulatorPlayHelpers';
 import { buildSchoolSimulatorPlayViewModel } from '../_lib/schoolSimulatorPlayViewModel';
 import useSchoolSimulatorPersistence from '../_hooks/useSchoolSimulatorPersistence';
 import useSchoolSimulatorSelections from '../_hooks/useSchoolSimulatorSelections';
@@ -24,6 +27,7 @@ export default function SchoolSimulatorPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'school' });
   const [state, setState] = useState(() => createNewState());
   const [actionResult, setActionResult] = useState('');
   const {
@@ -142,6 +146,8 @@ export default function SchoolSimulatorPlayPage() {
     const nextState = updater(state);
     setState(nextState);
     setActionResult(actionFeedbackText(state, nextState, label, fallback));
+    const cue = schoolActionCue(state, nextState);
+    if (cue) playGameSfx(cue);
   };
 
   const startNewRun = () => {
@@ -195,11 +201,11 @@ export default function SchoolSimulatorPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>새 학교</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/myanime/school-simulator">상세</Link>
+      <GameControlButton action="new" onClick={startNewRun}>새 학교</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <Link href="/myanime/school-simulator" data-game-sfx="select"><GameActionIcon action="settings" label="상세" />상세</Link>
     </>
   );
 
@@ -248,12 +254,15 @@ export default function SchoolSimulatorPlayPage() {
       title="학교 운영 시뮬레이터"
       description="업로드된 School Simulator Step 23의 주간 운영, 장기 학교 비전, 정책 프리셋, 학생/교사/시설 지표, 시험과 학기 보고 흐름을 사이트용 플레이로 이식했습니다."
       summaryLabel="School Simulator 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={12}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact storageKey="school-simulator-operations-coach" />
+      <RecentActionResult label="이번 운영 결과" text={recentActionText} pinned />
 
       <SchoolSimulatorFeatureTabs
         actionId={actionId}

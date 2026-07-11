@@ -104,6 +104,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                       <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                         {events.pending.choices.map((choice) => (
                           <ActionButton
+                            action="event"
                             key={choice.id}
                             onClick={() => applySchoolAction('사건 대응', (current) => applyWeeklyEventChoice(current, choice.id))}
                             disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}

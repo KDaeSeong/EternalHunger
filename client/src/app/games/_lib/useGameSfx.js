@@ -166,6 +166,29 @@ const CUE_PROFILES = {
     { frequency: 320, endFrequency: 390, duration: 0.055, type: 'triangle', gain: 0.06 },
     { frequency: 480, start: 0.052, duration: 0.055, type: 'triangle', gain: 0.045 },
   ],
+  policy: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.045, gain: 0.055 },
+    { frequency: 250, endFrequency: 190, duration: 0.08, type: 'square', gain: 0.04 },
+  ],
+  counsel: [
+    { frequency: 480, endFrequency: 560, duration: 0.08, type: 'sine', gain: 0.05 },
+    { frequency: 720, start: 0.065, duration: 0.1, type: 'sine', gain: 0.04 },
+  ],
+  lesson: [
+    { frequency: 740, duration: 0.05, type: 'sine', gain: 0.05 },
+    { frequency: 1110, start: 0.045, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  festival: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.06, gain: 0.035 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 780, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },
+    { frequency: 1040, start: 0.095, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
+  semester: [
+    { frequency: 660, duration: 0.08, type: 'sine', gain: 0.048 },
+    { frequency: 880, start: 0.11, duration: 0.09, type: 'sine', gain: 0.045 },
+    { frequency: 1100, start: 0.23, duration: 0.14, type: 'sine', gain: 0.04 },
+  ],
   advance: [
     { frequency: 430, endFrequency: 620, duration: 0.075, type: 'triangle', gain: 0.06 },
     { frequency: 860, start: 0.06, duration: 0.07, type: 'sine', gain: 0.045 },

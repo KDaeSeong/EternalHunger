@@ -101,6 +101,7 @@ export default function SchoolSimulatorAdvancedPeople({
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                     <ActionButton
+                      action="lesson"
                       onClick={() => applySchoolAction('교사 액션', (current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
                       disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
                     >
@@ -152,8 +153,8 @@ export default function SchoolSimulatorAdvancedPeople({
                     <SmallStat label="발표회" value={selectedClub.showcaseWeeksRemaining ? `${selectedClub.showcaseWeeksRemaining}주` : '대기'} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
-                    <ActionButton onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+                    <ActionButton action="recruit" onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+                    <ActionButton action="festival" onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
                   </div>
                   <RecentActionResult label="최근 동아리 운영 결과" text={recentActionText} />
                 </section>
@@ -174,7 +175,7 @@ export default function SchoolSimulatorAdvancedPeople({
                     <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
                     <SmallStat label="기록" value={festival.history.length} />
                   </div>
-                  <ActionButton onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+                  <ActionButton action="festival" onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
                     행사 시작
                   </ActionButton>
                   <RecentActionResult label="최근 행사 결과" text={recentActionText} />

@@ -78,7 +78,7 @@ export default function SchoolSimulatorAdvancedOperations({
                     <SmallStat label="멘탈" value={state.player.mental} />
                   </div>
                   <ActionButton onClick={applySelectedAction} disabled={state.player.weeklyActionPoint < selectedAction.apCost}>
-                    선택 행동 실행
+                    {selectedAction.label} 실행
                   </ActionButton>
                   <RecentActionResult label="최근 주간 운영 결과" text={recentActionText} />
                 </section>
@@ -104,7 +104,7 @@ export default function SchoolSimulatorAdvancedOperations({
                     <SmallStat label="지원자" value={state.school.admissions.applications} />
                     <SmallStat label="경쟁률" value={`${state.school.admissions.competitionRate}:1`} />
                   </div>
-                  <ActionButton onClick={applySelectedPolicy} disabled={state.player.weeklyActionPoint < 1 || state.school.policyPreset === policyId}>
+                  <ActionButton action="policy" onClick={applySelectedPolicy} disabled={state.player.weeklyActionPoint < 1 || state.school.policyPreset === policyId}>
                     정책 적용
                   </ActionButton>
                   <RecentActionResult label="최근 정책 결과" text={recentActionText} />
@@ -122,8 +122,8 @@ export default function SchoolSimulatorAdvancedOperations({
                     <SmallStat label="시설" value={averages.facilityCondition} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
-                    <ActionButton onClick={() => applySchoolAction('운영진 휴식', (current) => restAction(current))} disabled={state.player.weeklyActionPoint < 2}>지친 운영진 휴식</ActionButton>
+                    <ActionButton action="advance" onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
+                    <ActionButton action="rest" onClick={() => applySchoolAction('운영진 휴식', (current) => restAction(current))} disabled={state.player.weeklyActionPoint < 2}>지친 운영진 휴식</ActionButton>
                   </div>
                   <RecentActionResult label="최근 정산 결과" text={recentActionText} />
                 </section>
@@ -174,8 +174,9 @@ export default function SchoolSimulatorAdvancedOperations({
                     <SmallStat label="진행 활동" value={subjectShowcaseSummaryData.activeCount} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => applySchoolAction('수업 방식 변경', (current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
+                    <ActionButton action="lesson" onClick={() => applySchoolAction('수업 방식 변경', (current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
                     <ActionButton
+                      action="festival"
                       onClick={() => applySchoolAction('공개 활동 시작', (current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
                       disabled={
                         state.player.weeklyActionPoint < selectedSubjectShowcaseAction.apCost
@@ -209,7 +210,7 @@ export default function SchoolSimulatorAdvancedOperations({
                     <SmallStat label="신입 질" value={state.school.admissions.nextIntakeQuality} />
                     <SmallStat label="홍보 탄력" value={state.school.admissions.marketingMomentum || 0} />
                   </div>
-                  <ActionButton onClick={() => applySchoolAction('모집 캠페인', (current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
+                  <ActionButton action="recruit" onClick={() => applySchoolAction('모집 캠페인', (current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
                     모집 캠페인
                   </ActionButton>
                   <RecentActionResult label="최근 모집 결과" text={recentActionText} />
@@ -231,7 +232,7 @@ export default function SchoolSimulatorAdvancedOperations({
                     <SmallStat label="기록" value={state.careerReports.length} />
                     <SmallStat label="대상" value="하위 6명" />
                   </div>
-                  <ActionButton onClick={() => applySchoolAction('진로 상담', (current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
+                  <ActionButton action="counsel" onClick={() => applySchoolAction('진로 상담', (current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
                     진로 상담 실행
                   </ActionButton>
                   <RecentActionResult label="최근 진로 지도 결과" text={recentActionText} />

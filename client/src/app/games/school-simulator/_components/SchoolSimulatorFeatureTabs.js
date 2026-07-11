@@ -1,6 +1,11 @@
 import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import SchoolSimulatorAdvancedTab from './SchoolSimulatorAdvancedTab';
-import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import {
+  ActionButton,
+  GameControlButton,
+  SmallStat,
+  RecentActionResult,
+} from '../../_components/GamePlayPrimitives';
 import {
   applySubjectPolicyAction,
   applySubjectShowcaseAction,
@@ -15,6 +20,16 @@ import {
   startClubShowcaseAction,
 } from '../_lib/schoolSimulatorEngine';
 import { ScoreBar } from '../_lib/schoolSimulatorPlayHelpers';
+
+function schoolCommandAction(command, rowKind = 'student') {
+  const actionId = String(command?.actionId || '');
+  if (rowKind === 'facility' || actionId.includes('facility')) return 'upgrade';
+  if (actionId.includes('contract')) return 'contract';
+  if (actionId.includes('library')) return 'lesson';
+  if (command?.type === 'career' || actionId.includes('counsel')) return 'counsel';
+  if (rowKind === 'teacher') return 'lesson';
+  return 'policy';
+}
 
 export default function SchoolSimulatorFeatureTabs(props) {
   const {
@@ -56,6 +71,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
     teachers,
   } = props;
   return (
+    <div className="school-simulator-workspace">
       <GameFeatureTabs
         tabs={[
           {
@@ -103,11 +119,10 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
                     <ActionButton onClick={() => applySchoolAction('추천 행동', (current) => applyWorkAction(current, recommendedAction.id))} disabled={state.player.weeklyActionPoint < recommendedAction.apCost}>
-                      추천 행동 실행
+                      {recommendedAction.label} 실행
                     </ActionButton>
-                    <ActionButton onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
+                    <ActionButton action="advance" onClick={() => applySchoolAction('다음 주 진행', (current) => endWeekAction(current))}>다음 주로 진행</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 학교 운영 결과" text={recentActionText} pinned />
                 </section>
               </section>
             ),
@@ -278,6 +293,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                       <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                         {events.pending.choices.map((choice) => (
                           <ActionButton
+                            action="event"
                             key={choice.id}
                             onClick={() => applySchoolAction('사건 대응', (current) => applyWeeklyEventChoice(current, choice.id))}
                             disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}
@@ -327,8 +343,9 @@ export default function SchoolSimulatorFeatureTabs(props) {
                     <SmallStat label="약점" value={`${report.subjectRows[0]?.weakCount || 0}명`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={() => applySchoolAction('수업 방식 변경', (current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
+                    <ActionButton action="lesson" onClick={() => applySchoolAction('수업 방식 변경', (current) => applySubjectPolicyAction(current, subjectId, subjectModeId))} disabled={state.player.weeklyActionPoint < 1}>수업 방식 변경</ActionButton>
                     <ActionButton
+                      action="festival"
                       onClick={() => applySchoolAction('공개 활동 시작', (current) => applySubjectShowcaseAction(current, subjectId, subjectShowcaseActionId))}
                       disabled={state.player.weeklyActionPoint < selectedSubjectShowcaseAction.apCost || state.school.budget < selectedSubjectShowcaseAction.budgetCost || selectedSubjectShowcaseActive}
                     >
@@ -347,7 +364,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                     <SmallStat label="경쟁률" value={`${state.school.admissions.competitionRate}:1`} />
                     <SmallStat label="브랜드" value={state.school.admissions.brandAwareness} />
                   </div>
-                  <ActionButton onClick={() => applySchoolAction('모집 캠페인', (current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
+                  <ActionButton action="recruit" onClick={() => applySchoolAction('모집 캠페인', (current) => runAdmissionCampaignAction(current, recruitmentStrategyId))} disabled={state.player.weeklyActionPoint < 2}>
                     모집 캠페인
                   </ActionButton>
                   <RecentActionResult label="최근 입학 결과" text={recentActionText} />
@@ -381,13 +398,13 @@ export default function SchoolSimulatorFeatureTabs(props) {
                           <small>스트레스 {student.stress} · 건강 {student.health} · 만족 {student.satisfaction}</small>
                           <small>{student.detail}</small>
                         </div>
-                        <button
-                          type="button"
+                        <GameControlButton
+                          action={schoolCommandAction(student.command)}
                           disabled={careCommandDisabled(student.command)}
                           onClick={() => runCareCommand(student.command)}
                         >
                           {student.command.label}
-                        </button>
+                        </GameControlButton>
                       </article>
                     ))}
                   </div>
@@ -415,7 +432,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                     <SmallStat label="진로 기록" value={state.careerReports.length} />
                     <SmallStat label="대상" value="하위 6명" />
                   </div>
-                  <ActionButton onClick={() => applySchoolAction('진로 상담', (current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
+                  <ActionButton action="counsel" onClick={() => applySchoolAction('진로 상담', (current) => runCareerCounselingAction(current, careerTrackId))} disabled={state.player.weeklyActionPoint < 2}>
                     진로 상담 실행
                   </ActionButton>
                   <RecentActionResult label="최근 진로 결과" text={recentActionText} />
@@ -448,13 +465,13 @@ export default function SchoolSimulatorFeatureTabs(props) {
                           <strong>{row.name}</strong>
                           <small>{row.detail}</small>
                         </div>
-                        <button
-                          type="button"
+                        <GameControlButton
+                          action={schoolCommandAction(row.command, row.kind)}
                           disabled={careCommandDisabled(row.command)}
                           onClick={() => runCareCommand(row.command)}
                         >
                           {row.command.label}
-                        </button>
+                        </GameControlButton>
                       </article>
                     ))}
                   </div>
@@ -471,6 +488,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                     <SmallStat label="사기" value={selectedTeacher?.morale || 0} />
                   </div>
                   <ActionButton
+                    action="lesson"
                     onClick={() => applySchoolAction('교사 액션', (current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
                     disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
                   >
@@ -515,8 +533,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                     <SmallStat label="영향력" value={selectedClub.influence} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
-                    <ActionButton onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+                    <ActionButton action="recruit" onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+                    <ActionButton action="festival" onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
                   </div>
                   <RecentActionResult label="최근 동아리 결과" text={recentActionText} />
                 </section>
@@ -530,7 +548,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
                     <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
                     <SmallStat label="기록" value={festival.history.length} />
                   </div>
-                  <ActionButton onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+                  <ActionButton action="festival" onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
                     행사 시작
                   </ActionButton>
                   <RecentActionResult label="최근 행사 결과" text={recentActionText} />
@@ -548,5 +566,6 @@ export default function SchoolSimulatorFeatureTabs(props) {
           },
         ]}
       />
+    </div>
   );
 }
