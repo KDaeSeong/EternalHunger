@@ -44,7 +44,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
         },
         {
           id: 'inventory',
-          label: '인벤토리/로그',
+          label: '보유품/장비',
           badge: `${inventoryRows.length}종`,
           children: <PrimitiveArchiveInventoryTab {...props} />,
         },

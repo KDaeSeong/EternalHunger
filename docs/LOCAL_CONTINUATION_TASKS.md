@@ -92,6 +92,7 @@ npm run build
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveReportTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveGrowthTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveInventoryTab.js`
+- Primitive Archive survival now has compact nested workspaces for actions, map, party/objectives, and camp/report. Inventory has separate item, equipment, and log workspaces; equipment was removed from the survival stack. Start difficulty, survival coaching, expected returns, facility descriptions, and owned equipment default to collapsed summaries so routine play no longer requires scrolling through every subsystem.
 - Primitive Archive play route content now lives in `client/src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js`; `play/page.js` is now a thin entrypoint.
 - Primitive Archive ancient research branches now include preserved rations, precision carving, obsidian gear, megafauna hide armor, clay-tablet records, and weather lore; auto craft, research passives, food handling, hunt risk, and unlock labels are wired through the engine/UI helpers.
 - Primitive Archive research planner now has an expandable detail modal, and `researchPlannerRows` applies ancient-era pressure weighting for food scarcity, cold exposure, rare resources, megafauna risk, and archive progression.

@@ -495,15 +495,17 @@ export default function PrimitiveArchivePlayContent() {
       description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프, 연구, 장비 빌드를 반복하며 며칠이나 버티는지 보는 생존 시뮬레이션입니다."
       summaryLabel="Primitive Archive 요약"
       summaryDensity="micro"
+      primaryMetricLimit={8}
+      heroLayout="compact"
       actions={playActions}
       metrics={playMetrics}
       messages={playMessages}
     >
-      <section className="games-panel primitive-difficulty-panel">
-        <div className="games-panel-title">
-          <h2>시작 난이도</h2>
-          <span>현재 런 {currentDifficulty.label} · 다음 새 런 {selectedDifficulty.label}</span>
-        </div>
+      <details className="games-panel primitive-difficulty-panel primitive-difficulty-panel--compact">
+        <summary>
+          <span><strong>시작 난이도</strong>현재 {currentDifficulty.label} · 다음 {selectedDifficulty.label}</span>
+          <em>새 런 설정</em>
+        </summary>
         <div className="primitive-difficulty-lockbar">
           <span><strong>현재 런</strong>{currentDifficulty.label}</span>
           <span><strong>다음 시작</strong>{selectedDifficulty.label}</span>
@@ -542,12 +544,12 @@ export default function PrimitiveArchivePlayContent() {
             {selectedDifficulty.label}으로 새 런
           </ActionButton>
         </div>
-      </section>
+      </details>
 
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact storageKey="primitive-archive-survival-coach" />
       <RecentActionResult label="이번 행동 결과" text={recentActionText} pinned />
 
-            <PrimitiveArchiveFeatureTabs
+      <PrimitiveArchiveFeatureTabs
         actor={actor}
         actorId={actorId}
         actionForecasts={actionForecasts}

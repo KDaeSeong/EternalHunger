@@ -63,6 +63,7 @@ export default function GameAdvisorPanel({
   policyRows = [],
   storageKey = '',
   tone = 'info',
+  compact = false,
   defaultExpanded = false,
   emptyText = '현재 표시할 안내가 없습니다.',
 }) {
@@ -99,10 +100,13 @@ export default function GameAdvisorPanel({
     return null;
   }
 
-  const hasDetails = visiblePolicyRows.length > 0 || visibleTutorialSteps.length > 0;
+  const hasDetails = compact
+    ? Boolean(primaryTitle || primaryText || visibleFocusRows.length || visibleAdviceLines.length || visiblePolicyRows.length || visibleTutorialSteps.length)
+    : visiblePolicyRows.length > 0 || visibleTutorialSteps.length > 0;
+  const showMainContent = !compact || expanded;
 
   return (
-    <section className={`games-panel game-advisor-panel game-advisor-panel--${tone}`} aria-labelledby={titleId}>
+    <section className={`games-panel game-advisor-panel game-advisor-panel--${tone}${compact ? ' game-advisor-panel--compact' : ''}`} aria-labelledby={titleId}>
       <div className="games-panel-title">
         <h2 id={titleId}>{title}</h2>
         <div className="game-advisor-title-actions">
@@ -120,14 +124,21 @@ export default function GameAdvisorPanel({
         </div>
       </div>
 
-      {primaryTitle || primaryText ? (
+      {compact && !expanded ? (
+        <div className="game-advisor-compact-summary">
+          {primaryTitle ? <strong>{primaryTitle}</strong> : null}
+          {primaryText ? <span>{primaryText}</span> : null}
+        </div>
+      ) : null}
+
+      {showMainContent && (primaryTitle || primaryText) ? (
         <section className={`tcg-event-callout game-advisor-callout is-${tone}`}>
           {primaryTitle ? <strong>{primaryTitle}</strong> : null}
           {primaryText ? <p>{primaryText}</p> : null}
         </section>
       ) : null}
 
-      {visibleFocusRows.length ? (
+      {showMainContent && visibleFocusRows.length ? (
         <div className="games-rank-split game-advisor-focus-grid">
           {visibleFocusRows.map((row) => (
             <div key={row.label}>
@@ -138,7 +149,7 @@ export default function GameAdvisorPanel({
         </div>
       ) : null}
 
-      {visibleAdviceLines.length ? (
+      {showMainContent && visibleAdviceLines.length ? (
         <div className="game-save-list game-advisor-list">
           {visibleAdviceLines.map((line) => (
             <article className="game-save-row" key={line.title || line}>
@@ -150,9 +161,9 @@ export default function GameAdvisorPanel({
             </article>
           ))}
         </div>
-      ) : (
+      ) : showMainContent ? (
         <div className="games-empty game-advisor-empty">{emptyText}</div>
-      )}
+      ) : null}
 
       {hasDetails && expanded ? (
         <div className="game-advisor-details">

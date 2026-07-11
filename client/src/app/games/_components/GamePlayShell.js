@@ -119,7 +119,13 @@ export default function GamePlayShell({
     >
       <SiteHeader />
       <section className="games-page">
-        <section className={heroLayout === 'stacked' ? 'games-hero games-hero--stacked' : 'games-hero'}>
+        <section className={
+          heroLayout === 'stacked'
+            ? 'games-hero games-hero--stacked'
+            : heroLayout === 'compact'
+              ? 'games-hero games-hero--compact'
+              : 'games-hero'
+        }>
           <div>
             {kicker ? <p className="games-kicker">{kicker}</p> : null}
             <h1>{title}</h1>

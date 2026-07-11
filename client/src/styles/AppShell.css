@@ -4102,6 +4102,46 @@
   max-width: 940px;
 }
 
+.games-hero--compact {
+  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 1.28fr);
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+}
+
+.games-hero--compact > div:first-child,
+.games-hero--compact .games-hero-actions {
+  min-width: 0;
+}
+
+.games-hero--compact .games-kicker {
+  margin-bottom: 4px;
+  font-size: 0.7rem;
+}
+
+.games-hero--compact h1 {
+  font-size: clamp(1.75rem, 3vw, 2.35rem);
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+.games-hero--compact p:not(.games-kicker) {
+  max-width: 620px;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  line-height: 1.42;
+}
+
+.games-hero--compact .games-hero-actions {
+  gap: 6px;
+}
+
+.games-hero--compact .games-hero-actions a,
+.games-hero--compact .games-hero-actions button {
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
 .games-kicker {
   margin: 0 0 8px;
   color: #2c6f9e;
@@ -6054,6 +6094,37 @@
   border-color: rgba(190, 58, 58, 0.24);
 }
 
+.game-advisor-panel--compact {
+  gap: 8px;
+  padding-block: 12px;
+}
+
+.game-advisor-compact-summary {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-left: 3px solid #2f7da8;
+  padding: 2px 0 2px 10px;
+}
+
+.game-advisor-compact-summary strong {
+  flex: 0 0 auto;
+  color: #17202a;
+  font-size: 0.84rem;
+}
+
+.game-advisor-compact-summary span {
+  min-width: 0;
+  overflow: hidden;
+  color: #5f6c78;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .game-advisor-title-actions {
   display: inline-flex;
   align-items: center;
@@ -6330,6 +6401,65 @@
   gap: 14px;
 }
 
+.primitive-difficulty-panel--compact {
+  padding-block: 0;
+}
+
+.primitive-difficulty-panel--compact > summary {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.primitive-difficulty-panel--compact > summary::-webkit-details-marker {
+  display: none;
+}
+
+.primitive-difficulty-panel--compact > summary > span {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64717d;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.primitive-difficulty-panel--compact > summary strong {
+  color: #17202a;
+  font-size: 0.88rem;
+}
+
+.primitive-difficulty-panel--compact > summary em {
+  flex: 0 0 auto;
+  border: 1px solid rgba(8, 120, 189, 0.2);
+  border-radius: 6px;
+  background: #f4f9fd;
+  color: #1f5f86;
+  padding: 6px 9px;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.primitive-difficulty-panel--compact[open] {
+  padding-bottom: 12px;
+}
+
+.primitive-difficulty-panel--compact[open] > summary {
+  border-bottom: 1px solid rgba(22, 33, 44, 0.08);
+  margin-bottom: 12px;
+}
+
+.primitive-difficulty-panel--compact > :not(summary) {
+  margin-inline: 12px;
+}
+
 .primitive-difficulty-lockbar {
   display: flex;
   flex-wrap: wrap;
@@ -6533,6 +6663,291 @@
 .primitive-action-forecast.is-locked {
   background: #f5f5f5;
   opacity: 0.72;
+}
+
+.primitive-survival-workspace,
+.primitive-inventory-workspace {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.primitive-workspace-tabs {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  border-bottom: 1px solid rgba(22, 33, 44, 0.1);
+  padding-bottom: 8px;
+}
+
+.primitive-workspace-tabs button {
+  min-width: 0;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid rgba(22, 33, 44, 0.1);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #526170;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.primitive-workspace-tabs button:hover {
+  border-color: rgba(8, 120, 189, 0.32);
+}
+
+.primitive-workspace-tabs button.is-active {
+  border-color: #2f7da8;
+  background: #eaf6fd;
+  color: #135d87;
+}
+
+.primitive-workspace-tabs button > span:not(.game-action-icon) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-workspace-tabs button > strong {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(8, 120, 189, 0.1);
+  padding: 2px 6px;
+  font-size: 0.68rem;
+}
+
+.primitive-workspace-panel {
+  min-width: 0;
+  margin: 0;
+}
+
+.primitive-action-workspace {
+  gap: 10px;
+}
+
+.primitive-action-forecast-details,
+.primitive-facility-details,
+.primitive-equipment-owned {
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.primitive-action-forecast-details > summary,
+.primitive-facility-details > summary,
+.primitive-equipment-owned > summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  color: #1f5f86;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.primitive-action-forecast-details[open] > summary,
+.primitive-facility-details[open] > summary,
+.primitive-equipment-owned[open] > summary {
+  border-bottom: 1px solid rgba(22, 33, 44, 0.08);
+}
+
+.primitive-action-forecast-details .primitive-action-forecast-grid {
+  padding: 10px;
+}
+
+.primitive-party-toolbar,
+.primitive-equipment-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.6fr) minmax(0, 1.4fr);
+  gap: 10px;
+  align-items: end;
+}
+
+.primitive-recruit-control,
+.primitive-equipment-toolbar > div {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.primitive-recruit-control select {
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+
+.primitive-party-list {
+  display: grid;
+  gap: 8px;
+}
+
+.primitive-party-member {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  border: 1px solid rgba(22, 33, 44, 0.1);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #17202a;
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.primitive-party-member.is-active {
+  border-color: #2f7da8;
+  background: #eaf6fd;
+}
+
+.primitive-party-member img {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.primitive-party-member > span,
+.primitive-party-member strong,
+.primitive-party-member small {
+  min-width: 0;
+  display: block;
+}
+
+.primitive-party-member strong {
+  font-size: 0.82rem;
+}
+
+.primitive-party-member small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #64717d;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-party-member small:last-child {
+  color: #1f6c95;
+}
+
+.primitive-run-headline {
+  margin: 0;
+  color: #5f6c78;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.primitive-run-stat-grid,
+.primitive-camp-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+}
+
+.primitive-response-list {
+  max-height: 330px;
+  overflow-y: auto;
+}
+
+.primitive-camp-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.primitive-camp-action-grid .game-action-button {
+  min-height: 40px;
+  margin: 0;
+}
+
+.primitive-facility-details > div {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+}
+
+.primitive-facility-details p {
+  margin: 0;
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.primitive-facility-details p strong {
+  margin-right: 6px;
+  color: #17202a;
+}
+
+.primitive-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 7px;
+}
+
+.primitive-equipment-advice {
+  margin: 0;
+}
+
+.primitive-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.primitive-equipment-slot {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+  border: 1px solid rgba(22, 33, 44, 0.1);
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 8px;
+}
+
+.primitive-equipment-slot > span {
+  color: #64717d;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.primitive-equipment-slot > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #17202a;
+  font-size: 0.74rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-equipment-slot select {
+  grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+}
+
+.primitive-equipment-owned .games-chip-row {
+  padding: 10px;
+}
+
+.primitive-log-list {
+  max-height: 560px;
+  overflow-y: auto;
 }
 
 .primitive-turn-horizon {
@@ -9267,5 +9682,102 @@
   .leaderboard-list b {
     grid-column: 2;
     white-space: normal;
+  }
+}
+
+@media (max-width: 900px) {
+  .games-hero--compact {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .games-hero--compact .games-hero-actions {
+    justify-content: flex-start;
+  }
+
+  .primitive-party-toolbar,
+  .primitive-equipment-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-recruit-control,
+  .primitive-equipment-toolbar > div {
+    justify-content: flex-start;
+  }
+
+  .primitive-equipment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .games-hero--compact {
+    align-items: stretch;
+    padding: 14px;
+  }
+
+  .games-hero--compact .games-hero-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .games-hero--compact .games-hero-actions a,
+  .games-hero--compact .games-hero-actions button {
+    min-width: 0;
+    width: auto;
+    padding-inline: 6px;
+  }
+
+  .primitive-difficulty-panel--compact > summary {
+    align-items: flex-start;
+  }
+
+  .primitive-difficulty-panel--compact > summary > span {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .game-advisor-compact-summary {
+    display: grid;
+    gap: 4px;
+  }
+
+  .game-advisor-compact-summary span {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .primitive-workspace-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .primitive-workspace-tabs button {
+    min-height: 40px;
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .primitive-party-member small {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .primitive-recruit-control > *,
+  .primitive-equipment-toolbar > div > * {
+    flex: 1 1 140px;
+  }
+
+  .primitive-inventory-grid,
+  .primitive-equipment-grid,
+  .primitive-camp-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-response-list,
+  .primitive-log-list {
+    max-height: 52vh;
   }
 }
