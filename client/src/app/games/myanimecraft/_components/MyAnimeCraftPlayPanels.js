@@ -42,3 +42,39 @@ export function actionFeedbackText(previous, next, label, fallback = '') {
   if (latestLog && latestLog !== previous.log?.[0]) return latestLog;
   return fallback || `${label} 처리했습니다.`;
 }
+
+export function starleagueFeedbackSnapshot(state) {
+  const latestMatch = getMatchArchiveRows(state, 1)[0];
+  const personalMatches = Array.isArray(state?.personalLeague?.matches) ? state.personalLeague.matches : [];
+  const winnersSets = Array.isArray(state?.winnersLeague?.sets) ? state.winnersLeague.sets : [];
+  return {
+    runId: String(state?.runId || ''),
+    seasonNo: Number(state?.seasonNo || 1),
+    regularPlayed: getPlayedCount(state),
+    personalPlayed: personalMatches.filter((match) => match?.played).length,
+    personalStage: String(state?.personalLeague?.stage || 'NOT_STARTED'),
+    winnersPlayed: winnersSets.length,
+    winnersStage: String(state?.winnersLeague?.stage || 'NOT_STARTED'),
+    ended: Boolean(state?.ended),
+    latestMatchId: String(latestMatch?.id || ''),
+    latestWinnerTeamId: String(latestMatch?.winnerTeamId || ''),
+    latestHomeTeamId: String(latestMatch?.homeTeamId || ''),
+    latestAwayTeamId: String(latestMatch?.awayTeamId || ''),
+  };
+}
+
+export function starleagueFeedbackCue(previous, current, selectedTeamId = '') {
+  if (!previous || !current || previous.runId !== current.runId) return '';
+  if (!previous.ended && current.ended) return 'champion';
+  if (previous.personalStage !== 'DONE' && current.personalStage === 'DONE') return 'champion';
+  if (previous.winnersStage !== 'DONE' && current.winnersStage === 'DONE') return 'champion';
+  if (current.regularPlayed > previous.regularPlayed) {
+    const teamId = String(selectedTeamId || '');
+    const involved = teamId && [current.latestHomeTeamId, current.latestAwayTeamId].includes(teamId);
+    if (!involved) return 'match';
+    return current.latestWinnerTeamId === teamId ? 'victory' : 'defeat';
+  }
+  if (current.personalPlayed > previous.personalPlayed || current.winnersPlayed > previous.winnersPlayed) return 'match';
+  if (current.seasonNo > previous.seasonNo) return 'season';
+  return '';
+}

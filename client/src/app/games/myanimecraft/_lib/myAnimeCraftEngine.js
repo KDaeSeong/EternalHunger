@@ -5709,7 +5709,7 @@ function styleCountRows(sets) {
   const counts = {};
   sets.forEach((setResult) => {
     [setResult.homeBuildStyle, setResult.awayBuildStyle].forEach((style) => {
-      const key = normalizeBuildStyle(style);
+      const key = validBuildStyle(style);
       if (!key) return;
       counts[key] = Number(counts[key] || 0) + 1;
     });

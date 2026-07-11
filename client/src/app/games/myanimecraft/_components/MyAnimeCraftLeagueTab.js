@@ -45,10 +45,10 @@ export default function MyAnimeCraftLeagueTab(props) {
             <SmallStat label="포스트시즌" value={seasonStage.postseasonTotal ? `${seasonStage.postseasonPlayed}/${seasonStage.postseasonTotal}` : '대기'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={ended} onClick={() => applyStateAction('다음 경기 진행', (current) => simulateNextMatchAction(current), { selectLatestMatch: true })}>다음 경기 진행</ActionButton>
-            <ActionButton disabled={ended} onClick={() => applyStateAction('이번 주 전체 진행', (current) => simulateWeekAction(current), { selectLatestMatch: true })}>이번 주 전체 진행</ActionButton>
-            <ActionButton disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
-            <ActionButton disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
+            <ActionButton action="match" disabled={ended} onClick={() => applyStateAction('다음 경기 진행', (current) => simulateNextMatchAction(current), { selectLatestMatch: true })}>다음 경기 진행</ActionButton>
+            <ActionButton action="match" disabled={ended} onClick={() => applyStateAction('이번 주 전체 진행', (current) => simulateWeekAction(current), { selectLatestMatch: true })}>이번 주 전체 진행</ActionButton>
+            <ActionButton action="match" disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
+            <ActionButton action="new" disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
           </div>
           <RecentActionResult label="최근 경기 결과" text={recentActionText} pinned />
           {matchArchiveRows.length ? (

@@ -115,6 +115,40 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.045 },
     { frequency: 880, start: 0.092, duration: 0.095, type: 'sine', gain: 0.04 },
   ],
+  match: [
+    { frequency: 520, duration: 0.032, type: 'square', gain: 0.038 },
+    { frequency: 660, start: 0.04, duration: 0.04, type: 'square', gain: 0.036 },
+    { frequency: 880, start: 0.09, duration: 0.08, type: 'triangle', gain: 0.045 },
+  ],
+  victory: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.07, gain: 0.035 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 780, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.05 },
+    { frequency: 1040, start: 0.095, duration: 0.12, type: 'sine', gain: 0.045 },
+  ],
+  defeat: [
+    { frequency: 430, endFrequency: 330, duration: 0.1, type: 'triangle', gain: 0.05 },
+    { frequency: 260, endFrequency: 180, start: 0.08, duration: 0.13, type: 'sine', gain: 0.045 },
+  ],
+  champion: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 0.8, duration: 0.16, gain: 0.045 },
+    { frequency: 390, duration: 0.055, type: 'triangle', gain: 0.052 },
+    { frequency: 585, start: 0.05, duration: 0.075, type: 'triangle', gain: 0.05 },
+    { frequency: 780, start: 0.12, duration: 0.09, type: 'triangle', gain: 0.05 },
+    { frequency: 1170, start: 0.2, duration: 0.18, type: 'sine', gain: 0.045 },
+  ],
+  sponsor: [
+    { frequency: 740, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 1110, start: 0.036, duration: 0.07, type: 'sine', gain: 0.042 },
+  ],
+  contract: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1200, q: 2.2, duration: 0.035, gain: 0.045 },
+    { frequency: 420, start: 0.032, duration: 0.065, type: 'triangle', gain: 0.045 },
+  ],
+  transfer: [
+    { frequency: 460, endFrequency: 720, duration: 0.075, type: 'triangle', gain: 0.045 },
+    { frequency: 920, start: 0.065, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
   judge: [
     { frequency: 190, endFrequency: 130, duration: 0.085, type: 'square', gain: 0.05 },
     { source: 'noise', filterType: 'bandpass', frequency: 520, q: 2, start: 0.045, duration: 0.055, gain: 0.06 },
@@ -469,6 +503,10 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
     const nowMs = Date.now();
     if (nowMs - lastPlayedAtRef.current < 28) return;
     lastPlayedAtRef.current = nowMs;
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.gameSfxCue = String(cue || 'click');
+      document.documentElement.dataset.gameSfxTheme = resolvedTheme;
+    }
 
     try {
       const AudioContextCtor = getAudioContext();

@@ -21,30 +21,35 @@ export default function MyAnimeCraftFeatureTabs(props) {
       tabs={[
         {
           id: 'league',
+          icon: 'match',
           label: '정규리그',
           badge: `${played}/${total}`,
           children: <MyAnimeCraftLeagueTab {...props} />,
         },
         {
           id: 'cups',
+          icon: 'champion',
           label: '컵/특별전',
           badge: `${personalSummary.played + winnersSummary.played}`,
           children: <MyAnimeCraftCupsTab {...props} />,
         },
         {
           id: 'team',
+          icon: 'training',
           label: '팀 운영',
           badge: selectedTeam.name,
           children: <MyAnimeCraftTeamTab {...props} />,
         },
         {
           id: 'market',
+          icon: 'transfer',
           label: '시장/장비',
           badge: `${inventoryRows.reduce((sum, item) => sum + Number(item.qty || 0), 0)}개`,
           children: <MyAnimeCraftMarketTab {...props} />,
         },
         {
           id: 'records',
+          icon: 'archive',
           label: '기록/랭킹',
           badge: `${standings.length}팀`,
           children: <MyAnimeCraftRecordsTab {...props} />,

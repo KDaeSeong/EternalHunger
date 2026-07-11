@@ -1,4 +1,9 @@
-import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import {
+  ActionButton,
+  GameControlButton,
+  SmallStat,
+  RecentActionResult,
+} from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
   RACE_LABELS,
@@ -78,9 +83,9 @@ export default function MyAnimeCraftMarketTab(props) {
             </div>
           ) : null}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-            <button type="button" disabled={!canApplySuggestedCash} onClick={() => setTradeCash(suggestedCash)}>
+            <GameControlButton action="finance" disabled={!canApplySuggestedCash} onClick={() => setTradeCash(suggestedCash)}>
               추천 보정 {suggestedCash} Cr 적용
-            </button>
+            </GameControlButton>
           </div>
           <div className="games-panel-title" style={{ marginTop: 16 }}>
             <h2>추천 상점</h2>
@@ -94,13 +99,13 @@ export default function MyAnimeCraftMarketTab(props) {
                   <strong>{row.title}</strong>
                   <small>{row.reason}</small>
                 </div>
-                <button
-                  type="button"
+                <GameControlButton
+                  action="shop"
                   disabled={ended || !row.canBuy}
                   onClick={() => applyStateAction('추천 상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, row.offerId))}
                 >
                   구매
-                </button>
+                </GameControlButton>
               </article>
             ))}
           </div>
@@ -126,9 +131,9 @@ export default function MyAnimeCraftMarketTab(props) {
                     {offer.effects?.fameDelta ? ` · 명성 +${offer.effects.fameDelta}` : ''}
                   </small>
                 </div>
-                <button type="button" disabled={ended || offer.stock <= 0} onClick={() => applyStateAction('상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
+                <GameControlButton action="shop" disabled={ended || offer.stock <= 0} onClick={() => applyStateAction('상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
                   {offer.stock <= 0 ? '품절' : `${offer.price} Cr`}
-                </button>
+                </GameControlButton>
               </article>
             ))}
           </div>
@@ -180,6 +185,7 @@ export default function MyAnimeCraftMarketTab(props) {
             {tradeInfo?.note || '트레이드할 선수와 상대 팀을 선택하세요.'}
           </p>
           <ActionButton
+            action="transfer"
             disabled={!tradeInfo?.canTrade}
             onClick={() => applyStateAction('트레이드 제안', (current) => applyTradeAction(
               current,
@@ -214,7 +220,7 @@ export default function MyAnimeCraftMarketTab(props) {
                   <span>{row.label}</span>
                   <strong>{row.itemName || '미장착'}</strong>
                 </div>
-                <button type="button" disabled={!row.itemId} onClick={() => applyStateAction('장비 해제', (current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</button>
+                <GameControlButton action="equip" disabled={!row.itemId} onClick={() => applyStateAction('장비 해제', (current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</GameControlButton>
               </article>
             ))}
           </div>
@@ -233,9 +239,9 @@ export default function MyAnimeCraftMarketTab(props) {
                   <strong>{item.name}</strong>
                 </div>
                 {item.slot ? (
-                  <button type="button" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => applyStateAction('장비 장착', (current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</button>
+                  <GameControlButton action="equip" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => applyStateAction('장비 장착', (current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</GameControlButton>
                 ) : (
-                  <button type="button" disabled={!selectedPlayer || item.qty <= 0} onClick={() => applyStateAction('아이템 사용', (current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</button>
+                  <GameControlButton action="consume" disabled={!selectedPlayer || item.qty <= 0} onClick={() => applyStateAction('아이템 사용', (current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</GameControlButton>
                 )}
               </article>
             )) : (

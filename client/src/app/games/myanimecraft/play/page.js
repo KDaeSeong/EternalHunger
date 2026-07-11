@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import GameActionIcon from '../../_components/GameActionIcon';
 import GamePlayShell from '../../_components/GamePlayShell';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -49,12 +52,17 @@ import {
   getWinnersLeagueSummary,
 } from '../_lib/myAnimeCraftEngine';
 import MyAnimeCraftFeatureTabs from '../_components/MyAnimeCraftFeatureTabs';
-import { actionFeedbackText } from '../_components/MyAnimeCraftPlayPanels';
+import {
+  actionFeedbackText,
+  starleagueFeedbackCue,
+  starleagueFeedbackSnapshot,
+} from '../_components/MyAnimeCraftPlayPanels';
 
 export default function MyAnimeCraftPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'broadcast' });
   const [state, setState] = useState(() => createNewState());
   const [selectedTeamId, setSelectedTeamId] = useState(() => createNewState().teams[0].id);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
@@ -65,6 +73,7 @@ export default function MyAnimeCraftPlayPage() {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
+  const feedbackRef = useRef(starleagueFeedbackSnapshot(state));
 
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
@@ -112,6 +121,13 @@ export default function MyAnimeCraftPlayPage() {
   const leader = standings[0];
   const ended = Boolean(state.ended);
   const recentActionText = actionResult || state.log?.[0] || '아직 진행한 행동이 없습니다.';
+
+  useEffect(() => {
+    const current = starleagueFeedbackSnapshot(state);
+    const cue = starleagueFeedbackCue(feedbackRef.current, current, selectedTeamId);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = current;
+  }, [playGameSfx, selectedTeamId, state]);
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -225,11 +241,14 @@ export default function MyAnimeCraftPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>새 시즌</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/myanime/myanimecraft">상세</Link>
+      <GameControlButton action="new" onClick={startNewRun}>새 시즌</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <Link href="/myanime/myanimecraft">
+        <GameActionIcon action="analysis" label="상세" />
+        <span>상세</span>
+      </Link>
     </>
   );
 

@@ -1,4 +1,9 @@
-import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import {
+  ActionButton,
+  GameControlButton,
+  SmallStat,
+  RecentActionResult,
+} from '../../_components/GamePlayPrimitives';
 import {
   investTrainingAction,
   negotiateSponsorAction,
@@ -62,9 +67,9 @@ export default function MyAnimeCraftTeamTab(props) {
             <SmallStat label="만료 임박" value={`${selectedEconomy.expiringCount}명`} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={ended} onClick={() => applyStateAction('스폰서 협상', (current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
-            <ActionButton disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
-            <ActionButton disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
+            <ActionButton action="sponsor" disabled={ended} onClick={() => applyStateAction('스폰서 협상', (current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
+            <ActionButton action="training" disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
+            <ActionButton action="recruit" disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
           </div>
           <div className="games-panel-title" style={{ marginTop: 16 }}>
             <h2>계약 관리</h2>
@@ -83,12 +88,12 @@ export default function MyAnimeCraftTeamTab(props) {
                   <small>시장가 {contract.marketValue} · 방출 위약금 {contract.releaseFee}Cr</small>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <button type="button" disabled={ended || !contract.canRenew} onClick={() => applyStateAction('재계약', (current) => renewContractAction(current, selectedTeam.id, contract.playerId))}>
+                  <GameControlButton action="contract" disabled={ended || !contract.canRenew} onClick={() => applyStateAction('재계약', (current) => renewContractAction(current, selectedTeam.id, contract.playerId))}>
                     재계약
-                  </button>
-                  <button type="button" disabled={ended || !contract.canRelease} onClick={() => applyStateAction('방출', (current) => releasePlayerAction(current, selectedTeam.id, contract.playerId))}>
+                  </GameControlButton>
+                  <GameControlButton action="release" disabled={ended || !contract.canRelease} onClick={() => applyStateAction('방출', (current) => releasePlayerAction(current, selectedTeam.id, contract.playerId))}>
                     방출
-                  </button>
+                  </GameControlButton>
                 </div>
               </article>
             ))}
