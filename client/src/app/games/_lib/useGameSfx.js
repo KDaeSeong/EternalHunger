@@ -102,6 +102,19 @@ const CUE_PROFILES = {
     { frequency: 330, endFrequency: 460, duration: 0.12, type: 'sine', gain: 0.045 },
     { frequency: 660, start: 0.08, duration: 0.13, type: 'sine', gain: 0.035 },
   ],
+  assign: [
+    { frequency: 380, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 510, start: 0.03, duration: 0.045, type: 'triangle', gain: 0.045 },
+  ],
+  diplomacy: [
+    { frequency: 420, endFrequency: 510, duration: 0.075, type: 'sine', gain: 0.045 },
+    { frequency: 630, start: 0.055, duration: 0.085, type: 'triangle', gain: 0.04 },
+  ],
+  growth: [
+    { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 660, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.045 },
+    { frequency: 880, start: 0.092, duration: 0.095, type: 'sine', gain: 0.04 },
+  ],
   judge: [
     { frequency: 190, endFrequency: 130, duration: 0.085, type: 'square', gain: 0.05 },
     { source: 'noise', filterType: 'bandpass', frequency: 520, q: 2, start: 0.045, duration: 0.055, gain: 0.06 },

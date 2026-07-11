@@ -9,6 +9,8 @@ import {
   ZONES,
   WORLD_REGIONS,
   TRIBE_PROJECTS,
+  TRIBE_JOBS,
+  RIVAL_TRIBES,
   SEASONS,
   ITEMS,
   RECIPES,
@@ -24,14 +26,18 @@ import {
   emptyEquipmentSlots,
   initEquipmentForParty,
   initExplorationState,
+  initDiplomacyState,
   initMetaState,
   initProjectState,
   initResearchState,
+  initTribeState,
   makeParty,
   normalizeEquipment,
   normalizeExplorationState,
+  normalizeDiplomacyState,
   normalizeProjectState,
   normalizeResearch,
+  normalizeTribeState,
   difficultyRows,
   rollWeather,
   seasonForDay,
@@ -51,6 +57,8 @@ export {
   ZONES,
   WORLD_REGIONS,
   TRIBE_PROJECTS,
+  TRIBE_JOBS,
+  RIVAL_TRIBES,
   SEASONS,
   ITEMS,
   RECIPES,
@@ -62,8 +70,10 @@ export {
   clamp,
   difficultyRows,
   initExplorationState,
+  initDiplomacyState,
   initProjectState,
   initResearchState,
+  initTribeState,
   rollWeather,
   seasonForDay,
 } from './primitiveArchiveData';
@@ -101,6 +111,8 @@ export function createNewState(options = {}) {
     eventChains: [],
     exploration: initExplorationState(),
     projects: initProjectState(),
+    tribe: initTribeState(),
+    diplomacy: initDiplomacyState(),
     research: initResearchState(),
     meta,
     log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
@@ -116,6 +128,15 @@ export function normalizeState(value) {
   const research = normalizeResearch(value.research);
   const exploration = normalizeExplorationState(value.exploration);
   const projects = normalizeProjectState(value.projects);
+  const tribe = normalizeTribeState(value.tribe);
+  const normalizedDiplomacy = normalizeDiplomacyState(value.diplomacy);
+  const diplomacy = {
+    ...normalizedDiplomacy,
+    contacts: Object.fromEntries(RIVAL_TRIBES.map((rival) => [rival.id, {
+      ...normalizedDiplomacy.contacts[rival.id],
+      known: Boolean(normalizedDiplomacy.contacts[rival.id]?.known || exploration.revealed?.[rival.homeRegionId]),
+    }])),
+  };
   const meta = initMetaState(value.meta);
   const difficulty = difficultyKey(value.difficulty || base.difficulty);
   const preset = difficultyPreset(difficulty);
@@ -150,6 +171,8 @@ export function normalizeState(value) {
     eventChains: normalizeEventChains(value.eventChains || base.eventChains, Number(value.day || base.day || 1)),
     exploration,
     projects,
+    tribe,
+    diplomacy,
     research,
     meta,
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
@@ -599,6 +622,29 @@ function nextAvailableProjectId(state, completed = normalizeProjectState(state?.
   return TRIBE_PROJECTS.find((project) => !completed?.[project.id] && projectPrereqsMet(state, project))?.id || '';
 }
 
+function completeProjectIfReady(state, project, source = '') {
+  const projectState = normalizeProjectState(state.projects);
+  if (!project || projectState.completed?.[project.id]) return state;
+  if (Number(projectState.progress?.[project.id] || 0) < Number(project.work || 0)) return state;
+  const completed = { ...projectState.completed, [project.id]: true };
+  const rewardEntries = Object.entries(project.reward || {});
+  const next = {
+    ...state,
+    inventory: addItems(state.inventory, rewardEntries),
+    projects: {
+      ...projectState,
+      completed,
+      selectedProjectId: nextAvailableProjectId(state, completed),
+      lastCompletedId: project.id,
+      completionSerial: Number(projectState.completionSerial || 0) + 1,
+    },
+  };
+  return addLog(
+    next,
+    `부족 프로젝트 완성${source ? ` (${source})` : ''}: ${project.name}. ${project.effectText}${rewardEntries.length ? ` · ${formatGains(rewardEntries)}` : ''}.`,
+  );
+}
+
 export function projectRows(state) {
   const current = normalizeState(state);
   const projects = normalizeProjectState(current.projects);
@@ -632,6 +678,304 @@ export function projectRows(state) {
             : '기술 잠김',
     };
   });
+}
+
+const TRIBE_FOOD_VALUES = [
+  ['berry', 1],
+  ['meat', 1],
+  ['jerky', 2],
+  ['cooked_meat', 2],
+  ['packed_ration', 3],
+];
+
+function tribeFoodStock(inventory = {}) {
+  return TRIBE_FOOD_VALUES.reduce(
+    (sum, [itemId, value]) => sum + Number(inventory[itemId] || 0) * value,
+    0,
+  );
+}
+
+function consumeTribeFood(inventory, need) {
+  let remaining = Math.max(0, Number(need || 0));
+  let provided = 0;
+  const spent = {};
+  const next = { ...inventory };
+  TRIBE_FOOD_VALUES.forEach(([itemId, value]) => {
+    while (remaining > 0 && Number(next[itemId] || 0) > 0) {
+      next[itemId] = Number(next[itemId] || 0) - 1;
+      spent[itemId] = Number(spent[itemId] || 0) + 1;
+      provided += value;
+      remaining -= value;
+    }
+  });
+  return { inventory: next, provided, shortage: Math.max(0, remaining), spent };
+}
+
+function tribeProductionForDay(assignments, day) {
+  const foragers = Math.max(0, Number(assignments?.forager || 0));
+  const hunters = Math.max(0, Number(assignments?.hunter || 0));
+  const entries = {
+    wood: Math.ceil(foragers / 2),
+    fiber: foragers >= 2 && Number(day || 1) % 2 === 0 ? Math.floor(foragers / 2) : 0,
+    berry: Math.ceil(foragers / 2),
+    meat: Math.floor(hunters / 2) + (hunters % 2 > 0 && Number(day || 1) % 2 === 0 ? 1 : 0),
+    hide: Math.floor(hunters / 2) + (hunters % 2 > 0 && Number(day || 1) % 3 === 0 ? 1 : 0),
+  };
+  return Object.fromEntries(Object.entries(entries).filter(([, qty]) => qty > 0));
+}
+
+function growthTargetForPopulation(population) {
+  return 5 + Math.max(1, Number(population || 1));
+}
+
+export function tribeCapacity(state) {
+  return clamp(
+    4
+      + Number(state?.camp?.shelterLevel || 0) * 2
+      + (state?.research?.completed?.SETTLEMENT ? 2 : 0)
+      + (state?.research?.completed?.STATE_WORKFORCE ? 2 : 0)
+      + (state?.research?.completed?.EARLY_EMPIRE ? 2 : 0),
+    4,
+    18,
+  );
+}
+
+export function tribeSummary(state) {
+  const current = normalizeState(state);
+  const tribe = normalizeTribeState(current.tribe);
+  const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
+  const unassigned = Math.max(0, tribe.population - assigned);
+  const capacity = tribeCapacity(current);
+  const growthTarget = growthTargetForPopulation(tribe.population);
+  const selectedProject = projectRows(current).find((project) => project.selected && !project.completed);
+  const researchStatus = researchSystemStatus(current);
+  const nextDay = Number(current.day || 1) + 1;
+  const nextProduction = tribeProductionForDay(tribe.assignments, nextDay);
+  const jobs = TRIBE_JOBS.map((job) => {
+    const count = Number(tribe.assignments[job.id] || 0);
+    let dailyText = job.outputText;
+    if (job.id === 'forager') dailyText = formatGains(Object.entries(tribeProductionForDay({ forager: count }, nextDay)));
+    if (job.id === 'hunter') dailyText = formatGains(Object.entries(tribeProductionForDay({ hunter: count }, nextDay)));
+    if (job.id === 'builder') {
+      dailyText = selectedProject
+        ? selectedProject.committed || selectedProject.hasCost
+          ? `${selectedProject.name} +${count} 작업/일`
+          : `${selectedProject.name} 자재 부족`
+        : '진행할 프로젝트 없음';
+    }
+    if (job.id === 'scholar') dailyText = researchStatus.unlocked ? `목표 기술 +${count}RP/일` : '연구 체계 잠김';
+    return {
+      ...job,
+      count,
+      canAdd: unassigned > 0,
+      canRemove: count > 0,
+      dailyText,
+    };
+  });
+  return {
+    ...tribe,
+    assigned,
+    unassigned,
+    capacity,
+    atCapacity: tribe.population >= capacity,
+    growthTarget,
+    growthPct: Math.min(100, Math.round((tribe.growthProgress / Math.max(1, growthTarget)) * 100)),
+    foodNeed: Math.ceil(tribe.population / 4),
+    foodStock: tribeFoodStock(current.inventory),
+    jobs,
+    nextProduction,
+    nextProductionText: formatGains(Object.entries(nextProduction)),
+    lastProductionText: Number(tribe.productionSerial || 0) > 0
+      ? formatGains(Object.entries(tribe.lastProduction?.gains || {}))
+      : '아직 일일 정산 전',
+  };
+}
+
+export function adjustTribeJobAction(state, jobId, delta) {
+  const current = normalizeState(state);
+  const job = TRIBE_JOBS.find((row) => row.id === jobId);
+  if (!job || !Number.isFinite(Number(delta)) || Number(delta) === 0) return current;
+  const tribe = normalizeTribeState(current.tribe);
+  const assigned = Object.values(tribe.assignments).reduce((sum, count) => sum + Number(count || 0), 0);
+  const direction = Number(delta) > 0 ? 1 : -1;
+  if (direction > 0 && assigned >= tribe.population) return addLog(current, '배치할 수 있는 미배치 부족원이 없습니다.');
+  if (direction < 0 && Number(tribe.assignments[job.id] || 0) <= 0) return addLog(current, `${job.name}에서 뺄 부족원이 없습니다.`);
+  const nextCount = Math.max(0, Number(tribe.assignments[job.id] || 0) + direction);
+  return addLog({
+    ...current,
+    tribe: {
+      ...tribe,
+      assignments: { ...tribe.assignments, [job.id]: nextCount },
+      assignmentSerial: Number(tribe.assignmentSerial || 0) + 1,
+    },
+  }, `${job.name} 배치 ${direction > 0 ? '+' : '-'}1. 현재 ${nextCount}명입니다.`);
+}
+
+function relationStatus(value) {
+  const relation = Number(value || 0);
+  if (relation <= -40) return { label: '적대', tone: 'hostile' };
+  if (relation < 0) return { label: '경계', tone: 'wary' };
+  if (relation < 20) return { label: '중립', tone: 'neutral' };
+  if (relation < 50) return { label: '우호', tone: 'friendly' };
+  return { label: '동맹', tone: 'allied' };
+}
+
+export function rivalTribeRows(state) {
+  const current = normalizeState(state);
+  const diplomacy = normalizeDiplomacyState(current.diplomacy);
+  const researchStatus = researchSystemStatus(current);
+  return RIVAL_TRIBES.map((rival) => {
+    const contact = diplomacy.contacts[rival.id];
+    const relation = relationStatus(contact.relation);
+    const actedToday = Number(contact.lastActionDay || 0) === Number(current.day || 1);
+    const commonReady = contact.known && !current.ended && Number(current.ap || 0) > 0 && !actedToday;
+    return {
+      ...rival,
+      ...contact,
+      relationLabel: relation.label,
+      relationTone: relation.tone,
+      relationPct: clamp((Number(contact.relation || 0) + 100) / 2, 0, 100),
+      actedToday,
+      canAct: commonReady,
+      statusText: !contact.known
+        ? '미접촉'
+        : actedToday
+          ? '오늘 교섭 완료'
+          : Number(current.ap || 0) <= 0 ? '행동력 부족' : '교섭 가능',
+      tradeCostText: formatRequires(rival.tradeCost),
+      tradeRewardText: formatGains(Object.entries(rival.tradeReward)),
+      giftCostText: formatRequires(rival.giftCost),
+      exchangeCostText: formatRequires(rival.exchangeCost),
+      canTrade: commonReady && hasResources(current.inventory, rival.tradeCost),
+      canGift: commonReady && hasResources(current.inventory, rival.giftCost),
+      canExchange: commonReady
+        && Number(contact.relation || 0) >= 20
+        && researchStatus.unlocked
+        && hasResources(current.inventory, rival.exchangeCost),
+      canRaid: commonReady && Boolean(current.research.completed?.HUNTING),
+    };
+  });
+}
+
+export function contactRivalTribeForRegion(state, regionId) {
+  const rival = RIVAL_TRIBES.find((row) => row.homeRegionId === regionId);
+  if (!rival) return state;
+  const diplomacy = normalizeDiplomacyState(state.diplomacy);
+  const contact = diplomacy.contacts[rival.id];
+  if (contact?.known) return state;
+  return addLog({
+    ...state,
+    diplomacy: {
+      ...diplomacy,
+      contacts: {
+        ...diplomacy.contacts,
+        [rival.id]: { ...contact, known: true },
+      },
+      lastContactId: rival.id,
+      contactSerial: Number(diplomacy.contactSerial || 0) + 1,
+    },
+  }, `경쟁 부족 접촉: ${rival.name}. ${rival.greeting}`);
+}
+
+export function runDiplomacyAction(state, actorId, rivalId, actionId, options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '외교 행동에 사용할 행동력이 부족합니다.');
+  const rival = RIVAL_TRIBES.find((row) => row.id === rivalId);
+  const row = rivalTribeRows(current).find((item) => item.id === rivalId);
+  if (!rival || !row?.known) return addLog(current, '아직 접촉하지 않은 부족입니다.');
+  if (row.actedToday) return addLog(current, `${rival.name}과(와)는 오늘 이미 교섭했습니다.`);
+  if (!['trade', 'gift', 'exchange', 'raid'].includes(actionId)) return current;
+
+  const actor = getActor(current, actorId);
+  const diplomacy = normalizeDiplomacyState(current.diplomacy);
+  const contact = diplomacy.contacts[rival.id];
+  let next = current;
+  let relationDelta = 0;
+  let trustDelta = 0;
+  let tradesDelta = 0;
+  let staminaCost = 7;
+  let outcome = '';
+
+  if (actionId === 'trade') {
+    if (!hasResources(next.inventory, rival.tradeCost)) return addLog(next, `교역 자원이 부족합니다. 필요: ${formatRequires(rival.tradeCost)}.`);
+    const rewardEntries = Object.entries(rival.tradeReward).map(([itemId, qty], index) => [
+      itemId,
+      Number(qty || 0) + (index === 0 && next.research.completed?.FOREIGN_TRADE ? 1 : 0),
+    ]);
+    next = {
+      ...next,
+      inventory: addItems(spendResources(next.inventory, rival.tradeCost), rewardEntries),
+    };
+    relationDelta = 6;
+    trustDelta = 2;
+    tradesDelta = 1;
+    outcome = `${rival.name} 교역: ${formatRequires(rival.tradeCost)} 제공 · ${formatGains(rewardEntries)}.`;
+  }
+
+  if (actionId === 'gift') {
+    if (!hasResources(next.inventory, rival.giftCost)) return addLog(next, `선물 자원이 부족합니다. 필요: ${formatRequires(rival.giftCost)}.`);
+    next = { ...next, inventory: spendResources(next.inventory, rival.giftCost) };
+    relationDelta = 12;
+    trustDelta = 4;
+    staminaCost = 5;
+    outcome = `${rival.name}에 ${formatRequires(rival.giftCost)}을(를) 선물했습니다. 관계 +${relationDelta}.`;
+  }
+
+  if (actionId === 'exchange') {
+    if (Number(contact.relation || 0) < 20) return addLog(next, '지식 교류는 관계 20 이상의 우호 부족과만 가능합니다.');
+    if (!researchSystemStatus(next).unlocked) return addLog(next, '연구 체계가 아직 열리지 않아 지식을 기록할 수 없습니다.');
+    if (!hasResources(next.inventory, rival.exchangeCost)) return addLog(next, `지식 교류 자원이 부족합니다. 필요: ${formatRequires(rival.exchangeCost)}.`);
+    const research = normalizeResearch(next.research);
+    const selected = getTech(research.selectedTechId);
+    const tech = selected && !research.completed?.[selected.id] && prereqsMet(research, selected)
+      ? selected
+      : nextAvailableTech(research);
+    if (!tech) return addLog(next, '교류로 진행할 연구가 없습니다.');
+    next = { ...next, inventory: spendResources(next.inventory, rival.exchangeCost) };
+    next = addResearchProgress(next, tech.id, rival.exchangePoints, `${rival.name} 지식 교류`);
+    relationDelta = 5;
+    trustDelta = 3;
+    staminaCost = 6;
+    outcome = `${rival.name}과(와) ${tech.name} 지식을 교류했습니다. +${rival.exchangePoints}RP.`;
+  }
+
+  if (actionId === 'raid') {
+    if (!next.research.completed?.HUNTING) return addLog(next, '약탈을 시도하려면 수렵 연구가 필요합니다.');
+    const huntSkill = Number(actor?.stats?.hunt || 5);
+    const successChance = clamp(0.34 + huntSkill * 0.035, 0.42, 0.78);
+    const success = (options.rng || Math.random)() < successChance;
+    relationDelta = success ? -26 : -18;
+    trustDelta = success ? -12 : -8;
+    staminaCost = success ? 14 : 18;
+    if (success) {
+      const rewards = Object.entries(rival.raidReward);
+      next = { ...next, inventory: addItems(next.inventory, rewards) };
+      outcome = `${rival.name} 약탈 성공: ${formatGains(rewards)} · 관계 ${relationDelta}.`;
+    } else {
+      next = updateActor(next, actorId, { hp: clamp(Number(actor?.hp || 0) - 14, 0, 100) });
+      outcome = `${rival.name} 약탈 실패: ${actor?.name || '대원'} HP -14 · 관계 ${relationDelta}.`;
+    }
+  }
+
+  const nextContact = {
+    ...contact,
+    known: true,
+    relation: clamp(Number(contact.relation || 0) + relationDelta, -100, 100),
+    trust: clamp(Number(contact.trust || 0) + trustDelta, 0, 100),
+    trades: Number(contact.trades || 0) + tradesDelta,
+    lastActionDay: Number(current.day || 1),
+  };
+  next = {
+    ...next,
+    diplomacy: {
+      ...diplomacy,
+      contacts: { ...diplomacy.contacts, [rival.id]: nextContact },
+      actionSerial: Number(diplomacy.actionSerial || 0) + 1,
+      lastOutcome: outcome,
+    },
+  };
+  next = addLog(next, outcome);
+  return afterAction(next, actorId, staminaCost, 2, options);
 }
 
 export function selectProjectAction(state, projectId) {
@@ -693,22 +1037,7 @@ export function runProjectAction(state, actorId, projectId = '', options = {}) {
   if (!row.committed) next = addLog(next, `${row.name} 착수. ${row.costText}을(를) 공동 자재로 투입했습니다.`);
   next = addLog(next, `${actor.name}의 프로젝트 작업: ${row.name} +${estimate.work} (${progress}/${row.work}).`);
 
-  if (progress >= row.work) {
-    const completed = { ...next.projects.completed, [row.id]: true };
-    const rewardEntries = Object.entries(row.reward || {});
-    next = {
-      ...next,
-      inventory: addItems(next.inventory, rewardEntries),
-      projects: {
-        ...next.projects,
-        completed,
-        selectedProjectId: nextAvailableProjectId(next, completed),
-        lastCompletedId: row.id,
-        completionSerial: Number(next.projects.completionSerial || 0) + 1,
-      },
-    };
-    next = addLog(next, `부족 프로젝트 완성: ${row.name}. ${row.effectText}${rewardEntries.length ? ` · ${formatGains(rewardEntries)}` : ''}.`);
-  }
+  if (progress >= row.work) next = completeProjectIfReady(next, row);
 
   next = recordResearchEvent(next, { kind: 'camp', campKind: 'project' });
   return afterAction(next, actorId, estimate.staminaCost, 3, options);
@@ -2106,6 +2435,120 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
   return next;
 }
 
+function settleTribeDay(state) {
+  const tribe = normalizeTribeState(state.tribe);
+  const gains = tribeProductionForDay(tribe.assignments, state.day);
+  let next = { ...state, inventory: addItems(state.inventory, Object.entries(gains)) };
+  let projectWork = 0;
+  let projectName = '';
+  let projectStarted = false;
+  const builders = Number(tribe.assignments.builder || 0);
+  const selectedProject = projectRows(next).find((project) => project.selected && !project.completed);
+  if (builders > 0 && selectedProject?.available) {
+    const projectState = normalizeProjectState(next.projects);
+    let committed = Boolean(projectState.resourceCommitted?.[selectedProject.id]);
+    if (!committed && hasResources(next.inventory, selectedProject.cost || {})) {
+      next = {
+        ...next,
+        inventory: spendResources(next.inventory, selectedProject.cost || {}),
+        projects: {
+          ...projectState,
+          resourceCommitted: { ...projectState.resourceCommitted, [selectedProject.id]: true },
+        },
+      };
+      committed = true;
+      projectStarted = true;
+      next = addLog(next, `건설대가 ${selectedProject.name} 자재를 자동 투입했습니다. ${selectedProject.costText}.`);
+    }
+    if (committed) {
+      const currentProjects = normalizeProjectState(next.projects);
+      projectWork = Math.min(
+        builders,
+        Math.max(0, Number(selectedProject.work || 0) - Number(currentProjects.progress?.[selectedProject.id] || 0)),
+      );
+      projectName = selectedProject.name;
+      next = {
+        ...next,
+        projects: {
+          ...currentProjects,
+          progress: {
+            ...currentProjects.progress,
+            [selectedProject.id]: Math.min(
+              selectedProject.work,
+              Number(currentProjects.progress?.[selectedProject.id] || 0) + projectWork,
+            ),
+          },
+        },
+      };
+      next = completeProjectIfReady(next, selectedProject, '건설대');
+    }
+  }
+
+  const scholars = Number(tribe.assignments.scholar || 0);
+  let researchPoints = 0;
+  if (scholars > 0 && researchSystemStatus(next).unlocked) {
+    const research = normalizeResearch(next.research);
+    const selected = getTech(research.selectedTechId);
+    const tech = selected && !research.completed?.[selected.id] && prereqsMet(research, selected)
+      ? selected
+      : nextAvailableTech(research);
+    if (tech) {
+      researchPoints = scholars;
+      next = addResearchProgress(next, tech.id, researchPoints, '기록대 연구', { silent: true });
+    }
+  }
+
+  const foodNeed = Math.ceil(tribe.population / 4);
+  const food = consumeTribeFood(next.inventory, foodNeed);
+  const fullyFed = food.shortage <= 0;
+  const moraleDelta = fullyFed ? (tribeFoodStock(food.inventory) >= foodNeed ? 2 : 1) : -10;
+  const morale = clamp(Number(tribe.morale || 0) + moraleDelta, 0, 100);
+  const growthTarget = growthTargetForPopulation(tribe.population);
+  const capacity = tribeCapacity(next);
+  const growthGain = fullyFed ? 1 + (morale >= 65 ? 1 : 0) : -2;
+  let growthProgress = Math.max(0, Number(tribe.growthProgress || 0) + growthGain);
+  let population = tribe.population;
+  let grew = false;
+  if (population < capacity && growthProgress >= growthTarget) {
+    growthProgress -= growthTarget;
+    population += 1;
+    grew = true;
+  } else if (population >= capacity) {
+    growthProgress = Math.min(growthProgress, Math.max(0, growthTarget - 1));
+  }
+
+  const nextTribe = {
+    ...tribe,
+    population,
+    morale,
+    growthProgress,
+    lastGrowthDay: grew ? Number(next.day || 1) : tribe.lastGrowthDay,
+    lastProduction: {
+      gains,
+      foodNeed,
+      foodProvided: food.provided,
+      foodSpent: food.spent,
+      shortage: food.shortage,
+      projectWork,
+      projectName,
+      projectStarted,
+      researchPoints,
+    },
+    productionSerial: Number(tribe.productionSerial || 0) + 1,
+    growthSerial: Number(tribe.growthSerial || 0) + (grew ? 1 : 0),
+  };
+  next = { ...next, inventory: food.inventory, tribe: nextTribe };
+  const projectText = projectWork > 0 ? ` · 건설 ${projectName} +${projectWork}` : '';
+  const researchText = researchPoints > 0 ? ` · 연구 +${researchPoints}RP` : '';
+  next = addLog(
+    next,
+    `부족 일일 정산: ${formatGains(Object.entries(gains))} · 식량 ${food.provided}/${foodNeed}${projectText}${researchText} · 사기 ${morale}.`,
+  );
+  if (!fullyFed) next = addLog(next, `부족 식량 부족: ${food.shortage}단위가 모자라 사기와 성장도가 감소했습니다.`);
+  if (grew) next = addLog(next, `부족 성장: 새 부족원이 합류했습니다. 인구 ${population}/${capacity}.`);
+  return next;
+}
+
 export function advanceDay(state, options = {}) {
   const preset = difficultyPreset(state);
   const weather = rollWeather(state.day + 1, options.rng || Math.random);
@@ -2159,6 +2602,7 @@ export function advanceDay(state, options = {}) {
   if (previousSeason.id !== currentSeason.id) {
     logged = addLog(logged, `계절 전환: ${currentSeason.name}. ${currentSeason.note}`);
   }
+  logged = settleTribeDay(logged);
   return recordResearchEvent(autoResearchForDay(logged), { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 });
 }
 
@@ -2609,6 +3053,13 @@ export function scoreState(state) {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
   const research = researchSummary(state);
+  const tribe = normalizeTribeState(state.tribe);
+  const diplomacy = normalizeDiplomacyState(state.diplomacy);
+  const knownContacts = Object.values(diplomacy.contacts).filter((contact) => contact.known).length;
+  const positiveRelations = Object.values(diplomacy.contacts).reduce(
+    (sum, contact) => sum + (contact.known ? Math.max(0, Number(contact.relation || 0)) : 0),
+    0,
+  );
   const preset = difficultyPreset(state);
   const equipmentCount = Object.values(normalizeEquipment(state.equipment, state.party)).reduce((sum, slots) => (
     sum + Object.values(slots || {}).filter(Boolean).length
@@ -2630,6 +3081,9 @@ export function scoreState(state) {
     + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 180 : 0)
     + (hasTechPassive(state, 'ART_SCORE_UP') ? 180 : 0)
     + (hasCompletedProject(state, 'stone-monument') ? 400 : 0)
+    + Math.max(0, Number(tribe.population || 4) - 4) * 90
+    + knownContacts * 120
+    + positiveRelations * 2
     + equipmentCount * 45
     + partyInsulation(state) * 35
     + (state.victory ? 700 : 0)
@@ -3052,7 +3506,8 @@ function discoverRegionAfterAction(state, region, ok, rng = Math.random) {
       discoverySerial: Number(next.exploration.discoverySerial || 0) + 1,
     },
   };
-  return addLog(next, `새 지역 발견: ${discovered.name}. ${discovered.landmark}${rewards.length ? ` · 발견 보상 ${formatGains(rewards)}` : ''}.`);
+  next = addLog(next, `새 지역 발견: ${discovered.name}. ${discovered.landmark}${rewards.length ? ` · 발견 보상 ${formatGains(rewards)}` : ''}.`);
+  return contactRivalTribeForRegion(next, discovered.id);
 }
 
 function rollZoneGains(state, entries, rng = Math.random, context = {}) {

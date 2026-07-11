@@ -249,6 +249,56 @@ export const TRIBE_PROJECTS = [
   },
 ];
 
+export const TRIBE_JOBS = [
+  {
+    id: 'forager', name: '채집대', action: 'gather',
+    description: '캠프 주변에서 목재, 섬유, 식량을 꾸준히 확보합니다.',
+    outputText: '나무 중심 · 섬유와 베리 보조',
+  },
+  {
+    id: 'hunter', name: '수렵대', action: 'combat',
+    description: '짐승의 흔적을 추적해 고기와 가죽을 조달합니다.',
+    outputText: '고기 중심 · 가죽 주기 생산',
+  },
+  {
+    id: 'builder', name: '건설대', action: 'project',
+    description: '선택한 공동 프로젝트에 매일 작업량을 투입합니다.',
+    outputText: '1명당 프로젝트 작업 +1',
+  },
+  {
+    id: 'scholar', name: '기록대', action: 'research',
+    description: '현재 목표 기술에 매일 연구 포인트를 투입합니다.',
+    outputText: '1명당 목표 기술 +1RP',
+  },
+];
+
+export const RIVAL_TRIBES = [
+  {
+    id: 'ember-grove', name: '잿불숲 부족', homeRegionId: 'old-grove',
+    temperament: '전통 중시', specialty: '나무와 수지', startRelation: 8,
+    tradeCost: { stone: 2 }, tradeReward: { wood: 3, resin: 1 },
+    giftCost: { berry: 2, meat: 1 }, exchangeCost: { clay: 1 }, exchangePoints: 4,
+    raidReward: { wood: 4, resin: 2 },
+    greeting: '오래된 숲의 불씨를 지키는 이들이 교역 표식을 남겼습니다.',
+  },
+  {
+    id: 'river-clay', name: '붉은강 부족', homeRegionId: 'clay-bank',
+    temperament: '실리 추구', specialty: '점토와 석재', startRelation: 2,
+    tradeCost: { wood: 2, fiber: 1 }, tradeReward: { clay: 3, stone: 2 },
+    giftCost: { cooked_meat: 1, berry: 1 }, exchangeCost: { resin: 1 }, exchangePoints: 5,
+    raidReward: { clay: 4, stone: 3 },
+    greeting: '강변의 토기 제작자들이 물길 건너편에서 거래 조건을 제시했습니다.',
+  },
+  {
+    id: 'sky-ridge', name: '하늘마루 부족', homeRegionId: 'north-ridge',
+    temperament: '신중한 탐구', specialty: '흑요석과 천문 지식', startRelation: -4,
+    tradeCost: { hide: 2, resin: 1 }, tradeReward: { obsidian_shard: 2, rune_shard: 1 },
+    giftCost: { herb: 2, jerky: 1 }, exchangeCost: { rune_shard: 1 }, exchangePoints: 7,
+    raidReward: { obsidian_shard: 3, rune_shard: 1 },
+    greeting: '별을 읽는 이들이 능선 위에서 이쪽의 의도를 살피고 있습니다.',
+  },
+];
+
 export const ITEMS = {
   wood: { name: '나무', icon: 'wood', weight: 1 },
   stone: { name: '돌', icon: 'stone', weight: 1 },
@@ -1001,6 +1051,89 @@ export function normalizeProjectState(value = {}) {
     ])),
     lastCompletedId: validProjectIds.has(value.lastCompletedId) ? value.lastCompletedId : '',
     completionSerial: Math.max(0, Number(value.completionSerial || 0)),
+  };
+}
+
+export function initTribeState() {
+  return {
+    population: 4,
+    assignments: { forager: 2, hunter: 1, builder: 1, scholar: 0 },
+    morale: 60,
+    growthProgress: 0,
+    lastGrowthDay: 0,
+    lastProduction: {},
+    productionSerial: 0,
+    growthSerial: 0,
+    assignmentSerial: 0,
+  };
+}
+
+export function normalizeTribeState(value = {}) {
+  const base = initTribeState();
+  const population = Math.min(24, Math.max(1, Math.floor(Number(value.population || base.population))));
+  const assignments = Object.fromEntries(TRIBE_JOBS.map((job) => [
+    job.id,
+    Math.min(population, Math.max(0, Math.floor(Number(value.assignments?.[job.id] ?? base.assignments[job.id] ?? 0)))),
+  ]));
+  let overflow = Object.values(assignments).reduce((sum, count) => sum + count, 0) - population;
+  [...TRIBE_JOBS].reverse().forEach((job) => {
+    if (overflow <= 0) return;
+    const reduction = Math.min(assignments[job.id], overflow);
+    assignments[job.id] -= reduction;
+    overflow -= reduction;
+  });
+  return {
+    ...base,
+    ...value,
+    population,
+    assignments,
+    morale: Math.min(100, Math.max(0, Number(value.morale ?? base.morale))),
+    growthProgress: Math.max(0, Number(value.growthProgress || 0)),
+    lastGrowthDay: Math.max(0, Math.floor(Number(value.lastGrowthDay || 0))),
+    lastProduction: value.lastProduction && typeof value.lastProduction === 'object' ? value.lastProduction : {},
+    productionSerial: Math.max(0, Math.floor(Number(value.productionSerial || 0))),
+    growthSerial: Math.max(0, Math.floor(Number(value.growthSerial || 0))),
+    assignmentSerial: Math.max(0, Math.floor(Number(value.assignmentSerial || 0))),
+  };
+}
+
+export function initDiplomacyState() {
+  return {
+    contacts: Object.fromEntries(RIVAL_TRIBES.map((tribe) => [tribe.id, {
+      known: false,
+      relation: tribe.startRelation,
+      trust: 0,
+      trades: 0,
+      lastActionDay: 0,
+    }])),
+    lastContactId: '',
+    contactSerial: 0,
+    actionSerial: 0,
+    lastOutcome: '',
+  };
+}
+
+export function normalizeDiplomacyState(value = {}) {
+  const base = initDiplomacyState();
+  const contacts = Object.fromEntries(RIVAL_TRIBES.map((tribe) => {
+    const source = value.contacts?.[tribe.id] || {};
+    const fallback = base.contacts[tribe.id];
+    return [tribe.id, {
+      known: Boolean(source.known),
+      relation: Math.min(100, Math.max(-100, Number(source.relation ?? fallback.relation))),
+      trust: Math.min(100, Math.max(0, Number(source.trust || 0))),
+      trades: Math.max(0, Math.floor(Number(source.trades || 0))),
+      lastActionDay: Math.max(0, Math.floor(Number(source.lastActionDay || 0))),
+    }];
+  }));
+  return {
+    ...base,
+    ...value,
+    contacts,
+    lastContactId: RIVAL_TRIBES.some((tribe) => tribe.id === value.lastContactId) ? value.lastContactId : '',
+    contactSerial: Math.max(0, Math.floor(Number(value.contactSerial || 0))),
+    actionSerial: Math.max(0, Math.floor(Number(value.actionSerial || 0))),
+    lastOutcome: typeof value.lastOutcome === 'string' ? value.lastOutcome : '',
   };
 }
 

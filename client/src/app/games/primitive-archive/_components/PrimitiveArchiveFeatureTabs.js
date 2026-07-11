@@ -2,14 +2,17 @@ import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import PrimitiveArchiveSurvivalTab from './PrimitiveArchiveSurvivalTab';
 import PrimitiveArchiveReportTab from './PrimitiveArchiveReportTab';
 import PrimitiveArchiveGrowthTab from './PrimitiveArchiveGrowthTab';
+import PrimitiveArchiveTribeTab from './PrimitiveArchiveTribeTab';
 import PrimitiveArchiveInventoryTab from './PrimitiveArchiveInventoryTab';
 
 export default function PrimitiveArchiveFeatureTabs(props) {
   const {
     archiveReport,
     inventoryRows,
+    rivals,
     research,
     state,
+    tribe,
   } = props;
 
   return (
@@ -32,6 +35,12 @@ export default function PrimitiveArchiveFeatureTabs(props) {
           label: '연구/성장',
           badge: research.unlocked ? `핵심 ${research.archiveCompleted}/${research.archiveTotal}` : '잠김',
           children: <PrimitiveArchiveGrowthTab {...props} />,
+        },
+        {
+          id: 'tribe',
+          label: '부족/외교',
+          badge: `${tribe.population}명 · 접촉 ${rivals.filter((rival) => rival.known).length}`,
+          children: <PrimitiveArchiveTribeTab {...props} />,
         },
         {
           id: 'inventory',

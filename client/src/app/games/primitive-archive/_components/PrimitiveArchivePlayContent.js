@@ -18,6 +18,7 @@ import {
   ZONES,
   actionChance,
   actionForecastRows,
+  adjustTribeJobAction,
   averageBodyTemp,
   averageParty,
   archiveCompletionReportForState,
@@ -51,8 +52,10 @@ import {
   researchPlannerRows,
   researchSummary,
   regionalActionChance,
+  rivalTribeRows,
   runCampAction,
   runCraftAction,
+  runDiplomacyAction,
   runAutoDayAction,
   runEatAction,
   runGatherAction,
@@ -72,6 +75,7 @@ import {
   techRows,
   totalCarryWeight,
   explorationSummary,
+  tribeSummary,
 } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
@@ -115,6 +119,8 @@ export default function PrimitiveArchivePlayContent() {
     discoverySerial: Number(state.exploration?.discoverySerial || 0),
     projectSerial: Number(state.projects?.completionSerial || 0),
     researchSerial: Number(state.research?.completionSerial || 0),
+    tribeGrowthSerial: Number(state.tribe?.growthSerial || 0),
+    contactSerial: Number(state.diplomacy?.contactSerial || 0),
     seasonId: '',
   });
 
@@ -169,6 +175,8 @@ export default function PrimitiveArchivePlayContent() {
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
+  const tribe = useMemo(() => tribeSummary(state), [state]);
+  const rivals = useMemo(() => rivalTribeRows(state), [state]);
   const selectedProject = projects.find((project) => project.selected && !project.completed)
     || projects.find((project) => project.available && !project.completed)
     || projects[0];
@@ -196,16 +204,20 @@ export default function PrimitiveArchivePlayContent() {
       discoverySerial: Number(state.exploration?.discoverySerial || 0),
       projectSerial: Number(state.projects?.completionSerial || 0),
       researchSerial: Number(state.research?.completionSerial || 0),
+      tribeGrowthSerial: Number(state.tribe?.growthSerial || 0),
+      contactSerial: Number(state.diplomacy?.contactSerial || 0),
       seasonId: milestones.season.id,
     };
     if (previous.runId === current.runId) {
       if (current.discoverySerial > previous.discoverySerial) playGameSfx('discover');
       if (current.projectSerial > previous.projectSerial) playGameSfx('projectComplete');
       if (current.researchSerial > previous.researchSerial) playGameSfx('complete');
+      if (current.tribeGrowthSerial > previous.tribeGrowthSerial) playGameSfx('growth');
+      if (current.contactSerial > previous.contactSerial) playGameSfx('diplomacy');
       if (previous.seasonId && current.seasonId !== previous.seasonId) playGameSfx('season');
     }
     feedbackRef.current = current;
-  }, [milestones.season.id, playGameSfx, state.exploration?.discoverySerial, state.projects?.completionSerial, state.research?.completionSerial, state.runId]);
+  }, [milestones.season.id, playGameSfx, state.diplomacy?.contactSerial, state.exploration?.discoverySerial, state.projects?.completionSerial, state.research?.completionSerial, state.runId, state.tribe?.growthSerial]);
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
       const chances = {
@@ -342,6 +354,18 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('부족 프로젝트', (current) => runProjectAction(current, actorId, selectedProject.id));
   };
 
+  const adjustTribeJob = (jobId, delta) => {
+    applyAction('직업 배치', (current) => adjustTribeJobAction(current, jobId, delta));
+  };
+
+  const runDiplomacy = (rivalId, actionId) => {
+    const rival = rivals.find((row) => row.id === rivalId);
+    applyAction(
+      rival?.name || '경쟁 부족 외교',
+      (current) => runDiplomacyAction(current, actorId, rivalId, actionId),
+    );
+  };
+
   const runRecoveryChoice = (choiceId) => {
     if (!canAct) return;
     const choice = runProgressReport.recoveryChoices?.find((row) => row.id === choiceId);
@@ -424,7 +448,7 @@ export default function PrimitiveArchivePlayContent() {
   const playMetrics = [
     { label: 'Day/AP', value: `${state.day} · ${state.ap}/${state.apMax}` },
     { label: '난이도', value: currentDifficulty.label },
-    { label: '파티', value: `${state.party.length}/${partyCap}` },
+    { label: '파티/부족', value: `${state.party.length}/${partyCap} · ${tribe.population}/${tribe.capacity}` },
     { label: '상태', value: `${hp}HP · 허기 ${hunger} · ST ${stamina}` },
     { label: '체온/보온', value: `${bodyTemp.toFixed(1)}도 · ${insulation}` },
     { label: '핵심 연구', value: `${research.archiveCompleted}/${research.archiveTotal}` },
@@ -458,6 +482,7 @@ export default function PrimitiveArchivePlayContent() {
     adviceLines: [
       hp <= 35 ? { kind: '우선', title: '회복/휴식', detail: 'HP가 낮습니다. 전투보다 캠프와 회복을 먼저 검토하세요.' } : null,
       hunger <= 35 ? { kind: '우선', title: '식량 확보', detail: '허기가 낮으면 다음 행동 안정성이 떨어집니다.' } : null,
+      tribe.unassigned > 0 ? { kind: '운영', title: '직업 배치', detail: `미배치 부족원 ${tribe.unassigned}명을 생산·건설·연구에 투입할 수 있습니다.` } : null,
       archiveVictory.canComplete ? { kind: '완료', title: '아카이브 완성', detail: '목표를 달성했습니다. 기록 전 마무리를 준비하세요.' } : null,
       { kind: '진행', title: '연구/제작 병행', detail: `${research.completed}/${research.total} 연구 완료, 기록 점수 ${archiveReport.archiveScore}%입니다.` },
     ],
@@ -526,6 +551,7 @@ export default function PrimitiveArchivePlayContent() {
         actor={actor}
         actorId={actorId}
         actionForecasts={actionForecasts}
+        adjustTribeJob={adjustTribeJob}
         applyAction={applyAction}
         archiveReport={archiveReport}
         archiveVictory={archiveVictory}
@@ -563,8 +589,10 @@ export default function PrimitiveArchivePlayContent() {
         research={research}
         researchMap={researchMap}
         researchPlannerOpen={researchPlannerOpen}
+        rivals={rivals}
         runCamp={runCamp}
         runCraft={runCraft}
+        runDiplomacy={runDiplomacy}
         runEat={runEat}
         runGather={runGather}
         runHunt={runHunt}
@@ -590,6 +618,7 @@ export default function PrimitiveArchivePlayContent() {
         regions={regions}
         state={state}
         techs={techs}
+        tribe={tribe}
         zone={zone}
         zoneId={activeRegionId}
         zoneSelectionUnlocked={zoneSelectionUnlocked}
