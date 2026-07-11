@@ -11,6 +11,7 @@
     "check:build:local": "npm run prebuild && next build --webpack",
     "check:build:vercel-like": "npm ci --no-audit --no-fund && npm run build",
     "check:ba-srpg-feedback": "node ./scripts/check-ba-srpg-feedback.mjs",
+    "check:auth-session": "node ./scripts/check-auth-session.mjs",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack",
     "check:revive": "node ./scripts/check-revival-rules.mjs",
     "check:runtime:simulation": "eslint -c eslint.runtime.config.mjs src/app/simulation/page.js src/app/simulation/tacticalSkillTable.js src/app/simulation/_lib/**/*.js src/app/simulation/_components/**/*.js",

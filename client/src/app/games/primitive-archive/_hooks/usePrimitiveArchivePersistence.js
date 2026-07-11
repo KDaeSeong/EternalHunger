@@ -12,6 +12,12 @@ import {
   summaryForState,
 } from '../_lib/primitiveArchiveEngine';
 
+function persistenceErrorMessage(err, fallback) {
+  return err?.isAuthError
+    ? '로그인이 만료되었습니다. 현재 런은 유지되며, 다시 로그인한 뒤 저장할 수 있습니다.'
+    : err?.message || fallback;
+}
+
 export default function usePrimitiveArchivePersistence({
   hp,
   score,
@@ -44,7 +50,7 @@ export default function usePrimitiveArchivePersistence({
       setActionResult('런을 서버 저장 슬롯에 저장했습니다.');
       showToast({ tone: 'success', message: 'Primitive Archive 런을 저장했습니다.' });
     } catch (err) {
-      const nextMessage = err?.message || '런 저장에 실패했습니다.';
+      const nextMessage = persistenceErrorMessage(err, '런 저장에 실패했습니다.');
       setMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
@@ -73,7 +79,7 @@ export default function usePrimitiveArchivePersistence({
       setMessage('저장된 런을 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 런을 불러왔습니다.' });
     } catch (err) {
-      const nextMessage = err?.message || '런 불러오기에 실패했습니다.';
+      const nextMessage = persistenceErrorMessage(err, '런 불러오기에 실패했습니다.');
       setMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
@@ -104,7 +110,7 @@ export default function usePrimitiveArchivePersistence({
       setState((current) => settleRunAction(current));
       setActionResult('런 결과를 전적에 기록하고 런을 정산했습니다.');
     } catch (err) {
-      const nextMessage = err?.message || '전적 기록에 실패했습니다.';
+      const nextMessage = persistenceErrorMessage(err, '전적 기록에 실패했습니다.');
       setMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {

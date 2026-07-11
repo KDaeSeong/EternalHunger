@@ -134,7 +134,11 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.MY_SECRET_KEY, { expiresIn: '1d' });
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.MY_SECRET_KEY,
+      { expiresIn: process.env.AUTH_TOKEN_TTL || '30d' }
+    );
     res.json({ token, user: publicUser(user) });
   } catch (err) {
     console.error(err);

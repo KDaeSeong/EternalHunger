@@ -6,6 +6,12 @@
 // - 실행 체크 시 인증/시뮬 페이지 모두 이 공용 유틸 기준으로 API_BASE를 맞춘다
 
 import axios from 'axios';
+import {
+  AUTH_ERROR_CODES,
+  authFailureMessage,
+  classifyAuthFailure,
+  isJwtExpired,
+} from './auth-session';
 
 export const DEFAULT_API_TIMEOUT_MS = 10000;
 export const INIT_API_TIMEOUT_MS = 45000;
@@ -86,7 +92,7 @@ function writeAuthCookie(name, value) {
   const secure = getCookieSecureFlag();
   try {
     if (token) {
-      const maxAge = 60 * 60 * 24;
+      const maxAge = 60 * 60 * 24 * 30;
       document.cookie = `${name}=${encodeURIComponent(token)}; Max-Age=${maxAge}; Path=/; SameSite=Lax${secure}`;
     } else {
       document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
@@ -142,7 +148,7 @@ export function saveAuth(token, user) {
   if (didChange) emitAuthSync({ reason: 'saveAuth' });
 }
 
-export function clearAuth() {
+export function clearAuth(detail = {}) {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem('token');
@@ -154,7 +160,7 @@ export function clearAuth() {
   writeAuthCookie('accessToken', null);
   writeAuthCookie('authToken', null);
   clearApiGetCache();
-  emitAuthSync({ reason: 'clearAuth' });
+  emitAuthSync({ reason: 'clearAuth', ...(detail || {}) });
 }
 
 export function updateStoredUser(patch) {
@@ -178,6 +184,36 @@ export function buildAuthHeaders(tokenOverride) {
   return {
     Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}`,
   };
+}
+
+function comparableToken(rawToken) {
+  return String(normalizeToken(rawToken) || '').replace(/^Bearer\s+/i, '');
+}
+
+function clearRejectedStoredAuth(requestToken, authCode) {
+  if (typeof window === 'undefined') return;
+  const currentToken = getAnyToken();
+  if (!currentToken || comparableToken(currentToken) !== comparableToken(requestToken)) return;
+  clearAuth({ reason: 'auth-invalidated', authCode });
+}
+
+function createAuthSessionError(authCode, requestUrl, method) {
+  const err = new Error(authFailureMessage(authCode));
+  err.code = authCode;
+  err.authCode = authCode;
+  err.status = 401;
+  err.isAuthError = true;
+  err.isTimeout = false;
+  err.isNetwork = false;
+  err.requestUrl = requestUrl;
+  err.method = method;
+  return err;
+}
+
+function shouldAttachStoredAuth(url, options = {}) {
+  if (options.auth === false) return false;
+  if (options.tokenOverride !== undefined) return true;
+  return !/^\/?auth\/(?:login|signup|reset-password)(?:[/?#]|$)/i.test(String(url || ''));
 }
 
 export function buildApiUrl(url, options = {}) {
@@ -311,8 +347,12 @@ export function clearApiGetCache(match = '') {
 }
 
 export async function apiRequest(method, url, data, options = {}) {
+  const attachStoredAuth = shouldAttachStoredAuth(url, options);
+  const requestToken = normalizeToken(attachStoredAuth
+    ? (options.tokenOverride !== undefined ? options.tokenOverride : getAnyToken())
+    : null);
   const headers = {
-    ...buildAuthHeaders(options.tokenOverride),
+    ...buildAuthHeaders(requestToken),
     ...(options.headers || {}),
   };
 
@@ -327,6 +367,11 @@ export async function apiRequest(method, url, data, options = {}) {
     err.requestUrl = url;
     err.method = method;
     throw err;
+  }
+
+  if (requestToken && isJwtExpired(requestToken)) {
+    clearRejectedStoredAuth(requestToken, AUTH_ERROR_CODES.expired);
+    throw createAuthSessionError(AUTH_ERROR_CODES.expired, fullUrl, method);
   }
 
   try {
@@ -351,7 +396,15 @@ export async function apiRequest(method, url, data, options = {}) {
     const status = Number(e?.response?.status || 0);
     const isTimeout = e?.code === 'ECONNABORTED';
     const isNetwork = !status && !isTimeout;
-    const msg = isTimeout
+    const authCode = classifyAuthFailure({
+      status,
+      data: e?.response?.data,
+      hadToken: Boolean(requestToken),
+    });
+    if (authCode) clearRejectedStoredAuth(requestToken, authCode);
+    const msg = authCode
+      ? authFailureMessage(authCode)
+      : isTimeout
       ? '요청 시간이 초과되었습니다. 서버 실행 상태를 확인하세요.'
       : (e?.response?.data?.error || e?.response?.data?.message || e.message || '요청 실패');
     const err = new Error(msg);
@@ -364,6 +417,8 @@ export async function apiRequest(method, url, data, options = {}) {
     err.method = method;
     err.timeoutMs = Number(options.timeoutMs || DEFAULT_API_TIMEOUT_MS);
     err.originalMessage = e?.message || msg;
+    err.authCode = authCode;
+    err.isAuthError = Boolean(authCode);
     throw err;
   }
 }
