@@ -175,7 +175,8 @@ Checked: 2026-07-04
 
 - Route: `/games/si-coding-sim/play`
 - Included loop: Step AQ/AR task pack loading, task selection, code file editing, report writing, hint reveal cost, includes/notIncludes/anyIncludes judge rules, resource settlement, project grade evaluation, and run log.
-- UI/UX: current task now has a submission readiness panel that previews static check, report, document, and hint status, then jumps directly to the needed work tab.
+- UI/UX: the compact play shell keeps the field coach, latest result, and seven icon-led feature tabs in the first viewport. The submission readiness panel previews static checks, report, document, and hint status, then jumps directly to the needed work tab. Task-pack loading, project opening, code/document/hint navigation, submission, reset, company support, audit, and follow-up project selection use explicit object icons instead of unlabeled percentage or point-only buttons.
+- Feedback: failed, passed, and perfect submissions; approved or rejected project evaluations; hint reveals; and company support spending emit distinct synthesized coding-theme result cues. Browser checks verified `codeFail`, `hintOpen`, `support`, and `projectRejected` state transitions.
 - Site API integration: quick save through `/game-saves/si-coding-sim/si-coding-sim-main`; challenge-score snapshot through `/game-records/si-coding-sim`.
 - Source basis: `C:\2저장고\마이애니메\si-coding-sim_stepAQ_AR\prototype\data\task-pack-stepAQ_AR.json` and `data\judge-rules.json`.
 - Next step: import the original execution harness, contract negotiation, follow-up branch depth, seed generation depth, and career progression UI.

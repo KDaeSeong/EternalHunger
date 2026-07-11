@@ -1,4 +1,4 @@
-
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function SiCodingTasksTab({
   filteredRows,
@@ -39,9 +39,9 @@ export default function SiCodingTasksTab({
                                   <strong>{pack.label}</strong>
                                   <span>{pack.title}</span>
                                 </div>
-                                <button type="button" className="tcg-primary-action" onClick={() => selectTaskPack(pack.id)}>
-                                  {pack.taskCount}개
-                                </button>
+                                <GameControlButton action="load" className="tcg-primary-action" onClick={() => selectTaskPack(pack.id)}>
+                                  불러오기 · {pack.taskCount}개
+                                </GameControlButton>
                               </article>
                             ))}
                           </div>
@@ -79,9 +79,9 @@ export default function SiCodingTasksTab({
                                   <strong>{row.id}</strong>
                                   <span>{row.projectName}</span>
                                 </div>
-                                <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id)}>
-                                  {row.score === null ? row.status : `${row.score}점`}
-                                </button>
+                                <GameControlButton action="target" className="tcg-primary-action" onClick={() => selectTask(row.id)}>
+                                  열기 · {row.score === null ? row.status : `${row.score}점`}
+                                </GameControlButton>
                               </article>
                             ))}
                           </div>

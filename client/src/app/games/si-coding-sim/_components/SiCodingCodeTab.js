@@ -79,9 +79,9 @@ export default function SiCodingCodeTab({
                             <span>{outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'}</span>
                           </div>
                           <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                            <ActionButton onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
-                            <ActionButton onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
-                            <ActionButton onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
+                            <ActionButton action="code" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
+                            <ActionButton action="reset" onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
+                            <ActionButton action="judge" onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
                           </div>
                           <div className="game-save-list">
                             {outcome ? outcome.results.map((result, index) => (

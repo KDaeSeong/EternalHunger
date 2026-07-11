@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import GameActionIcon from '../../_components/GameActionIcon';
 import GamePlayShell from '../../_components/GamePlayShell';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   createNewState,
   getCurrentTask,
@@ -20,12 +22,17 @@ import {
 import { buildSiCodingSimPlayViewModel } from '../_lib/siCodingSimPlayViewModel';
 import SiCodingSimFeatureTabs from '../_components/SiCodingSimFeatureTabs';
 import useSiCodingSimPersistence from '../_hooks/useSiCodingSimPersistence';
+import {
+  siCodingFeedbackCue,
+  siCodingFeedbackSnapshot,
+} from '../_lib/siCodingSimFeedback';
 
 
 export default function SiCodingSimPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'coding' });
   const [state, setState] = useState(() => createNewState());
   const [selectedFileId, setSelectedFileId] = useState('');
   const [taskFilters, setTaskFilters] = useState({
@@ -40,6 +47,7 @@ export default function SiCodingSimPlayPage() {
   const hintPanelRef = useRef(null);
   const documentPanelRef = useRef(null);
   const executionPanelRef = useRef(null);
+  const feedbackRef = useRef(siCodingFeedbackSnapshot(state));
 
   const viewModel = useMemo(() => buildSiCodingSimPlayViewModel({
     selectedFileId,
@@ -79,6 +87,13 @@ export default function SiCodingSimPlayPage() {
     taskId,
     taskTagOptions,
   } = viewModel;
+
+  useEffect(() => {
+    const current = siCodingFeedbackSnapshot(state);
+    const cue = siCodingFeedbackCue(feedbackRef.current, current);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = current;
+  }, [playGameSfx, state]);
 
   const updateTaskFilter = (key, value) => {
     setTaskFilters((current) => ({ ...current, [key]: value }));
@@ -164,11 +179,14 @@ export default function SiCodingSimPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>새 현장</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/myanime/si-coding-sim">상세</Link>
+      <GameControlButton action="new" onClick={startNewRun}>새 현장</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <Link className="game-control-button" data-game-sfx="nav" href="/myanime/si-coding-sim">
+        <GameActionIcon action="settings" label="상세" />
+        <span className="game-action-button__label">상세</span>
+      </Link>
     </>
   );
 
@@ -223,6 +241,7 @@ export default function SiCodingSimPlayPage() {
   if (!task) {
     return (
       <GamePlayShell
+        className="si-coding-page-shell"
         kicker="SI Coding Sim"
         title="SI 코딩 시뮬레이터"
         description="불러올 과제 데이터가 없습니다."
@@ -230,7 +249,7 @@ export default function SiCodingSimPlayPage() {
         metrics={metrics}
         messages={messages}
       >
-        <GameAdvisorPanel {...guide} />
+        <GameAdvisorPanel {...guide} compact minimal storageKey="si-coding-field-coach" />
         <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
       </GamePlayShell>
     );
@@ -238,16 +257,19 @@ export default function SiCodingSimPlayPage() {
 
   return (
     <GamePlayShell
+      className="si-coding-page-shell"
       kicker="SI Coding Sim"
       title="SI 코딩 시뮬레이터"
       description="업로드된 Step AQ/AR 과제팩의 문서, 코드 파일, 문자열 기반 검수 규칙, 힌트 비용, 프로젝트 종료 판정을 사이트용 challenge slice로 이식했습니다."
       summaryLabel="SI Coding Sim 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={10}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="si-coding-field-coach" />
       <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
 
       <SiCodingSimFeatureTabs

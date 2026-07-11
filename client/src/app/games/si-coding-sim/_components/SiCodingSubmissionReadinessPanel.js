@@ -1,4 +1,11 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
+
+const PANEL_ACTIONS = {
+  code: 'code',
+  execution: 'execute',
+  document: 'archive',
+  hint: 'guide',
+};
 
 export function ResultRow({ result }) {
   const detail = (result.rules || []).map((rule) => rule.value).filter(Boolean).join(' · ');
@@ -47,16 +54,16 @@ export default function SubmissionReadinessPanel({
               <strong>{row.label}</strong>
               <span>{row.detail}</span>
             </div>
-            <button type="button" className="tcg-primary-action" onClick={() => onJump(row.panel)}>
+            <GameControlButton action={PANEL_ACTIONS[row.panel] || 'target'} className="tcg-primary-action" onClick={() => onJump(row.panel)}>
               {row.actionLabel}
-            </button>
+            </GameControlButton>
           </article>
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: 12 }}>
-        <ActionButton onClick={onSubmit}>현재 과제 검수</ActionButton>
-        <ActionButton onClick={onRevealHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
-        <ActionButton onClick={onReset}>현재 과제 초기화</ActionButton>
+        <ActionButton action="code" onClick={onSubmit}>현재 과제 검수</ActionButton>
+        <ActionButton action="guide" onClick={onRevealHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
+        <ActionButton action="reset" onClick={onReset}>현재 과제 초기화</ActionButton>
       </div>
     </section>
   );

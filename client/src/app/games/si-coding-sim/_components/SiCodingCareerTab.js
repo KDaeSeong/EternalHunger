@@ -1,4 +1,5 @@
 import { applyCompanySupportAction, selectProjectSeedAction } from '../_lib/siCodingSimEngine';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function SiCodingCareerTab({
   profileSummary,
@@ -39,14 +40,14 @@ export default function SiCodingCareerTab({
                                   <span>{item.detail}</span>
                                   <strong>{item.title}</strong>
                                 </div>
-                                <button
-                                  type="button"
+                                <GameControlButton
+                                  action="sponsor"
                                   className="tcg-primary-action"
                                   disabled={item.disabled}
                                   onClick={() => setState((current) => applyCompanySupportAction(current, task.id, item.key))}
                                 >
-                                  {item.cost}pt
-                                </button>
+                                  {item.key === 'hint' ? '지식 지원' : 'QA 지원'} · {item.cost}pt
+                                </GameControlButton>
                               </article>
                             ))}
                           </div>
@@ -66,9 +67,9 @@ export default function SiCodingCareerTab({
                                     <strong>{seed.projectName}</strong>
                                     <span>{seed.client} · {seed.module}</span>
                                   </div>
-                                  <button type="button" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
-                                    {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `${seed.rewardScore}pt`}
-                                  </button>
+                                  <GameControlButton action="target" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
+                                    {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `선택 · ${seed.rewardScore}pt`}
+                                  </GameControlButton>
                                 </article>
                               ))}
                             </div>

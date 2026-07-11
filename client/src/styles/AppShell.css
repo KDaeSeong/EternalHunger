@@ -10326,6 +10326,68 @@
   }
 }
 
+.si-coding-page-shell .games-page {
+  gap: 10px;
+}
+
+.si-coding-page-shell .games-hero--compact {
+  grid-template-columns: minmax(440px, 1fr) auto;
+  padding: 14px 18px;
+}
+
+.si-coding-page-shell .games-hero--compact h1 {
+  font-size: 1.9rem;
+}
+
+.si-coding-page-shell .games-hero--compact .games-hero-actions {
+  flex-wrap: nowrap;
+}
+
+.si-coding-workspace .game-feature-tabs {
+  gap: 8px;
+}
+
+.si-coding-workspace .game-feature-tabs__list {
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 7px;
+}
+
+.si-coding-workspace .game-feature-tabs__list button,
+.si-coding-workspace .game-feature-tabs__list--dense button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  max-width: none;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+}
+
+.si-coding-workspace .games-rank-split {
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 7px;
+}
+
+.si-coding-workspace .games-rank-split > div {
+  min-height: 54px;
+  gap: 3px;
+  align-content: center;
+  padding: 8px 10px;
+}
+
+.si-coding-workspace .games-rank-split strong {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.si-coding-workspace .game-save-row .tcg-primary-action {
+  width: auto;
+  min-width: 96px;
+  margin-top: 0;
+}
+
 @media (max-width: 760px) {
   .company-report-page-shell .games-hero--compact {
     grid-template-columns: 1fr;
@@ -10401,6 +10463,46 @@
 
   .company-report-workspace .game-feature-tabs__list button strong {
     display: none;
+  }
+
+  .si-coding-page-shell .games-hero--compact {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .si-coding-page-shell .games-hero--compact h1 {
+    font-size: 1.55rem;
+  }
+
+  .si-coding-page-shell .games-hero--compact .games-hero-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .si-coding-page-shell .games-hero-actions > * {
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 0.74rem;
+  }
+
+  .si-coding-workspace .game-feature-tabs__list button,
+  .si-coding-workspace .game-feature-tabs__list--dense button {
+    min-height: 36px;
+    padding-inline: 8px;
+    font-size: 0.75rem;
+  }
+
+  .si-coding-workspace .game-feature-tabs__list button strong {
+    display: none;
+  }
+
+  .si-coding-workspace .games-rank-split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .si-coding-workspace .game-save-row .tcg-primary-action {
+    min-width: 84px;
   }
 }
 

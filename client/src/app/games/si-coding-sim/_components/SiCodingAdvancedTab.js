@@ -1,4 +1,4 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { ResultRow } from './SiCodingSubmissionReadinessPanel';
 import { applyCompanySupportAction, evaluateProjectAction, selectProjectSeedAction, toggleDocumentReviewAction, updateFileAction, updateReportAction } from '../_lib/siCodingSimEngine';
 
@@ -201,10 +201,10 @@ export default function SiCodingAdvancedTab({
                     <span>{latestEvaluation?.grade || '진행 중'}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
-                    <ActionButton onClick={revealCurrentHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
-                    <ActionButton onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
-                    <ActionButton onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
+                    <ActionButton action="code" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
+                    <ActionButton action="guide" onClick={revealCurrentHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
+                    <ActionButton action="reset" onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
+                    <ActionButton action="judge" onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
                   </div>
                 </section>
         
@@ -226,14 +226,14 @@ export default function SiCodingAdvancedTab({
                           <span>{item.detail}</span>
                           <strong>{item.title}</strong>
                         </div>
-                        <button
-                          type="button"
+                        <GameControlButton
+                          action="sponsor"
                           className="tcg-primary-action"
                           disabled={item.disabled}
                           onClick={() => setState((current) => applyCompanySupportAction(current, task.id, item.key))}
                         >
-                          {item.cost}pt
-                        </button>
+                          {item.key === 'hint' ? '지식 지원' : 'QA 지원'} · {item.cost}pt
+                        </GameControlButton>
                       </article>
                     ))}
                     {(support.entries || []).slice(0, 3).map((entry) => (
@@ -317,9 +317,9 @@ export default function SiCodingAdvancedTab({
                           <strong>{project.projectName}</strong>
                           <span>평균 {project.averageScore}점 · 완전 {project.perfectTasks} · 부분 {project.partialTasks} · 위험 {project.riskyTasks}</span>
                         </div>
-                        <button type="button" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId, 'code')}>
-                          {project.progressPct}%
-                        </button>
+                        <GameControlButton action="project" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId, 'code')}>
+                          열기 · {project.progressPct}%
+                        </GameControlButton>
                       </article>
                     ))}
                   </div>
@@ -409,15 +409,15 @@ export default function SiCodingAdvancedTab({
                             {(row.tags || []).slice(0, 5).map((tag) => <span className="game-save-chip" key={`${row.id}-${tag}`}>{tag}</span>)}
                           </div>
                           <div className="games-chip-row" style={{ marginTop: 8 }}>
-                            <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>코드</button>
-                            <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'hint')} disabled={!row.hintCount}>힌트</button>
-                            <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'document')} disabled={!row.documentCount && !row.checkpointCount}>문서</button>
-                            <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'execution')} disabled={!row.executionCount && !row.checkCount}>실행</button>
+                            <GameControlButton action="code" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>코드</GameControlButton>
+                            <GameControlButton action="guide" className="tcg-primary-action" onClick={() => selectTask(row.id, 'hint')} disabled={!row.hintCount}>힌트</GameControlButton>
+                            <GameControlButton action="archive" className="tcg-primary-action" onClick={() => selectTask(row.id, 'document')} disabled={!row.documentCount && !row.checkpointCount}>문서</GameControlButton>
+                            <GameControlButton action="execute" className="tcg-primary-action" onClick={() => selectTask(row.id, 'execution')} disabled={!row.executionCount && !row.checkCount}>실행</GameControlButton>
                           </div>
                         </div>
-                        <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>
-                          {row.score === null ? row.status : `${row.score}점`}
-                        </button>
+                        <GameControlButton action="target" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>
+                          열기 · {row.score === null ? row.status : `${row.score}점`}
+                        </GameControlButton>
                       </article>
                     ))}
                     {!filteredRows.length ? <div className="games-empty">현재 필터에 맞는 과제가 없습니다.</div> : null}
@@ -532,7 +532,7 @@ export default function SiCodingAdvancedTab({
                         </article>
                       </div>
                       <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                        <ActionButton onClick={startSelectedSeed} disabled={!seedRoadmap.selectedSeed}>
+                        <ActionButton action="deploy" onClick={startSelectedSeed} disabled={!seedRoadmap.selectedSeed}>
                           선택한 후보로 차기 현장 시작
                         </ActionButton>
                       </div>
@@ -551,9 +551,9 @@ export default function SiCodingAdvancedTab({
                                 {(seed.tags || []).map((tag) => <span className="game-save-chip" key={`${seed.id}-${tag}`}>{tag}</span>)}
                               </div>
                             </div>
-                            <button type="button" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
-                              {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `${seed.rewardScore}pt`}
-                            </button>
+                            <GameControlButton action="target" className="tcg-primary-action" onClick={() => setState((current) => selectProjectSeedAction(current, seed.id))}>
+                              {seed.id === seedRoadmap.selectedSeed?.id ? '선택됨' : `선택 · ${seed.rewardScore}pt`}
+                            </GameControlButton>
                           </article>
                         ))}
                       </div>

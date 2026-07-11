@@ -267,6 +267,39 @@ const CUE_PROFILES = {
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
     { frequency: 1040, start: 0.07, duration: 0.055, type: 'triangle', gain: 0.035 },
   ],
+  codePerfect: [
+    { frequency: 660, duration: 0.035, type: 'square', gain: 0.04 },
+    { frequency: 990, start: 0.034, duration: 0.05, type: 'triangle', gain: 0.043 },
+    { frequency: 1320, start: 0.082, duration: 0.095, type: 'sine', gain: 0.038 },
+  ],
+  codePass: [
+    { frequency: 520, duration: 0.035, type: 'square', gain: 0.038 },
+    { frequency: 780, start: 0.034, duration: 0.075, type: 'triangle', gain: 0.04 },
+  ],
+  codeFail: [
+    { frequency: 360, endFrequency: 250, duration: 0.08, type: 'square', gain: 0.038 },
+    { frequency: 180, start: 0.065, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  projectApproved: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.04, gain: 0.028 },
+    { frequency: 440, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 660, start: 0.038, duration: 0.06, type: 'triangle', gain: 0.043 },
+    { frequency: 990, start: 0.09, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  projectRejected: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.055, gain: 0.045 },
+    { frequency: 300, endFrequency: 210, duration: 0.09, type: 'square', gain: 0.04 },
+    { frequency: 150, start: 0.075, duration: 0.12, type: 'sine', gain: 0.038 },
+  ],
+  hintOpen: [
+    { frequency: 740, duration: 0.04, type: 'sine', gain: 0.04 },
+    { frequency: 1110, start: 0.038, duration: 0.075, type: 'sine', gain: 0.038 },
+  ],
+  support: [
+    { frequency: 420, duration: 0.04, type: 'triangle', gain: 0.04 },
+    { frequency: 630, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 840, start: 0.082, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
   summon: [
     { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.045, gain: 0.045 },
     { frequency: 420, endFrequency: 720, duration: 0.075, type: 'triangle', gain: 0.055 },

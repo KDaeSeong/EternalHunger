@@ -48,7 +48,7 @@ export default function SiCodingDocsTab({
                             <span>{revealedHints.length}/{task.hints?.length || 0}</span>
                           </div>
                           <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                            <ActionButton onClick={revealCurrentHint} disabled={!canRevealHint}>
+                            <ActionButton action="guide" onClick={revealCurrentHint} disabled={!canRevealHint}>
                               힌트 열기
                             </ActionButton>
                           </div>

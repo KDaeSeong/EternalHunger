@@ -1,4 +1,4 @@
-import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import SubmissionReadinessPanel from './SiCodingSubmissionReadinessPanel';
 
 export default function SiCodingFieldTab({
@@ -64,9 +64,9 @@ export default function SiCodingFieldTab({
                                   <strong>{project.projectName}</strong>
                                   <span>문서 {project.documentTasks} · 실행 {project.executionTasks} · 위험 {project.riskyTasks}</span>
                                 </div>
-                                <button type="button" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId)}>
-                                  {project.progressPct}%
-                                </button>
+                                <GameControlButton action="project" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId)}>
+                                  열기 · {project.progressPct}%
+                                </GameControlButton>
                               </article>
                             ))}
                           </div>

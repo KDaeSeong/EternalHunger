@@ -1,4 +1,4 @@
-import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 
 export default function SiCodingAuditTab({
   packAudit,
@@ -56,9 +56,9 @@ export default function SiCodingAuditTab({
                                   <span>{row.projectName}</span>
                                   <span>{row.blockers.length ? row.blockers.join(' / ') : '검수 구성 양호'}</span>
                                 </div>
-                                <button type="button" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>
+                                <GameControlButton action="search" className="tcg-primary-action" onClick={() => selectTask(row.id, 'code')}>
                                   열기
-                                </button>
+                                </GameControlButton>
                               </article>
                             )) : <div className="games-empty">보강이 필요한 과제는 없습니다.</div>}
                           </div>
