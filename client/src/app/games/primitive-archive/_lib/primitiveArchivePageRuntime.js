@@ -1,6 +1,7 @@
 import {
   ITEMS,
   RECIPES,
+  TECH_TIER_DEFS,
   itemName,
 } from './primitiveArchiveEngine';
 
@@ -214,25 +215,11 @@ export function buildResearchMap(techs) {
   const columnGap = 54;
   const rowGap = 14;
   const padding = 24;
-  const byId = Object.fromEntries(techs.map((tech) => [tech.id, tech]));
-  const tierMemo = {};
-
-  const tierOf = (techId, trail = new Set()) => {
-    if (tierMemo[techId] !== undefined) return tierMemo[techId];
-    const tech = byId[techId];
-    if (!tech || !(tech.prereqs || []).length || trail.has(techId)) {
-      tierMemo[techId] = 0;
-      return 0;
-    }
-    const nextTrail = new Set(trail);
-    nextTrail.add(techId);
-    const tier = Math.max(...tech.prereqs.map((prereqId) => tierOf(prereqId, nextTrail))) + 1;
-    tierMemo[techId] = tier;
-    return tier;
-  };
+  const headerHeight = 52;
+  const tierDefs = TECH_TIER_DEFS.filter((definition) => techs.some((tech) => tech.tier === definition.tier));
 
   const columns = techs.reduce((result, tech) => {
-    const tier = tierOf(tech.id);
+    const tier = Math.max(1, Number(tech.tier || 1));
     if (!result[tier]) result[tier] = [];
     result[tier].push(tech);
     return result;
@@ -250,8 +237,8 @@ export function buildResearchMap(techs) {
     ...tech,
     tier,
     rowIndex,
-    x: padding + tier * (nodeWidth + columnGap),
-    y: padding + rowIndex * (nodeHeight + rowGap),
+    x: padding + (tier - 1) * (nodeWidth + columnGap),
+    y: padding + headerHeight + rowIndex * (nodeHeight + rowGap),
     width: nodeWidth,
     height: nodeHeight,
     statusLabel: researchStatusLabel(tech),
@@ -277,6 +264,12 @@ export function buildResearchMap(techs) {
     };
   }).filter(Boolean));
   const maxRows = Math.max(1, ...tierOrder.map((tier) => columns[tier].length));
+  const tierHeaders = tierDefs.map((definition) => ({
+    ...definition,
+    count: columns[definition.tier]?.length || 0,
+    x: padding + (definition.tier - 1) * (nodeWidth + columnGap),
+    width: nodeWidth,
+  }));
   const eras = eraOrder.map((era) => {
     const rows = nodes.filter((node) => node.era === era);
     return {
@@ -290,10 +283,11 @@ export function buildResearchMap(techs) {
   return {
     edges,
     eras,
-    height: padding * 2 + maxRows * nodeHeight + Math.max(0, maxRows - 1) * rowGap,
+    height: padding * 2 + headerHeight + maxRows * nodeHeight + Math.max(0, maxRows - 1) * rowGap,
     nodes,
-    tierCount: tierOrder.length,
-    width: padding * 2 + tierOrder.length * nodeWidth + Math.max(0, tierOrder.length - 1) * columnGap,
+    tierCount: tierDefs.length,
+    tierHeaders,
+    width: padding * 2 + tierDefs.length * nodeWidth + Math.max(0, tierDefs.length - 1) * columnGap,
   };
 }
 

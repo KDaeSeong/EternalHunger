@@ -136,13 +136,13 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   {techs.map((tech) => (
                     <option value={tech.id} key={tech.id} disabled={!tech.available && !tech.completed && !tech.selected}>
                       {tech.completed ? '완료 · ' : tech.selected ? '선택 · ' : tech.available ? '가능 · ' : tech.eurekaStatus?.blocked || tech.inspirationStatus?.blocked ? '단서 확보 · 잠김 · ' : '잠김 · '}
-                      {tech.name} ({tech.progress}/{tech.cost})
+                      T{tech.tier} · {tech.name} ({tech.progress}/{tech.cost})
                     </option>
                   ))}
                 </select>
               </label>
               <div className="games-rank-split">
-                <div><span>선택</span><strong>{research.selected?.name || '-'}</strong></div>
+                <div><span>선택</span><strong>{research.selected ? `T${research.selected.tier} · ${research.selected.name}` : '-'}</strong></div>
                 <div><span>진행</span><strong>{research.selected?.progressPct || 0}%</strong></div>
                 <div><span>가능</span><strong>{research.available}</strong></div>
                 <div><span>직접 연구</span><strong>{research.actionUnlocked ? '해금' : `${research.actionCompleted}/${research.actionTotal}`}</strong></div>
@@ -244,7 +244,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 {priorityPlannerRows.map((tech) => (
                   <article className="game-save-row" key={tech.id}>
                     <div>
-                      <span>{tech.priorityLabel} · 우선도 {tech.priorityScore} · {tech.progressPct}%</span>
+                      <span>T{tech.tier} · {tech.priorityLabel} · 우선도 {tech.priorityScore} · {tech.progressPct}%</span>
                       <strong>{tech.name}</strong>
                       <small>{tech.nextAction}{tech.pressureBonus ? ` · ${tech.pressureLabel}` : ''}</small>
                     </div>
@@ -319,6 +319,19 @@ export default function PrimitiveArchiveGrowthTab(props) {
                         />
                       ))}
                     </svg>
+                    <div className="primitive-research-tier-headers" aria-hidden="true">
+                      {researchMap.tierHeaders.map((tier) => (
+                        <div
+                          className="primitive-research-tier-header"
+                          key={tier.tier}
+                          style={{ left: tier.x, width: tier.width }}
+                        >
+                          <span>T{tier.tier}</span>
+                          <strong>{tier.name}</strong>
+                          <small>{tier.count}개 기술</small>
+                        </div>
+                      ))}
+                    </div>
                     {researchMap.nodes.map((node) => {
                       const muted = treeNodeMuted(node);
                       const nodeClass = [
@@ -346,7 +359,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                             <strong>{node.name}</strong>
                             <em>{node.statusLabel}</em>
                           </span>
-                          <small>{RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}</small>
+                          <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}</small>
                           <span className="primitive-research-node__tags">
                             {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
                             {node.eureka ? <i className={node.eurekaDone ? 'is-done' : ''}>유</i> : null}
@@ -366,7 +379,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <>
                       <div className="primitive-research-inspector__head">
                         <div>
-                          <span>{RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era} · Tier {focusedTreeNode.tier}</span>
+                          <span>T{focusedTreeNode.tier} · {researchMap.tierHeaders.find((tier) => tier.tier === focusedTreeNode.tier)?.name || '연구 단계'} · {RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era}</span>
                           <h3>{focusedTreeNode.name}</h3>
                         </div>
                         <strong>{focusedTreeNode.progress}/{focusedTreeNode.cost}</strong>

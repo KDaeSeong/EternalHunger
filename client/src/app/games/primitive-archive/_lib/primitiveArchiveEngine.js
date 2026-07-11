@@ -13,6 +13,7 @@ import {
   ITEMS,
   RECIPES,
   TECH_TREE,
+  TECH_TIER_DEFS,
   PERK_DEFS,
   WEATHER,
   DIFFICULTY_PRESETS,
@@ -54,6 +55,7 @@ export {
   ITEMS,
   RECIPES,
   TECH_TREE,
+  TECH_TIER_DEFS,
   PERK_DEFS,
   WEATHER,
   DIFFICULTY_PRESETS,
@@ -456,6 +458,7 @@ function researchUnlockGroups(tech) {
 function availableTechNames(research, excludeTechId = '') {
   return TECH_TREE
     .filter((row) => row.id !== excludeTechId && !research.completed?.[row.id] && prereqsMet(research, row))
+    .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)
     .map((row) => row.name);
 }
 
@@ -478,10 +481,8 @@ const RESEARCH_SYSTEM_REQUIREMENTS = [
 ];
 
 const RESEARCH_ACTION_TECH_IDS = [
-  'BASIC_MATH',
-  'BASIC_PHILOSOPHY',
-  'EARLY_CONSTRUCTION',
-  'EARLY_CIVIL_ENGINEERING',
+  'GATHERING',
+  'HUNTING',
 ];
 
 export function researchSystemStatus(state) {
@@ -521,7 +522,7 @@ export function researchSystemStatus(state) {
       : `연구 시작 조건: ${gateRows.filter((row) => !row.done).map((row) => row.label).join(', ')}`,
     actionReason: actionUnlocked
       ? '수동 연구 행동을 사용할 수 있습니다.'
-      : `수동 연구 행동 해금 ${actionCompleted}/${actionGateRows.length}: ${actionGateRows.filter((row) => !row.done).map((row) => row.label).join(', ') || '완료'}`,
+      : `T1 기초 연구 완료 시 직접 연구 해금 ${actionCompleted}/${actionGateRows.length}: ${actionGateRows.filter((row) => !row.done).map((row) => row.label).join(', ') || '완료'}`,
   };
 }
 
@@ -571,7 +572,9 @@ function inspirationStatusForTech(state, tech) {
 }
 
 function nextAvailableTech(research) {
-  return TECH_TREE.find((tech) => !research.completed?.[tech.id] && prereqsMet(research, tech)) || null;
+  return TECH_TREE
+    .filter((tech) => !research.completed?.[tech.id] && prereqsMet(research, tech))
+    .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)[0] || null;
 }
 
 function hasTechPassive(state, passiveId) {
@@ -2300,7 +2303,11 @@ export function techRows(state) {
       missingPrereqs: missingPrereqNames(current.research, tech),
       progressPct: Math.round((progress / tech.cost) * 100),
     };
-  });
+  }).sort((a, b) => (
+    Number(a.tier || 1) - Number(b.tier || 1)
+      || String(a.tags?.[0] || '').localeCompare(String(b.tags?.[0] || ''))
+      || a.name.localeCompare(b.name, 'ko-KR')
+  ));
 }
 
 export function researchInspirationRows(state) {
@@ -2491,6 +2498,7 @@ export function researchPlannerRows(state) {
     b.priorityScore - a.priorityScore
       || Number(b.available) - Number(a.available)
       || Number(a.completed) - Number(b.completed)
+      || Number(a.tier || 1) - Number(b.tier || 1)
       || a.cost - b.cost
       || a.name.localeCompare(b.name, 'ko-KR')
   ));

@@ -6691,6 +6691,50 @@
   position: relative;
 }
 
+.primitive-research-tier-headers {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  height: 52px;
+  background: rgba(248, 251, 253, 0.96);
+  box-shadow: 0 1px 0 rgba(22, 33, 44, 0.08);
+}
+
+.primitive-research-tier-header {
+  position: absolute;
+  top: 9px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid #b9cbd7;
+  padding: 5px 2px 8px;
+  color: #314453;
+  pointer-events: none;
+}
+
+.primitive-research-tier-header span {
+  color: #1673a4;
+  font-size: 0.7rem;
+  font-weight: 950;
+}
+
+.primitive-research-tier-header strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-research-tier-header small {
+  color: #6b7c88;
+  font-size: 0.62rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
 .primitive-research-edges {
   position: absolute;
   inset: 0;
