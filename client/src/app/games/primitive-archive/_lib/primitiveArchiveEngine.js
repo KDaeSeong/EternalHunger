@@ -7,6 +7,9 @@ import {
   STUDENTS,
   DIALOGUES,
   ZONES,
+  WORLD_REGIONS,
+  TRIBE_PROJECTS,
+  SEASONS,
   ITEMS,
   RECIPES,
   TECH_TREE,
@@ -19,13 +22,18 @@ import {
   difficultyPreset,
   emptyEquipmentSlots,
   initEquipmentForParty,
+  initExplorationState,
   initMetaState,
+  initProjectState,
   initResearchState,
   makeParty,
   normalizeEquipment,
+  normalizeExplorationState,
+  normalizeProjectState,
   normalizeResearch,
   difficultyRows,
   rollWeather,
+  seasonForDay,
 } from './primitiveArchiveData';
 
 export {
@@ -40,6 +48,9 @@ export {
   STUDENTS,
   DIALOGUES,
   ZONES,
+  WORLD_REGIONS,
+  TRIBE_PROJECTS,
+  SEASONS,
   ITEMS,
   RECIPES,
   TECH_TREE,
@@ -48,8 +59,11 @@ export {
   DIFFICULTY_PRESETS,
   clamp,
   difficultyRows,
+  initExplorationState,
+  initProjectState,
   initResearchState,
   rollWeather,
+  seasonForDay,
 } from './primitiveArchiveData';
 
 function perkLevel(meta, perkId) {
@@ -83,6 +97,8 @@ export function createNewState(options = {}) {
     camp: { fireLevel: 0, shelterLevel: 0, workbenchLevel: 0, archiveRoomLevel: 0, scribeDeskLevel: 0, libraryShelfLevel: 0, fuel: 0 },
     counters: { gather: 0, hunt: 0, craft: 0, camp: 0, meals: 0, events: 0 },
     eventChains: [],
+    exploration: initExplorationState(),
+    projects: initProjectState(),
     research: initResearchState(),
     meta,
     log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
@@ -96,6 +112,8 @@ export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
   const research = normalizeResearch(value.research);
+  const exploration = normalizeExplorationState(value.exploration);
+  const projects = normalizeProjectState(value.projects);
   const meta = initMetaState(value.meta);
   const difficulty = difficultyKey(value.difficulty || base.difficulty);
   const preset = difficultyPreset(difficulty);
@@ -128,6 +146,8 @@ export function normalizeState(value) {
     camp,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
     eventChains: normalizeEventChains(value.eventChains || base.eventChains, Number(value.day || base.day || 1)),
+    exploration,
+    projects,
     research,
     meta,
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
@@ -559,8 +579,237 @@ function hasTechPassive(state, passiveId) {
   return TECH_TREE.some((tech) => research.completed?.[tech.id] && (tech.unlocks?.passives || []).includes(passiveId));
 }
 
+function getProject(projectId) {
+  return TRIBE_PROJECTS.find((project) => project.id === projectId) || null;
+}
+
+export function hasCompletedProject(state, projectId) {
+  return Boolean(normalizeProjectState(state?.projects).completed?.[projectId]);
+}
+
+function projectPrereqsMet(state, project) {
+  const research = normalizeResearch(state?.research);
+  return (project?.prereqs || []).every((techId) => Boolean(research.completed?.[techId]));
+}
+
+function nextAvailableProjectId(state, completed = normalizeProjectState(state?.projects).completed) {
+  return TRIBE_PROJECTS.find((project) => !completed?.[project.id] && projectPrereqsMet(state, project))?.id || '';
+}
+
+export function projectRows(state) {
+  const current = normalizeState(state);
+  const projects = normalizeProjectState(current.projects);
+  return TRIBE_PROJECTS.map((project) => {
+    const completed = Boolean(projects.completed?.[project.id]);
+    const progress = Math.min(project.work, Math.max(0, Number(projects.progress?.[project.id] || 0)));
+    const committed = Boolean(projects.resourceCommitted?.[project.id]);
+    const missingPrereqs = (project.prereqs || [])
+      .filter((techId) => !current.research.completed?.[techId])
+      .map((techId) => getTech(techId)?.name || techId);
+    const available = !completed && missingPrereqs.length === 0;
+    const hasCost = committed || hasResources(current.inventory, project.cost || {});
+    return {
+      ...project,
+      completed,
+      progress,
+      progressPct: Math.round((progress / Math.max(1, project.work)) * 100),
+      committed,
+      selected: projects.selectedProjectId === project.id,
+      available,
+      hasCost,
+      canWork: available && hasCost,
+      missingPrereqs,
+      costText: formatRequires(project.cost || {}),
+      statusLabel: completed
+        ? '완성'
+        : committed
+          ? '건설 중'
+          : available
+            ? hasCost ? '착수 가능' : '재료 부족'
+            : '기술 잠김',
+    };
+  });
+}
+
+export function selectProjectAction(state, projectId) {
+  const current = normalizeState(state);
+  const row = projectRows(current).find((project) => project.id === projectId);
+  if (!row) return current;
+  if (row.completed) return addLog(current, `${row.name}은(는) 이미 완성된 프로젝트입니다.`);
+  if (!row.available) return addLog(current, `${row.name} 착수에 필요한 기술: ${row.missingPrereqs.join(', ') || '없음'}.`);
+  return addLog({
+    ...current,
+    projects: { ...current.projects, selectedProjectId: row.id },
+  }, `부족 프로젝트 목표를 ${row.name}(으)로 지정했습니다.`);
+}
+
+export function projectActionEstimate(state, actorId, projectId = '') {
+  const current = normalizeState(state);
+  const actor = getActor(current, actorId);
+  const project = getProject(projectId || current.projects.selectedProjectId);
+  const campSkill = Number(actor?.stats?.camp || 5);
+  const work = clamp(1 + Math.floor(campSkill / 5) + Number(current.camp.workbenchLevel || 0), 1, 4);
+  const staminaCost = Math.max(6, 18 - Math.floor(campSkill / 2) - Number(current.camp.workbenchLevel || 0) * 2);
+  return {
+    project,
+    work,
+    staminaCost,
+  };
+}
+
+export function runProjectAction(state, actorId, projectId = '', options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '프로젝트 작업에 사용할 행동력이 부족합니다.');
+  const targetId = projectId || current.projects.selectedProjectId || nextAvailableProjectId(current);
+  const row = projectRows(current).find((project) => project.id === targetId);
+  if (!row) return addLog(current, '진행할 부족 프로젝트가 없습니다.');
+  if (row.completed) return addLog(current, `${row.name}은(는) 이미 완성됐습니다.`);
+  if (!row.available) return addLog(current, `${row.name} 착수에 필요한 기술: ${row.missingPrereqs.join(', ') || '없음'}.`);
+  if (!row.committed && !hasResources(current.inventory, row.cost || {})) {
+    return addLog(current, `${row.name} 착수 재료가 부족합니다. 필요: ${row.costText}.`);
+  }
+
+  const actor = getActor(current, actorId);
+  const estimate = projectActionEstimate(current, actorId, row.id);
+  const projectState = normalizeProjectState(current.projects);
+  let next = {
+    ...current,
+    inventory: row.committed ? { ...current.inventory } : spendResources(current.inventory, row.cost || {}),
+    projects: {
+      ...projectState,
+      selectedProjectId: row.id,
+      resourceCommitted: { ...projectState.resourceCommitted, [row.id]: true },
+      progress: {
+        ...projectState.progress,
+        [row.id]: Math.min(row.work, Number(projectState.progress?.[row.id] || 0) + estimate.work),
+      },
+    },
+    counters: { ...current.counters, camp: Number(current.counters?.camp || 0) + 1 },
+  };
+  const progress = Number(next.projects.progress?.[row.id] || 0);
+  if (!row.committed) next = addLog(next, `${row.name} 착수. ${row.costText}을(를) 공동 자재로 투입했습니다.`);
+  next = addLog(next, `${actor.name}의 프로젝트 작업: ${row.name} +${estimate.work} (${progress}/${row.work}).`);
+
+  if (progress >= row.work) {
+    const completed = { ...next.projects.completed, [row.id]: true };
+    const rewardEntries = Object.entries(row.reward || {});
+    next = {
+      ...next,
+      inventory: addItems(next.inventory, rewardEntries),
+      projects: {
+        ...next.projects,
+        completed,
+        selectedProjectId: nextAvailableProjectId(next, completed),
+        lastCompletedId: row.id,
+        completionSerial: Number(next.projects.completionSerial || 0) + 1,
+      },
+    };
+    next = addLog(next, `부족 프로젝트 완성: ${row.name}. ${row.effectText}${rewardEntries.length ? ` · ${formatGains(rewardEntries)}` : ''}.`);
+  }
+
+  next = recordResearchEvent(next, { kind: 'camp', campKind: 'project' });
+  return afterAction(next, actorId, estimate.staminaCost, 3, options);
+}
+
 export function canSelectActionZone(state) {
   return hasTechPassive(state, 'ZONE_SELECTION');
+}
+
+function getRegion(regionId) {
+  return WORLD_REGIONS.find((region) => region.id === regionId) || null;
+}
+
+export function regionRows(state) {
+  const current = normalizeState(state);
+  const exploration = normalizeExplorationState(current.exploration);
+  const selectionUnlocked = canSelectActionZone(current);
+  return WORLD_REGIONS.map((region) => {
+    const zone = ZONES.find((row) => row.id === region.zoneId) || ZONES[0];
+    const revealed = Boolean(exploration.revealed?.[region.id]);
+    return {
+      ...region,
+      zone,
+      zoneName: zone.name,
+      revealed,
+      visits: Number(exploration.visits?.[region.id] || 0),
+      selected: exploration.selectedRegionId === region.id,
+      selectable: selectionUnlocked && revealed && !region.safe,
+      recentlyDiscovered: exploration.lastDiscoveredId === region.id && Number(exploration.discoverySerial || 0) > 0,
+      dangerLabel: region.danger <= 1 ? '안전' : region.danger <= 3 ? '주의' : '위험',
+      yieldPct: Math.round(Number(region.yieldBonus || 0) * 100),
+      rarePct: Math.round(Number(region.rareBonus || 0) * 100),
+    };
+  });
+}
+
+export function explorationSummary(state) {
+  const rows = regionRows(state);
+  const revealedRows = rows.filter((region) => region.revealed);
+  const selected = rows.find((region) => region.selected && region.revealed && !region.safe)
+    || revealedRows.find((region) => !region.safe)
+    || rows[0];
+  return {
+    rows,
+    selected,
+    revealed: revealedRows.length,
+    total: rows.length,
+    frontier: rows.filter((region) => !region.revealed && region.neighbors.some((neighborId) => rows.find((row) => row.id === neighborId)?.revealed)).length,
+    selectionUnlocked: canSelectActionZone(state),
+    label: `${revealedRows.length}/${rows.length} 지역 발견`,
+  };
+}
+
+export function selectRegionAction(state, regionId) {
+  const current = normalizeState(state);
+  if (!canSelectActionZone(current)) return addLog(current, '지도 제작 연구를 완료하면 행동 지역을 지정할 수 있습니다.');
+  const region = regionRows(current).find((row) => row.id === regionId);
+  if (!region?.revealed || region.safe) return addLog(current, '아직 행동 지역으로 지정할 수 없는 곳입니다.');
+  return addLog({
+    ...current,
+    exploration: { ...current.exploration, selectedRegionId: region.id },
+  }, `행동 지역을 ${region.name}(으)로 지정했습니다.`);
+}
+
+export function civilizationMilestoneRows(state) {
+  const current = normalizeState(state);
+  const season = seasonForDay(current.day);
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL'];
+  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전' };
+  const completedEras = TECH_TREE
+    .filter((tech) => current.research.completed?.[tech.id])
+    .map((tech) => tech.era);
+  const eraId = eraOrder.reduce((latest, era) => (completedEras.includes(era) ? era : latest), 'PRIMITIVE');
+  const selectedTech = getTech(current.research.selectedTechId);
+  const researchProgress = Number(current.research.progress?.[selectedTech?.id] || 0);
+  const projects = projectRows(current);
+  const selectedProject = projects.find((project) => project.selected && !project.completed)
+    || projects.find((project) => project.available && !project.completed);
+  const exploration = explorationSummary(current);
+  return {
+    season,
+    eraId,
+    eraLabel: eraLabels[eraId] || eraId,
+    rows: [
+      {
+        id: 'season', action: 'season', label: `${season.name} ${season.dayInSeason}/${season.length}일`,
+        value: season.daysRemaining ? `${season.daysRemaining}일 후 계절 전환` : '다음 날 계절 전환', detail: season.note,
+      },
+      {
+        id: 'research', action: 'research', label: selectedTech?.name || '연구 목표 없음',
+        value: selectedTech ? `${Math.max(0, Number(selectedTech.cost || 0) - researchProgress)} RP 남음` : '목표를 지정하세요',
+        detail: selectedTech ? `현재 ${researchProgress}/${selectedTech.cost}` : '부족 발전 후 연구가 해금됩니다.',
+      },
+      {
+        id: 'project', action: 'project', label: selectedProject?.name || '다음 부족 프로젝트',
+        value: selectedProject ? `${Math.max(0, selectedProject.work - selectedProject.progress)} 작업 남음` : '진행 가능한 사업 없음',
+        detail: selectedProject?.effectText || '연구를 진행해 새 공동 사업을 해금하세요.',
+      },
+      {
+        id: 'exploration', action: 'discover', label: '세계 탐사', value: exploration.label,
+        detail: exploration.frontier ? `인접한 미탐사 지역 ${exploration.frontier}곳` : '현재 확인 가능한 경계를 모두 조사했습니다.',
+      },
+    ],
+  };
 }
 
 function hasTechCampUnlock(state, campId) {
@@ -729,6 +978,7 @@ function autoResearchForDay(state) {
     + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_3') ? 2 : 0)
     + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_4') ? 2 : 0)
     + (hasTechPassive(state, 'STATE_RESEARCH_UP') ? 1 : 0)
+    + (hasCompletedProject(state, 'council-fire') ? 1 : 0)
     + bookResearchBonus(state),
     2,
     14
@@ -741,7 +991,9 @@ function autoResearchForTurn(state) {
   const research = normalizeResearch(state.research);
   const techId = research.selectedTechId || nextAvailableTech(research)?.id;
   if (!techId) return state;
-  const points = 1 + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_4') ? 1 : 0);
+  const points = 1
+    + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_4') ? 1 : 0)
+    + (hasCompletedProject(state, 'council-fire') ? 1 : 0);
   return addResearchProgress({ ...state, research }, techId, points, '턴 연구', { silent: true });
 }
 
@@ -1271,7 +1523,8 @@ function foodNutritionValue(state, foodId) {
   return Number(food.nutrition || 0)
     + (foodId === 'packed_ration' && hasTechPassive(state, 'STORAGE_RATIONS_UP') ? 6 : 0)
     + (cooked && hasTechPassive(state, 'COOKING_RECOVERY_UP') ? 4 : 0)
-    + (cooked && hasTechPassive(state, 'COOKING_RECOVERY_UP_2') ? 4 : 0);
+    + (cooked && hasTechPassive(state, 'COOKING_RECOVERY_UP_2') ? 4 : 0)
+    + (hasCompletedProject(state, 'drying-rack') ? 2 : 0);
 }
 
 function foodHealValue(state, foodId) {
@@ -1615,6 +1868,7 @@ export function huntFailureDamage(state) {
   if (hasTechPassive(state, 'HUNT_RISK_DOWN')) damage -= 2;
   if (hasTechPassive(state, 'HUNT_RISK_DOWN_2')) damage -= 2;
   if (hasTechPassive(state, 'HUNT_RISK_DOWN_3')) damage -= 3;
+  if (hasCompletedProject(state, 'palisade')) damage -= 2;
   return Math.max(2, damage);
 }
 
@@ -1794,6 +2048,13 @@ export function actionChance(state, actorId, action, base = 0.55) {
   const camp = action === 'craft' ? Number(state.camp.workbenchLevel || 0) * 0.04 : 0;
   const book = action === 'craft' ? bookCraftChanceBonus(state) : 0;
   const equipment = equipmentBonus(state, actorId, 'successAdd', action);
+  const season = seasonForDay(state.day);
+  const seasonBonus = action === 'gather'
+    ? Number(season.gatherMod || 0)
+    : action === 'hunt'
+      ? Number(season.huntMod || 0)
+      : 0;
+  const projectBonus = action === 'gather' && hasCompletedProject(state, 'irrigation-ditch') ? 0.05 : 0;
   const researchBonus =
     (action === 'gather' && hasTechPassive(state, 'GATHER_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP') ? 0.06 : 0)
@@ -1809,7 +2070,7 @@ export function actionChance(state, actorId, action, base = 0.55) {
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_CRAFT_UP_2') ? 0.04 : 0)
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_CRAFT_UP_3') ? 0.05 : 0)
     + (action === 'craft' && hasTechPassive(state, 'IRON_CRAFT_UP') ? 0.06 : 0);
-  return clamp(base + stat * 0.025 + weather + camp + book + equipment + researchBonus, 0.08, 0.95);
+  return clamp(base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus, 0.08, 0.95);
 }
 
 function staminaCostWithEquipment(state, actorId, action, baseCost) {
@@ -1850,7 +2111,8 @@ export function advanceDay(state, options = {}) {
     * (hasTechPassive(state, 'WEATHER_LORE_UP') ? 0.9 : 1)
     * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN') ? 0.9 : 1)
     * (hasTechPassive(state, 'WEATHER_LORE_UP_2') ? 0.88 : 1)
-    * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN_2') ? 0.82 : 1);
+    * (hasTechPassive(state, 'WEATHER_DAMAGE_DOWN_2') ? 0.82 : 1)
+    * (hasCompletedProject(state, 'palisade') ? 0.85 : 1);
   const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
   const fireActive = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0;
   const fuelSaverNight = hasTechPassive(state, 'CAMP_FUEL_SAVER') && Number(state.day || 1) % 2 === 1;
@@ -1888,7 +2150,12 @@ export function advanceDay(state, options = {}) {
   const note = ended
     ? '파티가 더 이상 움직일 수 없습니다. 런을 종료하고 기록을 남기세요.'
     : `새로운 날입니다. 날씨: ${weather.name}, ${weather.temp}도 · ${tempNote}`;
-  const logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  let logged = addLog(next, fuelUsed ? `${note} 모닥불 연료를 1 소비했습니다.` : note);
+  const previousSeason = seasonForDay(state.day);
+  const currentSeason = seasonForDay(next.day);
+  if (previousSeason.id !== currentSeason.id) {
+    logged = addLog(logged, `계절 전환: ${currentSeason.name}. ${currentSeason.note}`);
+  }
   return recordResearchEvent(autoResearchForDay(logged), { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 });
 }
 
@@ -2354,6 +2621,7 @@ export function scoreState(state) {
     + (hasTechPassive(state, 'CAMP_SCORE_UP_2') ? 300 : 0)
     + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 180 : 0)
     + (hasTechPassive(state, 'ART_SCORE_UP') ? 180 : 0)
+    + (hasCompletedProject(state, 'stone-monument') ? 400 : 0)
     + equipmentCount * 45
     + partyInsulation(state) * 35
     + (state.victory ? 700 : 0)
@@ -2668,10 +2936,12 @@ export function formatGains(entries) {
 function zoneEntryChance(state, chance = 1, context = {}) {
   const baseChance = Number(chance || 1);
   if (baseChance >= 1) return 1;
+  const region = context.region || getRegion(context.regionId);
   return clamp(
     baseChance
       + (hasTechPassive(state, 'RARE_YIELD_UP') ? 0.06 : 0)
       + (hasTechPassive(state, 'RARE_YIELD_UP_2') ? 0.08 : 0)
+      + Number(region?.rareBonus || 0)
       + (context.zoneId === 'cave' && hasTechPassive(state, 'MINERAL_YIELD_UP') ? 0.08 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP') ? 0.05 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP_2') ? 0.06 : 0)
@@ -2682,12 +2952,15 @@ function zoneEntryChance(state, chance = 1, context = {}) {
 }
 
 function zoneBonusQuantityChance(state, context = {}) {
+  const region = context.region || getRegion(context.regionId);
   return clamp(
     0.18
+      + Number(region?.yieldBonus || 0)
       + (hasTechPassive(state, 'RESOURCE_YIELD_UP') ? 0.12 : 0)
       + (hasTechPassive(state, 'RESOURCE_YIELD_UP_2') ? 0.14 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP') ? 0.08 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP_2') ? 0.1 : 0)
+      + (context.action === 'gather' && hasCompletedProject(state, 'irrigation-ditch') ? 0.12 : 0)
       + (context.action === 'hunt' && hasTechPassive(state, 'ANIMAL_YIELD_UP') ? 0.1 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP') ? 0.08 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP_2') ? 0.1 : 0)
@@ -2697,12 +2970,81 @@ function zoneBonusQuantityChance(state, context = {}) {
   );
 }
 
-function resolveActionZone(state, requestedZoneId, rng = Math.random) {
+function revealedActionRegions(state) {
+  const exploration = normalizeExplorationState(state?.exploration);
+  return WORLD_REGIONS.filter((region) => exploration.revealed?.[region.id] && !region.safe);
+}
+
+function resolveActionRegion(state, requestedRegionId, rng = Math.random) {
+  const revealed = revealedActionRegions(state);
+  const fallback = revealed[0] || WORLD_REGIONS.find((region) => !region.safe) || WORLD_REGIONS[0];
   if (canSelectActionZone(state)) {
-    return ZONES.find((row) => row.id === requestedZoneId) || ZONES[0];
+    const requested = revealed.find((region) => region.id === requestedRegionId)
+      || revealed.find((region) => region.zoneId === requestedRegionId)
+      || revealed.find((region) => region.id === state.exploration?.selectedRegionId);
+    return requested || fallback;
   }
-  const index = Math.min(ZONES.length - 1, Math.floor(clamp(Number(rng()), 0, 0.999999) * ZONES.length));
-  return ZONES[index] || ZONES[0];
+  const index = Math.min(revealed.length - 1, Math.floor(clamp(Number(rng()), 0, 0.999999) * revealed.length));
+  return revealed[index] || fallback;
+}
+
+function actionChanceForRegion(state, actorId, action, region) {
+  const base = actionChance(state, actorId, action, action === 'hunt' ? 0.42 : 0.5);
+  return clamp(base - Number(region?.danger || 0) * 0.012, 0.08, 0.95);
+}
+
+export function regionalActionChance(state, actorId, action, requestedRegionId = '') {
+  const current = normalizeState(state);
+  const regions = canSelectActionZone(current)
+    ? [resolveActionRegion(current, requestedRegionId, () => 0)]
+    : revealedActionRegions(current);
+  if (!regions.length) return actionChance(current, actorId, action, action === 'hunt' ? 0.42 : 0.5);
+  return regions.reduce((sum, region) => sum + actionChanceForRegion(current, actorId, action, region), 0) / regions.length;
+}
+
+function discoverRegionAfterAction(state, region, ok, rng = Math.random) {
+  const exploration = normalizeExplorationState(state.exploration);
+  let next = {
+    ...state,
+    exploration: {
+      ...exploration,
+      visits: {
+        ...exploration.visits,
+        [region.id]: Number(exploration.visits?.[region.id] || 0) + 1,
+      },
+    },
+  };
+  const directCandidates = (region.neighbors || [])
+    .map((regionId) => getRegion(regionId))
+    .filter((candidate) => candidate && !exploration.revealed?.[candidate.id]);
+  const frontierCandidates = WORLD_REGIONS.filter((candidate) => (
+    !exploration.revealed?.[candidate.id]
+    && candidate.neighbors.some((neighborId) => exploration.revealed?.[neighborId])
+  ));
+  const candidates = directCandidates.length ? directCandidates : frontierCandidates;
+  if (!candidates.length) return next;
+  const discoveryChance = clamp(
+    (ok ? 0.28 : 0.08)
+      + (hasCompletedProject(state, 'trail-markers') ? 0.18 : 0)
+      + (canSelectActionZone(state) ? 0.06 : 0),
+    0,
+    0.72,
+  );
+  if (rng() >= discoveryChance) return next;
+  const index = Math.min(candidates.length - 1, Math.floor(clamp(Number(rng()), 0, 0.999999) * candidates.length));
+  const discovered = candidates[index];
+  const rewards = discovered.discoveryReward || [];
+  next = {
+    ...next,
+    inventory: addItems(next.inventory, rewards),
+    exploration: {
+      ...next.exploration,
+      revealed: { ...next.exploration.revealed, [discovered.id]: true },
+      lastDiscoveredId: discovered.id,
+      discoverySerial: Number(next.exploration.discoverySerial || 0) + 1,
+    },
+  };
+  return addLog(next, `새 지역 발견: ${discovered.name}. ${discovered.landmark}${rewards.length ? ` · 발견 보상 ${formatGains(rewards)}` : ''}.`);
 }
 
 function rollZoneGains(state, entries, rng = Math.random, context = {}) {
@@ -2714,18 +3056,19 @@ function rollZoneGains(state, entries, rng = Math.random, context = {}) {
   }, []);
 }
 
-function expectedZoneGains(state, action, actorId, requestedZoneId) {
-  const successChance = actionChance(state, actorId, action, action === 'hunt' ? 0.42 : 0.5);
-  const zones = canSelectActionZone(state)
-    ? [ZONES.find((row) => row.id === requestedZoneId) || ZONES[0]]
-    : ZONES;
+function expectedZoneGains(state, action, actorId, requestedRegionId) {
+  const regions = canSelectActionZone(state)
+    ? [resolveActionRegion(state, requestedRegionId, () => 0)]
+    : revealedActionRegions(state);
   const totals = {};
-  const zoneWeight = zones.length ? 1 / zones.length : 1;
-  zones.forEach((zone) => {
-    const context = { action, zoneId: zone.id };
+  const regionWeight = regions.length ? 1 / regions.length : 1;
+  regions.forEach((region) => {
+    const zone = ZONES.find((row) => row.id === region.zoneId) || ZONES[0];
+    const successChance = actionChanceForRegion(state, actorId, action, region);
+    const context = { action, zoneId: zone.id, regionId: region.id, region };
     const bonusChance = zoneBonusQuantityChance(state, context);
     (zone[action] || []).forEach(([itemId, qty, chance = 1]) => {
-      const expected = successChance * zoneWeight * zoneEntryChance(state, chance, context) * (Number(qty || 0) + bonusChance);
+      const expected = successChance * regionWeight * zoneEntryChance(state, chance, context) * (Number(qty || 0) + bonusChance);
       totals[itemId] = Number(totals[itemId] || 0) + expected;
     });
   });
@@ -2740,16 +3083,16 @@ function expectedGainText(rows, detailed = false) {
   return rows.slice(0, 5).map((row) => `${row.name} ${row.expected.toFixed(digits)}`).join(' · ');
 }
 
-export function actionForecastRows(state, actorId, requestedZoneId, recipeId) {
+export function actionForecastRows(state, actorId, requestedRegionId, recipeId) {
   const current = normalizeState(state);
   const actor = getActor(current, actorId);
   const zoneSelectionUnlocked = canSelectActionZone(current);
-  const zone = ZONES.find((row) => row.id === requestedZoneId) || ZONES[0];
+  const region = resolveActionRegion(current, requestedRegionId, () => 0);
   const precise = hasTechPassive(current, 'FORECAST_DETAIL_UP');
-  const gatherChance = actionChance(current, actorId, 'gather', 0.5);
-  const huntChance = actionChance(current, actorId, 'hunt', 0.42);
-  const gatherGains = expectedZoneGains(current, 'gather', actorId, requestedZoneId);
-  const huntGains = expectedZoneGains(current, 'hunt', actorId, requestedZoneId);
+  const gatherChance = regionalActionChance(current, actorId, 'gather', requestedRegionId);
+  const huntChance = regionalActionChance(current, actorId, 'hunt', requestedRegionId);
+  const gatherGains = expectedZoneGains(current, 'gather', actorId, requestedRegionId);
+  const huntGains = expectedZoneGains(current, 'hunt', actorId, requestedRegionId);
   const recipe = RECIPES.find((row) => row.id === recipeId) || RECIPES[0];
   const recipeInfo = recipeUnlockInfo(current, recipe.id);
   const craftChance = recipeInfo.unlocked ? actionChance(current, actorId, 'craft', recipe.baseChance - 0.18) : 0;
@@ -2770,7 +3113,8 @@ export function actionForecastRows(state, actorId, requestedZoneId, recipeId) {
     Math.max(0, 100 - Number(actor?.stamina || 0)),
     42 + Number(current.camp.shelterLevel || 0) * 8,
   );
-  const locationLabel = zoneSelectionUnlocked ? zone.name : `무작위 ${ZONES.length}개 구역 평균`;
+  const revealedCount = revealedActionRegions(current).length;
+  const locationLabel = zoneSelectionUnlocked ? region.name : `탐사된 ${revealedCount}개 지역 평균`;
 
   return [
     {
@@ -2829,53 +3173,59 @@ export function actionForecastRows(state, actorId, requestedZoneId, recipeId) {
   ];
 }
 
-export function runGatherAction(state, actorId, zoneId, options = {}) {
+export function runGatherAction(state, actorId, regionId, options = {}) {
   const rng = options.rng || Math.random;
-  const zone = resolveActionZone(state, zoneId, rng);
-  const actor = getActor(state, actorId);
-  const chance = actionChance(state, actorId, 'gather', 0.5);
+  const current = normalizeState(state);
+  const region = resolveActionRegion(current, regionId, rng);
+  const zone = ZONES.find((row) => row.id === region.zoneId) || ZONES[0];
+  const actor = getActor(current, actorId);
+  const chance = actionChanceForRegion(current, actorId, 'gather', region);
   const ok = rng() < chance;
-  let next = state;
+  let next = current;
   if (ok) {
-    const gains = rollZoneGains(state, zone.gather, rng, { action: 'gather', zoneId: zone.id });
+    const gains = rollZoneGains(current, zone.gather, rng, { action: 'gather', zoneId: zone.id, regionId: region.id, region });
     next = {
       ...next,
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, gather: Number(next.counters.gather || 0) + 1 },
     };
-    next = addLog(next, `${actor.name}의 채집 성공. ${zone.name}에서 ${formatGains(gains)}.`);
+    next = addLog(next, `${actor.name}의 채집 성공. ${region.name}에서 ${formatGains(gains)}.`);
   } else {
-    next = addLog(next, `${actor.name}의 채집 실패. ${zone.name}의 날씨와 지형이 좋지 않았습니다.`);
+    next = addLog(next, `${actor.name}의 채집 실패. ${region.name}의 날씨와 지형이 좋지 않았습니다.`);
   }
   next = addDialogueLog(next, actorId, 'gather', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'gather', zoneId: zone.id, ok, rng });
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(state, actorId, 'gather', 15), 3, options);
+  next = discoverRegionAfterAction(next, region, ok, rng);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'gather', ok }), actorId, staminaCostWithEquipment(current, actorId, 'gather', 15), 3, options);
 }
 
-export function runHuntAction(state, actorId, zoneId, options = {}) {
+export function runHuntAction(state, actorId, regionId, options = {}) {
   const rng = options.rng || Math.random;
-  const zone = resolveActionZone(state, zoneId, rng);
-  const actor = getActor(state, actorId);
-  const chance = actionChance(state, actorId, 'hunt', 0.42);
+  const current = normalizeState(state);
+  const region = resolveActionRegion(current, regionId, rng);
+  const zone = ZONES.find((row) => row.id === region.zoneId) || ZONES[0];
+  const actor = getActor(current, actorId);
+  const chance = actionChanceForRegion(current, actorId, 'hunt', region);
   const ok = rng() < chance;
-  let next = state;
+  let next = current;
   if (ok) {
-    const gains = rollZoneGains(state, zone.hunt, rng, { action: 'hunt', zoneId: zone.id });
+    const gains = rollZoneGains(current, zone.hunt, rng, { action: 'hunt', zoneId: zone.id, regionId: region.id, region });
     next = {
       ...next,
       inventory: addItems(next.inventory, gains),
       counters: { ...next.counters, hunt: Number(next.counters.hunt || 0) + 1 },
     };
-    next = addLog(next, `${actor.name}의 사냥 성공. ${formatGains(gains)}.`);
+    next = addLog(next, `${actor.name}의 사냥 성공. ${region.name}에서 ${formatGains(gains)}.`);
   } else {
     const target = getActor(next, actorId);
     const damage = huntFailureDamage(next);
     next = updateActor(next, actorId, { hp: clamp(Number(target.hp || 0) - damage, 0, 100) });
-    next = addLog(next, `${actor.name}의 사냥 실패. 반격으로 HP -${damage}.`);
+    next = addLog(next, `${actor.name}의 사냥 실패. ${region.name}에서 반격으로 HP -${damage}.`);
   }
   next = addDialogueLog(next, actorId, 'hunt', ok ? 'success' : 'fail', rng);
   next = applyExplorationEvent(next, { actorId, action: 'hunt', zoneId: zone.id, ok, rng });
-  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(state, actorId, 'hunt', 24), 5, options);
+  next = discoverRegionAfterAction(next, region, ok, rng);
+  return afterAction(recordResearchEvent(next, { kind: 'action', action: 'hunt', ok }), actorId, staminaCostWithEquipment(current, actorId, 'hunt', 24), 5, options);
 }
 
 export function runCraftAction(state, actorId, recipeId, options = {}) {

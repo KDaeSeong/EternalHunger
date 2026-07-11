@@ -11,6 +11,7 @@ import {
   RESEARCH_ERA_LABELS,
   RESEARCH_TAG_LABELS,
 } from '../_lib/primitiveArchivePageRuntime';
+import PrimitiveArchiveProjectsPanel from './PrimitiveArchiveProjectsPanel';
 
 export default function PrimitiveArchiveGrowthTab(props) {
   const {
@@ -19,13 +20,18 @@ export default function PrimitiveArchiveGrowthTab(props) {
     inspirationRows,
     perks,
     priorityPlannerRows,
+    projectEstimate,
+    projects,
     recentActionText,
     research,
     researchMap,
     researchPlannerOpen,
     runResearch,
+    runProject,
+    selectProject,
     selectResearchTarget,
     selectedPlanner,
+    selectedProject,
     selectedResearchHelp,
     setResearchPlannerOpen,
     state,
@@ -77,6 +83,15 @@ export default function PrimitiveArchiveGrowthTab(props) {
           </div>
           <div className="games-empty">세 시설을 갖추면 기술 목표 지정, 매 행동 턴 RP, 일일 자동 연구가 동시에 해금됩니다.</div>
         </section>
+
+        <PrimitiveArchiveProjectsPanel
+          canAct={canAct}
+          projectEstimate={projectEstimate}
+          projects={projects}
+          runProject={runProject}
+          selectProject={selectProject}
+          selectedProject={selectedProject}
+        />
 
         <section className="games-panel">
           <div className="games-panel-title">
@@ -240,6 +255,15 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 ))}
               </div>
             </section>
+
+            <PrimitiveArchiveProjectsPanel
+              canAct={canAct}
+              projectEstimate={projectEstimate}
+              projects={projects}
+              runProject={runProject}
+              selectProject={selectProject}
+              selectedProject={selectedProject}
+            />
 
             <section className="games-panel primitive-research-workspace">
               <div className="games-panel-title">

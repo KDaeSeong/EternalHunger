@@ -154,6 +154,101 @@ export const ZONES = [
   { id: 'plains', name: '초원', gather: [['fiber', 2], ['berry', 1], ['herb', 1, 0.25]], hunt: [['meat', 2], ['hide', 1], ['sinew', 1, 0.28], ['dino_hide', 1, 0.14], ['dino_bone', 1, 0.12], ['rune_shard', 1, 0.05]], note: '식량과 대형 사냥감 기회가 있습니다. 희귀한 공룡 소재도 노릴 수 있습니다.' },
 ];
 
+export const SEASONS = [
+  { id: 'spring', name: '봄', length: 6, note: '비와 새싹이 늘어 채집이 유리합니다.', gatherMod: 0.03, huntMod: 0 },
+  { id: 'summer', name: '여름', length: 6, note: '긴 낮 덕분에 사냥이 쉬워지지만 더위가 찾아옵니다.', gatherMod: 0, huntMod: 0.03 },
+  { id: 'autumn', name: '가을', length: 6, note: '수확량이 늘어 겨울 비축에 가장 중요한 시기입니다.', gatherMod: 0.02, huntMod: 0.01 },
+  { id: 'winter', name: '겨울', length: 6, note: '채집과 사냥이 어려워지고 추위 대비가 필요합니다.', gatherMod: -0.05, huntMod: -0.04 },
+];
+
+export const WORLD_REGIONS = [
+  {
+    id: 'camp-heart', name: '부족 중심지', zoneId: 'forest', x: 500, y: 320, neighbors: ['whisper-woods', 'river-ford', 'sun-meadow'],
+    revealedAtStart: true, safe: true, danger: 0, yieldBonus: 0, landmark: '모닥불과 첫 대피소', yieldHint: '행동 거점', discoveryReward: [],
+  },
+  {
+    id: 'whisper-woods', name: '속삭임 숲', zoneId: 'forest', x: 310, y: 245, neighbors: ['camp-heart', 'old-grove', 'echo-cave', 'sun-meadow'],
+    revealedAtStart: true, danger: 1, yieldBonus: 0.04, landmark: '수지 맺힌 고목', yieldHint: '나무·섬유·수지', discoveryReward: [['wood', 2], ['fiber', 1]],
+  },
+  {
+    id: 'river-ford', name: '얕은 여울', zoneId: 'river', x: 690, y: 245, neighbors: ['camp-heart', 'clay-bank', 'red-cliffs', 'sun-meadow'],
+    revealedAtStart: true, danger: 1, yieldBonus: 0.04, landmark: '건널 수 있는 물길', yieldHint: '돌·점토·약초', discoveryReward: [['stone', 2], ['herb', 1]],
+  },
+  {
+    id: 'sun-meadow', name: '햇살 초원', zoneId: 'plains', x: 500, y: 455, neighbors: ['camp-heart', 'whisper-woods', 'river-ford', 'bone-field', 'wind-plains'],
+    danger: 2, yieldBonus: 0.06, landmark: '대형 짐승의 이동로', yieldHint: '베리·고기·가죽', discoveryReward: [['berry', 2], ['meat', 1]],
+  },
+  {
+    id: 'old-grove', name: '태고의 숲', zoneId: 'forest', x: 170, y: 115, neighbors: ['whisper-woods', 'north-ridge'],
+    danger: 2, yieldBonus: 0.08, rareBonus: 0.04, landmark: '거대한 연륜목', yieldHint: '나무·수지·희귀 흔적', discoveryReward: [['resin', 1], ['wood', 2]],
+  },
+  {
+    id: 'echo-cave', name: '메아리 동굴', zoneId: 'cave', x: 135, y: 390, neighbors: ['whisper-woods', 'obsidian-hollow', 'bone-field'],
+    danger: 3, yieldBonus: 0.08, rareBonus: 0.06, landmark: '벽면의 오래된 긁힌 자국', yieldHint: '부싯돌·뼈·흑요석', discoveryReward: [['flint', 1], ['bone', 1]],
+  },
+  {
+    id: 'clay-bank', name: '붉은 점토톱', zoneId: 'river', x: 835, y: 115, neighbors: ['river-ford', 'north-ridge', 'marsh-delta'],
+    danger: 2, yieldBonus: 0.07, landmark: '붉은 점토층', yieldHint: '점토·돌·약초', discoveryReward: [['clay', 2], ['stone', 1]],
+  },
+  {
+    id: 'red-cliffs', name: '붉은 절벽', zoneId: 'cave', x: 865, y: 390, neighbors: ['river-ford', 'marsh-delta', 'wind-plains'],
+    danger: 4, yieldBonus: 0.1, rareBonus: 0.08, landmark: '노출된 검은 암맥', yieldHint: '돌·흑요석·변이 소재', discoveryReward: [['obsidian_shard', 1], ['stone', 2]],
+  },
+  {
+    id: 'bone-field', name: '뼈의 들판', zoneId: 'plains', x: 305, y: 555, neighbors: ['sun-meadow', 'echo-cave', 'obsidian-hollow'],
+    danger: 3, yieldBonus: 0.08, rareBonus: 0.04, landmark: '거대 생물의 골격', yieldHint: '뼈·가죽·공룡 소재', discoveryReward: [['bone', 2], ['hide', 1]],
+  },
+  {
+    id: 'wind-plains', name: '바람 초원', zoneId: 'plains', x: 695, y: 555, neighbors: ['sun-meadow', 'red-cliffs', 'marsh-delta'],
+    danger: 3, yieldBonus: 0.09, rareBonus: 0.05, landmark: '끝없이 이어진 짐승길', yieldHint: '고기·가죽·룬 파편', discoveryReward: [['meat', 2], ['sinew', 1]],
+  },
+  {
+    id: 'obsidian-hollow', name: '흑요석 함몰지', zoneId: 'cave', x: 95, y: 585, neighbors: ['echo-cave', 'bone-field'],
+    danger: 5, yieldBonus: 0.12, rareBonus: 0.12, landmark: '검은 유리질 지층', yieldHint: '흑요석·희귀 광물', discoveryReward: [['obsidian_shard', 2]],
+  },
+  {
+    id: 'marsh-delta', name: '안개 삼각주', zoneId: 'river', x: 905, y: 585, neighbors: ['clay-bank', 'red-cliffs', 'wind-plains'],
+    danger: 4, yieldBonus: 0.11, rareBonus: 0.07, landmark: '안개 속 석조 기둥', yieldHint: '약초·점토·룬 파편', discoveryReward: [['herb', 2], ['clay', 1]],
+  },
+  {
+    id: 'north-ridge', name: '북쪽 하늘마루', zoneId: 'cave', x: 500, y: 70, neighbors: ['old-grove', 'clay-bank'],
+    danger: 5, yieldBonus: 0.12, rareBonus: 0.1, landmark: '별을 관측하기 좋은 석대', yieldHint: '돌·흑요석·천문 단서', discoveryReward: [['rune_shard', 1], ['stone', 2]],
+  },
+];
+
+export const TRIBE_PROJECTS = [
+  {
+    id: 'drying-rack', name: '공동 건조대', era: 'PRIMITIVE', prereqs: ['GATHERING'], work: 5,
+    cost: { wood: 3, fiber: 2 }, effectId: 'FOOD_RESERVE', reward: { jerky: 1 },
+    description: '식량을 말리고 분배하는 공동 시설입니다.', effectText: '식량 회복 +2 · 완성 시 육포 1개',
+  },
+  {
+    id: 'trail-markers', name: '탐사 표식망', era: 'NEOLITHIC', prereqs: ['CARTOGRAPHY'], work: 6,
+    cost: { wood: 3, fiber: 3, resin: 1 }, effectId: 'DISCOVERY_NETWORK', reward: { fiber: 2 },
+    description: '나무 표식과 매듭으로 탐사 경로를 연결합니다.', effectText: '새 지역 발견 확률 증가',
+  },
+  {
+    id: 'irrigation-ditch', name: '공동 관개수로', era: 'ANCIENT', prereqs: ['AGRICULTURE'], work: 8,
+    cost: { wood: 4, stone: 4, clay: 2 }, effectId: 'PROJECT_GATHER_UP', reward: { berry: 3, herb: 2 },
+    description: '물길을 정리해 계절과 무관하게 식물 자원을 확보합니다.', effectText: '채집 성공률·추가 수확 증가',
+  },
+  {
+    id: 'council-fire', name: '부족 회의 화덕', era: 'ANCIENT', prereqs: ['ORAL_RECORDS'], work: 7,
+    cost: { wood: 4, stone: 2, resin: 1 }, effectId: 'PROJECT_RESEARCH_UP', reward: { clay: 2 },
+    description: '하루의 경험을 모아 다음 세대에 전하는 회의 장소입니다.', effectText: '턴·일일 자동 연구 +1RP',
+  },
+  {
+    id: 'palisade', name: '목책 방어선', era: 'ANCIENT', prereqs: ['EARLY_CONSTRUCTION'], work: 9,
+    cost: { wood: 7, stone: 3, hide: 2 }, effectId: 'PROJECT_DEFENSE_UP', reward: { hide: 1 },
+    description: '짐승과 악천후로부터 정착지를 지키는 방어선입니다.', effectText: '사냥 실패·날씨 피해 감소',
+  },
+  {
+    id: 'stone-monument', name: '부족 석조 기념물', era: 'CLASSICAL', prereqs: ['CLASSICAL_PHILOSOPHY'], work: 12,
+    cost: { stone: 10, clay: 5, rune_shard: 1 }, effectId: 'PROJECT_ARCHIVE_SCORE', reward: { rune_shard: 1 },
+    description: '부족의 역사와 지식을 돌에 새기는 장기 사업입니다.', effectText: '기록 점수 +400',
+  },
+];
+
 export const ITEMS = {
   wood: { name: '나무', icon: 'wood', weight: 1 },
   stone: { name: '돌', icon: 'stone', weight: 1 },
@@ -750,13 +845,47 @@ export function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+export function seasonForDay(day = 1) {
+  const safeDay = Math.max(1, Number(day || 1));
+  const yearLength = SEASONS.reduce((sum, season) => sum + Number(season.length || 0), 0);
+  const cycleDay = ((safeDay - 1) % yearLength) + 1;
+  let cursor = 0;
+  const season = SEASONS.find((row) => {
+    cursor += Number(row.length || 0);
+    return cycleDay <= cursor;
+  }) || SEASONS[0];
+  const seasonStart = cursor - Number(season.length || 0) + 1;
+  const dayInSeason = cycleDay - seasonStart + 1;
+  return {
+    ...season,
+    year: Math.floor((safeDay - 1) / yearLength) + 1,
+    yearLength,
+    cycleDay,
+    dayInSeason,
+    daysRemaining: Math.max(0, Number(season.length || 0) - dayInSeason),
+  };
+}
+
 export function rollWeather(day = 1, rng = Math.random) {
-  const snowBias = Math.min(0.2, day * 0.01);
+  const season = seasonForDay(day);
   const roll = rng();
-  if (roll > 0.92 - snowBias) return WEATHER[3];
-  if (roll > 0.78) return WEATHER[2];
-  if (roll > 0.58) return WEATHER[1];
-  if (roll < 0.08) return WEATHER[4];
+  if (season.id === 'winter') {
+    if (roll > 0.55) return WEATHER[3];
+    if (roll > 0.2) return WEATHER[2];
+    return WEATHER[0];
+  }
+  if (season.id === 'spring') {
+    if (roll > 0.94) return WEATHER[2];
+    if (roll > 0.68) return WEATHER[1];
+    return WEATHER[0];
+  }
+  if (season.id === 'summer') {
+    if (roll < 0.28) return WEATHER[4];
+    if (roll > 0.92) return WEATHER[1];
+    return WEATHER[0];
+  }
+  if (roll > 0.82) return WEATHER[2];
+  if (roll > 0.64) return WEATHER[1];
   return WEATHER[0];
 }
 
@@ -788,6 +917,76 @@ export function normalizeEquipment(value, party) {
       return [slot, item?.type === 'equip' && item.slot === slot ? itemId : null];
     }))];
   }));
+}
+
+export function initExplorationState() {
+  return {
+    selectedRegionId: 'whisper-woods',
+    revealed: Object.fromEntries(WORLD_REGIONS.map((region) => [region.id, Boolean(region.revealedAtStart)])),
+    visits: {},
+    lastDiscoveredId: '',
+    discoverySerial: 0,
+  };
+}
+
+export function normalizeExplorationState(value = {}) {
+  const base = initExplorationState();
+  const sourceRevealed = value.revealed && typeof value.revealed === 'object' ? value.revealed : {};
+  const revealed = Object.fromEntries(WORLD_REGIONS.map((region) => [
+    region.id,
+    Boolean(region.revealedAtStart || sourceRevealed[region.id]),
+  ]));
+  const selectedCandidate = WORLD_REGIONS.find((region) => region.id === value.selectedRegionId && revealed[region.id] && !region.safe);
+  return {
+    ...base,
+    ...value,
+    selectedRegionId: selectedCandidate?.id || base.selectedRegionId,
+    revealed,
+    visits: Object.fromEntries(WORLD_REGIONS.map((region) => [
+      region.id,
+      Math.max(0, Number(value.visits?.[region.id] || 0)),
+    ])),
+    lastDiscoveredId: WORLD_REGIONS.some((region) => region.id === value.lastDiscoveredId) ? value.lastDiscoveredId : '',
+    discoverySerial: Math.max(0, Number(value.discoverySerial || 0)),
+  };
+}
+
+export function initProjectState() {
+  return {
+    selectedProjectId: TRIBE_PROJECTS[0]?.id || '',
+    progress: {},
+    resourceCommitted: {},
+    completed: {},
+    lastCompletedId: '',
+    completionSerial: 0,
+  };
+}
+
+export function normalizeProjectState(value = {}) {
+  const base = initProjectState();
+  const validProjectIds = new Set(TRIBE_PROJECTS.map((project) => project.id));
+  const selectedProjectId = typeof value.selectedProjectId === 'string'
+    ? validProjectIds.has(value.selectedProjectId) ? value.selectedProjectId : ''
+    : base.selectedProjectId;
+  return {
+    ...base,
+    ...value,
+    selectedProjectId,
+    progress: Object.fromEntries(TRIBE_PROJECTS.map((project) => [
+      project.id,
+      Math.min(project.work, Math.max(0, Number(value.progress?.[project.id] || 0))),
+    ])),
+    resourceCommitted: Object.fromEntries(TRIBE_PROJECTS.map((project) => [
+      project.id,
+      Boolean(value.resourceCommitted?.[project.id]),
+    ])),
+    completed: Object.fromEntries(TRIBE_PROJECTS.map((project) => [
+      project.id,
+      Boolean(value.completed?.[project.id]),
+    ])),
+    lastCompletedId: validProjectIds.has(value.lastCompletedId) ? value.lastCompletedId : '',
+    completionSerial: Math.max(0, Number(value.completionSerial || 0)),
+  };
 }
 
 export function initResearchState() {

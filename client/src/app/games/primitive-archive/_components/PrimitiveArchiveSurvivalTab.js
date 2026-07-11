@@ -7,7 +7,6 @@ import {
 } from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
-  ZONES,
   completeArchiveAction,
   equipmentChoicesForSlot,
   formatRequires,
@@ -19,6 +18,8 @@ import {
   actionLabel,
   chanceText,
 } from '../_lib/primitiveArchivePageRuntime';
+import PrimitiveArchiveTurnHorizon from './PrimitiveArchiveTurnHorizon';
+import PrimitiveArchiveWorldMap from './PrimitiveArchiveWorldMap';
 
 export default function PrimitiveArchiveSurvivalTab(props) {
   const {
@@ -37,8 +38,10 @@ export default function PrimitiveArchiveSurvivalTab(props) {
     equipmentAdviceMode,
     equipmentAdviceRows,
     equipmentInventory,
+    exploration,
     gatherChance,
     huntChance,
+    milestones,
     partyCap,
     partySort,
     partyView,
@@ -59,12 +62,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
     runRecoveryChoice,
     runResearch,
     runRest,
+    selectRegion,
     selectedRecruit,
+    selectedRegion,
     setActorId,
     setPartySort,
     setRecipeId,
     setSelectedRecruitId,
-    setZoneId,
+    regions,
     state,
     zone,
     zoneId,
@@ -73,6 +78,7 @@ export default function PrimitiveArchiveSurvivalTab(props) {
 
   return (
     <>
+          <PrimitiveArchiveTurnHorizon milestones={milestones} />
           <section className="games-panel games-action-dock">
             <div className="games-panel-title">
               <h2>빠른 행동</h2>
@@ -82,12 +88,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
               <label className="game-save-json-field">
                 <span>지역</span>
                 <select
-                  value={zoneSelectionUnlocked ? zoneId : 'random'}
+                  value={zoneSelectionUnlocked ? selectedRegion?.id || zoneId : 'random'}
                   disabled={!zoneSelectionUnlocked}
-                  onChange={(event) => setZoneId(event.target.value)}
+                  onChange={(event) => selectRegion(event.target.value)}
                 >
                   {!zoneSelectionUnlocked ? <option value="random">미지의 구역 · 행동 시 무작위</option> : null}
-                  {ZONES.map((row) => <option value={row.id} key={row.id}>{row.name}</option>)}
+                  {(regions || []).filter((row) => row.revealed && !row.safe).map((row) => (
+                    <option value={row.id} key={row.id}>{row.name} · {row.dangerLabel}</option>
+                  ))}
                 </select>
                 <small>{zoneSelectionUnlocked ? '지도 제작 완료 · 구역 지정 가능' : '지도 제작 연구를 완료하면 구역을 지정할 수 있습니다.'}</small>
               </label>
@@ -103,7 +111,11 @@ export default function PrimitiveArchiveSurvivalTab(props) {
               </label>
             </div>
             <div className="games-action-dock__notes">
-              <span>{zoneSelectionUnlocked ? zone.note : '미지의 지형을 탐색합니다. 채집과 사냥을 실행할 때 숲·강가·동굴·초원 중 한 곳이 무작위로 결정됩니다.'}</span>
+              <span>
+                {zoneSelectionUnlocked
+                  ? `${selectedRegion?.landmark || zone.note} · ${selectedRegion?.yieldHint || zone.note}`
+                  : `현재 발견한 ${exploration?.revealed || 0}개 지역 중 한 곳에서 행동합니다. 지도 제작 후 원하는 지역을 지정할 수 있습니다.`}
+              </span>
               <span>
                 {recipe?.unlocked
                   ? `제작: ${formatRequires(recipe.requires)} · ${recipe.note}${recipe.prototype ? ` · ${recipe.statusLabel}` : ''}`
@@ -150,6 +162,14 @@ export default function PrimitiveArchiveSurvivalTab(props) {
             </div>
             <RecentActionResult text={recentActionText} pinned />
           </section>
+
+          <PrimitiveArchiveWorldMap
+            exploration={exploration}
+            onSelect={selectRegion}
+            regions={regions}
+            selectedRegion={selectedRegion}
+            selectionUnlocked={zoneSelectionUnlocked}
+          />
 
           <section className="games-detail-grid">
             <section className="games-panel">

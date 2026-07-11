@@ -84,6 +84,24 @@ const CUE_PROFILES = {
     { frequency: 720, start: 0.038, duration: 0.055, type: 'sine', gain: 0.05 },
     { frequency: 960, start: 0.086, duration: 0.075, type: 'sine', gain: 0.04 },
   ],
+  discover: [
+    { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.055, gain: 0.035 },
+    { frequency: 520, endFrequency: 720, duration: 0.08, type: 'sine', gain: 0.05 },
+    { frequency: 980, start: 0.07, duration: 0.1, type: 'sine', gain: 0.04 },
+  ],
+  project: [
+    { source: 'noise', filterType: 'bandpass', frequency: 720, q: 1.8, duration: 0.04, gain: 0.055 },
+    { frequency: 250, endFrequency: 180, duration: 0.085, type: 'triangle', gain: 0.06 },
+  ],
+  projectComplete: [
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.055 },
+    { frequency: 590, start: 0.04, duration: 0.065, type: 'triangle', gain: 0.05 },
+    { frequency: 880, start: 0.095, duration: 0.11, type: 'sine', gain: 0.045 },
+  ],
+  season: [
+    { frequency: 330, endFrequency: 460, duration: 0.12, type: 'sine', gain: 0.045 },
+    { frequency: 660, start: 0.08, duration: 0.13, type: 'sine', gain: 0.035 },
+  ],
   judge: [
     { frequency: 190, endFrequency: 130, duration: 0.085, type: 'square', gain: 0.05 },
     { source: 'noise', filterType: 'bandpass', frequency: 520, q: 2, start: 0.045, duration: 0.055, gain: 0.06 },

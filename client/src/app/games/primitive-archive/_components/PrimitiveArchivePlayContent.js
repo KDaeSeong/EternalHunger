@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   ActionButton,
   GameControlButton,
@@ -25,6 +26,7 @@ import {
   buyPerkAction,
   canSelectActionZone,
   campFacilityRows,
+  civilizationMilestoneRows,
   completeArchiveAction,
   clearAllEquipmentAction,
   createNewState,
@@ -40,29 +42,36 @@ import {
   logCapacity,
   partyInsulation,
   perkRows,
+  projectActionEstimate,
+  projectRows,
   recipeRows,
   recruitPartyMemberAction,
   recruitablePartyRows,
   researchInspirationRows,
   researchPlannerRows,
   researchSummary,
+  regionalActionChance,
   runCampAction,
   runCraftAction,
   runAutoDayAction,
   runEatAction,
   runGatherAction,
   runHuntAction,
+  runProjectAction,
   runEventChainAction,
   runRecoveryChoiceAction,
   runResearchAction,
   runRestAction,
   scoreState,
+  selectProjectAction,
+  selectRegionAction,
   selectTechAction,
   setEquipmentSlotAction,
   settleRunAction,
   startNewRunFromMeta,
   techRows,
   totalCarryWeight,
+  explorationSummary,
 } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
@@ -91,18 +100,25 @@ export default function PrimitiveArchivePlayContent() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'survival' });
   const [state, setState] = useState(createHydrationSafeState);
   const [actorId, setActorId] = useState('shiroko');
-  const [zoneId, setZoneId] = useState('forest');
+  const [zoneId, setZoneId] = useState('whisper-woods');
   const [recipeId, setRecipeId] = useState('twine');
   const [partySort, setPartySort] = useState('default');
   const [selectedRecruitId, setSelectedRecruitId] = useState('');
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
   const [actionResult, setActionResult] = useState('');
+  const feedbackRef = useRef({
+    runId: state.runId,
+    discoverySerial: Number(state.exploration?.discoverySerial || 0),
+    projectSerial: Number(state.projects?.completionSerial || 0),
+    researchSerial: Number(state.research?.completionSerial || 0),
+    seasonId: '',
+  });
 
   const actor = getActor(state, actorId);
-  const zone = ZONES.find((row) => row.id === zoneId) || ZONES[0];
   const recipes = useMemo(() => recipeRows(state), [state]);
   const recipe = recipes.find((row) => row.id === recipeId) || recipes.find((row) => row.unlocked) || recipes[0];
   const hp = averageParty(state, 'hp');
@@ -131,8 +147,14 @@ export default function PrimitiveArchivePlayContent() {
   });
   const dead = state.ended || hp <= 0;
   const canAct = !dead && state.ap > 0;
-  const gatherChance = actionChance(state, actorId, 'gather', 0.5);
-  const huntChance = actionChance(state, actorId, 'hunt', 0.42);
+  const exploration = useMemo(() => explorationSummary(state), [state]);
+  const regions = exploration.rows;
+  const zoneSelectionUnlocked = canSelectActionZone(state);
+  const selectedRegion = exploration.selected;
+  const activeRegionId = zoneSelectionUnlocked ? selectedRegion?.id || zoneId : zoneId;
+  const zone = selectedRegion?.zone || ZONES[0];
+  const gatherChance = regionalActionChance(state, actorId, 'gather', activeRegionId);
+  const huntChance = regionalActionChance(state, actorId, 'hunt', activeRegionId);
   const craftChance = recipe?.unlocked ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
@@ -146,6 +168,15 @@ export default function PrimitiveArchivePlayContent() {
   const researchMap = useMemo(() => buildResearchMap(techs), [techs]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
+  const projects = useMemo(() => projectRows(state), [state]);
+  const selectedProject = projects.find((project) => project.selected && !project.completed)
+    || projects.find((project) => project.available && !project.completed)
+    || projects[0];
+  const projectEstimate = useMemo(
+    () => projectActionEstimate(state, actorId, selectedProject?.id || ''),
+    [actorId, selectedProject?.id, state],
+  );
+  const milestones = useMemo(() => civilizationMilestoneRows(state), [state]);
   const currentEquipmentRows = useMemo(() => equipmentRows(state, actorId), [state, actorId]);
   const equipmentInventory = useMemo(() => equipmentInventoryRows(state), [state]);
   const partyCap = getPartyCap(state);
@@ -153,11 +184,28 @@ export default function PrimitiveArchivePlayContent() {
   const selectedRecruit = recruitCandidates.find((candidate) => candidate.id === selectedRecruitId) || recruitCandidates[0];
   const insulation = partyInsulation(state);
   const currentLogCapacity = logCapacity(state);
-  const zoneSelectionUnlocked = canSelectActionZone(state);
   const actionForecasts = useMemo(
-    () => actionForecastRows(state, actorId, zoneId, recipeId),
-    [actorId, recipeId, state, zoneId],
+    () => actionForecastRows(state, actorId, activeRegionId, recipeId),
+    [activeRegionId, actorId, recipeId, state],
   );
+
+  useEffect(() => {
+    const previous = feedbackRef.current;
+    const current = {
+      runId: state.runId,
+      discoverySerial: Number(state.exploration?.discoverySerial || 0),
+      projectSerial: Number(state.projects?.completionSerial || 0),
+      researchSerial: Number(state.research?.completionSerial || 0),
+      seasonId: milestones.season.id,
+    };
+    if (previous.runId === current.runId) {
+      if (current.discoverySerial > previous.discoverySerial) playGameSfx('discover');
+      if (current.projectSerial > previous.projectSerial) playGameSfx('projectComplete');
+      if (current.researchSerial > previous.researchSerial) playGameSfx('complete');
+      if (previous.seasonId && current.seasonId !== previous.seasonId) playGameSfx('season');
+    }
+    feedbackRef.current = current;
+  }, [milestones.season.id, playGameSfx, state.exploration?.discoverySerial, state.projects?.completionSerial, state.research?.completionSerial, state.runId]);
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
       const chances = {
@@ -245,12 +293,12 @@ export default function PrimitiveArchivePlayContent() {
 
   const runGather = () => {
     if (!canAct) return;
-    applyAction('채집', (current) => runGatherAction(current, actorId, zoneId));
+    applyAction('채집', (current) => runGatherAction(current, actorId, activeRegionId));
   };
 
   const runHunt = () => {
     if (!canAct) return;
-    applyAction('사냥', (current) => runHuntAction(current, actorId, zoneId));
+    applyAction('사냥', (current) => runHuntAction(current, actorId, activeRegionId));
   };
 
   const runCraft = () => {
@@ -278,6 +326,22 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('캠프', (current) => runCampAction(current, actorId, kind));
   };
 
+  const selectRegion = (regionId) => {
+    const region = regions.find((row) => row.id === regionId);
+    setZoneId(regionId);
+    applyAction('행동 지역 변경', (current) => selectRegionAction(current, regionId), `행동 지역을 ${region?.name || '새 지역'}(으)로 지정했습니다.`);
+  };
+
+  const selectProject = (projectId) => {
+    const project = projects.find((row) => row.id === projectId);
+    applyAction('부족 프로젝트 지정', (current) => selectProjectAction(current, projectId), `${project?.name || '새 프로젝트'}을(를) 공동 목표로 지정했습니다.`);
+  };
+
+  const runProject = () => {
+    if (!canAct || !selectedProject) return;
+    applyAction('부족 프로젝트', (current) => runProjectAction(current, actorId, selectedProject.id));
+  };
+
   const runRecoveryChoice = (choiceId) => {
     if (!canAct) return;
     const choice = runProgressReport.recoveryChoices?.find((row) => row.id === choiceId);
@@ -301,7 +365,7 @@ export default function PrimitiveArchivePlayContent() {
   const startNewRun = () => {
     setState((current) => startNewRunFromMeta(current, { difficulty: newRunDifficulty }));
     setActorId('shiroko');
-    setZoneId('forest');
+    setZoneId('whisper-woods');
     setRecipeId('twine');
     setSelectedRecruitId('');
     setActionResult(`${selectedDifficulty.label} 난이도로 새 원시 아카이브 런을 시작했습니다.`);
@@ -481,10 +545,14 @@ export default function PrimitiveArchivePlayContent() {
         huntChance={huntChance}
         inspirationRows={inspirationRows}
         inventoryRows={inventoryRows}
+        exploration={exploration}
+        milestones={milestones}
         partyCap={partyCap}
         partySort={partySort}
         partyView={partyView}
         perks={perks}
+        projectEstimate={projectEstimate}
+        projects={projects}
         priorityPlannerRows={priorityPlannerRows}
         recentActionText={recentActionText}
         recipe={recipe}
@@ -500,13 +568,18 @@ export default function PrimitiveArchivePlayContent() {
         runEat={runEat}
         runGather={runGather}
         runHunt={runHunt}
+        runProject={runProject}
         runEventChain={runEventChain}
         runProgressReport={runProgressReport}
         runRecoveryChoice={runRecoveryChoice}
         runResearch={runResearch}
         runRest={runRest}
         selectResearchTarget={selectResearchTarget}
+        selectProject={selectProject}
+        selectRegion={selectRegion}
         selectedPlanner={selectedPlanner}
+        selectedProject={selectedProject}
+        selectedRegion={selectedRegion}
         selectedRecruit={selectedRecruit}
         selectedResearchHelp={selectedResearchHelp}
         setActorId={setActorId}
@@ -514,11 +587,11 @@ export default function PrimitiveArchivePlayContent() {
         setRecipeId={setRecipeId}
         setResearchPlannerOpen={setResearchPlannerOpen}
         setSelectedRecruitId={setSelectedRecruitId}
-        setZoneId={setZoneId}
+        regions={regions}
         state={state}
         techs={techs}
         zone={zone}
-        zoneId={zoneId}
+        zoneId={activeRegionId}
         zoneSelectionUnlocked={zoneSelectionUnlocked}
       />
     </GamePlayShell>

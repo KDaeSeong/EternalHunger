@@ -1,5 +1,8 @@
 const ACTION_RULES = [
   { kind: 'preset', cue: 'preset', terms: ['preset', 'loadout'] },
+  { kind: 'discover', cue: 'discover', terms: ['탐사', '발견', '개척', 'explore', 'discover', 'survey'] },
+  { kind: 'project', cue: 'project', terms: ['부족 프로젝트', '공동 작업', '공동 건설', 'project'] },
+  { kind: 'season', cue: 'season', terms: ['계절', '봄', '여름', '가을', '겨울', 'season'] },
   { kind: 'reset', cue: 'warning', terms: ['초기화', '삭제', '제거', '퇴각', '임차 종료', 'discard', 'delete', 'reset', 'retire'] },
   { kind: 'save', cue: 'save', terms: ['저장', 'save'] },
   { kind: 'load', cue: 'load', terms: ['불러오기', '복원', 'reload', 'load', 'restore'] },
