@@ -37,7 +37,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
       <div className="games-panel-title">
         <div>
           <h2>{trackLabel} 트리 미리보기</h2>
-          <span>{researchMap.nodes.length}개 {trackLabel} · T{researchMap.minTier}-T{researchMap.maxTier} 전체 공개</span>
+          <span>{researchMap.nodes.length}개 {trackLabel} · {researchMap.rangeLabel} 전체 공개</span>
         </div>
         <strong>목표 지정 잠김</strong>
       </div>
@@ -102,7 +102,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
             <div className="primitive-research-tier-headers" aria-hidden="true">
               {researchMap.tierHeaders.map((tier) => (
                 <div className="primitive-research-tier-header" key={tier.tier} style={{ left: tier.x, width: tier.width }}>
-                  <span>T{tier.tier}</span>
+                  <span>{tier.label}</span>
                   <strong>{tier.name}</strong>
                   <small>{tier.count}개 {trackLabel}</small>
                 </div>
@@ -134,7 +134,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
                     </span>
                     <em>{node.available ? `발전 후 ${isCivics ? '추진' : '연구'}` : '선행 필요'}</em>
                   </span>
-                  <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.cost}{pointLabel}</small>
+                  <small>{node.tierLabel} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.cost}{pointLabel}</small>
                   <span className="primitive-research-node__tags">
                     {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
                     {node.eureka ? <i>유</i> : null}
@@ -151,7 +151,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
             <>
               <div className="primitive-research-inspector__head">
                 <div>
-                  <span>T{focusedNode.tier} · {RESEARCH_ERA_LABELS[focusedNode.era] || focusedNode.era}</span>
+                  <span>{focusedNode.tierLabel} · {RESEARCH_ERA_LABELS[focusedNode.era] || focusedNode.era}</span>
                   <h3>
                     <GameActionIcon action={advancementAction(focusedNode.tags, track)} label={focusedNode.name} />
                     {focusedNode.name}
@@ -183,9 +183,25 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
                     <button type="button" data-game-sfx="select" key={techId} onClick={() => setFocusId(techId)}>
                       {nodeById[techId]?.name || techId}
                     </button>
-                  )) : <span className="games-tag">최종 {trackLabel}</span>}
+                  )) : (
+                    <span className="games-tag">
+                      {(focusedNode.nextCrossTrackRows || []).length ? '같은 트리 후속 없음' : `최종 ${trackLabel}`}
+                    </span>
+                  )}
                 </div>
               </div>
+              {(focusedNode.nextCrossTrackRows || []).length ? (
+                <div className="primitive-research-inspector__section">
+                  <span>다른 트리 후속 발전</span>
+                  <div className="games-chip-row">
+                    {focusedNode.nextCrossTrackRows.map((row) => (
+                      <span className="games-tag" key={row.id}>
+                        {row.completed ? '완료 · ' : ''}{row.name} · {row.track === 'civics' ? '사회 제도' : '기술'}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="primitive-research-inspector__section">
                 <span>해금 효과</span>
                 <strong>{focusedNode.unlockText}</strong>

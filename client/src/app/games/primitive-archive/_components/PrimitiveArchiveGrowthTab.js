@@ -12,6 +12,7 @@ import {
   RESEARCH_ERA_LABELS,
   RESEARCH_TAG_LABELS,
   advancementAction,
+  advancementTierLabel,
 } from '../_lib/primitiveArchivePageRuntime';
 import PrimitiveArchiveProjectsPanel from './PrimitiveArchiveProjectsPanel';
 import PrimitiveArchiveResearchTreePreview from './PrimitiveArchiveResearchTreePreview';
@@ -238,13 +239,13 @@ export default function PrimitiveArchiveGrowthTab(props) {
                   disabled={!advancement.available && !advancement.completed && !advancement.selected}
                 >
                   {advancement.completed ? '완료 · ' : advancement.selected ? '선택 · ' : advancement.available ? '가능 · ' : (isCivics ? advancement.inspirationStatus?.blocked : advancement.eurekaStatus?.blocked) ? '단서 확보 · 잠김 · ' : '잠김 · '}
-                  T{advancement.tier} · {advancement.name} ({advancement.progress}/{advancement.cost})
+                  {advancementTierLabel(advancement, activeTrack)} · {advancement.name} ({advancement.progress}/{advancement.cost})
                 </option>
               ))}
             </select>
           </label>
           <div className="games-rank-split">
-            <div><span>선택</span><strong>{summary.selected ? `T${summary.selected.tier} · ${summary.selected.name}` : '-'}</strong></div>
+            <div><span>선택</span><strong>{summary.selected ? `${advancementTierLabel(summary.selected, activeTrack)} · ${summary.selected.name}` : '-'}</strong></div>
             <div><span>진행</span><strong>{summary.selected?.progressPct || 0}%</strong></div>
             <div><span>가능</span><strong>{summary.available}</strong></div>
             <div><span>직접 {actionLabel}</span><strong>{summary.actionUnlocked ? '해금' : `${summary.actionCompleted}/${summary.actionTotal}`}</strong></div>
@@ -336,7 +337,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
             {priorityRows.map((advancement) => (
               <article className="game-save-row" key={advancement.id}>
                 <div>
-                  <span>T{advancement.tier} · {advancement.priorityLabel} · 우선도 {advancement.priorityScore} · {advancement.progressPct}%</span>
+                  <span>{advancementTierLabel(advancement, activeTrack)} · {advancement.priorityLabel} · 우선도 {advancement.priorityScore} · {advancement.progressPct}%</span>
                   <strong>{advancement.name}</strong>
                   <small>{advancement.nextAction}</small>
                 </div>
@@ -405,7 +406,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 <div className="primitive-research-tier-headers" aria-hidden="true">
                   {advancementMap.tierHeaders.map((tier) => (
                     <div className="primitive-research-tier-header" key={tier.tier} style={{ left: tier.x, width: tier.width }}>
-                      <span>T{tier.tier}</span>
+                      <span>{tier.label}</span>
                       <strong>{tier.name}</strong>
                       <small>{tier.count}개 {trackLabel}</small>
                     </div>
@@ -445,7 +446,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                         </span>
                         <em>{node.statusLabel}</em>
                       </span>
-                      <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}{pointLabel}</small>
+                      <small>{node.tierLabel} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.progress}/{node.cost}{pointLabel}</small>
                       <span className="primitive-research-node__tags">
                         {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
                         {node.eureka ? <i className={node.eurekaDone ? 'is-done' : ''}>유</i> : null}
@@ -463,7 +464,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                 <>
                   <div className="primitive-research-inspector__head">
                     <div>
-                      <span>T{focusedTreeNode.tier} · {advancementMap.tierHeaders.find((tier) => tier.tier === focusedTreeNode.tier)?.name || '발전 단계'} · {RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era}</span>
+                      <span>{focusedTreeNode.tierLabel} · {advancementMap.tierHeaders.find((tier) => tier.tier === focusedTreeNode.tier)?.name || '발전 단계'} · {RESEARCH_ERA_LABELS[focusedTreeNode.era] || focusedTreeNode.era}</span>
                       <h3>
                         <GameActionIcon action={advancementAction(focusedTreeNode.tags, activeTrack)} label={focusedTreeNode.name} />
                         {focusedTreeNode.name}
@@ -495,9 +496,25 @@ export default function PrimitiveArchiveGrowthTab(props) {
                         <button type="button" data-game-sfx="select" key={techId} onClick={() => setTreeFocusId(techId)}>
                           {treeNodeById[techId]?.name || techId}
                         </button>
-                      )) : <span className="games-tag">최종 {trackLabel}</span>}
+                      )) : (
+                        <span className="games-tag">
+                          {(focusedTreeNode.nextCrossTrackRows || []).length ? '같은 트리 후속 없음' : `최종 ${trackLabel}`}
+                        </span>
+                      )}
                     </div>
                   </div>
+                  {(focusedTreeNode.nextCrossTrackRows || []).length ? (
+                    <div className="primitive-research-inspector__section">
+                      <span>다른 트리 후속 발전</span>
+                      <div className="games-chip-row">
+                        {focusedTreeNode.nextCrossTrackRows.map((row) => (
+                          <span className="games-tag" key={row.id}>
+                            {row.completed ? '완료 · ' : ''}{row.name} · {row.track === 'civics' ? '사회 제도' : '기술'}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="primitive-research-inspector__section"><span>해금 효과</span><strong>{focusedTreeNode.unlockText}</strong></div>
                   <div className="primitive-research-inspector__section">
                     <span>{breakthroughLabel}</span>

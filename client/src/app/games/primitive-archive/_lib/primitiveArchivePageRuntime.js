@@ -2,6 +2,7 @@ import {
   ITEMS,
   RECIPES,
   TECH_TIER_DEFS,
+  CIVIC_TIER_DEFS,
   itemName,
 } from './primitiveArchiveEngine';
 
@@ -199,6 +200,11 @@ export function researchStatusLabel(tech) {
   return '잠김';
 }
 
+export function advancementTierLabel(advancement, track = advancement?.track) {
+  const prefix = track === 'civics' ? 'C' : 'T';
+  return `${prefix}${Math.max(1, Number(advancement?.tier || 1))}`;
+}
+
 export function researchUnlockText(tech) {
   const recipes = (tech.unlocks?.recipes || [])
     .map((recipeId) => RECIPES.find((recipe) => recipe.id === recipeId)?.name || recipeId);
@@ -271,7 +277,10 @@ export function buildResearchMap(techs) {
   const rowGap = 14;
   const padding = 24;
   const headerHeight = 52;
-  const tierDefs = TECH_TIER_DEFS.filter((definition) => techs.some((tech) => tech.tier === definition.tier));
+  const track = techs.some((tech) => tech.track === 'civics') ? 'civics' : 'technology';
+  const tierPrefix = track === 'civics' ? 'C' : 'T';
+  const availableTierDefs = track === 'civics' ? CIVIC_TIER_DEFS : TECH_TIER_DEFS;
+  const tierDefs = availableTierDefs.filter((definition) => techs.some((tech) => tech.tier === definition.tier));
 
   const columns = techs.reduce((result, tech) => {
     const tier = Math.max(1, Number(tech.tier || 1));
@@ -306,6 +315,7 @@ export function buildResearchMap(techs) {
     assignResearchColumnSlots(columns[tier], scoreById).map(({ tech, slot }) => ({
       ...tech,
       tier,
+      tierLabel: advancementTierLabel(tech, track),
       rowIndex: slot,
       layoutGroup: researchLayoutGroup(tech),
       x: padding + tierIndex[tier] * (nodeWidth + columnGap),
@@ -349,6 +359,7 @@ export function buildResearchMap(techs) {
   const tierHeaders = tierDefs.map((definition) => ({
     ...definition,
     count: columns[definition.tier]?.length || 0,
+    label: `${tierPrefix}${definition.tier}`,
     x: padding + Number(tierIndex[definition.tier] || 0) * (nodeWidth + columnGap),
     width: nodeWidth,
   }));
@@ -369,6 +380,8 @@ export function buildResearchMap(techs) {
     nodes,
     minTier: tierOrder[0] || 0,
     maxTier: tierOrder[tierOrder.length - 1] || 0,
+    rangeLabel: tierOrder.length ? `${tierPrefix}${tierOrder[0]}-${tierPrefix}${tierOrder[tierOrder.length - 1]}` : '-',
+    tierPrefix,
     tierCount: tierDefs.length,
     tierHeaders,
     width: padding * 2 + tierDefs.length * nodeWidth + Math.max(0, tierDefs.length - 1) * columnGap,

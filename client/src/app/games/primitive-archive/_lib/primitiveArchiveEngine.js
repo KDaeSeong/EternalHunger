@@ -18,6 +18,7 @@ import {
   TECHNOLOGY_TREE,
   CIVIC_TREE,
   TECH_TIER_DEFS,
+  CIVIC_TIER_DEFS,
   PERK_DEFS,
   WEATHER,
   DIFFICULTY_PRESETS,
@@ -70,6 +71,7 @@ export {
   TECHNOLOGY_TREE,
   CIVIC_TREE,
   TECH_TIER_DEFS,
+  CIVIC_TIER_DEFS,
   PERK_DEFS,
   WEATHER,
   DIFFICULTY_PRESETS,
@@ -3026,6 +3028,14 @@ export function techRows(state) {
     const available = systemStatus.unlocked && !completed && prereqsMet(current.research, tech);
     const eurekaStatus = eurekaStatusForTech(current, tech);
     const nextTechIds = TECHNOLOGY_TREE.filter((candidate) => candidate.prereqs?.includes(tech.id)).map((candidate) => candidate.id);
+    const nextCrossTrackRows = CIVIC_TREE
+      .filter((candidate) => candidate.prereqs?.includes(tech.id))
+      .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        completed: Boolean(current.research.completed?.[candidate.id]),
+        track: 'civics',
+      }));
     return {
       ...tech,
       progress,
@@ -3035,6 +3045,7 @@ export function techRows(state) {
       eurekaDone: Boolean(current.research.eureka?.[tech.id]),
       eurekaStatus,
       nextTechIds,
+      nextCrossTrackRows,
       prereqRows: (tech.prereqs || []).map((techId) => ({
         id: techId,
         name: getTech(techId)?.name || techId,
@@ -3060,6 +3071,14 @@ export function civicRows(state) {
     const available = systemStatus.unlocked && !completed && prereqsMet(current.research, civic);
     const inspirationStatus = civicInspirationStatus(current, civic);
     const nextTechIds = CIVIC_TREE.filter((candidate) => candidate.prereqs?.includes(civic.id)).map((candidate) => candidate.id);
+    const nextCrossTrackRows = TECHNOLOGY_TREE
+      .filter((candidate) => candidate.prereqs?.includes(civic.id))
+      .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        completed: Boolean(current.research.completed?.[candidate.id]),
+        track: 'technology',
+      }));
     return {
       ...civic,
       progress,
@@ -3069,6 +3088,7 @@ export function civicRows(state) {
       inspirationDone: Boolean(civics.inspiration?.[civic.id]),
       inspirationStatus,
       nextTechIds,
+      nextCrossTrackRows,
       prereqRows: (civic.prereqs || []).map((techId) => ({
         id: techId,
         name: getTech(techId)?.name || techId,
