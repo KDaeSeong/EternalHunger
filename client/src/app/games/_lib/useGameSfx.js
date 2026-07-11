@@ -92,6 +92,37 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 1100, q: 1.4, duration: 0.055, gain: 0.04 },
     { frequency: 740, start: 0.04, duration: 0.07, type: 'triangle', gain: 0.04 },
   ],
+  orderComplete: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.035, gain: 0.032 },
+    { frequency: 620, duration: 0.035, type: 'square', gain: 0.038 },
+    { frequency: 930, start: 0.032, duration: 0.06, type: 'triangle', gain: 0.042 },
+  ],
+  cashCollect: [
+    { frequency: 980, duration: 0.028, type: 'square', gain: 0.038 },
+    { frequency: 1320, start: 0.03, duration: 0.04, type: 'square', gain: 0.036 },
+    { frequency: 1760, start: 0.068, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
+  taxPaid: [
+    { source: 'noise', filterType: 'bandpass', frequency: 900, q: 2.2, duration: 0.03, gain: 0.035 },
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 780, start: 0.038, duration: 0.07, type: 'sine', gain: 0.04 },
+  ],
+  ledgerClose: [
+    { source: 'noise', filterType: 'lowpass', frequency: 720, duration: 0.045, gain: 0.04 },
+    { frequency: 390, duration: 0.055, type: 'triangle', gain: 0.05 },
+    { frequency: 585, start: 0.05, duration: 0.07, type: 'triangle', gain: 0.047 },
+    { frequency: 780, start: 0.115, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
+  globalSettle: [
+    { frequency: 440, endFrequency: 560, duration: 0.07, type: 'sine', gain: 0.045 },
+    { frequency: 740, start: 0.055, duration: 0.075, type: 'triangle', gain: 0.042 },
+    { frequency: 1110, start: 0.12, duration: 0.1, type: 'sine', gain: 0.035 },
+  ],
+  capitalAction: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 1.8, duration: 0.035, gain: 0.032 },
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.043 },
+    { frequency: 1040, start: 0.038, duration: 0.08, type: 'sine', gain: 0.038 },
+  ],
   tournament: [
     { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.05 },
     { frequency: 585, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },
@@ -485,6 +516,11 @@ const THEME_CUE_PROFILES = {
   ledger: {
     accent: [{ frequency: 500, duration: 0.045, type: 'triangle', gain: 0.022 }],
     click: [{ frequency: 440, endFrequency: 390, duration: 0.045, type: 'triangle', gain: 0.055 }],
+    tab: [
+      { frequency: 520, duration: 0.035, type: 'triangle', gain: 0.045 },
+      { frequency: 700, start: 0.032, duration: 0.055, type: 'sine', gain: 0.035 },
+    ],
+    select: [{ frequency: 480, endFrequency: 620, duration: 0.055, type: 'triangle', gain: 0.052 }],
     confirm: [
       { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
       { frequency: 660, start: 0.04, duration: 0.07, type: 'sine', gain: 0.035 },

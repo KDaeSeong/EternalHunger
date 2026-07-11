@@ -6284,6 +6284,188 @@
   padding: 14px;
 }
 
+.company-report-page-shell .games-page {
+  gap: 10px;
+}
+
+.company-report-page-shell .games-hero--compact {
+  grid-template-columns: minmax(420px, 1fr) auto;
+  padding: 14px 18px;
+}
+
+.company-report-page-shell .games-hero--compact h1 {
+  font-size: 1.9rem;
+}
+
+.company-report-page-shell .games-hero--compact .games-hero-actions {
+  flex-wrap: nowrap;
+}
+
+.company-report-guidance {
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.company-report-guidance .games-panel-title > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.company-report-guidance .games-panel-title > div:first-child > span {
+  color: #64717d;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.company-report-guidance__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.company-report-guidance__controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.company-report-guidance__controls select {
+  min-height: 34px;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 7px;
+  background: #ffffff;
+  color: #17202a;
+  padding: 0 28px 0 9px;
+  font-weight: 900;
+}
+
+.company-report-guidance__controls .game-control-button {
+  min-height: 34px;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 7px;
+  background: #f4f9fd;
+  color: #1f5f86;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.company-report-guidance__summary {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border-left: 3px solid #2c6f9e;
+  background: #f5f9fc;
+  padding: 8px 10px;
+}
+
+.company-report-guidance__summary > .game-action-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: #e2f1fa;
+  color: #1b6fa2;
+}
+
+.company-report-guidance__summary > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 3px 9px;
+}
+
+.company-report-guidance__summary span {
+  color: #64717d;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.company-report-guidance__summary strong {
+  color: #17202a;
+  font-size: 0.86rem;
+}
+
+.company-report-guidance__summary p {
+  min-width: 0;
+  grid-column: 1 / -1;
+  margin: 0;
+  overflow: hidden;
+  color: #526170;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-report-guidance__metrics {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+
+.company-report-guidance__details {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(22, 33, 44, 0.08);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.company-report-guidance__detail-section {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 8px;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.company-report-workspace .game-feature-tabs {
+  gap: 8px;
+}
+
+.company-report-workspace .game-feature-tabs__list {
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 7px;
+}
+
+.company-report-workspace .game-feature-tabs__list button,
+.company-report-workspace .game-feature-tabs__list--dense button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  max-width: none;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+}
+
+.company-report-workspace .games-rank-split {
+  grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  gap: 7px;
+}
+
+.company-report-workspace .games-rank-split > div {
+  min-height: 56px;
+  gap: 3px;
+  align-content: center;
+  padding: 9px 10px;
+}
+
+.company-report-workspace .games-rank-split strong {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -10142,4 +10324,96 @@
   .primitive-log-list {
     max-height: 52vh;
   }
+}
+
+@media (max-width: 760px) {
+  .company-report-page-shell .games-hero--compact {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .company-report-page-shell .games-hero--compact h1 {
+    font-size: 1.55rem;
+  }
+
+  .company-report-page-shell .games-hero--compact .games-hero-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .company-report-page-shell .games-hero-actions > * {
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 0.74rem;
+  }
+
+  .company-report-guidance .games-panel-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .company-report-guidance__controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+  }
+
+  .company-report-guidance__controls label,
+  .company-report-guidance__controls select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .company-report-guidance__summary > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .company-report-guidance__summary p {
+    grid-column: auto;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .company-report-guidance__metrics {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .company-report-guidance__metrics > div {
+    flex: 0 0 108px;
+  }
+
+  .company-guidance-policy,
+  .company-report-guidance__details > .games-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .company-report-workspace .game-feature-tabs__list button,
+  .company-report-workspace .game-feature-tabs__list--dense button {
+    min-height: 36px;
+    padding-inline: 8px;
+    font-size: 0.75rem;
+  }
+
+  .company-report-workspace .game-feature-tabs__list button strong {
+    display: none;
+  }
+}
+
+.games-rank-split.company-report-guidance__metrics {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 190px));
+  justify-content: start;
+}
+
+.games-rank-split.company-report-guidance__metrics > div {
+  min-height: 50px;
+  padding: 8px 10px;
+}
+
+.games-rank-split.company-report-guidance__metrics strong {
+  font-size: 0.86rem;
 }

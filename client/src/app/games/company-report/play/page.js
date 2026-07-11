@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameActionIcon from '../../_components/GameActionIcon';
 import GamePlayShell from '../../_components/GamePlayShell';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   GAME_SLUG,
   SAVE_VERSION,
@@ -32,11 +34,13 @@ import {
 import useCompanyReportPersistence from '../_hooks/useCompanyReportPersistence';
 import useCompanyReportSelections from '../_hooks/useCompanyReportSelections';
 import { actionFeedbackText, downloadTextFile, safeFilePart } from '../_lib/companyReportPlayHelpers';
+import { companyReportResultCue } from '../_lib/companyReportFeedback';
 
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'ledger' });
   const [state, setState] = useState(() => createNewState());
   const [guidanceLevel, setGuidanceLevel] = useState('outsider');
   const [actionResult, setActionResult] = useState('');
@@ -159,6 +163,7 @@ export default function CompanyReportPlayPage() {
     const nextState = updater(state);
     setState(nextState);
     setActionResult(actionFeedbackText(state, nextState, label, fallback));
+    playGameSfx(companyReportResultCue(label, state, nextState));
   };
 
   const buildExportPayload = (exportedState = state) => {
@@ -174,6 +179,7 @@ export default function CompanyReportPlayPage() {
     const payload = buildExportPayload(exportedState);
     setState(exportedState);
     setActionResult(actionFeedbackText(state, exportedState, 'JSON 다운로드', '진행 보고서 JSON 다운로드 이력을 추가했습니다.'));
+    playGameSfx('archive');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.json`,
       JSON.stringify(payload, null, 2),
@@ -187,6 +193,7 @@ export default function CompanyReportPlayPage() {
     const payload = buildExportPayload(exportedState);
     setState(exportedState);
     setActionResult(actionFeedbackText(state, exportedState, 'CSV 다운로드', '진행 보고서 CSV 다운로드 이력을 추가했습니다.'));
+    playGameSfx('archive');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.csv`,
       buildCompanyReportExportCsv(payload),
@@ -198,6 +205,7 @@ export default function CompanyReportPlayPage() {
   const downloadRestorePlanJson = () => {
     const payload = buildExportPayload(state);
     setActionResult('복원 계획 JSON 다운로드를 준비했습니다.');
+    playGameSfx('archive');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-restore-plan.json`,
       JSON.stringify({
@@ -235,11 +243,14 @@ export default function CompanyReportPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>새 원장</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/myanime/company-report">상세</Link>
+      <GameControlButton action="new" onClick={startNewRun}>새 원장</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <Link className="game-control-button" data-game-sfx="nav" href="/myanime/company-report">
+        <GameActionIcon action="settings" label="상세" />
+        <span className="game-action-button__label">상세</span>
+      </Link>
     </>
   );
 
@@ -261,13 +272,79 @@ export default function CompanyReportPlayPage() {
     token,
   });
 
+  const detailPanels = (
+    <CompanyReportDetailPanels
+      applyLedgerAction={applyLedgerAction}
+      capitalSummary={capitalSummary}
+      disclosureTypeId={disclosureTypeId}
+      downloadProgressCsv={downloadProgressCsv}
+      downloadProgressJson={downloadProgressJson}
+      downloadRestorePlanJson={downloadRestorePlanJson}
+      financingTypeId={financingTypeId}
+      foreignReceivables={foreignReceivables}
+      globalMarketId={globalMarketId}
+      globalProductId={globalProductId}
+      globalSummary={globalSummary}
+      globalUnits={globalUnits}
+      handleVatSelect={handleVatSelect}
+      inventoryValuations={inventoryValuations}
+      inventoryWriteDowns={inventoryWriteDowns}
+      latestBookmark={latestBookmark}
+      latestExport={latestExport}
+      latestRestore={latestRestore}
+      latestSettlement={latestSettlement}
+      latestSnapshot={latestSnapshot}
+      ledgerDiff={ledgerDiff}
+      management={management}
+      markets={markets}
+      orders={orders}
+      partnerId={partnerId}
+      productId={productId}
+      quantity={quantity}
+      receivables={receivables}
+      recentActionText={recentActionText}
+      report={report}
+      restoreMode={restoreMode}
+      restorePlan={restorePlan}
+      runVatPayment={runVatPayment}
+      selectedForeignAr={selectedForeignAr}
+      selectedOrder={selectedOrder}
+      selectedReceivable={selectedReceivable}
+      selectedRestoreTables={selectedRestoreTables}
+      selectedVatRow={selectedVatRow}
+      setDisclosureTypeId={setDisclosureTypeId}
+      setFinancingTypeId={setFinancingTypeId}
+      setGlobalMarketId={setGlobalMarketId}
+      setGlobalProductId={setGlobalProductId}
+      setGlobalUnits={setGlobalUnits}
+      setPartnerId={setPartnerId}
+      setProductId={setProductId}
+      setQuantity={setQuantity}
+      setRestoreMode={setRestoreMode}
+      setSelectedForeignArId={setSelectedForeignArId}
+      setSelectedOrderId={setSelectedOrderId}
+      setSelectedReceivableId={setSelectedReceivableId}
+      setSelectedRestoreTables={setSelectedRestoreTables}
+      setVatPaymentAmount={setVatPaymentAmount}
+      state={state}
+      stocks={stocks}
+      vatPayAmount={vatPayAmount}
+      vatPaymentAmount={vatPaymentAmount}
+      vatPayments={vatPayments}
+      vatSchedule={vatSchedule}
+    />
+  );
+
   return (
     <GamePlayShell
+      className="company-report-page-shell"
       kicker="Company Report"
       title="회사 리포트 원장 시뮬레이터"
       description="업로드된 Company Report StepG-6의 거래, 재고, 매출채권, 월말 손익, 원장 스냅샷 흐름을 사이트용 business ledger slice로 이식했습니다."
       summaryLabel="Company Report 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={8}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
@@ -282,6 +359,7 @@ export default function CompanyReportPlayPage() {
       <CompanyReportFeatureTabs
         applyLedgerAction={applyLedgerAction}
         capitalSummary={capitalSummary}
+        detailPanels={detailPanels}
         disclosureTypeId={disclosureTypeId}
         downloadProgressCsv={downloadProgressCsv}
         downloadProgressJson={downloadProgressJson}
@@ -315,67 +393,6 @@ export default function CompanyReportPlayPage() {
         state={state}
         stocks={stocks}
         vatPayAmount={vatPayAmount}
-      />
-
-      <CompanyReportDetailPanels
-        applyLedgerAction={applyLedgerAction}
-        capitalSummary={capitalSummary}
-        disclosureTypeId={disclosureTypeId}
-        downloadProgressCsv={downloadProgressCsv}
-        downloadProgressJson={downloadProgressJson}
-        downloadRestorePlanJson={downloadRestorePlanJson}
-        financingTypeId={financingTypeId}
-        foreignReceivables={foreignReceivables}
-        globalMarketId={globalMarketId}
-        globalProductId={globalProductId}
-        globalSummary={globalSummary}
-        globalUnits={globalUnits}
-        handleVatSelect={handleVatSelect}
-        inventoryValuations={inventoryValuations}
-        inventoryWriteDowns={inventoryWriteDowns}
-        latestBookmark={latestBookmark}
-        latestExport={latestExport}
-        latestRestore={latestRestore}
-        latestSettlement={latestSettlement}
-        latestSnapshot={latestSnapshot}
-        ledgerDiff={ledgerDiff}
-        management={management}
-        markets={markets}
-        orders={orders}
-        partnerId={partnerId}
-        productId={productId}
-        quantity={quantity}
-        receivables={receivables}
-        recentActionText={recentActionText}
-        report={report}
-        restoreMode={restoreMode}
-        restorePlan={restorePlan}
-        runVatPayment={runVatPayment}
-        selectedForeignAr={selectedForeignAr}
-        selectedOrder={selectedOrder}
-        selectedReceivable={selectedReceivable}
-        selectedRestoreTables={selectedRestoreTables}
-        selectedVatRow={selectedVatRow}
-        setDisclosureTypeId={setDisclosureTypeId}
-        setFinancingTypeId={setFinancingTypeId}
-        setGlobalMarketId={setGlobalMarketId}
-        setGlobalProductId={setGlobalProductId}
-        setGlobalUnits={setGlobalUnits}
-        setPartnerId={setPartnerId}
-        setProductId={setProductId}
-        setQuantity={setQuantity}
-        setRestoreMode={setRestoreMode}
-        setSelectedForeignArId={setSelectedForeignArId}
-        setSelectedOrderId={setSelectedOrderId}
-        setSelectedReceivableId={setSelectedReceivableId}
-        setSelectedRestoreTables={setSelectedRestoreTables}
-        setVatPaymentAmount={setVatPaymentAmount}
-        state={state}
-        stocks={stocks}
-        vatPayAmount={vatPayAmount}
-        vatPaymentAmount={vatPaymentAmount}
-        vatPayments={vatPayments}
-        vatSchedule={vatSchedule}
       />
     </GamePlayShell>
   );

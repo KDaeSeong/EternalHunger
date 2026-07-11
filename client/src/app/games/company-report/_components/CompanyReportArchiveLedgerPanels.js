@@ -77,9 +77,9 @@ export default function CompanyReportArchiveLedgerPanels({
             <input type="number" min="1" max="999" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
-            <ActionButton onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
-            <ActionButton onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
+            <ActionButton action="order" onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
+            <ActionButton action="craft" onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
+            <ActionButton action="sales" onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
           </div>
           <RecentActionResult label="최근 주문 결과" text={recentActionText} />
         </section>
@@ -102,8 +102,8 @@ export default function CompanyReportArchiveLedgerPanels({
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
-            <ActionButton disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 전액 회수</ActionButton>
+            <ActionButton action="sales" disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
+            <ActionButton action="trade" disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 전액 회수</ActionButton>
           </div>
         </section>
 
@@ -136,17 +136,17 @@ export default function CompanyReportArchiveLedgerPanels({
             />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => applyLedgerAction('월말 재고평가', (current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
-            <ActionButton onClick={() => applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
-            <ActionButton onClick={() => applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
-            <ActionButton disabled={!latestSnapshot} onClick={() => applyLedgerAction('최근 스냅샷 복원', (current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
-            <ActionButton disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
-            <ActionButton disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
-            <ActionButton onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
-            <ActionButton onClick={() => applyLedgerAction('진행 내보내기', (current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
-            <ActionButton onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
-            <ActionButton onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
-            <ActionButton disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
+            <ActionButton action="analysis" onClick={() => applyLedgerAction('월말 재고평가', (current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
+            <ActionButton action="settle" onClick={() => applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
+            <ActionButton action="archive" onClick={() => applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
+            <ActionButton action="sync" disabled={!latestSnapshot} onClick={() => applyLedgerAction('최근 스냅샷 복원', (current) => restoreLatestSnapshotAction(current))}>최근 스냅샷 복원</ActionButton>
+            <ActionButton action="analysis" disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+            <ActionButton action="sync" disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
+            <ActionButton action="archive" onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+            <ActionButton action="download" onClick={() => applyLedgerAction('진행 내보내기', (current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+            <ActionButton action="download" onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
+            <ActionButton action="download" onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
+            <ActionButton action="download" disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
           </div>
           <RecentActionResult label="최근 결산/복원 결과" text={recentActionText} />
         </section>

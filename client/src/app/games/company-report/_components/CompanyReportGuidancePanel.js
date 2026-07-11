@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+import GameActionIcon from '../../_components/GameActionIcon';
+import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { formatMoney } from '../_lib/companyReportEngine';
 
 export const COMPANY_REPORT_GUIDANCE_LEVELS = [
@@ -301,40 +304,45 @@ export function buildCompanyReportGuidance({
 }
 
 export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <section className="games-panel">
+    <section className={`games-panel company-report-guidance${expanded ? ' is-expanded' : ''}`}>
       <div className="games-panel-title">
-        <h2>경영 도움말</h2>
-        <span>{guidance.period} · {guidance.levelLabel}</span>
-      </div>
-      <div className="games-hero-actions" role="group" aria-label="경영 숙련도">
-        {COMPANY_REPORT_GUIDANCE_LEVELS.map((item) => {
-          const selected = item.id === level;
-          return (
-            <button
-              type="button"
-              className="games-filter-chip"
-              key={item.id}
-              aria-pressed={selected}
-              title={item.description}
-              onClick={() => onLevelChange(item.id)}
-              style={selected ? { borderColor: '#1b6fa2', background: '#eef7ff', color: '#12364f' } : undefined}
-            >
-              {item.label}
-            </button>
-          );
-        })}
+        <div>
+          <h2>경영 도움말</h2>
+          <span>{guidance.period} · {guidance.levelDescription}</span>
+        </div>
+        <div className="company-report-guidance__controls">
+          <label>
+            <span>숙련도</span>
+            <select value={level} onChange={(event) => onLevelChange(event.target.value)}>
+              {COMPANY_REPORT_GUIDANCE_LEVELS.map((item) => (
+                <option value={item.id} key={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+          <GameControlButton
+            action="guide"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? '도움말 접기' : '자세히'}
+          </GameControlButton>
+        </div>
       </div>
 
-      <section className="tcg-event-callout is-info" style={{ marginTop: 14 }}>
-        <span>다음 판단</span>
-        <strong>{guidance.primaryAction.title}</strong>
-        <p>{guidance.primaryAction.action}</p>
-        <small>{guidance.primaryAction.reason}</small>
-      </section>
+      <div className="company-report-guidance__summary">
+        <GameActionIcon action="finance" label="다음 경영 판단" />
+        <div>
+          <span>다음 판단 · {guidance.levelLabel}</span>
+          <strong>{guidance.primaryAction.title}</strong>
+          <p>{guidance.primaryAction.action}</p>
+        </div>
+      </div>
 
-      <div className="games-rank-split" style={{ marginTop: 14 }}>
-        {guidance.focusRows.map(([label, value]) => (
+      <div className="games-rank-split games-rank-split--compact company-report-guidance__metrics">
+        {guidance.focusRows.slice(0, 4).map(([label, value]) => (
           <div key={label}>
             <span>{label}</span>
             <strong>{value}</strong>
@@ -342,90 +350,112 @@ export function CompanyReportGuidancePanel({ guidance, level, onLevelChange }) {
         ))}
       </div>
 
-      <div className="company-guidance-policy">
-        <section>
-          <div className="games-panel-title">
-            <h3>숙련도별 표시 정책</h3>
-            <span>{guidance.levelShortLabel}</span>
-          </div>
-          <div className="game-advisor-policy-grid">
-            {guidance.visibilityRows.map((row) => (
-              <div key={row.label} className={row.value === '노출' ? 'is-visible' : 'is-hidden'}>
-                <span>{row.label}</span>
-                <b>{row.value}</b>
-                <small>{row.detail}</small>
+      {expanded ? (
+        <div className="company-report-guidance__details">
+          <section className="tcg-event-callout is-info">
+            <span>판단 근거</span>
+            <strong>{guidance.primaryAction.title}</strong>
+            <p>{guidance.primaryAction.action}</p>
+            <small>{guidance.primaryAction.reason}</small>
+          </section>
+
+          {guidance.focusRows.length > 4 ? (
+            <div className="games-rank-split games-rank-split--compact">
+              {guidance.focusRows.slice(4).map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="company-guidance-policy">
+            <section>
+              <div className="games-panel-title">
+                <h3>숙련도별 표시 정책</h3>
+                <span>{guidance.levelShortLabel}</span>
               </div>
-            ))}
+              <div className="game-advisor-policy-grid">
+                {guidance.visibilityRows.map((row) => (
+                  <div key={row.label} className={row.value === '노출' ? 'is-visible' : 'is-hidden'}>
+                    <span>{row.label}</span>
+                    <b>{row.value}</b>
+                    <small>{row.detail}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section>
+              <div className="games-panel-title">
+                <h3>판단 체크</h3>
+                <span>현재 모드</span>
+              </div>
+              <div className="game-save-list">
+                {guidance.decisionRows.map((row) => (
+                  <article className="game-save-row" key={row.title}>
+                    <div>
+                      <span>체크</span>
+                      <strong>{row.title}</strong>
+                      <small>{row.detail}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           </div>
-        </section>
-        <section>
-          <div className="games-panel-title">
-            <h3>판단 체크</h3>
-            <span>현재 모드</span>
-          </div>
-          <div className="game-save-list">
-            {guidance.decisionRows.map((row) => (
-              <article className="game-save-row" key={row.title}>
-                <div>
-                  <span>체크</span>
-                  <strong>{row.title}</strong>
-                  <small>{row.detail}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </div>
 
-      <div className="games-detail-grid" style={{ marginTop: 14 }}>
-        <section className="games-panel">
-          <div className="games-panel-title">
-            <h3>판단 가이드</h3>
-            <span>{guidance.levelShortLabel}</span>
+          <div className="games-detail-grid">
+            <section className="company-report-guidance__detail-section">
+              <div className="games-panel-title">
+                <h3>판단 가이드</h3>
+                <span>{guidance.levelShortLabel}</span>
+              </div>
+              <div className="games-activity-list">
+                {guidance.coachLines.map((line) => (
+                  <div key={line}><strong>{line}</strong></div>
+                ))}
+              </div>
+            </section>
+            <section className="company-report-guidance__detail-section">
+              <div className="games-panel-title">
+                <h3>표기 방식</h3>
+                <span>{guidance.levelDescription}</span>
+              </div>
+              <div className="game-save-list">
+                {guidance.glossaryRows.map(([term, text]) => (
+                  <article className="game-save-row" key={term}>
+                    <div>
+                      <span>용어</span>
+                      <strong>{term}</strong>
+                      <small>{text}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
           </div>
-          <div className="games-activity-list">
-            {guidance.coachLines.map((line) => (
-              <div key={line}><strong>{line}</strong></div>
-            ))}
-          </div>
-        </section>
-        <section className="games-panel">
-          <div className="games-panel-title">
-            <h3>표기 방식</h3>
-            <span>{guidance.levelDescription}</span>
-          </div>
-          <div className="game-save-list">
-            {guidance.glossaryRows.map(([term, text]) => (
-              <article className="game-save-row" key={term}>
-                <div>
-                  <span>용어</span>
-                  <strong>{term}</strong>
-                  <small>{text}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </div>
 
-      {guidance.showRawAudit ? (
-        <details className="games-summary-overflow" style={{ marginTop: 14 }}>
-          <summary>달인용 원자료 관점</summary>
-          <div className="games-summary-overflow__grid">
-            <div className="games-metric games-metric--secondary">
-              <span>글로벌 탭</span>
-              <strong>{guidance.showGlobal ? '노출' : '숨김'}</strong>
-            </div>
-            <div className="games-metric games-metric--secondary">
-              <span>자본시장 탭</span>
-              <strong>{guidance.showCapital ? '노출' : '숨김'}</strong>
-            </div>
-            <div className="games-metric games-metric--secondary">
-              <span>원장 탭</span>
-              <strong>{guidance.showLedger ? '노출' : '숨김'}</strong>
-            </div>
-          </div>
-        </details>
+          {guidance.showRawAudit ? (
+            <details className="games-summary-overflow">
+              <summary>달인용 원자료 관점</summary>
+              <div className="games-summary-overflow__grid">
+                <div className="games-metric games-metric--secondary">
+                  <span>글로벌 탭</span>
+                  <strong>{guidance.showGlobal ? '노출' : '숨김'}</strong>
+                </div>
+                <div className="games-metric games-metric--secondary">
+                  <span>자본시장 탭</span>
+                  <strong>{guidance.showCapital ? '노출' : '숨김'}</strong>
+                </div>
+                <div className="games-metric games-metric--secondary">
+                  <span>원장 탭</span>
+                  <strong>{guidance.showLedger ? '노출' : '숨김'}</strong>
+                </div>
+              </div>
+            </details>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

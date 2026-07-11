@@ -193,10 +193,11 @@ Checked: 2026-07-04
 
 - Route: `/games/company-report/play`
 - Included loop: company status, partner credit, order creation, shipment, inventory inbound, receivable collection, marketing campaign, month-end settlement, ledger snapshot, and latest snapshot restore.
-- UI/UX: management board now includes an operations queue that prioritizes receivable collection, shipping, VAT, global receivables, disclosure risk, snapshots, and ledger follow-up actions with direct execution.
+- UI/UX: the compact management board prioritizes receivable collection, shipping, VAT, global receivables, disclosure risk, snapshots, and ledger follow-up actions. The full input/audit surface is preserved behind a dedicated `상세 원장` tab instead of rendering a second copy below the tabs, and the guidance panel stays compact until expanded.
+- Feedback: trade, shipment, production, VAT, closing, global settlement, capital-market, archive, and restore controls use explicit Lucide action icons. Successful ledger outcomes emit distinct synthesized result cues in addition to the control click sound.
 - Site API integration: quick save through `/game-saves/company-report/company-report-main`; ledger-score snapshot through `/game-records/company-report`.
 - Source basis: `C:\2저장고\마이애니메\company-report-stepg6-ledger-physical-restore` Spring Boot ledger/report project, especially company, trade order, inventory, receivable, settlement, report, and ledger snapshot/restore flows.
-- Next step: port the original report sample bookmarks, exports, API-backed ledger diff, dry-run restore, and physical restore detail into the simplified site shell.
+- Next step: connect the simplified in-memory ledger diff/restore model to an optional API-backed audit store and add richer long-run business scenarios.
 
 ## Racing Logos Demo Slice Status
 
