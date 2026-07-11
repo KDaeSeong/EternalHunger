@@ -6,6 +6,7 @@ import { inferGameActionSemantic } from './gameActionSemantics';
 
 const GAME_SFX_PATH_THEMES = [
   ['eternalhunger', 'battle'],
+  ['simulation', 'battle'],
   ['twenty-questions', 'twenty'],
   ['dual-academy-tcg', 'card'],
   ['ba-vanguard', 'card'],
@@ -68,6 +69,26 @@ const CUE_PROFILES = {
   combat: [
     { source: 'noise', filterType: 'lowpass', frequency: 900, duration: 0.07, gain: 0.085 },
     { frequency: 210, endFrequency: 125, duration: 0.105, type: 'sawtooth', gain: 0.055 },
+  ],
+  phaseDay: [
+    { frequency: 360, endFrequency: 520, duration: 0.08, type: 'triangle', gain: 0.055 },
+    { frequency: 780, start: 0.065, duration: 0.1, type: 'sine', gain: 0.04 },
+  ],
+  phaseNight: [
+    { frequency: 420, endFrequency: 260, duration: 0.12, type: 'sine', gain: 0.05 },
+    { frequency: 170, start: 0.08, duration: 0.15, type: 'triangle', gain: 0.038 },
+  ],
+  elimination: [
+    { source: 'noise', filterType: 'lowpass', frequency: 720, duration: 0.08, gain: 0.07 },
+    { frequency: 190, endFrequency: 90, duration: 0.15, type: 'sawtooth', gain: 0.06 },
+  ],
+  revive: [
+    { frequency: 280, endFrequency: 460, duration: 0.09, type: 'triangle', gain: 0.05 },
+    { frequency: 690, start: 0.075, duration: 0.12, type: 'sine', gain: 0.045 },
+  ],
+  zoneLock: [
+    { frequency: 240, endFrequency: 170, duration: 0.09, type: 'square', gain: 0.045 },
+    { frequency: 240, endFrequency: 150, start: 0.12, duration: 0.12, type: 'square', gain: 0.042 },
   ],
   craft: [
     { frequency: 560, endFrequency: 430, duration: 0.045, type: 'square', gain: 0.04 },

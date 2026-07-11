@@ -66,6 +66,7 @@ export default function SimulationGameScreen({
   mapRefreshToast,
   maps,
   matchSec,
+  onToggleSfx,
   onToggleDevTools = () => {},
   pendingTranscendPick,
   phase,
@@ -81,6 +82,7 @@ export default function SimulationGameScreen({
   setShowPrevLogs,
   setUiModal,
   settings,
+  sfxEnabled,
   showDetailedLogs,
   showMarketPanel,
   showPrevLogs,
@@ -123,11 +125,13 @@ export default function SimulationGameScreen({
         mapRefreshToast={mapRefreshToast}
         matchSec={matchSec}
         onProceed={proceedPhaseGuarded}
+        onToggleSfx={onToggleSfx}
         onToggleDevTools={onToggleDevTools}
         primaryProceedLabel={primaryProceedLabel}
         refreshMapSettingsFromServer={refreshMapSettingsFromServer}
         setUiModal={setUiModal}
         showMarketPanel={showMarketPanel}
+        sfxEnabled={sfxEnabled}
         startBlocked={startBlocked}
         startBlockedText={startBlockedText}
         timeOfDay={timeOfDay}

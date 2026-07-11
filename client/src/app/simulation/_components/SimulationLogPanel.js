@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { useState } from 'react';
+import GameActionIcon from '../../games/_components/GameActionIcon';
 import {
   getCombatDetailLogs,
   getHiddenLogCount,
@@ -99,7 +100,9 @@ export default function SimulationLogPanel({
   return (
     <div className={`log-window ${uiModal === 'log' ? 'modal-open' : ''}`} ref={logWindowRef} style={{ minWidth: 0 }}>
       {uiModal === 'log' ? (
-        <button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">x</button>
+        <button className="eh-modal-close" type="button" data-game-sfx="click" onClick={closeUiModal} aria-label="닫기" title="닫기">
+          <GameActionIcon action="close" label="닫기" />
+        </button>
       ) : null}
 
       <div className="log-content">
@@ -135,29 +138,41 @@ export default function SimulationLogPanel({
             {isCombatView ? ` · ${currentCombatCount}개` : ''}
             {logViewMode === LOG_VIEW.SUMMARY && hiddenCount > 0 ? ` · ${hiddenCount}개 숨김` : ''}
           </span>
-          <div className="log-toolbar-actions">
+          <div className="log-toolbar-actions" role="tablist" aria-label="로그 보기 방식">
             <button
               type="button"
+              role="tab"
+              aria-selected={logViewMode === LOG_VIEW.SUMMARY}
+              data-game-sfx="tab"
               className={`log-toggle-btn ${logViewMode === LOG_VIEW.SUMMARY ? 'active' : ''}`}
               onClick={() => selectLogMode(LOG_VIEW.SUMMARY)}
               title="핵심 이벤트만 간단히 봅니다."
             >
+              <GameActionIcon action="archive" label="요약" />
               요약
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={isKillView}
+              data-game-sfx="tab"
               className={`log-toggle-btn ${isKillView ? 'active' : ''}`}
               onClick={() => selectLogMode(LOG_VIEW.KILL)}
               title="처치 결과만 따로 봅니다."
             >
+              <GameActionIcon action="elimination" label="킬" />
               킬
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={isCombatView}
+              data-game-sfx="tab"
               className={`log-toggle-btn ${isCombatView ? 'active' : ''}`}
               onClick={() => selectLogMode(LOG_VIEW.COMBAT)}
               title="장비, 스킬, 피해량 같은 전투 계산 로그를 봅니다."
             >
+              <GameActionIcon action="combat" label="전투 상세" />
               전투 상세
             </button>
           </div>
@@ -167,9 +182,12 @@ export default function SimulationLogPanel({
           <div className="prevlogs-row">
             <button
               className="prevlogs-btn"
+              type="button"
+              data-game-sfx="toggle"
               onClick={() => setShowPrevLogs((v) => !v)}
               title="이전 페이즈 로그를 펼치거나 숨깁니다."
             >
+              <GameActionIcon action="logs" label="이전 페이즈 로그" />
               {showPrevLogs ? '이전 페이즈 로그 숨기기' : '이전 페이즈 로그 보기'}
               {isKillView ? ` (${prevKillCount}개)` : (logViewMode === LOG_VIEW.SUMMARY && hiddenPrevCount > 0 ? ` (${hiddenPrevCount}개 숨김)` : '')}
             </button>

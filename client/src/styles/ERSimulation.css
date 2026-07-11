@@ -166,6 +166,10 @@
     background: rgba(0,0,0,0.35);
     color: #fff;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
 .eh-modal-close:hover { background: rgba(0,0,0,0.55); }
 
@@ -532,6 +536,10 @@
   font-size: 0.88rem;
   font-weight: 800;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .log-toggle-btn.active {
@@ -736,6 +744,10 @@
     cursor: pointer;
     transition: all 0.2s;
     color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
 }
 
 .btn-proceed { background: linear-gradient(45deg, #2196f3, #21cbf3); box-shadow: 0 5px 15px rgba(33, 150, 243, 0.4); }
@@ -949,6 +961,10 @@
     color: #225a7a;
     font-weight: 900;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
 .result-export-actions button:hover {
@@ -1002,7 +1018,10 @@
 }
 
 .close-btn {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     width: 100%;
     background: #333;
     color: white;
@@ -1395,20 +1414,30 @@
 .market-tabs {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   margin-bottom: 12px;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
 }
 
 .market-tab {
-  flex: 1;
-  min-width: 70px;
+  flex: 1 0 62px;
+  min-width: 62px;
   border: 1px solid #cfd8dc;
   background: #f7f9fb;
   color: #333;
-  padding: 8px 10px;
+  padding: 8px 5px;
   border-radius: 10px;
   cursor: pointer;
   font-weight: 700;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
 .market-tab.active {
@@ -1566,6 +1595,54 @@
   min-width: 0;
 }
 
+.sim-icon-label,
+.screen-header-right .btn-secondary,
+.control-row .btn-secondary,
+.prevlogs-btn,
+.market-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.market-mini-btn.sim-icon-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.screen-header-right .game-action-icon svg,
+.control-panel .game-action-icon svg,
+.log-toolbar .game-action-icon svg,
+.market-panel .game-action-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sim-sfx-btn {
+  width: 34px;
+  min-width: 34px;
+  min-height: 32px;
+  padding: 6px;
+}
+
+.sim-sfx-btn.active {
+  border-color: rgba(78, 191, 255, 0.68);
+  background: rgba(78, 191, 255, 0.22);
+  color: #e5f7ff;
+}
+
+.market-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #cfd8dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+}
+
 .screen-header-right .sim-header-proceed {
   min-height: 32px;
   padding: 7px 14px;
@@ -1688,6 +1765,9 @@
   color: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .prevlogs-btn:hover {

@@ -18,6 +18,7 @@
     "check:runtime:full": "npm run check:runtime:sweep && npm run build",
     "check:skills": "node ./scripts/check-character-skill-compiler.mjs",
     "check:dual-academy-feedback": "node ./scripts/check-dual-academy-feedback.mjs",
+    "check:eternal-hunger-feedback": "node ./scripts/check-eternal-hunger-feedback.mjs",
     "check:primitive-archive": "node ./scripts/check-primitive-archive-civics.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"

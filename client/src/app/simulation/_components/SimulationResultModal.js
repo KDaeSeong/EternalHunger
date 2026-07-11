@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { buildErBehaviorModifier } from '../../../utils/erMeta';
+import GameActionIcon from '../../games/_components/GameActionIcon';
 
 function saveLabel(value) {
   if (value === 'success') return '완료';
@@ -246,12 +247,21 @@ export default function SimulationResultModal({
 
         {typeof onExportBattleLog === 'function' ? (
           <div className="result-export-actions">
-            <button type="button" onClick={() => onExportBattleLog('md')}>MD 저장</button>
-            <button type="button" onClick={() => onExportBattleLog('json')}>JSON 저장</button>
+            <button type="button" data-game-sfx="archive" onClick={() => onExportBattleLog('md')}>
+              <GameActionIcon action="download" label="MD 저장" />
+              MD 저장
+            </button>
+            <button type="button" data-game-sfx="archive" onClick={() => onExportBattleLog('json')}>
+              <GameActionIcon action="download" label="JSON 저장" />
+              JSON 저장
+            </button>
           </div>
         ) : null}
 
-        <button className="close-btn" onClick={onClose}>닫기</button>
+        <button className="close-btn" type="button" data-game-sfx="click" onClick={onClose}>
+          <GameActionIcon action="close" label="닫기" />
+          닫기
+        </button>
       </div>
     </div>
   );

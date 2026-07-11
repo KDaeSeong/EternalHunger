@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { DEFAULT_RULESET_ID, getPhaseDurationSec, getRuleset, normalizeRulesetId } from '../../../utils/rulesets';
+import GameActionIcon from '../../games/_components/GameActionIcon';
 import { itemDisplayName, itemIcon } from '../_lib/simulationCommon';
 import { getVisibleRuntimeEffects } from '../_lib/runtimeStatus';
 import { getEquipSummary } from '../_lib/survivorRuntime';
@@ -199,7 +200,11 @@ export default function SimulationSurvivorBoard(props) {
 
   return (
     <aside className={`survivor-board ${uiModal === 'chars' ? 'modal-open' : ''}`}>
-      {uiModal === 'chars' ? (<button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">✕</button>) : null}
+      {uiModal === 'chars' ? (
+        <button className="eh-modal-close" type="button" data-game-sfx="click" onClick={closeUiModal} aria-label="닫기" title="닫기">
+          <GameActionIcon action="close" label="닫기" />
+        </button>
+      ) : null}
       <h2>생존자 ({safeArray(survivors).length}명)</h2>
       <div className="survivor-grid">
         {safeArray(survivors).map((actor) => (

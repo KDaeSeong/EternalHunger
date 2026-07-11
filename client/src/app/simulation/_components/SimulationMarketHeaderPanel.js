@@ -1,5 +1,6 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
 import SimulationMarketCharacterPicker from './SimulationMarketCharacterPicker';
 import SimulationMarketEventLogCard from './SimulationMarketEventLogCard';
 import SimulationMarketParticipantPresetCard from './SimulationMarketParticipantPresetCard';
@@ -49,7 +50,9 @@ export default function SimulationMarketHeaderPanel({
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
         <h2 style={{ margin: 0 }}>상점/조합/교환</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button className="market-close" onClick={() => setShowMarketPanel(false)} title="패널 닫기">✕</button>
+          <button className="market-close" type="button" data-game-sfx="click" onClick={() => setShowMarketPanel(false)} title="패널 닫기" aria-label="패널 닫기">
+            <GameActionIcon action="close" label="패널 닫기" />
+          </button>
         </div>
       </div>
 

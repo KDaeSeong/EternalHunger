@@ -1,22 +1,41 @@
 'use client';
 
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
+import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
 import { getTimeOfDayFromPhase } from '../_lib/simulationEngine';
+import {
+  createSimulationFeedbackSnapshot,
+  getSimulationFeedbackCue,
+} from '../_lib/simulationFeedbackRuntime';
 import SimulationGameScreen from './SimulationGameScreen';
 import SimulationMarketPanel from './SimulationMarketPanel';
 import SimulationResultModal from './SimulationResultModal';
 import SimulationSurvivorBoard from './SimulationSurvivorBoard';
 
+const SIMULATION_SFX_STORAGE_KEY = 'eternal-hunger:simulation-sfx';
+
+function initialSfxEnabled() {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(SIMULATION_SFX_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
 export default function SimulationPageView(props) {
   const {
     activeMap,
     assistCounts,
+    autoPlay,
     closeUiModal,
     creditSourceSummary,
     day,
     dead,
     exportBattleLog,
     forbiddenNow,
+    forbiddenAddedNow,
     gainDetailSummary,
     gainSourceSummary,
     gameEndReason,
@@ -30,6 +49,7 @@ export default function SimulationPageView(props) {
     runSupportSummary,
     setShowResultModal,
     settings,
+    isGameOver,
     showMarketPanel,
     showResultModal,
     specialSourceSummary,
@@ -40,9 +60,49 @@ export default function SimulationPageView(props) {
     zones,
   } = props;
   const timeOfDay = getTimeOfDayFromPhase(phase);
+  const [sfxEnabled, setSfxEnabled] = useState(initialSfxEnabled);
+  const previousFeedbackRef = useRef(null);
+  const {
+    handleGameSfxChangeCapture,
+    handleGameSfxPointerDownCapture,
+    playGameSfx,
+  } = useGameSfxEventHandlers({ enabled: sfxEnabled, theme: 'battle', volume: 0.18 });
+  const feedbackSnapshot = useMemo(() => createSimulationFeedbackSnapshot({
+    autoPlay,
+    day,
+    dead,
+    forbiddenAddedNow,
+    isGameOver,
+    phase,
+    winner,
+  }), [autoPlay, day, dead, forbiddenAddedNow, isGameOver, phase, winner]);
+
+  useEffect(() => {
+    const previous = previousFeedbackRef.current;
+    previousFeedbackRef.current = feedbackSnapshot;
+    const cue = getSimulationFeedbackCue(previous, feedbackSnapshot);
+    if (cue) playGameSfx(cue);
+  }, [feedbackSnapshot, playGameSfx]);
+
+  const toggleSfx = useCallback(() => {
+    setSfxEnabled((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(SIMULATION_SFX_STORAGE_KEY, next ? 'on' : 'off');
+      } catch {
+        // Storage availability must not block the in-session sound toggle.
+      }
+      return next;
+    });
+  }, []);
 
   return (
-    <main className="simulation-page">
+    <main
+      className="simulation-page"
+      data-game-sfx-enabled={sfxEnabled ? 'true' : 'false'}
+      onChangeCapture={handleGameSfxChangeCapture}
+      onPointerDownCapture={handleGameSfxPointerDownCapture}
+    >
       <SiteHeader className="simulation-site-header" />
 
       {uiModal ? (
@@ -72,7 +132,7 @@ export default function SimulationPageView(props) {
           zones={zones}
         />
 
-        <SimulationGameScreen {...props} />
+        <SimulationGameScreen {...props} onToggleSfx={toggleSfx} sfxEnabled={sfxEnabled} />
 
         <SimulationMarketPanel {...props} />
       </div>

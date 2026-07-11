@@ -1,5 +1,6 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
 import SimulationMinimapCanvas from './SimulationMinimapCanvas';
 import SimulationMinimapHyperloopControl from './SimulationMinimapHyperloopControl';
 
@@ -58,7 +59,9 @@ export default function SimulationMinimapPanel({
   return (
     <div className={`minimap-panel battlefield-panel ${uiModal === 'map' ? 'modal-open' : ''}`}>
       {uiModal === 'map' ? (
-        <button className="eh-modal-close" onClick={closeUiModal} aria-label="닫기">×</button>
+        <button className="eh-modal-close" type="button" data-game-sfx="click" onClick={closeUiModal} aria-label="닫기" title="닫기">
+          <GameActionIcon action="close" label="닫기" />
+        </button>
       ) : null}
 
       <div className="minimap-status-row" aria-label="미니맵 상태 요약">

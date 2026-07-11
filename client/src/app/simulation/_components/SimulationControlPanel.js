@@ -1,5 +1,7 @@
 'use client';
 
+import GameActionIcon from '../../games/_components/GameActionIcon';
+
 function normalizeMode(value) {
   return String(value || '').toLowerCase() === 'solo' ? 'solo' : 'squad';
 }
@@ -81,8 +83,12 @@ export default function SimulationControlPanel({
     <div className="control-panel">
       <div className="prediction-row">
         <label className="winner-prediction-control">
-          <span>승자 예측</span>
+          <span className="sim-icon-label">
+            <GameActionIcon action="trophy" label="승자 예측" />
+            승자 예측
+          </span>
           <select
+            data-game-sfx-change="select"
             value={winnerPredictionId || ''}
             onChange={(event) => onWinnerPredictionChange?.(event.target.value)}
             disabled={winnerPredictionDisabled}
@@ -107,6 +113,7 @@ export default function SimulationControlPanel({
       <div className="control-row">
         <select
           className="autoplay-speed"
+          data-game-sfx-change="select"
           value={normalizeMode(matchMode)}
           onChange={(event) => onMatchModeChange?.(event.target.value)}
           disabled={matchModeDisabled}
@@ -119,25 +126,32 @@ export default function SimulationControlPanel({
         <label className="sim-skill-toggle" title="캐릭터별 Q/W/E/R 스킬 레이어를 켜거나 끕니다.">
           <input
             type="checkbox"
+            data-game-sfx-change="toggle"
             checked={!!characterSkillsEnabled}
             onChange={(event) => onCharacterSkillsToggle?.(event.target.checked)}
             disabled={characterSkillsDisabled}
           />
-          <span>캐릭터 스킬</span>
+          <span className="sim-icon-label">
+            <GameActionIcon action="skill" label="캐릭터 스킬" />
+            캐릭터 스킬
+          </span>
         </label>
 
         {isGameOver ? (
-          <button className="btn-restart" type="button" onClick={onRestart}>
+          <button className="btn-restart" type="button" data-game-sfx="start" onClick={onRestart}>
+            <GameActionIcon action="reset" label="다시 하기" />
             다시 하기
           </button>
         ) : (
           <button
             className="btn-proceed"
             type="button"
+            data-game-sfx="advance"
             onClick={onProceed}
             disabled={actionDisabled}
             style={{ opacity: actionDisabled ? 0.5 : 1 }}
           >
+            <GameActionIcon action="advance" label={proceedLabel} />
             {proceedLabel}
           </button>
         )}
@@ -145,24 +159,29 @@ export default function SimulationControlPanel({
         <button
           className={`btn-secondary sim-devtools-control ${showMarketPanel ? 'active' : ''}`}
           type="button"
+          data-game-sfx="toggle"
           onClick={onToggleDevTools}
           title="테스트와 수동 조작이 필요할 때만 개발자 도구를 엽니다."
         >
+          <GameActionIcon action="settings" label="개발자 도구" />
           {showMarketPanel ? '개발자 도구 닫기' : '개발자 도구'}
         </button>
 
         <button
           className="btn-secondary"
           type="button"
+          data-game-sfx={autoPlay ? 'toggle' : 'start'}
           onClick={onToggleAutoPlay}
           disabled={autoDisabled}
           title="오토 진행은 다음 페이즈 버튼을 자동으로 눌러 진행합니다."
         >
+          <GameActionIcon action={autoPlay ? 'pause' : 'auto'} label={autoPlay ? '오토 정지' : '오토'} />
           {autoPlay ? '오토 정지' : '오토'}
         </button>
 
         <select
           className="autoplay-speed"
+          data-game-sfx-change="select"
           value={autoSpeed}
           onChange={(event) => onAutoSpeedChange?.(event.target.value)}
           disabled={speedDisabled}
