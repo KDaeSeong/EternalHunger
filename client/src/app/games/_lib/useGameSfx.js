@@ -569,6 +569,56 @@ const CUE_PROFILES = {
     { frequency: 430, endFrequency: 320, duration: 0.1, type: 'triangle', gain: 0.05 },
     { frequency: 250, endFrequency: 170, start: 0.08, duration: 0.14, type: 'sine', gain: 0.044 },
   ],
+  twentyRoomCreate: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.04, gain: 0.025 },
+    { frequency: 440, duration: 0.04, type: 'sine', gain: 0.045 },
+    { frequency: 660, start: 0.038, duration: 0.06, type: 'sine', gain: 0.043 },
+    { frequency: 880, start: 0.09, duration: 0.1, type: 'sine', gain: 0.038 },
+  ],
+  twentyQuestion: [
+    { frequency: 620, duration: 0.04, type: 'sine', gain: 0.042 },
+    { frequency: 930, start: 0.04, duration: 0.08, type: 'sine', gain: 0.038 },
+  ],
+  twentyAnswerYes: [
+    { frequency: 560, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 840, start: 0.036, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  twentyAnswerNo: [
+    { frequency: 360, endFrequency: 250, duration: 0.08, type: 'triangle', gain: 0.045 },
+    { frequency: 180, start: 0.065, duration: 0.1, type: 'sine', gain: 0.038 },
+  ],
+  twentyAnswerMaybe: [
+    { frequency: 520, duration: 0.045, type: 'sine', gain: 0.04 },
+    { frequency: 620, start: 0.07, duration: 0.05, type: 'sine', gain: 0.036 },
+    { frequency: 520, start: 0.145, duration: 0.07, type: 'sine', gain: 0.034 },
+  ],
+  twentyCorrect: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.065, gain: 0.032 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.048 },
+    { frequency: 780, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.047 },
+    { frequency: 1040, start: 0.095, duration: 0.13, type: 'sine', gain: 0.042 },
+  ],
+  twentyWrong: [
+    { frequency: 430, endFrequency: 310, duration: 0.09, type: 'triangle', gain: 0.045 },
+    { frequency: 230, start: 0.075, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
+  twentyHint: [
+    { source: 'noise', filterType: 'highpass', frequency: 1650, duration: 0.035, gain: 0.022 },
+    { frequency: 660, endFrequency: 880, duration: 0.07, type: 'sine', gain: 0.042 },
+    { frequency: 1100, start: 0.065, duration: 0.09, type: 'sine', gain: 0.035 },
+  ],
+  twentyRoomClose: [
+    { frequency: 520, endFrequency: 360, duration: 0.08, type: 'triangle', gain: 0.043 },
+    { frequency: 260, start: 0.07, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  twentyRefresh: [
+    { frequency: 480, endFrequency: 620, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 760, start: 0.05, duration: 0.07, type: 'sine', gain: 0.036 },
+  ],
+  twentyInvalid: [
+    { frequency: 300, endFrequency: 210, duration: 0.075, type: 'square', gain: 0.04 },
+    { frequency: 160, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
   pass: [
     { frequency: 620, endFrequency: 360, duration: 0.08, type: 'sine', gain: 0.05 },
   ],

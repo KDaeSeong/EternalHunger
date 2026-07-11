@@ -93,6 +93,12 @@ Checked: 2026-07-04
 - Every tutorial has a game-specific objective, estimated time, six ordered steps, an exact action to try, a completion check, two reminders, and two common mistakes. Progress is stored separately per game and resumes at the first unfinished step.
 - The shared modal supports keyboard Escape close, focus entry, progress navigation, reset, previous/next/completion controls, object icons, game-themed synthesized cues, full-width mobile layout, and no horizontal overflow at 390px.
 
+## Twenty Questions Feedback Status
+
+- Routes: `/twenty-questions` and `/twenty-questions/[id]`.
+- UI/UX: room creation, login/board navigation, refresh, room entry, questions, guesses, hints, host answers, closure, and history headings use explicit object icons. Async outcomes remain visible in a sticky feedback row instead of relying on transient toasts. Mobile header commands and filters use two-column groups, room summary metrics use two columns, and the page has no document-level horizontal overflow at 390px.
+- Feedback: `twentyQuestionsFeedback.js` maps room creation, question submission, three host responses, correct/wrong guesses, hints, closure, refresh, and invalid requests to eleven result branches and dedicated synthesized cues. Empty-input and exhausted-attempt errors use the same persistent feedback surface as API errors.
+
 ## Primitive Archive Slice Status
 
 - Route: `/games/primitive-archive/play`

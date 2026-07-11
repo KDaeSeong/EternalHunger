@@ -7,6 +7,11 @@ import SiteHeader from '../../../components/SiteHeader';
 import { useToast } from '../../../components/ToastProvider';
 import { apiGet, apiPost, clearApiGetCache } from '../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../utils/client-auth';
+import GameActionIcon from '../../games/_components/GameActionIcon';
+import { GameControlButton } from '../../games/_components/GamePlayPrimitives';
+import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
+import { twentyQuestionsFeedback } from '../_lib/twentyQuestionsFeedback';
+import TwentyQuestionsFeedbackBar from './TwentyQuestionsFeedbackBar';
 
 const RESPONSE_OPTIONS = [
   { value: 'yes', label: '예' },
@@ -105,6 +110,19 @@ export default function TwentyQuestionsRoomContent() {
   const [guessText, setGuessText] = useState('');
   const [hintText, setHintText] = useState('');
   const [submitting, setSubmitting] = useState('');
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const {
+    handleGameSfxChangeCapture,
+    handleGameSfxPointerDownCapture,
+    playGameSfx,
+  } = useGameSfxEventHandlers({ theme: 'twenty' });
+
+  const announce = (action, result = {}) => {
+    const feedback = twentyQuestionsFeedback(action, result);
+    setActionFeedback(feedback);
+    playGameSfx(feedback.cue);
+    return feedback;
+  };
 
   const loadRoom = useCallback(async () => {
     if (!id) {
@@ -157,11 +175,15 @@ export default function TwentyQuestionsRoomContent() {
   const addQuestion = async () => {
     const text = questionText.trim();
     if (!text) {
-      showToast({ tone: 'warning', message: '질문을 입력해주세요.' });
+      const message = '질문을 입력해주세요.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
     if (!canUseAttempt) {
-      showToast({ tone: 'warning', message: '질문/정답 도전 횟수를 모두 사용했습니다.' });
+      const message = '질문/정답 도전 횟수를 모두 사용했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
     setSubmitting('question');
@@ -170,9 +192,13 @@ export default function TwentyQuestionsRoomContent() {
       applyRoomResponse(data);
       clearRoomCaches();
       setQuestionText('');
-      showToast({ tone: 'success', message: data?.message || '질문을 등록했습니다.' });
+      const message = data?.message || '질문을 등록했습니다.';
+      announce('question', { message });
+      showToast({ tone: 'success', message });
     } catch (err) {
-      showToast({ tone: 'danger', message: err?.message || '질문 등록에 실패했습니다.' });
+      const message = err?.message || '질문 등록에 실패했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
     }
@@ -185,9 +211,13 @@ export default function TwentyQuestionsRoomContent() {
       const data = await apiPost(`/twenty-questions/${id}/questions/${questionId}/answer`, { response }, { timeoutMs: 15000 });
       applyRoomResponse(data);
       clearRoomCaches();
-      showToast({ tone: 'success', message: data?.message || '답변을 저장했습니다.' });
+      const message = data?.message || '답변을 저장했습니다.';
+      announce('answer', { response, message });
+      showToast({ tone: 'success', message });
     } catch (err) {
-      showToast({ tone: 'danger', message: err?.message || '답변 저장에 실패했습니다.' });
+      const message = err?.message || '답변 저장에 실패했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
     }
@@ -196,11 +226,15 @@ export default function TwentyQuestionsRoomContent() {
   const submitGuess = async () => {
     const text = guessText.trim();
     if (!text) {
-      showToast({ tone: 'warning', message: '정답 도전을 입력해주세요.' });
+      const message = '정답 도전을 입력해주세요.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
     if (!canUseAttempt) {
-      showToast({ tone: 'warning', message: '질문/정답 도전 횟수를 모두 사용했습니다.' });
+      const message = '질문/정답 도전 횟수를 모두 사용했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
     setSubmitting('guess');
@@ -209,9 +243,13 @@ export default function TwentyQuestionsRoomContent() {
       applyRoomResponse(data);
       clearRoomCaches();
       setGuessText('');
-      showToast({ tone: data?.correct ? 'success' : 'warning', message: data?.message || '정답 도전을 기록했습니다.' });
+      const message = data?.message || '정답 도전을 기록했습니다.';
+      announce('guess', { correct: data?.correct, message });
+      showToast({ tone: data?.correct ? 'success' : 'warning', message });
     } catch (err) {
-      showToast({ tone: 'danger', message: err?.message || '정답 도전에 실패했습니다.' });
+      const message = err?.message || '정답 도전에 실패했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
     }
@@ -220,11 +258,15 @@ export default function TwentyQuestionsRoomContent() {
   const sendHintMessage = async () => {
     const text = hintText.trim();
     if (!text) {
-      showToast({ tone: 'warning', message: '힌트를 입력해주세요.' });
+      const message = '힌트를 입력해주세요.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
     if (!room?.isHost || !active) {
-      showToast({ tone: 'warning', message: '방장만 진행 중인 방에 힌트를 남길 수 있습니다.' });
+      const message = '방장만 진행 중인 방에 힌트를 남길 수 있습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
     setSubmitting('hint');
@@ -233,9 +275,13 @@ export default function TwentyQuestionsRoomContent() {
       applyRoomResponse(data);
       clearRoomCaches();
       setHintText('');
-      showToast({ tone: 'success', message: data?.message || '힌트를 등록했습니다.' });
+      const message = data?.message || '힌트를 등록했습니다.';
+      announce('hint', { message });
+      showToast({ tone: 'success', message });
     } catch (err) {
-      showToast({ tone: 'danger', message: err?.message || '힌트 등록에 실패했습니다.' });
+      const message = err?.message || '힌트 등록에 실패했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
     }
@@ -248,16 +294,24 @@ export default function TwentyQuestionsRoomContent() {
       const data = await apiPost(`/twenty-questions/${id}/close`, {}, { timeoutMs: 15000 });
       applyRoomResponse(data);
       clearRoomCaches();
-      showToast({ tone: 'success', message: data?.message || '방을 종료했습니다.' });
+      const message = data?.message || '방을 종료했습니다.';
+      announce('close', { message });
+      showToast({ tone: 'success', message });
     } catch (err) {
-      showToast({ tone: 'danger', message: err?.message || '방 종료에 실패했습니다.' });
+      const message = err?.message || '방 종료에 실패했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'danger', message });
     } finally {
       setSubmitting('');
     }
   };
 
   return (
-    <main className="twenty-page">
+    <main
+      className="twenty-page"
+      onChangeCapture={handleGameSfxChangeCapture}
+      onPointerDownCapture={handleGameSfxPointerDownCapture}
+    >
       <SiteHeader />
       <section className="twenty-shell">
         <div className="twenty-head">
@@ -267,19 +321,24 @@ export default function TwentyQuestionsRoomContent() {
           </div>
           <div className="twenty-head-actions">
             {room?.isHost && active ? (
-              <button type="button" className="twenty-button twenty-danger" onClick={closeRoom} disabled={submitting === 'close'}>
+              <GameControlButton action="close" cue="warning" className="twenty-button twenty-danger" onClick={closeRoom} disabled={submitting === 'close'}>
                 종료
-              </button>
+              </GameControlButton>
             ) : null}
-            <Link href="/twenty-questions" className="twenty-button twenty-button-secondary">목록</Link>
+            <Link href="/twenty-questions" className="twenty-button twenty-button-secondary game-control-button" data-game-sfx="nav">
+              <GameActionIcon action="room" label="목록" />
+              <span className="game-action-button__label">목록</span>
+            </Link>
           </div>
         </div>
+
+        <TwentyQuestionsFeedbackBar feedback={actionFeedback} />
 
         {loading ? <div className="twenty-empty">방을 불러오는 중입니다.</div> : null}
         {!loading && !room ? (
           <div className="twenty-empty">
             방을 찾을 수 없습니다.
-            <button type="button" className="twenty-button" onClick={() => router.push('/twenty-questions')}>목록으로</button>
+            <GameControlButton action="room" className="twenty-button" onClick={() => router.push('/twenty-questions')}>목록으로</GameControlButton>
           </div>
         ) : null}
 
@@ -318,7 +377,7 @@ export default function TwentyQuestionsRoomContent() {
               <section className="twenty-action-grid">
                 <div className="twenty-action-panel">
                   <div className="twenty-panel-title">
-                    <strong>질문</strong>
+                    <strong><GameActionIcon action="question" label="질문" />질문</strong>
                     <span>{attemptsLeft}회 남음</span>
                   </div>
                   <textarea
@@ -329,14 +388,14 @@ export default function TwentyQuestionsRoomContent() {
                     maxLength={220}
                     disabled={!canUseAttempt}
                   />
-                  <button type="button" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
+                  <GameControlButton action="question" onClick={addQuestion} disabled={!canUseAttempt || submitting === 'question'}>
                     {submitting === 'question' ? '등록 중...' : '질문하기'}
-                  </button>
+                  </GameControlButton>
                 </div>
 
                 <div className="twenty-action-panel">
                   <div className="twenty-panel-title">
-                    <strong>정답 도전</strong>
+                    <strong><GameActionIcon action="guess" label="정답 도전" />정답 도전</strong>
                     <span>{attemptsLeft}회 남음</span>
                   </div>
                   <input
@@ -346,16 +405,16 @@ export default function TwentyQuestionsRoomContent() {
                     maxLength={120}
                     disabled={!canUseAttempt}
                   />
-                  <button type="button" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
+                  <GameControlButton action="guess" onClick={submitGuess} disabled={!canUseAttempt || submitting === 'guess'}>
                     {submitting === 'guess' ? '도전 중...' : '도전'}
-                  </button>
+                  </GameControlButton>
                 </div>
               </section>
             ) : null}
 
             <section className="twenty-chat-panel">
               <div className="twenty-panel-title">
-                <strong>힌트 채팅</strong>
+                <strong><GameActionIcon action="hint" label="힌트 채팅" />힌트 채팅</strong>
                 <span>{hintMessages.length}</span>
               </div>
               <div className="twenty-chat-list">
@@ -380,9 +439,9 @@ export default function TwentyQuestionsRoomContent() {
                     maxLength={240}
                     disabled={submitting === 'hint'}
                   />
-                  <button type="button" onClick={sendHintMessage} disabled={submitting === 'hint'}>
+                  <GameControlButton action="hint" onClick={sendHintMessage} disabled={submitting === 'hint'}>
                     {submitting === 'hint' ? '등록 중...' : '힌트 등록'}
-                  </button>
+                  </GameControlButton>
                 </div>
               ) : active ? (
                 <div className="twenty-chat-locked">방장만 힌트를 남길 수 있습니다.</div>
@@ -392,7 +451,7 @@ export default function TwentyQuestionsRoomContent() {
             {room.isHost && pendingQuestions.length > 0 ? (
               <section className="twenty-host-panel">
                 <div className="twenty-panel-title">
-                  <strong>답변 대기</strong>
+                  <strong><GameActionIcon action="question" label="답변 대기" />답변 대기</strong>
                   <span>{pendingQuestions.length}</span>
                 </div>
                 {pendingQuestions.map((question) => (
@@ -400,14 +459,14 @@ export default function TwentyQuestionsRoomContent() {
                     <p>{question.text}</p>
                     <div>
                       {RESPONSE_OPTIONS.map((option) => (
-                        <button
-                          type="button"
+                        <GameControlButton
+                          action={`answer-${option.value}`}
                           key={option.value}
                           onClick={() => answerQuestion(question._id, option.value)}
                           disabled={submitting.startsWith(`answer:${question._id}:`)}
                         >
                           {option.label}
-                        </button>
+                        </GameControlButton>
                       ))}
                     </div>
                   </div>
@@ -418,7 +477,7 @@ export default function TwentyQuestionsRoomContent() {
             <section className="twenty-history-grid">
               <div className="twenty-history-panel">
                 <div className="twenty-panel-title">
-                  <strong>질문 기록</strong>
+                  <strong><GameActionIcon action="question" label="질문 기록" />질문 기록</strong>
                   <span>{room.questions.length}</span>
                 </div>
                 {room.questions.length === 0 ? <div className="twenty-empty compact">아직 질문이 없습니다.</div> : null}
@@ -438,7 +497,7 @@ export default function TwentyQuestionsRoomContent() {
 
               <div className="twenty-history-panel">
                 <div className="twenty-panel-title">
-                  <strong>정답 도전 기록</strong>
+                  <strong><GameActionIcon action="guess" label="정답 도전 기록" />정답 도전 기록</strong>
                   <span>{room.guesses.length}</span>
                 </div>
                 {room.guesses.length === 0 ? <div className="twenty-empty compact">아직 도전이 없습니다.</div> : null}

@@ -35,7 +35,8 @@
 .twenty-action-panel,
 .twenty-host-panel,
 .twenty-chat-panel,
-.twenty-history-panel {
+.twenty-history-panel,
+.twenty-feedback {
   border: 1px solid rgba(22, 33, 44, 0.12);
   border-radius: 8px;
   background: #fff;
@@ -62,7 +63,7 @@
 .twenty-head h1 {
   margin: 0;
   color: #17202a;
-  font-size: clamp(1.7rem, 2.4vw, 2.45rem);
+  font-size: 2rem;
   line-height: 1.16;
   letter-spacing: 0;
 }
@@ -107,7 +108,66 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
 }
+
+.twenty-create-panel button,
+.twenty-action-panel button,
+.twenty-chat-input button,
+.twenty-pending-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.twenty-feedback {
+  position: sticky;
+  top: 8px;
+  z-index: 12;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  border-left: 4px solid #2c6f9e;
+  padding: 11px 14px;
+}
+
+.twenty-feedback > .game-action-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #eef8ff;
+  color: #155779;
+}
+
+.twenty-feedback > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.twenty-feedback span {
+  color: #66727e;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.twenty-feedback strong {
+  min-width: 0;
+  color: #17202a;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.twenty-feedback.is-green { border-left-color: #2f8f61; }
+.twenty-feedback.is-red { border-left-color: #c44236; }
+.twenty-feedback.is-gold { border-left-color: #b98024; }
+.twenty-feedback.is-gray { border-left-color: #77838e; }
 
 .twenty-button:hover,
 .twenty-create-panel button:hover,
@@ -311,6 +371,15 @@
   justify-content: space-between;
 }
 
+.twenty-card-top .twenty-room-card-icon {
+  width: 28px;
+  min-height: 28px;
+  justify-content: center;
+  background: #eef8ff;
+  color: #155779;
+  padding: 0;
+}
+
 .twenty-room-card h2 {
   margin: 0;
   color: #17202a;
@@ -403,6 +472,12 @@
   justify-content: space-between;
   color: #17202a;
   font-weight: 900;
+}
+
+.twenty-panel-title strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .twenty-action-panel button {
@@ -582,6 +657,8 @@
 
   .twenty-head-actions,
   .twenty-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
   }
 
@@ -593,11 +670,26 @@
     width: 100%;
   }
 
+  .twenty-filters input {
+    grid-column: 1 / -1;
+  }
+
   .twenty-create-grid,
   .twenty-action-grid,
-  .twenty-history-grid,
-  .twenty-room-summary dl {
+  .twenty-history-grid {
     grid-template-columns: 1fr;
+  }
+
+  .twenty-room-summary dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .twenty-head h1 {
+    font-size: 1.7rem;
+  }
+
+  .twenty-feedback {
+    top: 6px;
   }
 
   .twenty-pending-row {

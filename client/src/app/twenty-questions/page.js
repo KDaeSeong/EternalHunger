@@ -7,6 +7,11 @@ import SiteHeader from '../../components/SiteHeader';
 import { useToast } from '../../components/ToastProvider';
 import { apiGetCached, apiPost, clearApiGetCache } from '../../utils/api';
 import { useAuthToken, useAuthUser, useHydrated } from '../../utils/client-auth';
+import GameActionIcon from '../games/_components/GameActionIcon';
+import { GameControlButton } from '../games/_components/GamePlayPrimitives';
+import { useGameSfxEventHandlers } from '../games/_lib/useGameSfx';
+import TwentyQuestionsFeedbackBar from './_components/TwentyQuestionsFeedbackBar';
+import { twentyQuestionsFeedback } from './_lib/twentyQuestionsFeedback';
 
 const CATEGORIES = [
   { value: 'free', label: '자유' },
@@ -101,6 +106,19 @@ export default function TwentyQuestionsPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [query, setQuery] = useState('');
   const [form, setForm] = useState({ title: '', category: 'free', hint: '', answer: '' });
+  const [actionFeedback, setActionFeedback] = useState(null);
+  const {
+    handleGameSfxChangeCapture,
+    handleGameSfxPointerDownCapture,
+    playGameSfx,
+  } = useGameSfxEventHandlers({ theme: 'twenty' });
+
+  const announce = (action, result = {}) => {
+    const feedback = twentyQuestionsFeedback(action, result);
+    setActionFeedback(feedback);
+    playGameSfx(feedback.cue);
+    return feedback;
+  };
 
   const loadRooms = useCallback(async () => {
     setLoading(true);
@@ -116,10 +134,12 @@ export default function TwentyQuestionsPage() {
         storage: 'session',
       });
       setRooms(unwrapRooms(data));
+      return true;
     } catch (err) {
       const message = err?.message || '스무고개 방을 불러오지 못했습니다.';
       setLoadError(message);
       showToast({ tone: 'danger', message });
+      return false;
     } finally {
       setLoading(false);
     }
@@ -158,6 +178,14 @@ export default function TwentyQuestionsPage() {
 
   const activeCount = useMemo(() => rooms.filter((room) => room.status === 'active').length, [rooms]);
 
+  const refreshRooms = async () => {
+    const ok = await loadRooms();
+    announce(ok ? 'refresh' : 'invalid', {
+      ok,
+      message: ok ? '최신 스무고개 방 목록을 불러왔습니다.' : '스무고개 방 목록을 불러오지 못했습니다.',
+    });
+  };
+
   const createRoom = async () => {
     const payload = {
       title: form.title.trim(),
@@ -166,7 +194,9 @@ export default function TwentyQuestionsPage() {
       answer: form.answer.trim(),
     };
     if (!payload.title || !payload.answer) {
-      showToast({ tone: 'warning', message: '방 제목과 정답을 입력해주세요.' });
+      const message = '방 제목과 정답을 입력해주세요.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'warning', message });
       return;
     }
 
@@ -174,7 +204,9 @@ export default function TwentyQuestionsPage() {
     try {
       const data = await apiPost('/twenty-questions', payload, { timeoutMs: 15000 });
       const roomId = data?.room?._id || data?.room?.id;
-      showToast({ tone: 'success', message: data?.message || '스무고개 방을 만들었습니다.' });
+      const message = data?.message || '스무고개 방을 만들었습니다.';
+      announce('roomCreate', { message });
+      showToast({ tone: 'success', message });
       clearApiGetCache('/twenty-questions');
       clearApiGetCache('/public/home-hub');
       clearApiGetCache('/public/search');
@@ -187,14 +219,20 @@ export default function TwentyQuestionsPage() {
       clearApiGetCache('/public/home-hub');
       clearApiGetCache('/public/search');
       await loadRooms();
-      showToast({ tone: 'danger', message: err?.message || '스무고개 방 생성에 실패했습니다.' });
+      const message = err?.message || '스무고개 방 생성에 실패했습니다.';
+      announce('invalid', { ok: false, message });
+      showToast({ tone: 'danger', message });
     } finally {
       setCreating(false);
     }
   };
 
   return (
-    <main className="twenty-page">
+    <main
+      className="twenty-page"
+      onChangeCapture={handleGameSfxChangeCapture}
+      onPointerDownCapture={handleGameSfxPointerDownCapture}
+    >
       <SiteHeader />
       <section className="twenty-shell">
         <div className="twenty-head">
@@ -204,21 +242,29 @@ export default function TwentyQuestionsPage() {
           </div>
           <div className="twenty-head-actions">
             {mounted && token ? (
-              <button
-                type="button"
+              <GameControlButton
+                action={writerOpen ? 'close' : 'room'}
                 className="twenty-button"
                 onClick={() => setWriterOpen((value) => !value)}
                 aria-expanded={writerOpen}
                 aria-controls="twenty-create-panel"
               >
                 {writerOpen ? '닫기' : '방 만들기'}
-              </button>
+              </GameControlButton>
             ) : (
-              <Link href="/login" className="twenty-button">로그인</Link>
+              <Link href="/login" className="twenty-button game-control-button" data-game-sfx="nav">
+                <GameActionIcon action="settings" label="로그인" />
+                <span className="game-action-button__label">로그인</span>
+              </Link>
             )}
-            <Link href="/board" className="twenty-button twenty-button-secondary">게시판</Link>
+            <Link href="/board" className="twenty-button twenty-button-secondary game-control-button" data-game-sfx="nav">
+              <GameActionIcon action="archive" label="게시판" />
+              <span className="game-action-button__label">게시판</span>
+            </Link>
           </div>
         </div>
+
+        <TwentyQuestionsFeedbackBar feedback={actionFeedback} />
 
         <section className="twenty-toolbar" aria-label="스무고개 필터">
           <div className="twenty-stats">
@@ -271,9 +317,9 @@ export default function TwentyQuestionsPage() {
                 placeholder="정답"
                 maxLength={120}
               />
-              <button type="button" onClick={createRoom} disabled={creating}>
+              <GameControlButton action="room" onClick={createRoom} disabled={creating}>
                 {creating ? '생성 중...' : '생성'}
-              </button>
+              </GameControlButton>
             </div>
             <textarea
               value={form.hint}
@@ -294,13 +340,14 @@ export default function TwentyQuestionsPage() {
           {!loading && loadError ? (
             <div className="twenty-empty twenty-error">
               <span>{loadError}</span>
-              <button type="button" onClick={() => void loadRooms()}>다시 불러오기</button>
+              <GameControlButton action="refresh" onClick={() => void refreshRooms()}>다시 불러오기</GameControlButton>
             </div>
           ) : null}
           {!loading && !loadError && filteredRooms.length === 0 ? <div className="twenty-empty">표시할 방이 없습니다.</div> : null}
           {!loading && filteredRooms.map((room) => (
-            <Link href={`/twenty-questions/${room._id}`} className="twenty-room-card" key={room._id}>
+            <Link href={`/twenty-questions/${room._id}`} className="twenty-room-card" data-game-sfx="nav" key={room._id}>
               <div className="twenty-card-top">
+                <GameActionIcon action="room" label="방 입장" className="twenty-room-card-icon" />
                 <span className={`twenty-status is-${room.status}`}>{statusLabel(room.status)}</span>
                 <span>{room.categoryLabel}</span>
               </div>
