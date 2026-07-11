@@ -2,7 +2,7 @@ import GameActionIcon from '../../_components/GameActionIcon';
 
 export default function PrimitiveArchiveTurnHorizon({ milestones }) {
   return (
-    <section className="games-panel primitive-turn-horizon">
+    <section className="games-panel primitive-turn-horizon primitive-turn-horizon--compact">
       <div className="games-panel-title">
         <div>
           <h2>한 턴만 더</h2>

@@ -89,11 +89,16 @@ npm run build
 - Primitive Archive save/load/record actions now live in `client/src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js`.
 - Primitive Archive large feature tab JSX now lives in `client/src/app/games/primitive-archive/_components/PrimitiveArchiveFeatureTabs.js`.
 - Primitive Archive feature tabs are split into:
-  - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveSurvivalTab.js`
+  - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveActionWorkspace.js`
+  - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveWorldMap.js`
+  - `client/src/app/games/primitive-archive/_components/PrimitiveArchivePartyWorkspace.js`
+  - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveCampWorkspace.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveReportTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveGrowthTab.js`
+  - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveTribeTab.js`
   - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveInventoryTab.js`
-- Primitive Archive survival now has compact nested workspaces for actions, map, party/objectives, and camp/report. Inventory has separate item, equipment, and log workspaces; equipment was removed from the survival stack. Start difficulty, survival coaching, expected returns, facility descriptions, and owned equipment default to collapsed summaries so routine play no longer requires scrolling through every subsystem.
+  - `client/src/app/games/primitive-archive/_components/PrimitiveArchiveRunTab.js`
+- Primitive Archive now exposes actions, map, party, camp/report, archive, research, tribe, inventory, and run management in one top-level tab row. The latest result is inside the action dock, the turn forecast follows the controls, and difficulty/record/settlement controls moved into run management. At 1024x900 the action panel starts near 458px rather than 1,070px and the document is about 1,015px tall; mobile hero controls, metrics, and tabs use contained horizontal scrolling instead of extending the page width.
 - Primitive Archive play route content now lives in `client/src/app/games/primitive-archive/_components/PrimitiveArchivePlayContent.js`; `play/page.js` is now a thin entrypoint.
 - Primitive Archive ancient research branches now include preserved rations, precision carving, obsidian gear, megafauna hide armor, clay-tablet records, and weather lore; auto craft, research passives, food handling, hunt risk, and unlock labels are wired through the engine/UI helpers.
 - Primitive Archive research planner now has an expandable detail modal, and `researchPlannerRows` applies ancient-era pressure weighting for food scarcity, cold exposure, rare resources, megafauna risk, and archive progression.
@@ -122,6 +127,7 @@ npm run build
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuGrowthTab.js`
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuJudgeTab.js`
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuAdvancedTab.js`
+- Tonkatsu Teacher now has explicit cook, serve, sales, order, tournament, and verdict control semantics plus result-aware battle, tournament, and judge cues. Its compact hero, micro metrics, icon-led feature tabs, collapsed operations coach, and dense responsive stats keep routine kitchen actions visible without stretching the page.
 - BA SRPG large feature tab JSX now lives in `client/src/app/games/ba-srpg/_components/BaSrpgFeatureTabs.js`.
 - BA SRPG feature tabs are split into:
   - `client/src/app/games/ba-srpg/_components/BaSrpgMissionTab.js`

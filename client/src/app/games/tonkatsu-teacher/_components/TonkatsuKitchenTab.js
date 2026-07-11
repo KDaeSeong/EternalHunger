@@ -66,9 +66,9 @@ export default function TonkatsuKitchenTab(props) {
                     필요: {formatNeeds(recipe.needs)}
                   </p>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
-                    <ActionButton disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>선택 메뉴 판매</ActionButton>
-                    <ActionButton disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
+                    <ActionButton action="cook" disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
+                    <ActionButton action="sales" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>선택 메뉴 판매</ActionButton>
+                    <ActionButton action="order" disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -82,8 +82,8 @@ export default function TonkatsuKitchenTab(props) {
                     <SmallStat label="보관 한도" value={facilityContext.storageCap} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
-                    <ActionButton disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
+                    <ActionButton action="trade" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
+                    <ActionButton action="trade" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
                   </div>
                 </section>
               </section>

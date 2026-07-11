@@ -64,6 +64,7 @@ export default function GameAdvisorPanel({
   storageKey = '',
   tone = 'info',
   compact = false,
+  minimal = false,
   defaultExpanded = false,
   emptyText = '현재 표시할 안내가 없습니다.',
 }) {
@@ -106,7 +107,7 @@ export default function GameAdvisorPanel({
   const showMainContent = !compact || expanded;
 
   return (
-    <section className={`games-panel game-advisor-panel game-advisor-panel--${tone}${compact ? ' game-advisor-panel--compact' : ''}`} aria-labelledby={titleId}>
+    <section className={`games-panel game-advisor-panel game-advisor-panel--${tone}${compact ? ' game-advisor-panel--compact' : ''}${minimal ? ' game-advisor-panel--minimal' : ''}${expanded ? ' is-expanded' : ''}`} aria-labelledby={titleId}>
       <div className="games-panel-title">
         <h2 id={titleId}>{title}</h2>
         <div className="game-advisor-title-actions">

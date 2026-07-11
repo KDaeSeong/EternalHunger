@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
@@ -8,9 +7,7 @@ import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
 import useGameSfx from '../../_lib/useGameSfx';
 import {
-  ActionButton,
   GameControlButton,
-  RecentActionResult,
 } from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
@@ -28,7 +25,6 @@ import {
   canSelectActionZone,
   campFacilityRows,
   civilizationMilestoneRows,
-  completeArchiveAction,
   clearAllEquipmentAction,
   createNewState,
   difficultyRows,
@@ -70,7 +66,6 @@ import {
   selectRegionAction,
   selectTechAction,
   setEquipmentSlotAction,
-  settleRunAction,
   startNewRunFromMeta,
   techRows,
   totalCarryWeight,
@@ -82,7 +77,6 @@ import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersist
 
 import {
   BASE_CAMP_ACTIONS,
-  FALLBACK_DIFFICULTY_TAGS,
   PARTY_SORT_OPTIONS,
   actionLabel,
   buildResearchMap,
@@ -90,9 +84,7 @@ import {
   clampRatio,
   equipmentChoiceScore,
   equipmentSuccessText,
-  multiplierText,
   roleActionForMember,
-  startInventoryText,
   vitalBadges,
 } from '../_lib/primitiveArchivePageRuntime';
 
@@ -434,14 +426,10 @@ export default function PrimitiveArchivePlayContent() {
 
   const playActions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 런</GameControlButton>
+      <GameControlButton action="new" onClick={startNewRun}>{selectedDifficulty.label} 새 런</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
-      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '런 기록'}</GameControlButton>
       <GameControlButton action="auto" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
-      <GameControlButton action="complete" onClick={() => applyAction('아카이브 완성', (current) => completeArchiveAction(current))} disabled={!archiveVictory.canComplete}>아카이브 완성</GameControlButton>
-      <GameControlButton action="settle" onClick={() => applyAction('런 정산', (current) => settleRunAction(current))}>런 정산</GameControlButton>
-      <Link href="/myanime/primitive-archive">상세</Link>
     </>
   );
 
@@ -458,7 +446,6 @@ export default function PrimitiveArchivePlayContent() {
 
   const playMessages = [
     message ? { key: 'message', text: message } : null,
-    !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만, 저장/불러오기/전적 기록은 로그인해야 사용할 수 있습니다.' } : null,
     archiveVictory.victory ? { key: 'victory', text: '아카이브를 완성했습니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
     archiveVictory.canComplete ? { key: 'complete-ready', text: '모든 목표를 달성했습니다. 아카이브 완성으로 런을 마무리할 수 있습니다.' } : null,
     dead && !archiveVictory.victory ? { key: 'dead', tone: 'error', text: '런이 종료 상태입니다. 결과를 기록하거나 새 런을 시작하세요.' } : null,
@@ -490,6 +477,7 @@ export default function PrimitiveArchivePlayContent() {
 
   return (
     <GamePlayShell
+      className="primitive-archive-page-shell"
       kicker="Primitive Archive"
       title="원시 아카이브"
       description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프, 연구, 장비 빌드를 반복하며 며칠이나 버티는지 보는 생존 시뮬레이션입니다."
@@ -501,53 +489,7 @@ export default function PrimitiveArchivePlayContent() {
       metrics={playMetrics}
       messages={playMessages}
     >
-      <details className="games-panel primitive-difficulty-panel primitive-difficulty-panel--compact">
-        <summary>
-          <span><strong>시작 난이도</strong>현재 {currentDifficulty.label} · 다음 {selectedDifficulty.label}</span>
-          <em>새 런 설정</em>
-        </summary>
-        <div className="primitive-difficulty-lockbar">
-          <span><strong>현재 런</strong>{currentDifficulty.label}</span>
-          <span><strong>다음 시작</strong>{selectedDifficulty.label}</span>
-          <span>난이도는 새 런 시작 시점에만 적용됩니다.</span>
-        </div>
-        <div className="primitive-difficulty-grid">
-          {difficultyRows().map((row) => (
-            <button
-              type="button"
-              key={row.key}
-              className={`primitive-difficulty-card${newRunDifficulty === row.key ? ' is-active' : ''}`}
-              data-game-sfx="select"
-              onClick={() => setNewRunDifficulty(row.key)}
-              aria-pressed={newRunDifficulty === row.key}
-            >
-              <span className="primitive-difficulty-card__head">
-                <strong>{row.label}</strong>
-                <em>{row.startLabel || FALLBACK_DIFFICULTY_TAGS[row.key] || '시작'}</em>
-              </span>
-              <small>{row.recommendation || row.desc}</small>
-              <span className="primitive-difficulty-card__stats">
-                AP {row.apMax} · 허기 {multiplierText(row.hungerMultiplier)} · 추위 {multiplierText(row.coldMultiplier)} · 점수 {multiplierText(row.scoreMultiplier)}
-              </span>
-              <span className="primitive-difficulty-card__rule">
-                {row.ruleSummary || row.desc}
-              </span>
-              <span className="primitive-difficulty-card__loadout">
-                시작 보급: {startInventoryText(row)}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div className="primitive-difficulty-summary">
-          <span>선택한 난이도는 새 런을 시작할 때 적용됩니다. 보유 특전 보급은 시작 보급에 추가됩니다.</span>
-          <ActionButton action="new" onClick={startNewRun}>
-            {selectedDifficulty.label}으로 새 런
-          </ActionButton>
-        </div>
-      </details>
-
-      <GameAdvisorPanel {...guide} compact storageKey="primitive-archive-survival-coach" />
-      <RecentActionResult label="이번 행동 결과" text={recentActionText} pinned />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="primitive-archive-survival-coach" />
 
       <PrimitiveArchiveFeatureTabs
         actor={actor}
@@ -559,12 +501,14 @@ export default function PrimitiveArchivePlayContent() {
         archiveVictory={archiveVictory}
         autoEquip={autoEquip}
         buyPerk={buyPerk}
+        busy={busy}
         campFacilities={campFacilities}
         canAct={canAct}
         changeEquipmentSlot={changeEquipmentSlot}
         clearEquipment={clearEquipment}
         craftChance={craftChance}
         currentEquipmentRows={currentEquipmentRows}
+        currentDifficulty={currentDifficulty}
         currentLogCapacity={currentLogCapacity}
         equipmentAdviceMode={equipmentAdviceMode}
         equipmentAdviceRows={equipmentAdviceRows}
@@ -575,6 +519,7 @@ export default function PrimitiveArchivePlayContent() {
         inventoryRows={inventoryRows}
         exploration={exploration}
         milestones={milestones}
+        newRunDifficulty={newRunDifficulty}
         partyCap={partyCap}
         partySort={partySort}
         partyView={partyView}
@@ -591,6 +536,7 @@ export default function PrimitiveArchivePlayContent() {
         research={research}
         researchMap={researchMap}
         researchPlannerOpen={researchPlannerOpen}
+        recordRun={recordRun}
         rivals={rivals}
         runCamp={runCamp}
         runCraft={runCraft}
@@ -612,15 +558,20 @@ export default function PrimitiveArchivePlayContent() {
         selectedRegion={selectedRegion}
         selectedRecruit={selectedRecruit}
         selectedResearchHelp={selectedResearchHelp}
+        selectedDifficulty={selectedDifficulty}
         setActorId={setActorId}
         setPartySort={setPartySort}
         setRecipeId={setRecipeId}
+        setNewRunDifficulty={setNewRunDifficulty}
         setResearchPlannerOpen={setResearchPlannerOpen}
         setSelectedRecruitId={setSelectedRecruitId}
         regions={regions}
         state={state}
+        startNewRun={startNewRun}
         techs={techs}
         tribe={tribe}
+        token={token}
+        hydrated={hydrated}
         zone={zone}
         zoneId={activeRegionId}
         zoneSelectionUnlocked={zoneSelectionUnlocked}

@@ -30,12 +30,12 @@ export default function TonkatsuJudgeTab(props) {
                     <SmallStat label="정확도" value={`${judge.accuracy}%`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton disabled={!canAct} onClick={() => {
+                    <ActionButton action="verdict" disabled={!canAct} onClick={() => {
                       setJudgePick('A');
                       setJudgeText('');
                       setState((current) => startJudgeMatchAction(current, judgeTierId));
                     }}>새 심사 매치</ActionButton>
-                    <ActionButton disabled={!canAct} onClick={() => setState((current) => runJudgeBatchAction(current, judgeTierId, judgeBatchCount, judgeBatchMode))}>자동 심사 실행</ActionButton>
+                    <ActionButton action="verdict" disabled={!canAct} onClick={() => setState((current) => runJudgeBatchAction(current, judgeTierId, judgeBatchCount, judgeBatchMode))}>자동 심사 실행</ActionButton>
                   </div>
                 </section>
               </section>

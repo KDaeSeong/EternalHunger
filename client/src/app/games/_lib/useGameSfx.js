@@ -76,6 +76,39 @@ const CUE_PROFILES = {
   consume: [
     { frequency: 420, endFrequency: 560, duration: 0.07, type: 'sine', gain: 0.06 },
   ],
+  cook: [
+    { source: 'noise', filterType: 'highpass', frequency: 1500, q: 0.8, duration: 0.09, gain: 0.045 },
+    { frequency: 620, endFrequency: 520, duration: 0.055, type: 'triangle', gain: 0.045 },
+  ],
+  serve: [
+    { frequency: 920, duration: 0.035, type: 'sine', gain: 0.05 },
+    { frequency: 1240, start: 0.03, duration: 0.065, type: 'sine', gain: 0.038 },
+  ],
+  sales: [
+    { frequency: 980, duration: 0.032, type: 'square', gain: 0.04 },
+    { frequency: 1320, start: 0.03, duration: 0.055, type: 'triangle', gain: 0.04 },
+  ],
+  order: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1100, q: 1.4, duration: 0.055, gain: 0.04 },
+    { frequency: 740, start: 0.04, duration: 0.07, type: 'triangle', gain: 0.04 },
+  ],
+  tournament: [
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 585, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },
+    { frequency: 780, start: 0.09, duration: 0.1, type: 'sine', gain: 0.04 },
+  ],
+  verdict: [
+    { source: 'noise', filterType: 'lowpass', frequency: 540, duration: 0.05, gain: 0.055 },
+    { frequency: 210, endFrequency: 155, duration: 0.085, type: 'square', gain: 0.04 },
+  ],
+  judgeCorrect: [
+    { frequency: 560, duration: 0.04, type: 'triangle', gain: 0.05 },
+    { frequency: 840, start: 0.035, duration: 0.065, type: 'sine', gain: 0.045 },
+  ],
+  judgeWrong: [
+    { frequency: 360, endFrequency: 250, duration: 0.09, type: 'triangle', gain: 0.05 },
+    { frequency: 180, start: 0.07, duration: 0.1, type: 'sine', gain: 0.04 },
+  ],
   rest: [
     { frequency: 520, endFrequency: 310, duration: 0.13, type: 'sine', gain: 0.055 },
   ],

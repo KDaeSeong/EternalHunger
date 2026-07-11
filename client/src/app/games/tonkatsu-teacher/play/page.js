@@ -1,14 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
+import GameActionIcon from '../../_components/GameActionIcon';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GamePlayShell from '../../_components/GamePlayShell';
-import { RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import TonkatsuTeacherFeatureTabs from '../_components/TonkatsuTeacherFeatureTabs';
+import { tonkatsuResultCue } from '../_lib/tonkatsuTeacherFeedback';
 import {
   GAME_SLUG,
   COSMETIC_SLOT_LABELS,
@@ -157,7 +160,9 @@ export default function TonkatsuTeacherPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'kitchen' });
   const [state, setState] = useState(() => createNewState());
+  const feedbackRef = useRef(state);
   const [recipeId, setRecipeId] = useState('basic_tonkatsu');
   const [ingredientId, setIngredientId] = useState('pork');
   const [studentId, setStudentId] = useState('yuuka');
@@ -171,6 +176,12 @@ export default function TonkatsuTeacherPlayPage() {
   const [judgeHistoryMode, setJudgeHistoryMode] = useState('all');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const cue = tonkatsuResultCue(feedbackRef.current, state);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = state;
+  }, [playGameSfx, state]);
 
   const recipes = recipeRows(state);
   const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
@@ -259,7 +270,9 @@ export default function TonkatsuTeacherPlayPage() {
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
-      setState(normalizeState(detail?.save?.payload?.state));
+      const nextState = normalizeState(detail?.save?.payload?.state);
+      feedbackRef.current = nextState;
+      setState(nextState);
       setMessage('저장된 운영 데이터를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 돈카츠 선생 데이터를 불러왔습니다.' });
     } catch (err) {
@@ -316,11 +329,11 @@ export default function TonkatsuTeacherPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>새 운영</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '운영 기록'}</button>
-      <Link href="/myanime/tonkatsu-teacher">상세</Link>
+      <GameControlButton action="new" onClick={startNewRun}>새 운영</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '운영 기록'}</GameControlButton>
+      <Link href="/myanime/tonkatsu-teacher" data-game-sfx="select"><GameActionIcon action="settings" label="상세" />상세</Link>
     </>
   );
 
@@ -371,12 +384,14 @@ export default function TonkatsuTeacherPlayPage() {
       title="돈카츠 선생"
       description="재료를 사고 메뉴를 만들어 판매하거나 학생에게 배식한 뒤 전투 보상으로 다시 가게를 키우는 경영 루프 slice입니다."
       summaryLabel="돈카츠 선생 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={11}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact storageKey="tonkatsu-teacher-operations-coach" />
       <RecentActionResult label="이번 운영 결과" text={recentActionText} pinned />
 
       <TonkatsuTeacherFeatureTabs

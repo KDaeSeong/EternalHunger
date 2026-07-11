@@ -82,6 +82,7 @@ export function GameFeatureTabs({ tabs = [], initialTabId = '', activeTabId: con
 }
 
 export default function GamePlayShell({
+  className = '',
   kicker,
   title,
   description,
@@ -113,7 +114,7 @@ export default function GamePlayShell({
 
   return (
     <main
-      className="games-page-shell"
+      className={`games-page-shell${className ? ` ${className}` : ''}`}
       onChangeCapture={handleGameSfxChangeCapture}
       onPointerDownCapture={handleGameSfxPointerDownCapture}
     >

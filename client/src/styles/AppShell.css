@@ -6103,6 +6103,29 @@
   padding-block: 12px;
 }
 
+.game-advisor-panel--minimal:not(.is-expanded) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+}
+
+.game-advisor-panel--minimal:not(.is-expanded) .games-panel-title {
+  min-width: 210px;
+  gap: 10px;
+}
+
+.game-advisor-panel--minimal:not(.is-expanded) .games-panel-title h2,
+.game-advisor-panel--minimal:not(.is-expanded) .game-advisor-title-actions > span {
+  font-size: 0.76rem;
+}
+
+.game-advisor-panel--minimal:not(.is-expanded) .game-advisor-compact-summary {
+  border-left: 0;
+  padding: 0;
+}
+
 .game-advisor-compact-summary {
   min-width: 0;
   display: flex;
@@ -6401,11 +6424,65 @@
   background: #f1f8fd;
 }
 
+.primitive-archive-page-shell .games-page {
+  gap: 10px;
+}
+
+.primitive-archive-page-shell .games-hero--compact {
+  grid-template-columns: minmax(380px, 1fr) auto;
+  padding: 14px 18px;
+}
+
+.primitive-archive-page-shell .games-hero--compact h1 {
+  font-size: 2rem;
+}
+
+.primitive-archive-page-shell .games-hero--compact .games-hero-actions {
+  flex-wrap: nowrap;
+}
+
+.primitive-archive-workspace .game-feature-tabs {
+  gap: 8px;
+}
+
+.primitive-archive-workspace .game-feature-tabs__list {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(86px, 1fr));
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.primitive-archive-workspace .game-feature-tabs__list button,
+.primitive-archive-workspace .game-feature-tabs__list--dense button {
+  min-width: 0;
+  min-height: 38px;
+  max-width: none;
+  gap: 5px;
+  padding: 0 7px;
+  font-size: 0.76rem;
+}
+
+.primitive-archive-workspace .game-feature-tabs__list button strong {
+  display: none;
+}
+
+.primitive-archive-workspace .game-feature-tabs__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .primitive-difficulty-panel {
   gap: 14px;
 }
 
 .school-simulator-workspace .games-rank-split {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+
+.tonkatsu-teacher-workspace .games-rank-split {
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
 }
 
@@ -6737,7 +6814,12 @@
 }
 
 .primitive-action-workspace {
-  gap: 10px;
+  gap: 8px;
+  padding: 12px;
+}
+
+.primitive-action-workspace + .primitive-turn-horizon {
+  margin-top: 10px;
 }
 
 .primitive-action-forecast-details,
@@ -6962,6 +7044,80 @@
   display: grid;
   gap: 10px;
   border-top: 4px solid #2f7da8;
+}
+
+.primitive-turn-horizon--compact {
+  grid-template-columns: 155px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.primitive-turn-horizon--compact > .games-panel-title {
+  align-content: center;
+  padding: 10px 12px;
+  border-right: 1px solid rgba(22, 33, 44, 0.09);
+}
+
+.primitive-turn-horizon--compact .primitive-turn-horizon__rows {
+  border: 0;
+  border-radius: 0;
+}
+
+.primitive-turn-horizon--compact .primitive-turn-horizon__rows article {
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px;
+}
+
+.primitive-turn-horizon--compact .primitive-turn-horizon__rows .game-action-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.primitive-turn-horizon--compact .primitive-turn-horizon__rows small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primitive-run-management {
+  gap: 12px;
+}
+
+.primitive-run-management__actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.primitive-run-management__actions .game-action-button,
+.primitive-run-management__actions .game-control-button,
+.primitive-run-management__actions a {
+  width: 100%;
+  min-height: 40px;
+  margin: 0;
+}
+
+.primitive-run-management__actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(44, 111, 158, 0.22);
+  border-radius: 8px;
+  background: #fff;
+  color: #1b4f73;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.primitive-run-management__note {
+  margin: 0;
+  color: #64717d;
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .primitive-turn-horizon__rows {
@@ -9699,6 +9855,19 @@
     align-items: start;
   }
 
+  .primitive-archive-page-shell .games-hero--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-archive-page-shell .games-hero--compact .games-hero-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .primitive-run-management__actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .games-hero--compact .games-hero-actions {
     justify-content: flex-start;
   }
@@ -9746,6 +9915,54 @@
     flex-wrap: wrap;
   }
 
+  .primitive-archive-page-shell .games-hero--compact p:not(.games-kicker) {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .primitive-archive-page-shell .games-hero--compact .games-hero-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .primitive-archive-page-shell .games-hero--compact .games-hero-actions button {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 118px;
+  }
+
+  .primitive-archive-page-shell .games-summary--micro {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .game-advisor-panel--minimal:not(.is-expanded) {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .game-advisor-panel--minimal:not(.is-expanded) .games-panel-title {
+    min-width: 0;
+    display: flex;
+  }
+
+  .game-advisor-panel--minimal:not(.is-expanded) .game-advisor-title-actions {
+    width: auto;
+  }
+
+  .game-advisor-panel--minimal:not(.is-expanded) .game-advisor-compact-summary {
+    display: block;
+  }
+
+  .game-advisor-panel--minimal:not(.is-expanded) .game-advisor-compact-summary span {
+    display: none;
+  }
+
   .game-advisor-compact-summary {
     display: grid;
     gap: 4px;
@@ -9765,6 +9982,24 @@
     min-height: 40px;
     gap: 5px;
     padding: 6px;
+  }
+
+  .primitive-turn-horizon--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-turn-horizon--compact > .games-panel-title {
+    border-right: 0;
+    border-bottom: 1px solid rgba(22, 33, 44, 0.09);
+  }
+
+  .primitive-turn-horizon--compact .primitive-turn-horizon__rows {
+    grid-template-columns: repeat(4, minmax(138px, 1fr));
+    overflow-x: auto;
+  }
+
+  .primitive-run-management__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .primitive-party-member small {

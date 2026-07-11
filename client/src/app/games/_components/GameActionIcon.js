@@ -101,6 +101,7 @@ const ACTION_ICONS = {
   combat: Swords,
   complete: BadgeCheck,
   counsel: HeartHandshake,
+  cook: CookingPot,
   contract: FileSignature,
   consume: Utensils,
   craft: Hammer,
@@ -131,6 +132,7 @@ const ACTION_ICONS = {
   match: Radio,
   move: Move,
   new: Sparkles,
+  order: PackageCheck,
   pass: SkipForward,
   property: Building2,
   project: Construction,
@@ -146,6 +148,7 @@ const ACTION_ICONS = {
   ride: ChevronsUp,
   save: Save,
   salvage: Recycle,
+  sales: Receipt,
   school: School,
   season: CloudSun,
   semester: BellRing,
@@ -155,6 +158,7 @@ const ACTION_ICONS = {
   shuffle: Shuffle,
   skill: Zap,
   sponsor: Handshake,
+  serve: Utensils,
   summon: GalleryVerticalEnd,
   survival: TentTree,
   sync: RefreshCw,
@@ -162,6 +166,7 @@ const ACTION_ICONS = {
   target: Target,
   title: Medal,
   tower: Castle,
+  tournament: Trophy,
   trade: Coins,
   transfer: Repeat2,
   training: Dumbbell,
@@ -173,6 +178,7 @@ const ACTION_ICONS = {
   chain: Link2,
   formation: Grid3X3,
   wait: Hourglass,
+  verdict: Gavel,
 };
 
 export function gameActionText(children) {

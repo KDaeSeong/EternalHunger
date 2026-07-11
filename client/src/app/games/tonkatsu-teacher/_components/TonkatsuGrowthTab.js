@@ -37,7 +37,7 @@ export default function TonkatsuGrowthTab(props) {
                     <SmallStat label="목표" value={tournament.tier.targetScore} />
                     <SmallStat label="판정" value={tournament.win ? '우승권' : '부족'} />
                   </div>
-                  <ActionButton disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
+                  <ActionButton action="tournament" disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
                 </section>
               </section>
     </>

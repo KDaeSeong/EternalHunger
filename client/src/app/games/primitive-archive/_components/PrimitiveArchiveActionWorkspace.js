@@ -1,4 +1,4 @@
-import { ActionButton } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { formatRequires } from '../_lib/primitiveArchiveEngine';
 import PrimitiveArchiveTurnHorizon from './PrimitiveArchiveTurnHorizon';
 
@@ -14,6 +14,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
     recipe,
     recipeId,
     recipeRows,
+    recentActionText,
     research,
     runCraft,
     runEat,
@@ -33,7 +34,6 @@ export default function PrimitiveArchiveActionWorkspace(props) {
 
   return (
     <div className="primitive-workspace-panel" role="tabpanel">
-      <PrimitiveArchiveTurnHorizon milestones={milestones} />
       <section className="games-panel games-action-dock primitive-action-workspace">
         <div className="games-panel-title">
           <h2>빠른 행동</h2>
@@ -85,6 +85,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
             {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
           </ActionButton>
         </div>
+        <RecentActionResult label="이번 행동 결과" text={recentActionText} pinned />
         <details className="primitive-action-forecast-details">
           <summary>행동별 기대수익 {actionForecasts?.length || 0}개 보기</summary>
           <div className="primitive-action-forecast-grid" aria-label="행동별 기대수익">
@@ -102,6 +103,7 @@ export default function PrimitiveArchiveActionWorkspace(props) {
           </div>
         </details>
       </section>
+      <PrimitiveArchiveTurnHorizon milestones={milestones} />
     </div>
   );
 }
