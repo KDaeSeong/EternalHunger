@@ -1,4 +1,4 @@
-import { SmallStat } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 
 export default function Rail3dTrainsTab(props) {
   const {
@@ -58,9 +58,14 @@ export default function Rail3dTrainsTab(props) {
                           <strong>{row.id} {row.signalState} · {row.phase}</strong>
                           <small>{row.stopReason ? `${row.stopReason.kind}${row.blockedBy ? ` by ${row.blockedBy}` : ''}` : '진행 가능'}</small>
                         </div>
-                        <button type="button" className="tcg-primary-action" onClick={() => focusTrain(row.id, 'trains')}>
-                          {row.waitSeconds}s
-                        </button>
+                        <GameControlButton
+                          action="dispatch"
+                          aria-label={`${row.id} 열차 보기, 대기 ${row.waitSeconds}초`}
+                          className="tcg-primary-action"
+                          onClick={() => focusTrain(row.id, 'trains')}
+                        >
+                          보기 · {row.waitSeconds}s
+                        </GameControlButton>
                       </article>
                     ))}
                   </div>

@@ -1,4 +1,4 @@
-import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { formatTime, setLookaheadBlocksAction } from '../_lib/rail3dEngine';
 
 export default function Rail3dAnalysisTab(props) {
@@ -7,8 +7,6 @@ export default function Rail3dAnalysisTab(props) {
     bottleneck,
     focusTrain,
     portingCompletion,
-    recentActionText,
-    rows,
     state,
   } = props;
 
@@ -59,13 +57,13 @@ export default function Rail3dAnalysisTab(props) {
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton
+                      action="guard"
                       disabled={Number(state.lookaheadBlocks) === Number(bottleneck.recommendedLookahead)}
                       onClick={() => applyRailAction('권장 Lookahead 적용', (current) => setLookaheadBlocksAction(current, bottleneck.recommendedLookahead))}
                     >
                       권장 Lookahead 적용
                     </ActionButton>
                   </div>
-                  <RecentActionResult label="최근 병목 조정 결과" text={recentActionText} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -81,9 +79,14 @@ export default function Rail3dAnalysisTab(props) {
                             <strong>{train.id} / {train.signalState}</strong>
                             <small>{train.tokenWait ? `토큰 ${train.tokenWait}` : '블록/시간표 대기'} · 지연 {train.delayS}s</small>
                           </div>
-                          <button type="button" className="tcg-primary-action" onClick={() => focusTrain(train.id, 'trains')}>
-                            {train.waitSeconds}s
-                          </button>
+                          <GameControlButton
+                            action="dispatch"
+                            aria-label={`${train.id} 열차 보기, 대기 ${train.waitSeconds}초`}
+                            className="tcg-primary-action"
+                            onClick={() => focusTrain(train.id, 'trains')}
+                          >
+                            보기 · {train.waitSeconds}s
+                          </GameControlButton>
                         </article>
                       ))}
                     </div>

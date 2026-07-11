@@ -24,59 +24,69 @@ export default function Rail3dFeatureTabs(props) {
   } = props;
 
   return (
-    <GameFeatureTabs
-      activeTabId={activeFeatureTabId}
-      onTabChange={setActiveFeatureTabId}
-      tabs={[
-        {
-          id: 'operations',
-          label: '운행 보드',
-          badge: formatTime(state.nowS),
-          children: <Rail3dOperationsTab {...props} />,
-        },
-        {
-          id: 'map',
-          label: '미니맵',
-          badge: `${blocks.OCCUPIED}/${blocks.total}`,
-          children: <Rail3dMapTab {...props} />,
-        },
-        {
-          id: 'trains',
-          label: '열차',
-          badge: selectedTrain?.id || selectedTrainId,
-          children: <Rail3dTrainsTab {...props} />,
-        },
-        {
-          id: 'analysis',
-          label: '병목/다이아',
-          badge: `${bottleneck.healthScore}점`,
-          children: <Rail3dAnalysisTab {...props} />,
-        },
-        {
-          id: 'schedule',
-          label: '시간표',
-          badge: `${report.totals.arrivedStops}/${report.totals.totalStops}`,
-          children: <Rail3dScheduleTab {...props} />,
-        },
-        {
-          id: 'blocks',
-          label: '블록/토큰',
-          badge: `${tokenWaits}대기`,
-          children: <Rail3dBlocksTab {...props} />,
-        },
-        {
-          id: 'log',
-          label: '로그',
-          badge: `${state.log.length}`,
-          children: <Rail3dLogTab {...props} />,
-        },
-        {
-          id: 'advanced',
-          label: '상세 운행',
-          badge: `${stationBoard.length}역`,
-          children: <Rail3dAdvancedTab {...props} />,
-        },
-      ]}
-    />
+    <section className="rail3d-workspace">
+      <GameFeatureTabs
+        activeTabId={activeFeatureTabId}
+        onTabChange={setActiveFeatureTabId}
+        tabs={[
+          {
+            id: 'operations',
+            label: '운행 보드',
+            icon: 'dispatch',
+            badge: formatTime(state.nowS),
+            children: <Rail3dOperationsTab {...props} />,
+          },
+          {
+            id: 'map',
+            label: '미니맵',
+            icon: 'map',
+            badge: `${blocks.OCCUPIED}/${blocks.total}`,
+            children: <Rail3dMapTab {...props} />,
+          },
+          {
+            id: 'trains',
+            label: '열차',
+            icon: 'dispatch',
+            badge: selectedTrain?.id || selectedTrainId,
+            children: <Rail3dTrainsTab {...props} />,
+          },
+          {
+            id: 'analysis',
+            label: '병목/다이아',
+            icon: 'analysis',
+            badge: `${bottleneck.healthScore}점`,
+            children: <Rail3dAnalysisTab {...props} />,
+          },
+          {
+            id: 'schedule',
+            label: '시간표',
+            icon: 'calendar',
+            badge: `${report.totals.arrivedStops}/${report.totals.totalStops}`,
+            children: <Rail3dScheduleTab {...props} />,
+          },
+          {
+            id: 'blocks',
+            label: '블록/토큰',
+            icon: 'zone',
+            badge: `${tokenWaits}대기`,
+            children: <Rail3dBlocksTab {...props} />,
+          },
+          {
+            id: 'log',
+            label: '로그',
+            icon: 'archive',
+            badge: `${state.log.length}`,
+            children: <Rail3dLogTab {...props} />,
+          },
+          {
+            id: 'advanced',
+            label: '상세 운행',
+            icon: 'settings',
+            badge: `${stationBoard.length}역`,
+            children: <Rail3dAdvancedTab {...props} />,
+          },
+        ]}
+      />
+    </section>
   );
 }

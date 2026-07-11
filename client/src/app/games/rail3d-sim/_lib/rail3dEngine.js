@@ -25,7 +25,9 @@ export function createNewState(options = {}) {
       phase: 'DWELL',
       stopIndex: 0,
       nextStopIndex: 1,
-      pose: firstPoint ? { ...firstPoint, dir: trainDef.spawn.dir || 1 } : { edgeId: trainDef.spawn.edgeId, headS: trainDef.spawn.headS, dir: trainDef.spawn.dir || 1 },
+      pose: normalizeTrainPose(firstPoint
+        ? { ...firstPoint, dir: trainDef.spawn.dir || 1 }
+        : { edgeId: trainDef.spawn.edgeId, headS: trainDef.spawn.headS, dir: trainDef.spawn.dir || 1 }),
       speedKmh: 0,
       signalState: 'GO',
       blockedBy: null,
@@ -52,10 +54,13 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
+  const trains = Array.isArray(value.trains) && value.trains.length
+    ? value.trains.map((train) => ({ ...train, pose: normalizeTrainPose(train.pose) }))
+    : base.trains;
   return refreshBlocks({
     ...base,
     ...value,
-    trains: Array.isArray(value.trains) && value.trains.length ? value.trains : base.trains,
+    trains,
     blocks: Array.isArray(value.blocks) && value.blocks.length ? value.blocks : base.blocks,
     segmentTokens: Array.isArray(value.segmentTokens) ? value.segmentTokens : base.segmentTokens,
     log: Array.isArray(value.log) ? value.log.slice(0, 120) : base.log,
@@ -131,7 +136,7 @@ export function trainRows(state) {
       segmentId: segmentIdForPose(train.pose),
       nextStation,
       edgeId: train.pose.edgeId,
-      headS: Math.round(train.pose.headS),
+      headS: Math.round(Number(train.pose.headS || 0)),
       speedKmh: Math.round(train.speedKmh),
       waitSeconds: Math.round(train.waitSeconds || 0),
       lastArrivalDelay,
@@ -773,6 +778,17 @@ function speedLimitForEdge(edgeId) {
 function getStopPoint(stationId) {
   const station = TRACK.stations.find((item) => item.id === stationId);
   return station ? { ...station.stopPoint, dir: 1 } : { edgeId: TRACK.edges[0]?.id || '', headS: 0, dir: 1 };
+}
+
+function normalizeTrainPose(pose = {}) {
+  const headS = Number(pose.headS);
+  const stationS = Number(pose.sM);
+  return {
+    ...pose,
+    edgeId: String(pose.edgeId || TRACK.edges[0]?.id || ''),
+    headS: Number.isFinite(headS) ? headS : Number.isFinite(stationS) ? stationS : 0,
+    dir: Number(pose.dir) === -1 ? -1 : 1,
+  };
 }
 
 function stationName(stationId) {

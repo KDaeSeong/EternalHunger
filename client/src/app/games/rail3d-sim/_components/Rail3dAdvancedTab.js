@@ -1,4 +1,4 @@
-import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   TRACK,
   formatTime,
@@ -13,8 +13,6 @@ export default function Rail3dAdvancedTab(props) {
   const {
     applyRailAction,
     blocks,
-    completed,
-    recentActionText,
     report,
     rows,
     segments,
@@ -58,11 +56,10 @@ export default function Rail3dAdvancedTab(props) {
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
-            <ActionButton onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
-            <ActionButton onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+            <ActionButton action="turn" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
+            <ActionButton action="advance" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
+            <ActionButton action="advance" onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
           </div>
-          <RecentActionResult label="최근 상세 운행 결과" text={recentActionText} />
         </section>
 
         <section className="games-panel">

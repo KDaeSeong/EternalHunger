@@ -1,5 +1,14 @@
-import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import { runForAction, stepAction } from '../_lib/rail3dEngine';
+
+const DISPATCH_ACTION_ICONS = {
+  'focus-train': 'dispatch',
+  'apply-lookahead': 'guard',
+  'show-analysis': 'analysis',
+  step: 'turn',
+  'run-5': 'advance',
+  record: 'archive',
+};
 
 export default function Rail3dOperationsTab(props) {
   const {
@@ -8,9 +17,9 @@ export default function Rail3dOperationsTab(props) {
     completed,
     dispatchPlan,
     openAnalysisTab,
-    recentActionText,
     report,
     rows,
+    runDispatchAction,
     score,
     state,
     stopped,
@@ -38,7 +47,7 @@ export default function Rail3dOperationsTab(props) {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton onClick={openAnalysisTab}>병목/다이아 보기</ActionButton>
+                    <ActionButton action="analysis" onClick={openAnalysisTab}>병목/다이아 보기</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -57,9 +66,13 @@ export default function Rail3dOperationsTab(props) {
                           <strong>{item.title}</strong>
                           <small>{item.detail}</small>
                         </div>
-                        <button type="button" className="tcg-primary-action" onClick={() => runDispatchAction(item)}>
+                        <GameControlButton
+                          action={DISPATCH_ACTION_ICONS[item.action] || 'dispatch'}
+                          className="tcg-primary-action"
+                          onClick={() => runDispatchAction(item)}
+                        >
                           {item.actionLabel}
-                        </button>
+                        </GameControlButton>
                       </article>
                     ))}
                   </div>
@@ -70,11 +83,10 @@ export default function Rail3dOperationsTab(props) {
                     <span>Step {state.stepSeconds}s · Lookahead {state.lookaheadBlocks}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
-                    <ActionButton onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
-                    <ActionButton onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+                    <ActionButton action="turn" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
+                    <ActionButton action="advance" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
+                    <ActionButton action="advance" onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 운행 결과" text={recentActionText} pinned />
                 </section>
               </section>
   );

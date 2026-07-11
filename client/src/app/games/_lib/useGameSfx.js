@@ -262,6 +262,51 @@ const CUE_PROFILES = {
     { frequency: 310, duration: 0.055, type: 'triangle', gain: 0.06 },
     { frequency: 390, start: 0.052, duration: 0.065, type: 'triangle', gain: 0.05 },
   ],
+  railStep: [
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 2.4, duration: 0.028, gain: 0.035 },
+    { frequency: 240, duration: 0.034, type: 'triangle', gain: 0.042 },
+    { frequency: 320, start: 0.035, duration: 0.038, type: 'triangle', gain: 0.038 },
+  ],
+  trainDepart: [
+    { source: 'noise', filterType: 'highpass', frequency: 1450, duration: 0.045, gain: 0.03 },
+    { frequency: 420, endFrequency: 690, duration: 0.09, type: 'sine', gain: 0.047 },
+    { frequency: 820, start: 0.07, duration: 0.075, type: 'triangle', gain: 0.035 },
+  ],
+  stationArrive: [
+    { frequency: 880, duration: 0.04, type: 'sine', gain: 0.044 },
+    { frequency: 660, start: 0.038, duration: 0.05, type: 'sine', gain: 0.042 },
+    { frequency: 440, start: 0.084, duration: 0.075, type: 'sine', gain: 0.038 },
+  ],
+  signalStop: [
+    { frequency: 260, endFrequency: 190, duration: 0.085, type: 'square', gain: 0.045 },
+    { frequency: 145, start: 0.065, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
+  tokenWait: [
+    { frequency: 310, duration: 0.055, type: 'square', gain: 0.04 },
+    { frequency: 230, start: 0.07, duration: 0.065, type: 'square', gain: 0.038 },
+    { frequency: 310, start: 0.145, duration: 0.07, type: 'triangle', gain: 0.035 },
+  ],
+  signalClear: [
+    { frequency: 430, duration: 0.04, type: 'triangle', gain: 0.043 },
+    { frequency: 650, start: 0.038, duration: 0.065, type: 'sine', gain: 0.04 },
+  ],
+  signalAdjust: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1150, q: 2.6, duration: 0.03, gain: 0.035 },
+    { frequency: 520, duration: 0.035, type: 'square', gain: 0.038 },
+    { frequency: 780, start: 0.034, duration: 0.06, type: 'triangle', gain: 0.037 },
+  ],
+  trainComplete: [
+    { frequency: 470, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 705, start: 0.038, duration: 0.06, type: 'triangle', gain: 0.043 },
+    { frequency: 940, start: 0.09, duration: 0.09, type: 'sine', gain: 0.038 },
+  ],
+  serviceComplete: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.05, gain: 0.026 },
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.046 },
+    { frequency: 585, start: 0.042, duration: 0.06, type: 'triangle', gain: 0.045 },
+    { frequency: 780, start: 0.095, duration: 0.08, type: 'triangle', gain: 0.043 },
+    { frequency: 1170, start: 0.17, duration: 0.14, type: 'sine', gain: 0.038 },
+  ],
   code: [
     { frequency: 520, duration: 0.028, type: 'square', gain: 0.035 },
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },

@@ -1,13 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import GameActionIcon from '../../_components/GameActionIcon';
 import Rail3dFeatureTabs from '../_components/Rail3dFeatureTabs';
 import GamePlayShell from '../../_components/GamePlayShell';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
+import useGameSfx from '../../_lib/useGameSfx';
 import {
   GAME_SLUG,
   QUICK_SAVE_SLOT,
@@ -32,6 +35,7 @@ import {
   trainDebugDetail,
   trainRows,
 } from '../_lib/rail3dEngine';
+import { rail3dFeedbackCue, rail3dFeedbackSnapshot } from '../_lib/rail3dFeedback';
 import { actionFeedbackText } from '../_components/Rail3dPlayPanels';
 
 function buildDispatchPlan({ rows, completed, stopped, tokenWaits, bottleneck, report, state }) {
@@ -110,12 +114,14 @@ export default function Rail3dSimPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const playGameSfx = useGameSfx({ theme: 'rail' });
   const [state, setState] = useState(() => createNewState());
   const [selectedTrainId, setSelectedTrainId] = useState('T1');
   const [activeFeatureTabId, setActiveFeatureTabId] = useState('operations');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
+  const feedbackRef = useRef(rail3dFeedbackSnapshot(state));
 
   const rows = useMemo(() => trainRows(state), [state]);
   const blocks = useMemo(() => blockSummary(state), [state]);
@@ -134,6 +140,13 @@ export default function Rail3dSimPlayPage() {
     [rows, completed, stopped, tokenWaits, bottleneck, report, state],
   );
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운행 액션이 없습니다.';
+
+  useEffect(() => {
+    const current = rail3dFeedbackSnapshot(state);
+    const cue = rail3dFeedbackCue(feedbackRef.current, current);
+    if (cue) playGameSfx(cue);
+    feedbackRef.current = current;
+  }, [playGameSfx, state]);
 
   const applyRailAction = (label, updater, fallback = '') => {
     const nextState = updater(state);
@@ -282,11 +295,14 @@ export default function Rail3dSimPlayPage() {
 
   const actions = (
     <>
-      <button type="button" onClick={startNewRun}>초기화</button>
-      <button type="button" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</button>
-      <button type="button" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</button>
-      <button type="button" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</button>
-      <Link href="/myanime/rail3d-sim">상세</Link>
+      <GameControlButton action="reset" onClick={startNewRun}>초기화</GameControlButton>
+      <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
+      <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
+      <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
+      <Link className="game-control-button" data-game-sfx="nav" href="/myanime/rail3d-sim">
+        <GameActionIcon action="settings" label="상세" />
+        <span className="game-action-button__label">상세</span>
+      </Link>
     </>
   );
 
@@ -331,16 +347,20 @@ export default function Rail3dSimPlayPage() {
 
   return (
     <GamePlayShell
+      className="rail3d-page-shell"
       kicker="Rail3D Sim"
       title="Rail3D 운행 디버그"
       description="업로드된 rail3d-sim MVP의 샘플 노선, 서비스 시간표, 블록 점유와 STOP/GO 디버그 흐름을 사이트용 transport slice로 이식했습니다."
       summaryLabel="Rail3D Sim 요약"
-      summaryDensity="compact"
+      summaryDensity="micro"
+      primaryMetricLimit={10}
+      heroLayout="compact"
       actions={actions}
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="rail3d-operation-coach" />
+      <RecentActionResult label="최근 운행 결과" text={recentActionText} pinned />
 
       <Rail3dFeatureTabs
         activeFeatureTabId={activeFeatureTabId}
@@ -352,8 +372,8 @@ export default function Rail3dSimPlayPage() {
         focusTrain={focusTrain}
         openAnalysisTab={openAnalysisTab}
         portingCompletion={portingCompletion}
-        recentActionText={recentActionText}
         report={report}
+        runDispatchAction={runDispatchAction}
         rows={rows}
         score={score}
         segments={segments}
