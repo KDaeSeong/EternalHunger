@@ -87,6 +87,12 @@ Checked: 2026-07-04
 5. Done: mark the static catalog integration as prototype-ready.
 6. Done: split the Primitive Archive loop into a reusable engine module under `client/src/app/games/primitive-archive/_lib`.
 
+## Shared Tutorial Coverage
+
+- A route-aware tutorial launcher is available on every registered game route without adding another global header item. It covers Eternal Hunger, Twenty Questions, Dual Academy TCG, BA Vanguard, Primitive Archive, Tonkatsu Teacher, Schale Idle RPG, BA SRPG, MyAnimeCraft Starleague, School Simulator, SI Coding Sim, Rail3D Sim, Company Report, and Racing Logos Demo.
+- Every tutorial has a game-specific objective, estimated time, six ordered steps, an exact action to try, a completion check, two reminders, and two common mistakes. Progress is stored separately per game and resumes at the first unfinished step.
+- The shared modal supports keyboard Escape close, focus entry, progress navigation, reset, previous/next/completion controls, object icons, game-themed synthesized cues, full-width mobile layout, and no horizontal overflow at 390px.
+
 ## Primitive Archive Slice Status
 
 - Route: `/games/primitive-archive/play`
