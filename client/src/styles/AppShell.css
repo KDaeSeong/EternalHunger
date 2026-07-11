@@ -6053,6 +6053,9 @@
 
 .games-broadcast-details summary {
   width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px solid rgba(44, 111, 158, 0.18);
   border-radius: 8px;
   background: #eef6fb;
@@ -6083,9 +6086,123 @@
   font-size: 0.72rem;
 }
 
+.games-broadcast-line-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.games-broadcast-line-meta .game-action-icon,
+.games-broadcast-details summary .game-action-icon {
+  width: 15px;
+  height: 15px;
+}
+
 .games-broadcast-timeline p {
   color: #334e63;
   font-size: 0.8rem;
+}
+
+.starleague-broadcast-signal {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(31, 111, 162, 0.2);
+  border-left: 4px solid #2f74a0;
+  border-radius: 8px;
+  background: #f2f8fc;
+}
+
+.starleague-league-main {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.starleague-broadcast-signal > .game-action-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  background: #dcecf6;
+  color: #1f5f86;
+}
+
+.starleague-broadcast-signal > span,
+.starleague-broadcast-signal strong,
+.starleague-broadcast-signal small {
+  min-width: 0;
+}
+
+.starleague-broadcast-signal strong,
+.starleague-broadcast-signal small {
+  display: block;
+}
+
+.starleague-broadcast-signal small {
+  margin-top: 2px;
+  color: #596b79;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.starleague-broadcast-signal em {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #dfeaf1;
+  color: #3d5363;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.starleague-broadcast-signal.is-success {
+  border-left-color: #198754;
+  background: #f0faf5;
+}
+
+.starleague-broadcast-signal.is-success > .game-action-icon {
+  background: #d9f2e6;
+  color: #12683f;
+}
+
+.starleague-broadcast-signal.is-danger {
+  border-left-color: #c53939;
+  background: #fff3f3;
+}
+
+.starleague-broadcast-signal.is-danger > .game-action-icon {
+  background: #f8dddd;
+  color: #9d2929;
+}
+
+.starleague-broadcast-signal.is-warning,
+.starleague-broadcast-signal.is-highlight {
+  border-left-color: #b47712;
+  background: #fff9ed;
+}
+
+.starleague-broadcast-signal.is-warning > .game-action-icon,
+.starleague-broadcast-signal.is-highlight > .game-action-icon {
+  background: #f7e8c6;
+  color: #80530b;
+}
+
+.starleague-broadcast-signal.is-champion {
+  border-left-color: #8a3152;
+  background: #fff4f8;
+}
+
+.starleague-broadcast-signal.is-champion > .game-action-icon {
+  background: #f5dfe8;
+  color: #762342;
 }
 
 .game-save-row-actions {

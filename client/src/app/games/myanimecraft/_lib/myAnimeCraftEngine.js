@@ -15,7 +15,7 @@ import {
   POSTSEASON_LABELS,
   POSTSEASON_PRIZES,
   TEAM_BLUEPRINTS,
-} from './myAnimeCraftData';
+} from './myAnimeCraftData.js';
 
 export {
   GAME_SLUG,
@@ -37,7 +37,7 @@ export {
   POSTSEASON_LABELS,
   POSTSEASON_PRIZES,
   TEAM_BLUEPRINTS,
-} from './myAnimeCraftData';
+} from './myAnimeCraftData.js';
 
 function cloneTeam(teamData) {
   return {
@@ -1196,6 +1196,22 @@ function subject(text) {
   return `${text}${hasKoreanFinalConsonant(text) ? '이' : '가'}`;
 }
 
+function objectParticle(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '을' : '를'}`;
+}
+
+function andParticle(text) {
+  return `${text}${hasKoreanFinalConsonant(text) ? '과' : '와'}`;
+}
+
+function directionParticle(text) {
+  const value = String(text || '');
+  const char = value.trim().slice(-1);
+  const code = char.charCodeAt(0);
+  const finalIndex = code >= 0xAC00 && code <= 0xD7A3 ? (code - 0xAC00) % 28 : 0;
+  return `${value}${!finalIndex || finalIndex === 8 ? '로' : '으로'}`;
+}
+
 function formatGameClock(seconds) {
   const safe = Math.max(0, Math.floor(Number(seconds || 0)));
   const minutes = Math.floor(safe / 60);
@@ -1413,7 +1429,7 @@ function broadcastHeadlineForSet({ setNo, map, homePlayer, awayPlayer, homeBuild
   const closeGame = Math.abs(Number(noisyDiff || 0)) < 95;
   const prefix = `${setNo}세트${isAceSet ? ' 에이스전' : ''} · ${map.name}`;
   if (closeGame) {
-    return `${prefix}: ${winner.name}, 마지막 교전 한 끗으로 ${loser.name}을 잡았습니다.`;
+    return `${prefix}: ${winner.name}, 마지막 교전 한 끗으로 ${objectParticle(loser.name)} 잡았습니다.`;
   }
   if (winnerBuild.style === 'rush') {
     return `${prefix}: ${winner.name}, ${buildName(winnerBuild)} 타이밍으로 초반부터 경기를 접었습니다.`;
@@ -1433,7 +1449,7 @@ function broadcastHeadlineForSet({ setNo, map, homePlayer, awayPlayer, homeBuild
 function turningPointForSet({ durationSec, winnerName, loserName, winnerBuild, loserBuild, closeGame }) {
   const clock = formatGameClock(Math.round(durationSec * (closeGame ? 0.62 : 0.48)));
   if (closeGame) {
-    return `${clock} 중앙 교전에서 ${winnerName}이 병력을 간발의 차로 남긴 장면이 승부처였습니다.`;
+    return `${clock} 중앙 교전에서 ${subject(winnerName)} 병력을 간발의 차로 남긴 장면이 승부처였습니다.`;
   }
   if (winnerBuild.style === 'rush') {
     return `${clock} 첫 압박 때 ${loserName}의 방어 병력이 늦게 모이면서 경기가 크게 기울었습니다.`;
@@ -2120,9 +2136,9 @@ function buildSetEventBeatsV2({
   const openingContext = scoreHome || scoreAway ? `현재 스코어 ${scoreHome}:${scoreAway},` : '첫 세트 흐름부터';
   const keyEventLabel = `${formatGameClock(turnAt)} ${winner.name} ${styleEventNoun(winnerBuild?.style)} 성공`;
   const turningPoint = closeGame
-    ? `${formatGameClock(turnAt)} 중앙 교전에서 ${winner.name}이 병력 합류를 한 박자 먼저 맞추며 균형을 깼습니다.`
-    : `${formatGameClock(turnAt)} ${winner.name}의 ${styleEventNoun(winnerBuild?.style)}가 ${loser.name}의 ${styleEventNoun(loserBuild?.style)} 대응보다 먼저 완성됐습니다.`;
-  const headline = `${setLabel} · ${map.name}: ${winner.name}, ${tempoLabel} 구도에서 ${loser.name}을 잡았습니다.`;
+    ? `${formatGameClock(turnAt)} 중앙 교전에서 ${subject(winner.name)} 병력 합류를 한 박자 먼저 맞추며 균형을 깼습니다.`
+    : `${formatGameClock(turnAt)} ${winner.name}의 ${subject(styleEventNoun(winnerBuild?.style))} ${loser.name}의 ${styleEventNoun(loserBuild?.style)} 대응보다 먼저 완성됐습니다.`;
+  const headline = `${setLabel} · ${map.name}: ${winner.name}, ${tempoLabel} 구도에서 ${objectParticle(loser.name)} 잡았습니다.`;
 
   return {
     headline,
@@ -2132,13 +2148,13 @@ function buildSetEventBeatsV2({
     lines: [
       buildTimelineLine(0, '캐스터', `${setLabel} 시작합니다. ${homePlayer.name}(${homePlayer.race}) vs ${awayPlayer.name}(${awayPlayer.race}), 전장은 ${map.name}입니다.`),
       buildTimelineLine(8, '해설', `${openingContext} 빌드 방향이 중요합니다. ${homePlayer.name}은 ${buildName(homeBuild)}, ${awayPlayer.name}은 ${buildName(awayBuild)} 준비입니다.`),
-      buildTimelineLine(20, '분석', `${map.name}에서는 첫 정찰 뒤 병력 회전이 빨라집니다. ${styleEventNoun(homeBuild?.style)}와 ${styleEventNoun(awayBuild?.style)}의 속도 차이를 봐야 합니다.`),
+      buildTimelineLine(20, '분석', `${map.name}에서는 첫 정찰 뒤 병력 회전이 빨라집니다. ${andParticle(styleEventNoun(homeBuild?.style))} ${styleEventNoun(awayBuild?.style)}의 속도 차이를 봐야 합니다.`),
       buildTimelineLine(scoutAt, '해설', `${opener.name}의 정찰이 ${defender.name} 쪽 ${buildName(defenderBuild)} 흐름을 먼저 확인합니다. 이 정보 하나로 첫 교전 위치가 좁혀집니다.`),
-      buildTimelineLine(firstAt, '캐스터', `${opener.name}이 ${styleEventNoun(openerBuild?.style)}로 선수를 칩니다. ${defender.name}은 입구와 앞마당 수비를 동시에 맞춰야 합니다.`),
-      buildTimelineLine(controlAt, '해설', `${leader.name}이 시야와 병력 회전에서 한 발 앞섭니다. ${buildName(leaderBuild)}의 목적이 이제 화면에 보이기 시작합니다.`),
+      buildTimelineLine(firstAt, '캐스터', `${subject(opener.name)} ${directionParticle(styleEventNoun(openerBuild?.style))} 선수를 칩니다. ${topic(defender.name)} 입구와 앞마당 수비를 동시에 맞춰야 합니다.`),
+      buildTimelineLine(controlAt, '해설', `${subject(leader.name)} 시야와 병력 회전에서 한 발 앞섭니다. ${buildName(leaderBuild)}의 목적이 이제 화면에 보이기 시작합니다.`),
       buildTimelineLine(turnAt, '캐스터', closeGame
         ? `${winner.name}, 중앙 교전에서 먼저 덮칩니다! ${loser.name}도 버티지만 합류 타이밍 차이가 났습니다.`
-        : `${winner.name}이 승부 지점을 잡았습니다. ${styleEventNoun(winnerBuild?.style)}가 완성되면서 ${loser.name}의 대응이 늦었습니다.`),
+        : `${subject(winner.name)} 승부 지점을 잡았습니다. ${subject(styleEventNoun(winnerBuild?.style))} 완성되면서 ${loser.name}의 대응이 늦었습니다.`),
       buildTimelineLine(Math.max(turnAt + 10, durationSec - 58), '리플레이', underdogWin
         ? `리플레이로 보면 ${winner.name}의 첫 동선 선택이 핵심입니다. 예상 승률보다 낮았지만 정찰 정보와 교전 위치로 판을 뒤집었습니다.`
         : `리플레이 포인트는 ${keyEventLabel}입니다. 빌드 이름보다 중요한 건 그 타이밍에 병력이 어디 있었느냐였습니다.`),
@@ -2158,7 +2174,7 @@ function broadcastHeadlineForSetV2({ setNo, map, homePlayer, awayPlayer, homeBui
   const loserBuild = homeWin ? awayBuild : homeBuild;
   const closeGame = Math.abs(Number(noisyDiff || 0)) < 95;
   const prefix = `${setNo}세트${isAceSet ? ' 에이스결정전' : ''} · ${map.name}`;
-  if (closeGame) return `${prefix}: ${winner.name}, 마지막 교전 한 박자로 ${loser.name}을 잡았습니다.`;
+  if (closeGame) return `${prefix}: ${winner.name}, 마지막 교전 한 박자로 ${objectParticle(loser.name)} 잡았습니다.`;
   if (winnerBuild.style === 'rush') return `${prefix}: ${winner.name}, ${buildName(winnerBuild)} 타이밍으로 초반부터 경기를 열었습니다.`;
   if (winnerBuild.style === 'harass') return `${prefix}: ${winner.name}, 견제 누적으로 ${loser.name}의 운영 리듬을 끊었습니다.`;
   if (winnerBuild.style === 'tech') return `${prefix}: ${winner.name}, 숨긴 ${castBuildLabel(winnerBuild)} 카드로 흐름을 가져왔습니다.`;
@@ -5472,7 +5488,7 @@ export function getRivalryReport(state, limit = 8) {
     totalSets: [...ledger.values()].reduce((sum, row) => sum + Number(row.sets || 0), 0),
     sampleLabel: ledger.size ? `${ledger.size}쌍 · ${[...ledger.values()].reduce((sum, row) => sum + Number(row.sets || 0), 0)}세트` : '표본 없음',
     headline: top
-      ? `${top.playerAName}와 ${top.playerBName}의 맞대결이 현재 최대 라이벌리입니다. ${top.recordLabel}, 누적 ${top.sets}세트입니다.`
+      ? `${andParticle(top.playerAName)} ${top.playerBName}의 맞대결이 현재 최대 라이벌리입니다. ${top.recordLabel}, 누적 ${top.sets}세트입니다.`
       : '경기를 진행하면 선수별 맞대결과 라이벌리 흐름이 누적됩니다.',
     rows,
   };
@@ -5554,10 +5570,10 @@ function postseasonFixtureBrief(current, fixture, seedByTeamId) {
     winnerTeamName: winnerName,
     aceSetLabel: aceSet ? `${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}` : '',
     note: result
-      ? `${winnerName || '승자'}이(가) ${label}을 통과했습니다.${aceSet ? ` 에이스전은 ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}.` : ''}`
+      ? `${subject(winnerName || '승자')} ${objectParticle(label)} 통과했습니다.${aceSet ? ` 에이스전은 ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}.` : ''}`
       : fixture.awayTeamId === '__TBD__'
-        ? `${homeName}이 상위 시드로 기다립니다. 이전 라운드 승자가 올라옵니다.`
-        : `${homeName}와 ${awayName}의 ${label}입니다. 시드 격차와 최근 컨디션이 관전 포인트입니다.`,
+        ? `${subject(homeName)} 상위 시드로 기다립니다. 이전 라운드 승자가 올라옵니다.`
+        : `${andParticle(homeName)} ${awayName}의 ${label}입니다. 시드 격차와 최근 컨디션이 관전 포인트입니다.`,
   };
 }
 
@@ -5591,7 +5607,7 @@ export function getPostseasonBriefing(state) {
   const topSeed = topRows[0];
 
   const headline = championName
-    ? `${championName}이 포스트시즌을 끝까지 통과했습니다. 결승까지 ${playedRows.length}경기 기록이 남았습니다.`
+    ? `${subject(championName)} 포스트시즌을 끝까지 통과했습니다. 결승까지 ${playedRows.length}경기 기록이 남았습니다.`
     : rows.length
       ? nextRow
         ? `${nextRow.label}: ${nextRow.resultText}. ${nextRow.seedText} 구도입니다.`
@@ -5606,7 +5622,7 @@ export function getPostseasonBriefing(state) {
     seedUpsets[0] ? {
       label: '업셋',
       value: `${seedUpsets[0].winnerSeed}시드 승`,
-      detail: `${teamName(current, seedUpsets[0].fixture.result.winnerTeamId)}이 ${seedUpsets[0].loserSeed}시드를 넘었습니다.`,
+      detail: `${subject(teamName(current, seedUpsets[0].fixture.result.winnerTeamId))} ${seedUpsets[0].loserSeed}시드를 넘었습니다.`,
     } : null,
     championName ? { label: '우승', value: championName, detail: '시즌 최종 우승 확정' } : null,
   ].filter(Boolean);
@@ -5751,13 +5767,13 @@ export function getSeriesReplayReport(match) {
   const leadText = match.scoreHome === match.scoreAway
     ? '마지막 세트까지 균형이 무너지지 않았습니다.'
     : Math.abs(Number(match.scoreHome || 0) - Number(match.scoreAway || 0)) >= 2
-      ? `${winner}이 세트 흐름을 강하게 틀어쥐었습니다.`
-      : `${winner}이 접전 흐름에서 한 세트를 더 가져갔습니다.`;
-  const headline = `${winner} ${match.scoreHome}:${match.scoreAway} ${loser}. ${leadText}`;
+      ? `${subject(winner)} 세트 흐름을 강하게 틀어쥐었습니다.`
+      : `${subject(winner)} 접전 흐름에서 한 세트를 더 가져갔습니다.`;
+  const headline = `${match.homeTeamName} ${match.scoreHome}:${match.scoreAway} ${match.awayTeamName}. ${leadText}`;
   const highlights = [
     keyEventSet?.keyEventLabel ? `${keyEventSet.setNo}세트 핵심 장면: ${keyEventSet.keyEventLabel}` : '',
-    aceSet ? `에이스전: ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}, ${setWinnerName(match, aceSet)}이 압박을 버텼습니다.` : '',
-    closeSet ? `${closeSet.setNo}세트는 체감상 가장 팽팽했습니다. ${setWinnerName(match, closeSet)}이 ${setLoserName(match, closeSet)}을(를) 상대로 마지막 교전을 남겼습니다.` : '',
+    aceSet ? `에이스전: ${aceSet.homePlayerName} vs ${aceSet.awayPlayerName}, ${subject(setWinnerName(match, aceSet))} 압박을 버텼습니다.` : '',
+    closeSet ? `${closeSet.setNo}세트는 체감상 가장 팽팽했습니다. ${subject(setWinnerName(match, closeSet))} ${objectParticle(setLoserName(match, closeSet))} 상대로 마지막 교전을 남겼습니다.` : '',
     upsetSet?.upsetGap >= 5 ? `${upsetSet.setResult.setNo}세트는 예측을 비튼 승부였습니다. ${setWinnerName(match, upsetSet.setResult)}의 사전 승률은 ${setWinProbabilityForWinner(match, upsetSet.setResult)}%였습니다.` : '',
     longestSet ? `가장 긴 세트는 ${longestSet.setNo}세트 ${longestSet.mapName}, ${Math.round(Number(longestSet.durationSec || 0) / 60)}분대 운영전이었습니다.` : '',
     styleRows[0] ? `시리즈 대표 빌드 성향은 ${styleRows[0].label}입니다. 양 팀 합산 ${styleRows[0].count}회 선택됐습니다.` : '',
@@ -5895,7 +5911,7 @@ export function getSeasonFinaleReport(state) {
   const total = getTotalFixtureCount(current);
   const progressPct = total ? Math.round((played / total) * 100) : 0;
   const headline = current.ended
-    ? `${champion || leader?.teamName || '우승팀'}이 시즌 ${current.seasonNo} 우승을 확정했습니다.`
+    ? `${subject(champion || leader?.teamName || '우승팀')} 시즌 ${current.seasonNo} 우승을 확정했습니다.`
     : stageSummary.stage === 'POSTSEASON'
       ? `포스트시즌이 ${stageSummary.postseasonPlayed}/${stageSummary.postseasonTotal}까지 진행됐습니다.`
       : `${current.week}주차 정규리그 진행 중입니다. 선두는 ${leader?.teamName || '미정'}입니다.`;

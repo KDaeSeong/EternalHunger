@@ -224,6 +224,12 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.04, duration: 0.04, type: 'square', gain: 0.036 },
     { frequency: 880, start: 0.09, duration: 0.08, type: 'triangle', gain: 0.045 },
   ],
+  comeback: [
+    { frequency: 260, endFrequency: 340, duration: 0.055, type: 'triangle', gain: 0.05 },
+    { frequency: 520, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.048 },
+    { frequency: 780, start: 0.11, duration: 0.08, type: 'triangle', gain: 0.045 },
+    { frequency: 1040, start: 0.18, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
   victory: [
     { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.07, gain: 0.035 },
     { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },

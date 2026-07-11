@@ -52,11 +52,12 @@ import {
   getWinnersLeagueSummary,
 } from '../_lib/myAnimeCraftEngine';
 import MyAnimeCraftFeatureTabs from '../_components/MyAnimeCraftFeatureTabs';
+import { actionFeedbackText } from '../_components/MyAnimeCraftPlayPanels';
 import {
-  actionFeedbackText,
   starleagueFeedbackCue,
+  starleagueFeedbackPresentation,
   starleagueFeedbackSnapshot,
-} from '../_components/MyAnimeCraftPlayPanels';
+} from '../_lib/starleagueFeedback';
 
 export default function MyAnimeCraftPlayPage() {
   const token = useAuthToken();
@@ -121,13 +122,17 @@ export default function MyAnimeCraftPlayPage() {
   const leader = standings[0];
   const ended = Boolean(state.ended);
   const recentActionText = actionResult || state.log?.[0] || '아직 진행한 행동이 없습니다.';
+  const feedbackSnapshot = useMemo(() => starleagueFeedbackSnapshot(state), [state]);
+  const broadcastSignal = useMemo(
+    () => starleagueFeedbackPresentation(feedbackSnapshot, selectedTeamId),
+    [feedbackSnapshot, selectedTeamId],
+  );
 
   useEffect(() => {
-    const current = starleagueFeedbackSnapshot(state);
-    const cue = starleagueFeedbackCue(feedbackRef.current, current, selectedTeamId);
+    const cue = starleagueFeedbackCue(feedbackRef.current, feedbackSnapshot, selectedTeamId);
     if (cue) playGameSfx(cue);
-    feedbackRef.current = current;
-  }, [playGameSfx, selectedTeamId, state]);
+    feedbackRef.current = feedbackSnapshot;
+  }, [feedbackSnapshot, playGameSfx, selectedTeamId]);
 
   const saveRun = async () => {
     if (!token || busy) {
@@ -171,6 +176,7 @@ export default function MyAnimeCraftPlayPage() {
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
+      feedbackRef.current = starleagueFeedbackSnapshot(nextState);
       setState(nextState);
       setSelectedTeamId(nextState.teams[0]?.id || '');
       setTradeTargetTeamId(nextState.teams[1]?.id || '');
@@ -307,6 +313,7 @@ export default function MyAnimeCraftPlayPage() {
 
       <MyAnimeCraftFeatureTabs
         applyStateAction={applyStateAction}
+        broadcastSignal={broadcastSignal}
         buildMetaReport={buildMetaReport}
         currentFixtures={currentFixtures}
         ended={ended}

@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, SmallStat, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   BUILD_STYLE_LABELS,
@@ -12,6 +13,7 @@ import { BroadcastTimeline } from './MyAnimeCraftPlayPanels';
 export default function MyAnimeCraftLeagueTab(props) {
   const {
     applyStateAction,
+    broadcastSignal,
     buildMetaReport,
     currentFixtures,
     ended,
@@ -33,10 +35,18 @@ export default function MyAnimeCraftLeagueTab(props) {
   return (
               <>
       <section className="games-detail-grid">
-        <section className="games-panel">
+        <section className="games-panel starleague-league-main">
           <div className="games-panel-title">
             <h2>진행</h2>
             <span>{seasonStage.label}</span>
+          </div>
+          <div className={`starleague-broadcast-signal is-${broadcastSignal.tone}`} role="status" aria-live="polite">
+            <GameActionIcon action={broadcastSignal.action} label={broadcastSignal.label} />
+            <span>
+              <strong>{broadcastSignal.label}</strong>
+              <small>{broadcastSignal.detail}</small>
+            </span>
+            <em>LIVE</em>
           </div>
           <div className="games-rank-split">
             <SmallStat label="원본 팀" value={sourceSummary.teams} />
