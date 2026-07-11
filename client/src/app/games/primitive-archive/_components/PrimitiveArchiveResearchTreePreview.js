@@ -7,7 +7,12 @@ import {
   RESEARCH_TAG_LABELS,
 } from '../_lib/primitiveArchivePageRuntime';
 
-export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
+export default function PrimitiveArchiveResearchTreePreview({ researchMap, track = 'technology' }) {
+  const isCivics = track === 'civics';
+  const trackLabel = isCivics ? '사회 제도' : '기술';
+  const pointLabel = isCivics ? 'CP' : 'RP';
+  const breakthroughLabel = isCivics ? '영감' : '유레카';
+  const directActionSubject = isCivics ? '추진이' : '연구가';
   const [focusId, setFocusId] = useState(researchMap.nodes[0]?.id || '');
   const [query, setQuery] = useState('');
   const [era, setEra] = useState('ALL');
@@ -24,30 +29,33 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
   };
 
   return (
-    <section className="games-panel primitive-research-workspace primitive-research-preview" id="primitive-research-tree-preview">
+    <section
+      className={`games-panel primitive-research-workspace primitive-research-preview ${isCivics ? 'is-civics' : ''}`}
+      id={`primitive-${track}-tree-preview`}
+    >
       <div className="games-panel-title">
         <div>
-          <h2>기술 트리 미리보기</h2>
-          <span>{researchMap.nodes.length}개 기술 · T1-T{researchMap.tierCount} 전체 공개</span>
+          <h2>{trackLabel} 트리 미리보기</h2>
+          <span>{researchMap.nodes.length}개 {trackLabel} · T{researchMap.minTier}-T{researchMap.maxTier} 전체 공개</span>
         </div>
         <strong>목표 지정 잠김</strong>
       </div>
 
       <div className="primitive-research-preview__notice">
-        <GameActionIcon action="lock" label="연구 잠김" />
+        <GameActionIcon action="lock" label={`${trackLabel} 잠김`} />
         <div>
-          <strong>기술 정보는 지금부터 확인할 수 있습니다.</strong>
-          <span>시설 조건을 달성하면 이 트리에서 목표 지정과 직접 연구가 활성화됩니다.</span>
+          <strong>{trackLabel} 정보는 지금부터 확인할 수 있습니다.</strong>
+          <span>시설 조건을 달성하면 목표 지정과 직접 {directActionSubject} 활성화됩니다.</span>
         </div>
       </div>
 
       <div className="primitive-research-toolbar">
         <label className="game-save-json-field">
-          <span>기술 검색</span>
+          <span>{trackLabel} 검색</span>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="기술명, ID, 분야"
+            placeholder={`${trackLabel}명, ID, 분야`}
           />
         </label>
         <label className="game-save-json-field">
@@ -59,15 +67,15 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
             ))}
           </select>
         </label>
-        <div className="primitive-research-legend" aria-label="미리보기 상태 범례">
-          <span className="is-ready">발전 후 연구</span>
-          <span className="is-locked">선행 기술 필요</span>
+        <div className="primitive-research-legend" aria-label={`${trackLabel} 미리보기 상태 범례`}>
+          <span className="is-ready">발전 후 {isCivics ? '추진' : '연구'}</span>
+          <span className="is-locked">선행 발전 필요</span>
           <span>선택하면 상세 표시</span>
         </div>
       </div>
 
       <div className="primitive-research-layout">
-        <div className="primitive-research-canvas-scroll" tabIndex={0} aria-label="가로로 스크롤 가능한 기술 트리 미리보기">
+        <div className="primitive-research-canvas-scroll" tabIndex={0} aria-label={`가로로 스크롤 가능한 ${trackLabel} 트리 미리보기`}>
           <div className="primitive-research-canvas" style={{ width: researchMap.width, height: researchMap.height }}>
             <svg
               className="primitive-research-edges"
@@ -95,7 +103,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
                 <div className="primitive-research-tier-header" key={tier.tier} style={{ left: tier.x, width: tier.width }}>
                   <span>T{tier.tier}</span>
                   <strong>{tier.name}</strong>
-                  <small>{tier.count}개 기술</small>
+                  <small>{tier.count}개 {trackLabel}</small>
                 </div>
               ))}
             </div>
@@ -120,9 +128,9 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
                 >
                   <span className="primitive-research-node__head">
                     <strong>{node.name}</strong>
-                    <em>{node.available ? '발전 후 가능' : '선행 필요'}</em>
+                    <em>{node.available ? `발전 후 ${isCivics ? '추진' : '연구'}` : '선행 필요'}</em>
                   </span>
-                  <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · 비용 {node.cost}</small>
+                  <small>T{node.tier} · {RESEARCH_ERA_LABELS[node.era] || node.era} · {node.cost}{pointLabel}</small>
                   <span className="primitive-research-node__tags">
                     {(node.tags || []).slice(0, 1).map((tag) => <i key={tag}>{RESEARCH_TAG_LABELS[tag] || tag}</i>)}
                     {node.eureka ? <i>유</i> : null}
@@ -142,27 +150,33 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
                   <span>T{focusedNode.tier} · {RESEARCH_ERA_LABELS[focusedNode.era] || focusedNode.era}</span>
                   <h3>{focusedNode.name}</h3>
                 </div>
-                <strong>비용 {focusedNode.cost}</strong>
+                <strong>비용 {focusedNode.cost}{pointLabel}</strong>
               </div>
               <p>{focusedNode.description || focusedNode.nextStepText}</p>
               <div className="primitive-research-inspector__section">
-                <span>선행 기술</span>
+                <span>선행 발전</span>
                 <div className="games-chip-row">
-                  {(focusedNode.prereqs || []).length ? focusedNode.prereqs.map((techId) => (
-                    <button type="button" data-game-sfx="select" key={techId} onClick={() => setFocusId(techId)}>
-                      {nodeById[techId]?.name || techId}
+                  {(focusedNode.prereqRows || []).length ? focusedNode.prereqRows.map((prereq) => (
+                    <button
+                      type="button"
+                      data-game-sfx="select"
+                      disabled={!nodeById[prereq.id]}
+                      key={prereq.id}
+                      onClick={() => setFocusId(prereq.id)}
+                    >
+                      {prereq.completed ? '완료 · ' : ''}{prereq.name}{!nodeById[prereq.id] ? ' · 다른 트리' : ''}
                     </button>
-                  )) : <span className="games-tag">선행 기술 없음</span>}
+                  )) : <span className="games-tag">선행 발전 없음</span>}
                 </div>
               </div>
               <div className="primitive-research-inspector__section">
-                <span>후속 기술</span>
+                <span>후속 {trackLabel}</span>
                 <div className="games-chip-row">
                   {(focusedNode.nextTechIds || []).length ? focusedNode.nextTechIds.map((techId) => (
                     <button type="button" data-game-sfx="select" key={techId} onClick={() => setFocusId(techId)}>
                       {nodeById[techId]?.name || techId}
                     </button>
-                  )) : <span className="games-tag">최종 기술</span>}
+                  )) : <span className="games-tag">최종 {trackLabel}</span>}
                 </div>
               </div>
               <div className="primitive-research-inspector__section">
@@ -170,19 +184,15 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap }) {
                 <strong>{focusedNode.unlockText}</strong>
               </div>
               <div className="primitive-research-inspector__section">
-                <span>유레카 · 영감</span>
-                <strong>
-                  유레카 {focusedNode.eureka?.desc || '없음'}
-                  <br />
-                  영감 {focusedNode.inspiration?.desc || '없음'}
-                </strong>
+                <span>{breakthroughLabel}</span>
+                <strong>{breakthroughLabel} {isCivics ? focusedNode.inspiration?.desc || '없음' : focusedNode.eureka?.desc || '없음'}</strong>
               </div>
               <div className="primitive-research-preview__locked-action">
                 <GameActionIcon action="lock" label="발전 조건 필요" />
-                캠프 시설을 발전시키면 목표 지정과 연구가 열립니다.
+                캠프 시설을 발전시키면 목표 지정과 직접 {directActionSubject} 열립니다.
               </div>
             </>
-          ) : <div className="games-empty">표시할 기술이 없습니다.</div>}
+          ) : <div className="games-empty">표시할 {trackLabel}이 없습니다.</div>}
         </aside>
       </div>
       <p className="primitive-research-scroll-note">트리를 가로·세로로 스크롤하고 노드를 선택하면 선행 관계와 해금 효과를 미리 볼 수 있습니다.</p>

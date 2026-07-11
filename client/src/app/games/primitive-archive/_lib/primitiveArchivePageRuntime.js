@@ -99,7 +99,7 @@ export const RESEARCH_TAG_LABELS = {
   SCIENCE: '과학',
   CULTURE: '문화',
   SPIRITUAL: '영성',
-  CIVICS: '행정',
+  CIVICS: '사회',
 };
 
 export const CAMP_UNLOCK_LABELS = {
@@ -264,6 +264,7 @@ export function buildResearchMap(techs) {
     return result;
   }, {});
   const tierOrder = Object.keys(columns).map(Number).sort((a, b) => a - b);
+  const tierIndex = Object.fromEntries(tierOrder.map((tier, index) => [tier, index]));
   const laneCount = Math.max(1, ...tierOrder.map((tier) => columns[tier].length));
   const dependentIds = Object.fromEntries(techs.map((tech) => [tech.id, []]));
   techs.forEach((tech) => {
@@ -291,7 +292,7 @@ export function buildResearchMap(techs) {
       tier,
       rowIndex: slot,
       layoutGroup: researchLayoutGroup(tech),
-      x: padding + (tier - 1) * (nodeWidth + columnGap),
+      x: padding + tierIndex[tier] * (nodeWidth + columnGap),
       y: padding + headerHeight + slot * (nodeHeight + rowGap),
       width: nodeWidth,
       height: nodeHeight,
@@ -309,7 +310,7 @@ export function buildResearchMap(techs) {
     const endX = node.x;
     const endY = node.y + node.height / 2;
     const edgeId = `${prereqId}-${node.id}`;
-    const tierSpan = Math.max(1, node.tier - source.tier);
+    const tierSpan = Math.max(1, Number(tierIndex[node.tier] || 0) - Number(tierIndex[source.tier] || 0));
     const sourceGutterX = startX + columnGap / 2;
     const targetGutterX = endX - columnGap / 2;
     const busY = headerHeight + 6 + researchEdgeLane(edgeId) * 3;
@@ -332,7 +333,7 @@ export function buildResearchMap(techs) {
   const tierHeaders = tierDefs.map((definition) => ({
     ...definition,
     count: columns[definition.tier]?.length || 0,
-    x: padding + (definition.tier - 1) * (nodeWidth + columnGap),
+    x: padding + Number(tierIndex[definition.tier] || 0) * (nodeWidth + columnGap),
     width: nodeWidth,
   }));
   const eras = eraOrder.map((era) => {
@@ -350,6 +351,8 @@ export function buildResearchMap(techs) {
     eras,
     height: padding * 2 + headerHeight + laneCount * nodeHeight + Math.max(0, laneCount - 1) * rowGap,
     nodes,
+    minTier: tierOrder[0] || 0,
+    maxTier: tierOrder[tierOrder.length - 1] || 0,
     tierCount: tierDefs.length,
     tierHeaders,
     width: padding * 2 + tierDefs.length * nodeWidth + Math.max(0, tierDefs.length - 1) * columnGap,

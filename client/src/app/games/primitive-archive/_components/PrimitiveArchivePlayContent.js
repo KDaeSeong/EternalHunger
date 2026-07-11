@@ -24,6 +24,10 @@ import {
   buyPerkAction,
   canSelectActionZone,
   campFacilityRows,
+  civicRows,
+  civicsInspirationRows,
+  civicsPlannerRows,
+  civicsSummary,
   civilizationMilestoneRows,
   clearAllEquipmentAction,
   createNewState,
@@ -50,6 +54,7 @@ import {
   regionalActionChance,
   rivalTribeRows,
   runCampAction,
+  runCivicAction,
   runCraftAction,
   runDiplomacyAction,
   runAutoDayAction,
@@ -63,6 +68,7 @@ import {
   runRestAction,
   scoreState,
   selectProjectAction,
+  selectCivicAction,
   selectRegionAction,
   selectTechAction,
   setEquipmentSlotAction,
@@ -111,6 +117,9 @@ export default function PrimitiveArchivePlayContent() {
     discoverySerial: Number(state.exploration?.discoverySerial || 0),
     projectSerial: Number(state.projects?.completionSerial || 0),
     researchSerial: Number(state.research?.completionSerial || 0),
+    civicsSerial: Number(state.civics?.completionSerial || 0),
+    eurekaCount: Object.keys(state.research?.eureka || {}).length,
+    inspirationCount: Object.keys(state.civics?.inspiration || {}).length,
     tribeGrowthSerial: Number(state.tribe?.growthSerial || 0),
     contactSerial: Number(state.diplomacy?.contactSerial || 0),
     seasonId: '',
@@ -155,15 +164,22 @@ export default function PrimitiveArchivePlayContent() {
   const huntChance = regionalActionChance(state, actorId, 'hunt', activeRegionId);
   const craftChance = recipe?.unlocked ? actionChance(state, actorId, 'craft', recipe.baseChance - 0.18) : 0;
   const research = useMemo(() => researchSummary(state), [state]);
+  const civics = useMemo(() => civicsSummary(state), [state]);
   const archiveVictory = useMemo(() => archiveVictorySummary(state), [state]);
   const runProgressReport = useMemo(() => getRunProgressReport(state), [state]);
   const archiveReport = useMemo(() => archiveCompletionReportForState(state), [state]);
   const techs = useMemo(() => techRows(state), [state]);
+  const civicAdvancements = useMemo(() => civicRows(state), [state]);
   const inspirationRows = useMemo(() => researchInspirationRows(state), [state]);
+  const civicInspirationRows = useMemo(() => civicsInspirationRows(state), [state]);
   const plannerRows = useMemo(() => researchPlannerRows(state), [state]);
+  const civicPlannerRows = useMemo(() => civicsPlannerRows(state), [state]);
   const selectedPlanner = plannerRows.find((tech) => tech.id === state.research.selectedTechId) || plannerRows[0];
+  const selectedCivicPlanner = civicPlannerRows.find((civic) => civic.id === state.civics.selectedCivicId) || civicPlannerRows[0];
   const priorityPlannerRows = plannerRows.filter((tech) => !tech.completed).slice(0, 6);
+  const priorityCivicRows = civicPlannerRows.filter((civic) => !civic.completed).slice(0, 6);
   const researchMap = useMemo(() => buildResearchMap(techs), [techs]);
+  const civicMap = useMemo(() => buildResearchMap(civicAdvancements), [civicAdvancements]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
@@ -196,6 +212,9 @@ export default function PrimitiveArchivePlayContent() {
       discoverySerial: Number(state.exploration?.discoverySerial || 0),
       projectSerial: Number(state.projects?.completionSerial || 0),
       researchSerial: Number(state.research?.completionSerial || 0),
+      civicsSerial: Number(state.civics?.completionSerial || 0),
+      eurekaCount: Object.keys(state.research?.eureka || {}).length,
+      inspirationCount: Object.keys(state.civics?.inspiration || {}).length,
       tribeGrowthSerial: Number(state.tribe?.growthSerial || 0),
       contactSerial: Number(state.diplomacy?.contactSerial || 0),
       seasonId: milestones.season.id,
@@ -204,12 +223,15 @@ export default function PrimitiveArchivePlayContent() {
       if (current.discoverySerial > previous.discoverySerial) playGameSfx('discover');
       if (current.projectSerial > previous.projectSerial) playGameSfx('projectComplete');
       if (current.researchSerial > previous.researchSerial) playGameSfx('complete');
+      else if (current.eurekaCount > previous.eurekaCount) playGameSfx('research');
+      if (current.civicsSerial > previous.civicsSerial) playGameSfx('civicComplete');
+      else if (current.inspirationCount > previous.inspirationCount) playGameSfx('inspiration');
       if (current.tribeGrowthSerial > previous.tribeGrowthSerial) playGameSfx('growth');
       if (current.contactSerial > previous.contactSerial) playGameSfx('diplomacy');
       if (previous.seasonId && current.seasonId !== previous.seasonId) playGameSfx('season');
     }
     feedbackRef.current = current;
-  }, [milestones.season.id, playGameSfx, state.diplomacy?.contactSerial, state.exploration?.discoverySerial, state.projects?.completionSerial, state.research?.completionSerial, state.runId, state.tribe?.growthSerial]);
+  }, [milestones.season.id, playGameSfx, state.civics?.completionSerial, state.civics?.inspiration, state.diplomacy?.contactSerial, state.exploration?.discoverySerial, state.projects?.completionSerial, state.research?.completionSerial, state.research?.eureka, state.runId, state.tribe?.growthSerial]);
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
       const chances = {
@@ -284,7 +306,19 @@ export default function PrimitiveArchivePlayContent() {
         ? research.actionUnlocked
           ? `${research.selected.name} 연구를 진행할 수 있습니다. 자동 RP와 수동 연구 행동을 함께 사용할 수 있습니다.`
           : `${research.selected.name}에 매 행동 턴과 하루 시작 자동 RP가 누적됩니다. ${research.actionReason}`
-        : '다음 연구 목표를 선택하면 조건과 유레카·영감 진행도를 여기에서 확인할 수 있습니다.';
+        : '다음 연구 목표를 선택하면 선행 조건과 유레카 진행도를 여기에서 확인할 수 있습니다.';
+  const availableCivicNames = civicAdvancements
+    .filter((civic) => civic.available && !civic.completed)
+    .map((civic) => civic.name);
+  const selectedCivicHelp = !civics.unlocked
+    ? civics.reason
+    : civics.selected && !civics.selected.completed && !civics.selected.available
+      ? `${civics.selected.name}은(는) 아직 잠긴 사회 제도입니다. 선행 발전: ${(civics.selected.missingPrereqs || []).join(', ') || '없음'}. 지금 가능한 제도: ${availableCivicNames.slice(0, 3).join(', ') || '없음'}.`
+      : civics.selected && !civics.selected.completed
+        ? civics.actionUnlocked
+          ? `${civics.selected.name} 제도를 추진할 수 있습니다. 자동 CP와 부족 회의를 함께 사용할 수 있습니다.`
+          : `${civics.selected.name}에 매 행동 턴과 하루 시작 자동 CP가 누적됩니다. ${civics.actionReason}`
+        : '다음 사회 제도를 선택하면 선행 조건과 영감 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
     const nextState = updater(state);
@@ -323,6 +357,11 @@ export default function PrimitiveArchivePlayContent() {
   const runResearch = () => {
     if (!canAct) return;
     applyAction('연구', (current) => runResearchAction(current, actorId));
+  };
+
+  const runCivic = () => {
+    if (!canAct) return;
+    applyAction('부족 회의', (current) => runCivicAction(current, actorId));
   };
 
   const runCamp = (kind) => {
@@ -398,6 +437,11 @@ export default function PrimitiveArchivePlayContent() {
     applyAction('연구 목표 변경', (current) => selectTechAction(current, techId), `연구 목표를 ${nextTech?.name || '새 기술'}(으)로 변경했습니다.`);
   };
 
+  const selectCivicTarget = (civicId) => {
+    const nextCivic = civicAdvancements.find((civic) => civic.id === civicId);
+    applyAction('사회 제도 목표 변경', (current) => selectCivicAction(current, civicId), `사회 제도 목표를 ${nextCivic?.name || '새 제도'}(으)로 변경했습니다.`);
+  };
+
   const buyPerk = (perk) => {
     applyAction('특전 구매', (current) => buyPerkAction(current, perk.id), `${perk.name} 특전을 구매했습니다.`);
   };
@@ -439,7 +483,7 @@ export default function PrimitiveArchivePlayContent() {
     { label: '파티/부족', value: `${state.party.length}/${partyCap} · ${tribe.population}/${tribe.capacity}` },
     { label: '상태', value: `${hp}HP · 허기 ${hunger} · ST ${stamina}` },
     { label: '체온/보온', value: `${bodyTemp.toFixed(1)}도 · ${insulation}` },
-    { label: '핵심 연구', value: `${research.archiveCompleted}/${research.archiveTotal}` },
+    { label: '핵심 발전', value: `${research.archiveCompleted + civics.archiveCompleted}/${research.archiveTotal + civics.archiveTotal}` },
     { label: '기록서', value: `${archiveReport.grade} · ${archiveReport.archiveScore}%` },
     { label: '점수', value: score.toLocaleString('ko-KR') },
   ];
@@ -480,7 +524,7 @@ export default function PrimitiveArchivePlayContent() {
       className="primitive-archive-page-shell"
       kicker="Primitive Archive"
       title="원시 아카이브"
-      description="학생 파티가 원시 지대에서 채집, 사냥, 제작, 캠프, 연구, 장비 빌드를 반복하며 며칠이나 버티는지 보는 생존 시뮬레이션입니다."
+      description="학생 파티와 부족이 채집, 사냥, 제작, 기술, 사회 제도를 발전시키며 원시 지대에서 문명을 세우는 생존 시뮬레이션입니다."
       summaryLabel="Primitive Archive 요약"
       summaryDensity="micro"
       primaryMetricLimit={8}
@@ -505,6 +549,11 @@ export default function PrimitiveArchivePlayContent() {
         campFacilities={campFacilities}
         canAct={canAct}
         changeEquipmentSlot={changeEquipmentSlot}
+        civicAdvancements={civicAdvancements}
+        civicInspirationRows={civicInspirationRows}
+        civicMap={civicMap}
+        civicPlannerRows={civicPlannerRows}
+        civics={civics}
         clearEquipment={clearEquipment}
         craftChance={craftChance}
         currentEquipmentRows={currentEquipmentRows}
@@ -527,6 +576,7 @@ export default function PrimitiveArchivePlayContent() {
         projectEstimate={projectEstimate}
         projects={projects}
         priorityPlannerRows={priorityPlannerRows}
+        priorityCivicRows={priorityCivicRows}
         recentActionText={recentActionText}
         recipe={recipe}
         recipeId={recipeId}
@@ -539,6 +589,7 @@ export default function PrimitiveArchivePlayContent() {
         recordRun={recordRun}
         rivals={rivals}
         runCamp={runCamp}
+        runCivic={runCivic}
         runCraft={runCraft}
         runDiplomacy={runDiplomacy}
         runEat={runEat}
@@ -551,13 +602,16 @@ export default function PrimitiveArchivePlayContent() {
         runResearch={runResearch}
         runRest={runRest}
         selectResearchTarget={selectResearchTarget}
+        selectCivicTarget={selectCivicTarget}
         selectProject={selectProject}
         selectRegion={selectRegion}
         selectedPlanner={selectedPlanner}
+        selectedCivicPlanner={selectedCivicPlanner}
         selectedProject={selectedProject}
         selectedRegion={selectedRegion}
         selectedRecruit={selectedRecruit}
         selectedResearchHelp={selectedResearchHelp}
+        selectedCivicHelp={selectedCivicHelp}
         selectedDifficulty={selectedDifficulty}
         setActorId={setActorId}
         setPartySort={setPartySort}
@@ -569,6 +623,7 @@ export default function PrimitiveArchivePlayContent() {
         state={state}
         startNewRun={startNewRun}
         techs={techs}
+        technologyPlannerRows={plannerRows}
         tribe={tribe}
         token={token}
         hydrated={hydrated}

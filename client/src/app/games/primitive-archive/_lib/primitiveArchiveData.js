@@ -235,7 +235,7 @@ export const TRIBE_PROJECTS = [
   {
     id: 'council-fire', name: '부족 회의 화덕', era: 'ANCIENT', prereqs: ['ORAL_RECORDS'], work: 7,
     cost: { wood: 4, stone: 2, resin: 1 }, effectId: 'PROJECT_RESEARCH_UP', reward: { clay: 2 },
-    description: '하루의 경험을 모아 다음 세대에 전하는 회의 장소입니다.', effectText: '턴·일일 자동 연구 +1RP',
+    description: '하루의 경험을 모아 다음 세대에 전하는 회의 장소입니다.', effectText: '턴·일일 자동 연구 +1RP · 문화 +1CP',
   },
   {
     id: 'palisade', name: '목책 방어선', era: 'ANCIENT', prereqs: ['EARLY_CONSTRUCTION'], work: 9,
@@ -497,6 +497,7 @@ export const TECH_TREE = [
     description: '날씨와 생존 경험을 전승해 일일 자동 연구를 강화합니다.',
     unlocks: { passives: ['RESEARCH_NOTE_UP'] },
     eureka: { type: 'weatherTypes', count: 2, bonusPct: 0.25, desc: '서로 다른 날씨 2종 관찰' },
+    inspiration: { type: 'weatherTypes', count: 2, bonusPct: 0.25, desc: '서로 다른 날씨 2종을 이야기로 남기기' },
   },
   {
     id: 'TRAPPING', name: '덫 사냥', era: 'NEOLITHIC', tier: 3, cost: 16, prereqs: ['HUNTING', 'CORDAGE'], tags: ['SURVIVAL', 'MILITARY'],
@@ -636,6 +637,7 @@ export const TECH_TREE = [
     description: '희귀 재료의 의미를 해석하고 부적 제작과 회복 의식을 엽니다.',
     unlocks: { recipes: ['charm', 'crafter_amulet', 'gatherer_charm', 'weather_totem'], passives: ['MYSTIC_RECOVERY_UP'] },
     eureka: { type: 'weatherTypes', count: 3, bonusPct: 0.2, desc: '서로 다른 날씨 3종 관찰' },
+    inspiration: { type: 'weatherTypes', count: 3, bonusPct: 0.22, desc: '서로 다른 날씨 3종에서 징조 찾기' },
   },
   {
     id: 'ASTROLOGY', name: '점성술', era: 'ANCIENT', tier: 7, cost: 30, prereqs: ['CALENDAR', 'MYSTICISM'], tags: ['SCIENCE', 'SPIRITUAL'],
@@ -648,30 +650,35 @@ export const TECH_TREE = [
     description: '사냥 전술을 표준화해 실패 시 부상을 더 줄입니다.',
     unlocks: { passives: ['HUNT_RISK_DOWN_2'] },
     eureka: { type: 'actionSuccess', action: 'hunt', count: 5, bonusPct: 0.25, desc: '사냥 성공 5회' },
+    inspiration: { type: 'actionSuccess', action: 'hunt', count: 5, bonusPct: 0.25, desc: '사냥 성공 5회의 전술을 전승하기' },
   },
   {
     id: 'STATE_WORKFORCE', name: '국가 노동력', era: 'ANCIENT', tier: 7, cost: 30, prereqs: ['SETTLEMENT', 'WRITING'], tags: ['CIVICS'],
     description: '역할 분담을 체계화해 자동 연구와 파티 운영을 강화합니다.',
     unlocks: { passives: ['STATE_RESEARCH_UP', 'PARTY_CAP_UP_2'] },
     eureka: { type: 'surviveDays', count: 8, bonusPct: 0.25, desc: '8일 생존' },
+    inspiration: { type: 'surviveDays', count: 8, bonusPct: 0.25, desc: '8일 동안 역할 분담 유지' },
   },
   {
     id: 'EARLY_THEOLOGY', name: '초기 신학', era: 'ANCIENT', tier: 7, cost: 30, prereqs: ['MYSTICISM', 'WRITING'], tags: ['SPIRITUAL', 'CULTURE'],
     description: '집단 의식과 돌봄 규범으로 휴식 회복량을 높입니다.',
     unlocks: { passives: ['REST_HEAL_UP_2'] },
     eureka: { type: 'campFireDays', count: 4, bonusPct: 0.25, desc: '모닥불을 유지한 밤 4회' },
+    inspiration: { type: 'campFireDays', count: 4, bonusPct: 0.25, desc: '모닥불 의식을 유지한 밤 4회' },
   },
   {
     id: 'FOREIGN_TRADE', name: '외국 무역', era: 'ANCIENT', tier: 8, cost: 34, prereqs: ['CARTOGRAPHY', 'STATE_WORKFORCE'], tags: ['CIVICS', 'SURVIVAL'],
     description: '교환 가치가 높은 자원을 선별해 채집과 사냥 수익을 늘립니다.',
     unlocks: { passives: ['RESOURCE_YIELD_UP'] },
     eureka: { type: 'haveItem', itemId: 'resin', count: 4, bonusPct: 0.25, desc: '수지 4개 보유' },
+    inspiration: { type: 'haveItem', itemId: 'resin', count: 4, bonusPct: 0.25, desc: '교역품 수지 4개 비축' },
   },
   {
     id: 'HISTORY_RECORDS', name: '역사 기록', era: 'ANCIENT', tier: 7, cost: 30, prereqs: ['WRITING', 'ARCHIVE'], tags: ['CULTURE', 'CIVICS'],
     description: '행동과 사건을 장기 기록으로 정리해 로그와 점수를 강화합니다.',
     unlocks: { passives: ['ARCHIVE_LOG_UP_2'] },
     eureka: { type: 'campFireDays', count: 5, bonusPct: 0.25, desc: '모닥불을 유지한 밤 5회' },
+    inspiration: { type: 'campFireDays', count: 5, bonusPct: 0.25, desc: '모닥불 곁 기록 회의 5회' },
   },
   {
     id: 'BASIC_MATH', name: '기초 수학', era: 'ANCIENT', tier: 8, cost: 34, prereqs: ['COUNTING', 'WRITING'], tags: ['SCIENCE'],
@@ -816,6 +823,33 @@ export const TECH_TREE = [
     inspiration: { type: 'campLevel', key: 'shelterLevel', count: 3, bonusPct: 0.2, desc: '대피소 Lv.3 달성' },
   },
 ];
+
+export const CIVIC_IDS = [
+  'ORAL_RECORDS',
+  'SETTLEMENT',
+  'MYSTICISM',
+  'MILITARY_TRADITION',
+  'STATE_WORKFORCE',
+  'EARLY_THEOLOGY',
+  'FOREIGN_TRADE',
+  'HISTORY_RECORDS',
+  'BASIC_PHILOSOPHY',
+  'CLASSICAL_PHILOSOPHY',
+  'DRAMA',
+  'POETRY',
+  'EARLY_EMPIRE',
+  'EARLY_MUSIC',
+];
+
+const CIVIC_ID_SET = new Set(CIVIC_IDS);
+
+export const TECHNOLOGY_TREE = TECH_TREE
+  .filter((advancement) => !CIVIC_ID_SET.has(advancement.id))
+  .map(({ inspiration, ...technology }) => ({ ...technology, track: 'technology' }));
+
+export const CIVIC_TREE = TECH_TREE
+  .filter((advancement) => CIVIC_ID_SET.has(advancement.id))
+  .map(({ eureka, ...civic }) => ({ ...civic, track: 'civics' }));
 
 export const PERK_DEFS = [
   { id: 'perk_supply_pack', name: '보급 꾸러미', desc: '새 탐험 시작 시 베리 +3, 나무 +2, 돌 +2.', cost: 2, maxLevel: 1 },
@@ -1157,6 +1191,17 @@ export function initResearchState() {
   };
 }
 
+export function initCivicState() {
+  return {
+    selectedCivicId: CIVIC_TREE[0]?.id || '',
+    progress: {},
+    completed: {},
+    inspiration: {},
+    lastCompletedCivicId: '',
+    completionSerial: 0,
+  };
+}
+
 export function initMetaState(value = {}) {
   return {
     perkPoints: Math.max(0, Number(value.perkPoints || 0)),
@@ -1208,12 +1253,12 @@ export function normalizeResearch(value = {}) {
   return {
     ...base,
     ...value,
-    selectedTechId: TECH_TREE.some((tech) => tech.id === value.selectedTechId) ? value.selectedTechId : base.selectedTechId,
+    selectedTechId: TECHNOLOGY_TREE.some((tech) => tech.id === value.selectedTechId) ? value.selectedTechId : base.selectedTechId,
     progress: value.progress && typeof value.progress === 'object' ? value.progress : base.progress,
     completed: value.completed && typeof value.completed === 'object' ? value.completed : base.completed,
     eureka: value.eureka && typeof value.eureka === 'object' ? value.eureka : base.eureka,
     inspiration: value.inspiration && typeof value.inspiration === 'object' ? value.inspiration : base.inspiration,
-    lastCompletedTechId: TECH_TREE.some((tech) => tech.id === value.lastCompletedTechId) ? value.lastCompletedTechId : '',
+    lastCompletedTechId: TECHNOLOGY_TREE.some((tech) => tech.id === value.lastCompletedTechId) ? value.lastCompletedTechId : '',
     completionSerial: Math.max(0, Number(value.completionSerial || 0)),
     counters: {
       ...base.counters,
@@ -1225,5 +1270,40 @@ export function normalizeResearch(value = {}) {
       weatherSeen: { ...(value.counters?.weatherSeen || {}) },
       campFireDays: Math.max(0, Number(value.counters?.campFireDays || 0)),
     },
+  };
+}
+
+function civicStateMap(value, legacyValue) {
+  const source = value && typeof value === 'object' ? value : {};
+  const legacy = legacyValue && typeof legacyValue === 'object' ? legacyValue : {};
+  return Object.fromEntries(CIVIC_TREE.flatMap((civic) => {
+    if (Object.hasOwn(source, civic.id)) return [[civic.id, source[civic.id]]];
+    if (Object.hasOwn(legacy, civic.id)) return [[civic.id, legacy[civic.id]]];
+    return [];
+  }));
+}
+
+export function normalizeCivics(value = {}, legacyResearch = {}) {
+  const base = initCivicState();
+  const legacySelected = CIVIC_TREE.some((civic) => civic.id === legacyResearch?.selectedTechId)
+    ? legacyResearch.selectedTechId
+    : '';
+  const selectedCivicId = CIVIC_TREE.some((civic) => civic.id === value.selectedCivicId)
+    ? value.selectedCivicId
+    : legacySelected || base.selectedCivicId;
+  const lastCompletedCivicId = CIVIC_TREE.some((civic) => civic.id === value.lastCompletedCivicId)
+    ? value.lastCompletedCivicId
+    : CIVIC_TREE.some((civic) => civic.id === legacyResearch?.lastCompletedTechId)
+      ? legacyResearch.lastCompletedTechId
+      : '';
+  return {
+    ...base,
+    ...value,
+    selectedCivicId,
+    progress: civicStateMap(value.progress, legacyResearch?.progress),
+    completed: civicStateMap(value.completed, legacyResearch?.completed),
+    inspiration: civicStateMap(value.inspiration, legacyResearch?.inspiration),
+    lastCompletedCivicId,
+    completionSerial: Math.max(0, Number(value.completionSerial || 0)),
   };
 }

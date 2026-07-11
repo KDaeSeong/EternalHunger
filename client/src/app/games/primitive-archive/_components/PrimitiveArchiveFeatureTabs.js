@@ -12,6 +12,7 @@ import PrimitiveArchiveWorldMap from './PrimitiveArchiveWorldMap';
 export default function PrimitiveArchiveFeatureTabs(props) {
   const {
     archiveReport,
+    civics,
     exploration,
     inventoryRows,
     partyCap,
@@ -73,9 +74,9 @@ export default function PrimitiveArchiveFeatureTabs(props) {
           },
           {
             id: 'growth',
-            label: '연구',
+            label: '발전',
             icon: 'research',
-            badge: research.unlocked ? `${research.archiveCompleted}/${research.archiveTotal}` : '잠김',
+            badge: research.unlocked ? `${research.completed + civics.completed}/${research.total + civics.total}` : '잠김',
             children: <PrimitiveArchiveGrowthTab {...props} />,
           },
           {

@@ -8138,6 +8138,160 @@
   grid-column: 1 / -1;
 }
 
+.primitive-advancement-track-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid rgba(22, 33, 44, 0.12);
+  border-radius: 8px;
+  background: #eef2f4;
+  padding: 6px;
+}
+
+.primitive-advancement-track-switch button {
+  min-width: 0;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #52616d;
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.primitive-advancement-track-switch button:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.primitive-advancement-track-switch button.is-active {
+  border-color: rgba(22, 132, 189, 0.32);
+  background: #fff;
+  color: #176895;
+  box-shadow: 0 2px 8px rgba(22, 33, 44, 0.08);
+}
+
+.primitive-advancement-track-switch button:nth-child(2).is-active {
+  border-color: rgba(166, 111, 29, 0.38);
+  background: #fffaf0;
+  color: #825411;
+}
+
+.primitive-advancement-track-switch .game-action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background: rgba(22, 132, 189, 0.1);
+}
+
+.primitive-advancement-track-switch button:nth-child(2) .game-action-icon {
+  background: rgba(166, 111, 29, 0.12);
+}
+
+.primitive-advancement-track-switch button > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.primitive-advancement-track-switch button strong {
+  font-size: 0.84rem;
+}
+
+.primitive-advancement-track-switch button small {
+  color: #71808c;
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.primitive-advancement-track-switch button em {
+  border-radius: 999px;
+  background: rgba(22, 33, 44, 0.07);
+  padding: 4px 7px;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.primitive-breakthrough-summary {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  border-left: 3px solid #1684bd;
+  background: #f3f8fb;
+  padding: 10px 11px;
+  margin-top: 10px;
+}
+
+.primitive-advancement-dashboard.is-civics .primitive-breakthrough-summary {
+  border-left-color: #a66f1d;
+  background: #fff9ed;
+}
+
+.primitive-breakthrough-summary .game-action-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: rgba(22, 132, 189, 0.1);
+  color: #176895;
+}
+
+.primitive-advancement-dashboard.is-civics .primitive-breakthrough-summary .game-action-icon {
+  background: rgba(166, 111, 29, 0.12);
+  color: #825411;
+}
+
+.primitive-breakthrough-summary > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.primitive-breakthrough-summary span,
+.primitive-breakthrough-summary small {
+  color: #667581;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.4;
+}
+
+.primitive-breakthrough-summary strong {
+  color: #233442;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.primitive-breakthrough-list {
+  margin-top: 9px;
+}
+
+.primitive-research-workspace.is-civics .primitive-research-inspector,
+.primitive-research-modal.is-civics {
+  border-color: #a66f1d;
+}
+
+.primitive-research-workspace.is-civics .primitive-research-node.is-selected {
+  border-color: #a66f1d;
+  background: #fff7e8;
+}
+
+.primitive-research-workspace.is-civics .primitive-research-edges path.is-focused {
+  stroke: #a66f1d;
+}
+
+.primitive-research-inspector__section .games-chip-row button:disabled {
+  border-style: dashed;
+  color: #73808a;
+  cursor: default;
+  opacity: 0.82;
+}
+
 .primitive-research-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(180px, 240px) auto;
@@ -10024,6 +10178,10 @@
   }
 
   .primitive-action-forecast-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .primitive-advancement-track-switch {
     grid-template-columns: 1fr;
   }
 

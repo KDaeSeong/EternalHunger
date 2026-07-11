@@ -15,6 +15,8 @@ import {
   ITEMS,
   RECIPES,
   TECH_TREE,
+  TECHNOLOGY_TREE,
+  CIVIC_TREE,
   TECH_TIER_DEFS,
   PERK_DEFS,
   WEATHER,
@@ -30,6 +32,7 @@ import {
   initMetaState,
   initProjectState,
   initResearchState,
+  initCivicState,
   initTribeState,
   makeParty,
   normalizeEquipment,
@@ -37,6 +40,7 @@ import {
   normalizeDiplomacyState,
   normalizeProjectState,
   normalizeResearch,
+  normalizeCivics,
   normalizeTribeState,
   difficultyRows,
   rollWeather,
@@ -63,6 +67,8 @@ export {
   ITEMS,
   RECIPES,
   TECH_TREE,
+  TECHNOLOGY_TREE,
+  CIVIC_TREE,
   TECH_TIER_DEFS,
   PERK_DEFS,
   WEATHER,
@@ -73,6 +79,7 @@ export {
   initDiplomacyState,
   initProjectState,
   initResearchState,
+  initCivicState,
   initTribeState,
   rollWeather,
   seasonForDay,
@@ -114,6 +121,7 @@ export function createNewState(options = {}) {
     tribe: initTribeState(),
     diplomacy: initDiplomacyState(),
     research: initResearchState(),
+    civics: initCivicState(),
     meta,
     log: [`Day 1: ${difficultyBrief} 규칙으로 원시 지대에 도착했습니다. 파티의 첫 목표는 식량과 캠프 확보입니다.`],
     ended: false,
@@ -125,7 +133,23 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
-  const research = normalizeResearch(value.research);
+  let civics = normalizeCivics(value.civics, value.research);
+  const normalizedResearch = normalizeResearch(value.research);
+  let research = {
+    ...normalizedResearch,
+    completed: { ...normalizedResearch.completed, ...civics.completed },
+  };
+  if (research.completed?.[research.selectedTechId]) {
+    research = { ...research, selectedTechId: nextAvailableTech(research)?.id || research.selectedTechId };
+  }
+  if (civics.completed?.[civics.selectedCivicId]) {
+    civics = { ...civics, selectedCivicId: nextAvailableCivic(research, civics)?.id || civics.selectedCivicId };
+  }
+  const selectedCivic = getCivic(civics.selectedCivicId);
+  if (selectedCivic && !prereqsMet(research, selectedCivic)) {
+    const availableCivic = nextAvailableCivic(research, civics);
+    if (availableCivic) civics = { ...civics, selectedCivicId: availableCivic.id };
+  }
   const exploration = normalizeExplorationState(value.exploration);
   const projects = normalizeProjectState(value.projects);
   const tribe = normalizeTribeState(value.tribe);
@@ -174,6 +198,7 @@ export function normalizeState(value) {
     tribe,
     diplomacy,
     research,
+    civics,
     meta,
     log: Array.isArray(value.log) ? value.log.slice(0, logCapacity({ ...base, ...value, camp })) : base.log,
     victory: Boolean(value.victory),
@@ -291,6 +316,14 @@ export function hasResources(inventory, requires) {
 
 function getTech(techId) {
   return TECH_TREE.find((tech) => tech.id === techId) || null;
+}
+
+function getTechnology(techId) {
+  return TECHNOLOGY_TREE.find((tech) => tech.id === techId) || null;
+}
+
+function getCivic(civicId) {
+  return CIVIC_TREE.find((civic) => civic.id === civicId) || null;
 }
 
 function prereqsMet(research, tech) {
@@ -479,7 +512,7 @@ function researchUnlockGroups(tech) {
 }
 
 function availableTechNames(research, excludeTechId = '') {
-  return TECH_TREE
+  return TECHNOLOGY_TREE
     .filter((row) => row.id !== excludeTechId && !research.completed?.[row.id] && prereqsMet(research, row))
     .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)
     .map((row) => row.name);
@@ -549,6 +582,32 @@ export function researchSystemStatus(state) {
   };
 }
 
+export function civicsSystemStatus(state) {
+  const researchStatus = researchSystemStatus(state);
+  const civics = normalizeCivics(state?.civics, state?.research);
+  const available = CIVIC_TREE.filter((civic) => (
+    !civics.completed?.[civic.id] && prereqsMet(normalizeResearch(state?.research), civic)
+  )).length;
+  return {
+    unlocked: researchStatus.unlocked,
+    actionUnlocked: researchStatus.actionUnlocked,
+    completed: researchStatus.completed,
+    total: researchStatus.total,
+    actionCompleted: researchStatus.actionCompleted,
+    actionTotal: researchStatus.actionTotal,
+    gateRows: researchStatus.gateRows,
+    actionGateRows: researchStatus.actionGateRows,
+    available,
+    headline: researchStatus.unlocked ? '부족의 사회 제도 논의가 시작되었습니다.' : researchStatus.headline,
+    reason: researchStatus.unlocked
+      ? '사회 제도를 지정하면 매 행동 턴과 하루 시작에 문화 포인트가 누적됩니다.'
+      : researchStatus.reason.replace('연구 시작 조건', '발전 시작 조건'),
+    actionReason: researchStatus.actionUnlocked
+      ? '부족 회의를 열어 선택한 사회 제도를 직접 추진할 수 있습니다.'
+      : researchStatus.actionReason,
+  };
+}
+
 function breakthroughStatusForTech(state, tech, kind) {
   const trigger = tech?.[kind];
   const kindLabel = kind === 'inspiration' ? '영감' : '유레카';
@@ -590,14 +649,52 @@ function eurekaStatusForTech(state, tech) {
   return breakthroughStatusForTech(state, tech, 'eureka');
 }
 
-function inspirationStatusForTech(state, tech) {
-  return breakthroughStatusForTech(state, tech, 'inspiration');
-}
-
 function nextAvailableTech(research) {
-  return TECH_TREE
+  return TECHNOLOGY_TREE
     .filter((tech) => !research.completed?.[tech.id] && prereqsMet(research, tech))
     .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)[0] || null;
+}
+
+function nextAvailableCivic(research, civics) {
+  return CIVIC_TREE
+    .filter((civic) => !civics.completed?.[civic.id] && prereqsMet(research, civic))
+    .sort((a, b) => Number(a.tier || 1) - Number(b.tier || 1) || a.cost - b.cost)[0] || null;
+}
+
+function civicInspirationStatus(state, civic) {
+  const trigger = civic?.inspiration;
+  if (!trigger) {
+    return {
+      current: 0,
+      target: 0,
+      done: false,
+      blocked: false,
+      statusLabel: '영감 없음',
+      note: '이 사회 제도는 별도 영감 조건이 없습니다.',
+      missingPrereqs: [],
+    };
+  }
+  const research = normalizeResearch(state.research);
+  const civics = normalizeCivics(state.civics, research);
+  const progress = researchTriggerProgress({ ...state, research }, trigger);
+  const missingPrereqs = missingPrereqNames(research, civic);
+  const completed = Boolean(civics.completed?.[civic.id]);
+  const inspirationDone = Boolean(civics.inspiration?.[civic.id]);
+  const blocked = progress.done && !completed && missingPrereqs.length > 0;
+  let statusLabel = '진행 중';
+  if (completed) statusLabel = '제도 확립';
+  else if (inspirationDone) statusLabel = '영감 적용';
+  else if (blocked) statusLabel = '영감 확보 · 선행 발전 필요';
+  else if (progress.done) statusLabel = '적용 대기';
+  return {
+    ...progress,
+    blocked,
+    statusLabel,
+    note: blocked
+      ? `조건은 충족했지만 ${missingPrereqs.join(', ')} 완료 후 영감 보너스가 적용됩니다.`
+      : trigger.desc || '',
+    missingPrereqs,
+  };
 }
 
 function hasTechPassive(state, passiveId) {
@@ -926,7 +1023,7 @@ export function runDiplomacyAction(state, actorId, rivalId, actionId, options = 
     if (!researchSystemStatus(next).unlocked) return addLog(next, '연구 체계가 아직 열리지 않아 지식을 기록할 수 없습니다.');
     if (!hasResources(next.inventory, rival.exchangeCost)) return addLog(next, `지식 교류 자원이 부족합니다. 필요: ${formatRequires(rival.exchangeCost)}.`);
     const research = normalizeResearch(next.research);
-    const selected = getTech(research.selectedTechId);
+    const selected = getTechnology(research.selectedTechId);
     const tech = selected && !research.completed?.[selected.id] && prereqsMet(research, selected)
       ? selected
       : nextAvailableTech(research);
@@ -1111,8 +1208,10 @@ export function civilizationMilestoneRows(state) {
     .filter((tech) => current.research.completed?.[tech.id])
     .map((tech) => tech.era);
   const eraId = eraOrder.reduce((latest, era) => (completedEras.includes(era) ? era : latest), 'PRIMITIVE');
-  const selectedTech = getTech(current.research.selectedTechId);
+  const selectedTech = getTechnology(current.research.selectedTechId);
   const researchProgress = Number(current.research.progress?.[selectedTech?.id] || 0);
+  const civicSummary = civicsSummary(current);
+  const selectedCivic = civicSummary.selected;
   const projects = projectRows(current);
   const selectedProject = projects.find((project) => project.selected && !project.completed)
     || projects.find((project) => project.available && !project.completed);
@@ -1130,6 +1229,11 @@ export function civilizationMilestoneRows(state) {
         id: 'research', action: 'research', label: selectedTech?.name || '연구 목표 없음',
         value: selectedTech ? `${Math.max(0, Number(selectedTech.cost || 0) - researchProgress)} RP 남음` : '목표를 지정하세요',
         detail: selectedTech ? `현재 ${researchProgress}/${selectedTech.cost}` : '부족 발전 후 연구가 해금됩니다.',
+      },
+      {
+        id: 'civics', action: 'policy', label: selectedCivic?.name || '사회 제도 목표 없음',
+        value: selectedCivic ? `${Math.max(0, Number(selectedCivic.cost || 0) - Number(selectedCivic.progress || 0))} CP 남음` : '목표를 지정하세요',
+        detail: selectedCivic ? `영감 ${selectedCivic.inspirationStatus?.current || 0}/${selectedCivic.inspirationStatus?.target || 0}` : '부족 발전 후 사회 제도가 해금됩니다.',
       },
       {
         id: 'project', action: 'project', label: selectedProject?.name || '다음 부족 프로젝트',
@@ -1172,7 +1276,7 @@ function bookResearchBonus(state) {
 
 function completeTechIfReady(state, techId) {
   const research = normalizeResearch(state.research);
-  const tech = getTech(techId);
+  const tech = getTechnology(techId);
   if (!tech || research.completed[tech.id]) return state;
   const progress = Number(research.progress[tech.id] || 0);
   if (progress < tech.cost) return state;
@@ -1197,7 +1301,7 @@ function completeTechIfReady(state, techId) {
 function addResearchProgress(state, techId, points, source = '연구', options = {}) {
   if (!researchSystemStatus(state).unlocked) return state;
   const research = normalizeResearch(state.research);
-  const tech = getTech(techId);
+  const tech = getTechnology(techId);
   if (!tech) return state;
   if (research.completed[tech.id]) return state;
   if (!prereqsMet(research, tech)) return addLog({ ...state, research }, missingPrereqMessage(research, tech));
@@ -1213,6 +1317,59 @@ function addResearchProgress(state, techId, points, source = '연구', options =
     ? next
     : addLog(next, `${source}: ${tech.name} +${Math.max(0, Math.floor(points))}RP (${progress}/${tech.cost})`);
   return completeTechIfReady(withLog, tech.id);
+}
+
+function completeCivicIfReady(state, civicId) {
+  const research = normalizeResearch(state.research);
+  const civics = normalizeCivics(state.civics, research);
+  const civic = getCivic(civicId);
+  if (!civic || civics.completed?.[civic.id]) return state;
+  const progress = Number(civics.progress?.[civic.id] || 0);
+  if (progress < civic.cost) return state;
+  const nextCivics = {
+    ...civics,
+    progress: { ...civics.progress, [civic.id]: civic.cost },
+    completed: { ...civics.completed, [civic.id]: true },
+    lastCompletedCivicId: civic.id,
+    completionSerial: Number(civics.completionSerial || 0) + 1,
+  };
+  if (nextCivics.selectedCivicId === civic.id) {
+    nextCivics.selectedCivicId = nextAvailableCivic(
+      { ...research, completed: { ...research.completed, [civic.id]: true } },
+      nextCivics,
+    )?.id || civic.id;
+  }
+  const nextResearch = {
+    ...research,
+    completed: { ...research.completed, [civic.id]: true },
+  };
+  const next = addLog(
+    { ...state, research: nextResearch, civics: nextCivics },
+    `사회 제도 확립: ${civic.name}`,
+  );
+  return applyResearchBreakthroughs(next);
+}
+
+function addCivicProgress(state, civicId, points, source = '문화', options = {}) {
+  if (!civicsSystemStatus(state).unlocked) return state;
+  const research = normalizeResearch(state.research);
+  const civics = normalizeCivics(state.civics, research);
+  const civic = getCivic(civicId);
+  if (!civic || civics.completed?.[civic.id]) return state;
+  if (!prereqsMet(research, civic)) return addLog(state, missingPrereqMessage(research, civic));
+  const gain = Math.max(0, Math.floor(points));
+  const progress = Math.min(civic.cost, Number(civics.progress?.[civic.id] || 0) + gain);
+  const next = {
+    ...state,
+    civics: {
+      ...civics,
+      progress: { ...civics.progress, [civic.id]: progress },
+    },
+  };
+  const withLog = options.silent
+    ? next
+    : addLog(next, `${source}: ${civic.name} +${gain}CP (${progress}/${civic.cost})`);
+  return completeCivicIfReady(withLog, civic.id);
 }
 
 function researchTriggerProgress(state, trigger) {
@@ -1244,7 +1401,7 @@ function applyResearchBreakthrough(state, kind) {
   if (!status.unlocked) return state;
   const kindLabel = kind === 'inspiration' ? '영감' : '유레카';
   let next = { ...state, research: normalizeResearch(state.research) };
-  for (const tech of TECH_TREE) {
+  for (const tech of TECHNOLOGY_TREE) {
     const trigger = tech[kind];
     if (!trigger || next.research[kind]?.[tech.id] || next.research.completed[tech.id]) continue;
     if (!researchTriggerProgress(next, trigger).done) continue;
@@ -1265,8 +1422,36 @@ function applyResearchBreakthrough(state, kind) {
   return next;
 }
 
+function applyCivicInspirations(state) {
+  const status = civicsSystemStatus(state);
+  if (!status.unlocked) return state;
+  let next = {
+    ...state,
+    research: normalizeResearch(state.research),
+    civics: normalizeCivics(state.civics, state.research),
+  };
+  for (const civic of CIVIC_TREE) {
+    const trigger = civic.inspiration;
+    if (!trigger || next.civics.inspiration?.[civic.id] || next.civics.completed?.[civic.id]) continue;
+    if (!researchTriggerProgress(next, trigger).done) continue;
+    if (!prereqsMet(next.research, civic)) continue;
+    const multiplier = hasTechPassive(next, 'INSPIRATION_BONUS_UP') ? 1.25 : 1;
+    const bonus = Math.ceil(civic.cost * Number(trigger.bonusPct || 0) * multiplier);
+    next = {
+      ...next,
+      civics: {
+        ...next.civics,
+        inspiration: { ...next.civics.inspiration, [civic.id]: true },
+      },
+    };
+    next = addLog(next, `영감: ${civic.name} (${trigger.desc})`);
+    next = addCivicProgress(next, civic.id, bonus, '영감');
+  }
+  return next;
+}
+
 function applyResearchBreakthroughs(state) {
-  return applyResearchBreakthrough(applyResearchBreakthrough(state, 'eureka'), 'inspiration');
+  return applyCivicInspirations(applyResearchBreakthrough(state, 'eureka'));
 }
 
 function recordResearchEvent(state, event) {
@@ -1327,6 +1512,41 @@ function autoResearchForTurn(state) {
     + (hasTechPassive(state, 'RESEARCH_POINT_BONUS_4') ? 1 : 0)
     + (hasCompletedProject(state, 'council-fire') ? 1 : 0);
   return addResearchProgress({ ...state, research }, techId, points, '턴 연구', { silent: true });
+}
+
+function activeCivicForState(state) {
+  const research = normalizeResearch(state.research);
+  const civics = normalizeCivics(state.civics, research);
+  const selected = getCivic(civics.selectedCivicId);
+  if (selected && !civics.completed?.[selected.id] && prereqsMet(research, selected)) return selected;
+  return nextAvailableCivic(research, civics);
+}
+
+function autoCivicsForDay(state) {
+  if (!civicsSystemStatus(state).unlocked) return state;
+  const civic = activeCivicForState(state);
+  if (!civic) return state;
+  const morale = Number(normalizeTribeState(state.tribe).morale || 0);
+  const points = clamp(
+    1
+      + Number(state.camp.archiveRoomLevel || 0)
+      + Number(state.camp.scribeDeskLevel || 0)
+      + Number(state.camp.libraryShelfLevel || 0)
+      + (morale >= 60 ? 1 : 0)
+      + (hasCompletedProject(state, 'council-fire') ? 1 : 0)
+      + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 1 : 0),
+    1,
+    8,
+  );
+  return addCivicProgress(state, civic.id, points, '일일 문화');
+}
+
+function autoCivicsForTurn(state) {
+  if (!civicsSystemStatus(state).unlocked) return state;
+  const civic = activeCivicForState(state);
+  if (!civic) return state;
+  const points = 1 + (hasCompletedProject(state, 'council-fire') ? 1 : 0);
+  return addCivicProgress(state, civic.id, points, '턴 문화', { silent: true });
 }
 
 export function inventoryWeight(inventory) {
@@ -2431,6 +2651,7 @@ export function afterAction(state, actorId, staminaCost, hungerAdd = 3, options 
   });
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
   next = autoResearchForTurn(next);
+  next = autoCivicsForTurn(next);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
   return next;
 }
@@ -2488,7 +2709,7 @@ function settleTribeDay(state) {
   let researchPoints = 0;
   if (scholars > 0 && researchSystemStatus(next).unlocked) {
     const research = normalizeResearch(next.research);
-    const selected = getTech(research.selectedTechId);
+    const selected = getTechnology(research.selectedTechId);
     const tech = selected && !research.completed?.[selected.id] && prereqsMet(research, selected)
       ? selected
       : nextAvailableTech(research);
@@ -2603,14 +2824,17 @@ export function advanceDay(state, options = {}) {
     logged = addLog(logged, `계절 전환: ${currentSeason.name}. ${currentSeason.note}`);
   }
   logged = settleTribeDay(logged);
-  return recordResearchEvent(autoResearchForDay(logged), { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 });
+  return recordResearchEvent(
+    autoCivicsForDay(autoResearchForDay(logged)),
+    { kind: 'day', weatherId: weather.id, fireKept: fuelUsed > 0 },
+  );
 }
 
 export function selectTechAction(state, techId) {
   const current = normalizeState(state);
   const researchStatus = researchSystemStatus(current);
   if (!researchStatus.unlocked) return addLog(current, researchStatus.reason);
-  const tech = getTech(techId);
+  const tech = getTechnology(techId);
   if (!tech) return current;
   if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
   if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
@@ -2647,13 +2871,67 @@ export function runResearchAction(state, actorId, options = {}) {
   if (!researchStatus.actionUnlocked) return addLog(current, researchStatus.actionReason);
   const actor = getActor(current, actorId);
   const techId = current.research.selectedTechId || nextAvailableTech(current.research)?.id;
-  const tech = getTech(techId);
+  const tech = getTechnology(techId);
   if (!tech) return addLog(current, '연구 가능한 기술이 없습니다.');
   if (current.research.completed[tech.id]) return addLog(current, `${tech.name}은(는) 이미 완료된 연구입니다.`);
   if (!prereqsMet(current.research, tech)) return addLog(current, missingPrereqMessage(current.research, tech));
   const { points, staminaCost } = researchActionEstimate(current, actorId);
   const researched = addResearchProgress(current, tech.id, points, `${actor.name} 연구`);
   const withDialogue = addDialogueLog(researched, actorId, 'research', 'success', options.rng || Math.random);
+  return afterAction(withDialogue, actorId, staminaCost, 2, options);
+}
+
+export function selectCivicAction(state, civicId) {
+  const current = normalizeState(state);
+  const systemStatus = civicsSystemStatus(current);
+  if (!systemStatus.unlocked) return addLog(current, systemStatus.reason);
+  const civic = getCivic(civicId);
+  if (!civic) return current;
+  if (current.civics.completed?.[civic.id]) return addLog(current, `${civic.name}은(는) 이미 확립된 사회 제도입니다.`);
+  if (!prereqsMet(current.research, civic)) {
+    const missing = missingPrereqNames(current.research, civic);
+    return addLog(current, `${civic.name} 제도는 아직 잠겨 있습니다. 필요한 선행 발전: ${missing.join(', ') || '없음'}.`);
+  }
+  return addLog({
+    ...current,
+    civics: { ...current.civics, selectedCivicId: civic.id },
+  }, `사회 제도 목표를 ${civic.name}(으)로 변경했습니다.`);
+}
+
+export function civicActionEstimate(state, actorId) {
+  const current = normalizeState(state);
+  const systemStatus = civicsSystemStatus(current);
+  const actor = getActor(current, actorId);
+  const morale = Number(normalizeTribeState(current.tribe).morale || 0);
+  return {
+    unlocked: systemStatus.actionUnlocked,
+    lockedReason: systemStatus.actionReason,
+    points: 3
+      + Math.floor(Number(actor?.stats?.craft || 5) / 4)
+      + Number(current.camp.archiveRoomLevel || 0)
+      + Number(current.camp.scribeDeskLevel || 0)
+      + (morale >= 60 ? 1 : 0)
+      + (hasCompletedProject(current, 'council-fire') ? 1 : 0),
+    staminaCost: Math.max(5, 12 - Number(current.camp.shelterLevel || 0) - Number(current.camp.scribeDeskLevel || 0)),
+  };
+}
+
+export function runCivicAction(state, actorId, options = {}) {
+  const current = normalizeState(state);
+  if (current.ended || Number(current.ap || 0) <= 0) return addLog(current, '부족 회의를 열 행동력이 부족합니다.');
+  const systemStatus = civicsSystemStatus(current);
+  if (!systemStatus.unlocked) return addLog(current, systemStatus.reason);
+  if (!systemStatus.actionUnlocked) return addLog(current, systemStatus.actionReason);
+  const actor = getActor(current, actorId);
+  const civic = activeCivicForState(current);
+  if (!civic) return addLog(current, '추진 가능한 사회 제도가 없습니다.');
+  if (!prereqsMet(current.research, civic)) {
+    const missing = missingPrereqNames(current.research, civic);
+    return addLog(current, `${civic.name} 제도의 선행 발전이 필요합니다: ${missing.join(', ') || '없음'}.`);
+  }
+  const { points, staminaCost } = civicActionEstimate(current, actorId);
+  const advanced = addCivicProgress(current, civic.id, points, `${actor.name} 부족 회의`);
+  const withDialogue = addDialogueLog(advanced, actorId, 'research', 'success', options.rng || Math.random);
   return afterAction(withDialogue, actorId, staminaCost, 2, options);
 }
 
@@ -2726,13 +3004,12 @@ export function startNewRunFromMeta(state, options = {}) {
 export function techRows(state) {
   const current = normalizeState(state);
   const systemStatus = researchSystemStatus(current);
-  return TECH_TREE.map((tech) => {
+  return TECHNOLOGY_TREE.map((tech) => {
     const progress = Math.min(tech.cost, Number(current.research.progress?.[tech.id] || 0));
     const completed = Boolean(current.research.completed?.[tech.id]);
     const available = systemStatus.unlocked && !completed && prereqsMet(current.research, tech);
     const eurekaStatus = eurekaStatusForTech(current, tech);
-    const inspirationStatus = inspirationStatusForTech(current, tech);
-    const nextTechIds = TECH_TREE.filter((candidate) => candidate.prereqs?.includes(tech.id)).map((candidate) => candidate.id);
+    const nextTechIds = TECHNOLOGY_TREE.filter((candidate) => candidate.prereqs?.includes(tech.id)).map((candidate) => candidate.id);
     return {
       ...tech,
       progress,
@@ -2741,9 +3018,12 @@ export function techRows(state) {
       selected: current.research.selectedTechId === tech.id,
       eurekaDone: Boolean(current.research.eureka?.[tech.id]),
       eurekaStatus,
-      inspirationDone: Boolean(current.research.inspiration?.[tech.id]),
-      inspirationStatus,
       nextTechIds,
+      prereqRows: (tech.prereqs || []).map((techId) => ({
+        id: techId,
+        name: getTech(techId)?.name || techId,
+        completed: Boolean(current.research.completed?.[techId]),
+      })),
       missingPrereqs: missingPrereqNames(current.research, tech),
       progressPct: Math.round((progress / tech.cost) * 100),
     };
@@ -2754,10 +3034,44 @@ export function techRows(state) {
   ));
 }
 
+export function civicRows(state) {
+  const current = normalizeState(state);
+  const systemStatus = civicsSystemStatus(current);
+  const civics = normalizeCivics(current.civics, current.research);
+  return CIVIC_TREE.map((civic) => {
+    const progress = Math.min(civic.cost, Number(civics.progress?.[civic.id] || 0));
+    const completed = Boolean(civics.completed?.[civic.id]);
+    const available = systemStatus.unlocked && !completed && prereqsMet(current.research, civic);
+    const inspirationStatus = civicInspirationStatus(current, civic);
+    const nextTechIds = CIVIC_TREE.filter((candidate) => candidate.prereqs?.includes(civic.id)).map((candidate) => candidate.id);
+    return {
+      ...civic,
+      progress,
+      completed,
+      available,
+      selected: civics.selectedCivicId === civic.id,
+      inspirationDone: Boolean(civics.inspiration?.[civic.id]),
+      inspirationStatus,
+      nextTechIds,
+      prereqRows: (civic.prereqs || []).map((techId) => ({
+        id: techId,
+        name: getTech(techId)?.name || techId,
+        completed: Boolean(current.research.completed?.[techId]),
+      })),
+      missingPrereqs: missingPrereqNames(current.research, civic),
+      progressPct: Math.round((progress / civic.cost) * 100),
+    };
+  }).sort((a, b) => (
+    Number(a.tier || 1) - Number(b.tier || 1)
+      || String(a.tags?.[0] || '').localeCompare(String(b.tags?.[0] || ''))
+      || a.name.localeCompare(b.name, 'ko-KR')
+  ));
+}
+
 export function researchInspirationRows(state) {
   const current = normalizeState(state);
-  return TECH_TREE
-    .flatMap((tech) => ['eureka', 'inspiration'].flatMap((kind) => {
+  return TECHNOLOGY_TREE
+    .flatMap((tech) => ['eureka'].flatMap((kind) => {
       const trigger = tech[kind];
       if (!trigger) return [];
       const status = breakthroughStatusForTech(current, tech, kind);
@@ -2948,6 +3262,105 @@ export function researchPlannerRows(state) {
   ));
 }
 
+export function civicsInspirationRows(state) {
+  const current = normalizeState(state);
+  const civics = normalizeCivics(current.civics, current.research);
+  return CIVIC_TREE.flatMap((civic) => {
+    const trigger = civic.inspiration;
+    if (!trigger) return [];
+    const status = civicInspirationStatus(current, civic);
+    const inspirationDone = Boolean(civics.inspiration?.[civic.id]);
+    return [{
+      id: `inspiration-${civic.id}`,
+      kind: 'inspiration',
+      kindLabel: '영감',
+      techId: civic.id,
+      techName: civic.name,
+      desc: trigger.desc || '',
+      completed: Boolean(civics.completed?.[civic.id]),
+      breakthroughDone: inspirationDone,
+      inspirationDone,
+      available: civicsSystemStatus(current).unlocked && prereqsMet(current.research, civic),
+      blocked: status.blocked,
+      statusLabel: status.statusLabel,
+      note: status.note,
+      missingPrereqs: status.missingPrereqs,
+      current: status.current,
+      target: status.target,
+      progressPct: status.target ? Math.round((Math.min(status.current, status.target) / status.target) * 100) : 0,
+    }];
+  }).sort((a, b) => (
+    Number(a.completed) - Number(b.completed)
+      || Number(b.available) - Number(a.available)
+      || Number(a.breakthroughDone) - Number(b.breakthroughDone)
+      || b.progressPct - a.progressPct
+      || a.techName.localeCompare(b.techName, 'ko-KR')
+  ));
+}
+
+export function civicsPlannerRows(state) {
+  const systemStatus = civicsSystemStatus(state);
+  return civicRows(state).map((civic) => {
+    const unlockGroups = researchUnlockGroups(civic);
+    const target = Math.max(0, Number(civic.inspirationStatus?.target || 0));
+    const current = Math.min(target, Math.max(0, Number(civic.inspirationStatus?.current || 0)));
+    const inspirationPct = target ? Math.round((current / target) * 100) : 0;
+    const missing = civic.missingPrereqs || [];
+    const priorityScore = civic.completed
+      ? -1000
+      : Math.round(
+        (civic.selected ? 72 : 0)
+          + (civic.available ? 56 : 0)
+          + (civic.inspirationDone ? 30 : inspirationPct * 0.3)
+          + Number(civic.progressPct || 0) * 0.38
+          + unlockGroups.recipes.length * 8
+          + unlockGroups.camps.length * 10
+          + unlockGroups.passives.length * 5
+          - missing.length * 18,
+      );
+    const nextAction = civic.completed
+      ? '확립된 사회 제도입니다. 다음 제도를 선택하세요.'
+      : !civic.available
+        ? `${missing.join(', ') || '부족 발전'}을(를) 먼저 완료하세요. 영감: ${civic.inspiration?.desc || '없음'}.`
+        : !systemStatus.actionUnlocked
+          ? `영감 조건을 진행하면서 자동 CP를 축적하세요. ${systemStatus.actionReason}`
+          : civic.inspirationDone
+            ? '영감이 적용됐습니다. 부족 회의로 제도를 확립하세요.'
+            : `영감 조건: ${civic.inspiration?.desc || '없음'}. 부족 회의로도 직접 추진할 수 있습니다.`;
+    return {
+      ...civic,
+      ...unlockGroups,
+      inspirationCurrent: current,
+      inspirationTarget: target,
+      inspirationPct,
+      inspirationText: civic.inspiration?.desc || '영감 없음',
+      nextAction,
+      blockerText: !systemStatus.unlocked
+        ? systemStatus.reason
+        : missing.length
+          ? `선행 발전: ${missing.join(', ')}`
+          : '선행 조건 충족',
+      priorityScore,
+      priorityLabel: civic.completed
+        ? '확립'
+        : civic.selected
+          ? '선택 목표'
+          : civic.available
+            ? '추진 가능'
+            : civic.inspirationStatus?.blocked
+              ? '영감 확보'
+              : '잠김',
+    };
+  }).sort((a, b) => (
+    b.priorityScore - a.priorityScore
+      || Number(b.available) - Number(a.available)
+      || Number(a.completed) - Number(b.completed)
+      || Number(a.tier || 1) - Number(b.tier || 1)
+      || a.cost - b.cost
+      || a.name.localeCompare(b.name, 'ko-KR')
+  ));
+}
+
 export function perkRows(state) {
   const current = normalizeState(state);
   return PERK_DEFS.map((perk) => {
@@ -2988,9 +3401,37 @@ export function researchSummary(state) {
   };
 }
 
+export function civicsSummary(state) {
+  const current = normalizeState(state);
+  const systemStatus = civicsSystemStatus(current);
+  const rows = civicRows(current);
+  const selected = rows.find((civic) => civic.selected) || rows.find((civic) => civic.available) || rows[0];
+  const archiveRows = rows.filter((civic) => civic.archiveRequired);
+  return {
+    completed: rows.filter((civic) => civic.completed).length,
+    total: rows.length,
+    archiveCompleted: archiveRows.filter((civic) => civic.completed).length,
+    archiveTotal: archiveRows.length,
+    selected,
+    available: rows.filter((civic) => civic.available).length,
+    unlocked: systemStatus.unlocked,
+    actionUnlocked: systemStatus.actionUnlocked,
+    gateCompleted: systemStatus.completed,
+    gateTotal: systemStatus.total,
+    actionCompleted: systemStatus.actionCompleted,
+    actionTotal: systemStatus.actionTotal,
+    gateRows: systemStatus.gateRows,
+    actionGateRows: systemStatus.actionGateRows,
+    headline: systemStatus.headline,
+    reason: systemStatus.reason,
+    actionReason: systemStatus.actionReason,
+  };
+}
+
 export function archiveObjectiveRows(state) {
   const current = normalizeState(state);
   const research = researchSummary(current);
+  const civics = civicsSummary(current);
   const alive = current.party.filter((member) => Number(member.hp || 0) > 0).length;
   const books = Number(current.inventory.book_craft_guide || 0) + Number(current.inventory.book_camp_manual || 0);
   const facilities = Number(current.camp.archiveRoomLevel || 0)
@@ -3006,10 +3447,10 @@ export function archiveObjectiveRows(state) {
     },
     {
       id: 'research',
-      label: '핵심 연구',
-      current: research.archiveCompleted,
-      target: research.archiveTotal,
-      done: research.archiveCompleted >= research.archiveTotal,
+      label: '핵심 발전',
+      current: research.archiveCompleted + civics.archiveCompleted,
+      target: research.archiveTotal + civics.archiveTotal,
+      done: research.archiveCompleted + civics.archiveCompleted >= research.archiveTotal + civics.archiveTotal,
     },
     {
       id: 'facilities',
@@ -3053,6 +3494,7 @@ export function scoreState(state) {
   const hp = averageParty(state, 'hp');
   const hunger = averageParty(state, 'hunger');
   const research = researchSummary(state);
+  const civics = civicsSummary(state);
   const tribe = normalizeTribeState(state.tribe);
   const diplomacy = normalizeDiplomacyState(state.diplomacy);
   const knownContacts = Object.values(diplomacy.contacts).filter((contact) => contact.known).length;
@@ -3076,6 +3518,7 @@ export function scoreState(state) {
     + Number(state.camp.scribeDeskLevel || 0) * 90
     + Number(state.camp.libraryShelfLevel || 0) * 105
     + research.completed * 120
+    + civics.completed * 130
     + (hasTechPassive(state, 'CAMP_SCORE_UP') ? 150 : 0)
     + (hasTechPassive(state, 'CAMP_SCORE_UP_2') ? 300 : 0)
     + (hasTechPassive(state, 'DRAMA_SCORE_UP') ? 180 : 0)
@@ -3115,7 +3558,8 @@ export function summaryForState(state) {
     bodyTemp: averageBodyTemp(state),
     ap: state.ap,
     camp: `불 ${state.camp.fireLevel} / 대피소 ${state.camp.shelterLevel} / 작업대 ${state.camp.workbenchLevel} / 기록실 ${state.camp.archiveRoomLevel || 0} / 필사대 ${state.camp.scribeDeskLevel || 0} / 서가 ${state.camp.libraryShelfLevel || 0}`,
-    research: `${researchSummary(state).completed}/${TECH_TREE.length}`,
+    research: `${researchSummary(state).completed}/${TECHNOLOGY_TREE.length}`,
+    civics: `${civicsSummary(state).completed}/${CIVIC_TREE.length}`,
     objectives: `${victory.completed}/${victory.total}`,
     victory: victory.victory,
     perkPoints: Number(state.meta?.perkPoints || 0),
@@ -3130,6 +3574,7 @@ export function getRunProgressReport(state) {
   const current = normalizeState(state);
   const victory = archiveVictorySummary(current);
   const research = researchSummary(current);
+  const civics = civicsSummary(current);
   const hp = averageParty(current, 'hp');
   const hunger = averageParty(current, 'hunger');
   const stamina = averageParty(current, 'stamina');
@@ -3163,6 +3608,9 @@ export function getRunProgressReport(state) {
   if (research.selected && !research.selected.completed) {
     blockers.push(`연구 ${research.selected.name} ${research.selected.progress}/${research.selected.cost}`);
   }
+  if (civics.selected && !civics.selected.completed) {
+    blockers.push(`사회 제도 ${civics.selected.name} ${civics.selected.progress}/${civics.selected.cost}`);
+  }
   if (weight >= 24) blockers.push(`무게 ${weight}`);
   if (insulation < Math.max(2, Math.ceil((12 - current.weather.temp) / 3))) blockers.push(`보온 ${insulation}`);
   if (Number(current.day || 1) >= 5 && eventPressure.eventCount < 2) blockers.push(`탐험 사건 ${eventPressure.eventCount}회`);
@@ -3175,6 +3623,7 @@ export function getRunProgressReport(state) {
   if (foodUnits <= current.party.length + 1) recommendations.push('식량 확보를 위해 채집/사냥 우선');
   if (fuel <= 1 || bodyTemp < 36) recommendations.push('연료 확보 후 모닥불 유지');
   if (research.available && research.selected && !research.selected.completed) recommendations.push(`${research.selected.name} 연구 진행`);
+  if (civics.available && civics.selected && !civics.selected.completed) recommendations.push(`${civics.selected.name} 사회 제도 추진`);
   if (pendingObjectives.some((row) => row.id === 'facilities')) recommendations.push('기록 시설 제작 재료 확보');
   if (pendingObjectives.some((row) => row.id === 'books')) recommendations.push('책 제작 루트 점검');
   recommendations.push(...eventPressure.advice);
@@ -3220,6 +3669,7 @@ export function archiveCompletionReportForState(state) {
   const current = normalizeState(state);
   const victory = archiveVictorySummary(current);
   const research = researchSummary(current);
+  const civics = civicsSummary(current);
   const objectives = archiveObjectiveRows(current);
   const hp = averageParty(current, 'hp');
   const hunger = averageParty(current, 'hunger');
@@ -3232,7 +3682,9 @@ export function archiveCompletionReportForState(state) {
   const equipmentCount = equipmentInventoryRows(current).reduce((sum, row) => sum + Number(row.qty || 0), 0);
   const eventPressure = explorationEventPressure(current);
   const objectivePct = victory.total ? Math.round((victory.completed / victory.total) * 100) : 0;
-  const researchPct = research.total ? Math.round((research.completed / research.total) * 100) : 0;
+  const advancementTotal = research.total + civics.total;
+  const advancementCompleted = research.completed + civics.completed;
+  const researchPct = advancementTotal ? Math.round((advancementCompleted / advancementTotal) * 100) : 0;
   const survivalPct = Math.min(100, Math.round((Number(current.day || 1) / ARCHIVE_VICTORY_DAY) * 100));
   const stabilityPct = Math.round(clamp((hp * 0.45) + ((100 - hunger) * 0.25) + (stamina * 0.2) + Math.min(10, partyInsulation(current) * 2), 0, 100));
   const archiveScore = Math.round(clamp(
@@ -3261,10 +3713,10 @@ export function archiveCompletionReportForState(state) {
     },
     {
       id: 'research',
-      title: '연구 기록',
+      title: '기술과 사회 제도',
       pct: researchPct,
-      status: archiveReportStatus(research.completed >= research.total, victory.victory, current.ended),
-      detail: `연구 ${research.completed}/${research.total}, 선택 기술 ${research.selected?.name || '없음'}입니다.`,
+      status: archiveReportStatus(advancementCompleted >= advancementTotal, victory.victory, current.ended),
+      detail: `기술 ${research.completed}/${research.total}, 사회 제도 ${civics.completed}/${civics.total}, 현재 목표는 ${research.selected?.name || '없음'} / ${civics.selected?.name || '없음'}입니다.`,
     },
     {
       id: 'facilities',
@@ -3567,7 +4019,9 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
   const foodId = ['packed_ration', 'cooked_meat', 'jerky', 'meat', 'berry', 'herb_tonic']
     .find((id) => ITEMS[id]?.type === 'food' && Number(current.inventory[id] || 0) > 0) || '';
   const researchEstimate = researchActionEstimate(current, actorId);
-  const selectedTech = getTech(current.research.selectedTechId);
+  const selectedTech = getTechnology(current.research.selectedTechId);
+  const civicEstimate = civicActionEstimate(current, actorId);
+  const selectedCivic = activeCivicForState(current);
   const restHeal = 4
     + (hasTechPassive(current, 'REST_HEAL_UP') ? 4 : 0)
     + (hasTechPassive(current, 'REST_HEAL_UP_2') ? 4 : 0)
@@ -3632,6 +4086,17 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
         : researchEstimate.lockedReason,
       cost: researchEstimate.unlocked ? `AP 1 · ST ${researchEstimate.staminaCost}` : '턴/일일 자동 연구만 진행',
       locked: !researchEstimate.unlocked || !selectedTech,
+    },
+    {
+      id: 'civics',
+      label: '부족 회의',
+      chancePct: civicEstimate.unlocked ? 100 : 0,
+      context: civicEstimate.unlocked ? selectedCivic?.name || '선택 제도 없음' : '사회 제도 행동 잠김',
+      outcome: civicEstimate.unlocked && selectedCivic
+        ? `문화 포인트 +${civicEstimate.points}`
+        : civicEstimate.lockedReason,
+      cost: civicEstimate.unlocked ? `AP 1 · ST ${civicEstimate.staminaCost}` : '턴/일일 자동 문화만 진행',
+      locked: !civicEstimate.unlocked || !selectedCivic,
     },
   ];
 }
@@ -3759,6 +4224,7 @@ export function runRestAction(state, actorId, options = {}) {
   next = addDialogueLog(next, actorId, 'rest', 'success', options.rng || Math.random);
   next.ap = Math.max(0, Number(next.ap || 0) - 1);
   next = autoResearchForTurn(next);
+  next = autoCivicsForTurn(next);
   if (next.ap <= 0 && !next.ended) next = advanceDay(next, options);
   return next;
 }
@@ -4017,6 +4483,10 @@ function runNextAutoArchiveAction(state, options = {}) {
   }
 
   const research = researchSummary(state);
+  const civics = civicsSummary(state);
+  if (civics.selected && !civics.selected.completed && Number(state.day || 1) >= 2 && Number(state.day || 1) % 2 === 0) {
+    return runCivicAction(state, pickActorForAuto(state, 'craft'), options);
+  }
   if (research.selected && !research.selected.completed && Number(state.day || 1) >= 2) {
     return runResearchAction(state, pickActorForAuto(state, 'craft'), options);
   }

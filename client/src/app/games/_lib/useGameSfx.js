@@ -148,6 +148,17 @@ const CUE_PROFILES = {
     { frequency: 720, start: 0.038, duration: 0.055, type: 'sine', gain: 0.05 },
     { frequency: 960, start: 0.086, duration: 0.075, type: 'sine', gain: 0.04 },
   ],
+  inspiration: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.04, gain: 0.025 },
+    { frequency: 440, endFrequency: 660, duration: 0.08, type: 'sine', gain: 0.048 },
+    { frequency: 880, start: 0.065, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  civicComplete: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.8, duration: 0.045, gain: 0.03 },
+    { frequency: 330, duration: 0.05, type: 'triangle', gain: 0.05 },
+    { frequency: 495, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.048 },
+    { frequency: 660, start: 0.105, duration: 0.085, type: 'sine', gain: 0.042 },
+  ],
   discover: [
     { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.055, gain: 0.035 },
     { frequency: 520, endFrequency: 720, duration: 0.08, type: 'sine', gain: 0.05 },
