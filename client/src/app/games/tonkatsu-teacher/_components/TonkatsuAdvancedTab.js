@@ -46,6 +46,7 @@ export default function TonkatsuAdvancedTab(props) {
     judgeRecent,
     judgeText,
     judgeTierId,
+    methodProfile,
     ownedCosmetics,
     recipe,
     recipeId,
@@ -53,6 +54,7 @@ export default function TonkatsuAdvancedTab(props) {
     recipeStatus,
     recentAutoOnly,
     researches,
+    selectedRecipePlan,
     setIngredientId,
     setJudgeBatchCount,
     setJudgeBatchMode,
@@ -103,9 +105,18 @@ export default function TonkatsuAdvancedTab(props) {
             <SmallStat label="보유" value={tokenCount} />
             <SmallStat label="판매가" value={`${recipe.sellPrice}G`} />
             <SmallStat label="전투 보정" value={recipe.power} />
+            <SmallStat label="조리 성공" value={`${methodProfile.successPct}%`} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="cook" disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
+            <ActionButton
+              action={methodProfile.methods[0]?.action || 'cook'}
+              cue="off"
+              disabled={!canAct || !selectedRecipePlan.canCraft}
+              title={selectedRecipePlan.canCraft ? `${methodProfile.successPct}% 확률로 제작` : selectedRecipePlan.nextAction}
+              onClick={() => setState((current) => craftRecipeAction(current, recipeId))}
+            >
+              메뉴 제작 · {methodProfile.methods.map((method) => method.name).join(' → ')}
+            </ActionButton>
             <ActionButton action="sales" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>영업 판매</ActionButton>
             <ActionButton action="serve" disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 학생에게 배식</ActionButton>
           </div>

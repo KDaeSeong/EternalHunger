@@ -11473,3 +11473,171 @@
     min-height: 220px;
   }
 }
+
+.tonkatsu-method-panel {
+  overflow: hidden;
+}
+
+.tonkatsu-quick-selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tonkatsu-student-selector {
+  margin-bottom: 10px;
+}
+
+.tonkatsu-method-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.tonkatsu-method-row {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d8e1e8;
+  border-left: 3px solid #9aa8b4;
+  border-radius: 6px;
+  background: #f8fafb;
+}
+
+.tonkatsu-method-row.is-selected {
+  border-color: #e0a15d;
+  border-left-color: #c96c24;
+  background: #fff8f0;
+}
+
+.tonkatsu-method-row__head,
+.tonkatsu-method-row__identity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tonkatsu-method-row__head {
+  justify-content: space-between;
+}
+
+.tonkatsu-method-row__head > span:last-child {
+  flex: 0 0 auto;
+  color: #9a4b16;
+  font-size: 0.76rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.tonkatsu-method-row__tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tonkatsu-method-sound {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #d9b184;
+  border-radius: 6px;
+  background: #fff;
+  color: #a8531c;
+  cursor: pointer;
+}
+
+.tonkatsu-method-sound:hover,
+.tonkatsu-method-sound:focus-visible {
+  border-color: #b75b1d;
+  background: #fff2e4;
+  outline: none;
+}
+
+.tonkatsu-method-sound .game-action-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.tonkatsu-method-row__identity {
+  min-width: 0;
+}
+
+.tonkatsu-method-row__identity .game-action-icon {
+  color: #c96c24;
+}
+
+.tonkatsu-method-row__identity strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #17202a;
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tonkatsu-method-row small,
+.tonkatsu-method-row em {
+  display: block;
+  margin-top: 6px;
+  color: #687683;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.tonkatsu-method-row em {
+  margin-top: 4px;
+  color: #8b4b1d;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tonkatsu-method-progress {
+  height: 5px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #dfe6eb;
+}
+
+.tonkatsu-method-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #c96c24;
+  transition: width 180ms ease;
+}
+
+.tonkatsu-method-strip.is-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tonkatsu-method-strip.is-compact .tonkatsu-method-row {
+  padding: 8px 10px;
+}
+
+.tonkatsu-student-note {
+  margin: 10px 0 12px;
+  color: #667481;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .tonkatsu-quick-selectors {
+    grid-template-columns: 1fr;
+  }
+
+  .tonkatsu-method-strip,
+  .tonkatsu-method-strip.is-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .tonkatsu-method-row {
+    padding: 9px 10px;
+  }
+}

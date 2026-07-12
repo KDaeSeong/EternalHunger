@@ -25,27 +25,6 @@ export default function TonkatsuTeacherFeatureTabs(props) {
     <GameFeatureTabs
       tabs={[
         {
-          id: 'operations',
-          label: '운영 리포트',
-          icon: 'finance',
-          badge: `${operationsReport.readinessPct}%`,
-          children: <TonkatsuOperationsTab {...props} />,
-        },
-        {
-          id: 'tutorial',
-          label: '튜토리얼/밸런스',
-          icon: 'guide',
-          badge: `${operationsReport.tutorialPct}%`,
-          children: <TonkatsuTutorialTab {...props} />,
-        },
-        {
-          id: 'production',
-          label: '연출/이벤트',
-          icon: 'event',
-          badge: `${productionReport.productionScore}%`,
-          children: <TonkatsuProductionTab {...props} />,
-        },
-        {
           id: 'kitchen',
           label: '주방 루프',
           icon: 'cook',
@@ -67,11 +46,32 @@ export default function TonkatsuTeacherFeatureTabs(props) {
           children: <TonkatsuGrowthTab {...props} />,
         },
         {
+          id: 'operations',
+          label: '운영 리포트',
+          icon: 'finance',
+          badge: `${operationsReport.readinessPct}%`,
+          children: <TonkatsuOperationsTab {...props} />,
+        },
+        {
+          id: 'production',
+          label: '연출/이벤트',
+          icon: 'event',
+          badge: `${productionReport.productionScore}%`,
+          children: <TonkatsuProductionTab {...props} />,
+        },
+        {
           id: 'judge',
           label: '심사 모드',
           icon: 'verdict',
           badge: `${judge.accuracy}%`,
           children: <TonkatsuJudgeTab {...props} />,
+        },
+        {
+          id: 'tutorial',
+          label: '튜토리얼/밸런스',
+          icon: 'guide',
+          badge: `${operationsReport.tutorialPct}%`,
+          children: <TonkatsuTutorialTab {...props} />,
         },
         {
           id: 'advanced',

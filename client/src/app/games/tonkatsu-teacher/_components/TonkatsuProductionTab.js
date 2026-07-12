@@ -1,7 +1,9 @@
 import { SmallStat } from '../../_components/GamePlayPrimitives';
+import TonkatsuMethodStrip from './TonkatsuMethodStrip';
 
 export default function TonkatsuProductionTab(props) {
   const {
+    methodRows,
     productionReport,
   } = props;
 
@@ -31,6 +33,13 @@ export default function TonkatsuProductionTab(props) {
                       </article>
                     ))}
                   </div>
+                </section>
+                <section className="games-panel tonkatsu-method-panel">
+                  <div className="games-panel-title">
+                    <h2>조리 숙련도</h2>
+                    <span>{methodRows.filter((row) => row.level > 0).length}/{methodRows.length} 숙련 시작</span>
+                  </div>
+                  <TonkatsuMethodStrip rows={methodRows} compact />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">

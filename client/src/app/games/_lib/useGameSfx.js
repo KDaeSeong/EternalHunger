@@ -132,6 +132,43 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'highpass', frequency: 1500, q: 0.8, duration: 0.09, gain: 0.045 },
     { frequency: 620, endFrequency: 520, duration: 0.055, type: 'triangle', gain: 0.045 },
   ],
+  fry: [
+    { source: 'noise', filterType: 'highpass', frequency: 1850, q: 0.9, duration: 0.14, gain: 0.052 },
+    { frequency: 740, endFrequency: 560, start: 0.025, duration: 0.075, type: 'triangle', gain: 0.04 },
+  ],
+  grill: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.3, duration: 0.12, gain: 0.048 },
+    { frequency: 280, endFrequency: 220, start: 0.02, duration: 0.095, type: 'sawtooth', gain: 0.038 },
+  ],
+  boil: [
+    { frequency: 360, endFrequency: 430, duration: 0.055, type: 'sine', gain: 0.042 },
+    { frequency: 520, endFrequency: 610, start: 0.045, duration: 0.07, type: 'sine', gain: 0.038 },
+    { source: 'noise', filterType: 'lowpass', frequency: 620, start: 0.035, duration: 0.1, gain: 0.026 },
+  ],
+  simmer: [
+    { frequency: 310, duration: 0.05, type: 'triangle', gain: 0.04 },
+    { frequency: 390, start: 0.055, duration: 0.055, type: 'triangle', gain: 0.038 },
+    { frequency: 470, start: 0.115, duration: 0.08, type: 'sine', gain: 0.035 },
+  ],
+  sauce: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1350, q: 2.1, duration: 0.065, gain: 0.032 },
+    { frequency: 480, endFrequency: 760, duration: 0.1, type: 'sine', gain: 0.043 },
+  ],
+  dessert: [
+    { frequency: 660, duration: 0.04, type: 'triangle', gain: 0.045 },
+    { frequency: 990, start: 0.038, duration: 0.055, type: 'triangle', gain: 0.043 },
+    { frequency: 1320, start: 0.085, duration: 0.09, type: 'sine', gain: 0.037 },
+  ],
+  cookFail: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.08, gain: 0.05 },
+    { frequency: 390, endFrequency: 210, start: 0.035, duration: 0.13, type: 'triangle', gain: 0.045 },
+  ],
+  methodLevelUp: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.04, gain: 0.025 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.045 },
+    { frequency: 780, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.045 },
+    { frequency: 1040, start: 0.095, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
   serve: [
     { frequency: 920, duration: 0.035, type: 'sine', gain: 0.05 },
     { frequency: 1240, start: 0.03, duration: 0.065, type: 'sine', gain: 0.038 },

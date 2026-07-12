@@ -135,7 +135,7 @@ npm run build
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuGrowthTab.js`
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuJudgeTab.js`
   - `client/src/app/games/tonkatsu-teacher/_components/TonkatsuAdvancedTab.js`
-- Tonkatsu Teacher now has explicit cook, serve, sales, order, tournament, and verdict control semantics plus result-aware battle, tournament, and judge cues. Its compact hero, micro metrics, icon-led feature tabs, collapsed operations coach, and dense responsive stats keep routine kitchen actions visible without stretching the page.
+- Tonkatsu Teacher now imports all six source cooking methods and eight students, migrates legacy five-student saves, and tracks method mastery that affects success and production. Its actionable tab order starts with kitchen, students, and growth; compact method tracks expose process icons, sound previews, and deterministic result cues for fry, grill, boil, simmer, sauce, dessert, craft failure, and mastery gain. Student crit, evasion, attack speed, preferences, and weaknesses now affect the shared battle forecast used by both UI and combat.
 - BA SRPG large feature tab JSX now lives in `client/src/app/games/ba-srpg/_components/BaSrpgFeatureTabs.js`.
 - BA SRPG feature tabs are split into:
   - `client/src/app/games/ba-srpg/_components/BaSrpgMissionTab.js`

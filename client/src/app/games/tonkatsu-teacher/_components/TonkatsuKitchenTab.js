@@ -1,5 +1,6 @@
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
+  INGREDIENTS,
   buyIngredientAction,
   craftRecipeAction,
   formatNeeds,
@@ -7,6 +8,7 @@ import {
   inventoryCount,
   sellRecipeAction,
 } from '../_lib/tonkatsuTeacherEngine';
+import TonkatsuMethodStrip from './TonkatsuMethodStrip';
 
 export default function TonkatsuKitchenTab(props) {
   const {
@@ -15,9 +17,11 @@ export default function TonkatsuKitchenTab(props) {
     formatSigned,
     ingredient,
     ingredientId,
+    methodProfile,
+    methodRows,
     recipe,
     recipeId,
-    recipeStatus,
+    recipes,
     selectedRecipePlan,
     setIngredientId,
     setRecipeId,
@@ -32,6 +36,26 @@ export default function TonkatsuKitchenTab(props) {
                 <div className="games-panel-title">
                   <h2>선택 메뉴 운영 판단</h2>
                   <span>{selectedRecipePlan.planScore}% · {selectedRecipePlan.salesMode}</span>
+                </div>
+                <div className="tonkatsu-quick-selectors">
+                  <label className="game-save-json-field">
+                    <span>운영 메뉴</span>
+                    <select value={recipeId} onChange={(event) => setRecipeId(event.target.value)}>
+                      {recipes.map((item) => (
+                        <option value={item.id} key={item.id} disabled={!item.unlocked}>
+                          {item.unlocked ? item.name : `${item.name} · ${item.reason}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="game-save-json-field">
+                    <span>매입 재료</span>
+                    <select value={ingredientId} onChange={(event) => setIngredientId(event.target.value)}>
+                      {INGREDIENTS.map((item) => (
+                        <option value={item.id} key={item.id}>{item.name} · {item.price}G</option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 <div className="games-rank-split">
                   <SmallStat label="제작 준비" value={selectedRecipePlan.prepText} />
@@ -56,6 +80,14 @@ export default function TonkatsuKitchenTab(props) {
                 </div>
               </section>
 
+              <section className="games-panel tonkatsu-method-panel">
+                <div className="games-panel-title">
+                  <h2>조리 공정</h2>
+                  <span>성공 {methodProfile.successPct}% · 숙련 생산 {methodProfile.productionText}</span>
+                </div>
+                <TonkatsuMethodStrip rows={methodRows.filter((row) => row.selected)} />
+              </section>
+
               <section className="games-detail-grid">
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -66,7 +98,15 @@ export default function TonkatsuKitchenTab(props) {
                     필요: {formatNeeds(recipe.needs)}
                   </p>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="cook" disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>메뉴 제작</ActionButton>
+                    <ActionButton
+                      action={methodProfile.methods[0]?.action || 'cook'}
+                      cue="off"
+                      disabled={!canAct || !selectedRecipePlan.canCraft}
+                      title={selectedRecipePlan.canCraft ? `${methodProfile.successPct}% 확률로 제작` : selectedRecipePlan.nextAction}
+                      onClick={() => setState((current) => craftRecipeAction(current, recipeId))}
+                    >
+                      메뉴 제작 · 성공 {methodProfile.successPct}%
+                    </ActionButton>
                     <ActionButton action="sales" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>선택 메뉴 판매</ActionButton>
                     <ActionButton action="order" disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
                   </div>

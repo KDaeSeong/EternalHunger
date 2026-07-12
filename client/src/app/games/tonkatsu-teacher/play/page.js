@@ -19,6 +19,7 @@ import {
   QUICK_SAVE_SLOT,
   RECIPES,
   SAVE_VERSION,
+  battleForecast,
   buildFacilityContext,
   cosmeticRows,
   createNewState,
@@ -29,9 +30,11 @@ import {
   judgeRecentSummary,
   judgeSummary,
   mealTokenCount,
+  methodRows,
   normalizeState,
   operationsReportForState,
   productionReportForState,
+  recipeMethodProfile,
   recipeName,
   recipeRows,
   researchRows,
@@ -49,7 +52,7 @@ function formatSigned(value, unit = '') {
   return `${number >= 0 ? '+' : ''}${number.toLocaleString('ko-KR')}${unit}`;
 }
 
-function buildSelectedRecipePlan({ state, recipe, recipeStatus, student, tournament, facilityContext, tokenCount }) {
+function buildSelectedRecipePlan({ state, recipe, recipeStatus, student, tournament, facilityContext, methodProfile, battlePreview, tokenCount }) {
   const ingredientPrices = INGREDIENTS.reduce((map, item) => ({ ...map, [item.id]: Number(item.price || 0) }), {});
   const needRows = Object.entries(recipe.needs || {}).map(([id, qty]) => {
     const required = Number(qty || 0);
@@ -69,7 +72,7 @@ function buildSelectedRecipePlan({ state, recipe, recipeStatus, student, tournam
   const missingBuyCost = missingRows.reduce((sum, row) => sum + row.buyCost, 0);
   const ingredientInputCost = needRows.reduce((sum, row) => sum + row.required * Number(ingredientPrices[row.id] || 0), 0);
   const productionMult = (recipe.tags || []).reduce((mult, tag) => mult * Number(facilityContext.productionMultByTag?.[tag] || 1), 1);
-  const expectedYield = Math.max(1, Math.floor(Number(recipe.yieldTokens || 1) * productionMult));
+  const expectedYield = Math.max(1, Math.round(Number(recipe.yieldTokens || 1) * productionMult * methodProfile.productionMult * 100) / 100);
   const demand = 1 + Math.min(0.3, Number(state.reputation || 0) / 1000);
   const deliveryActive = state.businessMode === 'delivery' && facilityContext.deliveryUnlocked;
   const directRevenue = Math.round(Number(recipe.sellPrice || 0) * expectedYield * demand * (deliveryActive ? Number(facilityContext.deliveryGoldMult || 1) : 1));
@@ -78,26 +81,19 @@ function buildSelectedRecipePlan({ state, recipe, recipeStatus, student, tournam
   const investment = Number(recipe.craftCost || 0) + ingredientInputCost;
   const margin = bestRevenue - investment;
   const canCraft = Boolean(recipeStatus.unlocked) && Number(state.gold || 0) >= Number(recipe.craftCost || 0) && missingTotal === 0;
-  const likes = (recipe.tags || []).includes(student.pref);
-  const weak = (recipe.tags || []).includes(student.weak);
-  const moraleGain = Math.round(12 * (likes ? 1.35 : 1) * (weak ? 0.7 : 1));
-  const heal = Math.round(Number(recipe.power || 0) * (likes ? 1.2 : 1));
-  const nextMorale = clampNumber(Number(student.morale || 0) + moraleGain, 0, 100);
-  const battleTarget = 116 + Number(state.floor || 1) * 18;
-  const feedBattlePower = Number(student.atk || 0) * 8
-    + Number(student.def || 0) * 5
-    + nextMorale
-    + Number(recipe.power || 0)
-    + (likes ? 10 : 0)
-    - (weak ? 8 : 0);
-  const feedWinPct = Math.round(clampNumber(0.35 + (feedBattlePower - battleTarget) / 160, 0.12, 0.92) * 100);
+  const likes = battlePreview.likes;
+  const weak = battlePreview.weak;
+  const moraleGain = battlePreview.moraleGain;
+  const heal = battlePreview.heal;
+  const feedWinPct = battlePreview.chancePct;
   const tournamentGap = Number(tournament.total || 0) - Number(tournament.tier?.targetScore || 0);
   const planScore = Math.round(clampNumber(
     (recipeStatus.unlocked ? 18 : 0)
       + (canCraft || tokenCount > 0 ? 22 : 0)
       + clampNumber(12 + margin / 8, 0, 22)
       + (weak ? 0 : likes ? 16 : 9)
-      + clampNumber(12 + tournamentGap / 3, 0, 22),
+      + clampNumber(8 + tournamentGap / 3, 0, 18)
+      + clampNumber((methodProfile.successPct - 80) * 0.6, 0, 6),
     0,
     100,
   ));
@@ -125,13 +121,18 @@ function buildSelectedRecipePlan({ state, recipe, recipeStatus, student, tournam
     planScore,
     canCraft,
     expectedYield,
-    prepText: canCraft ? '가능' : missingRows.length ? `${missingTotal}개 부족` : '비용 부족',
+    prepText: canCraft ? `${methodProfile.successPct}%` : missingRows.length ? `${missingTotal}개 부족` : '비용 부족',
     margin,
     salesMode: orderRevenue >= directRevenue ? '주문' : deliveryActive ? '배달' : '홀',
     studentFit: weak ? '주의' : likes ? '적합' : '보통',
     tournamentText: `${tournament.total}/${tournament.tier.targetScore} (${formatSigned(tournamentGap)})`,
     nextAction,
     rows: [
+      {
+        label: '조리 공정',
+        value: `${methodProfile.methods.length}단계 · ${methodProfile.successPct}%`,
+        detail: `${methodProfile.methods.map((method) => method.name).join(' → ') || '기본 조리'} · 숙련 생산 ${methodProfile.productionText}`,
+      },
       {
         label: '제작 준비',
         value: canCraft ? '가능' : missingRows.length ? `${missingTotal}개 부족` : '비용 확인',
@@ -212,7 +213,10 @@ export default function TonkatsuTeacherPlayPage() {
   const operationsReport = operationsReportForState(state);
   const productionReport = productionReportForState(state);
   const tokenCount = Number(state.mealTokens[recipe.id] || 0);
-  const winRatePreview = Math.round(Math.max(12, Math.min(92, 35 + (((student.atk * 8 + student.def * 5 + student.morale + (recipe.power || 0)) - (116 + state.floor * 18)) / 160) * 100)));
+  const cookingMethodRows = methodRows(state, recipeId);
+  const methodProfile = recipeMethodProfile(state, recipe);
+  const feedBattlePreview = battleForecast(state, studentId, recipeId, { afterFeed: true });
+  const winRatePreview = feedBattlePreview.chancePct;
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => ingredientName(a).localeCompare(ingredientName(b), 'ko-KR'));
@@ -227,6 +231,8 @@ export default function TonkatsuTeacherPlayPage() {
     student,
     tournament,
     facilityContext,
+    methodProfile,
+    battlePreview: feedBattlePreview,
     tokenCount,
   });
 
@@ -416,6 +422,8 @@ export default function TonkatsuTeacherPlayPage() {
         operationsReport={operationsReport}
         ownedCosmetics={ownedCosmetics}
         productionReport={productionReport}
+        methodProfile={methodProfile}
+        methodRows={cookingMethodRows}
         recipe={recipe}
         recipeId={recipeId}
         recipes={recipes}

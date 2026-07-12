@@ -1,5 +1,6 @@
 import {
   INGREDIENTS,
+  METHODS,
   RECIPES,
   STUDENTS,
   DEFAULT_UNLOCKED_RECIPES,
@@ -23,6 +24,7 @@ export {
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
   INGREDIENTS,
+  METHODS,
   RECIPES,
   STUDENTS,
   DEFAULT_UNLOCKED_RECIPES,
@@ -40,6 +42,8 @@ export {
   clamp,
   makeStudents,
 } from './tonkatsuTeacherData';
+
+export const METHOD_LEVEL_THRESHOLDS = [0, 3, 8, 15, 24, 35];
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -73,11 +77,13 @@ export function createNewState(options = {}) {
       soy_sauce: 2,
     },
     mealTokens: {},
+    methodExperience: Object.fromEntries(METHODS.map((method) => [method.id, 0])),
     students: makeStudents(),
+    lastCraft: null,
     judgeMatch: null,
     judgeHistory: [],
     lastJudgeBatch: null,
-    counters: { crafted: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0, cosmeticsBought: 0 },
+    counters: { crafted: 0, craftFailures: 0, methodLevelUps: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0, cosmeticsBought: 0 },
     log: ['Day 1: 돈카츠 가게를 열었습니다. 재료를 관리하고 메뉴를 만들어 학생들을 지원하세요.'],
     ended: false,
   };
@@ -97,6 +103,28 @@ function normalizeEquippedCosmetics(value, unlockedIds = DEFAULT_UNLOCKED_COSMET
     const item = COSMETICS.find((cosmetic) => cosmetic.id === requested && cosmetic.slot === slot);
     return [slot, item && unlocked.has(item.id) ? item.id : DEFAULT_EQUIPPED_COSMETICS[slot] || ''];
   }));
+}
+
+function normalizeMethodExperience(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  return Object.fromEntries(METHODS.map((method) => [
+    method.id,
+    Math.max(0, Math.floor(Number(source[method.id] || 0))),
+  ]));
+}
+
+function normalizeStudents(value) {
+  const source = Array.isArray(value) ? value : [];
+  return STUDENTS.map((definition) => {
+    const saved = source.find((student) => student?.id === definition.id || student?.name === definition.name) || {};
+    return {
+      ...definition,
+      currentHp: clamp(Number(saved.currentHp ?? definition.hp), 0, definition.hp),
+      morale: clamp(Number(saved.morale ?? 60), 0, 100),
+      meal: RECIPES.some((recipe) => recipe.id === saved.meal) ? saved.meal : '',
+      wins: Math.max(0, Math.floor(Number(saved.wins || 0))),
+    };
+  });
 }
 
 export function normalizeState(value) {
@@ -123,7 +151,9 @@ export function normalizeState(value) {
     tournamentHistory: Array.isArray(value.tournamentHistory) ? value.tournamentHistory.slice(0, 30) : base.tournamentHistory,
     inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
     mealTokens: value.mealTokens && typeof value.mealTokens === 'object' ? value.mealTokens : base.mealTokens,
-    students: Array.isArray(value.students) && value.students.length ? value.students : base.students,
+    methodExperience: normalizeMethodExperience(value.methodExperience),
+    students: normalizeStudents(value.students),
+    lastCraft: value.lastCraft && typeof value.lastCraft === 'object' ? value.lastCraft : null,
     judgeMatch: value.judgeMatch && typeof value.judgeMatch === 'object' ? value.judgeMatch : null,
     judgeHistory: Array.isArray(value.judgeHistory) ? value.judgeHistory.slice(0, 50) : base.judgeHistory,
     lastJudgeBatch: value.lastJudgeBatch && typeof value.lastJudgeBatch === 'object' ? value.lastJudgeBatch : null,
@@ -175,7 +205,12 @@ function applyCosmeticEffect(ctx, effect = {}) {
     const tag = String(effect.tag || '');
     if (tag) ctx.productionMultByTag[tag] = Number(ctx.productionMultByTag[tag] || 1) * Number(effect.value || 1);
   } else if (effect.type === 'failPctAdd') {
-    ctx.failReduce += Math.max(0, -Number(effect.value || 0));
+    const reduction = Math.max(0, -Number(effect.value || 0));
+    if (effect.methodId) {
+      ctx.failReduceByMethod[effect.methodId] = Number(ctx.failReduceByMethod[effect.methodId] || 0) + reduction;
+    } else {
+      ctx.failReduce += reduction;
+    }
   } else if (effect.type === 'tokenBonusChance') {
     const tag = String(effect.tag || '');
     const chance = clamp(Number(effect.chance || 0), 0, 1);
@@ -196,6 +231,7 @@ export function buildFacilityContext(state) {
     recipeShardBonus: 0,
     productionMultByTag: {},
     failReduce: 0,
+    failReduceByMethod: {},
     tokenBonusChanceByTag: {},
     dailyOrders: 3,
     goldMultFromOrders: 1,
@@ -235,6 +271,77 @@ export function buildFacilityContext(state) {
   });
 
   return ctx;
+}
+
+export function methodName(id) {
+  return METHODS.find((method) => method.id === id)?.name || id;
+}
+
+export function methodLevelFromExperience(experience) {
+  const value = Math.max(0, Math.floor(Number(experience || 0)));
+  let level = 0;
+  METHOD_LEVEL_THRESHOLDS.forEach((threshold, index) => {
+    if (value >= threshold) level = index;
+  });
+  return Math.min(METHOD_LEVEL_THRESHOLDS.length - 1, level);
+}
+
+export function methodRows(state, recipeId = '') {
+  const current = normalizeState(state);
+  const recipe = RECIPES.find((item) => item.id === recipeId);
+  const selectedIds = new Set(recipe?.methods || []);
+  return METHODS.map((method) => {
+    const experience = Number(current.methodExperience?.[method.id] || 0);
+    const level = methodLevelFromExperience(experience);
+    const currentThreshold = METHOD_LEVEL_THRESHOLDS[level] || 0;
+    const nextThreshold = METHOD_LEVEL_THRESHOLDS[level + 1] ?? currentThreshold;
+    const progressPct = level >= METHOD_LEVEL_THRESHOLDS.length - 1
+      ? 100
+      : Math.round(((experience - currentThreshold) / Math.max(1, nextThreshold - currentThreshold)) * 100);
+    return {
+      ...method,
+      experience,
+      level,
+      nextThreshold,
+      progressPct: clamp(progressPct, 0, 100),
+      selected: selectedIds.has(method.id),
+      masteryText: level >= METHOD_LEVEL_THRESHOLDS.length - 1
+        ? '최대 숙련'
+        : `${experience}/${nextThreshold}회`,
+    };
+  });
+}
+
+export function recipeMethodProfile(state, recipeIdOrRecipe) {
+  const current = normalizeState(state);
+  const recipe = typeof recipeIdOrRecipe === 'string'
+    ? RECIPES.find((item) => item.id === recipeIdOrRecipe)
+    : recipeIdOrRecipe;
+  const methods = (recipe?.methods || [])
+    .map((id) => METHODS.find((method) => method.id === id))
+    .filter(Boolean);
+  const ctx = buildFacilityContext(current);
+  const levels = methods.map((method) => methodLevelFromExperience(current.methodExperience?.[method.id]));
+  const totalLevel = levels.reduce((sum, level) => sum + level, 0);
+  const baseFailChance = methods.length
+    ? Math.max(...methods.map((method) => Number(method.baseFailPct || 0)))
+    : recipe?.category === 'main' ? 0.08 : 0.04;
+  const methodFailReduce = methods.length
+    ? methods.reduce((sum, method) => sum + Number(ctx.failReduceByMethod?.[method.id] || 0), 0) / methods.length
+    : 0;
+  const masteryFailReduce = totalLevel * 0.006;
+  const failChance = clamp(baseFailChance - ctx.failReduce - methodFailReduce - masteryFailReduce, 0.01, 0.2);
+  const productionMult = 1 + totalLevel * 0.03;
+  return {
+    methods,
+    levels,
+    totalLevel,
+    failChance,
+    failChancePct: Math.round(failChance * 1000) / 10,
+    successPct: Math.round((1 - failChance) * 1000) / 10,
+    productionMult,
+    productionText: `x${productionMult.toFixed(2)}`,
+  };
 }
 
 export function isRecipeUnlocked(state, recipeId) {
@@ -336,7 +443,7 @@ export function buyIngredientAction(state, ingredientId, qty = 1) {
   }, `${ingredient.name} ${amount}개를 구매했습니다. -${cost}G`);
 }
 
-export function craftRecipeAction(state, recipeId) {
+export function craftRecipeAction(state, recipeId, options = {}) {
   const current = normalizeState(state);
   const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   if (!isRecipeUnlocked(current, recipe.id)) return addLog(current, `${recipe.name} 제작 실패. 아직 해금되지 않은 레시피입니다.`);
@@ -344,29 +451,84 @@ export function craftRecipeAction(state, recipeId) {
   if (!hasIngredients(current.inventory, recipe.needs)) {
     return addLog(current, `${recipe.name} 제작 실패. 필요 재료: ${formatNeeds(recipe.needs)}.`);
   }
+  const rng = typeof options.rng === 'function' ? options.rng : Math.random;
   const ctx = buildFacilityContext(current);
+  const methodProfile = recipeMethodProfile(current, recipe);
   const matchingMult = recipe.tags.reduce((mult, tag) => mult * Number(ctx.productionMultByTag[tag] || 1), 1);
   const bonusChance = recipe.tags.reduce((chance, tag) => Math.max(chance, Number(ctx.tokenBonusChanceByTag[tag] || 0)), 0);
-  const failChance = clamp((recipe.category === 'main' ? 0.08 : 0.04) - ctx.failReduce, 0.01, 0.2);
-  const failed = Math.random() < failChance;
+  const failed = rng() < methodProfile.failChance;
+  const methodExperience = { ...current.methodExperience };
+  const masteryRaised = [];
+  (recipe.methods || []).forEach((methodId) => {
+    const beforeExperience = Number(methodExperience[methodId] || 0);
+    const beforeLevel = methodLevelFromExperience(beforeExperience);
+    const afterExperience = beforeExperience + 1;
+    const afterLevel = methodLevelFromExperience(afterExperience);
+    methodExperience[methodId] = afterExperience;
+    if (afterLevel > beforeLevel) {
+      masteryRaised.push({ id: methodId, name: methodName(methodId), level: afterLevel });
+    }
+  });
+  const serial = Number(current.counters.crafted || 0) + 1;
+  const primaryMethodId = recipe.methods?.[0] || '';
   let next = {
     ...current,
     gold: current.gold - recipe.craftCost,
     inventory: spendIngredients(current.inventory, recipe.needs),
-    counters: { ...current.counters, crafted: Number(current.counters.crafted || 0) + 1 },
+    methodExperience,
+    counters: {
+      ...current.counters,
+      crafted: serial,
+      craftFailures: Number(current.counters.craftFailures || 0) + (failed ? 1 : 0),
+      methodLevelUps: Number(current.counters.methodLevelUps || 0) + masteryRaised.length,
+    },
   };
   if (failed) {
-    return addLog(next, `${recipe.name} 제작이 흔들렸습니다. 재료 일부와 제작비를 소모했습니다.`);
+    next = {
+      ...next,
+      lastCraft: {
+        serial,
+        recipeId: recipe.id,
+        success: false,
+        produced: 0,
+        primaryMethodId,
+        methodIds: [...(recipe.methods || [])],
+        masteryRaised,
+        failChancePct: methodProfile.failChancePct,
+      },
+    };
+    const masteryText = masteryRaised.length
+      ? ` ${masteryRaised.map((row) => `${row.name} Lv.${row.level}`).join(', ')} 숙련 상승.`
+      : '';
+    return addLog(next, `${recipe.name} 제작이 흔들렸습니다. 성공률 ${methodProfile.successPct}%. 재료와 제작비를 소모했습니다.${masteryText}`);
   }
-  const produced = Math.max(1, Math.floor(recipe.yieldTokens * matchingMult) + (Math.random() < bonusChance ? 1 : 0));
+  const rawYield = Math.max(1, Number(recipe.yieldTokens || 1) * matchingMult * methodProfile.productionMult);
+  const guaranteedYield = Math.max(1, Math.floor(rawYield));
+  const fractionalBonus = clamp(rawYield - guaranteedYield, 0, 1);
+  const combinedBonusChance = 1 - (1 - bonusChance) * (1 - fractionalBonus);
+  const produced = guaranteedYield + (rng() < combinedBonusChance ? 1 : 0);
   next = {
     ...next,
     mealTokens: {
       ...next.mealTokens,
       [recipe.id]: Number(next.mealTokens[recipe.id] || 0) + produced,
     },
+    lastCraft: {
+      serial,
+      recipeId: recipe.id,
+      success: true,
+      produced,
+      primaryMethodId,
+      methodIds: [...(recipe.methods || [])],
+      masteryRaised,
+      failChancePct: methodProfile.failChancePct,
+    },
   };
-  return addLog(next, `${recipe.name} ${produced}개를 준비했습니다. 생산 보정 x${matchingMult.toFixed(2)}`);
+  const methodText = (recipe.methods || []).map((methodId) => methodName(methodId)).join(' → ');
+  const masteryText = masteryRaised.length
+    ? ` ${masteryRaised.map((row) => `${row.name} Lv.${row.level}`).join(', ')} 숙련 상승.`
+    : '';
+  return addLog(next, `${recipe.name} ${produced}개를 준비했습니다. ${methodText || '기본 조리'} · 생산 보정 x${(matchingMult * methodProfile.productionMult).toFixed(2)}.${masteryText}`);
 }
 
 export function sellRecipeAction(state, recipeId, qty = 1) {
@@ -396,49 +558,84 @@ export function sellRecipeAction(state, recipeId, qty = 1) {
   }, `${recipe.name} ${amount}개를 ${isDelivery ? '배달' : '판매'}했습니다. +${revenue}G, 평판 +${repGain}`);
 }
 
-export function feedStudentAction(state, studentId, recipeId) {
-  const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
-  const student = getStudent(state, studentId);
-  const have = Number(state.mealTokens[recipe.id] || 0);
-  if (have <= 0) return addLog(state, `${recipe.name} 배식 실패. 준비된 메뉴가 없습니다.`);
-  const likes = recipe.tags.includes(student.pref);
-  const weak = recipe.tags.includes(student.weak);
-  const moraleGain = Math.round(12 * (likes ? 1.35 : 1) * (weak ? 0.7 : 1));
-  const heal = Math.round(recipe.power * (likes ? 1.2 : 1));
-  let next = {
-    ...state,
-    mealTokens: { ...state.mealTokens, [recipe.id]: have - 1 },
-    counters: { ...state.counters, supplied: Number(state.counters.supplied || 0) + 1 },
+function mealSupportPreview(student, recipe) {
+  const likes = Boolean(recipe?.tags?.includes(student.pref));
+  const weak = Boolean(recipe?.tags?.includes(student.weak));
+  const preferenceMult = likes ? Number(student.prefMult || 1.18) : 1;
+  const weaknessDivisor = weak ? Number(student.weakPenalty || 1.15) : 1;
+  return {
+    likes,
+    weak,
+    moraleGain: Math.max(1, Math.round(12 * preferenceMult / weaknessDivisor)),
+    heal: Math.max(1, Math.round(Number(recipe?.power || 0) * preferenceMult / weaknessDivisor)),
   };
-  next = updateStudent(next, student.id, {
-    currentHp: clamp(Number(student.currentHp || 0) + heal, 0, student.hp),
-    morale: clamp(Number(student.morale || 0) + moraleGain, 0, 100),
-    meal: recipe.id,
-  });
-  return addLog(next, `${student.name}에게 ${recipe.name}을 배식했습니다. HP +${heal}, 사기 +${moraleGain}`);
 }
 
-export function battleAction(state, studentId) {
+export function battleForecast(state, studentId, recipeId = '', options = {}) {
   const current = normalizeState(state);
   const student = getStudent(current, studentId);
-  const meal = RECIPES.find((recipe) => recipe.id === student.meal);
-  const ctx = buildFacilityContext(current);
-  const mealPower = meal ? meal.power : 0;
-  const prefBonus = meal?.tags?.includes(student.pref) ? 10 : 0;
-  const weakPenalty = meal?.tags?.includes(student.weak) ? 8 : 0;
-  const power = Number(student.atk || 0) * 8
+  const mealId = recipeId || student.meal;
+  const meal = RECIPES.find((recipe) => recipe.id === mealId);
+  const support = mealSupportPreview(student, meal);
+  const morale = options.afterFeed && meal
+    ? clamp(Number(student.morale || 0) + support.moraleGain, 0, 100)
+    : Number(student.morale || 0);
+  const statPower = Number(student.atk || 0) * 8
     + Number(student.def || 0) * 5
-    + Number(student.morale || 0)
-    + mealPower
-    + prefBonus
-    - weakPenalty;
+    + Number(student.crit || 0) * 100
+    + Number(student.eva || 0) * 80
+    + (Number(student.attackSpeed || 1) - 1) * 70;
+  const mealPower = meal ? Number(meal.power || 0) : 0;
+  const prefBonus = support.likes ? Math.round(10 * Number(student.prefMult || 1.18)) : 0;
+  const weakPenalty = support.weak ? Math.round(8 * Number(student.weakPenalty || 1.15)) : 0;
+  const power = Math.round(statPower + morale + mealPower + prefBonus - weakPenalty);
   const target = 116 + Number(current.floor || 1) * 18;
   const chance = clamp(0.35 + (power - target) / 160, 0.12, 0.92);
-  const won = Math.random() < chance;
-  const damage = won ? Math.max(6, 18 + current.floor * 2 - student.def) : Math.max(12, 34 + current.floor * 3 - student.def);
+  return {
+    student,
+    meal,
+    ...support,
+    morale,
+    power,
+    target,
+    chance,
+    chancePct: Math.round(chance * 100),
+  };
+}
+
+export function feedStudentAction(state, studentId, recipeId) {
+  const current = normalizeState(state);
+  const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
+  const student = getStudent(current, studentId);
+  const have = Number(current.mealTokens[recipe.id] || 0);
+  if (have <= 0) return addLog(current, `${recipe.name} 배식 실패. 준비된 메뉴가 없습니다.`);
+  const support = mealSupportPreview(student, recipe);
+  let next = {
+    ...current,
+    mealTokens: { ...current.mealTokens, [recipe.id]: have - 1 },
+    counters: { ...current.counters, supplied: Number(current.counters.supplied || 0) + 1 },
+  };
+  next = updateStudent(next, student.id, {
+    currentHp: clamp(Number(student.currentHp || 0) + support.heal, 0, student.hp),
+    morale: clamp(Number(student.morale || 0) + support.moraleGain, 0, 100),
+    meal: recipe.id,
+  });
+  const fitText = support.likes ? '선호 메뉴' : support.weak ? '약점 메뉴' : '보통 궁합';
+  return addLog(next, `${student.name}에게 ${recipe.name}을 배식했습니다. ${fitText} · HP +${support.heal}, 사기 +${support.moraleGain}`);
+}
+
+export function battleAction(state, studentId, options = {}) {
+  const current = normalizeState(state);
+  const student = getStudent(current, studentId);
+  const ctx = buildFacilityContext(current);
+  const forecast = battleForecast(current, student.id);
+  const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+  const won = rng() < forecast.chance;
+  const rawDamage = won ? Math.max(6, 18 + current.floor * 2 - student.def) : Math.max(12, 34 + current.floor * 3 - student.def);
+  const damage = Math.max(4, Math.round(rawDamage * (1 - Number(student.eva || 0) * 0.5)));
   const nextHp = clamp(Number(student.currentHp || 0) - damage, 0, student.hp);
   const rewardGold = won ? Math.round(30 * (1 + 0.13 * (current.floor - 1))) : 8;
-  const shardGain = won && Math.random() < Math.min(0.45, 0.12 + 0.008 * current.floor + ctx.rareDropPct) ? 1 + ctx.recipeShardBonus : 0;
+  const shardGain = won && rng() < Math.min(0.45, 0.12 + 0.008 * current.floor + ctx.rareDropPct) ? 1 + ctx.recipeShardBonus : 0;
   let next = {
     ...current,
     gold: current.gold + rewardGold,
@@ -457,8 +654,8 @@ export function battleAction(state, studentId) {
     meal: '',
   });
   const message = won
-    ? `${student.name}이 ${current.floor}층 전투에서 승리했습니다. +${rewardGold}G${shardGain ? `, 레시피 조각 +${shardGain}` : ''}`
-    : `${student.name}이 ${current.floor}층에서 패배했습니다. 위로 보상 +${rewardGold}G`;
+    ? `${student.name}이 ${current.floor}층 전투에서 승리했습니다. 예상 승률 ${forecast.chancePct}% · +${rewardGold}G${shardGain ? `, 레시피 조각 +${shardGain}` : ''}`
+    : `${student.name}이 ${current.floor}층에서 패배했습니다. 예상 승률 ${forecast.chancePct}% · 위로 보상 +${rewardGold}G`;
   return addLog(next, message);
 }
 
@@ -1130,17 +1327,7 @@ export function operationsReportForState(state) {
     (Number(b.currentHp || 0) / Math.max(1, Number(b.hp || 1))) * 40 + Number(b.morale || 0)
     - ((Number(a.currentHp || 0) / Math.max(1, Number(a.hp || 1))) * 40 + Number(a.morale || 0))
   ))[0] || current.students[0];
-  const battleMeal = bestStudent?.meal ? RECIPES.find((recipe) => recipe.id === bestStudent.meal) : null;
-  const battlePower = bestStudent
-    ? Number(bestStudent.atk || 0) * 8
-      + Number(bestStudent.def || 0) * 5
-      + Number(bestStudent.morale || 0)
-      + Number(battleMeal?.power || 0)
-      + (battleMeal?.tags?.includes(bestStudent.pref) ? 10 : 0)
-      - (battleMeal?.tags?.includes(bestStudent.weak) ? 8 : 0)
-    : 0;
-  const battleTarget = 116 + Number(current.floor || 1) * 18;
-  const battleChancePct = Math.round(clamp(0.35 + (battlePower - battleTarget) / 160, 0.12, 0.92) * 100);
+  const battleChancePct = bestStudent ? battleForecast(current, bestStudent.id).chancePct : 0;
   const tournamentRecipe = bestCraftable || unlockedRecipes.slice().sort((a, b) => Number(b.power || 0) - Number(a.power || 0))[0] || RECIPES[0];
   const tournament = tournamentPreview(current, tournamentRecipe.id, 'rookie');
   const facilityTotal = facilities.reduce((sum, facility) => sum + Number(facility.level || 0), 0);
@@ -1183,7 +1370,7 @@ export function operationsReportForState(state) {
   }
 
   if (readyResearch) {
-    recommendations.push(buildOperationAction('research', '레시피 연구', `${readyResearch.name}을 바로 연구할 수 있습니다. 메뉴 풀이 넓어집니다.`, 'medium'));
+    recommendations.push(buildOperationAction('research', '레시피 연구', `${readyResearch.name}를 바로 진행할 수 있습니다. 메뉴 풀이 넓어집니다.`, 'medium'));
   }
   if (readyFacility) {
     recommendations.push(buildOperationAction('facility', '시설 강화', `${readyFacility.name} Lv.${Number(readyFacility.level || 1) + 1} 업그레이드가 가능합니다.`, 'medium'));
@@ -1277,6 +1464,8 @@ export function productionReportForState(state) {
   const victoryCount = Number(counters.victories || 0);
   const tournamentWins = Number(counters.tournamentWins || 0);
   const judgeMatches = Number(counters.judgeMatches || 0);
+  const cookingMethods = methodRows(current);
+  const totalMethodLevel = cookingMethods.reduce((sum, method) => sum + Number(method.level || 0), 0);
   const facilityTotal = Object.values(current.facilityLevels || {}).reduce((sum, level) => sum + Number(level || 0), 0);
   const unlockedRecipes = recipeRows(current).filter((recipe) => recipe.unlocked).length;
   const bestStudent = current.students.slice().sort((a, b) => (
@@ -1306,6 +1495,7 @@ export function productionReportForState(state) {
       + Math.min(10, judgeMatches)
       + Math.min(8, facilityTotal)
       + Math.min(8, unlockedRecipes)
+      + Math.min(10, totalMethodLevel * 2)
       + (tokenTotal > 0 ? 5 : 0),
     0,
     100,
@@ -1349,8 +1539,21 @@ export function productionReportForState(state) {
     buildProductionRow('battle', '전투 컷', bestStudent?.name || '학생', battleScene, avgHpPct >= 65 ? 76 : 44, avgHpPct >= 65 ? 'ready' : 'setup'),
     buildProductionRow('growth', '성장 컷', `시설 합 ${facilityTotal}`, '시설/연구가 올라갈수록 주방이 넓어지는 장면으로 운영 성장을 보여줍니다.', 35 + facilityTotal * 6, facilityTotal >= 7 ? 'ready' : 'setup'),
   ];
+  const methodSoundLabels = {
+    m_fry: '튀김 지글',
+    m_grill: '그릴 화염',
+    m_boil: '물 끓음',
+    m_simmer: '은근한 조리',
+    m_sauce: '소스 붓기',
+    m_dessert: '디저트 차임',
+  };
   const soundCues = [
-    { id: 'kitchen', cue: '주방 지글', target: craftedCount > 0 ? '제작 성공' : '첫 메뉴 제작', detail: '메뉴 제작 버튼 결과와 연결합니다.' },
+    ...cookingMethods.map((method) => ({
+      id: method.id,
+      cue: methodSoundLabels[method.id] || method.name,
+      target: `조리 공정 · Lv.${method.level}`,
+      detail: `${method.name} 성공 시 전용 효과음이 재생됩니다. ${method.masteryText}`,
+    })),
     { id: 'bell', cue: '주문 벨', target: tokenTotal > 0 ? '주문 처리' : '메뉴 준비', detail: '영업 루프의 다음 행동을 짧게 알려줍니다.' },
     { id: 'battle', cue: victoryCount > 0 ? '승리 팡파르' : '전투 긴장음', target: '학생 전투', detail: '배식 후 전투 흐름을 분리해서 인지시키는 큐입니다.' },
     { id: 'judge', cue: judgeMatches >= 5 ? '심사 하이라이트' : '심사 대기음', target: '심사위원 모드', detail: '대회와 심사 데이터를 이어주는 소리 표식입니다.' },

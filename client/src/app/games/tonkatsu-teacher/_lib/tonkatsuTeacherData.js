@@ -1,6 +1,6 @@
 export const GAME_SLUG = 'tonkatsu-teacher';
 export const QUICK_SAVE_SLOT = 'tonkatsu-teacher-main';
-export const SAVE_VERSION = 'tonkatsu-teacher-v1';
+export const SAVE_VERSION = 'tonkatsu-teacher-v2';
 
 export const INGREDIENTS = [
   { id: 'pork', name: '돼지고기', price: 14, rarity: 1, tags: ['meat', 'main'] },
@@ -23,12 +23,70 @@ export const INGREDIENTS = [
   { id: 'yogurt', name: '요거트', price: 24, rarity: 2, tags: ['yogurt', 'cool', 'dessert', 'creamy'] },
 ];
 
+export const METHODS = [
+  {
+    id: 'm_fry',
+    name: '튀기기',
+    action: 'fry',
+    effects: { crispy: 3, oiliness: 2 },
+    effectText: '바삭함 +3 · 풍미 +2',
+    baseFailPct: 0.06,
+    tags: ['fried'],
+  },
+  {
+    id: 'm_grill',
+    name: '굽기',
+    action: 'grill',
+    effects: { aroma: 2 },
+    effectText: '향 +2',
+    baseFailPct: 0.04,
+    tags: ['grilled'],
+  },
+  {
+    id: 'm_boil',
+    name: '삶기',
+    action: 'boil',
+    effects: { moist: 2 },
+    effectText: '촉촉함 +2',
+    baseFailPct: 0.03,
+    tags: ['comfort'],
+  },
+  {
+    id: 'm_simmer',
+    name: '조리기',
+    action: 'simmer',
+    effects: { umami: 2 },
+    effectText: '감칠맛 +2',
+    baseFailPct: 0.05,
+    tags: ['hearty'],
+  },
+  {
+    id: 'm_sauce',
+    name: '소스화',
+    action: 'sauce',
+    effects: { balance: 1 },
+    effectText: '균형 +1',
+    baseFailPct: 0.05,
+    tags: ['sauce'],
+  },
+  {
+    id: 'm_dessert',
+    name: '디저트',
+    action: 'dessert',
+    effects: { sweet: 2 },
+    effectText: '단맛 +2',
+    baseFailPct: 0.04,
+    tags: ['dessert'],
+  },
+];
+
 export const RECIPES = [
   {
     id: 'basic_tonkatsu',
     name: '기본 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'basic'],
+    methods: ['m_fry'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, rice: 1 },
     craftCost: 20,
     yieldTokens: 1,
@@ -41,6 +99,7 @@ export const RECIPES = [
     name: '양배추 샐러드',
     category: 'side',
     tags: ['salad', 'light'],
+    methods: ['m_sauce'],
     needs: { cabbage: 2, apple: 1 },
     craftCost: 12,
     yieldTokens: 1,
@@ -53,6 +112,7 @@ export const RECIPES = [
     name: '우유 푸딩',
     category: 'dessert',
     tags: ['dessert', 'sweet'],
+    methods: ['m_dessert'],
     needs: { milk: 2, egg: 1, apple: 1 },
     craftCost: 15,
     yieldTokens: 1,
@@ -65,6 +125,7 @@ export const RECIPES = [
     name: '고추장 매운 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'spicy'],
+    methods: ['m_fry', 'm_sauce'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, gochujang: 1, rice: 1 },
     craftCost: 30,
     yieldTokens: 1,
@@ -78,6 +139,7 @@ export const RECIPES = [
     name: '치즈 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'cheese'],
+    methods: ['m_fry'],
     needs: { pork: 1, cheese: 2, flour: 1, egg: 1, breadcrumb: 1, oil: 1, rice: 1 },
     craftCost: 35,
     yieldTokens: 1,
@@ -91,6 +153,7 @@ export const RECIPES = [
     name: '카레 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'curry', 'hearty'],
+    methods: ['m_fry', 'm_simmer'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, curry: 1, rice: 2 },
     craftCost: 38,
     yieldTokens: 1,
@@ -104,6 +167,7 @@ export const RECIPES = [
     name: '사과 소스 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'sweet'],
+    methods: ['m_fry', 'm_sauce'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, apple: 2, rice: 1 },
     craftCost: 28,
     yieldTokens: 1,
@@ -117,6 +181,7 @@ export const RECIPES = [
     name: '바삭 돈카츠 샌드',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'speed'],
+    methods: ['m_fry'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 2, oil: 1, cabbage: 1 },
     craftCost: 26,
     yieldTokens: 1,
@@ -130,6 +195,7 @@ export const RECIPES = [
     name: '감자 고로케',
     category: 'side',
     tags: ['fried', 'hearty'],
+    methods: ['m_fry'],
     needs: { breadcrumb: 1, egg: 1, flour: 1, oil: 1, rice: 1 },
     craftCost: 18,
     yieldTokens: 1,
@@ -143,6 +209,7 @@ export const RECIPES = [
     name: '밀크 아이스',
     category: 'dessert',
     tags: ['dessert', 'cool'],
+    methods: ['m_dessert'],
     needs: { milk: 2, apple: 1 },
     craftCost: 14,
     yieldTokens: 1,
@@ -156,6 +223,7 @@ export const RECIPES = [
     name: '마늘 간장 그릴 포크',
     category: 'main',
     tags: ['grilled', 'smoky', 'savory', 'garlic', 'soy'],
+    methods: ['m_grill', 'm_sauce'],
     needs: { pork: 1, garlic: 1, soy_sauce: 1, rice: 1 },
     craftCost: 34,
     yieldTokens: 1,
@@ -169,6 +237,7 @@ export const RECIPES = [
     name: '허니 레몬 글레이즈 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'citrus', 'honey', 'sweet', 'refreshing'],
+    methods: ['m_fry', 'm_sauce'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, honey: 1, lemon: 1 },
     craftCost: 42,
     yieldTokens: 1,
@@ -182,6 +251,7 @@ export const RECIPES = [
     name: '버터 풍미 카레 돈카츠',
     category: 'main',
     tags: ['fried', 'tonkatsu', 'curry', 'buttery', 'rich'],
+    methods: ['m_fry', 'm_sauce'],
     needs: { pork: 1, flour: 1, egg: 1, breadcrumb: 1, oil: 1, curry: 1, butter: 1 },
     craftCost: 46,
     yieldTokens: 1,
@@ -195,6 +265,7 @@ export const RECIPES = [
     name: '요거트 파르페',
     category: 'dessert',
     tags: ['dessert', 'yogurt', 'cool', 'fruit', 'refreshing'],
+    methods: ['m_dessert'],
     needs: { yogurt: 1, apple: 1, honey: 1 },
     craftCost: 20,
     yieldTokens: 1,
@@ -208,6 +279,7 @@ export const RECIPES = [
     name: '마늘 간장 양배추무침',
     category: 'side',
     tags: ['side', 'garlic', 'savory', 'light'],
+    methods: ['m_sauce'],
     needs: { cabbage: 1, garlic: 1, soy_sauce: 1 },
     craftCost: 18,
     yieldTokens: 1,
@@ -219,11 +291,14 @@ export const RECIPES = [
 ];
 
 export const STUDENTS = [
-  { id: 'yuuka', name: '유우카', role: '탱커', hp: 120, atk: 9, def: 12, pref: 'hearty', weak: 'spicy' },
-  { id: 'shiroko', name: '시로코', role: '러너', hp: 95, atk: 12, def: 7, pref: 'fried', weak: 'hearty' },
-  { id: 'hina', name: '히나', role: '딜러', hp: 105, atk: 11, def: 9, pref: 'spicy', weak: 'dessert' },
-  { id: 'noa', name: '노아', role: '서포터', hp: 100, atk: 10, def: 8, pref: 'salad', weak: 'fried' },
-  { id: 'mika', name: '미카', role: '브루저', hp: 110, atk: 12, def: 7, pref: 'cheese', weak: 'salad' },
+  { id: 'yuuka', name: '유우카', role: '탱커', hp: 120, atk: 9, def: 12, crit: 0.05, eva: 0.02, attackSpeed: 1, pref: 'hearty', prefMult: 1.18, weak: 'spicy', weakPenalty: 1.25, notes: '탱커 성향. 든든한 메뉴를 좋아합니다.' },
+  { id: 'shiroko', name: '시로코', role: '러너', hp: 95, atk: 12, def: 7, crit: 0.08, eva: 0.05, attackSpeed: 1.08, pref: 'speed', prefMult: 1.2, weak: 'hearty', weakPenalty: 1.15, notes: '속도형 딜러. 가벼운 구성에 보너스가 있습니다.' },
+  { id: 'hina', name: '히나', role: '딜러', hp: 105, atk: 11, def: 9, crit: 0.06, eva: 0.03, attackSpeed: 1.03, pref: 'spicy', prefMult: 1.22, weak: 'dessert', weakPenalty: 1.18, notes: '고점형 딜러. 매콤 계열을 잘 받습니다.' },
+  { id: 'noa', name: '노아', role: '서포터', hp: 100, atk: 10, def: 8, crit: 0.07, eva: 0.04, attackSpeed: 1.02, pref: 'salad', prefMult: 1.2, weak: 'fried', weakPenalty: 1.12, notes: '안정형 서포터. 샐러드 계열과 궁합이 좋습니다.' },
+  { id: 'mika', name: '미카', role: '브루저', hp: 110, atk: 12, def: 7, crit: 0.06, eva: 0.03, attackSpeed: 1, pref: 'cheese', prefMult: 1.25, weak: 'salad', weakPenalty: 1.1, notes: '폭딜형 브루저. 치즈 계열을 선호합니다.' },
+  { id: 'umi', name: '우미', role: '밸런서', hp: 98, atk: 10, def: 9, crit: 0.05, eva: 0.05, attackSpeed: 1.05, pref: 'fried', prefMult: 1.15, weak: 'sweet', weakPenalty: 1.2, notes: '균형형. 튀김은 좋아하지만 단맛에는 약합니다.' },
+  { id: 'jack', name: '잭', role: '보스전', hp: 115, atk: 10, def: 10, crit: 0.05, eva: 0.03, attackSpeed: 0.98, pref: 'curry', prefMult: 1.22, weak: 'cool', weakPenalty: 1.15, notes: '보스전에 강합니다. 카레와 든든한 구성이 잘 맞습니다.' },
+  { id: 'yusei', name: '유세이', role: '크리딜러', hp: 102, atk: 11, def: 8, crit: 0.07, eva: 0.04, attackSpeed: 1.02, pref: 'sweet', prefMult: 1.18, weak: 'spicy', weakPenalty: 1.18, notes: '치명타와 드랍 중심. 달콤한 소스와 잘 맞습니다.' },
 ];
 
 export const DEFAULT_UNLOCKED_RECIPES = ['basic_tonkatsu', 'cabbage_salad', 'milk_pudding'];
