@@ -1,4 +1,4 @@
-import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { BattlePanel, Field, ZoneExplorer } from './BaVanguardBoard';
 import { PRESET_DECKS, SIDE_LABELS } from '../_lib/baVanguardCatalog';
 
@@ -26,6 +26,8 @@ export default function BaVanguardDuelTab(props) {
     opp,
     opponentPresetId,
     presetId,
+    recentDuelText,
+    resultPresentation,
     rules,
     runAiUntilStop,
     seed,
@@ -96,8 +98,8 @@ export default function BaVanguardDuelTab(props) {
             </p>
           </div>
           <div className="game-save-actions" style={{ marginTop: 12 }}>
-            <GameControlButton action="new" onClick={() => startNewDuel(seed)}>설정으로 재시작</GameControlButton>
-            <GameControlButton action="advance" onClick={runAiUntilStop}>AI 진행</GameControlButton>
+            <GameControlButton action="new" cue="off" onClick={() => startNewDuel(seed)}>설정으로 재시작</GameControlButton>
+            <GameControlButton action="advance" cue="off" onClick={() => runAiUntilStop(true)}>AI 진행</GameControlButton>
           </div>
         </section>
 
@@ -113,13 +115,19 @@ export default function BaVanguardDuelTab(props) {
             <SmallStat label="덱" value={`${me.deck.length}/${opp.deck.length}`} />
           </div>
           <div className="game-save-actions" style={{ marginTop: 12 }}>
-            <GameControlButton action="advance" onClick={nextPhase} disabled={Boolean(duel.winner || duel.battle)}>다음 페이즈</GameControlButton>
-            <GameControlButton action="shuffle" onClick={onMulligan} disabled={!canMulligan}>멀리건</GameControlButton>
-            <GameControlButton action="ride" onClick={onAutoRide} disabled={!canControl || duel.phase !== 'MAIN'}>자동 라이드</GameControlButton>
-            <GameControlButton action="ride" onClick={onStride} disabled={!canControl || duel.phase !== 'MAIN'}>스트라이드</GameControlButton>
-            <GameControlButton action="skill" onClick={onVCAct} disabled={!canControl || duel.phase !== 'MAIN'}>VC 스킬</GameControlButton>
+            <GameControlButton action="advance" cue="off" onClick={nextPhase} disabled={Boolean(duel.winner || duel.battle)}>다음 페이즈</GameControlButton>
+            <GameControlButton action="shuffle" cue="off" onClick={onMulligan} disabled={!canMulligan}>멀리건</GameControlButton>
+            <GameControlButton action="ride" cue="off" onClick={onAutoRide} disabled={!canControl || duel.phase !== 'MAIN'}>자동 라이드</GameControlButton>
+            <GameControlButton action="vanguard-stride" cue="off" onClick={onStride} disabled={!canControl || duel.phase !== 'MAIN'}>스트라이드</GameControlButton>
+            <GameControlButton action="vanguard-skill" cue="off" onClick={onVCAct} disabled={!canControl || duel.phase !== 'MAIN'}>VC 스킬</GameControlButton>
           </div>
           {selectedAttacker ? <p style={{ color: '#cbd5e1', fontWeight: 800 }}>공격자 {selectedAttacker} 선택 중입니다. AI 필드의 목표를 누르세요.</p> : null}
+          <RecentActionResult
+            action={resultPresentation.action}
+            label={resultPresentation.label}
+            text={recentDuelText}
+            tone={resultPresentation.tone}
+          />
         </section>
 
         <BattlePanel

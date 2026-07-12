@@ -455,7 +455,7 @@ export function Field({ title, player, side, selectedAttacker, zoneView, onCircl
                 <button
                   key={circle}
                   type="button"
-                  data-game-sfx={side === 'me' ? 'select' : 'combat'}
+                  data-game-sfx={side === 'opp' && selectedAttacker ? 'off' : side === 'me' ? 'select' : 'combat'}
                   onClick={() => actionable && onCircleClick(circle)}
                   className="game-save-row"
                   style={{
@@ -498,9 +498,9 @@ export function BattlePanel({ battle, selectedHandId, onGuardAdd, onGGuard, onGu
       </div>
       {battle.defenderSide === 'me' ? (
         <div className="game-save-actions" style={{ marginTop: 12 }}>
-          <GameControlButton action="guard" onClick={onGGuard}>G 가디언</GameControlButton>
-          <GameControlButton action="guard" onClick={onGuardAdd} disabled={!selectedHandId}>선택 카드 가드</GameControlButton>
-          <GameControlButton action="pass" onClick={onGuardEnd}>가드 종료</GameControlButton>
+          <GameControlButton action="vanguard-guard" cue="off" onClick={onGGuard}>G 가디언</GameControlButton>
+          <GameControlButton action="vanguard-guard" cue="off" onClick={onGuardAdd} disabled={!selectedHandId}>선택 카드 가드</GameControlButton>
+          <GameControlButton action="pass" cue="off" onClick={onGuardEnd}>가드 종료</GameControlButton>
         </div>
       ) : <p style={{ color: '#cbd5e1', fontWeight: 800 }}>AI가 자동으로 가드를 처리합니다.</p>}
       <div className="games-activity-list" style={{ marginTop: 12 }}>

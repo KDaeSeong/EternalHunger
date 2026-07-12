@@ -16,6 +16,8 @@ import { useBaVanguardPersistence } from '../_hooks/useBaVanguardPersistence';
 import {
   baVanguardFeedbackCue,
   baVanguardFeedbackSnapshot,
+  baVanguardResultPresentation,
+  baVanguardTextPresentation,
 } from '../_lib/baVanguardFeedback';
 import { createBaVanguardPlaytestSummary } from '../_lib/baVanguardPageRuntime';
 import {
@@ -83,7 +85,15 @@ export default function BaVanguardPlayContent() {
   const [selectedAttacker, setSelectedAttacker] = useState(null);
   const [zoneView, setZoneView] = useState(null);
   const [gzoneFilter, setGzoneFilter] = useState('all');
+  const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState(() => baVanguardResultPresentation(duel, duel));
   const feedbackRef = useRef(baVanguardFeedbackSnapshot(duel));
+  const replaceDuel = useCallback((nextDuel) => {
+    feedbackRef.current = baVanguardFeedbackSnapshot(nextDuel);
+    setDuel(nextDuel);
+    setActionResult('');
+    setActionPresentation(baVanguardResultPresentation(nextDuel, nextDuel));
+  }, []);
 
   const deck = getPreset(presetId);
   const opponentDeck = getPreset(opponentPresetId);
@@ -144,7 +154,7 @@ export default function BaVanguardPlayContent() {
     token,
     validation,
     setAutoGuardMe,
-    setDuel,
+    setDuel: replaceDuel,
     setOpponentPresetId,
     setPresetId,
     setRules,
@@ -193,23 +203,40 @@ export default function BaVanguardPlayContent() {
 
   useEffect(() => {
     const current = baVanguardFeedbackSnapshot(duel);
+    const presentation = baVanguardResultPresentation(feedbackRef.current, current);
     const cue = baVanguardFeedbackCue(feedbackRef.current, current);
+    if (presentation.key !== 'idle') {
+      setActionPresentation(presentation);
+      setActionResult(presentation.detail || current.latestLog || '듀얼 상태가 갱신됐습니다.');
+      setMessage('');
+    }
     if (cue) playGameSfx(cue);
     feedbackRef.current = current;
-  }, [duel, playGameSfx]);
+  }, [duel, playGameSfx, setMessage]);
 
 
-  const mutateDuel = (mutator) => {
+  const mutateDuel = (mutator, fallbackMessage = '') => {
     markRoomDirty();
+    setMessage('');
     setDuel((prev) => {
       const next = clone(prev);
-      mutator(next);
+      const previousLog = String(next.log?.[0] || '');
+      const result = mutator(next);
+      if (result === false && fallbackMessage && String(next.log?.[0] || '') === previousLog) {
+        next.log = [`[${SIDE_LABELS.me}] ${fallbackMessage}`, ...(next.log || [])].slice(0, 200);
+      }
       return next;
     });
   };
 
   const downloadReplayExport = useCallback(() => {
     if (typeof window === 'undefined') return;
+    const nextMessage = `BA Vanguard 리플레이를 준비했습니다. (${replayExport.sizeLabel})`;
+    const presentation = baVanguardTextPresentation(nextMessage);
+    setMessage('');
+    setActionResult(nextMessage);
+    setActionPresentation(presentation);
+    if (presentation.cue) playGameSfx(presentation.cue);
     const blob = new Blob([replayExport.jsonText], { type: 'application/json;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     const anchor = window.document.createElement('a');
@@ -219,8 +246,8 @@ export default function BaVanguardPlayContent() {
     anchor.click();
     anchor.remove();
     window.URL.revokeObjectURL(url);
-    showToast({ tone: 'success', message: `BA Vanguard 리플레이를 준비했습니다. (${replayExport.sizeLabel})` });
-  }, [replayExport, showToast]);
+    showToast({ tone: 'success', message: nextMessage });
+  }, [playGameSfx, replayExport, setMessage, showToast]);
 
   const openZone = (side, zone) => {
     setZoneView({ side, zone });
@@ -229,29 +256,46 @@ export default function BaVanguardPlayContent() {
 
   const startNewDuel = (nextSeed = seed) => {
     markRoomDirty();
-    playGameSfx('vanguardStart');
-    setDuel(initDuelState({
+    const nextDuel = initDuelState({
       meDeck: deck,
       oppDeck: opponentDeck,
       seed: nextSeed,
       first: 'me',
       firstTurnNoDraw: rules.firstTurnNoDraw,
-    }));
+    });
+    const nextMessage = '새 BA Vanguard 듀얼을 시작했습니다.';
+    const presentation = baVanguardTextPresentation(nextMessage);
+    feedbackRef.current = baVanguardFeedbackSnapshot(nextDuel);
+    setDuel(nextDuel);
+    setActionResult(nextMessage);
+    setActionPresentation(presentation);
+    if (presentation.cue) playGameSfx(presentation.cue);
     setSelectedHandIndex(null);
     setSelectedAttacker(null);
     setZoneView(null);
-    setMessage('새 플레이테스트를 시작했습니다.');
+    setMessage(nextMessage);
   };
 
-  const runAiUntilStop = () => {
+  const runAiUntilStop = (showIdleFeedback = true) => {
+    markRoomDirty();
+    setMessage('');
     setDuel((prev) => {
       const next = clone(prev);
+      const previousLog = String(next.log?.[0] || '');
+      let progressedAny = false;
       for (let index = 0; index < 80; index += 1) {
         if (next.winner) break;
         if (next.battle?.defenderSide === 'me' && !autoGuardMe) break;
         if (next.active === 'me' && !next.battle) break;
         const progressed = aiStep(next, rules.firstTurnNoDraw, autoGuardMe);
         if (!progressed) break;
+        progressedAny = true;
+      }
+      if (showIdleFeedback && !progressedAny && !next.winner && String(next.log?.[0] || '') === previousLog) {
+        const detail = next.battle?.defenderSide === 'me'
+          ? '방어 창에서는 직접 가드하거나 내 방어 자동 처리를 켜야 합니다.'
+          : '현재는 AI가 진행할 차례가 아닙니다.';
+        next.log = [`[${SIDE_LABELS.me}] ${detail}`, ...(next.log || [])].slice(0, 200);
       }
       return next;
     });
@@ -261,45 +305,45 @@ export default function BaVanguardPlayContent() {
     setSelectedAttacker(null);
     setSelectedHandIndex(null);
     mutateDuel((next) => {
-      if (next.phase === 'END') endTurn(next);
-      else advancePhase(next, rules.firstTurnNoDraw);
-    });
-    setTimeout(runAiUntilStop, AI_FEEDBACK_DELAY_MS);
+      if (next.phase === 'END') return endTurn(next);
+      return advancePhase(next, rules.firstTurnNoDraw);
+    }, '현재는 다음 페이즈로 진행할 수 없습니다.');
+    setTimeout(() => runAiUntilStop(false), AI_FEEDBACK_DELAY_MS);
   };
 
   const onMulligan = () => {
-    mutateDuel((next) => mulliganAll(next, 'me'));
+    mutateDuel((next) => mulliganAll(next, 'me'), '현재는 멀리건을 사용할 수 없습니다.');
     setSelectedHandIndex(null);
   };
 
   const onAutoRide = () => {
-    mutateDuel((next) => autoRide(next, 'me'));
+    mutateDuel((next) => autoRide(next, 'me'), '현재 자동 라이드 후보가 없습니다.');
     setSelectedHandIndex(null);
   };
 
   const onRideSelected = () => {
     if (!selectedHandId) return;
-    mutateDuel((next) => rideFromHand(next, 'me', selectedHandId));
+    mutateDuel((next) => rideFromHand(next, 'me', selectedHandId), '선택한 카드로는 현재 라이드할 수 없습니다.');
     setSelectedHandIndex(null);
   };
 
   const onCallSelected = (circle) => {
     if (!selectedHandId) return;
-    mutateDuel((next) => callFromHand(next, 'me', selectedHandId, circle));
+    mutateDuel((next) => callFromHand(next, 'me', selectedHandId, circle), `${circle}에 선택한 카드를 콜할 수 없습니다.`);
     setSelectedHandIndex(null);
   };
 
   const onRetire = (circle) => {
-    mutateDuel((next) => retireCircle(next, 'me', circle));
+    mutateDuel((next) => retireCircle(next, 'me', circle), `${circle}에서 퇴각시킬 유닛이 없습니다.`);
   };
 
   const onStride = () => {
-    mutateDuel((next) => strideWithAutoCost(next, 'me'));
+    mutateDuel((next) => strideWithAutoCost(next, 'me'), '현재는 스트라이드할 수 없습니다.');
     setSelectedHandIndex(null);
   };
 
   const onVCAct = () => {
-    mutateDuel((next) => activateVCAct(next, 'me', selectedHandId || undefined));
+    mutateDuel((next) => activateVCAct(next, 'me', selectedHandId || undefined), '현재 VC 스킬을 사용할 수 없습니다.');
     setSelectedHandIndex(null);
   };
 
@@ -315,27 +359,29 @@ export default function BaVanguardPlayContent() {
   const onOppCircleClick = (circle) => {
     if (!selectedAttacker || !canControl || duel.phase !== 'BATTLE') return;
     mutateDuel((next) => {
-      declareAttack(next, selectedAttacker, circle);
+      const declared = declareAttack(next, selectedAttacker, circle);
+      if (!declared) return false;
       aiStep(next, rules.firstTurnNoDraw, autoGuardMe);
-    });
+      return true;
+    }, '선택한 유닛으로 해당 서클을 공격할 수 없습니다.');
     setSelectedAttacker(null);
   };
 
   const onGuardAdd = () => {
     if (!selectedHandId) return;
-    mutateDuel((next) => guardAddFromHand(next, 'me', selectedHandId));
+    mutateDuel((next) => guardAddFromHand(next, 'me', selectedHandId), '선택한 카드를 가드에 사용할 수 없습니다.');
     setSelectedHandIndex(null);
   };
 
   const onGGuard = () => {
-    mutateDuel((next) => guardGGuardian(next, 'me', selectedHandId || undefined));
+    mutateDuel((next) => guardGGuardian(next, 'me', selectedHandId || undefined), '현재 사용할 수 있는 G 가디언 또는 비용 카드가 없습니다.');
     setSelectedHandIndex(null);
   };
 
   const onGuardEnd = () => {
-    mutateDuel((next) => guardEnd(next));
+    mutateDuel((next) => guardEnd(next), '현재 종료할 가드 단계가 없습니다.');
     setSelectedHandIndex(null);
-    setTimeout(runAiUntilStop, AI_FEEDBACK_DELAY_MS);
+    setTimeout(() => runAiUntilStop(false), AI_FEEDBACK_DELAY_MS);
   };
 
   const setRuleOption = (key, value) => {
@@ -345,7 +391,7 @@ export default function BaVanguardPlayContent() {
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={() => startNewDuel(seed)}>새 듀얼</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={() => startNewDuel(seed)}>새 듀얼</GameControlButton>
       <GameControlButton action="shuffle" onClick={() => {
         markRoomDirty();
         setSeed((current) => current + 1);
@@ -353,7 +399,7 @@ export default function BaVanguardPlayContent() {
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
-      <GameControlButton action="replay" onClick={downloadReplayExport}>리플레이 저장</GameControlButton>
+      <GameControlButton action="replay" cue="off" onClick={downloadReplayExport}>리플레이 저장</GameControlButton>
       {roomId ? (
         <Link className="game-control-button" data-game-sfx="nav" href={`/games/rooms/${roomId}`}>
           <GameActionIcon action="diplomacy" label="게임방" />
@@ -397,7 +443,8 @@ export default function BaVanguardPlayContent() {
     !valid ? { key: 'invalid', tone: 'error', text: '현재 덱 또는 상대 덱에 규칙 오류가 있습니다. 검증 목록을 확인하세요.' } : null,
     duel.battle?.defenderSide === 'me' ? { key: 'guard', text: '방어 창이 열렸습니다. 패에서 카드를 선택해 가드하거나 바로 가드 종료를 누르세요.' } : null,
   ];
-  const recentDuelText = duel.log?.[0] || message || '아직 실행한 듀얼 액션이 없습니다.';
+  const recentDuelText = message || actionResult || duel.log?.[0] || '아직 실행한 듀얼 액션이 없습니다.';
+  const resultPresentation = baVanguardTextPresentation(recentDuelText, actionPresentation);
 
   const guide = {
     title: '듀얼 코치',
@@ -434,7 +481,13 @@ export default function BaVanguardPlayContent() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact minimal storageKey="ba-vanguard-duel-coach" />
-      <RecentActionResult label="최근 듀얼 결과" text={recentDuelText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentDuelText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <BaVanguardFeatureTabs
         autoGuardMe={autoGuardMe}
@@ -473,6 +526,8 @@ export default function BaVanguardPlayContent() {
         presetId={presetId}
         replayExport={replayExport}
         replayReport={replayReport}
+        recentDuelText={recentDuelText}
+        resultPresentation={resultPresentation}
         rules={rules}
         runAiUntilStop={runAiUntilStop}
         seed={seed}

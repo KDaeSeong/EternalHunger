@@ -140,10 +140,10 @@ Checked: 2026-07-04
 
 ## BA Vanguard Slice Status
 
-- Route: `/games/ba-vanguard/play`
+- Route: `/myanime/ba-vanguard/play`
 - Included loop: P-G card library, Gehenna/Trinity/Millennium sample deck presets, deck rule validation, opening-hand shuffle test, duel state, ride/call/retire, stride, VC act, battle declaration, boost, guard, G guardian, drive/damage checks, trigger effects, 6-damage win, and simple AI progression.
 - UI/UX: the compact duel shell keeps nine primary metrics, the latest duel result, and four icon-led feature tabs near the first viewport. Header save/load/record/replay/room/detail commands and duel controls use explicit object icons, while spatial field circles remain icon-free selection tiles. Deck/drop/soul/damage/G zone inspection shows zone metrics, grade/type/trigger breakdowns, G-zone filters, and tactical advice rows. Desktop header commands use a stable four-column grid with zero text overflow, button overlap, or page-level horizontal overflow.
-- Feedback: `baVanguardFeedback.js` compares turn, phase, battle, guard, hand, damage, log, stride, and winner snapshots. Nineteen synthesized card-duel cues distinguish start, invalid actions, draw, phase/turn, ride, stride, call, skill, attack, guard window, guard/perfect guard/block, trigger, hit/damage, and victory/defeat. AI continuation waits 180ms so an outcome cue finishes before the next guard warning; trigger effects are also written to the replay log.
+- Feedback: `baVanguardFeedback.js` compares turn, phase, battle, guard, hand, deck, drop, damage, log, stride, and winner snapshots. Twenty-three result states use 22 distinct cues to distinguish start, invalid actions, draw, phase/turn, ride, call/retire, stride, skill, attack, guard window, guard/perfect guard/block, trigger, hit/damage, deck out, replay, and victory/defeat. The pinned shell result and duel/hand action tabs share the same icon, tone, and latest-state text; loaded saves reset the feedback baseline so stale combat sounds do not fire. Direct AI progress reports an invalid turn, while the 180ms automatic continuation exits silently when control remains with the player.
 - Site API integration: quick save through `/game-saves/ba-vanguard/ba-vanguard-main`; playtest record through `/game-records/ba-vanguard`.
 - Source basis: `C:\2저장고\마이애니메\ba-vanguard`.
 - Next step: evolve revision-based room snapshots into live turn-by-turn multiplayer sharing and deepen original card-specific skill coverage.

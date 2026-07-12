@@ -693,6 +693,21 @@ const CUE_PROFILES = {
     { frequency: 440, endFrequency: 330, duration: 0.1, type: 'triangle', gain: 0.04 },
     { frequency: 260, endFrequency: 150, start: 0.09, duration: 0.16, type: 'sine', gain: 0.04 },
   ],
+  vanguardRetire: [
+    { source: 'noise', filterType: 'bandpass', frequency: 760, q: 1.8, duration: 0.045, gain: 0.033 },
+    { frequency: 520, endFrequency: 260, duration: 0.09, type: 'triangle', gain: 0.04 },
+  ],
+  vanguardDeckOut: [
+    { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.07, gain: 0.032 },
+    { frequency: 420, endFrequency: 210, start: 0.045, duration: 0.14, type: 'sawtooth', gain: 0.035 },
+    { frequency: 150, start: 0.16, duration: 0.13, type: 'sine', gain: 0.038 },
+  ],
+  vanguardReplay: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.035, gain: 0.024 },
+    { frequency: 440, duration: 0.04, type: 'square', gain: 0.032 },
+    { frequency: 660, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.038 },
+    { frequency: 880, start: 0.095, duration: 0.08, type: 'sine', gain: 0.034 },
+  ],
   code: [
     { frequency: 520, duration: 0.028, type: 'square', gain: 0.035 },
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
