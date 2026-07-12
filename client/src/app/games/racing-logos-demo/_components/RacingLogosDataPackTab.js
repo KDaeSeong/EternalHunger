@@ -1,9 +1,11 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
 
 export default function RacingLogosDataPackTab(props) {
   const {
     dataPack,
+    recentActionText,
+    resultPresentation,
     setState,
   } = props;
 
@@ -51,9 +53,10 @@ export default function RacingLogosDataPackTab(props) {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="event" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
-                    <ActionButton action="season" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                    <ActionButton action="race-card" cue="off" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+                    <ActionButton action="season-card" cue="off" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
                   </div>
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">

@@ -1,11 +1,11 @@
-import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { auditLogoPackAction, generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
 
 const QUEUE_ACTION_ICONS = {
-  draft: 'code',
+  draft: 'draft',
   calendar: 'calendar',
-  'event-card': 'event',
-  'season-card': 'season',
+  'event-card': 'race-card',
+  'season-card': 'season-card',
 };
 
 export default function RacingLogosAuditTab(props) {
@@ -15,6 +15,8 @@ export default function RacingLogosAuditTab(props) {
     events,
     packMatrix,
     productionQueue,
+    recentActionText,
+    resultPresentation,
     runQueueAction,
     score,
     setState,
@@ -38,10 +40,11 @@ export default function RacingLogosAuditTab(props) {
                     <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="analysis" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
-                    <ActionButton action="event" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
-                    <ActionButton action="season" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                    <ActionButton action="logo-audit" cue="off" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
+                    <ActionButton action="race-card" cue="off" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+                    <ActionButton action="season-card" cue="off" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
                   </div>
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -61,6 +64,7 @@ export default function RacingLogosAuditTab(props) {
                         </div>
                         <GameControlButton
                           action={QUEUE_ACTION_ICONS[item.action] || 'action'}
+                          cue={item.action === 'calendar' ? 'tab' : 'off'}
                           className="tcg-primary-action"
                           onClick={() => runQueueAction(item)}
                         >
@@ -70,8 +74,8 @@ export default function RacingLogosAuditTab(props) {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="code" onClick={showDraftPack}>보강 JSON 초안 보기</ActionButton>
-                    <ActionButton action="deploy" onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
+                    <ActionButton action="draft" cue="off" onClick={showDraftPack}>보강 JSON 초안 보기</ActionButton>
+                    <ActionButton action="pack-apply" cue="off" onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">

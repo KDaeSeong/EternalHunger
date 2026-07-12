@@ -1,4 +1,4 @@
-import { ActionButton } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import { clearLocalPackAction, setFilterAction } from '../_lib/racingLogosEngine';
 
 export default function RacingLogosLocalPackTab(props) {
@@ -9,6 +9,8 @@ export default function RacingLogosLocalPackTab(props) {
     events,
     loadPublicLocalPack,
     packText,
+    recentActionText,
+    resultPresentation,
     setPackText,
     setState,
     showDraftPack,
@@ -32,12 +34,13 @@ export default function RacingLogosLocalPackTab(props) {
                     />
                   </label>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="deploy" onClick={applyTextPack}>수동 JSON 적용</ActionButton>
-                    <ActionButton action="code" onClick={showDraftPack}>보강 JSON 초안 불러오기</ActionButton>
-                    <ActionButton action="deploy" onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
-                    <ActionButton action="load" onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
-                    <ActionButton action="reset" onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
+                    <ActionButton action="pack-apply" cue="off" onClick={applyTextPack}>수동 JSON 적용</ActionButton>
+                    <ActionButton action="draft" cue="off" onClick={showDraftPack}>보강 JSON 초안 불러오기</ActionButton>
+                    <ActionButton action="pack-apply" cue="off" onClick={applyDraftPack}>샘플 보강팩 적용</ActionButton>
+                    <ActionButton action="load" cue="off" onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
+                    <ActionButton action="pack-clear" cue="off" onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
                   </div>
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">

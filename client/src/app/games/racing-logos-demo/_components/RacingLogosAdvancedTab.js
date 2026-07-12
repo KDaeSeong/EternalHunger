@@ -1,4 +1,4 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import {
   auditLogoPackAction,
   clearLocalPackAction,
@@ -17,6 +17,8 @@ export default function RacingLogosAdvancedTab(props) {
     loadPublicLocalPack,
     packMatrix,
     packText,
+    recentActionText,
+    resultPresentation,
     score,
     setPackText,
     setState,
@@ -42,9 +44,9 @@ export default function RacingLogosAdvancedTab(props) {
             />
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="deploy" onClick={applyTextPack}>수동 JSON 적용</ActionButton>
-            <ActionButton action="load" onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
-            <ActionButton action="reset" onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
+            <ActionButton action="pack-apply" cue="off" onClick={applyTextPack}>수동 JSON 적용</ActionButton>
+            <ActionButton action="load" cue="off" onClick={() => void loadPublicLocalPack()} disabled={busy === 'local-pack'}>{busy === 'local-pack' ? '불러오는 중...' : 'public/local_pack 불러오기'}</ActionButton>
+            <ActionButton action="pack-clear" cue="off" onClick={() => setState((current) => clearLocalPackAction(current))}>로컬팩 비우기</ActionButton>
           </div>
         </section>
 
@@ -85,9 +87,10 @@ export default function RacingLogosAdvancedTab(props) {
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="analysis" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
-            <ActionButton action="event" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
+            <ActionButton action="logo-audit" cue="off" onClick={() => setState((current) => auditLogoPackAction(current))}>로고팩 감사</ActionButton>
+            <ActionButton action="race-card" cue="off" onClick={() => setState((current) => generateRaceCardAction(current))}>이벤트 카드 생성</ActionButton>
           </div>
+          <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         </section>
 
         <section className="games-panel">

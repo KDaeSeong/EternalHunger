@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
@@ -36,8 +36,8 @@ import {
   visibleTracks,
 } from '../_lib/racingLogosEngine';
 import {
-  racingLogosFeedbackCue,
-  racingLogosFeedbackSnapshot,
+  racingLogosResultPresentation,
+  racingLogosTextPresentation,
 } from '../_lib/racingLogosFeedback';
 
 function buildLogoDraftText(currentPack) {
@@ -112,12 +112,14 @@ export default function RacingLogosDemoPlayPage() {
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'racing' });
-  const [state, setState] = useState(() => createNewState());
+  const [state, setStateInternal] = useState(() => createNewState());
+  const stateRef = useRef(state);
   const [packText, setPackText] = useState(() => sampleLocalPackText());
   const [activeFeatureTabId, setActiveFeatureTabId] = useState('audit');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
-  const feedbackRef = useRef(racingLogosFeedbackSnapshot(state));
+  const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState(() => racingLogosResultPresentation(state, state));
 
   const tracks = useMemo(() => visibleTracks(state), [state]);
   const events = useMemo(() => visibleEvents(state), [state]);
@@ -134,44 +136,61 @@ export default function RacingLogosDemoPlayPage() {
   );
   const score = scoreState(state);
   const latestRaceCard = state.raceCards[0];
-  const recentActionText = state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
+  const resultPresentation = racingLogosTextPresentation(recentActionText, actionPresentation);
 
-  useEffect(() => {
-    const current = racingLogosFeedbackSnapshot(state);
-    const cue = racingLogosFeedbackCue(feedbackRef.current, current);
+  const applyRacingState = (updater) => {
+    const previousState = stateRef.current;
+    const nextState = typeof updater === 'function' ? updater(previousState) : updater;
+    const presentation = racingLogosResultPresentation(previousState, nextState);
+    stateRef.current = nextState;
+    setStateInternal(nextState);
+    setActionPresentation(presentation);
+    setActionResult(presentation.detail || nextState.log?.[0] || '에셋 검수 상태를 갱신했습니다.');
+    if (presentation.cue) playGameSfx(presentation.cue);
+    return nextState;
+  };
+
+  const publishResult = (nextMessage, cue = '') => {
+    setMessage(nextMessage);
+    setActionResult(nextMessage);
+    setActionPresentation(racingLogosTextPresentation(nextMessage));
     if (cue) playGameSfx(cue);
-    feedbackRef.current = current;
-  }, [playGameSfx, state]);
+  };
 
   const startNewRun = () => {
-    setState(createNewState());
+    const previousState = stateRef.current;
+    const nextState = createNewState();
+    stateRef.current = nextState;
+    setStateInternal(nextState);
     setPackText(sampleLocalPackText());
     setActiveFeatureTabId('audit');
     setMessage('');
+    setActionResult('새 레이싱 로고팩 검수를 시작했습니다.');
+    setActionPresentation(racingLogosResultPresentation(previousState, nextState));
+    playGameSfx('start');
   };
 
   const applyTextPack = () => {
     const parsed = parseLocalPackText(packText);
     if (!parsed.ok) {
-      playGameSfx('packInvalid');
-      setMessage(parsed.error);
+      publishResult(parsed.error, 'packInvalid');
       showToast({ tone: 'danger', message: parsed.error });
       return;
     }
-    setState((current) => applyLocalPackAction(current, parsed.value));
+    applyRacingState((current) => applyLocalPackAction(current, parsed.value));
     setMessage('로컬팩 JSON을 적용했습니다.');
   };
 
   const applyDraftPack = () => {
     const parsed = parseLocalPackText(logoDraftText);
     if (!parsed.ok) {
-      playGameSfx('packInvalid');
-      setMessage(parsed.error);
+      publishResult(parsed.error, 'packInvalid');
       showToast({ tone: 'danger', message: parsed.error });
       return;
     }
     setPackText(logoDraftText);
-    setState((current) => auditLogoPackAction(applyLocalPackAction(current, parsed.value, 'draft')));
+    applyRacingState((current) => auditLogoPackAction(applyLocalPackAction(current, parsed.value, 'draft')));
     setActiveFeatureTabId('audit');
     setMessage('보강 JSON 초안을 적용하고 로고팩 감사를 실행했습니다.');
   };
@@ -179,7 +198,7 @@ export default function RacingLogosDemoPlayPage() {
   const showDraftPack = () => {
     setPackText(logoDraftText);
     setActiveFeatureTabId('local-pack');
-    setMessage('보강 JSON 초안을 로컬팩 편집기에 불러왔습니다.');
+    publishResult('보강 JSON 초안을 로컬팩 편집기에 불러왔습니다.', 'draftLoaded');
   };
 
   const runQueueAction = (item) => {
@@ -192,12 +211,12 @@ export default function RacingLogosDemoPlayPage() {
       return;
     }
     if (item.action === 'event-card') {
-      setState((current) => generateRaceCardAction(current));
+      applyRacingState((current) => generateRaceCardAction(current));
       setActiveFeatureTabId('data-pack');
       return;
     }
     if (item.action === 'season-card') {
-      setState((current) => generateSeasonCardAction(current));
+      applyRacingState((current) => generateSeasonCardAction(current));
       setActiveFeatureTabId('data-pack');
     }
   };
@@ -208,17 +227,15 @@ export default function RacingLogosDemoPlayPage() {
     try {
       const res = await fetch('/local_pack/real_names.json', { cache: 'no-store' });
       if (!res.ok) {
-        playGameSfx('packInvalid');
-        setMessage('public/local_pack/real_names.json을 찾지 못했습니다. 수동 JSON을 사용할 수 있습니다.');
+        publishResult('public/local_pack/real_names.json을 찾지 못했습니다. 수동 JSON을 사용할 수 있습니다.', 'packInvalid');
         return;
       }
       const json = await res.json();
       setPackText(JSON.stringify(json, null, 2));
-      setState((current) => applyLocalPackAction(current, json, 'fetch'));
+      applyRacingState((current) => applyLocalPackAction(current, json, 'fetch'));
       setMessage('public/local_pack/real_names.json을 불러왔습니다.');
     } catch (err) {
-      playGameSfx('packInvalid');
-      setMessage(err?.message || '로컬팩을 불러오지 못했습니다.');
+      publishResult(err?.message || '로컬팩을 불러오지 못했습니다.', 'packInvalid');
     } finally {
       setBusy('');
     }
@@ -226,7 +243,7 @@ export default function RacingLogosDemoPlayPage() {
 
   const saveRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 Racing Logos Demo 검수 상태를 저장할 수 있습니다.');
+      publishResult('로그인하면 Racing Logos Demo 검수 상태를 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -239,11 +256,11 @@ export default function RacingLogosDemoPlayPage() {
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
-      setMessage('Racing Logos Demo 검수 상태를 저장했습니다.');
+      publishResult('Racing Logos Demo 검수 상태를 저장했습니다.');
       showToast({ tone: 'success', message: 'Racing Logos Demo 검수 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
+      publishResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -252,7 +269,7 @@ export default function RacingLogosDemoPlayPage() {
 
   const loadRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 저장된 Racing Logos Demo 상태를 불러올 수 있습니다.');
+      publishResult('로그인하면 저장된 Racing Logos Demo 상태를 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -260,18 +277,19 @@ export default function RacingLogosDemoPlayPage() {
       const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
-        setMessage('저장된 Racing Logos Demo 상태가 없습니다.');
+        publishResult('저장된 Racing Logos Demo 상태가 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
-      setState(nextState);
+      stateRef.current = nextState;
+      setStateInternal(nextState);
       setPackText(JSON.stringify(nextState.localPack, null, 2));
-      setMessage('저장된 Racing Logos Demo 상태를 불러왔습니다.');
+      publishResult('저장된 Racing Logos Demo 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Racing Logos Demo 상태를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
+      publishResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -280,7 +298,7 @@ export default function RacingLogosDemoPlayPage() {
 
   const recordRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 Racing Logos Demo 감사 결과를 전적에 남길 수 있습니다.');
+      publishResult('로그인하면 Racing Logos Demo 감사 결과를 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -295,11 +313,11 @@ export default function RacingLogosDemoPlayPage() {
         payload: { state },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
-      setMessage('Racing Logos Demo 감사 결과를 전적에 남겼습니다.');
+      publishResult('Racing Logos Demo 감사 결과를 전적에 남겼습니다.');
       showToast({ tone: 'success', message: 'Racing Logos Demo 감사 결과를 전적에 남겼습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
+      publishResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -308,7 +326,7 @@ export default function RacingLogosDemoPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 검수</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 검수</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -371,7 +389,13 @@ export default function RacingLogosDemoPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact minimal storageKey="racing-logos-asset-coach" />
-      <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentActionText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <RacingLogosFeatureTabs
         activeFeatureTabId={activeFeatureTabId}
@@ -389,11 +413,13 @@ export default function RacingLogosDemoPlayPage() {
         packMatrix={packMatrix}
         packText={packText}
         productionQueue={productionQueue}
+        recentActionText={recentActionText}
+        resultPresentation={resultPresentation}
         runQueueAction={runQueueAction}
         score={score}
         setActiveFeatureTabId={setActiveFeatureTabId}
         setPackText={setPackText}
-        setState={setState}
+        setState={applyRacingState}
         showDraftPack={showDraftPack}
         state={state}
         tracks={tracks}

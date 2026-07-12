@@ -1,10 +1,12 @@
-import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { generateSeasonCardAction } from '../_lib/racingLogosEngine';
 import { LogoPreview } from './RacingLogosPlayPanels';
 
 export default function RacingLogosCalendarTab(props) {
   const {
     calendar,
+    recentActionText,
+    resultPresentation,
     setState,
     state,
   } = props;
@@ -30,8 +32,9 @@ export default function RacingLogosCalendarTab(props) {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="season" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
+                    <ActionButton action="season-card" cue="off" onClick={() => setState((current) => generateSeasonCardAction(current))}>시즌 카드 생성</ActionButton>
                   </div>
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">

@@ -596,6 +596,18 @@ const CUE_PROFILES = {
     { frequency: 780, start: 0.095, duration: 0.08, type: 'triangle', gain: 0.042 },
     { frequency: 1040, start: 0.165, duration: 0.12, type: 'sine', gain: 0.036 },
   ],
+  dataPackReady: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.055, gain: 0.026 },
+    { frequency: 392, duration: 0.05, type: 'triangle', gain: 0.045 },
+    { frequency: 523, start: 0.045, duration: 0.065, type: 'triangle', gain: 0.044 },
+    { frequency: 784, start: 0.105, duration: 0.085, type: 'triangle', gain: 0.042 },
+    { frequency: 1046, start: 0.18, duration: 0.15, type: 'sine', gain: 0.037 },
+  ],
+  draftLoaded: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 2.4, duration: 0.03, gain: 0.025 },
+    { frequency: 480, duration: 0.045, type: 'square', gain: 0.035 },
+    { frequency: 720, start: 0.04, duration: 0.07, type: 'triangle', gain: 0.038 },
+  ],
   vanguardStart: [
     { source: 'noise', filterType: 'highpass', frequency: 1600, duration: 0.045, gain: 0.024 },
     { frequency: 330, duration: 0.055, type: 'triangle', gain: 0.04 },
