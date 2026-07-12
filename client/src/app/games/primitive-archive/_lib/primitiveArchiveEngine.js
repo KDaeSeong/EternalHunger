@@ -4292,7 +4292,12 @@ function resolveActionRegion(state, requestedRegionId, rng = Math.random) {
 
 function actionChanceForRegion(state, actorId, action, region) {
   const base = actionChance(state, actorId, action, action === 'hunt' ? 0.42 : 0.5);
-  return clamp(base - Number(region?.danger || 0) * 0.012, 0.08, 0.95);
+  const preset = difficultyPreset(state);
+  return clamp(
+    base - Number(region?.danger || 0) * 0.012,
+    Number(preset.actionChanceFloor ?? 0.08),
+    Number(preset.actionChanceCap ?? 0.95),
+  );
 }
 
 export function regionalActionChance(state, actorId, action, requestedRegionId = '') {

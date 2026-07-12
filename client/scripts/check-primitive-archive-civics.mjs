@@ -52,13 +52,31 @@ const pressuredVeryEasy = {
   weather: { ...veryEasy.weather, actionMod: -0.12 },
 };
 assert.ok(
-  engine.actionChance(pressuredVeryEasy, 'shiroko', 'gather', 0) >= 0.82,
-  '매우 쉬움은 날씨가 나빠도 행동 성공률 최저 82%를 보장해야 합니다.',
+  engine.actionChance(pressuredVeryEasy, 'shiroko', 'gather', 0) >= 0.9,
+  '매우 쉬움은 날씨가 나빠도 행동 성공률 최저 90%를 보장해야 합니다.',
 );
 const normalForChance = engine.createNewState({ difficulty: 'normal', rng: () => 0.5, runId: 'normal-check' });
 assert.ok(
   engine.actionChance(veryEasy, 'shiroko', 'gather', 0.55) > engine.actionChance(normalForChance, 'shiroko', 'gather', 0.55),
   '매우 쉬움은 같은 조건의 보통보다 행동 성공률이 높아야 합니다.',
+);
+const normalSeventyChance = engine.actionChance(normalForChance, 'shiroko', 'gather', 0.45);
+const veryEasyNinetyChance = engine.actionChance(veryEasy, 'shiroko', 'gather', 0.45);
+assert.ok(
+  normalSeventyChance >= 0.7 && normalSeventyChance < 0.71,
+  '보통 난이도 비교 행동은 70%대 성공률이어야 합니다.',
+);
+assert.ok(
+  veryEasyNinetyChance >= 0.9 && veryEasyNinetyChance < 0.91,
+  '매우 쉬움은 같은 행동을 90%대 성공률로 올려야 합니다.',
+);
+assert.ok(
+  Math.abs((veryEasyNinetyChance - normalSeventyChance) - 0.2) < Number.EPSILON,
+  '매우 쉬움은 행동 성공률에 정확히 20%p 보정을 적용해야 합니다.',
+);
+assert.ok(
+  engine.regionalActionChance(veryEasy, 'shiroko', 'hunt') >= 0.9,
+  '매우 쉬움은 위험 지역을 포함한 최종 행동 성공률도 최소 90%를 보장해야 합니다.',
 );
 assert.equal(engine.normalizeState(veryEasy).difficulty, 'veryeasy', '저장 불러오기 뒤에도 매우 쉬움 난이도가 유지되어야 합니다.');
 assert.match(runTabSource, /성공.*actionChanceBonus/, '난이도 카드에는 행동 성공률 보정이 표시되어야 합니다.');
@@ -483,7 +501,7 @@ const gatherSuccessFeedback = feedback.primitiveActionFeedback(feedbackBase, {
 }, '채집');
 assert.deepEqual(
   gatherSuccessFeedback,
-  { action: 'gather', cue: 'gather', outcome: 'success', tone: 'success' },
+  { key: 'gather', action: 'primitive-gather', cue: 'gather', label: '채집 성공', outcome: 'success', tone: 'success' },
   '채집 성공은 채집 아이콘과 성공 톤을 사용해야 합니다.',
 );
 const gatherFailureFeedback = feedback.primitiveActionFeedback(feedbackBase, {

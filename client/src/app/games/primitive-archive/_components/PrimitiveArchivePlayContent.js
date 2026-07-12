@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
@@ -85,10 +85,11 @@ import {
 import PrimitiveArchiveFeatureTabs from './PrimitiveArchiveFeatureTabs';
 import usePrimitiveArchivePersistence from '../_hooks/usePrimitiveArchivePersistence';
 import {
-  primitiveActionFeedback,
+  primitiveActionResultPresentation,
   primitiveActionResultText,
   primitiveMilestoneCue,
   primitiveMilestoneSnapshot,
+  primitiveTextPresentation,
 } from '../_lib/primitiveArchiveFeedback';
 
 import {
@@ -121,8 +122,17 @@ export default function PrimitiveArchivePlayContent() {
   const [newRunDifficulty, setNewRunDifficulty] = useState('normal');
   const [researchPlannerOpen, setResearchPlannerOpen] = useState(false);
   const [actionResult, setActionResult] = useState('');
-  const [actionFeedback, setActionFeedback] = useState({ action: 'survival', outcome: 'ready', runId: state.runId, tone: 'ready' });
+  const [actionFeedback, setActionFeedback] = useState({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' });
+  const stateRef = useRef(state);
   const feedbackRef = useRef(primitiveMilestoneSnapshot(state));
+  const replaceState = useCallback((nextValue) => {
+    setState((current) => {
+      const nextState = typeof nextValue === 'function' ? nextValue(current) : nextValue;
+      stateRef.current = nextState;
+      feedbackRef.current = primitiveMilestoneSnapshot(nextState);
+      return nextState;
+    });
+  }, []);
 
   const actor = getActor(state, actorId);
   const recipes = useMemo(() => recipeRows(state), [state]);
@@ -148,7 +158,7 @@ export default function PrimitiveArchivePlayContent() {
     score,
     setActionResult,
     setNewRunDifficulty,
-    setState,
+    setState: replaceState,
     showToast,
     state,
     token,
@@ -212,6 +222,7 @@ export default function PrimitiveArchivePlayContent() {
     const current = primitiveMilestoneSnapshot(state, milestones.season.id, milestones.eraId);
     const cue = primitiveMilestoneCue(previous, current);
     if (cue) playGameSfx(cue);
+    stateRef.current = state;
     feedbackRef.current = current;
   }, [milestones.eraId, milestones.season.id, playGameSfx, state]);
 
@@ -248,7 +259,11 @@ export default function PrimitiveArchivePlayContent() {
   const inventoryRows = Object.entries(state.inventory)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => itemName(a).localeCompare(itemName(b), 'ko-KR'));
-  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
+  const scopedActionFeedback = actionFeedback.runId === state.runId
+    ? actionFeedback
+    : { key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' };
+  const recentActionText = message || actionResult || state.log?.[0] || '아직 실행한 행동이 없습니다.';
+  const resultPresentation = primitiveTextPresentation(recentActionText, scopedActionFeedback);
   const equipmentAdviceMode = Number(state.weather?.cold || 0) >= 5 || Number(actor?.bodyTemp ?? 37) <= 35.5 ? 'weather' : 'role';
   const equipmentAdviceRows = useMemo(() => {
     if (!actor) return [];
@@ -304,12 +319,24 @@ export default function PrimitiveArchivePlayContent() {
         : '다음 사회 제도를 선택하면 선행 조건과 영감 진행도를 여기에서 확인할 수 있습니다.';
 
   const applyAction = (label, updater, fallbackText = '') => {
-    const nextState = updater(state);
-    const latest = primitiveActionResultText(state, nextState, label, fallbackText);
-    const feedback = primitiveActionFeedback(state, nextState, label);
+    const previousState = stateRef.current;
+    const nextState = updater(previousState);
+    const previousMilestones = civilizationMilestoneRows(previousState);
+    const nextMilestones = civilizationMilestoneRows(nextState);
+    const latest = primitiveActionResultText(previousState, nextState, label, fallbackText);
+    const feedback = primitiveActionResultPresentation(previousState, nextState, label, {
+      currentEraId: nextMilestones.eraId,
+      currentSeasonId: nextMilestones.season.id,
+      fallbackText,
+      previousEraId: previousMilestones.eraId,
+      previousSeasonId: previousMilestones.season.id,
+      resultText: latest,
+    });
     if (feedback.cue) playGameSfx(feedback.cue);
+    stateRef.current = nextState;
     setState(nextState);
     setActionResult(latest);
+    setMessage('');
     setActionFeedback({ ...feedback, runId: nextState.runId });
   };
 
@@ -374,9 +401,8 @@ export default function PrimitiveArchivePlayContent() {
   };
 
   const runDiplomacy = (rivalId, actionId) => {
-    const rival = rivals.find((row) => row.id === rivalId);
     applyAction(
-      rival?.name || '경쟁 부족 외교',
+      '외교',
       (current) => runDiplomacyAction(current, actorId, rivalId, actionId),
     );
   };
@@ -385,7 +411,7 @@ export default function PrimitiveArchivePlayContent() {
     if (!canAct) return;
     const choice = runProgressReport.recoveryChoices?.find((row) => row.id === choiceId);
     applyAction(
-      choice?.title || '직접 대응',
+      '직접 대응',
       (current) => runRecoveryChoiceAction(current, actorId, choiceId),
       `${choice?.title || '직접 대응'}을 실행했습니다.`,
     );
@@ -395,22 +421,27 @@ export default function PrimitiveArchivePlayContent() {
     if (!canAct) return;
     const chain = runProgressReport.activeEventChains?.find((row) => row.id === chainId);
     applyAction(
-      chain?.title || '탐험 단서 대응',
+      '탐험 단서 대응',
       (current) => runEventChainAction(current, actorId, chainId),
       `${chain?.title || '탐험 단서'} 대응을 실행했습니다.`,
     );
   };
 
   const startNewRun = () => {
-    const nextState = startNewRunFromMeta(state, { difficulty: newRunDifficulty });
+    const nextState = startNewRunFromMeta(stateRef.current, { difficulty: newRunDifficulty });
+    const nextMessage = `${selectedDifficulty.label} 난이도로 새 원시 아카이브 런을 시작했습니다.`;
+    const presentation = primitiveTextPresentation(nextMessage);
+    stateRef.current = nextState;
+    feedbackRef.current = primitiveMilestoneSnapshot(nextState);
     setState(nextState);
     setActorId('shiroko');
     setZoneId('whisper-woods');
     setRecipeId('twine');
     setSelectedRecruitId('');
-    setActionResult(`${selectedDifficulty.label} 난이도로 새 원시 아카이브 런을 시작했습니다.`);
-    setActionFeedback({ action: 'start', outcome: 'ready', runId: nextState.runId, tone: 'ready' });
+    setActionResult(nextMessage);
+    setActionFeedback({ ...presentation, runId: nextState.runId });
     setMessage('');
+    if (presentation.cue) playGameSfx(presentation.cue);
   };
 
   const recruitMember = () => {
@@ -456,10 +487,10 @@ export default function PrimitiveArchivePlayContent() {
 
   const playActions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>{selectedDifficulty.label} 새 런</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>{selectedDifficulty.label} 새 런</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
-      <GameControlButton action="auto" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
+      <GameControlButton action="auto" cue="off" onClick={() => applyAction('하루 자동 운영', (current) => runAutoDayAction(current))} disabled={!canAct}>하루 자동 운영</GameControlButton>
     </>
   );
 
@@ -524,9 +555,7 @@ export default function PrimitiveArchivePlayContent() {
       <PrimitiveArchiveFeatureTabs
         actor={actor}
         actorId={actorId}
-        actionFeedback={actionFeedback.runId === state.runId
-          ? actionFeedback
-          : { action: 'survival', outcome: 'ready', runId: state.runId, tone: 'ready' }}
+        actionFeedback={resultPresentation}
         actionForecasts={actionForecasts}
         adjustTribeJob={adjustTribeJob}
         applyAction={applyAction}

@@ -72,7 +72,7 @@ function PerkPanel({ buyPerk, perks, perkPoints }) {
               <strong>{perk.name}</strong>
               <small>{perk.desc}</small>
             </div>
-            <GameControlButton action="upgrade" disabled={!perk.canBuy} onClick={() => buyPerk(perk)}>
+            <GameControlButton action="upgrade" cue="off" disabled={!perk.canBuy} onClick={() => buyPerk(perk)}>
               {perk.maxed ? '완료' : '구매'}
             </GameControlButton>
           </article>
@@ -84,6 +84,7 @@ function PerkPanel({ buyPerk, perks, perkPoints }) {
 
 export default function PrimitiveArchiveGrowthTab(props) {
   const {
+    actionFeedback,
     buyPerk,
     canAct,
     civicAdvancements,
@@ -178,7 +179,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
   if (!research.unlocked) {
     return (
       <>
-        <RecentActionResult action={isCivics ? 'policy' : 'research'} label="최근 연구/성장 결과" text={recentActionText} tone="ready" pinned />
+        <RecentActionResult action={actionFeedback?.action || (isCivics ? 'policy' : 'research')} label={actionFeedback?.label || '최근 연구/성장 결과'} text={recentActionText} tone={actionFeedback?.tone || 'ready'} pinned />
         <AdvancementTrackSwitch activeTrack={activeTrack} civics={civics} onChange={setTrack} research={research} />
         <section className="games-panel primitive-research-gate">
           <div className="games-panel-title">
@@ -210,6 +211,8 @@ export default function PrimitiveArchiveGrowthTab(props) {
           canAct={canAct}
           projectEstimate={projectEstimate}
           projects={projects}
+          actionFeedback={actionFeedback}
+          recentActionText={recentActionText}
           runProject={runProject}
           selectProject={selectProject}
           selectedProject={selectedProject}
@@ -222,7 +225,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
 
   return (
     <>
-      <RecentActionResult action={isCivics ? 'policy' : 'research'} label="최근 연구/성장 결과" text={recentActionText} tone="ready" pinned />
+      <RecentActionResult action={actionFeedback?.action || (isCivics ? 'policy' : 'research')} label={actionFeedback?.label || '최근 연구/성장 결과'} text={recentActionText} tone={actionFeedback?.tone || 'ready'} pinned />
       <AdvancementTrackSwitch activeTrack={activeTrack} civics={civics} onChange={setTrack} research={research} />
 
       <section className={`games-dashboard primitive-advancement-dashboard ${isCivics ? 'is-civics' : ''}`}>
@@ -352,9 +355,11 @@ export default function PrimitiveArchiveGrowthTab(props) {
         </section>
 
         <PrimitiveArchiveProjectsPanel
+          actionFeedback={actionFeedback}
           canAct={canAct}
           projectEstimate={projectEstimate}
           projects={projects}
+          recentActionText={recentActionText}
           runProject={runProject}
           selectProject={selectProject}
           selectedProject={selectedProject}

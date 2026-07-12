@@ -1,12 +1,15 @@
 import {
   ActionButton,
   GameControlButton,
+  RecentActionResult,
 } from '../../_components/GamePlayPrimitives';
 
 export default function PrimitiveArchiveProjectsPanel({
+  actionFeedback,
   canAct,
   projectEstimate,
   projects = [],
+  recentActionText,
   runProject,
   selectProject,
   selectedProject,
@@ -41,7 +44,7 @@ export default function PrimitiveArchiveProjectsPanel({
           </div>
           <ActionButton
             action="project"
-            cue="project"
+            cue="off"
             disabled={!canAct || !selectedProject.canWork || selectedProject.completed}
             onClick={runProject}
           >
@@ -55,6 +58,12 @@ export default function PrimitiveArchiveProjectsPanel({
                     ? '공동 작업 진행'
                     : '자재 투입 후 착수'}
           </ActionButton>
+          <RecentActionResult
+            action={actionFeedback?.action || 'primitive-project'}
+            label={actionFeedback?.label || '최근 프로젝트 결과'}
+            text={recentActionText}
+            tone={actionFeedback?.tone || 'ready'}
+          />
         </div>
       ) : <div className="games-empty">현재 진행 가능한 부족 프로젝트가 없습니다.</div>}
 
@@ -68,6 +77,7 @@ export default function PrimitiveArchiveProjectsPanel({
             </div>
             <GameControlButton
               action={project.completed ? 'complete' : 'target'}
+              cue="off"
               disabled={project.completed || !project.available || project.selected}
               onClick={() => selectProject?.(project.id)}
             >

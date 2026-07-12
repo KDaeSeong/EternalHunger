@@ -22,6 +22,7 @@ function diplomacyDisabledText(rival, action) {
 }
 
 export default function PrimitiveArchiveTribeTab({
+  actionFeedback,
   adjustTribeJob,
   recentActionText,
   rivals = [],
@@ -36,7 +37,7 @@ export default function PrimitiveArchiveTribeTab({
 
   return (
     <>
-      <RecentActionResult label="최근 부족 운영 결과" text={recentActionText} pinned />
+      <RecentActionResult action={actionFeedback?.action || 'primitive-job'} label={actionFeedback?.label || '최근 부족 운영 결과'} text={recentActionText} tone={actionFeedback?.tone || 'ready'} pinned />
 
       <section className="games-panel primitive-tribe-overview">
         <div className="games-panel-title">
@@ -83,7 +84,7 @@ export default function PrimitiveArchiveTribeTab({
               <div className="primitive-job-stepper">
                 <button
                   type="button"
-                  data-game-sfx="assign"
+                  data-game-sfx="off"
                   disabled={!job.canRemove}
                   onClick={() => adjustTribeJob(job.id, -1)}
                   aria-label={`${job.name} 배치 1명 감소`}
@@ -94,7 +95,7 @@ export default function PrimitiveArchiveTribeTab({
                 <strong>{job.count}</strong>
                 <button
                   type="button"
-                  data-game-sfx="assign"
+                  data-game-sfx="off"
                   disabled={!job.canAdd}
                   onClick={() => adjustTribeJob(job.id, 1)}
                   aria-label={`${job.name} 배치 1명 증가`}
@@ -145,26 +146,28 @@ export default function PrimitiveArchiveTribeTab({
                   <div className="primitive-diplomacy-actions">
                     <GameControlButton
                       action="trade"
+                      cue="off"
                       disabled={!rival.canTrade}
                       title={rival.canTrade ? '교역 실행' : diplomacyDisabledText(rival, 'trade')}
                       onClick={() => runDiplomacy(rival.id, 'trade')}
                     >교역</GameControlButton>
                     <GameControlButton
                       action="claim"
-                      cue="diplomacy"
+                      cue="off"
                       disabled={!rival.canGift}
                       title={rival.canGift ? '선물 전달' : diplomacyDisabledText(rival, 'gift')}
                       onClick={() => runDiplomacy(rival.id, 'gift')}
                     >선물</GameControlButton>
                     <GameControlButton
                       action="research"
-                      cue="diplomacy"
+                      cue="off"
                       disabled={!rival.canExchange}
                       title={rival.canExchange ? '지식 교류 실행' : diplomacyDisabledText(rival, 'exchange')}
                       onClick={() => runDiplomacy(rival.id, 'exchange')}
                     >지식 교류</GameControlButton>
                     <GameControlButton
                       action="combat"
+                      cue="off"
                       disabled={!rival.canRaid}
                       title={rival.canRaid ? '약탈 시도' : diplomacyDisabledText(rival, 'raid')}
                       onClick={() => runDiplomacy(rival.id, 'raid')}

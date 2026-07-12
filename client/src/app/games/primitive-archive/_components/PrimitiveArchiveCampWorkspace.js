@@ -84,7 +84,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
                 <strong>{chain.title}</strong>
                 <small>{chain.detail}</small>
               </div>
-              <GameControlButton action="event" disabled={!canAct || !chain.enabled} onClick={() => runEventChain(chain.id)}>{chain.actionLabel}</GameControlButton>
+              <GameControlButton action="event" cue="off" disabled={!canAct || !chain.enabled} onClick={() => runEventChain(chain.id)}>{chain.actionLabel}</GameControlButton>
             </article>
           ))}
           {(runProgressReport.recoveryChoices || []).map((choice) => (
@@ -94,7 +94,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
                 <strong>{choice.title}</strong>
                 <small>{choice.detail}</small>
               </div>
-              <GameControlButton action="execute" disabled={!canAct || !choice.enabled} onClick={() => runRecoveryChoice(choice.id)}>실행</GameControlButton>
+              <GameControlButton action="execute" cue="off" disabled={!canAct || !choice.enabled} onClick={() => runRecoveryChoice(choice.id)}>실행</GameControlButton>
             </article>
           ))}
         </div>
@@ -135,7 +135,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
         </div>
         <RecentActionResult
           action={actionFeedback?.action || 'camp'}
-          label="이번 캠프 결과"
+          label={actionFeedback?.label || '이번 캠프 결과'}
           text={recentActionText}
           tone={actionFeedback?.tone || 'ready'}
           pinned

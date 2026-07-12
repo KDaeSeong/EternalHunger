@@ -125,13 +125,13 @@ export default function PrimitiveArchiveActionWorkspace(props) {
           >제작 · {Math.round(craftChance * 100)}%</ActionButton>
           <ActionButton action="consume" cue="off" disabled={!actorCanAct} onClick={runEat}>식사</ActionButton>
           <ActionButton action="rest" cue="off" disabled={!actorCanAct} onClick={runRest}>휴식</ActionButton>
-          <ActionButton action="research" disabled={!actorCanAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
+          <ActionButton action="research" cue="off" disabled={!actorCanAct || !research.actionUnlocked || !research.selected?.available} onClick={runResearch}>
             {research.actionUnlocked ? '연구' : '직접 연구 잠김'}
           </ActionButton>
         </div>
         <RecentActionResult
           action={actionFeedback?.action || 'survival'}
-          label="이번 행동 결과"
+          label={actionFeedback?.label || '이번 행동 결과'}
           text={recentActionText}
           tone={actionFeedback?.tone || 'ready'}
           pinned

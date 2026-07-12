@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import {
   EQUIPMENT_SLOT_LABELS,
   ITEMS,
@@ -14,6 +14,7 @@ import PrimitiveArchiveWorkspaceTabs from './PrimitiveArchiveWorkspaceTabs';
 export default function PrimitiveArchiveInventoryTab(props) {
   const [activeWorkspace, setActiveWorkspace] = useState('items');
   const {
+    actionFeedback,
     actor,
     actorId,
     autoEquip,
@@ -25,6 +26,7 @@ export default function PrimitiveArchiveInventoryTab(props) {
     equipmentAdviceRows,
     equipmentInventory,
     inventoryRows,
+    recentActionText,
     setActorId,
     state,
   } = props;
@@ -79,11 +81,17 @@ export default function PrimitiveArchiveInventoryTab(props) {
               </select>
             </label>
             <div>
-              <GameControlButton action="equip" onClick={() => autoEquip('role')}>역할 추천</GameControlButton>
-              <GameControlButton action="equip" onClick={() => autoEquip('weather')}>날씨 대응</GameControlButton>
-              <GameControlButton action="reset" onClick={clearEquipment}>전체 해제</GameControlButton>
+              <GameControlButton action="equip" cue="off" onClick={() => autoEquip('role')}>역할 추천</GameControlButton>
+              <GameControlButton action="equip" cue="off" onClick={() => autoEquip('weather')}>날씨 대응</GameControlButton>
+              <GameControlButton action="reset" cue="off" onClick={clearEquipment}>전체 해제</GameControlButton>
             </div>
           </div>
+          <RecentActionResult
+            action={actionFeedback?.action || 'primitive-equip'}
+            label={actionFeedback?.label || '최근 장비 결과'}
+            text={recentActionText}
+            tone={actionFeedback?.tone || 'ready'}
+          />
           {equipmentAdviceRows.length ? (
             <div className="games-action-result primitive-equipment-advice">
               <span>{equipmentAdviceMode === 'weather' ? '날씨 대응 추천' : '역할 추천'}</span>
