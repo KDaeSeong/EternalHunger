@@ -183,7 +183,7 @@ npm run build
   - `client/src/app/games/rail3d-sim/_components/Rail3dBlocksTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dLogTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dAdvancedTab.js`
-- Rail3D Sim result-state cue selection lives in `client/src/app/games/rail3d-sim/_lib/rail3dFeedback.js`. It compares arrivals, departures, STOP/token states, lookahead, and completion instead of replaying a generic button cue.
+- Rail3D Sim result-state selection lives in `client/src/app/games/rail3d-sim/_lib/rail3dFeedback.js`. It compares arrivals, departures, STOP/token states, lookahead, and completion, then maps each transition to a dedicated synthesized cue, Lucide icon, label, and result tone. `check:rail3d-feedback` covers the transition matrix.
 - Rail3D Sim normalizes old `pose.sM` saves to `pose.headS` in `rail3dEngine.js`; preserve this migration when the original route cache is imported.
 - Board detail normalization helpers now live in `client/src/app/board/_lib/boardUtils.js`.
 - Board detail rendering is split into:

@@ -35,7 +35,12 @@ import {
   trainDebugDetail,
   trainRows,
 } from '../_lib/rail3dEngine';
-import { rail3dFeedbackCue, rail3dFeedbackSnapshot } from '../_lib/rail3dFeedback';
+import {
+  rail3dFeedbackCue,
+  rail3dFeedbackPresentation,
+  rail3dFeedbackSnapshot,
+  rail3dResultPresentation,
+} from '../_lib/rail3dFeedback';
 import { actionFeedbackText } from '../_components/Rail3dPlayPanels';
 
 function buildDispatchPlan({ rows, completed, stopped, tokenWaits, bottleneck, report, state }) {
@@ -121,6 +126,13 @@ export default function Rail3dSimPlayPage() {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState({
+    action: '',
+    cue: '',
+    key: 'idle',
+    label: '운행 결과',
+    tone: '',
+  });
   const feedbackRef = useRef(rail3dFeedbackSnapshot(state));
 
   const rows = useMemo(() => trainRows(state), [state]);
@@ -152,6 +164,7 @@ export default function Rail3dSimPlayPage() {
     const nextState = updater(state);
     setState(nextState);
     setActionResult(actionFeedbackText(state, nextState, label, fallback));
+    setActionPresentation(rail3dFeedbackPresentation(state, nextState));
   };
 
   const startNewRun = () => {
@@ -161,6 +174,8 @@ export default function Rail3dSimPlayPage() {
     setActiveFeatureTabId('operations');
     setMessage('');
     setActionResult('새 Rail3D Sim 운행을 시작했습니다.');
+    setActionPresentation(rail3dFeedbackPresentation(state, nextState));
+    feedbackRef.current = rail3dFeedbackSnapshot(nextState);
   };
 
   const focusTrain = (trainId, tabId = 'trains') => {
@@ -248,6 +263,7 @@ export default function Rail3dSimPlayPage() {
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
       setState(nextState);
+      feedbackRef.current = rail3dFeedbackSnapshot(nextState);
       setSelectedTrainId(nextState.trains[0]?.id || 'T1');
       setMessage('저장된 Rail3D Sim 진행 상태를 불러왔습니다.');
       setActionResult(actionFeedbackText(state, nextState, '불러오기', '저장된 Rail3D Sim 진행 상태를 불러왔습니다.'));
@@ -295,7 +311,7 @@ export default function Rail3dSimPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="reset" onClick={startNewRun}>초기화</GameControlButton>
+      <GameControlButton action="new" onClick={startNewRun}>새 운행</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -324,6 +340,8 @@ export default function Rail3dSimPlayPage() {
     !token && hydrated ? { key: 'auth', text: '로그인하지 않아도 플레이는 가능하지만 저장, 불러오기, 전적 기록은 로그인 후 사용할 수 있습니다.' } : null,
     stopped ? { key: 'stop', tone: 'error', text: 'STOP 신호가 발생했습니다. 같은 블록을 먼저 점유한 열차가 있어 뒤 열차가 대기 중입니다.' } : null,
   ];
+
+  const resultPresentation = rail3dResultPresentation(recentActionText, actionPresentation);
 
   const guide = {
     title: '운행 코치',
@@ -360,7 +378,13 @@ export default function Rail3dSimPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact minimal storageKey="rail3d-operation-coach" />
-      <RecentActionResult label="최근 운행 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentActionText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <Rail3dFeatureTabs
         activeFeatureTabId={activeFeatureTabId}
