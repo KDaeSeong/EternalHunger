@@ -83,7 +83,7 @@ export function createNewState(options = {}) {
     judgeMatch: null,
     judgeHistory: [],
     lastJudgeBatch: null,
-    counters: { crafted: 0, craftFailures: 0, methodLevelUps: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0, cosmeticsBought: 0 },
+    counters: { purchases: 0, crafted: 0, craftFailures: 0, methodLevelUps: 0, sold: 0, battles: 0, victories: 0, supplied: 0, facilityUpgrades: 0, researches: 0, tournaments: 0, tournamentWins: 0, orders: 0, judgeMatches: 0, judgeCorrect: 0, cosmeticsBought: 0 },
     log: ['Day 1: 돈카츠 가게를 열었습니다. 재료를 관리하고 메뉴를 만들어 학생들을 지원하세요.'],
     ended: false,
   };
@@ -440,6 +440,7 @@ export function buyIngredientAction(state, ingredientId, qty = 1) {
     ...current,
     gold: current.gold - cost,
     inventory: addInventory(current.inventory, ingredient.id, amount),
+    counters: { ...current.counters, purchases: Number(current.counters.purchases || 0) + amount },
   }, `${ingredient.name} ${amount}개를 구매했습니다. -${cost}G`);
 }
 

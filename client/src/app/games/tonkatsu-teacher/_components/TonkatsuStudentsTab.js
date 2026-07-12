@@ -45,9 +45,9 @@ export default function TonkatsuStudentsTab(props) {
                     {student.notes} · 선호 #{student.pref} / 약점 #{student.weak}
                   </p>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="serve" disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 메뉴 배식</ActionButton>
-                    <ActionButton action="combat" disabled={!canAct} onClick={() => setState((current) => battleAction(current, studentId))}>전투 진행</ActionButton>
-                    <ActionButton action="advance" disabled={!canAct} onClick={() => setState((current) => nextDayAction(current))}>다음 영업일</ActionButton>
+                    <ActionButton action="serve" cue="off" disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 메뉴 배식</ActionButton>
+                    <ActionButton action="combat" cue="off" disabled={!canAct} onClick={() => setState((current) => battleAction(current, studentId))}>전투 진행</ActionButton>
+                    <ActionButton action="advance" cue="off" disabled={!canAct} onClick={() => setState((current) => nextDayAction(current))}>다음 영업일</ActionButton>
                   </div>
                 </section>
               </section>

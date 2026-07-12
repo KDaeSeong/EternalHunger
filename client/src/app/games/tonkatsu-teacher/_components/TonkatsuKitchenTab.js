@@ -107,8 +107,8 @@ export default function TonkatsuKitchenTab(props) {
                     >
                       메뉴 제작 · 성공 {methodProfile.successPct}%
                     </ActionButton>
-                    <ActionButton action="sales" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>선택 메뉴 판매</ActionButton>
-                    <ActionButton action="order" disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
+                    <ActionButton action="sales" cue="off" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>선택 메뉴 판매</ActionButton>
+                    <ActionButton action="order" cue="off" disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
                   </div>
                 </section>
                 <section className="games-panel">
@@ -122,8 +122,8 @@ export default function TonkatsuKitchenTab(props) {
                     <SmallStat label="보관 한도" value={facilityContext.storageCap} />
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="trade" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
-                    <ActionButton action="trade" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
+                    <ActionButton action="trade" cue="off" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
+                    <ActionButton action="trade" cue="off" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
                   </div>
                 </section>
               </section>

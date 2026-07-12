@@ -117,8 +117,8 @@ export default function TonkatsuAdvancedTab(props) {
             >
               메뉴 제작 · {methodProfile.methods.map((method) => method.name).join(' → ')}
             </ActionButton>
-            <ActionButton action="sales" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>영업 판매</ActionButton>
-            <ActionButton action="serve" disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 학생에게 배식</ActionButton>
+            <ActionButton action="sales" cue="off" disabled={!canAct} onClick={() => setState((current) => sellRecipeAction(current, recipeId))}>영업 판매</ActionButton>
+            <ActionButton action="serve" cue="off" disabled={!canAct} onClick={() => setState((current) => feedStudentAction(current, studentId, recipeId))}>선택 학생에게 배식</ActionButton>
           </div>
         </section>
 
@@ -137,9 +137,9 @@ export default function TonkatsuAdvancedTab(props) {
             {ingredient.name} · 희귀도 {ingredient.rarity} · #{ingredient.tags.join(' #')}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="trade" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
-            <ActionButton action="trade" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
-            <ActionButton action="order" disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
+            <ActionButton action="trade" cue="off" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 1))}>1개 구매</ActionButton>
+            <ActionButton action="trade" cue="off" disabled={!canAct} onClick={() => setState((current) => buyIngredientAction(current, ingredientId, 5))}>5개 구매</ActionButton>
+            <ActionButton action="order" cue="off" disabled={!canAct} onClick={() => setState((current) => fulfillDailyOrdersAction(current))}>일일 주문 처리</ActionButton>
           </div>
           <div className="games-rank-split" style={{ marginTop: 12 }}>
             <SmallStat label="보관 한도" value={`${inventoryCount(state)}/${facilityContext.storageCap}`} />
@@ -147,8 +147,8 @@ export default function TonkatsuAdvancedTab(props) {
             <SmallStat label="영업 배율" value={`x${facilityContext.goldMultFromOrders.toFixed(2)}`} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <ActionButton action="sales" disabled={!canAct || state.businessMode === 'hall'} onClick={() => setState((current) => setBusinessModeAction(current, 'hall'))}>홀 영업</ActionButton>
-            <ActionButton action="sales" disabled={!canAct || state.businessMode === 'delivery'} onClick={() => setState((current) => setBusinessModeAction(current, 'delivery'))}>배달 영업</ActionButton>
+            <ActionButton action="sales" cue="off" disabled={!canAct || state.businessMode === 'hall'} onClick={() => setState((current) => setBusinessModeAction(current, 'hall'))}>홀 영업</ActionButton>
+            <ActionButton action="sales" cue="off" disabled={!canAct || state.businessMode === 'delivery'} onClick={() => setState((current) => setBusinessModeAction(current, 'delivery'))}>배달 영업</ActionButton>
           </div>
         </section>
 
@@ -172,8 +172,8 @@ export default function TonkatsuAdvancedTab(props) {
             선호 태그 #{student.pref} · 약점 태그 #{student.weak} · 현재 식사 {student.meal ? recipeName(student.meal) : '없음'}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="combat" disabled={!canAct} onClick={() => setState((current) => battleAction(current, studentId))}>전투 진행</ActionButton>
-            <ActionButton action="advance" disabled={!canAct} onClick={() => setState((current) => nextDayAction(current))}>다음 영업일</ActionButton>
+            <ActionButton action="combat" cue="off" disabled={!canAct} onClick={() => setState((current) => battleAction(current, studentId))}>전투 진행</ActionButton>
+            <ActionButton action="advance" cue="off" disabled={!canAct} onClick={() => setState((current) => nextDayAction(current))}>다음 영업일</ActionButton>
           </div>
         </section>
       </section>
@@ -242,11 +242,11 @@ export default function TonkatsuAdvancedTab(props) {
                     <small>{cosmetic.effectText}</small>
                   </div>
                   {cosmetic.owned ? (
-                    <GameControlButton action="equip" disabled={!canAct || cosmetic.equipped || !cosmetic.canEquip} onClick={() => setState((current) => equipCosmeticAction(current, cosmetic.id))}>
+                    <GameControlButton action="equip" cue="off" disabled={!canAct || cosmetic.equipped || !cosmetic.canEquip} onClick={() => setState((current) => equipCosmeticAction(current, cosmetic.id))}>
                       {cosmetic.equipped ? '장착 중' : '장착'}
                     </GameControlButton>
                   ) : (
-                    <GameControlButton action="shop" disabled={!canAct || !cosmetic.canBuy} onClick={() => setState((current) => buyCosmeticAction(current, cosmetic.id))}>
+                    <GameControlButton action="shop" cue="off" disabled={!canAct || !cosmetic.canBuy} onClick={() => setState((current) => buyCosmeticAction(current, cosmetic.id))}>
                       구매
                     </GameControlButton>
                   )}
@@ -269,7 +269,7 @@ export default function TonkatsuAdvancedTab(props) {
                   <strong>{facility.name}</strong>
                   <small>{facility.maxed ? '최대 레벨' : `다음 비용 ${facility.nextCost}G`}</small>
                 </div>
-                <GameControlButton action="upgrade" disabled={!canAct || facility.maxed || !facility.canUpgrade} onClick={() => setState((current) => upgradeFacilityAction(current, facility.id))}>업그레이드</GameControlButton>
+                <GameControlButton action="upgrade" cue="off" disabled={!canAct || facility.maxed || !facility.canUpgrade} onClick={() => setState((current) => upgradeFacilityAction(current, facility.id))}>업그레이드</GameControlButton>
               </article>
             ))}
           </div>
@@ -288,7 +288,7 @@ export default function TonkatsuAdvancedTab(props) {
                   <strong>{project.name}</strong>
                   <small>{project.done ? '완료' : project.recipeName}</small>
                 </div>
-                <GameControlButton action="research" disabled={!canAct || project.done || !project.canResearch} onClick={() => setState((current) => researchRecipeAction(current, project.recipeId))}>연구</GameControlButton>
+                <GameControlButton action="research" cue="off" disabled={!canAct || project.done || !project.canResearch} onClick={() => setState((current) => researchRecipeAction(current, project.recipeId))}>연구</GameControlButton>
               </article>
             ))}
           </div>
@@ -312,7 +312,7 @@ export default function TonkatsuAdvancedTab(props) {
             <SmallStat label="판정" value={tournament.win ? '우승권' : '부족'} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <ActionButton action="tournament" disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
+            <ActionButton action="tournament" cue="off" disabled={!canAct || !recipeStatus.unlocked} onClick={() => setState((current) => enterTournamentAction(current, recipeId, tournamentTierId))}>선택 메뉴로 출전</ActionButton>
           </div>
         </section>
 
@@ -379,13 +379,13 @@ export default function TonkatsuAdvancedTab(props) {
             </label>
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-            <ActionButton action="verdict" disabled={!canAct} onClick={() => {
+            <ActionButton action="verdict" cue="off" disabled={!canAct} onClick={() => {
               setJudgePick('A');
               setJudgeText('');
               setState((current) => startJudgeMatchAction(current, judgeTierId));
             }}>새 심사 매치</ActionButton>
-            <ActionButton action="verdict" disabled={!canAct} onClick={() => setState((current) => runJudgeBatchAction(current, judgeTierId, judgeBatchCount, judgeBatchMode))}>자동 심사 실행</ActionButton>
-            <ActionButton action="reset" disabled={!canAct || (!judge.judged && !judgeMatch)} onClick={() => setState((current) => clearJudgeHistoryAction(current))}>심사 기록 초기화</ActionButton>
+            <ActionButton action="verdict" cue="off" disabled={!canAct} onClick={() => setState((current) => runJudgeBatchAction(current, judgeTierId, judgeBatchCount, judgeBatchMode))}>자동 심사 실행</ActionButton>
+            <ActionButton action="reset" cue="off" disabled={!canAct || (!judge.judged && !judgeMatch)} onClick={() => setState((current) => clearJudgeHistoryAction(current))}>심사 기록 초기화</ActionButton>
           </div>
 
           {judgeMatch ? (
@@ -422,7 +422,7 @@ export default function TonkatsuAdvancedTab(props) {
                 <span>심사 메모</span>
                 <input value={judgeText} onChange={(event) => setJudgeText(event.target.value)} placeholder="판정 근거를 적어두세요" />
               </label>
-              <ActionButton action="verdict" disabled={!canAct || judgeMatch.resolved} onClick={() => setState((current) => submitJudgePickAction(current, judgePick, judgeText))}>판정 제출</ActionButton>
+              <ActionButton action="verdict" cue="off" disabled={!canAct || judgeMatch.resolved} onClick={() => setState((current) => submitJudgePickAction(current, judgePick, judgeText))}>판정 제출</ActionButton>
             </div>
           ) : (
             <div className="games-empty" style={{ marginTop: 14 }}>새 심사 매치를 준비하면 A/B 셰프의 제출작이 표시됩니다.</div>

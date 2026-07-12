@@ -11,7 +11,12 @@ import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
 import TonkatsuTeacherFeatureTabs from '../_components/TonkatsuTeacherFeatureTabs';
-import { tonkatsuResultCue } from '../_lib/tonkatsuTeacherFeedback';
+import {
+  tonkatsuFeedbackSnapshot,
+  tonkatsuResultCue,
+  tonkatsuResultPresentation,
+  tonkatsuTextPresentation,
+} from '../_lib/tonkatsuTeacherFeedback';
 import {
   GAME_SLUG,
   COSMETIC_SLOT_LABELS,
@@ -163,7 +168,8 @@ export default function TonkatsuTeacherPlayPage() {
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'kitchen' });
   const [state, setState] = useState(() => createNewState());
-  const feedbackRef = useRef(state);
+  const stateRef = useRef(state);
+  const feedbackRef = useRef(tonkatsuFeedbackSnapshot(state));
   const [recipeId, setRecipeId] = useState('basic_tonkatsu');
   const [ingredientId, setIngredientId] = useState('pork');
   const [studentId, setStudentId] = useState('yuuka');
@@ -177,12 +183,32 @@ export default function TonkatsuTeacherPlayPage() {
   const [judgeHistoryMode, setJudgeHistoryMode] = useState('all');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState(() => tonkatsuResultPresentation(state, state));
 
   useEffect(() => {
-    const cue = tonkatsuResultCue(feedbackRef.current, state);
+    stateRef.current = state;
+    const current = tonkatsuFeedbackSnapshot(state);
+    const cue = tonkatsuResultCue(feedbackRef.current, current);
     if (cue) playGameSfx(cue);
-    feedbackRef.current = state;
+    feedbackRef.current = current;
   }, [playGameSfx, state]);
+
+  const applyTonkatsuState = (updater) => {
+    const previousState = stateRef.current;
+    const nextState = typeof updater === 'function' ? updater(previousState) : updater;
+    const presentation = tonkatsuResultPresentation(previousState, nextState);
+    stateRef.current = nextState;
+    setState(nextState);
+    setActionResult('');
+    if (presentation.key !== 'idle') setActionPresentation(presentation);
+    return nextState;
+  };
+
+  const publishMessage = (nextMessage) => {
+    setMessage(nextMessage);
+    setActionResult(nextMessage);
+  };
 
   const recipes = recipeRows(state);
   const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
@@ -223,7 +249,8 @@ export default function TonkatsuTeacherPlayPage() {
   const tokenRows = Object.entries(state.mealTokens)
     .filter(([, qty]) => Number(qty || 0) > 0)
     .sort(([a], [b]) => recipeName(a).localeCompare(recipeName(b), 'ko-KR'));
-  const recentActionText = state.log?.[0] || '아직 실행한 운영 액션이 없습니다.';
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운영 액션이 없습니다.';
+  const resultPresentation = tonkatsuTextPresentation(recentActionText, actionPresentation);
   const selectedRecipePlan = buildSelectedRecipePlan({
     state,
     recipe,
@@ -238,7 +265,7 @@ export default function TonkatsuTeacherPlayPage() {
 
   const saveRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 운영 데이터를 서버 저장 슬롯에 저장할 수 있습니다.');
+      publishMessage('로그인하면 운영 데이터를 서버 저장 슬롯에 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -251,11 +278,11 @@ export default function TonkatsuTeacherPlayPage() {
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
-      setMessage('운영 데이터를 저장했습니다.');
+      publishMessage('운영 데이터를 저장했습니다.');
       showToast({ tone: 'success', message: '돈카츠 선생 운영 데이터를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -264,7 +291,7 @@ export default function TonkatsuTeacherPlayPage() {
 
   const loadRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 저장된 운영 데이터를 불러올 수 있습니다.');
+      publishMessage('로그인하면 저장된 운영 데이터를 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -272,18 +299,20 @@ export default function TonkatsuTeacherPlayPage() {
       const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
-        setMessage('저장된 돈카츠 선생 데이터가 없습니다.');
+        publishMessage('저장된 돈카츠 선생 데이터가 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
-      feedbackRef.current = nextState;
+      stateRef.current = nextState;
+      feedbackRef.current = tonkatsuFeedbackSnapshot(nextState);
       setState(nextState);
-      setMessage('저장된 운영 데이터를 불러왔습니다.');
+      setActionPresentation(tonkatsuResultPresentation(nextState, nextState));
+      publishMessage('저장된 운영 데이터를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 돈카츠 선생 데이터를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -292,7 +321,7 @@ export default function TonkatsuTeacherPlayPage() {
 
   const recordRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 운영 결과를 전적에 남길 수 있습니다.');
+      publishMessage('로그인하면 운영 결과를 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -307,12 +336,12 @@ export default function TonkatsuTeacherPlayPage() {
         payload: { state },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
-      setMessage('운영 결과를 전적에 기록했습니다.');
+      applyTonkatsuState((current) => ({ ...current, ended: true }));
+      publishMessage('운영 결과를 전적에 기록했습니다.');
       showToast({ tone: 'success', message: '돈카츠 선생 결과를 전적에 기록했습니다.' });
-      setState((current) => ({ ...current, ended: true }));
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -320,7 +349,7 @@ export default function TonkatsuTeacherPlayPage() {
   };
 
   const startNewRun = () => {
-    setState(createNewState());
+    applyTonkatsuState(() => createNewState());
     setRecipeId('basic_tonkatsu');
     setIngredientId('pork');
     setStudentId('yuuka');
@@ -331,11 +360,12 @@ export default function TonkatsuTeacherPlayPage() {
     setJudgeBatchCount(10);
     setJudgeBatchMode('random');
     setMessage('');
+    setActionResult('새 돈카츠 가게 영업을 시작했습니다.');
   };
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 운영</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 운영</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '운영 기록'}</GameControlButton>
@@ -398,7 +428,13 @@ export default function TonkatsuTeacherPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact storageKey="tonkatsu-teacher-operations-coach" />
-      <RecentActionResult label="이번 운영 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentActionText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <TonkatsuTeacherFeatureTabs
         canAct={canAct}
@@ -440,7 +476,7 @@ export default function TonkatsuTeacherPlayPage() {
         setJudgeTierId={setJudgeTierId}
         setRecipeId={setRecipeId}
         setRecentAutoOnly={setRecentAutoOnly}
-        setState={setState}
+        setState={applyTonkatsuState}
         setStudentId={setStudentId}
         setTournamentTierId={setTournamentTierId}
         state={state}
