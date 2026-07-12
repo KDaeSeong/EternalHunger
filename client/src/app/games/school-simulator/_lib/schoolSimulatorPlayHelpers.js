@@ -41,22 +41,6 @@ export function actionFeedbackText(previous, next, label, fallback = '') {
   return fallback || `${label}: ${after.year}년 ${after.semester}학기 ${after.week}주차 · AP ${after.ap} · 예산 ${after.budget.toLocaleString('ko-KR')}`;
 }
 
-export function schoolActionCue(previous, next) {
-  const previousSemester = `${previous.school?.year || 0}:${previous.school?.semester || 0}`;
-  const nextSemester = `${next.school?.year || 0}:${next.school?.semester || 0}`;
-  if (previousSemester !== nextSemester) return 'semester';
-
-  const previousFestival = previous.school?.festival || {};
-  const nextFestival = next.school?.festival || {};
-  const festivalCompleted = Number(nextFestival.history?.length || 0) > Number(previousFestival.history?.length || 0);
-  if (festivalCompleted) return 'festival';
-
-  const previousEventId = previous.events?.pending?.id || '';
-  const nextEventId = next.events?.pending?.id || '';
-  if (nextEventId && nextEventId !== previousEventId) return 'event';
-  return '';
-}
-
 export function ScoreBar({ label, value }) {
   const safeValue = Math.max(0, Math.min(100, Number(value || 0)));
   return (

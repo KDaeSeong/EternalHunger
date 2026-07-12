@@ -18,7 +18,12 @@ import {
   createNewState,
   runCareerCounselingAction,
 } from '../_lib/schoolSimulatorEngine';
-import { actionFeedbackText, schoolActionCue } from '../_lib/schoolSimulatorPlayHelpers';
+import { actionFeedbackText } from '../_lib/schoolSimulatorPlayHelpers';
+import {
+  schoolActionCue,
+  schoolActionPresentation,
+  schoolResultPresentation,
+} from '../_lib/schoolSimulatorFeedback';
 import { buildSchoolSimulatorPlayViewModel } from '../_lib/schoolSimulatorPlayViewModel';
 import useSchoolSimulatorPersistence from '../_hooks/useSchoolSimulatorPersistence';
 import useSchoolSimulatorSelections from '../_hooks/useSchoolSimulatorSelections';
@@ -30,6 +35,13 @@ export default function SchoolSimulatorPlayPage() {
   const playGameSfx = useGameSfx({ theme: 'school' });
   const [state, setState] = useState(() => createNewState());
   const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState({
+    action: '',
+    cue: '',
+    key: 'idle',
+    label: '운영 결과',
+    tone: '',
+  });
   const {
     actionId,
     careerTrackId,
@@ -146,6 +158,7 @@ export default function SchoolSimulatorPlayPage() {
     const nextState = updater(state);
     setState(nextState);
     setActionResult(actionFeedbackText(state, nextState, label, fallback));
+    setActionPresentation(schoolActionPresentation(state, nextState));
     const cue = schoolActionCue(state, nextState);
     if (cue) playGameSfx(cue);
   };
@@ -156,6 +169,7 @@ export default function SchoolSimulatorPlayPage() {
     resetForNewRun(nextState);
     setMessage('');
     setActionResult('새 학교 운영을 시작했습니다.');
+    setActionPresentation(schoolActionPresentation(state, nextState));
   };
 
   const applySelectedAction = () => {
@@ -230,6 +244,8 @@ export default function SchoolSimulatorPlayPage() {
     state.school.budget < 0 ? { key: 'budget', tone: 'error', text: '예산이 적자입니다. 다음 주 운영 전에 지출을 줄이거나 입학/브랜드 정책을 조정해야 합니다.' } : null,
   ];
 
+  const resultPresentation = schoolResultPresentation(recentActionText, actionPresentation);
+
   const guide = {
     title: '학교 운영 코치',
     badge: weekInfo.label,
@@ -262,7 +278,13 @@ export default function SchoolSimulatorPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact storageKey="school-simulator-operations-coach" />
-      <RecentActionResult label="이번 운영 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentActionText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <SchoolSimulatorFeatureTabs
         actionId={actionId}

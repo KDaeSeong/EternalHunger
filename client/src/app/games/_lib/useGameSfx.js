@@ -366,6 +366,28 @@ const CUE_PROFILES = {
     { frequency: 880, start: 0.11, duration: 0.09, type: 'sine', gain: 0.045 },
     { frequency: 1100, start: 0.23, duration: 0.14, type: 'sine', gain: 0.04 },
   ],
+  schoolBell: [
+    { frequency: 740, duration: 0.055, type: 'sine', gain: 0.045 },
+    { frequency: 1110, start: 0.07, duration: 0.12, type: 'sine', gain: 0.038 },
+  ],
+  schoolIncident: [
+    { frequency: 620, endFrequency: 480, duration: 0.08, type: 'square', gain: 0.038 },
+    { frequency: 620, endFrequency: 420, start: 0.11, duration: 0.1, type: 'square', gain: 0.035 },
+  ],
+  schoolResolution: [
+    { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.045 },
+    { frequency: 660, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.042 },
+    { frequency: 880, start: 0.095, duration: 0.1, type: 'sine', gain: 0.036 },
+  ],
+  schoolCrisis: [
+    { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.055, gain: 0.04 },
+    { frequency: 230, endFrequency: 150, duration: 0.12, type: 'sawtooth', gain: 0.045 },
+    { frequency: 130, start: 0.1, duration: 0.14, type: 'sine', gain: 0.032 },
+  ],
+  schoolRecovery: [
+    { frequency: 390, endFrequency: 520, duration: 0.08, type: 'sine', gain: 0.042 },
+    { frequency: 780, start: 0.07, duration: 0.12, type: 'sine', gain: 0.036 },
+  ],
   advance: [
     { frequency: 430, endFrequency: 620, duration: 0.075, type: 'triangle', gain: 0.06 },
     { frequency: 860, start: 0.06, duration: 0.07, type: 'sine', gain: 0.045 },
