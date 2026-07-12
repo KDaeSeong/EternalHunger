@@ -131,8 +131,10 @@ export default function PrimitiveArchivePlayContent() {
   const hunger = averageParty(state, 'hunger');
   const stamina = averageParty(state, 'stamina');
   const bodyTemp = averageBodyTemp(state);
-  const currentDifficulty = difficultyRows().find((row) => row.key === state.difficulty) || difficultyRows()[1];
-  const selectedDifficulty = difficultyRows().find((row) => row.key === newRunDifficulty) || difficultyRows()[1];
+  const currentDifficulty = difficultyRows().find((row) => row.key === state.difficulty)
+    || difficultyRows().find((row) => row.key === 'normal');
+  const selectedDifficulty = difficultyRows().find((row) => row.key === newRunDifficulty)
+    || difficultyRows().find((row) => row.key === 'normal');
   const score = scoreState(state);
   const {
     busy,

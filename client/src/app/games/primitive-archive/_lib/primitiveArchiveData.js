@@ -1546,6 +1546,23 @@ export const WEATHER = [
 ];
 
 export const DIFFICULTY_PRESETS = {
+  veryeasy: {
+    key: 'veryeasy',
+    label: '매우 쉬움',
+    startLabel: '이야기',
+    recommendation: '실패 부담 없이 흐름을 익히는 첫 플레이용',
+    desc: '행동 성공률을 보정하고 생존 부담을 크게 낮춥니다.',
+    ruleSummary: '행동 성공률 +15%p · 최저 82% · AP와 시작 보급이 가장 넉넉합니다.',
+    apMax: 6,
+    hungerMultiplier: 0.55,
+    coldMultiplier: 0.45,
+    staminaRecoveryMultiplier: 1.3,
+    actionChanceBonus: 0.15,
+    actionChanceFloor: 0.82,
+    actionChanceCap: 0.98,
+    scoreMultiplier: 0.65,
+    startInventory: { berry: 4, wood: 2, fiber: 1, meat: 1 },
+  },
   easy: {
     key: 'easy',
     label: '쉬움',

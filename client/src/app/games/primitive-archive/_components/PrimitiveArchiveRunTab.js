@@ -52,7 +52,7 @@ export default function PrimitiveArchiveRunTab(props) {
             </span>
             <small>{row.recommendation || row.desc}</small>
             <span className="primitive-difficulty-card__stats">
-              AP {row.apMax} · 허기 {multiplierText(row.hungerMultiplier)} · 추위 {multiplierText(row.coldMultiplier)} · 점수 {multiplierText(row.scoreMultiplier)}
+              AP {row.apMax} · 허기 {multiplierText(row.hungerMultiplier)} · 추위 {multiplierText(row.coldMultiplier)} · 성공 {Number(row.actionChanceBonus || 0) > 0 ? `+${Math.round(Number(row.actionChanceBonus) * 100)}%p` : '기본'} · 점수 {multiplierText(row.scoreMultiplier)}
             </span>
             <span className="primitive-difficulty-card__rule">{row.ruleSummary || row.desc}</span>
             <span className="primitive-difficulty-card__loadout">시작 보급: {startInventoryText(row)}</span>

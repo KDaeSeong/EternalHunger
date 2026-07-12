@@ -97,7 +97,7 @@ export function createNewState(options = {}) {
   const meta = initMetaState(options.meta);
   const difficulty = difficultyKey(options.difficulty);
   const preset = difficultyPreset(difficulty);
-  const difficultyBrief = `난이도 ${preset.label} · AP ${preset.apMax} · 허기 ${Math.round(Number(preset.hungerMultiplier || 1) * 100)}% · 추위 ${Math.round(Number(preset.coldMultiplier || 1) * 100)}%`;
+  const difficultyBrief = `난이도 ${preset.label} · AP ${preset.apMax} · 허기 ${Math.round(Number(preset.hungerMultiplier || 1) * 100)}% · 추위 ${Math.round(Number(preset.coldMultiplier || 1) * 100)}%${Number(preset.actionChanceBonus || 0) > 0 ? ` · 성공 +${Math.round(Number(preset.actionChanceBonus) * 100)}%p` : ''}`;
   const party = makeParty();
   const inventory = Object.entries(preset.startInventory || {}).reduce((acc, [itemId, qty]) => ({
     ...acc,
@@ -2836,6 +2836,8 @@ export function actionChance(state, actorId, action, base = 0.55) {
       ? Number(season.huntMod || 0)
       : 0;
   const projectBonus = action === 'gather' && hasCompletedProject(state, 'irrigation-ditch') ? 0.05 : 0;
+  const preset = difficultyPreset(state);
+  const difficultyBonus = Number(preset.actionChanceBonus || 0);
   const researchBonus =
     (action === 'gather' && hasTechPassive(state, 'GATHER_SUCCESS_UP') ? 0.06 : 0)
     + (action === 'hunt' && hasTechPassive(state, 'HUNT_SUCCESS_UP') ? 0.06 : 0)
@@ -2872,7 +2874,11 @@ export function actionChance(state, actorId, action, base = 0.55) {
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_METALLURGY_CRAFT_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'MECHANICAL_ENGINEERING_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'EARLY_STEAM_ENGINE_PRODUCTION_UP') ? 0.06 : 0);
-  return clamp(base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus, 0.08, 0.95);
+  return clamp(
+    base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus + difficultyBonus,
+    Number(preset.actionChanceFloor ?? 0.08),
+    Number(preset.actionChanceCap ?? 0.95),
+  );
 }
 
 function staminaCostWithEquipment(state, actorId, action, baseCost) {

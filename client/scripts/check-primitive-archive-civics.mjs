@@ -18,6 +18,7 @@ const feedback = await import(feedbackUrl);
 const componentRootUrl = new URL('../src/app/games/primitive-archive/_components/', import.meta.url);
 const actionWorkspaceSource = await readFile(new URL('PrimitiveArchiveActionWorkspace.js', componentRootUrl), 'utf8');
 const campWorkspaceSource = await readFile(new URL('PrimitiveArchiveCampWorkspace.js', componentRootUrl), 'utf8');
+const runTabSource = await readFile(new URL('PrimitiveArchiveRunTab.js', componentRootUrl), 'utf8');
 
 assert.doesNotMatch(
   engineSource,
@@ -30,6 +31,31 @@ assert.equal(engine.objectParticle('끈'), '끈을', '목적격 조사는 받침
 assert.equal(engine.directionParticle('정착'), '정착으로', '방향격 조사는 받침 유무를 반영해야 합니다.');
 
 const base = engine.createNewState({ rng: () => 0.5 });
+assert.deepEqual(
+  engine.difficultyRows().map((preset) => preset.key),
+  ['veryeasy', 'easy', 'normal', 'hard', 'nightmare'],
+  '난이도는 매우 쉬움부터 악몽까지 순서대로 제공되어야 합니다.',
+);
+const veryEasy = engine.createNewState({ difficulty: 'veryeasy', rng: () => 0.5, runId: 'very-easy-check' });
+assert.equal(veryEasy.difficulty, 'veryeasy', '매우 쉬움 난이도 키가 저장 상태에 유지되어야 합니다.');
+assert.equal(veryEasy.apMax, 6, '매우 쉬움은 하루 AP를 6 제공해야 합니다.');
+assert.equal(veryEasy.inventory.berry, 6, '매우 쉬움 시작 보급은 기본 열매 2개에 추가 4개를 제공해야 합니다.');
+assert.equal(veryEasy.inventory.meat, 1, '매우 쉬움은 첫 식사 실패를 완화할 고기 1개를 제공해야 합니다.');
+const pressuredVeryEasy = {
+  ...veryEasy,
+  weather: { ...veryEasy.weather, actionMod: -0.12 },
+};
+assert.ok(
+  engine.actionChance(pressuredVeryEasy, 'shiroko', 'gather', 0) >= 0.82,
+  '매우 쉬움은 날씨가 나빠도 행동 성공률 최저 82%를 보장해야 합니다.',
+);
+const normalForChance = engine.createNewState({ difficulty: 'normal', rng: () => 0.5, runId: 'normal-check' });
+assert.ok(
+  engine.actionChance(veryEasy, 'shiroko', 'gather', 0.55) > engine.actionChance(normalForChance, 'shiroko', 'gather', 0.55),
+  '매우 쉬움은 같은 조건의 보통보다 행동 성공률이 높아야 합니다.',
+);
+assert.equal(engine.normalizeState(veryEasy).difficulty, 'veryeasy', '저장 불러오기 뒤에도 매우 쉬움 난이도가 유지되어야 합니다.');
+assert.match(runTabSource, /성공.*actionChanceBonus/, '난이도 카드에는 행동 성공률 보정이 표시되어야 합니다.');
 const campLogState = engine.runCampAction(base, 'shiroko', 'fuel', { rng: () => 0.5 });
 assert.match(campLogState.log.join('\n'), /시로코가 모닥불 연료를 보충했습니다/, '캠프 행동 로그는 올바른 주격 조사를 사용해야 합니다.');
 const overlap = engine.TECHNOLOGY_TREE.filter((technology) => (

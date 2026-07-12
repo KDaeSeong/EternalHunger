@@ -511,6 +511,7 @@ export function buildResearchMap(techs) {
 
 export const BASE_START_INVENTORY = { wood: 2, stone: 2, fiber: 2, berry: 2 };
 export const FALLBACK_DIFFICULTY_TAGS = {
+  veryeasy: '이야기',
   easy: '입문',
   normal: '표준',
   hard: '압박',
