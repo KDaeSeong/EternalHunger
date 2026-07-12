@@ -1,3 +1,5 @@
+import { withAdvancementLore } from './primitiveArchiveAdvancementLore';
+
 export const GAME_SLUG = 'primitive-archive';
 export const QUICK_SAVE_SLOT = 'primitive-archive-main';
 export const SAVE_VERSION = 'primitive-archive-v1';
@@ -452,7 +454,7 @@ export const CIVIC_TIER_DEFS = [
   { tier: 20, name: '근세 사상', era: 'EARLY_MODERN' },
 ];
 
-export const TECH_TREE = [
+const RAW_TECH_TREE = [
   {
     id: 'GATHERING', name: '채집', era: 'PRIMITIVE', tier: 1, cost: 10, prereqs: [], tags: ['SURVIVAL'], archiveRequired: true,
     description: '식물과 지형을 읽어 기본 자원을 안정적으로 확보합니다.',
@@ -1456,6 +1458,8 @@ export const TECH_TREE = [
     inspiration: { type: 'haveItem', itemId: 'herb_tonic', count: 4, bonusPct: 0.25, desc: '약초 달임 4개와 위생 기록 비축' },
   },
 ];
+
+export const TECH_TREE = RAW_TECH_TREE.map(withAdvancementLore);
 
 export const CIVIC_IDS = [
   'ORAL_RECORDS',

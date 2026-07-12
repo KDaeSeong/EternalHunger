@@ -9156,6 +9156,36 @@
   line-height: 1.55;
 }
 
+.primitive-advancement-quote {
+  margin: 0;
+  border-left: 2px solid #8db8cf;
+  background: #edf6fa;
+  padding: 9px 10px;
+}
+
+.primitive-advancement-quote p {
+  margin: 0;
+  color: #29495d;
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1.5;
+}
+
+.primitive-advancement-quote cite {
+  display: block;
+  margin-top: 5px;
+  color: #617786;
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.primitive-advancement-quote a {
+  color: #176895;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .primitive-research-inspector__section {
   min-width: 0;
   display: grid;

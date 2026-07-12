@@ -15,6 +15,7 @@ import {
   advancementAction,
   advancementTierLabel,
 } from '../_lib/primitiveArchivePageRuntime';
+import PrimitiveArchiveAdvancementQuote from './PrimitiveArchiveAdvancementQuote';
 import PrimitiveArchiveProjectsPanel from './PrimitiveArchiveProjectsPanel';
 import PrimitiveArchiveResearchTreePreview from './PrimitiveArchiveResearchTreePreview';
 
@@ -476,6 +477,7 @@ export default function PrimitiveArchiveGrowthTab(props) {
                     <strong>{focusedTreeNode.progress}/{focusedTreeNode.cost}{pointLabel}</strong>
                   </div>
                   <p>{focusedTreeNode.description || focusedTreeNode.nextStepText}</p>
+                  <PrimitiveArchiveAdvancementQuote quote={focusedTreeNode.quote} />
                   <div className="primitive-research-inspector__section">
                     <span>선행 발전</span>
                     <div className="games-chip-row">

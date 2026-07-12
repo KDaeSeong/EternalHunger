@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const rootUrl = new URL('../src/app/games/primitive-archive/_lib/', import.meta.url);
-const dataSource = await readFile(new URL('primitiveArchiveData.js', rootUrl), 'utf8');
+const loreSource = await readFile(new URL('primitiveArchiveAdvancementLore.js', rootUrl), 'utf8');
+const loreUrl = `data:text/javascript;base64,${Buffer.from(loreSource).toString('base64')}`;
+const dataSource = (await readFile(new URL('primitiveArchiveData.js', rootUrl), 'utf8'))
+  .replace("from './primitiveArchiveAdvancementLore';", `from '${loreUrl}';`);
 const dataUrl = `data:text/javascript;base64,${Buffer.from(dataSource).toString('base64')}`;
 const engineSource = (await readFile(new URL('primitiveArchiveEngine.js', rootUrl), 'utf8'))
   .replaceAll("} from './primitiveArchiveData';", `} from '${dataUrl}';`);
@@ -19,6 +22,9 @@ const componentRootUrl = new URL('../src/app/games/primitive-archive/_components
 const actionWorkspaceSource = await readFile(new URL('PrimitiveArchiveActionWorkspace.js', componentRootUrl), 'utf8');
 const campWorkspaceSource = await readFile(new URL('PrimitiveArchiveCampWorkspace.js', componentRootUrl), 'utf8');
 const runTabSource = await readFile(new URL('PrimitiveArchiveRunTab.js', componentRootUrl), 'utf8');
+const growthTabSource = await readFile(new URL('PrimitiveArchiveGrowthTab.js', componentRootUrl), 'utf8');
+const researchPreviewSource = await readFile(new URL('PrimitiveArchiveResearchTreePreview.js', componentRootUrl), 'utf8');
+const advancementQuoteSource = await readFile(new URL('PrimitiveArchiveAdvancementQuote.js', componentRootUrl), 'utf8');
 
 assert.doesNotMatch(
   engineSource,
@@ -63,13 +69,60 @@ const overlap = engine.TECHNOLOGY_TREE.filter((technology) => (
 ));
 assert.equal(overlap.length, 0, '기술과 사회 제도 목록이 겹치면 안 됩니다.');
 assert.ok(engine.TECHNOLOGY_TREE.length > engine.CIVIC_TREE.length, '기술과 사회 제도 목록이 비어 있으면 안 됩니다.');
+const allAdvancements = [...engine.TECHNOLOGY_TREE, ...engine.CIVIC_TREE];
+const advancementById = Object.fromEntries(engine.TECH_TREE.map((advancement) => [advancement.id, advancement]));
+assert.ok(
+  allAdvancements.every((advancement) => (
+    advancement.quote?.text
+    && advancement.quote?.author
+    && advancement.quote?.work
+    && /^https:\/\//.test(advancement.quote?.sourceUrl || '')
+  )),
+  '모든 기술과 사회 제도에는 인용문, 저자, 저작, 출처 URL이 있어야 합니다.',
+);
+assert.ok(
+  new Set(allAdvancements.map((advancement) => advancement.quote.key)).size >= 18,
+  '인용구는 기술 주제에 맞게 충분히 다양한 고전 출처를 사용해야 합니다.',
+);
+assert.equal(
+  new Set(engine.TECHNOLOGY_TREE.map((technology) => technology.name)).size,
+  engine.TECHNOLOGY_TREE.length,
+  '기술 표시 이름은 중복되면 안 됩니다.',
+);
+assert.equal(
+  new Set(engine.CIVIC_TREE.map((civic) => civic.name)).size,
+  engine.CIVIC_TREE.length,
+  '사회 제도 표시 이름은 중복되면 안 됩니다.',
+);
+const expectedCivilizationStyleNames = {
+  FIREMAKING: '불의 이용',
+  BASIC_MATH: '수학',
+  BASIC_PHILOSOPHY: '철학',
+  EARLY_CONSTRUCTION: '건축술',
+  ASTRONOMY_EARLY: '천문학',
+  EARLY_HORSEBACK: '기마술',
+  EARLY_IRONWORKING: '철기 가공',
+  BASIC_SHIPBUILDING: '조선술',
+  EARLY_CURRENCY: '화폐',
+  MOVABLE_TYPE_PRINTING: '인쇄술',
+  GUNPOWDER_MILL: '화약',
+  EARLY_STEAM_ENGINE: '증기력',
+  FEUDAL_CONTRACT: '봉건제',
+  BUREAUCRATIC_STATE: '관료제',
+  SOCIAL_CONTRACT: '사회 계약',
+};
+Object.entries(expectedCivilizationStyleNames).forEach(([id, name]) => {
+  assert.equal(advancementById[id]?.name, name, `${id}는 문명식 간결한 표시 이름을 사용해야 합니다.`);
+});
+assert.match(growthTabSource, /PrimitiveArchiveAdvancementQuote quote=\{focusedTreeNode\.quote\}/, '진행 중 발전 트리는 인용구를 표시해야 합니다.');
+assert.match(researchPreviewSource, /PrimitiveArchiveAdvancementQuote quote=\{focusedNode\.quote\}/, '발전 트리 미리보기는 인용구를 표시해야 합니다.');
+assert.match(advancementQuoteSource, /target="_blank"/, '인용구 출처는 새 탭에서 원문을 열어야 합니다.');
 assert.ok(engine.CIVIC_TREE.every((civic) => civic.inspiration), '모든 사회 제도에는 영감 조건이 있어야 합니다.');
 assert.ok(engine.TECHNOLOGY_TREE.every((technology) => !technology.inspiration), '기술 트리에는 영감 조건이 남으면 안 됩니다.');
 assert.ok(engine.CIVIC_TREE.every((civic) => !civic.eureka), '사회 제도 트리에는 유레카 조건이 남으면 안 됩니다.');
 
 const technologyIds = new Set(engine.TECHNOLOGY_TREE.map((technology) => technology.id));
 const civicIds = new Set(engine.CIVIC_TREE.map((civic) => civic.id));
-const advancementById = Object.fromEntries(engine.TECH_TREE.map((advancement) => [advancement.id, advancement]));
 const trackForId = (id) => civicIds.has(id) ? 'civics' : technologyIds.has(id) ? 'technology' : '';
 engine.TECH_TREE.forEach((advancement) => {
   (advancement.prereqs || []).forEach((prereqId) => {
@@ -540,6 +593,8 @@ console.log(JSON.stringify({
   earlyModernCivics: earlyModernCivics.length,
   technologyEdges: technologyMap.edges.length,
   civicEdges: civicMap.edges.length,
+  quoteSources: new Set(allAdvancements.map((advancement) => advancement.quote.sourceUrl)).size,
+  quoteThemes: new Set(allAdvancements.map((advancement) => advancement.quote.key)).size,
   crossTrackGates: crossTrackGateCount,
   totalPrerequisites: totalPrerequisiteCount,
   earlyTechnologyDensity: technologyMap.tierHeaders.slice(0, 4).map((tier) => tier.count),

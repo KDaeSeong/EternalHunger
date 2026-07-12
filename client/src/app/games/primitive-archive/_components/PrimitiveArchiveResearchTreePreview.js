@@ -8,6 +8,7 @@ import {
   RESEARCH_TAG_LABELS,
   advancementAction,
 } from '../_lib/primitiveArchivePageRuntime';
+import PrimitiveArchiveAdvancementQuote from './PrimitiveArchiveAdvancementQuote';
 
 export default function PrimitiveArchiveResearchTreePreview({ researchMap, track = 'technology' }) {
   const isCivics = track === 'civics';
@@ -163,6 +164,7 @@ export default function PrimitiveArchiveResearchTreePreview({ researchMap, track
                 <strong>비용 {focusedNode.cost}{pointLabel}</strong>
               </div>
               <p>{focusedNode.description || focusedNode.nextStepText}</p>
+              <PrimitiveArchiveAdvancementQuote quote={focusedNode.quote} />
               <div className="primitive-research-inspector__section">
                 <span>선행 발전</span>
                 <div className="games-chip-row">
