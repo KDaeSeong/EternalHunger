@@ -54,15 +54,16 @@ export function SmallStat({ label, value }) {
 }
 
 export function RecentActionResult({ action = '', label = '최근 결과', text, pinned = false, tone = '' }) {
+  const resultAction = resolveGameAction(action, label, text).kind;
   const className = [
     'games-action-result',
     pinned ? 'games-action-result--pinned' : '',
-    action ? 'games-action-result--with-icon' : '',
+    'games-action-result--with-icon',
     tone ? 'is-' + tone : '',
   ].filter(Boolean).join(' ');
   return (
     <div className={className} role="status" aria-live="polite">
-      {action ? <GameActionIcon action={action} className="games-action-result__icon" label={label} /> : null}
+      <GameActionIcon action={resultAction} className="games-action-result__icon" label={label} />
       <span className="games-action-result__label">{label}</span>
       <strong className="games-action-result__text">{text}</strong>
     </div>

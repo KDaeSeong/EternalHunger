@@ -1,8 +1,14 @@
 'use client';
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { inferGameActionSemantic } from './gameActionSemantics';
+import {
+  GAME_SFX_PREFERENCE_EVENT,
+  gameSfxPreferenceKey,
+  readGameSfxPreference,
+  writeGameSfxPreference,
+} from './gameSfxPreferences';
 
 const GAME_SFX_PATH_THEMES = [
   ['eternalhunger', 'battle'],
@@ -36,6 +42,14 @@ const CUE_PROFILES = {
   toggle: [
     { frequency: 360, endFrequency: 460, duration: 0.075, type: 'sine', gain: 0.1 },
   ],
+  audioOn: [
+    { frequency: 440, endFrequency: 620, duration: 0.07, type: 'triangle', gain: 0.075 },
+    { frequency: 880, start: 0.055, duration: 0.11, type: 'sine', gain: 0.05 },
+  ],
+  audioOff: [
+    { frequency: 620, endFrequency: 360, duration: 0.085, type: 'triangle', gain: 0.065 },
+    { frequency: 190, start: 0.065, duration: 0.08, type: 'sine', gain: 0.035 },
+  ],
   nav: [
     { frequency: 620, endFrequency: 820, duration: 0.07, type: 'sine', gain: 0.08 },
   ],
@@ -56,6 +70,10 @@ const CUE_PROFILES = {
   ],
   load: [
     { frequency: 760, endFrequency: 520, duration: 0.075, type: 'triangle', gain: 0.065 },
+  ],
+  sync: [
+    { frequency: 760, endFrequency: 460, duration: 0.075, type: 'triangle', gain: 0.052 },
+    { frequency: 520, endFrequency: 820, start: 0.07, duration: 0.11, type: 'sine', gain: 0.045 },
   ],
   archive: [
     { frequency: 460, duration: 0.04, type: 'triangle', gain: 0.06 },
@@ -1015,7 +1033,7 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
   const resolvedTheme = useMemo(() => resolveGameSfxTheme(theme, pathname), [pathname, theme]);
 
   return useCallback((cue = 'click') => {
-    if (!enabled) return;
+    if (!enabled || !readGameSfxPreference(resolvedTheme)) return;
     const nowMs = Date.now();
     if (nowMs - lastPlayedAtRef.current < 28) return;
     lastPlayedAtRef.current = nowMs;
@@ -1037,6 +1055,51 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
       // Audio failures should never block gameplay.
     }
   }, [enabled, resolvedTheme, volume]);
+}
+
+export function useGameSfxPreference({ theme = 'auto' } = {}) {
+  const pathname = usePathname();
+  const resolvedTheme = useMemo(() => resolveGameSfxTheme(theme, pathname), [pathname, theme]);
+  const subscribe = useCallback((notify) => {
+    const handlePreference = (event) => {
+      if (event?.detail?.theme && event.detail.theme !== resolvedTheme) return;
+      notify();
+    };
+    const handleStorage = (event) => {
+      if (event.key !== gameSfxPreferenceKey(resolvedTheme)) return;
+      notify();
+    };
+
+    window.addEventListener(GAME_SFX_PREFERENCE_EVENT, handlePreference);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener(GAME_SFX_PREFERENCE_EVENT, handlePreference);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [resolvedTheme]);
+  const getSnapshot = useCallback(() => readGameSfxPreference(resolvedTheme), [resolvedTheme]);
+  const getServerSnapshot = useCallback(() => true, []);
+  const enabled = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  const setPreference = useCallback((nextEnabled) => {
+    const next = writeGameSfxPreference(resolvedTheme, nextEnabled);
+    window.dispatchEvent(new CustomEvent(GAME_SFX_PREFERENCE_EVENT, {
+      detail: { enabled: next, theme: resolvedTheme },
+    }));
+    return next;
+  }, [resolvedTheme]);
+
+  const toggle = useCallback(
+    () => setPreference(!readGameSfxPreference(resolvedTheme)),
+    [resolvedTheme, setPreference],
+  );
+
+  return {
+    enabled,
+    resolvedTheme,
+    setPreference,
+    toggle,
+  };
 }
 
 export function isDisabledGameSfxControl(control) {

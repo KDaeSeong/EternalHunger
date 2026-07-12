@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import GameActionIcon from './GameActionIcon';
+import GameSoundControl from './GameSoundControl';
 import { useGameSfxEventHandlers } from '../_lib/useGameSfx';
 
 const DEFAULT_METRIC_LIMITS = {
@@ -132,7 +133,10 @@ export default function GamePlayShell({
             <h1>{title}</h1>
             {description ? <p>{description}</p> : null}
           </div>
-          {actions ? <div className="games-hero-actions">{actions}</div> : null}
+          <div className="games-hero-actions">
+            {actions}
+            <GameSoundControl />
+          </div>
         </section>
 
         {visibleMetrics.length ? (

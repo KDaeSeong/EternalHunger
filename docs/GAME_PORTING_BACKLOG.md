@@ -13,7 +13,9 @@ Checked: 2026-07-04
 - Playable routes can share `GamePlayShell` for header, actions, summary metrics, and status messages.
 - Playable routes share lightweight Web Audio SFX for buttons, tabs, selects, navigation, and warning actions.
 - Game routes resolve a lightweight SFX theme by slug. Common action buttons also distinguish gathering, combat, crafting, research, trade, saving, and other gameplay semantics, then layer the current game's short audio signature over the action cue.
+- Every shared play shell now exposes a compact per-theme sound toggle. The setting persists by game sound theme and also gates state-driven result cues, while enabling and disabling sound use separate confirmation signatures.
 - Hub/detail cards use object-only SVG icons. Feature tabs and common gameplay actions use object-only Lucide icons with no people, faces, hands, portraits, avatars, or humanoid silhouettes.
+- Recent-result panels infer their object icon from the action label and result text, so operation, battle, research, market, school, and archive outcomes no longer fall back to text-only status rows.
 - Dual Academy TCG and BA Vanguard also route their board-specific summon, chain, pass, shuffle, ride, guard, skill, zone, and replay controls through the shared icon/SFX layer while card surfaces keep their compact visual treatment.
 
 ## Recommended First Port

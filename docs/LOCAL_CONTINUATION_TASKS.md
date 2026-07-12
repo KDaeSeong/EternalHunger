@@ -28,6 +28,7 @@ npm run build
 
 ## Current State
 
+- Shared `GamePlayShell` routes now include a compact per-theme sound toggle backed by `gameSfxPreferences.js`. The preference persists by theme and is honored by both control sounds and state-driven result cues. `RecentActionResult` also infers an action icon from its label/result context, covering more than 40 existing result panels without page-specific wiring. `check:game-feedback-shell` guards route themes, preference storage, dedicated cue coverage, and feedback icon coverage.
 - `client/src/app/games/company-report/play/page.js` is roughly 380 lines and delegates panels, persistence, selections, and derived view data.
 - Company Report tab UI now lives in `client/src/app/games/company-report/_components/CompanyReportFeatureTabs.js`.
 - Company Report lower detail panel layout now lives in `client/src/app/games/company-report/_components/CompanyReportDetailPanels.js` and is mounted only inside the `상세 원장` feature tab, avoiding a duplicated full-page render.

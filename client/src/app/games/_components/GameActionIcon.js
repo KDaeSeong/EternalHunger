@@ -128,6 +128,7 @@ const ACTION_ICONS = {
   combat: Swords,
   comeback: TrendingUp,
   complete: BadgeCheck,
+  confirm: BadgeCheck,
   counsel: HeartHandshake,
   cook: CookingPot,
   contract: FileSignature,
