@@ -8,6 +8,7 @@ export default function CompanyReportVatInventoryPanels({
   inventoryValuations,
   inventoryWriteDowns,
   recentActionText,
+  resultPresentation,
   report,
   runVatPayment,
   selectedVatRow,
@@ -62,7 +63,8 @@ export default function CompanyReportVatInventoryPanels({
           </article>
         </div>
         <ActionButton
-          action="settle"
+          action="tax"
+          cue="off"
           disabled={!selectedVatRow || selectedVatRow.remainingAmount <= 0 || vatPayAmount <= 0 || vatPayAmount > selectedVatRow.remainingAmount || Number(state.company.cashKrw || 0) < vatPayAmount}
           onClick={runVatPayment}
         >
@@ -100,8 +102,8 @@ export default function CompanyReportVatInventoryPanels({
           <SmallStat label="손상잔액" value={formatMoney(report.inventoryWriteDownBalance)} />
           <SmallStat label="재고장부" value={formatMoney(report.inventoryAmount)} />
         </div>
-        <ActionButton action="analysis" onClick={() => applyLedgerAction('현재 월 재고평가', (current) => closeInventoryValuationAction(current))}>현재 월 재고평가 실행</ActionButton>
-        <RecentActionResult label="최근 재고평가 결과" text={recentActionText} />
+        <ActionButton action="valuation" cue="off" onClick={() => applyLedgerAction('현재 월 재고평가', (current) => closeInventoryValuationAction(current))}>현재 월 재고평가 실행</ActionButton>
+        <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         <div className="game-save-list">
           {inventoryWriteDowns.length ? inventoryWriteDowns.slice(0, 6).map((row) => (
             <article className="game-save-row" key={row.id}>

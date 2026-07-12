@@ -25,10 +25,14 @@ export default function useCompanyReportPersistence({
 }) {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const publishResult = (nextMessage) => {
+    setMessage(nextMessage);
+    setActionResult(nextMessage);
+  };
 
   const saveRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 Company Report 원장 상태를 저장할 수 있습니다.');
+      publishResult('로그인하면 Company Report 원장 상태를 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -41,12 +45,11 @@ export default function useCompanyReportPersistence({
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
-      setMessage('Company Report 원장 상태를 저장했습니다.');
-      setActionResult('Company Report 원장 상태를 빠른 저장 슬롯에 저장했습니다.');
+      publishResult('Company Report 원장 상태를 빠른 저장 슬롯에 저장했습니다.');
       showToast({ tone: 'success', message: 'Company Report 원장 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
+      publishResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -55,7 +58,7 @@ export default function useCompanyReportPersistence({
 
   const loadRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 저장된 Company Report 원장 상태를 불러올 수 있습니다.');
+      publishResult('로그인하면 저장된 Company Report 원장 상태를 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -63,7 +66,7 @@ export default function useCompanyReportPersistence({
       const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
-        setMessage('저장된 Company Report 원장 상태가 없습니다.');
+        publishResult('저장된 Company Report 원장 상태가 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
@@ -72,12 +75,11 @@ export default function useCompanyReportPersistence({
       setState(nextState);
       setGuidanceLevel(normalizeCompanyReportGuidanceLevel(payload.guidanceLevel));
       onLoaded?.(nextState);
-      setMessage('저장된 Company Report 원장 상태를 불러왔습니다.');
-      setActionResult(nextState.log?.[0] || '저장된 Company Report 원장 상태를 불러왔습니다.');
+      publishResult('저장된 Company Report 원장 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Company Report 원장 상태를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
+      publishResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -86,7 +88,7 @@ export default function useCompanyReportPersistence({
 
   const recordRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 Company Report 결산 기록을 전적에 남길 수 있습니다.');
+      publishResult('로그인하면 Company Report 결산 기록을 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -101,12 +103,11 @@ export default function useCompanyReportPersistence({
         payload: { state, guidanceLevel },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
-      setMessage('Company Report 결산 기록을 전적에 남겼습니다.');
-      setActionResult('Company Report 결산 기록을 전적에 남겼습니다.');
+      publishResult('Company Report 결산 기록을 전적에 남겼습니다.');
       showToast({ tone: 'success', message: 'Company Report 결산 기록을 전적에 남겼습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
+      publishResult(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');

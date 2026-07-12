@@ -41,7 +41,7 @@ npm run build
 - Company Report read-only play view model now lives in `client/src/app/games/company-report/_lib/companyReportPlayViewModel.js`.
 - Company Report save/load/record actions now live in `client/src/app/games/company-report/_hooks/useCompanyReportPersistence.js`.
 - Company Report controlled selections now live in `client/src/app/games/company-report/_hooks/useCompanyReportSelections.js`.
-- Company Report now uses a compact hero, micro summary, collapsible guidance panel, horizontally scrollable feature tabs, and dense business stat cells. Ledger actions use explicit finance/trade/settlement/archive icons, while `client/src/app/games/company-report/_lib/companyReportFeedback.js` maps state outcomes to dedicated order, collection, VAT, closing, global, capital, and archive cues.
+- Company Report now uses a compact hero, micro summary, collapsible guidance panel, horizontally scrollable feature tabs, and dense business stat cells. `client/src/app/games/company-report/_lib/companyReportFeedback.js` classifies 24 ledger transitions, and the page uses a latest-state ref so rapid actions cannot overwrite each other. Twelve result panels receive the same action icon/tone, state-changing buttons suppress their preliminary click cue, and `npm run check:company-report-feedback` exercises the real engine flows plus 23 required result cues.
 - School Simulator feature tabs now live in `client/src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js`.
 - School Simulator advanced/detail operation tab is split into:
   - `client/src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js`

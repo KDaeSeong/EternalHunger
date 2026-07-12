@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameActionIcon from '../../_components/GameActionIcon';
@@ -34,7 +34,10 @@ import {
 import useCompanyReportPersistence from '../_hooks/useCompanyReportPersistence';
 import useCompanyReportSelections from '../_hooks/useCompanyReportSelections';
 import { actionFeedbackText, downloadTextFile, safeFilePart } from '../_lib/companyReportPlayHelpers';
-import { companyReportResultCue } from '../_lib/companyReportFeedback';
+import {
+  companyReportResultPresentation,
+  companyReportTextPresentation,
+} from '../_lib/companyReportFeedback';
 
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
@@ -42,8 +45,10 @@ export default function CompanyReportPlayPage() {
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'ledger' });
   const [state, setState] = useState(() => createNewState());
+  const stateRef = useRef(state);
   const [guidanceLevel, setGuidanceLevel] = useState('outsider');
   const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState(() => companyReportResultPresentation(state, state));
   const {
     disclosureTypeId,
     financingTypeId,
@@ -78,6 +83,11 @@ export default function CompanyReportPlayPage() {
     setVatPaymentAmount,
     vatPaymentAmount,
   } = useCompanyReportSelections();
+  const handleLoadedRun = (nextState) => {
+    stateRef.current = nextState;
+    resetForLoadedRun(nextState);
+    setActionPresentation(companyReportResultPresentation(nextState, nextState));
+  };
 
   const viewModel = useMemo(() => buildCompanyReportPlayViewModel({
     restoreMode,
@@ -136,7 +146,7 @@ export default function CompanyReportPlayPage() {
     setMessage,
   } = useCompanyReportPersistence({
     guidanceLevel,
-    onLoaded: resetForLoadedRun,
+    onLoaded: handleLoadedRun,
     score,
     setActionResult,
     setGuidanceLevel,
@@ -158,15 +168,21 @@ export default function CompanyReportPlayPage() {
   });
   const exportBaseName = buildCompanyReportExportBaseName(state);
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 원장 액션이 없습니다.';
+  const resultPresentation = companyReportTextPresentation(recentActionText, actionPresentation);
 
   const applyLedgerAction = (label, updater, fallback = '') => {
-    const nextState = updater(state);
+    const previousState = stateRef.current;
+    const nextState = updater(previousState);
+    const presentation = companyReportResultPresentation(previousState, nextState);
+    stateRef.current = nextState;
     setState(nextState);
-    setActionResult(actionFeedbackText(state, nextState, label, fallback));
-    playGameSfx(companyReportResultCue(label, state, nextState));
+    setActionPresentation(presentation);
+    setActionResult(actionFeedbackText(previousState, nextState, label, fallback));
+    if (presentation.cue) playGameSfx(presentation.cue);
+    return nextState;
   };
 
-  const buildExportPayload = (exportedState = state) => {
+  const buildExportPayload = (exportedState = stateRef.current) => {
     return buildCompanyReportExportPayload({
       restoreMode,
       selectedRestoreTables,
@@ -175,11 +191,12 @@ export default function CompanyReportPlayPage() {
   };
 
   const downloadProgressJson = () => {
-    const exportedState = createProgressExportAction(state);
+    const exportedState = applyLedgerAction(
+      'JSON 다운로드',
+      (current) => createProgressExportAction(current),
+      '진행 보고서 JSON 다운로드 이력을 추가했습니다.',
+    );
     const payload = buildExportPayload(exportedState);
-    setState(exportedState);
-    setActionResult(actionFeedbackText(state, exportedState, 'JSON 다운로드', '진행 보고서 JSON 다운로드 이력을 추가했습니다.'));
-    playGameSfx('archive');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.json`,
       JSON.stringify(payload, null, 2),
@@ -189,11 +206,12 @@ export default function CompanyReportPlayPage() {
   };
 
   const downloadProgressCsv = () => {
-    const exportedState = createProgressExportAction(state);
+    const exportedState = applyLedgerAction(
+      'CSV 다운로드',
+      (current) => createProgressExportAction(current),
+      '진행 보고서 CSV 다운로드 이력을 추가했습니다.',
+    );
     const payload = buildExportPayload(exportedState);
-    setState(exportedState);
-    setActionResult(actionFeedbackText(state, exportedState, 'CSV 다운로드', '진행 보고서 CSV 다운로드 이력을 추가했습니다.'));
-    playGameSfx('archive');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-progress.csv`,
       buildCompanyReportExportCsv(payload),
@@ -203,9 +221,11 @@ export default function CompanyReportPlayPage() {
   };
 
   const downloadRestorePlanJson = () => {
-    const payload = buildExportPayload(state);
-    setActionResult('복원 계획 JSON 다운로드를 준비했습니다.');
-    playGameSfx('archive');
+    const payload = buildExportPayload();
+    const nextMessage = '복원 계획 JSON 다운로드를 준비했습니다.';
+    setActionResult(nextMessage);
+    setActionPresentation(companyReportTextPresentation(nextMessage));
+    playGameSfx('reportExported');
     downloadTextFile(
       `${safeFilePart(exportBaseName)}-restore-plan.json`,
       JSON.stringify({
@@ -234,16 +254,20 @@ export default function CompanyReportPlayPage() {
   };
 
   const startNewRun = () => {
+    const previousState = stateRef.current;
     const nextState = createNewState();
+    stateRef.current = nextState;
     setState(nextState);
     resetForNewRun();
+    setActionPresentation(companyReportResultPresentation(previousState, nextState));
     setActionResult('새 Company Report 원장을 시작했습니다.');
     setMessage('');
+    playGameSfx('start');
   };
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 원장</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 원장</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -303,6 +327,7 @@ export default function CompanyReportPlayPage() {
       quantity={quantity}
       receivables={receivables}
       recentActionText={recentActionText}
+      resultPresentation={resultPresentation}
       report={report}
       restoreMode={restoreMode}
       restorePlan={restorePlan}
@@ -354,7 +379,13 @@ export default function CompanyReportPlayPage() {
         level={guidanceLevel}
         onLevelChange={setGuidanceLevel}
       />
-      <RecentActionResult label="최근 원장 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentActionText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <CompanyReportFeatureTabs
         applyLedgerAction={applyLedgerAction}
@@ -380,6 +411,7 @@ export default function CompanyReportPlayPage() {
         productId={productId}
         quantity={quantity}
         recentActionText={recentActionText}
+        resultPresentation={resultPresentation}
         report={report}
         reportTrend={reportTrend}
         restoreMode={restoreMode}

@@ -8,7 +8,7 @@ import {
   LEDGER_RESTORE_MODES,
   LEDGER_RESTORE_TABLES,
   LEDGER_TABLE_PARENT_DEPENDENCIES,
-} from './companyReportData';
+} from './companyReportData.js';
 
 export {
   GAME_SLUG,
@@ -23,7 +23,7 @@ export {
   LEDGER_RESTORE_MODES,
   LEDGER_RESTORE_TABLES,
   LEDGER_TABLE_PARENT_DEPENDENCIES,
-} from './companyReportData';
+} from './companyReportData.js';
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();

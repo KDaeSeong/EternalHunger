@@ -35,16 +35,16 @@ import {
 import { getMarketName, getProductName } from '../_lib/companyReportPlayHelpers';
 
 const OPERATION_ACTION_ICONS = {
-  'collect-receivable': 'trade',
-  'ship-order': 'sales',
-  'pay-vat': 'settle',
-  'collect-foreign': 'trade',
+  'collect-receivable': 'collection',
+  'ship-order': 'shipment',
+  'pay-vat': 'tax',
+  'collect-foreign': 'collection',
   'settle-global': 'settle',
-  disclosure: 'edict',
-  snapshot: 'archive',
-  'restore-dry-run': 'sync',
-  bookmark: 'archive',
-  close: 'settle',
+  disclosure: 'disclosure',
+  snapshot: 'snapshot',
+  'restore-dry-run': 'analysis',
+  bookmark: 'bookmark',
+  close: 'closing',
 };
 
 function buildOperationQueue({
@@ -219,6 +219,7 @@ export default function CompanyReportFeatureTabs({
   productId,
   quantity,
   recentActionText,
+  resultPresentation,
   report,
   reportTrend,
   restoreMode,
@@ -357,6 +358,7 @@ export default function CompanyReportFeatureTabs({
                         </div>
                         <GameControlButton
                           action={OPERATION_ACTION_ICONS[item.action] || 'execute'}
+                          cue="off"
                           className="tcg-primary-action"
                           onClick={() => runOperationQueueAction(item)}
                         >
@@ -404,11 +406,11 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="거래처" value={PARTNERS.find((partner) => partner.id === partnerId)?.name || partnerId} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="order" onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
-                    <ActionButton action="craft" onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
-                    <ActionButton action="sales" onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
+                    <ActionButton action="order" cue="off" onClick={() => applyLedgerAction('주문 생성', (current) => createOrderAction(current, partnerId, productId, quantity))}>주문 생성</ActionButton>
+                    <ActionButton action="production" cue="off" onClick={() => applyLedgerAction('생산 입고', (current) => inboundInventoryAction(current, productId, quantity))}>선택 상품 생산 입고</ActionButton>
+                    <ActionButton action="sales" cue="off" onClick={() => applyLedgerAction('상품 캠페인', (current) => marketingCampaignAction(current, productId))}>선택 상품 캠페인</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 거래 결과" text={recentActionText} />
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -421,8 +423,8 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="선택 주문" value={selectedOrder?.status || '-'} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="sales" disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
-                    <ActionButton action="trade" disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
+                    <ActionButton action="shipment" cue="off" disabled={!selectedOrder} onClick={() => applyLedgerAction('주문 출고', (current) => shipOrderAction(current, selectedOrder?.id))}>선택 주문 출고</ActionButton>
+                    <ActionButton action="collection" cue="off" disabled={!selectedReceivable || selectedReceivable.remaining <= 0} onClick={() => applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id))}>선택 채권 회수</ActionButton>
                   </div>
                 </section>
               </section>
@@ -446,10 +448,10 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="자본" value={formatMoney(report.equity)} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="analysis" onClick={() => applyLedgerAction('월말 재고평가', (current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
-                    <ActionButton action="settle" onClick={() => applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
+                    <ActionButton action="valuation" cue="off" onClick={() => applyLedgerAction('월말 재고평가', (current) => closeInventoryValuationAction(current))}>월말 재고평가</ActionButton>
+                    <ActionButton action="closing" cue="off" onClick={() => applyLedgerAction('월말 결산', (current) => monthEndCloseAction(current))}>월말 결산</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 결산 결과" text={recentActionText} />
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -462,7 +464,8 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="납부액" value={formatMoney(vatPayAmount)} />
                   </div>
                   <ActionButton
-                    action="settle"
+                    action="tax"
+                    cue="off"
                     disabled={!selectedVatRow || selectedVatRow.remainingAmount <= 0 || vatPayAmount <= 0 || vatPayAmount > selectedVatRow.remainingAmount || Number(state.company.cashKrw || 0) < vatPayAmount}
                     onClick={runVatPayment}
                   >
@@ -490,11 +493,11 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="헤지" value={globalSummary.hedgeCount} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="contract" onClick={() => applyLedgerAction('수출 계획 등록', (current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
-                    <ActionButton action="contract" onClick={() => applyLedgerAction('수입 계획 등록', (current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
-                    <ActionButton action="settle" onClick={() => applyLedgerAction('글로벌 정산', (current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
+                    <ActionButton action="export" cue="off" onClick={() => applyLedgerAction('수출 계획 등록', (current) => createExportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수출 계획 등록</ActionButton>
+                    <ActionButton action="import" cue="off" onClick={() => applyLedgerAction('수입 계획 등록', (current) => createImportPlanAction(current, globalMarketId, globalProductId, globalUnits))}>수입 계획 등록</ActionButton>
+                    <ActionButton action="settle" cue="off" onClick={() => applyLedgerAction('글로벌 정산', (current) => settleGlobalTradeAction(current))}>글로벌 정산</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 글로벌 결과" text={recentActionText} />
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -502,8 +505,8 @@ export default function CompanyReportFeatureTabs({
                     <span>{foreignReceivables.length}건</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="contract" onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
-                    <ActionButton action="trade" disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
+                    <ActionButton action="hedge" cue="off" onClick={() => applyLedgerAction('환헤지 체결', (current) => createHedgeContractAction(current))}>환헤지 체결</ActionButton>
+                    <ActionButton action="collection" cue="off" disabled={!selectedForeignAr || selectedForeignAr.remainingKrw <= 0} onClick={() => applyLedgerAction('외화채권 회수', (current) => collectForeignReceivableAction(current, selectedForeignAr?.id))}>외화채권 회수</ActionButton>
                   </div>
                 </section>
               </section>
@@ -538,12 +541,12 @@ export default function CompanyReportFeatureTabs({
                     <span>{CAPITAL_DISCLOSURE_TYPES.find((type) => type.id === disclosureTypeId)?.label || disclosureTypeId}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="edict" onClick={() => applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
-                    <ActionButton action="finance" onClick={() => applyLedgerAction('배당 결정', (current) => decideDividendAction(current))}>배당 결정</ActionButton>
-                    <ActionButton action="finance" onClick={() => applyLedgerAction('자금 조달', (current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
-                    <ActionButton action="settle" onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
+                    <ActionButton action="disclosure" cue="off" onClick={() => applyLedgerAction('공시 대응', (current) => createDisclosureAction(current, disclosureTypeId))}>공시 대응 실행</ActionButton>
+                    <ActionButton action="dividend" cue="off" onClick={() => applyLedgerAction('배당 결정', (current) => decideDividendAction(current))}>배당 결정</ActionButton>
+                    <ActionButton action="capital" cue="off" onClick={() => applyLedgerAction('자금 조달', (current) => raiseCapitalAction(current, financingTypeId))}>자금 조달</ActionButton>
+                    <ActionButton action="closing" cue="off" onClick={() => applyLedgerAction('자본시장 월마감', (current) => closeCapitalMarketAction(current))}>자본시장 월마감</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 자본시장 결과" text={recentActionText} />
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
               </section>
             ),
@@ -574,10 +577,10 @@ export default function CompanyReportFeatureTabs({
                     ))}
                   </div>
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
-                    <ActionButton action="archive" onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
-                    <ActionButton action="download" onClick={() => applyLedgerAction('진행 리포트 이력', (current) => createProgressExportAction(current))}>진행 리포트 이력 추가</ActionButton>
+                    <ActionButton action="bookmark" cue="off" onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+                    <ActionButton action="download" cue="off" onClick={() => applyLedgerAction('진행 리포트 이력', (current) => createProgressExportAction(current))}>진행 리포트 이력 추가</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 리포트 결과" text={recentActionText} />
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -666,13 +669,13 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="내보내기" value={state.exportHistory.length} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="archive" onClick={() => applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
-                    <ActionButton action="archive" onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
-                    <ActionButton action="download" onClick={() => applyLedgerAction('진행 내보내기', (current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
-                    <ActionButton action="download" onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
-                    <ActionButton action="download" onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
+                    <ActionButton action="snapshot" cue="off" onClick={() => applyLedgerAction('원장 스냅샷', (current) => createLedgerSnapshotAction(current))}>원장 스냅샷 생성</ActionButton>
+                    <ActionButton action="bookmark" cue="off" onClick={() => applyLedgerAction('리포트 북마크', (current) => bookmarkCurrentReportAction(current))}>리포트 북마크</ActionButton>
+                    <ActionButton action="download" cue="off" onClick={() => applyLedgerAction('진행 내보내기', (current) => createProgressExportAction(current))}>진행 내보내기</ActionButton>
+                    <ActionButton action="download" cue="off" onClick={downloadProgressJson}>JSON 다운로드</ActionButton>
+                    <ActionButton action="download" cue="off" onClick={downloadProgressCsv}>CSV 다운로드</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 원장/내보내기 결과" text={recentActionText} />
+                  <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
                 </section>
                 <section className="games-panel">
                   <div className="games-panel-title">
@@ -685,9 +688,9 @@ export default function CompanyReportFeatureTabs({
                     <SmallStat label="삭제 예정" value={`${restorePlan.deletedRowCount} rows`} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="analysis" disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
-                    <ActionButton action="sync" disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
-                    <ActionButton action="download" disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
+                    <ActionButton action="analysis" cue="off" disabled={!latestSnapshot} onClick={() => applyLedgerAction('복원 dry-run', (current) => dryRunLedgerRestoreAction(current, restoreMode, selectedRestoreTables))}>복원 dry-run</ActionButton>
+                    <ActionButton action="restore" cue="off" disabled={!latestSnapshot || !restorePlan.restorable} onClick={() => applyLedgerAction('선택 모드 복원', (current) => restoreLedgerSnapshotAction(current, restoreMode, selectedRestoreTables))}>선택 모드 복원</ActionButton>
+                    <ActionButton action="download" cue="off" disabled={!latestSnapshot} onClick={downloadRestorePlanJson}>복원 계획 JSON</ActionButton>
                   </div>
                 </section>
               </section>

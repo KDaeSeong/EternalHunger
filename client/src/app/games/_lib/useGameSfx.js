@@ -212,6 +212,85 @@ const CUE_PROFILES = {
     { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.043 },
     { frequency: 1040, start: 0.038, duration: 0.08, type: 'sine', gain: 0.038 },
   ],
+  orderCreated: [
+    { source: 'noise', filterType: 'highpass', frequency: 1450, duration: 0.028, gain: 0.026 },
+    { frequency: 480, duration: 0.04, type: 'triangle', gain: 0.043 },
+    { frequency: 720, start: 0.036, duration: 0.065, type: 'sine', gain: 0.038 },
+  ],
+  shipmentPosted: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 1.5, duration: 0.045, gain: 0.032 },
+    { frequency: 360, endFrequency: 520, duration: 0.07, type: 'triangle', gain: 0.045 },
+    { frequency: 820, start: 0.058, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
+  productionPosted: [
+    { frequency: 310, endFrequency: 250, duration: 0.04, type: 'square', gain: 0.035 },
+    { source: 'noise', filterType: 'highpass', frequency: 1700, start: 0.028, duration: 0.035, gain: 0.026 },
+    { frequency: 620, start: 0.055, duration: 0.075, type: 'triangle', gain: 0.04 },
+  ],
+  inventoryValued: [
+    { frequency: 420, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 560, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.038 },
+    { frequency: 700, start: 0.09, duration: 0.085, type: 'sine', gain: 0.034 },
+  ],
+  campaignLaunched: [
+    { frequency: 660, endFrequency: 880, duration: 0.075, type: 'triangle', gain: 0.042 },
+    { frequency: 1180, start: 0.06, duration: 0.08, type: 'sine', gain: 0.034 },
+  ],
+  exportPlanned: [
+    { frequency: 390, endFrequency: 620, duration: 0.08, type: 'sine', gain: 0.04 },
+    { frequency: 930, start: 0.065, duration: 0.08, type: 'triangle', gain: 0.034 },
+  ],
+  importPlanned: [
+    { frequency: 760, endFrequency: 500, duration: 0.075, type: 'triangle', gain: 0.04 },
+    { frequency: 330, start: 0.06, duration: 0.08, type: 'sine', gain: 0.034 },
+  ],
+  hedgeSigned: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1100, q: 2, duration: 0.03, gain: 0.025 },
+    { frequency: 440, duration: 0.05, type: 'triangle', gain: 0.042 },
+    { frequency: 880, start: 0.045, duration: 0.085, type: 'sine', gain: 0.036 },
+  ],
+  disclosureFiled: [
+    { source: 'noise', filterType: 'highpass', frequency: 1600, duration: 0.028, gain: 0.025 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 780, start: 0.04, duration: 0.07, type: 'sine', gain: 0.036 },
+  ],
+  dividendDeclared: [
+    { frequency: 880, duration: 0.03, type: 'square', gain: 0.034 },
+    { frequency: 1175, start: 0.03, duration: 0.04, type: 'square', gain: 0.032 },
+    { frequency: 1568, start: 0.068, duration: 0.08, type: 'sine', gain: 0.032 },
+  ],
+  capitalRaised: [
+    { frequency: 330, endFrequency: 440, duration: 0.06, type: 'triangle', gain: 0.045 },
+    { frequency: 660, start: 0.052, duration: 0.065, type: 'triangle', gain: 0.04 },
+    { frequency: 990, start: 0.11, duration: 0.09, type: 'sine', gain: 0.034 },
+  ],
+  capitalClosed: [
+    { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.04, gain: 0.03 },
+    { frequency: 390, duration: 0.05, type: 'triangle', gain: 0.043 },
+    { frequency: 585, start: 0.045, duration: 0.06, type: 'triangle', gain: 0.04 },
+  ],
+  snapshotSaved: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 2.4, duration: 0.025, gain: 0.022 },
+    { frequency: 460, duration: 0.04, type: 'triangle', gain: 0.04 },
+    { frequency: 690, start: 0.038, duration: 0.07, type: 'sine', gain: 0.035 },
+  ],
+  restorePreview: [
+    { frequency: 720, endFrequency: 480, duration: 0.075, type: 'triangle', gain: 0.038 },
+    { frequency: 600, endFrequency: 820, start: 0.07, duration: 0.09, type: 'sine', gain: 0.034 },
+  ],
+  ledgerRestored: [
+    { frequency: 360, endFrequency: 520, duration: 0.065, type: 'triangle', gain: 0.043 },
+    { frequency: 720, start: 0.055, duration: 0.075, type: 'triangle', gain: 0.039 },
+    { frequency: 960, start: 0.12, duration: 0.1, type: 'sine', gain: 0.034 },
+  ],
+  reportBookmarked: [
+    { frequency: 660, duration: 0.04, type: 'triangle', gain: 0.04 },
+    { frequency: 990, start: 0.038, duration: 0.075, type: 'sine', gain: 0.034 },
+  ],
+  reportExported: [
+    { frequency: 740, endFrequency: 520, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 820, endFrequency: 1120, start: 0.05, duration: 0.085, type: 'sine', gain: 0.034 },
+  ],
   tournament: [
     { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.05 },
     { frequency: 585, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },

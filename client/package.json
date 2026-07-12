@@ -13,6 +13,7 @@
     "check:ba-srpg-feedback": "node ./scripts/check-ba-srpg-feedback.mjs",
     "check:auth-session": "node ./scripts/check-auth-session.mjs",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack",
+    "check:company-report-feedback": "node ./scripts/check-company-report-feedback.mjs",
     "check:revive": "node ./scripts/check-revival-rules.mjs",
     "check:runtime:simulation": "eslint -c eslint.runtime.config.mjs src/app/simulation/page.js src/app/simulation/tacticalSkillTable.js src/app/simulation/_lib/**/*.js src/app/simulation/_components/**/*.js",
     "check:runtime:utils": "eslint -c eslint.runtime.config.mjs src/utils/battleLogic.js src/utils/equipmentCatalog.js src/utils/erMeta.js src/utils/itemLogic.js src/utils/tacticalSkillCatalog.js",
