@@ -737,6 +737,47 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 620, q: 1.8, duration: 0.055, gain: 0.06 },
     { frequency: 240, endFrequency: 190, duration: 0.1, type: 'triangle', gain: 0.055 },
   ],
+  overwatch: [
+    { frequency: 520, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 760, start: 0.045, duration: 0.04, type: 'square', gain: 0.035 },
+    { frequency: 980, start: 0.095, duration: 0.075, type: 'sine', gain: 0.032 },
+  ],
+  reactionShot: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1350, q: 1.7, duration: 0.045, gain: 0.075 },
+    { frequency: 260, endFrequency: 150, duration: 0.085, type: 'sawtooth', gain: 0.05 },
+  ],
+  smoke: [
+    { source: 'noise', filterType: 'lowpass', frequency: 920, q: 0.8, duration: 0.18, gain: 0.055 },
+    { frequency: 240, endFrequency: 180, duration: 0.14, type: 'sine', gain: 0.025 },
+  ],
+  coverBreak: [
+    { source: 'noise', filterType: 'bandpass', frequency: 780, q: 1.1, duration: 0.075, gain: 0.08 },
+    { source: 'noise', filterType: 'lowpass', frequency: 420, start: 0.045, duration: 0.11, gain: 0.055 },
+    { frequency: 150, endFrequency: 95, start: 0.025, duration: 0.14, type: 'square', gain: 0.04 },
+  ],
+  buff: [
+    { frequency: 460, endFrequency: 620, duration: 0.07, type: 'triangle', gain: 0.045 },
+    { frequency: 820, start: 0.06, duration: 0.09, type: 'sine', gain: 0.04 },
+    { frequency: 1080, start: 0.13, duration: 0.1, type: 'sine', gain: 0.028 },
+  ],
+  debuff: [
+    { frequency: 620, endFrequency: 390, duration: 0.09, type: 'triangle', gain: 0.042 },
+    { frequency: 210, start: 0.07, duration: 0.13, type: 'sine', gain: 0.038 },
+  ],
+  statusApply: [
+    { frequency: 680, endFrequency: 880, duration: 0.06, type: 'sawtooth', gain: 0.03 },
+    { frequency: 1120, start: 0.055, duration: 0.08, type: 'sine', gain: 0.032 },
+  ],
+  statusResist: [
+    { frequency: 510, endFrequency: 340, duration: 0.075, type: 'triangle', gain: 0.038 },
+    { source: 'noise', filterType: 'highpass', frequency: 1300, start: 0.04, duration: 0.045, gain: 0.022 },
+  ],
+  burst: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 1.7, duration: 0.038, gain: 0.065 },
+    { frequency: 250, endFrequency: 160, duration: 0.065, type: 'sawtooth', gain: 0.042 },
+    { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 1.7, start: 0.085, duration: 0.038, gain: 0.065 },
+    { frequency: 250, endFrequency: 160, start: 0.085, duration: 0.065, type: 'sawtooth', gain: 0.042 },
+  ],
   skill: [
     { frequency: 720, endFrequency: 1080, duration: 0.06, type: 'sawtooth', gain: 0.035 },
     { frequency: 1360, start: 0.05, duration: 0.075, type: 'sine', gain: 0.035 },

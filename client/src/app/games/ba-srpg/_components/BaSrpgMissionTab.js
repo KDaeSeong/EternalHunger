@@ -249,7 +249,7 @@ export default function BaSrpgMissionTab(props) {
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
             <ActionButton action="combat" disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
-            <ActionButton action="skill" disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
+            <ActionButton action={selectedSkill?.action || 'skill'} disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
             <ActionButton
               action="consume"
               disabled={!selectedCanAct || Number(state.inventory.con_bandage || 0) <= 0}

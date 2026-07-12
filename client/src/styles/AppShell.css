@@ -9425,9 +9425,17 @@
   gap: 6px;
 }
 
+.srpg-status-panel {
+  align-self: start;
+  align-content: start;
+}
+
 .srpg-cell {
+  position: relative;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 2px;
   min-width: 0;
   aspect-ratio: 1;
   border: 1px solid rgba(22, 33, 44, 0.12);
@@ -9467,6 +9475,36 @@
 .srpg-cell.is-cover {
   background: #eef7ef;
   color: #287a3e;
+}
+
+.srpg-cell.is-smoke {
+  border-color: rgba(71, 98, 111, 0.34);
+  background: #e8eff2;
+  color: #425d68;
+}
+
+.srpg-cell.is-smoke-zone {
+  box-shadow: inset 0 0 0 3px rgba(82, 111, 124, 0.2);
+}
+
+.srpg-cell.is-overwatch::after {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  content: '감시';
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: #193f58;
+  color: #fff;
+  font-size: 0.52rem;
+  line-height: 1.2;
+}
+
+.srpg-cell.is-destroyed-cover {
+  border-style: dashed;
+  border-color: rgba(100, 113, 125, 0.28);
+  background: #f2f4f5;
+  color: #7b8790;
 }
 
 .srpg-cell.is-obstacle {

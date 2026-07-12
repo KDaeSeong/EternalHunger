@@ -1,13 +1,27 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
   baSrpgFeedbackCue,
   baSrpgFeedbackPresentation,
   createBaSrpgFeedbackSnapshot,
 } from '../src/app/games/ba-srpg/_lib/baSrpgFeedback.js';
 import {
+  COVER_MAX_HP,
+  STUDENTS,
+  TACTICAL_SKILLS,
+  actorModifierValue,
+  coverDurabilityAt,
   createNewState,
+  endTurnAction,
+  executeSkillAction,
   getBattleForecast,
+  normalizeState,
 } from '../src/app/games/ba-srpg/_lib/baSrpgEngine.js';
+
+const componentSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgBattleTab.js', import.meta.url), 'utf8');
+const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
+const sfxSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const engineSource = await readFile(new URL('../src/app/games/ba-srpg/_lib/baSrpgEngine.js', import.meta.url), 'utf8');
 
 function state(overrides = {}) {
   return {
@@ -78,6 +92,51 @@ assert.equal(
   '피해 발생은 교전 효과음을 사용해야 합니다.',
 );
 assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '호시노 오버워치. 오버워치 전개, 반응 사격 1회 대기' }),
+  'overwatch',
+  '오버워치 준비는 감시 태세 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '[오버워치] 호시노 반응 사격 → 강습병 HP 8 피해' }),
+  'reactionShot',
+  '오버워치 반응 사격은 준비음과 다른 사격 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '시로코 연막 전개. 연막 지대 전개' }),
+  'smoke',
+  '연막 전개는 전용 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '호시노 엄폐 파쇄탄 · 엄폐 6 피해 · 엄폐 파괴' }),
+  'coverBreak',
+  '엄폐 파괴는 전용 파쇄 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '유우카 사기 고양. 2명 명중 +10% 강화' }),
+  'buff',
+  '아군 강화는 전용 상승 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '노아 표식 · 회피 -10% 1명 적용' }),
+  'debuff',
+  '적 약화는 전용 하강 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '이오리 섬광 투척 · 기절 부여 2명' }),
+  'statusApply',
+  '상태 이상 부여는 전용 효과음을 사용해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '이오리 섬광 투척 · 기절 저항 1명' }),
+  'statusResist',
+  '상태 이상 저항은 부여음과 구분해야 합니다.',
+);
+assert.equal(
+  baSrpgFeedbackCue(base, { ...base, lastResult: '히나 점사 · 2/2회 명중 · HP 14 피해' }),
+  'burst',
+  '점사는 두 발 리듬의 전용 효과음을 사용해야 합니다.',
+);
+assert.equal(
   baSrpgFeedbackCue(base, { ...base, turn: 2 }),
   'turn',
   '다른 사건이 없는 턴 증가는 턴 효과음을 사용해야 합니다.',
@@ -104,4 +163,161 @@ assert.ok(
   '사거리 밖 행동을 포함한 모든 전술 HUD 점수는 유한값이어야 합니다.',
 );
 
-console.log('BA SRPG feedback checks passed.');
+function combatActor(studentId, x, y, overrides = {}) {
+  const student = STUDENTS.find((row) => row.id === studentId);
+  assert.ok(student, `${studentId} 학생 데이터가 필요합니다.`);
+  return {
+    ...student,
+    x,
+    y,
+    hp: student.hp,
+    maxHp: student.hp,
+    ap: 2,
+    acted: false,
+    shield: null,
+    statuses: [],
+    modifiers: [],
+    overwatch: null,
+    ...overrides,
+  };
+}
+
+function enemyActor(id, x, y, overrides = {}) {
+  return {
+    id,
+    name: overrides.name || id,
+    x,
+    y,
+    hp: 40,
+    maxHp: 40,
+    atk: 8,
+    def: 1,
+    range: 1,
+    move: 2,
+    ap: 2,
+    shield: null,
+    statuses: [],
+    modifiers: [],
+    overwatch: null,
+    ...overrides,
+  };
+}
+
+function tacticalState({ runId, units, enemies, selectedUnitId, targetEnemyId = '', coverHp, zones = [] }) {
+  const fresh = createNewState({ runId });
+  return normalizeState({
+    ...fresh,
+    selectedStudentIds: units.map((unit) => unit.id),
+    battle: {
+      ...fresh.battle,
+      units,
+      enemies,
+      selectedUnitId: selectedUnitId || units[0]?.id || '',
+      targetEnemyId: targetEnemyId || enemies[0]?.id || '',
+      coverHp,
+      zones,
+    },
+  });
+}
+
+const rallyBase = tacticalState({
+  runId: 'rally-check',
+  units: [
+    combatActor('s_yuuka', 0, 2),
+    combatActor('s_hoshino', 1, 2, { modifiers: [{ id: 'old', stat: 'Accuracy', add: 0.05, duration: 3, source: 'old' }] }),
+  ],
+  enemies: [enemyActor('rally-enemy', 7, 5, { move: 0 })],
+  selectedUnitId: 's_yuuka',
+});
+const rallied = executeSkillAction(rallyBase, 'sk_rally');
+assert.equal(actorModifierValue(rallied.battle.units.find((unit) => unit.id === 's_yuuka'), 'Accuracy'), 0.1, '사기 고양은 시전자 명중을 10% 높여야 합니다.');
+assert.equal(actorModifierValue(rallied.battle.units.find((unit) => unit.id === 's_hoshino'), 'Accuracy'), 0.1, '동일 스탯 강화는 가장 강한 수치가 적용되어야 합니다.');
+assert.equal(rallied.battle.units.find((unit) => unit.id === 's_hoshino').modifiers.length, 2, '약한 기존 강화도 남아 강한 효과 만료 뒤 다시 활성화될 수 있어야 합니다.');
+const rallyTicked = endTurnAction(rallied);
+assert.equal(actorModifierValue(rallyTicked.battle.units.find((unit) => unit.id === 's_yuuka'), 'Accuracy'), 0.1, '2턴 강화는 첫 라운드 종료 뒤에도 유지되어야 합니다.');
+
+const smokeBase = tacticalState({
+  runId: 'smoke-check',
+  units: [combatActor('s_shiroko', 0, 2), combatActor('s_hoshino', 1, 2)],
+  enemies: [enemyActor('smoke-enemy', 3, 2, { move: 0 })],
+  selectedUnitId: 's_shiroko',
+});
+const normalHitChance = getBattleForecast(smokeBase).selectedAttacks[0].hitChancePct;
+const smoked = executeSkillAction(smokeBase, 'sk_smoke_grenade');
+assert.equal(smoked.battle.zones.length, 1, '연막 스킬은 전장에 지대를 생성해야 합니다.');
+assert.equal(smoked.battle.zones[0].duration, 2, '다른 아군 행동이 남아 있으면 연막 지속시간이 즉시 감소하면 안 됩니다.');
+const smokeHitChance = getBattleForecast({
+  ...smokeBase,
+  battle: { ...smokeBase.battle, zones: smoked.battle.zones },
+}).selectedAttacks[0].hitChancePct;
+assert.equal(normalHitChance - smokeHitChance, 20, '연막 안팎 사격은 명중률을 20% 낮춰야 합니다.');
+
+const overwatchBase = tacticalState({
+  runId: 'overwatch-check',
+  units: [combatActor('s_hoshino', 0, 2, { range: 4 })],
+  enemies: [enemyActor('moving-enemy', 4, 2, { hp: 40, maxHp: 40, move: 2 })],
+  selectedUnitId: 's_hoshino',
+});
+const overwatchResolved = executeSkillAction(overwatchBase, 'sk_overwatch');
+assert.ok(overwatchResolved.log.some((line) => line.includes('[오버워치]')), '적 이동 중 오버워치 반응 사격 로그가 남아야 합니다.');
+assert.equal(overwatchResolved.battle.units[0].overwatch, null, '반응 사격을 사용하면 대기 중인 사격 횟수가 소모되어야 합니다.');
+
+const coverHp = Object.fromEntries([['2,0', COVER_MAX_HP], ['2,4', COVER_MAX_HP], ['5,3', COVER_MAX_HP]]);
+const breachBase = tacticalState({
+  runId: 'breach-check',
+  units: [combatActor('s_iori', 0, 3)],
+  enemies: [enemyActor('cover-enemy', 5, 3, { hp: 80, maxHp: 80, move: 0 })],
+  selectedUnitId: 's_iori',
+  coverHp,
+});
+const breached = executeSkillAction(breachBase, 'sk_breach_shot');
+assert.equal(coverDurabilityAt(breached.battle, 5, 3), 2, '엄폐 파쇄탄은 피해 판정 전에 엄폐 내구도를 6 깎아야 합니다.');
+const breachedAgain = normalizeState({
+  ...breached,
+  battle: {
+    ...breached.battle,
+    phase: 'player',
+    units: breached.battle.units.map((unit) => ({ ...unit, ap: 2, acted: false })),
+  },
+});
+const destroyedCover = executeSkillAction(breachedAgain, 'sk_breach_shot');
+assert.equal(coverDurabilityAt(destroyedCover.battle, 5, 3), 0, '두 번째 파쇄탄은 남은 엄폐를 파괴해야 합니다.');
+assert.ok(destroyedCover.log.some((line) => line.includes('엄폐 파괴')), '엄폐 파괴 결과를 전투 로그에 명시해야 합니다.');
+
+const flashBase = tacticalState({
+  runId: 'flash-check',
+  units: [combatActor('s_iori', 0, 3), combatActor('s_hoshino', 0, 2)],
+  enemies: [enemyActor('flash-a', 3, 3), enemyActor('flash-b', 3, 4)],
+  selectedUnitId: 's_iori',
+  targetEnemyId: 'flash-a',
+});
+const flashPreview = getBattleForecast(flashBase).skillPreviews.find((row) => row.skillId === 'sk_grenade_flash');
+assert.match(flashPreview?.detail || '', /최대 2명/, '섬광 투척 예측은 반경 안의 복수 대상을 알려야 합니다.');
+
+const burstBase = tacticalState({
+  runId: 'burst-check',
+  units: [combatActor('s_hina', 0, 0), combatActor('s_hoshino', 0, 2)],
+  enemies: [enemyActor('burst-enemy', 3, 0, { hp: 80, maxHp: 80 })],
+  selectedUnitId: 's_hina',
+});
+const burstResolved = executeSkillAction(burstBase, 'sk_burst');
+assert.match(burstResolved.battle.lastResult, /\/2회 명중/, '점사는 두 번의 독립 명중 판정을 결과에 표시해야 합니다.');
+
+assert.ok(TACTICAL_SKILLS.some((skill) => skill.id === 'sk_mark_target' && skill.modifier?.stat === 'Evasion'), '표식은 회피 약화 데이터로 연결되어야 합니다.');
+assert.match(componentSource, /is-smoke-zone/, '전투판은 연막 지대를 시각적으로 표시해야 합니다.');
+assert.match(componentSource, /coverHp/, '전투판은 엄폐 내구도를 표시해야 합니다.');
+['overwatch', 'smoke', 'cover-break', 'buff', 'debuff', 'status', 'burst'].forEach((action) => {
+  assert.ok(iconSource.includes(`${action.includes('-') ? `'${action}'` : action}:`), `${action} 전용 행동 아이콘이 필요합니다.`);
+});
+['overwatch', 'reactionShot', 'smoke', 'coverBreak', 'buff', 'debuff', 'statusApply', 'statusResist', 'burst'].forEach((cue) => {
+  assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 전용 효과음 프로필이 필요합니다.`);
+});
+assert.doesNotMatch(engineSource, /은\(는\)|이\(가\)|을\(를\)/, 'BA SRPG 플레이어 문구에 병기형 조사가 남으면 안 됩니다.');
+
+console.log(JSON.stringify({
+  message: 'BA SRPG tactical feedback checks passed.',
+  skills: TACTICAL_SKILLS.length,
+  tacticalCues: 9,
+  coverAfterFirstBreach: coverDurabilityAt(breached.battle, 5, 3),
+  smokeAccuracyPenalty: normalHitChance - smokeHitChance,
+}, null, 2));

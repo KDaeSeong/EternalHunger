@@ -1,5 +1,6 @@
 import {
   GRID,
+  COVER_MAX_HP,
   ITEMS,
   MISSIONS,
   STUDENTS,
@@ -26,6 +27,7 @@ export {
   QUICK_SAVE_SLOT,
   SAVE_VERSION,
   GRID,
+  COVER_MAX_HP,
   ITEMS,
   MISSIONS,
   STUDENTS,
@@ -149,6 +151,36 @@ function normalizeEdictState(value = {}) {
   return { monthly };
 }
 
+function createCoverHp() {
+  return Object.fromEntries([...COVER].map((key) => [key, COVER_MAX_HP]));
+}
+
+function normalizeCoverHp(value) {
+  const current = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return Object.fromEntries([...COVER].map((key) => [
+    key,
+    Object.prototype.hasOwnProperty.call(current, key)
+      ? clamp(safeWholeNumber(current[key], COVER_MAX_HP), 0, COVER_MAX_HP)
+      : COVER_MAX_HP,
+  ]));
+}
+
+function normalizeZones(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((zone) => zone?.type === 'Smoke' && inside(Number(zone.x), Number(zone.y)))
+    .map((zone, index) => ({
+      id: String(zone.id || `zone-${index}`),
+      type: 'Smoke',
+      x: safeWholeNumber(zone.x, 0),
+      y: safeWholeNumber(zone.y, 0),
+      radius: Math.max(0, safeWholeNumber(zone.radius, 1)),
+      duration: Math.max(1, safeWholeNumber(zone.duration, 1)),
+      accuracyMod: clamp(Number(zone.accuracyMod ?? -0.2), -0.5, 0),
+      sourceId: String(zone.sourceId || ''),
+    }));
+}
+
 function normalizeBattle(battle, formationIds = DEFAULT_FORMATION_IDS) {
   const mission = getMission(battle.missionId || 'm001');
   const unitIds = normalizeFormationIds(formationIds);
@@ -162,6 +194,8 @@ function normalizeBattle(battle, formationIds = DEFAULT_FORMATION_IDS) {
     ...battle,
     units,
     enemies: Array.isArray(battle.enemies) ? battle.enemies.map(normalizeCombatActor) : createEnemies(mission),
+    coverHp: normalizeCoverHp(battle.coverHp),
+    zones: normalizeZones(battle.zones),
     selectedUnitId: units.some((unit) => unit.id === battle.selectedUnitId) ? battle.selectedUnitId : units[0]?.id || '',
     targetEnemyId: battle.targetEnemyId || '',
   };
@@ -181,6 +215,8 @@ function createUnits(formationIds = DEFAULT_FORMATION_IDS) {
     acted: false,
     shield: null,
     statuses: [],
+    modifiers: [],
+    overwatch: null,
   };
   });
 }
@@ -250,6 +286,8 @@ function createEnemies(mission) {
     ap: 2,
     shield: null,
     statuses: [],
+    modifiers: [],
+    overwatch: null,
     difficulty: rule.id,
   }));
 }
@@ -265,6 +303,8 @@ function createBattle(missionId, formationIds = DEFAULT_FORMATION_IDS) {
     targetEnemyId: '',
     units,
     enemies: createEnemies(mission),
+    coverHp: createCoverHp(),
+    zones: [],
     lastResult: '',
   };
 }
@@ -282,6 +322,19 @@ function normalizeCombatActor(actor = {}) {
     : [];
   const shieldAmount = safeWholeNumber(actor.shield?.amount, 0);
   const shieldDuration = safeWholeNumber(actor.shield?.duration, 0);
+  const modifiers = Array.isArray(actor.modifiers)
+    ? actor.modifiers
+      .filter((modifier) => ['Accuracy', 'Evasion', 'Move', 'Defense'].includes(modifier?.stat))
+      .map((modifier, index) => ({
+        id: String(modifier.id || `${modifier.stat}-${index}`),
+        stat: modifier.stat,
+        add: Number(modifier.add || 0),
+        duration: Math.max(1, safeWholeNumber(modifier.duration, 1)),
+        source: String(modifier.source || ''),
+      }))
+    : [];
+  const overwatchDuration = safeWholeNumber(actor.overwatch?.duration, 0);
+  const overwatchShots = safeWholeNumber(actor.overwatch?.shots, 0);
   return {
     ...actor,
     maxHp,
@@ -289,6 +342,14 @@ function normalizeCombatActor(actor = {}) {
     ap: safeWholeNumber(actor.ap, 0),
     shield: shieldAmount > 0 && shieldDuration > 0 ? { amount: shieldAmount, duration: shieldDuration } : null,
     statuses,
+    modifiers,
+    overwatch: overwatchDuration > 0 && overwatchShots > 0
+      ? {
+        duration: overwatchDuration,
+        shots: overwatchShots,
+        range: Math.max(1, safeWholeNumber(actor.overwatch?.range, actor.range || 1)),
+      }
+      : null,
   };
 }
 
@@ -619,13 +680,61 @@ function occupiedBy(units, enemies, x, y, ignoreId = '') {
   return [...units, ...enemies].find((actor) => actor.id !== ignoreId && actor.hp > 0 && actor.x === x && actor.y === y) || null;
 }
 
-function tileDefense(x, y) {
-  return COVER.has(keyOf(x, y)) ? 2 : 0;
+export function coverDurabilityAt(battle, x, y) {
+  const key = keyOf(x, y);
+  if (!COVER.has(key)) return 0;
+  const value = battle?.coverHp && Object.prototype.hasOwnProperty.call(battle.coverHp, key)
+    ? battle.coverHp[key]
+    : COVER_MAX_HP;
+  return clamp(safeWholeNumber(value, COVER_MAX_HP), 0, COVER_MAX_HP);
 }
 
-function coverDamageNote(actor) {
-  const reduction = tileDefense(actor.x, actor.y);
+function tileDefense(battle, x, y) {
+  return coverDurabilityAt(battle, x, y) > 0 ? 2 : 0;
+}
+
+function coverDamageNote(actor, battle) {
+  const reduction = tileDefense(battle, actor.x, actor.y);
   return reduction > 0 ? ` (엄폐 피해감소 -${reduction})` : '';
+}
+
+function zoneContains(zone, x, y) {
+  return distance(zone, { x, y }) <= Math.max(0, Number(zone?.radius || 0));
+}
+
+export function smokeAt(battle, x, y) {
+  return (Array.isArray(battle?.zones) ? battle.zones : [])
+    .some((zone) => zone.type === 'Smoke' && Number(zone.duration || 0) > 0 && zoneContains(zone, x, y));
+}
+
+function smokeAccuracyMod(battle, attacker, defender) {
+  if (!attacker || !defender) return 0;
+  const zones = (Array.isArray(battle?.zones) ? battle.zones : [])
+    .filter((zone) => zone.type === 'Smoke' && Number(zone.duration || 0) > 0);
+  const activeZone = zones.find((zone) => zoneContains(zone, attacker.x, attacker.y) || zoneContains(zone, defender.x, defender.y));
+  return Number(activeZone?.accuracyMod || 0);
+}
+
+export function actorModifierValue(actor, stat) {
+  const candidates = (Array.isArray(actor?.modifiers) ? actor.modifiers : [])
+    .filter((modifier) => modifier.stat === stat && Number(modifier.duration || 0) > 0)
+    .sort((a, b) => Math.abs(Number(b.add || 0)) - Math.abs(Number(a.add || 0)));
+  return Number(candidates[0]?.add || 0);
+}
+
+function effectiveMove(actor) {
+  return Math.max(0, safeWholeNumber(Number(actor?.move || 0) + actorModifierValue(actor, 'Move'), 0));
+}
+
+function attackAccuracyMod(attacker, defender, battle) {
+  return statusAccuracyMod(attacker)
+    + actorModifierValue(attacker, 'Accuracy')
+    - actorModifierValue(defender, 'Evasion')
+    + smokeAccuracyMod(battle, attacker, defender);
+}
+
+function effectiveDefense(actor) {
+  return Math.max(0, Number(actor?.def || 0) + actorModifierValue(actor, 'Defense'));
 }
 
 function statusAccuracyMod(actor) {
@@ -667,7 +776,7 @@ function isActionLockedByStatus(actor) {
 }
 
 function statusActionBlockText(actor) {
-  return isActionLockedByStatus(actor) ? `${actor?.name || '대상'}은(는) 기절 상태라 행동할 수 없습니다.` : '';
+  return isActionLockedByStatus(actor) ? `${actor?.name || '대상'}: 기절 상태라 행동할 수 없습니다.` : '';
 }
 
 function canActorTakePlayerAction(actor) {
@@ -681,12 +790,25 @@ function statusLabel(status) {
   return `${def.name}${stacks}/${status.duration}`;
 }
 
+function modifierLabel(modifier) {
+  const labels = { Accuracy: '명중', Evasion: '회피', Move: '이동', Defense: '방어' };
+  const value = Number(modifier?.add || 0);
+  const formatted = ['Accuracy', 'Evasion'].includes(modifier?.stat)
+    ? `${value >= 0 ? '+' : ''}${Math.round(value * 100)}%`
+    : `${value >= 0 ? '+' : ''}${value}`;
+  return `${labels[modifier?.stat] || modifier?.stat} ${formatted}/${modifier?.duration}`;
+}
+
 export function actorStatusText(actor) {
   const parts = [];
   if (Number(actor?.shield?.amount || 0) > 0) parts.push(`보호막 ${actor.shield.amount}/${actor.shield.duration}`);
+  if (Number(actor?.overwatch?.shots || 0) > 0) parts.push(`오버워치 ${actor.overwatch.shots}/${actor.overwatch.duration}`);
   (actor?.statuses || []).forEach((status) => {
     const label = statusLabel(status);
     if (label) parts.push(label);
+  });
+  (actor?.modifiers || []).forEach((modifier) => {
+    if (Number(modifier.duration || 0) > 0) parts.push(modifierLabel(modifier));
   });
   return parts.join(' · ');
 }
@@ -750,6 +872,21 @@ function applyShield(actor, amount, duration) {
   };
 }
 
+function applyModifier(actor, modifier, source = '') {
+  if (!modifier?.stat || !Number(modifier.duration || 0) || !Number(modifier.add || 0)) return actor;
+  const id = `${source || 'effect'}:${modifier.stat}`;
+  const nextModifier = {
+    id,
+    stat: modifier.stat,
+    add: Number(modifier.add || 0),
+    duration: Math.max(1, safeWholeNumber(modifier.duration, 1)),
+    source,
+  };
+  const modifiers = (Array.isArray(actor.modifiers) ? actor.modifiers : [])
+    .filter((row) => row.id !== id);
+  return { ...actor, modifiers: [...modifiers, nextModifier] };
+}
+
 function tickActorStatuses(actor) {
   let next = normalizeCombatActor(actor);
   const messages = [];
@@ -770,11 +907,19 @@ function tickActorStatuses(actor) {
   const shield = next.shield
     ? { ...next.shield, duration: Number(next.shield.duration || 1) - 1 }
     : null;
+  const modifiers = (Array.isArray(next.modifiers) ? next.modifiers : [])
+    .map((modifier) => ({ ...modifier, duration: Number(modifier.duration || 1) - 1 }))
+    .filter((modifier) => modifier.duration > 0);
+  const overwatch = next.overwatch
+    ? { ...next.overwatch, duration: Number(next.overwatch.duration || 1) - 1 }
+    : null;
   return {
     actor: {
       ...next,
       shield: shield && shield.amount > 0 && shield.duration > 0 ? shield : null,
       statuses: nextStatuses,
+      modifiers,
+      overwatch: overwatch && overwatch.duration > 0 && overwatch.shots > 0 ? overwatch : null,
     },
     messages,
   };
@@ -792,8 +937,11 @@ function processRoundEndTicks(battle) {
     messages.push(...result.messages);
     return result.actor;
   });
+  const zones = (Array.isArray(battle.zones) ? battle.zones : [])
+    .map((zone) => ({ ...zone, duration: Number(zone.duration || 1) - 1 }))
+    .filter((zone) => zone.duration > 0);
   return {
-    battle: { ...battle, units, enemies },
+    battle: { ...battle, units, enemies, zones },
     messages,
   };
 }
@@ -830,6 +978,38 @@ function battleStatusRows(battle) {
         priority: side === 'ally' ? 58 : 42,
       });
     }
+    if (Number(actor?.overwatch?.shots || 0) > 0) {
+      rows.push({
+        id: `${side}-${actor.id}-overwatch`,
+        side,
+        sideLabel,
+        actorId: actor.id,
+        actorName: actor.name,
+        label: '오버워치',
+        value: `${actor.overwatch.shots}회`,
+        detail: `사거리 ${actor.overwatch.range} 안에서 적이 이동하면 반응 사격합니다. 남은 ${actor.overwatch.duration}턴.`,
+        priority: side === 'ally' ? 86 : 54,
+      });
+    }
+    const modifierStats = [...new Set((actor?.modifiers || []).map((modifier) => modifier.stat))];
+    modifierStats.forEach((stat) => {
+      const value = actorModifierValue(actor, stat);
+      const active = (actor.modifiers || [])
+        .filter((modifier) => modifier.stat === stat && Number(modifier.add || 0) === value)
+        .sort((a, b) => Number(b.duration || 0) - Number(a.duration || 0))[0];
+      if (!active || !value) return;
+      rows.push({
+        id: `${side}-${actor.id}-modifier-${stat}`,
+        side,
+        sideLabel,
+        actorId: actor.id,
+        actorName: actor.name,
+        label: modifierLabel(active),
+        value: value > 0 ? '강화' : '약화',
+        detail: `동일 스탯 효과 중 가장 강한 수치가 적용됩니다. 남은 ${active.duration}턴.`,
+        priority: (side === 'ally' ? 52 : 48) + Math.abs(value) * 10,
+      });
+    });
     (Array.isArray(actor?.statuses) ? actor.statuses : []).forEach((status) => {
       const def = STATUS_DEFS[status?.id];
       if (!def || Number(status.duration || 0) <= 0) return;
@@ -837,7 +1017,7 @@ function battleStatusRows(battle) {
       const tickDamage = def.kind === 'DoT' ? Number(def.tickDamage || 0) * stacks : 0;
       const hpDamage = tickDamage ? Math.max(0, tickDamage - Number(actor?.shield?.amount || 0)) : 0;
       const controlDetail = status.id === 'st_stun'
-        ? `${sideLabel} ${actor.name}은(는) 이번 행동 순서를 건너뜁니다.`
+        ? `${sideLabel} ${actor.name}: 이번 행동 순서를 건너뜁니다.`
         : status.id === 'st_confuse'
           ? `명중률 ${Math.abs(Math.round(Number(def.accuracyMod || 0) * 100))}% 감소가 적용됩니다.`
           : `${def.name} 상태가 유지됩니다.`;
@@ -862,7 +1042,20 @@ function battleStatusRows(battle) {
   };
   (Array.isArray(battle?.units) ? battle.units : []).filter((unit) => unit.hp > 0).forEach((unit) => collect(unit, 'ally'));
   (Array.isArray(battle?.enemies) ? battle.enemies : []).filter((enemy) => enemy.hp > 0).forEach((enemy) => collect(enemy, 'enemy'));
-  return rows.sort((a, b) => b.priority - a.priority || a.actorName.localeCompare(b.actorName)).slice(0, 8);
+  (Array.isArray(battle?.zones) ? battle.zones : []).forEach((zone) => {
+    rows.push({
+      id: `field-${zone.id}`,
+      side: 'field',
+      sideLabel: '전장',
+      actorId: '',
+      actorName: `(${zone.x + 1},${zone.y + 1})`,
+      label: zone.type === 'Smoke' ? '연막 지대' : zone.type,
+      value: `${zone.duration}라운드`,
+      detail: `반경 ${zone.radius} 안팎 사격의 명중률이 ${Math.abs(Math.round(Number(zone.accuracyMod || 0) * 100))}% 감소합니다.`,
+      priority: 72,
+    });
+  });
+  return rows.sort((a, b) => b.priority - a.priority || a.actorName.localeCompare(b.actorName)).slice(0, 12);
 }
 
 function aliveUnits(battle) {
@@ -1216,7 +1409,7 @@ export function moveSelectedAction(state, dx, dy) {
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '이동할 학생이 없습니다.');
   if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
-  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
+  if (unit.acted) return addLog(current, `${unit.name}: 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const x = Number(unit.x || 0) + Number(dx || 0);
   const y = Number(unit.y || 0) + Number(dy || 0);
@@ -1243,13 +1436,20 @@ export function attackSelectedAction(state, enemyId) {
   const enemy = battle.enemies.find((row) => row.id === enemyId && row.hp > 0) || selectedEnemy(battle);
   if (!unit || !enemy) return addLog(current, '공격 대상이 없습니다.');
   if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
-  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
+  if (unit.acted) return addLog(current, `${unit.name}: 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
-  if (distance(unit, enemy) > Number(unit.range || 1)) return addLog(current, `${enemy.name}이(가) 사거리 밖입니다.`);
+  if (distance(unit, enemy) > Number(unit.range || 1)) return addLog(current, `${enemy.name}: 사거리 밖입니다.`);
   const bonus = weaponBonus(current);
   const rng = createRng(`${current.runId}|atk|${battle.turn}|${unit.id}|${enemy.id}|${unit.ap}|${enemy.hp}`);
-  const hit = rng() < clamp(0.78 + bonus.acc / 100 + statusAccuracyMod(unit) - tileDefense(enemy.x, enemy.y) * 0.04, 0.35, 0.97);
-  const rawDamage = Math.max(1, Number(unit.atk || 0) + bonus.atk - Number(enemy.def || 0) - tileDefense(enemy.x, enemy.y));
+  const hit = rng() < clamp(
+    0.78 + bonus.acc / 100 + attackAccuracyMod(unit, enemy, battle) - tileDefense(battle, enemy.x, enemy.y) * 0.04,
+    0.35,
+    0.97,
+  );
+  const rawDamage = Math.max(
+    1,
+    Number(unit.atk || 0) + bonus.atk - effectiveDefense(enemy) - tileDefense(battle, enemy.x, enemy.y),
+  );
   const damage = hit ? rawDamage : 0;
   const damageResult = absorbDamage(enemy, damage);
   const nextEnemies = battle.enemies.map((row) => (
@@ -1269,32 +1469,93 @@ export function attackSelectedAction(state, enemyId) {
   return finishPlayerAction(current, nextBattle, nextBattle.lastResult);
 }
 
+function damageCover(battle, x, y, amount) {
+  const key = keyOf(x, y);
+  const before = coverDurabilityAt(battle, x, y);
+  if (!before || Number(amount || 0) <= 0) {
+    return { battle, before, after: before, damage: 0, destroyed: false };
+  }
+  const after = Math.max(0, before - Math.max(0, safeWholeNumber(amount, 0)));
+  return {
+    battle: { ...battle, coverHp: { ...battle.coverHp, [key]: after } },
+    before,
+    after,
+    damage: before - after,
+    destroyed: before > 0 && after <= 0,
+  };
+}
+
+function deploySmokeZone(battle, unit, skill) {
+  const definition = skill.zone;
+  if (!definition || definition.type !== 'Smoke') return battle;
+  const zone = {
+    id: `smoke-${unit.id}-${battle.turn}`,
+    type: 'Smoke',
+    x: unit.x,
+    y: unit.y,
+    radius: Math.max(0, safeWholeNumber(definition.radius, 1)),
+    duration: Math.max(1, safeWholeNumber(definition.duration, 1)),
+    accuracyMod: clamp(Number(definition.accuracyMod ?? -0.2), -0.5, 0),
+    sourceId: unit.id,
+  };
+  const zones = (Array.isArray(battle.zones) ? battle.zones : []).filter((row) => row.sourceId !== unit.id || row.type !== 'Smoke');
+  return { ...battle, zones: [...zones, zone] };
+}
+
+function skillModifierText(modifier) {
+  if (!modifier?.stat) return '';
+  const labels = { Accuracy: '명중', Evasion: '회피', Move: '이동', Defense: '방어' };
+  const value = Number(modifier.add || 0);
+  const amount = ['Accuracy', 'Evasion'].includes(modifier.stat)
+    ? `${value >= 0 ? '+' : ''}${Math.round(value * 100)}%`
+    : `${value >= 0 ? '+' : ''}${value}`;
+  return `${labels[modifier.stat] || modifier.stat} ${amount}`;
+}
+
 export function executeSkillAction(state, skillId) {
   const current = normalizeState(state);
-  const battle = current.battle;
+  let battle = current.battle;
   if (battle.phase !== 'player') return addLog(current, '플레이어 턴이 아닙니다.');
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '스킬을 사용할 학생이 없습니다.');
   const skill = skillsForUnit(unit).find((row) => row.id === skillId);
-  if (!skill) return addLog(current, `${unit.name}은(는) 해당 전술 스킬을 사용할 수 없습니다.`);
+  if (!skill) return addLog(current, `${unit.name}: 사용할 수 없는 전술 스킬입니다.`);
   if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
-  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
+  if (unit.acted) return addLog(current, `${unit.name}: 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) < Number(skill.apCost || 0)) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
 
   if (skill.target === 'self') {
+    const affectedIds = skill.teamwide
+      ? new Set(battle.units.filter((row) => row.hp > 0).map((row) => row.id))
+      : new Set([unit.id]);
     const nextUnits = battle.units.map((row) => {
-      if (row.id !== unit.id) return row;
-      let next = { ...row, ap: Number(row.ap || 0) - Number(skill.apCost || 0), acted: true };
+      if (!affectedIds.has(row.id)) return row;
+      let next = { ...row };
       if (skill.heal) next = { ...next, hp: Math.min(next.maxHp, Number(next.hp || 0) + Number(skill.heal || 0)) };
       if (skill.shield) next = applyShield(next, skill.shield, skill.duration);
+      if (skill.modifier) next = applyModifier(next, skill.modifier, skill.id);
+      if (row.id === unit.id && skill.overwatch) {
+        next = {
+          ...next,
+          overwatch: {
+            duration: Math.max(1, safeWholeNumber(skill.overwatch.duration, 1)),
+            shots: Math.max(1, safeWholeNumber(skill.overwatch.shots, 1)),
+            range: Math.max(1, safeWholeNumber(skill.overwatch.range, row.range || 1)),
+          },
+        };
+      }
+      if (row.id === unit.id) next = { ...next, ap: Number(next.ap || 0) - Number(skill.apCost || 0), acted: true };
       return next;
     });
-    const resultText = skill.heal
-      ? `${unit.name} ${skill.name}. HP +${skill.heal}`
-      : `${unit.name} ${skill.name}. 보호막 +${skill.shield}`;
+    battle = deploySmokeZone({ ...battle, units: nextUnits }, unit, skill);
+    let resultText = `${unit.name} ${skill.name}`;
+    if (skill.heal) resultText += `. HP +${skill.heal}`;
+    else if (skill.shield) resultText += `. 보호막 +${skill.shield}`;
+    else if (skill.overwatch) resultText += `. 오버워치 전개, 반응 사격 ${skill.overwatch.shots}회 대기`;
+    else if (skill.zone?.type === 'Smoke') resultText += `. 연막 지대 전개, 반경 ${skill.zone.radius} · ${skill.zone.duration}라운드`;
+    else if (skill.modifier) resultText += `. ${affectedIds.size}명 ${skillModifierText(skill.modifier)} 강화`;
     return finishPlayerAction(current, {
       ...battle,
-      units: nextUnits,
       lastResult: resultText,
     }, resultText);
   }
@@ -1303,41 +1564,113 @@ export function executeSkillAction(state, skillId) {
   if (!enemy || enemy.hp <= 0) return addLog(current, '스킬 대상이 없습니다.');
   const dist = distance(unit, enemy);
   if (dist < Number(skill.rangeMin || 0) || dist > Number(skill.rangeMax || 1)) {
-    return addLog(current, `${enemy.name}이(가) ${skill.name} 사거리 밖입니다. (${skill.rangeMin}-${skill.rangeMax})`);
+    return addLog(current, `${skill.name}: ${enemy.name}까지 거리 ${dist}, 사거리 ${skill.rangeMin}-${skill.rangeMax}`);
   }
 
   const bonus = weaponBonus(current);
   const rng = createRng(`${current.runId}|skill|${battle.turn}|${unit.id}|${enemy.id}|${skill.id}|${unit.ap}|${enemy.hp}`);
-  const hitChance = clamp(0.78 + Number(skill.accuracyAdd || 0) + bonus.acc / 100 + statusAccuracyMod(unit) - tileDefense(enemy.x, enemy.y) * 0.04, 0.3, 0.97);
-  const hit = rng() < hitChance;
-  const rawDamage = Math.max(0, Math.floor(
-    (Number(unit.atk || 0) + bonus.atk + (skill.techDamage ? 2 : 0))
-      * Number(skill.damageMul ?? 1)
-      - (skill.techDamage ? Math.floor(Number(enemy.def || 0) / 2) : Number(enemy.def || 0))
-      - tileDefense(enemy.x, enemy.y)
+  const coverResult = damageCover(battle, enemy.x, enemy.y, skill.coverDamage);
+  battle = coverResult.battle;
+  const targets = skill.radius
+    ? battle.enemies.filter((row) => row.hp > 0 && distance(row, enemy) <= Number(skill.radius || 0))
+    : [battle.enemies.find((row) => row.id === enemy.id) || enemy];
+  let nextEnemies = battle.enemies;
+  const targetResults = [];
+
+  targets.forEach((target) => {
+    let nextTarget = nextEnemies.find((row) => row.id === target.id) || target;
+    const hitChance = clamp(
+      0.78
+        + Number(skill.accuracyAdd || 0)
+        + bonus.acc / 100
+        + attackAccuracyMod(unit, nextTarget, battle)
+        - tileDefense(battle, nextTarget.x, nextTarget.y) * 0.04,
+      0.3,
+      0.97,
+    );
+    const hitTotal = Math.max(1, safeWholeNumber(skill.hits, 1));
+    const hasDamage = Number(skill.damageMul ?? 1) > 0;
+    const effectOnly = !hasDamage && Boolean(skill.modifier) && !skill.statusId;
+    let landed = 0;
+    let hpDamage = 0;
+    let shieldAbsorbed = 0;
+    const rawDamage = hasDamage
+      ? Math.max(0, Math.floor(
+        (Number(unit.atk || 0) + bonus.atk + (skill.techDamage ? 2 : 0))
+          * Number(skill.damageMul ?? 1)
+          - (skill.techDamage ? Math.floor(effectiveDefense(nextTarget) / 2) : effectiveDefense(nextTarget))
+          - tileDefense(battle, nextTarget.x, nextTarget.y)
+      ))
+      : 0;
+
+    for (let hitIndex = 0; hitIndex < hitTotal && nextTarget.hp > 0; hitIndex += 1) {
+      if (!hasDamage) break;
+      if (rng() >= hitChance) continue;
+      landed += 1;
+      const damageResult = absorbDamage(nextTarget, rawDamage);
+      nextTarget = damageResult.actor;
+      hpDamage += damageResult.hpDamage;
+      shieldAbsorbed += damageResult.absorbed;
+    }
+
+    const effectHit = effectOnly ? true : hasDamage ? landed > 0 : rng() < hitChance;
+    if (effectHit && skill.modifier) nextTarget = applyModifier(nextTarget, skill.modifier, skill.id);
+    const statusRolled = Boolean(effectHit && skill.statusId);
+    const statusApplied = statusRolled && rng() < Number(skill.statusChance || 0);
+    if (statusApplied) nextTarget = applyStatus(nextTarget, skill.statusId, skill.duration);
+
+    nextEnemies = nextEnemies.map((row) => (row.id === target.id ? nextTarget : row));
+    targetResults.push({
+      id: target.id,
+      name: target.name,
+      landed,
+      hitTotal,
+      hpDamage,
+      shieldAbsorbed,
+      effectHit,
+      statusRolled,
+      statusApplied,
+      defeated: nextTarget.hp <= 0,
+    });
+  });
+
+  let nextUnits = battle.units.map((row) => (
+    row.id === unit.id ? { ...row, ap: Number(row.ap || 0) - Number(skill.apCost || 0), acted: true } : row
   ));
-  const damageResult = absorbDamage(enemy, hit ? rawDamage : 0);
-  const statusRolled = Boolean(hit && skill.statusId);
-  const statusApplied = statusRolled && rng() < Number(skill.statusChance || 0);
-  const nextEnemy = statusApplied ? applyStatus(damageResult.actor, skill.statusId, skill.duration) : damageResult.actor;
-  const nextEnemies = battle.enemies.map((row) => (row.id === enemy.id ? nextEnemy : row));
-  const defeated = nextEnemies.find((row) => row.id === enemy.id)?.hp <= 0;
+  if (Number(skill.advance || 0) > 0 && targetResults[0]?.effectHit) {
+    const movingUnit = nextUnits.find((row) => row.id === unit.id);
+    const advancePos = stepToward(movingUnit, enemy, { ...battle, units: nextUnits, enemies: nextEnemies });
+    if (advancePos.x !== movingUnit.x || advancePos.y !== movingUnit.y) {
+      nextUnits = nextUnits.map((row) => row.id === movingUnit.id ? { ...row, x: advancePos.x, y: advancePos.y } : row);
+    }
+  }
+
+  const primaryResult = targetResults.find((row) => row.id === enemy.id) || targetResults[0];
+  const defeated = Boolean(primaryResult?.defeated);
+  const totalHpDamage = targetResults.reduce((sum, row) => sum + row.hpDamage, 0);
+  const totalLanded = targetResults.reduce((sum, row) => sum + row.landed, 0);
+  const totalShots = targetResults.reduce((sum, row) => sum + row.hitTotal, 0);
   const statusName = STATUS_DEFS[skill.statusId]?.name || '';
-  const damageText = rawDamage > 0
-    ? `${hit ? rawDamage : 0} 피해${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`
-    : '피해 없음';
-  const statusText = statusRolled
-    ? statusApplied ? `, ${statusName} 부여` : `, ${statusName} 저항`
-    : '';
-  const resultText = hit
-    ? `${unit.name} ${skill.name} -> ${enemy.name} ${damageText}${statusText}${defeated ? ' 격파' : ''}`
-    : `${unit.name} ${skill.name} 빗나감`;
+  const statusAppliedCount = targetResults.filter((row) => row.statusApplied).length;
+  const statusResistedCount = targetResults.filter((row) => row.statusRolled && !row.statusApplied).length;
+  const modifierAppliedCount = skill.modifier ? targetResults.filter((row) => row.effectHit).length : 0;
+  const resultParts = [`${unit.name} ${skill.name}`];
+  if (coverResult.damage) resultParts.push(`엄폐 ${coverResult.damage} 피해${coverResult.destroyed ? ' · 엄폐 파괴' : ` (${coverResult.after}/${COVER_MAX_HP})`}`);
+  if (Number(skill.damageMul ?? 1) > 0) resultParts.push(`${totalLanded}/${totalShots}회 명중 · HP ${totalHpDamage} 피해`);
+  if (skill.modifier && modifierAppliedCount) resultParts.push(`${skillModifierText(skill.modifier)} ${modifierAppliedCount}명 적용`);
+  if (skill.statusId) {
+    if (statusAppliedCount) resultParts.push(`${statusName} 부여 ${statusAppliedCount}명`);
+    if (statusResistedCount) resultParts.push(`${statusName} 저항 ${statusResistedCount}명`);
+  }
+  if (!targetResults.some((row) => row.effectHit)) resultParts.push('빗나감');
+  const defeatedCount = targetResults.filter((row) => row.defeated).length;
+  if (defeatedCount) resultParts.push(`${defeatedCount}명 격파`);
+  if (Number(skill.advance || 0) > 0) resultParts.push('1칸 전진');
+  const resultText = resultParts.join(' · ');
   const nextBattle = {
     ...battle,
     enemies: nextEnemies,
-    units: battle.units.map((row) => (
-      row.id === unit.id ? { ...row, ap: Number(row.ap || 0) - Number(skill.apCost || 0), acted: true } : row
-    )),
+    units: nextUnits,
     targetEnemyId: defeated ? '' : enemy.id,
     lastResult: resultText,
   };
@@ -1351,7 +1684,7 @@ export function consumeBandageAction(state) {
   if (!unit) return current;
   if (Number(current.inventory.con_bandage || 0) <= 0) return addLog(current, '붕대가 없습니다.');
   if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
-  if (unit.acted) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
+  if (unit.acted) return addLog(current, `${unit.name}: 이미 행동을 마쳤습니다.`);
   if (Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}의 AP가 부족합니다.`);
   const heal = 16;
   const nextBattle = {
@@ -1379,7 +1712,7 @@ export function waitSelectedUnitAction(state) {
   const unit = selectedUnit(battle);
   if (!unit || unit.hp <= 0) return addLog(current, '대기할 학생이 없습니다.');
   if (isActionLockedByStatus(unit)) return addLog(current, statusActionBlockText(unit));
-  if (unit.acted || Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}은(는) 이미 행동을 마쳤습니다.`);
+  if (unit.acted || Number(unit.ap || 0) <= 0) return addLog(current, `${unit.name}: 이미 행동을 마쳤습니다.`);
 
   const nextBattle = {
     ...battle,
@@ -1397,9 +1730,42 @@ export function waitSelectedUnitAction(state) {
 }
 
 function stepToward(actor, target, battle) {
-  const candidates = openAdjacentTiles(actor, battle);
-  candidates.sort((a, b) => distance(a, target) - distance(b, target));
-  return candidates[0] || { x: actor.x, y: actor.y };
+  const start = { x: actor.x, y: actor.y };
+  const queue = [{ ...start, depth: 0, first: null }];
+  const visited = new Set([keyOf(start.x, start.y)]);
+  let best = { ...start, first: null, depth: 0, targetDistance: distance(start, target) };
+
+  while (queue.length) {
+    const current = queue.shift();
+    const neighbors = [
+      { x: current.x + 1, y: current.y },
+      { x: current.x - 1, y: current.y },
+      { x: current.x, y: current.y + 1 },
+      { x: current.x, y: current.y - 1 },
+    ];
+    neighbors.forEach((position) => {
+      const key = keyOf(position.x, position.y);
+      if (visited.has(key) || !inside(position.x, position.y) || OBSTACLES.has(key)) return;
+      if (occupiedBy(battle.units, battle.enemies, position.x, position.y, actor.id)) return;
+      visited.add(key);
+      const node = {
+        ...position,
+        depth: current.depth + 1,
+        first: current.first || position,
+      };
+      const targetDistance = distance(node, target);
+      if (
+        targetDistance < best.targetDistance
+        || (targetDistance === best.targetDistance && node.depth < best.depth)
+        || (targetDistance === best.targetDistance && node.depth === best.depth && key < keyOf(best.x, best.y))
+      ) {
+        best = { ...node, targetDistance };
+      }
+      queue.push(node);
+    });
+  }
+
+  return best.first || start;
 }
 
 function openAdjacentTiles(actor, battle) {
@@ -1414,8 +1780,8 @@ function openAdjacentTiles(actor, battle) {
 }
 
 function coverStep(actor, target, battle) {
-  if (tileDefense(actor.x, actor.y) > 0) return null;
-  const candidates = openAdjacentTiles(actor, battle).filter((pos) => tileDefense(pos.x, pos.y) > 0);
+  if (tileDefense(battle, actor.x, actor.y) > 0) return null;
+  const candidates = openAdjacentTiles(actor, battle).filter((pos) => tileDefense(battle, pos.x, pos.y) > 0);
   candidates.sort((a, b) => {
     const distanceDelta = distance(a, target) - distance(b, target);
     if (distanceDelta !== 0) return distanceDelta;
@@ -1426,6 +1792,53 @@ function coverStep(actor, target, battle) {
 
 function aiRuleLog(rule, message) {
   return `[${rule}] ${message}`;
+}
+
+function resolveOverwatchReactions(state, battle, units, enemies, movingEnemy, sequence = 0) {
+  let nextUnits = units;
+  let actor = { ...movingEnemy };
+  let nextEnemies = enemies.map((row) => row.id === actor.id ? actor : row);
+  const messages = [];
+  const bonus = weaponBonus(state);
+  const watchers = nextUnits
+    .filter((unit) => unit.hp > 0
+      && Number(unit.overwatch?.shots || 0) > 0
+      && !isActionLockedByStatus(unit)
+      && distance(unit, actor) <= Number(unit.overwatch?.range || unit.range || 1))
+    .sort((a, b) => distance(a, actor) - distance(b, actor) || a.id.localeCompare(b.id));
+
+  watchers.forEach((candidate, watcherIndex) => {
+    if (actor.hp <= 0) return;
+    const watcher = nextUnits.find((row) => row.id === candidate.id) || candidate;
+    const currentBattle = { ...battle, units: nextUnits, enemies: nextEnemies };
+    const rng = createRng(`${state.runId}|overwatch|${battle.turn}|${watcher.id}|${actor.id}|${sequence}|${watcherIndex}|${actor.hp}`);
+    const hitChance = clamp(
+      0.68
+        + bonus.acc / 100
+        + attackAccuracyMod(watcher, actor, currentBattle)
+        - tileDefense(currentBattle, actor.x, actor.y) * 0.04,
+      0.2,
+      0.92,
+    );
+    const hit = rng() < hitChance;
+    const damage = Math.max(
+      1,
+      Number(watcher.atk || 0) + bonus.atk - effectiveDefense(actor) - tileDefense(currentBattle, actor.x, actor.y),
+    );
+    const damageResult = absorbDamage(actor, hit ? damage : 0);
+    actor = damageResult.actor;
+    nextEnemies = nextEnemies.map((row) => row.id === actor.id ? actor : row);
+    nextUnits = nextUnits.map((row) => {
+      if (row.id !== watcher.id) return row;
+      const shots = Math.max(0, Number(row.overwatch?.shots || 0) - 1);
+      return { ...row, overwatch: shots > 0 ? { ...row.overwatch, shots } : null };
+    });
+    messages.push(hit
+      ? `[오버워치] ${watcher.name} 반응 사격 → ${actor.name} HP ${damageResult.hpDamage} 피해${damageResult.absorbed ? ` · 보호막 ${damageResult.absorbed}` : ''}${actor.hp <= 0 ? ' · 격파' : ''}`
+      : `[오버워치] ${watcher.name} 반응 사격 빗나감`);
+  });
+
+  return { units: nextUnits, enemies: nextEnemies, actor, messages };
 }
 
 function enemyPhase(state) {
@@ -1451,6 +1864,12 @@ function enemyPhase(state) {
       enemies = enemies.map((row) => row.id === actor.id ? actor : row);
       usedCoverMove = true;
       messages.push(aiRuleLog(AI_RULES.takeCover, `${actor.name} 엄폐 이동 (${actor.x + 1},${actor.y + 1})`));
+      const reaction = resolveOverwatchReactions(state, battle, units, enemies, actor, messages.length);
+      units = reaction.units;
+      enemies = reaction.enemies;
+      actor = reaction.actor;
+      messages.push(...reaction.messages);
+      if (actor.hp <= 0) return;
     }
 
     target = units.filter((unit) => unit.hp > 0).sort((a, b) => distance(actor, a) - distance(actor, b))[0];
@@ -1458,34 +1877,54 @@ function enemyPhase(state) {
     const range = Number(actor.range || 1);
     if (distance(actor, target) > range) {
       if (usedCoverMove) return;
-      const pos = stepToward(actor, target, { ...battle, units, enemies });
-      const moved = pos.x !== actor.x || pos.y !== actor.y;
-      if (!moved) {
+      const startX = actor.x;
+      const startY = actor.y;
+      let movedSteps = 0;
+      const moveBudget = effectiveMove(actor);
+      for (let stepIndex = 0; stepIndex < moveBudget && distance(actor, target) > range; stepIndex += 1) {
+        const pos = stepToward(actor, target, { ...battle, units, enemies });
+        const moved = pos.x !== actor.x || pos.y !== actor.y;
+        if (!moved) break;
+        actor = { ...actor, x: pos.x, y: pos.y };
+        enemies = enemies.map((row) => row.id === actor.id ? actor : row);
+        movedSteps += 1;
+        const reaction = resolveOverwatchReactions(state, battle, units, enemies, actor, messages.length + stepIndex);
+        units = reaction.units;
+        enemies = reaction.enemies;
+        actor = reaction.actor;
+        messages.push(...reaction.messages);
+        if (actor.hp <= 0) break;
+      }
+      if (actor.hp <= 0) return;
+      if (!movedSteps) {
         messages.push(aiRuleLog(AI_RULES.wait, `${actor.name} 이동 불가`));
         return;
       }
-      const nextDistance = distance(pos, target);
+      const nextDistance = distance(actor, target);
       const moveRule = nextDistance <= range ? AI_RULES.moveToAttack : AI_RULES.moveToward;
-      actor = { ...actor, x: pos.x, y: pos.y };
-      enemies = enemies.map((row) => row.id === actor.id ? actor : row);
-      messages.push(aiRuleLog(moveRule, `${actor.name} 이동 (${actor.x + 1},${actor.y + 1})`));
+      messages.push(aiRuleLog(moveRule, `${actor.name} ${movedSteps}칸 이동 (${startX + 1},${startY + 1}) → (${actor.x + 1},${actor.y + 1})`));
       if (nextDistance > range) return;
     }
 
     const rng = createRng(`${state.runId}|enemy|${battle.turn}|${actor.id}|${target.id}|${actor.hp}|${target.hp}`);
-    const hitChance = clamp(0.78 + statusAccuracyMod(actor) - tileDefense(target.x, target.y) * 0.04, 0.25, 0.95);
+    const currentBattle = { ...battle, units, enemies };
+    const hitChance = clamp(
+      0.78 + attackAccuracyMod(actor, target, currentBattle) - tileDefense(currentBattle, target.x, target.y) * 0.04,
+      0.25,
+      0.95,
+    );
     const hit = rng() < hitChance;
     const confusionText = hasStatus(actor, 'st_confuse') ? ' (혼란)' : '';
     if (!hit) {
       messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} -> ${target.name} 공격 빗나감${confusionText}`));
       return;
     }
-    const damage = Math.max(1, Number(actor.atk || 0) - Number(target.def || 0) - tileDefense(target.x, target.y));
+    const damage = Math.max(1, Number(actor.atk || 0) - effectiveDefense(target) - tileDefense(currentBattle, target.x, target.y));
     const damageResult = absorbDamage(target, damage);
     units = units.map((unit) => (
       unit.id === target.id ? damageResult.actor : unit
     ));
-    messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} -> ${target.name} ${damage} 피해${coverDamageNote(target)}${confusionText}${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`));
+    messages.push(aiRuleLog(AI_RULES.attackIfInRange, `${actor.name} → ${target.name} ${damage} 피해${coverDamageNote(target, currentBattle)}${confusionText}${damageResult.absorbed ? ` (보호막 ${damageResult.absorbed})` : ''}`));
   });
 
   const ticked = processRoundEndTicks({ ...battle, units, enemies });
@@ -1547,8 +1986,18 @@ export function restAction(state) {
     day: nextDay,
     battle: {
       ...current.battle,
-      units: current.battle.units.map((unit) => ({ ...unit, hp: unit.maxHp, ap: 2, acted: false, shield: null, statuses: [] })),
-      enemies: current.battle.enemies.map((enemy) => ({ ...enemy, shield: null, statuses: [] })),
+      units: current.battle.units.map((unit) => ({
+        ...unit,
+        hp: unit.maxHp,
+        ap: 2,
+        acted: false,
+        shield: null,
+        statuses: [],
+        modifiers: [],
+        overwatch: null,
+      })),
+      enemies: current.battle.enemies.map((enemy) => ({ ...enemy, shield: null, statuses: [], modifiers: [], overwatch: null })),
+      zones: [],
       phase: current.battle.phase === 'failed' ? 'player' : current.battle.phase,
     },
     credit: settled.credit,
@@ -1586,7 +2035,7 @@ export function equipWeaponAction(state, uid) {
   const inst = current.equipment.find((item) => item.uid === uid);
   const item = inst ? getItem(inst.itemId) : null;
   if (!item?.stats?.atk && !item?.stats?.acc) return addLog(current, '무기로 장착할 수 없는 장비입니다.');
-  return addLog({ ...current, weaponUid: uid }, `${item.name}을(를) 장착했습니다.`);
+  return addLog({ ...current, weaponUid: uid }, `장비 장착: ${item.name}`);
 }
 
 export function buyItemAction(state, itemId) {
@@ -1727,7 +2176,7 @@ export function buyPropertyAction(state, propertyId) {
     ...current,
     credit: Number(current.credit || 0) - Number(property.buyPrice || 0),
     properties: { ...properties, rented, ownedIds: [...properties.ownedIds, property.id] },
-  }, `${property.name}을(를) 구매했습니다. -${property.buyPrice} Cr`);
+  }, `부동산 구매: ${property.name} · -${property.buyPrice} Cr`);
 }
 
 export function rentPropertyAction(state, propertyId) {
@@ -1747,7 +2196,7 @@ export function rentPropertyAction(state, propertyId) {
         [property.id]: { untilDay: Number(current.day || 1) + 3 },
       },
     },
-  }, `${property.name}을(를) 3일간 임차했습니다. -${property.rentFee} Cr`);
+  }, `부동산 임차: ${property.name} · 3일 · -${property.rentFee} Cr`);
 }
 
 export function cancelRentPropertyAction(state, propertyId) {
@@ -1790,7 +2239,7 @@ export function upgradePropertyAction(state, propertyId) {
   if (properties.leasedOutIds.includes(property.id)) return addLog(current, '임대 중인 시설은 업그레이드할 수 없습니다.');
   const maxLevel = Math.max(0, safeWholeNumber(property.maxLevel, 0));
   const level = propertyUpgradeLevel(current, property.id);
-  if (level >= maxLevel) return addLog(current, `${property.name}은(는) 이미 최대 레벨입니다.`);
+  if (level >= maxLevel) return addLog(current, `${property.name}: 이미 최대 레벨입니다.`);
   const cost = propertyUpgradeCost(property, level);
   if (Number(current.credit || 0) < cost) return addLog(current, '시설 업그레이드 크레딧이 부족합니다.');
   const nextLevel = level + 1;
@@ -1815,7 +2264,7 @@ export function enactEdictAction(state, edictId) {
   return addLog({
     ...current,
     edictState: { monthly: { periodKey, edictId: edict.id } },
-  }, `${edict.name}을(를) 이번 달 칙령으로 발령했습니다.`);
+  }, `월간 칙령 발령: ${edict.name}`);
 }
 
 export function inventoryRows(state) {
@@ -1958,7 +2407,7 @@ export function tacticalSkillRows(state) {
   });
 }
 
-function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
+function attackPreview(attacker, defender, battle, accuracyBonus = 0, attackBonus = 0) {
   if (!attacker || !defender) {
     return {
       hitChancePct: 0,
@@ -1974,8 +2423,8 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
   const hitChance = clamp(
     0.78
       + Number(accuracyBonus || 0)
-      + statusAccuracyMod(attacker)
-      - tileDefense(defender.x, defender.y) * 0.04,
+      + attackAccuracyMod(attacker, defender, battle)
+      - tileDefense(battle, defender.x, defender.y) * 0.04,
     0.25,
     0.97,
   );
@@ -1983,8 +2432,8 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
     1,
     Number(attacker.atk || 0)
       + Number(attackBonus || 0)
-      - Number(defender.def || 0)
-      - tileDefense(defender.x, defender.y),
+      - effectiveDefense(defender)
+      - tileDefense(battle, defender.x, defender.y),
   );
   const shieldAbsorb = Math.min(Number(defender.shield?.amount || 0), rawDamage);
   const hpDamage = Math.max(0, rawDamage - shieldAbsorb);
@@ -1996,7 +2445,7 @@ function attackPreview(attacker, defender, accuracyBonus = 0, attackBonus = 0) {
     expectedHpDamage: Math.round(hpDamage * hitChance),
     shieldAbsorb,
     lethal: hpDamage >= Number(defender.hp || 0),
-    inCover: tileDefense(defender.x, defender.y) > 0,
+    inCover: tileDefense(battle, defender.x, defender.y) > 0,
   };
 }
 
@@ -2025,11 +2474,30 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
     const missingHp = Math.max(0, Number(unit?.maxHp || 0) - Number(unit?.hp || 0));
     const healValue = Math.min(missingHp, Number(skill.heal || 0));
     const shieldValue = Number(skill.shield || 0);
-    const valueScore = Math.round(healValue + shieldValue * 0.75);
-    const canUse = Boolean(phaseReady && unitReady && hasAp && valueScore > 0);
+    const affectedCount = skill.teamwide ? aliveUnits(battle).length : 1;
+    const modifierValue = skill.modifier
+      ? Math.max(8, Math.round(Math.abs(Number(skill.modifier.add || 0)) * (['Accuracy', 'Evasion'].includes(skill.modifier.stat) ? 100 : 14))) * affectedCount
+      : 0;
+    const overwatchValue = skill.overwatch ? 24 : 0;
+    const zoneValue = skill.zone?.type === 'Smoke' ? 20 : 0;
+    const valueScore = Math.round(healValue + shieldValue * 0.75 + modifierValue + overwatchValue + zoneValue);
+    const requiresMissingHp = Boolean(skill.heal && !skill.shield && !skill.modifier && !skill.overwatch && !skill.zone);
+    const canUse = Boolean(phaseReady && unitReady && hasAp && (!requiresMissingHp || healValue > 0));
+    const detail = healValue
+      ? `HP ${healValue} 회복 기대${shieldValue ? ` · 보호막 ${shieldValue}` : ''}`
+      : shieldValue
+        ? `보호막 ${shieldValue} 부여`
+        : skill.overwatch
+          ? `반응 사격 ${skill.overwatch.shots}회 · 사거리 ${unit?.range || 0}`
+          : skill.zone?.type === 'Smoke'
+            ? `반경 ${skill.zone.radius} 연막 · 명중 ${Math.abs(Math.round(Number(skill.zone.accuracyMod || 0) * 100))}% 감소 · ${skill.zone.duration}라운드`
+            : skill.modifier
+              ? `${affectedCount}명 ${skillModifierText(skill.modifier)} · ${skill.modifier.duration}턴`
+              : '현재 지원 효과가 없습니다.';
     return {
       skillId: skill.id,
       skillName: skill.name,
+      action: skill.action || 'skill',
       targetId: unit?.id || '',
       targetName: unit?.name || '선택 학생 없음',
       targetType: 'self',
@@ -2044,20 +2512,18 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
       supportValue: valueScore,
       lethal: false,
       valueScore,
-      detail: healValue
-        ? `HP ${healValue} 회복 기대${shieldValue ? ` · 보호막 ${shieldValue}` : ''}`
-        : shieldValue ? `보호막 ${shieldValue} 부여` : '현재 회복/보호막 효율이 낮습니다.',
+      detail,
       reason: !phaseReady
         ? '플레이어 턴 아님'
         : lockedByStatus
           ? statusActionBlockText(unit)
-        : !unitReady
-          ? '행동 가능한 학생 없음'
-          : !hasAp
-            ? `AP ${skill.apCost} 필요`
-            : valueScore <= 0
-              ? '회복 대상 없음'
-              : '사용 가능',
+          : !unitReady
+            ? '행동 가능한 학생 없음'
+            : !hasAp
+              ? `AP ${skill.apCost} 필요`
+              : requiresMissingHp && healValue <= 0
+                ? '회복 대상 없음'
+                : '사용 가능',
     };
   }
 
@@ -2065,6 +2531,7 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
     return {
       skillId: skill.id,
       skillName: skill.name,
+      action: skill.action || 'skill',
       targetId: '',
       targetName: '대상 없음',
       targetType: 'enemy',
@@ -2086,33 +2553,55 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
 
   const targetDistance = distance(unit, enemy);
   const inRange = targetDistance >= Number(skill.rangeMin || 0) && targetDistance <= Number(skill.rangeMax || 1);
+  const coverPreview = damageCover(battle, enemy.x, enemy.y, skill.coverDamage);
+  const previewBattle = coverPreview.battle;
   const hitChance = clamp(
     0.78
       + Number(skill.accuracyAdd || 0)
       + Number(bonus.acc || 0) / 100
-      + statusAccuracyMod(unit)
-      - tileDefense(enemy.x, enemy.y) * 0.04,
+      + attackAccuracyMod(unit, enemy, previewBattle)
+      - tileDefense(previewBattle, enemy.x, enemy.y) * 0.04,
     0.3,
     0.97,
   );
-  const rawDamage = Math.max(0, Math.floor(
-    (Number(unit.atk || 0) + Number(bonus.atk || 0) + (skill.techDamage ? 2 : 0))
-      * Number(skill.damageMul ?? 1)
-      - (skill.techDamage ? Math.floor(Number(enemy.def || 0) / 2) : Number(enemy.def || 0))
-      - tileDefense(enemy.x, enemy.y)
-  ));
-  const shieldAbsorb = Math.min(Number(enemy.shield?.amount || 0), rawDamage);
-  const hpDamage = Math.max(0, rawDamage - shieldAbsorb);
-  const expectedHpDamage = Math.round(hpDamage * hitChance);
+  const hasDamage = Number(skill.damageMul ?? 1) > 0;
+  const hits = Math.max(1, safeWholeNumber(skill.hits, 1));
+  const rawDamage = hasDamage
+    ? Math.max(0, Math.floor(
+      (Number(unit.atk || 0) + Number(bonus.atk || 0) + (skill.techDamage ? 2 : 0))
+        * Number(skill.damageMul ?? 1)
+        - (skill.techDamage ? Math.floor(effectiveDefense(enemy) / 2) : effectiveDefense(enemy))
+        - tileDefense(previewBattle, enemy.x, enemy.y)
+    ))
+    : 0;
+  const totalRawDamage = rawDamage * hits;
+  const shieldAbsorb = Math.min(Number(enemy.shield?.amount || 0), totalRawDamage);
+  const hpDamage = Math.max(0, totalRawDamage - shieldAbsorb);
+  const expectedHpDamage = Math.max(0, Math.round(totalRawDamage * hitChance - shieldAbsorb));
   const statusDef = STATUS_DEFS[skill.statusId];
   const statusExpectedPct = statusDef ? Math.round(hitChance * Number(skill.statusChance || 0) * 100) : 0;
   const statusScore = statusExpectedScore(skill, hitChance);
+  const modifierScore = skill.modifier
+    ? Math.max(10, Math.round(Math.abs(Number(skill.modifier.add || 0)) * (['Accuracy', 'Evasion'].includes(skill.modifier.stat) ? 120 : 18)))
+    : 0;
+  const coverScore = coverPreview.damage * 2 + (coverPreview.destroyed ? 16 : 0);
+  const areaCount = skill.radius
+    ? battle.enemies.filter((row) => row.hp > 0 && distance(row, enemy) <= Number(skill.radius || 0)).length
+    : 1;
   const lethal = hpDamage >= Number(enemy.hp || 0);
-  const valueScore = expectedHpDamage + statusScore + (lethal ? 24 : 0);
+  const valueScore = expectedHpDamage + (statusScore + modifierScore) * areaCount + coverScore + (lethal ? 24 : 0);
   const canUse = Boolean(phaseReady && unitReady && hasAp && inRange);
+  const effects = [];
+  if (hasDamage) effects.push(`${hits > 1 ? `${hits}연타 · ` : ''}${expectedHpDamage} 기대 피해`);
+  if (coverPreview.damage) effects.push(`엄폐 ${coverPreview.damage} 피해${coverPreview.destroyed ? ' · 파괴' : ''}`);
+  if (skill.modifier) effects.push(`${skillModifierText(skill.modifier)} ${skill.modifier.duration}턴`);
+  if (statusDef) effects.push(`${statusDef.name} 기대 ${statusExpectedPct}%${areaCount > 1 ? ` · 최대 ${areaCount}명` : ''}`);
+  effects.push(`명중 ${Math.round(hitChance * 100)}%`);
+  if (lethal) effects.push('마무리 가능');
   return {
     skillId: skill.id,
     skillName: skill.name,
+    action: skill.action || 'skill',
     targetId: enemy.id,
     targetName: enemy.name,
     targetType: 'enemy',
@@ -2128,7 +2617,7 @@ function skillPreviewForTarget(unit, enemy, skill, battle, bonus) {
     supportValue: 0,
     lethal,
     valueScore,
-    detail: `${expectedHpDamage} 기대 피해 · 명중 ${Math.round(hitChance * 100)}%${statusDef ? ` · ${statusDef.name} 기대 ${statusExpectedPct}%` : ''}${lethal ? ' · 마무리 가능' : ''}`,
+    detail: effects.join(' · '),
     reason: !phaseReady
       ? '플레이어 턴 아님'
       : lockedByStatus
@@ -2179,7 +2668,7 @@ function forecastEnemyAction(enemy, battle) {
   }
 
   let actor = { ...enemy };
-  const enemies = battle.enemies.map((row) => ({ ...row }));
+  let enemies = battle.enemies.map((row) => ({ ...row }));
   const units = battle.units.map((row) => ({ ...row }));
   let target = [...alive].sort((a, b) => distance(actor, a) - distance(actor, b))[0];
   const lowHp = Number(actor.hp || 0) / Math.max(1, Number(actor.maxHp || actor.hp || 1)) <= AI_COVER_HP_RATIO;
@@ -2189,6 +2678,7 @@ function forecastEnemyAction(enemy, battle) {
   let moveText = '제자리';
   if (cover) {
     actor = { ...actor, x: cover.x, y: cover.y };
+    enemies = enemies.map((row) => row.id === actor.id ? actor : row);
     usedCoverMove = true;
     rule = AI_RULES.takeCover;
     moveText = `엄폐 (${actor.x + 1},${actor.y + 1})`;
@@ -2215,9 +2705,19 @@ function forecastEnemyAction(enemy, battle) {
         priority: 'low',
       };
     }
-    const pos = stepToward(actor, target, { ...battle, units, enemies });
-    const moved = pos.x !== actor.x || pos.y !== actor.y;
-    if (!moved) {
+    const start = { x: actor.x, y: actor.y };
+    let movedSteps = 0;
+    const moveBudget = effectiveMove(actor);
+    for (let stepIndex = 0; stepIndex < moveBudget && targetDistance > range; stepIndex += 1) {
+      const pos = stepToward(actor, target, { ...battle, units, enemies });
+      const moved = pos.x !== actor.x || pos.y !== actor.y;
+      if (!moved) break;
+      actor = { ...actor, x: pos.x, y: pos.y };
+      enemies = enemies.map((row) => row.id === actor.id ? actor : row);
+      movedSteps += 1;
+      targetDistance = distance(actor, target);
+    }
+    if (!movedSteps) {
       return {
         enemyId: enemy.id,
         enemyName: enemy.name,
@@ -2233,10 +2733,8 @@ function forecastEnemyAction(enemy, battle) {
         priority: 'low',
       };
     }
-    actor = { ...actor, x: pos.x, y: pos.y };
-    targetDistance = distance(actor, target);
     rule = targetDistance <= range ? AI_RULES.moveToAttack : AI_RULES.moveToward;
-    moveText = `이동 (${actor.x + 1},${actor.y + 1})`;
+    moveText = `${movedSteps}칸 이동 (${start.x + 1},${start.y + 1}) → (${actor.x + 1},${actor.y + 1})`;
     if (targetDistance > range) {
       return {
         enemyId: enemy.id,
@@ -2255,7 +2753,14 @@ function forecastEnemyAction(enemy, battle) {
     }
   }
 
-  const preview = attackPreview(actor, target, 0, 0);
+  const previewBattle = { ...battle, units, enemies };
+  const preview = attackPreview(actor, target, previewBattle, 0, 0);
+  const overwatchRows = units
+    .filter((unit) => Number(unit.overwatch?.shots || 0) > 0
+      && !isActionLockedByStatus(unit)
+      && distance(unit, actor) <= Number(unit.overwatch?.range || unit.range || 1))
+    .map((unit) => ({ unit, preview: attackPreview(unit, actor, previewBattle, 0, 0) }));
+  const overwatchExpected = overwatchRows.reduce((sum, row) => sum + Number(row.preview.expectedHpDamage || 0), 0);
   const priority = preview.lethal || preview.expectedHpDamage >= Math.ceil(Number(target.hp || 1) * 0.45)
     ? 'high'
     : preview.expectedHpDamage > 0
@@ -2270,12 +2775,14 @@ function forecastEnemyAction(enemy, battle) {
     targetHp: Number(target.hp || 0),
     distance: targetDistance,
     range,
-    detail: `${target.name}에게 ${preview.rawDamage} 피해 시도 · 명중 ${preview.hitChancePct}%${preview.inCover ? ' · 대상 엄폐' : ''}`,
+    detail: `${target.name}에게 ${preview.rawDamage} 피해 시도 · 명중 ${preview.hitChancePct}%${preview.inCover ? ' · 대상 엄폐' : ''}${overwatchRows.length ? ` · 이동 중 오버워치 ${overwatchRows.length}회, 기대 ${overwatchExpected}` : ''}`,
     moveText,
     hitChancePct: preview.hitChancePct,
     hpDamage: preview.hpDamage,
     expectedHpDamage: preview.expectedHpDamage,
     shieldAbsorb: preview.shieldAbsorb,
+    overwatchCount: overwatchRows.length,
+    overwatchExpected,
     lethal: preview.lethal,
     priority,
   };
@@ -2306,7 +2813,7 @@ export function getBattleForecast(state) {
     hp: Number(unit.hp || 0),
     maxHp: Number(unit.maxHp || unit.hp || 0),
     lethal: false,
-    inCover: tileDefense(unit.x, unit.y) > 0,
+    inCover: tileDefense(battle, unit.x, unit.y) > 0,
   }]));
 
   enemyPlans.forEach((plan) => {
@@ -2345,7 +2852,7 @@ export function getBattleForecast(state) {
   const selectedAttacks = enemies.map((enemy) => {
     const targetDistance = selected && enemy ? distance(selected, enemy) : 0;
     const inRange = selected && enemy && targetDistance <= Number(selected.range || 1);
-    const preview = inRange ? attackPreview(selected, enemy, bonus.acc / 100, bonus.atk) : attackPreview(null, null);
+    const preview = inRange ? attackPreview(selected, enemy, battle, bonus.acc / 100, bonus.atk) : attackPreview(null, null, battle);
     return {
       enemyId: enemy.id,
       enemyName: enemy.name,
@@ -2355,7 +2862,7 @@ export function getBattleForecast(state) {
       hpDamage: preview.hpDamage,
       expectedHpDamage: preview.expectedHpDamage,
       lethal: preview.lethal,
-      coverText: tileDefense(enemy.x, enemy.y) ? '엄폐 중' : '노출',
+      coverText: tileDefense(battle, enemy.x, enemy.y) ? '엄폐 중' : '노출',
     };
   }).sort((a, b) => {
     if (a.lethal !== b.lethal) return a.lethal ? -1 : 1;
@@ -2387,6 +2894,7 @@ export function getBattleForecast(state) {
         ? `${selected?.name || '선택 유닛'} 지원`
         : `${selected?.name || '선택 유닛'} → ${skill.targetName}`,
       skillId: skill.skillId,
+      action: skill.action || 'skill',
       targetId: skill.targetId,
       targetType: skill.targetType,
       enabled: skill.canUse,
@@ -2411,8 +2919,8 @@ export function getBattleForecast(state) {
     .map((row) => row.actorName);
   const recommendations = [];
   if (topThreat?.riskScore >= 70) recommendations.push(`${topThreat.unitName} 보호: 엄폐 이동, 방어 태세, 붕대 사용을 우선하세요.`);
-  if (allyStatusDamage) recommendations.push(`${allyStatusDamage.actorName}에게 상태 피해 ${allyStatusDamage.hpDamage}이(가) 예정되어 있습니다. 보호막이나 응급 처치를 고려하세요.`);
-  if (stunnedEnemyNames.length) recommendations.push(`${stunnedEnemyNames.slice(0, 2).join(', ')}은(는) 이번 적 턴 행동하지 못합니다. 남은 적을 정리하세요.`);
+  if (allyStatusDamage) recommendations.push(`${allyStatusDamage.actorName}: 상태 피해 ${allyStatusDamage.hpDamage} 예정. 보호막이나 응급 처치를 고려하세요.`);
+  if (stunnedEnemyNames.length) recommendations.push(`${stunnedEnemyNames.slice(0, 2).join(', ')}: 이번 적 턴 행동 불가. 남은 적을 정리하세요.`);
   if (actionRows[0]?.enabled) recommendations.push(`최우선 행동: ${actionRows[0].label} - ${actionRows[0].title}.`);
   if (selectedAttacks[0]?.lethal) recommendations.push(`${selected?.name || '선택 유닛'}으로 ${selectedAttacks[0].enemyName} 마무리가 가능합니다.`);
   if (skillPreviews[0]?.canUse && skillPreviews[0].statusName) recommendations.push(`${skillPreviews[0].skillName}으로 ${skillPreviews[0].statusName} 기대값을 확보할 수 있습니다.`);
@@ -2923,6 +3431,34 @@ function latestPresentationCue(current, battle) {
       tone: 'miss',
     };
   }
+  if (latestLine.includes('[오버워치]') || latestLine.includes('오버워치')) {
+    return {
+      title: latestLine.includes('[오버워치]') ? '반응 사격 컷' : '감시 태세 컷',
+      detail: latestLine,
+      tone: 'overwatch',
+    };
+  }
+  if (latestLine.includes('연막')) {
+    return {
+      title: '연막 전개 컷',
+      detail: latestLine,
+      tone: 'smoke',
+    };
+  }
+  if (latestLine.includes('엄폐 파괴')) {
+    return {
+      title: '엄폐 파괴 컷',
+      detail: latestLine,
+      tone: 'breach',
+    };
+  }
+  if (latestLine.includes('사기 고양') || latestLine.includes('표식') || latestLine.includes('제압 사격')) {
+    return {
+      title: latestLine.includes('사기 고양') ? '강화 컷' : '약화 컷',
+      detail: latestLine,
+      tone: latestLine.includes('사기 고양') ? 'buff' : 'debuff',
+    };
+  }
   if (latestLine.includes('HP +') || latestLine.includes('붕대') || latestLine.includes('처치')) {
     return {
       title: '회복 컷',
@@ -3143,11 +3679,17 @@ export function getOperationBriefing(state) {
 
 export function cellContent(state, x, y) {
   const current = normalizeState(state);
+  const smokeZone = current.battle.zones.find((zone) => zone.type === 'Smoke' && zoneContains(zone, x, y)) || null;
   const unit = current.battle.units.find((row) => row.hp > 0 && row.x === x && row.y === y);
-  if (unit) return { type: 'unit', actor: unit };
+  if (unit) return { type: 'unit', actor: unit, zone: smokeZone };
   const enemy = current.battle.enemies.find((row) => row.hp > 0 && row.x === x && row.y === y);
-  if (enemy) return { type: 'enemy', actor: enemy };
-  if (OBSTACLES.has(keyOf(x, y))) return { type: 'obstacle' };
-  if (COVER.has(keyOf(x, y))) return { type: 'cover' };
+  if (enemy) return { type: 'enemy', actor: enemy, zone: smokeZone };
+  if (OBSTACLES.has(keyOf(x, y))) return { type: 'obstacle', zone: smokeZone };
+  if (COVER.has(keyOf(x, y))) {
+    const coverHp = coverDurabilityAt(current.battle, x, y);
+    if (coverHp > 0) return { type: 'cover', coverHp, coverMaxHp: COVER_MAX_HP, zone: smokeZone };
+    return { type: smokeZone ? 'smoke' : 'empty', destroyedCover: true, coverHp: 0, coverMaxHp: COVER_MAX_HP, zone: smokeZone };
+  }
+  if (smokeZone) return { type: 'smoke', zone: smokeZone };
   return { type: 'empty' };
 }

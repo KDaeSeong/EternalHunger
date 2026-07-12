@@ -16,13 +16,15 @@ import {
 
 function BoardCell({ content, selected, target, onClick }) {
   const statusText = content.actor ? actorStatusText(content.actor) : '';
+  const zoneText = content.zone?.type === 'Smoke' ? `연막 ${content.zone.duration}라운드` : '';
+  const coverText = content.type === 'cover' ? `엄폐 내구도 ${content.coverHp}/${content.coverMaxHp}` : '';
   const label = content.actor
-    ? `${content.actor.name}${statusText ? ` · ${statusText}` : ''}`
-    : content.type === 'cover' ? '엄폐' : content.type === 'obstacle' ? '장애물' : '';
+    ? `${content.actor.name}${statusText ? ` · ${statusText}` : ''}${zoneText ? ` · ${zoneText}` : ''}`
+    : [coverText, zoneText, content.destroyedCover ? '파괴된 엄폐' : '', content.type === 'obstacle' ? '장애물' : ''].filter(Boolean).join(' · ');
   return (
     <button
       type="button"
-      className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}`}
+      className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}${content.zone ? ' is-smoke-zone' : ''}${content.actor?.overwatch ? ' is-overwatch' : ''}${content.destroyedCover ? ' is-destroyed-cover' : ''}`}
       data-game-sfx={content.actor ? 'select' : 'click'}
       disabled={content.type === 'obstacle'}
       onClick={onClick}
@@ -34,7 +36,10 @@ function BoardCell({ content, selected, target, onClick }) {
           <span>{content.actor.hp}/{content.actor.maxHp}{content.actor.shield?.amount ? `+${content.actor.shield.amount}` : ''}</span>
         </>
       ) : (
-        <span>{content.type === 'cover' ? '▣' : content.type === 'obstacle' ? '×' : ''}</span>
+        <>
+          <strong>{content.type === 'cover' ? '엄폐' : content.type === 'smoke' ? '연막' : content.type === 'obstacle' ? '장애' : content.destroyedCover ? '파괴' : ''}</strong>
+          <span>{content.type === 'cover' ? `${content.coverHp}/${content.coverMaxHp}` : content.type === 'smoke' ? `${content.zone.duration}R` : content.type === 'obstacle' ? '×' : ''}</span>
+        </>
       )}
     </button>
   );
@@ -210,9 +215,9 @@ export default function BaSrpgBattleTab(props) {
         </section>
 
         {battleForecast.statusRows?.length ? (
-          <section className="games-panel">
+          <section className="games-panel srpg-status-panel">
             <div className="games-panel-title">
-              <h2>상태 효과 예고</h2>
+              <h2>전술 효과 예고</h2>
               <span>{battleForecast.statusSummary}</span>
             </div>
             <div className="game-save-list">
@@ -250,7 +255,7 @@ export default function BaSrpgBattleTab(props) {
                   <small>{action.detail}</small>
                 </div>
                 <ActionButton
-                  action={action.type === 'attack' ? 'combat' : 'skill'}
+                  action={action.type === 'attack' ? 'combat' : action.action || 'skill'}
                   disabled={!action.enabled}
                   onClick={() => {
                     if (action.type === 'attack') {
