@@ -1,6 +1,6 @@
 # Local Continuation Tasks
 
-Updated: 2026-07-11 KST
+Updated: 2026-07-12 KST
 Latest pushed commit: check `git log -1 --oneline origin/main` after pulling.
 
 This document is the handoff list for continuing work on another machine.
@@ -28,6 +28,7 @@ npm run build
 
 ## Current State
 
+- Eternal Hunger `/simulation` now classifies major world events separately from ordinary logs. A compact persistent event strip and eleven dedicated synthesized cues cover hyperloop, kiosk revival, dimension-rift opening/battle, boss spawn/defeat, core objectives, legendary/transcendent supply, special crafting, and sudden death. Automatic play keeps ordinary movement/farming silent and suppresses repeated hyperloop/crafting cues; `npm run check:eternal-hunger-feedback` guards the transition priority and icon/sound wiring.
 - Shared `GamePlayShell` routes now include a compact per-theme sound toggle backed by `gameSfxPreferences.js`. The preference persists by theme and is honored by both control sounds and state-driven result cues. `RecentActionResult` also infers an action icon from its label/result context, covering more than 40 existing result panels without page-specific wiring. `check:game-feedback-shell` guards route themes, preference storage, dedicated cue coverage, and feedback icon coverage.
 - `client/src/app/games/company-report/play/page.js` is roughly 380 lines and delegates panels, persistence, selections, and derived view data.
 - Company Report tab UI now lives in `client/src/app/games/company-report/_components/CompanyReportFeatureTabs.js`.
@@ -427,6 +428,7 @@ cd client
 npm run check:skills
 npm run check:runtime:simulation
 npm run check:runtime:utils
+npm run check:eternal-hunger-feedback
 npm run check:twenty-questions-feedback
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_lib/companyReportFeedback.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_components/CompanyReportGuidancePanel.js src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js src/app/games/company-report/_components/CompanyReportVatInventoryPanels.js src/app/games/company-report/_lib/companyReportPageRuntime.js

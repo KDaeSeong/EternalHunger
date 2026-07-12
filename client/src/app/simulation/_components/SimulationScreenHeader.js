@@ -57,7 +57,7 @@ export default function SimulationScreenHeader({
           <button
             className="btn-proceed sim-header-proceed"
             type="button"
-            data-game-sfx="advance"
+            data-game-sfx="off"
             onClick={onProceed}
             disabled={actionDisabled}
             title={startBlocked ? startBlockedText : '현재 페이즈를 진행합니다.'}

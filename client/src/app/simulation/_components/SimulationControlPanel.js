@@ -146,7 +146,7 @@ export default function SimulationControlPanel({
           <button
             className="btn-proceed"
             type="button"
-            data-game-sfx="advance"
+            data-game-sfx="off"
             onClick={onProceed}
             disabled={actionDisabled}
             style={{ opacity: actionDisabled ? 0.5 : 1 }}

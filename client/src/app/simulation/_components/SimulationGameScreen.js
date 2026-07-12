@@ -5,6 +5,7 @@ import {
   getTimeOfDayFromPhase,
 } from '../_lib/simulationEngine';
 import SimulationForbiddenStatusBar from './SimulationForbiddenStatusBar';
+import SimulationEventFeedbackBar from './SimulationEventFeedbackBar';
 import SimulationMainStage from './SimulationMainStage';
 import SimulationScreenHeader from './SimulationScreenHeader';
 
@@ -40,6 +41,7 @@ export default function SimulationGameScreen({
   dead,
   detonationRiskSummary,
   doHyperloopJump,
+  eventFeedback,
   fireAndReport,
   forbiddenAddedNow,
   forbiddenNow,
@@ -142,6 +144,8 @@ export default function SimulationGameScreen({
         forbiddenAddedNow={forbiddenAddedNow}
         getZoneName={getZoneName}
       />
+
+      <SimulationEventFeedbackBar feedback={eventFeedback} />
 
       <SimulationMainStage
         actionDisabled={actionDisabled}

@@ -6,7 +6,8 @@ import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
 import { getTimeOfDayFromPhase } from '../_lib/simulationEngine';
 import {
   createSimulationFeedbackSnapshot,
-  getSimulationFeedbackCue,
+  getSimulationFeedbackDisplay,
+  getSimulationFeedbackPresentation,
 } from '../_lib/simulationFeedbackRuntime';
 import SimulationGameScreen from './SimulationGameScreen';
 import SimulationMarketPanel from './SimulationMarketPanel';
@@ -50,6 +51,7 @@ export default function SimulationPageView(props) {
     setShowResultModal,
     settings,
     isGameOver,
+    logs,
     showMarketPanel,
     showResultModal,
     specialSourceSummary,
@@ -73,15 +75,20 @@ export default function SimulationPageView(props) {
     dead,
     forbiddenAddedNow,
     isGameOver,
+    logs,
     phase,
     winner,
-  }), [autoPlay, day, dead, forbiddenAddedNow, isGameOver, phase, winner]);
+  }), [autoPlay, day, dead, forbiddenAddedNow, isGameOver, logs, phase, winner]);
+  const eventFeedback = useMemo(
+    () => getSimulationFeedbackDisplay(feedbackSnapshot),
+    [feedbackSnapshot],
+  );
 
   useEffect(() => {
     const previous = previousFeedbackRef.current;
     previousFeedbackRef.current = feedbackSnapshot;
-    const cue = getSimulationFeedbackCue(previous, feedbackSnapshot);
-    if (cue) playGameSfx(cue);
+    const presentation = getSimulationFeedbackPresentation(previous, feedbackSnapshot);
+    if (presentation?.cue) playGameSfx(presentation.cue);
   }, [feedbackSnapshot, playGameSfx]);
 
   const toggleSfx = useCallback(() => {
@@ -132,7 +139,12 @@ export default function SimulationPageView(props) {
           zones={zones}
         />
 
-        <SimulationGameScreen {...props} onToggleSfx={toggleSfx} sfxEnabled={sfxEnabled} />
+        <SimulationGameScreen
+          {...props}
+          eventFeedback={eventFeedback}
+          onToggleSfx={toggleSfx}
+          sfxEnabled={sfxEnabled}
+        />
 
         <SimulationMarketPanel {...props} />
       </div>

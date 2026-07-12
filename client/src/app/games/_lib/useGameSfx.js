@@ -121,6 +121,61 @@ const CUE_PROFILES = {
     { frequency: 240, endFrequency: 170, duration: 0.09, type: 'square', gain: 0.045 },
     { frequency: 240, endFrequency: 150, start: 0.12, duration: 0.12, type: 'square', gain: 0.042 },
   ],
+  hyperloopJump: [
+    { source: 'noise', filterType: 'highpass', frequency: 1500, duration: 0.045, gain: 0.025 },
+    { frequency: 360, endFrequency: 1080, duration: 0.16, type: 'sine', gain: 0.05 },
+    { frequency: 720, endFrequency: 1320, start: 0.06, duration: 0.12, type: 'triangle', gain: 0.032 },
+  ],
+  kioskRevive: [
+    { frequency: 260, endFrequency: 460, duration: 0.1, type: 'triangle', gain: 0.05 },
+    { frequency: 640, start: 0.07, duration: 0.09, type: 'triangle', gain: 0.042 },
+    { frequency: 920, start: 0.145, duration: 0.13, type: 'sine', gain: 0.035 },
+  ],
+  riftOpen: [
+    { frequency: 94, endFrequency: 170, duration: 0.24, type: 'sine', gain: 0.05 },
+    { source: 'noise', filterType: 'bandpass', frequency: 540, q: 2.4, start: 0.04, duration: 0.18, gain: 0.028 },
+    { frequency: 420, endFrequency: 760, start: 0.12, duration: 0.15, type: 'triangle', gain: 0.03 },
+  ],
+  riftBattle: [
+    { source: 'noise', filterType: 'lowpass', frequency: 860, duration: 0.1, gain: 0.065 },
+    { frequency: 210, endFrequency: 92, duration: 0.17, type: 'sawtooth', gain: 0.052 },
+    { frequency: 320, endFrequency: 160, start: 0.1, duration: 0.14, type: 'square', gain: 0.032 },
+  ],
+  bossSpawn: [
+    { frequency: 118, duration: 0.12, type: 'sawtooth', gain: 0.052 },
+    { frequency: 92, start: 0.15, duration: 0.14, type: 'sawtooth', gain: 0.05 },
+    { source: 'noise', filterType: 'lowpass', frequency: 460, start: 0.04, duration: 0.2, gain: 0.028 },
+  ],
+  bossDefeat: [
+    { frequency: 280, endFrequency: 420, duration: 0.07, type: 'triangle', gain: 0.045 },
+    { frequency: 560, start: 0.06, duration: 0.08, type: 'triangle', gain: 0.043 },
+    { frequency: 840, start: 0.13, duration: 0.13, type: 'sine', gain: 0.04 },
+  ],
+  objectiveSpawn: [
+    { frequency: 430, endFrequency: 650, duration: 0.08, type: 'triangle', gain: 0.043 },
+    { frequency: 910, start: 0.065, duration: 0.12, type: 'sine', gain: 0.037 },
+  ],
+  rareSupply: [
+    { frequency: 420, duration: 0.045, type: 'square', gain: 0.038 },
+    { frequency: 630, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04 },
+    { frequency: 840, start: 0.095, duration: 0.1, type: 'sine', gain: 0.034 },
+  ],
+  transcendSupply: [
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.04 },
+    { frequency: 780, start: 0.036, duration: 0.055, type: 'triangle', gain: 0.042 },
+    { frequency: 1170, start: 0.086, duration: 0.13, type: 'sine', gain: 0.038 },
+  ],
+  specialCraft: [
+    { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.035, gain: 0.025 },
+    { frequency: 520, endFrequency: 390, duration: 0.05, type: 'square', gain: 0.038 },
+    { frequency: 860, start: 0.045, duration: 0.07, type: 'triangle', gain: 0.042 },
+    { frequency: 1290, start: 0.105, duration: 0.12, type: 'sine', gain: 0.035 },
+  ],
+  suddenDeath: [
+    { frequency: 250, endFrequency: 180, duration: 0.09, type: 'square', gain: 0.05 },
+    { frequency: 250, endFrequency: 150, start: 0.12, duration: 0.11, type: 'square', gain: 0.05 },
+    { frequency: 82, start: 0.04, duration: 0.26, type: 'sawtooth', gain: 0.035 },
+  ],
   craft: [
     { frequency: 560, endFrequency: 430, duration: 0.045, type: 'square', gain: 0.04 },
     { frequency: 1120, start: 0.035, duration: 0.065, type: 'triangle', gain: 0.045 },
