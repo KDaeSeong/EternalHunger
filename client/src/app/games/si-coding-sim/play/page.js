@@ -24,7 +24,9 @@ import SiCodingSimFeatureTabs from '../_components/SiCodingSimFeatureTabs';
 import useSiCodingSimPersistence from '../_hooks/useSiCodingSimPersistence';
 import {
   siCodingFeedbackCue,
+  siCodingFeedbackPresentation,
   siCodingFeedbackSnapshot,
+  siCodingResultPresentation,
 } from '../_lib/siCodingSimFeedback';
 
 
@@ -34,6 +36,7 @@ export default function SiCodingSimPlayPage() {
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'coding' });
   const [state, setState] = useState(() => createNewState());
+  const stateRef = useRef(state);
   const [selectedFileId, setSelectedFileId] = useState('');
   const [taskFilters, setTaskFilters] = useState({
     query: '',
@@ -47,6 +50,14 @@ export default function SiCodingSimPlayPage() {
   const hintPanelRef = useRef(null);
   const documentPanelRef = useRef(null);
   const executionPanelRef = useRef(null);
+  const [actionResult, setActionResult] = useState('');
+  const [actionPresentation, setActionPresentation] = useState({
+    action: '',
+    cue: '',
+    key: 'idle',
+    label: '검수 결과',
+    tone: '',
+  });
   const feedbackRef = useRef(siCodingFeedbackSnapshot(state));
 
   const viewModel = useMemo(() => buildSiCodingSimPlayViewModel({
@@ -89,6 +100,7 @@ export default function SiCodingSimPlayPage() {
   } = viewModel;
 
   useEffect(() => {
+    stateRef.current = state;
     const current = siCodingFeedbackSnapshot(state);
     const cue = siCodingFeedbackCue(feedbackRef.current, current);
     if (cue) playGameSfx(cue);
@@ -99,11 +111,27 @@ export default function SiCodingSimPlayPage() {
     setTaskFilters((current) => ({ ...current, [key]: value }));
   };
 
+  const applyCodingState = (updater) => {
+    const previousState = stateRef.current;
+    const nextState = typeof updater === 'function' ? updater(previousState) : updater;
+    const presentation = siCodingFeedbackPresentation(previousState, nextState);
+    stateRef.current = nextState;
+    setState(nextState);
+    setActionResult('');
+    if (presentation.key !== 'idle') setActionPresentation(presentation);
+    return nextState;
+  };
+
   const startNewRun = () => {
+    const previousState = stateRef.current;
     const nextState = createNewState();
+    stateRef.current = nextState;
     setState(nextState);
     setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || '');
     setMessage('');
+    setActionResult('새 SI Coding Sim 현장을 시작했습니다.');
+    setActionPresentation(siCodingFeedbackPresentation(previousState, nextState));
+    feedbackRef.current = siCodingFeedbackSnapshot(nextState);
   };
 
   const {
@@ -114,8 +142,13 @@ export default function SiCodingSimPlayPage() {
     saveRun,
     setMessage,
   } = useSiCodingSimPersistence({
-    onLoaded: (nextState) => setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || ''),
+    onLoaded: (nextState) => {
+      stateRef.current = nextState;
+      feedbackRef.current = siCodingFeedbackSnapshot(nextState);
+      setSelectedFileId(getCurrentTask(nextState)?.files?.[0]?.id || '');
+    },
     score,
+    setActionResult,
     setState,
     showToast,
     state,
@@ -144,37 +177,37 @@ export default function SiCodingSimPlayPage() {
   const selectTask = (taskId, panel) => {
     const nextTask = activeTasks.find((item) => item.id === taskId) || activeTasks[0];
     setSelectedFileId(nextTask?.files?.[0]?.id || '');
-    setState((current) => selectTaskAction(current, taskId));
+    applyCodingState((current) => selectTaskAction(current, taskId));
     scrollToPanel(panel);
   };
 
   const selectTaskPack = (packId) => {
     setSelectedFileId('');
-    setState((current) => selectTaskPackAction(current, packId));
+    applyCodingState((current) => selectTaskPackAction(current, packId));
     scrollToPanel('code');
   };
 
   const startSelectedSeed = () => {
     setSelectedFileId('');
-    setState((current) => startSelectedProjectSeedAction(current));
+    applyCodingState((current) => startSelectedProjectSeedAction(current));
     setMessage('선택한 후보로 차기 현장을 시작했습니다.');
     scrollToPanel('code');
   };
 
   const submitCurrentTask = () => {
     if (!task) return;
-    setState((current) => submitTaskAction(current, task.id));
+    applyCodingState((current) => submitTaskAction(current, task.id));
   };
 
   const revealCurrentHint = () => {
     if (!task || !canRevealHint) return;
-    setState((current) => revealHintAction(current, task.id));
+    applyCodingState((current) => revealHintAction(current, task.id));
     scrollToPanel('hint');
   };
 
   const resetCurrentTask = () => {
     if (!task) return;
-    setState((current) => resetTaskAction(current, task.id));
+    applyCodingState((current) => resetTaskAction(current, task.id));
   };
 
   const actions = (
@@ -213,7 +246,8 @@ export default function SiCodingSimPlayPage() {
       ? { key: 'low-resource', tone: 'error', text: '체력 또는 멘탈이 위험 수치입니다. 힌트 사용과 재검수 비용을 조심해야 합니다.' }
       : null,
   ];
-  const recentActionText = state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
+  const recentActionText = actionResult || state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
+  const resultPresentation = siCodingResultPresentation(recentActionText, actionPresentation);
 
   const guide = {
     title: '현장 코치',
@@ -250,7 +284,13 @@ export default function SiCodingSimPlayPage() {
         messages={messages}
       >
         <GameAdvisorPanel {...guide} compact minimal storageKey="si-coding-field-coach" />
-        <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
+        <RecentActionResult
+          action={resultPresentation.action}
+          label={resultPresentation.label}
+          text={recentActionText}
+          tone={resultPresentation.tone}
+          pinned
+        />
       </GamePlayShell>
     );
   }
@@ -270,7 +310,13 @@ export default function SiCodingSimPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact minimal storageKey="si-coding-field-coach" />
-      <RecentActionResult label="이번 검수 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={recentActionText}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <SiCodingSimFeatureTabs
         activeContent={activeContent}
@@ -309,7 +355,7 @@ export default function SiCodingSimPlayPage() {
         selectTaskPack={selectTaskPack}
         setActiveFeatureTabId={setActiveFeatureTabId}
         setSelectedFileId={setSelectedFileId}
-        setState={setState}
+        setState={applyCodingState}
         startSelectedSeed={startSelectedSeed}
         state={state}
         submissionComparison={submissionComparison}

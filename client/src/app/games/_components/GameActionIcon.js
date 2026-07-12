@@ -226,6 +226,7 @@ const ACTION_ICONS = {
   set: Shield,
   spell: Sparkles,
   sponsor: Handshake,
+  support: HeartHandshake,
   serve: Utensils,
   summon: GalleryVerticalEnd,
   survival: TentTree,

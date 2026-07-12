@@ -14,6 +14,7 @@ import {
 export default function useSiCodingSimPersistence({
   onLoaded,
   score,
+  setActionResult,
   setState,
   showToast,
   state,
@@ -21,10 +22,14 @@ export default function useSiCodingSimPersistence({
 }) {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
+  const publishMessage = (nextMessage) => {
+    setMessage(nextMessage);
+    setActionResult?.(nextMessage);
+  };
 
   const saveRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 SI Coding Sim 진행 상태를 저장할 수 있습니다.');
+      publishMessage('로그인하면 SI Coding Sim 진행 상태를 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -38,11 +43,11 @@ export default function useSiCodingSimPersistence({
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
-      setMessage('SI Coding Sim 진행 상태를 저장했습니다.');
+      publishMessage('SI Coding Sim 진행 상태를 저장했습니다.');
       showToast({ tone: 'success', message: 'SI Coding Sim 진행 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -51,7 +56,7 @@ export default function useSiCodingSimPersistence({
 
   const loadRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 저장된 SI Coding Sim 진행 상태를 불러올 수 있습니다.');
+      publishMessage('로그인하면 저장된 SI Coding Sim 진행 상태를 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -59,18 +64,18 @@ export default function useSiCodingSimPersistence({
       const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
-        setMessage('저장된 SI Coding Sim 진행 상태가 없습니다.');
+        publishMessage('저장된 SI Coding Sim 진행 상태가 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
       setState(nextState);
       onLoaded?.(nextState);
-      setMessage('저장된 SI Coding Sim 진행 상태를 불러왔습니다.');
+      publishMessage('저장된 SI Coding Sim 진행 상태를 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 SI Coding Sim 진행 상태를 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -79,7 +84,7 @@ export default function useSiCodingSimPersistence({
 
   const recordRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 SI Coding Sim 납품 기록을 전적에 남길 수 있습니다.');
+      publishMessage('로그인하면 SI Coding Sim 납품 기록을 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -94,11 +99,11 @@ export default function useSiCodingSimPersistence({
         payload: { state },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
-      setMessage('SI Coding Sim 납품 기록을 전적에 남겼습니다.');
+      publishMessage('SI Coding Sim 납품 기록을 전적에 남겼습니다.');
       showToast({ tone: 'success', message: 'SI Coding Sim 납품 기록을 전적에 남겼습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
