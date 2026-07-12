@@ -14,6 +14,7 @@ export default function MyAnimeCraftCupsTab(props) {
     personalSummary,
     played,
     recentActionText,
+    resultPresentation,
     selectedTeam,
     total,
     winnersRows,
@@ -48,13 +49,13 @@ export default function MyAnimeCraftCupsTab(props) {
                 : `${personalSummary.phaseLabel || personalSummary.phase} 진행 대기`)}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="match" disabled={personalSummary.stage === 'DONE'} onClick={() => applyStateAction('개인리그 진행', (current) => (
+            <ActionButton action="cup" cue="off" disabled={personalSummary.stage === 'DONE'} onClick={() => applyStateAction('개인리그 진행', (current) => (
               personalSummary.stage === 'NOT_STARTED' ? startPersonalLeagueAction(current) : advancePersonalLeagueAction(current)
             ))}>
               {personalSummary.stage === 'NOT_STARTED' ? '개인리그 시작' : `${personalSummary.phaseLabel || '개인전'} 진행`}
             </ActionButton>
           </div>
-          <RecentActionResult label="최근 컵/특별전 결과" text={recentActionText} />
+          <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
           {personalSummary.stageReports?.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {personalSummary.stageReports.map((report) => (
@@ -117,7 +118,7 @@ export default function MyAnimeCraftCupsTab(props) {
               : '선택한 팀과 상위 팀이 7판 4선 승자연전으로 맞붙습니다.')}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="match" disabled={winnersSummary.stage === 'DONE'} onClick={() => applyStateAction('위너스리그 진행', (current) => (
+            <ActionButton action="winners" cue="off" disabled={winnersSummary.stage === 'DONE'} onClick={() => applyStateAction('위너스리그 진행', (current) => (
               winnersSummary.stage === 'NOT_STARTED'
                 ? startWinnersLeagueAction(current, selectedTeam.id)
                 : advanceWinnersLeagueAction(current)

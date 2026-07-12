@@ -22,6 +22,7 @@ export default function MyAnimeCraftMarketTab(props) {
     inventoryRows,
     marketOfficeReport,
     recentActionText,
+    resultPresentation,
     selectedPlayer,
     selectedTeam,
     setSelectedPlayerId,
@@ -101,6 +102,7 @@ export default function MyAnimeCraftMarketTab(props) {
                 </div>
                 <GameControlButton
                   action="shop"
+                  cue="off"
                   disabled={ended || !row.canBuy}
                   onClick={() => applyStateAction('추천 상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, row.offerId))}
                 >
@@ -131,13 +133,13 @@ export default function MyAnimeCraftMarketTab(props) {
                     {offer.effects?.fameDelta ? ` · 명성 +${offer.effects.fameDelta}` : ''}
                   </small>
                 </div>
-                <GameControlButton action="shop" disabled={ended || offer.stock <= 0} onClick={() => applyStateAction('상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
+                <GameControlButton action="shop" cue="off" disabled={ended || offer.stock <= 0} onClick={() => applyStateAction('상점 구매', (current) => buyShopItemAction(current, selectedTeam.id, offer.offerId))}>
                   {offer.stock <= 0 ? '품절' : `${offer.price} Cr`}
                 </GameControlButton>
               </article>
             ))}
           </div>
-          <RecentActionResult label="최근 시장/장비 결과" text={recentActionText} />
+          <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
         </section>
 
         <section className="games-panel">
@@ -186,6 +188,7 @@ export default function MyAnimeCraftMarketTab(props) {
           </p>
           <ActionButton
             action="transfer"
+            cue="off"
             disabled={!tradeInfo?.canTrade}
             onClick={() => applyStateAction('트레이드 제안', (current) => applyTradeAction(
               current,
@@ -220,7 +223,7 @@ export default function MyAnimeCraftMarketTab(props) {
                   <span>{row.label}</span>
                   <strong>{row.itemName || '미장착'}</strong>
                 </div>
-                <GameControlButton action="equip" disabled={!row.itemId} onClick={() => applyStateAction('장비 해제', (current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</GameControlButton>
+                <GameControlButton action="unequip" cue="off" disabled={!row.itemId} onClick={() => applyStateAction('장비 해제', (current) => unequipSlotAction(current, selectedTeam.id, selectedPlayer.id, row.slot))}>해제</GameControlButton>
               </article>
             ))}
           </div>
@@ -239,9 +242,9 @@ export default function MyAnimeCraftMarketTab(props) {
                   <strong>{item.name}</strong>
                 </div>
                 {item.slot ? (
-                  <GameControlButton action="equip" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => applyStateAction('장비 장착', (current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</GameControlButton>
+                  <GameControlButton action="equip" cue="off" disabled={!selectedPlayer || item.qty <= item.equippedCount} onClick={() => applyStateAction('장비 장착', (current) => equipInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>장착</GameControlButton>
                 ) : (
-                  <GameControlButton action="consume" disabled={!selectedPlayer || item.qty <= 0} onClick={() => applyStateAction('아이템 사용', (current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</GameControlButton>
+                  <GameControlButton action="consume" cue="off" disabled={!selectedPlayer || item.qty <= 0} onClick={() => applyStateAction('아이템 사용', (current) => consumeInventoryItemAction(current, selectedTeam.id, selectedPlayer.id, item.itemId))}>사용</GameControlButton>
                 )}
               </article>
             )) : (

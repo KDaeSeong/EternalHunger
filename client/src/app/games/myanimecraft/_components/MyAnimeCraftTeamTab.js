@@ -14,12 +14,19 @@ import {
   teamPower,
 } from '../_lib/myAnimeCraftEngine';
 
+const TEAM_ACTION_ICONS = {
+  SPECIAL_TRAINING: 'training',
+  REST: 'rest',
+  FANMEETING: 'sponsor',
+};
+
 export default function MyAnimeCraftTeamTab(props) {
   const {
     applyStateAction,
     ended,
     freeAgentPreview,
     recentActionText,
+    resultPresentation,
     selectedCareer,
     selectedContracts,
     selectedEconomy,
@@ -67,9 +74,9 @@ export default function MyAnimeCraftTeamTab(props) {
             <SmallStat label="만료 임박" value={`${selectedEconomy.expiringCount}명`} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="sponsor" disabled={ended} onClick={() => applyStateAction('스폰서 협상', (current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
-            <ActionButton action="training" disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
-            <ActionButton action="recruit" disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
+            <ActionButton action="sponsor" cue="off" disabled={ended} onClick={() => applyStateAction('스폰서 협상', (current) => negotiateSponsorAction(current, selectedTeam.id))}>스폰서 협상</ActionButton>
+            <ActionButton action="training" cue="off" disabled={ended} onClick={() => applyStateAction('훈련 투자', (current) => investTrainingAction(current, selectedTeam.id))}>훈련 투자</ActionButton>
+            <ActionButton action="recruit" cue="off" disabled={ended} onClick={() => applyStateAction('FA 영입', (current) => signFreeAgentAction(current, selectedTeam.id))}>FA 영입</ActionButton>
           </div>
           <div className="games-panel-title" style={{ marginTop: 16 }}>
             <h2>계약 관리</h2>
@@ -88,17 +95,17 @@ export default function MyAnimeCraftTeamTab(props) {
                   <small>시장가 {contract.marketValue} · 방출 위약금 {contract.releaseFee}Cr</small>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  <GameControlButton action="contract" disabled={ended || !contract.canRenew} onClick={() => applyStateAction('재계약', (current) => renewContractAction(current, selectedTeam.id, contract.playerId))}>
+                  <GameControlButton action="contract" cue="off" disabled={ended || !contract.canRenew} onClick={() => applyStateAction('재계약', (current) => renewContractAction(current, selectedTeam.id, contract.playerId))}>
                     재계약
                   </GameControlButton>
-                  <GameControlButton action="release" disabled={ended || !contract.canRelease} onClick={() => applyStateAction('방출', (current) => releasePlayerAction(current, selectedTeam.id, contract.playerId))}>
+                  <GameControlButton action="release" cue="off" disabled={ended || !contract.canRelease} onClick={() => applyStateAction('방출', (current) => releasePlayerAction(current, selectedTeam.id, contract.playerId))}>
                     방출
                   </GameControlButton>
                 </div>
               </article>
             ))}
           </div>
-          <RecentActionResult label="최근 팀 운영 결과" text={recentActionText} />
+          <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} />
           <div className="games-panel-title" style={{ marginTop: 16 }}>
             <h2>주간 운영</h2>
             <span>{selectedPlayer?.name || '선수 없음'}</span>
@@ -106,6 +113,8 @@ export default function MyAnimeCraftTeamTab(props) {
           <div style={{ display: 'grid', gap: 8 }}>
             {teamActions.map((action) => (
               <ActionButton
+                action={TEAM_ACTION_ICONS[action.id] || 'action'}
+                cue="off"
                 key={action.id}
                 disabled={!action.canRun}
                 onClick={() => applyStateAction('주간 운영', (current) => runTeamActionAction(current, selectedTeam.id, selectedPlayer.id, action.id))}

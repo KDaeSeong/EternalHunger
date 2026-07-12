@@ -291,6 +291,27 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.04, duration: 0.04, type: 'square', gain: 0.036 },
     { frequency: 880, start: 0.09, duration: 0.08, type: 'triangle', gain: 0.045 },
   ],
+  cupStart: [
+    { source: 'noise', filterType: 'highpass', frequency: 1600, duration: 0.045, gain: 0.03 },
+    { frequency: 440, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 660, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.047 },
+    { frequency: 880, start: 0.092, duration: 0.1, type: 'sine', gain: 0.042 },
+  ],
+  cupMatch: [
+    { frequency: 560, duration: 0.035, type: 'square', gain: 0.042 },
+    { frequency: 740, start: 0.035, duration: 0.045, type: 'triangle', gain: 0.044 },
+    { frequency: 930, start: 0.078, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  winnersStart: [
+    { frequency: 220, endFrequency: 310, duration: 0.09, type: 'sawtooth', gain: 0.045 },
+    { frequency: 440, start: 0.07, duration: 0.09, type: 'triangle', gain: 0.048 },
+    { frequency: 660, start: 0.145, duration: 0.12, type: 'sine', gain: 0.04 },
+  ],
+  winnersSet: [
+    { frequency: 320, duration: 0.04, type: 'square', gain: 0.043 },
+    { frequency: 480, start: 0.035, duration: 0.045, type: 'square', gain: 0.04 },
+    { frequency: 720, start: 0.08, duration: 0.08, type: 'triangle', gain: 0.043 },
+  ],
   comeback: [
     { frequency: 260, endFrequency: 340, duration: 0.055, type: 'triangle', gain: 0.05 },
     { frequency: 520, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.048 },
@@ -325,6 +346,23 @@ const CUE_PROFILES = {
   transfer: [
     { frequency: 460, endFrequency: 720, duration: 0.075, type: 'triangle', gain: 0.045 },
     { frequency: 920, start: 0.065, duration: 0.075, type: 'sine', gain: 0.04 },
+  ],
+  recruit: [
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.05 },
+    { frequency: 780, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.046 },
+    { frequency: 1040, start: 0.09, duration: 0.09, type: 'sine', gain: 0.04 },
+  ],
+  release: [
+    { source: 'noise', filterType: 'bandpass', frequency: 820, q: 2, duration: 0.04, gain: 0.04 },
+    { frequency: 420, endFrequency: 240, start: 0.025, duration: 0.12, type: 'triangle', gain: 0.045 },
+  ],
+  unequip: [
+    { source: 'noise', filterType: 'highpass', frequency: 1400, duration: 0.035, gain: 0.035 },
+    { frequency: 640, endFrequency: 420, start: 0.02, duration: 0.08, type: 'triangle', gain: 0.042 },
+  ],
+  tradeRejected: [
+    { frequency: 310, endFrequency: 250, duration: 0.075, type: 'square', gain: 0.046 },
+    { frequency: 190, start: 0.065, duration: 0.1, type: 'sine', gain: 0.04 },
   ],
   judge: [
     { frequency: 190, endFrequency: 130, duration: 0.085, type: 'square', gain: 0.05 },

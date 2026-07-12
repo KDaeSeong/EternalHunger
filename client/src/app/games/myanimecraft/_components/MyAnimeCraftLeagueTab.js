@@ -22,6 +22,7 @@ export default function MyAnimeCraftLeagueTab(props) {
     postseasonBriefing,
     postseasonRows,
     recentActionText,
+    resultPresentation,
     rivalryReport,
     seasonStage,
     selectedArchiveMatch,
@@ -55,18 +56,19 @@ export default function MyAnimeCraftLeagueTab(props) {
             <SmallStat label="포스트시즌" value={seasonStage.postseasonTotal ? `${seasonStage.postseasonPlayed}/${seasonStage.postseasonTotal}` : '대기'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="match" disabled={ended} onClick={() => applyStateAction('다음 경기 진행', (current) => simulateNextMatchAction(current), { selectLatestMatch: true })}>다음 경기 진행</ActionButton>
-            <ActionButton action="match" disabled={ended} onClick={() => applyStateAction('이번 주 전체 진행', (current) => simulateWeekAction(current), { selectLatestMatch: true })}>이번 주 전체 진행</ActionButton>
-            <ActionButton action="match" disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
-            <ActionButton action="new" disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
+            <ActionButton action="match" cue="off" disabled={ended} onClick={() => applyStateAction('다음 경기 진행', (current) => simulateNextMatchAction(current), { selectLatestMatch: true })}>다음 경기 진행</ActionButton>
+            <ActionButton action="match" cue="off" disabled={ended} onClick={() => applyStateAction('이번 주 전체 진행', (current) => simulateWeekAction(current), { selectLatestMatch: true })}>이번 주 전체 진행</ActionButton>
+            <ActionButton action="match" cue="off" disabled={ended} onClick={() => applyStateAction('시즌 끝까지 진행', (current) => simulateSeasonAction(current), { selectLatestMatch: true })}>시즌 끝까지 진행</ActionButton>
+            <ActionButton action="new" cue="off" disabled={!ended} onClick={() => applyStateAction('다음 시즌 시작', (current) => startNextSeasonAction(current), { clearArchiveSelection: true })}>다음 시즌 시작</ActionButton>
           </div>
-          <RecentActionResult label="최근 경기 결과" text={recentActionText} pinned />
+          <RecentActionResult action={resultPresentation.action} label={resultPresentation.label} text={recentActionText} tone={resultPresentation.tone} pinned />
           {matchArchiveRows.length ? (
             <div className="game-save-list" style={{ marginTop: 16 }}>
               {matchArchiveRows.slice(0, 6).map((match) => (
                 <button
                   type="button"
                   className="game-save-row"
+                  data-game-sfx="select"
                   key={match.id}
                   onClick={() => setSelectedArchiveMatchId(match.id)}
                   style={{
@@ -76,7 +78,7 @@ export default function MyAnimeCraftLeagueTab(props) {
                   }}
                 >
                   <div>
-                    <span>{match.stageLabel} · {match.setCount}세트{match.aceSetLabel ? ' · 에이스전' : ''}</span>
+                    <span><GameActionIcon action="replay" label="경기 다시보기" /> {match.stageLabel} · {match.setCount}세트{match.aceSetLabel ? ' · 에이스전' : ''}</span>
                     <strong>{match.homeTeamName} {match.scoreHome}:{match.scoreAway} {match.awayTeamName}</strong>
                   </div>
                   <strong>{match.winnerTeamName}</strong>

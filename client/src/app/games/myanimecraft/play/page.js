@@ -57,6 +57,8 @@ import {
   starleagueFeedbackCue,
   starleagueFeedbackPresentation,
   starleagueFeedbackSnapshot,
+  starleagueResultPresentation,
+  starleagueTextPresentation,
 } from '../_lib/starleagueFeedback';
 
 export default function MyAnimeCraftPlayPage() {
@@ -65,6 +67,7 @@ export default function MyAnimeCraftPlayPage() {
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'broadcast' });
   const [state, setState] = useState(() => createNewState());
+  const stateRef = useRef(state);
   const [selectedTeamId, setSelectedTeamId] = useState(() => createNewState().teams[0].id);
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
   const [tradeTargetTeamId, setTradeTargetTeamId] = useState(() => createNewState().teams[1]?.id || '');
@@ -75,6 +78,7 @@ export default function MyAnimeCraftPlayPage() {
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
   const feedbackRef = useRef(starleagueFeedbackSnapshot(state));
+  const [actionPresentation, setActionPresentation] = useState(() => starleagueResultPresentation(state, state));
 
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
   const standings = useMemo(() => getTopTeams(state, 10), [state]);
@@ -127,16 +131,23 @@ export default function MyAnimeCraftPlayPage() {
     () => starleagueFeedbackPresentation(feedbackSnapshot, selectedTeamId),
     [feedbackSnapshot, selectedTeamId],
   );
+  const resultPresentation = starleagueTextPresentation(recentActionText, actionPresentation);
 
   useEffect(() => {
+    stateRef.current = state;
     const cue = starleagueFeedbackCue(feedbackRef.current, feedbackSnapshot, selectedTeamId);
     if (cue) playGameSfx(cue);
     feedbackRef.current = feedbackSnapshot;
-  }, [feedbackSnapshot, playGameSfx, selectedTeamId]);
+  }, [feedbackSnapshot, playGameSfx, selectedTeamId, state]);
+
+  const publishMessage = (nextMessage) => {
+    setMessage(nextMessage);
+    setActionResult(nextMessage);
+  };
 
   const saveRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 Starleague Sim 시즌 상태를 서버 저장 슬롯에 저장할 수 있습니다.');
+      publishMessage('로그인하면 Starleague Sim 시즌 상태를 서버 저장 슬롯에 저장할 수 있습니다.');
       return;
     }
     setBusy('save');
@@ -149,12 +160,11 @@ export default function MyAnimeCraftPlayPage() {
         lastPlayedAt: new Date().toISOString(),
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-saves');
-      setMessage('Starleague Sim 시즌 상태를 저장했습니다.');
-      setActionResult('Starleague Sim 시즌 상태를 저장 슬롯에 저장했습니다.');
+      publishMessage('Starleague Sim 시즌 상태를 저장 슬롯에 저장했습니다.');
       showToast({ tone: 'success', message: 'Starleague Sim 시즌 상태를 저장했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '저장에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -163,7 +173,7 @@ export default function MyAnimeCraftPlayPage() {
 
   const loadRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 저장된 Starleague Sim 시즌을 불러올 수 있습니다.');
+      publishMessage('로그인하면 저장된 Starleague Sim 시즌을 불러올 수 있습니다.');
       return;
     }
     setBusy('load');
@@ -171,22 +181,23 @@ export default function MyAnimeCraftPlayPage() {
       const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
-        setMessage('저장된 Starleague Sim 시즌이 없습니다.');
+        publishMessage('저장된 Starleague Sim 시즌이 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
       const nextState = normalizeState(detail?.save?.payload?.state);
+      stateRef.current = nextState;
       feedbackRef.current = starleagueFeedbackSnapshot(nextState);
       setState(nextState);
+      setActionPresentation(starleagueResultPresentation(nextState, nextState));
       setSelectedTeamId(nextState.teams[0]?.id || '');
       setTradeTargetTeamId(nextState.teams[1]?.id || '');
       setTradeTargetPlayerId('');
-      setMessage('저장된 Starleague Sim 시즌을 불러왔습니다.');
-      setActionResult(nextState.log?.[0] || '저장된 Starleague Sim 시즌을 불러왔습니다.');
+      publishMessage('저장된 Starleague Sim 시즌을 불러왔습니다.');
       showToast({ tone: 'success', message: '저장된 Starleague Sim 시즌을 불러왔습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '불러오기에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -195,7 +206,7 @@ export default function MyAnimeCraftPlayPage() {
 
   const recordRun = async () => {
     if (!token || busy) {
-      setMessage('로그인하면 Starleague Sim 시즌 결과를 전적에 남길 수 있습니다.');
+      publishMessage('로그인하면 Starleague Sim 시즌 결과를 전적에 남길 수 있습니다.');
       return;
     }
     setBusy('record');
@@ -210,12 +221,11 @@ export default function MyAnimeCraftPlayPage() {
         payload: { state },
       }, { timeoutMs: 15000 });
       clearApiGetCache('/game-records');
-      setMessage('Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.');
-      setActionResult('Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.');
+      publishMessage('Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.');
       showToast({ tone: 'success', message: 'Starleague Sim 시즌 스냅샷을 전적에 기록했습니다.' });
     } catch (err) {
       const nextMessage = err?.message || '전적 기록에 실패했습니다.';
-      setMessage(nextMessage);
+      publishMessage(nextMessage);
       showToast({ tone: 'danger', message: nextMessage });
     } finally {
       setBusy('');
@@ -223,8 +233,11 @@ export default function MyAnimeCraftPlayPage() {
   };
 
   const startNewRun = () => {
+    const previousState = stateRef.current;
     const nextState = createNewState();
+    stateRef.current = nextState;
     setState(nextState);
+    setActionPresentation(starleagueResultPresentation(previousState, nextState));
     setSelectedTeamId(nextState.teams[0]?.id || '');
     setTradeTargetTeamId(nextState.teams[1]?.id || '');
     setTradeTargetPlayerId('');
@@ -232,12 +245,17 @@ export default function MyAnimeCraftPlayPage() {
     setSelectedArchiveMatchId('');
     setActionResult('새 Starleague Sim 시즌을 시작했습니다.');
     setMessage('');
+    playGameSfx('start');
   };
 
   const applyStateAction = (label, updater, options = {}) => {
-    const nextState = updater(state);
+    const previousState = stateRef.current;
+    const nextState = updater(previousState);
+    const presentation = starleagueResultPresentation(previousState, nextState, selectedTeamId);
+    stateRef.current = nextState;
     setState(nextState);
-    setActionResult(actionFeedbackText(state, nextState, label, options.fallback));
+    setActionPresentation(presentation);
+    setActionResult(actionFeedbackText(previousState, nextState, label, options.fallback));
     if (options.selectLatestMatch) {
       const latestMatch = getMatchArchiveRows(nextState, 1)[0];
       if (latestMatch?.id) setSelectedArchiveMatchId(latestMatch.id);
@@ -247,7 +265,7 @@ export default function MyAnimeCraftPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 시즌</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 시즌</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -329,6 +347,7 @@ export default function MyAnimeCraftPlayPage() {
         postseasonBriefing={postseasonBriefing}
         postseasonRows={postseasonRows}
         recentActionText={recentActionText}
+        resultPresentation={resultPresentation}
         rivalryReport={rivalryReport}
         seasonFinaleReport={seasonFinaleReport}
         seasonReports={seasonReports}
