@@ -1,8 +1,8 @@
 import {
   ActionButton,
   SmallStat,
-  RecentActionResult,
 } from '../../_components/GamePlayPrimitives';
+import SchoolSimulatorActionResult from './SchoolSimulatorActionResult';
 import {
   applySchoolVisionAction,
   applyWeeklyEventChoice,
@@ -17,6 +17,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
   events,
   longTerm,
   recentActionText,
+  resultPresentation,
   state,
 }) {
   return (
@@ -33,7 +34,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                       {longTerm.visions.map((vision) => <option value={vision.id} key={vision.id}>{vision.label}</option>)}
                     </select>
                   </label>
-                  <RecentActionResult label="최근 비전 조정 결과" text={recentActionText} />
+                  <SchoolSimulatorActionResult fallbackLabel="최근 비전 조정 결과" resultPresentation={resultPresentation} text={recentActionText} />
                   <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{longTerm.evaluation.goal}</p>
                   <div className="games-rank-split">
                     <SmallStat label="평가" value={`${longTerm.evaluation.grade}등급`} />
@@ -105,6 +106,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                         {events.pending.choices.map((choice) => (
                           <ActionButton
                             action="event"
+                            cue="off"
                             key={choice.id}
                             onClick={() => applySchoolAction('사건 대응', (current) => applyWeeklyEventChoice(current, choice.id))}
                             disabled={state.player.weeklyActionPoint < choice.apCost || state.school.budget < choice.budgetCost}
@@ -113,7 +115,7 @@ export default function SchoolSimulatorAdvancedVisionEvents({
                           </ActionButton>
                         ))}
                       </div>
-                      <RecentActionResult label="최근 사건 대응 결과" text={recentActionText} />
+                      <SchoolSimulatorActionResult fallbackLabel="최근 사건 대응 결과" resultPresentation={resultPresentation} text={recentActionText} />
                     </>
                   ) : (
                     <div className="games-empty">미해결 사건이 없습니다. 주차를 정산하면 학생, 교사, 시설, 모집 관련 사건이 발생할 수 있습니다.</div>

@@ -560,6 +560,77 @@ const CUE_PROFILES = {
     { frequency: 390, endFrequency: 520, duration: 0.08, type: 'sine', gain: 0.042 },
     { frequency: 780, start: 0.07, duration: 0.12, type: 'sine', gain: 0.036 },
   ],
+  schoolNewRun: [
+    { frequency: 440, duration: 0.06, type: 'triangle', gain: 0.042 },
+    { frequency: 660, start: 0.055, duration: 0.075, type: 'triangle', gain: 0.04 },
+    { frequency: 880, start: 0.125, duration: 0.13, type: 'sine', gain: 0.036 },
+  ],
+  schoolSemester: [
+    { frequency: 520, duration: 0.07, type: 'sine', gain: 0.045 },
+    { frequency: 660, start: 0.09, duration: 0.08, type: 'sine', gain: 0.042 },
+    { frequency: 790, start: 0.19, duration: 0.14, type: 'sine', gain: 0.038 },
+  ],
+  schoolFestivalStart: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.045, gain: 0.026 },
+    { frequency: 660, endFrequency: 920, duration: 0.09, type: 'triangle', gain: 0.043 },
+    { frequency: 1180, start: 0.075, duration: 0.12, type: 'sine', gain: 0.035 },
+  ],
+  schoolFestivalComplete: [
+    { frequency: 520, duration: 0.04, type: 'triangle', gain: 0.04 },
+    { frequency: 780, start: 0.038, duration: 0.055, type: 'triangle', gain: 0.042 },
+    { frequency: 1040, start: 0.09, duration: 0.12, type: 'sine', gain: 0.038 },
+  ],
+  schoolPolicy: [
+    { source: 'noise', filterType: 'bandpass', frequency: 760, q: 2.2, duration: 0.03, gain: 0.027 },
+    { frequency: 360, duration: 0.055, type: 'square', gain: 0.038 },
+    { frequency: 540, start: 0.05, duration: 0.085, type: 'triangle', gain: 0.04 },
+  ],
+  schoolBlocked: [
+    { frequency: 310, endFrequency: 210, duration: 0.09, type: 'square', gain: 0.04 },
+    { frequency: 160, start: 0.075, duration: 0.12, type: 'sine', gain: 0.03 },
+  ],
+  schoolCounseling: [
+    { frequency: 350, endFrequency: 470, duration: 0.09, type: 'sine', gain: 0.04 },
+    { frequency: 700, start: 0.075, duration: 0.13, type: 'sine', gain: 0.034 },
+  ],
+  schoolLesson: [
+    { frequency: 540, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 810, start: 0.042, duration: 0.08, type: 'sine', gain: 0.036 },
+  ],
+  schoolMaintenance: [
+    { frequency: 280, endFrequency: 220, duration: 0.045, type: 'square', gain: 0.038 },
+    { source: 'noise', filterType: 'highpass', frequency: 1600, start: 0.035, duration: 0.035, gain: 0.025 },
+    { frequency: 620, start: 0.07, duration: 0.075, type: 'triangle', gain: 0.036 },
+  ],
+  schoolTeacher: [
+    { frequency: 410, endFrequency: 520, duration: 0.075, type: 'triangle', gain: 0.04 },
+    { frequency: 760, start: 0.065, duration: 0.1, type: 'sine', gain: 0.035 },
+  ],
+  schoolAdmission: [
+    { frequency: 480, endFrequency: 680, duration: 0.075, type: 'triangle', gain: 0.041 },
+    { frequency: 960, start: 0.065, duration: 0.1, type: 'sine', gain: 0.034 },
+  ],
+  schoolCareer: [
+    { frequency: 390, endFrequency: 560, duration: 0.08, type: 'sine', gain: 0.04 },
+    { frequency: 840, start: 0.07, duration: 0.11, type: 'triangle', gain: 0.035 },
+  ],
+  schoolClub: [
+    { frequency: 260, duration: 0.04, type: 'square', gain: 0.036 },
+    { frequency: 520, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04 },
+    { frequency: 780, start: 0.095, duration: 0.09, type: 'sine', gain: 0.034 },
+  ],
+  schoolRest: [
+    { frequency: 520, endFrequency: 390, duration: 0.11, type: 'sine', gain: 0.038 },
+    { frequency: 260, start: 0.09, duration: 0.13, type: 'sine', gain: 0.03 },
+  ],
+  schoolVision: [
+    { frequency: 420, endFrequency: 700, duration: 0.12, type: 'sine', gain: 0.038 },
+    { frequency: 1050, start: 0.1, duration: 0.14, type: 'sine', gain: 0.032 },
+  ],
+  schoolOperation: [
+    { frequency: 430, endFrequency: 560, duration: 0.055, type: 'triangle', gain: 0.04 },
+    { frequency: 720, start: 0.05, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
   advance: [
     { frequency: 430, endFrequency: 620, duration: 0.075, type: 'triangle', gain: 0.06 },
     { frequency: 860, start: 0.06, duration: 0.07, type: 'sine', gain: 0.045 },

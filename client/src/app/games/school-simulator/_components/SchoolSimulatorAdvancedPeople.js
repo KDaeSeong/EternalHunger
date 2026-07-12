@@ -1,8 +1,8 @@
 import {
   ActionButton,
   SmallStat,
-  RecentActionResult,
 } from '../../_components/GamePlayPrimitives';
+import SchoolSimulatorActionResult from './SchoolSimulatorActionResult';
 import {
   FESTIVAL_TYPES,
   TEACHER_ACTIONS,
@@ -20,6 +20,7 @@ export default function SchoolSimulatorAdvancedPeople({
   festivalId,
   recentActionText,
   report,
+  resultPresentation,
   riskStudents,
   selectedClub,
   selectedFestival,
@@ -102,6 +103,7 @@ export default function SchoolSimulatorAdvancedPeople({
                   <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                     <ActionButton
                       action="lesson"
+                      cue="off"
                       onClick={() => applySchoolAction('교사 액션', (current) => applyTeacherAction(current, selectedTeacher?.id || teacherId, teacherActionId))}
                       disabled={!selectedTeacher || state.player.weeklyActionPoint < selectedTeacherAction.apCost || state.school.budget < selectedTeacherAction.budgetCost}
                     >
@@ -109,7 +111,7 @@ export default function SchoolSimulatorAdvancedPeople({
                     </ActionButton>
                     <p style={{ color: '#52677a', fontWeight: 700, margin: 0 }}>{selectedTeacherAction.description}</p>
                   </div>
-                  <RecentActionResult label="최근 교사 운영 결과" text={recentActionText} />
+                  <SchoolSimulatorActionResult fallbackLabel="최근 교사 운영 결과" resultPresentation={resultPresentation} text={recentActionText} />
                   <div className="game-save-list">
                     {teachers.slice(0, 6).map((teacher) => (
                       <article className="game-save-row" key={teacher.id}>
@@ -153,10 +155,10 @@ export default function SchoolSimulatorAdvancedPeople({
                     <SmallStat label="발표회" value={selectedClub.showcaseWeeksRemaining ? `${selectedClub.showcaseWeeksRemaining}주` : '대기'} />
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="recruit" onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
-                    <ActionButton action="festival" onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
+                    <ActionButton action="recruit" cue="off" onClick={() => applySchoolAction('동아리 신입 모집', (current) => runClubRecruitmentAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2}>신입 모집</ActionButton>
+                    <ActionButton action="festival" cue="off" onClick={() => applySchoolAction('동아리 발표회 준비', (current) => startClubShowcaseAction(current, clubId))} disabled={state.player.weeklyActionPoint < 2 || selectedClub.showcaseWeeksRemaining > 0}>발표회 준비</ActionButton>
                   </div>
-                  <RecentActionResult label="최근 동아리 운영 결과" text={recentActionText} />
+                  <SchoolSimulatorActionResult fallbackLabel="최근 동아리 운영 결과" resultPresentation={resultPresentation} text={recentActionText} />
                 </section>
         
                 <section className="games-panel">
@@ -175,10 +177,10 @@ export default function SchoolSimulatorAdvancedPeople({
                     <SmallStat label="기간" value={`${selectedFestival.weeks}주`} />
                     <SmallStat label="기록" value={festival.history.length} />
                   </div>
-                  <ActionButton action="festival" onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
+                  <ActionButton action="festival" cue="off" onClick={() => applySchoolAction('행사 시작', (current) => launchFestivalAction(current, festivalId))} disabled={state.player.weeklyActionPoint < 3 || Boolean(festival.active)}>
                     행사 시작
                   </ActionButton>
-                  <RecentActionResult label="최근 행사 결과" text={recentActionText} />
+                  <SchoolSimulatorActionResult fallbackLabel="최근 행사 결과" resultPresentation={resultPresentation} text={recentActionText} />
                 </section>
         
                 <section className="games-panel">

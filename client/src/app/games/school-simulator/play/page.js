@@ -165,11 +165,13 @@ export default function SchoolSimulatorPlayPage() {
 
   const startNewRun = () => {
     const nextState = createNewState();
+    const presentation = schoolActionPresentation(state, nextState);
     setState(nextState);
     resetForNewRun(nextState);
     setMessage('');
     setActionResult('새 학교 운영을 시작했습니다.');
-    setActionPresentation(schoolActionPresentation(state, nextState));
+    setActionPresentation(presentation);
+    if (presentation.cue) playGameSfx(presentation.cue);
   };
 
   const applySelectedAction = () => {
@@ -215,7 +217,7 @@ export default function SchoolSimulatorPlayPage() {
 
   const actions = (
     <>
-      <GameControlButton action="new" onClick={startNewRun}>새 학교</GameControlButton>
+      <GameControlButton action="new" cue="off" onClick={startNewRun}>새 학교</GameControlButton>
       <GameControlButton action="save" onClick={() => void saveRun()} disabled={!hydrated || busy === 'save'}>{busy === 'save' ? '저장 중...' : '저장'}</GameControlButton>
       <GameControlButton action="load" onClick={() => void loadRun()} disabled={!hydrated || busy === 'load'}>{busy === 'load' ? '불러오는 중...' : '불러오기'}</GameControlButton>
       <GameControlButton action="archive" onClick={() => void recordRun()} disabled={!hydrated || busy === 'record'}>{busy === 'record' ? '기록 중...' : '전적 기록'}</GameControlButton>
@@ -308,6 +310,7 @@ export default function SchoolSimulatorPlayPage() {
         recommendedAction={recommendedAction}
         recruitmentStrategyId={recruitmentStrategyId}
         report={report}
+        resultPresentation={resultPresentation}
         riskStudents={riskStudents}
         runCareCommand={runCareCommand}
         scenarioReport={scenarioReport}
