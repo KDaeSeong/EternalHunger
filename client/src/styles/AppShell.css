@@ -7366,6 +7366,89 @@
   padding: 12px;
 }
 
+.primitive-acting-status {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) auto minmax(300px, 1.3fr);
+  gap: 10px;
+  align-items: end;
+  border-block: 1px solid rgba(22, 33, 44, 0.09);
+  background: #f8fbfd;
+  padding: 8px 10px;
+}
+
+.primitive-acting-status label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.primitive-acting-status label > span {
+  color: #64717d;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.primitive-acting-status select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+}
+
+.primitive-acting-status__summary {
+  min-width: 112px;
+  display: grid;
+  gap: 3px;
+  padding-bottom: 4px;
+}
+
+.primitive-acting-status__summary strong {
+  color: #17202a;
+  font-size: 0.82rem;
+}
+
+.primitive-acting-status__summary span {
+  color: #27739d;
+  font-size: 0.7rem;
+  font-weight: 950;
+}
+
+.primitive-acting-status[data-tone="warning"] .primitive-acting-status__summary span {
+  color: #956500;
+}
+
+.primitive-acting-status[data-tone="danger"] .primitive-acting-status__summary span {
+  color: #b43a3a;
+}
+
+.primitive-acting-vitals {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(68px, 1fr));
+  gap: 5px;
+}
+
+.primitive-acting-vitals > span {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px;
+  border: 1px solid rgba(22, 33, 44, 0.08);
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64717d;
+  padding: 6px 7px;
+  font-size: 0.67rem;
+  font-weight: 850;
+}
+
+.primitive-acting-vitals strong {
+  color: #17202a;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
 .primitive-action-workspace + .primitive-turn-horizon {
   margin-top: 10px;
 }
@@ -7506,8 +7589,50 @@
 }
 
 .primitive-camp-action-grid .game-action-button {
-  min-height: 40px;
+  min-height: 54px;
+  justify-content: flex-start;
   margin: 0;
+  text-align: left;
+}
+
+.primitive-camp-action-grid .game-action-button__label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.primitive-camp-action-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.primitive-material-status {
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.primitive-material-status > span {
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 2px 5px;
+  white-space: nowrap;
+}
+
+.primitive-material-status .is-missing {
+  background: #fff0f0;
+  color: #b63434;
+}
+
+.primitive-camp-action-grid .game-action-button:disabled .primitive-material-status .is-ready {
+  color: #56636e;
+}
+
+.primitive-camp-action-grid .game-action-button:disabled .primitive-material-status .is-missing {
+  color: #a52e2e;
 }
 
 .primitive-facility-details > div {
@@ -10628,6 +10753,22 @@
 
   .primitive-action-forecast-grid {
     grid-template-columns: 1fr;
+  }
+
+  .primitive-acting-status {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .primitive-acting-status__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0;
+  }
+
+  .primitive-acting-vitals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .primitive-advancement-track-switch {

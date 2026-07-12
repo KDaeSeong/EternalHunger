@@ -91,6 +91,7 @@ export const RESEARCH_ERA_LABELS = {
   ANCIENT: '고대',
   CLASSICAL: '고전',
   MEDIEVAL: '중세',
+  EARLY_MODERN: '근세',
 };
 
 export const RESEARCH_BRANCH_LABELS = {
@@ -210,6 +211,22 @@ export const PASSIVE_UNLOCK_LABELS = {
   HUNT_SUCCESS_UP_3: '기마 사냥 성공률',
   IRON_CRAFT_UP: '철제 제작 성공률',
   RESOURCE_YIELD_UP_2: '화폐 자원 수익 증가',
+  ROAD_RESOURCE_UP: '도로 운반 수익 증가',
+  CLASSICAL_MEDICINE_UP: '고전 의학 회복 보너스',
+  LEVER_CRAFT_UP: '지레 제작 보정',
+  CROP_CALENDAR_YIELD_UP: '경작력 채집 보정',
+  AQUEDUCT_RESOURCE_UP: '수도교 자원 수익 증가',
+  QUENCHING_CRAFT_UP: '담금질 제작 보정',
+  HULL_RIVER_UP: '선체 골조 수변 수익',
+  SURGICAL_RECOVERY_UP: '외과 도구 회복 보너스',
+  REPUBLIC_COUNCIL_CP_UP: '공화정 사회 제도 보너스',
+  CIVIC_RITUAL_RECOVERY_UP: '시민 의례 회복 보너스',
+  PUBLIC_DEBATE_INSPIRATION_UP: '공개 토론 영감 강화',
+  ATHLETIC_MORALE_UP: '경기 제전 공동체 보너스',
+  RHETORIC_CULTURE_UP: '수사학 문화 보너스',
+  CIVIC_LAW_PARTY_CAP_UP: '시민법 파티 정원',
+  IMPERIAL_ADMIN_AUTO_UP: '제국 행정 자동 연구 보너스',
+  CLASSICAL_EDUCATION_RESEARCH_UP: '고전 교육 연구 보너스',
   THREE_FIELD_YIELD_UP: '삼포농법 수익 증가',
   BLOOMERY_CRAFT_UP: '괴철로 제작 보정',
   LATEEN_RIVER_UP: '삼각돛 수변 수익 증가',
@@ -252,6 +269,48 @@ export const PASSIVE_UNLOCK_LABELS = {
   HUMANISM_BREAKTHROUGH_UP: '인문주의 발견 보너스',
   ESTATES_PARTY_CAP_UP: '의회 파티 정원',
   CODIFIED_THEOLOGY_RECOVERY_UP: '교리 회복과 문화',
+  MOVABLE_TYPE_RESEARCH_UP: '활판 인쇄 연구 보너스',
+  GUNPOWDER_HUNT_UP: '화약 사냥 보정',
+  ANATOMY_RECOVERY_UP: '해부학 회복 보너스',
+  OCEANIC_MAP_RARE_UP: '대양 지도 희귀 발견',
+  ARQUEBUS_HUNT_UP: '조총 사냥 보정',
+  PRINT_WORKSHOP_RESEARCH_UP: '인쇄 공방 연구 보너스',
+  BOTANY_GATHER_UP: '식물 분류 채집 보정',
+  CELESTIAL_NAVIGATION_RARE_UP: '천문 항법 희귀 발견',
+  TRACE_FORT_DAMAGE_DOWN: '성형 요새 피해 감소',
+  MICROSCOPY_RARE_UP: '현미경 희귀 발견',
+  DRAINAGE_RESOURCE_UP: '배수 펌프 자원 수익',
+  NEW_CROP_YIELD_UP: '신작물 재배 수익',
+  SCIENTIFIC_METHOD_EUREKA_UP: '과학적 방법 유레카 강화',
+  GALLEON_RIVER_UP: '갤리온 수변 수익',
+  FIELD_ARTILLERY_HUNT_UP: '야전 포병 사냥 보정',
+  PHARMACOPOEIA_RECOVERY_UP: '약전 회복 보너스',
+  STEAM_PUMP_RESOURCE_UP: '증기 펌프 자원 수익',
+  PRECISION_CLOCK_RESEARCH_UP: '정밀 시계 연구 보너스',
+  SEED_SELECTION_YIELD_UP: '종자 선별 수익',
+  COPPERPLATE_CULTURE_UP: '동판 인쇄 문화 보너스',
+  EARLY_STEAM_ENGINE_PRODUCTION_UP: '초기 증기기관 생산 보정',
+  CLASSICAL_MECHANICS_RESEARCH_UP: '고전 역학 연구 보너스',
+  SHIP_OF_LINE_DEFENSE_UP: '전열함 방어 보정',
+  MODERN_AGRONOMY_YIELD_UP: '근대 농학 수익',
+  REFORMATION_CULTURE_UP: '종교 개혁 문화 보너스',
+  RENAISSANCE_HUMANISM_BREAKTHROUGH_UP: '르네상스 인문주의 발견 보너스',
+  STANDING_ARMY_PARTY_CAP_UP: '상비군 파티 정원',
+  EMPIRICISM_EUREKA_UP: '경험 철학 유레카 강화',
+  PATRONAGE_CULTURE_UP: '후원 문화 보너스',
+  TOLERANCE_RECOVERY_UP: '교파 공존 회복 보너스',
+  BUREAUCRACY_AUTO_RESEARCH_UP: '관료제 자동 연구 보너스',
+  MARITIME_LAW_RESOURCE_UP: '해양법 수변 수익',
+  MILITARY_REVOLUTION_HUNT_UP: '군사 혁신 사냥 보정',
+  SCIENTIFIC_SOCIETY_RESEARCH_UP: '과학 학회 연구 보너스',
+  PUBLIC_SPHERE_INSPIRATION_UP: '공론장 영감 강화',
+  POOR_RELIEF_RECOVERY_UP: '빈민 구휼 회복 보너스',
+  ENLIGHTENED_THEOLOGY_CULTURE_UP: '계몽 신학 문화 보너스',
+  SOCIAL_CONTRACT_PARTY_CAP_UP: '사회 계약 파티 정원',
+  PROFESSIONAL_OFFICERS_RISK_DOWN: '직업 장교단 위험 감소',
+  ENLIGHTENMENT_BREAKTHROUGH_UP: '계몽주의 발견 보너스',
+  CONSTITUTIONAL_ASSEMBLY_SCORE_UP: '입헌 의회 기록 점수',
+  PUBLIC_HEALTH_RECOVERY_UP: '공중 보건 회복 보너스',
 };
 
 export function researchStatusLabel(tech) {
@@ -332,7 +391,7 @@ function researchEdgeLane(edgeId) {
 }
 
 export function buildResearchMap(techs) {
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL'];
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN'];
   const nodeWidth = 188;
   const nodeHeight = 94;
   const columnGap = 54;

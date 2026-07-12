@@ -23,6 +23,7 @@ import {
   autoEquipAction,
   buyPerkAction,
   canSelectActionZone,
+  campActionRows,
   campFacilityRows,
   civicRows,
   civicsInspirationRows,
@@ -36,7 +37,6 @@ import {
   equipmentChoicesForSlot,
   equipmentInventoryRows,
   equipmentRows,
-  formatRequires,
   getActor,
   getPartyCap,
   getRunProgressReport,
@@ -92,7 +92,6 @@ import {
 } from '../_lib/primitiveArchiveFeedback';
 
 import {
-  BASE_CAMP_ACTIONS,
   PARTY_SORT_OPTIONS,
   actionLabel,
   buildResearchMap,
@@ -180,6 +179,7 @@ export default function PrimitiveArchivePlayContent() {
   const priorityCivicRows = civicPlannerRows.filter((civic) => !civic.completed).slice(0, 6);
   const researchMap = useMemo(() => buildResearchMap(techs), [techs]);
   const civicMap = useMemo(() => buildResearchMap(civicAdvancements), [civicAdvancements]);
+  const campActions = useMemo(() => campActionRows(state), [state]);
   const campFacilities = useMemo(() => campFacilityRows(state), [state]);
   const perks = useMemo(() => perkRows(state), [state]);
   const projects = useMemo(() => projectRows(state), [state]);
@@ -533,6 +533,7 @@ export default function PrimitiveArchivePlayContent() {
         autoEquip={autoEquip}
         buyPerk={buyPerk}
         busy={busy}
+        campActions={campActions}
         campFacilities={campFacilities}
         canAct={canAct}
         changeEquipmentSlot={changeEquipmentSlot}

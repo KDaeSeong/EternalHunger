@@ -5,9 +5,40 @@ import {
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
 
+function MaterialStatus({ rows = [] }) {
+  return (
+    <span className="primitive-material-status">
+      {rows.map((row) => (
+        <span className={row.met ? 'is-ready' : 'is-missing'} key={row.id}>
+          {row.name} {row.current}/{row.required}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function CampActionControl({ action, canAct, label, onClick }) {
+  const enabled = canAct && action.enabled;
+  return (
+    <ActionButton
+      action={action.action || 'camp'}
+      cue="off"
+      className={action.enabled ? '' : 'is-unavailable'}
+      disabled={!enabled}
+      title={action.reason}
+      onClick={onClick}
+    >
+      <span className="primitive-camp-action-label">{label}</span>
+      <MaterialStatus rows={action.materialRows} />
+    </ActionButton>
+  );
+}
+
 export default function PrimitiveArchiveCampWorkspace(props) {
   const {
     actionFeedback,
+    actor,
+    campActions,
     campFacilities,
     canAct,
     recentActionText,
@@ -17,6 +48,7 @@ export default function PrimitiveArchiveCampWorkspace(props) {
     runRecoveryChoice,
     state,
   } = props;
+  const actorCanAct = canAct && Number(actor?.hp || 0) > 0;
 
   return (
     <section className="games-detail-grid primitive-workspace-panel" role="tabpanel">
@@ -82,15 +114,23 @@ export default function PrimitiveArchiveCampWorkspace(props) {
           <div><span>서가</span><strong>Lv.{state.camp.libraryShelfLevel || 0}</strong></div>
         </div>
         <div className="primitive-camp-action-grid">
-          <ActionButton action="fuel" cue="off" disabled={!canAct} onClick={() => runCamp('fuel')}>연료 넣기 · 나무 1</ActionButton>
-          <ActionButton action="camp" cue="off" disabled={!canAct} onClick={() => runCamp('fire')}>모닥불 강화 · 나무 2, 돌 2</ActionButton>
-          <ActionButton action="camp" cue="off" disabled={!canAct} onClick={() => runCamp('shelter')}>대피소 강화 · 나무 3, 섬유 2, 가죽 1</ActionButton>
-          <ActionButton action="craft" cue="off" disabled={!canAct} onClick={() => runCamp('workbench')}>작업대 제작 · 나무 4, 돌 2</ActionButton>
-          <ActionButton action="consume" cue="off" disabled={!canAct} onClick={() => runCamp('cook')}>고기 굽기 · 고기 1, 연료 1</ActionButton>
+          {(campActions || []).map((action) => (
+            <CampActionControl
+              action={action}
+              canAct={actorCanAct}
+              key={action.id}
+              label={action.label}
+              onClick={() => runCamp(action.id)}
+            />
+          ))}
           {campFacilities.map((facility) => (
-            <ActionButton action="camp" cue="off" key={facility.id} disabled={!canAct || !facility.unlocked || facility.maxed} onClick={() => runCamp(facility.action)}>
-              {facility.buttonLabel}
-            </ActionButton>
+            <CampActionControl
+              action={{ ...facility, action: 'camp' }}
+              canAct={actorCanAct}
+              key={facility.id}
+              label={facility.buttonLabel}
+              onClick={() => runCamp(facility.action)}
+            />
           ))}
         </div>
         <RecentActionResult
