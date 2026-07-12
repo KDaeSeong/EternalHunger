@@ -10,7 +10,6 @@ import {
   attemptTowerAction,
   craftRecipeAction,
   enhanceEquipmentAction,
-  itemName,
   rerollEquipmentAction,
   resolveDutyAction,
   restAction,
@@ -28,6 +27,7 @@ export default function SchaleIdleDutyTab(props) {
     salvageInfo,
     selectedEquip,
     selectedRecipe,
+    selectedRecipePlan,
     selectedSlot,
     setEnhanceSlot,
     setRecipeId,
@@ -43,8 +43,8 @@ export default function SchaleIdleDutyTab(props) {
 
   return (
     <>
-        <section className="games-detail-grid">
-          <section className="games-panel">
+        <section className="games-detail-grid schale-duty-grid">
+          <section className="games-panel schale-duty-panel--report">
             <div className="games-panel-title">
               <h2>성장 리포트</h2>
               <span>{growthReport.summary}</span>
@@ -70,7 +70,7 @@ export default function SchaleIdleDutyTab(props) {
             </div>
           </section>
 
-          <section className="games-panel">
+          <section className="games-panel schale-duty-panel--roadmap">
             <div className="games-panel-title">
               <h2>성장 로드맵</h2>
               <span>{growthRoadmap.headline}</span>
@@ -108,7 +108,7 @@ export default function SchaleIdleDutyTab(props) {
             </div>
           </section>
 
-          <section className="games-panel">
+          <section className="games-panel schale-duty-panel--settle">
             <div className="games-panel-title">
               <h2>방치 정산</h2>
               <span>{leader.name}</span>
@@ -133,7 +133,7 @@ export default function SchaleIdleDutyTab(props) {
             </div>
           </section>
 
-          <section className="games-panel">
+          <section className="games-panel schale-duty-panel--offline">
             <div className="games-panel-title">
               <h2>오프라인 보상</h2>
               <span>{state.offlineLastSummary?.waves ? `${Math.floor(Number(state.offlineLastSummary.deltaMs || 0) / 60000)}분` : '없음'}</span>
@@ -148,10 +148,10 @@ export default function SchaleIdleDutyTab(props) {
             ) : <div className="games-empty">저장 데이터를 불러오면 지난 접속 시간에 따른 오프라인 보상이 표시됩니다.</div>}
           </section>
 
-          <section className="games-panel">
+          <section className="games-panel schale-duty-panel--craft">
             <div className="games-panel-title">
               <h2>제작</h2>
-              <span>{selectedRecipe.credits} Cr</span>
+              <span>{Number(state.credits || 0).toLocaleString('ko-KR')} / {selectedRecipe.credits.toLocaleString('ko-KR')} Cr</span>
             </div>
             <label className="game-save-json-field">
               <span>레시피</span>
@@ -159,13 +159,24 @@ export default function SchaleIdleDutyTab(props) {
                 {RECIPES.map((recipe) => <option value={recipe.id} key={recipe.id}>{recipe.name}</option>)}
               </select>
             </label>
-            <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
-              필요 재료: {Object.entries(selectedRecipe.requires).map(([itemId, qty]) => `${itemName(itemId)} ${qty}`).join(', ')}
-            </p>
-            <ActionButton action="craft" onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작 실행</ActionButton>
+            <div className="schale-craft-requirements">
+              {selectedRecipePlan.materialRows.map((material) => (
+                <span className={material.met ? 'is-ready' : 'is-missing'} key={material.itemId}>
+                  {material.name} {material.current}/{material.required}
+                </span>
+              ))}
+            </div>
+            <ActionButton
+              action="craft"
+              disabled={!selectedRecipePlan.canCraft}
+              title={selectedRecipePlan.canCraft ? '제작 가능' : `부족: ${selectedRecipePlan.shortageText}`}
+              onClick={() => setState((current) => craftRecipeAction(current, recipeId))}
+            >
+              {selectedRecipePlan.canCraft ? '제작 실행' : '재료 부족'}
+            </ActionButton>
           </section>
 
-          <section className="games-panel">
+          <section className="games-panel schale-duty-panel--tower">
             <div className="games-panel-title">
               <h2>강화 / 탑</h2>
               <span>열쇠 {Number(state.inventory.itm_tower_key || 0)} · 연패 {Number(state.towerLossStreak || 0)}</span>
@@ -211,7 +222,7 @@ export default function SchaleIdleDutyTab(props) {
             </div>
           </section>
 
-          <section className="games-panel">
+          <section className="games-panel schale-duty-panel--research">
             <div className="games-panel-title">
               <h2>상시 연구</h2>
               <span>총 Lv.{totalUpgradeLevel}</span>

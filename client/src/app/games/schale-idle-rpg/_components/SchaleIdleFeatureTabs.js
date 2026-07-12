@@ -99,27 +99,6 @@ export default function SchaleIdleFeatureTabs(props) {
       <GameFeatureTabs
         tabs={[
         {
-          id: 'plan',
-          label: '운영 플랜',
-          icon: 'settings',
-          badge: dailyPlan.riskLabel,
-          children: <SchaleIdlePlanTab {...tabProps} />,
-        },
-        {
-          id: 'season',
-          label: '시즌/밸런스',
-          icon: 'season',
-          badge: seasonReport.riskLabel,
-          children: <SchaleIdleSeasonTab {...tabProps} />,
-        },
-        {
-          id: 'sync',
-          label: '계정 동기화',
-          icon: 'sync',
-          badge: `${syncReport.syncScore}%`,
-          children: <SchaleIdleSyncTab {...tabProps} />,
-        },
-        {
           id: 'duty',
           label: '당직/제작',
           icon: 'training',
@@ -134,11 +113,32 @@ export default function SchaleIdleFeatureTabs(props) {
           children: <SchaleIdleGearTab {...tabProps} />,
         },
         {
+          id: 'plan',
+          label: '운영 플랜',
+          icon: 'settings',
+          badge: dailyPlan.riskLabel,
+          children: <SchaleIdlePlanTab {...tabProps} />,
+        },
+        {
+          id: 'season',
+          label: '시즌/밸런스',
+          icon: 'season',
+          badge: seasonReport.riskLabel,
+          children: <SchaleIdleSeasonTab {...tabProps} />,
+        },
+        {
           id: 'records',
           label: '보고서/로그',
           icon: 'archive',
           badge: `${state.log.length}개`,
           children: <SchaleIdleRecordsTab {...tabProps} />,
+        },
+        {
+          id: 'sync',
+          label: '계정 동기화',
+          icon: 'sync',
+          badge: `${syncReport.syncScore}%`,
+          children: <SchaleIdleSyncTab {...tabProps} />,
         },
         ]}
       />

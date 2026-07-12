@@ -1,6 +1,6 @@
 export const GAME_SLUG = 'schale-idle-rpg';
 export const QUICK_SAVE_SLOT = 'schale-idle-rpg-main';
-export const SAVE_VERSION = 'schale-idle-rpg-v1';
+export const SAVE_VERSION = 'schale-idle-rpg-v2';
 
 export const STUDENTS = [
   {

@@ -59,6 +59,8 @@ export default function SchaleIdlePlayPage() {
     equipped,
     equippedTitle,
     equipmentTuning,
+    equipmentVault,
+    equipmentVaultSummary,
     growthReport,
     growthRoadmap,
     leader,
@@ -75,6 +77,7 @@ export default function SchaleIdlePlayPage() {
     selectedEquip,
     selectedPreset,
     selectedRecipe,
+    selectedRecipePlan,
     selectedSalvageInfo,
     selectedSlot,
     shopOffers,
@@ -190,6 +193,8 @@ export default function SchaleIdlePlayPage() {
         equipped={equipped}
         equippedTitle={equippedTitle}
         equipmentTuning={equipmentTuning}
+        equipmentVault={equipmentVault}
+        equipmentVaultSummary={equipmentVaultSummary}
         growthReport={growthReport}
         growthRoadmap={growthRoadmap}
         hydrated={hydrated}
@@ -208,6 +213,7 @@ export default function SchaleIdlePlayPage() {
         selectedEquip={selectedEquip}
         selectedPreset={selectedPreset}
         selectedRecipe={selectedRecipe}
+        selectedRecipePlan={selectedRecipePlan}
         selectedSalvageInfo={selectedSalvageInfo}
         selectedSlot={selectedSlot}
         setEnhanceSlot={setEnhanceSlot}

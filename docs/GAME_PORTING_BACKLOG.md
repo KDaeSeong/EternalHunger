@@ -159,11 +159,12 @@ Checked: 2026-07-04
 ## Schale Idle RPG Slice Status
 
 - Route: `/games/schale-idle-rpg/play`
-- Included loop: idle floor settlement, stamina recovery, equipment crafting, equipment enhancement, equipment option affixes/reroll, salvage queue/auto salvage, Trial Tower attempts, tower token shop, mission rewards, inventory/equipment summary.
-- UI/UX: equipment tuning panel now recommends high-value affix locks, low-option rerolls, and next enhancement targets with direct action buttons. Affix lock planning also surfaces the post-lock reroll cost, lock surcharge, currency shortage, and reroll readiness before the player commits. The compact play shell keeps ten primary metrics, a one-line growth coach, the latest result, and six icon-led feature tabs near the first viewport; mobile hero controls, metrics, and tabs scroll inside their own rows. Duty settlement, tower clear/failure, enhancement success/failure, crafting, reward, reroll, salvage, shop, and research outcomes use dedicated idle-theme cues.
+- Included loop: idle floor settlement, stamina recovery, equipment crafting, UID equipment inventory, direct equipment swapping, equipment lock/favorite protection, UID presets, equipment enhancement, equipment option affixes/reroll, safe salvage queue/auto salvage, Trial Tower attempts, rotating tower token shop, mission rewards, inventory/equipment summary.
+- UI/UX: the playable duty tab now opens first, crafting shows owned/required materials and disables unaffordable recipes, and the equipment tab exposes every owned UID with score, equipped/reserve state, direct equip, lock, and favorite controls. Equipment tuning still recommends high-value affix locks, low-option rerolls, and next enhancement targets with direct action buttons. Affix lock planning surfaces the post-lock reroll cost, lock surcharge, currency shortage, and reroll readiness before the player commits. The compact play shell keeps ten primary metrics, a one-line growth coach, the latest result, and six icon-led feature tabs near the first viewport; mobile hero controls, metrics, and tabs scroll inside their own rows. Duty settlement, tower clear/failure, enhancement success/failure, crafting, reward, reroll, salvage, shop purchase/refresh, research, equip, lock, favorite, and preset outcomes use distinct idle-theme cues.
 - Site API integration: quick save through `/game-saves/schale-idle-rpg/schale-idle-rpg-main`; account-progress snapshot through `/game-records/schale-idle-rpg`.
-- Source basis: `C:\2저장고\마이애니메\Schale_idle_rpg_v1_34`.
-- Next step: import the original full UID equipment inventory, tower shop rotation/reset migration rules, and legacy save migration behind the simplified site shell.
+- Source basis: `C:\2저장고\EternalHunger\myanime\Schale_idle_rpg_v1_34`.
+- Save migration: `schale-idle-rpg-v2` accepts the previous site slot-object save shape and the original v1.34 `inventory.stack/equip` plus slot-to-UID shape without dropping reserve equipment.
+- Next step: import the original enhancement protection/pity/destruction policy and expand the item/equipment catalog where those rules add meaningful build choices.
 
 ## BA SRPG Slice Status
 

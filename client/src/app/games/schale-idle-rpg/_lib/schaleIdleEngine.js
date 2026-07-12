@@ -1,4 +1,5 @@
 import {
+  SAVE_VERSION,
   STUDENTS,
   ITEMS,
   RECIPES,
@@ -45,9 +46,12 @@ export {
   ACHIEVEMENTS,
 } from './schaleIdleData';
 
+const MAX_SALVAGE_QUEUE = 160;
+
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   return {
+    version: SAVE_VERSION,
     runId: options.runId || `sir-${Date.now().toString(36)}`,
     startedAt: now,
     updatedAt: now,
@@ -62,6 +66,7 @@ export function createNewState(options = {}) {
     basePower: 180,
     upgrades: defaultUpgrades(),
     equipment: {},
+    equipmentInventory: {},
     equipmentPresets: [],
     activePresetId: '',
     inventory: {
@@ -96,7 +101,12 @@ export function createNewState(options = {}) {
       REROLL: 0,
       SALVAGE: 0,
       SHOP_BUY: 0,
+      SHOP_RESET: 0,
       UPGRADE: 0,
+      EQUIP: 0,
+      EQUIP_LOCK: 0,
+      EQUIP_FAVORITE: 0,
+      PRESET: 0,
     },
     claimedMissions: [],
     seasonRewardClaims: [],
@@ -115,17 +125,32 @@ export function createNewState(options = {}) {
 export function normalizeState(value) {
   const base = createNewState();
   if (!value || typeof value !== 'object') return base;
-  const equipment = normalizeEquipmentMap(value.equipment && typeof value.equipment === 'object' ? value.equipment : base.equipment);
+  const sourceInventory = value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory;
+  const stackInventory = sourceInventory.stack && typeof sourceInventory.stack === 'object'
+    ? sourceInventory.stack
+    : sourceInventory;
+  const sourceEquipmentInventory = value.equipmentInventory && typeof value.equipmentInventory === 'object'
+    ? value.equipmentInventory
+    : sourceInventory.equip && typeof sourceInventory.equip === 'object'
+      ? sourceInventory.equip
+      : {};
+  const equipmentState = normalizeEquipmentState({
+    equipment: value.equipment,
+    equipmentInventory: sourceEquipmentInventory,
+    salvageQueue: value.salvageQueue,
+  });
   const towerShop = normalizeTowerShop(value.towerShop, base.towerShop);
   return {
     ...base,
     ...value,
-    inventory: value.inventory && typeof value.inventory === 'object' ? value.inventory : base.inventory,
+    version: SAVE_VERSION,
+    inventory: normalizeStackInventory(stackInventory, base.inventory),
     upgrades: normalizeUpgrades(value.upgrades),
-    equipment,
+    equipment: equipmentState.equipment,
+    equipmentInventory: equipmentState.equipmentInventory,
     equipmentPresets: normalizeEquipmentPresets(value.equipmentPresets),
     activePresetId: typeof value.activePresetId === 'string' ? value.activePresetId : '',
-    salvageQueue: Array.isArray(value.salvageQueue) ? value.salvageQueue.slice(0, 40) : base.salvageQueue,
+    salvageQueue: normalizeSalvageQueue(value.salvageQueue, equipmentState),
     salvageSettings: normalizeSalvageSettings(value.salvageSettings, base.salvageSettings),
     towerShop,
     counters: value.counters && typeof value.counters === 'object' ? { ...base.counters, ...value.counters } : base.counters,
@@ -202,6 +227,14 @@ function addItem(inventory, itemId, qty) {
     ...inventory,
     [itemId]: Math.max(0, Number(inventory[itemId] || 0) + Number(qty || 0)),
   };
+}
+
+function normalizeStackInventory(value = {}, fallback = {}) {
+  if (!value || typeof value !== 'object') return { ...fallback };
+  const entries = Object.entries(value)
+    .filter(([, qty]) => Number.isFinite(Number(qty)))
+    .map(([itemId, qty]) => [itemId, Math.max(0, Number(qty || 0))]);
+  return Object.fromEntries(entries);
 }
 
 function addItems(inventory, rewards = []) {
@@ -359,15 +392,48 @@ function normalizeEquipmentInstance(equip, fallbackSlot = '') {
     rolls: equip.rolls ? normalizeRolls(equip.rolls) : computeRollsFromAffixes(affixes),
     affixes,
     rerollCount: Number(equip.rerollCount || 0),
+    locked: Boolean(equip.locked),
+    favorite: Boolean(equip.favorite),
+    createdAt: Number(equip.createdAt || Date.now()),
   };
 }
 
-function normalizeEquipmentMap(equipment = {}) {
-  return Object.entries(equipment).reduce((next, [slot, equip]) => {
-    const normalized = normalizeEquipmentInstance(equip, slot);
-    if (!normalized) return next;
-    return { ...next, [normalized.slot]: normalized };
-  }, {});
+function normalizeEquipmentState({ equipment = {}, equipmentInventory = {}, salvageQueue = [] } = {}) {
+  const inventory = {};
+  const slotHints = new Map(Object.entries(equipment && typeof equipment === 'object' ? equipment : {})
+    .filter(([, uid]) => typeof uid === 'string' && uid)
+    .map(([slot, uid]) => [uid, slot]));
+  const addEquipment = (equip, fallbackSlot = '') => {
+    const normalized = normalizeEquipmentInstance(equip, fallbackSlot);
+    if (!normalized?.uid || !normalized.itemId) return null;
+    inventory[normalized.uid] = normalized;
+    return normalized;
+  };
+
+  Object.entries(equipmentInventory || {}).forEach(([uid, equip]) => {
+    addEquipment({ ...equip, uid: equip?.uid || uid }, slotHints.get(uid) || '');
+  });
+  (Array.isArray(salvageQueue) ? salvageQueue : []).forEach((entry) => {
+    const uid = entry?.equip?.uid || entry?.uid;
+    if (entry?.equip && !inventory[uid]) addEquipment({ ...entry.equip, uid });
+  });
+
+  const slots = {};
+  Object.entries(equipment && typeof equipment === 'object' ? equipment : {}).forEach(([slot, value]) => {
+    if (!value) return;
+    const normalized = typeof value === 'string'
+      ? inventory[value]
+      : addEquipment(value, slot);
+    if (!normalized?.uid) return;
+    const targetSlot = SLOT_LABELS[slot] ? slot : normalized.slot;
+    if (!SLOT_LABELS[targetSlot] || normalized.slot !== targetSlot) return;
+    slots[targetSlot] = normalized.uid;
+  });
+
+  return {
+    equipment: slots,
+    equipmentInventory: inventory,
+  };
 }
 
 function cloneEquipmentInstance(equip) {
@@ -380,11 +446,13 @@ function cloneEquipmentInstance(equip) {
   };
 }
 
-function cloneEquipmentMap(equipment = {}) {
-  return Object.entries(equipment || {}).reduce((next, [slot, equip]) => {
-    const normalized = cloneEquipmentInstance(equip);
-    if (!normalized) return next;
-    return { ...next, [slot]: normalized };
+function cloneEquipmentUidMap(equipment = {}) {
+  return Object.entries(equipment || {}).reduce((next, [slot, uid]) => {
+    const normalizedUid = typeof uid === 'string'
+      ? uid
+      : normalizeEquipmentInstance(uid, slot)?.uid;
+    if (!normalizedUid || !SLOT_LABELS[slot]) return next;
+    return { ...next, [slot]: normalizedUid };
   }, {});
 }
 
@@ -398,12 +466,34 @@ function normalizeEquipmentPresets(value = []) {
       return {
         id,
         name,
-        equipment: cloneEquipmentMap(preset.equipment || {}),
+        equipment: cloneEquipmentUidMap(preset.equipment || {}),
         createdAt: Number(preset.createdAt || Date.now()),
       };
     })
     .filter(Boolean)
     .slice(0, 12);
+}
+
+function normalizeSalvageQueue(value, equipmentState) {
+  const equippedUids = new Set(Object.values(equipmentState.equipment || {}).filter(Boolean));
+  const seen = new Set();
+  const rows = (Array.isArray(value) ? value : []).reduce((nextRows, entry) => {
+    const uid = typeof entry?.uid === 'string' ? entry.uid : entry?.equip?.uid;
+    const equip = equipmentState.equipmentInventory?.[uid] || normalizeEquipmentInstance(entry?.equip);
+    if (!uid || !equip || equippedUids.has(uid) || seen.has(uid)) return nextRows;
+    seen.add(uid);
+    nextRows.push({
+      ...makeSalvageEntry(equip, entry.reason || '보관 장비'),
+      createdAt: Number(entry.createdAt || Date.now()),
+    });
+    return nextRows;
+  }, []);
+  Object.values(equipmentState.equipmentInventory || {}).forEach((equip) => {
+    if (!equip?.uid || equippedUids.has(equip.uid) || seen.has(equip.uid)) return;
+    seen.add(equip.uid);
+    rows.push(makeSalvageEntry(equip, '보관 장비'));
+  });
+  return rows.slice(0, MAX_SALVAGE_QUEUE);
 }
 
 function normalizeTowerShop(value, fallback) {
@@ -663,8 +753,15 @@ function isHighRiskSalvageEntry(entry) {
     || Number(entry?.score || 0) >= 120;
 }
 
+function isProtectedSalvageEntry(entry) {
+  return Boolean(entry?.equipped || entry?.locked || entry?.favorite);
+}
+
 function salvageTargetRows(rows = [], candidateOnly = true) {
-  return candidateOnly ? rows.filter((entry) => !isHighRiskSalvageEntry(entry)) : rows;
+  return rows.filter((entry) => (
+    !isProtectedSalvageEntry(entry)
+    && (!candidateOnly || !isHighRiskSalvageEntry(entry))
+  ));
 }
 
 function salvageTotals(rows = []) {
@@ -687,6 +784,11 @@ function normalizeSelectedSalvageUids(selectedUids = []) {
   return new Set(selectedUids.filter((uid) => typeof uid === 'string' && uid.trim()));
 }
 
+function removeEquipmentUids(equipmentInventory, uidSet) {
+  return Object.fromEntries(Object.entries(equipmentInventory || {})
+    .filter(([uid]) => !uidSet.has(uid)));
+}
+
 function makeSalvageEntry(equip, reason) {
   return {
     uid: equip.uid,
@@ -704,20 +806,35 @@ function makeSalvageEntry(equip, reason) {
 
 function queueSalvage(salvageQueue, equip, reason) {
   if (!equip) return salvageQueue;
-  return [makeSalvageEntry(equip, reason), ...salvageQueue].slice(0, 40);
+  return [
+    makeSalvageEntry(equip, reason),
+    ...salvageQueue.filter((entry) => entry?.uid !== equip.uid),
+  ].slice(0, MAX_SALVAGE_QUEUE);
 }
 
-function putEquipmentOrQueue(equipment, salvageQueue, equip, reason = '입수') {
-  const old = equipment[equip.slot];
+function syncSalvageQueueEquipment(salvageQueue, equip) {
+  return salvageQueue.map((entry) => (
+    entry?.uid === equip.uid
+      ? { ...makeSalvageEntry(equip, entry.reason), createdAt: entry.createdAt }
+      : entry
+  ));
+}
+
+function putEquipmentOrQueue(equipment, equipmentInventory, salvageQueue, equip, reason = '입수') {
+  const oldUid = equipment[equip.slot];
+  const old = oldUid ? equipmentInventory[oldUid] : null;
+  const nextInventory = { ...equipmentInventory, [equip.uid]: equip };
   if (!old || equipmentScore(equip) >= equipmentScore(old)) {
     return {
-      equipment: { ...equipment, [equip.slot]: equip },
+      equipment: { ...equipment, [equip.slot]: equip.uid },
+      equipmentInventory: nextInventory,
       salvageQueue: old ? queueSalvage(salvageQueue, old, '교체 장비') : salvageQueue,
       equipped: true,
     };
   }
   return {
     equipment,
+    equipmentInventory: nextInventory,
     salvageQueue: queueSalvage(salvageQueue, equip, reason),
     equipped: false,
   };
@@ -759,7 +876,21 @@ function makeEquipment(itemId, enhance = 0, rng = createRng(`${itemId}|${Date.no
 
 export function getEquippedList(state) {
   const current = normalizeState(state);
-  return Object.values(current.equipment).filter(Boolean).sort((a, b) => slotLabel(a.slot).localeCompare(slotLabel(b.slot), 'ko-KR'));
+  return Object.values(current.equipment)
+    .map((uid) => current.equipmentInventory?.[uid])
+    .filter(Boolean)
+    .sort((a, b) => slotLabel(a.slot).localeCompare(slotLabel(b.slot), 'ko-KR'));
+}
+
+export function getEquipmentByUid(state, uid) {
+  const current = normalizeState(state);
+  return uid ? current.equipmentInventory?.[uid] || null : null;
+}
+
+export function getEquippedEquipment(state, slot) {
+  const current = normalizeState(state);
+  const uid = slot ? current.equipment?.[slot] : '';
+  return uid ? current.equipmentInventory?.[uid] || null : null;
 }
 
 function titleById(titleId) {
@@ -1108,17 +1239,22 @@ export function craftRecipeAction(state, recipeId) {
 
   const produced = getItem(recipe.produces.itemId);
   let equipment = current.equipment;
+  let equipmentInventory = current.equipmentInventory;
   let salvageQueue = current.salvageQueue;
   let inventory = spendItems(current.inventory, recipe.requires);
+  let equipmentChanged = false;
   let message = `${recipe.name} 완료.`;
   if (produced?.equip) {
     const rng = createRng(`${current.runId}|craft|${recipe.id}|${current.counters.CRAFT}`);
     const equip = makeEquipment(produced.id, 0, rng);
-    const old = equipment[equip.slot];
-    const result = putEquipmentOrQueue(equipment, salvageQueue, equip, '제작 초과분');
+    const result = putEquipmentOrQueue(equipment, equipmentInventory, salvageQueue, equip, '제작 초과분');
     equipment = result.equipment;
+    equipmentInventory = result.equipmentInventory;
     salvageQueue = result.salvageQueue;
-    message = `${recipe.name} 완료. ${produced.name}${old && equipment[equip.slot] === old ? '은 기존 장비보다 약해 보관 처리했습니다.' : '을(를) 장착했습니다.'}`;
+    equipmentChanged = result.equipped;
+    message = result.equipped
+      ? `${recipe.name} 완료. 장착: ${produced.name}`
+      : `${recipe.name} 완료. 기존 장비보다 약해 보관함으로 이동: ${produced.name}`;
   } else {
     inventory = addItem(inventory, recipe.produces.itemId, recipe.produces.qty);
   }
@@ -1128,14 +1264,17 @@ export function craftRecipeAction(state, recipeId) {
     credits: Number(current.credits || 0) - recipe.credits,
     inventory,
     equipment,
+    equipmentInventory,
     salvageQueue,
+    activePresetId: equipmentChanged ? '' : current.activePresetId,
     counters: bumpCounter(current.counters, 'CRAFT', 1),
   }, { CRAFT: 1 }), message);
 }
 
 export function enhanceEquipmentAction(state, slot) {
   const current = normalizeState(state);
-  const equip = current.equipment[slot];
+  const uid = current.equipment[slot];
+  const equip = uid ? current.equipmentInventory[uid] : null;
   if (!equip) return addLog(current, `${slotLabel(slot)} 슬롯에 강화할 장비가 없습니다.`);
   const level = Number(equip.enhance || 0);
   const costCredits = 70 + level * 35;
@@ -1164,7 +1303,7 @@ export function enhanceEquipmentAction(state, slot) {
     ...current,
     credits: Number(current.credits || 0) - costCredits,
     inventory,
-    equipment: { ...current.equipment, [slot]: nextEquip },
+    equipmentInventory: { ...current.equipmentInventory, [uid]: nextEquip },
     counters: {
       ...bumpCounter(current.counters, 'ENHANCE_TRY', 1),
       ENHANCE_SUCCESS: Number(current.counters.ENHANCE_SUCCESS || 0) + (success ? 1 : 0),
@@ -1177,7 +1316,8 @@ export function enhanceEquipmentAction(state, slot) {
 
 export function rerollEquipmentAction(state, slot) {
   const current = normalizeState(state);
-  const equip = current.equipment[slot];
+  const uid = current.equipment[slot];
+  const equip = uid ? current.equipmentInventory[uid] : null;
   if (!equip) return addLog(current, `${slotLabel(slot)} 슬롯에 재련할 장비가 없습니다.`);
 
   const lockedAffixes = Array.isArray(equip.affixes) ? equip.affixes.filter((affix) => affix.locked) : [];
@@ -1207,14 +1347,15 @@ export function rerollEquipmentAction(state, slot) {
   return addLog({
     ...current,
     inventory,
-    equipment: { ...current.equipment, [slot]: nextEquip },
+    equipmentInventory: { ...current.equipmentInventory, [uid]: nextEquip },
     counters: bumpCounter(current.counters, 'REROLL', 1),
   }, `${equip.name} 옵션 재련 완료(${costText}): ${affixes.map((affix) => `${affix.label} x${affix.value}`).join(', ')}`);
 }
 
 export function toggleEquipmentAffixLockAction(state, slot, affixId) {
   const current = normalizeState(state);
-  const equip = current.equipment[slot];
+  const uid = current.equipment[slot];
+  const equip = uid ? current.equipmentInventory[uid] : null;
   if (!equip) return addLog(current, `${slotLabel(slot)} 슬롯에 장비가 없습니다.`);
 
   const affixes = Array.isArray(equip.affixes) ? equip.affixes : [];
@@ -1237,8 +1378,45 @@ export function toggleEquipmentAffixLockAction(state, slot, affixId) {
 
   return addLog({
     ...current,
-    equipment: { ...current.equipment, [slot]: nextEquip },
+    equipmentInventory: { ...current.equipmentInventory, [uid]: nextEquip },
   }, `${equip.name} 옵션 ${target?.label || affixId} ${target?.locked ? '잠금' : '해제'}`);
+}
+
+export function equipEquipmentAction(state, uid) {
+  const current = normalizeState(state);
+  const equip = current.equipmentInventory?.[uid];
+  if (!equip) return addLog(current, '장착할 장비를 보관함에서 찾을 수 없습니다.');
+  const slot = equip.slot;
+  if (!SLOT_LABELS[slot]) return addLog(current, '장착 슬롯이 올바르지 않습니다.');
+  if (current.equipment?.[slot] === uid) return addLog(current, `이미 장착 중인 장비입니다: ${equip.name}`);
+
+  const previousUid = current.equipment?.[slot];
+  const previous = previousUid ? current.equipmentInventory?.[previousUid] : null;
+  let salvageQueue = current.salvageQueue.filter((entry) => entry?.uid !== uid);
+  if (previous) salvageQueue = queueSalvage(salvageQueue, previous, '수동 교체 장비');
+
+  return addLog({
+    ...current,
+    equipment: { ...current.equipment, [slot]: uid },
+    salvageQueue,
+    activePresetId: '',
+    counters: bumpCounter(current.counters, 'EQUIP', 1),
+  }, `${slotLabel(slot)} 장착: ${equip.name}${previous ? ` / 이전 장비: ${previous.name}` : ''}`);
+}
+
+export function toggleEquipmentProtectionAction(state, uid, kind = 'locked') {
+  const current = normalizeState(state);
+  const equip = current.equipmentInventory?.[uid];
+  if (!equip) return addLog(current, '보호 설정할 장비를 보관함에서 찾을 수 없습니다.');
+  const key = kind === 'favorite' ? 'favorite' : 'locked';
+  const counterKey = key === 'favorite' ? 'EQUIP_FAVORITE' : 'EQUIP_LOCK';
+  const nextEquip = { ...equip, [key]: !equip[key] };
+  return addLog({
+    ...current,
+    equipmentInventory: { ...current.equipmentInventory, [uid]: nextEquip },
+    salvageQueue: syncSalvageQueueEquipment(current.salvageQueue, nextEquip),
+    counters: bumpCounter(current.counters, counterKey, 1),
+  }, `${equip.name} ${key === 'favorite' ? '즐겨찾기' : '잠금'} ${nextEquip[key] ? 'ON' : 'OFF'}`);
 }
 
 export function autoSalvageAction(state) {
@@ -1246,10 +1424,12 @@ export function autoSalvageAction(state) {
   const queue = Array.isArray(current.salvageQueue) ? current.salvageQueue : [];
   if (!queue.length) return addLog(current, '자동 분해할 장비가 없습니다.');
   const candidateOnly = current.salvageSettings?.candidateOnly !== false;
-  const targetQueue = salvageTargetRows(queue, candidateOnly);
+  const targetQueue = salvageTargetRows(salvageRows(current), candidateOnly);
   const targetUids = new Set(targetQueue.map((entry) => entry.uid));
   const remainingQueue = queue.filter((entry) => !targetUids.has(entry.uid));
-  if (!targetQueue.length) return addLog(current, '후보만 분해 ON 상태에서 실행할 안전 후보가 없습니다. 전체 분해가 필요하면 후보만 분해를 끄세요.');
+  if (!targetQueue.length) return addLog(current, candidateOnly
+    ? '후보만 분해 ON 상태에서 실행할 안전 후보가 없습니다. 위험 후보까지 확인하려면 후보만 분해를 끄세요.'
+    : '잠금 또는 즐겨찾기로 보호된 장비만 남아 분해하지 않았습니다.');
 
   let inventory = current.inventory;
   const totals = salvageTotals(targetQueue);
@@ -1261,6 +1441,7 @@ export function autoSalvageAction(state) {
   return addLog({
     ...current,
     inventory,
+    equipmentInventory: removeEquipmentUids(current.equipmentInventory, targetUids),
     salvageQueue: remainingQueue,
     counters: bumpCounter(current.counters, 'SALVAGE', targetQueue.length),
   }, `자동 분해 ${targetQueue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}${remainingQueue.length ? ` / 보호로 ${remainingQueue.length}개 유지` : ''}`);
@@ -1272,7 +1453,7 @@ export function salvageSelectedAction(state, selectedUids = []) {
   const selectedUidSet = normalizeSelectedSalvageUids(selectedUids);
   if (!selectedUidSet.size) return addLog(current, '선택 분해할 장비를 먼저 고르세요.');
 
-  const selectedQueue = queue.filter((entry) => selectedUidSet.has(entry.uid));
+  const selectedQueue = salvageRows(current).filter((entry) => selectedUidSet.has(entry.uid));
   if (!selectedQueue.length) return addLog(current, '선택한 장비가 분해 대기열에 없습니다.');
 
   const candidateOnly = current.salvageSettings?.candidateOnly !== false;
@@ -1296,6 +1477,7 @@ export function salvageSelectedAction(state, selectedUids = []) {
   return addLog({
     ...current,
     inventory,
+    equipmentInventory: removeEquipmentUids(current.equipmentInventory, targetUids),
     salvageQueue: remainingQueue,
     counters: bumpCounter(current.counters, 'SALVAGE', targetQueue.length),
   }, `선택 분해 ${targetQueue.length}개 완료. 고철 +${totals.scrap}, 강화석 +${totals.stone}, 리롤권 +${totals.ticket}${protectedCount ? ` / 후보 보호 ${protectedCount}개` : ''}`);
@@ -1310,13 +1492,17 @@ export function setSalvageCandidateOnlyAction(state, enabled) {
       ...current.salvageSettings,
       candidateOnly,
     },
-  }, candidateOnly ? '후보만 분해를 켰습니다. 위험 후보는 자동 분해에서 보호됩니다.' : '후보만 분해를 껐습니다. 자동 분해가 전체 대기열을 처리합니다.');
+  }, candidateOnly
+    ? '후보만 분해를 켰습니다. 위험 후보와 잠금·즐겨찾기 장비를 보호합니다.'
+    : '후보만 분해를 껐습니다. 잠금·즐겨찾기 장비를 제외한 대기열을 처리합니다.');
 }
 
 function grantTowerShopReward(current, offer, rng) {
   let equipment = current.equipment;
+  let equipmentInventory = current.equipmentInventory;
   let salvageQueue = current.salvageQueue;
   let inventory = current.inventory;
+  let equipmentChanged = false;
   const reward = offer.reward;
   let label = '';
 
@@ -1328,9 +1514,11 @@ function grantTowerShopReward(current, offer, rng) {
   if (reward.type === 'EQUIP') {
     for (let index = 0; index < Math.max(1, Number(reward.qty || 1)); index += 1) {
       const equip = makeEquipment(reward.itemId, 0, rng);
-      const result = putEquipmentOrQueue(equipment, salvageQueue, equip, '상점 초과분');
+      const result = putEquipmentOrQueue(equipment, equipmentInventory, salvageQueue, equip, '상점 초과분');
       equipment = result.equipment;
+      equipmentInventory = result.equipmentInventory;
       salvageQueue = result.salvageQueue;
+      equipmentChanged = equipmentChanged || result.equipped;
       label = `${equip.name}${result.equipped ? ' 장착' : ' 분해 대기'}`;
     }
   }
@@ -1340,14 +1528,16 @@ function grantTowerShopReward(current, offer, rng) {
     for (let index = 0; index < Math.max(1, Number(reward.qty || 1)); index += 1) {
       const itemId = pool[Math.floor(rng() * pool.length)];
       const equip = makeEquipment(itemId, 0, rng);
-      const result = putEquipmentOrQueue(equipment, salvageQueue, equip, '상점 초과분');
+      const result = putEquipmentOrQueue(equipment, equipmentInventory, salvageQueue, equip, '상점 초과분');
       equipment = result.equipment;
+      equipmentInventory = result.equipmentInventory;
       salvageQueue = result.salvageQueue;
+      equipmentChanged = equipmentChanged || result.equipped;
       label = `${equip.name}${result.equipped ? ' 장착' : ' 분해 대기'}`;
     }
   }
 
-  return { equipment, salvageQueue, inventory, label };
+  return { equipment, equipmentInventory, salvageQueue, inventory, label, equipmentChanged };
 }
 
 export function buyTowerShopOfferAction(state, offerId) {
@@ -1369,7 +1559,9 @@ export function buyTowerShopOfferAction(state, offerId) {
     ...current,
     inventory: granted.inventory,
     equipment: granted.equipment,
+    equipmentInventory: granted.equipmentInventory,
     salvageQueue: granted.salvageQueue,
+    activePresetId: granted.equipmentChanged ? '' : current.activePresetId,
     towerShop: setTowerShopBought(towerShop, offer, bought + 1),
     counters: bumpCounter(current.counters, 'SHOP_BUY', 1),
   }, `${offer.name} 구매 완료. ${granted.label}`);
@@ -1406,7 +1598,9 @@ export function buyTowerShopOfferMaxAction(state, offerId) {
       ...next,
       inventory: granted.inventory,
       equipment: granted.equipment,
+      equipmentInventory: granted.equipmentInventory,
       salvageQueue: granted.salvageQueue,
+      activePresetId: granted.equipmentChanged ? '' : next.activePresetId,
     };
     if (sampleLabels.length < 3 && granted.label) sampleLabels.push(granted.label);
   }
@@ -1448,6 +1642,7 @@ export function resetTowerShopRotationAction(state, scope = 'DAILY') {
     ...current,
     inventory: addItem(current.inventory, 'itm_tower_token', -cost),
     towerShop,
+    counters: bumpCounter(current.counters, 'SHOP_RESET', 1),
   });
   return addLog(next, `${label} 상점을 리셋했습니다. ${itemName('itm_tower_token')} -${cost}`);
 }
@@ -1594,12 +1789,9 @@ function makeEquipmentPresetId(state) {
 }
 
 function presetAvailability(state, preset) {
-  const currentUids = new Set([
-    ...Object.values(state.equipment || {}).map((equip) => equip?.uid).filter(Boolean),
-    ...(state.salvageQueue || []).map((entry) => entry?.uid).filter(Boolean),
-  ]);
-  const items = Object.values(preset.equipment || {}).filter(Boolean);
-  const available = items.filter((equip) => currentUids.has(equip.uid)).length;
+  const currentUids = new Set(Object.keys(state.equipmentInventory || {}));
+  const items = Object.values(preset.equipment || {}).filter((uid) => typeof uid === 'string');
+  const available = items.filter((uid) => currentUids.has(uid)).length;
   return {
     equippedCount: items.length,
     availableCount: available,
@@ -1618,7 +1810,7 @@ export function equipmentPresetRows(state) {
 
 export function saveEquipmentPresetAction(state, name = '') {
   const current = normalizeState(state);
-  const equipment = cloneEquipmentMap(current.equipment);
+  const equipment = cloneEquipmentUidMap(current.equipment);
   const equippedCount = Object.keys(equipment).length;
   if (!equippedCount) return addLog(current, '저장할 장착 장비가 없습니다.');
   const presetName = String(name || '').trim() || `프리셋 ${normalizeEquipmentPresets(current.equipmentPresets).length + 1}`;
@@ -1633,6 +1825,7 @@ export function saveEquipmentPresetAction(state, name = '') {
     ...current,
     equipmentPresets: presets,
     activePresetId: preset.id,
+    counters: bumpCounter(current.counters, 'PRESET', 1),
   }, `장비 프리셋 저장: ${preset.name} (${equippedCount}개 슬롯)`);
 }
 
@@ -1641,38 +1834,37 @@ export function applyEquipmentPresetAction(state, presetId) {
   const preset = normalizeEquipmentPresets(current.equipmentPresets).find((row) => row.id === presetId);
   if (!preset) return addLog(current, '장비 프리셋을 찾을 수 없습니다.');
 
-  const currentByUid = new Map(Object.values(current.equipment || {}).filter(Boolean).map((equip) => [equip.uid, equip]));
-  const queueByUid = new Map((current.salvageQueue || []).filter((entry) => entry?.uid).map((entry) => [entry.uid, entry]));
   const usedUids = new Set();
   let missing = 0;
   let salvageQueue = current.salvageQueue || [];
   const equipment = {};
 
   Object.keys(SLOT_LABELS).forEach((slot) => {
-    const savedEquip = cloneEquipmentInstance(preset.equipment?.[slot]);
-    if (!savedEquip) return;
-    const currentEquip = currentByUid.get(savedEquip.uid);
-    const queuedEntry = queueByUid.get(savedEquip.uid);
-    if (!currentEquip && !queuedEntry) {
+    const uid = preset.equipment?.[slot];
+    if (!uid) return;
+    const savedEquip = current.equipmentInventory?.[uid];
+    if (!savedEquip || savedEquip.slot !== slot) {
       missing += 1;
       return;
     }
-    usedUids.add(savedEquip.uid);
-    equipment[slot] = cloneEquipmentInstance(currentEquip || queuedEntry.equip || savedEquip);
-    salvageQueue = salvageQueue.filter((entry) => entry.uid !== savedEquip.uid);
+    usedUids.add(uid);
+    equipment[slot] = uid;
+    salvageQueue = salvageQueue.filter((entry) => entry.uid !== uid);
   });
 
-  Object.values(current.equipment || {}).forEach((equip) => {
-    if (!equip?.uid || usedUids.has(equip.uid)) return;
-    salvageQueue = queueSalvage(salvageQueue, equip, '프리셋 교체 장비');
+  Object.values(current.equipment || {}).forEach((uid) => {
+    if (!uid || usedUids.has(uid)) return;
+    const equip = current.equipmentInventory?.[uid];
+    if (equip) salvageQueue = queueSalvage(salvageQueue, equip, '프리셋 교체 장비');
   });
 
   const equippedCount = Object.keys(equipment).length;
   return addLog({
     ...current,
     equipment,
-    salvageQueue: salvageQueue.slice(0, 40),
+    salvageQueue: salvageQueue.slice(0, MAX_SALVAGE_QUEUE),
     activePresetId: preset.id,
+    counters: bumpCounter(current.counters, 'PRESET', 1),
   }, `장비 프리셋 적용: ${preset.name} (${equippedCount}개 장착${missing ? `, ${missing}개 누락` : ''})`);
 }
 
@@ -1697,19 +1889,106 @@ export function inventoryRows(state) {
     .sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
 }
 
+export function recipeCostPlan(state, recipeId) {
+  const current = normalizeState(state);
+  const recipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
+  const materialRows = Object.entries(recipe.requires || {}).map(([itemId, required]) => {
+    const currentQty = Number(current.inventory?.[itemId] || 0);
+    return {
+      itemId,
+      name: itemName(itemId),
+      current: currentQty,
+      required: Number(required || 0),
+      met: currentQty >= Number(required || 0),
+    };
+  });
+  const credits = Number(current.credits || 0);
+  const creditReady = credits >= Number(recipe.credits || 0);
+  const materialsReady = materialRows.every((row) => row.met);
+  return {
+    recipe,
+    credits,
+    creditReady,
+    materialsReady,
+    materialRows,
+    canCraft: creditReady && materialsReady,
+    shortageText: [
+      !creditReady ? `크레딧 ${credits.toLocaleString('ko-KR')}/${Number(recipe.credits || 0).toLocaleString('ko-KR')}` : '',
+      ...materialRows.filter((row) => !row.met).map((row) => `${row.name} ${row.current}/${row.required}`),
+    ].filter(Boolean).join(' · '),
+  };
+}
+
+export function equipmentInventoryRows(state) {
+  const current = normalizeState(state);
+  const equippedSlotByUid = new Map(Object.entries(current.equipment || {})
+    .filter(([, uid]) => Boolean(uid))
+    .map(([slot, uid]) => [uid, slot]));
+  const queuedByUid = new Map((current.salvageQueue || [])
+    .filter((entry) => entry?.uid)
+    .map((entry) => [entry.uid, entry]));
+  return Object.values(current.equipmentInventory || {})
+    .filter(Boolean)
+    .map((equip) => {
+      const equippedSlot = equippedSlotByUid.get(equip.uid) || '';
+      const queued = queuedByUid.get(equip.uid);
+      return {
+        ...equip,
+        score: equipmentScore(equip),
+        equipped: Boolean(equippedSlot),
+        equippedSlot,
+        queued: Boolean(queued),
+        queueReason: queued?.reason || '',
+        protected: Boolean(equip.locked || equip.favorite || equippedSlot),
+      };
+    })
+    .sort((a, b) => (
+      Number(b.equipped) - Number(a.equipped)
+      || Number(b.favorite) - Number(a.favorite)
+      || Number(b.locked) - Number(a.locked)
+      || Number(b.score) - Number(a.score)
+      || Number(b.createdAt || 0) - Number(a.createdAt || 0)
+    ));
+}
+
+export function equipmentInventorySummary(state) {
+  const rows = equipmentInventoryRows(state);
+  return {
+    total: rows.length,
+    equipped: rows.filter((row) => row.equipped).length,
+    reserve: rows.filter((row) => !row.equipped).length,
+    queued: rows.filter((row) => row.queued).length,
+    locked: rows.filter((row) => row.locked).length,
+    favorite: rows.filter((row) => row.favorite).length,
+    protected: rows.filter((row) => row.protected).length,
+  };
+}
+
 export function salvageRows(state) {
   const current = normalizeState(state);
   const candidateOnly = current.salvageSettings?.candidateOnly !== false;
-  const targetUids = new Set(salvageTargetRows(current.salvageQueue, candidateOnly).map((entry) => entry.uid));
-  return current.salvageQueue.map((entry) => {
-    const value = salvageValue(entry);
-    return {
+  const equippedUids = new Set(Object.values(current.equipment || {}).filter(Boolean));
+  const rows = current.salvageQueue.map((entry) => {
+    const equip = current.equipmentInventory?.[entry.uid] || entry.equip || entry;
+    const row = {
       ...entry,
-      highRisk: isHighRiskSalvageEntry(entry),
-      executable: targetUids.has(entry.uid),
+      ...cloneEquipmentInstance(equip),
+      reason: entry.reason,
+      createdAt: entry.createdAt,
+      score: equipmentScore(equip),
+      equipped: equippedUids.has(entry.uid),
+      locked: Boolean(equip?.locked),
+      favorite: Boolean(equip?.favorite),
+    };
+    const value = salvageValue(row);
+    return {
+      ...row,
+      highRisk: isHighRiskSalvageEntry(row),
       rewardText: `고철 ${value.scrap}${value.stone ? `, 강화석 ${value.stone}` : ''}${value.ticket ? `, 리롤권 ${value.ticket}` : ''}`,
     };
   });
+  const targetUids = new Set(salvageTargetRows(rows, candidateOnly).map((entry) => entry.uid));
+  return rows.map((entry) => ({ ...entry, executable: targetUids.has(entry.uid) }));
 }
 
 export function salvageSummary(state) {
@@ -1735,6 +2014,8 @@ export function salvageSummary(state) {
     totalQueued: rows.length,
     executableCount: executableRows.length,
     protectedByCandidateOnly: protectedRows.length,
+    protectedByLock: rows.filter((entry) => entry.locked).length,
+    protectedByFavorite: rows.filter((entry) => entry.favorite).length,
     candidateOnly,
     protectedEquipped: getEquippedList(current).length,
     totals,

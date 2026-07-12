@@ -10,6 +10,7 @@ import {
   claimMissionRewardsAction,
   deleteEquipmentPresetAction,
   enhanceEquipmentAction,
+  equipEquipmentAction,
   equipTitleAction,
   rerollEquipmentAction,
   resetTowerShopRotationAction,
@@ -17,6 +18,7 @@ import {
   setSalvageCandidateOnlyAction,
   slotLabel,
   toggleEquipmentAffixLockAction,
+  toggleEquipmentProtectionAction,
 } from '../_lib/schaleIdleEngine';
 import {
   formatAffixes,
@@ -31,6 +33,8 @@ export default function SchaleIdleGearTab(props) {
     equipped,
     equippedTitle,
     equipmentTuning,
+    equipmentVault,
+    equipmentVaultSummary,
     missions,
     presetName,
     presets,
@@ -149,6 +153,68 @@ export default function SchaleIdleGearTab(props) {
 
           <section className="games-panel">
             <div className="games-panel-title">
+              <h2>장비 보관함</h2>
+              <span>보유 {equipmentVaultSummary.total} · 예비 {equipmentVaultSummary.reserve}</span>
+            </div>
+            <div className="games-rank-split" style={{ marginBottom: 12 }}>
+              <SmallStat label="장착" value={`${equipmentVaultSummary.equipped}개`} />
+              <SmallStat label="보관" value={`${equipmentVaultSummary.reserve}개`} />
+              <SmallStat label="분해 대기" value={`${equipmentVaultSummary.queued}개`} />
+              <SmallStat label="잠금" value={`${equipmentVaultSummary.locked}개`} />
+              <SmallStat label="즐겨찾기" value={`${equipmentVaultSummary.favorite}개`} />
+            </div>
+            {equipmentVault.length ? (
+              <div className="game-save-list schale-equipment-vault">
+                {equipmentVault.map((equip) => (
+                  <article className={`game-save-row${equip.equipped ? ' is-equipped' : ''}`} key={equip.uid}>
+                    <div>
+                      <span>
+                        {slotLabel(equip.slot)} · {equip.rarity} · 점수 {equip.score}
+                        {equip.equipped ? ' · 장착 중' : equip.queueReason ? ` · ${equip.queueReason}` : ' · 보관'}
+                      </span>
+                      <strong>{equip.favorite ? '★ ' : ''}{equip.name} +{equip.enhance || 0}</strong>
+                      <small>{formatAffixes(equip) || '옵션 없음'}</small>
+                    </div>
+                    <div className="game-save-row-actions schale-equipment-actions">
+                      <GameControlButton
+                        action="equip"
+                        cue="off"
+                        disabled={equip.equipped}
+                        title={equip.equipped ? '현재 장착 중' : `${slotLabel(equip.slot)}에 장착`}
+                        onClick={() => {
+                          setSelectedPresetId('');
+                          setState((current) => equipEquipmentAction(current, equip.uid));
+                        }}
+                      >
+                        {equip.equipped ? '장착 중' : '장착'}
+                      </GameControlButton>
+                      <GameControlButton
+                        action="lock"
+                        cue="off"
+                        className={`schale-equipment-protect${equip.locked ? ' is-on' : ''}`}
+                        title="잠금 장비는 분해되지 않습니다."
+                        onClick={() => setState((current) => toggleEquipmentProtectionAction(current, equip.uid, 'locked'))}
+                      >
+                        {equip.locked ? '잠금 ON' : '잠금'}
+                      </GameControlButton>
+                      <GameControlButton
+                        action="favorite"
+                        cue="off"
+                        className={`schale-equipment-protect${equip.favorite ? ' is-on' : ''}`}
+                        title="즐겨찾기 장비는 분해되지 않습니다."
+                        onClick={() => setState((current) => toggleEquipmentProtectionAction(current, equip.uid, 'favorite'))}
+                      >
+                        {equip.favorite ? '즐겨찾기 ON' : '즐겨찾기'}
+                      </GameControlButton>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : <div className="games-empty">제작이나 타워 상점에서 장비를 획득하면 이곳에 보관됩니다.</div>}
+          </section>
+
+          <section className="games-panel">
+            <div className="games-panel-title">
               <h2>장비</h2>
               <span>{equipped.length}개</span>
             </div>
@@ -203,13 +269,13 @@ export default function SchaleIdleGearTab(props) {
               </select>
             </label>
             <div className="games-chip-row" style={{ marginBottom: 12 }}>
-              <GameControlButton action="preset" className="tcg-primary-action" disabled={!equipped.length} onClick={() => {
+              <GameControlButton action="preset" cue="off" className="tcg-primary-action" disabled={!equipped.length} onClick={() => {
                 setSelectedPresetId('');
                 setState((current) => saveEquipmentPresetAction(current, presetName));
               }}>
                 현재 장비 저장
               </GameControlButton>
-              <GameControlButton action="preset" className="tcg-primary-action" disabled={!selectedPreset} onClick={() => setState((current) => applyEquipmentPresetAction(current, activePresetId))}>
+              <GameControlButton action="preset" cue="off" className="tcg-primary-action" disabled={!selectedPreset} onClick={() => setState((current) => applyEquipmentPresetAction(current, activePresetId))}>
                 프리셋 적용
               </GameControlButton>
               <GameControlButton action="reset" className="tcg-secondary-action" disabled={!selectedPreset} onClick={() => {
@@ -274,7 +340,8 @@ export default function SchaleIdleGearTab(props) {
             </div>
             <div className="games-chip-row" style={{ marginBottom: 12 }}>
               <GameControlButton
-                action="reroll"
+                action="refresh"
+                cue="off"
                 className="tcg-primary-action"
                 disabled={!shopRotation.canResetDaily}
                 onClick={() => setState((current) => resetTowerShopRotationAction(current, 'DAILY'))}
@@ -282,7 +349,8 @@ export default function SchaleIdleGearTab(props) {
                 오늘 픽업 리셋 · {shopRotation.dailyResetCost}토큰
               </GameControlButton>
               <GameControlButton
-                action="reroll"
+                action="refresh"
+                cue="off"
                 className="tcg-primary-action"
                 disabled={!shopRotation.canResetWeekly}
                 onClick={() => setState((current) => resetTowerShopRotationAction(current, 'WEEKLY'))}
@@ -356,12 +424,12 @@ export default function SchaleIdleGearTab(props) {
                   {salvageInfo.candidateOnly ? (
                     <>
                       <strong>후보만 분해 ON</strong> · 실행 대상 {salvageInfo.executableCount}개 / 보호 유지 {salvageInfo.protectedByCandidateOnly}개입니다.
-                      장착 장비 {salvageInfo.protectedEquipped}개는 별도로 보호 중입니다.
+                      잠금 {salvageInfo.protectedByLock}개와 즐겨찾기 {salvageInfo.protectedByFavorite}개는 설정과 관계없이 보호됩니다.
                     </>
                   ) : (
                     <>
                       <strong>후보만 분해 OFF</strong> · 전체 대기열 {salvageInfo.totalQueued}개를 자동 분해 대상으로 처리합니다.
-                      위험 후보까지 포함되므로 실행 전 목록을 확인하세요.
+                      위험 후보까지 포함되지만 잠금·즐겨찾기 장비는 계속 보호됩니다.
                     </>
                   )}
                 </div>
@@ -373,6 +441,8 @@ export default function SchaleIdleGearTab(props) {
                   <SmallStat label="강화석" value={salvageInfo.totals.stone} />
                   <SmallStat label="리롤권" value={salvageInfo.totals.ticket} />
                   <SmallStat label="위험 후보" value={`${salvageInfo.highRiskCount}개`} />
+                  <SmallStat label="잠금 보호" value={`${salvageInfo.protectedByLock}개`} />
+                  <SmallStat label="즐겨찾기" value={`${salvageInfo.protectedByFavorite}개`} />
                 </div>
                 {validSelectedSalvageUids.length ? (
                   <div className="games-empty" style={{ textAlign: 'left', marginBottom: 12 }}>
@@ -406,12 +476,15 @@ export default function SchaleIdleGearTab(props) {
                         <span>{slotLabel(entry.slot)} · {entry.rarity} · {entry.reason}</span>
                         <strong>{entry.name}</strong>
                         <small>{entry.rewardText}</small>
-                        <small>점수 {entry.score} · {entry.executable ? '실행 대상' : '보호'}</small>
+                        <small>
+                          점수 {entry.score} · {entry.locked ? '잠금 보호' : entry.favorite ? '즐겨찾기 보호' : entry.executable ? '실행 대상' : '후보 보호'}
+                        </small>
                       </div>
                       <label className="schale-salvage-check">
                         <input
                           type="checkbox"
                           checked={validSelectedSalvageUids.includes(entry.uid)}
+                          disabled={entry.locked || entry.favorite || entry.equipped}
                           onChange={() => toggleSalvageSelection(entry.uid)}
                         />
                         <span>선택</span>

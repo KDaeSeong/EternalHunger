@@ -4,13 +4,17 @@ import {
   accountSyncReportForState,
   availableEnhanceSlots,
   dailyOperationsPlanForState,
+  equipmentInventoryRows,
+  equipmentInventorySummary,
   equipmentPresetRows,
+  getEquippedEquipment,
   getEquippedList,
   getLeader,
   growthReportForState,
   growthRoadmapForState,
   inventoryRows,
   missionRows,
+  recipeCostPlan,
   salvageRows,
   salvageSummary,
   scoreState,
@@ -35,6 +39,8 @@ export function buildSchaleIdlePlayViewModel({
   const equipped = getEquippedList(state);
   const enhanceSlots = availableEnhanceSlots(state);
   const rows = inventoryRows(state);
+  const equipmentVault = equipmentInventoryRows(state);
+  const equipmentVaultSummary = equipmentInventorySummary(state);
   const missions = missionRows(state);
   const achievements = achievementRows(state);
   const titles = titleRows(state);
@@ -56,8 +62,9 @@ export function buildSchaleIdlePlayViewModel({
   const syncReport = accountSyncReportForState(state);
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
+  const selectedRecipePlan = recipeCostPlan(state, selectedRecipe.id);
   const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
-  const selectedEquip = selectedSlot ? state.equipment?.[selectedSlot] : null;
+  const selectedEquip = selectedSlot ? getEquippedEquipment(state, selectedSlot) : null;
   const power = teamPower(state);
   const score = scoreState(state);
   const claimableAchievements = achievements.filter((achievement) => achievement.canClaim).length;
@@ -76,6 +83,8 @@ export function buildSchaleIdlePlayViewModel({
     equipped,
     equippedTitle,
     equipmentTuning,
+    equipmentVault,
+    equipmentVaultSummary,
     growthReport,
     growthRoadmap,
     leader,
@@ -92,6 +101,7 @@ export function buildSchaleIdlePlayViewModel({
     selectedEquip,
     selectedPreset,
     selectedRecipe,
+    selectedRecipePlan,
     selectedSalvageInfo,
     selectedSlot,
     shopOffers,

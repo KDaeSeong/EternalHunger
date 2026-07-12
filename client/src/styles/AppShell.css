@@ -7028,6 +7028,34 @@
   flex: 0 0 auto;
 }
 
+.schale-duty-panel--settle {
+  order: 1;
+}
+
+.schale-duty-panel--craft {
+  order: 2;
+}
+
+.schale-duty-panel--tower {
+  order: 3;
+}
+
+.schale-duty-panel--research {
+  order: 4;
+}
+
+.schale-duty-panel--offline {
+  order: 5;
+}
+
+.schale-duty-panel--report {
+  order: 6;
+}
+
+.schale-duty-panel--roadmap {
+  order: 7;
+}
+
 .schale-sync-note {
   margin-bottom: 12px;
   padding: 10px 12px;
@@ -9775,6 +9803,70 @@
   width: 17px;
   height: 17px;
   accent-color: #0878bd;
+}
+
+.schale-craft-requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+
+.schale-craft-requirements span {
+  border: 1px solid rgba(100, 113, 125, 0.2);
+  border-radius: 6px;
+  background: #f6f8fa;
+  color: #53606c;
+  padding: 5px 8px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.schale-craft-requirements span.is-ready {
+  border-color: rgba(30, 142, 83, 0.24);
+  background: #edf8f1;
+  color: #176c42;
+}
+
+.schale-craft-requirements span.is-missing {
+  border-color: rgba(194, 62, 62, 0.24);
+  background: #fff1f1;
+  color: #a42f2f;
+}
+
+.schale-equipment-vault {
+  max-height: 520px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.schale-equipment-vault .game-save-row.is-equipped {
+  border-color: rgba(8, 120, 189, 0.34);
+  background: #eef8ff;
+}
+
+.schale-equipment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.schale-equipment-protect.is-on {
+  border-color: rgba(8, 120, 189, 0.34);
+  background: #e3f3fd;
+  color: #155f8c;
+}
+
+@media (max-width: 720px) {
+  .schale-equipment-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .schale-equipment-actions > button {
+    flex: 1 1 104px;
+  }
 }
 
 .tonkatsu-judge-toggle {

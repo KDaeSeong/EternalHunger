@@ -778,6 +778,11 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 1500, q: 2.4, duration: 0.035, gain: 0.05 },
     { frequency: 620, start: 0.025, duration: 0.06, type: 'triangle', gain: 0.045 },
   ],
+  favorite: [
+    { frequency: 920, duration: 0.035, type: 'triangle', gain: 0.04 },
+    { frequency: 1380, start: 0.032, duration: 0.055, type: 'sine', gain: 0.036 },
+    { frequency: 1840, start: 0.08, duration: 0.08, type: 'sine', gain: 0.028 },
+  ],
   claim: [
     { frequency: 620, duration: 0.035, type: 'triangle', gain: 0.045 },
     { frequency: 900, start: 0.034, duration: 0.045, type: 'triangle', gain: 0.04 },
@@ -786,6 +791,11 @@ const CUE_PROFILES = {
   shop: [
     { frequency: 880, duration: 0.032, type: 'square', gain: 0.035 },
     { frequency: 1160, start: 0.03, duration: 0.052, type: 'triangle', gain: 0.04 },
+  ],
+  shopRefresh: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1180, q: 1.6, duration: 0.075, gain: 0.045 },
+    { frequency: 520, endFrequency: 860, duration: 0.08, type: 'triangle', gain: 0.04 },
+    { frequency: 1120, start: 0.075, duration: 0.065, type: 'sine', gain: 0.034 },
   ],
   event: [
     { frequency: 680, endFrequency: 940, duration: 0.065, type: 'sawtooth', gain: 0.04 },

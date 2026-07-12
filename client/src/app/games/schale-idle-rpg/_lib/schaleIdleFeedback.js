@@ -34,7 +34,12 @@ export function schaleIdleResultCue(previous, next) {
   if (counter(next, 'REROLL') > counter(previous, 'REROLL')) return 'reroll';
   if (counter(next, 'SALVAGE') > counter(previous, 'SALVAGE')) return 'salvage';
   if (counter(next, 'SHOP_BUY') > counter(previous, 'SHOP_BUY')) return 'shop';
+  if (counter(next, 'SHOP_RESET') > counter(previous, 'SHOP_RESET')) return 'shopRefresh';
   if (counter(next, 'UPGRADE') > counter(previous, 'UPGRADE')) return 'research';
+  if (counter(next, 'EQUIP') > counter(previous, 'EQUIP')) return 'equip';
+  if (counter(next, 'EQUIP_LOCK') > counter(previous, 'EQUIP_LOCK')) return 'lock';
+  if (counter(next, 'EQUIP_FAVORITE') > counter(previous, 'EQUIP_FAVORITE')) return 'favorite';
+  if (counter(next, 'PRESET') > counter(previous, 'PRESET')) return 'preset';
 
   const previousClaims = collectionSize(previous.claimedMissions)
     + collectionSize(previous.achievementClaims)
