@@ -105,6 +105,12 @@ assert.ok(
 );
 const quoteAssignments = Object.entries(lore.ADVANCEMENT_QUOTE_ASSIGNMENTS)
   .flatMap(([key, ids]) => ids.map((id) => ({ id, key })));
+assert.deepEqual(
+  Object.keys(lore.ADVANCEMENT_QUOTE_ASSIGNMENTS)
+    .filter((quoteKey) => !Object.hasOwn(lore.ADVANCEMENT_QUOTE_CATALOG, quoteKey)),
+  [],
+  '인용구 배정에 사용한 모든 주제는 카탈로그에 정의되어야 합니다.',
+);
 assert.equal(
   new Set(quoteAssignments.map((assignment) => assignment.id)).size,
   quoteAssignments.length,
@@ -118,17 +124,55 @@ assert.deepEqual(
 const expectedQuoteKeys = {
   POTTERY: 'pottery',
   STONE_TOOLS: 'tools',
+  HUNTING: 'hunting',
+  FISHING: 'fishing',
+  ANIMAL_HUSBANDRY: 'husbandry',
+  CARTOGRAPHY: 'cartography',
+  BASIC_SAILING: 'navigation',
+  BASIC_SHIPBUILDING: 'shipbuilding',
+  AQUEDUCT_ENGINEERING: 'aqueduct',
+  WATERMILL: 'waterPower',
+  WINDMILL: 'windPower',
+  CHIVALRIC_CODE: 'chivalry',
+  MONASTIC_RULE: 'monasticism',
+  FEUDAL_CONTRACT: 'feudalLaw',
+  MARITIME_LAW: 'maritimeLaw',
+  EARLY_CURRENCY: 'currency',
+  ORAL_RECORDS: 'oralTradition',
+  WRITING: 'writing',
+  HISTORY_RECORDS: 'history',
+  UNIVERSITY_TRADITION: 'education',
+  RHETORIC: 'rhetoric',
+  MOVABLE_TYPE_PRINTING: 'printing',
+  ASTROLOGY: 'astrology',
+  ASTRONOMY_EARLY: 'astronomy',
+  GLASSMAKING: 'glassmaking',
   POETRY: 'poetry',
-  MICROSCOPE: 'optics',
+  EPIC_TRADITION: 'epic',
+  MICROSCOPE: 'microscopy',
+  SCIENTIFIC_METHOD: 'experiment',
   EMPIRICISM: 'empiricism',
+  SCIENTIFIC_SOCIETY: 'scientificSociety',
   EARLY_ART: 'art',
+  PHOTOGRAPHY: 'photography',
   EARLY_MUSIC: 'music',
+  ENLIGHTENMENT: 'enlightenment',
   UTILITARIANISM: 'utilitarianism',
+  GUNPOWDER_MILL: 'gunpowder',
   THERMODYNAMICS: 'steam',
   ELECTROMAGNETISM: 'electricity',
+  TELEGRAPHY: 'telegraphy',
+  BESSEMER_STEEL: 'steelmaking',
+  VACCINATION: 'vaccination',
+  GERM_THEORY: 'germTheory',
   FOOD_CANNING: 'foodPreservation',
   REFRIGERATION: 'refrigeration',
+  CONSTITUTIONAL_ASSEMBLY: 'constitution',
+  LIBERALISM: 'liberalism',
   RELIGIOUS_LIBERTY: 'tolerance',
+  POOR_RELIEF: 'welfare',
+  HUMANITARIAN_LOGISTICS: 'humanitarianRelief',
+  LABOR_PROTECTION: 'laborRights',
 };
 Object.entries(expectedQuoteKeys).forEach(([advancementId, quoteKey]) => {
   assert.equal(
@@ -138,8 +182,32 @@ Object.entries(expectedQuoteKeys).forEach(([advancementId, quoteKey]) => {
   );
 });
 assert.ok(
-  new Set(allAdvancements.map((advancement) => advancement.quote.key)).size >= 18,
+  new Set(allAdvancements.map((advancement) => advancement.quote.key)).size >= 70,
   '인용구는 기술 주제에 맞게 충분히 다양한 고전 출처를 사용해야 합니다.',
+);
+assert.ok(
+  Math.max(...Object.values(lore.ADVANCEMENT_QUOTE_ASSIGNMENTS).map((ids) => ids.length)) <= 18,
+  '하나의 포괄 인용구 주제에 지나치게 많은 발전 항목을 몰아넣으면 안 됩니다.',
+);
+assert.notEqual(
+  advancementById.GLASSMAKING.quote.key,
+  advancementById.MICROSCOPE.quote.key,
+  '유리 제작과 현미경은 서로 다른 기술 맥락의 인용구를 사용해야 합니다.',
+);
+assert.notEqual(
+  advancementById.BASIC_SHIPBUILDING.quote.key,
+  advancementById.BASIC_SAILING.quote.key,
+  '조선술과 항해술은 서로 다른 기술 맥락의 인용구를 사용해야 합니다.',
+);
+assert.notEqual(
+  advancementById.VACCINATION.quote.key,
+  advancementById.PUBLIC_HEALTH.quote.key,
+  '예방접종과 공중 보건은 서로 다른 의학 맥락의 인용구를 사용해야 합니다.',
+);
+assert.notEqual(
+  advancementById.UNIVERSITY_TRADITION.quote.key,
+  advancementById.BOOKCRAFT.quote.key,
+  '대학 전통과 서책 제작은 서로 다른 기록·교육 맥락의 인용구를 사용해야 합니다.',
 );
 assert.equal(
   new Set(engine.TECHNOLOGY_TREE.map((technology) => technology.name)).size,
