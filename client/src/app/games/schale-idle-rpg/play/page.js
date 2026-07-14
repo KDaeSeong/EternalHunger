@@ -18,7 +18,10 @@ import {
 import SchaleIdleFeatureTabs from '../_components/SchaleIdleFeatureTabs';
 import { buildSchaleIdlePlayViewModel } from '../_lib/schaleIdlePlayViewModel';
 import useSchaleIdlePersistence from '../_hooks/useSchaleIdlePersistence';
-import { schaleIdleResultCue } from '../_lib/schaleIdleFeedback';
+import {
+  schaleIdleFeedbackPresentation,
+  schaleIdleResultCue,
+} from '../_lib/schaleIdleFeedback';
 
 
 export default function SchaleIdlePlayPage() {
@@ -88,6 +91,10 @@ export default function SchaleIdlePlayPage() {
     upgrades,
     validSelectedSalvageUids,
   } = viewModel;
+  const resultPresentation = useMemo(
+    () => schaleIdleFeedbackPresentation(recentActionText),
+    [recentActionText],
+  );
 
   const {
     busy,
@@ -181,7 +188,13 @@ export default function SchaleIdlePlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} compact minimal storageKey="schale-idle-growth-coach" />
-      <RecentActionResult label="이번 성장 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={resultPresentation.detail}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <SchaleIdleFeatureTabs
         achievements={achievements}

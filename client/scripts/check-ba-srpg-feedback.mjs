@@ -19,6 +19,8 @@ import {
 } from '../src/app/games/ba-srpg/_lib/baSrpgEngine.js';
 
 const componentSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgBattleTab.js', import.meta.url), 'utf8');
+const featureSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgFeatureTabs.js', import.meta.url), 'utf8');
+const pageSource = await readFile(new URL('../src/app/games/ba-srpg/play/page.js', import.meta.url), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const sfxSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
 const engineSource = await readFile(new URL('../src/app/games/ba-srpg/_lib/baSrpgEngine.js', import.meta.url), 'utf8');
@@ -306,6 +308,11 @@ assert.match(burstResolved.battle.lastResult, /\/2회 명중/, '점사는 두 �
 assert.ok(TACTICAL_SKILLS.some((skill) => skill.id === 'sk_mark_target' && skill.modifier?.stat === 'Evasion'), '표식은 회피 약화 데이터로 연결되어야 합니다.');
 assert.match(componentSource, /is-smoke-zone/, '전투판은 연막 지대를 시각적으로 표시해야 합니다.');
 assert.match(componentSource, /coverHp/, '전투판은 엄폐 내구도를 표시해야 합니다.');
+assert.match(pageSource, /action=\{resultPresentation\.action\}/, '전역 작전 결과는 상황별 아이콘을 표시해야 합니다.');
+assert.match(pageSource, /tone=\{resultPresentation\.tone\}/, '전역 작전 결과는 성공, 경고, 실패 톤을 구분해야 합니다.');
+['deploy', 'map', 'property', 'combat', 'inventory'].forEach((action) => {
+  assert.ok(featureSource.includes(`icon: '${action}'`), `${action} 기능 탭 아이콘이 필요합니다.`);
+});
 ['overwatch', 'smoke', 'cover-break', 'buff', 'debuff', 'status', 'burst'].forEach((action) => {
   assert.ok(iconSource.includes(`${action.includes('-') ? `'${action}'` : action}:`), `${action} 전용 행동 아이콘이 필요합니다.`);
 });

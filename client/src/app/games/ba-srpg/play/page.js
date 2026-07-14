@@ -12,6 +12,7 @@ import useGameSfx from '../../_lib/useGameSfx';
 import BaSrpgFeatureTabs from '../_components/BaSrpgFeatureTabs';
 import {
   baSrpgFeedbackCue,
+  baSrpgFeedbackPresentation,
   createBaSrpgFeedbackSnapshot,
 } from '../_lib/baSrpgFeedback';
 import {
@@ -79,6 +80,10 @@ export default function BaSrpgPlayPage() {
   const playGameSfx = useGameSfx({ theme: 'tactical', volume: 0.18 });
   const feedbackRef = useRef(null);
   const feedbackSnapshot = useMemo(() => createBaSrpgFeedbackSnapshot(state), [state]);
+  const resultPresentation = useMemo(
+    () => baSrpgFeedbackPresentation(feedbackSnapshot),
+    [feedbackSnapshot],
+  );
 
   useEffect(() => {
     const cue = baSrpgFeedbackCue(feedbackRef.current, feedbackSnapshot);
@@ -122,8 +127,6 @@ export default function BaSrpgPlayPage() {
   const formationCount = formation.filter((student) => student.selected).length;
   const cleared = battle.phase === 'cleared';
   const failed = battle.phase === 'failed';
-  const recentActionText = state.log?.[0] || '아직 실행한 작전 결과가 없습니다.';
-
   const saveRun = async () => {
     if (!token || busy) {
       setMessage('로그인하면 BA SRPG 진행 상태를 저장 슬롯에 저장할 수 있습니다.');
@@ -303,7 +306,13 @@ export default function BaSrpgPlayPage() {
       messages={messages}
     >
       <GameAdvisorPanel {...guide} />
-      <RecentActionResult label="이번 작전 결과" text={recentActionText} pinned />
+      <RecentActionResult
+        action={resultPresentation.action}
+        label={resultPresentation.label}
+        text={resultPresentation.detail}
+        tone={resultPresentation.tone}
+        pinned
+      />
 
       <BaSrpgFeatureTabs
         battle={battle}

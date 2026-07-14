@@ -11136,6 +11136,11 @@
     -webkit-line-clamp: 2;
   }
 
+  .schale-idle-page-shell .games-hero--compact {
+    contain: paint;
+    overflow-x: hidden;
+  }
+
   .primitive-archive-page-shell .games-hero--compact .games-hero-actions {
     display: flex;
     flex-wrap: nowrap;
