@@ -68,11 +68,23 @@ export const ADVANCEMENT_QUOTE_CATALOG = Object.freeze({
     work: '일과 나날',
     sourceUrl: 'https://www.gutenberg.org/files/348/348-h/348-h.htm',
   },
+  tools: {
+    text: '도움 없는 손과 홀로 남겨진 이해력은 힘이 거의 없다. 결과는 도구와 보조 수단을 통해 만들어진다.',
+    author: '프랜시스 베이컨',
+    work: '신기관',
+    sourceUrl: 'https://www.gutenberg.org/files/45988/45988-h/45988-h.htm',
+  },
   fire: {
     text: '제우스가 불을 숨겼으나, 프로메테우스는 그것을 다시 인간에게 가져왔다.',
     author: '헤시오도스',
     work: '일과 나날',
     sourceUrl: 'https://www.gutenberg.org/files/348/348-h/348-h.htm',
+  },
+  pottery: {
+    text: '진흙이 토기장이의 손에 있음 같이, 너희도 내 손에 있다.',
+    author: '예레미야',
+    work: '예레미야서 18장',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/10',
   },
   navigation: {
     text: '알맞은 항해일을 기다렸다가 빠른 배를 바다로 끌어내려라.',
@@ -103,6 +115,18 @@ export const ADVANCEMENT_QUOTE_CATALOG = Object.freeze({
     author: '아르키메데스',
     work: '플루타르코스가 전한 일화',
     sourceUrl: 'https://www.gutenberg.org/cache/epub/35550/pg35550-images.html',
+  },
+  steam: {
+    text: '열이 운동을 만들어 낸다는 것은 누구나 안다. 증기기관이 널리 알려진 지금, 그 거대한 동력을 의심할 수 없다.',
+    author: '사디 카르노',
+    work: '열의 동력에 관한 고찰',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/78610',
+  },
+  refrigeration: {
+    text: '동력을 낳으려면 열뿐 아니라 냉기도 필요하다. 냉기가 없다면 열은 쓸모가 없다.',
+    author: '사디 카르노',
+    work: '열의 동력에 관한 고찰',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/78610',
   },
   military: {
     text: '옛 명장은 먼저 패배할 수 없는 태세를 갖춘 뒤, 적을 이길 기회를 기다렸다.',
@@ -176,6 +200,12 @@ export const ADVANCEMENT_QUOTE_CATALOG = Object.freeze({
     work: '뜻대로 하세요',
     sourceUrl: 'https://www.gutenberg.org/ebooks/1523',
   },
+  poetry: {
+    text: '시는 삶의 의무를 가르치고 미래를 밝혔으며, 노동 뒤에는 즐거운 휴식을 주었다.',
+    author: '호라티우스',
+    work: '시학',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/5419',
+  },
   time: {
     text: '그렇다면 시간이란 무엇인가?',
     author: '아우구스티누스',
@@ -188,77 +218,191 @@ export const ADVANCEMENT_QUOTE_CATALOG = Object.freeze({
     work: '방법서설',
     sourceUrl: 'https://www.gutenberg.org/files/59/59-h/59-h.htm',
   },
+  utilitarianism: {
+    text: '행위는 행복을 증진하는 경향에 비례하여 옳고, 그 반대를 낳는 경향에 비례하여 그르다.',
+    author: '존 스튜어트 밀',
+    work: '공리주의',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/11224',
+  },
   humanism: {
     text: '나는 인간이다. 인간적인 어떤 것도 나와 무관하지 않다.',
     author: '테렌티우스',
     work: '자기 자신을 괴롭히는 자',
     sourceUrl: 'https://www.gutenberg.org/ebooks/39526',
   },
+  metallurgy: {
+    text: '광부는 무엇을 캐고 무엇을 남겨둘지 알 만큼 자기 일에 숙련되어야 한다.',
+    author: '게오르기우스 아그리콜라',
+    work: '데 레 메탈리카',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/38015',
+  },
+  optics: {
+    text: '현미경의 도움을 받으면 너무 작아서 탐구를 피할 것은 없다.',
+    author: '로버트 훅',
+    work: '미크로그라피아',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/15491',
+  },
+  empiricism: {
+    text: '진리에 이르는 가장 좋은 길은 사물을 상상대로가 아니라 실제 모습대로 살피는 것이다.',
+    author: '존 로크',
+    work: '인간오성론',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/10615',
+  },
+  art: {
+    text: '사람의 아름다움은 사라지지만, 예술 속의 아름다움은 사라지지 않는다.',
+    author: '레오나르도 다 빈치',
+    work: '노트북',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/5000',
+  },
+  music: {
+    text: '음악은 교육과 영혼의 정화, 그리고 마음의 휴식에 쓰여야 한다.',
+    author: '아리스토텔레스',
+    work: '정치학',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/6762',
+  },
+  tolerance: {
+    text: '참된 신앙은 마음속 확신에 있으므로, 외적인 힘으로 믿음을 강제할 수 없다.',
+    author: '존 로크',
+    work: '관용에 관한 편지',
+    sourceUrl: 'https://self.gutenberg.org/wplbn0000651234-a-letter-concerning-toleration-by-locke-john.aspx',
+  },
+  press: {
+    text: '알고 말하고 양심에 따라 자유롭게 논할 자유를 달라.',
+    author: '존 밀턴',
+    work: '아레오파지티카',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/608',
+  },
+  chemistry: {
+    text: '우리는 사실만을 신뢰해야 한다. 자연이 내놓은 사실은 우리를 속이지 않는다.',
+    author: '앙투안 라부아지에',
+    work: '화학 원론',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/30775',
+  },
+  electricity: {
+    text: '자기에서 전기를 얻으려는 희망이 나를 실험적 탐구로 이끌었다.',
+    author: '마이클 패러데이',
+    work: '전기 실험 연구',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/14986',
+  },
+  publicHealth: {
+    text: '간호의 첫 원칙은 환자가 마시는 공기를 바깥 공기만큼 깨끗하게 유지하는 것이다.',
+    author: '플로렌스 나이팅게일',
+    work: '간호론',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/12439',
+  },
+  foodPreservation: {
+    text: '이 방법은 헛된 이론이 아니다. 성찰과 탐구, 오랜 주의와 수많은 실험의 결실이다.',
+    author: '니콜라 아페르',
+    work: '동식물성 물질을 오랫동안 보존하는 법',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/52551',
+  },
+  athletics: {
+    text: '체육은 몸을 단련하고, 올바른 교육은 품성을 기른다.',
+    author: '아리스토텔레스',
+    work: '정치학',
+    sourceUrl: 'https://www.gutenberg.org/ebooks/6762',
+  },
 });
 
-const QUOTE_ASSIGNMENTS = Object.freeze({
-  fire: ['FIREMAKING', 'HEARTH', 'POTTERY'],
+export const ADVANCEMENT_QUOTE_ASSIGNMENTS = Object.freeze({
+  labor: ['CORDAGE'],
+  tools: ['STONE_TOOLS', 'CRAFTSMANSHIP', 'ADVANCED_CARVING', 'OBSIDIAN_KNAPPING', 'POWER_LOOM'],
+  fire: ['FIREMAKING', 'HEARTH'],
+  pottery: ['POTTERY'],
   navigation: [
     'CARTOGRAPHY', 'BASIC_SAILING', 'BASIC_SHIPBUILDING', 'HULL_FRAMING', 'LATEEN_SAIL',
     'NAVIGATION', 'OCEAN_NAVIGATION', 'DEEP_WATER_SHIPBUILDING', 'OCEANIC_CARTOGRAPHY',
-    'CELESTIAL_NAVIGATION', 'GALLEON_SHIPBUILDING', 'SHIP_OF_THE_LINE', 'MARITIME_LAW',
+    'CELESTIAL_NAVIGATION', 'GALLEON_SHIPBUILDING', 'IRONCLAD_SHIPBUILDING',
   ],
   medicine: [
     'HERBALISM', 'MEDICAL_CORPUS', 'SURGICAL_TOOLS', 'HERBAL_MEDICINE', 'MEDIEVAL_MEDICINE',
-    'ANATOMICAL_STUDY', 'PHARMACOPOEIA', 'POOR_RELIEF', 'PUBLIC_HEALTH',
+    'ANATOMICAL_STUDY', 'PHARMACOPOEIA', 'MISSIONARY_MEDICINE',
   ],
+  publicHealth: [
+    'PUBLIC_HEALTH', 'VACCINATION', 'HOSPITAL_SANITATION', 'GERM_THEORY', 'MODERN_HOSPITAL',
+    'PUBLIC_SANITATION',
+  ],
+  foodPreservation: ['FOOD_STORAGE', 'FOOD_CANNING'],
   architecture: [
     'SHELTER', 'SETTLEMENT', 'EARLY_CONSTRUCTION', 'EARLY_CIVIL_ENGINEERING', 'FORTIFICATION',
     'ROAD_BUILDING', 'AQUEDUCT_ENGINEERING', 'MASONRY_VAULTS', 'CASTLE_ENGINEERING',
-    'TRACE_ITALIENNE', 'URBAN_CHARTER',
+    'TRACE_ITALIENNE',
   ],
-  mathematics: ['COUNTING', 'BASIC_MATH', 'EARLY_OPTICS', 'OPTICAL_INSTRUMENTS'],
+  mathematics: ['COUNTING', 'BASIC_MATH'],
   mechanics: [
-    'STONE_TOOLS', 'CRAFTSMANSHIP', 'ADVANCED_CARVING', 'LEVER_MECHANICS', 'WATERMILL',
-    'WINDMILL', 'MECHANICAL_CLOCK', 'MECHANICAL_ENGINEERING', 'DRAINAGE_PUMP', 'STEAM_PUMP',
-    'PRECISION_CLOCK', 'EARLY_STEAM_ENGINE', 'CLASSICAL_MECHANICS',
+    'LEVER_MECHANICS', 'WATERMILL', 'WINDMILL', 'MECHANICAL_ENGINEERING', 'DRAINAGE_PUMP',
+    'CLASSICAL_MECHANICS',
+  ],
+  steam: ['STEAM_PUMP', 'EARLY_STEAM_ENGINE', 'ROTARY_STEAM_POWER', 'RAILWAY_ENGINEERING', 'THERMODYNAMICS'],
+  refrigeration: ['REFRIGERATION'],
+  metallurgy: [
+    'MINING', 'BRONZE_WORKING', 'EARLY_IRONWORKING', 'STEEL_QUENCHING', 'BLOOMERY_FURNACE',
+    'STEEL_TOOLS', 'ADVANCED_METALLURGY', 'CHAINMAIL', 'PLATE_ARMOR', 'BESSEMER_STEEL',
   ],
   military: [
-    'HUNTING', 'ARCHERY', 'TRAPPING', 'OBSIDIAN_KNAPPING', 'MEGAFAUNA_HIDE',
-    'MILITARY_TRADITION', 'ATHLETIC_GAMES', 'EARLY_HORSEBACK', 'EARLY_IRONWORKING',
-    'STEEL_QUENCHING', 'MILITARY_TRAINING', 'DEFENSE_TACTICS', 'CHAINMAIL', 'CHIVALRIC_CODE',
-    'MILITARY_ORDERS', 'CASTLE_ENGINEERING', 'PLATE_ARMOR', 'GUNPOWDER_MILL', 'ARQUEBUS',
-    'TRACE_ITALIENNE', 'FIELD_ARTILLERY', 'STANDING_ARMY', 'MILITARY_REVOLUTION',
-    'PROFESSIONAL_OFFICERS', 'SHIP_OF_THE_LINE',
+    'ARCHERY', 'MILITARY_TRADITION', 'EARLY_HORSEBACK', 'MILITARY_TRAINING',
+    'DEFENSE_TACTICS', 'CHIVALRIC_CODE', 'MILITARY_ORDERS', 'ARQUEBUS', 'FIELD_ARTILLERY',
+    'SHIP_OF_THE_LINE', 'STANDING_ARMY', 'MILITARY_REVOLUTION', 'PROFESSIONAL_OFFICERS',
+    'RIFLED_MUSKET', 'BREECH_LOADING_RIFLE', 'STEEL_ARTILLERY', 'MASS_CONSCRIPTION',
+    'GENERAL_STAFF',
   ],
-  law: ['CIVIC_LAW', 'IMPERIAL_ADMINISTRATION', 'MARITIME_LAW', 'BUREAUCRATIC_STATE'],
-  liberty: ['REPUBLICAN_COUNCIL', 'CONFESSIONAL_TOLERANCE', 'SOCIAL_CONTRACT', 'CONSTITUTIONAL_ASSEMBLY'],
-  economy: ['FOREIGN_TRADE', 'EARLY_CURRENCY', 'GUILD_SYSTEM', 'STATE_WORKFORCE', 'PATRONAGE_CULTURE'],
+  athletics: ['ATHLETIC_GAMES'],
+  polity: [
+    'EARLY_EMPIRE', 'REPUBLICAN_COUNCIL', 'IMPERIAL_ADMINISTRATION', 'BUREAUCRATIC_STATE',
+    'FEUDAL_CONTRACT', 'ESTATES_ASSEMBLY', 'URBAN_CHARTER', 'STATE_WORKFORCE',
+    'MUNICIPAL_GOVERNMENT', 'NATION_STATE',
+  ],
+  law: ['CIVIC_LAW', 'MARITIME_LAW'],
+  liberty: ['SOCIAL_CONTRACT', 'CONSTITUTIONAL_ASSEMBLY', 'LIBERALISM'],
+  tolerance: ['CONFESSIONAL_TOLERANCE', 'RELIGIOUS_LIBERTY'],
+  economy: [
+    'FOREIGN_TRADE', 'EARLY_CURRENCY', 'GUILD_SYSTEM', 'INDUSTRIAL_ENTREPRENEURSHIP',
+    'FACTORY_SYSTEM',
+  ],
   faith: [
     'MYSTICISM', 'EARLY_THEOLOGY', 'CIVIC_RITUAL', 'MONASTIC_RULE', 'SCHOLASTICISM',
-    'CATHEDRAL_SCHOOLS', 'SACRED_MUSIC', 'CODIFIED_THEOLOGY', 'REFORMATION',
-    'CONFESSIONAL_TOLERANCE', 'ENLIGHTENED_THEOLOGY',
+    'CODIFIED_THEOLOGY', 'REFORMATION', 'ENLIGHTENED_THEOLOGY', 'EVANGELICAL_REVIVAL',
   ],
   records: [
     'ORAL_RECORDS', 'ARCHIVE', 'WRITING', 'BOOKCRAFT', 'LIBRARY', 'CLAY_TABLETS',
-    'HISTORY_RECORDS', 'CLASSICAL_EDUCATION', 'EPIC_TRADITION', 'COURT_LITERATURE',
-    'CHRONICLE_WRITING', 'PAPERMAKING', 'PRINTING_BLOCKS', 'UNIVERSITY_TRADITION',
-    'ROMANCE_LITERATURE', 'MOVABLE_TYPE_PRINTING', 'PRINT_WORKSHOP', 'COPPERPLATE_PRINTING',
-    'PUBLIC_SPHERE',
+    'HISTORY_RECORDS', 'CLASSICAL_EDUCATION',
+    'CHRONICLE_WRITING', 'PAPERMAKING', 'CATHEDRAL_SCHOOLS', 'UNIVERSITY_TRADITION',
+    'PUBLIC_EDUCATION',
+  ],
+  press: [
+    'RHETORIC', 'PUBLIC_DEBATE', 'PUBLIC_SPHERE', 'PRINTING_BLOCKS',
+    'MOVABLE_TYPE_PRINTING', 'PRINT_WORKSHOP', 'COPPERPLATE_PRINTING',
+    'STEAM_PRINTING_PRESS', 'MASS_PUBLISHING', 'FREEDOM_OF_PRESS',
   ],
   nature: [
-    'GATHERING', 'FISHING', 'AGRICULTURE', 'ANIMAL_HUSBANDRY', 'FOOD_STORAGE', 'IRRIGATION',
-    'CROP_CALENDAR', 'THREE_FIELD_SYSTEM', 'HEAVY_PLOUGH', 'CROP_ROTATION',
-    'HERBAL_MEDICINE', 'IMPROVED_AGRICULTURE', 'BOTANICAL_CLASSIFICATION',
-    'NEW_CROP_CULTIVATION', 'SEED_SELECTION', 'MODERN_AGRONOMY',
+    'GATHERING', 'HUNTING', 'FISHING', 'TRAPPING', 'AGRICULTURE', 'ANIMAL_HUSBANDRY',
+    'IRRIGATION', 'MEGAFAUNA_HIDE', 'THREE_FIELD_SYSTEM', 'HEAVY_PLOUGH',
+    'CROP_ROTATION', 'IMPROVED_AGRICULTURE', 'BOTANICAL_CLASSIFICATION',
+    'NEW_CROP_CULTIVATION', 'SEED_SELECTION', 'MODERN_AGRONOMY', 'MECHANIZED_FARMING',
+    'AGRARIAN_REFORM',
   ],
-  astronomy: ['ASTROLOGY', 'ASTRONOMY_EARLY', 'CELESTIAL_NAVIGATION', 'MICROSCOPE', 'SCIENTIFIC_SOCIETY'],
-  drama: ['DRAMA', 'POETRY', 'RHETORIC', 'EARLY_ART', 'EARLY_MUSIC', 'SACRED_MUSIC'],
+  astronomy: ['ASTROLOGY', 'ASTRONOMY_EARLY'],
+  optics: ['GLASSMAKING', 'EARLY_OPTICS', 'OPTICAL_INSTRUMENTS', 'MICROSCOPE'],
+  drama: ['DRAMA'],
+  poetry: ['POETRY', 'EPIC_TRADITION', 'COURT_LITERATURE', 'ROMANCE_LITERATURE'],
+  art: ['EARLY_ART', 'PATRONAGE_CULTURE', 'PHOTOGRAPHY'],
+  music: ['EARLY_MUSIC', 'SACRED_MUSIC'],
   time: ['CALENDAR', 'CROP_CALENDAR', 'MECHANICAL_CLOCK', 'PRECISION_CLOCK'],
   philosophy: [
-    'BASIC_PHILOSOPHY', 'CLASSICAL_PHILOSOPHY', 'NATURAL_PHILOSOPHY', 'EMPIRICISM',
-    'SCIENTIFIC_METHOD', 'ENLIGHTENMENT',
+    'BASIC_PHILOSOPHY', 'CLASSICAL_PHILOSOPHY', 'NATURAL_PHILOSOPHY', 'ENLIGHTENMENT',
   ],
-  humanism: ['HUMANISM', 'RENAISSANCE_HUMANISM', 'PUBLIC_DEBATE', 'PUBLIC_SPHERE'],
+  utilitarianism: ['UTILITARIANISM'],
+  empiricism: ['SCIENTIFIC_METHOD', 'EMPIRICISM', 'SCIENTIFIC_SOCIETY', 'POSITIVISM', 'PROFESSIONAL_SCIENCE'],
+  chemistry: ['GUNPOWDER_MILL', 'MODERN_CHEMISTRY'],
+  electricity: ['ELECTROMAGNETISM', 'TELEGRAPHY'],
+  humanism: [
+    'HUMANISM', 'RENAISSANCE_HUMANISM', 'POOR_RELIEF', 'HUMANITARIAN_LOGISTICS',
+    'LABOR_PROTECTION', 'HUMANITARIANISM',
+  ],
 });
 
 const QUOTE_KEY_BY_ADVANCEMENT_ID = Object.freeze(Object.fromEntries(
-  Object.entries(QUOTE_ASSIGNMENTS).flatMap(([quoteKey, ids]) => ids.map((id) => [id, quoteKey])),
+  Object.entries(ADVANCEMENT_QUOTE_ASSIGNMENTS).flatMap(([quoteKey, ids]) => ids.map((id) => [id, quoteKey])),
 ));
 
 function fallbackQuoteKey(advancement) {
@@ -273,13 +417,15 @@ function fallbackQuoteKey(advancement) {
 }
 
 export function withAdvancementLore(advancement) {
-  const quoteKey = QUOTE_KEY_BY_ADVANCEMENT_ID[advancement.id] || fallbackQuoteKey(advancement);
+  const assignedQuoteKey = QUOTE_KEY_BY_ADVANCEMENT_ID[advancement.id] || '';
+  const quoteKey = assignedQuoteKey || fallbackQuoteKey(advancement);
   return {
     ...advancement,
     name: CIVILIZATION_STYLE_NAME_OVERRIDES[advancement.id] || advancement.name,
     quote: {
       ...ADVANCEMENT_QUOTE_CATALOG[quoteKey],
       key: quoteKey,
+      explicit: Boolean(assignedQuoteKey),
     },
   };
 }

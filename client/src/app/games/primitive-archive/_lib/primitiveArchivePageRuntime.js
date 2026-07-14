@@ -92,6 +92,7 @@ export const RESEARCH_ERA_LABELS = {
   CLASSICAL: '고전',
   MEDIEVAL: '중세',
   EARLY_MODERN: '근세',
+  MODERN_EARLY: '전기 근대',
 };
 
 export const RESEARCH_BRANCH_LABELS = {
@@ -311,6 +312,18 @@ export const PASSIVE_UNLOCK_LABELS = {
   ENLIGHTENMENT_BREAKTHROUGH_UP: '계몽주의 발견 보너스',
   CONSTITUTIONAL_ASSEMBLY_SCORE_UP: '입헌 의회 기록 점수',
   PUBLIC_HEALTH_RECOVERY_UP: '공중 보건 회복 보너스',
+  MODERN_ENGINEERING_TECH_STACK: '산업 공학 누적 보너스',
+  MODERN_SCIENCE_TECH_STACK: '근대 과학 누적 보너스',
+  MODERN_SURVIVAL_TECH_STACK: '근대 생존 기술 누적 보너스',
+  MODERN_MILITARY_TECH_STACK: '근대 군사 기술 누적 보너스',
+  MODERN_MEDIA_TECH_STACK: '근대 기록 기술 누적 보너스',
+  MODERN_MEDICAL_TECH_STACK: '근대 의료 기술 누적 보너스',
+  MODERN_ENGINEERING_CIVIC_STACK: '산업 제도 누적 보너스',
+  MODERN_SCIENCE_CIVIC_STACK: '전문 학술 제도 누적 보너스',
+  MODERN_SURVIVAL_CIVIC_STACK: '공공 생존 제도 누적 보너스',
+  MODERN_MILITARY_CIVIC_STACK: '국민 군사 제도 누적 보너스',
+  MODERN_MEDIA_CIVIC_STACK: '대중 문화 제도 누적 보너스',
+  MODERN_FAITH_CIVIC_STACK: '인도주의 제도 누적 보너스',
 };
 
 export function researchStatusLabel(tech) {
@@ -391,7 +404,7 @@ function researchEdgeLane(edgeId) {
 }
 
 export function buildResearchMap(techs) {
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN'];
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY'];
   const nodeWidth = 188;
   const nodeHeight = 94;
   const columnGap = 54;

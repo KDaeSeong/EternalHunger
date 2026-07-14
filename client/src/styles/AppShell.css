@@ -6941,6 +6941,10 @@
   gap: 10px;
 }
 
+.primitive-archive-page-shell {
+  overflow-x: clip;
+}
+
 .primitive-archive-page-shell .games-hero--compact {
   grid-template-columns: minmax(380px, 1fr) auto;
   padding: 14px 18px;

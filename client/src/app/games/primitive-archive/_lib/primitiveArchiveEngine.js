@@ -216,7 +216,8 @@ export function getPartyCap(state) {
     + (hasTechPassive(current, 'FEUDAL_PARTY_CAP_UP') ? 1 : 0)
     + (hasTechPassive(current, 'ESTATES_PARTY_CAP_UP') ? 1 : 0)
     + (hasTechPassive(current, 'STANDING_ARMY_PARTY_CAP_UP') ? 1 : 0)
-    + (hasTechPassive(current, 'SOCIAL_CONTRACT_PARTY_CAP_UP') ? 1 : 0);
+    + (hasTechPassive(current, 'SOCIAL_CONTRACT_PARTY_CAP_UP') ? 1 : 0)
+    + Math.ceil(passiveStackCount(current, 'MODERN_MILITARY_CIVIC_STACK') / 2);
 }
 
 function makePartyMember(student) {
@@ -276,7 +277,9 @@ export function logCapacity(state) {
     + (hasTechPassive(state, 'ARCHIVE_LOG_UP') ? 40 : 0)
     + (hasTechPassive(state, 'ARCHIVE_LOG_UP_2') ? 80 : 0)
     + (hasTechPassive(state, 'CHRONICLE_LOG_UP') ? 80 : 0)
-    + (hasTechPassive(state, 'COPPERPLATE_CULTURE_UP') ? 80 : 0);
+    + (hasTechPassive(state, 'COPPERPLATE_CULTURE_UP') ? 80 : 0)
+    + passiveStackCount(state, 'MODERN_MEDIA_TECH_STACK') * 20
+    + passiveStackCount(state, 'MODERN_MEDIA_CIVIC_STACK') * 30;
 }
 
 export function addLog(state, message) {
@@ -620,6 +623,18 @@ function passiveLabel(passiveId) {
     ENLIGHTENMENT_BREAKTHROUGH_UP: '계몽주의 발견 보너스',
     CONSTITUTIONAL_ASSEMBLY_SCORE_UP: '입헌 의회 기록 점수',
     PUBLIC_HEALTH_RECOVERY_UP: '공중 보건 회복 보너스',
+    MODERN_ENGINEERING_TECH_STACK: '산업 공학 누적 보너스',
+    MODERN_SCIENCE_TECH_STACK: '근대 과학 누적 보너스',
+    MODERN_SURVIVAL_TECH_STACK: '근대 생존 기술 누적 보너스',
+    MODERN_MILITARY_TECH_STACK: '근대 군사 기술 누적 보너스',
+    MODERN_MEDIA_TECH_STACK: '근대 기록 기술 누적 보너스',
+    MODERN_MEDICAL_TECH_STACK: '근대 의료 기술 누적 보너스',
+    MODERN_ENGINEERING_CIVIC_STACK: '산업 제도 누적 보너스',
+    MODERN_SCIENCE_CIVIC_STACK: '전문 학술 제도 누적 보너스',
+    MODERN_SURVIVAL_CIVIC_STACK: '공공 생존 제도 누적 보너스',
+    MODERN_MILITARY_CIVIC_STACK: '국민 군사 제도 누적 보너스',
+    MODERN_MEDIA_CIVIC_STACK: '대중 문화 제도 누적 보너스',
+    MODERN_FAITH_CIVIC_STACK: '인도주의 제도 누적 보너스',
   };
   return labels[passiveId] || passiveId.replaceAll('_', ' ');
 }
@@ -831,8 +846,15 @@ function civicInspirationStatus(state, civic) {
 }
 
 function hasTechPassive(state, passiveId) {
+  return passiveStackCount(state, passiveId) > 0;
+}
+
+export function passiveStackCount(state, passiveId) {
   const research = normalizeResearch(state.research);
-  return TECH_TREE.some((tech) => research.completed?.[tech.id] && (tech.unlocks?.passives || []).includes(passiveId));
+  return TECH_TREE.filter((tech) => (
+    research.completed?.[tech.id]
+    && (tech.unlocks?.passives || []).includes(passiveId)
+  )).length;
 }
 
 function getProject(projectId) {
@@ -1335,8 +1357,8 @@ export function selectRegionAction(state, regionId) {
 export function civilizationMilestoneRows(state) {
   const current = normalizeState(state);
   const season = seasonForDay(current.day);
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN'];
-  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전', MEDIEVAL: '중세', EARLY_MODERN: '근세' };
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY'];
+  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전', MEDIEVAL: '중세', EARLY_MODERN: '근세', MODERN_EARLY: '전기 근대' };
   const completedEras = TECH_TREE
     .filter((tech) => current.research.completed?.[tech.id])
     .map((tech) => tech.era);
@@ -1547,6 +1569,8 @@ function applyResearchBreakthrough(state, kind) {
         * (hasTechPassive(next, 'EMPIRICISM_EUREKA_UP') ? 1.15 : 1)
         * (hasTechPassive(next, 'SCIENTIFIC_METHOD_EUREKA_UP') ? 1.15 : 1)
         * (hasTechPassive(next, 'ENLIGHTENMENT_BREAKTHROUGH_UP') ? 1.1 : 1)
+        * (1 + passiveStackCount(next, 'MODERN_SCIENCE_TECH_STACK') * 0.03)
+        * (1 + passiveStackCount(next, 'MODERN_SCIENCE_CIVIC_STACK') * 0.03)
       : 1;
     const inspirationMultiplier = kind === 'inspiration'
       ? (hasTechPassive(next, 'INSPIRATION_BONUS_UP') ? 1.25 : 1)
@@ -1556,6 +1580,8 @@ function applyResearchBreakthrough(state, kind) {
         * (hasTechPassive(next, 'PUBLIC_DEBATE_INSPIRATION_UP') ? 1.15 : 1)
         * (hasTechPassive(next, 'PUBLIC_SPHERE_INSPIRATION_UP') ? 1.15 : 1)
         * (hasTechPassive(next, 'ENLIGHTENMENT_BREAKTHROUGH_UP') ? 1.1 : 1)
+        * (1 + passiveStackCount(next, 'MODERN_MEDIA_CIVIC_STACK') * 0.04)
+        * (1 + passiveStackCount(next, 'MODERN_FAITH_CIVIC_STACK') * 0.03)
       : 1;
     const bonus = Math.ceil(tech.cost * Number(trigger.bonusPct || 0) * eurekaMultiplier * inspirationMultiplier);
     next = {
@@ -1589,7 +1615,9 @@ function applyCivicInspirations(state) {
       * (hasTechPassive(next, 'HUMANISM_BREAKTHROUGH_UP') ? 1.1 : 1)
       * (hasTechPassive(next, 'RENAISSANCE_HUMANISM_BREAKTHROUGH_UP') ? 1.1 : 1)
       * (hasTechPassive(next, 'PUBLIC_SPHERE_INSPIRATION_UP') ? 1.15 : 1)
-      * (hasTechPassive(next, 'ENLIGHTENMENT_BREAKTHROUGH_UP') ? 1.1 : 1);
+      * (hasTechPassive(next, 'ENLIGHTENMENT_BREAKTHROUGH_UP') ? 1.1 : 1)
+      * (1 + passiveStackCount(next, 'MODERN_MEDIA_CIVIC_STACK') * 0.04)
+      * (1 + passiveStackCount(next, 'MODERN_FAITH_CIVIC_STACK') * 0.03);
     const bonus = Math.ceil(civic.cost * Number(trigger.bonusPct || 0) * multiplier);
     next = {
       ...next,
@@ -1664,6 +1692,9 @@ function autoResearchForDay(state) {
     + (hasTechPassive(state, 'SCIENTIFIC_SOCIETY_RESEARCH_UP') ? 3 : 0)
     + (hasTechPassive(state, 'PRECISION_CLOCK_RESEARCH_UP') ? 2 : 0)
     + (hasTechPassive(state, 'CLASSICAL_MECHANICS_RESEARCH_UP') ? 3 : 0)
+    + passiveStackCount(state, 'MODERN_SCIENCE_TECH_STACK')
+    + passiveStackCount(state, 'MODERN_SCIENCE_CIVIC_STACK')
+    + Math.floor(passiveStackCount(state, 'MODERN_MEDIA_TECH_STACK') / 2)
     + (hasCompletedProject(state, 'council-fire') ? 1 : 0)
     + bookResearchBonus(state),
     2,
@@ -1687,6 +1718,8 @@ function autoResearchForTurn(state) {
     + (hasTechPassive(state, 'SCIENTIFIC_SOCIETY_RESEARCH_UP') ? 1 : 0)
     + (hasTechPassive(state, 'PRECISION_CLOCK_RESEARCH_UP') ? 1 : 0)
     + (hasTechPassive(state, 'CLASSICAL_MECHANICS_RESEARCH_UP') ? 1 : 0)
+    + Math.ceil(passiveStackCount(state, 'MODERN_SCIENCE_TECH_STACK') / 2)
+    + Math.ceil(passiveStackCount(state, 'MODERN_SCIENCE_CIVIC_STACK') / 2)
     + (hasCompletedProject(state, 'council-fire') ? 1 : 0);
   return addResearchProgress({ ...state, research }, techId, points, '턴 연구', { silent: true });
 }
@@ -1725,7 +1758,10 @@ function autoCivicsForDay(state) {
       + (hasTechPassive(state, 'BUREAUCRACY_AUTO_RESEARCH_UP') ? 1 : 0)
       + (hasTechPassive(state, 'COPPERPLATE_CULTURE_UP') ? 1 : 0)
       + (hasTechPassive(state, 'ENLIGHTENED_THEOLOGY_CULTURE_UP') ? 1 : 0)
-      + (hasTechPassive(state, 'CONSTITUTIONAL_ASSEMBLY_SCORE_UP') ? 1 : 0),
+      + (hasTechPassive(state, 'CONSTITUTIONAL_ASSEMBLY_SCORE_UP') ? 1 : 0)
+      + passiveStackCount(state, 'MODERN_MEDIA_CIVIC_STACK')
+      + passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK')
+      + Math.floor(passiveStackCount(state, 'MODERN_MEDIA_TECH_STACK') / 2),
     1,
     18,
   );
@@ -1739,7 +1775,9 @@ function autoCivicsForTurn(state) {
   const points = 1
     + (hasCompletedProject(state, 'council-fire') ? 1 : 0)
     + (hasTechPassive(state, 'IMPERIAL_ADMIN_AUTO_UP') ? 1 : 0)
-    + (hasTechPassive(state, 'PUBLIC_SPHERE_INSPIRATION_UP') ? 1 : 0);
+    + (hasTechPassive(state, 'PUBLIC_SPHERE_INSPIRATION_UP') ? 1 : 0)
+    + Math.ceil(passiveStackCount(state, 'MODERN_MEDIA_CIVIC_STACK') / 2)
+    + Math.ceil(passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK') / 2);
   return addCivicProgress(state, civic.id, points, '턴 문화', { silent: true });
 }
 
@@ -2632,6 +2670,12 @@ function eventRiskDamage(state, actorId, base, action = '') {
   if (action === 'hunt' && hasTechPassive(state, 'TRACE_FORT_DAMAGE_DOWN')) damage -= 2;
   if (action === 'hunt' && hasTechPassive(state, 'PROFESSIONAL_OFFICERS_RISK_DOWN')) damage -= 3;
   if (action === 'hunt' && hasTechPassive(state, 'SHIP_OF_LINE_DEFENSE_UP')) damage -= 3;
+  if (action === 'hunt') {
+    damage -= Math.ceil((
+      passiveStackCount(state, 'MODERN_MILITARY_TECH_STACK')
+      + passiveStackCount(state, 'MODERN_MILITARY_CIVIC_STACK')
+    ) / 2);
+  }
   if (hasEventSupportGear(state, actorId, action)) damage -= 2;
   return Math.max(1, Math.round(damage));
 }
@@ -2649,6 +2693,10 @@ export function huntFailureDamage(state) {
   if (hasTechPassive(state, 'TRACE_FORT_DAMAGE_DOWN')) damage -= 2;
   if (hasTechPassive(state, 'PROFESSIONAL_OFFICERS_RISK_DOWN')) damage -= 3;
   if (hasTechPassive(state, 'SHIP_OF_LINE_DEFENSE_UP')) damage -= 3;
+  damage -= Math.ceil((
+    passiveStackCount(state, 'MODERN_MILITARY_TECH_STACK')
+    + passiveStackCount(state, 'MODERN_MILITARY_CIVIC_STACK')
+  ) / 2);
   if (hasCompletedProject(state, 'palisade')) damage -= 2;
   return Math.max(2, damage);
 }
@@ -2873,7 +2921,19 @@ export function actionChance(state, actorId, action, base = 0.55) {
     + (action === 'craft' && hasTechPassive(state, 'STEEL_CRAFT_UP') ? 0.05 : 0)
     + (action === 'craft' && hasTechPassive(state, 'ADVANCED_METALLURGY_CRAFT_UP') ? 0.06 : 0)
     + (action === 'craft' && hasTechPassive(state, 'MECHANICAL_ENGINEERING_UP') ? 0.06 : 0)
-    + (action === 'craft' && hasTechPassive(state, 'EARLY_STEAM_ENGINE_PRODUCTION_UP') ? 0.06 : 0);
+    + (action === 'craft' && hasTechPassive(state, 'EARLY_STEAM_ENGINE_PRODUCTION_UP') ? 0.06 : 0)
+    + (action === 'gather' ? (
+      passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK')
+      + passiveStackCount(state, 'MODERN_SURVIVAL_CIVIC_STACK')
+    ) * 0.01 : 0)
+    + (action === 'hunt' ? (
+      passiveStackCount(state, 'MODERN_MILITARY_TECH_STACK')
+      + passiveStackCount(state, 'MODERN_MILITARY_CIVIC_STACK')
+    ) * 0.01 : 0)
+    + (action === 'craft' ? (
+      passiveStackCount(state, 'MODERN_ENGINEERING_TECH_STACK')
+      + passiveStackCount(state, 'MODERN_ENGINEERING_CIVIC_STACK')
+    ) * 0.01 : 0);
   return clamp(
     base + stat * 0.025 + weather + camp + book + equipment + seasonBonus + projectBonus + researchBonus + difficultyBonus,
     Number(preset.actionChanceFloor ?? 0.08),
@@ -3040,6 +3100,9 @@ export function advanceDay(state, options = {}) {
     * (hasTechPassive(state, 'TRACE_FORT_DAMAGE_DOWN') ? 0.9 : 1)
     * (hasTechPassive(state, 'SHIP_OF_LINE_DEFENSE_UP') ? 0.85 : 1)
     * (hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 0.9 : 1)
+    * Math.max(0.7, 1
+      - passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 0.04
+      - passiveStackCount(state, 'MODERN_SURVIVAL_CIVIC_STACK') * 0.02)
     * (hasCompletedProject(state, 'palisade') ? 0.85 : 1);
   const coldDamage = Math.round(Math.max(0, Number(state.weather?.cold || 0) - warmth) * preset.coldMultiplier * weatherLoreMul);
   const fireActive = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0;
@@ -3810,6 +3873,18 @@ export function scoreState(state) {
     + (hasTechPassive(state, 'PATRONAGE_CULTURE_UP') ? 250 : 0)
     + (hasTechPassive(state, 'COPPERPLATE_CULTURE_UP') ? 280 : 0)
     + (hasTechPassive(state, 'CONSTITUTIONAL_ASSEMBLY_SCORE_UP') ? 500 : 0)
+    + passiveStackCount(state, 'MODERN_ENGINEERING_TECH_STACK') * 90
+    + passiveStackCount(state, 'MODERN_SCIENCE_TECH_STACK') * 100
+    + passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK') * 90
+    + passiveStackCount(state, 'MODERN_MILITARY_TECH_STACK') * 100
+    + passiveStackCount(state, 'MODERN_MEDIA_TECH_STACK') * 100
+    + passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 100
+    + passiveStackCount(state, 'MODERN_ENGINEERING_CIVIC_STACK') * 110
+    + passiveStackCount(state, 'MODERN_SCIENCE_CIVIC_STACK') * 110
+    + passiveStackCount(state, 'MODERN_SURVIVAL_CIVIC_STACK') * 110
+    + passiveStackCount(state, 'MODERN_MILITARY_CIVIC_STACK') * 120
+    + passiveStackCount(state, 'MODERN_MEDIA_CIVIC_STACK') * 120
+    + passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK') * 120
     + (hasCompletedProject(state, 'stone-monument') ? 400 : 0)
     + Math.max(0, Number(tribe.population || 4) - 4) * 90
     + knownContacts * 120
@@ -4242,6 +4317,8 @@ function zoneBonusQuantityChance(state, context = {}) {
       + (hasTechPassive(state, 'DRAINAGE_RESOURCE_UP') ? 0.1 : 0)
       + (hasTechPassive(state, 'STEAM_PUMP_RESOURCE_UP') ? 0.12 : 0)
       + (hasTechPassive(state, 'EARLY_STEAM_ENGINE_PRODUCTION_UP') ? 0.12 : 0)
+      + passiveStackCount(state, 'MODERN_ENGINEERING_TECH_STACK') * 0.03
+      + passiveStackCount(state, 'MODERN_ENGINEERING_CIVIC_STACK') * 0.02
       + (context.action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP') ? 0.08 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'PLANT_YIELD_UP_2') ? 0.1 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'CROP_CALENDAR_YIELD_UP') ? 0.08 : 0)
@@ -4253,8 +4330,16 @@ function zoneBonusQuantityChance(state, context = {}) {
       + (context.action === 'gather' && hasTechPassive(state, 'NEW_CROP_YIELD_UP') ? 0.1 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'SEED_SELECTION_YIELD_UP') ? 0.12 : 0)
       + (context.action === 'gather' && hasTechPassive(state, 'MODERN_AGRONOMY_YIELD_UP') ? 0.15 : 0)
+      + (context.action === 'gather' ? (
+        passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK')
+        + passiveStackCount(state, 'MODERN_SURVIVAL_CIVIC_STACK')
+      ) * 0.03 : 0)
       + (context.action === 'gather' && hasCompletedProject(state, 'irrigation-ditch') ? 0.12 : 0)
       + (context.action === 'hunt' && hasTechPassive(state, 'ANIMAL_YIELD_UP') ? 0.1 : 0)
+      + (context.action === 'hunt' ? (
+        passiveStackCount(state, 'MODERN_MILITARY_TECH_STACK')
+        + passiveStackCount(state, 'MODERN_MILITARY_CIVIC_STACK')
+      ) * 0.02 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP') ? 0.08 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'RIVER_YIELD_UP_2') ? 0.1 : 0)
       + (context.zoneId === 'river' && hasTechPassive(state, 'SHIPBUILDING_RIVER_UP') ? 0.12 : 0)
@@ -4432,7 +4517,10 @@ export function actionForecastRows(state, actorId, requestedRegionId, recipeId) 
     + (hasTechPassive(current, 'TOLERANCE_RECOVERY_UP') ? 4 : 0)
     + (hasTechPassive(current, 'POOR_RELIEF_RECOVERY_UP') ? 5 : 0)
     + (hasTechPassive(current, 'ENLIGHTENED_THEOLOGY_CULTURE_UP') ? 4 : 0)
-    + (hasTechPassive(current, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0);
+    + (hasTechPassive(current, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0)
+    + passiveStackCount(current, 'MODERN_MEDICAL_TECH_STACK') * 2
+    + passiveStackCount(current, 'MODERN_SURVIVAL_TECH_STACK')
+    + passiveStackCount(current, 'MODERN_FAITH_CIVIC_STACK') * 2;
   const restStamina = Math.min(
     Math.max(0, 100 - Number(actor?.stamina || 0)),
     42 + Number(current.camp.shelterLevel || 0) * 8,
@@ -4634,7 +4722,10 @@ export function runRestAction(state, actorId, options = {}) {
     + (hasTechPassive(state, 'TOLERANCE_RECOVERY_UP') ? 4 : 0)
     + (hasTechPassive(state, 'POOR_RELIEF_RECOVERY_UP') ? 5 : 0)
     + (hasTechPassive(state, 'ENLIGHTENED_THEOLOGY_CULTURE_UP') ? 4 : 0)
-    + (hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0);
+    + (hasTechPassive(state, 'PUBLIC_HEALTH_RECOVERY_UP') ? 8 : 0)
+    + passiveStackCount(state, 'MODERN_MEDICAL_TECH_STACK') * 2
+    + passiveStackCount(state, 'MODERN_SURVIVAL_TECH_STACK')
+    + passiveStackCount(state, 'MODERN_FAITH_CIVIC_STACK') * 2;
   const warmth = Number(state.camp.fireLevel || 0) > 0 && Number(state.camp.fuel || 0) > 0 ? 0.75 : 0.25;
   let next = updateActor(state, actorId, {
     stamina: clamp(Number(target.stamina || 0) + 42 + Number(state.camp.shelterLevel || 0) * 8, 0, 100),
