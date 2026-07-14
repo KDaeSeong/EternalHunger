@@ -5,15 +5,22 @@ const sourceUrl = new URL('../src/app/games/si-coding-sim/_lib/siCodingSimFeedba
 const source = await readFile(sourceUrl, 'utf8');
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const feedback = await import(moduleUrl);
+const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
+const sfxSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const pageSource = await readFile(new URL('../src/app/games/si-coding-sim/play/page.js', import.meta.url), 'utf8');
 
 function codingState(overrides = {}) {
   return {
     runId: 'coding-a',
     taskSet: { id: 'pack-a' },
+    currentTaskId: 'T1',
+    selectedSeedId: '',
     taskOutcomes: {},
     projectEvaluations: [],
     hintUsage: {},
-    companySupport: { totalSpent: 0 },
+    documentReviewByTask: {},
+    companySupport: { totalSpent: 0, entries: [] },
+    log: ['현장 대기'],
     ...overrides,
   };
 }
@@ -54,10 +61,33 @@ const failed = codingState({ taskOutcomes: { T1: outcome(42) } });
 assert.equal(cue(failed), 'codeFail');
 assert.equal(feedback.siCodingFeedbackPresentation(base, failed).tone, 'danger');
 
+const selectedTask = codingState({ currentTaskId: 'T2', log: ['T2 과제를 열었습니다.'] });
+assert.equal(cue(selectedTask), 'taskSelect');
+assert.equal(feedback.siCodingFeedbackPresentation(base, selectedTask).action, 'task-select');
+assert.match(feedback.siCodingFeedbackPresentation(base, selectedTask).detail, /T2 과제를 열었습니다/);
+
+const resetTask = codingState({ log: ['T1 작업 파일을 원본 상태로 되돌렸습니다.'] });
+assert.equal(cue(resetTask), 'taskReset');
+assert.equal(feedback.siCodingFeedbackPresentation(base, resetTask).action, 'reset');
+
+const reviewed = codingState({ documentReviewByTask: { T1: ['DOC-1'] } });
+assert.equal(cue(reviewed), 'documentReview');
+assert.equal(feedback.siCodingFeedbackPresentation(base, reviewed).label, '문서 검토 1개');
+assert.equal(feedback.siCodingFeedbackTransition(reviewed, base), 'documentReviewUndo');
+assert.equal(feedback.siCodingFeedbackCue(reviewed, base), 'documentReviewUndo');
+
 assert.equal(cue(codingState({ hintUsage: { T1: 1 } })), 'hintOpen');
 assert.equal(feedback.siCodingFeedbackPresentation(base, codingState({ hintUsage: { T1: 1 } })).action, 'hint');
-assert.equal(cue(codingState({ companySupport: { totalSpent: 18 } })), 'support');
-assert.equal(feedback.siCodingFeedbackPresentation(base, codingState({ companySupport: { totalSpent: 18 } })).action, 'support');
+const hintSupport = codingState({ companySupport: { totalSpent: 18, entries: [{ id: 'SUP-1', action: 'hint', title: '힌트 비용 보전', amount: 18 }] } });
+assert.equal(cue(hintSupport), 'supportHint');
+assert.equal(feedback.siCodingFeedbackPresentation(base, hintSupport).action, 'support-hint');
+const riskSupport = codingState({ companySupport: { totalSpent: 24, entries: [{ id: 'SUP-2', action: 'risk', title: 'QA 리스크 완충', amount: 24 }] } });
+assert.equal(cue(riskSupport), 'supportRisk');
+assert.equal(feedback.siCodingFeedbackPresentation(base, riskSupport).action, 'support-risk');
+
+const selectedProject = codingState({ selectedSeedId: 'SEED-1', log: ['차기 현장 후보 [개편 프로젝트]을 선택했습니다.'] });
+assert.equal(cue(selectedProject), 'projectSelect');
+assert.equal(feedback.siCodingFeedbackPresentation(base, selectedProject).action, 'project-select');
 
 assert.equal(feedback.siCodingResultPresentation('저장된 현장을 불러왔습니다.').action, 'load');
 assert.equal(feedback.siCodingResultPresentation('SI Coding Sim 진행 상태를 저장했습니다.').action, 'save');
@@ -65,8 +95,16 @@ assert.equal(feedback.siCodingResultPresentation('납품 기록을 전적에 남
 assert.equal(feedback.siCodingResultPresentation('현재 과제를 초기화했습니다.').action, 'reset');
 assert.equal(feedback.siCodingResultPresentation('회사 지원 예비비가 부족합니다.').tone, 'warning');
 
+['task-select', 'document-review', 'document-unreview', 'support-hint', 'support-risk', 'project-select'].forEach((key) => {
+  assert.ok(iconSource.includes(`'${key}':`), `${key} 전용 아이콘이 필요합니다.`);
+});
+['taskSelect', 'taskReset', 'documentReview', 'documentReviewUndo', 'supportHint', 'supportRisk', 'projectSelect'].forEach((key) => {
+  assert.ok(sfxSource.includes(`${key}: [`), `${key} 전용 효과음이 필요합니다.`);
+});
+assert.match(pageSource, /setActionResult\(presentation\.detail/, '로그 없는 상태 변화도 결과 패널에 즉시 설명해야 합니다.');
+
 console.log(JSON.stringify({
-  transitions: 9,
-  contextualResultIcons: 9,
+  transitions: 15,
+  contextualResultIcons: 15,
   persistenceMessages: true,
 }, null, 2));

@@ -117,8 +117,10 @@ export default function SiCodingSimPlayPage() {
     const presentation = siCodingFeedbackPresentation(previousState, nextState);
     stateRef.current = nextState;
     setState(nextState);
-    setActionResult('');
-    if (presentation.key !== 'idle') setActionPresentation(presentation);
+    if (presentation.key !== 'idle') {
+      setActionPresentation(presentation);
+      setActionResult(presentation.detail || nextState.log?.[0] || '상태가 변경되었습니다.');
+    }
     return nextState;
   };
 

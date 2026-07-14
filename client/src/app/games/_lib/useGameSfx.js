@@ -655,6 +655,11 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.038, duration: 0.05, type: 'sine', gain: 0.042 },
     { frequency: 440, start: 0.084, duration: 0.075, type: 'sine', gain: 0.038 },
   ],
+  delayedArrival: [
+    { frequency: 700, endFrequency: 520, duration: 0.07, type: 'triangle', gain: 0.04 },
+    { frequency: 350, start: 0.07, duration: 0.09, type: 'square', gain: 0.034 },
+    { frequency: 260, start: 0.15, duration: 0.11, type: 'sine', gain: 0.032 },
+  ],
   signalStop: [
     { frequency: 260, endFrequency: 190, duration: 0.085, type: 'square', gain: 0.045 },
     { frequency: 145, start: 0.065, duration: 0.12, type: 'sine', gain: 0.04 },
@@ -664,9 +669,19 @@ const CUE_PROFILES = {
     { frequency: 230, start: 0.07, duration: 0.065, type: 'square', gain: 0.038 },
     { frequency: 310, start: 0.145, duration: 0.07, type: 'triangle', gain: 0.035 },
   ],
+  blockConflict: [
+    { source: 'noise', filterType: 'bandpass', frequency: 720, q: 3.2, duration: 0.045, gain: 0.045 },
+    { frequency: 280, endFrequency: 165, duration: 0.1, type: 'square', gain: 0.045 },
+    { frequency: 180, start: 0.085, duration: 0.13, type: 'sawtooth', gain: 0.034 },
+  ],
   signalClear: [
     { frequency: 430, duration: 0.04, type: 'triangle', gain: 0.043 },
     { frequency: 650, start: 0.038, duration: 0.065, type: 'sine', gain: 0.04 },
+  ],
+  railDelay: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.025, gain: 0.024 },
+    { frequency: 320, duration: 0.045, type: 'square', gain: 0.034 },
+    { frequency: 320, start: 0.11, duration: 0.045, type: 'square', gain: 0.034 },
   ],
   signalAdjust: [
     { source: 'noise', filterType: 'bandpass', frequency: 1150, q: 2.6, duration: 0.03, gain: 0.035 },
@@ -867,10 +882,42 @@ const CUE_PROFILES = {
     { frequency: 740, duration: 0.04, type: 'sine', gain: 0.04 },
     { frequency: 1110, start: 0.038, duration: 0.075, type: 'sine', gain: 0.038 },
   ],
+  taskSelect: [
+    { frequency: 460, duration: 0.035, type: 'square', gain: 0.034 },
+    { frequency: 690, start: 0.034, duration: 0.055, type: 'triangle', gain: 0.036 },
+  ],
+  taskReset: [
+    { frequency: 700, endFrequency: 420, duration: 0.075, type: 'triangle', gain: 0.037 },
+    { frequency: 280, start: 0.07, duration: 0.09, type: 'square', gain: 0.034 },
+  ],
+  documentReview: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.025, gain: 0.02 },
+    { frequency: 620, duration: 0.035, type: 'triangle', gain: 0.037 },
+    { frequency: 930, start: 0.035, duration: 0.06, type: 'sine', gain: 0.034 },
+  ],
+  documentReviewUndo: [
+    { frequency: 620, endFrequency: 410, duration: 0.065, type: 'triangle', gain: 0.034 },
+    { source: 'noise', filterType: 'highpass', frequency: 1700, start: 0.055, duration: 0.025, gain: 0.018 },
+  ],
   support: [
     { frequency: 420, duration: 0.04, type: 'triangle', gain: 0.04 },
     { frequency: 630, start: 0.035, duration: 0.055, type: 'triangle', gain: 0.04 },
     { frequency: 840, start: 0.082, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
+  supportHint: [
+    { frequency: 660, duration: 0.035, type: 'sine', gain: 0.038 },
+    { frequency: 990, start: 0.035, duration: 0.055, type: 'sine', gain: 0.039 },
+    { frequency: 1320, start: 0.085, duration: 0.075, type: 'sine', gain: 0.031 },
+  ],
+  supportRisk: [
+    { frequency: 330, duration: 0.045, type: 'square', gain: 0.037 },
+    { frequency: 495, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04 },
+    { frequency: 660, start: 0.095, duration: 0.08, type: 'sine', gain: 0.036 },
+  ],
+  projectSelect: [
+    { frequency: 520, duration: 0.035, type: 'square', gain: 0.036 },
+    { frequency: 780, start: 0.04, duration: 0.055, type: 'triangle', gain: 0.038 },
+    { frequency: 1040, start: 0.09, duration: 0.075, type: 'sine', gain: 0.033 },
   ],
   summon: [
     { source: 'noise', filterType: 'highpass', frequency: 1700, duration: 0.045, gain: 0.045 },

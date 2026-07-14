@@ -5,11 +5,14 @@ const RAIL_FEEDBACK_PROFILES = {
   stepSeconds: { action: 'clock', cue: 'select', label: '스텝 간격', tone: 'highlight' },
   serviceComplete: { action: 'trophy', cue: 'serviceComplete', label: '전 운행 완료', tone: 'success' },
   tokenWait: { action: 'wait', cue: 'tokenWait', label: '토큰 대기', tone: 'warning' },
+  blockConflict: { action: 'block-conflict', cue: 'blockConflict', label: '블록 충돌', tone: 'danger' },
   signalStop: { action: 'signal', cue: 'signalStop', label: '정지 신호', tone: 'danger' },
   trainComplete: { action: 'dispatch', cue: 'trainComplete', label: '열차 종착', tone: 'success' },
+  delayedArrival: { action: 'rail-delay', cue: 'delayedArrival', label: '지연 도착', tone: 'warning' },
   stationArrive: { action: 'station', cue: 'stationArrive', label: '역 도착', tone: 'success' },
   trainDepart: { action: 'dispatch', cue: 'trainDepart', label: '열차 출발', tone: 'highlight' },
   signalClear: { action: 'confirm', cue: 'signalClear', label: '신호 해제', tone: 'success' },
+  delayEscalated: { action: 'rail-delay', cue: 'railDelay', label: '누적 지연', tone: 'warning' },
   railStep: { action: 'advance', cue: 'railStep', label: '운행 진행', tone: '' },
 };
 
@@ -32,6 +35,10 @@ function eventCount(trains, key) {
 export function rail3dFeedbackSnapshot(state) {
   const trains = state?.trains || [];
   const completed = trains.filter((train) => train?.phase === 'DONE').length;
+  const maxWaitSeconds = trains.reduce(
+    (max, train) => Math.max(max, Number(train?.waitSeconds || 0)),
+    0,
+  );
   return {
     runId: String(state?.runId || ''),
     nowS: Number(state?.nowS || 0),
@@ -43,6 +50,13 @@ export function rail3dFeedbackSnapshot(state) {
     total: trains.length,
     stopped: trains.filter((train) => train?.signalState === 'STOP').length,
     tokenWaits: trains.filter((train) => train?.stopReason?.kind === 'TOKEN_WAIT').length,
+    blocked: trains.filter((train) => train?.stopReason?.kind === 'BLOCKED').length,
+    delayedArrivals: trains.reduce(
+      (sum, train) => sum + (Number(train?.waitSeconds || 0) > 0 ? Object.keys(train?.actualArriveS || {}).length : 0),
+      0,
+    ),
+    maxWaitSeconds,
+    waitBand: Math.floor(maxWaitSeconds / 60),
   };
 }
 
@@ -54,12 +68,15 @@ export function rail3dFeedbackTransition(previousValue, currentValue) {
   if (previous.lookaheadBlocks !== current.lookaheadBlocks) return 'signalAdjust';
   if (previous.stepSeconds !== current.stepSeconds) return 'stepSeconds';
   if (current.total && current.completed === current.total && previous.completed < previous.total) return 'serviceComplete';
+  if (current.blocked > previous.blocked) return 'blockConflict';
   if (current.tokenWaits > previous.tokenWaits) return 'tokenWait';
   if (current.stopped > previous.stopped) return 'signalStop';
   if (current.completed > previous.completed) return 'trainComplete';
+  if (current.delayedArrivals > previous.delayedArrivals) return 'delayedArrival';
   if (current.arrivals > previous.arrivals) return 'stationArrive';
   if (current.departures > previous.departures) return 'trainDepart';
   if (current.stopped < previous.stopped) return 'signalClear';
+  if (current.waitBand > previous.waitBand) return 'delayEscalated';
   if (current.nowS > previous.nowS) return 'railStep';
   return 'idle';
 }
@@ -70,7 +87,13 @@ export function rail3dFeedbackCue(previous, current) {
 
 export function rail3dFeedbackPresentation(previous, current) {
   const key = rail3dFeedbackTransition(previous, current);
-  return { key, ...RAIL_FEEDBACK_PROFILES[key] };
+  const snapshot = current?.arrivals !== undefined ? current : rail3dFeedbackSnapshot(current);
+  const profile = { key, ...RAIL_FEEDBACK_PROFILES[key] };
+  if (key === 'blockConflict') return { ...profile, label: `${snapshot.blocked}편 블록 충돌` };
+  if (key === 'tokenWait') return { ...profile, label: `${snapshot.tokenWaits}편 토큰 대기` };
+  if (key === 'delayedArrival') return { ...profile, label: `${snapshot.maxWaitSeconds}s 지연 도착` };
+  if (key === 'delayEscalated') return { ...profile, label: `${snapshot.maxWaitSeconds}s 누적 지연` };
+  return profile;
 }
 
 export function rail3dResultPresentation(text, fallback = RAIL_FEEDBACK_PROFILES.idle) {

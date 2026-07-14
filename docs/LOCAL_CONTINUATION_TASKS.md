@@ -68,7 +68,7 @@ npm run build
   - `client/src/app/games/si-coding-sim/_components/SiCodingCareerTab.js`
   - `client/src/app/games/si-coding-sim/_components/SiCodingAuditTab.js`
   - `client/src/app/games/si-coding-sim/_components/SiCodingAdvancedTab.js`
-- SI Coding Sim now uses a compact hero, micro summary, minimal field coach, dense responsive stats, and horizontally scrollable icon tabs. All feature buttons use explicit action semantics; `client/src/app/games/si-coding-sim/_lib/siCodingSimFeedback.js` maps submission, project evaluation, hint, support, and next-project state changes to dedicated coding-theme result cues.
+- SI Coding Sim now uses a compact hero, micro summary, minimal field coach, dense responsive stats, and horizontally scrollable icon tabs. All feature buttons use explicit action semantics; `client/src/app/games/si-coding-sim/_lib/siCodingSimFeedback.js` maps submission, project evaluation, task selection/reset, document review/undo, hint, hint-cost support, QA risk support, and next-project selection/deployment to 15 coding-theme result states. Log-free document checkbox changes receive persistent result text instead of falling back to an unrelated older log.
 - Schale Idle RPG save/load/record actions now live in `client/src/app/games/schale-idle-rpg/_hooks/useSchaleIdlePersistence.js`.
 - Schale Idle RPG derived rows/reports/selected entity assembly now lives in `client/src/app/games/schale-idle-rpg/_lib/schaleIdlePlayViewModel.js`.
 - Schale Idle RPG equipment tuning helpers now live in `client/src/app/games/schale-idle-rpg/_lib/schaleEquipmentTuning.js`.
@@ -185,7 +185,7 @@ npm run build
   - `client/src/app/games/rail3d-sim/_components/Rail3dBlocksTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dLogTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dAdvancedTab.js`
-- Rail3D Sim result-state selection lives in `client/src/app/games/rail3d-sim/_lib/rail3dFeedback.js`. It compares arrivals, departures, STOP/token states, lookahead, and completion, then maps each transition to a dedicated synthesized cue, Lucide icon, label, and result tone. `check:rail3d-feedback` covers the transition matrix.
+- Rail3D Sim result-state selection lives in `client/src/app/games/rail3d-sim/_lib/rail3dFeedback.js`. It compares arrivals, departures, STOP/token states, block conflicts, minute-band wait escalation, delayed arrivals, lookahead, and completion, then maps 14 transitions to dedicated synthesized cues, Lucide icons, labels, and result tones. The pinned result text also reports the number of block-conflicted trains; `check:rail3d-feedback` covers the transition matrix and shared icon/sound wiring.
 - Rail3D Sim normalizes old `pose.sM` saves to `pose.headS` in `rail3dEngine.js`; preserve this migration when the original route cache is imported.
 - Board detail normalization helpers now live in `client/src/app/board/_lib/boardUtils.js`.
 - Board detail rendering is split into:

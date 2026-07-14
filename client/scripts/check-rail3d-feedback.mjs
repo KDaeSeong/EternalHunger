@@ -5,6 +5,9 @@ const sourceUrl = new URL('../src/app/games/rail3d-sim/_lib/rail3dFeedback.js', 
 const source = await readFile(sourceUrl, 'utf8');
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const feedback = await import(moduleUrl);
+const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
+const sfxSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
+const panelSource = await readFile(new URL('../src/app/games/rail3d-sim/_components/Rail3dPlayPanels.js', import.meta.url), 'utf8');
 
 function train(overrides = {}) {
   return {
@@ -51,6 +54,20 @@ const tokenWait = railState({
 assert.equal(cue(tokenWait), 'tokenWait');
 assert.equal(feedback.rail3dFeedbackPresentation(base, tokenWait).action, 'wait');
 
+const blockConflict = railState({
+  trains: [train(), train({ id: 'T2', signalState: 'STOP', stopReason: { kind: 'BLOCKED' }, waitSeconds: 30 })],
+});
+assert.equal(cue(blockConflict), 'blockConflict');
+assert.equal(feedback.rail3dFeedbackPresentation(base, blockConflict).action, 'block-conflict');
+
+const longerBlockConflict = railState({
+  nowS: 120,
+  trains: [train(), train({ id: 'T2', signalState: 'STOP', stopReason: { kind: 'BLOCKED' }, waitSeconds: 90 })],
+});
+assert.equal(feedback.rail3dFeedbackTransition(blockConflict, longerBlockConflict), 'delayEscalated');
+assert.equal(feedback.rail3dFeedbackCue(blockConflict, longerBlockConflict), 'railDelay');
+assert.equal(feedback.rail3dFeedbackPresentation(blockConflict, longerBlockConflict).label, '90s 누적 지연');
+
 const signalStop = railState({ trains: [train(), train({ id: 'T2', signalState: 'STOP' })] });
 assert.equal(cue(signalStop), 'signalStop');
 assert.equal(feedback.rail3dFeedbackPresentation(base, signalStop).tone, 'danger');
@@ -63,6 +80,17 @@ const arrived = railState({
 });
 assert.equal(cue(arrived), 'stationArrive');
 assert.equal(feedback.rail3dFeedbackPresentation(base, arrived).action, 'station');
+
+const delayedArrivalBase = railState({
+  trains: [train({ waitSeconds: 60 }), train({ id: 'T2', actualArriveS: {}, actualDepartS: {} })],
+});
+const delayedArrival = railState({
+  nowS: 120,
+  trains: [train({ waitSeconds: 60, actualArriveS: { 0: 0, 1: 120 } }), train({ id: 'T2', actualArriveS: {}, actualDepartS: {} })],
+});
+assert.equal(feedback.rail3dFeedbackTransition(delayedArrivalBase, delayedArrival), 'delayedArrival');
+assert.equal(feedback.rail3dFeedbackCue(delayedArrivalBase, delayedArrival), 'delayedArrival');
+assert.equal(feedback.rail3dFeedbackPresentation(delayedArrivalBase, delayedArrival).action, 'rail-delay');
 
 const departed = railState({
   trains: [
@@ -82,8 +110,15 @@ assert.equal(feedback.rail3dResultPresentation('운행 기록을 전적에 남�
 assert.equal(feedback.rail3dResultPresentation('T1 열차를 선택했습니다.').action, 'dispatch');
 assert.equal(feedback.rail3dResultPresentation('저장된 진행 상태가 없습니다.').tone, 'warning');
 
+assert.match(iconSource, /'block-conflict':\s*ShieldOff/, '블록 충돌은 전용 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /'rail-delay':\s*Timer/, '누적 지연은 타이머 아이콘을 사용해야 합니다.');
+['blockConflict', 'delayedArrival', 'railDelay'].forEach((key) => {
+  assert.ok(sfxSource.includes(`${key}: [`), `${key} 전용 효과음이 필요합니다.`);
+});
+assert.match(panelSource, /블록 충돌/, '운행 결과 문구는 블록 충돌 편수를 표시해야 합니다.');
+
 console.log(JSON.stringify({
-  transitions: 11,
-  contextualResultIcons: 11,
+  transitions: 14,
+  contextualResultIcons: 14,
   stationIcon: true,
 }, null, 2));

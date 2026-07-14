@@ -11,6 +11,7 @@ function railActionSnapshot(value) {
     completed: rows.filter((row) => row.phase === 'DONE').length,
     stopped: rows.filter((row) => row.signalState === 'STOP').length,
     tokenWaits: rows.filter((row) => row.stopReason?.kind === 'TOKEN_WAIT').length,
+    blocked: rows.filter((row) => row.stopReason?.kind === 'BLOCKED').length,
     waitS: rows.reduce((sum, row) => sum + Number(row.waitSeconds || 0), 0),
     occupied: Number(blocks.OCCUPIED || 0),
     reserved: Number(blocks.RESERVED || 0),
@@ -30,6 +31,7 @@ export function actionFeedbackText(previous, next, label, fallback = '') {
   if (after.completed !== before.completed) parts.push(`종착 ${after.completed}/${after.total}편`);
   if (after.stopped !== before.stopped) parts.push(`STOP ${after.stopped}편`);
   if (after.tokenWaits !== before.tokenWaits) parts.push(`토큰 대기 ${after.tokenWaits}편`);
+  if (after.blocked !== before.blocked) parts.push(`블록 충돌 ${after.blocked}편`);
   if (after.waitS !== before.waitS) parts.push(`총 대기 ${after.waitS}s`);
   if (after.occupied !== before.occupied || after.reserved !== before.reserved) parts.push(`블록 점유 ${after.occupied} · 예약 ${after.reserved}`);
   if (parts.length) return `${label}: ${parts.join(' · ')}`;
