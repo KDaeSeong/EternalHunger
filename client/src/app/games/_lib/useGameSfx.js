@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { inferGameActionSemantic } from './gameActionSemantics';
 import { resolveGameAudioTheme } from './gameAudioThemes';
+import { GAME_BGM_DUCK_EVENT } from './gameBgmPreferences';
 import {
   GAME_SFX_PREFERENCE_EVENT,
   gameSfxPreferenceKey,
@@ -1418,6 +1419,17 @@ function cueProfile(cue, theme) {
   return [...baseProfile, ...accentProfile];
 }
 
+function cueDuckEnvelope(profile) {
+  const durationMs = Math.ceil(Math.max(
+    0.08,
+    ...profile.map((spec) => Number(spec.start || 0) + Number(spec.duration || 0.06)),
+  ) * 1000) + 110;
+  return {
+    durationMs,
+    multiplier: profile.length >= 3 ? 0.3 : profile.length === 2 ? 0.42 : 0.58,
+  };
+}
+
 function getAudioContext() {
   if (typeof window === 'undefined') return null;
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -1506,6 +1518,9 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
       if (ctx.state === 'suspended') void ctx.resume();
 
       const profile = cueProfile(cue, resolvedTheme);
+      window.dispatchEvent(new CustomEvent(GAME_BGM_DUCK_EVENT, {
+        detail: cueDuckEnvelope(profile),
+      }));
       profile.forEach((spec) => playVoice(ctx, spec, volume));
     } catch {
       // Audio failures should never block gameplay.

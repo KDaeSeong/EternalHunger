@@ -1,4 +1,5 @@
 export const GAME_BGM_PREFERENCE_EVENT = 'kei-game-lab:game-bgm-preference';
+export const GAME_BGM_DUCK_EVENT = 'kei-game-lab:game-bgm-duck';
 export const GAME_BGM_ENABLED_KEY = 'kei-game-lab:game-bgm:enabled';
 export const GAME_BGM_VOLUME_KEY = 'kei-game-lab:game-bgm:volume';
 export const DEFAULT_GAME_BGM_VOLUME = 0.42;
