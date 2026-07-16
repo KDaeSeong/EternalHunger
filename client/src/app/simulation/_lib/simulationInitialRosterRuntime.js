@@ -1,4 +1,8 @@
-import { applyErSubjectPreset } from '../../../utils/erMeta';
+import {
+  applyErSubjectPreset,
+  normalizeErWeaponTypes,
+  pickInitialErWeaponType,
+} from '../../../utils/erMeta';
 import { ER_STAT_KEYS, normalizeErStats } from '../../../utils/erStats';
 import { createInitialMasteryState } from '../../../utils/masteryLogic';
 import { getRuleset } from '../../../utils/rulesets';
@@ -193,10 +197,17 @@ export function buildInitialSimulationRoster({
   const charsWithHp = [];
 
   (Array.isArray(charList) ? charList : []).forEach((character) => {
-    const erSeed = applyErSubjectPreset(character, {
+    const erPresetSeed = applyErSubjectPreset(character, {
       replaceDefaultTactical: false,
       statBiasScale: Number(ruleset?.ai?.erPresetStatScale ?? 1),
     });
+    const runWeaponType = pickInitialErWeaponType(erPresetSeed);
+    const erSeed = {
+      ...erPresetSeed,
+      erWeapons: normalizeErWeaponTypes(erPresetSeed?.erWeapons),
+      weaponType: runWeaponType,
+      runWeaponType,
+    };
     const routePlan = buildInitialFastRoutePlan(erSeed, initialMap, routeItems);
     const routePlanZoneIds = Array.isArray(routePlan.zoneIds) ? routePlan.zoneIds : [];
     const startZoneId = routePlanZoneIds[0] || pickInitialStartZoneIdForActor(erSeed, { initialMap, initialZoneIds });

@@ -33,6 +33,18 @@ function getSkillAmpDamage(actor, def, key, fallbackSettingsKey, settings) {
   return Math.max(0, Math.round(Number(stats?.skillAmp || 0) * scale));
 }
 
+function isPureSupportSkill(def) {
+  const type = String(def?.type || '');
+  return type === 'heal_skill' || type === 'shield_skill';
+}
+
+function getSupportSkillAmpValue(actor, def) {
+  const scale = Number(def?.skillAmpScale ?? def?.firstSkillAmpScale ?? 0);
+  if (!Number.isFinite(scale) || scale <= 0) return 0;
+  const stats = getEffectiveStats(actor);
+  return Math.max(0, Math.round(Number(stats?.skillAmp || 0) * scale));
+}
+
 function getTargetHpSnapshot(target) {
   const effective = getEffectiveStats(target);
   const maxHp = Math.max(1, Number(target?.maxHp || effective?.maxHp || 100));
@@ -52,6 +64,15 @@ function getHpScaledDamage(target, idx, maxHpPct, currentHpPct) {
 }
 
 function calculateSkillDamage(attacker, defender, def, idx, stage, settings) {
+  if (isPureSupportSkill(def)) {
+    return {
+      damage: 0,
+      maxHpDamage: 0,
+      currentHpDamage: 0,
+      skillAmpDamage: 0,
+    };
+  }
+
   const isSecond = stage === 2;
   const flat = isSecond
     ? levelValue(def.secondFlat, idx, 0)
@@ -78,7 +99,10 @@ function calculateSkillDamage(attacker, defender, def, idx, stage, settings) {
 function applySupportUtility(attacker, supportTarget, def, idx) {
   const target = supportTarget || attacker;
   let healAmount = Math.max(0, Math.round(levelValue(def.heal, idx, 0)));
-  const shieldValue = Math.max(0, Math.round(levelValue(def.shield, idx, 0)));
+  let shieldValue = Math.max(0, Math.round(levelValue(def.shield, idx, 0)));
+  const supportAmpValue = getSupportSkillAmpValue(attacker, def);
+  if (String(def?.type || '') === 'heal_skill') healAmount += supportAmpValue;
+  if (String(def?.type || '') === 'shield_skill') shieldValue += supportAmpValue;
   const maxHp = Math.max(1, Number(target?.maxHp || getEffectiveStats(target)?.maxHp || 100));
 
   if (healAmount > 0) {

@@ -20,6 +20,7 @@
     "check:runtime:utils": "eslint -c eslint.runtime.config.mjs src/utils/battleLogic.js src/utils/equipmentCatalog.js src/utils/erMeta.js src/utils/itemLogic.js src/utils/tacticalSkillCatalog.js",
     "check:runtime:sweep": "npm run check:runtime:simulation && npm run check:runtime:utils",
     "check:runtime:full": "npm run check:runtime:sweep && npm run build",
+    "check:er-weapons": "node ./scripts/check-er-weapons.mjs",
     "check:skills": "node ./scripts/check-character-skill-compiler.mjs",
     "check:starleague-feedback": "node ./scripts/check-starleague-feedback.mjs",
     "check:tonkatsu-teacher-feedback": "node ./scripts/check-tonkatsu-teacher-feedback.mjs",

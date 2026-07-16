@@ -340,7 +340,7 @@ export function compactCharacterForSave(character, options = {}) {
   if (c.erSubject !== undefined) out.erSubject = cleanString(c.erSubject, 128) || '';
   if (c.erRole !== undefined) out.erRole = cleanString(c.erRole, 128) || '';
   if (c.erTrait !== undefined) out.erTrait = cleanString(c.erTrait, 128) || '';
-  if (Array.isArray(c.erWeapons)) out.erWeapons = c.erWeapons.map((x) => cleanString(x, 128)).filter(Boolean).slice(0, 8);
+  if (Array.isArray(c.erWeapons)) out.erWeapons = c.erWeapons.map((x) => cleanString(x, 128)).filter(Boolean).slice(0, 32);
   if (c.goalLoadouts !== undefined) out.goalLoadouts = cleanLoadouts(c.goalLoadouts);
   if (Array.isArray(c.inventory)) out.inventory = c.inventory.map(cleanInventoryEntry).filter(Boolean).slice(0, 80);
   if (c.specialSkill && typeof c.specialSkill === 'object') {

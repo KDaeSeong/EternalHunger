@@ -32,6 +32,11 @@ export function mergeServerCharacterIntoRuntimeSurvivor(runtimeSurvivor, serverC
     if (saved[field] !== undefined) next[field] = saved[field];
   }
 
+  if (base.runWeaponType) {
+    next.weaponType = base.runWeaponType;
+    next.runWeaponType = base.runWeaponType;
+  }
+
   if (saved.inventory !== undefined) next.inventory = saved.inventory;
   if (saved.equipped !== undefined) next.equipped = saved.equipped;
 

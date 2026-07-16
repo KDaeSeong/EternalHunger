@@ -1,4 +1,8 @@
-import { WEAPON_TYPES_KO, normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import {
+  WEAPON_TYPES_KO,
+  normalizeWeaponType,
+  normalizeWeaponTypes,
+} from '../../../utils/equipmentCatalog';
 import { apiGet } from '../../../utils/api';
 import { DEFAULT_ER_STATS, normalizeErStats } from '../../../utils/erStats';
 import {
@@ -130,15 +134,21 @@ function normalizeCharacterSkillsForEditor(skills) {
 }
 
 function normalizeCharacterEditorList(data) {
-  return (Array.isArray(data) ? data : []).map((c) => ({
-    ...c,
-    stats: normalizeErStats(c?.stats),
-    weaponType: normalizeWeaponType(c?.weaponType),
-    characterSkillLevels: normalizeCharacterSkillLevels(c?.characterSkillLevels),
-    characterSkills: normalizeCharacterSkillsForEditor(c?.characterSkills),
-    goalGearTier: 6,
-    tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
-  }));
+  return (Array.isArray(data) ? data : []).map((c) => {
+    const weaponType = normalizeWeaponType(c?.weaponType);
+    const configuredWeapons = normalizeWeaponTypes(c?.erWeapons);
+    const erWeapons = configuredWeapons.length ? configuredWeapons : (weaponType ? [weaponType] : []);
+    return {
+      ...c,
+      stats: normalizeErStats(c?.stats),
+      weaponType: erWeapons[0] || weaponType,
+      erWeapons,
+      characterSkillLevels: normalizeCharacterSkillLevels(c?.characterSkillLevels),
+      characterSkills: normalizeCharacterSkillsForEditor(c?.characterSkills),
+      goalGearTier: 6,
+      tacticalSkill: normalizeSupportedTacSkill(c?.tacticalSkill),
+    };
+  });
 }
 
 function formatSaveMismatchMessage(mismatches) {
@@ -182,6 +192,7 @@ function createBlankCharacter(id) {
     previewImage: null,
     summary: '',
     weaponType: '',
+    erWeapons: [],
     characterTemplateId: '',
     characterSkillCode: '',
     characterSkillLevel: 1,

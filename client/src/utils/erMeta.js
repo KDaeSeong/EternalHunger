@@ -9,13 +9,21 @@ export const ER_WEAPON_TYPES_KO = [
   '권총',
   '돌격소총',
   '저격총',
+  '산탄총',
+  '기관단총',
+  '기관총',
+  '유탄발사기',
+  '로켓발사기',
+  '박격포',
   '글러브',
   '톤파',
   '쌍절곤',
   '아르카나',
   '양손검',
+  '한손검',
   '쌍검',
   '망치',
+  '철퇴',
   '방망이',
   '채찍',
   '투척',
@@ -38,6 +46,18 @@ const WEAPON_ALIASES = {
   rifle: '돌격소총',
   'sniper rifle': '저격총',
   sniper: '저격총',
+  shotgun: '산탄총',
+  'submachine gun': '기관단총',
+  submachine_gun: '기관단총',
+  smg: '기관단총',
+  'machine gun': '기관총',
+  machine_gun: '기관총',
+  lmg: '기관총',
+  'grenade launcher': '유탄발사기',
+  grenade_launcher: '유탄발사기',
+  'rocket launcher': '로켓발사기',
+  rocket_launcher: '로켓발사기',
+  mortar: '박격포',
   glove: '글러브',
   gloves: '글러브',
   knuckle: '글러브',
@@ -47,9 +67,13 @@ const WEAPON_ALIASES = {
   sword: '양손검',
   'two-handed sword': '양손검',
   twohandsword: '양손검',
+  'one-handed sword': '한손검',
+  onehandsword: '한손검',
+  shortsword: '한손검',
   dualswords: '쌍검',
   'dual swords': '쌍검',
   hammer: '망치',
+  mace: '철퇴',
   bat: '방망이',
   whip: '채찍',
   throw: '투척',
@@ -67,14 +91,22 @@ const WEAPON_ALIASES = {
   권총: '권총',
   돌격소총: '돌격소총',
   저격총: '저격총',
+  산탄총: '산탄총',
+  기관단총: '기관단총',
+  기관총: '기관총',
+  유탄발사기: '유탄발사기',
+  로켓발사기: '로켓발사기',
+  박격포: '박격포',
   글러브: '글러브',
   장갑: '글러브',
   톤파: '톤파',
   쌍절곤: '쌍절곤',
   아르카나: '아르카나',
   양손검: '양손검',
+  한손검: '한손검',
   쌍검: '쌍검',
   망치: '망치',
+  철퇴: '철퇴',
   방망이: '방망이',
   채찍: '채찍',
   투척: '투척',
@@ -89,9 +121,9 @@ const WEAPON_ALIASES = {
   카메라: '카메라',
 };
 
-const RANGED_WEAPONS = new Set(['권총', '돌격소총', '저격총', '아르카나', '투척', '암기', '활', '석궁', '기타', '카메라']);
-const QUICK_WEAPONS = new Set(['권총', '돌격소총', '글러브', '쌍검', '단검', '레이피어', '기타']);
-const HEAVY_WEAPONS = new Set(['저격총', '양손검', '망치', '방망이', '도끼', '창', '석궁']);
+const RANGED_WEAPONS = new Set(['권총', '돌격소총', '저격총', '산탄총', '기관단총', '기관총', '유탄발사기', '로켓발사기', '박격포', '아르카나', '투척', '암기', '활', '석궁', '기타', '카메라']);
+const QUICK_WEAPONS = new Set(['권총', '돌격소총', '기관단총', '글러브', '한손검', '쌍검', '단검', '레이피어', '기타']);
+const HEAVY_WEAPONS = new Set(['저격총', '산탄총', '기관총', '유탄발사기', '로켓발사기', '박격포', '양손검', '망치', '철퇴', '방망이', '도끼', '창', '석궁']);
 
 export const ER_WEAPON_MASTERY_MAX_LEVEL = 20;
 export const ER_WEAPON_MASTERY_XP_PER_LEVEL = 24;
@@ -102,6 +134,29 @@ export function normalizeErWeaponType(raw) {
   if (ER_WEAPON_TYPES_KO.includes(value)) return value;
   const key = value.toLowerCase().replace(/\s+/g, ' ').trim();
   return WEAPON_ALIASES[value] || WEAPON_ALIASES[key] || value;
+}
+
+export function normalizeErWeaponTypes(raw) {
+  const out = [];
+  for (const entry of Array.isArray(raw) ? raw : []) {
+    const weaponType = normalizeErWeaponType(entry);
+    if (!ER_WEAPON_TYPES_KO.includes(weaponType) || out.includes(weaponType)) continue;
+    out.push(weaponType);
+  }
+  return out;
+}
+
+export function pickInitialErWeaponType(character, random = Math.random) {
+  const configured = normalizeErWeaponTypes(character?.erWeapons);
+  const fallback = normalizeErWeaponType(character?.weaponType || '');
+  const pool = configured.length
+    ? configured
+    : ER_WEAPON_TYPES_KO.includes(fallback)
+      ? [fallback]
+      : ER_WEAPON_TYPES_KO;
+  const rawRoll = Number(typeof random === 'function' ? random() : 0);
+  const roll = Number.isFinite(rawRoll) ? Math.max(0, Math.min(0.999999, rawRoll)) : 0;
+  return pool[Math.floor(roll * pool.length)] || pool[0] || '';
 }
 
 export function isErRangedWeaponType(raw) {
@@ -132,13 +187,21 @@ export const ER_WEAPON_SKILLS = {
   권총: { name: '무빙 리로드', scoreScale: 0.075, escapeBonus: 0.05, critChancePlus: 0.02, log: '무빙 리로드로 사격 각을 다시 잡습니다.' },
   돌격소총: { name: '과열', scoreScale: 0.09, chaseBonus: 0.04, log: '연속 사격으로 압박을 겁니다.' },
   저격총: { name: '저격', scoreScale: 0.13, openerFlatDmg: 5, critChancePlus: 0.04, log: '먼 거리에서 치명적인 한 발을 노립니다.' },
+  산탄총: { name: '산탄 확산', scoreScale: 0.10, openerFlatDmg: 4, block: 2, log: '근거리 산탄으로 진입을 저지합니다.' },
+  기관단총: { name: '기동 사격', scoreScale: 0.085, chaseBonus: 0.05, escapeBonus: 0.02, log: '빠른 연사와 이동으로 거리를 조절합니다.' },
+  기관총: { name: '제압 사격', scoreScale: 0.105, chaseBonus: 0.03, block: 2, log: '지속 화력으로 상대의 움직임을 억제합니다.' },
+  유탄발사기: { name: '곡사 유탄', scoreScale: 0.11, openerFlatDmg: 5, log: '곡사 폭발로 엄폐 뒤까지 압박합니다.' },
+  로켓발사기: { name: '대전차 로켓', scoreScale: 0.125, openerFlatDmg: 7, log: '강력한 로켓 한 발로 교전의 흐름을 바꿉니다.' },
+  박격포: { name: '고각 포격', scoreScale: 0.12, openerFlatDmg: 6, log: '고각 포격으로 먼 거리의 진형을 무너뜨립니다.' },
   글러브: { name: '어퍼컷', scoreScale: 0.095, chaseBonus: 0.03, log: '근접 연타로 빈틈을 파고듭니다.' },
   톤파: { name: '고속 회전', scoreScale: 0.065, block: 5, log: '톤파로 피해를 흘려냅니다.' },
   쌍절곤: { name: '맹룡과강', scoreScale: 0.085, escapeBonus: 0.03, log: '변칙적인 궤적으로 흐름을 흔듭니다.' },
   아르카나: { name: 'VF 매개', scoreScale: 0.105, skillAmpPlus: 0.05, log: 'VF 에너지를 증폭합니다.' },
   양손검: { name: '빗겨흘리기', scoreScale: 0.08, block: 7, log: '검격을 받아내고 반격합니다.' },
+  한손검: { name: '검술', scoreScale: 0.09, block: 4, critChancePlus: 0.02, log: '간결한 검술로 공수 전환을 이어갑니다.' },
   쌍검: { name: '쌍검난무', scoreScale: 0.11, chaseBonus: 0.04, log: '연속 베기로 추격 압박을 높입니다.' },
   망치: { name: '갑옷깨기', scoreScale: 0.10, openerFlatDmg: 4, log: '묵직한 타격으로 방어를 무너뜨립니다.' },
+  철퇴: { name: '분쇄', scoreScale: 0.10, openerFlatDmg: 4, block: 2, log: '철퇴의 충격으로 방어 자세를 무너뜨립니다.' },
   방망이: { name: '풀스윙', scoreScale: 0.095, block: 3, openerFlatDmg: 3, log: '풀스윙으로 거리를 밀어냅니다.' },
   채찍: { name: '갈고리', scoreScale: 0.085, chaseBonus: 0.05, log: '사거리를 이용해 도주 경로를 제한합니다.' },
   투척: { name: '연막', scoreScale: 0.075, escapeBonus: 0.06, log: '연막으로 시야를 끊습니다.' },
@@ -418,13 +481,15 @@ export function applyErSubjectPreset(character, opts = {}) {
   const statBiasScale = preset ? Math.max(0, Number(opts.statBiasScale ?? 1)) : Math.max(0, Number(opts.fallbackStatBiasScale ?? 0));
   const currentTac = String(character?.tacticalSkill || '').trim();
   const tacLooksDefault = !currentTac || currentTac === '블링크' || currentTac.toLowerCase() === 'blink';
+  const configuredWeapons = normalizeErWeaponTypes(character.erWeapons);
+  const presetWeapons = normalizeErWeaponTypes(activePreset.weapons);
 
   return {
     ...character,
     erSubject: character.erSubject || activePreset.code,
     erRole: character.erRole || activePreset.role,
     erTrait: character.erTrait || activePreset.trait,
-    erWeapons: Array.isArray(character.erWeapons) && character.erWeapons.length ? character.erWeapons : activePreset.weapons,
+    erWeapons: configuredWeapons.length ? configuredWeapons : presetWeapons,
     erAggressionBias: character.erAggressionBias ?? activePreset.aggression ?? 0,
     erEscapeBias: character.erEscapeBias ?? activePreset.escape ?? 0,
     erChaseBias: character.erChaseBias ?? activePreset.chase ?? 0,

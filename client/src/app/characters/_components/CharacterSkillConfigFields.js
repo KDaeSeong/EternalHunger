@@ -67,6 +67,14 @@ export function CharacterActiveSkillFields({
   skill = {},
   slot,
 }) {
+  const skillType = normalizeCharacterSkillType(skill.type, slot);
+  const primaryAmpLabel = skillType === 'heal_skill'
+    ? '회복 스증 계수'
+    : skillType === 'shield_skill'
+      ? '보호막 스증 계수'
+      : '1차 스증 계수';
+  const supportsRecastAmp = skillType !== 'heal_skill' && skillType !== 'shield_skill';
+
   return (
     <>
       <div className="character-skill-inline-grid">
@@ -246,7 +254,7 @@ export function CharacterActiveSkillFields({
 
       <div className="character-skill-inline-grid">
         <label>
-          1차 스증 계수
+          {primaryAmpLabel}
           <input
             type="number"
             min="0"
@@ -257,17 +265,19 @@ export function CharacterActiveSkillFields({
           />
         </label>
 
-        <label>
-          재발동 스증 계수
-          <input
-            type="number"
-            min="0"
-            step="0.05"
-            value={skill.secondSkillAmpScale ?? 0}
-            onChange={(event) => onUpdateSkill(slot, 'secondSkillAmpScale', Math.max(0, cleanNumber(event.target.value, 0)))}
-            disabled={disabled}
-          />
-        </label>
+        {supportsRecastAmp ? (
+          <label>
+            재발동 스증 계수
+            <input
+              type="number"
+              min="0"
+              step="0.05"
+              value={skill.secondSkillAmpScale ?? 0}
+              onChange={(event) => onUpdateSkill(slot, 'secondSkillAmpScale', Math.max(0, cleanNumber(event.target.value, 0)))}
+              disabled={disabled}
+            />
+          </label>
+        ) : null}
       </div>
     </>
   );

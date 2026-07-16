@@ -165,6 +165,7 @@ assert(!Array.isArray(shieldableAlly.activeEffects) || !shieldableAlly.activeEff
 
 const shieldCaster = makeActor({
   _id: 'shield-caster',
+  stats: { skillAmp: 20 },
   characterSkills: {
     w: {
       enabled: true,
@@ -179,12 +180,46 @@ const shieldCaster = makeActor({
   },
 });
 const shieldResult = applyCharacterSkillOnBasicAttack(shieldCaster, healTarget, 0, {
-  settings: { skills: { characterSkills: true } },
+  settings: { skills: { characterSkills: true, bihyungQFirstSkillAmpScale: 0.5 } },
   nowSec: 200,
 });
 assert(shieldResult.applied === true, 'shield skill should apply even when base damage is 0');
-assert(Number(shieldResult.shield || 0) === 30, 'shield skill should report shield value');
+assert(Number(shieldResult.extraDamage || 0) === 0, 'shield skill should not report attack damage');
+assert(Number(shieldResult.shield || 0) === 30, 'legacy attack scaling settings must not leak into shield scaling');
 assert(Array.isArray(shieldCaster.activeEffects) && shieldCaster.activeEffects.some((eff) => Number(eff?.shieldValue || 0) === 30), 'shield skill should add shield effect');
+
+const ampShieldCaster = makeActor({
+  _id: 'amp-shield-caster',
+  teamId: 'team-a',
+  stats: { skillAmp: 20 },
+  characterSkills: {
+    e: {
+      enabled: true,
+      slot: 'e',
+      type: 'shield_skill',
+      name: '증폭 보호막',
+      cooldownSec: 10,
+      supportTargetScope: 'ally',
+      shield: [30, 30, 30, 30, 30],
+      firstSkillAmpScale: 0.5,
+      radius: 2,
+    },
+  },
+});
+const ampShieldAlly = makeActor({ _id: 'amp-shield-ally', hp: 70, teamId: 'team-a' });
+const ampShieldEnemy = makeActor({ _id: 'amp-shield-enemy', hp: 100, teamId: 'team-b' });
+const ampShieldResult = applyCharacterSkillOnBasicAttack(ampShieldCaster, ampShieldEnemy, 1, {
+  settings: { skills: { characterSkills: true } },
+  nowSec: 220,
+  supportTargets: [ampShieldAlly],
+  splashTargets: [ampShieldEnemy],
+});
+assert(ampShieldResult.applied === true, 'skill amp shield should apply');
+assert(ampShieldResult.damage === 1 && ampShieldResult.extraDamage === 0, 'shield skill amp must not become attack damage');
+assert(ampShieldResult.splashHits.length === 0, 'shield skill must not create a damage hit against its support target');
+assert(ampShieldAlly.hp === 70, 'shield skill must not damage its ally target');
+assert(Number(ampShieldResult.shield || 0) === 40, 'shield skill amp should increase shield amount');
+assert(Array.isArray(ampShieldAlly.activeEffects) && ampShieldAlly.activeEffects.some((eff) => Number(eff?.shieldValue || 0) === 40), 'skill amp shield should be applied to ally');
 
 const disabledCaster = makeActor({
   _id: 'disabled-caster',

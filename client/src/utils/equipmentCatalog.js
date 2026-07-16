@@ -1,5 +1,10 @@
 // client/src/utils/equipmentCatalog.js
-import { ER_WEAPON_TYPES_KO, isErRangedWeaponType, normalizeErWeaponType } from './erMeta';
+import {
+  ER_WEAPON_TYPES_KO,
+  isErRangedWeaponType,
+  normalizeErWeaponType,
+  normalizeErWeaponTypes,
+} from './erMeta.js';
 // 장비(무기/방어구) 자동 생성 카탈로그
 // - 변수/함수명은 영어, 주석은 한글
 
@@ -31,6 +36,10 @@ export const WEAPON_TYPES_KO = ER_WEAPON_TYPES_KO;
 
 export function normalizeWeaponType(raw) {
   return normalizeErWeaponType(raw);
+}
+
+export function normalizeWeaponTypes(raw) {
+  return normalizeErWeaponTypes(raw);
 }
 
 const GRADES = [
@@ -73,13 +82,21 @@ const REAL_WEAPON_NAMES = {
   권총: ['Glock 17', 'Beretta M9', 'SIG P226', 'Desert Eagle'],
   돌격소총: ['AK-47', 'M4A1', 'HK416', 'FN SCAR-L'],
   저격총: ['Remington 700', 'M24 SWS', 'Barrett M82', 'AWM'],
-  장갑: ['Combat Gloves', 'Leather Gloves', 'Knuckle Wraps'],
+  산탄총: ['Benelli M4', 'Remington 870', 'Saiga-12', 'SPAS-12'],
+  기관단총: ['MP5', 'UMP45', 'P90', 'KRISS Vector'],
+  기관총: ['M249', 'M60', 'PKM', 'MG3'],
+  유탄발사기: ['M79', 'M320', 'Milkor MGL'],
+  로켓발사기: ['RPG-7', 'M72 LAW', 'Carl Gustaf'],
+  박격포: ['M224 Mortar', 'L16 Mortar', 'Type 89 Mortar'],
+  글러브: ['Combat Gloves', 'Leather Gloves', 'Knuckle Wraps'],
   톤파: ['Police Tonfa', 'Side-Handle Baton'],
   쌍절곤: ['Oak Nunchaku', 'Iron Nunchaku'],
   아르카나: ['Tarot Deck', 'Crystal Orb', 'Grimoire'],
-  검: ['Longsword', 'Katana', 'Saber'],
+  양손검: ['Longsword', 'Greatsword', 'Zweihander'],
+  한손검: ['Arming Sword', 'Saber', 'Gladius'],
   쌍검: ['Twin Blades', 'Dual Short Swords'],
   망치: ['War Hammer', 'Sledgehammer'],
+  철퇴: ['Flanged Mace', 'Morning Star', 'Goedendag'],
   방망이: ['Aluminum Bat', 'Wooden Bat'],
   채찍: ['Leather Whip', 'Chain Whip'],
   투척: ['Throwing Axe', 'Boomerang'],
@@ -90,6 +107,8 @@ const REAL_WEAPON_NAMES = {
   단검: ['Stiletto', 'Dagger'],
   창: ['Spear', 'Pike'],
   레이피어: ['Rapier', 'Estoc'],
+  기타: ['Electric Guitar', 'Bass Guitar', 'Steel Guitar'],
+  카메라: ['DSLR Camera', 'Mirrorless Camera', 'Broadcast Camera'],
 };
 
 const REAL_ARMOR_NAMES = {

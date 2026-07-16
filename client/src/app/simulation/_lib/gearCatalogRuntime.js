@@ -1,4 +1,7 @@
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import {
+  createEquipmentItem,
+  normalizeWeaponType,
+} from '../../../utils/equipmentCatalog';
 import { tierLabelKo } from './simulationCommon';
 import { START_WEAPON_TYPES } from './simulationConstants';
 import {
@@ -75,6 +78,16 @@ function cloneCatalogGear(item, opts = {}) {
   };
 }
 
+function createWeaponCatalogFallback(weaponType, tier, opts = {}) {
+  if (!weaponType) return null;
+  const generated = createEquipmentItem({
+    slot: 'weapon',
+    tier,
+    weaponType,
+  });
+  return cloneCatalogGear(generated, opts);
+}
+
 function pickCatalogEquipmentItem(publicItems, opts = {}) {
   const slot = String(opts?.slot || '').toLowerCase();
   if (!slot) return null;
@@ -90,11 +103,18 @@ function pickCatalogEquipmentItem(publicItems, opts = {}) {
       if (String(item?.equipSlot || inferEquipSlot(item) || '').toLowerCase() !== slot) return false;
       return true;
     });
-  if (!all.length) return null;
+  if (!all.length) {
+    return slot === 'weapon'
+      ? createWeaponCatalogFallback(preferredWeaponType, targetTier, opts)
+      : null;
+  }
 
   const typed = (preferredWeaponType && slot === 'weapon')
     ? all.filter((item) => getCatalogWeaponType(item) === preferredWeaponType)
     : all;
+  if (preferredWeaponType && slot === 'weapon' && !typed.length) {
+    return createWeaponCatalogFallback(preferredWeaponType, targetTier, opts);
+  }
   const typePool = typed.length ? typed : all;
   const preferredSourcePool = typePool.filter(isPreferredCatalogSource);
   const sourcePool = preferredSourcePool.length ? preferredSourcePool : typePool;

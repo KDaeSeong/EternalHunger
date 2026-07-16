@@ -1,4 +1,7 @@
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import {
+  normalizeWeaponType,
+  normalizeWeaponTypes,
+} from '../../../utils/equipmentCatalog';
 import {
   EFFECT_BURN,
   EFFECT_FOOD_POISON,
@@ -131,6 +134,8 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
   const masteryState = normalizeMasteryState(base);
   const weaponMasteryXp = Math.max(0, Math.floor(Number(masteryState?.weaponMasteryXp || 0)));
   const weaponMasteryLevel = Math.max(1, Math.min(20, Number(masteryState?.weaponMasteryLevel || getWeaponMasteryLevel({ ...base, weaponMasteryXp }))));
+  const runWeaponType = normalizeWeaponType(base?.runWeaponType);
+  const weaponType = runWeaponType || normalizeWeaponType(base?.weaponType);
 
   return {
     ...base,
@@ -152,6 +157,9 @@ function normalizeRuntimeSurvivor(obj, opts = {}) {
     goalGearTier: 6,
     tacticalSkill: normalizeSupportedTacSkill(base?.tacticalSkill),
     tacticalSkillLevel: Math.max(1, Math.min(2, Number(base?.tacticalSkillLevel || 1))),
+    weaponType,
+    runWeaponType,
+    erWeapons: normalizeWeaponTypes(base?.erWeapons),
     mastery: masteryState.mastery,
     masteryXp: masteryState.totalXp,
     erLevel: masteryState.level,

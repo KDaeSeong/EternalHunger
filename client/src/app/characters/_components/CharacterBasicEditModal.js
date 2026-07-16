@@ -1,5 +1,8 @@
 import Image from 'next/image';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import {
+  normalizeWeaponType,
+  normalizeWeaponTypes,
+} from '../../../utils/equipmentCatalog';
 import { WEAPON_TYPES_KO, characterId } from '../_lib/characterEditorRuntime';
 
 function CharacterBasicEditModal({
@@ -12,6 +15,23 @@ function CharacterBasicEditModal({
 }) {
   if (!character) return null;
   const id = characterId(character);
+  const configuredWeapons = normalizeWeaponTypes(character.erWeapons);
+  const legacyWeapon = normalizeWeaponType(character.weaponType);
+  const selectedWeapons = configuredWeapons.length ? configuredWeapons : (legacyWeapon ? [legacyWeapon] : []);
+
+  const updateWeapons = (nextWeapons) => {
+    const erWeapons = normalizeWeaponTypes(nextWeapons);
+    onUpdateCharacter(id, {
+      erWeapons,
+      weaponType: erWeapons[0] || '',
+    });
+  };
+
+  const toggleWeapon = (weapon) => {
+    updateWeapons(selectedWeapons.includes(weapon)
+      ? selectedWeapons.filter((entry) => entry !== weapon)
+      : [...selectedWeapons, weapon]);
+  };
 
   return (
     <div
@@ -76,18 +96,36 @@ function CharacterBasicEditModal({
               </select>
             </label>
 
-            <label>
-              사용 무기
-              <select
-                value={normalizeWeaponType(character.weaponType) || ''}
-                onChange={(event) => onUpdateCharacter(id, 'weaponType', normalizeWeaponType(event.target.value))}
-              >
-                <option value="">랜덤</option>
-                {WEAPON_TYPES_KO.map((weapon) => (
-                  <option key={weapon} value={weapon}>{weapon}</option>
-                ))}
-              </select>
-            </label>
+            <fieldset className="character-weapon-picker">
+              <legend className="sr-only">사용 가능 무기</legend>
+              <div className="character-weapon-picker-head">
+                <strong>사용 가능 무기</strong>
+                <span>{selectedWeapons.length ? `${selectedWeapons.length}종 선택` : '프리셋 무작위'}</span>
+                {selectedWeapons.length ? (
+                  <button type="button" onClick={() => updateWeapons([])}>전체 해제</button>
+                ) : null}
+              </div>
+              <div className="character-weapon-options">
+                {WEAPON_TYPES_KO.map((weapon) => {
+                  const checked = selectedWeapons.includes(weapon);
+                  return (
+                    <label key={weapon} className={checked ? 'selected' : ''}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleWeapon(weapon)}
+                      />
+                      <span>{weapon}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <small>
+                {selectedWeapons.length
+                  ? `경기 시작 시 ${selectedWeapons.length}종 중 하나 선택`
+                  : '경기 시작 시 캐릭터 프리셋 무기 중 하나 선택'}
+              </small>
+            </fieldset>
           </div>
         </div>
 

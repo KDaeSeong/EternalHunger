@@ -29,6 +29,8 @@ npm run build
 ## Current State
 
 - Eternal Hunger `/simulation` now classifies major world events separately from ordinary logs. A compact persistent event strip and eleven dedicated synthesized cues cover hyperloop, kiosk revival, dimension-rift opening/battle, boss spawn/defeat, core objectives, legendary/transcendent supply, special crafting, and sudden death. Automatic play keeps ordinary movement/farming silent and suppresses repeated hyperloop/crafting cues; `npm run check:eternal-hunger-feedback` guards the transition priority and icon/sound wiring.
+- Eternal Hunger character settings now persist a multi-select `erWeapons` pool and choose one run-locked weapon when the initial roster is built. Eight additional weapon groups have metadata, combat skills, and generated item fallbacks; `npm run check:er-weapons` guards normalization, selection, UI wiring, and run-lock behavior.
+- Heal/shield skill-amplification coefficients now scale their support value instead of becoming damage against the support target. `npm run check:skills` includes an ally shield regression with nonzero skill amplification.
 - Shared `GamePlayShell` routes now include a compact per-theme sound toggle backed by `gameSfxPreferences.js`. The preference persists by theme and is honored by both control sounds and state-driven result cues. `RecentActionResult` also infers an action icon from its label/result context, covering more than 40 existing result panels without page-specific wiring. `check:game-feedback-shell` guards route themes, preference storage, dedicated cue coverage, and feedback icon coverage.
 - `client/src/app/games/company-report/play/page.js` is roughly 380 lines and delegates panels, persistence, selections, and derived view data.
 - Company Report tab UI now lives in `client/src/app/games/company-report/_components/CompanyReportFeatureTabs.js`.
@@ -313,6 +315,7 @@ Resume the skill AI work after UI splitting is stable:
    - Done: runtime check covers skill-enabled/disabled mode, heal/shield active skills, Bihyung Q 1st single-target hit, and Bihyung Q 2nd splash hit.
    - Done: heal/shield support skills can now pick same-zone allies from the combat roster instead of always applying to the caster.
    - Done: support skill target scope is now compiled, editable, saved, and respected at runtime (`self`, `ally`, `team`, `auto`).
+   - Done: explicit heal/shield skill-amplification coefficients scale healing/shields without creating ally damage or splash hits.
 
 4. Sample target:
    - Bihyeong Q should support first cast single-target bonus damage and second cast within 5 seconds as area damage with current-health percent scaling.

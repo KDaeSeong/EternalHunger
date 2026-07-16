@@ -105,11 +105,12 @@ export default function CharactersPage() {
   };
 
   const updateCharacter = (targetId, field, value) => {
+    const patch = field && typeof field === 'object' ? field : { [field]: value };
     setCharacters((prev) =>
       prev.map((char) => {
         const id = characterId(char);
         if (String(id) !== String(targetId)) return char;
-        return { ...char, [field]: value };
+        return { ...char, ...patch };
       })
     );
   };

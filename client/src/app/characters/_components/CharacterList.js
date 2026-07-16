@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { normalizeWeaponType } from '../../../utils/equipmentCatalog';
+import { normalizeWeaponType, normalizeWeaponTypes } from '../../../utils/equipmentCatalog';
 import { CHARACTER_SKILL_SLOT_LABELS, CHARACTER_SKILL_SLOTS } from '../../../utils/characterSkillCompiler';
 import { normalizeSupportedTacSkill } from '../../simulation/tacticalSkillTable';
 import { characterId, gearTierLabel } from '../_lib/characterEditorRuntime';
@@ -16,7 +16,12 @@ function CharacterList({
     <div id="characterRowContainer" className="character-list-compact">
       {(Array.isArray(characters) ? characters : []).map((char) => {
         const realId = characterId(char);
-        const weapon = normalizeWeaponType(char.weaponType) || '랜덤';
+        const configuredWeapons = normalizeWeaponTypes(char.erWeapons);
+        const legacyWeapon = normalizeWeaponType(char.weaponType);
+        const weapons = configuredWeapons.length ? configuredWeapons : (legacyWeapon ? [legacyWeapon] : []);
+        const weapon = weapons.length > 2
+          ? `${weapons.slice(0, 2).join(' · ')} 외 ${weapons.length - 2}종`
+          : weapons.join(' · ') || '프리셋 무작위';
         const tactical = normalizeSupportedTacSkill(char.tacticalSkill) || '블링크';
         const activeSkills = CHARACTER_SKILL_SLOTS
           .map((slot) => [slot, char?.characterSkills?.[slot]])
