@@ -8,6 +8,7 @@ const PROMPT_LABELS = {
   RESPOND: '체인 응답',
   SELECT_TARGET: '대상 선택',
   SELECT_FROM_DECK: '덱 선택',
+  SELECT_COST_MIKA_NEGATE: '미카 코스트',
   TRIGGER_CONFIRM: '효과 확인',
 };
 
@@ -35,6 +36,7 @@ export function dualAcademyTcgFeedbackSnapshot(state) {
     latestEventType: String(event?.type || ''),
     latestEventActor: String(event?.actor || ''),
     latestEventText: String(event?.text || ''),
+    latestEventEffect: String(event?.payload?.effect || ''),
     playerLp: Number(state?.players?.player?.lp || 0),
     enemyLp: Number(state?.players?.enemy?.lp || 0),
     playerGrave: zoneCount(state, 'player', 'grave'),
@@ -47,6 +49,14 @@ export function dualAcademyTcgFeedbackSnapshot(state) {
 function eventCue(snapshot) {
   const type = snapshot.latestEventType;
   const text = snapshot.latestEventText;
+  const effect = snapshot.latestEventEffect;
+
+  if (effect === 'mika-negate') return 'tcgMikaNegate';
+  if (effect === 'mika-battle-boost') return 'tcgMikaBurst';
+  if (effect === 'hina-destroy-any') return 'tcgHinaDiscipline';
+  if (effect === 'hina-battle-heal') return 'tcgHinaRecover';
+  if (effect === 'yuuka-data-shield') return 'tcgYuukaGuard';
+  if (effect === 'yuuka-search') return 'tcgYuukaSearch';
 
   if (type === 'DRAW') return 'tcgDraw';
   if (type === 'SUMMON') return 'tcgSummon';
@@ -76,6 +86,10 @@ export function dualAcademyTcgFeedbackCue(previous, current) {
   if (current.winner && current.winner !== previous.winner) {
     return current.winner === 'player' ? 'tcgVictory' : 'tcgDefeat';
   }
+  if (current.latestEventId && current.latestEventId !== previous.latestEventId) {
+    const cue = eventCue(current);
+    if (['tcgMikaNegate', 'tcgMikaBurst', 'tcgHinaDiscipline', 'tcgHinaRecover', 'tcgYuukaGuard', 'tcgYuukaSearch'].includes(cue)) return cue;
+  }
   if (current.playerLp < previous.playerLp) return 'tcgDamage';
   if (current.enemyLp < previous.enemyLp) return 'tcgHit';
   if (
@@ -86,6 +100,7 @@ export function dualAcademyTcgFeedbackCue(previous, current) {
   ) return 'tcgDestroy';
   if (current.chainCount > previous.chainCount) return 'tcgChain';
   if (current.promptKind !== previous.promptKind && current.promptKind !== 'NONE') {
+    if (current.promptKind === 'SELECT_COST_MIKA_NEGATE') return 'tcgMikaCost';
     return current.promptKind === 'RESPOND' ? 'tcgChain' : 'tcgPrompt';
   }
   if (current.latestEventId && current.latestEventId !== previous.latestEventId) {
@@ -100,6 +115,13 @@ export function dualAcademyTcgFeedbackCue(previous, current) {
 function eventPresentation(event) {
   const type = String(event?.type || 'GREET');
   const text = String(event?.text || '듀얼 이벤트를 기다리고 있습니다.');
+  const effect = String(event?.payload?.effect || '');
+  if (effect === 'mika-negate') return { action: 'tcg-mika-negate', label: '미카 효과 무효' };
+  if (effect === 'mika-battle-boost') return { action: 'tcg-mika-burst', label: '미카 전투 돌파' };
+  if (effect === 'hina-destroy-any') return { action: 'tcg-hina-discipline', label: '히나 제압' };
+  if (effect === 'hina-battle-heal') return { action: 'tcg-hina-recover', label: '히나 전투 회복' };
+  if (effect === 'yuuka-data-shield') return { action: 'tcg-yuuka-guard', label: '유우카 대상 보호' };
+  if (effect === 'yuuka-search') return { action: 'tcg-yuuka-search', label: '유우카 서치' };
   if (type === 'DRAW') return { action: 'draw', label: '드로우' };
   if (type === 'SUMMON') return { action: 'summon', label: '소환' };
   if (type === 'SET') return { action: 'set', label: '카드 세트' };

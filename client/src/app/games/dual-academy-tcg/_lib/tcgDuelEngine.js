@@ -108,8 +108,11 @@ const HANDLED_EFFECTS = {
   'destroy-enemy-unit': '상대 유닛 파괴',
   'banish-enemy-card': '상대 카드 제외',
   'hina-destroy-any': '필드 카드 파괴',
+  'hina-battle-heal': '전투 파괴 후 LP 회복',
+  'mika-battle-boost': '데미지 계산 ATK 상승',
+  'mika-negate': '트리니티 코스트 체인 무효/파괴',
   'yuuka-search': '덱 서치',
-  'yuuka-data-shield': 'DATA + 보호막',
+  'yuuka-data-shield': 'DATA + 대상 보호',
   'counter-negate': '체인 무효',
 };
 
@@ -121,8 +124,9 @@ const HANDLED_KEYWORDS = {
 };
 
 const SPECIAL_CARD_EFFECTS = {
-  'GEH-HINA-01': ['히나 ②: LP 지불 후 필드 카드 파괴'],
-  'MIL-YUUKA-01': ['유우카 ①: 밀레니엄 마법 서치', '유우카 ②: DATA + 보호막'],
+  'GEH-HINA-01': ['히나 ②: LP 지불 후 필드 카드 파괴', '히나 ③: 전투 파괴 후 LP 회복'],
+  'TRI-MIKA-01': ['미카 ①: 데미지 계산 ATK +1200', '미카 ②: 트리니티 코스트 후 체인 무효/파괴'],
+  'MIL-YUUKA-01': ['유우카 ①: 밀레니엄 마법 서치', '유우카 ②: DATA + 대상 보호'],
 };
 
 function effectAmount(card, fallback = 1) {
@@ -462,6 +466,8 @@ export function turnAdvisorForState(state, actor = 'player') {
         ? '대상 선택'
         : current.prompt.kind === 'SELECT_FROM_DECK'
           ? '덱 선택'
+          : current.prompt.kind === 'SELECT_COST_MIKA_NEGATE'
+            ? '미카 코스트 선택'
           : '효과 확인';
     recommendations.push(advisorAction('prompt', promptLabel, '현재 선택/응답 프롬프트가 진행을 막고 있습니다. 먼저 프롬프트를 처리하세요.', 'high'));
   } else if (current.chain.length > 0) {
@@ -1274,6 +1280,159 @@ export function activateCounterTrap(state, player, slot) {
   };
 }
 
+const MIKA_QUICK_EFFECT_KEY = 'TRI-MIKA-01:MIKA_QUICK_2';
+
+function isFaceUp(card) {
+  return Boolean(card) && card.face !== 'down' && card.face !== 'FaceDown';
+}
+
+function isTrinityCard(card) {
+  return String(card?.academy || '').includes('트리니티') || card?.tags?.includes('trinity');
+}
+
+export function mikaNegateCostOptions(state, player, mikaSlot) {
+  const ps = state.players[player];
+  if (!ps) return [];
+  const options = [];
+  ps.monster.forEach((card, slot) => {
+    if (!card || slot === mikaSlot || !isTrinityCard(card)) return;
+    options.push({ zone: 'monster', slot, label: `몬스터 ${slot + 1}: ${card.name}` });
+  });
+  ps.spellTrap.forEach((card, slot) => {
+    if (!card || !isTrinityCard(card)) return;
+    options.push({
+      zone: 'spellTrap',
+      slot,
+      label: `마법/함정 ${slot + 1}: ${card.name} (${isFaceUp(card) ? '앞면' : '세트'})`,
+    });
+  });
+  if (ps.field && isTrinityCard(ps.field)) {
+    options.push({ zone: 'field', slot: 0, label: `필드: ${ps.field.name}` });
+  }
+  return options;
+}
+
+export function mikaQuickReadiness(state, player = state.prompt?.player) {
+  if (state.prompt?.kind !== 'RESPOND' || state.prompt.player !== player) {
+    return { canActivate: false, reason: '상대 효과의 체인 응답 창에서만 발동할 수 있습니다.', mikaSlot: -1, options: [] };
+  }
+  const ps = state.players[player];
+  const mikaSlot = ps?.monster?.findIndex((card) => isFaceUp(card) && card.id === 'TRI-MIKA-01') ?? -1;
+  if (mikaSlot < 0) return { canActivate: false, reason: '앞면 표시의 미카가 없습니다.', mikaSlot, options: [] };
+  if (effectUsed(ps, MIKA_QUICK_EFFECT_KEY)) {
+    return { canActivate: false, reason: '미카 ②는 이번 턴 이미 사용했습니다.', mikaSlot, options: [] };
+  }
+  const targetChainId = state.prompt.toChainId;
+  const targetLink = state.chain.find((link) => link.chainId === targetChainId);
+  if (!targetLink || targetLink.owner === player) {
+    return { canActivate: false, reason: '무효로 할 상대 체인 효과가 없습니다.', mikaSlot, options: [] };
+  }
+  const options = mikaNegateCostOptions(state, player, mikaSlot);
+  if (!options.length) {
+    return { canActivate: false, reason: '묘지로 보낼 다른 트리니티 카드가 없습니다.', mikaSlot, options };
+  }
+  return { canActivate: true, reason: '', mikaSlot, targetChainId, options };
+}
+
+export function activateMikaQuick(state) {
+  const player = state.prompt?.player;
+  const readiness = mikaQuickReadiness(state, player);
+  if (!readiness.canActivate) return emit(state, 'PROMPT', player || state.turnPlayer, readiness.reason);
+  return {
+    ...state,
+    prompt: {
+      kind: 'SELECT_COST_MIKA_NEGATE',
+      player,
+      mikaSlot: readiness.mikaSlot,
+      targetChainId: readiness.targetChainId,
+      title: '미카 ②: 묘지로 보낼 트리니티 카드 선택',
+      options: readiness.options,
+    },
+  };
+}
+
+function sendMikaCostToGrave(state, player, option) {
+  const ps = state.players[player];
+  if (option.zone === 'monster') {
+    const card = ps.monster[option.slot];
+    if (!card) return null;
+    const monster = ps.monster.slice();
+    monster[option.slot] = null;
+    return {
+      card,
+      state: updatePlayer(state, player, (current) => ({
+        ...current,
+        monster,
+        grave: [...current.grave, { ...card, face: 'up' }],
+      })),
+    };
+  }
+  if (option.zone === 'spellTrap') {
+    const card = ps.spellTrap[option.slot];
+    if (!card) return null;
+    const spellTrap = ps.spellTrap.slice();
+    spellTrap[option.slot] = null;
+    return {
+      card,
+      state: updatePlayer(state, player, (current) => ({
+        ...current,
+        spellTrap,
+        grave: [...current.grave, { ...card, face: 'up' }],
+      })),
+    };
+  }
+  if (option.zone === 'field') {
+    const card = ps.field;
+    if (!card) return null;
+    return {
+      card,
+      state: updatePlayer(state, player, (current) => ({
+        ...current,
+        field: null,
+        grave: [...current.grave, { ...card, face: 'up' }],
+      })),
+    };
+  }
+  return null;
+}
+
+export function chooseMikaNegateCost(state, target) {
+  if (state.prompt.kind !== 'SELECT_COST_MIKA_NEGATE') return state;
+  const { player, mikaSlot, targetChainId } = state.prompt;
+  const option = state.prompt.options.find((row) => row.zone === target?.zone && Number(row.slot) === Number(target?.slot));
+  if (!option) return emit(state, 'PROMPT', player, '선택할 수 없는 미카 효과 코스트입니다.');
+  const ps = state.players[player];
+  const mika = ps.monster[mikaSlot];
+  if (!isFaceUp(mika) || mika.id !== 'TRI-MIKA-01') return emit(state, 'PROMPT', player, '미카가 필드에서 벗어났습니다.');
+  if (effectUsed(ps, MIKA_QUICK_EFFECT_KEY)) return emit(state, 'PROMPT', player, '미카 ②는 이번 턴 이미 사용했습니다.');
+  const targetLink = state.chain.find((link) => link.chainId === targetChainId);
+  if (!targetLink || targetLink.owner === player) return emit(state, 'PROMPT', player, '무효로 할 상대 체인 효과가 없습니다.');
+  const currentCostOptions = mikaNegateCostOptions(state, player, mikaSlot);
+  if (!currentCostOptions.some((row) => row.zone === option.zone && row.slot === option.slot)) {
+    return emit(state, 'PROMPT', player, '선택한 트리니티 카드가 더 이상 필드에 없습니다.');
+  }
+  const paid = sendMikaCostToGrave(state, player, option);
+  if (!paid) return emit(state, 'PROMPT', player, '미카 효과 코스트를 지불하지 못했습니다.');
+  let next = updatePlayer(paid.state, player, (current) => markEffectUsed(current, MIKA_QUICK_EFFECT_KEY));
+  const link = makeChainLink(player, { zone: 'monster', slot: mikaSlot }, mika, {
+    effect: 'mika-negate',
+    targetChainId,
+    cost: { zone: option.zone, slot: option.slot, cardId: paid.card.id, cardName: paid.card.name },
+  });
+  next = emit(
+    next,
+    'EFFECT_ACTIVATE',
+    player,
+    `미카 ②: ${paid.card.name}을(를) 묘지로 보내고 ${targetLink.cardName}의 발동을 무효로 합니다.`,
+    { effect: 'mika-negate', costCardName: paid.card.name, targetCardName: targetLink.cardName, targetChainId },
+  );
+  return {
+    ...next,
+    chain: [link, ...next.chain],
+    prompt: { kind: 'RESPOND', player: opponent(player), toChainId: link.chainId },
+  };
+}
+
 export function passResponse(state) {
   if (state.prompt.kind !== 'RESPOND') return state;
   return {
@@ -1303,7 +1462,13 @@ export function confirmTrigger(state, accept) {
   if (!options.length) return emit(next, 'PROMPT', player, '덱에 가져올 밀레니엄 마법 카드가 없습니다.');
   const link = makeChainLink(player, { zone: 'monster', slot }, monster, { effect: 'yuuka-search' });
   next = updatePlayer(next, player, (current) => markEffectUsed(current, key));
-  next = emit(next, 'EFFECT_ACTIVATE', player, `${monster.name} ① 발동: 덱에서 밀레니엄 마법을 선택합니다.`);
+  next = emit(
+    next,
+    'EFFECT_ACTIVATE',
+    player,
+    `${monster.name} ① 발동: 덱에서 밀레니엄 마법을 선택합니다.`,
+    { effect: 'yuuka-search' },
+  );
   return {
     ...next,
     chain: [link, ...next.chain],
@@ -1346,7 +1511,13 @@ export function activateHinaIgnition(state, slot) {
   const paid = updatePlayer(state, player, (current) => markEffectUsed({ ...current, lp: current.lp - 800 }, key));
   const link = makeChainLink(player, { zone: 'monster', slot }, card, { effect: 'hina-destroy-any' });
   const options = targetOptions(paid, player, 'hina-destroy-any');
-  let next = emit(paid, 'EFFECT_ACTIVATE', player, `${card.name} ② 발동: LP 800을 지불하고 필드 카드 1장을 파괴합니다.`);
+  let next = emit(
+    paid,
+    'EFFECT_ACTIVATE',
+    player,
+    `${card.name} ② 발동: LP 800을 지불하고 필드 카드 1장을 파괴합니다.`,
+    { effect: 'hina-destroy-any', lpCost: 800 },
+  );
   if (!options.length) return emit(next, 'PROMPT', player, '파괴할 카드가 없습니다.');
   return {
     ...next,
@@ -1366,12 +1537,18 @@ export function activateYuukaQuick(state, slot) {
   const marked = updatePlayer(state, player, (current) => markEffectUsed(current, key));
   const link = makeChainLink(player, { zone: 'monster', slot }, card, { effect: 'yuuka-data-shield' });
   const options = targetOptions(marked, player, 'own-card');
-  let next = emit(marked, 'EFFECT_ACTIVATE', player, `${card.name} ② 발동: 자신 필드 카드에 DATA와 보호막을 부여합니다.`);
+  let next = emit(
+    marked,
+    'EFFECT_ACTIVATE',
+    player,
+    `${card.name} ② 발동: 자신 필드 카드에 DATA와 대상 보호를 부여합니다.`,
+    { effect: 'yuuka-data-shield' },
+  );
   if (!options.length) return emit(next, 'PROMPT', player, '대상으로 선택할 자신 필드 카드가 없습니다.');
   return {
     ...next,
     chain: [link, ...next.chain],
-    prompt: { kind: 'SELECT_TARGET', player, chainId: link.chainId, title: '유우카 ②: DATA를 놓을 카드 선택', options },
+    prompt: { kind: 'SELECT_TARGET', player, chainId: link.chainId, title: '유우카 ②: DATA와 대상 보호를 부여할 카드 선택', options },
   };
 }
 
@@ -1431,13 +1608,25 @@ export function chooseTarget(state, target) {
 
 function removePersistentSource(state, link) {
   const owner = link.owner;
+  const ps = state.players[owner];
   if (link.source.zone === 'spellTrap') {
-    const ps = state.players[owner];
     const current = ps.spellTrap[link.source.slot];
     if (!current || current.id !== link.cardId) return state;
     const spellTrap = ps.spellTrap.slice();
     spellTrap[link.source.slot] = null;
     return updatePlayer(state, owner, (player) => ({ ...player, spellTrap, grave: [...player.grave, { ...current, face: 'up' }] }));
+  }
+  if (link.source.zone === 'monster') {
+    const current = ps.monster[link.source.slot];
+    if (!current || current.id !== link.cardId) return state;
+    const monster = ps.monster.slice();
+    monster[link.source.slot] = null;
+    return updatePlayer(state, owner, (player) => ({ ...player, monster, grave: [...player.grave, { ...current, face: 'up' }] }));
+  }
+  if (link.source.zone === 'field') {
+    const current = ps.field;
+    if (!current || current.id !== link.cardId) return state;
+    return updatePlayer(state, owner, (player) => ({ ...player, field: null, grave: [...player.grave, { ...current, face: 'up' }] }));
   }
   return state;
 }
@@ -1449,10 +1638,16 @@ function applySimpleEffect(state, owner, card, target, effectOverride = '', meta
     const deckIndex = Number(meta.deckIndex);
     const ps = state.players[owner];
     const picked = ps.deck[deckIndex];
-    if (!picked) return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과로 가져올 카드가 없습니다.`);
+    if (!picked) return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과로 가져올 카드가 없습니다.`, { effect: 'yuuka-search' });
     const deck = ps.deck.slice();
     const [drawn] = deck.splice(deckIndex, 1);
-    return emit(updatePlayer(state, owner, (player) => ({ ...player, deck, hand: [...player.hand, { ...drawn, face: 'up' }] })), 'EFFECT_ACTIVATE', owner, `유우카 ①: ${drawn.name}를 패에 넣었습니다.`);
+    return emit(
+      updatePlayer(state, owner, (player) => ({ ...player, deck, hand: [...player.hand, { ...drawn, face: 'up' }] })),
+      'EFFECT_ACTIVATE',
+      owner,
+      `유우카 ①: ${drawn.name}를 패에 넣었습니다.`,
+      { effect: 'yuuka-search', cardId: drawn.id, cardName: drawn.name },
+    );
   }
   if (effect === 'damage') {
     const amount = effectAmount(card, 3) * 400;
@@ -1475,7 +1670,7 @@ function applySimpleEffect(state, owner, card, target, effectOverride = '', meta
     if (slot >= 0) {
       const monster = state.players[owner].monster.slice();
       monster[slot] = { ...monster[slot], shield: true, protectedUntilTurn: state.turn };
-      return emit(updatePlayer(state, owner, (player) => ({ ...player, monster })), 'EFFECT_ACTIVATE', owner, `${monster[slot].name}에 보호막을 부여했습니다.`);
+      return emit(updatePlayer(state, owner, (player) => ({ ...player, monster })), 'EFFECT_ACTIVATE', owner, `${monster[slot].name}에 보호막을 부여했습니다.`, { effect: 'shield' });
     }
     return updatePlayer(state, owner, (player) => ({ ...player, lp: player.lp + 400 }));
   }
@@ -1486,7 +1681,7 @@ function applySimpleEffect(state, owner, card, target, effectOverride = '', meta
   if (effect === 'destroy-enemy-unit' || effect === 'banish-enemy-card' || effect === 'hina-destroy-any') {
     const actualTarget = target || findTargetForEffect(state, owner, effect);
     if (!actualTarget) return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과 대상이 없습니다.`);
-    return removeTarget(state, actualTarget, effect === 'banish-enemy-card' ? 'banish' : 'destroy', owner, card.name);
+    return removeTarget(state, actualTarget, effect === 'banish-enemy-card' ? 'banish' : 'destroy', owner, card.name, effect);
   }
   return emit(state, 'EFFECT_ACTIVATE', owner, `${card.name} 효과를 처리했습니다.`);
 }
@@ -1504,24 +1699,42 @@ function applyDataShield(state, target, actor, sourceName) {
     const card = monster[target.slot];
     if (!card) return state;
     monster[target.slot] = applyToCard(card);
-    return emit(updatePlayer(state, target.player, (player) => ({ ...player, monster })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name}에 DATA +1 / 보호막`);
+    return emit(
+      updatePlayer(state, target.player, (player) => ({ ...player, monster })),
+      'EFFECT_ACTIVATE',
+      actor,
+      `${sourceName}: ${card.name}에 DATA +1 / 대상 보호`,
+      { effect: 'yuuka-data-shield', targetCardName: card.name },
+    );
   }
   if (target.zone === 'spellTrap') {
     const spellTrap = ps.spellTrap.slice();
     const card = spellTrap[target.slot];
     if (!card) return state;
     spellTrap[target.slot] = applyToCard(card);
-    return emit(updatePlayer(state, target.player, (player) => ({ ...player, spellTrap })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name}에 DATA +1 / 보호막`);
+    return emit(
+      updatePlayer(state, target.player, (player) => ({ ...player, spellTrap })),
+      'EFFECT_ACTIVATE',
+      actor,
+      `${sourceName}: ${card.name}에 DATA +1 / 대상 보호`,
+      { effect: 'yuuka-data-shield', targetCardName: card.name },
+    );
   }
   if (target.zone === 'field') {
     const card = ps.field;
     if (!card) return state;
-    return emit(updatePlayer(state, target.player, (player) => ({ ...player, field: applyToCard(card) })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name}에 DATA +1 / 보호막`);
+    return emit(
+      updatePlayer(state, target.player, (player) => ({ ...player, field: applyToCard(card) })),
+      'EFFECT_ACTIVATE',
+      actor,
+      `${sourceName}: ${card.name}에 DATA +1 / 대상 보호`,
+      { effect: 'yuuka-data-shield', targetCardName: card.name },
+    );
   }
   return state;
 }
 
-function removeTarget(state, target, mode, actor, sourceName) {
+function removeTarget(state, target, mode, actor, sourceName, effect = '') {
   const ps = state.players[target.player];
   if (target.zone === 'monster') {
     const monster = ps.monster.slice();
@@ -1532,7 +1745,7 @@ function removeTarget(state, target, mode, actor, sourceName) {
       ...player,
       monster,
       [mode === 'banish' ? 'banished' : 'grave']: [...player[mode === 'banish' ? 'banished' : 'grave'], { ...card, face: 'up' }],
-    })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name} ${mode === 'banish' ? '제외' : '파괴'}`);
+    })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name} ${mode === 'banish' ? '제외' : '파괴'}`, { effect, targetCardName: card.name });
   }
   if (target.zone === 'spellTrap') {
     const spellTrap = ps.spellTrap.slice();
@@ -1543,7 +1756,7 @@ function removeTarget(state, target, mode, actor, sourceName) {
       ...player,
       spellTrap,
       [mode === 'banish' ? 'banished' : 'grave']: [...player[mode === 'banish' ? 'banished' : 'grave'], { ...card, face: 'up' }],
-    })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name} ${mode === 'banish' ? '제외' : '파괴'}`);
+    })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name} ${mode === 'banish' ? '제외' : '파괴'}`, { effect, targetCardName: card.name });
   }
   if (target.zone === 'field') {
     const card = ps.field;
@@ -1552,7 +1765,7 @@ function removeTarget(state, target, mode, actor, sourceName) {
       ...player,
       field: null,
       [mode === 'banish' ? 'banished' : 'grave']: [...player[mode === 'banish' ? 'banished' : 'grave'], { ...card, face: 'up' }],
-    })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name} ${mode === 'banish' ? '제외' : '파괴'}`);
+    })), 'EFFECT_ACTIVATE', actor, `${sourceName}: ${card.name} ${mode === 'banish' ? '제외' : '파괴'}`, { effect, targetCardName: card.name });
   }
   return state;
 }
@@ -1564,17 +1777,28 @@ export function resolveChain(state) {
   const links = [...next.chain];
   next = { ...next, chain: [] };
 
-  const negated = new Set();
+  const negated = new Map();
   for (const link of links) {
     if (negated.has(link.chainId)) {
-      next = emit(next, 'EFFECT_ACTIVATE', link.owner, `${link.cardName} 효과가 무효화되었습니다.`);
+      const negatedBy = negated.get(link.chainId);
+      next = emit(next, 'EFFECT_ACTIVATE', link.owner, `${link.cardName} 효과가 무효화되고 발동 카드가 파괴되었습니다.`, {
+        effect: negatedBy === 'mika-negate' ? 'mika-negate' : 'chain-negated',
+        cardName: link.cardName,
+      });
       next = removePersistentSource(next, link);
       continue;
     }
-    if (link.meta?.effect === 'counter-negate' && link.meta?.targetChainId) {
-      negated.add(link.meta.targetChainId);
-      next = emit(next, 'EFFECT_ACTIVATE', link.owner, `${link.cardName}로 체인 효과를 무효화했습니다.`);
-      next = removePersistentSource(next, link);
+    if ((link.meta?.effect === 'counter-negate' || link.meta?.effect === 'mika-negate') && link.meta?.targetChainId) {
+      negated.set(link.meta.targetChainId, link.meta.effect);
+      const isMika = link.meta.effect === 'mika-negate';
+      next = emit(
+        next,
+        'EFFECT_ACTIVATE',
+        link.owner,
+        isMika ? '미카 ②로 상대 효과의 발동을 무효로 하고 파괴합니다.' : `${link.cardName}로 체인 효과를 무효화했습니다.`,
+        { effect: isMika ? 'mika-negate' : 'counter-negate', targetChainId: link.meta.targetChainId },
+      );
+      if (!isMika) next = removePersistentSource(next, link);
       continue;
     }
 
@@ -1615,15 +1839,19 @@ export function targetOptions(state, owner, effect) {
   const result = [];
   const addMonster = (player) => {
     state.players[player].monster.forEach((card, slot) => {
-      if (card) result.push({ player, zone: 'monster', slot, label: `${PLAYER_LABELS[player]} 몬스터 ${slot + 1}: ${card.name}` });
+      if (!card || (player !== owner && Number(card.protectedUntilTurn || 0) === Number(state.turn))) return;
+      result.push({ player, zone: 'monster', slot, label: `${PLAYER_LABELS[player]} 몬스터 ${slot + 1}: ${card.name}` });
     });
   };
   const addCards = (player) => {
     addMonster(player);
     state.players[player].spellTrap.forEach((card, slot) => {
-      if (card) result.push({ player, zone: 'spellTrap', slot, label: `${PLAYER_LABELS[player]} 마법/함정 ${slot + 1}: ${card.name}` });
+      if (!card || (player !== owner && Number(card.protectedUntilTurn || 0) === Number(state.turn))) return;
+      result.push({ player, zone: 'spellTrap', slot, label: `${PLAYER_LABELS[player]} 마법/함정 ${slot + 1}: ${card.name}` });
     });
-    if (state.players[player].field) result.push({ player, zone: 'field', slot: 0, label: `${PLAYER_LABELS[player]} 필드: ${state.players[player].field.name}` });
+    if (state.players[player].field && !(player !== owner && Number(state.players[player].field.protectedUntilTurn || 0) === Number(state.turn))) {
+      result.push({ player, zone: 'field', slot: 0, label: `${PLAYER_LABELS[player]} 필드: ${state.players[player].field.name}` });
+    }
   };
   if (effect === 'destroy-enemy-unit') addMonster(op);
   if (effect === 'banish-enemy-card') addCards(op);
@@ -1687,6 +1915,31 @@ function monsterAtk(card) {
   return Number(card?.attack || card?.atk || 0);
 }
 
+function battleAttack(card) {
+  return monsterAtk(card) + (card?.id === 'TRI-MIKA-01' ? 3 : 0);
+}
+
+function applyBattleSignatureFeedback(state, player, card, attack, destroyedOpponent = false) {
+  let next = state;
+  if (card?.id === 'TRI-MIKA-01') {
+    next = emit(
+      next,
+      'EFFECT_ACTIVATE',
+      player,
+      `미카 ①: 데미지 계산 동안 ATK +1200 (간소화 수치 ${attack}).`,
+      { effect: 'mika-battle-boost', attack },
+    );
+  }
+  if (card?.id === 'GEH-HINA-01' && destroyedOpponent) {
+    next = updatePlayer(next, player, (current) => ({ ...current, lp: Math.min(99999, current.lp + 400) }));
+    next = emit(next, 'EFFECT_ACTIVATE', player, '히나 ③: 전투로 몬스터를 파괴해 400 LP를 회복했습니다.', {
+      effect: 'hina-battle-heal',
+      amount: 400,
+    });
+  }
+  return next;
+}
+
 function monsterHealth(card) {
   return Number(card?.currentHealth ?? card?.health ?? 0);
 }
@@ -1733,16 +1986,17 @@ export function declareAttack(state, attackerSlot, targetSlot = null) {
 
   if (targetSlot === null || targetSlot === undefined || !op.monster[targetSlot]) {
     if (op.monster.some(Boolean)) return emit(next, 'PROMPT', player, '상대 몬스터가 있으면 직접 공격할 수 없습니다.');
-    const damage = monsterAtk(attacker);
+    const damage = battleAttack(attacker);
     const nextLp = Math.max(0, op.lp - damage);
     next = updatePlayer(next, opponent(player), (current) => ({ ...current, lp: nextLp }));
     next = emit(next, 'ATTACK_DECLARE', player, `${attacker.name} 직접 공격: ${damage} LP 피해`);
+    next = applyBattleSignatureFeedback(next, player, attacker, damage);
     return nextLp <= 0 ? finishGame(next, player) : next;
   }
 
   const defender = op.monster[targetSlot];
   if (defender?.position === 'DEF') {
-    const attack = monsterAtk(attacker);
+    const attack = battleAttack(attacker);
     const defense = monsterDefense(defender);
     const nextMyMonster = monster.slice();
     const nextOppMonster = op.monster.slice();
@@ -1755,38 +2009,44 @@ export function declareAttack(state, attackerSlot, targetSlot = null) {
         grave: [...current.grave, { ...defender, face: 'up' }],
       }));
       next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster }));
+      next = emit(next, 'ATTACK_DECLARE', player, `${attacker.name} ATK ${attack} > DEF ${defense}: ${defender.name} 파괴`);
       if (monsterHasPierce(attacker) && excess > 0) {
         const nextLp = Math.max(0, next.players[opponent(player)].lp - excess);
         next = updatePlayer(next, opponent(player), (current) => ({ ...current, lp: nextLp }));
         next = emit(next, 'DAMAGE_TAKEN', opponent(player), `${attacker.name} 관통: ${excess} LP 피해`);
+        next = applyBattleSignatureFeedback(next, player, attacker, attack, true);
         return nextLp <= 0 ? finishGame(next, player) : next;
       }
-      return emit(next, 'ATTACK_DECLARE', player, `${attacker.name} ATK ${attack} > DEF ${defense}: ${defender.name} 파괴`);
+      return applyBattleSignatureFeedback(next, player, attacker, attack, true);
     }
     if (attack < defense) {
       const damage = defense - attack;
       const nextLp = Math.max(0, next.players[player].lp - damage);
       next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster, lp: nextLp }));
       next = emit(next, 'DAMAGE_TAKEN', player, `${attacker.name} ATK ${attack} < DEF ${defense}: ${damage} LP 피해`);
+      next = applyBattleSignatureFeedback(next, player, attacker, attack);
       return nextLp <= 0 ? finishGame(next, opponent(player)) : next;
     }
     next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster }));
-    return emit(next, 'ATTACK_DECLARE', player, `${attacker.name} ATK ${attack} = DEF ${defense}: 전투 피해 없음`);
+    next = emit(next, 'ATTACK_DECLARE', player, `${attacker.name} ATK ${attack} = DEF ${defense}: 전투 피해 없음`);
+    return applyBattleSignatureFeedback(next, player, attacker, attack);
   }
 
-  const damageToDefender = monsterAtk(attacker);
-  const damageToAttacker = monsterAtk(defender);
+  const damageToDefender = battleAttack(attacker);
+  const damageToAttacker = battleAttack(defender);
   const nextAttacker = applyMonsterDamage(monster[attackerSlot], damageToAttacker);
   const nextDefender = applyMonsterDamage(defender, damageToDefender);
   const nextMyMonster = monster.slice();
   const nextOppMonster = op.monster.slice();
-  if (monsterHealth(nextAttacker) <= 0) {
+  const attackerDestroyed = monsterHealth(nextAttacker) <= 0;
+  const defenderDestroyed = monsterHealth(nextDefender) <= 0;
+  if (attackerDestroyed) {
     nextMyMonster[attackerSlot] = null;
     next = updatePlayer(next, player, (current) => ({ ...current, grave: [...current.grave, { ...nextAttacker, face: 'up' }] }));
   } else {
     nextMyMonster[attackerSlot] = nextAttacker;
   }
-  if (monsterHealth(nextDefender) <= 0) {
+  if (defenderDestroyed) {
     nextOppMonster[targetSlot] = null;
     next = updatePlayer(next, opponent(player), (current) => ({ ...current, grave: [...current.grave, { ...nextDefender, face: 'up' }] }));
   } else {
@@ -1794,7 +2054,9 @@ export function declareAttack(state, attackerSlot, targetSlot = null) {
   }
   next = updatePlayer(next, player, (current) => ({ ...current, monster: nextMyMonster }));
   next = updatePlayer(next, opponent(player), (current) => ({ ...current, monster: nextOppMonster }));
-  return emit(next, 'ATTACK_DECLARE', player, `${attacker.name}가 ${defender.name}와 전투했습니다.`);
+  next = emit(next, 'ATTACK_DECLARE', player, `${attacker.name}가 ${defender.name}와 전투했습니다.`);
+  next = applyBattleSignatureFeedback(next, player, attacker, damageToDefender, defenderDestroyed);
+  return applyBattleSignatureFeedback(next, opponent(player), defender, damageToAttacker, attackerDestroyed);
 }
 
 function applyMonsterDamage(card, damage) {
@@ -1855,11 +2117,25 @@ function aiUnitScore(card, ai) {
     + (hasKeyword(card, 'pierce') ? Number(ai.aggressive || 0) * 1.5 : 0);
 }
 
+function mikaCostValue(state, player, option) {
+  const ps = state.players[player];
+  if (option.zone === 'field') return 1000;
+  if (option.zone === 'spellTrap') {
+    const card = ps.spellTrap[option.slot];
+    return card ? (isFaceUp(card) ? 80 : 35) + Number(card.cost || 0) * 10 : 9999;
+  }
+  const card = ps.monster[option.slot];
+  return card ? monsterAtk(card) * 12 + monsterHealth(card) * 8 + Number(card.cost || 0) * 5 : 9999;
+}
+
 function resolveAutoPrompt(state, player, ai) {
   if (state.prompt.kind === 'RESPOND' && state.prompt.player === player) {
     const counterSlot = state.players[player].spellTrap.findIndex((card) => card && cardType(card) === 'Trap' && spellSubType(card) === 'Counter');
     const counterChance = boundedChance(0.18 + Number(ai.control || 0) * 0.45 - Number(ai.risk || 0) * 0.12);
     if (counterSlot >= 0 && Math.random() < counterChance) return activateCounterTrap(state, player, counterSlot);
+    const mika = mikaQuickReadiness(state, player);
+    const mikaChance = boundedChance(0.22 + Number(ai.control || 0) * 0.3 + Number(ai.combo || 0) * 0.24 + Number(ai.risk || 0) * 0.08);
+    if (mika.canActivate && Math.random() < mikaChance) return activateMikaQuick(state);
     return passResponse(state);
   }
   if (state.prompt.kind === 'TRIGGER_CONFIRM' && state.prompt.player === player) {
@@ -1869,6 +2145,10 @@ function resolveAutoPrompt(state, player, ai) {
   if (state.prompt.kind === 'SELECT_FROM_DECK' && state.prompt.player === player) {
     const option = state.prompt.options[0];
     return option ? chooseFromDeck(state, option.deckIndex) : { ...state, prompt: { kind: 'NONE' } };
+  }
+  if (state.prompt.kind === 'SELECT_COST_MIKA_NEGATE' && state.prompt.player === player) {
+    const option = [...state.prompt.options].sort((a, b) => mikaCostValue(state, player, a) - mikaCostValue(state, player, b))[0];
+    return option ? chooseMikaNegateCost(state, option) : { ...state, prompt: { kind: 'NONE' } };
   }
   if (state.prompt.kind === 'SELECT_TARGET' && state.prompt.player === player) {
     const option = state.prompt.options[0];

@@ -92,7 +92,7 @@ npm run build
   - `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js`
   - `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js`
   - `client/src/app/games/dual-academy-tcg/_components/DualAcademyTcgHandTab.js`
-- Dual Academy TCG now uses a compact turn coach, an icon-led live duel event pulse, explicit header/deck/board action icons, two-column mobile match metrics, and accessible card-count controls. `dualAcademyTcgFeedback.js` maps match snapshots to dedicated start, draw, summon, set, effect, chain, attack, hit/damage, destroy, negate, position, phase/turn, prompt/invalid, deck-save, and victory/defeat cues. Client-only duel rendering also prevents random match/event IDs from causing character-quote hydration mismatches.
+- Dual Academy TCG now uses a compact turn coach, an icon-led live duel event pulse, explicit header/deck/board action icons, two-column mobile match metrics, and accessible card-count controls. `dualAcademyTcgFeedback.js` maps match snapshots to the shared duel cues plus dedicated Mika cost/negate/burst, Hina discipline/recovery, and Yuuka guard/search feedback. The engine ports Mika's costed quick negate and battle boost, Hina's battle recovery, and Yuuka's turn-based target protection with deterministic regression coverage. Client-only duel rendering also prevents random match/event IDs from causing character-quote hydration mismatches.
 - Primitive Archive page helper logic now lives in `client/src/app/games/primitive-archive/_lib/primitiveArchivePageRuntime.js`.
 - Primitive Archive save/load/record actions now live in `client/src/app/games/primitive-archive/_hooks/usePrimitiveArchivePersistence.js`.
 - Primitive Archive large feature tab JSX now lives in `client/src/app/games/primitive-archive/_components/PrimitiveArchiveFeatureTabs.js`.
@@ -401,7 +401,8 @@ After School Simulator, continue applying the same page split to:
    - Done: extract the large feature tab JSX into `DualAcademyTcgFeatureTabs.js`
    - Done: split `DualAcademyTcgFeatureTabs.js` into tab-group components (`board`, `advisor`, `inspect`, `logs`, `hand`).
    - Done: split save/load/room synchronization effects into `useDualAcademyTcgPersistence`.
-   - Next: move remaining derived UI assembly into a small play view-model helper only if future edits make the page grow again.
+   - Done: port Hina/Mika/Yuuka signature effects, Mika's Trinity cost prompt, AI response handling, target protection, and dedicated feedback cues.
+   - Next: port extra-deck/special-summon variants and the remaining original card-specific effects before growing the page view-model again.
 4. In progress: `client/src/app/games/primitive-archive/play/page.js`
    - Done: page helper/runtime split
    - Done: persistence hook

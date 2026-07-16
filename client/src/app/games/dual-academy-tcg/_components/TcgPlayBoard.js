@@ -5,9 +5,12 @@ import { TCG_CHARACTER_LIST, keywordLabels } from '../_lib/tcgCatalog';
 import {
   PLAYER_LABELS,
   activateCounterTrap,
+  activateMikaQuick,
+  chooseMikaNegateCost,
   chooseFromDeck,
   chooseTarget,
   confirmTrigger,
+  mikaQuickReadiness,
   passResponse,
   resolveChain,
 } from '../_lib/tcgDuelEngine';
@@ -348,6 +351,11 @@ export function PromptPanel({ state, setState }) {
       .map((card, slot) => ({ card, slot }))
       .filter(({ card }) => card && cardKind(card) === 'Trap' && subType(card) === 'Counter')
     : [];
+  const mikaReadiness = prompt.kind === 'RESPOND'
+    ? mikaQuickReadiness(state, player)
+    : { canActivate: false, reason: '', options: [] };
+  const hasFaceUpMika = prompt.kind === 'RESPOND'
+    && state.players[player]?.monster?.some((card) => card?.id === 'TRI-MIKA-01' && card.face !== 'down' && card.face !== 'FaceDown');
 
   return (
     <section className="tcg-result">
@@ -361,6 +369,16 @@ export function PromptPanel({ state, setState }) {
                 {card.name} 발동
               </GameControlButton>
             ))}
+            {mikaReadiness.canActivate || hasFaceUpMika ? (
+              <GameControlButton
+                action="tcg-mika-negate"
+                onClick={() => setState((current) => activateMikaQuick(current))}
+                disabled={!mikaReadiness.canActivate}
+                title={mikaReadiness.reason || '다른 트리니티 카드 1장을 묘지로 보내 상대 효과를 무효로 하고 파괴합니다.'}
+              >
+                미카 ② 발동
+              </GameControlButton>
+            ) : null}
             <GameControlButton action="pass" onClick={() => setState((current) => resolveChain(passResponse(current)))}>
               응답 없음
             </GameControlButton>
@@ -387,6 +405,23 @@ export function PromptPanel({ state, setState }) {
           <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
             {prompt.options.map((option) => (
               <GameControlButton action="cards" key={`${option.deckIndex}-${option.cardId}`} onClick={() => setState((current) => chooseFromDeck(current, option.deckIndex))}>
+                {option.label}
+              </GameControlButton>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {prompt.kind === 'SELECT_COST_MIKA_NEGATE' ? (
+        <>
+          <strong>{prompt.title}</strong>
+          <span>선택한 카드는 즉시 묘지로 보내지고 되돌릴 수 없습니다.</span>
+          <div className="tcg-action-controls" style={{ justifyContent: 'center', marginTop: 8 }}>
+            {prompt.options.map((option) => (
+              <GameControlButton
+                action="tcg-mika-cost"
+                key={`${option.zone}-${option.slot}`}
+                onClick={() => setState((current) => chooseMikaNegateCost(current, option))}
+              >
                 {option.label}
               </GameControlButton>
             ))}

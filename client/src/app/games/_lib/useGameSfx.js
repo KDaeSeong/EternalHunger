@@ -976,6 +976,38 @@ const CUE_PROFILES = {
     { frequency: 980, endFrequency: 380, duration: 0.07, type: 'square', gain: 0.035 },
     { source: 'noise', filterType: 'bandpass', frequency: 640, q: 2.4, start: 0.05, duration: 0.07, gain: 0.045 },
   ],
+  tcgMikaCost: [
+    { frequency: 330, endFrequency: 190, duration: 0.08, type: 'triangle', gain: 0.042 },
+    { source: 'noise', filterType: 'lowpass', frequency: 520, start: 0.055, duration: 0.07, gain: 0.038 },
+  ],
+  tcgMikaNegate: [
+    { frequency: 1180, endFrequency: 420, duration: 0.075, type: 'square', gain: 0.038 },
+    { source: 'noise', filterType: 'bandpass', frequency: 880, q: 3.1, start: 0.045, duration: 0.065, gain: 0.05 },
+    { frequency: 220, start: 0.095, duration: 0.11, type: 'sine', gain: 0.042 },
+  ],
+  tcgMikaBurst: [
+    { frequency: 410, endFrequency: 920, duration: 0.09, type: 'sawtooth', gain: 0.036 },
+    { frequency: 1230, start: 0.07, duration: 0.09, type: 'triangle', gain: 0.042 },
+    { source: 'noise', filterType: 'highpass', frequency: 1700, start: 0.12, duration: 0.045, gain: 0.034 },
+  ],
+  tcgHinaDiscipline: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 1.8, duration: 0.055, gain: 0.06 },
+    { frequency: 260, endFrequency: 105, duration: 0.12, type: 'sawtooth', gain: 0.046 },
+  ],
+  tcgHinaRecover: [
+    { frequency: 440, duration: 0.045, type: 'sine', gain: 0.038 },
+    { frequency: 660, start: 0.04, duration: 0.065, type: 'sine', gain: 0.041 },
+    { frequency: 880, start: 0.1, duration: 0.09, type: 'sine', gain: 0.035 },
+  ],
+  tcgYuukaGuard: [
+    { frequency: 520, endFrequency: 760, duration: 0.075, type: 'triangle', gain: 0.04 },
+    { frequency: 1040, start: 0.065, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  tcgYuukaSearch: [
+    { frequency: 680, endFrequency: 920, duration: 0.05, type: 'square', gain: 0.026 },
+    { frequency: 920, endFrequency: 1180, start: 0.045, duration: 0.055, type: 'square', gain: 0.024 },
+    { frequency: 1360, start: 0.1, duration: 0.075, type: 'sine', gain: 0.032 },
+  ],
   tcgPosition: [
     { frequency: 420, endFrequency: 620, duration: 0.055, type: 'triangle', gain: 0.04 },
     { frequency: 620, endFrequency: 420, start: 0.05, duration: 0.055, type: 'triangle', gain: 0.038 },
