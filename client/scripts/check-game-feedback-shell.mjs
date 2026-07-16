@@ -115,6 +115,16 @@ assert.match(sfxSource, /readGameSfxPreference\(resolvedTheme\)/);
 assert.match(sfxSource, /resolveGameAudioTheme/, '효과음과 BGM은 같은 경로 테마 해석기를 사용해야 합니다.');
 assert.match(sfxSource, /CustomEvent\(GAME_BGM_DUCK_EVENT/, '게임 효과음은 배경음 덕킹 이벤트를 보내야 합니다.');
 
+assert.match(sfxSource, /createStereoPanner\(\)/, 'Game SFX must spread layered voices across stereo space.');
+assert.match(sfxSource, /createConvolver\(\)/, 'Game SFX must use a short shared reverb space.');
+assert.match(sfxSource, /createDynamicsCompressor\(\)/, 'Game SFX must control layered cue peaks.');
+assert.match(sfxSource, /getSharedSfxSession/, 'Game SFX hooks must share one output mix session.');
+assert.doesNotMatch(
+  iconSource,
+  /\b(?:UsersRound|Handshake|HeartHandshake|PersonStanding|UserRound)\b/,
+  'Shared game actions must use object-only icons without people or hand silhouettes.',
+);
+
 const expectedRouteThemes = [
   'eternalhunger',
   'simulation',
@@ -137,6 +147,10 @@ for (const slug of expectedRouteThemes) {
 }
 
 const expectedBgmThemes = [...new Set(expectedRouteThemes.map((slug) => audioThemeModule.gameAudioThemeForPath(`/${slug}`)))];
+const spatialThemeKeys = objectKeys(sfxSource, 'THEME_SPATIAL_MIXES');
+for (const theme of expectedBgmThemes) {
+  assert.equal(spatialThemeKeys.has(theme), true, `Missing SFX spatial mix: ${theme}`);
+}
 assert.deepEqual(
   bgmProfileModule.GAME_BGM_LAYER_ROLES,
   ['lead', 'harmony', 'octave', 'counter', 'arpeggio', 'bass', 'pad', 'kick', 'snare', 'hi-hat', 'percussion', 'transition-fx'],
@@ -227,6 +241,8 @@ console.log(JSON.stringify({
   bgmArrangementSteps: Math.min(...expectedBgmThemes.map((theme) => bgmProfileModule.gameBgmProfile(theme).steps)),
   bgmLayers: bgmProfileModule.GAME_BGM_LAYER_ROLES.length,
   bgmTransitionFx: ['impact', 'riser'],
+  sfxSpatialThemes: expectedBgmThemes.length,
+  sfxMix: 'stereo-reverb-compressor',
   bgmDefaultEnabled: bgmPreferenceModule.readGameBgmEnabled(new Map()),
   soundPreferenceKey: preferenceModule.gameSfxPreferenceKey('school'),
 }, null, 2));

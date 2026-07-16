@@ -1409,6 +1409,25 @@ const THEME_CUE_PROFILES = {
   },
 };
 
+const THEME_SPATIAL_MIXES = {
+  default: { panSpread: 0.24, reverb: 0.1 },
+  battle: { panSpread: 0.34, reverb: 0.08 },
+  twenty: { panSpread: 0.18, reverb: 0.2 },
+  card: { panSpread: 0.42, reverb: 0.14 },
+  survival: { panSpread: 0.28, reverb: 0.18 },
+  kitchen: { panSpread: 0.3, reverb: 0.11 },
+  idle: { panSpread: 0.4, reverb: 0.23 },
+  tactical: { panSpread: 0.46, reverb: 0.07 },
+  broadcast: { panSpread: 0.3, reverb: 0.19 },
+  school: { panSpread: 0.24, reverb: 0.18 },
+  coding: { panSpread: 0.38, reverb: 0.06 },
+  rail: { panSpread: 0.44, reverb: 0.15 },
+  ledger: { panSpread: 0.18, reverb: 0.12 },
+  racing: { panSpread: 0.48, reverb: 0.08 },
+};
+
+let sharedSfxSession = null;
+
 function cueProfile(cue, theme) {
   const key = String(cue || 'click');
   const themeKey = String(theme || 'default');
@@ -1437,7 +1456,86 @@ function getAudioContext() {
   return AudioContextCtor;
 }
 
-function playNoiseVoice(ctx, spec, volume) {
+function createSfxReverbImpulse(ctx) {
+  const duration = 0.34;
+  const frameCount = Math.max(1, Math.ceil(ctx.sampleRate * duration));
+  const buffer = ctx.createBuffer(2, frameCount, ctx.sampleRate);
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const samples = buffer.getChannelData(channel);
+    for (let index = 0; index < frameCount; index += 1) {
+      const decay = Math.pow(1 - index / frameCount, 3.2);
+      samples[index] = (Math.random() * 2 - 1) * decay;
+    }
+  }
+  return buffer;
+}
+
+function createSfxSession(AudioContextCtor) {
+  const ctx = new AudioContextCtor();
+  const dryGain = ctx.createGain();
+  const convolver = ctx.createConvolver();
+  const wetGain = ctx.createGain();
+  const compressor = ctx.createDynamicsCompressor();
+
+  dryGain.gain.value = 0.94;
+  convolver.buffer = createSfxReverbImpulse(ctx);
+  wetGain.gain.value = 0.72;
+  compressor.threshold.value = -16;
+  compressor.knee.value = 12;
+  compressor.ratio.value = 4;
+  compressor.attack.value = 0.004;
+  compressor.release.value = 0.16;
+
+  dryGain.connect(compressor);
+  convolver.connect(wetGain);
+  wetGain.connect(compressor);
+  compressor.connect(ctx.destination);
+  return { compressor, convolver, ctx, dryGain };
+}
+
+function getSharedSfxSession() {
+  const AudioContextCtor = getAudioContext();
+  if (!AudioContextCtor) return null;
+  if (!sharedSfxSession || sharedSfxSession.ctx.state === 'closed') {
+    sharedSfxSession = createSfxSession(AudioContextCtor);
+  }
+  return sharedSfxSession;
+}
+
+function sfxSpatialMix(theme, voiceCount) {
+  const base = THEME_SPATIAL_MIXES[String(theme || 'default')] || THEME_SPATIAL_MIXES.default;
+  return {
+    panSpread: base.panSpread,
+    reverb: Math.min(0.28, base.reverb + Math.max(0, Number(voiceCount || 1) - 2) * 0.015),
+  };
+}
+
+function connectSfxVoice(session, output, spec, mix, voiceIndex, voiceCount, start) {
+  const { ctx } = session;
+  let spatialOutput = output;
+  if (typeof ctx.createStereoPanner === 'function') {
+    const panner = ctx.createStereoPanner();
+    const normalizedIndex = voiceCount > 1 ? (voiceIndex / (voiceCount - 1)) * 2 - 1 : 0;
+    const pan = Number.isFinite(Number(spec.pan))
+      ? Math.max(-1, Math.min(1, Number(spec.pan)))
+      : normalizedIndex * mix.panSpread;
+    panner.pan.setValueAtTime(pan, start);
+    output.connect(panner);
+    spatialOutput = panner;
+  }
+
+  const reverbSend = ctx.createGain();
+  reverbSend.gain.setValueAtTime(
+    Math.max(0, Math.min(0.34, Number(spec.reverb ?? mix.reverb))),
+    start,
+  );
+  spatialOutput.connect(session.dryGain);
+  spatialOutput.connect(reverbSend);
+  reverbSend.connect(session.convolver);
+}
+
+function playNoiseVoice(session, spec, volume, spatial) {
+  const { ctx } = session;
   const start = ctx.currentTime + 0.004 + Number(spec.start || 0);
   const duration = Math.max(0.025, Number(spec.duration || 0.06));
   const end = start + duration;
@@ -1461,16 +1559,17 @@ function playNoiseVoice(ctx, spec, volume) {
   gain.gain.exponentialRampToValueAtTime(0.0001, end);
   source.connect(filter);
   filter.connect(gain);
-  gain.connect(ctx.destination);
+  connectSfxVoice(session, gain, spec, spatial.mix, spatial.index, spatial.count, start);
   source.start(start);
   source.stop(end + 0.01);
 }
 
-function playVoice(ctx, spec, volume) {
+function playVoice(session, spec, volume, spatial) {
   if (spec.source === 'noise') {
-    playNoiseVoice(ctx, spec, volume);
+    playNoiseVoice(session, spec, volume, spatial);
     return;
   }
+  const { ctx } = session;
   const start = ctx.currentTime + 0.004 + Number(spec.start || 0);
   const duration = Math.max(0.025, Number(spec.duration || 0.06));
   const end = start + duration;
@@ -1489,14 +1588,13 @@ function playVoice(ctx, spec, volume) {
   gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
   oscillator.connect(gain);
-  gain.connect(ctx.destination);
+  connectSfxVoice(session, gain, spec, spatial.mix, spatial.index, spatial.count, start);
   oscillator.start(start);
   oscillator.stop(end + 0.025);
 }
 
 export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.16 } = {}) {
   const pathname = usePathname();
-  const contextRef = useRef(null);
   const lastPlayedAtRef = useRef(0);
   const resolvedTheme = useMemo(() => resolveGameAudioTheme(theme, pathname), [pathname, theme]);
 
@@ -1511,17 +1609,23 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
     }
 
     try {
-      const AudioContextCtor = getAudioContext();
-      if (!AudioContextCtor) return;
-      if (!contextRef.current) contextRef.current = new AudioContextCtor();
-      const ctx = contextRef.current;
-      if (ctx.state === 'suspended') void ctx.resume();
-
+      const session = getSharedSfxSession();
+      if (!session) return;
+      if (session.ctx.state === 'suspended') void session.ctx.resume();
       const profile = cueProfile(cue, resolvedTheme);
+      const spatialMix = sfxSpatialMix(resolvedTheme, profile.length);
+      if (typeof document !== 'undefined') {
+        document.documentElement.dataset.gameSfxMix = 'stereo-reverb';
+        document.documentElement.dataset.gameSfxVoices = String(profile.length);
+      }
       window.dispatchEvent(new CustomEvent(GAME_BGM_DUCK_EVENT, {
         detail: cueDuckEnvelope(profile),
       }));
-      profile.forEach((spec) => playVoice(ctx, spec, volume));
+      profile.forEach((spec, index) => playVoice(session, spec, volume, {
+        count: profile.length,
+        index,
+        mix: spatialMix,
+      }));
     } catch {
       // Audio failures should never block gameplay.
     }
