@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  CUSTOM_PARTICIPANT_PRESET_ID,
   PARTICIPANT_PRESET_SELECTED_KEY,
   RANDOM_PARTICIPANT_PRESET_ID,
   getInitialParticipantPresetId,
@@ -15,6 +16,14 @@ function getInitialParticipantPresetName() {
   return preset?.name || '';
 }
 
+function getInitialParticipantSelectionMode() {
+  const presetId = getInitialParticipantPresetId();
+  if (presetId === RANDOM_PARTICIPANT_PRESET_ID) return 'random';
+  const exists = readLocalParticipantPresets().some((preset) => String(preset?.id || '') === presetId);
+  if (!exists) return 'random';
+  return presetId === CUSTOM_PARTICIPANT_PRESET_ID ? 'custom' : 'preset';
+}
+
 export function useSimulationParticipantPresets({
   candidateSurvivors,
   day,
@@ -28,6 +37,7 @@ export function useSimulationParticipantPresets({
   const [participantPresets, setParticipantPresets] = useState(readLocalParticipantPresets);
   const [selectedParticipantPresetIdRaw, setSelectedParticipantPresetId] = useState(getInitialParticipantPresetId);
   const [participantPresetName, setParticipantPresetName] = useState(getInitialParticipantPresetName);
+  const [participantSelectionMode, setParticipantSelectionMode] = useState(getInitialParticipantSelectionMode);
 
   const selectedParticipantPresetId = useMemo(() => {
     const rawId = String(selectedParticipantPresetIdRaw || RANDOM_PARTICIPANT_PRESET_ID);
@@ -64,12 +74,17 @@ export function useSimulationParticipantPresets({
         saveSelectedParticipantPresetId,
         setParticipantPresetName,
         setParticipantPresets,
+        setParticipantSelectionMode,
       },
     });
   }
 
   function applyParticipantPresetToCurrent(presetId = selectedParticipantPresetId) {
     return getParticipantPresetActions().applyParticipantPresetToCurrent(presetId);
+  }
+
+  function applyCustomParticipantRoster(draft) {
+    return getParticipantPresetActions().applyCustomParticipantRoster(draft);
   }
 
   function saveCurrentParticipantPreset() {
@@ -81,10 +96,12 @@ export function useSimulationParticipantPresets({
   }
 
   return {
+    applyCustomParticipantRoster,
     applyParticipantPresetToCurrent,
     deleteSelectedParticipantPreset,
     participantPresetName,
     participantPresets,
+    participantSelectionMode,
     saveCurrentParticipantPreset,
     saveSelectedParticipantPresetId,
     selectedParticipantPresetId,

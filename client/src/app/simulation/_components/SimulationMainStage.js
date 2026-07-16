@@ -8,6 +8,7 @@ import SimulationControlPanel from './SimulationControlPanel';
 import SimulationLogPanel from './SimulationLogPanel';
 import SimulationMatchStatusPanel from './SimulationMatchStatusPanel';
 import SimulationMinimapPanel from './SimulationMinimapPanel';
+import SimulationPregameRosterSetup from './SimulationPregameRosterSetup';
 import SimulationWorldSpawnToolbar from './SimulationWorldSpawnToolbar';
 
 export default function SimulationMainStage({
@@ -15,10 +16,13 @@ export default function SimulationMainStage({
   activeMap,
   activeMapId,
   actorAvatarByName,
+  applyCustomParticipantRoster,
+  applyParticipantPresetToCurrent,
   aliveTeamCount,
   autoPlay,
   autoSpeed,
   characterSkillsEnabled,
+  candidateSurvivors,
   closeUiModal,
   day,
   dead,
@@ -47,6 +51,7 @@ export default function SimulationMainStage({
   maps,
   matchSec,
   onToggleDevTools,
+  participantSelectionMode,
   phase,
   prevPhaseLogs,
   proceedPhaseGuarded,
@@ -156,6 +161,18 @@ export default function SimulationMainStage({
           />
         </aside>
       </div>
+
+      <SimulationPregameRosterSetup
+        applyCustomParticipantRoster={applyCustomParticipantRoster}
+        applyParticipantPresetToCurrent={applyParticipantPresetToCurrent}
+        candidateSurvivors={candidateSurvivors}
+        day={day}
+        disabled={loading || isAdvancing || isGameOver}
+        matchMode={normalizeMatchMode(settings?.matchMode)}
+        matchSec={matchSec}
+        participantSelectionMode={participantSelectionMode}
+        survivors={survivors}
+      />
 
       <SimulationControlPanel
         matchMode={normalizeMatchMode(settings?.matchMode)}

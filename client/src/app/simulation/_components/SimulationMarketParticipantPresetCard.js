@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  CUSTOM_PARTICIPANT_PRESET_ID,
   PARTICIPANT_PRESET_LIMIT,
   RANDOM_PARTICIPANT_PRESET_ID,
   normalizeParticipantPresetIds,
@@ -23,6 +24,7 @@ export default function SimulationMarketParticipantPresetCard({
   survivors,
 }) {
   const presets = Array.isArray(participantPresets) ? participantPresets : [];
+  const userPresetCount = presets.filter((preset) => String(preset?.id || '') !== CUSTOM_PARTICIPANT_PRESET_ID).length;
 
   return (
     <div className="market-card" style={{ marginTop: 10, borderStyle: 'dashed' }}>
@@ -83,7 +85,7 @@ export default function SimulationMarketParticipantPresetCard({
         </button>
       </div>
       <div className="market-small" style={{ marginTop: 6 }}>
-        저장됨: <strong>{presets.length}</strong>/{PARTICIPANT_PRESET_LIMIT}
+        저장됨: <strong>{userPresetCount}</strong>/{PARTICIPANT_PRESET_LIMIT}
         {' · '}후보: <strong>{(Array.isArray(candidateSurvivors) && candidateSurvivors.length) || survivors.length}</strong>명
       </div>
     </div>

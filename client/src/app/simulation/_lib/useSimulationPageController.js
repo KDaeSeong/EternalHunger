@@ -254,6 +254,7 @@ export function useSimulationPageController() {
       setMarketMessage,
       setSelectedCharId,
       setSurvivors,
+      setWinnerPredictionId,
     },
   });
   const {

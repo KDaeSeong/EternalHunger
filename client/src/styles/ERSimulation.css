@@ -710,6 +710,608 @@
     flex-wrap: wrap;
 }
 
+.simulation-pregame-roster {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid rgba(82, 187, 230, 0.34);
+  border-left: 4px solid #4fd5ff;
+  border-radius: 7px;
+  background: #17303b;
+  color: #f5fbff;
+}
+
+.simulation-pregame-roster__status,
+.simulation-pregame-roster__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simulation-pregame-roster__status > .game-action-icon {
+  width: 26px;
+  height: 26px;
+  color: #6ee0ff;
+}
+
+.simulation-pregame-roster__status > span {
+  min-width: 94px;
+  padding: 3px 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  text-align: left;
+}
+
+.simulation-pregame-roster__status small,
+.simulation-pregame-roster__status strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-pregame-roster__status small {
+  color: rgba(226, 244, 252, 0.67);
+  font-size: 0.67rem;
+  font-weight: 800;
+}
+
+.simulation-pregame-roster__status strong {
+  margin-top: 1px;
+  font-size: 0.8rem;
+  font-weight: 950;
+}
+
+.simulation-pregame-roster__actions button,
+.simulation-roster-toolbar button,
+.simulation-roster-modal__footer button {
+  min-height: 36px;
+  border: 1px solid rgba(79, 213, 255, 0.34);
+  border-radius: 7px;
+  background: #f7fbfd;
+  color: #16394c;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.simulation-pregame-roster__actions button.is-active,
+.simulation-roster-toolbar button.is-active,
+.simulation-roster-modal__footer button.is-primary {
+  border-color: #1384b7;
+  background: #167bab;
+  color: #fff;
+}
+
+.simulation-pregame-roster__actions button:disabled,
+.simulation-roster-modal__footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.simulation-roster-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9300;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(3, 11, 17, 0.82);
+}
+
+.simulation-roster-modal {
+  width: min(1380px, 96vw);
+  height: min(900px, 94dvh);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid rgba(79, 213, 255, 0.42);
+  border-radius: 8px;
+  background: #f4f7f9;
+  color: #14232d;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
+}
+
+.simulation-roster-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #102c39;
+  color: #f7fbff;
+}
+
+.simulation-roster-modal__header span {
+  color: #78ddff;
+  font-size: 0.68rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.simulation-roster-modal__header h2 {
+  margin: 2px 0 0;
+  font-size: 1.28rem;
+  letter-spacing: 0;
+}
+
+.simulation-roster-modal__header > button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.simulation-roster-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid #d6e0e6;
+  background: #fff;
+}
+
+.simulation-roster-summary > span {
+  min-width: 0;
+  padding: 9px 12px;
+  border-right: 1px solid #e2e8ec;
+}
+
+.simulation-roster-summary > span:last-child {
+  border-right: 0;
+}
+
+.simulation-roster-summary small,
+.simulation-roster-summary strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-roster-summary small {
+  color: #647785;
+  font-size: 0.66rem;
+  font-weight: 850;
+}
+
+.simulation-roster-summary strong {
+  margin-top: 2px;
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.simulation-roster-summary .is-ready strong {
+  color: #147449;
+}
+
+.simulation-roster-summary .is-pending strong {
+  color: #a86116;
+}
+
+.simulation-roster-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #d6e0e6;
+  background: #edf3f6;
+}
+
+.simulation-roster-toolbar label {
+  flex: 1 1 300px;
+  min-width: 180px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid #bdced8;
+  border-radius: 7px;
+  background: #fff;
+  color: #466273;
+}
+
+.simulation-roster-toolbar input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #14232d;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.simulation-roster-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(400px, 0.9fr) minmax(520px, 1.1fr);
+  overflow: hidden;
+}
+
+.simulation-roster-workspace.is-solo {
+  grid-template-columns: 1fr;
+}
+
+.simulation-roster-candidates,
+.simulation-roster-teams {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 10px;
+  overflow: hidden;
+}
+
+.simulation-roster-candidates {
+  border-right: 1px solid #d6e0e6;
+  background: #fff;
+}
+
+.simulation-roster-section-title {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 7px;
+}
+
+.simulation-roster-section-title strong {
+  font-size: 0.85rem;
+  font-weight: 950;
+}
+
+.simulation-roster-section-title span {
+  color: #647785;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.simulation-roster-candidate-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+  align-content: start;
+  gap: 6px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.simulation-roster-candidate {
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid #d6e0e6;
+  border-radius: 7px;
+  background: #f7f9fa;
+  color: #172630;
+  cursor: pointer;
+  text-align: left;
+}
+
+.simulation-roster-candidate:hover,
+.simulation-roster-candidate:focus-visible {
+  border-color: #4ba7d0;
+  outline: 2px solid rgba(75, 167, 208, 0.18);
+}
+
+.simulation-roster-candidate.is-selected {
+  border-color: #1384b7;
+  background: #e6f5fc;
+}
+
+.simulation-roster-candidate img,
+.simulation-roster-team img {
+  object-fit: cover;
+  border: 1px solid #c5d2d9;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.simulation-roster-candidate span,
+.simulation-roster-candidate strong,
+.simulation-roster-candidate small {
+  min-width: 0;
+}
+
+.simulation-roster-candidate strong,
+.simulation-roster-candidate small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-roster-candidate strong {
+  font-size: 0.76rem;
+  font-weight: 950;
+}
+
+.simulation-roster-candidate small {
+  margin-top: 2px;
+  color: #6a7984;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.simulation-roster-candidate b {
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: #167bab;
+  color: #fff;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.simulation-roster-team-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 7px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+}
+
+.simulation-roster-team {
+  min-width: 0;
+  border: 1px solid #cbd8df;
+  border-left: 4px solid #9baab3;
+  border-radius: 7px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.simulation-roster-team.is-complete {
+  border-left-color: #1c9c64;
+}
+
+.simulation-roster-team > header {
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-bottom: 1px solid #e1e7ea;
+  background: #edf3f6;
+}
+
+.simulation-roster-team > header strong,
+.simulation-roster-team > header span {
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.simulation-roster-team > div {
+  display: grid;
+}
+
+.simulation-roster-team label {
+  min-width: 0;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 58px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.simulation-roster-team label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.simulation-roster-team select {
+  min-width: 0;
+  height: 28px;
+  border: 1px solid #bdced8;
+  border-radius: 5px;
+  background: #fff;
+  color: #17394b;
+  font-size: 0.67rem;
+  font-weight: 900;
+}
+
+.simulation-roster-empty-slot {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px dashed #d6e0e6;
+  color: #8c9ba4;
+  font-size: 0.69rem;
+  font-weight: 850;
+}
+
+.simulation-roster-modal__footer {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-top: 1px solid #d6e0e6;
+  background: #fff;
+}
+
+.simulation-roster-modal__footer p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: #a24b25;
+  font-size: 0.73rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-roster-modal__footer p.is-ready {
+  color: #147449;
+}
+
+.simulation-roster-modal__footer > div {
+  display: flex;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1050px) {
+  .simulation-roster-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(210px, 0.8fr) minmax(280px, 1.2fr);
+  }
+
+  .simulation-roster-candidates {
+    border-right: 0;
+    border-bottom: 1px solid #d6e0e6;
+  }
+
+  .simulation-roster-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .simulation-pregame-roster {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 8px;
+  }
+
+  .simulation-pregame-roster__status {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .simulation-pregame-roster__status > span {
+    min-width: 100px;
+  }
+
+  .simulation-pregame-roster__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .simulation-roster-modal-backdrop {
+    padding: 0;
+  }
+
+  .simulation-roster-modal {
+    width: 100vw;
+    height: 100dvh;
+    border-width: 0;
+    border-radius: 0;
+  }
+
+  .simulation-roster-modal__header {
+    padding: 10px 12px;
+  }
+
+  .simulation-roster-modal__header h2 {
+    font-size: 1.08rem;
+  }
+
+  .simulation-roster-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .simulation-roster-summary > span:nth-child(2) {
+    border-right: 0;
+  }
+
+  .simulation-roster-summary > span:nth-child(-n + 2) {
+    border-bottom: 1px solid #e2e8ec;
+  }
+
+  .simulation-roster-toolbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 7px;
+  }
+
+  .simulation-roster-toolbar label {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .simulation-roster-workspace {
+    grid-template-rows: minmax(210px, 0.75fr) minmax(270px, 1.25fr);
+  }
+
+  .simulation-roster-candidates,
+  .simulation-roster-teams {
+    padding: 7px;
+  }
+
+  .simulation-roster-candidate-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .simulation-roster-candidate {
+    grid-template-columns: 36px minmax(0, 1fr);
+    min-height: 52px;
+  }
+
+  .simulation-roster-candidate img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .simulation-roster-candidate b {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    text-align: center;
+  }
+
+  .simulation-roster-team-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .simulation-roster-modal__footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .simulation-roster-modal__footer > div {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  }
+}
+
+@media (max-width: 390px) {
+  .simulation-roster-candidate-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .prediction-row {
   display: flex;
   align-items: center;
@@ -3034,7 +3636,8 @@
   max-height: none !important;
 }
 
-.simulation-stage + .control-panel {
+.simulation-stage + .control-panel,
+.simulation-pregame-roster + .control-panel {
   flex: 0 0 auto;
   margin-top: 12px;
 }
@@ -3240,16 +3843,20 @@
   scrollbar-gutter: stable;
 }
 
-.simulation-stage + .control-panel {
+.simulation-stage + .control-panel,
+.simulation-pregame-roster + .control-panel {
   padding: 14px 16px 18px;
 }
 
-.simulation-stage + .control-panel .prediction-row {
+.simulation-stage + .control-panel .prediction-row,
+.simulation-pregame-roster + .control-panel .prediction-row {
   margin-bottom: 10px;
 }
 
 .simulation-stage + .control-panel .btn-proceed,
-.simulation-stage + .control-panel .btn-restart {
+.simulation-stage + .control-panel .btn-restart,
+.simulation-pregame-roster + .control-panel .btn-proceed,
+.simulation-pregame-roster + .control-panel .btn-restart {
   padding: 12px 38px;
   font-size: 1.28rem;
 }
@@ -3267,7 +3874,8 @@
     overflow: visible;
   }
 
-  .simulation-stage + .control-panel {
+  .simulation-stage + .control-panel,
+  .simulation-pregame-roster + .control-panel {
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   }
 }

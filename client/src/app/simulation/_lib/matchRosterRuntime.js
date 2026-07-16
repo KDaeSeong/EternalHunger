@@ -1,6 +1,7 @@
 import { normalizeRuntimeSurvivor, normalizeRuntimeSurvivorList } from './survivorRuntime';
 import { shuffleArray } from './simulationCommon';
 import { assignSimulationTeams, getAliveTeams } from './teamRuntime';
+import { validateCustomRosterDraft } from './customRosterRuntime';
 import {
   PARTICIPANT_PRESET_SIZE,
   RANDOM_PARTICIPANT_PRESET_ID,
@@ -71,6 +72,34 @@ export function pickParticipantsForRun(list, participantPresets, presetId, src =
   }
 
   return picked.slice(0, max);
+}
+
+export function buildCustomParticipantsForRun(list, draft = {}, src = {}) {
+  const cfg = getMatchConfig(src);
+  const validation = validateCustomRosterDraft(draft, cfg);
+  const pool = dedupeRuntimeParticipants(normalizeRuntimeSurvivorList(Array.isArray(list) ? list : []));
+  const byId = new Map(pool.map((actor) => [getRuntimeActorKey(actor), actor]).filter(([key]) => key));
+  const missingIds = validation.orderedCharacterIds.filter((id) => !byId.has(id));
+  const errors = [...validation.errors];
+  if (missingIds.length) errors.push(`선택한 캐릭터 ${missingIds.length}명을 현재 후보에서 찾을 수 없습니다.`);
+  if (errors.length) {
+    return {
+      ...validation,
+      errors,
+      missingIds,
+      participants: [],
+      ready: false,
+    };
+  }
+
+  const picked = validation.orderedCharacterIds.map((id) => byId.get(id)).filter(Boolean);
+  return {
+    ...validation,
+    errors: [],
+    missingIds: [],
+    participants: applyMatchTeams(picked, src),
+    ready: true,
+  };
 }
 
 export function getMatchStartInfo(list, src = {}) {

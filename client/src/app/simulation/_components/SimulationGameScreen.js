@@ -33,9 +33,12 @@ export default function SimulationGameScreen({
   activeMap,
   activeMapId,
   actorAvatarByName,
+  applyCustomParticipantRoster,
+  applyParticipantPresetToCurrent,
   autoPlay,
   autoSpeed,
   characterSkillsEnabled,
+  candidateSurvivors,
   closeUiModal,
   day,
   dead,
@@ -71,6 +74,7 @@ export default function SimulationGameScreen({
   onToggleSfx,
   onToggleDevTools = () => {},
   pendingTranscendPick,
+  participantSelectionMode,
   phase,
   prevPhaseLogs,
   proceedPhaseGuarded,
@@ -152,10 +156,13 @@ export default function SimulationGameScreen({
         activeMap={activeMap}
         activeMapId={activeMapId}
         actorAvatarByName={actorAvatarByName}
+        applyCustomParticipantRoster={applyCustomParticipantRoster}
+        applyParticipantPresetToCurrent={applyParticipantPresetToCurrent}
         aliveTeamCount={aliveTeamCount}
         autoPlay={autoPlay}
         autoSpeed={autoSpeed}
         characterSkillsEnabled={characterSkillsEnabled}
+        candidateSurvivors={candidateSurvivors}
         closeUiModal={closeUiModal}
         day={day}
         dead={dead}
@@ -184,6 +191,7 @@ export default function SimulationGameScreen({
         maps={maps}
         matchSec={matchSec}
         onToggleDevTools={onToggleDevTools}
+        participantSelectionMode={participantSelectionMode}
         phase={phase}
         prevPhaseLogs={prevPhaseLogs}
         proceedPhaseGuarded={proceedPhaseGuarded}
