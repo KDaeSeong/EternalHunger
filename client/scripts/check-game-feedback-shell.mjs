@@ -93,10 +93,17 @@ assert.match(bgmProviderSource, /scheduleDrumStep/, 'BGM은 독립 드럼 시퀀
 assert.match(bgmProviderSource, /scheduleSectionImpact/, 'BGM must accent section changes with impact effects.');
 assert.match(bgmProviderSource, /scheduleTransitionRiser/, 'BGM must build into transitions with risers.');
 assert.match(bgmProviderSource, /schedulePump/, 'BGM must use kick-driven musical pumping.');
+assert.match(bgmProviderSource, /scheduleOrchestralStep/, 'BGM must schedule the extended orchestration layer.');
+assert.match(bgmProviderSource, /scheduleBrassStab/, 'BGM must add brass stabs to high-energy sections.');
+assert.match(bgmProviderSource, /scheduleBellAccent/, 'BGM must add pitched bell accents.');
+assert.match(bgmProviderSource, /scheduleChoirChord/, 'BGM must add sustained choir voicings.');
+assert.match(bgmProviderSource, /scheduleTomFill/, 'BGM must add sectional tom fills.');
 assert.match(bgmProviderSource, /gameBgmChordVoicing/, 'BGM must schedule inverted and extended chord voicings.');
 assert.match(bgmProviderSource, /profile\.harmonyInterval/, 'BGM must layer a harmony voice in high-energy sections.');
 assert.match(bgmProviderSource, /profile\.mode\?\.length/, 'BGM must layer an octave lead in high-energy sections.');
 assert.match(bgmProviderSource, /musicGain/, 'BGM must separate musical and drum buses for pumping.');
+assert.match(bgmProviderSource, /orchestraGain/, 'BGM must mix orchestration through a dedicated bus.');
+assert.match(bgmProviderSource, /gameBgmOrchestration/, 'BGM must expose the active orchestration for browser verification.');
 assert.match(bgmProviderSource, /drumGain/, 'BGM must keep drums outside the musical pump bus.');
 assert.match(bgmProviderSource, /fxGain/, 'BGM must use a dedicated transition FX bus.');
 assert.match(bgmProviderSource, /gameBgmArrangementState/, 'BGM은 장기 섹션 편곡 상태를 사용해야 합니다.');
@@ -153,8 +160,12 @@ for (const theme of expectedBgmThemes) {
 }
 assert.deepEqual(
   bgmProfileModule.GAME_BGM_LAYER_ROLES,
-  ['lead', 'harmony', 'octave', 'counter', 'arpeggio', 'bass', 'pad', 'kick', 'snare', 'hi-hat', 'percussion', 'transition-fx'],
-  'BGM peak arrangements must expose twelve distinct roles.',
+  [
+    'lead', 'harmony', 'octave', 'counter', 'arpeggio', 'bass', 'pad',
+    'string-ostinato', 'brass-stab', 'bell-accent', 'choir-pad', 'sub-bass',
+    'kick', 'snare', 'hi-hat', 'percussion', 'tom-fill', 'transition-fx',
+  ],
+  'BGM peak arrangements must expose eighteen distinct roles.',
 );
 for (const theme of expectedBgmThemes) {
   const profile = bgmProfileModule.gameBgmProfile(theme);
@@ -167,18 +178,27 @@ for (const theme of expectedBgmThemes) {
   ['kick', 'snare', 'hat', 'perc'].forEach((track) => {
     assert.equal(profile.drums[track].length, 16, `BGM drum track must contain 16 steps: ${theme}/${track}`);
   });
-  assert.equal(profile.arrangement.length >= 5, true, `BGM arrangement needs at least five sections: ${theme}`);
-  assert.equal(profile.steps >= 192, true, `BGM arrangement must run for at least twelve bars: ${theme}`);
+  assert.equal(profile.arrangement.length >= 6, true, `BGM arrangement needs at least six sections: ${theme}`);
+  assert.equal(profile.steps >= 288, true, `BGM arrangement must run for at least eighteen bars: ${theme}`);
   assert.equal(profile.flourish >= 0.5 && profile.flourish <= 1.2, true, `BGM flourish must be bounded: ${theme}`);
   assert.equal(profile.harmonyGain > 0, true, `BGM harmony gain must be positive: ${theme}`);
   assert.equal(profile.octaveGain > 0, true, `BGM octave gain must be positive: ${theme}`);
   assert.equal(profile.fxGain > 0, true, `BGM transition FX gain must be positive: ${theme}`);
   assert.equal(profile.pumpDepth > 0 && profile.pumpDepth <= 0.52, true, `BGM pump depth must be bounded: ${theme}`);
+  ['ostinatoGain', 'brassGain', 'bellGain', 'choirGain', 'subGain', 'tomGain'].forEach((gainKey) => {
+    assert.equal(profile.orchestration[gainKey] > 0, true, `BGM orchestration gain must be positive: ${theme}/${gainKey}`);
+  });
   assert.equal(profile.arrangement.some((section) => section.crash >= 0.5), true, `BGM needs a strong section impact: ${theme}`);
   assert.equal(profile.arrangement.some((section) => section.riser >= 0.5), true, `BGM needs a transition riser: ${theme}`);
   assert.equal(profile.arrangement.some((section) => section.harmony >= 0.35), true, `BGM needs a harmony climax: ${theme}`);
   assert.equal(profile.arrangement.some((section) => section.octave >= 0.15), true, `BGM needs an octave climax: ${theme}`);
   assert.equal(profile.arrangement.some((section) => section.pump >= 0.25), true, `BGM needs a pumped climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.ostinato >= 0.8), true, `BGM needs a string ostinato climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.brass >= 0.8), true, `BGM needs a brass climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.bell >= 0.6), true, `BGM needs a bell climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.choir >= 0.7), true, `BGM needs a choir climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.sub >= 0.8), true, `BGM needs a sub-bass climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.toms >= 0.8), true, `BGM needs a tom-fill climax: ${theme}`);
   assert.equal(
     new Set(profile.arrangement.map((section) => section.id)).size,
     profile.arrangement.length,
@@ -207,6 +227,21 @@ const arrangementSignatures = new Set(expectedBgmThemes.map((theme) => {
   return JSON.stringify([profile.leadB, profile.counter, profile.drums.kick]);
 }));
 assert.equal(arrangementSignatures.size >= 10, true, '게임별 BGM 편곡은 충분히 서로 달라야 합니다.');
+
+const orchestrationSignatures = new Set(expectedBgmThemes.map((theme) => {
+  const orchestration = bgmProfileModule.gameBgmProfile(theme).orchestration;
+  return JSON.stringify([
+    orchestration.ostinatoGain,
+    orchestration.ostinatoWave,
+    orchestration.brassGain,
+    orchestration.brassWave,
+    orchestration.bellGain,
+    orchestration.choirGain,
+    orchestration.subGain,
+    orchestration.tomGain,
+  ]);
+}));
+assert.equal(orchestrationSignatures.size >= 8, true, '게임별 오케스트레이션 팔레트는 충분히 서로 달라야 합니다.');
 
 const iconKeys = objectKeys(iconSource, 'ACTION_ICONS');
 const cueKeys = objectKeys(sfxSource, 'CUE_PROFILES');
@@ -240,6 +275,8 @@ console.log(JSON.stringify({
   bgmThemes: expectedBgmThemes.length,
   bgmArrangementSteps: Math.min(...expectedBgmThemes.map((theme) => bgmProfileModule.gameBgmProfile(theme).steps)),
   bgmLayers: bgmProfileModule.GAME_BGM_LAYER_ROLES.length,
+  bgmOrchestration: ['string-ostinato', 'brass-stab', 'bell-accent', 'choir-pad', 'sub-bass', 'tom-fill'],
+  bgmOrchestrationPalettes: orchestrationSignatures.size,
   bgmTransitionFx: ['impact', 'riser'],
   sfxSpatialThemes: expectedBgmThemes.length,
   sfxMix: 'stereo-reverb-compressor',

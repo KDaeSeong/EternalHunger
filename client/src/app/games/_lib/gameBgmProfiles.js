@@ -8,10 +8,16 @@ export const GAME_BGM_LAYER_ROLES = Object.freeze([
   'arpeggio',
   'bass',
   'pad',
+  'string-ostinato',
+  'brass-stab',
+  'bell-accent',
+  'choir-pad',
+  'sub-bass',
   'kick',
   'snare',
   'hi-hat',
   'percussion',
+  'tom-fill',
   'transition-fx',
 ]);
 
@@ -103,17 +109,18 @@ const DRUM_GROOVES = Object.freeze({
 });
 
 const SECTION_FLOURISHES = Object.freeze({
-  intro: Object.freeze({ crash: 0.42, harmony: 0, octave: 0, pump: 0.1, riser: 0.12, stabs: false }),
-  'theme-a': Object.freeze({ crash: 0.3, harmony: 0.14, octave: 0, pump: 0.24, riser: 0.24, stabs: false }),
-  turn: Object.freeze({ crash: 0.12, harmony: 0.12, octave: 0, pump: 0.1, riser: 0.72, stabs: false }),
-  break: Object.freeze({ crash: 0.1, harmony: 0.18, octave: 0.08, pump: 0.08, riser: 0.78, stabs: false }),
-  bridge: Object.freeze({ crash: 0.16, harmony: 0.24, octave: 0.1, pump: 0.14, riser: 0.68, stabs: false }),
-  'theme-b': Object.freeze({ crash: 0.86, harmony: 0.58, octave: 0.3, pump: 0.38, riser: 0.36, stabs: true }),
-  return: Object.freeze({ crash: 0.58, harmony: 0.44, octave: 0.24, pump: 0.32, riser: 0.46, stabs: true }),
-  finale: Object.freeze({ crash: 1, harmony: 0.8, octave: 0.52, pump: 0.46, riser: 1, stabs: true }),
-  'drift-a': Object.freeze({ crash: 0.16, harmony: 0.1, octave: 0, pump: 0.06, riser: 0.14, stabs: false }),
-  interlude: Object.freeze({ crash: 0.08, harmony: 0.2, octave: 0.08, pump: 0.04, riser: 0.54, stabs: false }),
-  'drift-b': Object.freeze({ crash: 0.36, harmony: 0.38, octave: 0.18, pump: 0.12, riser: 0.34, stabs: false }),
+  intro: Object.freeze({ crash: 0.42, harmony: 0, octave: 0, pump: 0.1, riser: 0.12, stabs: false, ostinato: 0.18, brass: 0.08, bell: 0.28, choir: 0.16, sub: 0.3, toms: 0.08 }),
+  'theme-a': Object.freeze({ crash: 0.3, harmony: 0.14, octave: 0, pump: 0.24, riser: 0.24, stabs: false, ostinato: 0.62, brass: 0.26, bell: 0.24, choir: 0.2, sub: 0.58, toms: 0.24 }),
+  turn: Object.freeze({ crash: 0.12, harmony: 0.12, octave: 0, pump: 0.1, riser: 0.72, stabs: false, ostinato: 0.38, brass: 0.05, bell: 0.38, choir: 0.18, sub: 0.18, toms: 0.36 }),
+  break: Object.freeze({ crash: 0.1, harmony: 0.18, octave: 0.08, pump: 0.08, riser: 0.78, stabs: false, ostinato: 0.22, brass: 0.08, bell: 0.42, choir: 0.4, sub: 0.15, toms: 0.42 }),
+  bridge: Object.freeze({ crash: 0.16, harmony: 0.24, octave: 0.1, pump: 0.14, riser: 0.68, stabs: false, ostinato: 0.34, brass: 0.16, bell: 0.35, choir: 0.48, sub: 0.32, toms: 0.4 }),
+  'theme-b': Object.freeze({ crash: 0.86, harmony: 0.58, octave: 0.3, pump: 0.38, riser: 0.36, stabs: true, ostinato: 0.92, brass: 0.76, bell: 0.5, choir: 0.58, sub: 0.88, toms: 0.68 }),
+  return: Object.freeze({ crash: 0.58, harmony: 0.44, octave: 0.24, pump: 0.32, riser: 0.46, stabs: true, ostinato: 0.78, brass: 0.64, bell: 0.44, choir: 0.5, sub: 0.76, toms: 0.56 }),
+  climax: Object.freeze({ crash: 0.78, harmony: 0.72, octave: 0.42, pump: 0.42, riser: 0.84, stabs: true, ostinato: 1, brass: 0.92, bell: 0.68, choir: 0.82, sub: 1, toms: 0.86 }),
+  finale: Object.freeze({ crash: 1, harmony: 0.8, octave: 0.52, pump: 0.46, riser: 1, stabs: true, ostinato: 1, brass: 1, bell: 0.82, choir: 0.9, sub: 1, toms: 1 }),
+  'drift-a': Object.freeze({ crash: 0.16, harmony: 0.1, octave: 0, pump: 0.06, riser: 0.14, stabs: false, ostinato: 0.28, brass: 0.05, bell: 0.32, choir: 0.34, sub: 0.32, toms: 0.12 }),
+  interlude: Object.freeze({ crash: 0.08, harmony: 0.2, octave: 0.08, pump: 0.04, riser: 0.54, stabs: false, ostinato: 0.16, brass: 0.04, bell: 0.48, choir: 0.52, sub: 0.12, toms: 0.2 }),
+  'drift-b': Object.freeze({ crash: 0.36, harmony: 0.38, octave: 0.18, pump: 0.12, riser: 0.34, stabs: false, ostinato: 0.48, brass: 0.14, bell: 0.42, choir: 0.58, sub: 0.48, toms: 0.28 }),
 });
 
 const DRUM_FLOURISH = Object.freeze({
@@ -129,14 +136,80 @@ const DRUM_FLOURISH = Object.freeze({
   tribal: 0.72,
 });
 
+function orchestraPalette(options) {
+  return Object.freeze({
+    ostinatoGain: 0.026,
+    ostinatoWave: 'triangle',
+    brassGain: 0.026,
+    brassWave: 'sawtooth',
+    bellGain: 0.018,
+    bellWave: 'sine',
+    choirGain: 0.018,
+    choirWave: 'triangle',
+    subGain: 0.042,
+    tomGain: 0.034,
+    ...options,
+  });
+}
+
+const ORCHESTRATION_PALETTES = Object.freeze({
+  ambient: orchestraPalette({
+    ostinatoGain: 0.014, brassGain: 0.009, bellGain: 0.022,
+    choirGain: 0.028, subGain: 0.034, tomGain: 0.018,
+  }),
+  cinematic: orchestraPalette({
+    ostinatoGain: 0.035, ostinatoWave: 'sawtooth', brassGain: 0.045,
+    bellGain: 0.012, choirGain: 0.022, subGain: 0.055, tomGain: 0.042,
+  }),
+  curious: orchestraPalette({
+    ostinatoGain: 0.022, brassGain: 0.018, bellGain: 0.025,
+    choirGain: 0.012, subGain: 0.032, tomGain: 0.026,
+  }),
+  digital: orchestraPalette({
+    ostinatoGain: 0.035, ostinatoWave: 'square', brassGain: 0.022,
+    brassWave: 'square', bellGain: 0.024, choirGain: 0.012,
+    subGain: 0.052, tomGain: 0.034,
+  }),
+  drive: orchestraPalette({
+    ostinatoGain: 0.04, ostinatoWave: 'sawtooth', brassGain: 0.036,
+    bellGain: 0.018, choirGain: 0.012, subGain: 0.06, tomGain: 0.045,
+  }),
+  duel: orchestraPalette({
+    ostinatoGain: 0.032, brassGain: 0.034, bellGain: 0.018,
+    choirGain: 0.016, subGain: 0.052, tomGain: 0.038,
+  }),
+  march: orchestraPalette({
+    ostinatoGain: 0.034, ostinatoWave: 'sawtooth', brassGain: 0.048,
+    bellGain: 0.012, choirGain: 0.022, subGain: 0.052, tomGain: 0.052,
+  }),
+  rail: orchestraPalette({
+    ostinatoGain: 0.03, brassGain: 0.025, bellGain: 0.018,
+    choirGain: 0.014, subGain: 0.046, tomGain: 0.032,
+  }),
+  shuffle: orchestraPalette({
+    ostinatoGain: 0.026, brassGain: 0.019, bellGain: 0.03,
+    choirGain: 0.014, subGain: 0.034, tomGain: 0.026,
+  }),
+  tribal: orchestraPalette({
+    ostinatoGain: 0.018, brassGain: 0.016, bellGain: 0.014,
+    choirGain: 0.026, subGain: 0.044, tomGain: 0.052,
+  }),
+});
+
 function section(id, label, bars, options = {}) {
   return Object.freeze({
+    bell: 0,
+    brass: 0,
+    choir: 0,
     crash: 0,
     harmony: 0,
     octave: 0,
+    ostinato: 0,
     pump: 0,
     riser: 0,
     stabs: false,
+    sub: 0,
+    toms: 0,
     ...(SECTION_FLOURISHES[id] || {}),
     id,
     label,
@@ -152,6 +225,7 @@ const ARRANGEMENTS = Object.freeze({
     section('break', '브레이크', 2, { lead: false, counter: true, bass: false, arp: true, pad: true, drums: 0.28, energy: 0.42, chords: 'b' }),
     section('theme-b', 'B 테마', 4, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 1, energy: 1, chords: 'b' }),
     section('return', '리프라이즈', 2, { lead: 'a', counter: true, bass: true, arp: false, pad: true, drums: 0.88, energy: 0.9, chords: 'a' }),
+    section('climax', '클라이맥스', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 1.05, energy: 1.06, chords: 'b', fill: true }),
     section('finale', '피날레', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 1.08, energy: 1.08, chords: 'b', fill: true }),
   ]),
   playful: Object.freeze([
@@ -160,6 +234,7 @@ const ARRANGEMENTS = Object.freeze({
     section('turn', '전환', 1, { lead: false, counter: true, bass: false, arp: true, pad: false, drums: 0.42, energy: 0.56, chords: 'b' }),
     section('theme-b', 'B 테마', 4, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.9, energy: 0.96, chords: 'b' }),
     section('break', '브레이크', 2, { lead: 'a', counter: false, bass: false, arp: true, pad: true, drums: 0.26, energy: 0.48, chords: 'a' }),
+    section('climax', '클라이맥스', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.96, energy: 1.02, chords: 'b', fill: true }),
     section('finale', '피날레', 4, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 1, energy: 1.04, chords: 'b', fill: true }),
   ]),
   ambient: Object.freeze([
@@ -167,6 +242,7 @@ const ARRANGEMENTS = Object.freeze({
     section('drift-a', 'A 흐름', 4, { lead: 'a', counter: false, bass: true, arp: true, pad: true, drums: 0.36, energy: 0.58, chords: 'a' }),
     section('interlude', '간주', 2, { lead: false, counter: true, bass: false, arp: true, pad: true, drums: 0.12, energy: 0.34, chords: 'b' }),
     section('drift-b', 'B 흐름', 4, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.42, energy: 0.68, chords: 'b' }),
+    section('climax', '물결 고조', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.48, energy: 0.78, chords: 'b', fill: true }),
     section('return', '귀환', 4, { lead: 'a', counter: true, bass: true, arp: false, pad: true, drums: 0.28, energy: 0.54, chords: 'a', fill: true }),
   ]),
   steady: Object.freeze([
@@ -175,6 +251,7 @@ const ARRANGEMENTS = Object.freeze({
     section('bridge', '브리지', 2, { lead: false, counter: true, bass: true, arp: false, pad: true, drums: 0.34, energy: 0.48, chords: 'b' }),
     section('theme-b', 'B 테마', 4, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.76, energy: 0.84, chords: 'b' }),
     section('return', '리프라이즈', 2, { lead: 'a', counter: true, bass: true, arp: true, pad: true, drums: 0.68, energy: 0.76, chords: 'a' }),
+    section('climax', '클라이맥스', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.82, energy: 0.9, chords: 'b', fill: true }),
     section('finale', '마감', 2, { lead: 'b', counter: true, bass: true, arp: false, pad: true, drums: 0.86, energy: 0.92, chords: 'b', fill: true }),
   ]),
 });
@@ -199,6 +276,12 @@ function profile(options) {
   const lead = freezePattern(options.lead);
   const arrangement = ARRANGEMENTS[options.arrangement || 'steady'] || ARRANGEMENTS.steady;
   const drumStyle = options.drumStyle || 'cinematic';
+  const orchestrationBase = ORCHESTRATION_PALETTES[options.orchestrationStyle || drumStyle]
+    || ORCHESTRATION_PALETTES.cinematic;
+  const orchestration = Object.freeze({
+    ...orchestrationBase,
+    ...(options.orchestration || {}),
+  });
   const chordRoots = Object.freeze([...(options.chordRoots || [0, 3, 1, 4])]);
   const chordRootsB = Object.freeze([...(options.chordRootsB || [...chordRoots.slice(1), chordRoots[0]])]);
   return Object.freeze({
@@ -222,6 +305,11 @@ function profile(options) {
     bassOctave: -1,
     arpOctave: 1,
     padOctave: 0,
+    ostinatoOctave: 0,
+    brassOctave: 0,
+    bellOctave: 2,
+    choirOctave: 0,
+    subOctave: -2,
     leadLength: 1.85,
     counterLength: 1.35,
     arpLength: 0.72,
@@ -250,6 +338,7 @@ function profile(options) {
     chordVoicing: Object.freeze([...(options.chordVoicing || [0, 2, 4])]),
     arrangement,
     drums: DRUM_GROOVES[drumStyle] || DRUM_GROOVES.cinematic,
+    orchestration,
   });
 }
 
