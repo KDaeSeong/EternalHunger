@@ -7,6 +7,7 @@ import {
   equipmentInventoryRows,
   equipmentInventorySummary,
   equipmentPresetRows,
+  enhancePlanForSlot,
   getEquippedEquipment,
   getEquippedList,
   getLeader,
@@ -63,8 +64,9 @@ export function buildSchaleIdlePlayViewModel({
   const leader = getLeader(state);
   const selectedRecipe = RECIPES.find((item) => item.id === recipeId) || RECIPES[0];
   const selectedRecipePlan = recipeCostPlan(state, selectedRecipe.id);
-  const selectedSlot = enhanceSlot || enhanceSlots[0] || '';
+  const selectedSlot = enhanceSlots.includes(enhanceSlot) ? enhanceSlot : enhanceSlots[0] || '';
   const selectedEquip = selectedSlot ? getEquippedEquipment(state, selectedSlot) : null;
+  const selectedEnhancePlan = selectedSlot ? enhancePlanForSlot(state, selectedSlot) : null;
   const power = teamPower(state);
   const score = scoreState(state);
   const claimableAchievements = achievements.filter((achievement) => achievement.canClaim).length;
@@ -99,6 +101,7 @@ export function buildSchaleIdlePlayViewModel({
     seasonReport,
     seasonRewards,
     selectedEquip,
+    selectedEnhancePlan,
     selectedPreset,
     selectedRecipe,
     selectedRecipePlan,

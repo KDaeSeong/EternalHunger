@@ -78,6 +78,7 @@ export default function SchaleIdlePlayPage() {
     seasonReport,
     seasonRewards,
     selectedEquip,
+    selectedEnhancePlan,
     selectedPreset,
     selectedRecipe,
     selectedRecipePlan,
@@ -224,6 +225,7 @@ export default function SchaleIdlePlayPage() {
         seasonReport={seasonReport}
         seasonRewards={seasonRewards}
         selectedEquip={selectedEquip}
+        selectedEnhancePlan={selectedEnhancePlan}
         selectedPreset={selectedPreset}
         selectedRecipe={selectedRecipe}
         selectedRecipePlan={selectedRecipePlan}

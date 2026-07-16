@@ -40,6 +40,10 @@ export function schaleIdleFeedbackPresentation(value) {
   else if (/재정비/.test(detail)) presentation = { action: 'rest', cue: 'rest', label: '재정비 완료', tone: 'success' };
   else if (/제작.*완료/.test(detail)) presentation = { action: 'craft', cue: 'craftComplete', label: '제작 완료', tone: 'success' };
   else if (/제작.*(?:실패|부족)/.test(detail)) presentation = { action: 'craft', cue: 'warning', label: '제작 불가', tone: 'warning' };
+  else if (/하드 천장 발동/.test(detail)) presentation = { action: 'enhance-pity', cue: 'enhancePity', label: '강화 천장 성공', tone: 'success' };
+  else if (/강화 실패.*패널티 방지/.test(detail)) presentation = { action: 'enhance-protected', cue: 'enhanceProtected', label: '보호권 발동', tone: 'highlight' };
+  else if (/강화 실패.*장비 파괴/.test(detail)) presentation = { action: 'enhance-destroyed', cue: 'enhanceDestroyed', label: '장비 파괴', tone: 'danger' };
+  else if (/강화 실패.*하락/.test(detail)) presentation = { action: 'enhance-downgrade', cue: 'enhanceDowngrade', label: '강화 단계 하락', tone: 'warning' };
   else if (/강화.*성공/.test(detail)) presentation = { action: 'upgrade', cue: 'enhanceSuccess', label: '장비 강화 성공', tone: 'success' };
   else if (/강화.*(?:실패|부족|없습니다)/.test(detail)) presentation = { action: 'upgrade', cue: 'enhanceFail', label: '장비 강화 실패', tone: 'danger' };
   else if (/옵션 재련.*완료/.test(detail)) presentation = { action: 'reroll', cue: 'reroll', label: '옵션 재련 완료', tone: 'success' };
@@ -81,6 +85,15 @@ export function schaleIdleResultCue(previous, next) {
   }
 
   if (counter(next, 'ENHANCE_TRY') > counter(previous, 'ENHANCE_TRY')) {
+    const outcomeCue = {
+      pity_success: 'enhancePity',
+      protected: 'enhanceProtected',
+      downgrade: 'enhanceDowngrade',
+      destroyed: 'enhanceDestroyed',
+      success: 'enhanceSuccess',
+      failed_stable: 'enhanceFail',
+    }[next.lastEnhanceResult?.outcome];
+    if (outcomeCue) return outcomeCue;
     return counter(next, 'ENHANCE_SUCCESS') > counter(previous, 'ENHANCE_SUCCESS')
       ? 'enhanceSuccess'
       : 'enhanceFail';

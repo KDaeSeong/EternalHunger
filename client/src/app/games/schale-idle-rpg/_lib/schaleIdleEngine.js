@@ -19,6 +19,7 @@ import {
   AFFIX_TEMPLATES,
   TITLES,
   ACHIEVEMENTS,
+  ENHANCE_RULES,
 } from './schaleIdleData';
 
 export {
@@ -44,9 +45,25 @@ export {
   AFFIX_TEMPLATES,
   TITLES,
   ACHIEVEMENTS,
+  ENHANCE_RULES,
 } from './schaleIdleData';
 
 const MAX_SALVAGE_QUEUE = 160;
+const ENHANCE_RULE_LOOKUP = Object.fromEntries(ENHANCE_RULES.map((rule) => [rule.itemId, rule]));
+const ENHANCE_PROTECTION_PREFERENCES = new Set(['AUTO', 'ALL_ONLY', 'DOWNGRADE_ONLY', 'DESTROY_ONLY']);
+const ENHANCE_PITY_POLICIES = new Set(['KEEP', 'DECAY_1', 'RESET']);
+const ENHANCE_PROTECTION_ITEM_IDS = [
+  'itm_protect_charm',
+  'itm_protect_downgrade',
+  'itm_protect_destroy',
+  'itm_protect_ticket',
+];
+
+export const ENHANCE_PENALTY_LABELS = {
+  NONE: '강화 수치 유지',
+  DOWNGRADE_1: '1단계 하락',
+  DESTROY: '장비 파괴',
+};
 
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
@@ -69,6 +86,11 @@ export function createNewState(options = {}) {
     equipmentInventory: {},
     equipmentPresets: [],
     activePresetId: '',
+    autoUseProtectionTicket: true,
+    protectionPreference: 'AUTO',
+    pityPolicyOnProtection: 'KEEP',
+    enhanceFailStreakByUid: {},
+    lastEnhanceResult: null,
     inventory: {
       itm_scrap: 80,
       itm_bandage: 12,
@@ -150,6 +172,15 @@ export function normalizeState(value) {
     equipmentInventory: equipmentState.equipmentInventory,
     equipmentPresets: normalizeEquipmentPresets(value.equipmentPresets),
     activePresetId: typeof value.activePresetId === 'string' ? value.activePresetId : '',
+    autoUseProtectionTicket: value.autoUseProtectionTicket === undefined
+      ? base.autoUseProtectionTicket
+      : Boolean(value.autoUseProtectionTicket),
+    protectionPreference: normalizeEnhanceProtectionPreference(value.protectionPreference),
+    pityPolicyOnProtection: normalizeEnhancePityPolicy(value.pityPolicyOnProtection),
+    enhanceFailStreakByUid: normalizeEnhanceFailStreaks(value.enhanceFailStreakByUid, equipmentState.equipmentInventory),
+    lastEnhanceResult: value.lastEnhanceResult && typeof value.lastEnhanceResult === 'object'
+      ? { ...value.lastEnhanceResult }
+      : base.lastEnhanceResult,
     salvageQueue: normalizeSalvageQueue(value.salvageQueue, equipmentState),
     salvageSettings: normalizeSalvageSettings(value.salvageSettings, base.salvageSettings),
     towerShop,
@@ -168,6 +199,22 @@ export function normalizeState(value) {
     offlineLastSummary: value.offlineLastSummary && typeof value.offlineLastSummary === 'object' ? value.offlineLastSummary : base.offlineLastSummary,
     log: Array.isArray(value.log) ? value.log.slice(0, 90) : base.log,
   };
+}
+
+function normalizeEnhanceProtectionPreference(value) {
+  return ENHANCE_PROTECTION_PREFERENCES.has(value) ? value : 'AUTO';
+}
+
+function normalizeEnhancePityPolicy(value) {
+  return ENHANCE_PITY_POLICIES.has(value) ? value : 'KEEP';
+}
+
+function normalizeEnhanceFailStreaks(value, equipmentInventory = {}) {
+  if (!value || typeof value !== 'object') return {};
+  return Object.fromEntries(Object.entries(value)
+    .filter(([uid]) => Boolean(equipmentInventory?.[uid]))
+    .map(([uid, amount]) => [uid, Math.max(0, Math.floor(Number(amount || 0)))])
+    .filter(([, amount]) => amount > 0));
 }
 
 export function getItem(id) {
@@ -1271,47 +1318,349 @@ export function craftRecipeAction(state, recipeId) {
   }, { CRAFT: 1 }), message);
 }
 
+export function getEnhanceRule(equipment) {
+  const itemId = typeof equipment === 'string' ? equipment : equipment?.itemId;
+  const rarity = typeof equipment === 'object' ? equipment?.rarity : getItem(itemId)?.rarity;
+  return ENHANCE_RULE_LOOKUP[itemId] || {
+    itemId,
+    maxLevel: 10,
+    baseCredit: rarity === 'EPIC' ? 160 : rarity === 'RARE' ? 125 : 85,
+    creditGrowth: rarity === 'EPIC' ? 1.2 : 1.18,
+    requiresPerTry: { itm_enhance_stone: rarity === 'EPIC' ? 2 : 1 },
+    scrapPerLevel: rarity === 'EPIC' ? 10 : rarity === 'RARE' ? 8 : 6,
+    successBase: rarity === 'EPIC' ? 0.8 : rarity === 'RARE' ? 0.86 : 0.9,
+    successDecay: rarity === 'EPIC' ? 0.03 : 0.02,
+    failPenalty: 'DOWNGRADE_1',
+    pityPerFail: 0.03,
+    pityMaxBonus: 0.18,
+    hardPityAt: 10,
+  };
+}
+
+export function calcEnhanceCost(rule, nextLevel) {
+  const level = Math.max(1, Math.floor(Number(nextLevel || 1)));
+  const items = { ...(rule.requiresPerTry || {}) };
+  if (Number(rule.scrapPerLevel || 0) > 0) {
+    items.itm_scrap = Number(items.itm_scrap || 0) + Number(rule.scrapPerLevel || 0) * level;
+  }
+  return {
+    credits: Math.floor(Number(rule.baseCredit || 0) * Math.pow(Number(rule.creditGrowth || 1), level - 1)),
+    items,
+  };
+}
+
+export function calcEnhanceBaseChance(rule, currentLevel) {
+  return clamp(
+    Number(rule.successBase || 0) - Number(rule.successDecay || 0) * Math.max(0, Number(currentLevel || 0)),
+    0.35,
+    0.95,
+  );
+}
+
+export function calcEnhancePityBonus(rule, failStreak) {
+  return clamp(
+    Number(rule.pityPerFail ?? 0.03) * Math.max(0, Math.floor(Number(failStreak || 0))),
+    0,
+    Number(rule.pityMaxBonus ?? 0.18),
+  );
+}
+
+export function calcEnhanceSuccessChance(rule, currentLevel, failStreak) {
+  return clamp(
+    calcEnhanceBaseChance(rule, currentLevel) + calcEnhancePityBonus(rule, failStreak),
+    0.35,
+    0.99,
+  );
+}
+
+export function pickEnhanceProtectionItem(penalty, inventory = {}, preference = 'AUTO') {
+  const normalizedPreference = normalizeEnhanceProtectionPreference(preference);
+  const has = (itemId) => Number(inventory?.[itemId] || 0) > 0;
+  if (normalizedPreference === 'ALL_ONLY') return has('itm_protect_ticket') ? 'itm_protect_ticket' : '';
+  if (normalizedPreference === 'DOWNGRADE_ONLY') {
+    if (penalty !== 'DOWNGRADE_1') return '';
+    if (has('itm_protect_charm')) return 'itm_protect_charm';
+    return has('itm_protect_downgrade') ? 'itm_protect_downgrade' : '';
+  }
+  if (normalizedPreference === 'DESTROY_ONLY') {
+    return penalty === 'DESTROY' && has('itm_protect_destroy') ? 'itm_protect_destroy' : '';
+  }
+  if (penalty === 'DOWNGRADE_1') {
+    return ['itm_protect_charm', 'itm_protect_downgrade', 'itm_protect_ticket'].find(has) || '';
+  }
+  if (penalty === 'DESTROY') {
+    return ['itm_protect_destroy', 'itm_protect_ticket'].find(has) || '';
+  }
+  return '';
+}
+
+function buildEnhancePlan(current, slot) {
+  const uid = current.equipment?.[slot] || '';
+  const equipment = uid ? current.equipmentInventory?.[uid] || null : null;
+  if (!equipment) {
+    return {
+      slot,
+      uid: '',
+      equipment: null,
+      materialRows: [],
+      protectionRows: ENHANCE_PROTECTION_ITEM_IDS.map((itemId) => ({
+        itemId,
+        name: itemName(itemId),
+        current: Number(current.inventory?.[itemId] || 0),
+        selected: false,
+      })),
+      canAttempt: false,
+      shortageText: '강화할 장비가 없습니다.',
+    };
+  }
+
+  const rule = getEnhanceRule(equipment);
+  const level = Math.max(0, Math.floor(Number(equipment.enhance || 0)));
+  const nextLevel = level + 1;
+  const maxLevel = Math.max(1, Math.floor(Number(rule.maxLevel || 10)));
+  const failStreak = Math.max(0, Math.floor(Number(current.enhanceFailStreakByUid?.[uid] || 0)));
+  const hardPityAt = Math.max(1, Math.floor(Number(rule.hardPityAt ?? 10)));
+  const guaranteed = failStreak >= hardPityAt;
+  const baseChance = calcEnhanceBaseChance(rule, level);
+  const pityBonus = calcEnhancePityBonus(rule, failStreak);
+  const rolledChance = calcEnhanceSuccessChance(rule, level, failStreak);
+  const successChance = guaranteed ? 1 : rolledChance;
+  const cost = calcEnhanceCost(rule, nextLevel);
+  const materialRows = Object.entries(cost.items).map(([itemId, required]) => {
+    const currentQty = Number(current.inventory?.[itemId] || 0);
+    return {
+      itemId,
+      name: itemName(itemId),
+      current: currentQty,
+      required: Number(required || 0),
+      met: currentQty >= Number(required || 0),
+    };
+  });
+  const creditReady = Number(current.credits || 0) >= cost.credits;
+  const materialsReady = materialRows.every((row) => row.met);
+  const atMax = level >= maxLevel;
+  const penalty = rule.failPenalty || 'DOWNGRADE_1';
+  const protectionItemId = current.autoUseProtectionTicket && penalty !== 'NONE'
+    ? pickEnhanceProtectionItem(penalty, current.inventory, current.protectionPreference)
+    : '';
+  const shortageParts = [];
+  if (atMax) shortageParts.push('최대 강화 단계');
+  if (!creditReady) shortageParts.push(`크레딧 ${Math.max(0, cost.credits - Number(current.credits || 0)).toLocaleString('ko-KR')} Cr`);
+  materialRows.filter((row) => !row.met).forEach((row) => {
+    shortageParts.push(`${row.name} ${Math.max(0, row.required - row.current)}개`);
+  });
+
+  return {
+    slot,
+    uid,
+    equipment,
+    rule,
+    level,
+    nextLevel,
+    maxLevel,
+    atMax,
+    failStreak,
+    hardPityAt,
+    hardPityRemaining: guaranteed ? 0 : Math.max(0, hardPityAt - failStreak),
+    guaranteed,
+    baseChance,
+    baseChancePct: Math.round(baseChance * 1000) / 10,
+    pityBonus,
+    pityBonusPct: Math.round(pityBonus * 1000) / 10,
+    successChance,
+    successChancePct: Math.round(successChance * 1000) / 10,
+    penalty,
+    penaltyLabel: ENHANCE_PENALTY_LABELS[penalty] || penalty,
+    creditCost: cost.credits,
+    creditReady,
+    materialRows,
+    materialsReady,
+    protectionItemId,
+    protectionItemName: protectionItemId ? itemName(protectionItemId) : '',
+    protectionRows: ENHANCE_PROTECTION_ITEM_IDS.map((itemId) => ({
+      itemId,
+      name: itemName(itemId),
+      current: Number(current.inventory?.[itemId] || 0),
+      selected: itemId === protectionItemId,
+    })),
+    canAttempt: !atMax && creditReady && materialsReady,
+    shortageText: shortageParts.join(', ') || '강화 가능',
+  };
+}
+
+export function enhancePlanForSlot(state, slot) {
+  return buildEnhancePlan(normalizeState(state), slot);
+}
+
+export function setEnhanceSettingsAction(state, patch = {}) {
+  const current = normalizeState(state);
+  return {
+    ...current,
+    autoUseProtectionTicket: Object.hasOwn(patch, 'autoUseProtectionTicket')
+      ? Boolean(patch.autoUseProtectionTicket)
+      : current.autoUseProtectionTicket,
+    protectionPreference: Object.hasOwn(patch, 'protectionPreference')
+      ? normalizeEnhanceProtectionPreference(patch.protectionPreference)
+      : current.protectionPreference,
+    pityPolicyOnProtection: Object.hasOwn(patch, 'pityPolicyOnProtection')
+      ? normalizeEnhancePityPolicy(patch.pityPolicyOnProtection)
+      : current.pityPolicyOnProtection,
+  };
+}
+
+function applyEnhanceProtectionPityPolicy(failMap, uid, previousStreak, policy) {
+  if (policy === 'RESET') {
+    delete failMap[uid];
+    return 0;
+  }
+  if (policy === 'DECAY_1') {
+    const nextStreak = Math.max(0, previousStreak - 1);
+    if (nextStreak > 0) failMap[uid] = nextStreak;
+    else delete failMap[uid];
+    return nextStreak;
+  }
+  const nextStreak = previousStreak + 1;
+  failMap[uid] = nextStreak;
+  return nextStreak;
+}
+
+function removeEquipmentUidFromPresets(presets, uid) {
+  return normalizeEquipmentPresets(presets).map((preset) => ({
+    ...preset,
+    equipment: Object.fromEntries(Object.entries(preset.equipment || {}).filter(([, savedUid]) => savedUid !== uid)),
+  }));
+}
+
 export function enhanceEquipmentAction(state, slot) {
   const current = normalizeState(state);
-  const uid = current.equipment[slot];
-  const equip = uid ? current.equipmentInventory[uid] : null;
+  const plan = buildEnhancePlan(current, slot);
+  const equip = plan.equipment;
   if (!equip) return addLog(current, `${slotLabel(slot)} 슬롯에 강화할 장비가 없습니다.`);
-  const level = Number(equip.enhance || 0);
-  const costCredits = 70 + level * 35;
-  const costStones = 1 + Math.floor(level / 3);
-  if (Number(current.credits || 0) < costCredits) return addLog(current, '강화 실패. 크레딧이 부족합니다.');
-  if (Number(current.inventory.itm_enhance_stone || 0) < costStones) return addLog(current, '강화 실패. 강화석이 부족합니다.');
+  if (plan.atMax) return addLog(current, `${equip.name}은 +${plan.maxLevel} 최대 강화 단계입니다.`);
+  if (!plan.canAttempt) return addLog(current, `강화 실패. 부족: ${plan.shortageText}.`);
 
-  const rng = createRng(`${current.runId}|enhance|${slot}|${level}|${current.counters.ENHANCE_TRY}`);
-  const chance = clamp(0.82 - level * 0.045, 0.22, 0.9);
-  const success = rng() < chance;
-  let inventory = addItem(current.inventory, 'itm_enhance_stone', -costStones);
-  let nextEquip = success ? { ...equip, enhance: level + 1 } : equip;
-  let penaltyText = '';
-  if (!success && level >= 5) {
-    const protectItem = ['itm_protect_ticket', 'itm_protect_downgrade', 'itm_protect_charm']
-      .find((itemId) => Number(inventory[itemId] || 0) > 0);
-    if (protectItem) {
-      inventory = addItem(inventory, protectItem, -1);
-      penaltyText = ` ${itemName(protectItem)}로 하락을 막았습니다.`;
-    } else {
-      nextEquip = { ...equip, enhance: Math.max(0, level - 1) };
-      penaltyText = ` 실패 패널티로 +${nextEquip.enhance}까지 하락했습니다.`;
-    }
+  const attemptId = Number(current.counters.ENHANCE_TRY || 0) + 1;
+  const rng = createRng(`${current.runId}|enhance|${plan.uid}|${plan.level}|${current.counters.ENHANCE_TRY}`);
+  const success = plan.guaranteed || rng() < plan.successChance;
+  let inventory = spendItems(current.inventory, Object.fromEntries(plan.materialRows.map((row) => [row.itemId, row.required])));
+  const failMap = { ...current.enhanceFailStreakByUid };
+  const counters = {
+    ...bumpCounter(current.counters, 'ENHANCE_TRY', 1),
+    ENHANCE_SUCCESS: Number(current.counters.ENHANCE_SUCCESS || 0) + (success ? 1 : 0),
+  };
+  const baseResult = {
+    attemptId,
+    uid: plan.uid,
+    itemId: equip.itemId,
+    slot,
+    fromLevel: plan.level,
+    chancePct: plan.successChancePct,
+    baseChancePct: plan.baseChancePct,
+    pityBonusPct: plan.pityBonusPct,
+    failStreakBefore: plan.failStreak,
+    penalty: plan.penalty,
+    protectionItemId: '',
+    guaranteed: plan.guaranteed,
+  };
+  const chanceText = `성공률 ${plan.successChancePct}% (기본 ${plan.baseChancePct}% + 누적 ${plan.pityBonusPct}%p)`;
+
+  if (success) {
+    delete failMap[plan.uid];
+    const nextEquip = { ...equip, enhance: plan.nextLevel };
+    const outcome = plan.guaranteed ? 'pity_success' : 'success';
+    const message = plan.guaranteed
+      ? `${equip.name} +${plan.level} 강화 성공. 하드 천장 발동으로 +${plan.nextLevel} 달성. ${chanceText}`
+      : `${equip.name} +${plan.level} 강화 성공. +${plan.nextLevel} 달성. ${chanceText}`;
+    return addLog(addLifetimeCounters({
+      ...current,
+      credits: Number(current.credits || 0) - plan.creditCost,
+      inventory,
+      equipmentInventory: { ...current.equipmentInventory, [plan.uid]: nextEquip },
+      enhanceFailStreakByUid: failMap,
+      lastEnhanceResult: {
+        ...baseResult,
+        toLevel: plan.nextLevel,
+        outcome,
+        failStreakAfter: 0,
+      },
+      counters,
+    }, { ENHANCE_TRY: 1, ENHANCE_SUCCESS: 1 }), message);
   }
+
+  const protectionItemId = current.autoUseProtectionTicket
+    ? pickEnhanceProtectionItem(plan.penalty, inventory, current.protectionPreference)
+    : '';
+  if (protectionItemId) {
+    inventory = addItem(inventory, protectionItemId, -1);
+    const failStreakAfter = applyEnhanceProtectionPityPolicy(
+      failMap,
+      plan.uid,
+      plan.failStreak,
+      current.pityPolicyOnProtection,
+    );
+    return addLog(addLifetimeCounters({
+      ...current,
+      credits: Number(current.credits || 0) - plan.creditCost,
+      inventory,
+      enhanceFailStreakByUid: failMap,
+      lastEnhanceResult: {
+        ...baseResult,
+        toLevel: plan.level,
+        outcome: 'protected',
+        protectionItemId,
+        failStreakAfter,
+      },
+      counters,
+    }, { ENHANCE_TRY: 1 }), `${equip.name} +${plan.level} 강화 실패. ${itemName(protectionItemId)} 사용으로 ${plan.penaltyLabel} 패널티 방지. +${plan.level} 유지. ${chanceText}`);
+  }
+
+  if (plan.penalty === 'DESTROY') {
+    delete failMap[plan.uid];
+    const equipmentInventory = { ...current.equipmentInventory };
+    delete equipmentInventory[plan.uid];
+    const equipment = Object.fromEntries(Object.entries(current.equipment).filter(([, uid]) => uid !== plan.uid));
+    return addLog(addLifetimeCounters({
+      ...current,
+      credits: Number(current.credits || 0) - plan.creditCost,
+      inventory,
+      equipment,
+      equipmentInventory,
+      equipmentPresets: removeEquipmentUidFromPresets(current.equipmentPresets, plan.uid),
+      activePresetId: '',
+      salvageQueue: current.salvageQueue.filter((entry) => entry.uid !== plan.uid),
+      enhanceFailStreakByUid: failMap,
+      lastEnhanceResult: {
+        ...baseResult,
+        toLevel: null,
+        outcome: 'destroyed',
+        failStreakAfter: 0,
+      },
+      counters,
+    }, { ENHANCE_TRY: 1 }), `${equip.name} +${plan.level} 강화 실패. 장비 파괴. ${chanceText}`);
+  }
+
+  const nextLevel = plan.penalty === 'DOWNGRADE_1' ? Math.max(0, plan.level - 1) : plan.level;
+  const outcome = nextLevel < plan.level ? 'downgrade' : 'failed_stable';
+  const failStreakAfter = plan.failStreak + 1;
+  failMap[plan.uid] = failStreakAfter;
+  const nextEquip = { ...equip, enhance: nextLevel };
+  const message = outcome === 'downgrade'
+    ? `${equip.name} +${plan.level} 강화 실패. 실패 패널티로 +${nextLevel}까지 하락. ${chanceText}`
+    : `${equip.name} +${plan.level} 강화 실패. 강화 수치 유지. ${chanceText}`;
   return addLog(addLifetimeCounters({
     ...current,
-    credits: Number(current.credits || 0) - costCredits,
+    credits: Number(current.credits || 0) - plan.creditCost,
     inventory,
-    equipmentInventory: { ...current.equipmentInventory, [uid]: nextEquip },
-    counters: {
-      ...bumpCounter(current.counters, 'ENHANCE_TRY', 1),
-      ENHANCE_SUCCESS: Number(current.counters.ENHANCE_SUCCESS || 0) + (success ? 1 : 0),
+    equipmentInventory: { ...current.equipmentInventory, [plan.uid]: nextEquip },
+    enhanceFailStreakByUid: failMap,
+    lastEnhanceResult: {
+      ...baseResult,
+      toLevel: nextLevel,
+      outcome,
+      failStreakAfter,
     },
-  }, {
-    ENHANCE_TRY: 1,
-    ENHANCE_SUCCESS: success ? 1 : 0,
-  }), `${equip.name} +${level} 강화 ${success ? `성공. +${level + 1}` : `실패.${penaltyText}`} 성공률 ${Math.round(chance * 100)}%`);
+    counters,
+  }, { ENHANCE_TRY: 1 }), message);
 }
 
 export function rerollEquipmentAction(state, slot) {

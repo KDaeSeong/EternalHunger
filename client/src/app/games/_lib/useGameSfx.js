@@ -1237,6 +1237,28 @@ const CUE_PROFILES = {
     { frequency: 620, duration: 0.035, type: 'triangle', gain: 0.048 },
     { frequency: 1040, start: 0.032, duration: 0.075, type: 'sine', gain: 0.04 },
   ],
+  enhancePity: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, q: 1.7, duration: 0.055, gain: 0.035 },
+    { frequency: 520, duration: 0.045, type: 'triangle', gain: 0.05 },
+    { frequency: 780, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.048 },
+    { frequency: 1170, start: 0.095, duration: 0.12, type: 'sine', gain: 0.042 },
+  ],
+  enhanceProtected: [
+    { source: 'noise', filterType: 'bandpass', frequency: 720, q: 2.3, duration: 0.045, gain: 0.05 },
+    { frequency: 245, endFrequency: 195, duration: 0.055, type: 'square', gain: 0.034 },
+    { frequency: 760, start: 0.052, duration: 0.075, type: 'triangle', gain: 0.045 },
+    { frequency: 1140, start: 0.11, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
+  enhanceDowngrade: [
+    { source: 'noise', filterType: 'lowpass', frequency: 680, duration: 0.055, gain: 0.05 },
+    { frequency: 510, endFrequency: 360, duration: 0.075, type: 'triangle', gain: 0.045 },
+    { frequency: 290, endFrequency: 205, start: 0.06, duration: 0.105, type: 'sine', gain: 0.04 },
+  ],
+  enhanceDestroyed: [
+    { source: 'noise', filterType: 'lowpass', frequency: 360, duration: 0.12, gain: 0.09 },
+    { frequency: 150, endFrequency: 72, duration: 0.18, type: 'sawtooth', gain: 0.055 },
+    { frequency: 92, endFrequency: 54, start: 0.08, duration: 0.2, type: 'sine', gain: 0.045 },
+  ],
   enhanceFail: [
     { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.065, gain: 0.06 },
     { frequency: 230, endFrequency: 155, duration: 0.1, type: 'square', gain: 0.036 },

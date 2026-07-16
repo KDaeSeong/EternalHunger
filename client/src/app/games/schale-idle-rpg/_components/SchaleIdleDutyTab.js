@@ -13,6 +13,7 @@ import {
   rerollEquipmentAction,
   resolveDutyAction,
   restAction,
+  setEnhanceSettingsAction,
   slotLabel,
 } from '../_lib/schaleIdleEngine';
 
@@ -26,6 +27,7 @@ export default function SchaleIdleDutyTab(props) {
     runAutoSalvage,
     salvageInfo,
     selectedEquip,
+    selectedEnhancePlan,
     selectedRecipe,
     selectedRecipePlan,
     selectedSlot,
@@ -187,6 +189,93 @@ export default function SchaleIdleDutyTab(props) {
                 {enhanceSlots.length ? enhanceSlots.map((slot) => <option value={slot} key={slot}>{slotLabel(slot)}</option>) : <option value="">장비 없음</option>}
               </select>
             </label>
+            {selectedEnhancePlan?.equipment ? (
+              <div className="schale-enhance-console">
+                <div className="schale-enhance-summary">
+                  <span>
+                    <small>강화 단계</small>
+                    <strong>+{selectedEnhancePlan.level} → +{selectedEnhancePlan.nextLevel}</strong>
+                  </span>
+                  <span className={selectedEnhancePlan.guaranteed ? 'is-pity' : ''}>
+                    <small>성공률</small>
+                    <strong>{selectedEnhancePlan.successChancePct}%{selectedEnhancePlan.guaranteed ? ' 확정' : ''}</strong>
+                  </span>
+                  <span>
+                    <small>연속 실패</small>
+                    <strong>{selectedEnhancePlan.failStreak}회 · +{selectedEnhancePlan.pityBonusPct}%p</strong>
+                  </span>
+                  <span>
+                    <small>하드 천장</small>
+                    <strong>{selectedEnhancePlan.guaranteed ? '이번 시도 발동' : `${selectedEnhancePlan.hardPityRemaining}회 남음`}</strong>
+                  </span>
+                  <span className={selectedEnhancePlan.penalty === 'DESTROY' ? 'is-danger' : ''}>
+                    <small>실패 패널티</small>
+                    <strong>{selectedEnhancePlan.penaltyLabel}</strong>
+                  </span>
+                </div>
+                <div className="schale-enhance-materials" aria-label="강화 재료 보유량">
+                  <span className={selectedEnhancePlan.creditReady ? 'is-ready' : 'is-missing'}>
+                    크레딧 {Number(state.credits || 0).toLocaleString('ko-KR')}/{selectedEnhancePlan.creditCost.toLocaleString('ko-KR')}
+                  </span>
+                  {selectedEnhancePlan.materialRows.map((material) => (
+                    <span className={material.met ? 'is-ready' : 'is-missing'} key={material.itemId}>
+                      {material.name} {material.current}/{material.required}
+                    </span>
+                  ))}
+                </div>
+                <div className="schale-enhance-settings">
+                  <label className={`schale-enhance-toggle${state.autoUseProtectionTicket ? ' is-on' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={state.autoUseProtectionTicket}
+                      onChange={(event) => setState((current) => setEnhanceSettingsAction(current, { autoUseProtectionTicket: event.target.checked }))}
+                    />
+                    <span>실패 시 보호권 자동 사용</span>
+                  </label>
+                  <label>
+                    <span>보호권 우선순위</span>
+                    <select
+                      value={state.protectionPreference}
+                      disabled={!state.autoUseProtectionTicket}
+                      onChange={(event) => setState((current) => setEnhanceSettingsAction(current, { protectionPreference: event.target.value }))}
+                    >
+                      <option value="AUTO">전용권 우선</option>
+                      <option value="ALL_ONLY">만능권만</option>
+                      <option value="DOWNGRADE_ONLY">하락 방지만</option>
+                      <option value="DESTROY_ONLY">파괴 방지만</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>보호 발동 후 천장</span>
+                    <select
+                      value={state.pityPolicyOnProtection}
+                      disabled={!state.autoUseProtectionTicket}
+                      onChange={(event) => setState((current) => setEnhanceSettingsAction(current, { pityPolicyOnProtection: event.target.value }))}
+                    >
+                      <option value="KEEP">실패 누적 +1</option>
+                      <option value="DECAY_1">실패 누적 -1</option>
+                      <option value="RESET">실패 누적 초기화</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="schale-enhance-protection-stock">
+                  {selectedEnhancePlan.protectionRows.map((item) => (
+                    <span className={item.selected ? 'is-selected' : ''} key={item.itemId}>
+                      {item.name} {item.current}
+                    </span>
+                  ))}
+                </div>
+                <p className={`schale-enhance-risk${selectedEnhancePlan.protectionItemId ? ' is-protected' : ''}`}>
+                  {selectedEnhancePlan.penalty === 'NONE'
+                    ? '실패해도 강화 수치는 유지되며 천장만 누적됩니다.'
+                    : selectedEnhancePlan.protectionItemId
+                      ? `실패 시 ${selectedEnhancePlan.protectionItemName} 1개를 자동 사용합니다.`
+                      : state.autoUseProtectionTicket
+                        ? '현재 설정으로 사용할 수 있는 보호권이 없어 실패 패널티가 그대로 적용됩니다.'
+                        : '자동 보호가 꺼져 있어 실패 패널티가 그대로 적용됩니다.'}
+                </p>
+              </div>
+            ) : <div className="games-empty">강화할 장비를 먼저 제작하고 장착하세요.</div>}
             <div className="games-rank-split">
               <SmallStat label="도전 층" value={`${state.towerFloor}층`} />
               <SmallStat label="최고 층" value={`${state.towerMaxCleared}층`} />
@@ -210,7 +299,14 @@ export default function SchaleIdleDutyTab(props) {
               </select>
             </label>
             <div style={{ display: 'grid', gap: 8 }}>
-              <ActionButton action="upgrade" disabled={!selectedSlot} onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}>선택 장비 강화</ActionButton>
+              <ActionButton
+                action="upgrade"
+                disabled={!selectedEnhancePlan?.canAttempt}
+                title={selectedEnhancePlan?.canAttempt ? '강화 시도' : selectedEnhancePlan?.shortageText}
+                onClick={() => setState((current) => enhanceEquipmentAction(current, selectedSlot))}
+              >
+                {!selectedEnhancePlan?.equipment ? '장비 없음' : selectedEnhancePlan.atMax ? '최대 강화' : selectedEnhancePlan.canAttempt ? '강화 실행' : '재료 부족'}
+              </ActionButton>
               <ActionButton action="reroll" disabled={!selectedEquip} onClick={() => setState((current) => rerollEquipmentAction(current, selectedSlot))}>선택 장비 옵션 재련</ActionButton>
               <ActionButton action="salvage" disabled={!salvageInfo.executableCount} onClick={runAutoSalvage}>
                 자동 분해 실행{salvageInfo.candidateOnly ? ' · 후보만' : ''}

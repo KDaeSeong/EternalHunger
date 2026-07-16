@@ -1,4 +1,4 @@
-import { slotLabel } from './schaleIdleEngine';
+import { enhancePlanForSlot, slotLabel } from './schaleIdleEngine';
 
 export function formatRolls(equip) {
   const rolls = equip?.rolls || {};
@@ -145,8 +145,7 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
       .sort((a, b) => b.score - a.score);
     const lowUnlockedCount = scoredAffixes.filter((affix) => !affix.locked && affix.tone === '저점').length;
     const enhance = Number(equip.enhance || 0);
-    const enhanceCreditCost = 70 + enhance * 35;
-    const enhanceStoneCost = 1 + Math.floor(enhance / 3);
+    const enhancePlan = enhancePlanForSlot(state, equip.slot);
     const rerollCount = Number(equip.rerollCount || 0);
     const rerollPlan = buildRerollCostPlan({
       lockedCount,
@@ -154,8 +153,7 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
       ticketStock,
       tokenStock,
     });
-    const canEnhance = Number(state.credits || 0) >= enhanceCreditCost
-      && Number(inventory.itm_enhance_stone || 0) >= enhanceStoneCost;
+    const canEnhance = Boolean(enhancePlan.canAttempt);
     return {
       slot: equip.slot,
       name: equip.name,
@@ -167,8 +165,11 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
       lockedCount,
       lowUnlockedCount,
       highUnlocked,
-      enhanceCreditCost,
-      enhanceStoneCost,
+      enhanceCreditCost: enhancePlan.creditCost,
+      enhanceMaterialText: enhancePlan.materialRows.map((material) => `${material.name} ${material.required}`).join(', '),
+      enhancePenaltyLabel: enhancePlan.penaltyLabel,
+      enhanceSuccessChancePct: enhancePlan.successChancePct,
+      enhanceHardPityRemaining: enhancePlan.hardPityRemaining,
       rerollTicketCost: rerollPlan.ticketCost,
       rerollTokenCost: rerollPlan.tokenCost,
       canEnhance,
@@ -242,7 +243,7 @@ export function buildEquipmentTuning(equipped = [], state = {}) {
       label: '강화',
       slot: enhanceTarget.slot,
       title: `${slotLabel(enhanceTarget.slot)} · ${enhanceTarget.name}`,
-      detail: `+${enhanceTarget.enhance} 장비입니다. 강화 비용은 ${enhanceTarget.enhanceCreditCost} Cr, 강화석 ${enhanceTarget.enhanceStoneCost}개입니다.`,
+      detail: `+${enhanceTarget.enhance} 장비 · 성공률 ${enhanceTarget.enhanceSuccessChancePct}% · 실패 시 ${enhanceTarget.enhancePenaltyLabel}. 비용 ${enhanceTarget.enhanceCreditCost} Cr, ${enhanceTarget.enhanceMaterialText}. 천장까지 ${enhanceTarget.enhanceHardPityRemaining}회입니다.`,
       enabled: true,
     } : {
       id: 'enhance',
