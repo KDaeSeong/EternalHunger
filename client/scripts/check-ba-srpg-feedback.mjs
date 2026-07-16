@@ -10,15 +10,24 @@ import {
   STUDENTS,
   TACTICAL_SKILLS,
   actorModifierValue,
+  buyPropertyAction,
   coverDurabilityAt,
   createNewState,
+  enactEdictAction,
   endTurnAction,
   executeSkillAction,
   getBattleForecast,
   normalizeState,
+  rentPropertyAction,
+  restAction,
+  toggleLeasePropertyAction,
+  upgradePropertyAction,
 } from '../src/app/games/ba-srpg/_lib/baSrpgEngine.js';
 
 const componentSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgBattleTab.js', import.meta.url), 'utf8');
+const inventorySource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgInventoryTab.js', import.meta.url), 'utf8');
+const missionSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgMissionTab.js', import.meta.url), 'utf8');
+const townSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgTownTab.js', import.meta.url), 'utf8');
 const featureSource = await readFile(new URL('../src/app/games/ba-srpg/_components/BaSrpgFeatureTabs.js', import.meta.url), 'utf8');
 const pageSource = await readFile(new URL('../src/app/games/ba-srpg/play/page.js', import.meta.url), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
@@ -157,6 +166,81 @@ assert.deepEqual(
 );
 const missPresentation = baSrpgFeedbackPresentation({ ...base, lastResult: '미카 공격 빗나감' });
 assert.equal(missPresentation.action, 'miss', '빗나감 신호는 전용 아이콘을 사용해야 합니다.');
+
+function feedbackForLog(log) {
+  return { ...base, latestLog: log };
+}
+
+const nonCombatSignals = [
+  ['편성 변경: 시로코, 유우카', 'formation', 'formation'],
+  ['여관에서 하루를 쉬었습니다. 학생 HP가 회복됐습니다. -50 Cr', 'rest', 'rest'],
+  ['부동산 구매: 상가 키오스크 · -900 Cr', 'property-buy', 'propertyBuy'],
+  ['부동산 임차: 여관 전용 객실 · 3일 · -180 Cr', 'property-rent', 'propertyRent'],
+  ['상가 키오스크 임대를 시작했습니다. 하루 +40 Cr', 'property-lease', 'propertyLease'],
+  ['상가 키오스크 업그레이드 Lv.1. 가격 안정화 (-260 Cr)', 'property-upgrade', 'propertyUpgrade'],
+  ['월간 칙령 발령: 상업 장려령', 'edict', 'edict'],
+  ['상점을 무료로 갱신했습니다.', 'refresh', 'shopRefresh'],
+  ['제식 소총 구매. -320 Cr', 'shop', 'shop'],
+  ['붕대 제작 완료. -30 Cr', 'craft', 'craftComplete'],
+  ['장비 장착: 제식 소총', 'equip', 'equip'],
+  ['주간 의뢰 완료. +200 Cr, 평판 +30', 'claim', 'claim'],
+  ['부동산 구매 크레딧이 부족합니다.', 'warning', 'warning'],
+];
+
+nonCombatSignals.forEach(([log, action, cue]) => {
+  const next = feedbackForLog(log);
+  assert.equal(baSrpgFeedbackPresentation(next).action, action, `${log} 결과 아이콘이 필요합니다.`);
+  assert.equal(baSrpgFeedbackCue(base, next), cue, `${log} 결과 효과음이 필요합니다.`);
+});
+
+const townBase = { ...createNewState({ runId: 'town-feedback' }), credit: 5000 };
+const townBaseSnapshot = createBaSrpgFeedbackSnapshot(townBase);
+const boughtProperty = buyPropertyAction(townBase, 'prop_shop_kiosk');
+const boughtSnapshot = createBaSrpgFeedbackSnapshot(boughtProperty);
+assert.equal(baSrpgFeedbackCue(townBaseSnapshot, boughtSnapshot), 'propertyBuy', '실제 시설 구매가 구매 효과음을 내야 합니다.');
+assert.equal(baSrpgFeedbackPresentation(boughtSnapshot).action, 'property-buy', '실제 시설 구매가 구매 아이콘을 갱신해야 합니다.');
+
+const rentedProperty = rentPropertyAction(townBase, 'prop_inn_room');
+assert.equal(
+  baSrpgFeedbackCue(townBaseSnapshot, createBaSrpgFeedbackSnapshot(rentedProperty)),
+  'propertyRent',
+  '실제 시설 임차가 열쇠 효과음을 내야 합니다.',
+);
+const leasedProperty = toggleLeasePropertyAction(boughtProperty, 'prop_shop_kiosk');
+assert.equal(
+  baSrpgFeedbackCue(boughtSnapshot, createBaSrpgFeedbackSnapshot(leasedProperty)),
+  'propertyLease',
+  '실제 시설 임대가 임대 수익 효과음을 내야 합니다.',
+);
+const upgradedProperty = upgradePropertyAction(boughtProperty, 'prop_shop_kiosk');
+assert.equal(
+  baSrpgFeedbackCue(boughtSnapshot, createBaSrpgFeedbackSnapshot(upgradedProperty)),
+  'propertyUpgrade',
+  '실제 시설 강화가 건설 효과음을 내야 합니다.',
+);
+const enactedEdict = enactEdictAction(townBase, 'ed_shop_discount_5');
+assert.equal(
+  baSrpgFeedbackCue(townBaseSnapshot, createBaSrpgFeedbackSnapshot(enactedEdict)),
+  'edict',
+  '실제 칙령 발령이 칙령 효과음을 내야 합니다.',
+);
+const rested = restAction(townBase);
+assert.equal(
+  baSrpgFeedbackCue(townBaseSnapshot, createBaSrpgFeedbackSnapshot(rested)),
+  'rest',
+  '실제 여관 휴식이 회복 효과음을 내야 합니다.',
+);
+
+const clearedThenPurchased = baSrpgFeedbackPresentation({
+  ...boughtSnapshot,
+  phase: 'cleared',
+  lastResult: '승리',
+});
+assert.equal(
+  clearedThenPurchased.action,
+  'property-buy',
+  '클리어 뒤 도시 행동을 하면 고정 승리 결과 대신 최신 도시 결과를 보여야 합니다.',
+);
 
 const initialForecast = getBattleForecast(createNewState({ runId: 'feedback-check' }));
 assert.ok(initialForecast.actionRows.length > 0, '초기 전술 HUD에 행동 후보가 있어야 합니다.');
@@ -316,15 +400,36 @@ assert.match(pageSource, /tone=\{resultPresentation\.tone\}/, '전역 작전 결
 ['overwatch', 'smoke', 'cover-break', 'buff', 'debuff', 'status', 'burst'].forEach((action) => {
   assert.ok(iconSource.includes(`${action.includes('-') ? `'${action}'` : action}:`), `${action} 전용 행동 아이콘이 필요합니다.`);
 });
+['property-buy', 'property-rent', 'property-lease', 'property-upgrade'].forEach((action) => {
+  assert.ok(iconSource.includes(`'${action}':`), `${action} 도시 행동 아이콘이 필요합니다.`);
+});
 ['overwatch', 'reactionShot', 'smoke', 'coverBreak', 'buff', 'debuff', 'statusApply', 'statusResist', 'burst'].forEach((cue) => {
   assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 전용 효과음 프로필이 필요합니다.`);
 });
+['propertyBuy', 'propertyRent', 'propertyLease', 'propertyUpgrade'].forEach((cue) => {
+  assert.ok(sfxSource.includes(`${cue}: [`), `${cue} 도시 결과 효과음 프로필이 필요합니다.`);
+});
+assert.match(townSource, /FACILITY_PRESENTATION/, '도시 시설은 시설 종류별 아이콘과 선택음을 사용해야 합니다.');
+assert.match(townSource, /<GameActionIcon action=\{facilityPresentation\.action\}/, '시설 타일은 한 글자 대신 사물 아이콘을 표시해야 합니다.');
+assert.doesNotMatch(townSource, /property\.icon\s*\|\|/, '시설 타일이 데이터의 한 글자 아이콘으로 돌아가면 안 됩니다.');
+assert.match(townSource, /action="property-buy" cue="off"/, '시설 구매는 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(townSource, /action="property-rent" cue="off"/, '시설 임차는 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(townSource, /action="property-lease" cue="off"/, '시설 임대는 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(townSource, /action="property-upgrade" cue="off"/, '시설 강화는 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(componentSource, /action="craft" cue="off"/, '제작은 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(componentSource, /action="shop" cue="off"/, '상점 행동은 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(inventorySource, /action="equip" cue="off"/, '장착은 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(inventorySource, /action="claim" cue="off"/, '의뢰 보고는 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(missionSource, /action="deploy" cue="off"/, '출정은 예비 클릭음 없이 결과음만 재생해야 합니다.');
+assert.match(missionSource, /data-game-sfx="off"/, '방향 패드는 이동 결과음과 중복되는 예비음을 내면 안 됩니다.');
 assert.doesNotMatch(engineSource, /은\(는\)|이\(가\)|을\(를\)/, 'BA SRPG 플레이어 문구에 병기형 조사가 남으면 안 됩니다.');
 
 console.log(JSON.stringify({
   message: 'BA SRPG tactical feedback checks passed.',
   skills: TACTICAL_SKILLS.length,
   tacticalCues: 9,
+  townCues: 4,
+  nonCombatSignals: nonCombatSignals.length,
   coverAfterFirstBreach: coverDurabilityAt(breached.battle, 5, 3),
   smokeAccuracyPenalty: normalHitChance - smokeHitChance,
 }, null, 2));

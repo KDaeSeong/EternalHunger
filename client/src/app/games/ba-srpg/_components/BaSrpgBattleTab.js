@@ -256,6 +256,7 @@ export default function BaSrpgBattleTab(props) {
                 </div>
                 <ActionButton
                   action={action.type === 'attack' ? 'combat' : action.action || 'skill'}
+                  cue="off"
                   disabled={!action.enabled}
                   onClick={() => {
                     if (action.type === 'attack') {
@@ -391,7 +392,7 @@ export default function BaSrpgBattleTab(props) {
             {selectedRecipe.baseCostCredit !== selectedRecipe.costCredit ? ` (기본 ${selectedRecipe.baseCostCredit})` : ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="craft" onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
+            <ActionButton action="craft" cue="off" onClick={() => setState((current) => craftRecipeAction(current, recipeId))}>제작</ActionButton>
           </div>
           <div className="games-rank-split" style={{ marginTop: 10 }}>
             <SmallStat label="상점 갱신" value={`${town.shopRefreshCount}회`} />
@@ -400,10 +401,10 @@ export default function BaSrpgBattleTab(props) {
             <SmallStat label="갱신 비용" value={`${town.shopRefreshCost} Cr`} />
           </div>
           <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-            <ActionButton action="shop" disabled={!town.shopFreeRefreshAvailable} onClick={() => setState((current) => refreshShopAction(current, true))}>
+            <ActionButton action="shop" cue="off" disabled={!town.shopFreeRefreshAvailable} onClick={() => setState((current) => refreshShopAction(current, true))}>
               무료 상점 갱신
             </ActionButton>
-            <ActionButton action="shop" disabled={Number(state.credit || 0) < Number(town.shopRefreshCost || 0)} onClick={() => setState((current) => refreshShopAction(current, false))}>
+            <ActionButton action="shop" cue="off" disabled={Number(state.credit || 0) < Number(town.shopRefreshCost || 0)} onClick={() => setState((current) => refreshShopAction(current, false))}>
               유료 상점 갱신
             </ActionButton>
           </div>
@@ -411,6 +412,7 @@ export default function BaSrpgBattleTab(props) {
             {shop.map((item) => (
               <GameControlButton
                 action="shop"
+                cue="off"
                 className="srpg-shop-chip"
                 key={item.itemId}
                 unwrapped

@@ -1166,6 +1166,28 @@ const CUE_PROFILES = {
     { frequency: 560, duration: 0.045, type: 'triangle', gain: 0.045 },
     { frequency: 840, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04 },
   ],
+  propertyBuy: [
+    { source: 'noise', filterType: 'lowpass', frequency: 420, duration: 0.055, gain: 0.042 },
+    { frequency: 330, endFrequency: 260, duration: 0.07, type: 'triangle', gain: 0.04 },
+    { frequency: 660, start: 0.055, duration: 0.055, type: 'triangle', gain: 0.043 },
+    { frequency: 990, start: 0.105, duration: 0.1, type: 'sine', gain: 0.035 },
+  ],
+  propertyRent: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.026, gain: 0.028 },
+    { frequency: 520, endFrequency: 680, duration: 0.055, type: 'square', gain: 0.032 },
+    { frequency: 1040, start: 0.05, duration: 0.085, type: 'sine', gain: 0.035 },
+  ],
+  propertyLease: [
+    { frequency: 430, duration: 0.035, type: 'square', gain: 0.035 },
+    { frequency: 645, start: 0.034, duration: 0.045, type: 'triangle', gain: 0.04 },
+    { frequency: 860, start: 0.076, duration: 0.075, type: 'sine', gain: 0.035 },
+  ],
+  propertyUpgrade: [
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 1.8, duration: 0.04, gain: 0.05 },
+    { source: 'noise', filterType: 'bandpass', frequency: 1160, q: 2, start: 0.075, duration: 0.035, gain: 0.045 },
+    { frequency: 390, endFrequency: 620, start: 0.035, duration: 0.11, type: 'triangle', gain: 0.04 },
+    { frequency: 930, start: 0.125, duration: 0.1, type: 'sine', gain: 0.035 },
+  ],
   edict: [
     { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.045, gain: 0.055 },
     { frequency: 260, endFrequency: 190, duration: 0.08, type: 'square', gain: 0.04 },

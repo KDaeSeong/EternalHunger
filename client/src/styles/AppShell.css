@@ -9839,6 +9839,18 @@
   font-weight: 950;
 }
 
+.srpg-town-tile__icon .game-action-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-basis: 1.35rem;
+  color: inherit;
+}
+
+.srpg-town-tile__icon .game-action-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
 .srpg-town-tile__body {
   min-width: 0;
   display: grid;

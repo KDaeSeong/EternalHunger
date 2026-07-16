@@ -1,4 +1,5 @@
 import { ActionButton, GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
+import GameActionIcon from '../../_components/GameActionIcon';
 import {
   buyPropertyAction,
   cancelRentPropertyAction,
@@ -13,6 +14,13 @@ const DISTRICTS = [
   { id: 'market', title: '상가', desc: '상점과 제작 시설' },
   { id: 'lodging', title: '숙소', desc: '휴식과 장기 정비' },
 ];
+
+const FACILITY_PRESENTATION = {
+  shop: { action: 'shop', cue: 'shop' },
+  guild: { action: 'guild', cue: 'formation' },
+  inn: { action: 'rest', cue: 'rest' },
+  craft: { action: 'craft', cue: 'craft' },
+};
 
 function propertyTone(property) {
   if (property.leased) return 'is-leased';
@@ -41,11 +49,14 @@ function PropertyTile({
   const canBuy = !property.owned && credit >= Number(property.buyPrice || 0);
   const canRent = !property.owned && !property.rented && credit >= Number(property.rentFee || 0);
   const canUpgrade = property.upgradeAvailable && credit >= Number(property.nextUpgradeCost || 0);
+  const facilityPresentation = FACILITY_PRESENTATION[property.facility] || { action: 'property', cue: 'select' };
 
   return (
     <article className={`srpg-town-tile srpg-town-tile--${property.facility} ${propertyTone(property)}${selected ? ' is-selected' : ''}`}>
-      <button type="button" className="srpg-town-tile__main" data-game-sfx="select" onClick={() => setPropertyId(property.id)}>
-        <span className="srpg-town-tile__icon" aria-hidden="true">{property.icon || property.facilityLabel?.slice(0, 1) || '시'}</span>
+      <button type="button" className="srpg-town-tile__main" data-game-sfx={facilityPresentation.cue} onClick={() => setPropertyId(property.id)}>
+        <span className="srpg-town-tile__icon" aria-hidden="true">
+          <GameActionIcon action={facilityPresentation.action} />
+        </span>
         <span className="srpg-town-tile__body">
           <span>{property.facilityLabel || property.facility}</span>
           <strong>{property.name} Lv.{property.level || 0}</strong>
@@ -60,21 +71,21 @@ function PropertyTile({
       </div>
       <div className="srpg-town-tile__actions">
         {property.owned ? (
-          <GameControlButton action="upgrade" disabled={!canUpgrade} onClick={() => setState((current) => upgradePropertyAction(current, property.id))}>
+          <GameControlButton action="property-upgrade" cue="off" disabled={!canUpgrade} onClick={() => setState((current) => upgradePropertyAction(current, property.id))}>
             {property.level >= property.maxLevel ? '최대 강화' : `강화 ${property.nextUpgradeCost}Cr`}
           </GameControlButton>
         ) : null}
         {!property.owned && !property.rented ? (
           <>
-            <GameControlButton action="property" disabled={!canBuy} onClick={() => setState((current) => buyPropertyAction(current, property.id))}>구매</GameControlButton>
-            <GameControlButton action="property" disabled={!canRent} onClick={() => setState((current) => rentPropertyAction(current, property.id))}>3일 임차</GameControlButton>
+            <GameControlButton action="property-buy" cue="off" disabled={!canBuy} onClick={() => setState((current) => buyPropertyAction(current, property.id))}>구매</GameControlButton>
+            <GameControlButton action="property-rent" cue="off" disabled={!canRent} onClick={() => setState((current) => rentPropertyAction(current, property.id))}>3일 임차</GameControlButton>
           </>
         ) : null}
         {property.rented ? (
-          <GameControlButton action="property" onClick={() => setState((current) => cancelRentPropertyAction(current, property.id))}>임차 종료</GameControlButton>
+          <GameControlButton action="property-rent" cue="off" onClick={() => setState((current) => cancelRentPropertyAction(current, property.id))}>임차 종료</GameControlButton>
         ) : null}
         {property.owned ? (
-          <GameControlButton action="property" onClick={() => setState((current) => toggleLeasePropertyAction(current, property.id))}>
+          <GameControlButton action="property-lease" cue="off" onClick={() => setState((current) => toggleLeasePropertyAction(current, property.id))}>
             {property.leased ? '임대 종료' : '임대 시작'}
           </GameControlButton>
         ) : null}
@@ -152,7 +163,7 @@ export default function BaSrpgTownTab(props) {
                     {district.id === 'plaza' ? (
                       <article className={`srpg-town-tile srpg-town-tile--edict ${selectedEdict.active ? 'is-active' : ''}`}>
                         <button type="button" className="srpg-town-tile__main" data-game-sfx="select" onClick={() => setEdictId(selectedEdict.id)}>
-                          <span className="srpg-town-tile__icon" aria-hidden="true">칙</span>
+                          <span className="srpg-town-tile__icon" aria-hidden="true"><GameActionIcon action="edict" /></span>
                           <span className="srpg-town-tile__body">
                             <span>월간 칙령</span>
                             <strong>{selectedEdict.name}</strong>
@@ -161,7 +172,7 @@ export default function BaSrpgTownTab(props) {
                           <em>{selectedEdict.active ? '발효 중' : selectedEdict.available ? '발령 가능' : '마감'}</em>
                         </button>
                         <div className="srpg-town-tile__actions">
-                          <GameControlButton action="edict" disabled={!selectedEdict.available} onClick={() => setState((current) => enactEdictAction(current, edictId))}>
+                          <GameControlButton action="edict" cue="off" disabled={!selectedEdict.available} onClick={() => setState((current) => enactEdictAction(current, edictId))}>
                             칙령 발령
                           </GameControlButton>
                         </div>
@@ -197,13 +208,13 @@ export default function BaSrpgTownTab(props) {
             <SmallStat label="다음" value={selectedProperty.nextUpgradeCost ? `${selectedProperty.nextUpgradeCost}Cr` : '최대'} />
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="upgrade" disabled={!selectedProperty.upgradeAvailable || credit < Number(selectedProperty.nextUpgradeCost || 0)} onClick={() => setState((current) => upgradePropertyAction(current, propertyId))}>
+            <ActionButton action="property-upgrade" cue="off" disabled={!selectedProperty.upgradeAvailable || credit < Number(selectedProperty.nextUpgradeCost || 0)} onClick={() => setState((current) => upgradePropertyAction(current, propertyId))}>
               {selectedProperty.level >= selectedProperty.maxLevel ? '최대 강화' : `시설 강화: ${selectedProperty.nextUpgradeText}`}
             </ActionButton>
-            <ActionButton action="property" disabled={selectedProperty.owned} onClick={() => setState((current) => buyPropertyAction(current, propertyId))}>구매</ActionButton>
-            <ActionButton action="property" disabled={selectedProperty.owned || Boolean(selectedProperty.rented)} onClick={() => setState((current) => rentPropertyAction(current, propertyId))}>3일 임차</ActionButton>
-            <ActionButton action="property" disabled={!selectedProperty.rented} onClick={() => setState((current) => cancelRentPropertyAction(current, propertyId))}>임차 종료</ActionButton>
-            <ActionButton action="property" disabled={!selectedProperty.owned} onClick={() => setState((current) => toggleLeasePropertyAction(current, propertyId))}>
+            <ActionButton action="property-buy" cue="off" disabled={selectedProperty.owned} onClick={() => setState((current) => buyPropertyAction(current, propertyId))}>구매</ActionButton>
+            <ActionButton action="property-rent" cue="off" disabled={selectedProperty.owned || Boolean(selectedProperty.rented)} onClick={() => setState((current) => rentPropertyAction(current, propertyId))}>3일 임차</ActionButton>
+            <ActionButton action="property-rent" cue="off" disabled={!selectedProperty.rented} onClick={() => setState((current) => cancelRentPropertyAction(current, propertyId))}>임차 종료</ActionButton>
+            <ActionButton action="property-lease" cue="off" disabled={!selectedProperty.owned} onClick={() => setState((current) => toggleLeasePropertyAction(current, propertyId))}>
               {selectedProperty.leased ? '임대 종료' : '임대 시작'}
             </ActionButton>
           </div>
@@ -225,7 +236,7 @@ export default function BaSrpgTownTab(props) {
             <SmallStat label="상태" value={selectedEdict.active ? '발효 중' : selectedEdict.available ? '발령 가능' : '이번 달 마감'} />
             <SmallStat label="주기" value="월간" />
           </div>
-          <ActionButton action="edict" disabled={!selectedEdict.available} onClick={() => setState((current) => enactEdictAction(current, edictId))}>
+          <ActionButton action="edict" cue="off" disabled={!selectedEdict.available} onClick={() => setState((current) => enactEdictAction(current, edictId))}>
             칙령 발령
           </ActionButton>
         </section>

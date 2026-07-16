@@ -6,9 +6,31 @@ function normalizeSnapshot(value) {
   return value?.battle ? createBaSrpgFeedbackSnapshot(value) : value || {};
 }
 
+function feedbackText(snapshot) {
+  return String(snapshot?.latestLog || snapshot?.lastResult || '').trim();
+}
+
 function resultSignal(lastResult) {
   const text = String(lastResult || '').trim();
   if (!text) return { action: 'deploy', cue: '', label: '작전 대기', tone: 'ready' };
+  if (/클리어|승리/.test(text)) return { action: 'victory', cue: 'victory', label: '임무 클리어', tone: 'success' };
+  if (/임무 실패|작전 실패|전멸/.test(text)) return { action: 'defeat', cue: 'defeat', label: '작전 실패', tone: 'danger' };
+  if (/출정 준비|출정을 시작/.test(text)) return { action: 'deploy', cue: 'deploy', label: '작전 배치', tone: 'highlight' };
+  if (/편성 변경|편성 프리셋 적용/.test(text)) return { action: 'formation', cue: 'formation', label: '편성 변경', tone: 'highlight' };
+  if (/여관에서 하루를 쉬었습니다/.test(text)) return { action: 'rest', cue: 'rest', label: '휴식 완료', tone: 'success' };
+  if (/부동산 구매:/.test(text)) return { action: 'property-buy', cue: 'propertyBuy', label: '시설 구매', tone: 'success' };
+  if (/부동산 임차:|임차를 종료/.test(text)) return { action: 'property-rent', cue: 'propertyRent', label: '시설 임차 변경', tone: 'highlight' };
+  if (/임대를 시작|임대를 종료/.test(text)) return { action: 'property-lease', cue: 'propertyLease', label: '시설 임대 변경', tone: 'highlight' };
+  if (/업그레이드 Lv\./.test(text)) return { action: 'property-upgrade', cue: 'propertyUpgrade', label: '시설 강화', tone: 'success' };
+  if (/칙령 발령:/.test(text)) return { action: 'edict', cue: 'edict', label: '칙령 발령', tone: 'highlight' };
+  if (/상점을 .*갱신했습니다/.test(text)) return { action: 'refresh', cue: 'shopRefresh', label: '상점 갱신', tone: 'highlight' };
+  if (/구매\. -\d+ Cr/.test(text)) return { action: 'shop', cue: 'shop', label: '상점 구매', tone: 'success' };
+  if (/완료\. -\d+ Cr/.test(text)) return { action: 'craft', cue: 'craftComplete', label: '제작 완료', tone: 'success' };
+  if (/장비 장착:/.test(text)) return { action: 'equip', cue: 'equip', label: '장비 장착', tone: 'success' };
+  if (/완료\. \+\d+ Cr, 평판/.test(text)) return { action: 'claim', cue: 'claim', label: '의뢰 보고', tone: 'success' };
+  if (/부족|없습니다|아닙니다|불가|이미 |사거리 밖|할 수 없|최대 레벨|마감/.test(text)) {
+    return { action: 'warning', cue: 'warning', label: '실행 불가', tone: 'warning' };
+  }
   if (/격파/.test(text)) return { action: 'elimination', cue: 'elimination', label: '적 격파', tone: 'success' };
   if (/\[오버워치\]|오버워치.*반응 사격.*(?:→|피해|빗나감)/.test(text)) return { action: 'overwatch', cue: 'reactionShot', label: '반응 사격', tone: 'success' };
   if (/오버워치/.test(text)) return { action: 'overwatch', cue: 'overwatch', label: '감시 태세', tone: 'support' };
@@ -38,20 +60,22 @@ export function createBaSrpgFeedbackSnapshot(state) {
     aliveAllies: aliveCount(battle.units),
     aliveEnemies: aliveCount(battle.enemies),
     lastResult: String(battle.lastResult || '').trim(),
+    latestLog: String(Array.isArray(state?.log) ? state.log[0] || '' : '').trim(),
     battleWins: Math.max(0, Number(state?.battleWins || 0)),
   };
 }
 
 export function baSrpgFeedbackPresentation(value) {
   const snapshot = normalizeSnapshot(value);
-  if (snapshot.phase === 'cleared') {
-    return { action: 'victory', cue: 'victory', label: '임무 클리어', tone: 'success', detail: snapshot.lastResult || '승리' };
+  const detail = feedbackText(snapshot);
+  if (snapshot.phase === 'cleared' && /클리어|승리/.test(detail)) {
+    return { action: 'victory', cue: 'victory', label: '임무 클리어', tone: 'success', detail: detail || '승리' };
   }
-  if (snapshot.phase === 'failed') {
-    return { action: 'defeat', cue: 'defeat', label: '작전 실패', tone: 'danger', detail: snapshot.lastResult || '패배' };
+  if (snapshot.phase === 'failed' && /실패|패배|전멸/.test(detail)) {
+    return { action: 'defeat', cue: 'defeat', label: '작전 실패', tone: 'danger', detail: detail || '패배' };
   }
-  const signal = resultSignal(snapshot.lastResult);
-  return { ...signal, detail: snapshot.lastResult || '학생과 표적을 선택해 작전을 시작하세요.' };
+  const signal = resultSignal(detail);
+  return { ...signal, detail: detail || '학생과 표적을 선택해 작전을 시작하세요.' };
 }
 
 export function baSrpgFeedbackCue(previousValue, currentValue) {
@@ -76,6 +100,9 @@ export function baSrpgFeedbackCue(previousValue, currentValue) {
   if (current.aliveEnemies < previous.aliveEnemies) return 'elimination';
   if (current.lastResult && current.lastResult !== previous.lastResult) {
     return resultSignal(current.lastResult).cue;
+  }
+  if (current.latestLog && current.latestLog !== previous.latestLog) {
+    return resultSignal(current.latestLog).cue;
   }
   if (current.turn > previous.turn) return 'turn';
   return '';

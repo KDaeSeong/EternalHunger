@@ -77,8 +77,8 @@ export default function BaSrpgMissionTab(props) {
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMissionRewards}</p>
           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>{selectedMission.caution}</p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="deploy" disabled={!formationCount || selectedMissionProgress?.locked} onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
-            <ActionButton action="rest" onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
+            <ActionButton action="deploy" cue="off" disabled={!formationCount || selectedMissionProgress?.locked} onClick={() => setState((current) => startMissionAction(current, missionId))}>선택 임무 시작</ActionButton>
+            <ActionButton action="rest" cue="off" onClick={() => setState((current) => restAction(current))}>여관 휴식</ActionButton>
           </div>
         </section>
 
@@ -177,6 +177,7 @@ export default function BaSrpgMissionTab(props) {
                   </div>
                   <ActionButton
                     action="formation"
+                    cue="off"
                     onClick={() => setState((current) => applyFormationPresetAction(current, preset.id, missionId))}
                   >
                     적용
@@ -197,6 +198,7 @@ export default function BaSrpgMissionTab(props) {
                 </div>
                 <ActionButton
                   action="formation"
+                  cue="off"
                   onClick={() => setState((current) => setFormationAction(current, student.id, !student.selected))}
                 >
                   {student.selected ? '제외' : '편성'}
@@ -218,10 +220,10 @@ export default function BaSrpgMissionTab(props) {
             <SmallStat label="사거리" value={selectedUnit?.range ?? 0} />
           </div>
           <div className="srpg-pad">
-            <button type="button" aria-label="위로 이동" title="위로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
-            <button type="button" aria-label="왼쪽으로 이동" title="왼쪽으로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
-            <button type="button" aria-label="오른쪽으로 이동" title="오른쪽으로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
-            <button type="button" aria-label="아래로 이동" title="아래로 이동" data-game-sfx="move" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
+            <button type="button" aria-label="위로 이동" title="위로 이동" data-game-sfx="off" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, -1))}>↑</button>
+            <button type="button" aria-label="왼쪽으로 이동" title="왼쪽으로 이동" data-game-sfx="off" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, -1, 0))}>←</button>
+            <button type="button" aria-label="오른쪽으로 이동" title="오른쪽으로 이동" data-game-sfx="off" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 1, 0))}>→</button>
+            <button type="button" aria-label="아래로 이동" title="아래로 이동" data-game-sfx="off" disabled={!selectedCanAct} onClick={() => setState((current) => moveSelectedAction(current, 0, 1))}>↓</button>
           </div>
         </section>
 
@@ -248,10 +250,11 @@ export default function BaSrpgMissionTab(props) {
             대상 {selectedSkill?.targetName || '-'} · 사거리 {selectedSkill?.rangeText || '-'} · {selectedSkill?.note || ''}
           </p>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="combat" disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
-            <ActionButton action={selectedSkill?.action || 'skill'} disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
+            <ActionButton action="combat" cue="off" disabled={!selectedCanAct || !targetEnemy} onClick={() => setState((current) => attackSelectedAction(current, targetEnemy?.id))}>선택 대상 공격</ActionButton>
+            <ActionButton action={selectedSkill?.action || 'skill'} cue="off" disabled={!selectedSkill?.canUse} onClick={() => setState((current) => executeSkillAction(current, activeSkillId))}>선택 스킬 사용</ActionButton>
             <ActionButton
               action="consume"
+              cue="off"
               disabled={!selectedCanAct || Number(state.inventory.con_bandage || 0) <= 0}
               onClick={() => setState((current) => consumeBandageAction(current))}
             >
@@ -259,14 +262,15 @@ export default function BaSrpgMissionTab(props) {
             </ActionButton>
             <ActionButton
               action="wait"
+              cue="off"
               disabled={!selectedCanAct}
               onClick={() => setState((current) => waitSelectedUnitAction(current))}
             >
               대기
             </ActionButton>
-            <ActionButton action="turn" disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
-            <ActionButton action="auto" disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
-            <ActionButton action="auto" disabled={battle.phase !== 'player'} onClick={runAutoBattle}>자동 전투 x8</ActionButton>
+            <ActionButton action="turn" cue="off" disabled={battle.phase !== 'player'} onClick={() => setState((current) => endTurnAction(current))}>턴 종료</ActionButton>
+            <ActionButton action="auto" cue="off" disabled={battle.phase !== 'player'} onClick={() => setState((current) => autoPlayerTurnAction(current))}>자동 1턴</ActionButton>
+            <ActionButton action="auto" cue="off" disabled={battle.phase !== 'player'} onClick={runAutoBattle}>자동 전투 x8</ActionButton>
           </div>
         </section>
       </section>
