@@ -2,11 +2,18 @@
   min-width: 0;
 }
 
-.game-tutorial-launcher {
+.game-utility-dock {
   position: fixed;
   right: 18px;
   bottom: 18px;
   z-index: 11000;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.game-tutorial-launcher {
+  position: static;
   min-width: 142px;
   height: 44px;
   padding: 0 12px;
@@ -30,9 +37,108 @@
 
 .game-tutorial-launcher:focus-visible,
 .game-tutorial-close:focus-visible,
-.game-tutorial-step-nav button:focus-visible {
+.game-tutorial-step-nav button:focus-visible,
+.games-audio-menu > summary:focus-visible,
+.games-audio-menu__panel button:focus-visible,
+.games-audio-menu__volume input:focus-visible {
   outline: 3px solid rgba(14, 165, 233, 0.35);
   outline-offset: 2px;
+}
+
+.games-audio-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.games-audio-menu > summary {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #8bc4e7;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #64717d;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  list-style: none;
+  display: grid;
+  place-items: center;
+}
+
+.games-audio-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.games-audio-menu > summary.is-active,
+.games-audio-menu[open] > summary {
+  border-color: rgba(44, 111, 158, 0.52);
+  background: #edf7fc;
+  color: #176b9d;
+}
+
+.games-audio-menu > summary:hover {
+  border-color: #1684bd;
+  background: #f0f9ff;
+}
+
+.games-audio-menu__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 156px;
+  padding: 9px;
+  border: 1px solid #b9c8d5;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+}
+
+.games-audio-menu__toggles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.games-audio-menu__toggles button {
+  width: 100%;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #cbd9e3;
+  border-radius: 5px;
+  background: #f8fafc;
+  color: #667684;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.games-audio-menu__toggles button.is-active {
+  border-color: #69acd2;
+  background: #e8f5fb;
+  color: #075985;
+}
+
+.games-audio-menu__toggles button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.games-audio-menu__volume {
+  min-width: 0;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #dbe4ea;
+  color: #176b9d;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.games-audio-menu__volume input {
+  width: 100%;
+  min-width: 0;
+  accent-color: #1684bd;
 }
 
 .game-tutorial-launcher strong {
@@ -286,9 +392,13 @@
 }
 
 @media (max-width: 640px) {
-  .game-tutorial-launcher {
+  .game-utility-dock {
     right: 12px;
     bottom: 12px;
+    gap: 6px;
+  }
+
+  .game-tutorial-launcher {
     width: 44px;
     min-width: 44px;
     padding: 0;
@@ -4210,24 +4320,6 @@
 .games-hero-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
-}
-
-.games-hero-actions .games-sfx-toggle {
-  width: 38px;
-  min-width: 38px;
-  padding: 0;
-  border-color: rgba(44, 111, 158, 0.2);
-  color: #64717d;
-}
-
-.games-hero-actions .games-sfx-toggle.is-active {
-  border-color: rgba(44, 111, 158, 0.42);
-  background: #edf7fc;
-  color: #176b9d;
-}
-
-.games-hero-actions .games-sfx-toggle:hover {
-  background: #e5f3fa;
 }
 
 .sr-only {
@@ -11290,12 +11382,6 @@
     min-width: 0;
     width: auto;
     padding-inline: 6px;
-  }
-
-  .games-hero--compact .games-hero-actions .games-sfx-toggle {
-    width: 38px;
-    min-width: 38px;
-    justify-self: end;
   }
 
   .primitive-difficulty-panel--compact > summary {

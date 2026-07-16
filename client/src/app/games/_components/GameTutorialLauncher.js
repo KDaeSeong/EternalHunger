@@ -4,7 +4,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import GameActionIcon from './GameActionIcon';
 import { GameControlButton } from './GamePlayPrimitives';
+import GameSoundControl from './GameSoundControl';
 import useGameSfx from '../_lib/useGameSfx';
+import { gameAudioThemeForPath } from '../_lib/gameAudioThemes';
 import { getGameTutorialForPath } from '../_lib/gameTutorials';
 
 function clamp(value, min, max) {
@@ -36,12 +38,13 @@ function writeStoredProgress(slug, value) {
 export default function GameTutorialLauncher() {
   const pathname = usePathname();
   const tutorial = getGameTutorialForPath(pathname);
+  const audioTheme = tutorial?.theme || gameAudioThemeForPath(pathname);
   const titleId = useId();
   const closeButtonRef = useRef(null);
   const [open, setOpen] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
-  const playGameSfx = useGameSfx({ theme: tutorial?.theme || 'default', volume: 0.13 });
+  const playGameSfx = useGameSfx({ theme: audioTheme || 'default', volume: 0.13 });
 
   const steps = tutorial?.steps || [];
   const lastIndex = Math.max(0, steps.length - 1);
@@ -69,7 +72,13 @@ export default function GameTutorialLauncher() {
     };
   }, [open, playGameSfx]);
 
-  if (!tutorial || !steps.length) return null;
+  if (!tutorial || !steps.length) {
+    return audioTheme ? (
+      <div className="game-tutorial-root game-utility-dock">
+        <GameSoundControl theme={audioTheme} />
+      </div>
+    ) : null;
+  }
 
   const openTutorial = () => {
     const saved = readStoredProgress(tutorial.slug, steps.length);
@@ -118,7 +127,8 @@ export default function GameTutorialLauncher() {
   };
 
   return (
-    <div className="game-tutorial-root">
+    <div className="game-tutorial-root game-utility-dock">
+      <GameSoundControl theme={audioTheme} />
       <button
         type="button"
         className="game-tutorial-launcher"

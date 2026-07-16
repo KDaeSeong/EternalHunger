@@ -29,7 +29,22 @@ const preferenceSource = await readFile(
   path.join(appRoot, 'games', '_lib', 'gameSfxPreferences.js'),
   'utf8',
 );
+const bgmPreferenceSource = await readFile(
+  path.join(appRoot, 'games', '_lib', 'gameBgmPreferences.js'),
+  'utf8',
+);
+const bgmProfileSource = await readFile(
+  path.join(appRoot, 'games', '_lib', 'gameBgmProfiles.js'),
+  'utf8',
+);
+const audioThemeSource = await readFile(
+  path.join(appRoot, 'games', '_lib', 'gameAudioThemes.js'),
+  'utf8',
+);
 const preferenceModule = await import(`data:text/javascript;base64,${Buffer.from(preferenceSource).toString('base64')}`);
+const bgmPreferenceModule = await import(`data:text/javascript;base64,${Buffer.from(bgmPreferenceSource).toString('base64')}`);
+const bgmProfileModule = await import(`data:text/javascript;base64,${Buffer.from(bgmProfileSource).toString('base64')}`);
+const audioThemeModule = await import(`data:text/javascript;base64,${Buffer.from(audioThemeSource).toString('base64')}`);
 const fakeValues = new Map();
 const fakeStorage = {
   getItem: (key) => fakeValues.get(key) ?? null,
@@ -42,6 +57,13 @@ preferenceModule.writeGameSfxPreference('school', false, fakeStorage);
 assert.equal(preferenceModule.readGameSfxPreference('school', fakeStorage), false);
 preferenceModule.writeGameSfxPreference('school', true, fakeStorage);
 assert.equal(preferenceModule.readGameSfxPreference('school', fakeStorage), true);
+assert.equal(bgmPreferenceModule.readGameBgmEnabled(fakeStorage), false, 'BGM은 사용자가 켜기 전까지 기본 비활성화여야 합니다.');
+bgmPreferenceModule.writeGameBgmEnabled(true, fakeStorage);
+assert.equal(bgmPreferenceModule.readGameBgmEnabled(fakeStorage), true);
+assert.equal(bgmPreferenceModule.writeGameBgmVolume(1.4, fakeStorage), 1, 'BGM 볼륨은 100%를 넘지 않아야 합니다.');
+assert.equal(bgmPreferenceModule.writeGameBgmVolume(-0.2, fakeStorage), 0, 'BGM 볼륨은 0% 아래로 내려가지 않아야 합니다.');
+assert.equal(bgmPreferenceModule.writeGameBgmVolume(0.42, fakeStorage), 0.42);
+assert.equal(bgmPreferenceModule.readGameBgmVolume(fakeStorage), 0.42);
 
 const allFiles = await walkJavaScript(appRoot);
 const gameFiles = allFiles.filter((file) => file.includes(`${path.sep}games${path.sep}`));
@@ -50,10 +72,22 @@ const gameSources = await Promise.all(gameFiles.map((file) => readFile(file, 'ut
 const feedbackSources = await Promise.all(feedbackFiles.map((file) => readFile(file, 'utf8')));
 const sfxSource = await readFile(path.join(appRoot, 'games', '_lib', 'useGameSfx.js'), 'utf8');
 const shellSource = await readFile(path.join(appRoot, 'games', '_components', 'GamePlayShell.js'), 'utf8');
+const tutorialSource = await readFile(path.join(appRoot, 'games', '_components', 'GameTutorialLauncher.js'), 'utf8');
+const soundControlSource = await readFile(path.join(appRoot, 'games', '_components', 'GameSoundControl.js'), 'utf8');
+const bgmProviderSource = await readFile(path.join(appRoot, 'games', '_components', 'GameBgmProvider.js'), 'utf8');
+const appProvidersSource = await readFile(path.join(clientRoot, 'src', 'components', 'AppProviders.js'), 'utf8');
 const primitiveSource = await readFile(path.join(appRoot, 'games', '_components', 'GamePlayPrimitives.js'), 'utf8');
 const iconSource = await readFile(path.join(appRoot, 'games', '_components', 'GameActionIcon.js'), 'utf8');
 
-assert.match(shellSource, /<GameSoundControl\s*\/>/, 'The shared game shell must expose its sound control.');
+assert.doesNotMatch(shellSource, /GameSoundControl/, '게임 영웅 영역은 공용 오디오 메뉴를 중복 렌더링하면 안 됩니다.');
+assert.match(tutorialSource, /gameAudioThemeForPath\(pathname\)/, '튜토리얼이 없는 게임도 경로 테마를 사용해야 합니다.');
+assert.match(tutorialSource, /<GameSoundControl theme=\{audioTheme\} \/>/, '모든 테마 지원 게임에 공용 오디오 메뉴가 있어야 합니다.');
+assert.match(appProvidersSource, /<GameBgmProvider>/, '앱 공급자는 경로 전환에도 유지되는 BGM 공급자를 포함해야 합니다.');
+assert.match(soundControlSource, /type="range"/, '공용 오디오 메뉴는 BGM 볼륨 슬라이더를 제공해야 합니다.');
+assert.match(soundControlSource, /toggleMusic/, '공용 오디오 메뉴는 BGM 재생 상태를 전환해야 합니다.');
+assert.match(bgmProviderSource, /createOscillator\(\)/, 'BGM은 Web Audio 오실레이터로 합성되어야 합니다.');
+assert.match(bgmProviderSource, /visibilitychange/, '숨겨진 탭에서는 BGM 음량을 낮춰야 합니다.');
+assert.match(bgmProviderSource, /LOOK_AHEAD_SECONDS/, 'BGM 재생은 일정한 선행 스케줄러를 사용해야 합니다.');
 assert.match(
   primitiveSource,
   /resolveGameAction\(action, label, text\)\.kind/,
@@ -63,8 +97,12 @@ assert.match(sfxSource, /audioOn:\s*\[/);
 assert.match(sfxSource, /audioOff:\s*\[/);
 assert.match(sfxSource, /sync:\s*\[/);
 assert.match(sfxSource, /readGameSfxPreference\(resolvedTheme\)/);
+assert.match(sfxSource, /resolveGameAudioTheme/, '효과음과 BGM은 같은 경로 테마 해석기를 사용해야 합니다.');
 
 const expectedRouteThemes = [
+  'eternalhunger',
+  'simulation',
+  'twenty-questions',
   'dual-academy-tcg',
   'ba-vanguard',
   'primitive-archive',
@@ -79,7 +117,17 @@ const expectedRouteThemes = [
   'racing-logos-demo',
 ];
 for (const slug of expectedRouteThemes) {
-  assert.ok(sfxSource.includes(`['${slug}',`), `Missing route sound theme: ${slug}`);
+  assert.ok(audioThemeSource.includes(`['${slug}',`), `Missing route sound theme: ${slug}`);
+}
+
+const expectedBgmThemes = [...new Set(expectedRouteThemes.map((slug) => audioThemeModule.gameAudioThemeForPath(`/${slug}`)))];
+for (const theme of expectedBgmThemes) {
+  const profile = bgmProfileModule.gameBgmProfile(theme);
+  assert.equal(profile.label.length > 0, true, `BGM profile label is required: ${theme}`);
+  assert.equal(profile.lead.length, 16, `BGM lead loop must contain 16 steps: ${theme}`);
+  assert.equal(profile.bass.length, 16, `BGM bass loop must contain 16 steps: ${theme}`);
+  assert.equal(bgmProfileModule.gameBgmStepDuration(profile) > 0, true, `BGM step duration must be positive: ${theme}`);
+  assert.equal(bgmProfileModule.gameBgmNoteFrequency(profile, 0, 1) > 0, true, `BGM note frequency must be positive: ${theme}`);
 }
 
 const iconKeys = objectKeys(iconSource, 'ACTION_ICONS');
@@ -97,6 +145,8 @@ const missingFeedbackIcons = [...feedbackActions].filter((action) => !iconKeys.h
 const missingFeedbackCues = [...feedbackCues].filter((cue) => !cueKeys.has(cue));
 assert.deepEqual(missingFeedbackIcons, [], `Missing feedback icons: ${missingFeedbackIcons.join(', ')}`);
 assert.deepEqual(missingFeedbackCues, [], `Missing feedback cues: ${missingFeedbackCues.join(', ')}`);
+assert.equal(iconKeys.has('music'), true, 'BGM 켜짐 아이콘이 있어야 합니다.');
+assert.equal(iconKeys.has('music-off'), true, 'BGM 꺼짐 아이콘이 있어야 합니다.');
 
 const resultPanelCount = gameSources.reduce(
   (count, source) => count + [...source.matchAll(/<RecentActionResult\b/g)].length,
@@ -109,5 +159,7 @@ console.log(JSON.stringify({
   feedbackCues: feedbackCues.size,
   resultPanels: resultPanelCount,
   routeThemes: expectedRouteThemes.length,
+  bgmThemes: expectedBgmThemes.length,
+  bgmDefaultEnabled: bgmPreferenceModule.readGameBgmEnabled(new Map()),
   soundPreferenceKey: preferenceModule.gameSfxPreferenceKey('school'),
 }, null, 2));

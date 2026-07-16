@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
 import GameActionIcon from './GameActionIcon';
-import GameSoundControl from './GameSoundControl';
 import { useGameSfxEventHandlers } from '../_lib/useGameSfx';
 
 const DEFAULT_METRIC_LIMITS = {
@@ -135,7 +134,6 @@ export default function GamePlayShell({
           </div>
           <div className="games-hero-actions">
             {actions}
-            <GameSoundControl />
           </div>
         </section>
 

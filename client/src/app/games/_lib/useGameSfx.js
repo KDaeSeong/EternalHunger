@@ -3,30 +3,13 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { inferGameActionSemantic } from './gameActionSemantics';
+import { resolveGameAudioTheme } from './gameAudioThemes';
 import {
   GAME_SFX_PREFERENCE_EVENT,
   gameSfxPreferenceKey,
   readGameSfxPreference,
   writeGameSfxPreference,
 } from './gameSfxPreferences';
-
-const GAME_SFX_PATH_THEMES = [
-  ['eternalhunger', 'battle'],
-  ['simulation', 'battle'],
-  ['twenty-questions', 'twenty'],
-  ['dual-academy-tcg', 'card'],
-  ['ba-vanguard', 'card'],
-  ['primitive-archive', 'survival'],
-  ['tonkatsu-teacher', 'kitchen'],
-  ['schale-idle-rpg', 'idle'],
-  ['ba-srpg', 'tactical'],
-  ['myanimecraft', 'broadcast'],
-  ['school-simulator', 'school'],
-  ['si-coding-sim', 'coding'],
-  ['rail3d-sim', 'rail'],
-  ['company-report', 'ledger'],
-  ['racing-logos-demo', 'racing'],
-];
 
 const CUE_PROFILES = {
   click: [
@@ -1425,14 +1408,6 @@ const THEME_CUE_PROFILES = {
   },
 };
 
-function resolveGameSfxTheme(theme, pathname) {
-  const explicit = String(theme || '').trim();
-  if (explicit && explicit !== 'auto') return explicit;
-  const path = String(pathname || '').toLowerCase();
-  const found = GAME_SFX_PATH_THEMES.find(([needle]) => path.includes(needle));
-  return found?.[1] || 'default';
-}
-
 function cueProfile(cue, theme) {
   const key = String(cue || 'click');
   const themeKey = String(theme || 'default');
@@ -1511,7 +1486,7 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
   const pathname = usePathname();
   const contextRef = useRef(null);
   const lastPlayedAtRef = useRef(0);
-  const resolvedTheme = useMemo(() => resolveGameSfxTheme(theme, pathname), [pathname, theme]);
+  const resolvedTheme = useMemo(() => resolveGameAudioTheme(theme, pathname), [pathname, theme]);
 
   return useCallback((cue = 'click') => {
     if (!enabled || !readGameSfxPreference(resolvedTheme)) return;
@@ -1540,7 +1515,7 @@ export default function useGameSfx({ enabled = true, theme = 'auto', volume = 0.
 
 export function useGameSfxPreference({ theme = 'auto' } = {}) {
   const pathname = usePathname();
-  const resolvedTheme = useMemo(() => resolveGameSfxTheme(theme, pathname), [pathname, theme]);
+  const resolvedTheme = useMemo(() => resolveGameAudioTheme(theme, pathname), [pathname, theme]);
   const subscribe = useCallback((notify) => {
     const handlePreference = (event) => {
       if (event?.detail?.theme && event.detail.theme !== resolvedTheme) return;
