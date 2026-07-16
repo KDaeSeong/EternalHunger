@@ -30,6 +30,7 @@ import {
   advancePhase,
   aiStep,
   autoRide,
+  autoRideReadiness,
   callFromHand,
   canAttack,
   deckConsistencyReport,
@@ -47,6 +48,7 @@ import {
   playtestMatchupReport,
   retireCircle,
   rideFromHand,
+  rideReadiness,
   scoreDeck,
   strideWithAutoCost,
   summarizeDeck,
@@ -200,6 +202,8 @@ export default function BaVanguardPlayContent() {
   const selectedHandId = selectedHandIndex === null ? null : me.hand[selectedHandIndex] || null;
   const canControl = duel.active === 'me' && !duel.winner;
   const canMulligan = canControl && duel.turn === 1 && duel.phase === 'STAND' && !duel.battle && !duel.mulliganDone?.me;
+  const autoRideState = autoRideReadiness(duel, 'me');
+  const selectedRideState = rideReadiness(duel, 'me', selectedHandId);
 
   useEffect(() => {
     const current = baVanguardFeedbackSnapshot(duel);
@@ -491,6 +495,7 @@ export default function BaVanguardPlayContent() {
 
       <BaVanguardFeatureTabs
         autoGuardMe={autoGuardMe}
+        autoRideState={autoRideState}
         canControl={canControl}
         canMulligan={canMulligan}
         compositionRows={compositionRows}
@@ -534,6 +539,7 @@ export default function BaVanguardPlayContent() {
         selectedAttacker={selectedAttacker}
         selectedHandId={selectedHandId}
         selectedHandIndex={selectedHandIndex}
+        selectedRideState={selectedRideState}
         setAutoGuardMe={setAutoGuardMe}
         setGzoneFilter={setGzoneFilter}
         setOpponentPresetId={setOpponentPresetId}

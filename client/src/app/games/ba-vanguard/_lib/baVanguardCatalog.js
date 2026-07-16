@@ -778,6 +778,7 @@ function initPlayerState(deckMain, deckG, seed) {
     circles: emptyCircles(),
     heart: null,
     isStrided: false,
+    rideTurn: 0,
     usedAct: {},
     cbUsedTotal: 0,
   };
@@ -934,8 +935,132 @@ export function endTurn(duel) {
   return true;
 }
 
+function rideContextReadiness(duel, side) {
+  const player = duel?.players?.[side];
+  if (!player) return { canRide: false, reason: '플레이어 상태를 찾을 수 없습니다.' };
+  if (duel.winner) return { canRide: false, reason: '종료된 듀얼에서는 라이드할 수 없습니다.' };
+  if (duel.active !== side) return { canRide: false, reason: '현재 차례의 플레이어만 라이드할 수 있습니다.' };
+  if (duel.phase !== 'MAIN') return { canRide: false, reason: '메인 페이즈에만 라이드할 수 있습니다.' };
+  if (duel.battle) return { canRide: false, reason: '진행 중인 배틀을 먼저 해결해야 합니다.' };
+  if (player.isStrided) return { canRide: false, reason: '스트라이드 중에는 라이드할 수 없습니다.' };
+  if (Number(player.rideTurn || 0) === Number(duel.turn || 0)) {
+    return { canRide: false, reason: '이번 턴에는 이미 라이드했습니다.' };
+  }
+  return { canRide: true, player };
+}
+
+export function rideReadiness(duel, side, cardId) {
+  const context = rideContextReadiness(duel, side);
+  if (!context.canRide) return context;
+
+  const { player } = context;
+  if (!cardId) return { canRide: false, reason: '패에서 라이드할 카드를 선택하세요.' };
+  if (!player.hand.includes(cardId)) return { canRide: false, reason: '선택한 카드가 패에 없습니다.' };
+
+  const card = getCard(cardId);
+  if (!card || card.type !== 'normal') {
+    return { canRide: false, reason: '노멀 유닛만 뱅가드에 라이드할 수 있습니다.' };
+  }
+
+  const currentGrade = Number(getCard(player.circles.VC?.cardId)?.grade ?? -1);
+  const cardGrade = Number(card.grade ?? -1);
+  const canMatchGrade = cardGrade === currentGrade;
+  const canAdvanceGrade = cardGrade === currentGrade + 1;
+  if (!canMatchGrade && !canAdvanceGrade) {
+    const gradeLabel = currentGrade >= 3
+      ? `Grade ${currentGrade}`
+      : `Grade ${currentGrade} 또는 ${currentGrade + 1}`;
+    return {
+      canRide: false,
+      reason: `현재 VC에는 ${gradeLabel} 노멀 유닛만 라이드할 수 있습니다.`,
+      currentGrade,
+      cardGrade,
+    };
+  }
+
+  return {
+    canRide: true,
+    card,
+    cardId,
+    cardGrade,
+    currentGrade,
+    detail: `${card.name} (Grade ${cardGrade}) 라이드 가능`,
+  };
+}
+
+function rideAssistSwapIndex(player, wantGrade) {
+  return player.hand
+    .map((cardId, index) => {
+      const card = getCard(cardId);
+      const grade = Number(card?.grade ?? -1);
+      const priority = card?.type === 'normal' && grade > wantGrade
+        ? 0
+        : card?.type === 'normal'
+          ? 10
+          : card?.type === 'trigger'
+            ? 20
+            : 30;
+      return { grade, index, priority };
+    })
+    .sort((a, b) => (a.priority - b.priority) || (b.grade - a.grade) || (a.index - b.index))[0]?.index ?? -1;
+}
+
+export function autoRideReadiness(duel, side) {
+  const context = rideContextReadiness(duel, side);
+  if (!context.canRide) return context;
+
+  const { player } = context;
+  const currentGrade = Number(getCard(player.circles.VC?.cardId)?.grade ?? -1);
+  const wantGrade = Math.min(Math.max(currentGrade + 1, 0), 3);
+  const handCandidate = player.hand.find((cardId) => {
+    const card = getCard(cardId);
+    return card?.type === 'normal' && Number(card.grade) === wantGrade;
+  });
+  if (handCandidate) {
+    return {
+      canRide: true,
+      candidateId: handCandidate,
+      currentGrade,
+      wantGrade,
+      source: 'hand',
+      detail: `${cardName(handCandidate)} (Grade ${wantGrade}) 자동 라이드 가능`,
+    };
+  }
+
+  const deckIndex = player.deck.findIndex((cardId) => {
+    const card = getCard(cardId);
+    return card?.type === 'normal' && Number(card.grade) === wantGrade;
+  });
+  const swapIndex = rideAssistSwapIndex(player, wantGrade);
+  if (deckIndex >= 0 && swapIndex >= 0) {
+    const candidateId = player.deck[deckIndex];
+    return {
+      canRide: true,
+      candidateId,
+      currentGrade,
+      deckIndex,
+      swapIndex,
+      wantGrade,
+      source: 'assist',
+      detail: `라이드 어시스트로 ${cardName(candidateId)} (Grade ${wantGrade}) 확보 가능`,
+    };
+  }
+
+  return {
+    canRide: false,
+    currentGrade,
+    wantGrade,
+    reason: `Grade ${wantGrade} 노멀 유닛이 패와 덱에 없습니다.`,
+  };
+}
+
 export function rideFromHand(duel, side, cardId) {
-  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side) return false;
+  const readiness = rideReadiness(duel, side, cardId);
+  if (!readiness.canRide) {
+    if (duel?.players?.[side]) pushLog(duel, side, `라이드 실패: ${readiness.reason}`);
+    return false;
+  }
+
   const player = duel.players[side];
   if (!removeFromHand(player, cardId)) return false;
   const prev = player.circles.VC;
@@ -943,25 +1068,26 @@ export function rideFromHand(duel, side, cardId) {
   player.circles.VC = createUnit(cardId);
   player.isStrided = false;
   player.heart = null;
+  player.rideTurn = duel.turn;
   pushLog(duel, side, `${cardName(cardId)}에 라이드했습니다.`);
   return true;
 }
 
 export function autoRide(duel, side) {
-  if (duel.winner || duel.phase !== 'MAIN' || duel.active !== side) return false;
-  const player = duel.players[side];
-  const vcCard = getCard(player.circles.VC?.cardId);
-  const currentGrade = vcCard?.grade ?? -1;
-  const wantGrade = Math.min(currentGrade + 1, 3);
-  const pick = player.hand.find((cardId) => {
-    const card = getCard(cardId);
-    return card && card.grade === wantGrade && card.type === 'normal';
-  });
-  if (!pick) {
-    pushLog(duel, side, `자동 라이드 실패: Grade ${wantGrade} 후보가 없습니다.`);
+  const readiness = autoRideReadiness(duel, side);
+  if (!readiness.canRide) {
+    if (duel?.players?.[side]) pushLog(duel, side, `자동 라이드 실패: ${readiness.reason}`);
     return false;
   }
-  return rideFromHand(duel, side, pick);
+
+  const player = duel.players[side];
+  if (readiness.source === 'assist') {
+    const replacedCardId = player.hand[readiness.swapIndex];
+    player.hand[readiness.swapIndex] = readiness.candidateId;
+    player.deck[readiness.deckIndex] = replacedCardId;
+    pushLog(duel, side, `라이드 어시스트로 ${cardName(readiness.candidateId)}을 확보했습니다.`);
+  }
+  return rideFromHand(duel, side, readiness.candidateId);
 }
 
 export function callFromHand(duel, side, cardId, circle) {
@@ -1636,7 +1762,9 @@ export function duelTacticalReport(duel, perspective = 'me') {
   const powerDelta = playerPower - enemyPower;
   const damageDelta = enemy.damage.length - player.damage.length;
   const shield = handShieldProfile(player);
-  const rideCandidate = bestRideCandidate(player);
+  const rideCandidate = Number(player.rideTurn || 0) === Number(duel?.turn || 0)
+    ? null
+    : bestRideCandidate(player);
   const callCandidate = bestCallCandidate(player);
   const attackCandidates = attackCandidatesFor(duel, side);
   const recommendations = [];

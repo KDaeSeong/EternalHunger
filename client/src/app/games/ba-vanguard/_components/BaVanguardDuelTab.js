@@ -5,6 +5,7 @@ import { PRESET_DECKS, SIDE_LABELS } from '../_lib/baVanguardCatalog';
 export default function BaVanguardDuelTab(props) {
   const {
     autoGuardMe,
+    autoRideState,
     canControl,
     canMulligan,
     deck,
@@ -117,10 +118,21 @@ export default function BaVanguardDuelTab(props) {
           <div className="game-save-actions" style={{ marginTop: 12 }}>
             <GameControlButton action="advance" cue="off" onClick={nextPhase} disabled={Boolean(duel.winner || duel.battle)}>다음 페이즈</GameControlButton>
             <GameControlButton action="shuffle" cue="off" onClick={onMulligan} disabled={!canMulligan}>멀리건</GameControlButton>
-            <GameControlButton action="ride" cue="off" onClick={onAutoRide} disabled={!canControl || duel.phase !== 'MAIN'}>자동 라이드</GameControlButton>
+            <GameControlButton
+              action="ride"
+              cue="off"
+              onClick={onAutoRide}
+              disabled={!autoRideState.canRide}
+              title={autoRideState.canRide ? autoRideState.detail : autoRideState.reason}
+            >
+              {autoRideState.source === 'assist' ? '라이드 어시스트' : '자동 라이드'}
+            </GameControlButton>
             <GameControlButton action="vanguard-stride" cue="off" onClick={onStride} disabled={!canControl || duel.phase !== 'MAIN'}>스트라이드</GameControlButton>
             <GameControlButton action="vanguard-skill" cue="off" onClick={onVCAct} disabled={!canControl || duel.phase !== 'MAIN'}>VC 스킬</GameControlButton>
           </div>
+          <p style={{ margin: '10px 0 0', color: autoRideState.canRide ? '#a7f3d0' : '#94a3b8', fontWeight: 800, lineHeight: 1.45 }}>
+            {autoRideState.canRide ? autoRideState.detail : autoRideState.reason}
+          </p>
           {selectedAttacker ? <p style={{ color: '#cbd5e1', fontWeight: 800 }}>공격자 {selectedAttacker} 선택 중입니다. AI 필드의 목표를 누르세요.</p> : null}
           <RecentActionResult
             action={resultPresentation.action}

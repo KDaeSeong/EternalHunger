@@ -11,6 +11,8 @@ import {
   PRESET_DECKS,
   activateVCAct,
   advancePhase,
+  autoRide,
+  autoRideReadiness,
   callFromHand,
   declareAttack,
   endTurn,
@@ -22,6 +24,7 @@ import {
   mulliganAll,
   retireCircle,
   rideFromHand,
+  rideReadiness,
   strideWithAutoCost,
 } from '../src/app/games/ba-vanguard/_lib/baVanguardCatalog.js';
 
@@ -88,6 +91,36 @@ assert.equal(advancePhase(mainState, false), true, '드로우에서 메인 페�
 expectResult(drawState, mainState, { key: 'phase', action: 'phase', cue: 'vanguardPhase', tone: 'highlight' });
 
 const grade1Id = cardIdWhere((card) => card?.type === 'normal' && card.grade === 1);
+const grade2Id = cardIdWhere((card) => card?.type === 'normal' && card.grade === 2);
+const defaultAutoRide = autoRideReadiness(mainState, 'me');
+assert.equal(defaultAutoRide.canRide, true, '기본 시드에서도 자동 라이드 또는 라이드 어시스트가 준비되어야 합니다.');
+assert.equal(defaultAutoRide.wantGrade, 1, '초기 G0 VC는 G1 라이드 후보를 찾아야 합니다.');
+
+const assistedRideState = clone(mainState);
+const assistedHandCount = assistedRideState.players.me.hand.length;
+const assistedDeckCount = assistedRideState.players.me.deck.length;
+const assistedSoulCount = assistedRideState.players.me.soul.length;
+assert.equal(autoRide(assistedRideState, 'me'), true, '패에 G1이 없어도 라이드 어시스트로 자동 라이드해야 합니다.');
+assert.equal(getCard(assistedRideState.players.me.circles.VC?.cardId)?.grade, 1, '자동 라이드 후 VC는 G1이어야 합니다.');
+assert.equal(assistedRideState.players.me.hand.length, assistedHandCount - 1, '라이드한 카드는 패에서 빠져야 합니다.');
+assert.equal(assistedRideState.players.me.deck.length, assistedDeckCount, '라이드 어시스트 교환은 덱 장수를 유지해야 합니다.');
+assert.equal(assistedRideState.players.me.soul.length, assistedSoulCount + 1, '이전 스타터는 소울로 이동해야 합니다.');
+assert.equal(assistedRideState.players.me.rideTurn, assistedRideState.turn, '라이드한 턴을 기록해야 합니다.');
+expectResult(mainState, assistedRideState, { key: 'ride', action: 'vanguard-ride', cue: 'vanguardRide', tone: 'success' });
+const assistedRideLogCount = assistedRideState.log.length;
+assert.equal(autoRide(assistedRideState, 'me'), false, '같은 턴에 두 번 라이드할 수 없어야 합니다.');
+assert.equal(assistedRideState.log.length, assistedRideLogCount + 1, '중복 라이드 거절 사유를 로그에 남겨야 합니다.');
+assert.match(assistedRideState.log[0], /이미 라이드/, '중복 라이드 로그가 턴당 1회 제한을 설명해야 합니다.');
+
+const invalidGradeRide = clone(mainState);
+invalidGradeRide.players.me.hand.unshift(grade2Id);
+const invalidGradeReadiness = rideReadiness(invalidGradeRide, 'me', grade2Id);
+assert.equal(invalidGradeReadiness.canRide, false, 'G0 VC 위에 G2를 건너뛰어 라이드할 수 없어야 합니다.');
+const invalidGradeHandCount = invalidGradeRide.players.me.hand.length;
+assert.equal(rideFromHand(invalidGradeRide, 'me', grade2Id), false, '잘못된 등급의 수동 라이드를 거절해야 합니다.');
+assert.equal(invalidGradeRide.players.me.hand.length, invalidGradeHandCount, '거절된 라이드 카드는 패에 남아야 합니다.');
+expectResult(mainState, invalidGradeRide, { key: 'invalid', action: 'vanguard-invalid', cue: 'vanguardInvalid', tone: 'warning' });
+
 const rideState = clone(mainState);
 rideState.players.me.hand.unshift(grade1Id);
 assert.equal(rideFromHand(rideState, 'me', grade1Id), true, 'G1 카드는 초기 VC 위에 라이드할 수 있어야 합니다.');
@@ -225,7 +258,13 @@ assert.match(pageSource, /baVanguardResultPresentation\(feedbackRef\.current, cu
 assert.match(pageSource, /action=\{resultPresentation\.action\}/, '상단 결과 패널에 결과 아이콘을 전달해야 합니다.');
 assert.match(pageSource, /cue="off" onClick=\{downloadReplayExport\}/, '리플레이 버튼은 전용 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(pageSource, /setTimeout\(\(\) => runAiUntilStop\(false\), AI_FEEDBACK_DELAY_MS\)/, '자동 AI 연장은 내 차례에서 실행 불가 결과를 덮어쓰면 안 됩니다.');
+assert.match(pageSource, /const autoRideState = autoRideReadiness\(duel, 'me'\)/, '듀얼 화면은 자동 라이드 가능 상태를 엔진에서 계산해야 합니다.');
+assert.match(pageSource, /const selectedRideState = rideReadiness\(duel, 'me', selectedHandId\)/, '선택 카드의 수동 라이드 가능 상태를 엔진에서 계산해야 합니다.');
 assert.match(duelSource, /onClick=\{\(\) => runAiUntilStop\(true\)\}/, '직접 누른 AI 진행만 실행 불가 피드백을 요청해야 합니다.');
+assert.match(duelSource, /disabled=\{!autoRideState\.canRide\}/, '자동 라이드 버튼은 실행 가능 상태를 반영해야 합니다.');
+assert.match(duelSource, /autoRideState\.source === 'assist'/, '자동 라이드 버튼은 라이드 어시스트 사용 여부를 알려야 합니다.');
+assert.match(handSource, /disabled=\{!selectedRideState\.canRide\}/, '수동 라이드 버튼은 선택 카드의 등급과 턴 제한을 반영해야 합니다.');
+assert.match(handSource, /selectedRideState\.reason/, '패 액션은 라이드 불가 사유를 표시해야 합니다.');
 
 for (const source of [duelSource, handSource]) {
   assert.match(source, /<RecentActionResult\b/, '행동 탭에 최근 결과 패널이 있어야 합니다.');
@@ -245,4 +284,5 @@ console.log(JSON.stringify({
   resultCues: 22,
   resultPanels: 3,
   loadedStateWrapper: true,
+  rideAssistRegression: true,
 }, null, 2));

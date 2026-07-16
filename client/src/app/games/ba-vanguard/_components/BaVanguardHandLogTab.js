@@ -19,6 +19,7 @@ export default function BaVanguardHandLogTab(props) {
     resultPresentation,
     selectedHandId,
     selectedHandIndex,
+    selectedRideState,
     setSelectedHandIndex,
   } = props;
 
@@ -50,8 +51,21 @@ export default function BaVanguardHandLogTab(props) {
             <span>{selectedHandId ? cardName(selectedHandId) : '미선택'}</span>
           </div>
           {selectedHandId ? <CardSummary cardId={selectedHandId} /> : <p style={{ color: '#cbd5e1', fontWeight: 800 }}>패에서 카드를 선택하세요.</p>}
+          {selectedHandId ? (
+            <p style={{ margin: '10px 0 0', color: selectedRideState.canRide ? '#a7f3d0' : '#fbbf24', fontWeight: 800, lineHeight: 1.45 }}>
+              {selectedRideState.canRide ? selectedRideState.detail : selectedRideState.reason}
+            </p>
+          ) : null}
           <div className="game-save-actions" style={{ marginTop: 12 }}>
-            <GameControlButton action="vanguard-ride" cue="off" onClick={onRideSelected} disabled={!selectedHandId || !canControl || duel.phase !== 'MAIN'}>라이드</GameControlButton>
+            <GameControlButton
+              action="vanguard-ride"
+              cue="off"
+              onClick={onRideSelected}
+              disabled={!selectedRideState.canRide}
+              title={selectedRideState.canRide ? selectedRideState.detail : selectedRideState.reason}
+            >
+              라이드
+            </GameControlButton>
             {CIRCLES.filter((circle) => circle !== 'VC' && !me.circles[circle]).map((circle) => (
               <GameControlButton action="vanguard-call" cue="off" key={circle} onClick={() => onCallSelected(circle)} disabled={!selectedHandId || !canControl || duel.phase !== 'MAIN'}>{circle} 콜</GameControlButton>
             ))}
