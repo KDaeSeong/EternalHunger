@@ -211,11 +211,11 @@ Checked: 2026-07-04
 
 - Route: `/games/rail3d-sim/play`
 - Included loop: sample track/service data loading, timetable step progression, station dwell/run/done phases, block occupancy, STOP/GO signal state, delay/wait summary, SVG minimap, and route-score record snapshot.
-- UI/UX: the compact operating shell keeps all 10 headline metrics visible, pins the latest operating result above the tabs, provides horizontally scrollable icon tabs, and gives every dispatch/train/analysis control an explicit action icon. The operations tab includes a dispatch plan that prioritizes waiting trains, recommended lookahead changes, timetable headway checks, and direct jumps into train or bottleneck analysis.
-- Feedback: state-diff feedback distinguishes ordinary rail steps, departures, station arrivals, STOP signals, token waits, signal release, lookahead adjustment, train completion, and full service completion. The dispatch-plan callback is now wired through the feature tabs, and legacy `sM` train poses are normalized so a waiting train never renders as `NaNm`.
+- UI/UX: the compact operating shell keeps all 10 headline metrics visible, pins the latest operating result above the tabs, provides horizontally scrollable icon tabs, and gives every dispatch/train/analysis control an explicit action icon. The SVG minimap now distinguishes stations, trains, occupied/reserved signals, segment tokens, and STOP states with object icons; trains can be selected by mouse or keyboard, and a responsive status strip reports the selected service in place. The operations tab includes a dispatch plan that prioritizes waiting trains, recommended lookahead changes, timetable headway checks, and direct jumps into train or bottleneck analysis.
+- Feedback: state-diff feedback maps 17 transitions to dedicated cues and result icons, including ordinary rail steps, departures, arrivals, STOP signals, token waits and handoffs, partial and whole-network signal release, junction passage, delay escalation, lookahead adjustment, train completion, and full service completion. Controls whose state transition already emits a result cue suppress their preliminary click sound. The dispatch-plan callback is wired through the feature tabs, and legacy `sM` train poses are normalized so a waiting train never renders as `NaNm`.
 - Site API integration: quick save through `/game-saves/rail3d-sim/rail3d-sim-main`; transport-sim snapshot through `/game-records/rail3d-sim`.
 - Source basis: `C:\2저장고\마이애니메\rail3d-sim\src\data\sampleTrack.json`, `sampleService.json`, and the MVP debug loop structure from `src\engine\mainLoop.ts`.
-- Next step: port the original route cache, dynamic timetable editing, richer MiniMap overlays, and eventually a dedicated Three.js 3D view.
+- Next step: port the original route cache, dynamic timetable editing, and eventually a dedicated Three.js 3D view.
 
 ## Company Report Slice Status
 

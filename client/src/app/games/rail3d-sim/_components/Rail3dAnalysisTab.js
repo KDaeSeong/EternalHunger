@@ -58,6 +58,7 @@ export default function Rail3dAnalysisTab(props) {
                   <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
                     <ActionButton
                       action="guard"
+                      cue="off"
                       disabled={Number(state.lookaheadBlocks) === Number(bottleneck.recommendedLookahead)}
                       onClick={() => applyRailAction('권장 Lookahead 적용', (current) => setLookaheadBlocksAction(current, bottleneck.recommendedLookahead))}
                     >

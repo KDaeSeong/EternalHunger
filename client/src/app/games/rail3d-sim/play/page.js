@@ -179,7 +179,18 @@ export default function Rail3dSimPlayPage() {
   };
 
   const focusTrain = (trainId, tabId = 'trains') => {
-    if (trainId) setSelectedTrainId(trainId);
+    if (trainId) {
+      setSelectedTrainId(trainId);
+      const row = rows.find((item) => item.id === trainId);
+      setActionResult(`${trainId} 열차를 선택했습니다.${row ? ` ${row.serviceName} · ${row.signalState} · 다음 ${row.nextStation}.` : ''}`);
+      setActionPresentation({
+        action: 'dispatch',
+        cue: '',
+        key: 'trainSelect',
+        label: '열차 선택',
+        tone: 'highlight',
+      });
+    }
     setActiveFeatureTabId(tabId);
   };
 

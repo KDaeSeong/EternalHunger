@@ -13,12 +13,12 @@ export default function Rail3dAdvancedTab(props) {
   const {
     applyRailAction,
     blocks,
+    focusTrain,
     report,
     rows,
     segments,
     selectedTrain,
     selectedTrainId,
-    setSelectedTrainId,
     state,
     stationBoard,
   } = props;
@@ -39,26 +39,26 @@ export default function Rail3dAdvancedTab(props) {
           </div>
           <label className="game-save-json-field">
             <span>선택 열차</span>
-            <select value={selectedTrain?.id || selectedTrainId} onChange={(event) => setSelectedTrainId(event.target.value)}>
+            <select data-game-sfx="select" value={selectedTrain?.id || selectedTrainId} onChange={(event) => focusTrain(event.target.value, 'advanced')}>
               {rows.map((row) => <option value={row.id} key={row.id}>{row.id} / {row.serviceName}</option>)}
             </select>
           </label>
           <label className="game-save-json-field">
             <span>스텝 초</span>
-            <select value={state.stepSeconds} onChange={(event) => applyRailAction('스텝 초 변경', (current) => setStepSecondsAction(current, event.target.value))}>
+            <select data-game-sfx="off" value={state.stepSeconds} onChange={(event) => applyRailAction('스텝 초 변경', (current) => setStepSecondsAction(current, event.target.value))}>
               {[10, 30, 60, 120, 300].map((seconds) => <option value={seconds} key={seconds}>{seconds}s</option>)}
             </select>
           </label>
           <label className="game-save-json-field">
             <span>Lookahead 블록</span>
-            <select value={state.lookaheadBlocks} onChange={(event) => applyRailAction('Lookahead 변경', (current) => setLookaheadBlocksAction(current, event.target.value))}>
+            <select data-game-sfx="off" value={state.lookaheadBlocks} onChange={(event) => applyRailAction('Lookahead 변경', (current) => setLookaheadBlocksAction(current, event.target.value))}>
               {[0, 1, 2, 3].map((count) => <option value={count} key={count}>{count}</option>)}
             </select>
           </label>
           <div style={{ display: 'grid', gap: 8 }}>
-            <ActionButton action="turn" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
-            <ActionButton action="advance" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
-            <ActionButton action="advance" onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+            <ActionButton action="turn" cue="off" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
+            <ActionButton action="advance" cue="off" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
+            <ActionButton action="advance" cue="off" onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
           </div>
         </section>
 
@@ -92,7 +92,11 @@ export default function Rail3dAdvancedTab(props) {
           <h2>미니맵</h2>
           <span>sampleTrack.json</span>
         </div>
-        <RailMap state={state} selectedTrainId={selectedTrain?.id || selectedTrainId} />
+        <RailMap
+          state={state}
+          selectedTrainId={selectedTrain?.id || selectedTrainId}
+          onSelectTrain={(trainId) => focusTrain(trainId, 'advanced')}
+        />
       </section>
 
       {selectedTrain ? (

@@ -6,7 +6,6 @@ export default function Rail3dTrainsTab(props) {
     rows,
     selectedTrain,
     selectedTrainId,
-    setSelectedTrainId,
   } = props;
 
   return (
@@ -18,7 +17,7 @@ export default function Rail3dTrainsTab(props) {
                   </div>
                   <label className="game-save-json-field">
                     <span>열차</span>
-                    <select value={selectedTrain?.id || selectedTrainId} onChange={(event) => setSelectedTrainId(event.target.value)}>
+                    <select data-game-sfx="select" value={selectedTrain?.id || selectedTrainId} onChange={(event) => focusTrain(event.target.value, 'trains')}>
                       {rows.map((row) => <option value={row.id} key={row.id}>{row.id} / {row.serviceName}</option>)}
                     </select>
                   </label>

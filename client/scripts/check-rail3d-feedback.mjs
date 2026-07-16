@@ -8,6 +8,9 @@ const feedback = await import(moduleUrl);
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const sfxSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
 const panelSource = await readFile(new URL('../src/app/games/rail3d-sim/_components/Rail3dPlayPanels.js', import.meta.url), 'utf8');
+const mapTabSource = await readFile(new URL('../src/app/games/rail3d-sim/_components/Rail3dMapTab.js', import.meta.url), 'utf8');
+const operationsSource = await readFile(new URL('../src/app/games/rail3d-sim/_components/Rail3dOperationsTab.js', import.meta.url), 'utf8');
+const advancedSource = await readFile(new URL('../src/app/games/rail3d-sim/_components/Rail3dAdvancedTab.js', import.meta.url), 'utf8');
 
 function train(overrides = {}) {
   return {
@@ -15,6 +18,7 @@ function train(overrides = {}) {
     phase: 'RUN',
     signalState: 'GO',
     stopReason: null,
+    pose: { edgeId: 'E1', headS: 0 },
     actualArriveS: { 0: 0 },
     actualDepartS: { 0: 30 },
     ...overrides,
@@ -28,6 +32,7 @@ function railState(overrides = {}) {
     lookaheadBlocks: 1,
     stepSeconds: 30,
     trains: [train(), train({ id: 'T2', actualArriveS: {}, actualDepartS: {} })],
+    segmentTokens: [{ segmentId: 'SEG_MAIN', owner: 'T1' }],
     ...overrides,
   };
 }
@@ -101,7 +106,30 @@ const departed = railState({
 assert.equal(cue(departed), 'trainDepart');
 
 const stoppedBase = railState({ trains: [train({ signalState: 'STOP' }), train({ id: 'T2' })] });
-assert.equal(feedback.rail3dFeedbackCue(stoppedBase, base), 'signalClear');
+assert.equal(feedback.rail3dFeedbackTransition(stoppedBase, base), 'networkClear');
+assert.equal(feedback.rail3dFeedbackCue(stoppedBase, base), 'railNetworkClear');
+
+const twoStopped = railState({
+  trains: [train({ signalState: 'STOP' }), train({ id: 'T2', signalState: 'STOP' })],
+});
+assert.equal(feedback.rail3dFeedbackTransition(twoStopped, stoppedBase), 'signalClear');
+
+const junctionPass = railState({
+  trains: [
+    train({ pose: { edgeId: 'E2', headS: 10 } }),
+    train({ id: 'T2', actualArriveS: {}, actualDepartS: {} }),
+  ],
+});
+assert.equal(transition(junctionPass), 'junctionPass');
+assert.equal(cue(junctionPass), 'railJunction');
+assert.equal(feedback.rail3dFeedbackPresentation(base, junctionPass).action, 'rail-junction');
+
+const tokenHandoff = railState({
+  segmentTokens: [{ segmentId: 'SEG_MAIN', owner: 'T2' }],
+});
+assert.equal(transition(tokenHandoff), 'tokenHandoff');
+assert.equal(cue(tokenHandoff), 'railTokenHandoff');
+assert.equal(feedback.rail3dFeedbackPresentation(base, tokenHandoff).action, 'rail-token');
 assert.equal(cue(railState({ nowS: 90 })), 'railStep');
 
 assert.equal(feedback.rail3dResultPresentation('저장된 Rail3D 운행을 불러왔습니다.').action, 'load');
@@ -112,13 +140,25 @@ assert.equal(feedback.rail3dResultPresentation('저장된 진행 상태가 없�
 
 assert.match(iconSource, /'block-conflict':\s*ShieldOff/, '블록 충돌은 전용 아이콘을 사용해야 합니다.');
 assert.match(iconSource, /'rail-delay':\s*Timer/, '누적 지연은 타이머 아이콘을 사용해야 합니다.');
-['blockConflict', 'delayedArrival', 'railDelay'].forEach((key) => {
+assert.match(iconSource, /'rail-clear':\s*BadgeCheck/, '전 구간 정상은 확인 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /'rail-junction':\s*Route/, '분기 통과는 노선 아이콘을 사용해야 합니다.');
+assert.match(iconSource, /'rail-token':\s*KeyRound/, '토큰 인계는 열쇠 아이콘을 사용해야 합니다.');
+['blockConflict', 'delayedArrival', 'railDelay', 'railNetworkClear', 'railJunction', 'railTokenHandoff'].forEach((key) => {
   assert.ok(sfxSource.includes(`${key}: [`), `${key} 전용 효과음이 필요합니다.`);
 });
 assert.match(panelSource, /블록 충돌/, '운행 결과 문구는 블록 충돌 편수를 표시해야 합니다.');
+['TrainFront', 'MapPin', 'RadioTower', 'KeyRound'].forEach((icon) => {
+  assert.ok(panelSource.includes(icon), `${icon} 미니맵 오브젝트 아이콘이 필요합니다.`);
+});
+assert.match(panelSource, /onSelectTrain/, '미니맵에서 열차를 직접 선택할 수 있어야 합니다.');
+assert.match(mapTabSource, /rail-map-legend/, '미니맵 오브젝트 범례가 필요합니다.');
+assert.match(mapTabSource, /rail-map-selection/, '선택 열차 상태 띠가 필요합니다.');
+assert.match(operationsSource, /cue="off"/, '결과음이 있는 운행 버튼은 예비 클릭음을 억제해야 합니다.');
+assert.match(advancedSource, /data-game-sfx="off"/, '상태 전환 선택기는 예비 클릭음을 억제해야 합니다.');
 
 console.log(JSON.stringify({
-  transitions: 14,
-  contextualResultIcons: 14,
-  stationIcon: true,
+  transitions: 17,
+  contextualResultIcons: 17,
+  mapObjectIcons: 5,
+  directTrainSelection: true,
 }, null, 2));

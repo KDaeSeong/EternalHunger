@@ -662,6 +662,24 @@ const CUE_PROFILES = {
     { frequency: 430, duration: 0.04, type: 'triangle', gain: 0.043 },
     { frequency: 650, start: 0.038, duration: 0.065, type: 'sine', gain: 0.04 },
   ],
+  railNetworkClear: [
+    { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.035, gain: 0.022 },
+    { frequency: 390, duration: 0.045, type: 'triangle', gain: 0.04, pan: -0.24 },
+    { frequency: 585, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.041 },
+    { frequency: 780, start: 0.095, duration: 0.11, type: 'sine', gain: 0.037, pan: 0.24 },
+  ],
+  railJunction: [
+    { source: 'noise', filterType: 'bandpass', frequency: 980, q: 3, duration: 0.03, gain: 0.034, pan: -0.3 },
+    { source: 'noise', filterType: 'bandpass', frequency: 1380, q: 3.2, start: 0.045, duration: 0.028, gain: 0.03, pan: 0.3 },
+    { frequency: 330, endFrequency: 440, duration: 0.075, type: 'triangle', gain: 0.038, pan: -0.18 },
+    { frequency: 660, endFrequency: 550, start: 0.055, duration: 0.09, type: 'sine', gain: 0.034, pan: 0.18 },
+  ],
+  railTokenHandoff: [
+    { source: 'noise', filterType: 'highpass', frequency: 2600, duration: 0.025, gain: 0.02 },
+    { frequency: 520, duration: 0.038, type: 'square', gain: 0.034, pan: -0.22 },
+    { frequency: 780, start: 0.036, duration: 0.05, type: 'triangle', gain: 0.037 },
+    { frequency: 1040, start: 0.082, duration: 0.08, type: 'sine', gain: 0.032, pan: 0.22 },
+  ],
   railDelay: [
     { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.025, gain: 0.024 },
     { frequency: 320, duration: 0.045, type: 'square', gain: 0.034 },

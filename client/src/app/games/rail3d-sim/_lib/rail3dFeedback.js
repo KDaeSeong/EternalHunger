@@ -11,7 +11,10 @@ const RAIL_FEEDBACK_PROFILES = {
   delayedArrival: { action: 'rail-delay', cue: 'delayedArrival', label: '지연 도착', tone: 'warning' },
   stationArrive: { action: 'station', cue: 'stationArrive', label: '역 도착', tone: 'success' },
   trainDepart: { action: 'dispatch', cue: 'trainDepart', label: '열차 출발', tone: 'highlight' },
+  networkClear: { action: 'rail-clear', cue: 'railNetworkClear', label: '전 구간 정상', tone: 'success' },
   signalClear: { action: 'confirm', cue: 'signalClear', label: '신호 해제', tone: 'success' },
+  junctionPass: { action: 'rail-junction', cue: 'railJunction', label: '분기 통과', tone: 'highlight' },
+  tokenHandoff: { action: 'rail-token', cue: 'railTokenHandoff', label: '토큰 인계', tone: 'highlight' },
   delayEscalated: { action: 'rail-delay', cue: 'railDelay', label: '누적 지연', tone: 'warning' },
   railStep: { action: 'advance', cue: 'railStep', label: '운행 진행', tone: '' },
 };
@@ -57,6 +60,14 @@ export function rail3dFeedbackSnapshot(state) {
     ),
     maxWaitSeconds,
     waitBand: Math.floor(maxWaitSeconds / 60),
+    edgeSignature: trains
+      .map((train) => `${String(train?.id || '')}:${String(train?.pose?.edgeId || '')}`)
+      .sort()
+      .join('|'),
+    tokenSignature: (state?.segmentTokens || [])
+      .map((token) => `${String(token?.segmentId || '')}:${String(token?.owner || '')}`)
+      .sort()
+      .join('|'),
   };
 }
 
@@ -75,8 +86,11 @@ export function rail3dFeedbackTransition(previousValue, currentValue) {
   if (current.delayedArrivals > previous.delayedArrivals) return 'delayedArrival';
   if (current.arrivals > previous.arrivals) return 'stationArrive';
   if (current.departures > previous.departures) return 'trainDepart';
+  if (previous.stopped > 0 && current.stopped === 0) return 'networkClear';
   if (current.stopped < previous.stopped) return 'signalClear';
+  if (current.tokenSignature && current.tokenSignature !== previous.tokenSignature) return 'tokenHandoff';
   if (current.waitBand > previous.waitBand) return 'delayEscalated';
+  if (current.edgeSignature && current.edgeSignature !== previous.edgeSignature) return 'junctionPass';
   if (current.nowS > previous.nowS) return 'railStep';
   return 'idle';
 }

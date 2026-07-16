@@ -1,5 +1,6 @@
 'use client';
 
+import { CircleStop, KeyRound, MapPin, RadioTower, TrainFront } from 'lucide-react';
 import { TRACK, blockSummary, formatTime, mapViewState, pointOnEdge, trainRows } from '../_lib/rail3dEngine';
 
 function railActionSnapshot(value) {
@@ -38,7 +39,21 @@ export function actionFeedbackText(previous, next, label, fallback = '') {
   return fallback || `${label}: 현재 ${formatTime(after.nowS)} · STOP ${after.stopped}편 · 종착 ${after.completed}/${after.total}편`;
 }
 
-export function RailMap({ state, selectedTrainId }) {
+function segmentCenter(view, segment) {
+  const points = (segment.edgeIds || []).flatMap((edgeId) => {
+    const edge = view.edges.find((item) => item.id === edgeId);
+    const from = edge ? view.nodes.find((node) => node.id === edge.from) : null;
+    const to = edge ? view.nodes.find((node) => node.id === edge.to) : null;
+    return from && to ? [{ x: (from.x + to.x) / 2, z: (from.z + to.z) / 2 }] : [];
+  });
+  if (!points.length) return null;
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    z: points.reduce((sum, point) => sum + point.z, 0) / points.length,
+  };
+}
+
+export function RailMap({ state, selectedTrainId, onSelectTrain }) {
   const view = mapViewState(state);
   const xs = view.nodes.map((node) => node.x);
   const zs = view.nodes.map((node) => node.z);
@@ -61,14 +76,49 @@ export function RailMap({ state, selectedTrainId }) {
         const a = pointOnEdge(block.edgeId, block.s0);
         const b = pointOnEdge(block.edgeId, block.s1);
         const color = block.state === 'OCCUPIED' ? '#ff9f1c' : block.state === 'RESERVED' ? '#39c6f0' : '#335463';
-        return <line key={block.id} x1={a.x} y1={a.z + 16} x2={b.x} y2={b.z + 16} stroke={color} strokeWidth="5" strokeLinecap="round" />;
+        const markerX = (a.x + b.x) / 2;
+        const markerY = (a.z + b.z) / 2 + 16;
+        return (
+          <g key={block.id} className={`rail-map__block is-${String(block.state || 'free').toLowerCase()}`}>
+            <line x1={a.x} y1={a.z + 16} x2={b.x} y2={b.z + 16} stroke={color} strokeWidth="5" strokeLinecap="round" />
+            {block.state !== 'FREE' ? (
+              <RadioTower
+                aria-hidden="true"
+                x={markerX - 8}
+                y={markerY - 8}
+                width="16"
+                height="16"
+                stroke={color}
+                strokeWidth="2.5"
+              />
+            ) : null}
+          </g>
+        );
       })}
       {view.stations.map((station) => {
         const point = pointOnEdge(station.stopPoint.edgeId, station.stopPoint.sM);
         return (
-          <g key={station.id}>
-            <circle cx={point.x} cy={point.z} r="14" fill="#f7fbff" stroke="#2673a6" strokeWidth="5" />
+          <g key={station.id} className="rail-map__station">
+            <circle cx={point.x} cy={point.z} r="17" fill="#f7fbff" stroke="#2673a6" strokeWidth="4" />
+            <MapPin aria-hidden="true" x={point.x - 10} y={point.z - 10} width="20" height="20" stroke="#164866" strokeWidth="2.6" />
             <text x={point.x} y={point.z - 24} fill="#f7fbff" textAnchor="middle" fontSize="18" fontWeight="800">{station.name}</text>
+            <title>{`${station.name} · ${station.id}`}</title>
+          </g>
+        );
+      })}
+      {view.segments.map((segment, index) => {
+        const center = segmentCenter(view, segment);
+        if (!center) return null;
+        const y = center.z + (index % 2 ? 48 : -48);
+        const waiting = segment.waiting?.length > 0;
+        return (
+          <g key={segment.id} className={`rail-map__token${waiting ? ' is-waiting' : ''}`}>
+            <rect x={center.x - 38} y={y - 14} width="76" height="28" rx="7" />
+            <KeyRound aria-hidden="true" x={center.x - 31} y={y - 8} width="16" height="16" strokeWidth="2.4" />
+            <text x={center.x - 10} y={y + 5} fontSize="11" fontWeight="900">
+              {segment.owner || 'FREE'}
+            </text>
+            <title>{`${segment.id} · ${segment.owner ? `${segment.owner} 점유` : 'FREE'}${waiting ? ` · 대기 ${segment.waiting.join(', ')}` : ''}`}</title>
           </g>
         );
       })}
@@ -77,11 +127,58 @@ export function RailMap({ state, selectedTrainId }) {
         const fill = train.signalState === 'STOP' ? '#e84855' : train.phase === 'DONE' ? '#8ea3ad' : '#39c6f0';
         const station = stationByStop.get(train.pose.edgeId + ':' + train.pose.headS);
         const selected = train.id === selectedTrainId;
+        const iconSize = selected ? 34 : 28;
+        const centerY = train.point.z + yOffset;
+        const handleKeyDown = (event) => {
+          if (!onSelectTrain || !['Enter', ' '].includes(event.key)) return;
+          event.preventDefault();
+          onSelectTrain(train.id);
+        };
         return (
-          <g key={train.id}>
-            <circle cx={train.point.x} cy={train.point.z + yOffset} r={selected ? 21 : 15} fill={selected ? '#fbbf24' : fill} stroke="#f7fbff" strokeWidth={selected ? 5 : 4} />
-            <text x={train.point.x} y={train.point.z + yOffset + 5} fill="#071923" textAnchor="middle" fontSize="12" fontWeight="900">{train.id}</text>
-            {station ? <title>{station.name}</title> : null}
+          <g
+            key={train.id}
+            className={`rail-map__train${selected ? ' is-selected' : ''}${train.signalState === 'STOP' ? ' is-stopped' : ''}`}
+            role={onSelectTrain ? 'button' : undefined}
+            tabIndex={onSelectTrain ? 0 : undefined}
+            aria-label={onSelectTrain ? `${train.id} 열차 선택, ${train.signalState}, ${train.phase}` : undefined}
+            data-game-sfx={onSelectTrain ? 'select' : undefined}
+            onClick={onSelectTrain ? () => onSelectTrain(train.id) : undefined}
+            onKeyDown={handleKeyDown}
+          >
+            <rect
+              className="rail-map__train-hitbox"
+              x={train.point.x - iconSize / 2 - 5}
+              y={centerY - iconSize / 2 - 5}
+              width={iconSize + 10}
+              height={iconSize + 10}
+              rx="9"
+              fill={selected ? '#fbbf24' : fill}
+              stroke="#f7fbff"
+              strokeWidth={selected ? 5 : 3.5}
+            />
+            <TrainFront
+              aria-hidden="true"
+              x={train.point.x - iconSize / 2}
+              y={centerY - iconSize / 2}
+              width={iconSize}
+              height={iconSize}
+              stroke="#071923"
+              strokeWidth="2.4"
+            />
+            <text x={train.point.x} y={centerY + iconSize / 2 + 17} fill="#f7fbff" textAnchor="middle" fontSize="12" fontWeight="900">{train.id}</text>
+            {train.signalState === 'STOP' ? (
+              <CircleStop
+                aria-hidden="true"
+                x={train.point.x + iconSize / 2 - 5}
+                y={centerY - iconSize / 2 - 10}
+                width="18"
+                height="18"
+                fill="#071923"
+                stroke="#ff6b75"
+                strokeWidth="2.8"
+              />
+            ) : null}
+            <title>{`${train.id} · ${train.signalState} · ${train.phase}${station ? ` · ${station.name}` : ''}`}</title>
           </g>
         );
       })}

@@ -69,6 +69,7 @@ export default function Rail3dOperationsTab(props) {
                         <GameControlButton
                           action={DISPATCH_ACTION_ICONS[item.action] || 'dispatch'}
                           className="tcg-primary-action"
+                          cue={['apply-lookahead', 'step', 'run-5'].includes(item.action) ? 'off' : undefined}
                           onClick={() => runDispatchAction(item)}
                         >
                           {item.actionLabel}
@@ -83,9 +84,9 @@ export default function Rail3dOperationsTab(props) {
                     <span>Step {state.stepSeconds}s · Lookahead {state.lookaheadBlocks}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="turn" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
-                    <ActionButton action="advance" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
-                    <ActionButton action="advance" onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
+                    <ActionButton action="turn" cue="off" onClick={() => applyRailAction('1 Step', (current) => stepAction(current))}>1 Step</ActionButton>
+                    <ActionButton action="advance" cue="off" onClick={() => applyRailAction('5분 진행', (current) => runForAction(current, 300))}>5분 진행</ActionButton>
+                    <ActionButton action="advance" cue="off" onClick={() => applyRailAction('20분 진행', (current) => runForAction(current, 1200))}>20분 진행</ActionButton>
                   </div>
                 </section>
               </section>

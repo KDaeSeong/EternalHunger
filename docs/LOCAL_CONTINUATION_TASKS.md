@@ -189,7 +189,7 @@ npm run build
   - `client/src/app/games/rail3d-sim/_components/Rail3dBlocksTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dLogTab.js`
   - `client/src/app/games/rail3d-sim/_components/Rail3dAdvancedTab.js`
-- Rail3D Sim result-state selection lives in `client/src/app/games/rail3d-sim/_lib/rail3dFeedback.js`. It compares arrivals, departures, STOP/token states, block conflicts, minute-band wait escalation, delayed arrivals, lookahead, and completion, then maps 14 transitions to dedicated synthesized cues, Lucide icons, labels, and result tones. The pinned result text also reports the number of block-conflicted trains; `check:rail3d-feedback` covers the transition matrix and shared icon/sound wiring.
+- Rail3D Sim result-state selection lives in `client/src/app/games/rail3d-sim/_lib/rail3dFeedback.js`. It compares arrivals, departures, STOP/token states, block conflicts, token handoffs, junction passage, whole-network release, minute-band wait escalation, delayed arrivals, lookahead, and completion, then maps 17 transitions to dedicated synthesized cues, Lucide icons, labels, and result tones. The minimap renders station/train/signal/token object icons, supports keyboard and pointer train selection, and exposes a responsive selected-train status strip. Outcome-driven controls suppress preliminary click sounds; `check:rail3d-feedback` covers the transition matrix and shared map/icon/sound wiring.
 - Rail3D Sim normalizes old `pose.sM` saves to `pose.headS` in `rail3dEngine.js`; preserve this migration when the original route cache is imported.
 - Board detail normalization helpers now live in `client/src/app/board/_lib/boardUtils.js`.
 - Board detail rendering is split into:
