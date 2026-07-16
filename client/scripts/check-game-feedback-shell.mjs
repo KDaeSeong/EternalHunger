@@ -194,7 +194,7 @@ console.log(JSON.stringify({
   routeThemes: expectedRouteThemes.length,
   bgmThemes: expectedBgmThemes.length,
   bgmArrangementSteps: Math.min(...expectedBgmThemes.map((theme) => bgmProfileModule.gameBgmProfile(theme).steps)),
-  bgmLayers: 8,
+  bgmLayers: 9,
   bgmDefaultEnabled: bgmPreferenceModule.readGameBgmEnabled(new Map()),
   soundPreferenceKey: preferenceModule.gameSfxPreferenceKey('school'),
 }, null, 2));
