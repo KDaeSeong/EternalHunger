@@ -93,6 +93,7 @@ export const RESEARCH_ERA_LABELS = {
   MEDIEVAL: '중세',
   EARLY_MODERN: '근세',
   MODERN_EARLY: '전기 근대',
+  MODERN_LATE: '후기 근대',
 };
 
 export const RESEARCH_BRANCH_LABELS = {
@@ -404,7 +405,7 @@ function researchEdgeLane(edgeId) {
 }
 
 export function buildResearchMap(techs) {
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY'];
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY', 'MODERN_LATE'];
   const nodeWidth = 188;
   const nodeHeight = 94;
   const columnGap = 54;

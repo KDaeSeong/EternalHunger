@@ -173,6 +173,18 @@ const expectedQuoteKeys = {
   POOR_RELIEF: 'welfare',
   HUMANITARIAN_LOGISTICS: 'humanitarianRelief',
   LABOR_PROTECTION: 'laborRights',
+  ELECTRIC_GENERATION: 'electricity',
+  TELEPHONE: 'telegraphy',
+  PERIODIC_LAW: 'chemistry',
+  PASTEURIZATION: 'germTheory',
+  POWERED_FLIGHT: 'navigation',
+  MOTION_PICTURES: 'photography',
+  RESEARCH_UNIVERSITY: 'education',
+  SOCIAL_INSURANCE: 'welfare',
+  MASS_JOURNALISM: 'press',
+  HAGUE_CONVENTIONS: 'humanitarianRelief',
+  UNIVERSAL_SUFFRAGE: 'liberty',
+  RELIGIOUS_PLURALISM: 'tolerance',
 };
 Object.entries(expectedQuoteKeys).forEach(([advancementId, quoteKey]) => {
   assert.equal(
@@ -289,13 +301,13 @@ assertStageCostsDoNotRegress(engine.TECHNOLOGY_TREE, '기술');
 assertStageCostsDoNotRegress(engine.CIVIC_TREE, '사회 제도');
 assert.deepEqual(
   engine.TECH_TIER_DEFS.map((definition) => definition.tier),
-  Array.from({ length: 30 }, (_, index) => index + 1),
-  '기술 단계는 T1부터 T30까지 연속이어야 합니다.',
+  Array.from({ length: 38 }, (_, index) => index + 1),
+  '기술 단계는 T1부터 T38까지 연속이어야 합니다.',
 );
 assert.deepEqual(
   engine.CIVIC_TIER_DEFS.map((definition) => definition.tier),
-  Array.from({ length: 26 }, (_, index) => index + 1),
-  '사회 제도 단계는 C1부터 C26까지 연속이어야 합니다.',
+  Array.from({ length: 32 }, (_, index) => index + 1),
+  '사회 제도 단계는 C1부터 C32까지 연속이어야 합니다.',
 );
 
 const classicalTechnologies = engine.TECHNOLOGY_TREE.filter((technology) => technology.era === 'CLASSICAL');
@@ -306,6 +318,8 @@ const earlyModernTechnologies = engine.TECHNOLOGY_TREE.filter((technology) => te
 const earlyModernCivics = engine.CIVIC_TREE.filter((civic) => civic.era === 'EARLY_MODERN');
 const modernEarlyTechnologies = engine.TECHNOLOGY_TREE.filter((technology) => technology.era === 'MODERN_EARLY');
 const modernEarlyCivics = engine.CIVIC_TREE.filter((civic) => civic.era === 'MODERN_EARLY');
+const modernLateTechnologies = engine.TECHNOLOGY_TREE.filter((technology) => technology.era === 'MODERN_LATE');
+const modernLateCivics = engine.CIVIC_TREE.filter((civic) => civic.era === 'MODERN_LATE');
 const expansionBranches = ['ENGINEERING', 'FAITH', 'LITERATURE', 'MILITARY', 'NATURAL_PHILOSOPHY', 'SURVIVAL'];
 assert.equal(classicalTechnologies.length, 17, '고전 시대에는 기술 17개가 있어야 합니다.');
 assert.equal(classicalCivics.length, 13, '고전 시대에는 사회 제도 13개가 있어야 합니다.');
@@ -343,8 +357,17 @@ assert.deepEqual(
   expansionBranches,
   '전기 근대 확장은 신앙·이학·문학·군사·생존·기술 여섯 계통을 모두 포함해야 합니다.',
 );
-assert.equal(engine.TECHNOLOGY_TREE.length, 126, '기술 트리는 전기 근대 확장을 포함해 126개여야 합니다.');
-assert.equal(engine.CIVIC_TREE.length, 76, '사회 제도 트리는 전기 근대 확장을 포함해 76개여야 합니다.');
+assert.equal(modernLateTechnologies.length, 24, '후기 근대 확장에는 기술 24개가 있어야 합니다.');
+assert.equal(modernLateCivics.length, 18, '후기 근대 확장에는 사회 제도 18개가 있어야 합니다.');
+assert.ok(modernLateTechnologies.every((technology) => technology.eureka), '모든 후기 근대 기술에는 유레카가 있어야 합니다.');
+assert.ok(modernLateCivics.every((civic) => civic.inspiration), '모든 후기 근대 사회 제도에는 영감이 있어야 합니다.');
+assert.deepEqual(
+  [...new Set([...modernLateTechnologies, ...modernLateCivics].map((advancement) => advancement.branch))].sort(),
+  expansionBranches,
+  '후기 근대 확장은 신앙·이학·문학·군사·생존·기술 여섯 계통을 모두 포함해야 합니다.',
+);
+assert.equal(engine.TECHNOLOGY_TREE.length, 150, '기술 트리는 후기 근대 확장을 포함해 150개여야 합니다.');
+assert.equal(engine.CIVIC_TREE.length, 94, '사회 제도 트리는 후기 근대 확장을 포함해 94개여야 합니다.');
 
 const expansionPassives = [
   ...classicalTechnologies,
@@ -355,6 +378,8 @@ const expansionPassives = [
   ...earlyModernCivics,
   ...modernEarlyTechnologies,
   ...modernEarlyCivics,
+  ...modernLateTechnologies,
+  ...modernLateCivics,
 ]
   .flatMap((advancement) => advancement.unlocks?.passives || []);
 expansionPassives.forEach((passiveId) => {
@@ -456,18 +481,18 @@ function assertNoUnrelatedNodeCrossings(map, label) {
 }
 
 assert.equal(technologyMap.minTier, 1, '기술 트리는 T1부터 시작해야 합니다.');
-assert.equal(technologyMap.maxTier, 30, '기술 트리는 T30에서 끝나야 합니다.');
-assert.equal(technologyMap.rangeLabel, 'T1-T30', '기술 트리는 T 접두사를 사용해야 합니다.');
-assert.equal(technologyMap.tierCount, 30, '기술 트리는 서른 단계가 모두 표시되어야 합니다.');
+assert.equal(technologyMap.maxTier, 38, '기술 트리는 T38에서 끝나야 합니다.');
+assert.equal(technologyMap.rangeLabel, 'T1-T38', '기술 트리는 T 접두사를 사용해야 합니다.');
+assert.equal(technologyMap.tierCount, 38, '기술 트리는 서른여덟 단계가 모두 표시되어야 합니다.');
 assert.deepEqual(
   technologyMap.tierHeaders.slice(0, 4).map((tier) => tier.count),
   [2, 4, 4, 3],
   '초반 기술 단계는 생존 기초에서 전문 생존으로 자연스럽게 분산되어야 합니다.',
 );
 assert.equal(civicMap.minTier, 1, '사회 제도 트리는 C1부터 시작해야 합니다.');
-assert.equal(civicMap.maxTier, 26, '사회 제도 트리는 C26에서 끝나야 합니다.');
-assert.equal(civicMap.rangeLabel, 'C1-C26', '사회 제도 트리는 C 접두사를 사용해야 합니다.');
-assert.equal(civicMap.tierCount, 26, '사회 제도 트리는 스물여섯 단계가 모두 표시되어야 합니다.');
+assert.equal(civicMap.maxTier, 32, '사회 제도 트리는 C32에서 끝나야 합니다.');
+assert.equal(civicMap.rangeLabel, 'C1-C32', '사회 제도 트리는 C 접두사를 사용해야 합니다.');
+assert.equal(civicMap.tierCount, 32, '사회 제도 트리는 서른두 단계가 모두 표시되어야 합니다.');
 assert.ok(civicMap.nodes.every((node) => node.tierLabel.startsWith('C')), '사회 제도 노드는 C 단계 라벨을 사용해야 합니다.');
 assert.ok(technologyMap.nodes.every((node) => node.tierLabel.startsWith('T')), '기술 노드는 T 단계 라벨을 사용해야 합니다.');
 const technologyEdgeCount = engine.TECHNOLOGY_TREE.reduce((sum, technology) => (
@@ -504,6 +529,7 @@ assert.equal(runtime.advancementAction(['SPIRITUAL'], 'civics', 'FAITH'), 'couns
 assert.equal(runtime.RESEARCH_ERA_LABELS.MEDIEVAL, '중세', '중세 시대 라벨이 표시되어야 합니다.');
 assert.equal(runtime.RESEARCH_ERA_LABELS.EARLY_MODERN, '근세', '근세 시대 라벨이 표시되어야 합니다.');
 assert.equal(runtime.RESEARCH_ERA_LABELS.MODERN_EARLY, '전기 근대', '전기 근대 시대 라벨이 표시되어야 합니다.');
+assert.equal(runtime.RESEARCH_ERA_LABELS.MODERN_LATE, '후기 근대', '후기 근대 시대 라벨이 표시되어야 합니다.');
 
 const actorStatusMatches = actionWorkspaceSource.match(/primitive-acting-vitals/g) || [];
 assert.ok(actorStatusMatches.length >= 1, '행동 패널에는 선택한 캐릭터의 상태가 표시되어야 합니다.');
@@ -698,6 +724,58 @@ assert.ok(
   '전기 근대 의료·인도주의 발전은 실제 휴식 회복량을 높여야 합니다.',
 );
 
+const modernLateEffectState = engine.normalizeState({
+  ...modernEarlyEffectState,
+  research: {
+    ...modernEarlyEffectState.research,
+    completed: {
+      ...modernEarlyEffectState.research.completed,
+      ELECTRIC_GENERATION: true,
+      ORGANIC_CHEMISTRY: true,
+      ANTISEPTIC_SURGERY: true,
+      MACHINE_GUN: true,
+      TELEPHONE: true,
+      DISTRICT_NURSING: true,
+      CORPORATE_ENTERPRISE: true,
+      RESEARCH_UNIVERSITY: true,
+      SOCIAL_INSURANCE: true,
+      NATIONAL_MOBILIZATION: true,
+      MASS_JOURNALISM: true,
+      SOCIAL_GOSPEL: true,
+    },
+  },
+  civics: {
+    ...modernEarlyEffectState.civics,
+    completed: {
+      ...modernEarlyEffectState.civics.completed,
+      CORPORATE_ENTERPRISE: true,
+      RESEARCH_UNIVERSITY: true,
+      SOCIAL_INSURANCE: true,
+      NATIONAL_MOBILIZATION: true,
+      MASS_JOURNALISM: true,
+      SOCIAL_GOSPEL: true,
+    },
+  },
+});
+[
+  'MODERN_ENGINEERING_TECH_STACK',
+  'MODERN_SCIENCE_TECH_STACK',
+  'MODERN_SURVIVAL_TECH_STACK',
+  'MODERN_MILITARY_TECH_STACK',
+  'MODERN_MEDIA_TECH_STACK',
+  'MODERN_MEDICAL_TECH_STACK',
+  'MODERN_ENGINEERING_CIVIC_STACK',
+  'MODERN_SCIENCE_CIVIC_STACK',
+  'MODERN_SURVIVAL_CIVIC_STACK',
+  'MODERN_MILITARY_CIVIC_STACK',
+  'MODERN_MEDIA_CIVIC_STACK',
+  'MODERN_FAITH_CIVIC_STACK',
+].forEach((passiveId) => {
+  assert.equal(engine.passiveStackCount(modernLateEffectState, passiveId), 2, `후기 근대의 ${passiveId} 효과가 기존 근대 효과 위에 누적되어야 합니다.`);
+});
+assert.ok(engine.logCapacity(modernLateEffectState) > engine.logCapacity(modernEarlyEffectState), '후기 근대 통신·언론 발전은 로그 용량을 더 늘려야 합니다.');
+assert.ok(engine.scoreState(modernLateEffectState) > engine.scoreState(modernEarlyEffectState), '후기 근대 발전은 아카이브 점수에 추가 반영되어야 합니다.');
+
 const feedbackBase = {
   runId: 'feedback-a',
   day: 1,
@@ -810,6 +888,14 @@ assert.equal(
   'eraAdvance',
   '전기 근대 진입은 전용 시대 전환 효과음을 선택해야 합니다.',
 );
+assert.equal(
+  feedback.primitiveMilestoneCue(
+    feedback.primitiveMilestoneSnapshot(feedbackBase, 'spring', 'MODERN_EARLY'),
+    feedback.primitiveMilestoneSnapshot(feedbackBase, 'spring', 'MODERN_LATE'),
+  ),
+  'eraAdvance',
+  '후기 근대 진입은 전용 시대 전환 효과음을 선택해야 합니다.',
+);
 
 const legacy = engine.normalizeState({
   ...base,
@@ -838,6 +924,8 @@ console.log(JSON.stringify({
   earlyModernCivics: earlyModernCivics.length,
   modernEarlyTechnologies: modernEarlyTechnologies.length,
   modernEarlyCivics: modernEarlyCivics.length,
+  modernLateTechnologies: modernLateTechnologies.length,
+  modernLateCivics: modernLateCivics.length,
   technologyEdges: technologyMap.edges.length,
   civicEdges: civicMap.edges.length,
   quoteSources: new Set(allAdvancements.map((advancement) => advancement.quote.sourceUrl)).size,

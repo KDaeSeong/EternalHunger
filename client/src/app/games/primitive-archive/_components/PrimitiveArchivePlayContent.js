@@ -429,7 +429,7 @@ export default function PrimitiveArchivePlayContent() {
 
   const startNewRun = () => {
     const nextState = startNewRunFromMeta(stateRef.current, { difficulty: newRunDifficulty });
-    const nextMessage = `${selectedDifficulty.label} 난이도로 새 원시 아카이브 런을 시작했습니다.`;
+    const nextMessage = `${selectedDifficulty.label} 난이도로 새 문명 아카이브 런을 시작했습니다.`;
     const presentation = primitiveTextPresentation(nextMessage);
     stateRef.current = nextState;
     feedbackRef.current = primitiveMilestoneSnapshot(nextState);
@@ -539,10 +539,10 @@ export default function PrimitiveArchivePlayContent() {
   return (
     <GamePlayShell
       className="primitive-archive-page-shell"
-      kicker="Primitive Archive"
-      title="원시 아카이브"
+      kicker="Civilization Archive"
+      title="문명 아카이브"
       description="학생 파티와 부족이 채집, 사냥, 제작, 기술, 사회 제도를 발전시키며 원시 지대에서 문명을 세우는 생존 시뮬레이션입니다."
-      summaryLabel="Primitive Archive 요약"
+      summaryLabel="문명 아카이브 요약"
       summaryDensity="micro"
       primaryMetricLimit={8}
       heroLayout="compact"

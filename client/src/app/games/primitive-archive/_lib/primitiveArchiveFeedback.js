@@ -112,7 +112,7 @@ const ACTION_RESULT_PATTERNS = {
 const FAILURE_PATTERN = /실패|(?:재료|비용|자원|식량|연료|보유량).*부족|부족(?:합니다|하여|해서)|없습니다|잠김|불가|할 수 없|필요(?:합니다|함)|종료 상태|이미 완료/;
 
 const TEXT_PRESENTATIONS = [
-  { pattern: /새 원시 아카이브 런|난이도로 새 .*런/, force: true, value: { key: 'newRun', action: 'new', cue: 'start', label: '새 생존 런 시작', outcome: 'ready', tone: 'highlight' } },
+  { pattern: /새 (?:원시|문명) 아카이브 런|난이도로 새 .*런/, force: true, value: { key: 'newRun', action: 'new', cue: 'start', label: '새 생존 런 시작', outcome: 'ready', tone: 'highlight' } },
   { pattern: /로그인|만료|실패|없습니다|불러오지 못|할 수 없습니다|오류/, force: true, value: { key: 'messageError', action: 'primitive-survival-fail', cue: '', label: '생존 운영 안내', outcome: 'failure', tone: 'warning' } },
   { pattern: /저장된 .*런.*불러|런을 불러왔/, force: true, value: { key: 'load', action: 'load', cue: '', label: '생존 런 불러오기', outcome: 'success', tone: 'success' } },
   { pattern: /런을 .*저장|런.*저장 슬롯/, force: true, value: { key: 'save', action: 'save', cue: '', label: '생존 런 저장', outcome: 'success', tone: 'success' } },

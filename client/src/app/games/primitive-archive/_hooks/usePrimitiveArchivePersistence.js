@@ -39,7 +39,7 @@ export default function usePrimitiveArchivePersistence({
     setBusy('save');
     try {
       await apiPut(`/game-saves/${GAME_SLUG}/${QUICK_SAVE_SLOT}`, {
-        saveName: `Primitive Archive Day ${state.day}`,
+        saveName: `Civilization Archive Day ${state.day}`,
         version: SAVE_VERSION,
         summary: summaryForState(state),
         payload: { state },
@@ -48,7 +48,7 @@ export default function usePrimitiveArchivePersistence({
       clearApiGetCache('/game-saves');
       setMessage('런을 저장했습니다.');
       setActionResult('런을 서버 저장 슬롯에 저장했습니다.');
-      showToast({ tone: 'success', message: 'Primitive Archive 런을 저장했습니다.' });
+      showToast({ tone: 'success', message: '문명 아카이브 런을 저장했습니다.' });
     } catch (err) {
       const nextMessage = persistenceErrorMessage(err, '런 저장에 실패했습니다.');
       setMessage(nextMessage);
@@ -68,7 +68,7 @@ export default function usePrimitiveArchivePersistence({
       const list = await apiGet(`/game-saves?gameSlug=${GAME_SLUG}`, { timeoutMs: 12000 });
       const quickSave = Array.isArray(list?.saves) ? list.saves.find((save) => save.slotKey === QUICK_SAVE_SLOT) : null;
       if (!quickSave?.id) {
-        setMessage('저장된 Primitive Archive 런이 없습니다.');
+        setMessage('저장된 문명 아카이브 런이 없습니다.');
         return;
       }
       const detail = await apiGet(`/game-saves/${quickSave.id}`, { timeoutMs: 12000 });
@@ -96,7 +96,7 @@ export default function usePrimitiveArchivePersistence({
     try {
       const result = hp <= 0 ? 'fail' : 'clear';
       await apiPost(`/game-records/${GAME_SLUG}`, {
-        title: `Primitive Archive Day ${state.day}`,
+        title: `Civilization Archive Day ${state.day}`,
         mode: 'survival-loop',
         result,
         score,

@@ -1357,8 +1357,8 @@ export function selectRegionAction(state, regionId) {
 export function civilizationMilestoneRows(state) {
   const current = normalizeState(state);
   const season = seasonForDay(current.day);
-  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY'];
-  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전', MEDIEVAL: '중세', EARLY_MODERN: '근세', MODERN_EARLY: '전기 근대' };
+  const eraOrder = ['PRIMITIVE', 'NEOLITHIC', 'ANCIENT', 'CLASSICAL', 'MEDIEVAL', 'EARLY_MODERN', 'MODERN_EARLY', 'MODERN_LATE'];
+  const eraLabels = { PRIMITIVE: '원시', NEOLITHIC: '신석기', ANCIENT: '고대', CLASSICAL: '고전', MEDIEVAL: '중세', EARLY_MODERN: '근세', MODERN_EARLY: '전기 근대', MODERN_LATE: '후기 근대' };
   const completedEras = TECH_TREE
     .filter((tech) => current.research.completed?.[tech.id])
     .map((tech) => tech.era);
@@ -4121,7 +4121,7 @@ export function archiveCompletionReportForState(state) {
 
   return {
     status: victory.victory ? 'complete' : current.ended ? 'settled' : victory.canComplete ? 'ready' : 'active',
-    title: victory.victory ? '원시 아카이브 완성본' : victory.canComplete ? '완성 대기 기록서' : current.ended ? '탐험 정산 기록서' : '탐험 진행 기록서',
+    title: victory.victory ? '문명 아카이브 완성본' : victory.canComplete ? '완성 대기 기록서' : current.ended ? '탐험 정산 기록서' : '탐험 진행 기록서',
     grade,
     archiveScore,
     objectivePct,

@@ -118,7 +118,7 @@ const milestoneBase = primitiveMilestoneSnapshot(base, 'spring', 'ANCIENT');
 assert.equal(primitiveMilestoneCue(milestoneBase, { ...milestoneBase, seasonId: 'summer' }), 'season', '계절 전환음을 선택해야 합니다.');
 assert.equal(primitiveMilestoneCue(milestoneBase, { ...milestoneBase, eraId: 'CLASSICAL' }), 'eraAdvance', '시대 전환음을 선택해야 합니다.');
 
-assert.equal(primitiveTextPresentation('매우 쉬움 난이도로 새 원시 아카이브 런을 시작했습니다.').cue, 'start', '새 런은 시작음을 사용해야 합니다.');
+assert.equal(primitiveTextPresentation('매우 쉬움 난이도로 새 문명 아카이브 런을 시작했습니다.').cue, 'start', '새 런은 시작음을 사용해야 합니다.');
 assert.equal(primitiveTextPresentation('로그인하면 런을 저장할 수 있습니다.').action, 'primitive-survival-fail', '비로그인 안내는 생존 실패 아이콘이어야 합니다.');
 assert.equal(primitiveTextPresentation('저장된 런을 불러왔습니다.').action, 'load', '불러오기는 폴더 아이콘이어야 합니다.');
 assert.equal(primitiveTextPresentation('런을 저장했습니다.').action, 'save', '저장은 저장 아이콘이어야 합니다.');
