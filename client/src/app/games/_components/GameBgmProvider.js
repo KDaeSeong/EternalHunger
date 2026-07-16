@@ -24,6 +24,7 @@ import {
 import {
   gameBgmArrangementState,
   gameBgmChordRoot,
+  gameBgmChordVoicing,
   gameBgmNoteFrequency,
   gameBgmProfile,
   gameBgmStepDuration,
@@ -176,7 +177,7 @@ function scheduleNoise({
 function scheduleKick(session, start, velocity) {
   scheduleTone({
     ctx: session.ctx,
-    destination: session.gain,
+    destination: session.drumGain,
     frequency: 135,
     endFrequency: 43,
     start,
@@ -192,7 +193,7 @@ function scheduleKick(session, start, velocity) {
 function scheduleSnare(session, start, velocity) {
   scheduleNoise({
     ctx: session.ctx,
-    destination: session.gain,
+    destination: session.drumGain,
     noiseBuffer: session.noiseBuffer,
     start,
     duration: 0.105,
@@ -205,7 +206,7 @@ function scheduleSnare(session, start, velocity) {
   });
   scheduleTone({
     ctx: session.ctx,
-    destination: session.gain,
+    destination: session.drumGain,
     frequency: 190,
     endFrequency: 145,
     start,
@@ -221,7 +222,7 @@ function scheduleSnare(session, start, velocity) {
 function scheduleHat(session, start, velocity, stepIndex) {
   scheduleNoise({
     ctx: session.ctx,
-    destination: session.gain,
+    destination: session.drumGain,
     noiseBuffer: session.noiseBuffer,
     start,
     duration: stepIndex % 4 === 2 ? 0.058 : 0.035,
@@ -238,7 +239,7 @@ function schedulePerc(session, start, velocity, stepIndex) {
   const high = stepIndex % 4 === 3;
   scheduleTone({
     ctx: session.ctx,
-    destination: session.gain,
+    destination: session.drumGain,
     frequency: high ? 520 : 310,
     endFrequency: high ? 390 : 235,
     start,
@@ -252,18 +253,133 @@ function schedulePerc(session, start, velocity, stepIndex) {
   });
 }
 
+function scheduleOpenHat(session, start, velocity, pan = 0.2) {
+  scheduleNoise({
+    ctx: session.ctx,
+    destination: session.drumGain,
+    noiseBuffer: session.noiseBuffer,
+    start,
+    duration: 0.24,
+    gainValue: velocity,
+    sources: session.sources,
+    filterType: 'highpass',
+    frequency: 4200,
+    q: 0.45,
+    pan,
+  });
+}
+
+function schedulePump(session, start, amount, duration) {
+  const depth = clamp(amount, 0, 0.52);
+  if (depth <= 0) return;
+  const pumpGain = session.musicGain.gain;
+  pumpGain.setValueAtTime(1, start);
+  pumpGain.linearRampToValueAtTime(Math.max(0.45, 1 - depth), start + 0.008);
+  pumpGain.exponentialRampToValueAtTime(1, start + Math.max(0.06, duration));
+}
+
+function scheduleSectionImpact(session, start, intensity) {
+  const gain = Number(session.profile.fxGain || 0.082) * clamp(intensity, 0, 1.4);
+  if (gain <= 0) return;
+  scheduleNoise({
+    ctx: session.ctx,
+    destination: session.fxGain,
+    noiseBuffer: session.noiseBuffer,
+    start,
+    duration: 0.82,
+    gainValue: gain,
+    sources: session.sources,
+    filterType: 'highpass',
+    frequency: 2800,
+    q: 0.38,
+    pan: 0.08,
+  });
+  scheduleTone({
+    ctx: session.ctx,
+    destination: session.fxGain,
+    frequency: 92,
+    endFrequency: 41,
+    start,
+    duration: 0.34,
+    gainValue: gain * 0.72,
+    wave: 'sine',
+    sources: session.sources,
+    attack: 0.003,
+    releaseStartRatio: 0.3,
+    pan: -0.06,
+  });
+}
+
+function scheduleTransitionRiser(session, start, duration, intensity) {
+  const gainValue = Number(session.profile.fxGain || 0.082) * clamp(intensity, 0, 1.4) * 0.72;
+  if (!session.noiseBuffer || duration <= 0 || gainValue <= 0) return;
+  const source = session.ctx.createBufferSource();
+  const filter = session.ctx.createBiquadFilter();
+  const gain = session.ctx.createGain();
+  const end = start + duration;
+  const panner = connectPannedVoice(session.ctx, gain, session.fxGain, -0.08);
+
+  source.buffer = session.noiseBuffer;
+  source.loop = true;
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(260, start);
+  filter.frequency.exponentialRampToValueAtTime(6800, end);
+  filter.Q.setValueAtTime(0.72, start);
+  filter.Q.linearRampToValueAtTime(1.8, end);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, gainValue), start + duration * 0.88);
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
+  source.connect(filter);
+  filter.connect(gain);
+  session.sources.add(source);
+  source.onended = () => {
+    session.sources.delete(source);
+    source.disconnect();
+    filter.disconnect();
+    gain.disconnect();
+    panner?.disconnect();
+  };
+  source.start(start);
+  source.stop(end + 0.02);
+
+  scheduleTone({
+    ctx: session.ctx,
+    destination: session.fxGain,
+    frequency: 145,
+    endFrequency: 920,
+    start,
+    duration,
+    gainValue: gainValue * 0.18,
+    wave: 'triangle',
+    sources: session.sources,
+    attack: duration * 0.72,
+    releaseStartRatio: 0.9,
+    pan: 0.12,
+  });
+}
+
 function scheduleDrumStep(session, arrangement, start) {
   const { profile } = session;
+  const stepDuration = gameBgmStepDuration(profile);
   const step = arrangement.patternStep;
   const sectionLevel = Number(arrangement.section.drums || 0);
   const energy = Number(arrangement.section.energy || 1);
+  const flourish = Number(profile.flourish || 0.9);
   const baseGain = Number(profile.drumGain || 0.1) * sectionLevel * Math.min(1.15, energy);
   const kick = Number(profile.drums.kick[step] || 0);
   const snare = Number(profile.drums.snare[step] || 0);
   const hat = Number(profile.drums.hat[step] || 0);
   const perc = Number(profile.drums.perc[step] || 0);
 
-  if (kick > 0) scheduleKick(session, start, baseGain * kick);
+  if (kick > 0) {
+    schedulePump(
+      session,
+      start,
+      Number(arrangement.section.pump || 0) * Number(profile.pumpDepth || 0.28) * flourish,
+      stepDuration * 0.86,
+    );
+    scheduleKick(session, start, baseGain * kick);
+  }
   if (snare > 0) scheduleSnare(session, start, baseGain * snare * 0.82);
   if (hat > 0) scheduleHat(session, start, baseGain * hat * 0.42, step);
   if (perc > 0) schedulePerc(session, start, baseGain * perc * 0.55, step);
@@ -271,38 +387,46 @@ function scheduleDrumStep(session, arrangement, start) {
   const fillWindow = arrangement.section.fill
     && arrangement.sectionStep >= arrangement.sectionSteps - 16
     && step >= 10;
-  if (fillWindow && [10, 12, 14, 15].includes(step)) {
-    schedulePerc(session, start, baseGain * (0.38 + step * 0.025), step + 1);
+  if (fillWindow && step >= 10) {
+    const fillProgress = (step - 9) / 6;
+    schedulePerc(session, start, baseGain * (0.48 + fillProgress * 0.55), step + 1);
+    if (step >= 12) scheduleSnare(session, start, baseGain * (0.24 + fillProgress * 0.34));
+    if (step === 14) scheduleOpenHat(session, start, baseGain * 0.32, -0.24);
+    if (step === 15) scheduleOpenHat(session, start, baseGain * 0.58, 0.28);
+  } else if (arrangement.section.stabs && [6, 14].includes(step)) {
+    scheduleOpenHat(session, start, baseGain * 0.26, step === 6 ? -0.22 : 0.22);
   }
 }
 
-function scheduleChord(session, chordRoot, start, duration, energy) {
+function scheduleChord(session, chordRoot, start, duration, energy, arrangement) {
   const { profile } = session;
-  profile.chordVoicing.forEach((offset, voiceIndex) => {
+  const voicing = gameBgmChordVoicing(profile, arrangement);
+  voicing.forEach((offset, voiceIndex) => {
     scheduleTone({
       ctx: session.ctx,
-      destination: session.gain,
-      frequency: gameBgmNoteFrequency(profile, chordRoot + offset, voiceIndex === 0 ? 0 : 1),
+      destination: session.musicGain,
+      frequency: gameBgmNoteFrequency(profile, chordRoot + offset, profile.padOctave),
       start: start + voiceIndex * 0.014,
       duration,
-      gainValue: Number(profile.padGain || 0.025) * energy,
-      wave: 'sine',
+      gainValue: Number(profile.padGain || 0.025) * energy * (voiceIndex === 0 ? 1 : 0.82),
+      wave: profile.padWave || 'sine',
       sources: session.sources,
       attack: Math.min(0.11, duration * 0.16),
       releaseStartRatio: 0.78,
-      detune: voiceIndex === 1 ? -4 : voiceIndex === 2 ? 4 : 0,
-      pan: (voiceIndex - (profile.chordVoicing.length - 1) / 2) * 0.22,
+      detune: (voiceIndex % 2 ? -1 : 1) * Number(profile.padDetune || 5),
+      pan: (voiceIndex - (voicing.length - 1) / 2) * 0.2,
     });
   });
 }
 
 function scheduleMusicStep(session, absoluteStep, start) {
-  const { filter, profile } = session;
+  const { delaySend, filter, profile, reverbSend } = session;
   const stepDuration = gameBgmStepDuration(profile);
   const arrangement = gameBgmArrangementState(profile, absoluteStep);
   const step = arrangement.patternStep;
   const section = arrangement.section;
   const energy = Number(section.energy || 1);
+  const flourish = Number(profile.flourish || 0.9);
   const swingOffset = step % 2 ? stepDuration * clamp(profile.swing, 0, 0.2) : 0;
   const noteStart = start + swingOffset;
   const chordRoot = gameBgmChordRoot(profile, arrangement);
@@ -310,15 +434,36 @@ function scheduleMusicStep(session, absoluteStep, start) {
   if (session.sectionId !== section.id) {
     session.sectionId = section.id;
     const sectionFilter = Number(profile.filterFrequency || 1800) * (0.78 + energy * 0.28);
-    filter.frequency.setTargetAtTime(sectionFilter, start, 0.16);
+    const sweepStart = Math.max(180, sectionFilter * (Number(section.crash || 0) > 0.5 ? 0.46 : 0.72));
+    filter.frequency.cancelScheduledValues(start);
+    filter.frequency.setValueAtTime(sweepStart, start);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(sweepStart + 1, sectionFilter), start + stepDuration * 7.5);
     filter.Q.setTargetAtTime(Number(profile.filterPeak || 0.65), start, 0.12);
+    delaySend.gain.setTargetAtTime(Number(profile.delayMix || 0.055) * (0.78 + energy * 0.24), start, 0.18);
+    reverbSend.gain.setTargetAtTime(Number(profile.reverbMix || 0.065) * (0.72 + energy * 0.32), start, 0.18);
+    if (Number(section.crash || 0) > 0) {
+      scheduleSectionImpact(session, start, Number(section.crash) * flourish);
+    }
     if (typeof document !== 'undefined') {
       document.documentElement.dataset.gameBgmSection = section.id;
+      document.documentElement.dataset.gameBgmFx = Number(section.crash || 0) > 0 ? 'impact' : 'none';
     }
   }
 
+  const riserStart = Number(section.riser || 0) > 0
+    && arrangement.sectionStep === Math.max(0, arrangement.sectionSteps - 16);
+  if (riserStart) {
+    scheduleTransitionRiser(
+      session,
+      start,
+      stepDuration * 15.85,
+      Number(section.riser) * flourish,
+    );
+    if (typeof document !== 'undefined') document.documentElement.dataset.gameBgmFx = 'riser';
+  }
+
   if (section.pad && step === 0) {
-    scheduleChord(session, chordRoot, start, stepDuration * 15.65, energy);
+    scheduleChord(session, chordRoot, start, stepDuration * 15.65, energy, arrangement);
   }
 
   if (section.arp) {
@@ -326,7 +471,7 @@ function scheduleMusicStep(session, absoluteStep, start) {
     if (arpDegree !== null && arpDegree !== undefined) {
       scheduleTone({
         ctx: session.ctx,
-        destination: session.gain,
+        destination: session.musicGain,
         frequency: gameBgmNoteFrequency(profile, chordRoot + Number(arpDegree), profile.arpOctave),
         start: noteStart,
         duration: stepDuration * Number(profile.arpLength || 0.72),
@@ -345,7 +490,7 @@ function scheduleMusicStep(session, absoluteStep, start) {
     if (bassDegree !== null && bassDegree !== undefined) {
       scheduleTone({
         ctx: session.ctx,
-        destination: session.gain,
+        destination: session.musicGain,
         frequency: gameBgmNoteFrequency(profile, bassDegree, profile.bassOctave),
         start,
         duration: stepDuration * 3.55,
@@ -362,26 +507,71 @@ function scheduleMusicStep(session, absoluteStep, start) {
   const leadPattern = section.lead === 'b' ? profile.leadB : profile.lead;
   const leadDegree = section.lead ? leadPattern[step] : null;
   if (leadDegree !== null && leadDegree !== undefined) {
+    const leadAccent = step % 4 === 0 ? 1.12 : step % 2 === 0 ? 1.03 : 0.94;
     scheduleTone({
       ctx: session.ctx,
-      destination: session.gain,
+      destination: session.musicGain,
       frequency: gameBgmNoteFrequency(profile, leadDegree, profile.leadOctave),
       start: noteStart,
       duration: stepDuration * Number(profile.leadLength || 1.85),
-      gainValue: Number(profile.leadGain || 0.12) * energy,
+      gainValue: Number(profile.leadGain || 0.12) * energy * leadAccent,
       wave: profile.leadWave,
       sources: session.sources,
       attack: 0.012,
       releaseStartRatio: 0.68,
       pan: -0.12,
     });
+
+    const harmonyAmount = Number(section.harmony || 0) * flourish;
+    if (harmonyAmount > 0) {
+      scheduleTone({
+        ctx: session.ctx,
+        destination: session.musicGain,
+        frequency: gameBgmNoteFrequency(
+          profile,
+          Number(leadDegree) + Number(profile.harmonyInterval || 2),
+          profile.leadOctave,
+        ),
+        start: noteStart + 0.008,
+        duration: stepDuration * Number(profile.leadLength || 1.85),
+        gainValue: Number(profile.harmonyGain || 0.034) * energy * harmonyAmount,
+        wave: profile.counterWave || 'sine',
+        sources: session.sources,
+        attack: 0.016,
+        releaseStartRatio: 0.7,
+        detune: -3,
+        pan: 0.2,
+      });
+    }
+
+    const octaveAmount = Number(section.octave || 0) * flourish;
+    if (octaveAmount > 0) {
+      scheduleTone({
+        ctx: session.ctx,
+        destination: session.musicGain,
+        frequency: gameBgmNoteFrequency(
+          profile,
+          Number(leadDegree) + Number(profile.mode?.length || 5),
+          profile.leadOctave,
+        ),
+        start: noteStart + 0.012,
+        duration: stepDuration * Number(profile.leadLength || 1.85) * 0.84,
+        gainValue: Number(profile.octaveGain || 0.02) * energy * octaveAmount,
+        wave: profile.arpWave || 'triangle',
+        sources: session.sources,
+        attack: 0.008,
+        releaseStartRatio: 0.62,
+        detune: 4,
+        pan: 0.34,
+      });
+    }
   }
 
   const counterDegree = section.counter ? profile.counter[step] : null;
   if (counterDegree !== null && counterDegree !== undefined) {
     scheduleTone({
       ctx: session.ctx,
-      destination: session.gain,
+      destination: session.musicGain,
       frequency: gameBgmNoteFrequency(profile, counterDegree, profile.counterOctave),
       start: noteStart + stepDuration * 0.08,
       duration: stepDuration * Number(profile.counterLength || 1.35),
@@ -394,15 +584,15 @@ function scheduleMusicStep(session, absoluteStep, start) {
     });
   }
 
-  if (energy >= 0.9 && step === 8) {
-    scheduleChord(session, chordRoot, noteStart, stepDuration * 1.55, energy * 0.46);
+  if (energy >= 0.9 && (step === 8 || (section.stabs && [4, 12].includes(step)))) {
+    scheduleChord(session, chordRoot, noteStart, stepDuration * 1.55, energy * 0.46, arrangement);
   }
 
   scheduleDrumStep(session, arrangement, noteStart);
 }
 
 function disconnectSessionBus(session) {
-  ['gain', 'filter', 'delaySend', 'reverbSend'].forEach((key) => {
+  ['musicGain', 'drumGain', 'fxGain', 'gain', 'filter', 'delaySend', 'reverbSend'].forEach((key) => {
     try {
       session?.[key]?.disconnect();
     } catch {
@@ -486,16 +676,25 @@ function createAudioGraph(volume) {
 
 function createSession(graph, profile, theme, startTime) {
   const gain = graph.ctx.createGain();
+  const musicGain = graph.ctx.createGain();
+  const drumGain = graph.ctx.createGain();
+  const fxGain = graph.ctx.createGain();
   const filter = graph.ctx.createBiquadFilter();
   const delaySend = graph.ctx.createGain();
   const reverbSend = graph.ctx.createGain();
   gain.gain.setValueAtTime(0.0001, startTime);
   gain.gain.exponentialRampToValueAtTime(1, startTime + 0.42);
+  musicGain.gain.setValueAtTime(1, startTime);
+  drumGain.gain.setValueAtTime(1, startTime);
+  fxGain.gain.setValueAtTime(1, startTime);
   filter.type = 'lowpass';
   filter.frequency.setValueAtTime(Number(profile.filterFrequency || 1800), startTime);
   filter.Q.setValueAtTime(Number(profile.filterPeak || 0.65), startTime);
   delaySend.gain.setValueAtTime(Number(profile.delayMix || 0.055), startTime);
   reverbSend.gain.setValueAtTime(Number(profile.reverbMix || 0.065), startTime);
+  musicGain.connect(gain);
+  drumGain.connect(gain);
+  fxGain.connect(gain);
   gain.connect(filter);
   filter.connect(graph.dry);
   filter.connect(delaySend);
@@ -505,8 +704,11 @@ function createSession(graph, profile, theme, startTime) {
   return {
     ctx: graph.ctx,
     delaySend,
+    drumGain,
     filter,
+    fxGain,
     gain,
+    musicGain,
     nextStep: 0,
     nextTime: startTime + 0.08,
     noiseBuffer: graph.noiseBuffer,
@@ -548,6 +750,7 @@ function createGameBgmController() {
       document.documentElement.dataset.gameBgmState = 'paused';
       delete document.documentElement.dataset.gameBgmTheme;
       delete document.documentElement.dataset.gameBgmSection;
+      delete document.documentElement.dataset.gameBgmFx;
     }
   };
 
@@ -618,6 +821,7 @@ function createGameBgmController() {
         delete document.documentElement.dataset.gameBgmContext;
         delete document.documentElement.dataset.gameBgmDuck;
         delete document.documentElement.dataset.gameBgmDuckAt;
+        delete document.documentElement.dataset.gameBgmFx;
       }
     },
     duck(durationMs = 260, multiplier = 0.45) {

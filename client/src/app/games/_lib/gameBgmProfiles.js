@@ -1,5 +1,20 @@
 const PATTERN_STEPS = 16;
 
+export const GAME_BGM_LAYER_ROLES = Object.freeze([
+  'lead',
+  'harmony',
+  'octave',
+  'counter',
+  'arpeggio',
+  'bass',
+  'pad',
+  'kick',
+  'snare',
+  'hi-hat',
+  'percussion',
+  'transition-fx',
+]);
+
 const MODES = Object.freeze({
   major: Object.freeze([0, 2, 4, 5, 7, 9, 11]),
   minor: Object.freeze([0, 2, 3, 5, 7, 8, 10]),
@@ -87,8 +102,47 @@ const DRUM_GROOVES = Object.freeze({
   }),
 });
 
-function section(id, label, bars, options) {
-  return Object.freeze({ id, label, bars, ...options });
+const SECTION_FLOURISHES = Object.freeze({
+  intro: Object.freeze({ crash: 0.42, harmony: 0, octave: 0, pump: 0.1, riser: 0.12, stabs: false }),
+  'theme-a': Object.freeze({ crash: 0.3, harmony: 0.14, octave: 0, pump: 0.24, riser: 0.24, stabs: false }),
+  turn: Object.freeze({ crash: 0.12, harmony: 0.12, octave: 0, pump: 0.1, riser: 0.72, stabs: false }),
+  break: Object.freeze({ crash: 0.1, harmony: 0.18, octave: 0.08, pump: 0.08, riser: 0.78, stabs: false }),
+  bridge: Object.freeze({ crash: 0.16, harmony: 0.24, octave: 0.1, pump: 0.14, riser: 0.68, stabs: false }),
+  'theme-b': Object.freeze({ crash: 0.86, harmony: 0.58, octave: 0.3, pump: 0.38, riser: 0.36, stabs: true }),
+  return: Object.freeze({ crash: 0.58, harmony: 0.44, octave: 0.24, pump: 0.32, riser: 0.46, stabs: true }),
+  finale: Object.freeze({ crash: 1, harmony: 0.8, octave: 0.52, pump: 0.46, riser: 1, stabs: true }),
+  'drift-a': Object.freeze({ crash: 0.16, harmony: 0.1, octave: 0, pump: 0.06, riser: 0.14, stabs: false }),
+  interlude: Object.freeze({ crash: 0.08, harmony: 0.2, octave: 0.08, pump: 0.04, riser: 0.54, stabs: false }),
+  'drift-b': Object.freeze({ crash: 0.36, harmony: 0.38, octave: 0.18, pump: 0.12, riser: 0.34, stabs: false }),
+});
+
+const DRUM_FLOURISH = Object.freeze({
+  ambient: 0.56,
+  cinematic: 1.05,
+  curious: 0.88,
+  digital: 1.04,
+  drive: 1.18,
+  duel: 1.1,
+  march: 1,
+  rail: 0.84,
+  shuffle: 0.92,
+  tribal: 0.72,
+});
+
+function section(id, label, bars, options = {}) {
+  return Object.freeze({
+    crash: 0,
+    harmony: 0,
+    octave: 0,
+    pump: 0,
+    riser: 0,
+    stabs: false,
+    ...(SECTION_FLOURISHES[id] || {}),
+    id,
+    label,
+    bars,
+    ...options,
+  });
 }
 
 const ARRANGEMENTS = Object.freeze({
@@ -144,6 +198,7 @@ function deriveCounter(lead) {
 function profile(options) {
   const lead = freezePattern(options.lead);
   const arrangement = ARRANGEMENTS[options.arrangement || 'steady'] || ARRANGEMENTS.steady;
+  const drumStyle = options.drumStyle || 'cinematic';
   const chordRoots = Object.freeze([...(options.chordRoots || [0, 3, 1, 4])]);
   const chordRootsB = Object.freeze([...(options.chordRootsB || [...chordRoots.slice(1), chordRoots[0]])]);
   return Object.freeze({
@@ -159,10 +214,14 @@ function profile(options) {
     arpGain: 0.038,
     padGain: 0.026,
     drumGain: 0.11,
+    fxGain: 0.082,
+    harmonyGain: 0.034,
+    octaveGain: 0.02,
     leadOctave: 1,
     counterOctave: 1,
     bassOctave: -1,
     arpOctave: 1,
+    padOctave: 0,
     leadLength: 1.85,
     counterLength: 1.35,
     arpLength: 0.72,
@@ -173,6 +232,12 @@ function profile(options) {
     delayTime: 0.24,
     delayFeedback: 0.2,
     reverbMix: 0.065,
+    flourish: DRUM_FLOURISH[drumStyle] || 0.9,
+    harmonyInterval: 2,
+    chordExtension: 6,
+    padWave: 'sine',
+    padDetune: 5,
+    pumpDepth: 0.28,
     chordVoicing: Object.freeze([0, 2, 4]),
     ...options,
     lead,
@@ -184,7 +249,7 @@ function profile(options) {
     chordRootsB,
     chordVoicing: Object.freeze([...(options.chordVoicing || [0, 2, 4])]),
     arrangement,
-    drums: DRUM_GROOVES[options.drumStyle || 'cinematic'] || DRUM_GROOVES.cinematic,
+    drums: DRUM_GROOVES[drumStyle] || DRUM_GROOVES.cinematic,
   });
 }
 
@@ -386,6 +451,25 @@ export function gameBgmChordRoot(profileValue, arrangementState) {
     : profileValue?.chordRoots;
   const safeRoots = roots?.length ? roots : [0];
   return Number(safeRoots[arrangementState?.barIndex % safeRoots.length] || 0);
+}
+
+export function gameBgmChordVoicing(profileValue, arrangementState) {
+  const modeLength = Math.max(1, Number(profileValue?.mode?.length || 5));
+  const baseVoicing = [...(profileValue?.chordVoicing?.length ? profileValue.chordVoicing : [0, 2, 4])];
+  if (
+    Number(arrangementState?.section?.energy || 0) >= 0.9
+    || Number(arrangementState?.section?.harmony || 0) >= 0.35
+  ) {
+    baseVoicing.push(Number(profileValue?.chordExtension || modeLength - 1));
+  }
+  const voicing = [...new Set(baseVoicing.map((degree) => Number(degree || 0)))];
+  const inversionRange = Math.min(3, voicing.length);
+  const inversion = inversionRange > 0
+    ? (Number(arrangementState?.barIndex || 0) + Number(arrangementState?.sectionIndex || 0)) % inversionRange
+    : 0;
+  return voicing
+    .map((degree, index) => degree + (index < inversion ? modeLength : 0))
+    .sort((left, right) => left - right);
 }
 
 export function gameBgmNoteFrequency(profileValue, degree, octaveShift = 0) {

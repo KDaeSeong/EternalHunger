@@ -90,6 +90,15 @@ assert.match(bgmProviderSource, /createBufferSource\(\)/, 'BGM은 노이즈 기�
 assert.match(bgmProviderSource, /createStereoPanner\(\)/, 'BGM은 스테레오 위치를 구분해야 합니다.');
 assert.match(bgmProviderSource, /createConvolver\(\)/, 'BGM은 합성 리버브 공간을 제공해야 합니다.');
 assert.match(bgmProviderSource, /scheduleDrumStep/, 'BGM은 독립 드럼 시퀀서를 사용해야 합니다.');
+assert.match(bgmProviderSource, /scheduleSectionImpact/, 'BGM must accent section changes with impact effects.');
+assert.match(bgmProviderSource, /scheduleTransitionRiser/, 'BGM must build into transitions with risers.');
+assert.match(bgmProviderSource, /schedulePump/, 'BGM must use kick-driven musical pumping.');
+assert.match(bgmProviderSource, /gameBgmChordVoicing/, 'BGM must schedule inverted and extended chord voicings.');
+assert.match(bgmProviderSource, /profile\.harmonyInterval/, 'BGM must layer a harmony voice in high-energy sections.');
+assert.match(bgmProviderSource, /profile\.mode\?\.length/, 'BGM must layer an octave lead in high-energy sections.');
+assert.match(bgmProviderSource, /musicGain/, 'BGM must separate musical and drum buses for pumping.');
+assert.match(bgmProviderSource, /drumGain/, 'BGM must keep drums outside the musical pump bus.');
+assert.match(bgmProviderSource, /fxGain/, 'BGM must use a dedicated transition FX bus.');
 assert.match(bgmProviderSource, /gameBgmArrangementState/, 'BGM은 장기 섹션 편곡 상태를 사용해야 합니다.');
 assert.match(bgmProviderSource, /GAME_BGM_DUCK_EVENT/, 'BGM은 게임 효과음 재생 중 덕킹되어야 합니다.');
 assert.match(bgmProviderSource, /visibilitychange/, '숨겨진 탭에서는 BGM 음량을 낮춰야 합니다.');
@@ -128,6 +137,11 @@ for (const slug of expectedRouteThemes) {
 }
 
 const expectedBgmThemes = [...new Set(expectedRouteThemes.map((slug) => audioThemeModule.gameAudioThemeForPath(`/${slug}`)))];
+assert.deepEqual(
+  bgmProfileModule.GAME_BGM_LAYER_ROLES,
+  ['lead', 'harmony', 'octave', 'counter', 'arpeggio', 'bass', 'pad', 'kick', 'snare', 'hi-hat', 'percussion', 'transition-fx'],
+  'BGM peak arrangements must expose twelve distinct roles.',
+);
 for (const theme of expectedBgmThemes) {
   const profile = bgmProfileModule.gameBgmProfile(theme);
   assert.equal(profile.label.length > 0, true, `BGM profile label is required: ${theme}`);
@@ -141,6 +155,16 @@ for (const theme of expectedBgmThemes) {
   });
   assert.equal(profile.arrangement.length >= 5, true, `BGM arrangement needs at least five sections: ${theme}`);
   assert.equal(profile.steps >= 192, true, `BGM arrangement must run for at least twelve bars: ${theme}`);
+  assert.equal(profile.flourish >= 0.5 && profile.flourish <= 1.2, true, `BGM flourish must be bounded: ${theme}`);
+  assert.equal(profile.harmonyGain > 0, true, `BGM harmony gain must be positive: ${theme}`);
+  assert.equal(profile.octaveGain > 0, true, `BGM octave gain must be positive: ${theme}`);
+  assert.equal(profile.fxGain > 0, true, `BGM transition FX gain must be positive: ${theme}`);
+  assert.equal(profile.pumpDepth > 0 && profile.pumpDepth <= 0.52, true, `BGM pump depth must be bounded: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.crash >= 0.5), true, `BGM needs a strong section impact: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.riser >= 0.5), true, `BGM needs a transition riser: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.harmony >= 0.35), true, `BGM needs a harmony climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.octave >= 0.15), true, `BGM needs an octave climax: ${theme}`);
+  assert.equal(profile.arrangement.some((section) => section.pump >= 0.25), true, `BGM needs a pumped climax: ${theme}`);
   assert.equal(
     new Set(profile.arrangement.map((section) => section.id)).size,
     profile.arrangement.length,
@@ -148,9 +172,16 @@ for (const theme of expectedBgmThemes) {
   );
   const opening = bgmProfileModule.gameBgmArrangementState(profile, 0);
   const finale = bgmProfileModule.gameBgmArrangementState(profile, profile.steps - 1);
+  const climaxIndex = profile.arrangement.findIndex((section) => section.harmony >= 0.35);
+  const climaxStep = profile.arrangement
+    .slice(0, climaxIndex)
+    .reduce((sum, section) => sum + section.bars * profile.patternSteps, 0);
+  const climax = bgmProfileModule.gameBgmArrangementState(profile, climaxStep);
   assert.equal(opening.sectionIndex, 0, `BGM arrangement must begin at the first section: ${theme}`);
   assert.equal(finale.sectionIndex, profile.arrangement.length - 1, `BGM arrangement must end at the final section: ${theme}`);
   assert.equal(Number.isFinite(bgmProfileModule.gameBgmChordRoot(profile, opening)), true, `BGM chord root must resolve: ${theme}`);
+  assert.equal(bgmProfileModule.gameBgmChordVoicing(profile, opening).length >= 3, true, `BGM opening chord must resolve: ${theme}`);
+  assert.equal(bgmProfileModule.gameBgmChordVoicing(profile, climax).length >= 4, true, `BGM climax needs an extended chord: ${theme}`);
   assert.equal(profile.delayMix >= 0 && profile.delayMix <= 0.2, true, `BGM delay mix must be bounded: ${theme}`);
   assert.equal(profile.reverbMix >= 0 && profile.reverbMix <= 0.2, true, `BGM reverb mix must be bounded: ${theme}`);
   assert.equal(bgmProfileModule.gameBgmStepDuration(profile) > 0, true, `BGM step duration must be positive: ${theme}`);
@@ -194,7 +225,8 @@ console.log(JSON.stringify({
   routeThemes: expectedRouteThemes.length,
   bgmThemes: expectedBgmThemes.length,
   bgmArrangementSteps: Math.min(...expectedBgmThemes.map((theme) => bgmProfileModule.gameBgmProfile(theme).steps)),
-  bgmLayers: 9,
+  bgmLayers: bgmProfileModule.GAME_BGM_LAYER_ROLES.length,
+  bgmTransitionFx: ['impact', 'riser'],
   bgmDefaultEnabled: bgmPreferenceModule.readGameBgmEnabled(new Map()),
   soundPreferenceKey: preferenceModule.gameSfxPreferenceKey('school'),
 }, null, 2));
