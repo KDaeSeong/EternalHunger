@@ -1,0 +1,104 @@
+{
+  "renderer": "physical-model-v1",
+  "tracks": [
+    {
+      "file": "ready.wav",
+      "theme": "eternal-ready",
+      "title": "출전 대기",
+      "bars": 20,
+      "bpm": 82,
+      "durationSeconds": 58.537,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2581508
+    },
+    {
+      "file": "day.wav",
+      "theme": "eternal-day",
+      "title": "루미아의 낮",
+      "bars": 24,
+      "bpm": 106,
+      "durationSeconds": 54.34,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2396422
+    },
+    {
+      "file": "night.wav",
+      "theme": "eternal-night",
+      "title": "금지구역 경보",
+      "bars": 24,
+      "bpm": 114,
+      "durationSeconds": 50.526,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2228256
+    },
+    {
+      "file": "combat.wav",
+      "theme": "eternal-combat",
+      "title": "교전 개시",
+      "bars": 28,
+      "bpm": 149,
+      "durationSeconds": 45.101,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 1988984
+    },
+    {
+      "file": "rift.wav",
+      "theme": "eternal-rift",
+      "title": "차원의 틈",
+      "bars": 24,
+      "bpm": 138,
+      "durationSeconds": 41.739,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 1840740
+    },
+    {
+      "file": "boss.wav",
+      "theme": "eternal-boss",
+      "title": "변이체 강림",
+      "bars": 28,
+      "bpm": 152,
+      "durationSeconds": 44.211,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 1949730
+    },
+    {
+      "file": "final.wav",
+      "theme": "eternal-final",
+      "title": "마지막 안전지대",
+      "bars": 28,
+      "bpm": 154,
+      "durationSeconds": 43.636,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 1924408
+    },
+    {
+      "file": "result.wav",
+      "theme": "eternal-result",
+      "title": "생존 기록",
+      "bars": 20,
+      "bpm": 78,
+      "durationSeconds": 61.538,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2713892
+    },
+    {
+      "file": "defeat.wav",
+      "theme": "eternal-defeat",
+      "title": "전멸 기록",
+      "bars": 20,
+      "bpm": 80,
+      "durationSeconds": 60,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2646044
+    }
+  ]
+}

@@ -30,6 +30,7 @@ import {
   gameBgmProfile,
   gameBgmStepDuration,
 } from '../_lib/gameBgmProfiles';
+import { gameBgmRenderedTrack } from '../_lib/gameBgmRenderedTracks';
 
 const GameBgmContext = createContext(null);
 const LOOK_AHEAD_SECONDS = 0.38;
@@ -1152,7 +1153,7 @@ function scheduleMusicStep(session, absoluteStep, start) {
 }
 
 function disconnectSessionBus(session) {
-  ['musicGain', 'orchestraGain', 'drumGain', 'fxGain', 'gain', 'filter', 'delaySend', 'reverbSend'].forEach((key) => {
+  ['assetGain', 'musicGain', 'orchestraGain', 'drumGain', 'fxGain', 'gain', 'filter', 'delaySend', 'reverbSend'].forEach((key) => {
     try {
       session?.[key]?.disconnect();
     } catch {
@@ -1290,6 +1291,57 @@ function createSession(graph, profile, theme, startTime) {
   };
 }
 
+function loadRenderedTrackBuffer(ctx, renderedTrack, cache) {
+  const sourcePath = String(renderedTrack?.src || '').trim();
+  if (!sourcePath) return Promise.reject(new Error('Rendered BGM source is missing.'));
+  if (cache.has(sourcePath)) return cache.get(sourcePath);
+  const pending = fetch(sourcePath, { cache: 'force-cache' })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Rendered BGM request failed: ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .then((encodedAudio) => ctx.decodeAudioData(encodedAudio.slice(0)))
+    .catch((error) => {
+      cache.delete(sourcePath);
+      throw error;
+    });
+  cache.set(sourcePath, pending);
+  return pending;
+}
+
+function createRenderedTrackSession(graph, profile, theme, renderedTrack, audioBuffer, startTime) {
+  const nextSession = createSession(graph, profile, theme, startTime);
+  const source = graph.ctx.createBufferSource();
+  const assetGain = graph.ctx.createGain();
+  const loopStart = clamp(renderedTrack?.loopStartSeconds || 0, 0, Math.max(0, audioBuffer.duration - 0.05));
+  const loopEnd = clamp(
+    renderedTrack?.loopEndSeconds || audioBuffer.duration,
+    loopStart + 0.05,
+    audioBuffer.duration,
+  );
+  source.buffer = audioBuffer;
+  source.loop = renderedTrack?.loop !== false;
+  source.loopStart = loopStart;
+  source.loopEnd = loopEnd;
+  assetGain.gain.setValueAtTime(Math.max(0.05, Number(renderedTrack?.gain || 1)), startTime);
+  nextSession.filter.frequency.setValueAtTime(
+    Math.min(graph.ctx.sampleRate * 0.46, Number(renderedTrack?.filterFrequency || 12_000)),
+    startTime,
+  );
+  source.connect(assetGain);
+  assetGain.connect(nextSession.musicGain);
+  nextSession.assetGain = assetGain;
+  nextSession.rendered = true;
+  nextSession.sources.add(source);
+  source.onended = () => {
+    nextSession.sources.delete(source);
+    source.disconnect();
+    assetGain.disconnect();
+  };
+  source.start(startTime + 0.025);
+  return nextSession;
+}
+
 function createGameBgmController() {
   let graph = null;
   let session = null;
@@ -1297,6 +1349,8 @@ function createGameBgmController() {
   let visible = true;
   let duckMultiplier = 1;
   let duckTimer = null;
+  let startRequestId = 0;
+  const renderedTrackCache = new Map();
 
   const rampMaster = (fadeSeconds = 0.08) => {
     if (!graph) return;
@@ -1313,6 +1367,7 @@ function createGameBgmController() {
   };
 
   const stop = () => {
+    startRequestId += 1;
     stopSession(session);
     session = null;
     if (typeof document !== 'undefined') {
@@ -1321,6 +1376,9 @@ function createGameBgmController() {
       delete document.documentElement.dataset.gameBgmSection;
       delete document.documentElement.dataset.gameBgmFx;
       delete document.documentElement.dataset.gameBgmOrchestration;
+      delete document.documentElement.dataset.gameBgmSource;
+      delete document.documentElement.dataset.gameBgmAsset;
+      delete document.documentElement.dataset.gameBgmAssetStatus;
     }
   };
 
@@ -1338,6 +1396,8 @@ function createGameBgmController() {
     if (!graph) return false;
 
     const profile = gameBgmProfile(nextTheme);
+    const renderedTrack = gameBgmRenderedTrack(nextTheme);
+    const requestId = ++startRequestId;
     stopSession(session, clamp(profile.crossfadeSeconds || 0.26, 0.18, 2.5));
     const now = graph.ctx.currentTime;
     graph.delay.delayTime.setTargetAtTime(Number(profile.delayTime || 0.24), now, 0.08);
@@ -1370,6 +1430,41 @@ function createGameBgmController() {
       setMasterVolume(volume, 0.16);
       document.documentElement.dataset.gameBgmState = 'playing';
       document.documentElement.dataset.gameBgmTheme = nextTheme;
+      document.documentElement.dataset.gameBgmSource = 'synth';
+      if (renderedTrack) {
+        const activeGraph = graph;
+        document.documentElement.dataset.gameBgmAssetStatus = 'loading';
+        void loadRenderedTrackBuffer(activeContext, renderedTrack, renderedTrackCache)
+          .then((audioBuffer) => {
+            if (
+              requestId !== startRequestId
+              || session !== nextSession
+              || graph !== activeGraph
+              || activeGraph.ctx.state === 'closed'
+            ) return;
+            const renderedStart = activeGraph.ctx.currentTime;
+            const renderedSession = createRenderedTrackSession(
+              activeGraph,
+              profile,
+              nextTheme,
+              renderedTrack,
+              audioBuffer,
+              renderedStart,
+            );
+            session = renderedSession;
+            stopSession(nextSession, clamp(profile.crossfadeSeconds || 0.5, 0.35, 2.5));
+            document.documentElement.dataset.gameBgmSource = 'rendered';
+            document.documentElement.dataset.gameBgmAsset = renderedTrack.src;
+            document.documentElement.dataset.gameBgmAssetStatus = 'ready';
+          })
+          .catch(() => {
+            if (requestId !== startRequestId) return;
+            document.documentElement.dataset.gameBgmAssetStatus = 'fallback';
+          });
+      } else {
+        delete document.documentElement.dataset.gameBgmAsset;
+        delete document.documentElement.dataset.gameBgmAssetStatus;
+      }
       return true;
     } catch {
       stopSession(nextSession);
@@ -1380,12 +1475,14 @@ function createGameBgmController() {
 
   return {
     destroy() {
+      startRequestId += 1;
       stopSession(session, 0.05);
       session = null;
       if (duckTimer) window.clearTimeout(duckTimer);
       duckTimer = null;
       const currentGraph = graph;
       graph = null;
+      renderedTrackCache.clear();
       if (currentGraph && currentGraph.ctx.state !== 'closed') void currentGraph.ctx.close();
       if (typeof document !== 'undefined') {
         delete document.documentElement.dataset.gameBgmContext;
@@ -1393,6 +1490,9 @@ function createGameBgmController() {
         delete document.documentElement.dataset.gameBgmDuckAt;
         delete document.documentElement.dataset.gameBgmFx;
         delete document.documentElement.dataset.gameBgmOrchestration;
+        delete document.documentElement.dataset.gameBgmSource;
+        delete document.documentElement.dataset.gameBgmAsset;
+        delete document.documentElement.dataset.gameBgmAssetStatus;
       }
     },
     duck(durationMs = 260, multiplier = 0.45) {
