@@ -276,7 +276,7 @@ function DualAcademyTcgPlayContent() {
 
   return (
     <main
-      className="tcg-page-shell"
+      className="tcg-page-shell tcg-page-shell--viewport"
       onChangeCapture={handleGameSfxChangeCapture}
       onPointerDownCapture={handleGameSfxPointerDownCapture}
     >
@@ -395,41 +395,43 @@ function DualAcademyTcgPlayContent() {
           setState(updater);
         }} />
 
-        <DualAcademyTcgFeatureTabs
-          act={act}
-          activeTcgTab={activeTcgTab}
-          advisorTone={advisorTone}
-          canAct={canAct}
-          canAutoPlayPlayer={canAutoPlayPlayer}
-          canMain={canMain}
-          concurrencyAudit={concurrencyAudit}
-          deckMessage={deckMessage}
-          deckName={deckName}
-          downloadReplayExport={downloadReplayExport}
-          effectCoverage={effectCoverage}
-          latestCharacter={latestCharacter}
-          latestQuote={latestQuote}
-          loadingDeck={loadingDeck}
-          matchReport={matchReport}
-          monsterEffectRows={monsterEffectRows}
-          openZoneView={openZoneView}
-          playSelected={playSelected}
-          promptTargets={promptTargets}
-          replayExport={replayExport}
-          replayTimeline={replayTimeline}
-          selectedAttacker={selectedAttacker}
-          selectedCard={selectedCard}
-          selectedHandId={selectedHandId}
-          setActiveTcgTab={setActiveTcgTab}
-          setSelectedAttacker={setSelectedAttacker}
-          setSelectedHandId={setSelectedHandId}
-          setState={setState}
-          setZoneView={setZoneView}
-          state={state}
-          turnAdvisor={turnAdvisor}
-          zoneInspection={zoneInspection}
-          zoneView={zoneView}
-        />
+        <section className="tcg-play-workspace" aria-label="듀얼 플레이 영역">
+          <DualAcademyTcgFeatureTabs
+            act={act}
+            activeTcgTab={activeTcgTab}
+            advisorTone={advisorTone}
+            canAct={canAct}
+            canAutoPlayPlayer={canAutoPlayPlayer}
+            canMain={canMain}
+            concurrencyAudit={concurrencyAudit}
+            deckMessage={deckMessage}
+            deckName={deckName}
+            downloadReplayExport={downloadReplayExport}
+            effectCoverage={effectCoverage}
+            latestCharacter={latestCharacter}
+            latestQuote={latestQuote}
+            loadingDeck={loadingDeck}
+            matchReport={matchReport}
+            monsterEffectRows={monsterEffectRows}
+            openZoneView={openZoneView}
+            playSelected={playSelected}
+            promptTargets={promptTargets}
+            replayExport={replayExport}
+            replayTimeline={replayTimeline}
+            selectedAttacker={selectedAttacker}
+            selectedCard={selectedCard}
+            selectedHandId={selectedHandId}
+            setActiveTcgTab={setActiveTcgTab}
+            setSelectedAttacker={setSelectedAttacker}
+            setSelectedHandId={setSelectedHandId}
+            setState={setState}
+            setZoneView={setZoneView}
+            state={state}
+            turnAdvisor={turnAdvisor}
+            zoneInspection={zoneInspection}
+            zoneView={zoneView}
+          />
+        </section>
       </section>
     </main>
   );

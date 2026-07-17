@@ -93,6 +93,7 @@ export default function GamePlayShell({
   summaryDensity = 'normal',
   primaryMetricLimit,
   heroLayout = 'default',
+  viewport = true,
   children,
 }) {
   const visibleMetrics = metrics.filter(Boolean);
@@ -111,70 +112,83 @@ export default function GamePlayShell({
     : summaryDensity === 'compact'
       ? 'games-summary games-summary--compact'
       : 'games-summary';
+  const shellClassName = [
+    'games-page-shell',
+    viewport ? 'games-page-shell--viewport' : '',
+    className,
+  ].filter(Boolean).join(' ');
 
   return (
     <main
-      className={`games-page-shell${className ? ` ${className}` : ''}`}
+      className={shellClassName}
       onChangeCapture={handleGameSfxChangeCapture}
       onPointerDownCapture={handleGameSfxPointerDownCapture}
     >
       <SiteHeader />
       <section className="games-page">
-        <section className={
-          heroLayout === 'stacked'
-            ? 'games-hero games-hero--stacked'
-            : heroLayout === 'compact'
-              ? 'games-hero games-hero--compact'
-              : 'games-hero'
-        }>
-          <div>
-            {kicker ? <p className="games-kicker">{kicker}</p> : null}
-            <h1>{title}</h1>
-            {description ? <p>{description}</p> : null}
-          </div>
-          <div className="games-hero-actions">
-            {actions}
-          </div>
-        </section>
+        <div className="games-play-chrome">
+          <section className={
+            heroLayout === 'stacked'
+              ? 'games-hero games-hero--stacked'
+              : heroLayout === 'compact'
+                ? 'games-hero games-hero--compact'
+                : 'games-hero'
+          }>
+            <div>
+              {kicker ? <p className="games-kicker">{kicker}</p> : null}
+              <h1>{title}</h1>
+              {description ? <p>{description}</p> : null}
+            </div>
+            <div className="games-hero-actions">
+              {actions}
+            </div>
+          </section>
 
-        {visibleMetrics.length ? (
-          <>
-            <section className={summaryClassName} aria-label={summaryLabel || `${title} 요약`}>
-              {primaryMetrics.map((metric) => (
-                <GameMetric
-                  key={metric.key || metric.label}
-                  label={metric.label}
-                  value={metric.value}
-                  density={summaryDensity}
-                />
-              ))}
-            </section>
-            {secondaryMetrics.length ? (
-              <details className="games-summary-overflow">
-                <summary>세부 지표 {secondaryMetrics.length}개</summary>
-                <div className="games-summary-overflow__grid">
-                  {secondaryMetrics.map((metric) => (
-                    <GameMetric
-                      key={metric.key || metric.label}
-                      label={metric.label}
-                      value={metric.value}
-                      density={summaryDensity}
-                      variant="secondary"
-                    />
-                  ))}
+          {visibleMetrics.length ? (
+            <div className="games-play-summary">
+              <section className={summaryClassName} aria-label={summaryLabel || `${title} 요약`}>
+                {primaryMetrics.map((metric) => (
+                  <GameMetric
+                    key={metric.key || metric.label}
+                    label={metric.label}
+                    value={metric.value}
+                    density={summaryDensity}
+                  />
+                ))}
+              </section>
+              {secondaryMetrics.length ? (
+                <details className="games-summary-overflow">
+                  <summary>세부 지표 {secondaryMetrics.length}개</summary>
+                  <div className="games-summary-overflow__grid">
+                    {secondaryMetrics.map((metric) => (
+                      <GameMetric
+                        key={metric.key || metric.label}
+                        label={metric.label}
+                        value={metric.value}
+                        density={summaryDensity}
+                        variant="secondary"
+                      />
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          ) : null}
+
+          {visibleMessages.length ? (
+            <div className="games-play-messages" aria-live="polite">
+              {visibleMessages.map((item) => (
+                <div className={item.tone === 'error' ? 'games-empty games-error' : 'games-empty'} key={item.key || item.text}>
+                  {item.text}
                 </div>
-              </details>
-            ) : null}
-          </>
-        ) : null}
+              ))}
+            </div>
+          ) : null}
+        </div>
 
-        {visibleMessages.map((item) => (
-          <div className={item.tone === 'error' ? 'games-empty games-error' : 'games-empty'} key={item.key || item.text}>
-            {item.text}
-          </div>
-        ))}
-
-        {children}
+        <section className="games-play-workspace" aria-label={`${title} 플레이 영역`}>
+          {children}
+        </section>
       </section>
     </main>
   );

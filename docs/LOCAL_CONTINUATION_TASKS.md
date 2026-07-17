@@ -360,11 +360,14 @@ Re-check and finish the remaining simulation behavior requests:
 
 Continue the game-by-game polish pass:
 
-1. Ensure each game has a useful guidance level or advisor panel where it makes sense.
-2. Make tutorial/help density respect the intended user level.
-3. Avoid landing-page style layouts for playable tools.
-4. Keep game screens focused on the playable surface first.
-5. Run the app visually after each major game page change.
+1. Done: convert 11 shared-shell games to a desktop `100dvh` play workspace with compact chrome and tab-local scrolling.
+2. Done: apply the same bounded workspace pattern to Dual Academy TCG and the Twenty Questions lobby/room; Eternal Hunger already used a viewport shell.
+3. Done: add `npm run check:game-viewport` to guard shared/custom viewport classes and mobile document-flow fallback.
+4. Ensure each game has a useful guidance level or advisor panel where it makes sense.
+5. Make tutorial/help density respect the intended user level.
+6. Avoid landing-page style layouts for playable tools.
+7. Keep game screens focused on the playable surface first.
+8. Run the app visually after each major game page change.
 
 ## Priority 5: Continue Game Page Splitting
 
@@ -439,6 +442,7 @@ npm run check:runtime:simulation
 npm run check:runtime:utils
 npm run check:eternal-hunger-feedback
 npm run check:twenty-questions-feedback
+npm run check:game-viewport
 npm run lint -- src/utils/characterSkillCompiler.js src/utils/characterSkillCompilerCore.js src/app/simulation/_lib/characterSkillDefinitionRuntime.js src/app/simulation/_lib/characterSkillRuntime.js src/app/simulation/_lib/characterSkillAiRuntime.js src/app/characters/_components/CharacterSkillConfigModal.js src/app/characters/_components/CharacterSkillConfigFields.js src/app/characters/_lib/useCharacterSkillConfigEditor.js
 npm run lint -- src/app/games/company-report/play/page.js src/app/games/company-report/_lib/companyReportPlayViewModel.js src/app/games/company-report/_lib/companyReportFeedback.js src/app/games/company-report/_hooks/useCompanyReportPersistence.js src/app/games/company-report/_hooks/useCompanyReportSelections.js src/app/games/company-report/_components/CompanyReportDetailPanels.js src/app/games/company-report/_components/CompanyReportFeatureTabs.js src/app/games/company-report/_components/CompanyReportGuidancePanel.js src/app/games/company-report/_components/CompanyReportArchiveLedgerPanels.js src/app/games/company-report/_components/CompanyReportGlobalCapitalPanels.js src/app/games/company-report/_components/CompanyReportVatInventoryPanels.js src/app/games/company-report/_lib/companyReportPageRuntime.js
 npm run lint -- src/app/games/school-simulator/play/page.js src/app/games/school-simulator/_hooks/useSchoolSimulatorPersistence.js src/app/games/school-simulator/_hooks/useSchoolSimulatorSelections.js src/app/games/school-simulator/_lib/schoolSimulatorPlayViewModel.js src/app/games/school-simulator/_components/SchoolSimulatorFeatureTabs.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedTab.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedVisionEvents.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedOperations.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedReports.js src/app/games/school-simulator/_components/SchoolSimulatorAdvancedPeople.js src/app/games/school-simulator/_lib/schoolSimulatorCareReport.js

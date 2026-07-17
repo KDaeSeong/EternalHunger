@@ -327,7 +327,7 @@ export default function MyAnimeCraftPlayPage() {
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="myanimecraft-league-coach" />
 
       <MyAnimeCraftFeatureTabs
         applyStateAction={applyStateAction}

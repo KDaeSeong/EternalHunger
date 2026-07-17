@@ -305,7 +305,7 @@ export default function BaSrpgPlayPage() {
       metrics={metrics}
       messages={messages}
     >
-      <GameAdvisorPanel {...guide} />
+      <GameAdvisorPanel {...guide} compact minimal storageKey="ba-srpg-operation-coach" />
       <RecentActionResult
         action={resultPresentation.action}
         label={resultPresentation.label}

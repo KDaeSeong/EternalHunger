@@ -308,7 +308,7 @@ export default function TwentyQuestionsRoomContent() {
 
   return (
     <main
-      className="twenty-page"
+      className="twenty-page twenty-page--viewport twenty-page--room"
       onChangeCapture={handleGameSfxChangeCapture}
       onPointerDownCapture={handleGameSfxPointerDownCapture}
     >

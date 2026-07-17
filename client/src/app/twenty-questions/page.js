@@ -229,7 +229,7 @@ export default function TwentyQuestionsPage() {
 
   return (
     <main
-      className="twenty-page"
+      className="twenty-page twenty-page--viewport twenty-page--lobby"
       onChangeCapture={handleGameSfxChangeCapture}
       onPointerDownCapture={handleGameSfxPointerDownCapture}
     >
