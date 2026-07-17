@@ -6957,6 +6957,41 @@
   font-variant-numeric: tabular-nums;
 }
 
+.game-save-row.school-icon-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 10px;
+}
+
+.school-icon-row > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(55, 124, 169, 0.2);
+  border-radius: 7px;
+  background: #eaf5fb;
+  color: #2f78a6;
+}
+
+.school-icon-row.is-good > .game-action-icon {
+  border-color: rgba(54, 140, 95, 0.22);
+  background: #eaf8ef;
+  color: #2e8658;
+}
+
+.school-icon-row.is-watch > .game-action-icon,
+.school-icon-row.is-warn > .game-action-icon {
+  border-color: rgba(190, 125, 35, 0.24);
+  background: #fff6df;
+  color: #9b641f;
+}
+
+.school-icon-row.is-critical > .game-action-icon,
+.school-icon-row.is-risk > .game-action-icon {
+  border-color: rgba(190, 61, 61, 0.24);
+  background: #fff0ef;
+  color: #a62f36;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -12536,6 +12571,21 @@
   .racing-logo-icon-row > .tcg-primary-action,
   .racing-logo-icon-row > .game-save-chip,
   .racing-logo-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .game-save-row.school-icon-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .school-icon-row > .game-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .school-icon-row > .game-save-chip,
+  .school-icon-row > strong:last-child {
     grid-column: 2;
     justify-self: start;
   }

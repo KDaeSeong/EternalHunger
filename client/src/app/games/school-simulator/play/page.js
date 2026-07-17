@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameActionIcon from '../../_components/GameActionIcon';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -24,6 +25,10 @@ import {
   schoolActionPresentation,
   schoolResultPresentation,
 } from '../_lib/schoolSimulatorFeedback';
+import {
+  resolveSchoolSimulatorBgmScene,
+  schoolSimulatorResultMusic,
+} from '../_lib/schoolSimulatorSoundtrack';
 import { buildSchoolSimulatorPlayViewModel } from '../_lib/schoolSimulatorPlayViewModel';
 import useSchoolSimulatorPersistence from '../_hooks/useSchoolSimulatorPersistence';
 import useSchoolSimulatorSelections from '../_hooks/useSchoolSimulatorSelections';
@@ -32,8 +37,11 @@ export default function SchoolSimulatorPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'school' });
   const [state, setState] = useState(() => createNewState());
+  const stateRef = useRef(state);
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('operations');
   const [actionResult, setActionResult] = useState('');
   const [actionPresentation, setActionPresentation] = useState({
     action: '',
@@ -42,6 +50,7 @@ export default function SchoolSimulatorPlayPage() {
     label: '운영 결과',
     tone: '',
   });
+  const musicSceneTimerRef = useRef(null);
   const {
     actionId,
     careerTrackId,
@@ -137,6 +146,50 @@ export default function SchoolSimulatorPlayPage() {
     weekInfo,
   } = viewModel;
 
+  const baseMusicScene = useMemo(() => resolveSchoolSimulatorBgmScene({
+    activeTabId: activeFeatureTabId,
+    budget: state.school.budget,
+    burnoutRisk: state.player.burnoutRisk,
+    festivalActive: Boolean(festival.active),
+    pendingEvent: Boolean(events.pending),
+    riskLevel: state.school.riskLevel,
+    riskStudentCount: riskStudents.length,
+  }), [
+    activeFeatureTabId,
+    events.pending,
+    festival.active,
+    riskStudents.length,
+    state.player.burnoutRisk,
+    state.school.budget,
+    state.school.riskLevel,
+  ]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
+  const playMusicTransition = (presentation) => {
+    const transition = schoolSimulatorResultMusic(presentation);
+    if (!transition) return;
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene(transition.theme);
+    musicSceneTimerRef.current = window.setTimeout(() => {
+      setMusicScene(baseMusicScene);
+      musicSceneTimerRef.current = null;
+    }, transition.durationMs);
+  };
+
   const {
     busy,
     loadRun,
@@ -155,23 +208,30 @@ export default function SchoolSimulatorPlayPage() {
   });
 
   const applySchoolAction = (label, updater, fallback = '') => {
-    const nextState = updater(state);
+    const previousState = stateRef.current;
+    const nextState = updater(previousState);
+    const presentation = schoolActionPresentation(previousState, nextState);
+    stateRef.current = nextState;
     setState(nextState);
-    setActionResult(actionFeedbackText(state, nextState, label, fallback));
-    setActionPresentation(schoolActionPresentation(state, nextState));
-    const cue = schoolActionCue(state, nextState);
+    setActionResult(actionFeedbackText(previousState, nextState, label, fallback));
+    setActionPresentation(presentation);
+    const cue = schoolActionCue(previousState, nextState);
     if (cue) playGameSfx(cue);
+    playMusicTransition(presentation);
   };
 
   const startNewRun = () => {
     const nextState = createNewState();
-    const presentation = schoolActionPresentation(state, nextState);
+    const presentation = schoolActionPresentation(stateRef.current, nextState);
+    stateRef.current = nextState;
     setState(nextState);
     resetForNewRun(nextState);
+    setActiveFeatureTabId('operations');
     setMessage('');
     setActionResult('새 학교 운영을 시작했습니다.');
     setActionPresentation(presentation);
     if (presentation.cue) playGameSfx(presentation.cue);
+    playMusicTransition(presentation);
   };
 
   const applySelectedAction = () => {
@@ -289,6 +349,7 @@ export default function SchoolSimulatorPlayPage() {
       />
 
       <SchoolSimulatorFeatureTabs
+        activeFeatureTabId={activeFeatureTabId}
         actionId={actionId}
         applySchoolAction={applySchoolAction}
         applySelectedAction={applySelectedAction}
@@ -329,6 +390,7 @@ export default function SchoolSimulatorPlayPage() {
         selectedTeacher={selectedTeacher}
         selectedTeacherAction={selectedTeacherAction}
         setActionId={setActionId}
+        setActiveFeatureTabId={setActiveFeatureTabId}
         setCareerTrackId={setCareerTrackId}
         setClubId={setClubId}
         setFestivalId={setFestivalId}

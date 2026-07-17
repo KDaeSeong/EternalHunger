@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import SchoolSimulatorAdvancedTab from './SchoolSimulatorAdvancedTab';
 import SchoolSimulatorActionResult from './SchoolSimulatorActionResult';
@@ -33,6 +34,7 @@ function schoolCommandAction(command, rowKind = 'student') {
 
 export default function SchoolSimulatorFeatureTabs(props) {
   const {
+    activeFeatureTabId,
     applySchoolAction,
     averages,
     careCommandDisabled,
@@ -62,6 +64,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
     selectedSubjectShowcaseActive,
     selectedTeacher,
     selectedTeacherAction,
+    setActiveFeatureTabId,
     state,
     subjectId,
     subjectModeId,
@@ -74,10 +77,13 @@ export default function SchoolSimulatorFeatureTabs(props) {
   return (
     <div className="school-simulator-workspace">
       <GameFeatureTabs
+        activeTabId={activeFeatureTabId}
+        onTabChange={setActiveFeatureTabId}
         tabs={[
           {
             id: 'operations',
             label: '운영 보드',
+            icon: 'school-operation',
             badge: report.status,
             children: (
               <section className="games-dashboard">
@@ -94,7 +100,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {report.risks.slice(0, 3).map((risk) => (
-                      <article className="game-save-row" key={`${risk.level}-${risk.title}`}>
+                      <article className={`game-save-row school-icon-row is-${risk.level}`} key={`${risk.level}-${risk.title}`}>
+                        <GameActionIcon action={risk.level === 'good' ? 'school-recovery' : 'school-crisis'} label={risk.title} />
                         <div>
                           <span>{risk.level === 'critical' ? '긴급' : risk.level === 'warn' ? '주의' : '안정'}</span>
                           <strong>{risk.title}</strong>
@@ -131,6 +138,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'tutorial',
             label: '튜토리얼/밸런스',
+            icon: 'school-lesson',
             badge: `${report.tutorialPct}%`,
             children: (
               <section className="games-dashboard">
@@ -141,7 +149,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {report.tutorialRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className="game-save-row school-icon-row" key={row.id}>
+                        <GameActionIcon action={row.done ? 'school-recovery' : 'school-operation'} label={row.title} />
                         <div>
                           <span>{row.done ? '완료' : `${row.progressPct}%`}</span>
                           <strong>{row.title}</strong>
@@ -160,7 +169,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {report.balanceRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className={`game-save-row school-icon-row is-${row.tone}`} key={row.id}>
+                        <GameActionIcon action={row.tone === 'good' ? 'school-recovery' : 'school-crisis'} label={row.label} />
                         <div>
                           <span>{row.tone === 'good' ? '안정' : row.tone === 'watch' ? '주의' : '위험'} · {row.pct}%</span>
                           <strong>{row.label}: {row.value}</strong>
@@ -177,6 +187,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'scenario',
             label: '시나리오/연출',
+            icon: 'school-vision',
             badge: `${scenarioReport.sceneScore}%`,
             children: (
               <section className="games-dashboard">
@@ -193,7 +204,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {scenarioReport.scenarioRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className="game-save-row school-icon-row" key={row.id}>
+                        <GameActionIcon action="school-vision" label={row.title} />
                         <div>
                           <span>{row.focus} · {row.pct}%</span>
                           <strong>{row.title}</strong>
@@ -247,7 +259,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {scenarioReport.soundCues.map((cue) => (
-                      <article className="game-save-row" key={cue.id}>
+                      <article className="game-save-row school-icon-row" key={cue.id}>
+                        <GameActionIcon action="school-lesson" label={cue.cue} />
                         <div>
                           <span>{cue.target}</span>
                           <strong>{cue.cue}</strong>
@@ -274,6 +287,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'events',
             label: '사건 대응',
+            icon: 'school-incident',
             badge: events.pending ? '대응' : `${events.history.length}건`,
             children: (
               <section className="games-detail-grid">
@@ -284,7 +298,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   {events.pending ? (
                     <>
-                      <div className="game-save-row">
+                      <div className="game-save-row school-icon-row is-critical">
+                        <GameActionIcon action="school-incident" label="미해결 사건" />
                         <div>
                           <span>{events.pending.category} · {events.pending.weekLabel}</span>
                           <strong>{events.pending.title}</strong>
@@ -315,7 +330,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {events.history.length ? events.history.slice(0, 4).map((event) => (
-                      <article className="game-save-row" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
+                      <article className="game-save-row school-icon-row" key={`${event.id}-${event.resolvedAt || event.choiceId}`}>
+                        <GameActionIcon action="school-resolution" label="처리 완료" />
                         <div>
                           <span>{event.category} · {event.choiceLabel || '대응 완료'}</span>
                           <strong>{event.title}</strong>
@@ -331,6 +347,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'class',
             label: '수업/입학',
+            icon: 'school-lesson',
             badge: `${report.academic.subjectAverage}점`,
             children: (
               <section className="games-detail-grid">
@@ -378,6 +395,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'students',
             label: '학생/진로',
+            icon: 'school-counseling',
             badge: `${riskStudents.length}위험`,
             children: (
               <section className="games-detail-grid">
@@ -447,6 +465,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'staff',
             label: '교사/시설',
+            icon: 'school-teacher',
             badge: `${teachers.length}명`,
             children: (
               <section className="games-detail-grid">
@@ -509,7 +528,8 @@ export default function SchoolSimulatorFeatureTabs(props) {
                   </div>
                   <div className="game-save-list">
                     {state.facilities.slice(0, 4).map((facility) => (
-                      <article className="game-save-row" key={facility.id}>
+                      <article className="game-save-row school-icon-row" key={facility.id}>
+                        <GameActionIcon action="school-maintenance" label={facility.name} />
                         <div>
                           <span>{facility.type} · 수용 {facility.capacity}</span>
                           <strong>{facility.name}</strong>
@@ -525,6 +545,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'clubs',
             label: '동아리/행사',
+            icon: 'school-club',
             badge: festival.active ? '행사중' : `${clubs.length}개`,
             children: (
               <section className="games-detail-grid">
@@ -565,6 +586,7 @@ export default function SchoolSimulatorFeatureTabs(props) {
           {
             id: 'advanced',
             label: '상세 운영',
+            icon: 'settings',
             badge: `${state.semesterHistory.length}학기`,
             children: (
               <SchoolSimulatorAdvancedTab {...props} />

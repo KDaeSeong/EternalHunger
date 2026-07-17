@@ -46,6 +46,7 @@
     "check:racing-logos-soundtrack": "node ./scripts/check-racing-logos-soundtrack.mjs",
     "check:schale-idle-feedback": "node ./scripts/check-schale-idle-feedback.mjs",
     "check:school-simulator-feedback": "node ./scripts/check-school-simulator-feedback.mjs",
+    "check:school-simulator-soundtrack": "node ./scripts/check-school-simulator-soundtrack.mjs",
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",
     "check:twenty-questions-feedback": "node ./scripts/check-twenty-questions-feedback.mjs",
     "diagnose:simulation": "node ./scripts/simulation-diagnostics.mjs"
