@@ -336,6 +336,63 @@ const ORCHESTRATION_PALETTES = Object.freeze({
     choirGain: 0.05, subGain: 0.032, tomGain: 0.018,
     stringGain: 0.05, pulseGain: 0.008, cymbalGain: 0.012, ghostGain: 0.006,
   }),
+  tonkatsuOpening: orchestraPalette({
+    ostinatoGain: 0.022, brassGain: 0.016, bellGain: 0.038,
+    choirGain: 0.012, subGain: 0.034, tomGain: 0.026,
+    stringGain: 0.036, pulseGain: 0.026, cymbalGain: 0.024, ghostGain: 0.018,
+    leadStackGain: 0.014, pluckGain: 0.032, guitarGain: 0.01,
+    timpaniGain: 0.014, hybridGain: 0.012,
+  }),
+  tonkatsuKitchen: orchestraPalette({
+    ostinatoGain: 0.038, brassGain: 0.028, bellGain: 0.034,
+    choirGain: 0.012, subGain: 0.05, tomGain: 0.04,
+    stringGain: 0.038, pulseGain: 0.044, cymbalGain: 0.04, ghostGain: 0.034,
+    leadStackGain: 0.024, pluckGain: 0.044, guitarGain: 0.026,
+    timpaniGain: 0.022, hybridGain: 0.02,
+  }),
+  tonkatsuService: orchestraPalette({
+    ostinatoGain: 0.03, brassGain: 0.022, bellGain: 0.044,
+    choirGain: 0.014, subGain: 0.038, tomGain: 0.032,
+    stringGain: 0.042, pulseGain: 0.034, cymbalGain: 0.032, ghostGain: 0.026,
+    leadStackGain: 0.018, pluckGain: 0.04, guitarGain: 0.018,
+    timpaniGain: 0.018, hybridGain: 0.014,
+  }),
+  tonkatsuGrowth: orchestraPalette({
+    ostinatoGain: 0.024, brassGain: 0.018, bellGain: 0.048,
+    choirGain: 0.024, subGain: 0.034, tomGain: 0.026,
+    stringGain: 0.048, pulseGain: 0.03, cymbalGain: 0.024, ghostGain: 0.018,
+    leadStackGain: 0.016, pluckGain: 0.042, guitarGain: 0.014,
+    timpaniGain: 0.016, hybridGain: 0.014,
+  }),
+  tonkatsuContest: orchestraPalette({
+    ostinatoGain: 0.056, ostinatoWave: 'sawtooth', brassGain: 0.06,
+    bellGain: 0.024, choirGain: 0.034, subGain: 0.074, tomGain: 0.068,
+    stringGain: 0.052, pulseGain: 0.058, pulseWave: 'square',
+    cymbalGain: 0.058, ghostGain: 0.048,
+    leadStackGain: 0.042, pluckGain: 0.032, guitarGain: 0.044,
+    timpaniGain: 0.046, hybridGain: 0.044,
+  }),
+  tonkatsuJudge: orchestraPalette({
+    ostinatoGain: 0.032, brassGain: 0.036, bellGain: 0.046,
+    choirGain: 0.03, subGain: 0.046, tomGain: 0.038,
+    stringGain: 0.052, pulseGain: 0.038, cymbalGain: 0.034, ghostGain: 0.028,
+    leadStackGain: 0.022, pluckGain: 0.046, guitarGain: 0.02,
+    timpaniGain: 0.03, hybridGain: 0.022,
+  }),
+  tonkatsuCelebration: orchestraPalette({
+    ostinatoGain: 0.046, brassGain: 0.07, bellGain: 0.06,
+    choirGain: 0.058, subGain: 0.058, tomGain: 0.058,
+    stringGain: 0.064, pulseGain: 0.038, cymbalGain: 0.056, ghostGain: 0.032,
+    leadStackGain: 0.036, pluckGain: 0.046, guitarGain: 0.038,
+    timpaniGain: 0.044, hybridGain: 0.04,
+  }),
+  tonkatsuSetback: orchestraPalette({
+    ostinatoGain: 0.014, brassGain: 0.01, bellGain: 0.032,
+    choirGain: 0.046, subGain: 0.034, tomGain: 0.018,
+    stringGain: 0.058, pulseGain: 0.012, cymbalGain: 0.014, ghostGain: 0.008,
+    leadStackGain: 0.01, pluckGain: 0.026, guitarGain: 0.008,
+    timpaniGain: 0.016, hybridGain: 0.012,
+  }),
   starleagueOffice: orchestraPalette({
     ostinatoGain: 0.026, brassGain: 0.018, bellGain: 0.034,
     choirGain: 0.01, subGain: 0.038, tomGain: 0.026,
@@ -537,7 +594,7 @@ function section(id, label, bars, options = {}) {
   });
 }
 
-function academyArrangement({ bars, labels, intensity = 1, brightness = 1 }) {
+function sceneArrangement({ bars, labels, intensity = 1, brightness = 1 }) {
   const peakEnergy = Math.max(0.82, 1.12 * intensity);
   const baseEnergy = Math.min(0.34, Math.max(0.14, 0.24 * intensity));
   const drum = (value) => Math.min(1.24, value * intensity);
@@ -591,45 +648,77 @@ const ARRANGEMENTS = Object.freeze({
     section('climax', '클라이맥스', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.82, energy: 0.9, chords: 'b', fill: true }),
     section('finale', '마감', 2, { lead: 'b', counter: true, bass: true, arp: false, pad: true, drums: 0.86, energy: 0.92, chords: 'b', fill: true }),
   ]),
-  academyReady: academyArrangement({
+  academyReady: sceneArrangement({
     bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.76, brightness: 1.08,
     labels: ['덱 셔플', '첫 패의 예감', '선공 결정', '학생 카드 확인', '필드가 열리다', '드로우 전의 정적', '전술 검토', '듀얼 디스크 점등', '개막 선언', '첫 패의 청춘'],
   }),
-  academyMain: academyArrangement({
+  academyMain: sceneArrangement({
     bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 0.94, brightness: 1.12,
     labels: ['메인 페이즈', '카드 전개', '효과 발동', '필드 계산', '에이스 소환', '한 장의 고민', '전술 재배치', '보드 우위', '다음 수를 읽다', '필드 전개'],
   }),
-  academyBattle: academyArrangement({
+  academyBattle: sceneArrangement({
     bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.08, brightness: 1.08,
     labels: ['배틀 개시', '공격 선언', '대상 지정', '전열 충돌', '연속 공격', '데미지 계산', '반격 준비', '라이프 압박', '결정타', '전투 페이즈'],
   }),
-  academyChain: academyArrangement({
+  academyChain: sceneArrangement({
     bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 1.02, brightness: 1.16,
     labels: ['체인 개시', '효과에 응답', '체인 링크', '카운터 준비', '연쇄 발동', '해결 직전', '무효화의 빛', '효과 역전', '체인 해방', '체인 리액션'],
   }),
-  academyDanger: academyArrangement({
+  academyDanger: sceneArrangement({
     bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.12, brightness: 0.92,
     labels: ['라이프 경보', '붉은 수치', '마지막 드로우', '퇴로 봉쇄', '에이스 강림', '패가 마르다', '한 수의 반전', '최후 방어선', '제로 직전', '라이프 브레이크'],
   }),
-  academyMika: academyArrangement({
+  academyMika: sceneArrangement({
     bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 1.06, brightness: 1.24,
     labels: ['별빛 점화', '천진한 미소', '코스트 지불', '심판 준비', '폭발하는 별', '고요한 시선', '무효화 선언', '빛의 궤적', '최후의 일격', '별빛의 심판'],
   }),
-  academyHina: academyArrangement({
+  academyHina: sceneArrangement({
     bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.12, brightness: 0.98,
     labels: ['규율 선언', '선도부 전개', '조준 완료', '탄막 개시', '압도적 화력', '냉정한 정적', '전열 정리', '집행 명령', '전장 통제', '규율의 포화'],
   }),
-  academyYuuka: academyArrangement({
+  academyYuuka: sceneArrangement({
     bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 0.98, brightness: 1.08,
     labels: ['계산 시작', '숫자의 행진', '방벽 전개', '데이터 탐색', '완벽한 수식', '오차 점검', '패를 정리하다', '방어선 재계산', '제로 오차', '계산된 방벽'],
   }),
-  academyVictory: academyArrangement({
+  academyVictory: sceneArrangement({
     bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.92, brightness: 1.22,
     labels: ['마지막 데미지', '승리 선언', '결과 확인', '덱을 거두다', '승자의 필드', '악수를 나누다', '리플레이의 장면', '환호 속 에이스', '종례의 종', '듀얼의 종례'],
   }),
-  academyDefeat: academyArrangement({
+  academyDefeat: sceneArrangement({
     bars: [2, 3, 2, 3, 3, 2, 3, 3, 3, 4], intensity: 0.56, brightness: 0.78,
     labels: ['카드가 멈추다', '패배 선언', '빈 필드', '남겨진 패', '무너진 전술', '조용한 종례', '기록을 되짚다', '덱을 다시 쌓다', '다음 승부를 향해', '남겨진 카드'],
+  }),
+  tonkatsuOpening: sceneArrangement({
+    bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.76, brightness: 1.12,
+    labels: ['셔터를 올리다', '첫 불을 켜다', '재료 확인', '오늘의 메뉴', '가게가 깨어나다', '개점 전 정적', '테이블 정돈', '주문표 펼치기', '손님맞이', '영업 시작'],
+  }),
+  tonkatsuKitchen: sceneArrangement({
+    bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 0.98, brightness: 1.18,
+    labels: ['기름 온도 확인', '칼질의 리듬', '튀김옷 입히기', '팬 위의 박자', '황금빛 한 접시', '잠깐의 식힘', '소스 마무리', '주방의 합주', '완벽한 바삭함', '오늘의 주방'],
+  }),
+  tonkatsuService: sceneArrangement({
+    bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.86, brightness: 1.2,
+    labels: ['주문 종이 울리다', '접시를 나르다', '학생의 선택', '홀의 분주함', '웃음이 번지다', '빈 테이블', '다음 주문', '배식의 행렬', '만족의 한마디', '점심시간'],
+  }),
+  tonkatsuGrowth: sceneArrangement({
+    bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.82, brightness: 1.08,
+    labels: ['레시피 노트를 펴다', '새 조합 연구', '시설 점검', '숙련의 손끝', '한 단계 성장', '계산의 시간', '장식을 고르다', '주방 확장', '비법 완성', '내일의 가게'],
+  }),
+  tonkatsuContest: sceneArrangement({
+    bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.12, brightness: 1.04,
+    labels: ['대회장 입장', '불꽃 조리', '제한 시간', '점수 경쟁', '승부의 한 접시', '판정 전 정적', '전열 재정비', '끝까지 밀어붙이다', '결정의 순간', '챔피언 테이블'],
+  }),
+  tonkatsuJudge: sceneArrangement({
+    bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 0.92, brightness: 1.08,
+    labels: ['심사표를 펼치다', '두 접시의 향', '첫인상 기록', '맛의 근거', '판정의 저울', '숙고의 정적', '점수 합산', '정답을 고르다', '망치가 내려오다', '최종 판정'],
+  }),
+  tonkatsuCelebration: sceneArrangement({
+    bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.96, brightness: 1.28,
+    labels: ['마지막 주문', '박수가 터지다', '매출표 확인', '주방의 환호', '우승 접시', '감사의 인사', '기념 사진', '오늘의 기록', '간판에 불빛', '축하의 만찬'],
+  }),
+  tonkatsuSetback: sceneArrangement({
+    bars: [2, 3, 2, 3, 3, 2, 3, 3, 3, 4], intensity: 0.58, brightness: 0.76,
+    labels: ['불이 약해지다', '빈 재료칸', '실패한 한 접시', '주문이 밀리다', '남은 시간', '숨을 고르다', '원인을 찾다', '다시 준비하다', '불을 되살리다', '다음 접시를 위해'],
   }),
   eternalReady: Object.freeze([
     section('intro', '신호 수신', 2, { lead: false, counter: false, bass: true, arp: true, pad: true, drums: 0.06, energy: 0.24, chords: 'a', strings: 0.38, pulse: 0.04, brightness: 0.72 }),
@@ -1204,6 +1293,45 @@ function academyDuelProfile(options) {
     crossfadeSeconds: 0.76,
     pumpDepth: 0.36,
     orchestraLevel: 1,
+    bass: [0, null, 0, null, 4, null, 4, null, 5, null, 5, null, 3, null, 3, null],
+    arp: [0, 2, 4, 6, 1, 3, 5, 7, 0, 3, 5, 7, 2, 4, 6, 8],
+    pulse: [0, null, 2, null, 4, null, 6, null, 1, null, 3, null, 5, null, 7, null],
+    chordRoots: [0, 4, 5, 3, 0, 6, 4, 5],
+    chordRootsB: [3, 5, 0, 4, 2, 6, 1, 5],
+    chordVoicing: [0, 2, 4, 6],
+    chordExtension: 8,
+    harmonyInterval: 2,
+    ...options,
+  });
+}
+
+function tonkatsuSceneProfile(options) {
+  return profile({
+    leadWave: 'triangle',
+    counterWave: 'sine',
+    bassWave: 'triangle',
+    arpWave: 'triangle',
+    padWave: 'sine',
+    leadGain: 0.086,
+    counterGain: 0.038,
+    bassGain: 0.098,
+    arpGain: 0.034,
+    padGain: 0.038,
+    drumGain: 0.112,
+    filterFrequency: 2480,
+    filterPeak: 0.78,
+    delayMix: 0.072,
+    delayTime: 0.22,
+    delayFeedback: 0.22,
+    reverbMix: 0.105,
+    leadLength: 1.52,
+    counterLength: 1.12,
+    arpLength: 0.58,
+    pulseLength: 0.34,
+    fadeInSeconds: 0.86,
+    crossfadeSeconds: 0.8,
+    pumpDepth: 0.34,
+    orchestraLevel: 0.98,
     bass: [0, null, 0, null, 4, null, 4, null, 5, null, 5, null, 3, null, 3, null],
     arp: [0, 2, 4, 6, 1, 3, 5, 7, 0, 3, 5, 7, 2, 4, 6, 8],
     pulse: [0, null, 2, null, 4, null, 6, null, 1, null, 3, null, 5, null, 7, null],
@@ -1907,6 +2035,91 @@ export const GAME_BGM_PROFILES = Object.freeze({
     counter: [null, 5, null, 4, null, 6, null, 5, null, 4, null, 6, null, 5, null, 3],
     bass: [0, null, 0, null, 4, null, 4, null, 1, null, 1, null, 5, null, 4, null],
     chordRoots: [0, 4, 1, 5], chordRootsB: [1, 5, 0, 4],
+  }),
+  'tonkatsu-opening': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 가게 불을 켜다', icon: 'tonkatsu-opening', bpm: 104,
+    rootFrequency: 130.81, mode: MODES.majorPentatonic,
+    arrangement: 'tonkatsuOpening', drumStyle: 'shuffle', orchestrationStyle: 'tonkatsuOpening', swing: 0.07,
+    leadGain: 0.084, drumGain: 0.09, filterFrequency: 2620, filterPeak: 0.66,
+    delayMix: 0.084, reverbMix: 0.12, fadeInSeconds: 1.08, crossfadeSeconds: 0.92,
+    lead: [0, null, 2, 4, 3, null, 2, 1, 0, 2, null, 4, 5, 4, 2, null],
+    chordRoots: [0, 4, 1, 5, 0, 3, 4, 1], chordRootsB: [1, 5, 0, 4, 3, 5, 1, 4],
+  }),
+  'tonkatsu-kitchen': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 바삭한 주방', icon: 'tonkatsu-kitchen', bpm: 132,
+    rootFrequency: 130.81, mode: MODES.mixolydian,
+    arrangement: 'tonkatsuKitchen', drumStyle: 'drive', orchestrationStyle: 'tonkatsuKitchen', swing: 0.055,
+    leadWave: 'sawtooth', bassWave: 'triangle', leadGain: 0.074, bassGain: 0.108,
+    drumGain: 0.134, filterFrequency: 3360, filterPeak: 1.02,
+    delayMix: 0.052, delayTime: 0.17, reverbMix: 0.084, pumpDepth: 0.42,
+    lead: [0, 2, 4, 5, 4, 2, 1, null, 3, 5, 6, 5, 4, 2, 1, 0],
+    chordRoots: [0, 4, 1, 5, 0, 6, 4, 5], chordRootsB: [3, 5, 0, 4, 2, 6, 1, 5],
+  }),
+  'tonkatsu-service': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 점심시간의 행진', icon: 'tonkatsu-service', bpm: 118,
+    rootFrequency: 146.83, mode: MODES.major,
+    arrangement: 'tonkatsuService', drumStyle: 'shuffle', orchestrationStyle: 'tonkatsuService', swing: 0.09,
+    leadGain: 0.09, drumGain: 0.108, filterFrequency: 3060, filterPeak: 0.76,
+    delayMix: 0.068, delayTime: 0.2, reverbMix: 0.098,
+    lead: [0, 2, 3, null, 5, 4, 2, 1, 0, 3, 4, null, 6, 5, 3, 2],
+    chordRoots: [0, 3, 4, 1, 0, 5, 3, 4], chordRootsB: [1, 4, 0, 5, 2, 6, 4, 3],
+  }),
+  'tonkatsu-growth': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 비법 연구 노트', icon: 'tonkatsu-growth', bpm: 108,
+    rootFrequency: 110, mode: MODES.dorian,
+    arrangement: 'tonkatsuGrowth', drumStyle: 'curious', orchestrationStyle: 'tonkatsuGrowth', swing: 0.035,
+    leadWave: 'sine', counterWave: 'triangle', leadGain: 0.088, counterGain: 0.04,
+    drumGain: 0.092, filterFrequency: 2280, filterPeak: 0.68,
+    delayMix: 0.096, delayTime: 0.28, reverbMix: 0.132,
+    lead: [0, null, 2, 3, 5, null, 4, 2, 1, null, 3, 5, 6, 4, 2, null],
+    chordRoots: [0, 3, 5, 4, 0, 6, 3, 4], chordRootsB: [3, 5, 0, 4, 1, 6, 4, 3],
+  }),
+  'tonkatsu-contest': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 챔피언 테이블', icon: 'tonkatsu-contest', bpm: 148,
+    rootFrequency: 87.31, mode: MODES.harmonicMinor,
+    arrangement: 'tonkatsuContest', drumStyle: 'assault', orchestrationStyle: 'tonkatsuContest',
+    leadWave: 'sawtooth', counterWave: 'square', bassWave: 'sawtooth', arpWave: 'square',
+    leadGain: 0.068, counterGain: 0.03, bassGain: 0.12, arpGain: 0.028,
+    drumGain: 0.154, filterFrequency: 3180, filterPeak: 1.18,
+    delayMix: 0.038, delayTime: 0.14, reverbMix: 0.082,
+    leadLength: 1.14, counterLength: 0.84, arpLength: 0.4,
+    fadeInSeconds: 0.58, crossfadeSeconds: 0.56, pumpDepth: 0.49,
+    lead: [0, 2, 3, 5, 4, 3, 2, 0, 5, 4, 3, 6, 5, 4, 2, 0],
+    chordRoots: [0, 3, 5, 2, 0, 4, 3, 5], chordRootsB: [0, 5, 3, 2, 1, 4, 5, 3],
+  }),
+  'tonkatsu-judge': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 맛의 판정', icon: 'tonkatsu-judge', bpm: 126,
+    rootFrequency: 98, mode: MODES.dorian,
+    arrangement: 'tonkatsuJudge', drumStyle: 'digital', orchestrationStyle: 'tonkatsuJudge', swing: 0.025,
+    leadWave: 'triangle', counterWave: 'square', bassWave: 'square',
+    leadGain: 0.078, counterGain: 0.034, drumGain: 0.12,
+    filterFrequency: 2920, filterPeak: 0.92, delayMix: 0.064, reverbMix: 0.108,
+    lead: [0, null, 3, 4, 2, null, 5, 3, 0, 2, 3, null, 6, 5, 4, null],
+    chordRoots: [0, 4, 5, 3, 0, 2, 4, 5], chordRootsB: [0, 5, 4, 3, 1, 5, 3, 4],
+  }),
+  'tonkatsu-celebration': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 축하의 만찬', icon: 'tonkatsu-celebration', bpm: 124,
+    rootFrequency: 130.81, mode: MODES.major,
+    arrangement: 'tonkatsuCelebration', drumStyle: 'cinematic', orchestrationStyle: 'tonkatsuCelebration',
+    leadWave: 'triangle', bassWave: 'triangle', leadGain: 0.098, counterGain: 0.044,
+    drumGain: 0.126, filterFrequency: 3240, filterPeak: 0.86,
+    delayMix: 0.082, delayTime: 0.23, reverbMix: 0.138,
+    leadLength: 1.76, counterLength: 1.32, fadeInSeconds: 0.94, crossfadeSeconds: 0.88,
+    lead: [0, 2, 4, 5, 4, 2, 1, null, 3, 5, 6, 5, 4, 2, 1, 0],
+    chordRoots: [0, 4, 5, 3, 0, 6, 4, 5], chordRootsB: [3, 5, 0, 4, 2, 6, 1, 5],
+  }),
+  'tonkatsu-setback': tonkatsuSceneProfile({
+    label: '돈까스 선생님 OST · 다시 불을 지피다', icon: 'tonkatsu-setback', bpm: 78,
+    rootFrequency: 98, mode: MODES.minorPentatonic,
+    arrangement: 'tonkatsuSetback', drumStyle: 'ambient', orchestrationStyle: 'tonkatsuSetback',
+    leadWave: 'sine', counterWave: 'triangle', bassWave: 'sine', arpWave: 'sine',
+    leadGain: 0.082, counterGain: 0.036, bassGain: 0.074, arpGain: 0.028,
+    padGain: 0.048, drumGain: 0.05, filterFrequency: 1360, filterPeak: 0.48,
+    delayMix: 0.126, delayTime: 0.4, delayFeedback: 0.32, reverbMix: 0.18,
+    leadLength: 2.76, counterLength: 2.04, arpLength: 0.98,
+    fadeInSeconds: 1.54, crossfadeSeconds: 1.28, pumpDepth: 0.18,
+    lead: [0, null, 2, null, 3, 2, 1, null, 0, null, 3, 4, 3, 2, 1, null],
+    chordRoots: [0, 3, 4, 1, 0, 4, 2, 3], chordRootsB: [1, 4, 0, 3, 2, 4, 1, 0],
   }),
   idle: profile({
     label: '샬레 방치형 RPG', icon: 'growth', bpm: 70, rootFrequency: 98, mode: MODES.majorPentatonic,

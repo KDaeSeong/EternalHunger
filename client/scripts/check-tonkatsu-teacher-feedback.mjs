@@ -36,6 +36,9 @@ engine.RECIPES.forEach((recipe) => {
 });
 
 const base = engine.createNewState({ now: '2026-07-12T00:00:00.000Z', runId: 'tonkatsu-check' });
+const immediateRunA = engine.createNewState({ now: '2026-07-12T00:00:00.000Z' });
+const immediateRunB = engine.createNewState({ now: '2026-07-12T00:00:00.000Z' });
+assert.notEqual(immediateRunA.runId, immediateRunB.runId, '연속으로 생성한 새 운영은 서로 다른 런 ID를 가져야 합니다.');
 const legacy = engine.normalizeState({
   ...base,
   students: base.students.slice(0, 5),

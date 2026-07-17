@@ -10,9 +10,11 @@ import TonkatsuAdvancedTab from './TonkatsuAdvancedTab';
 
 export default function TonkatsuTeacherFeatureTabs(props) {
   const {
+    activeTabId,
     inventoryRows,
     judge,
     operationsReport,
+    onTabChange,
     productionReport,
     selectedRecipePlan,
     tokenRows,
@@ -23,6 +25,8 @@ export default function TonkatsuTeacherFeatureTabs(props) {
   return (
     <div className="tonkatsu-teacher-workspace">
     <GameFeatureTabs
+      activeTabId={activeTabId}
+      onTabChange={onTabChange}
       tabs={[
         {
           id: 'kitchen',

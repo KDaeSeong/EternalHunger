@@ -48,7 +48,7 @@ export const METHOD_LEVEL_THRESHOLDS = [0, 3, 8, 15, 24, 35];
 export function createNewState(options = {}) {
   const now = options.now || new Date().toISOString();
   return {
-    runId: options.runId || `tt-${Date.now().toString(36)}`,
+      runId: options.runId || `tt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     startedAt: now,
     updatedAt: now,
     day: 1,

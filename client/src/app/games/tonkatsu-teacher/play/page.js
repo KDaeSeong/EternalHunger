@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameActionIcon from '../../_components/GameActionIcon';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -17,6 +18,10 @@ import {
   tonkatsuResultPresentation,
   tonkatsuTextPresentation,
 } from '../_lib/tonkatsuTeacherFeedback';
+import {
+  resolveTonkatsuTeacherBgmScene,
+  tonkatsuTeacherResultMusic,
+} from '../_lib/tonkatsuTeacherSoundtrack';
 import {
   GAME_SLUG,
   COSMETIC_SLOT_LABELS,
@@ -166,10 +171,14 @@ export default function TonkatsuTeacherPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'kitchen' });
   const [state, setState] = useState(() => createNewState());
   const stateRef = useRef(state);
   const feedbackRef = useRef(tonkatsuFeedbackSnapshot(state));
+  const pendingMusicPresentationRef = useRef(null);
+  const musicSceneTimerRef = useRef(null);
+  const [activeTabId, setActiveTabId] = useState('kitchen');
   const [recipeId, setRecipeId] = useState('basic_tonkatsu');
   const [ingredientId, setIngredientId] = useState('pork');
   const [studentId, setStudentId] = useState('yuuka');
@@ -186,18 +195,11 @@ export default function TonkatsuTeacherPlayPage() {
   const [actionResult, setActionResult] = useState('');
   const [actionPresentation, setActionPresentation] = useState(() => tonkatsuResultPresentation(state, state));
 
-  useEffect(() => {
-    stateRef.current = state;
-    const current = tonkatsuFeedbackSnapshot(state);
-    const cue = tonkatsuResultCue(feedbackRef.current, current);
-    if (cue) playGameSfx(cue);
-    feedbackRef.current = current;
-  }, [playGameSfx, state]);
-
   const applyTonkatsuState = (updater) => {
     const previousState = stateRef.current;
     const nextState = typeof updater === 'function' ? updater(previousState) : updater;
     const presentation = tonkatsuResultPresentation(previousState, nextState);
+    pendingMusicPresentationRef.current = presentation;
     stateRef.current = nextState;
     setState(nextState);
     setActionResult('');
@@ -238,6 +240,45 @@ export default function TonkatsuTeacherPlayPage() {
   const canAct = !ended;
   const operationsReport = operationsReportForState(state);
   const productionReport = productionReportForState(state);
+  const baseMusicScene = useMemo(() => resolveTonkatsuTeacherBgmScene({
+    activeTabId,
+    state,
+    operationsReport,
+    judge,
+  }), [activeTabId, judge, operationsReport, state]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => {
+    stateRef.current = state;
+    const current = tonkatsuFeedbackSnapshot(state);
+    const presentation = pendingMusicPresentationRef.current
+      || tonkatsuResultPresentation(feedbackRef.current, current);
+    pendingMusicPresentationRef.current = null;
+    const cue = tonkatsuResultCue(feedbackRef.current, current);
+    if (cue) playGameSfx(cue);
+
+    const musicTransition = tonkatsuTeacherResultMusic(presentation);
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
+    feedbackRef.current = current;
+  }, [baseMusicScene, playGameSfx, setMusicScene, state]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
   const tokenCount = Number(state.mealTokens[recipe.id] || 0);
   const cookingMethodRows = methodRows(state, recipeId);
   const methodProfile = recipeMethodProfile(state, recipe);
@@ -306,6 +347,7 @@ export default function TonkatsuTeacherPlayPage() {
       const nextState = normalizeState(detail?.save?.payload?.state);
       stateRef.current = nextState;
       feedbackRef.current = tonkatsuFeedbackSnapshot(nextState);
+      pendingMusicPresentationRef.current = null;
       setState(nextState);
       setActionPresentation(tonkatsuResultPresentation(nextState, nextState));
       publishMessage('저장된 운영 데이터를 불러왔습니다.');
@@ -437,6 +479,7 @@ export default function TonkatsuTeacherPlayPage() {
       />
 
       <TonkatsuTeacherFeatureTabs
+        activeTabId={activeTabId}
         canAct={canAct}
         cosmetics={cosmetics}
         equippedCosmetics={equippedCosmetics}
@@ -456,6 +499,7 @@ export default function TonkatsuTeacherPlayPage() {
         judgeText={judgeText}
         judgeTierId={judgeTierId}
         operationsReport={operationsReport}
+        onTabChange={setActiveTabId}
         ownedCosmetics={ownedCosmetics}
         productionReport={productionReport}
         methodProfile={methodProfile}
