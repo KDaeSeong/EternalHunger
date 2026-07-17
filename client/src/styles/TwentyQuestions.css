@@ -73,6 +73,7 @@
 .twenty-stats,
 .twenty-card-top,
 .twenty-card-meta,
+.twenty-room-flags,
 .twenty-panel-title,
 .twenty-history-head {
   display: flex;
@@ -235,6 +236,44 @@
   font-weight: 900;
 }
 
+.twenty-room-flags > span,
+.twenty-card-top span,
+.twenty-card-meta span,
+.twenty-card-date,
+.twenty-history-identity,
+.twenty-response,
+.twenty-inline-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.twenty-room-flags .game-action-icon,
+.twenty-card-top span .game-action-icon,
+.twenty-card-meta .game-action-icon,
+.twenty-card-date .game-action-icon,
+.twenty-room-summary dt .game-action-icon,
+.twenty-history-identity .game-action-icon,
+.twenty-response .game-action-icon,
+.twenty-inline-state > .game-action-icon,
+.twenty-chat-message strong .game-action-icon,
+.twenty-pending-row p .game-action-icon {
+  flex: 0 0 auto;
+}
+
+.twenty-room-flags .game-action-icon svg,
+.twenty-card-top span .game-action-icon svg,
+.twenty-card-meta .game-action-icon svg,
+.twenty-card-date .game-action-icon svg,
+.twenty-room-summary dt .game-action-icon svg,
+.twenty-history-identity .game-action-icon svg,
+.twenty-response .game-action-icon svg,
+.twenty-chat-message strong .game-action-icon svg,
+.twenty-pending-row p .game-action-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
 .twenty-status {
   border: 1px solid #b9d5e8;
   color: #155779;
@@ -395,6 +434,18 @@
   line-height: 1.45;
 }
 
+.twenty-room-card .twenty-card-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.twenty-card-hint .game-action-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #2c6f9e;
+}
+
 .twenty-room-card small {
   color: #77838e;
   font-weight: 800;
@@ -423,6 +474,9 @@
 
 .twenty-room-summary dt {
   margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: #66727e;
   font-size: 0.78rem;
   font-weight: 900;
@@ -440,6 +494,13 @@
   border-radius: 8px;
   padding: 12px 14px;
   font-weight: 900;
+}
+
+.twenty-hint > span,
+.twenty-answer > span,
+.twenty-note > span,
+.twenty-chat-locked > span {
+  min-width: 0;
 }
 
 .twenty-hint {
@@ -516,6 +577,9 @@
 }
 
 .twenty-chat-message strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #155779;
   font-weight: 900;
 }
@@ -550,6 +614,10 @@
   font-weight: 900;
 }
 
+.twenty-chat-locked .game-action-icon {
+  color: #8a6a1f;
+}
+
 .twenty-pending-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -561,9 +629,17 @@
 
 .twenty-pending-row p {
   margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   color: #17202a;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.twenty-pending-row p .game-action-icon {
+  margin-top: 2px;
+  color: #9a741c;
 }
 
 .twenty-pending-row div {
@@ -604,6 +680,16 @@
 .twenty-history-item small {
   color: #6d7883;
   font-weight: 800;
+}
+
+.twenty-history-head {
+  justify-content: space-between;
+}
+
+.twenty-history-identity {
+  min-width: 0;
+  color: #40505f;
+  font-weight: 900;
 }
 
 .twenty-response {

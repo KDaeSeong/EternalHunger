@@ -57,6 +57,19 @@ function statusLabel(status) {
   return '진행 중';
 }
 
+function roomStatusAction(status) {
+  if (status === 'solved') return 'room-solved';
+  if (status === 'closed') return 'room-closed';
+  return 'room-active';
+}
+
+function responseAction(response) {
+  if (response === 'yes') return 'answer-yes';
+  if (response === 'no') return 'answer-no';
+  if (response === 'maybe') return 'answer-maybe';
+  return 'answer-pending';
+}
+
 function normalizeList(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -182,7 +195,7 @@ export default function TwentyQuestionsRoomContent() {
     }
     if (!canUseAttempt) {
       const message = '질문/정답 도전 횟수를 모두 사용했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('exhausted', { message });
       showToast({ tone: 'warning', message });
       return;
     }
@@ -233,7 +246,7 @@ export default function TwentyQuestionsRoomContent() {
     }
     if (!canUseAttempt) {
       const message = '질문/정답 도전 횟수를 모두 사용했습니다.';
-      announce('invalid', { ok: false, message });
+      announce('exhausted', { message });
       showToast({ tone: 'warning', message });
       return;
     }
@@ -265,7 +278,7 @@ export default function TwentyQuestionsRoomContent() {
     }
     if (!room?.isHost || !active) {
       const message = '방장만 진행 중인 방에 힌트를 남길 수 있습니다.';
-      announce('invalid', { ok: false, message });
+      announce('hostOnly', { message });
       showToast({ tone: 'warning', message });
       return;
     }
@@ -345,32 +358,49 @@ export default function TwentyQuestionsRoomContent() {
         {!loading && room ? (
           <>
             <section className="twenty-room-summary">
-              <div>
-                <span className={`twenty-status is-${room.status}`}>{statusLabel(room.status)}</span>
-                <span className="twenty-pill">{room.categoryLabel}</span>
+              <div className="twenty-room-flags">
+                <span className={`twenty-status is-${room.status}`}>
+                  <GameActionIcon action={roomStatusAction(room.status)} label={statusLabel(room.status)} />
+                  {statusLabel(room.status)}
+                </span>
+                <span className="twenty-pill">
+                  <GameActionIcon action="category" label="주제" />
+                  {room.categoryLabel}
+                </span>
               </div>
               <dl>
                 <div>
-                  <dt>방장</dt>
+                  <dt><GameActionIcon action="host" label="방장" />방장</dt>
                   <dd>
                     {userProfileHref(room.hostId) ? (
                       <Link href={userProfileHref(room.hostId)} className="profile-inline-link">{room.hostName}</Link>
                     ) : room.hostName}
                   </dd>
                 </div>
-                <div><dt>사용</dt><dd>{room.attemptCount}/{room.maxQuestions}</dd></div>
-                <div><dt>남은 횟수</dt><dd>{attemptsLeft}</dd></div>
-                <div><dt>질문</dt><dd>{room.questionCount}</dd></div>
-                <div><dt>정답 도전</dt><dd>{room.guessCount}</dd></div>
+                <div><dt><GameActionIcon action="attempt-limit" label="사용 횟수" />사용</dt><dd>{room.attemptCount}/{room.maxQuestions}</dd></div>
+                <div><dt><GameActionIcon action="wait" label="남은 횟수" />남은 횟수</dt><dd>{attemptsLeft}</dd></div>
+                <div><dt><GameActionIcon action="question" label="질문" />질문</dt><dd>{room.questionCount}</dd></div>
+                <div><dt><GameActionIcon action="guess" label="정답 도전" />정답 도전</dt><dd>{room.guessCount}</dd></div>
               </dl>
-              {room.hint ? <p className="twenty-hint">힌트: {room.hint}</p> : null}
+              {room.hint ? (
+                <p className="twenty-hint twenty-inline-state">
+                  <GameActionIcon action="hint-message" label="힌트" />
+                  <span>힌트: {room.hint}</span>
+                </p>
+              ) : null}
               {room.answerRevealed ? (
-                <p className="twenty-answer">정답: <strong>{room.answer}</strong>{room.solvedByName ? ` · ${room.solvedByName}` : ''}</p>
+                <p className="twenty-answer twenty-inline-state">
+                  <GameActionIcon action="guess-correct" label="정답" />
+                  <span>정답: <strong>{room.answer}</strong>{room.solvedByName ? ` · ${room.solvedByName}` : ''}</span>
+                </p>
               ) : null}
             </section>
 
             {hydrated && !token ? (
-              <div className="twenty-note">로그인하면 질문과 정답 도전을 할 수 있습니다.</div>
+              <div className="twenty-note twenty-inline-state">
+                <GameActionIcon action="lock" label="로그인 필요" />
+                <span>로그인하면 질문과 정답 도전을 할 수 있습니다.</span>
+              </div>
             ) : null}
 
             {canInteract ? (
@@ -422,7 +452,7 @@ export default function TwentyQuestionsRoomContent() {
                 {hintMessages.map((message, index) => (
                   <article className="twenty-chat-message" key={message._id || index}>
                     <div>
-                      <strong>{message.authorName || room.hostName || '방장'}</strong>
+                      <strong><GameActionIcon action="hint-message" label="방장 힌트" />{message.authorName || room.hostName || '방장'}</strong>
                       <small>{formatDate(message.createdAt)}</small>
                     </div>
                     <p>{message.text}</p>
@@ -444,7 +474,10 @@ export default function TwentyQuestionsRoomContent() {
                   </GameControlButton>
                 </div>
               ) : active ? (
-                <div className="twenty-chat-locked">방장만 힌트를 남길 수 있습니다.</div>
+                <div className="twenty-chat-locked twenty-inline-state">
+                  <GameActionIcon action="lock" label="방장 전용" />
+                  <span>방장만 힌트를 남길 수 있습니다.</span>
+                </div>
               ) : null}
             </section>
 
@@ -456,7 +489,7 @@ export default function TwentyQuestionsRoomContent() {
                 </div>
                 {pendingQuestions.map((question) => (
                   <div className="twenty-pending-row" key={question._id}>
-                    <p>{question.text}</p>
+                    <p><GameActionIcon action="answer-pending" label="답변 대기" /><span>{question.text}</span></p>
                     <div>
                       {RESPONSE_OPTIONS.map((option) => (
                         <GameControlButton
@@ -484,8 +517,9 @@ export default function TwentyQuestionsRoomContent() {
                 {room.questions.map((question, index) => (
                   <article className="twenty-history-item" key={question._id || index}>
                     <div className="twenty-history-head">
-                      <span>Q{index + 1}</span>
+                      <span className="twenty-history-identity"><GameActionIcon action="question" label="질문" />Q{index + 1}</span>
                       <span className={`twenty-response is-${question.response || 'pending'}`}>
+                        <GameActionIcon action={responseAction(question.response)} label={question.responseLabel || '대기'} />
                         {question.responseLabel || '대기'}
                       </span>
                     </div>
@@ -504,8 +538,9 @@ export default function TwentyQuestionsRoomContent() {
                 {room.guesses.map((guess, index) => (
                   <article className={`twenty-history-item ${guess.correct ? 'is-correct' : ''}`} key={guess._id || index}>
                     <div className="twenty-history-head">
-                      <span>{guess.guesserName || '익명'}</span>
+                      <span className="twenty-history-identity"><GameActionIcon action="guess" label="정답 도전" />{guess.guesserName || '익명'}</span>
                       <span className={`twenty-response ${guess.correct ? 'is-yes' : 'is-no'}`}>
+                        <GameActionIcon action={guess.correct ? 'guess-correct' : 'guess-wrong'} label={guess.correct ? '정답' : '오답'} />
                         {guess.correct ? '정답' : '오답'}
                       </span>
                     </div>

@@ -1096,9 +1096,20 @@ const CUE_PROFILES = {
     { frequency: 660, start: 0.038, duration: 0.06, type: 'sine', gain: 0.043 },
     { frequency: 880, start: 0.09, duration: 0.1, type: 'sine', gain: 0.038 },
   ],
+  twentyRoomEnter: [
+    { source: 'noise', filterType: 'bandpass', frequency: 760, q: 1.2, duration: 0.055, gain: 0.022, pan: -0.24, reverb: 0.12 },
+    { frequency: 330, endFrequency: 440, duration: 0.065, type: 'triangle', gain: 0.042, pan: -0.12 },
+    { frequency: 660, start: 0.055, duration: 0.085, type: 'sine', gain: 0.037, pan: 0.22, reverb: 0.18 },
+  ],
   twentyQuestion: [
     { frequency: 620, duration: 0.04, type: 'sine', gain: 0.042 },
     { frequency: 930, start: 0.04, duration: 0.08, type: 'sine', gain: 0.038 },
+  ],
+  twentyQuestionQueued: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.025, gain: 0.015, pan: -0.3 },
+    { frequency: 540, duration: 0.045, type: 'triangle', gain: 0.043, pan: -0.2 },
+    { frequency: 810, start: 0.042, duration: 0.055, type: 'triangle', gain: 0.04, pan: 0.16 },
+    { frequency: 720, start: 0.105, duration: 0.09, type: 'sine', gain: 0.034, pan: 0.28, reverb: 0.2 },
   ],
   twentyAnswerYes: [
     { frequency: 560, duration: 0.04, type: 'triangle', gain: 0.045 },
@@ -1128,6 +1139,11 @@ const CUE_PROFILES = {
     { frequency: 660, endFrequency: 880, duration: 0.07, type: 'sine', gain: 0.042 },
     { frequency: 1100, start: 0.065, duration: 0.09, type: 'sine', gain: 0.035 },
   ],
+  twentyHintSent: [
+    { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.035, gain: 0.018, pan: -0.32, reverb: 0.14 },
+    { frequency: 660, endFrequency: 900, duration: 0.075, type: 'triangle', gain: 0.041, pan: -0.12 },
+    { frequency: 1120, start: 0.064, duration: 0.095, type: 'sine', gain: 0.035, pan: 0.28, reverb: 0.24 },
+  ],
   twentyRoomClose: [
     { frequency: 520, endFrequency: 360, duration: 0.08, type: 'triangle', gain: 0.043 },
     { frequency: 260, start: 0.07, duration: 0.11, type: 'sine', gain: 0.038 },
@@ -1139,6 +1155,16 @@ const CUE_PROFILES = {
   twentyInvalid: [
     { frequency: 300, endFrequency: 210, duration: 0.075, type: 'square', gain: 0.04 },
     { frequency: 160, start: 0.065, duration: 0.11, type: 'sine', gain: 0.038 },
+  ],
+  twentyAttemptsExhausted: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.06, gain: 0.026, pan: -0.18 },
+    { frequency: 270, endFrequency: 195, duration: 0.1, type: 'triangle', gain: 0.046, pan: -0.12 },
+    { frequency: 180, start: 0.105, duration: 0.13, type: 'sine', gain: 0.039, pan: 0.18, reverb: 0.12 },
+  ],
+  twentyHostOnly: [
+    { source: 'noise', filterType: 'bandpass', frequency: 920, q: 4, duration: 0.028, gain: 0.022, pan: -0.2 },
+    { frequency: 430, endFrequency: 360, duration: 0.045, type: 'square', gain: 0.032, pan: -0.1 },
+    { frequency: 240, start: 0.045, duration: 0.08, type: 'triangle', gain: 0.038, pan: 0.16 },
   ],
   pass: [
     { frequency: 620, endFrequency: 360, duration: 0.08, type: 'sine', gain: 0.05 },

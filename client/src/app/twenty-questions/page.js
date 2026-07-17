@@ -54,6 +54,12 @@ function statusLabel(status) {
   return '진행 중';
 }
 
+function roomStatusAction(status) {
+  if (status === 'solved') return 'room-solved';
+  if (status === 'closed') return 'room-closed';
+  return 'room-active';
+}
+
 function normalizeRoom(row) {
   if (!row || typeof row !== 'object') return null;
   const questionCount = Number(row.questionCount || 0);
@@ -332,7 +338,10 @@ export default function TwentyQuestionsPage() {
         ) : null}
 
         {!mounted || token ? null : (
-          <div className="twenty-note">로그인하면 스무고개 방을 만들고 질문/정답 도전에 참여할 수 있습니다.</div>
+          <div className="twenty-note twenty-inline-state">
+            <GameActionIcon action="lock" label="로그인 필요" />
+            <span>로그인하면 스무고개 방을 만들고 질문/정답 도전에 참여할 수 있습니다.</span>
+          </div>
         )}
 
         <section className="twenty-room-grid" aria-label="스무고개 방 목록">
@@ -345,22 +354,25 @@ export default function TwentyQuestionsPage() {
           ) : null}
           {!loading && !loadError && filteredRooms.length === 0 ? <div className="twenty-empty">표시할 방이 없습니다.</div> : null}
           {!loading && filteredRooms.map((room) => (
-            <Link href={`/twenty-questions/${room._id}`} className="twenty-room-card" data-game-sfx="nav" key={room._id}>
+            <Link href={`/twenty-questions/${room._id}`} className="twenty-room-card" data-game-sfx="twentyRoomEnter" key={room._id}>
               <div className="twenty-card-top">
                 <GameActionIcon action="room" label="방 입장" className="twenty-room-card-icon" />
-                <span className={`twenty-status is-${room.status}`}>{statusLabel(room.status)}</span>
-                <span>{room.categoryLabel}</span>
+                <span className={`twenty-status is-${room.status}`}>
+                  <GameActionIcon action={roomStatusAction(room.status)} label={statusLabel(room.status)} />
+                  {statusLabel(room.status)}
+                </span>
+                <span><GameActionIcon action="category" label="주제" />{room.categoryLabel}</span>
               </div>
               <h2>{room.title}</h2>
-              <p>{room.hint || '힌트 없음'}</p>
+              <p className="twenty-card-hint"><GameActionIcon action="hint-message" label="힌트" /><span>{room.hint || '힌트 없음'}</span></p>
               <div className="twenty-card-meta">
-                <span>방장 {room.hostName}</span>
-                <span>사용 {room.attemptCount}/{room.maxQuestions}</span>
-                <span>질문 {room.questionCount}</span>
-                <span>도전 {room.guessCount}</span>
-                {room.pendingCount > 0 ? <span>답변 대기 {room.pendingCount}</span> : null}
+                <span><GameActionIcon action="host" label="방장" />{room.hostName}</span>
+                <span><GameActionIcon action="attempt-limit" label="사용 횟수" />{room.attemptCount}/{room.maxQuestions}</span>
+                <span><GameActionIcon action="question" label="질문" />{room.questionCount}</span>
+                <span><GameActionIcon action="guess" label="정답 도전" />{room.guessCount}</span>
+                {room.pendingCount > 0 ? <span><GameActionIcon action="answer-pending" label="답변 대기" />{room.pendingCount}</span> : null}
               </div>
-              <small>{formatDate(room.updatedAt || room.createdAt)}</small>
+              <small className="twenty-card-date"><GameActionIcon action="clock" label="최근 갱신" />{formatDate(room.updatedAt || room.createdAt)}</small>
             </Link>
           ))}
         </section>

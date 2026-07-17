@@ -6,26 +6,47 @@ const FEEDBACK = {
     text: '새 스무고개 방을 만들었습니다.',
     tone: 'blue',
   },
+  roomEnter: {
+    action: 'room-enter',
+    cue: 'twentyRoomEnter',
+    label: '방 입장',
+    text: '스무고개 방으로 이동합니다.',
+    tone: 'blue',
+  },
   question: {
-    action: 'question',
-    cue: 'twentyQuestion',
-    label: '질문 등록',
+    action: 'question-queued',
+    cue: 'twentyQuestionQueued',
+    label: '답변 대기',
     text: '질문을 등록했습니다. 방장의 답변을 기다립니다.',
     tone: 'blue',
   },
   hint: {
-    action: 'hint',
-    cue: 'twentyHint',
+    action: 'hint-message',
+    cue: 'twentyHintSent',
     label: '힌트 공개',
     text: '참가자에게 새 힌트를 공개했습니다.',
     tone: 'gold',
   },
   close: {
-    action: 'close',
+    action: 'room-closed',
     cue: 'twentyRoomClose',
     label: '방 종료',
     text: '스무고개 방을 종료했습니다.',
     tone: 'gray',
+  },
+  exhausted: {
+    action: 'attempt-limit',
+    cue: 'twentyAttemptsExhausted',
+    label: '횟수 소진',
+    text: '질문과 정답 도전에 사용할 횟수가 남지 않았습니다.',
+    tone: 'red',
+  },
+  hostOnly: {
+    action: 'lock',
+    cue: 'twentyHostOnly',
+    label: '방장 전용',
+    text: '이 행동은 방장만 할 수 있습니다.',
+    tone: 'gold',
   },
   refresh: {
     action: 'refresh',
@@ -81,14 +102,14 @@ export function twentyQuestionsFeedback(action, result = {}) {
     const correct = Boolean(result.correct);
     const row = correct
       ? {
-          action: 'victory',
+          action: 'guess-correct',
           cue: 'twentyCorrect',
           label: '정답',
           text: '정답을 맞혔습니다.',
           tone: 'green',
         }
       : {
-          action: 'guess',
+          action: 'guess-wrong',
           cue: 'twentyWrong',
           label: '오답',
           text: '정답이 아닙니다. 남은 횟수를 확인하세요.',
