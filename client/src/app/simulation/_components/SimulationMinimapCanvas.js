@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 
 import {
   LUMIA_HYPERLOOP_MARKERS,
@@ -10,6 +10,11 @@ import {
   LUMIA_PASSAGE_SEGMENTS,
   LUMIA_ZONE_POLYGONS,
 } from '../_lib/simulationConstants';
+import {
+  createLumiaConnectedPassages,
+  createLumiaRenderMarkers,
+  createLumiaRenderPositions,
+} from '../_lib/lumiaMapRenderGeometryRuntime';
 
 function safeArray(value) {
   return Array.isArray(value) ? value : [];
@@ -27,12 +32,23 @@ const TOKEN_OFF = [
   [6.2, 1.8], [-6.2, 1.8], [1.8, 6.2], [1.8, -6.2],
 ];
 
+const EMPTY_ZONE_POSITIONS = Object.freeze({});
+
 const MINIMAP_VIEWBOX_PAD = {
   x: -5,
   y: -6,
   width: LUMIA_MINIMAP_VIEWBOX.width + 10,
   height: LUMIA_MINIMAP_VIEWBOX.height + 12,
 };
+
+const LUMIA_RENDER_HYPERLOOP_MARKERS = createLumiaRenderMarkers(
+  LUMIA_HYPERLOOP_MARKERS,
+  LUMIA_ISLAND_OUTLINE
+);
+const LUMIA_RENDER_KIOSK_MARKERS = createLumiaRenderMarkers(
+  LUMIA_KIOSK_MARKERS,
+  LUMIA_ISLAND_OUTLINE
+);
 
 function asSet(value) {
   if (value instanceof Set) return value;
@@ -97,6 +113,15 @@ export default function SimulationMinimapCanvas({
 }) {
   const rawClipId = useId();
   const islandClipId = `lumia-minimap-island-clip-${String(rawClipId).replace(/:/g, '')}`;
+  const sourcePositions = zonePos && typeof zonePos === 'object' ? zonePos : EMPTY_ZONE_POSITIONS;
+  const positions = useMemo(
+    () => createLumiaRenderPositions(sourcePositions, LUMIA_ISLAND_OUTLINE),
+    [sourcePositions]
+  );
+  const passageSegments = useMemo(
+    () => createLumiaConnectedPassages(LUMIA_PASSAGE_SEGMENTS, positions, LUMIA_ISLAND_OUTLINE),
+    [positions]
+  );
   const zoneList = safeArray(zones);
   if (!zoneList.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
 
@@ -112,7 +137,6 @@ export default function SimulationMinimapCanvas({
   const deadByZone = groupActorsByZone(dead, activeMapId);
   const hyperloopSelectedChar = safeArray(survivors).find((actor) => String(actor?._id) === String(hyperloopCharId)) || null;
   const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
-  const positions = zonePos && typeof zonePos === 'object' ? zonePos : {};
   const availableZoneIds = new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean));
   const visiblePings = safeArray(recentPings).slice(0, 2);
   const passageEdgeKeys = new Set();
@@ -189,7 +213,7 @@ export default function SimulationMinimapCanvas({
         })}
 
         <g clipPath={`url(#${islandClipId})`}>
-          {safeArray(LUMIA_PASSAGE_SEGMENTS).map((segment) => {
+          {passageSegments.map((segment) => {
             const [a, b] = safeArray(segment?.edge);
             if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
             passageEdgeKeys.add(edgeKey(a, b));
@@ -225,24 +249,26 @@ export default function SimulationMinimapCanvas({
           })}
         </g>
 
-        {safeArray(recentMoveTrails).map((trail) => {
-          const from = positions?.[String(trail?.from || '')];
-          const to = positions?.[String(trail?.to || '')];
-          if (!from || !to) return null;
-          const transport = String(trail?.transport || '') === 'hyperloop' ? 'hyperloop' : 'walk';
-          const title = [
-            String(trail?.name || '').trim(),
-            `${getZoneName?.(trail.from) || trail.from} -> ${getZoneName?.(trail.to) || trail.to}`,
-            transport,
-          ].filter(Boolean).join(' / ');
-          return (
-            <g key={`move-trail-${trail.id}`} className={`minimap-move-trail ${transport}`}>
-              <title>{title}</title>
-              <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} />
-              <circle className="minimap-move-arrival" cx={to.x} cy={to.y} r="1.45" />
-            </g>
-          );
-        })}
+        <g clipPath={`url(#${islandClipId})`}>
+          {safeArray(recentMoveTrails).map((trail) => {
+            const from = positions?.[String(trail?.from || '')];
+            const to = positions?.[String(trail?.to || '')];
+            if (!from || !to) return null;
+            const transport = String(trail?.transport || '') === 'hyperloop' ? 'hyperloop' : 'walk';
+            const title = [
+              String(trail?.name || '').trim(),
+              `${getZoneName?.(trail.from) || trail.from} -> ${getZoneName?.(trail.to) || trail.to}`,
+              transport,
+            ].filter(Boolean).join(' / ');
+            return (
+              <g key={`move-trail-${trail.id}`} className={`minimap-move-trail ${transport}`}>
+                <title>{title}</title>
+                <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} />
+                <circle className="minimap-move-arrival" cx={to.x} cy={to.y} r="1.45" />
+              </g>
+            );
+          })}
+        </g>
 
         {zoneList.map((zone) => {
           const id = String(zone?.zoneId || '');
@@ -258,8 +284,8 @@ export default function SimulationMinimapCanvas({
           const labelSize = zoneName.length >= 6 ? 2.3 : zoneName.length >= 5 ? 2.55 : 2.9;
           const hasHyperloop = hyperloopSet.has(id);
           const hasKiosk = kioskSet.has(id) || Boolean(LUMIA_KIOSK_MARKERS[id]);
-          const hyperloopMarker = LUMIA_HYPERLOOP_MARKERS[id] || { x: p.x + nodeR, y: p.y - 4.2 };
-          const kioskMarker = LUMIA_KIOSK_MARKERS[id] || { x: p.x - nodeR, y: p.y + 4.2 };
+          const hyperloopMarker = LUMIA_RENDER_HYPERLOOP_MARKERS[id] || { x: p.x + nodeR, y: p.y - 4.2 };
+          const kioskMarker = LUMIA_RENDER_KIOSK_MARKERS[id] || { x: p.x - nodeR, y: p.y + 4.2 };
 
           return (
             <g key={`z-${id}`}>
@@ -384,20 +410,22 @@ export default function SimulationMinimapCanvas({
           );
         })}
 
-        {visiblePings.map((ping) => {
-          const p = positions?.[String(ping?.zoneId || '')];
-          if (!p) return null;
-          return (
-            <g
-              key={`ping-${ping.id}`}
-              className={`minimap-ping ${String(ping.kind || '')}`}
-              transform={`translate(${p.x} ${p.y})`}
-            >
-              <circle r="5.6" />
-              <circle className="minimap-ping-core" r="1.05" />
-            </g>
-          );
-        })}
+        <g clipPath={`url(#${islandClipId})`}>
+          {visiblePings.map((ping) => {
+            const p = positions?.[String(ping?.zoneId || '')];
+            if (!p) return null;
+            return (
+              <g
+                key={`ping-${ping.id}`}
+                className={`minimap-ping ${String(ping.kind || '')}`}
+                transform={`translate(${p.x} ${p.y})`}
+              >
+                <circle r="5.6" />
+                <circle className="minimap-ping-core" r="1.05" />
+              </g>
+            );
+          })}
+        </g>
       </svg>
     </div>
   );
