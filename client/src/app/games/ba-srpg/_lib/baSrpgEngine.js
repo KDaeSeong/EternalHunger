@@ -3,6 +3,9 @@ import {
   COVER_MAX_HP,
   ITEMS,
   MISSIONS,
+  MISSION_OBJECTIVES,
+  MISSION_EVENTS,
+  ENEMY_PATTERNS,
   STUDENTS,
   MAX_FORMATION_SIZE,
   DEFAULT_FORMATION_IDS,
@@ -30,6 +33,9 @@ export {
   COVER_MAX_HP,
   ITEMS,
   MISSIONS,
+  MISSION_OBJECTIVES,
+  MISSION_EVENTS,
+  ENEMY_PATTERNS,
   STUDENTS,
   MAX_FORMATION_SIZE,
   DEFAULT_FORMATION_IDS,
@@ -193,9 +199,19 @@ function normalizeBattle(battle, formationIds = DEFAULT_FORMATION_IDS) {
     ...createBattle(mission.id),
     ...battle,
     units,
-    enemies: Array.isArray(battle.enemies) ? battle.enemies.map(normalizeCombatActor) : createEnemies(mission),
+    enemies: Array.isArray(battle.enemies)
+      ? battle.enemies.map((enemy) => normalizeCombatActor({ ...enemy, patternId: enemy.patternId || inferEnemyPatternId(enemy) }))
+      : createEnemies(mission),
     coverHp: normalizeCoverHp(battle.coverHp),
     zones: normalizeZones(battle.zones),
+    objective: normalizeMissionObjective(mission.id, battle.objective),
+    triggeredEventIds: normalizeTriggeredEventIds(mission.id, battle.triggeredEventIds),
+    lastMissionEvent: battle.lastMissionEvent && typeof battle.lastMissionEvent === 'object'
+      ? { ...battle.lastMissionEvent }
+      : null,
+    lastEnemyPattern: battle.lastEnemyPattern && typeof battle.lastEnemyPattern === 'object'
+      ? { ...battle.lastEnemyPattern }
+      : null,
     selectedUnitId: units.some((unit) => unit.id === battle.selectedUnitId) ? battle.selectedUnitId : units[0]?.id || '',
     targetEnemyId: battle.targetEnemyId || '',
   };
@@ -276,9 +292,47 @@ function missionLockInfo(state, mission, index) {
   return { locked: false, reason: '' };
 }
 
-function createEnemies(mission) {
-  const rule = difficultyRule(mission.difficulty);
-  return mission.enemies.map((enemy) => ({
+function missionObjectiveDefinition(missionId) {
+  return MISSION_OBJECTIVES[missionId] || MISSION_OBJECTIVES.m001;
+}
+
+function createMissionObjective(missionId) {
+  return {
+    ...missionObjectiveDefinition(missionId),
+    captured: false,
+    capturedBy: '',
+    capturedTurn: 0,
+  };
+}
+
+function normalizeMissionObjective(missionId, value) {
+  const base = createMissionObjective(missionId);
+  if (!value || typeof value !== 'object' || value.id !== base.id) return base;
+  return {
+    ...base,
+    captured: Boolean(value.captured),
+    capturedBy: String(value.capturedBy || ''),
+    capturedTurn: Math.max(0, safeWholeNumber(value.capturedTurn, 0)),
+  };
+}
+
+function normalizeTriggeredEventIds(missionId, value) {
+  const validIds = new Set((MISSION_EVENTS[missionId] || []).map((event) => event.id));
+  return Array.isArray(value) ? [...new Set(value.filter((id) => validIds.has(id)))] : [];
+}
+
+function inferEnemyPatternId(enemy) {
+  const key = `${enemy?.id || ''} ${enemy?.name || ''}`.toLowerCase();
+  if (/commander|boss|관리자|경비장/.test(key)) return 'command';
+  if (/artillery|포대/.test(key)) return 'barrage';
+  if (/shield|guard|blocker|방패|경비|장갑/.test(key)) return 'bulwark';
+  if (/sniper|marksman|저격/.test(key)) return 'suppress';
+  if (/drone|scout|드론|정찰/.test(key)) return 'targetLock';
+  return 'assault';
+}
+
+function createEnemy(enemy, rule) {
+  return {
     ...enemy,
     hp: Math.max(1, Math.round(Number(enemy.hp || 1) * Number(rule.hpMul || 1))),
     atk: Math.max(1, Math.round(Number(enemy.atk || 1) * Number(rule.atkMul || 1))),
@@ -289,7 +343,13 @@ function createEnemies(mission) {
     modifiers: [],
     overwatch: null,
     difficulty: rule.id,
-  }));
+    patternId: enemy.patternId || inferEnemyPatternId(enemy),
+  };
+}
+
+function createEnemies(mission) {
+  const rule = difficultyRule(mission.difficulty);
+  return mission.enemies.map((enemy) => createEnemy(enemy, rule));
 }
 
 function createBattle(missionId, formationIds = DEFAULT_FORMATION_IDS) {
@@ -305,6 +365,10 @@ function createBattle(missionId, formationIds = DEFAULT_FORMATION_IDS) {
     enemies: createEnemies(mission),
     coverHp: createCoverHp(),
     zones: [],
+    objective: createMissionObjective(mission.id),
+    triggeredEventIds: [],
+    lastMissionEvent: null,
+    lastEnemyPattern: null,
     lastResult: '',
   };
 }
@@ -1070,6 +1134,27 @@ function allAliveUnitsDone(battle) {
   return aliveUnits(battle).every((row) => row.acted || Number(row.ap || 0) <= 0 || isActionLockedByStatus(row));
 }
 
+function captureObjectiveIfReached(battle, unitId) {
+  const objective = battle.objective || createMissionObjective(battle.missionId);
+  if (objective.captured) return { battle, message: '' };
+  const unit = battle.units.find((row) => row.id === unitId && row.hp > 0);
+  if (!unit || unit.x !== objective.x || unit.y !== objective.y) return { battle, message: '' };
+  const message = `[목표 확보: ${objective.label}] ${unit.name}: ${objective.detail}`;
+  return {
+    battle: {
+      ...battle,
+      objective: {
+        ...objective,
+        captured: true,
+        capturedBy: unit.id,
+        capturedTurn: Number(battle.turn || 1),
+      },
+      lastResult: message,
+    },
+    message,
+  };
+}
+
 function finishPlayerAction(state, battle, message) {
   const resolved = applyBattleOutcome(addLog(state, message), battle);
   if (resolved.battle?.phase !== 'player') return resolved;
@@ -1077,7 +1162,15 @@ function finishPlayerAction(state, battle, message) {
 }
 
 function applyBattleOutcome(state, battle) {
-  if (!aliveEnemies(battle).length) return grantMissionReward(state, { ...battle, phase: 'cleared', lastResult: '승리' });
+  if (!aliveEnemies(battle).length) {
+    const objective = battle.objective || createMissionObjective(battle.missionId);
+    if (objective.captured) return grantMissionReward(state, { ...battle, phase: 'cleared', lastResult: '승리' });
+    const pendingMessage = `[목표 대기: ${objective.label}] 적은 전멸했습니다. 목표 칸 (${objective.x + 1},${objective.y + 1})을 확보하십시오.`;
+    return {
+      ...state,
+      battle: { ...battle, phase: 'player', lastResult: pendingMessage },
+    };
+  }
   if (!aliveUnits(battle).length) {
     return addLog({
       ...state,
@@ -1422,6 +1515,10 @@ export function moveSelectedAction(state, dx, dy) {
     )),
     lastResult: `${unit.name} 이동`,
   };
+  const captured = captureObjectiveIfReached(nextBattle, unit.id);
+  if (captured.message) {
+    return applyBattleOutcome(addLog(current, captured.message), captured.battle);
+  }
   return {
     ...current,
     battle: nextBattle,
@@ -1794,6 +1891,206 @@ function aiRuleLog(rule, message) {
   return `[${rule}] ${message}`;
 }
 
+function openEventSpawn(battle, preferred = {}) {
+  const candidates = [preferred];
+  for (let x = GRID.width - 1; x >= 0; x -= 1) {
+    for (let y = GRID.height - 1; y >= 0; y -= 1) candidates.push({ x, y });
+  }
+  return candidates.find((position) => (
+    inside(Number(position?.x), Number(position?.y))
+      && !OBSTACLES.has(keyOf(position.x, position.y))
+      && !occupiedBy(battle.units, battle.enemies, position.x, position.y)
+  )) || null;
+}
+
+function resolveMissionEvents(battle) {
+  const definitions = MISSION_EVENTS[battle.missionId] || [];
+  const triggered = new Set(battle.triggeredEventIds || []);
+  const dueEvents = definitions
+    .filter((event) => !triggered.has(event.id) && Number(event.turn || 1) <= Number(battle.turn || 1))
+    .sort((a, b) => Number(a.turn || 1) - Number(b.turn || 1));
+  let nextBattle = battle;
+  const messages = [];
+
+  dueEvents.forEach((event) => {
+    let detail = event.detail;
+    if (event.kind === 'smoke') {
+      const zone = {
+        id: `mission-event-${event.id}`,
+        type: 'Smoke',
+        x: event.x,
+        y: event.y,
+        radius: event.radius,
+        duration: event.duration,
+        accuracyMod: event.accuracyMod,
+        sourceId: event.id,
+      };
+      nextBattle = { ...nextBattle, zones: [...nextBattle.zones.filter((row) => row.id !== zone.id), zone] };
+    } else if (event.kind === 'reinforcement') {
+      const spawn = openEventSpawn(nextBattle, event.enemy);
+      if (spawn) {
+        const enemy = createEnemy({ ...event.enemy, ...spawn }, difficultyRule(getMission(nextBattle.missionId).difficulty));
+        nextBattle = { ...nextBattle, enemies: [...nextBattle.enemies, enemy] };
+        detail = `${enemy.name}: (${spawn.x + 1},${spawn.y + 1})에 진입했습니다.`;
+      } else {
+        detail = '증원 진입 지점이 막혀 이번 증원은 배치되지 못했습니다.';
+      }
+    } else if (event.kind === 'allySupply') {
+      let healed = 0;
+      nextBattle = {
+        ...nextBattle,
+        units: nextBattle.units.map((unit) => {
+          if (unit.hp <= 0) return unit;
+          const hp = Math.min(unit.maxHp, Number(unit.hp || 0) + Number(event.heal || 0));
+          healed += hp - Number(unit.hp || 0);
+          return applyShield({ ...unit, hp }, event.shield, event.duration);
+        }),
+      };
+      detail = `생존 학생 HP ${healed} 회복 · 보호막 +${event.shield}.`;
+    } else if (event.kind === 'enemyBuff') {
+      const source = `mission-event:${event.id}`;
+      nextBattle = {
+        ...nextBattle,
+        enemies: nextBattle.enemies.map((enemy) => (
+          enemy.hp > 0
+            ? applyModifier(enemy, { stat: event.stat, add: event.add, duration: event.duration }, source)
+            : enemy
+        )),
+      };
+      const value = ['Accuracy', 'Evasion'].includes(event.stat)
+        ? `${Math.round(Number(event.add || 0) * 100)}%`
+        : `${event.add}`;
+      detail = `생존 적에게 ${event.stat} +${value}, ${event.duration}턴.`;
+    } else if (event.kind === 'hazard') {
+      let hitCount = 0;
+      let hpDamage = 0;
+      nextBattle = {
+        ...nextBattle,
+        units: nextBattle.units.map((unit) => {
+          if (unit.hp <= 0 || distance(unit, event) > Number(event.radius || 0)) return unit;
+          const result = absorbDamage(unit, event.damage);
+          hitCount += 1;
+          hpDamage += result.hpDamage;
+          return result.actor;
+        }),
+      };
+      detail = `반경 ${event.radius} 안 학생 ${hitCount}명 · HP ${hpDamage} 피해.`;
+    }
+
+    triggered.add(event.id);
+    const signal = {
+      id: event.id,
+      label: event.label,
+      kind: event.kind,
+      turn: Number(nextBattle.turn || 1),
+      action: event.action,
+      cue: event.cue,
+    };
+    const message = `[미션 사건: ${event.label}] ${detail}`;
+    messages.push(message);
+    nextBattle = {
+      ...nextBattle,
+      triggeredEventIds: [...triggered],
+      lastMissionEvent: signal,
+      lastResult: message,
+    };
+  });
+
+  return { battle: nextBattle, messages };
+}
+
+function enemyPattern(enemy) {
+  return ENEMY_PATTERNS[enemy?.patternId] || null;
+}
+
+function enemyPatternReady(enemy, battle) {
+  const pattern = enemyPattern(enemy);
+  return Boolean(pattern && Number(battle.turn || 1) % Math.max(1, Number(pattern.interval || 1)) === 0);
+}
+
+function patternDamage(actor, target, battle, multiplier = 1) {
+  return Math.max(
+    1,
+    Math.floor(Number(actor.atk || 0) * Number(multiplier || 1))
+      - effectiveDefense(target)
+      - tileDefense(battle, target.x, target.y),
+  );
+}
+
+function resolveEnemyPatternAction(battle, actor, target, units, enemies) {
+  const pattern = enemyPattern(actor);
+  if (!pattern || !enemyPatternReady(actor, battle)) return null;
+  const supportPattern = pattern.kind === 'bulwark' || pattern.kind === 'command';
+  if (!supportPattern && (!target || distance(actor, target) > Number(pattern.range || actor.range || 1))) return null;
+  let nextUnits = units;
+  let nextEnemies = enemies;
+  let detail = pattern.detail;
+
+  if (pattern.kind === 'mark') {
+    nextUnits = units.map((unit) => (
+      unit.id === target.id
+        ? applyModifier(unit, { stat: 'Evasion', add: -0.12, duration: 2 }, `enemy-pattern:${actor.id}`)
+        : unit
+    ));
+    detail = `${target.name} 회피 -12%, 2턴.`;
+  } else if (pattern.kind === 'suppress') {
+    const damage = patternDamage(actor, target, battle, pattern.damageMul);
+    const result = absorbDamage(target, damage);
+    const affected = result.actor.hp > 0 ? applyStatus(result.actor, 'st_confuse', 2) : result.actor;
+    nextUnits = units.map((unit) => unit.id === target.id ? affected : unit);
+    detail = `${target.name} HP ${result.hpDamage} 피해 · 혼란 2턴${result.absorbed ? ` · 보호막 ${result.absorbed}` : ''}.`;
+  } else if (pattern.kind === 'bulwark') {
+    const protectedIds = enemies
+      .filter((enemy) => enemy.hp > 0 && distance(actor, enemy) <= 2)
+      .map((enemy) => enemy.id);
+    nextEnemies = enemies.map((enemy) => (
+      protectedIds.includes(enemy.id) ? applyShield(enemy, pattern.shield, 2) : enemy
+    ));
+    detail = `주변 적 ${protectedIds.length}명 보호막 +${pattern.shield}.`;
+  } else if (pattern.kind === 'barrage') {
+    let totalDamage = 0;
+    let hitCount = 0;
+    nextUnits = units.map((unit) => {
+      if (unit.hp <= 0 || distance(unit, target) > Number(pattern.radius || 0)) return unit;
+      const damage = patternDamage(actor, unit, battle, pattern.damageMul);
+      const result = absorbDamage(unit, damage);
+      totalDamage += result.hpDamage;
+      hitCount += 1;
+      return result.actor;
+    });
+    detail = `${target.name} 중심 ${hitCount}명 · HP ${totalDamage} 피해.`;
+  } else if (pattern.kind === 'command') {
+    nextEnemies = enemies.map((enemy) => {
+      if (enemy.hp <= 0) return enemy;
+      const accuracy = applyModifier(enemy, { stat: 'Accuracy', add: 0.12, duration: 2 }, `enemy-command-accuracy:${actor.id}`);
+      return applyModifier(accuracy, { stat: 'Move', add: 1, duration: 2 }, `enemy-command-move:${actor.id}`);
+    });
+    detail = `생존 적 ${nextEnemies.filter((enemy) => enemy.hp > 0).length}명 명중 +12% · 이동 +1.`;
+  } else if (pattern.kind === 'assault') {
+    const damage = patternDamage(actor, target, battle, pattern.damageMul);
+    const result = absorbDamage(target, damage);
+    nextUnits = units.map((unit) => unit.id === target.id ? result.actor : unit);
+    detail = `${target.name} HP ${result.hpDamage} 피해${result.absorbed ? ` · 보호막 ${result.absorbed}` : ''}.`;
+  }
+
+  const message = `[적 스킬: ${pattern.name}] ${actor.name} · ${detail}`;
+  return {
+    units: nextUnits,
+    enemies: nextEnemies,
+    message,
+    signal: {
+      id: `${battle.turn}:${actor.id}:${pattern.id}`,
+      enemyId: actor.id,
+      enemyName: actor.name,
+      patternId: pattern.id,
+      name: pattern.name,
+      action: pattern.action,
+      cue: pattern.cue,
+      turn: Number(battle.turn || 1),
+    },
+  };
+}
+
 function resolveOverwatchReactions(state, battle, units, enemies, movingEnemy, sequence = 0) {
   let nextUnits = units;
   let actor = { ...movingEnemy };
@@ -1842,10 +2139,13 @@ function resolveOverwatchReactions(state, battle, units, enemies, movingEnemy, s
 }
 
 function enemyPhase(state) {
-  let battle = normalizeBattle(state.battle);
-  let messages = [];
+  let battle = normalizeBattle(state.battle, state.selectedStudentIds);
+  const eventResult = resolveMissionEvents(battle);
+  battle = eventResult.battle;
+  let messages = [...eventResult.messages];
   let units = battle.units;
   let enemies = battle.enemies;
+  let lastEnemyPattern = battle.lastEnemyPattern;
 
   aliveEnemies(battle).forEach((enemy) => {
     const alive = units.filter((unit) => unit.hp > 0);
@@ -1856,6 +2156,17 @@ function enemyPhase(state) {
     }
     let actor = enemies.find((row) => row.id === enemy.id) || enemy;
     let target = [...alive].sort((a, b) => distance(actor, a) - distance(actor, b))[0];
+    const supportPattern = enemyPattern(actor);
+    if (enemyPatternReady(actor, battle) && ['bulwark', 'command'].includes(supportPattern?.kind)) {
+      const patternResult = resolveEnemyPatternAction(battle, actor, target, units, enemies);
+      if (patternResult) {
+        units = patternResult.units;
+        enemies = patternResult.enemies;
+        lastEnemyPattern = patternResult.signal;
+        messages.push(patternResult.message);
+        return;
+      }
+    }
     const lowHp = Number(actor.hp || 0) / Math.max(1, Number(actor.maxHp || actor.hp || 1)) <= AI_COVER_HP_RATIO;
     const cover = lowHp ? coverStep(actor, target, { ...battle, units, enemies }) : null;
     let usedCoverMove = false;
@@ -1906,6 +2217,15 @@ function enemyPhase(state) {
       if (nextDistance > range) return;
     }
 
+    const patternResult = resolveEnemyPatternAction(battle, actor, target, units, enemies);
+    if (patternResult) {
+      units = patternResult.units;
+      enemies = patternResult.enemies;
+      lastEnemyPattern = patternResult.signal;
+      messages.push(patternResult.message);
+      return;
+    }
+
     const rng = createRng(`${state.runId}|enemy|${battle.turn}|${actor.id}|${target.id}|${actor.hp}|${target.hp}`);
     const currentBattle = { ...battle, units, enemies };
     const hitChance = clamp(
@@ -1938,6 +2258,7 @@ function enemyPhase(state) {
     enemies,
     turn: Number(battle.turn || 1) + 1,
     phase: 'player',
+    lastEnemyPattern,
     lastResult: messages.join(' / ') || '적 턴 종료',
   };
 
@@ -1956,17 +2277,27 @@ export function endTurnAction(state) {
 export function autoPlayerTurnAction(state) {
   let current = normalizeState(state);
   if (current.battle.phase !== 'player') return current;
-  aliveUnits(current.battle).forEach((unit) => {
-    if (current.battle.phase !== 'player') return;
-    current = selectUnitAction(current, unit.id);
+  const unitIds = aliveUnits(current.battle).map((unit) => unit.id);
+  for (const unitId of unitIds) {
+    if (current.battle.phase !== 'player') break;
+    current = selectUnitAction(current, unitId);
+    const unit = current.battle.units.find((row) => row.id === unitId && row.hp > 0);
+    if (!unit || unit.acted || Number(unit.ap || 0) <= 0) continue;
     const enemy = aliveEnemies(current.battle).sort((a, b) => distance(unit, a) - distance(unit, b))[0];
-    if (!enemy) return;
+    if (!enemy) {
+      const objective = current.battle.objective;
+      if (objective && !objective.captured) {
+        const pos = stepToward(unit, objective, current.battle);
+        current = moveSelectedAction(current, pos.x - unit.x, pos.y - unit.y);
+      }
+      continue;
+    }
     if (distance(unit, enemy) > unit.range) {
       const pos = stepToward(unit, enemy, current.battle);
       current = moveSelectedAction(current, pos.x - unit.x, pos.y - unit.y);
     }
     current = attackSelectedAction(current, enemy.id);
-  });
+  }
   if (current.battle.phase === 'player') current = endTurnAction(current);
   return current;
 }
@@ -2647,6 +2978,89 @@ function skillPreviewRows(unit, enemies, battle, bonus) {
   });
 }
 
+function forecastEnemyPatternAction(enemy, actor, target, battle, moveText = '제자리') {
+  const pattern = enemyPattern(enemy);
+  if (!pattern || !enemyPatternReady(enemy, battle)) return null;
+  const supportPattern = pattern.kind === 'bulwark' || pattern.kind === 'command';
+  if (!supportPattern && (!target || distance(actor, target) > Number(pattern.range || actor.range || 1))) return null;
+  const base = {
+    enemyId: enemy.id,
+    enemyName: enemy.name,
+    rule: `ENEMY_PATTERN_${pattern.id}`,
+    patternId: pattern.id,
+    patternName: pattern.name,
+    patternAction: pattern.action,
+    patternCue: pattern.cue,
+    isPattern: true,
+    targetId: target?.id || '',
+    targetName: target?.name || '적 진형',
+    moveText,
+    hitChancePct: 100,
+    hpDamage: 0,
+    expectedHpDamage: 0,
+    lethal: false,
+    priority: supportPattern ? 'normal' : 'high',
+    affectedTargets: [],
+  };
+  if (pattern.kind === 'mark') {
+    return {
+      ...base,
+      detail: `${target.name} 회피 -12% · 후속 사격 명중률 상승`,
+      priority: 'normal',
+    };
+  }
+  if (pattern.kind === 'bulwark') {
+    const count = battle.enemies.filter((row) => row.hp > 0 && distance(actor, row) <= 2).length;
+    return {
+      ...base,
+      targetId: '',
+      targetName: '적 진형',
+      detail: `주변 적 ${count}명에게 보호막 +${pattern.shield}`,
+      hitChancePct: 0,
+    };
+  }
+  if (pattern.kind === 'command') {
+    const count = battle.enemies.filter((row) => row.hp > 0).length;
+    return {
+      ...base,
+      targetId: '',
+      targetName: '적 전체',
+      detail: `생존 적 ${count}명 명중 +12% · 이동 +1`,
+      hitChancePct: 0,
+    };
+  }
+  const targets = pattern.kind === 'barrage'
+    ? battle.units.filter((unit) => unit.hp > 0 && distance(unit, target) <= Number(pattern.radius || 0))
+    : [target];
+  const affectedTargets = targets.map((unit) => {
+    const rawDamage = patternDamage(actor, unit, battle, pattern.damageMul);
+    const shieldAbsorb = Math.min(Number(unit.shield?.amount || 0), rawDamage);
+    const hpDamage = Math.max(0, rawDamage - shieldAbsorb);
+    return {
+      targetId: unit.id,
+      targetName: unit.name,
+      hpDamage,
+      expectedHpDamage: hpDamage,
+      lethal: hpDamage >= Number(unit.hp || 0),
+    };
+  });
+  const totalDamage = affectedTargets.reduce((sum, row) => sum + row.hpDamage, 0);
+  const lethal = affectedTargets.some((row) => row.lethal);
+  const suffix = pattern.kind === 'suppress'
+    ? ' · 혼란 2턴'
+    : pattern.kind === 'barrage'
+      ? ` · 반경 ${pattern.radius}, ${affectedTargets.length}명`
+      : '';
+  return {
+    ...base,
+    detail: `${target.name} 중심 HP ${totalDamage} 피해${suffix}`,
+    hpDamage: totalDamage,
+    expectedHpDamage: totalDamage,
+    lethal,
+    affectedTargets,
+  };
+}
+
 function forecastEnemyAction(enemy, battle) {
   const alive = aliveUnits(battle);
   if (!alive.length || Number(enemy?.hp || 0) <= 0) return null;
@@ -2671,6 +3085,8 @@ function forecastEnemyAction(enemy, battle) {
   let enemies = battle.enemies.map((row) => ({ ...row }));
   const units = battle.units.map((row) => ({ ...row }));
   let target = [...alive].sort((a, b) => distance(actor, a) - distance(actor, b))[0];
+  const supportPlan = forecastEnemyPatternAction(enemy, actor, target, battle);
+  if (supportPlan && ['bulwark', 'command'].includes(enemyPattern(enemy)?.kind)) return supportPlan;
   const lowHp = Number(actor.hp || 0) / Math.max(1, Number(actor.maxHp || actor.hp || 1)) <= AI_COVER_HP_RATIO;
   const cover = lowHp ? coverStep(actor, target, { ...battle, units, enemies }) : null;
   let usedCoverMove = false;
@@ -2686,7 +3102,10 @@ function forecastEnemyAction(enemy, battle) {
 
   target = units.filter((unit) => unit.hp > 0).sort((a, b) => distance(actor, a) - distance(actor, b))[0];
   if (!target) return null;
-  const range = Number(actor.range || 1);
+  const activePattern = enemyPatternReady(actor, battle) ? enemyPattern(actor) : null;
+  const range = Number(activePattern && !['bulwark', 'command'].includes(activePattern.kind)
+    ? activePattern.range || actor.range || 1
+    : actor.range || 1);
   let targetDistance = distance(actor, target);
   if (targetDistance > range) {
     if (usedCoverMove) {
@@ -2754,6 +3173,8 @@ function forecastEnemyAction(enemy, battle) {
   }
 
   const previewBattle = { ...battle, units, enemies };
+  const patternPlan = forecastEnemyPatternAction(enemy, actor, target, previewBattle, moveText);
+  if (patternPlan) return patternPlan;
   const preview = attackPreview(actor, target, previewBattle, 0, 0);
   const overwatchRows = units
     .filter((unit) => Number(unit.overwatch?.shots || 0) > 0
@@ -2817,12 +3238,22 @@ export function getBattleForecast(state) {
   }]));
 
   enemyPlans.forEach((plan) => {
-    const target = threatByUnit.get(plan.targetId);
-    if (!target) return;
-    target.incomingExpected += Number(plan.expectedHpDamage || 0);
-    target.maxHit = Math.max(target.maxHit, Number(plan.hpDamage || 0));
-    if (plan.hpDamage > 0) target.attackers.push(plan.enemyName);
-    if (plan.lethal) target.lethal = true;
+    const affectedTargets = plan.affectedTargets?.length
+      ? plan.affectedTargets
+      : [{
+        targetId: plan.targetId,
+        expectedHpDamage: plan.expectedHpDamage,
+        hpDamage: plan.hpDamage,
+        lethal: plan.lethal,
+      }];
+    affectedTargets.forEach((affected) => {
+      const target = threatByUnit.get(affected.targetId);
+      if (!target) return;
+      target.incomingExpected += Number(affected.expectedHpDamage || 0);
+      target.maxHit = Math.max(target.maxHit, Number(affected.hpDamage || 0));
+      if (affected.hpDamage > 0) target.attackers.push(plan.enemyName);
+      if (affected.lethal) target.lethal = true;
+    });
   });
 
   const unitThreats = [...threatByUnit.values()].map((row) => {
@@ -2973,6 +3404,38 @@ export function getBattleMissionOverlay(state) {
   const enemies = Array.isArray(battle.enemies) ? battle.enemies : [];
   const aliveUnitCount = units.filter((unit) => Number(unit.hp || 0) > 0).length;
   const aliveEnemyCount = enemies.filter((enemy) => Number(enemy.hp || 0) > 0).length;
+  const objective = battle.objective || createMissionObjective(mission.id);
+  const triggeredEventIds = new Set(battle.triggeredEventIds || []);
+  const eventRows = (MISSION_EVENTS[mission.id] || []).map((event) => ({
+    id: event.id,
+    label: event.label,
+    detail: event.detail,
+    turn: Number(event.turn || 1),
+    kind: event.kind,
+    action: event.action,
+    cue: event.cue,
+    triggered: triggeredEventIds.has(event.id),
+    due: !triggeredEventIds.has(event.id) && Number(event.turn || 1) <= turn,
+  }));
+  const enemyPatternRows = enemies
+    .filter((enemy) => enemy.hp > 0)
+    .map((enemy) => {
+      const pattern = enemyPattern(enemy);
+      return pattern ? {
+        id: `${enemy.id}-${pattern.id}`,
+        enemyId: enemy.id,
+        enemyName: enemy.name,
+        patternId: pattern.id,
+        name: pattern.name,
+        detail: pattern.detail,
+        interval: pattern.interval,
+        action: pattern.action,
+        cue: pattern.cue,
+        ready: enemyPatternReady(enemy, battle),
+        nextTurn: Number(battle.turn || 1) + ((pattern.interval - (Number(battle.turn || 1) % pattern.interval)) % pattern.interval),
+      } : null;
+    })
+    .filter(Boolean);
   const rangedThreats = enemies
     .filter((enemy) => Number(enemy.hp || 0) > 0)
     .map((enemy) => ({
@@ -3020,6 +3483,9 @@ export function getBattleMissionOverlay(state) {
   if (battle.phase === 'cleared') {
     recommendations.push(`별 ${starResult.stars}/3. ${starResult.fastClear ? '턴 조건까지 충족했습니다.' : `${targetTurn}턴 조건은 다음 재도전 목표입니다.`}`);
   } else {
+    if (!objective.captured) recommendations.push(`${objective.label}: (${objective.x + 1},${objective.y + 1}) 목표 칸에 학생을 이동시키십시오.`);
+    const nextEvent = eventRows.find((event) => !event.triggered);
+    if (nextEvent) recommendations.push(`${nextEvent.turn}턴 사건 예고: ${nextEvent.label}. ${nextEvent.detail}`);
     if (remainingTurns <= 2 && aliveEnemyCount > 0) recommendations.push(`턴 조건이 빡빡합니다. 남은 적 ${aliveEnemyCount}명을 먼저 줄이세요.`);
     if (forecast.bestAction?.enabled) recommendations.push(`즉시 행동: ${forecast.bestAction.label} - ${forecast.bestAction.title}.`);
     if (forecast.highThreatCount > 0) recommendations.push(`고위험 아군 ${forecast.highThreatCount}명 보호가 우선입니다.`);
@@ -3050,6 +3516,13 @@ export function getBattleMissionOverlay(state) {
     unitCount: units.length,
     coverCount: COVER.size,
     obstacleCount: OBSTACLES.size,
+    objectiveStatus: {
+      ...objective,
+      positionText: `(${objective.x + 1},${objective.y + 1})`,
+      stateLabel: objective.captured ? '확보 완료' : '확보 필요',
+    },
+    eventRows,
+    enemyPatternRows,
     starRows,
     threatRows: rangedThreats,
     recommendations: [...new Set(recommendations)].slice(0, 4),
@@ -3680,16 +4153,19 @@ export function getOperationBriefing(state) {
 export function cellContent(state, x, y) {
   const current = normalizeState(state);
   const smokeZone = current.battle.zones.find((zone) => zone.type === 'Smoke' && zoneContains(zone, x, y)) || null;
+  const missionObjective = current.battle.objective;
+  const objective = missionObjective && missionObjective.x === x && missionObjective.y === y ? missionObjective : null;
   const unit = current.battle.units.find((row) => row.hp > 0 && row.x === x && row.y === y);
-  if (unit) return { type: 'unit', actor: unit, zone: smokeZone };
+  if (unit) return { type: 'unit', actor: unit, zone: smokeZone, objective };
   const enemy = current.battle.enemies.find((row) => row.hp > 0 && row.x === x && row.y === y);
-  if (enemy) return { type: 'enemy', actor: enemy, zone: smokeZone };
+  if (enemy) return { type: 'enemy', actor: enemy, zone: smokeZone, objective };
   if (OBSTACLES.has(keyOf(x, y))) return { type: 'obstacle', zone: smokeZone };
   if (COVER.has(keyOf(x, y))) {
     const coverHp = coverDurabilityAt(current.battle, x, y);
     if (coverHp > 0) return { type: 'cover', coverHp, coverMaxHp: COVER_MAX_HP, zone: smokeZone };
     return { type: smokeZone ? 'smoke' : 'empty', destroyedCover: true, coverHp: 0, coverMaxHp: COVER_MAX_HP, zone: smokeZone };
   }
+  if (objective) return { type: 'objective', objective, zone: smokeZone };
   if (smokeZone) return { type: 'smoke', zone: smokeZone };
   return { type: 'empty' };
 }

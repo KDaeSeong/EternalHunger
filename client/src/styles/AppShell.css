@@ -9744,6 +9744,49 @@
   color: #287a3e;
 }
 
+.srpg-cell.is-objective {
+  border-color: rgba(184, 118, 16, 0.62);
+  box-shadow: inset 0 0 0 2px rgba(240, 175, 65, 0.16);
+}
+
+.srpg-cell.is-objective:not(.is-unit, .is-enemy) {
+  background: #fff8e8;
+  color: #8a5a0b;
+}
+
+.srpg-cell.is-objective-captured {
+  border-color: rgba(25, 135, 84, 0.58);
+  box-shadow: inset 0 0 0 2px rgba(25, 135, 84, 0.14);
+}
+
+.srpg-cell-objective-icon,
+.srpg-cell-objective-marker {
+  display: grid;
+  place-items: center;
+  color: #a5660a;
+}
+
+.srpg-cell-objective-icon .game-action-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.srpg-cell-objective-marker {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 4px;
+  background: #fff4d5;
+  box-shadow: 0 1px 3px rgba(75, 49, 10, 0.18);
+}
+
+.srpg-cell-objective-marker .game-action-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
 .srpg-cell.is-smoke {
   border-color: rgba(71, 98, 111, 0.34);
   background: #e8eff2;
@@ -9786,6 +9829,116 @@
 
 .srpg-cell.is-target {
   outline: 3px solid rgba(220, 38, 38, 0.28);
+}
+
+.srpg-mission-objective {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 12px;
+  border: 1px solid rgba(184, 118, 16, 0.34);
+  border-left: 4px solid #b87610;
+  border-radius: 8px;
+  background: #fff9eb;
+  padding: 10px 12px;
+}
+
+.srpg-mission-objective > .game-action-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 7px;
+  background: #f7e7be;
+  color: #875609;
+}
+
+.srpg-mission-objective > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.srpg-mission-objective span,
+.srpg-mission-objective small {
+  color: #735f40;
+  font-size: 0.75rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.srpg-mission-objective strong {
+  color: #382a14;
+  font-size: 0.96rem;
+}
+
+.srpg-mission-objective em {
+  color: #875609;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.srpg-mission-objective.is-complete {
+  border-color: rgba(25, 135, 84, 0.3);
+  border-left-color: #198754;
+  background: #eff9f4;
+}
+
+.srpg-mission-objective.is-complete > .game-action-icon {
+  background: #d8f0e4;
+  color: #12683f;
+}
+
+.srpg-mission-objective.is-complete em {
+  color: #12683f;
+}
+
+.srpg-mission-brief-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.srpg-mission-brief-grid > section {
+  min-width: 0;
+  border: 1px solid rgba(22, 33, 44, 0.09);
+  border-radius: 8px;
+  background: #fbfcfd;
+  padding: 10px;
+}
+
+.srpg-mission-brief-grid .games-panel-title h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.game-save-row.srpg-icon-row {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.game-save-row.srpg-icon-row > .game-action-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #e6f0f6;
+  color: #215f82;
+}
+
+@media (max-width: 760px) {
+  .srpg-mission-brief-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .srpg-mission-objective {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    padding: 9px;
+  }
 }
 
 .srpg-pad {

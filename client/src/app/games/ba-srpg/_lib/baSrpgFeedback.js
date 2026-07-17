@@ -15,6 +15,15 @@ function resultSignal(lastResult) {
   if (!text) return { action: 'deploy', cue: '', label: '작전 대기', tone: 'ready' };
   if (/클리어|승리/.test(text)) return { action: 'victory', cue: 'victory', label: '임무 클리어', tone: 'success' };
   if (/임무 실패|작전 실패|전멸/.test(text)) return { action: 'defeat', cue: 'defeat', label: '작전 실패', tone: 'danger' };
+  if (/\[목표 확보:/.test(text)) return { action: 'srpg-objective-command', cue: 'objectiveCapture', label: '목표 확보', tone: 'success' };
+  if (/\[목표 대기:/.test(text)) return { action: 'srpg-objective-recon', cue: 'warning', label: '목표 점령 필요', tone: 'warning' };
+  if (/\[미션 사건:/.test(text)) return { action: 'srpg-event', cue: 'missionEvent', label: '미션 사건', tone: 'highlight' };
+  if (/\[적 스킬: 표적 분석\]/.test(text)) return { action: 'srpg-enemy-mark', cue: 'enemyMark', label: '표적 분석', tone: 'warning' };
+  if (/\[적 스킬: 제압 사격\]/.test(text)) return { action: 'srpg-enemy-suppress', cue: 'enemySuppress', label: '제압 사격', tone: 'danger' };
+  if (/\[적 스킬: 방벽 전개\]/.test(text)) return { action: 'srpg-enemy-bulwark', cue: 'enemyBulwark', label: '방벽 전개', tone: 'support' };
+  if (/\[적 스킬: 집중 포격\]/.test(text)) return { action: 'srpg-enemy-barrage', cue: 'enemyBarrage', label: '집중 포격', tone: 'danger' };
+  if (/\[적 스킬: 전술 지휘\]/.test(text)) return { action: 'srpg-enemy-command', cue: 'enemyCommand', label: '전술 지휘', tone: 'warning' };
+  if (/\[적 스킬: 돌파 강습\]/.test(text)) return { action: 'srpg-enemy-assault', cue: 'enemyAssault', label: '돌파 강습', tone: 'danger' };
   if (/출정 준비|출정을 시작/.test(text)) return { action: 'deploy', cue: 'deploy', label: '작전 배치', tone: 'highlight' };
   if (/편성 변경|편성 프리셋 적용/.test(text)) return { action: 'formation', cue: 'formation', label: '편성 변경', tone: 'highlight' };
   if (/여관에서 하루를 쉬었습니다/.test(text)) return { action: 'rest', cue: 'rest', label: '휴식 완료', tone: 'success' };
@@ -52,6 +61,8 @@ function resultSignal(lastResult) {
 
 export function createBaSrpgFeedbackSnapshot(state) {
   const battle = state?.battle || {};
+  const lastMissionEvent = battle.lastMissionEvent || {};
+  const lastEnemyPattern = battle.lastEnemyPattern || {};
   return {
     runId: String(state?.runId || ''),
     missionId: String(battle.missionId || ''),
@@ -62,6 +73,11 @@ export function createBaSrpgFeedbackSnapshot(state) {
     lastResult: String(battle.lastResult || '').trim(),
     latestLog: String(Array.isArray(state?.log) ? state.log[0] || '' : '').trim(),
     battleWins: Math.max(0, Number(state?.battleWins || 0)),
+    objectiveCaptured: Boolean(battle.objective?.captured),
+    missionEventKey: lastMissionEvent.id ? `${lastMissionEvent.turn || 0}:${lastMissionEvent.id}` : '',
+    missionEventCue: String(lastMissionEvent.cue || ''),
+    enemyPatternKey: String(lastEnemyPattern.id || ''),
+    enemyPatternCue: String(lastEnemyPattern.cue || ''),
   };
 }
 
@@ -96,6 +112,13 @@ export function baSrpgFeedbackCue(previousValue, currentValue) {
       || current.aliveEnemies > previous.aliveEnemies
     );
   if (battleRestarted) return 'deploy';
+  if (!previous.objectiveCaptured && current.objectiveCaptured) return 'objectiveCapture';
+  if (current.missionEventKey && current.missionEventKey !== previous.missionEventKey) {
+    return current.missionEventCue || 'missionEvent';
+  }
+  if (current.enemyPatternKey && current.enemyPatternKey !== previous.enemyPatternKey) {
+    return current.enemyPatternCue || 'missionEvent';
+  }
   if (current.aliveAllies < previous.aliveAllies) return 'unitDown';
   if (current.aliveEnemies < previous.aliveEnemies) return 'elimination';
   if (current.lastResult && current.lastResult !== previous.lastResult) {

@@ -1151,6 +1151,74 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 1.7, start: 0.085, duration: 0.038, gain: 0.065 },
     { frequency: 250, endFrequency: 160, start: 0.085, duration: 0.065, type: 'sawtooth', gain: 0.042 },
   ],
+  objectiveCapture: [
+    { source: 'noise', filterType: 'highpass', frequency: 1900, duration: 0.04, gain: 0.025 },
+    { frequency: 440, duration: 0.055, type: 'triangle', gain: 0.045 },
+    { frequency: 660, start: 0.05, duration: 0.065, type: 'triangle', gain: 0.046 },
+    { frequency: 990, start: 0.11, duration: 0.13, type: 'sine', gain: 0.038 },
+  ],
+  missionEvent: [
+    { frequency: 520, endFrequency: 720, duration: 0.07, type: 'sawtooth', gain: 0.035 },
+    { frequency: 1040, start: 0.065, duration: 0.095, type: 'sine', gain: 0.032 },
+  ],
+  missionEventSmoke: [
+    { source: 'noise', filterType: 'lowpass', frequency: 780, duration: 0.22, gain: 0.055 },
+    { frequency: 260, endFrequency: 170, duration: 0.17, type: 'sine', gain: 0.028 },
+    { frequency: 880, start: 0.08, duration: 0.08, type: 'triangle', gain: 0.026 },
+  ],
+  reinforcement: [
+    { frequency: 300, duration: 0.04, type: 'square', gain: 0.042 },
+    { frequency: 420, start: 0.045, duration: 0.045, type: 'square', gain: 0.04 },
+    { frequency: 620, start: 0.09, duration: 0.07, type: 'triangle', gain: 0.045 },
+    { source: 'noise', filterType: 'bandpass', frequency: 1250, start: 0.135, duration: 0.055, gain: 0.035 },
+  ],
+  missionEventSupply: [
+    { frequency: 520, duration: 0.05, type: 'sine', gain: 0.043 },
+    { frequency: 780, start: 0.045, duration: 0.07, type: 'triangle', gain: 0.044 },
+    { frequency: 1170, start: 0.105, duration: 0.11, type: 'sine', gain: 0.034 },
+  ],
+  missionEventCommand: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1180, duration: 0.03, gain: 0.035 },
+    { frequency: 390, duration: 0.06, type: 'square', gain: 0.035 },
+    { frequency: 585, start: 0.055, duration: 0.065, type: 'square', gain: 0.035 },
+    { frequency: 780, start: 0.115, duration: 0.08, type: 'triangle', gain: 0.032 },
+  ],
+  missionEventHazard: [
+    { frequency: 760, endFrequency: 310, duration: 0.105, type: 'sawtooth', gain: 0.04 },
+    { source: 'noise', filterType: 'lowpass', frequency: 460, start: 0.04, duration: 0.16, gain: 0.075 },
+    { frequency: 120, endFrequency: 82, start: 0.055, duration: 0.18, type: 'square', gain: 0.045 },
+  ],
+  enemyMark: [
+    { frequency: 920, duration: 0.025, type: 'square', gain: 0.034 },
+    { frequency: 1220, start: 0.055, duration: 0.03, type: 'square', gain: 0.034 },
+    { frequency: 1640, start: 0.11, duration: 0.065, type: 'sine', gain: 0.03 },
+  ],
+  enemySuppress: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1280, q: 1.8, duration: 0.04, gain: 0.07 },
+    { frequency: 240, endFrequency: 155, duration: 0.075, type: 'sawtooth', gain: 0.046 },
+    { source: 'noise', filterType: 'bandpass', frequency: 1120, q: 1.5, start: 0.09, duration: 0.045, gain: 0.06 },
+  ],
+  enemyBulwark: [
+    { source: 'noise', filterType: 'bandpass', frequency: 560, q: 2.1, duration: 0.065, gain: 0.055 },
+    { frequency: 190, endFrequency: 145, duration: 0.13, type: 'triangle', gain: 0.05 },
+    { frequency: 760, start: 0.075, duration: 0.12, type: 'sine', gain: 0.03 },
+  ],
+  enemyBarrage: [
+    { frequency: 640, endFrequency: 220, duration: 0.12, type: 'sawtooth', gain: 0.045 },
+    { source: 'noise', filterType: 'lowpass', frequency: 380, start: 0.08, duration: 0.18, gain: 0.09 },
+    { frequency: 105, endFrequency: 72, start: 0.09, duration: 0.22, type: 'square', gain: 0.05 },
+  ],
+  enemyCommand: [
+    { frequency: 330, duration: 0.045, type: 'square', gain: 0.038 },
+    { frequency: 495, start: 0.045, duration: 0.05, type: 'square', gain: 0.038 },
+    { frequency: 742, start: 0.095, duration: 0.08, type: 'triangle', gain: 0.04 },
+    { frequency: 990, start: 0.17, duration: 0.09, type: 'sine', gain: 0.03 },
+  ],
+  enemyAssault: [
+    { frequency: 260, endFrequency: 390, duration: 0.065, type: 'sawtooth', gain: 0.045 },
+    { source: 'noise', filterType: 'bandpass', frequency: 820, start: 0.055, duration: 0.065, gain: 0.07 },
+    { frequency: 145, endFrequency: 95, start: 0.07, duration: 0.11, type: 'square', gain: 0.045 },
+  ],
   skill: [
     { frequency: 720, endFrequency: 1080, duration: 0.06, type: 'sawtooth', gain: 0.035 },
     { frequency: 1360, start: 0.05, duration: 0.075, type: 'sine', gain: 0.035 },

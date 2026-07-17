@@ -18,22 +18,36 @@ function BoardCell({ content, selected, target, onClick }) {
   const statusText = content.actor ? actorStatusText(content.actor) : '';
   const zoneText = content.zone?.type === 'Smoke' ? `연막 ${content.zone.duration}라운드` : '';
   const coverText = content.type === 'cover' ? `엄폐 내구도 ${content.coverHp}/${content.coverMaxHp}` : '';
+  const objectiveText = content.objective
+    ? `${content.objective.label} · ${content.objective.captured ? '확보 완료' : '확보 필요'}`
+    : '';
   const label = content.actor
-    ? `${content.actor.name}${statusText ? ` · ${statusText}` : ''}${zoneText ? ` · ${zoneText}` : ''}`
-    : [coverText, zoneText, content.destroyedCover ? '파괴된 엄폐' : '', content.type === 'obstacle' ? '장애물' : ''].filter(Boolean).join(' · ');
+    ? `${content.actor.name}${statusText ? ` · ${statusText}` : ''}${zoneText ? ` · ${zoneText}` : ''}${objectiveText ? ` · ${objectiveText}` : ''}`
+    : [objectiveText, coverText, zoneText, content.destroyedCover ? '파괴된 엄폐' : '', content.type === 'obstacle' ? '장애물' : ''].filter(Boolean).join(' · ');
   return (
     <button
       type="button"
-      className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}${content.zone ? ' is-smoke-zone' : ''}${content.actor?.overwatch ? ' is-overwatch' : ''}${content.destroyedCover ? ' is-destroyed-cover' : ''}`}
+      className={`srpg-cell is-${content.type}${selected ? ' is-selected' : ''}${target ? ' is-target' : ''}${content.zone ? ' is-smoke-zone' : ''}${content.actor?.overwatch ? ' is-overwatch' : ''}${content.destroyedCover ? ' is-destroyed-cover' : ''}${content.objective ? ' is-objective' : ''}${content.objective?.captured ? ' is-objective-captured' : ''}`}
       data-game-sfx={content.actor ? 'select' : 'click'}
       disabled={content.type === 'obstacle'}
       onClick={onClick}
       title={label}
     >
+      {content.objective && content.actor ? (
+        <span className="srpg-cell-objective-marker" title={objectiveText}>
+          <GameActionIcon action={content.objective.action} />
+        </span>
+      ) : null}
       {content.actor ? (
         <>
           <strong>{content.actor.name.slice(0, 2)}</strong>
           <span>{content.actor.hp}/{content.actor.maxHp}{content.actor.shield?.amount ? `+${content.actor.shield.amount}` : ''}</span>
+        </>
+      ) : content.type === 'objective' ? (
+        <>
+          <span className="srpg-cell-objective-icon"><GameActionIcon action={content.objective.action} /></span>
+          <strong>{content.objective.label}</strong>
+          <span>{content.objective.captured ? '확보' : '목표'}</span>
         </>
       ) : (
         <>
@@ -122,6 +136,55 @@ export default function BaSrpgBattleTab(props) {
           <SmallStat label="적 생존" value={`${battleMissionOverlay.aliveEnemyCount}/${battleMissionOverlay.enemyCount}`} />
           <SmallStat label="엄폐/장애물" value={`${battleMissionOverlay.coverCount}/${battleMissionOverlay.obstacleCount}`} />
           <SmallStat label="보상" value={battleMissionOverlay.rewardText} />
+        </div>
+        <div className={`srpg-mission-objective${battleMissionOverlay.objectiveStatus.captured ? ' is-complete' : ''}`}>
+          <GameActionIcon action={battleMissionOverlay.objectiveStatus.action} label={battleMissionOverlay.objectiveStatus.label} />
+          <div>
+            <span>{battleMissionOverlay.objectiveStatus.stateLabel} · {battleMissionOverlay.objectiveStatus.positionText}</span>
+            <strong>{battleMissionOverlay.objectiveStatus.label}</strong>
+            <small>{battleMissionOverlay.objectiveStatus.detail}</small>
+          </div>
+          <em>{battleMissionOverlay.objectiveStatus.captured ? 'OK' : '진행'}</em>
+        </div>
+        <div className="srpg-mission-brief-grid">
+          <section>
+            <div className="games-panel-title">
+              <h3>미션 사건</h3>
+              <span>{battleMissionOverlay.eventRows.filter((row) => row.triggered).length}/{battleMissionOverlay.eventRows.length}</span>
+            </div>
+            <div className="game-save-list">
+              {battleMissionOverlay.eventRows.map((row) => (
+                <article className="game-save-row srpg-icon-row" key={row.id}>
+                  <GameActionIcon action={row.action} label={row.label} />
+                  <div>
+                    <span>{row.triggered ? '발생 완료' : `${row.turn}턴 예정`}</span>
+                    <strong>{row.label}</strong>
+                    <small>{row.detail}</small>
+                  </div>
+                  <strong>{row.triggered ? 'OK' : row.due ? '발생' : `${row.turn}T`}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section>
+            <div className="games-panel-title">
+              <h3>적 전용 패턴</h3>
+              <span>{battleMissionOverlay.enemyPatternRows.length}개</span>
+            </div>
+            <div className="game-save-list">
+              {battleMissionOverlay.enemyPatternRows.slice(0, 5).map((row) => (
+                <article className="game-save-row srpg-icon-row" key={row.id}>
+                  <GameActionIcon action={row.action} label={row.name} />
+                  <div>
+                    <span>{row.enemyName} · {row.interval}턴 주기</span>
+                    <strong>{row.name}</strong>
+                    <small>{row.detail}</small>
+                  </div>
+                  <strong>{row.ready ? '준비' : `${row.nextTurn}T`}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
         </div>
         <div className="game-save-list">
           {battleMissionOverlay.starRows.map((row) => (
@@ -287,9 +350,10 @@ export default function BaSrpgBattleTab(props) {
           </div>
           <div className="game-save-list">
             {battleForecast.enemyPlans.slice(0, 6).map((plan) => (
-              <article className="game-save-row" key={plan.enemyId}>
+              <article className="game-save-row srpg-icon-row" key={plan.enemyId}>
+                <GameActionIcon action={plan.patternAction || 'combat'} label={plan.patternName || plan.rule} />
                 <div>
-                  <span>{plan.rule} · {plan.moveText} · {plan.priority === 'high' ? '위험' : plan.priority === 'low' ? '낮음' : '주의'}</span>
+                  <span>{plan.patternName || plan.rule} · {plan.moveText} · {plan.priority === 'high' ? '위험' : plan.priority === 'low' ? '낮음' : '주의'}</span>
                   <strong>{plan.enemyName} → {plan.targetName}</strong>
                   <small>{plan.detail}</small>
                   {plan.hpDamage ? (
