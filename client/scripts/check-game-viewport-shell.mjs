@@ -38,6 +38,9 @@ assert.match(appShellCss, /height:\s*100dvh/, 'Desktop game workspaces must foll
 assert.match(appShellCss, /overflow:\s*hidden/, 'The page shell must contain overflow instead of extending the document.');
 assert.match(appShellCss, /overscroll-behavior:\s*contain/, 'Scrollable game panels must contain wheel and touch scrolling.');
 assert.match(appShellCss, /@media \(max-width: 760px\)[\s\S]*height:\s*auto/, 'Small screens must return to safe document flow.');
+assert.match(appShellCss, /\.primitive-archive-workspace \.games-action-dock\s*\{[\s\S]*?top:\s*0/, 'Civilization Archive actions must start at the top of the bounded panel.');
+assert.match(appShellCss, /\.primitive-world-map-canvas\s*\{[\s\S]*?width:\s*min\(100%,\s*800px\)/, 'Civilization Archive map width must stay bounded on wide desktops.');
+assert.match(appShellCss, /\.primitive-report-workspace\s*\{[\s\S]*?grid-template-columns:/, 'Civilization Archive reports must use a dense wide-screen grid.');
 
 assert.match(tcgPageSource, /tcg-page-shell--viewport/, 'Dual Academy TCG must use its viewport shell.');
 assert.match(tcgPageSource, /tcg-play-workspace/, 'Dual Academy TCG must bound the active feature panel.');

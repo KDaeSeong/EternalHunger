@@ -11,7 +11,7 @@ export default function PrimitiveArchiveReportTab(props) {
   return (
     <>
 
-          <section className="games-detail-grid">
+          <section className="games-detail-grid primitive-report-workspace">
             <section className="games-panel">
               <div className="games-panel-title">
                 <h2>{archiveReport.title}</h2>

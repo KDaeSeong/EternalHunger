@@ -165,10 +165,12 @@ assert.deepEqual(
   [
     'lead', 'harmony', 'octave', 'counter', 'arpeggio', 'bass', 'pad',
     'string-ostinato', 'brass-stab', 'bell-accent', 'choir-pad', 'sub-bass',
-    'string-ensemble', 'synth-pulse', 'kick', 'snare', 'ghost-snare',
-    'hi-hat', 'ride-cymbal', 'percussion', 'tom-fill', 'transition-fx',
+    'string-ensemble', 'synth-pulse', 'supersaw-lead', 'synth-pluck',
+    'guitar-stab', 'timpani', 'hybrid-impact', 'kick', 'snare',
+    'ghost-snare', 'hi-hat', 'ride-cymbal', 'percussion', 'tom-fill',
+    'transition-fx',
   ],
-  'BGM peak arrangements must expose twenty-two distinct roles.',
+  'BGM peak arrangements must expose twenty-seven distinct roles.',
 );
 for (const theme of expectedBgmThemes) {
   const profile = bgmProfileModule.gameBgmProfile(theme);

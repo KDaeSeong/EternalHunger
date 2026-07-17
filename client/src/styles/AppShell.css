@@ -13003,3 +13003,319 @@
     overflow: visible;
   }
 }
+
+/* Civilization Archive keeps its dense management screens inside one desktop viewport. */
+@media (min-width: 761px) {
+  .primitive-archive-workspace .games-action-dock {
+    top: 0;
+  }
+
+  .primitive-archive-workspace .games-detail-grid {
+    align-items: start;
+  }
+
+  .primitive-archive-workspace .games-panel {
+    align-content: start;
+  }
+
+  .primitive-world-map-scroll {
+    display: grid;
+    place-items: center;
+  }
+
+  .primitive-world-map-canvas {
+    width: min(100%, 800px);
+    min-width: 760px;
+  }
+}
+
+@media (min-width: 1180px) {
+  .primitive-archive-page-shell.games-page-shell--viewport {
+    padding: 6px 10px 8px;
+  }
+
+  .primitive-archive-page-shell .games-page,
+  .primitive-archive-page-shell .games-play-workspace {
+    gap: 4px;
+  }
+
+  .primitive-archive-page-shell .games-play-chrome {
+    gap: 4px 8px;
+  }
+
+  .primitive-archive-page-shell .games-play-chrome > .games-hero {
+    min-height: 52px;
+    padding: 6px 9px;
+  }
+
+  .primitive-archive-workspace .game-feature-tabs {
+    gap: 4px;
+  }
+
+  .primitive-archive-workspace .game-feature-tabs__list {
+    gap: 3px;
+    padding-bottom: 3px;
+  }
+
+  .primitive-archive-workspace .game-feature-tabs__list button,
+  .primitive-archive-workspace .game-feature-tabs__list--dense button {
+    min-height: 32px;
+    padding-inline: 6px;
+    font-size: 0.74rem;
+  }
+
+  .primitive-archive-workspace .game-feature-tabs__panel {
+    padding: 0 2px 2px 0;
+  }
+
+  .primitive-archive-workspace .games-detail-grid {
+    gap: 8px;
+  }
+
+  .primitive-archive-workspace .games-panel {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .primitive-archive-workspace .games-panel-title {
+    gap: 8px;
+  }
+
+  .primitive-archive-workspace .games-panel-title h2 {
+    font-size: 0.92rem;
+  }
+
+  .primitive-archive-workspace .game-save-list {
+    gap: 6px;
+  }
+
+  .primitive-archive-workspace .game-save-row {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .primitive-archive-workspace .game-save-row > div {
+    gap: 2px;
+  }
+
+  .primitive-archive-workspace .game-save-row strong {
+    font-size: 0.84rem;
+  }
+
+  .primitive-archive-workspace .game-save-row span,
+  .primitive-archive-workspace .game-save-row small {
+    font-size: 0.68rem;
+  }
+
+  .primitive-archive-workspace .games-rank-split {
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+    gap: 5px;
+  }
+
+  .primitive-archive-workspace .games-rank-split > div {
+    min-height: 44px;
+    gap: 2px;
+    padding: 6px 8px;
+  }
+
+  .primitive-archive-workspace .games-rank-split strong {
+    font-size: 0.8rem;
+  }
+
+  .primitive-action-workspace {
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .primitive-acting-status {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .primitive-acting-status select {
+    min-height: 30px;
+  }
+
+  .primitive-acting-vitals > span {
+    padding: 4px 6px;
+  }
+
+  .primitive-action-workspace .games-action-dock__controls,
+  .primitive-action-workspace .games-action-dock__buttons {
+    gap: 5px;
+  }
+
+  .primitive-action-workspace .games-action-dock__buttons .game-action-button {
+    min-height: 36px;
+  }
+
+  .primitive-action-workspace .games-action-result {
+    padding: 7px 9px;
+  }
+
+  .primitive-action-forecast-details > summary,
+  .primitive-facility-details > summary,
+  .primitive-equipment-owned > summary {
+    min-height: 32px;
+    padding: 6px 8px;
+  }
+
+  .primitive-turn-horizon--compact > .games-panel-title {
+    padding: 7px 9px;
+  }
+
+  .primitive-turn-horizon--compact .primitive-turn-horizon__rows article {
+    padding: 6px;
+  }
+
+  .primitive-world-map-panel {
+    gap: 6px;
+  }
+
+  .primitive-world-map-node {
+    width: 104px;
+    min-height: 58px;
+    grid-template-columns: 24px minmax(0, 1fr);
+    padding: 5px 6px;
+  }
+
+  .primitive-world-map-node > span {
+    width: 24px;
+    height: 24px;
+  }
+
+  .primitive-world-map-node.is-hidden {
+    width: 84px;
+  }
+
+  .primitive-world-map-detail {
+    gap: 5px;
+  }
+
+  .primitive-world-map-detail > div {
+    padding: 6px 8px;
+  }
+
+  .primitive-party-toolbar,
+  .primitive-equipment-toolbar {
+    gap: 7px;
+  }
+
+  .primitive-party-list {
+    gap: 5px;
+  }
+
+  .primitive-party-member {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 7px;
+    padding: 6px 7px;
+  }
+
+  .primitive-party-member img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .primitive-response-list {
+    max-height: 250px;
+  }
+
+  .primitive-camp-action-grid {
+    gap: 5px;
+  }
+
+  .primitive-camp-action-grid .game-action-button {
+    min-height: 48px;
+  }
+
+  .primitive-inventory-workspace {
+    gap: 7px;
+  }
+
+  .primitive-inventory-workspace .primitive-workspace-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding-bottom: 5px;
+  }
+
+  .primitive-inventory-workspace .primitive-workspace-tabs button {
+    min-height: 34px;
+    padding-block: 5px;
+  }
+
+  .primitive-inventory-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 5px;
+  }
+
+  .primitive-tribe-overview,
+  .primitive-job-panel,
+  .primitive-diplomacy-panel {
+    gap: 8px;
+  }
+
+  .primitive-tribe-growth {
+    gap: 5px;
+    padding: 7px 9px;
+  }
+
+  .primitive-job-grid {
+    gap: 6px;
+  }
+
+  .primitive-job-grid article {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    gap: 7px;
+    padding: 7px 8px;
+  }
+
+  .primitive-job-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .primitive-job-stepper {
+    grid-template-columns: 30px 24px 30px;
+  }
+
+  .primitive-job-stepper button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .primitive-tribe-ledger {
+    gap: 5px;
+  }
+
+  .primitive-tribe-ledger > div {
+    padding: 6px 8px;
+  }
+
+  .primitive-archive-workspace .game-feature-tabs__panel > .games-action-result {
+    padding: 7px 9px;
+  }
+
+  .primitive-rival-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .primitive-rival-list article {
+    gap: 6px;
+    padding: 8px 9px;
+  }
+
+  .primitive-rival-terms {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1500px) {
+  .primitive-report-workspace {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(0, 0.85fr);
+  }
+
+  .primitive-rival-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

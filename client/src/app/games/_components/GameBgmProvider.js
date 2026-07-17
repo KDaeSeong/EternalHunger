@@ -319,7 +319,7 @@ function schedulePump(session, start, amount, duration) {
   });
 }
 
-function scheduleSectionImpact(session, start, intensity) {
+function scheduleSectionImpact(session, start, intensity, hybridAmount = 0) {
   const gain = Number(session.profile.fxGain || 0.082) * clamp(intensity, 0, 1.4);
   if (gain <= 0) return;
   scheduleNoise({
@@ -349,6 +349,40 @@ function scheduleSectionImpact(session, start, intensity) {
     releaseStartRatio: 0.3,
     pan: -0.06,
   });
+
+  const hybridGain = Number(session.profile.orchestration?.hybridGain || 0)
+    * clamp(hybridAmount, 0, 1.2);
+  if (hybridGain <= 0) return;
+  scheduleNoise({
+    ctx: session.ctx,
+    destination: session.fxGain,
+    noiseBuffer: session.noiseBuffer,
+    start: start + 0.018,
+    duration: 0.46,
+    gainValue: hybridGain,
+    sources: session.sources,
+    filterType: 'bandpass',
+    frequency: 1260,
+    q: 1.8,
+    pan: 0.26,
+  });
+  [
+    { frequency: 420, endFrequency: 138, gain: 0.72, pan: -0.32 },
+    { frequency: 860, endFrequency: 245, gain: 0.34, pan: 0.34 },
+  ].forEach((voice) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.fxGain,
+    frequency: voice.frequency,
+    endFrequency: voice.endFrequency,
+    start: start + 0.012,
+    duration: 0.38,
+    gainValue: hybridGain * voice.gain,
+    wave: 'triangle',
+    sources: session.sources,
+    attack: 0.003,
+    releaseStartRatio: 0.24,
+    pan: voice.pan,
+  }));
 }
 
 function scheduleTransitionRiser(session, start, duration, intensity) {
@@ -652,6 +686,123 @@ function scheduleSynthPulse(session, arrangement, chordRoot, start) {
   }
 }
 
+function scheduleSupersawLead(session, frequency, start, duration, intensity) {
+  const { orchestration = {} } = session.profile;
+  const gain = Number(orchestration.leadStackGain || 0) * intensity;
+  if (gain <= 0) return;
+  [
+    { detune: -15, pan: -0.44, gain: 0.58 },
+    { detune: 11, pan: 0.42, gain: 0.54 },
+    { detune: 4, pan: 0.08, gain: 0.22, octave: 2 },
+  ].forEach((voice) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency: frequency * Number(voice.octave || 1),
+    start: start + (voice.pan > 0 ? 0.006 : 0),
+    duration: duration * (voice.octave ? 0.72 : 0.92),
+    gainValue: gain * voice.gain,
+    wave: voice.octave ? 'triangle' : orchestration.leadStackWave || 'sawtooth',
+    sources: session.sources,
+    attack: 0.008,
+    releaseStartRatio: 0.62,
+    detune: voice.detune,
+    pan: voice.pan,
+  }));
+}
+
+function scheduleSynthPluck(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.pluck || 0) <= 0 || step % 2 !== 0) return;
+  const degree = session.profile.arp[(step + arrangement.sectionBarIndex * 3) % 16];
+  if (degree === null || degree === undefined) return;
+  const gain = Number(orchestration.pluckGain || 0)
+    * Number(section.pluck)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const stepDuration = gameBgmStepDuration(session.profile);
+  const frequency = gameBgmNoteFrequency(
+    session.profile,
+    chordRoot + Number(degree),
+    Number(session.profile.pluckOctave ?? 2),
+  );
+  const pan = step % 4 === 0 ? -0.34 : 0.36;
+  [
+    { ratio: 1, gain: 1, length: 0.78 },
+    { ratio: 2, gain: 0.3, length: 0.48 },
+    { ratio: 3.01, gain: 0.12, length: 0.32 },
+  ].forEach((partial) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency: frequency * partial.ratio,
+    start,
+    duration: stepDuration * partial.length,
+    gainValue: gain * partial.gain,
+    wave: orchestration.pluckWave || 'triangle',
+    sources: session.sources,
+    attack: 0.002,
+    releaseStartRatio: 0.22,
+    pan: partial.ratio === 1 ? pan : -pan * 0.72,
+  }));
+}
+
+function scheduleGuitarStab(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.guitar || 0) <= 0 || !section.bass || ![0, 6, 8, 14].includes(step)) return;
+  const gain = Number(orchestration.guitarGain || 0)
+    * Number(section.guitar)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const stepDuration = gameBgmStepDuration(session.profile);
+  [
+    { degree: chordRoot, octave: 0, gain: 0.92, pan: -0.28, detune: -7 },
+    { degree: chordRoot + 4, octave: 0, gain: 0.66, pan: 0.3, detune: 6 },
+    { degree: chordRoot, octave: 1, gain: 0.36, pan: 0.08, detune: 2 },
+  ].forEach((voice) => scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency: gameBgmNoteFrequency(session.profile, voice.degree, voice.octave),
+    start: start + Math.abs(voice.pan) * 0.018,
+    duration: stepDuration * (step % 8 === 0 ? 1.7 : 1.12),
+    gainValue: gain * voice.gain,
+    wave: orchestration.guitarWave || 'sawtooth',
+    sources: session.sources,
+    attack: 0.005,
+    releaseStartRatio: 0.34,
+    detune: voice.detune,
+    pan: voice.pan,
+  }));
+}
+
+function scheduleTimpani(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.timpani || 0) <= 0 || ![0, 8, 14, 15].includes(step)) return;
+  const gain = Number(orchestration.timpaniGain || 0)
+    * Number(section.timpani)
+    * Number(section.energy || 1);
+  if (gain <= 0) return;
+  const baseFrequency = gameBgmNoteFrequency(session.profile, chordRoot, -2);
+  scheduleTone({
+    ctx: session.ctx,
+    destination: session.drumGain,
+    frequency: Math.min(170, baseFrequency * (step >= 14 ? 1.5 : 1.18)),
+    endFrequency: Math.max(38, baseFrequency * 0.82),
+    start,
+    duration: step >= 14 ? 0.22 : 0.34,
+    gainValue: gain * (step === 0 ? 1 : 0.78),
+    wave: 'sine',
+    sources: session.sources,
+    attack: 0.004,
+    releaseStartRatio: 0.28,
+    pan: step % 2 ? 0.12 : -0.12,
+  });
+}
+
 function scheduleTomFill(session, arrangement, start, intensity) {
   const step = arrangement.patternStep;
   const fillSteps = [8, 10, 12, 14, 15];
@@ -687,6 +838,11 @@ function activeOrchestrationRoles(profile, section) {
     ['toms', section.toms, orchestration.tomGain],
     ['string-ensemble', section.strings, orchestration.stringGain],
     ['synth-pulse', section.pulse, orchestration.pulseGain],
+    ['supersaw-lead', section.leadStack, orchestration.leadStackGain],
+    ['synth-pluck', section.pluck, orchestration.pluckGain],
+    ['guitar-stab', section.guitar, orchestration.guitarGain],
+    ['timpani', section.timpani, orchestration.timpaniGain],
+    ['hybrid-impact', section.hybrid, orchestration.hybridGain],
     ['ride-cymbal', section.cymbal, orchestration.cymbalGain],
     ['ghost-snare', section.ghost, orchestration.ghostGain],
   ]
@@ -788,6 +944,12 @@ function scheduleOrchestralStep(session, arrangement, chordRoot, start) {
 
   scheduleSynthPulse(session, arrangement, chordRoot, start);
 
+  scheduleSynthPluck(session, arrangement, chordRoot, start);
+
+  scheduleGuitarStab(session, arrangement, chordRoot, start);
+
+  scheduleTimpani(session, arrangement, chordRoot, start);
+
   scheduleTomFill(session, arrangement, start, Number(section.toms || 0) * energy);
 }
 
@@ -816,7 +978,12 @@ function scheduleMusicStep(session, absoluteStep, start) {
     delaySend.gain.setTargetAtTime(Number(profile.delayMix || 0.055) * (0.78 + energy * 0.24), start, 0.18);
     reverbSend.gain.setTargetAtTime(Number(profile.reverbMix || 0.065) * (0.72 + energy * 0.32), start, 0.18);
     if (Number(section.crash || 0) > 0) {
-      scheduleSectionImpact(session, start, Number(section.crash) * flourish);
+      scheduleSectionImpact(
+        session,
+        start,
+        Number(section.crash) * flourish,
+        Number(section.hybrid || 0),
+      );
     }
     if (typeof document !== 'undefined') {
       document.documentElement.dataset.gameBgmSection = section.id;
@@ -892,10 +1059,11 @@ function scheduleMusicStep(session, absoluteStep, start) {
   const leadDegree = leadKey ? leadPattern[step] : null;
   if (leadDegree !== null && leadDegree !== undefined) {
     const leadAccent = step % 4 === 0 ? 1.12 : step % 2 === 0 ? 1.03 : 0.94;
+    const leadFrequency = gameBgmNoteFrequency(profile, leadDegree, profile.leadOctave);
     scheduleTone({
       ctx: session.ctx,
       destination: session.musicGain,
-      frequency: gameBgmNoteFrequency(profile, leadDegree, profile.leadOctave),
+      frequency: leadFrequency,
       start: noteStart,
       duration: stepDuration * Number(profile.leadLength || 1.85),
       gainValue: Number(profile.leadGain || 0.12) * energy * leadAccent,
@@ -905,6 +1073,14 @@ function scheduleMusicStep(session, absoluteStep, start) {
       releaseStartRatio: 0.68,
       pan: -0.12,
     });
+
+    scheduleSupersawLead(
+      session,
+      leadFrequency,
+      noteStart,
+      stepDuration * Number(profile.leadLength || 1.85),
+      Number(section.leadStack || 0) * energy,
+    );
 
     const harmonyAmount = Number(section.harmony || 0) * flourish;
     if (harmonyAmount > 0) {

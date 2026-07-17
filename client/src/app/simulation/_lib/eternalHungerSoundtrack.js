@@ -3,8 +3,11 @@ export const ETERNAL_HUNGER_BGM_SCENES = Object.freeze({
   day: 'eternal-day',
   night: 'eternal-night',
   combat: 'eternal-combat',
+  rift: 'eternal-rift',
+  boss: 'eternal-boss',
   final: 'eternal-final',
   result: 'eternal-result',
+  defeat: 'eternal-defeat',
 });
 
 export const ETERNAL_HUNGER_SOUNDTRACK = Object.freeze([
@@ -12,19 +15,27 @@ export const ETERNAL_HUNGER_SOUNDTRACK = Object.freeze([
   Object.freeze({ scene: 'day', theme: ETERNAL_HUNGER_BGM_SCENES.day, title: '루미아의 낮' }),
   Object.freeze({ scene: 'night', theme: ETERNAL_HUNGER_BGM_SCENES.night, title: '금지구역 경보' }),
   Object.freeze({ scene: 'combat', theme: ETERNAL_HUNGER_BGM_SCENES.combat, title: '교전 개시' }),
+  Object.freeze({ scene: 'rift', theme: ETERNAL_HUNGER_BGM_SCENES.rift, title: '차원의 틈' }),
+  Object.freeze({ scene: 'boss', theme: ETERNAL_HUNGER_BGM_SCENES.boss, title: '변이체 강림' }),
   Object.freeze({ scene: 'final', theme: ETERNAL_HUNGER_BGM_SCENES.final, title: '마지막 안전지대' }),
   Object.freeze({ scene: 'result', theme: ETERNAL_HUNGER_BGM_SCENES.result, title: '생존 기록' }),
+  Object.freeze({ scene: 'defeat', theme: ETERNAL_HUNGER_BGM_SCENES.defeat, title: '전멸 기록' }),
 ]);
 
 export function resolveEternalHungerBgmScene({
   day = 0,
   phase = '',
   isGameOver = false,
+  hasWinner = false,
   survivorCount = 24,
 } = {}) {
   const currentDay = Math.max(0, Number(day || 0));
   const alive = Math.max(0, Number(survivorCount ?? 24));
-  if (isGameOver) return ETERNAL_HUNGER_BGM_SCENES.result;
+  if (isGameOver) {
+    return hasWinner
+      ? ETERNAL_HUNGER_BGM_SCENES.result
+      : ETERNAL_HUNGER_BGM_SCENES.defeat;
+  }
   if (currentDay <= 0) return ETERNAL_HUNGER_BGM_SCENES.ready;
   if (currentDay >= 6 || (currentDay >= 3 && alive > 0 && alive <= 4)) {
     return ETERNAL_HUNGER_BGM_SCENES.final;
@@ -34,9 +45,32 @@ export function resolveEternalHungerBgmScene({
     : ETERNAL_HUNGER_BGM_SCENES.day;
 }
 
-export function eternalHungerCombatMusicDuration(presentation) {
+export function eternalHungerEventMusic(presentation) {
   const action = String(presentation?.action || '');
-  if (action === 'rift-battle') return 14_000;
-  if (action === 'boss-spawn') return 10_000;
-  return 0;
+  if (action === 'rift-battle') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.rift, durationMs: 16_000 };
+  }
+  if (action === 'rift-open') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.rift, durationMs: 10_000 };
+  }
+  if (action === 'boss-spawn') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.boss, durationMs: 14_000 };
+  }
+  if (action === 'boss-defeat') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.boss, durationMs: 11_000 };
+  }
+  if (action === 'sudden-death') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.final, durationMs: 16_000 };
+  }
+  if (action === 'victory') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.result, durationMs: 18_000 };
+  }
+  if (action === 'defeat') {
+    return { theme: ETERNAL_HUNGER_BGM_SCENES.defeat, durationMs: 18_000 };
+  }
+  return null;
+}
+
+export function eternalHungerCombatMusicDuration(presentation) {
+  return eternalHungerEventMusic(presentation)?.durationMs || 0;
 }
