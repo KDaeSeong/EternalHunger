@@ -13036,7 +13036,7 @@
 
   .primitive-archive-page-shell .games-play-chrome,
   .primitive-archive-page-shell .games-play-workspace {
-    width: min(100%, 1600px);
+    width: min(100%, 1440px);
     margin-inline: auto;
   }
 
@@ -13075,7 +13075,7 @@
   }
 
   .primitive-archive-workspace .game-feature-tabs__panel > * {
-    width: min(100%, 1480px);
+    width: min(100%, 1320px);
     margin-inline: auto;
   }
 
@@ -13184,7 +13184,7 @@
   }
 
   .primitive-archive-workspace .game-feature-tabs__panel > .primitive-world-map-panel {
-    width: min(100%, 920px);
+    width: min(100%, 820px);
   }
 
   .primitive-world-map-scroll {
@@ -13192,24 +13192,24 @@
   }
 
   .primitive-world-map-canvas {
-    width: min(100%, 640px);
-    min-width: 640px;
+    width: min(100%, 560px);
+    min-width: 560px;
   }
 
   .primitive-world-map-node {
-    width: 104px;
-    min-height: 58px;
-    grid-template-columns: 24px minmax(0, 1fr);
+    width: 94px;
+    min-height: 52px;
+    grid-template-columns: 22px minmax(0, 1fr);
     padding: 5px 6px;
   }
 
   .primitive-world-map-node > span {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
   }
 
   .primitive-world-map-node.is-hidden {
-    width: 84px;
+    width: 78px;
   }
 
   .primitive-world-map-detail {

@@ -40,9 +40,9 @@ assert.match(appShellCss, /overscroll-behavior:\s*contain/, 'Scrollable game pan
 assert.match(appShellCss, /@media \(max-width: 760px\)[\s\S]*height:\s*auto/, 'Small screens must return to safe document flow.');
 assert.match(appShellCss, /\.primitive-archive-workspace \.games-action-dock\s*\{[\s\S]*?top:\s*0/, 'Civilization Archive actions must start at the top of the bounded panel.');
 assert.match(appShellCss, /\.primitive-world-map-canvas\s*\{[\s\S]*?width:\s*min\(100%,\s*800px\)/, 'Civilization Archive map width must stay bounded on wide desktops.');
-assert.match(appShellCss, /\.primitive-archive-page-shell \.games-play-workspace\s*\{[\s\S]*?width:\s*min\(100%,\s*1600px\)/, 'Civilization Archive must cap its desktop workspace width.');
-assert.match(appShellCss, /\.primitive-archive-workspace \.game-feature-tabs__panel > \*\s*\{[\s\S]*?width:\s*min\(100%,\s*1480px\)/, 'Civilization Archive tab contents must remain readable on wide displays.');
-assert.match(appShellCss, /\.primitive-world-map-canvas\s*\{[\s\S]*?width:\s*min\(100%,\s*640px\)/, 'Civilization Archive map must use the compact desktop canvas.');
+assert.match(appShellCss, /\.primitive-archive-page-shell \.games-play-workspace\s*\{[\s\S]*?width:\s*min\(100%,\s*1440px\)/, 'Civilization Archive must cap its desktop workspace width.');
+assert.match(appShellCss, /\.primitive-archive-workspace \.game-feature-tabs__panel > \*\s*\{[\s\S]*?width:\s*min\(100%,\s*1320px\)/, 'Civilization Archive tab contents must remain readable on wide displays.');
+assert.match(appShellCss, /\.primitive-world-map-canvas\s*\{[\s\S]*?width:\s*min\(100%,\s*560px\)/, 'Civilization Archive map must use the compact desktop canvas.');
 assert.match(appShellCss, /\.primitive-party-list\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3/, 'Civilization Archive party cards must use a compact desktop grid.');
 assert.match(appShellCss, /\.primitive-inventory-grid\s*\{[\s\S]*?auto-fill/, 'Civilization Archive inventory cards must not stretch across the viewport.');
 assert.match(appShellCss, /\.games-rank-split\.primitive-tribe-stats\s*\{[\s\S]*?minmax\(110px,\s*180px\)/, 'Civilization Archive tribe statistics must not stretch across the viewport.');
