@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SiteHeader from '../../../components/SiteHeader';
+import { useGameBgm } from '../../games/_components/GameBgmProvider';
 import { useGameSfxEventHandlers } from '../../games/_lib/useGameSfx';
 import { getTimeOfDayFromPhase } from '../_lib/simulationEngine';
+import {
+  ETERNAL_HUNGER_BGM_SCENES,
+  eternalHungerCombatMusicDuration,
+  resolveEternalHungerBgmScene,
+} from '../_lib/eternalHungerSoundtrack';
 import {
   createSimulationFeedbackSnapshot,
   getSimulationFeedbackDisplay,
@@ -64,6 +70,8 @@ export default function SimulationPageView(props) {
   const timeOfDay = getTimeOfDayFromPhase(phase);
   const [sfxEnabled, setSfxEnabled] = useState(initialSfxEnabled);
   const previousFeedbackRef = useRef(null);
+  const combatMusicTimerRef = useRef(null);
+  const { setMusicScene } = useGameBgm();
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
@@ -83,13 +91,43 @@ export default function SimulationPageView(props) {
     () => getSimulationFeedbackDisplay(feedbackSnapshot),
     [feedbackSnapshot],
   );
+  const baseMusicScene = useMemo(() => resolveEternalHungerBgmScene({
+    day,
+    phase,
+    isGameOver,
+    survivorCount: Array.isArray(survivors) ? survivors.length : 0,
+  }), [day, isGameOver, phase, survivors]);
+
+  useEffect(() => {
+    if (combatMusicTimerRef.current) window.clearTimeout(combatMusicTimerRef.current);
+    combatMusicTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
     const previous = previousFeedbackRef.current;
     previousFeedbackRef.current = feedbackSnapshot;
     const presentation = getSimulationFeedbackPresentation(previous, feedbackSnapshot);
     if (presentation?.cue) playGameSfx(presentation.cue);
-  }, [feedbackSnapshot, playGameSfx]);
+    const combatDuration = eternalHungerCombatMusicDuration(presentation);
+    const canUseCombatTrack = ![
+      ETERNAL_HUNGER_BGM_SCENES.final,
+      ETERNAL_HUNGER_BGM_SCENES.result,
+    ].includes(baseMusicScene);
+    if (combatDuration > 0 && canUseCombatTrack) {
+      if (combatMusicTimerRef.current) window.clearTimeout(combatMusicTimerRef.current);
+      setMusicScene(ETERNAL_HUNGER_BGM_SCENES.combat);
+      combatMusicTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        combatMusicTimerRef.current = null;
+      }, combatDuration);
+    }
+  }, [baseMusicScene, feedbackSnapshot, playGameSfx, setMusicScene]);
+
+  useEffect(() => () => {
+    if (combatMusicTimerRef.current) window.clearTimeout(combatMusicTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const toggleSfx = useCallback(() => {
     setSfxEnabled((current) => {

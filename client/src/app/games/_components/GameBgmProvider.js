@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -269,14 +270,52 @@ function scheduleOpenHat(session, start, velocity, pan = 0.2) {
   });
 }
 
+function scheduleGhostSnare(session, start, velocity, stepIndex) {
+  scheduleNoise({
+    ctx: session.ctx,
+    destination: session.drumGain,
+    noiseBuffer: session.noiseBuffer,
+    start,
+    duration: 0.062,
+    gainValue: velocity,
+    sources: session.sources,
+    filterType: 'bandpass',
+    frequency: 2350,
+    q: 1.15,
+    pan: stepIndex % 4 === 1 ? -0.22 : 0.22,
+  });
+}
+
+function scheduleRideCymbal(session, start, velocity, stepIndex) {
+  scheduleNoise({
+    ctx: session.ctx,
+    destination: session.drumGain,
+    noiseBuffer: session.noiseBuffer,
+    start,
+    duration: stepIndex % 8 === 0 ? 0.28 : 0.13,
+    gainValue: velocity,
+    sources: session.sources,
+    filterType: 'highpass',
+    frequency: 6100,
+    q: 0.42,
+    pan: stepIndex % 8 === 0 ? -0.32 : 0.3,
+  });
+}
+
 function schedulePump(session, start, amount, duration) {
   const depth = clamp(amount, 0, 0.52);
   if (depth <= 0) return;
-  [session.musicGain, session.orchestraGain].forEach((bus) => {
+  [
+    [session.musicGain, 1],
+    [session.orchestraGain, session.orchestraLevel],
+  ].forEach(([bus, baseLevel]) => {
     const pumpGain = bus.gain;
-    pumpGain.setValueAtTime(1, start);
-    pumpGain.linearRampToValueAtTime(Math.max(0.45, 1 - depth), start + 0.008);
-    pumpGain.exponentialRampToValueAtTime(1, start + Math.max(0.06, duration));
+    pumpGain.setValueAtTime(baseLevel, start);
+    pumpGain.linearRampToValueAtTime(
+      Math.max(baseLevel * 0.45, baseLevel * (1 - depth)),
+      start + 0.008,
+    );
+    pumpGain.exponentialRampToValueAtTime(baseLevel, start + Math.max(0.06, duration));
   });
 }
 
@@ -362,6 +401,7 @@ function scheduleTransitionRiser(session, start, duration, intensity) {
 
 function scheduleDrumStep(session, arrangement, start) {
   const { profile } = session;
+  const orchestration = profile.orchestration || {};
   const stepDuration = gameBgmStepDuration(profile);
   const step = arrangement.patternStep;
   const sectionLevel = Number(arrangement.section.drums || 0);
@@ -385,6 +425,20 @@ function scheduleDrumStep(session, arrangement, start) {
   if (snare > 0) scheduleSnare(session, start, baseGain * snare * 0.82);
   if (hat > 0) scheduleHat(session, start, baseGain * hat * 0.42, step);
   if (perc > 0) schedulePerc(session, start, baseGain * perc * 0.55, step);
+
+  const ghostGain = Number(orchestration.ghostGain || 0)
+    * Number(arrangement.section.ghost || 0)
+    * energy;
+  if (ghostGain > 0 && [3, 7, 11, 15].includes(step) && snare <= 0) {
+    scheduleGhostSnare(session, start, ghostGain * (step === 15 ? 1.18 : 0.82), step);
+  }
+
+  const cymbalGain = Number(orchestration.cymbalGain || 0)
+    * Number(arrangement.section.cymbal || 0)
+    * energy;
+  if (cymbalGain > 0 && [0, 4, 8, 12].includes(step)) {
+    scheduleRideCymbal(session, start, cymbalGain * (step % 8 === 0 ? 1 : 0.74), step);
+  }
 
   const fillWindow = arrangement.section.fill
     && arrangement.sectionStep >= arrangement.sectionSteps - 16
@@ -505,6 +559,99 @@ function scheduleChoirChord(session, chordRoot, start, duration, intensity, arra
   });
 }
 
+function scheduleStringEnsemble(session, chordRoot, start, duration, intensity, arrangement) {
+  const { orchestration = {} } = session.profile;
+  const gain = Number(orchestration.stringGain || 0) * intensity;
+  if (gain <= 0) return;
+  const voicing = gameBgmChordVoicing(session.profile, arrangement).slice(0, 4);
+  voicing.forEach((offset, voiceIndex) => {
+    const pan = (voiceIndex - (voicing.length - 1) / 2) * 0.28;
+    const frequency = gameBgmNoteFrequency(
+      session.profile,
+      chordRoot + offset,
+      session.profile.stringOctave,
+    );
+    scheduleTone({
+      ctx: session.ctx,
+      destination: session.orchestraGain,
+      frequency,
+      start: start + voiceIndex * 0.018,
+      duration,
+      gainValue: gain * (voiceIndex === 0 ? 0.92 : 0.72),
+      wave: orchestration.stringWave || 'triangle',
+      sources: session.sources,
+      attack: Math.min(0.24, duration * 0.14),
+      releaseStartRatio: 0.82,
+      detune: voiceIndex % 2 ? -7 : 6,
+      pan,
+    });
+    if (intensity >= 0.72 && (voiceIndex === 0 || voiceIndex === voicing.length - 1)) {
+      scheduleTone({
+        ctx: session.ctx,
+        destination: session.orchestraGain,
+        frequency,
+        start: start + 0.024,
+        duration: duration * 0.96,
+        gainValue: gain * 0.3,
+        wave: 'sawtooth',
+        sources: session.sources,
+        attack: Math.min(0.28, duration * 0.16),
+        releaseStartRatio: 0.8,
+        detune: voiceIndex === 0 ? -12 : 11,
+        pan: -pan,
+      });
+    }
+  });
+}
+
+function scheduleSynthPulse(session, arrangement, chordRoot, start) {
+  const { orchestration = {} } = session.profile;
+  const { section } = arrangement;
+  const step = arrangement.patternStep;
+  if (Number(section.pulse || 0) <= 0 || step % 2 !== 0) return;
+  const pulseDegree = session.profile.pulse[step];
+  if (pulseDegree === null || pulseDegree === undefined) return;
+  const stepDuration = gameBgmStepDuration(session.profile);
+  const intensity = Number(section.pulse) * Number(section.energy || 1);
+  const gain = Number(orchestration.pulseGain || 0) * intensity;
+  if (gain <= 0) return;
+  const frequency = gameBgmNoteFrequency(
+    session.profile,
+    chordRoot + Number(pulseDegree),
+    session.profile.pulseOctave,
+  );
+  const pan = step % 4 === 0 ? -0.46 : 0.46;
+  scheduleTone({
+    ctx: session.ctx,
+    destination: session.orchestraGain,
+    frequency,
+    start,
+    duration: stepDuration * Number(session.profile.pulseLength || 0.42),
+    gainValue: gain,
+    wave: orchestration.pulseWave || 'sawtooth',
+    sources: session.sources,
+    attack: 0.004,
+    releaseStartRatio: 0.42,
+    pan,
+  });
+  if (intensity >= 0.8 && step % 4 === 0) {
+    scheduleTone({
+      ctx: session.ctx,
+      destination: session.orchestraGain,
+      frequency: frequency * 2,
+      start: start + 0.006,
+      duration: stepDuration * Number(session.profile.pulseLength || 0.42) * 0.82,
+      gainValue: gain * 0.34,
+      wave: 'triangle',
+      sources: session.sources,
+      attack: 0.004,
+      releaseStartRatio: 0.38,
+      detune: 5,
+      pan: -pan,
+    });
+  }
+}
+
 function scheduleTomFill(session, arrangement, start, intensity) {
   const step = arrangement.patternStep;
   const fillSteps = [8, 10, 12, 14, 15];
@@ -538,6 +685,10 @@ function activeOrchestrationRoles(profile, section) {
     ['choir', section.choir, orchestration.choirGain],
     ['sub', section.sub, orchestration.subGain],
     ['toms', section.toms, orchestration.tomGain],
+    ['string-ensemble', section.strings, orchestration.stringGain],
+    ['synth-pulse', section.pulse, orchestration.pulseGain],
+    ['ride-cymbal', section.cymbal, orchestration.cymbalGain],
+    ['ghost-snare', section.ghost, orchestration.ghostGain],
   ]
     .filter(([, amount, gain]) => Number(amount || 0) >= 0.2 && Number(gain || 0) > 0)
     .map(([role]) => role);
@@ -624,6 +775,19 @@ function scheduleOrchestralStep(session, arrangement, chordRoot, start) {
     );
   }
 
+  if (section.strings > 0 && section.pad && step === 0) {
+    scheduleStringEnsemble(
+      session,
+      chordRoot,
+      start,
+      stepDuration * 15.75,
+      Number(section.strings) * energy,
+      arrangement,
+    );
+  }
+
+  scheduleSynthPulse(session, arrangement, chordRoot, start);
+
   scheduleTomFill(session, arrangement, start, Number(section.toms || 0) * energy);
 }
 
@@ -641,7 +805,9 @@ function scheduleMusicStep(session, absoluteStep, start) {
 
   if (session.sectionId !== section.id) {
     session.sectionId = section.id;
-    const sectionFilter = Number(profile.filterFrequency || 1800) * (0.78 + energy * 0.28);
+    const sectionFilter = Number(profile.filterFrequency || 1800)
+      * (0.78 + energy * 0.28)
+      * clamp(section.brightness || 1, 0.5, 1.45);
     const sweepStart = Math.max(180, sectionFilter * (Number(section.crash || 0) > 0.5 ? 0.46 : 0.72));
     filter.frequency.cancelScheduledValues(start);
     filter.frequency.setValueAtTime(sweepStart, start);
@@ -715,8 +881,15 @@ function scheduleMusicStep(session, absoluteStep, start) {
     }
   }
 
-  const leadPattern = section.lead === 'b' ? profile.leadB : profile.lead;
-  const leadDegree = section.lead ? leadPattern[step] : null;
+  const leadKey = Array.isArray(section.leadSequence) && section.leadSequence.length > 0
+    ? section.leadSequence[arrangement.sectionBarIndex % section.leadSequence.length]
+    : section.lead;
+  const leadPattern = leadKey === 'c'
+    ? profile.leadC
+    : leadKey === 'b'
+      ? profile.leadB
+      : profile.lead;
+  const leadDegree = leadKey ? leadPattern[step] : null;
   if (leadDegree !== null && leadDegree !== undefined) {
     const leadAccent = step % 4 === 0 ? 1.12 : step % 2 === 0 ? 1.03 : 0.94;
     scheduleTone({
@@ -894,10 +1067,14 @@ function createSession(graph, profile, theme, startTime) {
   const filter = graph.ctx.createBiquadFilter();
   const delaySend = graph.ctx.createGain();
   const reverbSend = graph.ctx.createGain();
+  const orchestraLevel = clamp(profile.orchestraLevel || 0.82, 0.55, 1.1);
   gain.gain.setValueAtTime(0.0001, startTime);
-  gain.gain.exponentialRampToValueAtTime(1, startTime + 0.42);
+  gain.gain.exponentialRampToValueAtTime(
+    1,
+    startTime + clamp(profile.fadeInSeconds || 0.42, 0.18, 2.5),
+  );
   musicGain.gain.setValueAtTime(1, startTime);
-  orchestraGain.gain.setValueAtTime(0.82, startTime);
+  orchestraGain.gain.setValueAtTime(orchestraLevel, startTime);
   drumGain.gain.setValueAtTime(1, startTime);
   fxGain.gain.setValueAtTime(1, startTime);
   filter.type = 'lowpass';
@@ -924,6 +1101,7 @@ function createSession(graph, profile, theme, startTime) {
     gain,
     musicGain,
     orchestraGain,
+    orchestraLevel,
     nextStep: 0,
     nextTime: startTime + 0.08,
     noiseBuffer: graph.noiseBuffer,
@@ -983,8 +1161,8 @@ function createGameBgmController() {
     }
     if (!graph) return false;
 
-    stopSession(session, 0.26);
     const profile = gameBgmProfile(nextTheme);
+    stopSession(session, clamp(profile.crossfadeSeconds || 0.26, 0.18, 2.5));
     const now = graph.ctx.currentTime;
     graph.delay.delayTime.setTargetAtTime(Number(profile.delayTime || 0.24), now, 0.08);
     graph.delayFeedback.gain.setTargetAtTime(Number(profile.delayFeedback || 0.2), now, 0.08);
@@ -1095,6 +1273,7 @@ const FALLBACK_BGM_VALUE = Object.freeze({
   isAvailable: false,
   label: '',
   playing: false,
+  setMusicScene: () => '',
   setVolume: () => DEFAULT_GAME_BGM_VOLUME,
   toggleMusic: () => false,
   volume: DEFAULT_GAME_BGM_VOLUME,
@@ -1106,7 +1285,11 @@ export function useGameBgm() {
 
 export default function GameBgmProvider({ children }) {
   const pathname = usePathname();
-  const activeTheme = gameAudioThemeForPath(pathname);
+  const routeTheme = gameAudioThemeForPath(pathname);
+  const [sceneRequest, setSceneRequest] = useState({ pathname: '', theme: '' });
+  const activeTheme = sceneRequest.pathname === pathname && sceneRequest.theme
+    ? sceneRequest.theme
+    : routeTheme;
   const [controller] = useState(createGameBgmController);
   const enabled = useSyncExternalStore(
     subscribeGameBgmPreferences,
@@ -1119,6 +1302,16 @@ export default function GameBgmProvider({ children }) {
     serverBgmVolumeSnapshot,
   );
   const activeProfile = gameBgmProfile(activeTheme);
+
+  const setMusicScene = useCallback((theme = '') => {
+    const nextTheme = String(theme || '').trim().toLowerCase();
+    setSceneRequest((current) => (
+      current.pathname === pathname && current.theme === nextTheme
+        ? current
+        : { pathname, theme: nextTheme }
+    ));
+    return nextTheme;
+  }, [pathname]);
 
   const setVolume = (nextVolume) => {
     const next = writeGameBgmVolume(nextVolume);
@@ -1186,6 +1379,7 @@ export default function GameBgmProvider({ children }) {
     isAvailable: Boolean(activeTheme),
     label: activeProfile.label,
     playing: enabled && Boolean(activeTheme),
+    setMusicScene,
     setVolume,
     toggleMusic,
     volume,

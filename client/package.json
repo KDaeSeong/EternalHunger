@@ -28,6 +28,7 @@
     "check:tonkatsu-teacher-feedback": "node ./scripts/check-tonkatsu-teacher-feedback.mjs",
     "check:dual-academy-feedback": "node ./scripts/check-dual-academy-feedback.mjs",
     "check:eternal-hunger-feedback": "node ./scripts/check-eternal-hunger-feedback.mjs",
+    "check:eternal-hunger-soundtrack": "node ./scripts/check-eternal-hunger-soundtrack.mjs",
     "check:game-feedback-shell": "node ./scripts/check-game-feedback-shell.mjs",
     "check:game-viewport": "node ./scripts/check-game-viewport-shell.mjs",
     "check:primitive-archive": "node ./scripts/check-primitive-archive-civics.mjs",
