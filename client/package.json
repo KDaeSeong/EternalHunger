@@ -12,6 +12,7 @@
     "check:build:vercel-like": "npm ci --no-audit --no-fund && npm run build",
     "check:ba-srpg-feedback": "node ./scripts/check-ba-srpg-feedback.mjs",
     "check:ba-vanguard-feedback": "node ./scripts/check-ba-vanguard-feedback.mjs",
+    "check:ba-vanguard-soundtrack": "node ./scripts/check-ba-vanguard-soundtrack.mjs",
     "check:auth-session": "node ./scripts/check-auth-session.mjs",
     "check:build:ci": "npm ci --no-audit --no-fund && npm run prebuild && next build --webpack",
     "check:company-report-feedback": "node ./scripts/check-company-report-feedback.mjs",

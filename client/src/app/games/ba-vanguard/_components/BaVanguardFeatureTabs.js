@@ -6,8 +6,10 @@ import BaVanguardDeckTab from './BaVanguardDeckTab';
 
 export default function BaVanguardFeatureTabs(props) {
   const {
+    activeTabId,
     duel,
     me,
+    onTabChange,
     tacticalReport,
     valid,
   } = props;
@@ -15,6 +17,8 @@ export default function BaVanguardFeatureTabs(props) {
   return (
     <section className="ba-vanguard-workspace">
       <GameFeatureTabs
+        activeTabId={activeTabId}
+        onTabChange={onTabChange}
         tabs={[
           {
             id: 'duel',

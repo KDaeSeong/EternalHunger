@@ -3,7 +3,7 @@ export const GAME_AUDIO_PATH_THEMES = Object.freeze([
   ['simulation', 'battle'],
   ['twenty-questions', 'twenty'],
   ['dual-academy-tcg', 'card'],
-  ['ba-vanguard', 'card'],
+  ['ba-vanguard', 'vanguard'],
   ['primitive-archive', 'survival'],
   ['tonkatsu-teacher', 'kitchen'],
   ['schale-idle-rpg', 'idle'],

@@ -7,6 +7,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -20,6 +21,10 @@ import {
   baVanguardTextPresentation,
 } from '../_lib/baVanguardFeedback';
 import { createBaVanguardPlaytestSummary } from '../_lib/baVanguardPageRuntime';
+import {
+  baVanguardResultMusic,
+  resolveBaVanguardBgmScene,
+} from '../_lib/baVanguardSoundtrack';
 import {
   CARDS,
   DEFAULT_RULES,
@@ -71,7 +76,8 @@ export default function BaVanguardPlayContent() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId') || '';
   const { showToast } = useToast();
-  const playGameSfx = useGameSfx({ theme: 'card' });
+  const { setMusicScene } = useGameBgm();
+  const playGameSfx = useGameSfx({ theme: 'vanguard' });
   const [presetId, setPresetId] = useState(PRESET_DECKS[0]?.id || '');
   const [opponentPresetId, setOpponentPresetId] = useState(PRESET_DECKS[1]?.id || PRESET_DECKS[0]?.id || '');
   const [seed, setSeed] = useState(2401);
@@ -89,7 +95,9 @@ export default function BaVanguardPlayContent() {
   const [gzoneFilter, setGzoneFilter] = useState('all');
   const [actionResult, setActionResult] = useState('');
   const [actionPresentation, setActionPresentation] = useState(() => baVanguardResultPresentation(duel, duel));
+  const [activeTabId, setActiveTabId] = useState('duel');
   const feedbackRef = useRef(baVanguardFeedbackSnapshot(duel));
+  const musicSceneTimerRef = useRef(null);
   const replaceDuel = useCallback((nextDuel) => {
     feedbackRef.current = baVanguardFeedbackSnapshot(nextDuel);
     setDuel(nextDuel);
@@ -204,6 +212,16 @@ export default function BaVanguardPlayContent() {
   const canMulligan = canControl && duel.turn === 1 && duel.phase === 'STAND' && !duel.battle && !duel.mulliganDone?.me;
   const autoRideState = autoRideReadiness(duel, 'me');
   const selectedRideState = rideReadiness(duel, 'me', selectedHandId);
+  const baseMusicScene = useMemo(
+    () => resolveBaVanguardBgmScene({ activeTabId, duel }),
+    [activeTabId, duel],
+  );
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
     const current = baVanguardFeedbackSnapshot(duel);
@@ -215,8 +233,22 @@ export default function BaVanguardPlayContent() {
       setMessage('');
     }
     if (cue) playGameSfx(cue);
+    const musicTransition = baVanguardResultMusic(presentation);
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
     feedbackRef.current = current;
-  }, [duel, playGameSfx, setMessage]);
+  }, [baseMusicScene, duel, playGameSfx, setMessage, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
 
   const mutateDuel = (mutator, fallbackMessage = '') => {
@@ -494,6 +526,7 @@ export default function BaVanguardPlayContent() {
       />
 
       <BaVanguardFeatureTabs
+        activeTabId={activeTabId}
         autoGuardMe={autoGuardMe}
         autoRideState={autoRideState}
         canControl={canControl}
@@ -520,6 +553,7 @@ export default function BaVanguardPlayContent() {
         onRetire={onRetire}
         onRideSelected={onRideSelected}
         onStride={onStride}
+        onTabChange={setActiveTabId}
         onVCAct={onVCAct}
         openZone={openZone}
         openingHand={openingHand}
