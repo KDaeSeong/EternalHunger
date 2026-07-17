@@ -12048,6 +12048,28 @@
   font-size: 0.8rem;
 }
 
+.si-coding-panel-title h2 {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.si-coding-panel-title h2 .game-action-icon {
+  flex: 0 0 auto;
+  color: #2673a6;
+}
+
+.si-coding-icon-row > .game-action-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 7px;
+  background: #edf6fb;
+  color: #22668f;
+}
+
 .si-coding-workspace .games-rank-split {
   grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
   gap: 7px;

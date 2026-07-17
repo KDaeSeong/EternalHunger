@@ -3,6 +3,7 @@ const CODING_FEEDBACK_PROFILES = {
   newRun: { action: 'new', cue: 'start', label: '새 현장', tone: 'highlight' },
   deploy: { action: 'deploy', cue: 'deploy', label: '현장 투입', tone: 'highlight' },
   projectApproved: { action: 'project', cue: 'projectApproved', label: '프로젝트 승인', tone: 'success' },
+  projectHeld: { action: 'project-held', cue: 'projectHeld', label: '프로젝트 보류', tone: 'warning' },
   projectRejected: { action: 'judge', cue: 'projectRejected', label: '프로젝트 반려', tone: 'danger' },
   codePerfect: { action: 'trophy', cue: 'codePerfect', label: '만점 검수', tone: 'champion' },
   codePass: { action: 'confirm', cue: 'codePass', label: '검수 통과', tone: 'success' },
@@ -15,6 +16,7 @@ const CODING_FEEDBACK_PROFILES = {
   supportHint: { action: 'support-hint', cue: 'supportHint', label: '힌트 비용 지원', tone: 'highlight' },
   supportRisk: { action: 'support-risk', cue: 'supportRisk', label: 'QA 리스크 완충', tone: 'success' },
   projectSelect: { action: 'project-select', cue: 'projectSelect', label: '차기 현장 선택', tone: 'highlight' },
+  codingBlocked: { action: 'coding-blocked', cue: 'codingBlocked', label: '작업 불가', tone: 'warning' },
 };
 
 const TEXT_PRESENTATIONS = [
@@ -66,10 +68,13 @@ export function siCodingFeedbackTransition(previousValue, currentValue) {
   if (previous.runId !== current.runId) return 'newRun';
   if (previous.taskSetId !== current.taskSetId) return 'deploy';
   if (previous.latestLog !== current.latestLog && /원본 상태로 되돌렸습니다/.test(current.latestLog)) return 'taskReset';
+  if (previous.latestLog !== current.latestLog
+    && /이미 모든 힌트|예비비가 부족|더 이상 .*보전|완충할 열린 리스크가 없습니다|할 수 없습니다/.test(current.latestLog)) {
+    return 'codingBlocked';
+  }
   if (previous.evaluationSignature !== current.evaluationSignature && current.evaluationSignature) {
-    return current.evaluationGrade === 'FAIL' || current.evaluationGrade === '보류'
-      ? 'projectRejected'
-      : 'projectApproved';
+    if (current.evaluationGrade === '보류') return 'projectHeld';
+    return current.evaluationGrade === 'FAIL' ? 'projectRejected' : 'projectApproved';
   }
   if (previous.outcomeSignature !== current.outcomeSignature && current.outcomeSignature) {
     if (current.outcomeScore >= 100) return 'codePerfect';
@@ -97,7 +102,7 @@ export function siCodingFeedbackPresentation(previous, current) {
   const snapshot = current?.outcomeSignature !== undefined ? current : siCodingFeedbackSnapshot(current);
   const profile = { key, ...CODING_FEEDBACK_PROFILES[key] };
   if (key === 'projectApproved') return { ...profile, label: `프로젝트 ${snapshot.evaluationGrade}등급 승인` };
-  if (key === 'projectRejected' && snapshot.evaluationGrade === '보류') return { ...profile, label: '프로젝트 보류', tone: 'warning' };
+  if (key === 'projectHeld') return { ...profile, detail: snapshot.latestLog || '프로젝트가 보류되었습니다. 보강 항목을 확인하세요.' };
   if (key === 'codePerfect') return { ...profile, label: `${snapshot.outcomeScore}점 만점 검수` };
   if (key === 'codePass') return { ...profile, label: `${snapshot.outcomeScore}점 검수 통과` };
   if (key === 'codeFail') return { ...profile, label: `${snapshot.outcomeScore}점 검수 실패` };
@@ -110,12 +115,14 @@ export function siCodingFeedbackPresentation(previous, current) {
     detail: `${snapshot.supportTitle || profile.label}에 예비비 ${snapshot.supportAmount}pt를 사용했습니다.`,
   };
   if (key === 'projectSelect') return { ...profile, detail: snapshot.latestLog || '차기 현장 후보를 선택했습니다.' };
+  if (key === 'codingBlocked') return { ...profile, detail: snapshot.latestLog || '현재 조건에서는 이 작업을 실행할 수 없습니다.' };
   return { ...profile, detail: snapshot.latestLog };
 }
 
 export function siCodingResultPresentation(text, fallback = CODING_FEEDBACK_PROFILES.idle) {
   const normalized = String(text || '');
   const matched = TEXT_PRESENTATIONS.find((row) => row.pattern.test(normalized));
+  if (fallback?.key === 'codingBlocked') return fallback;
   if (fallback?.key && fallback.key !== 'idle' && !matched?.force) return fallback;
   return matched ? { key: 'message', cue: '', ...matched.value } : fallback;
 }

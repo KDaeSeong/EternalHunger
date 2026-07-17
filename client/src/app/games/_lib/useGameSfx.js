@@ -856,6 +856,17 @@ const CUE_PROFILES = {
     { frequency: 780, start: 0.032, duration: 0.035, type: 'square', gain: 0.03 },
     { frequency: 1040, start: 0.07, duration: 0.055, type: 'triangle', gain: 0.035 },
   ],
+  codeFileSelect: [
+    { source: 'noise', filterType: 'highpass', frequency: 2400, duration: 0.022, gain: 0.014, pan: -0.28 },
+    { frequency: 480, duration: 0.032, type: 'square', gain: 0.032, pan: -0.16 },
+    { frequency: 720, start: 0.03, duration: 0.05, type: 'triangle', gain: 0.033, pan: 0.22 },
+  ],
+  codeSubmit: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1280, q: 1.8, duration: 0.055, gain: 0.021, pan: -0.34 },
+    { frequency: 220, endFrequency: 330, duration: 0.065, type: 'square', gain: 0.033, pan: -0.2 },
+    { frequency: 660, start: 0.058, duration: 0.052, type: 'triangle', gain: 0.037, pan: 0.08 },
+    { frequency: 990, start: 0.105, duration: 0.075, type: 'sine', gain: 0.032, pan: 0.3, reverb: 0.12 },
+  ],
   codePerfect: [
     { frequency: 660, duration: 0.035, type: 'square', gain: 0.04 },
     { frequency: 990, start: 0.034, duration: 0.05, type: 'triangle', gain: 0.043 },
@@ -879,6 +890,17 @@ const CUE_PROFILES = {
     { source: 'noise', filterType: 'lowpass', frequency: 620, duration: 0.055, gain: 0.045 },
     { frequency: 300, endFrequency: 210, duration: 0.09, type: 'square', gain: 0.04 },
     { frequency: 150, start: 0.075, duration: 0.12, type: 'sine', gain: 0.038 },
+  ],
+  projectHeld: [
+    { source: 'noise', filterType: 'bandpass', frequency: 860, q: 2.2, duration: 0.06, gain: 0.021, pan: -0.28 },
+    { frequency: 440, duration: 0.055, type: 'triangle', gain: 0.038, pan: -0.16 },
+    { frequency: 520, start: 0.075, duration: 0.06, type: 'triangle', gain: 0.035, pan: 0.16 },
+    { frequency: 440, start: 0.15, duration: 0.09, type: 'sine', gain: 0.031, pan: 0.26, reverb: 0.12 },
+  ],
+  codingBlocked: [
+    { source: 'noise', filterType: 'bandpass', frequency: 720, q: 3.2, duration: 0.045, gain: 0.024, pan: -0.28 },
+    { frequency: 310, endFrequency: 230, duration: 0.07, type: 'square', gain: 0.035, pan: -0.12 },
+    { frequency: 190, start: 0.065, duration: 0.095, type: 'triangle', gain: 0.034, pan: 0.2 },
   ],
   hintOpen: [
     { frequency: 740, duration: 0.04, type: 'sine', gain: 0.04 },

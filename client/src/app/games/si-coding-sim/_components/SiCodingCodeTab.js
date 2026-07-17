@@ -1,5 +1,6 @@
 import { ActionButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import SubmissionReadinessPanel, { ResultRow } from './SiCodingSubmissionReadinessPanel';
+import { SiCodingPanelTitle } from './SiCodingVisuals';
 import { evaluateProjectAction, updateFileAction, updateReportAction } from '../_lib/siCodingSimEngine';
 
 export default function SiCodingCodeTab({
@@ -25,13 +26,10 @@ export default function SiCodingCodeTab({
   return (
     <section className="games-detail-grid">
                         <section className="games-panel" ref={codePanelRef}>
-                          <div className="games-panel-title">
-                            <h2>코드 파일</h2>
-                            <span>{activeFile?.path || activeFileId}</span>
-                          </div>
+                          <SiCodingPanelTitle action="coding-file" title="코드 파일" meta={activeFile?.path || activeFileId} />
                           <label className="game-save-json-field">
                             <span>파일</span>
-                            <select value={activeFileId} onChange={(event) => setSelectedFileId(event.target.value)}>
+                            <select value={activeFileId} onChange={(event) => setSelectedFileId(event.target.value)} data-game-sfx-change="codeFileSelect">
                               {files.map((file) => (
                                 <option value={file.id} key={`tab-file-${file.id}`}>{file.path || file.id}</option>
                               ))}
@@ -49,10 +47,7 @@ export default function SiCodingCodeTab({
                         </section>
         
                         <section className="games-panel">
-                          <div className="games-panel-title">
-                            <h2>작업 보고</h2>
-                            <span>{reportText.trim().length}/{task.reportMinLength || 0}자</span>
-                          </div>
+                          <SiCodingPanelTitle action="replay" title="작업 보고" meta={`${reportText.trim().length}/${task.reportMinLength || 0}자`} />
                           <label className="game-save-json-field">
                             <span>검수 보고</span>
                             <textarea
@@ -74,12 +69,9 @@ export default function SiCodingCodeTab({
                         />
         
                         <section className="games-panel">
-                          <div className="games-panel-title">
-                            <h2>제출과 결과</h2>
-                            <span>{outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'}</span>
-                          </div>
+                          <SiCodingPanelTitle action="coding-submit" title="제출과 결과" meta={outcome ? `${outcome.passCount}/${outcome.totalChecks}` : '미실행'} />
                           <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                            <ActionButton action="code" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
+                            <ActionButton action="coding-submit" cue="codeSubmit" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
                             <ActionButton action="reset" onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
                             <ActionButton action="judge" onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
                           </div>
@@ -91,15 +83,12 @@ export default function SiCodingCodeTab({
                         </section>
         
                         <section className="games-panel" ref={executionPanelRef}>
-                          <div className="games-panel-title">
-                            <h2>실행 규칙</h2>
-                            <span>{execution?.mockType || task.judgeMode || 'static'}</span>
-                          </div>
+                          <SiCodingPanelTitle action="execute" title="실행 규칙" meta={execution?.mockType || task.judgeMode || 'static'} />
                           <div className="games-rank-split">
-                            <SmallStat label="공개 테스트" value={execution?.tests?.length || 0} />
-                            <SmallStat label="숨김 테스트" value={execution?.hiddenTests?.length || 0} />
-                            <SmallStat label="정적 체크" value={task.judge?.checks?.length || 0} />
-                            <SmallStat label="엔트리" value={execution?.entryFileId || '-'} />
+                            <SmallStat icon="coding-test-pass" label="공개 테스트" value={execution?.tests?.length || 0} />
+                            <SmallStat icon="lock" label="숨김 테스트" value={execution?.hiddenTests?.length || 0} />
+                            <SmallStat icon="inspect" label="정적 체크" value={task.judge?.checks?.length || 0} />
+                            <SmallStat icon="coding-file" label="엔트리" value={execution?.entryFileId || '-'} />
                           </div>
                         </section>
                       </section>

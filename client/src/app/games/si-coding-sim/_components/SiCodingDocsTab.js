@@ -1,5 +1,6 @@
 import { ActionButton } from '../../_components/GamePlayPrimitives';
 import { toggleDocumentReviewAction } from '../_lib/siCodingSimEngine';
+import { SiCodingIconRow, SiCodingPanelTitle } from './SiCodingVisuals';
 
 export default function SiCodingDocsTab({
   canRevealHint,
@@ -15,14 +16,14 @@ export default function SiCodingDocsTab({
   return (
     <section className="games-detail-grid">
                         <section className="games-panel" ref={documentPanelRef}>
-                          <div className="games-panel-title">
-                            <h2>문서 체크</h2>
-                            <span>{documentPlay?.title || '문서 없음'}</span>
-                          </div>
+                          <SiCodingPanelTitle action="document-review" title="문서 체크" meta={documentPlay?.title || '문서 없음'} />
                           {documentPlay ? (
                             <div className="game-save-list">
                               {(documentPlay.reviewItems || []).map((item) => (
-                                <article className="game-save-row" key={`tab-doc-${item.id}`}>
+                                <SiCodingIconRow
+                                  action={documentProgress?.selectedIds?.includes(item.id) ? 'document-review' : item.required ? 'coding-ready' : 'warning'}
+                                  key={`tab-doc-${item.id}`}
+                                >
                                   <div>
                                     <span>{item.detail} · 출처 {item.sourceDocId}</span>
                                     <strong>{item.title}</strong>
@@ -36,48 +37,42 @@ export default function SiCodingDocsTab({
                                     />
                                     {item.required ? '필수' : '함정'}
                                   </label>
-                                </article>
+                                </SiCodingIconRow>
                               ))}
                             </div>
                           ) : <div className="games-empty">문서 체크 과제가 아닙니다.</div>}
                         </section>
         
                         <section className="games-panel" ref={hintPanelRef}>
-                          <div className="games-panel-title">
-                            <h2>힌트</h2>
-                            <span>{revealedHints.length}/{task.hints?.length || 0}</span>
-                          </div>
+                          <SiCodingPanelTitle action="hint" title="힌트" meta={`${revealedHints.length}/${task.hints?.length || 0}`} />
                           <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-                            <ActionButton action="guide" onClick={revealCurrentHint} disabled={!canRevealHint}>
+                            <ActionButton action="hint" onClick={revealCurrentHint} disabled={!canRevealHint}>
                               힌트 열기
                             </ActionButton>
                           </div>
                           <div className="game-save-list">
                             {revealedHints.length ? revealedHints.map((hint, index) => (
-                              <article className="game-save-row" key={`tab-hint-${hint}-${index}`}>
+                              <SiCodingIconRow action="hint" key={`tab-hint-${hint}-${index}`}>
                                 <div>
                                   <span>힌트 {index + 1}</span>
                                   <strong>{hint}</strong>
                                 </div>
-                              </article>
+                              </SiCodingIconRow>
                             )) : <div className="games-empty">아직 열람한 힌트가 없습니다.</div>}
                           </div>
                         </section>
         
                         <section className="games-panel">
-                          <div className="games-panel-title">
-                            <h2>원문 문서</h2>
-                            <span>{task.documents?.length || 0}개</span>
-                          </div>
+                          <SiCodingPanelTitle action="archive" title="원문 문서" meta={`${task.documents?.length || 0}개`} />
                           <div className="game-save-list">
                             {(task.documents || []).slice(0, 4).map((doc) => (
-                              <article className="game-save-row" key={`tab-source-${doc.id}`}>
+                              <SiCodingIconRow action="archive" key={`tab-source-${doc.id}`}>
                                 <div>
                                   <span>{doc.id}</span>
                                   <strong>{doc.title}</strong>
                                   <span style={{ whiteSpace: 'pre-wrap' }}>{doc.content}</span>
                                 </div>
-                              </article>
+                              </SiCodingIconRow>
                             ))}
                           </div>
                         </section>

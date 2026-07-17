@@ -1,0 +1,22 @@
+import GameActionIcon from '../../_components/GameActionIcon';
+
+export function SiCodingPanelTitle({ action, title, meta }) {
+  return (
+    <div className="games-panel-title si-coding-panel-title">
+      <h2>
+        <GameActionIcon action={action} label={title} />
+        {title}
+      </h2>
+      <span>{meta}</span>
+    </div>
+  );
+}
+
+export function SiCodingIconRow({ action, children, className = '', style }) {
+  return (
+    <article className={`game-save-row game-save-row--icon si-coding-icon-row${className ? ` ${className}` : ''}`} style={style}>
+      <GameActionIcon action={action} />
+      {children}
+    </article>
+  );
+}

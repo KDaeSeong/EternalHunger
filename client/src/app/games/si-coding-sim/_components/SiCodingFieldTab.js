@@ -1,5 +1,6 @@
 import { GameControlButton, SmallStat } from '../../_components/GamePlayPrimitives';
 import SubmissionReadinessPanel from './SiCodingSubmissionReadinessPanel';
+import { SiCodingIconRow, SiCodingPanelTitle } from './SiCodingVisuals';
 
 export default function SiCodingFieldTab({
   activeTasks,
@@ -22,17 +23,14 @@ export default function SiCodingFieldTab({
   return (
     <section className="games-detail-grid">
                         <section className="games-panel">
-                          <div className="games-panel-title">
-                            <h2>현재 현장</h2>
-                            <span>{state.taskSet?.title || '기본 현장'}</span>
-                          </div>
+                          <SiCodingPanelTitle action="code" title="현재 현장" meta={state.taskSet?.title || '기본 현장'} />
                           <div className="games-rank-split">
-                            <SmallStat label="직급" value={profileSummary.career.rankTitle} />
-                            <SmallStat label="과제" value={`${Object.keys(state.taskOutcomes).length}/${activeTasks.length}`} />
-                            <SmallStat label="점수" value={score.toLocaleString('ko-KR')} />
-                            <SmallStat label="판정" value={latestEvaluation?.grade || '대기'} />
-                            <SmallStat label="예비비" value={`${support.cashReserve}pt`} />
-                            <SmallStat label="기술부채" value={state.resources.techDebt} />
+                            <SmallStat icon="growth" label="직급" value={profileSummary.career.rankTitle} />
+                            <SmallStat icon="task-select" label="과제" value={`${Object.keys(state.taskOutcomes).length}/${activeTasks.length}`} />
+                            <SmallStat icon="trophy" label="점수" value={score.toLocaleString('ko-KR')} />
+                            <SmallStat icon="judge" label="판정" value={latestEvaluation?.grade || '대기'} />
+                            <SmallStat icon="sponsor" label="예비비" value={`${support.cashReserve}pt`} />
+                            <SmallStat icon="warning" label="기술부채" value={state.resources.techDebt} />
                           </div>
                           <p style={{ color: '#64717d', fontWeight: 800, lineHeight: 1.55 }}>
                             {task.projectName} / {task.summary}
@@ -52,13 +50,10 @@ export default function SiCodingFieldTab({
                         />
         
                         <section className="games-panel">
-                          <div className="games-panel-title">
-                            <h2>프로젝트 진행</h2>
-                            <span>{projectRows.length}개</span>
-                          </div>
+                          <SiCodingPanelTitle action="project" title="프로젝트 진행" meta={`${projectRows.length}개`} />
                           <div className="game-save-list">
                             {projectRows.slice(0, 5).map((project) => (
-                              <article className="game-save-row" key={`tab-${project.projectName}`} style={project.active ? { borderColor: '#2673a6' } : null}>
+                              <SiCodingIconRow action={project.active ? 'project-select' : 'project'} key={`tab-${project.projectName}`} style={project.active ? { borderColor: '#2673a6' } : null}>
                                 <div>
                                   <span>완료 {project.submittedTasks}/{project.totalTasks} · 평균 {project.averageScore}점</span>
                                   <strong>{project.projectName}</strong>
@@ -67,30 +62,27 @@ export default function SiCodingFieldTab({
                                 <GameControlButton action="project" className="tcg-primary-action" onClick={() => selectTask(project.firstTaskId)}>
                                   열기 · {project.progressPct}%
                                 </GameControlButton>
-                              </article>
+                              </SiCodingIconRow>
                             ))}
                           </div>
                         </section>
         
                         <section className="games-panel">
-                          <div className="games-panel-title">
-                            <h2>자원과 인사이트</h2>
-                            <span>{profileSummary.career.reputationLabel}</span>
-                          </div>
+                          <SiCodingPanelTitle action="analysis" title="자원과 인사이트" meta={profileSummary.career.reputationLabel} />
                           <div className="games-rank-split">
-                            <SmallStat label="체력" value={state.resources.stamina} />
-                            <SmallStat label="멘탈" value={state.resources.mentality} />
-                            <SmallStat label="고객신뢰" value={state.resources.clientTrust} />
-                            <SmallStat label="성장 제출" value={`${profileSummary.totalImprovedRuns}회`} />
+                            <SmallStat icon="status" label="체력" value={state.resources.stamina} />
+                            <SmallStat icon="support" label="멘탈" value={state.resources.mentality} />
+                            <SmallStat icon="guard" label="고객신뢰" value={state.resources.clientTrust} />
+                            <SmallStat icon="growth" label="성장 제출" value={`${profileSummary.totalImprovedRuns}회`} />
                           </div>
                           <div className="game-save-list" style={{ marginTop: 12 }}>
                             {insightRows.length ? insightRows.slice(0, 5).map((item) => (
-                              <article className="game-save-row" key={`field-${item.id}`}>
+                              <SiCodingIconRow action="analysis" key={`field-${item.id}`}>
                                 <div>
                                   <span>{item.label}</span>
                                   <strong>{item.detail}</strong>
                                 </div>
-                              </article>
+                              </SiCodingIconRow>
                             )) : <div className="games-empty">현재 과제 인사이트가 없습니다.</div>}
                           </div>
                         </section>

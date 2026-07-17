@@ -201,8 +201,8 @@ export default function SiCodingAdvancedTab({
                     <span>{latestEvaluation?.grade || '진행 중'}</span>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
-                    <ActionButton action="code" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
-                    <ActionButton action="guide" onClick={revealCurrentHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
+                    <ActionButton action="coding-submit" cue="codeSubmit" onClick={submitCurrentTask}>현재 과제 검수</ActionButton>
+                    <ActionButton action="hint" onClick={revealCurrentHint} disabled={!canRevealHint}>힌트 열기</ActionButton>
                     <ActionButton action="reset" onClick={resetCurrentTask}>현재 과제 초기화</ActionButton>
                     <ActionButton action="judge" onClick={() => setState((current) => evaluateProjectAction(current))}>프로젝트 종료 판정</ActionButton>
                   </div>
@@ -450,7 +450,7 @@ export default function SiCodingAdvancedTab({
                   </div>
                   <label className="game-save-json-field">
                     <span>파일</span>
-                    <select value={activeFileId} onChange={(event) => setSelectedFileId(event.target.value)}>
+                    <select value={activeFileId} onChange={(event) => setSelectedFileId(event.target.value)} data-game-sfx-change="codeFileSelect">
                       {files.map((file) => (
                         <option value={file.id} key={file.id}>{file.path || file.id}</option>
                       ))}
