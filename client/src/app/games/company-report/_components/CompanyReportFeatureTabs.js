@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameFeatureTabs } from '../../_components/GamePlayShell';
 import {
   ActionButton,
@@ -46,6 +47,18 @@ const OPERATION_ACTION_ICONS = {
   bookmark: 'bookmark',
   close: 'closing',
 };
+
+const RISK_ACTION_ICONS = [
+  { pattern: /현금|런웨이/, action: 'finance' },
+  { pattern: /채권|미수/, action: 'collection' },
+  { pattern: /재고|원가|마진/, action: 'valuation' },
+  { pattern: /세금|VAT/, action: 'tax' },
+  { pattern: /공시|신뢰/, action: 'disclosure' },
+];
+
+function riskActionIcon(label) {
+  return RISK_ACTION_ICONS.find((row) => row.pattern.test(String(label || '')))?.action || 'warning';
+}
 
 function buildOperationQueue({
   capitalSummary,
@@ -196,6 +209,7 @@ function buildOperationQueue({
 }
 
 export default function CompanyReportFeatureTabs({
+  activeTabId = 'board',
   applyLedgerAction,
   capitalSummary,
   disclosureTypeId,
@@ -214,6 +228,7 @@ export default function CompanyReportFeatureTabs({
   latestSnapshot,
   ledgerDiff,
   management,
+  onActiveTabChange = () => {},
   orders,
   partnerId,
   productId,
@@ -234,7 +249,6 @@ export default function CompanyReportFeatureTabs({
   stocks,
   vatPayAmount,
 }) {
-  const [activeTabId, setActiveTabId] = useState('board');
   const operationQueue = useMemo(() => buildOperationQueue({
     capitalSummary,
     globalSummary,
@@ -268,7 +282,7 @@ export default function CompanyReportFeatureTabs({
   ]);
 
   const runOperationQueueAction = (item) => {
-    if (item.tab) setActiveTabId(item.tab);
+    if (item.tab) onActiveTabChange(item.tab);
     if (item.action === 'collect-receivable') {
       applyLedgerAction('채권 회수', (current) => collectReceivableAction(current, selectedReceivable?.id));
       return;
@@ -314,7 +328,7 @@ export default function CompanyReportFeatureTabs({
     <section className="company-report-workspace">
       <GameFeatureTabs
         activeTabId={activeTabId}
-        onTabChange={setActiveTabId}
+        onTabChange={onActiveTabChange}
         tabs={[
           {
             id: 'board',
@@ -350,7 +364,11 @@ export default function CompanyReportFeatureTabs({
                   </div>
                   <div className="game-save-list">
                     {operationQueue.rows.map((item) => (
-                      <article className="game-save-row" key={item.id}>
+                      <article className="game-save-row company-report-icon-row" key={item.id}>
+                        <GameActionIcon
+                          action={OPERATION_ACTION_ICONS[item.action] || 'execute'}
+                          label={item.kind}
+                        />
                         <div>
                           <span>{item.kind}</span>
                           <strong>{item.title}</strong>
@@ -375,7 +393,8 @@ export default function CompanyReportFeatureTabs({
                   </div>
                   <div className="game-save-list">
                     {management.riskRows.map((row) => (
-                      <article className="game-save-row" key={row.label}>
+                      <article className="game-save-row company-report-icon-row is-risk" key={row.label}>
+                        <GameActionIcon action={riskActionIcon(row.label)} label={row.label} />
                         <div>
                           <span>관리 지표</span>
                           <strong>{row.label}</strong>

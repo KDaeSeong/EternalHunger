@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -38,17 +39,24 @@ import {
   companyReportResultPresentation,
   companyReportTextPresentation,
 } from '../_lib/companyReportFeedback';
+import {
+  companyReportResultMusic,
+  resolveCompanyReportBgmScene,
+} from '../_lib/companyReportSoundtrack';
 
 export default function CompanyReportPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'ledger' });
   const [state, setState] = useState(() => createNewState());
   const stateRef = useRef(state);
   const [guidanceLevel, setGuidanceLevel] = useState('outsider');
+  const [activeFeatureTabId, setActiveFeatureTabId] = useState('board');
   const [actionResult, setActionResult] = useState('');
   const [actionPresentation, setActionPresentation] = useState(() => companyReportResultPresentation(state, state));
+  const musicSceneTimerRef = useRef(null);
   const {
     disclosureTypeId,
     financingTypeId,
@@ -169,6 +177,30 @@ export default function CompanyReportPlayPage() {
   const exportBaseName = buildCompanyReportExportBaseName(state);
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 원장 액션이 없습니다.';
   const resultPresentation = companyReportTextPresentation(recentActionText, actionPresentation);
+  const baseMusicScene = useMemo(() => resolveCompanyReportBgmScene({
+    activeTabId: activeFeatureTabId,
+    cashKrw: state.company.cashKrw,
+    cashRunwayMonths: management.cashFlow.cashRunwayMonths,
+    disclosureRisk: capitalSummary.disclosureRisk,
+    operatingProfit: management.income.operatingProfit,
+  }), [
+    activeFeatureTabId,
+    capitalSummary.disclosureRisk,
+    management.cashFlow.cashRunwayMonths,
+    management.income.operatingProfit,
+    state.company.cashKrw,
+  ]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const applyLedgerAction = (label, updater, fallback = '') => {
     const previousState = stateRef.current;
@@ -179,6 +211,15 @@ export default function CompanyReportPlayPage() {
     setActionPresentation(presentation);
     setActionResult(actionFeedbackText(previousState, nextState, label, fallback));
     if (presentation.cue) playGameSfx(presentation.cue);
+    const musicTransition = companyReportResultMusic(presentation);
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
     return nextState;
   };
 
@@ -259,6 +300,7 @@ export default function CompanyReportPlayPage() {
     stateRef.current = nextState;
     setState(nextState);
     resetForNewRun();
+    setActiveFeatureTabId('board');
     setActionPresentation(companyReportResultPresentation(previousState, nextState));
     setActionResult('새 Company Report 원장을 시작했습니다.');
     setMessage('');
@@ -388,6 +430,7 @@ export default function CompanyReportPlayPage() {
       />
 
       <CompanyReportFeatureTabs
+        activeTabId={activeFeatureTabId}
         applyLedgerAction={applyLedgerAction}
         capitalSummary={capitalSummary}
         detailPanels={detailPanels}
@@ -406,6 +449,7 @@ export default function CompanyReportPlayPage() {
         latestSnapshot={latestSnapshot}
         ledgerDiff={ledgerDiff}
         management={management}
+        onActiveTabChange={setActiveFeatureTabId}
         orders={orders}
         partnerId={partnerId}
         productId={productId}

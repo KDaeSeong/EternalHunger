@@ -6905,6 +6905,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+.game-save-row.company-report-icon-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 10px;
+}
+
+.company-report-icon-row > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(44, 111, 158, 0.16);
+  border-radius: 7px;
+  background: #e8f3fa;
+  color: #1b6fa2;
+}
+
+.company-report-icon-row.is-risk > .game-action-icon {
+  border-color: rgba(176, 111, 26, 0.2);
+  background: #fff5df;
+  color: #9b641f;
+}
+
+.company-report-icon-row > strong:last-child {
+  color: #1f5f86;
+  font-variant-numeric: tabular-nums;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -12001,6 +12027,21 @@
 
   .company-report-workspace .game-feature-tabs__list button strong {
     display: none;
+  }
+
+  .game-save-row.company-report-icon-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .company-report-icon-row > .game-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .company-report-icon-row > .tcg-primary-action,
+  .company-report-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .si-coding-page-shell .games-hero--compact {
