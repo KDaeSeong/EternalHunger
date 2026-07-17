@@ -102,8 +102,8 @@ export default function Rail3dAnalysisTab(props) {
                     {bottleneck.segmentRows.map((segment) => (
                       <article className="game-save-row" key={segment.id}>
                         <div>
-                          <span>{segment.edgeIds.join(', ')} · entry {segment.entryStations.join(', ') || '-'}</span>
-                          <strong>{segment.id}</strong>
+                          <span>{segment.id} · {segment.edgeIds.join(', ')} · 진입 {segment.entryStations.join(', ') || '-'}</span>
+                          <strong>{segment.name}</strong>
                           <small>{segment.waiting.length ? `대기 ${segment.waiting.join(', ')}` : '대기 없음'} · {segment.waitSeconds}s</small>
                         </div>
                         <strong>{segment.status}</strong>

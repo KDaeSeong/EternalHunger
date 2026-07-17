@@ -1,76 +1,90 @@
 {
   "services": [
     {
-      "id": "SV1",
-      "name": "Local A",
+      "id": "SV_E101",
+      "code": "R101",
+      "name": "해오름 완행",
+      "serviceClass": "완행",
+      "direction": "동행",
+      "color": "#2f95c9",
       "stops": [
-        {
-          "stationId": "S1",
-          "arriveS": 0,
-          "departS": 10
-        },
-        {
-          "stationId": "S2",
-          "arriveS": 180,
-          "departS": 200
-        },
-        {
-          "stationId": "S3",
-          "arriveS": 420,
-          "departS": 430
-        }
+        { "stationId": "S1", "arriveS": 0, "departS": 15 },
+        { "stationId": "S2", "arriveS": 150, "departS": 175 },
+        { "stationId": "S3", "arriveS": 350, "departS": 380 },
+        { "stationId": "S4", "arriveS": 570, "departS": 595 },
+        { "stationId": "S5", "arriveS": 800, "departS": 815 }
       ]
     },
     {
-      "id": "SV2",
-      "name": "Local B",
+      "id": "SV_W202",
+      "code": "R202",
+      "name": "노을 완행",
+      "serviceClass": "완행",
+      "direction": "서행",
+      "color": "#d67845",
       "stops": [
-        {
-          "stationId": "S1",
-          "arriveS": 60,
-          "departS": 70
-        },
-        {
-          "stationId": "S2",
-          "arriveS": 240,
-          "departS": 260
-        },
-        {
-          "stationId": "S3",
-          "arriveS": 480,
-          "departS": 490
-        }
+        { "stationId": "S5", "arriveS": 30, "departS": 45 },
+        { "stationId": "S4", "arriveS": 240, "departS": 265 },
+        { "stationId": "S3", "arriveS": 460, "departS": 490 },
+        { "stationId": "S2", "arriveS": 670, "departS": 695 },
+        { "stationId": "S1", "arriveS": 840, "departS": 855 }
+      ]
+    },
+    {
+      "id": "SV_E103",
+      "code": "R103",
+      "name": "해오름 통근",
+      "serviceClass": "통근",
+      "direction": "동행",
+      "color": "#35a779",
+      "stops": [
+        { "stationId": "S1", "arriveS": 180, "departS": 195 },
+        { "stationId": "S2", "arriveS": 330, "departS": 345 },
+        { "stationId": "S3", "arriveS": 520, "departS": 545 },
+        { "stationId": "S4", "arriveS": 735, "departS": 750 },
+        { "stationId": "S5", "arriveS": 940, "departS": 950 }
+      ]
+    },
+    {
+      "id": "SV_W204",
+      "code": "R204",
+      "name": "노을 통근",
+      "serviceClass": "통근",
+      "direction": "서행",
+      "color": "#8b6fc6",
+      "stops": [
+        { "stationId": "S5", "arriveS": 210, "departS": 225 },
+        { "stationId": "S4", "arriveS": 420, "departS": 435 },
+        { "stationId": "S3", "arriveS": 625, "departS": 650 },
+        { "stationId": "S2", "arriveS": 835, "departS": 850 },
+        { "stationId": "S1", "arriveS": 1000, "departS": 1010 }
       ]
     }
   ],
   "trains": [
     {
-      "id": "T1",
-      "serviceId": "SV1",
-      "spawn": {
-        "edgeId": "E0",
-        "headS": 5,
-        "dir": 1
-      },
-      "kin": {
-        "aAccel": 0.9,
-        "aBrake": 1.1,
-        "vmaxKmh": 110
-      }
+      "id": "T101",
+      "serviceId": "SV_E101",
+      "spawn": { "edgeId": "E0", "headS": 8, "dir": 1 },
+      "kin": { "aAccel": 0.9, "aBrake": 1.1, "vmaxKmh": 100 }
     },
     {
-      "id": "T2",
-      "serviceId": "SV2",
-      "spawn": {
-        "edgeId": "E0",
-        "headS": 0,
-        "dir": 1
-      },
-      "kin": {
-        "aAccel": 0.8,
-        "aBrake": 1.1,
-        "vmaxKmh": 110
-      }
+      "id": "T202",
+      "serviceId": "SV_W202",
+      "spawn": { "edgeId": "E3", "headS": 224, "dir": -1 },
+      "kin": { "aAccel": 0.82, "aBrake": 1.08, "vmaxKmh": 95 }
+    },
+    {
+      "id": "T103",
+      "serviceId": "SV_E103",
+      "spawn": { "edgeId": "E0", "headS": 8, "dir": 1 },
+      "kin": { "aAccel": 1.0, "aBrake": 1.15, "vmaxKmh": 110 }
+    },
+    {
+      "id": "T204",
+      "serviceId": "SV_W204",
+      "spawn": { "edgeId": "E3", "headS": 224, "dir": -1 },
+      "kin": { "aAccel": 0.95, "aBrake": 1.12, "vmaxKmh": 105 }
     }
   ]
 }

@@ -12180,6 +12180,224 @@
   margin-top: 0;
 }
 
+.rail-schedule-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.38fr) minmax(0, 1.62fr);
+  gap: 10px;
+}
+
+.rail-schedule-summary {
+  align-self: start;
+}
+
+.rail-schedule-summary .games-rank-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rail-timetable-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rail-timetable-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  min-height: 112px;
+  padding: 10px;
+  border: 1px solid #d9e2e8;
+  border-left: 4px solid var(--rail-service-color, #4b91b5);
+  border-radius: 6px;
+  background: #f8fafb;
+}
+
+.rail-timetable-row > .game-action-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--rail-service-color, #4b91b5);
+}
+
+.rail-timetable-row__main,
+.rail-timetable-row__heading {
+  display: grid;
+  min-width: 0;
+}
+
+.rail-timetable-row__heading {
+  gap: 2px;
+}
+
+.rail-timetable-row__heading span,
+.rail-timetable-row__main small,
+.rail-station-board-card span,
+.rail-station-board-card small {
+  color: #5f7180;
+  font-size: 0.72rem;
+}
+
+.rail-timetable-row__heading strong {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-timetable-row__route {
+  display: grid;
+  grid-template-columns: auto 16px auto minmax(78px, 1fr);
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 5px;
+  font-size: 0.74rem;
+}
+
+.rail-timetable-row__route span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-timetable-row__route time {
+  justify-self: end;
+  color: #526675;
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-timetable-progress {
+  height: 5px;
+  margin: 8px 0 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #dce5ea;
+}
+
+.rail-timetable-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rail-service-color, #4b91b5);
+  transition: width 180ms ease;
+}
+
+.rail-timetable-row__status {
+  align-self: start;
+  color: #37627a;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+
+.rail-timetable-row.is-stopped {
+  border-color: #e6a6a8;
+  background: #fff6f6;
+}
+
+.rail-timetable-row.is-stopped .rail-timetable-row__status,
+.rail-timetable-row.is-delayed .rail-timetable-row__status {
+  color: #b2474d;
+}
+
+.rail-timetable-row.is-complete {
+  background: #f3faf6;
+}
+
+.rail-station-board-panel {
+  grid-column: 1 / -1;
+}
+
+.rail-station-board-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.rail-station-board-card {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #dce4e9;
+  border-radius: 6px;
+  background: #f8fafb;
+}
+
+.rail-station-board-card > .game-action-icon {
+  width: 24px;
+  height: 24px;
+  color: #317a92;
+}
+
+.rail-station-board-card > div:not(.rail-station-call-strip) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rail-station-board-card > div > strong,
+.rail-station-board-card > div > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-station-board-card > strong {
+  color: #4c6372;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.rail-station-call-strip {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.rail-station-call-strip > span {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  min-width: 0;
+  padding-top: 4px;
+  border-top: 3px solid var(--rail-service-color, #4b91b5);
+  background: #edf3f6;
+}
+
+.rail-station-call-strip time,
+.rail-station-call-strip b {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-station-call-strip .is-passed {
+  opacity: 0.48;
+}
+
+.rail-station-call-strip .is-delayed {
+  color: #b2474d;
+  background: #fff1f1;
+}
+
+@media (max-width: 1120px) {
+  .rail-schedule-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .rail-station-board-panel {
+    grid-column: auto;
+  }
+
+  .rail-station-board-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 760px) {
   .rail3d-page-shell .games-hero--compact,
   .racing-logos-page-shell .games-hero--compact,
@@ -12249,6 +12467,24 @@
 
   .rail-map-selection > .game-action-icon {
     grid-row: 1 / span 2;
+  }
+
+  .rail-timetable-grid,
+  .rail-station-board-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rail-timetable-row {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+
+  .rail-timetable-row__route {
+    grid-template-columns: auto 14px auto;
+  }
+
+  .rail-timetable-row__route time {
+    grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 

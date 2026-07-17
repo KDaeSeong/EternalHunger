@@ -7,6 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import Rail3dFeatureTabs from '../_components/Rail3dFeatureTabs';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
@@ -41,6 +42,10 @@ import {
   rail3dFeedbackSnapshot,
   rail3dResultPresentation,
 } from '../_lib/rail3dFeedback';
+import {
+  rail3dResultMusic,
+  resolveRail3dBgmScene,
+} from '../_lib/rail3dSoundtrack';
 import { actionFeedbackText } from '../_components/Rail3dPlayPanels';
 
 function buildDispatchPlan({ rows, completed, stopped, tokenWaits, bottleneck, report, state }) {
@@ -119,9 +124,10 @@ export default function Rail3dSimPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'rail' });
   const [state, setState] = useState(() => createNewState());
-  const [selectedTrainId, setSelectedTrainId] = useState('T1');
+  const [selectedTrainId, setSelectedTrainId] = useState(() => state.trains[0]?.id || '');
   const [activeFeatureTabId, setActiveFeatureTabId] = useState('operations');
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
@@ -134,6 +140,7 @@ export default function Rail3dSimPlayPage() {
     tone: '',
   });
   const feedbackRef = useRef(rail3dFeedbackSnapshot(state));
+  const musicSceneTimerRef = useRef(null);
 
   const rows = useMemo(() => trainRows(state), [state]);
   const blocks = useMemo(() => blockSummary(state), [state]);
@@ -152,13 +159,42 @@ export default function Rail3dSimPlayPage() {
     [rows, completed, stopped, tokenWaits, bottleneck, report, state],
   );
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 운행 액션이 없습니다.';
+  const baseMusicScene = useMemo(() => resolveRail3dBgmScene({
+    activeTabId: activeFeatureTabId,
+    completed,
+    healthScore: bottleneck.healthScore,
+    nowS: state.nowS,
+    stopped,
+    tokenWaits,
+    total: rows.length,
+  }), [activeFeatureTabId, bottleneck.healthScore, completed, rows.length, state.nowS, stopped, tokenWaits]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
     const current = rail3dFeedbackSnapshot(state);
     const cue = rail3dFeedbackCue(feedbackRef.current, current);
     if (cue) playGameSfx(cue);
+    const musicTransition = rail3dResultMusic(rail3dFeedbackPresentation(feedbackRef.current, current));
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
     feedbackRef.current = current;
-  }, [playGameSfx, state]);
+  }, [baseMusicScene, playGameSfx, setMusicScene, state]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const applyRailAction = (label, updater, fallback = '') => {
     const nextState = updater(state);

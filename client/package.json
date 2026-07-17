@@ -40,6 +40,7 @@
     "check:primitive-archive-feedback": "node ./scripts/check-primitive-archive-feedback.mjs",
     "check:primitive-archive-soundtrack": "node ./scripts/check-primitive-archive-soundtrack.mjs",
     "check:rail3d-feedback": "node ./scripts/check-rail3d-feedback.mjs",
+    "check:rail3d-soundtrack": "node ./scripts/check-rail3d-soundtrack.mjs",
     "check:racing-logos-feedback": "node ./scripts/check-racing-logos-feedback.mjs",
     "check:schale-idle-feedback": "node ./scripts/check-schale-idle-feedback.mjs",
     "check:school-simulator-feedback": "node ./scripts/check-school-simulator-feedback.mjs",

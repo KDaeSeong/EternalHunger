@@ -32,7 +32,7 @@ export function createNewState(options = {}) {
       signalState: 'GO',
       blockedBy: null,
       waitSeconds: 0,
-      actualArriveS: firstStop ? { 0: firstStop.arriveS } : {},
+      actualArriveS: firstStop && Number(firstStop.arriveS || 0) <= 0 ? { 0: 0 } : {},
       actualDepartS: {},
     };
   });
@@ -46,7 +46,7 @@ export function createNewState(options = {}) {
     trains,
     blocks: buildBlocks(),
     segmentTokens: buildSegmentTokens(trains),
-    log: ['Rail3D MVP 노선 시뮬레이션을 시작했습니다. Step으로 시간표와 블록 점유를 확인하세요.'],
+    log: ['동서 간선 운행을 시작했습니다. 5개 역, 4개 편성, 3개 단선 토큰의 교행을 관제하세요.'],
   };
   return refreshBlocks(state);
 }
@@ -76,7 +76,7 @@ export function stepAction(state, seconds = null) {
   const nextTrains = current.trains.map((train) => {
     const advanced = advanceTrain(current, train, nextNow, dt, occupied, segmentOwners);
     const key = blockKey(advanced.pose.edgeId, advanced.pose.headS);
-    if (key && advanced.phase !== 'DONE') occupied.set(key, advanced.id);
+    if (key && claimsMainline(advanced)) occupied.set(key, advanced.id);
     return advanced;
   });
   current = refreshBlocks({
@@ -127,7 +127,11 @@ export function trainRows(state) {
       .pop() || 0;
     return {
       id: train.id,
+      serviceCode: service?.code || service?.id || train.serviceId,
       serviceName: service?.name || train.serviceId,
+      serviceClass: service?.serviceClass || '일반',
+      direction: service?.direction || '-',
+      color: service?.color || '#4b91b5',
       phase: train.phase,
       signalState: train.signalState,
       blockedBy: train.blockedBy,
@@ -222,6 +226,7 @@ export function segmentSummary(state) {
   const owners = buildSegmentOwnerMap(current.trains);
   return SEGMENTS.map((segment) => ({
     id: segment.id,
+    name: segment.name || segment.id,
     edgeIds: segment.edgeIds || [],
     entryStations: segment.entryStations || [],
     owner: owners.get(segment.id) || null,
@@ -239,10 +244,15 @@ export function mapViewState(state) {
     stations: TRACK.stations,
     blocks: current.blocks,
     segments: segmentSummary(current),
-    trains: current.trains.map((train) => ({
-      ...train,
-      point: pointOnEdge(train.pose.edgeId, train.pose.headS),
-    })),
+    trains: current.trains.map((train) => {
+      const service = servicesMap()[train.serviceId];
+      return {
+        ...train,
+        color: service?.color || '#39c6f0',
+        serviceCode: service?.code || service?.id || train.serviceId,
+        point: pointOnEdge(train.pose.edgeId, train.pose.headS),
+      };
+    }),
   };
 }
 
@@ -317,10 +327,20 @@ export function scheduleReport(state) {
     const positiveDelayS = stops.reduce((sum, stop) => sum + Math.max(0, Number(stop.arriveDelayS || 0)), 0);
     const maxDelayS = stops.reduce((max, stop) => Math.max(max, Math.max(0, Number(stop.arriveDelayS || 0))), 0);
     const nextStop = stops[train.nextStopIndex] || stops[train.stopIndex] || null;
+    const firstStop = stops[0] || null;
+    const finalStop = stops[stops.length - 1] || null;
     return {
       id: train.id,
       serviceId: service.id,
+      serviceCode: service.code || service.id,
       serviceName: service.name || service.id,
+      serviceClass: service.serviceClass || '일반',
+      direction: service.direction || '-',
+      color: service.color || '#4b91b5',
+      origin: firstStop?.stationName || '-',
+      destination: finalStop?.stationName || '-',
+      scheduledStartS: firstStop?.scheduledDepartS || 0,
+      scheduledEndS: finalStop?.scheduledArriveS || 0,
       phase: train.phase,
       signalState: train.signalState,
       stopReason: train.stopReason || null,
@@ -331,6 +351,7 @@ export function scheduleReport(state) {
       totalStops: stops.length,
       remaining: Math.max(0, stops.length - arrived),
       nextStation: nextStop?.stationName || '종착',
+      nextScheduledS: nextStop?.scheduledArriveS ?? finalStop?.scheduledArriveS ?? 0,
       positiveDelayS: Math.round(positiveDelayS),
       maxDelayS: Math.round(maxDelayS),
       stops,
@@ -383,6 +404,7 @@ export function bottleneckAnalysisReport(state) {
       const severity = waitSeconds + (segment.owner ? 25 : 0) + segment.waiting.length * 80;
       return {
         id: segment.id,
+        name: segment.name || segment.id,
         owner: segment.owner || '',
         waiting: segment.waiting,
         edgeIds: segment.edgeIds,
@@ -534,7 +556,11 @@ export function stationBoardRows(state) {
             : 0;
           return {
             trainId: train.id,
+            serviceCode: train.serviceCode,
             serviceName: train.serviceName,
+            serviceClass: train.serviceClass,
+            direction: train.direction,
+            color: train.color,
             status: stop.status,
             scheduledArriveS: stop.scheduledArriveS,
             scheduledDepartS: stop.scheduledDepartS,
@@ -594,6 +620,12 @@ function advanceTrain(state, train, nowS, dt, occupied, segmentOwners) {
     const departS = Number(currentStop.departS || currentStop.arriveS || 0);
     if (nowS < departS) return next;
     next.phase = 'RUNNING';
+    if (!Number.isFinite(Number(next.actualArriveS?.[next.stopIndex]))) {
+      next.actualArriveS = {
+        ...(next.actualArriveS || {}),
+        [next.stopIndex]: Number(currentStop.arriveS || departS),
+      };
+    }
     next.actualDepartS = { ...(next.actualDepartS || {}), [next.stopIndex]: departS };
   }
 
@@ -660,7 +692,7 @@ function refreshBlocks(state) {
   const occupied = new Set();
   const reserved = new Map();
   state.trains.forEach((train) => {
-    if (train.phase === 'DONE') return;
+    if (!claimsMainline(train)) return;
     const key = blockKey(train.pose.edgeId, train.pose.headS);
     if (!key) return;
     occupied.add(key);
@@ -673,7 +705,7 @@ function refreshBlocks(state) {
   });
   const nextBlocks = blocks.map((block) => {
     if (occupied.has(block.id)) {
-      const owner = state.trains.find((train) => blockKey(train.pose.edgeId, train.pose.headS) === block.id)?.id || null;
+      const owner = state.trains.find((train) => claimsMainline(train) && blockKey(train.pose.edgeId, train.pose.headS) === block.id)?.id || null;
       return { ...block, state: 'OCCUPIED', owner };
     }
     if (reserved.has(block.id)) return { ...block, state: 'RESERVED', owner: reserved.get(block.id) };
@@ -694,10 +726,21 @@ function buildSegmentTokens(trains) {
   }));
 }
 
+function claimsMainline(train) {
+  return Boolean(
+    train
+    && train.phase !== 'DONE'
+    && train.phase !== 'DWELL'
+    && train.stopReason?.kind !== 'TOKEN_WAIT',
+  );
+}
+
 function buildSegmentOwnerMap(trains) {
   const owners = new Map();
   (trains || []).forEach((train) => {
-    if (!train || train.phase === 'DONE') return;
+    // Stations act as passing sidings, so only trains occupying the main line
+    // retain a block and a single-track token.
+    if (!claimsMainline(train)) return;
     const segmentId = segmentIdForPose(train.pose);
     if (segmentId && !owners.has(segmentId)) owners.set(segmentId, train.id);
   });
@@ -813,20 +856,28 @@ function firstStationHeadwayRows() {
     })
     .filter(Boolean)
     .sort((a, b) => a.departS - b.departS || a.trainId.localeCompare(b.trainId, 'ko-KR'));
-  return departures.slice(1).map((row, index) => {
-    const previous = departures[index];
-    const headwayS = Math.max(0, row.departS - previous.departS);
-    return {
-      id: `${previous.trainId}-${row.trainId}`,
-      fromTrainId: previous.trainId,
-      toTrainId: row.trainId,
-      stationName: row.stationName,
-      fromDepartS: previous.departS,
-      toDepartS: row.departS,
-      headwayS,
-      status: headwayS < 90 ? '좁음' : headwayS < 150 ? '보통' : '여유',
-    };
-  });
+  const departuresByStation = departures.reduce((groups, row) => {
+    const stationRows = groups.get(row.stationId) || [];
+    stationRows.push(row);
+    groups.set(row.stationId, stationRows);
+    return groups;
+  }, new Map());
+  return [...departuresByStation.values()].flatMap((stationDepartures) => (
+    stationDepartures.slice(1).map((row, index) => {
+      const previous = stationDepartures[index];
+      const headwayS = Math.max(0, row.departS - previous.departS);
+      return {
+        id: `${previous.trainId}-${row.trainId}`,
+        fromTrainId: previous.trainId,
+        toTrainId: row.trainId,
+        stationName: row.stationName,
+        fromDepartS: previous.departS,
+        toDepartS: row.departS,
+        headwayS,
+        status: headwayS < 90 ? '좁음' : headwayS < 150 ? '보통' : '여유',
+      };
+    })
+  ));
 }
 
 function interpolateStopPoints(fromPoint, toPoint, progress) {

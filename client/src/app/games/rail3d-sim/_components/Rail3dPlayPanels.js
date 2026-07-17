@@ -60,8 +60,22 @@ export function RailMap({ state, selectedTrainId, onSelectTrain }) {
   const minX = Math.min(...xs, 0) - 40;
   const maxX = Math.max(...xs, 500) + 40;
   const minZ = Math.min(...zs, 0) - 80;
-  const maxZ = Math.max(...zs, 120) + 80;
+  const maxZ = Math.max(...zs, 0) + 80;
   const stationByStop = new Map(TRACK.stations.map((station) => [station.stopPoint.edgeId + ':' + station.stopPoint.sM, station]));
+  const trainsByPoint = view.trains.reduce((groups, train) => {
+    const key = `${Math.round(train.point.x)}:${Math.round(train.point.z)}`;
+    const group = groups.get(key) || [];
+    group.push(train.id);
+    groups.set(key, group);
+    return groups;
+  }, new Map());
+  const trainLaneOffsets = new Map();
+  trainsByPoint.forEach((trainIds) => {
+    trainIds.forEach((trainId, index) => {
+      const centeredIndex = index - (trainIds.length - 1) / 2;
+      trainLaneOffsets.set(trainId, trainIds.length === 1 ? -18 : centeredIndex * 72);
+    });
+  });
 
   return (
     <svg className="rail-map" viewBox={`${minX} ${minZ} ${maxX - minX} ${maxZ - minZ}`} role="img" aria-label="Rail3D minimap">
@@ -101,7 +115,7 @@ export function RailMap({ state, selectedTrainId, onSelectTrain }) {
           <g key={station.id} className="rail-map__station">
             <circle cx={point.x} cy={point.z} r="17" fill="#f7fbff" stroke="#2673a6" strokeWidth="4" />
             <MapPin aria-hidden="true" x={point.x - 10} y={point.z - 10} width="20" height="20" stroke="#164866" strokeWidth="2.6" />
-            <text x={point.x} y={point.z - 24} fill="#f7fbff" textAnchor="middle" fontSize="18" fontWeight="800">{station.name}</text>
+            <text x={point.x} y={point.z - 24} fill="#f7fbff" textAnchor="middle" fontSize="18" fontWeight="800">{station.shortName || station.name}</text>
             <title>{`${station.name} · ${station.id}`}</title>
           </g>
         );
@@ -123,8 +137,8 @@ export function RailMap({ state, selectedTrainId, onSelectTrain }) {
         );
       })}
       {view.trains.map((train, index) => {
-        const yOffset = index % 2 === 0 ? -18 : 42;
-        const fill = train.signalState === 'STOP' ? '#e84855' : train.phase === 'DONE' ? '#8ea3ad' : '#39c6f0';
+        const yOffset = trainLaneOffsets.get(train.id) ?? (index % 2 === 0 ? -18 : 42);
+        const fill = train.signalState === 'STOP' ? '#e84855' : train.phase === 'DONE' ? '#8ea3ad' : train.color;
         const station = stationByStop.get(train.pose.edgeId + ':' + train.pose.headS);
         const selected = train.id === selectedTrainId;
         const iconSize = selected ? 34 : 28;

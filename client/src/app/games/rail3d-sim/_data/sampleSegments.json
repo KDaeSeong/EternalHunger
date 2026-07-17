@@ -1,14 +1,37 @@
 {
   "segments": [
     {
-      "id": "SEG_SINGLE_MAIN",
+      "id": "SEG_WEST",
+      "name": "서부 단선",
       "edgeIds": [
-        "E0",
-        "E1"
+        "E0"
       ],
       "entryStations": [
         "S1",
-        "S3"
+        "S2"
+      ]
+    },
+    {
+      "id": "SEG_CENTRAL",
+      "name": "중앙 교행 구간",
+      "edgeIds": [
+        "E1",
+        "E2"
+      ],
+      "entryStations": [
+        "S2",
+        "S4"
+      ]
+    },
+    {
+      "id": "SEG_EAST",
+      "name": "동부 단선",
+      "edgeIds": [
+        "E3"
+      ],
+      "entryStations": [
+        "S4",
+        "S5"
       ]
     }
   ]

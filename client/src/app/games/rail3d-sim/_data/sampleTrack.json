@@ -7,13 +7,23 @@
     },
     {
       "id": "N2",
-      "x": 200,
-      "z": 0
+      "x": 180,
+      "z": -25
     },
     {
       "id": "N3",
-      "x": 450,
-      "z": 0
+      "x": 390,
+      "z": 10
+    },
+    {
+      "id": "N4",
+      "x": 620,
+      "z": -35
+    },
+    {
+      "id": "N5",
+      "x": 850,
+      "z": 5
     }
   ],
   "edges": [
@@ -21,52 +31,95 @@
       "id": "E0",
       "from": "N1",
       "to": "N2",
-      "lengthM": 200,
+      "lengthM": 180,
       "bidirectional": true
     },
     {
       "id": "E1",
       "from": "N2",
       "to": "N3",
-      "lengthM": 250,
+      "lengthM": 210,
+      "bidirectional": true
+    },
+    {
+      "id": "E2",
+      "from": "N3",
+      "to": "N4",
+      "lengthM": 230,
+      "bidirectional": true
+    },
+    {
+      "id": "E3",
+      "from": "N4",
+      "to": "N5",
+      "lengthM": 230,
       "bidirectional": true
     }
   ],
   "stations": [
     {
       "id": "S1",
-      "name": "Depot",
+      "name": "서해 차량기지",
+      "shortName": "서해",
       "stopPoint": {
         "edgeId": "E0",
-        "sM": 10
+        "sM": 8
       }
     },
     {
       "id": "S2",
-      "name": "Central",
+      "name": "항만",
+      "shortName": "항만",
       "stopPoint": {
         "edgeId": "E0",
-        "sM": 200
+        "sM": 174
       }
     },
     {
       "id": "S3",
-      "name": "Terminal",
+      "name": "중앙",
+      "shortName": "중앙",
       "stopPoint": {
         "edgeId": "E1",
-        "sM": 250
+        "sM": 205
+      }
+    },
+    {
+      "id": "S4",
+      "name": "강변",
+      "shortName": "강변",
+      "stopPoint": {
+        "edgeId": "E2",
+        "sM": 225
+      }
+    },
+    {
+      "id": "S5",
+      "name": "동부 터미널",
+      "shortName": "동부",
+      "stopPoint": {
+        "edgeId": "E3",
+        "sM": 224
       }
     }
   ],
   "speedLimits": [
     {
       "edgeId": "E0",
-      "limitKmh": 80
+      "limitKmh": 60
     },
     {
       "edgeId": "E1",
-      "limitKmh": 90
+      "limitKmh": 80
+    },
+    {
+      "edgeId": "E2",
+      "limitKmh": 95
+    },
+    {
+      "edgeId": "E3",
+      "limitKmh": 75
     }
   ],
-  "blockLengthM": 50
+  "blockLengthM": 45
 }
