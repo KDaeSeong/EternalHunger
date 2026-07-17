@@ -5314,6 +5314,7 @@
   min-height: 26px;
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   border: 1px solid rgba(44, 111, 158, 0.18);
   border-radius: 999px;
   background: #f4f9fd;
@@ -5322,6 +5323,12 @@
   font-size: 0.74rem;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.tcg-duel-pulse aside .game-action-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
 }
 
 .tcg-duel-pulse.is-red {
@@ -5744,6 +5751,19 @@
   font-weight: 950;
 }
 
+.tcg-small-stats dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tcg-small-stats dt .game-action-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  color: #2c6f9e;
+}
+
 .tcg-board {
   display: grid;
   gap: 14px;
@@ -6059,6 +6079,20 @@
   font-size: 0.86rem;
   font-weight: 800;
   line-height: 1.45;
+}
+
+.tcg-log .tcg-event-log-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 7px;
+  align-items: start;
+}
+
+.tcg-event-log-item > .game-action-icon {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  color: #2c6f9e;
 }
 
 @media (max-width: 980px) {

@@ -9,14 +9,33 @@ const feedbackUrl = new URL('../src/app/games/dual-academy-tcg/_lib/dualAcademyT
 const catalogUrl = new URL('../src/app/games/dual-academy-tcg/_lib/tcgCatalog.js', import.meta.url);
 const engineUrl = new URL('../src/app/games/dual-academy-tcg/_lib/tcgDuelEngine.js', import.meta.url);
 const boardUrl = new URL('../src/app/games/dual-academy-tcg/_components/TcgPlayBoard.js', import.meta.url);
+const advisorUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgAdvisorTab.js', import.meta.url);
+const inspectUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgInspectTab.js', import.meta.url);
+const logsUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgLogsTab.js', import.meta.url);
+const pulseUrl = new URL('../src/app/games/dual-academy-tcg/_components/DualAcademyTcgDuelPulse.js', import.meta.url);
 const iconUrl = new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url);
 const sfxUrl = new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url);
 
-const [feedbackSource, catalogSource, rawEngineSource, boardSource, iconSource, sfxSource] = await Promise.all([
+const [
+  feedbackSource,
+  catalogSource,
+  rawEngineSource,
+  boardSource,
+  advisorSource,
+  inspectSource,
+  logsSource,
+  pulseSource,
+  iconSource,
+  sfxSource,
+] = await Promise.all([
   readFile(feedbackUrl, 'utf8'),
   readFile(catalogUrl, 'utf8'),
   readFile(engineUrl, 'utf8'),
   readFile(boardUrl, 'utf8'),
+  readFile(advisorUrl, 'utf8'),
+  readFile(inspectUrl, 'utf8'),
+  readFile(logsUrl, 'utf8'),
+  readFile(pulseUrl, 'utf8'),
   readFile(iconUrl, 'utf8'),
   readFile(sfxUrl, 'utf8'),
 ]);
@@ -83,7 +102,10 @@ assert.equal(cueFor(duel({
     enemy: { lp: 6500, grave: [], banished: [] },
   },
   events: [{ id: 'e5', type: 'ATTACK_DECLARE', actor: 'player', text: '직접 공격: 1500 LP 피해', turn: 2, phase: 'BATTLE' }],
-})), 'tcgHit');
+})), 'tcgDirectAttack');
+assert.equal(feedback.dualAcademyTcgPulse(duel({
+  events: [{ id: 'e5-pulse', type: 'ATTACK_DECLARE', actor: 'player', text: '직접 공격: 1500 LP 피해', turn: 2, phase: 'BATTLE' }],
+})).action, 'tcg-direct-attack');
 
 assert.equal(cueFor(duel({
   players: {
@@ -95,7 +117,64 @@ assert.equal(cueFor(duel({
 
 assert.equal(cueFor(duel({
   events: [{ id: 'e7', type: 'EFFECT_ACTIVATE', actor: 'enemy', text: '체인 효과가 무효화되었습니다.', turn: 2, phase: 'MAIN1' }],
-})), 'tcgNegate');
+})), 'tcgCounter');
+
+assert.equal(cueFor(duel({
+  players: {
+    player: { lp: 8000, grave: [], banished: [] },
+    enemy: { lp: 7200, grave: [], banished: [] },
+  },
+  events: [{ id: 'e7-pierce', type: 'DAMAGE_TAKEN', actor: 'enemy', text: '관통: 800 LP 피해', turn: 2, phase: 'BATTLE' }],
+})), 'tcgPierce');
+
+assert.equal(cueFor(duel({
+  players: {
+    player: { lp: 8000, grave: [], banished: [] },
+    enemy: { lp: 8000, grave: [], banished: [{ id: 'banished' }] },
+  },
+  events: [{ id: 'e7-banish', type: 'EFFECT_ACTIVATE', actor: 'player', text: '상대 카드 제외', payload: { effect: 'banish-enemy-card' }, turn: 2, phase: 'MAIN1' }],
+})), 'tcgBanish');
+
+assert.equal(cueFor(duel({
+  players: {
+    player: { lp: 8400, grave: [], banished: [] },
+    enemy: { lp: 8000, grave: [], banished: [] },
+  },
+  events: [{ id: 'e7-heal', type: 'EFFECT_ACTIVATE', actor: 'player', text: '400 LP 회복', turn: 2, phase: 'MAIN1' }],
+})), 'tcgHeal');
+
+const shieldedState = duel({
+  players: {
+    player: { lp: 8000, grave: [], banished: [], monster: [{ shield: true }] },
+    enemy: { lp: 8000, grave: [], banished: [] },
+  },
+});
+const shieldBrokenState = duel({
+  players: {
+    player: { lp: 8000, grave: [], banished: [], monster: [{ shield: false }] },
+    enemy: { lp: 8000, grave: [], banished: [] },
+  },
+  events: [{ id: 'e7-shield-break', type: 'ATTACK_DECLARE', actor: 'enemy', text: '보호막 대상과 전투했습니다.', turn: 2, phase: 'BATTLE' }],
+});
+assert.equal(
+  feedback.dualAcademyTcgFeedbackCue(
+    feedback.dualAcademyTcgFeedbackSnapshot(shieldedState),
+    feedback.dualAcademyTcgFeedbackSnapshot(shieldBrokenState),
+  ),
+  'tcgShieldBreak',
+);
+
+const chainWaitingState = duel({ chain: [{ chainId: 'resolve-me' }] });
+const chainResolvedState = duel({
+  events: [{ id: 'e7-chain-resolve', type: 'EFFECT_ACTIVATE', actor: 'player', text: '효과를 처리했습니다.', turn: 2, phase: 'MAIN1' }],
+});
+assert.equal(
+  feedback.dualAcademyTcgFeedbackCue(
+    feedback.dualAcademyTcgFeedbackSnapshot(chainWaitingState),
+    feedback.dualAcademyTcgFeedbackSnapshot(chainResolvedState),
+  ),
+  'tcgChainResolve',
+);
 
 assert.equal(cueFor(duel({
   events: [{ id: 'e8', type: 'PROMPT', actor: 'player', text: '이번 턴에는 이미 일반 소환했습니다.', turn: 2, phase: 'MAIN1' }],
@@ -279,13 +358,52 @@ for (const token of ['activateMikaQuick', 'chooseMikaNegateCost', 'SELECT_COST_M
 for (const token of ['tcg-mika-cost', 'tcg-mika-negate', 'tcg-mika-burst', 'tcg-hina-recover', 'tcg-yuuka-guard']) {
   assert.equal(iconSource.includes(token), true, `Shared action icon map is missing ${token}`);
 }
-for (const token of ['tcgMikaCost', 'tcgMikaNegate', 'tcgMikaBurst', 'tcgHinaRecover', 'tcgYuukaGuard', 'tcgYuukaSearch']) {
+for (const token of [
+  'tcg-direct-attack',
+  'tcg-pierce',
+  'tcg-clash',
+  'tcg-shield',
+  'tcg-shield-break',
+  'tcg-banish',
+  'tcg-heal',
+  'tcg-counter',
+  'tcg-chain-resolve',
+  'tcg-deck-out',
+]) {
+  assert.equal(iconSource.includes(token), true, `Shared action icon map is missing ${token}`);
+}
+for (const token of [
+  'tcgMikaCost',
+  'tcgMikaNegate',
+  'tcgMikaBurst',
+  'tcgHinaRecover',
+  'tcgYuukaGuard',
+  'tcgYuukaSearch',
+  'tcgDirectAttack',
+  'tcgPierce',
+  'tcgClash',
+  'tcgShield',
+  'tcgShieldBreak',
+  'tcgBanish',
+  'tcgHeal',
+  'tcgCounter',
+  'tcgChainResolve',
+  'tcgDeckOut',
+]) {
   assert.equal(sfxSource.includes(token), true, `Shared SFX library is missing ${token}`);
 }
 
+const semanticIconCount = [boardSource, advisorSource, inspectSource, logsSource, pulseSource]
+  .reduce((sum, source) => sum + (source.match(/<GameActionIcon\b/g) || []).length, 0);
+assert.ok(semanticIconCount >= 25, `Expected at least 25 semantic TCG icons, found ${semanticIconCount}`);
+assert.equal(logsSource.includes('dualAcademyTcgEventPresentation'), true, 'TCG event log must use semantic event presentations');
+assert.equal(pulseSource.includes('pulse.promptAction'), true, 'TCG pulse must show a semantic prompt icon');
+assert.equal(pulseSource.includes('pulse.chainAction'), true, 'TCG pulse must show a semantic chain icon');
+
 console.log(JSON.stringify({
-  eventCues: 9,
+  eventCues: 19,
   characterEffectCues: 6,
+  semanticIcons: semanticIconCount,
   mikaCostOptions: mikaReadiness.options.length,
   mikaNegateResolved: true,
   mikaBattleAttack: 9,

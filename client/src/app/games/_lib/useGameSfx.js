@@ -978,6 +978,52 @@ const CUE_PROFILES = {
     { frequency: 980, endFrequency: 380, duration: 0.07, type: 'square', gain: 0.035 },
     { source: 'noise', filterType: 'bandpass', frequency: 640, q: 2.4, start: 0.05, duration: 0.07, gain: 0.045 },
   ],
+  tcgDirectAttack: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1320, q: 1.1, duration: 0.075, gain: 0.06 },
+    { frequency: 320, endFrequency: 96, duration: 0.15, type: 'sawtooth', gain: 0.046 },
+    { frequency: 920, start: 0.1, duration: 0.1, type: 'triangle', gain: 0.035 },
+  ],
+  tcgPierce: [
+    { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.08, gain: 0.045 },
+    { frequency: 1480, endFrequency: 260, duration: 0.12, type: 'sawtooth', gain: 0.038 },
+    { frequency: 190, start: 0.09, duration: 0.11, type: 'sine', gain: 0.04 },
+  ],
+  tcgClash: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1080, q: 2.2, duration: 0.07, gain: 0.064 },
+    { frequency: 540, endFrequency: 360, duration: 0.09, type: 'square', gain: 0.04 },
+  ],
+  tcgShield: [
+    { frequency: 420, endFrequency: 760, duration: 0.09, type: 'triangle', gain: 0.042 },
+    { frequency: 1040, start: 0.06, duration: 0.15, type: 'sine', gain: 0.04 },
+  ],
+  tcgShieldBreak: [
+    { source: 'noise', filterType: 'highpass', frequency: 1800, duration: 0.095, gain: 0.055 },
+    { frequency: 860, endFrequency: 210, duration: 0.13, type: 'square', gain: 0.04 },
+  ],
+  tcgBanish: [
+    { source: 'noise', filterType: 'bandpass', frequency: 1250, q: 1.4, duration: 0.12, gain: 0.045 },
+    { frequency: 880, endFrequency: 140, duration: 0.16, type: 'triangle', gain: 0.042 },
+  ],
+  tcgHeal: [
+    { frequency: 440, duration: 0.045, type: 'sine', gain: 0.04 },
+    { frequency: 660, start: 0.04, duration: 0.065, type: 'sine', gain: 0.042 },
+    { frequency: 990, start: 0.1, duration: 0.11, type: 'sine', gain: 0.036 },
+  ],
+  tcgCounter: [
+    { frequency: 1280, endFrequency: 360, duration: 0.09, type: 'square', gain: 0.038 },
+    { source: 'noise', filterType: 'bandpass', frequency: 780, q: 3, start: 0.05, duration: 0.09, gain: 0.05 },
+    { frequency: 210, start: 0.1, duration: 0.13, type: 'sine', gain: 0.04 },
+  ],
+  tcgChainResolve: [
+    { frequency: 620, duration: 0.04, type: 'triangle', gain: 0.042 },
+    { frequency: 930, start: 0.04, duration: 0.06, type: 'triangle', gain: 0.04 },
+    { frequency: 1240, start: 0.095, duration: 0.1, type: 'sine', gain: 0.034 },
+  ],
+  tcgDeckOut: [
+    { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.12, gain: 0.045 },
+    { frequency: 390, endFrequency: 180, duration: 0.15, type: 'triangle', gain: 0.046 },
+    { frequency: 120, start: 0.12, duration: 0.18, type: 'sine', gain: 0.038 },
+  ],
   tcgMikaCost: [
     { frequency: 330, endFrequency: 190, duration: 0.08, type: 'triangle', gain: 0.042 },
     { source: 'noise', filterType: 'lowpass', frequency: 520, start: 0.055, duration: 0.07, gain: 0.038 },
@@ -1522,6 +1568,66 @@ const THEME_CUE_PROFILES = {
       { frequency: 1280, endFrequency: 360, duration: 0.1, type: 'square', gain: 0.038, pan: -0.22 },
       { frequency: 220, start: 0.085, duration: 0.14, type: 'sine', gain: 0.043 },
       { source: 'noise', filterType: 'highpass', frequency: 2900, start: 0.14, duration: 0.1, gain: 0.026, pan: 0.4, reverb: 0.24 },
+    ],
+    tcgDirectAttack: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1440, q: 0.9, duration: 0.17, gain: 0.054, pan: -0.5, reverb: 0.2 },
+      { frequency: 340, endFrequency: 82, duration: 0.17, type: 'sawtooth', gain: 0.048, pan: -0.24 },
+      { frequency: 680, endFrequency: 1240, start: 0.075, duration: 0.12, type: 'triangle', gain: 0.038, pan: 0.16 },
+      { frequency: 1680, start: 0.18, duration: 0.16, type: 'sine', gain: 0.03, pan: 0.42, reverb: 0.3 },
+    ],
+    tcgPierce: [
+      { source: 'noise', filterType: 'highpass', frequency: 2700, duration: 0.14, gain: 0.04, pan: -0.5, reverb: 0.22 },
+      { frequency: 1720, endFrequency: 240, duration: 0.15, type: 'sawtooth', gain: 0.04, pan: -0.2 },
+      { source: 'noise', filterType: 'bandpass', frequency: 760, q: 2.6, start: 0.08, duration: 0.12, gain: 0.046, pan: 0.16 },
+      { frequency: 180, start: 0.12, duration: 0.17, type: 'sine', gain: 0.042, pan: 0.34, reverb: 0.25 },
+    ],
+    tcgClash: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1160, q: 2.2, duration: 0.09, gain: 0.072, pan: -0.42 },
+      { frequency: 580, endFrequency: 330, duration: 0.1, type: 'square', gain: 0.043, pan: -0.16 },
+      { source: 'noise', filterType: 'highpass', frequency: 2900, start: 0.05, duration: 0.09, gain: 0.026, pan: 0.32 },
+      { frequency: 920, start: 0.11, duration: 0.12, type: 'sine', gain: 0.028, pan: 0.4, reverb: 0.24 },
+    ],
+    tcgShield: [
+      { source: 'noise', filterType: 'bandpass', frequency: 680, q: 2.4, duration: 0.16, gain: 0.042, pan: -0.46, reverb: 0.28 },
+      { frequency: 260, duration: 0.08, type: 'square', gain: 0.04, pan: -0.24 },
+      { frequency: 520, start: 0.07, duration: 0.11, type: 'triangle', gain: 0.043 },
+      { frequency: 1040, start: 0.17, duration: 0.17, type: 'sine', gain: 0.036, pan: 0.38, reverb: 0.34 },
+    ],
+    tcgShieldBreak: [
+      { source: 'noise', filterType: 'highpass', frequency: 2100, duration: 0.13, gain: 0.054, pan: -0.48, reverb: 0.2 },
+      { frequency: 980, endFrequency: 190, duration: 0.15, type: 'square', gain: 0.042, pan: -0.18 },
+      { source: 'noise', filterType: 'bandpass', frequency: 580, q: 2, start: 0.1, duration: 0.12, gain: 0.045, pan: 0.18 },
+      { frequency: 140, start: 0.16, duration: 0.16, type: 'sine', gain: 0.036, pan: 0.36, reverb: 0.28 },
+    ],
+    tcgBanish: [
+      { source: 'noise', filterType: 'bandpass', frequency: 1450, q: 1.2, duration: 0.18, gain: 0.044, pan: -0.52, reverb: 0.32 },
+      { frequency: 1040, endFrequency: 120, duration: 0.19, type: 'triangle', gain: 0.043, pan: -0.18 },
+      { frequency: 1680, endFrequency: 420, start: 0.08, duration: 0.14, type: 'sine', gain: 0.03, pan: 0.2 },
+      { source: 'noise', filterType: 'highpass', frequency: 2600, start: 0.18, duration: 0.12, gain: 0.022, pan: 0.44, reverb: 0.32 },
+    ],
+    tcgHeal: [
+      { source: 'noise', filterType: 'highpass', frequency: 2200, duration: 0.08, gain: 0.02, pan: -0.42, reverb: 0.24 },
+      { frequency: 440, duration: 0.05, type: 'sine', gain: 0.041, pan: -0.3 },
+      { frequency: 660, start: 0.045, duration: 0.072, type: 'sine', gain: 0.043, pan: -0.06 },
+      { frequency: 990, start: 0.11, duration: 0.13, type: 'sine', gain: 0.038, pan: 0.34, reverb: 0.32 },
+    ],
+    tcgCounter: [
+      { source: 'noise', filterType: 'bandpass', frequency: 840, q: 3.4, duration: 0.13, gain: 0.052, pan: -0.48 },
+      { frequency: 1480, endFrequency: 340, duration: 0.12, type: 'square', gain: 0.04, pan: -0.22 },
+      { frequency: 210, start: 0.1, duration: 0.16, type: 'sine', gain: 0.043 },
+      { source: 'noise', filterType: 'highpass', frequency: 3100, start: 0.16, duration: 0.12, gain: 0.027, pan: 0.42, reverb: 0.3 },
+    ],
+    tcgChainResolve: [
+      { source: 'noise', filterType: 'highpass', frequency: 2300, duration: 0.045, gain: 0.021, pan: -0.4 },
+      { frequency: 620, duration: 0.045, type: 'triangle', gain: 0.044, pan: -0.28 },
+      { frequency: 930, start: 0.042, duration: 0.065, type: 'triangle', gain: 0.042 },
+      { frequency: 1395, start: 0.104, duration: 0.13, type: 'sine', gain: 0.034, pan: 0.38, reverb: 0.32 },
+    ],
+    tcgDeckOut: [
+      { source: 'noise', filterType: 'lowpass', frequency: 560, duration: 0.2, gain: 0.045, pan: -0.46, reverb: 0.24 },
+      { frequency: 430, endFrequency: 180, duration: 0.16, type: 'triangle', gain: 0.048, pan: -0.2 },
+      { frequency: 220, endFrequency: 110, start: 0.11, duration: 0.19, type: 'sine', gain: 0.043 },
+      { frequency: 620, endFrequency: 280, start: 0.22, duration: 0.18, type: 'sine', gain: 0.029, pan: 0.36, reverb: 0.3 },
     ],
     tcgMikaCost: [
       { source: 'noise', filterType: 'lowpass', frequency: 520, duration: 0.11, gain: 0.042, pan: -0.4 },

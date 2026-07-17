@@ -70,16 +70,16 @@ export function dualAcademyResultMusic(cue = '') {
   if (signal === 'tcgStart') {
     return { theme: DUAL_ACADEMY_BGM_SCENES.ready, durationMs: 8_000 };
   }
-  if (['tcgChain', 'tcgNegate', 'tcgPrompt'].includes(signal)) {
+  if (['tcgChain', 'tcgNegate', 'tcgCounter', 'tcgChainResolve', 'tcgPrompt'].includes(signal)) {
     return { theme: DUAL_ACADEMY_BGM_SCENES.chain, durationMs: 10_000 };
   }
-  if (['tcgAttack', 'tcgHit', 'tcgDestroy'].includes(signal)) {
+  if (['tcgAttack', 'tcgDirectAttack', 'tcgPierce', 'tcgClash', 'tcgHit', 'tcgDestroy', 'tcgShieldBreak', 'tcgBanish'].includes(signal)) {
     return { theme: DUAL_ACADEMY_BGM_SCENES.battle, durationMs: 9_000 };
   }
   if (signal === 'tcgDamage') {
     return { theme: DUAL_ACADEMY_BGM_SCENES.danger, durationMs: 10_000 };
   }
-  if (['tcgDraw', 'tcgSummon', 'tcgSet', 'tcgEffect', 'tcgPosition', 'tcgPhase', 'tcgTurn'].includes(signal)) {
+  if (['tcgDraw', 'tcgSummon', 'tcgSet', 'tcgEffect', 'tcgHeal', 'tcgShield', 'tcgPosition', 'tcgPhase', 'tcgTurn'].includes(signal)) {
     return { theme: DUAL_ACADEMY_BGM_SCENES.main, durationMs: 7_000 };
   }
   return null;

@@ -10,8 +10,14 @@ export default function DualAcademyTcgDuelPulse({ pulse }) {
         <small>{pulse.meta}</small>
       </div>
       <aside aria-label="듀얼 처리 상태">
-        <span>{pulse.promptLabel}</span>
-        <span>{pulse.chainLabel}</span>
+        <span>
+          <GameActionIcon action={pulse.promptAction} label={pulse.promptLabel} />
+          {pulse.promptLabel}
+        </span>
+        <span>
+          <GameActionIcon action={pulse.chainAction} label={pulse.chainLabel} />
+          {pulse.chainLabel}
+        </span>
       </aside>
     </section>
   );

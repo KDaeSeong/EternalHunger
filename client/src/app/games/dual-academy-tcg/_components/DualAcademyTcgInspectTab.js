@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function DualAcademyTcgInspectTab(props) {
@@ -17,7 +18,8 @@ export default function DualAcademyTcgInspectTab(props) {
                 </section>
                 <div className="game-save-list">
                   {zoneInspection.sideRows.map((row) => (
-                    <article className="game-save-row" key={row.label}>
+                    <article className="game-save-row game-save-row--icon" key={row.label}>
+                      <GameActionIcon action="duel" label={`${row.label} 전장`} />
                       <div>
                         <span>LP {row.lp} · 덱 {row.deck} · 패 {row.hand} · 묘지 {row.grave}</span>
                         <strong>{row.label}: {row.strongestName}</strong>
@@ -34,7 +36,8 @@ export default function DualAcademyTcgInspectTab(props) {
                 <h2>우선 확인</h2>
                 <div className="game-save-list">
                   {zoneInspection.focusRows.map((row, index) => (
-                    <article className="game-save-row" key={row.id}>
+                    <article className="game-save-row game-save-row--icon" key={row.id}>
+                      <GameActionIcon action={row.level === 'high' ? 'warning' : 'advisor'} label={row.title} />
                       <div>
                         <span>{row.kind} · {row.level === 'high' ? '우선' : '검토'} · {index + 1}</span>
                         <strong>{row.title}</strong>
@@ -49,7 +52,8 @@ export default function DualAcademyTcgInspectTab(props) {
                 <h2>존 빠른 보기</h2>
                 <div className="game-save-list">
                   {zoneInspection.archiveRows.map((row) => (
-                    <article className="game-save-row" key={row.id}>
+                    <article className="game-save-row game-save-row--icon" key={row.id}>
+                      <GameActionIcon action={row.zone === 'grave' ? 'grave' : row.zone === 'banished' ? 'banish' : 'deck'} label={row.label} />
                       <div>
                         <span>{row.count}장 · {row.reveal ? '공개' : '비공개'}</span>
                         <strong>{row.label}</strong>

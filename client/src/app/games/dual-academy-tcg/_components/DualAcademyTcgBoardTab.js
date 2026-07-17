@@ -16,6 +16,7 @@ import {
 import {
   PlayerField,
 } from './TcgPlayBoard';
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 
 export default function DualAcademyTcgBoardTab(props) {
@@ -49,15 +50,15 @@ export default function DualAcademyTcgBoardTab(props) {
               </div>
               <dl className="tcg-small-stats">
                 <div>
-                  <dt>내 묘지</dt>
+                  <dt><GameActionIcon action="grave" label="내 묘지" />내 묘지</dt>
                   <dd>{state.players.player.grave.length}</dd>
                 </div>
                 <div>
-                  <dt>내 제외</dt>
+                  <dt><GameActionIcon action="banish" label="내 제외" />내 제외</dt>
                   <dd>{state.players.player.banished.length}</dd>
                 </div>
                 <div>
-                  <dt>v13 이벤트</dt>
+                  <dt><GameActionIcon action="event" label="듀얼 이벤트" />v13 이벤트</dt>
                   <dd>{state.events.length}</dd>
                 </div>
               </dl>

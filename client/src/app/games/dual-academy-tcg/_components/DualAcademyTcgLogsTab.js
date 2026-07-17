@@ -1,7 +1,9 @@
 import {
   ZoneArchivePanel,
 } from './TcgPlayBoard';
+import GameActionIcon from '../../_components/GameActionIcon';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
+import { dualAcademyTcgEventPresentation } from '../_lib/dualAcademyTcgFeedback';
 
 export default function DualAcademyTcgLogsTab(props) {
   const {
@@ -30,25 +32,26 @@ export default function DualAcademyTcgLogsTab(props) {
                 </section>
                 <dl className="tcg-small-stats">
                   <div>
-                    <dt>내 템포</dt>
+                    <dt><GameActionIcon action="comeback" label="내 템포" />내 템포</dt>
                     <dd>{matchReport.players.player.tempoScore}</dd>
                   </div>
                   <div>
-                    <dt>AI 템포</dt>
+                    <dt><GameActionIcon action="analysis" label="AI 템포" />AI 템포</dt>
                     <dd>{matchReport.players.enemy.tempoScore}</dd>
                   </div>
                   <div>
-                    <dt>내 누적 피해</dt>
+                    <dt><GameActionIcon action="attack" label="내 누적 피해" />내 누적 피해</dt>
                     <dd>{matchReport.players.player.damageDealt}</dd>
                   </div>
                   <div>
-                    <dt>AI 누적 피해</dt>
+                    <dt><GameActionIcon action="defend" label="AI 누적 피해" />AI 누적 피해</dt>
                     <dd>{matchReport.players.enemy.damageDealt}</dd>
                   </div>
                 </dl>
                 <div className="game-save-list">
                   {matchReport.recommendations.map((line, index) => (
-                    <article className="game-save-row" key={`tcg-report-rec-${index}`}>
+                    <article className="game-save-row game-save-row--icon" key={`tcg-report-rec-${index}`}>
+                      <GameActionIcon action="advisor" label="권장 플레이" />
                       <div>
                         <span>권장 플레이</span>
                         <strong>{line}</strong>
@@ -76,7 +79,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 </section>
                 <div className="game-save-list">
                   {replayExport.auditRows.map((row) => (
-                    <article className="game-save-row" key={`tcg-replay-audit-${row.id}`}>
+                    <article className="game-save-row game-save-row--icon" key={`tcg-replay-audit-${row.id}`}>
+                      <GameActionIcon action="replay" label={row.label} />
                       <div>
                         <span>{row.label}</span>
                         <strong>{row.detail}</strong>
@@ -92,7 +96,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 </section>
                 <div className="game-save-list">
                   {effectCoverage.rows.slice(0, 8).map((row) => (
-                    <article className="game-save-row" key={`tcg-effect-audit-${row.id}`}>
+                    <article className="game-save-row game-save-row--icon" key={`tcg-effect-audit-${row.id}`}>
+                      <GameActionIcon action="effect" label={row.name} />
                       <div>
                         <span>{row.type} · {row.effect}</span>
                         <strong>{row.name}</strong>
@@ -104,7 +109,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 </div>
                 <div className="game-save-list">
                   {concurrencyAudit.rows.map((row) => (
-                    <article className="game-save-row" key={`tcg-room-audit-${row.id}`}>
+                    <article className="game-save-row game-save-row--icon" key={`tcg-room-audit-${row.id}`}>
+                      <GameActionIcon action="room" label={row.label} />
                       <div>
                         <span>{row.label}</span>
                         <strong>{row.detail}</strong>
@@ -115,7 +121,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 </div>
                 <div className="game-save-list">
                   {replayTimeline.recommendations.map((line, index) => (
-                    <article className="game-save-row" key={`tcg-replay-rec-${index}`}>
+                    <article className="game-save-row game-save-row--icon" key={`tcg-replay-rec-${index}`}>
+                      <GameActionIcon action="inspect" label="리플레이 점검" />
                       <div>
                         <span>리플레이 점검</span>
                         <strong>{line}</strong>
@@ -127,7 +134,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 {replayTimeline.chainAuditRows.length ? (
                   <div className="game-save-list">
                     {replayTimeline.chainAuditRows.map((row) => (
-                      <article className="game-save-row" key={`tcg-chain-${row.order}-${row.cardName}`}>
+                      <article className="game-save-row game-save-row--icon" key={`tcg-chain-${row.order}-${row.cardName}`}>
+                        <GameActionIcon action={row.negated ? 'tcg-counter' : 'chain'} label={`체인 ${row.order}`} />
                         <div>
                           <span>체인 {row.order} · {row.ownerLabel} · {row.source}</span>
                           <strong>{row.cardName}</strong>
@@ -140,7 +148,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 ) : null}
                 <div className="game-save-list">
                   {replayTimeline.turnRows.slice(0, 5).map((row) => (
-                    <article className="game-save-row" key={`tcg-replay-turn-${row.turn}`}>
+                    <article className="game-save-row game-save-row--icon" key={`tcg-replay-turn-${row.turn}`}>
+                      <GameActionIcon action="turn" label={`턴 ${row.turn}`} />
                       <div>
                         <span>T{row.turn} · {row.phases} · {row.swingLabel}</span>
                         <strong>이벤트 {row.eventCount}건 · 템포 {row.tempoDelta >= 0 ? '+' : ''}{row.tempoDelta}</strong>
@@ -167,7 +176,8 @@ export default function DualAcademyTcgLogsTab(props) {
                 {matchReport.highlights.length ? (
                   <div className="game-save-list">
                     {matchReport.highlights.slice(0, 4).map((line, index) => (
-                      <article className="game-save-row" key={`tcg-report-hi-${index}`}>
+                      <article className="game-save-row game-save-row--icon" key={`tcg-report-hi-${index}`}>
+                        <GameActionIcon action="event" label="하이라이트" />
                         <div>
                           <span>하이라이트</span>
                           <strong>{line}</strong>
@@ -185,11 +195,15 @@ export default function DualAcademyTcgLogsTab(props) {
                 <p>{latestQuote}</p>
               </section>
               <ol>
-                {(state.events || []).slice(0, 12).map((event) => (
-                  <li key={event.id}>
-                    T{event.turn} · {event.phase} · {event.type} · {event.text}
-                  </li>
-                ))}
+                {(state.events || []).slice(0, 12).map((event) => {
+                  const presentation = dualAcademyTcgEventPresentation(event);
+                  return (
+                    <li className="tcg-event-log-item" key={event.id}>
+                      <GameActionIcon action={presentation.action} label={presentation.label} />
+                      <span>T{event.turn} · {event.phase} · {presentation.label} · {event.text}</span>
+                    </li>
+                  );
+                })}
                 {!(state.events || []).length ? <li>아직 이벤트가 없습니다.</li> : null}
               </ol>
               <h2>로그</h2>

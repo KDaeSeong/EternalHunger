@@ -1,3 +1,15 @@
+import GameActionIcon from '../../_components/GameActionIcon';
+
+function recommendationIcon(item) {
+  const text = `${item?.title || ''} ${item?.detail || ''}`;
+  if (/공격|킬각|피해/.test(text)) return 'attack';
+  if (/소환|몬스터/.test(text)) return 'summon';
+  if (/함정|세트/.test(text)) return 'trap';
+  if (/마법|효과|발동/.test(text)) return 'spell';
+  if (/페이즈|턴/.test(text)) return 'phase';
+  return 'advisor';
+}
+
 export default function DualAcademyTcgAdvisorTab(props) {
   const {
     advisorTone,
@@ -15,27 +27,27 @@ export default function DualAcademyTcgAdvisorTab(props) {
                 </section>
                 <dl className="tcg-small-stats">
                   <div>
-                    <dt>패 몬스터</dt>
+                    <dt><GameActionIcon action="summon" label="패 몬스터" />패 몬스터</dt>
                     <dd>{turnAdvisor.hand.monsters}</dd>
                   </div>
                   <div>
-                    <dt>패 주문</dt>
+                    <dt><GameActionIcon action="spell" label="패 주문" />패 주문</dt>
                     <dd>{turnAdvisor.hand.spells}</dd>
                   </div>
                   <div>
-                    <dt>패 함정</dt>
+                    <dt><GameActionIcon action="trap" label="패 함정" />패 함정</dt>
                     <dd>{turnAdvisor.hand.traps}</dd>
                   </div>
                   <div>
-                    <dt>빈 몬스터 존</dt>
+                    <dt><GameActionIcon action="zone" label="빈 몬스터 존" />빈 몬스터 존</dt>
                     <dd>{turnAdvisor.openMonster}</dd>
                   </div>
                   <div>
-                    <dt>빈 마함 존</dt>
+                    <dt><GameActionIcon action="zone" label="빈 마법 함정 존" />빈 마함 존</dt>
                     <dd>{turnAdvisor.openSpellTrap}</dd>
                   </div>
                   <div>
-                    <dt>킬각 피해</dt>
+                    <dt><GameActionIcon action="attack" label="킬각 피해" />킬각 피해</dt>
                     <dd>{turnAdvisor.lethal.damage}</dd>
                   </div>
                 </dl>
@@ -44,7 +56,8 @@ export default function DualAcademyTcgAdvisorTab(props) {
                 <h2>추천 행동</h2>
                 <div className="game-save-list">
                   {turnAdvisor.recommendations.map((item, index) => (
-                    <article className="game-save-row" key={item.id}>
+                    <article className="game-save-row game-save-row--icon" key={item.id}>
+                      <GameActionIcon action={recommendationIcon(item)} label={item.title} />
                       <div>
                         <span>{item.priority === 'high' ? '우선' : item.priority === 'low' ? '후순위' : '검토'} · {index + 1}</span>
                         <strong>{item.title}</strong>
