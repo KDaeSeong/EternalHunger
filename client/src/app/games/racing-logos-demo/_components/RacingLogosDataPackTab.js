@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
 
@@ -24,7 +25,8 @@ export default function RacingLogosDataPackTab(props) {
                   </div>
                   <div className="game-save-list">
                     {dataPack.packRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className="game-save-row racing-logo-icon-row" key={row.id}>
+                        <GameActionIcon action={row.status === 'complete' ? 'release-ready' : 'release'} label={row.label} />
                         <div>
                           <span>{row.value} · {row.pct}%</span>
                           <strong>{row.label}</strong>
@@ -42,7 +44,8 @@ export default function RacingLogosDataPackTab(props) {
                   </div>
                   <div className="game-save-list">
                     {dataPack.modelRows.map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className="game-save-row racing-logo-icon-row" key={row.id}>
+                        <GameActionIcon action="analysis" label={row.label} />
                         <div>
                           <span>{row.value} · {row.pct}%</span>
                           <strong>{row.label}</strong>
@@ -65,7 +68,8 @@ export default function RacingLogosDataPackTab(props) {
                   </div>
                   <div className="game-save-list">
                     {dataPack.resultRows.length ? dataPack.resultRows.slice(0, 8).map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className="game-save-row racing-logo-icon-row" key={row.id}>
+                        <GameActionIcon action={row.season ? 'season-card' : 'race-card'} label={row.raceName} />
                         <div>
                           <span>{row.season ? '시즌' : '이벤트'} · {row.trackName} · {row.distanceM.toLocaleString('ko-KR')}m</span>
                           <strong>{row.raceName}: {row.winner}</strong>

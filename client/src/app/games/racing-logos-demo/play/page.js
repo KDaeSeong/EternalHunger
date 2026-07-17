@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import RacingLogosFeatureTabs from '../_components/RacingLogosFeatureTabs';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton, RecentActionResult } from '../../_components/GamePlayPrimitives';
@@ -39,6 +40,10 @@ import {
   racingLogosResultPresentation,
   racingLogosTextPresentation,
 } from '../_lib/racingLogosFeedback';
+import {
+  racingLogosResultMusic,
+  resolveRacingLogosBgmScene,
+} from '../_lib/racingLogosSoundtrack';
 
 function buildLogoDraftText(currentPack) {
   const sample = parseLocalPackText(sampleLocalPackText());
@@ -111,6 +116,7 @@ export default function RacingLogosDemoPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'racing' });
   const [state, setStateInternal] = useState(() => createNewState());
   const stateRef = useRef(state);
@@ -120,6 +126,7 @@ export default function RacingLogosDemoPlayPage() {
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
   const [actionPresentation, setActionPresentation] = useState(() => racingLogosResultPresentation(state, state));
+  const musicSceneTimerRef = useRef(null);
 
   const tracks = useMemo(() => visibleTracks(state), [state]);
   const events = useMemo(() => visibleEvents(state), [state]);
@@ -138,6 +145,33 @@ export default function RacingLogosDemoPlayPage() {
   const latestRaceCard = state.raceCards[0];
   const recentActionText = actionResult || state.log?.[0] || '아직 실행한 검수 결과가 없습니다.';
   const resultPresentation = racingLogosTextPresentation(recentActionText, actionPresentation);
+  const baseMusicScene = useMemo(() => resolveRacingLogosBgmScene({
+    activeTabId: activeFeatureTabId,
+    eventCount: events.length,
+    releaseScore: dataPack.releaseScore,
+  }), [activeFeatureTabId, dataPack.releaseScore, events.length]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
+
+  const playMusicTransition = (presentation, cue = '') => {
+    const transition = racingLogosResultMusic(presentation, cue);
+    if (!transition) return;
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene(transition.theme);
+    musicSceneTimerRef.current = window.setTimeout(() => {
+      setMusicScene(baseMusicScene);
+      musicSceneTimerRef.current = null;
+    }, transition.durationMs);
+  };
 
   const applyRacingState = (updater) => {
     const previousState = stateRef.current;
@@ -148,14 +182,17 @@ export default function RacingLogosDemoPlayPage() {
     setActionPresentation(presentation);
     setActionResult(presentation.detail || nextState.log?.[0] || '에셋 검수 상태를 갱신했습니다.');
     if (presentation.cue) playGameSfx(presentation.cue);
+    playMusicTransition(presentation, presentation.cue);
     return nextState;
   };
 
   const publishResult = (nextMessage, cue = '') => {
+    const presentation = racingLogosTextPresentation(nextMessage);
     setMessage(nextMessage);
     setActionResult(nextMessage);
-    setActionPresentation(racingLogosTextPresentation(nextMessage));
+    setActionPresentation(presentation);
     if (cue) playGameSfx(cue);
+    playMusicTransition(presentation, cue);
   };
 
   const startNewRun = () => {
@@ -169,6 +206,7 @@ export default function RacingLogosDemoPlayPage() {
     setActionResult('새 레이싱 로고팩 검수를 시작했습니다.');
     setActionPresentation(racingLogosResultPresentation(previousState, nextState));
     playGameSfx('start');
+    playMusicTransition({ key: 'newRun' }, 'start');
   };
 
   const applyTextPack = () => {

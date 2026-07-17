@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { EventRow } from './RacingLogosPlayPanels';
 
 export default function RacingLogosEventsTab(props) {
@@ -25,7 +26,8 @@ export default function RacingLogosEventsTab(props) {
                   </div>
                   <div className="game-save-list">
                     {latestRaceCard ? latestRaceCard.results.map((result, index) => (
-                      <article className="game-save-row" key={`${result.eventId}-${result.week || index}`}>
+                      <article className="game-save-row racing-logo-icon-row" key={`${result.eventId}-${result.week || index}`}>
+                        <GameActionIcon action="trophy" label="우승 결과" />
                         <div>
                           <span>{result.trackName} / {result.surface.toUpperCase()} / {result.distanceM.toLocaleString('ko-KR')}m</span>
                           <strong>{result.raceName}</strong>

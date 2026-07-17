@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { generateSeasonCardAction } from '../_lib/racingLogosEngine';
 import { LogoPreview } from './RacingLogosPlayPanels';
@@ -70,7 +71,8 @@ export default function RacingLogosCalendarTab(props) {
                   </div>
                   <div className="game-save-list">
                     {calendar.rows.map((row) => (
-                      <article className="game-save-row" key={`${row.id}-preview`}>
+                      <article className="game-save-row racing-logo-icon-row" key={`${row.id}-preview`}>
+                        <GameActionIcon action="trophy" label="예상 우승" />
                         <div>
                           <span>{row.week} · 상금 {row.purse.toLocaleString('ko-KR')}</span>
                           <strong>{row.preview.winner}</strong>

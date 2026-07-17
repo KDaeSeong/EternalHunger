@@ -1,3 +1,4 @@
+import GameActionIcon from '../../_components/GameActionIcon';
 import { ActionButton, GameControlButton, RecentActionResult, SmallStat } from '../../_components/GamePlayPrimitives';
 import { auditLogoPackAction, generateRaceCardAction, generateSeasonCardAction } from '../_lib/racingLogosEngine';
 
@@ -56,7 +57,8 @@ export default function RacingLogosAuditTab(props) {
                   </div>
                   <div className="game-save-list">
                     {productionQueue.rows.map((item) => (
-                      <article className="game-save-row" key={item.id}>
+                      <article className="game-save-row racing-logo-icon-row" key={item.id}>
+                        <GameActionIcon action={QUEUE_ACTION_ICONS[item.action] || 'race-card'} label={item.kind} />
                         <div>
                           <span>{item.kind}</span>
                           <strong>{item.title}</strong>
@@ -91,7 +93,8 @@ export default function RacingLogosAuditTab(props) {
                   </div>
                   <div className="game-save-list" style={{ marginTop: 12 }}>
                     {packMatrix.rows.filter((row) => !row.complete).slice(0, 4).map((row) => (
-                      <article className="game-save-row" key={row.id}>
+                      <article className="game-save-row racing-logo-icon-row is-warning" key={row.id}>
+                        <GameActionIcon action="draft" label="보강 필요" />
                         <div>
                           <span>{row.kindLabel} · {row.requiredKey}</span>
                           <strong>{row.name}</strong>

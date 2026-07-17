@@ -43,6 +43,7 @@
     "check:rail3d-feedback": "node ./scripts/check-rail3d-feedback.mjs",
     "check:rail3d-soundtrack": "node ./scripts/check-rail3d-soundtrack.mjs",
     "check:racing-logos-feedback": "node ./scripts/check-racing-logos-feedback.mjs",
+    "check:racing-logos-soundtrack": "node ./scripts/check-racing-logos-soundtrack.mjs",
     "check:schale-idle-feedback": "node ./scripts/check-schale-idle-feedback.mjs",
     "check:school-simulator-feedback": "node ./scripts/check-school-simulator-feedback.mjs",
     "check:si-coding-feedback": "node ./scripts/check-si-coding-feedback.mjs",

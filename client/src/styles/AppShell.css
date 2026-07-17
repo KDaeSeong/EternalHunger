@@ -6931,6 +6931,32 @@
   font-variant-numeric: tabular-nums;
 }
 
+.game-save-row.racing-logo-icon-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 9px;
+  padding: 10px;
+}
+
+.racing-logo-icon-row > .game-action-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(190, 61, 61, 0.2);
+  border-radius: 7px;
+  background: #fff0ef;
+  color: #a62f36;
+}
+
+.racing-logo-icon-row.is-warning > .game-action-icon {
+  border-color: rgba(190, 125, 35, 0.24);
+  background: #fff6df;
+  color: #9b641f;
+}
+
+.racing-logo-icon-row > strong:last-child {
+  color: #8e2c34;
+  font-variant-numeric: tabular-nums;
+}
+
 .games-activity-list {
   display: grid;
   gap: 8px;
@@ -12496,6 +12522,22 @@
   .racing-logos-workspace .game-save-row .tcg-primary-action,
   .ba-vanguard-workspace .game-save-row .tcg-primary-action {
     min-width: 88px;
+  }
+
+  .game-save-row.racing-logo-icon-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .racing-logo-icon-row > .game-action-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .racing-logo-icon-row > .tcg-primary-action,
+  .racing-logo-icon-row > .game-save-chip,
+  .racing-logo-icon-row > strong:last-child {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .rail3d-workspace .rail-map {
