@@ -1,6 +1,6 @@
 # Local Continuation Tasks
 
-Updated: 2026-07-16 KST
+Updated: 2026-07-17 KST
 Latest pushed commit: check `git log -1 --oneline origin/main` after pulling.
 
 This document is the handoff list for continuing work on another machine.
@@ -123,6 +123,8 @@ npm run build
 - Primitive Archive now has a 13-region fog-of-war world map, connected frontier discovery, region danger/yield/landmark/visit data, four six-day seasons, a compact "one more turn" forecast, and six resource-committed multi-turn tribe projects. Cartography changes known-region random actions into direct region selection; project and season effects are wired into food, discovery, gathering, research, hunt/weather defense, and score. The new discovery/project/season controls use object-only Lucide icons and dedicated synthesized cues.
 - Primitive Archive now connects research and exploration to a tribe economy: population capacity and growth, forager/hunter/builder/scholar assignment, deterministic daily production and food consumption, builder project work, scholar research, three discoverable rival tribes, and once-per-day trade/gift/knowledge-exchange/raid diplomacy. The dedicated tribe/diplomacy tab uses object-only icons, fixed-size assignment controls, responsive rival cards, and distinct assignment/growth/diplomacy cues.
 - Primitive Archive action feedback now uses 23 action profiles and 12 milestone profiles across seven local result panels. Action, camp, growth/project, tribe/diplomacy, and equipment controls share dynamic icons, labels, tones, persistent text, and click-sound suppression; save/load/auth messages use the same presentation. `check-primitive-archive-feedback.mjs` protects the matrix and a latest-state wrapper prevents rapid consecutive actions from applying to stale run state.
+- Primitive Archive now has seven original dynamic soundtrack scenes: survival, frontier, insight, settlement, crisis, era advance, and legacy. The controlled feature tab selects exploration/research/settlement music, survival vitals can override any working tab with the crisis track, and milestone cues temporarily crossfade into discovery, breakthrough, settlement, or era music before returning to the current state. The 32-40 bar arrangements use A/B/C motif rotation, eight-bar harmony, extended chords, string ensemble, synth pulse, ghost snare, ride cymbal, and late key shifts. `check:primitive-archive-soundtrack` guards scene priority, milestone timing, loop depth, orchestration, and UI wiring.
+- The shared audio popover now displays the active soundtrack title and its object-only scene icon. Every base BGM profile and both dynamic soundtracks expose icon metadata, while the compact fixed utility dock keeps this added context out of the game viewport until opened.
 - All 14 registered games now use the global route-aware `GameTutorialLauncher`. Game-specific tutorial content lives in `client/src/app/games/_lib/gameTutorials.js`; each route gets six ordered steps with a concrete action, completion check, reminders, mistakes, per-game local progress, object icons, and theme-specific cues. The launcher is absent on non-game routes and does not add another header item.
 - BA Vanguard large feature tab JSX now lives in `client/src/app/games/ba-vanguard/_components/BaVanguardFeatureTabs.js`.
 - BA Vanguard feature tabs are split into:

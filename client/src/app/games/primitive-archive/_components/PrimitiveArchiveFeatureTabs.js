@@ -11,6 +11,7 @@ import PrimitiveArchiveWorldMap from './PrimitiveArchiveWorldMap';
 
 export default function PrimitiveArchiveFeatureTabs(props) {
   const {
+    activeTabId,
     archiveReport,
     civics,
     exploration,
@@ -18,6 +19,7 @@ export default function PrimitiveArchiveFeatureTabs(props) {
     partyCap,
     regions,
     research,
+    setActiveTabId,
     selectRegion,
     selectedRegion,
     state,
@@ -28,6 +30,8 @@ export default function PrimitiveArchiveFeatureTabs(props) {
   return (
     <section className="primitive-archive-workspace">
       <GameFeatureTabs
+        activeTabId={activeTabId}
+        onTabChange={setActiveTabId}
         tabs={[
           {
             id: 'actions',

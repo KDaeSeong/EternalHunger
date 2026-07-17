@@ -9,6 +9,7 @@ export default function GameSoundControl({ theme = 'auto' }) {
   const { enabled: sfxEnabled, toggle: toggleSfx } = useGameSfxPreference({ theme });
   const {
     enabled: musicEnabled,
+    icon: musicIcon,
     isAvailable: musicAvailable,
     label: musicLabel,
     playing,
@@ -43,6 +44,15 @@ export default function GameSoundControl({ theme = 'auto' }) {
         <span className="sr-only">{menuLabel}</span>
       </summary>
       <div className="games-audio-menu__panel" aria-label="오디오 설정 메뉴">
+        {musicAvailable ? (
+          <div className="games-audio-menu__now-playing" aria-live="polite" title={musicLabel}>
+            <GameActionIcon action={musicIcon || 'music'} label={musicLabel || '현재 곡'} />
+            <span>
+              <small>{playing ? '재생 중' : '현재 곡'}</small>
+              <strong>{musicLabel || '게임 배경음'}</strong>
+            </span>
+          </div>
+        ) : null}
         <div className="games-audio-menu__toggles">
           <button
             type="button"

@@ -1270,6 +1270,7 @@ function serverBgmVolumeSnapshot() {
 const FALLBACK_BGM_VALUE = Object.freeze({
   activeTheme: '',
   enabled: false,
+  icon: 'music',
   isAvailable: false,
   label: '',
   playing: false,
@@ -1376,6 +1377,7 @@ export default function GameBgmProvider({ children }) {
   const value = {
     activeTheme,
     enabled,
+    icon: activeProfile.icon || 'music',
     isAvailable: Boolean(activeTheme),
     label: activeProfile.label,
     playing: enabled && Boolean(activeTheme),

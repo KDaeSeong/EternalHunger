@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import useGameSfx from '../../_lib/useGameSfx';
 import {
@@ -91,6 +92,10 @@ import {
   primitiveMilestoneSnapshot,
   primitiveTextPresentation,
 } from '../_lib/primitiveArchiveFeedback';
+import {
+  primitiveArchiveMilestoneMusic,
+  resolvePrimitiveArchiveBgmScene,
+} from '../_lib/primitiveArchiveSoundtrack';
 
 import {
   PARTY_SORT_OPTIONS,
@@ -113,7 +118,9 @@ export default function PrimitiveArchivePlayContent() {
   const hydrated = useHydrated();
   const { showToast } = useToast();
   const playGameSfx = useGameSfx({ theme: 'survival' });
+  const { setMusicScene } = useGameBgm();
   const [state, setState] = useState(createHydrationSafeState);
+  const [activeTabId, setActiveTabId] = useState('actions');
   const [actorId, setActorId] = useState('shiroko');
   const [zoneId, setZoneId] = useState('whisper-woods');
   const [recipeId, setRecipeId] = useState('twine');
@@ -125,6 +132,7 @@ export default function PrimitiveArchivePlayContent() {
   const [actionFeedback, setActionFeedback] = useState({ key: 'idle', action: 'survival', label: '최근 생존 결과', outcome: 'ready', runId: state.runId, tone: 'ready' });
   const stateRef = useRef(state);
   const feedbackRef = useRef(primitiveMilestoneSnapshot(state));
+  const musicSceneTimerRef = useRef(null);
   const replaceState = useCallback((nextValue) => {
     setState((current) => {
       const nextState = typeof nextValue === 'function' ? nextValue(current) : nextValue;
@@ -216,15 +224,44 @@ export default function PrimitiveArchivePlayContent() {
     () => actionForecastRows(state, actorId, activeRegionId, recipeId),
     [activeRegionId, actorId, recipeId, state],
   );
+  const baseMusicScene = resolvePrimitiveArchiveBgmScene({
+    activeTabId,
+    bodyTemp,
+    ended: dead,
+    hp,
+    hunger,
+    stamina,
+    victory: archiveVictory.victory,
+  });
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
     const previous = feedbackRef.current;
     const current = primitiveMilestoneSnapshot(state, milestones.season.id, milestones.eraId);
     const cue = primitiveMilestoneCue(previous, current);
     if (cue) playGameSfx(cue);
+    const musicTransition = primitiveArchiveMilestoneMusic(cue);
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
     stateRef.current = state;
     feedbackRef.current = current;
-  }, [milestones.eraId, milestones.season.id, playGameSfx, state]);
+  }, [baseMusicScene, milestones.eraId, milestones.season.id, playGameSfx, setMusicScene, state]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const partyView = useMemo(() => {
     const rows = state.party.map((member, index) => {
@@ -529,7 +566,7 @@ export default function PrimitiveArchivePlayContent() {
     ],
     adviceLines: [
       hp <= 35 ? { kind: '우선', title: '회복/휴식', detail: 'HP가 낮습니다. 전투보다 캠프와 회복을 먼저 검토하세요.' } : null,
-      hunger <= 35 ? { kind: '우선', title: '식량 확보', detail: '허기가 낮으면 다음 행동 안정성이 떨어집니다.' } : null,
+      hunger >= 65 ? { kind: '우선', title: '식량 확보', detail: '허기가 높으면 다음 행동 안정성이 떨어집니다.' } : null,
       tribe.unassigned > 0 ? { kind: '운영', title: '직업 배치', detail: `미배치 부족원 ${tribe.unassigned}명을 생산·건설·연구에 투입할 수 있습니다.` } : null,
       archiveVictory.canComplete ? { kind: '완료', title: '아카이브 완성', detail: '목표를 달성했습니다. 기록 전 마무리를 준비하세요.' } : null,
       { kind: '진행', title: '연구/제작 병행', detail: `${research.completed}/${research.total} 연구 완료, 기록 점수 ${archiveReport.archiveScore}%입니다.` },
@@ -553,6 +590,7 @@ export default function PrimitiveArchivePlayContent() {
       <GameAdvisorPanel {...guide} compact minimal storageKey="primitive-archive-survival-coach" />
 
       <PrimitiveArchiveFeatureTabs
+        activeTabId={activeTabId}
         actor={actor}
         actorId={actorId}
         actionFeedback={resultPresentation}
@@ -633,6 +671,7 @@ export default function PrimitiveArchivePlayContent() {
         selectedCivicHelp={selectedCivicHelp}
         selectedDifficulty={selectedDifficulty}
         setActorId={setActorId}
+        setActiveTabId={setActiveTabId}
         setPartySort={setPartySort}
         setRecipeId={setRecipeId}
         setNewRunDifficulty={setNewRunDifficulty}

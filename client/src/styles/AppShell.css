@@ -85,12 +85,49 @@
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
-  width: 156px;
+  width: 228px;
+  max-width: calc(100vw - 24px);
   padding: 9px;
   border: 1px solid #b9c8d5;
   border-radius: 6px;
   background: #ffffff;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+}
+
+.games-audio-menu__now-playing {
+  min-width: 0;
+  margin-bottom: 8px;
+  padding: 7px 8px;
+  border: 1px solid #dbe7ee;
+  border-radius: 5px;
+  background: #f6fafc;
+  color: #176b9d;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.games-audio-menu__now-playing > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.games-audio-menu__now-playing small {
+  color: #70808d;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.games-audio-menu__now-playing strong {
+  overflow: hidden;
+  color: #0f3550;
+  font-size: 11px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .games-audio-menu__toggles {
