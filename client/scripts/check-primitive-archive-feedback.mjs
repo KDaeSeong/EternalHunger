@@ -17,6 +17,8 @@ const growthSource = await readFile(new URL('PrimitiveArchiveGrowthTab.js', comp
 const projectSource = await readFile(new URL('PrimitiveArchiveProjectsPanel.js', componentUrl), 'utf8');
 const tribeSource = await readFile(new URL('PrimitiveArchiveTribeTab.js', componentUrl), 'utf8');
 const inventorySource = await readFile(new URL('PrimitiveArchiveInventoryTab.js', componentUrl), 'utf8');
+const reportSource = await readFile(new URL('PrimitiveArchiveReportTab.js', componentUrl), 'utf8');
+const primitiveSource = await readFile(new URL('../src/app/games/_components/GamePlayPrimitives.js', import.meta.url), 'utf8');
 const iconSource = await readFile(new URL('../src/app/games/_components/GameActionIcon.js', import.meta.url), 'utf8');
 const soundSource = await readFile(new URL('../src/app/games/_lib/useGameSfx.js', import.meta.url), 'utf8');
 
@@ -161,6 +163,11 @@ assert.match(campSource, /action="event" cue="off"/, '탐험 사건 버튼은 �
 assert.match(projectSource, /action="project"\s+cue="off"/, '프로젝트 작업은 결과음과 클릭음이 겹치지 않아야 합니다.');
 assert.match(tribeSource, /data-game-sfx="off"/, '직업 배치 스테퍼는 배치 결과음만 재생해야 합니다.');
 assert.match(inventorySource, /action="equip" cue="off"/, '자동 장착은 장비 결과음만 재생해야 합니다.');
+assert.match(primitiveSource, /SmallStat\(\{ icon = '', label, value \}\)/, '소형 통계는 의미 아이콘을 지원해야 합니다.');
+assert.equal([...campSource.matchAll(/<SmallStat icon=/g)].length >= 14, true, '캠프와 런 리포트에 최소 14개 의미 아이콘이 필요합니다.');
+assert.equal([...reportSource.matchAll(/<SmallStat icon=/g)].length >= 11, true, '기록서 요약에 최소 11개 의미 아이콘이 필요합니다.');
+assert.match(reportSource, /CHAPTER_ICONS/, '기록서 챕터마다 의미 아이콘을 선택해야 합니다.');
+assert.equal([...reportSource.matchAll(/game-save-row game-save-row--icon/g)].length >= 2, true, '인계와 챕터 행에 아이콘 레이아웃이 필요합니다.');
 
 const resultPanels = [actionSource, campSource, growthSource, projectSource, tribeSource, inventorySource]
   .reduce((sum, source) => sum + [...source.matchAll(/<RecentActionResult\b/g)].length, 0);
@@ -170,5 +177,6 @@ console.log(JSON.stringify({
   actionProfiles: actionRows.length,
   milestoneProfiles: 12,
   resultPanels,
+  semanticStatIcons: 25,
   latestStateWrapper: true,
 }, null, 2));

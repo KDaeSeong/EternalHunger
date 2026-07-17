@@ -4,6 +4,7 @@ import {
   RecentActionResult,
   SmallStat,
 } from '../../_components/GamePlayPrimitives';
+import GameActionIcon from '../../_components/GameActionIcon';
 
 function MaterialStatus({ rows = [] }) {
   return (
@@ -59,17 +60,18 @@ export default function PrimitiveArchiveCampWorkspace(props) {
         </div>
         <p className="primitive-run-headline">{runProgressReport.headline}</p>
         <div className="games-rank-split games-rank-split--compact primitive-run-stat-grid">
-          <SmallStat label="목표" value={runProgressReport.objectiveLabel} />
-          <SmallStat label="남은 생존" value={`${runProgressReport.daysLeft}일`} />
-          <SmallStat label="식량" value={runProgressReport.foodUnits} />
-          <SmallStat label="연료" value={runProgressReport.fuel} />
-          <SmallStat label="보온" value={runProgressReport.insulation} />
-          <SmallStat label="무게" value={runProgressReport.weight} />
-          <SmallStat label="사건" value={runProgressReport.eventLabel} />
-          <SmallStat label="희귀" value={`${runProgressReport.rareResourceTotal}개`} />
+          <SmallStat icon="target" label="목표" value={runProgressReport.objectiveLabel} />
+          <SmallStat icon="calendar" label="남은 생존" value={`${runProgressReport.daysLeft}일`} />
+          <SmallStat icon="consume" label="식량" value={runProgressReport.foodUnits} />
+          <SmallStat icon="fuel" label="연료" value={runProgressReport.fuel} />
+          <SmallStat icon="camp" label="보온" value={runProgressReport.insulation} />
+          <SmallStat icon="inventory" label="무게" value={runProgressReport.weight} />
+          <SmallStat icon="event" label="사건" value={runProgressReport.eventLabel} />
+          <SmallStat icon="discover" label="희귀" value={`${runProgressReport.rareResourceTotal}개`} />
         </div>
         <div className="game-save-list primitive-response-list">
-          <article className="game-save-row">
+          <article className="game-save-row game-save-row--icon">
+            <GameActionIcon action={runProgressReport.riskTone === 'danger' ? 'warning' : 'status'} label="현재 병목" />
             <div>
               <span>병목</span>
               <strong>{runProgressReport.blockers.length ? runProgressReport.blockers.join(' / ') : '뚜렷한 병목 없음'}</strong>
@@ -78,7 +80,8 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             <strong>{runProgressReport.riskTone === 'danger' ? '위험' : runProgressReport.riskTone === 'warning' ? '주의' : '안정'}</strong>
           </article>
           {(runProgressReport.activeEventChains || []).map((chain) => (
-            <article className="game-save-row" key={chain.id}>
+            <article className="game-save-row game-save-row--icon" key={chain.id}>
+              <GameActionIcon action="event" label={chain.title} />
               <div>
                 <span>{chain.stageLabel} · {chain.costText}</span>
                 <strong>{chain.title}</strong>
@@ -88,7 +91,8 @@ export default function PrimitiveArchiveCampWorkspace(props) {
             </article>
           ))}
           {(runProgressReport.recoveryChoices || []).map((choice) => (
-            <article className="game-save-row" key={choice.id}>
+            <article className="game-save-row game-save-row--icon" key={choice.id}>
+              <GameActionIcon action={choice.tone === 'danger' ? 'warning' : 'rest'} label={choice.title} />
               <div>
                 <span>{choice.costText} · {choice.tone === 'danger' ? '긴급' : choice.tone === 'low' ? '정비' : '대응'}</span>
                 <strong>{choice.title}</strong>
@@ -106,12 +110,12 @@ export default function PrimitiveArchiveCampWorkspace(props) {
           <span>연료 {state.camp.fuel}</span>
         </div>
         <div className="games-rank-split games-rank-split--compact primitive-camp-stat-grid">
-          <div><span>모닥불</span><strong>Lv.{state.camp.fireLevel}</strong></div>
-          <div><span>대피소</span><strong>Lv.{state.camp.shelterLevel}</strong></div>
-          <div><span>작업대</span><strong>Lv.{state.camp.workbenchLevel}</strong></div>
-          <div><span>기록실</span><strong>Lv.{state.camp.archiveRoomLevel || 0}</strong></div>
-          <div><span>필사대</span><strong>Lv.{state.camp.scribeDeskLevel || 0}</strong></div>
-          <div><span>서가</span><strong>Lv.{state.camp.libraryShelfLevel || 0}</strong></div>
+          <SmallStat icon="fuel" label="모닥불" value={`Lv.${state.camp.fireLevel}`} />
+          <SmallStat icon="camp" label="대피소" value={`Lv.${state.camp.shelterLevel}`} />
+          <SmallStat icon="craft" label="작업대" value={`Lv.${state.camp.workbenchLevel}`} />
+          <SmallStat icon="archive" label="기록실" value={`Lv.${state.camp.archiveRoomLevel || 0}`} />
+          <SmallStat icon="document-review" label="필사대" value={`Lv.${state.camp.scribeDeskLevel || 0}`} />
+          <SmallStat icon="guide" label="서가" value={`Lv.${state.camp.libraryShelfLevel || 0}`} />
         </div>
         <div className="primitive-camp-action-grid">
           {(campActions || []).map((action) => (

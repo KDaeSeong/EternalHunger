@@ -20,7 +20,7 @@ const SINE_TABLE = Float32Array.from(
   (_, index) => Math.sin((index / TABLE_SIZE) * TWO_PI),
 );
 
-const TRACKS = Object.freeze([
+export const ETERNAL_HUNGER_RENDER_TRACKS = Object.freeze([
   { theme: 'eternal-ready', file: 'ready', title: '출전 대기', bars: 20, lead: 'piano', counter: 'bell', pad: 'strings', drumScale: 0.54, room: 0.2 },
   { theme: 'eternal-day', file: 'day', title: '루미아의 낮', bars: 24, lead: 'pluck', counter: 'piano', pad: 'strings', drumScale: 0.82, room: 0.15 },
   { theme: 'eternal-night', file: 'night', title: '금지구역 경보', bars: 24, lead: 'strings', counter: 'brass', pad: 'choir', drumScale: 1, room: 0.18 },
@@ -96,6 +96,11 @@ function additiveSample(kind, frequency, duration, variant) {
     attack = Math.min(0.28, duration * 0.24);
     release = Math.min(0.55, duration * 0.36);
     decay = 0.03;
+  } else if (kind === 'flute') {
+    partials = [[1, 1], [2, 0.18], [3, 0.08], [4, 0.035]];
+    attack = Math.min(0.055, duration * 0.18);
+    release = Math.min(0.24, duration * 0.28);
+    decay = 0.12;
   } else if (kind === 'bell') {
     partials = [[1, 1], [2.01, 0.52], [2.98, 0.34], [4.13, 0.22], [5.42, 0.14], [6.79, 0.07]];
     attack = 0.003;
@@ -123,6 +128,7 @@ function additiveSample(kind, frequency, duration, variant) {
       value += sine(t * frequency * ratio * vibrato + phases[partialIndex]) * level * partialDecay;
     }
     if (kind === 'piano' && t < 0.018) value += (random() * 2 - 1) * (1 - t / 0.018) * 0.18;
+    if (kind === 'flute') value += (random() * 2 - 1) * 0.018;
     const env = envelope(t, duration, attack, release, decay);
     const saturation = kind === 'brass' ? Math.tanh(value * 0.9) : value;
     samples[index] = saturation * env * (kind === 'choir' ? 0.52 : 0.62);
@@ -157,7 +163,7 @@ function pluckedSample(kind, frequency, duration, variant) {
 }
 
 function tonalSample(kind, frequency, duration, variant = 0) {
-  const safeKind = ['piano', 'strings', 'brass', 'choir', 'bell', 'pluck', 'guitar', 'bass'].includes(kind)
+  const safeKind = ['piano', 'strings', 'brass', 'choir', 'bell', 'flute', 'pluck', 'guitar', 'bass'].includes(kind)
     ? kind
     : 'piano';
   const safeFrequency = clamp(frequencyKey(frequency), 28, 4_200);
@@ -302,8 +308,9 @@ function renderTrack(config) {
       const snare = Number(profile.drums.snare[patternStep] || 0);
       const hat = Number(profile.drums.hat[patternStep] || 0);
       const perc = Number(profile.drums.perc[patternStep] || 0);
-      if (kick > 0) mixSample(target, percussionSample('kick', variant), start, kick * drumLevel * 0.28);
-      if (snare > 0) mixSample(target, percussionSample('snare', variant), start, snare * drumLevel * 0.2);
+      const kickKind = config.percussion === 'tribal' ? 'tom' : 'kick';
+      if (kick > 0) mixSample(target, percussionSample(kickKind, variant), start, kick * drumLevel * (config.percussion === 'tribal' ? 0.2 : 0.28));
+      if (snare > 0) mixSample(target, percussionSample('snare', variant), start, snare * drumLevel * (config.percussion === 'tribal' ? 0.14 : 0.2));
       if (hat > 0) mixSample(target, percussionSample('hat', variant), start, hat * drumLevel * 0.12);
       if (perc > 0) mixSample(target, percussionSample('tom', variant), start, perc * drumLevel * 0.15);
       if (patternStep === 0 && state.sectionBarIndex === 0 && Number(section.energy || 0) >= 0.65) {
@@ -387,30 +394,47 @@ function encodePcmWave(samples) {
   return output;
 }
 
-await mkdir(OUTPUT_DIR, { recursive: true });
-const manifest = [];
-for (const track of TRACKS) {
-  const startedAt = performance.now();
-  const rendered = renderTrack(track);
-  const wave = encodePcmWave(rendered.samples);
-  const outputPath = path.join(OUTPUT_DIR, `${track.file}.wav`);
-  await writeFile(outputPath, wave);
-  manifest.push({
-    file: `${track.file}.wav`,
-    theme: track.theme,
-    title: track.title,
-    bars: track.bars,
-    bpm: rendered.profile.bpm,
-    durationSeconds: Number(rendered.duration.toFixed(3)),
-    sampleRate: SAMPLE_RATE,
-    channels: 1,
-    bytes: wave.length,
-  });
-  console.log(`${track.theme}: ${rendered.duration.toFixed(1)}s / ${(wave.length / 1_048_576).toFixed(2)} MiB / ${(performance.now() - startedAt).toFixed(0)}ms`);
+export async function renderPhysicalModelSoundtrack({
+  tracks,
+  outputDir,
+  soundtrackName = 'game',
+}) {
+  await mkdir(outputDir, { recursive: true });
+  const manifest = [];
+  for (const track of tracks) {
+    const startedAt = performance.now();
+    const rendered = renderTrack(track);
+    const wave = encodePcmWave(rendered.samples);
+    const outputPath = path.join(outputDir, `${track.file}.wav`);
+    await writeFile(outputPath, wave);
+    manifest.push({
+      file: `${track.file}.wav`,
+      theme: track.theme,
+      title: track.title,
+      bars: track.bars,
+      bpm: rendered.profile.bpm,
+      durationSeconds: Number(rendered.duration.toFixed(3)),
+      sampleRate: SAMPLE_RATE,
+      channels: 1,
+      bytes: wave.length,
+    });
+    console.log(`${track.theme}: ${rendered.duration.toFixed(1)}s / ${(wave.length / 1_048_576).toFixed(2)} MiB / ${(performance.now() - startedAt).toFixed(0)}ms`);
+  }
+  await writeFile(
+    path.join(outputDir, 'manifest.json'),
+    `${JSON.stringify({ renderer: 'physical-model-v1', tracks: manifest }, null, 2)}\n`,
+    'utf8',
+  );
+  console.log(`Rendered ${manifest.length} ${soundtrackName} instrumental tracks.`);
+  return manifest;
 }
-await writeFile(
-  path.join(OUTPUT_DIR, 'manifest.json'),
-  `${JSON.stringify({ renderer: 'physical-model-v1', tracks: manifest }, null, 2)}\n`,
-  'utf8',
-);
-console.log(`Rendered ${manifest.length} Eternal Hunger instrumental tracks.`);
+
+const isDirectRun = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isDirectRun) {
+  await renderPhysicalModelSoundtrack({
+    tracks: ETERNAL_HUNGER_RENDER_TRACKS,
+    outputDir: OUTPUT_DIR,
+    soundtrackName: 'Eternal Hunger',
+  });
+}

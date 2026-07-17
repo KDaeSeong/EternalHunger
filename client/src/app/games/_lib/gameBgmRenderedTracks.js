@@ -1,8 +1,6 @@
-const ETERNAL_HUNGER_AUDIO_ROOT = '/audio/eternal-hunger';
-
-function renderedTrack(file, options = {}) {
+function renderedTrack(folder, file, options = {}) {
   return Object.freeze({
-    src: `${ETERNAL_HUNGER_AUDIO_ROOT}/${file}.wav`,
+    src: `/audio/${folder}/${file}.wav`,
     gain: 1.2,
     loop: true,
     loopStartSeconds: 0.85,
@@ -11,16 +9,26 @@ function renderedTrack(file, options = {}) {
   });
 }
 
+const eternalHungerTrack = (file, options) => renderedTrack('eternal-hunger', file, options);
+const primitiveArchiveTrack = (file, options) => renderedTrack('primitive-archive', file, options);
+
 export const GAME_BGM_RENDERED_TRACKS = Object.freeze({
-  'eternal-ready': renderedTrack('ready', { gain: 1.16 }),
-  'eternal-day': renderedTrack('day', { gain: 1.22 }),
-  'eternal-night': renderedTrack('night', { gain: 1.24 }),
-  'eternal-combat': renderedTrack('combat', { gain: 1.18 }),
-  'eternal-rift': renderedTrack('rift', { gain: 1.2 }),
-  'eternal-boss': renderedTrack('boss', { gain: 1.14 }),
-  'eternal-final': renderedTrack('final', { gain: 1.16 }),
-  'eternal-result': renderedTrack('result', { gain: 1.2 }),
-  'eternal-defeat': renderedTrack('defeat', { gain: 1.2 }),
+  'eternal-ready': eternalHungerTrack('ready', { gain: 1.16 }),
+  'eternal-day': eternalHungerTrack('day', { gain: 1.22 }),
+  'eternal-night': eternalHungerTrack('night', { gain: 1.24 }),
+  'eternal-combat': eternalHungerTrack('combat', { gain: 1.18 }),
+  'eternal-rift': eternalHungerTrack('rift', { gain: 1.2 }),
+  'eternal-boss': eternalHungerTrack('boss', { gain: 1.14 }),
+  'eternal-final': eternalHungerTrack('final', { gain: 1.16 }),
+  'eternal-result': eternalHungerTrack('result', { gain: 1.2 }),
+  'eternal-defeat': eternalHungerTrack('defeat', { gain: 1.2 }),
+  'archive-survival': primitiveArchiveTrack('survival', { gain: 1.22 }),
+  'archive-frontier': primitiveArchiveTrack('frontier', { gain: 1.2 }),
+  'archive-insight': primitiveArchiveTrack('insight', { gain: 1.2 }),
+  'archive-settlement': primitiveArchiveTrack('settlement', { gain: 1.22 }),
+  'archive-crisis': primitiveArchiveTrack('crisis', { gain: 1.16 }),
+  'archive-era': primitiveArchiveTrack('era', { gain: 1.18 }),
+  'archive-legacy': primitiveArchiveTrack('legacy', { gain: 1.2 }),
 });
 
 export function gameBgmRenderedTrack(theme) {

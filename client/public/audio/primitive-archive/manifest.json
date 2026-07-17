@@ -1,0 +1,82 @@
+{
+  "renderer": "physical-model-v1",
+  "tracks": [
+    {
+      "file": "survival.wav",
+      "theme": "archive-survival",
+      "title": "불씨와 첫 발자국",
+      "bars": 20,
+      "bpm": 78,
+      "durationSeconds": 61.538,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2713892
+    },
+    {
+      "file": "frontier.wav",
+      "theme": "archive-frontier",
+      "title": "경계 너머",
+      "bars": 20,
+      "bpm": 94,
+      "durationSeconds": 51.064,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2251960
+    },
+    {
+      "file": "insight.wav",
+      "theme": "archive-insight",
+      "title": "별 아래의 문답",
+      "bars": 20,
+      "bpm": 88,
+      "durationSeconds": 54.545,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2405500
+    },
+    {
+      "file": "settlement.wav",
+      "theme": "archive-settlement",
+      "title": "돌과 나무의 노래",
+      "bars": 20,
+      "bpm": 104,
+      "durationSeconds": 46.154,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2035430
+    },
+    {
+      "file": "crisis.wav",
+      "theme": "archive-crisis",
+      "title": "겨울의 이빨",
+      "bars": 24,
+      "bpm": 126,
+      "durationSeconds": 45.714,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2016044
+    },
+    {
+      "file": "era.wav",
+      "theme": "archive-era",
+      "title": "새 시대의 문",
+      "bars": 20,
+      "bpm": 112,
+      "durationSeconds": 42.857,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 1890044
+    },
+    {
+      "file": "legacy.wav",
+      "theme": "archive-legacy",
+      "title": "기록은 남는다",
+      "bars": 16,
+      "bpm": 72,
+      "durationSeconds": 53.333,
+      "sampleRate": 22050,
+      "channels": 1,
+      "bytes": 2352044
+    }
+  ]
+}

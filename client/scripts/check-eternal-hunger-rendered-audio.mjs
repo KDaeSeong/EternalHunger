@@ -27,7 +27,11 @@ const manifest = JSON.parse(await readFile(
 
 assert.equal(manifest.renderer, 'physical-model-v1', '렌더러 버전이 기록되어야 합니다.');
 assert.equal(manifest.tracks.length, 9, '이터널 헝거 렌더 트랙은 9곡이어야 합니다.');
-assert.equal(Object.keys(GAME_BGM_RENDERED_TRACKS).length, 9, '런타임 렌더 트랙 매핑은 9곡이어야 합니다.');
+assert.equal(
+  Object.keys(GAME_BGM_RENDERED_TRACKS).filter((theme) => theme.startsWith('eternal-')).length,
+  9,
+  '이터널 헝거 런타임 렌더 트랙 매핑은 9곡이어야 합니다.',
+);
 assert.equal(new Set(manifest.tracks.map((track) => track.file)).size, 9, '렌더 트랙 파일명이 중복되면 안 됩니다.');
 
 let totalBytes = 0;

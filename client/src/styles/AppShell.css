@@ -7072,6 +7072,30 @@
   padding: 8px 10px;
 }
 
+.games-rank-split > .games-small-stat--with-icon {
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 8px;
+}
+
+.games-small-stat--with-icon > .game-action-icon {
+  grid-row: 1 / 3;
+  align-self: center;
+}
+
+.games-small-stat--with-icon > span,
+.games-small-stat--with-icon > strong {
+  grid-column: 2;
+}
+
+.game-save-row.game-save-row--icon {
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.game-save-row--icon > .game-action-icon {
+  align-self: center;
+}
+
 .games-action-result {
   display: grid;
   gap: 4px;

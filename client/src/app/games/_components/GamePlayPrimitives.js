@@ -44,9 +44,10 @@ export function GameControlButton({ action, children, className = '', cue, disab
   );
 }
 
-export function SmallStat({ label, value }) {
+export function SmallStat({ icon = '', label, value }) {
   return (
-    <div>
+    <div className={icon ? 'games-small-stat games-small-stat--with-icon' : 'games-small-stat'}>
+      {icon ? <GameActionIcon action={icon} label={label} /> : null}
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
