@@ -25,6 +25,7 @@
     "check:er-weapons": "node ./scripts/check-er-weapons.mjs",
     "check:skills": "node ./scripts/check-character-skill-compiler.mjs",
     "check:starleague-feedback": "node ./scripts/check-starleague-feedback.mjs",
+    "check:starleague-soundtrack": "node ./scripts/check-starleague-soundtrack.mjs",
     "check:tonkatsu-teacher-feedback": "node ./scripts/check-tonkatsu-teacher-feedback.mjs",
     "check:dual-academy-feedback": "node ./scripts/check-dual-academy-feedback.mjs",
     "check:eternal-hunger-feedback": "node ./scripts/check-eternal-hunger-feedback.mjs",

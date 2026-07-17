@@ -7,7 +7,9 @@ import MyAnimeCraftRecordsTab from './MyAnimeCraftRecordsTab';
 
 export default function MyAnimeCraftFeatureTabs(props) {
   const {
+    activeTabId,
     inventoryRows,
+    onTabChange,
     personalSummary,
     played,
     selectedTeam,
@@ -18,6 +20,8 @@ export default function MyAnimeCraftFeatureTabs(props) {
 
   return (
     <GameFeatureTabs
+      activeTabId={activeTabId}
+      onTabChange={onTabChange}
       tabs={[
         {
           id: 'league',

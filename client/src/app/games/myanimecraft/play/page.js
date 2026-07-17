@@ -7,6 +7,7 @@ import { apiGet, apiPost, apiPut, clearApiGetCache } from '../../../../utils/api
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import GamePlayShell from '../../_components/GamePlayShell';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import useGameSfx from '../../_lib/useGameSfx';
@@ -60,11 +61,16 @@ import {
   starleagueResultPresentation,
   starleagueTextPresentation,
 } from '../_lib/starleagueFeedback';
+import {
+  resolveStarleagueBgmScene,
+  starleagueResultMusic,
+} from '../_lib/starleagueSoundtrack';
 
 export default function MyAnimeCraftPlayPage() {
   const token = useAuthToken();
   const hydrated = useHydrated();
   const { showToast } = useToast();
+  const { setMusicScene } = useGameBgm();
   const playGameSfx = useGameSfx({ theme: 'broadcast' });
   const [state, setState] = useState(() => createNewState());
   const stateRef = useRef(state);
@@ -77,7 +83,9 @@ export default function MyAnimeCraftPlayPage() {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [actionResult, setActionResult] = useState('');
+  const [activeTabId, setActiveTabId] = useState('league');
   const feedbackRef = useRef(starleagueFeedbackSnapshot(state));
+  const musicSceneTimerRef = useRef(null);
   const [actionPresentation, setActionPresentation] = useState(() => starleagueResultPresentation(state, state));
 
   const currentFixtures = useMemo(() => getCurrentFixtures(state), [state]);
@@ -132,13 +140,41 @@ export default function MyAnimeCraftPlayPage() {
     [feedbackSnapshot, selectedTeamId],
   );
   const resultPresentation = starleagueTextPresentation(recentActionText, actionPresentation);
+  const baseMusicScene = useMemo(() => resolveStarleagueBgmScene({
+    activeTabId,
+    ended,
+    personalStage: personalSummary.stage,
+    seasonStage: seasonStage.stage,
+    winnersStage: winnersSummary.stage,
+  }), [activeTabId, ended, personalSummary.stage, seasonStage.stage, winnersSummary.stage]);
+
+  useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
 
   useEffect(() => {
     stateRef.current = state;
+    const presentation = starleagueResultPresentation(feedbackRef.current, feedbackSnapshot, selectedTeamId);
     const cue = starleagueFeedbackCue(feedbackRef.current, feedbackSnapshot, selectedTeamId);
     if (cue) playGameSfx(cue);
+    const musicTransition = starleagueResultMusic(presentation);
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
     feedbackRef.current = feedbackSnapshot;
-  }, [feedbackSnapshot, playGameSfx, selectedTeamId, state]);
+  }, [baseMusicScene, feedbackSnapshot, playGameSfx, selectedTeamId, setMusicScene, state]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const publishMessage = (nextMessage) => {
     setMessage(nextMessage);
@@ -330,6 +366,7 @@ export default function MyAnimeCraftPlayPage() {
       <GameAdvisorPanel {...guide} compact minimal storageKey="myanimecraft-league-coach" />
 
       <MyAnimeCraftFeatureTabs
+        activeTabId={activeTabId}
         applyStateAction={applyStateAction}
         broadcastSignal={broadcastSignal}
         buildMetaReport={buildMetaReport}
@@ -340,6 +377,7 @@ export default function MyAnimeCraftPlayPage() {
         inventoryRows={inventoryRows}
         matchArchiveRows={matchArchiveRows}
         marketOfficeReport={marketOfficeReport}
+        onTabChange={setActiveTabId}
         personalRows={personalRows}
         personalSummary={personalSummary}
         played={played}
