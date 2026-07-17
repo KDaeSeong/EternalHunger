@@ -13034,6 +13034,12 @@
     padding: 6px 10px 8px;
   }
 
+  .primitive-archive-page-shell .games-play-chrome,
+  .primitive-archive-page-shell .games-play-workspace {
+    width: min(100%, 1600px);
+    margin-inline: auto;
+  }
+
   .primitive-archive-page-shell .games-page,
   .primitive-archive-page-shell .games-play-workspace {
     gap: 4px;
@@ -13066,6 +13072,11 @@
 
   .primitive-archive-workspace .game-feature-tabs__panel {
     padding: 0 2px 2px 0;
+  }
+
+  .primitive-archive-workspace .game-feature-tabs__panel > * {
+    width: min(100%, 1480px);
+    margin-inline: auto;
   }
 
   .primitive-archive-workspace .games-detail-grid {
@@ -13172,6 +13183,19 @@
     gap: 6px;
   }
 
+  .primitive-archive-workspace .game-feature-tabs__panel > .primitive-world-map-panel {
+    width: min(100%, 920px);
+  }
+
+  .primitive-world-map-scroll {
+    width: 100%;
+  }
+
+  .primitive-world-map-canvas {
+    width: min(100%, 640px);
+    min-width: 640px;
+  }
+
   .primitive-world-map-node {
     width: 104px;
     min-height: 58px;
@@ -13202,6 +13226,7 @@
   }
 
   .primitive-party-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
   }
 
@@ -13244,7 +13269,8 @@
   }
 
   .primitive-inventory-grid {
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(170px, 220px));
+    justify-content: start;
     gap: 5px;
   }
 
@@ -13260,6 +13286,7 @@
   }
 
   .primitive-job-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
 
@@ -13291,6 +13318,11 @@
     padding: 6px 8px;
   }
 
+  .primitive-archive-workspace .games-rank-split.primitive-tribe-stats {
+    grid-template-columns: repeat(5, minmax(110px, 180px));
+    justify-content: start;
+  }
+
   .primitive-archive-workspace .game-feature-tabs__panel > .games-action-result {
     padding: 7px 9px;
   }
@@ -13308,13 +13340,19 @@
   .primitive-rival-terms {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
 
-@media (min-width: 1500px) {
   .primitive-report-workspace {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.95fr) minmax(0, 0.85fr);
   }
+}
 
+@media (min-width: 1360px) {
+  .primitive-job-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1500px) {
   .primitive-rival-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
