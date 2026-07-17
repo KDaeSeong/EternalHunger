@@ -130,6 +130,16 @@ import { inferGameActionSemantic } from '../_lib/gameActionSemantics';
 
 const ACTION_ICONS = {
   action: CirclePlay,
+  'academy-battle': Swords,
+  'academy-chain': Link2,
+  'academy-danger': HeartCrack,
+  'academy-defeat': Skull,
+  'academy-hina': Crosshair,
+  'academy-main': Sparkles,
+  'academy-mika': Zap,
+  'academy-ready': SquareStack,
+  'academy-victory': Trophy,
+  'academy-yuuka': ShieldCheck,
   'answer-maybe': CircleHelp,
   'answer-no': X,
   'answer-yes': BadgeCheck,

@@ -354,6 +354,60 @@ const ORCHESTRATION_PALETTES = Object.freeze({
     choirGain: 0.048, subGain: 0.034, tomGain: 0.018,
     stringGain: 0.058, pulseGain: 0.012, cymbalGain: 0.014, ghostGain: 0.008,
   }),
+  academyReady: orchestraPalette({
+    ostinatoGain: 0.024, brassGain: 0.014, bellGain: 0.042,
+    choirGain: 0.018, subGain: 0.038, tomGain: 0.024,
+    stringGain: 0.044, pulseGain: 0.03, cymbalGain: 0.022, ghostGain: 0.018,
+  }),
+  academyMain: orchestraPalette({
+    ostinatoGain: 0.038, brassGain: 0.03, bellGain: 0.038,
+    choirGain: 0.018, subGain: 0.052, tomGain: 0.04,
+    stringGain: 0.048, pulseGain: 0.044, cymbalGain: 0.04, ghostGain: 0.032,
+  }),
+  academyBattle: orchestraPalette({
+    ostinatoGain: 0.054, ostinatoWave: 'sawtooth', brassGain: 0.054,
+    bellGain: 0.018, choirGain: 0.02, subGain: 0.072, tomGain: 0.066,
+    stringGain: 0.05, pulseGain: 0.056, pulseWave: 'square',
+    cymbalGain: 0.054, ghostGain: 0.046,
+  }),
+  academyChain: orchestraPalette({
+    ostinatoGain: 0.046, ostinatoWave: 'square', brassGain: 0.038,
+    bellGain: 0.048, choirGain: 0.03, subGain: 0.06, tomGain: 0.052,
+    stringGain: 0.052, pulseGain: 0.058, pulseWave: 'square',
+    cymbalGain: 0.048, ghostGain: 0.044,
+  }),
+  academyDanger: orchestraPalette({
+    ostinatoGain: 0.062, ostinatoWave: 'sawtooth', brassGain: 0.064,
+    bellGain: 0.016, choirGain: 0.044, subGain: 0.08, tomGain: 0.074,
+    stringGain: 0.058, stringWave: 'sawtooth', pulseGain: 0.062, pulseWave: 'square',
+    cymbalGain: 0.064, ghostGain: 0.052,
+  }),
+  academyMika: orchestraPalette({
+    ostinatoGain: 0.05, ostinatoWave: 'sawtooth', brassGain: 0.06,
+    bellGain: 0.056, choirGain: 0.048, subGain: 0.066, tomGain: 0.058,
+    stringGain: 0.056, pulseGain: 0.052, cymbalGain: 0.056, ghostGain: 0.042,
+  }),
+  academyHina: orchestraPalette({
+    ostinatoGain: 0.058, ostinatoWave: 'sawtooth', brassGain: 0.068,
+    bellGain: 0.014, choirGain: 0.026, subGain: 0.078, tomGain: 0.072,
+    stringGain: 0.052, pulseGain: 0.06, pulseWave: 'square',
+    cymbalGain: 0.06, ghostGain: 0.05,
+  }),
+  academyYuuka: orchestraPalette({
+    ostinatoGain: 0.04, brassGain: 0.038, bellGain: 0.036,
+    choirGain: 0.044, subGain: 0.066, tomGain: 0.052,
+    stringGain: 0.06, pulseGain: 0.042, cymbalGain: 0.042, ghostGain: 0.034,
+  }),
+  academyVictory: orchestraPalette({
+    ostinatoGain: 0.048, brassGain: 0.072, bellGain: 0.058,
+    choirGain: 0.06, subGain: 0.06, tomGain: 0.062,
+    stringGain: 0.064, pulseGain: 0.038, cymbalGain: 0.056, ghostGain: 0.03,
+  }),
+  academyDefeat: orchestraPalette({
+    ostinatoGain: 0.014, brassGain: 0.01, bellGain: 0.034,
+    choirGain: 0.05, subGain: 0.034, tomGain: 0.018,
+    stringGain: 0.06, pulseGain: 0.012, cymbalGain: 0.014, ghostGain: 0.008,
+  }),
   vanguardReady: orchestraPalette({
     ostinatoGain: 0.022, brassGain: 0.014, bellGain: 0.038,
     choirGain: 0.018, subGain: 0.038, tomGain: 0.024,
@@ -421,6 +475,24 @@ function section(id, label, bars, options = {}) {
   });
 }
 
+function academyArrangement({ bars, labels, intensity = 1, brightness = 1 }) {
+  const peakEnergy = Math.max(0.82, 1.12 * intensity);
+  const baseEnergy = Math.min(0.34, Math.max(0.14, 0.24 * intensity));
+  const drum = (value) => Math.min(1.24, value * intensity);
+  return Object.freeze([
+    section('intro', labels[0], bars[0], { lead: false, counter: true, bass: true, arp: true, pad: true, drums: drum(0.22), energy: baseEnergy, chords: 'a', strings: 0.68, pulse: 0.18, brightness: brightness * 0.82 }),
+    section('theme-a', labels[1], bars[1], { lead: 'a', leadSequence: ['a', 'c', 'a', 'b', 'a', 'c', 'a'], counter: false, bass: true, arp: true, pad: true, drums: drum(0.66), energy: Math.max(0.58, 0.72 * intensity), chords: 'a', strings: 0.82, pulse: 0.68, brightness }),
+    section('turn', labels[2], bars[2], { lead: 'c', counter: true, bass: false, arp: true, pad: false, drums: drum(0.58), energy: Math.max(0.52, 0.62 * intensity), chords: 'b', bell: 0.88, riser: 0.94, brightness }),
+    section('bridge', labels[3], bars[3], { lead: 'c', leadSequence: ['c', 'a', 'c', 'b', 'c'], counter: true, bass: true, arp: false, pad: true, drums: drum(0.62), energy: Math.max(0.62, 0.76 * intensity), chords: 'b', strings: 0.9, pulse: 0.62, brightness }),
+    section('theme-b', labels[4], bars[4], { lead: 'b', leadSequence: ['b', 'c', 'b', 'a', 'c', 'b', 'a'], counter: true, bass: true, arp: true, pad: true, drums: drum(0.9), energy: Math.max(0.76, 0.94 * intensity), chords: 'b', brass: 0.88, pulse: 0.92, brightness: brightness * 1.08 }),
+    section('break', labels[5], bars[5], { lead: false, counter: true, bass: false, arp: true, pad: true, drums: drum(0.12), energy: Math.max(0.22, 0.3 * intensity), chords: 'a', strings: 1, choir: 0.64, pulse: 0.02, brightness: brightness * 0.64 }),
+    section('drift-b', labels[6], bars[6], { lead: 'c', leadSequence: ['c', 'b', 'a', 'c', 'b'], counter: true, bass: true, arp: true, pad: true, drums: drum(0.68), energy: Math.max(0.66, 0.8 * intensity), chords: 'a', strings: 0.94, pulse: 0.72, brightness }),
+    section('return', labels[7], bars[7], { lead: 'a', leadSequence: ['a', 'b', 'c', 'a', 'b', 'a'], counter: true, bass: true, arp: true, pad: true, drums: drum(0.94), energy: Math.max(0.8, 1.02 * intensity), chords: 'a', brass: 0.92, pulse: 0.94, brightness: brightness * 1.08 }),
+    section('climax', labels[8], bars[8], { lead: 'b', leadSequence: ['b', 'c', 'b', 'a', 'c', 'b'], counter: true, bass: true, arp: true, pad: true, drums: drum(1.1), energy: peakEnergy, chords: 'b', keyShift: 1, brightness: brightness * 1.28, choir: 0.88, fill: true }),
+    section('finale', labels[9], bars[9], { lead: 'a', leadSequence: ['a', 'c', 'b', 'a', 'b', 'a', 'c'], counter: true, bass: true, arp: true, pad: true, drums: drum(1.02), energy: Math.max(0.78, 1.02 * intensity), chords: 'a', keyShift: 1, strings: 1, brass: 0.96, brightness: brightness * 1.18, fill: true }),
+  ]);
+}
+
 const ARRANGEMENTS = Object.freeze({
   action: Object.freeze([
     section('intro', '인트로', 2, { lead: false, counter: false, bass: true, arp: true, pad: true, drums: 0.38, energy: 0.48, chords: 'a' }),
@@ -457,6 +529,46 @@ const ARRANGEMENTS = Object.freeze({
     section('climax', '클라이맥스', 2, { lead: 'b', counter: true, bass: true, arp: true, pad: true, drums: 0.82, energy: 0.9, chords: 'b', fill: true }),
     section('finale', '마감', 2, { lead: 'b', counter: true, bass: true, arp: false, pad: true, drums: 0.86, energy: 0.92, chords: 'b', fill: true }),
   ]),
+  academyReady: academyArrangement({
+    bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.76, brightness: 1.08,
+    labels: ['덱 셔플', '첫 패의 예감', '선공 결정', '학생 카드 확인', '필드가 열리다', '드로우 전의 정적', '전술 검토', '듀얼 디스크 점등', '개막 선언', '첫 패의 청춘'],
+  }),
+  academyMain: academyArrangement({
+    bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 0.94, brightness: 1.12,
+    labels: ['메인 페이즈', '카드 전개', '효과 발동', '필드 계산', '에이스 소환', '한 장의 고민', '전술 재배치', '보드 우위', '다음 수를 읽다', '필드 전개'],
+  }),
+  academyBattle: academyArrangement({
+    bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.08, brightness: 1.08,
+    labels: ['배틀 개시', '공격 선언', '대상 지정', '전열 충돌', '연속 공격', '데미지 계산', '반격 준비', '라이프 압박', '결정타', '전투 페이즈'],
+  }),
+  academyChain: academyArrangement({
+    bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 1.02, brightness: 1.16,
+    labels: ['체인 개시', '효과에 응답', '체인 링크', '카운터 준비', '연쇄 발동', '해결 직전', '무효화의 빛', '효과 역전', '체인 해방', '체인 리액션'],
+  }),
+  academyDanger: academyArrangement({
+    bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.12, brightness: 0.92,
+    labels: ['라이프 경보', '붉은 수치', '마지막 드로우', '퇴로 봉쇄', '에이스 강림', '패가 마르다', '한 수의 반전', '최후 방어선', '제로 직전', '라이프 브레이크'],
+  }),
+  academyMika: academyArrangement({
+    bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 1.06, brightness: 1.24,
+    labels: ['별빛 점화', '천진한 미소', '코스트 지불', '심판 준비', '폭발하는 별', '고요한 시선', '무효화 선언', '빛의 궤적', '최후의 일격', '별빛의 심판'],
+  }),
+  academyHina: academyArrangement({
+    bars: [2, 5, 2, 4, 6, 3, 4, 5, 6, 7], intensity: 1.12, brightness: 0.98,
+    labels: ['규율 선언', '선도부 전개', '조준 완료', '탄막 개시', '압도적 화력', '냉정한 정적', '전열 정리', '집행 명령', '전장 통제', '규율의 포화'],
+  }),
+  academyYuuka: academyArrangement({
+    bars: [2, 5, 2, 4, 5, 2, 4, 5, 5, 6], intensity: 0.98, brightness: 1.08,
+    labels: ['계산 시작', '숫자의 행진', '방벽 전개', '데이터 탐색', '완벽한 수식', '오차 점검', '패를 정리하다', '방어선 재계산', '제로 오차', '계산된 방벽'],
+  }),
+  academyVictory: academyArrangement({
+    bars: [2, 4, 2, 4, 4, 2, 4, 4, 5, 5], intensity: 0.92, brightness: 1.22,
+    labels: ['마지막 데미지', '승리 선언', '결과 확인', '덱을 거두다', '승자의 필드', '악수를 나누다', '리플레이의 장면', '환호 속 에이스', '종례의 종', '듀얼의 종례'],
+  }),
+  academyDefeat: academyArrangement({
+    bars: [2, 3, 2, 3, 3, 2, 3, 3, 3, 4], intensity: 0.56, brightness: 0.78,
+    labels: ['카드가 멈추다', '패배 선언', '빈 필드', '남겨진 패', '무너진 전술', '조용한 종례', '기록을 되짚다', '덱을 다시 쌓다', '다음 승부를 향해', '남겨진 카드'],
+  }),
   eternalReady: Object.freeze([
     section('intro', '신호 수신', 2, { lead: false, counter: false, bass: true, arp: true, pad: true, drums: 0.06, energy: 0.24, chords: 'a', strings: 0.38, pulse: 0.04, brightness: 0.72 }),
     section('drift-a', '출전 준비', 5, { lead: 'a', leadSequence: ['a', 'a', 'c', 'a', 'a'], counter: false, bass: true, arp: true, pad: true, drums: 0.18, energy: 0.46, chords: 'a', strings: 0.68, pulse: 0.16 }),
@@ -968,6 +1080,45 @@ function profile(options) {
   });
 }
 
+function academyDuelProfile(options) {
+  return profile({
+    leadWave: 'triangle',
+    counterWave: 'sine',
+    bassWave: 'sawtooth',
+    arpWave: 'triangle',
+    padWave: 'triangle',
+    leadGain: 0.086,
+    counterGain: 0.038,
+    bassGain: 0.104,
+    arpGain: 0.032,
+    padGain: 0.034,
+    drumGain: 0.116,
+    filterFrequency: 2460,
+    filterPeak: 0.86,
+    delayMix: 0.066,
+    delayTime: 0.2,
+    delayFeedback: 0.21,
+    reverbMix: 0.096,
+    leadLength: 1.48,
+    counterLength: 1.08,
+    arpLength: 0.58,
+    pulseLength: 0.34,
+    fadeInSeconds: 0.82,
+    crossfadeSeconds: 0.76,
+    pumpDepth: 0.36,
+    orchestraLevel: 1,
+    bass: [0, null, 0, null, 4, null, 4, null, 5, null, 5, null, 3, null, 3, null],
+    arp: [0, 2, 4, 6, 1, 3, 5, 7, 0, 3, 5, 7, 2, 4, 6, 8],
+    pulse: [0, null, 2, null, 4, null, 6, null, 1, null, 3, null, 5, null, 7, null],
+    chordRoots: [0, 4, 5, 3, 0, 6, 4, 5],
+    chordRootsB: [3, 5, 0, 4, 2, 6, 1, 5],
+    chordVoicing: [0, 2, 4, 6],
+    chordExtension: 8,
+    harmonyInterval: 2,
+    ...options,
+  });
+}
+
 // All motifs and arrangements are original procedural material. No samples or quoted music are used.
 export const GAME_BGM_PROFILES = Object.freeze({
   default: profile({
@@ -1284,6 +1435,137 @@ export const GAME_BGM_PROFILES = Object.freeze({
     bass: [0, null, null, null, 4, null, null, null, 5, null, null, null, 3, null, null, null],
     arp: [0, 4, 2, 4, 1, 5, 3, 5, 0, 4, 2, 6, 1, 5, 3, 4],
     chordRoots: [0, 4, 5, 3], chordRootsB: [0, 5, 4, 3],
+  }),
+  'academy-duel': academyDuelProfile({
+    label: 'Dual Academy TCG', icon: 'academy-ready', bpm: 96,
+    rootFrequency: 110, mode: MODES.majorPentatonic,
+    arrangement: 'academyReady', drumStyle: 'shuffle', orchestrationStyle: 'academyReady', swing: 0.05,
+    leadWave: 'triangle', bassWave: 'triangle', filterFrequency: 2520, filterPeak: 0.62,
+    leadGain: 0.092, bassGain: 0.088, drumGain: 0.082, reverbMix: 0.122,
+    leadLength: 1.96, counterLength: 1.46, fadeInSeconds: 1.16, crossfadeSeconds: 0.96,
+    lead: [0, null, 2, 4, 3, null, 2, 1, 0, 2, null, 4, 5, 4, 2, null],
+    chordRoots: [0, 4, 1, 5, 0, 3, 4, 1], chordRootsB: [1, 5, 0, 4, 3, 5, 1, 4],
+  }),
+  'academy-ready': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 첫 패의 청춘', icon: 'academy-ready', bpm: 96,
+    rootFrequency: 110, mode: MODES.majorPentatonic,
+    arrangement: 'academyReady', drumStyle: 'shuffle', orchestrationStyle: 'academyReady', swing: 0.05,
+    leadWave: 'triangle', bassWave: 'triangle', filterFrequency: 2520, filterPeak: 0.62,
+    leadGain: 0.092, bassGain: 0.088, drumGain: 0.082, reverbMix: 0.122,
+    leadLength: 1.96, counterLength: 1.46, fadeInSeconds: 1.16, crossfadeSeconds: 0.96,
+    lead: [0, null, 2, 4, 3, null, 2, 1, 0, 2, null, 4, 5, 4, 2, null],
+    chordRoots: [0, 4, 1, 5, 0, 3, 4, 1], chordRootsB: [1, 5, 0, 4, 3, 5, 1, 4],
+  }),
+  'academy-main': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 필드 전개', icon: 'academy-main', bpm: 124,
+    rootFrequency: 110, mode: MODES.mixolydian,
+    arrangement: 'academyMain', drumStyle: 'digital', orchestrationStyle: 'academyMain', swing: 0.025,
+    leadWave: 'triangle', bassWave: 'sawtooth', filterFrequency: 3040, filterPeak: 0.88,
+    leadGain: 0.088, drumGain: 0.12, delayMix: 0.058, reverbMix: 0.086,
+    lead: [0, 2, 3, 5, 4, 3, 2, null, 1, 3, 5, 6, 5, 4, 2, 1],
+    chordRoots: [0, 3, 4, 5, 0, 6, 3, 4], chordRootsB: [3, 5, 0, 4, 1, 6, 5, 3],
+  }),
+  'academy-battle': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 전투 페이즈', icon: 'academy-battle', bpm: 148,
+    rootFrequency: 73.42, mode: MODES.harmonicMinor,
+    arrangement: 'academyBattle', drumStyle: 'assault', orchestrationStyle: 'academyBattle',
+    leadWave: 'sawtooth', counterWave: 'square', arpWave: 'square',
+    leadGain: 0.066, counterGain: 0.03, bassGain: 0.114, arpGain: 0.026, drumGain: 0.146,
+    filterFrequency: 2780, filterPeak: 1.12, delayMix: 0.034, delayTime: 0.145,
+    delayFeedback: 0.16, reverbMix: 0.068, leadLength: 1.2, counterLength: 0.9,
+    arpLength: 0.44, pulseLength: 0.26, fadeInSeconds: 0.58, crossfadeSeconds: 0.56,
+    pumpDepth: 0.44,
+    lead: [0, 2, 3, 4, 3, 2, 0, 2, 4, 5, 4, 3, 2, 3, 4, 6],
+    chordRoots: [0, 3, 4, 2, 0, 5, 3, 4], chordRootsB: [0, 4, 3, 2, 1, 4, 5, 3],
+  }),
+  'academy-chain': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 체인 리액션', icon: 'academy-chain', bpm: 144,
+    rootFrequency: 82.41, mode: MODES.dorian,
+    arrangement: 'academyChain', drumStyle: 'digital', orchestrationStyle: 'academyChain', swing: 0.018,
+    leadWave: 'square', counterWave: 'triangle', arpWave: 'square',
+    leadGain: 0.068, counterGain: 0.034, bassGain: 0.112, drumGain: 0.14,
+    filterFrequency: 3260, filterPeak: 1.16, delayMix: 0.052, delayTime: 0.13,
+    delayFeedback: 0.24, reverbMix: 0.1, leadLength: 1.12, counterLength: 0.82,
+    arpLength: 0.4, pulseLength: 0.22, fadeInSeconds: 0.56, crossfadeSeconds: 0.55,
+    pumpDepth: 0.46,
+    lead: [0, 3, 2, 5, 4, 6, 3, 2, 1, 4, 3, 6, 5, 7, 4, 2],
+    pulse: [0, 0, 3, null, 5, 5, 2, null, 1, 1, 4, null, 6, 6, 3, 2],
+    chordRoots: [0, 5, 2, 4, 1, 6, 3, 5], chordRootsB: [2, 4, 0, 6, 3, 5, 1, 4],
+  }),
+  'academy-danger': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 라이프 브레이크', icon: 'academy-danger', bpm: 156,
+    rootFrequency: 65.41, mode: MODES.harmonicMinor,
+    arrangement: 'academyDanger', drumStyle: 'assault', orchestrationStyle: 'academyDanger',
+    leadWave: 'sawtooth', counterWave: 'square', arpWave: 'square',
+    leadGain: 0.068, counterGain: 0.032, bassGain: 0.12, arpGain: 0.028, drumGain: 0.154,
+    filterFrequency: 3140, filterPeak: 1.22, delayMix: 0.038, delayTime: 0.14,
+    delayFeedback: 0.17, reverbMix: 0.084, leadLength: 1.12, counterLength: 0.82,
+    arpLength: 0.39, pulseLength: 0.22, fadeInSeconds: 0.56, crossfadeSeconds: 0.55,
+    pumpDepth: 0.49,
+    lead: [0, 2, 3, 4, 5, 4, 3, 1, 0, 3, 5, 4, 3, 2, 1, 0],
+    chordRoots: [0, 5, 4, 3, 0, 6, 5, 4], chordRootsB: [0, 3, 5, 4, 1, 6, 4, 5],
+  }),
+  'academy-mika': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 별빛의 심판', icon: 'academy-mika', bpm: 136,
+    rootFrequency: 98, mode: MODES.major,
+    arrangement: 'academyMika', drumStyle: 'assault', orchestrationStyle: 'academyMika', swing: 0.018,
+    leadWave: 'sawtooth', counterWave: 'triangle', bassWave: 'triangle',
+    leadGain: 0.074, bassGain: 0.108, drumGain: 0.138, filterFrequency: 3380, filterPeak: 1.02,
+    delayMix: 0.066, delayTime: 0.17, reverbMix: 0.11, leadLength: 1.34,
+    counterLength: 0.98, fadeInSeconds: 0.64, crossfadeSeconds: 0.6, pumpDepth: 0.42,
+    lead: [0, 2, 4, 6, 5, 4, 2, null, 3, 5, 7, 8, 7, 5, 4, 2],
+    chordRoots: [0, 4, 5, 3, 0, 6, 4, 5], chordRootsB: [3, 5, 0, 4, 2, 6, 1, 5],
+  }),
+  'academy-hina': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 규율의 포화', icon: 'academy-hina', bpm: 150,
+    rootFrequency: 73.42, mode: MODES.harmonicMinor,
+    arrangement: 'academyHina', drumStyle: 'assault', orchestrationStyle: 'academyHina',
+    leadWave: 'sawtooth', counterWave: 'square', arpWave: 'square',
+    leadGain: 0.064, counterGain: 0.028, bassGain: 0.118, arpGain: 0.026, drumGain: 0.15,
+    filterFrequency: 2540, filterPeak: 1.18, delayMix: 0.032, delayTime: 0.14,
+    delayFeedback: 0.15, reverbMix: 0.064, leadLength: 1.14, counterLength: 0.84,
+    arpLength: 0.4, pulseLength: 0.23, fadeInSeconds: 0.56, crossfadeSeconds: 0.55,
+    pumpDepth: 0.47,
+    lead: [0, 2, 3, 5, 4, 3, 2, 0, 5, 4, 3, 6, 5, 4, 2, 0],
+    chordRoots: [0, 3, 5, 2, 0, 4, 3, 5], chordRootsB: [0, 5, 3, 2, 1, 4, 5, 3],
+  }),
+  'academy-yuuka': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 계산된 방벽', icon: 'academy-yuuka', bpm: 128,
+    rootFrequency: 82.41, mode: MODES.dorian,
+    arrangement: 'academyYuuka', drumStyle: 'duel', orchestrationStyle: 'academyYuuka',
+    leadWave: 'triangle', counterWave: 'sine', bassWave: 'sawtooth',
+    leadGain: 0.078, counterGain: 0.036, bassGain: 0.11, drumGain: 0.126,
+    filterFrequency: 2240, filterPeak: 0.96, delayMix: 0.064, delayTime: 0.2,
+    delayFeedback: 0.22, reverbMix: 0.114, leadLength: 1.52, counterLength: 1.14,
+    fadeInSeconds: 0.78, crossfadeSeconds: 0.72, pumpDepth: 0.34,
+    lead: [0, null, 3, 4, 2, null, 5, 3, 0, 2, 3, null, 6, 5, 4, null],
+    chordRoots: [0, 4, 5, 3, 0, 2, 4, 5], chordRootsB: [0, 5, 4, 3, 1, 5, 3, 4],
+  }),
+  'academy-victory': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 듀얼의 종례', icon: 'academy-victory', bpm: 124,
+    rootFrequency: 98, mode: MODES.major,
+    arrangement: 'academyVictory', drumStyle: 'cinematic', orchestrationStyle: 'academyVictory',
+    leadWave: 'triangle', bassWave: 'triangle', leadGain: 0.1, counterGain: 0.044,
+    bassGain: 0.102, drumGain: 0.122, filterFrequency: 3020, filterPeak: 0.84,
+    delayMix: 0.084, delayTime: 0.23, delayFeedback: 0.24, reverbMix: 0.13,
+    leadLength: 1.74, counterLength: 1.32, fadeInSeconds: 0.92, crossfadeSeconds: 0.88,
+    pumpDepth: 0.3,
+    lead: [0, 2, 4, 5, 4, 2, 1, null, 3, 5, 6, 5, 4, 2, 1, 0],
+    chordRoots: [0, 4, 5, 3, 0, 6, 4, 5], chordRootsB: [3, 5, 0, 4, 2, 6, 1, 5],
+  }),
+  'academy-defeat': academyDuelProfile({
+    label: 'Dual Academy TCG OST · 남겨진 카드', icon: 'academy-defeat', bpm: 78,
+    rootFrequency: 87.31, mode: MODES.minorPentatonic,
+    arrangement: 'academyDefeat', drumStyle: 'ambient', orchestrationStyle: 'academyDefeat',
+    leadWave: 'sine', counterWave: 'triangle', bassWave: 'sine', arpWave: 'sine',
+    leadGain: 0.084, counterGain: 0.038, bassGain: 0.074, arpGain: 0.028,
+    padGain: 0.048, drumGain: 0.052, filterFrequency: 1380, filterPeak: 0.48,
+    delayMix: 0.124, delayTime: 0.39, delayFeedback: 0.32, reverbMix: 0.176,
+    leadLength: 2.74, counterLength: 2.04, arpLength: 0.96,
+    fadeInSeconds: 1.52, crossfadeSeconds: 1.26, pumpDepth: 0.2,
+    lead: [0, null, 2, null, 3, 2, 1, null, 0, null, 3, 4, 3, 2, 1, null],
+    pulse: [0, null, null, null, 2, null, null, null, 4, null, null, null, 3, null, null, null],
+    chordRoots: [0, 3, 4, 1, 0, 4, 2, 3], chordRootsB: [1, 4, 0, 3, 2, 4, 1, 0],
   }),
   vanguard: profile({
     label: 'BA Vanguard', icon: 'cards', bpm: 96, rootFrequency: 110, mode: MODES.majorPentatonic,

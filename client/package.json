@@ -30,6 +30,7 @@
     "check:starleague-soundtrack": "node ./scripts/check-starleague-soundtrack.mjs",
     "check:tonkatsu-teacher-feedback": "node ./scripts/check-tonkatsu-teacher-feedback.mjs",
     "check:dual-academy-feedback": "node ./scripts/check-dual-academy-feedback.mjs",
+    "check:dual-academy-soundtrack": "node ./scripts/check-dual-academy-soundtrack.mjs",
     "check:eternal-hunger-feedback": "node ./scripts/check-eternal-hunger-feedback.mjs",
     "check:eternal-hunger-soundtrack": "node ./scripts/check-eternal-hunger-soundtrack.mjs",
     "check:game-feedback-shell": "node ./scripts/check-game-feedback-shell.mjs",

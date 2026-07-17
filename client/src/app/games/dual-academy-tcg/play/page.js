@@ -8,6 +8,7 @@ import { useToast } from '../../../../components/ToastProvider';
 import { useAuthToken, useHydrated } from '../../../../utils/client-auth';
 import GameAdvisorPanel from '../../_components/GameAdvisorPanel';
 import GameActionIcon from '../../_components/GameActionIcon';
+import { useGameBgm } from '../../_components/GameBgmProvider';
 import { GameControlButton } from '../../_components/GamePlayPrimitives';
 import { useGameSfxEventHandlers } from '../../_lib/useGameSfx';
 import DualAcademyTcgDuelPulse from '../_components/DualAcademyTcgDuelPulse';
@@ -37,6 +38,10 @@ import {
   dualAcademyTcgFeedbackSnapshot,
   dualAcademyTcgPulse,
 } from '../_lib/dualAcademyTcgFeedback';
+import {
+  dualAcademyResultMusic,
+  resolveDualAcademyBgmScene,
+} from '../_lib/dualAcademyTcgSoundtrack';
 import { afterRender, buildZoneInspection } from '../_lib/tcgPlayPageRuntime';
 
 import {
@@ -78,6 +83,8 @@ function DualAcademyTcgPlayContent() {
   const [activeTcgTab, setActiveTcgTab] = useState('board');
   const [state, setState] = useState(() => createDuelState());
   const feedbackRef = useRef(dualAcademyTcgFeedbackSnapshot(state));
+  const musicSceneTimerRef = useRef(null);
+  const { setMusicScene } = useGameBgm();
   const {
     handleGameSfxChangeCapture,
     handleGameSfxPointerDownCapture,
@@ -125,6 +132,10 @@ function DualAcademyTcgPlayContent() {
   const replayTimeline = useMemo(() => replayTimelineForState(state), [state]);
   const replayExport = useMemo(() => replayExportForState(state), [state]);
   const duelPulse = useMemo(() => dualAcademyTcgPulse(state), [state]);
+  const baseMusicScene = useMemo(
+    () => resolveDualAcademyBgmScene({ activeTabId: activeTcgTab, state }),
+    [activeTcgTab, state],
+  );
   const effectCoverage = useMemo(() => cardEffectCoverageReport(cardCatalog), [cardCatalog]);
   const zoneInspection = useMemo(() => buildZoneInspection(state, turnAdvisor), [state, turnAdvisor]);
   const concurrencyAudit = useMemo(() => roomConcurrencyAudit({
@@ -144,11 +155,32 @@ function DualAcademyTcgPlayContent() {
   }, [state.turnPlayer, state.phase, state.prompt.kind, state.prompt.player, state.chain.length]);
 
   useEffect(() => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    musicSceneTimerRef.current = null;
+    setMusicScene(baseMusicScene);
+  }, [baseMusicScene, setMusicScene]);
+
+  useEffect(() => {
     const current = dualAcademyTcgFeedbackSnapshot(state);
     const cue = dualAcademyTcgFeedbackCue(feedbackRef.current, current);
     if (cue) playGameSfx(cue);
     feedbackRef.current = current;
-  }, [playGameSfx, state]);
+
+    const musicTransition = cue ? dualAcademyResultMusic(cue) : null;
+    if (musicTransition) {
+      if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+      setMusicScene(musicTransition.theme);
+      musicSceneTimerRef.current = window.setTimeout(() => {
+        setMusicScene(baseMusicScene);
+        musicSceneTimerRef.current = null;
+      }, musicTransition.durationMs);
+    }
+  }, [baseMusicScene, playGameSfx, setMusicScene, state]);
+
+  useEffect(() => () => {
+    if (musicSceneTimerRef.current) window.clearTimeout(musicSceneTimerRef.current);
+    setMusicScene('');
+  }, [setMusicScene]);
 
   const duelCharacters = normalizeTcgCharacters(state.characters);
   const playerCharacter = getTcgCharacter(duelCharacters.player, 'YUUKA');
