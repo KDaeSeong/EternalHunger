@@ -96,6 +96,26 @@ function edgeKey(a, b) {
   return aa < bb ? `${aa}::${bb}` : `${bb}::${aa}`;
 }
 
+function MinimapPassage({ segment, supplemental = false }) {
+  const [a, b] = safeArray(segment?.edge);
+  if (!a || !b) return null;
+  return (
+    <g
+      className={`minimap-passage-route ${supplemental ? 'supplemental' : ''}`}
+      data-edge={`${a}:${b}`}
+    >
+      <polyline
+        points={polygonPoints(segment.points)}
+        className="minimap-passage-halo"
+      />
+      <polyline
+        points={polygonPoints(segment.points)}
+        className="minimap-passage"
+      />
+    </g>
+  );
+}
+
 export default function SimulationMinimapCanvas({
   activeMapId,
   dead,
@@ -122,6 +142,18 @@ export default function SimulationMinimapCanvas({
     () => createLumiaConnectedPassages(LUMIA_PASSAGE_SEGMENTS, positions, LUMIA_ISLAND_OUTLINE),
     [positions]
   );
+  const passageEdgeKeys = useMemo(
+    () => new Set(passageSegments.map((segment) => edgeKey(...safeArray(segment?.edge)))),
+    [passageSegments]
+  );
+  const supplementalPassages = useMemo(() => {
+    const segments = safeArray(zoneEdges).flatMap((edge) => {
+      const [a, b] = safeArray(edge).map(String);
+      if (!a || !b || a === b || passageEdgeKeys.has(edgeKey(a, b))) return [];
+      return [{ edge: [a, b], points: [] }];
+    });
+    return createLumiaConnectedPassages(segments, positions, LUMIA_ISLAND_OUTLINE);
+  }, [passageEdgeKeys, positions, zoneEdges]);
   const zoneList = safeArray(zones);
   if (!zoneList.length) return <div className="minimap-empty">미니맵 데이터가 없습니다.</div>;
 
@@ -139,7 +171,6 @@ export default function SimulationMinimapCanvas({
   const selectedZoneId = hyperloopSelectedChar ? String(hyperloopSelectedChar?.zoneId || '') : '';
   const availableZoneIds = new Set(zoneList.map((zone) => String(zone?.zoneId || '')).filter(Boolean));
   const visiblePings = safeArray(recentPings).slice(0, 2);
-  const passageEdgeKeys = new Set();
 
   return (
     <div className="minimap-canvas">
@@ -216,34 +247,19 @@ export default function SimulationMinimapCanvas({
           {passageSegments.map((segment) => {
             const [a, b] = safeArray(segment?.edge);
             if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
-            passageEdgeKeys.add(edgeKey(a, b));
             return (
-              <g key={`passage-${a}-${b}`} className="minimap-passage-route">
-                <polyline
-                  points={polygonPoints(segment.points)}
-                  className="minimap-passage-halo"
-                />
-                <polyline
-                  points={polygonPoints(segment.points)}
-                  className="minimap-passage"
-                />
-              </g>
+              <MinimapPassage key={`passage-${a}-${b}`} segment={segment} />
             );
           })}
 
-          {safeArray(zoneEdges).map(([a, b]) => {
-            const pa = positions?.[a];
-            const pb = positions?.[b];
-            if (!pa || !pb) return null;
-            if (passageEdgeKeys.has(edgeKey(a, b))) return null;
+          {supplementalPassages.map((segment) => {
+            const [a, b] = safeArray(segment?.edge);
+            if (!availableZoneIds.has(a) || !availableZoneIds.has(b)) return null;
             return (
-              <line
-                key={`e-${a}-${b}`}
-                x1={pa.x}
-                y1={pa.y}
-                x2={pb.x}
-                y2={pb.y}
-                className="minimap-edge"
+              <MinimapPassage
+                key={`supplemental-passage-${a}-${b}`}
+                segment={segment}
+                supplemental
               />
             );
           })}

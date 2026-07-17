@@ -34,6 +34,19 @@ const passages = createLumiaConnectedPassages(
   positions,
   LUMIA_ISLAND_OUTLINE
 );
+const NODE_VISUAL_RADIUS = 6.35;
+const MARKER_VISUAL_RADIUS = 1.55;
+
+function assertVisualRadiusContained(point, radius, label) {
+  for (let step = 0; step < 24; step += 1) {
+    const angle = (Math.PI * 2 * step) / 24;
+    const sample = [
+      Number(point.x) + (Math.cos(angle) * radius),
+      Number(point.y) + (Math.sin(angle) * radius),
+    ];
+    assert.equal(isPointInsidePolygon(sample, LUMIA_ISLAND_OUTLINE), true, `${label} visual footprint must stay inside the island`);
+  }
+}
 
 for (const [zoneId, point] of Object.entries(positions)) {
   assert.equal(isPointInsidePolygon(point, LUMIA_ISLAND_OUTLINE), true, `${zoneId} node must stay inside the island`);
@@ -41,6 +54,7 @@ for (const [zoneId, point] of Object.entries(positions)) {
     getDistanceToPolygonBoundary(point, LUMIA_ISLAND_OUTLINE) >= LUMIA_RENDER_GEOMETRY_DEFAULTS.nodeInset - 0.01,
     `${zoneId} node must keep its boundary inset`
   );
+  assertVisualRadiusContained(point, NODE_VISUAL_RADIUS, zoneId);
 }
 
 for (const [kind, markers] of [
@@ -53,6 +67,7 @@ for (const [kind, markers] of [
       getDistanceToPolygonBoundary(point, LUMIA_ISLAND_OUTLINE) >= LUMIA_RENDER_GEOMETRY_DEFAULTS.markerInset - 0.01,
       `${kind}:${zoneId} must keep its boundary inset`
     );
+    assertVisualRadiusContained(point, MARKER_VISUAL_RADIUS, `${kind}:${zoneId}`);
   }
 }
 
@@ -91,6 +106,25 @@ for (const passage of passages) {
   }
 }
 
+const supplementalEdges = [
+  ['gas_station', 'police'],
+  ['stream', 'factory'],
+];
+const supplementalPassages = createLumiaConnectedPassages(
+  supplementalEdges.map((edge) => ({ edge, points: [] })),
+  positions,
+  LUMIA_ISLAND_OUTLINE
+);
+assert.equal(supplementalPassages.length, supplementalEdges.length, 'every server-only edge must receive a visible route');
+for (const passage of supplementalPassages) {
+  const [fromZoneId, toZoneId] = passage.edge;
+  assert.ok(distance(passage.points[0], positions[fromZoneId]) < 0.01, `supplemental ${fromZoneId}-${toZoneId} must start at its node`);
+  assert.ok(distance(passage.points.at(-1), positions[toZoneId]) < 0.01, `supplemental ${fromZoneId}-${toZoneId} must end at its node`);
+  for (const point of passage.points) {
+    assert.equal(isPointInsidePolygon(point, LUMIA_ISLAND_OUTLINE), true, `supplemental ${fromZoneId}-${toZoneId} must stay inside the island`);
+  }
+}
+
 const adjacency = new Map(Object.keys(positions).map((zoneId) => [zoneId, new Set()]));
 for (const [a, b] of LUMIA_DEFAULT_ROAD_EDGES) {
   adjacency.get(a)?.add(b);
@@ -112,4 +146,6 @@ console.log(JSON.stringify({
   connectedZones: visited.size,
   endpointsSnapped: true,
   boundaryContained: true,
+  visualFootprintsContained: true,
+  supplementalEdgesVisible: supplementalPassages.length,
 }, null, 2));

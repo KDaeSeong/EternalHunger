@@ -2605,27 +2605,28 @@
 }
 
 .minimap-passage-halo {
-  stroke: rgba(190, 231, 246, 0.13);
-  stroke-width: 1.34;
+  stroke: rgba(156, 216, 240, 0.31);
+  stroke-width: 1.42;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .minimap-passage {
-  stroke: rgba(4, 12, 21, 0.86);
-  stroke-width: 0.74;
+  stroke: rgba(5, 17, 27, 0.94);
+  stroke-width: 0.7;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 0.4px rgba(192, 238, 255, 0.13));
+  filter: drop-shadow(0 0 0.45px rgba(192, 238, 255, 0.22));
 }
 
-.minimap-edge {
-  stroke: rgba(218, 249, 255, 0.018);
-  stroke-width: 0.16;
-  stroke-linecap: round;
-  stroke-dasharray: 1.2 1.5;
+.minimap-passage-route.supplemental .minimap-passage-halo {
+  stroke: rgba(134, 207, 236, 0.28);
+}
+
+.minimap-passage-route.supplemental .minimap-passage {
+  stroke-dasharray: 1.3 0.8;
 }
 
 @keyframes ehMinimapMoveTrail {

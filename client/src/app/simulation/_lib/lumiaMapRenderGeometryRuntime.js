@@ -1,6 +1,8 @@
-const DEFAULT_NODE_INSET = 2;
-const DEFAULT_ROUTE_INSET = 0.82;
-const DEFAULT_MARKER_INSET = 1.62;
+// Keep the complete visual footprint inside the island, not only each point's center.
+// A character token and its label can extend roughly 6.3 viewBox units from a zone node.
+const DEFAULT_NODE_INSET = 7.2;
+const DEFAULT_ROUTE_INSET = 1.15;
+const DEFAULT_MARKER_INSET = 2.2;
 
 function toPoint(value) {
   if (Array.isArray(value) && value.length >= 2) {
